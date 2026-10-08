@@ -130,6 +130,58 @@ public class RnaSecondaryStructure_ParseDotBracket_Tests
         });
     }
 
+    // S4 — Letter pairs mix freely with brackets and are independent systems.
+    // Reference: ViennaRNA 2.7.2 RNA.ptable(s, RNA.BRACKETS_ANY) → "(A)a" pairs (1,3),(2,4) 1-based
+    // = (0,2),(1,3) 0-based; "AB.ba" → (0,4),(1,3); "((..#..))" (unknown '#' is unpaired) → (0,8),(1,7).
+    [Test]
+    public void ParseDotBracket_LettersMixedWithBrackets_MatchViennaRnaPtable()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PairsOf("(A)a"), Is.EquivalentTo(new[] { (0, 2), (1, 3) }),
+                "'(' and 'A' are independent families: crossing pairs (0,2) and (1,3) — ViennaRNA ptable");
+            Assert.That(PairsOf("AB.ba"), Is.EquivalentTo(new[] { (0, 4), (1, 3) }),
+                "A/a and B/b are distinct letter families — ViennaRNA ptable");
+            Assert.That(PairsOf("((..#..))"), Is.EquivalentTo(new[] { (0, 8), (1, 7) }),
+                "non-bracket symbol '#' is unpaired — ViennaRNA ptable ignores it");
+        });
+    }
+
+    // S5 — Only ASCII A–Z / a–z are pseudoknot letters. ViennaRNA 2.7.2 vrna_ptable_from_string
+    // (structures/structure_pairtable.c, VRNA_BRACKETS_ALPHA) loops i = 65..90 and pairs (char)i
+    // with (char)(i+32); any other character is unpaired. Reference (non-ASCII masked to '.'):
+    // RNA.ptable("ÉÉ..éé") → no pairs; "Σ((..))σ" → (1,6),(2,5) only.
+    // Regression: char.IsLetter previously paired 'É'/'é' and 'Σ'/'σ'.
+    [Test]
+    public void ParseDotBracket_NonAsciiLetters_AreUnpaired()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ParseDotBracket("ÉÉ..éé").Any(), Is.False,
+                "'É'/'é' are not ViennaRNA letter families (A–Z only) → unpaired");
+            Assert.That(PairsOf("Σ((..))σ"), Is.EquivalentTo(new[] { (1, 6), (2, 5) }),
+                "Greek Σ/σ are unpaired; only the parentheses pair");
+        });
+    }
+
+    // S6 — Round trip: the dot-bracket rendered by the MFE predictor (canonical BuildDotBracket
+    // renderer) parses back to exactly the predictor's own base-pair list (vrna_db_from_ptable ∘
+    // vrna_ptable is the identity for nested structures).
+    [TestCase("GGGAAACCC")]
+    [TestCase("GGGGAAAACCCCAUAUGGGGAAAACCCC")]
+    [TestCase("GCGCUUCGGCGCAUCGAUCGAAAACGAUCGAU")]
+    public void ParseDotBracket_MfeDotBracket_RoundTripsToBasePairs(string seq)
+    {
+        var mfe = CalculateMfeStructure(seq);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ValidateDotBracket(mfe.DotBracket), Is.True, "rendered MFE structure is well-formed");
+            Assert.That(PairsOf(mfe.DotBracket), Is.EquivalentTo(mfe.BasePairs),
+                "parse(render(pairs)) == pairs");
+        });
+    }
+
     #endregion
 
     #region ValidateDotBracket
@@ -164,6 +216,24 @@ public class RnaSecondaryStructure_ParseDotBracket_Tests
             Assert.That(ValidateDotBracket(")("), Is.False, "')' before any '(' — closer precedes opener");
             Assert.That(ValidateDotBracket("(]"), Is.False,
                 "mismatched families: '(' is unclosed and ']' unopened — partners must match up");
+        });
+    }
+
+    // M7 — Validation agrees with ViennaRNA 2.7.2 RNA.ptable(s, RNA.BRACKETS_ANY) != None
+    // (vrna_ptable_from_string returns NULL on unbalanced brackets of any family).
+    // Reference: "aaaa....AAAA" → NULL (closer before opener); "A.a" → valid; "(A)a" → valid;
+    // "É..." → valid (non-ASCII is unpaired, not an unclosed opener).
+    [Test]
+    public void ValidateDotBracket_LetterFamilies_MatchViennaRnaPtable()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ValidateDotBracket("aaaa....AAAA"), Is.False,
+                "lowercase closers precede their uppercase openers — ViennaRNA ptable returns NULL");
+            Assert.That(ValidateDotBracket("A.a"), Is.True, "A/a balanced — ViennaRNA ptable valid");
+            Assert.That(ValidateDotBracket("(A)a"), Is.True, "crossing ( and A families — ViennaRNA ptable valid");
+            Assert.That(ValidateDotBracket("É..."), Is.True,
+                "non-ASCII 'É' is unpaired (ViennaRNA letters are A–Z only), not an unclosed opener");
         });
     }
 

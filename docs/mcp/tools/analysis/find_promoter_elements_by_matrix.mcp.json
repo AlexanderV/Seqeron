@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_promoter_elements_by_matrix",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.FindPromoterElementsByMatrix",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.PromoterMatrices.cs#L81",
+  "description": "Scans a DNA sequence with the four Bucher (1990) promoter count matrices from the JASPAR POLII collection — TATA box (POL012.1), cap signal / Inr (POL002.1), CCAAT box (POL004.1), GC box (POL003.1) — converted to log2-odds PWMs with JASPAR pseudocounts. Each matrix is scanned at the score threshold whose background false-positive rate is `falsePositiveRate` (Biopython `threshold_fpr`, precision 1000). With `bothStrands` the orientation-independent CCAAT and GC boxes are also scanned on the minus strand; TATA and cap are strand-specific. Bucher's own cut-off scores (natural-log weight scale) are not used. Order: matrix order, then position, `+` before `-`.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "falsePositiveRate": {
+        "type": "number",
+        "description": "Background false-positive rate per window and strand in [0,1] (default 0.001)",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.001
+      },
+      "bothStrands": {
+        "type": "boolean",
+        "description": "Scan CCAAT / GC boxes on both strands (default true)",
+        "default": true
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "matrixId": {
+              "type": "string"
+            },
+            "position": {
+              "type": "integer"
+            },
+            "strand": {
+              "type": "string",
+              "enum": [
+                "+",
+                "-"
+              ]
+            },
+            "sequence": {
+              "type": "string"
+            },
+            "score": {
+              "type": "number"
+            },
+            "threshold": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "name",
+            "matrixId",
+            "position",
+            "strand",
+            "sequence",
+            "score",
+            "threshold"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence"
+    },
+    {
+      "code": 1002,
+      "message": "falsePositiveRate must be in [0, 1]"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Synthetic promoter, FPR 1e-3",
+      "input": {
+        "sequence": "GGGGCTATAAAAGGGGGTGGGGGCGCGTTCGTCCTCACTCTCTTCCGCATCGCTGTCTGCGAGGGCCAGCCAATCAGCGCCCCGCCCATTGGCTGGGCGGAGCC",
+        "falsePositiveRate": 0.001
+      },
+      "output": {
+        "items": [
+          {
+            "name": "TATA Box",
+            "matrixId": "POL012.1",
+            "position": 4,
+            "strand": "+",
+            "sequence": "CTATAAAAGGGGGTG",
+            "score": 14.674918491724616,
+            "threshold": 7.042753822501211
+          },
+          {
+            "name": "Cap Signal",
+            "matrixId": "POL002.1",
+            "position": 34,
+            "strand": "+",
+            "sequence": "TCACTCTC",
+            "score": 6.793403307766336,
+            "threshold": 6.115969817666912
+          },
+          {
+            "name": "CCAAT Box",
+            "matrixId": "POL004.1",
+            "position": 64,
+            "strand": "+",
+            "sequence": "GCCAGCCAATCA",
+            "score": 12.077281742271637,
+            "threshold": 7.094645943646782
+          },
+          {
+            "name": "CCAAT Box",
+            "matrixId": "POL004.1",
+            "position": 85,
+            "strand": "-",
+            "sequence": "CCCAGCCAATGG",
+            "score": 12.315014473276278,
+            "threshold": 7.094645943646782
+          },
+          {
+            "name": "GC Box",
+            "matrixId": "POL003.1",
+            "position": 11,
+            "strand": "+",
+            "sequence": "AGGGGGTGGGGGCG",
+            "score": 13.369436367257704,
+            "threshold": 6.836719879834334
+          },
+          {
+            "name": "GC Box",
+            "matrixId": "POL003.1",
+            "position": 17,
+            "strand": "+",
+            "sequence": "TGGGGGCGCGTTCG",
+            "score": 8.659268694378223,
+            "threshold": 6.836719879834334
+          },
+          {
+            "name": "GC Box",
+            "matrixId": "POL003.1",
+            "position": 76,
+            "strand": "-",
+            "sequence": "AATGGGCGGGGCGC",
+            "score": 13.070203850439766,
+            "threshold": 6.836719879834334
+          }
+        ]
+      }
+    }
+  ]
+}

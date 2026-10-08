@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "pwm_score_thresholds",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PositionWeightMatrix.ScoreDistribution",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.PwmScoring.cs#L322",
+  "description": "Builds the discretised score distribution of a PWM under the motif and background models — a line-by-line port of Biopython `Bio.motifs.thresholds.ScoreDistribution` (`pssm.distribution(background, precision)`) — and returns its grid plus the derived thresholds: `thresholdFpr` (background false-positive rate ≈ `fpr`, `threshold_fpr`), `thresholdFnr` (motif false-negative rate ≈ `fnr`, `threshold_fnr`), `thresholdBalanced` with the false-positive rate it reaches (FNR ≈ FPR·`rateProportion`, `threshold_balanced`), and `thresholdPatser` (log2 FPR = −information content, `threshold_patser`). The matrix must be finite (use a positive pseudocount).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "pwm": {
+        "type": "object",
+        "description": "Position Weight Matrix",
+        "properties": {
+          "matrix": {
+            "type": "array",
+            "description": "Jagged 4xL matrix (rows A,C,G,T)",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "length": {
+            "type": "integer",
+            "description": "Motif length L",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "matrix",
+          "length"
+        ]
+      },
+      "background": {
+        "type": "array",
+        "description": "Background A,C,G,T (uniform when omitted)",
+        "items": {
+          "type": "number"
+        },
+        "minItems": 4,
+        "maxItems": 4
+      },
+      "precision": {
+        "type": "integer",
+        "description": "Grid points per motif position (default 1000)",
+        "minimum": 1,
+        "default": 1000
+      },
+      "fpr": {
+        "type": "number",
+        "description": "Target false-positive rate in [0,1] (default 0.01)",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.01
+      },
+      "fnr": {
+        "type": "number",
+        "description": "Target false-negative rate in [0,1] (default 0.1)",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.1
+      },
+      "rateProportion": {
+        "type": "number",
+        "description": "Balanced threshold FNR/FPR proportion (default 1.0)",
+        "default": 1.0
+      }
+    },
+    "required": [
+      "pwm"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "minScore": {
+        "type": "number"
+      },
+      "step": {
+        "type": "number"
+      },
+      "pointCount": {
+        "type": "integer"
+      },
+      "meanScore": {
+        "type": "number"
+      },
+      "thresholdFpr": {
+        "type": "number"
+      },
+      "thresholdFnr": {
+        "type": "number"
+      },
+      "thresholdBalanced": {
+        "type": "number"
+      },
+      "balancedFalsePositiveRate": {
+        "type": "number"
+      },
+      "thresholdPatser": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "minScore",
+      "step",
+      "pointCount",
+      "meanScore",
+      "thresholdFpr",
+      "thresholdFnr",
+      "thresholdBalanced",
+      "balancedFalsePositiveRate",
+      "thresholdPatser"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1002,
+      "message": "PWM is required"
+    },
+    {
+      "code": 1002,
+      "message": "PWM cells must be finite"
+    },
+    {
+      "code": 1003,
+      "message": "Background must have 4 values (A,C,G,T)"
+    },
+    {
+      "code": 1004,
+      "message": "Precision must be >= 1"
+    },
+    {
+      "code": 1005,
+      "message": "fpr must be in [0, 1]"
+    },
+    {
+      "code": 1006,
+      "message": "fnr must be in [0, 1]"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Two-column PWM, precision 100",
+      "input": {
+        "pwm": {
+          "matrix": [
+            [
+              2.0,
+              -2.0
+            ],
+            [
+              -2.0,
+              2.0
+            ],
+            [
+              -2.0,
+              -2.0
+            ],
+            [
+              -2.0,
+              -2.0
+            ]
+          ],
+          "length": 2
+        },
+        "precision": 100
+      },
+      "output": {
+        "minScore": -4,
+        "step": 0.04020100502512563,
+        "pointCount": 200,
+        "meanScore": 3.25,
+        "thresholdFpr": 4,
+        "thresholdFnr": -0.0201005025125629,
+        "thresholdBalanced": 4,
+        "balancedFalsePositiveRate": 0.0625,
+        "thresholdPatser": -0.0201005025125629
+      }
+    }
+  ]
+}

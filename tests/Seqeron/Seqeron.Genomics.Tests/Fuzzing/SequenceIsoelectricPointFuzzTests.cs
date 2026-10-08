@@ -23,7 +23,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// Fuzz strategy exercised for THIS unit:
 ///   • BE = Boundary Exploitation — the degenerate composition boundaries where the
 ///     net-charge curve barely (or never) crosses zero inside the search window:
-///       – no charged residues  → only the two termini titrate; pI = 6.10 (INV-04),
+///       – no charged residues  → only the two termini titrate; pI = 5.55 (INV-04),
 ///         the bisection still converges, no NaN, no infinite loop.
 ///       – all-acidic           → net charge ≤ 0 across most of [0,14]; pI is driven
 ///         to the LOW end and must stay clamped ≥ 0; bisection terminates.
@@ -51,10 +51,10 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     unchanged (charge is summed over counts, not positions).
 ///   • §2.4 INV-03: net charge is monotonically non-increasing in pH (root unique).
 ///   • §2.4 INV-04 / §6.1: a termini-only sequence (no ionizable side chain) →
-///     pI = (8.6 + 3.6)/2 = 6.10.
+///     pI = (7.5 + 3.6)/2 = 5.55.
 ///   • §3.3 / §6.1: null/empty → sentinel 7.0; non-ionizable residues are ignored,
 ///     case-insensitive, no exception for any string input.
-///   • §6.1 worked edges: "DDDD" → 3.23 (low), "KKKK" → 11.27 (high), "A" → 6.10.
+///   • §6.1 worked edges: "DDDD" → 3.23 (low), "KKKK" → 11.28 (high), "A" → 5.55.
 ///
 /// The pKa table pinned below is an independent oracle copy of the documented EMBOSS
 /// Epk.dat constants (Isoelectric_Point.md §2.2 / §4.2). The pI returned by the unit
@@ -84,8 +84,8 @@ public class SequenceIsoelectricPointFuzzTests
     /// <summary>Non-ionizable standard residues — present only to dilute / pad sequences.</summary>
     private const string NeutralResidues = "AGILMFPSTWVNQ";
 
-    /// <summary>N-terminus pKa (basic), EMBOSS Epk.dat (§2.2).</summary>
-    private const double NTermPka = 8.6;
+    /// <summary>N-terminus pKa (basic), EMBOSS 6.6.0 Epk.dat "Amino" 7.5 (§2.2).</summary>
+    private const double NTermPka = 7.5;
 
     /// <summary>C-terminus pKa (acidic), EMBOSS Epk.dat (§2.2).</summary>
     private const double CTermPka = 3.6;
@@ -109,7 +109,13 @@ public class SequenceIsoelectricPointFuzzTests
         double charge = 1.0 / (1.0 + Math.Pow(10, pH - NTermPka));
         charge -= 1.0 / (1.0 + Math.Pow(10, CTermPka - pH));
 
-        foreach (char c in seq.ToUpperInvariant())
+        // EMBOSS embIepCompC: B → D and Z → E by Dayhoff frequency, (int)(0.5 + n·f).
+        string upper = seq.ToUpperInvariant();
+        int b = upper.Count(ch => ch == 'B'), z = upper.Count(ch => ch == 'Z');
+        charge -= (int)(0.5 + b * 5.5 / 9.8) / (1.0 + Math.Pow(10, 3.9 - pH));
+        charge -= (int)(0.5 + z * 6.0 / 9.9) / (1.0 + Math.Pow(10, 4.1 - pH));
+
+        foreach (char c in upper)
         {
             if (!Pka.TryGetValue(c, out var p)) continue;
             if (p.sign > 0)
@@ -180,9 +186,9 @@ public class SequenceIsoelectricPointFuzzTests
     /// at the bisection resolution, and the net charge at the RETURNED pI must be ≈ 0 — the
     /// defining property of the isoelectric point. Confirms the suite asserts the real
     /// BUSINESS contract (net charge crosses zero), not merely a non-throwing call.
-    ///   • "A"    → 6.10  (termini-only midpoint, INV-04 / §7.1)
+    ///   • "A"    → 5.55  (termini-only midpoint, INV-04 / §7.1)
     ///   • "DDDD" → 3.23  (acidic, §6.1)
-    ///   • "KKKK" → 11.27 (basic, §6.1)
+    ///   • "KKKK" → 11.28 (basic, §6.1)
     /// — Isoelectric_Point.md §6.1 / §7.1.
     /// </summary>
     [Test]
@@ -190,7 +196,7 @@ public class SequenceIsoelectricPointFuzzTests
     {
         var cases = new (string seq, double expected)[]
         {
-            ("A", 6.10), ("DDDD", 3.23), ("KKKK", 11.27)
+            ("A", 5.55), ("DDDD", 3.23), ("KKKK", 11.28)
         };
 
         foreach (var (seq, expected) in cases)
@@ -262,12 +268,12 @@ public class SequenceIsoelectricPointFuzzTests
 
     #endregion
 
-    #region BE — Boundary: no charged residues (termini-only crossing → 6.10)
+    #region BE — Boundary: no charged residues (termini-only crossing → 5.55)
 
     /// <summary>
     /// BE: a sequence with NO ionizable side chain is the boundary where the net-charge curve
     /// is driven ONLY by the two termini. The documented pI is exactly the pKa midpoint
-    /// (8.6 + 3.6)/2 = 6.10 (INV-04) and is independent of how many neutral residues are
+    /// (7.5 + 3.6)/2 = 5.55 (INV-04) and is independent of how many neutral residues are
     /// present. The bisection must still converge (finite, terminates) — no NaN, no hang.
     /// — Isoelectric_Point.md §2.4 INV-04 / §7.1.
     /// </summary>
@@ -278,8 +284,8 @@ public class SequenceIsoelectricPointFuzzTests
         foreach (string seq in new[] { "A", "AG", "GGGGG", "AGILMFPSTWVNQ", new string('G', 5000) })
         {
             double pi = SequenceStatistics.CalculateIsoelectricPoint(seq);
-            pi.Should().BeApproximately(6.10, 0.02,
-                $"'{(seq.Length > 20 ? string.Concat(seq.AsSpan(0, 20), "…") : seq)}' has only termini ⇒ pI = (8.6+3.6)/2 = 6.10 (INV-04)");
+            pi.Should().BeApproximately(5.55, 0.02,
+                $"'{(seq.Length > 20 ? string.Concat(seq.AsSpan(0, 20), "…") : seq)}' has only termini ⇒ pI = (7.5+3.6)/2 = 5.55 (INV-04)");
             Math.Abs(NetChargeOracle(seq, pi)).Should().BeLessThan(0.05,
                 "net charge at the termini-only pI must be ≈ 0");
             AssertWellFormed(pi);
@@ -288,7 +294,7 @@ public class SequenceIsoelectricPointFuzzTests
 
     /// <summary>
     /// BE/INV-04: pI for a no-charged-residue peptide is invariant to its neutral content —
-    /// any random string of purely neutral residues yields 6.10 regardless of length or
+    /// any random string of purely neutral residues yields 5.55 regardless of length or
     /// composition. Random fuzz over the neutral alphabet, all must converge to the midpoint.
     /// — Isoelectric_Point.md §2.4 INV-04.
     /// </summary>
@@ -302,8 +308,8 @@ public class SequenceIsoelectricPointFuzzTests
             int len = rng.Next(1, 100);
             string seq = RandomOver(rng, NeutralResidues, len);
             SequenceStatistics.CalculateIsoelectricPoint(seq)
-                .Should().BeApproximately(6.10, 0.02,
-                    "any all-neutral sequence ⇒ termini-only midpoint 6.10 (INV-04)");
+                .Should().BeApproximately(5.55, 0.02,
+                    "any all-neutral sequence ⇒ termini-only midpoint 5.55 (INV-04)");
         }
     }
 
@@ -435,12 +441,12 @@ public class SequenceIsoelectricPointFuzzTests
 
     /// <summary>
     /// BE: a sequence consisting ONLY of non-ionizable / unrecognized characters has zero
-    /// ionizable side chains, so it reduces to the termini-only case (pI 6.10) WITHOUT a
+    /// ionizable side chains, so it reduces to the termini-only case (pI 5.55) WITHOUT a
     /// KeyNotFound on any unknown char. This is the "no charged residues among junk" boundary,
     /// distinct from the empty-sequence sentinel. — Isoelectric_Point.md §3.3 (unknown ignored).
     /// </summary>
     [TestCase("X")]
-    [TestCase("BJZ")]
+    [TestCase("XJO")]
     [TestCase("---***")]
     [TestCase("1234567890")]
     [TestCase("AGILMFPSTWV")]
@@ -448,8 +454,8 @@ public class SequenceIsoelectricPointFuzzTests
     {
         var act = () => SequenceStatistics.CalculateIsoelectricPoint(seq);
         act.Should().NotThrow($"'{seq}' has no ionizable side chain but must not throw");
-        act().Should().BeApproximately(6.10, 0.02,
-            "no ionizable side chain ⇒ termini-only midpoint 6.10 (INV-04)");
+        act().Should().BeApproximately(5.55, 0.02,
+            "no ionizable side chain ⇒ termini-only midpoint 5.55 (INV-04)");
     }
 
     #endregion

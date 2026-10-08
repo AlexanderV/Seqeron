@@ -26,4 +26,37 @@ public class KmerAnalyzeTests
         Assert.That(result.AverageCount, Is.GreaterThan(0));
         Assert.That(result.Entropy, Is.GreaterThanOrEqualTo(0));
     }
+
+    [Test]
+    public void KmerAnalyze_JellyfishFields_BioInfoLogicsExample()
+    {
+        // ATCGATCAC k=3 (BioInfoLogics): distinct 6, unique (count 1) 5, total 7; mean 7/6 exact.
+        var r = SequenceTools.KmerAnalyze("ATCGATCAC", 3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.DistinctKmers, Is.EqualTo(6));
+            Assert.That(r.UniqueKmers, Is.EqualTo(6));
+            Assert.That(r.SingletonKmers, Is.EqualTo(5));
+            Assert.That(r.TotalKmers, Is.EqualTo(7));
+            Assert.That(r.AverageCount, Is.EqualTo(7.0 / 6.0).Within(1e-15));
+        });
+    }
+
+    /// <summary>
+    /// Audit round 1 WP4: parity with analyze_kmers — optional Jellyfish -L/-U filters and canonical / acgtOnly modes.
+    /// Reference: Jellyfish 2.3.1 binary, BA1B sample k=4: stats -L 2 -U 3 → Unique 0, Distinct 4, Total 10, Max 3;
+    /// count -C + stats → 16, 20, 27, 4.
+    /// </summary>
+    [Test]
+    public void KmerAnalyze_FiltersAndCanonical_MatchJellyfish()
+    {
+        const string ba1b = "ACGTTGCATGTCGCATGATGCATGAGAGCT";
+        var f = SequenceTools.KmerAnalyze(ba1b, 4, lowerCount: 2, upperCount: 3);
+        Assert.That((f.SingletonKmers, f.DistinctKmers, f.TotalKmers, f.MaxCount), Is.EqualTo((0, 4, 10, 3)));
+        var c = SequenceTools.KmerAnalyze(ba1b, 4, canonical: true);
+        Assert.That((c.SingletonKmers, c.DistinctKmers, c.TotalKmers, c.MaxCount), Is.EqualTo((16, 20, 27, 4)));
+        Assert.That(SequenceTools.KmerAnalyze("ACGTNACGT", 4, acgtOnly: true).TotalKmers, Is.EqualTo(2));
+        Assert.Throws<ArgumentException>(() => SequenceTools.KmerAnalyze(ba1b, 4, lowerCount: -1));
+        Assert.Throws<ArgumentException>(() => SequenceTools.KmerAnalyze(ba1b, 4, upperCount: -1));
+    }
 }

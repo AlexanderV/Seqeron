@@ -125,7 +125,10 @@ public class ProteinMotifFinderTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(motifs, Has.Count.EqualTo(64), "Total motifs including NES, SUMO, glycosylation, PKC, RGD, leucine zipper");
+            // 60 = PROSITE ps_scan reference (scanPattern, default greedy/overlaps/no-includes):
+            // NES1 21, SIM1 34, PS00001/PS00005/PS00008/PS00016/PS00029 1 each. Before the
+            // 2026-09 fix, 4 NES hits lying entirely inside another NES hit were also reported (64).
+            Assert.That(motifs, Has.Count.EqualTo(60), "Total motifs including NES, SUMO, glycosylation, PKC, RGD, leucine zipper");
             Assert.That(motifs.Any(m => m.MotifName == "RGD"), Is.True, "RGD cell attachment motif");
             Assert.That(motifs.Any(m => m.MotifName == "ASN_GLYCOSYLATION"), Is.True, "N-glycosylation site");
         });

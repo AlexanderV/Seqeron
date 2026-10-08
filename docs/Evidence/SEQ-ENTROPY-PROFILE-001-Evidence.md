@@ -91,6 +91,16 @@
 
 ---
 
+### Dataset: executed reference implementations (B03 review 2026-09-28)
+
+`scipy.stats.entropy(counts, base=2)` (scipy 1.17.1; = scikit-bio 0.7.4 `shannon(counts, base=2)`) over
+upper-cased letter counts of each complete window:
+
+| Input | W | step | Values (bits) |
+|-------|---|------|---------------|
+| `ACGTNNacgu` | 5 | 1 | 2.3219280948873626, 1.9219280948873625 ×4, 2.3219280948873626 |
+| `MKWVTFISLLLLFSSAYSRGVFRR` | 8 | 4 | 3.0, 2.0, 1.75, 2.4056390622295667, 2.4056390622295667 |
+
 ## Assumptions
 
 1. **ASSUMPTION: Per-symbol (k=1) frequencies over the IUPAC letter alphabet** — The implementation computes pᵢ from single-character (mono-nucleotide) frequencies of the letters present in the window (case-folded, non-letters ignored). The cited sources define H over any symbol probability distribution; the choice of the mono-symbol alphabet (rather than k-mer/block entropy) is the implementation's modelling choice and is consistent with the four-letter DNA application (max 2 bits) in the IntechOpen chapter. This does not change the formula, only the alphabet over which pᵢ is taken.

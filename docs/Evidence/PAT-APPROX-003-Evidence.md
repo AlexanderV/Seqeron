@@ -73,6 +73,13 @@
 
 ---
 
+### ROSALIND BA1J — Frequent Words with Mismatches and Reverse Complements (B05 follow-up, 2026-09-30)
+
+**Definition:** find all k-mers Pattern maximizing Count_d(Text, Pattern) + Count_d(Text, ReverseComplement(Pattern)) over all possible k-mers (Compeau & Pevzner ch.1).
+**Sample:** `ACGTTGCATGTCGCATGATGCATGAGAGCT`, k = 4, d = 1 → `ATGT ACAT`.
+**Reference opened:** raw.githubusercontent.com `charlesreid1/go-rosalind/master/rosalind/rosalind_ba1.go` (`MostFrequentKmersMismatchesRevComp`: histogram(Text) + histogram(rc(Text)), all maxima), `rosalind_ba1_test.go` (`TestMatrixMostFrequentKmersMismatchesRevComp`: sample above), `rosalind/data/frequent_words_mismatch_complements.txt` (k = 9, d = 3 → `AGCGCCGCT AGCGGCGCT`).
+**Numerical confirmation:** Python brute force over all 4^k k-mers: sample → {ACAT, ATGT}:9; extra dataset (numpy, 4^9) → {AGCGCCGCT, AGCGGCGCT}:22; 300 random cases (k 1–5, d 0–2) + N-containing and lowercase inputs → 0 differences from the library.
+
 ## Documented Corner Cases and Failure Modes
 
 ### From ROSALIND BA1I / BA1H
@@ -166,3 +173,5 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation (PAT-APPROX-003).
+- **2026-09-28** (review campaign B05): re-opened `rosalind_ba1.go` (raw.githubusercontent.com) — `KmerHistogramMismatches` rejects non-DNA input (`CheckIsDNA`) and tallies `VisitHammingNeighbors` per window. Independent Python brute force (all 4^k DNA k-mers, Count_d by Hamming) reproduces BA1I {ATGC,ATGT,GATG}:5, BA1H [6,7,26,27,78], Count_1=4, BA1N 10 neighbors. Defect fixed: the textbook Neighbors recursion (assumes ACGT input) emitted non-DNA k-mers for windows with N (ANGANG,3,1 → ANA/ANC/ANT; NNNN,2,1 → NA/NC/NG/NT:3); brute force gives {AAG,ACG,AGG,ATG}:2 and empty. Neighbors are now generated position-wise over {A,C,G,T} (same set for ACGT input); windows are counted with the canonical `SequenceExtensions.CountKmersSpan` and each distinct window's neighborhood weighted by multiplicity.
+- **2026-09-30** (review 2026-09 B05 follow-up): BA1J implemented (`FindFrequentKmersWithMismatchesAndReverseComplements`); sources and datasets above.

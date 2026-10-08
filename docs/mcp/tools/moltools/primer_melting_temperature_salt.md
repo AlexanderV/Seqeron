@@ -1,6 +1,6 @@
 # primer_melting_temperature_salt
 
-Salt-corrected primer melting temperature.
+Salt-adjusted primer melting temperature (OligoCalc).
 
 ## Overview
 
@@ -14,11 +14,16 @@ Salt-corrected primer melting temperature.
 
 ## Description
 
-Takes the Wallace/Marmur–Doty base Tm (see [primer_melting_temperature](primer_melting_temperature.md)) and adds a Schildkraut–Lifson monovalent-cation correction `16.6·log10([Na+]/1000)` (Na+ in mM), then rounds to one decimal place.
+OligoCalc "Salt Adjusted" Tm (Kibbe 2007, NAR 35:W43), the [Na+]-aware counterpart of the basic Tm in [primer_melting_temperature](primer_melting_temperature.md) (whose formulas already assume 50 mM Na+):
+
+- fewer than 14 valid bases: `Tm = 2·(A+T) + 4·(G+C) − 16.6·log10(0.050) + 16.6·log10([Na+])`
+- 14 or more: `Tm = 100.5 + 41·(G+C)/N − 820/N + 16.6·log10([Na+])`
+
+[Na+] in mol/L (the argument is in mM). Rounded to one decimal place. Bases are counted as in [primer_melting_temperature](primer_melting_temperature.md): A, C, G, T and U (U read as T), case-insensitive; other characters are ignored. OligoCalc cross-check: the 39-mer `GAGCAGGATCCCTATAGAGTGACAAAAGGATCTTGGTCC` at 50 mM gives 78 °C (basic 67.6 °C).
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L227](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L227)
+- Source: [PrimerDesigner.cs#L481](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L481)
 
 ## Input Schema
 
@@ -31,7 +36,7 @@ Takes the Wallace/Marmur–Doty base Tm (see [primer_melting_temperature](primer
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `tm` | number | Salt-corrected Tm (°C, 1 decimal). |
+| `tm` | number | Salt-adjusted Tm (°C, 1 decimal). |
 
 ## Errors
 
@@ -44,11 +49,11 @@ Takes the Wallace/Marmur–Doty base Tm (see [primer_melting_temperature](primer
 
 ### Example 1: 50 mM Na+
 
-`ACGT` base Tm = 12; correction = `16.6·log10(0.05) ≈ −21.60`; result = `−9.6` °C.
+`ACGT` (< 14 nt): the Wallace Tm is defined at 50 mM, so the result is `12.0` °C. `ACGTACGTACGTACGTACGT`: `100.5 + 20.5 − 41 − 21.6 = 58.4` °C.
 
 ### Example 2: 1 M Na+
 
-At `[Na+] = 1000` mM the correction is `16.6·log10(1) = 0`, so the result is the rounded base Tm = `12.0` °C.
+`ACGT` at `[Na+] = 1000` mM: `12 + 16.6·log10(1/0.050) = 33.6` °C.
 
 ## See Also
 

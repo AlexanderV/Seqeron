@@ -49,7 +49,7 @@ public class KmerAnalyzer_AnalyzeKmers_Tests
         });
     }
 
-    // M2 — GTAGAGCTGT k=2: GT,AG each x2; total 9, distinct 7, max 2, min 1, avg 9/7=1.29(rounded).
+    // M2 — GTAGAGCTGT k=2: GT,AG each x2; total 9, distinct 7, max 2, min 1, avg 9/7 (exact).
     // Entropy over {2,2,1,1,1,1,1}/9 = 2.725480556998 bits.
     [Test]
     public void AnalyzeKmers_GtagagctgtK2_MatchesWikipediaDimerTable()
@@ -62,7 +62,7 @@ public class KmerAnalyzer_AnalyzeKmers_Tests
             Assert.That(s.UniqueKmers, Is.EqualTo(7), "7 distinct dimers (GT and AG each appear twice).");
             Assert.That(s.MaxCount, Is.EqualTo(2), "GT (and AG) occur twice — the maximum.");
             Assert.That(s.MinCount, Is.EqualTo(1), "The other five dimers occur once.");
-            Assert.That(s.AverageCount, Is.EqualTo(1.29).Within(1e-10), "Average = 9/7 ≈ 1.29 (rounded to 2 dp).");
+            Assert.That(s.AverageCount, Is.EqualTo(9.0 / 7.0).Within(1e-15), "Average = 9/7 = 1.2857142857142858 (exact, Python 9/7).");
             Assert.That(s.Entropy, Is.EqualTo(2.725480556998).Within(1e-10),
                 "Shannon entropy over {2,2,1,1,1,1,1}/9 = 2.72548055... bits.");
         });
@@ -99,7 +99,8 @@ public class KmerAnalyzer_AnalyzeKmers_Tests
             Assert.That(s.UniqueKmers, Is.EqualTo(6), "6 distinct trimers (ATC appears twice).");
             Assert.That(s.MaxCount, Is.EqualTo(2), "ATC occurs twice — the maximum.");
             Assert.That(s.MinCount, Is.EqualTo(1), "The other five trimers occur once.");
-            Assert.That(s.AverageCount, Is.EqualTo(1.17).Within(1e-10), "Average = 7/6 ≈ 1.17 (rounded).");
+            Assert.That(s.AverageCount, Is.EqualTo(7.0 / 6.0).Within(1e-15), "Average = 7/6 = 1.1666666666666667 (exact).");
+            Assert.That(s.SingletonKmers, Is.EqualTo(5), "BioInfoLogics: unique (count==1) = 5 for ATCGATCAC k=3.");
             Assert.That(s.Entropy, Is.EqualTo(2.521640636343).Within(1e-10),
                 "Shannon entropy over {2,1,1,1,1,1}/7 = 2.52164063... bits.");
         });
@@ -196,8 +197,8 @@ public class KmerAnalyzer_AnalyzeKmers_Tests
             Assert.That(s.AverageCount, Is.LessThanOrEqualTo(s.MaxCount),
                 "INV-4: average must be <= max count.");
             Assert.That(s.AverageCount,
-                Is.EqualTo(Math.Round((double)s.TotalKmers / s.UniqueKmers, 2)).Within(1e-10),
-                "INV-4: AverageCount = round(Total/Unique, 2).");
+                Is.EqualTo((double)s.TotalKmers / s.UniqueKmers),
+                "INV-4: AverageCount = Total/Distinct exactly (no rounding).");
         });
     }
 
@@ -266,6 +267,111 @@ public class KmerAnalyzer_AnalyzeKmers_Tests
 
         Assert.That(lower, Is.EqualTo(upper),
             "Input is upper-cased internally; lower-case GTAGAGCTGT gives identical statistics.");
+    }
+
+    #endregion
+
+    #region AnalyzeKmers — Jellyfish stats fields (Unique/Distinct/Total/Max_count) and -L/-U filters
+
+    // Jellyfish sub_commands/stats_main.cc compute_stats (opened via raw.githubusercontent.com):
+    //   if (val < low || val > high) continue; uniq += val == 1; total += val; max = max(max, val); ++distinct;
+    // Reference numbers: Python collections.Counter replica of compute_stats + scipy 1.17.1
+    // scipy.stats.entropy(retained, base=2).
+    private static IEnumerable<TestCaseData> JellyfishStatsCases()
+    {
+        //                          seq, k, lower, upper, Unique(singleton), Distinct, Total, Max, Min, mean, entropy
+        yield return new TestCaseData(Gtagagctgt, 1, 0, int.MaxValue, 1, 4, 10, 4, 1, 2.5, 1.8464393446710154).SetName("Jellyfish_GTAGAGCTGT_k1");
+        yield return new TestCaseData(Gtagagctgt, 2, 0, int.MaxValue, 5, 7, 9, 2, 1, 1.2857142857142858, 2.7254805569978684).SetName("Jellyfish_GTAGAGCTGT_k2");
+        yield return new TestCaseData(Gtagagctgt, 3, 0, int.MaxValue, 8, 8, 8, 1, 1, 1.0, 3.0).SetName("Jellyfish_GTAGAGCTGT_k3");
+        yield return new TestCaseData(Atcgatcac, 3, 0, int.MaxValue, 5, 6, 7, 2, 1, 1.1666666666666667, 2.521640636343318).SetName("Jellyfish_ATCGATCAC_k3");
+        yield return new TestCaseData("AAAA", 2, 0, int.MaxValue, 0, 1, 3, 3, 3, 3.0, 0.0).SetName("Jellyfish_AAAA_k2");
+        yield return new TestCaseData("ACGTTGCATGTCGCATGATGCATGAGAGCT", 4, 0, int.MaxValue, 17, 21, 27, 3, 1, 1.2857142857142858, 4.254525464966174).SetName("Jellyfish_BA1B_k4");
+        yield return new TestCaseData(Gtagagctgt, 1, 2, int.MaxValue, 0, 3, 9, 4, 2, 3.0, 1.5304930567574826).SetName("Jellyfish_L2_GTAGAGCTGT_k1");
+        yield return new TestCaseData(Gtagagctgt, 1, 0, 3, 1, 3, 6, 3, 1, 2.0, 1.4591479170272446).SetName("Jellyfish_U3_GTAGAGCTGT_k1");
+        yield return new TestCaseData(Gtagagctgt, 2, 2, 2, 0, 2, 4, 2, 2, 2.0, 1.0).SetName("Jellyfish_L2U2_GTAGAGCTGT_k2");
+        yield return new TestCaseData("ACGTTGCATGTCGCATGATGCATGAGAGCT", 4, 2, int.MaxValue, 0, 4, 10, 3, 2, 2.5, 1.970950594454669).SetName("Jellyfish_L2_BA1B_k4");
+    }
+
+    [TestCaseSource(nameof(JellyfishStatsCases))]
+    public void AnalyzeKmers_MatchesJellyfishStatsComputeStats(
+        string seq, int k, int lower, int upper, int unique, int distinct, int total, int max, int min,
+        double mean, double entropy)
+    {
+        var s = KmerAnalyzer.AnalyzeKmers(seq, k, lower, upper);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.SingletonKmers, Is.EqualTo(unique), "Jellyfish Unique (count == 1).");
+            Assert.That(s.DistinctKmers, Is.EqualTo(distinct), "Jellyfish Distinct.");
+            Assert.That(s.UniqueKmers, Is.EqualTo(distinct), "Legacy UniqueKmers field = distinct count.");
+            Assert.That(s.TotalKmers, Is.EqualTo(total), "Jellyfish Total.");
+            Assert.That(s.MaxCount, Is.EqualTo(max), "Jellyfish Max_count.");
+            Assert.That(s.MinCount, Is.EqualTo(min));
+            Assert.That(s.AverageCount, Is.EqualTo(mean).Within(1e-15), "Total / Distinct.");
+            Assert.That(s.Entropy, Is.EqualTo(entropy).Within(1e-12), "scipy entropy(base=2) of retained counts.");
+        });
+    }
+
+    [Test]
+    public void AnalyzeKmers_SingletonKmers_EqualsFindUniqueKmersCount()
+    {
+        foreach (var (seq, k) in new[] { (Gtagagctgt, 1), (Gtagagctgt, 2), (Atcgatcac, 3), ("AAAA", 2), ("acgtNNacgtNN", 3) })
+        {
+            Assert.That(KmerAnalyzer.AnalyzeKmers(seq, k).SingletonKmers,
+                Is.EqualTo(KmerAnalyzer.FindUniqueKmers(seq, k).Count()), $"{seq} k={k}");
+        }
+    }
+
+    [Test]
+    public void AnalyzeKmers_NoFilter_EqualsTwoArgumentOverload()
+    {
+        Assert.That(KmerAnalyzer.AnalyzeKmers(Atcgatcac, 3, 0, int.MaxValue),
+            Is.EqualTo(KmerAnalyzer.AnalyzeKmers(Atcgatcac, 3)));
+        Assert.That(KmerAnalyzer.AnalyzeKmers(Atcgatcac, 3, 1),
+            Is.EqualTo(KmerAnalyzer.AnalyzeKmers(Atcgatcac, 3)), "counts are >= 1, so lower 1 retains everything.");
+    }
+
+    [Test]
+    public void AnalyzeKmers_FilterRetainsNothing_ReturnsAllZero()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(KmerAnalyzer.AnalyzeKmers(Gtagagctgt, 1, 5), Is.EqualTo(new KmerStatistics(0, 0, 0, 0, 0, 0)),
+                "No monomer occurs >= 5 times.");
+            Assert.That(KmerAnalyzer.AnalyzeKmers(Gtagagctgt, 1, 3, 2), Is.EqualTo(new KmerStatistics(0, 0, 0, 0, 0, 0)),
+                "upper < lower retains nothing (Jellyfish prints zeros).");
+        });
+    }
+
+    [Test]
+    public void AnalyzeKmers_NegativeCountBounds_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => KmerAnalyzer.AnalyzeKmers("ACGT", 2, -1),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("lowerCount"));
+            Assert.That(() => KmerAnalyzer.AnalyzeKmers("ACGT", 2, 0, -1),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("upperCount"));
+        });
+    }
+
+    // Entropy goes through the canonical path (StatisticsHelper.ShannonIndex / ln 2): bit-identical to
+    // KmerAnalyzer.CalculateKmerEntropy and SequenceComplexity.CalculateKmerEntropy, from one count table.
+    [Test]
+    public void AnalyzeKmers_Entropy_BitIdenticalToCanonicalKmerEntropy()
+    {
+        var rng = new Random(20261001);
+        for (int t = 0; t < 300; t++)
+        {
+            int len = rng.Next(1, 120);
+            var chars = new char[len];
+            for (int i = 0; i < len; i++) chars[i] = "ACGTacgtN"[rng.Next(9)];
+            string seq = new(chars);
+            int k = rng.Next(1, 6);
+            double stats = KmerAnalyzer.AnalyzeKmers(seq, k).Entropy;
+            Assert.That(stats, Is.EqualTo(KmerAnalyzer.CalculateKmerEntropy(seq, k)), $"{seq} k={k}");
+            Assert.That(stats, Is.EqualTo(SequenceComplexity.CalculateKmerEntropy(seq, k)), $"{seq} k={k}");
+        }
     }
 
     #endregion

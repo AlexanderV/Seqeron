@@ -423,4 +423,84 @@ public class TranslationSixFrameFuzzTests
     #endregion
 
     #endregion
+
+    #region Review 2026-09 (B02 heavy tier) — FindOrfs contract F6–F8 on random DNA × all tables
+
+    /// <summary>
+    /// Fuzz (review 2026-09 F6–F8, TRANS-SIXFRAME-001): for random ACGT sequences under every
+    /// supported NCBI table except the dual-coding-stop tables, every ORF reported by
+    /// <see cref="Translator.FindOrfs"/> (both strands, minLength 1)
+    /// <list type="bullet">
+    /// <item>starts with 'M' (EMBOSS getorf <c>-methionine</c>; Biopython <c>cds=True</c>) — F6;</item>
+    /// <item>has NucleotideLength = 3·aa (open ORF: ends at the last complete codon, getorf
+    /// <c>WriteORF(start, pos+2)</c> — F7) or 3·(aa+1) (terminated: INSDC stop-inclusive end);</item>
+    /// <item>lies on a start codon, and its protein equals the translation of its span on the scanned
+    /// strand (forward or reverse complement) apart from the initiator, with a terminal '*' iff
+    /// terminated and no internal stop;</item>
+    /// </list>
+    /// and FindOrfs throws <see cref="ArgumentException"/> for tables 27, 28, 31 (F8).
+    /// </summary>
+    [Test]
+    [CancelAfter(120_000)]
+    public void FindOrfs_RandomDna_AllTables_OrfsStartWithMetMatchTheirSpanAndHaveCodonLengths(CancellationToken token)
+    {
+        var rng = new Random(20260928);
+        foreach (int table in GeneticCode.SupportedTableNumbers)
+        {
+            var code = GeneticCode.GetByTableNumber(table);
+            if (table is 27 or 28 or 31)
+            {
+                Action act = () => Translator.FindOrfs(new DnaSequence("ATGAAATGA"), code, minLength: 1);
+                act.Should().Throw<ArgumentException>(
+                    "table {0}: every stop codon also codes an amino acid, so ORFs never terminate (F8)", table);
+                continue;
+            }
+
+            for (int iteration = 0; iteration < 40; iteration++)
+            {
+                token.ThrowIfCancellationRequested();
+                int length = rng.Next(0, 151);
+                var sb = new StringBuilder(length);
+                for (int i = 0; i < length; i++)
+                    sb.Append("ACGT"[rng.Next(4)]);
+                var dna = new DnaSequence(sb.ToString());
+                string forward = dna.Sequence;
+                string reverse = dna.ReverseComplement().Sequence;
+
+                foreach (var orf in Translator.FindOrfs(dna, code, minLength: 1, searchBothStrands: true))
+                {
+                    string strand = orf.Frame < 0 ? reverse : forward;
+                    string protein = orf.Protein.Sequence;
+                    int aa = orf.AminoAcidLength;
+
+                    protein.Should().StartWith("M", "table {0}: the initiator is reported as Met (F6)", table);
+                    protein.Should().NotContain("*", "an ORF protein carries no stop residue");
+                    orf.StartPosition.Should().BeGreaterThanOrEqualTo(0);
+                    orf.EndPosition.Should().BeLessThan(strand.Length);
+                    ((orf.StartPosition % 3) + 1).Should().Be(Math.Abs(orf.Frame),
+                        "the ORF start lies in its reported frame");
+
+                    bool terminated = orf.NucleotideLength == 3 * (aa + 1);
+                    (terminated || orf.NucleotideLength == 3 * aa).Should().BeTrue(
+                        "table {0}: NucleotideLength {1} must be 3·aa (open) or 3·(aa+1) (terminated), aa = {2} (F7)",
+                        table, orf.NucleotideLength, aa);
+
+                    string span = strand.Substring(orf.StartPosition, orf.NucleotideLength);
+                    code.IsStartCodon(span[..3]).Should().BeTrue("table {0}: an ORF opens on a start codon", table);
+
+                    string translated = Translator.Translate(span, code).Sequence;
+                    string expected = terminated ? translated[1..^1] : translated[1..];
+                    protein[1..].Should().Be(expected,
+                        "table {0}: the ORF protein is the translation of its span (initiator aside)", table);
+                    if (terminated)
+                        translated[^1].Should().Be('*', "a terminated ORF ends on a stop codon");
+                    else
+                        (orf.StartPosition + orf.NucleotideLength + 3).Should().BeGreaterThan(strand.Length,
+                            "an open ORF runs to the last complete codon of its strand");
+                }
+            }
+        }
+    }
+
+    #endregion
 }

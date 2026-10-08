@@ -37,6 +37,20 @@
 2. **Lineage Precedence (CCF form, verbatim):** "the CCF of any mutation cannot exceed the CCF of its ancestor." Operationally the descendant cluster must be present in a subset of the samples in which the ancestral cluster is present, and the descendant CCF is at most ε₁ greater than the ancestral CCF in each sample (default ε₁ = 0.1).
 3. **Sum Condition generalizes the pigeonhole principle:** the constraint that the summed children CCF cannot exceed the parent CCF is the cell-fraction analogue of the pigeonhole principle applied per node.
 
+### LICHeE reference implementation (viq854/lichee, MIT) — opened 2026-09-28 (B24 F18)
+
+**URL:** raw.githubusercontent.com/viq854/lichee/master/LICHeE/src/lineage/{PHYNetwork,PHYTree,PHYNode,PHYEdge,Parameters,LineageEngine,SNVDataStore,SNVGroup,AAFClusterer}.java; binary LICHeE/release/lichee.jar (run under OpenJDK 21 through a harness calling `PHYNetwork` → `getLineageTrees` → `evaluateLineageTrees`, the pipeline of `LineageEngine.buildLineage` steps 4–6, with `-cp` settings `VAF_MAX = 1.0`, `VAF_ERROR_MARGIN = ε`).
+
+**Key extracted points:**
+1. Constraint network (`PHYNetwork` constructor): nodes levelled by number of samples present; within-profile pairs, level → next non-empty lower level, orphan nodes → closest higher level (from level+2) else root; `checkAndAddEdge` keeps one direction (smaller one-sided VAF excess; ties → n2→n1). Complete network (`-c`, `ALL_EDGES`) is the fallback when no tree is found.
+2. Tree search: Gabow & Myers (1978) enumeration (`grow`) with `PHYTree.checkConstraint` = sum rule `Σ_children > u + VAF_ERROR_MARGIN ⇒ reject`; caps `MAX_NUM_TREES = 100000`, `MAX_NUM_GROW_CALLS = 1e8`.
+3. Ranking: `PHYTree.computeErrorScore` = √(Σ_nodes Σ_samples max(0, Σ_children − u)²); `Collections.sort` (stable); top tree = index 0. QP consistency check off by default (`NUM_TREES_FOR_CONSISTENCY_CHECK = 0`).
+4. No valid tree ⇒ LICHeE reports none (after `fixNetwork` removal of non-robust clusters and the `ALL_EDGES` retry) — it never returns a sum-rule-violating tree.
+
+### Werner B et al. (2017), *Sci Rep* 7:44991 — trunk definition (WebSearch snippet)
+
+"alterations that are in the trunk of the tree must be present in all cells of the tumour" ⇒ truncal ⇔ CCF = 1 in every sample.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -66,7 +80,7 @@
 | B | 0.6 | child of A (0.6 ≤ 1.0; A budget 1.0 ≥ 0.6) |
 | C | 0.3 | child of B (0.3 ≤ 0.6; B budget 0.6 ≥ 0.3) |
 
-Edges: Normal→A, A→B, B→C. Trunk = {A}. Branches = {B, C}.
+Two trees are valid (C under A or under B; B can only be A's child because root: 1.0+0.6 > 1). LICHeE (lichee.jar) ranks root→A→{B, C} first (2 valid trees, error 0). Trunk = {A} (CCF 1). Branches = {B, C}.
 
 ### Dataset: Branching clonal evolution (two samples) — derived from constraints (1),(2),(3)
 
@@ -92,13 +106,23 @@ Edges: Normal→A, A→B, A→C. A is the trunk (parent of two sibling branches 
 | B | 0.6 | child of A (A budget 1.0 ≥ 0.6) |
 | C | 0.6 | child of A — NOT child of B, because B already has nothing but B.CCF=0.6 ≥ C.CCF=0.6 would be allowed by lineage rule; however attaching C under A keeps A's children sum 0.6+0.6=1.2 > 1.0 → violates sum rule |
 
-Expected: with B and C both 0.6 they cannot both be children of the same parent (sum 1.2 > 1.0). Deterministic rule attaches B under A first, then C must nest under B (0.6 ≤ 0.6, B budget 0.6 ≥ 0.6) → chain Normal→A→B→C. This shows the sum rule converting a would-be sibling pair into a chain.
+Expected: with B and C both 0.6 they cannot both be children of the same parent (sum 1.2 > 1.0). LICHeE orients the equal pair C→B (`checkAndAddEdge` tie → later→earlier), so the only valid tree is Normal→A→C→B (lichee.jar: 1 valid tree). This shows the sum rule converting a would-be sibling pair into a chain.
+
+### Dataset: No valid tree / FP-exact sum rule / complete network (lichee.jar outputs)
+
+| ε | Clusters | LICHeE result |
+|---|----------|---------------|
+| 0 | A=[0.5,0.5], B=[0.55,0] | none (A→B violates Eq. 2; root 0.5+0.55 > 1) |
+| 0.1 | same | A→B, error 0.050000000000000044 |
+| 0 | A=[0.3,1.0], B=[0.2,0.2], C=[0,0.8] | A→{B,C}, 1 tree, error 0 (former greedy: root→B, Eq. 5 violated) |
+| 0.02 | A=[0.482,0,0.443137], B=[0.519,0.796779,0.56], C=[0.19,0.418589,0.24] | complete network; root→{A,B}, B→C; 1 tree; error 0.003292532308117998 |
+| 0 | 0.05, 0.051, 0.052, 0.053 (1 sample) | 15 trees; top = chain root→0.053→0.052→0.051→0.05 |
 
 ---
 
 ## Assumptions
 
-1. **ASSUMPTION: Deterministic tie-break for under-constrained placement** — Popic et al. note private/under-constrained clusters admit multiple valid ancestors. To make the output deterministic this implementation attaches each cluster to the *deepest valid ancestor* (the candidate parent with the smallest total CCF whose per-sample sum-rule budget still admits the child); ties broken by ascending cluster id. This selects the most-recent common ancestor consistent with all cited constraints; it does not change which trees are *valid*, only which single valid tree is returned.
+1. **ASSUMPTION: Tie-break among equal-score trees** — LICHeE returns the first tree of its Gabow–Myers enumeration among those with the minimal error score; the enumeration order depends on node order, which LICHeE takes from a Java `HashMap` of presence profiles. This implementation visits profiles in order of first appearance in the input (within a profile: input order). (Superseded 2026-09-28: the former "deepest valid ancestor" greedy, which could return sum-rule-violating trees — B24 F18.)
 2. **ASSUMPTION: Noise margin ε = 0** — the cited sources relax the inequalities by a configurable ε (LICHeE ϵ; PICTograph ε₁=0.1, ε₂=0.2). Because the unit consumes already-clustered CCF point estimates (clustering, with its noise model, is ONCO-CCF-001), the default comparison uses ε = 0 (strict inequalities), exposed as an optional tolerance parameter so callers can supply the source defaults. Setting ε > 0 only widens admissibility; it never changes a strictly-satisfied relationship.
 
 ---
@@ -108,7 +132,7 @@ Expected: with B and C both 0.6 they cannot both be children of the same parent 
 1. **MUST Test:** Linear chain from descending single-sample CCFs (Normal→A→B→C). — Evidence: Popic 2015 Eq. 2; Zheng 2022 lineage precedence.
 2. **MUST Test:** Branching tree from two private single-sample clusters (A→B, A→C siblings). — Evidence: Popic 2015 constraints (1)(2)(3).
 3. **MUST Test:** Sum rule rejects two equal-CCF siblings under one parent and forces a chain. — Evidence: Popic 2015 Eq. 5.
-4. **MUST Test:** Trunk identification = clusters on the path from root with CCF ≈ 1 in all samples / the unique root child; branch identification = all non-trunk clusters. — Evidence: Popic 2015 (trunk = common predecessor present across all samples).
+4. **MUST Test:** Trunk identification = clusters on the root path with CCF = 1 (≥ 1 − ε) in all samples; branch identification = all non-trunk clusters. — Evidence: Werner 2017; Popic 2015.
 5. **MUST Test:** Ancestor CCF ≥ descendant CCF holds on every reconstructed edge (invariant). — Evidence: Popic 2015 Eq. 2.
 6. **MUST Test:** Per-node sum rule holds on the reconstructed tree (invariant). — Evidence: Popic 2015 Eq. 5; Zheng 2022 sum condition.
 7. **SHOULD Test:** Empty input → tree with only the root, no trunk/branch mutations. — Rationale: boundary.
@@ -128,3 +152,4 @@ Expected: with B and C both 0.6 they cannot both be children of the same parent 
 ## Change History
 
 - **2026-06-15**: Initial documentation.
+- **2026-09-28**: B24 F18/F19 — LICHeE reference code + jar cross-check; datasets corrected to LICHeE output; no-valid-tree case; CCF-based trunk (Werner 2017).

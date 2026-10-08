@@ -42,4 +42,22 @@ public class CountKmersTests
             Assert.That(mixed.Values.Sum(), Is.EqualTo(4));
         });
     }
+
+    [Test]
+    public void CountKmers_JellyfishModes_DelegateToOptionAwareCounter()
+    {
+        // Reference: Jellyfish 2.3.1 `count -m 3 -C` + `dump -c` on ATGATG -> ATC:1 ATG:2 TCA:1.
+        var canonical = AnalysisTools.CountKmers("ATGATG", 3, canonical: true).Counts;
+        Assert.That(canonical, Is.EquivalentTo(new Dictionary<string, int> { ["ATC"] = 1, ["ATG"] = 2, ["TCA"] = 1 }));
+
+        // Jellyfish `count -m 4` on ACGTNACGT -> ACGT:2 (N resets the window); literal mode keeps N-containing keys.
+        var acgt = AnalysisTools.CountKmers("ACGTNACGT", 4, acgtOnly: true).Counts;
+        Assert.That(acgt, Is.EquivalentTo(new Dictionary<string, int> { ["ACGT"] = 2 }));
+        Assert.That(AnalysisTools.CountKmers("ACGTNACGT", 4).Counts, Has.Count.EqualTo(5));
+
+        // Jellyfish `count -m 3 -C` on acgtNNacgtacgRtTTGCAnA -> AAA:1 ACG:5 CAA:1 GCA:2 GTA:2 (canonical implies acgtOnly).
+        var mixed = AnalysisTools.CountKmers("acgtNNacgtacgRtTTGCAnA", 3, canonical: true).Counts;
+        Assert.That(mixed, Is.EquivalentTo(new Dictionary<string, int>
+            { ["AAA"] = 1, ["ACG"] = 5, ["CAA"] = 1, ["GCA"] = 2, ["GTA"] = 2 }));
+    }
 }

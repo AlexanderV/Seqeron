@@ -136,6 +136,35 @@
 
 ---
 
+## Addendum (review-2026-09, B07) — basic and salt-adjusted Tm, penalty modes
+
+### Sources opened
+- Biopython 1.88 `Bio/SeqUtils/MeltingTemp.py` (installed package source): `Tm_Wallace` (2(A+T)+4(G+C), Thein & Wallace 1986),
+  `Tm_GC` valuesets 1–8 (valueset 7 = 81.5 + 0.41·%GC − 600/N + 16.6·log10[Na+], "used by Primer3Plus"),
+  `salt_correction` (method 1 = 16.6·log10[Na+ M], Schildkraut & Lifson 1965; "methods 1-4: Tm(new) = Tm(old) + corr";
+  −21.60 at 50 mM).
+- OligoCalc (Kibbe 2007, NAR 35:W43) — site not reachable from the sandbox; formulas taken from web-search snippets of the
+  OligoCalc page: basic Tm = 2(A+T)+4(G+C) (< 14 nt) and 64.9 + 41·(G+C−16.4)/N (> 13 nt), "assume … 50 nM primer,
+  50 mM Na+, pH 7.0"; salt adjusted Tm = 2(A+T)+4(G+C) − 16.6·log10(0.050) + 16.6·log10([Na+]) (< 14 nt) and
+  100.5 + 41·(G+C)/N − 820/N + 16.6·log10([Na+]) (> 13 nt). OligoCalc tool output (result URL): 39-mer
+  GAGCAGGATCCCTATAGAGTGACAAAAGGATCTTGGTCC, 50 mM Na+ → tmBox 67.6 (basic), WAKtmBox 78 (salt adjusted).
+- primer3 `src/libprimer3.cc` (raw.githubusercontent.com, main): `p_obj_fn` full left/right branch, `pr_set_default_global_args_1/_2`
+  (thermodynamic_oligo_alignment = 1 by default; temp_cutoff = 5; *_th / end_stability weights 0); `read_boulder.cc` (no tag for temp_cutoff).
+- primer3-py 2.3.1 `calc_tm`, `design_primers`.
+
+### Cross-check (ours after fix)
+| Input | Na+ | Basic | Salt-adjusted (ours) | Old salt (defect) | OligoCalc | Biopython Tm_GC vs7 | primer3 calc_tm (NN) |
+|---|---|---|---|---|---|---|---|
+| GAGCAGGATCCCTATAGAGTGACAAAAGGATCTTGGTCC | 50 | 67.63 | 77.85 | 46.0 | 67.6 / 78 | 64.49 | 64.30 |
+| ACGTACGTACGTACGTACGT | 50 | 51.78 | 58.40 | 30.2 | — | 50.40 | 53.99 |
+| ACGTACGTACGTACGTACGT | 10 | 51.78 | 46.80 | 18.6 | — | 38.80 | 46.69 |
+| ACGTACGT | 50 | 24 | 24.0 | 2.4 | — | 5.40 | 14.39 |
+
+Penalty: `CalculatePrimer3Penalty` reproduces primer3-py `PRIMER_LEFT/RIGHT_n_PENALTY` to < 1e-9 for 30 designed primers
+(default + non-default weights) and 8 `check_primers` runs (both oligo-alignment modes; both `temp_cutoff` branches).
+
 ## Change History
+
+- **2026-09-28**: review-2026-09 B07 — salt-adjusted Tm corrected to OligoCalc; penalty thermodynamic mode + end-stability term added.
 
 - **2026-06-23**: Initial documentation (PRIMER-TM-001 — Primer3 weighted penalty objective).

@@ -102,6 +102,34 @@ description.
    mutation immunogenicity." Confirms the mutant peptide must be paired with its matched wild-type (germline)
    counterpart at the same coordinates — the agretope — which this unit produces.
 
+### pVACtools reference source (griffithlab/pVACtools, master) — opened 2026-09-28
+
+**URLs (fetched with curl from raw.githubusercontent.com):** `pvactools/lib/fasta_generator.py`,
+`pvactools/lib/output_parser.py`, `pvactools/lib/run_utils.py`, `pvactools/lib/pipeline.py`,
+`pvactools/lib/run_argument_parser.py`.
+**Authority rank:** 3 (reference implementation)
+
+**Key Extracted Points:**
+
+1. **Per-length flank:** `pipeline.py` sets `flanking_sequence_length = epitope_length - 1` for each class I
+   length; `get_wildtype_subsequence` takes `2*flank + 1` residues centred on the substitution, clamped to the
+   protein ends.
+2. **Tiling + filter:** `run_utils.determine_neoepitopes` tiles every k-mer; `output_parser.execute` keeps a
+   row only `if result['mt_epitope_seq'] != result['wt_epitope_seq']` → exactly the windows spanning the
+   substitution, paired with the WT k-mer at the same position.
+3. **Stop-gain:** a mutant amino acid containing `*` sets `stop_codon_added` and the mutant subsequence becomes
+   `wildtype[:mutation_start] + mutant_aa.split('*')[0]`; the variant is then skipped ("This variant does not
+   result in any novel epitopes") → 0 epitopes.
+4. **Default lengths:** `--class-i-epitope-length` default `[8,9,10,11]` ("Typical epitope lengths vary
+   between 8-15").
+5. **Variant-level self filter:** a variant is dropped when every mutant k-mer of the local window occurs in the
+   local WT window (low-complexity repeats only) — not reproduced here (documented divergence).
+
+**Numerical cross-check:** the above logic re-executed in Python on 3 000 random (protein, missense, length
+range) cases matched `GenerateNeoantigenPeptides` window-for-window (0 differences). Locked values:
+Y5C lengths 8–11 → 20; E18K k=9 → starts 10–13 (`RSTVWLNDK`…`VWLNDKFGH` / `RSTVWLNDE`…`VWLNDEFGH`);
+Y5*, V13*, H21* → 0.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -196,3 +224,4 @@ mutation offset 0. (Only one window spans a terminal residue per length.)
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Added pVACtools source cross-check; stop-gain (`'*'`) → empty result; default max length is 14 (NetMHCpan-4.1 window), pVACseq default 8–11 via `maxLength: 11`.

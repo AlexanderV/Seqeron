@@ -6,7 +6,7 @@
 | Test Unit ID | KMER-FREQ-001 |
 | Related Projects | N/A |
 | Implementation Status | N/A |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -26,7 +26,7 @@ $$
 f_i = \frac{c_i}{\sum_j c_j}
 $$
 
-where `c_i` is the observed count of k-mer `i`. The k-mer spectrum is the histogram mapping `count -> number of k-mers with that count`. Shannon k-mer entropy is:
+where `c_i` is the observed count of k-mer `i`; since every one of the `L - k + 1` overlapping windows is counted, `Σ c_j = L - k + 1` (same denominator as scikit-bio `kmer_frequencies(k, overlap=True, relative=True)`). The k-mer spectrum is the histogram mapping `count -> number of distinct k-mers with that count` [6] (Jellyfish `histo` semantics; only non-zero bins are returned, no upper cap bin, single strand). The full `jellyfish histo` contract — `-l/--low` (default 1), `-h/--high` (default 10000), `-i/--increment` (default 1), the catch-all cap bin and `-f/--full` — is available as `GetKmerHistogram` (§5.1, §7.3) [7]. Shannon k-mer entropy is:
 
 $$
 H = -\sum_i f_i \log_2(f_i)
@@ -49,7 +49,7 @@ with the convention that terms with `f_i = 0` contribute `0`.
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequence` | `string` | required | Sequence whose k-mer distribution is analyzed | Null or empty string yields empty outputs or zero entropy |
-| `k` | `int` | required | K-mer length | `k <= 0` throws through the underlying count routine |
+| `k` | `int` | required | K-mer length | `k <= 0` throws through the underlying count routine for non-empty input (null/empty input short-circuits to empty/0) |
 
 ### 3.2 Output / Return Value
 
@@ -61,7 +61,7 @@ with the convention that terms with `f_i = 0` contribute `0`.
 
 ### 3.3 Preconditions and Validation
 
-All three metrics delegate to `CountKmers(...)` for input handling. Null or empty sequences yield empty dictionaries and entropy `0.0`. If `k` exceeds sequence length, the count dictionary is empty and entropy is `0.0`. If `k <= 0`, the underlying counting routine throws `ArgumentOutOfRangeException`.
+All three metrics delegate to `CountKmers(...)` for input handling. Null or empty sequences yield empty dictionaries and entropy `0.0`. If `k` exceeds sequence length, the count dictionary is empty and entropy is `0.0`. If `k <= 0` and the sequence is non-empty, the underlying counting routine throws `ArgumentOutOfRangeException`.
 
 ## 4. Algorithm
 
@@ -76,9 +76,9 @@ All three metrics delegate to `CountKmers(...)` for input handling. Null or empt
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `GetKmerFrequencies` | `O(n)` | `O(u)` | Derived from exact counts |
-| `GetKmerSpectrum` | `O(n)` | `O(u)` | Iterates over the count values |
-| `CalculateKmerEntropy` | `O(n)` | `O(u)` | Builds on normalized frequencies |
+| `GetKmerFrequencies` | `O(n·k)` | `O(u·k)` | Derived from exact counts; each window builds/hashes a k-length string |
+| `GetKmerSpectrum` | `O(n·k)` | `O(u·k)` | Iterates over the count values |
+| `CalculateKmerEntropy` | `O(n·k)` | `O(u·k)` | Delegates to the canonical `SequenceComplexity.CalculateKmerEntropy` (SEQ-COMPLEX-KMER-001; `StatisticsHelper.ShannonIndex` ÷ ln 2), bit-identical; own contract kept for empty input / k ≤ 0 (B06 KMER-STATS-001) |
 
 ## 5. Implementation Notes
 
@@ -87,12 +87,15 @@ All three metrics delegate to `CountKmers(...)` for input handling. Null or empt
 **Implementation location:** [KmerAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs)
 
 - `KmerAnalyzer.GetKmerFrequencies(string, int)`: Returns normalized frequencies in `[0.0, 1.0]`.
+- `KmerAnalyzer.GetKmerFrequencies(string, int, KmerCountingOptions)`: the same over ACGT-only (kPAL profile) or canonical (`jellyfish count -C`) counts; denominator = counted windows (B06 audit round 2, WP8; §7.4).
 - `KmerAnalyzer.GetKmerSpectrum(string, int)`: Returns the count-of-counts histogram.
+- `KmerAnalyzer.GetKmerSpectrum(string, int, KmerCountingOptions)`: The same over literal / ACGT-only / canonical (`count -C`) counts.
+- `KmerAnalyzer.GetKmerHistogram(string, int, KmerCountingOptions = default, long low = 1, long high = 10000, long increment = 1, bool full = false)` and `GetKmerHistogram(IEnumerable<int> kmerCounts, …)`: `jellyfish count [-C]` + `jellyfish histo -l -h -i [-f]`, returning ordered `KmerHistogramBin(Bin, Frequency)` rows — exactly the lines Jellyfish prints (B06 audit round 1 WP3, F12).
 - `KmerAnalyzer.CalculateKmerEntropy(string, int)`: Returns Shannon entropy in bits.
 
 ### 5.2 Current Behavior
 
-The current implementation always computes these metrics from exact k-mer counts. Frequency normalization uses the sum of observed counts, not the theoretical number of possible k-mers. Entropy uses `Math.Log2` and skips zero-frequency terms by iterating only over observed frequencies.
+The current implementation always computes these metrics from exact k-mer counts. Frequency normalization uses the sum of observed counts, not the theoretical number of possible k-mers. Entropy delegates to `SequenceComplexity.CalculateKmerEntropy` (canonical `StatisticsHelper.ShannonIndex` in nats ÷ ln 2, the `scipy.stats.entropy(counts, base=2)` computation) over the observed counts; null/empty input returns 0 for any k and k ≤ 0 throws only for non-empty input. Until B06 (KMER-STATS-001) it was a separate `Math.Log2` loop over `GetKmerFrequencies`; the two differ by ≤ 4.6e-14 bits (20 000 random tables).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -100,6 +103,7 @@ The current implementation always computes these metrics from exact k-mer counts
 
 - Frequency normalization by total observed k-mer count.
 - Spectrum construction as a histogram of k-mer multiplicities.
+- Jellyfish `histo` binning (`sub_commands/histo_main.cc`, verbatim): `base = inc >= low ? 0 : low − inc`, `ceil = high + inc`, `nb_buckets = (ceil + inc − base) / inc`; a count `< base` goes to bucket 0, `> ceil` to the last bucket, else to `(count − base) / inc`; bucket i is labelled `base + i·inc`; zero rows only with `--full`. Hence the last bucket (label ≥ high) is the cap for every count above `high`, counts below `low` are pooled in the first bucket, and with `inc ≥ low` the first label is 0. `high < low` is rejected (Jellyfish: "High count value must be >= to low count value"); `inc = 0` (a division by zero in Jellyfish) is rejected.
 - Shannon entropy over the observed k-mer distribution using base-2 logarithms.
 
 **Intentionally simplified:**
@@ -114,7 +118,7 @@ The current implementation always computes these metrics from exact k-mer counts
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | The original document described 4-decimal entropy rounding for numerical stability, but the current source returns the raw double sum without an explicit rounding step | Deviation | Reported entropy may include full floating-point precision | accepted | Confirmed from `CalculateKmerEntropy(...)` |
+| 1 | The original document described 4-decimal entropy rounding for numerical stability, but the current source returns the raw double sum without an explicit rounding step | Deviation | Reported entropy may include full floating-point precision | accepted | Confirmed from `CalculateKmerEntropy(...)`; matches `scipy.stats.entropy(counts, base=2)` to 1e-12 (review 2026-09) |
 
 ## 6. Edge Cases and Limitations
 
@@ -133,6 +137,48 @@ The current implementation analyzes only observed k-mers and does not smooth the
 
 ## 7. Examples and Related Material
 
+### 7.3 Jellyfish `histo` cross-check (B06 audit round 1, WP3)
+
+Reference: the real **Jellyfish 2.3.1** binary (`apt jellyfish 2.3.1-3build1`): `jellyfish count -m k -s 10000 -t 1 [-C]` then `jellyfish histo [-l] [-h] [-i] [-f]`. 3 inputs (Rosalind KMER sample k=4, BA1B sample k=4, `A^31 CGTACGTACGTACGTTTGCA` k=3) × {plain, `-C`} × 12 option sets = 72 runs; a Python replica of `histo_main.cc` reproduces all 72, and `GetKmerHistogram` equals every row (`KmerAnalyzer_HistogramClumpWindowsFilters_Tests`). Selected rows (bin frequency …):
+
+| Input | Mode | histo options | Jellyfish 2.3.1 output |
+|---|---|---|---|
+| Rosalind k=4 | `-C` | (defaults) | 1 23 2 34 3 27 4 25 5 7 6 5 7 4 9 3 10 2 |
+| Rosalind k=4 | `-C` | `-h 5` | 1 23 2 34 3 27 4 25 5 7 6 14 (cap bin 6 = counts ≥ 6) |
+| Rosalind k=4 | `-C` | `-i 2` | 0 23 2 61 4 32 6 9 8 3 10 2 |
+| Rosalind k=4 | `-C` | `-l 3 -h 8 -i 2` | 1 57 3 52 5 12 7 4 9 5 |
+| Rosalind k=4 | `-C` | `-l 6 -h 9 -i 4` | 2 116 6 12 10 2 |
+| Rosalind k=4 | plain | `-l 4 -h 4` | 3 192 4 6 5 11 |
+| BA1B k=4 | `-C` | `-f -h 5` | 0 0 1 16 2 2 3 1 4 1 5 0 6 0 |
+| BA1B k=4 | `-C` | `-f -l 2 -h 6` | 1 16 2 2 3 1 4 1 5 0 6 0 7 0 |
+| A^31… k=3 | `-C` | (defaults) | 1 1 2 2 6 1 8 1 30 1 |
+| A^31… k=3 | plain | `-h 5` | 1 6 3 2 4 2 6 1 (count 29 → cap bin 6) |
+| A^31… k=3 | plain | `-f -l 3 -h 8 -i 2` | 1 6 3 4 5 0 7 0 9 1 |
+
+Defaults pool multiplicities > 10000 into bin 10001 (`A^10010`, k=1 → `10001 1`); `--full` with defaults lists the 10002 bins 0…10001. `GetKmerSpectrum` is unchanged (no cap).
+
+### 7.4 kPAL / Jellyfish frequency profiles (B06 audit round 2, WP8)
+
+`GetKmerFrequencies(sequence, k, options)` divides the table of `CountKmers(sequence, k, options)` by its sum, i.e. by
+the number of counted windows. References (executed):
+
+- **kPAL** (LUMC/kPAL master, `kpal/klib.py` + `metrics.py` run from source; `pip install kPAL` does not build):
+  `Profile.from_sequences([s], k)` splits `s` on `[^AaCcGgTt]` and counts the k-mers of each part. Its profile divided
+  by `Profile.total` equals `AcgtOnly` frequencies.
+- **Jellyfish 2.3.1**: `jellyfish count -m k -s 10000 [-C]` + `jellyfish dump -c`, counts ÷ their sum. Without `-C`
+  it equals the kPAL profile on every input below; with `-C` it equals `Canonical`.
+
+| Input | k | Mode | Reference profile (count ÷ Σ) |
+|---|---|---|---|
+| `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA` | 2 | `-C` | AA .125, AC .125, AG .03125, AT .09375, CA .25, CC .0625, CG .0625, GA .125, GC .125 (Σ 32) |
+| same | 2 | ACGT-only (kPAL) | AT .09375, CA .125, GC .125, TG .125, TT .09375, … 14 keys (Σ 32) |
+| same | 4 | `-C` | 18 keys, TGCA .125, ACGT/ATCC/ATTC/GCAA 1/12, others 1/24 (Σ 24) |
+| `ACGTNACGTAAcgtRTT` | 3 | `-C` | ACG 6/9, AAC/GTA/TAA 1/9 |
+| `AAAANTTTTGGGGuCCCC` | 3 | ACGT-only (kPAL) | AAA/CCC/GGG/TTT .2, TGG/TTG .1 |
+
+All locked to 1e-12 in `KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests` (MCP `kmer_frequencies` optional
+`canonical` / `acgtOnly`).
+
 ### 7.2 Applications and Use Cases (Optional)
 
 - Genome assembly through k-mer spectrum analysis.
@@ -148,3 +194,5 @@ The current implementation analyzes only observed k-mers and does not smooth the
 4. Rosalind. "K-mer Composition." https://rosalind.info/problems/kmer/
 5. Teeling, H. et al. (2004). "TETRA: a web-service and a stand-alone program for the analysis and comparison of tetranucleotide usage patterns in DNA sequences." BMC Bioinformatics, 5:163.
 6. Chor, B. et al. (2009). "Genomic DNA k-mer spectra: models and modalities." Genome Biology, 10(10): R108.
+7. Marçais, G., Kingsford, C. (2011). Jellyfish — `sub_commands/histo_main.cc`. https://github.com/gmarcais/Jellyfish
+8. scikit-bio `Sequence.kmer_frequencies`; SciPy `scipy.stats.entropy` (reference implementations used for cross-check).

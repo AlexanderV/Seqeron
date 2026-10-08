@@ -147,4 +147,54 @@ public class MotifFinder_CreateConsensusFromAlignment_Tests
     }
 
     #endregion
+
+    #region CreateConsensusFromAlignment — review 2026-09 (Biopython cross-check, shared profile)
+
+    // R1 — Biopython 1.88 Bio.motifs: motifs.create([...]).consensus scans the alphabet
+    // A→C→G→T keeping the first maximum ("if count > maximum"). Values produced by Biopython:
+    //   CA,GA,TC,TG  → "TA"   (col0 C1 G1 T2 → T; col1 A2 C1 G1 → A)
+    //   ACGT,TGCA    → "ACCA" (every column a 1–1 tie → alphabetically-earliest base)
+    //   Rosalind CONS sample → "ATGCAACT"
+    [TestCase(new[] { "CA", "GA", "TC", "TG" }, "TA")]
+    [TestCase(new[] { "ACGT", "TGCA" }, "ACCA")]
+    [TestCase(new[] { "ATCCAGCT", "GGGCAACT", "ATGGATCT", "AAGCAACC", "TTGGAACT", "ATGCCATT", "ATGGCACT" }, "ATGCAACT")]
+    public void CreateConsensusFromAlignment_EqualsBiopythonMotifConsensus(string[] aligned, string expected)
+    {
+        Assert.That(MotifFinder.CreateConsensusFromAlignment(aligned), Is.EqualTo(expected),
+            "Must equal Biopython Bio.motifs .consensus (profile-column maximum, A<C<G<T tie order).");
+    }
+
+    // R2 — A null row is invalid input and must be reported as ArgumentException (same contract
+    // as CreatePwm), not a NullReferenceException from dereferencing the row.
+    [Test]
+    public void CreateConsensusFromAlignment_NullElement_ThrowsArgumentException()
+    {
+        var aligned = new[] { "ACGT", null!, "ACGT" };
+
+        Assert.That(() => MotifFinder.CreateConsensusFromAlignment(aligned),
+            NUnit.Framework.Throws.ArgumentException.With.Property("ParamName").EqualTo("alignedSequences"));
+    }
+
+    // R3 — Consensus and PWM are built from the same count profile (Rosalind CONS profile matrix =
+    // Biopython motif.counts). With a uniform background the log-odds are monotone in the counts,
+    // so the PWM consensus (same A→C→G→T first-maximum scan) equals the alignment consensus.
+    [Test]
+    public void CreateConsensusFromAlignment_EqualsUniformPwmConsensus()
+    {
+        var aligned = new[]
+        {
+            "ATCCAGCT", "GGGCAACT", "ATGGATCT", "AAGCAACC",
+            "TTGGAACT", "ATGCCATT", "ATGGCACT", "ACGTTGCA", "TGCAACGT"
+        };
+
+        string consensus = MotifFinder.CreateConsensusFromAlignment(aligned);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(MotifFinder.CreatePwm(aligned).Consensus, Is.EqualTo(consensus));
+            Assert.That(MotifFinder.CreatePwm(aligned, 0.0).Consensus, Is.EqualTo(consensus));
+        });
+    }
+
+    #endregion
 }

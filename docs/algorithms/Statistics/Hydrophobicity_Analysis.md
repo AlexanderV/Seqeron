@@ -23,7 +23,7 @@ Each amino-acid side chain has a characteristic affinity for water. Kyte & Dooli
 Let `kd(r)` be the Kyte-Doolittle index of residue `r` [1][2]. For a sequence `S = s_1 … s_n`:
 
 - **GRAVY** = (Σ kd(s_i)) / n — the sum of hydropathy values divided by the number of residues [4]. Biopython's `gravy()` implements this as `total_gravy / length` [3].
-- **Hydropathy profile** for window size `W`: for each window start `i = 1 … n−W+1`, the value is the unweighted mean (1/W)·Σ_{j=0}^{W−1} kd(s_{i+j}). This yields exactly `n − W + 1` values; Biopython `protein_scale` uses the same loop bound and an equal per-position weight (`edge=1.0`) by default [3].
+- **Hydropathy profile** for window size `W`: for each window start `i = 1 … n−W+1`, the value is Σ w_j·kd(s_{i+j}) / Σ w_j. With the default edge weight 1 all `w_j = 1`, i.e. the unweighted mean (1/W)·Σ kd of the original Kyte-Doolittle method [1]. With edge weight `e < 1` (ExPASy ProtScale "linear" weight-variation model, Biopython `protein_scale(kd, W, e)`) the centre residue has weight 1, the two ends weight `e`, and `w_j = e + j·2(1−e)/(W−1)` for the j-th position from either end [3]. This yields exactly `n − W + 1` values; value `k` (0-based) is the score of the window's central residue `k + (W−1)/2` for odd `W`.
 
 ### 2.4 Properties and Invariants
 
@@ -49,7 +49,8 @@ Let `kd(r)` be the Kyte-Doolittle index of residue `r` [1][2]. For a sequence `S
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | proteinSequence | string | required | one-letter amino-acid sequence | case-insensitive; non-standard residues skipped/0 |
-| windowSize | int | 9 | sliding-window length for the profile | profile empty when windowSize > length |
+| windowSize | int | 9 | sliding-window length for the profile | ≥ 1 (else `ArgumentOutOfRangeException`); profile empty when windowSize > length |
+| edgeWeight | double | 1.0 | relative weight of the window edges (linear model) | in [0, 1] (else `ArgumentOutOfRangeException`); `< 1` requires an odd window (else `ArgumentException`) |
 
 ### 3.2 Output / Return Value
 
@@ -68,7 +69,7 @@ Input is case-insensitive (uppercased before lookup). Only the 20 standard resid
 
 1. Uppercase the input.
 2. **GRAVY:** sum `kd` over recognized residues, count them, return sum/count (0 if count is 0).
-3. **Profile:** if `windowSize > length`, yield nothing; otherwise slide the window across all `n − W + 1` positions and yield each window's sum divided by `W`.
+3. **Profile:** validate `windowSize ≥ 1` and `edgeWeight ∈ [0,1]` eagerly; if `windowSize > length`, yield nothing; otherwise build the position weights and slide the window across all `n − W + 1` positions, yielding Σ w·kd / Σ w (= sum / W for edge weight 1).
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures (Optional)
 
@@ -94,7 +95,7 @@ Recommended windows: 9 (surface regions), 19 (transmembrane, peaks > 1.6) [5].
 **Implementation location:** [SequenceStatistics.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs)
 
 - `SequenceStatistics.CalculateHydrophobicity(string)`: GRAVY index over recognized residues.
-- `SequenceStatistics.CalculateHydrophobicityProfile(string, int windowSize = 9)`: lazy sliding-window hydropathy profile.
+- `SequenceStatistics.CalculateHydrophobicityProfile(string, int windowSize = 9, double edgeWeight = 1.0)`: lazy sliding-window hydropathy profile (argument validation is eager).
 
 ### 5.2 Current Behavior
 
@@ -114,14 +115,15 @@ The scale is a static `Dictionary<char,double>` matching Biopython `kd` exactly 
 
 **Not implemented:**
 
-- Edge-weighted windows (Biopython `protein_scale` `edge<1.0`); **users should rely on:** the default unweighted mean, which matches the standard GRAVY/Kyte-Doolittle usage [3].
+- ProtScale's "exponential" weight-variation model and scale normalisation (only the linear model, as in Biopython, is implemented).
 - Alternative scales (Hopp-Woods, Eisenberg); **users should rely on:** no current alternative in this class — only Kyte-Doolittle is provided.
 
 ### 5.4 Deviations and Assumptions (Optional)
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Non-standard residues skipped (GRAVY divides by recognized count; profile adds 0) | Deviation | Biopython raises `KeyError`; here input with B/Z/X/gaps still returns a value | accepted | Sources define only the 20 standard residues [1][4]; canonical values unchanged. Tracked in Evidence Assumptions. |
+| 1 | Non-standard residues skipped (GRAVY divides by recognized count; profile adds 0 and keeps the position's weight in the divisor) | Deviation | Biopython `gravy()` raises `KeyError`; `protein_scale` adds 0 for an unknown centre residue (same as here) but also drops the symmetric partner of an off-centre unknown (not done here) | accepted | Sources define only the 20 standard residues [1][4]; canonical values unchanged. Tracked in Evidence Assumptions. |
+| 2 | Even window with edge weight 1 → plain mean over W residues | Deviation | Biopython counts residue W/2 twice and divides by W+1 (e.g. "AV", W=2: 3.4 vs 3.0 here) | accepted | ProtScale accepts odd windows only; Biopython's value is an artefact of its odd-window loop. Weighted (edge < 1) even windows are rejected. |
 
 ## 6. Edge Cases and Limitations
 
@@ -131,12 +133,13 @@ The scale is a static `Dictionary<char,double>` matching Biopython `kd` exactly 
 |------|-------------------|-----------|
 | null / empty sequence | GRAVY 0; empty profile | nothing to average (INV-05) |
 | windowSize > length | empty profile | `n − W + 1 ≤ 0` (INV-02) [3] |
+| windowSize < 1 | `ArgumentOutOfRangeException` | no window; previously W=0 yielded NaN (0/0) |
 | lowercase input | same GRAVY as uppercase | input uppercased (INV-04) |
 | non-standard residue (e.g. X) | skipped in GRAVY; 0 in profile window | undefined in scale [1] |
 
 ### 6.2 Limitations
 
-Only the Kyte-Doolittle scale is supported. The profile uses an unweighted window (no edge weighting). Biological interpretation thresholds (e.g. transmembrane peaks > 1.6 at W=19) are the caller's responsibility — the method returns raw averages, not classifications.
+Only the Kyte-Doolittle scale is supported. The profile supports the linear edge-weight model only. Biological interpretation thresholds (e.g. transmembrane peaks > 1.6 at W=19) are the caller's responsibility — the method returns raw averages, not classifications.
 
 ## 7. Examples and Related Material (Optional)
 

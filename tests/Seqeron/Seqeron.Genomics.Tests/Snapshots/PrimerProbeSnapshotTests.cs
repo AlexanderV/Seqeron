@@ -66,7 +66,14 @@ public class PrimerProbeSnapshotTests
             validation.SpecificityScore,
             validation.OffTargetHits,
             validation.SelfComplementarity,
-            validation.HasSecondaryStructure
+            validation.HasSecondaryStructure,
+            // Primer3 ntthal values at the probe conditions (primer3-py 2.3.1 calc_homodimer / calc_end_stability /
+            // calc_hairpin, mv 50, dv 0, dntp 0, dna 50): 59.1857717189107 / 59.1857717189107 / 67.29188756961071.
+            validation.ThermodynamicScreen,
+            SelfDimerTm = Math.Round(validation.SelfDimerTm!.Value, 6),
+            SelfEndDimerTm = Math.Round(validation.SelfEndDimerTm!.Value, 6),
+            HairpinTm = Math.Round(validation.HairpinTm!.Value, 6),
+            validation.Issues
         });
     }
 }

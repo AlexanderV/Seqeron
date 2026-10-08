@@ -18,7 +18,7 @@ Calculates linguistic complexity (LC) as the ratio of observed to possible subwo
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L22](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L22)
+- Source: [SequenceComplexity.cs#L121](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L121)
 
 ## Input Schema
 
@@ -26,6 +26,7 @@ Calculates linguistic complexity (LC) as the ratio of observed to possible subwo
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The DNA sequence to analyze (min length: 1) |
 | `maxWordLength` | integer | No | Maximum word length to consider (default: 10, minimum: 1) |
+| `alphabetSize` | integer | No | Fixed alphabet size a (≥ 1 and ≥ distinct symbols; 4 = DNA as in Rosalind LING, 20 = protein). Default: inferred (A/C/G/T ∪ observed symbols) |
 
 ## Output Schema
 
@@ -40,6 +41,7 @@ Calculates linguistic complexity (LC) as the ratio of observed to possible subwo
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1003 | Max word length must be at least 1 |
+| 1001 | alphabetSize < 1 or smaller than the number of distinct symbols |
 
 ## Examples
 
@@ -62,7 +64,7 @@ Calculates linguistic complexity (LC) as the ratio of observed to possible subwo
 **Response:**
 ```json
 {
-  "complexity": 0.85,
+  "complexity": 0.7894736842105263,
   "maxWordLength": 10
 }
 ```
@@ -85,10 +87,23 @@ Calculates linguistic complexity (LC) as the ratio of observed to possible subwo
 **Response:**
 ```json
 {
-  "complexity": 0.12,
+  "complexity": 0.20408163265306123,
   "maxWordLength": 10
 }
 ```
+
+### Example 3: Fixed alphabet (Rosalind LING sample)
+
+**Expected Tool Call:**
+```json
+{ "tool": "complexity_linguistic", "arguments": { "sequence": "ATTTGGATT", "maxWordLength": 100, "alphabetSize": 4 } }
+```
+
+**Response:**
+```json
+{ "complexity": 0.875, "maxWordLength": 100 }
+```
+35 observed / 40 possible substrings over a = 4 (Rosalind LING sample output 0.875).
 
 ## Performance
 

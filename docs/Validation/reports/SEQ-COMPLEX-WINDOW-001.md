@@ -2,8 +2,17 @@
 
 - **Validated:** 2026-06-16   **Area:** Complexity
 - **Canonical method(s):** `SequenceComplexity.CalculateWindowedComplexity(DnaSequence, int windowSize = 64, int stepSize = 10)` → `IEnumerable<ComplexityPoint>`
-- **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** PASS
+- **Stage A verdict:** PASS-WITH-NOTES (LCR rule sourced: BBDuk `maskLowEntropy` window union; 2026-09-30 correction: the statistic is per-base Shannon, ≡ BBDuk `entropyk=1`)
+- **Stage B verdict:** FAIL → fixed (review campaign 2026-09, batch B04: F4; options F38, F39) — supersedes the 2026-06 "PASS / CLEAN" below
+
+## Review campaign 2026-09 revision (B04) — supersedes the 2026-06 verdicts below
+
+- **End-state: FIXED** (batch report `docs/Validation/review-2026-09/B04.md`, F4, F38, F39). Uncovered public method `FindLowComplexityRegions` added to this unit.
+- **F4 (defect):** a region ending mid-sequence got `End` one base too far (first non-flagged window + w − 1) and flagged windows overlapping across a short gap were emitted as two overlapping regions. Repro: ATGC×20 + A×64 + ATGC×20, w 20, t 0.5 → 79..146 (correct 79..145); `CAAAAACAAAAACAAACAAA`, w 8, t 0.6 → (1,12)+(7,16) (correct (1,15)). Now the union of flagged windows (BBDuk `maskLowEntropy`, BBDuk.java / EntropyTracker.java opened). Cross-check: scipy `entropy(base=2)` per window + boolean mask on all repros; `CalculateWindowedComplexity` itself was correct (50 bp, w 16, s 7 matches scipy / set counting to 1e-12).
+- **F38 / F39:** see "Revision 2026-09-30" at the end (BBDuk-faithful `FindLowEntropyRegionsBbduk`, `bbduk.sh` 40.02 identical on 4 520 cases; LCR ≡ BBDuk `entropyk=1`, 1 600 cases 0 mismatches; `lcMaxWordLength`; N-tolerant string overloads).
+- **Current code path:** `SequenceComplexity.cs:447/351` (`CalculateWindowedComplexity`), core :370; `FindLowComplexityRegions` :439/461, core :480; `FindLowEntropyRegionsBbduk` :560.
+
+*Historical 2026-06-16 report (superseded where it conflicts with the revision above):*
 
 ## Stage A — Description
 
@@ -90,3 +99,16 @@ The driver delegates to the same `*Core` helpers used by the standalone `Calcula
 - **End-state: ✅ CLEAN** — no defect found; nothing to fix.
 - **Build/test:** `dotnet build` 0 errors (4 pre-existing warnings in unrelated `ApproximateMatcher_EditDistance_Tests.cs`, untouched); full unfiltered `dotnet test` = **6598 passed, 0 failed**.
 - No code or test changes were made this session (none warranted). Working tree changes are limited to validation docs.
+
+## Revision 2026-09-30 — completeness audit WP5 (B04 F38, F39)
+
+- **Stage A correction:** `FindLowComplexityRegions` was documented as "the BBDuk `maskLowEntropy` rule"; only the window-union reporting is BBDuk's — BBDuk's statistic is 5-mer entropy over a 50-bp window normalised by ln(W_k) (BBMap 40.02 `tracker/EntropyTracker.java`). The method is a per-base Shannon scan, identical to BBDuk with `entropyk=1 entropy=t/log₂w` (1 600 cases vs `bbduk.sh`, 0 mismatches). XML doc / algorithm doc corrected.
+- **Added:** `FindLowEntropyRegionsBbduk(string, cutoff, window = 50, k = 5)` (port of `maskLowEntropy` + EntropyTracker FAST mode; 4 500 random cases + 20 long reads vs `bbduk.sh` 40.02: 0 mismatches); `string` overloads of `CalculateWindowedComplexity` / `FindLowComplexityRegions` (windows with a non-A/C/G/T/U symbol skipped, BBDuk `ns() < 1`); `lcMaxWordLength` (default 6 kept; Gabrielian & Bolshoy bound W is a free parameter); `entropyThreshold` NaN/∞/negative → `ArgumentOutOfRangeException`.
+- **Stage B:** PASS after changes; tests `SequenceComplexity_AuditWp5_Tests.cs` (F38/F39 regions) + MCP `windowed_complexity` (`lcMaxWordLength`, N) / `find_low_complexity_regions` (`method = "bbduk"`, `entropyK`, N accepted).
+
+## Revision 2026-10-01 — completeness audit WP13 (B04 F55)
+
+- **Gap closed:** the algorithm doc listed "suffix-tree-based linear-time profile of Troyanskaya et al. (2002)" as not implemented. Per-window LC now reads V_1..V_m from the window's suffix tree (shared `CountDistinctSubstringsByLength`) whenever m ≥ 4 (measured crossover), O(w) per window independent of m; m ≤ 3 keeps the hash enumeration.
+- **Equality:** 10 000 random cases / 325 636 windows — byte-identical to the previous output and `==` the HashSet definition (0 mismatches); unit test `CalculateWindowedComplexity_SuffixTreePath_BitIdenticalToDefinition`.
+- **Speed (1 Mb):** default (64, 10, 6) 2.50 → 1.71 s; (64, 1, 6) 20.1 → 11.3 s; (1000, 100, 12) 7.14 → 1.88 s.
+- **Stage B:** PASS.

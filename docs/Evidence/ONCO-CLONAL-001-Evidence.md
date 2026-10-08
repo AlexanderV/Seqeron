@@ -35,6 +35,12 @@
 1. **Multiplicity-general CCF formula (Eq. 1, verbatim):** "c ≈ (1/ρ)·(ρ·N_tot + (1−ρ)·2)/M · v̂", where ρ = tumor purity, N_tot = average total copy number in cancer cells, M = number of SNV copies in mutated cells (multiplicity), v̂ = VAF estimate. This generalises Landau's M = 1 expected-allele-fraction relation to arbitrary multiplicity M (inverting f(c) = ρ·M·c / (2(1−ρ) + ρ·N_tot)).
 2. **Clonal/subclonal definition (verbatim):** "SNVs are classified as clonal if they are inferred to be present in all cells in a tumor sample (CCF ≈ 1) or subclonal if they are inferred to be present only in a subpopulation (CCF ≪ 1)."
 
+### MSKCC facets-suite `estimate_ccf` (reference implementation of the same model)
+
+**URL:** https://raw.githubusercontent.com/mskcc/facets-suite/master/R/ccf-annotate-maf.R
+**Accessed:** 2026-09-28 (review 2026-09)
+**Key points:** `expected_vaf = purity·ccf·mutant_copies/(2(1−purity)+purity·total_copies)`; `probs = dbinom(t_alt_count, t_depth, expected_vaf)`; `probs = probs/sum(probs)` over `ccfs = seq(0.001, 1, 0.001)` ("Based on PMID 25877892", McGranahan 2015). Confirms f(c) and the normalised binomial posterior (with the full dbinom, which does not underflow near the mode). facets' own clonality call (`ccf > 0.8 | (ccf > 0.7 & upper > 0.9)`) and `prob95 = sum(probs[950:1000])` (≥ 0.95) are a different convention from Landau's strict rule and are not used here.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -59,10 +65,19 @@
 | Case | a | N | q | M | ρ | CCF mean | P(CCF>0.95) | Status |
 |------|---|---|---|---|----|----------|-------------|--------|
 | A1 | 300 | 300 | 2 | 1 | 1.0 | 0.999486 | 1.000000 | Clonal |
-| B2 | 400 | 1000 | 2 | 1 | 0.8 | 0.972455 | 0.864167 | Clonal |
+| B2 | 400 | 1000 | 2 | 1 | 0.8 | 0.972455 | 0.783253 | Clonal |
 | C1 | 240 | 1000 | 2 | 1 | 0.8 | 0.601297 | 0.000000 | Subclonal |
 | D  | 200 | 1000 | 2 | 1 | 1.0 | 0.401198 | ≈0 | Subclonal |
-| E  | 100 | 100 | 2 | 2 | 1.0 | 0.994330 | 0.998016 | Clonal |
+| E  | 100 | 100 | 2 | 2 | 1.0 | 0.994330 | 0.994250 | Clonal |
+| F  | 52 | 100 | 2 | 1 | 1.0 | 0.93730748909543438 | 0.45841754388728939 (≥0.95 would give 0.532) | Subclonal |
+| G  | 3 | 4 | 3 | 2 | 0.7 | 0.78003009367131881 | 0.15564285879902454 | Subclonal |
+| H1 | 1000 | 2000 | 2 | 1 | 1.0 | 0.98512524832331427 | 0.96416629807826371 | Clonal |
+| H2 | 5000 | 10000 | 2 | 1 | 1.0 | 0.99479991701077286 | 0.99999789898268343 | Clonal |
+| H3 | 800 | 2000 | 2 | 1 | 0.8 | 0.98129140132654513 | 0.91649159105544009 | Clonal |
+| H4 | 480 | 2000 | 2 | 1 | 0.8 | 0.60064935064935066 | 3.3874710002977841e-42 | Subclonal |
+| H5 | 50000 | 100000 | 2 | 1 | 1.0 | 0.99993308806930992 | 1.0 | Clonal |
+
+Correction (review 2026-09, F16): the original B2/E P values (0.864167 / 0.998016) included the c = 0.95 grid point (an FP artefact of the accumulated grid 0.01 + 94·0.01 = 0.9500000000000001), contradicting Landau's strict "> 0.95". All values above were recomputed in R 4.3 with `cc <- (1:100)/100; p <- dbinom(a, N, rho*M*cc/(2*(1-rho)+rho*q)); p <- p/sum(p); c(sum(cc*p), sum(p[cc > 0.95]))`. Rows H1–H5 lock deep coverage (F15: the C(N,a)-free kernel underflowed for N ≳ 1100).
 
 ### Dataset: Point-estimate clonal threshold (IdentifyClonalMutations)
 
@@ -104,3 +119,4 @@ Clonal indices: {0, 2, 4}.
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Review 2026-09 (F15/F16): strict-threshold P values corrected (B2, E), rows F–H added from R dbinom reference; facets-suite source added.

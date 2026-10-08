@@ -131,6 +131,33 @@
 
 ---
 
+## 2026-09 review — Mutect2 somatic likelihoods model (sources opened 2026-09-28)
+
+- `https://raw.githubusercontent.com/broadinstitute/gatk/master/docs/mutect/mutect.tex` — §Somatic Likelihoods Model: evidence
+  ln P(R|A) ≈ g(α) − g(β) + Σ_ra z̄_ra(ln ℓ_ra − ln z̄_ra); z̄_ra ∝ f̃_a ℓ_ra, ln f̃_a = ψ(β_a) − ψ(Σβ); TLOD = log evidence ratio of
+  allele set with vs without the alt. §Germline filter: "If we have no matched normal, ℓ_n = 1".
+- `.../tools/walkers/mutect/SomaticLikelihoodsEngine.java` — CONVERGENCE_THRESHOLD 0.001, NEGLIGIBLE_RESPONSIBILITY 1e-10, xLogx cut-off 1e-8, flat initial posterior.
+- `.../tools/walkers/mutect/SomaticGenotypingEngine.java` — somaticLogOdds (flat pseudocounts when minAF = 0), diploidAltLogOdds
+  (hom-ref − Σ(logsumexp(ref,alt)+ln½)), emission TLOD > emit-lod, genotype only if !hasNormal ∨ NLOD > normal-lod, Q45 mismapping normalisation.
+- `.../tools/walkers/mutect/M2ArgumentCollection.java` — DEFAULT_EMISSION_LOG_10_ODDS 3.0, DEFAULT_NORMAL_LOG_10_ODDS 2.2, minAF 0.
+- `.../utils/pairhmm/LoglessPairHMM.java` / `PairHMM.java` — mismatch prior qualToErrorProb/TRISTATE_CORRECTION (3.0).
+- `.../utils/genotyper/AlleleLikelihoods.java` — normalizeLikelihoods floors each allele at best + cap;
+  `.../haplotypecaller/LikelihoodEngineArgumentCollection.java` — phredScaledGlobalReadMismappingRate = 45.
+
+Reference dataset (per-read Python port of the above, scipy digamma/gammaln; exact integral as sanity check):
+
+| ref/alt, Q | TLOD (port) | TLOD (exact ∫, flat prior) | NLOD |
+|---|---|---|---|
+| 75/25, 30 | 61.54246801643632 | 61.5429 | −56.83 |
+| 98/2, 30 | 1.2661263748027127 | 1.2692 | 23.14 |
+| 97/3, 30 | 3.2295883512710644 | 3.2318 | 19.658450780899575 |
+| 97/3, 20 | 0.3263769386302512 | — | 22.54 |
+| 52/48, 30 | 135.9216837925928 | 135.9220 | −136.79 |
+| 80/20, 50 (cap active; uncapped 86.81) | 67.26788516897696 | — | −59.89837377162566 |
+| 100/0, 30 | −2.0042635241874462 | — | 30.088511009736504 |
+| 7/0, 8/0 (normal), 30 | — | — | 2.106195770681557 / 2.407080880778922 |
+
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Added Mutect2 somatic likelihoods model evidence (campaign 2026-09 review).

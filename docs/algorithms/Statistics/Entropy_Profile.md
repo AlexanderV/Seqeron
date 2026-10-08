@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-ENTROPY-PROFILE-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 (B03 review) |
 
 ## 1. Overview
 
@@ -43,8 +43,8 @@ With base b = 2 the unit is bits (shannons) [2]. Terms with pᵢ = 0 contribute 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequence` | `string` | required | sequence to profile | letters are counted (case-folded); non-letters ignored |
-| `windowSize` | `int` | 50 | window width W in symbols | a window is produced only when W ≤ length |
-| `stepSize` | `int` | 1 | window advance in symbols | ≥ 1 |
+| `windowSize` | `int` | 50 | window width W in symbols | ≥ 1 (else `ArgumentOutOfRangeException`); a window is produced only when W ≤ length |
+| `stepSize` | `int` | 1 | window advance in symbols | ≥ 1 (else `ArgumentOutOfRangeException`) |
 
 ### 3.2 Output / Return Value
 
@@ -54,7 +54,7 @@ With base b = 2 the unit is bits (shannons) [2]. Terms with pᵢ = 0 contribute 
 
 ### 3.3 Preconditions and Validation
 
-Null or empty `sequence`, or `windowSize` greater than the sequence length, yields an empty profile (no exception). Counting is case-insensitive (input is upper-cased) and restricted to letters; degenerate/`N` symbols are counted as their own symbol. There is no T↔U normalization — U and T are distinct symbols if both appear. Indexing of window offsets is 0-based.
+Null or empty `sequence`, or `windowSize` greater than the sequence length, yields an empty profile (no exception). Counting is case-insensitive (input is upper-cased) and restricted to letters; degenerate/`N` symbols are counted as their own symbol. There is no T↔U normalization — U and T are distinct symbols if both appear. Indexing of window offsets is 0-based. `windowSize < 1` or `stepSize < 1` throws `ArgumentOutOfRangeException` eagerly at call time (B03 F18: step 0 previously never terminated, W 0 returned n+1 zeros). Windows are taken over raw characters (a window containing gaps has fewer counted symbols); only complete windows are reported; values carry no coordinates (window k starts at offset k·step). For the nucleotide-only alphabet {A, C, G, T/U} (N excluded, U = T, max 2 bits) use `SequenceComplexity.CalculateShannonEntropy` / `CalculateWindowedComplexity`.
 
 ## 4. Algorithm
 
@@ -78,11 +78,11 @@ Null or empty `sequence`, or `windowSize` greater than the sequence length, yiel
 **Implementation location:** [SequenceStatistics.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs)
 
 - `SequenceStatistics.CalculateEntropyProfile(string, int windowSize=50, int stepSize=1)`: sliding-window driver; yields one entropy per window.
-- `SequenceStatistics.CalculateShannonEntropy(string)`: per-window kernel; computes H = −Σ pᵢ log₂ pᵢ over the letter frequencies of the argument.
+- `SequenceStatistics.CalculateShannonEntropy(string)`: per-window kernel; counts upper-cased letters and delegates H to the canonical `StatisticsHelper.ShannonIndex` (natural log) ÷ ln 2 — exactly `scipy.stats.entropy(counts, base=2)` (B03 D7).
 
 ### 5.2 Current Behavior
 
-The profile is a lazy `IEnumerable<double>` (deferred, streaming). Each window is materialized as a substring and delegated to `CalculateShannonEntropy`, which case-folds, counts only `char.IsLetter` symbols, and uses `Math.Log2` (base 2 → bits). No suffix tree is used: this is not a substring-search/occurrence problem but a per-window frequency-counting computation, so the repository suffix tree does not apply.
+The profile is a lazy `IEnumerable<double>` (deferred, streaming). Each window is materialized as a substring and delegated to `CalculateShannonEntropy`, which case-folds, counts only `char.IsLetter` symbols, and converts the canonical natural-log Shannon index to bits (÷ ln 2, as scipy). Arguments are validated eagerly; values are deferred. No suffix tree is used: this is not a substring-search/occurrence problem but a per-window frequency-counting computation, so the repository suffix tree does not apply.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -143,3 +143,4 @@ var profile = SequenceStatistics.CalculateEntropyProfile("AAATGC", windowSize: 4
 1. Shannon, C. E. 1948. A Mathematical Theory of Communication. Bell System Technical Journal, 27(3):379–423. https://doi.org/10.1002/j.1538-7305.1948.tb01338.x
 2. Wikipedia contributors. Entropy (information theory). https://en.wikipedia.org/wiki/Entropy_(information_theory) (accessed 2026-06-14).
 3. Entropy-Based Biological Sequence Study. IntechOpen. https://www.intechopen.com/chapters/75997 (accessed 2026-06-14).
+4. scipy 1.17.1 `scipy.stats.entropy(pk, base=2)` and scikit-bio 0.7.4 `skbio.diversity.alpha.shannon(counts, base=2)` (executed 2026-09-28; reference values in the unit tests).

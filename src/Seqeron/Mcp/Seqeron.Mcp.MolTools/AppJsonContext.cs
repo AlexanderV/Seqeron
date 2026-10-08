@@ -16,6 +16,7 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(IReadOnlyList<int>))]
 [JsonSerializable(typeof(double))]
 [JsonSerializable(typeof(bool))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 
 // PrimerDesigner DTOs (from Seqeron.Genomics.MolTools)
 [JsonSerializable(typeof(PrimerParameters))]
@@ -25,6 +26,7 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(List<PrimerCandidate>))]
 [JsonSerializable(typeof(IReadOnlyList<PrimerCandidate>))]
 [JsonSerializable(typeof(PrimerPairResult))]
+[JsonSerializable(typeof(IReadOnlyList<PrimerPairResult>))]
 
 // PrimerDesigner result wrappers
 [JsonSerializable(typeof(TmResult))]
@@ -34,6 +36,7 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(PrimerDimerResult))]
 [JsonSerializable(typeof(ThreePrimeStabilityResult))]
 [JsonSerializable(typeof(PrimerCandidateListResult))]
+[JsonSerializable(typeof(DesignPrimersResult))]
 
 // RestrictionAnalyzer DTOs (from Seqeron.Genomics.MolTools) — fully qualified to avoid
 // any potential collision with future server-side types of the same simple name.
@@ -122,7 +125,10 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(PamSitesResult))]
 [JsonSerializable(typeof(GuideRnasResult))]
 [JsonSerializable(typeof(OffTargetsResult))]
+[JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.GuideRnaRanking))]
+[JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.GrafMotifType))]
 [JsonSerializable(typeof(SpecificityResult))]
+[JsonSerializable(typeof(OnTargetScoreResult))]
 
 // ProbeDesigner DTOs (records nested in ProbeDesigner static class)
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.ProbeParameters))]
@@ -135,6 +141,11 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(IReadOnlyList<global::Seqeron.Genomics.MolTools.ProbeDesigner.Probe>))]
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.TilingProbeSet))]
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.ProbeValidation))]
+[JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.CrossHybridizationAssessment))]
+[JsonSerializable(typeof(IReadOnlyList<global::Seqeron.Genomics.MolTools.ProbeDesigner.CrossHybridizationAssessment>))]
+[JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.ProbeDesigner.Primer3Probe))]
+[JsonSerializable(typeof(IReadOnlyList<global::Seqeron.Genomics.MolTools.ProbeDesigner.Primer3Probe>))]
+[JsonSerializable(typeof(Primer3ProbesResult))]
 [JsonSerializable(typeof(ProbesResult))]
 [JsonSerializable(typeof(MolecularBeaconResult))]
 [JsonSerializable(typeof(OligoAnalysisResult))]

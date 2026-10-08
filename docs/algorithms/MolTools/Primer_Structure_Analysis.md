@@ -5,163 +5,211 @@
 | Algorithm Group | Molecular Tools |
 | Test Unit ID | PRIMER-STRUCT-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete (Primer3 semantics) |
+| Last Reviewed | 2026-10-01 |
 
 ## 1. Overview
 
-Primer structure analysis evaluates PCR primers for secondary-structure formation and self-complementarity issues that can reduce amplification efficiency. In this repository, the documented surface covers hairpin detection, primer-dimer detection, 3' end stability estimation, homopolymer detection, and dinucleotide-repeat detection. The implementation combines exact small-string heuristics with a suffix-tree-assisted branch for long sequences, and it exposes discrete boolean or scalar quality signals rather than a full thermodynamic folding model.
+Primer structure analysis screens PCR primers for secondary structures and for features that
+reduce amplification efficiency: hairpins, self- and cross-dimers (in particular 3′-end dimers
+that the polymerase can extend), an over-stable 3′ end, and homopolymer / dinucleotide runs.
+The implementation reproduces Primer3 (Untergasser et al. 2012; `libprimer3.cc`, `oligotm.c`,
+`dpal.c`, `thal.c`) for every quantity that Primer3 defines:
+
+| Quantity | Primer3 output tag | Method |
+|----------|--------------------|--------|
+| Hairpin / self-dimer / 3′ self-dimer Tm (thermodynamic, Primer3 default) | `PRIMER_*_HAIRPIN_TH`, `_SELF_ANY_TH`, `_SELF_END_TH` | `CalculatePrimer3OligoStructure` |
+| Pair hetero-dimer / 3′ hetero-dimer Tm (thermodynamic, Primer3 default) | `PRIMER_PAIR_COMPL_ANY_TH`, `_COMPL_END_TH` | `CalculatePrimer3PairComplementarity` |
+| Pair 3′ complementarity, alignment mode | `PRIMER_PAIR_COMPL_END` (`PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0`) | `CalculatePrimerDimerEndComplementarity`, `HasPrimerDimer` |
+| Self 3′ complementarity, alignment mode | `PRIMER_*_SELF_END` | `CalculatePrimerSelfEndComplementarity` |
+| Self complementarity (any), alignment mode | `PRIMER_*_SELF_ANY` (`PRIMER_INTERNAL_*_SELF_ANY`) | `CalculatePrimerSelfAnyComplementarity` |
+| Pair complementarity (any), alignment mode | `PRIMER_PAIR_COMPL_ANY` | `CalculatePrimerDimerAnyComplementarity` |
+| Alignment-mode structure screen (limits 8 / 3 / 8 / 3) | `PRIMER_MAX_SELF_ANY/_END`, `PRIMER_PAIR_MAX_COMPL_ANY/_END` | `PrimerStructureScreen.Primer3Alignment` |
+| 3′-end stability | `PRIMER_*_END_STABILITY` (opposite sign) | `Calculate3PrimeStability` |
+| Longest mononucleotide run | `PRIMER_MAX_POLY_X` check | `FindLongestHomopolymer` |
+| ntthal ANY / END1 / END2 dimer, hairpin with Mg²⁺/dNTP | `ntthal -a ANY/END1/END2/HAIRPIN` | `CalculateDimerThermodynamicsNtthal(…, mode, …)`, `CalculateHairpinThermodynamicsNtthal(…, dv, dntp)` |
+
+Two sequence-only screens without a Primer3 counterpart remain: `HasHairpinPotential` (exact
+Watson–Crick stem of ≥ `minStemLength` closing a loop of ≥ `minLoopLength`) and
+`FindLongestDinucleotideRepeat`.
 
 ## 2. Scientific / Formal Basis
 
 ### 2.1 Domain Context
 
-Hairpins form when a primer contains self-complementary regions separated by a loop; the original document identifies a minimum stem length of 4 bp and a minimum loop length of 3 nt as the practical threshold for the documented workflow. Primer-dimers arise when primers have complementary 3' ends that can be extended by polymerase, and high GC content at the 3' end increases their stability. The 3' terminal stability metric is documented as a nearest-neighbor $\Delta G$ calculation over the last 5 bases, following SantaLucia (1998) and the Primer3 `PRIMER_MAX_END_STABILITY` convention. Homopolymer runs and dinucleotide repeats are treated as primer-design liabilities because they can promote slippage, mispriming, and secondary structure. Sources: Wikipedia (Stem-loop, Primer dimer, Nucleic acid thermodynamics), SantaLucia (1998), Primer3 Manual.
+Hairpins form when a primer contains an inverted repeat (stem) closing a loop; loops shorter
+than 3 nt are sterically excluded (SantaLucia & Hicks 2004). Primer-dimers arise when two primers
+(or two copies of one) anneal; a dimer whose duplex contains a primer's 3′-terminal base can be
+extended by the polymerase (Primer3 "END" alignments). Primer3's default since 2.x
+(`PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1`) scores all of these as the melting temperature of the
+most stable structure found by the `ntthal` nearest-neighbour dynamic programme (SantaLucia &
+Hicks 2004 parameters) and rejects a primer/pair when a Tm exceeds 47 °C. The older alignment
+mode scores 3′ complementarity with a `dpal` end-anchored alignment. The 3′-end stability is the
+nearest-neighbour ΔG°37 of the last five bases (SantaLucia 1998).
 
 ### 2.2 Core Model
 
-The repository models hairpins as complementary stems separated by at least `minLoopLength`, using a minimum stem length parameter to define candidate stems. Primer-dimer detection focuses on complementarity between the last bases of one primer and the reverse complement of the other primer. The 3' stability score is the sum of nearest-neighbor $\Delta G^\circ_{37}$ values for the four dinucleotide steps in the terminal 5-mer, plus terminal initiation parameters of `+0.98` kcal/mol for terminal G·C and `+1.03` kcal/mol for terminal A·T, as documented in the original file. The source comments identify `GCGCG` as the most stable 5-mer (`-6.86 kcal/mol`) and `TATAT` as the least stable (`-0.86 kcal/mol`) under the cited parameterization.
+**Thermodynamic screen (Primer3 default).** For a primer `p` (5′→3′) Primer3's
+`oligo_compl_thermod` / `oligo_hairpin` compute
+`self_any = ntthal ANY(p, p)`, `self_end = ntthal END1(p, p)`, `hairpin = ntthal HAIRPIN(p)`; for a
+pair (left `L`, right `R`, both 5′→3′) `characterize_pair` computes
+`compl_any = ntthal ANY(L, R)` and
+`compl_end = max(END1(L, R), END2(L, R), END1(rc R, rc L), END2(rc R, rc L))`.
+Each value is the Tm (°C) of the optimal structure, reported as 0 when no structure forms or the
+Tm is negative (`align_thermod`). Conditions are Primer3's primer conditions: 50 mM monovalent,
+1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM oligo; Mg²⁺/dNTP enter ntthal only through
+`saltCorrectS = 0.368·ln((mv + 120·√max(0, dv − dntp))/1000)`. END1 forces the 3′-terminal base
+of the first strand into the terminal pair; END2 = END1 with the strands swapped. Default limits
+`PRIMER_MAX_SELF_ANY_TH = PRIMER_MAX_SELF_END_TH = PRIMER_MAX_HAIRPIN_TH =
+PRIMER_PAIR_MAX_COMPL_ANY_TH = PRIMER_PAIR_MAX_COMPL_END_TH = 47 °C`
+(`PrimerDesigner.Primer3MaxStructureTm`); a value strictly greater fails.
+
+**Alignment-mode 3′ complementarity.** `compl_end = max(align(L, rc R), align(R, rc L))`, where
+`align` is `dpal` with flag `DPAL_GLOBAL_END` (the alignment must end at the last base of the
+first sequence), match +1.00, mismatch −1.00, N −0.25, single-base gaps −2.00 (max gap 1), floored
+at 0. Two primers whose 3′-terminal k bases are reverse complements score k; Primer3's default
+limit `PRIMER_PAIR_MAX_COMPL_END = 3.00`, so `HasPrimerDimer(p1, p2, minComplementarity = 4)`
+(score ≥ 4) is exactly the default Primer3 rejection for ACGT primers (integral scores).
+`self_end = align(p, rc p)`.
+
+**Alignment-mode "any" complementarity.** `self_any = align(p, rc p)` and
+`compl_any = align(L, rc R)` (one orientation, as `characterize_pair`) with flag `DPAL_LOCAL`: the
+best local alignment, same scoring, every cell floored at 0 (port of dpal.c
+`_dpal_long_nopath_maxgap1_local`); Primer3's `align` returns the length of the second sequence
+when it is shorter than 3 nt. Under `PrimerStructureScreen.Primer3Alignment` a primer fails when
+`self_any > PRIMER_MAX_SELF_ANY` (8.00, `PrimerParameters.MaxSelfAny`) or `self_end >
+PRIMER_MAX_SELF_END` (3.00, `MaxSelfEnd`); a pair when `compl_any > PRIMER_PAIR_MAX_COMPL_ANY`
+(8.00, `PrimerPairOptions.MaxComplAny`) or `align(L, rc R, GLOBAL_END) > PRIMER_PAIR_MAX_COMPL_END`
+(3.00, `MaxComplEnd`) or, when larger, `align(R, rc L, GLOBAL_END) > PRIMER_MAX_SELF_END` (Primer3
+compares that orientation with the per-primer limit); an internal oligo when its self_any/self_end
+exceed `PRIMER_INTERNAL_MAX_SELF_ANY/_END` (12.00). No hairpin value exists in this mode. The
+penalty adds `PRIMER_WT_SELF_ANY/_END × score` (`PrimerParameters.PenaltyWeights`) and the pair
+objective `PRIMER_PAIR_WT_COMPL_ANY/_END × score` (`Primer3PairWeights.ComplAny/ComplEnd`).
+
+**3′-end stability.** Primer3 `end_oligodg(seq, 5, santalucia)`: over the last five bases (the
+whole primer if shorter) −ΔG = Σ SantaLucia (1998) NN −ΔG°37 − 1.96 − 0.05·(terminal A/T count)
+− 0.43·(self-complementary); the library returns ΔG (negative = stable). For a 5-mer this equals
+SantaLucia's "initiation with terminal G·C +0.98 / A·T +1.03" form. N uses Primer3's N row/column.
+GCGCG = −6.86 (most stable), TATAT = −0.86.
+
+**Poly-X.** Longest run of identical bases; N is a worst-case wildcard exactly as
+`_pr_violates_poly_x` (forward scan assigning N to the preceding base, reverse scan to the next
+base, longer run reported): ANA 3, GNGNG 5, ANGNG 4.
 
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | `HasHairpinPotential(...)` returns `false` when the sequence is shorter than `2 * minStemLength + minLoopLength` | The source guards on that minimum structure size |
-| INV-02 | `Calculate3PrimeStability(...)` returns `0` for sequences shorter than 5 nt | The method explicitly short-circuits for short inputs |
-| INV-03 | `FindLongestHomopolymer(...)` returns `0` for empty input and at least `1` for any non-empty input | The implementation tracks consecutive identical bases |
-| INV-04 | `FindLongestDinucleotideRepeat(...)` returns `0` for inputs shorter than 4 nt | The implementation short-circuits when no repeated dinucleotide can exist |
+| INV-01 | `HasHairpinPotential(...)` is `false` when the sequence is shorter than `2·minStemLength + minLoopLength` | Length guard |
+| INV-02 | `Calculate3PrimeStability(...)` depends only on the last five bases; empty input → 0 | `end_oligodg` window |
+| INV-03 | `FindLongestHomopolymer(...)` is 0 for empty input and ≥ 1 otherwise | Run scan |
+| INV-04 | `FindLongestDinucleotideRepeat(...)` is 0 for inputs shorter than 4 nt | Short-circuit |
+| INV-05 | `CalculatePrimerDimerEndComplementarity(a, b) = CalculatePrimerDimerEndComplementarity(b, a) ≥ 0` | Max over both orientations, floor 0 |
+| INV-06 | Primer3 structure Tm values are ≥ 0 | `align_thermod` floors negative Tm at 0 |
 
 ## 3. Contract
 
 ### 3.1 Inputs and Parameters
 
-| Name | Type | Default | Description | Constraints |
-|------|------|---------|-------------|-------------|
-| `[HasHairpinPotential] sequence` | `string` | required | Primer sequence to inspect for self-complementary stems | Case-insensitive in implementation |
-| `[HasHairpinPotential] minStemLength` | `int` | `4` | Minimum complementary stem length | Used in both simple and suffix-tree branches |
-| `[HasHairpinPotential] minLoopLength` | `int` | `3` | Minimum loop length between complementary stems | Enforced as a positional separation constraint |
-| `[HasPrimerDimer] primer1, primer2` | `string` | required | Primer sequences to compare for 3' complementarity | Empty input returns `false` |
-| `[HasPrimerDimer] minComplementarity` | `int` | `4` | Minimum complementary pairs to flag a dimer | Applied to the compared terminal window |
-| `[Calculate3PrimeStability] sequence` | `string` | required | Primer sequence whose 3' 5-mer is scored | Inputs shorter than 5 return `0` |
-| `[FindLongestHomopolymer/FindLongestDinucleotideRepeat] sequence` | `string` | required | Sequence to scan for runs and repeats | Case-insensitive in implementation |
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `[HasHairpinPotential] minStemLength / minLoopLength` | `int` | 4 / 3 | Stem length and minimum loop of the sequence-only screen |
+| `[HasPrimerDimer] minComplementarity` | `int` | 4 | Flag when the Primer3 alignment-mode compl_end score ≥ this value |
+| `[CalculatePrimer3OligoStructure / PairComplementarity] monovalentMillimolar, divalentMillimolar, dntpMillimolar, dnaConcentrationNanomolar` | `double` | 50, 1.5, 0.6, 50 | Primer3 primer conditions |
+| `[CalculateDimerThermodynamicsNtthal] mode` | `NtthalAlignmentMode` | — | `Any`, `End1`, `End2` |
+| `[PrimerParameters] StructureScreen` | `PrimerStructureScreen` | `Primer3Thermodynamic` | Screen used by `EvaluatePrimer` / `DesignPrimers` (`Heuristic` = `HasHairpinPotential` + `HasPrimerDimer`) |
+| `[PrimerParameters] MaxStructureTm` | `double` | 47 | Primer3 `*_TH` limit (0 → 47) |
+| `[PrimerParameters] MaxSelfAny / MaxSelfEnd` | `double?` | 8 / 3 | PRIMER_MAX_SELF_ANY / _END (alignment screen; null → default; [0, 32767]) |
+| `[PrimerParameters] PenaltyWeights` | `Primer3PenaltyWeights?` | Primer3 defaults | PRIMER_WT_* incl. SELF_ANY/_END (alignment) and *_TH (thermodynamic) |
+| `[PrimerPairOptions] MaxComplAny / MaxComplEnd` | `double` | 8 / 3 | PRIMER_PAIR_MAX_COMPL_ANY / _END (alignment screen) |
 
 ### 3.2 Output / Return Value
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `[HasHairpinPotential] hasHairpin` | `bool` | `true` when the implementation finds a valid self-complementary stem-loop candidate |
-| `[HasPrimerDimer] hasPrimerDimer` | `bool` | `true` when terminal complementarity meets or exceeds the threshold |
-| `[Calculate3PrimeStability] deltaG` | `double` | 3' end stability in kcal/mol; more negative values indicate greater stability |
-| `[FindLongestHomopolymer] maxRun` | `int` | Length of the longest mononucleotide run |
-| `[FindLongestDinucleotideRepeat] maxRepeatCount` | `int` | Longest repeated dinucleotide count |
+| Method | Output |
+|--------|--------|
+| `CalculatePrimer3OligoStructure` | `Primer3OligoStructure(SelfAnyTh, SelfEndTh, HairpinTh)` in °C, or `null` for null/empty/non-ACGT |
+| `CalculatePrimer3PairComplementarity` | `Primer3PairComplementarity(ComplAnyTh, ComplEndTh)` in °C, or `null` |
+| `CalculatePrimerDimerEndComplementarity` / `CalculatePrimerSelfEndComplementarity` | Primer3 score (≥ 0; 0 for null/empty) |
+| `HasPrimerDimer` | `bool` |
+| `Calculate3PrimeStability` | ΔG°37 kcal/mol; 0 for null/empty; `NaN` when the 3′ window has a character other than ACGTN |
+| `FindLongestHomopolymer` / `FindLongestDinucleotideRepeat` | `int` |
+| `EvaluatePrimer` | `PrimerCandidate` with `SelfAnyTh`, `SelfEndTh`, `HairpinTh` (thermodynamic screen) and `HasHairpin` = `HairpinTh > MaxStructureTm`; `SelfAny`, `SelfEnd` (alignment screen) |
+| `CalculatePrimerSelfAnyComplementarity` / `CalculatePrimerDimerAnyComplementarity` | Primer3 dpal LOCAL score (≥ 0; 0 for null/empty) |
 
 ### 3.3 Preconditions and Validation
 
-All string-based methods normalize to uppercase before character comparisons. `HasHairpinPotential(...)` and `HasPrimerDimer(...)` return `false` for null or empty input. `Calculate3PrimeStability(...)` returns `0` for null, empty, or shorter-than-5 input. `FindLongestHomopolymer(...)` returns `0` for empty input, and `FindLongestDinucleotideRepeat(...)` returns `0` for inputs shorter than 4 nt.
+All methods are case-insensitive. The thermodynamic methods accept ACGT only. The alignment
+methods score any non-ACGT character as N (Primer3 `p3_reverse_complement` turns it into N).
 
 ## 4. Algorithm
 
-### 4.1 High-Level Steps
-
-1. Normalize the primer sequence to uppercase.
-2. For hairpin detection, choose the simple or suffix-tree-assisted branch based on sequence length.
-3. Search for complementary stems that satisfy the minimum stem and loop constraints.
-4. For primer-dimer detection, reverse-complement the second primer and compare the terminal windows.
-5. For 3' stability, evaluate the final 5-mer with the nearest-neighbor table and terminal initiation terms.
-6. For run and repeat metrics, scan the sequence for the longest mononucleotide or dinucleotide repetition.
-
-### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
-
-The source uses two hairpin-detection strategies:
-
-| Sequence Length | Strategy | Documented Rationale |
-|-----------------|----------|----------------------|
-| `< 100 bp` | Nested-loop search | Lower overhead for typical PCR primer lengths |
-| `>= 100 bp` | Suffix-tree-assisted search | Avoids the short-sequence quadratic scan for longer inputs |
-
-Nearest-neighbor $\Delta G$ values documented for the 3' stability calculation:
-
-| Dinucleotide | ΔG (kcal/mol) |
-|--------------|---------------|
-| AA/TT | -1.00 |
-| AT | -0.88 |
-| TA | -0.58 |
-| CA/TG | -1.45 |
-| GT/AC | -1.44 |
-| CT/AG | -1.28 |
-| GA/TC | -1.30 |
-| CG | -2.17 |
-| GC | -2.24 |
-| GG/CC | -1.84 |
+1. `EvaluatePrimer` computes the per-primer constraints; with the default screen it adds an issue
+   for each of hairpin / self-dimer / 3′ self-dimer Tm above the limit.
+2. `DesignPrimers` follows Primer3's `characterize_pair`: candidates are ranked by penalty; the
+   per-primer structure screen runs lazily (once per primer, cached) only for primers that reach
+   a pair passing the ΔTm check, followed by the pair `compl_any_th` / `compl_end_th` check.
+3. `dpal` GLOBAL_END is a line-for-line port of `_dpal_long_nopath_maxgap1_global_end` (the routine
+   Primer3 runs); for |X| ≤ 3 or |Y| = 1, where that C routine reads past the sequence end, the
+   `_dpal_generic` GLOBAL_END recurrence is used.
 
 ### 4.3 Complexity
 
-| Operation | Time | Space | Notes |
-|-----------|------|-------|-------|
-| `HasHairpinPotential` | `O(n²)` for `< 100 bp`; suffix-tree-assisted for `>= 100 bp` | `O(1)` auxiliary for the simple branch | The long-sequence branch builds and queries a suffix tree |
-| `HasPrimerDimer` | `O(n)` | `O(n)` | Uses the reverse complement of the second primer and compares a terminal window |
-| `Calculate3PrimeStability` | `O(1)` | `O(1)` | Only the last 5 bases are evaluated |
-| `FindLongestHomopolymer` | `O(n)` | `O(1)` | Single left-to-right scan |
-| `FindLongestDinucleotideRepeat` | `O(n)` | `O(1)` | Repeated dinucleotide scan as documented in the original file |
+| Operation | Time |
+|-----------|------|
+| ntthal dimer / hairpin | O(n·m·L²), L = max loop 30 |
+| dpal GLOBAL_END / LOCAL | O(n·m) time, O(m) memory (no length limit) |
+| 3′ stability, poly-X | O(1) / O(n) |
+| `HasHairpinPotential` | O(n²) below 100 nt, suffix tree at ≥ 100 nt |
 
 ## 5. Implementation Notes
 
-### 5.1 Location and Entry Points
-
-**Implementation location:** [PrimerDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs)
-
-- `PrimerDesigner.HasHairpinPotential(string, int, int)`: Detects self-complementary stem-loop candidates and switches between simple and suffix-tree-assisted branches.
-- `PrimerDesigner.HasPrimerDimer(string, string, int)`: Checks 3' complementarity between primers.
-- `PrimerDesigner.Calculate3PrimeStability(string)`: Computes the last-5-base nearest-neighbor stability with initiation terms.
-- `PrimerDesigner.FindLongestHomopolymer(string)`: Returns the longest mononucleotide run.
-- `PrimerDesigner.FindLongestDinucleotideRepeat(string)`: Returns the longest repeated dinucleotide count.
-
-### 5.2 Current Behavior
-
-The current implementation uses a simple nested-loop hairpin search below 100 bp and a suffix-tree-assisted branch at 100 bp or above. Primer-dimer detection compares the last `min(8, len1, len2)` bases of the first primer to the start of the reverse complement of the second primer. The 3' stability calculation evaluates the final 5-mer only, sums the four dinucleotide contributions, and adds terminal initiation parameters exactly as described in the original document and in the source comments. Homopolymer and dinucleotide-repeat detection are direct sequence scans without thermodynamic weighting.
+**Implementation location:** [PrimerDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs),
+[NtthalDimer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/NtthalDimer.cs) (END1/END2, divalent salt),
+[NtthalHairpin.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/NtthalHairpin.cs) (divalent salt).
 
 ### 5.3 Conformance to Theory / Spec
 
-**Implemented (verbatim from the cited theory/spec):**
-
-- Hairpin detection based on self-complementary stems separated by a minimum loop.
-- Primer-dimer detection focused on 3' end complementarity.
-- 3' terminal stability scoring from nearest-neighbor $\Delta G$ values with terminal initiation parameters.
-
-**Intentionally simplified:**
-
-- Hairpin detection is a boolean structural screen rather than a full free-energy folding model; **consequence:** the method reports potential stem-loops without ranking complete secondary-structure ensembles.
-- Primer-dimer detection inspects terminal complementarity instead of a full duplex thermodynamic landscape; **consequence:** non-terminal or context-dependent dimer interactions are not separately modeled.
-- Homopolymer and dinucleotide-repeat checks use run-length heuristics; **consequence:** they flag simple repetitive structure without estimating PCR yield impact.
-
-**Not implemented:**
-
-- Full secondary-structure thermodynamics for primer hairpins and dimers; **users should rely on:** no current alternative documented in this test unit.
+- Cross-checked against Primer3 (primer3-py 2.3.1, and Primer3 C sources compiled locally):
+  dpal compl_end 3000/3000 random pairs identical to `dpal.c`; dpal LOCAL self_any / compl_any
+  40 000/40 000 values (20 000 random pairs, 1–400 nt, with N) identical to compiled `dpal.c` + `align()`;
+  `DesignPrimerPairs` with `Primer3Alignment` vs primer3-py 2.3.1 `design_primers`
+  (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT = 0): 2000/2000 random templates (9135 pairs; 1000 with
+  random PRIMER_MAX_SELF_ANY/_END, PRIMER_PAIR_MAX_COMPL_ANY/_END, PRIMER_WT_SELF_ANY/_END,
+  PRIMER_PAIR_WT_COMPL_ANY/_END and internal oligos with PRIMER_INTERNAL_MAX_SELF_ANY/_END) identical in
+  positions, penalties, SELF_ANY/SELF_END, COMPL_ANY/COMPL_END and product Tm; 600/600 `END_STABILITY`, 600/600
+  `SELF_END`, 300/300 `PAIR_COMPL_END` identical to `design_primers` (alignment mode);
+  `end_oligodg` 2000/2000 identical (incl. N and primers < 5 nt); poly-X with N identical to
+  `check_primers`.
+- Thermodynamic values are as exact as the ntthal engines: the structure-screen formulas match
+  `design_primers` whenever the engines match `calc_homodimer` / `calc_end_stability` /
+  `calc_hairpin` (all END1/END2/dv code paths verified to 1e-9 on the engine-exact cases).
+  The dimer engine is bit-exact to primer3-py 2.3.1 since PRIMER-DIMER-001 (8000/8000 random
+  pairs, all modes and conditions) and the hairpin engine since PRIMER-HAIRPIN-001 (9000/9000
+  random oligos 5–60 nt, default and random mv/dv/dntp/temp_c/max_loop; Tm/ΔG/ΔH/ΔS ≤ 1e−6 and
+  identical ASCII structure).
+- `DesignPrimers` vs primer3-py `design_primers` (thermodynamic default, this library's per-primer
+  limits): 1800/1800 random templates (seeds 1–9 × 200) identical after PRIMER-HAIRPIN-001 (before:
+  574/600 with both engines inexact, 1733/1800 with only the hairpin engine inexact).
 
 ## 6. Edge Cases and Limitations
 
-### 6.1 Edge Cases
+| Case | Behaviour |
+|------|-----------|
+| Identical poly-A primers | Not a dimer (compl_end 0; ntthal no structure) |
+| 3′ ends …GGCC / …GGCC | compl_end 4 → dimer (offset overlap) |
+| Primer shorter than 5 nt | 3′ stability of the whole primer (Primer3 `end_oligodg`) |
+| No ntthal structure / negative Tm | Structure Tm reported as 0 |
+| Non-ACGT primer | No thermodynamic values (`null`); `EvaluatePrimer` already rejects it (Tm) |
 
-| Case | Expected Behavior | Rationale |
-|------|-------------------|-----------|
-| Sequence too short for a hairpin | Returns `false` | A valid stem-loop cannot satisfy the minimum stem and loop constraints |
-| No self-complementary regions | Returns `false` | No candidate stem-loop is found |
-| Perfect palindrome | May or may not form a hairpin | Loop feasibility still matters |
-| Empty primer in dimer check | Returns `false` | No terminal complementarity can be evaluated |
-| Empty sequence in homopolymer detection | Returns `0` | No run exists |
-| All bases unique | Homopolymer result is `1` | The longest run is a single base |
-| All bases identical | Homopolymer result is sequence length | Every position extends the same run |
-| Sequence shorter than 4 in dinucleotide-repeat detection | Returns `0` | No repeated dinucleotide can exist |
-
-### 6.2 Limitations
-
-The documented workflow is a screening-oriented implementation. It does not model full RNA/DNA folding thermodynamics, full primer-pair interaction landscapes, or polymerase- and buffer-specific effects. For typical PCR primers in the 18-25 bp range, the short-sequence branch is the intended path and the richer suffix-tree branch is primarily a long-sequence optimization.
+`FindLongestDinucleotideRepeat` counts any repeated 2-mer (so AAAA counts as 2 "AA" units) and has
+no Primer3 equivalent; `HasHairpinPotential` is a sequence-only screen kept for the `Heuristic`
+mode and the `hairpin_potential` MCP tool.
 
 ## 8. References
 
-1. Wikipedia - Primer (molecular biology): PCR primer design section.
-2. Wikipedia - Primer dimer: Mechanism of formation.
-3. Wikipedia - Stem-loop (Hairpin loop): Formation and stability.
-4. Wikipedia - Nucleic acid thermodynamics: Nearest-neighbor method.
-5. SantaLucia JR (1998) "A unified view of polymer, dumbbell and oligonucleotide DNA nearest-neighbor thermodynamics", PNAS 95:1460-65.
-6. Primer3 Manual (primer3.org): `PRIMER_MAX_HAIRPIN_TH`, `PRIMER_MAX_SELF_END`, `PRIMER_MAX_END_STABILITY`, `PRIMER_MAX_POLY_X`.
+1. Untergasser A et al. (2012) Primer3 — new capabilities and interfaces. NAR 40:e115.
+2. Primer3 source (`libprimer3.cc` `characterize_pair`, `oligo_compl_thermod`, `oligo_hairpin`,
+   `align`, `align_thermod`, `_pr_violates_poly_x`; `oligotm.c` `oligodg`, `end_oligodg`, `symmetry`;
+   `dpal.c`; `thal.c`) — https://github.com/primer3-org/primer3 and the primer3-py vendored copy.
+3. SantaLucia J (1998) PNAS 95:1460-65 (Table 1). SantaLucia J, Hicks D (2004) Annu Rev Biophys 33:415-40.
+4. Rozen S, Skaletsky H (2000) Primer3 on the WWW for general users and for biologist programmers. Methods Mol Biol 132:365-86.

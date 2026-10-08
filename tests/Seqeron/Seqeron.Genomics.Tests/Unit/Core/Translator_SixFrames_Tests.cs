@@ -167,6 +167,8 @@ public class Translator_SixFrames_Tests
     #region FindOrfs
 
     // M9 — INV-5: forward START->STOP ORF with exact positions and protein (EMBOSS getorf -find 1).
+    // getorf prints [4 - 12] (1-based, STOP excluded); this API includes the STOP in the end
+    // coordinate (INSDC feature table: CDS "location includes stop codon"), hence End = 11 + 3 = 14.
     [Test]
     public void FindOrfs_ForwardStartToStop_ReturnsExactPositionsAndProtein()
     {
@@ -213,8 +215,8 @@ public class Translator_SixFrames_Tests
 
     // M11b — INV-5 / doc §6.1: an ORF that begins at a START codon but reaches the end of the
     // sequence with no in-frame STOP is emitted as an open (incomplete) ORF ending at the last base.
-    // EMBOSS getorf -find 1 incomplete-ORF handling. Hand-verified: ATG AAA CCC GGG -> "MKPG",
-    // Start=0, End=11 (last base, 0-based, inclusive).
+    // EMBOSS getorf -find 1 incomplete-ORF handling (WriteORF(start, pos+2): getorf reports [1 - 12]).
+    // ATG AAA CCC GGG -> "MKPG", Start=0, End=11 (last base of the last complete codon, inclusive).
     [Test]
     public void FindOrfs_OrfRunsToSequenceEndWithoutStop_EmitsOpenOrf()
     {
@@ -227,7 +229,7 @@ public class Translator_SixFrames_Tests
         Assert.Multiple(() =>
         {
             Assert.That(orf.StartPosition, Is.EqualTo(0), "Start = first base of the ATG start codon.");
-            Assert.That(orf.EndPosition, Is.EqualTo(11), "End = last base of the sequence (open ORF, no STOP).");
+            Assert.That(orf.EndPosition, Is.EqualTo(11), "End = last base of the last complete codon (open ORF, no STOP).");
             Assert.That(orf.Frame, Is.EqualTo(1), "ORF is in forward frame +1.");
             Assert.That(orf.Protein.Sequence, Is.EqualTo("MKPG"),
                 "Open ORF protein covers START to end with no terminating STOP residue.");
@@ -294,9 +296,14 @@ public class Translator_SixFrames_Tests
             "With searchBothStrands=false, the reverse-strand ORF is not searched.");
     }
 
-    // C1 — alternative start codon TTG initiates an ORF and is translated as its residue (L).
+    // C1 — alternative start codon TTG initiates an ORF; the initiator is reported as Met.
+    // Corrected 2026-09 (B02 review): this test previously asserted "LKG" (TTG read as Leu).
+    // EMBOSS getorf -methionine (default Y, getorf.acd: "Change initial START codons to
+    // Methionine"; getorf.c appends 'M' for the START), Biopython translate(cds=True) and NCBI
+    // The Genetic Codes ("the initiator codon ... is by default translated as methionine") all
+    // give "MKG". Biopython: Seq("TTGAAAGGGTAA").translate(cds=True) == "MKG".
     [Test]
-    public void FindOrfs_AlternativeStartCodonTtg_InitiatesOrf()
+    public void FindOrfs_AlternativeStartCodonTtg_InitiatesOrfWithMethionine()
     {
         // GG TTG AAA GGG TAA CC : TTG start at index 2 (frame 3), TAA stop at indices 11-13.
         var dna = new DnaSequence("GGTTGAAAGGGTAACC");
@@ -308,10 +315,96 @@ public class Translator_SixFrames_Tests
         Assert.Multiple(() =>
         {
             Assert.That(orf.StartPosition, Is.EqualTo(2), "ORF starts at the TTG start codon.");
+            Assert.That(orf.EndPosition, Is.EqualTo(13), "End = last base of the TAA stop codon.");
             Assert.That(orf.Frame, Is.EqualTo(3), "TTG at index 2 lies in forward frame +3.");
-            Assert.That(orf.Protein.Sequence, Is.EqualTo("LKG"),
-                "TTG is translated by its actual residue (Leu) at the initiator position in this implementation.");
+            Assert.That(orf.Protein.Sequence, Is.EqualTo("MKG"),
+                "The initiator is read as Met whatever the start codon (getorf -methionine; Biopython cds=True).");
         });
+    }
+
+    // C1b — CTG (standard table 1 start) initiator also reported as Met; internal CTG stays Leu.
+    // Biopython: Seq("CTGCTGTAA").translate(cds=True) == "ML".
+    [Test]
+    public void FindOrfs_AlternativeStartCodonCtg_InitiatorIsMethionine_InternalCtgIsLeucine()
+    {
+        var orf = Translator.FindOrfs(new DnaSequence("CTGCTGTAA"), minLength: 1, searchBothStrands: false).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(orf.Protein.Sequence, Is.EqualTo("ML"));
+            Assert.That(orf.EndPosition, Is.EqualTo(8));
+        });
+    }
+
+    // M11c — open ORF with a trailing partial codon ends at the last base of the last COMPLETE
+    // codon (EMBOSS getorf WriteORF(start, pos+2): getorf reports [1 - 9] for this input).
+    // Corrected 2026-09 (B02 review): the implementation previously reported End = Length-1 = 10
+    // (NucleotideLength 11, not a whole number of codons).
+    [Test]
+    public void FindOrfs_OpenOrfWithTrailingPartialCodon_EndsAtLastCompleteCodon()
+    {
+        var dna = new DnaSequence("ATGAAACCCGG");
+
+        var orf = Translator.FindOrfs(dna, minLength: 1, searchBothStrands: false).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(orf.StartPosition, Is.EqualTo(0));
+            Assert.That(orf.EndPosition, Is.EqualTo(8), "Last base of the last complete codon (CCC).");
+            Assert.That(orf.NucleotideLength, Is.EqualTo(9), "Open ORF = 3 × protein length.");
+            Assert.That(orf.Protein.Sequence, Is.EqualTo("MKP"));
+        });
+    }
+
+    // M11d — same rule on the reverse strand: revcomp(CCGGGTTTCAT) = ATGAAACCCGG.
+    [Test]
+    public void FindOrfs_ReverseStrandOpenOrf_EndsAtLastCompleteCodon()
+    {
+        var orfs = Translator.FindOrfs(new DnaSequence("CCGGGTTTCAT"), minLength: 1, searchBothStrands: true).ToList();
+
+        Assert.That(orfs, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(orfs[0].Frame, Is.EqualTo(-1));
+            Assert.That(orfs[0].StartPosition, Is.EqualTo(0));
+            Assert.That(orfs[0].EndPosition, Is.EqualTo(8));
+            Assert.That(orfs[0].Protein.Sequence, Is.EqualTo("MKP"));
+        });
+    }
+
+    // D1 — differential case locked to a Python port of EMBOSS getorf -find 1 (getorf.c
+    // getorf_FindORFs, -methionine Y) with Biopython NCBI table 12 (CTG = Ser, but a START),
+    // mapped to this API's convention (reverse strand in reverse-complement coordinates,
+    // End includes the STOP when terminated). 35 nt: both ORFs run off the end (trailing
+    // partial codons dropped) and the reverse-frame ORF starts at CTG -> 'M', not 'S'.
+    [Test]
+    public void FindOrfs_Table12_MatchesGetorfReference()
+    {
+        var dna = new DnaSequence("AGATTTTCATATTATGCAGAAAATCTACTTCGCCT");
+
+        var orfs = Translator.FindOrfs(dna, GeneticCode.GetByTableNumber(12), minLength: 1)
+            .OrderBy(o => o.Frame).Select(o => (o.Frame, o.StartPosition, o.EndPosition, o.Protein.Sequence))
+            .ToList();
+
+        Assert.That(orfs, Is.EqualTo(new[]
+        {
+            (-2, 16, 33, "MHNMKI"),
+            (2, 13, 33, "MQKIYFA"),
+        }));
+    }
+
+    // D2 — NCBI tables 27, 28, 31: every stop codon also codes for an amino acid (Biopython
+    // CodonTable: stop_codons ⊂ forward_table), so no codon unambiguously ends an ORF. Rejected,
+    // as Biopython rejects translate(to_stop=True) for these tables.
+    [TestCase(27)]
+    [TestCase(28)]
+    [TestCase(31)]
+    public void FindOrfs_DualCodingStopTable_Throws(int table)
+    {
+        var dna = new DnaSequence("ATGTGATAAGGG");
+
+        Assert.Throws<System.ArgumentException>(
+            () => Translator.FindOrfs(dna, GeneticCode.GetByTableNumber(table), minLength: 1));
     }
 
     #endregion

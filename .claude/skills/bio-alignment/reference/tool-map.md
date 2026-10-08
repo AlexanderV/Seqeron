@@ -1,7 +1,7 @@
-# bio-alignment tool map (34 tools)
+# bio-alignment tool map (44 tools)
 
 Grouped by sub-task. Each row: **[MCP] tool** · `Method ID` · one-line purpose. Open the linked
-per-tool doc for the full I/O schema — do not guess parameters. Servers: **Alignment** (22), **Core** (12).
+per-tool doc for the full I/O schema — do not guess parameters. Servers: **Alignment** (26), **Core** (15).
 
 ## Pairwise alignment (Alignment server)
 
@@ -34,12 +34,17 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | [`find_with_edits`](../../../../docs/mcp/tools/alignment/find_with_edits.md) | `ApproximateMatcher.FindWithEdits` | All matches up to `maxEdits` Levenshtein edits (variable-length windows). |
 | [`find_best_match`](../../../../docs/mcp/tools/alignment/find_best_match.md) | `ApproximateMatcher.FindBestMatch` | Single best (min Hamming) window of pattern in sequence; leftmost tie. |
 | [`frequent_kmers_with_mismatches`](../../../../docs/mcp/tools/alignment/frequent_kmers_with_mismatches.md) | `ApproximateMatcher.FindFrequentKmersWithMismatches` | Most-frequent k-mers allowing up to d mismatches (neighborhood tally). |
+| [`frequent_kmers_with_mismatches_and_revcomp`](../../../../docs/mcp/tools/alignment/frequent_kmers_with_mismatches_and_revcomp.md) | `ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements` | BA1J: most-frequent k-mers counting d-mismatch hits of the k-mer and its reverse complement. |
+| [`find_edit_end_positions`](../../../../docs/mcp/tools/alignment/find_edit_end_positions.md) | `ApproximateMatcher.FindEditEndPositions` | Sellers k-differences: every end position within `maxEdits` + its minimum edit distance (optional weighted costs). |
 
 ## Similarity & distance (Core server)
 
 | Tool | Method ID | Purpose |
 |---|---|---|
-| [`edit_distance`](../../../../docs/mcp/tools/core/edit_distance.md) | `ApproximateMatcher.EditDistance` | Levenshtein distance (any lengths); Wagner-Fischer. |
+| [`edit_distance`](../../../../docs/mcp/tools/core/edit_distance.md) | `ApproximateMatcher.EditDistance` | Levenshtein distance (any lengths; Myers bit-parallel); optional insertion/deletion/substitution costs → weighted distance (rapidfuzz weights). |
+| [`edit_alignment`](../../../../docs/mcp/tools/alignment/edit_alignment.md) | `ApproximateMatcher.GetEditAlignment` | Optimal Levenshtein alignment: `=`/`X`/`I`/`D` ops, edlib CIGAR, gapped strings (`linearSpace` → Hirschberg; optional weighted costs). Alignment server. |
+| [`damerau_levenshtein_distance`](../../../../docs/mcp/tools/alignment/damerau_levenshtein_distance.md) | `ApproximateMatcher.DamerauLevenshteinDistance` | Edit distance with adjacent transpositions (`unrestricted` DL or `osa`); optional weighted ins/del/sub/transposition costs (Lowrance–Wagner). Alignment server. |
+| [`damerau_alignment`](../../../../docs/mcp/tools/alignment/damerau_alignment.md) | `ApproximateMatcher.GetDamerauLevenshteinAlignment` / `GetOptimalStringAlignment` | Transposition-aware edit script (Lowrance–Wagner trace: `=`/`X`/`I`/`D`/`T` blocks with positions and costs), unit or weighted costs. Alignment server. |
 | [`hamming_distance`](../../../../docs/mcp/tools/core/hamming_distance.md) | `ApproximateMatcher.HammingDistance` | Mismatch count for **equal-length** seqs. |
 | [`calculate_similarity`](../../../../docs/mcp/tools/core/calculate_similarity.md) | `GenomicAnalyzer.CalculateSimilarity` | k-mer Jaccard similarity in [0,1] (optional `kmerSize`). |
 | [`count_approximate_occurrences`](../../../../docs/mcp/tools/core/count_approximate_occurrences.md) | `ApproximateMatcher.CountApproximateOccurrences` | Count approximate occurrences of a pattern allowing mismatches. |
@@ -52,6 +57,12 @@ per-tool doc for the full I/O schema — do not guess parameters. Servers: **Ali
 | [`suffix_tree_lcs`](../../../../docs/mcp/tools/core/suffix_tree_lcs.md) | `SuffixTree.LongestCommonSubstring` | Longest common substring of two raw texts (`substring`, `length`). |
 | [`find_longest_repeat`](../../../../docs/mcp/tools/core/find_longest_repeat.md) | `GenomicAnalyzer.FindLongestRepeat` | Longest repeated region in a DNA sequence. |
 | [`suffix_tree_lrs`](../../../../docs/mcp/tools/core/suffix_tree_lrs.md) | `SuffixTree.LongestRepeatedSubstring` | Longest repeated substring in a text. |
+| [`suffix_tree_all_lrs`](../../../../docs/mcp/tools/core/suffix_tree_all_lrs.md) | `SuffixTree.FindAllLongestRepeatedSubstrings` | Every tied longest repeated substring with all positions. |
+| [`suffix_tree_find_mems`](../../../../docs/mcp/tools/core/suffix_tree_find_mems.md) | `SuffixTree.FindMaximalExactMatches` | All maximal exact matches ≥ minLength between reference and query (MUMmer `-maxmatch`). |
+| [`suffix_tree_find_mums`](../../../../docs/mcp/tools/core/suffix_tree_find_mums.md) | `SuffixTree.FindMaximalUniqueMatches` | Maximal unique matches (MUMmer `-mum` / `-mumreference`). |
+| [`suffix_tree_all_lcs`](../../../../docs/mcp/tools/core/suffix_tree_all_lcs.md) | `SuffixTree.FindAllDistinctLongestCommonSubstrings` | Every tied longest common substring of two texts with all positions in both. |
+| [`suffix_tree_k_common_substrings`](../../../../docs/mcp/tools/core/suffix_tree_k_common_substrings.md) | `SuffixTree.FindLongestCommonSubstrings` | Longest substring(s) common to k strings or ≥ minSupport of them (Rosalind LCSM; l(q) for every q). |
+| [`suffix_tree_maximal_repeats`](../../../../docs/mcp/tools/core/suffix_tree_maximal_repeats.md) | `SuffixTree.FindMaximalRepeatedPairs` | All maximal repeated pairs ≥ minLength in one text (MUMmer `repeat-match -f`; optional unique symbols such as N). |
 
 ## Exact substring queries (Core suffix tree)
 

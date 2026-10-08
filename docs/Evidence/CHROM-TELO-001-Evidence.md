@@ -31,6 +31,10 @@
    - DOI: 10.1016/0022-2836(78)90294-2
    - PMID: 642006
 
+5. **seqtk telo** (H. Li, seqtk 1.5-r133, `stk_telo` in seqtk.c) — reference algorithm for sequence-based telomere tract detection at contig/chromosome ends
+   - Source opened: https://raw.githubusercontent.com/lh3/seqtk/master/seqtk.c (compiled locally, 2026-09-28)
+   - Algorithm: hits = k-mers equal to any rotation of the motif; +1 hit / −p miss (p=1), maximal cumulative score from each end, X-drop stop (d=2000), min score 300 for reporting
+
 ---
 
 ## Key Biological Facts
@@ -84,8 +88,7 @@
 
 ### Repeat Purity
 - Biological telomeres show some divergence from perfect repeats
-- Implementation uses 70% per-window similarity threshold: for 6 bp repeat, 5/6 bases must match (1 mismatch allowed); for 7 bp repeat (e.g. Arabidopsis TTTAGGG), 5/7 bases must match (2 mismatches allowed)
-- Higher purity = younger/healthier telomere
+- Implementation (2026-09 review) follows seqtk telo: a position is a hit when its k-mer is a rotation of the motif; purity = hits / scored positions within the reported tract (> 1/2 for any tract with penalty 1). The former 70% phase-anchored window threshold was replaced (it missed tracts ending in a partial repeat unit).
 
 ### Critical Length Assessment
 - Critically short telomeres trigger DNA damage response and cellular senescence — Wikipedia
@@ -99,7 +102,7 @@
 The implementation should:
 1. Search for CCCTAA repeats at 5' end (looking from start)
 2. Search for TTAGGG repeats at 3' end (looking from end)
-3. Allow configurable similarity threshold (default 70%)
+3. Score motif-rotation hits (+1) and misses (−penalty) inward from each end; tract = maximal-score prefix/suffix (seqtk telo)
 4. Track both length and purity
 
 ### Test Datasets
@@ -108,11 +111,15 @@ The implementation should:
 |-----------|-----------------|-----------------|
 | 3' telomere | [1000 A's] + [200× TTAGGG] | Has3PrimeTelomere=true, length=1200, purity=1.0 |
 | 5' telomere | [200× CCCTAA] + [1000 A's] | Has5PrimeTelomere=true, length=1200, purity=1.0 |
-| Both ends | [CCCTAA×200] + [2000 A's] + [TTAGGG×200] | Both detected, length=900 each |
+| Both ends | [CCCTAA×150] + [1000 A's] + [TTAGGG×150] | Both detected, length=900 each (seqtk telo) |
 | No telomere | [1000 A's] | Neither detected, lengths=0 |
 | Empty | "" | Neither detected, critically short |
 | Short telomere | [1000 A's] + [TTAGGG×50] | Detected if min threshold ≤ 300 |
-| Divergent repeats | [1000 A's] + [TTAGGA×200] | Has3Prime=true, length=1200, purity=5/6≈0.833 |
+| Divergent repeats | [1000 A's] + 200 units, every 10th TTAGGA | Has3Prime=true, length=1194, purity=1075/1189 (seqtk telo) |
+| Non-motif hexamer tract | [1000 A's] + [TTAGGA×200] | not detected, length 0 (seqtk telo) |
+| Terminal partial unit | [1000 A's] + [TTAGGG×200] + TTAG | length=1204 (seqtk telo) |
+| 5' offset | AA + [CCCTAA×200] + [1000 A's] | length5=1202 (seqtk telo) |
+| N inside tract | [1000 A's] + TTAGGG×100 + N + TTAGGG×100 | length=1201, purity=1190/1196 (seqtk telo) |
 | Long telomere | [1000 A's] + [TTAGGG×2000] | Has3Prime=true, length=12000, purity=1.0 |
 | SearchLength limited | [1000 A's] + [TTAGGG×200], searchLen=600 | length=600 (truncated by search window) |
 

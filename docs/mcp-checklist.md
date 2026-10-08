@@ -725,7 +725,7 @@
 
 #### 4.2.23 `complexity_kmer_entropy`
 - **HasDocs**: ✓
-- **DocRef**: SequenceComplexity.cs:L128#xml
+- **DocRef**: SequenceComplexity.cs:L267#xml
 - [x] a) Link MethodId: `SequenceComplexity.CalculateKmerEntropy`
 - [x] b) Freeze toolName: `complexity_kmer_entropy`, serverName: `Sequence`
 - [x] c) Define inputSchema: `{ sequence: string, k?: integer }`
@@ -739,7 +739,7 @@
 
 #### 4.2.24 `complexity_dust_score`
 - **HasDocs**: ✓
-- **DocRef**: SequenceComplexity.cs:L296#xml
+- **DocRef**: SequenceComplexity.cs:L723#xml
 - [x] a) Link MethodId: `SequenceComplexity.CalculateDustScore`
 - [x] b) Freeze toolName: `complexity_dust_score`, serverName: `Sequence`
 - [x] c) Define inputSchema: `{ sequence: string, wordSize?: integer }`
@@ -753,7 +753,7 @@
 
 #### 4.2.25 `complexity_mask_low`
 - **HasDocs**: ✓
-- **DocRef**: SequenceComplexity.cs:L346#xml
+- **DocRef**: SequenceComplexity.cs:L826#xml
 - [x] a) Link MethodId: `SequenceComplexity.MaskLowComplexity`
 - [x] b) Freeze toolName: `complexity_mask_low`, serverName: `Sequence`
 - [x] c) Define inputSchema: `{ sequence: string, threshold?: number, maskChar?: string }`
@@ -767,7 +767,7 @@
 
 #### 4.2.26 `complexity_compression_ratio`
 - **HasDocs**: ✓
-- **DocRef**: SequenceComplexity.cs:L391#xml
+- **DocRef**: SequenceComplexity.cs:L1631#xml
 - [x] a) Link MethodId: `SequenceComplexity.EstimateCompressionRatio`
 - [x] b) Freeze toolName: `complexity_compression_ratio`, serverName: `Sequence`
 - [x] c) Define inputSchema: `{ sequence: string }`
@@ -795,7 +795,7 @@
 
 #### 4.2.28 `kmer_distance`
 - **HasDocs**: ✓
-- **DocRef**: KmerAnalyzer.cs:L165#xml
+- **DocRef**: KmerAnalyzer.cs:L730#xml
 - [x] a) Link MethodId: `KmerAnalyzer.KmerDistance`
 - [x] b) Freeze toolName: `kmer_distance`, serverName: `Sequence`
 - [x] c) Define inputSchema: `{ sequence1: string, sequence2: string, k: integer }`

@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "kmer_jaccard",
+  "serverName": "Analysis",
+  "version": "1.4.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.JaccardSimilarity",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L1406",
+  "description": "k-mer Jaccard index |A∩B|/|A∪B| (exact, or Mash bottom-s MinHash estimate with sketchSize > 0), the Mash distance -ln(2J/(1+J))/k (Ondov et al. 2016), the Mash p-value and x/s in sketch mode, and the exact containment indices |A∩B|/|A|, |A∩B|/|B| (Koslicki & Zabeti 2019). scaled = S in 1..4294967295 (requires canonical=true; sourmash DNA hashing is always canonical and skips non-ACGT k-mers) uses sourmash FracMinHash sketches (keep hashes <= max_hash(S); Jaccard, bias-corrected contained_by, max_containment; Irber et al. 2022, Hera et al. 2023); trackAbundance=true adds the sourmash angular_similarity of the abundance vectors. canonical=true gives Mash/sourmash k-mers.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "seq1": {
+        "type": "string",
+        "description": "First sequence",
+        "minLength": 1
+      },
+      "seq2": {
+        "type": "string",
+        "description": "Second sequence",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "k-mer length",
+        "minimum": 1
+      },
+      "canonical": {
+        "type": "boolean",
+        "description": "Canonical k-mers min(w, revcomp(w)), non-ACGT windows skipped (mash dist default, sourmash, jellyfish -C)",
+        "default": false
+      },
+      "acgtOnly": {
+        "type": "boolean",
+        "description": "Skip k-mers containing a non-ACGT symbol (mash sketch -n)",
+        "default": false
+      },
+      "sketchSize": {
+        "type": "integer",
+        "description": "0 = exact sets (default); s > 0 = Mash MinHash sketch size (mash -s; Mash default 1000), MurmurHash3_x64_128 seed 42, k <= 32",
+        "minimum": 0,
+        "default": 0
+      },
+      "scaled": {
+        "type": "integer",
+        "description": "0 = no FracMinHash (default); S in 1..4294967295 = sourmash scaled factor (MinHash(n=0, scaled=S); sourmash ScaledType is u32), canonical k-mers (requires canonical=true), non-ACGT k-mers skipped (add_sequence force=True), MurmurHash3_x64_128 seed 42, hashes <= (u64::MAX as f64 / S) as u64 kept; sourmash default 1000; 1 = exact. Mutually exclusive with sketchSize",
+        "minimum": 0,
+        "maximum": 4294967295,
+        "default": 0
+      },
+      "trackAbundance": {
+        "type": "boolean",
+        "description": "With scaled > 0: track k-mer abundances (sourmash track_abundance=True) and return angularSimilarity (sourmash angular_similarity = 1 - 2*acos(cos)/pi of the abundance vectors) and weightedContainmentSeq1InSeq2/weightedContainmentSeq2InSeq1 (sourmash contained_by_weighted)",
+        "default": false
+      }
+    },
+    "required": [
+      "seq1",
+      "seq2",
+      "k"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "jaccard": {
+        "type": "number",
+        "description": "Jaccard index in [0,1]; 0 when both k-mer sets are empty"
+      },
+      "mashDistance": {
+        "type": "number",
+        "description": "Mash distance in [0,1] (0 for identical sets, 1 when no k-mer is shared, capped at 1)"
+      },
+      "containmentSeq1InSeq2": {
+        "type": "number",
+        "description": "Exact containment |A∩B|/|A| (0 when A is empty); with scaled > 0 sourmash A.contained_by(B) (bias-corrected)"
+      },
+      "containmentSeq2InSeq1": {
+        "type": "number",
+        "description": "Exact containment |A∩B|/|B| (0 when B is empty); with scaled > 0 sourmash B.contained_by(A)"
+      },
+      "sharedHashes": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "Sketch mode: shared hashes x of Mash's x/s; scaled mode: |A∩B| (sourmash count_common); null in exact mode"
+      },
+      "sketchDenominator": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "description": "Sketch mode: union hashes compared (denominator of x/s); scaled mode: |A∪B|; null in exact mode"
+      },
+      "pValue": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Sketch mode: Mash p-value P(X >= x), X ~ Binomial(denominator, r); null in exact mode"
+      },
+      "maxContainment": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Scaled mode: sourmash max_containment (shared / min(|A|,|B|), bias-corrected); null otherwise"
+      },
+      "angularSimilarity": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "trackAbundance: sourmash angular_similarity of the two abundance-weighted FracMinHash sketches; null otherwise"
+      },
+      "weightedContainmentSeq1InSeq2": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "trackAbundance: sourmash contained_by_weighted of seq1 in seq2 (sum of seq1 abundances over shared hashes / sum of all seq1 abundances); null otherwise"
+      },
+      "weightedContainmentSeq2InSeq1": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "trackAbundance: sourmash contained_by_weighted of seq2 in seq1; null otherwise"
+      }
+    },
+    "required": [
+      "jaccard",
+      "mashDistance",
+      "containmentSeq1InSeq2",
+      "containmentSeq2InSeq1"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "k must be positive"
+    },
+    {
+      "code": 1003,
+      "message": "sketchSize must be >= 0"
+    },
+    {
+      "code": 1003,
+      "message": "k must be <= 32 when sketchSize > 0"
+    },
+    {
+      "code": 1003,
+      "message": "scaled must be in 0..4294967295"
+    },
+    {
+      "code": 1003,
+      "message": "sketchSize and scaled are mutually exclusive (Mash bottom-s vs sourmash FracMinHash)"
+    },
+    {
+      "code": 1003,
+      "message": "scaled > 0 requires canonical=true (sourmash DNA FracMinHash hashes canonical k-mers only)"
+    },
+    {
+      "code": 1003,
+      "message": "trackAbundance requires scaled > 0 (sourmash FracMinHash)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Canonical (Mash) k=2",
+      "input": {
+        "seq1": "ACGTTGCAACGGT",
+        "seq2": "ACGTAGCATCGGTA",
+        "k": 2,
+        "canonical": true
+      },
+      "output": {
+        "jaccard": 0.5,
+        "mashDistance": 0.20273255405408222,
+        "containmentSeq1InSeq2": 0.8333333333333334,
+        "containmentSeq2InSeq1": 0.5555555555555556,
+        "sharedHashes": null,
+        "sketchDenominator": null,
+        "pValue": null,
+        "maxContainment": null,
+        "angularSimilarity": null,
+        "weightedContainmentSeq1InSeq2": null,
+        "weightedContainmentSeq2InSeq1": null
+      }
+    },
+    {
+      "name": "Literal k=3 (Zielezinski Fig. 1)",
+      "input": {
+        "seq1": "ATGTGTG",
+        "seq2": "CATGTG",
+        "k": 3
+      },
+      "output": {
+        "jaccard": 0.75,
+        "mashDistance": 0.05138355994241945,
+        "containmentSeq1InSeq2": 1.0,
+        "containmentSeq2InSeq1": 0.75,
+        "sharedHashes": null,
+        "sketchDenominator": null,
+        "pValue": null,
+        "maxContainment": null,
+        "angularSimilarity": null,
+        "weightedContainmentSeq1InSeq2": null,
+        "weightedContainmentSeq2InSeq1": null
+      }
+    },
+    {
+      "name": "sourmash FracMinHash scaled=3 with abundance",
+      "input": {
+        "seq1": "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT",
+        "seq2": "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC",
+        "k": 4,
+        "canonical": true,
+        "scaled": 3,
+        "trackAbundance": true
+      },
+      "output": {
+        "jaccard": 0.3103448275862069,
+        "mashDistance": 0.18680360045755526,
+        "containmentSeq1InSeq2": 0.4285714285748822,
+        "containmentSeq2InSeq1": 0.52941176525941,
+        "sharedHashes": 9,
+        "sketchDenominator": 29,
+        "pValue": null,
+        "maxContainment": 0.52941176525941,
+        "angularSimilarity": 0.3123095603640216,
+        "weightedContainmentSeq1InSeq2": 0.4642857142857143,
+        "weightedContainmentSeq2InSeq1": 0.5238095238095238
+      }
+    }
+  ]
+}

@@ -57,20 +57,21 @@ public static class GenomeAnnotator
         IReadOnlyDictionary<string, string> Attributes);
 
     /// <summary>
-    /// Start codons to look for.
+    /// Initiation codons recognised by <see cref="FindOrfs"/>: ATG, GTG and TTG — the
+    /// prokaryotic start set used by Prodigal (Hyatt et al. 2010, BMC Bioinformatics 11:119;
+    /// <c>is_start()</c> in Prodigal <c>sequence.c</c> accepts exactly ATG/GTG/TTG for
+    /// translation table 11). This is a start-selection policy, not a genetic-code table:
+    /// stop recognition and codon translation come from the canonical
+    /// <see cref="GeneticCode.Standard"/> via <see cref="GeneticCode.IsStopCodon"/> and
+    /// <see cref="Translator.Translate(string, GeneticCode?, int, bool)"/>.
     /// </summary>
     private static readonly HashSet<string> StartCodons = new(StringComparer.OrdinalIgnoreCase)
     {
         "ATG", "GTG", "TTG"
     };
 
-    /// <summary>
-    /// Stop codons.
-    /// </summary>
-    private static readonly HashSet<string> StopCodons = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "TAA", "TAG", "TGA"
-    };
+    /// <summary>Genetic code used for stop recognition and translation (NCBI table 1).</summary>
+    private static GeneticCode OrfGeneticCode => GeneticCode.Standard;
 
     /// <summary>
     /// Finds all open reading frames in a DNA sequence.
@@ -78,7 +79,16 @@ public static class GenomeAnnotator
     /// <param name="dnaSequence">The DNA sequence to search.</param>
     /// <param name="minLength">Minimum ORF length in amino acids.</param>
     /// <param name="searchBothStrands">Whether to search reverse complement.</param>
-    /// <param name="requireStartCodon">Whether to require ATG start.</param>
+    /// <param name="requireStartCodon">
+    /// <see langword="true"/> (default): start-to-stop ORFs — every ATG/GTG/TTG start is paired
+    /// with its nearest downstream in-frame stop (Rosalind ORF semantics, so nested ORFs sharing
+    /// a stop are all reported); an initiating codon is translated as Met, as in EMBOSS getorf
+    /// (<c>-methionine</c>, default Y) and Biopython <c>translate(cds=True)</c>.
+    /// <see langword="false"/>: stop-to-stop regions exactly as EMBOSS getorf <c>-find 0</c> on a
+    /// linear sequence — one region per stop-delimited segment, including the leading segment
+    /// that begins at the frame offset and the trailing segment that runs to the last complete
+    /// codon without a stop; no start-codon sub-ORFs are added.
+    /// </param>
     /// <returns>All found ORFs.</returns>
     public static IEnumerable<OpenReadingFrame> FindOrfs(
         string dnaSequence,
@@ -89,7 +99,7 @@ public static class GenomeAnnotator
         if (string.IsNullOrEmpty(dnaSequence))
             yield break;
 
-        var geneticCode = GeneticCode.Standard;
+        var geneticCode = OrfGeneticCode;
 
         // Search forward strand
         foreach (var orf in FindOrfsInStrand(dnaSequence, geneticCode, minLength, requireStartCodon, false))
@@ -136,77 +146,119 @@ public static class GenomeAnnotator
         bool requireStartCodon,
         bool isReverseComplement)
     {
+        return requireStartCodon
+            ? FindStartToStopOrfsInFrame(sequence, frame, geneticCode, minLength, isReverseComplement)
+            : FindStopToStopOrfsInFrame(sequence, frame, geneticCode, minLength, isReverseComplement);
+    }
+
+    /// <summary>
+    /// Start-to-stop ORFs in one frame: every pending start is closed by the next in-frame stop.
+    /// </summary>
+    private static IEnumerable<OpenReadingFrame> FindStartToStopOrfsInFrame(
+        string sequence,
+        int frame,
+        GeneticCode geneticCode,
+        int minLength,
+        bool isReverseComplement)
+    {
         var currentOrfStarts = new List<int>();
 
         for (int i = frame; i <= sequence.Length - 3; i += 3)
         {
-            string codon = sequence.Substring(i, 3).ToUpperInvariant();
+            string codon = sequence.Substring(i, 3);
 
             if (StartCodons.Contains(codon))
             {
                 currentOrfStarts.Add(i);
             }
-
-            if (StopCodons.Contains(codon))
+            else if (geneticCode.IsStopCodon(codon))
             {
-                // Complete all current ORFs
                 foreach (int start in currentOrfStarts)
                 {
-                    int orfNucleotideLength = i - start;
-                    int orfAaLength = orfNucleotideLength / 3;
-
+                    int orfAaLength = (i - start) / 3;
                     if (orfAaLength >= minLength)
                     {
                         string orfSeq = sequence.Substring(start, i + 3 - start);
-                        string protein = Translator.Translate(orfSeq, geneticCode).Sequence;
-
                         yield return new OpenReadingFrame(
                             Start: start,
                             End: i + 3,
                             Frame: frame + 1,
                             IsReverseComplement: isReverseComplement,
                             Sequence: orfSeq,
-                            ProteinSequence: protein);
+                            ProteinSequence: TranslateWithInitiatorMet(orfSeq, geneticCode));
                     }
                 }
 
                 currentOrfStarts.Clear();
-
-                if (!requireStartCodon)
-                {
-                    currentOrfStarts.Add(i + 3);
-                }
             }
         }
+    }
 
-        // Handle ORFs that extend to end of sequence (no stop codon found)
-        if (!requireStartCodon && currentOrfStarts.Count > 0)
+    /// <summary>
+    /// Stop-to-stop regions in one frame (EMBOSS getorf <c>-find 0</c>, linear sequence):
+    /// the frame is treated as already open at its offset, every stop closes the current
+    /// region and opens the next one at the following codon, and the region still open at the
+    /// end of the sequence is reported up to the last complete codon. Regions that contain no
+    /// sense codon are not ORFs and are skipped.
+    /// </summary>
+    private static IEnumerable<OpenReadingFrame> FindStopToStopOrfsInFrame(
+        string sequence,
+        int frame,
+        GeneticCode geneticCode,
+        int minLength,
+        bool isReverseComplement)
+    {
+        int regionStart = frame;
+        int i = frame;
+
+        for (; i <= sequence.Length - 3; i += 3)
         {
-            foreach (int start in currentOrfStarts)
+            if (!geneticCode.IsStopCodon(sequence.Substring(i, 3)))
+                continue;
+
+            int aaLength = (i - regionStart) / 3;
+            if (aaLength >= 1 && aaLength >= minLength)
             {
-                int endPos = sequence.Length - ((sequence.Length - start) % 3);
-                int orfAaLength = (endPos - start) / 3;
-
-                // A trailing pending start that sits at (or past) the final codon
-                // boundary spans no codons (endPos == start): emitting it would yield a
-                // zero-length ORF with Start == End and an empty sequence/protein, which
-                // violates INV-04 (0 <= Start < End <= length, ORF_Detection.md §2.4) and
-                // is nonsense output. Such a segment is not an ORF, so skip it.
-                if (orfAaLength >= minLength && endPos > start)
-                {
-                    string orfSeq = sequence.Substring(start, endPos - start);
-                    string protein = Translator.Translate(orfSeq, geneticCode).Sequence;
-
-                    yield return new OpenReadingFrame(
-                        Start: start,
-                        End: endPos,
-                        Frame: frame + 1,
-                        IsReverseComplement: isReverseComplement,
-                        Sequence: orfSeq,
-                        ProteinSequence: protein);
-                }
+                string orfSeq = sequence.Substring(regionStart, i + 3 - regionStart);
+                yield return new OpenReadingFrame(
+                    Start: regionStart,
+                    End: i + 3,
+                    Frame: frame + 1,
+                    IsReverseComplement: isReverseComplement,
+                    Sequence: orfSeq,
+                    ProteinSequence: Translator.Translate(orfSeq, geneticCode).Sequence);
             }
+
+            regionStart = i + 3;
         }
+
+        // Trailing region without a stop: i is now the first codon position that does not fit.
+        int endPos = i;
+        int trailingAa = (endPos - regionStart) / 3;
+        if (endPos > regionStart && trailingAa >= minLength)
+        {
+            string orfSeq = sequence.Substring(regionStart, endPos - regionStart);
+            yield return new OpenReadingFrame(
+                Start: regionStart,
+                End: endPos,
+                Frame: frame + 1,
+                IsReverseComplement: isReverseComplement,
+                Sequence: orfSeq,
+                ProteinSequence: Translator.Translate(orfSeq, geneticCode).Sequence);
+        }
+    }
+
+    /// <summary>
+    /// Translates a start-codon-initiated ORF with the canonical translator, rendering the
+    /// initiating codon as Met: an alternative initiator (GTG/TTG) is decoded by initiator
+    /// tRNA-fMet, so EMBOSS getorf (<c>-methionine</c>, default Y: "START codons at the
+    /// beginning of protein products will usually code for Methionine") and Biopython
+    /// <c>Seq.translate(cds=True)</c> both emit M for it (GTGAAAAAAAAATAA → MKKK).
+    /// </summary>
+    private static string TranslateWithInitiatorMet(string orfSeq, GeneticCode geneticCode)
+    {
+        string protein = Translator.Translate(orfSeq, geneticCode).Sequence;
+        return protein.Length == 0 || protein[0] == 'M' ? protein : string.Concat("M", protein.AsSpan(1));
     }
 
     /// <summary>
@@ -239,12 +291,17 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
-    /// Consensus Shine-Dalgarno motifs (purine-rich, complementary to the anti-SD
-    /// 3' tail of 16S rRNA 5'-...PyACCUCCUUA-3'). Longest first so the highest score wins.
-    /// Source: Shine &amp; Dalgarno (1975) Nature 254:34-38; full consensus AGGAGG.
+    /// Exact Shine-Dalgarno motifs: every contiguous substring of length ≥ 4 of the consensus
+    /// AGGAGG (Shine &amp; Dalgarno 1975, Nature 254:34-38), which pairs with the anti-SD
+    /// 3' tail of 16S rRNA (…CCUCCU…). This is the exact-match motif set of Prodigal's
+    /// <c>shine_dalgarno_exact()</c> (Hyatt et al. 2010, BMC Bioinformatics 11:119;
+    /// <c>sequence.c</c>), which compares a window to AGGAGG and accepts any contiguous
+    /// matching sub-motif — its 4-base class is "AGGA/GGAG/GAGG" (<c>gene.c</c> bins 11/12),
+    /// so GGAG is included. Prodigal's 3-base class (GGA/GAG/AGG) is not scanned here.
+    /// Longest first.
     /// </summary>
     private static readonly string[] ShineDalgarnoMotifs =
-        { "AGGAGG", "GGAGG", "AGGAG", "GAGG", "AGGA" };
+        { "AGGAGG", "GGAGG", "AGGAG", "GGAG", "GAGG", "AGGA" };
 
     /// <summary>
     /// Finds potential Shine-Dalgarno (ribosome binding site) sequences on the FORWARD
@@ -339,6 +396,21 @@ public static class GenomeAnnotator
     /// Scans a single strand sequence for Shine-Dalgarno motifs upstream of the supplied ORFs'
     /// start codons. Positions are reported in the coordinate space of <paramref name="sequence"/>.
     /// </summary>
+    /// <remarks>
+    /// Only maximal motifs are reported: for one start codon, an in-range hit whose span lies
+    /// inside another in-range hit (e.g. GGAGG inside AGGAGG) describes the same SD site and is
+    /// suppressed, as Prodigal's <c>shine_dalgarno_exact()</c> reports a single maximal
+    /// sub-motif of AGGAGG per window (it iterates motif lengths from the longest down). A motif
+    /// found upstream of several start codons (nested ORFs) is reported once.
+    /// <para>
+    /// <b>Score is a heuristic.</b> <c>score = motif.Length / 6</c> ranks motifs by their
+    /// complementarity length to the anti-SD only. The published RBS scores are not
+    /// reproducible without a genome-specific model: Prodigal scores each (motif, spacer) bin
+    /// with log-likelihood weights trained iteratively on the input genome's own gene set
+    /// (<c>train_starts_sd()</c>, <c>node.c</c>), and the RBS Calculator (Salis et al. 2009)
+    /// sums mRNA/16S rRNA folding free energies with empirically fitted spacing terms.
+    /// </para>
+    /// </remarks>
     private static IEnumerable<(int position, string sequence, double score)> ScanStrandForShineDalgarno(
         string sequence,
         IReadOnlyList<OpenReadingFrame> orfs,
@@ -346,6 +418,8 @@ public static class GenomeAnnotator
         int minDistance,
         int maxDistance)
     {
+        var reported = new HashSet<(int position, string motif)>();
+
         foreach (var orf in orfs)
         {
             int searchStart = Math.Max(0, orf.Start - upstreamWindow);
@@ -354,6 +428,7 @@ public static class GenomeAnnotator
             if (searchEnd <= searchStart) continue;
 
             string upstream = sequence.Substring(searchStart, searchEnd - searchStart).ToUpperInvariant();
+            var hitsForStart = new List<(int position, string motif)>();
 
             foreach (string motif in ShineDalgarnoMotifs)
             {
@@ -363,28 +438,48 @@ public static class GenomeAnnotator
                     int genomicPos = searchStart + pos;
                     int distanceToStart = orf.Start - genomicPos - motif.Length;
 
-                    if (distanceToStart >= minDistance && distanceToStart <= maxDistance)
+                    if (distanceToStart >= minDistance && distanceToStart <= maxDistance
+                        && !hitsForStart.Any(h => h.position <= genomicPos
+                                                  && genomicPos + motif.Length <= h.position + h.motif.Length))
                     {
-                        double score = (double)motif.Length / 6.0; // Normalize to consensus length
-                        yield return (genomicPos, motif, score);
+                        hitsForStart.Add((genomicPos, motif));
                     }
 
                     pos = upstream.IndexOf(motif, pos + 1, StringComparison.Ordinal);
                 }
             }
+
+            foreach (var hit in hitsForStart)
+            {
+                if (reported.Add(hit))
+                    yield return (hit.position, hit.motif, hit.motif.Length / 6.0);
+            }
         }
     }
 
     /// <summary>
-    /// Predicts genes using a simple ORF-based approach.
+    /// Predicts genes using a simple ORF-based approach: one CDS per stop codon on each strand,
+    /// started at the most upstream in-frame ATG/GTG/TTG (the longest ORF for that stop).
     /// </summary>
+    /// <remarks>
+    /// <see cref="FindOrfs"/> reports every start paired with its stop (nested ORFs sharing a
+    /// stop), but a gene is one start–stop pair: Prodigal (Hyatt et al. 2010) builds its gene
+    /// set from start/stop nodes and selects a single start per stop, and EMBOSS getorf
+    /// <c>-find 1</c> reports one region per stop beginning at the first START codon after the
+    /// preceding in-frame STOP. Start choice here follows the longest-ORF (first start) rule;
+    /// no RBS- or coding-score-based start refinement is performed.
+    /// </remarks>
     public static IEnumerable<GeneAnnotation> PredictGenes(
         string dnaSequence,
         int minOrfLength = 100,
         string prefix = "gene")
     {
         var orfs = FindOrfs(dnaSequence, minOrfLength, searchBothStrands: true, requireStartCodon: true)
+            // Stop codon identity: forward stop ends at End; reverse stop sits at forward Start.
+            .GroupBy(o => (o.IsReverseComplement, stop: o.IsReverseComplement ? o.Start : o.End))
+            .Select(g => g.MaxBy(o => o.End - o.Start))
             .OrderBy(o => o.Start)
+            .ThenBy(o => o.IsReverseComplement)
             .ToList();
 
         int geneCount = 0;

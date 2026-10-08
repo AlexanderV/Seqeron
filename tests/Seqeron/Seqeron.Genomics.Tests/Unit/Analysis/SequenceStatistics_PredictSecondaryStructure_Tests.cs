@@ -250,4 +250,117 @@ public class SequenceStatistics_PredictSecondaryStructure_Tests
     }
 
     #endregion
+
+    #region PredictSecondaryStructureChouFasman (full Chou-Fasman 1978 assignment)
+
+    // Expected strings come from an independent Python reference of the Chou & Fasman (1978)
+    // rules (Chen et al. 2006 BMC Bioinformatics 7(S4):S14 rules 1-3 + the 1978 turn rule),
+    // whose nucleation/extension and turn predicates were cross-checked exactly against the
+    // public ravihansa3000/ChouFasman implementation (see Evidence §Stage B).
+
+    // Pro f(i)f(i+1)f(i+2)f(i+3) = 0.102·0.301·0.034·0.068 = 7.098e-5 < 7.5e-5 → no turn,
+    // although <Pt> = 1.52 > 1.00 and Pt dominates Pa/Pb (p(t) threshold, 1978 turn rule).
+    [Test]
+    public void ChouFasman_PolyProline_BendProbabilityBelowThreshold_IsCoil()
+    {
+        Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman("PPPP"), Is.EqualTo("CCCC"));
+    }
+
+    // NPDG: p(t) = 0.161·0.301·0.179·0.152 = 1.32e-3 > 7.5e-5; <Pt> = 6.10/4 = 1.525 > 1.00;
+    // <Pa> = 0.705, <Pb> = 0.6825 < <Pt> → β-turn on all four residues.
+    [Test]
+    public void ChouFasman_Npdg_IsBetaTurn()
+    {
+        Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman("NPDG"), Is.EqualTo("TTTT"));
+    }
+
+    // AAAAAA: 6/6 helix formers (Pa 1.42 > 1.00); <Pa> = 1.42 > 1.03 and > <Pb> 0.83 → helix.
+    // QQQQQQ: Q is a former for both (Pa 1.11, Pb 1.10); helix accepted (1.11 > 1.03, > 1.10),
+    // sheet rejected because <Pb> 1.10 is not > <Pa> 1.11.
+    [TestCase("AAAAAA", "HHHHHH")]
+    [TestCase("QQQQQQ", "HHHHHH")]
+    [TestCase("aaaaaa", "HHHHHH")]
+    public void ChouFasman_HelixNucleusAccepted(string sequence, string expected)
+    {
+        Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman(sequence), Is.EqualTo(expected));
+    }
+
+    // VVVVVV is a helix nucleus (Pa 1.06 > 1.00, 6/6) with <Pa> 1.06 > 1.03, but <Pa> < <Pb> 1.70
+    // → helix rejected; sheet (3/5 formers, <Pb> 1.70 > 1.05, > <Pa>) accepted.
+    // VVVVV: too short for a 6-residue helix window; 5/5 sheet formers.
+    [TestCase("VVVVV", "EEEEE")]
+    [TestCase("VVVVVV", "EEEEEE")]
+    public void ChouFasman_SheetNucleusAccepted_HelixRejectedByPbComparison(string sequence, string expected)
+    {
+        Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman(sequence), Is.EqualTo(expected));
+    }
+
+    // SGIAKQ: 4/6 helix formers (I 1.08, A 1.42, K 1.14, Q 1.11) and <Pa> 1.015 > <Pb> 0.962,
+    // but <Pa> 1.015 is not > 1.03 → rejected (acceptance threshold).
+    // PTIQGQ: 3/5 sheet formers (T 1.19, I 1.60, Q 1.10); extended segment <Pb> 1.048 > <Pa> 0.878
+    // but not > 1.05 → rejected.
+    [TestCase("SGIAKQ", "CCCCCC")]
+    [TestCase("PTIQGQ", "CCCCCC")]
+    public void ChouFasman_NucleusBelowAcceptanceThreshold_IsCoil(string sequence, string expected)
+    {
+        Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman(sequence), Is.EqualTo(expected));
+    }
+
+    // EEEEEEVVVVVV: the helix E6 extends over the whole chain (every tetrapeptide <Pa> >= 1.00),
+    // the sheet covers residues 4..11. Overlap run 4..11 = EEVVVVVV: ΣPa 302+636 = 938 <
+    // ΣPb 74+1020 = 1094 → strand wins the overlap; residues 0..3 stay helix.
+    [Test]
+    public void ChouFasman_HelixSheetOverlap_ResolvedByMeanPropensity()
+    {
+        Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman("EEEEEEVVVVVV"),
+            Is.EqualTo("HHHHEEEEEEEE"));
+    }
+
+    // Turn assignment takes precedence over helix: EEEEEEGG is one extended helix; the
+    // tetrapeptide EEGG (p(t) = 0.056·0.060·0.190·0.152 = 9.70e-5, <Pt> 1.15 > <Pa> 1.04, <Pb> 0.56)
+    // is a turn.
+    [Test]
+    public void ChouFasman_TurnOverridesHelix()
+    {
+        Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman("EEEEEEGG"), Is.EqualTo("HHHHTTTT"));
+    }
+
+    // Non-standard residues carry no parameters: they block nucleation windows/tetrapeptides.
+    [Test]
+    public void ChouFasman_UnknownResidueBlocksNucleation()
+    {
+        Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman("AAAAXAAAA"), Is.EqualTo("CCCCCCCCC"));
+    }
+
+    // Human ubiquitin (UniProt P0CG48, residues 1-76) and the ravihansa3000 'protein1' example.
+    [TestCase("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG",
+              "EEEEEEETTTTEEEEEETTTTTEEEEHHHHHTTTTHTTTTEEEEEEEHHTTTTTTTTTTTTEEHEEEEEEEETTTT")]
+    [TestCase("MKIDAIVGRNSAKDIRTEERARVQLGNVVTAAALHGGIRISDQTTNSVETVVGKGESRVLIGNEYGGKGFWDNHHHHHH",
+              "HHEEEEETTTTHHHHHHHHEEEEEEEEEEEEECTTTTTCTTTTTTTTEEEEETTTTEEEEETTTTTTTTTTTTTCCCCC")]
+    public void ChouFasman_RealProteins_MatchPythonReference(string sequence, string expected)
+    {
+        string actual = SequenceStatistics.PredictSecondaryStructureChouFasman(sequence);
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.EqualTo(expected));
+            Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman(sequence.ToLowerInvariant()),
+                Is.EqualTo(expected), "case-insensitive");
+        });
+    }
+
+    [TestCase(null)]
+    [TestCase("")]
+    public void ChouFasman_NullOrEmpty_ReturnsEmpty(string? sequence)
+    {
+        Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman(sequence!), Is.Empty);
+    }
+
+    [TestCase("A", "C")]
+    [TestCase("AAAAA", "CCCCC")]
+    public void ChouFasman_ShorterThanAnyWindow_IsCoil(string sequence, string expected)
+    {
+        Assert.That(SequenceStatistics.PredictSecondaryStructureChouFasman(sequence), Is.EqualTo(expected));
+    }
+
+    #endregion
 }

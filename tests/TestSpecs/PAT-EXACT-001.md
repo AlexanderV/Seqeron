@@ -5,7 +5,7 @@
 **Algorithm:** Exact Pattern Search (Suffix Tree)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-02-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -38,7 +38,7 @@ Given a text T of length n and a pattern P of length m:
 
 | Edge Case | Expected Behavior | Source |
 |-----------|-------------------|--------|
-| Empty pattern | Returns all positions (0..n-1) | Formal language theory: ε is a substring of every string at every position |
+| Empty pattern | Returns all positions (0..n-1) | Library convention: one position per non-empty suffix start (the n leaves under the root, excluding the `$` terminator). Note: the general ε-occurrence definition (T[i..i-1] = ε for 1 ≤ i ≤ n+1) and Python `re`/`str.count` give n+1 positions (0..n); the suffix-tree API deliberately excludes the end position n |
 | Pattern not found | Returns empty collection | Standard |
 | Pattern = entire text | Returns [0] | Gusfield |
 | Overlapping occurrences | All positions returned | Rosalind example: "ATAT" in "GATATATGCATATACTT" → 2,4,10 |
@@ -101,7 +101,7 @@ From Rosalind bioinformatics platform:
 | ID | Test Case | Input | Expected | Evidence |
 |----|-----------|-------|----------|----------|
 | M1 | Null pattern throws | `null` | ArgumentNullException | Implementation contract |
-| M2 | Empty pattern returns all positions | `""` | [0..n-1] for n-length text | Formal language theory (ε ⊆ every string) |
+| M2 | Empty pattern returns all positions | `""` | [0..n-1] for n-length text | Library convention (suffix starts; see §1.3) |
 | M3 | Empty tree returns empty | tree(""), pattern("a") | [] | Standard |
 | M4 | Single occurrence at start | tree("hello world"), "hello" | [0] | Standard |
 | M5 | Single occurrence at end | tree("hello world"), "world" | [6] | Standard |
@@ -234,6 +234,7 @@ These are wrappers that delegate to `SuffixTree.FindAllOccurrences`. Minimal smo
 
 | Decision | Value | Source |
 |----------|-------|--------|
-| Empty pattern behavior | Returns all positions [0..n-1] | Formal language theory: the empty string ε is a substring of every string at every position |
+| Empty pattern behavior | Returns all positions [0..n-1] | Library convention: one position per non-empty suffix start (the n leaves under the root, excluding the `$` terminator). Note: the general ε-occurrence definition (T[i..i-1] = ε for 1 ≤ i ≤ n+1) and Python `re`/`str.count` give n+1 positions (0..n); the suffix-tree API deliberately excludes the end position n |
 | Case sensitivity | Case-sensitive matching | Suffix tree operates on raw characters; wrappers normalize to uppercase |
 | Span overloads | Identical semantics to string overloads | Zero-allocation equivalent, not a different operation |
+| Result order | `SuffixTree.FindAllOccurrences` returns leaf-traversal order (unspecified); `MotifFinder.FindExactMotif` and MCP `suffix_tree_find_all` return ascending order | O(m + z) leaf enumeration (Gusfield 1997); ascending output = Rosalind SUBS convention |

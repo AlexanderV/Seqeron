@@ -16,14 +16,22 @@
 | # | Source | Authority Rank | DOI or URL | Accessed |
 |---|--------|---------------|------------|----------|
 | 1 | Li, H. (2025). Finding low-complexity DNA sequences with longdust. arXiv:2509.07357 | 1 | https://arxiv.org/pdf/2509.07357 | 2026-06-14 |
-| 2 | Çakır et al. (2025). Entropy–Rank Ratio. arXiv:2511.05300 | 1 | https://arxiv.org/html/2511.05300 | 2026-06-14 |
+| 2 | Pastore E. P., Passarino G., Sapia P., De Rango F. (2025). Entropy–Rank Ratio. arXiv:2511.05300 (authors per the arXiv listing, B04 F60/F62; formerly mis-cited as "Çakır et al.") | 1 | https://arxiv.org/html/2511.05300 | 2026-06-14 |
 | 3 | Shannon, C.E. (1948) A Mathematical Theory of Communication (via citing secondaries) | 4 | https://en.wikipedia.org/wiki/Entropy_(information_theory) ; https://tcosmo.github.io/2019/04/21/shannon-entropy.html | 2026-06-14 |
+
+> **Review 2026-09 (B04):** source #1 does **not** define Shannon k-mer entropy — longdust's score is
+> S_L = Σ log c(t)! − f(ℓ/4^k) (README + tex/notes.tex, opened). It is retained only for ℓ = L − k + 1.
+> The formula is sourced to Shannon (1948) and the DNA block-entropy literature (Herzel, Ebeling & Schmitt
+> 1994, Phys. Rev. E 50:5061; Schmitt & Herzel 1997, J. Theor. Biol. 188:369), with BBMap/BBDuk
+> `EntropyTracker` (pk = count/(window − k + 1)) as reference implementation and `scipy.stats.entropy`
+> as numerical cross-check. See Evidence "Review 2026-09 correction". Added tests R1 (scipy values),
+> R2 (agreement with canonical `KmerAnalyzer.CountKmers`), R3 (k=1 ≡ per-base Shannon entropy on ACGT).
 
 ### 1.2 Key Evidence Points
 
 1. H = −Σ p_i log₂(p_i) where p_i is the frequency of the i-th k-mer — Li 2025.
 2. K-mers are overlapping (sliding window, step 1); a length-L sequence has N = L−k+1 k-mers; p_i = n_i/N — Li 2025.
-3. Logarithm base 2 → entropy in bits; single-nucleotide max = log₂(4) = 2 bits — Çakır 2025.
+3. Logarithm base 2 → entropy in bits; single-nucleotide max = log₂(4) = 2 bits — Pastore et al. 2025.
 4. Bounds: 0 ≤ H ≤ log_b(n); H = 0 for a deterministic distribution; H = log_b(n) for uniform over n symbols — Shannon 1948 (via secondaries).
 
 ### 1.3 Documented Corner Cases
@@ -33,8 +41,8 @@
 
 ### 1.4 Known Failure Modes / Pitfalls
 
-1. Confusing non-overlapping tuples (Çakır 2025, M=⌊L/n⌋) with overlapping k-mers (Li 2025, N=L−k+1). This unit uses the **overlapping** convention. — Li 2025 vs Çakır 2025.
-2. Wrong log base (must be 2 → bits). — Çakır 2025.
+1. Confusing non-overlapping tuples (Pastore et al. 2025, M=⌊L/n⌋) with overlapping k-mers (Li 2025, N=L−k+1). This unit uses the **overlapping** convention. — Li 2025 vs Pastore et al. 2025.
+2. Wrong log base (must be 2 → bits). — Pastore et al. 2025.
 
 ---
 
@@ -64,7 +72,7 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | `CalculateKmerEntropy_UniformMonomers_ReturnsLog2Of4` | `ACGT`, k=1 — 4 distinct monomers, uniform | 2.0 | Çakır 2025 (max=log₂4); Shannon uniform bound |
+| M1 | `CalculateKmerEntropy_UniformMonomers_ReturnsLog2Of4` | `ACGT`, k=1 — 4 distinct monomers, uniform | 2.0 | Pastore et al. 2025 (max=log₂4); Shannon uniform bound |
 | M2 | `CalculateKmerEntropy_AllDistinctDimers_ReturnsLog2OfN` | `ACGT`, k=2 — 3 distinct dimers, uniform | log₂(3) = 1.5849625007211562 | Li 2025 all-distinct; Shannon uniform |
 | M3 | `CalculateKmerEntropy_NonUniformDimers_ReturnsExact` | `ATATAT`, k=2 — AT=3,TA=2 (binary entropy of 0.6) | 0.9709505944546686 | Li 2025 formula H=−Σ p log₂ p |
 | M4 | `CalculateKmerEntropy_SingleRepeatedDimer_ReturnsZero` | `AAAA`, k=2 — only AA (deterministic) | 0.0 | Shannon H=0 for certainty; Li 2025 |
@@ -86,6 +94,20 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | `CalculateKmerEntropy_BoundsInvariant_WithinRange` | several sequences/k | 0 ≤ H ≤ log₂(L−k+1) | INV-1 property test |
+
+### 4.4 Bias corrections and normalisation (2026-10-01, B04 F54)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| K1 | `CalculateKmerEntropy_Corrections_MatchReferenceEstimators`: ATATAT k2 / ACGTACGTAAAAAAAAACGTACGT k3 / ATGCATGCAT k2 | plug-in / Miller–Madow / Grassberger = 0.9709505944546686, 1.115220098543565, 1.2692841903863027 / 2.5318692569751747, 2.7286003989145788, 2.8297096977806522 / 1.974937501201927, 2.2153866746834209, 2.1172810969412527 | R `entropy` 1.3.2 `entropy.MillerMadow`; mpmath eq. 35 |
+| K2 | `CalculateKmerEntropy_Normalized_DividesByLog2N` | ATATAT: 0.4181656600790516 / 0.48029915353501278 / 0.54665094633254617 | value / log₂ N |
+| K3 | `CalculateKmerEntropy_Normalized_MatchesBbtoolsEntropyTracker` | (float) 0.41816565 | BBTools 40.02 `EntropyTracker.calcEntropy` |
+| K4 | `CalculateKmerEntropy_Corrections_EdgeCases` | N = 1: MM 0, Grassberger 1.8327461772768672 (γ + ln 2 nats), normalised 0; A×10 k1 Grassberger −0.0023880009817158878; L < k → 0; null string → 0 | mpmath |
+| K5 | `CalculateKmerEntropy_MillerMadow_IsPluginPlusMillerTerm` (k 1–8) | plug-in + (D − 1)/(2N ln 2) | Miller 1955 |
+| K6 | `CalculateKmerEntropy_Corrections_InvalidArguments_Throw` | k 0 / undefined enum → ArgumentOutOfRange; null DnaSequence → ArgumentNull; unknown name → ArgumentException | contract |
+| K7 | `StatisticsHelper_Digamma_Tests` | ψ at 9 points = mpmath (≤ 2e-15 rel); recurrence; x ≤ 0 / NaN / ∞ throw | mpmath / scipy |
+| K8 | MCP `ComplexityKmerEntropy_CorrectionAndNormalize_MatchReferences` | `correction` / `normalize` parameters reproduce K1/K3 | as K1/K3 |
+| X1 | differential harness (not a unit test): 3 000 strings, k 1–10 | 0 mismatches vs R entropy (MM, plug-in), mpmath + recurrence + ndd G series (Grassberger), BBTools (normalised, 2 412 ACGT cases) | Evidence 2026-10-01 |
 
 ---
 
@@ -178,4 +200,4 @@
 
 ## 7. Open Questions / Decisions
 
-1. **Overlapping vs non-overlapping k-mers** — Decision: overlapping (Li 2025, N=L−k+1), which the existing implementation already uses; Çakır 2025's non-overlapping tuples are an alternative convention not adopted here. Documented in §1.4.
+1. **Overlapping vs non-overlapping k-mers** — Decision: overlapping (Li 2025, N=L−k+1), which the existing implementation already uses; Pastore et al. 2025's non-overlapping tuples are an alternative convention not adopted here. Documented in §1.4.

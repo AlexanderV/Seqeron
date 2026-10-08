@@ -51,7 +51,8 @@ special triloop / tetraloop stability bonuses
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `CalculateHairpinThermodynamicsNtthal(string, double)` | `PrimerDesigner` | **Canonical** | Full ntthal hairpin DP + bundled special-loop bonuses |
-| `NtthalHairpin.Run(string, double)` | `NtthalHairpin` | **Internal** | Tested indirectly via the canonical method |
+| `CalculateHairpinThermodynamicsNtthal(string, mv, dv, dntp[, temperatureCelsius, maxLoop])`, `CalculateHairpinStructureNtthal` | `PrimerDesigner` | **Canonical** | Full primer3-py `calc_hairpin` argument set + `ascii_structure_lines` (PRIMER-HAIRPIN-001, 2026-10-01) |
+| `NtthalHairpin.Run(string, double[, dv, dntp, tempKelvin, maxLoop, withStructure])` | `NtthalHairpin` | **Internal** | Tested indirectly via the canonical methods |
 | `FindMostStableHairpin` / `CalculateHairpinMeltingTemperature` | `PrimerDesigner` | **Delegate (regression)** | Legacy Table-4 model — must be UNCHANGED |
 
 ---

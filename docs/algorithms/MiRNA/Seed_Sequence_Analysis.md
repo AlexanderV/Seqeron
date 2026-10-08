@@ -33,7 +33,7 @@ $$
 \operatorname{mismatches}(a,b) = \sum_{i=1}^{k} [a_i \ne b_i]
 $$
 
-with `IsSameFamily = true` only when the stored seed strings are identical.
+Seeds are first normalised as TargetScan does (`targetscan_70.pl`: `s/T/U/gi; uc()`), the Hamming count uses the canonical `SequenceExtensions.HammingDistance`, and `IsSameFamily = true` only when the normalised seeds are identical (0 mismatches). `GroupBySeedFamily` keys families by the same normalised seed and omits seedless (<8 nt) miRNAs; `FindSimilarMiRnas` uses the `CompareSeedRegions` mismatch count and never reports a seedless miRNA as similar. `GenerateSeedVariants` returns the normalised seed plus all 3·L single-nucleotide substitutions over A/C/G/U (its `includeWobble` flag has no effect).
 
 ### 2.4 Properties and Invariants
 
@@ -42,7 +42,7 @@ with `IsSameFamily = true` only when the stored seed strings are identical.
 | INV-01 | `GetSeedSequence` returns either the empty string or a 7-character uppercase seed. | The method returns `""` for inputs shorter than 8 nt and otherwise calls `Substring(1, 7).ToUpperInvariant()`. |
 | INV-02 | `CreateMiRna(...).SeedSequence = GetSeedSequence(CreateMiRna(...).Sequence)`. | `CreateMiRna` normalizes the stored sequence first, then computes the seed from that normalized sequence. |
 | INV-03 | `CreateMiRna` stores `SeedStart = 1` and `SeedEnd = 7`. | The record is constructed with fixed indices corresponding to zero-based positions 1 through 7. |
-| INV-04 | `CompareSeedRegions(...).IsSameFamily` is true if and only if the two stored seed strings are exactly equal. | The implementation sets `isSameFamily = seed1 == seed2`. |
+| INV-04 | `CompareSeedRegions(...).IsSameFamily` is true if and only if the two stored seeds are non-empty and equal after upper-casing and T→U. | Family = same nt 2–8 (Bartel 2009; TargetScan "Seed+m8"); TargetScan normalises seeds with `s/T/U/gi; uc()`. |
 | INV-05 | When both seeds are present and canonical, `Matches + Mismatches = 7`. | Comparison is character-by-character over the two 7-nt seed strings. |
 
 ## 3. Contract
@@ -53,7 +53,7 @@ with `IsSameFamily = true` only when the stored seed strings are identical.
 |------|------|---------|-------------|-------------|
 | `miRnaSequence` | `string` | required | Mature miRNA sequence passed to `GetSeedSequence`. | Inputs shorter than 8 nt yield `""`; casing is normalized to uppercase only. |
 | `name` | `string` | required | miRNA identifier passed to `CreateMiRna`. | Stored verbatim; no validation is performed. |
-| `sequence` | `string` | required | miRNA sequence passed to `CreateMiRna`. | Expected to be non-null; `CreateMiRna` uppercases and converts `T` to `U`. |
+| `sequence` | `string` | required | miRNA sequence passed to `CreateMiRna`. | Non-null (`ArgumentNullException`); `CreateMiRna` uppercases and converts `T` to `U`. |
 | `mirna1`, `mirna2` | `MiRna` | required | Seed-bearing records compared by `CompareSeedRegions`. | Empty stored seeds produce a zeroed comparison result. |
 
 ### 3.2 Output / Return Value
@@ -72,7 +72,7 @@ with `IsSameFamily = true` only when the stored seed strings are identical.
 
 ### 3.3 Preconditions and Validation
 
-`GetSeedSequence` is defensive: `null`, empty, and shorter-than-8-nt inputs return `""` instead of throwing. `CreateMiRna` does not guard `sequence` against `null`; it expects a valid string and immediately normalizes it with `ToUpperInvariant()` and `T→U` replacement. `CompareSeedRegions` does not throw when either stored seed is empty; instead it returns `Matches = 0`, `Mismatches = 0`, and `IsSameFamily = false`. Biological seed positions 2-8 correspond to zero-based indices 1-7 in the stored record.
+`GetSeedSequence` is defensive: `null`, empty, and shorter-than-8-nt inputs return `""` instead of throwing. `CreateMiRna` throws `ArgumentNullException` for a `null` sequence and otherwise normalizes it with `ToUpperInvariant()` and `T→U` replacement. `CompareSeedRegions` does not throw when either stored seed is empty; instead it returns `Matches = 0`, `Mismatches = 0`, and `IsSameFamily = false`. Biological seed positions 2-8 correspond to zero-based indices 1-7 in the stored record.
 
 ## 4. Algorithm
 
@@ -112,7 +112,7 @@ with `IsSameFamily = true` only when the stored seed strings are identical.
 
 - Canonical seed extraction from miRNA positions 2-8 [1][2][3].
 - Exact use of a 7-nt seed representation for downstream canonical site classification [1][3].
-- Exact character-wise seed comparison and exact-seed family equality.
+- Exact character-wise seed comparison and exact-seed family equality (TargetScan seed normalisation: upper-case, T→U).
 
 **Intentionally simplified:**
 

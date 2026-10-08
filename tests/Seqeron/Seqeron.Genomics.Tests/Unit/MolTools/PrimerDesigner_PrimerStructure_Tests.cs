@@ -109,6 +109,28 @@ public class PrimerDesigner_PrimerStructure_Tests
         Assert.That(result, Is.EqualTo(5)); // CCCCC is longest
     }
 
+    /// <summary>
+    /// N is a worst-case wildcard, exactly as Primer3's _pr_violates_poly_x (libprimer3.cc; its
+    /// header comment lists NNG 3, ANA 3, CNN 3, TNNG 3, GNGNG 5, ANGNG 4). The 18–21-mers were
+    /// confirmed with primer3-py 2.3.1 check_primers (PRIMER_MAX_NS_ACCEPTED 10): the smallest
+    /// PRIMER_MAX_POLY_X that does not reject them equals the value below.
+    /// </summary>
+    [TestCase("NNG", 3)]
+    [TestCase("ANA", 3)]
+    [TestCase("CNN", 3)]
+    [TestCase("TNNG", 3)]
+    [TestCase("GNGNG", 5)]
+    [TestCase("ANGNG", 4)]
+    [TestCase("CAGTCAGTCANGNGTCAGTC", 4)]
+    [TestCase("CAGTCAGTCAGNGNGTCAGTC", 5)]
+    [TestCase("CAGTCAGTCAANAACAGTC", 5)]
+    [TestCase("NNGTCAGTCAGTCAGTCAG", 3)]
+    [TestCase("CAGTCAGTCAGTCAGTCNN", 3)]
+    public void FindLongestHomopolymer_NIsWorstCaseWildcard_MatchesPrimer3PolyX(string sequence, int expected)
+    {
+        Assert.That(PrimerDesigner.FindLongestHomopolymer(sequence), Is.EqualTo(expected));
+    }
+
     #endregion
 
     #region FindLongestDinucleotideRepeat Tests
@@ -298,42 +320,116 @@ public class PrimerDesigner_PrimerStructure_Tests
     }
 
     /// <summary>
-    /// Primers with non-complementary 3' ends do not form dimers.
-    /// Source: Wikipedia Primer-dimer.
+    /// Primers whose 3' ends cannot pair do not form dimers.
+    /// Source: Primer3 alignment-mode PRIMER_PAIR_COMPL_END (libprimer3.cc characterize_pair, dpal.c
+    /// DPAL_GLOBAL_END). primer3-py 2.3.1 check_primers (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0):
+    /// AAAAAAAA + AAAACCCC → PRIMER_PAIR_0_COMPL_END = 0.0.
     /// </summary>
     [Test]
     public void HasPrimerDimer_NonComplementary3Ends_ReturnsFalse()
     {
-        // primer1 ends with CCCC, revcomp(primer2) starts with CCCC
-        // C-C is not complementary
-        bool result = PrimerDesigner.HasPrimerDimer("AAAACCCCCCCC", "GGGGGGGGTTTT");
-        Assert.That(result, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculatePrimerDimerEndComplementarity("AAAAAAAA", "AAAACCCC"), Is.EqualTo(0.0));
+            Assert.That(PrimerDesigner.HasPrimerDimer("AAAAAAAA", "AAAACCCC"), Is.False);
+        });
     }
 
     /// <summary>
-    /// Primers with complementary 3' ends form dimers.
-    /// Source: Wikipedia Primer-dimer (3' end complementarity is critical).
+    /// Regression (DUP_MAP §10): identical poly-A primers cannot pair (A·A is not a base pair), so
+    /// they are not a primer-dimer. The former implementation compared primer1's 3' window with
+    /// revcomp(primer2) by complementarity (parallel pairing) and flagged A₈/A₈.
+    /// Source: Primer3 compl_end = align(A₈, revcomp(A₈)) = 0 (dpal.c compiled from the primer3
+    /// source; PRIMER_LEFT_0_SELF_END of AAAAAAAA = 0.0 in primer3-py check_primers);
+    /// primer3-py calc_heterodimer(A₂₀, A₂₀) → structure_found = False.
+    /// </summary>
+    [Test]
+    public void HasPrimerDimer_IdenticalPolyA_IsNotADimer()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculatePrimerDimerEndComplementarity("AAAAAAAA", "AAAAAAAA"), Is.EqualTo(0.0));
+            Assert.That(PrimerDesigner.HasPrimerDimer("AAAAAAAA", "AAAAAAAA"), Is.False);
+            Assert.That(PrimerDesigner.CalculateDimerThermodynamicsNtthal(
+                new string('A', 20), new string('A', 20)), Is.Null);
+        });
+    }
+
+    /// <summary>
+    /// Primers with complementary 3' ends form dimers: A₈ and T₈ pair over all 8 bases.
+    /// Source: Primer3 compl_end (dpal.c compiled from source) = 8.
     /// </summary>
     [Test]
     public void HasPrimerDimer_Complementary3Ends_ReturnsTrue()
     {
-        // Poly-A primers: primer1 ends with AAAA
-        // revcomp of primer2 (AAAAAAAA) is TTTTTTTT
-        // 3' of primer1 (AAAA) vs 5' of revcomp (TTTT) -> A-T complementary
-        bool result = PrimerDesigner.HasPrimerDimer("AAAAAAAA", "AAAAAAAA");
-        Assert.That(result, Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculatePrimerDimerEndComplementarity("AAAAAAAA", "TTTTTTTT"), Is.EqualTo(8.0));
+            Assert.That(PrimerDesigner.HasPrimerDimer("AAAAAAAA", "TTTTTTTT"), Is.True);
+        });
     }
 
     /// <summary>
-    /// Custom minComplementarity is respected.
-    /// Source: API contract.
+    /// Regression (DUP_MAP §10): 3' ends ...GGCC / ...GGCC pair through a 4-base offset overlap
+    /// (GGCC is its own reverse complement), which a fixed full-window comparison misses.
+    /// Source: primer3-py check_primers (alignment mode): TTCAGTCAGTCAGTGGCC + ACTGACTGACTGAGGCC →
+    /// PRIMER_PAIR_0_COMPL_END = 4.0 (> PRIMER_PAIR_MAX_COMPL_END 3.00: "high end compl");
+    /// ntthal END1 Tm 10.94 °C (calc_end_stability) confirms the 3'-anchored duplex.
+    /// </summary>
+    [Test]
+    public void HasPrimerDimer_SelfComplementaryGgccEnds_Detected()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculatePrimerDimerEndComplementarity("TTCAGTCAGTCAGTGGCC", "ACTGACTGACTGAGGCC"),
+                Is.EqualTo(4.0));
+            Assert.That(PrimerDesigner.HasPrimerDimer("TTCAGTCAGTCAGTGGCC", "ACTGACTGACTGAGGCC"), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// Primer3 compl_end values for primer pairs (primer3-py 2.3.1 check_primers,
+    /// PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0 → PRIMER_PAIR_0_COMPL_END).
+    /// </summary>
+    [TestCase("AACCGGTTAACCATCGATCG", "AACCGGTTAAGCTAGCTA", 1.0)]
+    [TestCase("AACCGGTTAACCATCGATCG", "AACCGGTTAACGATCGAT", 8.0)]
+    [TestCase("TTCAGTCAGTCAGTGGCC", "ACTGACTGACTGAGGCC", 4.0)]
+    [TestCase("AAAAAAAA", "AAAACCCC", 0.0)]
+    public void CalculatePrimerDimerEndComplementarity_MatchesPrimer3ComplEnd(string p1, string p2, double expected)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculatePrimerDimerEndComplementarity(p1, p2), Is.EqualTo(expected));
+            // Primer3 takes the max over both orientations, so the score is symmetric.
+            Assert.That(PrimerDesigner.CalculatePrimerDimerEndComplementarity(p2, p1), Is.EqualTo(expected));
+        });
+    }
+
+    /// <summary>
+    /// Primer3 self_end values (primer3-py check_primers, alignment mode, PRIMER_LEFT_0_SELF_END /
+    /// PRIMER_RIGHT_0_SELF_END).
+    /// </summary>
+    [TestCase("AACCGGTTAACCATCGATCG", 6.0)]
+    [TestCase("TTCAGTCAGTCAGTGGCC", 4.0)]
+    [TestCase("AAAAAAAA", 0.0)]
+    [TestCase("AAAACCCC", 0.0)]
+    public void CalculatePrimerSelfEndComplementarity_MatchesPrimer3SelfEnd(string primer, double expected)
+    {
+        Assert.That(PrimerDesigner.CalculatePrimerSelfEndComplementarity(primer), Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    /// Custom minComplementarity is respected: the self-complementary palindrome ACGTACGT pairs
+    /// with itself over all 8 bases (Primer3 compl_end = 8, dpal.c compiled from source).
     /// </summary>
     [Test]
     public void HasPrimerDimer_CustomMinComplementarity_RespectsParameter()
     {
-        // With high minComplementarity threshold, fewer dimers detected
-        bool result = PrimerDesigner.HasPrimerDimer("ACGTACGT", "ACGTACGT", minComplementarity: 8);
-        Assert.That(result, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.HasPrimerDimer("ACGTACGT", "ACGTACGT", minComplementarity: 8), Is.True);
+            Assert.That(PrimerDesigner.HasPrimerDimer("ACGTACGT", "ACGTACGT", minComplementarity: 9), Is.False);
+        });
     }
 
     #endregion
@@ -341,16 +437,48 @@ public class PrimerDesigner_PrimerStructure_Tests
     #region Calculate3PrimeStability Tests
 
     /// <summary>
-    /// Null, empty, or short (&lt;5 bp) sequence returns 0.
-    /// Source: Primer3 uses 5-mer standard (PRIMER_MAX_END_STABILITY).
+    /// Null or empty sequence returns 0.
     /// </summary>
     [TestCase(null, 0.0)]
     [TestCase("", 0.0)]
-    [TestCase("ACGT", 0.0)]
     public void Calculate3PrimeStability_InvalidInput_ReturnsZero(string? sequence, double expected)
     {
         double result = PrimerDesigner.Calculate3PrimeStability(sequence!);
         Assert.That(result, Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    /// Primer3 end_oligodg(seq, 5, santalucia) (oligotm.c, compiled from the primer3 source and
+    /// run on these inputs; Primer3 reports −ΔG, so the expected ΔG is the negated output). Covers
+    /// primers shorter than 5 (the whole primer is scored, including the +0.43 symmetry term for
+    /// the self-complementary GC), N (Primer3's N parameters, no A·T penalty), and a 20-mer
+    /// (end_oligodg 3.25).
+    /// </summary>
+    [TestCase("ACGT", -2.56)]
+    [TestCase("GC", 0.15)]
+    [TestCase("A", 2.06)]
+    [TestCase("AT", 1.61)]
+    [TestCase("ACGTN", -3.62)]
+    [TestCase("NNNNN", -0.36)]
+    [TestCase("AAANA", -1.40)]
+    [TestCase("GATCGAGGACTGCCTTGGTA", -3.25)]
+    public void Calculate3PrimeStability_MatchesPrimer3EndOligoDg(string sequence, double expected)
+    {
+        Assert.That(PrimerDesigner.Calculate3PrimeStability(sequence), Is.EqualTo(expected).Within(1e-9));
+    }
+
+    /// <summary>
+    /// A character other than A/C/G/T/N in the 3' window is Primer3's OLIGOTM_ERROR (NaN here);
+    /// characters before the window are irrelevant.
+    /// </summary>
+    [Test]
+    public void Calculate3PrimeStability_InvalidCharacterInWindow_ReturnsNaN()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.Calculate3PrimeStability("ACGU"), Is.NaN);
+            Assert.That(PrimerDesigner.Calculate3PrimeStability("XXXXXGCGCG"), Is.EqualTo(-6.86).Within(1e-9));
+        });
     }
 
     /// <summary>
@@ -467,6 +595,122 @@ public class PrimerDesigner_PrimerStructure_Tests
         {
             Assert.That(PrimerDesigner.FindLongestHomopolymer(badPrimer), Is.EqualTo(20));
             Assert.That(PrimerDesigner.Calculate3PrimeStability(badPrimer), Is.EqualTo(-5.40).Within(0.01));
+        });
+    }
+
+    #endregion
+
+    #region Primer3 thermodynamic structure screen (ntthal)
+
+    /// <summary>
+    /// Primer3's default (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1) per-primer and pair structure values.
+    /// Source: primer3-py 2.3.1 design_primers, PRIMER_TASK=check_primers, default conditions
+    /// (50 mM monovalent, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM): PRIMER_{LEFT,RIGHT}_0_SELF_ANY_TH,
+    /// _SELF_END_TH, _HAIRPIN_TH, PRIMER_PAIR_0_COMPL_ANY_TH, PRIMER_PAIR_0_COMPL_END_TH.
+    /// </summary>
+    private static readonly object[] Primer3StructureCases =
+    {
+        new object[] { "GGGGAAAACCCCATATGCAG", "CTGCATATGGGGTTTTCCCA",
+            new[] { 18.30105741642683, 0.0, 58.09337111624046, 6.200192585916625, 6.200192585916625, 66.14453842604473, 57.51407534362289, 57.51407534362289 } },
+        new object[] { "TTCAGTCAGTCAGTAAAAGGGG", "ACTGACTGACTGACCCCTTTT",
+            new[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 42.22316686789662, 43.12474243211591 } },
+        new object[] { "ACGTACGTACGTACGTACGT", "TGCAGCATGCATGCAATGCA",
+            new[] { 60.49048111491186, 60.49048111491186, 71.76211301142945, 41.76336394643283, 41.76336394643283, 76.36745306969078, 0.0, 0.0 } },
+        new object[] { "TGTCGGAAAACAGCCAGGCTAACG", "CGGTTGATCGTGAGTCAAATTCAGC",
+            new[] { 15.644106552541643, 12.3535987107486, 36.400151579667295, 0.0, 0.35225774955779343, 37.336259822139596, 0.0, 0.0 } },
+    };
+
+    [TestCaseSource(nameof(Primer3StructureCases))]
+    public void Primer3ThermodynamicStructure_MatchesPrimer3CheckPrimers(string left, string right, double[] expected)
+    {
+        var l = PrimerDesigner.CalculatePrimer3OligoStructure(left)!.Value;
+        var r = PrimerDesigner.CalculatePrimer3OligoStructure(right)!.Value;
+        var pair = PrimerDesigner.CalculatePrimer3PairComplementarity(left, right)!.Value;
+        double[] actual = { l.SelfAnyTh, l.SelfEndTh, l.HairpinTh, r.SelfAnyTh, r.SelfEndTh, r.HairpinTh, pair.ComplAnyTh, pair.ComplEndTh };
+        Assert.That(actual, Is.EqualTo(expected).Within(1e-9));
+    }
+
+    /// <summary>
+    /// ntthal END1/END2 alignment types and the divalent/dNTP salt term.
+    /// Source: primer3-py 2.3.1 calc_end_stability(a, b) (END1; END2(a, b) = END1(b, a)) and
+    /// calc_heterodimer at mv 50, dv 1.5, dntp 0.6, dna 50 nM.
+    /// </summary>
+    [TestCase("TTCAGTCAGTCAGTGGCC", "ACTGACTGACTGAGGCC", PrimerDesigner.NtthalAlignmentMode.End1, 10.942030550739162, -5.051857560300428)]
+    [TestCase("TTCAGTCAGTCAGTGGCC", "ACTGACTGACTGAGGCC", PrimerDesigner.NtthalAlignmentMode.End2, 13.481280192208146, -5.668962560300446)]
+    [TestCase("TTCAGTCAGTCAGTGGCC", "ACTGACTGACTGAGGCC", PrimerDesigner.NtthalAlignmentMode.Any, 41.167106798577606, -12.54145474705899)]
+    [TestCase("TTCAGTCAGTCAGTAAAAGGGG", "ACTGACTGACTGACCCCTTTT", PrimerDesigner.NtthalAlignmentMode.End1, 22.803405505733053, -8.035343602454173)]
+    public void CalculateDimerThermodynamicsNtthal_AlignmentModes_MatchPrimer3Py(
+        string a, string b, PrimerDesigner.NtthalAlignmentMode mode, double tm, double dg)
+    {
+        var d = PrimerDesigner.CalculateDimerThermodynamicsNtthal(a, b, mode, 0.050, 0.0015, 0.0006, 50e-9)!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(d.TmCelsius, Is.EqualTo(tm).Within(1e-9));
+            Assert.That(d.DeltaG37, Is.EqualTo(dg).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// Divalent cations enter ntthal hairpins only through saltCorrectS.
+    /// Source: primer3-py 2.3.1 calc_hairpin('GGGGAAAACCCCATATGCAG') = 58.09337111624046 °C at
+    /// dv 1.5/dntp 0.6 and 54.28830868675732 °C at dv = dntp = 0.
+    /// </summary>
+    [Test]
+    public void CalculateHairpinThermodynamicsNtthal_Divalent_MatchesPrimer3Py()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculateHairpinThermodynamicsNtthal("GGGGAAAACCCCATATGCAG", 0.050, 0.0015, 0.0006)!.Value.TmCelsius,
+                Is.EqualTo(58.09337111624046).Within(1e-9));
+            Assert.That(PrimerDesigner.CalculateHairpinThermodynamicsNtthal("GGGGAAAACCCCATATGCAG", 0.050, 0.0, 0.0)!.Value.TmCelsius,
+                Is.EqualTo(54.28830868675732).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// Poly-A cannot form any structure: every Primer3 structure value is 0 (align_thermod).
+    /// Non-ACGT input has no ntthal structure (null).
+    /// </summary>
+    [Test]
+    public void Primer3ThermodynamicStructure_NoStructureAndInvalidInput()
+    {
+        var a = PrimerDesigner.CalculatePrimer3OligoStructure(new string('A', 20))!.Value;
+        var pair = PrimerDesigner.CalculatePrimer3PairComplementarity(new string('A', 20), new string('A', 20))!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(a, Is.EqualTo(new PrimerDesigner.Primer3OligoStructure(0, 0, 0)));
+            Assert.That(pair, Is.EqualTo(new PrimerDesigner.Primer3PairComplementarity(0, 0)));
+            Assert.That(PrimerDesigner.CalculatePrimer3OligoStructure("ACGTNACGT"), Is.Null);
+            Assert.That(PrimerDesigner.CalculatePrimer3PairComplementarity("ACGT", ""), Is.Null);
+        });
+    }
+
+    /// <summary>
+    /// EvaluatePrimer applies Primer3's default limits (47 °C): ACGTACGTACGTACGTACGT has
+    /// self-any 60.49, self-end 60.49 and hairpin 71.76 °C (primer3-py check_primers), so it is
+    /// rejected for all three; the heuristic screen reports only the stem-loop and no Tm values.
+    /// </summary>
+    [Test]
+    public void EvaluatePrimer_ThermodynamicScreen_ReportsPrimer3Values()
+    {
+        var param = PrimerDesigner.DefaultParameters with { MinGcContent = 0, MaxGcContent = 100, MinTm = 0, MaxTm = 100 };
+        var thermo = PrimerDesigner.EvaluatePrimer("ACGTACGTACGTACGTACGT", 0, true, param);
+        var heur = PrimerDesigner.EvaluatePrimer("ACGTACGTACGTACGTACGT", 0, true,
+            param with { StructureScreen = PrimerStructureScreen.Heuristic });
+        var relaxed = PrimerDesigner.EvaluatePrimer("ACGTACGTACGTACGTACGT", 0, true, param with { MaxStructureTm = 100 });
+        Assert.Multiple(() =>
+        {
+            Assert.That(thermo.SelfAnyTh, Is.EqualTo(60.49048111491186).Within(1e-9));
+            Assert.That(thermo.SelfEndTh, Is.EqualTo(60.49048111491186).Within(1e-9));
+            Assert.That(thermo.HairpinTh, Is.EqualTo(71.76211301142945).Within(1e-9));
+            Assert.That(thermo.HasHairpin, Is.True);
+            Assert.That(thermo.IsValid, Is.False);
+            Assert.That(thermo.Issues.Count(i => i.Contains("Primer3 PRIMER_MAX_")), Is.EqualTo(3));
+            Assert.That(heur.SelfAnyTh, Is.Null);
+            Assert.That(heur.HasHairpin, Is.True);
+            Assert.That(heur.Issues, Has.Some.EqualTo("Potential hairpin structure detected"));
+            Assert.That(relaxed.HasHairpin, Is.False);
+            Assert.That(relaxed.Issues.Any(i => i.Contains("Primer3 PRIMER_MAX_")), Is.False);
         });
     }
 

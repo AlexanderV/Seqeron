@@ -5,17 +5,60 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.FindMicrosatellites",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L67",
-  "description": "Short Tandem Repeats (STRs / microsatellites): units of length minUnitLength..maxUnitLength repeated >= minRepeats times consecutively, each classified by repeat type. Redundant (self-repeating) units are skipped.",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L86",
+  "description": "Short Tandem Repeats (STRs / microsatellites): units of length minUnitLength..maxUnitLength repeated >= minRepeats times consecutively, each classified by repeat type. Redundant (self-repeating) units are skipped; each maximal run is reported once per unit length at its left end (complete copies only); non-ACGT units are not reported. Optional: MISA per-unit-size thresholds (misaThresholds: 1-10 2-6 3-5 4-5 5-5 6-5, Thiel et al. 2003) and MISA compound microsatellites (maxCompoundInterruption >= 0: SSRs separated by at most that many bases, types c / c*, MISA notation such as (TA)6tccgt(GA)7); misaScan reproduces misa.pl v1.0's regex scan exactly; misaDefinition takes a custom misa.ini definition with any unit sizes (e.g. 1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5).",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "minUnitLength": { "type": "integer", "description": "Minimum unit length (default 1)", "minimum": 1, "default": 1 },
-      "maxUnitLength": { "type": "integer", "description": "Maximum unit length (default 6)", "default": 6 },
-      "minRepeats": { "type": "integer", "description": "Minimum repeats (default 3)", "minimum": 2, "default": 3 }
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "minUnitLength": {
+        "type": "integer",
+        "description": "Minimum unit length (default 1)",
+        "minimum": 1,
+        "default": 1
+      },
+      "maxUnitLength": {
+        "type": "integer",
+        "description": "Maximum unit length (default 6)",
+        "default": 6
+      },
+      "minRepeats": {
+        "type": "integer",
+        "description": "Minimum repeats (default 3); ignored when misaThresholds is true",
+        "minimum": 2,
+        "default": 3
+      },
+      "misaThresholds": {
+        "type": "boolean",
+        "description": "Use MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) for unit lengths minUnitLength..maxUnitLength within 1-6",
+        "default": false
+      },
+      "maxCompoundInterruption": {
+        "type": "integer",
+        "description": "When >= 0, also return MISA compound microsatellites with at most this many interrupting bases (MISA default 100); -1 = none",
+        "default": -1
+      },
+      "misaScan": {
+        "type": "boolean",
+        "description": "Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs; reproduces misa.pl's SSR list exactly",
+        "default": false
+      },
+      "misaDefinition": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Custom MISA definition in misa.ini 'def' syntax: unit size-minimum copies pairs, any unit size (e.g. \"1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5\"); only these sizes are searched with these thresholds (minUnitLength, maxUnitLength, minRepeats ignored); cannot be combined with misaThresholds",
+        "default": null
+      }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -25,32 +68,286 @@
         "items": {
           "type": "object",
           "properties": {
-            "position": { "type": "integer" },
-            "repeatUnit": { "type": "string" },
-            "repeatCount": { "type": "integer" },
-            "totalLength": { "type": "integer" },
-            "repeatType": { "type": "string" }
+            "position": {
+              "type": "integer"
+            },
+            "repeatUnit": {
+              "type": "string"
+            },
+            "repeatCount": {
+              "type": "integer"
+            },
+            "totalLength": {
+              "type": "integer"
+            },
+            "repeatType": {
+              "type": "string"
+            }
           },
-          "required": ["position", "repeatUnit", "repeatCount", "totalLength", "repeatType"]
+          "required": [
+            "position",
+            "repeatUnit",
+            "repeatCount",
+            "totalLength",
+            "repeatType"
+          ]
+        }
+      },
+      "compounds": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "length": {
+              "type": "integer"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "c",
+                "c*"
+              ]
+            },
+            "notation": {
+              "type": "string"
+            },
+            "components": {
+              "type": "array"
+            }
+          },
+          "required": [
+            "start",
+            "end",
+            "length",
+            "type",
+            "notation",
+            "components"
+          ]
         }
       }
     },
-    "required": ["items"]
+    "required": [
+      "items"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1002, "message": "Invalid unit-length or minRepeats bounds" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Invalid unit-length or minRepeats bounds"
+    }
   ],
   "examples": [
     {
       "name": "Dinucleotide (CA)4",
-      "input": { "sequence": "CACACACA", "minUnitLength": 2, "maxUnitLength": 6, "minRepeats": 3 },
-      "output": { "items": [ { "position": 0, "repeatUnit": "CA", "repeatCount": 4, "totalLength": 8, "repeatType": "Dinucleotide" } ] }
+      "input": {
+        "sequence": "CACACACA",
+        "minUnitLength": 2,
+        "maxUnitLength": 6,
+        "minRepeats": 3
+      },
+      "output": {
+        "items": [
+          {
+            "position": 0,
+            "repeatUnit": "CA",
+            "repeatCount": 4,
+            "totalLength": 8,
+            "repeatType": "Dinucleotide"
+          }
+        ]
+      }
     },
     {
       "name": "Trinucleotide (CAG)3",
-      "input": { "sequence": "CAGCAGCAG", "minUnitLength": 3, "maxUnitLength": 6, "minRepeats": 3 },
-      "output": { "items": [ { "position": 0, "repeatUnit": "CAG", "repeatCount": 3, "totalLength": 9, "repeatType": "Trinucleotide" } ] }
+      "input": {
+        "sequence": "CAGCAGCAG",
+        "minUnitLength": 3,
+        "maxUnitLength": 6,
+        "minRepeats": 3
+      },
+      "output": {
+        "items": [
+          {
+            "position": 0,
+            "repeatUnit": "CAG",
+            "repeatCount": 3,
+            "totalLength": 9,
+            "repeatType": "Trinucleotide"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MISA thresholds + compound",
+      "input": {
+        "sequence": "ACGTATATATATATATccgtGAGAGAGAGAGAGAtttttAAAAAAAAAAAAT",
+        "misaThresholds": true,
+        "maxCompoundInterruption": 100
+      },
+      "output": {
+        "items": [
+          {
+            "position": 39,
+            "repeatUnit": "A",
+            "repeatCount": 12,
+            "totalLength": 12,
+            "repeatType": "Mononucleotide"
+          },
+          {
+            "position": 3,
+            "repeatUnit": "TA",
+            "repeatCount": 6,
+            "totalLength": 12,
+            "repeatType": "Dinucleotide"
+          },
+          {
+            "position": 20,
+            "repeatUnit": "GA",
+            "repeatCount": 7,
+            "totalLength": 14,
+            "repeatType": "Dinucleotide"
+          }
+        ],
+        "compounds": [
+          {
+            "start": 3,
+            "end": 51,
+            "length": 48,
+            "type": "c",
+            "notation": "(TA)6tccgt(GA)7ttttt(A)12",
+            "components": [
+              {
+                "position": 3,
+                "repeatUnit": "TA",
+                "repeatCount": 6,
+                "totalLength": 12,
+                "repeatType": "Dinucleotide"
+              },
+              {
+                "position": 20,
+                "repeatUnit": "GA",
+                "repeatCount": 7,
+                "totalLength": 14,
+                "repeatType": "Dinucleotide"
+              },
+              {
+                "position": 39,
+                "repeatUnit": "A",
+                "repeatCount": 12,
+                "totalLength": 12,
+                "repeatType": "Mononucleotide"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Custom MISA definition with 7-10 bp units + misa.pl scan + compound (misa.pl row c ... 105 1 105)",
+      "input": {
+        "sequence": "ACGTTGCACGTTGCACGTTGCGAAAAAAAAAAAACCTTAGGCATTAGGCATTAGGCATTCGACGTACGTACGTACGTACGTACGTGGATCCATGCAATCCATGCAATTGCACCTTGAGACCTTGAGANNACCTTGAGAGG",
+        "misaScan": true,
+        "maxCompoundInterruption": 10,
+        "misaDefinition": "1-10 2-6 3-5 4-5 5-5 6-5 7-3 8-3 9-2 10-2"
+      },
+      "output": {
+        "items": [
+          {
+            "position": 22,
+            "repeatUnit": "A",
+            "repeatCount": 12,
+            "totalLength": 12,
+            "repeatType": "Mononucleotide"
+          },
+          {
+            "position": 61,
+            "repeatUnit": "ACGT",
+            "repeatCount": 6,
+            "totalLength": 24,
+            "repeatType": "Tetranucleotide"
+          },
+          {
+            "position": 0,
+            "repeatUnit": "ACGTTGC",
+            "repeatCount": 3,
+            "totalLength": 21,
+            "repeatType": "Complex"
+          },
+          {
+            "position": 36,
+            "repeatUnit": "TTAGGCA",
+            "repeatCount": 3,
+            "totalLength": 21,
+            "repeatType": "Complex"
+          },
+          {
+            "position": 87,
+            "repeatUnit": "ATCCATGCA",
+            "repeatCount": 2,
+            "totalLength": 18,
+            "repeatType": "Complex"
+          }
+        ],
+        "compounds": [
+          {
+            "start": 0,
+            "end": 105,
+            "length": 105,
+            "type": "c",
+            "notation": "(ACGTTGC)3g(A)12cc(TTAGGCA)3ttcg(ACGT)6gg(ATCCATGCA)2",
+            "components": [
+              {
+                "position": 0,
+                "repeatUnit": "ACGTTGC",
+                "repeatCount": 3,
+                "totalLength": 21,
+                "repeatType": "Complex"
+              },
+              {
+                "position": 22,
+                "repeatUnit": "A",
+                "repeatCount": 12,
+                "totalLength": 12,
+                "repeatType": "Mononucleotide"
+              },
+              {
+                "position": 36,
+                "repeatUnit": "TTAGGCA",
+                "repeatCount": 3,
+                "totalLength": 21,
+                "repeatType": "Complex"
+              },
+              {
+                "position": 61,
+                "repeatUnit": "ACGT",
+                "repeatCount": 6,
+                "totalLength": 24,
+                "repeatType": "Tetranucleotide"
+              },
+              {
+                "position": 87,
+                "repeatUnit": "ATCCATGCA",
+                "repeatCount": 2,
+                "totalLength": 18,
+                "repeatType": "Complex"
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

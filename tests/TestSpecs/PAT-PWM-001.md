@@ -233,7 +233,10 @@ ATGGCACT
 | C2 | Pseudocount is a configurable parameter (default 0.25) | API: `CreatePwm(sequences, pseudocount: 0.25)` |
 | C3 | Non-ACGT characters in training sequences → ArgumentException | Strict validation (IUPAC-IUB: only A,C,G,T defined) |
 | C4 | Case-insensitive input | Guaranteed: `ToUpperInvariant()` in CreatePwm |
-| C5 | PWM formula: log2((count + p) / (N + 4p) / 0.25) | Wikipedia log-odds formula with Bayesian pseudocounts |
+| C5 | PWM formula: log2((count + p) / (N + 4p) / b) | Wikipedia log-odds; equals Biopython `counts.normalize(pseudocounts=p).log_odds(background)` |
+| C7 | pseudocount finite and ≥ 0, else ArgumentOutOfRangeException; null element → ArgumentException | Nishida 2008 (pseudocounts are non-negative counts) |
+| C8 | Background overload: 4 positive finite values, normalised to sum 1 | Biopython `log_odds(background=...)` |
+| C9 | Forward-strand scan; reverse strand via `PositionWeightMatrix.ReverseComplement()` | Biopython `reverse_complement`, `search(both=True)` |
 | C6 | Score = sum of positional log-odds | Wikipedia: "adding (rather than multiplying) the relevant values" |
 
 ---
@@ -318,3 +321,90 @@ ATGGCACT
 | **Total** | | **37** |
 
 ---
+
+## 8. Review 2026-09 (B05) — Biopython-locked tests
+
+Reference: Biopython 1.88 `Bio.motifs` on the Wikipedia 10-sequence example, target `CCTAGGTAAGTAACAGGTCAGTGG`.
+
+| ID | Test | Locked values |
+|----|------|---------------|
+| B1 | `CreatePwm_WikipediaExample_MatrixEqualsBiopython` | all 36 cells of `normalize(0.25).log_odds()`; max 11.707530265108911, min −14.88138790352414 |
+| B2 | `ScanWithPwm_WikipediaExample_EqualsBiopythonSearch` | `search(both=False)` → (2, 11.7075), (6, 4.7792), (13, 9.3161); all 16 `calculate` scores |
+| B3 | `ReverseComplement_WikipediaExample_EqualsBiopython` | `reverse_complement()` matrix; minus-strand hit at 8 (Biopython −16), 2.38769 |
+| B4 | `CreatePwm_NonUniformBackground_EqualsBiopython` | `log_odds(background={A:.3,C:.2,G:.2,T:.3})` matrix; max 11.095108114768236, min −16.07877255458597; hits 2/6/13 |
+| B5 | `CreatePwm_ZeroPseudocount_MaxMinEqualBiopython` | max 12.438028776954503, min −∞ |
+| B6 | `CreatePwm_InvalidPseudocount_Throws` | −0.1/−0.5/NaN/+∞ → ArgumentOutOfRangeException (previously NaN cells) |
+| B7 | `CreatePwm_NullElement_ThrowsArgumentException`, `CreatePwm_InvalidBackground_Throws`, `PositionWeightMatrix_Constructor_ValidatesShape`, `CreatePwm_UniformBackgroundOverload_EqualsDefault` | contracts |
+
+## 9. Review 2026-09 (B05 follow-up) — both strands, calculate, FromCounts, score distribution
+
+Tests: `Unit/Analysis/MotifFinder_PwmStrandsAndThresholds_Tests.cs`, `Metamorphic/MotifPwmMetamorphicTests.cs` (PWM-BOTH, PWM-DIST). Reference: Biopython 1.88 (`Bio/motifs/matrix.py`, `Bio/motifs/thresholds.py`, `Bio/motifs/jaspar`).
+
+| ID | Test | Locked values / invariant |
+|----|------|---------------------------|
+| C1 | `ScanWithPwmBothStrands_WikipediaExample_EqualsBiopython` | `search(T, 0, both=True)` → (2, 11.70753), (6, 4.77916), (−16, 2.38769), (13, 9.31606) |
+| C2 | `ScanWithPwmBothStrands_LowerThreshold_EqualsBiopython` | threshold −3 adds (−21, −0.79252), (−17, −0.64793) |
+| C3 | `ScanWithPwmBothStrands_PalindromicPwm_ReportsBothStrandsPlusFirst` | palindromic PWM: both strands per window, '+' first (Biopython tie order is NumPy-argsort-defined) |
+| C4 | `ScanWithPwmBothStrands_RandomCases_EqualBiopython` (seed 20260930, 3 cases) | positions + scores |
+| C5 | `CalculatePwmScores_InvalidWindowsNaN_MixedCase_EqualsBiopython`, `_DnaSequence_EqualsBiopythonCalculate_AndShortSequenceEmpty` | `calculate` incl. NaN windows |
+| C6 | `MeanStd_WikipediaExample_EqualBiopython` | mean 5.522241422369563, std 3.2186083897634568, mean(bg) 5.975137019521005 |
+| C7 | `ScoreDistribution_WikipediaExample_ThresholdsEqualBiopython` | fpr .01 → 4.028388324862519, .001 → 7.10122696197535, fnr .1 → 1.2303323735684302, balanced 0.1430202404361971 (rate 0.06385040283203125), patser 2.5924271925194056 |
+| C8 | `ScoreDistribution_BackgroundAndPrecision_EqualBiopython` | bg .3/.2/.2/.3, precision 100 |
+| C9 | `PythonFloorDiv_MatchesCPython`, `ScoreDistribution_InvalidInputs_Throw`, `FromCounts_ValidationAndScalarPseudocount` | CPython `//`; contracts; FromCounts ≡ CreatePwm on the same counts |
+| C10 | `PwmBothStrands_ReverseComplementMirror` (5 seeds), `PwmScoreDistribution_Monotone` (3 seeds) | mirror relation; FPR/FNR monotone, on-grid, densities sum to 1 |
+
+
+## 10. Review 2026-09 (B05 audit group D) — exact p-values, per-base / JASPAR pseudocounts
+
+Tests: `Unit/Analysis/MotifFinder_PwmPValue_Tests.cs`; MCP `PwmScorePValueTests`, `CreatePwmTests.CreatePwm_PseudocountOptions_EqualBiopython`.
+References: exhaustive enumeration of all 4^L words (C oracle, left-to-right double window sums, long-double accumulation) for the Wikipedia PWM (L = 9) and Bucher TATA box POL012.1 (L = 15); TFM-Pvalue C++ (CRAN TFMPvalue 1.0.0 `src/Matrix.cpp`, driver = `testScoreToPvalue` / `testPvalueToScore` loops); Biopython 1.88 (`counts.normalize(pseudocounts=dict).log_odds(bg)`, `jaspar.calculate_pseudocounts`).
+
+| ID | Test | Locked values / invariant |
+|----|------|---------------------------|
+| D1 | `PwmScorePValue_ToyMatrix_EqualsBinomialTail` | ±2/−1 matrix: P(S ≥ 6) = 1/64, ≥ 3 = 10/64, ≥ 0 = 37/64, ≥ −3 = 1, > max = 0 |
+| D2 | `PwmScorePValue_Wikipedia(_Background)_EqualsExhaustiveEnumeration` | e.g. site 6 score 4.77915994208994 → 0.006160736083984375 (bg .3/.2/.2/.3: 0.007509384); consensus → 4^-9 |
+| D3 | `PwmScorePValue_ObservedWindowScores_AreCounted` | scores from `CalculatePwmScores` count their own window (TFM-Pvalue: 0 / 0.006023406982421875) |
+| D4 | `PwmScorePValue_BucherTataBox_EqualsExhaustiveEnumeration` | 13.282082872405402 → 6.019137799739838e-06; 0 → 0.02533565554767847 |
+| D5 | `PwmScorePValue_Wikipedia_EqualsTfmPvalue`, `PwmScoreThresholdForPValue_PValuesEqualTfmPvalue` | non-tied thresholds = TFM-Pvalue sc2pv; pv2sc p-values identical (TFM score rounded: 7.11 vs 7.150252343998389) |
+| D6 | `PwmScoreThresholdForPValue_*_EqualsExhaustiveEnumeration` | smallest word score t with P(S ≥ t) ≤ p, next lower word score has P > p (Wikipedia p = .01 → 4.028050165603465; next 4.028050165603464 one ulp below) |
+| D7 | `_BelowConsensusProbability_IsPositiveInfinity`, `_RoundTripsThroughScorePValue`, `PwmScorePValue_ContrastsWithGridDistribution` | +∞/0; round trip; Biopython grid threshold 4.028388324862519 vs exact 4.028050165603465 |
+| D8 | `PwmPValue_InvalidArguments_Throw`, `PwmPValue_EmptyMatrix_ScoresZero` | contracts (non-finite matrix → ArgumentException) |
+| D9 | `CreatePwm_PerBasePseudocounts_EqualsBiopython`, `CreatePwmWithJasparPseudocounts_(Background|Uniform)_EqualsBiopython`, `CreatePwm_PerBase_EqualsScalarAndFromCounts`, `CreatePwm_PerBase_InvalidArguments_Throw` | 20-cell matrices to 1e-12; √7·q pseudocounts |
+| D10 | `PwmScoreThresholdForPValue_LargestAchievablePValue_WhereTfmIsNotMaximal` | 8-column random matrix, p = 1e-4: 8.685556713812995 / 9.930678854038951e-05 (TFM-Pvalue: 8.6866 / 9.923731321091039e-05; next lower word has P > 1e-4) |
+| D11 | `PwmScorePValue_BudgetExhausted_ReturnsCertifiedBounds` | 20-column random matrix at 0: IsExact = false, bounds [0.058402542608746444, 0.05840680768687889], PValue = upper |
+
+## 11. Review 2026-09 (B05 audit group D, part 2) — generic-alphabet (protein) PWM
+
+Tests: `Unit/Analysis/MotifFinder_AlphabetPwm_Tests.cs`; MCP `AlphabetPwmAndSigma70Tests` (create_alphabet_pwm, scan_with_alphabet_pwm).
+Reference: Biopython 1.88 `motifs.create(instances, alphabet).counts.normalize(pseudocounts).log_odds(background)`, `consensus`, `anticonsensus`, `max`, `min`, `mean`, `std`; window scores = Σ_j `pssm[letter][j]` with NaN outside the alphabet (`_pwm.c` rule; Biopython `calculate` itself is DNA-only); scratch cross-check of 400 random cases (≤ 1.1e-14 relative; ACGT cases = Biopython `calculate` float32 exactly).
+
+| ID | Test | Locked values / invariant |
+|----|------|---------------------------|
+| E1 | `ProteinPwm_ScalarPseudocount_EqualsBiopython` | 6 instances, p = 0.5: W[M,0] 2.7813597135246595, W[K,1] 2.4918530963296748, consensus MKVLAT, anticonsensus AAAACA, max 16.398651663952972, min −4.068431430675826, mean 3.809139711610947, std 3.8318293687371425 |
+| E2 | `CalculateScores_ProteinSequence_NaNForUnknownSymbols_EqualsBiopythonSums` | 19 windows of GGMKVLATxxMRvLGTPPMKXLAS incl. 11 NaN; lower case scored |
+| E3 | `Scan_Protein_ForwardHitsAtThreshold_EqualsBiopythonSearchBothFalseRule` | threshold 5 → positions 2, 10 (12.939220045315675) |
+| E4 | `ProteinPwm_PerSymbolPseudocountsAndBackground_EqualsBiopython` | max 19.061964092904915, min −18.17848406036431, mean(bg) 10.253659399954454, std(bg) 4.8477154676833605 |
+| E5 | `ProteinPwm_ZeroPseudocount_UnseenSymbolsNegativeInfinity_EqualsBiopython` | min −∞, max 24.03143403943405, mean 21.429827293694583, std 2.1524130640960037 |
+| E6 | `IgnoreUnknownSymbols_SkipsGapsAndX_EqualsBiopythonCounts` | W[M,0] 2.6520766965796927, W[V,3] 3.192645077942396, all-unknown column uniform, consensus MKAV |
+| E7 | `DnaAlphabet_ScoresEqualDnaPwm`, `FromCounts_EqualsCreateFromInstances` | ACGT generic ≡ DNA PWM (shared kernels) |
+| E8 | `ShortSequence_EmptyScoresAndNoHits`, `GetMatrix_ReturnsDefensiveCopy`, `Guards` | contracts |
+
+## 12. Review 2026-09 (B05 audit round 2, group G1) — p-value options, Markov backgrounds, K-row calibration
+
+Tests: `Unit/Analysis/MotifFinder_PwmPValueOptions_Tests.cs` (30); MCP `PwmScorePValueTests.PwmScorePValue_OptionsAndMarkovBackground_Delegate`, `AlphabetPwmPValueTests` (3), registry (+2).
+Reference: exhaustive enumeration of all words (Python/C; word probability = RSAT segment_proba P(prefix)·∏P(b | context)); meet-in-the-middle C enumeration of the 4^20 words of the 20-column matrix (pairs within 1e-9 of the threshold recomputed left to right); MACRO-APE 3.0.6 `ru.autosome.ape.di.FindPvalue --from-mono -d 16` (dyadic matrix, circular dinucleotide table); Biopython 1.88 `pssm.distribution`.
+
+| ID | Test | Locked values / invariant |
+|----|------|---------------------------|
+| G1 | `PwmScorePValue_LargerBudget_ResolvesBudgetExhaustedCase` | D11 matrix at 0: default not exact; `MaxStates` 2^23 → exact 0.058404839602189895 (meet-in-the-middle), inside the default bounds |
+| G2 | `PwmScoreThresholdForPValue_Random20_EqualsMeetInTheMiddleEnumeration` | p = 1e-3 → 7.189559567375462 / 9.99999972009391e-4 (next lower word 7.1895595327135027: P = 1.0000000256695785e-3) |
+| G3 | `Exhaustive_ResolvesWhatTheBudgetCannot` | MaxStates 4: bounds only; + Exhaustive: Wikipedia 4.77915994208994 → 0.006160736083984375, inverse 1e-2/1e-3/1e-4 = D6 values |
+| G4 | `DefaultOptions_AreBitIdenticalToTheThreeArgumentOverloads`, `GranularitySchedule_FollowsTheOptions`, `InvalidOptions_Throw` | Default/null/Exact ≡ 3-argument overload; initial granularity 0.01 × 100; MaxGranularity 0.1 → only g = 10; invalid options throw |
+| G5 | `Markov1_Wikipedia_EqualsExhaustiveEnumeration`, `Markov1_Threshold_EqualsExhaustiveEnumeration` | order 1 (dinucleotides of a fixed text, ψ 0.01): consensus → 3.033617247605823e-06, 0 → 0.06962309429876835; p 1e-3 → 6.898713577002425 / 0.0009711428119647605 |
+| G6 | `Markov2StrandInsensitive_EqualsExhaustiveEnumeration` | order 2, 2str table: consensus → 4.124380700286126e-07; p 1e-4 → 9.250117814108265 / 4.7495286790552905e-06 |
+| G7 | `SubStochasticMarkovTable_UsesTheWordMeasure` | ψ = 0, C without successor: total mass 0.6289127081283757 = P(S ≥ min); p 1e-4 → 9.941995518745932 / 9.765625e-05 |
+| G8 | `Markov1_EqualsMacroApeDinucleotideBackground` | MACRO-APE: T 2 → 0.2654045414462081, 3 → 0.12487874779541447, 4.5 → 0.01626984126984127 |
+| G9 | `BernoulliModels_EqualTheIidOverload`, `Markov_UnsupportedModelsAndArguments_Throw` | Equiprobable/Bernoulli ≡ i.i.d. engine; input-estimated / lexicon models throw |
+| G10 | `AlphabetPwmScorePValue_Protein_EqualsExhaustiveEnumeration`, `AlphabetPwmScoreThresholdForPValue_Protein_EqualsExhaustiveEnumeration` | 20^6 words: consensus 1.5625e-08 (bg 1..5: 2.57201646090535e-09); p 1e-5 → 11.064750927399535 / 8.906250000000003e-06 |
+| G11 | `AlphabetScoreDistribution_Protein_EqualsBiopython` | precision 1000: fpr(.01) 2.843772328236984, fnr(.1) −0.6157413003600496, balanced −0.6157413003600496, patser 0.970722050032081 (bit-identical) |
+| G12 | `AlphabetAcgt_EqualsDnaEngine`, `AlphabetPValue_InvalidArguments_Throw` | ACGT alphabet ≡ DNA engine; −∞ cells / wrong background throw |

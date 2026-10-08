@@ -13,6 +13,10 @@ namespace Seqeron.Genomics.Core
         // A double-stranded sequence has three forward reading frames at
         // offsets 0, 1, 2 (Biopython six_frame_translations; EMBOSS transeq).
         private const int ReadingFramesPerStrand = 3;
+
+        // The initiator residue of an ORF (NCBI The Genetic Codes: the initiator codon is by
+        // default translated as methionine).
+        private const char InitiatorMethionine = 'M';
         /// <summary>
         /// Translates a DNA sequence to protein using the specified genetic code.
         /// </summary>
@@ -21,6 +25,8 @@ namespace Seqeron.Genomics.Core
         /// <param name="frame">Reading frame (0, 1, or 2).</param>
         /// <param name="toFirstStop">Stop translation at first stop codon.</param>
         /// <returns>The translated protein sequence.</returns>
+        /// <exception cref="ArgumentException"><paramref name="toFirstStop"/> is true and the genetic code has
+        /// dual-coding stop codons (tables 27, 28, 31), or the sequence contains a non-IUPAC codon.</exception>
         public static ProteinSequence Translate(DnaSequence dna, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
@@ -37,6 +43,8 @@ namespace Seqeron.Genomics.Core
         /// <param name="frame">Reading frame (0, 1, or 2).</param>
         /// <param name="toFirstStop">Stop translation at first stop codon.</param>
         /// <returns>The translated protein sequence.</returns>
+        /// <exception cref="ArgumentException"><paramref name="toFirstStop"/> is true and the genetic code has
+        /// dual-coding stop codons (tables 27, 28, 31), or the sequence contains a non-IUPAC codon.</exception>
         public static ProteinSequence Translate(RnaSequence rna, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
@@ -53,34 +61,76 @@ namespace Seqeron.Genomics.Core
         /// <param name="frame">Reading frame (0, 1, or 2).</param>
         /// <param name="toFirstStop">Stop translation at first stop codon.</param>
         /// <returns>The translated protein sequence.</returns>
+        /// <exception cref="ArgumentException"><paramref name="toFirstStop"/> is true and the genetic code has
+        /// dual-coding stop codons (tables 27, 28, 31), or the sequence contains a non-IUPAC codon.</exception>
         public static ProteinSequence Translate(string sequence, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
-            if (string.IsNullOrEmpty(sequence))
-                return new ProteinSequence("");
-
-            return TranslateSequence(sequence.ToUpperInvariant(), geneticCode ?? GeneticCode.Standard, frame, toFirstStop);
+            // null/empty yield an empty protein, but the frame / toFirstStop arguments are still
+            // validated exactly as for the DnaSequence / RnaSequence overloads.
+            return TranslateSequence((sequence ?? string.Empty).ToUpperInvariant(),
+                geneticCode ?? GeneticCode.Standard, frame, toFirstStop);
         }
 
         /// <summary>
         /// Finds all Open Reading Frames (ORFs) in a DNA sequence.
         /// An ORF starts with a start codon and ends with a stop codon.
         /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Model: EMBOSS getorf <c>-find 1</c> (START→STOP, linear sequence): in each of the three
+        /// frames of a strand, scanning opens an ORF at the first START codon (only when no ORF is
+        /// open, so nested in-frame starts are not reported separately) and closes it at the next
+        /// in-frame STOP codon. An ORF that reaches the end of the strand without a STOP is reported
+        /// as an open (3'-incomplete) ORF.
+        /// </para>
+        /// <para>
+        /// The initiator residue is always reported as Met ('M'), whatever the start codon
+        /// (e.g. TTG, CTG, GTG) — EMBOSS getorf <c>-methionine</c> (default Y: "Change initial
+        /// START codons to Methionine"); Biopython <c>translate(cds=True)</c>; NCBI The Genetic
+        /// Codes ("The initiator codon ... is by default translated as methionine").
+        /// </para>
+        /// <para>
+        /// Coordinates are 0-based and inclusive, in the scanned strand's coordinates (reverse-strand
+        /// ORFs: coordinates of the reverse complement, frames −1..−3). For a terminated ORF,
+        /// <see cref="OrfResult.EndPosition"/> is the last base of the STOP codon — the INSDC
+        /// feature-table CDS convention ("location includes stop codon"; also what Biopython
+        /// <c>translate(cds=True)</c> expects); getorf itself prints the range without the STOP,
+        /// i.e. its end = <c>EndPosition − 3</c> (+1 for 1-based). For an open ORF, EndPosition is the
+        /// last base of the last complete codon (getorf <c>WriteORF(start, pos+2)</c>), so
+        /// <see cref="OrfResult.NucleotideLength"/> is always a multiple of three.
+        /// </para>
+        /// <para>
+        /// Stop codons are the codons the table translates as '*'. Tables with dual-coding
+        /// (context-dependent) stop codons — NCBI 27, 28, 31 — are rejected: in each of them every
+        /// stop codon also codes for an amino acid, so no codon unambiguously ends an ORF. This
+        /// mirrors Biopython, which refuses "translate to the first stop" (<c>to_stop=True</c>) for
+        /// such tables, and <see cref="Translate(DnaSequence, GeneticCode?, int, bool)"/> with
+        /// <c>toFirstStop</c>.
+        /// </para>
+        /// </remarks>
         /// <param name="dna">The DNA sequence to search.</param>
         /// <param name="geneticCode">The genetic code to use (default: Standard).</param>
         /// <param name="minLength">Minimum ORF length in amino acids (default: 100).</param>
         /// <param name="searchBothStrands">Search both forward and reverse complement strands.</param>
         /// <returns>Enumerable of ORF results.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="dna"/> is null.</exception>
+        /// <exception cref="ArgumentException">The genetic code has dual-coding stop codons (tables 27, 28, 31).</exception>
         public static IEnumerable<OrfResult> FindOrfs(DnaSequence dna, GeneticCode? geneticCode = null,
             int minLength = 100, bool searchBothStrands = true)
         {
             ArgumentNullException.ThrowIfNull(dna);
-            return FindOrfsCore(dna, geneticCode, minLength, searchBothStrands);
+            var code = geneticCode ?? GeneticCode.Standard;
+            if (HasDualCodingStopCodons(code))
+                throw new ArgumentException(
+                    $"ORF finding cannot be used with genetic code table {code.TableNumber} " +
+                    "because its stop codons also code for an amino acid (context-dependent termination).",
+                    nameof(geneticCode));
+            return FindOrfsCore(dna, code, minLength, searchBothStrands);
         }
 
-        private static IEnumerable<OrfResult> FindOrfsCore(DnaSequence dna, GeneticCode? geneticCode, int minLength, bool searchBothStrands)
+        private static IEnumerable<OrfResult> FindOrfsCore(DnaSequence dna, GeneticCode code, int minLength, bool searchBothStrands)
         {
-            var code = geneticCode ?? GeneticCode.Standard;
 
             // Search forward strand in all three frames
             foreach (var orf in FindOrfsInSequence(dna.Sequence, code, minLength, false))
@@ -133,21 +183,98 @@ namespace Seqeron.Genomics.Core
             return result;
         }
 
+        /// <summary>
+        /// Splits a coding sequence into its complete, non-overlapping in-frame triplets, starting at
+        /// offset <paramref name="frame"/>: element <c>k</c> is the triplet at nucleotide position
+        /// <c>frame + 3k</c>, in upper-case DNA spelling. Input is case-insensitive DNA or RNA (U is
+        /// read as T; CodonW <c>ident_codon</c>, EMBOSS <c>ajBaseAlphaToBin</c>). A triplet containing
+        /// any symbol other than A/C/G/T (IUPAC ambiguity codes, N, gaps, …) is returned as
+        /// <see langword="null"/> so that callers skip it without shifting the frame (EMBOSS
+        /// <c>ajCodSetTripletsS</c>: "Skips triplets with ambiguity codes and any incomplete triplet
+        /// at the end"); a trailing partial triplet is dropped.
+        /// </summary>
+        /// <remarks>
+        /// This is the single codon-splitting core of the library, placed in Core so that every layer
+        /// can call it (<c>CodonUsageAnalyzer</c>, <c>CodonOptimizer</c>, and — cross-batch —
+        /// <c>SequenceStatistics.CalculateCodonFrequencies</c>, <c>GenomeAnnotator.GetCodonUsage</c>).
+        /// </remarks>
+        /// <param name="sequence">Coding sequence; null/empty yields an empty array.</param>
+        /// <param name="frame">0-based offset of the first codon (0, 1, 2; larger values are plain
+        /// offsets, as EMBOSS compseq <c>-frame</c>).</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is negative.</exception>
+        public static string?[] SplitInFrameCodons(string? sequence, int frame = 0)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(frame);
+            if (string.IsNullOrEmpty(sequence) || sequence.Length - frame < CodonLength)
+                return Array.Empty<string?>();
+
+            string normalized = sequence.ToUpperInvariant().Replace('U', 'T');
+            var codons = new string?[(normalized.Length - frame) / CodonLength];
+            for (int k = 0; k < codons.Length; k++)
+            {
+                string codon = normalized.Substring(frame + CodonLength * k, CodonLength);
+                codons[k] = IsUnambiguousDnaCodon(codon) ? codon : null;
+            }
+
+            return codons;
+        }
+
+        /// <summary>
+        /// Counts the complete, unambiguous in-frame codons of a coding sequence (upper-case DNA keys;
+        /// codons that do not occur are absent). Same codon set as <see cref="SplitInFrameCodons"/>:
+        /// case-insensitive DNA or RNA, triplets with other symbols skipped without shifting the frame,
+        /// trailing partial triplet ignored (EMBOSS <c>cusp</c> / <c>ajCodSetTripletsS</c>).
+        /// </summary>
+        /// <param name="sequence">Coding sequence; null/empty yields an empty dictionary.</param>
+        /// <param name="frame">0-based offset of the first codon (see <see cref="SplitInFrameCodons"/>).</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is negative.</exception>
+        public static Dictionary<string, int> CountCodons(string? sequence, int frame = 0)
+        {
+            var counts = new Dictionary<string, int>();
+            foreach (string? codon in SplitInFrameCodons(sequence, frame))
+            {
+                if (codon is null)
+                    continue;
+                counts[codon] = counts.GetValueOrDefault(codon) + 1;
+            }
+
+            return counts;
+        }
+
+        private static bool IsUnambiguousDnaCodon(string codon)
+        {
+            foreach (char c in codon)
+            {
+                if (c is not ('A' or 'C' or 'G' or 'T'))
+                    return false;
+            }
+            return true;
+        }
+
         private static ProteinSequence TranslateSequence(string sequence, GeneticCode geneticCode,
             int frame, bool toFirstStop)
         {
             if (frame < 0 || frame > 2)
                 throw new ArgumentOutOfRangeException(nameof(frame), "Frame must be 0, 1, or 2.");
 
-            // Convert T to U for translation
-            var rnaSequence = sequence.Replace('T', 'U');
+            // "Translate to the first stop" is undefined when the table has dual-coding
+            // (context-dependent) stop codons, e.g. NCBI tables 27, 28, 31: such codons are
+            // translated as their amino acid, so a genuine terminator would be read through.
+            // Biopython Bio.Seq._translate_str raises ValueError for to_stop=True here.
+            if (toFirstStop && HasDualCodingStopCodons(geneticCode))
+                throw new ArgumentException(
+                    $"toFirstStop cannot be used with genetic code table {geneticCode.TableNumber} " +
+                    "because it contains codons that code for both STOP and an amino acid.",
+                    nameof(toFirstStop));
+
+            // GeneticCode.Translate normalises case and T/U itself (single normalisation point).
             var sb = new StringBuilder();
 
             // Trailing nucleotides that cannot form a full codon are ignored
             // (Biopython six_frame_translations: fragment_length = 3*((len-i)//3)).
-            for (int i = frame; i + CodonLength <= rnaSequence.Length; i += CodonLength)
+            for (int i = frame; i + CodonLength <= sequence.Length; i += CodonLength)
             {
-                string codon = rnaSequence.Substring(i, CodonLength);
+                string codon = sequence.Substring(i, CodonLength);
                 char aa = geneticCode.Translate(codon);
 
                 if (toFirstStop && aa == '*')
@@ -159,11 +286,22 @@ namespace Seqeron.Genomics.Core
             return new ProteinSequence(sb.ToString());
         }
 
+        // A stop codon that the table also translates as an amino acid (NCBI gc.prt tables
+        // 27, 28, 31; Biopython "dual_coding" check in Bio.Seq._translate_str).
+        private static bool HasDualCodingStopCodons(GeneticCode geneticCode)
+        {
+            foreach (var stop in geneticCode.StopCodons)
+            {
+                if (geneticCode.CodonTable.TryGetValue(stop, out char aa) && aa != '*')
+                    return true;
+            }
+            return false;
+        }
+
         private static IEnumerable<OrfResult> FindOrfsInSequence(string sequence, GeneticCode geneticCode,
             int minLength, bool isReverseComplement)
         {
-            var rnaSequence = sequence.Replace('T', 'U');
-
+            // GeneticCode.Translate / IsStartCodon normalise T/U themselves.
             // ORF = region from a START codon to a STOP codon
             // (EMBOSS getorf -find 1: "a region that begins with a START codon
             // and ends with a STOP codon"). Scanned in all three frames.
@@ -172,9 +310,9 @@ namespace Seqeron.Genomics.Core
                 int? currentOrfStart = null;
                 var currentProtein = new StringBuilder();
 
-                for (int i = frame; i + CodonLength <= rnaSequence.Length; i += CodonLength)
+                for (int i = frame; i + CodonLength <= sequence.Length; i += CodonLength)
                 {
-                    string codon = rnaSequence.Substring(i, CodonLength);
+                    string codon = sequence.Substring(i, CodonLength);
                     char aa = geneticCode.Translate(codon);
 
                     if (currentOrfStart == null)
@@ -184,7 +322,9 @@ namespace Seqeron.Genomics.Core
                         {
                             currentOrfStart = i;
                             currentProtein.Clear();
-                            currentProtein.Append(aa);
+                            // Initiator is read as Met whatever the start codon (EMBOSS getorf
+                            // -methionine default Y; Biopython translate(cds=True); NCBI gc).
+                            currentProtein.Append(InitiatorMethionine);
                         }
                     }
                     else
@@ -197,8 +337,9 @@ namespace Seqeron.Genomics.Core
                             {
                                 yield return new OrfResult(
                                     currentOrfStart.Value,
-                                    // Inclusive end = last base of the stop codon
-                                    // (EMBOSS getorf positions include the STOP).
+                                    // Inclusive end = last base of the stop codon (INSDC
+                                    // feature table: CDS "location includes stop codon").
+                                    // getorf prints the range without the STOP (WriteORF(start, pos-1)).
                                     i + (CodonLength - 1),
                                     isReverseComplement ? -(frame + 1) : frame + 1,
                                     new ProteinSequence(currentProtein.ToString())
@@ -213,12 +354,14 @@ namespace Seqeron.Genomics.Core
                     }
                 }
 
-                // Handle ORF that extends to end of sequence
+                // ORF that runs off the end of the strand: it ends at the last base of the last
+                // complete codon (EMBOSS getorf WriteORF(start, pos+2)); trailing partial-codon
+                // bases are not part of the ORF.
                 if (currentOrfStart != null && currentProtein.Length >= minLength)
                 {
                     yield return new OrfResult(
                         currentOrfStart.Value,
-                        rnaSequence.Length - 1,
+                        currentOrfStart.Value + currentProtein.Length * CodonLength - 1,
                         isReverseComplement ? -(frame + 1) : frame + 1,
                         new ProteinSequence(currentProtein.ToString())
                     );

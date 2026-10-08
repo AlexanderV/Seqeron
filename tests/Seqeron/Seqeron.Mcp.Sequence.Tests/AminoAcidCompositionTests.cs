@@ -12,7 +12,7 @@ public class AminoAcidCompositionTests
         Assert.DoesNotThrow(() => SequenceTools.AminoAcidComposition("MAEGEITTFT"));
         Assert.Throws<ArgumentException>(() => SequenceTools.AminoAcidComposition(""));
         Assert.Throws<ArgumentException>(() => SequenceTools.AminoAcidComposition(null!));
-        Assert.Throws<ArgumentException>(() => SequenceTools.AminoAcidComposition("MAEGJ")); // J is invalid
+        Assert.Throws<ArgumentException>(() => SequenceTools.AminoAcidComposition("MAEG1")); // '1' is not an amino-acid code (J = Xle is a valid IUPAC code)
     }
 
     [Test]

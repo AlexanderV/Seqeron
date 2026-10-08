@@ -100,6 +100,76 @@ public class CodonUsageAnalyzer_GetStatistics_Tests
             "A null reference table must raise ArgumentNullException.");
     }
 
+    // CODON-CAI-001 review 2026-09 (F13): a codon whose relative adaptiveness is below 0.0001
+    // (absent from the reference) is scored with w = 0.01 — CodonW 1.4.4 cai_out, seqinr cai
+    // (Bulmer 1988). It used to be silently dropped from L, which RAISED CAI (CTGCTA → 1.0).
+    // CodonW binary, w file = E. coli with CTA = 0: CTGCTA → 0.100, CTA → 0.010, CTGCTGCTGCTA → 0.316.
+    [TestCase("CTGCTA", 0.1)]
+    [TestCase("CTA", 0.01)]
+    [TestCase("CTGCTGCTGCTA", 0.31622776601683794)]
+    public void CalculateCai_ZeroWeightCodon_ScoredAsCodonW001(string gene, double expected)
+    {
+        var reference = CodonUsageAnalyzer.EColiOptimalCodons;
+        reference["CTA"] = 0.0;
+
+        Assert.That(CodonUsageAnalyzer.CalculateCai(gene, reference), Is.EqualTo(expected).Within(Tol));
+    }
+
+    // Sharp & Li E. coli index (EColiOptimalCodons = Biopython SharpEcoliIndex = CodonW built-in
+    // E. coli w values). Expected = Biopython 1.88 CodonAdaptationIndex.calculate with that index
+    // (full precision); CodonW 1.4.4 -cai (3 dp) in comments.
+    [TestCase("CTCACTCACACGAACTTGTTTGCACTACTC", 0.1413150224627173)] // CodonW 0.141
+    [TestCase("GGGCGGGCAATTAACTACAACGCGATAGTTAAGTTGGTCACGCCCTTCGCGCGGAGAGATAGAGAGCAGGTGCGA", 0.09161925188005218)] // CodonW 0.092
+    [TestCase("GGTGATTCCTATCTTGGCCGCAACCCCATCCAACATACAACAGAAAGTGAGGCGGGGAAGTACGCGGGCGAAACCAGATGGGCCACCCCTTTGGCGGGGTCCGTGCGTTACCCTGTCGAT", 0.2247707082314871)] // CodonW 0.225
+    [TestCase("TTAAATTTAAGACCGGATGGAATCGGGCCCTCTACGTTCTGGCAGAATTACTTAGCGCCAGGCGACCAACGGATAAAAACGACCAATGGTATCCGCAGACTCCCCGGAATAACTTTTCGTACATTCAATAACTTGAACCGGAGTCATAGAGTTTTCTTGAGTGGCCTACGAACGCCACAC", 0.10515756183651383)] // CodonW 0.105
+    [TestCase("ATGAAAGCGTTCAAGCGTACTGCG", 0.6398147105301307)] // CodonW 0.640
+    [TestCase("ATGCGACGGAGAAGGATATGG", 0.0032875036590344488)] // CodonW 0.003
+    [TestCase("CTGCTGCTGCTGATA", 0.3129134644531898)] // CodonW 0.313
+    public void CalculateCai_SharpLiEColiIndex_MatchesBiopythonAndCodonW(string gene, double expected)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CodonUsageAnalyzer.CalculateCai(gene, CodonUsageAnalyzer.EColiOptimalCodons),
+                Is.EqualTo(expected).Within(1e-12));
+            Assert.That(CodonUsageAnalyzer.CalculateCai(gene.ToLowerInvariant().Replace('T', 'U'), CodonUsageAnalyzer.EColiOptimalCodons),
+                Is.EqualTo(expected).Within(1e-12), "lower-case RNA spelling");
+        });
+    }
+
+    // Genetic-code-aware exclusion (CodonW -code): with the Sharp & Li E. coli w values,
+    // CodonW 1.4.4 gives under NCBI table 2 (vertebrate mito): ATAATG 0.055 (Met = {ATA, ATG}),
+    // TGATGG 0.100 (Trp = {TGA, TGG}, w_TGA = 0 → 0.01), AGAAGGCTG 1.000 (AGA/AGG are stops),
+    // ATGTGG 1.000; under table 1: 0.003, 0.000, 0.020, 0.000.
+    [TestCase("ATAATG", 2, 0.0547722557505166)]
+    [TestCase("TGATGG", 2, 0.1)]
+    [TestCase("AGAAGGCTG", 2, 1.0)]
+    [TestCase("ATAATG", 1, 0.003)]
+    [TestCase("TGATGG", 1, 0.0)]
+    [TestCase("AGAAGGCTG", 1, 0.02)]
+    public void CalculateCai_GeneticCode_MatchesCodonW(string gene, int table, double expected)
+    {
+        double cai = CodonUsageAnalyzer.CalculateCai(gene, CodonUsageAnalyzer.EColiOptimalCodons,
+            GeneticCode.GetByTableNumber(table));
+
+        Assert.That(cai, Is.EqualTo(expected).Within(Tol));
+    }
+
+    [Test]
+    public void CalculateCai_NegativeOrNaNReference_Throws()
+    {
+        var negative = CodonUsageAnalyzer.EColiOptimalCodons;
+        negative["CTA"] = -0.5;
+        var nan = CodonUsageAnalyzer.EColiOptimalCodons;
+        nan["CTA"] = double.NaN;
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => CodonUsageAnalyzer.CalculateCai("CTG", negative));
+            Assert.Throws<ArgumentOutOfRangeException>(() => CodonUsageAnalyzer.CalculateCai("CTG", nan));
+            Assert.Throws<ArgumentNullException>(() => CodonUsageAnalyzer.CalculateCai("CTG", CodonUsageAnalyzer.EColiOptimalCodons, null!));
+        });
+    }
+
     #endregion
 
     #region GetStatistics — GC positions and GC3s
@@ -141,6 +211,94 @@ public class CodonUsageAnalyzer_GetStatistics_Tests
             Assert.That(stats.Gc1, Is.EqualTo(200.0 / 3.0).Within(Tol), "Position 1: C,G,A -> 2/3 are G/C = 66.6667%.");
             Assert.That(stats.Gc2, Is.EqualTo(0.0).Within(Tol), "Position 2: T,T,A -> none are G/C = 0%.");
             Assert.That(stats.Gc3, Is.EqualTo(100.0 / 3.0).Within(Tol), "Position 3: G,T,A -> 1/3 are G/C = 33.3333%.");
+        });
+    }
+
+    // Review 2026-09 (CODON-STATS-001 F18): GC3s honours the genetic code — CodonW 1.4.4
+    // gc_out/how_synon: a codon is synonymous iff its amino acid has > 1 codon in the chosen
+    // code, stops excluded. CodonW -gc3s (fraction, 3 dp) under -code 0 (NCBI 1) / -code 1
+    // (NCBI 2, vertebrate mito: Met = {ATA, ATG}, Trp = {TGA, TGG}, AGA/AGG stops):
+    //   ATAATG 0.000 / 0.500; TGATGGGCC 1.000 / 0.667; AGAAGGCTG 0.667 / 1.000;
+    //   augcccuuaugg 0.500 / 0.750.
+    // GC1/GC2/GC3 and TotalCodons do not depend on the code (EMBOSS cusp: all codons).
+    [TestCase("ATAATG", 1, 0.0, 2, 0.0, 0.0, 50.0)]
+    [TestCase("ATAATG", 2, 50.0, 2, 0.0, 0.0, 50.0)]
+    [TestCase("TGATGGGCC", 1, 100.0, 3, 100.0 / 3, 100.0, 200.0 / 3)]
+    [TestCase("TGATGGGCC", 2, 200.0 / 3, 3, 100.0 / 3, 100.0, 200.0 / 3)]
+    [TestCase("AGAAGGCTG", 1, 200.0 / 3, 3, 100.0 / 3, 200.0 / 3, 200.0 / 3)]
+    [TestCase("AGAAGGCTG", 2, 100.0, 3, 100.0 / 3, 200.0 / 3, 200.0 / 3)]
+    [TestCase("augcccuuaugg", 1, 50.0, 4, 25.0, 50.0, 75.0)]
+    [TestCase("augcccuuaugg", 2, 75.0, 4, 25.0, 50.0, 75.0)]
+    public void GetStatistics_GeneticCode_Gc3sMatchesCodonW(
+        string gene, int table, double gc3s, int total, double gc1, double gc2, double gc3)
+    {
+        var stats = CodonUsageAnalyzer.GetStatistics(gene, GeneticCode.GetByTableNumber(table));
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.Gc3s, Is.EqualTo(gc3s).Within(Tol), "GC3s (CodonW -gc3s × 100)");
+            Assert.That(stats.TotalCodons, Is.EqualTo(total));
+            Assert.That(stats.Gc1, Is.EqualTo(gc1).Within(Tol));
+            Assert.That(stats.Gc2, Is.EqualTo(gc2).Within(Tol));
+            Assert.That(stats.Gc3, Is.EqualTo(gc3).Within(Tol));
+        });
+    }
+
+    // RSCU and ENC inside the statistics follow the chosen code, i.e. equal the code-aware
+    // single-index methods (NCBI 2: Met = {ATA, ATG} is 2-fold → RSCU(ATG) = 2·1/2 = 1).
+    [Test]
+    public void GetStatistics_GeneticCode_RscuAndEncUseTheSameCode()
+    {
+        const string gene = "ATAATGTGATGGGCCGCAAAAAAG";
+        var code = GeneticCode.GetByTableNumber(2);
+        var stats = CodonUsageAnalyzer.GetStatistics(gene, code);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.Rscu, Is.EquivalentTo(CodonUsageAnalyzer.CalculateRscu(gene, code)));
+            Assert.That(stats.Enc, Is.EqualTo(CodonUsageAnalyzer.CalculateEnc(gene, code)));
+            Assert.That(stats.Rscu["ATG"], Is.EqualTo(1.0).Within(Tol), "Met is 2-fold in NCBI table 2");
+            Assert.That(CodonUsageAnalyzer.GetStatistics(gene).Rscu["ATG"], Is.EqualTo(1.0).Within(Tol),
+                "Met is single-codon in table 1 (RSCU 1 when present)");
+            Assert.That(CodonUsageAnalyzer.GetStatistics(gene).Rscu["ATA"], Is.EqualTo(3.0).Within(Tol),
+                "Ile ATA is the only Ile codon used, Ile 3-fold in table 1");
+        });
+    }
+
+    // EMBOSS cusp (ajcod.c ajCodSetTripletsS / ajCodWrite): GC1/GC2/GC3 and the codon count
+    // cover every valid triplet INCLUDING termination codons; ambiguous triplets are skipped
+    // without a frame shift. CodonW excludes stops from GC/GC1-3 but not from GC3s's
+    // exclusion rule, so GC3s agrees: CodonW -gc3s 0.667 (L_sym 3) for this gene.
+    // ATG GCA GCC TAA tgg NNN gcg → 6 valid codons: pos1 A,G,G,T,T,G = 3/6; pos2 T,C,C,A,G,C = 4/6;
+    // pos3 G,A,C,A,G,G = 4/6; synonymous {GCA, GCC, GCG} → GC3s = 2/3.
+    [Test]
+    public void GetStatistics_StopAndAmbiguousCodons_CuspPositionsAndCodonWGc3s()
+    {
+        var stats = CodonUsageAnalyzer.GetStatistics("ATGGCAGCCTAAtggNNNgcg");
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.TotalCodons, Is.EqualTo(6));
+            Assert.That(stats.Gc1, Is.EqualTo(50.0).Within(Tol));
+            Assert.That(stats.Gc2, Is.EqualTo(200.0 / 3).Within(Tol));
+            Assert.That(stats.Gc3, Is.EqualTo(200.0 / 3).Within(Tol));
+            Assert.That(stats.OverallGc, Is.EqualTo(550.0 / 9).Within(Tol), "cusp Coding GC = 11/18");
+            Assert.That(stats.Gc3s, Is.EqualTo(200.0 / 3).Within(Tol), "CodonW GC3s 0.667");
+        });
+    }
+
+    // DnaSequence and string entry points agree; a null genetic code is rejected.
+    [Test]
+    public void GetStatistics_DnaSequenceOverloadAndNullCode()
+    {
+        var code = GeneticCode.GetByTableNumber(2);
+        var fromString = CodonUsageAnalyzer.GetStatistics("ATAATGTGATGG", code);
+        var fromDna = CodonUsageAnalyzer.GetStatistics(new DnaSequence("ATAATGTGATGG"), code);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fromDna.Gc3s, Is.EqualTo(fromString.Gc3s).Within(Tol));
+            Assert.That(fromDna.TotalCodons, Is.EqualTo(fromString.TotalCodons));
+            Assert.That(fromDna.CodonCounts, Is.EquivalentTo(fromString.CodonCounts));
+            Assert.Throws<ArgumentNullException>(() => CodonUsageAnalyzer.GetStatistics("ATG", null!));
+            Assert.Throws<ArgumentNullException>(() => CodonUsageAnalyzer.GetStatistics(new DnaSequence("ATG"), null!));
+            Assert.Throws<ArgumentNullException>(() => CodonUsageAnalyzer.GetStatistics((DnaSequence)null!, code));
         });
     }
 

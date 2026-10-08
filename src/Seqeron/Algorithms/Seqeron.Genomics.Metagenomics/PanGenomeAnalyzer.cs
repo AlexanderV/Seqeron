@@ -95,8 +95,19 @@ public static class PanGenomeAnalyzer
     #region Pan-Genome Construction
 
     /// <summary>
-    /// Constructs a pan-genome from multiple genomes.
+    /// Constructs a pan-genome from multiple genomes (Tettelin et al., 2005, 2008): genes are
+    /// clustered into gene families with <see cref="ClusterGenes"/>, and each cluster is
+    /// classified by its occupancy (number of distinct genomes) as <b>core</b> when
+    /// <c>occupancy / N &gt;= coreFraction</c> (Roary: "a gene being in at least 99% of
+    /// samples"; Page et al., 2015), otherwise <b>unique</b> (strain-specific) when
+    /// occupancy = 1, otherwise <b>accessory</b>. Also reports genome fluidity
+    /// (Kislyuk et al., 2011) and the open/closed call from the permutation-averaged Heaps'
+    /// law fit (<see cref="FitHeapsLaw(IEnumerable{GenePresenceRow}, int)"/>; micropan
+    /// <c>heaps()</c>; open ⟺ alpha &lt; 1, requires N &gt;= 3, else Closed).
     /// </summary>
+    /// <param name="genomes">Genome id → list of (gene id, sequence). Null/empty → empty result.</param>
+    /// <param name="identityThreshold">CD-HIT global identity cutoff for clustering (default 0.9).</param>
+    /// <param name="coreFraction">Minimum occupancy fraction for a core cluster (Roary -cd, default 0.99).</param>
     public static PanGenomeResult ConstructPanGenome(
         IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
         double identityThreshold = 0.9,
@@ -144,7 +155,7 @@ public static class PanGenomeAnalyzer
 
         var genomeToGenes = genomes.ToDictionary(
             g => g.Key,
-            g => (IReadOnlyList<string>)g.Value.Select(gene => gene.GeneId).ToList());
+            g => (IReadOnlyList<string>)(g.Value?.Select(gene => gene.GeneId).ToList() ?? new List<string>()));
 
         int totalGenes = clusters.Count;
         double coreFrac = totalGenes > 0 ? (double)coreGenes.Count / totalGenes : 0;
@@ -344,30 +355,33 @@ public static class PanGenomeAnalyzer
     #region Gene Presence/Absence Matrix
 
     /// <summary>
-    /// Creates a gene presence/absence matrix.
+    /// Creates a gene presence/absence matrix: one row per genome, one column per gene
+    /// cluster. A cluster is present in a genome when at least one of its member genes
+    /// comes from that genome, i.e. when the genome is listed in the cluster's
+    /// <see cref="GeneCluster.GenomeIds"/> (micropan <c>panMatrix()</c>: cell [i,j] = number of
+    /// members genome i has in cluster j, binarised; Roary gene_presence_absence: the
+    /// isolate contributes a gene to the cluster). Membership is keyed by the member's genome,
+    /// not by gene identifier, so identical gene names used in different genomes (e.g.
+    /// "dnaA") never mark a cluster present in a genome that contributed no member to it.
     /// </summary>
+    /// <param name="genomes">Genome id → genes; supplies the matrix rows (one per genome, in
+    /// dictionary order). Gene lists themselves are not consulted.</param>
+    /// <param name="clusters">Gene clusters (matrix columns), e.g. from <see cref="ClusterGenes"/>.</param>
     public static IEnumerable<GenePresenceRow> CreatePresenceAbsenceMatrix(
         IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
         IEnumerable<GeneCluster> clusters)
     {
         var clusterList = clusters.ToList();
-        var clusterToGenes = new Dictionary<string, HashSet<string>>();
+        var clusterGenomes = clusterList
+            .Select(c => new HashSet<string>(c.GenomeIds ?? Array.Empty<string>()))
+            .ToList();
 
-        foreach (var cluster in clusterList)
+        foreach (var genomeId in genomes.Keys)
         {
-            clusterToGenes[cluster.ClusterId] = new HashSet<string>(cluster.GeneIds);
-        }
-
-        foreach (var (genomeId, genes) in genomes)
-        {
-            var geneSet = new HashSet<string>(genes.Select(g => g.GeneId));
             var presence = new Dictionary<string, bool>();
 
-            foreach (var cluster in clusterList)
-            {
-                bool present = cluster.GeneIds.Any(g => geneSet.Contains(g));
-                presence[cluster.ClusterId] = present;
-            }
+            for (int i = 0; i < clusterList.Count; i++)
+                presence[clusterList[i].ClusterId] = clusterGenomes[i].Contains(genomeId);
 
             int presentCount = presence.Values.Count(v => v);
 
@@ -384,7 +398,12 @@ public static class PanGenomeAnalyzer
     #region Pan-Genome Statistics
 
     /// <summary>
-    /// Calculates genome fluidity (dissimilarity between genome pairs).
+    /// Genome fluidity (Kislyuk et al., 2011):
+    /// <c>φ = [2/(N(N−1))]·Σ_{k&lt;l} (U_k + U_l)/(M_k + M_l)</c>, where U_k is the number of
+    /// gene clusters of genome k absent from genome l and M_k the number of clusters in k.
+    /// A pair of two empty genomes (M_k + M_l = 0) has an undefined term (micropan
+    /// <c>fluidity()</c> would yield NaN); such pairs are excluded from the average, which is
+    /// then taken over the defined pairs only. N &lt; 2 (no pairs) gives 0.
     /// </summary>
     private static double CalculateGenomeFluidity(
         IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
@@ -438,93 +457,31 @@ public static class PanGenomeAnalyzer
         return pairCount > 0 ? totalFluidity / pairCount : 0;
     }
 
-    // Heaps' law openness criterion: the number of NEW gene clusters added by the
-    // k-th genome follows a power law n_new(k) = K * k^(-alpha). The pan-genome is
-    // OPEN when alpha < 1 (new genes keep accumulating without bound) and CLOSED when
-    // alpha > 1. Per Tettelin et al. (2008) Curr Opin Microbiol 11:472, and the
-    // micropan heaps() reference implementation: "If alpha<1.0 the pan-genome is open,
-    // if alpha>1.0 it is closed."
-    private const double HeapsOpennessThreshold = 1.0;
-
-    // The decay exponent is only meaningful once several genomes have accumulated; the
-    // new-gene curve is degenerate below this many genomes (Tettelin 2008; micropan).
+    // The Heaps decay exponent is only identifiable when the pooled new-gene curve has at
+    // least two distinct abscissae N = 2, 3 (micropan heaps() fits x = 2:ng). With fewer
+    // than 3 genomes every point sits at N = 2, so n(2) = K·2^(-alpha) fixes only the
+    // product K·2^(-alpha) and alpha is undetermined; the conservative default is Closed.
     private const int MinGenomesForOpennessFit = 3;
 
     /// <summary>
-    /// Determines whether the pan-genome is open or closed using the Heaps' law decay
-    /// exponent of newly observed gene clusters per added genome (Tettelin et al., 2008).
-    /// Open when the decay exponent alpha &lt; 1, closed when alpha &gt; 1.
+    /// Determines whether the pan-genome is open or closed with the Heaps' law decay
+    /// exponent of the new-gene-discovery curve (Tettelin et al., 2008), delegating to the
+    /// canonical micropan <c>heaps()</c> implementation <see cref="FitHeapsLaw(IEnumerable{GenePresenceRow}, int)"/>:
+    /// the presence/absence matrix of the already-computed clusters is permuted over random
+    /// genome orderings (micropan n.perm = 100) and <c>n(N) = K·N^(-alpha)</c> is fitted to
+    /// the pooled points. Open when alpha &lt; 1, closed otherwise ("If alpha&lt;1.0 the
+    /// pan-genome is open, if alpha&gt;1.0 it is closed"). The call is invariant to the
+    /// order in which genomes are supplied, as a population property must be.
     /// </summary>
     private static PanGenomeType DeterminePanGenomeType(
         IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
-        IEnumerable<GeneCluster> clusters)
+        IReadOnlyList<GeneCluster> clusters)
     {
-        var clusterList = clusters.ToList();
-
-        // Below the minimum count the decay exponent cannot be estimated; the conservative
-        // default is Closed (no evidence of unbounded growth).
-        if (genomes.Count < MinGenomesForOpennessFit || clusterList.Count == 0)
+        if (genomes.Count < MinGenomesForOpennessFit || clusters.Count == 0)
             return PanGenomeType.Closed;
 
-        double alpha = EstimateHeapsDecayExponent(genomes, clusterList);
-
-        // alpha == threshold is the boundary; treat the non-open boundary as Closed.
-        return alpha < HeapsOpennessThreshold ? PanGenomeType.Open : PanGenomeType.Closed;
-    }
-
-    /// <summary>
-    /// Estimates the Heaps' law decay exponent alpha of the new-gene-cluster curve
-    /// n_new(k) = K * k^(-alpha) by log-log least-squares regression over the cumulative
-    /// gene-cluster accumulation as genomes are added in dictionary order.
-    /// </summary>
-    private static double EstimateHeapsDecayExponent(
-        IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
-        IReadOnlyList<GeneCluster> clusterList)
-    {
-        // Map each genome to the set of cluster IDs it contains.
-        var genomeToClusters = new Dictionary<string, HashSet<string>>();
-        foreach (var genomeId in genomes.Keys)
-            genomeToClusters[genomeId] = new HashSet<string>();
-
-        foreach (var cluster in clusterList)
-        {
-            foreach (var genomeId in cluster.GenomeIds)
-            {
-                if (genomeToClusters.TryGetValue(genomeId, out var set))
-                    set.Add(cluster.ClusterId);
-            }
-        }
-
-        // Accumulate genomes in order; record the count of NEW clusters contributed at
-        // each step k = 2, 3, ... (the first genome has no "new" baseline to compare).
-        var accumulated = new HashSet<string>();
-        var logK = new List<double>();
-        var logNew = new List<double>();
-
-        int k = 0;
-        foreach (var genomeId in genomes.Keys)
-        {
-            k++;
-            int before = accumulated.Count;
-            accumulated.UnionWith(genomeToClusters[genomeId]);
-            int newClusters = accumulated.Count - before;
-
-            // Only positions k >= 2 are part of the decay curve; log requires positive
-            // new-cluster counts, so zero-novelty steps are mapped to the minimum (1) to
-            // keep the curve defined (cumulative curve flattening drives alpha upward).
-            if (k >= 2)
-            {
-                logK.Add(Math.Log(k));
-                logNew.Add(Math.Log(Math.Max(newClusters, 1)));
-            }
-        }
-
-        if (logK.Count < 2)
-            return HeapsOpennessThreshold; // not enough points to fit -> boundary (Closed)
-
-        // log(n_new) = log(K) - alpha * log(k); slope of the regression is -alpha.
-        var (slope, _, _) = LinearRegression(logK, logNew);
-        return -slope;
+        var fit = FitHeapsLaw(CreatePresenceAbsenceMatrix(genomes, clusters));
+        return fit.IsOpen ? PanGenomeType.Open : PanGenomeType.Closed;
     }
 
     // micropan heaps() classification rule (Tettelin et al., 2008): the pan-genome is
@@ -771,38 +728,15 @@ public static class PanGenomeAnalyzer
         return (k, alpha);
     }
 
-    private static (double Slope, double Intercept, double RSquared) LinearRegression(
-        List<double> x, List<double> y)
-    {
-        if (x.Count != y.Count || x.Count < 2)
-            return (0, 0, 0);
-
-        double n = x.Count;
-        double sumX = x.Sum();
-        double sumY = y.Sum();
-        double sumXY = x.Zip(y, (a, b) => a * b).Sum();
-        double sumX2 = x.Sum(a => a * a);
-
-        double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-        double intercept = (sumY - slope * sumX) / n;
-
-        // Calculate R-squared
-        double meanY = sumY / n;
-        double ssTotal = y.Sum(yi => (yi - meanY) * (yi - meanY));
-        double ssResidual = x.Zip(y, (xi, yi) => yi - (slope * xi + intercept))
-            .Sum(residual => residual * residual);
-
-        double rSquared = ssTotal > 0 ? 1 - ssResidual / ssTotal : 0;
-
-        return (slope, intercept, rSquared);
-    }
-
     #endregion
 
     #region Core Genome Analysis
 
     /// <summary>
-    /// Extracts core genes with optional filtering.
+    /// Returns the core gene clusters: those present in at least <paramref name="threshold"/>
+    /// of the <paramref name="totalGenomes"/> genomes, i.e. <c>GenomeCount / totalGenomes &gt;= threshold</c>
+    /// (Roary core: "a gene being in at least 99% of samples"; Page et al., 2015). Same rule
+    /// as the core partition of <see cref="ConstructPanGenome"/>. totalGenomes &lt;= 0 → none.
     /// </summary>
     public static IEnumerable<GeneCluster> GetCoreGeneClusters(
         IEnumerable<GeneCluster> clusters,
@@ -846,7 +780,12 @@ public static class PanGenomeAnalyzer
     #region Accessory Genome Analysis
 
     /// <summary>
-    /// Analyzes accessory genome patterns.
+    /// Lists accessory (shell) clusters under the strict Tettelin et al. (2005, 2008)
+    /// definition — present in more than one but not all genomes (<c>1 &lt; GenomeCount &lt; totalGenomes</c>) —
+    /// with their frequency <c>GenomeCount / totalGenomes</c>. Strain-specific clusters
+    /// (GenomeCount = 1) are reported by <see cref="FindGenomeSpecificGenes"/>. Note: this uses
+    /// the strict core (present in all genomes); <see cref="ConstructPanGenome"/> with
+    /// coreFraction &lt; 1 counts near-universal clusters (e.g. 99/100) as core instead.
     /// </summary>
     public static IEnumerable<(string ClusterId, IReadOnlyList<string> GenomesWithGene, double Frequency)>
         AnalyzeAccessoryGenes(
@@ -862,7 +801,9 @@ public static class PanGenomeAnalyzer
     }
 
     /// <summary>
-    /// Finds genes unique to specific genomes.
+    /// Finds strain-specific (unique) gene clusters — clusters present in exactly one genome
+    /// (Tettelin et al., 2005) — grouped by that genome. Only genomes with at least one
+    /// unique cluster are returned; the values are cluster identifiers.
     /// </summary>
     public static IEnumerable<(string GenomeId, IReadOnlyList<string> UniqueGeneIds)>
         FindGenomeSpecificGenes(

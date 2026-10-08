@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "scan_with_pwm_both_strands",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.ScanWithPwmBothStrands",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.PwmScoring.cs#L100",
+  "description": "Scans both strands with a 4×L Position Weight Matrix (rows A,C,G,T) as Biopython `PositionSpecificScoringMatrix.search(sequence, threshold, both=True)`: the plus strand is scored with the PWM and the minus strand with its reverse complement over the same forward windows; every hit with score ≥ `threshold` is reported. `position` is the 0-based forward-strand window start on both strands; `biopythonPosition` is Biopython's coordinate (minus strand: start − n). The minus-strand `matchedSequence` is the site read 5'→3' on the minus strand. Order: ascending position, `+` before `-`. Windows with non-ACGT symbols are skipped.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence to scan",
+        "minLength": 1
+      },
+      "pwm": {
+        "type": "object",
+        "description": "Position Weight Matrix",
+        "properties": {
+          "matrix": {
+            "type": "array",
+            "description": "Jagged 4xL matrix (rows A,C,G,T)",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "length": {
+            "type": "integer",
+            "description": "Motif length L",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "matrix",
+          "length"
+        ]
+      },
+      "threshold": {
+        "type": "number",
+        "description": "Minimum score (inclusive, default 0.0)",
+        "default": 0.0
+      }
+    },
+    "required": [
+      "sequence",
+      "pwm"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": {
+              "type": "integer"
+            },
+            "biopythonPosition": {
+              "type": "integer"
+            },
+            "strand": {
+              "type": "string",
+              "enum": [
+                "+",
+                "-"
+              ]
+            },
+            "matchedSequence": {
+              "type": "string"
+            },
+            "pattern": {
+              "type": "string"
+            },
+            "score": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "position",
+            "biopythonPosition",
+            "strand",
+            "matchedSequence",
+            "pattern",
+            "score"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence"
+    },
+    {
+      "code": 1002,
+      "message": "PWM is required"
+    },
+    {
+      "code": 1002,
+      "message": "Matrix must have 4 rows"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Two-column PWM for AC",
+      "input": {
+        "sequence": "ACGTAC",
+        "pwm": {
+          "matrix": [
+            [
+              2.0,
+              -2.0
+            ],
+            [
+              -2.0,
+              2.0
+            ],
+            [
+              -2.0,
+              -2.0
+            ],
+            [
+              -2.0,
+              -2.0
+            ]
+          ],
+          "length": 2
+        },
+        "threshold": 0.0
+      },
+      "output": {
+        "items": [
+          {
+            "position": 0,
+            "biopythonPosition": 0,
+            "strand": "+",
+            "matchedSequence": "AC",
+            "pattern": "AC",
+            "score": 4
+          },
+          {
+            "position": 2,
+            "biopythonPosition": -4,
+            "strand": "-",
+            "matchedSequence": "AC",
+            "pattern": "AC",
+            "score": 4
+          },
+          {
+            "position": 4,
+            "biopythonPosition": 4,
+            "strand": "+",
+            "matchedSequence": "AC",
+            "pattern": "AC",
+            "score": 4
+          }
+        ]
+      }
+    }
+  ]
+}

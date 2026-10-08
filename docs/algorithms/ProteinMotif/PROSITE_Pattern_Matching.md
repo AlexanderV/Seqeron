@@ -5,12 +5,12 @@
 | Algorithm Group | ProteinMotif |
 | Test Unit ID | PROTMOTIF-PROSITE-001 |
 | Related Projects | Seqeron.Genomics |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete (pattern syntax + ps_scan matching semantics) |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-PROSITE pattern matching in this repository converts PROSITE pattern syntax into .NET regular expressions and then searches protein sequences with the converted regex. The focus is the formal PROSITE pattern language itself, including anchors, exclusions, repetitions, and the rare `[G>]` C-terminal bracket form documented by PROSITE. Matching is deterministic, case-insensitive, and overlap-aware because the converted regex is delegated to the repository's lookahead-based motif search helper. This document is limited to pattern syntax and matching behavior, not PROSITE profile or database services.
+PROSITE pattern matching in this repository converts PROSITE pattern syntax into .NET regular expressions and then searches protein sequences with the converted regex. The focus is the formal PROSITE pattern language itself, including anchors, exclusions, repetitions, and the rare `[G>]` C-terminal bracket form documented by PROSITE. Matching is deterministic and case-insensitive and reproduces the PROSITE reference scanner `ps_scan.pl` (ScanProsite): the tokenizing grammar of `prositeToRegexp` (including the extended-syntax Kleene star `*` and IUBMB `B`/`Z` ambiguity handling) and the default greedy / overlap / no-include scan of `scanPattern`. This document is limited to pattern syntax and matching behavior, not PROSITE profile or database services.
 
 ## 2. Scientific / Formal Basis
 
@@ -81,6 +81,10 @@ The core model has two stages. First, parse the PROSITE pattern from left to rig
 | `>` | C-terminus anchor | `$` |
 | `.` | Pattern terminator | parsing stops |
 | `[G>]` | `G` or end-of-sequence in the final element | `(?:G|$)` |
+| `e*` | Element repeated zero or more times (ScanProsite extended syntax, e.g. `<{C}*>`) | `e*` |
+| `X` / class containing `x` | Any residue (ps_scan: `$state =~ /x/i`) | `.` |
+
+**Ambiguity mode** (`ConvertPrositeToRegex(p, true)`, used by `FindMotifByProsite`; ps_scan `prositeToRegexp`): pattern `B` → `[NDB]`, `Z` → `[QEZ]`; an accepted set containing N or D also accepts `B`, one containing Q or E also accepts `Z` (`N` → `[NB]`, `[DE]` → `[DEBZ]`); an exclusion of `B`/`Z` excludes `NDB`/`QEZ`. A sequence `X` is accepted only by `x` and `{...}` positions (ps_scan user-pattern mode, effective `max_x = 0`). Source: ps_scan README "The ps_scan program will produce a match if the sequence has a 'B' and the pattern allows either a 'D' or a 'N', or both (and similarly for Z)."
 
 ### 4.3 Complexity
 
@@ -95,8 +99,9 @@ The core model has two stages. First, parse the PROSITE pattern from left to rig
 
 **Implementation location:** [ProteinMotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs)
 
-- `ProteinMotifFinder.ConvertPrositeToRegex(string)`: translates PROSITE notation into a .NET regex string.
-- `ProteinMotifFinder.FindMotifByProsite(string, string, string)`: converts the PROSITE pattern and delegates matching to `FindMotifByPattern(...)`.
+- `ProteinMotifFinder.ConvertPrositeToRegex(string)`: translates PROSITE notation into a .NET regex string (residue letters literal).
+- `ProteinMotifFinder.ConvertPrositeToRegex(string, bool matchAmbiguityCodes)`: same grammar; `true` adds the ps_scan B/Z ambiguity alternatives.
+- `ProteinMotifFinder.FindMotifByProsite(string, string, string)`: converts in ambiguity mode and scans with the `FindMotifByPattern(...)` core; `Score`/`EValue` are computed from the plain translation.
 - `ProteinMotifFinder.FindMotifByPattern(string, string, string, string)`: supplies the overlap-aware regex matcher used by the end-to-end PROSITE helper.
 
 ### 5.2 Current Behavior
@@ -107,7 +112,9 @@ Repository-specific behavior confirmed by source and tests:
 - The parser drops `-` separators, converts exclusions to negated character classes, emits regex quantifiers for repetitions, and stops processing at the first `.`.
 - `ConvertPrositeToRegex(...)` contains explicit handling for `>` inside a bracketed terminal element and emits a non-capturing alternation such as `(?:G|$)` for `[G>]`.
 - `FindMotifByProsite(...)` stores the original PROSITE pattern in `MotifMatch.Pattern` and delegates the converted regex to `FindMotifByPattern(...)`.
-- End-to-end PROSITE matching is overlap-aware because the delegated matcher uses a lookahead wrapper.
+- End-to-end PROSITE matching follows ps_scan `scanPattern` defaults (greedy, overlaps allowed, included hits suppressed).
+- Malformed syntax throws `FormatException` (message prefix `Unsupported PROSITE construct`): `?`, `+`, a repetition or `*` not following an element, double repetition, unterminated or empty `[...]`/`{...}`, non-letter inside brackets, non-numeric repetition. ps_scan reports a parsing error for the first four; for the others it passes the text through into an invalid Perl regex, so rejecting is the stricter equivalent.
+- A range on a residue element (`[RK](2,4)`) is accepted as ps_scan does, although the manual declares ranges valid only on `x`.
 - Returned coordinates are inclusive 0-based indexes, and matching is case-insensitive after uppercasing the input sequence.
 
 ### 5.3 Conformance to Theory / Spec
@@ -122,7 +129,8 @@ Repository-specific behavior confirmed by source and tests:
 
 - The helper covers PROSITE pattern syntax only; **consequence:** PROSITE profile or matrix entries are outside the scope of this implementation.
 - End-to-end matching reuses the repository's generic motif score and E-value calculation; **consequence:** `Score` and `EValue` are repository-defined outputs rather than ScanProsite statistics.
-- Conversion targets .NET regex constructs directly; **consequence:** final matching behavior follows the generated regex engine semantics rather than a standalone PROSITE runtime.
+- Conversion targets .NET regex constructs directly; matching was cross-checked hit-for-hit against ps_scan.pl (28 patterns incl. PS00001/4/5/6/7/8/9/16/17/18/28/29/267/539, `*`, B/Z/X, × 70 sequences with B/Z/X: 3388/3388 identical hits).
+- ps_scan's non-greedy (`-g`), no-overlap (`-v`), include (`-i`) and `-x` max-X options are not exposed; the defaults are reproduced.
 
 **Not implemented:**
 

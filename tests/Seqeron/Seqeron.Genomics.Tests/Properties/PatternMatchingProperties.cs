@@ -530,7 +530,8 @@ public class PatternMatchingProperties
     #region MOTIF-GENERATE-001: P: IUPAC consensus from column counts; R: length = motif width; D: deterministic
 
     // GenerateConsensus builds the IUPAC-degenerate consensus: per column, bases occurring in more
-    // than 25% of the sequences are combined into the NC-IUB symbol for that set (else the majority base).
+    // than 25% of the sequences are combined into the NC-IUB symbol for that set (else the IUPAC code
+    // of the bases tied at the maximum count).
 
     private static readonly IReadOnlyDictionary<string, char> IupacBySet = new Dictionary<string, char>
     {
@@ -546,7 +547,12 @@ public class PatternMatchingProperties
         double threshold = aln.Length * 0.25;
         var present = counts.Where(kv => kv.Value > threshold).Select(kv => kv.Key).OrderBy(c => c).ToList();
         if (present.Count == 0)
-            return counts.MaxBy(kv => kv.Value).Key;
+        {
+            // No base passes: IUPAC code of every base tied at the maximum count (DECIPHER
+            // "degeneracy codes are always used where characters are equally abundant").
+            int max = counts.Values.Max();
+            present = counts.Where(kv => kv.Value == max).Select(kv => kv.Key).OrderBy(c => c).ToList();
+        }
         return IupacBySet.GetValueOrDefault(string.Join("", present), 'N');
     }
 
@@ -563,7 +569,7 @@ public class PatternMatchingProperties
 
     /// <summary>
     /// INV-2 (P): each consensus symbol is the IUPAC code of the bases occupying &gt; 25% of the column
-    /// (or the majority base when none passes), verified against an independent computation.
+    /// (or of the bases tied at the maximum count when none passes), verified against an independent computation.
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property IupacConsensus_EachColumn_FromCounts()
@@ -578,7 +584,8 @@ public class PatternMatchingProperties
 
     /// <summary>
     /// INV-3 (D + golden): consensus is deterministic; identical sequences reproduce themselves; a
-    /// purine column (A,G) yields 'R'; an equal four-base column yields 'N'.
+    /// purine column (A,G) yields 'R'; an equal four-base column yields 'N' (Biopython
+    /// degenerate_consensus → N; DECIPHER equal-abundance rule).
     /// </summary>
     [Test]
     [Category("Property")]
@@ -591,10 +598,10 @@ public class PatternMatchingProperties
             Assert.That(c2, Is.EqualTo(c1), "deterministic");
             Assert.That(c1, Is.EqualTo("ACGT"), "identical sequences reproduce themselves");
             Assert.That(MotifFinder.GenerateConsensus(new[] { "A", "G" }), Is.EqualTo("R"), "A,G → purine R");
-            // Four equal bases: each is exactly 25%, none exceeds the strict >25% cutoff, so the
-            // majority base (alphabetically first on the tie) is emitted rather than 'N'.
-            Assert.That(MotifFinder.GenerateConsensus(new[] { "A", "C", "G", "T" }), Is.EqualTo("A"),
-                "no base exceeds 25% → majority base");
+            // Four equal bases: none exceeds the strict >25% cutoff; all four tie at the maximum,
+            // so the degeneracy code for {A,C,G,T} = 'N' is emitted (was 'A' before F13).
+            Assert.That(MotifFinder.GenerateConsensus(new[] { "A", "C", "G", "T" }), Is.EqualTo("N"),
+                "four equally abundant bases → N");
         });
     }
 

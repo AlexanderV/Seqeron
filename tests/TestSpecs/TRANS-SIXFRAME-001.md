@@ -5,7 +5,7 @@
 **Algorithm:** Six-Frame Translation and ORF finding
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-28 (B02 code review)
 
 ---
 
@@ -20,6 +20,9 @@
 | 3 | NCBI The Genetic Codes — Standard Code (table 1) | 2 | https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi | 2026-06-13 |
 | 4 | EMBOSS getorf documentation (ORF definition) | 3 | https://emboss.sourceforge.net/apps/cvs/emboss/apps/getorf.html | 2026-06-13 |
 | 5 | Wikipedia — Reading frame (cites Lodish 2007; Pierce 2012) | 4 | https://en.wikipedia.org/wiki/Reading_frame | 2026-06-13 |
+| 6 | EMBOSS getorf source `getorf.c` + `getorf.acd` (opened 2026-09-28) | 3 | https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/getorf.c | 2026-09-28 |
+| 7 | INSDC Feature Table Definition — CDS "location includes stop codon" (WebSearch snippet; site blocked) | 2 | https://www.insdc.org/submitting-standards/feature-table/ | 2026-09-28 |
+| 8 | Biopython 1.88 `Bio.Seq._translate_str` (`cds=True` → initiator M; `to_stop` refused for dual-coding tables) | 3 | installed package | 2026-09-28 |
 
 ### 1.2 Key Evidence Points
 
@@ -40,7 +43,9 @@
 ### 1.4 Known Failure Modes / Pitfalls
 
 1. Reverse-frame numbering convention ambiguity — EMBOSS transeq documents two conventions; mixing them mislabels −1/−2/−3 (Source 1).
-2. Off-by-one in inclusive stop-codon end position — EMBOSS getorf positions include the stop codon (Source 4).
+2. Off-by-one in inclusive stop-codon end position — getorf prints the range WITHOUT the stop (`WriteORF(start, pos-1)`, Source 6); this API includes it (INSDC CDS convention, Source 7), so getorf end = EndPosition − 3.
+3. Open ORF with trailing partial codon — end must be the last complete codon (`WriteORF(start, pos+2)`, Source 6), not Length−1.
+4. Alternative start codons — initiator reported as `M` (getorf `-methionine` default Y, Source 6; Biopython `cds=True`, Source 8).
 
 ---
 
@@ -61,8 +66,8 @@
 | INV-2 | Frames +1/+2/+3 equal `Translate` of the input at offsets 0/1/2 | Yes | Biopython forward-frame loop |
 | INV-3 | Frames −1/−2/−3 equal translation of the reverse complement at offsets 0/1/2 | Yes | Biopython reverse-frame loop |
 | INV-4 | Each frame length = floor((effectiveLength)/3); trailing partial codon ignored | Yes | Biopython `fragment_length` |
-| INV-5 | Every `FindOrfs` result starts at a START codon and (if terminated) ends at a STOP codon; EndPosition is the stop's last base (inclusive); Protein excludes the stop | Yes | EMBOSS getorf `-find 1` |
-| INV-6 | `OrfResult.NucleotideLength = EndPosition − StartPosition + 1`; `AminoAcidLength = Protein.Length` | Yes | implementation contract; getorf inclusive positions |
+| INV-5 | Every `FindOrfs` result starts at a START codon, Protein[0] = `M`; if terminated EndPosition is the stop's last base (inclusive); if open, the last base of the last complete codon; Protein excludes the stop | Yes | EMBOSS getorf `-find 1` (Source 6); INSDC (Source 7) |
+| INV-6 | `OrfResult.NucleotideLength = EndPosition − StartPosition + 1` = 3·(aa+1) terminated / 3·aa open; `AminoAcidLength = Protein.Length` | Yes | Sources 6, 7 |
 
 ---
 
@@ -86,6 +91,10 @@
 | M11b | FindOrfs_OrfRunsToSequenceEndWithoutStop | `ATGAAACCCGGG`, minLength 1, fwd only | open ORF: Start=0, End=11, Frame=1, Protein=`MKPG` | INV-5; EMBOSS getorf incomplete-ORF (doc §6.1) |
 | M12 | FindOrfs_NullInput_Throws | null DnaSequence | `ArgumentNullException` | implementation contract |
 | M13 | FindOrfs_OrfResult_LengthDerivations | check Nucleotide/AminoAcid length of M9 ORF | NucleotideLength=12, AminoAcidLength=3 | INV-6 |
+| M11c | FindOrfs_OpenOrfWithTrailingPartialCodon_EndsAtLastCompleteCodon | `ATGAAACCCGG`, fwd only | Start=0, End=8, NucleotideLength=9, `MKP` (getorf [1 - 9]) | Source 6 (review 2026-09 fix) |
+| M11d | FindOrfs_ReverseStrandOpenOrf_EndsAtLastCompleteCodon | `CCGGGTTTCAT`, both strands | Frame −1, Start 0, End 8, `MKP` | Source 6 |
+| M14 | FindOrfs_Table12_MatchesGetorfReference | 35-nt, table 12, minLength 1 | (−2,16,33,`MHNMKI`), (2,13,33,`MQKIYFA`) | getorf port (Source 6) + Biopython table 12 |
+| M15 | FindOrfs_DualCodingStopTable_Throws | tables 27, 28, 31 | `ArgumentException` | Source 8 (to_stop refusal); all stops dual-coding |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -98,7 +107,8 @@
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
-| C1 | FindOrfs_AltStartCodon_Initiates | ORF beginning with TTG, minLength 1 | ORF found; first residue = `L` (TTG) | NCBI table 1 lists TTG as start |
+| C1 | FindOrfs_AltStartCodon_Initiates | ORF beginning with TTG, minLength 1 | ORF found; Protein = `MKG` (initiator → M; corrected 2026-09 from `LKG`) | Sources 6, 8; NCBI |
+| C1b | FindOrfs_AltStartCodonCtg | `CTGCTGTAA` | `ML` (initiator M, internal CTG = L) | Biopython `cds=True` |
 | C2 | SixFrames_RunningStop_NoTermination | TranslateSixFrames does not stop at internal stop (renders `*`) | `*` present mid-protein | TranslateSixFrames uses toFirstStop=false |
 
 ---
@@ -171,7 +181,8 @@
 | M13 | ✅ Covered | `FindOrfs_OrfResult_LengthDerivations_AreCorrect` |
 | S1 | ✅ Covered | `FindOrfs_BothStrands_FindsReverseStrandOrf` |
 | S2 | ✅ Covered | `FindOrfs_ForwardOnly_DoesNotReturnReverseStrandOrf` |
-| C1 | ✅ Covered | `FindOrfs_AlternativeStartCodonTtg_InitiatesOrf` |
+| C1 | ✅ Covered | `FindOrfs_AlternativeStartCodonTtg_InitiatesOrfWithMethionine` |
+| C1b, M11c, M11d, M14, M15 | ✅ Covered | added in the 2026-09 review (see §7) |
 | C2 | ✅ Covered | `TranslateSixFrames_InternalStop_IsRenderedNotTerminated` |
 
 ---
@@ -183,7 +194,7 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Reverse-frame numbering follows the Biopython independent-offset convention (frame −k = revcomp offset k−1) | M3, M5, INV-3 |
-| 2 | Stop = `*`, ambiguous IUPAC codon = `X` (inherited from `GeneticCode.Translate`) | C2 |
+| 2 | Stop = `*`, ambiguous IUPAC codon resolved per Biopython (e.g. `GCN`→`A`, `NNN`→`X`; inherited from `GeneticCode.Translate`) | C2 |
 | 3 | `FindOrfs.minLength` counts amino acids (not nucleotides as in getorf) | M11 |
 
 ---
@@ -191,3 +202,4 @@
 ## 7. Open Questions / Decisions
 
 1. Decision: the repository's reverse-frame numbering follows Biopython (the EMBOSS-documented "alternative"); EMBOSS's phase-locked default would relabel −1/−2/−3 differently. Documented in Evidence and algorithm doc §5.4 as an accepted convention, not a defect.
+2. Review 2026-09 (B02): cross-checked against a Python port of EMBOSS `getorf_FindORFs` (`-find 1`, `-methionine` Y) and Biopython six-frame translation on 30 000 random sequences (0–300 nt, 26 NCBI tables): six-frame 0 mismatches; ORFs 0 mismatches over 153 483 reference ORFs after the fixes (initiator → M; open-ORF end at last complete codon; dual-coding tables rejected). The only remaining divergence is getorf never reporting a 1-codon open ORF whose START is the frame's last complete codon (getorf branch-order artefact; only visible with `minLength ≤ 1`) — accepted, algorithm doc §5.4 #5.

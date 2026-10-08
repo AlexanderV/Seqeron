@@ -210,4 +210,38 @@ public class CrisprDesigner_RuleSet2_Tests
         Assert.Throws<ArgumentException>(
             () => CrisprDesigner.CalculateOnTargetRuleSet2("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"));
     }
+
+    // -------------------------------------------------------------------------------------------
+    // Tm featurization: AzimuthRuleSet2 delegates its four melting-temperature features to the
+    // canonical ThermoConstants.CalculateNearestNeighborTm instead of carrying its own DNA_NN3 table.
+    // Azimuth's featurization.py calls Biopython MeltingTemp.Tm_NN(seq, nn_table=mt.DNA_NN3) with the
+    // library defaults (dnac1 = dnac2 = 25 nM, Na = 50 mM, saltcorr = 5), which are exactly the
+    // defaults of the canonical method. The values below were produced by REAL Biopython 1.88
+    // (python3 -c "from Bio.SeqUtils import MeltingTemp as mt; mt.Tm_NN(s, nn_table=mt.DNA_NN3,
+    // dnac1=25, dnac2=25, Na=50, saltcorr=5)") and are asserted BIT-EXACTLY, so a drift in either
+    // implementation breaks this test and would change the Rule Set 2 score.
+    // -------------------------------------------------------------------------------------------
+
+    [TestCase("ACGTACGTACGTACGTACGTACGTAGGACG", 62.55983015288416)]  // the whole 30-mer feature
+    [TestCase("TAGG", -67.90079099878676)]                           // seq[19:24)-style short window
+    [TestCase("ACGTA", -34.426168537504026)]
+    [TestCase("AAAAA", -50.31930198408023)]
+    [TestCase("GCGCGCGC", 36.45901389113385)]
+    public void RuleSet2_TmFeature_IsBiopythonTmNnBitExact(string segment, double biopythonTm)
+    {
+        ThermoConstants.CalculateNearestNeighborTm(segment).Should().Be(biopythonTm);
+    }
+
+    /// <summary>
+    /// The Rule Set 2 score depends on the four Tm features, so this guards the delegation end to
+    /// end: perturbing the canonical Tm would move these scores away from the oracle.
+    /// </summary>
+    [Test]
+    public void RuleSet2_TmFeature_FeedsTheScore_OracleStillReproduced()
+    {
+        var rows = LoadNoPos().Where(r => r.Agrees).Take(25).ToList();
+        rows.Should().HaveCount(25);
+        foreach (var r in rows)
+            CrisprDesigner.CalculateOnTargetRuleSet2(r.Guide).Should().BeApproximately(r.Ref, RefTol);
+    }
 }

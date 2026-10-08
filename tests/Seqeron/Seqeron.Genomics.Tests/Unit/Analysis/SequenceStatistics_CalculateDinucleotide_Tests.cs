@@ -216,4 +216,141 @@ public class SequenceStatistics_CalculateDinucleotide_Tests
     }
 
     #endregion
+
+    #region Reference implementations (seqinr rho, EMBOSS compseq) and Karlin rho* (review 2026-09, F13)
+
+    private static void AssertRatios(IReadOnlyDictionary<string, double> actual,
+        IReadOnlyDictionary<string, double> expected, string source)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.Keys, Is.EquivalentTo(expected.Keys), $"key set ({source})");
+            foreach (var (k, v) in expected)
+                Assert.That(actual.GetValueOrDefault(k, double.NaN), Is.EqualTo(v).Within(Tolerance), $"{k} ({source})");
+        });
+    }
+
+    // EMBOSS 6.6.0 `compseq -word 2 -calcfreq` Obs/Exp (executed) = seqinr rho (cran/seqinr R/rho.R,
+    // ported literally) for pure-ACGT input: 32/27 = 1.1851852, 16/9 = 1.7777778, 16/27 = 0.5925926.
+    [Test]
+    public void CalculateDinucleotideRatios_MatchesEmbossCompseqAndSeqinrRho()
+    {
+        var expected = new Dictionary<string, double>
+        {
+            ["AA"] = 32.0 / 27, ["AG"] = 32.0 / 27, ["AT"] = 16.0 / 9, ["CA"] = 32.0 / 27,
+            ["CC"] = 16.0 / 9, ["CG"] = 16.0 / 27, ["CT"] = 16.0 / 27, ["GA"] = 16.0 / 27,
+            ["GC"] = 16.0 / 9, ["GG"] = 32.0 / 27, ["TA"] = 32.0 / 27, ["TC"] = 16.0 / 27,
+            ["TG"] = 16.0 / 27, ["TT"] = 16.0 / 9,
+        };
+        AssertRatios(SequenceStatistics.CalculateDinucleotideRatios("GATCCTTAAAGGCGCATTTAGGCCCATG"),
+            expected, "compseq/seqinr");
+    }
+
+    // seqinr rho/count: N, IUPAC codes and case are dropped from both numerator and denominators
+    // (11 in-alphabet dinucleotides, 14 in-alphabet bases). ρ_CG = (3/11)/((3/14)(4/14)) = 49/11.
+    [Test]
+    public void CalculateDinucleotideRatios_AmbiguityAndLowercase_MatchesSeqinrRho()
+    {
+        const string seq = "ATGCGCGTNNacgtRAT";
+        var expected = new Dictionary<string, double>
+        {
+            ["AC"] = 196.0 / 99, ["AT"] = 98.0 / 33, ["CG"] = 49.0 / 11,
+            ["GC"] = 98.0 / 33, ["GT"] = 49.0 / 22, ["TG"] = 49.0 / 44,
+        };
+        AssertRatios(SequenceStatistics.CalculateDinucleotideRatios(seq), expected, "seqinr rho");
+
+        var freq = SequenceStatistics.CalculateDinucleotideFrequencies(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(freq["CG"], Is.EqualTo(3.0 / 11).Within(Tolerance), "seqinr count(freq=TRUE): 3/11");
+            Assert.That(freq["AT"], Is.EqualTo(2.0 / 11).Within(Tolerance), "seqinr count(freq=TRUE): 2/11");
+        });
+    }
+
+    // Karlin rho*: f*_A=f*_T=(f_A+f_T)/2, f*_C=f*_G=(f_C+f_G)/2, f*_GT=(f_GT+f_AC)/2 (Karlin PMC126251; restated
+    // in PMC1829274, WebSearch snippet). Reference = seqinr rho on seq + separator + reverse complement (executed).
+    [Test]
+    public void CalculateDinucleotideRatios_StrandSymmetric_MatchesKarlinRhoStar()
+    {
+        AssertRatios(SequenceStatistics.CalculateDinucleotideRatios("ATGCGCGT", strandSymmetric: true),
+            new Dictionary<string, double>
+            {
+                ["AC"] = 128.0 / 105, ["AT"] = 256.0 / 63, ["CA"] = 128.0 / 105, ["CG"] = 512.0 / 175,
+                ["GC"] = 512.0 / 175, ["GT"] = 128.0 / 105, ["TG"] = 128.0 / 105,
+            }, "rho* ATGCGCGT");
+
+        AssertRatios(SequenceStatistics.CalculateDinucleotideRatios("GATCCTTAAAGGCGCATTTAGGCCCATG", strandSymmetric: true),
+            new Dictionary<string, double>
+            {
+                ["AA"] = 40.0 / 27, ["AG"] = 8.0 / 9, ["AT"] = 16.0 / 9, ["CA"] = 8.0 / 9,
+                ["CC"] = 40.0 / 27, ["CG"] = 16.0 / 27, ["CT"] = 8.0 / 9, ["GA"] = 16.0 / 27,
+                ["GC"] = 16.0 / 9, ["GG"] = 40.0 / 27, ["TA"] = 32.0 / 27, ["TC"] = 16.0 / 27,
+                ["TG"] = 8.0 / 9, ["TT"] = 40.0 / 27,
+            }, "rho* 28-mer");
+
+        AssertRatios(SequenceStatistics.CalculateDinucleotideRatios("ATGCGCGTNNacgtRAT", strandSymmetric: true),
+            new Dictionary<string, double>
+            {
+                ["AC"] = 24.0 / 11, ["AT"] = 32.0 / 11, ["CA"] = 8.0 / 11, ["CG"] = 48.0 / 11,
+                ["GC"] = 32.0 / 11, ["GT"] = 24.0 / 11, ["TG"] = 8.0 / 11,
+            }, "rho* with N/R/lowercase");
+    }
+
+    // rho* is strand-invariant: rho*_XY = rho*_{revcomp(XY)} and rho*(S) = rho*(revcomp(S)).
+    [Test]
+    public void CalculateDinucleotideRatios_StrandSymmetric_IsReverseComplementInvariant()
+    {
+        const string seq = "GATCCTTAAAGGCGCATTTAGGCCCATGNNACGTTGCA";
+        var forward = SequenceStatistics.CalculateDinucleotideRatios(seq, strandSymmetric: true);
+        var reverse = SequenceStatistics.CalculateDinucleotideRatios(
+            DnaSequence.GetReverseComplementString(seq), strandSymmetric: true);
+
+        AssertRatios(reverse, forward, "rho*(revcomp S)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(forward["GT"], Is.EqualTo(forward["AC"]).Within(Tolerance), "rho*_GT = rho*_AC");
+            Assert.That(forward["AG"], Is.EqualTo(forward["CT"]).Within(Tolerance), "rho*_AG = rho*_CT");
+        });
+    }
+
+    // rho* is a double-stranded DNA statistic: U is excluded like N. "AUGC": only GC counted
+    // (symmetric count 2 of 2), bases A,G,C -> f*_C=f*_G=2/6 -> rho*_GC = 1/(1/9) = 9.
+    [Test]
+    public void CalculateDinucleotideRatios_StrandSymmetric_ExcludesUracil()
+    {
+        var ratios = SequenceStatistics.CalculateDinucleotideRatios("AUGC", strandSymmetric: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ratios.Keys, Is.EquivalentTo(new[] { "GC" }));
+            Assert.That(ratios["GC"], Is.EqualTo(9.0).Within(Tolerance));
+        });
+    }
+
+    [Test]
+    public void CalculateDinucleotideRatios_StrandSymmetricFalse_EqualsSingleArgumentOverload()
+    {
+        foreach (var seq in new[] { "ATGCGCGT", "AUGCGC", "ATGCGCGTNNacgtRAT", "A", "", "NNNN" })
+            AssertRatios(SequenceStatistics.CalculateDinucleotideRatios(seq, strandSymmetric: false),
+                SequenceStatistics.CalculateDinucleotideRatios(seq), seq);
+    }
+
+    // D3: counting delegates to the canonical overlapping k-mer counter (k = 2), filtered to {A,C,G,T,U}.
+    [Test]
+    public void CalculateDinucleotideFrequencies_EqualsCanonicalKmerCounterFiltered()
+    {
+        var rng = new Random(20260928);
+        const string alphabet = "ACGTUNacgtu-RY";
+        for (int n = 0; n < 200; n++)
+        {
+            var seq = new string(Enumerable.Range(0, rng.Next(2, 60)).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray());
+            var counts = KmerAnalyzer.CountKmers(seq, 2)
+                .Where(kv => kv.Key.All(c => "ACGTU".Contains(c)))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+            int total = counts.Values.Sum();
+            var expected = counts.ToDictionary(kv => kv.Key, kv => (double)kv.Value / total);
+            AssertRatios(SequenceStatistics.CalculateDinucleotideFrequencies(seq), expected, seq);
+        }
+    }
+
+    #endregion
 }

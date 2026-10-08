@@ -5,7 +5,7 @@
 **Algorithm:** Disordered Region Detection
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -53,6 +53,8 @@
 | `ClassifyDisorderedRegion(region)` | DisorderPredictor | Canonical (private) | Tested indirectly via `PredictDisorder()` |
 | `PredictDisorder(sequence, windowSize, threshold, minRegionLength)` | DisorderPredictor | Public API | Entry point for testing both canonical methods |
 | `ClassifyRegionFlavorMobiDbLite(regionSequence)` | DisorderPredictor | Canonical (public, opt-in) | Sourced MobiDB-lite 3.0 disorder-flavor label (Necci et al. 2020); does not affect boundaries |
+| `PredictFlavorSubregionsMobiDbLite(sequence, regions?, lcMask?)` | DisorderPredictor | Canonical (public, opt-in) | Verbatim port of MobiDB-lite v3 `get_region_features` (7-residue mirrored window, math_morphology rmax 5, merge, runs ≥ 10 within IDRs) |
+| `PredictDisorderRegions(sequence, …)` | DisorderPredictor | Public API | Same boundaries as `PredictDisorder`, `Confidence = NaN`, never blocked by the limitation policy |
 
 ---
 
@@ -104,105 +106,12 @@
 | F13 | FlavorNoEnrichmentFallback | hydrophobic stretch, FCR=0, none enriched | `WeaklyCharged` | Necci (2020) |
 | F15 | FlavorNullOrEmptyThrows | null / "" region sequence | `ArgumentException` | Input validation |
 | F16 | FlavorBoundariesUnchanged | 30×P region stays `[0,29]`; flavor `ProlineRich` | Start=0, End=29 | Boundaries from TOP-IDP (Campen 2008), unaffected |
-
-### 4.2 SHOULD Tests (Important edge cases)
-
-| ID | Test Case | Description | Expected Outcome | Notes |
-|----|-----------|-------------|------------------|-------|
-| S2 | RegionAtStart | P(20)+W(30): region at start with exact End from window boundary | Count=1, Start=0, End=18 | Window boundary: 12P/21 at pos 18 |
-| S3 | ExactMinLength | Region of exactly minLength residues → included | 1 region | Boundary case |
-| S4 | JustBelowMinLength | Region of (minLength - 1) residues → excluded | 0 regions | Boundary case |
-| S5 | MixedSequenceRegionDetection | Ordered-disordered-ordered → identifies central region | Start=16, End=33 | Exact window boundaries |
-
-### 4.3 COULD Tests (Nice to have)
-
-| ID | Test Case | Description | Expected Outcome | Notes |
-|----|-----------|-------------|------------------|-------|
-| C1 | ClassificationPriority | Sequence with both P>0.25 and E/D>0.25 → "Proline-rich" wins | RegionType = "Proline-rich" | Implementation priority |
-| C2 | EmptySequence | PredictDisorder("") → no regions | 0 regions | Trivial |
-| C3 | AcidicOverBasicPriority | Sequence with both E/D>0.25 and K/R>0.25 → "Acidic" wins | RegionType = "Acidic" | Priority chain verification |
-| F14 | FlavorCaseInsensitive | lowercase region sequence classifies identically to uppercase | Same flavor as uppercase | Input is upper-cased before classification |
-
----
-
-## 5. Audit of Existing Tests
-
-### 5.1 Discovery Summary
-
-- `tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs` — Canonical file: 24 tests for DISORDER-REGION-001.
-- `tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictorTests.cs` — MoRF + LowComplexity tests only. Out of scope.
-
-### 5.2 Coverage Classification
-
-| Area / Test Case ID | Status | Notes |
-|---------------------|--------|-------|
-| M1: All ordered → no regions | ✅ Covered | Exact: Count=0 for 30×W |
-| M2: All disordered → one region | ✅ Covered | Exact: Count=1, Start=0, End=29 for 30×P |
-| M3: Region boundaries | ✅ Covered | Exact: Count=1, Start=0, End=29 for 30×E |
-| M5: MinLength filtering | ✅ Covered | 30×P with minLen=31 → 0 regions |
-| M6: Trailing region | ✅ Covered | Exact: Start=11, End=29 for W10+P20 (12P/21 → 0.571 > 0.542) |
-| M7: Proline-rich classification | ✅ Covered | 30×P → "Proline-rich" |
-| M8: Acidic classification | ✅ Covered | Exact: Count=1, 30×E → "Acidic" |
-| M9: Basic classification | ✅ Covered | Exact: Count=1, 30×K → "Basic" |
-| M10: Ser/Thr-rich | ✅ Covered | Exact: Count=1, 30×S → "Ser/Thr-rich" |
-| M11: Long IDR | ✅ Covered | Exact: Count=1, Start=0, End=39, (EKQSP)×8 → "Long IDR" |
-| M12: Standard IDR | ✅ Covered | Exact: Count=1, Start=0, End=19, (EKQSP)×4 → "Standard IDR" |
-| M13: Confidence in range | ✅ Covered | [0,1] range for P(30), P(5), E(30), S(30) |
-| M14: Non-overlapping | ✅ Covered | Exact: Count=2, sorted, non-overlapping |
-| S2: Region at start | ✅ Covered | Exact: Count=1, Start=0, End=18 for P20+W30 (12P/21 at pos 18) |
-| S3: Exact min length | ✅ Covered | 5×P with minLen=5 → included |
-| S4: Below min length | ✅ Covered | 4×P with minLen=5 → excluded |
-| S5: Central region | ✅ Covered | Exact: Start=16, End=33 for W15+P20+W15 |
-| C1: Pro > Acidic priority | ✅ Covered | P15+E15 → "Proline-rich" |
-| C2: Empty sequence | ✅ Covered | "" → 0 regions |
-| C3: Acidic > Basic priority | ✅ Covered | E15+K15 → "Acidic" |
-| INV-1/2: Bounds invariant | ✅ Covered | Start≥0, End<Length, End≥Start across 6 diverse inputs |
-| INV-3: All regions ≥ minLen | ✅ Covered | All regions in multi-region sequence ≥ minLen |
-| INV-5: MeanScore exact values | ✅ Covered | Exact: P=1.0, E≈0.866, K≈0.786, S≈0.655 |
-| Confidence exact values | ✅ Covered | Exact: P=1.0, S≈0.246; P > S ordering |
-| F1–F16: MobiDB-lite flavor labelling | ✅ Covered | 16 tests in `DisorderPredictor_RegionFlavor_Tests.cs`; exact flavor per hand-traced source values; F16 confirms boundaries unchanged |
-
-### 5.3 Removed Tests (Duplicates)
-
-| Test | Reason | Subsumed by |
-|------|--------|-------------|
-| M4: MeanScoreIsAverage (P→1.0) | Same assertion as INV-5 first line; Count=1 already in M2 | INV-5 |
-| INV-7: ValidLabels | All 6 labels explicitly tested by M7–M12 | M7–M12 |
-| Confidence-High (P→1.0) | Same P=1.0 assertion already in Confidence-Lower | Confidence-Lower |
-
-### 5.4 Final State
-
-| File | Role | Test Count |
-|------|------|------------|
-| `DisorderPredictor_DisorderedRegion_Tests.cs` | DISORDER-REGION-001 canonical (boundaries + default labels) | 24 |
-| `DisorderPredictor_RegionFlavor_Tests.cs` | DISORDER-REGION-001 canonical (opt-in MobiDB-lite flavor labelling) | 16 |
-| `DisorderPredictorTests.cs` | Future Test Units (MoRF, LowComplexity) | 5 |
-| `DisorderPredictor_DisorderPrediction_Tests.cs` | DISORDER-PRED-001 canonical | ~50 (unchanged) |
-
----
-
-## 6. Evidence Traceability
-
-| Parameter | Value | Source | Status |
-|-----------|-------|--------|--------|
-| TOP-IDP scale values | 20 AA propensities | Campen et al. (2008) Table 2 | ✅ Verified |
-| TOP-IDP cutoff | 0.542 | Campen et al. (2008) maximum-likelihood | ✅ Verified |
-| Window size | 21 residues | Campen et al. (2008) web server | ✅ Verified |
-| Disorder/Order AA sets | {A,R,G,Q,S,P,E,K} / {W,C,F,I,Y,V,L,N} | Dunker et al. (2001) | ✅ Verified |
-| Long IDR threshold | >30 residues | Ward et al. (2004); van der Lee et al. (2014) | ✅ Verified |
-| IDR subtype names | Proline-rich, Acidic, Basic, Ser/Thr-rich | van der Lee et al. (2014) — recognized subtypes | ✅ Verified |
-| Classification threshold | 0.25 (= 5× random 1/20) | **Internal heuristic** — no published source | ⚠️ Design decision |
-| Classification priority | Pro > Acidic > Basic > S/T > Long > Standard | **Internal heuristic** — no published source | ⚠️ Design decision |
-| Confidence formula | (meanScore − 0.542) / (1.0 − 0.542) | **Internal heuristic** — not from Campen (2008) | ⚠️ Design decision |
-| AA classification groups | E+D, K+R, S+T | Standard biochemistry — no IDR-specific source | ⚠️ Design decision |
-
----
-
-## 7. Deviations and Assumptions
-
-| ID | Item | Status | Detail |
-|----|------|--------|--------|
-| D1 | Classification enrichment threshold 0.25 | ⚠️ Internal | Defined as 5× random single-AA frequency (1/20). No published source. Previously falsely attributed to Das & Pappu (2013) f+/f− boundary; that paper's 0.25 is NCPR (net charge per residue) for globule/coil conformational state, an unrelated concept. |
-| D2 | Classification priority order | ⚠️ Internal | Pro > Acidic > Basic > S/T > Long > Standard. No paper defines this ordering. Van der Lee (2014) lists IDR subtypes but provides no algorithmic classification scheme with priority. |
-| D3 | Confidence formula | ⚠️ Internal | (meanScore − 0.542) / (1.0 − 0.542), clamped [0,1]. Campen (2008) defines prediction equation I = −(⟨Top-IDP⟩ − 0.542) but no confidence metric. This formula is a linear rescaling above the cutoff. |
-| D4 | AA classification groups | ⚠️ Conventional | {E,D}=Acidic, {K,R}=Basic, {S,T}=Ser/Thr-rich. Standard biochemical side-chain property groupings. No IDR-specific paper mandates these exact group compositions for classification. |
+| FS1 | FlavorSubregions two blocks | A10+(RK)7+A11+P13+A10, IDR [0,57], no LC | PPE (9,24), ProlineRich (34,48) | MobiDB-lite v3 code run verbatim |
+| FS2 | FlavorSubregions α-synuclein | TOP-IDP IDRs (10–43,47–66,94–139), no LC | PA (94,104), NPE (111,139); region-level label of 94–139 = PA | MobiDB-lite v3 code run verbatim |
+| FS3 | LC beats polar | W10+(SQ)10+W10, LC mask 10–29 | LowComplexity (10,29); without mask Polar (9,30) | `consensus.py` priority G → LC → polar |
+| FS4 | Morphology closes short gaps | E12+A3+E12 / E12+A8+E12 | NPE (0,26) / NPE (0,12),(19,31) | `states.py:math_morphology(rmax=5)` |
+| FS5 | Min length 10 within IDR | E30, IDR (5,13) / (5,14) | none / NPE (5,14) | `feature_len_thr=10` |
+| FS6 | Windowed split | G12+D12 | GlycineRich (0,10), NPE (11,23); region-level NPE | MobiDB-lite v3 code run verbatim |
+| FS7 | Short / lowercase | "RK"; 12×e | none; NPE (0,11) | `tokenize` n = L−1 for short input |
+| FS8 | Invalid input | "", null, mask length ≠ L, region out of range / End<Start | ArgumentException / ArgumentOutOfRangeException | Input validation |
+| R1 | PredictDisorderRegions α-synuclein | P37840 | (10,43,Long IDR),(47,66,Standard IDR),(94,139,Acidic); MeanScore 0.5851639426, 0.5699485887, 0.6185213383; Confidence NaN | Independent Python TOP-IDP recompute (Campen 2008) |

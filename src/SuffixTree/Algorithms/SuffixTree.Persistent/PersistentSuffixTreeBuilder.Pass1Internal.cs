@@ -45,9 +45,10 @@ public partial class PersistentSuffixTreeBuilder
 
         // Walk child linked list → collect (key, childOffset)
         int childCount = 0;
+        long ci = PersistentConstants.NULL_OFFSET;
         if (headIndex != PersistentConstants.NULL_OFFSET)
         {
-            long ci = headIndex;
+            ci = headIndex;
             if (childBase != null)
             {
                 while (ci >= 0 && childCount < cBufMax)
@@ -70,6 +71,23 @@ public partial class PersistentSuffixTreeBuilder
                     ci = nextIndex;
                 }
             }
+        }
+
+        // More children than the reusable buffer holds (a node can branch on every distinct
+        // UTF-16 code unit, not only 256): count the rest and redo the node with an exact-size
+        // buffer. Nothing has been written for this node yet, so the retry is side-effect free.
+        if (ci >= 0)
+        {
+            int total = childCount + CountRemainingChildren(ci, childBase);
+            var bigKeys = new uint[total];
+            var bigOffs = new long[total];
+            fixed (uint* bk = bigKeys)
+            fixed (long* bo = bigOffs)
+            {
+                Pass1Internal(off, nodeIdx, layout, useMmfUnchecked, mmfMain, childBase, tp,
+                    bk, bo, total, ref batchPos, ref batchStart, ref batchEnd, batchSize);
+            }
+            return;
         }
 
         // Set parent index for each child in temp file
@@ -184,5 +202,25 @@ public partial class PersistentSuffixTreeBuilder
                 node.ChildCount = cCountRaw;
             }
         }
+    }
+
+    /// <summary>Counts the child-list entries from index <paramref name="ci"/> to the end of the list.</summary>
+    private unsafe int CountRemainingChildren(long ci, byte* childBase)
+    {
+        int n = 0;
+        while (ci >= 0)
+        {
+            n++;
+            if (childBase != null)
+            {
+                ci = *(int*)(childBase + ci * CHILD_ENTRY_SIZE + CE_OFF_NEXT);
+            }
+            else
+            {
+                _childStoreAdapter.ReadEntry((int)ci, out _, out int nextIndex, out _);
+                ci = nextIndex;
+            }
+        }
+        return n;
     }
 }

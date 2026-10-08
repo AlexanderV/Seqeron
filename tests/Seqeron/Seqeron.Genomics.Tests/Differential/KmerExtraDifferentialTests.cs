@@ -136,7 +136,8 @@ public class KmerExtraDifferentialTests
         Assert.That(st.UniqueKmers, Is.EqualTo(counts.Count));
         Assert.That(st.MaxCount, Is.EqualTo(vals.Max()));
         Assert.That(st.MinCount, Is.EqualTo(vals.Min()));
-        Assert.That(st.AverageCount, Is.EqualTo(Math.Round(vals.Average(), 2)).Within(Tol));
+        Assert.That(st.AverageCount, Is.EqualTo(vals.Average()).Within(Tol));
+        Assert.That(st.SingletonKmers, Is.EqualTo(vals.Count(v => v == 1)));
     }
 
     // ---- Row 162: KMER-UNIQUE-001 — k-mers occurring exactly once ----

@@ -5,16 +5,46 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.FindLowComplexityRegions",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L255",
-  "description": "Entropy-thresholded contiguous low-complexity DNA regions: merges windows whose Shannon entropy falls below the threshold and reports each region's bounds, length, minimum entropy and sequence.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L602",
+  "description": "Low-complexity DNA regions = union of low-entropy sliding windows. method 'shannon' (default): per-base Shannon entropy (bits) below entropyThreshold. method 'bbduk': exactly what `bbduk.sh entropy=<entropyThreshold> entropymask=t entropywindow=<windowSize> entropyk=<entropyK>` masks. Windows containing N/IUPAC codes are never flagged. Reports each region's bounds, length, minimum entropy and sequence.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "windowSize": { "type": "integer", "description": "Window size (default 64)", "default": 64 },
-      "entropyThreshold": { "type": "number", "description": "Entropy threshold (default 1.0)", "default": 1.0 }
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence (A/C/G/T + IUPAC codes)",
+        "minLength": 1
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "Window size (default 64; BBDuk entropywindow default is 50)",
+        "default": 64
+      },
+      "entropyThreshold": {
+        "type": "number",
+        "description": "shannon: bits, finite >= 0 (default 1.0); bbduk: cutoff in [0,1]",
+        "default": 1.0
+      },
+      "method": {
+        "type": "string",
+        "enum": [
+          "shannon",
+          "bbduk"
+        ],
+        "description": "'shannon' (default) or 'bbduk'",
+        "default": "shannon"
+      },
+      "entropyK": {
+        "type": "integer",
+        "description": "k-mer length for method 'bbduk' (BBDuk entropyk, 1-15, default 5)",
+        "default": 5,
+        "minimum": 1,
+        "maximum": 15
+      }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -24,32 +54,99 @@
         "items": {
           "type": "object",
           "properties": {
-            "start": { "type": "integer" },
-            "end": { "type": "integer" },
-            "length": { "type": "integer" },
-            "minEntropy": { "type": "number" },
-            "sequence": { "type": "string" }
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "length": {
+              "type": "integer"
+            },
+            "minEntropy": {
+              "type": "number"
+            },
+            "sequence": {
+              "type": "string"
+            }
           },
-          "required": ["start", "end", "length", "minEntropy", "sequence"]
+          "required": [
+            "start",
+            "end",
+            "length",
+            "minEntropy",
+            "sequence"
+          ]
         }
       }
     },
-    "required": ["items"]
+    "required": [
+      "items"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1001, "message": "Invalid DNA sequence" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+    },
+    {
+      "code": 1001,
+      "message": "method must be 'shannon' or 'bbduk'"
+    }
   ],
   "examples": [
     {
       "name": "Internal poly-A region",
-      "input": { "sequence": "ATGC...(x20) + A(x64) + ATGC...(x20)", "windowSize": 20, "entropyThreshold": 0.5 },
-      "output": { "items": [ { "start": 79, "end": 146, "minEntropy": 0.0 } ] }
+      "input": {
+        "sequence": "ATGC...(x20) + A(x64) + ATGC...(x20)",
+        "windowSize": 20,
+        "entropyThreshold": 0.5
+      },
+      "output": {
+        "items": [
+          {
+            "start": 79,
+            "end": 145,
+            "length": 67,
+            "minEntropy": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "name": "BBDuk mode (bbduk.sh 40.02 identical)",
+      "input": {
+        "sequence": "CGGAGCCTGTTCCTGTACCATTATCTCTTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATACCCTGAAGAGGATCTACAGATGCAAAGC",
+        "windowSize": 50,
+        "entropyThreshold": 0.5,
+        "method": "bbduk",
+        "entropyK": 5
+      },
+      "output": {
+        "items": [
+          {
+            "start": 11,
+            "end": 88,
+            "length": 78,
+            "minEntropy": 0.2674965262413025
+          }
+        ]
+      }
     },
     {
       "name": "High complexity => none",
-      "input": { "sequence": "ATGC(x20)", "windowSize": 20, "entropyThreshold": 0.5 },
-      "output": { "items": [] }
+      "input": {
+        "sequence": "ATGC(x20)",
+        "windowSize": 20,
+        "entropyThreshold": 0.5
+      },
+      "output": {
+        "items": []
+      }
     }
   ]
 }

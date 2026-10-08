@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_regulatory_elements_both_strands",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.FindRegulatoryElements",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L1026",
+  "description": "Strand-annotated variant of `find_regulatory_elements` (`MotifFinder.FindRegulatoryElements(sequence, bothStrands: true)`): every library element (TATA, CAAT, GC box, Kozak, Shine-Dalgarno, poly(A), E-box, AP-1, NF-κB, CREB) on the given strand, plus the orientation-independent elements rescanned on the minus strand — CAAT box (Mantovani 1998), GC box (Gidoni et al. 1985) and NF-κB (enhancer, Banerji et al. 1981); AP-1, E-box and CREB are self-complementary and reported once. `position` is the 0-based forward-strand window start; `sequence` is the site read 5'→3' on its own strand. Equals Biopython `nt_search` on the sequence and its reverse complement.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "position": {
+              "type": "integer"
+            },
+            "sequence": {
+              "type": "string"
+            },
+            "pattern": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "strand": {
+              "type": "string",
+              "enum": [
+                "+",
+                "-"
+              ]
+            }
+          },
+          "required": [
+            "name",
+            "position",
+            "sequence",
+            "pattern",
+            "description",
+            "strand"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Mixed orientation",
+      "input": {
+        "sequence": "ATTGGTTTATAAACCGCCCATCCAATGGAAAGTCCCTGACTCAGGGCGGA"
+      },
+      "output": {
+        "items": [
+          {
+            "name": "TATA Box",
+            "position": 7,
+            "sequence": "TATAAA",
+            "pattern": "TATAAA",
+            "description": "Eukaryotic core promoter element",
+            "strand": "+"
+          },
+          {
+            "name": "CAAT Box",
+            "position": 0,
+            "sequence": "CCAAT",
+            "pattern": "CCAAT",
+            "description": "Promoter element",
+            "strand": "-"
+          },
+          {
+            "name": "CAAT Box",
+            "position": 21,
+            "sequence": "CCAAT",
+            "pattern": "CCAAT",
+            "description": "Promoter element",
+            "strand": "+"
+          },
+          {
+            "name": "GC Box",
+            "position": 13,
+            "sequence": "GGGCGG",
+            "pattern": "GGGCGG",
+            "description": "Sp1 binding site",
+            "strand": "-"
+          },
+          {
+            "name": "GC Box",
+            "position": 43,
+            "sequence": "GGGCGG",
+            "pattern": "GGGCGG",
+            "description": "Sp1 binding site",
+            "strand": "+"
+          },
+          {
+            "name": "AP-1",
+            "position": 36,
+            "sequence": "TGACTCA",
+            "pattern": "TGASTCA",
+            "description": "AP-1 transcription factor binding",
+            "strand": "+"
+          },
+          {
+            "name": "NF-κB",
+            "position": 26,
+            "sequence": "GGGACTTTCC",
+            "pattern": "GGGRNWYYCC",
+            "description": "NF-κB binding site",
+            "strand": "-"
+          }
+        ]
+      }
+    }
+  ]
+}

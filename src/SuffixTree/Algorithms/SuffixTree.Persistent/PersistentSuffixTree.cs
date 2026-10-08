@@ -89,7 +89,7 @@ public sealed partial class PersistentSuffixTree : ISuffixTree, IDisposable
             _storage.ReadBytes(textOff, bytes, 0, byteLenInt);
             if (isAscii)
                 return Encoding.ASCII.GetString(bytes, 0, byteLenInt);
-            return Encoding.Unicode.GetString(bytes, 0, byteLenInt);
+            return Utf16CodeUnits.Read(bytes.AsSpan(0, byteLenInt));
         }
         finally
         {

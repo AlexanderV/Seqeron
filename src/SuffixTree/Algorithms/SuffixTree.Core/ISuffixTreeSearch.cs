@@ -46,11 +46,23 @@ public interface ISuffixTreeSearch
     /// <summary>
     /// Finds all starting positions where the pattern occurs in the original string.
     /// </summary>
+    /// <remarks>
+    /// Positions are 0-based and include overlapping occurrences; they are produced by
+    /// enumerating the leaves below the match point (O(m + z); Gusfield 1997, exact matching with a suffix tree), so their
+    /// order is tree-traversal order, not ascending. Sort the result if order matters.
+    /// An empty pattern returns every suffix start <c>[0 .. n-1]</c>.
+    /// </remarks>
     IReadOnlyList<int> FindAllOccurrences(string pattern);
 
     /// <summary>
     /// Finds all starting positions where the pattern occurs in the original string.
     /// </summary>
+    /// <remarks>
+    /// Positions are 0-based and include overlapping occurrences; they are produced by
+    /// enumerating the leaves below the match point (O(m + z); Gusfield 1997, exact matching with a suffix tree), so their
+    /// order is tree-traversal order, not ascending. Sort the result if order matters.
+    /// An empty pattern returns every suffix start <c>[0 .. n-1]</c>.
+    /// </remarks>
     IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern);
 
     /// <summary>

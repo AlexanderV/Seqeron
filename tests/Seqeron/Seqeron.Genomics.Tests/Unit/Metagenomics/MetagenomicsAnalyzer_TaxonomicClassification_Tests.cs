@@ -522,5 +522,122 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
         });
     }
 
+    [Test]
+    [Description("TaxonomyTree rejects a parent cycle that does not reach the root (rooted tree is acyclic)")]
+    public void TaxonomyTree_Construction_RejectsParentCycle()
+    {
+        // Regression: 2→3→2 has one self-parented root and all parents present, so it used to be
+        // accepted; IsAncestorOf / GetPathToRoot / Lca on 2 or 3 then never terminated (Kraken's
+        // krakenutil.cpp lca/resolve_tree likewise assume every parent chain reaches the root).
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<System.ArgumentException>(() => new TaxonomyTree(new[]
+            {
+                new TaxonNode(1, "r", "root", 1),
+                new TaxonNode(2, "a", "x", 3),
+                new TaxonNode(3, "b", "x", 2),
+            }), "2-cycle");
+            Assert.Throws<System.ArgumentException>(() => new TaxonomyTree(new[]
+            {
+                new TaxonNode(1, "r", "root", 1),
+                new TaxonNode(2, "ok", "x", 1),
+                new TaxonNode(7, "c1", "x", 8),
+                new TaxonNode(8, "c2", "x", 9),
+                new TaxonNode(9, "c3", "x", 7),
+                new TaxonNode(10, "tail", "x", 9), // hangs off the cycle
+            }), "3-cycle with a tail");
+            // A deep but acyclic chain is still accepted.
+            var chain = new List<TaxonNode> { new(1, "r", "root", 1) };
+            for (int i = 2; i <= 500; i++) chain.Add(new TaxonNode(i, "n" + i, "x", i - 1));
+            var deep = new TaxonomyTree(chain);
+            Assert.That(deep.GetDepth(500), Is.EqualTo(499));
+            Assert.That(deep.Lca(500, 250), Is.EqualTo(250));
+        });
+    }
+
+    [Test]
+    [Description("Kraken 2 manual worked example '562:13 561:4 A:31 0:1 562:3' → label 562, C/Q = 16/21")]
+    public void ClassifyReads_Kraken2ManualConfidenceExample()
+    {
+        // Kraken 2 MANUAL.markdown, "Confidence Scoring" (561 = genus parent of species 562):
+        // "a label of #562 ... would have a score of C/Q = (13+3)/(13+4+1+3) = 16/21".
+        // Mapped onto the hand taxonomy: 562 → E.coli(100), 561 → Escherichia(20); k = 4.
+        // Read = 20 ACGT bases (17 windows: 13→100, 4→20), N×28 (31 ambiguous windows),
+        // 7 ACGT bases (4 windows: 1 miss "CCAG", 3→100). All 21 canonical 4-mers are distinct.
+        // Independent check (Python literal port of Kraken 1 krakenutil.cpp resolve_tree):
+        // call = 100, max RTL score = 16 + 4 = 20, C = 16, Q = 21.
+        var t = BuildTaxonomy();
+        const string read = "TCAGCACGAAACTTGTTGGC" + "NNNNNNNNNNNNNNNNNNNNNNNNNNNN" + "CCAGTGT";
+        var db = new Dictionary<string, int>();
+        for (int i = 0; i < 13; i++) db[Canon(read.Substring(i, 4))] = 100;
+        for (int i = 13; i < 17; i++) db[Canon(read.Substring(i, 4))] = 20;
+        for (int i = 49; i < 52; i++) db[Canon(read.Substring(i, 4))] = 100;
+        Assert.That(db, Has.Count.EqualTo(20), "precondition: distinct canonical k-mers");
+
+        var r = ClassifyOne(read, db, t);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.TaxonId, Is.EqualTo(100), "label #562 (species)");
+            Assert.That(r.RtlScore, Is.EqualTo(20), "RTL(562) = 16 + 4");
+            Assert.That(r.MatchedKmers, Is.EqualTo(16), "C = 13 + 3");
+            Assert.That(r.TotalKmers, Is.EqualTo(21), "Q = 13 + 4 + 1 + 3 (31 ambiguous excluded)");
+            Assert.That(r.Confidence, Is.EqualTo(16.0 / 21.0).Within(1e-12));
+        });
+
+        static string Canon(string kmer)
+        {
+            string rc = DnaSequence.GetReverseComplementString(kmer);
+            return string.CompareOrdinal(kmer, rc) <= 0 ? kmer : rc;
+        }
+    }
+
+    [Test]
+    [Description("NCBI 'superkingdom'/'domain' fill Kingdom (kraken2 reports.cc rank code D); D-level wins over 'kingdom'")]
+    public void ClassifyReads_SuperkingdomAndDomainRanks_FillKingdom()
+    {
+        // kraken2 src/reports.cc maps both "superkingdom" and "domain" to report code "D"
+        // and "kingdom" to "K". Lineage Kingdom slot = D-level taxon; K only when no D exists.
+        var bacteria = new TaxonomyTree(new[]
+        {
+            new TaxonNode(1, "root", "no rank", 1),
+            new TaxonNode(2, "Bacteria", "superkingdom", 1),
+            new TaxonNode(3, "Pseudomonadota", "phylum", 2),
+            new TaxonNode(4, "Escherichia", "genus", 3),
+            new TaxonNode(5, "Escherichia coli", "species", 4),
+        });
+        var euk = new TaxonomyTree(new[]
+        {
+            new TaxonNode(1, "root", "no rank", 1),
+            new TaxonNode(2, "Eukaryota", "domain", 1),
+            new TaxonNode(3, "Fungi", "kingdom", 2),
+            new TaxonNode(4, "Saccharomyces cerevisiae", "species", 3),
+        });
+        var kOnly = new TaxonomyTree(new[]
+        {
+            new TaxonNode(1, "root", "no rank", 1),
+            new TaxonNode(3, "Fungi", "kingdom", 1),
+            new TaxonNode(4, "Saccharomyces cerevisiae", "species", 3),
+        });
+        const string read = "ACGTAC";
+        var db5 = MetagenomicsAnalyzer.BuildKmerDatabase(new[] { (5, read) }, bacteria, 4);
+        var db4 = MetagenomicsAnalyzer.BuildKmerDatabase(new[] { (4, read) }, euk, 4);
+        var db4k = MetagenomicsAnalyzer.BuildKmerDatabase(new[] { (4, read) }, kOnly, 4);
+
+        var rb = ClassifyOne(read, db5, bacteria);
+        var re = ClassifyOne(read, db4, euk);
+        var rk = ClassifyOne(read, db4k, kOnly);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rb.Kingdom, Is.EqualTo("Bacteria"), "superkingdom → Kingdom");
+            Assert.That(rb.Phylum, Is.EqualTo("Pseudomonadota"));
+            Assert.That(re.Kingdom, Is.EqualTo("Eukaryota"), "domain (D) wins over kingdom (K)");
+            Assert.That(rk.Kingdom, Is.EqualTo("Fungi"), "kingdom used when no D-level node");
+        });
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(new[] { rb });
+        Assert.That(profile.ClassifiedReads, Is.EqualTo(1), "superkingdom-ranked read counts as classified");
+    }
+
     #endregion
 }

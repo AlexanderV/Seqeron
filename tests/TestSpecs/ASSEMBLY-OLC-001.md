@@ -5,7 +5,7 @@
 **Algorithm:** Overlap-Layout-Consensus (overlap detection + OLC assembly)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -192,6 +192,22 @@
 
 ---
 
+## 6a. 2026-09 review additions
+
+| ID | Test | Expected (reference: Langmead greedy_scs / edge-GREEDY + dumb_consensus) |
+|---|---|---|
+| R1 | AssembleOLC_GtacgtacgatSixMers_GreedyRejectsCycle_ReconstructsGenome | `GTACGTACGAT` |
+| R2 | AssembleOLC_TakenHead_TailUsesNextBestSuccessor | `TTTTCATGCAAAAA`, `GGGGGATGCACCCCCC` |
+| R3 | AssembleOLC_DuplicateReads_AssembleIntoOneContig | `AAAAACCCCCGGGGG` |
+| R4 | AssembleOLC_ContainedRead_DoesNotProduceExtraContig | `AAAAACCCCCGGGGGTTTTT` |
+| R5 | AssembleOLC_MismatchInOverlap_ResolvedByMajorityVote | `ACGTTGCAACGGATT` |
+| R6 | AssembleOLC_TwoReadTieInOverlap_EmitsAmbiguitySymbol | `ACGTTGCNACGGAT` |
+| R7 | OverlapThresholds_OutOfRange_Throw (5 cases) | `ArgumentOutOfRangeException` |
+| R8 | AssembleOLC_NoParameters_UsesDocumentedDefaults | defaults 20/0.9/31/100; 10-base overlap not merged |
+
+Fuzz oracle `AssertWellFormed` (AssemblyOlcFuzzTests) now admits upper-cased read residues and
+`N` (consensus output), per the majority-vote consensus.
+
 ## 7. Open Questions / Decisions
 
-1. The greedy layout (`BuildContigsFromOverlaps`) is a heuristic; exact OLC layout is NP-complete (Source 1). Tests assert the **unambiguous-chain** contract (M4, INV-4) and the documented repeat limitation (C1) rather than exact reconstruction of repeat-containing genomes — consistent with the sources. No correctness-affecting constants exist in the OLC path (no scoring tables/penalties), so no values require source-backing beyond the threshold parameters, which are caller-supplied.
+1. The GREEDY layout (`BuildContigsFromOverlaps`, 2026-09: degree + no-cycle constraints, contained reads removed, majority-vote consensus) is a heuristic; exact OLC layout is NP-complete (Source 1). Tests assert the **unambiguous-chain** contract (M4, INV-4) and the documented repeat limitation (C1) rather than exact reconstruction of repeat-containing genomes — consistent with the sources. No correctness-affecting constants exist in the OLC path (no scoring tables/penalties), so no values require source-backing beyond the threshold parameters, which are caller-supplied.

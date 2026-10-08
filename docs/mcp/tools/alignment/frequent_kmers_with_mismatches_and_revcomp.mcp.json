@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "frequent_kmers_with_mismatches_and_revcomp",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements",
+  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L967",
+  "description": "Frequent Words with Mismatches and Reverse Complements (Compeau & Pevzner, Bioinformatics Algorithms ch. 1; ROSALIND BA1J): all DNA k-mers P maximising Count_d(sequence, P) + Count_d(sequence, reverseComplement(P)), ties included. Neighbourhoods are over {A,C,G,T} (windows with other symbols contribute nothing beyond their DNA neighbours, as in BA1I); case-insensitive. A reverse-complement palindrome scores 2·Count_d. The result set is closed under reverse complement. The library leaves the order unspecified; the tool sorts items by k-mer (ordinal).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Sequence to analyze.",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "K-mer length (> 0).",
+        "minimum": 1
+      },
+      "d": {
+        "type": "integer",
+        "description": "Maximum mismatches in neighborhood (>= 0).",
+        "minimum": 0
+      }
+    },
+    "required": [
+      "sequence",
+      "k",
+      "d"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "description": "Maximising k-mers sorted by k-mer",
+        "items": {
+          "type": "object",
+          "properties": {
+            "kmer": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kmer",
+            "count"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1007,
+      "message": "k must be > 0"
+    },
+    {
+      "code": 1008,
+      "message": "d must be >= 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "ROSALIND BA1J sample",
+      "input": {
+        "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT",
+        "k": 4,
+        "d": 1
+      },
+      "output": {
+        "items": [
+          {
+            "kmer": "ACAT",
+            "count": 9
+          },
+          {
+            "kmer": "ATGT",
+            "count": 9
+          }
+        ]
+      }
+    },
+    {
+      "name": "Homopolymer",
+      "input": {
+        "sequence": "AAAAA",
+        "k": 2,
+        "d": 0
+      },
+      "output": {
+        "items": [
+          {
+            "kmer": "AA",
+            "count": 4
+          },
+          {
+            "kmer": "TT",
+            "count": 4
+          }
+        ]
+      }
+    }
+  ]
+}

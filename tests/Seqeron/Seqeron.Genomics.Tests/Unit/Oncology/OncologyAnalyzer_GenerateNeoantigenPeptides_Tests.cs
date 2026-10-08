@@ -194,6 +194,58 @@ public class OncologyAnalyzer_GenerateNeoantigenPeptides_Tests
         });
     }
 
+    // R1 — reference cross-check vs pVACseq (griffithlab/pVACtools master: pipeline.py flank = k-1,
+    // fasta_generator.get_wildtype_subsequence, run_utils.determine_neoepitopes, output_parser keeps
+    // MT != WT). Re-executing that logic for E18K, k=9 gives exactly these four (start, MT, WT) rows —
+    // C-terminal clamp: starts [max(1,18-8)=10, min(18,21-9+1=13)=13].
+    [Test]
+    public void GenerateNeoantigenPeptides_NearCTerminus_MatchesPvacseqWindows()
+    {
+        IReadOnlyList<OncologyAnalyzer.NeoantigenPeptide> peptides =
+            OncologyAnalyzer.GenerateNeoantigenPeptides(WildType, 'K', 18, minLength: 9, maxLength: 9);
+
+        var expected = new[]
+        {
+            (10, "RSTVWLNDK", "RSTVWLNDE"),
+            (11, "STVWLNDKF", "STVWLNDEF"),
+            (12, "TVWLNDKFG", "TVWLNDEFG"),
+            (13, "VWLNDKFGH", "VWLNDEFGH"),
+        };
+        Assert.That(
+            peptides.Select(p => (p.StartPosition, p.MutantPeptide, p.WildTypePeptide)),
+            Is.EqualTo(expected),
+            "pVACseq E18K 9-mers (Sub-peptide Position, MT Epitope Seq, WT Epitope Seq)");
+    }
+
+    // R2 — pVACseq default class I lengths (--class-i-epitope-length 8,9,10,11) for Y5C: pVACseq reports
+    // 5 epitopes per length → 20 (reference re-execution); reachable here with maxLength: 11.
+    [Test]
+    public void GenerateNeoantigenPeptides_PvacseqDefaultLengths_TwentyPeptides()
+    {
+        IReadOnlyList<OncologyAnalyzer.NeoantigenPeptide> peptides =
+            OncologyAnalyzer.GenerateNeoantigenPeptides(WildType, 'C', 5, maxLength: 11);
+
+        Assert.That(peptides.Count, Is.EqualTo(20), "pVACseq default lengths 8-11, Y5C → 4 × 5 = 20 epitopes");
+    }
+
+    // R3 — stop-gain (nonsense) substitution: translation ends at the mutated codon, so no mutant residue
+    // exists at the position and no novel peptide spans it. pVACseq fasta_generator.py truncates the mutant
+    // subsequence at '*' ("stop_codon_added") and skips the variant ("does not result in any novel epitopes")
+    // → zero epitopes for Y5*, V13*, H21*.
+    [Test]
+    public void GenerateNeoantigenPeptides_StopGain_NoPeptides()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.GenerateNeoantigenPeptides(WildType, '*', 5), Is.Empty,
+                "Y5* stop-gain: protein truncated before position 5 → no spanning peptide (pVACseq: 0)");
+            Assert.That(OncologyAnalyzer.GenerateNeoantigenPeptides(WildType, '*', 13, 9, 9), Is.Empty,
+                "V13* interior stop-gain → no peptide carries a stop (pVACseq: 0)");
+            Assert.That(OncologyAnalyzer.GenerateNeoantigenPeptides(WildType, '*', 21, 8, 8), Is.Empty,
+                "H21* C-terminal stop-gain → 0 (pVACseq: 0)");
+        });
+    }
+
     #endregion
 
     #region Validation and edge cases

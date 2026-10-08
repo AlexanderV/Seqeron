@@ -94,6 +94,24 @@
 2. **Openness criterion (verbatim):** "If `alpha<1.0` the pan-genome is open, if `alpha>1.0` it is closed."
 3. **Fluidity (companion `fluidity()` doc):** genomic fluidity between two genomes = number of unique gene families divided by total number of gene families, averaged over random pairs (corroborates Kislyuk formula).
 
+### micropan R source (2026-09-28 review) — `heaps()`, `panMatrix()`, `fluidity()`
+
+**URLs opened (curl):** https://raw.githubusercontent.com/larssnip/micropan/master/R/powerlaw.R ; https://raw.githubusercontent.com/larssnip/micropan/master/R/panmat.R ; https://raw.githubusercontent.com/larssnip/micropan/master/R/genomedistances.R
+**Authority rank:** 3 (reference implementation)
+
+1. `heaps()`: for `i in 1:n.perm`, genomes are shuffled (`pan.matrix[sample(nrow(pan.matrix)),]`), new clusters at positions 2..ng are counted, points pooled (`x <- rep(2:ng, times = n.perm)`), and `optim(p0 = c(mean(y[x==2]), 1), objectFun, method = "L-BFGS-B", lower = c(0,0), upper = c(10000,2))` with `J = sqrt(sum((y - p1*x^(-p2))^2))/length(x)`. The open/closed call is therefore averaged over random orderings, never a single input order.
+2. `panMatrix()`: "Cell [i,j] contains an integer indicating how many members genome i has in cluster j" — genome identity is taken from each sequence's genome tag, not the gene name.
+3. `fluidity()`: per sampled pair `(#in 1 not 2 + #in 2 not 1) / (sum row1 + sum row2)` on the binarised matrix — same per-pair term as Kislyuk; an all-zero pair gives 0/0 (NaN); micropan never builds an all-zero row (rows exist only for genomes with sequences).
+
+**Python cross-check (scratch, scipy L-BFGS-B + exhaustive orderings + global grid over alpha):**
+
+| Input | mean new-gene curve (x=2,3,4) | global optimum (K, alpha) | Type |
+|---|---|---|---|
+| 4 genomes, each lacks one distinct accessory | 1, 0, 0 | 3.1745, 2.0 | Closed |
+| 3 genomes, each lacks one distinct accessory | 1, 0 | 3.3402, 2.0 | Closed |
+| base + 4,2,1,0 singleton clusters (any order) | 1.75, 1.75, 1.75 | 1.75, 0.0 | Open |
+| 4 genomes, core + 1 singleton each | 1, 1, 1 | 1.0, 0.0 | Open |
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -105,7 +123,7 @@
 ### From Kislyuk (2011)
 
 1. **Single genome / no pairs:** fluidity is defined as an average over genome *pairs*; with N < 2 there are no pairs and fluidity is undefined (taken as 0 by convention here).
-2. **Empty gene sets:** if `M_k + M_l = 0` for a pair the term is undefined; such pairs contribute 0.
+2. **Empty gene sets:** if `M_k + M_l = 0` for a pair the term is undefined (micropan: NaN); such pairs are excluded from the average (mean over defined pairs).
 
 ### From Page et al. (2015)
 
@@ -148,8 +166,8 @@ With coreFraction = 1.0 → coreThreshold = 3: core = {c1}; unique (occupancy 1)
 
 ## Assumptions
 
-1. **ASSUMPTION: clustering identity metric.** Roary/Tettelin use BLASTP-based percentage identity for clustering; this repository's `ConstructPanGenome` delegates to the in-repo `ClusterGenes` (k-mer Jaccard heuristic, threshold default 0.9). The *partitioning* logic under test (core/accessory/unique by cluster occupancy, fluidity, openness) is independent of the upstream identity metric, so test inputs use identical or fully-disjoint sequences where the occupancy is unambiguous. The clustering metric itself is the subject of PANGEN-CLUSTER-001, not this unit.
-2. **ASSUMPTION: empty-pair convention for fluidity.** Pairs whose `M_k + M_l = 0` contribute 0 (the equation is undefined; 0 is the neutral element). Not stated explicitly by Kislyuk, but only arises for empty genomes.
+1. **ASSUMPTION: clustering identity metric.** Roary/Tettelin use BLASTP-based percentage identity for clustering; this repository's `ConstructPanGenome` delegates to the in-repo `ClusterGenes` (CD-HIT greedy global-identity clustering, threshold default 0.9). The *partitioning* logic under test (core/accessory/unique by cluster occupancy, fluidity, openness) is independent of the upstream identity metric, so test inputs use identical or fully-disjoint sequences where the occupancy is unambiguous. The clustering metric itself is the subject of PANGEN-CLUSTER-001, not this unit.
+2. **ASSUMPTION: empty-pair convention for fluidity.** Pairs whose `M_k + M_l = 0` are excluded from the average (the term is undefined; micropan would return NaN). Not stated explicitly by Kislyuk; only arises for two empty genomes.
 
 ---
 
@@ -178,3 +196,4 @@ With coreFraction = 1.0 → coreThreshold = 3: core = {c1}; unique (occupancy 1)
 ## Change History
 
 - **2026-06-13**: Initial documentation (PANGEN-CORE-001).
+- **2026-09-28**: Review 2026-09 — micropan R source opened; open/closed now delegates to permutation-averaged `FitHeapsLaw`; presence matrix keyed by member genome; empty-pair fluidity convention corrected to match code (excluded); Python cross-check table added.

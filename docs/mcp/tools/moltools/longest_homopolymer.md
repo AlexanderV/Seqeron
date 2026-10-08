@@ -14,7 +14,7 @@ Length of the longest run of identical consecutive nucleotides.
 
 ## Description
 
-Scans the sequence (case-insensitive) and returns the length of its longest homopolymer — the maximal run of the same nucleotide (e.g. `AAAA` → 4). A sequence with no adjacent repeats returns 1.
+Scans the sequence (case-insensitive) and returns the length of its longest homopolymer — the maximal run of the same nucleotide (e.g. `AAAA` → 4). A sequence with no adjacent repeats returns 1. This is the quantity Primer3 limits with `PRIMER_MAX_POLY_X`; as in Primer3 (`_pr_violates_poly_x`), N is a worst-case wildcard (`ANA` → 3, `GNGNG` → 5, `ANGNG` → 4).
 
 ## Core Documentation Reference
 

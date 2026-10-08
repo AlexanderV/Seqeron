@@ -5,7 +5,7 @@
 **Algorithm:** IUPAC-Degenerate Consensus Generation (`MotifFinder.GenerateConsensus`)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-30 (review-2026-09 B05 F13)
 
 ---
 
@@ -19,6 +19,8 @@
 | 2 | UCSC Genome Browser — IUPAC ambiguity codes | 5 | https://genome.ucsc.edu/goldenPath/help/iupac.html | 2026-06-14 |
 | 3 | Wikipedia — Nucleic acid notation (Table 1, cites NC-IUB 1984) | 4 | https://en.wikipedia.org/wiki/Nucleic_acid_notation | 2026-06-14 |
 | 4 | DECIPHER `ConsensusSequence` (Bioconductor) | 3 | https://rdrr.io/bioc/DECIPHER/man/ConsensusSequence.html | 2026-06-14 |
+| 5 | Cavener D.R. (1987) NAR 15(4):1353 — degenerate consensus rules | 1 | PMID 3822832 (WebSearch snippet) | 2026-09-30 |
+| 6 | Biopython 1.88 `Bio.motifs` `degenerate_consensus` (installed source) + Tutorial chapter_motifs.rst | 3 | raw.githubusercontent.com/biopython/biopython/master/Doc/Tutorial/chapter_motifs.rst | 2026-09-30 |
 
 ### 1.2 Key Evidence Points
 
@@ -36,7 +38,7 @@
 ### 1.4 Known Failure Modes / Pitfalls
 
 1. Treating a base at exactly the threshold as included — boundary is strict `>`, so exactly-25 % bases are excluded (this implementation).
-2. Emitting N for four-equal columns — under strict `>` 25 % no base passes, so the fallback most-frequent base is emitted, not N (implementation contract; see §6).
+2. Four-equal columns — no base passes strict `>` 25 %; all four tie at the maximum → `N` (DECIPHER equal-abundance rule [4]; Biopython `degenerate_consensus` = N [6]). Before F13 (2026-09) this returned `A`.
 
 ---
 
@@ -45,6 +47,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `GenerateConsensus(IEnumerable<string>)` | `MotifFinder` | **Canonical** | IUPAC-degenerate consensus; threshold = count > n×0.25 |
+| `GenerateConsensus(IEnumerable<string>, double inclusionThreshold)` | `MotifFinder` | **Canonical** | configurable θ ∈ [0, 1]; θ = 0.25 bit-identical to the parameterless overload (B05 follow-up) |
 | `GetIupacCode(...)` | `MotifFinder` (private) | **Internal** | set→symbol mapping; tested indirectly via `GenerateConsensus` |
 
 ---
@@ -82,7 +85,11 @@
 | M12 | MultiColumn_MixedCodes | `["ATGC","GTGC"]` col0={A,G}→R, rest unanimous | `"RTGC"` | NC-IUB [1] |
 | M13 | ThresholdBoundary_Exactly25Excluded | `["AAAA","AAGT","AACT","AATT"]` col3 T(2)>1.0, others ≤1.0 | col3 = `'T'` | INV-5 (design constant) |
 | M14 | MinorityBelowThreshold_Dropped | `["AAGGC"]→` split as A,A,G,G,C col; C(1)≤1.25 dropped | `"R"` | DECIPHER threshold [4] |
-| M15 | NoBasePasses_FallbackMostFrequent | `["A","C","G","T"]` none >1.0 → most-frequent, tie→A | `"A"` | implementation contract §6 |
+| M13′ | (M13 col2) | four-way tie column | `'N'` → full `"AANT"` | [4][6] (F13) |
+| M15 | FourEqualBases_ReturnsN | `["A","C","G","T"]` none >1.0, four-way tie | `"N"` | DECIPHER [4], Biopython [6] (F13) |
+| M16 | NoBasePasses_TiedBasesEncoded | `["A","C","-","-"]` → `"M"`; `["A","-","-","-"]` → `"A"` | tied-max set | [4] (F13) |
+| M17 | ColumnWithoutAcgt_ReturnsN | `["A-","AN","A-"]` | `"AN"` | NC-IUB N = any [1] (F13) |
+| M18 | Cavener_EqualsBiopython | 23 alignments (tutorial WACVC, GBGTW, CV; rule branches; 12 random) via `GenerateCavenerConsensus` | Biopython values | [5][6] |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -97,6 +104,9 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Null_Throws | null collection | `ArgumentNullException` | guard |
+| C2 | NullElement_Throws | null row | `ArgumentException` | F13 (was NRE) |
+| C3 | UnequalLengths_Throws | `["ACG","AC"]`, `["AC","ACG"]` | `ArgumentException` | Biopython MSA (F13; was silently truncated) |
+| C4 | Cavener_InvalidInput | null / null row / unequal / gap | ANE / AE | shared `BuildCountMatrix` |
 
 ---
 
@@ -174,11 +184,32 @@ All in-scope cases ✅. Count of ✅ = total in-scope cases.
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | 25 % strict-`>` inclusion threshold is a documented design constant (threshold-consensus family is authoritative; exact 25 % is implementation-specific) | M13, M14, M15, INV-5 |
-| 2 | Fallback to single most-frequent base (alphabetical tie-break) when no base passes the threshold | M15 |
-| 3 | Length from first sequence; case-insensitive; non-ACGT ignored | INV-1, S1 |
+| 2 | (resolved F13) no-pass → IUPAC code of bases tied at the maximum; no A/C/G/T → N | M15–M17 |
+| 3 | Equal-length rows required; case-insensitive; non-ACGT not counted but counted in n | INV-1, S1, C3 |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. The 25 % threshold is correctness-affecting but documented and named in code; the *symbol* output for any given passing base set is dictated by the authoritative NC-IUB table, which is fully source-backed. Tests pin the boundary explicitly and otherwise use unambiguous inputs so verified symbols depend only on the authoritative table. No unresolved correctness-affecting assumption blocks completion.
+
+## 8. Configurable threshold tests (B05 follow-up, 2026-09-30)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| T-M1 | 20 random alignments × θ locked to an independent Python oracle of the rule (`ThresholdCases`); full run 700/700 | oracle `count > θ·n`, tie fallback, NC-IUB map |
+| T-M2 | θ = 0.25 ≡ parameterless overload (unit + property C1, 500 random) | bit-identity requirement |
+| T-M3 | hand-derived A,A,A,C,G: θ 0/0.1 → V, 0.2/0.6 → A; A,C at θ 1 → M | rule |
+| T-S1 | guards: null, θ < 0, θ > 1, NaN, unequal rows | contract |
+| T-P2 | property C2: base set at θ₂ ⊆ base set at θ₁ for θ₁ ≤ θ₂ | monotonicity of the cut |
+
+## 9. DECIPHER `ConsensusSequence` tests (B05 audit group C, F28, 2026-10-01)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| T-D1 | 90 stratified random cases (DNA/RNA/AA × ambiguity × includeNonLetters × includeTerminalGaps × minInformation) = output of DECIPHER 3.9.4 R/C source built against R 4.3.3 + Biostrings 2.70.2 (`DecipherCases`); full run 10,000/10,000 | `MotifFinder_DecipherConsensus_Tests` |
+| T-D2 | every example of `man/ConsensusSequence.Rd` (AAAT, majority, ties, terminal gaps, `.` as gap, non-letters, degeneracy) | manual + R build |
+| T-D3 | RNA → `U`, ragged rows, lower case, empty set → "" | R build |
+| T-D4 | hand-derived source order: A .6/C .4 → M; A .9/C .06/G .04 → M (t .95), A (t .9) | `makeConsensus` |
+| T-D5 | guards as `ConsensusSequence.R`: threshold ∉ [0,1), minInformation ∉ (0,1], noConsensusChar ∉ alphabet, characters outside DNA_/RNA_/AA_ALPHABET, null | R argument checks, Biostrings |
+| T-MCP | `generate_consensus` `inclusionThreshold` (default 0.25 = parameterless; 0.2 → `HHHH`); `generate_decipher_consensus` delegation | Mcp.Analysis.Tests |

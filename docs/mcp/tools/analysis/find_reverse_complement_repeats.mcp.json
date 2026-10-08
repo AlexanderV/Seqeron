@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_reverse_complement_repeats",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.FindReverseComplementRepeats",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4682",
+  "description": "Finds **maximal exact reverse-complement repeat pairs**: copy 1 at firstPosition and copy 2 at secondPosition (both 0-based, firstPosition ≤ secondPosition) with copy 2 = reverse complement of copy 1, not extendable outward or inward — the reverse (r) lines of MUMmer repeat-match and Vmatch -p (repeat-match Start2 = secondPosition + length). One pair can carry several maximal lengths on different anti-diagonals. Filters: minLength ≤ length ≤ maxLength (longer maximal pairs are not truncated) and spacing = secondPosition − firstPosition − length ≥ minSpacing (negative admits overlap; minSpacing = −2147483648 with maxLength = 2147483647 returns the complete repeat-match set). Only A/C/G/T pair (case-insensitive). Sorted by (firstPosition, secondPosition, length).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "Minimum repeat length",
+        "minimum": 2,
+        "default": 5
+      },
+      "maxLength": {
+        "type": "integer",
+        "description": "Maximum repeat length (>= minLength)",
+        "default": 50
+      },
+      "minSpacing": {
+        "type": "integer",
+        "description": "Minimum number of bases between the copies (negative admits overlap)",
+        "default": 1
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "firstPosition": {
+              "type": "integer"
+            },
+            "secondPosition": {
+              "type": "integer"
+            },
+            "repeatSequence": {
+              "type": "string"
+            },
+            "secondSequence": {
+              "type": "string"
+            },
+            "length": {
+              "type": "integer"
+            },
+            "spacing": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "firstPosition",
+            "secondPosition",
+            "repeatSequence",
+            "secondSequence",
+            "length",
+            "spacing"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "minLength must be >= 2"
+    },
+    {
+      "code": 1003,
+      "message": "maxLength must be >= minLength"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Defaults: separated copies only",
+      "input": {
+        "sequence": "TTGCATGCAAAAAATTTTTTTGCATGCAA"
+      },
+      "output": {
+        "items": [
+          {
+            "firstPosition": 0,
+            "secondPosition": 15,
+            "repeatSequence": "TTGCATGCAAAAAA",
+            "secondSequence": "TTTTTTGCATGCAA",
+            "length": 14,
+            "spacing": 1
+          },
+          {
+            "firstPosition": 8,
+            "secondPosition": 14,
+            "repeatSequence": "AAAAA",
+            "secondSequence": "TTTTT",
+            "length": 5,
+            "spacing": 1
+          },
+          {
+            "firstPosition": 9,
+            "secondPosition": 16,
+            "repeatSequence": "AAAAA",
+            "secondSequence": "TTTTT",
+            "length": 5,
+            "spacing": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "EcoRI sites, case-insensitive",
+      "input": {
+        "sequence": "gaattcAAAAAgaattc",
+        "minLength": 6
+      },
+      "output": {
+        "items": [
+          {
+            "firstPosition": 0,
+            "secondPosition": 11,
+            "repeatSequence": "GAATTC",
+            "secondSequence": "GAATTC",
+            "length": 6,
+            "spacing": 5
+          }
+        ]
+      }
+    },
+    {
+      "name": "Complete repeat-match set (8 19r 12 / 7 12r 6 / 16 19r 4)",
+      "input": {
+        "sequence": "AAAAAAAACGTTGCAACGTAAAA",
+        "minLength": 3,
+        "maxLength": 2147483647,
+        "minSpacing": -2147483648
+      },
+      "output": {
+        "items": [
+          {
+            "firstPosition": 6,
+            "secondPosition": 6,
+            "repeatSequence": "AACGTT",
+            "secondSequence": "AACGTT",
+            "length": 6,
+            "spacing": -6
+          },
+          {
+            "firstPosition": 7,
+            "secondPosition": 7,
+            "repeatSequence": "ACGTTGCAACGT",
+            "secondSequence": "ACGTTGCAACGT",
+            "length": 12,
+            "spacing": -12
+          },
+          {
+            "firstPosition": 15,
+            "secondPosition": 15,
+            "repeatSequence": "ACGT",
+            "secondSequence": "ACGT",
+            "length": 4,
+            "spacing": -4
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -21,7 +21,7 @@ indicate more repetitive / less complex sequences. Comparison is case-insensitiv
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L523](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L523)
+- Source: [SequenceComplexity.cs#L1772](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1772)
 
 ## Input Schema
 
@@ -58,9 +58,9 @@ indicate more repetitive / less complex sequences. Comparison is case-insensitiv
 
 **Response:**
 ```json
-{ "ratio": 2.0 }
+{ "ratio": 1.5 }
 ```
-Normalized LZ complexity of the classic LZ76 doctest string is 2.0.
+Normalized LZ complexity of the classic LZ76 doctest string is 6/(16/log₂16) = 1.5 (LZ76 c = 6: 1/0/01/1110/1100/0010; antropy doctest).
 
 ### Example 2: Tandem repeat (ACGT × 4)
 
@@ -77,13 +77,13 @@ Normalized LZ complexity of the classic LZ76 doctest string is 2.0.
 
 **Response:**
 ```json
-{ "ratio": 1.125 }
+{ "ratio": 0.625 }
 ```
-The repetitive ACGT×4 has low normalized LZ complexity (1.125).
+The repetitive ACGT×4 has low normalized LZ complexity (A/C/G/T/ACGTACGTACGT: c = 5 → 5/(16/log₄16) = 0.625).
 
 ## Performance
 
-- **Time Complexity:** O(n²) worst case for the exhaustive-history parse.
+- **Time Complexity:** O(n²) worst case (Kaspar–Schuster scan of the LZ76 exhaustive history).
 
 ## See Also
 

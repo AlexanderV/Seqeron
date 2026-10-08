@@ -6,7 +6,15 @@ namespace Seqeron.Genomics.Tests.Unit.Analysis;
 /// Direct repeats are identical sequences appearing multiple times in the same orientation.
 /// Example: 5' TTACG------TTACG 3' where ------ is the spacing region.
 /// 
+/// Reporting convention: maximal repeated pairs (left- and right-maximal; Gusfield 1997 §7.12),
+/// i.e. the forward-strand output of MUMmer repeat-match -f (Kurtz et al. 2004; mummer4 source
+/// src/tigr/repeat-match.cc compiled and run), filtered by maxLength and Spacing ≥ minSpacing.
+/// Only A/C/G/T match (MUMmer mummer -n). Expected values below were produced by repeat-match -f
+/// and an independent brute-force reference of the definition (0 mismatches on 8000 random cases).
+///
 /// Sources:
+/// - Gusfield (1997) Algorithms on Strings, Trees and Sequences §7.12 (maximal pairs)
+/// - Kurtz et al. (2004) Genome Biol 5:R12 — MUMmer 3 repeat-match; Kurtz &amp; Schleiermacher (1999) REPuter
 /// - Wikipedia: Direct repeat, Repeated sequence (DNA)
 /// - Ussery et al. (2009): Computing for Comparative Microbial Genomics
 /// - Richard (2021): PMC8145212 - Trinucleotide repeat expansions
@@ -198,46 +206,42 @@ public class RepeatFinder_DirectRepeat_Tests
     #region MUST Tests - Filter Thresholds
 
     /// <summary>
-    /// M11: Only repeats with Length >= minLength are returned.
+    /// M11: Only repeats with Length &gt;= minLength are returned.
+    /// "ACGTA" copies at 0 and 7 (maximal, length 5); "ACGT" at 14 pairs with 0 and 7 at length 4.
+    /// repeat-match -f -n 4: (1,8,5), (1,15,4), (8,15,4) in 1-based coordinates.
     /// </summary>
     [Test]
     public void FindDirectRepeats_MinLength_RespectsThreshold()
     {
-        // Arrange: "ACGT" (4bp) and "ACGTA" (5bp) both repeat
-        var sequence = new DnaSequence("ACGTAACGTAACGT");
+        const string seq = "ACGTATTACGTAGGACGTC";
 
-        // Act: minLength=5 should exclude 4bp repeats
-        var results = RepeatFinder.FindDirectRepeats(sequence, 5, 10, 0).ToList();
+        var min5 = RepeatFinder.FindDirectRepeats(seq, 5, 10, 1)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).ToList();
+        var min4 = RepeatFinder.FindDirectRepeats(seq, 4, 10, 1)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).ToList();
 
-        // Assert: Results exist and all meet the minimum length
-        Assert.That(results, Is.Not.Empty, "Repeats of length >= 5 should be found");
-        foreach (var result in results)
-        {
-            Assert.That(result.Length, Is.GreaterThanOrEqualTo(5),
-                $"Repeat '{result.RepeatSequence}' has length {result.Length} < minLength 5");
-        }
+        Assert.That(min5, Is.EqualTo(new[] { (0, 7, 5) }));
+        Assert.That(min4, Is.EqualTo(new[] { (0, 7, 5), (0, 14, 4), (7, 14, 4) }));
     }
 
     /// <summary>
-    /// M12: Only repeats with Length <= maxLength are returned.
+    /// M12: Only repeats with Length &lt;= maxLength are returned. A maximal repeat longer than
+    /// maxLength is NOT truncated into sub-windows — it is simply not reported.
+    /// ACGTACGTAC+TTTT+ACGTACGTAC: maximal pairs (0,14,10), (0,18,6), (3,13,7) (brute force = repeat-match -f).
     /// </summary>
     [Test]
     public void FindDirectRepeats_MaxLength_RespectsThreshold()
     {
-        // Arrange: Long repeat that exceeds maxLength
         var repeat = "ACGTACGTAC"; // 10bp
         var sequence = new DnaSequence(repeat + "TTTT" + repeat);
 
-        // Act: maxLength=8 should exclude 10bp repeats
-        var results = RepeatFinder.FindDirectRepeats(sequence, 5, 8, 1).ToList();
+        var capped = RepeatFinder.FindDirectRepeats(sequence, 5, 8, 1)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).ToList();
+        var full = RepeatFinder.FindDirectRepeats(sequence, 5, 50, 1)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).ToList();
 
-        // Assert: Results exist (5-8bp sub-repeats) and all meet the max length
-        Assert.That(results, Is.Not.Empty, "Sub-repeats of length 5-8 should be found");
-        foreach (var result in results)
-        {
-            Assert.That(result.Length, Is.LessThanOrEqualTo(8),
-                $"Repeat '{result.RepeatSequence}' has length {result.Length} > maxLength 8");
-        }
+        Assert.That(capped, Is.EqualTo(new[] { (0, 18, 6), (3, 13, 7) }));
+        Assert.That(full, Is.EqualTo(new[] { (0, 14, 10), (0, 18, 6), (3, 13, 7) }));
     }
 
     /// <summary>
@@ -277,27 +281,36 @@ public class RepeatFinder_DirectRepeat_Tests
     #region SHOULD Tests
 
     /// <summary>
-    /// S1: Three occurrences of a pattern produce all pairwise combinations.
-    /// Evidence: Wikipedia - "nucleotide sequences present in multiple copies."
+    /// S1: Three copies of a pattern with distinct flanks produce all three pairwise (maximal) pairs.
+    /// Evidence: Wikipedia - "nucleotide sequences present in multiple copies"; Gusfield maximal pairs.
     /// </summary>
     [Test]
     public void FindDirectRepeats_MultipleOccurrences_FindsAllPairs()
     {
-        // Arrange: "ACGTA" appears 3 times at positions 0, 7, 14
-        var sequence = new DnaSequence("ACGTATTACGTATTACGTA");
+        // "ACGTA" at 0, 7, 14; left flanks (start, T, G) and right flanks (T, G, C) all differ.
+        var results = RepeatFinder.FindDirectRepeats(new DnaSequence("ACGTATTACGTAGGACGTACC"), 5, 5, 1)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.RepeatSequence)).ToList();
 
-        // Act
-        var acgtaPairs = RepeatFinder.FindDirectRepeats(sequence, 5, 5, 1)
-            .Where(r => r.RepeatSequence == "ACGTA")
-            .ToList();
+        Assert.That(results, Is.EqualTo(new[] { (0, 7, "ACGTA"), (0, 14, "ACGTA"), (7, 14, "ACGTA") }));
+    }
 
-        // Assert: All three pairwise combinations reported
-        Assert.That(acgtaPairs.Any(r => r.FirstPosition == 0 && r.SecondPosition == 7), Is.True,
-            "Should find pair (0, 7)");
-        Assert.That(acgtaPairs.Any(r => r.FirstPosition == 0 && r.SecondPosition == 14), Is.True,
-            "Should find pair (0, 14)");
-        Assert.That(acgtaPairs.Any(r => r.FirstPosition == 7 && r.SecondPosition == 14), Is.True,
-            "Should find pair (7, 14)");
+    /// <summary>
+    /// S1b: Periodic copies ("ACGTATT" period 7) — copies 0/7 and 7/14 are sub-windows of ONE maximal
+    /// overlapping repeat (0,7,12); only the (0,14,5) pair is left- and right-maximal.
+    /// repeat-match -f -n 4 on ACGTATTACGTATTACGTA: (1,8,12), (1,15,5).
+    /// </summary>
+    [Test]
+    public void FindDirectRepeats_PeriodicCopies_ReportsMaximalPairsOnly()
+    {
+        const string seq = "ACGTATTACGTATTACGTA";
+
+        var spaced = RepeatFinder.FindDirectRepeats(seq, 4, 50, 1)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).ToList();
+        var all = RepeatFinder.FindDirectRepeats(seq, 4, 50, int.MinValue)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.Length, r.Spacing)).ToList();
+
+        Assert.That(spaced, Is.EqualTo(new[] { (0, 14, 5) }));
+        Assert.That(all, Is.EqualTo(new[] { (0, 7, 12, -5), (0, 14, 5, 9) }));
     }
 
     /// <summary>
@@ -382,33 +395,19 @@ public class RepeatFinder_DirectRepeat_Tests
     #region COULD Tests
 
     /// <summary>
-    /// C1: Overlapping pattern positions handled correctly.
-    /// Homopolymer regions produce multiple overlapping start positions.
+    /// C1: Homopolymer flanks — every left- and right-maximal pair is reported once at its full length;
+    /// nested sub-windows (e.g. AAAA at 1..5 vs 11..15) are not. repeat-match -f -n 4 (1-based, spacing ≥ 1):
+    /// (1,11,6), (1,12,5), (2,11,5), (1,13,4), (3,11,4). Previously 14 (i,j,len) windows were reported.
     /// </summary>
     [Test]
-    public void FindDirectRepeats_OverlappingPatterns_AllReported()
+    public void FindDirectRepeats_OverlappingPatterns_OnlyMaximalPairs()
     {
-        // Arrange: "AAAAAA" at both ends with "TTTT" spacer
-        // len=4: "AAAA" at {0,1,2} × {10,11,12} = 9 pairs
-        // len=5: "AAAAA" at {0,1} × {10,11} = 4 pairs
-        // len=6: "AAAAAA" at {0} × {10} = 1 pair
         var sequence = new DnaSequence("AAAAAATTTTAAAAAA");
 
-        // Act
-        var results = RepeatFinder.FindDirectRepeats(sequence, 4, 6, 1).ToList();
+        var results = RepeatFinder.FindDirectRepeats(sequence, 4, 6, 1)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).ToList();
 
-        // Assert: Exact count = 9 + 4 + 1 = 14 pairs
-        Assert.That(results, Has.Count.EqualTo(14));
-
-        // Verify representative pairs across all three lengths
-        Assert.That(results.Any(r => r.FirstPosition == 0 && r.SecondPosition == 10 && r.Length == 4), Is.True,
-            "Should find 4bp pair (0, 10)");
-        Assert.That(results.Any(r => r.FirstPosition == 0 && r.SecondPosition == 10 && r.Length == 5), Is.True,
-            "Should find 5bp pair (0, 10)");
-        Assert.That(results.Any(r => r.FirstPosition == 0 && r.SecondPosition == 10 && r.Length == 6), Is.True,
-            "Should find 6bp pair (0, 10)");
-        Assert.That(results.Any(r => r.FirstPosition == 2 && r.SecondPosition == 12 && r.Length == 4), Is.True,
-            "Should find 4bp pair (2, 12)");
+        Assert.That(results, Is.EqualTo(new[] { (0, 10, 6), (0, 11, 5), (0, 12, 4), (1, 10, 5), (2, 10, 4) }));
     }
 
     /// <summary>
@@ -444,6 +443,77 @@ public class RepeatFinder_DirectRepeat_Tests
             Assert.That(result.Length, Is.GreaterThanOrEqualTo(5));
             Assert.That(result.Length, Is.LessThanOrEqualTo(20));
             Assert.That(result.FirstPosition, Is.LessThan(result.SecondPosition));
+        }
+    }
+
+    #endregion
+
+    #region Reference cross-check (MUMmer repeat-match -f) and edge cases
+
+    /// <summary>
+    /// Full maximal-pair lists (minSpacing = int.MinValue, i.e. overlaps admitted) equal the output of the
+    /// compiled MUMmer 4 repeat-match -f -n L (converted to 0-based, sorted).
+    /// </summary>
+    [TestCase("ACGTACGTTTTTTTTTACGTACGT", 4,
+        "0,4,4;0,16,8;0,20,4;3,15,5;7,8,8;7,9,7;7,10,6;7,11,5;7,12,4;15,19,5")]
+    [TestCase("ACGTACGTACGT", 2, "0,4,8;0,8,4")]
+    [TestCase("AAAAAATTTTAAAAAA", 5, "0,1,5;0,10,6;0,11,5;1,10,5;10,11,5")]
+    [TestCase("ACGTATTTTACGTA", 5, "0,9,5")]
+    public void FindDirectRepeats_AllMaximalPairs_MatchRepeatMatch(string seq, int minLength, string expected)
+    {
+        var actual = RepeatFinder.FindDirectRepeats(seq, minLength, int.MaxValue, int.MinValue)
+            .Select(r => $"{r.FirstPosition},{r.SecondPosition},{r.Length}");
+        Assert.That(string.Join(";", actual), Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    /// minSpacing filters maximal pairs by Spacing = j − i − L; negative values admit overlap but a
+    /// position is never paired with itself (previously minSpacing = −L produced (i, i) self-pairs).
+    /// </summary>
+    [Test]
+    public void FindDirectRepeats_NegativeMinSpacing_NoSelfPairs()
+    {
+        var results = RepeatFinder.FindDirectRepeats("ACGTACGTACGT", 4, 4, -4)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.Length, r.Spacing)).ToList();
+
+        Assert.That(results, Is.EqualTo(new[] { (0, 8, 4, 4) }));
+        Assert.That(RepeatFinder.FindDirectRepeats("ACGTACGTACGT", 2, 50, int.MaxValue), Is.Empty);
+    }
+
+    /// <summary>
+    /// Non-ACGT symbols never match (MUMmer mummer -n "match only the characters a, c, g, or t").
+    /// </summary>
+    [Test]
+    public void FindDirectRepeats_NonAcgt_NeverMatches()
+    {
+        Assert.That(RepeatFinder.FindDirectRepeats("NNNNNNNNNNNNNNNNNNNN", 5, 5, 1), Is.Empty);
+        Assert.That(RepeatFinder.FindDirectRepeats("acgtannnnnacgta", 5, 50, 1)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.RepeatSequence)),
+            Is.EqualTo(new[] { (0, 10, "ACGTA") }));
+        // N inside both copies of ACGNTACG splits them: N≠N, so (0,10) stops at 3 and (4,14) is left-maximal.
+        Assert.That(RepeatFinder.FindDirectRepeats("ACGNTACGGGACGNTACG", 3, 50, 1)
+            .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)),
+            Is.EqualTo(new[] { (0, 5, 3), (0, 10, 3), (0, 15, 3), (4, 14, 4), (5, 10, 3), (10, 15, 3) }));
+    }
+
+    /// <summary>
+    /// Output is sorted by (FirstPosition, SecondPosition) and every position pair occurs once.
+    /// </summary>
+    [Test]
+    public void FindDirectRepeats_Output_SortedAndUniquePerPositionPair()
+    {
+        var rng = new Random(7);
+        var seq = new string(Enumerable.Range(0, 3000).Select(_ => "ACGT"[rng.Next(4)]).ToArray());
+        var results = RepeatFinder.FindDirectRepeats(seq, 6, 50, 0).ToList();
+
+        Assert.That(results.Select(r => (r.FirstPosition, r.SecondPosition)).Distinct().Count(), Is.EqualTo(results.Count));
+        Assert.That(results, Is.Ordered.By(nameof(DirectRepeatResult.FirstPosition))
+            .Then.By(nameof(DirectRepeatResult.SecondPosition)));
+        foreach (var r in results)
+        {
+            Assert.That(seq.Substring(r.SecondPosition, r.Length), Is.EqualTo(r.RepeatSequence));
+            Assert.That(r.FirstPosition == 0 || seq[r.FirstPosition - 1] != seq[r.SecondPosition - 1], "left-maximal");
+            Assert.That(r.SecondPosition + r.Length == seq.Length || seq[r.FirstPosition + r.Length] != seq[r.SecondPosition + r.Length], "right-maximal");
         }
     }
 

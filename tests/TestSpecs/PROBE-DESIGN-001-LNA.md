@@ -3,6 +3,9 @@
 **Test Unit ID:** PROBE-DESIGN-001
 **Area:** MolTools
 **Algorithm:** LNA (locked nucleic acid)-adjusted nearest-neighbour melting temperature; citable MGB design rules
+
+> **Superseded (2026-10-01, B07 F26–F28):** the canonical spec is `tests/TestSpecs/PROBE-LNATM-001.md`. Base DNA set is now SantaLucia (1998) unified / Allawi & SantaLucia (1997) (not the SantaLucia & Hicks 2004 set), the default model is Owczarzy et al. (2011), and the values below that assume the old base set (−80.014 / −216.6 / 63.5276 °C) are obsolete — MELTING-exact values are in `ProbeDesigner_LnaTm_Tests`.
+
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
 **Last Updated:** 2026-06-24

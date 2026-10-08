@@ -26,10 +26,13 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, ITextPatternMat
     /// </summary>
     public MemoryMappedTextSource(string filePath, long offset, int length)
     {
+        if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be non-negative.");
+        if (length < 0) throw new ArgumentOutOfRangeException(nameof(length), "Length must be non-negative.");
         _mmf = MemoryMappedFile.CreateFromFile(filePath, System.IO.FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
         try
         {
-            _accessor = _mmf.CreateViewAccessor(offset, length * sizeof(char), MemoryMappedFileAccess.Read);
+            // long arithmetic: length ≥ 2^30 chars is > int.MaxValue bytes (int product would wrap negative)
+            _accessor = _mmf.CreateViewAccessor(offset, (long)length * sizeof(char), MemoryMappedFileAccess.Read);
             _length = length;
             _ownsAccessor = true;
 

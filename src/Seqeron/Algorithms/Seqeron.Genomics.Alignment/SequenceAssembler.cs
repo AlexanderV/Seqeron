@@ -39,35 +39,55 @@ public static class SequenceAssembler
         int MinContigLength = 100);
 
     /// <summary>
+    /// The documented default assembly parameters (MinOverlap 20, MinIdentity 0.9, KmerSize 31,
+    /// MinContigLength 100), built through the primary constructor so the declared defaults apply.
+    /// </summary>
+    public static readonly AssemblyParameters DefaultParameters = new(
+        MinOverlap: 20, MinIdentity: 0.9, KmerSize: 31, MinContigLength: 100);
+
+    /// <summary>
     /// Assembles reads using the Overlap-Layout-Consensus (OLC) paradigm:
-    /// (1) Overlap — build the overlap graph by finding the longest suffix-prefix
-    /// overlap (length ≥ <see cref="AssemblyParameters.MinOverlap"/>) between every
-    /// ordered pair of reads; (2) Layout — greedily chain reads by their best
-    /// (longest) overlap into contigs; (3) Consensus — emit the merged superstring
-    /// of each chain. Exact OLC layout (a Hamiltonian path through the overlap graph)
-    /// is NP-complete, so a greedy heuristic is used; it reconstructs unambiguous
-    /// (non-repeat) tilings but, like all OLC heuristics, may split or not optimally
-    /// resolve repeats longer than the read length.
+    /// (1) Overlap — reads contained in another read (a full-length window of the container
+    /// with identity ≥ <see cref="AssemblyParameters.MinIdentity"/>) are set aside, and the
+    /// directed overlap graph of the remaining (substring-free) reads is built from the longest
+    /// suffix-prefix overlap (length ≥ <see cref="AssemblyParameters.MinOverlap"/>) of every
+    /// ordered pair; (2) Layout — the GREEDY algorithm: edges are scanned in non-increasing
+    /// overlap order and an edge i → j is taken iff i has no successor yet, j has no predecessor
+    /// yet and the edge does not close a cycle; every resulting path is one contig, and each
+    /// contained read is placed at its offset inside its container; (3) Consensus — each layout
+    /// column is resolved by majority vote (<see cref="ComputeConsensus"/>, threshold 0.5,
+    /// ties → 'N'). Exact OLC layout (a Hamiltonian path through the overlap graph) is
+    /// NP-complete, so GREEDY is a heuristic: it reconstructs unambiguous tilings exactly but
+    /// may split or mis-resolve repeats longer than the reads.
     /// </summary>
     /// <remarks>
     /// References: Compeau, Pevzner &amp; Tesler (2011), Nat Biotechnol 29:987–991,
     /// DOI 10.1038/nbt.2023 (overlap graph, Hamiltonian-path layout, NP-completeness);
-    /// Langmead, "Overlap Layout Consensus assembly" (JHU lecture notes), p.4–5, 25, 28.
+    /// Blum, Jiang, Li, Tromp &amp; Yannakakis (1994), J ACM 41:630–647 (GREEDY: merge the pair
+    /// with maximum overlap; equivalently take overlap-graph edges in non-increasing order that
+    /// share no head/tail with a taken edge and close no cycle); Myers (2005), Bioinformatics
+    /// 21 Suppl 2:ii79 (contained reads are removed from the overlap/string graph);
+    /// Langmead, "Overlap Layout Consensus assembly" (JHU lecture notes), p.4–5, 25, 28
+    /// (consensus = per-column majority vote).
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <see cref="AssemblyParameters.MinOverlap"/> &lt; 1, or <see cref="AssemblyParameters.MinIdentity"/>
+    /// outside [0, 1].
+    /// </exception>
     public static AssemblyResult AssembleOLC(
         IReadOnlyList<string> reads,
         AssemblyParameters? parameters = null)
     {
-        var param = parameters ?? new AssemblyParameters();
+        // NB: `new AssemblyParameters()` on a record struct is zero-initialisation (MinOverlap 0,
+        // MinIdentity 0, MinContigLength 0), NOT the declared defaults — use DefaultParameters.
+        var param = parameters ?? DefaultParameters;
+        ValidateOverlapThresholds(param.MinOverlap, param.MinIdentity);
 
         if (reads == null || reads.Count == 0)
             return new AssemblyResult(Array.Empty<string>(), 0, 0, 0, 0, 0);
 
-        // Step 1: Find overlaps
-        var overlaps = FindAllOverlaps(reads, param.MinOverlap, param.MinIdentity);
-
-        // Step 2: Build overlap graph and find layout
-        var contigs = BuildContigsFromOverlaps(reads, overlaps, param);
+        // Overlap + Layout + Consensus (greedy layout over the substring-free read set).
+        var contigs = BuildContigsFromOverlaps(reads, param);
 
         // Filter by minimum length
         contigs = contigs.Where(c => c.Length >= param.MinContigLength).ToList();
@@ -140,6 +160,7 @@ public static class SequenceAssembler
         int minOverlap = 20,
         double minIdentity = 0.9)
     {
+        ValidateOverlapThresholds(minOverlap, minIdentity);
         var overlaps = new List<Overlap>();
 
         for (int i = 0; i < reads.Count; i++)
@@ -177,6 +198,7 @@ public static class SequenceAssembler
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
     {
+        ValidateOverlapThresholds(minOverlap, minIdentity);
         var overlaps = new List<Overlap>();
         int total = reads.Count * reads.Count;
         int processed = 0;
@@ -213,22 +235,28 @@ public static class SequenceAssembler
     /// ≥ <paramref name="minIdentity"/>; returns the overlap length and the 0-based start
     /// positions (<c>pos1</c> in seq1, <c>pos2</c> = 0 in seq2), or <c>null</c> if none.
     /// Only the single longest qualifying overlap is reported (Langmead OLC p.5, p.10).
+    /// Identity is <c>1 − Hamming/L</c> over the length-<c>L</c> window (case-insensitive).
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="minOverlap"/> &lt; 1 (an overlap of length 0 is no overlap), or
+    /// <paramref name="minIdentity"/> outside [0, 1].
+    /// </exception>
     public static (int length, int pos1, int pos2)? FindOverlap(
         string seq1, string seq2,
         int minOverlap = 20,
         double minIdentity = 0.9)
     {
+        ValidateOverlapThresholds(minOverlap, minIdentity);
+
         // Check if suffix of seq1 overlaps with prefix of seq2
         int maxPossible = Math.Min(seq1.Length, seq2.Length);
 
         for (int overlapLen = maxPossible; overlapLen >= minOverlap; overlapLen--)
         {
-            string suffix = seq1.Substring(seq1.Length - overlapLen);
-            string prefix = seq2.Substring(0, overlapLen);
+            var suffix = seq1.AsSpan(seq1.Length - overlapLen);
+            var prefix = seq2.AsSpan(0, overlapLen);
 
-            double identity = CalculateIdentity(suffix, prefix);
-            if (identity >= minIdentity)
+            if (WindowIdentity(suffix, prefix) >= minIdentity)
             {
                 return (overlapLen, seq1.Length - overlapLen, 0);
             }
@@ -238,104 +266,210 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Calculates sequence identity between two strings of equal length.
+    /// Calculates the fractional identity of two equal-length strings,
+    /// <c>1 − HammingDistance / length</c> (case-insensitive). Returns 0 for unequal lengths
+    /// and 1 for two empty strings.
     /// </summary>
     public static double CalculateIdentity(string seq1, string seq2)
     {
         if (seq1.Length != seq2.Length) return 0;
-        if (seq1.Length == 0) return 1;
-
-        int matches = 0;
-        for (int i = 0; i < seq1.Length; i++)
-        {
-            if (char.ToUpperInvariant(seq1[i]) == char.ToUpperInvariant(seq2[i]))
-                matches++;
-        }
-
-        return (double)matches / seq1.Length;
+        return WindowIdentity(seq1, seq2);
     }
 
+    /// <summary>
+    /// Identity of two equal-length windows via the canonical Hamming distance
+    /// (<see cref="SequenceExtensions.HammingDistance(ReadOnlySpan{char}, ReadOnlySpan{char})"/>, PAT-APPROX-001).
+    /// </summary>
+    private static double WindowIdentity(ReadOnlySpan<char> a, ReadOnlySpan<char> b)
+    {
+        if (a.Length == 0) return 1;
+        return (double)(a.Length - a.HammingDistance(b)) / a.Length; // matches / L
+    }
+
+    private static void ValidateOverlapThresholds(int minOverlap, double minIdentity)
+    {
+        if (minOverlap < 1)
+            throw new ArgumentOutOfRangeException(nameof(minOverlap), minOverlap,
+                "Minimum overlap length must be at least 1.");
+        if (double.IsNaN(minIdentity) || minIdentity < 0.0 || minIdentity > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(minIdentity), minIdentity,
+                "Minimum identity must be in [0, 1].");
+    }
+
+    /// <summary>
+    /// Finds, for read <paramref name="j"/>, the read that contains it: a read that dominates it
+    /// (strictly longer, or equal length and lower index — so identical copies keep the first)
+    /// and has a length-|j| window with identity ≥ <paramref name="minIdentity"/>. Among several
+    /// containers the longest (then lowest-index) wins; within it the leftmost best window.
+    /// Reads shorter than <paramref name="minOverlap"/> are never treated as contained (an
+    /// overlap shorter than the threshold is not an overlap).
+    /// </summary>
+    private static (int container, int offset)? FindContainer(
+        IReadOnlyList<string> reads, int j, int minOverlap, double minIdentity)
+    {
+        string read = reads[j];
+        if (read.Length < minOverlap) return null;
+
+        (int container, int offset)? best = null;
+        for (int i = 0; i < reads.Count; i++)
+        {
+            if (i == j) continue;
+            string host = reads[i];
+            bool dominates = host.Length > read.Length || (host.Length == read.Length && i < j);
+            if (!dominates) continue;
+            if (best.HasValue)
+            {
+                string cur = reads[best.Value.container];
+                if (host.Length <= cur.Length) continue; // keep the longest (ties: lowest index)
+            }
+
+            int bestPos = -1;
+            double bestId = -1;
+            for (int p = 0; p + read.Length <= host.Length; p++)
+            {
+                double id = WindowIdentity(host.AsSpan(p, read.Length), read);
+                if (id >= minIdentity && id > bestId)
+                {
+                    bestId = id;
+                    bestPos = p;
+                    if (id == 1.0) break;
+                }
+            }
+
+            if (bestPos >= 0)
+                best = (i, bestPos);
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Overlap → Layout → Consensus for <see cref="AssembleOLC"/>: removes contained reads,
+    /// lays out the substring-free reads with the GREEDY edge-selection rule (non-increasing
+    /// overlap; out(i) = 0, in(j) = 0, no cycle), places contained reads inside their containers,
+    /// and computes each contig as the majority-vote consensus of its ungapped layout columns.
+    /// </summary>
     private static List<string> BuildContigsFromOverlaps(
         IReadOnlyList<string> reads,
-        IReadOnlyList<Overlap> overlaps,
         AssemblyParameters param)
     {
+        int n = reads.Count;
+
+        // --- Containment (Myers 2005): contained reads are removed from the overlap graph.
+        var containedIn = new (int container, int offset)?[n];
+        for (int j = 0; j < n; j++)
+            containedIn[j] = FindContainer(reads, j, param.MinOverlap, param.MinIdentity);
+
+        var isNode = new bool[n];
+        var nodeIndex = new List<int>();
+        for (int i = 0; i < n; i++)
+        {
+            if (!containedIn[i].HasValue)
+            {
+                isNode[i] = true;
+                nodeIndex.Add(i);
+            }
+        }
+
+        // --- Overlap graph over the substring-free reads (FindAllOverlaps on the sub-list).
+        var nodeReads = nodeIndex.Select(i => reads[i]).ToList();
+        var edges = FindAllOverlaps(nodeReads, param.MinOverlap, param.MinIdentity)
+            .Select(o => new Overlap(nodeIndex[o.ReadIndex1], nodeIndex[o.ReadIndex2],
+                o.OverlapLength, o.Position1, o.Position2))
+            .OrderByDescending(o => o.OverlapLength)
+            .ThenBy(o => o.ReadIndex1)
+            .ThenBy(o => o.ReadIndex2)
+            .ToList();
+
+        // --- Layout: GREEDY (Blum et al. 1994) with union-find cycle check.
+        var successor = new int[n];
+        var overlapToSuccessor = new int[n];
+        var hasPredecessor = new bool[n];
+        var component = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            successor[i] = -1;
+            component[i] = i;
+        }
+
+        int Find(int x)
+        {
+            while (component[x] != x)
+            {
+                component[x] = component[component[x]];
+                x = component[x];
+            }
+            return x;
+        }
+
+        foreach (var e in edges)
+        {
+            int a = e.ReadIndex1, b = e.ReadIndex2;
+            if (successor[a] != -1 || hasPredecessor[b]) continue;
+            int ra = Find(a), rb = Find(b);
+            if (ra == rb) continue; // would close a cycle
+            successor[a] = b;
+            overlapToSuccessor[a] = e.OverlapLength;
+            hasPredecessor[b] = true;
+            component[rb] = ra;
+        }
+
+        // Resolve each contained read to its root (non-contained) container and cumulative offset.
+        (int root, int offset) ResolveRoot(int j)
+        {
+            int offset = 0;
+            while (containedIn[j].HasValue)
+            {
+                offset += containedIn[j]!.Value.offset;
+                j = containedIn[j]!.Value.container;
+            }
+            return (j, offset);
+        }
+
+        var placedByRoot = new Dictionary<int, List<(int read, int offset)>>();
+        for (int j = 0; j < n; j++)
+        {
+            if (isNode[j]) continue;
+            var (root, off) = ResolveRoot(j);
+            if (!placedByRoot.TryGetValue(root, out var list))
+                placedByRoot[root] = list = new List<(int, int)>();
+            list.Add((j, off));
+        }
+
+        // --- Consensus: one contig per greedy path (every path starts at a node with no predecessor).
         var contigs = new List<string>();
-        var used = new HashSet<int>();
-
-        // Build adjacency: for each read, best successor
-        var bestSuccessor = new Dictionary<int, (int next, int overlap)>();
-        var hasPredecessor = new HashSet<int>();
-
-        foreach (var ov in overlaps.OrderByDescending(o => o.OverlapLength))
+        foreach (int start in nodeIndex)
         {
-            int r1 = ov.ReadIndex1;
-            int r2 = ov.ReadIndex2;
+            if (hasPredecessor[start]) continue;
 
-            if (!bestSuccessor.ContainsKey(r1))
+            var rows = new List<(int offset, string read)>();
+            int current = start, offsetInContig = 0;
+            while (current != -1)
             {
-                bestSuccessor[r1] = (r2, ov.OverlapLength);
-                hasPredecessor.Add(r2);
-            }
-        }
-
-        // Find starting reads (no predecessor in best-overlap chain)
-        var starters = new List<int>();
-        for (int i = 0; i < reads.Count; i++)
-        {
-            if (!hasPredecessor.Contains(i))
-                starters.Add(i);
-        }
-
-        // Build contigs from each starter
-        foreach (int start in starters)
-        {
-            if (used.Contains(start)) continue;
-
-            var sb = new StringBuilder();
-            int current = start;
-
-            while (current != -1 && !used.Contains(current))
-            {
-                used.Add(current);
-                string read = reads[current];
-
-                if (sb.Length == 0)
+                rows.Add((offsetInContig, reads[current]));
+                if (placedByRoot.TryGetValue(current, out var contained))
                 {
-                    sb.Append(read);
-                }
-                else if (bestSuccessor.TryGetValue(current, out _))
-                {
-                    // Already added previous, now extend
+                    foreach (var (read, off) in contained)
+                        rows.Add((offsetInContig + off, reads[read]));
                 }
 
-                if (bestSuccessor.TryGetValue(current, out var next))
-                {
-                    int overlap = next.overlap;
-                    string nextRead = reads[next.next];
-                    if (!used.Contains(next.next))
-                    {
-                        sb.Append(nextRead.AsSpan(overlap));
-                    }
-                    current = next.next;
-                }
-                else
-                {
-                    current = -1;
-                }
+                int next = successor[current];
+                if (next != -1)
+                    offsetInContig += reads[current].Length - overlapToSuccessor[current];
+                current = next;
             }
 
-            if (sb.Length > 0)
-                contigs.Add(sb.ToString());
-        }
-
-        // Add unused reads as singleton contigs
-        for (int i = 0; i < reads.Count; i++)
-        {
-            if (!used.Contains(i) && reads[i].Length >= param.MinContigLength)
+            if (rows.Count == 1)
             {
-                contigs.Add(reads[i]);
+                // A one-read layout: its consensus is the read itself (returned verbatim).
+                contigs.Add(rows[0].read);
+                continue;
             }
+
+            // Ungapped layout: pad each read with gap symbols to its column offset and take the
+            // column-wise majority vote (Biopython dumb_consensus rule; ties -> 'N', upper-cased).
+            var aligned = rows.Select(r => new string(GapDash, r.offset) + r.read).ToList();
+            contigs.Add(ComputeConsensus(aligned));
         }
 
         return contigs;

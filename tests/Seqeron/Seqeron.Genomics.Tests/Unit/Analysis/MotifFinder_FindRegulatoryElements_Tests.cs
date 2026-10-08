@@ -2,10 +2,13 @@
 // Evidence: docs/Evidence/MOTIF-REGULATORY-001-Evidence.md
 // TestSpec: tests/TestSpecs/MOTIF-REGULATORY-001.md
 // Source: Bucher (1990) J Mol Biol 212:563; Harley & Reynolds (1987) Nucleic Acids Res 15:2343;
-//         Lundin/Nehlin/Ronne (1994) Mol Cell Biol 14:1979; Kozak (1987) Nucleic Acids Res 15:8125;
+//         Dynan & Tjian (1983) Cell 35:79 / Gidoni et al. (1984) Nature 312:409 (GC box);
+//         Kozak (1987) Nucleic Acids Res 15:8125 (GCCGCC(A/G)CCATGG); Shine & Dalgarno (1974) PNAS 71:1342;
 //         Proudfoot & Brownlee (1976) Nature 263:211; Massari & Murre (2000) Mol Cell Biol 20:429;
-//         Lee/Mitchell/Tjian (1987) Cell 49:741; Sen & Baltimore (1986) Cell 46:705;
+//         Lee/Mitchell/Tjian (1987) Cell 49:741 + Angel et al. (1987) Cell 49:729 (TRE TGA(C/G)TCA);
+//         Sen & Baltimore (1986) Cell 46:705 + Gilmore (2006) Oncogene 25:6680 (κB GGGRNWYYCC);
 //         Montminy et al. (1986) PNAS 83:6682.
+// Reference positions: Biopython 1.88 Bio.SeqUtils.nt_search (IUPAC in pattern, literal sequence).
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
@@ -80,7 +83,7 @@ public class MotifFinder_FindRegulatoryElements_Tests
         });
     }
 
-    // M5 — GC box consensus GGGCGG (Lundin et al. 1994). Probe "AAGGGCGGTT" -> pos 2.
+    // M5 — GC box (Sp1) core GGGCGG (Dynan & Tjian 1983; Gidoni et al. 1984). Probe "AAGGGCGGTT" -> pos 2.
     [Test]
     public void FindRegulatoryElements_GcBoxProbe_DetectedAtConsensusPosition()
     {
@@ -88,11 +91,11 @@ public class MotifFinder_FindRegulatoryElements_Tests
         Assert.Multiple(() =>
         {
             Assert.That(e.Position, Is.EqualTo(2), "GGGCGG begins at index 2 in AAGGGCGGTT.");
-            Assert.That(e.Pattern, Is.EqualTo("GGGCGG"), "GC box consensus per Lundin et al. (1994).");
+            Assert.That(e.Pattern, Is.EqualTo("GGGCGG"), "GC box core per Dynan & Tjian (1983) / Gidoni et al. (1984).");
         });
     }
 
-    // M6 — Kozak optimal context GCCGCCACCATGG (Kozak 1987). Probe "TTGCCGCCACCATGGAA" -> pos 2.
+    // M6 — Kozak consensus GCCGCC(A/G)CCATGG = GCCGCCRCCATGG (Kozak 1987). Probe "TTGCCGCCACCATGGAA" -> pos 2.
     [Test]
     public void FindRegulatoryElements_KozakProbe_DetectedAtConsensusPosition()
     {
@@ -100,7 +103,8 @@ public class MotifFinder_FindRegulatoryElements_Tests
         Assert.Multiple(() =>
         {
             Assert.That(e.Position, Is.EqualTo(2), "GCCGCCACCATGG begins at index 2.");
-            Assert.That(e.Pattern, Is.EqualTo("GCCGCCACCATGG"), "Kozak optimal context per Kozak (1987).");
+            Assert.That(e.Pattern, Is.EqualTo("GCCGCCRCCATGG"), "Kozak consensus GCCGCC(A/G)CCATGG per Kozak (1987).");
+            Assert.That(e.Sequence, Is.EqualTo("GCCGCCACCATGG"), "Matched substring (A at -3).");
         });
     }
 
@@ -141,7 +145,7 @@ public class MotifFinder_FindRegulatoryElements_Tests
         });
     }
 
-    // M10 — AP-1 corrected consensus TGACTCA (Lee/Mitchell/Tjian 1987). Probe "AATGACTCAGG" -> pos 2.
+    // M10 — AP-1/TRE consensus TGA(C/G)TCA = TGASTCA (Lee/Mitchell/Tjian 1987). Probe "AATGACTCAGG" -> pos 2.
     [Test]
     public void FindRegulatoryElements_Ap1CorrectConsensus_DetectedAtConsensusPosition()
     {
@@ -149,21 +153,34 @@ public class MotifFinder_FindRegulatoryElements_Tests
         Assert.Multiple(() =>
         {
             Assert.That(e.Position, Is.EqualTo(2), "TGACTCA begins at index 2 in AATGACTCAGG.");
-            Assert.That(e.Pattern, Is.EqualTo("TGACTCA"), "AP-1 recognition motif per Lee/Mitchell/Tjian (1987).");
+            Assert.That(e.Pattern, Is.EqualTo("TGASTCA"), "AP-1 consensus TGA(C/G)TCA per Lee/Mitchell/Tjian (1987).");
+            Assert.That(e.Sequence, Is.EqualTo("TGACTCA"), "Matched substring.");
         });
     }
 
-    // M11 — Regression: the old WRONG pattern TGAGTCA must NOT be reported as AP-1.
+    // M11 — The collagenase TRE TGAGTCA (Angel et al. 1987) is an AP-1 site: TGA(C/G)TCA admits G at
+    // position 4, and TGAGTCA is the reverse complement of TGACTCA (same site, other strand).
+    // An earlier revision of this unit asserted the opposite (TGAGTCA "not AP-1"); that premise was wrong.
     [Test]
-    public void FindRegulatoryElements_Ap1OldWrongPattern_NotReported()
+    public void FindRegulatoryElements_Ap1CollagenaseTre_TgaGtca_Detected()
     {
-        // "AATGAGTCAGG" contains TGAGTCA (the prior buggy constant), which is NOT the AP-1 consensus.
-        var ap1 = Scan("AATGAGTCAGG").Where(e => e.Name == "AP-1").ToArray();
-        Assert.That(ap1.Length, Is.EqualTo(0),
-            "TGAGTCA is not the AP-1 consensus (TGACTCA per Lee/Mitchell/Tjian 1987); it must not match.");
+        var e = Single("AATGAGTCAGG", "AP-1");
+        Assert.Multiple(() =>
+        {
+            Assert.That(e.Position, Is.EqualTo(2), "Biopython nt_search('AATGAGTCAGG','TGASTCA') -> [2].");
+            Assert.That(e.Sequence, Is.EqualTo("TGAGTCA"), "Collagenase TRE (Angel et al. 1987).");
+        });
     }
 
-    // M12 — NF-κB reference κB site GGGACTTTCC (Sen & Baltimore 1986). Probe "AAGGGACTTTCCAA" -> pos 2.
+    // M11b — A non-C/G base at the TRE centre is not an AP-1 site (nt_search -> no hit).
+    [Test]
+    public void FindRegulatoryElements_Ap1CentreNotS_NotReported()
+    {
+        Assert.That(Scan("AATGATTCAGG").Where(e => e.Name == "AP-1"), Is.Empty,
+            "TGATTCA does not match TGA(C/G)TCA.");
+    }
+
+    // M12 — NF-κB κB consensus GGGRNWYYCC (Gilmore 2006) matches the Ig κ site GGGACTTTCC (Sen & Baltimore 1986).
     [Test]
     public void FindRegulatoryElements_NfKbProbe_DetectedAtConsensusPosition()
     {
@@ -171,7 +188,8 @@ public class MotifFinder_FindRegulatoryElements_Tests
         Assert.Multiple(() =>
         {
             Assert.That(e.Position, Is.EqualTo(2), "GGGACTTTCC begins at index 2 in AAGGGACTTTCCAA.");
-            Assert.That(e.Pattern, Is.EqualTo("GGGACTTTCC"), "NF-κB reference κB site per Sen & Baltimore (1986).");
+            Assert.That(e.Pattern, Is.EqualTo("GGGRNWYYCC"), "κB consensus per Gilmore (2006).");
+            Assert.That(e.Sequence, Is.EqualTo("GGGACTTTCC"), "Ig κ enhancer κB site (Sen & Baltimore 1986).");
         });
     }
 
@@ -212,17 +230,63 @@ public class MotifFinder_FindRegulatoryElements_Tests
         {
             Assert.That(MotifFinder.KnownMotifs.TataBox, Is.EqualTo("TATAAA"), "Bucher (1990).");
             Assert.That(MotifFinder.KnownMotifs.CaatBox, Is.EqualTo("CCAAT"), "Bucher (1990).");
-            Assert.That(MotifFinder.KnownMotifs.GcBox, Is.EqualTo("GGGCGG"), "Lundin et al. (1994).");
+            Assert.That(MotifFinder.KnownMotifs.GcBox, Is.EqualTo("GGGCGG"), "Dynan & Tjian (1983); Gidoni et al. (1984).");
             Assert.That(MotifFinder.KnownMotifs.MinusTenBox, Is.EqualTo("TATAAT"), "Harley & Reynolds (1987).");
             Assert.That(MotifFinder.KnownMotifs.MinusThirtyFiveBox, Is.EqualTo("TTGACA"), "Harley & Reynolds (1987).");
-            Assert.That(MotifFinder.KnownMotifs.Kozak, Is.EqualTo("GCCGCCACCATGG"), "Kozak (1987).");
-            Assert.That(MotifFinder.KnownMotifs.ShineDalgarno, Is.EqualTo("AGGAGG"), "Shine-Dalgarno.");
+            Assert.That(MotifFinder.KnownMotifs.Kozak, Is.EqualTo("GCCGCCRCCATGG"), "Kozak (1987): GCCGCC(A/G)CCATGG.");
+            Assert.That(MotifFinder.KnownMotifs.ShineDalgarno, Is.EqualTo("AGGAGG"), "Shine & Dalgarno (1974).");
             Assert.That(MotifFinder.KnownMotifs.PolyASignal, Is.EqualTo("AATAAA"), "Proudfoot & Brownlee (1976).");
             Assert.That(MotifFinder.KnownMotifs.EBox, Is.EqualTo("CANNTG"), "Massari & Murre (2000).");
-            Assert.That(MotifFinder.KnownMotifs.Ap1, Is.EqualTo("TGACTCA"), "Lee/Mitchell/Tjian (1987).");
-            Assert.That(MotifFinder.KnownMotifs.NfKb, Is.EqualTo("GGGACTTTCC"), "Sen & Baltimore (1986).");
+            Assert.That(MotifFinder.KnownMotifs.Ap1, Is.EqualTo("TGASTCA"), "Lee/Mitchell/Tjian (1987): TGA(C/G)TCA.");
+            Assert.That(MotifFinder.KnownMotifs.NfKb, Is.EqualTo("GGGRNWYYCC"), "Gilmore (2006).");
             Assert.That(MotifFinder.KnownMotifs.Creb, Is.EqualTo("TGACGTCA"), "Montminy et al. (1986).");
         });
+    }
+
+    #endregion
+
+    #region FindRegulatoryElements — degenerate consensus positions (Biopython nt_search-locked)
+
+    // M17 — Kozak -3 purine: G at -3 matches GCCGCC(A/G)CCATGG; a pyrimidine at -3 does not (Kozak 1987).
+    [Test]
+    public void FindRegulatoryElements_KozakPurineAtMinus3_GMatches_TDoesNot()
+    {
+        var g = Single("TTGCCGCCGCCATGGAA", "Kozak");
+        Assert.Multiple(() =>
+        {
+            Assert.That(g.Position, Is.EqualTo(2), "nt_search('TTGCCGCCGCCATGGAA','GCCGCCRCCATGG') -> [2].");
+            Assert.That(g.Sequence, Is.EqualTo("GCCGCCGCCATGG"));
+            Assert.That(Scan("TTGCCGCCTCCATGGAA").Where(e => e.Name == "Kozak"), Is.Empty,
+                "T at -3 is not a purine: nt_search -> no hit.");
+        });
+    }
+
+    // M18 — κB consensus admits variant sites: IFN-β PRDII GGGAAATTCC matches; GGGACGTTCC (G at the W position) does not.
+    [Test]
+    public void FindRegulatoryElements_NfKbConsensus_VariantSiteMatches_NonWDoesNot()
+    {
+        var e = Single("AAGGGAAATTCCAA", "NF-κB");
+        Assert.Multiple(() =>
+        {
+            Assert.That(e.Position, Is.EqualTo(2), "nt_search('AAGGGAAATTCCAA','GGGRNWYYCC') -> [2].");
+            Assert.That(e.Sequence, Is.EqualTo("GGGAAATTCC"));
+            Assert.That(Scan("AAGGGACGTTCCAA").Where(x => x.Name == "NF-κB"), Is.Empty,
+                "G at the W position: nt_search -> no hit.");
+        });
+    }
+
+    // M19 — Full scan output equals Biopython 1.88 nt_search over the 12-pattern library
+    // (library order, ascending positions within an entry).
+    [TestCase("CCAATAAACC", "CAAT Box:0:CCAAT|Poly(A) Signal:2:AATAAA")]
+    [TestCase("GTATAATATAAA", "TATA Box:6:TATAAA|-10 Box:1:TATAAT")]
+    [TestCase("CACATGTG", "E-box:0:CACATG|E-box:2:CATGTG")]
+    [TestCase("TATAAAAGGAGG", "TATA Box:0:TATAAA|Shine-Dalgarno:6:AGGAGG")]
+    [TestCase("AATAAACGAATAAA", "Poly(A) Signal:0:AATAAA|Poly(A) Signal:8:AATAAA")]
+    [TestCase("GCCGCCACCATG", "")]
+    public void FindRegulatoryElements_FullOutput_EqualsBiopythonNtSearch(string sequence, string expected)
+    {
+        string actual = string.Join("|", Scan(sequence).Select(e => $"{e.Name}:{e.Position}:{e.Sequence}"));
+        Assert.That(actual, Is.EqualTo(expected));
     }
 
     #endregion

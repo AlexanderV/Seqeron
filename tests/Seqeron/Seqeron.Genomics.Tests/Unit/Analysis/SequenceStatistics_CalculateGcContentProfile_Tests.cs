@@ -199,4 +199,117 @@ public class SequenceStatistics_CalculateGcContentProfile_Tests
     }
 
     #endregion
+
+    #region Reference cross-checks (B03 review 2026-09, F17/D6)
+
+    // EMBOSS 6.6.0 isochore -window 4 (executed; fraction 0.750 0.500 0.250 0.000 0.250 0.500 0.750)
+    // and Biopython 1.88 gc_fraction(window, "remove")·100 on every window: identical.
+    [Test]
+    public void CalculateGcContentProfile_MatchesEmbossIsochoreAndBiopythonGcFraction()
+    {
+        var profile = SequenceStatistics.CalculateGcContentProfile("GGGAAATGCC", 4, 1).ToArray();
+        Assert.That(profile, Is.EqualTo(new[] { 75.0, 50.0, 25.0, 0.0, 25.0, 50.0, 75.0 }).Within(Tolerance));
+    }
+
+    // Biopython 1.88 [gc_fraction(s[i:i+4], "remove")*100 for i in range(0, len(s)-3, 2)]
+    // on lowercase RNA with N runs; all-N window → 0 (Biopython returns 0 for a zero denominator).
+    [Test]
+    public void CalculateGcContentProfile_RnaWithN_Step2_MatchesBiopythonGcFractionRemove()
+    {
+        var profile = SequenceStatistics.CalculateGcContentProfile("ggnnAAUGCCnnnn", 4, 2).ToArray();
+        Assert.That(profile, Is.EqualTo(new[] { 100.0, 0.0, 25.0, 75.0, 100.0, 0.0 }).Within(Tolerance));
+    }
+
+    // Biopython 1.88 gc_fraction "remove" on a polluted 60-mer (mixed case, N, gaps; random.seed(7)),
+    // window 10, step 7 (partial trailing window not reported), percent and fraction forms.
+    [Test]
+    public void CalculateGcContentProfile_PollutedSequence_MatchesBiopythonGcFractionRemove()
+    {
+        const string seq = "cGgACNCc-ANTACggCTCNgA-CT-A--gATANGagGNC-aNGC--TcCNC-A-TtNgc";
+        double[] expected = { 75.0, 62.5, 75.0, 33.33333333333333, 50.0, 71.42857142857143, 83.33333333333334, 50.0 };
+
+        var percent = SequenceStatistics.CalculateGcContentProfile(seq, 10, 7).ToArray();
+        var fraction = SequenceStatistics.CalculateGcContentProfile(seq, 10, 7, fraction: true).ToArray();
+
+        Assert.That(percent, Is.EqualTo(expected).Within(1e-12));
+        Assert.That(fraction, Is.EqualTo(expected.Select(v => v / 100.0).ToArray()).Within(1e-14));
+    }
+
+    // D6 — the profile delegates to the canonical SequenceExtensions.CalculateGcFraction; locks
+    // behaviour preservation against the former inline kernel (ToUpperInvariant, G/C over A/C/G/T/U)
+    // over every UTF-16 code unit and 2000 random polluted inputs.
+    [Test]
+    public void CalculateGcContentProfile_EqualsFormerInlineKernelAndCanonicalGcFraction()
+    {
+        static double Former(string w)
+        {
+            int gc = 0, total = 0;
+            foreach (char ch in w.ToUpperInvariant())
+            {
+                if (ch == 'G' || ch == 'C') { gc++; total++; }
+                else if (ch == 'A' || ch == 'T' || ch == 'U') total++;
+            }
+            return total > 0 ? (double)gc / total * 100.0 : 0;
+        }
+
+        var all = new string(Enumerable.Range(0, 0x10000).Select(c => (char)c).ToArray());
+        var single = SequenceStatistics.CalculateGcContentProfile(all, 1, 1).ToArray();
+        for (int c = 0; c < 0x10000; c++)
+            Assert.That(single[c], Is.EqualTo(Former(((char)c).ToString())), $"U+{c:X4}");
+
+        var rng = new Random(20260928);
+        const string alphabet = "ACGTUacgtuNnRYSW-* .";
+        for (int iter = 0; iter < 2000; iter++)
+        {
+            var s = new string(Enumerable.Range(0, rng.Next(1, 80)).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray());
+            int w = rng.Next(1, s.Length + 1), step = rng.Next(1, 6);
+            var got = SequenceStatistics.CalculateGcContentProfile(s, w, step).ToArray();
+            var exp = new List<double>();
+            for (int i = 0; i + w <= s.Length; i += step)
+            {
+                exp.Add(Former(s.Substring(i, w)));
+                Assert.That(got[exp.Count - 1], Is.EqualTo(s.Substring(i, w).AsSpan().CalculateGcContent()));
+            }
+            Assert.That(got, Is.EqualTo(exp), s);
+        }
+    }
+
+    // F19 — Biopython 1.88 [gc_fraction(s[i:i+6], mode)*100 for i in range(0, len(s)-5, 3)] with
+    // s = "ACGTSSWWNNRYacgusw" (executed) for ambiguous = remove / ignore / weighted.
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Remove, new[] { 66.66666666666666, 40.0, 0.0, 66.66666666666666, 50.0 })]
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Ignore, new[] { 66.66666666666666, 33.33333333333333, 0.0, 33.33333333333333, 50.0 })]
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Weighted, new[] { 66.66666666666666, 41.66666666666667, 33.33333333333333, 58.333333333333336, 50.0 })]
+    public void CalculateGcContentProfile_AmbiguityMode_MatchesBiopythonGcFraction(
+        SequenceExtensions.GcAmbiguityMode mode, double[] expected)
+    {
+        var percent = SequenceStatistics.CalculateGcContentProfile("ACGTSSWWNNRYacgusw", 6, 3, false, mode).ToArray();
+        var fraction = SequenceStatistics.CalculateGcContentProfile("ACGTSSWWNNRYacgusw", 6, 3, true, mode).ToArray();
+
+        Assert.That(percent, Is.EqualTo(expected).Within(1e-12));
+        Assert.That(fraction, Is.EqualTo(expected.Select(v => v / 100.0).ToArray()).Within(1e-14));
+    }
+
+    [Test]
+    public void CalculateGcContentProfile_AmbiguityMode_InvalidWindowThrows_EmptyAndShortAreEmpty()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SequenceStatistics.CalculateGcContentProfile("ACGT", 0, 1, false, SequenceExtensions.GcAmbiguityMode.Remove));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SequenceStatistics.CalculateGcContentProfile("ACGT", 2, 0, false, SequenceExtensions.GcAmbiguityMode.Weighted));
+        Assert.That(SequenceStatistics.CalculateGcContentProfile("", 2, 1, false, SequenceExtensions.GcAmbiguityMode.Remove), Is.Empty);
+        Assert.That(SequenceStatistics.CalculateGcContentProfile("ACG", 4, 1, false, SequenceExtensions.GcAmbiguityMode.Remove), Is.Empty);
+    }
+
+    // F17 — window/step below 1 rejected eagerly (step 0 previously never terminated; W 0 returned n+1 zeros).
+    [TestCase(0, 1)]
+    [TestCase(-5, 1)]
+    [TestCase(4, 0)]
+    [TestCase(4, -1)]
+    public void CalculateGcContentProfile_WindowOrStepBelowOne_Throws(int windowSize, int stepSize)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SequenceStatistics.CalculateGcContentProfile("ACGTACGT", windowSize, stepSize));
+    }
+
+    #endregion
 }

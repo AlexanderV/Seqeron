@@ -14,11 +14,11 @@ Primer 3′-end nearest-neighbor stability (ΔG°37).
 
 ## Description
 
-Computes the SantaLucia (1998) unified nearest-neighbor ΔG°37 (kcal/mol, 1 M NaCl) of a primer's last 5 bases, including initiation terms (terminal G·C = +0.98, terminal A·T = +1.03). This matches Primer3's `PRIMER_MAX_END_STABILITY`. A more negative value means a more stable — and more mispriming-prone — 3′ end. Sequences shorter than 5 bases return 0.
+Computes Primer3's 3′-end stability (`oligotm.c` `end_oligodg(seq, 5)`): the SantaLucia (1998) nearest-neighbor ΔG°37 (kcal/mol, 1 M NaCl) of the primer's last 5 bases — the whole primer if shorter — with initiation +1.96, +0.05 per terminal A·T and +0.43 for a self-complementary sequence (for a 5-mer identical to terminal G·C +0.98 / A·T +1.03). Primer3 reports the same magnitude with the opposite sign as `PRIMER_*_END_STABILITY`. A more negative value means a more stable — and more mispriming-prone — 3′ end. N is accepted with Primer3's N parameters; any other non-ACGT character in the 3′ window is rejected.
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L427](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L427)
+- Source: [PrimerDesigner.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs) (`Calculate3PrimeStability`)
 
 ## Input Schema
 
@@ -37,6 +37,7 @@ Computes the SantaLucia (1998) unified nearest-neighbor ΔG°37 (kcal/mol, 1 M N
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1002 | The 3′-terminal 5 bases may contain only A, C, G, T or N |
 
 ## Examples
 
@@ -44,7 +45,7 @@ Computes the SantaLucia (1998) unified nearest-neighbor ΔG°37 (kcal/mol, 1 M N
 
 ### Example 2: `TATAT` → `−0.86` (TA+AT+TA+AT + 1.03 + 1.03).
 
-Only the last 5 bases matter, so `AAAAAGCGCG` also gives `−6.86`.
+Only the last 5 bases matter, so `AAAAAGCGCG` also gives `−6.86`. A 4-mer is scored whole: `ACGT` → `−2.56` (Primer3 end_oligodg 2.56).
 
 ## See Also
 

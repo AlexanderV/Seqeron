@@ -37,4 +37,18 @@ public class FindRegulatoryElementsTests
         var none = AnalysisTools.FindRegulatoryElements("AAAAAAAA").Items;
         Assert.That(none, Is.Empty);
     }
+
+    [Test]
+    public void FindRegulatoryElements_DegenerateConsensus_DelegatesToCore()
+    {
+        // AP-1 consensus TGA(C/G)TCA (Lee et al. 1987): the collagenase TRE TGAGTCA (Angel et al. 1987)
+        // is reported with the IUPAC pattern; Biopython nt_search("AATGAGTCAGG", "TGASTCA") -> [2].
+        var ap1 = AnalysisTools.FindRegulatoryElements("AATGAGTCAGG").Items.Single(e => e.Name == "AP-1");
+        Assert.Multiple(() =>
+        {
+            Assert.That(ap1.Position, Is.EqualTo(2));
+            Assert.That(ap1.Sequence, Is.EqualTo("TGAGTCA"));
+            Assert.That(ap1.Pattern, Is.EqualTo("TGASTCA"));
+        });
+    }
 }

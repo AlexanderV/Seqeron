@@ -150,7 +150,12 @@ Scoring uses information content (IC) per Schneider & Stephens (1990):
 
 ## Overlapping Match Behavior
 
-`FindMotifByPattern` uses regex lookahead `(?=(pattern))` to discover all matches including overlapping occurrences, consistent with PROSITE ScanProsite behavior (De Castro et al. 2006).
+`FindMotifByPattern` uses regex lookahead `(?=(pattern))` to discover all matches including overlapping occurrences, consistent with PROSITE ScanProsite behavior (De Castro et al. 2006), and then suppresses any hit whose end does not extend beyond the end of the previously reported hit (a match *included* in another one).
+
+**Source (opened 2026-09-28):** original PROSITE scanner `ps_scan.pl` (copy at https://raw.githubusercontent.com/ebi-pf-team/interproscan/master/core/jms-implementation/support-mini-x86-32/bin/prosite/ps_scan.pl), `scanPattern`: after each hit `$pos -= $shift if $allowOverlap` (restart at start+1) and a hit is pushed only `if ($allowInclude or $stop > $prevstop)`; defaults greedy on, overlaps on, includes off (options `-g`, `-v`, `-i`). WebSearch snippet of the ps_scan README (ftp.expasy.org, blocked for direct fetch): "The default is to be greedy and allow overlaps which are not completely included in another match"; example "ABCDC" with `A-x(1,3)-C` → greedy match "ABCDC".
+
+**Reference cross-check (2026-09-28):** `scanPattern` + `prositeToRegexp` extracted from `ps_scan.pl` and run in Perl on 350 seeded random proteins (50 containing X) × all 17 `CommonMotifs` patterns: 5593 hits, identical to `FindCommonMotifs` hit-for-hit with `-x 0` (preventX). Before the fix, 123 extra included hits (122 NES1, 1 PS00028) were reported. Default `ps_scan` (no `-x`) differs only on 3 X-containing hits where its X-augmented classes make the greedy match use X and then discard it (`max_x=0`) without trying the X-free alternative — an implementation artefact not reproduced here.
+
 
 ---
 
@@ -209,3 +214,4 @@ Scoring uses information content (IC) per Schneider & Stephens (1990):
 
 - **2026-02-12**: Initial documentation. Verified all PROSITE patterns against official source. Fixed PS00007 and PS00018 patterns in implementation.
 - **2026-02-13**: Eliminated all assumptions. Verified 5 non-PROSITE patterns (NLS1, NES1, SIM1, WW1, SH3_1) against published literature. Replaced heuristic scoring with information-content-based scoring (Schneider & Stephens 1990). Implemented overlapping match discovery via regex lookahead. Updated SH3_1 from minimal PxxP core to full Class I consensus `[RK]-x(2)-P-x(2)-P` (Mayer 2001).
+- **2026-09-28**: Review campaign 2026-09 (B14): added the ScanProsite `include=0` rule (hits included in the previous hit suppressed), cross-checked against the original `ps_scan.pl`; PROSITE pattern strings re-confirmed via WebSearch snippets (prosite.expasy.org blocked for fetch).

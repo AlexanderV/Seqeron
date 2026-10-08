@@ -6,7 +6,7 @@
 | **ID** | MIRNA-SEED-001 |
 | **Area** | MiRNA |
 | **Class** | MiRnaAnalyzer |
-| **Methods** | GetSeedSequence, CreateMiRna, CompareSeedRegions |
+| **Methods** | GetSeedSequence, CreateMiRna, CompareSeedRegions, GroupBySeedFamily, FindSimilarMiRnas, GenerateSeedVariants, CalculateGcContent |
 | **Canonical Test File** | MiRnaAnalyzer_SeedAnalysis_Tests.cs |
 | **Status** | ☑ Complete |
 
@@ -99,6 +99,20 @@
 **Evidence**: Mathematical: max mismatches = seed length
 **Input**: Two miRNAs with no shared seed nucleotides
 **Expected**: Matches=0, Mismatches=7
+
+## Review 2026-09 additions (seed-family operations)
+
+| ID | Test | Evidence / expected |
+|----|------|---------------------|
+| R-001 | `GroupBySeedFamily_RealFamilies_GroupsByNt2To8` | Bartel 2009 / TargetScan Seed+m8: {let-7a,b,c}→GAGGUAG; {miR-21-5p, miR-590-5p (GAGCUUAUUCAUAAAAGUGCAG)}→AGCUUAU |
+| R-002 | `GroupBySeedFamily_SeedlessMiRna_BelongsToNoFamily` | <8-nt miRNAs have no nt 2–8 seed ⇒ omitted (previously an "" family) |
+| R-003 | `SeedFamily_DnaAndLowercaseSeedEncoding_IsSameFamily` | targetscan_70.pl `s/T/U/gi; uc()`: "gaggtag" ≡ "GAGGUAG" ⇒ 7/0/same family |
+| R-004 | `FindSimilarMiRnas_RealSeeds_UsesSeedHammingDistance` | miR-21 vs miR-590 = 0 mm; vs let-7a = 5 mm (thresholds 0/4/5) |
+| R-005 | `FindSimilarMiRnas_SeedlessEntries_NeverSimilar` | empty seed previously scored 0 mm and matched everything |
+| R-006 | `GenerateSeedVariants_LowercaseDnaSeed_NormalisedWithoutDuplicates` | 1 + 3·7 = 22 distinct, first = GAGGUAG |
+| R-007 | `GenerateSeedVariants_IncludeWobbleFlag_HasNoEffect` | documented no-op flag |
+| R-008 | `NullInputs_ThrowArgumentNullException` | CreateMiRna / GenerateSeedVariants / GroupBySeedFamily / FindSimilarMiRnas |
+| R-009 | `CalculateGcContent_DelegatesToCanonicalGcFraction` | Biopython gc_fraction(let-7a) = 8/22 = 0.363636…; "GCNN" = 1.0 |
 
 ## Could Tests
 

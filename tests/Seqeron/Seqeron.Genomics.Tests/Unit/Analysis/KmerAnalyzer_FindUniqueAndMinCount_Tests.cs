@@ -244,4 +244,127 @@ public class KmerAnalyzer_FindUniqueAndMinCount_Tests
     }
 
     #endregion
+
+    #region Jellyfish dump -L/-U reference rows, ordering contract, range overload (B06 review)
+
+    // Reference: Python replica of Jellyfish `dump` (sub_commands/dump_main.cc:
+    // `if(it.val() < lower_count || it.val() > upper_count) continue;`) over collections.Counter,
+    // sorted by (-count, k-mer) — the order this API documents (count desc, ties ordinal k-mer).
+    // Rosalind BA1B sample text (k=4): Unique = 17 also matches the Jellyfish `stats` row of KMER-STATS-001.
+    private const string Ba1bSample = "ACGTTGCATGTCGCATGATGCATGAGAGCT";
+
+    private static readonly object[] JellyfishDumpRows =
+    {
+        // sequence, k, L, U, expected (k-mer:count) in documented order
+        new object[] { Ba1bSample, 4, 2, int.MaxValue, new[] { "CATG:3", "GCAT:3", "ATGA:2", "TGCA:2" } },
+        new object[] { Ba1bSample, 4, 2, 2, new[] { "ATGA:2", "TGCA:2" } },
+        new object[] { Ba1bSample, 4, 3, 3, new[] { "CATG:3", "GCAT:3" } },
+        new object[] { "GTAGAGCTGT", 2, 2, int.MaxValue, new[] { "AG:2", "GT:2" } },
+        new object[] { "ATCGATCAC", 3, 2, 2, new[] { "ATC:2" } },
+        new object[] { "AAAACGTAAA", 2, 2, int.MaxValue, new[] { "AA:5" } },
+        new object[] { "AAAACGTAAA", 2, 2, 2, Array.Empty<string>() },
+        new object[] { Acgtacgt, 4, 0, int.MaxValue, new[] { "ACGT:2", "CGTA:1", "GTAC:1", "TACG:1" } },
+        new object[] { Acgtacgt, 4, 1, 1, new[] { "CGTA:1", "GTAC:1", "TACG:1" } },
+    };
+
+    [TestCaseSource(nameof(JellyfishDumpRows))]
+    public void FindKmersWithMinCount_Range_MatchesJellyfishDumpReplica(
+        string sequence, int k, int lower, int upper, string[] expected)
+    {
+        var actual = KmerAnalyzer.FindKmersWithMinCount(sequence, k, lower, upper)
+            .Select(p => $"{p.Kmer}:{p.Count}").ToArray();
+
+        Assert.That(actual, Is.EqualTo(expected),
+            $"jellyfish dump -L {lower} -U {upper} (sorted by count desc, k-mer asc) for {sequence} k={k}");
+    }
+
+    // Jellyfish dump -L 1 -U 1 replica: unique k-mers in ascending ordinal order.
+    [TestCase(Ba1bSample, 4, new[] { "ACGT", "AGAG", "AGCT", "ATGC", "ATGT", "CGCA", "CGTT", "GAGA", "GAGC",
+        "GATG", "GTCG", "GTTG", "TCGC", "TGAG", "TGAT", "TGTC", "TTGC" })]
+    [TestCase("GTAGAGCTGT", 2, new[] { "CT", "GA", "GC", "TA", "TG" })]
+    [TestCase(AtcgatcacSeq, 3, new[] { "CAC", "CGA", "GAT", "TCA", "TCG" })]
+    [TestCase("AAAACGTAAA", 2, new[] { "AC", "CG", "GT", "TA" })]
+    public void FindUniqueKmers_MatchesJellyfishDumpU1_InOrdinalOrder(string sequence, int k, string[] expected)
+    {
+        Assert.That(KmerAnalyzer.FindUniqueKmers(sequence, k).ToArray(), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void FindKmersWithMinCount_TiesOrderedOrdinally_EvenWhenFirstOccurrenceDiffers()
+    {
+        // TGA occurs before GAT in ATGATG; ordinal tie-break puts GAT first.
+        var result = KmerAnalyzer.FindKmersWithMinCount("ATGATG", 3, 1).ToArray();
+        Assert.That(result, Is.EqualTo(new[] { ("ATG", 2), ("GAT", 1), ("TGA", 1) }));
+    }
+
+    [Test]
+    public void FindKmersWithMinCount_ThreeArg_EqualsRangeWithUnboundedUpper()
+    {
+        foreach (var (seq, k, min) in new[] { (Ba1bSample, 4, 1), (Ba1bSample, 3, 2), ("AAAACGTAAA", 2, 0) })
+        {
+            Assert.That(KmerAnalyzer.FindKmersWithMinCount(seq, k, min).ToArray(),
+                Is.EqualTo(KmerAnalyzer.FindKmersWithMinCount(seq, k, min, int.MaxValue).ToArray()), $"{seq} k={k}");
+        }
+    }
+
+    [Test]
+    public void FindKmersWithMinCount_NonPositiveMinCount_SelectsAllDistinct()
+    {
+        var distinct = KmerAnalyzer.CountKmers(Ba1bSample, 4).Count; // 21 (Jellyfish Distinct, KMER-STATS-001)
+        Assert.Multiple(() =>
+        {
+            Assert.That(KmerAnalyzer.FindKmersWithMinCount(Ba1bSample, 4, 0).Count(), Is.EqualTo(21));
+            Assert.That(KmerAnalyzer.FindKmersWithMinCount(Ba1bSample, 4, -5).Count(), Is.EqualTo(21));
+            Assert.That(distinct, Is.EqualTo(21));
+        });
+    }
+
+    [Test]
+    public void FindKmersWithMinCount_UpperBelowLower_ReturnsEmpty()
+    {
+        Assert.That(KmerAnalyzer.FindKmersWithMinCount(Ba1bSample, 4, 3, 2), Is.Empty,
+            "Jellyfish dump -L 3 -U 2 outputs nothing.");
+    }
+
+    [Test]
+    public void FindKmersWithMinCount_NegativeMaxCount_ThrowsAtCall()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => KmerAnalyzer.FindKmersWithMinCount("ACGT", 2, 0, -1));
+        Assert.That(ex!.ParamName, Is.EqualTo("maxCount"));
+    }
+
+    [Test]
+    public void FindUniqueAndMinCount_NullOrEmptySequence_ReturnsEmptyForAnyK()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(KmerAnalyzer.FindUniqueKmers(null!, 3), Is.Empty);
+            Assert.That(KmerAnalyzer.FindUniqueKmers("", 0), Is.Empty);
+            Assert.That(KmerAnalyzer.FindKmersWithMinCount(null!, 3, 1), Is.Empty);
+            Assert.That(KmerAnalyzer.FindKmersWithMinCount("", 0, 1, 5), Is.Empty);
+        });
+    }
+
+    // Shared range filter: the k-mers listed by FindKmersWithMinCount(L,U) are exactly those
+    // AnalyzeKmers(L,U) summarises (Jellyfish dump and stats apply the same predicate).
+    [TestCase(Ba1bSample, 4, 0, int.MaxValue)]
+    [TestCase(Ba1bSample, 4, 2, int.MaxValue)]
+    [TestCase(Ba1bSample, 4, 1, 1)]
+    [TestCase(Ba1bSample, 4, 2, 2)]
+    [TestCase("GTAGAGCTGT", 2, 2, 2)]
+    [TestCase("AAAACGTAAA", 2, 3, 4)]
+    public void FindKmersWithMinCount_AgreesWithAnalyzeKmersFilter(string seq, int k, int lower, int upper)
+    {
+        var listed = KmerAnalyzer.FindKmersWithMinCount(seq, k, lower, upper).ToList();
+        var stats = KmerAnalyzer.AnalyzeKmers(seq, k, lower, upper);
+        Assert.Multiple(() =>
+        {
+            Assert.That(listed.Count, Is.EqualTo(stats.DistinctKmers), "Distinct");
+            Assert.That(listed.Sum(p => p.Count), Is.EqualTo(stats.TotalKmers), "Total");
+            Assert.That(listed.Count(p => p.Count == 1), Is.EqualTo(stats.SingletonKmers), "Unique");
+        });
+    }
+
+    #endregion
 }

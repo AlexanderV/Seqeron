@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_clump_windows",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.FindClumpWindows",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2832",
+  "description": "(L, t)-clump k-mers with the windows in which they form clumps: for each k-mer the maximal runs of consecutive 0-based window starts i such that sequence[i..i+windowSize-1] holds at least minOccurrences occurrences (Compeau & Pevzner Ch.1, Rosalind BA1E). Same k-mer set as find_clumps.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Sequence to scan", "minLength": 1 },
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "windowSize": { "type": "integer", "description": "Sliding window size L (>= k)", "minimum": 1 },
+      "minOccurrences": { "type": "integer", "description": "Minimum occurrences t within a window", "minimum": 1 }
+    },
+    "required": ["sequence", "k", "windowSize", "minOccurrences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "clumps": {
+        "type": "array",
+        "description": "One entry per clump k-mer, ordered by firstWindowStart then ordinal k-mer",
+        "items": {
+          "type": "object",
+          "properties": {
+            "kmer": { "type": "string", "description": "Clump-forming k-mer (upper case)" },
+            "firstWindowStart": { "type": "integer", "description": "Leftmost window start in which the k-mer has >= t occurrences" },
+            "windowRuns": {
+              "type": "array",
+              "description": "Maximal runs of qualifying window starts, ascending and disjoint; run [first, last] covers sequence[first..last+windowSize-1]",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "firstWindowStart": { "type": "integer", "description": "First window start of the run (0-based, inclusive)" },
+                  "lastWindowStart": { "type": "integer", "description": "Last window start of the run (0-based, inclusive)" }
+                },
+                "required": ["firstWindowStart", "lastWindowStart"]
+              }
+            }
+          },
+          "required": ["kmer", "firstWindowStart", "windowRuns"]
+        }
+      }
+    },
+    "required": ["clumps"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "k must be positive" },
+    { "code": 1003, "message": "Window size must be at least k" },
+    { "code": 1003, "message": "Minimum occurrences must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Two clumps",
+      "input": { "sequence": "AAAACCCC", "k": 2, "windowSize": 4, "minOccurrences": 3 },
+      "output": { "clumps": [
+        { "kmer": "AA", "firstWindowStart": 0, "windowRuns": [{ "firstWindowStart": 0, "lastWindowStart": 0 }] },
+        { "kmer": "CC", "firstWindowStart": 4, "windowRuns": [{ "firstWindowStart": 4, "lastWindowStart": 4 }] }
+      ] }
+    },
+    {
+      "name": "Split runs (Rosalind BA1B sample, k=4, L=12, t=2)",
+      "input": { "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT", "k": 4, "windowSize": 12, "minOccurrences": 2 },
+      "output": { "clumps": [
+        { "kmer": "GCAT", "firstWindowStart": 4, "windowRuns": [{ "firstWindowStart": 4, "lastWindowStart": 5 }, { "firstWindowStart": 11, "lastWindowStart": 12 }] },
+        { "kmer": "CATG", "firstWindowStart": 5, "windowRuns": [{ "firstWindowStart": 5, "lastWindowStart": 6 }, { "firstWindowStart": 12, "lastWindowStart": 13 }] },
+        { "kmer": "ATGA", "firstWindowStart": 13, "windowRuns": [{ "firstWindowStart": 13, "lastWindowStart": 14 }] }
+      ] }
+    }
+  ]
+}

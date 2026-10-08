@@ -35,55 +35,25 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///          produce only in-contract output, never a crash).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
-/// The approximate-tandem contract under test
+/// The approximate-tandem contract under test (REP-APPROX-001, TRF 4.10.0 model)
 /// ───────────────────────────────────────────────────────────────────────────
-/// FindApproximateTandemRepeats enumerates each period p in [minPeriod, maxPeriod], and at
-/// each start grows a tandem window, derives the majority-rule consensus, globally aligns the
-/// window against a whole number of tandem copies of the consensus with TRF scoring
-/// (match +2, mismatch −7, indel −7; RepeatFinder.cs lines 280–303), and reports the repeat
-/// when its alignment score reaches <c>minScore</c> (default
-/// <see cref="RepeatFinder.DefaultApproximateMinScore"/> = 50, per Benson 1999). Benson's
-/// definition — "two or more contiguous, approximate copies of a pattern" — fixes the
-/// MINIMUM at two copies: the start loop requires <c>start + period·2 ≤ seq.Length</c> and
-/// the window starts at <c>spanLen = period·2</c> (RepeatFinder.cs lines 367–368, 412), so
-/// nothing with fewer than two copies (CopyNumber ≥ 2) is ever reported. The result record
-/// (ApproximateTandemRepeatResult, RepeatFinder.cs line 1059) carries Start, SpanLength,
-/// Period, ConsensusSize, Consensus, CopyNumber, PercentMatches, PercentIndels and
-/// AlignmentScore.
+/// FindApproximateTandemRepeats examines candidate distances d ≤ maxPeriod where a k-tuple match run
+/// meets Benson's sum-of-heads criterion, aligns the sequence by wraparound DP against the candidate
+/// pattern, takes the majority consensus, realigns and reports TRF's statistics (score ≥ minScore,
+/// ≥ 1.9 copies for consensus ≤ 50, 1.8 above 100), then applies TRF's redundancy elimination.
+/// Validation is eager on both overloads: minPeriod ≥ 1, maxPeriod ≥ minPeriod, maxPeriod ≤ 2000,
+/// minScore ≥ 1 (ArgumentOutOfRangeException); a null DnaSequence throws ArgumentNullException; a
+/// null / empty string yields no repeats. TRF scoring matches only identical A/C/G/T, so N (raw
+/// surface) never matches and an all-N input yields no repeat.
 ///
-/// Documented parameter / boundary contract (RepeatFinder.cs lines 320–391):
-///   • sequence == null            → the typed overload throws ArgumentNullException
-///     (ThrowIfNull, line 326) BEFORE touching the scan — never a NullReferenceException.
-///   • minPeriod &lt; 1            → ArgumentOutOfRangeException(nameof(minPeriod)) (line 353).
-///     THIS is the row's "minReps 0" analogue: a period of 0 would make the inner window
-///     loop step `for (spanLen = period·2 = 0; …; spanLen++)` start at 0 and the copy-count
-///     `copies = (spanLen + period − 1) / period` divide by zero — the classic DivByZero /
-///     non-terminating trap. The contract REJECTS minPeriod &lt; 1 so the scan can never
-///     reach a zero period. A negative period is likewise rejected.
-///   • maxPeriod &lt; minPeriod    → ArgumentOutOfRangeException(nameof(maxPeriod)) (line 354).
-///   • period &gt; sequence length → the start-loop bound `start + period·2 ≤ seq.Length`
-///     is false at every start, so no window is ever grown for that period → empty result,
-///     no out-of-range Substring (RepeatFinder.cs line 368).
-///   • empty sequence             → the typed surface materialises an empty DnaSequence and
-///     the Core short-circuits `IsNullOrEmpty(seq)` to the empty list (line 357); the raw
-///     surface short-circuits null/empty to the empty enumerable (line 341). No division,
-///     no indexing, no hang.
-///   • single character           → `start + period·2 ≤ 1` is false for every period ≥ 1, so
-///     no window is grown → empty result.
-///   • all-N (non-ACGT)           → the TYPED surface rejects it at DnaSequence construction
-///     (ArgumentException "Invalid nucleotide", DnaSequence.cs lines 112–124); the RAW
-///     surface does NOT validate — it uppercases and treats 'N' as an ordinary symbol, so
-///     "NNNNNN…" is a legal homopolymer-like input that may legitimately score a repeat, and
-///     every such result must still be in-contract (bounds, copy number, percentages).
-///
-/// Documented invariants pinned on every positive result (RepeatFinder.cs lines 320–535,
-/// 1059–1068; Benson 1999):
-///   INV-bounds  : 0 ≤ Start and Start + SpanLength ≤ sequence.Length (the window is a real
-///                 Substring(start, spanLen) inside the sequence).
-///   INV-period  : minPeriod ≤ Period ≤ maxPeriod, ConsensusSize = Period, |Consensus| = Period.
-///   INV-copies  : CopyNumber ≥ 2 (Benson's "two or more contiguous copies" minimum).
-///   INV-percent : PercentMatches ∈ [0,100] and PercentIndels ∈ [0,100].
-///   INV-score   : AlignmentScore ≥ minScore (only repeats reaching the threshold are emitted).
+/// Documented invariants pinned on every positive result:
+///   INV-bounds  : 0 ≤ Start and Start + SpanLength ≤ sequence.Length.
+///   INV-period  : minPeriod ≤ Period ≤ maxPeriod; |Consensus| = ConsensusSize ≥ 1 (TRF: the consensus
+///                 size "may differ slightly from the period size").
+///   INV-copies  : CopyNumber ≥ 1.8 (TRF minimum copy number; 1.9 for consensus ≤ 50).
+///   INV-percent : PercentMatches, PercentIndels, PercentA..T ∈ [0,100]; PercentMatches + PercentIndels ≤ 100;
+///                 Entropy ∈ [0,2].
+///   INV-score   : AlignmentScore ≥ minScore.
 ///
 /// Every test forces enumeration (`.ToList()`) so the in-Core validation surfaces and any hang
 /// would manifest as the [CancelAfter] timeout firing.
@@ -113,12 +83,17 @@ public class RepeatApproxFuzzTests
         (r.Start + r.SpanLength).Should().BeLessThanOrEqualTo(seqLen,
             "INV-bounds: the reported window never extends past the end of the sequence");
         r.Period.Should().BeInRange(minPeriod, maxPeriod, "INV-period: the period stays within the searched range");
-        r.ConsensusSize.Should().Be(r.Period, "INV-period: consensus size equals the period");
-        r.Consensus.Length.Should().Be(r.Period, "INV-period: the consensus string has exactly Period bases");
-        r.CopyNumber.Should().BeGreaterThanOrEqualTo(2.0,
-            "INV-copies: Benson's minimum is two or more contiguous copies");
+        r.ConsensusSize.Should().BeGreaterThanOrEqualTo(1, "INV-period: a consensus has at least one base");
+        r.Consensus.Length.Should().Be(r.ConsensusSize, "INV-period: the consensus string has ConsensusSize bases");
+        r.CopyNumber.Should().BeGreaterThanOrEqualTo(r.ConsensusSize <= 50 ? 1.9 : 1.8,
+            "INV-copies: TRF minimum copy number (1.9 copies, 1.8 for large patterns)");
         r.PercentMatches.Should().BeInRange(0.0, 100.0, "INV-percent: percent matches is a percentage");
         r.PercentIndels.Should().BeInRange(0.0, 100.0, "INV-percent: percent indels is a percentage");
+        (r.PercentMatches + r.PercentIndels).Should().BeLessThanOrEqualTo(100.0 + 1e-9,
+            "INV-percent: matches and indels are disjoint outcomes of the adjacent-copy trials");
+        (r.PercentA + r.PercentC + r.PercentG + r.PercentT).Should().BeLessThanOrEqualTo(100.0 + 1e-9,
+            "INV-percent: composition over the region (N excluded from the four columns)");
+        r.Entropy.Should().BeInRange(0.0, 2.0, "INV-percent: entropy of a 4-letter composition is 0..2 bits");
         r.AlignmentScore.Should().BeGreaterThanOrEqualTo(minScore, "INV-score: only repeats reaching minScore are emitted");
     }
 
@@ -134,10 +109,9 @@ public class RepeatApproxFuzzTests
 
     /// <summary>
     /// BE: minPeriod = 0 is the row's "minReps 0" analogue and the KEY DivByZero / hang trap.
-    /// A period of 0 would make the window-grow loop start at `spanLen = period·2 = 0` and the
-    /// copy count `copies = (spanLen + period − 1) / period` divide by zero. The contract REJECTS
-    /// minPeriod &lt; 1 with ArgumentOutOfRangeException(nameof(minPeriod)) (RepeatFinder.cs line
-    /// 353) BEFORE any window is grown — never a DivideByZeroException and never a hang. Pinned on
+    /// A period of 0 would make every distance / copy-number computation divide by zero. The contract
+    /// REJECTS minPeriod &lt; 1 with ArgumentOutOfRangeException(nameof(minPeriod)) eagerly, before any
+    /// scan — never a DivideByZeroException and never a hang. Pinned on
     /// BOTH the typed and the raw-string surface; enumeration is forced so a regression to late
     /// validation would still be caught.
     /// </summary>
@@ -175,8 +149,7 @@ public class RepeatApproxFuzzTests
 
     /// <summary>
     /// BE: maxPeriod &lt; minPeriod is an inverted range — there is no valid period to search. The
-    /// contract REJECTS it with ArgumentOutOfRangeException(nameof(maxPeriod)) (RepeatFinder.cs line
-    /// 354) rather than silently scanning an empty range, on both surfaces.
+    /// contract REJECTS it with ArgumentOutOfRangeException(nameof(maxPeriod)) rather than silently scanning an empty range, on both surfaces.
     /// </summary>
     [Test]
     [CancelAfter(5000)]
@@ -196,9 +169,8 @@ public class RepeatApproxFuzzTests
 
     /// <summary>
     /// BE: a period LONGER than the sequence cannot hold even the two contiguous copies a tandem
-    /// repeat requires, so the start-loop bound `start + period·2 ≤ seq.Length` is false at every
-    /// start and no window is ever grown — a clean EMPTY result, never an out-of-range Substring
-    /// (RepeatFinder.cs line 368). Here a 5-base sequence is searched with periods 6..10, all of
+    /// repeat requires (no distance d can have a k-tuple match), so the result is cleanly EMPTY, never an
+    /// out-of-range index. Here a 5-base sequence is searched with periods 6..10, all of
     /// which exceed the length. Pinned on both surfaces.
     /// </summary>
     [Test]
@@ -236,9 +208,8 @@ public class RepeatApproxFuzzTests
 
     /// <summary>
     /// BE: the empty sequence is the lower size boundary. The typed surface materialises an empty
-    /// DnaSequence and the Core short-circuits `IsNullOrEmpty(seq)` to the empty list
-    /// (RepeatFinder.cs line 357); the raw surface short-circuits null/empty to the empty enumerable
-    /// (line 341). Neither path divides, indexes, or hangs. Pinned for the default and a minimal
+    /// DnaSequence and the scan has no position to visit; the raw surface short-circuits null/empty to
+    /// the empty result (after eager parameter validation). Neither path divides, indexes, or hangs. Pinned for the default and a minimal
     /// period range.
     /// </summary>
     [Test]
@@ -260,7 +231,7 @@ public class RepeatApproxFuzzTests
 
     /// <summary>
     /// BE/INJ: a null DnaSequence is the boundary of "no typed input". The typed overload guards it
-    /// with an explicit ArgumentNullException (ThrowIfNull, RepeatFinder.cs line 326) raised eagerly
+    /// with an explicit ArgumentNullException (ThrowIfNull) raised eagerly
     /// at the call — never a NullReferenceException.
     /// </summary>
     [Test]
@@ -279,7 +250,7 @@ public class RepeatApproxFuzzTests
     /// <summary>
     /// BE: a single-character sequence cannot hold a tandem repeat — a tandem needs ≥ 2 copies, and
     /// one base is shorter than even the minimal period-1 ×2 repeat (which needs 2 bases). The
-    /// start-loop bound `start + period·2 ≤ 1` is false for every period ≥ 1, so no window is grown.
+    /// scan needs a match at some distance d ≥ 1 between two positions, which one base cannot provide.
     /// The detector returns empty with no crash and no hang, on both surfaces.
     /// </summary>
     [Test]
@@ -319,13 +290,11 @@ public class RepeatApproxFuzzTests
     }
 
     /// <summary>
-    /// MC: all-N input on the RAW-string surface. This surface does NOT validate nucleotides — it
-    /// uppercases and scans 'N' as an ordinary symbol (RepeatFinder.cs line 344), so an all-N run is
-    /// a legal homopolymer-like input. It is the maximal-repeat watch point: every window of any
-    /// period is a perfect tandem of an all-N consensus, so a repeat MAY legitimately be reported —
-    /// but the scan must complete promptly (no hang) and every result must be fully in-contract
-    /// (bounds within [0,len], CopyNumber ≥ 2, percentages in [0,100], score ≥ minScore, consensus
-    /// of all 'N'). We pin in-contract output, not absence of output.
+    /// MC: all-N input on the RAW-string surface. This surface does NOT validate nucleotides, but TRF's
+    /// scoring matrix gives +2 only to identical A/C/G/T pairs ("changed to use Similarity Matrix to avoid
+    /// N matching itself", TRF source) and k-tuples containing N are never formed — so an all-N run is
+    /// never a repeat (compiled TRF 4.10.0 reports nothing). The scan must complete promptly and return
+    /// no result.
     /// </summary>
     [Test]
     [CancelAfter(15000)]
@@ -335,15 +304,12 @@ public class RepeatApproxFuzzTests
         const int minScore = RepeatFinder.DefaultApproximateMinScore;
 
         var act = () => RepeatFinder.FindApproximateTandemRepeats(allN, 1, 6, minScore).ToList();
-        act.Should().NotThrow("the raw surface treats 'N' as an ordinary symbol; an all-N run never crashes the scan");
+        act.Should().NotThrow("the raw surface accepts N; an all-N run never crashes the scan");
 
-        var results = RepeatFinder.FindApproximateTandemRepeats(allN, 1, 6, minScore).ToList();
-        foreach (var r in results)
-        {
-            AssertInContract(r, allN.Length, 1, 6, minScore);
-            r.Consensus.Should().MatchRegex("^N+$",
-                "the majority-rule consensus of an all-N window is itself all 'N'");
-        }
+        RepeatFinder.FindApproximateTandemRepeats(allN, 1, 6, minScore).Should().BeEmpty(
+            "N never matches under TRF scoring, so an all-N run holds no tandem repeat");
+        RepeatFinder.FindApproximateTandemRepeats(allN, 1, 6, minScore: 1).Should().BeEmpty(
+            "even the lowest score threshold reports nothing on all-N input");
     }
 
     #endregion
@@ -383,7 +349,7 @@ public class RepeatApproxFuzzTests
     /// Positive sanity / identity threshold: a planted SINGLE mismatch in an otherwise-perfect array
     /// is STILL found when the alignment score reaches the threshold, and is NOT found when the
     /// threshold is raised above the achievable score — re-derived from the TRF scoring (match +2,
-    /// mismatch −7; RepeatFinder.cs lines 280–283), not hardcoded.
+    /// mismatch −7), not hardcoded.
     /// "(ATG)×12" with one base flipped (one column mismatched) over 36 bases: a perfect tiling would
     /// score 2·36 = 72; flipping one base turns one +2 into a −7, costing 9, so the best achievable
     /// alignment score is ~63 (still well above the default 50). We pin: with minScore 50 the repeat
@@ -415,8 +381,7 @@ public class RepeatApproxFuzzTests
     /// <summary>
     /// Positive sanity / RB: a fixed-seed random sequence must complete promptly and produce ONLY
     /// in-contract results — no out-of-range bounds, no sub-minimum copy number, no out-of-range
-    /// percentage, no hang — so the degenerate-boundary guards never corrupt the scan on ordinary
-    /// input. Length kept modest because the detector is super-linear; a hang would trip [CancelAfter].
+    /// percentage, no hang — so the degenerate-boundary guards never corrupt the scan on ordinary input.
     /// </summary>
     [Test]
     [CancelAfter(30000)]
@@ -429,6 +394,60 @@ public class RepeatApproxFuzzTests
 
         foreach (var r in results)
             AssertInContract(r, seq.Length, 1, 6, minScore);
+    }
+
+    /// <summary>
+    /// RB/MC: seeded random sequences with planted imperfect repeats, N and lowercase, across period
+    /// ranges up to 100 — every result is in-contract, the output is ordered by (Start, end, Period),
+    /// and the string and case-folded inputs agree.
+    /// </summary>
+    [Test]
+    [CancelAfter(60000)]
+    public void FindApproximate_RandomPlantedRepeatsWithNoise_AlwaysInContract()
+    {
+        var rng = new Random(20260930);
+        for (int t = 0; t < 60; t++)
+        {
+            var sb = new System.Text.StringBuilder(RandomDna(rng.Next(0, 60), seed: t));
+            int period = rng.Next(1, 40);
+            string unit = RandomDna(period, seed: 1000 + t);
+            int copies = rng.Next(2, 10);
+            for (int c = 0; c < copies; c++)
+                foreach (char ch in unit)
+                {
+                    double x = rng.NextDouble();
+                    if (x < 0.05) continue;                                 // deletion
+                    sb.Append(x < 0.12 ? "ACGTN"[rng.Next(5)] : ch);        // substitution / N
+                    if (x > 0.97) sb.Append("ACGT"[rng.Next(4)]);           // insertion
+                }
+            sb.Append(RandomDna(rng.Next(0, 60), seed: 5000 + t));
+            string seq = sb.ToString();
+            int maxPeriod = rng.Next(1, 101);
+            int minScore = rng.Next(1, 80);
+
+            var results = RepeatFinder.FindApproximateTandemRepeats(seq, 1, maxPeriod, minScore).ToList();
+            foreach (var r in results)
+                AssertInContract(r, seq.Length, 1, maxPeriod, minScore);
+            results.Should().BeInAscendingOrder(r => r.Start, "results are ordered by start position");
+            RepeatFinder.FindApproximateTandemRepeats(seq.ToLowerInvariant(), 1, maxPeriod, minScore)
+                .Should().Equal(results, "case-insensitive");
+        }
+    }
+
+    /// <summary>
+    /// Complexity guard: 100 kb of random DNA with TRF's recommended MaxPeriod 500 completes quickly
+    /// (the k-tuple trigger is O(n·maxPeriod); WDP runs only on candidates), with in-contract output.
+    /// </summary>
+    [Test]
+    [CancelAfter(60000)]
+    public void FindApproximate_100kbRandom_MaxPeriod500_CompletesInContract()
+    {
+        string seq = RandomDna(100_000, seed: 424_242);
+
+        var results = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 500).ToList();
+
+        foreach (var r in results)
+            AssertInContract(r, seq.Length, 1, 500, RepeatFinder.DefaultApproximateMinScore);
     }
 
     #endregion

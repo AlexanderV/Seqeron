@@ -153,5 +153,35 @@ public class SequenceExtensions_GetRnaComplementBase_Tests
         });
     }
 
+    // Exhaustive ASCII differential (review 2026-09, B01): the full Biopython 1.88 `complement_rna`
+    // translation table, obtained by evaluating complement_rna(chr(i)) for i in 1..127 and keeping
+    // every character it changes (26 letters), plus the self-complementary identity entries N/S/W of
+    // IUPACData.ambiguous_rna_complement (n/s/w are recognized, so the repo uppercases them). Every
+    // other ASCII char (incl. X/x, gaps, digits) is returned unchanged by both. Repo convention:
+    // recognized letters are uppercased (Biopython preserves case); everything else is verbatim.
+    [Test]
+    public void GetRnaComplementBase_AllAscii_MatchesBiopython188ComplementRnaTable()
+    {
+        var biopython = new Dictionary<char, char>
+        {
+            ['A'] = 'U', ['B'] = 'V', ['C'] = 'G', ['D'] = 'H', ['G'] = 'C', ['H'] = 'D', ['K'] = 'M',
+            ['M'] = 'K', ['R'] = 'Y', ['T'] = 'A', ['U'] = 'A', ['V'] = 'B', ['Y'] = 'R',
+            ['a'] = 'u', ['b'] = 'v', ['c'] = 'g', ['d'] = 'h', ['g'] = 'c', ['h'] = 'd', ['k'] = 'm',
+            ['m'] = 'k', ['r'] = 'y', ['t'] = 'a', ['u'] = 'a', ['v'] = 'b', ['y'] = 'r',
+            ['N'] = 'N', ['S'] = 'S', ['W'] = 'W', ['n'] = 'n', ['s'] = 's', ['w'] = 'w',
+        };
+
+        Assert.Multiple(() =>
+        {
+            for (int i = 1; i < 128; i++)
+            {
+                char c = (char)i;
+                char expected = biopython.TryGetValue(c, out char bp) ? char.ToUpperInvariant(bp) : c;
+                Assert.That(SequenceExtensions.GetRnaComplementBase(c), Is.EqualTo(expected),
+                    $"complement_rna(chr({i})) per Biopython 1.88 (uppercased when recognized)");
+            }
+        });
+    }
+
     #endregion
 }

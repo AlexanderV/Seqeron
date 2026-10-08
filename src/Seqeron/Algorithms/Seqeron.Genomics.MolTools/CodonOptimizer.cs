@@ -68,67 +68,54 @@ public static class CodonOptimizer
 
     #region Standard Genetic Code
 
-    private static readonly Dictionary<string, string> StandardGeneticCode = new()
-    {
-        // Phenylalanine
-        { "UUU", "F" }, { "UUC", "F" },
-        // Leucine
-        { "UUA", "L" }, { "UUG", "L" }, { "CUU", "L" }, { "CUC", "L" }, { "CUA", "L" }, { "CUG", "L" },
-        // Isoleucine
-        { "AUU", "I" }, { "AUC", "I" }, { "AUA", "I" },
-        // Methionine (Start)
-        { "AUG", "M" },
-        // Valine
-        { "GUU", "V" }, { "GUC", "V" }, { "GUA", "V" }, { "GUG", "V" },
-        // Serine
-        { "UCU", "S" }, { "UCC", "S" }, { "UCA", "S" }, { "UCG", "S" }, { "AGU", "S" }, { "AGC", "S" },
-        // Proline
-        { "CCU", "P" }, { "CCC", "P" }, { "CCA", "P" }, { "CCG", "P" },
-        // Threonine
-        { "ACU", "T" }, { "ACC", "T" }, { "ACA", "T" }, { "ACG", "T" },
-        // Alanine
-        { "GCU", "A" }, { "GCC", "A" }, { "GCA", "A" }, { "GCG", "A" },
-        // Tyrosine
-        { "UAU", "Y" }, { "UAC", "Y" },
-        // Stop codons
-        { "UAA", "*" }, { "UAG", "*" }, { "UGA", "*" },
-        // Histidine
-        { "CAU", "H" }, { "CAC", "H" },
-        // Glutamine
-        { "CAA", "Q" }, { "CAG", "Q" },
-        // Asparagine
-        { "AAU", "N" }, { "AAC", "N" },
-        // Lysine
-        { "AAA", "K" }, { "AAG", "K" },
-        // Aspartic acid
-        { "GAU", "D" }, { "GAC", "D" },
-        // Glutamic acid
-        { "GAA", "E" }, { "GAG", "E" },
-        // Cysteine
-        { "UGU", "C" }, { "UGC", "C" },
-        // Tryptophan
-        { "UGG", "W" },
-        // Arginine
-        { "CGU", "R" }, { "CGC", "R" }, { "CGA", "R" }, { "CGG", "R" }, { "AGA", "R" }, { "AGG", "R" },
-        // Glycine
-        { "GGU", "G" }, { "GGC", "G" }, { "GGA", "G" }, { "GGG", "G" }
-    };
+    // Codon → amino acid and the synonymous-codon families of the NCBI Standard code (table 1),
+    // RNA spelling, in NCBI codon order (UUU, UUC, UUA, … GGG) — derived from the canonical
+    // GeneticCode.Standard, never from a private copy (DUP_MAP §2). The NCBI order fixes the
+    // tie-break of every "most frequent synonymous codon" choice below: when two synonymous
+    // codons share the maximal table frequency, the one that comes first in NCBI order wins, so
+    // optimisation is deterministic (Biopython CodonAdaptationIndex.optimize only warns on such
+    // ties and picks one arbitrarily).
+    private static readonly IReadOnlyDictionary<string, string> StandardCodonToAminoAcid =
+        GeneticCode.Standard.CodonTable.ToDictionary(kv => kv.Key, kv => kv.Value.ToString());
 
-    private static readonly Dictionary<string, List<string>> AminoAcidToCodons = StandardGeneticCode
-        .GroupBy(kv => kv.Value)
-        .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToList());
+    private static readonly IReadOnlyDictionary<char, string[]> SynonymousCodons =
+        GeneticCode.Standard.CodonTable
+            .GroupBy(kv => kv.Value)
+            .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToArray());
 
     /// <summary>
-    /// Amino acids encoded by a single codon in the standard genetic code
-    /// (Methionine/AUG and Tryptophan/UGG). Their relative adaptiveness w is always 1
-    /// regardless of codon usage bias, so Sharp &amp; Li (1987) / Jansen et al. (2003)
-    /// exclude them from CAI to avoid skewing the geometric mean.
-    /// Derived from <see cref="AminoAcidToCodons"/> (groups of size 1), not hard-coded.
+    /// Translates one RNA triplet with the canonical <see cref="GeneticCode.Standard"/> table.
+    /// Returns <see langword="false"/> (with <paramref name="aminoAcid"/> = 'X') for a triplet
+    /// that is not a valid IUPAC codon, so callers can leave such a triplet untouched instead of
+    /// throwing. IUPAC-ambiguous triplets translate per Biopython (GCN → A, UAR → *, NNN → X).
     /// </summary>
-    private static readonly HashSet<string> SingleCodonAminoAcids = AminoAcidToCodons
-        .Where(kv => kv.Key != "*" && kv.Value.Count == 1)
-        .Select(kv => kv.Key)
-        .ToHashSet();
+    private static bool TryTranslateCodon(string codon, out char aminoAcid)
+    {
+        aminoAcid = 'X';
+        if (codon.Length != 3)
+            return false;
+
+        foreach (char c in codon)
+        {
+            char dna = char.ToUpperInvariant(c);
+            if (dna == 'U') dna = 'T';
+            if (!IupacHelper.IsNucleotideCode(dna))
+                return false;
+        }
+
+        aminoAcid = GeneticCode.Standard.Translate(codon);
+        return true;
+    }
+
+    // Synonymous codons of the amino acid encoded by <paramref name="codon"/>, or an empty span
+    // when the triplet is unusable (non-IUPAC symbols) or its amino acid is itself ambiguous
+    // (B, Z, J, X — no unique synonymous family).
+    private static string[] SynonymsFor(string codon)
+    {
+        if (!TryTranslateCodon(codon, out char aa))
+            return Array.Empty<string>();
+        return SynonymousCodons.TryGetValue(aa, out var syn) ? syn : Array.Empty<string>();
+    }
 
     #endregion
 
@@ -186,7 +173,7 @@ public static class CodonOptimizer
             // Glycine (G)
             { "GGU", 0.34 }, { "GGC", 0.41 }, { "GGA", 0.11 }, { "GGG", 0.15 }
         },
-        StandardGeneticCode);
+        StandardCodonToAminoAcid);
 
     /// <summary>
     /// Saccharomyces cerevisiae (yeast) codon usage frequencies (relative fraction per amino acid).
@@ -219,7 +206,7 @@ public static class CodonOptimizer
             { "CGU", 0.14 }, { "CGC", 0.06 }, { "CGA", 0.07 }, { "CGG", 0.04 }, { "AGA", 0.48 }, { "AGG", 0.21 },
             { "GGU", 0.47 }, { "GGC", 0.19 }, { "GGA", 0.22 }, { "GGG", 0.12 }
         },
-        StandardGeneticCode);
+        StandardCodonToAminoAcid);
 
     /// <summary>
     /// Human codon usage frequencies (relative fraction per amino acid).
@@ -252,15 +239,52 @@ public static class CodonOptimizer
             { "CGU", 0.08 }, { "CGC", 0.18 }, { "CGA", 0.11 }, { "CGG", 0.20 }, { "AGA", 0.21 }, { "AGG", 0.21 },
             { "GGU", 0.16 }, { "GGC", 0.34 }, { "GGA", 0.25 }, { "GGG", 0.25 }
         },
-        StandardGeneticCode);
+        StandardCodonToAminoAcid);
 
     #endregion
 
     #region Codon Optimization
 
     /// <summary>
-    /// Optimizes a coding sequence for expression in a target organism.
+    /// Optimizes a coding sequence for expression in a target organism by replacing codons with
+    /// synonymous ones, preserving the encoded protein.
     /// </summary>
+    /// <remarks>
+    /// The input is upper-cased, read as RNA (T → U) and trimmed to complete codons. Stop codons
+    /// are kept as they are; codons of single-codon amino acids (Met AUG, Trp UGG) have no
+    /// synonym and never change; a triplet that is not a valid IUPAC codon, or whose amino acid
+    /// is itself ambiguous (B, Z, J, X), is left untouched and contributes 'X' to
+    /// <see cref="OptimizationResult.ProteinSequence"/>. Amino acids are taken from the canonical
+    /// <see cref="GeneticCode.Standard"/> table.
+    /// <para>Strategies:</para>
+    /// <list type="bullet">
+    /// <item><description><b>MaximizeCAI</b> — every codon becomes the most frequent synonymous
+    /// codon of the target table ("one amino acid – one codon"; Puigbò et&#160;al. 2007 OPTIMIZER,
+    /// DNA Chisel <c>use_best_codon</c>/<c>MaximizeCAI</c>, Biopython
+    /// <c>CodonAdaptationIndex.optimize</c>). Ties are broken by NCBI codon order.</description></item>
+    /// <item><description><b>AvoidRareCodeons</b> — only codons whose table frequency is strictly
+    /// below <paramref name="rareCodonThreshold"/> are replaced, by the most frequent synonymous
+    /// codon; codons at or above the threshold are kept.</description></item>
+    /// <item><description><b>BalancedOptimization</b> (default) and <b>MinimizeSecondary</b> —
+    /// as MaximizeCAI, then a GC-balancing pass moves the overall GC fraction into
+    /// [<paramref name="gcTargetMin"/>, <paramref name="gcTargetMax"/>] with further synonymous
+    /// swaps (DNA Chisel <c>EnforceGCContent(mini, maxi)</c> combined with codon optimisation).
+    /// <c>MinimizeSecondary</c> shares this codon selection; the dedicated structure pass is
+    /// <see cref="ReduceSecondaryStructure"/>.</description></item>
+    /// <item><description><b>HarmonizeExpression</b> — the codon usage of the output matches the
+    /// target table as closely as integer codon counts allow (DNA Chisel
+    /// <c>match_codon_usage</c> / <c>MatchTargetCodonUsage</c>), deterministically: per amino
+    /// acid the number of occurrences of each synonymous codon is the largest-remainder rounding
+    /// of frequency × (number of residues of that amino acid), and positions that already carry
+    /// an allotted codon keep it, so the edit count is minimal.</description></item>
+    /// </list>
+    /// </remarks>
+    /// <param name="codingSequence">Coding sequence (DNA or RNA, any case); empty → empty result.</param>
+    /// <param name="targetOrganism">Target codon-usage table (per-amino-acid relative fractions).</param>
+    /// <param name="strategy">Codon-selection strategy (see remarks).</param>
+    /// <param name="gcTargetMin">Lower bound of the target GC fraction (BalancedOptimization / MinimizeSecondary).</param>
+    /// <param name="gcTargetMax">Upper bound of the target GC fraction (BalancedOptimization / MinimizeSecondary).</param>
+    /// <param name="rareCodonThreshold">Frequency below which a codon counts as rare (strict &lt;).</param>
     public static OptimizationResult OptimizeSequence(
         string codingSequence,
         CodonUsageTable targetOrganism,
@@ -274,7 +298,7 @@ public static class CodonOptimizer
             return new OptimizationResult("", "", "", 0, 0, 0, 0, 0, new List<(int, string, string)>());
         }
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
+        string rna = ToUpperRna(codingSequence);
 
         if (rna.Length % 3 != 0)
         {
@@ -283,50 +307,29 @@ public static class CodonOptimizer
         }
 
         var originalCodons = SplitIntoCodons(rna);
-        var optimizedCodons = new List<string>();
-        var changes = new List<(int Position, string Original, string Optimized)>();
 
         double originalCAI = CalculateCAI(rna, targetOrganism);
         var proteinBuilder = new StringBuilder();
+        foreach (string codon in originalCodons)
+            proteinBuilder.Append(TryTranslateCodon(codon, out char aa) ? aa : 'X');
 
+        List<string> optimizedCodons = strategy == OptimizationStrategy.HarmonizeExpression
+            ? MatchTargetCodonUsage(originalCodons, targetOrganism)
+            : originalCodons
+                .Select(c => SelectOptimalCodon(c, targetOrganism, strategy, rareCodonThreshold))
+                .ToList();
+
+        // GC balancing for the strategies that declare a GC target.
+        if (strategy is OptimizationStrategy.BalancedOptimization or OptimizationStrategy.MinimizeSecondary)
+            BalanceGcContent(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, rareCodonThreshold);
+
+        string optimizedSequence = string.Concat(optimizedCodons);
+
+        var changes = new List<(int Position, string Original, string Optimized)>();
         for (int i = 0; i < originalCodons.Count; i++)
         {
-            string codon = originalCodons[i];
-            string aminoAcid = TranslateCodon(codon);
-            proteinBuilder.Append(aminoAcid);
-
-            if (aminoAcid == "*")
-            {
-                // Keep stop codon
-                optimizedCodons.Add(codon);
-                continue;
-            }
-
-            string optimizedCodon = SelectOptimalCodon(aminoAcid, codon, targetOrganism, strategy, rareCodonThreshold);
-
-            if (optimizedCodon != codon)
-            {
-                changes.Add((i * 3, codon, optimizedCodon));
-            }
-
-            optimizedCodons.Add(optimizedCodon);
-        }
-
-        string optimizedSequence = string.Join("", optimizedCodons);
-
-        // Apply GC content balancing if needed
-        if (strategy == OptimizationStrategy.BalancedOptimization)
-        {
-            optimizedSequence = BalanceGcContent(optimizedSequence, originalCodons, targetOrganism, gcTargetMin, gcTargetMax);
-
-            // Rebuild changes to reflect GC balancing modifications
-            changes.Clear();
-            var finalCodons = SplitIntoCodons(optimizedSequence);
-            for (int i = 0; i < originalCodons.Count && i < finalCodons.Count; i++)
-            {
-                if (originalCodons[i] != finalCodons[i])
-                    changes.Add((i * 3, originalCodons[i], finalCodons[i]));
-            }
+            if (originalCodons[i] != optimizedCodons[i])
+                changes.Add((i * 3, originalCodons[i], optimizedCodons[i]));
         }
 
         double optimizedCAI = CalculateCAI(optimizedSequence, targetOrganism);
@@ -343,168 +346,243 @@ public static class CodonOptimizer
             Changes: changes);
     }
 
-    private static string SelectOptimalCodon(string aminoAcid, string currentCodon, CodonUsageTable table, OptimizationStrategy strategy, double rareCodonThreshold)
+    // Most frequent synonymous codon of <paramref name="codon"/> in <paramref name="table"/>;
+    // ties (and codons without usable synonyms) resolve to the first codon in NCBI order.
+    private static string BestSynonymousCodon(string codon, CodonUsageTable table)
     {
-        if (!AminoAcidToCodons.TryGetValue(aminoAcid, out var synonymousCodons))
-            return currentCodon;
+        var synonyms = SynonymsFor(codon);
+        if (synonyms.Length == 0)
+            return codon;
 
-        if (synonymousCodons.Count == 1)
-            return synonymousCodons[0];
-
-        switch (strategy)
+        string best = synonyms[0];
+        double bestFrequency = table.CodonFrequencies.GetValueOrDefault(best, 0);
+        for (int i = 1; i < synonyms.Length; i++)
         {
-            case OptimizationStrategy.MaximizeCAI:
-                return synonymousCodons
-                    .OrderByDescending(c => table.CodonFrequencies.GetValueOrDefault(c, 0))
-                    .First();
-
-            case OptimizationStrategy.AvoidRareCodeons:
-                double currentFreq = table.CodonFrequencies.GetValueOrDefault(currentCodon, 0);
-                if (currentFreq < rareCodonThreshold)
-                {
-                    return synonymousCodons
-                        .Where(c => table.CodonFrequencies.GetValueOrDefault(c, 0) >= rareCodonThreshold)
-                        .OrderByDescending(c => table.CodonFrequencies.GetValueOrDefault(c, 0))
-                        .FirstOrDefault() ?? currentCodon;
-                }
-                return currentCodon;
-
-            case OptimizationStrategy.HarmonizeExpression:
-                // Use weighted random selection based on frequencies
-                return SelectWeightedCodon(synonymousCodons, table);
-
-            default: // includes OptimizationStrategy.BalancedOptimization
-                var goodCodons = synonymousCodons
-                    .Where(c => table.CodonFrequencies.GetValueOrDefault(c, 0) >= rareCodonThreshold)
-                    .OrderByDescending(c => table.CodonFrequencies.GetValueOrDefault(c, 0))
-                    .ToList();
-                return goodCodons.Count > 0 ? goodCodons[0] : currentCodon;
-        }
-    }
-
-    private static string SelectWeightedCodon(List<string> codons, CodonUsageTable table)
-    {
-        var random = new Random();
-        double totalWeight = codons.Sum(c => table.CodonFrequencies.GetValueOrDefault(c, 0.01));
-        double r = random.NextDouble() * totalWeight;
-
-        double cumulative = 0;
-        foreach (var codon in codons)
-        {
-            cumulative += table.CodonFrequencies.GetValueOrDefault(codon, 0.01);
-            if (r <= cumulative)
-                return codon;
+            double frequency = table.CodonFrequencies.GetValueOrDefault(synonyms[i], 0);
+            if (frequency > bestFrequency)
+            {
+                best = synonyms[i];
+                bestFrequency = frequency;
+            }
         }
 
-        return codons[0];
+        return best;
     }
 
-    private static string BalanceGcContent(string sequence, List<string> originalCodons, CodonUsageTable table, double minGc, double maxGc)
+    private static string SelectOptimalCodon(string currentCodon, CodonUsageTable table, OptimizationStrategy strategy, double rareCodonThreshold)
     {
-        double currentGc = CalculateGcContent(sequence);
+        if (!TryTranslateCodon(currentCodon, out char aminoAcid) || aminoAcid == '*')
+            return currentCodon; // stop codons and unusable triplets are preserved
 
-        if (currentGc >= minGc && currentGc <= maxGc)
-            return sequence;
-
-        var codons = SplitIntoCodons(sequence);
-        bool needMoreGc = currentGc < minGc;
-
-        for (int i = 0; i < codons.Count && (currentGc < minGc || currentGc > maxGc); i++)
+        if (strategy == OptimizationStrategy.AvoidRareCodeons &&
+            table.CodonFrequencies.GetValueOrDefault(currentCodon, 0) >= rareCodonThreshold)
         {
-            string aminoAcid = TranslateCodon(codons[i]);
-            if (aminoAcid == "*") continue;
+            return currentCodon; // not rare → untouched
+        }
 
-            if (!AminoAcidToCodons.TryGetValue(aminoAcid, out var alternatives))
+        return BestSynonymousCodon(currentCodon, table);
+    }
+
+    /// <summary>
+    /// Rewrites the codons so that, per amino acid, the codon counts are the largest-remainder
+    /// rounding of the target table's relative frequencies — the deterministic optimum of DNA
+    /// Chisel's <c>MatchTargetCodonUsage</c> objective (score = −Σ_aa n_aa·Σ_codon |f_seq − f_table|),
+    /// which that library reaches by randomised local search. Positions already carrying an
+    /// allotted codon keep it, so only the surplus positions are edited. Stop codons and triplets
+    /// without a usable synonymous family are left unchanged.
+    /// </summary>
+    private static List<string> MatchTargetCodonUsage(List<string> codons, CodonUsageTable table)
+    {
+        var result = new List<string>(codons);
+
+        // Group the editable positions by amino acid (NCBI-ordered families).
+        var positionsByAminoAcid = new Dictionary<char, List<int>>();
+        for (int i = 0; i < codons.Count; i++)
+        {
+            if (!TryTranslateCodon(codons[i], out char aa) || aa == '*' || !SynonymousCodons.ContainsKey(aa))
+                continue;
+            if (!positionsByAminoAcid.TryGetValue(aa, out var positions))
+                positionsByAminoAcid[aa] = positions = new List<int>();
+            positions.Add(i);
+        }
+
+        foreach (var (aminoAcid, positions) in positionsByAminoAcid)
+        {
+            var family = SynonymousCodons[aminoAcid];
+            int n = positions.Count;
+
+            double total = family.Sum(c => table.CodonFrequencies.GetValueOrDefault(c, 0));
+            if (total <= 0)
+                continue; // no usage data for this amino acid → leave the codons alone
+
+            // Largest-remainder (Hamilton) allocation of n positions over the family.
+            var quota = new double[family.Length];
+            var allotted = new int[family.Length];
+            int assigned = 0;
+            for (int k = 0; k < family.Length; k++)
+            {
+                quota[k] = n * table.CodonFrequencies.GetValueOrDefault(family[k], 0) / total;
+                allotted[k] = (int)Math.Floor(quota[k]);
+                assigned += allotted[k];
+            }
+
+            foreach (int k in Enumerable.Range(0, family.Length)
+                         .OrderByDescending(k => quota[k] - Math.Floor(quota[k]))
+                         .ThenBy(k => k)
+                         .Take(Math.Max(0, n - assigned)))
+            {
+                allotted[k]++;
+            }
+
+            // Keep positions that already carry an allotted codon (minimal edit), then fill the rest.
+            var free = new List<int>();
+            var remaining = (int[])allotted.Clone();
+            foreach (int position in positions)
+            {
+                int k = Array.IndexOf(family, codons[position]);
+                if (k >= 0 && remaining[k] > 0)
+                    remaining[k]--;
+                else
+                    free.Add(position);
+            }
+
+            int next = 0;
+            foreach (int position in free)
+            {
+                while (next < family.Length && remaining[next] == 0)
+                    next++;
+                if (next >= family.Length)
+                    break;
+                result[position] = family[next];
+                remaining[next]--;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Moves the overall GC fraction of <paramref name="codons"/> into
+    /// [<paramref name="minGc"/>, <paramref name="maxGc"/>] with synonymous codon swaps (DNA
+    /// Chisel <c>EnforceGCContent(mini, maxi)</c> resolved by synonymous mutations). Only swaps
+    /// that actually move GC toward the target are applied, candidates that would overshoot the
+    /// opposite bound are used only when no in-range candidate exists, and the pass stops as soon
+    /// as the sequence is inside the window. Codons whose frequency in
+    /// <paramref name="table"/> is below <paramref name="minCodonFrequency"/> are not used.
+    /// </summary>
+    private static void BalanceGcContent(
+        List<string> codons,
+        CodonUsageTable table,
+        double minGc,
+        double maxGc,
+        double minCodonFrequency)
+    {
+        int length = codons.Count * 3;
+        if (length == 0)
+            return;
+
+        int gc = codons.Sum(CountGc);
+        if (IsWithin(gc)) return;
+
+        for (int i = 0; i < codons.Count; i++)
+        {
+            bool needMoreGc = gc < minGc * length;
+            string current = codons[i];
+            if (!TryTranslateCodon(current, out char aa) || aa == '*')
                 continue;
 
-            // Find alternative with appropriate GC content
-            var sorted = needMoreGc
-                ? alternatives.OrderByDescending(c => GetCodonGcContent(c))
-                : alternatives.OrderBy(c => GetCodonGcContent(c));
+            int currentGc = CountGc(current);
+            string? best = null;
+            int bestGc = currentGc;
+            double bestFrequency = double.NegativeInfinity;
+            bool bestInRange = false;
 
-            foreach (var alt in sorted)
+            foreach (string alternative in SynonymsFor(current))
             {
-                if (table.CodonFrequencies.GetValueOrDefault(alt, 0) >= 0.1)
+                if (alternative == current)
+                    continue;
+                double frequency = table.CodonFrequencies.GetValueOrDefault(alternative, 0);
+                if (frequency < minCodonFrequency)
+                    continue;
+
+                int alternativeGc = CountGc(alternative);
+                // The swap must move GC in the required direction.
+                if (needMoreGc ? alternativeGc <= currentGc : alternativeGc >= currentGc)
+                    continue;
+
+                bool inRange = IsWithin(gc - currentGc + alternativeGc);
+                // Prefer a candidate that lands inside the window; among those, the most frequent
+                // codon (least CAI cost). Otherwise the one that moves GC furthest toward the
+                // window, then the most frequent codon.
+                bool better = (inRange, inRange ? 0 : Math.Abs(alternativeGc - currentGc), frequency)
+                    .CompareTo((bestInRange, bestInRange ? 0 : Math.Abs(bestGc - currentGc), bestFrequency)) > 0;
+                if (best is null || better)
                 {
-                    codons[i] = alt;
-                    break;
+                    best = alternative;
+                    bestGc = alternativeGc;
+                    bestFrequency = frequency;
+                    bestInRange = inRange;
                 }
             }
 
-            currentGc = CalculateGcContent(string.Join("", codons));
+            if (best is null)
+                continue;
+
+            codons[i] = best;
+            gc += bestGc - currentGc;
+            if (IsWithin(gc))
+                return;
         }
 
-        return string.Join("", codons);
+        bool IsWithin(int gcCount) => gcCount >= minGc * length && gcCount <= maxGc * length;
     }
+
+    // G+C count of a codon via the canonical counting primitive (SequenceExtensions).
+    private static int CountGc(string codon) => codon.AsSpan().CountGcAndValidNucleotides().GcCount;
 
     #endregion
 
     #region CAI Calculation
 
     /// <summary>
-    /// Calculates the Codon Adaptation Index (CAI) for a sequence
-    /// (Sharp &amp; Li 1987, <c>CAI = (∏ w_i)^(1/L)</c>, the geometric mean of the relative
-    /// adaptiveness <c>w_i = f_i / max(f_j)</c> over the gene's codons; stop codons excluded).
+    /// Calculates the Codon Adaptation Index (CAI) of Sharp &amp; Li (1987) against a codon-usage
+    /// frequency table: <c>CAI = exp((1/L) Σ ln w_k)</c> with <c>w_ij = f_ij / max_j f_ij</c> over the
+    /// synonymous codons of amino acid i. Delegates to the canonical
+    /// <see cref="CodonUsageAnalyzer.CalculateCai(string, IReadOnlyDictionary{string, double}, GeneticCode)"/>
+    /// core (CodonW <c>cai_out</c> conventions), under the Standard genetic code.
     /// </summary>
+    /// <remarks>
+    /// Stop codons are never scored. A relative adaptiveness below 0.0001 (codon absent from the
+    /// table while a synonym is present) is replaced by 0.01 (CodonW; Bulmer 1988). An amino acid
+    /// with no frequency data in <paramref name="table"/> is not scored. Triplets with symbols other
+    /// than A/C/G/T/U (any case) are skipped without shifting the frame; a trailing partial codon is
+    /// ignored. Returns 0 when no codon is scored.
+    /// </remarks>
     /// <param name="codingSequence">Coding sequence (DNA or RNA; case-insensitive).</param>
-    /// <param name="table">Reference codon usage table.</param>
+    /// <param name="table">Reference codon usage table (frequencies keyed by RNA or DNA codon).</param>
     /// <param name="excludeSingleCodonAminoAcids">
-    /// When <see langword="true"/>, codons of amino acids that have a single codon in the
-    /// standard genetic code (Met/AUG, Trp/UGG) are excluded from the geometric mean, as the
-    /// original Sharp &amp; Li (1987) definition prescribes and Jansen et al. (2003) reiterate:
-    /// "codon families containing a single codon (e.g. AUG and UGG …) should be excluded in
-    /// computing CAI" because their w is always 1 regardless of bias. Default <see langword="false"/>
-    /// preserves the historical inclusive behaviour (these codons counted with w = 1.0).
+    /// <see langword="true"/> (default): codons of single-codon amino acids (Met/AUG, Trp/UGG) are
+    /// excluded, as Sharp &amp; Li (1987) prescribe ("codon families containing a single codon … should
+    /// be excluded", quoted by Xia 2007, Evol. Bioinform. 3:53-58) and CodonW, seqinr and Biopython
+    /// implement. <see langword="false"/>: they are scored with w = 1 (EMBOSS <c>cai</c> convention),
+    /// which inflates CAI of Met/Trp-rich genes.
     /// </param>
-    public static double CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = false)
+    /// <exception cref="ArgumentException"><paramref name="table"/> has no frequency dictionary.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A frequency is negative or not finite.</exception>
+    public static double CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = true)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return 0;
+        if (table.CodonFrequencies is null)
+            throw new ArgumentException("Codon usage table has no frequencies.", nameof(table));
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
-        var codons = SplitIntoCodons(rna);
+        // The canonical core keys codons in DNA spelling.
+        var reference = new Dictionary<string, double>(table.CodonFrequencies.Count);
+        foreach (var (codon, frequency) in table.CodonFrequencies)
+            reference[codon.ToUpperInvariant().Replace('U', 'T')] = frequency;
 
-        if (codons.Count == 0)
-            return 0;
-
-        double logSum = 0;
-        int count = 0;
-
-        foreach (var codon in codons)
-        {
-            string aminoAcid = TranslateCodon(codon);
-            if (aminoAcid == "*") continue;
-
-            // Per Sharp & Li (1987): single-codon amino acids (Met/AUG, Trp/UGG) are excluded
-            // from CAI when requested, since their w is always 1 and would skew the geometric mean.
-            if (excludeSingleCodonAminoAcids && SingleCodonAminoAcids.Contains(aminoAcid)) continue;
-
-            double w = CalculateRelativeAdaptiveness(codon, aminoAcid, table);
-            if (double.IsNaN(w)) continue; // No frequency data for this AA in table
-
-            logSum += Math.Log(w);
-            count++;
-        }
-
-        return count > 0 ? Math.Exp(logSum / count) : 0;
-    }
-
-    private static double CalculateRelativeAdaptiveness(string codon, string aminoAcid, CodonUsageTable table)
-    {
-        if (!AminoAcidToCodons.TryGetValue(aminoAcid, out var synonymousCodons))
-            return double.NaN; // Not a standard amino acid — no adaptiveness data
-
-        double codonFreq = table.CodonFrequencies.GetValueOrDefault(codon, 0);
-        double maxFreq = synonymousCodons.Max(c => table.CodonFrequencies.GetValueOrDefault(c, 0));
-
-        if (maxFreq <= 0)
-            return double.NaN; // No frequency data for this amino acid in the table
-
-        // Clamp to 1e-6 to avoid ln(0) when codon is absent from an incomplete custom table
-        // but other synonymous codons are present (maxFreq > 0, codonFreq = 0).
-        // Sharp & Li (1987) did not encounter this case (complete reference sets),
-        // but real-world partial tables may have gaps.
-        return Math.Max(codonFreq / maxFreq, 1e-6);
+        return CodonUsageAnalyzer.CalculateCai(
+            codingSequence, reference, GeneticCode.Standard, excludeSingleCodonFamilies: excludeSingleCodonAminoAcids);
     }
 
     #endregion
@@ -512,107 +590,219 @@ public static class CodonOptimizer
     #region Sequence Modification
 
     /// <summary>
-    /// Removes restriction enzyme recognition sites from a sequence while preserving the protein.
+    /// Removes restriction-enzyme recognition sites from a coding sequence with synonymous codon
+    /// substitutions, preserving the encoded protein.
     /// </summary>
+    /// <remarks>
+    /// Each site is matched with IUPAC ambiguity semantics (<see cref="IupacHelper.MatchesIupac"/>,
+    /// the same matcher <see cref="RestrictionAnalyzer"/> uses), on <b>both strands</b>: a
+    /// restriction enzyme cuts double-stranded DNA, so a non-palindromic site such as BsaI
+    /// GGTCTC is also eliminated where its reverse complement GAGACC occurs (REBASE lists one
+    /// strand only). For every occurrence, all synonymous replacements of the codons overlapping
+    /// it are considered and the one that removes the occurrence with the <b>highest usage
+    /// frequency</b> in <paramref name="table"/> is applied (DNA Chisel resolves an
+    /// <c>AvoidPattern</c> constraint against the codon-optimisation objective the same way);
+    /// ties resolve to the leftmost codon and NCBI codon order, so the result is deterministic.
+    /// Exactly one codon is changed per removed occurrence. An occurrence that no single
+    /// synonymous substitution can remove (e.g. inside a run of Met/Trp codons) is left in place
+    /// and does not stop the other occurrences from being processed. The sequence is upper-cased,
+    /// read as RNA (T → U) and trimmed to complete codons.
+    /// </remarks>
+    /// <param name="codingSequence">Coding sequence (DNA or RNA); empty → empty result.</param>
+    /// <param name="restrictionSites">Recognition sequences (DNA or RNA, IUPAC codes allowed).</param>
+    /// <param name="table">Codon-usage table of the expression host, used to pick replacements.</param>
     public static string RemoveRestrictionSites(string codingSequence, IEnumerable<string> restrictionSites, CodonUsageTable table)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return "";
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
+        ArgumentNullException.ThrowIfNull(restrictionSites);
+
+        string rna = ToUpperRna(codingSequence);
         var codons = SplitIntoCodons(rna);
 
+        // Match on DNA spelling: 'U' is not an IUPAC DNA code.
+        var patterns = new List<string>();
         foreach (var site in restrictionSites)
         {
-            string siteRna = site.ToUpperInvariant().Replace('T', 'U');
-            string current = string.Join("", codons);
+            if (string.IsNullOrEmpty(site))
+                continue;
+            string pattern = site.ToUpperInvariant().Replace('U', 'T');
+            if (!pattern.All(IupacHelper.IsNucleotideCode))
+                throw new ArgumentException(
+                    $"Restriction site '{site}' contains a character that is not an IUPAC nucleotide code.",
+                    nameof(restrictionSites));
 
-            while (current.Contains(siteRna))
+            AddPattern(patterns, pattern);
+            AddPattern(patterns, DnaSequence.GetReverseComplementString(pattern));
+        }
+
+        foreach (string pattern in patterns)
+        {
+            int from = 0;
+            // A substitution can create a new occurrence elsewhere, whose removal could in
+            // principle undo the first one; cap the rewrites per pattern so the loop always
+            // terminates (one rewrite per codon plus a small margin).
+            int budget = codons.Count + 8;
+            while (budget-- > 0)
             {
-                int pos = current.IndexOf(siteRna, StringComparison.Ordinal);
-                int codonIdx = pos / 3;
-
-                // Try to change one of the codons overlapping the site
-                for (int i = codonIdx; i <= Math.Min(codonIdx + 2, codons.Count - 1); i++)
-                {
-                    string aa = TranslateCodon(codons[i]);
-                    if (aa == "*") continue;
-
-                    if (AminoAcidToCodons.TryGetValue(aa, out var alts))
-                    {
-                        foreach (var alt in alts.Where(a => a != codons[i]))
-                        {
-                            var testCodons = new List<string>(codons) { [i] = alt };
-                            string testSeq = string.Join("", testCodons);
-                            if (!testSeq.Contains(siteRna))
-                            {
-                                codons[i] = alt;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                current = string.Join("", codons);
-
-                // Prevent infinite loop
-                if (current.Contains(siteRna))
+                string dna = string.Concat(codons).Replace('U', 'T');
+                int position = FindPattern(dna, pattern, from);
+                if (position < 0)
                     break;
+
+                if (TryRemoveOccurrence(codons, position, pattern, table))
+                    continue; // re-scan from the same offset: the edit may expose/shift matches
+
+                from = position + 1; // unremovable occurrence — keep it and look further along
             }
         }
 
-        return string.Join("", codons);
+        return string.Concat(codons);
+
+        static void AddPattern(List<string> patterns, string pattern)
+        {
+            if (!patterns.Contains(pattern))
+                patterns.Add(pattern);
+        }
+    }
+
+    // First index >= from where the IUPAC pattern matches (-1 when absent).
+    private static int FindPattern(string dnaSequence, string pattern, int from)
+    {
+        for (int i = Math.Max(0, from); i + pattern.Length <= dnaSequence.Length; i++)
+        {
+            bool match = true;
+            for (int k = 0; k < pattern.Length && match; k++)
+                match = IupacHelper.MatchesIupac(dnaSequence[i + k], pattern[k]);
+            if (match)
+                return i;
+        }
+
+        return -1;
+    }
+
+    // Replaces the single synonymous codon that removes the occurrence at <paramref name="position"/>
+    // with the smallest loss of codon usage; returns false when no synonymous substitution works.
+    private static bool TryRemoveOccurrence(List<string> codons, int position, string pattern, CodonUsageTable table)
+    {
+        int firstCodon = position / 3;
+        int lastCodon = Math.Min((position + pattern.Length - 1) / 3, codons.Count - 1);
+
+        int bestIndex = -1;
+        string? bestCodon = null;
+        double bestFrequency = double.NegativeInfinity;
+
+        for (int i = firstCodon; i <= lastCodon; i++)
+        {
+            string original = codons[i];
+            if (!TryTranslateCodon(original, out char aa) || aa == '*')
+                continue;
+
+            foreach (string alternative in SynonymsFor(original))
+            {
+                if (alternative == original)
+                    continue;
+
+                string dna = ConcatCodons(codons, 0, codons.Count, i, alternative).Replace('U', 'T');
+                if (FindPattern(dna, pattern, position) == position)
+                    continue;
+
+                double frequency = table.CodonFrequencies.GetValueOrDefault(alternative, 0);
+                if (frequency > bestFrequency)
+                {
+                    bestFrequency = frequency;
+                    bestIndex = i;
+                    bestCodon = alternative;
+                }
+            }
+        }
+
+        if (bestCodon is null)
+            return false;
+
+        codons[bestIndex] = bestCodon;
+        return true;
     }
 
     /// <summary>
-    /// Reduces mRNA secondary structure by avoiding self-complementary regions.
+    /// Reduces mRNA secondary structure by replacing codons inside self-complementary windows
+    /// with synonymous codons that lower the window's self-complementarity.
     /// </summary>
-    public static string ReduceSecondaryStructure(string codingSequence, CodonUsageTable table, int windowSize = 40)
+    /// <remarks>
+    /// The score of a window is the fraction of position pairs (i, j), j ≥ i + 4, whose bases can
+    /// form a canonical pair — Watson-Crick A·U / G·C <b>or the G·U wobble</b>, taken from the
+    /// canonical <see cref="RnaSecondaryStructure.CanPair"/> (ViennaRNA default pair set), not a
+    /// private Watson-Crick-only copy. Windows scoring above
+    /// <paramref name="structureThreshold"/> are rewritten codon by codon, each codon taking the
+    /// synonymous codon that minimises the score of the <b>current</b> window content (the
+    /// baseline is re-evaluated after every accepted change), among codons whose usage frequency
+    /// in <paramref name="table"/> is at least <paramref name="minCodonFrequency"/>.
+    /// The sequence is upper-cased, read as RNA and trimmed to complete codons; a sequence
+    /// shorter than <paramref name="windowSize"/> is returned normalised but otherwise unchanged.
+    /// <para>
+    /// <b>Limitation.</b> The window score is a base-pair-count heuristic, not a thermodynamic
+    /// folding model: it ignores stacking, loop penalties and pair nesting. A free-energy-guided
+    /// search would evaluate <see cref="RnaSecondaryStructure.CalculateMinimumFreeEnergy"/>
+    /// (Turner 2004) for every candidate codon, which is O(w³) per candidate (~6 ms per 43-nt
+    /// window here, i.e. minutes per kilobase) and is therefore left to the caller.
+    /// </para>
+    /// </remarks>
+    /// <param name="codingSequence">Coding sequence (DNA or RNA).</param>
+    /// <param name="table">Codon-usage table of the expression host.</param>
+    /// <param name="windowSize">Window width in nucleotides (default 40).</param>
+    /// <param name="structureThreshold">Score above which a window is rewritten (default 0.5).</param>
+    /// <param name="minCodonFrequency">Minimum usage frequency of a replacement codon (default 0.1).</param>
+    public static string ReduceSecondaryStructure(
+        string codingSequence,
+        CodonUsageTable table,
+        int windowSize = 40,
+        double structureThreshold = 0.5,
+        double minCodonFrequency = 0.1)
     {
-        if (string.IsNullOrEmpty(codingSequence) || codingSequence.Length < windowSize)
+        if (string.IsNullOrEmpty(codingSequence))
             return codingSequence;
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
+        string rna = ToUpperRna(codingSequence);
+        if (rna.Length < windowSize)
+            return rna;
+
         var codons = SplitIntoCodons(rna);
+        int windowCodons = windowSize / 3 + 1;
 
-        for (int i = 0; i < codons.Count - windowSize / 3; i++)
+        for (int i = 0; i + windowCodons <= codons.Count; i++)
         {
-            string window = string.Join("", codons.Skip(i).Take(windowSize / 3 + 1));
-            double structureScore = CalculateLocalStructure(window);
+            if (CalculateLocalStructure(ConcatCodons(codons, i, windowCodons, -1, "")) <= structureThreshold)
+                continue;
 
-            if (structureScore > 0.5) // High structure propensity
+            for (int j = i; j < i + windowCodons; j++)
             {
-                // Try to reduce by changing codons
-                for (int j = i; j < Math.Min(i + windowSize / 3, codons.Count); j++)
+                string current = codons[j];
+                double bestScore = CalculateLocalStructure(ConcatCodons(codons, i, windowCodons, -1, current));
+                string bestAlternative = current;
+
+                foreach (string alternative in SynonymsFor(current))
                 {
-                    string aa = TranslateCodon(codons[j]);
-                    if (aa == "*") continue;
-
-                    if (AminoAcidToCodons.TryGetValue(aa, out var alts))
+                    if (alternative == current ||
+                        table.CodonFrequencies.GetValueOrDefault(alternative, 0) < minCodonFrequency)
                     {
-                        string bestAlt = codons[j];
-                        double bestScore = structureScore;
+                        continue;
+                    }
 
-                        foreach (var alt in alts)
-                        {
-                            var testCodons = new List<string>(codons) { [j] = alt };
-                            string testWindow = string.Join("", testCodons.Skip(i).Take(windowSize / 3 + 1));
-                            double testScore = CalculateLocalStructure(testWindow);
+                    double score = CalculateLocalStructure(ConcatCodons(codons, i, windowCodons, j, alternative));
 
-                            if (testScore < bestScore && table.CodonFrequencies.GetValueOrDefault(alt, 0) >= 0.1)
-                            {
-                                bestScore = testScore;
-                                bestAlt = alt;
-                            }
-                        }
-
-                        codons[j] = bestAlt;
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        bestAlternative = alternative;
                     }
                 }
+
+                codons[j] = bestAlternative;
             }
         }
 
-        return string.Join("", codons);
+        return string.Concat(codons);
     }
 
     private static double CalculateLocalStructure(string sequence)
@@ -624,7 +814,7 @@ public static class CodonOptimizer
         {
             for (int j = i + 4; j < n; j++)
             {
-                if (AreComplementary(sequence[i], sequence[j]))
+                if (RnaSecondaryStructure.CanPair(sequence[i], sequence[j]))
                     complementaryPairs++;
             }
         }
@@ -633,38 +823,45 @@ public static class CodonOptimizer
         return maxPairs > 0 ? complementaryPairs / maxPairs : 0;
     }
 
-    private static bool AreComplementary(char b1, char b2)
-    {
-        return (b1 == 'A' && b2 == 'U') || (b1 == 'U' && b2 == 'A') ||
-               (b1 == 'G' && b2 == 'C') || (b1 == 'C' && b2 == 'G');
-    }
-
     #endregion
 
     #region Analysis Functions
 
     /// <summary>
-    /// Analyzes rare codon usage in a sequence.
+    /// Reports every in-frame codon whose usage frequency in <paramref name="table"/> is strictly
+    /// below <paramref name="threshold"/> (a "rare" codon for the target organism).
     /// </summary>
+    /// <remarks>
+    /// The sequence is read in frame 0 (case-insensitive, DNA T or RNA U). Only the 64 unambiguous
+    /// codons over {A,C,G,U} are screened: a triplet containing an IUPAC ambiguity code (N, R, Y, …)
+    /// or any other symbol has no codon-usage frequency and is skipped without shifting the frame,
+    /// and a trailing partial triplet is ignored — the same codon set as the canonical counter
+    /// <see cref="CodonUsageAnalyzer.CountCodons(string)"/> (EMBOSS <c>ajCodSetTripletsS</c>).
+    /// A valid codon that is absent from <paramref name="table"/> (never observed in the reference
+    /// genes) has frequency 0 and is reported whenever <paramref name="threshold"/> &gt; 0.
+    /// Stop codons are screened like any other row of the table. The amino acid is the NCBI
+    /// Standard-code translation (<see cref="GeneticCode.Standard"/>).
+    /// </remarks>
+    /// <returns>
+    /// (0-based nucleotide position of the codon, RNA codon, one-letter amino acid or <c>*</c>,
+    /// table frequency) in sequence order.
+    /// </returns>
     public static IEnumerable<(int Position, string Codon, string AminoAcid, double Frequency)> FindRareCodons(
         string codingSequence,
         CodonUsageTable table,
         double threshold = 0.15)
     {
-        if (string.IsNullOrEmpty(codingSequence))
-            yield break;
+        var codons = SplitIntoScreenedCodons(codingSequence);
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
-        var codons = SplitIntoCodons(rna);
-
-        for (int i = 0; i < codons.Count; i++)
+        for (int i = 0; i < codons.Length; i++)
         {
-            double freq = table.CodonFrequencies.GetValueOrDefault(codons[i], 0);
+            string? codon = codons[i];
+            if (codon is null)
+                continue;
+
+            double freq = table.CodonFrequencies.GetValueOrDefault(codon, 0);
             if (freq < threshold)
-            {
-                string aa = TranslateCodon(codons[i]);
-                yield return (i * 3, codons[i], aa, freq);
-            }
+                yield return (i * 3, codon, GeneticCode.Standard.Translate(codon).ToString(), freq);
         }
     }
 
@@ -690,12 +887,28 @@ public static class CodonOptimizer
     /// synonymous codon frequencies. Over a window of <paramref name="windowSize"/> codons:
     /// if Σ Xij &gt; Σ Xavg,i the window yields %Max = Σ(Xij − Xavg,i) / Σ(Xmax,i − Xavg,i) × 100
     /// (returned as a positive value); if Σ Xij &lt; Σ Xavg,i it yields %Min =
-    /// Σ(Xavg,i − Xij) / Σ(Xavg,i − Xmin,i) × 100 (returned as a negative value). Codons of
-    /// single-codon amino acids and unknown / stop codons (no synonymous spread) contribute 0 to
-    /// both numerator and denominator. Source: Clarke &amp; Clark (2008), PLoS ONE 3(10):e3412.
+    /// Σ(Xavg,i − Xij) / Σ(Xavg,i − Xmin,i) × 100 (returned as a negative value). Source:
+    /// Clarke &amp; Clark (2008), PLoS ONE 3(10):e3412; reproduced term-for-term from the Clark
+    /// lab reference code (<c>calculateMinMax</c> in CHARMING.py, Wright et&#160;al. 2022), whose
+    /// synonymous families are those of the Standard code including the stop family
+    /// {UAA, UAG, UGA}. Families here come from <see cref="GeneticCode.Standard"/>; codons of
+    /// single-codon amino acids (Met, Trp) contribute 0 to both numerator and denominator, and an
+    /// ambiguous triplet (non-ACGU symbol) occupies its window position but contributes nothing.
+    /// <para>
+    /// <b>Frequency scale.</b> The reference implementation takes a codon usage table in
+    /// frequency per thousand codons (Kazusa "/1000" column), so the window sums weight each
+    /// residue by its overall usage. Passing a <see cref="CodonUsageTable"/> whose
+    /// <c>CodonFrequencies</c> hold per-thousand values reproduces the reference exactly. The
+    /// built-in presets (<see cref="EColiK12"/>, <see cref="Yeast"/>, <see cref="Human"/>) hold
+    /// per-amino-acid relative fractions; with them every residue has equal weight, which gives
+    /// the reference value only for windows of a single amino acid.
+    /// </para>
     /// </remarks>
     /// <param name="codingSequence">DNA or RNA coding sequence (T is normalised to U).</param>
-    /// <param name="table">Reference codon-usage table (per-amino-acid relative fractions).</param>
+    /// <param name="table">
+    /// Reference codon-usage table: per-thousand usage for reference-identical values, or
+    /// per-amino-acid relative fractions (see remarks).
+    /// </param>
     /// <param name="windowSize">Sliding-window width in codons (default 18, per Clarke &amp; Clark 2008).</param>
     /// <returns>
     /// One <see cref="MinMaxWindow"/> per window position (codon indices
@@ -712,49 +925,44 @@ public static class CodonOptimizer
             throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1 codon.");
 
         var profile = new List<MinMaxWindow>();
-        if (string.IsNullOrEmpty(codingSequence))
-            return profile;
-
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
-        var codons = SplitIntoCodons(rna);
-        if (codons.Count < windowSize)
+        var codons = SplitIntoScreenedCodons(codingSequence);
+        if (codons.Length < windowSize)
             return profile;
 
         // Per-codon (Xij), per-family average (Xavg), max (Xmax) and min (Xmin) frequencies.
-        var xij = new double[codons.Count];
-        var xavg = new double[codons.Count];
-        var xmax = new double[codons.Count];
-        var xmin = new double[codons.Count];
-        for (int i = 0; i < codons.Count; i++)
+        var xij = new double[codons.Length];
+        var xavg = new double[codons.Length];
+        var xmax = new double[codons.Length];
+        var xmin = new double[codons.Length];
+        var familyStats = new Dictionary<char, (double Avg, double Max, double Min)>();
+        for (int i = 0; i < codons.Length; i++)
         {
-            string codon = codons[i];
-            xij[i] = table.CodonFrequencies.GetValueOrDefault(codon, 0);
-            string aa = TranslateCodon(codon);
+            string? codon = codons[i];
+            if (codon is null)
+                continue; // ambiguous triplet: all four terms stay 0 (no contribution).
 
-            if (AminoAcidToCodons.TryGetValue(aa, out var synonyms) && synonyms.Count > 0)
+            xij[i] = table.CodonFrequencies.GetValueOrDefault(codon, 0);
+            char aa = GeneticCode.Standard.Translate(codon);
+            if (!familyStats.TryGetValue(aa, out var stats))
             {
                 double sum = 0, max = double.MinValue, min = double.MaxValue;
-                foreach (var syn in synonyms)
+                int n = 0;
+                foreach (string syn in GeneticCode.Standard.GetCodonsForAminoAcid(aa))
                 {
                     double f = table.CodonFrequencies.GetValueOrDefault(syn, 0);
                     sum += f;
+                    n++;
                     if (f > max) max = f;
                     if (f < min) min = f;
                 }
-                xavg[i] = sum / synonyms.Count;
-                xmax[i] = max;
-                xmin[i] = min;
+                stats = (sum / n, max, min);
+                familyStats[aa] = stats;
             }
-            else
-            {
-                // Unknown codon: no synonymous family — contributes nothing to either side.
-                xavg[i] = xij[i];
-                xmax[i] = xij[i];
-                xmin[i] = xij[i];
-            }
+
+            (xavg[i], xmax[i], xmin[i]) = stats;
         }
 
-        for (int start = 0; start + windowSize <= codons.Count; start++)
+        for (int start = 0; start + windowSize <= codons.Length; start++)
         {
             double sumXij = 0, sumXavg = 0, sumMaxDelta = 0, sumMinDelta = 0;
             for (int k = start; k < start + windowSize; k++)
@@ -794,7 +1002,8 @@ public static class CodonOptimizer
     /// </summary>
     /// <remarks>
     /// A codon is "rare"/"pause" when its usage frequency in <paramref name="table"/> is strictly
-    /// below <paramref name="rareThreshold"/> — the same per-codon criterion as
+    /// below <paramref name="rareThreshold"/> — the same per-codon criterion (and the same
+    /// unambiguous-codon screen: an ambiguous triplet is never a pause) as
     /// <see cref="FindRareCodons"/>. Overlapping windows are merged into maximal clusters so a long
     /// rare run is reported once. This is opt-in; <see cref="FindRareCodons"/> (per-codon) is
     /// unchanged. Defaults reproduce the published Sherlocc rule "a seven position-wide window …
@@ -821,23 +1030,21 @@ public static class CodonOptimizer
             throw new ArgumentOutOfRangeException(nameof(minRareCodons), minRareCodons, "Minimum rare codons must be at least 1.");
 
         var clusters = new List<RareCodonCluster>();
-        if (string.IsNullOrEmpty(codingSequence))
-            return clusters;
-
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
-        var codons = SplitIntoCodons(rna);
-        if (codons.Count < windowSize)
+        var codons = SplitIntoScreenedCodons(codingSequence);
+        if (codons.Length < windowSize)
             return clusters;
 
         // Mark each codon as rare (pause) when its table frequency is strictly below the threshold.
-        var isRare = new bool[codons.Count];
-        for (int i = 0; i < codons.Count; i++)
-            isRare[i] = table.CodonFrequencies.GetValueOrDefault(codons[i], 0) < rareThreshold;
+        // An ambiguous triplet has no usage frequency and is never a pause position.
+        var isRare = new bool[codons.Length];
+        for (int i = 0; i < codons.Length; i++)
+            isRare[i] = codons[i] is { } codon
+                && table.CodonFrequencies.GetValueOrDefault(codon, 0) < rareThreshold;
 
         int? mergedStart = null;
         int mergedEnd = -1;
         int windowRare = 0;
-        for (int start = 0; start + windowSize <= codons.Count; start++)
+        for (int start = 0; start + windowSize <= codons.Length; start++)
         {
             if (start == 0)
             {
@@ -887,8 +1094,23 @@ public static class CodonOptimizer
     }
 
     /// <summary>
-    /// Calculates codon frequency distribution for a sequence.
+    /// Counts the in-frame (frame 0) codons of a coding sequence, returning RNA-spelled keys
+    /// (<c>AUG</c>, <c>GCU</c>, …) mapped to raw counts (the "Number" column of an EMBOSS
+    /// <c>cusp</c> / Kazusa codon usage table).
     /// </summary>
+    /// <remarks>
+    /// Input is case-insensitive and may be DNA (T) or RNA (U). Only the 64 unambiguous
+    /// codons over {A,C,G,U} are counted: a triplet containing an IUPAC ambiguity code
+    /// (N, R, Y, …) or any other non-nucleotide character is skipped without shifting the
+    /// frame, and an incomplete trailing triplet is ignored — the contract documented for
+    /// EMBOSS <c>ajCodSetTripletsS</c> ("Skips triplets with ambiguity codes and any
+    /// incomplete triplet at the end"), and consistent with Biopython
+    /// <c>CodonAdaptationIndex</c>, whose count table is closed over the 64 ACGT codons.
+    /// Stop codons are counted like any other codon (they are rows of the cusp/Kazusa table).
+    /// Delegates to the canonical counter <see cref="CodonUsageAnalyzer.CountCodons(string)"/>.
+    /// Codons that do not occur are absent from the dictionary (no zero entries).
+    /// </remarks>
+    /// <param name="codingSequence">In-frame coding sequence (DNA or RNA); null/empty → empty result.</param>
     public static Dictionary<string, int> CalculateCodonUsage(string codingSequence)
     {
         var usage = new Dictionary<string, int>();
@@ -896,21 +1118,20 @@ public static class CodonOptimizer
         if (string.IsNullOrEmpty(codingSequence))
             return usage;
 
-        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
-        var codons = SplitIntoCodons(rna);
-
-        foreach (var codon in codons)
-        {
-            if (!usage.ContainsKey(codon))
-                usage[codon] = 0;
-            usage[codon]++;
-        }
+        // The canonical counter normalises case and U/T itself and reports DNA spelling;
+        // this API reports RNA spelling.
+        foreach (var (codon, count) in CodonUsageAnalyzer.CountCodons(codingSequence))
+            usage[codon.Replace('T', 'U')] = count;
 
         return usage;
     }
 
     /// <summary>
-    /// Compares codon usage between two sequences.
+    /// Compares the codon usage of two sequences as the total-variation-distance similarity of
+    /// their codon frequency distributions: <c>1 − ½·Σ_c |f₁(c) − f₂(c)|</c>, where
+    /// <c>f_i(c) = count_i(c) / Σ count_i</c> over the codons counted by
+    /// <see cref="CalculateCodonUsage(string)"/> (unambiguous, in-frame, complete codons only).
+    /// Returns a value in [0, 1]; returns 0 when either sequence has no countable codon.
     /// </summary>
     public static double CompareCodonUsage(string sequence1, string sequence2)
     {
@@ -927,24 +1148,41 @@ public static class CodonOptimizer
         if (total1 == 0 || total2 == 0)
             return 0;
 
-        double correlation = 0;
+        double l1Distance = 0;
         foreach (var codon in allCodons)
         {
             double freq1 = usage1.GetValueOrDefault(codon, 0) / (double)total1;
             double freq2 = usage2.GetValueOrDefault(codon, 0) / (double)total2;
-            correlation += Math.Abs(freq1 - freq2);
+            l1Distance += Math.Abs(freq1 - freq2);
         }
 
-        return 1 - (correlation / 2);
+        return 1 - (l1Distance / 2);
     }
 
     #endregion
 
     #region Utility Methods
 
+    // Frame-0 RNA-spelled codons for the per-position screens (rare codons, %MinMax, clusters):
+    // index k = codon k; an ambiguous triplet is null (skipped, frame preserved). Delegates the
+    // splitting and ACGT screen to the canonical CodonUsageAnalyzer core.
+    private static string?[] SplitIntoScreenedCodons(string? codingSequence)
+    {
+        var codons = CodonUsageAnalyzer.SplitInFrameCodons(codingSequence);
+        for (int k = 0; k < codons.Length; k++)
+            codons[k] = codons[k]?.Replace('T', 'U');
+        return codons;
+    }
+
+    // Upper-case RNA spelling (T read as U) used by every rewriting API of this class.
+    private static string ToUpperRna(string sequence) => sequence.ToUpperInvariant().Replace('T', 'U');
+
+    // Every complete frame-0 triplet, including ambiguous ones (the rewriting APIs must keep
+    // them in place to preserve the reading frame and the sequence length); a trailing partial
+    // triplet is dropped.
     private static List<string> SplitIntoCodons(string sequence)
     {
-        var codons = new List<string>();
+        var codons = new List<string>(sequence.Length / 3);
         for (int i = 0; i + 2 < sequence.Length; i += 3)
         {
             codons.Add(sequence.Substring(i, 3));
@@ -952,43 +1190,84 @@ public static class CodonOptimizer
         return codons;
     }
 
-    private static string TranslateCodon(string codon)
+    // Concatenates codons [start, start+count) with the codon at <paramref name="replaceAt"/>
+    // swapped for <paramref name="replacement"/> (replaceAt &lt; 0 → no replacement), without
+    // mutating the list.
+    private static string ConcatCodons(List<string> codons, int start, int count, int replaceAt, string replacement)
     {
-        return StandardGeneticCode.GetValueOrDefault(codon, "X");
+        var builder = new StringBuilder(count * 3);
+        for (int k = start; k < start + count; k++)
+            builder.Append(k == replaceAt ? replacement : codons[k]);
+        return builder.ToString();
     }
 
     private static double CalculateGcContent(string sequence) =>
         string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcFractionFast();
 
-    private static double GetCodonGcContent(string codon)
+    /// <summary>
+    /// Creates a <see cref="CodonUsageTable"/> from codon frequencies, filling
+    /// <see cref="CodonUsageTable.CodonToAminoAcid"/> with the canonical
+    /// <see cref="GeneticCode.Standard"/> mapping (RNA spelling) that the optimizer uses, so a
+    /// caller-supplied table carries the same codon → amino-acid assignment as the built-in
+    /// presets. Frequency keys are normalised to upper-case RNA spelling.
+    /// </summary>
+    /// <param name="organismName">Name stored in the table.</param>
+    /// <param name="codonFrequencies">Per-amino-acid relative codon frequencies (DNA or RNA keys).</param>
+    public static CodonUsageTable CreateCodonUsageTable(
+        string organismName,
+        IReadOnlyDictionary<string, double> codonFrequencies)
     {
-        int gc = codon.Count(c => c == 'G' || c == 'C');
-        return gc / 3.0;
+        ArgumentNullException.ThrowIfNull(codonFrequencies);
+
+        var frequencies = new Dictionary<string, double>(codonFrequencies.Count);
+        foreach (var (codon, frequency) in codonFrequencies)
+            frequencies[ToUpperRna(codon)] = frequency;
+
+        return new CodonUsageTable(organismName, frequencies, StandardCodonToAminoAcid);
     }
 
     /// <summary>
-    /// Creates a custom codon usage table from a reference sequence.
+    /// Builds a codon-usage table from a reference gene set (one concatenated in-frame coding
+    /// sequence, or a single gene), as the relative frequency of each codon within its
+    /// synonymous family of the Standard genetic code.
     /// </summary>
+    /// <remarks>
+    /// Codons are counted by the canonical counter (frame 0, complete unambiguous triplets only;
+    /// see <see cref="CalculateCodonUsage(string)"/>). <b>A codon that does not occur in the
+    /// reference set is given a count of 0.5</b>, "following the description in the original
+    /// paper" — Sharp &amp; Li (1987) NAR 15:1281-1295, as implemented by Biopython
+    /// <c>Bio.SeqUtils.CodonAdaptationIndex</c> (1.88). Without that pseudo-count an unobserved
+    /// codon would be missing from the table and scored with the CodonW zero substitute
+    /// (w = 0.01) by <see cref="CalculateCAI"/>, penalising codons about which the reference set
+    /// simply carries no information. All 64 codons are therefore present in the result, and the
+    /// relative adaptiveness w = f / max f derived from it equals Biopython's index exactly.
+    /// Stop codons form their own family (as in Biopython). The frequencies of each family sum
+    /// to 1.
+    /// </remarks>
+    /// <param name="referenceSequence">Reference coding sequence(s), in frame 0 (DNA or RNA).</param>
+    /// <param name="organismName">Name stored in the resulting table.</param>
     public static CodonUsageTable CreateCodonTableFromSequence(string referenceSequence, string organismName)
     {
         var usage = CalculateCodonUsage(referenceSequence);
-        var frequencies = new Dictionary<string, double>();
+        var frequencies = new Dictionary<string, double>(64);
 
-        // Group by amino acid and calculate relative frequencies
-        var byAminoAcid = usage
-            .Where(kv => StandardGeneticCode.ContainsKey(kv.Key))
-            .GroupBy(kv => StandardGeneticCode[kv.Key]);
-
-        foreach (var group in byAminoAcid)
+        foreach (var family in SynonymousCodons.Values)
         {
-            int total = group.Sum(g => g.Value);
-            foreach (var codon in group)
+            // Sharp & Li (1987) / Biopython: codons absent from the reference set count as 0.5.
+            double total = 0;
+            var counts = new double[family.Length];
+            for (int k = 0; k < family.Length; k++)
             {
-                frequencies[codon.Key] = total > 0 ? (double)codon.Value / total : 0;
+                int observed = usage.GetValueOrDefault(family[k], 0);
+                counts[k] = observed == 0 ? 0.5 : observed;
+                total += counts[k];
             }
+
+            for (int k = 0; k < family.Length; k++)
+                frequencies[family[k]] = counts[k] / total;
         }
 
-        return new CodonUsageTable(organismName, frequencies, StandardGeneticCode);
+        return new CodonUsageTable(organismName, frequencies, StandardCodonToAminoAcid);
     }
 
     #endregion

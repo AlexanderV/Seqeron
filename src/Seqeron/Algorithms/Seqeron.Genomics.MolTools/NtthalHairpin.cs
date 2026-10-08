@@ -1,25 +1,36 @@
 namespace Seqeron.Genomics.MolTools;
 
 /// <summary>
-/// Full Primer3 <c>ntthal</c> intramolecular-hairpin (monomer, <c>type==4</c>) thermodynamic
-/// dynamic program — a line-for-line translation of <c>thal.c</c> (<c>initMatrix2</c>,
-/// <c>fillMatrix2</c>, <c>maxTM2</c>, <c>CBI</c>/<c>calc_bulge_internal2</c>, <c>calc_hairpin</c>,
-/// <c>calc_terminal_bp</c>, <c>END5_1..4</c>, <c>tracebacku</c>, <c>calcHairpin</c>) for the
-/// hairpin (single-sequence) folding path used by <c>primer3.calc_hairpin</c>.
+/// Primer3 <c>ntthal</c> intramolecular-hairpin (monomer, <c>type==4</c>) thermodynamic dynamic
+/// program — a bit-faithful port of primer3-py 2.3.1 <c>thal.c</c> (<c>thal</c> type-4 path,
+/// <c>initMatrix2</c>, <c>fillMatrix2</c>, <c>maxTM2</c>, <c>CBI</c>, <c>calc_bulge_internal2</c>,
+/// <c>calc_hairpin</c>, <c>RSH</c>, <c>Ss</c>/<c>Hs</c>, <c>calc_terminal_bp</c>,
+/// <c>END5_1..4</c>, <c>tracebacku</c>, <c>equal</c>, <c>calcHairpin</c>, <c>drawHairpin</c>) as
+/// used by <c>primer3.calc_hairpin</c>.
 /// <para>
-/// The model folds one oligo onto itself, scoring a single Watson-Crick stem, internal
-/// mismatches/loops and bulges, the terminal-mismatch (<c>tstack2</c>) / dangling-end
-/// (<c>dangle</c>) terminal contributions, the size-keyed hairpin-loop initiation
-/// (<c>loops</c>), the closing-A·T penalty (3-nt loops) and — the addition this file bundles —
-/// the sequence-specific special <b>triloop</b> (3-nt) and <b>tetraloop</b> (4-nt) stability
-/// bonuses (the primer3 <c>triloop.dh/.ds</c> + <c>tetraloop.dh/.ds</c> tables), keyed on the
-/// full loop string including the closing base pair.
+/// The model folds one oligo onto itself, scoring Watson-Crick stacks, internal mismatches/loops
+/// and bulges, the hairpin-loop initiation (<c>loops</c> hairpin column), the terminal mismatch
+/// (<c>tstack2</c>) of loops ≥ 4 nt, the closing-A·T penalty of 3-nt loops, the special
+/// <b>triloop</b>/<b>tetraloop</b> bonuses (<c>triloop.dh/.ds</c>, <c>tetraloop.dh/.ds</c>, keyed on
+/// the loop string including the closing pair) and, on the exterior loop, the A·T penalty plus
+/// dangling-end / terminal-mismatch contributions (<c>END5_1..4</c>).
+/// </para>
+/// <para>
+/// thal.c quirks reproduced deliberately (they change results for ≈5 % of random oligos):
+/// <c>calc_hairpin</c> calls the dimer <c>RSH(i, j)</c> on the non-reversed oligo, i.e. with the
+/// neighbours <c>s[i+1]</c>/<c>s[j+1]</c>, and that RSH keeps its running Tm at −∞ unless a
+/// dangling-end branch is entered (<see cref="NtthalDimer.TerminalPair"/>);
+/// <c>calc_terminal_bp</c> accepts an exterior candidate only when ΔG at the analysis temperature
+/// <c>temp</c> is below the global <c>G2 = 0</c>; <c>equal()</c> uses a 1e−5 tolerance and never
+/// equates non-finite values; the 1×1 internal-mismatch candidate is skipped unless its Tm exceeds
+/// the cell's by at least <c>SMALL_NON_ZERO</c> (<c>DBL_EQ</c>); the traceback consults
+/// <c>CBI(…, traceback = 2)</c>'s last qualifying candidate before searching a loop.
 /// </para>
 /// <para>
 /// All stacking / terminal-mismatch / dangle / interior / bulge tables and the physical
 /// constants are reused verbatim from <see cref="NtthalDimer"/> (the same primer3
-/// <c>primer3_config/*.dh,*.ds</c> values <c>ntthal</c> loads). The hairpin-loop length table
-/// (<c>loops</c> hairpin column) and the special tri/tetraloop bonus tables are embedded here.
+/// <c>primer3_config/*.dh,*.ds</c> values). The hairpin-loop length table and the special
+/// tri/tetraloop bonus tables are embedded here.
 /// </para>
 /// </summary>
 internal static class NtthalHairpin
@@ -27,38 +38,43 @@ internal static class NtthalHairpin
     private const double Inf = NtthalDimer.Inf;
     private const double IlAs = NtthalDimer.IlAs;
     private const double IlAh = NtthalDimer.IlAh;
-    private const double AtH = NtthalDimer.AtH;
-    private const double AtS = NtthalDimer.AtS;
-    private const double AtPenaltySEntry = NtthalDimer.AtPenaltySEntry;
     private const double MinEntropyCutoff = NtthalDimer.MinEntropyCutoff;
     private const double MinEntropy = NtthalDimer.MinEntropy;
     private const double TempKelvin = NtthalDimer.TempKelvin;
     private const double AbsoluteZero = NtthalDimer.AbsoluteZero;
     private const int MaxLoop = NtthalDimer.MaxLoop;
     private const int MinHrpnLoop = 3;                  // thal.c MIN_HRPN_LOOP
-    private const double Equal = 1e-6;                  // traceback equality tolerance
+    private const double EqualTolerance = 1e-5;         // thal.c equal()
+    private const double SmallNonZero = 0.000001;       // thal.c SMALL_NON_ZERO (DBL_EQ)
+    private const double G2 = 0.0;                      // thal.c global G2 (calc_terminal_bp)
 
     // For a unimolecular structure ntthal sets dplx_init_H = 0, dplx_init_S = -1e-11, RC = 0
-    // (thal.c lines 583-585). There is NO strand-concentration term in a hairpin.
+    // (thal.c thal(), type 4). There is NO strand-concentration term in a hairpin.
     private const double DplxInitH = 0.0;
     private const double DplxInitS = -1e-11;
     private const double Rc = 0.0;
 
-    private static bool IsFinite(double x) => NtthalDimer.IsFinite(x);
+    // thal.c isFinite == C isfinite (false for ±∞ and NaN).
+    private static bool IsFinite(double x) => double.IsFinite(x);
 
     /// <summary>The most stable hairpin's ntthal thermodynamics (native ntthal units).</summary>
     /// <param name="DeltaH">Hairpin ΔH° in cal/mol (salt-independent).</param>
     /// <param name="DeltaS">Hairpin ΔS° in cal/(K·mol), including the (N/2−1)·saltCorrection term.</param>
-    /// <param name="DeltaG37">Hairpin ΔG°37 = ΔH° − 310.15·ΔS° in cal/mol.</param>
+    /// <param name="DeltaG37">Hairpin ΔG = ΔH° − temp·ΔS° in cal/mol at the analysis temperature
+    /// (310.15 K unless another <c>temp</c> is passed; primer3-py <c>temp_c</c>).</param>
     /// <param name="TmCelsius">Unimolecular melting temperature in °C.</param>
     /// <param name="BasePairs">ntthal N/2 (half the number of paired positions counted over
     /// bp[0..len−2]); the ntthal salt-correction base-pair count, not necessarily the literal
     /// stem length.</param>
+    /// <param name="AsciiStructure">thal.c <c>drawHairpin</c> lines ("SEQ\t…", "STR\t…"; primer3-py
+    /// <c>ascii_structure_lines</c>) when requested, else null.</param>
     internal readonly record struct Result(
-        double DeltaH, double DeltaS, double DeltaG37, double TmCelsius, int BasePairs);
+        double DeltaH, double DeltaS, double DeltaG37, double TmCelsius, int BasePairs,
+        string[]? AsciiStructure = null);
 
-    // Hairpin-loop ΔS by size (loops.ds hairpin column, sizes 1..30). ΔH = 0 for all sizes
-    // (loops.dh hairpin column). thal.c indexes hairpinLoop*[loopSize - 1].
+    // Hairpin-loop ΔS by size (loops.ds hairpin column, sizes 1..30). ΔH = 0 for sizes 3..30
+    // (loops.dh hairpin column; sizes 1-2 are never used, MIN_HRPN_LOOP = 3). thal.c indexes
+    // hairpinLoop*[loopSize - 1] and uses index 29 for loops longer than 30.
     private static readonly double[] HairpinLoopS =
     {
         -1.0, -1.0, -11.28, -11.28, -10.64, -12.89, -13.54, -13.86, -14.5, -14.83,
@@ -77,33 +93,60 @@ internal static class NtthalHairpin
     /// </summary>
     /// <param name="oligo">The DNA oligo (5′→3').</param>
     /// <param name="mvMolar">Monovalent cation concentration in mol/L (ntthal mv is in mM).</param>
-    internal static Result? Run(string oligo, double mvMolar)
-    {
-        double mv = mvMolar * 1000.0;
-        int len1 = oligo.Length;
-        int len2 = len1; // monomer: oligo1 == oligo2 (NOT reversed for type==4)
+    internal static Result? Run(string oligo, double mvMolar) => Run(oligo, mvMolar, 0.0, 0.0);
 
-        // 1-indexed sequence with N (=4) sentinels at 0 and len+1 (thal.c line 634).
+    /// <summary>
+    /// Runs the ntthal hairpin DP with divalent-cation and dNTP concentrations (mol/L), which enter
+    /// only through ntthal's <c>saltCorrectS</c> (see <see cref="NtthalDimer.SaltCorrectS"/>).
+    /// </summary>
+    /// <param name="tempKelvin">ntthal <c>temp</c> (K): enters the exterior-loop acceptance test
+    /// (<c>calc_terminal_bp</c>: ΔH − temp·ΔS &lt; 0) and the reported ΔG (<c>calcHairpin</c>).</param>
+    /// <param name="maxLoop">ntthal <c>maxLoop</c>: maximum internal-loop / bulge size (0–30).</param>
+    /// <param name="withStructure">Also return the thal.c <c>drawHairpin</c> ASCII lines.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxLoop"/> outside 0–30.</exception>
+    /// <exception cref="ArgumentException">The oligo is longer than 60 nt (thal.c
+    /// <c>THAL_MAX_ALIGN</c>: both "sequences" of a hairpin are the oligo).</exception>
+    internal static Result? Run(
+        string oligo, double mvMolar, double dvMolar, double dntpMolar,
+        double tempKelvin = TempKelvin, int maxLoop = MaxLoop, bool withStructure = false)
+    {
+        if (maxLoop < 0 || maxLoop > MaxLoop)
+            throw new ArgumentOutOfRangeException(nameof(maxLoop), maxLoop, "ntthal max_loop must be in 0..30.");
+        if (oligo.Length > NtthalDimer.ThalMaxAlign)
+            throw new ArgumentException(
+                "At least one sequence must be equal to or shorter than 60bp for thermodynamic calculations");
+
+        int len1 = oligo.Length;
+        int len2 = len1; // monomer: numSeq2 == numSeq1 (NOT reversed for type 4)
+
+        // 1-indexed numeric sequence with N (=4) sentinels at 0 and len+1 (thal.c thal()).
         var s = new int[len1 + 2];
         s[0] = s[len1 + 1] = 4;
         for (int k = 0; k < len1; k++) s[k + 1] = NtthalDimer.Str2Int(oligo[k]);
 
-        // saltCorrectS (thal.c 1042); dv = dntp = 0 so the divalent term vanishes.
-        double saltCorrection = 0.368 * Math.Log(mv / 1000.0);
+        double saltCorrection = NtthalDimer.SaltCorrectS(mvMolar * 1000.0, dvMolar * 1000.0, dntpMolar * 1000.0);
 
-        int Bp(int x, int y) => NtthalDimer.Bpi[x, y];
-        double AtPenaltyH(int x, int y) => (x == 0 && y == 3) || (x == 3 && y == 0) ? AtH : 0.0;
-        double AtPenaltyS(int x, int y) => (x == 0 && y == 3) || (x == 3 && y == 0) ? AtS : AtPenaltySEntry;
+        static int Bp(int x, int y) => NtthalDimer.Bpi[x, y];
+        static double AtPenaltyH(int x, int y) => NtthalDimer.AtPenaltyHOf(x, y);
+        static double AtPenaltyS(int x, int y) => NtthalDimer.AtPenaltySOf(x, y);
 
         var enH = new double[len1 + 2, len2 + 2];
         var enS = new double[len1 + 2, len2 + 2];
 
-        // Stack ΔS/ΔH for the inward-extension step (Ss/Hs mode k==2): numSeq2 == s, so
-        // stack[ s[i] ][ s[i+1] ][ s[j] ][ s[j-1] ] (thal.c 2002/2026).
-        double Ss2(int i, int j) => T4(NtthalDimer.StackS, s[i], s[i + 1], s[j], s[j - 1]);
-        double Hs2(int i, int j) => T4(NtthalDimer.StackH, s[i], s[i + 1], s[j], s[j - 1]);
+        // thal.c Ss/Hs (k == 2): inward stack of pair (i,j) on (i+1,j-1), with the range guards.
+        double Ss2(int i, int j)
+        {
+            if (i >= j || i == len1 || j == len2 + 1) return -1.0;
+            return T4(NtthalDimer.StackS, s[i], s[i + 1], s[j], s[j - 1]);
+        }
+        double Hs2(int i, int j)
+        {
+            if (i >= j || i == len1 || j == len2 + 1) return Inf;
+            double v = T4(NtthalDimer.StackH, s[i], s[i + 1], s[j], s[j - 1]);
+            return IsFinite(v) ? v : Inf;
+        }
 
-        // dangle / tstack2 helpers (thal.c Sd5/Hd5/Sd3/Hd3/Ststack/Htstack). numSeq2 == s.
+        // dangle / tstack2 helpers (thal.c Sd5/Hd5/Sd3/Hd3/Ststack/Htstack, all on numSeq1).
         double Sd5(int i, int j) => T3(NtthalDimer.Dangle5S, s[i], s[j], s[j - 1]);
         double Hd5(int i, int j) => T3(NtthalDimer.Dangle5H, s[i], s[j], s[j - 1]);
         double Sd3(int i, int j) => T3(NtthalDimer.Dangle3S, s[i], s[i + 1], s[j]);
@@ -111,213 +154,149 @@ internal static class NtthalHairpin
         double Ststack(int i, int j) => T4(NtthalDimer.Tstack2S, s[i], s[i + 1], s[j], s[j - 1]);
         double Htstack(int i, int j) => T4(NtthalDimer.Tstack2H, s[i], s[i + 1], s[j], s[j - 1]);
 
-        // ----- calc_hairpin (thal.c 2067-2146) -----
-        // Returns (S,H) for the hairpin closed by pair (i,j); loop = j-i-1 unpaired bases.
-        (double S, double H) CalcHairpin(int i, int j)
+        static bool Equal(double a, double b) =>
+            IsFinite(a) && IsFinite(b) && Math.Abs(a - b) < EqualTolerance;
+
+        static double Tm(double h, double sv) => (h + DplxInitH) / (sv + DplxInitS + Rc);
+
+        // ----- calc_hairpin (thal.c) -----
+        // traceback == 0 (fill): the existing cell value is kept when it is more stable with the
+        // same RSH terminal; traceback == 1: the bare hairpin value is returned.
+        void CalcHairpin(int i, int j, ref double eS, ref double eH, bool traceback)
         {
             int loopSize = j - i - 1;
-            if (loopSize < MinHrpnLoop) return (-1.0, Inf);
-
-            double h, eS;
-            if (loopSize <= 30) { h = 0.0; eS = HairpinLoopS[loopSize - 1]; }
-            else { h = 0.0; eS = HairpinLoopS[29]; }
+            if (loopSize < MinHrpnLoop) { eS = -1.0; eH = Inf; return; }
+            if (loopSize <= 30) { eH = 0.0; eS = HairpinLoopS[loopSize - 1]; }
+            else { eH = 0.0; eS = HairpinLoopS[29]; }
 
             if (loopSize > 3)
             {
-                // terminal mismatch (tstack2) for loops of 4+ (thal.c 2099-2100).
-                h += T4(NtthalDimer.Tstack2H, s[i], s[i + 1], s[j], s[j - 1]);
+                eH += T4(NtthalDimer.Tstack2H, s[i], s[i + 1], s[j], s[j - 1]);
                 eS += T4(NtthalDimer.Tstack2S, s[i], s[i + 1], s[j], s[j - 1]);
             }
-            else // loopSize == 3: closing-A·T penalty (thal.c 2102-2103).
+            else if (loopSize == 3)
             {
-                h += AtPenaltyH(s[i], s[j]);
+                eH += AtPenaltyH(s[i], s[j]);
                 eS += AtPenaltyS(s[i], s[j]);
             }
 
-            if (loopSize == 3) // triloop bonus, keyed on s[i..i+4] (closing pair + 3 loop) (thal.c 2106-2117).
+            if (loopSize == 3)
             {
-                if (TriloopBonus(s, i, out double th, out double ts)) { h += th; eS += ts; }
+                if (TriloopBonus(s, i, out double th, out double ts)) { eH += th; eS += ts; }
             }
-            // tetraloop bonus, keyed on s[i..i+5] (thal.c 2118-2127).
-            else if (loopSize == 4 && TetraloopBonus(s, i, out double th, out double ts)) { h += th; eS += ts; }
+            else if (loopSize == 4 && TetraloopBonus(s, i, out double th, out double ts)) { eH += th; eS += ts; }
 
-            if (!IsFinite(h)) { h = Inf; eS = -1.0; }
-            // both S and H positive and the cell isn't already positive → reject (thal.c 2133-2136).
-            if (h > 0 && eS > 0 && (!(enH[i, j] > 0) || !(enS[i, j] > 0))) { h = Inf; eS = -1.0; }
+            if (!IsFinite(eH)) { eH = Inf; eS = -1.0; }
+            if (eH > 0 && eS > 0 && (!(enH[i, j] > 0) || !(enS[i, j] > 0))) { eH = Inf; eS = -1.0; }
 
-            // RSH for monomer: 3'-side terminal stack of the closing pair.
-            var (rs, rh) = Rsh(i, j);
-            double g1 = h + rh - TempKelvin * (eS + rs);
+            var (rs, rh) = NtthalDimer.RightTerminalPair(s, s, i, j, DplxInitH, DplxInitS, Rc);
+            double g1 = eH + rh - TempKelvin * (eS + rs);
             double g2 = enH[i, j] + rh - TempKelvin * (enS[i, j] + rs);
-            if (g2 < g1) return (enS[i, j], enH[i, j]); // keep the existing (stack-extension) value
-            return (eS, h);
+            if (g2 < g1 && !traceback) { eS = enS[i, j]; eH = enH[i, j]; }
         }
 
-        // ----- RSH (thal.c 1857-1983) right terminal stack (3'-side) for the closing pair (i,j) -----
-        (double S, double H) Rsh(int i, int j)
-        {
-            if (Bp(s[i], s[j]) == 0) return (-1.0, Inf);
-            double s1 = AtPenaltyS(s[i], s[j]) + T4(NtthalDimer.Tstack2S, s[i], s[i + 1], s[j], s[j - 1]);
-            double h1 = AtPenaltyH(s[i], s[j]) + T4(NtthalDimer.Tstack2H, s[i], s[i + 1], s[j], s[j - 1]);
-            double g1 = h1 - TempKelvin * s1;
-            if (!IsFinite(h1) || g1 > 0) { h1 = Inf; s1 = -1.0; g1 = 1.0; }
-
-            bool unpaired = Bp(s[i + 1], s[j - 1]) == 0;
-            bool d3 = IsFinite(Hd3(i, j));
-            bool d5 = IsFinite(Hd5(i, j));
-            double s2, h2, g2;
-            if (unpaired && d3 && d5)
-            {
-                s2 = AtPenaltyS(s[i], s[j]) + Sd3(i, j) + Sd5(i, j);
-                h2 = AtPenaltyH(s[i], s[j]) + Hd3(i, j) + Hd5(i, j);
-                g2 = h2 - TempKelvin * s2;
-                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
-                if (IsFinite(h1) && g1 < 0)
-                {
-                    if (h1 - TempKelvin * s1 < (h2 - TempKelvin * s2)) { /* keep 1 */ }
-                    else if (g2 < 0) { s1 = s2; h1 = h2; }
-                }
-                else if (g2 < 0) { s1 = s2; h1 = h2; }
-            }
-            else if (unpaired && d3)
-            {
-                s2 = AtPenaltyS(s[i], s[j]) + Sd3(i, j);
-                h2 = AtPenaltyH(s[i], s[j]) + Hd3(i, j);
-                g2 = h2 - TempKelvin * s2;
-                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
-                if (IsFinite(h1) && g1 < 0)
-                {
-                    if (h1 - TempKelvin * s1 < (h2 - TempKelvin * s2)) { /* keep 1 */ }
-                    else if (g2 < 0) { s1 = s2; h1 = h2; }
-                }
-                else if (g2 < 0) { s1 = s2; h1 = h2; }
-            }
-            else if (unpaired && d5)
-            {
-                s2 = AtPenaltyS(s[i], s[j]) + Sd5(i, j);
-                h2 = AtPenaltyH(s[i], s[j]) + Hd5(i, j);
-                g2 = h2 - TempKelvin * s2;
-                if (!IsFinite(h2) || g2 > 0) { h2 = Inf; s2 = -1.0; g2 = 1.0; }
-                if (IsFinite(h1) && g1 < 0)
-                {
-                    if (h1 - TempKelvin * s1 < (h2 - TempKelvin * s2)) { /* keep 1 */ }
-                    else if (g2 < 0) { s1 = s2; h1 = h2; }
-                }
-                else if (g2 < 0) { s1 = s2; h1 = h2; }
-            }
-            else
-            {
-                s2 = AtPenaltyS(s[i], s[j]);
-                h2 = AtPenaltyH(s[i], s[j]);
-                if (IsFinite(h1) && g1 < 0) { /* keep 1 */ }
-                else { s1 = s2; h1 = h2; }
-            }
-            return (s1, h1);
-        }
-
-        // ----- maxTM2 (thal.c 1704-1738) -----
+        // ----- maxTM2 (thal.c) -----
         void MaxTm2(int i, int j)
         {
             double s0 = enS[i, j], h0 = enH[i, j];
-            double t0 = (h0 + DplxInitH) / (s0 + DplxInitS + Rc);
+            double t0 = Tm(h0, s0);
             double s1, h1;
             if (IsFinite(enH[i, j])) { s1 = enS[i + 1, j - 1] + Ss2(i, j); h1 = enH[i + 1, j - 1] + Hs2(i, j); }
             else { s1 = -1.0; h1 = Inf; }
-            double t1 = (h1 + DplxInitH) / (s1 + DplxInitS + Rc);
+            double t1 = Tm(h1, s1);
             if (s1 < MinEntropyCutoff) { s1 = MinEntropy; h1 = 0.0; }
             if (s0 < MinEntropyCutoff) { s0 = MinEntropy; h0 = 0.0; }
             if (t1 > t0) { enS[i, j] = s1; enH[i, j] = h1; }
             else { enS[i, j] = s0; enH[i, j] = h0; }
         }
 
-        // ----- calc_bulge_internal2 (thal.c 2307-2472) -----
-        // For traceback==false the cell (i,j) is updated only when the candidate has higher Tm.
-        (double S, double H)? CalcBulgeInternal2(int i, int j, int ii, int jj, bool traceback)
+        // ----- calc_bulge_internal2 (thal.c) -----
+        // traceback: 0 = fill, 1 = traceback loop search (bare loop term, always written),
+        // 2 = CBI traceback probe (cell-inclusive, written when T1 >= T2).
+        void CalcBulgeInternal2(int i, int j, int ii, int jj, ref double eS, ref double eH, int traceback)
         {
             int loopSize1 = ii - i - 1;
             int loopSize2 = j - jj - 1;
-            if (loopSize1 + loopSize2 > MaxLoop) return null;
+            if (loopSize1 + loopSize2 > maxLoop) { eS = -1.0; eH = Inf; return; }
             int loopSize = loopSize1 + loopSize2 - 1;
-            double h, eS, t1, t2;
-
+            double sv = MinEntropy, h = 0.0, t1, t2;
+            bool tb = traceback != 0;
             if ((loopSize1 == 0 && loopSize2 > 0) || (loopSize2 == 0 && loopSize1 > 0)) // bulge
             {
                 if (loopSize2 == 1 || loopSize1 == 1)
                 {
-                    h = Inf; eS = MinEntropy;
                     if ((loopSize2 == 1 && loopSize1 == 0) || (loopSize2 == 0 && loopSize1 == 1))
                     {
                         h = NtthalDimer.BulgeH[loopSize] + T4(NtthalDimer.StackH, s[i], s[ii], s[j], s[jj]);
-                        eS = NtthalDimer.BulgeS[loopSize] + T4(NtthalDimer.StackS, s[i], s[ii], s[j], s[jj]);
+                        sv = NtthalDimer.BulgeS[loopSize] + T4(NtthalDimer.StackS, s[i], s[ii], s[j], s[jj]);
                     }
-                    if (!traceback) { h += enH[ii, jj]; eS += enS[ii, jj]; }
-                    if (!IsFinite(h)) { h = Inf; eS = -1.0; }
-                    t1 = (h + DplxInitH) / (eS + DplxInitS + Rc);
-                    t2 = (enH[i, j] + DplxInitH) / (enS[i, j] + DplxInitS + Rc);
-                    if (t1 > t2 || traceback) return (eS, h);
                 }
                 else
                 {
                     h = NtthalDimer.BulgeH[loopSize] + AtPenaltyH(s[i], s[j]) + AtPenaltyH(s[ii], s[jj]);
-                    eS = NtthalDimer.BulgeS[loopSize] + AtPenaltyS(s[i], s[j]) + AtPenaltyS(s[ii], s[jj]);
-                    if (!traceback) { h += enH[ii, jj]; eS += enS[ii, jj]; }
-                    if (!IsFinite(h)) { h = Inf; eS = -1.0; }
-                    t1 = (h + DplxInitH) / (eS + DplxInitS + Rc);
-                    t2 = (enH[i, j] + DplxInitH) / (enS[i, j] + DplxInitS + Rc);
-                    if (t1 > t2 || traceback) return (eS, h);
+                    sv = NtthalDimer.BulgeS[loopSize] + AtPenaltyS(s[i], s[j]) + AtPenaltyS(s[ii], s[jj]);
                 }
+                if (traceback != 1) { h += enH[ii, jj]; sv += enS[ii, jj]; }
+                if (!IsFinite(h)) { h = Inf; sv = -1.0; }
+                t1 = Tm(h, sv);
+                t2 = Tm(enH[i, j], enS[i, j]);
+                if (t1 > t2 || (tb && t1 >= t2) || traceback == 1) { eS = sv; eH = h; }
             }
             else if (loopSize1 == 1 && loopSize2 == 1) // single internal mismatch (1×1)
             {
-                eS = T4(NtthalDimer.Int2S, s[i], s[i + 1], s[j], s[j - 1]) +
+                sv = T4(NtthalDimer.Int2S, s[i], s[i + 1], s[j], s[j - 1]) +
                      T4(NtthalDimer.Int2S, s[jj], s[jj + 1], s[ii], s[ii - 1]);
+                if (traceback != 1) sv += enS[ii, jj];
                 h = T4(NtthalDimer.Int2H, s[i], s[i + 1], s[j], s[j - 1]) +
                     T4(NtthalDimer.Int2H, s[jj], s[jj + 1], s[ii], s[ii - 1]);
-                if (!traceback) { h += enH[ii, jj]; eS += enS[ii, jj]; }
-                if (!IsFinite(h)) { h = Inf; eS = -1.0; }
-                t1 = (h + DplxInitH) / (eS + DplxInitS + Rc);
-                t2 = (enH[i, j] + DplxInitH) / (enS[i, j] + DplxInitS + Rc);
-                if (t1 > t2 || traceback) return (eS, h);
-                return null;
+                if (traceback != 1) h += enH[ii, jj];
+                if (!IsFinite(h)) { h = Inf; sv = -1.0; }
+                t1 = Tm(h, sv);
+                t2 = Tm(enH[i, j], enS[i, j]);
+                // DBL_EQ(T1,T2) == 2  <=>  !((T1 - T2) < SMALL_NON_ZERO)
+                if ((!(t1 - t2 < SmallNonZero) || tb) && (t1 > t2 || (tb && t1 >= t2) || traceback == 1))
+                {
+                    eS = sv; eH = h;
+                }
             }
             else // general internal loop
             {
                 h = NtthalDimer.InteriorH[loopSize] + T4(NtthalDimer.TstackH, s[i], s[i + 1], s[j], s[j - 1]) +
                     T4(NtthalDimer.TstackH, s[jj], s[jj + 1], s[ii], s[ii - 1]) + IlAh * Math.Abs(loopSize1 - loopSize2);
-                eS = NtthalDimer.InteriorS[loopSize] + T4(NtthalDimer.TstackS, s[i], s[i + 1], s[j], s[j - 1]) +
+                if (traceback != 1) h += enH[ii, jj];
+                sv = NtthalDimer.InteriorS[loopSize] + T4(NtthalDimer.TstackS, s[i], s[i + 1], s[j], s[j - 1]) +
                      T4(NtthalDimer.TstackS, s[jj], s[jj + 1], s[ii], s[ii - 1]) + IlAs * Math.Abs(loopSize1 - loopSize2);
-                if (!traceback) { h += enH[ii, jj]; eS += enS[ii, jj]; }
-                if (!IsFinite(h)) { h = Inf; eS = -1.0; }
-                t1 = (h + DplxInitH) / (eS + DplxInitS + Rc);
-                t2 = (enH[i, j] + DplxInitH) / (enS[i, j] + DplxInitS + Rc);
-                if (t1 > t2 || traceback) return (eS, h);
+                if (traceback != 1) sv += enS[ii, jj];
+                if (!IsFinite(h)) { h = Inf; sv = -1.0; }
+                t1 = Tm(h, sv);
+                t2 = Tm(enH[i, j], enS[i, j]);
+                if (t1 > t2 || (tb && t1 >= t2) || traceback == 1) { eS = sv; eH = h; }
             }
-            return null;
         }
 
-        // ----- CBI (thal.c 2036-2064) -----
-        void Cbi(int i, int j)
+        // ----- CBI (thal.c) -----
+        void Cbi(int i, int j, ref double eS, ref double eH, int traceback)
         {
-            for (int d = j - i - 3; d >= MinHrpnLoop + 1 && d >= j - i - 2 - MaxLoop; --d)
+            for (int d = j - i - 3; d >= MinHrpnLoop + 1 && d >= j - i - 2 - maxLoop; --d)
             {
                 for (int ii = i + 1; ii < j - d && ii <= len1; ++ii)
                 {
                     int jj = d + ii;
+                    if (traceback == 0) { eS = -1.0; eH = Inf; }
                     if (IsFinite(enH[ii, jj]) && IsFinite(enH[i, j]))
                     {
-                        var r = CalcBulgeInternal2(i, j, ii, jj, traceback: false);
-                        if (r is { } rr && IsFinite(rr.H))
+                        CalcBulgeInternal2(i, j, ii, jj, ref eS, ref eH, traceback);
+                        if (IsFinite(eH))
                         {
-                            double cs = rr.S, ch = rr.H;
-                            if (cs < MinEntropyCutoff) { cs = MinEntropy; ch = 0.0; }
-                            enH[i, j] = ch; enS[i, j] = cs;
+                            if (eS < MinEntropyCutoff) { eS = MinEntropy; eH = 0.0; }
+                            if (traceback == 0) { enH[i, j] = eH; enS[i, j] = eS; }
                         }
                     }
                 }
             }
         }
 
-        // ----- initMatrix2 (thal.c 1565-1580) -----
+        // ----- initMatrix2 (thal.c) -----
         for (int i = 1; i <= len1; ++i)
             for (int j = i; j <= len2; ++j)
             {
@@ -325,15 +304,17 @@ internal static class NtthalHairpin
                 else { enH[i, j] = 0.0; enS[i, j] = MinEntropy; }
             }
 
-        // ----- fillMatrix2 (thal.c 1631-1659) -----
+        // ----- fillMatrix2 (thal.c) -----
         for (int j = 2; j <= len2; ++j)
         {
             for (int i = j - MinHrpnLoop - 1; i >= 1; --i)
             {
                 if (!IsFinite(enH[i, j])) continue;
+                double sh0 = -1.0, sh1 = Inf;
                 MaxTm2(i, j);
-                Cbi(i, j);
-                var (sh0, sh1) = CalcHairpin(i, j);
+                Cbi(i, j, ref sh0, ref sh1, 0);
+                sh0 = -1.0; sh1 = Inf;
+                CalcHairpin(i, j, ref sh0, ref sh1, traceback: false);
                 if (IsFinite(sh1))
                 {
                     if (sh0 < MinEntropyCutoff) { sh0 = MinEntropy; sh1 = 0.0; }
@@ -342,136 +323,86 @@ internal static class NtthalHairpin
             }
         }
 
-        // ----- calc_terminal_bp (thal.c 2475-2551) — exterior 5' loop DP -----
+        // ----- calc_terminal_bp (thal.c) — exterior 5' loop DP -----
         var send5 = new double[len1 + 1];
         var hend5 = new double[len1 + 1];
-        double Send5(int i) => send5[i];
-        double Hend5(int i) => hend5[i];
         send5[0] = -1.0; hend5[0] = Inf;
         if (len1 >= 1) { send5[1] = -1.0; hend5[1] = Inf; }
         for (int i = 2; i <= len1; i++) { send5[i] = MinEntropy; hend5[i] = 0.0; }
 
-        // END5_1..4 (thal.c 2553-2730). hs: 1 = enthalpy, 2 = entropy.
-        double End5_1(int i, int hs)
+        // END5_1..4 (thal.c). Returns (H_max, S_max).
+        static void End5Candidate(double h, double sv, ref double hMax, ref double sMax, ref double maxTm)
+        {
+            if (!IsFinite(h) || h > 0 || sv > 0) { h = Inf; sv = -1.0; }
+            double t = Tm(h, sv);
+            if (maxTm < t && sv > MinEntropyCutoff) { hMax = h; sMax = sv; maxTm = t; }
+        }
+        // thal.c: the previous exterior value (k) is carried only when its Tm >= that of an empty
+        // exterior (0/(0 + dplx_init_S) = -0.0); otherwise the candidate starts from 0.
+        (double H, double S) Base(int k) =>
+            Tm(hend5[k], send5[k]) >= Tm(0, 0) ? (hend5[k], send5[k]) : (0.0, 0.0);
+        (double H, double S) End5_1(int i)
         {
             double hMax = Inf, sMax = -1.0, maxTm = double.NegativeInfinity;
             for (int k = 0; k <= i - MinHrpnLoop - 2; ++k)
             {
-                double t1 = (Hend5(k) + DplxInitH) / (Send5(k) + DplxInitS + Rc);
-                double t2 = (0 + DplxInitH) / (0 + DplxInitS + Rc);
-                double h, es;
-                double bh = (t1 >= t2) ? Hend5(k) : 0.0;
-                double bs = (t1 >= t2) ? Send5(k) : 0.0;
-                h = bh + AtPenaltyH(s[k + 1], s[i]) + enH[k + 1, i];
-                es = bs + AtPenaltyS(s[k + 1], s[i]) + enS[k + 1, i];
-                if (!IsFinite(h) || h > 0 || es > 0) { h = Inf; es = -1.0; }
-                double t = (h + DplxInitH) / (es + DplxInitS + Rc);
-                if (maxTm < t && es > MinEntropyCutoff) { hMax = h; sMax = es; maxTm = t; }
+                var (bh, bs) = Base(k);
+                End5Candidate(bh + AtPenaltyH(s[k + 1], s[i]) + enH[k + 1, i],
+                              bs + AtPenaltyS(s[k + 1], s[i]) + enS[k + 1, i], ref hMax, ref sMax, ref maxTm);
             }
-            return hs == 1 ? hMax : sMax;
+            return (hMax, sMax);
         }
-        double End5_2(int i, int hs)
+        (double H, double S) End5_2(int i)
         {
             double hMax = Inf, sMax = -1.0, maxTm = double.NegativeInfinity;
             for (int k = 0; k <= i - MinHrpnLoop - 3; ++k)
             {
-                double t1 = (Hend5(k) + DplxInitH) / (Send5(k) + DplxInitS + Rc);
-                double t2 = (0 + DplxInitH) / (0 + DplxInitS + Rc);
-                double bh = (t1 >= t2) ? Hend5(k) : 0.0;
-                double bs = (t1 >= t2) ? Send5(k) : 0.0;
-                double h = bh + AtPenaltyH(s[k + 2], s[i]) + Hd5(i, k + 2) + enH[k + 2, i];
-                double es = bs + AtPenaltyS(s[k + 2], s[i]) + Sd5(i, k + 2) + enS[k + 2, i];
-                if (!IsFinite(h) || h > 0 || es > 0) { h = Inf; es = -1.0; }
-                double t = (h + DplxInitH) / (es + DplxInitS + Rc);
-                if (maxTm < t && es > MinEntropyCutoff) { hMax = h; sMax = es; maxTm = t; }
+                var (bh, bs) = Base(k);
+                End5Candidate(bh + AtPenaltyH(s[k + 2], s[i]) + Hd5(i, k + 2) + enH[k + 2, i],
+                              bs + AtPenaltyS(s[k + 2], s[i]) + Sd5(i, k + 2) + enS[k + 2, i], ref hMax, ref sMax, ref maxTm);
             }
-            return hs == 1 ? hMax : sMax;
+            return (hMax, sMax);
         }
-        double End5_3(int i, int hs)
+        (double H, double S) End5_3(int i)
         {
             double hMax = Inf, sMax = -1.0, maxTm = double.NegativeInfinity;
             for (int k = 0; k <= i - MinHrpnLoop - 3; ++k)
             {
-                double t1 = (Hend5(k) + DplxInitH) / (Send5(k) + DplxInitS + Rc);
-                double t2 = (0 + DplxInitH) / (0 + DplxInitS + Rc);
-                double bh = (t1 >= t2) ? Hend5(k) : 0.0;
-                double bs = (t1 >= t2) ? Send5(k) : 0.0;
-                double h = bh + AtPenaltyH(s[k + 1], s[i - 1]) + Hd3(i - 1, k + 1) + enH[k + 1, i - 1];
-                double es = bs + AtPenaltyS(s[k + 1], s[i - 1]) + Sd3(i - 1, k + 1) + enS[k + 1, i - 1];
-                if (!IsFinite(h) || h > 0 || es > 0) { h = Inf; es = -1.0; }
-                double t = (h + DplxInitH) / (es + DplxInitS + Rc);
-                if (maxTm < t && es > MinEntropyCutoff) { hMax = h; sMax = es; maxTm = t; }
+                var (bh, bs) = Base(k);
+                End5Candidate(bh + AtPenaltyH(s[k + 1], s[i - 1]) + Hd3(i - 1, k + 1) + enH[k + 1, i - 1],
+                              bs + AtPenaltyS(s[k + 1], s[i - 1]) + Sd3(i - 1, k + 1) + enS[k + 1, i - 1], ref hMax, ref sMax, ref maxTm);
             }
-            return hs == 1 ? hMax : sMax;
+            return (hMax, sMax);
         }
-        double End5_4(int i, int hs)
+        (double H, double S) End5_4(int i)
         {
             double hMax = Inf, sMax = -1.0, maxTm = double.NegativeInfinity;
             for (int k = 0; k <= i - MinHrpnLoop - 4; ++k)
             {
-                double t1 = (Hend5(k) + DplxInitH) / (Send5(k) + DplxInitS + Rc);
-                double t2 = (0 + DplxInitH) / (0 + DplxInitS + Rc);
-                double bh = (t1 >= t2) ? Hend5(k) : 0.0;
-                double bs = (t1 >= t2) ? Send5(k) : 0.0;
-                double h = bh + AtPenaltyH(s[k + 2], s[i - 1]) + Htstack(i - 1, k + 2) + enH[k + 2, i - 1];
-                double es = bs + AtPenaltyS(s[k + 2], s[i - 1]) + Ststack(i - 1, k + 2) + enS[k + 2, i - 1];
-                if (!IsFinite(h) || h > 0 || es > 0) { h = Inf; es = -1.0; }
-                double t = (h + DplxInitH) / (es + DplxInitS + Rc);
-                if (maxTm < t && es > MinEntropyCutoff) { hMax = h; sMax = es; maxTm = t; }
+                var (bh, bs) = Base(k);
+                End5Candidate(bh + AtPenaltyH(s[k + 2], s[i - 1]) + Htstack(i - 1, k + 2) + enH[k + 2, i - 1],
+                              bs + AtPenaltyS(s[k + 2], s[i - 1]) + Ststack(i - 1, k + 2) + enS[k + 2, i - 1], ref hMax, ref sMax, ref maxTm);
             }
-            return hs == 1 ? hMax : sMax;
+            return (hMax, sMax);
         }
 
         for (int i = 2; i <= len1; ++i)
         {
-            double t1 = (Hend5(i - 1) + DplxInitH) / (Send5(i - 1) + DplxInitS + Rc);
-            double t2 = (End5_1(i, 1) + DplxInitH) / (End5_1(i, 2) + DplxInitS + Rc);
-            double t3 = (End5_2(i, 1) + DplxInitH) / (End5_2(i, 2) + DplxInitS + Rc);
-            double t4 = (End5_3(i, 1) + DplxInitH) / (End5_3(i, 2) + DplxInitS + Rc);
-            double t5 = (End5_4(i, 1) + DplxInitH) / (End5_4(i, 2) + DplxInitS + Rc);
-            int max = Max5(t1, t2, t3, t4, t5);
-            double g, g2 = -1.0; // thal.c uses a global G2 == -1.0 here (no extra structure better than nothing)
-            switch (max)
-            {
-                case 1: send5[i] = Send5(i - 1); hend5[i] = Hend5(i - 1); break;
-                case 2:
-                    g = End5_1(i, 1) - TempKelvin * End5_1(i, 2);
-                    if (g < g2) { send5[i] = End5_1(i, 2); hend5[i] = End5_1(i, 1); }
-                    else { send5[i] = Send5(i - 1); hend5[i] = Hend5(i - 1); }
-                    break;
-                case 3:
-                    g = End5_2(i, 1) - TempKelvin * End5_2(i, 2);
-                    if (g < g2) { send5[i] = End5_2(i, 2); hend5[i] = End5_2(i, 1); }
-                    else { send5[i] = Send5(i - 1); hend5[i] = Hend5(i - 1); }
-                    break;
-                case 4:
-                    g = End5_3(i, 1) - TempKelvin * End5_3(i, 2);
-                    if (g < g2) { send5[i] = End5_3(i, 2); hend5[i] = End5_3(i, 1); }
-                    else { send5[i] = Send5(i - 1); hend5[i] = Hend5(i - 1); }
-                    break;
-                case 5:
-                    g = End5_4(i, 1) - TempKelvin * End5_4(i, 2);
-                    if (g < g2) { send5[i] = End5_4(i, 2); hend5[i] = End5_4(i, 1); }
-                    else { send5[i] = Send5(i - 1); hend5[i] = Hend5(i - 1); }
-                    break;
-            }
+            var e1 = End5_1(i); var e2 = End5_2(i); var e3 = End5_3(i); var e4 = End5_4(i);
+            double t1 = Tm(hend5[i - 1], send5[i - 1]);
+            int max = Max5(t1, Tm(e1.H, e1.S), Tm(e2.H, e2.S), Tm(e3.H, e3.S), Tm(e4.H, e4.S));
+            (double H, double S) pick = max switch { 2 => e1, 3 => e2, 4 => e3, 5 => e4, _ => (hend5[i - 1], send5[i - 1]) };
+            if (max != 1 && !(pick.H - tempKelvin * pick.S < G2))
+                pick = (hend5[i - 1], send5[i - 1]);
+            send5[i] = pick.S; hend5[i] = pick.H;
         }
 
-        double mh = Hend5(len1);
-        double ms = Send5(len1);
-        if (!IsFinite(mh) || !IsFinite(ms)) return null; // ntthal no_structure
+        double mh = hend5[len1];
+        double ms = send5[len1];
+        if (!IsFinite(mh)) return null; // ntthal no_structure
 
-        // ----- tracebacku (thal.c 2820-2954) — count paired bases N -----
+        // ----- tracebacku (thal.c) -----
         var bp = new int[len1];
-
-        bool Eq(double x, double y)
-        {
-            if (double.IsInfinity(x) && double.IsInfinity(y)) return (x > 0) == (y > 0);
-            if (double.IsInfinity(x) || double.IsInfinity(y)) return false;
-            return Math.Abs(x - y) < Equal;
-        }
-
-        // explicit stack of (i, j, mtrx)
         var stack = new System.Collections.Generic.Stack<(int i, int j, int mtrx)>();
         stack.Push((len1, 0, 1));
         while (stack.Count > 0)
@@ -479,104 +410,137 @@ internal static class NtthalHairpin
             var (i, j, mtrx) = stack.Pop();
             if (mtrx == 1)
             {
-                while (i >= 1 && Eq(Send5(i), Send5(i - 1)) && Eq(Hend5(i), Hend5(i - 1))) --i;
+                while (i >= 1 && Equal(send5[i], send5[i - 1]) && Equal(hend5[i], hend5[i - 1])) --i;
                 if (i == 0) continue;
-                if (Eq(Send5(i), End5_1(i, 2)) && Eq(Hend5(i), End5_1(i, 1)))
+                var e1 = End5_1(i);
+                if (Equal(send5[i], e1.S) && Equal(hend5[i], e1.H))
                 {
                     for (int k = 0; k <= i - MinHrpnLoop - 2; ++k)
                     {
-                        if (Eq(Send5(i), AtPenaltyS(s[k + 1], s[i]) + enS[k + 1, i]) &&
-                            Eq(Hend5(i), AtPenaltyH(s[k + 1], s[i]) + enH[k + 1, i]))
-                        { stack.Push((k + 1, i, 0)); break; }
-                        if (Eq(Send5(i), Send5(k) + AtPenaltyS(s[k + 1], s[i]) + enS[k + 1, i]) &&
-                            Eq(Hend5(i), Hend5(k) + AtPenaltyH(s[k + 1], s[i]) + enH[k + 1, i]))
+                        double ds = AtPenaltyS(s[k + 1], s[i]) + enS[k + 1, i];
+                        double dh = AtPenaltyH(s[k + 1], s[i]) + enH[k + 1, i];
+                        if (Equal(send5[i], ds) && Equal(hend5[i], dh)) { stack.Push((k + 1, i, 0)); break; }
+                        if (Equal(send5[i], send5[k] + ds) && Equal(hend5[i], hend5[k] + dh))
                         { stack.Push((k + 1, i, 0)); stack.Push((k, 0, 1)); break; }
                     }
+                    continue;
                 }
-                else if (Eq(Send5(i), End5_2(i, 2)) && Eq(Hend5(i), End5_2(i, 1)))
+                var e2 = End5_2(i);
+                if (Equal(send5[i], e2.S) && Equal(hend5[i], e2.H))
                 {
                     for (int k = 0; k <= i - MinHrpnLoop - 3; ++k)
                     {
-                        if (Eq(Send5(i), AtPenaltyS(s[k + 2], s[i]) + Sd5(i, k + 2) + enS[k + 2, i]) &&
-                            Eq(Hend5(i), AtPenaltyH(s[k + 2], s[i]) + Hd5(i, k + 2) + enH[k + 2, i]))
-                        { stack.Push((k + 2, i, 0)); break; }
-                        if (Eq(Send5(i), Send5(k) + AtPenaltyS(s[k + 2], s[i]) + Sd5(i, k + 2) + enS[k + 2, i]) &&
-                            Eq(Hend5(i), Hend5(k) + AtPenaltyH(s[k + 2], s[i]) + Hd5(i, k + 2) + enH[k + 2, i]))
+                        double ds = AtPenaltyS(s[k + 2], s[i]) + Sd5(i, k + 2) + enS[k + 2, i];
+                        double dh = AtPenaltyH(s[k + 2], s[i]) + Hd5(i, k + 2) + enH[k + 2, i];
+                        if (Equal(send5[i], ds) && Equal(hend5[i], dh)) { stack.Push((k + 2, i, 0)); break; }
+                        if (Equal(send5[i], send5[k] + ds) && Equal(hend5[i], hend5[k] + dh))
                         { stack.Push((k + 2, i, 0)); stack.Push((k, 0, 1)); break; }
                     }
+                    continue;
                 }
-                else if (Eq(Send5(i), End5_3(i, 2)) && Eq(Hend5(i), End5_3(i, 1)))
+                var e3 = End5_3(i);
+                if (Equal(send5[i], e3.S) && Equal(hend5[i], e3.H))
                 {
                     for (int k = 0; k <= i - MinHrpnLoop - 3; ++k)
                     {
-                        if (Eq(Send5(i), AtPenaltyS(s[k + 1], s[i - 1]) + Sd3(i - 1, k + 1) + enS[k + 1, i - 1]) &&
-                            Eq(Hend5(i), AtPenaltyH(s[k + 1], s[i - 1]) + Hd3(i - 1, k + 1) + enH[k + 1, i - 1]))
-                        { stack.Push((k + 1, i - 1, 0)); break; }
-                        if (Eq(Send5(i), Send5(k) + AtPenaltyS(s[k + 1], s[i - 1]) + Sd3(i - 1, k + 1) + enS[k + 1, i - 1]) &&
-                            Eq(Hend5(i), Hend5(k) + AtPenaltyH(s[k + 1], s[i - 1]) + Hd3(i - 1, k + 1) + enH[k + 1, i - 1]))
+                        double ds = AtPenaltyS(s[k + 1], s[i - 1]) + Sd3(i - 1, k + 1) + enS[k + 1, i - 1];
+                        double dh = AtPenaltyH(s[k + 1], s[i - 1]) + Hd3(i - 1, k + 1) + enH[k + 1, i - 1];
+                        if (Equal(send5[i], ds) && Equal(hend5[i], dh)) { stack.Push((k + 1, i - 1, 0)); break; }
+                        if (Equal(send5[i], send5[k] + ds) && Equal(hend5[i], hend5[k] + dh))
                         { stack.Push((k + 1, i - 1, 0)); stack.Push((k, 0, 1)); break; }
                     }
+                    continue;
                 }
-                else if (Eq(Send5(i), End5_4(i, 2)) && Eq(Hend5(i), End5_4(i, 1)))
+                var e4 = End5_4(i);
+                if (Equal(send5[i], e4.S) && Equal(hend5[i], e4.H))
                 {
                     for (int k = 0; k <= i - MinHrpnLoop - 4; ++k)
                     {
-                        if (Eq(Send5(i), AtPenaltyS(s[k + 2], s[i - 1]) + Ststack(i - 1, k + 2) + enS[k + 2, i - 1]) &&
-                            Eq(Hend5(i), AtPenaltyH(s[k + 2], s[i - 1]) + Htstack(i - 1, k + 2) + enH[k + 2, i - 1]))
-                        { stack.Push((k + 2, i - 1, 0)); break; }
-                        if (Eq(Send5(i), Send5(k) + AtPenaltyS(s[k + 2], s[i - 1]) + Ststack(i - 1, k + 2) + enS[k + 2, i - 1]) &&
-                            Eq(Hend5(i), Hend5(k) + AtPenaltyH(s[k + 2], s[i - 1]) + Htstack(i - 1, k + 2) + enH[k + 2, i - 1]))
+                        double ds = AtPenaltyS(s[k + 2], s[i - 1]) + Ststack(i - 1, k + 2) + enS[k + 2, i - 1];
+                        double dh = AtPenaltyH(s[k + 2], s[i - 1]) + Htstack(i - 1, k + 2) + enH[k + 2, i - 1];
+                        if (Equal(send5[i], ds) && Equal(hend5[i], dh)) { stack.Push((k + 2, i - 1, 0)); break; }
+                        if (Equal(send5[i], send5[k] + ds) && Equal(hend5[i], hend5[k] + dh))
                         { stack.Push((k + 2, i - 1, 0)); stack.Push((k, 0, 1)); break; }
                     }
                 }
             }
-            else // mtrx == 0
+            else // mtrx == 0: pair (i, j)
             {
                 bp[i - 1] = j;
                 bp[j - 1] = i;
-                var (sh10, sh11) = CalcHairpin(i, j);
-                bool stackStep = Eq(enS[i, j], Ss2(i, j) + enS[i + 1, j - 1]) && Eq(enH[i, j], Hs2(i, j) + enH[i + 1, j - 1]);
-                if (stackStep) { stack.Push((i + 1, j - 1, 0)); }
-                else if (Eq(enS[i, j], sh10) && Eq(enH[i, j], sh11)) { /* hairpin closed: terminal */ }
-                else
+                double sh1S = -1.0, sh1H = Inf;
+                CalcHairpin(i, j, ref sh1S, ref sh1H, traceback: true);
+                double sh2S = -1.0, sh2H = Inf;
+                Cbi(i, j, ref sh2S, ref sh2H, 2);
+                if (Equal(enS[i, j], Ss2(i, j) + enS[i + 1, j - 1]) &&
+                    Equal(enH[i, j], Hs2(i, j) + enH[i + 1, j - 1]))
+                {
+                    stack.Push((i + 1, j - 1, 0));
+                }
+                else if (Equal(enS[i, j], sh1S) && Equal(enH[i, j], sh1H))
+                {
+                    // hairpin loop closed by (i, j): end of this branch
+                }
+                else if (Equal(enS[i, j], sh2S) && Equal(enH[i, j], sh2H))
                 {
                     bool done = false;
-                    for (int d = j - i - 3; d >= MinHrpnLoop + 1 && d >= j - i - 2 - MaxLoop && !done; --d)
+                    for (int d = j - i - 3; d >= MinHrpnLoop + 1 && d >= j - i - 2 - maxLoop && !done; --d)
                     {
                         for (int ii = i + 1; ii < j - d; ++ii)
                         {
                             int jj = d + ii;
-                            var r = CalcBulgeInternal2(i, j, ii, jj, traceback: true);
-                            if (r is { } rr && Eq(enS[i, j], rr.S + enS[ii, jj]) && Eq(enH[i, j], rr.H + enH[ii, jj]))
-                            { stack.Push((ii, jj, 0)); done = true; break; }
+                            double es = -1.0, eh = Inf;
+                            CalcBulgeInternal2(i, j, ii, jj, ref es, ref eh, 1);
+                            if (Equal(enS[i, j], es + enS[ii, jj]) && Equal(enH[i, j], eh + enH[ii, jj]))
+                            {
+                                stack.Push((ii, jj, 0));
+                                done = true;
+                                break;
+                            }
                         }
                     }
                 }
             }
         }
 
-        // thal.c calcHairpin counts paired positions over bp[i-1] for i = 1 .. len1-1
-        // (i.e. bp[0 .. len1-2]; the last index bp[len1-1] is intentionally excluded).
+        // ----- calcHairpin / drawHairpin (thal.c): N over bp[0 .. len1-2] -----
         int n = 0;
         for (int i = 1; i < len1; i++) if (bp[i - 1] > 0) n++;
-
-        // ----- calcHairpin Tm (thal.c 3229-3266): t = mh/(ms + ((N/2 - 1)*saltCorrection)) - 273.15 -----
         int half = n / 2; // integer division, as in thal.c
         double dsOut = ms + (half - 1) * saltCorrection;
         double tm = mh / dsOut - AbsoluteZero;
-        double dg = mh - TempKelvin * dsOut;
-        return new Result(mh, dsOut, dg, tm, half);
+        double dg = mh - tempKelvin * dsOut;
+        string[]? structure = withStructure ? DrawHairpin(oligo.ToUpperInvariant(), bp) : null;
+        return new Result(mh, dsOut, dg, tm, half, structure);
     }
 
-    // thal.c max5 (returns 1..5 for the largest of T1..T5).
-    private static int Max5(double t1, double t2, double t3, double t4, double t5)
+    /// <summary>
+    /// thal.c <c>drawHairpin</c> ASCII lines (primer3-py <c>ascii_structure_lines</c>): "SEQ\t" + one
+    /// character per base ('-' unpaired; for a pair (i, j), i &lt; j, '/' is written at i and '\' at
+    /// j) and "STR\t" + the oligo.
+    /// </summary>
+    private static string[] DrawHairpin(string oligo, int[] bp)
     {
-        int max = 1; double m = t1;
-        if (t2 > m) { m = t2; max = 2; }
-        if (t3 > m) { m = t3; max = 3; }
-        if (t4 > m) { m = t4; max = 4; }
-        if (t5 > m) { max = 5; }
-        return max;
+        int len1 = oligo.Length;
+        var row = new char[len1];
+        for (int i = 1; i < len1 + 1; ++i)
+        {
+            if (bp[i - 1] == 0) row[i - 1] = '-';
+            else if (bp[i - 1] > i - 1) row[bp[i - 1] - 1] = '\\';
+            else row[bp[i - 1] - 1] = '/';
+        }
+        return new[] { "SEQ\t" + new string(row), "STR\t" + oligo };
+    }
+
+    // thal.c max5, verbatim: 1 only when T1 is strictly greater than all others; otherwise the first
+    // of T2..T4 strictly greater than every LATER value, else 5 (NaN comparisons are false).
+    private static int Max5(double a, double b, double c, double d, double e)
+    {
+        if (a > b && a > c && a > d && a > e) return 1;
+        if (b > c && b > d && b > e) return 2;
+        if (c > d && c > e) return 3;
+        if (d > e) return 4;
+        return 5;
     }
 
     // ----- special-loop bonus lookups (verbatim primer3 triloop/tetraloop tables, below) -----

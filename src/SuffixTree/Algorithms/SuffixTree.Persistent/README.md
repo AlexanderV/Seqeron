@@ -131,9 +131,9 @@ Current runtime format is **v6**. Header size is **88 bytes**.
 | 8–11 | 4 | `VERSION` | `6` |
 | 12–15 | 4 | `TEXT_LEN` | Character count |
 | 16–23 | 8 | `ROOT` | int64 byte offset of root node |
-| 24–31 | 8 | `TEXT_OFF` | int64 byte offset of stored text |
+| 24–31 | 8 | `TEXT_OFF` | int64 byte offset of stored text (may equal `SIZE` when `TEXT_LEN` = 0) |
 | 32–35 | 4 | `NODE_COUNT` | Total node count |
-| 36–39 | 4 | `FLAGS` | Bit field (`FLAG_TEXT_ASCII` for 1-byte text storage) |
+| 36–39 | 4 | `FLAGS` | Bit field (`FLAG_TEXT_ASCII` for 1-byte text storage; otherwise raw UTF-16LE code units, lone surrogates preserved) |
 | 40–47 | 8 | `SIZE` | Expected file size (validated on load) |
 | 48–55 | 8 | `TRANSITION` | Byte offset where compact→large transition occurred (`-1` if pure compact) |
 | 56–63 | 8 | `JUMP_START` | Start of the jump table region |
@@ -198,13 +198,16 @@ Used by `SuffixTreeSerializer.Export` / `Import`:
 | Magic | int64 | `0x53544C4F47494332` — ASCII `"STLOGIC2"` |
 | Version | int32 | `2` |
 | Text length | 7-bit encoded int | Character count |
-| Text chars | char[] | Raw characters |
+| Text chars | byte[2·len] | Raw UTF-16LE code units (identical to `Encoding.Unicode` for well-formed text; lone surrogates preserved verbatim) |
 | Node count | int32 | Expected after rebuild |
 | Hash length | int32 | Always `32` (SHA256) |
 | Hash | byte[32] | SHA256 of text + tree structure |
 
 Import rebuilds the tree from scratch via Ukkonen's algorithm, guaranteeing
 correct suffix links. Both node count and structural hash are validated after rebuild.
+A negative/oversized text length, a hash length other than 32, or a stream that ends
+inside the text or the node-count/hash trailer is rejected with `InvalidDataException`
+before any rebuild. The structural hash covers the same raw code units as the payload.
 
 ---
 

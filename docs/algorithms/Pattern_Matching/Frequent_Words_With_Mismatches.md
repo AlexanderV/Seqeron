@@ -6,11 +6,11 @@
 | Test Unit ID | PAT-APPROX-003 |
 | Related Projects | Seqeron.Genomics.Alignment |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-30 |
 
 ## 1. Overview
 
-This unit provides three approximate (Hamming-distance) pattern operations over DNA: counting how often a pattern occurs with at most *d* mismatches (Count_d), finding the single best (minimum-distance) window for a pattern, and finding the most frequent k-mers allowing up to *d* mismatches. All three are exact, deterministic combinatorial computations defined in Compeau & Pevzner's *Bioinformatics Algorithms* (ROSALIND textbook problems BA1H, BA1I) [1]. They are used in motif discovery and in locating frequently mutated words such as DnaA boxes, where the conserved motif may never appear as an exact substring.
+This unit provides three approximate (Hamming-distance) pattern operations over DNA: counting how often a pattern occurs with at most *d* mismatches (Count_d), finding the single best (minimum-distance) window for a pattern, and finding the most frequent k-mers allowing up to *d* mismatches. All three are exact, deterministic combinatorial computations defined in Compeau & Pevzner's *Bioinformatics Algorithms* (ROSALIND textbook problems BA1H, BA1I) [1]. A fourth operation, the reverse-complement variant (BA1J), scores each k-mer together with its reverse complement so that motifs on either strand are pooled [1]. They are used in motif discovery and in locating frequently mutated words such as DnaA boxes, where the conserved motif may never appear as an exact substring.
 
 ## 2. Scientific / Formal Basis
 
@@ -26,6 +26,7 @@ For a text *T*, pattern *P* of length *m*, and integer *d* ≥ 0:
 - **Count_d(T, P):** the total number of such positions [1, BA1I].
 - **d-neighborhood Neighbors(P, d):** the set of all k-mers whose Hamming distance from *P* is ≤ d; it always contains *P* itself [1, BA1N].
 - **Frequent Words with Mismatches:** the k-mer(s) *P* (over the alphabet {A,C,G,T}, not necessarily a substring of *T*) maximizing Count_d(T, P) among all k-mers [1, BA1I].
+- **Frequent Words with Mismatches and Reverse Complements:** the k-mer(s) *P* maximizing Count_d(T, P) + Count_d(T, rc(P)), rc = reverse complement [1, BA1J]. Because Hamming distance is preserved by reverse complementation, Count_d(T, rc(P)) = Count_d(rc(T), P), so this equals the go-rosalind formulation "histogram(T) + histogram(rc(T))" [2].
 
 ### 2.4 Properties and Invariants
 
@@ -36,6 +37,8 @@ For a text *T*, pattern *P* of length *m*, and integer *d* ≥ 0:
 | INV-03 | FrequentWords returns every k-mer achieving the maximum Count_d (all ties) | "Return: All most frequent k-mers …"; the BA1I sample returns three [1] |
 | INV-04 | FindBestMatch distance = min over equal-length windows of HammingDistance; IsExact iff that min = 0 | minimum of a finite non-negative set; Hamming definition [1, BA1H] |
 | INV-05 | FindBestMatch tie-break returns the leftmost minimal window | API convention; does not change the returned distance (see §5.4) |
+| INV-06 | BA1J result is closed under reverse complement, and BA1J(T) = BA1J(rc(T)) as a (k-mer, score) set | score(P) = score(rc(P)); Count_d(rc(T), P) = Count_d(T, rc(P)) [1, BA1J] |
+| INV-07 | A reverse-complement palindrome P = rc(P) scores 2·Count_d(T, P) | literal sum in the BA1J definition [1, BA1J] |
 
 ## 3. Contract
 
@@ -55,6 +58,7 @@ For a text *T*, pattern *P* of length *m*, and integer *d* ≥ 0:
 | FindBestMatch | `ApproximateMatchResult?` | leftmost minimum-distance window (Position 0-based, MatchedSequence, Distance, MismatchPositions); null if no window exists |
 | CountApproximateOccurrences | `int` | Count_d(Text, Pattern) |
 | FindFrequentKmersWithMismatches | `IEnumerable<(string Kmer, int Count)>` | all most-frequent k-mers and their Count_d |
+| FindFrequentKmersWithMismatchesAndReverseComplements | `IEnumerable<(string Kmer, int Count)>` | all k-mers maximizing Count_d(P) + Count_d(rc(P)) with that score (BA1J) |
 
 ### 3.3 Preconditions and Validation
 
@@ -66,11 +70,12 @@ Inputs are upper-cased (case-insensitive). Indexing is 0-based. Empty sequence o
 
 1. **CountApproximateOccurrences / approximate positions:** for each of the *n − m + 1* windows, compute the Hamming distance to the pattern; record / count windows with distance ≤ d (BA1H) [1].
 2. **FindBestMatch:** scan equal-length windows left to right, tracking the minimum Hamming distance; keep the first window that strictly improves the minimum; short-circuit on distance 0 (BA1H Hamming definition) [1].
-3. **FindFrequentKmersWithMismatches:** for each k-mer window, enumerate its d-neighborhood (recursive substitution over {A,C,G,T}, neighborhood includes the window itself) and increment a tally for every neighbor; return all neighbors with the maximum tally (BA1I) [1].
+3. **FindFrequentKmersWithMismatches:** count the distinct windows with the canonical k-mer counter (`SequenceExtensions.CountKmersSpan`), enumerate each distinct window's d-neighborhood once (substitution over {A,C,G,T}, neighborhood includes the window itself) and add the window's multiplicity to every neighbor's tally, i.e. Count_d(P) = Σ_w mult(w)·[HD(P,w) ≤ d]; return all k-mers with the maximum tally (BA1I) [1]. Identical tallies to the per-window loop of the reference implementation [2].
+4. **FindFrequentKmersWithMismatchesAndReverseComplements (BA1J):** reuse the BA1I tally (same private `TallyNeighborhoodCounts`), then score each tallied k-mer P and its reverse complement (canonical `DnaSequence.GetReverseComplementString`) as tally[P] + tally[rc(P)]; a k-mer with a positive score is either tallied itself or the reverse complement of a tallied k-mer, so this covers every candidate; return all maxima [1, BA1J].
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The d-neighborhood is generated by the standard recursion [1, BA1N; 4]: `Neighbors(P,0)={P}`; for length 1, all four bases; otherwise recurse on the suffix and, when the suffix neighbor is strictly inside the ball, vary the first base over {A,C,G,T}, else keep the original first base. Tallies use a hash map (`Dictionary<string,int>`); output order of tied maxima is therefore not specified (callers compare as a set).
+The d-neighborhood (all k-mers over {A,C,G,T} within Hamming distance d of P [1, BA1N]) is generated position by position, spending one unit of the mismatch budget per substituted base; each neighbor is produced exactly once. For an ACGT pattern this is the same set as the textbook recursion (`Neighbors(P,0)={P}`; length 1 → all four bases; otherwise recurse on the suffix and vary the first base only while the suffix neighbor is strictly inside the ball) [1; 4]. That recursion assumes an ACGT pattern (the reference implementation rejects non-DNA input [2]); fed a window such as `ANG` it would emit non-DNA strings `ANA/ANC/ANT`. The position-wise generator never keeps a non-ACGT symbol (it always costs one mismatch), so only DNA k-mers are tallied. Tallies use a hash map (`Dictionary<string,int>`); output order of tied maxima is therefore not specified (callers compare as a set).
 
 ### 4.3 Complexity
 
@@ -78,7 +83,8 @@ The d-neighborhood is generated by the standard recursion [1, BA1N; 4]: `Neighbo
 |-----------|------|-------|-------|
 | CountApproximateOccurrences / positions | O(n·m) | O(1) extra | Hamming distance per window [1; 5] |
 | FindBestMatch | O(n·m) | O(m) | one pass over windows |
-| FindFrequentKmersWithMismatches | O(n·k·\|Σ\|^d) | O(distinct neighbors) | per-window neighborhood enumeration; practical for k ≤ 12, d ≤ 3 [1] |
+| FindFrequentKmersWithMismatches | O(u·k·\|N(k,d)\|), u = distinct windows ≤ n−k+1, \|N\| = Σ_{i≤d} C(k,i)·3^i | O(distinct neighbors) | neighborhood enumerated once per distinct window; practical for k ≤ 12, d ≤ 3 [1] |
+| FindFrequentKmersWithMismatchesAndReverseComplements | BA1I tally + O(t·k), t = tallied k-mers | O(t) | one reverse complement per tallied k-mer |
 
 ## 5. Implementation Notes
 
@@ -89,6 +95,7 @@ The d-neighborhood is generated by the standard recursion [1, BA1N; 4]: `Neighbo
 - `ApproximateMatcher.FindBestMatch(string, string)`: leftmost minimum-Hamming-distance window.
 - `ApproximateMatcher.CountApproximateOccurrences(string, string, int)`: Count_d, delegating to `FindWithMismatches`.
 - `ApproximateMatcher.FindFrequentKmersWithMismatches(string, int, int)`: most frequent k-mers with mismatches (all ties).
+- `ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements(string, int, int)`: BA1J (all ties).
 - `ApproximateMatcher.FindWithMismatches(...)` (PAT-APPROX-001): underlying per-window Hamming scan that yields match positions.
 
 ### 5.2 Current Behavior
@@ -105,6 +112,7 @@ Inputs are upper-cased before processing. `FindBestMatch` returns the leftmost m
 - d-neighborhood enumeration over {A,C,G,T}, including the pattern itself [1, BA1N; 4].
 - Frequent Words with Mismatches returning all k-mers maximizing Count_d (all ties) [1, BA1I].
 - FindBestMatch distance equals the minimum Hamming distance over equal-length windows [1, BA1H].
+- Frequent Words with Mismatches and Reverse Complements [1, BA1J]: sample `ACGTTGCATGTCGCATGATGCATGAGAGCT`, k = 4, d = 1 → {ATGT, ACAT} (score 9); Python brute force over all 4^k k-mers agrees on the sample + 300 random cases (k 1–5, d 0–2) and on non-ACGT/lowercase inputs.
 
 **Intentionally simplified:**
 
@@ -112,7 +120,7 @@ Inputs are upper-cased before processing. `FindBestMatch` returns the leftmost m
 
 **Not implemented:**
 
-- Reverse-complement variant (BA1J: Frequent Words with Mismatches and Reverse Complements); **users should rely on:** running the analysis separately on the reverse complement, or a future BA1J unit. This is out of scope for PAT-APPROX-003.
+- (none)
 
 ### 5.4 Deviations and Assumptions
 
@@ -134,7 +142,7 @@ Inputs are upper-cased before processing. `FindBestMatch` returns the leftmost m
 
 ### 6.2 Limitations
 
-Substitutions only (no indels — see Edit Distance, PAT-APPROX-002). Neighbor enumeration cost is exponential in *d*; practical for k ≤ 12, d ≤ 3 [1]. Alphabet is fixed to {A,C,G,T} (non-ACGT bases in input are matched literally by the Hamming scan but are not enumerated as neighbor substitutions). Reverse complements are not considered.
+Substitutions only (no indels — see Edit Distance, PAT-APPROX-002). Neighbor enumeration cost is exponential in *d*; practical for k ≤ 12, d ≤ 3 [1]. Alphabet is fixed to {A,C,G,T}: non-ACGT bases are matched literally by the Hamming scan (Count_d / FindBestMatch), while FindFrequentKmersWithMismatches reports DNA k-mers only, a window's non-ACGT symbol costing one mismatch (a window with more than d such symbols contributes nothing; if no DNA k-mer has Count_d > 0 the result is empty). Reverse complements are considered only by the BA1J method.
 
 ## 7. Examples and Related Material
 
@@ -148,6 +156,12 @@ var freq = ApproximateMatcher
     .FindFrequentKmersWithMismatches("ACGTTGCATGTCGCATGATGCATGAGAGCT", k: 4, d: 1)
     .ToList();
 // freq (as a set) == { ("GATG",5), ("ATGC",5), ("ATGT",5) }
+
+// BA1J: with reverse complements
+var rcFreq = ApproximateMatcher
+    .FindFrequentKmersWithMismatchesAndReverseComplements("ACGTTGCATGTCGCATGATGCATGAGAGCT", k: 4, d: 1)
+    .ToList();
+// rcFreq (as a set) == { ("ATGT",9), ("ACAT",9) }
 
 // BA1H: Count_d
 int c = ApproximateMatcher.CountApproximateOccurrences(
@@ -163,8 +177,8 @@ int c = ApproximateMatcher.CountApproximateOccurrences(
 
 ## 8. References
 
-1. Compeau, P., Pevzner, P. 2015. *Bioinformatics Algorithms: An Active Learning Approach*, Ch. 1. ROSALIND textbook problems BA1H, BA1I, BA1N. https://rosalind.info/problems/ba1h/ , https://rosalind.info/problems/ba1i/ , https://rosalind.info/problems/ba1n/
-2. charlesreid1. go-rosalind reference implementation, `rosalind/rosalind_ba1.go`. https://raw.githubusercontent.com/charlesreid1/go-rosalind/master/rosalind/rosalind_ba1.go
+1. Compeau, P., Pevzner, P. 2015. *Bioinformatics Algorithms: An Active Learning Approach*, Ch. 1. ROSALIND textbook problems BA1H, BA1I, BA1J, BA1N. https://rosalind.info/problems/ba1h/ , https://rosalind.info/problems/ba1i/ , https://rosalind.info/problems/ba1n/
+2. charlesreid1. go-rosalind reference implementation, `rosalind/rosalind_ba1.go` (BA1J: `MostFrequentKmersMismatchesRevComp`, opened 2026-09-30). https://raw.githubusercontent.com/charlesreid1/go-rosalind/master/rosalind/rosalind_ba1.go
 3. zonghui0228. Rosalind-Solutions, `code/rosalind_ba1h.py`. https://github.com/zonghui0228/Rosalind-Solutions/blob/master/code/rosalind_ba1h.py
 4. ROSALIND. BA1N — Generate the d-Neighborhood of a String (Neighbors recursion; sample Neighbors(ACG,1) = 10 k-mers). https://rosalind.info/problems/ba1n/
 5. zonghui0228 / charlesreid1 reference notes: approximate matching is O(n·m) (Hamming distance per window). https://github.com/zonghui0228/Rosalind-Solutions/blob/master/code/rosalind_ba1h.py

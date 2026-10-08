@@ -113,16 +113,17 @@ public class CompositionDifferentialTests
 
     // ---- Row 5: SEQ-COMPLEX-001 — linguistic complexity vs hand-derived REF values ----
 
-    // The published linguistic-complexity definition (mean over k of |distinct k-mers| / min(4^k, n-k+1))
-    // computed BY HAND for tiny sequences, independent of the production code path:
-    //   "AAAA"  -> k1 1/4, k2 1/3, k3 1/2, k4 1/1  -> mean 0.520833...
-    //   "ACGT"  -> all maximal at every k          -> mean 1.0
-    //   "ATATAT"-> k1 2/4, k2 2/5, k3 2/4, k4 2/3, k5 2/2, k6 1/1 -> mean 0.677777...
+    // The published linguistic-complexity definition LC = Σ_k V_k / Σ_k min(4^k, n-k+1), k = 1..min(6, n)
+    // (Orlov & Potapov 2004; Troyanskaya 2002 / Rosalind LING at m >= n). The former "mean over k of
+    // V_k / V_max,k" oracle was unsourced (2026-09 B03 F21). Computed BY HAND for tiny sequences:
+    //   "AAAA"  -> V 1,1,1,1 (4) / V_max 4,3,2,1 (10)           -> 2/5
+    //   "ACGT"  -> V = V_max at every k                          -> 1.0
+    //   "ATATAT"-> V 2,2,2,2,2,1 (11) / V_max 4,5,4,3,2,1 (19)   -> 11/19
     [Test]
     [Category("SEQ-COMPLEX-001")]
-    [TestCase("AAAA", (0.25 + 1.0 / 3.0 + 0.5 + 1.0) / 4.0)]
+    [TestCase("AAAA", 2.0 / 5.0)]
     [TestCase("ACGT", 1.0)]
-    [TestCase("ATATAT", (0.5 + 0.4 + 0.5 + 2.0 / 3.0 + 1.0 + 1.0) / 6.0)]
+    [TestCase("ATATAT", 11.0 / 19.0)]
     public void LinguisticComplexity_MatchesHandDerivedReference(string seq, double expected)
     {
         Assert.That(SequenceStatistics.CalculateLinguisticComplexity(seq), Is.EqualTo(expected).Within(1e-12));

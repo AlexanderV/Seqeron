@@ -43,7 +43,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • UniqueKmers = D = #distinct k-mers      (INV-03)
 ///   • MaxCount    = max_α mult(α)
 ///   • MinCount    = min_α mult(α)
-///   • AverageCount= T / D, Math.Round(·, 2)   (INV-04)
+///   • AverageCount= T / D, exact             (INV-04)
 ///   • Entropy     = −Σ p(α) log₂ p(α), p(α)=mult(α)/T, in bits (INV-05)
 /// Bounds (K-mer_Statistics.md §2.4):
 ///   INV-04 MinCount ≤ AverageCount ≤ MaxCount
@@ -132,15 +132,15 @@ public class KmerStatsFuzzTests
         s.UniqueKmers.Should().BeInRange(1, s.TotalKmers,
             "INV-03: 1 ≤ distinct ≤ total");
 
-        // INV-04: MinCount ≤ AverageCount ≤ MaxCount and Average ≈ T/D (rounded 2dp).
+        // INV-04: MinCount ≤ AverageCount ≤ MaxCount and Average = T/D (exact since B06 F6).
         s.MinCount.Should().BeLessThanOrEqualTo(s.MaxCount, "min ≤ max");
         s.MaxCount.Should().BeLessThanOrEqualTo(s.TotalKmers, "a multiplicity cannot exceed the window count");
         s.MinCount.Should().BeGreaterThanOrEqualTo(1, "every distinct k-mer occurs ≥ once");
         double exactMean = (double)s.TotalKmers / s.UniqueKmers;
-        // Reported mean is the exact ratio rounded to 2 decimals ⇒ |reported − exact| ≤ 0.005.
-        s.AverageCount.Should().BeApproximately(exactMean, 0.0051,
-            "INV-04: AverageCount = TotalKmers / UniqueKmers, rounded to 2 decimals");
-        s.AverageCount.Should().BeInRange(s.MinCount - 0.0051, s.MaxCount + 0.0051,
+        s.AverageCount.Should().BeApproximately(exactMean, 1e-12,
+            "INV-04: AverageCount = TotalKmers / UniqueKmers (exact)");
+        s.SingletonKmers.Should().BeInRange(0, s.UniqueKmers, "Jellyfish Unique (count 1) ≤ Distinct");
+        s.AverageCount.Should().BeInRange(s.MinCount - 1e-12, s.MaxCount + 1e-12,
             "INV-04: Min ≤ Average ≤ Max");
 
         // INV-05: 0 ≤ Entropy ≤ log₂(D).

@@ -140,3 +140,28 @@ WebSearch result extract)
 ## Change History
 
 - **2026-06-24**: Initial documentation — TaqMan opt-in rules (no 5'-G, C>G strand, ≥4-G run, GC 30–80%, length 18–22, probe Tm ≥ primer Tm + 10 °C).
+
+---
+
+## 2026-10-01 review (B07, F17–F21) — sources opened
+
+- **primer3 `src/libprimer3.cc`** (raw.githubusercontent.com/primer3-org/primer3/main): internal-oligo defaults
+  (`o_args`: opt/min/max size 20/18/27, Tm 60/57/63, GC 20–80, max_poly_x 5, salt 50 mM, divalent 0, dNTP 0,
+  DNA 50 nM, max_self_any_th/self_end_th/hairpin_th 47), `pick_primer_range` (internal-oligo enumeration,
+  no_internal_oligo_5_G / rev_comp_internal_oligo_g_c options default 0), `calc_and_check_oligo_features`
+  (GC → poly-X → seqtm → thermodynamic self-any/self-end → hairpin), `p_obj_fn` OT_INTL branch, `primer_rec_comp`.
+- **primer3-py 2.3.1** (installed): `design_primers(PRIMER_TASK=pick_hyb_probe_only)` — 950 random templates/settings:
+  `DesignProbesPrimer3` identical (positions, order, Tm, penalty, SELF_ANY_TH, SELF_END_TH, HAIRPIN_TH; max |Δ| = 0);
+  `calc_tm(…, mv 50, dv 0, dntp 0, dna 50)` for the probe Tm (CCATCACCCTACATCACC = 48.27871680775473 °C).
+- **Biopython 1.88** `Bio.SeqUtils.molecular_weight` — 500 random DNA/RNA oligos identical to the routed
+  `CalculateMolecularWeight` (e.g. ACGU RNA 1303.7737; old code 1239.8 with U = 308.2).
+- **Applied Biosystems Primer Express TaqMan guidelines** (WebSearch extracts; Thermo/Fisher PDFs blocked):
+  "the melting temperature (Tm) should be 68 to 70 °C when using Primer Express software", "Keep G-C content in the
+  30-80% range", "runs of four or more Gs should be avoided", "as short as possible, without being shorter than 13 nucleotides".
+- **Kane et al. 2000** (NAR 28:4552; WebSearch extracts): 50-mer probes; > 75 % identity or a ≥ 15-nt contiguous stretch to
+  non-targets may cross-hybridize (specificity rule — PROBE-VALID-001 scope).
+- **Molecular beacons** (Tyagi & Kramer 1996; Marras/Vet design protocol; WebSearch extracts, publisher pages blocked):
+  loop 15/18–30 nt, stem 5–7 bp, stem Tm 7–10 °C above the detection temperature, probe Tm 7–10 °C above the PCR annealing temperature.
+- **ε260 nearest-neighbour tables** (Cantor, Warshaw & Shapiro 1970; Warshaw & Tinoco 1966; WebSearch extracts of
+  vendor/ATDBio tables — ATDBio/TriLink pages blocked): DNA ApA 27400, ApC 21200, ApG 25000, CpC 14600, CpG 18000,
+  CpT 15200 …; RNA ApA 27400, ApC 21000, ApG 25000, ApU 24000, CpC 14200, CpG 17800, CpU 16200 …

@@ -735,54 +735,132 @@ public class ProteinMotifFinder_PrositePattern_Tests
 
     #endregion
 
-    #region Unsupported-Construct Rejection Tests (reject, don't silently drop)
+    #region ps_scan Reference Semantics (2026-09 review)
 
-    // The PROSITE→regex converter supports the standard PA-line grammar only. The extended
-    // ScanProsite *query* metacharacter '*' (Kleene star, e.g. '<{C}*>') is NOT supported and
-    // was previously silently dropped, mis-parsing the pattern. Mirroring the "reject, don't
-    // silently drop" pattern used for Newick parsing, an unsupported construct must throw a
-    // clear FormatException naming the offending character rather than being ignored.
-
-    [Test]
-    public void ConvertPrositeToRegex_KleeneStar_Throws()
-    {
-        // '<{C}*>' — the '*' is an unsupported ScanProsite query metacharacter.
-        Assert.Throws<FormatException>(
-            () => ConvertPrositeToRegex("<{C}*>"),
-            "Kleene-star '*' is unsupported and must be rejected, not silently dropped");
-    }
+    // Reference implementation: PROSITE ps_scan.pl, subs prositeToRegexp + scanPattern
+    // (ebi-pf-team/interproscan master, core/jms-implementation/support-mini-x86-32/bin/prosite/ps_scan.pl),
+    // run in user-pattern mode (prositeToRegexp($pa, 0, 1); scanPattern($re, uc $seq, 0, 0)).
+    // Expected coordinates below are the ps_scan outputs (1-based) converted to 0-based.
 
     [Test]
-    public void ConvertPrositeToRegex_KleeneStarBetweenElements_Throws()
+    public void ConvertPrositeToRegex_KleeneStar_TranslatedAsPsScan()
     {
-        // 'A-x*-B' — '*' after an element is likewise unsupported.
-        var ex = Assert.Throws<FormatException>(
-            () => ConvertPrositeToRegex("A-x*-B"),
-            "Kleene-star '*' is unsupported and must be rejected, not silently dropped");
-        Assert.That(ex!.Message, Does.Contain("*"),
-            "Exception message must name the unsupported '*' construct");
-    }
-
-    [Test]
-    public void FindMotifByProsite_KleeneStar_Throws()
-    {
-        // The throw must surface through the end-to-end entry point as well.
-        Assert.Throws<FormatException>(
-            () => FindMotifByProsite("ACDEFGHIK", "A-x*-B").ToList(),
-            "FindMotifByProsite must reject patterns containing unsupported '*'");
-    }
-
-    [Test]
-    public void ConvertPrositeToRegex_UnsupportedMetachar_Throws()
-    {
-        // Other stray metacharacters that previously fell through the final 'else' (and were
-        // silently dropped) must also be rejected, e.g. '?' and '+'.
+        // ps_scan.pl: 'elsif ($tok eq "*") {# support e.g. "<{C}*>"' ; '<{C}*>' -> ^([^C]*)$,
+        // 'A-x*-C' -> (A)(.*)(C). ScanProsite documentation: '<{C}*>' = sequences without Cys.
         Assert.Multiple(() =>
         {
-            Assert.Throws<FormatException>(() => ConvertPrositeToRegex("A-x?-B"),
-                "'?' is unsupported and must be rejected");
-            Assert.Throws<FormatException>(() => ConvertPrositeToRegex("A-x+-B"),
-                "'+' is unsupported and must be rejected");
+            Assert.That(ConvertPrositeToRegex("<{C}*>"), Is.EqualTo("^[^C]*$"));
+            Assert.That(ConvertPrositeToRegex("A-x*-C"), Is.EqualTo("A.*C"));
+        });
+    }
+
+    [Test]
+    public void FindMotifByProsite_KleeneStar_MatchesPsScan()
+    {
+        Assert.Multiple(() =>
+        {
+            // ps_scan: '<{C}*>' on MKVLAAG -> 1-7 ; on MCKV -> no hit.
+            var noCys = FindMotifByProsite("MKVLAAG", "<{C}*>").ToList();
+            Assert.That(noCys.Select(m => (m.Start, m.End)), Is.EqualTo(new[] { (0, 6) }));
+            Assert.That(FindMotifByProsite("MCKV", "<{C}*>"), Is.Empty);
+
+            // ps_scan: 'A-x*-C' on AKKCAC -> single greedy hit 1-6 (the 1-4 and 5-6 hits are included).
+            var star = FindMotifByProsite("AKKCAC", "A-x*-C").ToList();
+            Assert.That(star.Select(m => (m.Start, m.End)), Is.EqualTo(new[] { (0, 5) }));
+        });
+    }
+
+    [Test]
+    public void ConvertPrositeToRegex_UppercaseXAndClassWithX_AreWildcards()
+    {
+        // ps_scan.pl: 'if ($state =~ /x/i) { $state = "." }' — X in either case is "any residue".
+        Assert.Multiple(() =>
+        {
+            Assert.That(ConvertPrositeToRegex("N-X-[ST]"), Is.EqualTo("N.[ST]"));
+            Assert.That(ConvertPrositeToRegex("[xA]-G"), Is.EqualTo(".G"));
+        });
+    }
+
+    [Test]
+    public void ConvertPrositeToRegex_AmbiguityMode_ReproducesPsScanBZExpansion()
+    {
+        // ps_scan.pl prositeToRegexp (capture groups omitted):
+        //   N-{P}-[ST]-{P} -> ([NB])([^P])([ST])([^P]) ; B-x-Z -> ([NDB])(.)([QEZ])
+        //   {B}-G -> ([^NDB])(G) ; [DE](2) -> ([DBEZ]{2}) (same set, order differs)
+        Assert.Multiple(() =>
+        {
+            Assert.That(ConvertPrositeToRegex("N-{P}-[ST]-{P}", true), Is.EqualTo("[NB][^P][ST][^P]"));
+            Assert.That(ConvertPrositeToRegex("B-x-Z", true), Is.EqualTo("[NDB].[QEZ]"));
+            Assert.That(ConvertPrositeToRegex("{B}-G", true), Is.EqualTo("[^NDB]G"));
+            Assert.That(ConvertPrositeToRegex("[DE](2)", true), Is.EqualTo("[DEBZ]{2}"));
+            Assert.That(ConvertPrositeToRegex("F-[GSTV]-P-R-L-[G>]", true), Is.EqualTo("F[GSTV]PRL(?:G|$)"));
+            // Plain syntax mode is unchanged (letters literal).
+            Assert.That(ConvertPrositeToRegex("B-x-Z"), Is.EqualTo("B.Z"));
+        });
+    }
+
+    [Test]
+    public void FindMotifByProsite_SequenceAmbiguityCodes_MatchPsScan()
+    {
+        // ps_scan README: "The ps_scan program will produce a match if the sequence has a 'B'
+        // and the pattern allows either a 'D' or a 'N', or both (and similarly for Z)."
+        Assert.Multiple(() =>
+        {
+            // PS00001 on BGTA -> ps_scan 1-4.
+            Assert.That(FindMotifByProsite("BGTA", Ps00001Prosite).Select(m => (m.Start, m.End)),
+                Is.EqualTo(new[] { (0, 3) }));
+            // [DE](2) on BZEQ -> ps_scan 1-2, 2-3.
+            Assert.That(FindMotifByProsite("BZEQ", "[DE](2)").Select(m => (m.Start, m.End)),
+                Is.EqualTo(new[] { (0, 1), (1, 2) }));
+            // B-x-Z on NKEDGQ -> ps_scan 1-3, 4-6.
+            Assert.That(FindMotifByProsite("NKEDGQ", "B-x-Z").Select(m => (m.Start, m.End)),
+                Is.EqualTo(new[] { (0, 2), (3, 5) }));
+            // {B}-G on DGNG -> no hit (both D and N excluded); on MKVLAAG -> 6-7.
+            Assert.That(FindMotifByProsite("DGNG", "{B}-G"), Is.Empty);
+            Assert.That(FindMotifByProsite("MKVLAAG", "{B}-G").Select(m => (m.Start, m.End)),
+                Is.EqualTo(new[] { (5, 6) }));
+        });
+    }
+
+    [Test]
+    public void FindMotifByProsite_SequenceX_OnlyMatchedByWildcardOrExclusion()
+    {
+        // ps_scan user-pattern mode (preventX = 1, max_x = 0): a sequence X is not accepted by a
+        // residue/class position. NXTA: N-{P}-[ST]-{P} -> X at {P} accepted -> hit 1-4.
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindMotifByProsite("NXTA", Ps00001Prosite).Select(m => m.Start),
+                Is.EqualTo(new[] { 0 }));
+            Assert.That(FindMotifByProsite("XATA", Ps00001Prosite), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void FindMotifByProsite_AmbiguityAlternatives_DoNotChangeScore()
+    {
+        // Score is the information content of the plain PROSITE translation, so N (1 residue)
+        // contributes log2(20) even though the match regex also accepts B.
+        var viaProsite = FindMotifByProsite("AANASAAA", Ps00001Prosite).Single();
+        var viaRegex = FindMotifByPattern("AANASAAA", Ps00001Regex).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(viaProsite.Score, Is.EqualTo(viaRegex.Score));
+            Assert.That(viaProsite.EValue, Is.EqualTo(viaRegex.EValue));
+        });
+    }
+
+    [Test]
+    public void ConvertPrositeToRegex_MalformedSyntax_Throws()
+    {
+        // ps_scan.pl reports "Parsing error" for '?', '+', a repetition not following an element
+        // and a double repetition; unterminated/empty brackets and non-numeric repetitions are
+        // rejected here as well (ps_scan would silently pass them into an invalid Perl regex).
+        Assert.Multiple(() =>
+        {
+            foreach (var bad in new[] { "A-x?-B", "A-x+-B", "(3)-A", "A-(3)", "A-x(2)(3)", "[ST", "{P", "A-[]-G", "A-x(a)", "A-x(2,)", "[S-T]" })
+                Assert.Throws<FormatException>(() => ConvertPrositeToRegex(bad), bad);
+            var ex = Assert.Throws<FormatException>(() => FindMotifByProsite("ACDEFGHIK", "A-x?-B").ToList());
+            Assert.That(ex!.Message, Does.Contain("?"));
         });
     }
 

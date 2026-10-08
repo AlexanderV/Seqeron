@@ -1,6 +1,6 @@
 > ⚠️ **SUPERSEDED (2026-07-01).** This v4 plan describes a 12-server / 241-tool design
 > (`SuffixTree.Mcp.*`, with Variants/Assembly/Epigenetics/Structure servers) that was **never
-> built**. The repository actually ships **11 servers / ~427 tools** with a different decomposition.
+> built**. The repository actually ships **11 servers / ~474 tools** with a different decomposition.
 > The live source of truth and campaign ledger is **`docs/mcp/MCP_STATUS.md`**. Sections 6–8 below
 > (error catalog, schema rules, doc contract) remain valid as standards.
 
@@ -127,12 +127,12 @@ Legend:
 | 20 | `is_valid_rna` | Check if valid RNA | ✓ | SequenceExtensions.cs:L225#xml | SequenceExtensions.IsValidRna | 1.0.0 | stable |
 | 21 | `complexity_linguistic` | DNA linguistic complexity | ✓ | docs/algorithms/Sequence_Composition/Linguistic_Complexity.md | SequenceComplexity.CalculateLinguisticComplexity | 1.0.0 | stable |
 | 22 | `complexity_shannon` | DNA Shannon entropy | ✓ | docs/algorithms/Sequence_Composition/Shannon_Entropy.md | SequenceComplexity.CalculateShannonEntropy | 1.0.0 | stable |
-| 23 | `complexity_kmer_entropy` | K-mer based entropy | ✓ | SequenceComplexity.cs:L128#xml | SequenceComplexity.CalculateKmerEntropy | 1.0.0 | stable |
-| 24 | `complexity_dust_score` | DUST low-complexity score | ✓ | SequenceComplexity.cs:L296#xml | SequenceComplexity.CalculateDustScore | 1.0.0 | stable |
-| 25 | `complexity_mask_low` | Mask low-complexity regions | ✓ | SequenceComplexity.cs:L346#xml | SequenceComplexity.MaskLowComplexity | 1.0.0 | stable |
-| 26 | `complexity_compression_ratio` | Estimate compression ratio | ✓ | SequenceComplexity.cs:L391#xml | SequenceComplexity.EstimateCompressionRatio | 1.0.0 | stable |
+| 23 | `complexity_kmer_entropy` | K-mer based entropy | ✓ | SequenceComplexity.cs:L267#xml | SequenceComplexity.CalculateKmerEntropy | 1.0.0 | stable |
+| 24 | `complexity_dust_score` | DUST low-complexity score | ✓ | SequenceComplexity.cs:L723#xml | SequenceComplexity.CalculateDustScore | 1.0.0 | stable |
+| 25 | `complexity_mask_low` | Mask low-complexity regions | ✓ | SequenceComplexity.cs:L826#xml | SequenceComplexity.MaskLowComplexity | 1.0.0 | stable |
+| 26 | `complexity_compression_ratio` | Estimate compression ratio | ✓ | SequenceComplexity.cs:L1631#xml | SequenceComplexity.EstimateCompressionRatio | 1.0.0 | stable |
 | 27 | `kmer_count` | Count k-mer frequencies | ✓ | docs/algorithms/K-mer/K-mer_Counting.md | KmerAnalyzer.CountKmers | 1.0.0 | stable |
-| 28 | `kmer_distance` | K-mer based distance | ✓ | KmerAnalyzer.cs:L165#xml | KmerAnalyzer.KmerDistance | 1.0.0 | stable |
+| 28 | `kmer_distance` | K-mer based distance | ✓ | KmerAnalyzer.cs:L730#xml | KmerAnalyzer.KmerDistance | 1.0.0 | stable |
 | 29 | `kmer_entropy` | K-mer entropy calculation | ✓ | docs/algorithms/K-mer/K-mer_Frequency_Analysis.md | KmerAnalyzer.CalculateKmerEntropy | 1.0.0 | stable |
 | 30 | `kmer_analyze` | Comprehensive k-mer analysis | ✓ | docs/algorithms/K-mer/K-mer_Search.md | KmerAnalyzer.AnalyzeKmers | 1.0.0 | stable |
 | 31 | `iupac_code` | Get IUPAC ambiguity code | ✓ | docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md | ISequence.GetIupacCode | 1.0.0 | stable |
@@ -211,7 +211,7 @@ Legend:
 | 11 | `motif_scan_pwm` | Scan sequence with PWM | ✓ | docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md | MotifFinder.ScanWithPwm | 1.0.0 | stable |
 | 12 | `motif_consensus` | Generate consensus sequence | ✓ | MotifFinder.cs:L257#xml | MotifFinder.GenerateConsensus | 1.0.0 | stable |
 | 13 | `repeat_find` | Find tandem repeats | ✓ | docs/algorithms/Repeat_Analysis/Tandem_Repeat_Detection.md | RepeatFinder.FindRepeats | 1.0.0 | stable |
-| 14 | `repeat_summary` | Get repeat summary statistics | ✓ | RepeatFinder.cs:L358#xml | RepeatFinder.GetTandemRepeatSummary | 1.0.0 | stable |
+| 14 | `repeat_summary` | Get repeat summary statistics | ✓ | RepeatFinder.cs:L4864#xml | RepeatFinder.GetTandemRepeatSummary | 1.0.0 | stable |
 | 15 | `find_with_mismatches` | Find patterns with mismatches | ✓ | docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md | ApproximateMatcher.FindWithMismatches | 1.0.0 | stable |
 
 ---

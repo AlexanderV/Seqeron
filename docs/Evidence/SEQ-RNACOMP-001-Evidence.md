@@ -161,3 +161,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-09-28** (review campaign B01): re-verified against installed Biopython 1.88 — `complement_rna(chr(i))` for i=1..127 changes exactly the 26 letters ABCDGHKMRTUVY/abcdghkmrtuvy (X/x and all other ASCII unchanged; non-ASCII raises `UnicodeEncodeError`); `complement_rna("ACGTUacgtuXYZxyz")`=`UGCAAugcaaXRZxrz`, `reverse_complement_rna`=`zrxZRXaacguAACGU`. Repo output identical modulo the documented uppercase convention; exhaustive ASCII test + RnaSequence Complement/ReverseComplement vectors added.

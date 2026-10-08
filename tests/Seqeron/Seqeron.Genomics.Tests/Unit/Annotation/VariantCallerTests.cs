@@ -104,11 +104,10 @@ public class VariantCallerTests
     }
 
     [Test]
-    public void FindSnpsDirect_DifferentLengths_ComparesOverlap()
+    public void FindSnpsDirect_DifferentLengths_Throws()
     {
-        var snps = VariantCaller.FindSnpsDirect("ATGC", "ATGCAAAA").ToList();
-
-        Assert.That(snps, Is.Empty); // No SNPs in overlapping region
+        // Positional (Hamming) comparison is defined only for equal lengths (VARIANT-SNP-001 INV-06).
+        Assert.Throws<ArgumentException>(() => VariantCaller.FindSnpsDirect("ATGC", "ATGCAAAA").ToList());
     }
 
     #endregion

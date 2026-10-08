@@ -9,7 +9,7 @@
 | **Title** | Palindrome Detection |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-03-03 |
+| **Last Updated** | 2026-09-30 |
 
 ---
 
@@ -114,6 +114,18 @@ All MUST tests are justified by evidence or explicitly marked.
 |----|-----------|-----------|----------|
 | C1 | LongPalindrome_12bp_Detected | Maximum default length | Rosalind REVP: lengths 4–12 |
 
+### Added 2026-09-30 (B04 review, F12–F13; Evidence: docs/Evidence/REP-PALIN-001-Evidence.md)
+
+| ID | Test Name | Rationale | Evidence |
+|----|-----------|-----------|----------|
+| R1 | FindPalindromes_NonAcgtWindows_NeverReported (NNNNNNNN, ANNT, SSSS, WWWW, RYRY, A--T, 1111, AAUU, aauu) | ACGT-only pairing | REVP alphabet; EMBOSS palindrome `alln`; Biopython reference over ACGT windows |
+| R2 | FindPalindromes_NonAcgtInterruption_OnlyAcgtWindowsReported | `GAATTCNNNNGAATTC` → (0,GAATTC),(1,AATT),(10,GAATTC),(11,AATT) | Biopython reference |
+| R3 | FindPalindromes_HugeMaxLength_EquivalentToSequenceLength | int.MaxValue no overflow; `AAGCGGCCGCTT` → (0,12),(1,10),(2,8),(3,6),(4,4) | Biopython reference |
+| R4 | FindPalindromes_OddMaxLength_SameAsNextLowerEven | no odd palindromes | Even-length proof |
+| R5 | FindPalindromes_StringOverload_InvalidParameters_ThrowEagerly | eager validation | Batch convention |
+| R6 | FindPalindromes_Output_OrderedByPositionThenLength | REVP sample order | REVP |
+| D1 | RepeatsDifferentialTests.Palindromes_RandomSequences_MatchRevpOracle | 400 random cases incl. N/IUPAC/U/gap/lowercase vs ACGT brute-force oracle | REVP definition |
+
 ---
 
 ## Test Audit
@@ -122,7 +134,8 @@ All MUST tests are justified by evidence or explicitly marked.
 
 | File | Scope |
 |------|-------|
-| `RepeatFinder_Palindrome_Tests.cs` | All MUST, SHOULD, COULD tests for `RepeatFinder.FindPalindromes` (24 tests) |
+| `RepeatFinder_Palindrome_Tests.cs` | All MUST, SHOULD, COULD and R1–R6 tests for `RepeatFinder.FindPalindromes` |
+| `RepeatsDifferentialTests.cs` | Brute-force REVP oracle (fixed + 400 random cases) |
 | `GenomicAnalyzerTests.cs` | Minimal smoke tests (2) for `GenomicAnalyzer.FindPalindromes` |
 | `RepeatFinderProperties.cs` | Property-based invariant tests (bounds, reverse complement, even length) |
 | `RepeatSnapshotTests.cs` | Snapshot/approval test for palindrome output |
@@ -149,7 +162,8 @@ Expected palindromes (position length):
 - Position 20, Length 6: ATGCAT
 - Position 21, Length 4: TGCA
 
-Note: Rosalind uses 1-based positions; our implementation uses 0-based.
+Note: Rosalind uses 1-based positions; our implementation uses 0-based (3,6 / 4,4 / 5,6 / 6,4 / 16,4 / 17,4 / 19,6 / 20,4).
+Output order equals the REVP sample order: position, then length (asserted by S3).
 
 ### Known Restriction Enzyme Recognition Sites
 
@@ -176,7 +190,10 @@ Note: Rosalind uses 1-based positions; our implementation uses 0-based.
 | Case sensitivity? | Case-insensitive | Both overloads normalize to uppercase via `ToUpperInvariant()` |
 | Report at all lengths or only max? | All palindromes at all even lengths in [minLength, maxLength] | Rosalind REVP: "the position and length of **every** reverse palindrome" |
 | Overlapping palindromes? | Yes, all reported | Rosalind REVP sample output: position 4 has 6bp, position 5 has 4bp (overlapping) |
-| Parameter validation for string overload? | Same validation as DnaSequence overload | Both overloads enforce: minLength ≥ 4, minLength even, maxLength ≥ minLength |
+| Parameter validation for string overload? | Same validation as DnaSequence overload, eager (at call time) | Both overloads enforce: minLength ≥ 4, minLength even, maxLength ≥ minLength |
+| Non-ACGT symbols (N, IUPAC, U, gaps, other)? | Never pair — a window containing one is never reported (B04 F12) | REVP alphabet is ACGT; EMBOSS einverted scores a/c/g/t only; EMBOSS palindrome rejects all-N stems; `SS`/`NN` symbolic self-complement does not make the resolved bases palindromic; mirrors REP-STR/INV/DIRECT |
+| Odd or huge maxLength? | Odd rounds down; any value up to int.MaxValue works (capped at n) (B04 F13) | No odd palindrome exists; old loop overflowed at int.MaxValue |
+| Output order? | Position, then length | REVP "any order"; sample output is position-then-length |
 
 ---
 

@@ -1069,7 +1069,7 @@ public class MatchingFuzzTests
         string pat = pattern.ToUpperInvariant();
 
         int minLen = Math.Max(1, pat.Length - maxEdits);
-        int maxLen = pat.Length + maxEdits;
+        long maxLen = (long)pat.Length + maxEdits; // no int overflow at maxEdits = int.MaxValue
 
         for (int i = 0; i <= seq.Length - minLen; i++)
         {
@@ -1292,13 +1292,13 @@ public class MatchingFuzzTests
     }
 
     /// <summary>
-    /// BE/OVF: maxEdits = int.MaxValue is the extreme upper boundary. The source
-    /// computes the window range as pat.Length ± maxEdits, which overflows int at
-    /// this value — the fuzz contract is that this must NOT crash, hang, or corrupt:
-    /// enumeration completes and the result is whatever the (overflowed but
-    /// deterministic) window arithmetic yields, mirrored exactly by the oracle that
-    /// replays the same arithmetic. Pinned so the overflow path stays a defined,
-    /// reproducible outcome rather than an IndexOutOfRange or infinite loop.
+    /// BE/OVF: maxEdits = int.MaxValue is the extreme upper boundary. The window
+    /// range is pat.Length ± maxEdits; before review 2026-09 (B05 follow-up) the upper
+    /// bound pat.Length + maxEdits overflowed int, so the scan silently returned
+    /// NOTHING — contradicting the k-differences definition (every window with
+    /// ed ≤ k is reported; with k = int.MaxValue that is every non-empty window).
+    /// The bound is now computed in long and clamped to the sequence length; the
+    /// oracle does the same. Must not crash, hang, or corrupt.
     /// </summary>
     [Test]
     public void FindWithEdits_MaxEditsMaxInt_DoesNotCrashAndMatchesOracle()
@@ -1313,7 +1313,9 @@ public class MatchingFuzzTests
 
         act.Should().NotThrow("an int.MaxValue edit budget must not crash or hang on the widened window range");
         act().Should().Equal(EditScanOracle(sequence, pattern, int.MaxValue),
-            "the int.MaxValue scan yields the same deterministic result as the overflow-faithful oracle");
+            "the int.MaxValue scan yields exactly the oracle's windows");
+        act().Should().HaveCount(sequence.Length * (sequence.Length + 1) / 2,
+            "with an unbounded edit budget every non-empty window (36 for length 8) qualifies");
     }
 
     #endregion

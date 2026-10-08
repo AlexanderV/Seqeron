@@ -33,7 +33,9 @@
 
 - Length < 2 has no dinucleotide step ⇒ NN model undefined (Biopython). Repository contract: return `(0,0,0,0)`.
 - Sequences processed case-insensitively (Biopython upper-cases input).
-- F = 1 for self-complementary, F = 4 for non-self-complementary equimolar strands (MELTING §4.3); this unit uses F = 4 (default).
+- F = 1 for self-complementary, F = 4 for non-self-complementary equimolar strands (MELTING §4.3); default F = 4, `selfComplementary: true` → F = 1 + sym ΔS −1.4 (Biopython `selfcomp`).
+- Non-base characters: Biopython `_check` strips whitespace, back-transcribes U→T and removes non-ACGT before scoring (2026-09 review F9).
+- [Na⁺] = 0 raises in Biopython; repository throws `ArgumentOutOfRangeException` for non-positive/NaN/∞ concentrations (F11).
 
 ### 1.4 Known Failure Modes / Pitfalls
 
@@ -180,4 +182,5 @@
 
 ## 7. Open Questions / Decisions
 
-1. Decision: this unit covers the default non-self-complementary case (F = 4). Self-complementary Tm (F = 1) and divalent-cation (Mg²⁺) corrections are out of scope and noted in the algorithm doc §5.3.
+1. Decision (revised 2026-09-28, review B03 F10): default non-self-complementary case (F = 4); self-complementary Tm (F = 1 + symmetry) via the `selfComplementary` overload, locked against Biopython `Tm_NN(selfcomp=True)`. Divalent-cation (Mg²⁺) corrections remain out of scope (method 5 is monovalent).
+2. Review 2026-09 tests: `CalculateThermodynamics_MatchesBiopythonTmNnDnaNn3` (5), `..._NonAcgtNormalisedLikeBiopython` (4), `..._FewerThanTwoRealBases_ReturnsAllZero` (3), `..._SelfComplementary_MatchesBiopythonSelfcomp` (5), `..._SelfComplementaryFalse_EqualsThreeArgumentOverload`, `..._NonPositiveConcentration_Throws` (7); fuzz oracle updated to `_check` normalisation.

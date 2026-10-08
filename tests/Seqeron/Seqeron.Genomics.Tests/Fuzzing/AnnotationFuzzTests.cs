@@ -901,9 +901,9 @@ public class AnnotationFuzzTests
     #region BE — Boundary: overlapping genes are all reported with valid coordinates
 
     /// <summary>
-    /// BE: overlapping / nested ORFs must each be emitted as their OWN CDS — there is NO
-    /// best-model selection or overlap suppression (Gene_Prediction.md §5.2 bullet 2,
-    /// §5.3 "Intentionally simplified", §6.2). The disciplined boundary here is the overlap
+    /// BE: nested ORFs sharing one stop collapse to ONE CDS (first start, longest ORF — ANNOT-GENE-001
+    /// review 2026-09, Gene_Prediction.md §5.2); ORFs with distinct stops are still all emitted,
+    /// overlapping or not. The disciplined boundary here is the overlap
     /// BOOKKEEPING: predicting multiple coincident genes must not crash, and EVERY emitted
     /// gene must keep valid coordinates (GENE-INV-02: 0 ≤ Start &lt; End ≤ length,
     /// Frame ∈ {1,2,3}, Strand ∈ {'+','-'}, Type == "CDS"), with IDs ordered by Start.
@@ -932,9 +932,12 @@ public class AnnotationFuzzTests
 
         var genes = GenomeAnnotator.PredictGenes(seq, minOrfLength: 1).ToList();
 
-        genes.Count.Should().BeGreaterThanOrEqualTo(2,
-            "both the outer ORF and the nested inner ORF (sharing the terminal stop) are emitted; " +
-            "there is no overlap suppression");
+        // ANNOT-GENE-001 review 2026-09: a gene is one start–stop pair, so the nested inner ORF
+        // (same TAA stop) is NOT a second gene — one CDS per stop from the first start, as
+        // EMBOSS getorf -find 1 and Prodigal (one start per stop node) report.
+        genes.Where(g => g.Strand == '+').Select(g => (g.Start, g.End)).Should().Equal(
+            new[] { (0, seq.Length) },
+            "the outer and nested inner ORF share one stop and therefore form a single gene");
 
         genes.Should().OnlyContain(g =>
             g.Start >= 0 && g.Start < g.End && g.End <= seq.Length &&  // GENE-INV-02 bounds
@@ -948,10 +951,7 @@ public class AnnotationFuzzTests
             (g.Attributes["frame"] == "1" || g.Attributes["frame"] == "2" || g.Attributes["frame"] == "3"),
             "every overlapping gene tags a reading frame in {1,2,3}");
 
-        // Genes are ordered by genomic Start, and two distinct overlapping starts exist.
         genes.Select(g => g.Start).Should().BeInAscendingOrder("PredictGenes orders genes by genomic Start");
-        genes.Select(g => g.Start).Distinct().Count().Should().BeGreaterThanOrEqualTo(2,
-            "the outer and inner ORFs open at distinct positions yet overlap, confirming no overlap was suppressed");
     }
 
     #endregion

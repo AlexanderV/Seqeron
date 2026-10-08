@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-DINUC-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -20,9 +20,11 @@ Neighbouring bases in genomes are not independent: dinucleotides such as TpA are
 
 ### 2.2 Core Model
 
-**Dinucleotide frequency.** For a sequence of length N, f_XY = count(XY) / (N − 1), the normalized frequency over the N−1 adjacent dinucleotide positions [1].
+**Dinucleotide frequency.** f_XY = count(XY) / (number of counted overlapping dinucleotides), the normalized frequency [1]. Pairs containing a symbol outside the alphabet (N, IUPAC codes, gaps) are excluded from count and denominator, so the denominator is N − 1 only when every base is in the alphabet (seqinr `count(freq=TRUE)` [5]; EMBOSS `compseq -word 2` for pure-alphabet input [6]).
 
-**Dinucleotide relative abundance (odds ratio).** ρ_XY = f_XY / (f_X · f_Y), where f_X is the normalized single-base frequency [1]. ρ = 1 means the dinucleotide occurs exactly as expected under independence (no bias); ρ > 1 over-representation, ρ < 1 under-representation [1]. The widely used Karlin & Burge (1995) interpretive criterion classifies a dinucleotide as under-represented when ρ ≤ 0.78 and over-represented when ρ ≥ 1.23 [2]; this library returns the raw ρ and leaves classification to the caller.
+**Dinucleotide relative abundance (odds ratio).** ρ_XY = f_XY / (f_X · f_Y), where f_X is the normalized single-base frequency over in-alphabet bases [1] (identical to seqinr `rho` [5]).
+
+**Strand-symmetrized genomic signature ρ\*.** For double-stranded DNA Karlin computes the odds ratio from the sequence together with its inverted complement: f\*_A = f\*_T = (f_A + f_T)/2, f\*_C = f\*_G = (f_C + f_G)/2, f\*_XY = (f_XY + f_{rc(XY)})/2 (e.g. f\*_GT = (f_GT + f_AC)/2), ρ\*_XY = f\*_XY/(f\*_X f\*_Y) [1][7]. No junction dinucleotide is formed. Alphabet {A,C,G,T} (U excluded, as for N). ρ = 1 means the dinucleotide occurs exactly as expected under independence (no bias); ρ > 1 over-representation, ρ < 1 under-representation [1]. The widely used Karlin & Burge (1995) interpretive criterion classifies a dinucleotide as under-represented when ρ ≤ 0.78 and over-represented when ρ ≥ 1.23 [2]; this library returns the raw ρ and leaves classification to the caller.
 
 The same odds-ratio shape underlies the CpG O/E ratio of Gardiner-Garden & Frommer (1987), O/E = (#CpG/N) / ((#C/N)·(#G/N)), which differs only by normalizing the dinucleotide count by N rather than N−1 [3]; this library follows the Karlin N−1 convention.
 
@@ -81,8 +83,9 @@ Input is normalized to upper case (`ToUpperInvariant`). `CalculateDinucleotideFr
 
 **Implementation location:** [SequenceStatistics.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs)
 
-- `SequenceStatistics.CalculateDinucleotideFrequencies(string)`: normalized dinucleotide frequencies, count/(N−1).
-- `SequenceStatistics.CalculateDinucleotideRatios(string)`: ρ_XY = f_XY/(f_X·f_Y).
+- `SequenceStatistics.CalculateDinucleotideFrequencies(string)`: normalized dinucleotide frequencies, count / counted dinucleotides (= N−1 for pure-alphabet input). Counting delegates to `KmerAnalyzer.CountKmers(seq, 2)`.
+- `SequenceStatistics.CalculateDinucleotideRatios(string)`: ρ_XY = f_XY/(f_X·f_Y) (single strand).
+- `SequenceStatistics.CalculateDinucleotideRatios(string, bool strandSymmetric)`: `true` → Karlin ρ\*_XY (strand-symmetrized); `false` = the 1-arg overload.
 - `SequenceStatistics.CalculateCodonFrequencies(string,int)`: non-overlapping triplet frequencies for a frame.
 
 ### 5.2 Current Behavior
@@ -97,9 +100,9 @@ Input is normalized to upper case (`ToUpperInvariant`). `CalculateDinucleotideFr
 - Normalized dinucleotide frequency over N−1 positions [1].
 - Codon frequency as count/total over non-overlapping triplets per frame; non-ACGT triplets excluded; trailing bases ignored [4].
 
-**Intentionally simplified:**
+- Strand-symmetrized ρ\* [1][7] via `strandSymmetric: true` (review 2026-09, F13; previously declared a simplification).
 
-- Dinucleotide odds ratio uses single-strand frequencies, not the strand-symmetrized ρ* (concatenation with the reverse complement) used by Karlin for genomic signatures [1]; **consequence:** values are single-strand relative abundances, appropriate for per-sequence O/E (e.g. CpG) but not strand-symmetrized signatures.
+**Intentionally simplified:** none.
 
 **Not implemented:**
 
@@ -109,7 +112,9 @@ Input is normalized to upper case (`ToUpperInvariant`). `CalculateDinucleotideFr
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | (N−1) vs N dinucleotide normalization | Assumption | numeric ratio differs by N/(N−1) from the Gardiner-Garden CpG form | accepted | Karlin convention [1]; both authoritative |
+| 1 | (N−1) vs N dinucleotide normalization | Assumption | numeric ratio differs by N/(N−1) from the Gardiner-Garden CpG form | accepted | Karlin convention [1]; both authoritative. The Gardiner-Garden & Frommer CpG O/E (N·CpG/(C·G)) is `EpigeneticsAnalyzer.CalculateCpGObservedExpected` |
+| 2 | Non-alphabet symbols excluded from denominators | Convention | differs from EMBOSS compseq, which keeps "Other" words/bases in the totals | accepted | seqinr `rho`/`count` convention [5] |
+| 3 | Only observed dinucleotides are keys | Convention | absent key ⇒ ρ = 0 when both bases occur (seqinr/compseq print 0), undefined (0/0) otherwise | accepted | every returned ratio is finite and > 0; the expected = 0 case cannot occur for an observed pair |
 
 ## 6. Edge Cases and Limitations
 
@@ -119,19 +124,19 @@ Input is normalized to upper case (`ToUpperInvariant`). `CalculateDinucleotideFr
 |------|-------------------|-----------|
 | null / empty / length < 2 (dinuc) | empty dictionary | input guard |
 | length < 3 (codon) | empty dictionary | input guard |
-| constituent base absent (expected = 0) | ρ = 0 for that dinucleotide | division-by-zero guard [1] |
+| constituent base absent (expected = 0) | dinucleotide cannot occur, so it is not a key (no division by zero) | [1] |
 | non-ACGT triplet | excluded from codon counts | [4] |
 | trailing 1–2 bases | ignored | non-overlapping triplets [4] |
 
 ### 6.2 Limitations
 
-Single-strand only (no ρ* symmetrization); no classification output; codon analysis assumes the caller supplies the correct frame and treats the input as a single contiguous coding region.
+No classification output; ρ\* is defined for double-stranded DNA only (U excluded); codon analysis assumes the caller supplies the correct frame and treats the input as a single contiguous coding region.
 
 ## 7. Examples and Related Material
 
 ### 7.1 Worked Example
 
-**Numerical walk-through:** For `ATGCGCGT` (A=1,T=2,G=3,C=2; N=8; dinucleotide positions = 7): f_GC = 2/7, f_G = 3/8, f_C = 2/8 ⇒ ρ_GC = (2/7)/((3/8)(2/8)) = 64/21 ≈ 3.0476. ρ_AT = (1/7)/((1/8)(2/8)) = 32/7 ≈ 4.5714. For codons of `ATGATGAAA` in frame 0: ATG, ATG, AAA ⇒ ATG = 2/3, AAA = 1/3.
+**Numerical walk-through:** For `ATGCGCGT` (A=1,T=2,G=3,C=2; N=8; dinucleotide positions = 7): f_GC = 2/7, f_G = 3/8, f_C = 2/8 ⇒ ρ_GC = (2/7)/((3/8)(2/8)) = 64/21 ≈ 3.0476. ρ_AT = (1/7)/((1/8)(2/8)) = 32/7 ≈ 4.5714. Strand-symmetrized: f\*_A = f\*_T = 3/16, f\*_C = f\*_G = 5/16; f\*_AT = (1+1)/14 ⇒ ρ\*_AT = (1/7)/(9/256) = 256/63 ≈ 4.0635; f\*_GC = (2+2)/14 ⇒ ρ\*_GC = (2/7)/(25/256) = 512/175 ≈ 2.9257 (= seqinr `rho` of the sequence + separator + reverse complement). For codons of `ATGATGAAA` in frame 0: ATG, ATG, AAA ⇒ ATG = 2/3, AAA = 1/3.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
@@ -144,3 +149,6 @@ Single-strand only (no ρ* symmetrization); no classification output; codon anal
 2. Karlin S., Burge C. 1995. Dinucleotide relative abundance extremes: a genomic signature. Trends in Genetics 11(7):283-290. https://doi.org/10.1016/S0168-9525(00)89076-9 (criterion ρ≤0.78 / ρ≥1.23 retrieved from https://academic.oup.com/mbe/article/19/6/964/1095097)
 3. Gardiner-Garden M., Frommer M. 1987. CpG islands in vertebrate genomes. J Mol Biol 196(2):261-282. https://doi.org/10.1016/0022-2836(87)90689-9
 4. Nakamura Y., Gojobori T., Ikemura T. Codon Usage Database (CUTG), Kazusa. https://www.kazusa.or.jp/codon/readme_codon.html
+5. Charif D., Lobry J.R. seqinr (CRAN), `R/rho.R` and `R/count.R`. https://raw.githubusercontent.com/cran/seqinr/master/R/rho.R
+6. Rice P. et al. EMBOSS 6.6.0 `compseq` (`-word 2 -calcfreq`), executed.
+7. Karlin S., Mrázek J. 1997. Compositional differences within and between eukaryotic genomes. PNAS 94:10227-10232; symmetrization formulas restated in PMC1829274 (Distinctive features of large complex virus genomes and proteomes, PNAS 2007).

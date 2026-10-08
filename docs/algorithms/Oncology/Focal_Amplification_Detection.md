@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-CNA-002 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -68,7 +68,10 @@ amplitude test admits any genuine gain while rejecting low-level artifactual seg
 
 ### 3.3 Preconditions and Validation
 
-Null `segments`/`amplifications` ⇒ `ArgumentNullException`. A segment with non-positive `ArmLength` or
+Null `segments`/`amplifications` ⇒ `ArgumentNullException`. Thresholds outside the GISTIC2 reference ranges
+(`t_amp` ∈ [0, ∞), `broad_len_cutoff` ∈ [0, 2], NaN rejected — GISTIC2 `gp_gistic2_from_seg.m` `numeric_arg`
+ranges) ⇒ `ArgumentOutOfRangeException`, checked before any segment (also for empty input). A NaN `Log2Ratio` is a
+no-call (not above `t_amp`, never reported). Coordinates are half-open. A segment with non-positive `ArmLength` or
 with `End ≤ Start` ⇒ `ArgumentException`. Arm labels are matched case-insensitively (Ordinal-ignore-case).
 Coordinates are base-pair counts; segment length is `End − Start`. The boundary fraction exactly equal to
 the cutoff (0.98) is arm-level (the focal test is strictly less-than).
@@ -107,7 +110,7 @@ the cutoff (0.98) is arm-level (the focal test is strictly less-than).
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.CopyNumberPloidy.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CopyNumberPloidy.cs)
 
 - `OncologyAnalyzer.DetectFocalAmplifications(segments, thresholds?)`: filters segments to focal amplifications.
 - `OncologyAnalyzer.IdentifyAmplifiedOncogenes(amplifications)`: maps focal amplifications to panel oncogenes.
@@ -137,7 +140,20 @@ case-insensitive ordinal comparison; arms outside the six-gene panel map to no o
   coordinate-overlap of the gene locus; **consequence:** a focal amplification elsewhere on the same arm
   also flags the gene. This matches the registry panel's arm-level intent.
 
+**Reference-implementation cross-check (2026-09 review):** the predicate equals the GISTIC2 focal-event filter in
+`snputil/reconstruct_genomes.m` (`broad_or_focal='focal'`: `Q(:,8) < broad_len_cutoff` and amplitude vs `t_amp`)
+and `score_genome.m` (`Qs.del(:,8) < broad_len_cutoff`). The length test is strict `<`, as in GISTIC2. The amplitude
+test is strict `>` per the GISTIC2 docs ("above") and `gene_calls.m` (`A.dat > t_amp`); `reconstruct_genomes.m`
+uses `>=` — the two differ only at exact floating-point equality.
+
 **Not implemented:**
+
+- GISTIC2 **ziggurat deconstruction** (`perform_deconstruction.m`, `atomic_zigg_deconstruction.m`,
+  cohort-learned broad levels via `find_max_broad_level_by_table`). GISTIC2 applies the focal filter to deconstructed
+  SCNA events whose amplitude is relative to the underlying level; this unit treats every input segment as one event
+  with amplitude = its log2. **Consequence:** raw segments of an arm-level gain interrupted by a focal peak
+  (0.5 | 1.5 | 0.5) report the flanks as focal amplifications, whereas GISTIC2 calls one broad (0.5) + one focal (+1.0)
+  event. Callers should pass deconstructed events or arm-merged segments.
 
 - GISTIC2's probabilistic peak/q-value boundary estimation and background-rate modeling; **users should
   rely on:** the full GISTIC2 tool for genome-wide significance peaks. This unit implements only the
@@ -160,12 +176,14 @@ case-insensitive ordinal comparison; arms outside the six-gene panel map to no o
 | Segment > 98% of arm | Not focal | Arm-level by GISTIC2 [1] |
 | log2 ≤ t_amp | Not amplified | GISTIC2 `t_amp` [2] |
 | Null input | ArgumentNullException | Guard |
+| t_amp < 0 / NaN; broad_len_cutoff ∉ [0, 2] / NaN | ArgumentOutOfRangeException | GISTIC2 `gp_gistic2_from_seg.m` ranges |
+| log2 = NaN | Not reported (no-call) | NaN is not above t_amp |
 | Empty input | Empty result | Guard |
 | ArmLength ≤ 0 or End ≤ Start | ArgumentException | Validation |
 
 ### 6.2 Limitations
 
-No significance testing, no background-rate modeling, and no sub-arm peak localization (these are
+No ziggurat deconstruction, no significance testing, no background-rate modeling, and no sub-arm peak localization (these are
 GISTIC2's probabilistic stages). Oncogene mapping is restricted to the six-gene registry panel and is
 arm-level, not gene-locus-overlap. Deletions are out of scope (ONCO-CNA-003).
 
@@ -194,6 +212,6 @@ var genes = OncologyAnalyzer.IdentifyAmplifiedOncogenes(focal);   // ["ERBB2"]
 ## 8. References
 
 1. Mermel CH, Schumacher SE, Hill B, Meyerson ML, Beroukhim R, Getz G. 2011. GISTIC2.0 facilitates sensitive and confident localization of the targets of focal somatic copy-number alteration in human cancers. Genome Biology 12:R41. https://pmc.ncbi.nlm.nih.gov/articles/PMC3218867/
-2. Broad Institute. GISTIC2 documentation (`broad_len_cutoff`, `t_amp`, `t_del`). https://broadinstitute.github.io/gistic2/
+2. Broad Institute. GISTIC2 documentation (`broad_len_cutoff`, `t_amp`, `t_del`). https://broadinstitute.github.io/gistic2/ ; GISTIC2 MATLAB source https://github.com/broadinstitute/gistic2 (`source/gp_gistic2_from_seg.m`, `source/score_genome.m`, `source/gene_calls.m`, `snputil/reconstruct_genomes.m`).
 3. Talevich E, Shain AH, Botton T, Bastian BC. CNVkit — Calling copy number gains and losses. https://cnvkit.readthedocs.io/en/stable/calling.html
 4. NCBI Gene: ERBB2 (2064), MYC (4609), EGFR (1956), CCND1 (595), MDM2 (4193), CDK4 (1019). https://www.ncbi.nlm.nih.gov/gene/

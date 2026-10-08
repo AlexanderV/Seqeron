@@ -56,8 +56,37 @@
 3. **Bit score:** "By normalizing a raw score using the formula" **S' = (λS − ln K)/ln 2** "one attains a 'bit score' *S'*, which has a standard set of units" (Altschul tutorial; Durand renders the same `S' = (λS − ln K)/ln 2`).
 4. **E from bit score:** "The *E*-value corresponding to a given bit score is simply" **E = m·n·2^(−S')** (both sources).
 5. **Scoring-scheme precondition:** "the expected score for aligning a random pair of … is required to be negative. Were this not the case, long alignments would tend to have high score independently of whether the segments aligned were related, and the statistical theory would break down" (Altschul tutorial). The complementary requirement — at least one positive score so the positive root exists — is the standard statement of the same theory ("for valid scoring matrices (ones where at least one positive score exists), λ will have a unique positive solution").
-6. **K:** "K is a constant that depends on S[i,j] and can be computed from the theory for any scoring function" (Durand). Its full closed form needs the score-probability lattice/geometric-spacing machinery of Karlin & Altschul (1990); it is therefore the parameter exposed to the caller (default the published nucleotide value, see cross-check).
+6. **K:** "K is a constant that depends on S[i,j] and can be computed from the theory for any scoring function" (Durand). It is computed exactly as NCBI BLAST+ computes it (`BlastKarlinLHtoK`, see the NCBI BLAST+ source entry below); a caller-supplied K still overrides it.
 7. **λ ≈ 1.37, K ≈ 0.711 cross-check (+1/−3, uniform 0.25):** NCBI blastn reports Lambda ≈ 1.37 and K ≈ 0.711 for match=+1/mismatch=−3 (https://www.biostars.org/p/9596760/ shows a blastn run with "matrix:1 -3 … Lambda: 1.37, K: 0.711"). Solving 0.25·e^(λ·1) + 0.75·e^(λ·(−3)) = 1 independently gives **λ = 1.3740631** (re-derived in this session by bisection), matching the published 1.37/1.374. The expected per-pair score is 0.25·1 + 0.75·(−3) = **−2.0 < 0** and a positive score (+1) exists, so both preconditions hold.
+
+### NCBI BLAST+ source (blast_stat.c / blast_setup.c / blast_hits.c / ncbi_math.c) + blastn 2.12.0+
+
+**URL:** https://raw.githubusercontent.com/ncbi/ncbi-cxx-toolkit-public/master/src/algo/blast/core/blast_stat.c (and `blast_setup.c`, `blast_hits.c`, `ncbi_math.c`; `include/algo/blast/core/blast_stat.h`), retrieved 2026-10-01. Oracle binary: NCBI blastn 2.12.0+ (Debian `ncbi-blast+`).
+
+**Authority rank:** 2 (reference implementation of the published method)
+
+**Key Extracted Points:**
+
+1. Ungapped λ, H, K (`Blast_KarlinBlkUngappedCalc`): λ by safeguarded Newton (`Blast_KarlinLambdaNR`), `H = λ·Σ s·p_s·e^{λs}` (`BlastKarlinLtoH`), K by `BlastKarlinLHtoK`: on the lattice reduced by δ = gcd, `K = (p₋₁ − p₁)²/p₋₁` when low = −1 and high = 1; `K = (H/λ)(1 − e^{−λ})` when high = 1; `K = (μ²/(H/λ))(1 − e^{−λ})` when low = −1; else `K = −exp(−2·Σ_j inner_j/j) / ((H/λ)·expm1(−λ))` with `inner_j = Σ_{i<0} P(i,j)e^{λi} + Σ_{i≥0} P(i,j)` over gapless alignments of j pairs (sum limit 10⁻⁴, ≤ 100 terms). Comment example in blast_stat.c: scores −2/0/3 with probabilities 0.7/0.1/0.2 → λ = 0.330, K = 0.154 (Python port: 0.32995, 0.15399).
+2. blastn ungapped uses the standard (uniform 0.25) nucleotide composition: a GC-rich query still prints 1.37/0.711/1.31 for +1/−3.
+3. Gapped λ/K/H/α/β are the `blastn_values_<reward>_<penalty>` tables (row {open, extend, λ, K, H, α, β, θ}); a leading {0,0} row is the non-affine (megablast greedy) entry (`s_SplitArrayOf8`) — e.g. 2/−3 {0,0} → 0.55/0.21 is NOT the ungapped value; gap costs ≥ (gap_open_max, gap_extend_max) copy the ungapped block; reward/penalty with gcd d > 1 use the reduced table with gap costs × d, λ and α ÷ d; 2/−3, 2/−5, 2/−7, 3/−4 set round_down (E-value from `score & ~1`).
+4. α/β: table values; otherwise α = λ_ungapped/H, β = −2 for 1/−1 and 2/−3 else 0 (`s_GetUngappedBeta`). Length adjustment `BLAST_ComputeLengthAdjustment(K, logK, α/λ, β, m, n, N)`; effective search space `(m − ℓ)·max(1, n − N·ℓ)` (`BLAST_CalcEffLengths`); `E = searchsp·exp(−λS + ln K)`; bit score `(S·λ − ln K)/ln 2` on the raw score.
+5. NCBI quirk: for a scheme whose scores share a divisor d > 1, `BlastKarlinLHtoK` indexes the probability array by the reduced offset from the unreduced lowest score, so blastn prints K = 1.17 for +4/−6 although K must be scale-invariant (+2/−3: 0.408). Seqeron computes K on the reduced lattice (= 0.408 for +4/−6).
+
+### Dataset: NCBI blastn 2.12.0+ statistics (oracle for `ComputeUngappedKarlinParameters`, `GetBlastnGappedKarlinParameters`, `ComputeBlastnStatistics`)
+
+| Case | blastn output | Python port of blast_stat.c |
+|---|---|---|
+| ungapped 1/−3 | λ 1.37, K 0.711, H 1.31 | 1.3740631224599753, 0.7106027952162398, 1.3072466039090012 |
+| ungapped 2/−3 | 0.634, 0.408, 0.912 | 0.6337314430979075, 0.4081456625463167, 0.9124383922742278 |
+| ungapped 1/−2 | 1.33, 0.621, 1.12 | 1.3327057628202603, 0.6209911172603866, 1.1240918464926624 |
+| gapped 2/−3 5/2 | 0.625, 0.410, 0.780 | table |
+| gapped 1/−3 2/2; 1/−2 2/2; 2/−3 4/4 | 1.37/0.700/1.20; 1.33/0.620/1.10; 0.630/0.420/0.840 | table |
+| m 40, n 3079, 2/−3 5/2 | eff. space 88972; S 80 → 73.4 bits, 7e-18; S 15 → 5.8 | ℓ 11, 88972, 7.035793990394873e-18, 73.42105622960482; S 15 → 14 → 5.780434617461434 |
+| same, N = 5, n = 6040 | 167440; S 80 → 1.32e-17 | ℓ 12, 167440, 1.3240944856266213e-17 |
+| m 40, n 3079, 1/−3 2/2 | 98272; S 31 → 2e-14 | ℓ 8, 98272, 2.4719585736391905e-14 |
+| m 40, n 3079, ungapped 2/−3 | 95170; S 80 → 74.4 bits, 4e-18 | ℓ 9, 95170, 3.725887650102598e-18 |
+| probe 40 nt vs 279-nt subject (1 mismatch + 1-nt deletion), 2/−3 5/2 | score 66, 60.8 bits, 4.33e-15, space 8672 | Biopython local score 66.0; 4.327686048582086e-15, 60.79747462182638 |
 
 ### Kane et al. (2000) — 50-mer oligonucleotide microarray specificity
 
@@ -70,6 +99,15 @@
 1. **Off-target identity threshold:** "for a given oligonucleotide probe any 'non-target' transcripts (cDNAs) **>75% similar** over the 50 base target may show cross-hybridization." → 0.75 identity over the probe length is the empirically-grounded default above which a hit is called an off-target.
 2. **Gene-specific rule:** "oligonucleotide probes with **<75% overall sequence similarity** with non-target sequences and <14 contiguous complementary base pairs are gene-specific" — the complement of the off-target call.
 3. **Contiguous-stretch caveat:** "if the 50 base target region is marginally similar, it must not include a stretch of complementary sequence >15 contiguous bases."
+4. **Implemented decision rule (B07 review, 2026-10-01):** a non-target strand cross-hybridizes when identity (identical columns of the best local alignment ÷ probe length) **> 0.75** or the longest identical stretch **> 15 nt** — the reading used by later microarray-design pipelines ("a probe is likely to cross-hybridize with a nontarget if overall sequence identity is > 75% or if there is a contiguous match > 15 bp", Satya RV, Zavaljevski N, Kumar K, Reifman J (2008) BMC Bioinformatics 9:185; restated by Chen & Sharp (2002) Oliz, BMC Bioinformatics 3:27). Sources opened: WebSearch snippets of the Kane abstract (academic.oup.com, PubMed 11071945), Satya et al. 2008 and Oliz (publisher/PMC pages blocked). The paper's conclusion "<14 contiguous ... gene-specific" leaves 14–15 nt as a grey zone; `maxContiguousMatch` is configurable.
+
+### Primer3 hybridization-probe (internal-oligo) self-structure screen
+
+**Source:** primer3 `libprimer3.cc` (`o_args`: PRIMER_INTERNAL_MAX_SELF_ANY_TH = PRIMER_INTERNAL_MAX_SELF_END_TH = PRIMER_INTERNAL_MAX_HAIRPIN_TH = 47 °C; internal-oligo conditions 50 nM DNA, 50 mM monovalent, 0 Mg²⁺, 0 dNTP; `oligo_compl_thermod`, `oligo_hairpin`), opened in PROBE-DESIGN-001 (B07 F18). Reference: primer3-py 2.3.1 `calc_homodimer` / `calc_end_stability` / `calc_hairpin`.
+
+### OligoArray 2.0 (Rouillard, Zuker & Gulari 2003, NAR 31:3057) — duplex-Tm specificity
+
+WebSearch extract: specificity is computed from the thermodynamics of hybridization of the probe with every BLAST hit; "if there is no possible cross-hybridization with a Tm above the specificity threshold set by the user, the oligonucleotide is considered to be specific". → `CrossHybridizationAssessment.DuplexTm` (ntthal THAL_ANY Tm of the probe with the complementary strand of the aligned site) + optional `maxDuplexTm`.
 
 ---
 
@@ -129,7 +167,7 @@
 |-----------|-------|
 | Scoring scheme | match = +1, mismatch = −3, base freq = 0.25 (NCBI blastn +1/−3) |
 | λ (root of 0.25·e^λ + 0.75·e^(−3λ) = 1) | 1.3740631224599755 (≈ published 1.37) |
-| Published K (caller-supplied) | 0.711 |
+| K (caller-supplied in this example; computed default 0.7106027952162398) | 0.711 |
 | Raw score S | 30 |
 | Query length m | 20 |
 | Database length n | 1000 |
@@ -137,6 +175,33 @@
 | E = K·m·n·e^(−λ·30) = m·n·2^(−S') | 1.7801583686083893e−14 |
 | Monotonicity | E(S=31) = 4.5052e−15 < E(S=30) (decreases with score) |
 | Linear in m·n | E(n=2000) = 2 × E(n=1000) |
+
+### Dataset: Kane criteria (Biopython 1.88 PairwiseAligner local, match 2 / mismatch −3 / open −7 / extend −2 = BLAST+ blastn 2/−3/5/2)
+
+Probe `TATGCCTCCGGTACATCAACTACAGTTAGCCTTAAGAGAAAAATCCCAAA` (random.seed 2000).
+
+| Non-target | Strand | Score | Identical / 50 | Longest contiguous | Kane |
+|---|---|---:|---:|---:|---|
+| A (substitution every 5th base, random flanks) | fwd | 53 | 40 (0.80) | 6 | identity |
+| B (probe[10..28) embedded) | fwd | 37 | 28 (0.56) | 18 | contiguous |
+| C (unrelated) | fwd / rc | 10 / 16 | 5 / 8 | 5 / 8 | — |
+| D (revcomp(probe) embedded) | rc | 100 | 50 (1.00) | 50 | both |
+| E (probe[0..15) embedded) | fwd | 30 | 15 (0.30) | 15 | — (15 is not > 15) |
+
+Site duplex Tm (primer3-py `calc_heterodimer(probe, revcomp(site))`, mv 50, dv 0, dntp 0, dna 50): A fwd site 20..68 → 36.11423712379826 °C; D rc site 15..64 → 66.04038852959525 °C.
+
+Random cross-check (this review): 420 probe/non-target pairs (20–70-nt probes, 0–9000-nt non-targets incl. mutated/indel/reverse-complement copies and chunk-boundary cases), 840 strands — alignment score and longest contiguous match identical to Biopython / DP LCS on all 840; reported identity always one of Biopython's co-optimal alignments' identities (48 strands have co-optimal alignments with different identities); duplex Tm identical to primer3-py `calc_heterodimer` on all 612 ≤ 60-nt cases (max |Δ| = 0).
+
+### Dataset: ntthal self-structure (primer3-py 2.3.1, mv 50, dv 0, dntp 0, dna 50)
+
+| Probe | calc_homodimer Tm | calc_end_stability Tm | calc_hairpin Tm | fold-back fraction |
+|---|---:|---:|---:|---:|
+| GCGCGCGCGCGCGCGCGCGC | 78.85652531616256 | 78.85652531616256 | 87.30265612393043 | 1.00 |
+| ACGTACGTACGTACGTACGTACGT | 59.1857717189107 | 59.1857717189107 | 67.29188756961071 | 1.00 |
+| CTAGAAATGCTGTCGGGACTTCTAC | −6.43 (→ 0) | −99.94 (→ 0) | 0 | 0.64 |
+| GCGCGCGCGC | 52.763 | 52.763 | 55.851 | 1.00 |
+
+At mv 100, dv 2, dntp 0.2, dna 250: ACGTACGTACGTACGTACGTACGT → 69.17069845823409 / 69.17069845823409 / 74.99462150250321.
 
 ---
 
@@ -172,5 +237,8 @@
 
 ## Change History
 
+- **2026-10-02** (B07 audit round 2, A6): the fallback self-dimer criterion (> 60 nt, non-ACGT, `Heuristic`) is Primer3's alignment-mode internal-oligo `oligo_compl` (dpal `self_any` DPAL_LOCAL / `self_end` DPAL_GLOBAL_END, PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00; libprimer3.cc / dpal.c from raw.githubusercontent.com/primer3-org/primer3). Datasets: dpal.c compiled with Primer3's `align()` — CTAGAAATGCTGTCGGGACTTCTAC 9.00 / 7.00, (ACGT)16 64.00 / 64.00, 80-nt stem-loop GGATCACAG…GATCC 60.00, random 80-mer CCCTGAGTCC…GGTTCA 7.00 / 1.00; 40 000/40 000 random values identical. The fold-back fraction is no longer a criterion.
 - **2026-06-24**: Initial Evidence for the gapped (Smith–Waterman) off-target scan + on/off-target separation (limitation fix). The prior ungapped-Hamming validation evidence is preserved in the TestSpec/algorithm doc.
+- **2026-10-01** (B07 PROBE-VALID-001 review): Kane contiguous-stretch criterion + strict > 75 % identity (`AssessCrossHybridization`, both strands), Primer3 ntthal self-structure screen in `ValidateProbe`, OligoArray-style site duplex Tm, `CheckSpecificity` both-strand option; datasets above.
 - **2026-06-24**: Added the Karlin–Altschul E-value / bit-score / λ evidence (sources 5–6), the +1/−3 λ≈1.374 cross-check, and the worked-example dataset, for the opt-in `ComputeLambdaNucleotide` / `ComputeKarlinAltschul` statistics.
+- **2026-10-01** (B07 PROBE-EVALUE-001 review): K computed as NCBI BLAST+ computes it (no longer the +1/−3 constant for every scheme); NCBI BLAST+ gapped tables, length adjustment and blastn E-values; NCBI source + blastn 2.12.0+ datasets above.

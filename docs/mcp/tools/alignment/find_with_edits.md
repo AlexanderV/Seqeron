@@ -32,7 +32,7 @@ Find all approximate matches of pattern in sequence allowing up to maxEdits Leve
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `items` | array<object> | Matches, each with position, matchedSequence, distance, mismatchPositions, mismatchType. |
+| `items` | array<object> | Matches, each with position, matchedSequence, distance, mismatchPositions (pattern-relative indices of the substituted pattern characters in the optimal alignment), mismatchType. |
 
 ## Errors
 
@@ -73,7 +73,7 @@ Find all approximate matches of pattern in sequence allowing up to maxEdits Leve
       "position": 1,
       "matchedSequence": "CGT",
       "distance": 1,
-      "mismatchPositions": [],
+      "mismatchPositions": [0],
       "mismatchType": "Substitution"
     },
     {

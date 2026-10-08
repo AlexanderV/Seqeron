@@ -19,6 +19,19 @@
 1. **Both-strand balancing (verbatim):** "kPAL can forcefully balance the k-mer profiles (if desired) by adding the values of each k-mer to its reverse complement." This is the additive both-strand operation: the both-strand count of a k-mer is the sum of its own count and the count of its reverse complement.
 2. **Purpose:** balancing "enforce[s] balance between sequence information from the minus or plus strand" — i.e. it makes the profile strand-symmetric, which is the both-strand view of double-stranded DNA.
 
+### kPAL reference implementation — `Profile.balance()` source (review 2026-09-28)
+
+**URL:** https://raw.githubusercontent.com/LUMC/kPAL/master/kpal/klib.py (+ `kpal/metrics.py`)
+**Accessed:** 2026-09-28 (downloaded and executed with Python 3 + numpy + Biopython + `future`; `pip install kPAL` fails to build, so the module was run from source)
+**Authority rank:** 2 (reference implementation of the peer-reviewed method, Anvar et al. 2014)
+
+**Key Extracted Points:**
+
+1. **Verbatim code:** `for i in range(self.number): i_rc = self.reverse_complement(i); if i < i_rc: temp = self.counts[i]; self.counts[i] += self.counts[i_rc]; self.counts[i_rc] += temp; elif i == i_rc: self.counts[i] += self.counts[i]` — count[w] = forward[w] + forward[RC(w)], palindromes doubled.
+2. **Counting:** `from_sequences` splits the input on non-ACGT characters (`re.split('[^ACGT]')`), i.e. k-mers containing ambiguity codes are not counted (this library keeps them — see algorithm doc §6.2).
+3. **Outputs (Profile.from_sequences + balance):** ATGGC/2 → {AT:2,CA:1,CC:1,GC:2,GG:1,TG:1}; ACGT/2 → {AC:2,CG:2,GT:2}; AAA/2 → {AA:2,TT:2}; ATGC/4 → {ATGC:1,GCAT:1}; `GAATTCACGTTGCAGGATCCATGC` k=3 → 28 keys Σ44 (GCA:3, TGC:3, …); k=4 → 33 keys Σ42 with palindromes AATT/ACGT/CATG/GATC/TGCA = 2; k=6 → 36 keys Σ38 with GAATTC = GGATCC = 2. All identical to `Counter(S) + Counter(Bio.Seq.Seq(S).reverse_complement())` and to `KmerAnalyzer.CountKmersBothStrands`.
+4. **Canonical contrast (Jellyfish `-C` semantics reproduced with Biopython):** on the same k=4 input the palindromes count 1 each; non-palindromic canonical keys have the same count as here.
+
 ### Anvar et al. (2014) — Determining the quality and complexity of NGS data (kPAL paper)
 
 **URL:** https://link.springer.com/article/10.1186/s13059-014-0555-3 (search-result summary; full text behind Springer IDP redirect, summary retrieved via WebSearch)
@@ -50,6 +63,16 @@
 
 1. **Definition of the k-mer counting problem (verbatim):** Jellyfish counts "the number of occurrences of every k-mer (substring of length k) in a long string." This is the single-strand counting primitive (`CountKmers`) on which both-strand counting builds.
 2. **Canonical option contrast:** Jellyfish offers a canonical (`-C`) mode that collapses a k-mer and its reverse complement onto one representative. KMER-BOTH-001 is NOT canonical collapsing — it is the additive (kPAL "balance") both-strand profile that keeps a key per observed k-mer. (Recorded to distinguish the two strand-aware semantics; the canonical mode wording itself was not extractable from the man-page PDF stream.)
+
+### Jellyfish `count` window rule and `-C` canonical form (reference implementation; added 2026-10-01, B06 audit round 1)
+
+**URL:** https://raw.githubusercontent.com/gmarcais/Jellyfish/master/include/jellyfish/mer_iterator.hpp, `include/jellyfish/mer_dna.hpp`, `sub_commands/count_main_cmdline.yaggo` (all opened). **Executed:** Jellyfish 2.3.1 (Ubuntu package `jellyfish 2.3.1-3build1`).
+**Authority rank:** 1 (reference k-mer counter; Marçais & Kingsford 2011, Bioinformatics 27:764)
+
+1. `count_main_cmdline.yaggo`: `option("C", "canonical") { description "Count both strand, canonical representation"; flag; off }`.
+2. `mer_iterator::operator++`: `int code = m_.code(*cseq_++); if(code >= 0) { m_.shift_left(code); if(canonical_) rcm_.shift_right(rcm_.complement(code)); filled_ = std::min(filled_ + 1, mer_dna::k()); } else filled_ = 0;`, and `operator*` returns `!canonical_ || m_ < rcm_ ? m_ : rcm_`. So any non-ACGT base resets the window, and the canonical k-mer is the smaller of the forward and reverse-complement 2-bit words.
+3. `mer_dna.hpp` `codes[256]`: A/a=0, C/c=1, G/g=2, T/t=3. IUPAC letters including N (and `-`) map to R=−1, newline to I=−2, and everything else, including U, to O=−3; any negative code resets the window. `get_canonical()` returns `rc < *this ? rc : *this`. The 2-bit comparison A<C<G<T equals ordinal string comparison.
+4. Executed reference numbers (`count -m k -s 10000 -t 1 [-C]`, `dump -c`, `stats`, `histo`) for 10 inputs × {plain, -C}: algorithm doc K-mer_Counting.md §7.3. A Python replica of `mer_iterator` equals Jellyfish on all 20 rows, and so does the C# `CountKmers(seq, k, KmerCountingOptions)`.
 
 ### Mash issue #45 / Ondov et al. — canonical k-mer definition (contrast reference)
 
@@ -155,6 +178,23 @@
 
 ---
 
+## Audit round 2 (WP8, 2026-10-01) — kPAL ACGT-only counting, canonical decision
+
+- kPAL `kpal/klib.py` (LUMC/kPAL master, raw.githubusercontent.com; `pip install kPAL` fails to build, so `klib.py`,
+  `metrics.py`, `__init__.py` were run from source with `future`, `biopython`, `semantic_version`):
+  `Profile.from_sequences` splits each sequence on `[^AaCcGgTt]` (`re.compile('[^' + ''.join(_nucleotide_to_binary) + ']')`)
+  and counts the k-mers of every part of length ≥ k; `balance()` adds each k-mer's count to its reverse complement's
+  (palindromes doubled). Balanced profiles (= `CountKmersBothStrands(…, AcgtOnly)`): `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA`
+  k = 3 (26 keys, Σ 56, GCA = TGC = 7), k = 4 (31 keys, Σ 48, TGCA = 6), `ACGTNACGTAAcgtRTT` k = 3 (ACG = CGT = 6,
+  Σ 18), `AAAANTTTTGGGGuCCCC` k = 2 (AA = CC = GG = TT = 6, CA = TG = 1). The kPAL forward profile = Jellyfish 2.3.1
+  `count` + `dump -c` on each input.
+- Canonical: Jellyfish `count -C` (k = 4 on the first input: AATT 1, ACGT 2) vs the balanced table restricted to
+  canonical keys (AATT 2, ACGT 4) differ exactly on palindromes; kPAL has no canonical profile. Decision: `Canonical`
+  is rejected for both-strand counting (`ArgumentException`); the canonical both-strand count is `CountKmers(…, Canonical)`.
+
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Review 2026-09 (B06) — kPAL `balance()` source executed as reference; datasets R1–R3 and IUPAC note added.
+- **2026-10-01**: B06 audit round 1 — Jellyfish `mer_iterator`/`mer_dna` source and executed Jellyfish 2.3.1 `count -C`; canonical collapsing now available via `KmerCountingOptions(Canonical: true)` (contrast table unchanged).
+- **2026-10-01**: B06 audit round 2 WP8 — kPAL `from_sequences` ACGT-only rule (option `AcgtOnly`), canonical rejected with reason.

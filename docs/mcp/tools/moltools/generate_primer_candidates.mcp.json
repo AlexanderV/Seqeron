@@ -11,10 +11,10 @@
     "type": "object",
     "properties": {
       "template": { "type": "string", "description": "DNA template sequence.", "minLength": 1 },
-      "region_start": { "type": "integer", "description": "0-based inclusive start of the search region.", "minimum": 0 },
-      "region_end": { "type": "integer", "description": "Exclusive end of the search region (region_start < region_end <= template.Length)." },
-      "forward": { "type": "boolean", "description": "True for forward-strand candidates, false for reverse complement.", "default": true },
-      "parameters": { "type": ["object", "null"], "description": "Optional primer-design parameters." }
+      "region_start": { "type": "integer", "description": "0-based start of the search region (inclusive).", "minimum": 0 },
+      "region_end": { "type": "integer", "description": "0-based end of the search region (exclusive)." },
+      "forward": { "type": "boolean", "description": "True for forward-strand candidates, false for reverse-complement candidates.", "default": true },
+      "parameters": { "type": ["object", "null"], "description": "Optional primer design parameters.", "default": null }
     },
     "required": ["template", "region_start", "region_end"]
   },

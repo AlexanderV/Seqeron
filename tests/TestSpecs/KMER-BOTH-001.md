@@ -5,7 +5,7 @@
 **Algorithm:** K-mer counting over both strands (forward + reverse-complement) of double-stranded DNA
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -83,6 +83,16 @@
 | S1 | Case-insensitivity | lowercase "atggc" == uppercase | equal dictionaries | sibling CountKmers upper-cases |
 | S2 | k = L | "ATGC", k=4 | {ATGC:1, GCAT:1} (RC(ATGC)=GCAT) | one window per strand |
 | S3 | DnaSequence overload delegates | DnaSequence("ATGGC") == string overload | equal dictionaries | delegate smoke |
+
+| S4 | IUPAC codes | "AAN"/2, "arc"/2 | {AA,AN,NT,TT}:1; {AR,RC,GY,YT}:1 | repository convention (literal keys + IUPAC complement); kPAL skips such k-mers |
+
+### 4.2a Reference cross-check (review 2026-09-28 — kPAL `Profile.balance()` executed from LUMC/kPAL source)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | `GAATTCACGTTGCAGGATCCATGC`, k=3 (odd, no palindromes) | exact 28-key kPAL dictionary, Σ = 44 | kPAL klib.py balance; Biopython RC |
+| R2 | same, k=4 (5 palindromes) | exact 33-key kPAL dictionary, Σ = 42; AATT/ACGT/CATG/GATC/TGCA = 2 (Jellyfish -C: 1) | kPAL klib.py balance |
+| R3 | same, k=6 | GAATTC = GGATCC = 2, others 1, 36 keys, Σ = 38 | kPAL klib.py balance |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -188,3 +198,17 @@ Both are boundary/API-shape only; neither changes output for valid in-range inpu
 
 1. Decision: implement the additive both-strand (kPAL "balance") semantics, NOT canonical collapsing — the method name and registry ("Forward + reverse complement"), and the existing implementation, both denote the additive view. Canonical collapsing is a separate, non-implemented variant noted in the algorithm doc §5.3.
 2. Decision: added a `string` overload to match the registry signature `CountKmersBothStrands(sequence, k)`; the pre-existing `DnaSequence` overload now delegates to it.
+
+## Audit round 2, WP8 (B06) — ACGT-only (kPAL) option, canonical decision
+
+`CountKmersBothStrands(sequence, k, KmerCountingOptions)`; tests in `KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs`.
+
+| ID | Case | Expected (source) |
+|----|------|-------------------|
+| B1 | `AcgtOnly`, `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA` k = 3 / 4, `ACGTNACGTAAcgtRTT` k = 3, `AAAANTTTTGGGGuCCCC` k = 2 | kPAL `Profile.from_sequences([s], k)` + `balance()` (klib.py run from source): full tables, Σ 56 / 48 / 18 / 26 |
+| B2 | `AcgtOnly` invariants | Σ = 2 × all-ACGT windows; palindrome AATT = 2 (kPAL) vs 1 under `-C`; count[w] = count[RC(w)] |
+| B3 | Default options | = legacy 2-argument overload (incl. IUPAC / lower case / empty) |
+| B4 | `AcgtOnly` on ACGT input | = literal |
+| B5 | `Canonical` (alone or with `AcgtOnly`) | `ArgumentException`, ParamName `options` (decision: Jellyfish `-C` already is the both-strand count; balanced + canonical keys would double palindromes — defined by neither kPAL nor Jellyfish) |
+| B6 | null / all-N / k > L / k ≤ 0 with `AcgtOnly` | empty / empty / empty / `ArgumentOutOfRangeException` |
+| B7 | MCP `count_kmers_both_strands(acgtOnly: true)` | non-ACGT input accepted, kPAL table; without the flag non-ACGT input is still rejected |

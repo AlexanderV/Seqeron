@@ -38,7 +38,7 @@
    - Title: "Inhibition of Translation by Consecutive Rare Leucine Codons in E. coli"
    - Key findings:
      - CUA (Leu) is a rare codon in E. coli with frequency 0.04
-     - AGA, AGG (Arg) are rare codons in E. coli (0.04, 0.02) - Kazusa MG1655
+     - AGA, AGG (Arg) are rare codons in E. coli (0.04, 0.02) - Kazusa K-12 W3110 (species=316407)
      - CGA (Arg) is rare in E. coli (0.06)
      - Five consecutive rare CUA codons cause ~3-fold inhibition of translation
      - Rare codons at 5' end have stronger effect than internal positions
@@ -58,7 +58,7 @@
 A codon is considered "rare" when its usage frequency falls below a specified threshold relative to the codon usage table of the target organism.
 
 ### Standard E. coli K12 Rare Codons (frequency < 0.10)
-Based on Kazusa MG1655 (species=316407):
+Based on Kazusa K-12 W3110 (species=316407):
 - **AGA** (Arg): 0.04
 - **AGG** (Arg): 0.02
 - **CGA** (Arg): 0.06
@@ -238,3 +238,43 @@ rule) and the tool README https://raw.githubusercontent.com/mtthchrtr/sherlocc/m
   Bioinformatics 28(11):1438–1445. https://doi.org/10.1093/bioinformatics/bts149
 - Sherlocc reference implementation (Chartier & Najmanovich).
   https://github.com/mtthchrtr/sherlocc (README accessed 2026-06-24)
+
+---
+
+# Addendum (2026-09-28, review campaign B02)
+
+## Sources opened this session
+- **python-codon-tables 0.1.18** (PyPI wheel, Edinburgh Genome Foundry; tables downloaded from
+  Kazusa `showcodon.cgi?aa=1&style=N&species=<taxid>`): `e_coli_316407.csv`,
+  `s_cerevisiae_4932.csv`, `h_sapiens_9606.csv`. All 64 relative frequencies of each built-in
+  preset (`EColiK12`, `Yeast`, `Human`) are identical. Kazusa 316407 is E. coli K-12 **W3110**
+  (earlier text said MG1655; corrected).
+- **Kane JF (1995)** Curr Opin Biotechnol 6(5):494–500 — WebSearch snippet: "The rarest codons
+  AGG, AGA, CUA, AUA, CGA, and CCC of E. coli". With the W3110 fractions all six are < 0.15.
+- **CHARMING (Wright … Clark 2022, Protein Sci, doi:10.1002/pro.4223)** reference code from the
+  %MinMax authors' lab: `raw.githubusercontent.com/wrightgs/CHARMING/main/CHARMING.py`
+  (`calculateMinMax`), `README.md`, `ScerCUB.txt`, `EcolCUB.txt`. Findings:
+  1. The window formula is Σ-based exactly as implemented (averages over the window cancel).
+  2. The synonymous families include the stop family `'*': ['TGA','TAA','TAG']`.
+  3. The codon usage input is **frequency per thousand codons** ("TTT 26.1 / TCT 23.5 / TAT
+     18.8", i.e. Kazusa 4932 per-thousand), not per-amino-acid fractions. The 2026-06 claim that
+     the published quantities "match the per-family relative fractions already stored in
+     `CodonUsageTable.CodonFrequencies`" is therefore corrected: relative fractions reproduce
+     the reference only for single-residue windows (yeast CUG·AGA, w=2: 33.99 reference vs
+     58.62 with fractions).
+- Not reachable (proxy): journals.plos.org, academic.oup.com, codons.org, onlinelibrary.wiley.com,
+  arxiv.org, bmcgenomics.biomedcentral.com, rdrr.io. The Sherlocc GitHub source fetch was not
+  permitted in this session, so the Sherlocc "equal or lower than the threshold" wording quoted
+  above (2026-06) could not be re-checked against code (see open item below).
+
+## Ambiguous triplets
+EMBOSS `ajCodSetTripletsS` ("Skips triplets with ambiguity codes and any incomplete triplet at the
+end") is the codon-set contract already adopted by `CodonUsageAnalyzer.CountCodons`. A triplet
+such as NNN has no row in a Kazusa/cusp table, so it has no usage frequency; it is skipped by all
+three rare-codon screens (frame preserved) instead of being reported as a frequency-0 "rare codon".
+
+## Open item
+Sherlocc README (quoted 2026-06): slow positions have frequency "equal or lower than the specified
+threshold"; `FindRareCodonClusters` uses strict `<` (shared with `FindRareCodons`). With the
+E. coli preset this matters at the 0.15 default for UCU/UCC/UCG/AGU/GUA/GGG (exactly 0.15).
+Not changed: the reference code and Sherlocc's frequency scale could not be opened this session.

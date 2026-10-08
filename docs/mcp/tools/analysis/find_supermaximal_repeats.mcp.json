@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_supermaximal_repeats",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.FindSupermaximalRepeats",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L5469",
+  "description": "Finds **supermaximal repeats** (Gusfield 1997 §7.12.1; Vmatch -supermax): maximal repeats that never occur as a substring of another maximal repeat — on the suffix array, lcp-intervals with only singleton children whose suffixes have pairwise distinct left characters (Abouelhoda, Kurtz & Ohlebusch 2004). Each repeat is reported once with every (possibly overlapping) 0-based occurrence, ascending. Only A/C/G/T match (case-insensitive); a suffix at position 0 or preceded by a non-ACGT symbol has an undefined (distinct) left character. Ordered by first occurrence, then length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "Minimum repeat length",
+        "minimum": 1,
+        "default": 5
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sequence": {
+              "type": "string"
+            },
+            "length": {
+              "type": "integer"
+            },
+            "positions": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          },
+          "required": [
+            "sequence",
+            "length",
+            "positions"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "minLength must be >= 1"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Three occurrences, one overlapping",
+      "input": {
+        "sequence": "CAGCAGCAGTTTCAGCAG",
+        "minLength": 3
+      },
+      "output": {
+        "items": [
+          {
+            "sequence": "CAGCAG",
+            "length": 6,
+            "positions": [
+              0,
+              3,
+              12
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Two supermaximal repeats (vmatch -supermax -l 3)",
+      "input": {
+        "sequence": "ACGTACGTTTTTTTTTACGTACGT",
+        "minLength": 3
+      },
+      "output": {
+        "items": [
+          {
+            "sequence": "ACGTACGT",
+            "length": 8,
+            "positions": [
+              0,
+              16
+            ]
+          },
+          {
+            "sequence": "TTTTTTTT",
+            "length": 8,
+            "positions": [
+              7,
+              8
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

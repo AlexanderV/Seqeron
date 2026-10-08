@@ -2263,16 +2263,16 @@ public class CompositionFuzzTests
     }
 
     /// <summary>
-    /// INJ: the lenient raw-string overload ignores every non-A/T/G/C symbol
-    /// (Shannon_Entropy.md §5.2, §5.3: "counts only A/T/G/C and ignores
-    /// non-standard bases such as N or other ambiguity codes"). So injected garbage
-    /// — ambiguity code N, the RNA base U, digits, gaps, whitespace, an embedded
+    /// INJ: the lenient raw-string overload ignores every symbol outside {A, C, G, T/U}
+    /// (Shannon_Entropy.md §5.2, §5.3: ignores non-standard bases such as N or other
+    /// ambiguity codes; RNA U counts as the T/U nucleotide). So injected garbage
+    /// — ambiguity codes N/R, digits, gaps, whitespace, an embedded
     /// null byte, unicode letters — does NOT change the entropy of the A/T/G/C bases
     /// that ARE present, and never throws. Each case interleaves garbage into a
     /// uniform ACGT core, which must therefore still read as exactly 2.0 bits.
     /// </summary>
     [TestCase("ACGTN", TestName = "ShannonEntropy_RawString_AmbiguityN_Ignored_Is2Bits")]
-    [TestCase("ACGTU", TestName = "ShannonEntropy_RawString_RnaBaseU_Ignored_Is2Bits")]
+    [TestCase("ACGTR", TestName = "ShannonEntropy_RawString_AmbiguityR_Ignored_Is2Bits")]
     [TestCase("A1C2G3T4", TestName = "ShannonEntropy_RawString_Digits_Ignored_Is2Bits")]
     [TestCase("A-C-G-T", TestName = "ShannonEntropy_RawString_Gaps_Ignored_Is2Bits")]
     [TestCase("A C G T", TestName = "ShannonEntropy_RawString_Whitespace_Ignored_Is2Bits")]
@@ -3874,14 +3874,14 @@ public class CompositionFuzzTests
 
     /// <summary>
     /// Independent reference for the doc-derived overall scalars
-    /// (Comprehensive_GC_Analysis.md §2.2). Counts ONLY A/C/G/T, case-insensitively,
+    /// (Comprehensive_GC_Analysis.md §2.2). Counts A/C/G/T (+U in the GC% denominator), case-insensitively,
     /// and applies the documented zero-denominator → 0 convention. This is computed
     /// from FIRST PRINCIPLES, NOT from the code under test, so a test comparing the
     /// algorithm output against it cannot rubber-stamp a wrong implementation.
     /// </summary>
     private static (double gcContent, double gcSkew, double atSkew) ExpectedOverallScalars(string input)
     {
-        int g = 0, c = 0, a = 0, t = 0;
+        int g = 0, c = 0, a = 0, t = 0, u = 0;
         foreach (char ch in input)
         {
             switch (char.ToUpperInvariant(ch))
@@ -3890,10 +3890,13 @@ public class CompositionFuzzTests
                 case 'C': c++; break;
                 case 'A': a++; break;
                 case 'T': t++; break;
+                case 'U': u++; break;
             }
         }
 
-        int counted = g + c + a + t;
+        // GC% denominator counts U (RNA counterpart of T) as Biopython gc_fraction "remove" does
+        // (length = GCS + ATWU); the skews count only their own pair (U is not T for AT skew).
+        int counted = g + c + a + t + u;
         double gcContent = counted > 0 ? (double)(g + c) / counted * 100.0 : 0.0;
         double gcSkew = (g + c) > 0 ? (double)(g - c) / (g + c) : 0.0;
         double atSkew = (a + t) > 0 ? (double)(a - t) / (a + t) : 0.0;
@@ -4084,7 +4087,7 @@ public class CompositionFuzzTests
     /// <summary>
     /// BE: non-A/C/G/T characters are IGNORED in BOTH numerator and denominator on
     /// the lenient string surface (§3.3, §6.2; Biopython GC_skew ignores ambiguous
-    /// bases). So injecting N/ambiguity/U/digits/gaps/whitespace/null-byte/unicode
+    /// bases). So injecting N/ambiguity/digits/gaps/whitespace/null-byte/unicode
     /// among a known A/C/G/T core must NEVER throw and must leave every overall
     /// scalar EXACTLY equal to the scalar computed on the counted bases alone.
     /// Here the counted core of each input is "GC" → GcContent 100, GcSkew 0
@@ -4094,7 +4097,6 @@ public class CompositionFuzzTests
     [TestCase("G-C.", TestName = "AnalyzeGcContent_NonAcgt_Gaps_Ignored")]
     [TestCase("G C ", TestName = "AnalyzeGcContent_NonAcgt_Whitespace_Ignored")]
     [TestCase("G1C2", TestName = "AnalyzeGcContent_NonAcgt_Digits_Ignored")]
-    [TestCase("GUCU", TestName = "AnalyzeGcContent_NonAcgt_RnaBaseU_Ignored")]
     [TestCase("G\0C", TestName = "AnalyzeGcContent_NonAcgt_NullByte_Ignored")]
     [TestCase("GαCβ", TestName = "AnalyzeGcContent_NonAcgt_Unicode_Ignored")]
     public void AnalyzeGcContent_NonAcgtCharacters_AreIgnoredNotCounted(string input)
@@ -4114,6 +4116,26 @@ public class CompositionFuzzTests
             because: "ignored garbage must not shift the GC skew of the counted bases");
         result.OverallAtSkew.Should().BeApproximately(atSkew, Tolerance,
             because: "ignored garbage must not shift the AT skew of the counted bases");
+        AssertAllScalarsFinite(result);
+        AssertInvariantRanges(result);
+    }
+
+    /// <summary>
+    /// BE: RNA U is NOT garbage for GC content — it is the RNA counterpart of T and is counted in the
+    /// GC% denominator (Wikipedia "GC-content": "adenine and uracil in RNA"; Biopython 1.88
+    /// gc_fraction("GUCU") = 0.5). The skews are unaffected (GC skew counts only G/C, AT skew only A/T).
+    /// Review 2026-09 (SEQ-GC-ANALYSIS-001 F1) replaced the former "U ignored" case, which encoded the
+    /// defect (GC% 100 instead of 50).
+    /// </summary>
+    [Test]
+    public void AnalyzeGcContent_RnaBaseU_CountedInGcDenominatorOnly()
+    {
+        var result = GcSkewCalculator.AnalyzeGcContent("GUCU");
+
+        result.OverallGcContent.Should().BeApproximately(50.0, Tolerance,
+            because: "Biopython gc_fraction('GUCU') = 0.5 → 50%");
+        result.OverallGcSkew.Should().BeApproximately(0.0, Tolerance, because: "G = C = 1");
+        result.OverallAtSkew.Should().BeApproximately(0.0, Tolerance, because: "no A/T → 0 (U is not T for AT skew)");
         AssertAllScalarsFinite(result);
         AssertInvariantRanges(result);
     }

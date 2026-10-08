@@ -9,7 +9,9 @@
 // Expected edges/relationships below are derived independently from the cited rules:
 //   Lineage precedence (Eq.2): parent.CCF[i] >= child.CCF[i]-e and parent=0 => child=0 per sample.
 //   Sum rule (Eq.5): sum over children of v.CCF[i] <= u.CCF[i]+e per node, per sample.
-// They are NOT copied from the implementation output.
+// They are NOT copied from the implementation output. Exact topologies / error scores / tree counts are the output of
+// the original LICHeE code (github.com/viq854/lichee, LICHeE/release/lichee.jar: PHYNetwork + getLineageTrees +
+// evaluateLineageTrees, cell-prevalence mode VAF_MAX = 1, VAF_ERROR_MARGIN = e) run on the same clusters (B24 F18).
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
@@ -24,10 +26,11 @@ public class OncologyAnalyzer_ReconstructPhylogeny_Tests
 
     #region ReconstructPhylogeny
 
-    // M1 — Linear chain: single sample A=1.0,B=0.6,C=0.3. Eq.2 (anc>=desc): each nests in the previous.
-    // Deepest-valid-ancestor => root->A->B->C. Popic (2015) Eq.2.
+    // M1 — single sample A=1.0,B=0.6,C=0.3. B can only hang under A (root: 1.0+0.6 > 1, Eq.5); C fits under A
+    // (0.6+0.3 <= 1) or under B, so exactly two trees are valid. LICHeE (lichee.jar) enumerates both and ranks
+    // A->{B,C} first (error score 0 for both; enumeration order breaks the tie).
     [Test]
-    public void ReconstructPhylogeny_DescendingSingleSampleCcf_FormsLinearChain()
+    public void ReconstructPhylogeny_DescendingSingleSampleCcf_MatchesLicheeTopTree()
     {
         var clusters = new[] { C(1, 1.0), C(2, 0.6), C(3, 0.3) };
 
@@ -36,9 +39,11 @@ public class OncologyAnalyzer_ReconstructPhylogeny_Tests
         int root = p.RootId;
         Assert.Multiple(() =>
         {
-            Assert.That(p.ParentOf(1), Is.EqualTo(root), "A (CCF 1.0) attaches to the normal root (1.0 >= 1.0)");
-            Assert.That(p.ParentOf(2), Is.EqualTo(1), "B (0.6) nests under A: deepest valid ancestor, 1.0 >= 0.6");
-            Assert.That(p.ParentOf(3), Is.EqualTo(2), "C (0.3) nests under B: deepest valid ancestor, 0.6 >= 0.3");
+            Assert.That(p.ParentOf(1), Is.EqualTo(root), "A (CCF 1.0) attaches to the normal root");
+            Assert.That(p.ParentOf(2), Is.EqualTo(1), "B (0.6) cannot share the root with A (1.6 > 1, Eq.5)");
+            Assert.That(p.ParentOf(3), Is.EqualTo(1), "LICHeE top tree places C under A (0.6+0.3 <= 1.0)");
+            Assert.That(p.ValidTreeCount, Is.EqualTo(2), "LICHeE: 'Found 2 valid tree(s)'");
+            Assert.That(p.ErrorScore, Is.EqualTo(0.0), "every sum rule holds exactly");
         });
     }
 
@@ -63,8 +68,9 @@ public class OncologyAnalyzer_ReconstructPhylogeny_Tests
     }
 
     // M3 — Sum rule forces a chain: single sample A=1.0,B=0.6,C=0.6.
-    // B and C cannot both be children of A (0.6+0.6=1.2 > 1.0, Eq.5) => C nests under B (0.6<=0.6).
-    // Popic (2015) Eq.5.
+    // B and C cannot both be children of A (0.6+0.6=1.2 > 1.0, Eq.5) => one nests under the other (0.6<=0.6).
+    // LICHeE checkAndAddEdge orients the equal-CCF pair later->earlier (err12 < err21 is false), so the single valid
+    // tree is root->A->C->B (lichee.jar). Popic (2015) Eq.5.
     [Test]
     public void ReconstructPhylogeny_TwoEqualSubclones_SumRuleForcesChain()
     {
@@ -76,9 +82,10 @@ public class OncologyAnalyzer_ReconstructPhylogeny_Tests
         Assert.Multiple(() =>
         {
             Assert.That(p.ParentOf(1), Is.EqualTo(root), "A attaches to root");
-            Assert.That(p.ParentOf(2), Is.EqualTo(1), "first 0.6 subclone nests under A");
-            Assert.That(p.ParentOf(3), Is.EqualTo(2),
-                "second 0.6 subclone cannot also be A's child (sum 1.2 > 1.0); it chains under B (Eq.5)");
+            Assert.That(p.ParentOf(3), Is.EqualTo(1), "one 0.6 subclone nests under A");
+            Assert.That(p.ParentOf(2), Is.EqualTo(3),
+                "the other 0.6 subclone cannot also be A's child (sum 1.2 > 1.0); it chains below (Eq.5)");
+            Assert.That(p.ValidTreeCount, Is.EqualTo(1), "LICHeE finds exactly one valid tree");
         });
     }
 
@@ -121,21 +128,97 @@ public class OncologyAnalyzer_ReconstructPhylogeny_Tests
 
         OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogeny(clusters, tolerance: 0.1);
 
-        Assert.That(p.ParentOf(2), Is.EqualTo(1),
-            "with e=0.1, B.s1 (0.55) is admissible under A.s1 (0.50 >= 0.55-0.10); deepest valid ancestor is A, not root");
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.ParentOf(2), Is.EqualTo(1),
+                "with e=0.1, B.s1 (0.55) is admissible under A.s1 (0.50 >= 0.55-0.10)");
+            Assert.That(p.ErrorScore, Is.EqualTo(0.050000000000000044).Within(1e-15),
+                "LICHeE error score sqrt((0.55-0.50)^2) (lichee.jar)");
+        });
     }
 
-    // S3 — Strict (e=0) rejects the noisy edge. Same input; A.s1 (0.50) >= B.s1 (0.55) is false, so A is not a
-    // valid parent; the deepest valid candidate is the root (1.0 >= 0.55) => B attaches to root. Popic 2015 Eq.2 (strict).
+    // S3 — Strict (e=0) rejects the noisy edge. Same input; A.s1 (0.50) < B.s1 (0.55) violates Eq.2 under A, so the
+    // root is B's only admissible parent — but then the root's children sum to 0.50+0.55 = 1.05 > 1.0 in sample 1
+    // (Eq.5). No valid tree exists; LICHeE (lichee.jar, also with the complete network) reports none. The former greedy
+    // returned root->B anyway, violating Eq.5 (B24 F18).
     [Test]
-    public void ReconstructPhylogeny_StrictRejectsNoisyEdge_AttachesToRoot()
+    public void ReconstructPhylogeny_StrictRejectsNoisyEdge_NoValidTree()
     {
         var clusters = new[] { C(1, 0.50, 0.50), C(2, 0.55, 0.0) };
 
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.TryReconstructPhylogeny(clusters, out _), Is.False,
+                "no spanning tree satisfies Eq.5 at e=0");
+            Assert.Throws<InvalidOperationException>(() => OncologyAnalyzer.ReconstructPhylogeny(clusters),
+                "ReconstructPhylogeny reports the absence of a valid tree instead of returning an invalid one");
+        });
+    }
+
+    // F18 repro — e=0, A=[0.3,1.0], B=[0.2,0.2], C=[0,0.8]. Valid tree: A->{B,C} (s2: 0.8+0.2 = 1.0 <= 1.0).
+    // The former greedy debited A's budget to 1.0-0.8 = 0.19999999999999996 < 0.2 and fell back to root->B
+    // (root s2: 1.0+0.2 = 1.2 > 1, Eq.5 violated). LICHeE (lichee.jar): "default 1 0.0 A:root B:A C:A".
+    [Test]
+    public void ReconstructPhylogeny_ExactSumRuleEquality_MatchesLichee()
+    {
+        var clusters = new[] { C(1, 0.3, 1.0), C(2, 0.2, 0.2), C(3, 0.0, 0.8) };
+
         OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogeny(clusters);
 
-        Assert.That(p.ParentOf(2), Is.EqualTo(p.RootId),
-            "with e=0, B.s1 (0.55) > A.s1 (0.50) violates Eq.2 under A; the only valid parent is the root (1.0 >= 0.55)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.ParentOf(1), Is.EqualTo(p.RootId));
+            Assert.That(p.ParentOf(2), Is.EqualTo(1), "B fits under A: 0.8+0.2 = 1.0 <= A.s2 = 1.0 (Eq.5)");
+            Assert.That(p.ParentOf(3), Is.EqualTo(1));
+            Assert.That(p.ValidTreeCount, Is.EqualTo(1));
+            Assert.That(p.ErrorScore, Is.EqualTo(0.0));
+        });
+    }
+
+    // Complete-network fallback — e=0.02, 3 samples: A=[0.482,0,0.443137], B=[0.519,0.796779,0.56],
+    // C=[0.19,0.418589,0.24]. The default (level-adjacent) network admits no valid tree; with ALL_EDGES LICHeE finds one:
+    // A,B under the root, C under B, error score sqrt((0.482+0.519-1)^2 + (0.443137+0.56-1)^2) = 0.003292532308117998
+    // (lichee.jar output "complete 1 0.003292532308117998").
+    [Test]
+    public void ReconstructPhylogeny_DefaultNetworkInfeasible_UsesCompleteNetworkLikeLichee()
+    {
+        var clusters = new[]
+        {
+            C(1, 0.482, 0.0, 0.443137),
+            C(2, 0.519, 0.796779, 0.56),
+            C(3, 0.19, 0.418589, 0.24),
+        };
+
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogeny(clusters, tolerance: 0.02);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.UsedCompleteNetwork, Is.True);
+            Assert.That(p.ParentOf(1), Is.EqualTo(p.RootId));
+            Assert.That(p.ParentOf(2), Is.EqualTo(p.RootId));
+            Assert.That(p.ParentOf(3), Is.EqualTo(2));
+            Assert.That(p.ValidTreeCount, Is.EqualTo(1));
+            Assert.That(p.ErrorScore, Is.EqualTo(0.003292532308117998).Within(1e-15));
+        });
+    }
+
+    // Enumeration — 4 private single-sample clusters 0.05..0.053: 15 valid trees; LICHeE top tree is the chain
+    // root->D->C->B->A (lichee.jar "default 15 0.0 0:1 1:2 2:3 3:-1").
+    [Test]
+    public void ReconstructPhylogeny_ManyValidTrees_CountAndTopTreeMatchLichee()
+    {
+        var clusters = new[] { C(1, 0.05), C(2, 0.051), C(3, 0.052), C(4, 0.053) };
+
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogeny(clusters);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.ValidTreeCount, Is.EqualTo(15));
+            Assert.That(p.ParentOf(4), Is.EqualTo(p.RootId));
+            Assert.That(p.ParentOf(3), Is.EqualTo(4));
+            Assert.That(p.ParentOf(2), Is.EqualTo(3));
+            Assert.That(p.ParentOf(1), Is.EqualTo(2));
+        });
     }
 
     // C1 — Determinism: same input run twice yields identical edge set (INV-05).
@@ -274,19 +357,40 @@ public class OncologyAnalyzer_ReconstructPhylogeny_Tests
         });
     }
 
-    // Trunk on a linear chain is the whole chain; no branches.
+    // Trunk = alterations present in all tumour cells (Werner et al. 2017 Sci Rep 7:44991: "alterations that are in the
+    // trunk of the tree must be present in all cells of the tumour"). A single-child chain root->A(1.0)->B(0.5)->C(0.25)
+    // keeps B and C subclonal: A-only cells (0.5) lack B. The former structural rule reported {A,B,C} (B24 F19).
     [Test]
-    public void IdentifyTrunkAndBranch_LinearChain_AllTrunkNoBranches()
+    public void IdentifyTrunkAndBranch_SubclonalChain_OnlyClonalNodeIsTrunk()
     {
-        var clusters = new[] { C(1, 1.0), C(2, 0.6), C(3, 0.3) };
+        var clusters = new[] { C(1, 1.0), C(2, 0.5), C(3, 0.25) };
         OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogeny(clusters);
 
         Assert.Multiple(() =>
         {
-            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(p), Is.EqualTo(new[] { 1, 2, 3 }),
-                "a pure chain has every node on the trunk (single-child path from root)");
-            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(p), Is.Empty,
-                "a pure chain has no subclonal branches");
+            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(p), Is.EqualTo(new[] { 1 }),
+                "only the CCF-1 cluster is present in every tumour cell");
+            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(p), Is.EqualTo(new[] { 2, 3 }),
+                "CCF 0.5 / 0.25 clusters are subclonal");
+        });
+    }
+
+    // Two clonal clusters (CCF 1 in every sample) form a two-node trunk; the trunk criterion uses the tree's e.
+    [Test]
+    public void IdentifyTrunkMutations_ClonalChainAndTolerance_FollowCcfCriterion()
+    {
+        var clonal = OncologyAnalyzer.ReconstructPhylogeny(new[] { C(1, 1.0, 1.0), C(2, 1.0, 1.0), C(3, 0.4, 0.0) });
+        var nearClonalStrict = OncologyAnalyzer.ReconstructPhylogeny(new[] { C(1, 0.97), C(2, 0.5) });
+        var nearClonalNoisy = OncologyAnalyzer.ReconstructPhylogeny(new[] { C(1, 0.97), C(2, 0.5) }, tolerance: 0.05);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(clonal), Has.Count.EqualTo(2)
+                .And.EquivalentTo(new[] { 1, 2 }), "both CCF-1 clusters are truncal");
+            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(nearClonalStrict), Is.Empty,
+                "with e=0 a CCF of 0.97 is subclonal");
+            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(nearClonalNoisy), Is.EqualTo(new[] { 1 }),
+                "with e=0.05, 0.97 >= 1-0.05 counts as clonal");
         });
     }
 

@@ -14,12 +14,89 @@ public class MolToolsTools
 
     #region PrimerDesigner
 
-    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward and reverse PCR primers flanking a target region in a DNA template; picks the highest-scoring valid candidates from a 200 bp flanking window on each side and reports product size and pair compatibility. target_start/target_end are 0-based; the region must satisfy 0 <= target_start < target_end < template.Length.")]
-    public static PrimerPairResult design_primers(
+    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward/reverse PCR primers flanking a target region with Primer3's pair search (verified against primer3-py design_primers): candidates on either side of the target (never overlapping it) are kept when they pass the per-primer limits (length, GC%, Primer3 SantaLucia Tm at salt_monovalent/salt_divalent/dntp_conc/dna_conc, Primer3 defaults 50 mM Na+/1.5 mM Mg2+/0.6 mM dNTP/50 nM, poly-X, dinucleotide repeat, Primer3 3'-end checks gc_clamp / max_end_gc / max_end_stability) and, by default, Primer3's thermodynamic secondary-structure screen (ntthal self-dimer, 3' self-dimer and hairpin Tm <= 47 °C per primer) or, with parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0), Primer3's dpal alignment-score screen (self_any <= parameters.MaxSelfAny, default 8; self_end <= parameters.MaxSelfEnd, default 3); pairs must have a product size in product_size_range (Primer3 PRIMER_PRODUCT_SIZE_RANGE, default 100-300 bp, ranges tried in order), |Tm_f - Tm_r| <= max_tm_difference (default 5 °C) and pair hetero-dimer / 3' hetero-dimer ntthal Tm <= 47 °C (alignment mode: compl_any <= pair_max_compl_any, default 8, and compl_end <= pair_max_compl_end, default 3); the pair with the lowest Primer3 pair penalty (sum of per-primer penalties) is returned, with product Tm (Primer3 long_seq_tm), pair complementarity Tm values (complAnyTh/complEndTh; alignment mode: complAny/complEnd scores), optionally an internal hybridization oligo (pick_internal_oligo, Primer3 PRIMER_PICK_INTERNAL_OLIGO, at the internal_* conditions) and up to num_return ranked pairs (PRIMER_NUM_RETURN; with min_left/right_three_prime_distance later pairs avoid primers whose 3' ends are too close to those of earlier pairs). With mispriming_library (Primer3 PRIMER_MISPRIMING_LIBRARY) primers whose weighted dpal similarity to a library entry exceeds max_library_mispriming (default 12) and pairs above pair_max_library_mispriming (default 24) are rejected; scores can be weighted into the penalties (wt_library_mispriming, pair_wt_library_mispriming). With internal_mishyb_library (Primer3 PRIMER_INTERNAL_MISHYB_LIBRARY) internal oligos above internal_max_library_mishyb (default 12) are rejected (weight: internal_wt_library_mishyb). Template mispriming (Primer3 PRIMER_MAX_TEMPLATE_MISPRIMING / PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING, dpal; with thermodynamic_template_alignment the _TH ntthal Tm variants) rejects primers / pairs that also prime elsewhere on the template and can be weighted into the penalties (wt_/pair_wt_template_mispriming[_th]); reported as templateMispriming per primer and pair. With annealing_temp > 0 (Primer3 PRIMER_ANNEALING_TEMP) each primer's (and internal oligo's) fraction bound at that temperature is computed (reported as bound), primers outside [min_bound, max_bound] (internal oligo: internal_min/max_bound) are rejected and wt_bound_gt/lt (internal_wt_bound_gt/lt) weight the distance from opt_bound into the penalties. With inside_penalty / outside_penalty (Primer3 PRIMER_INSIDE_PENALTY / PRIMER_OUTSIDE_PENALTY, defaults -1 / 0 = primers never overlap the target) primers may extend into the target up to its far end and each primer's 3'-end distance from the target is penalised (reported as positionPenalty, weight wt_pos_penalty, default 1). The target is the half-open 0-based interval [target_start, target_end) with 0 <= target_start < target_end < template.Length.")]
+    public static DesignPrimersResult design_primers(
         [Description("DNA template (A/C/G/T).")] string template,
         [Description("0-based inclusive start of target region.")] int target_start,
-        [Description("0-based inclusive end of target region.")] int target_end,
-        [Description("Optional primer design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks). Defaults are used if null.")] PrimerParameters? parameters = null)
+        [Description("0-based exclusive end of target region (with the default inside_penalty/outside_penalty primers never overlap [target_start, target_end)).")] int target_end,
+        [Description("Optional primer design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks, structure screen). Defaults are used if null.")] PrimerParameters? parameters = null,
+        [Description("PRIMER_PRODUCT_SIZE_RANGE in Primer3 syntax, e.g. \"100-300\" or \"150-250 100-400\" (ranges in order of preference; default 100-300).")] string? product_size_range = null,
+        [Description("PRIMER_PAIR_MAX_DIFF_TM: maximum |Tm_forward - Tm_reverse| in °C (default 5; Primer3's own default is 100).")] double max_tm_difference = PrimerDesigner.MaxPairTmDifference,
+        [Description("PRIMER_NUM_RETURN: number of ranked pairs listed in 'pairs' (default 1).")] int num_return = 1,
+        [Description("PRIMER_PICK_INTERNAL_OLIGO: also pick an internal hybridization oligo between the primers (Primer3 PRIMER_INTERNAL_* defaults; default false).")] bool pick_internal_oligo = false,
+        [Description("PRIMER_PAIR_MAX_COMPL_ANY: maximum Primer3 alignment-mode pair compl_any (used only with parameters.StructureScreen = Primer3Alignment; default 8).")] double pair_max_compl_any = PrimerDesigner.Primer3MaxPairComplAny,
+        [Description("PRIMER_PAIR_MAX_COMPL_END: maximum Primer3 alignment-mode pair compl_end (used only with parameters.StructureScreen = Primer3Alignment; default 3).")] double pair_max_compl_end = PrimerDesigner.Primer3MaxPairComplEnd,
+        [Description("PRIMER_SALT_MONOVALENT: monovalent cation concentration in mM (> 0) for primer Tm, ntthal structure / pair complementarity and product Tm (default 50).")] double? salt_monovalent = null,
+        [Description("PRIMER_SALT_DIVALENT: Mg2+ concentration in mM (>= 0; default 1.5).")] double? salt_divalent = null,
+        [Description("PRIMER_DNTP_CONC: dNTP concentration in mM (>= 0; default 0.6).")] double? dntp_conc = null,
+        [Description("PRIMER_DNA_CONC: primer concentration in nM (> 0; default 50).")] double? dna_conc = null,
+        [Description("PRIMER_OPT_GC_PERCENT: GC optimum of the primer GC penalty terms (default undefined, as in Primer3's code; required when wt_gc_percent_gt/lt != 0 - otherwise Primer3's error 'Primer GC content is part of objective function while optimum gc_content is not defined').")] double? opt_gc_percent = null,
+        [Description("PRIMER_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0).")] double? wt_gc_percent_gt = null,
+        [Description("PRIMER_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).")] double? wt_gc_percent_lt = null,
+        [Description("PRIMER_INTERNAL_SALT_MONOVALENT for the internal oligo, mM (> 0; default 50).")] double? internal_salt_monovalent = null,
+        [Description("PRIMER_INTERNAL_SALT_DIVALENT for the internal oligo, mM (>= 0; default 0).")] double? internal_salt_divalent = null,
+        [Description("PRIMER_INTERNAL_DNTP_CONC for the internal oligo, mM (>= 0; default 0).")] double? internal_dntp_conc = null,
+        [Description("PRIMER_INTERNAL_DNA_CONC for the internal oligo, nM (> 0; default 50).")] double? internal_dna_conc = null,
+        [Description("PRIMER_INTERNAL_OPT_GC_PERCENT: GC optimum of the internal-oligo GC penalty terms (default undefined; required when internal_wt_gc_percent_gt/lt != 0, even without pick_internal_oligo - Primer3 'Hyb probe GC content is part of objective function while optimum gc_content is not defined').")] double? internal_opt_gc_percent = null,
+        [Description("PRIMER_INTERNAL_WT_GC_PERCENT_GT (default 0).")] double? internal_wt_gc_percent_gt = null,
+        [Description("PRIMER_INTERNAL_WT_GC_PERCENT_LT (default 0).")] double? internal_wt_gc_percent_lt = null,
+        [Description("PRIMER_GC_CLAMP: number of consecutive G/C required at each primer's 3' end (default 0; must be <= the minimum primer length).")] int? gc_clamp = null,
+        [Description("PRIMER_MAX_END_GC: maximum G/C among the five 3'-most bases of each primer (0-5; default 5 = no limit).")] int? max_end_gc = null,
+        [Description("PRIMER_MAX_END_STABILITY: maximum 3' end stability (Primer3 end_stability = -dG of the 3' pentamer, kcal/mol, >= 0; default 100 = no limit).")] double? max_end_stability = null,
+        [Description("PRIMER_MIN_LEFT_THREE_PRIME_DISTANCE: after a pair is selected, later pairs may not use a left primer whose 3' end is closer than this (0 = not the identical primer; default -1 = reuse allowed).")] int? min_left_three_prime_distance = null,
+        [Description("PRIMER_MIN_RIGHT_THREE_PRIME_DISTANCE: as min_left_three_prime_distance for right primers (default -1).")] int? min_right_three_prime_distance = null,
+        [Description("PRIMER_MIN_THREE_PRIME_DISTANCE: sets both the left and right minimum 3' distances (cannot be combined with min_left/right_three_prime_distance).")] int? min_three_prime_distance = null,
+        [Description("PRIMER_MISPRIMING_LIBRARY as a name -> sequence object (primer3-py misprime_lib), e.g. {\"Alu*2\": \"GGCCGGGCGCGG...\"}; an optional '*weight' (0-100) after the name scales that entry; IUPAC codes allowed. Each primer is scored against every entry and its reverse complement (Primer3 dpal, 3'-anchored); reported as libraryMispriming/libraryMisprimingName per primer and pair.")] Dictionary<string, string>? mispriming_library = null,
+        [Description("PRIMER_MAX_LIBRARY_MISPRIMING: maximum weighted library score of one primer (default 12).")] double? max_library_mispriming = null,
+        [Description("PRIMER_PAIR_MAX_LIBRARY_MISPRIMING: maximum pair library score (integer part of left + right score for the same entry; default 24).")] double? pair_max_library_mispriming = null,
+        [Description("PRIMER_WT_LIBRARY_MISPRIMING: per-primer penalty weight of the library score (default 0; needs mispriming_library).")] double? wt_library_mispriming = null,
+        [Description("PRIMER_PAIR_WT_LIBRARY_MISPRIMING: pair penalty weight of the pair library score (default 0; needs mispriming_library).")] double? pair_wt_library_mispriming = null,
+        [Description("PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS: false (Primer3 default 0) = IUPAC codes in the library never match; true = they match every base they represent (N matches anything).")] bool? lib_ambiguity_codes_consensus = null,
+        [Description("PRIMER_INTERNAL_MISHYB_LIBRARY as a name -> sequence object (primer3-py mishyb_lib; same format as mispriming_library), used with pick_internal_oligo: each internal oligo is scored against every entry and its reverse complement (Primer3 dpal, unanchored local alignment); reported as internalOligo.libraryMishyb/libraryMishybName.")] Dictionary<string, string>? internal_mishyb_library = null,
+        [Description("PRIMER_INTERNAL_MAX_LIBRARY_MISHYB: maximum weighted library score of the internal oligo (default 12).")] double? internal_max_library_mishyb = null,
+        [Description("PRIMER_INTERNAL_WT_LIBRARY_MISHYB: internal-oligo penalty weight of the library score (default 0; needs internal_mishyb_library).")] double? internal_wt_library_mishyb = null,
+        [Description("PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT: false (Primer3 default 0) = template mispriming is a dpal score (3'-anchored local alignment of the primer with the template outside its own site and with the opposite strand); true = the ntthal 3'-end (END1) Tm in °C (template <= 10000 nt). Uses the *_template_mispriming_th limits/weights.")] bool? thermodynamic_template_alignment = null,
+        [Description("PRIMER_MAX_TEMPLATE_MISPRIMING: maximum template mispriming score of one primer (alignment mode; default -100 = not checked); reported as templateMispriming per primer.")] double? max_template_mispriming = null,
+        [Description("PRIMER_MAX_TEMPLATE_MISPRIMING_TH: maximum template mispriming Tm of one primer, °C (thermodynamic mode; default -100 = not checked).")] double? max_template_mispriming_th = null,
+        [Description("PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING: maximum pair template mispriming score (max(left same-strand + right other-strand, left other-strand + right same-strand); alignment mode; default -100 = not checked).")] double? pair_max_template_mispriming = null,
+        [Description("PRIMER_PAIR_MAX_TEMPLATE_MISPRIMING_TH: maximum pair template mispriming value (thermodynamic mode; default -100). As in Primer3 a pair fails when this is non-zero and exceeded, so with the default and a non-zero pair_wt_template_mispriming_th every pair fails; 0 = no limit.")] double? pair_max_template_mispriming_th = null,
+        [Description("PRIMER_WT_TEMPLATE_MISPRIMING: per-primer penalty weight of the template mispriming score (alignment mode; default 0).")] double? wt_template_mispriming = null,
+        [Description("PRIMER_WT_TEMPLATE_MISPRIMING_TH: per-primer penalty weight of the template mispriming Tm (thermodynamic mode, Primer3 temp_cutoff rule; default 0).")] double? wt_template_mispriming_th = null,
+        [Description("PRIMER_PAIR_WT_TEMPLATE_MISPRIMING: pair penalty weight of the pair template mispriming score (alignment mode; default 0).")] double? pair_wt_template_mispriming = null,
+        [Description("PRIMER_PAIR_WT_TEMPLATE_MISPRIMING_TH: pair penalty weight of the pair template mispriming value (thermodynamic mode; default 0).")] double? pair_wt_template_mispriming_th = null,
+        [Description("PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 the fraction of each primer / internal oligo bound at this temperature is computed (Primer3 oligotm, SantaLucia 1998) and the bound limits / weights below apply; it is also the internal oligo's annealing temperature.")] double? annealing_temp = null,
+        [Description("PRIMER_MIN_BOUND: minimum fraction bound of a primer, % (default -10; only with annealing_temp > 0).")] double? min_bound = null,
+        [Description("PRIMER_MAX_BOUND: maximum fraction bound of a primer, % (default 110; only with annealing_temp > 0).")] double? max_bound = null,
+        [Description("PRIMER_OPT_BOUND: optimum fraction bound of the bound penalty terms, % (default 97; must lie in [min_bound, max_bound]).")] double? opt_bound = null,
+        [Description("PRIMER_WT_BOUND_GT: per-primer penalty weight of the fraction bound above opt_bound (default 0; only with annealing_temp > 0).")] double? wt_bound_gt = null,
+        [Description("PRIMER_WT_BOUND_LT: per-primer penalty weight of the fraction bound below opt_bound (default 0; only with annealing_temp > 0).")] double? wt_bound_lt = null,
+        [Description("PRIMER_INTERNAL_MIN_BOUND: minimum fraction bound of the internal oligo, % (default -10; only with annealing_temp > 0).")] double? internal_min_bound = null,
+        [Description("PRIMER_INTERNAL_MAX_BOUND: maximum fraction bound of the internal oligo, % (default 110; only with annealing_temp > 0).")] double? internal_max_bound = null,
+        [Description("PRIMER_INTERNAL_OPT_BOUND: optimum fraction bound of the internal-oligo bound terms, % (default 97).")] double? internal_opt_bound = null,
+        [Description("PRIMER_INTERNAL_WT_BOUND_GT: internal-oligo penalty weight of the fraction bound above internal_opt_bound (default 0).")] double? internal_wt_bound_gt = null,
+        [Description("PRIMER_INTERNAL_WT_BOUND_LT: internal-oligo penalty weight of the fraction bound below internal_opt_bound (default 0). As in Primer3 it applies even without annealing_temp, where the bound is Primer3's error value -999999.9999.")] double? internal_wt_bound_lt = null,
+        [Description("PRIMER_INSIDE_PENALTY: penalty per base of a primer 3' end inside the target (default -1). Any value other than the defaults -1 / 0 of inside_penalty / outside_penalty lets primers overlap the target as long as their 3' end does not pass its far end; as in Primer3 the default -1 then makes inside positions negative, and a negative pair penalty is an error.")] double? inside_penalty = null,
+        [Description("PRIMER_OUTSIDE_PENALTY: penalty per base of distance between a primer 3' end and the target (default 0; see inside_penalty).")] double? outside_penalty = null,
+        [Description("PRIMER_WT_POS_PENALTY: weight of the position penalty in the primer penalty (default 1).")] double? wt_pos_penalty = null,
+        [Description("SEQUENCE_QUALITY: one integer base quality per template base (e.g. Phred scores; length = template length, values within [quality_range_min, quality_range_max]). Each primer / internal oligo then reports minSequenceQuality (its minimum base quality).")] int[]? sequence_quality = null,
+        [Description("PRIMER_MIN_QUALITY: minimum base quality of a primer (default 0; non-zero needs sequence_quality and must lie in the quality range).")] int? min_quality = null,
+        [Description("PRIMER_MIN_END_QUALITY: minimum base quality of a primer's five 3'-most bases (default 0; only with sequence_quality).")] int? min_end_quality = null,
+        [Description("PRIMER_QUALITY_RANGE_MIN: smallest allowed sequence_quality value (default 0).")] int? quality_range_min = null,
+        [Description("PRIMER_QUALITY_RANGE_MAX: largest allowed sequence_quality value (default 100); the quality penalty is wt_seq_qual x (quality_range_max - min quality).")] int? quality_range_max = null,
+        [Description("PRIMER_WT_SEQ_QUAL: per-primer penalty weight of (quality_range_max - the primer's minimum base quality) (default 0; needs sequence_quality).")] double? wt_seq_qual = null,
+        [Description("PRIMER_WT_END_QUAL: accepted for Primer3 compatibility; Primer3 2.3.1 never uses it in the penalty (no effect).")] double? wt_end_qual = null,
+        [Description("PRIMER_INTERNAL_MIN_QUALITY: minimum base quality of the internal oligo (default 0; non-zero needs sequence_quality).")] int? internal_min_quality = null,
+        [Description("PRIMER_INTERNAL_WT_SEQ_QUAL: internal-oligo penalty weight of (quality_range_max - its minimum base quality) (default 0; needs sequence_quality).")] double? internal_wt_seq_qual = null,
+        [Description("PRIMER_INTERNAL_WT_END_QUAL: accepted for Primer3 compatibility; no effect (as in Primer3 2.3.1).")] double? internal_wt_end_qual = null,
+        [Description("PRIMER_PAIR_WT_IO_PENALTY: pair penalty weight of the internal-oligo penalty (default 0; non-zero requires pick_internal_oligo, as in Primer3).")] double? pair_wt_io_penalty = null,
+        [Description("PRIMER_MASK_TEMPLATE: mask the template with Primer3's k-mer masker (needs mask_kmers_11 and mask_kmers_16): primers whose 3' base is masked on their strand are rejected and each primer gets its predicted failure rate (reported as maskFailureRate; weight wt_mask_failure_rate). Default false.")] bool? mask_template = null,
+        [Description("The masker's 11-mer genome counts as a k-mer -> count object (the content of PRIMER_MASK_KMERLIST_PATH/<prefix>_11.list, e.g. a GenomeTester4 glistmaker list); k-mers absent here and as reverse complement count as 1.")] Dictionary<string, int>? mask_kmers_11 = null,
+        [Description("The masker's 16-mer genome counts (content of <prefix>_16.list), as mask_kmers_11.")] Dictionary<string, int>? mask_kmers_16 = null,
+        [Description("PRIMER_MASK_FAILURE_RATE: template positions where a primer would end with a predicted failure rate above this are masked (default 0.1; 0 = none).")] double? mask_failure_rate = null,
+        [Description("PRIMER_MASK_5P_DIRECTION: bases masked from such a 3' end towards the primer 5' end, including it (default 1).")] int? mask_5p_direction = null,
+        [Description("PRIMER_MASK_3P_DIRECTION: bases masked beyond such a 3' end (default 0).")] int? mask_3p_direction = null,
+        [Description("PRIMER_WT_MASK_FAILURE_RATE: per-primer penalty weight of the predicted failure rate (default 0; effective only with mask_template).")] double? wt_mask_failure_rate = null,
+        [Description("PRIMER_LOWERCASE_MASKING: reject primers and internal oligos whose 3'-terminal template base is lower case (a/c/g/t of the template as given; lower case elsewhere in an oligo is accepted). Default false; mask_template implies it.")] bool? lowercase_masking = null)
     {
         if (string.IsNullOrEmpty(template))
             throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
@@ -29,24 +106,277 @@ public class MolToolsTools
             throw new System.ArgumentException("Target end must be within the template.", nameof(target_end));
         if (target_start >= target_end)
             throw new System.ArgumentException("Target start must be strictly less than target end.", nameof(target_start));
+        if (num_return < 1)
+            throw new System.ArgumentException("num_return must be at least 1.", nameof(num_return));
+        if (!(max_tm_difference >= 0))
+            throw new System.ArgumentException("max_tm_difference must be non-negative.", nameof(max_tm_difference));
 
-        return PrimerDesigner.DesignPrimers(new DnaSequence(template), target_start, target_end, parameters);
+        if (min_three_prime_distance is not null && (min_left_three_prime_distance is not null || min_right_three_prime_distance is not null))
+            throw new System.ArgumentException(
+                "Both PRIMER_MIN_THREE_PRIME_DISTANCE and PRIMER_MIN_{LEFT/RIGHT}_THREE_PRIME_DISTANCE specified.", nameof(min_three_prime_distance));
+
+        parameters = ApplyPrimerConditions(parameters, salt_monovalent, salt_divalent, dntp_conc, dna_conc,
+            opt_gc_percent, wt_gc_percent_gt, wt_gc_percent_lt);
+        parameters = ApplyPrimerEndChecks(parameters, gc_clamp, max_end_gc, max_end_stability);
+        parameters = ApplyMisprimingLibrary(parameters, mispriming_library, max_library_mispriming,
+            wt_library_mispriming, lib_ambiguity_codes_consensus);
+        parameters = ApplyTemplateMispriming(parameters, thermodynamic_template_alignment, max_template_mispriming,
+            max_template_mispriming_th, wt_template_mispriming, wt_template_mispriming_th);
+        parameters = ApplyFractionBound(parameters, annealing_temp, min_bound, max_bound, opt_bound, wt_bound_gt, wt_bound_lt);
+        if (wt_pos_penalty is { } wtPos)
+        {
+            var p = parameters ?? PrimerDesigner.DefaultParameters;
+            parameters = p with { PenaltyWeights = (p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights) with { PositionPenalty = wtPos } };
+        }
+        parameters = ApplySequenceQuality(parameters, min_quality, min_end_quality, quality_range_min, quality_range_max,
+            wt_seq_qual, wt_end_qual);
+        if (wt_mask_failure_rate is { } wtMask)
+        {
+            var p = parameters ?? PrimerDesigner.DefaultParameters;
+            parameters = p with { PenaltyWeights = (p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights) with { MaskFailureRate = wtMask } };
+        }
+        var internalOligo = new ProbeDesigner.Primer3ProbeSettings(
+            MonovalentMillimolar: internal_salt_monovalent ?? PrimerDesigner.Primer3InternalMonovalentMillimolar,
+            DivalentMillimolar: internal_salt_divalent ?? PrimerDesigner.Primer3InternalDivalentMillimolar,
+            DntpMillimolar: internal_dntp_conc ?? PrimerDesigner.Primer3InternalDntpMillimolar,
+            DnaConcentrationNanomolar: internal_dna_conc ?? PrimerDesigner.Primer3InternalDnaConcentrationNanomolar)
+        {
+            OptGcPercent = internal_opt_gc_percent,
+            WeightGcPercentGt = internal_wt_gc_percent_gt ?? 0.0,
+            WeightGcPercentLt = internal_wt_gc_percent_lt ?? 0.0,
+            MishybLibrary = internal_mishyb_library is null ? null : new PrimerMisprimingLibrary(internal_mishyb_library),
+            MaxLibraryMishyb = internal_max_library_mishyb ?? PrimerDesigner.Primer3InternalMaxLibraryMishyb,
+            WeightLibraryMishyb = internal_wt_library_mishyb ?? 0.0,
+            MinBound = internal_min_bound ?? PrimerDesigner.Primer3MinBound,
+            MaxBound = internal_max_bound ?? PrimerDesigner.Primer3MaxBound,
+            OptBound = internal_opt_bound ?? PrimerDesigner.Primer3OptBound,
+            WeightBoundGt = internal_wt_bound_gt ?? 0.0,
+            WeightBoundLt = internal_wt_bound_lt ?? 0.0,
+            MinQuality = internal_min_quality ?? 0,
+            WeightSequenceQuality = internal_wt_seq_qual ?? 0.0,
+            WeightEndQuality = internal_wt_end_qual ?? 0.0,
+        };
+        var options = PrimerPairOptions.Default with
+        {
+            MaxTmDifference = max_tm_difference,
+            NumReturn = num_return,
+            PickInternalOligo = pick_internal_oligo,
+            InternalOligo = internalOligo,
+            MaxComplAny = pair_max_compl_any,
+            MaxComplEnd = pair_max_compl_end,
+            MinLeftThreePrimeDistance = min_left_three_prime_distance ?? min_three_prime_distance ?? -1,
+            MinRightThreePrimeDistance = min_right_three_prime_distance ?? min_three_prime_distance ?? -1,
+            MaxLibraryMispriming = pair_max_library_mispriming ?? PrimerDesigner.Primer3PairMaxLibraryMispriming,
+            MaxTemplateMispriming = pair_max_template_mispriming ?? PrimerDesigner.Primer3UndefinedTemplateMispriming,
+            MaxTemplateMisprimingTh = pair_max_template_mispriming_th ?? PrimerDesigner.Primer3UndefinedTemplateMispriming,
+            InsidePenalty = inside_penalty ?? PrimerDesigner.Primer3DefaultInsidePenalty,
+            OutsidePenalty = outside_penalty ?? PrimerDesigner.Primer3DefaultOutsidePenalty,
+            SequenceQuality = sequence_quality,
+            MaskTemplate = mask_template ?? false,
+            LowercaseMasking = lowercase_masking ?? false,
+            MaskKmerLists = mask_kmers_11 is null && mask_kmers_16 is null
+                ? null
+                : new PrimerMaskingKmerLists(mask_kmers_11 ?? new Dictionary<string, int>(), mask_kmers_16 ?? new Dictionary<string, int>()),
+            MaskFailureRate = mask_failure_rate ?? PrimerDesigner.Primer3MaskFailureRate,
+            MaskFivePrimeDirection = mask_5p_direction ?? PrimerDesigner.Primer3MaskFivePrimeDirection,
+            MaskThreePrimeDirection = mask_3p_direction ?? PrimerDesigner.Primer3MaskThreePrimeDirection,
+            Weights = new Primer3PairWeights(InternalOligoPenalty: pair_wt_io_penalty ?? 0.0)
+            {
+                LibraryMispriming = pair_wt_library_mispriming ?? 0.0,
+                TemplateMispriming = pair_wt_template_mispriming ?? 0.0,
+                TemplateMisprimingTh = pair_wt_template_mispriming_th ?? 0.0,
+            },
+        };
+        if (product_size_range is not null)
+            options = options with { ProductSizeRanges = ParseProductSizeRanges(product_size_range) };
+
+        // The case-preserving template overloads (PRIMER_LOWERCASE_MASKING); case is ignored otherwise.
+        var pairs = PrimerDesigner.DesignPrimerPairs(template, target_start, target_end, parameters, options);
+        var best = pairs.Count > 0 ? pairs[0] : PrimerDesigner.DesignPrimers(template, target_start, target_end, parameters, options);
+        return new DesignPrimersResult(
+            best.Forward, best.Reverse, best.IsValid, best.Message, best.ProductSize,
+            best.PairPenalty, best.ProductTm, best.ComplAnyTh, best.ComplEndTh, best.InternalOligo, pairs,
+            best.ComplAny, best.ComplEnd, best.LibraryMispriming, best.LibraryMisprimingName, best.TemplateMispriming);
     }
 
-    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm, longest homopolymer, hairpin potential, 3'-end stability, an issues list, validity flag and a numeric score. Call to QC one primer (position/strand are informational).")]
+    // Overlays the optional Primer3 sequence-quality settings (PRIMER_MIN_QUALITY, PRIMER_MIN_END_QUALITY,
+    // PRIMER_QUALITY_RANGE_MIN/MAX, PRIMER_WT_SEQ_QUAL, PRIMER_WT_END_QUAL); the library validates them (_pr_data_control).
+    private static PrimerParameters? ApplySequenceQuality(PrimerParameters? parameters, int? minQuality, int? minEndQuality,
+        int? rangeMin, int? rangeMax, double? wtSeqQual, double? wtEndQual)
+    {
+        if (minQuality is null && minEndQuality is null && rangeMin is null && rangeMax is null && wtSeqQual is null && wtEndQual is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        var w = p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights;
+        return p with
+        {
+            MinQuality = minQuality ?? p.MinQuality,
+            MinEndQuality = minEndQuality ?? p.MinEndQuality,
+            QualityRangeMin = rangeMin ?? p.QualityRangeMin,
+            QualityRangeMax = rangeMax ?? p.QualityRangeMax,
+            PenaltyWeights = wtSeqQual is null && wtEndQual is null
+                ? p.PenaltyWeights
+                : w with { SequenceQuality = wtSeqQual ?? w.SequenceQuality, EndQuality = wtEndQual ?? w.EndQuality },
+        };
+    }
+
+    // Overlays the optional Primer3 fraction-bound settings (PRIMER_ANNEALING_TEMP, PRIMER_MIN/MAX/OPT_BOUND,
+    // PRIMER_WT_BOUND_GT/LT); the library validates them (Primer3 _pr_data_control).
+    private static PrimerParameters? ApplyFractionBound(PrimerParameters? parameters, double? annealingTemp,
+        double? minBound, double? maxBound, double? optBound, double? wtBoundGt, double? wtBoundLt)
+    {
+        if (annealingTemp is null && minBound is null && maxBound is null && optBound is null && wtBoundGt is null && wtBoundLt is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        var w = p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights;
+        return p with
+        {
+            AnnealingTemperature = annealingTemp ?? p.AnnealingTemperature,
+            MinBound = minBound ?? p.MinBound,
+            MaxBound = maxBound ?? p.MaxBound,
+            OptBound = optBound ?? p.OptBound,
+            PenaltyWeights = wtBoundGt is null && wtBoundLt is null
+                ? p.PenaltyWeights
+                : w with { BoundGt = wtBoundGt ?? w.BoundGt, BoundLt = wtBoundLt ?? w.BoundLt },
+        };
+    }
+
+    // Overlays the optional Primer3 template-mispriming settings (PRIMER_THERMODYNAMIC_TEMPLATE_ALIGNMENT,
+    // PRIMER_MAX_TEMPLATE_MISPRIMING[_TH], PRIMER_WT_TEMPLATE_MISPRIMING[_TH]); the library validates them.
+    private static PrimerParameters? ApplyTemplateMispriming(PrimerParameters? parameters, bool? thermodynamic,
+        double? maxTemplate, double? maxTemplateTh, double? wtTemplate, double? wtTemplateTh)
+    {
+        if (thermodynamic is null && maxTemplate is null && maxTemplateTh is null && wtTemplate is null && wtTemplateTh is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        var w = p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights;
+        return p with
+        {
+            ThermodynamicTemplateAlignment = thermodynamic ?? p.ThermodynamicTemplateAlignment,
+            MaxTemplateMispriming = maxTemplate ?? p.MaxTemplateMispriming,
+            MaxTemplateMisprimingTh = maxTemplateTh ?? p.MaxTemplateMisprimingTh,
+            PenaltyWeights = wtTemplate is null && wtTemplateTh is null
+                ? p.PenaltyWeights
+                : w with
+                {
+                    TemplateMispriming = wtTemplate ?? w.TemplateMispriming,
+                    TemplateMisprimingTh = wtTemplateTh ?? w.TemplateMisprimingTh,
+                },
+        };
+    }
+
+    // Overlays the optional Primer3 mispriming library (PRIMER_MISPRIMING_LIBRARY as primer3-py's name → sequence
+    // misprime_lib), PRIMER_MAX_LIBRARY_MISPRIMING, PRIMER_WT_LIBRARY_MISPRIMING and PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS;
+    // the library builds and validates the entries (Primer3 add_seq_to_seq_lib / _pr_data_control).
+    private static PrimerParameters? ApplyMisprimingLibrary(PrimerParameters? parameters,
+        Dictionary<string, string>? library, double? maxLibraryMispriming, double? wtLibraryMispriming, bool? consensus)
+    {
+        if (library is null && maxLibraryMispriming is null && wtLibraryMispriming is null && consensus is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        var w = p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights;
+        return p with
+        {
+            MisprimingLibrary = library is null ? p.MisprimingLibrary : new PrimerMisprimingLibrary(library),
+            MaxLibraryMispriming = maxLibraryMispriming ?? p.MaxLibraryMispriming,
+            LibraryAmbiguityCodesConsensus = consensus ?? p.LibraryAmbiguityCodesConsensus,
+            PenaltyWeights = wtLibraryMispriming is null ? p.PenaltyWeights : w with { LibraryMispriming = wtLibraryMispriming.Value },
+        };
+    }
+
+    // Overlays the optional Primer3 reaction-condition / GC-optimum arguments on the given (or library default)
+    // parameters; the library validates them (Primer3 _pr_data_control).
+    private static PrimerParameters? ApplyPrimerConditions(PrimerParameters? parameters,
+        double? saltMonovalent, double? saltDivalent, double? dntpConc, double? dnaConc,
+        double? optGcPercent, double? wtGcPercentGt, double? wtGcPercentLt)
+    {
+        if (saltMonovalent is null && saltDivalent is null && dntpConc is null && dnaConc is null
+            && optGcPercent is null && wtGcPercentGt is null && wtGcPercentLt is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        var w = p.PenaltyWeights ?? PrimerDesigner.DefaultPrimer3Weights;
+        return p with
+        {
+            MonovalentMillimolar = saltMonovalent ?? p.MonovalentMillimolar,
+            DivalentMillimolar = saltDivalent ?? p.DivalentMillimolar,
+            DntpMillimolar = dntpConc ?? p.DntpMillimolar,
+            DnaConcentrationNanomolar = dnaConc ?? p.DnaConcentrationNanomolar,
+            OptimalGcPercent = optGcPercent ?? p.OptimalGcPercent,
+            PenaltyWeights = wtGcPercentGt is null && wtGcPercentLt is null
+                ? p.PenaltyWeights
+                : w with { GcGt = wtGcPercentGt ?? w.GcGt, GcLt = wtGcPercentLt ?? w.GcLt },
+        };
+    }
+
+    // Overlays the optional Primer3 3'-end checks (PRIMER_GC_CLAMP, PRIMER_MAX_END_GC, PRIMER_MAX_END_STABILITY);
+    // the library validates them (Primer3 _pr_data_control).
+    private static PrimerParameters? ApplyPrimerEndChecks(PrimerParameters? parameters,
+        int? gcClamp, int? maxEndGc, double? maxEndStability)
+    {
+        if (gcClamp is null && maxEndGc is null && maxEndStability is null)
+            return parameters;
+        var p = parameters ?? PrimerDesigner.DefaultParameters;
+        return p with
+        {
+            GcClamp = gcClamp ?? p.GcClamp,
+            MaxEndGc = maxEndGc ?? p.MaxEndGc,
+            MaxEndStability = maxEndStability ?? p.MaxEndStability,
+        };
+    }
+
+    // Primer3 PRIMER_PRODUCT_SIZE_RANGE syntax: space-separated "min-max" ranges.
+    private static List<ProductSizeRange> ParseProductSizeRanges(string text)
+    {
+        var ranges = new List<ProductSizeRange>();
+        foreach (var token in text.Split(new[] { ' ', ',', ';' }, System.StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = token.Split('-');
+            if (parts.Length != 2
+                || !int.TryParse(parts[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int min)
+                || !int.TryParse(parts[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int max)
+                || min < 1 || max < min)
+                throw new System.ArgumentException($"Invalid product size range '{token}' (expected min-max with 1 <= min <= max).", nameof(text));
+            ranges.Add(new ProductSizeRange(min, max));
+        }
+        if (ranges.Count == 0)
+            throw new System.ArgumentException("product_size_range must contain at least one min-max range.", nameof(text));
+        return ranges;
+    }
+
+    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm (Primer3-default SantaLucia 1998 NN Tm), longest homopolymer, the Primer3 thermodynamic secondary-structure Tm values (hairpinTh / selfAnyTh / selfEndTh = primer3 calc_hairpin / calc_homodimer / calc_end_stability Tm at the reaction conditions salt_monovalent / salt_divalent / dntp_conc / dna_conc, Primer3 defaults 50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP, 50 nM; hasHairpin = hairpinTh > 47 °C, PRIMER_MAX_HAIRPIN_TH), 3'-end stability, an issues list, validity flag, an informational numeric score and the Primer3 per-primer penalty. With parameters.StructureScreen = Primer3Alignment (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0) the structure values are instead Primer3's dpal alignment scores selfAny / selfEnd (PRIMER_SELF_ANY / PRIMER_SELF_END, limits parameters.MaxSelfAny 8 / MaxSelfEnd 3). With annealing_temp > 0 (PRIMER_ANNEALING_TEMP) the Primer3 fraction bound at that temperature is reported as bound, checked against min_bound / max_bound and weighted into the penalty (wt_bound_gt/lt around opt_bound). Call to QC one primer (position/strand are informational).")]
     public static PrimerCandidate evaluate_primer(
         [Description("Primer sequence to evaluate.")] string sequence,
         [Description("0-based location of the primer in the template (informational).")] int position,
         [Description("True if this is a forward primer; false for reverse.")] bool is_forward,
-        [Description("Optional primer design parameters.")] PrimerParameters? parameters = null)
+        [Description("Optional primer design parameters.")] PrimerParameters? parameters = null,
+        [Description("PRIMER_SALT_MONOVALENT: monovalent cation concentration in mM (> 0) for the Tm and ntthal structure values (default 50).")] double? salt_monovalent = null,
+        [Description("PRIMER_SALT_DIVALENT: Mg2+ concentration in mM (>= 0; default 1.5).")] double? salt_divalent = null,
+        [Description("PRIMER_DNTP_CONC: dNTP concentration in mM (>= 0; default 0.6).")] double? dntp_conc = null,
+        [Description("PRIMER_DNA_CONC: primer concentration in nM (> 0; default 50).")] double? dna_conc = null,
+        [Description("PRIMER_OPT_GC_PERCENT: GC optimum of the GC penalty terms (default undefined, as in Primer3's code; required when wt_gc_percent_gt/lt != 0 - Primer3 'Primer GC content is part of objective function while optimum gc_content is not defined').")] double? opt_gc_percent = null,
+        [Description("PRIMER_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0).")] double? wt_gc_percent_gt = null,
+        [Description("PRIMER_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).")] double? wt_gc_percent_lt = null,
+        [Description("PRIMER_GC_CLAMP: number of consecutive G/C required at the 3' end (default 0).")] int? gc_clamp = null,
+        [Description("PRIMER_MAX_END_GC: maximum G/C among the five 3'-most bases (0-5; default 5 = no limit).")] int? max_end_gc = null,
+        [Description("PRIMER_MAX_END_STABILITY: maximum 3' end stability (-dG of the 3' pentamer, kcal/mol, >= 0; default 100 = no limit).")] double? max_end_stability = null,
+        [Description("PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 the fraction bound at this temperature is reported as bound and checked against min_bound / max_bound.")] double? annealing_temp = null,
+        [Description("PRIMER_MIN_BOUND: minimum fraction bound, % (default -10; only with annealing_temp > 0).")] double? min_bound = null,
+        [Description("PRIMER_MAX_BOUND: maximum fraction bound, % (default 110; only with annealing_temp > 0).")] double? max_bound = null,
+        [Description("PRIMER_OPT_BOUND: optimum fraction bound of the bound penalty terms, % (default 97).")] double? opt_bound = null,
+        [Description("PRIMER_WT_BOUND_GT: penalty weight of the fraction bound above opt_bound (default 0; only with annealing_temp > 0).")] double? wt_bound_gt = null,
+        [Description("PRIMER_WT_BOUND_LT: penalty weight of the fraction bound below opt_bound (default 0; only with annealing_temp > 0).")] double? wt_bound_lt = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
 
+        parameters = ApplyPrimerConditions(parameters, salt_monovalent, salt_divalent, dntp_conc, dna_conc,
+            opt_gc_percent, wt_gc_percent_gt, wt_gc_percent_lt);
+        parameters = ApplyPrimerEndChecks(parameters, gc_clamp, max_end_gc, max_end_stability);
+        parameters = ApplyFractionBound(parameters, annealing_temp, min_bound, max_bound, opt_bound, wt_bound_gt, wt_bound_lt);
         return PrimerDesigner.EvaluatePrimer(sequence, position, is_forward, parameters);
     }
 
-    [McpServerTool(Name = "primer_melting_temperature", Title = "MolTools — Primer Melting Temperature", ReadOnly = true), Description("Computes a primer's melting temperature (Tm, °C): Wallace rule Tm = 2·(A+T) + 4·(G+C) for < 14 valid bases, or Marmur–Doty Tm = 64.9 + 41·(GC−16.4)/N for ≥ 14 valid bases. Non-ACGT characters are ignored. Call for a quick Tm estimate of a short oligo/primer.")]
+    [McpServerTool(Name = "primer_melting_temperature", Title = "MolTools — Primer Melting Temperature", ReadOnly = true), Description("Computes a primer's melting temperature (Tm, °C): Wallace rule Tm = 2·(A+T) + 4·(G+C) for < 14 valid bases, or Marmur–Doty Tm = 64.9 + 41·(GC−16.4)/N for ≥ 14 valid bases. A/C/G/T/U are counted (U read as T, as Biopython); other characters are ignored. Call for a quick Tm estimate of a short oligo/primer.")]
     public static TmResult primer_melting_temperature(
         [Description("Primer sequence.")] string primer)
     {
@@ -56,7 +386,7 @@ public class MolToolsTools
         return new TmResult(PrimerDesigner.CalculateMeltingTemperature(primer));
     }
 
-    [McpServerTool(Name = "primer_melting_temperature_salt", Title = "MolTools — Salt-Corrected Primer Tm", ReadOnly = true), Description("Primer Tm with a Schildkraut–Lifson salt correction: adds 16.6·log10([Na+]/1000) to the Wallace/Marmur–Doty Tm, rounded to one decimal. Call when a monovalent-cation ([Na+]) adjusted primer Tm is needed. Na+ concentration is in mM (default 50).")]
+    [McpServerTool(Name = "primer_melting_temperature_salt", Title = "MolTools — Salt-Corrected Primer Tm", ReadOnly = true), Description("Salt-adjusted primer Tm (OligoCalc, Kibbe 2007): < 14 valid bases Tm = 2·(A+T) + 4·(G+C) + 16.6·log10([Na+]/0.050 M); ≥ 14 valid bases Tm = 100.5 + 41·(G+C)/N − 820/N + 16.6·log10([Na+] M); rounded to one decimal. Call when a monovalent-cation ([Na+]) adjusted primer Tm is needed. Na+ concentration is in mM (default 50).")]
     public static TmResult primer_melting_temperature_salt(
         [Description("Primer sequence.")] string primer,
         [Description("Na+ concentration in mM (default 50).")] double na_concentration = 50)
@@ -69,7 +399,7 @@ public class MolToolsTools
         return new TmResult(PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, na_concentration));
     }
 
-    [McpServerTool(Name = "longest_homopolymer", Title = "MolTools — Longest Homopolymer Run", ReadOnly = true), Description("Returns the length of the longest run of identical consecutive nucleotides (e.g. AAAA = 4) in a sequence, case-insensitive. Call to flag homopolymer stretches that hurt primer/probe quality.")]
+    [McpServerTool(Name = "longest_homopolymer", Title = "MolTools — Longest Homopolymer Run", ReadOnly = true), Description("Returns the length of the longest run of identical consecutive nucleotides (e.g. AAAA = 4) in a sequence, case-insensitive — the quantity Primer3 limits with PRIMER_MAX_POLY_X; as in Primer3, N counts as the worst-case base (ANA = 3). Call to flag homopolymer stretches that hurt primer/probe quality.")]
     public static HomopolymerLengthResult longest_homopolymer(
         [Description("Nucleotide sequence.")] string sequence)
     {
@@ -105,49 +435,36 @@ public class MolToolsTools
         return new HairpinPotentialResult(PrimerDesigner.HasHairpinPotential(sequence, min_stem_length, min_loop_length));
     }
 
-    [McpServerTool(Name = "primer_dimer", Title = "MolTools — Primer-Dimer Check", ReadOnly = true), Description("Heuristic 3'-end primer-dimer check between two primers: reverse-complements primer2 and counts complementary positions in an up-to-8-bp 3'-end window. Flags a dimer when at least min_complementarity positions are complementary. Returns the boolean flag plus the complementary-base count. Call to screen a primer pair for 3'-dimer formation.")]
+    [McpServerTool(Name = "primer_dimer", Title = "MolTools — Primer-Dimer Check", ReadOnly = true), Description("Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END with PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0): the 3'-anchored dpal alignment score of each primer against the other's reverse complement (+1 per complementary pair, -1 mismatch, -2 per single-base gap; max of both orientations). Flags a dimer when the score is at least min_complementarity (default 4 = Primer3's default PRIMER_PAIR_MAX_COMPL_END 3.00 exceeded). Returns the flag, the integer score and the exact score, plus complAnyScore = Primer3 alignment-mode PRIMER_PAIR_COMPL_ANY (dpal local alignment of primer1 with the reverse complement of primer2, same scoring; Primer3 default limit PRIMER_PAIR_MAX_COMPL_ANY 8.00). Call to screen a primer pair for 3'-dimer formation; for Primer3's default thermodynamic check use the C# API PrimerDesigner.CalculatePrimer3PairComplementarity.")]
     public static PrimerDimerResult primer_dimer(
-        [Description("First primer sequence.")] string primer1,
-        [Description("Second primer sequence.")] string primer2,
-        [Description("Minimum number of complementary 3'-end bases to flag a dimer (default 4).")] int min_complementarity = 4)
+        [Description("First primer sequence (5'->3').")] string primer1,
+        [Description("Second primer sequence (5'->3').")] string primer2,
+        [Description("Minimum 3'-end complementarity score to flag a dimer (default 4).")] int min_complementarity = 4)
     {
         if (string.IsNullOrEmpty(primer1))
             throw new System.ArgumentException("First primer cannot be null or empty.", nameof(primer1));
         if (string.IsNullOrEmpty(primer2))
             throw new System.ArgumentException("Second primer cannot be null or empty.", nameof(primer2));
 
-        bool hasDimer = PrimerDesigner.HasPrimerDimer(primer1, primer2, min_complementarity);
-
-        // Count complementary 3'-end positions (mirrors the inner loop in HasPrimerDimer).
-        int complementary = 0;
-        if (!string.IsNullOrEmpty(primer1) && !string.IsNullOrEmpty(primer2))
-        {
-            string seq1 = primer1.ToUpperInvariant();
-            string seq2 = DnaSequence.GetReverseComplementString(primer2.ToUpperInvariant());
-            int checkLength = System.Math.Min(8, System.Math.Min(seq1.Length, seq2.Length));
-            string end1 = seq1.Substring(seq1.Length - checkLength);
-            string end2 = seq2.Substring(0, checkLength);
-            for (int i = 0; i < checkLength; i++)
-            {
-                if (IsComplementary(end1[i], end2[i]))
-                    complementary++;
-            }
-        }
-        return new PrimerDimerResult(hasDimer, complementary);
-
-        static bool IsComplementary(char c1, char c2) =>
-            (c1 == 'A' && c2 == 'T') || (c1 == 'T' && c2 == 'A') ||
-            (c1 == 'G' && c2 == 'C') || (c1 == 'C' && c2 == 'G');
+        double score = PrimerDesigner.CalculatePrimerDimerEndComplementarity(primer1, primer2);
+        return new PrimerDimerResult(
+            PrimerDesigner.HasPrimerDimer(primer1, primer2, min_complementarity),
+            (int)System.Math.Floor(score),
+            score,
+            PrimerDesigner.CalculatePrimerDimerAnyComplementarity(primer1, primer2));
     }
 
-    [McpServerTool(Name = "three_prime_stability", Title = "MolTools — Primer 3' End Stability (ΔG°37)", ReadOnly = true), Description("SantaLucia (1998) nearest-neighbor ΔG°37 (kcal/mol) of a primer's last 5 bases, including initiation terms (1 M NaCl), matching Primer3 PRIMER_MAX_END_STABILITY. More negative ΔG = a more stable (more problematic) 3' end. Sequences shorter than 5 bases return 0. Call to assess primer 3'-end stability for mispriming risk.")]
+    [McpServerTool(Name = "three_prime_stability", Title = "MolTools — Primer 3' End Stability (ΔG°37)", ReadOnly = true), Description("Primer3 3'-end stability (oligotm.c end_oligodg): SantaLucia (1998) nearest-neighbor ΔG°37 (kcal/mol, 1 M NaCl) of the primer's last 5 bases (the whole primer if shorter), with initiation (+1.96, +0.05 per terminal A·T, +0.43 if self-complementary). Primer3 reports the same magnitude with the opposite sign as PRIMER_*_END_STABILITY. More negative ΔG = a more stable (more problematic) 3' end. N is accepted (Primer3 N parameters); other characters in the 3' window are rejected. Call to assess primer 3'-end stability for mispriming risk.")]
     public static ThreePrimeStabilityResult three_prime_stability(
         [Description("Primer sequence.")] string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
 
-        return new ThreePrimeStabilityResult(PrimerDesigner.Calculate3PrimeStability(sequence));
+        double dg = PrimerDesigner.Calculate3PrimeStability(sequence);
+        if (double.IsNaN(dg))
+            throw new System.ArgumentException("The 3'-terminal 5 bases may contain only A, C, G, T or N.", nameof(sequence));
+        return new ThreePrimeStabilityResult(dg);
     }
 
     [McpServerTool(Name = "generate_primer_candidates", Title = "MolTools — Generate Primer Candidates", ReadOnly = true), Description("Enumerates all primer candidates of admissible lengths (parameters.MinLength..MaxLength) at every start position within a region of the template and evaluates each one (candidates are emitted in generation order, NOT sorted by score). region_start is 0-based inclusive, region_end is exclusive; for a reverse request each candidate sequence is the reverse complement of the template substring. Useful when the caller wants the full candidate set to pick by custom criteria.")]
@@ -318,7 +635,7 @@ public class MolToolsTools
         return new RscuResult(CodonUsageAnalyzer.CalculateRscu(sequence));
     }
 
-    [McpServerTool(Name = "codon_adaptation_index", Title = "MolTools — Codon Adaptation Index (RSCU)", ReadOnly = true), Description("Codon Adaptation Index (Sharp & Li 1987) using a caller-supplied reference RSCU table (typically derived from highly expressed genes), codons in the DNA alphabet. Output range 0..1; per-codon relative adaptiveness w = RSCU/max-synonymous-RSCU, and CAI is their geometric mean. Single-codon amino acids (Met/Trp), stop codons, and codons with w=0 are excluded. Call to score how well a gene matches an organism's preferred codons given an RSCU reference (distinct from cai_from_organism_table, which takes a frequency table).")]
+    [McpServerTool(Name = "codon_adaptation_index", Title = "MolTools — Codon Adaptation Index (RSCU)", ReadOnly = true), Description("Codon Adaptation Index (Sharp & Li 1987) using a caller-supplied reference RSCU table (typically derived from highly expressed genes), codons in the DNA alphabet. Output range 0..1; per-codon relative adaptiveness w = RSCU/max-synonymous-RSCU, and CAI is their geometric mean. Single-codon amino acids (Met/Trp) and stop codons are excluded; a codon with w < 0.0001 (absent from the reference) is scored with w = 0.01 (CodonW convention); non-ACGT(U) triplets are skipped. Call to score how well a gene matches an organism's preferred codons given an RSCU reference (distinct from cai_from_organism_table, which takes a frequency table).")]
     public static CaiResult codon_adaptation_index(
         [Description("Coding DNA sequence (frame 0).")] string sequence,
         [Description("Reference RSCU table: codon (DNA alphabet) → RSCU value.")] Dictionary<string, double> reference_rscu)
@@ -331,7 +648,7 @@ public class MolToolsTools
         return new CaiResult(CodonUsageAnalyzer.CalculateCai(sequence, reference_rscu));
     }
 
-    [McpServerTool(Name = "effective_number_of_codons", Title = "MolTools — Effective Number of Codons (ENC)", ReadOnly = true), Description("Effective Number of Codons (Wright's Nc), measuring how far a gene departs from uniform synonymous-codon usage. Result is clamped to 20..61 (20 = extreme bias, 61 = no bias). Call to summarise a gene's overall codon bias with a single number.")]
+    [McpServerTool(Name = "effective_number_of_codons", Title = "MolTools — Effective Number of Codons (ENC)", ReadOnly = true), Description("Effective Number of Codons (Wright 1990 Nc; CodonW enc_out conventions), measuring how far a gene departs from uniform synonymous-codon usage under the standard genetic code. Range 20..61 (20 = extreme bias, 61 = no bias; overshoot re-adjusted to 61). Amino acids seen once, or with every observed codon used once, are not estimable; a missing isoleucine class is replaced by the mean of the 2- and 4-fold classes. Returns 0 when Nc cannot be calculated (some other synonymous class has no estimable amino acid - gene too short or amino-acid usage too skewed; CodonW prints *****). DNA or RNA, case-insensitive; non-ACGT(U) triplets are skipped. Call to summarise a gene's overall codon bias with a single number.")]
     public static EncResult effective_number_of_codons(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
@@ -341,7 +658,7 @@ public class MolToolsTools
         return new EncResult(CodonUsageAnalyzer.CalculateEnc(sequence));
     }
 
-    [McpServerTool(Name = "codon_usage_statistics", Title = "MolTools — Codon-Usage Statistics", ReadOnly = true), Description("Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC), total codons, GC% at codon positions 1/2/3, GC3s (synonymous third-position GC), and overall GC. Call for a one-shot codon-usage summary of a gene.")]
+    [McpServerTool(Name = "codon_usage_statistics", Title = "MolTools — Codon-Usage Statistics", ReadOnly = true), Description("Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC; 0 when not calculable, see effective_number_of_codons), total codons, GC% at codon positions 1/2/3, GC3s (synonymous third-position GC), and overall GC. Call for a one-shot codon-usage summary of a gene.")]
     public static CodonUsageStatistics codon_usage_statistics(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
@@ -355,7 +672,7 @@ public class MolToolsTools
 
     #region CodonOptimizer
 
-    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. Note: HarmonizeExpression is non-deterministic (weighted-random).")]
+    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. HarmonizeExpression matches the target codon-usage profile as closely as integer codon counts allow (DNA Chisel match_codon_usage) and is deterministic.")]
     public static OptimizationResultDto optimize_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: a preset id (EColiK12 | Yeast | Human) or an inline custom table (organismName + codonFrequencies in RNA alphabet).")] CodonUsageTableInput target_organism,
@@ -387,7 +704,7 @@ public class MolToolsTools
             result.Changes.Select(c => new CodonChange(c.Position, c.Original, c.Optimized)).ToList());
     }
 
-    [McpServerTool(Name = "cai_from_organism_table", Title = "MolTools — CAI from Codon-Usage Table", ReadOnly = true), Description("Computes the Codon Adaptation Index (Sharp & Li 1987) for a coding sequence against an organism codon-usage FREQUENCY table (distinct from codon_adaptation_index, which takes a reference RSCU dictionary). CAI is the geometric mean of per-codon relative adaptiveness w = f(codon)/max f(synonymous). Codons without synonymous-group data are skipped; w is clamped at 1e-6 to avoid ln(0) on incomplete custom tables. Call when scoring how well a gene matches an organism's preferred codons.")]
+    [McpServerTool(Name = "cai_from_organism_table", Title = "MolTools — CAI from Codon-Usage Table", ReadOnly = true), Description("Computes the Codon Adaptation Index (Sharp & Li 1987) for a coding sequence against an organism codon-usage FREQUENCY table (distinct from codon_adaptation_index, which takes a reference RSCU dictionary). CAI is the geometric mean of per-codon relative adaptiveness w = f(codon)/max f(synonymous). Stop codons and single-codon amino acids (Met/Trp) are excluded (Sharp & Li; CodonW); a codon with w < 0.0001 (absent from the table while a synonym is present) is scored with w = 0.01 (CodonW); amino acids without frequency data are skipped. Same core as codon_adaptation_index. Call when scoring how well a gene matches an organism's preferred codons.")]
     public static CaiResult cai_from_organism_table(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id (EColiK12 | Yeast | Human) or inline custom table.")] CodonUsageTableInput target_organism)
@@ -399,7 +716,7 @@ public class MolToolsTools
         return new CaiResult(CodonOptimizer.CalculateCAI(coding_sequence, table));
     }
 
-    [McpServerTool(Name = "remove_restriction_sites", Title = "MolTools — Remove Restriction Sites", ReadOnly = true), Description("Synonymously rewrites codons to eliminate the listed restriction recognition sequences from a coding sequence while preserving the encoded protein (RNA-alphabet output). Site strings may be DNA or RNA; sites with no synonymous alternative are left in place. Call to make a gene compatible with a cloning strategy.")]
+    [McpServerTool(Name = "remove_restriction_sites", Title = "MolTools — Remove Restriction Sites", ReadOnly = true), Description("Synonymously rewrites codons to eliminate the listed restriction recognition sequences from a coding sequence while preserving the encoded protein (RNA-alphabet output). Site strings may be DNA or RNA and may contain IUPAC ambiguity codes; both strands are cleared (a non-palindromic site such as BsaI GGTCTC is also removed where its reverse complement occurs); each removal changes exactly one codon, choosing the highest-frequency synonymous codon in the supplied table; sites with no synonymous alternative are left in place. Call to make a gene compatible with a cloning strategy.")]
     public static OptimizedSequenceResult remove_restriction_sites(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Restriction recognition sequences to eliminate.")] string[] restriction_sites,
@@ -414,7 +731,7 @@ public class MolToolsTools
         return new OptimizedSequenceResult(CodonOptimizer.RemoveRestrictionSites(coding_sequence, restriction_sites, table));
     }
 
-    [McpServerTool(Name = "reduce_secondary_structure", Title = "MolTools — Reduce mRNA Secondary Structure", ReadOnly = true), Description("Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score within a sliding window, reducing mRNA secondary structure while preserving the protein. Sequences shorter than window_size are returned unchanged. Call to relax strong secondary structure in a coding sequence.")]
+    [McpServerTool(Name = "reduce_secondary_structure", Title = "MolTools — Reduce mRNA Secondary Structure", ReadOnly = true), Description("Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score (canonical pairs incl. G\u00b7U wobble) within a sliding window, reducing mRNA secondary structure while preserving the protein. Output is upper-case RNA trimmed to whole codons; sequences shorter than window_size are returned unchanged apart from that normalisation. Heuristic only \u2014 not a thermodynamic folding model (see rna_minimum_free_energy for that). Call to relax strong secondary structure in a coding sequence.")]
     public static OptimizedSequenceResult reduce_secondary_structure(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
@@ -429,7 +746,7 @@ public class MolToolsTools
         return new OptimizedSequenceResult(CodonOptimizer.ReduceSecondaryStructure(coding_sequence, table, window_size));
     }
 
-    [McpServerTool(Name = "find_rare_codons", Title = "MolTools — Find Rare Codons", ReadOnly = true), Description("Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15), with its 0-based position, codon (RNA), amino acid and frequency. Call to locate translation-slowing rare codons before optimization.")]
+    [McpServerTool(Name = "find_rare_codons", Title = "MolTools — Find Rare Codons", ReadOnly = true), Description("Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15), with its 0-based position, codon (RNA), amino acid (Standard code, * for stop) and frequency. Frame-0 complete triplets only; ambiguous triplets (N, R, Y, …) are skipped without shifting the frame. Call to locate translation-slowing rare codons before optimization.")]
     public static RareCodonsResult find_rare_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
@@ -458,7 +775,7 @@ public class MolToolsTools
         return new SimilarityResult(CodonOptimizer.CompareCodonUsage(sequence1, sequence2));
     }
 
-    [McpServerTool(Name = "build_codon_table", Title = "MolTools — Build Codon-Usage Table", ReadOnly = true), Description("Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alphabet, U not T). Call when the user wants a custom codon-usage table built from their own reference gene(s).")]
+    [McpServerTool(Name = "build_codon_table", Title = "MolTools — Build Codon-Usage Table", ReadOnly = true), Description("Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alphabet, U not T). All 64 codons are returned: a codon absent from the reference set is counted as 0.5 (Sharp & Li 1987, as in Biopython CodonAdaptationIndex), so the relative adaptiveness derived from the table matches Biopython exactly. Call when the user wants a custom codon-usage table built from their own reference gene(s).")]
     public static CodonUsageTableDto build_codon_table(
         [Description("Reference coding sequence (DNA or RNA).")] string reference_sequence,
         [Description("Organism name to attach to the resulting table.")] string organism_name)
@@ -477,9 +794,9 @@ public class MolToolsTools
 
     /// <summary>
     /// Resolves a <see cref="CodonUsageTableInput"/> (preset id or inline custom
-    /// table) to a <see cref="CodonOptimizer.CodonUsageTable"/>. For inline tables,
-    /// supplies an empty <c>CodonToAminoAcid</c> dictionary because the underlying
-    /// optimizer never reads that field (translation uses its private genetic-code map).
+    /// table) to a <see cref="CodonOptimizer.CodonUsageTable"/>. Inline tables are built with
+    /// <see cref="CodonOptimizer.CreateCodonUsageTable"/>, so they carry the canonical Standard
+    /// genetic-code mapping in <c>CodonToAminoAcid</c> just like the presets.
     /// </summary>
     private static CodonOptimizer.CodonUsageTable ResolveCodonUsageTable(CodonUsageTableInput input)
     {
@@ -503,10 +820,9 @@ public class MolToolsTools
                 "CodonUsageTableInput must provide either a preset or a custom codonFrequencies table.",
                 nameof(input));
 
-        return new CodonOptimizer.CodonUsageTable(
+        return CodonOptimizer.CreateCodonUsageTable(
             input.OrganismName ?? "Custom",
-            new Dictionary<string, double>(input.CodonFrequencies),
-            new Dictionary<string, string>());
+            input.CodonFrequencies);
     }
 
     #endregion
@@ -520,7 +836,7 @@ public class MolToolsTools
         return CrisprDesigner.GetSystem(system_type);
     }
 
-    [McpServerTool(Name = "find_pam_sites", Title = "MolTools — Find CRISPR PAM Sites", ReadOnly = true), Description("Finds all PAM matches (forward + reverse strand) for the chosen CRISPR system. PAM matching honours IUPAC codes (e.g. NGG, NNGRRT, TTTV). Each site reports the PAM, the adjacent guide/target window, its position and strand; sites whose target window falls outside the sequence are skipped. Call to enumerate targetable protospacers in a sequence.")]
+    [McpServerTool(Name = "find_pam_sites", Title = "MolTools — Find CRISPR PAM Sites", ReadOnly = true), Description("Finds all PAM matches (forward + reverse strand) for the chosen CRISPR system. PAM matching honours IUPAC codes (e.g. NGG, NNGRRT, TTTV). Each site reports the PAM, the adjacent guide/target window, its position and strand; sites whose target window falls outside the sequence are skipped. Coordinates (position, targetStart) are always 0-based forward-strand; the PAM and guide sequences are read on the protospacer strand (CRISPOR convention). Call to enumerate targetable protospacers in a sequence.")]
     public static PamSitesResult find_pam_sites(
         [Description("DNA sequence to scan.")] string sequence,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
@@ -532,13 +848,13 @@ public class MolToolsTools
         return new PamSitesResult(sites);
     }
 
-    [McpServerTool(Name = "design_guide_rnas", Title = "MolTools — Design CRISPR Guide RNAs", ReadOnly = true), Description("Generates and scores guide-RNA candidates whose Cas9/Cas12a cut site falls inside the requested region. Candidates scoring below parameters.MinScore are filtered out. Region indices are 0-based; region_end is inclusive and must satisfy 0 <= region_start <= region_end < sequence.Length. Call to enumerate high-quality guides targeting a locus.")]
+    [McpServerTool(Name = "design_guide_rnas", Title = "MolTools — Design CRISPR Guide RNAs", ReadOnly = true), Description("Generates and scores guide-RNA candidates whose Cas9/Cas12a cut site falls inside the requested region, ranked best-first. The cut site follows the CRISPOR convention: 3 bp 5\u0027 of the PAM on the PAM-bearing strand for Cas9, after the 18th protospacer base for Cas12a - on both strands. Candidates scoring below parameters.MinScore are filtered out. 20-nt NGG guides with 4 nt of 5\u0027 and 3 nt of 3\u0027 flanking context additionally report context30Mer and onTargetScore (the published Doench 2016 Rule Set 2 / Azimuth on-target efficacy score, 0..1), and parameters.ranking = OnTargetRuleSet2 ranks by it; grafMotif flags the Graf 2019 TT-/GCC- inefficiency motifs. Region indices are 0-based; region_end is inclusive and must satisfy 0 <= region_start <= region_end < sequence.Length. Call to enumerate high-quality guides targeting a locus.")]
     public static GuideRnasResult design_guide_rnas(
         [Description("DNA sequence containing the target region.")] string sequence,
         [Description("0-based start of the target region.")] int region_start,
         [Description("0-based inclusive end of the target region.")] int region_end,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
-        [Description("Optional guide-RNA design parameters (minGcContent, maxGcContent, minScore, avoidPolyT, checkSelfComplementarity). Defaults are used when null.")] GuideRnaParameters? parameters = null)
+        [Description("Optional guide-RNA design parameters (minGcContent, maxGcContent, minScore, avoidPolyT, checkSelfComplementarity, ranking). Defaults are used when null.")] GuideRnaParameters? parameters = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
@@ -553,7 +869,7 @@ public class MolToolsTools
         return new GuideRnasResult(guides);
     }
 
-    [McpServerTool(Name = "evaluate_guide_rna", Title = "MolTools — Evaluate Guide RNA", ReadOnly = true), Description("Scores a single guide RNA against on-target quality heuristics: overall GC%, seed-region GC%, polyT (Pol III terminator) presence, self-complementarity, and common-restriction-site presence; returns a 0..100 score plus an issues list. Position is -1 for ad-hoc evaluation. Call to QC one guide sequence.")]
+    [McpServerTool(Name = "evaluate_guide_rna", Title = "MolTools — Evaluate Guide RNA", ReadOnly = true), Description("Scores a single guide RNA against on-target quality heuristics: overall GC%, seed-region GC%, polyT (Pol III terminator) presence, self-complementarity, and common-restriction-site presence; returns a 0..100 score plus an issues list. avoidPolyT / checkSelfComplementarity switch off the corresponding penalties. For NGG systems the Graf 2019 TT-/GCC- inefficiency motif is reported in grafMotif and in issues (a warning only, no deduction, as in CRISPOR). The published Doench 2016 Rule Set 2 score needs 30 nt of genomic context and is therefore only reported by design_guide_rnas or calculate_on_target_rule_set2. Position is -1 for ad-hoc evaluation. Call to QC one guide sequence.")]
     public static GuideRnaCandidate evaluate_guide_rna(
         [Description("Guide RNA sequence.")] string guide_sequence,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
@@ -600,11 +916,40 @@ public class MolToolsTools
             CrisprDesigner.CalculateSpecificityScore(guide_sequence, new DnaSequence(genome), system_type));
     }
 
+    [McpServerTool(Name = "calculate_on_target_doench2014", Title = "MolTools — On-Target Score (Doench 2014 Rule Set 1)", ReadOnly = true), Description("Doench et al. 2014 \"Rule Set 1\" on-target efficacy score for an SpCas9 guide, returned on a 0..100 scale (higher = predicted more active). This is the published logistic linear model (intercept + GC term over the protospacer + position-specific single/di-nucleotide weights, through a sigmoid). Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be NGG) + 3 nt downstream, A/C/G/T only. Call to rank guides by predicted cutting efficiency when the 30-nt context is known.")]
+    public static OnTargetScoreResult calculate_on_target_doench2014(
+        [Description("30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt NGG PAM + 3 nt downstream.")] string context_30mer)
+    {
+        if (string.IsNullOrEmpty(context_30mer))
+            throw new System.ArgumentException("Context 30-mer cannot be null or empty.", nameof(context_30mer));
+
+        return new OnTargetScoreResult(CrisprDesigner.CalculateOnTargetDoench2014(context_30mer));
+    }
+
+    [McpServerTool(Name = "calculate_on_target_rule_set2", Title = "MolTools — On-Target Score (Doench 2016 Rule Set 2 / Azimuth)", ReadOnly = true), Description("Doench et al. 2016 \"Rule Set 2\" / Azimuth on-target efficacy score for an SpCas9 guide, conventionally in 0..1 (higher = predicted more active) — the \"Doench '16\" efficiency score reported by CRISPOR. Rule Set 2 is a trained gradient-boosted-tree model, reproduced here from Microsoft Research's Azimuth model. Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be NGG) + 3 nt downstream, A/C/G/T only. Pass amino_acid_cut_position and percent_peptide together to use Azimuth's gene-context (full) model instead of the sequence-only one. Call to rank guides by the published on-target activity model.")]
+    public static OnTargetScoreResult calculate_on_target_rule_set2(
+        [Description("30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt NGG PAM + 3 nt downstream.")] string context_30mer,
+        [Description("Optional amino-acid position of the cut site in the target protein (requires percent_peptide); enables the gene-context model.")] int? amino_acid_cut_position = null,
+        [Description("Optional cut position as a percentage 0..100 along the coding sequence (requires amino_acid_cut_position).")] double? percent_peptide = null)
+    {
+        if (string.IsNullOrEmpty(context_30mer))
+            throw new System.ArgumentException("Context 30-mer cannot be null or empty.", nameof(context_30mer));
+        if (amino_acid_cut_position.HasValue != percent_peptide.HasValue)
+            throw new System.ArgumentException(
+                "amino_acid_cut_position and percent_peptide must be supplied together (gene-context model) or both omitted.",
+                nameof(amino_acid_cut_position));
+
+        double score = amino_acid_cut_position.HasValue
+            ? CrisprDesigner.CalculateOnTargetRuleSet2(context_30mer, amino_acid_cut_position.Value, percent_peptide!.Value)
+            : CrisprDesigner.CalculateOnTargetRuleSet2(context_30mer);
+        return new OnTargetScoreResult(score);
+    }
+
     #endregion
 
     #region ProbeDesigner
 
-    [McpServerTool(Name = "design_probes", Title = "MolTools — Design Hybridization Probes", ReadOnly = true), Description("Designs hybridization probes by scanning the target for length-window candidates and ranking by GC%, Tm, homopolymers, self-complementarity, and structure heuristics (returned sorted by score, descending). Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes; a target shorter than the minimum probe length yields an empty list.")]
+    [McpServerTool(Name = "design_probes", Title = "MolTools — Design Hybridization Probes", ReadOnly = true), Description("Designs hybridization probes by scanning the target for length-window candidates and ranking them with an additive penalty score (GC%, Tm, homopolymers, self-structure, simple repeats; returned sorted by score, descending). Tm is Primer3's seqtm (SantaLucia 1998 nearest-neighbour ≤ 36 nt, long_seq_tm above) at the parameters' conditions (default Primer3 probe conditions: 50 nM, 50 mM monovalent, no Mg/dNTP); probes ≤ 60 nt are screened with Primer3's ntthal self-dimer/hairpin Tm limit (47 °C); longer probes (and StructureScreen = Heuristic) use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > MaxSelfAny / MaxSelfEnd, PRIMER_INTERNAL_MAX_SELF_ANY/_END default 12.00, no length limit) plus a sequence-only inverted-repeat hairpin screen. Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes; a target shorter than the minimum probe length yields an empty list.")]
     public static ProbesResult design_probes(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold). Defaults to Microarray when null.")] ProbeDesigner.ProbeParameters? parameters = null,
@@ -651,11 +996,12 @@ public class MolToolsTools
         return new ProbesResult(probes);
     }
 
-    [McpServerTool(Name = "design_molecular_beacon", Title = "MolTools — Design Molecular Beacon", ReadOnly = true), Description("Designs a hairpin molecular-beacon probe: GC-rich complementary stems (stem5 = ⌊stem_length/2⌋ Gs + remaining Cs, stem3 = its reverse complement) flanking the best target-specific loop of probe_length bases, for real-time detection. The reported Tm is the loop Tm and Start/End mark the loop in the target. Returns probe=null when the target is shorter than probe_length.")]
+    [McpServerTool(Name = "design_molecular_beacon", Title = "MolTools — Design Molecular Beacon", ReadOnly = true), Description("Designs a hairpin molecular-beacon probe: GC-rich complementary stems (stem5 = ⌊stem_length/2⌋ Gs + remaining Cs, stem3 = its reverse complement) flanking the best target-specific loop of probe_length bases, for real-time detection. The reported Tm is the loop (probe–target) Tm (Primer3 seqtm) and Start/End mark the loop in the target; warnings carry the ntthal stem-loop Tm. With detection_temperature T the loop Tm window is [T+7, T+10] °C and the stem-loop Tm is checked against T+7 °C (Tyagi & Kramer molecular-beacon rules). Returns probe=null when the target is shorter than probe_length.")]
     public static MolecularBeaconResult design_molecular_beacon(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Loop (target-specific) length in bp (default 25).")] int probe_length = 25,
-        [Description("Stem length in bp (default 5).")] int stem_length = 5)
+        [Description("Stem length in bp (default 5).")] int stem_length = 5,
+        [Description("Optional detection (annealing) temperature in °C for the Tyagi & Kramer 7–10 °C rules.")] double? detection_temperature = null)
     {
         if (string.IsNullOrEmpty(target_sequence))
             throw new System.ArgumentException("Target sequence cannot be null or empty.", nameof(target_sequence));
@@ -665,15 +1011,19 @@ public class MolToolsTools
             throw new System.ArgumentException("Stem length must be positive.", nameof(stem_length));
 
         return new MolecularBeaconResult(
-            ProbeDesigner.DesignMolecularBeacon(target_sequence, probe_length, stem_length));
+            ProbeDesigner.DesignMolecularBeacon(target_sequence, probe_length, stem_length, detection_temperature));
     }
 
-    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a probe against a set of reference sequences using ungapped k-mismatch (Hamming) approximate matching. Reports the off-target hit count, self-complementarity, a secondary-structure flag, an issues list, and a 0..1 specificity score (0 hits → 0.0, 1 hit → 1.0, N hits → 1/N). Call to check whether a designed probe is specific to its intended target.")]
+    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a hybridization probe. (1) Ungapped k-mismatch (Hamming) scan of the reference sequences: off-target hit count (intended site included; > 1 hit is an issue) and a library uniqueness score (0 hits → 0.0, N hits → 1/N). (2) Self-structure: for ≤ 60-nt A/C/G/T probes Primer3's thermodynamic probe screen — ntthal self-dimer, 3′ self-dimer and hairpin Tm at 50 nM oligo / 50 mM monovalent / no Mg²⁺ (Primer3 probe conditions) must not exceed 47 °C (PRIMER_INTERNAL_MAX_*_TH); longer or non-ACGT probes use Primer3's alignment-mode internal-oligo self-dimer screen (dpal self_any / self_end > 12.00, PRIMER_INTERNAL_MAX_SELF_ANY/_END, no length limit) and a sequence-only inverted-repeat hairpin screen; selfAny / selfEnd are reported for every probe (selfComplementarity, the fold-back fraction, is an informational library metric). (3) Optional non_target_sequences: Kane et al. (2000) cross-hybridization criteria on both strands — overall identity of the best local (BLAST-scored Smith–Waterman–Gotoh) alignment over the probe length > 75 % or a contiguous identical stretch > 15 nt; each site also reports its ntthal duplex Tm with the probe (primer3-py calc_heterodimer), optionally thresholded by max_duplex_tm (OligoArray 2.0). isValid = no issue recorded. Call to check whether a designed probe is specific and structure-free.")]
     public static ProbeDesigner.ProbeValidation validate_probe(
         [Description("Probe sequence to validate.")] string probe_sequence,
         [Description("Reference sequences to scan for off-target hits.")] string[] reference_sequences,
         [Description("Maximum allowed mismatches (default 3).")] int max_mismatches = 3,
-        [Description("Self-complementarity warning threshold (default 0.3).")] double self_complementarity_threshold = 0.3)
+        [Description("Legacy fold-back-fraction limit (default 0.3); kept for compatibility, no longer used by the screen (the fallback self-dimer limit is Primer3's PRIMER_INTERNAL_MAX_SELF_ANY/_END = 12).")] double self_complementarity_threshold = 0.3,
+        [Description("Optional known non-target sequences for the Kane et al. (2000) cross-hybridization criteria (both strands).")] string[]? non_target_sequences = null,
+        [Description("Kane identity threshold in [0,1]; a non-target strand with identity strictly above it is flagged (default 0.75).")] double max_non_target_identity = 0.75,
+        [Description("Kane contiguous-identity threshold in nt; a longer identical stretch is flagged (default 15).")] int max_contiguous_match = 15,
+        [Description("Optional OligoArray-style threshold (°C): a non-target site whose ntthal duplex Tm with the probe is above it is flagged (default none).")] double? max_duplex_tm = null)
     {
         if (probe_sequence is null)
             throw new System.ArgumentException("Probe sequence cannot be null.", nameof(probe_sequence));
@@ -681,11 +1031,100 @@ public class MolToolsTools
             throw new System.ArgumentException("Reference sequences cannot be null.", nameof(reference_sequences));
         if (max_mismatches < 0)
             throw new System.ArgumentException("Maximum mismatches cannot be negative.", nameof(max_mismatches));
+        if (double.IsNaN(max_non_target_identity) || max_non_target_identity < 0 || max_non_target_identity > 1)
+            throw new System.ArgumentException("Non-target identity threshold must be in [0, 1].", nameof(max_non_target_identity));
+        if (max_contiguous_match < 0)
+            throw new System.ArgumentException("Contiguous-match threshold cannot be negative.", nameof(max_contiguous_match));
 
-        return ProbeDesigner.ValidateProbe(probe_sequence, reference_sequences, max_mismatches, self_complementarity_threshold);
+        return ProbeDesigner.ValidateProbe(probe_sequence, reference_sequences, max_mismatches, self_complementarity_threshold,
+            nonTargetSequences: non_target_sequences,
+            maxNonTargetIdentity: max_non_target_identity,
+            maxContiguousMatch: max_contiguous_match,
+            maxDuplexTm: max_duplex_tm);
     }
 
-    [McpServerTool(Name = "analyze_oligo", Title = "MolTools — Oligonucleotide Property Analysis", ReadOnly = true), Description("Returns Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide. Call when the user needs the basic physical properties of an oligo/primer/probe. Tm uses the Wallace rule for sequences shorter than 14 bases and a salt-adjusted formula otherwise; GC is returned as a fraction (0-1).")]
+    [McpServerTool(Name = "design_probes_primer3", Title = "MolTools — Primer3 Hybridization-Probe Picker", ReadOnly = true), Description("Picks hybridization probes exactly as Primer3 does for PRIMER_TASK=pick_hyb_probe_only (internal-oligo picker; verified against primer3-py design_primers): every A/C/G/T window of min_size..max_size within the G+C % window, poly-X ≤ max_poly_x, Primer3 seqtm Tm within [min_tm, max_tm] and ntthal self-dimer / 3′ self-dimer / hairpin Tm ≤ their limits (or, with thermodynamic_oligo_alignment = false, Primer3 alignment-mode dpal self_any ≤ max_self_any and self_end ≤ max_self_end, default 12), enumerated per 3′ end with Primer3's 5′-extension break; ranked by the Primer3 penalty |Tm − opt_tm| + |length − opt_size| (penalty ascending, then start descending, then length ascending). With mishyb_library (Primer3 PRIMER_INTERNAL_MISHYB_LIBRARY) probes whose weighted dpal similarity to a library entry exceeds max_library_mishyb (default 12) are rejected (weight: wt_library_mishyb). Defaults are Primer3's PRIMER_INTERNAL_* defaults (18/20/27 nt, Tm 57/60/63 °C, GC 20–80 %, poly-X 5, 47 °C structure limits, 50 mM monovalent, no Mg²⁺/dNTP, 50 nM). Returns up to num_return probes (num_return >= 1; start is 0-based).")]
+    public static Primer3ProbesResult design_probes_primer3(
+        [Description("Template DNA sequence (probes are picked on this strand; case-insensitive).")] string template,
+        [Description("PRIMER_NUM_RETURN: maximum probes to return (default 5).")] int num_return = 5,
+        [Description("PRIMER_INTERNAL_MIN_SIZE (default 18).")] int min_size = 18,
+        [Description("PRIMER_INTERNAL_OPT_SIZE (default 20).")] int opt_size = 20,
+        [Description("PRIMER_INTERNAL_MAX_SIZE (default 27; at most 36).")] int max_size = 27,
+        [Description("PRIMER_INTERNAL_MIN_TM in °C (default 57).")] double min_tm = 57.0,
+        [Description("PRIMER_INTERNAL_OPT_TM in °C (default 60).")] double opt_tm = 60.0,
+        [Description("PRIMER_INTERNAL_MAX_TM in °C (default 63).")] double max_tm = 63.0,
+        [Description("PRIMER_INTERNAL_MIN_GC in percent (default 20).")] double min_gc_percent = 20.0,
+        [Description("PRIMER_INTERNAL_MAX_GC in percent (default 80).")] double max_gc_percent = 80.0,
+        [Description("PRIMER_INTERNAL_MAX_POLY_X (default 5).")] int max_poly_x = 5,
+        [Description("PRIMER_INTERNAL_MAX_SELF_ANY_TH in °C (default 47).")] double max_self_any_th = PrimerDesigner.Primer3MaxStructureTm,
+        [Description("PRIMER_INTERNAL_MAX_SELF_END_TH in °C (default 47).")] double max_self_end_th = PrimerDesigner.Primer3MaxStructureTm,
+        [Description("PRIMER_INTERNAL_MAX_HAIRPIN_TH in °C (default 47).")] double max_hairpin_th = PrimerDesigner.Primer3MaxStructureTm,
+        [Description("PRIMER_INTERNAL_SALT_MONOVALENT in mM (default 50).")] double monovalent_mm = PrimerDesigner.Primer3InternalMonovalentMillimolar,
+        [Description("PRIMER_INTERNAL_SALT_DIVALENT (Mg²⁺) in mM (default 0).")] double divalent_mm = PrimerDesigner.Primer3InternalDivalentMillimolar,
+        [Description("PRIMER_INTERNAL_DNTP_CONC in mM (default 0).")] double dntp_mm = PrimerDesigner.Primer3InternalDntpMillimolar,
+        [Description("PRIMER_INTERNAL_DNA_CONC in nM (default 50).")] double dna_conc_nm = PrimerDesigner.Primer3InternalDnaConcentrationNanomolar,
+        [Description("PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT: true (default) = ntthal Tm limits; false = Primer3 alignment-mode dpal self_any / self_end limits.")] bool thermodynamic_oligo_alignment = true,
+        [Description("PRIMER_INTERNAL_MAX_SELF_ANY (alignment mode; default 12).")] double max_self_any = PrimerDesigner.Primer3InternalMaxSelfComplementarity,
+        [Description("PRIMER_INTERNAL_MAX_SELF_END (alignment mode; default 12).")] double max_self_end = PrimerDesigner.Primer3InternalMaxSelfComplementarity,
+        [Description("PRIMER_INTERNAL_MISHYB_LIBRARY as a name -> sequence object (primer3-py mishyb_lib), e.g. {\"Alu*2\": \"GGCCGGGCGCGG...\"}; an optional '*weight' (0-100) after the name scales that entry; IUPAC codes allowed. Each probe is scored against every entry and its reverse complement (Primer3 dpal, unanchored local alignment); reported as libraryMishyb/libraryMishybName.")] Dictionary<string, string>? mishyb_library = null,
+        [Description("PRIMER_INTERNAL_MAX_LIBRARY_MISHYB: maximum weighted library score of a probe (default 12).")] double max_library_mishyb = PrimerDesigner.Primer3InternalMaxLibraryMishyb,
+        [Description("PRIMER_INTERNAL_WT_LIBRARY_MISHYB: penalty weight of the library score (default 0; needs mishyb_library).")] double wt_library_mishyb = 0.0,
+        [Description("PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS: false (Primer3 default 0) = IUPAC codes in the library never match; true = they match every base they represent.")] bool lib_ambiguity_codes_consensus = false,
+        [Description("SEQUENCE_QUALITY: one integer base quality per template base (length = template length, values within [quality_range_min, quality_range_max]); each probe then reports minSequenceQuality.")] int[]? sequence_quality = null,
+        [Description("PRIMER_INTERNAL_MIN_QUALITY: minimum base quality of a probe (default 0; non-zero needs sequence_quality).")] int min_quality = 0,
+        [Description("PRIMER_QUALITY_RANGE_MIN (default 0).")] int quality_range_min = PrimerDesigner.Primer3QualityRangeMin,
+        [Description("PRIMER_QUALITY_RANGE_MAX (default 100); the quality penalty is wt_seq_qual x (quality_range_max - min quality).")] int quality_range_max = PrimerDesigner.Primer3QualityRangeMax,
+        [Description("PRIMER_INTERNAL_WT_SEQ_QUAL: penalty weight of (quality_range_max - the probe's minimum base quality) (default 0; needs sequence_quality).")] double wt_seq_qual = 0.0,
+        [Description("PRIMER_INTERNAL_WT_END_QUAL: accepted for Primer3 compatibility; no effect (as in Primer3 2.3.1).")] double wt_end_qual = 0.0,
+        [Description("PRIMER_INTERNAL_OPT_GC_PERCENT: GC optimum of the GC penalty terms (default undefined, as in Primer3's code; required when wt_gc_percent_gt/lt != 0 - Primer3 'Hyb probe GC content is part of objective function while optimum gc_content is not defined').")] double? opt_gc_percent = null,
+        [Description("PRIMER_INTERNAL_WT_GC_PERCENT_GT: penalty weight for GC% above opt_gc_percent (default 0).")] double wt_gc_percent_gt = 0.0,
+        [Description("PRIMER_INTERNAL_WT_GC_PERCENT_LT: penalty weight for GC% below opt_gc_percent (default 0).")] double wt_gc_percent_lt = 0.0,
+        [Description("PRIMER_LOWERCASE_MASKING: reject probes whose 3'-terminal template base is lower case (a/c/g/t of the template as given; lower case elsewhere is accepted). Default false.")] bool lowercase_masking = false,
+        [Description("PRIMER_ANNEALING_TEMP: annealing temperature in °C (<= 100; default -10 = off). When > 0 each probe's fraction bound at this temperature (Primer3 oligotm, at the probe conditions) is reported as bound and probes outside [min_bound, max_bound] are rejected.")] double annealing_temp = PrimerDesigner.Primer3DefaultAnnealingTemperature,
+        [Description("PRIMER_INTERNAL_MIN_BOUND: minimum fraction bound, % (default -10; only with annealing_temp > 0).")] double min_bound = PrimerDesigner.Primer3MinBound,
+        [Description("PRIMER_INTERNAL_MAX_BOUND: maximum fraction bound, % (default 110; only with annealing_temp > 0).")] double max_bound = PrimerDesigner.Primer3MaxBound,
+        [Description("PRIMER_INTERNAL_OPT_BOUND: optimum of the bound penalty terms, % (default 97; must lie in [min_bound, max_bound]).")] double opt_bound = PrimerDesigner.Primer3OptBound,
+        [Description("PRIMER_INTERNAL_WT_BOUND_GT: penalty weight of the fraction bound above opt_bound (default 0).")] double wt_bound_gt = 0.0,
+        [Description("PRIMER_INTERNAL_WT_BOUND_LT: penalty weight of the fraction bound below opt_bound (default 0). As in Primer3 the internal-oligo bound terms are not gated by annealing_temp: without it the bound is OLIGOTM_ERROR -999999.9999, so wt_bound_lt adds wt_bound_lt x (opt_bound + 999999.9999).")] double wt_bound_lt = 0.0)
+    {
+        if (string.IsNullOrEmpty(template))
+            throw new System.ArgumentException("Template sequence cannot be null or empty.", nameof(template));
+        if (num_return < 1)
+            throw new System.ArgumentException("num_return must be at least 1 (Primer3: PRIMER_NUM_RETURN < 1).", nameof(num_return));
+        if (min_size < 1 || max_size < min_size || max_size > 36)
+            throw new System.ArgumentException("Sizes must satisfy 1 ≤ min_size ≤ max_size ≤ 36.", nameof(max_size));
+
+        var settings = new ProbeDesigner.Primer3ProbeSettings(
+            min_size, opt_size, max_size, min_tm, opt_tm, max_tm, min_gc_percent, max_gc_percent, max_poly_x,
+            max_self_any_th, max_self_end_th, max_hairpin_th, monovalent_mm, divalent_mm, dntp_mm, dna_conc_nm)
+        {
+            ThermodynamicOligoAlignment = thermodynamic_oligo_alignment,
+            MaxSelfAny = max_self_any,
+            MaxSelfEnd = max_self_end,
+            MishybLibrary = mishyb_library is null ? null : new PrimerMisprimingLibrary(mishyb_library),
+            MaxLibraryMishyb = max_library_mishyb,
+            WeightLibraryMishyb = wt_library_mishyb,
+            LibraryAmbiguityCodesConsensus = lib_ambiguity_codes_consensus,
+            MinQuality = min_quality,
+            QualityRangeMin = quality_range_min,
+            QualityRangeMax = quality_range_max,
+            WeightSequenceQuality = wt_seq_qual,
+            WeightEndQuality = wt_end_qual,
+            OptGcPercent = opt_gc_percent,
+            WeightGcPercentGt = wt_gc_percent_gt,
+            WeightGcPercentLt = wt_gc_percent_lt,
+            LowercaseMasking = lowercase_masking,
+            AnnealingTemperature = annealing_temp,
+            MinBound = min_bound,
+            MaxBound = max_bound,
+            OptBound = opt_bound,
+            WeightBoundGt = wt_bound_gt,
+            WeightBoundLt = wt_bound_lt,
+        };
+        return new Primer3ProbesResult(ProbeDesigner.DesignProbesPrimer3(template, settings, num_return, sequence_quality));
+    }
+
+    [McpServerTool(Name = "analyze_oligo", Title = "MolTools — Oligonucleotide Property Analysis", ReadOnly = true), Description("Returns Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide. Call when the user needs the basic physical properties of an oligo/primer/probe. Tm is Primer3's seqtm at the Primer3 hybridization-probe conditions (50 nM oligo, 50 mM monovalent, no Mg/dNTP; SantaLucia 1998 nearest-neighbour for ≤ 36 nt, long_seq_tm above) and is null when not computable (fewer than 2 bases or a non-ACGT base, e.g. RNA). Molecular weight is the single-stranded Biopython molecular_weight (RNA when the oligo has U and no T); ε260 is the mononucleotide sum. GC is returned as a fraction (0-1).")]
     public static OligoAnalysisResult analyze_oligo(
         [Description("Oligonucleotide sequence (non-empty; A/C/G/T/U, case-insensitive).")] string sequence)
     {
@@ -693,17 +1132,26 @@ public class MolToolsTools
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
 
         var (tm, gc, mw, eps) = ProbeDesigner.AnalyzeOligo(sequence);
-        return new OligoAnalysisResult(tm, gc, mw, eps);
+        return new OligoAnalysisResult(double.IsNaN(tm) ? null : tm, gc, mw, eps);
     }
 
-    [McpServerTool(Name = "oligo_extinction_coefficient", Title = "MolTools — Oligo Extinction Coefficient", ReadOnly = true), Description("Sums per-base 260 nm molar extinction contributions (A=15400, C=7400, G=11500, T=8700, U=9900 M⁻¹·cm⁻¹; any other base = 10000) for an oligonucleotide. Call to estimate an oligo's ε₂₆₀ for concentration calculations.")]
+    [McpServerTool(Name = "oligo_extinction_coefficient", Title = "MolTools — Oligo Extinction Coefficient", ReadOnly = true), Description("Estimates an oligonucleotide's 260 nm molar extinction coefficient (M⁻¹·cm⁻¹). Default: sum of per-base contributions (A=15400, C=7400, G=11500, T=8700, U=9900; any other base = 10000). With nearest_neighbor=true: the nearest-neighbour model (Cantor, Warshaw & Shapiro 1970 DNA / Warshaw & Tinoco 1966 RNA table, ε = Σ ε(dinucleotides) − Σ ε(internal mononucleotides)). Call to estimate an oligo's ε₂₆₀ for concentration calculations.")]
     public static ExtinctionCoefficientResult oligo_extinction_coefficient(
-        [Description("Oligonucleotide sequence.")] string sequence)
+        [Description("Oligonucleotide sequence.")] string sequence,
+        [Description("Use the nearest-neighbour model (default false = mononucleotide sum).")] bool nearest_neighbor = false,
+        [Description("For nearest_neighbor: true = DNA table (A/C/G/T), false = RNA table (A/C/G/U) (default true).")] bool is_dna = true)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
 
-        return new ExtinctionCoefficientResult(ProbeDesigner.CalculateExtinctionCoefficient(sequence));
+        if (!nearest_neighbor)
+            return new ExtinctionCoefficientResult(ProbeDesigner.CalculateExtinctionCoefficient(sequence));
+
+        double eps = ProbeDesigner.CalculateExtinctionCoefficientNearestNeighbor(sequence, is_dna);
+        if (double.IsNaN(eps))
+            throw new System.ArgumentException(
+                $"Nearest-neighbour ε260 needs only {(is_dna ? "A/C/G/T" : "A/C/G/U")} bases.", nameof(sequence));
+        return new ExtinctionCoefficientResult(eps);
     }
 
     [McpServerTool(Name = "oligo_concentration_from_absorbance", Title = "MolTools — Oligo Concentration (Beer–Lambert)", ReadOnly = true), Description("Computes oligonucleotide concentration in µM from the Beer–Lambert law: c = A₂₆₀ / (ε · path) · 1e6. Call to convert a spectrophotometer A260 reading into a molar concentration given the oligo's extinction coefficient.")]

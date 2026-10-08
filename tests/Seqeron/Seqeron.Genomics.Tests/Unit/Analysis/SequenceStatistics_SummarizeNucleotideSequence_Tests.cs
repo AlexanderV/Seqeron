@@ -3,7 +3,7 @@
 // TestSpec: tests/TestSpecs/SEQ-SUMMARY-001.md
 // Source: Biopython Bio.SeqUtils gc_fraction / MeltingTemp (Cock et al. 2009);
 //         Shannon C.E. (1948) A Mathematical Theory of Communication;
-//         Trifonov E.N. (1990) linguistic sequence complexity.
+//         Orlov Y.L. & Potapov V.N. (2004) NAR 32:W628; Troyanskaya O.G. et al. (2002) linguistic complexity.
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
@@ -32,12 +32,11 @@ public class SequenceStatistics_SummarizeNucleotideSequence_Tests
                 "uniform over 4 symbols -> H = log2(4) = 2.0 bits per Shannon 1948");
             Assert.That(summary.MeltingTemperature, Is.EqualTo(24.0).Within(Tolerance),
                 "len<14 -> Wallace Tm = 2*(A+T)+4*(G+C) = 8+16 = 24.0");
-            // Complexity is the mean of per-word-size vocabulary-usage ratios U_k = observed/possible,
-            // k=1..6 (Trifonov 1990 vocabulary usage; this method uses the mean, not the product).
-            // Hand-computed independently: k=1: 4/4=1; k=2: 4/7; k=3: 4/6; k=4: 4/5; k=5: 4/4=1; k=6: 3/3=1
-            // mean = (1 + 4/7 + 2/3 + 0.8 + 1 + 1)/6 = 0.83968253968253968...
-            Assert.That(summary.Complexity, Is.EqualTo(0.8396825396825397).Within(Tolerance),
-                "Complexity = mean of vocabulary-usage ratios over k=1..6 = 0.8396825396825397");
+            // Complexity = Σ V_k / Σ min(4^k, N−k+1), k=1..6 (Orlov & Potapov 2004 summation form,
+            // canonical SequenceComplexity; B03 F21 replaced the former unsourced mean of U_k = 529/630).
+            // Hand-computed: V = 4,4,4,4,4,3 (23); V_max = 4,7,6,5,4,3 (29) -> 23/29.
+            Assert.That(summary.Complexity, Is.EqualTo(23.0 / 29.0).Within(Tolerance),
+                "Complexity = Σ V_k / Σ V_max,k over k=1..6 = 23/29");
         });
     }
 
@@ -63,7 +62,7 @@ public class SequenceStatistics_SummarizeNucleotideSequence_Tests
                 Is.EqualTo(SequenceStatistics.CalculateLinguisticComplexity(seq)).Within(Tolerance),
                 "INV-04: Complexity equals CalculateLinguisticComplexity");
             Assert.That(summary.MeltingTemperature,
-                Is.EqualTo(SequenceStatistics.CalculateMeltingTemperature(seq, useWallaceRule: seq.Length < 14)).Within(Tolerance),
+                Is.EqualTo(SequenceStatistics.CalculateMeltingTemperature(seq, useWallaceRule: true)).Within(Tolerance),
                 "INV-05: MeltingTemperature equals CalculateMeltingTemperature with the len<14 flag");
         });
     }
@@ -168,6 +167,88 @@ public class SequenceStatistics_SummarizeNucleotideSequence_Tests
             Assert.That(lower.MeltingTemperature, Is.EqualTo(upper.MeltingTemperature).Within(Tolerance), "Tm case-insensitive");
             Assert.That(lower.Composition['G'], Is.EqualTo(upper.Composition['G']), "composition case-insensitive");
         });
+    }
+
+    // 2026-09 B03 review (SEQ-SUMMARY-001): every field locked to an executed Python reference —
+    // GcContent = Biopython 1.88 gc_fraction(seq, "remove"); Entropy = scipy.stats.entropy(counts, base=2);
+    // Tm = Biopython Tm_Wallace (< 14 A/C/G/T/U) or Tm_GC(userset=(64.9, 0.41, 672.4, 0), saltcorr=0)
+    // (= 64.9 + 41·(G+C − 16.4)/N; both back-transcribe U, F20); Complexity = exact-fraction
+    // Σ V_k / Σ min(4^k, N − k + 1), k = 1..6 (Orlov & Potapov 2004; Python reference, B03 F21).
+    [TestCase("ATGCATGC", 0.5, 2.0, 24.0, 23.0 / 29.0)]
+    [TestCase("ACGTACGGTACCAGTTAGCA", 0.5, 1.9854752972273346, 51.78000000000001, 38.0 / 43.0)]
+    [TestCase("AUGCAUGC", 0.5, 2.0, 24.0, 23.0 / 29.0)]
+    [TestCase("GGGAAAUUUCCCAAAUGC", 0.4444444444444444, 1.974937501201927, 45.76666666666668, 23.0 / 26.0)]
+    [TestCase("ATTTGGATT", 0.2222222222222222, 1.4355205042826666, 22.0, 29.0 / 34.0)]
+    public void SummarizeNucleotideSequence_MatchesPythonReferences(
+        string seq, double gc, double entropy, double tm, double complexity)
+    {
+        var s = SequenceStatistics.SummarizeNucleotideSequence(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.Length, Is.EqualTo(seq.Length));
+            Assert.That(s.GcContent, Is.EqualTo(gc).Within(1e-12), "Biopython gc_fraction");
+            Assert.That(s.Entropy, Is.EqualTo(entropy).Within(1e-12), "scipy entropy base 2");
+            Assert.That(s.MeltingTemperature, Is.EqualTo(tm).Within(1e-9), "Biopython Tm_Wallace / Tm_GC");
+            Assert.That(s.Complexity, Is.EqualTo(complexity).Within(1e-12), "Σ V_k / Σ V_max,k, k=1..6");
+        });
+    }
+
+    // RNA spelling: U is read as T by every Tm/GC component (Biopython back-transcription, F20), so an
+    // RNA and its DNA spelling have identical GC, entropy, complexity and Tm; only the T/U counts move.
+    [TestCase("AUGCAUGC", "ATGCATGC")]
+    [TestCase("GGGAAAUUUCCCAAAUGC", "GGGAAATTTCCCAAATGC")]
+    [TestCase("acguacgu", "ACGTACGT")]
+    public void SummarizeNucleotideSequence_RnaSpelling_EqualsDnaSpelling(string rna, string dna)
+    {
+        var r = SequenceStatistics.SummarizeNucleotideSequence(rna);
+        var d = SequenceStatistics.SummarizeNucleotideSequence(dna);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.GcContent, Is.EqualTo(d.GcContent));
+            Assert.That(r.Entropy, Is.EqualTo(d.Entropy).Within(1e-12));
+            Assert.That(r.Complexity, Is.EqualTo(d.Complexity).Within(1e-12));
+            Assert.That(r.MeltingTemperature, Is.EqualTo(d.MeltingTemperature), "Tm reads U as T");
+            Assert.That(r.Composition['U'], Is.EqualTo(d.Composition['T']));
+            Assert.That(r.Composition['T'], Is.EqualTo(0));
+        });
+    }
+
+    // LINGUISTIC (B03 F21): SequenceStatistics.CalculateLinguisticComplexity delegates to the canonical
+    // SequenceComplexity sum form (Orlov & Potapov 2004; Troyanskaya 2002 / Rosalind LING at m ≥ N).
+    // Values are exact fractions from an executed Python reference of Σ V_k / Σ min(4^k, N−k+1).
+    [TestCase("ATTTGGATT", 9, 7.0 / 8.0)]          // Rosalind LING sample, full m: 0.875
+    [TestCase("ATTTGGATT", int.MaxValue, 7.0 / 8.0)]
+    [TestCase("ATTTGGATT", 6, 29.0 / 34.0)]         // default m = 6 (was 293/336 = mean of U_k)
+    [TestCase("AAAAAAAAAA", 6, 2.0 / 13.0)]
+    [TestCase("ATGCATGCATGC", 6, 24.0 / 49.0)]
+    [TestCase("ATATATAT", 6, 12.0 / 29.0)]
+    [TestCase("GGGAAAUUUCCC", 6, 45.0 / 49.0)]
+    [TestCase("ACGTN", 6, 1.0)]                     // N is a fifth symbol: a = 5, 15/15 (was 15/14 > 1; R23 fixed by B04 F20)
+    [TestCase("ATGC", 0, 0.0)]
+    [TestCase("", 6, 0.0)]
+    public void CalculateLinguisticComplexity_MatchesSumFormReference(string seq, int maxK, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateLinguisticComplexity(seq, maxK),
+            Is.EqualTo(expected).Within(1e-12));
+    }
+
+    // Differential lock: identical to the canonical implementation for the same m (maxK ≡ maxWordLength).
+    [Test]
+    public void CalculateLinguisticComplexity_EqualsCanonicalSequenceComplexity()
+    {
+        var rng = new Random(20260928);
+        const string alphabet = "ACGTNacgtu-";
+        for (int t = 0; t < 1000; t++)
+        {
+            int n = rng.Next(0, 40);
+            var chars = new char[n];
+            for (int i = 0; i < n; i++) chars[i] = alphabet[rng.Next(t % 2 == 0 ? 4 : alphabet.Length)];
+            string seq = new(chars);
+            int m = rng.Next(-1, 20);
+            Assert.That(SequenceStatistics.CalculateLinguisticComplexity(seq, m),
+                Is.EqualTo(SequenceComplexity.CalculateLinguisticComplexity(seq, m)), $"seq={seq} m={m}");
+        }
+        Assert.That(SequenceStatistics.CalculateLinguisticComplexity(null!), Is.EqualTo(0.0));
     }
 
     // C1 — Bounds invariant (INV-07): 0 <= GcContent <= 1 and 0 <= Complexity < 1 for a DNA fragment.

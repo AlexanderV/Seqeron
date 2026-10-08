@@ -5,7 +5,7 @@
 **Algorithm:** Tumor Phylogeny Reconstruction — clonal tree from CCF clusters (sum rule + lineage precedence)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-15
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -23,7 +23,7 @@
 1. Edge `(u→v)` valid iff for every sample i: `u.CCF[i] ≥ v.CCF[i] − ϵ` and `u.CCF[i]=0 ⇒ v.CCF[i]=0` (ancestor ≥ descendant; presence pattern) — Popic 2015 Eq. 2; Zheng 2022 lineage precedence.
 2. Sum rule: for every node u and every sample i, `Σ_{children v} v.CCF[i] ≤ u.CCF[i] + ϵ` — Popic 2015 Eq. 5; Zheng 2022 sum condition.
 3. Constraint (1): a cluster present in more samples cannot descend from one present in fewer — Popic 2015.
-4. Trunk = clusters on the path from the root that are present (CCF>0) across all samples; branches = the rest — Popic 2015 (common predecessor present in all samples).
+4. Trunk = clusters on the root path with CCF = 1 (≥ 1 − ε) in every sample (present in all tumour cells); branches = the rest — Werner et al. 2017 Sci Rep 7:44991 (B24 F19).
 
 ### 1.3 Documented Corner Cases
 
@@ -57,7 +57,7 @@
 | INV-2 | For every node u, sample i: `Σ_children v.CCF[i] ≤ u.CCF[i] + ϵ`. | Yes | Popic 2015 Eq. 5; Zheng 2022 |
 | INV-3 | Result is a single rooted tree: every cluster has exactly one parent; no cycles; the (synthetic) root has CCF=1 in all samples. | Yes | Popic 2015 (spanning tree) |
 | INV-4 | Trunk ∩ Branch = ∅ and Trunk ∪ Branch = all input clusters. | Yes | Popic 2015 (partition) |
-| INV-5 | Deterministic: same input ⇒ same tree (deepest-valid-ancestor, id tie-break). | Yes | ASSUMPTION (tie-break); constraints leave a valid set, choice documented |
+| INV-5 | Deterministic: same input ⇒ same tree (LICHeE enumeration, profiles in first-appearance order). | Yes | ASSUMPTION (tie-break among equal-score trees) |
 
 ---
 
@@ -67,14 +67,18 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | Linear chain | Single sample, CCFs A=1.0,B=0.6,C=0.3 | Edges Normal→A, A→B, B→C | Popic 2015 Eq.2 |
+| M1 | LICHeE top tree | Single sample, CCFs A=1.0,B=0.6,C=0.3 | Edges Normal→A, A→B, A→C; 2 valid trees | Popic 2015 Eq.2/5; lichee.jar |
 | M2 | Branching | 2 samples, A=[1,1] trunk, B=[0.6,0], C=[0,0.7] | Edges Normal→A, A→B, A→C (B,C siblings) | Popic 2015 (1)(2)(3) |
-| M3 | Sum-rule forces chain | Single sample, A=1.0,B=0.6,C=0.6 | C cannot be A's 2nd child (0.6+0.6>1.0) → Normal→A→B→C | Popic 2015 Eq.5 |
+| M3 | Sum-rule forces chain | Single sample, A=1.0,B=0.6,C=0.6 | one 0.6 cannot be A's 2nd child (1.2>1.0) → Normal→A→C→B (LICHeE orientation) | Popic 2015 Eq.5; lichee.jar |
 | M4 | Trunk identification | M2 tree | Trunk = {A} | Popic 2015 |
 | M5 | Branch identification | M2 tree | Branches = {B, C} | Popic 2015 |
 | M6 | INV-1 holds | M1 & M2 trees | every edge ancestor CCF ≥ descendant CCF per sample | Popic 2015 Eq.2 |
 | M7 | INV-2 holds (property) | random valid CCF inputs (fixed seed) | per-node children CCF sum ≤ parent CCF | Popic 2015 Eq.5 |
 | M8 | Single cluster | one cluster A=1.0 | Normal→A; trunk={A}; branches={} | Popic 2015 |
+| M9 | FP-exact sum rule | ε=0, A=[0.3,1.0], B=[0.2,0.2], C=[0,0.8] | A→{B,C} (former greedy: root→B violating Eq.5) | lichee.jar (B24 F18) |
+| M10 | Complete-network fallback | ε=0.02, 3-sample case (Evidence) | root→{A,B}, B→C; error 0.003292532308117998 | lichee.jar |
+| M11 | Tree count / top tree | 0.05..0.053 single sample | 15 trees; chain from 0.053 | lichee.jar |
+| M12 | Trunk = CCF 1 | chain 1.0/0.5/0.25; two CCF-1 clusters; 0.97 with ε 0/0.05 | trunk {A}; both CCF-1; {} / {A} | Werner 2017 (B24 F19) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -82,7 +86,7 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | Empty input | no clusters | tree = root only; trunk={}, branches={} | boundary |
 | S2 | Tolerance admits near-violation | A=1.0, B=1.05 with ε=0.1 | B is child of A (1.0 ≥ 1.05−0.1) | Popic 2015 ϵ |
-| S3 | Tolerance ε=0 rejects | A=1.0, B=1.05 | B cannot be A's child via Eq.2; attaches to root | strict |
+| S3 | Tolerance ε=0 rejects | A=[0.5,0.5], B=[0.55,0] | no valid tree → `InvalidOperationException`, Try = false | LICHeE: none |
 
 ### 4.3 COULD Tests (Nice to have)
 

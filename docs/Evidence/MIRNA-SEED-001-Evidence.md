@@ -13,6 +13,8 @@
 | Agarwal et al. (2015) | "Predicting effective microRNA target sites in mammalian mRNAs" — TargetScan 7, context++ model | PMID: 26267216, doi:10.7554/eLife.05005 |
 | miRBase | Authoritative database of miRNA sequences and nomenclature | https://mirbase.org/ |
 | Friedman et al. (2009) | Mammalian miRNAs conserved targets — PCT scoring | PMID: 18955434 |
+| TargetScan 7.0 reference code (`targetscan_70.pl`, README_70.txt; opened 2026-09-28 at raw.githubusercontent.com/nsoranzo/targetscan/main) | miR family file column 2 = "The 7 nucleotide long seed region sequence"; seed normalised with `s/T/U/gi` and `uc()` (lines 229–232) | https://github.com/nsoranzo/targetscan |
+| RNAcentral URS00005CACA0 (search snippet) | hsa-miR-590-5p = GAGCUUAUUCAUAAAAGUGCAG ⇒ nt 2–8 AGCUUAU = miR-21-5p seed | https://rnacentral.org/rna/URS00005CACA0/9606 |
 
 ## Key Definitions (from sources)
 

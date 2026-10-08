@@ -48,31 +48,6 @@ public static class DisorderPredictor
 {
     #region Constants
 
-    // Kyte-Doolittle hydropathy scale
-    private static readonly Dictionary<char, double> Hydropathy = new()
-    {
-        ['A'] = 1.8,
-        ['R'] = -4.5,
-        ['N'] = -3.5,
-        ['D'] = -3.5,
-        ['C'] = 2.5,
-        ['Q'] = -3.5,
-        ['E'] = -3.5,
-        ['G'] = -0.4,
-        ['H'] = -3.2,
-        ['I'] = 4.5,
-        ['L'] = 3.8,
-        ['K'] = -3.9,
-        ['M'] = 1.9,
-        ['F'] = 2.8,
-        ['P'] = -1.6,
-        ['S'] = -0.8,
-        ['T'] = -0.7,
-        ['W'] = -0.9,
-        ['Y'] = -1.3,
-        ['V'] = 4.2
-    };
-
     // TOP-IDP disorder propensity scale
     // Source: Campen et al. (2008) "TOP-IDP-Scale: A New Amino Acid Scale Measuring
     //   Propensity for Intrinsic Disorder" Protein Pept Lett 15(9):956-963.
@@ -164,6 +139,15 @@ public static class DisorderPredictor
     // Polar residues used by the "Polar" class — consensus.py: token.is_enriched(['S','T','N','Q']).
     private static readonly HashSet<char> FlavorPolarResidues = new() { 'S', 'T', 'N', 'Q' };
 
+    // consensus.py:get_region_features(window_size=9, feature_len_thr=10) tokenizes with
+    // States.tokenize(n = window_size // 2 - 1) = n 3, i.e. 2n+1 = 7-residue windows mirrored at
+    // the termini (the paper text says "nine"; the published v3 code — which produces MobiDB
+    // annotations — uses 7). Each feature track then undergoes math_morphology(rmax=5) and
+    // sub-regions shorter than 10 residues are dropped.
+    private const int FlavorWindowHalfWidth = 9 / 2 - 1;
+    private const int FlavorMorphologyRmax = 5;
+    private const int FlavorSubregionMinLength = 10;
+
     #endregion
 
     #region Records
@@ -202,8 +186,17 @@ public static class DisorderPredictor
         /// <summary>Polar: fraction of {S,T,N,Q} &gt;= 0.32.</summary>
         Polar,
         /// <summary>Weakly charged and not compositionally enriched (no MobiDB-lite subregion).</summary>
-        WeaklyCharged
+        WeaklyCharged,
+        /// <summary>Low complexity (MobiDB-lite feature code 7): the residue is masked by SEG.
+        /// Only produced by <see cref="PredictFlavorSubregionsMobiDbLite"/>; ranks between
+        /// glycine-rich and polar in the MobiDB-lite priority order.</summary>
+        LowComplexity
     }
+
+    /// <summary>
+    /// A MobiDB-lite 3.0 disorder-flavor sub-region: 0-based inclusive coordinates.
+    /// </summary>
+    public readonly record struct FlavorSubregion(int Start, int End, DisorderFlavor Flavor);
 
     /// <summary>
     /// Per-residue disorder prediction.
@@ -231,12 +224,25 @@ public static class DisorderPredictor
     /// <summary>
     /// Predicts intrinsically disordered regions in a protein sequence.
     /// </summary>
+    /// <remarks>
+    /// Per-residue score = mean of the normalized TOP-IDP scale
+    /// S(aa) = (TOP-IDP(aa) − (−0.884)) / 1.871 ∈ [0,1] over a window of
+    /// <paramref name="windowSize"/> residues centered on the residue (⌊w/2⌋ residues on each
+    /// side, truncated at the termini; residues outside the 20 standard amino acids are skipped).
+    /// A residue is disordered when its score ≥ <paramref name="disorderThreshold"/>
+    /// (default 0.542, the maximum-likelihood cutoff of Campen et al. 2008, applied to the
+    /// averaged normalized scale; the paper's index I = −(⟨TOP-IDP⟩ − 0.542) &lt; 0 ⟹ disordered).
+    /// The paper uses an odd window (21); an even <paramref name="windowSize"/> w is centered
+    /// with w/2 residues on each side and therefore spans w + 1 residues.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> &lt; 1.</exception>
     public static DisorderPredictionResult PredictDisorder(
         string sequence,
         int windowSize = 21,
         double disorderThreshold = TopIdpCutoff,
         int minRegionLength = 5)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
         if (string.IsNullOrEmpty(sequence))
         {
             return new DisorderPredictionResult(
@@ -267,6 +273,7 @@ public static class DisorderPredictor
         double disorderThreshold = TopIdpCutoff,
         int minRegionLength = 5)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
         if (string.IsNullOrEmpty(sequence))
         {
             return new DisorderPredictionResult(
@@ -583,9 +590,13 @@ public static class DisorderPredictor
     /// <para>Low-complexity (SEG) sits between glycine-rich and polar in the MobiDB-lite
     /// pipeline; it is exposed separately by <see cref="PredictLowComplexityRegions"/> and is
     /// therefore not part of this composition-only flavor call.</para>
-    /// <para>MobiDB-lite assigns flavors per 9-residue sliding window; this method applies the
-    /// identical deterministic functions to the <b>whole region</b> to yield one region-level
-    /// label. All thresholds are verbatim from BioComputingUP/MobiDB-lite (v3).</para>
+    /// <para>MobiDB-lite assigns flavors per residue from a sliding window and reports ≥ 10-residue
+    /// sub-regions — that full algorithm is <see cref="PredictFlavorSubregionsMobiDbLite"/>. This
+    /// method applies the identical deterministic window function to the <b>whole region</b> to
+    /// yield one region-level label; for the charge class this is exactly MobiDB-lite's own
+    /// region-level Pappu label (<c>consensus.py:set_pappu_classes_per_region</c>, used for the
+    /// <c>mobidb4</c> output), while the region-level composition label is a Seqeron extension of
+    /// the same thresholds. All thresholds are verbatim from BioComputingUP/MobiDB-lite (v3).</para>
     /// Source: Necci et al. (2020) Bioinformatics 36:5533-5534, PMID 33325498;
     ///   Das &amp; Pappu (2013) PNAS 110:13392-13397, PMID 23901099.
     /// </remarks>
@@ -597,19 +608,32 @@ public static class DisorderPredictor
         if (string.IsNullOrEmpty(regionSequence))
             throw new ArgumentException("Region sequence must be non-empty.", nameof(regionSequence));
 
-        string seq = regionSequence.ToUpperInvariant();
-        double length = seq.Length;
+        return ClassifyFlavorWindow(regionSequence.ToUpperInvariant(), lowComplexity: false);
+    }
+
+    /// <summary>
+    /// The deterministic per-window flavor function of MobiDB-lite v3
+    /// (<c>consensus.py:get_region_features</c> hierarchy over <c>states.py:get_disorder_class</c>
+    /// and <c>states.py:is_enriched</c>). <paramref name="window"/> must be upper-case and non-empty.
+    /// </summary>
+    private static DisorderFlavor ClassifyFlavorWindow(ReadOnlySpan<char> window, bool lowComplexity)
+    {
+        double length = window.Length;
 
         // get_disorder_class: positive = {R,K,H}, negative = {D,E}.
         // MobiDB-lite v3 states.py translates the sequence with
         //   intab='RKDEACFGHILMNPQSTVWY', outab='PPNN____P___________'
         // i.e. R,K,H → "P" (positive) and D,E → "N" (negative); f_plus = (R+K+H)/L,
         // f_minus = (D+E)/L. Histidine is counted as positive (verbatim from the source).
-        int plusCount = 0, minusCount = 0;
-        foreach (char c in seq)
+        int plusCount = 0, minusCount = 0, cys = 0, pro = 0, gly = 0, polar = 0;
+        foreach (char c in window)
         {
             if (c == 'R' || c == 'K' || c == 'H') plusCount++;
             else if (c == 'D' || c == 'E') minusCount++;
+            else if (c == 'C') cys++;
+            else if (c == 'P') pro++;
+            else if (c == 'G') gly++;
+            else if (FlavorPolarResidues.Contains(c)) polar++;
         }
 
         double fPlus = plusCount / length;
@@ -634,26 +658,203 @@ public static class DisorderPredictor
                 return DisorderFlavor.NegativePolyelectrolyte;
         }
 
-        // Weakly charged → composition classes in priority order C → P → G → polar.
-        if (FractionOf(seq, c => c == 'C') >= FlavorEnrichmentThreshold)
+        // Weakly charged → composition classes in priority order C → P → G → (LC) → polar.
+        if (cys / length >= FlavorEnrichmentThreshold)
             return DisorderFlavor.CysteineRich;
-        if (FractionOf(seq, c => c == 'P') >= FlavorEnrichmentThreshold)
+        if (pro / length >= FlavorEnrichmentThreshold)
             return DisorderFlavor.ProlineRich;
-        if (FractionOf(seq, c => c == 'G') >= FlavorEnrichmentThreshold)
+        if (gly / length >= FlavorEnrichmentThreshold)
             return DisorderFlavor.GlycineRich;
-        if (FractionOf(seq, FlavorPolarResidues.Contains) >= FlavorEnrichmentThreshold)
+        if (lowComplexity)
+            return DisorderFlavor.LowComplexity;
+        if (polar / length >= FlavorEnrichmentThreshold)
             return DisorderFlavor.Polar;
 
         return DisorderFlavor.WeaklyCharged;
     }
 
-    private static double FractionOf(string seq, Func<char, bool> predicate)
+    /// <summary>
+    /// Annotates disorder-flavor <b>sub-regions</b> with the full MobiDB-lite 3.0 feature step
+    /// (<c>consensus.py:MobidbLiteConsensus.get_region_features</c>, merge = true): per-residue
+    /// flavor from a mirrored 7-residue sliding window, per-flavor mathematical morphology
+    /// (dilation/erosion, rmax = 5), hierarchical merge, and runs of ≥ 10 residues reported
+    /// inside each disordered region.
+    /// </summary>
+    /// <remarks>
+    /// <para>Algorithm (verbatim port of BioComputingUP/MobiDB-lite v3,
+    /// <c>mdblib/consensus.py</c> + <c>mdblib/states.py</c>):</para>
+    /// <list type="number">
+    /// <item>For every residue i, the window of 2n+1 = 7 residues centred on i
+    /// (<c>States.tokenize(n = 9 // 2 − 1 = 3)</c>; the termini are padded with the mirror image
+    /// of the sequence excluding the terminal residue; for L ≤ 3, n = L − 1) is classified by the
+    /// priority PA → PPE → NPE (Das &amp; Pappu charge classes, gate 0.35) → C → P → G
+    /// (fraction ≥ 0.32) → low complexity (residue i SEG-masked) → polar {S,T,N,Q} (≥ 0.32);
+    /// otherwise no feature.</item>
+    /// <item>For each feature code from 8 (polar) down to 1 (PA), the binary track of that feature
+    /// undergoes <c>States.math_morphology(rmax = 5)</c> and its positions are written into the
+    /// merged track, so higher-priority features overwrite lower ones.</item>
+    /// <item>Within each disordered region the merged track is split into runs of identical
+    /// feature; runs of ≥ 10 residues are reported (<c>feature_len_thr = 10</c>).</item>
+    /// </list>
+    /// <para>The MobiDB-lite paper (Necci et al. 2020) describes a "sliding window of nine
+    /// residues"; the published v3 code tokenizes with n = 9 // 2 − 1 = 3 (7-residue windows).
+    /// Likewise the paper reports sub-regions of "at least nine residues" while the code uses
+    /// <c>feature_len_thr = 10</c>. The code is followed here because it produces the MobiDB
+    /// annotations.</para>
+    /// <para><b>Inputs.</b> MobiDB-lite's own IDRs are a consensus of eight external predictors,
+    /// which are not available here; the caller supplies the disordered regions (e.g. the TOP-IDP
+    /// regions of <see cref="PredictDisorderRegions"/>). When <paramref name="disorderedRegions"/>
+    /// is null the whole sequence is annotated (MobiDB-lite <c>--featuresOutsideIdr</c>). The
+    /// low-complexity track is MobiDB-lite's <c>seg -x</c> mask (window 12, K1 2.2, K2 2.5); when
+    /// <paramref name="lowComplexityMask"/> is null it is computed with
+    /// <see cref="PredictLowComplexityRegions"/> at those defaults (the in-library SEG — see
+    /// DISORDER-LC-001 for its documented approximation of the original SEG).</para>
+    /// Source: Necci et al. (2020) Bioinformatics 36:5533-5534, PMID 33325498;
+    ///   Das &amp; Pappu (2013) PNAS 110:13392-13397, PMID 23901099.
+    /// </remarks>
+    /// <param name="sequence">Full protein sequence (case-insensitive).</param>
+    /// <param name="disorderedRegions">Disordered regions as 0-based inclusive (Start, End); null =
+    /// whole sequence.</param>
+    /// <param name="lowComplexityMask">Per-residue SEG mask (true = low complexity), same length as
+    /// <paramref name="sequence"/>; null = computed with the in-library SEG.</param>
+    /// <returns>Flavor sub-regions (0-based inclusive), ordered by start.</returns>
+    /// <exception cref="ArgumentException"><paramref name="sequence"/> is null or empty, or the mask
+    /// length differs from the sequence length.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A region lies outside the sequence or has End &lt; Start.</exception>
+    public static IReadOnlyList<FlavorSubregion> PredictFlavorSubregionsMobiDbLite(
+        string sequence,
+        IEnumerable<(int Start, int End)>? disorderedRegions = null,
+        IReadOnlyList<bool>? lowComplexityMask = null)
     {
-        int n = 0;
-        foreach (char c in seq)
-            if (predicate(c)) n++;
-        return n / (double)seq.Length;
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence must be non-empty.", nameof(sequence));
+
+        string seq = sequence.ToUpperInvariant();
+        int length = seq.Length;
+
+        var regions = disorderedRegions?.ToList() ?? new List<(int Start, int End)> { (0, length - 1) };
+        foreach (var (start, end) in regions)
+        {
+            if (start < 0 || end >= length || end < start)
+                throw new ArgumentOutOfRangeException(nameof(disorderedRegions),
+                    $"Region ({start}, {end}) is outside [0, {length - 1}] or has End < Start.");
+        }
+
+        bool[] lcMask;
+        if (lowComplexityMask is null)
+        {
+            lcMask = new bool[length];
+            foreach (var (start, end, _) in PredictLowComplexityRegions(seq))
+                for (int i = start; i <= end; i++) lcMask[i] = true;
+        }
+        else
+        {
+            if (lowComplexityMask.Count != length)
+                throw new ArgumentException("Low-complexity mask length must equal the sequence length.",
+                    nameof(lowComplexityMask));
+            lcMask = lowComplexityMask.ToArray();
+        }
+
+        // 1) Per-residue raw features over mirrored 7-residue windows (states.py:tokenize).
+        int n = FlavorWindowHalfWidth < length ? FlavorWindowHalfWidth : length - 1;
+        string padded = Reverse(seq.Substring(1, n)) + seq + Reverse(seq.Substring(length - n - 1, n));
+        var raw = new char[length];
+        for (int i = 0; i < length; i++)
+            raw[i] = FlavorCode(ClassifyFlavorWindow(padded.AsSpan(i, 2 * n + 1), lcMask[i]));
+
+        // 2) Per-feature math morphology, merged hierarchically (codes 8 → 1; lower code wins).
+        var merged = new char[length];
+        Array.Fill(merged, '0');
+        for (char code = '8'; code >= '1'; code--)
+        {
+            var binary = new string(raw.Select(c => c == code ? code : '0').ToArray());
+            string morphed = MathMorphology(binary, FlavorMorphologyRmax, code, '0');
+            for (int i = 0; i < length; i++)
+                if (morphed[i] == code) merged[i] = code;
+        }
+
+        // 3) Runs of >= 10 identical features inside each disordered region.
+        var result = new List<FlavorSubregion>();
+        foreach (var (start, end) in regions)
+        {
+            int runStart = start;
+            for (int i = start; i <= end + 1; i++)
+            {
+                if (i <= end && merged[i] == merged[runStart])
+                    continue;
+                if (merged[runStart] != '0' && i - runStart >= FlavorSubregionMinLength)
+                    result.Add(new FlavorSubregion(runStart, i - 1, FlavorFromCode(merged[runStart])));
+                runStart = i;
+            }
+        }
+
+        return result.OrderBy(r => r.Start).ToList();
     }
+
+    private static string Reverse(string s)
+    {
+        var a = s.ToCharArray();
+        Array.Reverse(a);
+        return new string(a);
+    }
+
+    /// <summary>
+    /// Verbatim port of MobiDB-lite v3 <c>States.math_morphology</c>: dilation then erosion of
+    /// the <paramref name="dis"/> state against <paramref name="str"/>, for context sizes 1..rmax.
+    /// </summary>
+    private static string MathMorphology(string states, int rmax, char dis, char str)
+    {
+        string disPad = new(dis, rmax), strPad = new(str, rmax);
+
+        // Disorder expansion.
+        states = disPad + states + disPad;
+        for (int r = 1; r <= rmax; r++)
+        {
+            string pattern = new string(dis, r) + new string(str, r) + new string(dis, r);
+            string replacement = new(dis, 3 * r);
+            for (int k = 0; k <= r; k++)
+                states = states.Replace(pattern, replacement, StringComparison.Ordinal);
+        }
+
+        // Disorder contraction.
+        states = strPad + states[rmax..^rmax] + strPad;
+        for (int r = 1; r <= rmax; r++)
+        {
+            string pattern = new string(str, r) + new string(dis, r) + new string(str, r);
+            string replacement = new(str, 3 * r);
+            for (int k = 0; k <= r; k++)
+                states = states.Replace(pattern, replacement, StringComparison.Ordinal);
+        }
+
+        return states[rmax..^rmax];
+    }
+
+    // MobiDB-lite feature codes (consensus.py: pappu_codes / feature_codes / feature_desc).
+    private static char FlavorCode(DisorderFlavor flavor) => flavor switch
+    {
+        DisorderFlavor.Polyampholyte => '1',
+        DisorderFlavor.PositivePolyelectrolyte => '2',
+        DisorderFlavor.NegativePolyelectrolyte => '3',
+        DisorderFlavor.CysteineRich => '4',
+        DisorderFlavor.ProlineRich => '5',
+        DisorderFlavor.GlycineRich => '6',
+        DisorderFlavor.LowComplexity => '7',
+        DisorderFlavor.Polar => '8',
+        _ => '0'
+    };
+
+    private static DisorderFlavor FlavorFromCode(char code) => code switch
+    {
+        '1' => DisorderFlavor.Polyampholyte,
+        '2' => DisorderFlavor.PositivePolyelectrolyte,
+        '3' => DisorderFlavor.NegativePolyelectrolyte,
+        '4' => DisorderFlavor.CysteineRich,
+        '5' => DisorderFlavor.ProlineRich,
+        '6' => DisorderFlavor.GlycineRich,
+        '7' => DisorderFlavor.LowComplexity,
+        '8' => DisorderFlavor.Polar,
+        _ => DisorderFlavor.WeaklyCharged
+    };
 
     #endregion
 
@@ -810,7 +1011,9 @@ public static class DisorderPredictor
         sequence = sequence.ToUpperInvariant();
 
         // Per-residue disorder scores (normalized TOP-IDP, higher = more disordered).
-        var prediction = PredictDisorder(sequence);
+        // Uses the unguarded core: MoRFs need only the per-residue scores, not the uncalibrated
+        // per-region Confidence that PredictDisorder guards (DISORDER-REGION-001).
+        var prediction = ComputeDisorder(sequence, 21, TopIdpCutoff, 5);
         var residues = prediction.ResiduePredictions;
 
         var morfs = new List<(int Start, int End, double Score)>();
@@ -902,24 +1105,15 @@ public static class DisorderPredictor
     /// Calculates mean Kyte-Doolittle hydropathy for a sequence.
     /// Source: Kyte &amp; Doolittle (1982) J Mol Biol 157:105-132.
     /// </summary>
-    public static double CalculateHydropathy(string sequence)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return 0;
-
-        sequence = sequence.ToUpperInvariant();
-        double sum = 0;
-        int count = 0;
-        foreach (char c in sequence)
-        {
-            if (Hydropathy.TryGetValue(c, out double value))
-            {
-                sum += value;
-                count++;
-            }
-        }
-        return count > 0 ? sum / count : 0;
-    }
+    /// <remarks>
+    /// Delegates to the canonical GRAVY implementation
+    /// <see cref="SequenceStatistics.CalculateHydrophobicity(string)"/> (same Kyte-Doolittle
+    /// table as Biopython <c>Bio.SeqUtils.ProtParamData.kd</c>): case-insensitive, residues
+    /// outside the 20 standard amino acids are skipped, and 0 is returned for null/empty input
+    /// or when no standard residue is present.
+    /// </remarks>
+    public static double CalculateHydropathy(string sequence) =>
+        SequenceStatistics.CalculateHydrophobicity(sequence);
 
     #endregion
 }

@@ -92,3 +92,16 @@ None. All behavior is evidence-backed:
 | 4 | Internal whitespace stripped from sequence lines | Spec-mandated behavior | Wikipedia: "Anything other than a valid character would be ignored (including spaces, tabulators)" |
 | 5 | Blank lines skipped | Defensive handling of common real-world data | NCBI: "Blank lines are not allowed"; common parser practice |
 | 6 | Lowercase mapped to uppercase | Handled by DnaSequence constructor | Wikipedia/NCBI: "lower-case letters are accepted and are mapped into upper-case" |
+
+## Review 2026-09 additions (FastaParserTests.cs, region "Review 2026-09")
+
+| Test | Source / reference value |
+|------|--------------------------|
+| ToFasta_LineWidthZero_WritesUnwrappedSequence | Biopython FastaWriter(wrap=0) → `>s1 demo\nACGTACGTAC\n` |
+| ToFasta_NegativeLineWidth_ThrowsArgumentOutOfRange | Biopython wrap=-1 → ValueError |
+| Parse_SemicolonCommentLines_AreIgnored | fasta36 agetlib; Biopython fasta-pearson → ACGTGGCC / TTAA |
+| Parse_LeadingSemicolonComments_AreIgnored | Biopython fasta-pearson → (s1, "d", AC) |
+| ParseFileAsync_And_AlphabetOverload_IgnoreCommentLines | same values via async + SequenceAlphabet paths (CRLF) |
+| Parse_HeaderSplitOnAnyWhitespace_MatchesBiopythonId (×2) | Biopython `title.split(None,1)[0]` → `s1` |
+| ToFasta_FastaRecords_Protein_WrapsLikeBiopython | Biopython FastaWriter(wrap=4) layout |
+| WriteFile_FastaRecords_WritesToFastaOutput | = ToFasta output |

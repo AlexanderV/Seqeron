@@ -98,6 +98,25 @@ public class RnaSequenceTests
         Assert.That(revComp.Sequence, Is.EqualTo("CGUU"));
     }
 
+    // SEQ-RNACOMP-001 (review 2026-09): values computed with Biopython 1.88
+    // Bio.Seq.complement_rna / reverse_complement_rna; lowercase input is normalized to
+    // uppercase by the constructor (Biopython would return "ugca"/"acgu").
+    [TestCase("AUGC", "UACG", "GCAU")]
+    [TestCase("AUGGCUAG", "UACCGAUC", "CUAGCCAU")]
+    [TestCase("GGGAAAUCCC", "CCCUUUAGGG", "GGGAUUUCCC")]
+    [TestCase("AAGGCCUUA", "UUCCGGAAU", "UAAGGCCUU")]
+    [TestCase("acgu", "UGCA", "ACGU")]
+    [TestCase("", "", "")]
+    public void ComplementAndReverseComplement_MatchBiopython(string input, string complement, string reverseComplement)
+    {
+        var rna = new RnaSequence(input);
+        Assert.Multiple(() =>
+        {
+            Assert.That(rna.Complement().Sequence, Is.EqualTo(complement), "complement_rna");
+            Assert.That(rna.ReverseComplement().Sequence, Is.EqualTo(reverseComplement), "reverse_complement_rna");
+        });
+    }
+
     #endregion
 
     // Note: GC Content detailed tests are in SequenceExtensions_CalculateGcContent_Tests.cs
@@ -110,6 +129,14 @@ public class RnaSequenceTests
     {
         var rna = new RnaSequence("AUAUAU");
         Assert.That(rna.AuContent(), Is.EqualTo(100.0));
+    }
+
+    [Test]
+    [Description("B01-SWEEP: AU% = 100 - GC% for a validated ACGU sequence; Biopython gc_fraction('GGAUCUUCGGAUCU') = 0.5 -> AU 50 %")]
+    public void AuContent_MixedSequence_IsComplementOfBiopythonGcFraction()
+    {
+        Assert.That(new RnaSequence("GGAUCUUCGGAUCU").AuContent(), Is.EqualTo(50.0));
+        Assert.That(new RnaSequence("gauua").AuContent(), Is.EqualTo(80.0));
     }
 
     [Test]

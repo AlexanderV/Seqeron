@@ -2,16 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "kmer_frequencies",
   "serverName": "Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.GetKmerFrequencies",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L177",
-  "description": "Normalized k-mer frequencies: each distinct k-mer's count divided by the total number of overlapping k-mers. Values are in [0,1] and sum to 1.",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L675",
+  "description": "Normalized k-mer frequencies: each distinct k-mer's count divided by the total number of overlapping k-mers. Values are in [0,1] and sum to 1. Optional acgtOnly (kPAL / Jellyfish profile: windows with a non-ACGT symbol skipped, denominator = counted windows) and canonical (jellyfish count -C counts) modes.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
-      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "canonical": { "type": "boolean", "description": "Canonical k-mers min(k-mer, reverse complement) (jellyfish count -C); implies acgtOnly", "default": false },
+      "acgtOnly": { "type": "boolean", "description": "Skip windows containing a non-ACGT symbol (Jellyfish / kPAL convention)", "default": false }
     },
     "required": ["sequence", "k"]
   },
@@ -40,6 +42,11 @@
       "name": "Homopolymer AAAA k=2",
       "input": { "sequence": "AAAA", "k": 2 },
       "output": { "frequencies": { "AA": 1.0 } }
+    },
+    {
+      "name": "Canonical with N/IUPAC ACGTNACGTAAcgtRTT k=3 (jellyfish count -C)",
+      "input": { "sequence": "ACGTNACGTAAcgtRTT", "k": 3, "canonical": true },
+      "output": { "frequencies": { "ACG": 0.6666666666666666, "AAC": 0.1111111111111111, "GTA": 0.1111111111111111, "TAA": 0.1111111111111111 } }
     }
   ]
 }

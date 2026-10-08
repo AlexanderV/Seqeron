@@ -6,7 +6,7 @@
 | Test Unit ID | CODON-OPT-001 |
 | Related Projects | N/A |
 | Implementation Status | N/A |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -33,9 +33,9 @@ The optimization goal is to preserve the amino-acid sequence while changing codo
 |----------|------------------|---------------------|
 | Maximum CAI | `MaximizeCAI` | Choose the highest-frequency synonymous codon. |
 | Balanced optimization | `BalancedOptimization` | Prefer non-rare codons, then rebalance GC toward the configured range. |
-| Harmonized expression | `HarmonizeExpression` | Weighted random choice from synonymous codons using table frequencies. |
+| Harmonized expression | `HarmonizeExpression` | Deterministic largest-remainder match of the target codon-usage profile (DNA Chisel `match_codon_usage`).[8] |
 | Avoid rare codons | `AvoidRareCodeons` | Replace only codons whose current frequency is below the threshold. |
-| Minimize secondary structure | `MinimizeSecondary` | Currently falls through to the same selection branch as `BalancedOptimization` inside `OptimizeSequence`. |
+| Minimize secondary structure | `MinimizeSecondary` | Same codon selection and GC pass as `BalancedOptimization` inside `OptimizeSequence`; the dedicated pass is `ReduceSecondaryStructure`. |
 
 CAI is used as one of the optimization metrics and is defined as in [CAI_Calculation.md](CAI_Calculation.md).[1]
 
@@ -106,11 +106,15 @@ The repository strategy behaviors are:
 
 | Strategy | Selection rule |
 |----------|----------------|
-| `MaximizeCAI` | Choose the synonymous codon with the highest table frequency. |
-| `AvoidRareCodeons` | If the current codon frequency is below `rareCodonThreshold`, choose the highest-frequency synonymous codon meeting the threshold; otherwise keep the current codon. |
-| `HarmonizeExpression` | Choose a synonymous codon by weighted random sampling from the table frequencies. |
-| `BalancedOptimization` | Choose the highest-frequency synonymous codon with frequency at least `rareCodonThreshold`, then adjust GC if needed. |
-| `MinimizeSecondary` | Currently uses the same branch as `BalancedOptimization` in `SelectOptimalCodon`. |
+| `MaximizeCAI` | Choose the synonymous codon with the highest table frequency (ties: first in NCBI codon order). Identical to DNA Chisel `CodonOptimize(method="use_best_codon")` and Biopython `CodonAdaptationIndex.optimize`.[8][9] |
+| `AvoidRareCodeons` | If the current codon frequency is below `rareCodonThreshold`, replace it with the highest-frequency synonymous codon; otherwise keep the current codon. |
+| `HarmonizeExpression` | Per amino acid, allocate the synonymous codons by largest-remainder rounding of `frequency × residue count`; positions already holding an allotted codon keep it. This is the deterministic optimum of DNA Chisel's `MatchTargetCodonUsage` objective.[8] |
+| `BalancedOptimization` | As `MaximizeCAI`, then the GC pass. |
+| `MinimizeSecondary` | Same as `BalancedOptimization` in `SelectOptimalCodon`. |
+
+GC pass (`BalanceGcContent`): while the overall GC fraction is outside `[gcTargetMin, gcTargetMax]`, walk the codons and apply only swaps that move GC in the required direction, preferring a swap that lands the sequence inside the window over one that overshoots and, among equals, the most frequent codon; codons below `rareCodonThreshold` are not used; the pass stops as soon as the sequence is inside the window (DNA Chisel `EnforceGCContent(mini, maxi)` resolved by synonymous mutations).[8]
+
+Ambiguity: amino acids come from `GeneticCode.Standard`, so an IUPAC-ambiguous triplet that still encodes one amino acid (e.g. `GCN` → Ala) is optimised like any other codon, while `NNN`, `B`/`Z`/`J` cases and triplets containing non-IUPAC symbols are carried through unchanged and translate to `X`.
 
 ### 4.3 Complexity
 
@@ -128,10 +132,12 @@ The repository strategy behaviors are:
 - `CodonOptimizer.SelectOptimalCodon(...)` (private helper)
 - `CodonOptimizer.BalanceGcContent(...)` (private helper)
 - `CodonOptimizer.ReduceSecondaryStructure(...)` (separate public helper not called from `OptimizeSequence`)
+- `CodonOptimizer.RemoveRestrictionSites(...)` (separate public helper: IUPAC site matching on both strands, one synonymous codon change per removed occurrence, replacement chosen by host codon usage)
+- `CodonOptimizer.CreateCodonTableFromSequence(...)` / `CodonOptimizer.CreateCodonUsageTable(...)` (reference table from a gene set, Sharp & Li 0.5 pseudo-count; table factory carrying the Standard-code codon→amino-acid map)
 
 ### 5.2 Current Behavior
 
-The result stores the normalized RNA input rather than the caller's original string. Stop codons are preserved unchanged. `BalancedOptimization` performs a second GC-balancing pass and then rebuilds `Changes` and `ChangedCodons` from the final codons, matching the bug fix recorded in the test specification.[7] `MinimizeSecondary` is present in the public enum, but within `OptimizeSequence` it currently falls through to the same codon-selection behavior as `BalancedOptimization`. A separate `ReduceSecondaryStructure` helper exists for direct structure-reduction work but is not invoked automatically by `OptimizeSequence`.[7]
+The result stores the normalized RNA input rather than the caller's original string. Stop codons are preserved unchanged. `Changes` and `ChangedCodons` are always rebuilt from the original vs. final codons, so they include the GC-balancing pass. `BalancedOptimization` and `MinimizeSecondary` share the same codon selection and the same GC pass; a separate `ReduceSecondaryStructure` helper exists for direct structure-reduction work and is not invoked automatically by `OptimizeSequence`.[7] Codon families and translation come from `GeneticCode.Standard` (no private genetic-code copy), in NCBI codon order, which is also the tie-break for equal-frequency codons.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -142,9 +148,9 @@ The result stores the normalized RNA input rather than the caller's original str
 
 **Intentionally simplified:**
 
-- GC balancing uses a codon-level heuristic rather than a thermodynamic folding model; **consequence:** GC content can improve without guaranteeing improved structure or expression.
-- `HarmonizeExpression` uses weighted random selection from the codon table; **consequence:** results can vary between calls.
-- `MinimizeSecondary` is represented as a strategy name but does not currently invoke a dedicated secondary-structure minimization pass inside `OptimizeSequence`; **consequence:** callers do not receive distinct secondary-structure optimization from that strategy alone.
+- GC balancing works on the global GC fraction rather than on sliding GC windows (DNA Chisel supports both); **consequence:** a sequence inside the global window may still contain GC-extreme stretches.
+- `MinimizeSecondary` does not invoke a secondary-structure pass inside `OptimizeSequence`; **consequence:** callers must call `ReduceSecondaryStructure` for that.
+- `ReduceSecondaryStructure` scores a window by counting positions that can form a canonical pair (Watson-Crick plus G·U wobble, via `RnaSecondaryStructure.CanPair`) rather than by folding free energy; **consequence:** it relaxes obvious self-complementarity only. A free-energy-guided search would need `RnaSecondaryStructure.CalculateMinimumFreeEnergy` per candidate codon — O(w³) each (≈6 ms per 43-nt window measured here, i.e. minutes per kilobase) — and is left to the caller.
 
 **Not implemented:**
 
@@ -156,7 +162,7 @@ The result stores the normalized RNA input rather than the caller's original str
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Public enum member is spelled `AvoidRareCodeons`. | Deviation | Documentation and callers must use the API spelling, not the natural-language spelling. | accepted | Confirmed in [CodonOptimizer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs). |
-| 2 | `MinimizeSecondary` currently shares codon selection with `BalancedOptimization` inside `OptimizeSequence`. | Deviation | This strategy name does not currently provide a distinct optimization path in that method. | accepted | Documented in [CODON-OPT-001.md](../../../tests/TestSpecs/CODON-OPT-001.md). |
+| 2 | `MinimizeSecondary` shares codon selection and the GC pass with `BalancedOptimization` inside `OptimizeSequence`. | Deviation | This strategy name does not currently provide a distinct optimization path in that method. | accepted | Documented in [CODON-OPT-001.md](../../../tests/TestSpecs/CODON-OPT-001.md). |
 
 ## 6. Edge Cases and Limitations
 
@@ -172,7 +178,7 @@ The result stores the normalized RNA input rather than the caller's original str
 
 ### 6.2 Limitations
 
-`OptimizeSequence` is a heuristic codon-selection routine. It does not guarantee optimal translation efficiency, does not integrate every available repository sequence-design helper, and does not model full mRNA folding or regulatory context inside a single pass.
+`OptimizeSequence` is a codon-selection routine over a single codon-usage table. It does not model mRNA folding, codon-pair bias, ramp effects or regulatory context, and it optimises one objective at a time rather than solving a multi-constraint design problem the way a full sequence optimiser (DNA Chisel) does. Restriction-site removal and structure reduction are separate passes (`RemoveRestrictionSites`, `ReduceSecondaryStructure`) and are not run automatically.
 
 ## 7. Examples and Related Material
 
@@ -191,3 +197,6 @@ The result stores the normalized RNA input rather than the caller's original str
 5. Kazusa Codon Usage Database. E. coli K-12 substr. W3110, species 316407. https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407
 6. Kazusa Codon Usage Database. Saccharomyces cerevisiae, species 4932. https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=4932
 7. Test specification: [CODON-OPT-001.md](../../../tests/TestSpecs/CODON-OPT-001.md)
+8. Zulkower V, Rosser S. 2020. DNA Chisel, a versatile sequence optimizer. Bioinformatics 36(16):4508-4509. Reference implementation 3.2.16: `CodonOptimize` (`use_best_codon` / `match_codon_usage` / `harmonize_rca`), `MatchTargetCodonUsage.codon_usage_matching_stats`, `EnforceGCContent`, `AvoidPattern`. https://edinburgh-genome-foundry.github.io/DnaChisel/
+9. Biopython 1.88, `Bio.SeqUtils.CodonAdaptationIndex` — builds the reference index from a gene set with a count of 0.5 for codons absent from the reference set ("following the description in the original paper", Sharp & Li 1987) and `optimize()` for the most-preferred-codon rewrite.
+10. Puigbò P, Guzmán E, Romeu A, Garcia-Vallvé S. 2007. OPTIMIZER: a web server for optimizing the codon usage of DNA sequences. Nucleic Acids Research 35:W126-W131 ("one amino acid – one codon" method).

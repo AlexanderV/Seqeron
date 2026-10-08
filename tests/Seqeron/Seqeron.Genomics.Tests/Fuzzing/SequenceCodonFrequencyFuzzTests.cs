@@ -30,7 +30,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// API entry: SequenceStatistics.CalculateCodonFrequencies(string, int readingFrame = 0)
 ///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs
-///    lines 688–723), returning IReadOnlyDictionary&lt;string,double&gt;.
+///    CalculateCodonFrequencies), returning IReadOnlyDictionary&lt;string,double&gt;.
 ///
 /// This is the STATISTICS-module codon-frequency (count / total counted codons)
 /// of the Kazusa CUTG convention — distinct from Codon-area CODON-* and the
@@ -47,8 +47,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • §3.3 / §6.1: only COMPLETE non-overlapping triplets are read; trailing 1–2
 ///     bases (length not a multiple of 3 from the frame) are IGNORED.
 ///   • §2.2 / §3.3 / §6.1 (INV-03): a triplet containing ANY non-ACGT base is
-///     excluded from BOTH count and total (ambiguous codons excluded). U is a
-///     non-ACGT base here — no T↔U conversion (§3.3). When EVERY triplet is
+///     excluded from BOTH count and total (ambiguous codons excluded). RNA U is
+///     read as T (§3.3; EMBOSS cusp / CodonW, review 2026-09 B03 F15). When EVERY triplet is
 ///     ambiguous (total = 0) the result is the EMPTY dictionary — no DivideByZero.
 ///   • §3.3 / §6.1 (INV-04): input is upper-cased (ToUpperInvariant) before
 ///     counting, so counting is case-insensitive.
@@ -96,7 +96,8 @@ public class SequenceCodonFrequencyFuzzTests
         if (string.IsNullOrEmpty(seq) || seq.Length < 3)
             return new Dictionary<string, double>();
 
-        string upper = seq.ToUpperInvariant();
+        // U read as T (Codon_Frequencies.md §3.3; EMBOSS cusp executed, review 2026-09 B03 F15).
+        string upper = seq.ToUpperInvariant().Replace('U', 'T');
         for (int i = frame; i <= upper.Length - 3; i += 3)
         {
             string codon = upper.Substring(i, 3);
@@ -325,12 +326,12 @@ public class SequenceCodonFrequencyFuzzTests
     /// BE: a SINGLE non-ACGT base anywhere in a triplet voids the WHOLE triplet —
     /// "ANG" / "ATN" / "NTG" are all excluded, not partially counted. "AAAANGTTT"
     /// reads AAA, ANG, TTT ⇒ ANG (has N) excluded, total = 2, f_AAA = f_TTT = 1/2.
-    /// Also covers RNA 'U' being treated as non-ACGT (no T↔U conversion, §3.3):
-    /// "AUGAAA" reads AUG (has U → excluded) and AAA ⇒ {AAA: 1.0}.
-    /// — Codon_Frequencies.md §2.2 / §3.3 (U is a non-ACGT base, no U→T).
+    /// Also covers RNA 'U' (review 2026-09 B03 F15 — previously asserted U = ambiguous, contradicted by
+    /// EMBOSS cusp executed on "AUGAUGAAAUUUCGC" → ATG 400/1000): "AUGAAA" reads ATG and AAA ⇒ 1/2 each.
+    /// — Codon_Frequencies.md §2.2 / §3.3.
     /// </summary>
     [Test]
-    public void Codon_NonAcgtBaseVoidsWholeTriplet_AndUIsAmbiguous()
+    public void Codon_NonAcgtBaseVoidsWholeTriplet_AndUIsReadAsT()
     {
         var f1 = SequenceStatistics.CalculateCodonFrequencies("AAAANGTTT");
         f1.Should().HaveCount(2, "ANG (contains N) is excluded entirely");
@@ -338,11 +339,12 @@ public class SequenceCodonFrequencyFuzzTests
         f1["TTT"].Should().BeApproximately(1.0 / 2.0, Tolerance);
         AssertWellFormed(f1);
 
-        // RNA U is non-ACGT here: AUG excluded, only AAA counted.
+        // RNA U is read as T: AUG counted as ATG (DNA spelling), plus AAA.
         var f2 = SequenceStatistics.CalculateCodonFrequencies("AUGAAA");
-        f2.Should().HaveCount(1);
-        f2.Should().NotContainKey("AUG", "U is a non-ACGT base; no T↔U conversion (§3.3)");
-        f2["AAA"].Should().BeApproximately(1.0, Tolerance);
+        f2.Should().HaveCount(2);
+        f2.Should().NotContainKey("AUG", "keys are DNA-spelled (§3.3)");
+        f2["ATG"].Should().BeApproximately(0.5, Tolerance);
+        f2["AAA"].Should().BeApproximately(0.5, Tolerance);
         AssertWellFormed(f2);
     }
 
@@ -502,7 +504,7 @@ public class SequenceCodonFrequencyFuzzTests
     public void Codon_RandomRealisticSequences_MatchOracleAcrossFrames()
     {
         var rng = new Random(424242);
-        const string alphabet = "ACGTacgtN-x";
+        const string alphabet = "ACGTUacgtuN-x";
 
         for (int iteration = 0; iteration < 2000; iteration++)
         {

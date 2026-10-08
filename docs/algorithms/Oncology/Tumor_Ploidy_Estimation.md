@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-PLOIDY-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -26,11 +26,14 @@ Tumours frequently deviate from the normal diploid (2n) state through aneuploidy
 
 where CN_i = n_{A,i} + n_{B,i} is the segment total copy number and L_i = End_i − Start_i is the segment length. The originating allele-specific method is ASCAT, which reports a final tumour ploidy on the n-scale (2n = diploid) [2].
 
-**Whole-genome doubling.** WGD is called when the fraction of the **reference autosomal genome** (chromosomes 1–22) covered by segments with major-allele copy number ≥ 2 strictly exceeds 0.5 [3][4]:
+**Whole-genome doubling.** WGD is called when more than half of the **autosomal genome** (chromosomes 1–22) has major-allele copy number ≥ 2 [3][4]:
 
 frac_elevated_mcn = Σ_{i: mcn_i ≥ 2, chrom_i ∈ 1..22} L_i / G_autosomal;  WGD ⇔ frac_elevated_mcn > 0.5
 
-where mcn_i = tcn_i − lcn_i is the major-allele copy number (total minus minor) and G_autosomal = Σ_{c=1..22} size(c) is the autosomal genome length from a reference chromosome-size table [4]. The reference implementation computes `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])` and uses `treshold = 0.5` with the strict comparison `frac_elevated_mcn > treshold` [4][5]. The denominator is the **true genome length**, not the sum of the supplied segments, so segments that do not tile the genome no longer bias the fraction; only autosomal segments contribute to the numerator. G_autosomal = 2,875,001,522 bp for GRCh38 and 2,881,033,286 bp for GRCh37 (UCSC `*.chrom.sizes`, cross-verified against Ensembl GRCh38.p14) [5].
+where mcn_i = tcn_i − lcn_i is the major-allele copy number (total minus the lesser/minor allele, i.e. max of the two allele copy numbers). The reference implementation (facets-suite `copy-number-scores.R`) computes `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])` with `chrom_info = get_sample_genome(segs, genome)`, whose per-chromosome `size = max(end) − min(start)` is the **interrogated span of the sample's own segments** (the `genome` build only supplies centromeres), and uses `treshold = 0.5` with the strict comparison `frac_elevated_mcn > treshold` [4]. Two denominators are therefore provided:
+
+- **facets-suite exact** (`DetectWholeGenomeDoublingFromSuppliedLength`): G_autosomal = Σ over autosomes present of (max End − min Start); gaps between a chromosome's first and last segment count in the denominator only.
+- **reference-assembly** (`DetectWholeGenomeDoubling`, default): G_autosomal = Σ_{c=1..22} of the reference chromosome size — 2,875,001,522 bp (GRCh38) / 2,881,033,286 bp (GRCh37), UCSC `*.chrom.sizes` [5]. This reads Bielski's "autosomal genome" literally and is robust to partial-genome inputs; it deviates from the facets-suite code whenever the segments do not span every autosome end-to-end (review 2026-09, F9).
 
 ### 2.4 Properties and Invariants
 
@@ -59,7 +62,7 @@ where mcn_i = tcn_i − lcn_i is the major-allele copy number (total minus minor
 
 ### 3.3 Preconditions and Validation
 
-Coordinates are half-open [Start, End) with length End − Start in base pairs (per the shared `AlleleSpecificSegment`). `segments` null → `ArgumentNullException`. A segment with End ≤ Start (length ≤ 0) or a negative copy number → `ArgumentException`; both methods share the same per-segment validation (`ValidateSegment`). `EstimatePloidy` additionally rejects an empty segment set (ψ is undefined for Σ L = 0). `DetectWholeGenomeDoubling` divides by the fixed reference autosomal genome length, so an empty set yields numerator 0 → fraction 0 → `false` (no exception); an undefined `ReferenceGenome` value → `ArgumentOutOfRangeException`. The legacy `DetectWholeGenomeDoublingFromSuppliedLength` keeps the empty → `ArgumentException` behaviour (its denominator is the supplied length).
+Coordinates are half-open [Start, End) with length End − Start in base pairs (per the shared `AlleleSpecificSegment`). `segments` null → `ArgumentNullException`. A segment with End ≤ Start (length ≤ 0) or a negative copy number → `ArgumentException`; both methods share the same per-segment validation (`ValidateSegment`). `EstimatePloidy` additionally rejects an empty segment set (ψ is undefined for Σ L = 0). `DetectWholeGenomeDoubling` divides by the fixed reference autosomal genome length, so an empty set yields numerator 0 → fraction 0 → `false` (no exception); an undefined `ReferenceGenome` value → `ArgumentOutOfRangeException`. `DetectWholeGenomeDoublingFromSuppliedLength` (facets-suite exact) rejects input with no autosomal segment (empty included) with `ArgumentException` — its interrogated-span denominator is 0 (R: 0/0 → `NA`).
 
 ## 4. Algorithm
 
@@ -73,6 +76,9 @@ Coordinates are half-open [Start, End) with length End − Start in base pairs (
 
 - Major-CN-elevation cutoff: mcn ≥ 2 (`WholeGenomeDoublingMajorCopyNumber = 2`) [4].
 - WGD fraction threshold: strict > 0.5 (`WholeGenomeDoublingFractionThreshold = 0.5`) [3][4].
+- Major CN: mcn = tcn − lcn = max(Major, Minor) (`IsElevatedMajorCopyNumber`), independent of allele labelling [4].
+- Length sums are accumulated in `double` (facets-suite `as.numeric`), so Σ L cannot overflow Int64.
+- facets-suite interrogated denominator: per-autosome span max(End) − min(Start) (`get_sample_genome`); no autosomal segment → undefined (R `NA`) → `ArgumentException` [4].
 - Reference autosomal genome length: embedded chromosome-size tables `GRCh38AutosomeLengths` / `GRCh37AutosomeLengths` (chr1–22 from UCSC `*.chrom.sizes`); summed by `GetAutosomalGenomeLength` (GRCh38 = 2,875,001,522 bp, GRCh37 = 2,881,033,286 bp) [5].
 - Autosome restriction: numerator counts only segments whose chromosome parses to 1–22 (`chrom %in% 1:22`), accepting both "7" and "chr7" forms [4][5].
 
@@ -86,11 +92,11 @@ Coordinates are half-open [Start, End) with length End − Start in base pairs (
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.CopyNumberPloidy.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CopyNumberPloidy.cs)
 
 - `OncologyAnalyzer.EstimatePloidy(IEnumerable<AlleleSpecificSegment>)`: length-weighted average ploidy ψ.
-- `OncologyAnalyzer.DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>, ReferenceGenome = GRCh38)`: WGD flag via the facets-suite major-CN≥2 / >50% rule, against the reference autosomal chromosome-size table.
-- `OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment>)`: legacy WGD flag using the supplied-segment total length as the denominator (for callers whose segments already tile the genome).
+- `OncologyAnalyzer.DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>, ReferenceGenome = GRCh38)`: WGD flag via the Bielski/facets-suite major-CN≥2 / >50% rule, against the reference autosomal chromosome-size table.
+- `OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment>)`: WGD flag exactly as facets-suite `is_genome_doubled(segs, get_sample_genome(segs))` — denominator Σ over autosomes of the interrogated span (max End − min Start); non-autosomal segments ignored.
 - `OncologyAnalyzer.GetAutosomeLengths(ReferenceGenome)` / `GetAutosomalGenomeLength(ReferenceGenome)`: the embedded reference chromosome-size table and its autosomal sum.
 
 ### 5.2 Current Behavior
@@ -103,11 +109,12 @@ Both methods stream the input in a single pass and reuse the existing `AlleleSpe
 
 - Average ploidy ψ = Σ(CN_i · L_i) / Σ(L_i), CN_i = Major+Minor — Patchwork length-weighted mean of total copy number [1].
 - WGD ⇔ fraction of genome with major CN ≥ 2 (mcn = tcn − lcn) strictly > 0.5 — facets-suite `is_genome_doubled` (PMID 30013179) [3][4].
-- WGD fraction denominator = the **reference autosomal genome length** `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])`, from the embedded UCSC `*.chrom.sizes` tables (GRCh38/GRCh37), with the numerator restricted to autosomal (chr1–22) segments — facets-suite `is_genome_doubled` [4][5].
+- `DetectWholeGenomeDoublingFromSuppliedLength`: facets-suite `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])` with `chrom_info = get_sample_genome(segs)` (size = max(end) − min(start)), numerator restricted to autosomes — line-by-line equal to the R code (Python port cross-check, review 2026-09) [4].
+- `DetectWholeGenomeDoubling`: same numerator/threshold; denominator = reference autosomal length from the embedded UCSC `*.chrom.sizes` tables (GRCh38/GRCh37) [5] — see §5.4 #1.
 
 **Intentionally simplified:**
 
-- (none) — the WGD denominator now uses the reference chromosome-size table per the cited spec; the prior supplied-segment-length simplification is resolved (still available as `DetectWholeGenomeDoublingFromSuppliedLength` for whole-genome-tiling inputs).
+- (none). Note: `EstimatePloidy` weights by base pairs (Patchwork [1]); ASCAT's internal ploidy weights segments by probe count (`sum((nA+nB)*s[,"length"])/sum(s[,"length"])`, length = #probes) and reports `mean(nA+nB)` over probes — identical for uniform probe density; `AlleleSpecificSegment` carries no probe counts.
 
 **Not implemented:**
 
@@ -117,7 +124,7 @@ Both methods stream the input in a single pass and reuse the existing `AlleleSpe
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | WGD fraction denominator = reference autosomal genome length (chromosome-size table), not supplied-segment length | — | Matches the facets-suite spec exactly | resolved 2026-06-22 | Embedded UCSC `*.chrom.sizes` (GRCh38/GRCh37), Ensembl-cross-verified; legacy supplied-length path kept as `DetectWholeGenomeDoublingFromSuppliedLength` |
+| 1 | `DetectWholeGenomeDoubling` denominator = reference autosomal genome length (chromosome-size table) | Deviation | Differs from facets-suite code (`get_sample_genome` interrogated span) when segments do not span each autosome end-to-end | documented 2026-09-28 | The 2026-06-22 claim that facets-suite uses a reference table was a misreading (`chrom_info` is `get_sample_genome(segs)`); the exact facets rule is `DetectWholeGenomeDoublingFromSuppliedLength` (fixed in review 2026-09, F9) |
 | 2 | Registry lists `DetectWholeGenomeDoubling(ploidy)` (scalar); canonical method takes segments | Deviation | API shape differs from registry stub | accepted | The cited WGD definition (major CN ≥ 2 over >50% genome) requires per-segment data, not a scalar ploidy |
 
 ## 6. Edge Cases and Limitations
@@ -126,6 +133,9 @@ Both methods stream the input in a single pass and reuse the existing `AlleleSpe
 
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
+| Only non-autosomal segments | `DetectWholeGenomeDoublingFromSuppliedLength` → `ArgumentException` | facets-suite 0/0 → `NA` [4] |
+| Gap between segments of one chromosome | facets-exact: gap counted in denominator (60 Mb elevated over a 140 Mb span → 0.43 → false) | `get_sample_genome` size = max(end) − min(start) [4] |
+| Allele labels swapped (Major < Minor) | mcn = max(Major, Minor) | mcn = tcn − lcn, lcn = lesser allele [4] |
 | Empty segment set | `EstimatePloidy` → `ArgumentException`; `DetectWholeGenomeDoubling` → `false` | ψ undefined (Σ L = 0); WGD numerator 0 over a fixed reference denominator [1][4] |
 | Segment End ≤ Start | `ArgumentException` | non-positive length is invalid input |
 | Negative copy number | `ArgumentException` | invalid input |
@@ -161,8 +171,8 @@ var segments = new[]
 double ploidy = OncologyAnalyzer.EstimatePloidy(segments);          // 3.0
 // Against the GRCh38 autosomal genome (2.875 Gb), 150 Mb at major CN ≥ 2 ≈ 5% → not doubled.
 bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);    // false (GRCh38 default)
-// Legacy supplied-length denominator (segments-as-genome): 150/250 = 0.60 > 0.5 → doubled.
-bool wgdLegacy = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments); // true
+// facets-suite exact (interrogated spans chr1 100 + chr2 100 + chr3 50 Mb): 150/250 = 0.60 > 0.5 → doubled.
+bool wgdFacets = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments); // true
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents
@@ -176,6 +186,6 @@ bool wgdLegacy = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(se
 1. Mayrhofer M, et al. Patchwork: allele-specific copy number analysis of whole-genome sequenced tumor tissue. *Genome Biology* (PMC4053982). https://pmc.ncbi.nlm.nih.gov/articles/PMC4053982/
 2. Van Loo P, Nordgard SH, Lingjærde OC, et al. 2010. Allele-specific copy number analysis of tumors. *PNAS* 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
 3. Bielski CM, Zehir A, Penson AV, et al. 2018. Genome doubling shapes the evolution and prognosis of advanced cancers. *Nature Genetics* 50(8):1189–1195. https://doi.org/10.1038/s41588-018-0165-1
-4. facets-suite (MSKCC). `R/copy-number-scores.R`, `is_genome_doubled` (treshold = 0.5, mcn = tcn − lcn, `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])`, PMID 30013179). https://github.com/mskcc/facets-suite/blob/master/R/copy-number-scores.R
+4. facets-suite (MSKCC). `R/copy-number-scores.R`, `is_genome_doubled` (treshold = 0.5, mcn = tcn − lcn, `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])`, PMID 30013179), `get_sample_genome` (size = max(end) − min(start) per chromosome), `parse_segs`, `calculate_fraction_cna`. https://raw.githubusercontent.com/mskcc/facets-suite/master/R/copy-number-scores.R (re-read 2026-09-28)
 5. UCSC Genome Browser. `hg38.chrom.sizes` (https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/latest/hg38.chrom.sizes) and `hg19.chrom.sizes` (https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes); GRCh38 chromosome lengths cross-verified against Ensembl REST GRCh38.p14 (https://rest.ensembl.org/info/assembly/homo_sapiens). Accessed 2026-06-22.
 </content>

@@ -1,6 +1,6 @@
 # complexity_compression_ratio
 
-Estimate sequence complexity using compression ratio.
+Normalized Lempel–Ziv (LZ76) complexity c / (n / log_b n). Not a compressor's compression ratio — the tool name is historical and kept for compatibility.
 
 ## Overview
 
@@ -14,11 +14,11 @@ Estimate sequence complexity using compression ratio.
 
 ## Description
 
-Estimates sequence complexity using an LZ77-like compression approach. The algorithm counts unique substrings at various lengths and compares them to the expected number for a random sequence. Lower ratios indicate more repetitive/less complex sequences, while higher ratios indicate more complex sequences with more unique patterns.
+Returns the normalized Lempel–Ziv (1976) complexity c / (n / log_b n) (Zhang et al. 2009), where c is the number of components in the LZ76 exhaustive history (Kaspar–Schuster scan), n the length and b the number of distinct symbols (clamped to ≥ 2). Values near 1 indicate random-like sequences; lower values indicate more repetitive/compressible sequences. Finite sequences can exceed 1. See [Lempel_Ziv_Complexity.md](../../../algorithms/Complexity/Lempel_Ziv_Complexity.md).
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L391](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L391)
+- Source: [SequenceComplexity.cs#L1772](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1772)
 
 ## Input Schema
 
@@ -30,7 +30,7 @@ Estimates sequence complexity using an LZ77-like compression approach. The algor
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `compressionRatio` | number | Estimated compression ratio (0 to 1) |
+| `compressionRatio` | number | Normalized Lempel–Ziv complexity (≥ 0; ≈ 1 for random sequences, may exceed 1) |
 
 ## Errors
 
@@ -43,7 +43,7 @@ Estimates sequence complexity using an LZ77-like compression approach. The algor
 ### Example 1: Complex DNA sequence
 
 **User Prompt:**
-> What's the compression ratio for "ATGCGATCGATCG"?
+> What's the normalized Lempel–Ziv complexity of "ATGCGATCGATCG"?
 
 **Expected Tool Call:**
 ```json
@@ -58,7 +58,7 @@ Estimates sequence complexity using an LZ77-like compression approach. The algor
 **Response:**
 ```json
 {
-  "compressionRatio": 0.85
+  "compressionRatio": 0.9962722318072171
 }
 ```
 
@@ -80,14 +80,14 @@ Estimates sequence complexity using an LZ77-like compression approach. The algor
 **Response:**
 ```json
 {
-  "compressionRatio": 0.15
+  "compressionRatio": 0.26609640474436813
 }
 ```
 
 ## Performance
 
-- **Time Complexity:** O(n × m) where n is sequence length and m is max substring length (10)
-- **Space Complexity:** O(n × m) for unique substring storage
+- **Time Complexity:** O(n²) worst case (Kaspar–Schuster scan of the LZ76 exhaustive history)
+- **Space Complexity:** O(σ) (distinct-symbol count only)
 
 ## See Also
 

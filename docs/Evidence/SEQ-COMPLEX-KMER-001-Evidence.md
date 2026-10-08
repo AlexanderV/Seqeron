@@ -6,6 +6,27 @@
 
 ---
 
+## Review 2026-09 correction (B04)
+
+The original collection attributed the k-mer Shannon-entropy formula to Li (2025, longdust). Re-opening
+the longdust primary material shows this is **wrong**: the longdust README ("The longdust algorithm",
+raw.githubusercontent.com/lh3/longdust/master/README.md) and its math notes
+(raw.githubusercontent.com/lh3/longdust/master/tex/notes.tex) define the score
+S_L(x) = Σ_{t∈κ(x)} log c_x(t)! − f(ℓ(x)/4^k), a Poisson composite-likelihood score, **not**
+H = −Σ p_i log₂ p_i. Li (2025) is kept only for the notation ℓ(x) = |x| − k + 1 (number of overlapping
+k-mers), which the README does state. The "quoted" Li 2025 points 2–4 below were WebFetch summariser
+output, not text of the paper, and must not be cited. Replacement sources actually opened / used:
+
+| Source | What was opened | What it confirms |
+|---|---|---|
+| Shannon (1948) | via textbook formula (primary PDF not reachable) | H = −Σ p log p; 0 ≤ H ≤ log n; H = 0 iff deterministic |
+| Herzel, Ebeling & Schmitt (1994) Phys. Rev. E 50:5061; Schmitt & Herzel (1997) J. Theor. Biol. 188:369 | WebSearch snippets only (publisher/arXiv blocked) | block entropy H_n = −Σ p⁽ⁿ⁾(A₁…A_n) log p⁽ⁿ⁾(A₁…A_n) of n-mers of DNA; finite-sample underestimation when N is small vs 4ⁿ |
+| BBMap/BBDuk `EntropyTracker.java` (raw.githubusercontent.com/BioInfoTools/BBMap/master/current/structures/EntropyTracker.java) | source code opened | reference implementation: windowKmers = windowBases − k + 1 (overlapping), pk = count/windowKmers, eSum = Σ −pk·log(pk); BBDuk then multiplies by 1/ln(windowKmers) to get a 0–1 score |
+| scipy.stats.entropy(counts, base=2) | executed (python3) | numerical cross-check of every dataset below plus a seeded random 200-mer, k ∈ {1,2,3,5,8} (see tests R1) |
+
+Pastore et al. (2025) could not be re-opened (arXiv blocked); its log-base-2 convention is standard and
+not load-bearing.
+
 ## Online Sources
 
 ### Li, H. (2025). Finding low-complexity DNA sequences with longdust (arXiv:2509.07357)
@@ -21,7 +42,7 @@
 3. **Probability estimate:** "If n_i represents the count of k-mer i and N = L − k + 1 is the total number of k-mers, then p_i = n_i/N, and the entropy sums across all observed k-mers."
 4. **Complexity interpretation:** low-complexity sequences have skewed k-mer distributions (few k-mers dominate) → low entropy; high-complexity sequences have uniform distributions → high entropy.
 
-### Çakır et al. (2025). Entropy–Rank Ratio: An Entropy-Based Perspective for DNA Complexity (arXiv:2511.05300)
+### Pastore et al. (2025). Entropy–Rank Ratio: An Entropy-Based Perspective for DNA Complexity (arXiv:2511.05300)
 
 **URL:** https://arxiv.org/html/2511.05300
 **Accessed:** 2026-06-14 (fetched via WebFetch)
@@ -108,7 +129,7 @@ Derivation of `AAACGT`,k=2 (N=5; p=2/5,1/5,1/5,1/5): H = −[0.4·log₂0.4 + 3�
 
 ## Recommendations for Test Coverage
 
-1. **MUST Test:** `ACGT`,k=1 → 2.0 (uniform, H = log₂4). — Evidence: Çakır 2025 (max entropy = log₂4); Shannon uniform bound.
+1. **MUST Test:** `ACGT`,k=1 → 2.0 (uniform, H = log₂4). — Evidence: Pastore et al. 2025 (max entropy = log₂4); Shannon uniform bound.
 2. **MUST Test:** `ACGT`,k=2 → log₂3 ≈ 1.5849625 (all-distinct k-mers, H = log₂N). — Evidence: Li 2025 all-distinct case; Shannon uniform bound.
 3. **MUST Test:** `ATATAT`,k=2 → 0.9709505945 (non-uniform; binary entropy of 0.6). — Evidence: Li 2025 formula H = −Σ p_i log₂ p_i, p_i = n_i/(L−k+1).
 4. **MUST Test:** `AAAA`,k=2 → 0.0 (deterministic distribution). — Evidence: Shannon H=0 for certainty; Li 2025 skewed-distribution → low entropy.
@@ -123,7 +144,7 @@ Derivation of `AAACGT`,k=2 (N=5; p=2/5,1/5,1/5,1/5): H = −[0.4·log₂0.4 + 3�
 ## References
 
 1. Li, H. (2025). Finding low-complexity DNA sequences with longdust. arXiv:2509.07357. https://arxiv.org/pdf/2509.07357
-2. Çakır, et al. (2025). Entropy–Rank Ratio: A Novel Entropy-Based Perspective for DNA Complexity and Classification. arXiv:2511.05300. https://arxiv.org/html/2511.05300
+2. Pastore, E. P., Passarino, G., Sapia, P., De Rango, F. (2025). Entropy–Rank Ratio: A Novel Entropy-Based Perspective for DNA Complexity and Classification. arXiv:2511.05300. https://arxiv.org/html/2511.05300
 3. Shannon, C. E. (1948). A Mathematical Theory of Communication. Bell System Technical Journal 27:379–423, 623–656 — as exposited at https://tcosmo.github.io/2019/04/21/shannon-entropy.html and https://en.wikipedia.org/wiki/Entropy_(information_theory) (Shannon 1948 primary not directly machine-readable; bounds taken from these citing secondaries).
 
 ---
@@ -131,3 +152,57 @@ Derivation of `AAACGT`,k=2 (N=5; p=2/5,1/5,1/5,1/5): H = −[0.4·log₂0.4 + 3�
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Review 2026-09 (B04): corrected the Li 2025 misattribution (see top); added BBDuk
+  EntropyTracker reference implementation and scipy cross-check values (ATGCATGCAT k=2 → 1.974937501201927;
+  ATGCGATCGATCG k=2 → 2.4591479170272446, k=3 → 2.7321588913645702; seeded random 200-mer
+  k=1/2/3/5/8 → 1.9964735194730474 / 3.937571048725419 / 5.6801547658649625 / 7.382517114501296 /
+  7.582094342967564).
+- **2026-10-01**: completeness audit WP13 (B04 F54): bias corrections and normalisation — see the section below.
+
+## Revision 2026-10-01 — bias-corrected and normalised k-mer entropy (B04 F54)
+
+**Sources opened:** R package `entropy` 1.3.2 (`raw.githubusercontent.com/cran/entropy/master/R/entropy.MillerMadow.R`,
+`entropy.empirical.R`, `entropy.plugin.R`: `H = entropy.empirical(y, "log") + (m − 1)/(2n)`, `m = sum(y > 0)`, then
+÷ log 2); `ndd` 1.10.6 sdist (`ndd/estimators.py`: `MillerMadow` = plug-in + 0.5(k − 1)/n; `Grassberger` docstring
+"equation 35 in arXiv physics/0307138", G series G(1) = −γ − ln 2, G(2) = 2 + G(1), G(2m) = ψ(m + ½) + ln 2, odd = previous
+even; its `fit` returns `log(n) − estimate/n` with `estimate = −Σ x G(x)`, i.e. ln N **+** Σ n G/N — a sign error that its own
+`check.py` locks as 6.221 for counts whose plug-in entropy is 2.635; eq. 35 gives 2.734); infomeasure 0.6.3
+(`estimators/entropy/grassberger.py` = Grassberger **1988**: ln N − ψ(n) − (−1)ⁿ/(n + 1); `miller_madow.py`); entropart
+(`R/Shannon.R`: `Grassberger` = 1988 form, `Grassberger2003` = ψ(N) − Σ n/N (ψ(n) + (−1)ⁿ ∫₀¹ t^{n−1}/(1+t) dt)); WebSearch
+snippets of arXiv:2310.07547 / Entropy 24:680 quoting Ĥ^G = ln N − (1/N) Σ n_i G_{n_i} with G₁ = −γ − ln 2, G₂ = 2 − γ − ln 2,
+G_{2n+1} = G_{2n}, G_{2n+2} = G_{2n} + 2/(2n+1). arXiv / MDPI themselves are blocked (proxy 403 / EGRESS_BLOCKED). BBMap 40.02
+`tracker/EntropyTracker.java` static `calcEntropy(bytes, counts, k)` / `calcEntropyFromCounts` (multiplier 1/ln(windowKmers)).
+
+**Cross-check (harness `scratchpad/wp13/x_ent.py`, C# harness `xc ent`):** 3 000 strings (seed 1313; 60 % random ACGT,
+25 % low-complexity, 15 % `ACGTNacgtRY`; L 1–3 000; k 1–10), 2 832 with N ≥ 1, 168 with L < k (all outputs 0):
+R `entropy.empirical` / `entropy.MillerMadow` (log2) → 0 mismatches (max |Δ| 9.1e-13); Grassberger vs mpmath 40-digit eq. 35,
+vs the recurrence (mpmath) and vs ndd's G series with eq. 35's sign → 0 (max 6.1e-14 / 6.1e-14 / 5.3e-15); normalised
+(÷ log₂ N) plug-in / MM / Grassberger vs the oracles → 0 (2 801 cases with N > 1; 31 cases N = 1 → 0); normalised plug-in vs
+BBTools `EntropyTracker.calcEntropy` (Java harness on `bbtools.jar`, 2 412 ACGT cases with N ≥ 2) → 0 float differences
+(max |Δ| 5.8e-8 = float rounding). Digamma: `StatisticsHelper.Digamma` = mpmath/scipy on 9 points (≤ 2e-15 rel).
+
+## WP15 — entropy-rank ratio R (B04 completeness audit, 2026-10-01): BLOCKED
+
+- **Attribution corrected.** The arXiv listing for 2511.05300 (shown in a WebSearch result) names the authors as
+  E. P. Pastore, G. Passarino, P. Sapia and F. De Rango (University of Calabria). The earlier "Çakır et al." was wrong.
+- **What is known**, from search snippets of the abstract and §Methods: R is the share of all length-T blocks
+  (under non-overlapping n-tuples) whose Shannon entropy is ≤ the target's. It is computed by turning frequency
+  vectors into integer partitions and weighting them with multinomial coefficients. R lies in [0, 1] for fixed (T, n).
+- **What is missing:**
+  - how a remainder T mod n is handled;
+  - the tie tolerance;
+  - how non-ACGT symbols are treated;
+  - any published R value (table or worked example);
+  - the authors' code, which no search found.
+- **URLs tried:**
+
+  | Tool | Target | Result |
+  |---|---|---|
+  | `curl` | arxiv.org/abs/2511.05300, arxiv.org/html/2511.05300 and its v1, arxiv.org/pdf/2511.05300, export.arxiv.org/abs/2511.05300, api.semanticscholar.org/graph/v1/paper/arXiv:2511.05300 | each `curl: (56) CONNECT tunnel failed, response 403` |
+  | `curl` | export.arxiv.org/api/query?id_list=2511.05300 | HTTP 403 `Host not in allowlist: export.arxiv.org` |
+  | WebFetch | arxiv.org/html/2511.05300, www.alphaxiv.org/abs/2511.05300, api.semanticscholar.org | `EGRESS_BLOCKED` |
+  | `gh search repos` / `gh search code` | "entropy rank ratio", "ratio-guided cropping" | HTTP 403 (session bound to its repositories) |
+  | WebSearch | 4 queries | abstract and definition snippets only |
+
+- **Decision:** not implemented. The definition's edge conventions cannot be confirmed, and there is no reference value
+  to cross-check against (campaign rule 3). The spec line in K-mer_Entropy.md now records this.

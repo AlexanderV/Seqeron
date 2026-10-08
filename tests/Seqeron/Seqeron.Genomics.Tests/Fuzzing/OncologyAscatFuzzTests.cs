@@ -37,13 +37,14 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • single locus — one locus ⇒ exactly one segment, LocusCount = 1, the minimal
 ///     genome (§6.1 "Single locus per chromosome ⇒ one segment, LocusCount=1");
 ///   • all-heterozygous (BAF ≈ 0/1 unbalanced) and all-homozygous/balanced (BAF = 0.5)
-///     genomes — the fit must still complete and emit integer segments with
-///     major ≥ minor ≥ 0 (INV-04), GoF ≤ 100 % (INV-03), and a balanced (b=0.5) genome
-///     is ×0.05 down-weighted but never produces a malformed fit (§6.1);
+///     single-segment genomes — the original runASCAT returns rho = NA for all of them
+///     (no strict 7×7 local minimum passes its filters; R run 2026-09), so the fit must end
+///     in the documented "no optimum" outcome (TryFitPurityPloidy = false,
+///     FitPurityPloidy → InvalidOperationException), never a malformed fit;
 ///   • extreme logR (±large) and extreme BAF (0, 0.5, 1) — 2^(r/γ) can underflow to 0
 ///     or overflow toward +Infinity; the emitted integer copy numbers must remain
-///     finite, non-negative, sorted (major ≥ minor), and the reported (ρ, ψ) must stay
-///     inside their grid bounds — never a NaN/Infinity copy number or a wrapped state.
+///     finite, non-negative, sorted (major ≥ minor), and a reported ρ lies on its grid
+///     (values above 1 reported as 1) — never a NaN/Infinity copy number or a wrapped state.
 /// — docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing".
 ///
 /// ───────────────────────────────────────────────────────────────────────────
@@ -59,15 +60,16 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// The documented contract under test
 /// ───────────────────────────────────────────────────────────────────────────
 /// Allele_Specific_Copy_Number_Derivation.md (docs/algorithms/Oncology/):
-///   • nA, nB sorted, rounded and clamped to ≥ 0 ⇒ every emitted segment has
-///       major ≥ minor ≥ 0 integers (INV-04, §4.1).                              ── FitPurityPloidy
+///   • ASCAT seg_raw rounding (negative allele folded, half-to-even) ⇒ every emitted
+///       segment has major ≥ minor ≥ 0 integers (INV-04, §4.1).                  ── FitPurityPloidy
 ///   • GoF = (1 − d/TheoretMaxdist)·100 with 0 ≤ d ≤ TheoretMaxdist ⇒ GoF ≤ 100 %
 ///       (INV-03, §2.2).                                                          ── FitPurityPloidy
-///   • Reported ρ ∈ [purityMin, purityMax] ⊆ (0,1]; ψ ∈ [ploidyMin, ploidyMax]   (§4.1, clamp).
+///   • Reported ρ on the purity grid, ≤ 1; ψ on seq(ploidyMin − 0.5, ploidyMax + 0.5)  (§2.2).
+///   • No acceptable ASCAT optimum ⇒ TryFitPurityPloidy false / InvalidOperationException (§3.3).
 ///   • Every emitted AlleleSpecificSegment.Length > 0 (single-position ⇒ 1 bp)   (§4.2).
 ///   • Multiplicity m ∈ [1, majorCopyNumber] (INV-02, §2.2 clamp).               ── DeriveMultiplicity
 ///   • Single locus per chromosome ⇒ one segment, LocusCount = 1 (§6.1).         ── SegmentAlleleSpecific
-///   • Balanced-only genome (all b = 0.5) ⇒ fit completes, ×0.05 weighted (§6.1).
+///   • Single-segment genome ⇒ ASCAT rho = NA (§6.1).
 ///   • Null loci/segments ⇒ ArgumentNullException; empty segments ⇒
 ///       ArgumentException; out-of-range thresholds/grid/multiplicity args ⇒
 ///       ArgumentOutOfRangeException; null chromosome ⇒ ArgumentException (§3.3).
@@ -77,12 +79,10 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// emitted minor > major, a negative CN, a GoF of 137 %, or a NaN copy number) would
 /// FAIL here. They are not a rubber-stamp of the current return values.
 ///
-/// SOURCE: no bug found. SegmentAlleleSpecific returns an empty list for empty loci
-/// (never indexes an empty run), FitPurityPloidy guards empty segments and clamps the
-/// reported (ρ, ψ) back into their grid bounds, and DeriveMultiplicity clamps to
-/// [1, major]. Extreme logR/BAF flow through 2^(r/γ) into finite Math.Round/clamp; the
-/// per-(ρ,ψ) grid is finite so there is no hang. No test was weakened and no source
-/// change was required.
+/// SOURCE (2026-09, B24 F12): FitPurityPloidy became a runASCAT port; the single-segment
+/// expectations were re-derived from the original R code (rho = NA), not bent to the
+/// code. SegmentAlleleSpecific returns an empty list for empty loci, DeriveMultiplicity
+/// clamps to [1, major], the (ρ, ψ) grid is bounded, so there is no hang.
 ///
 /// All randomness is LOCALLY seeded (new Random(seed)); no shared static Rng.
 /// </summary>
@@ -104,28 +104,50 @@ public sealed class OncologyAscatFuzzTests
     //     and a strictly positive length (§4.2).
     // This is what stops a fuzz test from rubber-stamping a malformed fit green.
     private static void AssertWellFormedFit(PurityPloidyFit fit, double purityMin, double purityMax,
-        double ploidyMin, double ploidyMax)
+        double ploidyMin, double ploidyMax, double ploidyStep = 0.05)
     {
         double.IsNaN(fit.Purity).Should().BeFalse("purity ρ must never be NaN");
-        double.IsNaN(fit.Ploidy).Should().BeFalse("ploidy ψ must never be NaN");
+        double.IsNaN(fit.Ploidy).Should().BeFalse("ploidy must never be NaN");
         double.IsNaN(fit.GoodnessOfFit).Should().BeFalse("GoF must never be NaN");
         double.IsInfinity(fit.Purity).Should().BeFalse();
         double.IsInfinity(fit.Ploidy).Should().BeFalse();
         double.IsInfinity(fit.GoodnessOfFit).Should().BeFalse("GoF must never be ±Infinity");
 
-        fit.Purity.Should().BeInRange(purityMin - Tol, purityMax + Tol,
-            "reported ρ is clamped to [purityMin, purityMax] ⊆ (0,1] (§4.1)");
-        fit.Ploidy.Should().BeInRange(ploidyMin - Tol, ploidyMax + Tol,
-            "reported ψ is clamped to [ploidyMin, ploidyMax] (§4.1)");
+        fit.Purity.Should().BeInRange(Math.Min(purityMin, 1.0) - Tol, Math.Min(purityMax, 1.0) + Tol,
+            "reported ρ lies on the purity grid, grid points above 1 reported as 1 (runASCAT: rho_opt1 > 1 ⇒ 1)");
+        fit.Psi.Should().BeInRange(ploidyMin - 0.5 - Tol, ploidyMax + 0.5 + ploidyStep + Tol,
+            "ψ lies on the ASCAT grid seq(min_ploidy − 0.5, max_ploidy + 0.5, step)");
+        fit.GoodnessOfFit.Should().BeGreaterThan(80.0, "an accepted ASCAT optimum has GoF > MINGOODNESSOFFIT = 80");
         fit.GoodnessOfFit.Should().BeLessThanOrEqualTo(100.0 + 1e-9, "GoF ≤ 100 % (INV-03)");
 
         fit.Segments.Should().NotBeNull();
         foreach (AlleleSpecificSegment s in fit.Segments)
         {
-            s.MinorCopyNumber.Should().BeGreaterThanOrEqualTo(0, "minor CN is rounded then clamped to ≥ 0 (INV-04)");
+            s.MinorCopyNumber.Should().BeGreaterThanOrEqualTo(0, "ASCAT folds a negative allele into the other (INV-04)");
             s.MajorCopyNumber.Should().BeGreaterThanOrEqualTo(s.MinorCopyNumber, "major ≥ minor in every segment (INV-04)");
             s.Length.Should().BeGreaterThan(0, "every emitted segment has a positive span (§4.2)");
         }
+    }
+
+    /// <summary>
+    /// The disciplined outcomes of the ASCAT fit: either a well-formed optimum, or ASCAT's "no optimum" (rho = NA)
+    /// reported as TryFitPurityPloidy = false / FitPurityPloidy → InvalidOperationException.
+    /// </summary>
+    private static bool AssertWellFormedOrNoOptimum(IReadOnlyList<AlleleSpecificSegmentSummary> segs,
+        double purityStep = 0.01, double ploidyStep = 0.05)
+    {
+        bool found = TryFitPurityPloidy(segs, out PurityPloidyFit fit, purityStep: purityStep, ploidyStep: ploidyStep);
+        if (found)
+        {
+            AssertWellFormedFit(fit, 0.1, 1.05, 1.5, 5.5, ploidyStep);
+        }
+        else
+        {
+            ((Action)(() => FitPurityPloidy(segs, purityStep: purityStep, ploidyStep: ploidyStep)))
+                .Should().Throw<InvalidOperationException>("ASCAT's rho = NA outcome is a documented exception");
+        }
+
+        return found;
     }
 
     #region ONCO-ASCAT-001 — SegmentAlleleSpecific: positive sanity
@@ -280,8 +302,10 @@ public sealed class OncologyAscatFuzzTests
         var seg = new[] { new AlleleSpecificSegmentSummary("1", 0, 1000, 0.0, 0.5, 5) };
         ((Action)(() => FitPurityPloidy(seg, purityMin: 0.0)))
             .Should().Throw<ArgumentOutOfRangeException>("purityMin must be in (0,1]");
-        ((Action)(() => FitPurityPloidy(seg, purityMax: 1.5)))
-            .Should().Throw<ArgumentOutOfRangeException>("purityMax must be ≤ 1");
+        ((Action)(() => FitPurityPloidy(seg, purityMax: double.PositiveInfinity)))
+            .Should().Throw<ArgumentOutOfRangeException>("purityMax must be finite");
+        ((Action)(() => FitPurityPloidy(seg, purityMin: 0.6, purityMax: 0.5)))
+            .Should().Throw<ArgumentOutOfRangeException>("purityMax must be ≥ purityMin");
         ((Action)(() => FitPurityPloidy(seg, purityStep: 0.0)))
             .Should().Throw<ArgumentOutOfRangeException>();
         ((Action)(() => FitPurityPloidy(seg, ploidyMin: 0.0)))
@@ -290,44 +314,62 @@ public sealed class OncologyAscatFuzzTests
             .Should().Throw<ArgumentOutOfRangeException>("ploidyMax must be ≥ ploidyMin");
         ((Action)(() => FitPurityPloidy(seg, gamma: 0.0)))
             .Should().Throw<ArgumentOutOfRangeException>();
+        ((Action)(() => FitPurityPloidy(seg, purityStep: 1e-9)))
+            .Should().Throw<ArgumentOutOfRangeException>("the grid size is bounded");
     }
 
-    // ── BE: a single balanced (all-hom / all-balanced, b=0.5) segment ────────────
-    // §6.1 "Balanced-only genome (all b=0.5) ⇒ fit completes, ×0.05 weighted". Must
-    // emit a well-formed integer fit, not a malformed/NaN one.
+    // ── BE: a purity grid above 1 is ASCAT's default (max_purity = 1.05) and is accepted ──
     [Test]
     [CancelAfter(30_000)]
-    public void FitPurityPloidy_SingleBalancedSegment_CompletesWellFormed()
+    public void FitPurityPloidy_PurityGridAboveOne_AcceptedAndReportedAsOne()
     {
-        var seg = new[] { new AlleleSpecificSegmentSummary("1", 0, 1_000_000, 0.0, 0.5, 100) };
+        var segs = new[]
+        {
+            new AlleleSpecificSegmentSummary("X", 0, 1000, -0.19799990120548305, 0.7800586872805495, 55),
+            new AlleleSpecificSegmentSummary("3", 0, 1000, 0.097918462573404322, 0.66269643393554578, 13),
+            new AlleleSpecificSegmentSummary("1", 0, 1000, 0.065882791496869667, 0.6385382413628512, 15),
+        };
 
-        var fit = FitPurityPloidy(seg);
+        var fit = FitPurityPloidy(segs, purityMax: 1.5);
 
-        AssertWellFormedFit(fit, 0.05, 1.0, 1.5, 5.0);
-        fit.Segments.Should().HaveCount(1);
+        fit.Purity.Should().BeLessThanOrEqualTo(1.0, "runASCAT reports rho_opt1 > 1 as 1");
     }
 
-    // ── BE: an all-heterozygous (unbalanced BAF) single segment ──────────────────
-    // A strongly unbalanced segment (folded BAF ≫ 0.5, e.g. LOH) must still fit to a
-    // sorted integer state, major ≥ minor ≥ 0, GoF ≤ 100 %.
+    // ── BE: single-segment genomes (balanced, all-het unbalanced, zero-span, extreme logR) ──
+    // A single segment cannot produce a strict 7 × 7 local minimum that passes the ASCAT filters: the original
+    // runASCAT returns rho = NA for every one of these inputs (R 4.3 run; Evidence). They must end in the
+    // documented "no optimum" outcome — never NaN, a hang, or an undocumented exception.
     [Test]
-    [CancelAfter(30_000)]
-    public void FitPurityPloidy_AllHeterozygousUnbalancedSegment_WellFormed()
+    [CancelAfter(60_000)]
+    public void FitPurityPloidy_SingleSegmentGenomes_NoAscatOptimumAsRunAscat()
     {
-        var seg = new[] { new AlleleSpecificSegmentSummary("1", 0, 1_000_000, 0.0, 1.0, 100) };
+        var inputs = new List<AlleleSpecificSegmentSummary>
+        {
+            new("1", 0, 1_000_000, 0.0, 0.5, 100),   // balanced
+            new("1", 0, 1_000_000, 0.0, 1.0, 100),   // all-het unbalanced (LOH)
+            new("1", 500, 500, 0.0, 0.5, 1),         // zero span
+        };
+        foreach (double r in new[] { -400.0, -50.0, -10.0, 10.0, 50.0, 400.0 })
+        {
+            foreach (double b in new[] { 0.0, 0.5, 1.0 })
+            {
+                inputs.Add(new AlleleSpecificSegmentSummary("1", 0, 1_000_000, r, b, 50));
+            }
+        }
 
-        var fit = FitPurityPloidy(seg);
-
-        AssertWellFormedFit(fit, 0.05, 1.0, 1.5, 5.0);
+        foreach (AlleleSpecificSegmentSummary seg in inputs)
+        {
+            AssertWellFormedOrNoOptimum(new[] { seg }).Should().BeFalse(
+                $"runASCAT returns rho = NA for the single segment (r = {seg.MeanLogR}, b = {seg.MeanBAF})");
+        }
     }
 
-    // ── BE: EXTREME logR (±large) ⇒ 2^(r/γ) under/overflows; fit stays well-formed ─
-    // r = +400 ⇒ 2^400 ≈ 2.6e120 (huge but finite); r = −400 ⇒ 2^-400 ≈ 0 (underflow).
-    // Neither may leak a NaN/Infinity/negative/non-integer copy number, nor a GoF>100,
-    // nor a purity outside its grid. The grid is finite ⇒ no hang ([CancelAfter]).
+    // ── BE: extreme logR with a fixed (ρ, ψ) (ASCAT rho_manual/psi_manual) stays well-formed ─
+    // r = ±400 ⇒ 2^(r/γ) over/underflows towards 1e120 / 0; the integer segments must still be
+    // non-negative with major ≥ minor, and GoF ≤ 100 %.
     [Test]
     [CancelAfter(30_000)]
-    public void FitPurityPloidy_ExtremeLogR_NoNaNOrMalformedCopyNumber()
+    public void EvaluatePurityPloidy_ExtremeLogR_NoNaNOrMalformedCopyNumber()
     {
         foreach (double r in new[] { -400.0, -50.0, -10.0, 10.0, 50.0, 400.0 })
         {
@@ -335,20 +377,23 @@ public sealed class OncologyAscatFuzzTests
             {
                 var seg = new[] { new AlleleSpecificSegmentSummary("1", 0, 1_000_000, r, b, 50) };
 
-                var fit = FitPurityPloidy(seg);
+                var fit = EvaluatePurityPloidy(seg, 0.7, 2.5);
 
-                AssertWellFormedFit(fit, 0.05, 1.0, 1.5, 5.0);
+                double.IsNaN(fit.GoodnessOfFit).Should().BeFalse();
+                fit.GoodnessOfFit.Should().BeLessThanOrEqualTo(100.0 + 1e-9);
+                fit.Segments[0].MinorCopyNumber.Should().BeGreaterThanOrEqualTo(0);
+                fit.Segments[0].MajorCopyNumber.Should().BeGreaterThanOrEqualTo(fit.Segments[0].MinorCopyNumber);
             }
         }
     }
 
     // ── BE: extreme-logR multi-segment genome over a randomised grid ─────────────
-    // The strongest order-independent check: WHATEVER the random mix of extreme logR,
-    // boundary BAF (0/0.5/1) and segment lengths, every fit is well-formed (finite ρ/ψ,
-    // ρ/ψ in grid, GoF ≤ 100 %, all segments major ≥ minor ≥ 0 integers, length > 0).
+    // WHATEVER the random mix of extreme logR, boundary BAF (0/0.5/1) and probe counts, the fit
+    // either returns a well-formed ASCAT optimum (ρ on the grid, GoF in (80, 100], major ≥ minor ≥ 0
+    // integers, length > 0, one segment per summary) or ASCAT's documented "no optimum".
     [Test]
     [CancelAfter(60_000)]
-    public void FitPurityPloidy_RandomExtremeGenome_AlwaysWellFormed()
+    public void FitPurityPloidy_RandomExtremeGenome_AlwaysWellFormedOrNoOptimum()
     {
         for (int seed = 0; seed < 120; seed++)
         {
@@ -366,23 +411,23 @@ public sealed class OncologyAscatFuzzTests
             }
 
             // Coarsen the grid a little so the random sweep stays fast but still exercises the fit.
-            var fit = FitPurityPloidy(segs, purityStep: 0.05, ploidyStep: 0.25);
-
-            AssertWellFormedFit(fit, 0.05, 1.0, 1.5, 5.0);
-            fit.Segments.Should().HaveCount(n, "one integer segment is emitted per summary, seed {0}", seed);
+            if (AssertWellFormedOrNoOptimum(segs, purityStep: 0.05, ploidyStep: 0.25))
+            {
+                FitPurityPloidy(segs, purityStep: 0.05, ploidyStep: 0.25).Segments.Should()
+                    .HaveCount(n, "one integer segment is emitted per summary, seed {0}", seed);
+            }
         }
     }
 
     // ── BE: zero-span segment (End == Start) ⇒ emitted with a 1 bp span (§4.2) ────
     [Test]
     [CancelAfter(30_000)]
-    public void FitPurityPloidy_ZeroSpanSegment_EmittedWithPositiveLength()
+    public void EvaluatePurityPloidy_ZeroSpanSegment_EmittedWithPositiveLength()
     {
         var seg = new[] { new AlleleSpecificSegmentSummary("1", 500, 500, 0.0, 0.5, 1) };
 
-        var fit = FitPurityPloidy(seg);
+        var fit = EvaluatePurityPloidy(seg, 0.8, 2.0);
 
-        AssertWellFormedFit(fit, 0.05, 1.0, 1.5, 5.0);
         fit.Segments[0].Length.Should().Be(1, "a single-position summary is widened to a 1 bp span (§4.2)");
     }
 

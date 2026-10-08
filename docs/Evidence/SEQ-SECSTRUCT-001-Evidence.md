@@ -100,6 +100,44 @@ sliding-window profile under test (only Pa/Pb/Pt are averaged).
 
 ---
 
+### 2026-09 review — sources for the full Chou-Fasman assignment (opened 2026-09-28)
+
+- **Chen, Gu & Huang (2006) BMC Bioinformatics 7(S4):S14**, PDF bundled in
+  greg-gardner/Chou-Fasman-Protein-Prediction (git clone), text extracted with pypdf.
+  "Methods" states the three CFM rules verbatim: nucleation 4 of 6 (helix) / 3 of 5 (strand);
+  extension "along both directions … until the average 4-peptides propensities drops below 1";
+  helix if ⟨Pα⟩ > 1.03 and ⟨Pα⟩ > ⟨Pβ⟩, strand if ⟨Pβ⟩ > 1.05 and ⟨Pβ⟩ > ⟨Pα⟩; in overlapped
+  regions "the secondary structure conformation with higher average propensities is predicted".
+- **β-turn rule** (Grinnell ExBioPy 7.5 text, quoted in hassan11196/Chou-Fasman): "If (1)
+  p(t) > 0.000075; (2) the average value for P(turn) > 1.00 in the tetrapeptide; and (3) the
+  averages for the tetrapeptide obey the inequality P(a-helix) < P(turn) > P(b-sheet), then a
+  beta-turn is predicted"; p(t) = f(i)·f(i+1)·f(i+2)·f(i+3). Same predicate coded in
+  ravihansa3000 `CF_find_turns` and kalliapap `Turn.checkConditions`.
+- **1978 table incl. bend frequencies f(i)..f(i+3)**: ravihansa3000 `ChouFasman.py` (rows keyed by
+  residue name, copied from prowl.rockefeller.edu/aainfo/chou.htm) and hassan11196 C++ (rows
+  keyed by one-letter code) agree on all 20 × 7 values. NOTE: ravihansa3000 assigns the symbols
+  'N' to the "Aspartic Acid" row and 'D' to the "Asparagine" row (swap); values follow the names
+  (Asp 101/54/146, f 0.147/0.110/0.179/0.081; Asn 67/89/156, f 0.161/0.083/0.191/0.091), as in
+  hassan11196. Anyone porting that script by letter gets N and D wrong.
+- greg-gardner `amino_tables.py` / evanimenon use the **1974** Pα/Pβ table (15 proteins, e.g.
+  A 1.45/0.97) and no turn parameters — not the 1978 set; not used.
+- Blocked this session: prowl.rockefeller.edu, crdd.osdd.net, cs.princeton.edu, arxiv.org,
+  biogem.org (egress 403); WebSearch snippets only.
+
+### Stage B (2026-09-28) — executed cross-checks
+
+1. Independent Python reference of rules 1-5 (`cf_ref.py`, scratchpad) vs the ravihansa3000
+   script (py3 port, N/D symbols corrected): tables identical; turn start positions identical on
+   203 sequences (3 bundled proteins + 200 random); raw nucleated+extended helix/strand regions
+   identical on 303 sequences after correcting three documented quirks of that script (last
+   window skipped, `> 100` instead of "drops below 1", N-side tetrapeptide omits the new residue);
+   the unmodified script differs on 294/303 — only because of those quirks.
+2. C# `PredictSecondaryStructureChouFasman` vs the Python reference: 3000/3000 random sequences
+   (lengths 1-250, helix-/strand-biased compositions, lowercase, X/B/Z/*/- junk) identical.
+3. Hand-derived boundary cases (PPPP p(t) = 7.098e-5 < 7.5e-5 → coil; NPDG turn; SGIAKQ
+   ⟨Pα⟩ 1.015 ≤ 1.03 → coil; PTIQGQ ⟨Pβ⟩ 1.048 ≤ 1.05 → coil; EEEEEEVVVVVV overlap → strand)
+   locked in unit tests.
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Kelley bioinfo lecture / CSB|SJU
@@ -192,3 +230,4 @@ sliding-window profile under test (only Pa/Pb/Pt are averaged).
 ## Change History
 
 - **2026-06-13**: Initial documentation (SEQ-SECSTRUCT-001).
+- **2026-09-28**: Review 2026-09 (B03): full Chou-Fasman assignment sources, 1978 bend frequencies, ravihansa3000 N/D symbol swap noted, Stage B cross-checks.

@@ -57,6 +57,7 @@ Lca(5,100)=1; Lca({100,101,200})=10.
 | L6 | LCA of a set folds pairwise | Lca({100,101,200})=10 |
 | L7 | path/depth/ancestry helpers | GetPathToRoot(100)=[100,20,10,4,3,2,1]; IsAncestorOf |
 | L8 | ctor rejects malformed trees | no-root / two-roots / duplicate-id → ArgumentException |
+| L9 | ctor rejects parent cycles not reaching the root (2→3→2; 7→8→9→7 + tail); deep acyclic chain accepted | ArgumentException (regression, review 2026-09) |
 
 ### BuildKmerDatabase
 
@@ -82,6 +83,7 @@ Lca(5,100)=1; Lca({100,101,200})=10.
 | C7 | all-ambiguous read | Q=0 → root(1) |
 | C8 | canonical (reverse-complement) lookup | RC window GGTT canon AACC → 100 |
 | C9 | output count & order preserved | one result per read, in order |
+| C10 | Kraken 2 manual example `562:13 561:4 A:31 0:1 562:3` | → 562 (E.coli 100), RtlScore 20, C=16, Q=21, conf 16/21 |
 
 ### Invariants & Validation
 
@@ -99,7 +101,7 @@ fails C2 and C3. Both mutations were applied and confirmed to fail the suite.
 ## Test File
 
 **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs`
-(26 tests; LCA unit tests + DB-build + RTL classification + invariants/validation).
+(28 tests; LCA unit tests + DB-build + RTL classification + invariants/validation).
 
 ## Open Questions / Decisions
 

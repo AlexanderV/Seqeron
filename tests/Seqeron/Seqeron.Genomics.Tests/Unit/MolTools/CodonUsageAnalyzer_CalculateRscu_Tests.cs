@@ -287,4 +287,157 @@ public class CodonUsageAnalyzer_CalculateRscu_Tests
     }
 
     #endregion
+
+    #region Review 2026-09 — RNA input, genetic-code-aware families, counts overload
+
+    // Reference values below were produced by the original CodonW 1.4.4 program
+    // (Peden 1999; Ubuntu codonw_1.4.4.orig.tar.gz built from source, `codonw -rscu -machine
+    // -code N`, 3-decimal output) and by an independent Python port of CodonW rscu_usage_out
+    // with families from Biopython Bio.Data.CodonTable; both agree with these exact fractions.
+
+    // F10 — RNA spelling is read as DNA (CodonW ident_codon: T/t/U/u are the same base).
+    // "uuuUUCUUU" = UUU, UUC, UUU → Phe TTT x2, TTC x1 → RSCU 4/3, 2/3 (was: all 0).
+    [Test]
+    public void CalculateRscu_RnaInput_ReadsUAsT()
+    {
+        var rscu = CodonUsageAnalyzer.CalculateRscu("uuuUUCUUU");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rscu["TTT"], Is.EqualTo(4.0 / 3.0).Within(1e-12), "CodonW: RSCU(UUU)=2*2/3");
+            Assert.That(rscu["TTC"], Is.EqualTo(2.0 / 3.0).Within(1e-12), "CodonW: RSCU(UUC)=2*1/3");
+            Assert.That(rscu.ContainsKey("UUU"), Is.False, "Codons are reported in DNA spelling");
+        });
+    }
+
+    // F10 — CountCodons(string) counts RNA codons (DNA-spelled keys), same as the DNA spelling.
+    [Test]
+    public void CountCodons_RnaInput_CountsLikeDna()
+    {
+        var rna = CodonUsageAnalyzer.CountCodons("AUGAAAUGA");
+        var dna = CodonUsageAnalyzer.CountCodons("ATGAAATGA");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rna["ATG"], Is.EqualTo(1));
+            Assert.That(rna["AAA"], Is.EqualTo(1));
+            Assert.That(rna["TGA"], Is.EqualTo(1));
+            Assert.That(rna, Is.EquivalentTo(dna), "U is T (CodonW ident_codon)");
+        });
+    }
+
+    // F11 — Standard code (CodonW -code 0): AGA AGG TAA ATA ATG TGA TGG.
+    // Arg 6-fold: 6*1/2=3; Ile 3-fold: 3*1/1=3; Met: 1; stop family {TAA,TAG,TGA}: 3*1/2=1.5; Trp: 1.
+    [Test]
+    public void CalculateRscu_StandardCode_MatchesCodonW()
+    {
+        var rscu = CodonUsageAnalyzer.CalculateRscu("AGAAGGTAAATAATGTGATGG", GeneticCode.Standard);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rscu, Has.Count.EqualTo(64), "CodonW reports all 64 codons");
+            Assert.That(rscu["AGA"], Is.EqualTo(3.0).Within(1e-12));
+            Assert.That(rscu["AGG"], Is.EqualTo(3.0).Within(1e-12));
+            Assert.That(rscu["ATA"], Is.EqualTo(3.0).Within(1e-12));
+            Assert.That(rscu["ATG"], Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(rscu["TAA"], Is.EqualTo(1.5).Within(1e-12));
+            Assert.That(rscu["TGA"], Is.EqualTo(1.5).Within(1e-12));
+            Assert.That(rscu["TAG"], Is.EqualTo(0.0).Within(1e-12));
+            Assert.That(rscu["TGG"], Is.EqualTo(1.0).Within(1e-12));
+        });
+    }
+
+    // F11 — Vertebrate mitochondrial code (NCBI 2; CodonW -code 1): AGA/AGG are stops
+    // (stop family {TAA,TAG,AGA,AGG}: 4*1/3), ATA is Met ({ATA,ATG}: 2*1/2=1), TGA is Trp ({TGA,TGG}: 1).
+    [Test]
+    public void CalculateRscu_VertebrateMitochondrialCode_UsesTableFamilies()
+    {
+        var rscu = CodonUsageAnalyzer.CalculateRscu(
+            new DnaSequence("AGAAGGTAAATAATGTGATGG"), GeneticCode.VertebrateMitochondrial);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rscu["AGA"], Is.EqualTo(4.0 / 3.0).Within(1e-12), "CodonW -code 1: 1.333");
+            Assert.That(rscu["AGG"], Is.EqualTo(4.0 / 3.0).Within(1e-12));
+            Assert.That(rscu["TAA"], Is.EqualTo(4.0 / 3.0).Within(1e-12));
+            Assert.That(rscu["TAG"], Is.EqualTo(0.0).Within(1e-12));
+            Assert.That(rscu["ATA"], Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(rscu["ATG"], Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(rscu["TGA"], Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(rscu["TGG"], Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(rscu["CGT"], Is.EqualTo(0.0).Within(1e-12), "Arg is 4-fold and absent (0/0 → 0)");
+        });
+    }
+
+    // F11 — Karyorelict nuclear code (NCBI 27): TAA/TAG encode Gln and TGA encodes Trp
+    // (Biopython forward_table), so they are scored in those families: Gln {CAA,CAG,TAA,TAG} 4*1/2=2,
+    // Trp {TGA,TGG} 2*1/1=2.
+    [Test]
+    public void CalculateRscu_Table27_DualCodingCodonsScoredInAminoAcidFamily()
+    {
+        var rscu = CodonUsageAnalyzer.CalculateRscu("TAATAGTGA", GeneticCode.GetByTableNumber(27));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rscu["TAA"], Is.EqualTo(2.0).Within(1e-12));
+            Assert.That(rscu["TAG"], Is.EqualTo(2.0).Within(1e-12));
+            Assert.That(rscu["CAA"], Is.EqualTo(0.0).Within(1e-12));
+            Assert.That(rscu["TGA"], Is.EqualTo(2.0).Within(1e-12));
+        });
+    }
+
+    // Counts overload: same formula from a count table; non-codon keys are ignored.
+    [Test]
+    public void CalculateRscu_FromCounts_MatchesSequenceOverload()
+    {
+        var counts = new Dictionary<string, int> { ["CTG"] = 3, ["CTA"] = 1, ["NNN"] = 5 };
+
+        var fromCounts = CodonUsageAnalyzer.CalculateRscu(counts, GeneticCode.Standard);
+        var fromSeq = CodonUsageAnalyzer.CalculateRscu("CTGCTGCTGCTA");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fromCounts["CTG"], Is.EqualTo(4.5).Within(1e-12));
+            Assert.That(fromCounts["CTA"], Is.EqualTo(1.5).Within(1e-12));
+            Assert.That(fromCounts, Is.EquivalentTo(fromSeq));
+        });
+    }
+
+    [Test]
+    public void CalculateRscu_NullArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<System.ArgumentNullException>(() => CodonUsageAnalyzer.CalculateRscu("TTT", null!));
+            Assert.Throws<System.ArgumentNullException>(() => CodonUsageAnalyzer.CalculateRscu(new DnaSequence("TTT"), null!));
+            Assert.Throws<System.ArgumentNullException>(
+                () => CodonUsageAnalyzer.CalculateRscu((IReadOnlyDictionary<string, int>)null!, GeneticCode.Standard));
+        });
+    }
+
+    // F10 — every string entry point shares the canonical counter, so the RNA spelling of a
+    // gene gives exactly the indices of its DNA spelling (CodonW computes all indices from
+    // the same ident_codon counts).
+    [Test]
+    public void StringEntryPoints_RnaSpelling_EqualDnaSpelling()
+    {
+        const string dna = "ATGGCTGCCGCAGCGTTTTTCCTGCTGTTAAAAAAGGGTGGCTAA";
+        string rna = dna.Replace('T', 'U').ToLowerInvariant();
+
+        var sDna = CodonUsageAnalyzer.GetStatistics(dna);
+        var sRna = CodonUsageAnalyzer.GetStatistics(rna);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CodonUsageAnalyzer.CalculateEnc(rna), Is.EqualTo(CodonUsageAnalyzer.CalculateEnc(dna)));
+            Assert.That(CodonUsageAnalyzer.CalculateCai(rna, CodonUsageAnalyzer.EColiOptimalCodons),
+                Is.EqualTo(CodonUsageAnalyzer.CalculateCai(dna, CodonUsageAnalyzer.EColiOptimalCodons)));
+            Assert.That(sRna.TotalCodons, Is.EqualTo(15));
+            Assert.That(sRna.CodonCounts, Is.EquivalentTo(sDna.CodonCounts));
+            Assert.That(sRna.Rscu, Is.EquivalentTo(sDna.Rscu));
+            Assert.That(sRna.Gc3s, Is.EqualTo(sDna.Gc3s));
+        });
+    }
+
+    #endregion
 }

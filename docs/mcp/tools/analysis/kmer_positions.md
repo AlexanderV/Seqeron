@@ -18,11 +18,12 @@ Solves the **Pattern Matching Problem** (Rosalind BA1D; Compeau & Pevzner): retu
 the ascending 0-based start positions of every occurrence of `kmer` in `sequence`.
 Occurrences may overlap and every overlapping start is reported — e.g. `AA` in `AAAA`
 yields `0, 1, 2`. Matching is case-insensitive. The result is empty when the k-mer is
-longer than the sequence or does not occur.
+longer than the sequence or does not occur. The scan is the Knuth–Morris–Pratt matcher
+(O(L + k) worst case).
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L432](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L432)
+- Source: [KmerAnalyzer.cs#L2948](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2948)
 
 ## Input Schema
 

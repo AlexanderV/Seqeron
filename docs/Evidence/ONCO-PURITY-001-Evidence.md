@@ -57,6 +57,17 @@
 1. **Verified citation:** Carter SL, Cibulskis K, Helman E, McKenna A, Shen H, Zack T, Laird PW, Onofrio RC, Winckler W, Weir BA, Beroukhim R, Pellman D, Levine DA, Lander ES, Meyerson M, Getz G. "Absolute quantification of somatic DNA alterations in human cancer." *Nature Biotechnology* 30(5):413–421, 2012. DOI: 10.1038/nbt.2203.
 2. **Context (from search overview):** ABSOLUTE converts allelic fractions of point mutations into per-cancer-cell allele counts (cellular multiplicity) "by correcting for sample purity and local copy-numbers" — the same purity/copy-number correction inverted here to estimate purity.
 
+### CNAqc R source — `expected_vaf_fun` (reference implementation)
+
+**URL:** https://github.com/caravagnalab/CNAqc — `R/equations.R` (shallow git clone of master, 2026-09-28, B24 review)
+**Authority rank:** 3 (original tool code)
+
+**Key Extracted Points:**
+
+1. `expected_vaf_fun(m, M, mut.allele, p) = mut.allele·p / (2(1−p) + p(m+M))` — identical to the vignette formula (c = 1).
+2. `expectations_generalised` enumerates multiplicities `1:m` and `1:M` only, i.e. 1 ≤ multiplicity ≤ Major ≤ n_tot.
+3. Python port cross-check (IEEE double): forward VAFs 3:1 m=3 p=0.7 → 0.6176470588235293; 3:1 m=1 → 0.20588235294117646; 2:0 m=2 p=0.45 → 0.45; 1:0 p=0.8 → 0.6666666666666667; 2:2 m=2 p=0.35 → 0.25925925925925924; the inversion π = 2v/[m + v(2−n_tot)] recovers p to ≤ 2 ulp. At p = 1 the clonal peak v = m/n_tot inverts to 1 + k·ulp for 66 of the 210 (m ≤ n_tot ≤ 20) pairs (e.g. m=1, n_tot=5 → 1.0000000000000002); maximum excess over n_tot ≤ 2000 is 922 ulp ≈ 0.47·(n_tot+4)·ε.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -133,3 +144,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: B24 review — CNAqc R source cross-check; boundary-rounding and multiplicity-bound defects recorded (cross-batch, B22 file).

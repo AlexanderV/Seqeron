@@ -1,9 +1,19 @@
 # Validation Report: SEQ-COMPLEX-DUST-001 — DUST Score (triplet-frequency low-complexity score)
 
 - **Validated:** 2026-06-16   **Area:** Complexity
-- **Canonical method(s):** `SequenceComplexity.CalculateDustScore(DnaSequence, int)`, `SequenceComplexity.CalculateDustScore(string, int)` (`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:346,361,368`)
-- **Stage A verdict:** PASS
-- **Stage B verdict:** PASS
+- **Canonical method(s):** `SequenceComplexity.CalculateDustScore(DnaSequence, int)`, `SequenceComplexity.CalculateDustScore(string, int)` (`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:839,723,730`; SDUST `MaskLowComplexity` :769/795/826, `FindLowComplexityIntervals` :854/868, longdust `CalculateLongdustScore` :1148 / `FindLongdustRegions` :1195)
+- **Stage A verdict:** PASS (2026-06) → FAIL → corrected (2026-09, see revision)
+- **Stage B verdict:** PASS (2026-06) → FAIL → fixed (2026-09, see revision)
+
+## Review campaign 2026-09 revision (B04) — supersedes the 2026-06 verdicts below
+
+- **Stage A: FAIL → corrected. Stage B: FAIL → fixed. End-state: FIXED** (batch report `docs/Validation/review-2026-09/B04.md`, F2, F3, F34–F36, F53).
+- The 2026-06 analysis below is **superseded** where it conflicts: the normaliser is ℓ − 1, not ℓ (F2: sdust `find_perfect` `new_l = kdq_size(w) − i − 1`, dustmasker `thresholds_[i] = i·level`, confirmed with the compiled sdust binary — `AAAAAA` = 2.0, `ACGTACGT` = 0.4, `ACACACAC` = 1.2, A×10 = 4.0, `AATAATAA` = 0.6); `MaskLowComplexity` is the real SDUST perfect-interval algorithm (F3, 0 mismatches vs sdust on 3 000 cases).
+- **F34:** `wordSize ≠ 3` now throws `ArgumentOutOfRangeException` — DUST is triplet-only (symdust `triplet_type`, sdust `SD_WLEN 3` + its own `TODO: is this right for SD_WLEN!=3?`, longdust README "It [SDUST] hardcodes k=3"); the old "accepted extrapolation" had no source. Sourced k-mer generalisation added: `CalculateLongdustScore` / `FindLongdustRegions` (Li & Li 2025, port of lh3/longdust 1.4-r97): 1 500 inputs / 12 818 intervals and 121 edge cases + 2 Mb → 0 mismatches vs the compiled binary; `S_L` bit-identical on 3 000 inputs.
+- **F35:** dustmasker `linker` (1–32 as in symdust, default 1 = sdust) and soft masking: 1 500 inputs, 0 interval / 0 soft-mask mismatches vs dustmasker 2.12.0.
+- **F36:** `MaskLowComplexity(string, …)` / `FindLowComplexityIntervals` accept N/IUPAC, scanning each ACGT run independently (sdust's stated contract; upstream sdust leaks the window across N, e.g. `35 72` on a 53-bp input): 3 000 inputs (1 037 with non-ACGT) → 0 mismatches vs sdust per ACGT run.
+- **F53:** optional `engine: DustEngine.Dustmasker` (MCP `engine: "dustmasker"` on `mask_low_complexity` / `complexity_mask_low` / `find_low_complexity_intervals`) — line-by-line port of NCBI symdust (`CSymDustMasker`), `GetDustMasks_SkipNs` and the toolkit `CRandom` used for N: IUPAC codes scanned as bases, only N runs > window and terminal N runs cut the scan (and are masked), single-triplet windows masked without a score test. 4 030 inputs (1 533+ with N, 1 090 with IUPAC, W 8–64, level 2–64, linker 1–32, 1.65 Mb long set) → 0 interval / 0 soft-mask mismatches vs dustmasker 2.12.0. Corrects F35's explanation of the W = 8 difference (`thresholds_` has W − 2 entries; the cause is the `num_diff ≤ 1` shortcut). Default engine (sdust) unchanged.
+- MCP `dust_score` / `complexity_dust_score` reject word sizes ≠ 3; `mask_low_complexity` / `complexity_mask_low` accept IUPAC input and take optional `linker` / `softMask`.
 
 ## Stage A — Description
 
@@ -58,7 +68,7 @@ All values trace to the source-(1) formula, not to code output. INV-1..INV-5 are
 
 ### Code path reviewed
 
-`SequenceComplexity.cs:368` `CalculateDustScoreCore`: counts overlapping words over `wordCount = L − wordSize + 1` positions (`:375`), sums `count*(count-1)/2.0` (`:391`), returns `sum / wordCount` (`:396`). Validation: null DnaSequence throws (`:348`), wordSize<1 throws (`:349,363`), null/empty string ⇒ 0 (`:364`), L<wordSize ⇒ 0 (`:370`).
+*(2026-06 code path, line numbers and `/ wordCount` divisor superseded by F2/F34 — current core `SequenceComplexity.cs:871`, divisor ℓ − 1, triplets only.)* `SequenceComplexity.cs:382` `CalculateDustScoreCore`: counts overlapping words over `wordCount = L − wordSize + 1` positions (`:375`), sums `count*(count-1)/2.0` (`:391`), returns `sum / wordCount` (`:396`). Validation: null DnaSequence throws (`:348`), wordSize<1 throws (`:349,363`), null/empty string ⇒ 0 (`:364`), L<wordSize ⇒ 0 (`:370`).
 
 ### Formula realised correctly?
 
@@ -79,7 +89,7 @@ Ran the canonical test fixture (18 cases) — all pass with the hand-computed ex
 - **Coverage:** both public overloads; all five Stage-A formula cases; all-distinct (INV-2); two homopolymers (INV-5); dinucleotide repeat; overload agreement; case-insensitivity; null DnaSequence→throw; null/empty string→0; L<wordSize→0; wordSize=0→throw on both overloads. Every Stage-A branch and documented edge/error case is exercised. ✔
 - **Honest green:** FULL unfiltered suite `Failed: 0, Passed: 6598`; `dotnet build` 0 errors. (The 4 NUnit2007 warnings are pre-existing in `ApproximateMatcher_EditDistance_Tests.cs`, unrelated and untouched.) ✔
 
-Minor (non-defect) note: there is no exact-value test for a non-default `wordSize` (e.g. k=2), because no external source defines a value for k≠3 (ASSUMPTION 1); asserting one would violate the "sourced expectations" rule. The default k=3 path is fully covered. The MCP smoke test (`Seqeron.Mcp.Sequence.Tests/ComplexityDustScoreTests.cs`) is a separate binding unit using relational asserts and a different empty-input contract (throws on `""`); out of scope here, no change made.
+*(Superseded by F34: `wordSize ≠ 3` is now rejected — DUST is triplet-only in every source; the k-mer generalisation is longdust, tested against compiled lh3/longdust.)* Minor (non-defect) note: there is no exact-value test for a non-default `wordSize` (e.g. k=2), because no external source defines a value for k≠3 (ASSUMPTION 1); asserting one would violate the "sourced expectations" rule. The default k=3 path is fully covered. The MCP smoke test (`Seqeron.Mcp.Sequence.Tests/ComplexityDustScoreTests.cs`) is a separate binding unit using relational asserts and a different empty-input contract (throws on `""`); out of scope here, no change made.
 
 ### Findings / defects (Stage B)
 

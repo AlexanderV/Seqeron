@@ -223,4 +223,80 @@ public class SequenceComplexity_CalculateWindowedComplexity_Tests
     }
 
     #endregion
+
+    #region Differential — independent Python reference
+
+    // Reference: scipy.stats.entropy(counts, base=2) per window and a direct set-based
+    // distinct-subword count for LC (word lengths 1..min(6,w)), windows i = 0, 7, 14, … with i+w ≤ L
+    // (script recorded in docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md). L=50, w=16, s=7 ⇒ 5 windows.
+    [Test]
+    public void CalculateWindowedComplexity_MixedSequence_MatchesScipyReference()
+    {
+        var seq = new DnaSequence("GCTAAAGACAATTACATAACATACACGTCAGCACGAAACTTGTTGGCCCA");
+        var expected = new (int Start, double H, double Lc)[]
+        {
+            (0, 1.7806390622295665, 0.9130434782608695),
+            (7, 1.4197367178034828, 0.7536231884057971),
+            (14, 1.7489992230622806, 0.8405797101449275),
+            (21, 1.8828560636920488, 0.8840579710144928),
+            (28, 1.9772170014624826, 0.9420289855072463),
+        };
+
+        var points = SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 16, stepSize: 7).ToList();
+
+        Assert.That(points, Has.Count.EqualTo(expected.Length));
+        Assert.Multiple(() =>
+        {
+            for (int k = 0; k < expected.Length; k++)
+            {
+                Assert.That(points[k].WindowStart, Is.EqualTo(expected[k].Start));
+                Assert.That(points[k].ShannonEntropy, Is.EqualTo(expected[k].H).Within(1e-12));
+                Assert.That(points[k].LinguisticComplexity, Is.EqualTo(expected[k].Lc).Within(1e-12));
+            }
+        });
+    }
+
+    #endregion
+
+    #region Suffix-tree window LC path (WP13, F55)
+
+    // For m ≥ 4 each window's V_i come from its suffix tree (Troyanskaya et al. 2002). The value must be bit-identical
+    // to the definition: V_i = number of distinct i-substrings (HashSet enumeration here), denominator
+    // Σ min(a^i, w − i + 1) with a = 4 (+ any extra symbol), computed with the same long-integer ratio.
+    [Test]
+    public void CalculateWindowedComplexity_SuffixTreePath_BitIdenticalToDefinition(
+        [Values(1, 3, 4, 6, 12, 13, 40, 200)] int lcMaxWordLength)
+    {
+        var rnd = new Random(55 + lcMaxWordLength);
+        var chars = new char[300];
+        for (int i = 0; i < chars.Length; i++)
+            chars[i] = i % 50 < 15 ? 'A' : "ACGT"[rnd.Next(4)]; // low-complexity runs + random stretches
+        string seq = new(chars);
+
+        foreach (var (w, s) in new[] { (8, 3), (37, 5), (64, 10), (150, 50) })
+        {
+            var points = SequenceComplexity.CalculateWindowedComplexity(new DnaSequence(seq), w, s, lcMaxWordLength).ToList();
+            Assert.That(points, Has.Count.EqualTo((seq.Length - w) / s + 1));
+            foreach (var p in points)
+                Assert.That(p.LinguisticComplexity, Is.EqualTo(DefinitionLc(seq.Substring(p.WindowStart, w), lcMaxWordLength)),
+                    $"w={w} s={s} m={lcMaxWordLength} start={p.WindowStart}");
+        }
+    }
+
+    private static double DefinitionLc(string window, int maxWordLength)
+    {
+        int w = window.Length, m = Math.Min(maxWordLength, w);
+        long observed = 0, possible = 0, power = 1;
+        for (int len = 1; len <= m; len++)
+        {
+            var words = new HashSet<string>();
+            for (int i = 0; i + len <= w; i++) words.Add(window.Substring(i, len));
+            observed += words.Count;
+            if (power <= w) power *= 4;
+            possible += Math.Min(power, w - len + 1);
+        }
+        return (double)observed / possible;
+    }
+
+    #endregion
 }

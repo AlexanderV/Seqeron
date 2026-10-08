@@ -37,4 +37,21 @@ public class FindDirectRepeatsTests
             Assert.That(items[0].Spacing, Is.EqualTo(2));
         });
     }
+
+    [Test]
+    public void FindDirectRepeats_PeriodicCopies_OnlyMaximalPair()
+    {
+        // Maximal repeated pairs (MUMmer repeat-match -f on ACGTATTACGTATTACGTA: (1,8,12), (1,15,5));
+        // the overlapping (0,7,12) pair is removed by minSpacing = 1.
+        var items = AnalysisTools.FindDirectRepeats("ACGTATTACGTATTACGTA", 4, 50, 1).Items;
+        Assert.That(items, Has.Length.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(items[0].FirstPosition, Is.EqualTo(0));
+            Assert.That(items[0].SecondPosition, Is.EqualTo(14));
+            Assert.That(items[0].RepeatSequence, Is.EqualTo("ACGTA"));
+            Assert.That(items[0].Length, Is.EqualTo(5));
+            Assert.That(items[0].Spacing, Is.EqualTo(9));
+        });
+    }
 }

@@ -5,7 +5,7 @@
 **Algorithm:** Tumor Heterogeneity Analysis (MATH score, Shannon clonal diversity, subclone count, subclonal fraction)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-15
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -28,7 +28,7 @@
 2. MAD = 1.4826 × median(|f − median(f)|) (normal consistency) — Mroz et al. (2015); maftools `pat.math = pat.mad * 1.4826 / median(vaf)`.
 3. Shannon diversity H = −Σ pᵢ ln(pᵢ), natural log, over clone fractions — Liu & Zhang (2017); Shannon (1948).
 4. Richness = number of clones/clusters present — Liu & Zhang (2017).
-5. Subclonal mutation ⇔ CCF < 0.95 — Landau et al. (2013).
+5. Subclonal mutation ⇔ not clonal; clonal ⇔ CCF > 0.95 ("subclonal otherwise") — Landau et al. (2013). CCF = 0.95 is subclonal.
 
 ### 1.3 Documented Corner Cases
 
@@ -79,7 +79,10 @@
 | M6 | Shannon four equal clones | 4 CCFs → 4 clusters size 1 | H = ln 4 = 1.3862943611198906 | Shannon (1948) |
 | M7 | Shannon single clone | k = 1 | H = 0.0 | INV-3 |
 | M8 | Subclone count | clustering with 3 occupied clusters | 3 | Liu & Zhang (2017) richness |
-| M9 | Subclonal fraction | CCFs {0.4,0.5,0.98,1.0}, threshold 0.95 | 0.5 (2 of 4 below 0.95) | Landau et al. (2013) |
+| M9 | Subclonal fraction | CCFs {0.4,0.5,0.98,1.0}, threshold 0.95 | 0.5 (2 of 4 not > 0.95) | Landau et al. (2013) |
+| M9b | Subclonal boundary | CCFs {0.94,0.95,0.96,0.97}; single CCF 0.95 | 0.5; 1.0 (0.95 is subclonal, = IdentifyClonalMutations) | Landau et al. (2013) (B24 F20) |
+| M11 | MATH bit-exact vs maftools/R | {0.16,0.87}; {0.12,0.31,0.07,0.45,0.26,0.39} | 102.19864077669901; 70.22842105263156 | maftools mathScore.R run in R (B24 F21) |
+| M12 | Shannon unequal clones | CCFs {0.20,0.21,0.22,0.90}, k=2 | 0.5623351446188083 | scipy.stats.entropy([3,1]) |
 | M10 | AnalyzeHeterogeneity aggregate | VAFs+CCFs example, k=2 | MATH, H, subclones, subclonal fraction all match component derivations | sources 1–6 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -92,6 +95,7 @@
 | S4 | Out-of-range VAF throws | VAF 1.5 | ArgumentException | [0,1] domain |
 | S5 | Mismatched lengths throw | vafs.Count ≠ ccf.Count | ArgumentException | alignment |
 | S6 | InferSubclones empty throws | empty clustering | ArgumentException | guard |
+| S7 | InferSubclones label outside centroids | labels {0,1} or {0,−1} with 1 centroid | ArgumentException | INV-5 count ≤ k (B24 F22) |
 
 ### 4.3 COULD Tests (Nice to have)
 

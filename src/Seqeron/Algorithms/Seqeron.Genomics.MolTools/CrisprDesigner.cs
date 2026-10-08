@@ -114,15 +114,26 @@ public static class CrisprDesigner
 
                 if (revTargetStart >= 0 && revTargetEnd < revComp.Length)
                 {
-                    // Convert position back to forward strand coordinates
+                    // Convert position back to forward strand coordinates.
+                    // Convention (CRISPOR crispor.py findAllPams/flankSeqIter): coordinates are
+                    // always forward-strand, sequences are always read on the protospacer strand.
                     int forwardPos = seq.Length - i - pamPattern.Length;
+
+                    // Forward-strand start of the protospacer. On the reverse strand the guide
+                    // lies on the opposite side of the PAM in forward coordinates:
+                    //   Cas9 (PAM 3' of guide)   -> guide starts just after the PAM;
+                    //   Cas12a (PAM 5' of guide) -> guide starts guideLength bases before it.
+                    int forwardTargetStart = pamAfterTarget
+                        ? forwardPos + pamPattern.Length
+                        : forwardPos - guideLength;
+
                     string target = revComp.Substring(revTargetStart, guideLength);
 
                     yield return new PamSite(
                         Position: forwardPos,
-                        PamSequence: DnaSequence.GetReverseComplementString(revComp.Substring(i, pamPattern.Length)),
+                        PamSequence: revComp.Substring(i, pamPattern.Length),
                         TargetSequence: target,
-                        TargetStart: revTargetStart,
+                        TargetStart: forwardTargetStart,
                         IsForwardStrand: false,
                         System: system);
                 }
@@ -154,14 +165,24 @@ public static class CrisprDesigner
     #region Guide RNA Design
 
     /// <summary>
-    /// Designs guide RNAs for a target region.
+    /// Designs guide RNAs for a target region, ranked best-first.
     /// </summary>
     /// <param name="sequence">DNA sequence containing the target region.</param>
     /// <param name="regionStart">Start of the region to target (0-based).</param>
     /// <param name="regionEnd">End of the region to target (0-based, inclusive).</param>
     /// <param name="systemType">Type of CRISPR system.</param>
     /// <param name="parameters">Optional design parameters.</param>
-    /// <returns>Ranked list of guide RNA candidates.</returns>
+    /// <returns>
+    /// Guide RNA candidates whose predicted cleavage site (<see cref="GetCutSite"/>) falls inside
+    /// <paramref name="regionStart"/>..<paramref name="regionEnd"/> and whose
+    /// <see cref="GuideRnaCandidate.Score"/> reaches <see cref="GuideRnaParameters.MinScore"/>,
+    /// ordered by <see cref="GuideRnaParameters.Ranking"/> (best first) and then by position /
+    /// forward-strand-first for a deterministic order.
+    /// </returns>
+    /// <remarks>
+    /// Ranking follows the reference tool CRISPOR (<c>crispor.py</c>, <c>mergeGuideInfo</c>:
+    /// <c>guideData.sort(reverse=True, key=…)</c> — descending by the selected score column).
+    /// </remarks>
     public static IEnumerable<GuideRnaCandidate> DesignGuideRnas(
         DnaSequence sequence,
         int regionStart,
@@ -180,20 +201,23 @@ public static class CrisprDesigner
     private static IEnumerable<GuideRnaCandidate> DesignGuideRnasCore(
         DnaSequence sequence, int regionStart, int regionEnd, CrisprSystemType systemType, GuideRnaParameters? parameters)
     {
-
         var effectiveParams = parameters ?? GuideRnaParameters.Default;
         var system = GetSystem(systemType);
 
-        var pamSites = FindPamSitesCore(sequence.Sequence, system)
-            .Where(p => IsInRegion(p, regionStart, regionEnd, system))
-            .ToList();
+        var candidates = FindPamSitesCore(sequence.Sequence, system)
+            .Where(p => IsInRegion(p, regionStart, regionEnd))
+            .Select(p => EvaluateGuideRna(p, sequence.Sequence, effectiveParams, system))
+            .Where(c => c.Score >= effectiveParams.MinScore)
+            .Where(c => effectiveParams.MaxSelfComplementaryStems is not int max
+                        || c.SelfComplementaryStems <= max);
 
-        foreach (var pamSite in pamSites)
-        {
-            var candidate = EvaluateGuideRna(pamSite, sequence.Sequence, parameters, system);
-            if (candidate.Score >= effectiveParams.MinScore)
-                yield return candidate;
-        }
+        // CRISPOR sorts the guide table descending by the selected score column; ties are broken
+        // deterministically here (position, then forward strand first) so the output is stable.
+        var ranked = effectiveParams.Ranking == GuideRnaRanking.OnTargetRuleSet2
+            ? candidates.OrderByDescending(c => c.OnTargetScore ?? double.NegativeInfinity)
+            : candidates.OrderByDescending(c => c.Score);
+
+        return ranked.ThenBy(c => c.Position).ThenByDescending(c => c.IsForwardStrand);
     }
 
     /// <summary>
@@ -207,8 +231,14 @@ public static class CrisprDesigner
         if (string.IsNullOrEmpty(guideSequence))
             throw new ArgumentNullException(nameof(guideSequence));
 
-        var effectiveParams = parameters ?? GuideRnaParameters.Default;
-        var system = GetSystem(systemType);
+        return EvaluateGuideRnaCore(guideSequence, GetSystem(systemType), parameters ?? GuideRnaParameters.Default);
+    }
+
+    private static GuideRnaCandidate EvaluateGuideRnaCore(
+        string guideSequence,
+        CrisprSystem system,
+        GuideRnaParameters effectiveParams)
+    {
         var seq = guideSequence.ToUpperInvariant();
 
         // Calculate GC content
@@ -219,6 +249,10 @@ public static class CrisprDesigner
 
         // Calculate self-complementarity score
         double selfCompScore = CalculateSelfComplementarity(seq);
+
+        // CHOPCHOP's published self-complementarity measure (4-bp stems); reported always, filtered
+        // only when the caller sets a limit (the reference's own default is "report, do not filter").
+        int selfCompStems = CountSelfComplementaryStems(seq, 4, effectiveParams.SelfComplementarityBackboneRegions);
 
         // Check seed region (last 10 bp for Cas9)
         // Evidence: Addgene - seed sequence is 8-10 bases at 3' end; using upper bound (10bp)
@@ -243,15 +277,15 @@ public static class CrisprDesigner
             issues.Add($"High GC content ({gcContent:F1}%)");
         }
 
-        // PolyT penalty
-        if (hasPolyT)
+        // PolyT penalty (opt-out via GuideRnaParameters.AvoidPolyT)
+        if (hasPolyT && effectiveParams.AvoidPolyT)
         {
             score -= 20;
             issues.Add("Contains TTTT (potential Pol III terminator)");
         }
 
-        // Self-complementarity penalty
-        if (selfCompScore > 0.3)
+        // Self-complementarity penalty (opt-out via GuideRnaParameters.CheckSelfComplementarity)
+        if (selfCompScore > 0.3 && effectiveParams.CheckSelfComplementarity)
         {
             score -= selfCompScore * 30;
             issues.Add("High self-complementarity");
@@ -272,6 +306,19 @@ public static class CrisprDesigner
             issues.Add("Contains common restriction site");
         }
 
+        // Graf et al. 2019 inefficiency motifs. CRISPOR reports these as a warning for NGG systems
+        // ("Inefficient") without altering any score, so no deduction is applied here either.
+        var grafMotif = system.PamSequence == "NGG" ? GetGrafMotif(seq) : GrafMotifType.None;
+        if (grafMotif == GrafMotifType.TtMotif)
+            issues.Add("Graf 2019 TT-motif (inefficient in Pol III-based expression)");
+        else if (grafMotif == GrafMotifType.GccMotif)
+            issues.Add("Graf 2019 GCC-motif (generally inefficient)");
+
+        // CHOPCHOP filters guides above filterSelfCompMax; the limit is opt-in here (null = the
+        // reference's default of no filter), and the overrun is reported as an issue.
+        if (effectiveParams.MaxSelfComplementaryStems is int maxStems && selfCompStems > maxStems)
+            issues.Add($"{selfCompStems} self-complementary 4-bp stems (limit {maxStems})");
+
         return new GuideRnaCandidate(
             Sequence: seq,
             Position: -1,
@@ -282,40 +329,155 @@ public static class CrisprDesigner
             SelfComplementarityScore: selfCompScore,
             Score: Math.Max(0, score),
             Issues: issues,
-            System: system);
+            System: system)
+        {
+            GrafMotif = grafMotif,
+            SelfComplementaryStems = selfCompStems,
+        };
     }
 
     private static GuideRnaCandidate EvaluateGuideRna(
         PamSite pamSite,
         string fullSequence,
-        GuideRnaParameters? parameters,
+        GuideRnaParameters effectiveParams,
         CrisprSystem system)
     {
-        var systemType = system.Name switch
-        {
-            "SpCas9" => CrisprSystemType.SpCas9,
-            "SaCas9" => CrisprSystemType.SaCas9,
-            "Cas12a/Cpf1" => CrisprSystemType.Cas12a,
-            _ => CrisprSystemType.SpCas9
-        };
+        // The site's own system is carried through: a name-based remap would silently replace the
+        // SpCas9-NAG / AsCas12a / LbCas12a / CasX definitions (and therefore the seed-region
+        // orientation and the reported guide length) with SpCas9's.
+        var candidate = EvaluateGuideRnaCore(pamSite.TargetSequence, pamSite.System, effectiveParams);
 
-        var candidate = EvaluateGuideRna(pamSite.TargetSequence, systemType, parameters);
+        string? context30Mer = TryGetRuleSet2Context(pamSite, fullSequence);
 
         return candidate with
         {
             Position = pamSite.TargetStart,
-            IsForwardStrand = pamSite.IsForwardStrand
+            IsForwardStrand = pamSite.IsForwardStrand,
+            Context30Mer = context30Mer,
+            OnTargetScore = context30Mer is null ? null : AzimuthRuleSet2.Score(context30Mer),
         };
     }
 
-    private static bool IsInRegion(PamSite pamSite, int regionStart, int regionEnd, CrisprSystem system)
+    /// <summary>
+    /// Returns the forward-strand coordinate of the base immediately 3' of the predicted cleavage
+    /// position of <paramref name="pamSite"/> on the PAM-bearing strand, for both strands.
+    /// </summary>
+    /// <param name="pamSite">A PAM site produced by <see cref="FindPamSites(DnaSequence, CrisprSystemType)"/>.</param>
+    /// <returns>A 0-based forward-strand coordinate (may fall outside the sequence for sites at the ends).</returns>
+    /// <remarks>
+    /// Conventions follow the reference tool CRISPOR (<c>crispor.py</c>):
+    /// <list type="bullet">
+    /// <item><description>Cas9-type systems (PAM 3' of the protospacer) cut bluntly 3 bp 5' of the PAM
+    /// ("the expected cleavage position located -3bp 5' of the PAM site"; the cut marker spans the three
+    /// protospacer bases next to the PAM — <c>startFt = start - 3</c> on '+', <c>ftSeq + "---"</c> on '-').
+    /// The returned coordinate is the third of those bases: <c>Position - 3</c> (forward) and
+    /// <c>Position + pamLength + 2</c> (reverse).</description></item>
+    /// <item><description>Cas12a/Cpf1-type systems (PAM 5' of the protospacer) make a staggered cut
+    /// "after the 18th base on the non-targeted strand which has the TTTV PAM motif" (Zetsche et al.
+    /// 2015, Cell 163:759, Fig. 3, as described by CRISPOR). The returned coordinate is the 19th
+    /// protospacer base: <c>Position + pamLength + 18</c> (forward) and <c>Position - 19</c> (reverse).
+    /// </description></item>
+    /// </list>
+    /// </remarks>
+    public static int GetCutSite(PamSite pamSite)
     {
-        // Check if the cut site would be within the target region
-        int cutSite = system.PamAfterTarget
-            ? pamSite.Position - 3 // Cas9 cuts 3bp upstream of PAM
-            : pamSite.Position + system.PamSequence.Length + 18; // Cas12a cuts downstream
+        ArgumentNullException.ThrowIfNull(pamSite);
+        int pamLength = pamSite.PamSequence.Length;
 
+        if (pamSite.System.PamAfterTarget)
+            return pamSite.IsForwardStrand ? pamSite.Position - 3 : pamSite.Position + pamLength + 2;
+
+        return pamSite.IsForwardStrand ? pamSite.Position + pamLength + 18 : pamSite.Position - 19;
+    }
+
+    private static bool IsInRegion(PamSite pamSite, int regionStart, int regionEnd)
+    {
+        int cutSite = GetCutSite(pamSite);
         return cutSite >= regionStart && cutSite <= regionEnd;
+    }
+
+    /// <summary>
+    /// Extracts the 30-nt Rule Set 2 / Azimuth context of a PAM site from the surrounding sequence:
+    /// 4 nt 5' of the protospacer + the 20-nt protospacer + the 3-nt NGG PAM + 3 nt 3' of the PAM,
+    /// all read on the protospacer strand (CRISPOR <c>crisporEffScores.calcAllScores</c> builds exactly
+    /// this window with <c>trimSeqs(seqs, -24, 6)</c> around the PAM start). Returns <c>null</c> when the
+    /// system is not a 20-nt NGG system, the flanks do not fit, or the window is not all A/C/G/T
+    /// (the reference scores such windows as "can't do Ns").
+    /// </summary>
+    private static string? TryGetRuleSet2Context(PamSite pamSite, string fullSequence)
+    {
+        var system = pamSite.System;
+        if (system.PamSequence != "NGG" || system.GuideLength != 20 || !system.PamAfterTarget)
+            return null;
+
+        // Forward-strand span of [4 nt upstream | 20 nt guide | 3 nt PAM | 3 nt downstream]:
+        // on the forward strand the upstream flank precedes the guide, on the reverse strand it follows it.
+        int windowStart = pamSite.IsForwardStrand ? pamSite.TargetStart - 4 : pamSite.TargetStart - 6;
+        if (windowStart < 0 || windowStart + 30 > fullSequence.Length)
+            return null;
+
+        string window = fullSequence.Substring(windowStart, 30);
+        if (!pamSite.IsForwardStrand)
+            window = DnaSequence.GetReverseComplementString(window);
+
+        foreach (var c in window)
+        {
+            if (c is not ('A' or 'C' or 'G' or 'T'))
+                return null;
+        }
+
+        return window;
+    }
+
+    /// <summary>
+    /// Classifies a guide against the two inefficiency motifs described by Graf et al. (2019),
+    /// Cell Reports 26:1098–1103 — the "TT-motif" and the "GCC-motif" at the 3' (PAM-proximal) end
+    /// of an SpCas9 guide. Guides carrying either motif were markedly less efficient.
+    /// </summary>
+    /// <param name="guideSequence">The protospacer, 5'→3' (A/C/G/T, case-insensitive).</param>
+    /// <returns>The motif found, or <see cref="GrafMotifType.None"/>.</returns>
+    /// <remarks>
+    /// Transcribed from the reference implementation <c>getGrafType</c> in CRISPOR's
+    /// <c>crisporEffScores.py</c>: a guide has the TT-motif when it ends in <c>TTC</c> or <c>TTT</c>,
+    /// or when its last four bases consist only of T and C with at least two Ts, or when its last four
+    /// bases contain <c>TT</c> plus at least three Ts or at least one C; it has the GCC-motif when it
+    /// ends in <c>[AGT]GCC</c> or in <c>GCCT</c>. CRISPOR applies the check only to NGG systems.
+    /// </remarks>
+    public static GrafMotifType GetGrafMotif(string guideSequence)
+    {
+        if (string.IsNullOrEmpty(guideSequence))
+            throw new ArgumentNullException(nameof(guideSequence));
+
+        var seq = guideSequence.ToUpperInvariant();
+        if (seq.EndsWith("TTC", StringComparison.Ordinal) || seq.EndsWith("TTT", StringComparison.Ordinal))
+            return GrafMotifType.TtMotif;
+
+        string suffix = seq.Length >= 4 ? seq[^4..] : seq;
+        int tCount = 0, cCount = 0;
+        bool onlyTc = suffix.Length > 0;
+        bool hasT = false, hasC = false;
+        foreach (var c in suffix)
+        {
+            if (c == 'T') { tCount++; hasT = true; }
+            else if (c == 'C') { cCount++; hasC = true; }
+            else onlyTc = false;
+        }
+
+        // Reference: set(suffix) == set(["T", "C"]) and suffix.count("T") >= 2
+        if (onlyTc && hasT && hasC && tCount >= 2)
+            return GrafMotifType.TtMotif;
+
+        // Reference: "TT" in suffix and (suffix.count("T") >= 3 or suffix.count("C") >= 1)
+        if (suffix.Contains("TT", StringComparison.Ordinal) && (tCount >= 3 || cCount >= 1))
+            return GrafMotifType.TtMotif;
+
+        if (seq.EndsWith("GCC", StringComparison.Ordinal) && suffix.Length == 4 && suffix[0] is 'A' or 'G' or 'T')
+            return GrafMotifType.GccMotif;
+
+        if (seq.EndsWith("GCCT", StringComparison.Ordinal))
+            return GrafMotifType.GccMotif;
+
+        return GrafMotifType.None;
     }
 
     #endregion
@@ -553,13 +715,9 @@ public static class CrisprDesigner
 
         double score = DoenchIntercept;
 
-        // GC-count term over the 20-nt protospacer = offsets [4, 24).
-        int gcCount = 0;
-        for (int i = 4; i < 24; i++)
-        {
-            if (seq[i] is 'G' or 'C')
-                gcCount++;
-        }
+        // GC-count term over the 20-nt protospacer = offsets [4, 24); counted with the canonical
+        // GC primitive (SequenceExtensions.CountGcAndValidNucleotides) over that fixed window.
+        int gcCount = seq.AsSpan(4, 20).CountGcAndValidNucleotides().GcCount;
         double gcWeight = gcCount <= 10 ? DoenchGcLow : DoenchGcHigh;
         score += Math.Abs(10 - gcCount) * gcWeight;
 
@@ -974,6 +1132,84 @@ public static class CrisprDesigner
         return sequence.Contains(new string('T', length));
     }
 
+    /// <summary>
+    /// The standard sgRNA scaffold region CHOPCHOP offers for its self-complementarity check
+    /// ("standard backbone" <c>AGGCTAGTCCGT</c>), to be passed to
+    /// <see cref="CountSelfComplementaryStems"/> on the same strand as the guide.
+    /// </summary>
+    public const string StandardSgRnaBackboneRegion = "AGGCTAGTCCGT";
+
+    /// <summary>
+    /// Counts the self-complementary stems of a guide RNA: the number of <paramref name="stemLength"/>-mer
+    /// windows of the protospacer that have at least 50% GC and can pair either with a downstream part of
+    /// the guide itself or with one of the supplied scaffold (backbone) regions. Guide secondary structure
+    /// of this kind impedes sgRNA activity.
+    /// </summary>
+    /// <param name="guideSequence">The protospacer 5'→3' (without the PAM, as in the reference).</param>
+    /// <param name="stemLength">Stem length; the reference's <c>STEM_LEN</c> is 4.</param>
+    /// <param name="backboneRegions">
+    /// Optional scaffold regions written on the same strand as the guide (CHOPCHOP's <c>-BB</c> argument,
+    /// e.g. <see cref="StandardSgRnaBackboneRegion"/>); they are reverse-complemented internally, exactly
+    /// as CHOPCHOP does before scoring. <c>null</c> or empty = guide-internal stems only, which is the
+    /// reference tool's own default.
+    /// </param>
+    /// <returns>The number of self-complementary stems (0 when the guide is no longer than a stem).</returns>
+    /// <remarks>
+    /// Transcribed from the reference implementation <c>selfComp</c> / <c>calcSelfComplementarity</c> in
+    /// CHOPCHOP's <c>chopchop.py</c> (Labun et al., "CHOPCHOP v2/v3", Nucleic Acids Res 44:W272 (2016) /
+    /// 47:W171 (2019)): with <c>rvs = revComp(guide)</c> and <c>L = len − STEM_LEN − 1</c>, every window
+    /// <c>guide[i..i+STEM_LEN)</c> whose GC fraction is ≥ 0.5 counts once when it occurs in
+    /// <c>rvs[0..L−i)</c> or inside a backbone region. The PAM is excluded ("Do not include PAM motif in
+    /// folding calculations"). CHOPCHOP's own CLI default is <c>filterSelfCompMax = -1</c>, i.e. report
+    /// without filtering; <see cref="GuideRnaParameters.MaxSelfComplementaryStems"/> is the filter.
+    /// </remarks>
+    public static int CountSelfComplementaryStems(
+        string guideSequence,
+        int stemLength = 4,
+        IEnumerable<string>? backboneRegions = null)
+    {
+        if (string.IsNullOrEmpty(guideSequence))
+            throw new ArgumentNullException(nameof(guideSequence));
+        if (stemLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(stemLength), stemLength, "Stem length must be >= 1.");
+
+        var fwd = guideSequence.ToUpperInvariant();
+        if (fwd.Length <= stemLength)
+            return 0;
+
+        string rvs = DnaSequence.GetReverseComplementString(fwd);
+        int l = fwd.Length - stemLength - 1;
+
+        // CHOPCHOP reverse-complements the backbone regions it is given before matching against them.
+        string[] backbones = backboneRegions is null
+            ? Array.Empty<string>()
+            : backboneRegions
+                .Select(b => DnaSequence.GetReverseComplementString(b.ToUpperInvariant()))
+                .ToArray();
+
+        int folding = 0;
+        for (int i = 0; i < fwd.Length - stemLength; i++)
+        {
+            // gccontent(stem) >= 0.5  <=>  2 * gcCount >= stemLength
+            if (fwd.AsSpan(i, stemLength).CountGcAndValidNucleotides().GcCount * 2 < stemLength)
+                continue;
+
+            string stem = fwd.Substring(i, stemLength);
+            bool pairs = rvs.AsSpan(0, l - i).IndexOf(stem.AsSpan()) >= 0;
+            if (!pairs)
+            {
+                foreach (var backbone in backbones)
+                {
+                    if (backbone.Contains(stem, StringComparison.Ordinal)) { pairs = true; break; }
+                }
+            }
+            if (pairs)
+                folding++;
+        }
+
+        return folding;
+    }
+
     private static double CalculateSelfComplementarity(string sequence)
     {
         string revComp = DnaSequence.GetReverseComplementString(sequence);
@@ -993,10 +1229,34 @@ public static class CrisprDesigner
         return (double)matches / (total * total);
     }
 
+    /// <summary>
+    /// Recognition sequences of the common cloning enzymes screened by <see cref="EvaluateGuideRna"/>,
+    /// resolved by name from the canonical enzyme table in <see cref="RestrictionAnalyzer.Enzymes"/>
+    /// rather than duplicated as literals (EcoRI, BamHI, HindIII, PstI, NotI).
+    /// </summary>
+    private static readonly string[] CommonCloningSites = ResolveCommonCloningSites();
+
+    private static string[] ResolveCommonCloningSites()
+    {
+        string[] names = { "EcoRI", "BamHI", "HindIII", "PstI", "NotI" };
+        var sites = new string[names.Length];
+        for (int i = 0; i < names.Length; i++)
+        {
+            sites[i] = RestrictionAnalyzer.GetEnzyme(names[i])?.RecognitionSequence
+                ?? throw new InvalidOperationException(
+                    $"Restriction enzyme '{names[i]}' is missing from the canonical enzyme table.");
+        }
+        return sites;
+    }
+
     private static bool HasCommonRestrictionSite(string sequence)
     {
-        string[] commonSites = { "GAATTC", "GGATCC", "AAGCTT", "CTGCAG", "GCGGCCGC" };
-        return commonSites.Any(site => sequence.Contains(site));
+        foreach (var site in CommonCloningSites)
+        {
+            if (sequence.Contains(site, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
     }
 
     #endregion
@@ -1036,15 +1296,26 @@ public sealed record CrisprSystem(
 /// <summary>
 /// Represents a PAM site in a sequence.
 /// </summary>
-/// <param name="Position">PAM start coordinate, always expressed on the forward strand.</param>
-/// <param name="PamSequence">The matched PAM sequence (forward-strand orientation).</param>
-/// <param name="TargetSequence">The guide/protospacer sequence sliced from the strand on which the PAM was found.</param>
+/// <remarks>
+/// Coordinate/orientation convention (matches the CRISPOR reference implementation,
+/// <c>crispor.py</c> <c>findAllPams</c> + <c>flankSeqIter</c>): <b>coordinates are always
+/// forward-strand, 0-based</b>; <b>sequences are always read on the protospacer strand</b>
+/// (the strand the PAM was matched on), so <see cref="PamSequence"/> always satisfies the
+/// system's PAM motif under IUPAC matching and <see cref="TargetSequence"/> is the guide as
+/// it would be ordered.
+/// </remarks>
+/// <param name="Position">PAM start coordinate, always expressed on the forward strand (0-based).</param>
+/// <param name="PamSequence">
+/// The matched PAM, read 5'→3' on the strand it was found on. For reverse-strand hits this is
+/// the reverse complement of the forward-strand bases at <see cref="Position"/> (e.g. an SpCas9
+/// hit reported as <c>TGG</c> reads <c>CCA</c> on the forward strand).
+/// </param>
+/// <param name="TargetSequence">The guide/protospacer sequence read 5'→3' on the strand the PAM was found on.</param>
 /// <param name="TargetStart">
-/// Start index of <see cref="TargetSequence"/> on the strand the hit was found on.
-/// For forward-strand hits (<see cref="IsForwardStrand"/> == true) this is a forward-strand
-/// index. For reverse-strand hits it is an index into the reverse-complement string (used to
-/// slice <see cref="TargetSequence"/>), NOT a forward-strand coordinate — unlike
-/// <see cref="Position"/>, which is always forward-strand.
+/// Forward-strand, 0-based start coordinate of the protospacer (the leftmost of the
+/// <see cref="CrisprSystem.GuideLength"/> bases covered by <see cref="TargetSequence"/>), for
+/// both strands. For reverse-strand hits <see cref="TargetSequence"/> is therefore the reverse
+/// complement of the forward bases <c>[TargetStart, TargetStart + GuideLength)</c>.
 /// </param>
 /// <param name="IsForwardStrand">True if the PAM was found on the forward strand; false for the reverse strand.</param>
 /// <param name="System">The CRISPR system whose PAM/guide-length parameters produced this site.</param>
@@ -1057,6 +1328,33 @@ public sealed record PamSite(
     CrisprSystem System);
 
 /// <summary>
+/// Criterion by which <see cref="CrisprDesigner.DesignGuideRnas"/> ranks its output.
+/// </summary>
+public enum GuideRnaRanking
+{
+    /// <summary>Descending <see cref="GuideRnaCandidate.Score"/> (the composition-based quality score). Default.</summary>
+    Score = 0,
+    /// <summary>
+    /// Descending <see cref="GuideRnaCandidate.OnTargetScore"/> (Doench 2016 Rule Set 2 / Azimuth);
+    /// candidates with no 30-nt context rank last.
+    /// </summary>
+    OnTargetRuleSet2 = 1
+}
+
+/// <summary>
+/// One of the two guide-inefficiency motifs described by Graf et al. (2019), Cell Reports 26:1098–1103.
+/// </summary>
+public enum GrafMotifType
+{
+    /// <summary>Neither motif present.</summary>
+    None = 0,
+    /// <summary>The "TT-motif" at the 3' end (poor Pol III-driven sgRNA expression).</summary>
+    TtMotif = 1,
+    /// <summary>The "GCC-motif" at the 3' end (<c>[AGT]GCC</c> / <c>GCCT</c>; generally inefficient).</summary>
+    GccMotif = 2
+}
+
+/// <summary>
 /// Parameters for guide RNA design.
 /// </summary>
 public readonly record struct GuideRnaParameters(
@@ -1067,7 +1365,32 @@ public readonly record struct GuideRnaParameters(
     bool CheckSelfComplementarity)
 {
     /// <summary>
-    /// Default parameters for guide RNA design.
+    /// Ranking criterion applied by <see cref="CrisprDesigner.DesignGuideRnas"/>; defaults to
+    /// <see cref="GuideRnaRanking.Score"/>.
+    /// </summary>
+    public GuideRnaRanking Ranking { get; init; }
+
+    /// <summary>
+    /// Maximum number of self-complementary 4-bp stems
+    /// (<see cref="CrisprDesigner.CountSelfComplementaryStems"/>) a candidate may carry; guides above
+    /// it are dropped by <see cref="CrisprDesigner.DesignGuideRnas"/> and flagged as an issue by
+    /// <see cref="CrisprDesigner.EvaluateGuideRna"/>. <c>null</c> = no filter, which is the reference
+    /// tool's own default (CHOPCHOP <c>filterSelfCompMax = -1</c>).
+    /// </summary>
+    public int? MaxSelfComplementaryStems { get; init; }
+
+    /// <summary>
+    /// Optional sgRNA scaffold regions, on the same strand as the guide, that the
+    /// self-complementarity stem count may pair against (CHOPCHOP's <c>-BB/--backbone</c>; e.g.
+    /// <see cref="CrisprDesigner.StandardSgRnaBackboneRegion"/>). <c>null</c> = guide-internal stems
+    /// only, the reference tool's default.
+    /// </summary>
+    public IReadOnlyList<string>? SelfComplementarityBackboneRegions { get; init; }
+
+    /// <summary>
+    /// Default parameters for guide RNA design. The 40–70% GC acceptance window is the same one the
+    /// reference tool CHOPCHOP uses (<c>chopchop.py</c>: <c>GC_LOW = 40</c>, <c>GC_HIGH = 70</c>;
+    /// Labun et al., Nucleic Acids Res 44:W272 (2016) / 47:W171 (2019)).
     /// </summary>
     public static GuideRnaParameters Default => new(
         MinGcContent: 40,
@@ -1096,6 +1419,38 @@ public sealed record GuideRnaCandidate(
     /// Gets the guide RNA sequence with the standard scaffold.
     /// </summary>
     public string FullGuideRna => Sequence + "GTTTTAGAGCTAGAAATAGCAAGTTAAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC";
+
+    /// <summary>
+    /// The 30-nt Rule Set 2 / Azimuth context of this guide read on the protospacer strand
+    /// (4 nt 5' flank + 20-nt protospacer + 3-nt NGG PAM + 3 nt 3' flank), or <c>null</c> when it is
+    /// unavailable: the guide was scored standalone, the system is not a 20-nt NGG system, the flanks
+    /// do not fit inside the input sequence, or the window contains a non-A/C/G/T base.
+    /// </summary>
+    public string? Context30Mer { get; init; }
+
+    /// <summary>
+    /// The Doench et al. (2016) "Rule Set 2" / Azimuth on-target efficacy score of this guide
+    /// (conventionally in [0, 1]; higher = predicted more active), or <c>null</c> when
+    /// <see cref="Context30Mer"/> is unavailable. This is the published, trained on-target model
+    /// (the "efficiency score" CRISPOR reports per guide), independent of the composition-based
+    /// <see cref="Score"/>. See <see cref="CrisprDesigner.CalculateOnTargetRuleSet2(string)"/>.
+    /// </summary>
+    public double? OnTargetScore { get; init; }
+
+    /// <summary>
+    /// The Graf et al. (2019) inefficiency motif carried by this guide, if any
+    /// (only evaluated for NGG systems, as in CRISPOR). See <see cref="CrisprDesigner.GetGrafMotif"/>.
+    /// </summary>
+    public GrafMotifType GrafMotif { get; init; }
+
+    /// <summary>
+    /// The number of self-complementary 4-bp stems of this guide, per CHOPCHOP's published
+    /// self-complementarity measure. See <see cref="CrisprDesigner.CountSelfComplementaryStems"/>;
+    /// <see cref="GuideRnaParameters.MaxSelfComplementaryStems"/> turns it into a filter. This is the
+    /// sourced measure; <see cref="SelfComplementarityScore"/> is the library's older normalised
+    /// complementary-pair fraction, kept for backward compatibility.
+    /// </summary>
+    public int SelfComplementaryStems { get; init; }
 }
 
 /// <summary>

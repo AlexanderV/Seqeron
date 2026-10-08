@@ -25,7 +25,7 @@ public class OncologyAnalyzer_CtDnaAnalysis_Tests
         // Arrange / Act
         double p = OncologyAnalyzer.CtDnaDetectionProbability(15000, 0.001, 1);
 
-        // Assert — 1 - e^(-15) = 0.9999996939215850 (hand-derived from the cited Poisson formula).
+        // Assert — 1 - e^(-15) = 0.9999996940976795 (hand-derived from the cited Poisson formula).
         Assert.That(p, Is.EqualTo(1.0 - Math.Exp(-15.0)).Within(1e-12),
             "p must equal 1 - e^(-n*d*k) with lambda = 15000*0.001*1 = 15 (Patent US11085084).");
         Assert.That(p, Is.EqualTo(0.99999969409767953).Within(1e-12),
@@ -123,6 +123,60 @@ public class OncologyAnalyzer_CtDnaAnalysis_Tests
         {
             Assert.That(p, Is.LessThanOrEqualTo(1.0), "p must never exceed 1 (INV-01).");
             Assert.That(p, Is.EqualTo(1.0).Within(1e-12), "For huge lambda, p -> 1 (INV-01).");
+        });
+    }
+
+    // Review 2026-09 (numerical robustness) — p = 1 - e^(-lambda) must keep full relative precision as
+    // lambda -> 0. Reference values: -numpy.expm1(-lambda) and a 60-digit Decimal evaluation of 1 - e^(-lambda)
+    // (both agree to the last bit). The naive 1.0 - Math.Exp(-lambda) returned 9.999778782798785e-13 for
+    // lambda = 1e-12 (2.2e-5 relative error) and 9.999999717180685e-10 for lambda = 1e-9 (2.8e-8).
+    [TestCase(1, 1e-12, 1, 9.999999999995e-13)]
+    [TestCase(1, 1e-9, 1, 9.999999995e-10)]
+    [TestCase(1, 1e-6, 1, 9.999995000001667e-07)]
+    [TestCase(100, 1e-6, 1, 9.999500016666251e-05)]   // lambda = 1e-4
+    [TestCase(100, 1e-4, 1, 0.009950166250831947)]    // lambda = 0.01
+    public void DetectionProbability_SmallLambda_FullRelativePrecision(int n, double d, int k, double expected)
+    {
+        double p = OncologyAnalyzer.CtDnaDetectionProbability(n, d, k);
+
+        Assert.That(p, Is.EqualTo(expected).Within(4e-16 * expected),
+            "p = 1 - e^(-lambda) must match -expm1(-lambda) to ~1 ulp relative precision for small lambda.");
+    }
+
+    // Review 2026-09 — lambda below the double resolution of e^(-lambda) (d = double.Epsilon) must still give
+    // p = lambda > 0, not 0 (naive 1 - Math.Exp(-lambda) returns exactly 0, violating INV-03 strictness).
+    [Test]
+    public void DetectionProbability_SubnormalLambda_ReturnsLambdaNotZero()
+    {
+        double p = OncologyAnalyzer.CtDnaDetectionProbability(1, 1e-300, 1);
+
+        Assert.That(p, Is.EqualTo(1e-300).Within(1e-315),
+            "1 - e^(-lambda) = lambda to double precision for lambda = 1e-300 (-numpy.expm1(-1e-300) = 1e-300).");
+    }
+
+    // Review 2026-09 — lambda in the subnormal-e^(-lambda) band (708 < lambda < 745) must still give p = 1:
+    // -numpy.expm1(-720) = 1.0 and -numpy.expm1(-744) = 1.0. (Guards the direct 1 - u branch for lambda > ln 2;
+    // a Kahan quotient with ln(subnormal u) would return < 1 here.)
+    [TestCase(720)]
+    [TestCase(744)]
+    public void DetectionProbability_LambdaWithSubnormalExp_ReturnsOne(int n)
+    {
+        double p = OncologyAnalyzer.CtDnaDetectionProbability(n, 1.0, 1);
+
+        Assert.That(p, Is.EqualTo(1.0).Within(1e-15), "1 - e^(-lambda) = 1 to double precision for lambda >= 720.");
+    }
+
+    // Review 2026-09 — IsCtDnaDetected uses the same probability as CtDnaDetectionProbability (no divergent copy).
+    [Test]
+    public void IsCtDnaDetected_ThresholdEqualToReturnedProbability_IsDetected()
+    {
+        double p = OncologyAnalyzer.CtDnaDetectionProbability(1000, 0.003, 1); // lambda = 3 => 0.950212931632136
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p, Is.EqualTo(0.950212931632136).Within(1e-15), "1 - e^(-3) (Poisson P(X>=1)).");
+            Assert.That(OncologyAnalyzer.IsCtDnaDetected(1000, 0.003, 1, p), Is.True,
+                "p >= threshold when the threshold is exactly the returned probability.");
         });
     }
 

@@ -2,41 +2,166 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "kmer_distance",
   "serverName": "Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.KmerDistance",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L212",
-  "description": "Alignment-free Euclidean distance between the normalized k-mer frequency vectors of two sequences. 0 means identical k-mer composition.",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L779",
+  "description": "Alignment-free word-vector distance between two sequences' k-mer composition. Default: Euclidean distance between the normalized k-mer frequency vectors (0 = identical composition). Optional metric: squared_euclidean_counts (Blaisdell d_E), manhattan, chebyshev, canberra (frequencies), cosine, d2 (count inner product, a similarity). d2star / d2shepherd: background-adjusted d2* / d2S dissimilarities in [0,1] (Reinert et al. 2009; Song et al. 2014), Markov background of order markovOrder fitted to each sequence, ACGT words, k <= 12. bothStrands = CAFE -R both-strand d2*/d2S. jensen_shannon: JS divergence (base 2) of the frequency vectors; euclidean_counts: Euclidean distance of raw counts. ev: spaced -d EV evolutionary distance with the pattern 1^k.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "seq1": { "type": "string", "description": "First sequence", "minLength": 1 },
-      "seq2": { "type": "string", "description": "Second sequence", "minLength": 1 },
-      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+      "seq1": {
+        "type": "string",
+        "description": "First sequence",
+        "minLength": 1
+      },
+      "seq2": {
+        "type": "string",
+        "description": "Second sequence",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "k-mer length",
+        "minimum": 1
+      },
+      "metric": {
+        "type": "string",
+        "description": "Word-vector metric; ev = spaced -d EV evolutionary distance (Morgenstern et al. 2015) with the contiguous pattern 1^k",
+        "enum": [
+          "euclidean",
+          "squared_euclidean_counts",
+          "manhattan",
+          "chebyshev",
+          "canberra",
+          "cosine",
+          "d2",
+          "d2star",
+          "d2shepherd",
+          "d2s",
+          "jensen_shannon",
+          "js",
+          "euclidean_counts",
+          "ev",
+          "evolutionary"
+        ],
+        "default": "euclidean"
+      },
+      "markovOrder": {
+        "type": "integer",
+        "description": "Background Markov order r (0 <= r < k) for d2star/d2shepherd, or -1 to choose each sequence's order by BIC; must be 0 for the other metrics",
+        "minimum": -1,
+        "default": 0
+      },
+      "bothStrands": {
+        "type": "boolean",
+        "description": "d2star/d2shepherd: CAFE -R both-strand mode (count of w + count of its reverse complement; background probability averaged over w and its reverse complement); ev: spaced's reverse-complement mode (seq1 on both strands vs seq2 forward)",
+        "default": false
+      }
     },
-    "required": ["seq1", "seq2", "k"]
+    "required": [
+      "seq1",
+      "seq2",
+      "k"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "distance": { "type": "number", "description": "Non-negative Euclidean distance between the two frequency vectors" }
+      "distance": {
+        "type": "number",
+        "description": "Metric value (non-negative; for d2 the count inner product)"
+      }
     },
-    "required": ["distance"]
+    "required": [
+      "distance"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1003, "message": "k must be positive" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "k must be positive"
+    },
+    {
+      "code": 1002,
+      "message": "metric must be one of: euclidean, squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd, jensen_shannon, euclidean_counts, ev"
+    },
+    {
+      "code": 1002,
+      "message": "markovOrder applies only to the background-adjusted metrics D2Star and D2Shepherd."
+    },
+    {
+      "code": 1002,
+      "message": "bothStrands applies only to the background-adjusted metrics D2Star and D2Shepherd; count canonical k-mers (KmerCountingOptions.Canonical) for the other metrics."
+    },
+    {
+      "code": 1002,
+      "message": "The spaced EV distance needs both sequences to have at least as many letters as the pattern length."
+    }
   ],
   "examples": [
     {
       "name": "Identical sequences => 0",
-      "input": { "seq1": "ACGTACGT", "seq2": "ACGTACGT", "k": 2 },
-      "output": { "distance": 0.0 }
+      "input": {
+        "seq1": "ACGTACGT",
+        "seq2": "ACGTACGT",
+        "k": 2
+      },
+      "output": {
+        "distance": 0.0
+      }
     },
     {
       "name": "Disjoint monomers => sqrt(2)",
-      "input": { "seq1": "AAAA", "seq2": "TTTT", "k": 1 },
-      "output": { "distance": 1.4142135623730951 }
+      "input": {
+        "seq1": "AAAA",
+        "seq2": "TTTT",
+        "k": 1
+      },
+      "output": {
+        "distance": 1.4142135623730951
+      }
+    },
+    {
+      "name": "Blaisdell squared Euclidean on counts (Zielezinski 2017 Fig. 1) => 3",
+      "input": {
+        "seq1": "ATGTGTG",
+        "seq2": "CATGTG",
+        "k": 3,
+        "metric": "squared_euclidean_counts"
+      },
+      "output": {
+        "distance": 3.0
+      }
+    },
+    {
+      "name": "Background-adjusted d2* (order-0 background)",
+      "input": {
+        "seq1": "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT",
+        "seq2": "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC",
+        "k": 3,
+        "metric": "d2star"
+      },
+      "output": {
+        "distance": 0.44457941706964565
+      }
+    },
+    {
+      "name": "Both-strand d2* (CAFE -R, order-0 background)",
+      "input": {
+        "seq1": "AGGTAAGGTGGTTGAGATCTGGACTTTTGACGCCTGGAGCCCGCAGTGCTCCTCGAAAAGTAGCCATGCCTTGGGCTGCT",
+        "seq2": "CAAAGGCCCTACCTTCTTATAGTCCTTTCAACATACAAGTATAGTTGGAAGTTCTAAGTTCAGTTTAATC",
+        "k": 3,
+        "metric": "d2star",
+        "bothStrands": true
+      },
+      "output": {
+        "distance": 0.3838876158581438
+      }
     }
   ]
 }

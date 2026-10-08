@@ -1,0 +1,421 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "dyad_analysis",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.AnalyzeDyads",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.DyadAnalysis.cs#L56",
+  "description": "RSAT `dyad-analysis` (van Helden, Rios & Collado-Vides 2000, NAR 28:1808): over-represented spaced dyads M1 n{s} M2 — two monads of length m separated by s unspecified residues, s in [minSpacing, maxSpacing] — of type any / dr (M2 = M1) / ir (M2 = rc M1) / rep. Per spacing T_s = Σ max(0, L − 2m − s + 1) positions; `countOverlapping` = false (RSAT default `-noov`) discards an occurrence starting < 2m + s after the last counted one of the same dyad (or of its reverse complement with both strands). Both strands (default `-2str`): D and D' = rc(M2) n{s} rc(M1) form one pattern, occ summed. exp_freq from the input monad frequencies f(M) (single strand): f(M1)·f(M2) (+ f(rc M1)·f(rc M2) with both strands unless D is a reverse palindrome), or from a monad / dyad frequency table; exp_occ = exp_freq · occ_sum_s; z = (occ − exp_occ)/√(T_s·p·(2·ovlp − 1 − (4m+1)·p)); occ_P = P(X ≥ occ), X ~ Bin(T_s, exp_freq); occ_E = occ_P × tested dyads; occ_sig = −log10 occ_E. `minCount` <= 0 tests every combination of observed monads (RSAT without `-lth occ`). Equals RSAT dyad-analysis 1.78 (single strand ≤ 1.3e-14 on 200 runs / 14,746 dyads); deliberate differences (RSAT code defects, documented in the algorithm doc): with both strands RSAT drops pairs seen only as their lexicographically larger member, `rep` counts palindromic monads twice, and with `-return zscore` RSAT drops dyads whose variance is ≤ 0; z-scores are not rounded to 2 decimals.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "DNA sequences"
+      },
+      "monadLength": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 3,
+        "description": "Monad length m (RSAT -l, >= 1, default 3)"
+      },
+      "minSpacing": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 0,
+        "description": "Minimal spacing (>= 0, default 0)"
+      },
+      "maxSpacing": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 20,
+        "description": "Maximal spacing (>= minSpacing, default 20)"
+      },
+      "dyadType": {
+        "type": "string",
+        "enum": [
+          "any",
+          "dr",
+          "ir",
+          "rep"
+        ],
+        "default": "any",
+        "description": "'any' (default), 'dr', 'ir' or 'rep'"
+      },
+      "strands": {
+        "type": "string",
+        "enum": [
+          "both",
+          "single"
+        ],
+        "default": "both",
+        "description": "'both' (-2str, default) or 'single' (-1str)"
+      },
+      "countOverlapping": {
+        "type": "boolean",
+        "default": false,
+        "description": "Count overlapping occurrences (-ovlp); default false = RSAT -noov"
+      },
+      "minCount": {
+        "type": "integer",
+        "default": 1,
+        "description": "Occurrence threshold (RSAT -lth occ, default 1); <= 0 tests every monad combination"
+      },
+      "background": {
+        "type": "string",
+        "enum": [
+          "monads",
+          "monad_table",
+          "dyad_table"
+        ],
+        "default": "monads",
+        "description": "'monads' (default), 'monad_table' (needs monadFrequencies) or 'dyad_table' (needs dyadFrequencies)"
+      },
+      "monadFrequencies": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "number"
+        },
+        "description": "Monad -> expected frequency (background 'monad_table', RSAT -mncf)"
+      },
+      "dyadFrequencies": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "number"
+        },
+        "description": "Dyad in RSAT notation (e.g. 'acgn{4}tta') -> expected single-strand frequency (background 'dyad_table', RSAT -expfreq)"
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "dyads": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "firstMonad": {
+              "type": "string"
+            },
+            "spacing": {
+              "type": "integer"
+            },
+            "secondMonad": {
+              "type": "string"
+            },
+            "reverseComplement": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "occurrences": {
+              "type": "integer"
+            },
+            "overlaps": {
+              "type": "integer"
+            },
+            "sequenceIndices": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "positions": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "observedFrequency": {
+              "type": "number"
+            },
+            "expectedFrequency": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "expectedOccurrences": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "expectedVariance": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "overlapCoefficient": {
+              "type": "number"
+            },
+            "zScore": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "ratio": {
+              "type": "number"
+            },
+            "occurrenceProbability": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "occurrenceEValue": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "occurrenceSignificance": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "isDirectRepeat": {
+              "type": "boolean"
+            },
+            "isReversePalindrome": {
+              "type": "boolean"
+            },
+            "expectedFromMonads": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "pattern",
+            "firstMonad",
+            "spacing",
+            "secondMonad",
+            "reverseComplement",
+            "occurrences",
+            "overlaps",
+            "sequenceIndices",
+            "positions",
+            "observedFrequency",
+            "expectedFrequency",
+            "expectedOccurrences",
+            "expectedVariance",
+            "overlapCoefficient",
+            "zScore",
+            "ratio",
+            "occurrenceProbability",
+            "occurrenceEValue",
+            "occurrenceSignificance",
+            "isDirectRepeat",
+            "isReversePalindrome",
+            "expectedFromMonads"
+          ]
+        }
+      },
+      "monadLength": {
+        "type": "integer"
+      },
+      "minSpacing": {
+        "type": "integer"
+      },
+      "maxSpacing": {
+        "type": "integer"
+      },
+      "dyadType": {
+        "type": "string"
+      },
+      "strands": {
+        "type": "string"
+      },
+      "countOverlapping": {
+        "type": "boolean"
+      },
+      "sequenceCount": {
+        "type": "integer"
+      },
+      "monadOccurrences": {
+        "type": "integer"
+      },
+      "spacings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "spacing": {
+              "type": "integer"
+            },
+            "possiblePositions": {
+              "type": "integer"
+            },
+            "occurrences": {
+              "type": "integer"
+            },
+            "overlaps": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "spacing",
+            "possiblePositions",
+            "occurrences",
+            "overlaps"
+          ]
+        }
+      },
+      "testedPatterns": {
+        "type": "integer"
+      },
+      "possibleDyads": {
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "dyads",
+      "monadLength",
+      "minSpacing",
+      "maxSpacing",
+      "dyadType",
+      "strands",
+      "countOverlapping",
+      "sequenceCount",
+      "monadOccurrences",
+      "spacings",
+      "testedPatterns",
+      "possibleDyads"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "At least one sequence is required"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence"
+    },
+    {
+      "code": 1002,
+      "message": "monadLength must be >= 1."
+    },
+    {
+      "code": 1002,
+      "message": "Spacings must satisfy 0 <= minSpacing <= maxSpacing."
+    },
+    {
+      "code": 1003,
+      "message": "dyadType must be 'any', 'dr', 'ir' or 'rep'."
+    },
+    {
+      "code": 1004,
+      "message": "Background must be 'monads', 'monad_table' or 'dyad_table'."
+    },
+    {
+      "code": 1005,
+      "message": "Background 'monad_table' requires monadFrequencies."
+    },
+    {
+      "code": 1005,
+      "message": "Background 'dyad_table' requires dyadFrequencies."
+    },
+    {
+      "code": 1006,
+      "message": "Strands must be 'single' or 'both'."
+    }
+  ],
+  "examples": [
+    {
+      "name": "RSAT dyad-analysis -l 3 -sp 0-2 -lth occ 3 (defaults -2str -noov)",
+      "input": {
+        "sequences": [
+          "ATGCATGCATGCAAATTTGGGCCCATGCTTAGCGGATCCATGCATGCTTTAAACGTACGTAGC"
+        ],
+        "monadLength": 3,
+        "minSpacing": 0,
+        "maxSpacing": 2,
+        "minCount": 3
+      },
+      "output": {
+        "dyads": [
+          {
+            "pattern": "CATn{0}GCA",
+            "firstMonad": "CAT",
+            "spacing": 0,
+            "secondMonad": "GCA",
+            "reverseComplement": "TGCn{0}ATG",
+            "occurrences": 3,
+            "overlaps": 3,
+            "sequenceIndices": [
+              0,
+              0,
+              0
+            ],
+            "positions": [
+              1,
+              7,
+              38
+            ],
+            "observedFrequency": 0.05172413793103448,
+            "expectedFrequency": 0.015049717817790915,
+            "expectedOccurrences": 0.7524858908895458,
+            "expectedVariance": 0.7089265559961291,
+            "overlapCoefficient": 1.00390625,
+            "zScore": 2.6693271529711025,
+            "ratio": 3.986785714285715,
+            "occurrenceProbability": 0.057099595708850225,
+            "occurrenceEValue": 0.057099595708850225,
+            "occurrenceSignificance": 1.2433669667460436,
+            "isDirectRepeat": false,
+            "isReversePalindrome": false,
+            "expectedFromMonads": true
+          }
+        ],
+        "monadLength": 3,
+        "minSpacing": 0,
+        "maxSpacing": 2,
+        "dyadType": "any",
+        "strands": "both",
+        "countOverlapping": false,
+        "sequenceCount": 1,
+        "monadOccurrences": 61,
+        "spacings": [
+          {
+            "spacing": 0,
+            "possiblePositions": 58,
+            "occurrences": 50,
+            "overlaps": 8
+          },
+          {
+            "spacing": 1,
+            "possiblePositions": 57,
+            "occurrences": 48,
+            "overlaps": 9
+          },
+          {
+            "spacing": 2,
+            "possiblePositions": 56,
+            "occurrences": 53,
+            "overlaps": 3
+          }
+        ],
+        "testedPatterns": 1,
+        "possibleDyads": 6240
+      }
+    }
+  ]
+}

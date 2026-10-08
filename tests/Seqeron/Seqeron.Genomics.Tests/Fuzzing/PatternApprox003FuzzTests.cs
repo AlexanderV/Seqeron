@@ -524,4 +524,60 @@ public class PatternApprox003FuzzTests
     }
 
     #endregion
+
+    #region F3 (review 2026-09 B05) — non-ACGT windows yield only DNA k-mers
+
+    /// <summary>
+    /// B05 F3 (Compeau &amp; Pevzner BA1N / BA1I): the reported k-mers are DNA k-mers over
+    /// {A,C,G,T}; a window's non-ACGT symbol (N) always costs one mismatch. Random text over
+    /// {A,C,G,T,N} (mixed case) is checked against an independent brute force over all 4^k
+    /// k-mers: Count_d(P) = #windows w with HD(P, w) ≤ d; result = every argmax with its count,
+    /// or empty when the maximum is 0. Uses its own seeded RNG so the shared <see cref="Rng"/>
+    /// stream of the other tests is not perturbed.
+    /// </summary>
+    [Test]
+    public void FrequentKmers_RandomTextWithN_OnlyAcgtKmers_EqualsBruteForce()
+    {
+        var rng = new Random(20260930);
+        for (int iter = 0; iter < 200; iter++)
+        {
+            int len = rng.Next(1, 22);
+            var chars = new char[len];
+            for (int i = 0; i < len; i++)
+            {
+                char c = "ACGTNNacgtn"[rng.Next(11)];
+                chars[i] = c;
+            }
+            string text = new string(chars);
+            int k = rng.Next(1, 5);
+            int d = rng.Next(0, 3);
+
+            var actual = ApproximateMatcher.FindFrequentKmersWithMismatches(text, k, d)
+                .OrderBy(x => x.Kmer, StringComparer.Ordinal).ToList();
+
+            string upper = text.ToUpperInvariant();
+            var windows = Enumerable.Range(0, Math.Max(0, upper.Length - k + 1))
+                .Select(i => upper.Substring(i, k)).ToList();
+            var all = new List<(string Kmer, int Count)>();
+            int total = 1 << (2 * k);
+            for (int code = 0; code < total; code++)
+            {
+                var kc = new char[k];
+                for (int p = 0, v = code; p < k; p++, v >>= 2)
+                    kc[k - 1 - p] = "ACGT"[v & 3];
+                string kmer = new string(kc);
+                all.Add((kmer, windows.Count(w => HammingOracle(kmer, w) <= d)));
+            }
+            int max = all.Max(x => x.Count);
+            var expected = max == 0
+                ? new List<(string Kmer, int Count)>()
+                : all.Where(x => x.Count == max).OrderBy(x => x.Kmer, StringComparer.Ordinal).ToList();
+
+            actual.Should().Equal(expected, $"iter={iter} text={text} k={k} d={d}");
+            actual.Should().OnlyContain(x => x.Kmer.All(ch => "ACGT".Contains(ch)),
+                "reported k-mers must be DNA k-mers over {A,C,G,T} (B05 F3)");
+        }
+    }
+
+    #endregion
 }

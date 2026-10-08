@@ -103,7 +103,7 @@ Null collections throw `ArgumentNullException`; empty collections throw `Argumen
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.SomaticCalling.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.SomaticCalling.cs) (record `PurityVariant` and constants in `OncologyAnalyzer.cs`)
 
 - `OncologyAnalyzer.EstimatePurityFromVAF(IEnumerable<VariantObservation>)`: median of ρ = 2·VAF over clonal het diploid SNVs.
 - `OncologyAnalyzer.EstimatePurityFromVaf(double)`: single-VAF closed form ρ = 2·VAF.
@@ -135,6 +135,8 @@ Collection overloads aggregate per-variant purities by median (lower-mid average
 |---|------|------|--------|--------|-------|
 | 1 | VAF-only estimator fixes m=1, n_tot=2 | Assumption | Wrong on amplified/LOH loci | accepted | ASM-02; use `EstimatePurity` for other states |
 | 2 | Median aggregation | Assumption | Robust central estimate, not a fitted value | accepted | does not change the per-variant formula |
+| 3 | Multiplicity not bounded by n_tot in `EstimatePurity` | Defect (open, B22 file) | m > n_tot (physically impossible; CNAqc `expectations_generalised` uses m ∈ 1..Major) is accepted, e.g. (v 0.5, m 3, n_tot 2) → 1/3 | pending cross-batch fix | review-2026-09 B24 F7 |
+| 4 | Boundary π = 1 rounding in `EstimatePurity` | Defect (open, B22 file) | the exact CNAqc clonal peak at π = 1, v = m/n_tot, can evaluate to 1 + k·ulp and is rejected, e.g. (v 0.2, m 1, n_tot 5) throws | pending cross-batch fix | review-2026-09 B24 F8 |
 
 ## 6. Edge Cases and Limitations
 

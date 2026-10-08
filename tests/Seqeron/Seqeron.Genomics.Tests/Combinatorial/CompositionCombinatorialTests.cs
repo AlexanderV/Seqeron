@@ -87,7 +87,7 @@ public class CompositionCombinatorialTests
         (Alphabet.Rna, true) => 'T',           // DNA base — invalid for RNA (INV-02)
         (Alphabet.Rna, false) => 'Z',
         (Alphabet.Protein, true) => 'X',       // unknown placeholder — strict rejects, non-strict accepts
-        (Alphabet.Protein, false) => 'J',      // not a defined amino-acid letter
+        (Alphabet.Protein, false) => '1',      // not an amino-acid code (J = Xle is a valid IUPAC ambiguity code)
         (Alphabet.Ambiguous, true) => 'N',     // the defining interaction: ambiguity forbidden when strict
         (Alphabet.Ambiguous, false) => 'Z',
         _ => throw new ArgumentOutOfRangeException(nameof(alphabet)),

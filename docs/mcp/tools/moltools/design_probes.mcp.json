@@ -6,13 +6,13 @@
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignProbes",
   "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L493",
-  "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-scoring probes.",
+  "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-scoring probes. Probes > 60 nt use Primer3's alignment-mode self_any/self_end (<= 12) self-dimer screen plus an inverted-repeat hairpin screen.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "target_sequence": { "type": "string", "description": "Target DNA sequence.", "minLength": 1 },
-      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters (defaults to Microarray)." },
-      "max_probes": { "type": "integer", "description": "Maximum probes to return.", "minimum": 1, "default": 10 }
+      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold). Defaults to Microarray when null.", "default": null },
+      "max_probes": { "type": "integer", "description": "Maximum probes to return (default 10).", "minimum": 1, "default": 10 }
     },
     "required": ["target_sequence"]
   },

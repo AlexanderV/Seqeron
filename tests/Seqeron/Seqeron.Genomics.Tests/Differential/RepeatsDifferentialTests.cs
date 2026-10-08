@@ -76,26 +76,38 @@ public class RepeatsDifferentialTests
 
     // ---- Row 15: REP-INV-001 — FindInvertedRepeats vs brute reverse-complement search ----
 
+    // Brute-force oracle for the documented semantics (EMBOSS palindrome, -nummismatches 0 -overlap Y):
+    // enumerate EVERY exact stem (i, j, arm) with RightArm = RC(LeftArm) and the loop in bounds, then keep only
+    // the stems that are not contained, in both arms, in another stem (palindrome.c palindrome_AInB).
+    // The same definition, as an independent Python script, matched the EMBOSS 6.6.0 palindrome binary on
+    // 1000 random ACGT sequences (minLoop = 0) — docs/Evidence/REP-INV-001-Evidence.md.
     private static List<(int i, int j, int arm)> InvertedOracle(string seq, int minArm, int maxLoop, int minLoop)
     {
-        var results = new List<(int, int, int)>();
+        var all = new List<(int i, int j, int arm)>();
         for (int i = 0; i <= seq.Length - 2 * minArm - minLoop; i++)
-        for (int arm = minArm; i + arm <= seq.Length; arm++)
+        for (int arm = minArm; i + 2 * arm + minLoop <= seq.Length; arm++)
         {
             string leftRc = RevComp(seq.Substring(i, arm));
             int minJ = i + arm + minLoop;
             int maxJ = Math.Min(i + arm + maxLoop, seq.Length - arm);
             for (int j = minJ; j <= maxJ; j++)
                 if (seq.Substring(j, arm) == leftRc)
-                    results.Add((i, j, arm));
+                    all.Add((i, j, arm));
         }
-        return results;
+
+        return all.Where(a => !all.Any(b => b != a
+                && b.i <= a.i && a.i + a.arm <= b.i + b.arm
+                && b.j <= a.j && a.j + a.arm <= b.j + b.arm))
+            .OrderBy(a => a.i).ThenBy(a => a.j).ToList();
     }
 
     [Test]
     [Category("REP-INV-001")]
     [TestCase("AACCGAGGGTT")]              // arm AACC / loop GAG / arm GGTT (=RC of AACC)
     [TestCase("ACGTACGTAAAACGTACGT")]
+    [TestCase("GGGGGGAAACCCCCC")]          // slipped re-pairings inside the 6-bp stem are dropped
+    [TestCase("GAATTCAAAAGAATTCTTTTGAATTC")]
+    [TestCase("ATATATATATGCATATATATAT")]
     public void InvertedRepeats_MatchesBruteRevCompSearch(string seq)
     {
         var actual = RepeatFinder.FindInvertedRepeats(seq, minArmLength: 4, maxLoopLength: 50, minLoopLength: 3)
@@ -111,43 +123,70 @@ public class RepeatsDifferentialTests
         }
     }
 
-    // ---- Row 16: REP-DIRECT-001 — suffix-tree FindDirectRepeats vs brute substring scan ----
+    // ---- Row 16: REP-DIRECT-001 — FindDirectRepeats vs brute-force maximal-pair oracle ----
+    // Oracle = the definition (Gusfield 1997 §7.12; MUMmer repeat-match -f exhaustive mode -E):
+    // i < j, left-maximal (i == 0 or S[i-1] != S[j-1]), L = full common-prefix length over A/C/G/T,
+    // minLen <= L <= maxLen, Spacing = j - i - L >= minSpacing. Sorted by (i, j).
 
     private static List<(int i, int j, int len)> DirectOracle(string seq, int minLen, int maxLen, int minSpacing)
     {
+        static bool Acgt(char c) => c is 'A' or 'C' or 'G' or 'T';
         var results = new List<(int, int, int)>();
-        for (int len = minLen; len <= maxLen; len++)
-        for (int i = 0; i <= seq.Length - len * 2 - minSpacing; i++)
+        for (int i = 0; i < seq.Length; i++)
+        for (int j = i + 1; j < seq.Length; j++)
         {
-            string repeat = seq.Substring(i, len);
-            for (int j = i + len + minSpacing; j + len <= seq.Length; j++)
-                if (seq.Substring(j, len) == repeat)
-                    results.Add((i, j, len));
+            if (i > 0 && seq[i - 1] == seq[j - 1] && Acgt(seq[i - 1])) continue;
+            int len = 0;
+            while (j + len < seq.Length && seq[i + len] == seq[j + len] && Acgt(seq[i + len])) len++;
+            if (len >= minLen && len <= maxLen && j - i - len >= minSpacing)
+                results.Add((i, j, len));
         }
         return results;
     }
 
     [Test]
     [Category("REP-DIRECT-001")]
-    [TestCase("ACGTACGTTTT")]
-    [TestCase("AAGGAAGGCCAAGG")]
-    public void DirectRepeats_MatchesBruteSubstringScan(string seq)
+    [TestCase("ACGTACGTTTT", 1)]
+    [TestCase("AAGGAAGGCCAAGG", 1)]
+    [TestCase("ACGTACGTTTTTTTTTACGTACGT", 1)]
+    [TestCase("acgtNacgtRRacgtNacgt", 0)]
+    [TestCase("ACGTACGTACGTAAACGTACG", -100)]
+    public void DirectRepeats_MatchesBruteForceMaximalPairOracle(string seq, int minSpacing)
     {
-        var actual = RepeatFinder.FindDirectRepeats(seq, minLength: 3, maxLength: 5, minSpacing: 1)
+        var actual = RepeatFinder.FindDirectRepeats(seq, minLength: 3, maxLength: 5, minSpacing: minSpacing)
             .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).ToList();
-        Assert.That(actual, Is.EqualTo(DirectOracle(seq.ToUpperInvariant(), 3, 5, 1)));
+        Assert.That(actual, Is.EqualTo(DirectOracle(seq.ToUpperInvariant(), 3, 5, minSpacing)));
+    }
+
+    [Test]
+    [Category("REP-DIRECT-001")]
+    public void DirectRepeats_RandomSequences_MatchBruteForceMaximalPairOracle()
+    {
+        var rng = new Random(20260930);
+        for (int t = 0; t < 300; t++)
+        {
+            string alphabet = t % 3 == 0 ? "ACGTN" : t % 3 == 1 ? "AC" : "ACGT";
+            var seq = new string(Enumerable.Range(0, rng.Next(0, 80)).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray());
+            int minLen = rng.Next(2, 7), maxLen = minLen + rng.Next(0, 10), minSpacing = rng.Next(-5, 4);
+            var actual = RepeatFinder.FindDirectRepeats(seq, minLen, maxLen, minSpacing)
+                .Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).ToList();
+            Assert.That(actual, Is.EqualTo(DirectOracle(seq, minLen, maxLen, minSpacing)), $"{seq} {minLen} {maxLen} {minSpacing}");
+        }
     }
 
     // ---- Row 17: REP-PALIN-001 — FindPalindromes vs independent revcomp-equality oracle ----
 
+    // Oracle = Rosalind REVP definition: every window of even length in [minLen, maxLen] over the
+    // unambiguous alphabet ACGT that equals its reverse complement, in REVP sample-output order
+    // (position, then length). Windows with any other symbol are never palindromes.
     private static List<(int pos, string seq, int len)> PalindromeOracle(string seq, int minLen, int maxLen)
     {
         var results = new List<(int, string, int)>();
-        for (int len = minLen; len <= maxLen; len += 2)
-        for (int i = 0; i + len <= seq.Length; i++)
+        for (int i = 0; i < seq.Length; i++)
+        for (int len = minLen; len <= maxLen && i + len <= seq.Length; len += 2)
         {
             string cand = seq.Substring(i, len);
-            if (cand == RevComp(cand))
+            if (cand.All(Comp.ContainsKey) && cand == RevComp(cand))
                 results.Add((i, cand, len));
         }
         return results;
@@ -158,10 +197,28 @@ public class RepeatsDifferentialTests
     [TestCase("GAATTC")]            // EcoRI site
     [TestCase("GGGAATTCCCGCGC")]
     [TestCase("ACGTACGT")]
+    [TestCase("TCAATGCATGCGGGTCTATATGCAT")] // Rosalind REVP sample
     public void Palindromes_MatchesIndependentRevCompOracle(string seq)
     {
         var actual = RepeatFinder.FindPalindromes(seq, minLength: 4, maxLength: 12)
             .Select(p => (p.Position, p.Sequence, p.Length)).ToList();
         Assert.That(actual, Is.EqualTo(PalindromeOracle(seq.ToUpperInvariant(), 4, 12)));
+    }
+
+    [Test]
+    [Category("REP-PALIN-001")]
+    public void Palindromes_RandomSequences_MatchRevpOracle()
+    {
+        var rng = new Random(20260930);
+        string[] alphabets = { "ACGT", "AT", "GC", "ACGTN", "acgtACGT", "ACGTNRYSWU-" };
+        for (int t = 0; t < 400; t++)
+        {
+            string alpha = alphabets[rng.Next(alphabets.Length)];
+            var seq = new string(Enumerable.Range(0, rng.Next(0, 90)).Select(_ => alpha[rng.Next(alpha.Length)]).ToArray());
+            int minLen = 4 + 2 * rng.Next(0, 4), maxLen = minLen + rng.Next(0, 21);
+            var actual = RepeatFinder.FindPalindromes(seq, minLen, maxLen)
+                .Select(p => (p.Position, p.Sequence, p.Length)).ToList();
+            Assert.That(actual, Is.EqualTo(PalindromeOracle(seq.ToUpperInvariant(), minLen, maxLen)), $"{seq} {minLen} {maxLen}");
+        }
     }
 }

@@ -242,12 +242,33 @@ ACGTACGT
     }
 
     [Test]
-    public void ErrorProbabilityToPhred_ZeroOrNegative_ReturnsMaxQuality()
+    public void ErrorProbabilityToPhred_Zero_ReturnsMaxQuality()
     {
         // Zero probability → max representable quality (Q93 per Sanger/Phred+33 range)
-        // Evidence: Wikipedia FASTQ - Sanger encodes Q 0-93 (ASCII 33-126)
+        // Evidence: Cock et al. 2010 — Sanger encodes Q 0-93 (ASCII 33-126)
         var phred = FastqParser.ErrorProbabilityToPhred(0);
         Assert.That(phred, Is.EqualTo(93));
+    }
+
+    [Test]
+    public void ErrorProbabilityToPhred_TinyProbability_CappedAtQ93_Monotone()
+    {
+        // Review 2026-09 F8: -10·log10(1e-10) = 100 exceeds the Phred+33 maximum Q93 (Cock et al. 2010;
+        // Biopython truncates written Sanger qualities at 93). Previously 1e-10 → 100 while 0 → 93,
+        // i.e. a SMALLER error probability gave a LOWER score. Now capped: monotone non-increasing.
+        Assert.That(FastqParser.ErrorProbabilityToPhred(1e-10), Is.EqualTo(93));
+        Assert.That(FastqParser.ErrorProbabilityToPhred(1e-9), Is.EqualTo(90));
+        Assert.That(FastqParser.ErrorProbabilityToPhred(1.0), Is.EqualTo(0));
+        Assert.That(FastqParser.ErrorProbabilityToPhred(0.5), Is.EqualTo(3)); // round(3.0103)
+    }
+
+    [TestCase(-0.1)]
+    [TestCase(1.5)]
+    [TestCase(double.NaN)]
+    public void ErrorProbabilityToPhred_OutsideProbabilityDomain_Throws(double p)
+    {
+        // A probability lies in [0, 1]; previously 1.5 → -2 (negative Phred) and NaN → garbage.
+        Assert.Throws<ArgumentOutOfRangeException>(() => FastqParser.ErrorProbabilityToPhred(p));
     }
 
     #endregion
@@ -854,6 +875,179 @@ IIII";
 
         // Should only interleave up to the shorter list
         Assert.That(interleaved, Has.Count.EqualTo(2)); // 1 pair = 2 records
+    }
+
+    #endregion
+
+    #region Review 2026-09 (PARSE-FASTQ-001) — sourced regression tests
+
+    // Reference values: Biopython 1.88 (Bio.SeqIO 'fastq' / 'fastq-illumina', FastqGeneralIterator),
+    // cutadapt 5.2, FastQC PhredEncoding (lowest quality char over the whole file decides the offset).
+
+    [Test]
+    public void Parse_Auto_Phred64FileWithIllumina15BRead_DetectedFileLevel()
+    {
+        // F5: Illumina 1.5+ marks trimmed tails with 'B' (Q2). A read made only of 'B' lies in the
+        // Phred+33/+64 overlap; per-record detection decoded it as Phred+33 Q33. The encoding is a file
+        // property (FastQC): 'h' (104) in r1 ⇒ Phred+64 for every record.
+        // Biopython 'fastq-illumina': r1 [40,40,40,40], r2 [2,2,2,2].
+        const string fastq = "@r1\nACGT\n+\nhhhh\n@r2\nACGT\n+\nBBBB\n";
+        var records = FastqParser.Parse(fastq).ToList();
+        Assert.That(records[0].QualityScores, Is.EqualTo(new[] { 40, 40, 40, 40 }));
+        Assert.That(records[1].QualityScores, Is.EqualTo(new[] { 2, 2, 2, 2 }));
+    }
+
+    [Test]
+    public void Parse_Auto_Phred33FileWithQ41Read_DetectedFileLevel()
+    {
+        // F5: 'J' = Q41 (Illumina 1.8+ Phred+33 ceiling). Old per-record rule `c > 'I'` decoded "JJJJ"
+        // as Phred+64 Q10. The '!' in r2 proves Phred+33 for the file.
+        // Biopython 'fastq': r1 [41,41,41,41], r2 [0,0,0,0].
+        const string fastq = "@r1\nACGT\n+\nJJJJ\n@r2\nACGT\n+\n!!!!\n";
+        var records = FastqParser.Parse(fastq).ToList();
+        Assert.That(records[0].QualityScores, Is.EqualTo(new[] { 41, 41, 41, 41 }));
+        Assert.That(records[1].QualityScores, Is.EqualTo(new[] { 0, 0, 0, 0 }));
+    }
+
+    [Test]
+    public void Parse_Auto_TextReaderAndFile_UseFileLevelEncoding()
+    {
+        const string fastq = "@r1\nACGT\n+\nhhhh\n@r2\nACGT\n+\nBBBB\n";
+        using var reader = new StringReader(fastq);
+        Assert.That(FastqParser.Parse(reader).Last().QualityScores, Is.EqualTo(new[] { 2, 2, 2, 2 }));
+
+        string path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, fastq);
+            Assert.That(FastqParser.ParseFile(path).Last().QualityScores, Is.EqualTo(new[] { 2, 2, 2, 2 }));
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Test]
+    public void DetectEncoding_LowCharAfterHighChar_IsPhred33()
+    {
+        // F5: the old scan returned Phred+64 on the first char > 'I' ('J') before seeing '5' (53),
+        // which cannot occur in Phred+64 (ASCII 64-126). Biopython 'fastq' "J5" ⇒ [41, 20].
+        Assert.That(FastqParser.DetectEncoding("J5"), Is.EqualTo(FastqParser.QualityEncoding.Phred33));
+        Assert.That(FastqParser.Parse("@x\nAC\n+\nJ5\n").Single().QualityScores, Is.EqualTo(new[] { 41, 20 }));
+    }
+
+    [Test]
+    public void DecodeQualityScores_CharOutsideEncodingRange_Throws()
+    {
+        // F7: '5' (53) - 64 < 0 is not a Phred+64 symbol. Biopython 'fastq-illumina' raises
+        // InvalidCharError for "J5hh"; the old code clamped it silently to Q0.
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => FastqParser.DecodeQualityScores("J5hh", FastqParser.QualityEncoding.Phred64));
+        // An explicit Phred+64 parse of Phred+33 data is rejected rather than silently corrupted.
+        Assert.Throws<FormatException>(
+            () => FastqParser.Parse("@x\nACGT\n+\nJ5hh\n", FastqParser.QualityEncoding.Phred64).ToList());
+        // Valid Phred+64 (Biopython 'fastq-illumina' "@h~~" ⇒ [0, 40, 62, 62]).
+        Assert.That(FastqParser.DecodeQualityScores("@h~~", FastqParser.QualityEncoding.Phred64),
+            Is.EqualTo(new[] { 0, 40, 62, 62 }));
+    }
+
+    [Test]
+    public void Parse_BiopythonTrickyExample_ParsedByQualityLength()
+    {
+        // Biopython FastqGeneralIterator docstring ("Quality/tricky.fastq"): quality lines may start with
+        // '@' or contain '+', the '+' line may repeat the title, and a record may be split over lines.
+        const string tricky =
+            "@071113_EAS56_0053:1:1:998:236\nTTTCTTGCCCCCATAGACTGAGACCTTCCCTAAATA\n+071113_EAS56_0053:1:1:998:236\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIICII+III\n" +
+            "@071113_EAS56_0053:1:1:182:712\nACCCAGCTAATTTTTGTATTTTTGTTAGAGACAGTG\n+\n@IIIIIIIIIIIIIIICDIIIII<%<6&-*).(*%+\n" +
+            "@071113_EAS56_0053:1:1:153:10\nTGTTCTGAAGGAAGGTGTGCGTGCGTGTGTGTGTGT\n+\nIIIIIIIIIIIICIIGIIIII>IAIIIE65I=II:6\n" +
+            "@071113_EAS56_0053:1:3:990:501\nTGGGAGGTTTTATGTGGA\nAAGCAGCAATGTACAAGA\n+\nIIIIIII.IIIIII1@44\n@-7.%<&+/$/%4(++(%\n";
+        var records = FastqParser.Parse(tricky).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(4));
+        Assert.That(records[0].QualityString, Is.EqualTo("IIIIIIIIIIIIIIIIIIIIIIIIIIIIICII+III"));
+        Assert.That(records[1].QualityString, Is.EqualTo("@IIIIIIIIIIIIIIICDIIIII<%<6&-*).(*%+"));
+        Assert.That(records[1].QualityScores.Take(3), Is.EqualTo(new[] { 31, 40, 40 }));
+        Assert.That(records[3].Id, Is.EqualTo("071113_EAS56_0053:1:3:990:501"));
+        Assert.That(records[3].Sequence, Is.EqualTo("TGGGAGGTTTTATGTGGAAAGCAGCAATGTACAAGA"));
+        Assert.That(records[3].QualityString, Is.EqualTo("IIIIIII.IIIIII1@44@-7.%<&+/$/%4(++(%"));
+        Assert.That(records[3].QualityScores.TakeLast(5), Is.EqualTo(new[] { 7, 10, 10, 7, 4 }));
+    }
+
+    [Test]
+    public void Parse_PlusCaptionDiffers_ThrowsFormatException()
+    {
+        // F6: Biopython: "Sequence and quality captions differ." (Cock et al. 2010: optional repeat must match).
+        Assert.Throws<FormatException>(() => FastqParser.Parse("@r1\nACGT\n+r2\nIIII\n").ToList());
+        // A matching repeated caption is accepted.
+        Assert.That(FastqParser.Parse("@r1 d\nACGT\n+r1 d\nIIII\n").Single().Sequence, Is.EqualTo("ACGT"));
+    }
+
+    [Test]
+    public void Parse_WhitespaceInSequence_ThrowsFormatException()
+    {
+        // F6: Biopython: "Whitespace is not allowed in the sequence."
+        Assert.Throws<FormatException>(() => FastqParser.Parse("@r1\nAC GT\n+\nIIII\n").ToList());
+    }
+
+    [Test]
+    public void Parse_QualityLengthMismatch_ThrowsFormatException()
+    {
+        // F6 / INV-01: previously yielded records whose quality was shorter than the sequence, which then
+        // crashed TrimByQuality with IndexOutOfRange. Biopython: "... differs for rec (8 and 2)."
+        var ex = Assert.Throws<FormatException>(() => FastqParser.Parse("@rec\nACGTACGT\n+\nII\n").ToList());
+        Assert.That(ex!.Message, Does.Contain("(8 and 2)"));
+    }
+
+    [Test]
+    public void Parse_ZeroLengthRecordAndBlankSeparators_Accepted()
+    {
+        // Biopython: "@r1\n\n+\n\n@r2\nA\n+\nI\n" ⇒ [('r1','',''), ('r2','A','I')];
+        // blank lines between records are tolerated.
+        var records = FastqParser.Parse("@r1\n\n+\n\n@r2\nA\n+\nI\n\n\n").ToList();
+        Assert.That(records.Select(r => r.Id), Is.EqualTo(new[] { "r1", "r2" }));
+        Assert.That(records[0].Sequence, Is.Empty);
+        Assert.That(records[1].QualityScores, Is.EqualTo(new[] { 40 }));
+    }
+
+    [Test]
+    public void Parse_TabInTitle_SplitsIdOnAnyWhitespace()
+    {
+        // F11: Biopython SeqIO 'fastq' "@r1\tdesc here" ⇒ id 'r1' (title.split(None, 1)[0]).
+        var rec = FastqParser.Parse("@r1\tdesc here\nACGT\n+\nIIII\n").Single();
+        Assert.That(rec.Id, Is.EqualTo("r1"));
+        Assert.That(rec.Description, Is.EqualTo("desc here"));
+    }
+
+    private static FastqParser.FastqRecord Rec(string seq) =>
+        new("r", "", seq, new string('I', seq.Length), Enumerable.Repeat(40, seq.Length).ToList());
+
+    [TestCase("AGATCGGAAGAGCACACGTC", "")]                    // full adapter at position 0 ⇒ empty read
+    [TestCase("ACGTACGTAGATCGGAAGAGCTTTTTAGATC", "ACGTACGT")] // internal full beats 3' partial
+    [TestCase("CCCCAGATCGGAAGAGCGGGGAGATCGGAAGAGCTT", "CCCC")] // leftmost of two full occurrences
+    [TestCase("ACGTACGTACGTAAAAGATCG", "ACGTACGTACGTAAA")]     // 3' partial (6 >= minOverlap 5)
+    [TestCase("ACGTACGTACGTAGATcggaa", "ACGTACGTACGT")]        // case-insensitive partial
+    [TestCase("ACGTACGTACGTAGAT", "ACGTACGTACGTAGAT")]         // partial 4 < 5 ⇒ unchanged
+    [TestCase("AGATCGGAAG", "")]                              // read shorter than adapter, all adapter
+    public void TrimAdapter_MatchesCutadapt(string read, string expected)
+    {
+        // F9: cutadapt 5.2 `-a AGATCGGAAGAGC -e 0 -O 5` output for the same reads.
+        var trimmed = FastqParser.TrimAdapter(Rec(read), "AGATCGGAAGAGC", 5);
+        Assert.That(trimmed.Sequence, Is.EqualTo(expected));
+        Assert.That(trimmed.QualityString, Has.Length.EqualTo(expected.Length));
+        Assert.That(trimmed.QualityScores, Has.Count.EqualTo(expected.Length));
+    }
+
+    [Test]
+    public void WriteToFile_NoByteOrderMark_FirstByteIsAt()
+    {
+        // F10: Encoding.UTF8 wrote EF BB BF before '@'; Biopython ("Records in Fastq files should start
+        // with '@' character") and cutadapt ("Input file format not recognized") both reject such a file.
+        string path = Path.GetTempFileName();
+        try
+        {
+            FastqParser.WriteToFile(path, FastqParser.Parse("@r1\nACGT\n+\nIIII\n"));
+            byte[] bytes = File.ReadAllBytes(path);
+            Assert.That(bytes[0], Is.EqualTo((byte)'@'));
+        }
+        finally { File.Delete(path); }
     }
 
     #endregion

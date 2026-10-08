@@ -65,7 +65,7 @@ percentage in [0, 100] (`gc_content = 100·num_gc/num_gcat` in Primer3 source) [
 | INV-02 | penalty = 0 ⇔ Tm=OPT_TM, len=OPT_SIZE, GC=OPT_GC and SELF_ANY=SELF_END=N=0 | sign-gated terms; all contributions vanish at the optimum [3] |
 | INV-03 | a parameter at its optimum contributes 0 to its term | strict `>` / `<` gates exclude the equality case [3] |
 | INV-04 | each term scales linearly with its weight | term = weight·deviation [3][4] |
-| INV-05 | default weights TM/SIZE = 1, GC/SELF/NUM_NS = 0; optima OPT_TM=60 °C, OPT_SIZE=20 bases, OPT_GC=50 % | Primer3 `pr_set_default_global_args_2` (TM/SIZE/GC) and manual (OPT_GC 50.0) [3][4] |
+| INV-05 | default weights TM/SIZE = 1, GC/SELF/NUM_NS = 0; optima OPT_TM=60 °C, OPT_SIZE=20 bases, OPT_GC undefined (GC weights then require an explicit optimum) | Primer3 `pr_set_default_global_args_1/_2` (`DEFAULT_OPT_GC_PERCENT = PR_UNDEFINED_INT_OPT`), `_pr_data_control` [3] |
 
 ## 3. Contract
 
@@ -76,9 +76,11 @@ percentage in [0, 100] (`gc_content = 100·num_gc/num_gcat` in Primer3 source) [
 | `inputs.Tm` | double | required | Primer melting temperature | °C |
 | `inputs.Length` | int | required | Primer length | bases |
 | `inputs.GcPercent` | double | required | GC content | percent, [0, 100] |
-| `inputs.SelfAny` | double | 0 | Self-complementarity local-alignment score (PRIMER_SELF_ANY) | ≥ 0 |
-| `inputs.SelfEnd` | double | 0 | 3'-self-complementarity score (PRIMER_SELF_END) | ≥ 0 |
+| `inputs.SelfAny` | double | 0 | PRIMER_SELF_ANY alignment score (alignment mode) or PRIMER_SELF_ANY_TH Tm °C (thermodynamic mode) — Primer3 uses one field for both | ≥ 0 |
+| `inputs.SelfEnd` | double | 0 | PRIMER_SELF_END score / PRIMER_SELF_END_TH Tm °C | ≥ 0 |
 | `inputs.NumNs` | int | 0 | Number of N bases | ≥ 0 |
+| `inputs.HairpinTh` | double | 0 | PRIMER_HAIRPIN_TH Tm °C (thermodynamic mode only) | |
+| `inputs.EndStability` | double | 0 | PRIMER_END_STABILITY (ΔG magnitude, kcal/mol) | ≥ 0 |
 | `weights` | Primer3PenaltyWeights? | `DefaultPrimer3Weights` | `PRIMER_WT_*` weights | one-sided _gt/_lt |
 | `optima` | Primer3Optima? | `DefaultPrimer3Optima` | `PRIMER_OPT_*` optima | OPT_TM/SIZE/GC |
 
@@ -104,8 +106,12 @@ SEQ-THERMO-001-validated routines and GC via `CalculateGcContent`).
 2. Add the Tm term: `WT_TM_GT·(Tm−OPT_TM)` if `Tm>OPT_TM`, else `WT_TM_LT·(OPT_TM−Tm)` if `Tm<OPT_TM`.
 3. Add the GC% term symmetrically using `WT_GC_GT` / `WT_GC_LT` about `OPT_GC`.
 4. Add the size term symmetrically using `WT_SIZE_GT` / `WT_SIZE_LT` about `OPT_SIZE`.
-5. Add `WT_SELF_ANY·SELF_ANY`, `WT_SELF_END·SELF_END`, `WT_NUM_NS·N`.
-6. Return the sum.
+5. Secondary structure — alignment mode (`ThermodynamicOligoAlignment = false`): add `WT_SELF_ANY·SELF_ANY`,
+   `WT_SELF_END·SELF_END`. Thermodynamic mode (Primer3 default): for each of SELF_ANY_TH, SELF_END_TH, HAIRPIN_TH
+   with weight w and structure Tm s: if `Tm − 5 ≤ s` add `w·(s − (Tm − 5 − 1))`, else add `w/(Tm − 5 + 1 − s)`
+   (`temp_cutoff` = 5, fixed in `libprimer3.cc`).
+6. Add `WT_NUM_NS·N` and `WT_END_STABILITY·END_STABILITY`.
+7. Return the sum.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables
 
@@ -118,9 +124,13 @@ Default weights and optima (Primer3 source / manual) [3][4]:
 | WT_GC_PERCENT_GT, WT_GC_PERCENT_LT | 0.0 | `weights.gc_content_gt`, `weights.gc_content_lt` |
 | WT_SELF_ANY, WT_SELF_END | 0.0 | `weights.compl_any`, `weights.compl_end` |
 | WT_NUM_NS | 0.0 | `weights.num_ns` |
+| WT_SELF_ANY_TH, WT_SELF_END_TH, WT_HAIRPIN_TH | 0.0 | `weights.compl_any_th`, `compl_end_th`, `hairpin_th` |
+| WT_END_STABILITY | 0.0 | `weights.end_stability` |
+| THERMODYNAMIC_OLIGO_ALIGNMENT | 1 | `pr_set_default_global_args_2` |
+| temp_cutoff | 5 °C | `weights.temp_cutoff` (not a user tag) |
 | OPT_TM | 60.0 °C | `opt_tm` |
 | OPT_SIZE | 20 bases | `opt_size` |
-| OPT_GC_PERCENT | 50.0 % | manual `PRIMER_OPT_GC_PERCENT` |
+| OPT_GC_PERCENT | undefined (null) | Primer3 code `DEFAULT_OPT_GC_PERCENT` = `PR_UNDEFINED_INT_OPT` (the manual lists 50.0, which the code does not apply); `_pr_data_control` rejects non-zero `WT_GC_PERCENT_GT/LT` without an explicit optimum ("Primer GC content is part of objective function while optimum gc_content is not defined"; internal oligo: "Hyb probe GC content …"), and so do `CalculatePrimer3Penalty` (`Primer3Optima.OptGcPercent` = null) and `EvaluatePrimer`/`DesignPrimers` (`PrimerParameters.OptimalGcPercent`; internal oligo `Primer3ProbeSettings.OptGcPercent` + `WeightGcPercentGt/Lt`), `ArgumentException` (audit round 3, A3-25; before: 50 %). |
 
 ### 4.3 Complexity
 
@@ -153,23 +163,66 @@ objective. No search/matching is involved, so the repository suffix tree is N/A 
 - One-sided Tm term with separate `WT_TM_GT` / `WT_TM_LT` weights about `OPT_TM` [3][4].
 - One-sided GC% term (`WT_GC_PERCENT_GT/LT` about `OPT_GC_PERCENT`), GC as percent [3][4].
 - One-sided size term (`WT_SIZE_GT/LT` about `OPT_SIZE`) [3][4].
-- Linear self_any, self_end and num_ns terms [3][4].
+- Linear self_any, self_end (alignment mode) and num_ns terms [3][4].
+- Thermodynamic-mode `compl_any_th` / `compl_end_th` / `hairpin_th` terms with `temp_cutoff` = 5, and the
+  `end_stability` term [3]. Cross-checked against primer3-py 2.3.1 `design_primers` `PRIMER_LEFT/RIGHT_n_PENALTY`
+  (random-template designs + four `check_primers` runs in both modes; agreement < 1e-9).
 - Default weights and optima taken verbatim from Primer3 source / manual [3][4].
 
-**Intentionally simplified:**
+- Alignment-mode self_any / self_end values are computed by the library: `CalculatePrimerSelfAnyComplementarity`
+  (dpal `DPAL_LOCAL`, port of dpal.c `_dpal_long_nopath_maxgap1_local`) and
+  `CalculatePrimerSelfEndComplementarity` (dpal `DPAL_GLOBAL_END`), bit-exact to compiled dpal.c on 20 000 random
+  pairs. `EvaluatePrimer` / `DesignPrimers` feed them (or, in thermodynamic mode, the ntthal Tm values) into this
+  penalty with `PrimerParameters.PenaltyWeights` (PRIMER_WT_SELF_ANY/_END under
+  `PrimerStructureScreen.Primer3Alignment`, PRIMER_WT_SELF_ANY_TH/_SELF_END_TH/_HAIRPIN_TH under the default
+  thermodynamic screen); verified against primer3-py 2.3.1 `design_primers` PRIMER_LEFT/RIGHT_n_PENALTY
+  (B07 audit round 2, A1).
+- `EvaluatePrimer` / `DesignPrimers` feed `inputs.EndStability` = Primer3 `end_stability` =
+  `end_oligodg(seq, 5, santalucia)` = −`Calculate3PrimeStability(seq)` (positive kcal/mol; computed in
+  `calc_and_check_oligo_features` for left/right primers only), so `PRIMER_WT_END_STABILITY` ≠ 0 applies exactly as in
+  `p_obj_fn`; the internal-oligo (`OT_INTL`) branch has no end-stability term, so `PRIMER_INTERNAL_WT_END_STABILITY`
+  has no effect in Primer3 and none here. Verified against primer3-py 2.3.1 `design_primers` with
+  PRIMER_WT_END_STABILITY ∈ {0.1 … 5} (B07 audit round 3, A3-2 / F38).
+- `repeat_sim` (PRIMER_WT_LIBRARY_MISPRIMING, `Primer3PenaltyWeights.LibraryMispriming` ×
+  `Primer3PenaltyInputs.LibraryMispriming`, added after `num_ns` as in `p_obj_fn`). With a mispriming library
+  (`PrimerParameters.MisprimingLibrary`, PRIMER_MISPRIMING_LIBRARY) `EvaluatePrimer` / `DesignPrimers` feed
+  Primer3's `repeat_sim.score[repeat_sim.max]` (`PrimerDesigner.CalculateLibraryMispriming`); the pair objective adds
+  PRIMER_PAIR_WT_LIBRARY_MISPRIMING × `pair_repeat_sim`. Verified against primer3-py 2.3.1
+  `design_primers(misprime_lib=…)` (B07 audit round 3, A3-3 part 1 / F41). The internal-oligo branch uses the same
+  term with PRIMER_INTERNAL_WT_LIBRARY_MISHYB (`ProbeDesigner.Primer3ProbeSettings.WeightLibraryMishyb`) × the
+  mishybridization-library score (`PrimerDesigner.CalculateLibraryMishyb`, PRIMER_INTERNAL_MISHYB_LIBRARY) in
+  `DesignProbesPrimer3` and the PRIMER_PICK_INTERNAL_OLIGO path (A3-3 part 2 / F42).
 
-- self_any/self_end alignment scores are caller-supplied: the penalty arithmetic on them is
-  exact, but Primer3's `dpal` local-alignment computation of those scores is not reproduced;
-  **consequence:** with the default weights (0) the term is inert; with non-zero weights the
-  caller must supply a Primer3-scale alignment score (+1.00/−1.00/−2.00 [4]).
+**Intentionally simplified:** none — a direct `CalculatePrimer3Penalty` call still takes the structure values from
+the caller (`Primer3PenaltyInputs`), but every value is available from the library methods above.
 
 **Not implemented:**
 
-- The thermodynamic-alignment penalty branch (`*_TH` terms, `temp_cutoff`), `pos_penalty`,
-  `end_stability`, `seq_quality`, `repeat_sim`, `template_mispriming`; **users should rely on:**
-  Primer3 itself for those terms (all default to weight 0, so they do not affect the default objective).
-- The pair-level objective (`PRIMER_PAIR_*`, Tm-difference, product size); **users should rely on:**
-  a future pair-penalty unit or Primer3.
+- none of Primer3's per-primer terms. The `failure_rate` term (PRIMER_WT_MASK_FAILURE_RATE,
+  `Primer3PenaltyWeights.MaskFailureRate`, × `Primer3PenaltyInputs.MaskFailureRate`, after the size terms;
+  `PrimerDesigner.CalculateMaskFailureRatePrimer3` from the masker's 11-/16-mer genome counts, computed by Primer3 only
+  with PRIMER_MASK_TEMPLATE) is implemented (audit round 3, A3-5 part 2b; PRIMER-DESIGN-001 §2.2 item 12).
+  The `seq_quality` term (PRIMER_WT_SEQ_QUAL / PRIMER_INTERNAL_WT_SEQ_QUAL, `Primer3PenaltyWeights.SequenceQuality`, ×
+  (`Primer3PenaltyInputs.QualityRangeMax` − `Primer3PenaltyInputs.SequenceQuality`), 0 without quality data;
+  `PrimerDesigner.CalculateSequenceQualityPrimer3`) is implemented (audit round 3, A3-5 part 2a; PRIMER-DESIGN-001 §2.2
+  item 11), after `end_stability` as in `p_obj_fn`; PRIMER_WT_END_QUAL (`EndQuality`) is accepted but, as in Primer3
+  2.3.1 (`weights.end_quality` is never read), has no effect.
+  The `bound` terms (PRIMER_WT_BOUND_GT/_LT × the distance of `Primer3PenaltyInputs.Bound` from
+  `Primer3Optima.OptBound`, default 97; applied when `Bound` is set — for primers Primer3 adds them only with
+  PRIMER_ANNEALING_TEMP > 0, the internal-oligo branch always, with bound = −999999.9999 when none was computed;
+  `PrimerDesigner.CalculateFractionBoundPrimer3`) and the `pos_penalty` term (PRIMER_WT_POS_PENALTY, default 1, ×
+  `Primer3PenaltyInputs.PositionPenalty`, `PrimerDesigner.CalculatePositionPenaltyPrimer3`) are implemented (audit
+  round 3, A3-5 part 1; PRIMER-DESIGN-001 §2.2 items 9–10).
+  The `template_mispriming` terms (PRIMER_WT_TEMPLATE_MISPRIMING: linear; PRIMER_WT_TEMPLATE_MISPRIMING_TH with
+  `ThermodynamicTemplateAlignment`: the 5 °C `temp_cutoff` rule) are implemented (audit round 3, A3-4) from
+  `Primer3PenaltyInputs.TemplateMispriming` (`PrimerDesigner.CalculateTemplateMispriming`; PRIMER-DESIGN-001 §2.2 item 8).
+
+**Implemented elsewhere:** the pair-level objective (Primer3 `obj_fn`: PRIMER_PAIR_WT_PR_PENALTY,
+_IO_PENALTY, _DIFF_TM, _COMPL_ANY_TH, _COMPL_END_TH, _PRODUCT_TM_LT/GT, _PRODUCT_SIZE_LT/GT with
+PRIMER_PRODUCT_OPT_TM / _OPT_SIZE and the `long_seq_tm` product Tm) is part of PRIMER-DESIGN-001
+(`PrimerDesigner.DesignPrimers` / `DesignPrimerPairs`, `PrimerPairOptions.Weights` = `Primer3PairWeights`),
+which sums this per-primer penalty for the two primers; verified against primer3-py 2.3.1
+`PRIMER_PAIR_k_PENALTY` with non-default pair weights (see `docs/algorithms/MolTools/Primer_Design.md`).
 
 ### 5.4 Deviations and Assumptions
 
@@ -190,9 +243,8 @@ objective. No search/matching is involved, so the repository suffix tree is N/A 
 
 ### 6.2 Limitations
 
-Per-primer only (no pair penalty); the `*_TH` thermodynamic-alignment, position, end-stability,
-sequence-quality, repeat and template-mispriming terms are not implemented (they default to
-weight 0 in Primer3, so the default objective is unaffected). self_any/self_end alignment scores
+Per-primer only (no pair penalty); the failure-rate and sequence-quality terms take their values from the caller
+(`Primer3PenaltyInputs.MaskFailureRate` / `SequenceQuality`; `DesignPrimers` computes them, B07 F45). self_any/self_end alignment scores
 are caller-supplied (§5.3).
 
 ## 7. Examples and Related Material

@@ -3,22 +3,28 @@
 ## Test Unit Information
 - **ID:** CODON-CAI-001
 - **Title:** Codon Adaptation Index (CAI) Calculation
-- **Canonical Method:** `CodonOptimizer.CalculateCAI(string, CodonUsageTable, bool)`
+- **Canonical Method:** `CodonOptimizer.CalculateCAI(string, CodonUsageTable, bool excludeSingleCodonAminoAcids = true)` → delegates to the canonical core `CodonUsageAnalyzer.CalculateCai(string, IReadOnlyDictionary<string,double>, GeneticCode)` (review 2026-09: one CAI implementation)
 - **Area:** Codon Optimization
 - **Complexity:** O(n)
-- **Status:** ☐ Not Started (re-validation pending after the single-codon-AA exclusion was added)
+- **Status:** ☑ Re-validated 2026-09 (review campaign B02, findings F12–F14)
 
 ## Method Under Test
 
 ```csharp
-public static double CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = false)
+public static double CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = true)
+// canonical core
+public static double CodonUsageAnalyzer.CalculateCai(string sequence, IReadOnlyDictionary<string, double> referenceRscu, GeneticCode code)
 ```
 
 ## Algorithm Summary
 
 CAI = geometric mean of relative adaptiveness values:
 - `w_i = f_i / max(f_j)` for synonymous codons
-- `CAI = exp((1/L) × Σ ln(w_i))`
+- `CAI = exp((1/L) × Σ ln(w_i))`, L = scored codons
+- Not scored: stop codons and single-codon families (Met/Trp in table 1; genetic-code dependent) — Sharp & Li 1987 (quoted by Xia 2007), CodonW `cai_out`, seqinr `cai`, Biopython `CodonAdaptationIndex`
+- `w < 0.0001` → `0.01` (CodonW `cai_out`; seqinr `zero.to`; Bulmer 1988)
+- Triplets with non-nucleotide symbols skipped without frame shift; DNA/RNA, any case
+- Opt-in `excludeSingleCodonAminoAcids:false`: Met/Trp scored with w = 1 (EMBOSS `ajCodCalcCaiSeq`-style)
 
 ## Test Categories
 
@@ -27,8 +33,8 @@ CAI = geometric mean of relative adaptiveness values:
 | # | Test Name | Description | Evidence |
 |---|-----------|-------------|----------|
 | M1 | CalculateCAI_EmptySequence_ReturnsZero | Empty input returns 0 | Edge case convention |
-| M2 | CalculateCAI_SingleMetCodon_ReturnsOne | AUG (only Met codon) has CAI=1.0 | Mathematical: w=1.0/1.0=1.0 |
-| M3 | CalculateCAI_SingleTrpCodon_ReturnsOne | UGG (only Trp codon) has CAI=1.0 | Mathematical: w=1.0/1.0=1.0 |
+| M2 | CalculateCAI_SingleMetCodon_ExcludedByDefault_ReturnsZero | AUG not scored → 0; opt-in inclusion → 1.0 | Sharp & Li / CodonW (`ATGTGG` → 0.000) |
+| M3 | CalculateCAI_SingleTrpCodon_ExcludedByDefault_ReturnsZero | UGG not scored → 0; opt-in inclusion → 1.0 | Sharp & Li / CodonW |
 | M4 | CalculateCAI_AllOptimalCodons_ReturnsOne | All optimal codons → CAI=1.0 | Sharp & Li (1987) |
 | M5 | CalculateCAI_RareCodons_ReturnsLow | Rare codons → CAI < 0.5 | Sharp & Li (1987) |
 | M6 | CalculateCAI_RangeIsZeroToOne | CAI always in [0, 1] | CAI definition |
@@ -38,11 +44,19 @@ CAI = geometric mean of relative adaptiveness values:
 | M10 | CalculateCAI_ExcludesStopCodons | Stop codons not counted in calculation | Standard practice |
 | M11 | CalculateCAI_GeometricMeanProperty | Single rare codon significantly lowers CAI | Mathematical property |
 | M12 | CalculateCAI_HandCalculatedValue_Matches | Verify against hand-calculated example | Validation |
-| M13 | CalculateCAI_DefaultMode_IncludesSingleCodonAminoAcids | Default & explicit-false keep Met/Trp (w=1.0); AUGUGG→1.0 | Backward compatibility |
-| M14 | CalculateCAI_ExcludeMode_AllSingleCodonAA_ReturnsZero | excludeSingleCodonAminoAcids:true; AUGUGG→0 (no scored codons) | Sharp & Li (1987) / Jansen (2003) |
-| M15 | CalculateCAI_ExcludeMode_DropsMetFromGeometricMean | AUGCUACUA: incl=0.18566355334451112, excl=0.08 exact | Sharp & Li (1987) / Jansen (2003) |
-| M16 | CalculateCAI_ExcludeMode_DropsBothMetAndTrp_ScoresOnlyRemainder | AUGUGGCUA: incl=0.43088693800637673, excl=0.08 exact | Sharp & Li (1987) / Jansen (2003) |
+| M13 | CalculateCAI_DefaultMode_ExcludesSingleCodonAminoAcids | Default == explicit-true: AUGUGG→0; explicit-false → 1.0 | Sharp & Li / Xia 2007 / CodonW |
+| M14 | CalculateCAI_ExcludeMode_AllSingleCodonAA_ReturnsZero | excludeSingleCodonAminoAcids:true; AUGUGG→0 (no scored codons) | Sharp & Li (1987) / Xia (2007) |
+| M15 | CalculateCAI_ExcludeMode_DropsMetFromGeometricMean | AUGCUACUA: incl=0.18566355334451112, excl=0.08 exact | Sharp & Li (1987) / Xia (2007) |
+| M16 | CalculateCAI_ExcludeMode_DropsBothMetAndTrp_ScoresOnlyRemainder | AUGUGGCUA: incl=0.43088693800637673, excl=0.08 exact | Sharp & Li (1987) / Xia (2007) |
 | M17 | CalculateCAI_ExcludeMode_NoSingleCodonAA_UnchangedFromDefault | CUGCUA: incl==excl=0.28284271247461906 | Exclusion only affects Met/Trp |
+
+| M18 | CalculateCAI_AbsentCodonWithPresentSynonym_UsesCodonWZeroSubstitute | table {CUG:1}; CUACUG → 0.1; CUA → 0.01 | CodonW 1.4.4 binary (0.100 / 0.010) |
+| M19 | CalculateCAI_ZeroSubstituteThreshold_IsCodonW0_0001 | w = 0.0001 kept; w = 0.00009 → 0.01 | CodonW `if (w < 0.0001) w = 0.01` |
+| M20 | CalculateCAI_DelegatesToCanonicalCodonUsageAnalyzerCore | CodonOptimizer == CodonUsageAnalyzer on same values | No duplication |
+| M21 | CalculateCAI_AmbiguousTriplet_SkippedWithoutFrameShift | CUGNNNCUA, CUGCURCUA → √0.08 | CodonW `ident_codon` |
+| M22 | CalculateCai_SharpLiEColiIndex_MatchesBiopythonAndCodonW (CodonUsageAnalyzer) | 7 genes vs `EColiOptimalCodons` | Biopython 1.88 (full precision), CodonW 1.4.4 (3 dp) |
+| M23 | CalculateCai_GeneticCode_MatchesCodonW | tables 1/2: ATAATG, TGATGG, AGAAGGCTG | CodonW `-code` |
+| M24 | CalculateCai_ZeroWeightCodon_ScoredAsCodonW001 | E. coli w with CTA=0: CTGCTA 0.1 | CodonW `-cai_file` |
 
 ### SHOULD Tests (Recommended)
 
@@ -61,7 +75,7 @@ CAI = geometric mean of relative adaptiveness values:
 ## Invariants to Verify
 
 1. **Range Invariant:** `0 ≤ CAI ≤ 1`
-2. **Single-Codon AA:** in default mode Met/Trp codons contribute w=1.0 always; with `excludeSingleCodonAminoAcids:true` they are excluded from the geometric mean entirely (Sharp & Li 1987; Jansen 2003)
+2. **Single-Codon AA:** by default (`excludeSingleCodonAminoAcids:true`) Met/Trp codons are excluded from the geometric mean entirely (Sharp & Li 1987; Xia 2007; CodonW); with `false` they contribute w=1.0
 3. **Monotonicity:** Replacing rare codons with optimal ones increases CAI
 4. **Idempotence:** Calculating twice gives same result
 
@@ -70,11 +84,13 @@ CAI = geometric mean of relative adaptiveness values:
 | Case | Input | Expected Output |
 |------|-------|-----------------|
 | Empty | `""` | 0 |
-| Single Met | `"AUG"` | 1.0 |
-| Single Trp | `"UGG"` | 1.0 |
+| Single Met | `"AUG"` | 0 (not scored); 1.0 with `excludeSingleCodonAminoAcids:false` |
+| Single Trp | `"UGG"` | 0 (not scored); 1.0 with `excludeSingleCodonAminoAcids:false` |
 | DNA format | `"ATGCTG"` | Same as `"AUGCUG"` |
 | Lowercase | `"augcug"` | Same as `"AUGCUG"` |
-| Incomplete codon | `"AUGC"` | Based on `"AUG"` only (1.0) |
+| Incomplete codon | `"CUAC"` | Based on `"CUA"` only (0.08) |
+| Absent codon (w=0) | table {CUG:1}, `"CUACUG"` | 0.1 (w_CUA = 0.01) |
+| Ambiguous triplet | `"CUGNNNCUA"` | √0.08 (NNN skipped, frame kept) |
 | Only stop codons | `"UAAUAGUGA"` | 0 (no codons to evaluate) |
 
 ## Test Data
@@ -92,10 +108,10 @@ CAI = (1.0 × 1.0 × 1.0)^(1/3) = 1.0
 **Test 2: Mixed Codons**
 ```
 Sequence: AUGCUGACC (Met-Leu-Thr)
-AUG: 1.0/1.0 = 1.0
+AUG: not scored (single-codon family)
 CUG: 0.50/0.50 = 1.0
 ACC: 0.44/0.44 = 1.0
-CAI = (1.0 × 1.0 × 1.0)^(1/3) = 1.0
+CAI = (1.0 × 1.0)^(1/2) = 1.0
 ```
 
 **Test 3: Rare Codons**
@@ -106,7 +122,7 @@ ACU: 0.16/0.44 = 0.36364
 CAI = (0.08 × 0.36364)^(1/2) = 0.17056
 ```
 
-### Exclusion-Mode Reference Values (`excludeSingleCodonAminoAcids: true`, E. coli K12)
+### Exclusion-Mode Reference Values (`excludeSingleCodonAminoAcids: true` = default, E. coli K12; "incl" = opt-in `false`)
 
 CUA(Leu) w = 0.04/0.50 = 0.08; AUG(Met)/UGG(Trp) excluded.
 
@@ -150,7 +166,7 @@ CUGCUA    : incl=0.28284271247461906  ; excl=same (no Met/Trp)
 | S3 (Only stops) | 1 | OnlyStopCodons_ReturnsZero (shared with M10) |
 | C1 (All organisms) | 1 | AllThreeOrganismTables_MatchHandCalculated |
 | Edge cases | 2 | IncompleteFinalCodon, TwoIncompleteBases |
-| M13–M17 (Single-codon AA exclusion) | 5 | DefaultMode_IncludesSingleCodonAminoAcids, ExcludeMode_AllSingleCodonAA_ReturnsZero, ExcludeMode_DropsMetFromGeometricMean, ExcludeMode_DropsBothMetAndTrp_ScoresOnlyRemainder, ExcludeMode_NoSingleCodonAA_UnchangedFromDefault |
+| M13–M17 (Single-codon AA exclusion) | 5 | DefaultMode_ExcludesSingleCodonAminoAcids, ExcludeMode_AllSingleCodonAA_ReturnsZero, ExcludeMode_DropsMetFromGeometricMean, ExcludeMode_DropsBothMetAndTrp_ScoresOnlyRemainder, ExcludeMode_NoSingleCodonAA_UnchangedFromDefault |
 
 ### Consolidation Status
 
@@ -163,22 +179,28 @@ None — all test categories fully covered.
 
 ## Deviations and Assumptions
 
-**Deviation D1 — 1e-6 clamp for zero-frequency codons:**
-When a codon has frequency 0 but its amino acid has other codons with frequency > 0 (i.e., the codon is absent from the reference set but the amino acid is not), the implementation clamps w_i to 1e-6 instead of allowing w_i = 0.
+**Resolved 2026-09 (review campaign B02):**
+- **F12 — default scored Met/Trp.** Sharp & Li (1987) exclude single-codon families (quoted by Xia 2007,
+  Evol. Bioinform. 3:53-58, PMC2684136 — formerly mis-cited here as "Jansen et al. 2003"); CodonW, seqinr
+  and Biopython implement it. Default is now `excludeSingleCodonAminoAcids: true`; `false` is the
+  EMBOSS-style opt-in.
+- **F13 — zero-w handling.** The unsourced `1e-6` clamp (CodonOptimizer) and the silent drop of `w = 0`
+  codons (CodonUsageAnalyzer, which *raised* CAI) are replaced by CodonW's `w < 0.0001 → 0.01`
+  (Bulmer 1988; seqinr `zero.to`).
+- **F14 — two CAI implementations.** CodonOptimizer.CalculateCAI now delegates to the canonical
+  CodonUsageAnalyzer core (genetic-code aware; new `CalculateCai(..., GeneticCode)` overloads).
 
-- **Rationale:** Protects against incomplete codon usage tables where zero frequency may represent missing data rather than a truly absent codon. Sharp & Li (1987) used highly expressed E. coli genes where all synonymous codons appeared; real-world tables from Kazusa or custom datasets may have sampling gaps.
-- **Impact:** For sequences containing affected codons, CAI > 0 (approximately 1e-6^(1/L)) instead of exactly 0. For all practical sequences with L > 1, the difference is negligible.
-- **Alternative:** Strict IEEE 754 arithmetic would give CAI = 0 for any zero-frequency codon usage.
-
-**Single-codon amino-acid exclusion (now supported, opt-in):** Sharp & Li (1987) — quoted verbatim
-by Jansen et al. (2003), https://pmc.ncbi.nlm.nih.gov/articles/PMC2684136/ (retrieved 2026-06-24) —
-state that "codon families containing a single codon (e.g. AUG and UGG …) should be excluded in
-computing CAI" because their w is always 1. The library now offers this via the optional
-`excludeSingleCodonAminoAcids` parameter (default `false` = historical inclusive behaviour;
-`true` = canonical exclusion). The previously-documented Met/Trp limitation is therefore resolved as
-a selectable convention rather than a fixed behaviour.
-
-**No other assumptions.** All codon frequency tables verified against Kazusa Codon Usage Database (March 2026).
+**Conventions kept (documented):**
+- An amino acid with no reference data at all (family maximum 0) is not scored — no w is defined
+  (CodonW refuses to build such a w table; Biopython's 0.5 pseudo-count would give w = 1).
+- Reference values are rescaled by the family maximum, so RSCU or w tables are both accepted
+  (a proper w table — family maximum 1, as CodonW `-cai_file` expects — is used unchanged).
+- Biopython 1.88 `CodonAdaptationIndex.calculate` scores stop codons when the index contains them
+  (built from sequences) — not followed (Sharp & Li / CodonW exclude stops). Biopython ≤1.79
+  `cai_for_gene` divides by `L − 1` (bug) — not followed.
+- CAI against `CreateCodonTableFromSequence` tables uses 0.01 for codons absent from the reference
+  sequence, whereas Sharp & Li / Biopython / CodonW w-generation use a 0.5 pseudo-count; building w
+  from counts belongs to the table builder (CODON-OPT-001 lead).
 
 ## Open Questions
 

@@ -28,27 +28,37 @@ public static partial class OncologyAnalyzer
     public static double CtDnaDetectionProbability(
         int genomeEquivalents, double mutantAlleleFraction, int reporterCount = 1)
     {
-        if (genomeEquivalents < 0)
+        // λ = n·d·k (validated there); p = 1 − e^(−λ). λ = 0 ⇒ p = 0; large λ ⇒ p → 1 (never exceeds 1).
+        double lambda = ExpectedMutantMolecules(genomeEquivalents, mutantAlleleFraction, reporterCount);
+        return PoissonProbabilityAtLeastOne(lambda);
+    }
+
+    /// <summary>
+    /// P(X ≥ 1) = 1 − e^(−λ) for X ~ Poisson(λ), evaluated without cancellation for small λ. The naive
+    /// <c>1.0 - Math.Exp(-λ)</c> loses relative precision as λ → 0 (e.g. λ = 1e-12 gives 9.99977878e-13 instead
+    /// of 9.999999999995e-13, a 2.2e-5 relative error), so for λ ≤ ln 2 this uses Kahan's expm1 identity
+    /// 1 − u = (1 − u)·λ / (−ln u) with u = e^(−λ); for λ &gt; ln 2 (u &lt; 0.5) 1 − u is evaluated directly
+    /// (no cancellation, and it avoids ln of a subnormal u for λ ≳ 708) (W. Kahan; Goldberg 1991, "What every computer scientist
+    /// should know about floating-point arithmetic", ACM Comput. Surv. 23(1)), which agrees with
+    /// <c>-numpy.expm1(-λ)</c> to the last bit on the tested grid. (.NET's <c>double.ExpM1</c> is not used
+    /// because the runtime does not guarantee a cancellation-free implementation.)
+    /// </summary>
+    private static double PoissonProbabilityAtLeastOne(double lambda)
+    {
+        double u = Math.Exp(-lambda);
+        if (u < 0.5)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(genomeEquivalents), genomeEquivalents, "Genome equivalents (n) cannot be negative.");
+            // λ > ln 2: 1 − u has no cancellation (and u may be subnormal/0 for λ ≳ 708, where ln u is
+            // no longer accurate enough for the Kahan quotient), so evaluate directly.
+            return 1.0 - u;
         }
 
-        if (double.IsNaN(mutantAlleleFraction) || mutantAlleleFraction < 0.0 || mutantAlleleFraction > 1.0)
+        if (u == 1.0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(mutantAlleleFraction), mutantAlleleFraction, "Mutant allele fraction (d) must be in [0, 1].");
+            return lambda; // λ below ~1.1e-16: 1 − e^(−λ) = λ to double precision.
         }
 
-        if (reporterCount < 1)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(reporterCount), reporterCount, "Reporter count (k) must be at least 1.");
-        }
-
-        // λ = n·d·k; p = 1 − e^(−λ). λ = 0 ⇒ p = 0; large λ ⇒ p → 1 (never exceeds 1).
-        double lambda = (double)genomeEquivalents * mutantAlleleFraction * reporterCount;
-        return 1.0 - Math.Exp(-lambda); // p = 1 − e^(−λ).
+        return (1.0 - u) * lambda / -Math.Log(u);
     }
 
     /// <summary>
@@ -120,8 +130,7 @@ public static partial class OncologyAnalyzer
             return false;
         }
 
-        double probability = 1.0 - Math.Exp(-lambda);
-        return probability >= minDetectionProbability;
+        return PoissonProbabilityAtLeastOne(lambda) >= minDetectionProbability;
     }
 
     /// <summary>
@@ -129,8 +138,7 @@ public static partial class OncologyAnalyzer
     /// copy-neutral diploid loci. For such a variant the expected VAF is half the tumour-derived fraction
     /// (v = TF/2), so tumour fraction = 2 · (mean VAF). The mean is taken over the supplied variants'
     /// plasma VAFs (alt / total reads). Source: Antonello et al. (2024), CNAqc, <i>Genome Biology</i> 25:38
-    /// (m = 1, n_tot = 2 special case of v = m·π / [2(1−π) + π·n_tot] gives v = π/2). The result is clamped
-    /// to [0, 1] since a fraction cannot exceed 1.
+    /// (m = 1, n_tot = 2 special case of v = m·π / [2(1−π) + π·n_tot] gives v = π/2). Because every per-variant VAF must be ≤ 0.5, the result lies in [0, 1].
     /// </summary>
     /// <param name="variants">Clonal heterozygous somatic SNVs observed in plasma (each VAF ≤ 0.5).</param>
     /// <returns>Estimated ctDNA tumour fraction ∈ [0, 1].</returns>
@@ -141,30 +149,13 @@ public static partial class OncologyAnalyzer
     {
         ArgumentNullException.ThrowIfNull(variants);
 
-        double vafSum = 0.0;
-        int count = 0;
-        foreach (VariantObservation variant in variants)
-        {
-            double vaf = CalculateVaf(variant.TumorAltReads, variant.TumorTotalReads);
-            if (vaf > 0.5)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(variants), vaf,
-                    "A clonal heterozygous SNV cannot have VAF > 0.5 under the diploid model; locus is not copy-neutral diploid heterozygous.");
-            }
+        double meanVaf = MeanReporterVaf(
+            variants, requireHeterozygousDiploid: true,
+            "Cannot estimate tumour fraction from an empty variant set.");
 
-            vafSum += vaf;
-            count++;
-        }
-
-        if (count == 0)
-        {
-            throw new ArgumentException("Cannot estimate tumour fraction from an empty variant set.", nameof(variants));
-        }
-
-        double meanVaf = vafSum / count;
-        double tumorFraction = TumorFractionFromVafFactor * meanVaf;
-        return Math.Min(tumorFraction, 1.0); // a fraction cannot exceed 1.
+        // TF = 2·v̄ (CNAqc clonal-het-diploid identity). Every per-variant VAF ≤ 0.5 ⇒ v̄ ≤ 0.5 ⇒ TF ≤ 1,
+        // so the result is already in [0, 1] and no clamp is needed.
+        return TumorFractionFromVafFactor * meanVaf;
     }
 
     /// <summary>
@@ -180,17 +171,37 @@ public static partial class OncologyAnalyzer
     {
         ArgumentNullException.ThrowIfNull(variants);
 
+        return MeanReporterVaf(
+            variants, requireHeterozygousDiploid: false, "Cannot compute mean VAF from an empty variant set.");
+    }
+
+    /// <summary>
+    /// Arithmetic mean of per-reporter plasma VAF = alt / total (shared <see cref="CalculateVaf"/> validation).
+    /// When <paramref name="requireHeterozygousDiploid"/> is set, a VAF &gt; 0.5 is rejected (impossible for a
+    /// clonal heterozygous SNV at a copy-neutral diploid locus).
+    /// </summary>
+    private static double MeanReporterVaf(
+        IEnumerable<VariantObservation> variants, bool requireHeterozygousDiploid, string emptyMessage)
+    {
         double vafSum = 0.0;
         int count = 0;
         foreach (VariantObservation variant in variants)
         {
-            vafSum += CalculateVaf(variant.TumorAltReads, variant.TumorTotalReads);
+            double vaf = CalculateVaf(variant.TumorAltReads, variant.TumorTotalReads);
+            if (requireHeterozygousDiploid && vaf > 0.5)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(variants), vaf,
+                    "A clonal heterozygous SNV cannot have VAF > 0.5 under the diploid model; locus is not copy-neutral diploid heterozygous.");
+            }
+
+            vafSum += vaf;
             count++;
         }
 
         if (count == 0)
         {
-            throw new ArgumentException("Cannot compute mean VAF from an empty variant set.", nameof(variants));
+            throw new ArgumentException(emptyMessage, nameof(variants));
         }
 
         return vafSum / count;

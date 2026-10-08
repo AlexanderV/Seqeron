@@ -17,6 +17,15 @@ public class SuffixTreeLcsTests
     }
 
     [Test]
+    public void SuffixTreeLcs_GusfieldExampleAndTieBreak_MatchBruteForce()
+    {
+        // Brute force (Python): LCS("xabxac","abcabxabcd") = "abxa" (unique);
+        // "ab" vs "bandana": "a" and "b" tie at length 1 — the one first found in text2 ("b") is returned.
+        Assert.That(SuffixTreeCoreTools.SuffixTreeLcs("xabxac", "abcabxabcd").Substring, Is.EqualTo("abxa"));
+        Assert.That(SuffixTreeCoreTools.SuffixTreeLcs("ab", "bandana").Substring, Is.EqualTo("b"));
+    }
+
+    [Test]
     public void SuffixTreeLcs_ReturnsExpectedForRepresentativeInputs()
     {
         var banana = SuffixTreeCoreTools.SuffixTreeLcs("banana", "panama");

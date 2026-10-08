@@ -40,6 +40,10 @@ Tests for codon usage calculation and comparison methods in `CodonOptimizer`.
 | S4 | CompareCodonUsage_OneEmptySequence_ReturnsZero | One empty, one non-empty → 0 | Edge case |
 | S5 | CompareCodonUsage_NoOverlappingCodons_ZeroSimilarity | Disjoint codon distributions → 0.0 | TVD formula: disjoint → Σ = 2 → sim = 0 |
 | S6 | CompareCodonUsage_PartialOverlap_IntermediateSimilarity | 2/3 codons shared → similarity = 2/3 | TVD formula derivation |
+| S7 | CalculateCodonUsage_AmbiguousTriplets_SkippedFramePreserved | `ATGNNNGCTRYTGC` → {AUG:1, GCU:1} (ambiguity triplets skipped, frame kept) | EMBOSS `ajCodSetTripletsS` contract; Biopython 1.88 `CodonAdaptationIndex` 64-codon count table |
+| S8 | CalculateCodonUsage_NonNucleotideTriplets_Skipped | `aug-GCgcuuaXccc` → {AUG:1, GCU:1, CCC:1} | Same |
+| S9 | CompareCodonUsage_AmbiguousTripletsIgnored | `atgNNNgct` vs `ATGGCT` → 1.0; `NNNNNN` vs `NNNNNN` → 0.0; 2/3 case | TVD over unambiguous codons only |
+| S10 | CalculateCodonUsage_AgreesWithCanonicalCountCodons | Same counts as `CodonUsageAnalyzer.CountCodons` (T→U keys) | No-duplication rule (delegation) |
 
 ### Could Tests (Nice to have)
 
@@ -115,7 +119,7 @@ Expected similarity: 0.0
 
 ## Invariants to Verify
 
-1. **Count sum invariant**: `sum(counts.Values) == sequence.Length / 3`
+1. **Count sum invariant**: `sum(counts.Values) == sequence.Length / 3` for sequences over {A,C,G,T,U} (case-insensitive); in general it equals the number of complete in-frame triplets that contain no ambiguity/non-nucleotide character
 2. **Identity**: `CompareCodonUsage(s, s) == 1.0` for non-empty s
 3. **Symmetry**: `CompareCodonUsage(a, b) == CompareCodonUsage(b, a)`
 4. **Range**: `0 <= CompareCodonUsage(a, b) <= 1`
@@ -127,6 +131,10 @@ Expected similarity: 0.0
 - Codon usage tables (E. coli K12, S. cerevisiae, H. sapiens) verified against Kazusa Codon Usage Database (March 2026).
 - Comparison metric: Total Variation Distance similarity `1 - Σ|f₁(c)-f₂(c)|/2` — standard metric from probability theory for comparing discrete distributions.
 - All expected test values derived analytically from the TVD formula; zero internal assumptions.
+
+- **Ambiguous / non-nucleotide triplets (review 2026-09, F9):** a triplet containing any character outside {A,C,G,T,U} (IUPAC ambiguity codes, gaps, other letters) is skipped without shifting the frame. Source: EMBOSS `ajax/core/ajcod.c` `ajCodSetTripletsS` doc ("Skips triplets with ambiguity codes and any incomplete triplet at the end"); Biopython 1.88 `Bio/SeqUtils/__init__.py` `CodonAdaptationIndex` counts only the 64 ACGT codons (raises on others). Note: EMBOSS's actual `ajCodBase` maps an ambiguous base to its lowest-order constituent (N→A), contradicting its own doc; that artefact is not reproduced. Before the fix, `NNN`, `RYU`, `-GC` … were counted as codons and entered `CompareCodonUsage`.
+- `CalculateCodonUsage` delegates to the canonical counter `CodonUsageAnalyzer.CountCodons` (keys re-spelled T→U).
+- Counting is genetic-code independent (all 64 codons incl. stops are counted), so no `GeneticCode` parameter is needed.
 
 ## Open Questions
 
@@ -189,4 +197,4 @@ All `CompareCodonUsage` tests use exact values derived analytically from the TVD
 | 1.0 | M6, edge | Identity: Σ=0 → 1−0=1 |
 
 ## Last Updated
-2026-03-11
+2026-09-28 (review campaign 2026-09, B02: ambiguity-triplet skipping + delegation to CodonUsageAnalyzer.CountCodons)

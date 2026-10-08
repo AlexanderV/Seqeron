@@ -885,4 +885,81 @@ public class IupacMotifMatchingTests
     }
 
     #endregion
+
+    #region R1-R5: Reference parity with Biopython (review 2026-09)
+
+    // Biopython 1.88 Bio.Data.IUPACData.ambiguous_dna_values (raw.githubusercontent.com
+    // biopython/Bio/Data/IUPACData.py), identical to the NC-IUB 1984 (Cornish-Bowden 1985) table.
+    private static readonly (char Code, string Bases)[] BiopythonAmbiguousDnaValues =
+    [
+        ('A', "A"), ('C', "C"), ('G', "G"), ('T', "T"),
+        ('M', "AC"), ('R', "AG"), ('W', "AT"), ('S', "CG"), ('Y', "CT"), ('K', "GT"),
+        ('V', "ACG"), ('H', "ACT"), ('D', "AGT"), ('B', "CGT"), ('N', "ACGT"),
+    ];
+
+    private static IEnumerable<Func<string, string, IEnumerable<MotifMatch>>> AllOverloads()
+    {
+        yield return (s, m) => MotifFinder.FindDegenerateMotif(new DnaSequence(s), m);
+        yield return (s, m) => MotifFinder.FindDegenerateMotif(new DnaSequence(s), m, CancellationToken.None);
+        yield return (s, m) => MotifFinder.FindDegenerateMotif(s, m, CancellationToken.None);
+    }
+
+    [Test]
+    [Description("R1: all 15 codes x 4 bases agree with Biopython ambiguous_dna_values in every overload (60 cells x 3)")]
+    public void FindDegenerateMotif_AllOverloads_FullCodeTable_MatchesBiopython()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var find in AllOverloads())
+                foreach (var (code, bases) in BiopythonAmbiguousDnaValues)
+                    foreach (char b in "ACGT")
+                        Assert.That(find(b.ToString(), code.ToString()).Any(), Is.EqualTo(bases.Contains(b)),
+                            $"base {b} vs code {code}");
+        });
+    }
+
+    [TestCase("GAATTCGGATCCAAGCTT", "GRWYYC", new[] { 0, 6 })]
+    [TestCase("CACGTGCAGCTGCATATG", "CANNTG", new[] { 0, 6, 12 })]
+    [TestCase("TTGCCACCATGGAAGCCGCCATGG", "GCCRCCATGG", new[] { 2, 14 })]
+    [Description("R2: positions equal Biopython Bio.SeqUtils.nt_search (forward strand, overlapping, 0-based) in every overload")]
+    public void FindDegenerateMotif_AllOverloads_MatchBiopythonNtSearch(string sequence, string motif, int[] expected)
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var find in AllOverloads())
+                Assert.That(find(sequence, motif).Select(m => m.Position), Is.EqualTo(expected));
+        });
+    }
+
+    [Test]
+    [Description("R3: an ambiguity symbol in the SEQUENCE is literal: nt_search('ACNGT','N') -> [0,1,3,4]")]
+    public void FindDegenerateMotif_String_SequenceAmbiguityIsLiteral_MatchesBiopython()
+    {
+        var positions = MotifFinder.FindDegenerateMotif("ACNGT", "N", CancellationToken.None).Select(m => m.Position);
+        Assert.That(positions, Is.EqualTo(new[] { 0, 1, 3, 4 }));
+    }
+
+    [Test]
+    [Description("R4: U is not a DNA code member: nt_search('ACGU','T') -> [] (string overload)")]
+    public void FindDegenerateMotif_String_UracilNotMatchedByT_MatchesBiopython()
+    {
+        Assert.That(MotifFinder.FindDegenerateMotif("ACGU", "T", CancellationToken.None), Is.Empty);
+    }
+
+    [Test]
+    [Description("R5: invalid motif validation is deferred to enumeration (iterator contract) in every overload")]
+    public void FindDegenerateMotif_InvalidMotif_ThrowsOnEnumerationOnly()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var find in AllOverloads())
+            {
+                IEnumerable<MotifMatch> lazy = null!;
+                Assert.DoesNotThrow(() => lazy = find("ACGT", "AXG"));
+                Assert.Throws<ArgumentException>(() => lazy.ToList());
+            }
+        });
+    }
+
+    #endregion
 }

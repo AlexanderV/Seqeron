@@ -99,6 +99,18 @@
 | `ATGAA` | 0 | ATG (AA leftover) | ATG = 1.0 |
 | `atgaaa` | 0 | ATG, AAA (lowercase normalized) | ATG = 1/2, AAA = 1/2 |
 
+### Dataset: executed EMBOSS 6.6.0 / Biopython 1.88 references (review 2026-09, B03 F15/F16)
+
+| Input | Frame | Reference | Expected |
+|-------|-------|-----------|----------|
+| `AUGAUGAAAUUUCGC` | 0 | `cusp` /1000 column | ATG 0.4, AAA 0.2, TTT 0.2, CGC 0.2 (U read as T) |
+| `augAAAuuuTTT` | 0 | `cusp` | ATG 0.25, AAA 0.25, TTT 0.5 |
+| `ATGGCUGCAUAAgc` | 0 | `cusp` | ATG, GCT, GCA, TAA 0.25 each |
+| `ATGCCCGGGT` | 1 / 2 / 3 | `compseq -word 3 -frame f` (starts at pos = f, step 3; compseq.c l.210) | TGC,CCG,GGT 1/3 · GCC,CGG 1/2 · CCC,GGG 1/2 |
+| `atgGCCgccTAA` | 0 | Biopython `CodonAdaptationIndex` counting loop | ATG 0.25, GCC 0.5, TAA 0.25 |
+
+Random cross-checks (Python port of the contract): cusp 150/150 (DNA/RNA, mixed case, no ambiguity), compseq 300/300 (frames 1–3 and frame 0 via a 3-nt prefix with `-frame 3`, unambiguous DNA), Biopython 200/200 (clean multiple-of-3 CDS). Documented divergences: compseq counts `U`/ambiguous words as "Other" **in** its denominator; cusp maps ambiguous bases to the lowest constituent (N→A) — neither reproduced (Kazusa / `ajCodSetTripletsS` contract, B02 F9).
+
 ---
 
 ## Assumptions

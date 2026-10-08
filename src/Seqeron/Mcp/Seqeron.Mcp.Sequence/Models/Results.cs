@@ -110,7 +110,14 @@ public record KmerAnalyzeResult(
     int MinCount,
     double AverageCount,
     double Entropy,
-    int K);
+    int K)
+{
+    /// <summary>Number of distinct k-mers (Jellyfish "Distinct"); same value as <see cref="UniqueKmers"/>.</summary>
+    public int DistinctKmers { get; init; }
+
+    /// <summary>Number of k-mers occurring exactly once (Jellyfish "Unique").</summary>
+    public int SingletonKmers { get; init; }
+}
 
 // ================================
 // Complexity Results
@@ -123,7 +130,7 @@ public record ComplexityLinguisticResult(double Complexity, int MaxWordLength);
 public record ComplexityShannonResult(double Entropy);
 
 /// <summary>Result of complexity_kmer_entropy operation.</summary>
-public record ComplexityKmerEntropyResult(double Entropy, int K);
+public record ComplexityKmerEntropyResult(double Entropy, int K, string Correction = "none", bool Normalized = false);
 
 /// <summary>Result of complexity_dust_score operation.</summary>
 public record ComplexityDustScoreResult(double DustScore, int WordSize);

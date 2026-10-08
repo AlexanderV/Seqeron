@@ -14,7 +14,7 @@ allowed-tools: Read, Bash, Grep, Glob
 
 # bio-alignment — pairwise/MSA alignment, identity/similarity, distances
 
-Routing + orchestration skill for the **Alignment** and **Core** servers (34 tools).
+Routing + orchestration skill for the **Alignment** and **Core** servers (44 tools).
 It picks the right tool for an alignment/similarity question and gives a **dual-mode**
 recipe (MCP tool calls **and** the equivalent `Seqeron.Genomics` C# `Method ID`s).
 
@@ -127,7 +127,7 @@ Caveat: alpha software; not for clinical use — independently validate before r
 - **Full domain tool index (all 34, generated — do NOT hand-edit):** [`_generated/tools.md`](_generated/tools.md)
   (produced by `scripts/skills/gen-catalog.py`; if absent, run `seqeron-discovery`).
 - **Fuller recipes + parameter guidance:** [`reference/pipelines.md`](reference/pipelines.md)
-- **Tool map (34 tools by sub-task, one-liners + Method ID):** [`reference/tool-map.md`](reference/tool-map.md)
+- **Tool map (44 tools by sub-task, one-liners + Method ID):** [`reference/tool-map.md`](reference/tool-map.md)
 - **Algorithm background (invariants/formulas — link, don't copy):**
   [`docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md`](../../../docs/algorithms/Alignment/Global_Alignment_Needleman_Wunsch.md) ·
   [`Local_Alignment_Smith_Waterman.md`](../../../docs/algorithms/Alignment/Local_Alignment_Smith_Waterman.md) ·

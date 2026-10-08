@@ -42,4 +42,17 @@ public class FindPalindromesTests
         var none = AnalysisTools.FindPalindromes("AAAA", 4, 12).Items;
         Assert.That(none, Is.Empty);
     }
+
+    [Test]
+    public void FindPalindromes_AmbiguousBases_NeverPair_OrderedByPosition()
+    {
+        // Biopython reverse_complement equality over ACGT windows; REVP order (position, then length).
+        var items = AnalysisTools.FindPalindromes("GAATTCNNNNGAATTC", 4, 12).Items
+            .Select(p => (p.Position, p.Sequence, p.Length)).ToArray();
+        Assert.That(items, Is.EqualTo(new[]
+        {
+            (0, "GAATTC", 6), (1, "AATT", 4), (10, "GAATTC", 6), (11, "AATT", 4),
+        }));
+        Assert.That(AnalysisTools.FindPalindromes("NNNNSSSS", 4, 12).Items, Is.Empty);
+    }
 }

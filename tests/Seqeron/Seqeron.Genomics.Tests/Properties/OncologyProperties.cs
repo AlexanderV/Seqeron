@@ -6527,7 +6527,7 @@ public class OncologyProperties
     {
         if (double.IsNaN(log2Ratio))
         {
-            return (int)Math.Round(ploidy, MidpointRounding.AwayFromZero);
+            return (int)Math.Round(ploidy, MidpointRounding.ToEven /* CNVkit do_call: numpy round half-to-even */);
         }
 
         for (int cn = 0; cn < cutoffs.Count; cn++)
@@ -6747,7 +6747,7 @@ public class OncologyProperties
     private static Arbitrary<(OncologyAnalyzer.CopyNumberArmSegment[] segments, OncologyAnalyzer.FocalAmplificationThresholds thresholds)>
         FocalProblemArbitrary() =>
         (from segments in ArmSegmentGen().ArrayOf()
-         from tampMilli in Gen.Choose(-200, 500)
+         from tampMilli in Gen.Choose(0, 500) // GISTIC2 -ta range [0, Inf] (gp_gistic2_from_seg.m)
          from cutoffMilli in Gen.Choose(500, 990)
          select (segments, new OncologyAnalyzer.FocalAmplificationThresholds(tampMilli / 1000.0, cutoffMilli / 1000.0)))
         .ToArbitrary();
@@ -7318,8 +7318,11 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// WGD oracle: <c>DetectWholeGenomeDoubling</c> equals the independent test "fraction of genome length
-    /// with major-allele CN ≥ 2 is strictly &gt; 0.5". (facets-suite is_genome_doubled)
+    /// WGD oracle: <c>DetectWholeGenomeDoublingFromSuppliedLength</c> equals an independent re-implementation of
+    /// facets-suite <c>is_genome_doubled(segs, get_sample_genome(segs))</c>: Σ length[mcn ≥ 2, autosome] /
+    /// Σ_autosomes (max end − min start) strictly &gt; 0.5, mcn = tcn − lcn = max(Major, Minor).
+    /// (facets-suite R/copy-number-scores.R; the generator places every segment on chr1 at start 0, so the span is
+    /// the longest segment — segments overlap and the fraction may exceed 1, exactly as in the R code.)
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property DetectWholeGenomeDoubling_MatchesElevatedMajorCnFractionOracle()
@@ -7328,8 +7331,9 @@ public class OncologyProperties
         {
             bool actual = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segs);
 
-            double elevated = segs.Where(s => s.MajorCopyNumber >= 2).Sum(s => (double)s.Length);
-            double total = segs.Sum(s => (double)s.Length);
+            double elevated = segs.Where(s => Math.Max(s.MajorCopyNumber, s.MinorCopyNumber) >= 2).Sum(s => (double)s.Length);
+            double total = segs.GroupBy(s => s.Chromosome)
+                .Sum(g => (double)g.Max(s => s.End) - g.Min(s => s.Start));
             bool oracle = elevated / total > 0.5;
 
             return (actual == oracle).Label($"WGD={actual} ≠ oracle {oracle} (elevated frac {elevated / total})");
@@ -8433,10 +8437,10 @@ public class OncologyProperties
     //   • Trunk = chain of single-child nodes from the root (mutations shared by all clones);
     //     branches = the remaining (subclonal) clusters; the two partition the clusters.
     //
-    // The tree invariants are checked structurally; lineage precedence is recomputed
-    // from the cluster CCFs (NOT routed through production). The sum rule is NOT asserted
-    // universally because the spanning-tree root fallback may attach a cluster to the
-    // root even when its budget is exhausted (documented degenerate path).
+    // The tree invariants are checked structurally; lineage precedence and the sum rule are
+    // recomputed from the cluster CCFs (NOT routed through production). Random CCFs may admit
+    // no valid tree (LICHeE finds none); properties use TryReconstructPhylogeny and check the
+    // tree whenever one exists (B24 F18: no invalid root fallback any more).
     // -------------------------------------------------------------------------
 
     private static Gen<OncologyAnalyzer.CcfCluster[]> CcfClustersGen() =>
@@ -8460,7 +8464,11 @@ public class OncologyProperties
     {
         return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
         {
-            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            if (!OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var phylo, p.tolerance))
+            {
+                return true.Label("no valid tree (LICHeE: none found)");
+            }
+
             var clusterIds = p.clusters.Select(c => c.Id).ToHashSet();
 
             bool clustersPreserved = phylo.Clusters.SequenceEqual(p.clusters);
@@ -8501,7 +8509,11 @@ public class OncologyProperties
     {
         return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
         {
-            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            if (!OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var phylo, p.tolerance))
+            {
+                return true.Label("no valid tree (LICHeE: none found)");
+            }
+
             var ccfById = p.clusters.ToDictionary(c => c.Id, c => c.CcfPerSample);
             double[] rootCcf = Enumerable.Repeat(1.0, phylo.SampleCount).ToArray();
 
@@ -8532,7 +8544,11 @@ public class OncologyProperties
     {
         return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
         {
-            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            if (!OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var phylo, p.tolerance))
+            {
+                return true.Label("no valid tree (LICHeE: none found)");
+            }
+
             var trunk = OncologyAnalyzer.IdentifyTrunkMutations(phylo);
             var branches = OncologyAnalyzer.IdentifyBranchMutations(phylo);
 
@@ -8558,8 +8574,13 @@ public class OncologyProperties
     {
         return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
         {
-            var a = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
-            var b = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            bool okA = OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var a, p.tolerance);
+            bool okB = OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var b, p.tolerance);
+            if (!okA || !okB)
+            {
+                return (okA == okB).Label("feasibility must be deterministic");
+            }
+
             return (a.RootId == b.RootId && a.SampleCount == b.SampleCount
                     && a.Clusters.SequenceEqual(b.Clusters) && a.Edges.SequenceEqual(b.Edges))
                 .Label("ReconstructPhylogeny is not deterministic for identical arguments");
@@ -8567,7 +8588,75 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// Anchors: a single-sample descending chain (CCF 1.0 → 0.5 → 0.25) is an all-trunk lineage; a two-sample
+    /// P (sum rule, Eq. 5): whenever a tree is returned, at every node (root included) and in every sample the
+    /// children's CCFs sum to at most the node's CCF + ε (LICHeE PHYTree.checkConstraint). (Popic 2015 Eq. 5)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructPhylogeny_ReturnedTree_SatisfiesSumRuleEverywhere()
+    {
+        return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
+        {
+            if (!OncologyAnalyzer.TryReconstructPhylogeny(p.clusters, out var phylo, p.tolerance))
+            {
+                return true.Label("no valid tree (LICHeE: none found)");
+            }
+
+            var ccfById = p.clusters.ToDictionary(c => c.Id, c => c.CcfPerSample);
+            foreach (int node in p.clusters.Select(c => c.Id).Append(phylo.RootId))
+            {
+                var children = phylo.ChildrenOf(node);
+                for (int i = 0; i < phylo.SampleCount; i++)
+                {
+                    double parent = node == phylo.RootId ? 1.0 : ccfById[node][i];
+                    double sum = 0.0;
+                    foreach (int c in children)
+                    {
+                        sum += ccfById[c][i];
+                    }
+
+                    if (sum > parent + p.tolerance + 1e-12)
+                    {
+                        return false.Label($"node {node} sample {i}: Σchildren {sum} > {parent} + ε");
+                    }
+                }
+            }
+
+            return true.Label("ok");
+        });
+    }
+
+    /// <summary>
+    /// P (star feasibility): if the clusters' CCFs sum to ≤ 1 in every sample, the star under the root is valid, so a
+    /// tree always exists (LICHeE's default or complete network contains every root→cluster edge it needs).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructPhylogeny_SubUnitColumnSums_AlwaysFeasible()
+    {
+        var gen = from k in Gen.Choose(1, 3)
+                  from n in Gen.Choose(1, 6)
+                  from raw in Gen.Choose(0, 1000).ArrayOf(k).ArrayOf(n)
+                  select (k, n, raw);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var clusters = new OncologyAnalyzer.CcfCluster[t.n];
+            for (int c = 0; c < t.n; c++)
+            {
+                var v = new double[t.k];
+                for (int s = 0; s < t.k; s++)
+                {
+                    v[s] = t.raw[c][s] / 1000.0 / t.n; // column sums ≤ 1
+                }
+
+                clusters[c] = new OncologyAnalyzer.CcfCluster(c + 1, v);
+            }
+
+            return OncologyAnalyzer.TryReconstructPhylogeny(clusters, out _).Label("a feasible input must yield a tree");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: a single-sample descending chain (CCF 1.0 → 0.5 → 0.25) has only the clonal CCF-1 cluster on the trunk
+    /// (Werner et al. 2017: trunk alterations are present in all tumour cells; B24 F19); a two-sample
     /// divergent cohort (A=[1,1], B=[1,0], C=[0,1]) branches at A so trunk=[A], branches=[B,C]. (Popic 2015)
     /// </summary>
     [Test]
@@ -8590,9 +8679,10 @@ public class OncologyProperties
 
         Assert.Multiple(() =>
         {
-            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(chain), Is.EqualTo(new[] { 1, 2, 3 }),
-                "A descending single-sample chain is entirely trunk.");
-            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(chain), Is.Empty, "No subclonal branches in a pure chain.");
+            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(chain), Is.EqualTo(new[] { 1 }),
+                "Only the CCF-1 cluster is present in every tumour cell.");
+            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(chain), Is.EqualTo(new[] { 2, 3 }),
+                "CCF 0.5 / 0.25 clusters are subclonal branches.");
             Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(branch), Is.EqualTo(new[] { 1 }),
                 "Divergent samples branch at the clonal ancestor A ⇒ trunk = [A].");
             Assert.That(OncologyAnalyzer.IdentifyBranchMutations(branch), Is.EqualTo(new[] { 2, 3 }),
@@ -8683,8 +8773,9 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// <c>ClusterCcfValues</c> produces ascending centroids, one valid assignment per input value (in [0,k)),
-    /// and reports the highest-centroid cluster (last index) as clonal. (Tarabichi 2021 highest-CP-clonal)
+    /// <c>ClusterCcfValues</c> produces min(k, distinct) ascending centroids, every cluster non-empty, one valid
+    /// assignment per input value, and reports the highest-centroid cluster (last index) as clonal.
+    /// (Tarabichi 2021 highest-CP-clonal; Ckmeans.1d.dp Kmax = min(k, unique))
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property ClusterCcfValues_AscendingCentroids_ValidAssignments_HighestIsClonal()
@@ -8698,7 +8789,9 @@ public class OncologyProperties
         {
             var clustering = OncologyAnalyzer.ClusterCcfValues(t.values, t.k);
 
-            bool centroidCount = clustering.Centroids.Count == t.k;
+            // Ckmeans.1d.dp (Wang & Song 2011): Kmax = min(k, number of distinct values); no empty clusters.
+            int expectedCount = Math.Min(t.k, t.values.Distinct().Count());
+            bool centroidCount = clustering.Centroids.Count == expectedCount;
             bool ascending = true;
             for (int i = 1; i < clustering.Centroids.Count; i++)
             {
@@ -8706,12 +8799,73 @@ public class OncologyProperties
             }
 
             bool assignmentsOk = clustering.Assignments.Count == t.values.Length
-                && clustering.Assignments.All(a => a >= 0 && a < t.k);
-            bool clonalIsHighest = clustering.ClonalClusterIndex == t.k - 1;
+                && clustering.Assignments.All(a => a >= 0 && a < expectedCount)
+                && clustering.Assignments.Distinct().Count() == expectedCount;
+            bool clonalIsHighest = clustering.ClonalClusterIndex == expectedCount - 1;
 
             return (centroidCount && ascending && assignmentsOk && clonalIsHighest)
                 .Label($"k={t.k}, centroids=[{string.Join(",", clustering.Centroids)}], clonalIndex={clustering.ClonalClusterIndex}");
         });
+    }
+
+    /// <summary>
+    /// O (optimality, Wang &amp; Song 2011): <c>ClusterCcfValues</c> attains the minimum within-cluster sum of
+    /// squares over <i>all</i> partitions of the sorted values into min(k, distinct) contiguous non-empty blocks
+    /// (an optimal 1-D k-means partition is contiguous). The oracle enumerates every partition by brute force,
+    /// independently of production.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClusterCcfValues_AttainsBruteForceMinimumWcss()
+    {
+        var arb = (from n in Gen.Choose(1, 9)
+                   from values in Gen.Choose(0, 1000).Select(v => v / 1000.0).ArrayOf(n)
+                   from k in Gen.Choose(1, n)
+                   select (values, k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var clustering = OncologyAnalyzer.ClusterCcfValues(t.values, t.k);
+            double wcss = t.values.Select((v, i) => Math.Pow(v - clustering.Centroids[clustering.Assignments[i]], 2)).Sum();
+
+            double[] sorted = t.values.OrderBy(v => v).ToArray();
+            int kEff = Math.Min(t.k, sorted.Distinct().Count());
+            double best = BruteForceMinWcss(sorted, 0, kEff);
+            return (wcss <= best + 1e-12).Label($"WCSS {wcss} > brute-force optimum {best} (k={kEff})");
+        });
+    }
+
+    private static double BruteForceMinWcss(double[] sorted, int start, int blocks)
+    {
+        if (blocks == 1)
+        {
+            return BlockSsq(sorted, start, sorted.Length - 1);
+        }
+
+        double best = double.PositiveInfinity;
+        for (int end = start; end <= sorted.Length - blocks; end++)
+        {
+            best = Math.Min(best, BlockSsq(sorted, start, end) + BruteForceMinWcss(sorted, end + 1, blocks - 1));
+        }
+
+        return best;
+    }
+
+    private static double BlockSsq(double[] sorted, int from, int to)
+    {
+        double mean = 0.0;
+        for (int i = from; i <= to; i++)
+        {
+            mean += sorted[i];
+        }
+
+        mean /= to - from + 1;
+        double ssq = 0.0;
+        for (int i = from; i <= to; i++)
+        {
+            ssq += (sorted[i] - mean) * (sorted[i] - mean);
+        }
+
+        return ssq;
     }
 
     /// <summary>
@@ -8841,6 +8995,27 @@ public class OncologyProperties
             int oracle = clustering.Assignments.Distinct().Count();
             return (subclones == oracle && subclones >= 1)
                 .Label($"subclones {subclones} ≠ distinct assignments {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// <c>AnalyzeHeterogeneity.SubclonalFraction</c> = 1 − |IdentifyClonalMutations|/n: the same Landau et al. (2013)
+    /// rule (clonal ⇔ CCF &gt; 0.95, "subclonal otherwise"), including grid values exactly at 0.95 (B24 F20).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeHeterogeneity_SubclonalFraction_AgreesWithIdentifyClonalMutations()
+    {
+        var arb = (from n in Gen.Choose(1, 12)
+                   from values in Gen.Choose(80, 100).Select(v => v / 100.0).ArrayOf(n)
+                   select values).ToArbitrary();
+
+        return Prop.ForAll(arb, ccf =>
+        {
+            var vafs = ccf.Select(c => c / 2.0).ToArray();
+            var r = OncologyAnalyzer.AnalyzeHeterogeneity(vafs, ccf, 1);
+            double oracle = (double)(ccf.Length - OncologyAnalyzer.IdentifyClonalMutations(ccf).Count) / ccf.Length;
+            return (r.SubclonalFraction == oracle)
+                .Label($"subclonal fraction {r.SubclonalFraction} ≠ 1 − clonal/n {oracle}");
         });
     }
 
@@ -9625,9 +9800,9 @@ public class OncologyProperties
 
     // -------------------------------------------------------------------------
     // Theory (Van Loo et al. 2010, PNAS 107:16910 — ASCAT; ascat.runAscat.R):
-    //   • FitPurityPloidy grid-searches (ρ, ψ) minimising the allele-specific "sunrise" GoF, then maps
-    //     each segment to ROUNDED, CLAMPED integer allele-specific copy numbers (nA, nB) ≥ 0.
-    //   • The recovered purity ρ lies on the purity grid ⊆ (0, 1]; the ploidy ψ lies on the ploidy grid > 0.
+    //   • FitPurityPloidy builds the ASCAT distance matrix, takes strict 7×7 local minima passing the runASCAT
+    //     filter cascade, and maps each segment to integer allele-specific copy numbers (seg_raw rounding) ≥ 0.
+    //   • The recovered purity ρ lies on the purity grid (values > 1 reported as 1); ψ lies on the ploidy grid.
     // The grid search is a deterministic pure function of its inputs.
     // -------------------------------------------------------------------------
 
@@ -9642,38 +9817,47 @@ public class OncologyProperties
          select (IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary>)segs).ToArbitrary();
 
     /// <summary>
-    /// R + P: the ASCAT fit always returns a purity ρ ∈ (0,1], a ploidy ψ &gt; 0, and integer allele-specific
-    /// copy-number segments with nA ≥ 0 and nB ≥ 0 (rounded and clamped, ascat.runAscat.R). The recovered
-    /// (ρ, ψ) lie on the searched grid.
+    /// R + P: whenever ASCAT finds an optimum (TryFitPurityPloidy = true) it returns a purity ρ ∈ (0,1] (grid points
+    /// above 1 reported as 1), a ψ on the grid seq(min_ploidy − 0.5, max_ploidy + 0.5, 0.05), GoF ∈ (80, 100] and
+    /// integer allele-specific segments with major ≥ minor ≥ 0 (ascat.runAscat.R); otherwise (rho = NA) the throwing
+    /// FitPurityPloidy reports InvalidOperationException.
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property FitPurityPloidy_PurityPloidyAndCopyNumbers_AreInValidRanges()
     {
         return Prop.ForAll(AscatSegmentsArbitrary(), segs =>
         {
-            var fit = OncologyAnalyzer.FitPurityPloidy(segs);
+            if (!OncologyAnalyzer.TryFitPurityPloidy(segs, out var fit))
+            {
+                bool throws;
+                try { OncologyAnalyzer.FitPurityPloidy(segs); throws = false; }
+                catch (InvalidOperationException) { throws = true; }
+                return throws.Label("no ASCAT optimum ⇒ FitPurityPloidy throws InvalidOperationException");
+            }
+
             bool purityOk = fit.Purity > 0.0 && fit.Purity <= 1.0;
-            bool ploidyOk = fit.Ploidy > 0.0;
-            bool cnOk = fit.Segments.All(s => s.MajorCopyNumber >= 0 && s.MinorCopyNumber >= 0);
-            return (purityOk && ploidyOk && cnOk)
-                .Label($"ρ={fit.Purity}, ψ={fit.Ploidy}, segments={fit.Segments.Count}");
+            bool psiOk = fit.Psi >= 1.0 - 1e-9 && fit.Psi <= 6.0 + 1e-9;
+            bool gofOk = fit.GoodnessOfFit > 80.0 && fit.GoodnessOfFit <= 100.0 + 1e-9;
+            bool cnOk = fit.Segments.All(s => s.MinorCopyNumber >= 0 && s.MajorCopyNumber >= s.MinorCopyNumber);
+            return (purityOk && psiOk && gofOk && cnOk)
+                .Label($"ρ={fit.Purity}, ψ={fit.Psi}, GoF={fit.GoodnessOfFit}, segments={fit.Segments.Count}");
         });
     }
 
     /// <summary>
-    /// D (determinism): the grid search is a pure function — identical segments yield an identical fit
-    /// (purity, ploidy, goodness of fit, and every implied copy-number segment).
+    /// D (determinism): the ASCAT search is a pure function — identical segments yield an identical outcome
+    /// (found / not found, purity, ψ, ploidy, goodness of fit, and every implied copy-number segment).
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property FitPurityPloidy_IsDeterministic()
     {
         return Prop.ForAll(AscatSegmentsArbitrary(), segs =>
         {
-            var a = OncologyAnalyzer.FitPurityPloidy(segs);
-            var b = OncologyAnalyzer.FitPurityPloidy(segs);
-            bool same = a.Purity == b.Purity && a.Ploidy == b.Ploidy
+            bool okA = OncologyAnalyzer.TryFitPurityPloidy(segs, out var a);
+            bool okB = OncologyAnalyzer.TryFitPurityPloidy(segs, out var b);
+            bool same = okA == okB && (!okA || (a.Purity == b.Purity && a.Ploidy == b.Ploidy && a.Psi == b.Psi
                         && a.GoodnessOfFit == b.GoodnessOfFit
-                        && a.Segments.SequenceEqual(b.Segments);
+                        && a.Segments.SequenceEqual(b.Segments)));
             return same.Label("FitPurityPloidy must be deterministic for identical input");
         });
     }

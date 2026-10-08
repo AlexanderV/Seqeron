@@ -184,6 +184,142 @@ public class SequenceComplexityTests
         });
     }
 
+    [TestCase(9)]
+    [TestCase(int.MaxValue)]
+    public void CalculateLinguisticComplexity_RosalindLingSample_AllWordLengths_Returns0875(int maxWordLength)
+    {
+        // Rosalind LING sample: lc("ATTTGGATT") = 0.875 = sub(s)/m(4,9) = 35/40,
+        // i.e. Troyanskaya et al. (2002) LC = A(s)/M(s) summed over ALL lengths 1..N.
+        // With maxWordLength ≥ N the Orlov & Potapov (2004) truncated sum equals it.
+        // Reference: 2026-09 review Python recomputation (fractions) = 7/8.
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence("ATTTGGATT"), maxWordLength);
+
+        Assert.That(lc, Is.EqualTo(0.875).Within(1e-12));
+    }
+
+    [TestCase("ATGCTAGCATGCAATG", 28.0 / 31.0)]
+    [TestCase("AAAAAAAAAAAAAAAA", 4.0 / 31.0)]
+    [TestCase("ACACACACACACACACA", 33.0 / 140.0)]
+    [TestCase("ACGGGAAGCTGATTCCA", 69.0 / 70.0)]
+    public void CalculateLinguisticComplexity_TroyanskayaFullLength_MatchesReference(string sequence, double expected)
+    {
+        // Troyanskaya et al. (2002): LC = Σ_{l=1..N} A_l / Σ_{l=1..N} min(4^l, N−l+1).
+        // Expected values from the 2026-09 review Python reference (exact fractions).
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength: sequence.Length);
+
+        Assert.That(lc, Is.EqualTo(expected).Within(1e-12));
+    }
+
+    [TestCase("AAACCCGGGTTT", 51.0 / 55.0)]
+    [TestCase("AACCGGTTACGT", 52.0 / 55.0)]
+    [TestCase("ACGTACGTACGT", 28.0 / 55.0)]
+    [TestCase("AAAACCCCGGGG", 9.0 / 11.0)]
+    [TestCase("AAAAAACCCCCC", 3.0 / 5.0)]
+    [TestCase("AAAAAAAAAACC", 4.0 / 11.0)]
+    public void CalculateLinguisticComplexity_OrlovSumForm_UniversalmotifSequences_MatchesReference(string sequence, double expected)
+    {
+        // Orlov & Potapov (2004) CL = Σ_{i=1..m} V_i / Σ_{i=1..m} min(4^i, N−i+1), m = 7.
+        // The per-length (V_i, V_max,i) used by the Python reference reproduce the product form
+        // of universalmotif::calc_complexity(method = "Trifonov", max word size 7) to 4 dp
+        // (0.6364, 0.7273, 0.01231, 0.2386, 0.0227, 0.0011), independently confirming V_max,i.
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength: 7);
+
+        Assert.That(lc, Is.EqualTo(expected).Within(1e-12));
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_WordLengthsBeyond4Pow31_NoOverflow()
+    {
+        // m ≥ 32 makes 4^i exceed long.MaxValue; V_max,i must still be N−i+1.
+        // Python reference (exact): m = N = 40 → 749/761.
+        const string sequence = "ACGTTGCAAGGCTTACCGATGCATCGGATCCTAGGCTAAC";
+
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence(sequence), maxWordLength: 40);
+
+        Assert.That(lc, Is.EqualTo(749.0 / 761.0).Within(1e-12));
+    }
+
+    [TestCase(13, 782.0 / 1209.0)]
+    [TestCase(20, 1405.0 / 1937.0)]
+    [TestCase(50, 1971.0 / 2251.0)]
+    [TestCase(120, 6427.0 / 6987.0)]
+    public void CalculateLinguisticComplexity_SuffixTreePath_RepeatRichSequence_MatchesReference(int maxWordLength, double expected)
+    {
+        // m > 12 counts V_i from the suffix tree (Troyanskaya et al. 2002). Sequence contains an
+        // exact 20-nt repeat, a (CAG)10 microsatellite and an A/C-only tail so internal nodes,
+        // multi-length edges and leaf edges are all exercised. Expected: Python reference (exact).
+        const string sequence =
+            "GCTAAAGACAATTACATAACATACACGTCACAGCAGCAGCAGCAGCAGCAGCAGCAGCAGGCTAAAGACAATTACATAACC" +
+            "AAACAAAACCCCCCCAAAACCCCCAACACACCAACCCCC";
+
+        double lcDna = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence(sequence), maxWordLength);
+        double lcString = SequenceComplexity.CalculateLinguisticComplexity(sequence.ToLowerInvariant(), maxWordLength);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lcDna, Is.EqualTo(expected).Within(1e-12));
+            Assert.That(lcString, Is.EqualTo(expected).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_FullLengthLongHomopolymer_ExactAndLinearTime()
+    {
+        // Troyanskaya all-length LC of A^N: V_i = 1 for every i, so LC = N / Σ_i min(4^i, N−i+1).
+        // N = 200,000 would need ~2·10^10 substring characters by direct enumeration; the suffix-tree
+        // path is linear. Expected denominator computed in closed form below.
+        const int n = 200_000;
+        long possible = 0;
+        for (int i = 1; i <= n; i++)
+            possible += i < 16 ? Math.Min(1L << (2 * i), n - i + 1) : n - i + 1;
+
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence(new string('A', n)), int.MaxValue);
+
+        Assert.That(lc, Is.EqualTo((double)n / possible).Within(1e-15));
+    }
+
+    // Alphabet size a of M = Σ min(a^i, N − i + 1) (Troyanskaya et al. 2002; Rosalind LING "alphabet of size a"):
+    // {A,C,G,T/U} extended by any other symbol present. Expected values: Python brute force (exact Fractions,
+    // scratch lc_ref.py) — 3000 random cases over ACGT/ACGTN/ACGU/ACGTU/IUPAC alphabets, m 1..70, 0 mismatches.
+    // Before the fix ACGTN gave 15/14 > 1 (V_max assumed 4^i).
+    [TestCase("ACGTN", 5, 1.0)]                                      // 15/15
+    [TestCase("acgtn", 10, 1.0)]                                     // upper-cased, m clamped to N
+    [TestCase("ATGCATGCNN", 10, 22.0 / 25.0)]                        // 44/50, a = 5
+    [TestCase("NNNNNNNN", 8, 8.0 / 33.0)]                            // a = 5 ({N} ∪ ACGT)
+    [TestCase("ACGTNNNNACGTNNNNACGTRYACGTNNNN", 6, 69.0 / 142.0)]    // hash path, a = 7
+    [TestCase("ACGTNNNNACGTNNNNACGTRYACGTNNNN", 30, 345.0 / 442.0)]  // suffix-tree path (m > 12), a = 7
+    [TestCase("ACGUACGUAAUU", 12, 6.0 / 7.0)]                        // RNA: a = 4 (U replaces T)
+    [TestCase("ACGTUACGTU", 10, 0.8)]                                // T and U both present: a = 5
+    public void CalculateLinguisticComplexity_NonAcgtSymbols_AlphabetExtended_MatchesBruteForce(
+        string sequence, int maxWordLength, double expected)
+    {
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength);
+
+        Assert.That(lc, Is.EqualTo(expected).Within(1e-15));
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_RnaEqualsDnaCounterpart()
+    {
+        // U plays the role of T (a = 4), so the RNA and DNA spellings have identical LC.
+        Assert.That(SequenceComplexity.CalculateLinguisticComplexity("ACGUACGUAAUU", 12),
+            Is.EqualTo(SequenceComplexity.CalculateLinguisticComplexity("ACGTACGTAATT", 12)));
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_LargeAlphabet_NeverExceedsOne_NoOverflow()
+    {
+        // 300 distinct caseless CJK symbols: every substring is distinct, so LC = 1 exactly for the hash and
+        // suffix-tree paths; a^i with a = 304 would overflow long by i = 8 without the saturation guard.
+        string s = new(Enumerable.Range(0x4E00, 300).Select(c => (char)c).ToArray());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.CalculateLinguisticComplexity(s, 10), Is.EqualTo(1.0));
+            Assert.That(SequenceComplexity.CalculateLinguisticComplexity(s, 300), Is.EqualTo(1.0));
+        });
+    }
+
     #endregion
 
     #region Shannon Entropy Tests
@@ -325,6 +461,41 @@ public class SequenceComplexityTests
         });
     }
 
+    [Test]
+    public void CalculateShannonEntropy_RnaUracil_CountedAsFourthNucleotide()
+    {
+        // RNA U is the same nucleotide class as DNA T (IUPAC-IUB 1970), alphabet {A,C,G,T/U}.
+        // Reference: scipy.stats.entropy(counts, base=2) with U→T:
+        //   "ACGU" → [1,1,1,1] → 2.0; "AAUU" → [2,0,0,2] → 1.0; "acgu" → 2.0;
+        //   "ACGUN" → 2.0 (N excluded); "GGGGCCCAU" → [1,3,4,1] → 1.7527152789797047.
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("ACGU"), Is.EqualTo(2.0));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("AAUU"), Is.EqualTo(1.0));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("acgu"), Is.EqualTo(2.0));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("ACGUN"), Is.EqualTo(2.0));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("GGGGCCCAU"),
+                Is.EqualTo(1.7527152789797047).Within(1e-12));
+            // RNA and its DNA equivalent give the same entropy.
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("GGGGCCCAU"),
+                Is.EqualTo(SequenceComplexity.CalculateShannonEntropy("GGGGCCCAT")));
+        });
+    }
+
+    [Test]
+    public void CalculateShannonEntropy_MatchesScipyReference()
+    {
+        // Reference: scipy.stats.entropy([nA,nC,nG,nT], base=2), non-ACGT/U excluded.
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("AAAAAAAAAAAAACGT"),
+                Is.EqualTo(0.9933927290103627).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("AACGTTTGCA"),
+                Is.EqualTo(1.970950594454669).Within(1e-12));
+            Assert.That(SequenceComplexity.CalculateShannonEntropy("ACGTNNRYacgt"), Is.EqualTo(2.0));
+        });
+    }
+
     #endregion
 
     #region K-mer Entropy Tests
@@ -431,16 +602,20 @@ public class SequenceComplexityTests
     [Test]
     public void FindLowComplexityRegions_FindsPolyARegion()
     {
-        // 80bp (ATGC×20) + 64A + 80bp (ATGC×20) = 224bp total
-        // The poly-A stretch has entropy=0, well below threshold=0.5
-        // Exactly 1 low-complexity region should be detected, starting near the poly-A
+        // 80bp (ATGC×20) + 64A + 80bp (ATGC×20) = 224bp total, w=20, threshold 0.5.
+        // Flagged windows (H < 0.5): starts 79 ("C"+19A, H=0.286) .. 126 (19A+"T", H=0.286);
+        // start 127 (18A+"TG", H=0.569) is not flagged. Region = union of flagged windows
+        // = [79, 126+19] = 79..145 (BBDuk maskLowEntropy window-union rule; Python reference
+        // scipy.stats.entropy(base=2) per window + bit-mask union gives (79, 145, 67, 0.0)).
         var sequence = new DnaSequence(string.Concat(Enumerable.Repeat("ATGC", 20)) + new string('A', 64) + string.Concat(Enumerable.Repeat("ATGC", 20)));
         var regions = SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 20, entropyThreshold: 0.5).ToList();
 
         Assert.That(regions.Count, Is.EqualTo(1));
         Assert.That(regions[0].Start, Is.EqualTo(79));
-        Assert.That(regions[0].End, Is.EqualTo(146));
+        Assert.That(regions[0].End, Is.EqualTo(145));
+        Assert.That(regions[0].Length, Is.EqualTo(67));
         Assert.That(regions[0].MinEntropy, Is.EqualTo(0));
+        Assert.That(regions[0].Sequence, Is.EqualTo("C" + new string('A', 65) + "T"));
     }
 
     [Test]
@@ -455,17 +630,61 @@ public class SequenceComplexityTests
     [Test]
     public void FindLowComplexityRegions_ReturnsCorrectSequence()
     {
-        // "ATGCATGC" (8bp) + 64A + "ATGCATGC" (8bp) = 80bp total
-        // With window=32, threshold=0.5: region starts at pos 6, ends at 75, length=70
-        // MinEntropy=0 (pure homopolymer windows)
+        // "ATGCATGC" (8bp) + 64A + "ATGCATGC" (8bp) = 80bp total, w=32, threshold 0.5.
+        // Flagged windows: starts 6..43 (last flagged window 43..74 = 29A+"ATG"); region =
+        // union = 6..74, length 69 (Python reference: (6, 74, 69, 0.0)). MinEntropy=0 (poly-A windows).
         var sequence = new DnaSequence("ATGCATGC" + new string('A', 64) + "ATGCATGC");
         var regions = SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 32, entropyThreshold: 0.5).ToList();
 
         Assert.That(regions.Count, Is.EqualTo(1));
         Assert.That(regions[0].Start, Is.EqualTo(6));
-        Assert.That(regions[0].End, Is.EqualTo(75));
-        Assert.That(regions[0].Length, Is.EqualTo(70));
+        Assert.That(regions[0].End, Is.EqualTo(74));
+        Assert.That(regions[0].Length, Is.EqualTo(69));
         Assert.That(regions[0].MinEntropy, Is.EqualTo(0));
+        Assert.That(regions[0].Sequence, Is.EqualTo("GC" + new string('A', 65) + "TG"));
+    }
+
+    [Test]
+    public void FindLowComplexityRegions_InvalidArguments_ThrowEagerlyBeforeEnumeration()
+    {
+        // Validation must happen at call time, not on first MoveNext of the lazy iterator.
+        var sequence = new DnaSequence("ACGT");
+        Assert.Throws<ArgumentNullException>(() => SequenceComplexity.FindLowComplexityRegions((DnaSequence)null!));
+        Assert.Throws<ArgumentOutOfRangeException>(() => SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 0));
+    }
+
+    [Test]
+    public void FindLowComplexityRegions_OverlappingFlaggedWindows_MergeIntoOneRegion()
+    {
+        // w=8, threshold 0.6. Flagged windows (H < 0.6): starts 1,2,3,4 (end 11) and 7,8 (ends 14,15);
+        // windows 5,6 have H = H(2/8,6/8) = 0.811 and are not flagged, but window 7 overlaps the
+        // union 1..11, so the masked positions form ONE run 1..15 (BBDuk bit-mask union).
+        // MinEntropy = H(1/8,7/8) = 0.5435644431995964. Python reference: (1, 15, 15, 0.5435644431995964).
+        // (Pre-fix code emitted two overlapping regions 1..12 and 7..16.)
+        var sequence = new DnaSequence("CAAAAACAAAAACAAACAAA");
+        var regions = SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 8, entropyThreshold: 0.6).ToList();
+
+        Assert.That(regions.Count, Is.EqualTo(1));
+        Assert.That(regions[0].Start, Is.EqualTo(1));
+        Assert.That(regions[0].End, Is.EqualTo(15));
+        Assert.That(regions[0].Length, Is.EqualTo(15));
+        Assert.That(regions[0].MinEntropy, Is.EqualTo(0.5435644431995964).Within(1e-12));
+        Assert.That(regions[0].Sequence, Is.EqualTo("AAAAACAAAAACAAA"));
+    }
+
+    [Test]
+    public void FindLowComplexityRegions_TwoSeparatedTracts_ReturnsDisjointRegionsIncludingTrailing()
+    {
+        // A10 + (ACGT)×3 + C10 (32 bp), w=8, threshold 1.0: flagged windows 0..4 (union 0..11)
+        // and 21..24 (union 21..31, trailing to sequence end). Python reference:
+        // [(0, 11, 12, 0.0), (21, 31, 11, 0.0)].
+        var sequence = new DnaSequence(new string('A', 10) + "ACGTACGTACGT" + new string('C', 10));
+        var regions = SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 8, entropyThreshold: 1.0).ToList();
+
+        Assert.That(regions.Select(r => (r.Start, r.End, r.Length)),
+            Is.EqualTo(new[] { (0, 11, 12), (21, 31, 11) }));
+        Assert.That(regions.Select(r => r.MinEntropy), Is.EqualTo(new[] { 0.0, 0.0 }));
+        Assert.That(regions.Select(r => r.Sequence), Is.EqualTo(new[] { "AAAAAAAAAAAC", "TCCCCCCCCCC" }));
     }
 
     #endregion
@@ -475,25 +694,25 @@ public class SequenceComplexityTests
     [Test]
     public void CalculateDustScore_LowComplexity_ReturnsHigh()
     {
-        // "AAAAAAAAAAAAAAAAAA" (L=18): 16 AAA triplets
-        // score = 16×15/2 = 120, DUST = 120/(L-2) = 120/16 = 7.5
-        // Source: Li (2025) longdust restatement S = Σ c(c-1)/2 / (L-2); Morgulis et al. (2006)
+        // "AAAAAAAAAAAAAAAAAA" (L=18): ℓ = 16 AAA triplets
+        // Σ = 16×15/2 = 120, DUST = 120/(ℓ-1) = 120/15 = 8.0
+        // Source: Morgulis et al. (2006); NCBI symdust / lh3/sdust normalise by ℓ-1
         var sequence = new DnaSequence("AAAAAAAAAAAAAAAAAA");
         double dust = SequenceComplexity.CalculateDustScore(sequence);
 
-        Assert.That(dust, Is.EqualTo(7.5).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(8.0).Within(1e-10));
     }
 
     [Test]
     public void CalculateDustScore_HighComplexity_ReturnsLow()
     {
         // "ATGCTAGCATGCTAGC" (L=16): 14 triplets, ATG,TGC,GCT,CTA,TAG,AGC each ×2 (GCA,CAT ×1)
-        // Σ = 6×(2·1/2) = 6, DUST = 6/(L-2) = 6/14 = 3/7
-        // Source: Li (2025) longdust S = Σ c(c-1)/2 / (L-2)
+        // Σ = 6×(2·1/2) = 6, DUST = 6/(ℓ-1) = 6/13
+        // Source: Morgulis et al. (2006); lh3/sdust (ℓ-1 normaliser)
         var sequence = new DnaSequence("ATGCTAGCATGCTAGC");
         double dust = SequenceComplexity.CalculateDustScore(sequence);
 
-        Assert.That(dust, Is.EqualTo(6.0 / 14.0).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(6.0 / 13.0).Within(1e-10));
     }
 
     [Test]
@@ -515,10 +734,10 @@ public class SequenceComplexityTests
     public void CalculateDustScore_StringOverload_ReturnsExact()
     {
         // "AAAAAAA" (L=7): 5 triplets, all AAA
-        // score = 5×4/2 = 10, DUST = 10/(L-2) = 10/5 = 2.0
-        // Source: Li (2025) longdust S = Σ c(c-1)/2 / (L-2)
+        // Σ = 5×4/2 = 10, DUST = 10/(ℓ-1) = 10/4 = 2.5 (sdust -t 20 masks a 7-A run)
+        // Source: Morgulis et al. (2006); lh3/sdust (ℓ-1 normaliser)
         double dust = SequenceComplexity.CalculateDustScore("AAAAAAA");
-        Assert.That(dust, Is.EqualTo(2.0).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(2.5).Within(1e-10));
     }
 
     #endregion
@@ -529,8 +748,7 @@ public class SequenceComplexityTests
     public void MaskLowComplexity_MasksLowComplexityWindows()
     {
         // ATGC×16 (64bp) + A×64 + ATGC×16 (64bp) = 192bp total, window=64, threshold=2.0
-        // ATGC×16 window DUST ≈ 7.4 (4 recurring triplets), A×64 DUST = 31.0
-        // All windows exceed threshold=2.0, so entire sequence is masked
+        // Reference: lh3/sdust -w 64 -t 20 reports the single interval [0,192) ⇒ all masked
         var sequence = new DnaSequence(string.Concat(Enumerable.Repeat("ATGC", 16)) + new string('A', 64) + string.Concat(Enumerable.Repeat("ATGC", 16)));
         string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 2.0);
 
@@ -541,7 +759,7 @@ public class SequenceComplexityTests
     [Test]
     public void MaskLowComplexity_PreservesHighComplexity()
     {
-        // Use a longer and more varied sequence to avoid false positives
+        // Reference: lh3/sdust -w 64 -t 100 reports no interval for this 78-bp sequence
         var sequence = new DnaSequence("ATGCTAGCATGCAATGCTAGCATGCAATGCTAGCATGCAATGCTAGCATGCAATGCTAGCATGCAATGCTAGCATGCA");
         string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 10.0);
 
@@ -551,8 +769,7 @@ public class SequenceComplexityTests
     [Test]
     public void MaskLowComplexity_CustomMaskChar()
     {
-        // 100A, window=64, threshold=1.0: DUST(A×64) = 31.0 >> 1.0
-        // All positions covered by at least one window are masked with 'X'
+        // 100A, window=64, threshold=1.0: reference lh3/sdust -w 64 -t 10 ⇒ [0,100) masked with 'X'
         var sequence = new DnaSequence(new string('A', 100));
         string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 1.0, maskChar: 'X');
 
@@ -659,7 +876,7 @@ public class SequenceComplexityTests
     [Test]
     public void MaskLowComplexity_ShortSequence_PreservesOriginal()
     {
-        // When sequence length < windowSize, no windows are processed → original returned
+        // ATGC: two distinct triplets, raw score 0 is not > 0.0 ⇒ nothing masked (sdust -t 0: no output)
         var sequence = new DnaSequence("ATGC");
         string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 0.0);
 

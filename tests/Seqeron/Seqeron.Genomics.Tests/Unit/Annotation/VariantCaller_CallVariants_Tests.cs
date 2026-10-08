@@ -61,9 +61,65 @@ public class VariantCaller_CallVariants_Tests
             "A null query is invalid input and must throw ArgumentNullException.");
     }
 
+    // B21 review (2026-09) — Tan, Abecasis & Kang (2015) left-alignment. Expected values are the
+    // records emitted by `bcftools norm -f` (htslib/bcftools via pysam 0.24.1) for the same haplotype
+    // given as a deliberately RIGHT-shifted input record, converted to the 0-based per-column model
+    // (VCF POS = anchor base, 1-based; first deleted/inserted base = 0-based index POS).
+    [TestCase("ACGTTTTACG", "ACGTTTACG", VariantType.Deletion, new[] { 3 }, new[] { "T" },
+        TestName = "CallVariants_HomopolymerDeletion_LeftAlignedLikeBcftoolsNorm")]    // norm: POS 3 GT>G
+    [TestCase("CAGAGAGT", "CAGAGT", VariantType.Deletion, new[] { 1, 2 }, new[] { "A", "G" },
+        TestName = "CallVariants_DinucleotideDeletion_LeftAlignedLikeBcftoolsNorm")]   // norm: POS 1 CAG>C
+    [TestCase("GCACAT", "GCACACAT", VariantType.Insertion, new[] { 1, 1 }, new[] { "C", "A" },
+        TestName = "CallVariants_DinucleotideInsertion_LeftAlignedLikeBcftoolsNorm")]  // norm: POS 1 G>GCA
+    [TestCase("ATTG", "ATTTG", VariantType.Insertion, new[] { 1 }, new[] { "T" },
+        TestName = "CallVariants_HomopolymerInsertion_LeftAlignedLikeBcftoolsNorm")]   // norm: POS 1 A>AT
+    public void CallVariants_IndelInRepeat_IsLeftAligned(
+        string reference, string query, VariantType type, int[] positions, string[] indelBases)
+    {
+        var variants = VariantCaller.CallVariants(new DnaSequence(reference), new DnaSequence(query)).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(variants.Select(v => v.Type), Is.EqualTo(Enumerable.Repeat(type, positions.Length)),
+                "Exactly one gap column per indel base, all of the expected type.");
+            Assert.That(variants.Select(v => v.Position), Is.EqualTo(positions),
+                "Indel must be reported at its leftmost equivalent position (Tan et al. 2015; bcftools norm).");
+            Assert.That(variants.Select(v => type == VariantType.Deletion ? v.ReferenceAllele : v.AlternateAllele),
+                Is.EqualTo(indelBases), "Deleted/inserted bases of the left-aligned representation.");
+        });
+    }
+
     #endregion
 
     #region CallVariantsFromAlignment
+
+    // B21 review (2026-09) — VCF v4.3 §1.6.1: REF/ALT bases are case insensitive. bcftools norm
+    // rejects REF=G/ALT=g as "Duplicate alleles", i.e. a case difference is not a variant.
+    [Test]
+    public void CallVariantsFromAlignment_CaseOnlyDifference_IsNotAVariant()
+    {
+        var variants = VariantCaller.CallVariantsFromAlignment("acgtACGT", "ACGTacgt").ToList();
+
+        Assert.That(variants, Is.Empty,
+            "Soft-masked (lowercase) and uppercase copies of the same base are the same allele (VCF v4.3, case insensitive).");
+    }
+
+    // B21 review (2026-09) — a real substitution inside soft-masked sequence is still a SNP; alleles
+    // are reported as given.
+    [Test]
+    public void CallVariantsFromAlignment_LowercaseSubstitution_ReturnsSnp()
+    {
+        var variants = VariantCaller.CallVariantsFromAlignment("acgt", "AGGT").ToList();
+
+        Assert.That(variants, Has.Count.EqualTo(1), "Only column 1 (c vs G) holds different bases.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(variants[0].Type, Is.EqualTo(VariantType.SNP));
+            Assert.That(variants[0].Position, Is.EqualTo(1));
+            Assert.That(variants[0].ReferenceAllele, Is.EqualTo("c"));
+            Assert.That(variants[0].AlternateAllele, Is.EqualTo("G"));
+        });
+    }
 
     // M2 — Source 2 (simple SNP); INV-02/04.
     [Test]

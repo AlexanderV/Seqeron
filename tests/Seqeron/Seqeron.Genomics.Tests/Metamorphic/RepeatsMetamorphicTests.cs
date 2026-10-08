@@ -37,16 +37,48 @@ public class RepeatsMetamorphicTests
 {
     #region Helpers
 
-    private static readonly Random Rng = new(20240617);
+    private const int Seed = 20240617;
 
-    /// <summary>Generates a random DNA string of the given length (fixed seed).</summary>
-    private static string RandomDna(int length)
+    /// <summary>
+    /// Generates a random DNA string of the given length. Seeded per call (Seed + length) so the input is
+    /// deterministic and thread-safe: the assembly runs fixture children in parallel
+    /// (<c>Parallelizable(ParallelScope.Children)</c>), which made a shared static <see cref="Random"/>
+    /// order-dependent and racy.
+    /// </summary>
+    private static string RandomDna(int length, int salt = 0)
     {
         const string bases = "ACGT";
+        var rng = new Random(Seed + length + 7919 * salt);
         var chars = new char[length];
         for (int i = 0; i < length; i++)
-            chars[i] = bases[Rng.Next(4)];
+            chars[i] = bases[rng.Next(4)];
         return new string(chars);
+    }
+
+    /// <summary>First deterministic random sequence (salt 0, 1, …) for which the flank is junction-neutral.</summary>
+    private static string NeutralRandomDna(string flank, int length)
+    {
+        for (int salt = 0; salt < 1000; salt++)
+        {
+            string s = RandomDna(length, salt);
+            if (!HasJunctionPalindrome(flank + s, flank.Length, 4, 12)) return s;
+        }
+        throw new InvalidOperationException("no junction-neutral random sequence found");
+    }
+
+    /// <summary>Brute-force: does any even window of length [minLen, maxLen] spanning the junction at
+    /// <paramref name="junction"/> read as an ACGT reverse-complement palindrome?</summary>
+    private static bool HasJunctionPalindrome(string s, int junction, int minLen, int maxLen)
+    {
+        static char C(char c) => c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => '?' };
+        for (int len = minLen; len <= maxLen; len += 2)
+            for (int start = Math.Max(0, junction - len + 1); start < junction && start + len <= s.Length; start++)
+            {
+                bool pal = true;
+                for (int k = 0; pal && k < len / 2; k++) pal = C(s[start + k]) == s[start + len - 1 - k];
+                if (pal) return true;
+            }
+        return false;
     }
 
     private static List<PalindromeResult> Palindromes(string seq, int minLen, int maxLen) =>
@@ -206,12 +238,17 @@ public class RepeatsMetamorphicTests
         {
             "GAATTCGGGGGGATCC",
             "GCGGCCGCATATCCCGGG",
-            RandomDna(70),
-            RandomDna(130),
+            NeutralRandomDna(flank, 70),
+            NeutralRandomDna(flank, 130),
         };
 
         foreach (var seq in sequences)
         {
+            // Precondition of the relation: no window crossing the flank|seq junction is palindromic
+            // (e.g. flank "…AA" + "GCTT…" would create AAGCTT). Checked by brute force, not assumed.
+            HasJunctionPalindrome(flank + seq, flank.Length, 4, 12).Should().BeFalse(
+                because: $"the flank must be neutral at the junction for '{seq}'");
+
             var original = Palindromes(seq, 4, 12);
             var shifted = Palindromes(flank + seq, 4, 12);
 

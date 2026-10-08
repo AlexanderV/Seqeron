@@ -8,10 +8,10 @@
 | **Area** | MolTools |
 | **Title** | Hybridization Probe Design |
 | **Canonical Class** | `ProbeDesigner` |
-| **Canonical Methods** | `DesignProbes`, `DesignTilingProbes`, `ScoreProbe` (via EvaluateProbe), `EvaluateTaqManProbe`, `SelectTaqManStrand` |
+| **Canonical Methods** | `DesignProbes`, `DesignProbesPrimer3`, `DesignTilingProbes`, `DesignMolecularBeacon`, `EvaluateTaqManProbe`, `SelectTaqManStrand`, `AnalyzeOligo`, `CalculateMolecularWeight`, `CalculateExtinctionCoefficient(NearestNeighbor)` |
 | **Complexity** | O(n²) |
-| **Status** | ☐ Pending re-validation (TaqMan opt-in rules added) |
-| **Last Updated** | 2026-06-24 |
+| **Status** | Reviewed 2026-10 (B07 F17–F21) |
+| **Last Updated** | 2026-10-01 |
 
 ---
 
@@ -29,6 +29,11 @@
 | PREMIER Biosoft "TaqMan probe design tips" | Vendor doc | TaqMan: length 18-22 nt, GC 30-80%, more Cs than Gs and no G at 5' end, no ≥4-G runs, probe Tm 10 °C above primer Tm |
 | Applied Biosystems / Thermo Fisher "Designing a TaqMan Gene Expression Assay" | Manufacturer | No 5' G (interferes with reporter fluorescence); probe Tm ~10 °C above primer; antisense fallback when 5' G unavoidable |
 | ScienceDirect "TaqMan — an overview" | Reference work | 5' G adjacent to reporter quenches fluorescence even after cleavage (hard rule) |
+| primer3 `libprimer3.cc` + primer3-py 2.3.1 | Reference implementation | Probe Tm (`seqtm`), internal-oligo defaults (50 nM, 50 mM, 0 Mg, 0 dNTP; size 18/20/27; Tm 57/60/63; GC 20–80; poly-X 5; ntthal limits 47 °C), `pick_hyb_probe_only` selection and ordering |
+| Biopython 1.88 `molecular_weight` | Reference implementation | Single-stranded DNA/RNA molecular weight |
+| Cantor, Warshaw & Shapiro 1970; Warshaw & Tinoco 1966 | Research | Nearest-neighbour ε260 tables |
+| Tyagi & Kramer 1996 / Marras et al. | Research | Molecular beacon: stem 5–7 bp; probe and stem Tm 7–10 °C above the detection temperature |
+| Applied Biosystems Primer Express guidelines | Manufacturer | TaqMan probe Tm 68–70 °C, G+C 30–80 % (qPCR preset) |
 
 ---
 
@@ -36,7 +41,7 @@
 
 1. **Score Range**: 0.0 ≤ score ≤ 1.0 (Source: Implementation)
 2. **GC Range**: 0.0 ≤ GC content ≤ 1.0 (Source: Mathematical definition)
-3. **Tm Positivity**: Tm > 0 for valid probes (Source: Physical law)
+3. **Tm**: Tm = Primer3 seqtm at the ProbeParameters conditions (primer3-py calc_tm); > 0 for the tested ≥ 20-nt probes
 4. **Coordinate Validity**: 0 ≤ Start < End < sequence.Length (Source: Implementation)
 5. **Probe Substring**: probe.Sequence == input.Substring(probe.Start, probe.End - probe.Start + 1) (Source: Implementation)
 
@@ -74,6 +79,22 @@
 | TM9 | `SelectTaqManStrand` picks antisense when sense has 5' G / more G | Antisense fallback | ABI |
 | TM10 | `SelectTaqManStrand` keeps the sense strand when already compliant | No needless RC | ABI |
 
+| P1 | `DesignProbesPrimer3` defaults = primer3-py `pick_hyb_probe_only` (positions, Tm, penalty, SELF_ANY/END/HAIRPIN_TH, order) | Reference parity | primer3 |
+| P2 | `DesignProbesPrimer3` non-default settings + PCR buffer = primer3-py | Reference parity | primer3 |
+| P3 | ntthal limits reject 41 of 99 windows of a self-complementary template (primer3 explain) | Thermodynamic screen | primer3 |
+| P4 | Probe Tm in `DesignProbes` = Primer3 seqtm at stated conditions | Probe Tm | primer3 |
+| P5 | Thermodynamic self-dimer screen flags a GC palindrome | Self-structure | primer3 ntthal |
+| P6 | Lazy (branch-and-bound) ranking = exhaustive ranking | Algorithm contract | Implementation |
+| P7 | Beacon: loop Tm, ntthal stem-loop Tm, 7 °C rules for a detection temperature | Beacon design | Tyagi & Kramer |
+| P8 | NN ε260 = Cantor/Warshaw tables (ACGT 40300, ACGU RNA 41300) | Oligo property | Cantor 1970 |
+| P9 | MW = Biopython molecular_weight (DNA/RNA, U = UMP) | Oligo property | Biopython |
+| TM11 | TaqMan Tm at stated conditions = primer3-py calc_tm; non-ACGT → gate fails | Probe Tm | primer3 |
+| P10 | `DesignProbesPrimer3` with PRIMER_INTERNAL_MISHYB_LIBRARY: probe positions, penalties (incl. PRIMER_INTERNAL_WT_LIBRARY_MISHYB term) and PRIMER_INTERNAL_n_LIBRARY_MISHYB score + entry (dpal unanchored LOCAL, IUPAC per PRIMER_LIB_AMBIGUITY_CODES_CONSENSUS, short entries score their length) = primer3-py `mishyb_lib`, both alignment modes; `CalculateLibraryMishyb` = check_primers; weight without library / limit > 32767 in alignment mode throw (`ProbeDesigner_MishybLibrary_Tests`) | Mishyb library | primer3 libprimer3.c |
+| P11 | `DesignProbesPrimer3` / MCP `design_probes_primer3` reject numReturn < 1 (Primer3 "PRIMER_NUM_RETURN < 1") | Data control | primer3 _pr_data_control |
+| P12 | `DesignProbesPrimer3` with PRIMER_ANNEALING_TEMP: PRIMER_INTERNAL_n_BOUND, rejection outside PRIMER_INTERNAL_MIN/MAX_BOUND, PRIMER_INTERNAL_WT_BOUND_GT/LT terms (ungated: bound −999999.9999 without an annealing temperature) and the opt-bound / annealing-temperature data control = primer3-py pick_hyb_probe_only (`PrimerDesigner_BoundAndPosition_Tests.DesignProbesPrimer3_*`; MCP `design_probes_primer3` annealing_temp / bound arguments: `DesignProbesPrimer3_AnnealingTempAndBound_MatchPrimer3`, A3-24) | Fraction bound | primer3 libprimer3.c, oligotm.c |
+| P13 | `DesignProbesPrimer3` with SEQUENCE_QUALITY: PRIMER_INTERNAL_n_MIN_SEQ_QUALITY, rejection below PRIMER_INTERNAL_MIN_QUALITY, PRIMER_INTERNAL_WT_SEQ_QUAL term (WT_END_QUAL inert) and the quality data control = primer3-py pick_hyb_probe_only (`PrimerDesigner_SequenceQuality_Tests.DesignProbesPrimer3_Quality_MatchesPrimer3`, `DataControl_MatchesPrimer3Messages`; MCP `DesignProbesPrimer3_SequenceQuality_MatchesPrimer3`) | Sequence quality | primer3 libprimer3.c |
+| P14 | `DesignProbesPrimer3`: PRIMER_INTERNAL_OPT_GC_PERCENT undefined by default (a GC weight without it → "Hyb probe GC content is part of objective function while optimum gc_content is not defined") and PRIMER_LOWERCASE_MASKING (`Primer3ProbeSettings.LowercaseMasking`: 3′-terminal lower-case base rejects the window) = primer3-py pick_hyb_probe_only (`PrimerDesigner_LowercaseMasking_Tests.DesignProbesPrimer3_LowercaseMasking_MatchesPrimer3`, `GcWeightWithoutOptimum_ThrowsPrimer3DataControlErrors`; MCP `DesignProbesPrimer3_LowercaseMaskingAndGcOptimum_MatchPrimer3`) | GC optimum / lower-case masking | primer3 libprimer3.c |
+
 ### Should (Important)
 
 | ID | Test Case | Rationale | Source |
@@ -98,7 +119,8 @@
 ## Coverage Classification
 
 Canonical file (generic designer): `ProbeDesigner_ProbeDesign_Tests.cs` (29 tests).
-Canonical file (TaqMan opt-in rules): `ProbeDesigner_TaqMan_Tests.cs` (12 tests).
+Canonical file (TaqMan opt-in rules): `ProbeDesigner_TaqMan_Tests.cs`.
+Canonical file (Primer3 picker, probe Tm/structure, beacon, oligo properties): `ProbeDesigner_Primer3Probe_Tests.cs` (P1–P8); MW/AnalyzeOligo Tm reference values: `Mutation/ProbeDesignerMutationTests.cs` (P9).
 Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE-DESIGN-001 scope).
 
 | ID | Test | Status |
@@ -144,6 +166,17 @@ Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE
 | TM10 | SelectTaqManStrand_SenseAlreadyCompliant_KeepsSense | ✅ Covered |
 | — | EvaluateTaqManProbe_NullSequence_Throws | ✅ Edge |
 | — | SelectTaqManStrand_NullSequence_Throws | ✅ Edge |
+| P1 | DesignProbesPrimer3_Defaults_MatchPrimer3PickHybProbeOnly | ✅ Covered |
+| P2 | DesignProbesPrimer3_TaqManLikeSettingsAndPcrBuffer_MatchPrimer3 | ✅ Covered |
+| P3 | DesignProbesPrimer3_ThermodynamicLimits_RejectSelfComplementaryWindows | ✅ Covered |
+| — | DesignProbesPrimer3_InvalidArguments_Throw | ✅ Edge |
+| P4 | DesignProbes_ProbeTm_IsPrimer3SeqtmAtParameterConditions | ✅ Covered |
+| P5 | DesignProbes_ThermodynamicScreen_FlagsSelfDimerByNtthalTm | ✅ Covered |
+| P6 | DesignProbes_LazyStructureScreen_EqualsExhaustiveRanking | ✅ Covered |
+| P7 | DesignMolecularBeacon_DetectionTemperature_AppliesTyagiKramerRules | ✅ Covered |
+| P8 | ExtinctionCoefficientNearestNeighbor_MatchesCantorTable | ✅ Covered |
+| P9 | CalculateMolecularWeight_MatchesBiopython, AnalyzeOligo_Tm_MatchesPrimer3CalcTmAtProbeDefaults | ✅ Covered |
+| TM11 | EvaluateTaqManProbe_TmAtStatedConditions_MatchesPrimer3CalcTm | ✅ Covered |
 
 ---
 

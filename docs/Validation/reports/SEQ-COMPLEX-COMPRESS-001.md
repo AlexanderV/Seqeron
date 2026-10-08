@@ -4,8 +4,20 @@
 - **Canonical method(s):** `SequenceComplexity.CalculateLempelZivComplexity(string|DnaSequence)`,
   `CalculateNormalizedLempelZivComplexity(string|DnaSequence)`,
   `EstimateCompressionRatio(string|DnaSequence)` (delegate → normalized LZ)
-- **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** FAIL → FIXED (now PASS)
+- **Stage A verdict:** FAIL → corrected (2026-09: the "LZ76" description was the Naereen LZ78 incremental parse)
+- **Stage B verdict:** FAIL → fixed (review campaign 2026-09, batch B04: F1) — supersedes the 2026-06 verdicts and values below
+
+## Review campaign 2026-09 revision (B04) — supersedes the 2026-06 report below
+
+- **End-state: FIXED** (batch report `docs/Validation/review-2026-09/B04.md`, F1).
+- **F1 (defect):** `CalculateLempelZivComplexity` used the Naereen "set of seen phrases" parse — Ziv–Lempel **1978** incremental parsing — while documented as LZ76. Every LZ value in the 2026-06 report below (doctests 8/7/9/10, `"0"×16` → 5 / 1.25, `1001111011000010` → 2.0, `ACGT×4` → 9 / 1.125) is the LZ78 count and is **wrong**. Correct LZ76 (exhaustive history): `1001111011000010` → 6 (1/0/01/1110/1100/0010), normalized 1.5; `0001101001000101` → 6 (Lempel & Ziv 1976); `010011101101100` → 6 (Estévez-Rams et al.); `1010…`×16 → 3; `"0"×16` → 2, normalized 0.5 (b < 2 clamp to 2 kept); `ACGT×4` → 5, normalized 0.625; `HELLO WORLD!`×4 → 11 / 0.38596001132145313; A..Z → 26 / 1.0.
+- **Sources opened:** antropy 0.2.2 `entropy.py` (`_lz_complexity`, `lziv_complexity` doctests, PyPI wheel); NeuroKit2 `complexity_lempelziv.py`; Naereen `lempel_ziv_complexity` 0.2.2 (identified as LZ78); Lempel & Ziv 1976 example, Estévez-Rams et al. arXiv:1311.0546, Wikipedia LZ complexity (snippets).
+- **Reference cross-check:** brute-force exhaustive-history definition = antropy on 20 000 random strings (0 mismatches); 6 DNA strings + 20 kb DNA (c = 2756, normalized 0.984423382950957) = antropy to 1e-12; independent Kaspar–Schuster port agrees.
+- **Fix:** LZ76 from the Longest-Previous-Factor array (Crochemore & Ilie 2008; shared suffix-array + Kasai LCP helpers), O(n log² n). Normalization c/(n/log_b n) (Zhang 2009) unchanged. `EstimateCompressionRatio`, MCP `compression_ratio`, `complexity_compression_ratio` inherit the fix; raw + normalized LZ76 also exposed as MCP `lempel_ziv_complexity` (F49).
+- **Tests:** `SequenceComplexity_EstimateCompressionRatio_Tests.cs` re-sourced (M1–M9, LZ1976, Estévez-Rams, antropy text and DNA datasets, 20 kb); fuzz reference = brute-force LZ76; MCP `CompressionRatioTests` → 1.5 / 0.625. TestSpec `tests/TestSpecs/SEQ-COMPLEX-COMPRESS-001.md`, Evidence, `docs/algorithms/Complexity/Lempel_Ziv_Complexity.md` corrected.
+- **Current code path:** `SequenceComplexity.cs:1712/1581` (raw), :1599/1608 (normalized), :1621/1631 (`EstimateCompressionRatio`), core :1636, `ComputeLongestPreviousFactor` :1667.
+
+*Historical 2026-06-16 report (superseded — its LZ values are LZ78, see above):*
 
 ## Stage A — Description
 
@@ -73,7 +85,7 @@ Normalized (my computation): `1001111011000010`→**2.0**; `ACGTACGTACGTACGT`→
 
 ### Code path reviewed
 
-`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:460-573`.
+`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:601-573` *(2026-06 line numbers and parser — superseded; current: public overloads :1571–1631, LZ76 core `CalculateLempelZivComplexityCore` :1636, `ComputeLongestPreviousFactor` :1667, normalization :1795)*.
 - `CalculateLempelZivComplexityCore` (522): set-based exhaustive-history parser — identical to
   the Naereen reference. ✅
 - `CalculateNormalizedLempelZivComplexityCore` (548): computed `c/(n/log_b n)` for b≥2 (✅) but

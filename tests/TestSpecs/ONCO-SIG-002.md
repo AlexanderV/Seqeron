@@ -99,6 +99,18 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Property: scale invariance | cos(a, k·a) = 1 for several k | 1.0 | INV-3 |
 
+### 4.4 Reference cross-checks (campaign 2026-09, B23 — scipy.optimize.nnls / Lawson-Hanson Fortran)
+
+| ID | Test Case | Description | Expected Outcome | Evidence |
+|----|-----------|-------------|------------------|----------|
+| R1 | scipy docstring example | S cols [1,1,0],[0,0,1]; d=[2,1,1] | x=[1.5,1]; rnorm 0.7071067811865476 | scipy `_nnls.py` Examples |
+| R2 | scipy docstring negative target | d=[−1,−1,−1] | x=[0,0] | scipy `_nnls.py` Examples |
+| R3 | Tiny magnitude (regression F1) | I₂, d=[3e-13,5e-13] | x=[3e-13,5e-13] (not truncated) | LH sign test `WMAX ≤ 0`; scipy |
+| R4 | Positive homogeneity | M6 matrix, d=[0,c], c∈{1e-12,1e-6,1,1e6,1e12} | x=[0, 0.5c] | LH sign test; scipy |
+| R5 | Non-finite input | NaN/∞ in catalog or signature | ArgumentException | scipy `asarray_chkfinite` |
+| R6 | Duplicate signature | cols [s0,s0,s1], d=[2,1,1] | x=[1.5,0,1] | LH independence test (FACTOR 0.01); scipy |
+| R7 | Full COSMIC v3.4 refit (+ ×1e6 regression F1) | 86 signatures, embedded TestData; 1345-mutation catalog | all 86 exposures = scipy (1e-9 rel), rnorm 21.901597834456467, cos 0.9953491259911486; terminates | scipy.optimize.nnls; MutationalPatterns fit_to_signatures |
+
 ---
 
 ## 5. Audit of Existing Tests
@@ -174,6 +186,10 @@
 
 ## 7. Open Questions / Decisions
 
+0. Decision (2026-09-28): the solver is a faithful port of the Lawson-Hanson reference Fortran (`NNLS`/`H12`/`G1`,
+   as shipped with SciPy) — sign-test termination, independence + ztest safeguards, Householder QR, ITMAX = 3k —
+   replacing the former normal-equations variant with an absolute 1e-12 dual tolerance, which truncated tiny
+   catalogs to zero and failed to terminate on the full COSMIC set at large magnitudes (R3, R7).
 1. Decision: implement the Lawson-Hanson active-set NNLS (Source 3) as the deterministic solver for the
    MutationalPatterns NNLS objective (Source 1); deconstructSigs' iterative greedy heuristic (Source 2) is NOT
    reproduced (it is a non-deterministic threshold heuristic), but its reconstruction model R=S·W,

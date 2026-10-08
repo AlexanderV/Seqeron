@@ -8,7 +8,7 @@
 | **Area** | Metagenomics |
 | **Canonical Methods** | `MetagenomicsAnalyzer.GenerateTaxonomicProfile` |
 | **Complexity** | O(n) where n = number of classifications |
-| **Invariants** | 0 ≤ abundance ≤ 1; Σ(abundances) ≈ 1.0; ClassifiedReads ≤ TotalReads |
+| **Invariants** | 0 ≤ abundance ≤ 1; Σ(kingdom abundances) = 1.0 (lower ranks ≤ 1.0); ClassifiedReads ≤ TotalReads |
 | **Status** | ☑ Complete |
 
 ## Methods Under Test
@@ -112,6 +112,14 @@
 | ⚠→✅ Strengthened | M10 | `InRange(0,1)` → exact `0.375` for non-uniform [2,1,1] distribution |
 | ⚠→✅ Strengthened | M7 | Added exact TotalReads=3, ClassifiedReads=2 alongside inequality |
 | ❌→✅ Added | S3 | Cross-rank consistency: all 4 ranks sum to 1.0 |
+
+### Reference cross-check tests (2026-09-28, scikit-bio 0.7.4)
+
+| ID | Test Method | Reference |
+|----|------------|-----------|
+| R1 | `GenerateTaxonomicProfile_SpeciesCounts532_MatchesScikitBio` | `shannon([5,3,2])=1.0296530140645737`, `dominance=0.38` |
+| R2 | `GenerateTaxonomicProfile_GenusOnlyReads_DiversityOnSpeciesCountsOnly` | species abundances 5/14, 3/14, 2/14 (sum 10/14); diversity on species counts only |
+| R3 | `GenerateTaxonomicProfile_DiversityEqualsAlphaDiversityOfSpeciesAbundance` | same helpers as `CalculateAlphaDiversity` (no duplication) |
 
 ## Test File Structure
 

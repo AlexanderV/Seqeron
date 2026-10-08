@@ -37,7 +37,7 @@
     "properties": {
       "items": {
         "type": "array",
-        "description": "Matches, each with position, matchedSequence, distance, mismatchPositions, mismatchType."
+        "description": "Matches, each with position, matchedSequence, distance, mismatchPositions (pattern-relative indices of the substituted pattern characters in the optimal alignment), mismatchType."
       }
     },
     "required": [
@@ -79,7 +79,7 @@
             "position": 1,
             "matchedSequence": "CGT",
             "distance": 1,
-            "mismatchPositions": [],
+            "mismatchPositions": [0],
             "mismatchType": "Substitution"
           },
           {

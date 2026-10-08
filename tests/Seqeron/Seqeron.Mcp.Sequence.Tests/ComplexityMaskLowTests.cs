@@ -27,4 +27,37 @@ public class ComplexityMaskLowTests
         Assert.That(result.OriginalLength, Is.EqualTo(seq.Length));
         Assert.That(result.MaskChar, Is.EqualTo('N'));
     }
+
+    [Test]
+    public void ComplexityMaskLow_AcceptsN_LinkerAndSoftMask()
+    {
+        // Expected = lh3/sdust per ACGT piece (A×12 at [6,18), (AC) run at [23,38)); dustmasker
+        // -linker 32 merges the three intervals of the 96-bp sequence; soft mask = dustmasker -outfmt fasta.
+        const string withN = "ACGTNNAAAAAAAAAAAANACGTACACACACACACACANNGGGCCCTAGGTCA";
+        const string linkerSeq = "ACGTGCATGCAAAAAAAAAAAAAAAAGCTAGCATCGACTGCAGCACACACACACACACAGATCGATCGTACGGTGCATGACAAAAAAAAAAAAACT";
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceTools.ComplexityMaskLow(withN, 64, 2.0, 'X').MaskedSequence,
+                Is.EqualTo("ACGTNNXXXXXXXXXXXXNACGTXXXXXXXXXXXXXXXNNGGGCCCTAGGTCA"));
+            Assert.That(SequenceTools.ComplexityMaskLow(linkerSeq, 64, 2.0, 'N', linker: 32, softMask: true).MaskedSequence,
+                Is.EqualTo("ACGTGCATGCaaaaaaaaaaaaaaaagctagcatcgactgcagcacacacacacacacagatcgatcgtacggtgcatgacaaaaaaaaaaaaaCT"));
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceTools.ComplexityMaskLow(linkerSeq, 64, 2.0, 'N', linker: 0));
+        });
+    }
+
+    [Test]
+    public void ComplexityMaskLow_DustmaskerEngine_MatchesDustmaskerFasta()
+    {
+        // Expected = NCBI dustmasker 2.12.0 default (-window 64 -level 20) -outfmt fasta: the 5-N run (≤ window) is
+        // scanned as pseudo-random bases (toolkit CRandom) and masked with the surrounding poly-A.
+        const string seq = "ACGTTGCAAGCTTCGATGCAAAAAAAAAAAAAAANNNNNAAAAAAAAAAAAAAAACGTTGCAAGCTTCGATGC";
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceTools.ComplexityMaskLow(seq, 64, 2.0, 'N', softMask: true, engine: "dustmasker").MaskedSequence,
+                Is.EqualTo("ACGTTGCAAGCTTCGATGCaaaaaaaaaaaaaaannnnnaaaaaaaaaaaaaaaaCGTTGCAAGCTTCGATGC"));
+            Assert.That(SequenceTools.ComplexityMaskLow(seq, 64, 2.0, 'N', softMask: true).MaskedSequence,
+                Is.EqualTo("ACGTTGCAAGCTTCGATGCaaaaaaaaaaaaaaaNNNNNaaaaaaaaaaaaaaaaCGTTGCAAGCTTCGATGC"));
+            Assert.Throws<ArgumentException>(() => SequenceTools.ComplexityMaskLow(seq, engine: "longdust"));
+        });
+    }
 }

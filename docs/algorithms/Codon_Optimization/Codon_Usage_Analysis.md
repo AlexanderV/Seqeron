@@ -6,11 +6,11 @@
 | Test Unit ID | CODON-USAGE-001 |
 | Related Projects | N/A |
 | Implementation Status | N/A |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-Codon usage analysis measures how often codons appear in a coding sequence and compares codon distributions between sequences.[1][2] In this repository, `CodonOptimizer.CalculateCodonUsage` returns raw codon counts, while `CodonOptimizer.CompareCodonUsage` compares normalized codon-frequency distributions using a total-variation-distance similarity score. The implementation is case-insensitive, normalizes DNA to RNA notation, and ignores incomplete trailing bases. These methods are intended for direct sequence-level codon-profile analysis rather than organism-wide bias modeling by themselves.[2][4]
+Codon usage analysis measures how often codons appear in a coding sequence and compares codon distributions between sequences.[1][2] In this repository, `CodonOptimizer.CalculateCodonUsage` returns raw codon counts, while `CodonOptimizer.CompareCodonUsage` compares normalized codon-frequency distributions using a total-variation-distance similarity score. The implementation is case-insensitive, accepts DNA or RNA, reports RNA-spelled codons, skips triplets containing ambiguity codes or other non-nucleotide characters (without shifting the frame), and ignores incomplete trailing bases. These methods are intended for direct sequence-level codon-profile analysis rather than organism-wide bias modeling by themselves.[2][4]
 
 ## 2. Scientific / Formal Basis
 
@@ -49,7 +49,7 @@ $$
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | `sum(counts.Values) == floor(sequence.Length / 3)` after normalization to complete codons. | The counter increments exactly once per extracted codon. |
+| INV-01 | `sum(counts.Values) == floor(sequence.Length / 3)` for input over {A,C,G,T,U}; in general, the number of complete in-frame triplets free of ambiguity/non-nucleotide characters. | The counter increments exactly once per unambiguous extracted codon. |
 | INV-02 | `0 <= similarity <= 1`. | The method uses a normalized total-variation-distance formula. |
 | INV-03 | `CompareCodonUsage(a, b) == CompareCodonUsage(b, a)`. | Absolute differences are symmetric. |
 | INV-04 | `CompareCodonUsage(s, s) == 1` for non-empty `s`. | The two normalized distributions are identical. |
@@ -73,7 +73,7 @@ $$
 
 ### 3.3 Preconditions and Validation
 
-Both methods uppercase the input and convert `T` to `U`. Codons are extracted only from complete triplets, so trailing one or two bases are ignored. `CompareCodonUsage` returns `0` when either sequence yields zero codons after preprocessing.
+Both methods uppercase the input and accept `T` or `U`. Codons are extracted only from complete in-frame triplets, so trailing one or two bases are ignored; a triplet containing any character outside {A,C,G,T,U} (IUPAC ambiguity codes, gaps, other letters) is skipped and the frame is kept — the contract documented for EMBOSS `ajCodSetTripletsS` ("Skips triplets with ambiguity codes and any incomplete triplet at the end") and consistent with Biopython's 64-codon `CodonAdaptationIndex` count table.[6][7] `CompareCodonUsage` returns `0` when either sequence yields zero codons after preprocessing.
 
 ## 4. Algorithm
 
@@ -115,7 +115,7 @@ The comparison metric is the same total-variation-distance similarity documented
 
 ### 5.2 Current Behavior
 
-`CalculateCodonUsage` returns counts only for codons observed in the normalized input; it does not pre-populate all 64 codons. `CompareCodonUsage` calls `CalculateCodonUsage` for both sequences, unions the observed codon keys, and computes `1 - (sum(abs(freq1 - freq2)) / 2)`. If both sequences are empty, or if either sequence has zero complete codons, the method returns `0`.[5]
+`CalculateCodonUsage` delegates to the canonical counter `CodonUsageAnalyzer.CountCodons` and re-spells the keys T→U; it returns counts only for codons observed in the input and does not pre-populate all 64 codons. Counting is genetic-code independent (stop codons are counted like any other codon, as in cusp/Kazusa tables). `CompareCodonUsage` calls `CalculateCodonUsage` for both sequences, unions the observed codon keys, and computes `1 - (sum(abs(freq1 - freq2)) / 2)`. If both sequences are empty, or if either sequence has zero complete codons, the method returns `0`.[5]
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -144,6 +144,8 @@ The comparison metric is the same total-variation-distance similarity documented
 | One empty sequence in a comparison | Similarity is `0`. | One distribution has zero total codons. |
 | Both sequences empty | Similarity is `0`. | There is no data to compare. |
 | Incomplete trailing bases | Ignored. | Codon splitting requires three bases. |
+| Triplet with ambiguity code / non-nucleotide (`NNN`, `RYT`, `-GC`) | Skipped, frame preserved. | EMBOSS `ajCodSetTripletsS` contract; Biopython 64-codon table. |
+| Only ambiguous triplets (`NNNNNN`) in a comparison | Similarity `0` (no countable codon). | Same as empty input. |
 | DNA input | Converted to RNA notation before counting. | Internal normalization uses `T -> U`. |
 
 ### 6.2 Limitations
@@ -165,3 +167,5 @@ These methods operate only on direct codon counts and normalized frequency diffe
 3. Wikipedia contributors. 2026. Codon usage bias. Wikipedia. https://en.wikipedia.org/wiki/Codon_usage_bias
 4. Kazusa Codon Usage Database. 2026. https://www.kazusa.or.jp/codon/
 5. Test specification: [CODON-USAGE-001.md](../../../tests/TestSpecs/CODON-USAGE-001.md)
+6. EMBOSS source, `ajax/core/ajcod.c` (`ajCodSetTripletsS`, `ajCodCalcUsage`) and `emboss/cusp.c`. https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/ajax/core/ajcod.c
+7. Biopython 1.88, `Bio/SeqUtils/__init__.py`, class `CodonAdaptationIndex` (codon counting loop).

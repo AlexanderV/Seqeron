@@ -14,13 +14,13 @@ Codon Adaptation Index from a reference RSCU table.
 
 ## Description
 
-Computes CAI (Sharp & Li 1987) for a coding DNA sequence using a caller-supplied **reference RSCU** table (DNA-alphabet codons). Relative adaptiveness `w = RSCU(codon) / max RSCU(synonymous)`; CAI is the geometric mean of `w` over scored codons. Single-codon amino acids (Met, Trp), stop codons, and codons with `w = 0` are excluded from the mean.
+Computes CAI (Sharp & Li 1987) for a coding DNA sequence using a caller-supplied **reference RSCU** table (DNA-alphabet codons). Relative adaptiveness `w = RSCU(codon) / max RSCU(synonymous)`; CAI is the geometric mean of `w` over scored codons. Single-codon amino acids (Met, Trp) and stop codons are excluded from the mean; a codon with `w < 0.0001` (absent from the reference) is scored with `w = 0.01` (CodonW `cai_out`; Bulmer 1988) — it lowers CAI rather than being dropped. DNA or RNA input, case-insensitive; non-nucleotide triplets are skipped without shifting the frame.
 
 This differs from [cai_from_organism_table](cai_from_organism_table.md), which takes a codon-usage **frequency** table.
 
 ## Core Documentation Reference
 
-- Source: [CodonUsageAnalyzer.cs#L134](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L134)
+- Source: [CodonUsageAnalyzer.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs) `CalculateCai`
 
 ## Input Schema
 

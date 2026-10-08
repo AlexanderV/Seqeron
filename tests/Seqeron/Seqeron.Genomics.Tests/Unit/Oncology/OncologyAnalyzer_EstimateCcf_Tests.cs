@@ -228,7 +228,7 @@ public class OncologyAnalyzer_EstimateCcf_Tests
         Assert.Multiple(() =>
         {
             Assert.That(b.Centroids, Is.EqualTo(a.Centroids),
-                "Centroids are independent of input order (deterministic quantile seeding).");
+                "Centroids are independent of input order (optimal DP on the sorted data, no seeding).");
             // shuffled[1]=1.0 and shuffled[3]=0.96 are clonal -> cluster 1; shuffled[0]=0.48 -> cluster 0.
             Assert.That(b.Assignments[1], Is.EqualTo(1), "1.0 always lands in the high (clonal) cluster.");
             Assert.That(b.Assignments[0], Is.EqualTo(0), "0.48 always lands in the low cluster.");
@@ -329,5 +329,92 @@ public class OncologyAnalyzer_EstimateCcf_Tests
         });
     }
 
+    // B24 review 2026-09 (ONCO-CCF-001, F17): the k-means objective (minimum WCSS, Lloyd 1982) is solved exactly
+    // by the Ckmeans.1d.dp dynamic program (Wang & Song 2011, R Journal 3(2):29–33). The former Lloyd iteration
+    // with quantile seeding stopped in a local optimum here: centroids {0.4167, 0.97, 1.0}, WCSS 0.071867 — it
+    // merged the 0.2 minor subclone with the ~0.52 subclone and split the clonal cluster. Reference (Ckmeans.1d.dp
+    // C++ via ckwrap 1.2.3): centers {0.2, 0.525, 0.98}, labels {2,2,2,1,1,0}, WCSS 0.0020500000000000036.
+    [Test]
+    public void ClusterCcfValues_LloydLocalOptimumCase_ReturnsCkmeansGlobalOptimum()
+    {
+        var values = new[] { 1.0, 0.98, 0.96, 0.55, 0.50, 0.20 };
+
+        OncologyAnalyzer.CcfClustering result = OncologyAnalyzer.ClusterCcfValues(values, 3);
+
+        double wcss = values.Select((v, i) => Math.Pow(v - result.Centroids[result.Assignments[i]], 2)).Sum();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Centroids, Is.EqualTo(new[] { 0.2, 0.525, 0.98 }).Within(1e-12),
+                "Ckmeans.1d.dp optimum: minor subclone 0.2, subclone mean(0.55,0.50), clonal mean(1.0,0.98,0.96).");
+            Assert.That(result.Assignments, Is.EqualTo(new[] { 2, 2, 2, 1, 1, 0 }), "Ckmeans.1d.dp labels.");
+            Assert.That(result.ClonalClusterIndex, Is.EqualTo(2));
+            Assert.That(wcss, Is.EqualTo(0.00205).Within(1e-12), "Global minimum WCSS (Lloyd local optimum: 0.071867).");
+        });
+    }
+
+    // F17 second reference: {0.81,0.54,0.82,0.55,0.71,0.31}, k=3. Ckmeans.1d.dp: centers {0.31, 0.545, 0.78},
+    // labels {2,1,2,1,2,0}, WCSS 0.00745; former Lloyd: {0.4667, 0.71, 0.815}, WCSS 0.036917.
+    [Test]
+    public void ClusterCcfValues_UnsortedInput_MatchesCkmeansReference()
+    {
+        var values = new[] { 0.81, 0.54, 0.82, 0.55, 0.71, 0.31 };
+
+        OncologyAnalyzer.CcfClustering result = OncologyAnalyzer.ClusterCcfValues(values, 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Centroids, Is.EqualTo(new[] { 0.31, 0.545, 0.7799999999999999 }).Within(1e-12));
+            Assert.That(result.Assignments, Is.EqualTo(new[] { 2, 1, 2, 1, 2, 0 }));
+        });
+    }
+
+    // F17: Ckmeans.1d.dp sets Kmax = min(k, number of unique values) (R wrapper cluster.1d.dp and C++ kmeans_1d_dp),
+    // so every returned cluster is non-empty. The former code returned centroids {0.5, 0.5, 1.0} with an empty
+    // middle cluster.
+    [Test]
+    public void ClusterCcfValues_FewerDistinctValuesThanK_ReducesToDistinctCount()
+    {
+        var values = new[] { 0.5, 0.5, 0.5, 0.5, 1.0 };
+
+        OncologyAnalyzer.CcfClustering result = OncologyAnalyzer.ClusterCcfValues(values, 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Centroids, Is.EqualTo(new[] { 0.5, 1.0 }), "k reduced to the 2 distinct values.");
+            Assert.That(result.Assignments, Is.EqualTo(new[] { 0, 0, 0, 0, 1 }));
+            Assert.That(result.ClonalClusterIndex, Is.EqualTo(1));
+            Assert.That(OncologyAnalyzer.InferSubclones(result), Is.EqualTo(result.Centroids.Count),
+                "No empty clusters.");
+        });
+    }
+
+    // F17: the exact DP needs an effective-k × n backtrack matrix; above 10^8 cells the call is rejected up front
+    // instead of exhausting memory.
+    [Test]
+    public void ClusterCcfValues_DpMatrixAboveCellLimit_Throws()
+    {
+        double[] values = Enumerable.Range(0, 20_001).Select(i => i / 20_000.0).ToArray();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClusterCcfValues(values, 5_000));
+    }
+
     #endregion
+
+    // B24 review 2026-09 (ONCO-PURITY-001 dedup): EstimateCcf routes through the canonical CNAqc
+    // purity/copy-number correction AdjustVAFForPurity (n_mut = VAF·(ρ·N_T + 2(1−ρ))/ρ, McGranahan 2016),
+    // so RawCcf = n_mut / m exactly. Reference (Python, McGranahan 2016 formula):
+    // VAF 0.3, ρ 0.7, N_T 3, m 2 ⇒ n_mut = 0.3·2.7/0.7 = 1.157142857…, CCF = 0.578571428…
+    [Test]
+    public void EstimateCcf_RawCcf_EqualsCanonicalPurityCorrectionOverMultiplicity()
+    {
+        OncologyAnalyzer.CcfEstimate estimate = OncologyAnalyzer.EstimateCcf(0.3, 0.7, 3, 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(estimate.RawCcf, Is.EqualTo(OncologyAnalyzer.AdjustVAFForPurity(0.3, 0.7, 3) / 2));
+            Assert.That(estimate.RawCcf, Is.EqualTo(0.3 * 2.7 / 0.7 / 2.0).Within(1e-12));
+            Assert.That(OncologyAnalyzer.DeriveMultiplicity(0.3, 0.7, 3, 2), Is.EqualTo(1),
+                "n_mut = 1.157… rounds to multiplicity 1 (McGranahan 2016)");
+        });
+    }
 }

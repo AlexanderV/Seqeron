@@ -77,6 +77,56 @@ public class ApproximateMatcher_FindBestMatch_Tests
         });
     }
 
+    // BA1N — d-neighborhood through the public API: with a single window (text = pattern) every
+    // member of Neighbors(ACG, 1) has Count_1 = 1 and nothing else can be counted, so the tally
+    // returns exactly the published BA1N sample output (10 k-mers, identity included).
+    [Test]
+    [Description("BA1N sample: Neighbors(ACG,1) = {CCG TCG GCG AAG ATG AGG ACA ACC ACT ACG}")]
+    public void FrequentKmers_SingleWindow_ReturnsBa1nNeighborhood()
+    {
+        var result = ApproximateMatcher.FindFrequentKmersWithMismatches("ACG", 3, 1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Select(r => r.Kmer).OrderBy(s => s, StringComparer.Ordinal),
+                Is.EqualTo(new[] { "AAG", "ACA", "ACC", "ACG", "ACT", "AGG", "ATG", "CCG", "GCG", "TCG" }),
+                "ROSALIND BA1N sample output for Pattern=ACG, d=1 (10 neighbors, 1 + 3k)");
+            Assert.That(result.Select(r => r.Count), Is.All.EqualTo(1),
+                "Each neighbor of the single window is counted exactly once");
+        });
+    }
+
+    // Non-ACGT windows — BA1N defines Neighbors(Pattern, d) as the set of k-mers (over
+    // {A,C,G,T}) within Hamming distance d. The textbook recursion assumes an ACGT pattern: fed
+    // 'ANG' it emits ANA/ANC/ANT, which are not DNA k-mers. Expected values are the brute-force
+    // definition of BA1I (enumerate all 4^k DNA k-mers, Count_d by Hamming over every window),
+    // computed independently in Python.
+    [Test]
+    [Description("Windows with non-ACGT symbols contribute only DNA k-mers within Hamming distance d")]
+    public void FrequentKmers_NonAcgtWindows_ReturnOnlyDnaKmers_MatchesBruteForce()
+    {
+        var angang = ApproximateMatcher.FindFrequentKmersWithMismatches("ANGANG", 3, 1).ToList();
+        var nnnn = ApproximateMatcher.FindFrequentKmersWithMismatches("NNNN", 2, 1).ToList();
+        var ba1iWithN = ApproximateMatcher
+            .FindFrequentKmersWithMismatches("ACGTTNCATGTCGCATGATGCANGAGAGCT", 4, 1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(angang.Select(r => r.Kmer).OrderBy(s => s, StringComparer.Ordinal),
+                Is.EqualTo(new[] { "AAG", "ACG", "AGG", "ATG" }),
+                "Brute force BA1I on ANGANG, k=3, d=1: {AAG, ACG, AGG, ATG}");
+            Assert.That(angang.Select(r => r.Count), Is.All.EqualTo(2),
+                "Each of AAG/ACG/AGG/ATG is within 1 mismatch of both ANG windows");
+            Assert.That(nnnn, Is.Empty,
+                "No DNA 2-mer is within 1 mismatch of NN, so no k-mer has a positive Count_1");
+            Assert.That(ba1iWithN.Select(r => r.Kmer).OrderBy(s => s, StringComparer.Ordinal),
+                Is.EqualTo(new[] { "ATGA", "ATGT", "CATG" }),
+                "Brute force BA1I on the N-containing variant of the BA1I sample: {ATGA, ATGT, CATG}");
+            Assert.That(ba1iWithN.Select(r => r.Count), Is.All.EqualTo(4),
+                "Brute-force maximum Count_1 is 4");
+        });
+    }
+
     // C2 — invalid k or d.
     [Test]
     [Description("k <= 0 throws ArgumentOutOfRangeException")]
@@ -100,6 +150,57 @@ public class ApproximateMatcher_FindBestMatch_Tests
     {
         var result = ApproximateMatcher.FindFrequentKmersWithMismatches("", 4, 1).ToList();
         Assert.That(result, Is.Empty, "An empty sequence contains no k-mers");
+    }
+
+    #endregion
+
+    #region FindFrequentKmersWithMismatchesAndReverseComplements (BA1J)
+
+    // ROSALIND BA1J sample; other values from a Python brute force over all 4^k k-mers of
+    // Count_d(Text, P) + Count_d(Text, rc(P)) (review 2026-09 B05 follow-up).
+    [TestCase("ACGTTGCATGTCGCATGATGCATGAGAGCT", 4, 1, new[] { "ACAT", "ATGT" }, 9, TestName = "Ba1j_RosalindSample_ReturnsAtgtAcat")]
+    [TestCase("acgttgcatgtcgcatgatgcatgagagct", 4, 1, new[] { "ACAT", "ATGT" }, 9, TestName = "Ba1j_LowercaseSample_SameAsUppercase")]
+    [TestCase("ACGT", 4, 0, new[] { "ACGT" }, 2, TestName = "Ba1j_ReverseComplementPalindrome_CountedTwice")]
+    [TestCase("AAAAA", 2, 0, new[] { "AA", "TT" }, 4, TestName = "Ba1j_Homopolymer_ReturnsKmerAndReverseComplement")]
+    [TestCase("ACGTTNCATGTCGCATGATGCANGAGAGCT", 4, 1, new[] { "CATG" }, 8, TestName = "Ba1j_NonAcgtWindows_MatchesBruteForce")]
+    public void Ba1j_MatchesReference(string text, int k, int d, string[] expected, int score)
+    {
+        var result = ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements(text, k, d)
+            .OrderBy(r => r.Kmer, StringComparer.Ordinal).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Select(r => r.Kmer), Is.EqualTo(expected));
+            Assert.That(result.Select(r => r.Count), Is.All.EqualTo(score));
+        });
+    }
+
+    // go-rosalind rosalind/data/frequent_words_mismatch_complements.txt (BA1J extra dataset):
+    // gold output "AGCGCCGCT AGCGGCGCT"; score 22 from a numpy brute force over all 4^9 9-mers.
+    [Test]
+    public void Ba1j_GoRosalindExtraDataset_K9D3()
+    {
+        const string text = "CTTGCCGGCGCCGATTATACGATCGCGGCCGCTTGCCTTCTTTATAATGCATCGGCGCCGCGATCTTGCTATATACGTACGCTTCGCTTGCATCTTGCGCGCATTACGTACTTATCGATTACTTATCTTCGATGCCGGCCGGCATATGCCGCTTTAGCATCGATCGATCGTACTTTACGCGTATAGCCGCTTCGCTTGCCGTACGCGATGCTAGCATATGCTAGCGCTAATTACTTAT";
+
+        var result = ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements(text, 9, 3)
+            .OrderBy(r => r.Kmer, StringComparer.Ordinal).ToList();
+
+        Assert.That(result, Is.EqualTo(new[] { ("AGCGCCGCT", 22), ("AGCGGCGCT", 22) }));
+    }
+
+    [Test]
+    public void Ba1j_GuardsAndEmpty()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements("ACGT", 0, 1).ToList());
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements("ACGT", 2, -1).ToList());
+            Assert.That(ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements("", 4, 1), Is.Empty);
+            Assert.That(ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements("ACG", 4, 1), Is.Empty);
+            Assert.That(ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements("NNNN", 2, 1), Is.Empty);
+        });
     }
 
     #endregion

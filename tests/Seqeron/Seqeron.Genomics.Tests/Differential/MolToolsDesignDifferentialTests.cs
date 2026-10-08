@@ -41,14 +41,32 @@ public class MolToolsDesignDifferentialTests
         var noFilter = new GuideRnaParameters(0, 100, 0, false, false); // MinScore 0 -> keep every candidate
 
         var guides = CrisprDesigner.DesignGuideRnas(dna, regionStart, regionEnd, CrisprSystemType.SpCas9, noFilter)
-            .Select(g => (g.Sequence, g.Position, g.IsForwardStrand)).ToList();
+            .ToList();
 
-        // Independent oracle: PAM sites (validated in row 18) whose Cas9 cut (PAM.Position-3) is in region.
+        // Independent oracle: PAM sites (validated in row 18) whose SpCas9 blunt cut is in region.
+        // The cut lies 3 bp 5' of the PAM *on the PAM-bearing strand* (CRISPOR crispor.py: "the
+        // expected cleavage position located -3bp 5' of the PAM site"; its schematic draws the cut
+        // marker as `startFt = start - 3` on '+' and as `ftSeq + "---"` on '-'), so in forward
+        // coordinates it is Position-3 on the plus strand and Position+pamLen+2 on the minus strand.
+        // Transcribed here independently of CrisprDesigner.GetCutSite.
         var oracle = CrisprDesigner.FindPamSites(dna, CrisprSystemType.SpCas9)
-            .Where(p => { int cut = p.Position - 3; return cut >= regionStart && cut <= regionEnd; })
+            .Where(p =>
+            {
+                int cut = p.IsForwardStrand ? p.Position - 3 : p.Position + p.PamSequence.Length + 2;
+                return cut >= regionStart && cut <= regionEnd;
+            })
             .Select(p => (p.TargetSequence, p.TargetStart, p.IsForwardStrand)).ToList();
 
-        Assert.That(guides, Is.EqualTo(oracle));
+        Assert.That(oracle, Is.Not.Empty);
+        Assert.That(oracle.Any(o => !o.IsForwardStrand), Is.True,
+            "the oracle must cover reverse-strand guides (the strand whose cut frame was wrong)");
+        Assert.That(guides.Select(g => (g.Sequence, g.Position, g.IsForwardStrand)),
+            Is.EquivalentTo(oracle));
+
+        // DesignGuideRnas is documented (and CRISPOR's guide table is sorted) best-first; ties are
+        // broken by position and then forward strand first.
+        Assert.That(guides.Select(g => (g.Score, -g.Position, g.IsForwardStrand ? 1 : 0)),
+            Is.Ordered.Descending);
     }
 
     // ---- Row 20: CRISPR-OFF-001 — FindOffTargets vs brute Hamming over PAM targets ----
@@ -74,50 +92,81 @@ public class MolToolsDesignDifferentialTests
         Assert.That(actual.Any(o => o.Mismatches == 2), Is.True, "the planted 2-mismatch off-target is present");
     }
 
-    // ---- Row 22: PRIMER-DESIGN-001 — DesignPrimers selection vs independent enumeration + arg-max ----
+    // ---- Row 22: PRIMER-DESIGN-001 — DesignPrimers vs brute-force Primer3 pair search ----
 
     [Test]
     [Category("PRIMER-DESIGN-001")]
-    public void DesignPrimers_SelectsIndependentArgMaxCandidate()
+    public void DesignPrimers_MatchesBruteForcePrimer3PairSearch()
     {
+        // Random 160-mer (python random.seed(2026)); the earlier palindromic fixture admits no pair under
+        // Primer3's default thermodynamic structure limits (every candidate forms a > 47 °C hairpin/dimer).
         const string template =
-            "ACGTTGCAACGTTGCAACGTTGCAACGTTGCAACGTTGCAGGCCAATTGGCCAATTGGCCAATTACGTACGTACGTTGCAACGTTGCAACGTTGCAACGTTGCAACGTTGCA";
+            "AGACTTTCAAAGATATGCTGGGTAGAGGTCGAGGTTATTATTTGTTACCAATTCTCATTGTGTTTCGGAACTTGCGTTTTAGGTATGTCTTAGTGACTCTAAATACCAAGGCAGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCA";
         var dna = new DnaSequence(template);
-        int targetStart = 50, targetEnd = 62;
+        int targetStart = 70, targetEnd = 90;
         var param = PrimerDesigner.DefaultParameters;
 
         var result = PrimerDesigner.DesignPrimers(dna, targetStart, targetEnd, param);
 
-        // Independently re-derive the forward candidate enumeration + arg-max (same order, stable sort).
+        // Independent enumeration of all valid candidates on each side.
         var fwd = new List<PrimerCandidate>();
-        int fStart = Math.Max(0, targetStart - 200);
-        for (int start = fStart; start < targetStart; start++)
+        for (int start = Math.Max(0, targetStart - 200); start < targetStart; start++)
             for (int len = param.MinLength; len <= param.MaxLength && start + len <= targetStart; len++)
             {
                 var c = PrimerDesigner.EvaluatePrimer(template.Substring(start, len), start, true, param);
                 if (c.IsValid) fwd.Add(c);
             }
-        var bestFwd = fwd.OrderByDescending(c => c.Score).FirstOrDefault();
-
         var rev = new List<PrimerCandidate>();
         int rEnd = Math.Min(template.Length, targetEnd + 200);
         for (int end = targetEnd + param.MinLength; end <= rEnd; end++)
             for (int len = param.MinLength; len <= param.MaxLength && end - len >= targetEnd; len++)
             {
                 int start = end - len;
-                var rc = RevComp(template.Substring(start, len));
-                var c = PrimerDesigner.EvaluatePrimer(rc, start, false, param);
+                var c = PrimerDesigner.EvaluatePrimer(RevComp(template.Substring(start, len)), start, false, param);
                 if (c.IsValid) rev.Add(c);
             }
-        var bestRev = rev.OrderByDescending(c => c.Score).FirstOrDefault();
 
-        Assert.That(result.Forward?.Sequence, Is.EqualTo(bestFwd?.Sequence), "forward primer");
-        Assert.That(result.Forward?.Position, Is.EqualTo(bestFwd?.Position), "forward position");
-        Assert.That(result.Reverse?.Sequence, Is.EqualTo(bestRev?.Sequence), "reverse primer");
-        Assert.That(result.Reverse?.Position, Is.EqualTo(bestRev?.Position), "reverse position");
+        // Exhaustive Primer3 pair search: minimise left+right penalty over all pairs meeting the pair
+        // constraints; ties (1e-6) broken as libprimer3.cc compare_primer_pair.
+        (PrimerCandidate F, PrimerCandidate R, double Q)? best = null;
+        foreach (var f in fwd)
+            foreach (var r in rev)
+            {
+                double dTm = Math.Abs(PrimerDesigner.CalculateMeltingTemperaturePrimer3(f.Sequence)
+                                      - PrimerDesigner.CalculateMeltingTemperaturePrimer3(r.Sequence));
+                if (dTm > 5.0) continue;
+                double q = f.Penalty + r.Penalty;
+                if (best is not null && !Better(q, f, r, best.Value.Q, best.Value.F, best.Value.R))
+                    continue;
+                // Default screen: Primer3 PRIMER_PAIR_MAX_COMPL_ANY_TH / _COMPL_END_TH = 47 °C (ntthal);
+                // evaluated only for pairs that would improve on the current best (same optimum).
+                if (PrimerDesigner.CalculatePrimer3PairComplementarity(f.Sequence, r.Sequence)!.Value.Exceeds())
+                    continue;
+                best = (f, r, q);
+            }
 
-        if (bestFwd != null && bestRev != null)
-            Assert.That(result.ProductSize, Is.EqualTo(bestRev.Position + bestRev.Sequence.Length - bestFwd.Position));
+        Assert.That(best, Is.Not.Null, "fixture must admit a valid pair");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsValid, Is.True);
+            Assert.That(result.Forward?.Sequence, Is.EqualTo(best!.Value.F.Sequence), "forward primer");
+            Assert.That(result.Forward?.Position, Is.EqualTo(best.Value.F.Position), "forward position");
+            Assert.That(result.Reverse?.Sequence, Is.EqualTo(best.Value.R.Sequence), "reverse primer");
+            Assert.That(result.Reverse?.Position, Is.EqualTo(best.Value.R.Position), "reverse position");
+            Assert.That(result.ProductSize,
+                Is.EqualTo(best.Value.R.Position + best.Value.R.Length - best.Value.F.Position));
+        });
+
+        static bool Better(double q1, PrimerCandidate l1, PrimerCandidate r1, double q2, PrimerCandidate l2, PrimerCandidate r2)
+        {
+            if (q1 + 1e-6 < q2) return true;
+            if (q1 > q2 + 1e-6) return false;
+            if (l1.Position != l2.Position) return l1.Position > l2.Position;
+            int e1 = r1.Position + r1.Length, e2 = r2.Position + r2.Length;
+            if (e1 != e2) return e1 < e2;
+            if (l1.Length != l2.Length) return l1.Length < l2.Length;
+            return r1.Length < r2.Length;
+        }
     }
 
     // ---- Row 23: PRIMER-STRUCT-001 — HasHairpinPotential vs brute self-complementarity scan ----

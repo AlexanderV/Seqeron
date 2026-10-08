@@ -477,12 +477,13 @@ public class ApproximateMatcher_HammingDistance_Tests
 
         var matches = ApproximateMatcher.FindWithMismatches(genome, reference, 1).ToList();
 
-        // Verify we find exact matches
-        var exactMatches = matches.Where(m => m.Distance == 0).ToList();
-        Assert.That(exactMatches.Count, Is.GreaterThan(0), "Should find exact GATC matches");
-
-        // All matches should have distance 0 or 1
-        Assert.That(matches.All(m => m.Distance <= 1), Is.True);
+        // Brute-force Hamming reference (Python, 2026-09-28): only the four exact GATC
+        // sites at 4, 8, 12, 16 are within d <= 1; every other window differs in >= 2 positions.
+        Assert.Multiple(() =>
+        {
+            Assert.That(matches.Select(m => m.Position), Is.EqualTo(new[] { 4, 8, 12, 16 }));
+            Assert.That(matches.All(m => m.Distance == 0 && m.MismatchPositions.Count == 0), Is.True);
+        });
     }
 
     [Test]
@@ -494,11 +495,36 @@ public class ApproximateMatcher_HammingDistance_Tests
 
         var bindings = ApproximateMatcher.FindWithMismatches(template, primer, 1).ToList();
 
-        Assert.That(bindings.Count, Is.GreaterThan(0), "Should find binding sites");
+        // Brute-force Hamming reference (Python, 2026-09-28): the shifted frames TGCA/GCAT/CATG
+        // are at distance 4 from ATGC, so only the six in-frame exact sites qualify.
+        Assert.Multiple(() =>
+        {
+            Assert.That(bindings.Select(b => b.Position), Is.EqualTo(new[] { 0, 4, 8, 12, 16, 20 }));
+            Assert.That(bindings.All(b => b.IsExact), Is.True);
+        });
+    }
 
-        // Verify exact bindings exist
-        var exactBindings = bindings.Where(b => b.IsExact).ToList();
-        Assert.That(exactBindings.Count, Is.GreaterThan(0), "Should have exact binding sites");
+    [Test]
+    [Description("ROSALIND BA1H sample dataset: all approximate occurrences with d = 3")]
+    public void FindWithMismatches_RosalindBa1h_SampleDataset()
+    {
+        // Source: ROSALIND BA1H "Find All Approximate Occurrences of a Pattern in a String"
+        // (Compeau & Pevzner, Bioinformatics Algorithms ch.1), sample output "6 7 26 27 78".
+        // Distances / mismatch indices confirmed by a brute-force scipy-Hamming reference (2026-09-28).
+        const string text = "CGCCCGAATCCAGAACGCATTCCCATATTTCGGGACCACTGGCCTCCACGGTACGGACGTCAATCAAATGCCTAGCGGCTTGTGGTTTCTCCTACGCTCC";
+        var matches = ApproximateMatcher.FindWithMismatches(text, "ATTCTGGA", 3).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(matches.Select(m => m.Position), Is.EqualTo(new[] { 6, 7, 26, 27, 78 }));
+            Assert.That(matches.Select(m => m.Distance), Is.EqualTo(new[] { 3, 3, 3, 2, 3 }));
+            Assert.That(matches.Select(m => m.MatchedSequence),
+                Is.EqualTo(new[] { "AATCCAGA", "ATCCAGAA", "ATTTCGGG", "TTTCGGGA", "CTTGTGGT" }));
+            Assert.That(matches[0].MismatchPositions, Is.EqualTo(new[] { 1, 4, 5 }));
+            Assert.That(matches[3].MismatchPositions, Is.EqualTo(new[] { 0, 4 }));
+            Assert.That(matches[4].MismatchPositions, Is.EqualTo(new[] { 0, 3, 7 }));
+            Assert.That(ApproximateMatcher.CountApproximateOccurrences(text, "ATTCTGGA", 3), Is.EqualTo(5));
+        });
     }
 
     #endregion

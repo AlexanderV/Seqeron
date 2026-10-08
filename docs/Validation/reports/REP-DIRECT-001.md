@@ -1,67 +1,87 @@
 # Validation Report: REP-DIRECT-001 — Direct Repeat Detection
 
-- **Validated:** 2026-06-24   **Area:** Repeats
-- **Canonical method(s):** `RepeatFinder.FindDirectRepeats(DnaSequence, minLength=5, maxLength=50, minSpacing=1)` + `string` overload — `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:369-451` (core: `FindDirectRepeatsCore` at :416-451)
-- **Stage A verdict:** PASS
-- **Stage B verdict:** PASS
+- **Validated:** 2026-09-30 (review campaign 2026-09, batch B04: F11 + completeness audit WP2); first pass 2026-06-24 superseded
+- **Area:** Repeats
+- **Canonical method(s):** `RepeatFinder.FindDirectRepeats(DnaSequence|string, minLength=5, maxLength=50, minSpacing=1)` — `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:3660/3678` (core `FindDirectRepeatsCore` :3704, shared engine `EnumerateMaximalPairs` :3765; variants `FindReverseComplementRepeats` :3943, `FindApproximateDirectRepeats` :4108, `FindDegenerateRepeats` :4377, `FindSupermaximalRepeats` :4737)
+- **Variants (audit WP2):** `FindReverseComplementRepeats` (:2432/2450), `FindApproximateDirectRepeats` (:2578/2596), `FindSupermaximalRepeats` (:2792/2803)
+- **Variant (audit WP8, 2026-10-01):** `FindDegenerateRepeats(DnaSequence|string, minLength, maxDifferences, ApproximateRepeatDistance, reverseComplement, maxLength, minSpacing)` — Vmatch `-e k` / `-p -e k` / `-p -h k` / `-h k -allmax`
+- **Stage A verdict:** FAIL → corrected (the 2026-06 description accepted "every (i, j, len) window"; the reporting convention is now sourced: maximal repeated pairs)
+- **Stage B verdict:** FAIL → fixed (B04 F11); variants added and reference-verified (B04 audit WP2)
+- **State:** FIXED
 
 ## Stage A — Description
 
-### Sources opened & what they confirm
-- **Wikipedia — "Direct repeat"** (accessed 2026-06-24): "a direct repeat occurs when a sequence is repeated with the same pattern downstream. There is no inversion and no reverse complement associated with a direct repeat." Direct repeat = identical nucleotide sequences appearing multiple times in the **same orientation**, possibly with intervening nucleotides. Tandem = repeated copies that lie directly adjacent (zero spacer) and can be direct or inverted; thus *tandem* describes positioning, *direct* describes orientation.
-- **Wikipedia — "Repeated sequence (DNA)"** (accessed 2026-06-24): "Direct repeats occur when a nucleotide sequence is repeated with the same directionality" (e.g. CATCAT→CATCAT); "Inverted repeats occur when a nucleotide sequence is repeated in the inverse direction" (reverse complement); tandem = "directly adjacent"; interspersed = same/similar sequence at non-adjacent locations. Confirms the orientation distinction: direct ≠ inverted, and direct with spacer > 0 = interspersed.
-- **Ussery et al. (2009)** and **Richard (2021) PMC8145212** (cited in spec) — consistent with same-strand same-orientation definition and supply the disease-relevant CAG context (S5).
+### Sources opened
+- MUMmer 4 `src/tigr/repeat-match.cc` (raw GitHub; compiled and run): "identifies maximal exact repeat regions"; a pair is
+  reported only if left-maximal (`Data[i−1] ≠ Data[j−1]`) and right-maximal (full common prefix); `-f` = forward strand
+  only; without `-f` reverse-complement pairs are printed with `r` (Start2 = 1-based last base of copy 2, kept when `k ≥ i`).
+  `src/essaMEM/mummer.cpp` `-n`: "match only the characters a, c, g, or t".
+- Gusfield 1997 §7.12 (maximal pairs / maximal repeats), §7.12.1 + Theorem 7.12.4 (supermaximal repeats);
+  Abouelhoda, Kurtz & Ohlebusch 2004 (enhanced suffix arrays; lcp-interval traversal).
+- Kurtz & Schleiermacher 1999 and Kurtz et al. 2001 (REPuter: forward / palindromic, exact / k-mismatch repeats; seeds
+  of length ⌊ℓ/(k+1)⌋ extended by the maximum-error strategy); Vmatch 2.3.1 manual (Kurtz, ISC; `virtman.tex`
+  Appendix A: palindromic match with `i ≤ j`, k-mismatch match `d_H ≤ k`, maximal = not contained, supermaximal repeat;
+  wildcards always mismatch) and the Vmatch binaries.
+- Wikipedia "Direct repeat" / "Repeated sequence (DNA)" (orientation terminology; unchanged from the first pass).
 
 ### Definition / conventions confirmed
-- Direct repeat = the **same** subsequence occurring ≥ 2× on the **same strand**, **same orientation** (literal match, NOT reverse complement), separated by a spacer; spacer 0 = tandem direct repeat.
-- Parameters: min/max repeat-unit length, min spacer. Exact (perfect) matching — no mismatches allowed (spec lists no mismatch tolerance; the code matches literally).
-- Per pair: `FirstPosition`, `SecondPosition`, `RepeatSequence`, `Length`, `Spacing = SecondPosition − FirstPosition − Length`.
-- Coordinate base: **0-based**, matching the rest of the library and test expectations.
+- Direct repeat = same-orientation exact copies; reported as **maximal repeated pairs** `(i, j, L)`, `i < j`, 0-based,
+  `Spacing = j − i − L`; `minLength ≤ L ≤ maxLength` and `Spacing ≥ minSpacing` are filters on maximal pairs (no
+  truncation into sub-windows). Only A/C/G/T match; case-insensitive.
+- Reverse-complement pairs: `S[i..i+L) = revcomp(S[k..k+L))`, `i ≤ k`, maximal outward and inward; forward-strand
+  starts reported (repeat-match Start2 = k + L).
+- k-mismatch repeats: Hamming distance ≤ k, maximal on the diagonal (default; k = 0 ≡ maximal pairs) or, optionally,
+  not contained in any k-mismatch repeat on another diagonal (Vmatch's literal Appendix A reading, = `vmatch -h k -allmax`).
+- Supermaximal repeat: maximal repeat not a substring of another maximal repeat; one record per string with all occurrences.
 
-### Worked example (hand computed, independent)
-Designed direct repeat with a non-palindromic motif so orientation is unambiguous:
-`ATCGGG` + `NNNN`(4bp spacer) + `ATCGGG` = `ATCGGGNNNNATCGGG`. revcomp(`ATCGGG`) = `CCCGAT` ≠ `ATCGGG`, so a same-orientation literal match is a true *direct* repeat (not inverted). Copy1 at i=0, copy2 at j=10, len=6 → Spacing = 10 − 0 − 6 = **4**. Matches the `Spacing = j − i − len` formula.
-
-### Edge-case semantics
-No repeat → empty (M3); empty input → empty (M4); spacer 0 = tandem (M2); minSpacing filter excludes sub-threshold pairs (M13); short seq (< 2·minLength) → empty (M14); ≥3 copies → all pairwise pairs (S1). All defined and sourced.
-
-### Findings / divergences
-None. Description is biologically correct and consistent with authoritative sources; direct vs tandem vs inverted distinctions are exactly as the spec states.
+### Findings
+- The first-pass description ("every window of every length", hand-counted C1 = 14 hits for `AAAAAATTTTAAAAAA`) did not
+  match any reference tool: the maximal pairs are (0,10,6) (0,11,5) (0,12,4) (1,10,5) (2,10,4) (5 pairs). Corrected.
 
 ## Stage B — Implementation
 
-### Code path reviewed
-`FindDirectRepeatsCore` (`RepeatFinder.cs:416-451`): builds a suffix tree over the sequence; for each `len = minLength..maxLength` and each start `i ≤ seq.Length − 2·len − minSpacing`, extracts `repeat = seq[i..i+len]`, finds all literal occurrences `j` via `suffixTree.FindAllOccurrences(repeat)`, keeps `j` with `j > i + len − 1 + minSpacing` (⇔ `Spacing = j − i − len ≥ minSpacing`), dedups on `(i, j, len)`, and emits `DirectRepeatResult`.
+### Code path
+ACGT → 0..3, any other symbol a unique code (never matches); suffix array (prefix doubling) + Kasai LCP — shared
+`SequenceComplexity.BuildSuffixArray` / `BuildLcpArray`; bottom-up lcp-interval traversal with per-(strand,)
+left-character lists emitting exactly the maximal pairs (O(n log² n + z)); sorted output; eager validation.
+Variants: the same engine on `S · # · revcomp(S)` (cross-strand pairs only) for reverse-complement pairs; exact maximal
+pairs of length ⌊m/(k+1)⌋ as seeds + per-seed windows from the first k+1 mismatches each side (+ optional
+cross-diagonal containment filter by binary search) for k-mismatch repeats; LCP local maxima with left-diverse
+suffixes for supermaximal repeats.
 
-### Formula realised correctly?
-- **Same orientation, literal:** matches the literal substring — NOT a reverse complement. Distinct from `FindInvertedRepeats` (`:320` uses `DnaSequence.GetReverseComplementString`) and `FindPalindromes` (`:597`). Confirmed this is a true direct repeat.
-- **min/max unit length:** outer loop `len = minLength..maxLength` enforces both bounds; validation throws for `minLength < 2` and `maxLength < minLength` (both DnaSequence and string overloads).
-- **min spacer:** filter `p > i + len − 1 + minSpacing` ⇔ `Spacing ≥ minSpacing`; `minSpacing = 0` admits tandem pairs; `minSpacing ≥ 1` excludes self/overlapping occurrences.
-- **Coordinates:** 0-based; `Spacing = j − i − len`.
-- **Outer bound** `i ≤ seq.Length − 2·len − minSpacing` is exactly the largest `i` admitting a valid second copy; drops no reachable repeat.
+### Defects found and fixed (B04 F11)
+1. Every nested `(i, j, len)` window reported — O(L²) hits per repeat (`AAAAAATTTTAAAAAA`, 4–6 → 14 instead of 5;
+   snapshot `ACGTACGTTTTTTTTTACGTACGT` → 20 instead of 4).
+2. Negative `minSpacing` produced self-pairs (i, i).
+3. N / non-ACGT runs reported as repeats.
+4. O(r · n · (m + k)) per-window `Substring` + suffix-tree lookup.
 
-### Cross-verification table recomputed vs code (21 tests run, all pass)
-| Case | Input | Params | Expected (hand) | Code |
-|------|-------|--------|-----------------|------|
-| M1 | ACGTATTTTACGTA | 5,10,1 | (0,9) len5 spacing4 | match |
-| M2 | ACGTAACGTA | 5,10,0 | (0,5) spacing0 | match |
-| M13 | ACGTAACGTA | 5,10,1 | empty (tandem filtered) | match |
-| S1 | ACGTATTACGTATTACGTA | 5,5,1 | (0,7),(0,14),(7,14) | match |
-| S4 | CCCGGGCCC+20bp+CCCGGGCCC | 9,9,1 | 1 pair, spacing20 | match |
-| C1 | AAAAAATTTTAAAAAA | 4,6,1 | 9+4+1 = 14 pairs | match |
-| (own) | ATCGGGNNNNATCGGG | 6,6,1 | (0,10) len6 spacing4 | match (formula) |
+### Cross-verification (all 0 mismatches; details in `docs/Evidence/REP-DIRECT-001-Evidence.md`)
+| Method | Reference | Cases |
+|---|---|---|
+| `FindDirectRepeats` | `repeat-match -f` (compiled) | 2 000 × 1–200 bp, 200 × ≤ 5 kb (12.8 M pairs), 50 kb–1 Mb; re-run after the WP2 engine refactor: 2 000 (223 155 pairs) |
+| `FindDirectRepeats` | brute force (N/IUPAC/lowercase, ±int limits) | 8 000 (373 960 pairs) |
+| `FindReverseComplementRepeats` | `repeat-match` (no `-f`) | 3 000 + 100 × ≤ 5 kb (6.6 M pairs) with an `N` sentinel; without it the only differences are repeat-match's shared-`$` leaf loss (31 cases, classified) |
+| `FindReverseComplementRepeats` | `vmatch -p`; brute force | 2 000 (186 444 pairs); 3 000 |
+| `FindApproximateDirectRepeats` | brute force (both modes); `vmatch -h k -allmax` | 3 000; 3 040 (1.09 M repeats) |
+| `FindSupermaximalRepeats` | `vmatch -supermax`; brute force | 3 060 (38 434 pairs); 3 000 |
+| `FindDegenerateRepeats` (4 modes) | brute force of Vmatch App. A; Vmatch 2.3.1 built from source with the left-extension seed shortcut disabled; stock Vmatch | 6 000 (78 507 repeats): 0 / 0; + 800 × 100–1 500 bp (534 587 repeats) and 1 Mb (2 333): 0 vs shortcut-free Vmatch; stock Vmatch differs only for edit mode (71 cases), only through the shortcut |
+| `FindDegenerateRepeats(…, reporting, vmatchCompatible)` (WP15: `BestPerSeed` = Vmatch default without `-allmax`; `vmatchCompatible` = stock shortcut + first-seed distance label) | stock `vmatch` (compatible) / source build with `VM_NOPRUNE` + `VM_NOPRUNE_H` (complete), 16 configurations, multiset rows | 6 000 × 8–50 bp (1 423 142 rows) + 2 000 Hamming k ≤ 4 (233 692) + 300 × 100–1 500 bp (2 338 723) + 1 Mb / 200 kb (19 166): 0, except the documented default-mode distance label (1 case, finding 3 of Evidence §WP15) |
 
-C1 recomputed: len4 {0,1,2}×{10,11,12}=9 (min spacing 10−2−4=4 ≥ 1); len5 {0,1}×{10,11}=4; len6 {0}×{10}=1; total 14. Agrees with code/test.
+Locked values: `AAAAAATTTTAAAAAA` 4–6 → the 5 pairs above; `ACGTACGTTTTTTTTTACGTACGT` min 4 → (0,16,8) (0,20,4)
+(3,15,5) (7,12,4) at spacing ≥ 1; RC `AAAAAAAACGTTGCAACGTAAAA` min 3 → (6,6,6) (7,7,12) (15,15,4) (repeat-match
+`7 12r 6`, `8 19r 12`, `16 19r 4`); k-mismatch (0,21,17, 2 mm) (vmatch -h 2); supermaximal `CAGCAG` @ 0,3,12.
 
-### Variant/delegate consistency
-String overload normalises via `ToUpperInvariant()` then calls the same core; validation hoisted into an eager wrapper so exceptions surface at call time. S2 asserts identical results vs the DnaSequence overload; S3 confirms case-insensitivity. Consistent.
-
-### Test quality audit
-21 canonical tests (14 MUST, 5 SHOULD, 2 COULD). Assertions check exact sourced positions, lengths, spacings, and pair counts (not mere no-throw). Edge cases — empty, no-repeat, tandem, min/max length, min spacing, multi-copy, overlap, large — all covered. M5–M7 lock parameter validation.
-
-### Findings / defects
-None. Code faithfully realises the validated definition; direct repeats are distinguished from inverted (revcomp) and tandem (spacer) correctly.
+### Tests
+`RepeatFinder_DirectRepeat_Tests` (re-locked to repeat-match), `RepeatFinder_RepeatVariants_Tests` (new, 21),
+`RepeatFinder_DegenerateRepeats_Tests` (WP8, 12: Vmatch-locked lists, brute force of the definition in all 4 modes),
+differential / combinatorial / snapshot / fuzz / property tests (F11), heavy tier `RepDirectVariantsProperties`
+(3 brute-force oracles), `RepDirectVariantsMetamorphicTests` (5 relations), `RepDirectVariantsFuzzTests` (5);
+MCP `FindDirectRepeatsTests`.
 
 ## Verdict & follow-ups
-- Stage A: PASS. Stage B: PASS. **State: CLEAN** — no defects.
-- 21 DirectRepeat tests pass. No code or test changes required.
+- Stage A: FAIL → corrected. Stage B: FAIL → fixed. **State: FIXED**; variants implemented and reference-identical.
+- MCP: `find_direct_repeats` delegates to `FindDirectRepeats`. ~~The three variants are C# API only~~ — resolved by B04 F49:
+  `find_reverse_complement_repeats`, `find_approximate_direct_repeats`, `find_degenerate_repeats`, `find_supermaximal_repeats`
+  (Analysis server, delegating; tool counts updated additively).
+- ~~REPuter/Vmatch k-differences (edit-distance, `vmatch -e`) repeats are not provided (Hamming only).~~ Implemented in WP8 (`FindDegenerateRepeats`, B04 F47), incl. approximate palindromic repeats (`-p -h`, `-p -e`); Vmatch's left-extension seed shortcut (incomplete for edit matches) is documented and, since WP15 (B04 F59), reproducible on request (`vmatchCompatible`); Vmatch's default best-per-seed output is `DegenerateRepeatReporting.BestPerSeed` (F58). Tests `RepeatFinder_VmatchReporting_Tests` (10) + 2 MCP.

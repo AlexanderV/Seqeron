@@ -266,4 +266,68 @@ public class SequenceStatistics_CalculateEntropyProfile_Tests
     }
 
     #endregion
+
+    #region Reference cross-checks (B03 review 2026-09, F18/D7)
+
+    // scipy 1.17.1 stats.entropy(counts, base=2) (= scikit-bio 0.7.4 shannon(counts, base=2)) over the
+    // upper-cased letter counts of each window: N is its own symbol (ACGTN → log2 5), U ≠ T.
+    [Test]
+    public void CalculateEntropyProfile_NucleotidesWithN_MatchesScipyEntropyBase2()
+    {
+        var profile = SequenceStatistics.CalculateEntropyProfile("ACGTNNacgu", 5, 1).ToArray();
+        Assert.That(profile, Is.EqualTo(new[] { 2.3219280948873626, 1.9219280948873625, 1.9219280948873625,
+            1.9219280948873625, 1.9219280948873625, 2.3219280948873626 }).Within(1e-14));
+    }
+
+    // Protein windows (W 8, step 4), scipy.stats.entropy(base=2) and skbio shannon(base=2) identical.
+    [Test]
+    public void CalculateEntropyProfile_Protein_MatchesScipyAndScikitBio()
+    {
+        var profile = SequenceStatistics.CalculateEntropyProfile("MKWVTFISLLLLFSSAYSRGVFRR", 8, 4).ToArray();
+        Assert.That(profile, Is.EqualTo(new[] { 3.0, 2.0, 1.75, 2.4056390622295667, 2.4056390622295667 }).Within(1e-14));
+    }
+
+    // Polluted 60-mer (gaps excluded, N counted), W 10, step 7; partial trailing window not reported.
+    [Test]
+    public void CalculateEntropyProfile_PollutedSequence_MatchesScipyEntropyBase2()
+    {
+        var profile = SequenceStatistics.CalculateEntropyProfile("cGgACNCc-ANTACggCTCNgA-CT-A--gATANGagGNC-aNGC--TcCNC-A-TtNgc", 10, 7).ToArray();
+        Assert.That(profile, Is.EqualTo(new[] { 1.8365916681089793, 2.1971597234241496, 2.1132833342948754,
+            1.7924812503605778, 1.7527152789797051, 1.974937501201927, 1.75, 2.25 }).Within(1e-14));
+    }
+
+    // D7 — kernel delegates to canonical StatisticsHelper.ShannonIndex (ln) / ln 2, exactly scipy's
+    // computation; within 1e-12 of the former direct −Σ p·log2 p kernel on 2000 random inputs.
+    [Test]
+    public void CalculateShannonEntropy_EqualsCanonicalShannonIndexInBits()
+    {
+        var rng = new Random(20260928);
+        const string alphabet = "ACGTUacgtuNnRYSWMKLIVF-* .1";
+        for (int iter = 0; iter < 2000; iter++)
+        {
+            var s = new string(Enumerable.Range(0, rng.Next(0, 120)).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray());
+            var counts = s.ToUpperInvariant().Where(char.IsLetter).GroupBy(c => c).Select(g => g.Count()).ToArray();
+            double former = 0;
+            int total = counts.Sum();
+            foreach (int c in counts) { double p = (double)c / total; former -= p * Math.Log2(p); }
+            double canonical = total == 0 ? 0 : StatisticsHelper.ShannonIndex(counts) / Math.Log(2.0);
+
+            double h = SequenceStatistics.CalculateShannonEntropy(s);
+            Assert.That(h, Is.EqualTo(canonical), s);
+            Assert.That(h, Is.EqualTo(former).Within(1e-12), s);
+        }
+    }
+
+    // F18 — window/step below 1 rejected eagerly (step 0 previously never terminated).
+    [TestCase(0, 1)]
+    [TestCase(-5, 1)]
+    [TestCase(4, 0)]
+    [TestCase(4, -1)]
+    public void CalculateEntropyProfile_WindowOrStepBelowOne_Throws(int windowSize, int stepSize)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SequenceStatistics.CalculateEntropyProfile("ACGTACGT", windowSize, stepSize));
+    }
+
+    #endregion
 }

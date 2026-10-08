@@ -110,7 +110,7 @@ In the repository's 0-based per-position model, a SNP at a single mismatched ind
 
 ## Assumptions
 
-1. **ASSUMPTION: Unequal-length inputs to `FindSnpsDirect` compare only the common prefix.** The Hamming distance is defined for equal-length strings only (PMC5410656). The repository contract iterates `min(reference.Length, query.Length)` and reports substitutions over the common prefix; the trailing region of the longer input is not reported as a SNP (it is indel territory, handled by VARIANT-INDEL-001). No source mandates substitution semantics beyond the common length, so this prefix behavior is the documented contract, not a defect. Tests assert it explicitly.
+1. **(Retired 2026-09-28) Unequal-length inputs.** The former common-prefix contract was replaced: the Hamming mismatch set is defined only for equal-length strings (PMC5410656), and reference implementations reject unequal lengths — SciPy 1.17.1 `scipy.spatial.distance.hamming(list("ATGCATGC"), list("ATG"))` → `ValueError: The 1d arrays must have equal lengths.`; scikit-bio 0.7.4 `DNA("ATGCATGC").mismatches(DNA("ATG"))` → `ValueError`. `FindSnpsDirect` now throws `ArgumentException` (consistent with `CallVariantsFromAlignment`).
 2. **ASSUMPTION: 0-based `Position` in the in-memory `Variant`.** The VCF serialization is 1-based (spec field POS), but the in-memory `Variant.Position` reported by the detector is 0-based; VCF 1-based POS is produced only by `ToVcfLines` (out of scope here). This matches the existing sibling contract (VARIANT-CALL-001) and is internally consistent. Not a source-governed value for the in-memory model.
 
 ---
@@ -137,6 +137,14 @@ In the repository's 0-based per-position model, a SNP at a single mismatched ind
 
 ---
 
+## Reference cross-checks (2026-09-28, campaign B21)
+
+- **Case-insensitivity** — VCFv4.3.tex (raw.githubusercontent.com/samtools/hts-specs) l.339 "REF … Each base must be one of A,C,G,T,N (case insensitive)", l.350 ALT same. bcftools norm `-c e` (pysam 0.24.1) on FASTA `acgtACGTAC`: record REF=C ALT=c → "Duplicate alleles at chr1:2"; REF=g ALT=T accepted. scikit-bio 0.7.4: `DNA("aCGT", lowercase=True).distance(DNA("ACGT"))` = 0.0.
+- **Gap is not a base** — VCFv4.3 l.350 ALT alphabet A,C,G,T,N, `*`, `.`, symbolic; `-` is not allowed, so a gap column cannot be a SNP.
+- **CalculateStatistics** — bcftools stats (pysam 0.24.1) on SNPs c:1 A>G, c:6 C>T, c:11 G>T (ref `ACGTACGTACGTACGTACGT`): number of SNPs 3, indels 0, TSTV ts=2 tv=1 ts/tv=2.00.
+- **Ti/Tv with ambiguous bases** — bcftools stats (pysam 0.24.1) on records A>N and C>T: number of SNPs 2, TSTV ts=1 tv=0 ts/tv=0.00 — a change involving N is neither a transition nor a transversion (`ClassifyMutation` → Other).
+
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-09-28**: Retired common-prefix assumption; added case/gap/stats cross-checks (B21 review).

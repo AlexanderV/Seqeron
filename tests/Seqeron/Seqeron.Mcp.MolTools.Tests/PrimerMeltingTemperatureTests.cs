@@ -30,4 +30,11 @@ public class PrimerMeltingTemperatureTests
                 Is.EqualTo(64.9 + 41.0 * (20 - 16.4) / 20.0).Within(1e-9));
         });
     }
+
+    [Test]
+    public void PrimerMeltingTemperature_RnaUracil_ReadAsThymine()
+    {
+        // Biopython Tm_Wallace("ACGUACGU") = 24.0 (MeltingTemp._check back-transcribes U → T).
+        Assert.That(MolToolsTools.primer_melting_temperature("ACGUACGU").Tm, Is.EqualTo(24.0).Within(1e-9));
+    }
 }

@@ -3,10 +3,10 @@
 | Field | Value |
 |-------|-------|
 | Algorithm Group | MolTools / Nucleic-acid thermodynamics |
-| Test Unit ID | PRIMER-TM-001 (self-/hetero-dimer extension) |
+| Test Unit ID | PRIMER-TM-001 (self-/hetero-dimer extension); PRIMER-DIMER-001 (ntthal dimer engine) |
 | Related Projects | Seqeron.Genomics.MolTools |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-06-25 |
+| Implementation Status | Complete (full ntthal DP; `FindMostStableDimer` = separate contiguous-helix scorer) |
+| Last Reviewed | 2026-10-01 |
 
 ## 1. Overview
 
@@ -59,7 +59,7 @@ The most stable duplex is the contiguous WC run (over all antiparallel offsets) 
 |----|-----------|---------------|
 | INV-01 | ΔH° is salt-independent and equals init + Σ stacks + A·T penalty | Salt enters only ΔS° (Eq. 5) [1] |
 | INV-02 | x = 1 iff both oligos are reverse-complement palindromes, else x = 4 | ntthal `symmetry_thermo` + RC branch [3] |
-| INV-03 | No WC duplex of ≥ 2 bp ⇒ no result (null / NaN) | A duplex needs ≥ 1 NN stack [2] |
+| INV-03 | `FindMostStableDimer`: no WC duplex of ≥ 2 bp ⇒ `null`. Full ntthal DP / Tm methods: `null` / `NaN` only when ntthal finds no structure (no terminal pair can close); weak structures (even a single pair, e.g. A/T) are reported with their — possibly negative — Tm and possibly positive ΔG, exactly as primer3-py | thal.c reports any finite optimum [3] |
 | INV-04 | Lower [Na⁺] strictly lowers Tm for a fixed duplex | 0.368·(L−1)·ln[Na⁺] makes ΔS° more negative [1] |
 
 ### 2.5 Comparison with Related Methods
@@ -75,9 +75,13 @@ The most stable duplex is the contiguous WC run (over all antiparallel offsets) 
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| strand1 / strand2 | string | required | DNA oligos (5'→3'); same string twice ⇒ self-dimer | ≥ 2 ACGT bases, case-insensitive |
-| sodiumMolar | double | 0.05 (50 mM) | [Na⁺] in mol/L; only the entropy salt term depends on it | > 0 |
+| strand1 / strand2 | string | required | DNA oligos (5'→3'); same string twice ⇒ self-dimer | ACGT, case-insensitive; at least one ≤ 60 nt and both ≤ 10 000 nt (thal.c `THAL_MAX_ALIGN`/`THAL_MAX_SEQ`, else `ArgumentException`) |
+| mode | `NtthalAlignmentMode` | Any | ntthal alignment type: Any (`calc_heterodimer`), End1 (`calc_end_stability(s1, s2)`), End2 (= End1 with the strands swapped) | — |
+| sodiumMolar | double | 0.05 (50 mM) | monovalent cations, mol/L | > 0 |
+| divalentMolar / dntpMolar | double | 0 / 0 (4-argument overloads); 1.5 mM / 0.6 mM (`CalculateDimerStructureNtthal`) | Mg²⁺ / dNTP, mol/L; enter only `saltCorrectS` = 0.368·ln((mv + 120·√max(0, dv − dntp))/1000) | ≥ 0 |
 | strandConcentrationMolar | double | 50e-9 (50 nM) | total strand concentration C_T (Primer3/ntthal convention) | > 0 |
+| temperatureCelsius | double | 37 | primer3-py `temp_c`: ΔG reported at this temperature (ΔG = ΔH − (temp_c + 273.15)·ΔS); the DP ranking and Tm do not depend on it | — |
+| maxLoop | int | 30 | primer3-py `max_loop`: largest internal loop / bulge | 0–30, else `ArgumentOutOfRangeException` |
 
 ### 3.2 Output / Return Value
 
@@ -87,6 +91,8 @@ The most stable duplex is the contiguous WC run (over all antiparallel offsets) 
 | `DimerResult.BasePairs` | int | contiguous Watson-Crick base pairs in the duplex |
 | `DimerResult.DeltaH` / `DeltaS` / `DeltaG37` | double | ΔH° (kcal/mol), ΔS° (cal/(K·mol), salt-corrected), ΔG°37 (kcal/mol) |
 | Tm methods | double | bimolecular Tm in °C, or `NaN` if no dimer / invalid input |
+| `DimerThermodynamics` | record | ΔH° (kcal/mol), ΔS° (cal/(K·mol), salt-corrected), ΔG (kcal/mol, at `temperatureCelsius`), Tm (°C), paired bases |
+| `NtthalDimerStructure.AsciiStructureLines` | string[4] | thal.c `drawDimer` duplex = primer3-py `ascii_structure_lines` |
 
 ### 3.3 Preconditions and Validation
 
@@ -126,6 +132,9 @@ from SantaLucia & Hicks (2004) Table 1 [1], cross-checked against Primer3 `thal.
 - `PrimerDesigner.FindMostStableDimer(strand1, strand2, sodiumMolar, strandConcentrationMolar)`: the thermodynamic alignment; returns `DimerResult?`.
 - `PrimerDesigner.CalculateDimerMeltingTemperature(strand1, strand2, sodiumMolar, strandConcentrationMolar)`: bimolecular Tm of the most stable dimer.
 - `PrimerDesigner.CalculateSelfDimerMeltingTemperature(sequence, sodiumMolar, strandConcentrationMolar)`: self-dimer convenience wrapper.
+- `PrimerDesigner.CalculateDimerThermodynamicsNtthal(...)`: the full ntthal DP — monovalent-only overload, `(mode, mv, dv, dntp, C_T)` overload and `(…, temperatureCelsius, maxLoop)` overload (= primer3-py `calc_heterodimer` / `calc_homodimer` / `calc_end_stability` with every argument).
+- `PrimerDesigner.CalculateDimerStructureNtthal(...)`: as above plus the ASCII duplex (`output_structure=True`).
+- `NtthalDimer.Run` (internal engine, [NtthalDimer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/NtthalDimer.cs)), also used by Primer3's thermodynamic structure screen (`CalculatePrimer3OligoStructure`, `CalculatePrimer3PairComplementarity`, `DesignPrimers`).
 
 ### 5.2 Current Behavior
 
@@ -144,14 +153,15 @@ made: the repository suffix tree was **not** used — dimer scoring is an O(n·m
 - The Primer3/`ntthal` most-stable (highest-Tm) selection over antiparallel offsets [2][3]; reproduces primer3-py 2.3.0 ΔH°/ΔS°/Tm to machine precision for every pair whose optimum is a contiguous WC duplex (GCGCGCGC, ACGTACGTACGT, ATCGATCGATCG/CGATCGATCGAT, CGATCGATCG, GCATGC, GGGGCCCC, TGCATGCATG/CATGCATGCA).
 - **The full `ntthal` dimer DP (mode ANY)** — `CalculateDimerThermodynamicsNtthal` (a verbatim port of `thal.c`: `fillMatrix`/`LSH`/`RSH`/`maxTM`/`calc_bulge_internal`/`traceback`/`calcDimer`) [2][3], with the `tstack2` terminal-stacking table, the `stackmm` internal-mismatch table, the `tstack` internal-loop terminal table, the 5′/3′ `dangle` tables and the interior/bulge loop-length parameters (all verbatim from `primer3_config/*.dh,*.ds`). It scores matched stacks, single internal mismatches, internal loops, single/multi-base bulges and terminal overhangs/dangling ends, and reproduces primer3-py 2.3.0 ΔH°/ΔS°/ΔG°/Tm to machine precision for **non-contiguous** optima (GCGCATGCGC internal loop; GCGCAAAGCGC/GCGCTTTGCGC 3×3 loop; GCGCGCGC/GCGCAGCGC bulge; GCGCGCAAAA/AAAAGCGCGC overhang) as well as all contiguous cases. `CalculateDimerMeltingTemperature`/`CalculateSelfDimerMeltingTemperature` delegate to it.
 
-**Intentionally simplified:**
+- **Bit-faithful to primer3-py 2.3.1 `thal.c`** (PRIMER-DIMER-001, 2026-10-01): all alignment types (ANY/END1/END2), the full ntthal salt term (mv, dv, dntp), `temp_c`, `max_loop`, the THAL_MAX_ALIGN/THAL_MAX_SEQ limits and the `drawDimer` ASCII structure. Validated on 8000 random pairs (5–60 nt, incl. self-complementary, GC-rich, homopolymer runs; default and random mv/dv/dntp/dna_conc/temp_c/max_loop): max |ΔTm| = 0, max |ΔG| < 1e-11 cal/mol; ASCII structure identical on 1034 ANY pairs.
 
-- Salt: only the Eq. 5 monovalent entropy correction (0.368) is applied in the dimer ΔS°; divalent (Mg²⁺) is not modelled here (use `CalculateMeltingTemperatureNN(..., Owczarzy2008Divalent)` for monomer divalent Tm). **Consequence:** dimer Tm is reported at the monovalent reference only.
+**Separate model (kept by design):**
+
 - `FindMostStableDimer` (the public `DimerResult` record) keeps its original gapless contiguous-WC scorer for its `BasePairs`/spans/ΔH°/ΔS° fields; the loop/bulge/overhang model is exposed through `CalculateDimerThermodynamicsNtthal` and the Tm methods.
 
 **Not implemented:**
 
-- The optional caller-supplied tri/tetraloop & terminal-mismatch hairpin **special-loop bonus tables** (`triloop`/`tetraloop`) — a hairpin/monomer feature of `ntthal`, not part of the dimer model. **Users should rely on:** Primer3/`ntthal` directly if those hairpin bonuses are needed.
+- Nothing of the ntthal dimer model. (The tri/tetraloop bonus tables are a hairpin/monomer feature, applied by the ntthal hairpin engine `CalculateHairpinThermodynamicsNtthal`.)
 
 ### 5.4 Deviations and Assumptions
 
@@ -174,9 +184,8 @@ made: the repository suffix tree was **not** used — dimer scoring is an O(n·m
 
 The full `CalculateDimerThermodynamicsNtthal` DP models internal mismatches/loops, bulges and
 terminal overhangs at full ntthal parity; the legacy `FindMostStableDimer` record reports the
-contiguous-WC optimum only. Both are monovalent-salt, two-state. For divalent buffers use the
-monomer divalent Tm path; the only ntthal capability not ported is the optional tri/tetraloop &
-terminal-mismatch hairpin bonus tables (a hairpin/monomer feature).
+contiguous-WC optimum only (monovalent salt). Two-state model. Non-ACGT input is rejected (`null` /
+`NaN`), whereas thal.c maps any other character to N (no pairing).
 
 ## 7. Examples and Related Material
 
@@ -209,9 +218,10 @@ palindrome ⇒ x = 1; Tm = −70800/(−192.617 + 1.9872·ln(50e-9/1)) − 273.1
 | Date | Version | Changes |
 |------|---------|---------|
 | 2026-06-25 | 1.0 | Initial self-/hetero-dimer Tm via thermodynamic alignment |
+| 2026-10-01 | 1.1 | PRIMER-DIMER-001: LSH/RSH terminal selection fixed to thal.c (≈1.4 % of random dimers were off); temp_c / max_loop / ASCII structure / thal length limits added; divalent salt (PRIMER-STRUCT-001) documented |
 
 ## 8. References
 
 1. SantaLucia J, Hicks D. 2004. A unified view of polymer, dumbbell, and oligonucleotide DNA nearest-neighbor thermodynamics. Annu Rev Biophys Biomol Struct 33:415-440. https://doi.org/10.1146/annurev.biophys.32.110601.141800
 2. Untergasser A, Cutcutache I, Koressaar T, Ye J, Faircloth BC, Remm M, Rozen SG. 2012. Primer3 — new capabilities and interfaces. Nucleic Acids Res 40(15):e115. https://doi.org/10.1093/nar/gks596
-3. Primer3 `thal.c` (ntthal), primer3-py vendored libprimer3. https://raw.githubusercontent.com/libnano/primer3-py/master/primer3/src/libprimer3/thal.c
+3. Primer3 `thal.c` (ntthal), primer3-py vendored libprimer3 (v2.3.1). https://raw.githubusercontent.com/libnano/primer3-py/v2.3.1/primer3/src/libprimer3/thal.c

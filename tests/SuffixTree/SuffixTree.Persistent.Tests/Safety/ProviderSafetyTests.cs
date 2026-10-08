@@ -192,24 +192,47 @@ public class ProviderSafetyTests
     {
         var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 128);
         p.Allocate(64);
+        p.WriteInt32(60, 0x5EED);
         long sizeBefore = p.Size;
         Assert.That(sizeBefore, Is.EqualTo(64));
 
-        // Make file read-only so EnsureCapacity's FileStream(ReadWrite) will fail
-        File.SetAttributes(_tempFile, FileAttributes.ReadOnly);
-        try
-        {
-            // Allocate 128 more bytes (total 192 > capacity 128) → forces EnsureCapacity → fails
-            Assert.Catch(() => p.Allocate(128));
+        // Inject a deterministic OS-level resize failure. (A read-only file attribute is not
+        // reliable: a process with CAP_DAC_OVERRIDE, e.g. root in a container, can still open
+        // the file for writing, so the expansion would silently succeed.)
+        p.ResizeFaultInjector = _ => throw new IOException("Injected resize failure");
 
-            // Critical: _position must not have been incremented before the failure
-            Assert.That(p.Size, Is.EqualTo(sizeBefore),
-                "S16: Failed Allocate must not corrupt _position");
-        }
-        finally
-        {
-            File.SetAttributes(_tempFile, FileAttributes.Normal);
-        }
+        // Allocate 128 more bytes (total 192 > capacity 128) → forces EnsureCapacity → fails
+        Assert.Throws<IOException>(() => p.Allocate(128));
+
+        // Critical: _position must not have been incremented before the failure
+        Assert.That(p.Size, Is.EqualTo(sizeBefore),
+            "S16: Failed Allocate must not corrupt _position");
+
+        // The old mapping is restored: existing data is readable and growth works once the fault clears.
+        Assert.That(p.ReadInt32(60), Is.EqualTo(0x5EED));
+        p.ResizeFaultInjector = null;
+        Assert.That(p.Allocate(128), Is.EqualTo(64));
+        Assert.That(p.Size, Is.EqualTo(192));
+        Assert.That(p.ReadInt32(60), Is.EqualTo(0x5EED));
+        p.Dispose();
+    }
+
+    [Test]
+    public void MappedProvider_TrimToSize_FailedResize_KeepsMappingUsable()
+    {
+        var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 256);
+        p.Allocate(16);
+        p.WriteInt32(12, 77);
+
+        p.ResizeFaultInjector = _ => throw new IOException("Injected resize failure");
+        Assert.Throws<IOException>(() => p.TrimToSize());
+
+        Assert.That(p.Size, Is.EqualTo(16));
+        Assert.That(p.ReadInt32(12), Is.EqualTo(77));
+        p.ResizeFaultInjector = null;
+        p.TrimToSize();
+        Assert.That(new FileInfo(_tempFile).Length, Is.EqualTo(16));
+        Assert.That(p.ReadInt32(12), Is.EqualTo(77));
         p.Dispose();
     }
 

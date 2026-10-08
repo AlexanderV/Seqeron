@@ -46,7 +46,8 @@
 
 #### M2. Quality Encoding Detection
 - **M2.1** DetectEncoding returns Phred33 when quality contains chars < '@' (ASCII 64)
-- **M2.2** DetectEncoding returns Phred64 when quality contains chars > 'I' (ASCII 73)
+- **M2.2** DetectEncoding returns Phred64 when no char < '@' and a char > 'J' (ASCII 74); position-independent (a later char < '@' still proves Phred33)
+- **M2.5** Parse(Auto) detects the encoding once per file (FastQC) — an overlap-only read takes the file's encoding
 - **M2.3** DetectEncoding defaults to Phred33 for ambiguous range
 - **M2.4** DetectEncoding returns Phred33 for empty string
 
@@ -169,12 +170,15 @@ None. All behavior is evidence-backed:
 
 | # | Behavior | Justification | Source |
 |---|----------|---------------|--------|
-| 1 | Detection heuristic: chars < '@' → Phred+33; chars > 'I' → Phred+64; default Phred+33 | Standard auto-detection approach | Wikipedia FASTQ Encoding |
+| 1 | Detection: lowest char < '@' → Phred+33; else char > 'J' → Phred+64; else default Phred+33; applied per file in Parse | FastQC lowest-char rule; 'J' = Q41 Illumina 1.8+ ceiling | FastQC PhredEncoding; Cock et al. 2010 |
 | 2 | Phred+33 encodes Q 0-93 (ASCII 33-126) | Sanger format full range; PacBio HiFi uses up to Q93 | Wikipedia FASTQ Encoding chart |
 | 3 | Phred+64 encodes Q 0-62 (ASCII 64-126) | Illumina 1.3-1.7 full range | Wikipedia FASTQ Encoding chart |
 | 4 | ErrorProbabilityToPhred(0) = 93 | Q = -10×log₁₀(0) = ∞; capped at max representable Sanger value | Wikipedia FASTQ: Sanger ASCII 33-126 |
 | 5 | '+' allowed within sequence data | Parser reads sequence until standalone '+' line | Wikipedia FASTQ Format |
 | 6 | Multi-line sequence/quality supported | Reads until '+' / sequence-length reached | Wikipedia FASTQ Format |
+| 7 | Malformed records throw FormatException; out-of-range quality symbols rejected | Same inputs Biopython rejects | Biopython 1.88 FastqGeneralIterator / InvalidCharError |
+| 8 | TrimAdapter = cutadapt regular 3' adapter, exact match | leftmost full or 3'-partial occurrence, incl. position 0 | cutadapt 5.2 |
+| 9 | ErrorProbabilityToPhred capped at Q93; p ∉ [0,1] throws | monotone; Phred+33 max | Cock et al. 2010 |
 
 ---
 
@@ -243,6 +247,23 @@ None. All behavior is evidence-backed:
 | WriteToFile_CreatesValidFastq | M10.3 |
 | WriteAndParseRoundTrip_PreservesRecords | M10.4 |
 | ToFastqString_FormatsCorrectly | M10 |
+
+### Review 2026-09 additions (FastqParserTests.cs)
+| Test | Coverage |
+|------|----------|
+| Parse_Auto_Phred64FileWithIllumina15BRead_DetectedFileLevel | M2.5 (Biopython fastq-illumina [2,2,2,2]) |
+| Parse_Auto_Phred33FileWithQ41Read_DetectedFileLevel | M2.5 (Biopython fastq [41,…]) |
+| Parse_Auto_TextReaderAndFile_UseFileLevelEncoding | M2.5 all entry points |
+| DetectEncoding_LowCharAfterHighChar_IsPhred33 | M2.2 order independence |
+| DecodeQualityScores_CharOutsideEncodingRange_Throws | Dev. 7 |
+| Parse_BiopythonTrickyExample_ParsedByQualityLength | S2, C1.1 (Biopython tricky.fastq) |
+| Parse_PlusCaptionDiffers_ThrowsFormatException / Parse_WhitespaceInSequence_ThrowsFormatException / Parse_QualityLengthMismatch_ThrowsFormatException | Dev. 7, INV-01 |
+| Parse_ZeroLengthRecordAndBlankSeparators_Accepted / Parse_TabInTitle_SplitsIdOnAnyWhitespace | S1, S2.3 |
+| TrimAdapter_MatchesCutadapt (7 cases) | M7.5, Dev. 8 |
+| ErrorProbabilityToPhred_TinyProbability_CappedAtQ93_Monotone / _OutsideProbabilityDomain_Throws (3) | M4.9, Dev. 9 |
+| WriteToFile_NoByteOrderMark_FirstByteIsAt | M10.3 |
+
+Fuzz (FileIoFuzzTests.cs) FASTQ section rewritten: malformed/truncated/random input ⇒ FormatException only (was: tolerant assembly).
 
 ### MCP Wrapper Tests (Seqeron.Mcp.Parsers.Tests — 36 tests)
 Smoke tests for MCP bindings — no duplication with canonical tests.

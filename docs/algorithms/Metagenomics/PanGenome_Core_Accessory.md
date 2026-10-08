@@ -5,12 +5,12 @@
 | Algorithm Group | Metagenomics / PanGenome |
 | Test Unit ID | PANGEN-CORE-001 |
 | Related Projects | Seqeron.Genomics.Metagenomics |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-06-13 |
+| Implementation Status | Complete (clustering per PANGEN-CLUSTER-001) |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-Pan-genome construction partitions the gene-cluster (ortholog group) repertoire of a set of genomes into the **core** genome (gene families present in essentially all genomes), the **accessory / dispensable** genome (present in some but not all), and the **unique / strain-specific** genome (present in exactly one genome) [1][2]. It additionally summarises gene-level diversity with **genome fluidity** [3] and classifies the pan-genome as **open** or **closed** using the Heaps'-law decay exponent of newly observed gene clusters per added genome [2][6]. The partitioning is exact given a cluster occupancy table; the upstream clustering and the openness fit are heuristic.
+Pan-genome construction partitions the gene-cluster (ortholog group) repertoire of a set of genomes into the **core** genome (gene families present in essentially all genomes), the **accessory / dispensable** genome (present in some but not all), and the **unique / strain-specific** genome (present in exactly one genome) [1][2]. It additionally summarises gene-level diversity with **genome fluidity** [3] and classifies the pan-genome as **open** or **closed** using the Heaps'-law decay exponent of newly observed gene clusters per added genome [2][6]. The partitioning is exact given a cluster occupancy table; the openness call delegates to the canonical permutation-averaged Heaps' law fit (`FitHeapsLaw`, micropan `heaps()`).
 
 ## 2. Scientific / Formal Basis
 
@@ -34,7 +34,7 @@ Let there be `N` genomes and a set of gene-family clusters, each cluster having 
 
 where `U_k`, `U_l` are the numbers of gene families found only in genome `k` and only in genome `l`, and `M_k`, `M_l` are the total numbers of gene families in `k` and `l` [3]. The per-pair term `(U_k+U_l)/(M_k+M_l)` is the symmetric difference over the union (by size) of the two genomes' family sets.
 
-**Open vs closed (Heaps' law)** [2][6]: the number of *new* gene clusters contributed by the `k`-th genome follows `n_new(k) = K · k^(−α)`. The pan-genome is **open** when `α < 1` and **closed** when `α > 1` [2][6].
+**Open vs closed (Heaps' law)** [2][5][6]: the number of *new* gene clusters contributed by the `k`-th genome, observed over **random genome orderings**, follows `n_new(k) = K · k^(−α)`; micropan `heaps()` pools the new-cluster counts of `n.perm` random permutations at `k = 2..N` and minimises `J = sqrt(Σ(y − K·x^(−α))²)/|x|` over `K ∈ [0,10000]`, `α ∈ [0,2]`. The pan-genome is **open** when `α < 1` and **closed** when `α > 1` [2][5]. Because the fit averages over orderings, the call is independent of the order in which genomes are supplied; clusters seen in a single genome contribute a flat expected curve (each appears first at any position with probability 1/N).
 
 ### 2.3 Modeling Assumptions
 
@@ -69,7 +69,7 @@ where `U_k`, `U_l` are the numbers of gene families found only in genome `k` and
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | genomes | `IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>` | required | genome id → its genes (id + sequence) | null or empty → empty result |
-| identityThreshold | double | 0.9 | k-mer Jaccard identity for clustering (delegated to `ClusterGenes`) | 0..1 |
+| identityThreshold | double | 0.9 | CD-HIT global identity for clustering (delegated to `ClusterGenes`) | 0..1 |
 | coreFraction | double | 0.99 | fraction of genomes a cluster must occupy to be core | 0..1; Roary default 0.99 [4] |
 
 ### 3.2 Output / Return Value
@@ -83,7 +83,7 @@ where `U_k`, `U_l` are the numbers of gene families found only in genome `k` and
 
 ### 3.3 Preconditions and Validation
 
-`null` or empty `genomes` returns an all-empty `PanGenomeResult` (no exception). Sequences are compared by the k-mer Jaccard heuristic in `ClusterGenes`; case and alphabet are taken as-is. With `N < 3` the open/closed exponent is not estimable and the result is `Closed`. With `N < 2` there are no genome pairs and fluidity is 0.
+`null` or empty `genomes` returns an all-empty `PanGenomeResult` (no exception). Sequences are clustered by the CD-HIT greedy model in `ClusterGenes` (PANGEN-CLUSTER-001); case and alphabet are taken as-is. With `N < 3` the open/closed exponent is not estimable and the result is `Closed`. With `N < 2` there are no genome pairs and fluidity is 0.
 
 ## 4. Algorithm
 
@@ -92,7 +92,7 @@ where `U_k`, `U_l` are the numbers of gene families found only in genome `k` and
 1. Cluster all genes into ortholog groups (`ClusterGenes`), giving each cluster an occupancy (distinct genome count).
 2. For each cluster: core if `occupancy / N ≥ coreFraction` (present in ≥ coreFraction of genomes), else unique if occupancy = 1, else accessory.
 3. Compute genome fluidity over all genome pairs from each genome's cluster-ID set [3].
-4. Estimate the Heaps' law decay exponent α of new clusters per added genome and classify Open (α<1) / Closed (α≥1) [2][6].
+4. Build the presence/absence matrix of the clusters (`CreatePresenceAbsenceMatrix`, membership by the genome each member came from) and fit Heaps' law with the canonical `FitHeapsLaw` (100 seeded random permutations, micropan objective); Open if α<1, else Closed; N<3 → Closed [2][5].
 
 ### 4.2 Decision Rules, Scoring, Reference Tables
 
@@ -105,7 +105,7 @@ where `U_k`, `U_l` are the numbers of gene families found only in genome `k` and
 |-----------|------|-------|-------|
 | ConstructPanGenome | O(g²·s) | O(g) | g = total genes, s = sequence length (all-vs-all clustering dominates) |
 | Genome fluidity | O(N²·C) | O(N·C) | N genomes, C clusters; pairwise set differences |
-| Heaps α fit | O(N·C) | O(C) | one accumulation pass + log-log regression |
+| Heaps α fit | O(P·N·C) | O(N·C) | P = 100 permutations (delegated to `FitHeapsLaw`) |
 
 ## 5. Implementation Notes
 
@@ -114,13 +114,14 @@ where `U_k`, `U_l` are the numbers of gene families found only in genome `k` and
 **Implementation location:** [PanGenomeAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Metagenomics/PanGenomeAnalyzer.cs)
 
 - `PanGenomeAnalyzer.ConstructPanGenome(genomes, identityThreshold, coreFraction)`: clusters genes, partitions into core/accessory/unique, computes fluidity and open/closed type.
-- `PanGenomeAnalyzer.GetCoreGeneClusters(clusters, totalGenomes, threshold)`: core-gene identification (the Registry `IdentifyCoreGenes` referent) — filters clusters with occupancy ≥ floor(threshold·totalGenomes).
+- `PanGenomeAnalyzer.GetCoreGeneClusters(clusters, totalGenomes, threshold)`: core-gene identification (the Registry `IdentifyCoreGenes` referent) — filters clusters with occupancy / totalGenomes ≥ threshold (fractional, Roary).
 - `PanGenomeAnalyzer.CalculateGenomeFluidity` (private): Kislyuk φ.
-- `PanGenomeAnalyzer.DeterminePanGenomeType` / `EstimateHeapsDecayExponent` (private): Heaps' law openness.
+- `PanGenomeAnalyzer.DeterminePanGenomeType` (private): delegates to `FitHeapsLaw(CreatePresenceAbsenceMatrix(...))` (PANGEN-HEAP-001).
+- `PanGenomeAnalyzer.CreatePresenceAbsenceMatrix`, `AnalyzeAccessoryGenes` (strict 1 < occupancy < N), `FindGenomeSpecificGenes` (occupancy = 1).
 
 ### 5.2 Current Behavior
 
-Clustering uses an in-repo k-mer (k=7) Jaccard similarity, not BLAST. The repository **suffix tree was evaluated and not used**: this unit performs set-occupancy counting and arithmetic over already-formed clusters, not substring/occurrence search, so the suffix tree does not apply (exact-match occurrence enumeration is irrelevant here). The open/closed exponent is fit on a single genome ordering (dictionary order) rather than averaging over random permutations; zero-novelty steps are floored to 1 new cluster to keep the log defined.
+Clustering uses the in-repo CD-HIT greedy clusterer (PANGEN-CLUSTER-001), not BLAST. The repository **suffix tree was evaluated and not used**: this unit performs set-occupancy counting and arithmetic over already-formed clusters, not substring/occurrence search, so the suffix tree does not apply (exact-match occurrence enumeration is irrelevant here). The open/closed exponent is obtained from the canonical `FitHeapsLaw` (micropan `heaps()`, 100 seeded random permutations); the former single dictionary-order log-log regression (with zero-novelty steps floored to 1) was removed in the 2026-09 review.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -128,12 +129,11 @@ Clustering uses an in-repo k-mer (k=7) Jaccard similarity, not BLAST. The reposi
 
 - Core = occupancy / N ≥ coreFraction (present in ≥ coreFraction of genomes); unique = occupancy 1; accessory = remainder [1][2][4].
 - Genome fluidity φ = (2/(N(N−1)))·Σ_{k<l}(U_k+U_l)/(M_k+M_l) [3].
-- Open ⟺ Heaps decay exponent α < 1 [2][6].
+- Open ⟺ Heaps decay exponent α < 1, α from the permutation-averaged micropan `heaps()` fit [2][5].
 
 **Intentionally simplified:**
 
-- Gene clustering: k-mer Jaccard heuristic instead of BLAST all-vs-all; **consequence:** cluster boundaries (and thus occupancy) may differ from a BLAST-based pipeline for divergent homologs.
-- Heaps α fit: single dictionary-order accumulation, not averaged over random permutations; **consequence:** the α estimate (and rare borderline open/closed calls) depends on genome order.
+- Gene clustering: CD-HIT-style ungapped identity instead of BLAST all-vs-all (see PANGEN-CLUSTER-001); **consequence:** cluster boundaries (and thus occupancy) may differ from a BLAST-based pipeline for divergent homologs.
 
 **Not implemented:**
 
@@ -145,6 +145,9 @@ Clustering uses an in-repo k-mer (k=7) Jaccard similarity, not BLAST. The reposi
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Open/closed previously used unsourced `uniqueFraction > 0.1` heuristic | Deviation | wrong classification vs literature | fixed | replaced with Heaps decay-exponent criterion (α<1 ⇒ open) [2][6] |
+| 2 | Open/closed fit used one dictionary-order curve + log-log OLS (order-dependent: same pan-genome Closed for novelty 4,2,1 and Open for 1,2,4) | Deviation | order-dependent, non-micropan result | fixed 2026-09 | delegates to canonical `FitHeapsLaw` (permutation-averaged micropan `heaps()`) [5] |
+| 3 | Presence/absence matrix matched clusters by gene id, so a gene name reused in two genomes marked unrelated clusters present | Defect | wrong matrix, wrong Heaps input | fixed 2026-09 | membership by the member's genome (`GeneCluster.GenomeIds`), as micropan `panMatrix()` [5] |
+| 4 | Fluidity pair with M_k+M_l = 0 (two empty genomes) | Convention | only with empty genomes | documented | pair excluded from the average (undefined term; micropan would give NaN) |
 
 ## 6. Edge Cases and Limitations
 
@@ -160,7 +163,7 @@ Clustering uses an in-repo k-mer (k=7) Jaccard similarity, not BLAST. The reposi
 
 ### 6.2 Limitations
 
-Cluster quality is bounded by the k-mer Jaccard clusterer (no protein-level homology). The open/closed call is order-dependent and meant for small comparative sets, not large-scale population pan-genomics. Fluidity variance is not reported.
+Cluster quality is bounded by the CD-HIT-style clusterer (no protein-level homology). The open/closed call is a Heaps' law fit over 100 seeded permutations (deterministic); like micropan it assumes independent sampling of genomes. Fluidity variance is not reported.
 
 ## 7. Examples and Related Material
 
@@ -187,5 +190,5 @@ var result = PanGenomeAnalyzer.ConstructPanGenome(genomes, coreFraction: 0.99);
 2. Tettelin H, Riley D, Cattuto C, Medini D. 2008. Comparative genomics: the bacterial pan-genome. *Curr Opin Microbiol* 11(5):472–477. https://doi.org/10.1016/j.mib.2008.09.006
 3. Kislyuk AO, Haegeman B, Bergman NH, Weitz JS. 2011. Genomic fluidity: an integrative view of gene diversity within microbial populations. *BMC Genomics* 12:32. https://doi.org/10.1186/1471-2164-12-32
 4. Page AJ, et al. 2015. Roary: rapid large-scale prokaryote pan genome analysis. *Bioinformatics* 31(22):3691–3693. https://doi.org/10.1093/bioinformatics/btv421
-5. Lagesen K, et al. micropan: Microbial Pan-Genome Analysis — `heaps()` / `fluidity()`. CRAN. https://rdrr.io/cran/micropan/man/heaps.html
+5. Lagesen K, et al. micropan: Microbial Pan-Genome Analysis — `heaps()` / `fluidity()`. CRAN. https://rdrr.io/cran/micropan/man/heaps.html (source opened 2026-09-28: https://raw.githubusercontent.com/larssnip/micropan/master/R/powerlaw.R `heaps()`, `R/panmat.R` `panMatrix()`, `R/genomedistances.R` `fluidity()`)
 6. Wikipedia contributors. Pan-genome. https://en.wikipedia.org/wiki/Pan-genome (accessed 2026-06-13)

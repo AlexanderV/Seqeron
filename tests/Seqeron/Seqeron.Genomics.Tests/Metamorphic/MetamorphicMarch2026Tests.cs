@@ -725,8 +725,11 @@ public class MetamorphicTests
     #region MR21: Inverted repeats — wider loop range ⊇ narrower
 
     /// <summary>
-    /// MR21: Widening the loop range [minLoop, maxLoop] can only add results.
-    /// Results(minLoop=3, maxLoop=20) ⊆ Results(minLoop=0, maxLoop=50).
+    /// MR21: Widening the loop range [minLoop, maxLoop] never loses a structure: every stem found with
+    /// (minLoop=3, maxLoop=20) lies, in both arms, inside some stem found with (minLoop=0, maxLoop=50).
+    /// Only maximal stems are reported (EMBOSS palindrome -overlap Y), so a narrow-range stem may be
+    /// replaced by its inward extension when the lower loop bound is relaxed (here ACGTAAA|TT|TTTACGT:
+    /// (0,10,6) with minLoop 3 becomes (0,9,7) with minLoop 0) — coverage, not identity, is the relation.
     /// </summary>
     [Test]
     public void MR21_InvertedRepeats_WiderLoopRange_SupersetOfNarrower()
@@ -736,15 +739,13 @@ public class MetamorphicTests
         var narrow = RepeatFinder.FindInvertedRepeats(seq, 4, 20, 3).ToList();
         var wide = RepeatFinder.FindInvertedRepeats(seq, 4, 50, 0).ToList();
 
-        wide.Count.Should().BeGreaterThanOrEqualTo(narrow.Count,
-            because: "wider loop range is more permissive");
-
-        var wideSet = wide
-            .Select(r => (r.LeftArmStart, r.RightArmStart, r.ArmLength)).ToHashSet();
+        narrow.Should().NotBeEmpty();
         foreach (var r in narrow)
         {
-            wideSet.Should().Contain((r.LeftArmStart, r.RightArmStart, r.ArmLength),
-                because: "narrower loop range results must appear in wider range results");
+            wide.Should().Contain(w =>
+                    w.LeftArmStart <= r.LeftArmStart && r.LeftArmStart + r.ArmLength <= w.LeftArmStart + w.ArmLength &&
+                    w.RightArmStart <= r.RightArmStart && r.RightArmStart + r.ArmLength <= w.RightArmStart + w.ArmLength,
+                because: $"narrow-range stem ({r.LeftArmStart},{r.RightArmStart},arm={r.ArmLength}) must be covered by a wide-range stem");
         }
     }
 

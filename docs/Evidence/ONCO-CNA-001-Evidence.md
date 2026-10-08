@@ -69,11 +69,22 @@
 
 ---
 
+### Re-verification 2026-09-28 (review campaign 2026-09, B24)
+
+**URL:** https://raw.githubusercontent.com/etal/cnvkit/master/cnvlib/call.py and `cnvlib/commands.py` (fetched with curl, 2026-09-28).
+
+1. Current docstring wording: "Integer values are assigned for log2 ratio values **up to** each given threshold value … rounding up from the reference copy number"; cutoffs `DEL(0) <= -1.1`, `LOSS(1) <= -0.25`, `GAIN(3) > +0.2`, `AMP(4) > +0.7` (the older `<`/`>=` wording quoted above is superseded; the code `if row.log2 <= thresh` is unchanged).
+2. NaN: `absolutes[idx] = ref_copies` (float), then `do_call` sets `outarr["cn"] = absolutes.round().astype("int")` — numpy rounds half to even, so ploidy 2.5 → 2, 3.5 → 4.
+3. `--ploidy` is a float (`ploidy_value`, must be ≥ 1), so non-integer ploidy is a legal CNVkit input.
+4. Above the last cutoff: `int(np.ceil(_log2_ratio_to_absolute_pure(row.log2, ref_copies)))` — Python ints are unbounded (log2 30 → 2147483648 = 2^31) and `int(np.ceil(inf))` raises `OverflowError`.
+5. Faithful Python port of `absolute_threshold` + `do_call` rounding (ploidy 2, default cutoffs): −2→0, −1.1→0, −1→1, −0.25→1, 0→2, 0.2→2, log2(1.5)→3, 0.7→3, 0.8→4, 1→4, 2→8, NaN→2, 29.9→2003673093, 30→2147483648, −∞→0; ploidy 3: 0→2, 0.8→6, 1.0→6.
+
 ## Documented Corner Cases and Failure Modes
 
 ### From CNVkit `cnvlib/call.py`
 
-1. **NaN log2 ratio:** treated as a no-call and replaced with the neutral reference copy number (diploid → CN 2, Neutral).
+1. **NaN log2 ratio:** treated as a no-call and replaced with the neutral reference copy number (diploid → CN 2, Neutral); a non-integer ploidy is rounded half-to-even by `do_call` (2.5 → 2).
+4. **Integer overflow:** for log2 ≥ 30 (diploid) `ceil(2·2^log2)` exceeds Int32; CNVkit uses unbounded Python ints and raises `OverflowError` only for +∞. Seqeron's int-valued API saturates explicitly at `Int32.MaxValue` (Amplification) instead of wrapping to a negative CN.
 2. **Boundary inclusivity:** the comparison is `log2 <= thresh`, so a value exactly on a threshold is assigned the LOWER copy-number state of the bin (e.g. log2 = −1.1 → CN 0; log2 = 0.7 → CN 3).
 3. **Above the last threshold:** copy number is `ceil(2 · 2^log2)`, NOT a fixed value, so high amplifications get progressively larger integer CN (the AMP class).
 
@@ -146,3 +157,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation (ONCO-CNA-001).
+- **2026-09-28**: Re-verified against CNVkit master (review campaign 2026-09, B24); added do_call half-to-even rounding, Int32 overflow and non-finite ploidy corner cases.

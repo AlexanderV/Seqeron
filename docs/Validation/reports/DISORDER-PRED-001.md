@@ -1,93 +1,66 @@
-# Validation Report: DISORDER-PRED-001 — Protein Intrinsic Disorder Prediction
+# Validation Report: DISORDER-PRED-001 — Protein Intrinsic Disorder Prediction (TOP-IDP)
 
-- **Validated:** 2026-06-24   **Area:** ProteinPred
-- **Canonical method(s):** `DisorderPredictor.PredictDisorder` (+ internal `CalculateDisorderScore`), `CalculateHydropathy`
-- **Stage A verdict:** PASS
-- **Stage B verdict:** PASS
+- **Validated:** 2026-09-28 (review-2026-09, batch B15; supersedes 2026-06-24)   **Area:** ProteinPred
+- **Canonical method(s):** `DisorderPredictor.PredictDisorder` (+ `PredictDisorderRegions`, private `CalculatePerResidueScores` / `CalculateDisorderScore`), `DisorderPredictor.CalculateHydropathy`
+- **Stage A verdict:** PASS-WITH-NOTES
+- **Stage B verdict:** PASS-WITH-NOTES
 - **State:** CLEAN
-
-## Method scope (honest scoping)
-
-Per-residue disorder is a **composition heuristic**, not an energy-based (IUPred) or
-ML predictor. Score = mean of the **normalized TOP-IDP scale** (Campen et al. 2008,
-PMC2676888) over a sliding window (default 21, centered, truncated at termini),
-thresholded at the published cutoff **0.542** (`score >= 0.542` ⟹ disordered). The
-source XML doc comments scope this honestly (single-feature, AUC ≈ 0.65–0.72 vs
-IUPred2A 0.75–0.80, flDPnn 0.85–0.90) and recommend dedicated tools for
-publication-grade work. No false IUPred-grade claim.
 
 ## Stage A — Description
 
-### Sources opened (this session, via web)
-- **Campen et al. (2008) TOP-IDP, PMC2676888** (WebFetch of the PMC full text).
-  Table 2 values confirmed verbatim; cutoff = 0.542; prediction equation
-  `I = -(<TOP-IDP> - 0.542)` (positive ⟹ ordered, so `<TOP-IDP> > 0.542` ⟹
-  disordered); scales normalized to min 0 / max 1; window 21.
-- **Wikipedia "Intrinsically disordered proteins" + Dunker (2001) PMID 11381529**
-  (WebSearch). Confirms classification: order-promoting {W,C,F,I,Y,V,L,N},
-  disorder-promoting {A,R,G,Q,S,P,E,K}, ambiguous/neutral {H,M,T,D} — 8+8+4=20,
-  disjoint. Matches code exactly.
+### Sources opened (this session)
+- **Campen et al. (2008) PMC2676888** — direct fetch blocked by egress proxy; content obtained via
+  WebSearch snippets of the PMC page: "the average global TOP-IDP value and average window-by-window
+  TOP-IDP values are calculated based on the normalized TOP-IDP scale"; "normalized to have the minimal
+  value of zero and the maximal value of 1"; index I = −(⟨TOP-IDP⟩ − 0.542), positive ⟹ ordered,
+  negative ⟹ disordered; cut-off 0.542 from maximum likelihood. (Table 2 values were fetched verbatim
+  in the 2026-06 session; not re-fetchable now.)
+- **localCIDER 0.1.21** (PyPI sdist, `localcider/backend/sequence.py::fraction_disorder_promoting`,
+  citing Campen 2008): order list W,F,Y,I,M,L,V,N,C / disorder list T,A,G,R,D,H,Q,K,S,E,P — the same
+  TOP-IDP ranking split as the code's scale.
+- **Biopython 1.88** `Bio.SeqUtils.ProtParamData.kd` and `ProteinAnalysis.gravy()` — Kyte-Doolittle table
+  and GRAVY definition (identical to the 20 values in code).
 
 ### Formula check
-- Per-residue normalized propensity `S(aa) = (TOP-IDP(aa) − TopIdpMin)/TopIdpRange`
-  with `TopIdpMin = −0.884 (W)`, `TopIdpMax = 0.987 (P)`, `TopIdpRange = 1.871`.
-  Matches Campen "normalized to min 0, max 1".
-- Window score = mean of `S(aa)` over the truncated centered window; `score >= 0.542`
-  ⟹ disordered. Direction matches Campen's `I = -(<TOP-IDP>-0.542)` (the code applies
-  0.542 to the **normalized** averaged score, consistent with the all-scales-normalized
-  convention used for the published cutoff).
+S(aa) = (TOP-IDP(aa) + 0.884)/1.871 ∈ [0,1]; residue score = mean S over the centered window (21,
+truncated at termini); disordered iff score ≥ 0.542. Matches the paper (cutoff applied to the averaged
+normalized scale). Hydropathy = mean KD over standard residues (GRAVY).
 
-### TOP-IDP values — external (Campen Table 2, fetched) vs code constant table
-W −0.884, F −0.697, Y −0.510, I −0.486, M −0.397, L −0.326, V −0.121, N 0.007,
-C 0.020, T 0.059, A 0.060, G 0.166, R 0.180, D 0.192, H 0.303, Q 0.318, S 0.341,
-K 0.586, E 0.736, P 0.987 — **all 20 match the implementation exactly** (key anchors
-W/F/Y/I/E/P/K/S verified directly against the fetched Table 2).
-
-### Hand-computed worked examples (normalized score)
-- W: (−0.884+0.884)/1.871 = **0.0**
-- I: (−0.486+0.884)/1.871 = 0.398/1.871 = **0.21272** (< 0.542 → ordered)
-- E: (0.736+0.884)/1.871 = 1.620/1.871 = **0.86585** (≥ 0.542 → disordered)
-- P: (0.987+0.884)/1.871 = 1.871/1.871 = **1.0** (≥ 0.542 → disordered)
-All confirm spec M8b and the test assertions.
-
-### Edge-case semantics
-Empty → zeroed result (INV-7); unknown residues skipped in the mean (poly-X → 0.0);
-window truncated at termini; single residue → window of itself; case via
-ToUpperInvariant; scores inherently ∈[0,1]. All defined and sourced/standard.
-
-### Findings / divergences (Stage A)
-None. The cosmetic ranking-string fix from the prior validation (S before K:
-`…Q,S,K,E,P`) is already present in both `DisorderPredictor.cs:84` and
-`docs/Evidence/DISORDER-PRED-001-Evidence.md:188`. No new divergence.
+### Notes (divergences, documented, not defects)
+1. Tie at exactly 0.542: Campen's I = 0 is unclassified; code resolves `>=` toward disorder (measure-zero).
+2. Terminal windows are truncated (paper silent on termini handling).
+3. Even `windowSize` w is centered with w/2 each side → spans w+1 residues (paper uses odd 21). Now documented.
 
 ## Stage B — Implementation
 
-- **Code path:** `DisorderPredictor.cs` — `PredictDisorder` (:190) →
-  `CalculatePerResidueScores` (:227, centered truncated window) →
-  `CalculateDisorderScore` (:255, normalize `(prop−TopIdpMin)/TopIdpRange` and
-  average); threshold `score >= disorderThreshold` (:242). Constants:
-  `TopIdpMin=−0.884`, `TopIdpMax=0.987`, `TopIdpRange=1.871`, `TopIdpCutoff=0.542`.
-- **Formula realised:** exactly the validated normalized-TOP-IDP windowed mean with
-  published cutoff — not an approximation.
-- **Cross-verification (run, not traced):** all DisorderPredictor tests green —
-  `DisorderPredictor_DisorderPrediction_Tests` 22/22; the full DisorderPredictor
-  family (incl. propensity/classification, MoRF, LowComplexity, region) 113/113.
-  Tests assert exact externally-confirmed values: 20 propensity values (M8),
-  normalized W=0/I=0.2127/E=0.8660/P=1.0 (M8b/S1), poly-I content 0.0, poly-E/P
-  content 1.0 (M4/M5/M6), hydropathy I=4.5/W=−0.9/E=−3.5 (C4).
-- **Variant/delegate consistency:** `GetDisorderPropensity`, `IsDisorderPromoting`,
-  and the three classification-set properties all read the same constant tables;
-  disjoint/cover-20 verified (DISORDER-PROPENSITY-001 file).
-- **Numerical robustness:** division guarded by `count > 0`; empty handled; scores
-  bounded [0,1] by construction.
-- **Test quality:** assertions check exact sourced numbers with tight tolerances,
-  deterministic, cover the Stage-A edge cases. Not tautologies.
+- **Code path:** `DisorderPredictor.cs` `PredictDisorder` → `ComputeDisorder` → `CalculatePerResidueScores`
+  → `CalculateDisorderScore`; `CalculateHydropathy` → `SequenceStatistics.CalculateHydrophobicity`.
+- **Cross-verification (independent Python re-implementation of the Campen formula, scratch `topidp_ref.py`):**
 
-### Findings / defects (Stage B)
-None.
+| Input | Quantity | Reference | Code |
+|---|---|---|---|
+| α-synuclein P37840, defaults | score[0] / [10] / [69] / [70] / [120] / [139] | 0.4721345 / 0.5422361 / 0.5406836 / 0.5272709 / 0.6138301 / 0.6496769 | identical (1e-12) |
+| same | content / mean | 102/140 = 0.7285714 / 0.5766837 | identical |
+| same | regions (0-based incl., ≥5) | [10–43], [47–66], [94–139] | identical |
+| I10P10E5, w=7 | 25 window means | 0.21272 … 0.865847 | identical (1e-6) |
+| α-syn / 20-AA / MKWVTFISLLLLFSSAYS | GRAVY (Biopython) | −0.4028571 / −0.49 / 1.2888889 | identical |
+
+- **Edge cases:** empty → zeroed result; unknown residues skipped (poly-X → 0); case-insensitive.
+  **Defect (robustness):** `windowSize = 0` silently acted as a 1-residue window and negative values
+  crashed with an opaque range exception inside `string[start..end]` (e.g. `PredictDisorder("PPPPPEEEEE", -1)`).
+  Fixed: `ArgumentOutOfRangeException` for `windowSize < 1` in `PredictDisorder` and `PredictDisorderRegions`.
+- **Duplication:** `CalculateHydropathy` re-implemented the KD table + GRAVY mean already canonical in
+  `SequenceStatistics.CalculateHydrophobicity` (same project, same semantics). Now delegates; private
+  `Hydropathy` table removed. Behaviour-preserving (verified by existing C4 tests + new Biopython tests).
+- **MCP:** `AnalysisTools.PredictDisorder` (Seqeron.Mcp.Analysis) delegates to `DisorderPredictor.PredictDisorder`.
+- **Tests added** (`DisorderPredictor_DisorderPrediction_Tests.cs`): `PredictDisorder_AlphaSynuclein_MatchesIndependentTopIdpReference`,
+  `PredictDisorder_Window7_OrderDisorderTransition_MatchesReference`, `PredictDisorder_NonPositiveWindow_Throws` (×3),
+  `CalculateHydropathy_MatchesBiopythonGravy`, `CalculateHydropathy_NonStandardResiduesSkipped_DelegatesToCanonicalGravy`.
 
 ## Verdict & follow-ups
-- Stage A PASS, Stage B PASS, **CLEAN**. No code changed this session.
-- All 20 TOP-IDP values, cutoff 0.542, window 21, normalization, and the Dunker
-  8/8/4 classification independently re-confirmed against the fetched Campen 2008
-  PMC text and Wikipedia/Dunker 2001. Full DisorderPredictor test set 113/113 green.
+- Stage A PASS-WITH-NOTES, Stage B PASS-WITH-NOTES, **CLEAN**. The TOP-IDP method is the published
+  algorithm itself (single-scale predictor), not a simplification of it; the class-level XML doc already
+  states its accuracy relative to IUPred2A/flDPnn.
+- Out of unit scope (for the B15 duplication sweep): `ProteinSequence.Gravy()` (Core, B02) and
+  `ProteinMotifFinder` KD table (B14) duplicate the KD scale; private `CalculateShannonEntropy` (SEG,
+  DISORDER-LC-001) is a candidate for the canonical entropy helper.

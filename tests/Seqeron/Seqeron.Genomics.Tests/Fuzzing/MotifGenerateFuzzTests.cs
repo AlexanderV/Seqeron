@@ -23,7 +23,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// TIES (a column where two+ bases share the maximum count — the documented
 /// threshold/fallback rule must resolve them DETERMINISTICALLY). Every input must
 /// resolve to EITHER a well-defined, theory-correct result OR the single documented
-/// validation exception (ArgumentNullException for a null collection — §3.3, §6.1).
+/// validation exception (ArgumentNullException for a null collection, ArgumentException
+/// for a null or unequal-length row — §3.3, §6.1).
 /// A raw runtime exception (DivideByZero on a zero-total column, NullReference /
 /// IndexOutOfRange on empty/ragged input), a hang, a wrong-length consensus, an
 /// out-of-alphabet symbol, or an order-dependent winner is a bug, not a passing test.
@@ -40,26 +41,27 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///         that are all empty → a 0-column matrix → "" with NO DivideByZero on a
 ///         zero-total column; a column tallied entirely from non-ACGT residues has a
 ///         zero A/C/G/T total and MUST NOT divide-by-zero or null-deref — it falls
-///         back to the most-frequent (zero) base 'A' deterministically (§5.2).
+///         back to 'N' (no base observed) deterministically (§5.2; F13).
 ///       – SINGLE COLUMN: a one-column matrix (width-1 rows) → a length-1 consensus
 ///         (INV-01); a unanimous single column → that base (INV-02), no crash.
 ///       – TIES: a column with two+ equal-max bases → the documented rule: each base
 ///         strictly over θ·n (θ = 0.25) enters the IUPAC set and the set is encoded
 ///         via the NC-IUB table (INV-04); a column where NO base passes (e.g. four
-///         equal bases each at 25 %) falls back to the most-frequent base with an
-///         ALPHABETICAL tie-break — deterministic, never N (§5.2, §6.1).
+///         equal bases each at 25 %) emits the IUPAC code of ALL bases tied at the
+///         maximum count — four equal bases → N (DECIPHER equal-abundance rule;
+///         Biopython degenerate_consensus → N; §5.2, F13).
 /// — docs/checklists/03_FUZZING.md §Description (BE = граничні значення 0/-1/MaxInt/empty).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// The contract under test (IUPAC_Degenerate_Consensus.md §2.2, §3, §5.2, §6.1)
 /// ───────────────────────────────────────────────────────────────────────────
-/// Column count = the FIRST row's length (INV-01). For each column, tally A,C,G,T
-/// over the uppercased rows (non-ACGT residues are IGNORED, not rejected — §3.3);
-/// shorter rows simply contribute fewer counts at trailing columns. Retain the set
+/// Column count = the common row length (INV-01); rows of unequal length (or a null
+/// row) → ArgumentException (F13). For each column, tally A,C,G,T over the uppercased
+/// rows (non-ACGT residues are IGNORED, not rejected — §3.3). Retain the set
 /// B = { b : count(b) > θ·n }, θ = 0.25, n = number of rows, STRICT '>' (INV-05).
 /// If B is non-empty, emit IUPAC(B) via the NC-IUB 1984 set→symbol table (§2.2,
-/// INV-04); otherwise emit the single most-frequent base with an alphabetical
-/// (A&lt;C&lt;G&lt;T) tie-break (§5.2). Output ⊆ the 15 IUPAC symbols (INV-03). Null
+/// INV-04); otherwise emit IUPAC(set of bases tied at the maximum count), or N when
+/// the column has no A/C/G/T (§5.2). Output ⊆ the 15 IUPAC symbols (INV-03). Null
 /// collection → ArgumentNullException; empty collection → "" (§3.3).
 ///   MotifFinder.GenerateConsensus(IEnumerable&lt;string&gt;) → string
 /// </summary>
@@ -82,7 +84,7 @@ public class MotifGenerateFuzzTests
     /// per column, tally A,C,G,T over the uppercased rows (ignoring non-ACGT and
     /// rows too short to reach the column); keep bases whose count is STRICTLY greater
     /// than θ·n; if any pass, map the set to its NC-IUB symbol; otherwise emit the
-    /// most-frequent base with an alphabetical tie-break.
+    /// NC-IUB symbol of all bases tied at the maximum count ('N' if nothing counted).
     /// </summary>
     private static string Oracle(IReadOnlyList<string> rows)
     {
@@ -113,11 +115,11 @@ public class MotifGenerateFuzzTests
             }
             else
             {
-                // No base passes → most-frequent base, alphabetical tie-break (first max in A→C→G→T).
-                int best = 0;
-                for (int b = 1; b < counts.Length; b++)
-                    if (counts[b] > counts[best]) best = b; // strict '>' keeps earliest on tie
-                sb.Append(Alphabet[best]);
+                // No base passes → IUPAC code of every base tied at the maximum count.
+                int max = counts.Max();
+                string tied = max == 0 ? "ACGT" : string.Concat(
+                    Enumerable.Range(0, Alphabet.Length).Where(b => counts[b] == max).Select(b => Alphabet[b]));
+                sb.Append(NcIub(tied));
             }
         }
 
@@ -226,9 +228,9 @@ public class MotifGenerateFuzzTests
     }
 
     // A column whose A/C/G/T total is ZERO (all residues non-ACGT, which are ignored) must NOT
-    // DivideByZero or null-deref: with no passing base it falls back to most-frequent (all-zero) → 'A'.
+    // DivideByZero or null-deref: no base observed → 'N' (any base, NC-IUB 1984).
     [Test]
-    public void Generate_ZeroTotalColumn_NoDivideByZero_FallsBackToA()
+    public void Generate_ZeroTotalColumn_NoDivideByZero_ReturnsN()
     {
         var rows = new[] { "N", "-", "X" }; // none counted → zero A/C/G/T total in the single column
 
@@ -236,7 +238,7 @@ public class MotifGenerateFuzzTests
 
         act.Should().NotThrow("a zero-total column must not DivideByZero / null-deref (§5.2, §6.1)");
         string consensus = MotifFinder.GenerateConsensus(rows);
-        consensus.Should().Be("A", "no base passes a positive threshold ⇒ most-frequent (zero) base, alphabetical → A");
+        consensus.Should().Be("N", "no A/C/G/T observed ⇒ unknown base N (NC-IUB 1984)");
         AssertWellFormed(consensus, rows);
     }
 
@@ -332,14 +334,14 @@ public class MotifGenerateFuzzTests
             .Should().Be(expected.ToString(), "an equal-max triple over θ·n encodes its NC-IUB symbol (INV-04)");
     }
 
-    // Four equal bases (each at exactly 25 %): NONE passes the strict θ·n boundary, so the
-    // documented fallback emits the most-frequent base with an ALPHABETICAL tie-break → 'A',
-    // NEVER 'N' (§5.2, §6.1). This is the canonical non-trivial tie corner of this unit.
+    // Four equal bases (each at exactly 25 %): NONE passes the strict θ·n boundary; all four
+    // tie at the maximum ⇒ degeneracy code N (DECIPHER equal-abundance rule; Biopython
+    // degenerate_consensus → N). Was 'A' before F13.
     [Test]
-    public void Generate_FourEqualBases_FallsBackToA_NotN()
+    public void Generate_FourEqualBases_ReturnsN()
     {
         MotifFinder.GenerateConsensus(new[] { "A", "C", "G", "T" })
-            .Should().Be("A", "no base exceeds θ·n=1.0 (strict '>') ⇒ most-frequent alphabetical fallback → A (§5.2)");
+            .Should().Be("N", "four equally abundant bases ⇒ N (F13)");
     }
 
     // A base sitting EXACTLY at the threshold is EXCLUDED (strict '>', INV-05): n=4, θ·n=1.0;
@@ -402,12 +404,12 @@ public class MotifGenerateFuzzTests
         }
     }
 
-    // Ragged matrices (column count taken from the FIRST row, shorter rows contribute nothing
-    // at trailing columns — §5.2): the unit must NOT IndexOutOfRange, and the consensus length
-    // stays the first row's length.
+    // Ragged matrices are not alignments (Biopython MultipleSeqAlignment: "Sequences must all be
+    // the same length"): the unit must reject them with ArgumentException (F13) — never
+    // IndexOutOfRange, never a silently truncated consensus; equal-width draws match the oracle.
     [Test]
     [CancelAfter(30_000)]
-    public void Generate_RandomRaggedMatrices_NoIndexOutOfRange_MatchesOracle()
+    public void Generate_RandomRaggedMatrices_RejectedOrMatchOracle()
     {
         var rng = new Random(171_005);
         for (int trial = 0; trial < 1000; trial++)
@@ -418,12 +420,15 @@ public class MotifGenerateFuzzTests
                 .ToList();
 
             Action act = () => MotifFinder.GenerateConsensus(rows);
-            act.Should().NotThrow<IndexOutOfRangeException>(
-                "shorter rows contribute nothing at trailing columns, never indexed out of range (§5.2)");
+            if (rows.Any(r => r.Length != rows[0].Length))
+            {
+                act.Should().Throw<ArgumentException>("rows of unequal length are not an alignment (F13)");
+                continue;
+            }
 
             string consensus = MotifFinder.GenerateConsensus(rows);
             AssertWellFormed(consensus, rows);
-            consensus.Should().Be(Oracle(rows), "matches the documented ragged-row tally rule");
+            consensus.Should().Be(Oracle(rows), "matches the documented decision rule");
         }
     }
 

@@ -131,3 +131,17 @@ covered — not a defect.
 - **End-state: CLEAN** — no defect found; algorithm fully functional. No code/test fixes needed.
 - **Test-quality gate: PASS** — exact sourced expectations, all invariants/edges covered, full
   unfiltered suite green (6523/0).
+
+## Review 2026-09 (batch B03) addendum
+
+- **Stage A:** FAIL→FIXED on scope. The unit was declared "Simplified / Not implemented" for the
+  discrete Chou-Fasman assignment although the 1978 parameters (incl. bend frequencies) and rules
+  are published and implementable (campaign rule 2). The profile method itself is honest
+  (documented as a windowed mean-propensity profile) and its 20-residue table is confirmed again
+  (ravihansa3000 by name + hassan11196 by letter agree; ravihansa3000 has an N/D symbol swap).
+- **Stage B:** PASS for the profile; new `PredictSecondaryStructureChouFasman` implemented and
+  cross-checked: Python reference ≡ C# on 3000 random sequences; turn predicate and
+  nucleation/extension ≡ ravihansa3000 (quirks corrected) on 203/303 sequences.
+- Table refactored to one integer (×100) Chou-Fasman table with bend frequencies; the profile's
+  double table is derived from it (bit-identical, all profile tests unchanged).
+

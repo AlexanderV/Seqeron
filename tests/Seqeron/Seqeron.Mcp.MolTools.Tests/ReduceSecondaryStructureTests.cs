@@ -21,9 +21,10 @@ public class ReduceSecondaryStructureTests
     [Test]
     public void ReduceSecondaryStructure_Binding_InvokesSuccessfully()
     {
-        // A sequence shorter than the window is returned unchanged (documented behaviour).
+        // A sequence shorter than the window keeps its codons, but the output is always the
+        // normalised RNA form (review 2026-09, CODON-OPT-001 F24).
         var shortSeq = MolToolsTools.reduce_secondary_structure("ATGATG", EColi(), window_size: 40);
-        Assert.That(shortSeq.OptimizedSequence, Is.EqualTo("ATGATG"));
+        Assert.That(shortSeq.OptimizedSequence, Is.EqualTo("AUGAUG"));
 
         // A sequence at/above the window is processed; synonymous swaps preserve the codon count.
         // 15 codons (45 nt) > 40-nt window.

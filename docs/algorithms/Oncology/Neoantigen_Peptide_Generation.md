@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-NEO-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Framework |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -24,7 +24,7 @@ produces the well-defined peptide candidates that a downstream binding predictor
 
 Tumour-specific somatic mutations can create neoantigens — mutant peptides presented on MHC molecules and
 recognised as non-self by T cells. For MHC class I, presented ligands are short peptides, predominantly 9-mers
-but ranging 8–11 residues, with length preference varying by HLA allele [3][4]. A missense mutation alters one
+but ranging 8–11 residues (up to 14 in NetMHCpan-4.1), with length preference varying by HLA allele [3][4]. A missense mutation alters one
 residue of the protein; only peptides that contain that residue can differ from self, so neoantigen prediction
 considers exactly the peptides spanning the mutation [2].
 
@@ -82,7 +82,7 @@ these two peptides [5].
 | mutantResidue | char | required | Substituted (mutant) amino acid | must differ from WT residue at the position |
 | mutationPosition | int | required | 1-based position of the substitution | 1 ≤ position ≤ length |
 | minLength | int | 8 | Minimum peptide length | ≥ 1 |
-| maxLength | int | 11 | Maximum peptide length | ≥ minLength |
+| maxLength | int | 14 | Maximum peptide length | ≥ minLength |
 
 ### 3.2 Output / Return Value
 
@@ -101,7 +101,9 @@ these two peptides [5].
 1-based protein coordinates. Null protein → `ArgumentNullException`. Empty protein, `mutantResidue` equal to
 the wild-type residue (not a substitution), `minLength < 1`, or `maxLength < minLength` → `ArgumentException`.
 `mutationPosition` outside [1, length] → `ArgumentOutOfRangeException`. A requested length `k > L` is skipped
-(no window fits); if no length yields a window the result is empty. Sequences are treated as opaque
+(no window fits); if no length yields a window the result is empty. A stop-gain (`mutantResidue == '*'`)
+yields an empty result: translation ends at the mutated codon, so no residue exists at `p` and no window can
+span it (pVACseq truncates the mutant sequence at the stop and skips the variant [6]). Sequences are treated as opaque
 one-letter-code strings (no alphabet validation; case preserved).
 
 ## 4. Algorithm
@@ -120,7 +122,7 @@ one-letter-code strings (no alphabet validation; case preserved).
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Default MHC class I min length | 8 | Hundal et al. (2020) [1]; NetMHCpan-4.1 [4] |
-| Default MHC class I max length | 11 | Hundal et al. (2020) [1] |
+| Default MHC class I max length | 14 | NetMHCpan-4.1 class I window [4]; pVACseq default is 11 [1][6] (pass `maxLength: 11`) |
 | Window-spanning rule | start ∈ [max(1,p−k+1), min(p,L−k+1)] | ProGeo-neo 21-mer ±10-flank [2] |
 
 ### 4.3 Complexity
@@ -133,11 +135,11 @@ one-letter-code strings (no alphabet validation; case preserved).
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.Neoantigen.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.Neoantigen.cs)
 
 - `OncologyAnalyzer.GenerateNeoantigenPeptides(string, char, int, int, int)`: enumerates the candidate peptides.
 - `OncologyAnalyzer.NeoantigenPeptide`: record struct holding one mutant/wild-type peptide pair.
-- `OncologyAnalyzer.MhcClassIMinPeptideLength` / `MhcClassIMaxPeptideLength`: 8 / 11.
+- `OncologyAnalyzer.MhcClassIMinPeptideLength` / `MhcClassIMaxPeptideLength`: 8 / 14.
 
 ### 5.2 Current Behavior
 
@@ -152,9 +154,18 @@ alphabet-validated — any one-letter codes are accepted and case is preserved.
 - Enumeration of every length-k window spanning the substituted residue, for k = 8–14 by default [1][2].
 - Wild-type/mutant agretope pairing at identical coordinates [2][5].
 
+**Reference cross-check:** the pVACseq missense windowing (per length k: flank k−1, `get_wildtype_subsequence`,
+`determine_neoepitopes`, keep MT ≠ WT) was re-executed from the pVACtools source [6] on 3 000 random
+protein/mutation/length-range cases and matched this implementation window-for-window (start, MT, WT).
+
 **Intentionally simplified:**
 
 - (none)
+
+**Divergence (documented):** pVACseq additionally drops a whole variant when *every* mutant k-mer of its local
+(2k−1) window already occurs in the local wild-type window ("does not result in any novel epitopes") — only
+possible in low-complexity repeats (e.g. `AGGGGGGGGAGGG`, A10G, k=8). This unit returns the spanning windows;
+self-similarity filtering is a downstream step.
 
 **Not implemented:**
 
@@ -179,6 +190,7 @@ alphabet-validated — any one-letter codes are accepted and case is preserved.
 | Mutation at N-/C-terminus | Only the windows that fit while spanning it (truncated count) | ProGeo-neo builds the flanked window "if possible" [2] |
 | Requested length > protein length | That length skipped; shorter lengths still returned | no window of that length fits |
 | mutantResidue == wild-type residue | ArgumentException | not a missense substitution [1] |
+| mutantResidue == '*' (stop-gain) | Empty result | protein truncated before `p`; pVACseq emits 0 epitopes [6] |
 | Single length range (min==max) | Only that length returned | range respected |
 
 ### 6.2 Limitations
@@ -212,3 +224,4 @@ var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides("MKTAYIAKQRSTVWLNDEFG
 3. Jurtz V, Paul S, Andreatta M, et al. 2017. NetMHCpan-4.0: Improved Peptide-MHC Class I Interaction Predictions. Journal of Immunology 199(9):3360–3368. https://doi.org/10.4049/jimmunol.1700893
 4. NetMHCpan-4.1 web service. DTU Health Tech. https://services.healthtech.dtu.dk/services/NetMHCpan-4.1/
 5. Wells DK, van Buuren MM, Dang KK, et al. 2020. Key Parameters of Tumor Epitope Immunogenicity Revealed Through a Consortium Approach Improve Neoantigen Prediction (TESLA). Cell 183(3):818–834. https://doi.org/10.1016/j.cell.2020.09.015
+6. pVACtools source (griffithlab/pVACtools, master): `pvactools/lib/fasta_generator.py`, `pvactools/lib/output_parser.py`, `pvactools/lib/run_utils.py`, `pvactools/lib/pipeline.py`, `pvactools/lib/run_argument_parser.py` (default `--class-i-epitope-length 8,9,10,11`). https://github.com/griffithlab/pVACtools

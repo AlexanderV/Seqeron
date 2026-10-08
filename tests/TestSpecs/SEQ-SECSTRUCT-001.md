@@ -5,7 +5,7 @@
 **Algorithm:** Protein Secondary Structure Prediction — Chou-Fasman conformational propensities (sliding-window profile)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -185,6 +185,22 @@
 All 16 in-scope cases ✅.
 
 ---
+
+### 5.7 Review 2026-09 additions — `PredictSecondaryStructureChouFasman`
+
+| ID | Test Case | Expected | Evidence |
+|----|-----------|----------|----------|
+| CF1 | "PPPP" | "CCCC" (p(t) 7.098e-5 < 7.5e-5) | turn rule, 1978 f table |
+| CF2 | "NPDG" | "TTTT" | turn rule |
+| CF3 | "AAAAAA", "QQQQQQ", "aaaaaa" | all H | rules 1-3 (Chen 2006) |
+| CF4 | "VVVVV", "VVVVVV" | all E (helix rejected by ⟨Pα⟩ < ⟨Pβ⟩) | rule 3 |
+| CF5 | "SGIAKQ", "PTIQGQ" | all C (⟨Pα⟩ 1.015 ≤ 1.03; ⟨Pβ⟩ 1.048 ≤ 1.05) | rule 3 |
+| CF6 | "EEEEEEVVVVVV" | "HHHHEEEEEEEE" (overlap → higher mean) | rule 4 |
+| CF7 | "EEEEEEGG" | "HHHHTTTT" (turn precedence) | turn rule |
+| CF8 | "AAAAXAAAA" | all C (unknown blocks windows) | contract |
+| CF9 | ubiquitin P0CG48, ravihansa3000 protein1 | Python-reference strings; lowercase identical | Stage B |
+| CF10 | null / "" / "A" / "AAAAA" | "" / "" / "C" / "CCCCC" | contract |
+| CF-F | 500 random polluted inputs (fuzz) | length preserved, [HETC] only, case-insensitive, junk → C | contract |
 
 ## 6. Assumption Register
 

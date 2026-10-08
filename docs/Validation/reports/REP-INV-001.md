@@ -1,72 +1,45 @@
 # Validation Report: REP-INV-001 — Inverted Repeat Detection
 
-- **Validated:** 2026-06-24   **Area:** Repeats
-- **Canonical method(s):** `RepeatFinder.FindInvertedRepeats(DnaSequence, minArmLength=4, maxLoopLength=50, minLoopLength=3)`; string overload `FindInvertedRepeats(string, …)`; alternative RNA variant `RnaSecondaryStructure.FindInvertedRepeats(string, minLength, minSpacing, maxSpacing)` (smoke).
-- **Stage A verdict:** PASS
-- **Stage B verdict:** PASS
+- **Re-validated:** 2026-09-29 / 2026-09-30 (review campaign 2026-09, batch B04: fixes F10, F21–F24; supersedes the 2026-06-24 PASS/PASS report, whose "report every (i, j, arm) tuple" rule was wrong)   **Area:** Repeats
+- **Canonical method(s):** `RepeatFinder.FindInvertedRepeats(DnaSequence | string, minArmLength = 4, maxLoopLength = 50, minLoopLength = 3, maxMismatches = 0, maxArmLength = int.MaxValue, allowWobble = false)`; scored variant `RepeatFinder.FindInvertedRepeatsScored(string | DnaSequence, gapPenalty = 12, threshold = 50, matchScore = 3, mismatchScore = −4, maxRepeatLength = 2000)`; MCP `find_inverted_repeats` (delegates, exposes all options).
+- **Stage A verdict:** PASS-WITH-NOTES (reporting rule re-sourced: EMBOSS `palindrome`; options sourced from `palindrome.c` / `einverted.c`)
+- **Stage B verdict:** FAIL → fixed (F10), options implemented (F21–F24)
 
 ## Stage A — Description
 
-### Sources opened & what they confirm
-- **Wikipedia — Inverted repeat** (fetched live): "a single stranded sequence of nucleotides followed downstream by its reverse complement"; the intervening nucleotides "can be any length, including zero"; example `5'-TTACGnnnnnnCGTAA-3'`; "When the intervening sequence has zero length, an inverted repeat becomes a palindromic sequence." Confirms: IR = arm + (optional spacer/loop ≥ 0) + reverse complement of arm; spacer 0 ⇒ palindrome. This is the exact definition the unit must implement, and it is a **reverse-complement** match, not a direct (forward) repeat.
-- **Wikipedia — Stem-loop** (fetched live): "Loops that are fewer than three bases long are sterically impossible and thus do not form"; optimal loop ≈ 4–8 bases (UUCG tetraloop example). Confirms the `CanFormHairpin = (loop ≥ 3)` rule and the sensible default `minLoopLength = 3`.
-- **Wikipedia — Palindromic sequence** (per TestSpec): palindrome = sequence equal to its own reverse complement (EcoRI `GAATTC`); = IR with spacer 0. Confirms M2/C1 semantics and the REP-PALIN relationship (palindrome is the spacer=0 special case of an inverted repeat).
-- **EMBOSS einverted** (per TestSpec): DP local-alignment of sequence vs. its reverse complement above a score threshold; parameters include arm/loop bounds and tolerate mismatches/bulges. Confirms the *concept* and frames the documented divergence: this implementation does **exact (perfect-stem)** revcomp matching with HashSet dedup, not scored/imperfect alignment.
-- **Pearson (1996), Bissler (1998)**: biological-significance background only (cruciform/replication, human disease); non-numeric.
+### Sources opened
+- **EMBOSS `palindrome.c`** (M. Faller; raw GitHub kimrutherford/EMBOSS, 6.6.0): stems start at a complementary outer pair and are extended inward while `mismatches <= maxmismatches && ic < ir`; trailing mismatches trimmed (`count -= mismatchAtEnd`); kept when `count >= minpallen && gap <= gaplimit`; with `-overlap Y` a stem inside an earlier one in both halves (`palindrome_AInB`) is dropped; outer pairs limited to `rev <= current + 2·maxpallen + gaplimit`, and `palindrome_Print` skips stems longer than `maxpallen` (they remain in the list and suppress sub-stems). ACD: minpallen 10, maxpallen 100, gaplimit 100, nummismatches 0, both lengths clamped to len/2.
+- **EMBOSS `einverted.c`** (Durbin & Thierry-Mieg 1993) and `einverted.acd` (6.6.0): outward-growing local alignment of the sequence with its reverse complement (match 3, mismatch −4, linear gap 12, threshold 50, maxrepeat 2000 — Durbin's comment mentions a 4000 compile-time value); only a/c/g/t score as a match; ring buffer of `maxrepeat` rows, per-row best (`localMax`), left-start table (`back`), deferred reporting with window clearing and trace-back order same-row gap → previous-row gap → diagonal.
+- **Wikipedia — Inverted repeat / Stem-loop / Palindromic sequence** (2026-06 session): IR = arm + spacer ≥ 0 + reverse complement; loops < 3 nt sterically impossible (`CanFormHairpin`).
+- **G·U wobble:** Crick 1966 (J Mol Biol 19:548–555); Varani & McClain 2000, EMBO Rep 1:18–23 (WebSearch: G·U "fundamental unit of RNA secondary structure", thermodynamic stability comparable to Watson–Crick, nearly isomorphic). Canonical pair set: `RnaSecondaryStructure.CanPair` (ViennaRNA default pairs A·U, G·C, G·U; T read as U).
 
-### Conventions confirmed
-- **Stem (arm) length:** `minArmLength` (default 4); arms grow upward; both arms equal length (perfect stem).
-- **Loop/spacer:** `minLoopLength` (default 3) ≤ loop ≤ `maxLoopLength` (default 50); loop=0 permitted only when `minLoopLength=0` (= palindrome).
-- **Mismatches:** none allowed — exact reverse-complement only (legitimate, sourced divergence from einverted; TestSpec Open Questions).
-- **Coordinates:** 0-based; arm span half-open `[start, start+armLen)`. `LoopLength = RightArmStart − (LeftArmStart + ArmLength)`; `TotalLength = 2·ArmLength + LoopLength`.
-- **Difference from REP-PALIN:** palindrome = inverted repeat with spacer = 0; this unit detects the general spacer ≥ minLoopLength case.
-
-### Edge-case semantics (sourced)
-- No IR ⇒ empty (homopolymer A → revcomp T, no match). Empty/too-short input ⇒ empty.
-- Loop = 0 ⇒ palindrome, valid only with `minLoopLength = 0` (Wikipedia "any length including zero").
-- Loop < 3 ⇒ `CanFormHairpin = false` (steric minimum). Default `minLoopLength = 3` filters non-hairpins.
-
-### Independent cross-check (hand computation, this session)
-- **Designed spacer case (reverse-complement, NOT direct repeat):** `AACCGGTTTCCGGTT` (15 nt). rc(`AACCGG`) = `CCGGTT`. Left arm `AACCGG` at idx 0; loop `TTT` (3 nt); right arm at idx 9 = `CCGGTT` = rc(left). Note left arm ≠ right arm, so this is a genuine reverse-complement (inverted) match, not a direct repeat. Trace of code: i=0, armLen=6, minJ=9, maxJ=min(56,9)=9, j=9, rightArm `CCGGTT` == leftArmRevComp ✓ ⇒ LeftArmStart=0, RightArmStart=9, ArmLength=6, LoopLength=3, Loop=`TTT`, TotalLength=2·6+3=15, CanFormHairpin=true. All fields match the by-hand result.
-- **EcoRI palindrome:** rc(`GAATTC`)=`GAATTC` (self-complementary) — matches Wikipedia EcoRI example; confirms spacer=0 palindrome semantics.
-
-### Findings / divergences
-PASS. Definition, formulas, conventions and edge cases all match authoritative sources. Exact-stem (no mismatch) policy vs. einverted's scored/imperfect alignment is an explicit, sourced design choice — not an error.
+### Conventions
+0-based coordinates; `LoopLength = RightArmStart − (LeftArmStart + ArmLength)`; `TotalLength = 2·ArmLength + LoopLength`; only A/C/G/T pair by default (einverted convention; `palindrome` lets n pair n); `minLoopLength` is an extension (0 = `palindrome`). Scored results: 0-based inclusive arm coordinates, einverted report order.
 
 ## Stage B — Implementation
 
-### Code path reviewed
-`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:275-355` (public overloads + `FindInvertedRepeatsCore`); result struct `InvertedRepeatResult` at `:646-660` (`TotalLength => 2*ArmLength + LoopLength`).
+- **F10 (2026-09-29):** every sub-stem was reported (`GAATTCAAAAGAATTC` → 6 hits; EMBOSS 1); N/IUPAC paired; lazy validation → maximal non-nested stems, ACGT via canonical `GetComplementBase`, eager validation.
+- **F21 `maxMismatches`:** per-anti-diagonal implementation of the `palindrome` candidate walk + exact nesting test (a container on diagonal D ± m is ≥ m longer, m ≤ loop − minLoop). `Mismatches` added to `InvertedRepeatResult` (init property).
+- **F22 `FindInvertedRepeatsScored`:** einverted scan reimplemented (own code) incl. ring reuse and stale-`localMax` behaviour; `ScoredInvertedRepeatResult` record.
+- **F23 `maxArmLength`:** `-maxpallen` rule (start-span bound + print filter; longer stems not split).
+- **F24 `allowWobble`:** pairing via `RnaSecondaryStructure.CanPair`; maximal-stem rule unchanged.
 
-### Formula realised correctly?
-- Reverse-complement matching: `DnaSequence.GetReverseComplementString(leftArm)` compared `==` to `rightArm` — exact perfect stem (`:320`,`:332`). ✓
-- `LoopLength = j − (i + armLen)`; loop substring `[i+armLen, j)` (`:334-335`). ✓
-- `CanFormHairpin: loopLength >= 3` (`:349`) — matches steric minimum. ✓
-- Loop window: `minJ = i + armLen + minLoopLength`; `maxJ = min(i + armLen + maxLoopLength, seq.Length − armLen)` (`:323-324`) — enforces min and max loop and keeps right arm in bounds; `j + armLen > seq.Length` break is redundant-safe (`:328`). ✓
-- Outer bound `i <= seq.Length − 2·minArmLength − minLoopLength` (`:315`) is a correct *necessary* lower bound (a valid match needs `i ≤ seq.Length − 2·armLen − minLoopLength ≤ seq.Length − 2·minArmLength − minLoopLength`) — no valid left start skipped; no off-by-one.
-- Validation: `minArmLength < 2`, `minLoopLength < 0` throw; null `DnaSequence` throws; empty string ⇒ empty (`:281-301`). ✓
-- Case handling: string overload `ToUpperInvariant()`; `DnaSequence` already normalised (`:303`). ✓ (S3)
-- Dedup: `HashSet<(i,j,armLen)>` reports all distinct exact pairs incl. overlaps (C3) (`:313`,`:337-340`). ✓
-- `TotalLength = 2·ArmLength + LoopLength` (`:659`). ✓
+### Cross-verification (0 mismatches everywhere)
+| Check | Cases | Result |
+|---|---|---|
+| Default exact stems vs `palindrome` binary (minLoop 0) / Python brute force | 1000 / 3000 | 0 mismatches (F10) |
+| Options vs `palindrome` 6.6.0 (k 0–6, ≈ half with `-maxpallen` < len/2, n 8–400) | 5100 cases, 144 727 stems (113 676 with mismatches) | 0 |
+| Options vs literal `palindrome.c` transcription generalised to minLoop 0–6 / wobble / N / U / lowercase | 6000 | 0 |
+| Exact stems vs all-stems brute force (Python, ≈ half with the RNA wobble pair set; + 300 wobble cases in the C# test) | 1653 | 0 |
+| Scored vs `einverted` 6.6.0 binary (planted mismatched/gapped repeats, n 20–4000, gap 0–16, threshold 0–70, match 1–5, mismatch 0…−6, maxrepeat 2–2000) | 4700 (89 aborted by einverted with SIGFPE) — 11 100 repeats | 0 (coordinates, score, matches, mismatches, gaps, all three alignment rows) |
+| Scored vs einverted built from 6.6.0 source with only the `(100*nmatch)/(nmatch+nmis)` division guarded | 3400, incl. the aborting parameter sets; 8 560 repeats | 0 |
 
-### Cross-verification (recomputed vs code)
-| Case | Input | Expected | Result |
-|------|-------|----------|--------|
-| Designed spacer (this session) | `AACCGGTTTCCGGTT` | L0/R9/arm6/loop3/total15, hairpin=true | matches hand trace |
-| M1 hairpin | `AAGCGCAAAAGCGCAA` | L2/R10/arm4/loop4/total12 | covered by tests |
-| M2/C1 EcoRI | `GAATTCAAAAGAATTC` | arm6 L0/R10/loop4 + overlaps | covered |
-| No-IR | homopolymer A | empty | covered |
-| loop=0 palindrome | `GGGCGCCC` minLoop0→1, minLoop1→∅ | per Wikipedia | covered |
+### Worked values (locked in tests)
+- `palindrome -minpallen 4 -gaplimit 10`: `GAATTCAGGAAAACCTCAATTC` k=1 → (0,13,9, 1 mm); k=2 → (0,8,6)(0,10,5)(0,12,5)(0,13,9)(12,17,4). `GGGGGGGGGGAAACCCCCCCCCC` → (0,13,10); `-maxpallen` 4/5/6 → nothing. `TTGCATGCAAAAAATTTTTTTGCATGCAA` unbounded → (0,5,5)(0,15,14)(8,14,6)(19,24,5); maxpallen 6 → drops (0,15,14); 5 → (0,5,5)(19,24,5).
+- `einverted` defaults on `CCCAACCCATGCGTACGTTAGCCTAGGATCCATTTTTTTTTGGATACTAGGCAACGTACGCATGGGAAGGG` → "Score 60: 28/31 (90%) matches, 1 gaps", 1..32 / 71..41 (= 28·3 − 3·4 − 12).
 
-### Variant/delegate consistency
-String overload mirrors the `DnaSequence` overload (S2 asserts equality). RNA variant (`RnaSecondaryStructure.FindInvertedRepeats`, different signature/parameters) is a separate smoke-level alternative, not under deep test here.
+### Tests
+Unit: `RepeatFinder_InvertedRepeat_Tests` (F10) + `RepeatFinder_InvertedRepeatOptions_Tests` (options, scored, literal oracle, brute force); heavy tier: `Properties/RepInvOptionsProperties`, `Metamorphic/RepInvOptionsMetamorphicTests` (revcomp mirror, wobble reverse mirror, scored case / N-prefix shift), `Fuzzing/RepInvOptionsFuzzTests`; MCP `FindInvertedRepeatsTests`, `FindInvertedRepeatsScoredTests` (tool `find_inverted_repeats_scored` → `FindInvertedRepeatsScored`, B04 F49).
 
-### Test quality audit
-`RepeatFinder_InvertedRepeat_Tests` = 24 canonical tests; all repeat-suite tests = 700; both **0 failed**. Assertions check exact sourced positions/lengths/loop/total/hairpin flags and parameter thresholds (not no-throw tautologies); deterministic; cover empty, too-short, no-IR, loop=0 palindrome, min/max loop boundaries, min arm, overlapping, case, null/range validation. All Stage-A edge cases covered.
-
-### Findings / defects
-None. Code faithfully realises the validated definition.
-
-## Verdict & follow-ups
-- **Stage A: PASS. Stage B: PASS. State: CLEAN.** No defects; no code changed. Canonical class 24/24 green, full repeat suite 700/700 green.
-- Note (not a defect): perfect/exact-stem only; imperfect stems with mismatches/bulges (einverted-style scoring) are out of scope by design and documented in the TestSpec Open Questions.
+## Verdict
+**FIXED + extended.** Exact default output unchanged by the options; `palindrome` and `einverted` behaviour reproduced with 0 mismatches. Evidence: [REP-INV-001-Evidence.md](../../Evidence/REP-INV-001-Evidence.md).

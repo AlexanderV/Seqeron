@@ -26,6 +26,7 @@ Calculates linguistic complexity of a sequence based on k-mer diversity. The mea
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The sequence to analyze (min length: 1) |
 | `maxK` | integer | No | Maximum k-mer length to consider (default: 6) |
+| `alphabetSize` | integer | No | Fixed alphabet size a (≥ 1 and ≥ distinct symbols; 4 = DNA as in Rosalind LING, 20 = protein). Default: inferred (A/C/G/T ∪ observed symbols) |
 
 ## Output Schema
 
@@ -38,10 +39,11 @@ Calculates linguistic complexity of a sequence based on k-mer diversity. The mea
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1001 | alphabetSize < 1 or smaller than the number of distinct symbols |
 
 ## Examples
 
-### Example 1: High complexity sequence
+### Example 1: Periodic sequence (ATGC×3)
 
 **User Prompt:**
 > What's the linguistic complexity of "ATGCATGCATGC"?
@@ -59,7 +61,7 @@ Calculates linguistic complexity of a sequence based on k-mer diversity. The mea
 **Response:**
 ```json
 {
-  "complexity": 0.95
+  "complexity": 0.4897959183673469
 }
 ```
 
@@ -81,8 +83,20 @@ Calculates linguistic complexity of a sequence based on k-mer diversity. The mea
 **Response:**
 ```json
 {
-  "complexity": 0.17
+  "complexity": 0.15384615384615385
 }
+```
+
+### Example 3: Protein with a fixed 20-letter alphabet
+
+**Expected Tool Call:**
+```json
+{ "tool": "linguistic_complexity", "arguments": { "sequence": "MKVLAAGIVGLLLAA", "maxK": 15, "alphabetSize": 20 } }
+```
+
+**Response:**
+```json
+{ "complexity": 0.9 }
 ```
 
 ## Performance

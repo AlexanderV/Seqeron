@@ -17,6 +17,23 @@ public static class VariantCaller
     /// <summary>
     /// Detects all variants between a query and reference sequence.
     /// </summary>
+    /// <remarks>
+    /// <para>The sequences are globally aligned with <c>SequenceAligner.GlobalAlign</c>
+    /// (Needleman-Wunsch, default <see cref="SequenceAligner.SimpleDna"/> scoring: match +1, mismatch -1,
+    /// linear gap -1 per base) and the gapped columns are scanned by
+    /// <see cref="CallVariantsFromAlignment"/>.</para>
+    /// <para><b>Indel representation.</b> The aligner's traceback prefers the diagonal move, which
+    /// places every gap run at its leftmost equivalent column, so each reported indel is
+    /// <i>left-aligned</i> in the sense of Tan, Abecasis &amp; Kang (2015, Bioinformatics 31:2202,
+    /// doi:10.1093/bioinformatics/btv112). Cross-checked against <c>bcftools norm -f</c> (htslib/bcftools
+    /// via pysam 0.24.1): 1000/1000 single-indel cases in repeat-rich sequences were already normalized.
+    /// Multi-base indels are reported one event per gap column (per-column model).</para>
+    /// <para><b>Limitation (scoring).</b> With the default linear scoring a gap costs the same as a
+    /// mismatch, so an adjacent two-base swap such as <c>AC→CA</c> in equal-length sequences is reported as
+    /// an insertion + deletion rather than two substitutions. Read-mapping aligners penalise gaps above
+    /// mismatches with affine costs (e.g. BWA-MEM defaults mismatch 4, gap open 6, extend 1); the library
+    /// has no public affine (Gotoh) pairwise aligner yet, so this is a declared limitation.</para>
+    /// </remarks>
     /// <param name="reference">Reference DNA sequence.</param>
     /// <param name="query">Query DNA sequence to compare.</param>
     /// <returns>Collection of detected variants.</returns>
@@ -31,6 +48,15 @@ public static class VariantCaller
     /// <summary>
     /// Detects variants from aligned sequences.
     /// </summary>
+    /// <remarks>
+    /// Each column is classified literally: reference gap → insertion, query gap → deletion,
+    /// differing bases → SNP. Bases are compared case-insensitively (VCF v4.3 §1.6.1: REF/ALT bases
+    /// "must be one of A,C,G,T,N (case insensitive)"), so a soft-masked lowercase base aligned to the
+    /// same uppercase base is a match, not a SNP; alleles are reported as they appear in the input.
+    /// The alignment supplied by the caller is reported as-is — indels are <i>not</i> re-positioned, so
+    /// a gap placed right of its leftmost equivalent column is reported at that column
+    /// (use <see cref="CallVariants"/> for left-aligned indels).
+    /// </remarks>
     /// <param name="alignedReference">Aligned reference sequence (may contain gaps).</param>
     /// <param name="alignedQuery">Aligned query sequence (may contain gaps).</param>
     /// <returns>Collection of detected variants.</returns>
@@ -79,7 +105,8 @@ public static class VariantCaller
                     QueryPosition: queryPos);
                 refPos++;
             }
-            else if (refBase != GapChar && queryBase != GapChar && refBase != queryBase)
+            else if (refBase != GapChar && queryBase != GapChar &&
+                     char.ToUpperInvariant(refBase) != char.ToUpperInvariant(queryBase))
             {
                 // SNP
                 yield return new Variant(
@@ -113,35 +140,42 @@ public static class VariantCaller
     #region SNP Detection
 
     /// <summary>
-    /// Detects only SNPs (Single Nucleotide Polymorphisms).
+    /// Detects only SNPs (Single Nucleotide Polymorphisms): globally aligns the inputs
+    /// (<see cref="CallVariants"/>) and keeps the <see cref="VariantType.SNP"/> columns.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="reference"/> or <paramref name="query"/> is null.</exception>
     public static IEnumerable<Variant> FindSnps(DnaSequence reference, DnaSequence query)
     {
         return CallVariants(reference, query).Where(v => v.Type == VariantType.SNP);
     }
 
     /// <summary>
-    /// Detects SNPs from aligned sequences (faster, no alignment needed).
+    /// Detects SNPs from already-aligned (positionally corresponding) sequences, without running an
+    /// alignment.
     /// </summary>
+    /// <remarks>
+    /// <para>Delegates to <see cref="CallVariantsFromAlignment"/> and keeps only
+    /// <see cref="VariantType.SNP"/> columns, so the positional comparison has a single implementation.
+    /// For gap-free inputs every differing index <c>i</c> yields one SNP with <c>Position == QueryPosition == i</c>
+    /// (the Hamming mismatch set). Consequences of the shared contract:</para>
+    /// <list type="bullet">
+    /// <item>Bases are compared case-insensitively (VCF v4.3 §1.6.1: REF/ALT bases "A,C,G,T,N (case
+    /// insensitive)"), so a soft-masked <c>a</c> against <c>A</c> is a match; alleles are reported as given.</item>
+    /// <item>Gap columns (<c>'-'</c>) are indels, not substitutions, and are never reported as SNPs; positions
+    /// are ungapped reference/query coordinates.</item>
+    /// <item>The inputs must have equal length: the Hamming mismatch set is defined only for sequences of the
+    /// same length, so unequal lengths throw <see cref="ArgumentException"/> (as SciPy
+    /// <c>spatial.distance.hamming</c> and scikit-bio <c>Sequence.mismatches</c> do) instead of silently
+    /// ignoring the unmatched tail. Use <see cref="FindSnps"/> for un-aligned inputs.</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="reference">Aligned reference sequence.</param>
+    /// <param name="query">Aligned query sequence (same length as <paramref name="reference"/>).</param>
+    /// <returns>SNPs only; empty when either input is null or empty.</returns>
+    /// <exception cref="ArgumentException">Both inputs are non-empty and their lengths differ.</exception>
     public static IEnumerable<Variant> FindSnpsDirect(string reference, string query)
     {
-        if (string.IsNullOrEmpty(reference) || string.IsNullOrEmpty(query))
-            yield break;
-
-        int minLen = Math.Min(reference.Length, query.Length);
-
-        for (int i = 0; i < minLen; i++)
-        {
-            if (reference[i] != query[i])
-            {
-                yield return new Variant(
-                    Position: i,
-                    ReferenceAllele: reference[i].ToString(),
-                    AlternateAllele: query[i].ToString(),
-                    Type: VariantType.SNP,
-                    QueryPosition: i);
-            }
-        }
+        return CallVariantsFromAlignment(reference, query).Where(v => v.Type == VariantType.SNP);
     }
 
     #endregion
@@ -178,7 +212,8 @@ public static class VariantCaller
     #region Mutation Classification
 
     /// <summary>
-    /// Classifies a SNP as transition or transversion.
+    /// Classifies a SNP as transition or transversion (case-insensitive); non-SNPs and SNPs involving a
+    /// base other than A/C/G/T (e.g. N) are <see cref="MutationType.Other"/>.
     /// </summary>
     /// <param name="variant">The SNP variant to classify.</param>
     /// <returns>Mutation type classification.</returns>
@@ -190,6 +225,12 @@ public static class VariantCaller
         char refBase = char.ToUpperInvariant(variant.ReferenceAllele[0]);
         char altBase = char.ToUpperInvariant(variant.AlternateAllele[0]);
 
+        // Transition/transversion is defined only between the purines A,G and pyrimidines C,T.
+        // An ambiguous base (N, IUPAC codes) is neither, so the change is Other — as bcftools stats,
+        // which counts REF=A ALT=N as a SNP but neither a transition nor a transversion.
+        if (!IsUnambiguousBase(refBase) || !IsUnambiguousBase(altBase))
+            return MutationType.Other;
+
         bool refPurine = refBase is 'A' or 'G';
         bool altPurine = altBase is 'A' or 'G';
 
@@ -197,6 +238,8 @@ public static class VariantCaller
         // Transversion: purine <-> pyrimidine
         return refPurine == altPurine ? MutationType.Transition : MutationType.Transversion;
     }
+
+    private static bool IsUnambiguousBase(char upperBase) => upperBase is 'A' or 'C' or 'G' or 'T';
 
     /// <summary>
     /// Calculates the transition/transversion ratio (Ti/Tv).

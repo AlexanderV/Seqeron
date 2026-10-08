@@ -67,8 +67,8 @@ public class KmerAnalyzer_Find_Tests
         // Act
         var result = KmerAnalyzer.FindMostFrequentKmers(sequence, k).ToList();
 
-        // Assert
-        Assert.That(result, Does.Contain("AA"), "AA appears twice, should be most frequent");
+        // Assert - AA ×2; AC, CG, GT ×1 → exactly {AA}
+        Assert.That(result, Is.EquivalentTo(new[] { "AA" }), "AA appears twice, should be the only most frequent");
     }
 
     /// <summary>
@@ -389,6 +389,74 @@ public class KmerAnalyzer_Find_Tests
         {
             Assert.That(result, Does.Contain("AA"), "AA forms a clump");
             Assert.That(result, Does.Contain("CC"), "CC forms a clump");
+        });
+    }
+
+    #endregion
+
+    #region FindClumps - Window boundary semantics (Rosalind BA1E / Compeau & Pevzner ch. 1)
+
+    // BA1E problem statement: TGCA forms a (25,3)-clump in
+    // gatcagcataagggtcccTGCAATGCATGACAAGCCTGCAgttgttttac. TGCA starts at 18, 23, 36, so three
+    // occurrences span 36 + 4 − 18 = 22 bases: an occurrence counts only if it lies wholly inside the
+    // window, hence the clump exists for L ≥ 22 and not for L = 21. Values cross-checked with an
+    // independent Python implementation written from the definition (all windows, full recount).
+    private const string Ba1eStatementGenome = "GATCAGCATAAGGGTCCCTGCAATGCATGACAAGCCTGCAGTTGTTTTAC";
+
+    [TestCase(25, new[] { "TGCA" })]
+    [TestCase(22, new[] { "TGCA" })]
+    [TestCase(21, new string[0])]
+    public void FindClumps_Ba1eStatementExample_OccurrenceMustFitInsideWindow(int windowSize, string[] expected)
+    {
+        var result = KmerAnalyzer.FindClumps(Ba1eStatementGenome, 4, windowSize, 3).ToList();
+
+        Assert.That(result, Is.EquivalentTo(expected));
+    }
+
+    [Test]
+    public void FindClumps_LowercaseInput_SameAsUppercase()
+    {
+        var result = KmerAnalyzer.FindClumps(Ba1eStatementGenome.ToLowerInvariant(), 4, 25, 3).ToList();
+
+        Assert.That(result, Is.EquivalentTo(new[] { "TGCA" }));
+    }
+
+    /// <summary>
+    /// Clump present only in the final window (starts 6,7,8 of an 11-bp sequence, L=5):
+    /// exercises the last slide i = |Genome| − L.
+    /// </summary>
+    [Test]
+    public void FindClumps_ClumpOnlyInLastWindow_Found()
+    {
+        var result = KmerAnalyzer.FindClumps("CGTACGTTTTT", 3, 5, 3).ToList();
+
+        Assert.That(result, Is.EquivalentTo(new[] { "TTT" }));
+    }
+
+    /// <summary>
+    /// C2: overlapping occurrences are counted — AAA occurs at 0,1,2 of AAAAA (exact result).
+    /// </summary>
+    [Test]
+    public void FindClumps_OverlappingOccurrences_Counted()
+    {
+        var result = KmerAnalyzer.FindClumps("AAAAA", 3, 5, 3).ToList();
+
+        Assert.That(result, Is.EquivalentTo(new[] { "AAA" }));
+    }
+
+    /// <summary>
+    /// t = 1: every k-mer lies in some window of length L ≥ k, so all distinct k-mers qualify;
+    /// each is reported once.
+    /// </summary>
+    [Test]
+    public void FindClumps_ThresholdOne_ReturnsEveryDistinctKmerOnce()
+    {
+        var result = KmerAnalyzer.FindClumps("ACGTAC", 2, 4, 1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EquivalentTo(new[] { "AC", "CG", "GT", "TA" }));
+            Assert.That(result, Is.Unique);
         });
     }
 

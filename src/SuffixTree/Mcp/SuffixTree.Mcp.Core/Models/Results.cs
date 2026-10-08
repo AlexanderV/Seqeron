@@ -37,6 +37,61 @@ public record SuffixTreeLcsResult(string Substring, int Length);
 /// </summary>
 public record SuffixTreeStatsResult(int NodeCount, int LeafCount, int MaxDepth, int TextLength);
 
+/// <summary>
+/// One repeated substring with all its 0-based start positions (ascending).
+/// </summary>
+public record RepeatedSubstringItem(string Substring, int[] Positions);
+
+/// <summary>
+/// Result of suffix_tree_all_lrs operation.
+/// </summary>
+/// <param name="Substrings">Every longest repeated substring, ordered by first occurrence.</param>
+/// <param name="Length">Common length of the substrings (0 when none).</param>
+public record SuffixTreeAllLrsResult(RepeatedSubstringItem[] Substrings, int Length);
+
+/// <summary>
+/// One maximal match between the reference text and the query (0-based, forward strand).
+/// </summary>
+public record MaximalMatchItem(int PositionInText, int PositionInQuery, int Length);
+
+/// <summary>
+/// Result of suffix_tree_find_mems / suffix_tree_find_mums operations.
+/// </summary>
+/// <param name="Matches">Matches sorted by query position, then text position.</param>
+public record SuffixTreeMaximalMatchesResult(MaximalMatchItem[] Matches);
+
+/// <summary>
+/// One maximal repeated pair (0-based, forward strand, firstPosition &lt; secondPosition).
+/// </summary>
+public record MaximalRepeatItem(int FirstPosition, int SecondPosition, int Length);
+
+/// <summary>
+/// Result of suffix_tree_maximal_repeats operation.
+/// </summary>
+/// <param name="Pairs">Maximal repeated pairs sorted by first, then second position.</param>
+public record SuffixTreeMaximalRepeatsResult(MaximalRepeatItem[] Pairs);
+
+/// <summary>
+/// One longest common substring with all its 0-based start positions in both texts (ascending).
+/// </summary>
+public record CommonSubstringItem(string Substring, int[] PositionsInText1, int[] PositionsInText2);
+
+/// <summary>
+/// Result of suffix_tree_all_lcs operation.
+/// </summary>
+/// <param name="Substrings">Every longest common substring, ordered by first occurrence in text2.</param>
+/// <param name="Length">Common length of the substrings (0 when none).</param>
+public record SuffixTreeAllLcsResult(CommonSubstringItem[] Substrings, int Length);
+
+/// <summary>
+/// Result of suffix_tree_k_common_substrings operation.
+/// </summary>
+/// <param name="Substrings">Every longest substring present in at least MinSupport texts, sorted ordinally.</param>
+/// <param name="Length">Their length (0 when none).</param>
+/// <param name="MinSupport">The support threshold used.</param>
+/// <param name="LengthsBySupport">Element q-1 = longest length present in at least q texts (q = 1..k).</param>
+public record SuffixTreeKCommonSubstringsResult(string[] Substrings, int Length, int MinSupport, int[] LengthsBySupport);
+
 // ================================
 // Genomics Results
 // ================================

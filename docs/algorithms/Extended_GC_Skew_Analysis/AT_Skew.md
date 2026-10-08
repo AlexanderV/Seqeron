@@ -79,7 +79,7 @@ verbatim from Charneski et al. (2011) [2] and corroborated by the Lobry (1996) p
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| CalculateAtSkew | O(n) | O(1) | two linear passes counting A and T; n = sequence length |
+| CalculateAtSkew | O(n) | O(1) | one linear pass counting A and T (shared skew kernel); n = sequence length |
 
 ## 5. Implementation Notes
 
@@ -92,7 +92,7 @@ verbatim from Charneski et al. (2011) [2] and corroborated by the Lobry (1996) p
 
 ### 5.2 Current Behavior
 
-The two public overloads share a private `CalculateAtSkewCore`. Counting uses `string.Count` over the characters 'A' and 'T'. The suffix tree was **not** evaluated/used: AT skew is a single linear count of two base symbols, not a substring-search or occurrence-enumeration problem, so the repository suffix tree does not apply.
+The two public overloads share a private `CalculateAtSkewCore`, which delegates to the class's single canonical skew kernel `CalculateSkewCore(seq, plus, minus)` — the same single-pass (X − Y)/(X + Y) counter used by GC skew (`CalculateGcSkewCore` = kernel with 'G','C'), so AT and GC skew share one counting loop (review 2026-09, no duplicated loops). The suffix tree was **not** evaluated/used: AT skew is a single linear count of two base symbols, not a substring-search or occurrence-enumeration problem, so the repository suffix tree does not apply.
 
 ### 5.3 Conformance to Theory / Spec
 

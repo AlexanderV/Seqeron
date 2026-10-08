@@ -2,16 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "toolName": "count_kmers_both_strands",
   "serverName": "Analysis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.CountKmersBothStrands",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L476",
-  "description": "Counts every k-mer over both strands of double-stranded DNA: count[w] = forward[w] + forward[RC(w)]. Total over all k-mers is 2*(L - k + 1).",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L3086",
+  "description": "Counts every k-mer over both strands of double-stranded DNA: count[w] = forward[w] + forward[RC(w)]. Total over all k-mers is 2*(L - k + 1) (kPAL balance, palindromes doubled). Optional acgtOnly = kPAL counting: any symbols accepted, windows containing a non-ACGT symbol skipped on both strands.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "acgtOnly": { "type": "boolean", "description": "kPAL / Jellyfish window rule: accept any symbols and skip windows containing a non-ACGT symbol (otherwise the sequence must be A/C/G/T)", "default": false }
     },
     "required": ["sequence", "k"]
   },
@@ -40,6 +41,11 @@
       "name": "Mixed 2-mers",
       "input": { "sequence": "ATGC", "k": 2 },
       "output": { "counts": { "AT": 2, "TG": 1, "GC": 2, "CA": 1 } }
+    },
+    {
+      "name": "kPAL ACGT-only ACGTNACGTAAcgtRTT k=3",
+      "input": { "sequence": "ACGTNACGTAAcgtRTT", "k": 3, "acgtOnly": true },
+      "output": { "counts": { "ACG": 6, "CGT": 6, "AAC": 1, "GTA": 1, "GTT": 1, "TAA": 1, "TAC": 1, "TTA": 1 } }
     }
   ]
 }

@@ -35,8 +35,11 @@ public class MolToolsSnapshotTests
         string refSeq = "ATGAAAGCGTTCAAGCGTACTGCGATGCCCAAAGGGTTTTAA";
         var table = CodonOptimizer.CreateCodonTableFromSequence(refSeq, "TestOrganism");
 
+        // Order by frequency, then by codon: the table now holds all 64 codons (absent codons
+        // carry the Sharp & Li 0.5 pseudo-count), so ties must break deterministically.
         var topCodons = table.CodonFrequencies
             .OrderByDescending(kv => kv.Value)
+            .ThenBy(kv => kv.Key, StringComparer.Ordinal)
             .Take(10)
             .ToDictionary(kv => kv.Key, kv => Math.Round(kv.Value, 4));
 

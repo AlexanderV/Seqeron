@@ -36,7 +36,9 @@ public class ProteinSequenceTests
     [Test]
     public void Constructor_InvalidAminoAcid_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => new ProteinSequence("MKVLZ"));
+        // '1' is not an amino-acid code. (Review 2026-09: this test used 'Z', which is the
+        // IUPAC-IUBMB ambiguity code Glx (E/Q) emitted by translation of SAR codons.)
+        Assert.Throws<ArgumentException>(() => new ProteinSequence("MKVL1"));
     }
 
     [Test]
@@ -58,7 +60,7 @@ public class ProteinSequenceTests
     [Test]
     public void TryCreate_InvalidSequence_ReturnsFalse()
     {
-        bool result = ProteinSequence.TryCreate("MKVLZ", out var protein);
+        bool result = ProteinSequence.TryCreate("MKVL1", out var protein);
         Assert.That(result, Is.False);
         Assert.That(protein, Is.Null);
     }
@@ -71,8 +73,8 @@ public class ProteinSequenceTests
     public void MolecularWeight_SingleAminoAcid_ReturnsWeight()
     {
         var protein = new ProteinSequence("M");
-        // Methionine weight: 149.21
-        Assert.That(protein.MolecularWeight(), Is.EqualTo(149.21));
+        // Biopython 1.88 molecular_weight("M", "protein") = 149.2113 (IUPACData.protein_weights)
+        Assert.That(protein.MolecularWeight(), Is.EqualTo(149.2113).Within(1e-9));
     }
 
     [Test]
@@ -351,10 +353,24 @@ public class ProteinSequenceTests
     }
 
     [Test]
-    public void ValidCharacters_Contains22Characters()
+    public void ValidCharacters_Contains25Characters()
     {
-        // 20 standard + * + X
-        Assert.That(ProteinSequence.ValidCharacters.Count, Is.EqualTo(22));
+        // 20 standard + * + X + IUPAC ambiguity codes B (Asx), Z (Glx), J (Xle)
+        // (Biopython IUPACData.extended_protein_letters; GeneticCode emits B/Z/J for RAY/SAR/MTH).
+        Assert.That(ProteinSequence.ValidCharacters.Count, Is.EqualTo(25));
+        Assert.That(ProteinSequence.ValidCharacters, Does.Contain('B').And.Contain('Z').And.Contain('J'));
+    }
+
+    [Test]
+    public void Constructor_IupacAmbiguousAminoAcids_Accepted_ThreeLetterCodesAsBiopython()
+    {
+        // Biopython IUPACData.protein_letters_1to3_extended: B -> Asx, Z -> Glx, J -> Xle, X -> Xaa.
+        var protein = new ProteinSequence("mbzjx");
+        Assert.Multiple(() =>
+        {
+            Assert.That(protein.Sequence, Is.EqualTo("MBZJX"));
+            Assert.That(protein.ToThreeLetterCode(), Is.EqualTo("Met-Asx-Glx-Xle-Xaa"));
+        });
     }
 
     [Test]

@@ -249,4 +249,17 @@ internal unsafe struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<Pers
         int pos = (_textSource.Length + 1) - depth;
         return (pos >= 0 && pos < _textSource.Length) ? pos : -1;
     }
+
+    public void GetChildren(PersistentSuffixTreeNode node, List<PersistentSuffixTreeNode> children)
+    {
+        children.Clear();
+        if (node.IsLeaf) return;
+        var (arrayBase, entryLayout, childCount) = ReadChildArrayInfo(node);
+        for (int ci = 0; ci < childCount; ci++)
+        {
+            long entryOffset = arrayBase + (long)ci * entryLayout.ChildEntrySize;
+            long childOffset = entryLayout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
+            children.Add(NodeAt(childOffset));
+        }
+    }
 }

@@ -44,4 +44,31 @@ public class CreatePwmTests
             Assert.That(r.MinScore, Is.EqualTo(-4 * log2Three).Within(1e-9));
         });
     }
+    [Test]
+    [Description("Biopython 1.88: counts.normalize(pseudocounts={A:.1,C:.4,G:.2,T:.3}).log_odds({A:.3,C:.2,G:.2,T:.3}) and jaspar.calculate_pseudocounts.")]
+    public void CreatePwm_PseudocountOptions_EqualBiopython()
+    {
+        var seqs = new[] { "TACAA", "TACGC", "TACAC", "TACCC", "AACCC", "AATGC", "AATGC" };
+        var bg = new[] { 0.3, 0.2, 0.2, 0.3 };
+        var perBase = AnalysisTools.CreatePwm(seqs, pseudocounts: new[] { 0.1, 0.4, 0.2, 0.3 }, background: bg);
+        Assert.That(perBase.Matrix[0][0], Is.EqualTo(0.3692338096657191).Within(1e-12));
+        Assert.That(perBase.Matrix[0][2], Is.EqualTo(-4.584962500721156).Within(1e-12));
+        Assert.That(perBase.Matrix[3][0], Is.EqualTo(0.8413022539809418).Within(1e-12));
+
+        var jaspar = AnalysisTools.CreatePwm(seqs, background: bg, jasparPseudocounts: true);
+        Assert.That(jaspar.Matrix[0][0], Is.EqualTo(0.39068723333471306).Within(1e-12));
+        Assert.That(jaspar.Matrix[2][3], Is.EqualTo(0.8713553378958487).Within(1e-12));
+
+        var jasparUniform = AnalysisTools.CreatePwm(seqs, jasparPseudocounts: true);
+        Assert.That(jasparUniform.Matrix[0][0], Is.EqualTo(0.6025166839942642).Within(1e-12));
+
+        var scalarBg = AnalysisTools.CreatePwm(seqs, 0.25, background: bg);
+        var expected = global::Seqeron.Genomics.Analysis.MotifFinder.CreatePwm(seqs, 0.25, bg);
+        Assert.That(scalarBg.Matrix[1][2], Is.EqualTo(expected.Matrix[1, 2]));
+
+        Assert.Throws<ArgumentException>(() => AnalysisTools.CreatePwm(seqs, pseudocounts: new[] { 1.0, 1.0 }));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.CreatePwm(seqs, pseudocounts: new[] { 1.0, 1, 1, 1 }, jasparPseudocounts: true));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.CreatePwm(seqs, background: new[] { 1.0 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.CreatePwm(seqs, pseudocounts: new[] { 1.0, -1, 1, 1 }));
+    }
 }

@@ -14,11 +14,11 @@ Compute a primer's melting temperature.
 
 ## Description
 
-Estimates the melting temperature (Tm, °C) of a primer. For fewer than 14 valid (ACGT) bases it uses the **Wallace rule** `Tm = 2·(A+T) + 4·(G+C)`; for 14 or more bases it uses the **Marmur–Doty** formula `Tm = 64.9 + 41·(GC − 16.4)/N`. Non-ACGT characters are ignored when counting.
+Estimates the melting temperature (Tm, °C) of a primer. For fewer than 14 counted bases (A, C, G, T and U, case-insensitive; U is read as T as in Biopython `MeltingTemp._check`) it uses the **Wallace rule** `Tm = 2·(A+T) + 4·(G+C)`; for 14 or more bases it uses the **Marmur–Doty** formula `Tm = 64.9 + 41·(GC − 16.4)/N`. All other characters are ignored when counting. Delegates to `ThermoConstants.CalculateBasicTm` (the canonical basic Tm, also used by `SequenceStatistics.CalculateMeltingTemperature`).
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L197](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L197)
+- Source: [PrimerDesigner.cs#L462](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L462)
 
 ## Input Schema
 

@@ -11,8 +11,8 @@
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Nucleotide sequence.", "minLength": 1 },
-      "min_stem_length": { "type": "integer", "description": "Minimum stem length.", "minimum": 1, "default": 4 },
-      "min_loop_length": { "type": "integer", "description": "Minimum loop length.", "minimum": 0, "default": 3 }
+      "min_stem_length": { "type": "integer", "description": "Minimum stem length (default 4).", "minimum": 1, "default": 4 },
+      "min_loop_length": { "type": "integer", "description": "Minimum loop length (default 3).", "minimum": 0, "default": 3 }
     },
     "required": ["sequence"]
   },

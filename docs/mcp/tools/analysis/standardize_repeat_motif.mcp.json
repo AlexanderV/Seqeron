@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "standardize_repeat_motif",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.GetStandardMotif",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L740",
+  "description": "Standardizes a repeat unit two ways. canonicalClass — the MISA repeat-type class \"considering sequence complementary\" (misa.pl .statistics, RepeatFinder.GetCanonicalMotifClass): X/Y with X, Y the lexicographically smallest rotations of the motif and of its reverse complement, smaller first (CA → AC/GT). standardMotif — the Krait standard motif (Du et al. 2018, lmdu/krait motif.py StandardMotif.standard): the smallest member of the motif's equivalence set under Krait's base order A < T < C < G at level 0 (motif itself), 1 (+ rotations), 2 (+ reverse-complement rotations; default, the MISA grouping), 3 (+ complement; Krait GUI default) or 4 (+ reverse). Motif must be A/C/G/T only (case-insensitive). tandem_repeat_summary reports the per-class / per-standard-motif SSR counts.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "motif": {
+        "type": "string",
+        "description": "Repeat unit of A/C/G/T (case-insensitive)",
+        "minLength": 1
+      },
+      "level": {
+        "type": "integer",
+        "description": "Krait standardization level",
+        "minimum": 0,
+        "maximum": 4,
+        "default": 2
+      }
+    },
+    "required": [
+      "motif"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "canonicalClass": {
+        "type": "string"
+      },
+      "standardMotif": {
+        "type": "string"
+      },
+      "level": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "canonicalClass",
+      "standardMotif",
+      "level"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Motif cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Motif contains a non-ACGT symbol"
+    },
+    {
+      "code": 1003,
+      "message": "level must be 0-4"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Dinucleotide CA",
+      "input": {
+        "motif": "CA"
+      },
+      "output": {
+        "canonicalClass": "AC/GT",
+        "standardMotif": "AC",
+        "level": 2
+      }
+    },
+    {
+      "name": "Krait GUI level 3",
+      "input": {
+        "motif": "CTG",
+        "level": 3
+      },
+      "output": {
+        "canonicalClass": "AGC/CTG",
+        "standardMotif": "ACG",
+        "level": 3
+      }
+    },
+    {
+      "name": "Level 0 = motif itself",
+      "input": {
+        "motif": "ACAT",
+        "level": 0
+      },
+      "output": {
+        "canonicalClass": "ACAT/ATGT",
+        "standardMotif": "ACAT",
+        "level": 0
+      }
+    }
+  ]
+}

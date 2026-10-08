@@ -101,10 +101,13 @@ public class SequenceThermodynamicsFuzzTests
     private static (double dH, double dS, double dG, double tm) Oracle(
         string seq, double na = DefaultNa, double primer = DefaultPrimer)
     {
-        if (string.IsNullOrEmpty(seq) || seq.Length < 2)
+        // Biopython MeltingTemp._check(seq, "Tm_NN") normalisation (SEQ-THERMO-001 F9): upper-case,
+        // U → T (back-transcribe), keep only A/C/G/T (whitespace, gaps, N, IUPAC, junk removed).
+        string s = new string((seq ?? string.Empty).ToUpperInvariant()
+            .Select(c => c == 'U' ? 'T' : c).Where(c => c is 'A' or 'C' or 'G' or 'T').ToArray());
+        if (s.Length < 2)
             return (0, 0, 0, 0);
 
-        string s = seq.ToUpperInvariant();
         double dH = 0, dS = 0;
 
         var (h5, s5) = Init(s[0]);
@@ -113,7 +116,7 @@ public class SequenceThermodynamicsFuzzTests
         dS += s5 + s3;
 
         for (int i = 0; i < s.Length - 1; i++)
-            if (Nn.TryGetValue(s.Substring(i, 2), out var p)) { dH += p.dH; dS += p.dS; }
+            { var p = Nn[s.Substring(i, 2)]; dH += p.dH; dS += p.dS; }
 
         dS += SaltCoeff * (s.Length - 1) * Math.Log(na);
 
@@ -412,30 +415,30 @@ public class SequenceThermodynamicsFuzzTests
     #region BE / MC — out-of-table dinucleotides: contribute 0, never KeyNotFound
 
     /// <summary>
-    /// BE/contract: a dinucleotide ABSENT from the NN table contributes 0 via TryGetValue — no
-    /// KeyNotFound. A length-≥2 sequence of all-unrecognized bases therefore has only the two
-    /// init terms (computed from the actual terminal chars) plus the salt term, exactly as the
-    /// oracle predicts, with finite output. — DNA_Thermodynamics.md §3.3, §6.1, §5.2 (TryGetValue).
+    /// BE/contract (SEQ-THERMO-001 F9, Biopython <c>MeltingTemp._check(seq, "Tm_NN")</c>): every
+    /// non-A/C/G/T(U) character is removed before the model is applied, so an input with fewer
+    /// than two real bases is the documented all-zero sentinel — no KeyNotFound, no pseudo-duplex
+    /// built from junk termini (the pre-fix code scored "NN" as two A·T inits + salt).
     /// </summary>
     [TestCase("NN")]
     [TestCase("NNNN")]
     [TestCase("----")]
     [TestCase("XYZW")]
-    public void Thermo_OutOfTableDinucleotides_ContributeZero_NoKeyNotFound(string seq)
+    [TestCase("N-A-N")]
+    public void Thermo_NoScorableDinucleotide_ReturnsZero_NoKeyNotFound(string seq)
     {
         var act = () => SequenceStatistics.CalculateThermodynamics(seq);
-        act.Should().NotThrow($"'{seq}' dinucleotides are not in the NN table — TryGetValue, no KeyNotFound");
+        act.Should().NotThrow($"'{seq}' has < 2 A/C/G/T bases after Biopython _check normalisation");
 
         var t = act();
+        t.Should().Be(new SequenceStatistics.ThermodynamicProperties(0, 0, 0, 0));
         ShouldMatchOracle(t, seq);
-        AssertFinite(t);
     }
 
     /// <summary>
-    /// MC: a recognized duplex with interior junk — the junk-spanning dinucleotides are simply
-    /// absent from the table and add 0, so the result equals the oracle (which models the exact
-    /// same TryGetValue skipping over the L−1 windows). Pins that the L−1 step loop never throws
-    /// on a window straddling an unknown base. — DNA_Thermodynamics.md §3.3 / §6.1.
+    /// MC: a recognized duplex with interior junk — as in Biopython Tm_NN the junk characters are
+    /// removed first, so the result equals that of the cleaned sequence (and the oracle).
+    /// — DNA_Thermodynamics.md §3.3 / §6.1.
     /// </summary>
     [Test]
     public void Thermo_RecognizedDuplexWithInteriorJunk_MatchesOracle()
@@ -445,6 +448,8 @@ public class SequenceThermodynamicsFuzzTests
             var t = SequenceStatistics.CalculateThermodynamics(seq);
             ShouldMatchOracle(t, seq);
             AssertFinite(t);
+            string cleaned = new string(seq.Where(c => c is 'A' or 'C' or 'G' or 'T').ToArray());
+            t.Should().Be(SequenceStatistics.CalculateThermodynamics(cleaned), $"'{seq}' ≡ '{cleaned}' after _check");
         }
     }
 

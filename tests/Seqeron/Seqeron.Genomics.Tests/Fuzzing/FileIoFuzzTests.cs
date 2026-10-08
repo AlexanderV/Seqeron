@@ -123,47 +123,13 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// the `ParseFile` StreamReader path. Like FASTA, `Parse` is a `yield`-based iterator,
 /// so every test materializes with `.ToList()` to force the work to actually run.
 ///
-/// CRITICAL CONTRACT DIVERGENCE FROM FASTA — TOLERANT, NOT STRICT.
-/// FASTQ_Parsing.md §1, §5.2, §5.3, §6.2 state IN WRITING that this parser favors
-/// "tolerant record assembly over strict format validation" and that "malformed
-/// records can be skipped or partially assembled rather than rejected with an
-/// error" — there is explicitly NO strict FASTQ validator. The DnaSequence alphabet
-/// gate that made FASTA throw does NOT apply here: a `FastqRecord` stores the
-/// sequence as a raw `string` (FastqParser.cs line 19–24), never materializing a
-/// DnaSequence, so non-DNA / garbage sequence content does NOT throw. THEREFORE the
-/// theory-correct contract these fuzz tests pin is the documented one:
-///   • The BUSINESS GUARANTEE — the parser must NEVER crash, hang, throw an
-///     undocumented runtime exception (IndexOutOfRange on a truncated 4-line
-///     record!, NullReference, OOM), or loop forever on malformed/truncated/random/
-///     injected input. EVERY fuzz test below asserts `NotThrow` + a pinned, exact
-///     structural outcome, so the documented tolerance can never silently drift into
-///     a crash, and a partially-assembled record's shape is nailed down precisely.
-/// Documented behaviors pinned per target (FASTQ_Parsing.md §3.3, §4.1, §5.2):
-///   • MISSING '@' HEADER (MC): a line not starting with '@' is SKIPPED
-///     (FastqParser.cs line 96–97). A whole "record" whose header lacks '@' is
-///     dropped — the parser does not crash and does not invent a record.
-///   • MISSING '+' SEPARATOR (MC): the sequence loop accumulates every line until
-///     one starts with '+' (line 104). With NO '+', the sequence absorbs the lines
-///     that should have been the separator AND the quality, and the quality string
-///     comes out EMPTY — a partially-assembled, NOT-rejected record (the documented
-///     §5.2 tolerance). We pin that exact shape; the point is it does not crash.
-///   • QUALITY-LENGTH ≠ SEQUENCE-LENGTH (MC): the quality loop reads lines only
-///     until `qualityBuilder.Length >= sequence.Length` (line 115). A SHORT quality
-///     run at EOF yields a record whose QualityString is shorter than the Sequence
-///     (qual-len &lt; seq-len, NOT rejected); a quality line LONGER than the sequence
-///     is appended whole (Trim never truncates), yielding qual-len &gt; seq-len. The
-///     documented contract is tolerant assembly, so we pin BOTH mismatched shapes as
-///     no-throw rather than asserting a rejection the parser explicitly does not do.
-///   • INVALID QUALITY CHARS (INJ): `DecodeQualityScores` is `Math.Max(0, c-offset)`
-///     for every char (line 178–181) — any byte, incl. NUL / control / chars outside
-///     33..126, decodes (clamped at 0) without validation or crash. Pinned: a record
-///     with control-char quality parses, QualityString preserved verbatim, scores
-///     all ≥ 0 and never throwing.
-///   • TRUNCATED RECORD (TF): every read loop guards `ReadLine() != null`, and
-///     `DecodeQualityScores("")` returns an empty array (line 172–173), so a record
-///     truncated to 1 / 2 / 3 lines yields a record with empty/short sequence and/or
-///     empty quality and NEVER an IndexOutOfRange. This is the highest-value TF case.
-///   • NULL / EMPTY input → no records (`yield break` on `IsNullOrEmpty`, line 73).
+/// CONTRACT — STRICT, AS IN BIOPYTHON (review 2026-09, PARSE-FASTQ-001).
+/// The parser follows the Sanger FASTQ definition (Cock et al. 2010) as realised by Biopython's
+/// FastqGeneralIterator: a malformed record (missing '@', missing '+', '+' caption mismatch,
+/// whitespace in the sequence, seq/qual length mismatch, truncation at EOF) and a quality symbol
+/// outside the encoding's range are REJECTED with FormatException. The fuzz guarantee is therefore:
+/// only FormatException (never IndexOutOfRange / NullReference / OOM), and never a hang.
+/// Blank lines between records are tolerated. NULL / EMPTY input → no records.
 /// Determinism note: the random-byte FASTQ tests use a LOCAL fixed-seed
 /// `new Random(seed)` and carry `[CancelAfter]`, exactly as the FASTA tests do.
 ///
@@ -1151,277 +1117,131 @@ public class FileIoFuzzTests
 
     #endregion
 
-    #region MC — Missing '@' header: the malformed block is skipped, never a crash
+    #region MC — Malformed records are REJECTED with FormatException (Biopython FastqGeneralIterator)
 
-    /// <summary>
-    /// MC: the first "record" has a header line that does NOT begin with '@' (the '@'
-    /// is missing). Per FastqParser.cs line 96–97 every line that does not start with
-    /// '@' is SKIPPED, so the entire malformed block (header-less + its seq/+/qual
-    /// lines, none of which start with '@') is dropped and NO record is invented for
-    /// it. The following well-formed record is still parsed. The documented tolerant
-    /// contract is "skip, do not crash" — we pin the surviving record exactly and
-    /// assert no throw, so the skip cannot silently become a crash.
-    /// </summary>
-    [Test]
-    public void ParseFastq_MissingAtHeaderMarker_SkipsMalformedBlockNoCrash()
+    // Every expectation below was produced by Biopython 1.88
+    // Bio.SeqIO.QualityIO.FastqGeneralIterator on the identical input (ValueError message quoted),
+    // per the Sanger FASTQ definition (Cock et al. 2010, NAR 38:1767): the parser must reject, not
+    // tolerantly assemble, a malformed record — and never crash with an undocumented exception.
+
+    private static void AssertFastqRejected(string fastq, string because)
     {
-        const string fastq =
-            "SEQ_no_at\n" +   // header missing '@' → skipped
-            "ACGT\n" +        // these lines also lack '@' → skipped
-            "+\n" +
-            "IIII\n" +
-            "@good\n" +       // a clean record after the garbage
-            "GGCC\n" +
-            "+\n" +
-            "JJJJ\n";
+        var act = () => FastqParser.Parse(fastq).ToList();
+        act.Should().Throw<FormatException>(because);
+    }
 
-        List<FastqParser.FastqRecord> records = new();
-        var act = () => records = FastqParser.Parse(fastq).ToList();
+    /// <summary>MC: a record whose title line lacks '@'. Biopython: "Records in Fastq files should start with '@' character".</summary>
+    [Test]
+    public void ParseFastq_MissingAtHeaderMarker_RejectedWithFormatException()
+    {
+        AssertFastqRejected(
+            "SEQ_no_at\nACGT\n+\nIIII\n@good\nGGCC\n+\nJJJJ\n",
+            "a record must start with '@' (Biopython rejects it)");
+    }
 
-        act.Should().NotThrow("a header without '@' is skipped, not a crash (tolerant parser)");
-        records.Should().ContainSingle("only the well-formed '@good' record can be emitted")
-            .Which.Id.Should().Be("good");
-        records[0].Sequence.Should().Be("GGCC");
-        records[0].QualityString.Should().Be("JJJJ");
+    /// <summary>MC: no '+' separator. Biopython: "End of file without quality information."</summary>
+    [Test]
+    public void ParseFastq_MissingPlusSeparator_RejectedWithFormatException()
+    {
+        AssertFastqRejected("@rec\nACGT\nIIII\n",
+            "without '+' the quality would be absorbed into the sequence");
+    }
+
+    /// <summary>MC (qual &lt; seq at EOF). Biopython: "Lengths of sequence and quality values differs for rec (8 and 2)."</summary>
+    [Test]
+    public void ParseFastq_QualityShorterThanSequence_RejectedWithFormatException()
+    {
+        var act = () => FastqParser.Parse("@rec\nACGTACGT\n+\nII\n").ToList();
+        act.Should().Throw<FormatException>().WithMessage("*(8 and 2)*");
+    }
+
+    /// <summary>MC (qual &gt; seq). Biopython: "Lengths of sequence and quality values differs for rec1 (4 and 12)."</summary>
+    [Test]
+    public void ParseFastq_QualityLongerThanSequence_RejectedWithFormatException()
+    {
+        var act = () => FastqParser.Parse(
+            "@rec1\nACGT\n+\nIIIIIIIIIIII\n@rec2\nTTTT\n+\nJJJJ\n").ToList();
+        act.Should().Throw<FormatException>().WithMessage("*(4 and 12)*");
+    }
+
+    /// <summary>MC: a short quality followed by the next record — the '@' line is consumed as quality
+    /// (it could legitimately be quality data) and the record then fails the length check.
+    /// Biopython: "Lengths of sequence and quality values differs for r1 (8 and 10)."</summary>
+    [Test]
+    public void ParseFastq_ShortQualityThenNextRecord_RejectedWithFormatException()
+    {
+        var act = () => FastqParser.Parse("@r1\nACGTACGT\n+\nII\n@r2\nTT\n+\nII\n").ToList();
+        act.Should().Throw<FormatException>().WithMessage("*(8 and 10)*");
     }
 
     #endregion
 
-    #region MC — Missing '+' separator: sequence absorbs the rest, quality empty, no crash
+    #region INJ — Quality chars outside the encoding range are rejected (Biopython InvalidCharError)
 
     /// <summary>
-    /// MC: a record with NO '+' separator line. The sequence-accumulation loop
-    /// (FastqParser.cs line 104) reads lines until one begins with '+'; with no such
-    /// line it absorbs BOTH the intended sequence AND the intended quality line, then
-    /// hits EOF, leaving the quality string EMPTY. This is the documented §5.2
-    /// "partially assembled rather than rejected" behavior — a tolerant parse, NOT a
-    /// crash and NOT an exception. We pin the exact partially-assembled shape so the
-    /// documented tolerance is nailed down and can never drift into an
-    /// IndexOutOfRange/NullReference.
+    /// INJ: a NUL byte (ASCII 0) as quality. It decodes to Q = 0 − 33 &lt; 0, outside the Sanger range
+    /// (ASCII 33–126, Cock et al. 2010); Biopython raises InvalidCharError. The parser must reject it
+    /// with FormatException rather than silently clamping it to Q0.
     /// </summary>
     [Test]
-    public void ParseFastq_MissingPlusSeparator_AbsorbsIntoSequenceNoCrash()
+    public void ParseFastq_ControlCharQuality_RejectedWithFormatException()
     {
-        const string fastq =
-            "@rec\n" +
-            "ACGT\n" +   // intended sequence
-            "IIII\n";    // intended quality — but with no '+' it is absorbed too
-
-        List<FastqParser.FastqRecord> records = new();
-        var act = () => records = FastqParser.Parse(fastq).ToList();
-
-        act.Should().NotThrow("a missing '+' separator is tolerated (partial assembly), not a crash");
-        records.Should().ContainSingle("the record is partially assembled, not rejected");
-        records[0].Id.Should().Be("rec");
-        records[0].Sequence.Should().Be("ACGTIIII",
-            "with no '+' the sequence loop absorbs the would-be quality line too (§5.2)");
-        records[0].QualityString.Should().BeEmpty(
-            "nothing is left for the quality loop after the sequence loop hits EOF");
-        records[0].QualityScores.Should().BeEmpty("an empty quality string decodes to no scores");
+        AssertFastqRejected("@rec\nA\n+\n\0\n", "ASCII 0 is not a Phred+33 quality symbol");
     }
 
     #endregion
 
-    #region MC — Quality length ≠ sequence length: tolerant partial assembly, never a crash
+    #region TF — Truncated record (1/2/3 of 4 lines): FormatException, never IndexOutOfRange
 
     /// <summary>
-    /// MC (qual-len &lt; seq-len): the quality run is SHORTER than the sequence and the
-    /// input ends before the quality loop fills up. The loop (line 115) stops at EOF,
-    /// so the record carries a QualityString shorter than its Sequence — the parser
-    /// does NOT reject the corruption (documented tolerant behavior, §5.2/§6.2), it
-    /// emits the mismatched record. The business guarantee under fuzzing is that this
-    /// must not crash and must not produce more scores than quality chars. We pin the
-    /// exact short-quality shape so the documented tolerance is explicit and stable.
+    /// TF — a file truncated after 1, 2 or 3 of the four FASTQ lines. Biopython 1.88 raises
+    /// "Unexpected end of file" (1 and 3 lines) and "End of file without quality information." (2 lines).
+    /// The parser must throw FormatException — never IndexOutOfRange / NullReference.
     /// </summary>
     [Test]
-    public void ParseFastq_QualityShorterThanSequence_TolerantNoCrash()
+    public void ParseFastq_TruncatedRecords_RejectedNeverIndexOutOfRange()
     {
-        const string fastq =
-            "@rec\n" +
-            "ACGTACGT\n" +  // 8-base sequence
-            "+\n" +
-            "II\n";          // only 2 quality chars, then EOF
-
-        List<FastqParser.FastqRecord> records = new();
-        var act = () => records = FastqParser.Parse(fastq).ToList();
-
-        act.Should().NotThrow("a too-short quality run is tolerated at EOF, not a crash");
-        records.Should().ContainSingle();
-        records[0].Sequence.Should().Be("ACGTACGT");
-        records[0].QualityString.Should().Be("II",
-            "the quality loop stops at EOF with quality shorter than the sequence (no rejection)");
-        records[0].QualityString.Length.Should().BeLessThan(records[0].Sequence.Length,
-            "this is the documented qual-len < seq-len corruption the tolerant parser accepts");
-        records[0].QualityScores.Should().HaveCount(records[0].QualityString.Length,
-            "scores are decoded per quality char, never more than the quality length");
+        AssertFastqRejected("@only_header\n", "header-only record is truncated");
+        AssertFastqRejected("@hdr\nACGT\n", "no '+' and no quality before EOF");
+        AssertFastqRejected("@hdr\nACGT\n+\n", "no quality line before EOF");
     }
 
     /// <summary>
-    /// MC (qual-len &gt; seq-len): the quality LINE is LONGER than the sequence. The
-    /// quality loop appends the whole trimmed line in one shot (Trim never truncates),
-    /// so `qualityBuilder.Length` overshoots the sequence length and the QualityString
-    /// comes out LONGER than the Sequence. Again tolerant assembly, not rejection — we
-    /// pin the over-long shape and assert no crash. The following clean record proves
-    /// the parser recovers after the over-long line is fully consumed.
+    /// TF over the FILE-PATH surface: the FINAL record is truncated (no quality line, no trailing
+    /// newline). The complete first record is still yielded (streaming), then enumeration fails with
+    /// FormatException when the truncated record is reached — with an explicit encoding so no
+    /// detection pre-pass runs.
     /// </summary>
     [Test]
-    public void ParseFastq_QualityLongerThanSequence_TolerantNoCrash()
+    public void ParseFileFastq_FinalRecordTruncated_FirstRecordYieldedThenFormatException()
     {
-        const string fastq =
-            "@rec1\n" +
-            "ACGT\n" +          // 4-base sequence
-            "+\n" +
-            "IIIIIIIIIIII\n" +  // 12 quality chars (over-long, appended whole)
-            "@rec2\n" +
-            "TTTT\n" +
-            "+\n" +
-            "JJJJ\n";
-
-        List<FastqParser.FastqRecord> records = new();
-        var act = () => records = FastqParser.Parse(fastq).ToList();
-
-        act.Should().NotThrow("an over-long quality line is tolerated, not a crash");
-        records.Should().HaveCount(2, "the parser recovers and still emits the following record");
-        records[0].Sequence.Should().Be("ACGT");
-        records[0].QualityString.Length.Should().BeGreaterThan(records[0].Sequence.Length,
-            "the whole over-long quality line is appended (Trim does not truncate)");
-        records[1].Id.Should().Be("rec2", "the parser recovers after the over-long quality line");
-        records[1].QualityString.Should().Be("JJJJ");
-    }
-
-    #endregion
-
-    #region INJ — Invalid / control quality chars: decoded without validation, never a crash
-
-    /// <summary>
-    /// INJ: quality characters OUTSIDE the canonical Phred printable range 33..126 —
-    /// here NUL (\0) and other control bytes injected into the quality string (with a
-    /// matching-length sequence). `DecodeQualityScores` is `Math.Max(0, c - offset)`
-    /// for every char (line 178–181): it never validates the alphabet, so control /
-    /// out-of-range chars decode (clamped at ≥ 0) without throwing. The documented
-    /// contract is "decode, do not reject"; the fuzz guarantee is no crash. We pin
-    /// that the record parses, the QualityString is preserved verbatim (NUL included),
-    /// and every decoded score is ≥ 0.
-    /// </summary>
-    [Test]
-    public void ParseFastq_InvalidControlCharQuality_DecodesWithoutCrash()
-    {
-        // 4-base sequence; 4 quality chars, all control bytes below ASCII 33.
-        const string fastq = "@rec\nACGT\n+\n\0\n";
-
-        List<FastqParser.FastqRecord> records = new();
-        var act = () => records = FastqParser.Parse(fastq).ToList();
-
-        act.Should().NotThrow("out-of-range/control quality chars are decoded, not validated (no crash)");
-        records.Should().ContainSingle();
-        records[0].Sequence.Should().Be("ACGT");
-        records[0].QualityString.Should().Be("\0",
-            "control-char quality is preserved verbatim, not sanitized");
-        records[0].QualityScores.Should().HaveCount(4);
-        records[0].QualityScores.Should().AllSatisfy(s => s.Should().BeGreaterThanOrEqualTo(0),
-            "DecodeQualityScores clamps every value to ≥ 0, even for sub-offset bytes");
-    }
-
-    #endregion
-
-    #region TF — Truncated record (1/2/3 of 4 lines): never IndexOutOfRange, defined result
-
-    /// <summary>
-    /// TF — THE key boundary case: a file truncated after only 1, 2, or 3 of the four
-    /// canonical FASTQ lines. The classic trap is an IndexOutOfRange when code assumes
-    /// four lines are always present. Every read loop here guards `ReadLine() != null`
-    /// and `DecodeQualityScores("")` returns an empty array (line 172–173), so each
-    /// truncation yields a well-DEFINED record (empty/short sequence and/or empty
-    /// quality) and NEVER an unhandled exception. We assert no-throw plus the exact
-    /// shape for each truncation point.
-    /// </summary>
-    [Test]
-    public void ParseFastq_TruncatedRecords_NeverIndexOutOfRange()
-    {
-        // 1 line only: header, then EOF.
-        const string oneLine = "@only_header\n";
-        // 2 lines: header + sequence, then EOF (no '+', no quality).
-        const string twoLines = "@hdr\nACGT\n";
-        // 3 lines: header + sequence + '+' separator, then EOF (no quality).
-        const string threeLines = "@hdr\nACGT\n+\n";
-
-        List<FastqParser.FastqRecord> r1 = new(), r2 = new(), r3 = new();
-        var act1 = () => r1 = FastqParser.Parse(oneLine).ToList();
-        var act2 = () => r2 = FastqParser.Parse(twoLines).ToList();
-        var act3 = () => r3 = FastqParser.Parse(threeLines).ToList();
-
-        act1.Should().NotThrow("a header-only truncation must not IndexOutOfRange");
-        act2.Should().NotThrow("a header+sequence truncation must not IndexOutOfRange");
-        act3.Should().NotThrow("a header+sequence+'+' truncation must not IndexOutOfRange");
-
-        // 1 line: header consumed; sequence loop hits EOF → empty seq; quality empty.
-        r1.Should().ContainSingle();
-        r1[0].Id.Should().Be("only_header");
-        r1[0].Sequence.Should().BeEmpty();
-        r1[0].QualityString.Should().BeEmpty();
-        r1[0].QualityScores.Should().BeEmpty();
-
-        // 2 lines: no '+', so the sequence absorbs "ACGT"; quality empty at EOF.
-        r2.Should().ContainSingle();
-        r2[0].Sequence.Should().Be("ACGT");
-        r2[0].QualityString.Should().BeEmpty();
-
-        // 3 lines: '+' stops the sequence loop at "ACGT"; quality loop hits EOF → empty.
-        r3.Should().ContainSingle();
-        r3[0].Sequence.Should().Be("ACGT");
-        r3[0].QualityString.Should().BeEmpty(
-            "the quality loop hits EOF immediately, leaving an empty (not crashed) quality");
-        r3[0].QualityScores.Should().BeEmpty();
-    }
-
-    /// <summary>
-    /// TF over the FILE-PATH surface: a multi-record FASTQ whose FINAL record is
-    /// truncated mid-record (only 3 of the 4 lines, no trailing newline) is written to
-    /// disk and read via `ParseFile`. The StreamReader flush must emit the complete
-    /// first record AND the truncated final record without an IndexOutOfRange — the
-    /// real-world shape where this bug actually bites.
-    /// </summary>
-    [Test]
-    public void ParseFileFastq_FinalRecordTruncated_StillParsesNoCrash()
-    {
-        const string fastq =
-            "@full\n" +
-            "ACGT\n" +
-            "+\n" +
-            "IIII\n" +
-            "@truncated\n" +
-            "GGCC\n" +
-            "+";              // file ends here: no quality line, no trailing newline
+        const string fastq = "@full\nACGT\n+\nIIII\n@truncated\nGGCC\n+";
         string path = WriteTempFastq(fastq);
 
-        List<FastqParser.FastqRecord> records = new();
-        var act = () => records = FastqParser.ParseFile(path).ToList();
+        var yielded = new List<FastqParser.FastqRecord>();
+        var act = () =>
+        {
+            foreach (var r in FastqParser.ParseFile(path, FastqParser.QualityEncoding.Phred33))
+                yielded.Add(r);
+        };
 
-        act.Should().NotThrow("a truncated final record on disk must not crash ParseFile");
-        records.Should().HaveCount(2, "both the full and the truncated records are emitted");
-        records[0].Id.Should().Be("full");
-        records[0].QualityString.Should().Be("IIII");
-        records[1].Id.Should().Be("truncated");
-        records[1].Sequence.Should().Be("GGCC");
-        records[1].QualityString.Should().BeEmpty("the truncated record has no quality at EOF");
+        act.Should().Throw<FormatException>();
+        yielded.Should().ContainSingle().Which.Id.Should().Be("full");
+        yielded[0].QualityScores.Should().Equal(40, 40, 40, 40);
     }
 
     #endregion
 
-    #region RB — Random bytes: handled deterministically, no crash, no hang
+    #region RB — Random bytes: FormatException, no crash, no hang
 
     /// <summary>
-    /// RB: a valid '@' header followed by fixed-seed RANDOM bytes (full 0x00–0xFF
-    /// range) in the SEQUENCE/quality body. Unlike FASTA, the FASTQ sequence is stored
-    /// as a raw string and never alphabet-validated, so random garbage does NOT throw —
-    /// the documented tolerant contract. The fuzz guarantee is that the parser consumes
-    /// the garbage deterministically: no crash, no hang, and any decoded quality scores
-    /// are ≥ 0. `[CancelAfter]` converts any pathological hang into a deterministic
-    /// failure; the LOCAL fixed seed makes the run byte-for-byte reproducible.
+    /// RB: a valid '@' header followed by fixed-seed RANDOM bytes. The body cannot form a valid
+    /// record (there is no '+' line), so the only permitted outcome is FormatException — no other
+    /// exception type and no hang (`[CancelAfter]`).
     /// </summary>
     [Test]
     [CancelAfter(30_000)]
-    public void ParseFastq_RandomByteBody_DoesNotCrashOrHang(CancellationToken token)
+    public void ParseFastq_RandomByteBody_FormatExceptionNoHang(CancellationToken token)
     {
         var rng = new Random(0xFA5701);            // local fixed seed — fully reproducible
         var sb = new StringBuilder("@garbage record\n");
@@ -1432,29 +1252,21 @@ public class FileIoFuzzTests
             sb.Append(c);
         }
         sb.Append('\n');
-        string fastq = sb.ToString();
 
-        List<FastqParser.FastqRecord> records = new();
-        var act = () => records = FastqParser.Parse(fastq).ToList();
+        var act = () => FastqParser.Parse(sb.ToString()).ToList();
 
-        act.Should().NotThrow(
-            "random bytes in a FASTQ body are tolerated (raw string, no alphabet gate), not a crash");
-        records.Should().ContainSingle("one '@' header → one (tolerantly assembled) record");
-        records[0].QualityScores.Should().AllSatisfy(s => s.Should().BeGreaterThanOrEqualTo(0),
-            "every decoded score is clamped to ≥ 0 regardless of the byte");
+        act.Should().Throw<FormatException>("a random body has no '+' line, so the record is truncated");
         token.IsCancellationRequested.Should().BeFalse("parsing garbage must not hang");
     }
 
     /// <summary>
-    /// RB companion: a whole blob of fixed-seed random bytes with NO '@' header line.
-    /// Every line fails the `StartsWith('@')` gate (line 96–97) and is skipped, so the
-    /// parser yields ZERO records — no crash, no hang. We force out '@', '\n' and '\r'
-    /// so the blob is genuinely one header-less garbage line. `[CancelAfter]` guards
-    /// against any stall while scanning the garbage.
+    /// RB companion: a blob of random bytes with NO '@' header. The first non-blank line does not
+    /// start with '@', so the parser rejects the input with FormatException (Biopython: "Records in
+    /// Fastq files should start with '@' character") — no crash, no hang.
     /// </summary>
     [Test]
     [CancelAfter(30_000)]
-    public void ParseFastq_PureRandomBytesNoHeader_YieldsNoRecordsNoCrash(CancellationToken token)
+    public void ParseFastq_PureRandomBytesNoHeader_FormatExceptionNoHang(CancellationToken token)
     {
         var rng = new Random(0xB10C);
         var sb = new StringBuilder();
@@ -1465,12 +1277,11 @@ public class FileIoFuzzTests
             if (c == '\n' || c == '\r') c = 'y';    // keep it a single header-less line
             sb.Append(c);
         }
+        sb[0] = 'z';                                // non-whitespace first char
 
-        List<FastqParser.FastqRecord> records = new();
-        var act = () => records = FastqParser.Parse(sb.ToString()).ToList();
+        var act = () => FastqParser.Parse(sb.ToString()).ToList();
 
-        act.Should().NotThrow("header-less random bytes are skipped line by line, not a crash");
-        records.Should().BeEmpty("with no '@' line no record can ever be emitted");
+        act.Should().Throw<FormatException>("header-less input is not FASTQ");
         token.IsCancellationRequested.Should().BeFalse("parsing random bytes must not hang");
     }
 

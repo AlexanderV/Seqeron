@@ -54,6 +54,8 @@ The implementation uses the **fitting alignment** variant as defined by Rosalind
 
 **Design Decision:** The implementation uses the query-in-reference (fitting) variant. This is a deliberate design choice selecting one well-defined member of the semi-global family, corresponding to the Rosalind SIMS problem.
 
+**Reference-implementation equivalents (2026-09 review):** Biopython 1.88 `PairwiseAligner(mode="global", end_insertion_score=0)` (target = sequence 1 = query) and parasail 1.3.4 `sg_dx` (s1 = query; "database begin/end gaps free"). Seqeron's `SemiGlobalAlign` (linear) and `SemiGlobalAlignAffine` (Gotoh affine; Biopython open_gap_score = GapOpen + GapExtend, parasail open = −(GapOpen + GapExtend)) matched both on 2428 random/edge cases (scores; every returned alignment is in Biopython's co-optimal set). Only overhanging *reference* residues are free: a query overhang is charged (ACGTAA / CCACGT, 1/−1/−1 → 2; an overlap aligner would give 4).
+
 ---
 
 ## 3. Algorithm Mechanics (from sources)
@@ -82,6 +84,7 @@ For the fitting alignment variant:
 - Traceback starts from $\max_j F_{m,j}$ — the **maximum score in the last row** (not the bottom-right cell)
 - Traceback proceeds backward to $F_{0,*}$ (top row), ensuring full query coverage
 - Remaining reference bases after the traceback endpoint are appended as gaps without penalty
+- Ties: the smallest end column j (including j = 0, the query aligned entirely against gaps) wins; traceback ties diagonal > up > left
 
 **Source:** Rosalind (SIMS) — fitting alignment definition implies the optimal score is the maximum over all possible endpoints in the reference. Since the query must be fully consumed (rows 0 to m), the traceback spans the full last row.
 

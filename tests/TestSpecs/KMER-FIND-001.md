@@ -127,6 +127,18 @@ k=5, L=75, t=4
 
 ---
 
+### C3: FindClumps - Window boundary (2026-09 review)
+**Source:** Rosalind BA1E statement example (TGCA forms a (25,3)-clump in `gatcagcataagggtcccTGCAATGCATGACAAGCCTGCAgttgttttac`)
+**Test:** TGCA at 18, 23, 36 → three occurrences span 22 bp: L=25 → {TGCA}; L=22 → {TGCA}; L=21 → ∅ (occurrence must lie wholly inside the window). Lowercase input gives the same result.
+
+### C4: FindClumps - Last window, overlaps, t=1
+**Tests:** `CGTACGTTTTT` k=3 L=5 t=3 → {TTT} (only the final window); `AAAAA` k=3 L=5 t=3 → exactly {AAA}; `ACGTAC` k=2 L=4 t=1 → {AC, CG, GT, TA}, each once.
+
+### Out-of-suite cross-check (not a unit test — 4.6 MB input)
+E. coli genome (Compeau & Pevzner textbook dataset), k=9, L=500, t=3 → 1904 distinct 9-mers; Seqeron result set-equal to an independent Python reference.
+
+---
+
 ## Test Audit
 
 ### Existing Tests (KmerAnalyzerTests.cs)
@@ -148,6 +160,23 @@ k=5, L=75, t=4
 2. Remove FindMostFrequentKmers, FindUniqueKmers, FindClumps tests from KmerAnalyzerTests.cs
 3. Keep auxiliary methods (KmerDistance, GenerateAllKmers, FindKmerPositions, AnalyzeKmers, FindKmersWithMinCount) in KmerAnalyzerTests.cs
 
+### Audit round 1, WP3 (B06, F12) — `FindClumpWindows`
+
+`FindClumpWindows(sequence, k, L, t)` returns each clump k-mer with the maximal runs of window starts i for which
+`Genome[i..i+L−1]` holds ≥ t occurrences (Compeau & Pevzner ch. 1 definition; Rosalind BA1E window convention).
+`FindClumps` and `FindClumpWindows` share one sliding pass. Tests (`KmerAnalyzer_HistogramClumpWindowsFilters_Tests`):
+
+| ID | Test | Evidence |
+|---|---|---|
+| W1 | `FindClumpWindows_MatchesBruteForce` ×7 | Python brute force over every window: BA1E `CGACA:0-6 GAAGA:0-16 AATGT:16-21`; BA1B L=12 t=2 split runs `GCAT:4-5,11-12 CATG:5-6,12-13 ATGA:13-14`; homopolymers; lower case |
+| W2 | `FindClumpWindows_SameKmerSetAsFindClumps` ×7 | the k-mer set equals `FindClumps` |
+| W3 | `FindClumpWindows_FirstWindowStart_IsLeftmostQualifyingWindow` | AATGT at 21, 73, 81, 86 → windows [86+5−75, 21] = [16, 21] |
+| W4 | `FindClumpWindows_SameLeavingAndEnteringKmer_DoesNotSplitRun` | A^10 k=2 L=4 t=3 → one run 0–6 |
+| W5 | `FindClumpWindows_DegenerateInput_Empty` ×6 | same empty conditions as `FindClumps` |
+
+Out-of-suite: 3000 random cases vs the brute force, 0 mismatches; 2 Mbp random (k=6, L=300, t=4) vs an independent
+occurrence-interval method, 113 k-mers / 142 runs identical (K-mer_Search.md §7.3).
+
 ---
 
 ## Assumptions
@@ -157,3 +186,16 @@ None. All tests backed by Rosalind or Wikipedia sources.
 ---
 
 *TestSpec generated: 2026-01-23*
+
+### Audit round 2, WP8 (B06) — `FindMostFrequentKmers(sequence, k, KmerCountingOptions)`
+
+Reference: Jellyfish 2.3.1 `count -m k [-C]` + `dump -c`, arg-max (K-mer_Search.md §7.4); tests in `KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs`.
+
+| ID | Case | Expected |
+|----|------|----------|
+| F1 | BA1B sample k = 4, canonical / ACGT-only | `ATGC` / `CATG GCAT` |
+| F2 | `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA` k = 2, 3, 4 | `-C`: CA / GCA / TGCA; ACGT-only: CA GC TG / TGC |
+| F3 | `AAAANTTTTGGGGuCCCC` k = 2; `ACGTNACGTAAcgtRTT` k = 3 | `-C`: AA CC; ACG. ACGT-only: AA CC GG TT |
+| F4 | Default options | = legacy overload (BA1B answer CATG GCAT) |
+| F5 | all-N / empty / k ≤ 0 | empty / empty / `ArgumentOutOfRangeException` |
+| F6 | MCP `most_frequent_kmers(canonical, acgtOnly)` | rows F1, F3 |

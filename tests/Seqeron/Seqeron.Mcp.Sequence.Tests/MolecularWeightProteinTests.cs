@@ -12,7 +12,7 @@ public class MolecularWeightProteinTests
         Assert.DoesNotThrow(() => SequenceTools.MolecularWeightProtein("MAEGEITTFT"));
         Assert.Throws<ArgumentException>(() => SequenceTools.MolecularWeightProtein(""));
         Assert.Throws<ArgumentException>(() => SequenceTools.MolecularWeightProtein(null!));
-        Assert.Throws<ArgumentException>(() => SequenceTools.MolecularWeightProtein("MAEGJ")); // J is invalid
+        Assert.Throws<ArgumentException>(() => SequenceTools.MolecularWeightProtein("MAEG1")); // '1' is not an amino-acid code (J = Xle is a valid IUPAC code)
     }
 
     [Test]

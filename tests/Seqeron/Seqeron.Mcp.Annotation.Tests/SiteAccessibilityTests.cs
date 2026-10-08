@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Seqeron.Genomics.Analysis;
 using Seqeron.Mcp.Annotation.Tools;
 
 namespace Seqeron.Mcp.Annotation.Tests;
@@ -6,12 +7,10 @@ namespace Seqeron.Mcp.Annotation.Tests;
 [TestFixture]
 public class SiteAccessibilityTests
 {
-    // Mirrors Seqeron.Genomics.Tests MiRnaAnalyzerMutationTests.CalculateSiteAccessibility_KnownWindow.
-    // GAAAAUAAAC (len 10): window covers whole sequence.
-    // Watson-Crick non-wobble pairs with j>=i+4: (G0,C9), (A1,U5) -> structureScore=2.
-    // maxPairs=(10*6)/2=30; accessibility = 1 - (2/30)*10 = 1 - 20/30.
+    // MiRnaAnalyzer.CalculateSiteAccessibility = P(site entirely unpaired) = Z_open/Z (Turner 2004
+    // McCaskill) via the canonical RnaSecondaryStructure.CalculateRegionUnpairedProbability; for a
+    // sequence ≤ 80 nt the fold context is the whole sequence.
     private const string AccSeq = "GAAAAUAAAC";
-    private const double AccExpected = 1.0 - 20.0 / 30.0;
 
     [Test]
     public void SiteAccessibility_Schema_ValidatesCorrectly()
@@ -27,16 +26,16 @@ public class SiteAccessibilityTests
     [Test]
     public void SiteAccessibility_Binding_InvokesSuccessfully()
     {
-        // MiRnaAnalyzer.CalculateSiteAccessibility: accessibility = max(0, 1 - density*10).
+        double expected = RnaSecondaryStructure.CalculateRegionUnpairedProbability(AccSeq, windowEnd: 7, windowLength: 6);
         var result = AnnotationTools.SiteAccessibility(AccSeq, 2, 7);
-        Assert.That(result.Accessibility, Is.EqualTo(AccExpected).Within(1e-9));
+        Assert.That(result.Accessibility, Is.EqualTo(expected));
     }
 
     [Test]
-    public void SiteAccessibility_SiteStartZero_StillComputes()
+    public void SiteAccessibility_UnstructuredSite_MatchesViennaRna()
     {
-        // siteStart == 0 is valid (guard is strict siteStart < 0); same window -> same value.
-        var result = AnnotationTools.SiteAccessibility(AccSeq, 0, 7);
-        Assert.That(result.Accessibility, Is.EqualTo(AccExpected).Within(1e-9));
+        // ViennaRNA 2.x (dangles=2) Z_c/Z for site 3..10 = 0.970119.
+        var result = AnnotationTools.SiteAccessibility("AUGCUACCUCAAAAAAAAAAAAAAAAA", 3, 10);
+        Assert.That(result.Accessibility, Is.EqualTo(0.970119).Within(0.01));
     }
 }

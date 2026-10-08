@@ -536,6 +536,58 @@ public class KmerAnalyzer_CountKmers_Tests
             "Rosalind sample: 209 unique 4-mers (256 possible minus 47 absent)");
     }
 
+
+    /// <summary>
+    /// Rosalind KMER sample output: the full 256-value 4-mer composition array (lexicographic
+    /// order AAAA..TTTT), locked for every counting overload (string, cancellation-aware,
+    /// async, DnaSequence, Span) and for lower-case input (case-insensitivity).
+    /// Source: Rosalind KMER Sample Dataset/Output (Rosalind_6431), verbatim copy in
+    /// mtarbit/Rosalind-Problems e023-kmer.py; cross-checked 2026-09-28 with Python
+    /// collections.Counter and Biopython Seq.count_overlap (256/256 equal, sum 412, 209 non-zero).
+    /// </summary>
+    [Test]
+    public async Task CountKmers_RosalindKmerSample_FullCompositionArray_AllOverloads()
+    {
+        const string s =
+            "CTTCGAAAGTTTGGGCCGAGTCTTACAGTCGGTCTTGAAGCAAAGTAACGAACTCCACGG" +
+            "CCCTGACTACCGAACCAGTTGTGAGTACTCAACTGGGTGAGAGTGCAGTCCCTATTGAGT" +
+            "TTCCGAGACTCACCGGGATTTTCGATCCAGCCTCAGTCCAGTCTTGTGGCCAACTCACCA" +
+            "AATGACGTTGGAATATCCCTGTCTAGCTCACGCAGTACTTAGTAAGAGGTCGCTGCAGCG" +
+            "GGGCAAGGAGATCGGAAAATGTGCTCTATATGCGACTAAAGCTCCTAACTTACACGTAGA" +
+            "CTTGCCCGTGTTAAAAACTCGGCTCACATGCTGTCTGCGGCTGGCTGTATACAGTATCTA" +
+            "CCTAATACCCTTCAGTTCGCCGCACAAAAGCTGGGAGTTACCGCGGAAATCACAG";
+        const string rosalindOutput =
+            "4 1 4 3 0 1 1 5 1 3 1 2 2 1 2 0 1 1 3 1 2 1 3 1 1 1 1 2 2 5 1 3 0 2 2 1 1 1 1 3 1 0 0 1 5 5 1 5 0 2 0 2 1 2 1 1 1 2 0 1 0 0 1 1 3 2 1 0 3 2 3 0 0 2 0 8 0 0 1 0 2 1 3 0 0 0 1 4 3 2 1 1 3 1 2 1 3 1 2 1 2 1 1 1 2 3 2 1 1 0 1 1 3 2 1 2 6 2 1 1 1 2 3 3 3 2 3 0 3 2 1 1 0 0 1 4 3 0 1 5 0 2 0 1 2 1 3 0 1 2 2 1 1 0 3 0 0 4 5 0 3 0 2 1 1 3 0 3 2 2 1 1 0 2 1 0 2 2 1 2 0 2 2 5 2 2 1 1 2 1 2 2 2 2 1 1 3 4 0 2 1 1 0 1 2 2 1 1 1 5 2 0 3 2 1 1 2 2 3 0 3 0 1 3 1 2 3 0 2 1 2 2 1 2 3 0 1 2 3 1 1 3 1 0 1 1 3 0 2 1 2 2 0 2 1 1";
+        int[] expected = rosalindOutput.Split(' ').Select(int.Parse).ToArray();
+        Assert.That(expected, Has.Length.EqualTo(256));
+
+        var lexicographic = KmerAnalyzer.GenerateAllKmers(4).ToList();
+        int[] Composition(Dictionary<string, int> counts) =>
+            lexicographic.Select(w => counts.GetValueOrDefault(w, 0)).ToArray();
+
+        var results = new Dictionary<string, Dictionary<string, int>>
+        {
+            ["string"] = KmerAnalyzer.CountKmers(s, 4),
+            ["string lower-case"] = KmerAnalyzer.CountKmers(s.ToLowerInvariant(), 4),
+            ["cancellation"] = KmerAnalyzer.CountKmers(s, 4, CancellationToken.None),
+            ["async"] = await KmerAnalyzer.CountKmersAsync(s, 4),
+            ["DnaSequence"] = KmerAnalyzer.CountKmers(new DnaSequence(s), 4),
+            ["DnaSequence cancellation"] = KmerAnalyzer.CountKmers(new DnaSequence(s), 4, CancellationToken.None),
+            ["span"] = KmerAnalyzer.CountKmersSpan(s.AsSpan(), 4),
+            ["span lower-case"] = KmerAnalyzer.CountKmersSpan(s.ToLowerInvariant().AsSpan(), 4),
+        };
+
+        Assert.Multiple(() =>
+        {
+            foreach (var (name, counts) in results)
+            {
+                Assert.That(Composition(counts), Is.EqualTo(expected), name);
+                Assert.That(counts.Keys, Is.SubsetOf(lexicographic), name + ": only observed ACGT 4-mers");
+                Assert.That(counts.Count, Is.EqualTo(209), name + ": non-zero entries");
+            }
+        });
+    }
+
     #endregion
 
     #region Case Normalization Regression Tests

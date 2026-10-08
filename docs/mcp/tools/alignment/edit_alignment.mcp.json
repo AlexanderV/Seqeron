@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "edit_alignment",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.GetEditAlignment",
+  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L403",
+  "description": "Optimal global unit-cost (Levenshtein) alignment of `query` (rows) against `target` (columns) in edlib's convention: `=` match, `X` mismatch, `I` query character absent from the target, `D` target character absent from the query. Returns the distance (= edit distance), the per-column operations, the edlib EXTENDED CIGAR and STANDARD CIGAR (`M` for `=`/`X`), the gapped strings, the query-relative substitution positions and whether the path has indels. Case-sensitive. Default: full Wagner–Fischer matrix with a diagonal-first traceback (O(m·n) time and space; `ApproximateMatcher.GetEditAlignment`). With `linearSpace` = true, Hirschberg's divide-and-conquer algorithm (`ApproximateMatcher.GetEditAlignmentLinearSpace`, O(m+n) space) — same optimal distance, possibly a different co-optimal path. Optional insertionCost/deletionCost/substitutionCost give a weighted alignment (distance = weighted cost).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Query sequence (alignment rows).",
+        "minLength": 1
+      },
+      "target": {
+        "type": "string",
+        "description": "Target sequence (alignment columns).",
+        "minLength": 1
+      },
+      "linearSpace": {
+        "type": "boolean",
+        "description": "Use Hirschberg's linear-space algorithm instead of the full-matrix traceback (default false).",
+        "default": false
+      },
+      "insertionCost": {
+        "type": "integer",
+        "description": "Cost of inserting a target character, i.e. a 'D' column (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "deletionCost": {
+        "type": "integer",
+        "description": "Cost of deleting a query character, i.e. an 'I' column (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "substitutionCost": {
+        "type": "integer",
+        "description": "Cost of a substitution (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      }
+    },
+    "required": [
+      "query",
+      "target"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "distance": {
+        "type": "integer"
+      },
+      "operations": {
+        "type": "string"
+      },
+      "cigar": {
+        "type": "string"
+      },
+      "standardCigar": {
+        "type": "string"
+      },
+      "alignedQuery": {
+        "type": "string"
+      },
+      "alignedTarget": {
+        "type": "string"
+      },
+      "substitutionPositions": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        }
+      },
+      "hasIndels": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "distance",
+      "operations",
+      "cigar",
+      "standardCigar",
+      "alignedQuery",
+      "alignedTarget",
+      "substitutionPositions",
+      "hasIndels"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Query cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "Target cannot be null or empty"
+    },
+    {
+      "code": 1007,
+      "message": "insertionCost must be >= 0"
+    },
+    {
+      "code": 1008,
+      "message": "deletionCost must be >= 0"
+    },
+    {
+      "code": 1009,
+      "message": "substitutionCost must be >= 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "survey vs surgery (edlib)",
+      "input": {
+        "query": "survey",
+        "target": "surgery"
+      },
+      "output": {
+        "distance": 2,
+        "operations": "===X=D=",
+        "cigar": "3=1X1=1D1=",
+        "standardCigar": "5M1D1M",
+        "alignedQuery": "surve-y",
+        "alignedTarget": "surgery",
+        "substitutionPositions": [
+          3
+        ],
+        "hasIndels": true
+      }
+    },
+    {
+      "name": "Linear space (Hirschberg)",
+      "input": {
+        "query": "kitten",
+        "target": "sitting",
+        "linearSpace": true
+      },
+      "output": {
+        "distance": 3,
+        "operations": "X===X=D",
+        "cigar": "1X3=1X1=1D",
+        "standardCigar": "6M1D",
+        "alignedQuery": "kitten-",
+        "alignedTarget": "sitting",
+        "substitutionPositions": [
+          0,
+          4
+        ],
+        "hasIndels": true
+      }
+    },
+    {
+      "name": "Weighted costs (substitution 2)",
+      "input": {
+        "query": "kitten",
+        "target": "sitting",
+        "insertionCost": 1,
+        "deletionCost": 1,
+        "substitutionCost": 2
+      },
+      "output": {
+        "distance": 5,
+        "operations": "X===X=D",
+        "cigar": "1X3=1X1=1D",
+        "standardCigar": "6M1D",
+        "alignedQuery": "kitten-",
+        "alignedTarget": "sitting",
+        "substitutionPositions": [
+          0,
+          4
+        ],
+        "hasIndels": true
+      }
+    }
+  ]
+}

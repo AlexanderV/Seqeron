@@ -11,7 +11,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 ///
 /// CHROM-TELO-001 covers <see cref="ChromosomeAnalyzer.AnalyzeTelomeres"/> and
 /// <see cref="ChromosomeAnalyzer.EstimateTelomereLengthFromTSRatio"/>:
-///   R  positions/lengths valid (INV-01/02, exact repeat-unit multiples);
+///   R  positions/lengths valid (INV-01/02, purity > 1/2 for any tract);
 ///   P  detected telomere is a repeat tract (purity, motif containment);
 ///   M  more repeats → strictly longer measured region (length = 6·k);
 ///   D  identical inputs → identical result.
@@ -36,7 +36,7 @@ public class ChromosomeProperties
     /// <summary>
     /// Generates a 3'-telomeric sequence: a non-telomeric prefix of A's whose length is a
     /// multiple of 6 (keeps repeat-sized windows aligned and never extends the tract — the
-    /// last 6-base window "AAAAAA" matches TTAGGG at only 1/6 &lt; 0.7), followed by exactly
+    /// hexamer containing an A-prefix base is a rotation of TTAGGG), followed by exactly
     /// <c>k</c> pure TTAGGG units placed at the very end. Yields (sequence, k).
     /// </summary>
     private static Arbitrary<(string seq, int k)> Telomeric3PrimeArbitrary() =>
@@ -48,19 +48,18 @@ public class ChromosomeProperties
 
     /// <summary>
     /// Generates a 5'-telomeric sequence: exactly <c>k</c> pure CCCTAA units at the start,
-    /// followed by a non-telomeric A-suffix. The first post-tract window "AAAAAA" matches
-    /// CCCTAA at only 2/6 &lt; 0.7, so the tract is not extended. Yields (sequence, k).
+    /// followed by a non-telomeric A-suffix. No hexamer overlapping the suffix ("CTAAAA", …) is a
+    /// rotation of CCCTAA, so the seqtk-telo tract is not extended. k ≥ 2: seqtk scores 5' positions only from i ≥ k, so a single 5' unit scores 0 (see SingleUnit_SeqtkScoringOffsets). Yields (sequence, k).
     /// </summary>
     private static Arbitrary<(string seq, int k)> Telomeric5PrimeArbitrary() =>
-        (from k in Gen.Choose(1, 400)
+        (from k in Gen.Choose(2, 400)
          from suffixLen in Gen.Choose(0, 120)
          let tract = string.Concat(Enumerable.Repeat(Vertebrate5Prime, k))
          select (tract + new string('A', suffixLen), k)).ToArbitrary();
 
     /// <summary>
-    /// Generates non-telomeric DNA: only A and T. Neither motif can reach the 70% threshold —
-    /// against TTAGGG the three G positions never match (max 3/6 = 0.5), and against CCCTAA the
-    /// three C positions never match (max 3/6 = 0.5). Empty allowed.
+    /// Generates non-telomeric DNA: only A and T. Every rotation of TTAGGG / CCCTAA contains G / C,
+    /// so no hexamer is a motif hit (seqtk telo). Empty allowed.
     /// </summary>
     private static Arbitrary<string> NonTelomericArbitrary() =>
         Gen.Elements('A', 'T').ArrayOf().Select(a => new string(a)).ToArbitrary();
@@ -180,8 +179,8 @@ public class ChromosomeProperties
     }
 
     /// <summary>
-    /// INV-P (no false positives): non-telomeric DNA (only A/C, no window can reach 70%
-    /// similarity to either motif) yields zero-length tracts and both presence flags false.
+    /// INV-P (no false positives): non-telomeric DNA (no hexamer is a rotation of either
+    /// motif) yields zero-length tracts and both presence flags false.
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property AnalyzeTelomeres_NonTelomericDna_NoTelomereDetected()
@@ -207,7 +206,7 @@ public class ChromosomeProperties
     {
         const string motif = "TTTAGGG"; // 7 bp
         const int k = 100;
-        // Prefix length a multiple of 7 keeps windows aligned; "AAAAAAA" vs TTTAGGG = 1/7 < 0.7.
+        // No 7-mer overlapping the A-prefix is a rotation of TTTAGGG (seqtk telo -m CCCTAAA).
         string seq = new string('A', 7 * 10) + string.Concat(Enumerable.Repeat(motif, k));
         var r = ChromosomeAnalyzer.AnalyzeTelomeres("chr", seq, telomereRepeat: motif, minTelomereLength: 0);
         Assert.Multiple(() =>
@@ -223,9 +222,10 @@ public class ChromosomeProperties
 
     /// <summary>
     /// INV-01/INV-02 (R): for ANY DNA input, both measured lengths are ≥ 0, never exceed the
-    /// scanned window <c>min(searchLength, |sequence|)</c>, are exact multiples of the repeat-unit
-    /// length (only complete units counted), and both purities lie in [0, 1]. When a tract is
-    /// non-empty its purity is ≥ 0.7 (every accepted window is ≥ 70% similar).
+    /// scanned window <c>min(searchLength, |sequence|)</c>, and both purities lie in [0, 1].
+    /// When a tract is non-empty its maximal seqtk-telo score (hits − misses, penalty 1) is &gt; 0,
+    /// so its purity (hits / scored positions) is &gt; 1/2. Lengths need not be multiples of 6:
+    /// seqtk telo matches motif rotations, so tracts may end in a partial unit.
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property AnalyzeTelomeres_LengthsAndPurities_AlwaysValid()
@@ -233,19 +233,17 @@ public class ChromosomeProperties
         return Prop.ForAll(AnyDnaArbitrary(), seq =>
         {
             const int searchLength = 10000;
-            const int unit = 6; // default TTAGGG
             var r = ChromosomeAnalyzer.AnalyzeTelomeres("chr", seq, searchLength: searchLength);
             int cap = Math.Min(searchLength, seq.Length);
 
             bool nonNeg = r.TelomereLength5Prime >= 0 && r.TelomereLength3Prime >= 0;          // INV-01
             bool capped = r.TelomereLength5Prime <= cap && r.TelomereLength3Prime <= cap;
-            bool multiples = r.TelomereLength5Prime % unit == 0 && r.TelomereLength3Prime % unit == 0;
             bool purityRange = r.RepeatPurity5Prime is >= 0.0 and <= 1.0                        // INV-02
                             && r.RepeatPurity3Prime is >= 0.0 and <= 1.0;
-            bool accepted5 = r.TelomereLength5Prime == 0 || r.RepeatPurity5Prime >= 0.7 - 1e-12;
-            bool accepted3 = r.TelomereLength3Prime == 0 || r.RepeatPurity3Prime >= 0.7 - 1e-12;
+            bool accepted5 = r.TelomereLength5Prime == 0 || r.RepeatPurity5Prime > 0.5;
+            bool accepted3 = r.TelomereLength3Prime == 0 || r.RepeatPurity3Prime > 0.5;
 
-            return (nonNeg && capped && multiples && purityRange && accepted5 && accepted3)
+            return (nonNeg && capped && purityRange && accepted5 && accepted3)
                 .Label($"invalid result for '{seq}': len5={r.TelomereLength5Prime}, len3={r.TelomereLength3Prime}, " +
                        $"pur5={r.RepeatPurity5Prime}, pur3={r.RepeatPurity3Prime}, cap={cap}");
         });
@@ -267,8 +265,8 @@ public class ChromosomeProperties
             var (k, minLen) = t;
             string seq = string.Concat(Enumerable.Repeat(Vertebrate3Prime, k));
             var r = ChromosomeAnalyzer.AnalyzeTelomeres("chr", seq, minTelomereLength: minLen);
-            bool expected3 = r.TelomereLength3Prime >= minLen;
-            bool expected5 = r.TelomereLength5Prime >= minLen;
+            bool expected3 = r.TelomereLength3Prime >= minLen && r.TelomereLength3Prime > 0;
+            bool expected5 = r.TelomereLength5Prime >= minLen && r.TelomereLength5Prime > 0; // empty tract is never "present"
             return (r.Has3PrimeTelomere == expected3 && r.Has5PrimeTelomere == expected5)
                 .Label($"k={k}, min={minLen}: has3'={r.Has3PrimeTelomere} (len {r.TelomereLength3Prime}), " +
                        $"has5'={r.Has5PrimeTelomere} (len {r.TelomereLength5Prime})");

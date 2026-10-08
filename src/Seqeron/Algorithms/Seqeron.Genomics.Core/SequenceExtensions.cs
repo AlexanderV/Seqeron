@@ -17,20 +17,35 @@ public static class SequenceExtensions
     /// Returns 0 for empty sequences or sequences with no valid nucleotides.
     /// </summary>
     /// <remarks>
-    /// Matches Wikipedia GC-content formula and Biopython gc_fraction ("remove" mode).
+    /// Matches the Wikipedia GC-content formula. Equals Biopython <c>gc_fraction(seq, "remove")</c> for any
+    /// sequence without the IUPAC codes S/W; unlike Biopython, S (G|C) and W (A|T) are excluded here
+    /// like every other ambiguity code — use <see cref="CalculateGcFraction(ReadOnlySpan{char},GcAmbiguityMode)"/>
+    /// with <see cref="GcAmbiguityMode.Remove"/> for exact Biopython parity.
     /// Valid nucleotides: A, T, G, C, U (case-insensitive).
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double CalculateGcContent(this ReadOnlySpan<char> sequence)
     {
-        if (sequence.IsEmpty) return 0;
+        // Single source of truth: percentage = fraction × 100 (bit-identical to (gc / valid) × 100).
+        return sequence.CalculateGcFraction() * 100;
+    }
 
+    /// <summary>
+    /// Counts the G/C nucleotides (numerator) and the valid A/T/G/C/U nucleotides (denominator)
+    /// used by <see cref="CalculateGcFraction(ReadOnlySpan{char})"/> and
+    /// <see cref="CalculateGcContent(ReadOnlySpan{char})"/> (case-insensitive; every other
+    /// character, including IUPAC ambiguity codes, gaps and N, is excluded from both counts).
+    /// Canonical counting primitive for callers that must report the raw counts.
+    /// </summary>
+    /// <param name="sequence">Nucleotide sequence.</param>
+    /// <returns>(<c>GcCount</c> = #G + #C, <c>ValidCount</c> = #A + #T + #G + #C + #U).</returns>
+    public static (int GcCount, int ValidCount) CountGcAndValidNucleotides(this ReadOnlySpan<char> sequence)
+    {
         int gcCount = 0;
         int validCount = 0;
         for (int i = 0; i < sequence.Length; i++)
         {
-            char c = sequence[i];
-            switch (c)
+            switch (sequence[i])
             {
                 case 'G':
                 case 'g':
@@ -50,7 +65,7 @@ public static class SequenceExtensions
             }
         }
 
-        return validCount == 0 ? 0 : (double)gcCount / validCount * 100;
+        return (gcCount, validCount);
     }
 
     /// <summary>
@@ -70,39 +85,16 @@ public static class SequenceExtensions
     /// Returns 0 for empty sequences or sequences with no valid nucleotides.
     /// </summary>
     /// <remarks>
-    /// Matches Wikipedia GC-content formula and Biopython gc_fraction ("remove" mode).
+    /// Matches the Wikipedia GC-content formula. Equals Biopython <c>gc_fraction(seq, "remove")</c> for any
+    /// sequence without the IUPAC codes S/W; unlike Biopython, S (G|C) and W (A|T) are excluded here
+    /// like every other ambiguity code — use <see cref="CalculateGcFraction(ReadOnlySpan{char},GcAmbiguityMode)"/>
+    /// with <see cref="GcAmbiguityMode.Remove"/> for exact Biopython parity.
     /// Valid nucleotides: A, T, G, C, U (case-insensitive).
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double CalculateGcFraction(this ReadOnlySpan<char> sequence)
     {
-        if (sequence.IsEmpty) return 0;
-
-        int gcCount = 0;
-        int validCount = 0;
-        for (int i = 0; i < sequence.Length; i++)
-        {
-            char c = sequence[i];
-            switch (c)
-            {
-                case 'G':
-                case 'g':
-                case 'C':
-                case 'c':
-                    gcCount++;
-                    validCount++;
-                    break;
-                case 'A':
-                case 'a':
-                case 'T':
-                case 't':
-                case 'U':
-                case 'u':
-                    validCount++;
-                    break;
-            }
-        }
-
+        var (gcCount, validCount) = sequence.CountGcAndValidNucleotides();
         return validCount == 0 ? 0 : (double)gcCount / validCount;
     }
 
@@ -372,8 +364,17 @@ public static class SequenceExtensions
     /// Enumerates k-mers without allocating strings (yields spans).
     /// Use with caution - spans are only valid during enumeration.
     /// </summary>
+    /// <remarks>
+    /// Yields the L − k + 1 overlapping windows, i.e. the same k-mers counted by <see cref="CountKmersSpan"/>
+    /// (case preserved). k must be ≥ 1, as in <see cref="CountKmersSpan"/> and scikit-bio
+    /// <c>Sequence.iter_kmers</c> ("k must be greater than 0"); previously k = 0 yielded L + 1 empty spans
+    /// and k &lt; 0 failed lazily inside <c>Current</c>.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> ≤ 0.</exception>
     public static KmerEnumerator EnumerateKmers(this ReadOnlySpan<char> sequence, int k)
     {
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
         return new KmerEnumerator(sequence, k);
     }
 
@@ -405,34 +406,107 @@ public static class SequenceExtensions
     #region Validation
 
     /// <summary>
-    /// Validates if a span contains only valid DNA characters.
+    /// Validates that a span contains only unambiguous DNA nucleotides A, C, G, T (case-insensitive).
     /// </summary>
+    /// <remarks>
+    /// Alphabet = IUPAC-IUB (1970) DNA bases = Biopython <c>IUPACData.unambiguous_dna_letters</c> ("GATC").
+    /// IUPAC ambiguity codes (N, R, Y, …), U, gaps, whitespace and any other character are rejected;
+    /// use <see cref="IsValidIupacDna"/> to accept incompletely specified bases. Only ASCII
+    /// lower-case letters fold to upper case. An empty span is valid (vacuous truth; Biopython:
+    /// "Zero-length sequences are always considered to be defined").
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsValidDna(this ReadOnlySpan<char> sequence)
+        => IndexOfInvalidDna(sequence) < 0;
+
+    /// <summary>
+    /// Validates that a span contains only unambiguous RNA nucleotides A, C, G, U (case-insensitive).
+    /// </summary>
+    /// <remarks>
+    /// Alphabet = IUPAC-IUB (1970) RNA bases = Biopython <c>IUPACData.unambiguous_rna_letters</c> ("GAUC").
+    /// Same conventions as <see cref="IsValidDna"/> (T is rejected; empty span is valid).
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsValidRna(this ReadOnlySpan<char> sequence)
+        => IndexOfInvalidRna(sequence) < 0;
+
+    /// <summary>
+    /// Returns the index of the first character that is not an unambiguous DNA nucleotide
+    /// (A, C, G, T; ASCII case-insensitive), or -1 when every character is valid.
+    /// Canonical predicate behind <see cref="IsValidDna"/> and <see cref="DnaSequence"/> validation.
+    /// </summary>
+    public static int IndexOfInvalidDna(this ReadOnlySpan<char> sequence)
     {
         for (int i = 0; i < sequence.Length; i++)
         {
-            char c = char.ToUpperInvariant(sequence[i]);
-            if (c != 'A' && c != 'C' && c != 'G' && c != 'T')
+            if (sequence[i] is not ('A' or 'C' or 'G' or 'T' or 'a' or 'c' or 'g' or 't'))
+                return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// Returns the index of the first character that is not an unambiguous RNA nucleotide
+    /// (A, C, G, U; ASCII case-insensitive), or -1 when every character is valid.
+    /// Canonical predicate behind <see cref="IsValidRna"/> and <see cref="RnaSequence"/> validation.
+    /// </summary>
+    public static int IndexOfInvalidRna(this ReadOnlySpan<char> sequence)
+    {
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            if (sequence[i] is not ('A' or 'C' or 'G' or 'U' or 'a' or 'c' or 'g' or 'u'))
+                return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// Validates that a span contains only IUPAC DNA nucleotide codes — the 4 bases A, C, G, T plus the
+    /// 11 NC-IUB (1984) incompletely-specified-base codes R, Y, S, W, K, M, B, D, H, V, N
+    /// (ASCII case-insensitive).
+    /// </summary>
+    /// <remarks>
+    /// Alphabet = Biopython <c>IUPACData.ambiguous_dna_letters</c> ("GATCRYWSMKHBVDN") = scikit-bio
+    /// <c>DNA.definite_chars ∪ DNA.degenerate_chars</c>. U, gap symbols ('-', '.'), X and any other
+    /// character are rejected (NC-IUB 1984 defines no gap symbol). Empty span is valid.
+    /// </remarks>
+    public static bool IsValidIupacDna(this ReadOnlySpan<char> sequence)
+    {
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            char c = ToUpperAscii(sequence[i]);
+            if (c == 'U' || !IupacHelper.IsNucleotideCode(c))
                 return false;
         }
         return true;
     }
 
     /// <summary>
-    /// Validates if a span contains only valid RNA characters.
+    /// Validates that a span contains only IUPAC RNA nucleotide codes — A, C, G, U plus
+    /// R, Y, S, W, K, M, B, D, H, V, N (ASCII case-insensitive).
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsValidRna(this ReadOnlySpan<char> sequence)
+    /// <remarks>
+    /// Alphabet = Biopython <c>IUPACData.ambiguous_rna_letters</c> ("GAUCRYWSMKHBVDN") = scikit-bio
+    /// <c>RNA.definite_chars ∪ RNA.degenerate_chars</c>. T, gaps and any other character are rejected.
+    /// Empty span is valid.
+    /// </remarks>
+    public static bool IsValidIupacRna(this ReadOnlySpan<char> sequence)
     {
         for (int i = 0; i < sequence.Length; i++)
         {
-            char c = char.ToUpperInvariant(sequence[i]);
-            if (c != 'A' && c != 'C' && c != 'G' && c != 'U')
+            char c = ToUpperAscii(sequence[i]);
+            if (c == 'T' || !(c == 'U' || IupacHelper.IsNucleotideCode(c)))
                 return false;
         }
         return true;
     }
+
+    /// <summary>
+    /// Upper-cases ASCII letters only. Unlike <see cref="char.ToUpperInvariant(char)"/> this never maps a
+    /// non-ASCII character onto an ASCII sequence symbol (e.g. U+017F 'ſ' → 'S').
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
 
     #endregion
 }

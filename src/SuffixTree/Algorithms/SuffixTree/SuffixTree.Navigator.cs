@@ -65,5 +65,8 @@ public partial class SuffixTree
 
         public int FindAnyLeafPosition(SuffixTreeNode node, int depthFromRoot)
             => _tree.FindAnyLeafPosition(node, depthFromRoot);
+
+        public void GetChildren(SuffixTreeNode node, List<SuffixTreeNode> children)
+            => node.GetChildren(children);
     }
 }

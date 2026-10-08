@@ -612,4 +612,65 @@ public class GcSkewCalculatorTests
     }
 
     #endregion
+
+    #region Review 2026-09 — raw-string guards + Biopython/Grigoriev cross-check
+
+    /// <summary>
+    /// Raw-string overloads must reject stepSize/windowSize &lt; 1 eagerly (like the DnaSequence
+    /// overloads and the MCP wrappers). Before the fix stepSize = 0 (windowed) and windowSize = 0
+    /// (cumulative) never terminated; Biopython GC_skew(seq, 0) likewise raises (range step 0).
+    /// Validation is eager: the call itself throws, before enumeration.
+    /// </summary>
+    [TestCase(10, 0)]
+    [TestCase(0, 1)]
+    [TestCase(-3, 1)]
+    [TestCase(2, -1)]
+    public void CalculateWindowedGcSkew_String_InvalidSizes_ThrowEagerly(int windowSize, int stepSize)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GcSkewCalculator.CalculateWindowedGcSkew("GGGCCCATGC", windowSize, stepSize));
+    }
+
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void CalculateCumulativeGcSkew_String_InvalidWindow_ThrowsEagerly(int windowSize)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GcSkewCalculator.CalculateCumulativeGcSkew("GGGCCCATGC", windowSize));
+    }
+
+    /// <summary>
+    /// Biopython 1.88: GC_skew("GGGCACGTGGCCCCAT", 4) = [0.5, 0.0, 0.0, -1.0]; accumulated
+    /// (xGC_skew / Grigoriev 1998 "sum of (G-C)/(G+C) in adjacent windows") = [0.5, 0.5, 0.5, -0.5].
+    /// Length 16 is a multiple of the window, so no partial window is involved.
+    /// </summary>
+    [Test]
+    public void CumulativeAndWindowed_MatchBiopython_FullWindows()
+    {
+        const string seq = "GGGCACGTGGCCCCAT";
+        var win = GcSkewCalculator.CalculateWindowedGcSkew(seq, 4, 4).Select(p => p.GcSkew).ToArray();
+        var cum = GcSkewCalculator.CalculateCumulativeGcSkew(seq, 4).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(win, Is.EqualTo(new[] { 0.5, 0.0, 0.0, -1.0 }).Within(1e-12));
+            Assert.That(cum.Select(p => p.GcSkew), Is.EqualTo(new[] { 0.5, 0.0, 0.0, -1.0 }).Within(1e-12));
+            Assert.That(cum.Select(p => p.CumulativeGcSkew), Is.EqualTo(new[] { 0.5, 0.5, 0.5, -0.5 }).Within(1e-12));
+            Assert.That(cum.Select(p => p.Position), Is.EqualTo(new[] { 2, 6, 10, 14 }));
+        });
+    }
+
+    /// <summary>
+    /// Documented convention: only complete windows are reported. Biopython 1.88
+    /// GC_skew("GGGGCCCCGG", 4) = [1.0, -1.0, 1.0] appends the 2-nt tail "GG"; Seqeron (like SkewIT
+    /// gcskew.py) reports the complete-window prefix [1.0, -1.0] only.
+    /// </summary>
+    [Test]
+    public void Windowed_TrailingPartialWindow_NotReported_PrefixMatchesBiopython()
+    {
+        var win = GcSkewCalculator.CalculateWindowedGcSkew("gggGCCCCGG", 4, 4).Select(p => p.GcSkew).ToArray();
+        Assert.That(win, Is.EqualTo(new[] { 1.0, -1.0 }).Within(1e-12));
+    }
+
+    #endregion
 }

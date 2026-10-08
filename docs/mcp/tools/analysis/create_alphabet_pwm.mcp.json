@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "create_alphabet_pwm",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.CreateAlphabetPwm",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.AlphabetPwm.cs#L42",
+  "description": "Builds a log-odds position weight matrix over an arbitrary alphabet from aligned instances — Biopython `motifs.create(instances, alphabet).counts.normalize(pseudocounts).log_odds(background)`: W[a,j] = log2(((c[a,j] + p[a]) / (Σ c[·,j] + Σ p)) / q[a]). Returns the K×L matrix (rows in alphabet order), the consensus / anticonsensus (first symbol in alphabet order on ties, as Biopython), the maximal / minimal score (Biopython `max` / `min`) and the mean / standard deviation of the score of a random background window (Biopython `mean` / `std`, −∞ cells skipped). Matching is case-insensitive. Symbols outside the alphabet are rejected, or skipped when `ignoreUnknownSymbols` (Biopython keeps only alphabet letters). JSON has no −∞: matrix cells and `minScore` are null where the value is −∞ (unseen symbol with zero pseudocount).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Aligned instances of equal length"
+      },
+      "alphabet": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Alphabet in row order, distinct ignoring case (e.g. ACDEFGHIKLMNPQRSTVWY)"
+      },
+      "pseudocount": {
+        "type": "number",
+        "minimum": 0,
+        "default": 0,
+        "description": "Pseudocount per cell (default 0 = Biopython None); ignored when pseudocounts is given"
+      },
+      "pseudocounts": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "description": "Per-symbol pseudocounts in alphabet order"
+      },
+      "background": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "description": "Background in alphabet order (> 0, normalised; uniform when omitted); also used for mean/std"
+      },
+      "ignoreUnknownSymbols": {
+        "type": "boolean",
+        "default": false,
+        "description": "Skip symbols outside the alphabet when counting (default false)"
+      }
+    },
+    "required": [
+      "sequences",
+      "alphabet"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alphabet": {
+        "type": "string"
+      },
+      "matrix": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "length": {
+        "type": "integer"
+      },
+      "consensus": {
+        "type": "string"
+      },
+      "anticonsensus": {
+        "type": "string"
+      },
+      "maxScore": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "minScore": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "mean": {
+        "type": "number"
+      },
+      "std": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "alphabet",
+      "matrix",
+      "length",
+      "consensus",
+      "anticonsensus",
+      "maxScore",
+      "minScore",
+      "mean",
+      "std"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "At least one sequence is required."
+    },
+    {
+      "code": 1001,
+      "message": "Alphabet is required (e.g. ACDEFGHIKLMNPQRSTVWY)."
+    },
+    {
+      "code": 1001,
+      "message": "Invalid character ... not in the alphabet"
+    },
+    {
+      "code": 1001,
+      "message": "Alphabet symbol ... occurs more than once (symbols are compared ignoring case)."
+    },
+    {
+      "code": 1002,
+      "message": "Pseudocount must be finite and non-negative."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Three short protein instances",
+      "input": {
+        "sequences": [
+          "MKV",
+          "MRV",
+          "LKI"
+        ],
+        "alphabet": "IKLMRV",
+        "pseudocount": 0.5
+      },
+      "output": {
+        "alphabet": "IKLMRV",
+        "matrix": [
+          [
+            -1,
+            -1,
+            0.5849625007211562
+          ],
+          [
+            -1,
+            1.3219280948873626,
+            -1
+          ],
+          [
+            0.5849625007211562,
+            -1,
+            -1
+          ],
+          [
+            1.3219280948873626,
+            -1,
+            -1
+          ],
+          [
+            -1,
+            0.5849625007211562,
+            -1
+          ],
+          [
+            -1,
+            -1,
+            1.3219280948873626
+          ]
+        ],
+        "length": 3,
+        "consensus": "MKV",
+        "anticonsensus": "IIK",
+        "maxScore": 3.965784284662088,
+        "minScore": -3,
+        "mean": 1.0911319941500706,
+        "std": 1.7447483665609653
+      }
+    }
+  ]
+}

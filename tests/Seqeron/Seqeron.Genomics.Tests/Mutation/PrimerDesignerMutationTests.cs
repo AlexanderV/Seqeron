@@ -29,7 +29,8 @@ public class PrimerDesignerMutationTests
         double score = 100;
         score -= Math.Abs(seq.Length - p.OptimalLength) * 2;
 
-        double tm = PrimerDesigner.CalculateMeltingTemperature(seq);
+        // EvaluatePrimer's Tm is the Primer3-default NN Tm (PRIMER-DESIGN-001).
+        double tm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(seq);
         score -= Math.Abs(tm - p.OptimalTm) * 2;
 
         double gc = PrimerDesigner.CalculateGcContent(seq);

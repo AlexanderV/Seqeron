@@ -191,7 +191,9 @@ public static class PhylogeneticAnalyzer
     }
 
     /// <summary>
-    /// Calculates a distance matrix for aligned sequences.
+    /// Calculates a symmetric, zero-diagonal distance matrix for aligned sequences by calling
+    /// <see cref="CalculatePairwiseDistance"/> for every pair i &lt; j (same gap/ambiguity and
+    /// saturation semantics, including <see cref="double.NaN"/> for a pair with no comparable site).
     /// </summary>
     public static double[,] CalculateDistanceMatrix(
         IReadOnlyList<string> alignedSequences,
@@ -215,8 +217,26 @@ public static class PhylogeneticAnalyzer
     }
 
     /// <summary>
-    /// Calculates pairwise distance between two aligned sequences.
+    /// Calculates the pairwise distance between two aligned nucleotide sequences.
     /// </summary>
+    /// <remarks>
+    /// <para>Sites are compared case-insensitively with <b>pairwise deletion</b>: a column is used only
+    /// when both sequences carry one of A/C/G/T; gaps, IUPAC ambiguity codes, U and any other symbol
+    /// exclude the column (as ape <c>dist.dna(pairwise.deletion = TRUE)</c> and scikit-bio's
+    /// canonical-alphabet distances do). Consequently <see cref="DistanceMethod.Hamming"/> is the number
+    /// of differences among comparable columns (ape model <c>"N"</c>), not the raw character Hamming
+    /// distance of <c>SequenceExtensions.HammingDistance</c> / <c>ApproximateMatcher.HammingDistance</c>.</para>
+    /// <para>p = differences / L (L = comparable columns); JC69 d = −¾·ln(1 − 4p/3) (Jukes &amp; Cantor 1969);
+    /// K80 d = −½·ln((1 − 2P − Q)·√(1 − 2Q)) with P, Q the transition/transversion proportions (Kimura 1980).</para>
+    /// <para>When L = 0 (no comparable column: empty, all-gap or all-ambiguous pair) p = 0/0 is undefined,
+    /// so <see cref="DistanceMethod.PDistance"/>, <see cref="DistanceMethod.JukesCantor"/> and
+    /// <see cref="DistanceMethod.Kimura2Parameter"/> return <see cref="double.NaN"/> (as ape and scikit-bio do);
+    /// <see cref="DistanceMethod.Hamming"/> returns 0 (no difference was counted).
+    /// When a JC69/K80 logarithm argument is ≤ 0 (saturation, e.g. p ≥ ¾) the result is
+    /// <see cref="double.PositiveInfinity"/>.</para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">A sequence is null.</exception>
+    /// <exception cref="ArgumentException">The sequences differ in length.</exception>
     public static double CalculatePairwiseDistance(
         string seq1, string seq2, DistanceMethod method = DistanceMethod.JukesCantor)
     {
@@ -250,7 +270,10 @@ public static class PhylogeneticAnalyzer
             }
         }
 
-        if (comparableSites == 0) return 0;
+        // No comparable site: the difference count is 0, but every proportion-based distance is
+        // 0/0 and therefore undefined (ape dist.dna pairwise deletion and scikit-bio both yield NaN).
+        if (comparableSites == 0)
+            return method == DistanceMethod.Hamming ? 0 : double.NaN;
 
         double p = (double)differences / comparableSites;
 

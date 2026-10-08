@@ -115,6 +115,21 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | FindProsite_ZincFingerComplex | Match PS00028 on synthetic | Match at expected position | Complex pattern |
 
+### 4.4 ps_scan reference-semantics tests (2026-09 review)
+
+Reference: ps_scan.pl `prositeToRegexp` + `scanPattern` (user-pattern mode `prositeToRegexp($pa,0,1)`, `scanPattern($re, uc $seq, 0, 0)`), from raw.githubusercontent.com/ebi-pf-team/interproscan/master/core/jms-implementation/support-mini-x86-32/bin/prosite/ps_scan.pl; ps_scan README (B/Z/X treatment).
+
+| ID | Test | Expected (ps_scan) |
+|----|------|--------------------|
+| P1 | `ConvertPrositeToRegex_KleeneStar_TranslatedAsPsScan` | `<{C}*>` → `^[^C]*$`; `A-x*-C` → `A.*C` |
+| P2 | `FindMotifByProsite_KleeneStar_MatchesPsScan` | `<{C}*>` on MKVLAAG → 1-7; MCKV → none; `A-x*-C` on AKKCAC → 1-6 only |
+| P3 | `ConvertPrositeToRegex_UppercaseXAndClassWithX_AreWildcards` | `N-X-[ST]` → `N.[ST]`; `[xA]-G` → `.G` |
+| P4 | `ConvertPrositeToRegex_AmbiguityMode_ReproducesPsScanBZExpansion` | `[NB][^P][ST][^P]`, `[NDB].[QEZ]`, `[^NDB]G`, `[DEBZ]{2}` |
+| P5 | `FindMotifByProsite_SequenceAmbiguityCodes_MatchPsScan` | PS00001/BGTA → 1-4; `[DE](2)`/BZEQ → 1-2, 2-3; `B-x-Z`/NKEDGQ → 1-3, 4-6; `{B}-G`/DGNG → none |
+| P6 | `FindMotifByProsite_SequenceX_OnlyMatchedByWildcardOrExclusion` | PS00001/NXTA → 1-4; XATA → none |
+| P7 | `FindMotifByProsite_AmbiguityAlternatives_DoNotChangeScore` | Score/EValue equal to plain-regex scan |
+| P8 | `ConvertPrositeToRegex_MalformedSyntax_Throws` | `?`, `+`, `(3)-A`, `A-(3)`, `x(2)(3)`, unterminated/empty brackets, bad ranges → FormatException |
+
 ---
 
 ## 5. Audit of Existing Tests
@@ -159,6 +174,8 @@
 | Bonus: Match properties | ✅ Covered | `FindMotifByProsite_MatchProperties_AllFieldsPopulated` |
 
 **Missing:** 0 &emsp; **Weak:** 0 &emsp; **Duplicate:** 0
+
+The former `*`-rejection tests were replaced by P1/P2 (ps_scan supports `*`); `?`/`+` rejection is kept in P8.
 
 ### 5.2 Canonical Test File
 

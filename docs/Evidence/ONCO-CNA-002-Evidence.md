@@ -61,6 +61,20 @@
 
 ---
 
+### GISTIC2 reference implementation (MATLAB source) — 2026-09 review
+
+**URL:** https://github.com/broadinstitute/gistic2 (cloned; submodule https://github.com/broadinstitute/snputil)
+**Accessed:** 2026-09-28
+**Authority rank:** 2 (original tool's published source code)
+
+**Key Extracted Points:**
+
+1. `snputil/reconstruct_genomes.m` (focal genome): `cur_segs = intersect(find(cur_Q(:,8) < params.broad_len_cutoff), find(cur_Q(:,12) >= thresh))`, `thresh = t_amp` for amplification fields — the length test is strict `<`; the focal filter combines the arm-fraction cutoff with the `t_amp` amplitude gate (confirms Assumption 1 below is GISTIC2's own rule, not an integration choice).
+2. `source/score_genome.m`: `focal_del_segs = find(Qs.del(:,8) < params.broad_len_cutoff & Qs.del(:,12) >= params.t_del)`; `source/Qs.m`: column 8 = "event length as fraction of chromosome arm", column 12 = amplitude.
+3. `source/gene_calls.m`: thresholded gain call `A.dat(:,i) > t_amp` (strict). GISTIC2 docs "above" ⇒ strict; `reconstruct_genomes.m` uses `>=` (differs only at exact equality).
+4. `source/gp_gistic2_from_seg.m`: `t_amp = numeric_arg(a,'ta',0.1,[0,Inf])`, `broad_len_cutoff = numeric_arg(a,'brlen',0.98,[0 2])`; `numeric_arg` throws on NaN and on `val < lo || val > hi` ⇒ valid ranges t_amp ∈ [0, ∞), broad_len_cutoff ∈ [0, 2] (inclusive).
+5. `source/perform_deconstruction.m`, `atomic_zigg_deconstruction.m`, `normalize_by_arm_length.m`: the filter is applied to ziggurat-deconstructed events (amplitude relative to the underlying level, cohort-learned broad levels), arm fraction measured in markers by default — not implemented here (see algorithm doc §5.3).
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Mermel et al. (2011) / GISTIC2 docs
@@ -119,3 +133,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Review B24 — GISTIC2 MATLAB source cross-check; threshold range validation (t_amp ∈ [0,∞), broad_len_cutoff ∈ [0,2], NaN rejected); ziggurat-deconstruction limitation documented.

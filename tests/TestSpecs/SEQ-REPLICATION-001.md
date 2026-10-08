@@ -92,6 +92,10 @@
 | C1 | Null DnaSequence | `PredictReplicationOrigin((DnaSequence)null!)` | ArgumentNullException | input validation |
 | C2 | Null/empty string | `PredictReplicationOrigin((string)null!)`, `""` | zero prediction, IsSignificant=false | documented handling |
 | C3 | Single base | `G` → origin/terminus | origin=0 (skew 0), terminus=1 (skew +1) | boundary |
+| R1 | Synthetic genome vs python reference | `ACGTC`×6000+`AGGTC`×10000+`ACGTC`×4000 | origin 29997 (−6000), terminus 79998 (+4001) | python BA1F re-implementation |
+| R2 | Rotated circular genome | same, start rotated by 50000 | origin 79997 (−4000), terminus 29998 (+6001); map back to 29997/79998 | python reference; Grigoriev "arbitrary start" |
+| R3 | Agreement with windowed Grigoriev diagram | same, `CalculateCumulativeGcSkew(g,1000)` | min −10 @ centre 29500, max 20/3 @ 79500; prediction within 1 window | `numpy.cumsum(Bio.SeqUtils.GC_skew(g,1000))` |
+| R4 | Reuse of canonical cumulative skew | BA1F sample, `CalculateCumulativeGcSkew(s,1)` | min/max equal OriginSkew/TerminusSkew; terminus 16 (+2) | Biopython `GC_skew(s,1)` cumsum |
 
 ---
 

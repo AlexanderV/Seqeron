@@ -21,28 +21,30 @@ public class AnalyzeTargetContextTests
     [Test]
     public void AnalyzeTargetContext_Binding_InvokesSuccessfully()
     {
-        // 20-nt all-A window. auContent = 20/20 = 1.0.
-        // nearStart: 8 < 20*0.15 (=3.0) -> false; nearEnd: 11 > 20*0.85 (=17.0) -> false.
-        // contextScore = 1.0*0.5 + 0.3 (mid-transcript bonus) = 0.8.
-        var au = AnnotationTools.AnalyzeTargetContext("AAAAAAAAAAAAAAAAAAAA", 8, 11, 30);
+        // Grimson (2007) / TargetScan context (MiRnaAnalyzer.AnalyzeTargetContext):
+        // 40-nt poly(A), site 20..23: weighted local AU = 1.0; NearStart = (21 < 15) false;
+        // NearEnd = 23 > 34 false; d5 = 20, d3 = 16 ⇒ EndProximity = 1 − 16/18;
+        // ContextScore = 0.5·1.0 + 0.5·(1 − 16/18).
+        var au = AnnotationTools.AnalyzeTargetContext(new string('A', 40), 20, 23, 30);
         Assert.Multiple(() =>
         {
             Assert.That(au.AuContent, Is.EqualTo(1.0).Within(1e-9));
             Assert.That(au.NearStart, Is.False);
             Assert.That(au.NearEnd, Is.False);
-            Assert.That(au.ContextScore, Is.EqualTo(0.8).Within(1e-9));
+            Assert.That(au.ContextScore, Is.EqualTo(0.5 + 0.5 * (1 - 16.0 / 18.0)).Within(1e-9));
         });
 
-        // 20-nt all-GC window: no A/U -> auContent = 0; mid-transcript bonus only -> 0.3.
-        var gc = AnnotationTools.AnalyzeTargetContext("GCGCGCGCGCGCGCGCGCGC", 8, 11, 30);
+        // No A/U ⇒ AuContent = 0; only the positional term remains.
+        var gc = AnnotationTools.AnalyzeTargetContext(string.Concat(Enumerable.Repeat("GC", 20)), 20, 23, 30);
         Assert.Multiple(() =>
         {
             Assert.That(gc.AuContent, Is.EqualTo(0.0).Within(1e-9));
-            Assert.That(gc.ContextScore, Is.EqualTo(0.3).Within(1e-9));
+            Assert.That(gc.ContextScore, Is.EqualTo(0.5 * (1 - 16.0 / 18.0)).Within(1e-9));
         });
 
-        // Site at the very start: nearStart true (0 < 3.0).
+        // Site within the first 15 nt of the 3'UTR (TargetScan MIN_DIST_TO_CDS): nearStart, score 0.
         var start = AnnotationTools.AnalyzeTargetContext("AAAAAAAAAAAAAAAAAAAA", 0, 1, 30);
         Assert.That(start.NearStart, Is.True);
+        Assert.That(start.ContextScore, Is.EqualTo(0.0));
     }
 }

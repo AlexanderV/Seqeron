@@ -518,35 +518,129 @@ public class ChromosomeAnalyzer_Telomere_Tests
 
     #endregion
 
-    #region AnalyzeTelomeres - Divergent Repeats
+    #region AnalyzeTelomeres - Divergent Repeats / seqtk telo reference values
+
+    // Reference implementation: seqtk 1.5-r133 `stk_telo` (H. Li, https://github.com/lh3/seqtk,
+    // raw seqtk.c compiled locally). Lengths below are the seqtk outputs of
+    // `seqtk telo -s 1 [-m CCCTAAA]` (defaults -p 1 -d 2000); purities are hits / scored positions
+    // derived from `seqtk telo -P` (max score S over c scored positions ⇒ hits = (S + c) / 2).
 
     /// <summary>
-    /// Validates that imperfect repeats reduce purity below 1.0.
-    /// Source: Evidence doc - biological telomeres show some divergence;
-    ///   70% per-window threshold → 1 mismatch per 6bp allowed → purity = 5/6.
+    /// Sporadically divergent tract: every 10th unit is TTAGGA (units 0,10,...,190).
+    /// seqtk telo: 3' tract [1006, 2200) ⇒ length 1194; -P max score 961 over 1189 scored
+    /// positions ⇒ hits 1075, purity 1075/1189.
     /// </summary>
     [Test]
     public void AnalyzeTelomeres_DivergentRepeats_LowerPurity()
     {
-        // Arrange: TTAGGA differs from TTAGGG in last base → 5/6 = 83.3% similarity per window
-        const int repeatCount = 200;
-        string divergentRepeats = string.Concat(Enumerable.Repeat("TTAGGA", repeatCount));
-        string sequence = new string('A', 1000) + divergentRepeats;
+        string tract = string.Concat(Enumerable.Range(0, 200).Select(j => j % 10 == 0 ? "TTAGGA" : "TTAGGG"));
+        string sequence = new string('A', 1000) + tract;
 
-        // Act
-        var result = ChromosomeAnalyzer.AnalyzeTelomeres(
-            "chr1", sequence, minTelomereLength: 100);
+        var result = ChromosomeAnalyzer.AnalyzeTelomeres("chr1", sequence, minTelomereLength: 100);
 
-        // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(result.Has3PrimeTelomere, Is.True,
-                "Divergent repeats above 70% threshold should still be detected");
-            Assert.That(result.TelomereLength3Prime, Is.EqualTo(repeatCount * RepeatLength),
-                "All windows pass threshold, so full length should be measured");
-            Assert.That(result.RepeatPurity3Prime, Is.EqualTo(5.0 / 6.0).Within(0.0001),
-                "Purity = matchingBases/totalBases = (200×5)/(200×6) = 5/6");
+            Assert.That(result.Has3PrimeTelomere, Is.True);
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(1194), "seqtk telo: 1006..2200");
+            Assert.That(result.RepeatPurity3Prime, Is.EqualTo(1075.0 / 1189.0).Within(1e-12));
+            Assert.That(result.RepeatPurity3Prime, Is.LessThan(1.0));
         });
+    }
+
+    /// <summary>
+    /// A tract made only of a non-motif hexamer (TTAGGA: none of its rotations is a rotation of
+    /// TTAGGG) is not telomeric: seqtk telo reports no 3' tract.
+    /// </summary>
+    [Test]
+    public void AnalyzeTelomeres_NonMotifHexamerTract_NotDetected()
+    {
+        string sequence = new string('A', 1000) + string.Concat(Enumerable.Repeat("TTAGGA", 200));
+
+        var result = ChromosomeAnalyzer.AnalyzeTelomeres("chr1", sequence, minTelomereLength: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Has3PrimeTelomere, Is.False);
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(0));
+            Assert.That(result.RepeatPurity3Prime, Is.EqualTo(0));
+        });
+    }
+
+    /// <summary>
+    /// F1 regression: a terminal partial repeat unit (real chromosome ends are not phase-aligned to
+    /// the motif) previously made the phase-anchored scan return 0. seqtk telo (motif rotations):
+    /// A×1000+(TTAGGG)×200+"TTAG" ⇒ 3' tract 1000..2204 (length 1204);
+    /// "AA"+(CCCTAA)×200+A×1000 ⇒ 5' tract 0..1202 (length 1202).
+    /// </summary>
+    [Test]
+    public void AnalyzeTelomeres_TerminalPartialRepeat_MatchesSeqtkTelo()
+    {
+        string seq3 = new string('A', 1000) + string.Concat(Enumerable.Repeat(VertebrateTelomereRepeat, 200)) + "TTAG";
+        string seq5 = "AA" + string.Concat(Enumerable.Repeat(VertebrateTelomereRC, 200)) + new string('A', 1000);
+
+        var r3 = ChromosomeAnalyzer.AnalyzeTelomeres("chr1", seq3);
+        var r5 = ChromosomeAnalyzer.AnalyzeTelomeres("chr1", seq5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r3.TelomereLength3Prime, Is.EqualTo(1204));
+            Assert.That(r3.Has3PrimeTelomere, Is.True);
+            Assert.That(r3.RepeatPurity3Prime, Is.EqualTo(1.0));
+            Assert.That(r5.TelomereLength5Prime, Is.EqualTo(1202));
+            Assert.That(r5.Has5PrimeTelomere, Is.True);
+            Assert.That(r5.RepeatPurity5Prime, Is.EqualTo(1.0));
+        });
+    }
+
+    /// <summary>
+    /// An ambiguous base resets the k-mer (seqtk: `else l = 0, x = 0`) but the X-drop scan continues
+    /// across it: A×1000+(TTAGGG)×100+"N"+(TTAGGG)×100 ⇒ seqtk telo 3' tract 1000..2201 (length 1201),
+    /// max score 1184 over 1196 scored positions ⇒ purity 1190/1196.
+    /// </summary>
+    [Test]
+    public void AnalyzeTelomeres_AmbiguousBaseInsideTract_MatchesSeqtkTelo()
+    {
+        string half = string.Concat(Enumerable.Repeat(VertebrateTelomereRepeat, 100));
+        string sequence = new string('A', 1000) + half + "N" + half;
+
+        var result = ChromosomeAnalyzer.AnalyzeTelomeres("chr1", sequence);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(1201));
+            Assert.That(result.RepeatPurity3Prime, Is.EqualTo(1190.0 / 1196.0).Within(1e-12));
+        });
+    }
+
+    /// <summary>
+    /// seqtk scores 5' positions only from i ≥ k, so the first 5' hit (k-mer ending at i = k−1) is not
+    /// scored: a single CCCTAA unit at the 5' end yields no tract, while one TTAGGG unit at the 3' end
+    /// yields 6 (seqtk telo -s 1 on "GC"×30 flanks: t3_1 ⇒ 60..66; t5_1 ⇒ no output; t5_2 ⇒ 0..12).
+    /// </summary>
+    [Test]
+    public void AnalyzeTelomeres_SingleUnit_SeqtkScoringOffsets()
+    {
+        string filler = string.Concat(Enumerable.Repeat("GC", 30));
+
+        var three1 = ChromosomeAnalyzer.AnalyzeTelomeres("chr", filler + VertebrateTelomereRepeat, minTelomereLength: 1);
+        var five1 = ChromosomeAnalyzer.AnalyzeTelomeres("chr", VertebrateTelomereRC + filler, minTelomereLength: 1);
+        var five2 = ChromosomeAnalyzer.AnalyzeTelomeres("chr", VertebrateTelomereRC + VertebrateTelomereRC + filler, minTelomereLength: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(three1.TelomereLength3Prime, Is.EqualTo(6));
+            Assert.That(five1.TelomereLength5Prime, Is.EqualTo(0));
+            Assert.That(five1.Has5PrimeTelomere, Is.False);
+            Assert.That(five2.TelomereLength5Prime, Is.EqualTo(12));
+        });
+    }
+
+    /// <summary>Motif must be unambiguous A/C/G/T (seqtk asserts 1 ≤ code ≤ 4 for every motif base).</summary>
+    [TestCase("")]
+    [TestCase("TTAGNG")]
+    public void AnalyzeTelomeres_InvalidMotif_Throws(string motif)
+    {
+        Assert.Throws<ArgumentException>(() => ChromosomeAnalyzer.AnalyzeTelomeres("chr1", "ACGTACGT", motif));
     }
 
     #endregion

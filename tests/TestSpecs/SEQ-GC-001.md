@@ -41,7 +41,7 @@ length = gc + sum(seq.count(x) for x in "ATWUatwu")  # only valid nucleotides
 
 Our implementation equivalently counts **A, T, G, C, U** (case-insensitive) for the denominator. Characters outside this set (e.g., N, R, Y, B, D, H, K, M, V, X) are excluded from both numerator and denominator.
 
-Note: Biopython also counts S (Strong = G|C) as GC and W (Weak = A|T) as AT. Our implementation does not count S/W since they are not standard nucleotides per the Wikipedia formula. For standard DNA/RNA sequences this produces identical results.
+Note: Biopython also counts S (Strong = G|C) as GC and W (Weak = A|T) as AT. Our implementation does not count S/W since they are not standard nucleotides per the Wikipedia formula. For standard DNA/RNA sequences this produces identical results. Exact Biopython parity for all three `ambiguous` modes (`remove`/`ignore`/`weighted`, incl. S/W) is available via the opt-in overload `CalculateGcFraction(seq, GcAmbiguityMode)`; cross-checked against Biopython 1.88 on 413 inputs (2026-09-28 review, 0 mismatches, max weighted diff 2.2e-16).
 
 ### 1.4 Edge Cases — Defined Behavior
 
@@ -73,6 +73,9 @@ Note: Biopython also counts S (Strong = G|C) as GC and W (Weak = A|T) as AT. Our
 | `CalculateGcContentFast(string)` | SequenceExtensions | Delegate | Wraps Span version |
 | `CalculateGcFractionFast(string)` | SequenceExtensions | Delegate | Wraps Span version |
 | `GcContent()` | DnaSequence | Delegate | Wraps CalculateGcContentFast |
+| `CalculateGcFraction(ReadOnlySpan<char>/string, GcAmbiguityMode)` | SequenceExtensions | Variant | Biopython `gc_fraction(ambiguous=...)` parity |
+| `CountGcAndValidNucleotides(ReadOnlySpan<char>)` | SequenceExtensions | Primitive | (G+C, A+T+G+C+U) counts; single counting loop behind the canonical methods |
+| `GcContent()` | RnaSequence | Delegate | Wraps CalculateGcContentFast |
 
 ---
 

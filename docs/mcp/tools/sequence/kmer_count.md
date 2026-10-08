@@ -9,7 +9,7 @@ Count k-mer frequencies in a sequence.
 | **Server** | Sequence |
 | **Tool Name** | `kmer_count` |
 | **Method ID** | `KmerAnalyzer.CountKmers` |
-| **Version** | 1.0.0 |
+| **Version** | 1.1.0 |
 | **Stability** | Stable |
 
 ## Description
@@ -18,7 +18,7 @@ Counts all k-mers (substrings of length k) in a sequence and returns their frequ
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L20](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L20)
+- Source: [KmerAnalyzer.cs#L84](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L84)
 
 ## Input Schema
 
@@ -26,6 +26,8 @@ Counts all k-mers (substrings of length k) in a sequence and returns their frequ
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The sequence to analyze (min length: 1) |
 | `k` | integer | No | K-mer length (default: 3, minimum: 1) |
+| `canonical` | boolean | No | Canonical k-mers (jellyfish count -C); implies `acgtOnly`. Default false |
+| `acgtOnly` | boolean | No | Skip windows containing a non-ACGT symbol (Jellyfish convention). Default false |
 
 ## Output Schema
 
@@ -91,6 +93,25 @@ Counts all k-mers (substrings of length k) in a sequence and returns their frequ
   }
 }
 ```
+
+### Example 3: Canonical counting (jellyfish count -C)
+
+Same modes as the Analysis server's [`count_kmers`](../analysis/count_kmers.md)
+(`KmerAnalyzer.CountKmers(sequence, k, KmerCountingOptions)`).
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "kmer_count",
+  "arguments": { "sequence": "ACGTNACGTAAcgtRTT", "k": 3, "canonical": true }
+}
+```
+
+**Response:**
+```json
+{ "counts": { "ACG": 6, "AAC": 1, "GTA": 1, "TAA": 1 }, "k": 3, "uniqueKmers": 4, "totalKmers": 9 }
+```
+`jellyfish count -m 3 -C` + `dump -c` (Jellyfish 2.3.1) gives the same table.
 
 ## Performance
 

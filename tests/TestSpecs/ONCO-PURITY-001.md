@@ -171,6 +171,15 @@
 
 ---
 
+### 5.7 Review 2026-09 (B24) additions
+
+| Test | Evidence |
+|------|----------|
+| `EstimatePurity_CnaqcExpectedVafFun_RoundTripRecoversPurity` (6 karyotypes) | CNAqc `R/equations.R` `expected_vaf_fun`, Python port values |
+| `EstimateCcf_RawCcf_EqualsCanonicalPurityCorrectionOverMultiplicity` | dedup lock: EstimateCcf/DeriveMultiplicity route through `AdjustVAFForPurity` |
+
+Open (cross-batch, code in B22-owned `OncologyAnalyzer.SomaticCalling.cs`): tests for m > n_tot rejection and the π = 1 boundary (v 0.2, m 1, n_tot 5 → 1.0) are added with the fix.
+
 ## 6. Assumption Register
 
 **Total assumptions:** 2

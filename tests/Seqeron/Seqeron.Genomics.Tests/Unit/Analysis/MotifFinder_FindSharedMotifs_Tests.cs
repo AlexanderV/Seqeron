@@ -206,4 +206,74 @@ public class MotifFinder_FindSharedMotifs_Tests
     }
 
     #endregion
+
+    #region FindSharedMotifs — reference cross-checks (review 2026-09)
+
+    // R1 — Values from an independent Python port of RSAT oligo-analysis mseq counting
+    // (rsa-tools/rsat-code perl-scripts/oligo-analysis, -1str -ovlp: per sequence mark
+    // current_mseq{word}=1, then mseq += 1). Output order = first occurrence (sequence, position).
+    private static readonly string[] RsatSet = { "ACGTACGTTAGC", "TTACGTAGCAAC", "GGTAGCACGTTT", "CATTTTACG" };
+
+    [Test]
+    public void FindSharedMotifs_RsatMseqReference_ExactWordsIndicesPrevalenceAndOrder()
+    {
+        var seqs = RsatSet.Select(s => new DnaSequence(s)).ToArray();
+
+        var shared = MotifFinder.FindSharedMotifs(seqs, k: 4, minSequences: 2).ToList();
+
+        (string Word, int[] Indices, double Prevalence)[] expected =
+        {
+            ("ACGT", new[] { 0, 1, 2 }, 0.75),
+            ("CGTA", new[] { 0, 1 }, 0.5),
+            ("TACG", new[] { 0, 1, 3 }, 0.75),
+            ("CGTT", new[] { 0, 2 }, 0.5),
+            ("TAGC", new[] { 0, 1, 2 }, 0.75),
+            ("TTAC", new[] { 1, 3 }, 0.5),
+            ("GTAG", new[] { 1, 2 }, 0.5),
+            ("AGCA", new[] { 1, 2 }, 0.5),
+        };
+        Assert.That(shared.Select(m => m.Sequence), Is.EqualTo(expected.Select(e => e.Word)),
+            "Word set and first-occurrence order must equal the RSAT mseq reference.");
+        for (int i = 0; i < expected.Length; i++)
+        {
+            Assert.That(shared[i].SequenceIndices, Is.EqualTo(expected[i].Indices), expected[i].Word);
+            Assert.That(shared[i].Prevalence, Is.EqualTo(expected[i].Prevalence), expected[i].Word);
+        }
+    }
+
+    [Test]
+    public void FindSharedMotifs_RsatMseqReference_Quorum3()
+    {
+        var seqs = RsatSet.Select(s => new DnaSequence(s)).ToArray();
+
+        var shared = MotifFinder.FindSharedMotifs(seqs, k: 4, minSequences: 3).Select(m => m.Sequence);
+
+        Assert.That(shared, Is.EqualTo(new[] { "ACGT", "TACG", "TAGC" }));
+    }
+
+    // R2 — Rosalind LCSM sample (GATTACA, TAGACCA, ATACA; answer "AC", length 2): at k = 2 and a
+    // full quorum the shared words are exactly the length-2 common substrings {TA, AC, CA}.
+    [Test]
+    public void FindSharedMotifs_RosalindLcsmSample_K2FullQuorum_EqualsCommonSubstringsOfLength2()
+    {
+        var seqs = new[] { new DnaSequence("GATTACA"), new DnaSequence("TAGACCA"), new DnaSequence("ATACA") };
+
+        var shared = MotifFinder.FindSharedMotifs(seqs, k: 2, minSequences: 3).ToList();
+
+        Assert.That(shared.Select(m => m.Sequence), Is.EqualTo(new[] { "TA", "AC", "CA" }));
+        Assert.That(shared.All(m => m.Prevalence == 1.0), Is.True);
+    }
+
+    // R3 — Null element: ArgumentException (same invalid-input contract as CreatePwm /
+    // CreateConsensusFromAlignment); previously a NullReferenceException.
+    [Test]
+    public void FindSharedMotifs_NullElement_ThrowsArgumentException()
+    {
+        var seqs = new[] { new DnaSequence("ACGT"), null!, new DnaSequence("ACGT") };
+
+        var ex = Assert.Throws<ArgumentException>(() => MotifFinder.FindSharedMotifs(seqs, k: 2).ToList());
+        Assert.That(ex!.ParamName, Is.EqualTo("sequences"));
+    }
+
+    #endregion
 }

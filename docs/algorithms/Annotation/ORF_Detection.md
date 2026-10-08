@@ -6,7 +6,7 @@
 | Test Unit ID | ANNOT-ORF-001 |
 | Related Projects | Seqeron.Genomics |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -16,7 +16,7 @@ Open reading frame (ORF) detection identifies contiguous coding candidates in DN
 
 ### 2.1 Domain Context
 
-An ORF is a continuous stretch of codons that begins with a start codon and ends with an in-frame stop codon, with no intervening in-frame stop between those boundaries. Because DNA can be read in three frames on each strand, double-stranded DNA exposes six possible reading frames: `+1`, `+2`, `+3`, `-1`, `-2`, and `-3`. The current document and repository evidence use the common prokaryotic start codons `ATG`, `GTG`, and `TTG`, and the standard stop codons `TAA`, `TAG`, and `TGA`. The background references also note that minimum ORF-length thresholds are heuristic and context-dependent, with common practical cutoffs around 100 codons for gene-finding workflows.
+An ORF is a continuous stretch of codons that begins with a start codon and ends with an in-frame stop codon, with no intervening in-frame stop between those boundaries. Because DNA can be read in three frames on each strand, double-stranded DNA exposes six possible reading frames: `+1`, `+2`, `+3`, `-1`, `-2`, and `-3`. The current document and repository evidence use the common prokaryotic start codons `ATG`, `GTG`, and `TTG` (exactly the start set of Prodigal's `is_start()` for translation table 11, Hyatt et al. 2010), and the standard stop codons `TAA`, `TAG`, and `TGA`. The background references also note that minimum ORF-length thresholds are heuristic and context-dependent, with common practical cutoffs around 100 codons for gene-finding workflows.
 
 ### 2.2 Core Model
 
@@ -33,7 +33,8 @@ under the condition that $t - s$ is divisible by $3$. ORF enumeration therefore 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | Every returned ORF begins with `ATG`, `GTG`, or `TTG` when `requireStartCodon = true` | The canonical implementation only adds pending starts from that fixed start-codon set |
-| INV-02 | Every returned ORF ends with `TAA`, `TAG`, or `TGA` when `requireStartCodon = true` | ORFs are emitted only when the scan reaches a stop codon from the fixed stop-codon set |
+| INV-02 | Every returned ORF ends with `TAA`, `TAG`, or `TGA` when `requireStartCodon = true` | ORFs are emitted only when the scan reaches a stop codon of `GeneticCode.Standard` (NCBI table 1) |
+| INV-06 | With `requireStartCodon = true`, `ProteinSequence` starts with `M` | The initiating codon (ATG/GTG/TTG) is decoded by initiator tRNA-fMet (EMBOSS getorf `-methionine`, Biopython `translate(cds=True)`) |
 | INV-03 | Every returned ORF span is divisible by `3` nucleotides | The scan advances in codon-sized steps within a fixed frame |
 | INV-04 | Returned coordinates satisfy `0 <= Start < End <= dnaSequence.Length` | Forward coordinates are emitted directly and reverse-strand coordinates are remapped back to the original sequence bounds |
 | INV-05 | When both strands are searched, reported frame labels are `1`, `2`, `3` on the forward strand and `-1`, `-2`, `-3` in the longest-per-frame view | The repository groups reverse-complement ORFs under negative frame keys in `FindLongestOrfsPerFrame(...)` |
@@ -47,7 +48,7 @@ under the condition that $t - s$ is divisible by $3$. ORF enumeration therefore 
 | `dnaSequence` | `string` | required | DNA sequence to scan for ORFs | Case-insensitive; null or empty input yields no ORFs in the canonical API |
 | `minLength` | `int` | `100` | Minimum ORF length in amino acids for `FindOrfs(...)` | Compared against amino-acid length excluding the terminal stop |
 | `searchBothStrands` | `bool` | `true` | Whether to scan the reverse complement in addition to the forward strand | When `false`, only frames `1`, `2`, and `3` are searched |
-| `requireStartCodon` | `bool` | `true` | Whether a start codon is required before an ORF can be emitted | When `false`, trailing frame segments without a terminating stop may also be emitted if they satisfy `minLength` |
+| `requireStartCodon` | `bool` | `true` | `true`: start-to-stop ORFs (every start paired with the nearest in-frame stop). `false`: stop-to-stop regions as EMBOSS getorf `-find 0` on a linear sequence | When `false`, one region per stop-delimited segment is emitted, including the leading segment from the frame offset and the trailing segment to the last complete codon (no stop); segments with no sense codon are skipped; start codons do not create extra sub-ORFs |
 
 ### 3.2 Output / Return Value
 
@@ -58,7 +59,7 @@ under the condition that $t - s$ is divisible by $3$. ORF enumeration therefore 
 | `Frame` | `int` | Reading frame number `1`, `2`, or `3` in `OpenReadingFrame`; `FindLongestOrfsPerFrame(...)` uses negative keys for reverse-complement frames |
 | `IsReverseComplement` | `bool` | Indicates whether the ORF was found on the reverse-complement strand |
 | `Sequence` | `string` | DNA sequence of the ORF, including the terminal stop codon when present |
-| `ProteinSequence` | `string` | Translation of `Sequence`; tests confirm the canonical implementation includes the terminal `*` stop symbol |
+| `ProteinSequence` | `string` | Translation of `Sequence` with `Translator.Translate(…, GeneticCode.Standard)`, including the terminal `*` for stop-terminated ORFs; for start-to-stop ORFs the initiating codon is rendered as `M` (GTG/TTG → M) |
 
 ### 3.3 Preconditions and Validation
 
@@ -107,7 +108,9 @@ Within each frame, `GenomeAnnotator.FindOrfsInFrame(...)` keeps a list of pendin
 
 Repository-specific behavior confirmed by source and tests:
 
-- `GenomeAnnotator.FindOrfs(...)` always translates with `GeneticCode.Standard`.
+- `GenomeAnnotator.FindOrfs(...)` always translates with `GeneticCode.Standard` through the canonical `Translator.Translate`, recognises stops with `GeneticCode.Standard.IsStopCodon`, and reverse-complements with `DnaSequence.GetReverseComplementString`; only the ATG/GTG/TTG start-selection policy is local.
+- Start-to-stop ORFs render the initiating codon as `M` (EMBOSS getorf `-methionine` default Y; Biopython `translate(cds=True)`: `GTGAAAAAAAAATAA` → `MKKK`).
+- `requireStartCodon = false` reproduces EMBOSS getorf `-find 0` (linear): leading and trailing stop-less segments are reported, one region per segment.
 - Returned `ProteinSequence` values include the terminal `*` stop symbol for stop-terminated ORFs.
 - Multiple start codons before the same stop codon produce multiple ORFs, so nested ORFs can be returned from a single frame.
 - `FindLongestOrfsPerFrame(...)` internally calls `FindOrfs(...)` with `minLength: 1` and `requireStartCodon: true` before selecting the longest translated ORF in each frame.
@@ -158,6 +161,13 @@ Repository-specific behavior confirmed by source and tests:
 
 This implementation is an ORF enumerator, not a full gene-prediction model. The canonical API does not estimate coding likelihood, does not incorporate codon-usage bias, and does not expose a configurable genetic code. The repository also contains alternate ORF-related entry points whose semantics differ from the canonical `GenomeAnnotator` contract, so callers should choose the entry point deliberately.
 
+## 7. Validation (review 2026-09)
+
+- Cross-check: independent Python/Biopython 1.88 reference (start-to-stop = every ATG/GTG/TTG with nearest in-frame stop, initiator via `translate(table=11, cds=True)`; stop-to-stop = EMBOSS getorf `-find 0` logic from `getorf.c`) vs `FindOrfs` on 2,988 random sequences (0–300 nt, mixed case, all `minLength`/strand/mode combinations): 0 mismatches.
+- Rosalind ORF sample: all four ATG proteins plus TTG-initiated `MD`, `ME`, with exact coordinates locked in `FindOrfs_RosalindDataset_ExactSixFrameSetMatchesBiopythonReference`.
+- Fixed: alternative initiators translated as V/L instead of M; `requireStartCodon = false` dropped the leading stop-to-stop region and duplicated start-codon sub-ORFs (e.g. `TAAATGAAATAA` emitted `[3,12)` twice).
+- Note: codons with `N` translate to `X` via the canonical `GeneticCode.Translate` (Biopython resolves e.g. `GCN` → `A`); this is Translator behaviour, outside this unit.
+
 ## 8. References
 
 1. Wikipedia contributors. Open reading frame. https://en.wikipedia.org/wiki/Open_reading_frame
@@ -166,3 +176,6 @@ This implementation is an ORF enumerator, not a full gene-prediction model. The 
 4. Deonier R, Tavare S, Waterman M. Computational Genome Analysis: An Introduction. Springer-Verlag, 2005.
 5. Claverie JM. Computational methods for the identification of genes in vertebrate genomic sequences. Human Molecular Genetics. 1997;6(10):1735-1744.
 6. Sieber P, Platzer M, Schuster S. The Definition of Open Reading Frame Revisited. Trends in Genetics. 2018;34(3):167-170.
+7. EMBOSS getorf source and ACD (`emboss/getorf.c`, `emboss/acd/getorf.acd`), https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/getorf.c
+8. Hyatt D et al. Prodigal: prokaryotic gene recognition and translation initiation site identification. BMC Bioinformatics 2010;11:119 (`is_start()` in https://raw.githubusercontent.com/hyattpd/Prodigal/GoogleImport/sequence.c).
+9. Biopython 1.88 `Bio.Seq.Seq.translate` (`cds=True`: alternative start codon translated as methionine).

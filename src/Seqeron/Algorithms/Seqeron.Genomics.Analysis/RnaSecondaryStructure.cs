@@ -396,15 +396,22 @@ public static class RnaSecondaryStructure
     private const double CoaxialMismatch_GU_Bonus = -0.2;
 
     // Fast pair-type lookup: 0 = no pair, 1 = Watson-Crick, 2 = Wobble.
-    // Indexed by [base1 * 128 + base2]. 16 KB — fits L1 cache.
+    // Indexed by [base1 * 128 + base2] over UPPERCASE ASCII. 16 KB — fits L1 cache.
+    // Canonical pair set of the ViennaRNA default model (md.pair / BP_ENCODING_DEFAULT in
+    // src/ViennaRNA/model.c): CG, GC, GU, UG, AU, UA. DNA thymine is the same base as uracil for
+    // pairing (ViennaRNA vrna_nucleotide_encode: "make T and U equivalent"), so A·T/T·A are
+    // Watson-Crick and G·T/T·G wobble; every other character (IUPAC codes, N, gaps) does not pair.
     private static readonly byte[] PairLookup = BuildPairLookup();
 
     private static byte[] BuildPairLookup()
     {
         var t = new byte[128 * 128];
-        t['A' * 128 + 'U'] = 1; t['U' * 128 + 'A'] = 1;
+        foreach (char u in "UT")
+        {
+            t['A' * 128 + u] = 1; t[u * 128 + 'A'] = 1;
+            t['G' * 128 + u] = 2; t[u * 128 + 'G'] = 2;
+        }
         t['G' * 128 + 'C'] = 1; t['C' * 128 + 'G'] = 1;
-        t['G' * 128 + 'U'] = 2; t['U' * 128 + 'G'] = 2;
         return t;
     }
 
@@ -413,7 +420,9 @@ public static class RnaSecondaryStructure
     #region Base Pairing
 
     /// <summary>
-    /// Determines if two bases can form a pair.
+    /// Determines if two bases can form a canonical pair: Watson-Crick A·U / G·C or the G·U wobble
+    /// (the ViennaRNA default pair set). Case-insensitive; DNA T is treated as U (A·T, G·T pair).
+    /// Any other character (IUPAC ambiguity codes, N, gaps, non-ASCII) never pairs.
     /// </summary>
     public static bool CanPair(char base1, char base2)
     {
@@ -423,7 +432,9 @@ public static class RnaSecondaryStructure
     }
 
     /// <summary>
-    /// Gets the type of base pair, or null if bases cannot pair.
+    /// Gets the type of base pair (<see cref="BasePairType.WatsonCrick"/> for A·U / G·C,
+    /// <see cref="BasePairType.Wobble"/> for G·U), or null if the bases cannot pair.
+    /// Same pairing rules as <see cref="CanPair"/> (case-insensitive, T treated as U).
     /// </summary>
     public static BasePairType? GetBasePairType(char base1, char base2)
     {
@@ -449,6 +460,7 @@ public static class RnaSecondaryStructure
 
     /// <summary>
     /// Finds all potential stem-loop structures in an RNA sequence.
+    /// Case-insensitive; DNA T is read as U (reported bases and loop sequences use U).
     /// </summary>
     public static IEnumerable<StemLoop> FindStemLoops(
         string rnaSequence,
@@ -466,7 +478,9 @@ public static class RnaSecondaryStructure
         if (string.IsNullOrEmpty(rnaSequence) || rnaSequence.Length < minStemLength * 2 + minLoopSize)
             yield break;
 
-        string upper = rnaSequence.ToUpperInvariant();
+        // Read DNA thymine as uracil (as the MFE engines do): the Turner stacking / loop tables are
+        // A/C/G/U-keyed, so T-containing pairs must be scored as their U equivalents.
+        string upper = rnaSequence.ToUpperInvariant().Replace('T', 'U');
 
         // Scan for potential hairpin loops
         for (int loopStart = minStemLength; loopStart <= upper.Length - minStemLength - minLoopSize; loopStart++)
@@ -1759,16 +1773,11 @@ public static class RnaSecondaryStructure
         return pairs;
     }
 
+    // Hot-path pair classification for already-normalised (uppercase) sequences: reads the same
+    // canonical PairLookup table as CanPair/GetBasePairType (0 = none, 1 = WC, 2 = wobble).
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte PairType(char b1, char b2)
-    {
-        return (b1, b2) switch
-        {
-            ('A', 'U') or ('U', 'A') or ('G', 'C') or ('C', 'G') => 1,
-            ('G', 'U') or ('U', 'G') => 2,
-            _ => 0,
-        };
-    }
+        => (b1 | b2) < 128 ? PairLookup[b1 * 128 + b2] : (byte)0;
 
     /// <summary>
     /// Original O(L\u00b3) MFE — retained as benchmark baseline.
@@ -1833,6 +1842,7 @@ public static class RnaSecondaryStructure
 
     /// <summary>
     /// Predicts the secondary structure of an RNA sequence.
+    /// Case-insensitive; DNA T is read as U (the returned sequence is the normalised A/C/G/U string).
     /// </summary>
     public static SecondaryStructure PredictStructure(
         string rnaSequence,
@@ -1847,7 +1857,7 @@ public static class RnaSecondaryStructure
                 new List<Pseudoknot>(), 0);
         }
 
-        string seq = rnaSequence.ToUpperInvariant();
+        string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
 
         // Find stem-loops
         var stemLoops = FindStemLoops(seq, minStemLength, minLoopSize, maxLoopSize)
@@ -1973,56 +1983,45 @@ public static class RnaSecondaryStructure
 
     #region Dot-Bracket Notation
 
-    /// <summary>
-    /// Generates dot-bracket notation for a structure.
-    /// </summary>
+    // Window variant used by stem-loop detection: renders only [start, end] (inclusive) of the
+    // structure, positions re-based to the window start. Delegates to the canonical builder.
     private static string GenerateDotBracket(int length, IReadOnlyList<BasePair> basePairs, int start, int end)
-    {
-        var notation = new char[end - start + 1];
-        for (int i = 0; i < notation.Length; i++)
-            notation[i] = '.';
-
-        foreach (var bp in basePairs)
-        {
-            if (bp.Position1 >= start && bp.Position1 <= end)
-                notation[bp.Position1 - start] = '(';
-            if (bp.Position2 >= start && bp.Position2 <= end)
-                notation[bp.Position2 - start] = ')';
-        }
-
-        return new string(notation);
-    }
+        => BuildDotBracket(end - start + 1,
+            basePairs.Select(bp => (bp.Position1 - start, bp.Position2 - start)));
 
     private static string GenerateFullDotBracket(int length, IReadOnlyList<BasePair> basePairs)
-    {
-        var notation = new char[length];
-        for (int i = 0; i < length; i++)
-            notation[i] = '.';
-
-        foreach (var bp in basePairs)
-        {
-            int left = Math.Min(bp.Position1, bp.Position2);
-            int right = Math.Max(bp.Position1, bp.Position2);
-            notation[left] = '(';
-            notation[right] = ')';
-        }
-
-        return new string(notation);
-    }
+        => BuildDotBracket(length, basePairs.Select(bp => (bp.Position1, bp.Position2)));
 
     // Tuple overload used by the MFE traceback (pseudoknot-free → single bracket family).
     private static string GenerateFullDotBracket(int length, IReadOnlyList<(int Position1, int Position2)> basePairs)
+        => BuildDotBracket(length, basePairs);
+
+    /// <summary>
+    /// Canonical dot-bracket renderer (the inverse of <see cref="ParseDotBracket"/>, cf. ViennaRNA
+    /// <c>vrna_db_from_ptable</c>): every position starts as <c>'.'</c>; each pair (i, j) is written
+    /// as <c>'('</c> at min(i, j) and <c>')'</c> at max(i, j). Pairs listed in
+    /// <paramref name="secondFamily"/> (in either orientation) use the independent <c>[]</c> family
+    /// so crossing (pseudoknotted) helices stay unambiguous. Positions outside
+    /// <c>[0, length)</c> are skipped (window rendering).
+    /// </summary>
+    private static string BuildDotBracket(
+        int length,
+        IEnumerable<(int Position1, int Position2)> basePairs,
+        HashSet<(int, int)>? secondFamily = null)
     {
         var notation = new char[length];
-        for (int i = 0; i < length; i++)
-            notation[i] = '.';
+        Array.Fill(notation, '.');
 
-        foreach (var bp in basePairs)
+        foreach (var (p1, p2) in basePairs)
         {
-            int left = Math.Min(bp.Position1, bp.Position2);
-            int right = Math.Max(bp.Position1, bp.Position2);
-            notation[left] = '(';
-            notation[right] = ')';
+            int left = Math.Min(p1, p2);
+            int right = Math.Max(p1, p2);
+            bool knot = secondFamily != null
+                && (secondFamily.Contains((p1, p2)) || secondFamily.Contains((left, right)));
+            if (left >= 0 && left < length)
+                notation[left] = knot ? '[' : '(';
+            if (right >= 0 && right < length)
+                notation[right] = knot ? ']' : ')';
         }
 
         return new string(notation);
@@ -2050,104 +2049,106 @@ public static class RnaSecondaryStructure
         ['<'] = '>',
     };
 
+    // Pseudoknot letter pairs are the ASCII alphabet only: uppercase 'A'..'Z' opens (5'),
+    // the matching lowercase 'a'..'z' closes (3'). ViennaRNA 2.7.2 vrna_ptable_from_string
+    // (structures/structure_pairtable.c, VRNA_BRACKETS_ALPHA) loops i = 65..90 pairing
+    // (char)i with (char)(i + 32); every other character — including non-ASCII letters such
+    // as 'É'/'é' — is unpaired.
+    private static bool IsLetterOpener(char c) => c is >= 'A' and <= 'Z';
+    private static bool IsLetterCloser(char c) => c is >= 'a' and <= 'z';
+
+    /// <summary>
+    /// Single canonical dot-bracket scanner shared by <see cref="ParseDotBracket"/> and
+    /// <see cref="ValidateDotBracket"/>. Matches every family on its own LIFO stack (ViennaRNA
+    /// <c>extract_pairs</c> per bracket type), appends matched pairs to <paramref name="pairs"/>
+    /// (when non-null) in closing order, and returns true iff the string is well-formed
+    /// (no closer without a same-family opener, no opener left unclosed). Scanning is
+    /// best-effort: unmatched closers are skipped and scanning continues.
+    /// </summary>
+    private static bool ScanDotBracket(string? dotBracket, List<(int Position1, int Position2)>? pairs)
+    {
+        if (string.IsNullOrEmpty(dotBracket))
+            return true;
+
+        // One independent stack per opening symbol (brackets + uppercase letters).
+        var stacks = new Dictionary<char, Stack<int>>();
+        bool wellFormed = true;
+
+        for (int i = 0; i < dotBracket.Length; i++)
+        {
+            char c = dotBracket[i];
+            char opener;
+
+            if (OpeningToClosing.ContainsKey(c) || IsLetterOpener(c))
+            {
+                if (!stacks.TryGetValue(c, out var open))
+                {
+                    open = new Stack<int>();
+                    stacks[c] = open;
+                }
+                open.Push(i);
+                continue;
+            }
+
+            if (ClosingToOpening.TryGetValue(c, out char bracketOpener))
+                opener = bracketOpener;
+            else if (IsLetterCloser(c))
+                opener = (char)(c - ('a' - 'A'));
+            else
+                continue; // '.', ',', '-', ':', '_', '~' and any other symbol => unpaired.
+
+            if (stacks.TryGetValue(opener, out var stack) && stack.Count > 0)
+            {
+                int j = stack.Pop(); // pop unconditionally (not inside a null-conditional call)
+                pairs?.Add((j, i));
+            }
+            else
+                wellFormed = false; // closer without a same-family opener
+        }
+
+        foreach (var stack in stacks.Values)
+            if (stack.Count != 0)
+                wellFormed = false; // opener left unclosed
+
+        return wellFormed;
+    }
+
     /// <summary>
     /// Parses dot-bracket / extended WUSS notation to extract base pairs as
     /// (5' position, 3' position) index tuples (zero-based).
     /// </summary>
     /// <remarks>
     /// Each bracket family (<c>()</c>, <c>[]</c>, <c>{}</c>, <c>&lt;&gt;</c>) is matched on
-    /// its own stack, and uppercase/lowercase letter pairs (<c>Aa</c>, <c>Bb</c>, ...) are
-    /// matched as independent pseudoknot systems, per ViennaRNA / WUSS conventions.
+    /// its own stack, and uppercase/lowercase ASCII letter pairs (<c>Aa</c> … <c>Zz</c>) are
+    /// matched as independent pseudoknot systems, per ViennaRNA / WUSS conventions
+    /// (<c>vrna_ptable_from_string</c> with <c>VRNA_BRACKETS_ANY</c>).
     /// An opening symbol is paired with the nearest unmatched opening of the SAME family
-    /// (correct nesting). Dots and any other symbols denote unpaired residues and are skipped.
-    /// Closing symbols with no open partner are ignored (parse is best-effort; use
-    /// <see cref="ValidateDotBracket"/> to test well-formedness first).
+    /// (correct nesting). Dots and any other symbols (including non-ASCII letters) denote
+    /// unpaired residues and are skipped. Pairs are returned in the order their closing
+    /// symbol is read. Closing symbols with no open partner are ignored (parse is best-effort,
+    /// whereas ViennaRNA returns no table; use <see cref="ValidateDotBracket"/> to test
+    /// well-formedness first).
     /// </remarks>
     public static IEnumerable<(int Position1, int Position2)> ParseDotBracket(string dotBracket)
     {
-        if (string.IsNullOrEmpty(dotBracket))
-            yield break;
-
-        // One independent stack per opening symbol (brackets + uppercase letters).
-        var stacks = new Dictionary<char, Stack<int>>();
-
-        for (int i = 0; i < dotBracket.Length; i++)
-        {
-            char c = dotBracket[i];
-
-            if (OpeningToClosing.ContainsKey(c) || (char.IsLetter(c) && char.IsUpper(c)))
-            {
-                if (!stacks.TryGetValue(c, out var stack))
-                {
-                    stack = new Stack<int>();
-                    stacks[c] = stack;
-                }
-                stack.Push(i);
-            }
-            else if (ClosingToOpening.TryGetValue(c, out char opener))
-            {
-                if (stacks.TryGetValue(opener, out var stack) && stack.Count > 0)
-                    yield return (stack.Pop(), i);
-            }
-            else if (char.IsLetter(c) && char.IsLower(c))
-            {
-                char up = char.ToUpperInvariant(c);
-                if (stacks.TryGetValue(up, out var stack) && stack.Count > 0)
-                    yield return (stack.Pop(), i);
-            }
-            // '.', ',', '-', ':', '_', '~' and any other symbol => unpaired, skip.
-        }
+        var pairs = new List<(int Position1, int Position2)>();
+        ScanDotBracket(dotBracket, pairs);
+        return pairs;
     }
 
     /// <summary>
     /// Validates dot-bracket / extended WUSS notation: every closing symbol must match an
     /// earlier unmatched opening symbol of the SAME family, and no opening symbol may be left
-    /// unclosed. Each bracket family and each letter (case) pair is checked independently, so a
-    /// mismatched pairing such as <c>(]</c> is rejected even though the total count is balanced.
+    /// unclosed. Each bracket family and each ASCII letter (case) pair is checked independently,
+    /// so a mismatched pairing such as <c>(]</c> is rejected even though the total count is balanced.
+    /// Equivalent to ViennaRNA <c>vrna_ptable_from_string(s, VRNA_BRACKETS_ANY) != NULL</c> for
+    /// non-empty input; null/empty is accepted as the empty structure.
     /// </summary>
     /// <remarks>
     /// Sources: ViennaRNA — base pairs are matching pairs of <c>()</c> (and extended <c>[]{}&lt;&gt;</c>,
-    /// letters) and the structure must be balanced; WUSS — left and right partners must match up.
+    /// letters A–Z/a–z) and the structure must be balanced; WUSS — left and right partners must match up.
     /// </remarks>
-    public static bool ValidateDotBracket(string dotBracket)
-    {
-        if (string.IsNullOrEmpty(dotBracket))
-            return true;
-
-        var stacks = new Dictionary<char, Stack<int>>();
-
-        foreach (char c in dotBracket)
-        {
-            if (OpeningToClosing.ContainsKey(c) || (char.IsLetter(c) && char.IsUpper(c)))
-            {
-                if (!stacks.TryGetValue(c, out var stack))
-                {
-                    stack = new Stack<int>();
-                    stacks[c] = stack;
-                }
-                stack.Push(0);
-            }
-            else if (ClosingToOpening.TryGetValue(c, out char opener))
-            {
-                if (!stacks.TryGetValue(opener, out var stack) || stack.Count == 0)
-                    return false;
-                stack.Pop();
-            }
-            else if (char.IsLetter(c) && char.IsLower(c))
-            {
-                char up = char.ToUpperInvariant(c);
-                if (!stacks.TryGetValue(up, out var stack) || stack.Count == 0)
-                    return false;
-                stack.Pop();
-            }
-            // unpaired symbol => ignore.
-        }
-
-        foreach (var stack in stacks.Values)
-            if (stack.Count != 0)
-                return false;
-        return true;
-    }
+    public static bool ValidateDotBracket(string dotBracket) => ScanDotBracket(dotBracket, null);
 
     #endregion
 
@@ -3170,21 +3171,7 @@ public static class RnaSecondaryStructure
     private static string GeneratePseudoknotDotBracket(
         int length, IReadOnlyList<(int Position1, int Position2)> basePairs,
         HashSet<(int, int)> stem2Pairs)
-    {
-        var notation = new char[length];
-        for (int k = 0; k < length; k++) notation[k] = '.';
-
-        foreach (var bp in basePairs)
-        {
-            int left = Math.Min(bp.Position1, bp.Position2);
-            int right = Math.Max(bp.Position1, bp.Position2);
-            bool isStem2 = stem2Pairs.Contains((bp.Position1, bp.Position2)) || stem2Pairs.Contains((left, right));
-            notation[left] = isStem2 ? '[' : '(';
-            notation[right] = isStem2 ? ']' : ')';
-        }
-
-        return new string(notation);
-    }
+        => BuildDotBracket(length, basePairs, stem2Pairs);
 
     #endregion
 

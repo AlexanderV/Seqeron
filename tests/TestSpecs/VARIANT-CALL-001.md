@@ -5,7 +5,7 @@
 **Algorithm:** Variant Detection (SNP / insertion / deletion calling + transition/transversion classification)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-28 (B21 review: M16–M18 added)
 
 ---
 
@@ -66,7 +66,7 @@
 | INV-02 | Every emitted SNP has `ReferenceAllele != AlternateAllele` (single base each). | Yes | Source 2 (a SNP is a single-base substitution) |
 | INV-03 | Every emitted variant's 0-based `Position` lies in `[0, reference.Length]`. | Yes | Structural (position is a reference coordinate) |
 | INV-04 | A column with ref-gap is an Insertion; a column with query-gap is a Deletion; a mismatched pair is a SNP. | Yes | Source 1 (the three variant classes) |
-| INV-05 | `ClassifyMutation` returns Transition iff {ref,alt}⊆{A,G} or ⊆{C,T}; Transversion for any other SNP pair; Other for non-SNP. | Yes | Sources 5, 6 |
+| INV-05 | `ClassifyMutation` returns Transition iff {ref,alt}⊆{A,G} or ⊆{C,T}; Transversion for a purine↔pyrimidine SNP over A/C/G/T; Other for non-SNP or a SNP with a non-ACGT base such as N (bcftools stats: A>N is neither ts nor tv; amended 2026-09-28, VARIANT-SNP-001 review). | Yes | Sources 5, 6 |
 | INV-06 | `CalculateTiTvRatio` = (#transitions)/(#transversions) over SNPs, or 0 when #transversions = 0. | Yes | Definition + source 3 (ASM-03) |
 
 ---
@@ -92,6 +92,10 @@
 | M13 | Ti/Tv equal counts | {A→G, A→C} | 1.0 | definition; INV-06 |
 | M14 | Ti/Tv 2 Ti 1 Tv | {A→G, C→T, A→C} | 2.0 | definition; INV-06 |
 | M15 | Ti/Tv no transversions | {A→G, C→T} | 0 | ASM-03; INV-06 |
+
+| M16 | Case-only difference is not a variant (B21 2026-09) | `CallVariantsFromAlignment("acgtACGT","ACGTacgt")` | empty | Source 2 (REF/ALT case insensitive); bcftools norm rejects G/g as duplicate alleles |
+| M17 | Lowercase substitution still a SNP (B21 2026-09) | `CallVariantsFromAlignment("acgt","AGGT")` | 1 SNP, Position 1, REF "c", ALT "G" | Source 2 |
+| M18 | Indels in repeats are left-aligned (B21 2026-09) | `CallVariants` on ACGTTTTACG→ACGTTTACG / CAGAGAGT→CAGAGT / GCACAT→GCACACAT / ATTG→ATTTG | Deletion@3 (T); Deletions@1,2 (A,G); Insertions@1,1 (C,A); Insertion@1 (T) | Source 4; values = `bcftools norm -f` output (pysam 0.24.1) for right-shifted input records |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -210,7 +214,7 @@ In-scope cases: 21. ✅ count: 21.
 | # | Assumption | Used In |
 |---|-----------|---------|
 | ASM-01 | In-memory `Variant` uses `"-"` gap sentinel + 0-based Position (VCF padding/1-based applies only to serialized output, out of scope) | M4, M5, M6 |
-| ASM-02 | Indels not left-aligned/parsimony-normalized; position asserted only on unambiguous alignments | M4, M5, M6, C1 |
+| ASM-02 | `CallVariantsFromAlignment` reports the supplied alignment literally (no re-positioning); `CallVariants` output is left-aligned (M18, B21 2026-09) | M4, M5, M6, C1, M18 |
 | ASM-03 | Ti/Tv with zero transversions returns 0 (undefined case) | M15 |
 
 ---

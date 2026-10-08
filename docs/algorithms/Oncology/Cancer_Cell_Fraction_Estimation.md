@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-CCF-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-15 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -14,7 +14,8 @@ Cancer cell fraction (CCF) is the fraction of cancer cells in a sequenced sample
 mutation. It is not observed directly; this unit computes the standard point estimate of CCF from a mutation's
 variant allele fraction (VAF), the tumor purity, the local tumor copy number, and the mutation multiplicity, then
 clusters a set of CCF values into clones/subclones and identifies the clonal cluster. `EstimateCcf` is an exact
-closed-form (deterministic) estimate; `ClusterCcfValues` is a deterministic one-dimensional k-means partition.
+closed-form (deterministic) estimate; `ClusterCcfValues` is the globally optimal one-dimensional k-means partition
+(Ckmeans.1d.dp dynamic programming, Wang & Song 2011 [6]).
 CCF estimation underpins clonal/subclonal classification (ONCO-CLONAL-001) and tumor phylogeny (ONCO-PHYLO-001).
 
 ## 2. Scientific / Formal Basis
@@ -68,10 +69,13 @@ The cluster with the highest CCF is the clonal cluster, the rest are subclonal l
 
 #### Core Model
 
-Lloyd's k-means [5] partitions values into k clusters minimizing the within-cluster sum of squares
-`Σ_j Σ_{x∈S_j} (x − μ_j)²` by alternating an assignment step (each value to the nearest centroid by squared
-distance) and an update step (each centroid = mean of its members) until assignments stabilize [5]. In one
-dimension this is exact and, with deterministic seeding, fully reproducible.
+The k-means objective [5] is the partition of the values into k clusters minimizing the within-cluster sum of
+squares `Σ_j Σ_{x∈S_j} (x − μ_j)²`. Lloyd's alternating assignment/update iteration [5] only reaches a *local*
+optimum that depends on seeding — also in one dimension (B24 review 2026-09, F17: with quantile seeding it was
+suboptimal on 2367/4999 random 1-D inputs). In one dimension an optimal partition consists of contiguous blocks of
+the sorted values, so the global optimum is found exactly by dynamic programming: with D[q][i] the minimum WCSS of
+x₁..xᵢ in q clusters, `D[q][i] = min_{q≤j≤i} D[q−1][j−1] + ssq(x_j..x_i)` (Wang & Song 2011, Ckmeans.1d.dp [6]),
+followed by backtracking. The result needs no seeding and is fully reproducible.
 
 #### Modeling Assumptions
 
@@ -86,7 +90,9 @@ dimension this is exact and, with deterministic seeding, fully reproducible.
 |----|-----------|---------------|
 | INV-CL-01 | Every value assigned to exactly one cluster in [0, k) | k-means produces a partition [5] |
 | INV-CL-02 | Each centroid equals the mean of its members | Update step [5] |
-| INV-CL-03 | Output is deterministic for a given (values, k) | Quantile seeding uses no RNG; sorted, order-independent |
+| INV-CL-03 | Output is deterministic for a given (values, k) | Exact DP on sorted values; no seeding/RNG |
+| INV-CL-05 | WCSS is the global minimum over all partitions into min(k, distinct) clusters | Ckmeans.1d.dp optimality [6] |
+| INV-CL-06 | Every returned cluster is non-empty; #clusters = min(k, number of distinct values) | Ckmeans.1d.dp `Kmax = min(k, nUnique)` [6] |
 | INV-CL-04 | Clonal cluster index = argmax centroid (= k−1, centroids ascending) | "cluster with the highest CP … deemed clonal" [1] |
 
 ## 3. Contract
@@ -139,35 +145,40 @@ for clusterCount ∉ [1, count]. All indices are 0-based.
 
 #### High-Level Steps
 
-1. Validate; sort values carrying original indices.
-2. Seed k centroids at evenly-spaced quantiles of the sorted data (deterministic).
-3. Iterate assignment + update steps until assignments stop changing.
-4. Relabel clusters by ascending centroid; the last (highest) is clonal.
+1. Validate; stable-sort values carrying original indices; k ← min(k, number of distinct values) [6].
+2. Median-shifted prefix sums Σx, Σx² (Ckmeans.1d.dp `EWL2::fill_dp_matrix`).
+3. Fill the DP rows q = 1..k−1 with the log-linear divide-and-conquer row fill (`fill_row_q_log_linear`,
+   monotone split index J); only two rows of D are kept, the backtrack matrix J is k × n.
+4. Backtrack cluster boundaries from J; centroid = block mean; clusters are ascending, the last is clonal.
 
 #### Decision Rules / Reference Tables
 
-Centroid j is seeded at the sorted value at quantile (j + 0.5)/k. Ties in nearest-centroid go to the lower index.
+Port of Ckmeans.1d.dp 4.3.6 C++ (`EWL2_dynamic_prog.cpp`, `EWL2_fill_log_linear.cpp`, `EWL2_within_cluster.h`,
+`dynamic_prog.cpp::backtrack`); `ldouble` is `double` there, so arithmetic is identical. Inputs whose effective
+k × n exceeds 10⁸ backtrack cells are rejected (`ArgumentOutOfRangeException`).
 
 #### Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| ClusterCcfValues | O(n·k·i) | O(n+k) | i ≤ n+1 iterations; sort O(n log n) |
+| ClusterCcfValues | O(k·n·log n) | O(k·n) | log-linear DP row fill [6]; sort O(n log n); n=10⁵, k=10 ≈ 0.2 s |
 
 ## 5. Implementation Notes
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.Clonality.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.Clonality.cs)
 
 - `OncologyAnalyzer.EstimateCcf(vaf, purity, tumorCopyNumber, multiplicity)`: point CCF estimate (capped + raw).
-- `OncologyAnalyzer.ClusterCcfValues(ccfValues, clusterCount)`: deterministic 1D k-means + clonal-cluster id.
+- `OncologyAnalyzer.ClusterCcfValues(ccfValues, clusterCount)`: optimal 1D k-means (Ckmeans.1d.dp) + clonal-cluster id.
 
 ### 5.2 Current Behavior
 
 Multiplicity is a caller-supplied integer (multi-region/PICTograph convention); automatic multiplicity inference
-from VAF is out of scope. Clustering uses no random seeding — centroids are seeded at quantiles of the sorted
-input — so output is identical across runs and independent of input order. No substring/pattern search is
+from VAF is out of scope. Clustering is the exact Ckmeans.1d.dp optimum (no seeding), so output is identical
+across runs and independent of input order; cross-checked against the Ckmeans.1d.dp C++ code (ckwrap 1.2.3):
+2999/3000 random inputs bit-identical labels and centroids, 1 equal-WCSS tie broken differently (ckwrap uses the
+SMAWK row fill, this port the log-linear fill). No substring/pattern search is
 involved, so the repository suffix tree is not applicable.
 
 ### 5.3 Conformance to Theory / Spec
@@ -191,7 +202,7 @@ involved, so the repository suffix tree is not applicable.
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- Lloyd assignment/update steps minimizing WCSS [5]; clonal cluster = highest centroid [1].
+- Exact minimum-WCSS k-means partition by Ckmeans.1d.dp dynamic programming [5][6]; clonal cluster = highest centroid [1].
 
 **Intentionally simplified:**
 
@@ -211,6 +222,7 @@ involved, so the repository suffix tree is not applicable.
 | raw CCF > 1 | reported 1.0, RawCcf > 1 | INV-CCF-01 / CNAqc [4] |
 | multi-copy locus (N_T>2, m>1) | uses supplied m | multiplicity definition [1] |
 | k = 1 | single cluster at the global mean; clonal index 0 | trivial partition |
+| k > distinct values | k reduced to the number of distinct values (no empty clusters) | Ckmeans.1d.dp [6] |
 | empty values / null / k out of range | exception | validation |
 
 ### 6.2 Limitations
@@ -246,3 +258,4 @@ var clustering = OncologyAnalyzer.ClusterCcfValues(
 3. McGranahan N, Furness AJS, Rosenthal R, et al. 2016. Clonal neoantigens elicit T cell immunoreactivity and sensitivity to immune checkpoint blockade. Science 351(6280):1463–1469. https://www.science.org/doi/10.1126/science.aaf1490
 4. Caravagna G, et al. CNAqc — Computation of Cancer Cell Fractions. https://caravagnalab.github.io/CNAqc/articles/a4_ccf_computation.html
 5. Lloyd SP. 1982. Least squares quantization in PCM. IEEE Trans. Inf. Theory 28(2):129–137. https://doi.org/10.1109/TIT.1982.1056489
+6. Wang H, Song M. 2011. Ckmeans.1d.dp: Optimal k-means clustering in one dimension by dynamic programming. The R Journal 3(2):29–33. Reference code: Ckmeans.1d.dp 4.3.6 (github.com/cran/Ckmeans.1d.dp, `src/EWL2_*`, `R/Ckmeans.1d.dp.R`).

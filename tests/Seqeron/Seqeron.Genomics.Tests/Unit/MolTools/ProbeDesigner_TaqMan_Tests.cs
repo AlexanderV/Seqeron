@@ -20,9 +20,11 @@ public class ProbeDesigner_TaqMan_Tests
     #region Test Data (hand-derived expected values)
 
     // A — satisfies every rule. len=18, 5'=C, C=10/G=0, maxGrun=0, gc=10/18=0.5556 (30-80%),
-    // salt-adjusted Tm = 81.5 + 16.6*log10(0.05) + 41*0.5556 - 600/18 = 49.3473 degC.
+    // probe Tm = Primer3 seqtm at the Primer3 probe defaults (50 nM, 50 mM monovalent, no Mg/dNTP):
+    // primer3-py 2.3.1 calc_tm("CCATCACCCTACATCACC", mv_conc=50, dv_conc=0, dntp_conc=0, dna_conc=50)
+    // = 48.27871680775473 degC.
     private const string PassAllProbe = "CCATCACCCTACATCACC";
-    private const double PassAllTm = 49.3473; // hand-computed, see header
+    private const double PassAllTm = 48.27871680775473; // primer3-py, see above
 
     // B — identical to A but a guanine at the 5' end -> violates the no-5'-G rule only.
     private const string FivePrimeGProbe = "GCATCACCCTACATCACC";
@@ -123,16 +125,16 @@ public class ProbeDesigner_TaqMan_Tests
     [Test]
     public void EvaluateTaqManProbe_ProbeTmNotTenAbovePrimer_FlagsTmGate()
     {
-        // TM6: probe Tm must be >= primerTm + 10 degC. Probe A Tm = 49.3473.
-        // primerTm = 45 -> 45 + 10 = 55 > 49.35 -> gate fails.
+        // TM6: probe Tm must be >= primerTm + 10 degC. Probe A Tm = 48.2787.
+        // primerTm = 45 -> 45 + 10 = 55 > 48.28 -> gate fails.
         var e = ProbeDesigner.EvaluateTaqManProbe(PassAllProbe, primerTm: 45.0);
 
         Assert.Multiple(() =>
         {
-            Assert.That(e.Tm, Is.EqualTo(PassAllTm).Within(1e-3),
-                "Salt-adjusted Tm of CCATCACCCTACATCACC must be 49.3473 degC.");
+            Assert.That(e.Tm, Is.EqualTo(PassAllTm).Within(1e-9),
+                "Primer3 seqtm of CCATCACCCTACATCACC at the probe defaults must be 48.2787 degC.");
             Assert.That(e.ProbeTmAbovePrimer, Is.False,
-                "Probe Tm 49.35 is below primer Tm 45 + 10 = 55.");
+                "Probe Tm 48.28 is below primer Tm 45 + 10 = 55.");
             Assert.That(e.PassesAll, Is.False, "Failing the Tm gate prevents passing.");
         });
     }
@@ -140,7 +142,7 @@ public class ProbeDesigner_TaqMan_Tests
     [Test]
     public void EvaluateTaqManProbe_AllRulesSatisfied_Accepted()
     {
-        // TM7: probe A satisfies every rule. With primerTm = 38, gate needs Tm >= 48; Tm = 49.35 -> pass.
+        // TM7: probe A satisfies every rule. With primerTm = 38, gate needs Tm >= 48; Tm = 48.28 -> pass.
         var e = ProbeDesigner.EvaluateTaqManProbe(PassAllProbe, primerTm: 38.0);
 
         Assert.Multiple(() =>
@@ -150,7 +152,7 @@ public class ProbeDesigner_TaqMan_Tests
             Assert.That(e.NoRunOfFourOrMoreG, Is.True, "No G run (G=0).");
             Assert.That(e.GcContentInRange, Is.True, "GC = 0.5556 is within 30-80%.");
             Assert.That(e.LengthInRange, Is.True, "Length 18 is within 18-22.");
-            Assert.That(e.ProbeTmAbovePrimer, Is.True, "Tm 49.35 >= primer 38 + 10 = 48.");
+            Assert.That(e.ProbeTmAbovePrimer, Is.True, "Tm 48.28 >= primer 38 + 10 = 48.");
             Assert.That(e.PassesAll, Is.True, "All six TaqMan rules are satisfied.");
             Assert.That(e.Violations, Is.Empty, "No violations recorded for a fully compliant probe.");
         });
@@ -275,4 +277,21 @@ public class ProbeDesigner_TaqMan_Tests
     }
 
     #endregion
+
+    [Test]
+    public void EvaluateTaqManProbe_TmAtStatedConditions_MatchesPrimer3CalcTm()
+    {
+        // primer3-py 2.3.1 calc_tm(PassAllProbe) with the Primer3 primer defaults (mv 50, dv 1.5, dntp 0.6, dna 50)
+        // = 53.98601162114517; with mv 50, dv 5, dntp 0.8, dna 200 = 59.113423509366896.
+        var pcr = ProbeDesigner.EvaluateTaqManProbe(PassAllProbe, divalentMillimolar: 1.5, dntpMillimolar: 0.6);
+        var custom = ProbeDesigner.EvaluateTaqManProbe(PassAllProbe, null, 18, 22,
+            dnaConcentrationNanomolar: 200, monovalentMillimolar: 50, divalentMillimolar: 5, dntpMillimolar: 0.8);
+        Assert.Multiple(() =>
+        {
+            Assert.That(pcr.Tm, Is.EqualTo(53.98601162114517).Within(1e-9));
+            Assert.That(custom.Tm, Is.EqualTo(59.113423509366896).Within(1e-9));
+            Assert.That(ProbeDesigner.EvaluateTaqManProbe("CCATNACCCTACATCACC", primerTm: 30).ProbeTmAbovePrimer, Is.False,
+                "A non-ACGT probe has no computable Tm (NaN), so the primer-Tm gate cannot pass.");
+        });
+    }
 }

@@ -164,9 +164,13 @@ public class RepeatsCombinatorialTests
     // maxLoopLength parameter).
     //
     // The combinatorial point: minArmLen and maxGap interact. EVERY result must
-    // satisfy rightArm = revcomp(leftArm), armLen ≥ minArmLen and loop ≤ maxGap;
-    // and the embedded arm-6/loop-4 hairpin appears exactly when maxGap ≥ 4 — the
-    // loop ≤ maxGap invariant simultaneously proves its absence when maxGap < 4.
+    // satisfy rightArm = revcomp(leftArm), armLen ≥ minArmLen and loop ≤ maxGap.
+    // Only maximal stems are reported (EMBOSS palindrome, -overlap Y). The embedded
+    // loop TTAA is itself self-complementary, so with minLoopLength 0 the hairpin
+    // ACGTGC·TTAA·GCACGT extends inward to the 8-bp stem ACGTGCTT·AAGCACGT with
+    // loop 0 — EMBOSS 6.6.0 palindrome on the 40-nt cell (minpallen 3, gaplimit 5)
+    // gives [(11,14,3), (12,20,8)]. That stem is present in every cell; its
+    // arm-6/loop-4 sub-stem lies inside it and is never reported.
     // ═══════════════════════════════════════════════════════════════════════
 
     private const string IrArm = "ACGTGC";   // revcomp = GCACGT
@@ -192,9 +196,11 @@ public class RepeatsCombinatorialTests
             r.LoopLength.Should().BeLessThanOrEqualTo(maxGap);
         }
 
-        if (maxGap >= IrLoop.Length)   // minArmLen ≤ 6 holds for every tested value
-            results.Should().Contain(r => r.LeftArm == IrArm && r.RightArm == RevComp(IrArm) && r.LoopLength == IrLoop.Length,
-                "the arm-6 / loop-4 hairpin fits within the gap bound");
+        string maximalArm = IrArm + IrLoop[..2];   // ACGTGCTT (minArmLen ≤ 8 for every tested value)
+        results.Should().Contain(r => r.LeftArm == maximalArm && r.RightArm == RevComp(maximalArm) && r.LoopLength == 0,
+            "the hairpin's maximal stem (loop 0) fits within every gap bound");
+        results.Should().NotContain(r => r.LeftArm == IrArm && r.LoopLength == IrLoop.Length,
+            "the arm-6 / loop-4 sub-stem lies inside the maximal stem in both arms");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -208,9 +214,11 @@ public class RepeatsCombinatorialTests
     // (the gap knob).
     //
     // The combinatorial point: minLen and the spacing gate interact. Every result
-    // is a genuine duplicate (R₁ = R₂) within bounds and spacing ≥ gate; the
-    // embedded 7-mer duplicate with gap 5 appears iff minLen ≤ 7 and the gap gate
-    // ≤ 5.
+    // is a genuine maximal duplicate (R₁ = R₂; Gusfield 1997 §7.12 / MUMmer
+    // repeat-match -f) within bounds and spacing ≥ gate; the embedded 7-mer
+    // duplicate — flanked by mismatching bases (G…T on the left, T…A on the right)
+    // so the pair is left- and right-maximal at exactly 7 bp — with gap 5 appears
+    // iff minLen ≤ 7 and the gap gate ≤ 5.
     // ═══════════════════════════════════════════════════════════════════════
 
     private const string DirectCopy = "ACGTGCA"; // length 7, contains 'A' → unique to embedding
@@ -222,7 +230,7 @@ public class RepeatsCombinatorialTests
         [Values(1, 3, 8)] int spacingGate,
         [Values(40, 90, 160)] int seqLen)
     {
-        string core = DirectCopy + Pad(DirectGap) + DirectCopy;
+        string core = "G" + DirectCopy + Pad(DirectGap) + DirectCopy + "A";
         int padTotal = seqLen - core.Length;
         string text = Pad(padTotal / 2) + core + Pad(padTotal - padTotal / 2);
         var dna = new DnaSequence(text);
@@ -233,8 +241,11 @@ public class RepeatsCombinatorialTests
         {
             text.Substring(r.FirstPosition, r.Length).Should().Be(r.RepeatSequence);
             text.Substring(r.SecondPosition, r.Length).Should().Be(r.RepeatSequence);
-            r.Length.Should().BeGreaterThanOrEqualTo(minLen);
+            r.Length.Should().BeGreaterThanOrEqualTo(minLen).And.BeLessThanOrEqualTo(20);
             r.SecondPosition.Should().BeGreaterThan(r.FirstPosition);
+            (r.FirstPosition == 0 || text[r.FirstPosition - 1] != text[r.SecondPosition - 1]).Should().BeTrue("left-maximal");
+            (r.SecondPosition + r.Length == text.Length || text[r.FirstPosition + r.Length] != text[r.SecondPosition + r.Length])
+                .Should().BeTrue("right-maximal");
             r.Spacing.Should().Be(r.SecondPosition - r.FirstPosition - r.Length).And.BeGreaterThanOrEqualTo(spacingGate);
         }
 
@@ -336,6 +347,15 @@ public class RepeatsCombinatorialTests
             .Where(r => r.ConsensusSize == period)
             .OrderByDescending(r => r.AlignmentScore)
             .ToList();
+
+        if (period == 2 && copies == 5 && imperfect)
+        {
+            // CACACGCACA: the longest run of matches at distance 2 is 3 (< tuple size 4), so TRF's k-tuple
+            // detection never examines it — compiled TRF 4.10.0 (2 7 7 80 10 8 6) reports nothing. All other
+            // 17 cells equal the TRF rows (REP-APPROX-001 Evidence).
+            found.Should().BeEmpty("TRF detection needs a k-tuple (k = 4) match run at the candidate distance");
+            return;
+        }
 
         found.Should().NotBeEmpty($"a period-{period} tandem array is detected at its own period");
         var top = found[0];

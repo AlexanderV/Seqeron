@@ -6,7 +6,7 @@
 | Test Unit ID | CODON-RSCU-001 |
 | Related Projects | Seqeron.Genomics.MolTools, Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -53,31 +53,33 @@ The denominator `(1/n_i)·Σx` is the expected count under uniform synonymous us
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| sequence | `DnaSequence` or `string` | required | Coding DNA sequence | Read as non-overlapping triplets from offset 0; `string` overload uppercases and skips non-ACGT triplets; `DnaSequence` rejects invalid bases at construction |
+| sequence | `DnaSequence` or `string` | required | Coding DNA or RNA sequence | Read as non-overlapping triplets from offset 0; `string` overload uppercases, reads U as T (CodonW `ident_codon`) and skips triplets with any other symbol without shifting the frame; `DnaSequence` rejects invalid bases at construction |
+| code | `GeneticCode` | `GeneticCode.Standard` | Genetic code defining the synonymous families | any NCBI table (`GeneticCode.GetByTableNumber`) |
+| codonCounts | `IReadOnlyDictionary<string,int>` | — | Alternative input: codon counts keyed by uppercase DNA codon | other keys ignored |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
-| return (CalculateRscu) | `Dictionary<string,double>` | codon → RSCU value; codons of an absent family map to 0 |
+| return (CalculateRscu) | `Dictionary<string,double>` | all 64 codons (DNA spelling) → RSCU value; codons of an absent family map to 0 (CodonW) |
 | return (CountCodons) | `Dictionary<string,int>` | codon → occurrence count over counted triplets |
 
 ### 3.3 Preconditions and Validation
 
-Null `DnaSequence` throws `ArgumentNullException`. Empty/null `string` returns an empty dictionary. Input is case-insensitive (string overload uppercases; `DnaSequence` normalizes at construction). Codons are 0-based non-overlapping triplets; trailing 1–2 bases are ignored. Any triplet containing a character outside {A,C,G,T} is excluded from counts.
+Null `DnaSequence`, `GeneticCode` or count table throws `ArgumentNullException`. Empty/null `string` returns an empty dictionary. Input is case-insensitive (string overload uppercases; `DnaSequence` normalizes at construction). Codons are 0-based non-overlapping triplets; trailing 1–2 bases are ignored. RNA U is read as T (CodonW 1.4.4 `codon_us.c` `ident_codon`). Any triplet containing a character outside {A,C,G,T,U} is excluded from counts.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Count non-overlapping triplets (`CountCodons`); exclude triplets containing non-ACGT characters.
-2. Group all 64 codons by encoded amino acid using the standard genetic code (Met/Trp single-codon; stop codons as one family).
+1. Count non-overlapping triplets (`CountCodons`); U is read as T; exclude triplets containing other non-ACGT characters.
+2. Group all 64 codons by the amino acid `GeneticCode.CodonTable` assigns them (default Standard, NCBI table 1: Met/Trp single-codon; stop codons '*' as one family). Context-dependent stops of NCBI tables 27/28/31 belong to the family of the amino acid they encode (Biopython `forward_table`).
 3. For each family, compute the family total Σx and divide it equally over the n_i synonymous codons to get the expected count.
 4. RSCU = observed / expected for each codon; if the family total is 0 (absent family) set every codon of that family to 0.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The standard genetic code (codon → amino acid) is the only reference table; it determines the synonymous families (degeneracies 1,2,3,4,6 and the 3-fold stop family). The table is embedded in `CodonUsageAnalyzer.CodonToAminoAcid`. Family degeneracy n_i is derived from this table, not hard-coded per amino acid.
+The genetic code (codon → amino acid) is the only reference table; it determines the synonymous families (for table 1: degeneracies 1,2,3,4,6 and the 3-fold stop family; for table 2: e.g. Met {ATA,ATG}, Trp {TGA,TGG}, stop {TAA,TAG,AGA,AGG}). Families are taken from the canonical `GeneticCode` (no private copy), as in CodonW ("RSCU values are genetic code dependent", `rscu_usage_out`). Family degeneracy n_i is derived from the table, not hard-coded per amino acid.
 
 ### 4.3 Complexity
 
@@ -92,7 +94,9 @@ The standard genetic code (codon → amino acid) is the only reference table; it
 
 **Implementation location:** [CodonUsageAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs)
 
-- `CodonUsageAnalyzer.CalculateRscu(DnaSequence)` / `CalculateRscu(string)`: computes RSCU per codon.
+- `CodonUsageAnalyzer.CalculateRscu(DnaSequence)` / `CalculateRscu(string)`: RSCU per codon under the Standard code.
+- `CodonUsageAnalyzer.CalculateRscu(DnaSequence, GeneticCode)` / `CalculateRscu(string, GeneticCode)`: RSCU under any NCBI table.
+- `CodonUsageAnalyzer.CalculateRscu(IReadOnlyDictionary<string,int>, GeneticCode)`: RSCU from a codon-count table (canonical core; e.g. pooled counts over many genes).
 - `CodonUsageAnalyzer.CountCodons(DnaSequence)` / `CountCodons(string)`: counts non-overlapping codon occurrences.
 
 ### 5.2 Current Behavior
@@ -105,10 +109,11 @@ Counting uses a simple linear scan over non-overlapping triplets (`CountCodonsCo
 
 - RSCU = (n_i · x_{i,j}) / Σ_{k} x_{i,k} for present families [1][2][3].
 - No-bias value 1, range [0, n_i], family-sum n_i, single-codon ⇒ 1 (INV-01..INV-05) [2][3][4][5].
+- CodonW conventions [6]: all 64 codons reported, stop codons as one family, absent family → 0, families per genetic code, U ≡ T. Cross-checked against the CodonW 1.4.4 binary (built from source) on 155 genes × 8 codes (79,360 values, max |Δ| = 5e-4 = its 3-decimal rounding) and against a Python port with Biopython tables for all 27 NCBI tables (472 inputs, max |Δ| 9e-16).
 
 **Intentionally simplified:**
 
-- Absent-family 0/0 case: returns 0 instead of applying a pseudocount; **consequence:** users see 0 (not NA and not a smoothed value) for every codon of an amino acid that never occurs in the input. Only affects absent families, never the RSCU of an observed codon. Reference tools differ: cubar applies a pseudocount (default 1) [5].
+- Absent-family 0/0 case: returns 0 (CodonW `rscu_usage_out` prints 0.000) instead of applying a pseudocount; **consequence:** users see 0 (not NA and not a smoothed value) for every codon of an amino acid that never occurs in the input. Only affects absent families, never the RSCU of an observed codon. Reference tools differ: cubar applies a pseudocount (default 1) [5].
 
 **Not implemented:**
 
@@ -119,7 +124,7 @@ Counting uses a simple linear scan over non-overlapping triplets (`CountCodonsCo
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Absent family returns 0 (no pseudocount) | Assumption | Only affects amino acids absent from input; no canonical value exists there | accepted | Documented in Evidence; cubar uses pseudocount [5] |
-| 2 | Stop codons grouped as one 3-fold family | Assumption | Does not affect any amino-acid RSCU | accepted | Reference tools often exclude stops [5] |
+| 2 | Stop codons grouped as one family (3-fold in table 1) | Convention | Does not affect any amino-acid RSCU | accepted | CodonW does the same [6]; CodonU / codon-bias / cubar report the 61 sense codons only [5] |
 
 ## 6. Edge Cases and Limitations
 
@@ -130,13 +135,15 @@ Counting uses a simple linear scan over non-overlapping triplets (`CountCodonsCo
 | Null `DnaSequence` | `ArgumentNullException` | input guard |
 | Empty / null `string` | empty dictionary | input guard |
 | Trailing 1–2 bases | ignored | non-overlapping triplets |
-| Non-ACGT triplet (string overload) | excluded from counts | `IsValidCodon` over {A,C,G,T} |
+| RNA input (U) | read as T; same result as the DNA spelling | CodonW `ident_codon` [6] |
+| Non-ACGT triplet (string overload) | excluded from counts, frame kept | `IsValidCodon` over {A,C,G,T} after U→T |
+| Alternative genetic code | families from that table | CodonW `-code`, Biopython tables |
 | Single-codon family present | RSCU = 1 | n_i = 1 [3][5] |
 | Absent family | RSCU = 0 for all members | 0/0 convention (§5.3) |
 
 ### 6.2 Limitations
 
-Uses only the standard genetic code; alternative/mitochondrial codes are not selectable. No pseudocount smoothing for sparse data. RSCU is a within-family bias measure and does not by itself indicate expression level or adaptation (use CAI for that).
+The MCP `rscu` tool exposes only the Standard code (C# overloads take any `GeneticCode`). No pseudocount smoothing for sparse data. RSCU is a within-family bias measure and does not by itself indicate expression level or adaptation (use CAI for that).
 
 ## 7. Examples and Related Material
 
@@ -164,5 +171,6 @@ var rscu = CodonUsageAnalyzer.CalculateRscu("CTGCTGCTGCTA");
 3. GenomicSig (CRAN). RSCU: Relative Synonymous Codon Usage. https://rdrr.io/cran/GenomicSig/man/RSCU.html
 4. Charif D., Lobry J.R. seqinr — `uco`: Codon usage indices. https://search.r-project.org/CRAN/refmans/seqinr/html/uco.html
 5. cubar (CRAN). `est_rscu`: Estimate Relative Synonymous Codon Usage. https://rdrr.io/cran/cubar/man/est_rscu.html
+6. Peden J.F. 1999. CodonW 1.4.4 source, `codon_us.c` (`rscu_usage_out`, `cutab_out`, `ident_codon`). http://archive.ubuntu.com/ubuntu/pool/universe/c/codonw/codonw_1.4.4.orig.tar.gz
 
 - Related algorithm: [Relative_Synonymous_Codon_Usage.md](../Annotation/Relative_Synonymous_Codon_Usage.md) (ANNOT-CODONUSAGE-001 — the Annotation-side implementation of the same concept).

@@ -112,7 +112,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: Tm formula-selection threshold (length < 14).** The summary passes `useWallaceRule: sequence.Length < 14` to the melting-temperature method. The 14 nt boundary is the sibling SEQ-TM-001 convention (`ThermoConstants.WallaceMaxLength`); Biopython documents Wallace as a rule of thumb for ~14–20 nt without fixing an exact switch point. This is a non-correctness-affecting choice *for the summary*, because the summary's contract is "MeltingTemperature equals `CalculateMeltingTemperature` with this flag" — the threshold belongs to the already-validated SEQ-TM-001 unit, and the summary is tested for equality with that canonical method on the same input.
+1. **ASSUMPTION: Tm formula-selection threshold (length < 14).** The summary passes `useWallaceRule: sequence.Length < 14` to the melting-temperature method. **Superseded 2026-09-28 (B03 F12):** the summary now passes `useWallaceRule: true` and `CalculateMeltingTemperature` switches on the A+C+G+T count (OligoCalc), so N/gaps no longer select the GC formula for a short oligo. The 14 nt boundary is the sibling SEQ-TM-001 convention (`ThermoConstants.WallaceMaxLength`); Biopython documents Wallace as a rule of thumb for ~14–20 nt without fixing an exact switch point. This is a non-correctness-affecting choice *for the summary*, because the summary's contract is "MeltingTemperature equals `CalculateMeltingTemperature` with this flag" — the threshold belongs to the already-validated SEQ-TM-001 unit, and the summary is tested for equality with that canonical method on the same input.
 
 ---
 
@@ -140,3 +140,17 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+
+---
+
+## 2026-09 B03 review additions
+
+- Biopython 1.88 `MeltingTemp._check` (installed source, executed): "RNA sequences are backtranscribed to DNA" for Tm_Wallace/Tm_GC/Tm_NN. `Tm_Wallace("AUGCAUGC")` = 24.0 (ours was 20.0 before F20); `Tm_GC("GGGAAAUUUCCCAAAUGC", userset=(64.9,0.41,672.4,0), saltcorr=0)` = 45.766666666666680 (ours 40.3 before F20).
+- Executed reference values (Biopython `gc_fraction` remove / scipy `entropy(base=2)` / Tm / exact-fraction mean U_k, k=1..6):
+  ATGCATGC 0.5 / 2.0 / 24.0 / 529/630; ACGTACGGTACCAGTTAGCA 0.5 / 1.9854752972273346 / 51.78 / 0.8999183006535948; AUGCAUGC 0.5 / 2.0 / 24.0 / 529/630; GGGAAAUUUCCCAAAUGC 0.4444444444444444 / 1.974937501201927 / 45.766666666666680 / 163/180; ATTTGGATT 0.2222222222222222 / 1.4355205042826666 / 22.0 / 293/336.
+- Linguistic complexity forms on ATTTGGATT, m = 6: mean U_k 293/336 = 0.87202 (SequenceStatistics), Σ-form 29/34 = 0.85294 (canonical SequenceComplexity; Orlov & Potapov 2004 / Troyanskaya 2002; Rosalind LING m = N gives 0.875), product Π U_k 0.40179 (Trifonov 1990 / Gabrielian & Bolshoy 1999, WebSearch snippet of the Wikipedia article). With > 4 symbols U_1 > 1 (ACGTN mean 21/20, Σ-form 15/14).
+
+## 2026-09 B03 F21 — linguistic complexity delegated to the canonical sum form
+
+- `SequenceStatistics.CalculateLinguisticComplexity` now delegates to `SequenceComplexity.CalculateLinguisticComplexity` (Σ V_k / Σ min(4^k, N−k+1); Orlov & Potapov 2004, Troyanskaya 2002; validated in B04 SEQ-COMPLEX-001 incl. universalmotif V_i). The mean-of-U_k values above are superseded.
+- Executed Python reference (exact fractions, m = 6 unless stated): ATTTGGATT 29/34 (m = 9 or ∞: 7/8 = 0.875, Rosalind LING sample); ATGCATGC 23/29; AUGCAUGC 23/29; ACGTACGGTACCAGTTAGCA 38/43; GGGAAAUUUCCCAAAUGC 23/26; AAAAAAAAAA 2/13; ATGCATGCATGC 24/49; ATATATAT 12/29; GGGAAAUUUCCC 45/49; ACGTN 15/14; ATGCGATCGATCGATCGATCGATC 19/51.

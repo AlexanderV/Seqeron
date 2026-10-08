@@ -118,3 +118,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28** (review-2026-09, B01): Reference cross-check run — Biopython 1.88 `Bio.SeqUtils.GC_skew` (source inspected via `inspect.getsource`) applied to sequences mapped A→G, T→C, G/C→N reproduces every dataset value above (incl. `aXgtT` → −1/3, `NNNN`/`UUUU` → 0) and a mixed-case 97-mer with N noise → 0.18181818181818182 (A=26, T=18). Formula (A−T)/(A+T) re-confirmed via WebSearch snippet of Charneski et al. 2011 / PMC2031905 ("total number of A minus the total number of T divided by the total number of A and T"); PLOS/Wikipedia/NCBI pages not directly reachable (proxy 403).

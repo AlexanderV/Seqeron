@@ -26,6 +26,9 @@
 | Wikipedia (Entropy) | Primary | Shannon entropy formula H = -Σ p log₂(p), max entropy = log₂(n) |
 | Shannon (1948) | Primary | Original entropy definition, maximum when equiprobable |
 | Rosalind KMER | Primary | K-mer composition problem with sample dataset |
+| Chor et al. (2009) Genome Biol 10:R108 | Primary | k-mer spectrum = number of distinct k-mers per abundance |
+| Jellyfish `histo_main.cc` | Reference impl. | `++histo[count]` per distinct k-mer; sparse output |
+| scikit-bio `Sequence.kmer_frequencies`, `scipy.stats.entropy` | Reference impl. | relative freq = count/(L−k+1); H in bits with base=2 |
 
 ---
 
@@ -152,6 +155,54 @@ None. All behavior is well-defined by mathematical definitions and sources.
 - **C2**: permissive `> 0` checks → three source-backed invariants (M1 + M5 + M9) per k value
 
 ---
+
+#### Review 2026-09 (campaign B06)
+
+Stage A PASS-with-notes, Stage B PASS. Added reference cross-check tests (region
+"Reference cross-check (review 2026-09)"):
+- `CalculateKmerEntropy_MatchesScipyEntropyBase2` (×5) — `scipy.stats.entropy(counts, base=2)`
+- `GetKmerFrequencies_MatchesScikitBioRelativeFrequencies` — skbio `kmer_frequencies(k, relative=True)`, denominator L−k+1
+- `GetKmerSpectrum_MatchesJellyfishHistoSemantics` — count-of-counts, sparse (Jellyfish `histo` without `--full`; Chor et al. 2009)
+- `CalculateKmerEntropy_AgreesWithSequenceComplexityKmerEntropy` (×3) — same quantity as SEQ-COMPLEX-KMER-001
+- `FrequencyMethods_NonPositiveK_NonEmptySequence_Throws`
+
+Notes: k ≤ 0 throws only for non-empty input (empty/null short-circuits to empty/0 in `CountKmers`);
+spectrum has no upper cap bin (Jellyfish `-h` default 10000 bins higher counts together) and is
+single-strand (Jellyfish `-C` counts canonical k-mers); per-window cost is O(k) (substring hashing),
+so total is O(n·k), not O(n).
+
+#### Audit round 1, WP3 (B06, F12) — Jellyfish `histo` options
+
+New method `GetKmerHistogram(sequence, k, KmerCountingOptions = default, low = 1, high = 10000, increment = 1, full = false)`
+(+ `GetKmerHistogram(IEnumerable<int> counts, …)`), a verbatim port of Jellyfish `sub_commands/histo_main.cc`.
+`GetKmerSpectrum` is unchanged (sparse, no cap). Tests (`KmerAnalyzer_HistogramClumpWindowsFilters_Tests`):
+
+| ID | Test | Evidence |
+|---|---|---|
+| H1 | `GetKmerHistogram_MatchesJellyfishHisto` ×72 | Jellyfish 2.3.1 binary: 3 inputs × {plain, `-C`} × 12 option sets (defaults, `-h 5`, `-i 2`, `-l 3 -h 8 -i 2`, `-l 2 -h 6`, `-l 1 -h 4 -i 3`, `-l 4 -h 4`, `-f -h 5`, `-f -l 3 -h 8 -i 2`, `-f -l 2 -h 6`, `-l 5 -h 7`, `-l 6 -h 9 -i 4`) |
+| H2 | `GetKmerHistogram_CountTableOverload_EqualsSequenceOverload` | table overload = sequence overload; Rosalind `-C -l 3 -h 8 -i 2` → 1 57 3 52 5 12 7 4 9 5 |
+| H3 | `GetKmerHistogram_DefaultsWithoutCap_EqualSortedSpectrum` | high above all counts → non-zero spectrum bins |
+| H4 | `GetKmerHistogram_DefaultHigh_PoolsCountsAboveTenThousandInCapBin10001` | `histo_main.cc`: ceil = high + inc; A^10010 k=1 → `10001 1` |
+| H5 | `GetKmerHistogram_FullDefaults_Has10002BinsFromZero` | nb_buckets = (ceil + inc − base)/inc = 10002, labels 0…10001 |
+| H6 | `GetKmerHistogram_FrequenciesSumToDistinctKmers` | every distinct k-mer lands in exactly one bucket |
+| H7 | `GetKmerHistogram_EmptyInput_NoRows_FullStillListsBins` | `-f` on an empty table lists the zero buckets |
+| H8 | `GetKmerHistogram_InvalidParameters_Throw` | high < low (Jellyfish error), inc < 1, low < 0, overflow, oversize full, null/negative counts |
+| H9 | `GetKmerSpectrum_Unchanged_NoCapBin` | backward compatibility |
+
+---
+
+#### Audit round 2, WP8 (B06) — `GetKmerFrequencies(sequence, k, KmerCountingOptions)`
+
+References: kPAL profile ÷ total (klib.py from source) and Jellyfish 2.3.1 `count [-C]` + `dump -c` ÷ Σ
+(K-mer_Frequency_Analysis.md §7.4); tests in `KmerAnalyzer_StrandOptionsAndSpacedConventions_Tests.cs`.
+
+| ID | Case | Expected |
+|----|------|----------|
+| P1 | `GAATTCNNACGTTGCAGGATCCATGCRYacgtgcaNTTGCA` k = 2 (`-C`, ACGT-only), k = 4 (`-C`, ACGT-only) | full Jellyfish / kPAL profiles, 1e-12; Σ f = 1 |
+| P2 | `ACGTNACGTAAcgtRTT` k = 3 `-C`; `AAAANTTTTGGGGuCCCC` k = 3 ACGT-only | ACG 6/9, …; AAA .2, TGG .1, … |
+| P3 | Default options | = legacy overload |
+| P4 | all-N / null / k ≤ 0 | empty / empty / `ArgumentOutOfRangeException` |
+| P5 | MCP `kmer_frequencies(canonical, acgtOnly)` | rows P2 |
 
 ## Deviations and Assumptions
 

@@ -261,5 +261,28 @@ public class OncologyAnalyzer_EstimatePurity_Tests
             "Estimation is deterministic and order/state-independent");
     }
 
+    // B24 review 2026-09 — cross-check against the CNAqc reference implementation
+    // (caravagnalab/CNAqc R/equations.R `expected_vaf_fun(m, M, mut.allele, p)` =
+    //  mut.allele·p / (2(1−p) + p(m+M)), multiplicity ∈ 1..Major per `expectations_generalised`).
+    // The forward VAFs below are that R function evaluated in IEEE double (Python port, 2026-09-28);
+    // EstimatePurity must invert each back to the generating purity p.
+    [TestCase(1, 3, 3, 0.7, 0.6176470588235293)]   // 3:1, m=3 (Major-allele peak)
+    [TestCase(1, 3, 1, 0.7, 0.20588235294117646)]  // 3:1, m=1
+    [TestCase(0, 2, 2, 0.45, 0.45)]                // 2:0 CN-LOH, m=2
+    [TestCase(0, 1, 1, 0.8, 0.6666666666666667)]   // 1:0 hemizygous loss
+    [TestCase(2, 2, 2, 0.35, 0.25925925925925924)] // 2:2 tetraploid, m=2
+    [TestCase(1, 1, 1, 0.6, 0.3)]                  // 1:1 (CNAqc 60%/30% example)
+    public void EstimatePurity_CnaqcExpectedVafFun_RoundTripRecoversPurity(
+        int minor, int major, int multiplicity, double purity, double cnaqcVaf)
+    {
+        double estimated = OncologyAnalyzer.EstimatePurity(new[]
+        {
+            new OncologyAnalyzer.PurityVariant(cnaqcVaf, multiplicity, minor + major)
+        });
+
+        Assert.That(estimated, Is.EqualTo(purity).Within(1e-12),
+            $"CNAqc expected_vaf_fun({minor},{major},{multiplicity},{purity}) = {cnaqcVaf} must invert to {purity}");
+    }
+
     #endregion
 }

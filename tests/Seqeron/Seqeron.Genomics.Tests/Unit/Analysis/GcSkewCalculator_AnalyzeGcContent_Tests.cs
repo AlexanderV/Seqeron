@@ -256,4 +256,65 @@ public class GcSkewCalculator_AnalyzeGcContent_Tests
     }
 
     #endregion
+
+    #region Review 2026-09 — RNA U in the GC denominator, window/step guards, variance canonical
+
+    // F1 — GC content counts U (RNA) in the denominator, like T. Source: GC-content is defined for
+    // "a DNA or RNA molecule … adenine and uracil in RNA" (Wikipedia "GC-content"); reference
+    // Biopython 1.88 gc_fraction (denominator counts "ATWUatwu"), docstring example
+    // gc_fraction("GGAUCUUCGGAUCU") = 0.50. Before the fix U was dropped: 7/9·100 = 77.78.
+    [Test]
+    public void AnalyzeGcContent_RnaString_CountsUracilInGcDenominator_MatchesBiopython()
+    {
+        var result = GcSkewCalculator.AnalyzeGcContent("GGAUCUUCGGAUCU", windowSize: 7, stepSize: 7);
+        var frac = GcSkewCalculator.AnalyzeGcContent("ACGU", windowSize: 4, stepSize: 4, fraction: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.OverallGcContent, Is.EqualTo(50.0).Within(1e-10),
+                "Biopython gc_fraction('GGAUCUUCGGAUCU')*100 = 50.0");
+            Assert.That(result.WindowedGcContent.Select(w => w.GcContent).ToArray(),
+                Is.EqualTo(new[] { 42.857142857142854, 57.14285714285714 }).Within(1e-10),
+                "Biopython gc_fraction of windows GGAUCUU / CGGAUCU ×100 = 3/7, 4/7");
+            Assert.That(result.GcContentVariance, Is.EqualTo(51.0204081632653).Within(1e-9),
+                "numpy.var([300/7, 400/7]) (ddof=0) = 51.0204081632653");
+            Assert.That(frac.OverallGcContent, Is.EqualTo(0.5).Within(1e-12),
+                "Biopython gc_fraction('ACGU') = 0.5");
+        });
+    }
+
+    // F2 — windowSize/stepSize < 1 are rejected eagerly on both overloads (a zero step never
+    // terminated; window 0 emitted empty windows). Biopython GC_skew(seq, 0) raises ValueError.
+    [TestCase(0, 1)]
+    [TestCase(-1, 1)]
+    [TestCase(4, 0)]
+    [TestCase(4, -2)]
+    public void AnalyzeGcContent_WindowOrStepBelowOne_Throws(int window, int step)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => GcSkewCalculator.AnalyzeGcContent(new DnaSequence("ACGTACGT"), window, step),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => GcSkewCalculator.AnalyzeGcContent("ACGTACGT", window, step),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => GcSkewCalculator.AnalyzeGcContent("", window, step),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>(),
+                "validated eagerly, before the null/empty short-circuit");
+        });
+    }
+
+    // Canonical population variance: Cuemath worked example {12,13,12,14,19} -> 6.8 = numpy.var(ddof=0).
+    [Test]
+    public void StatisticsHelper_PopulationVariance_MatchesNumpyVar()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Seqeron.Genomics.Infrastructure.StatisticsHelper.PopulationVariance(
+                new[] { 12.0, 13.0, 12.0, 14.0, 19.0 }), Is.EqualTo(6.8).Within(1e-12));
+            Assert.That(Seqeron.Genomics.Infrastructure.StatisticsHelper.PopulationVariance(
+                Array.Empty<double>()), Is.EqualTo(0.0));
+        });
+    }
+
+    #endregion
 }

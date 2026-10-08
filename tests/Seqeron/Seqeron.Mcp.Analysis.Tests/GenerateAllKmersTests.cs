@@ -41,4 +41,22 @@ public class GenerateAllKmersTests
             Assert.That(trimers[^1], Is.EqualTo("TTT"));
         });
     }
+
+    /// <summary>
+    /// Audit round 1 WP4: the |Σ|^k result is materialised as one array, so sizes above the documented cap
+    /// (1,048,576 = 4^10) are refused before enumeration instead of overflowing the maximum array length (DNA k ≥ 16).
+    /// </summary>
+    [Test]
+    public void GenerateAllKmers_AboveCap_ThrowsBeforeEnumerating_AtCapSucceeds()
+    {
+        Assert.That(AnalysisTools.MaxGeneratedKmers, Is.EqualTo(1_048_576));
+        Assert.That(AnalysisTools.GenerateAllKmers(10).Kmers, Has.Length.EqualTo(1_048_576)); // 4^10, the cap
+        var ex = Assert.Throws<ArgumentException>(() => AnalysisTools.GenerateAllKmers(11));
+        Assert.That(ex!.ParamName, Is.EqualTo("k"));
+        Assert.That(ex.Message, Does.Contain("1,048,576"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.GenerateAllKmers(16));            // > max array length
+        Assert.Throws<ArgumentException>(() => AnalysisTools.GenerateAllKmers(int.MaxValue));  // no overflow, no hang
+        Assert.Throws<ArgumentException>(() => AnalysisTools.GenerateAllKmers(5, "ACDEFGHIKLMNPQRSTVWY")); // 20^5 = 3.2e6
+        Assert.That(AnalysisTools.GenerateAllKmers(20, "A").Kmers, Is.EqualTo(new[] { new string('A', 20) }));
+    }
 }

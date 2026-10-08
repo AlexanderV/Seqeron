@@ -5,7 +5,7 @@
 **Algorithm:** Consensus Sequence from a Multiple Alignment (most-frequent residue)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-29
 
 ---
 
@@ -45,6 +45,8 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `CreateConsensusFromAlignment(IEnumerable<string>)` | MotifFinder | Canonical | Most-frequent residue per column; alphabetical tie-break |
+| `GenerateEmbossConsensus(IEnumerable<string>, ConsensusResidueType, float?, int, float?, IReadOnlyList<float>?)` | MotifFinder | Canonical (EMBOSS 6.6.0 `cons`) | EDNAFULL/EBLOSUM62 matrix score, plurality/identity/setcase, weights, gaps (B05 follow-up) |
+| `GenerateDumbConsensus(IEnumerable<string>, double, char, bool)` | MotifFinder | Canonical (Biopython 1.85 `dumb_consensus`) | majority threshold, gaps, any alphabet (B05 follow-up) |
 
 ---
 
@@ -86,6 +88,9 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Invalid character | `AX` | `ArgumentException` | Alphabet validation as in `CreatePwm` |
 | C2 | Three-way majority over tie | `A,A,C` column | `A` (count 2 > 1) | Pure majority, no tie |
+| R1 | Biopython `.consensus` cross-check | `CA,GA,TC,TG` → `TA`; `ACGT,TGCA` → `ACCA`; Rosalind → `ATGCAACT` | exact | Biopython 1.88 `motifs.create(...).consensus` (review 2026-09) |
+| R2 | Null element | `["ACGT", null, "ACGT"]` | `ArgumentException` (ParamName `alignedSequences`) | Same contract as `CreatePwm`; previously `NullReferenceException` |
+| R3 | Shared count profile | 9-row alignment | `CreatePwm(aln).Consensus` (p = 0.25 and 0) == consensus | Uniform-background log-odds are monotone in counts |
 
 ---
 
@@ -166,10 +171,32 @@ In-scope cases: 10. ✅ Covered: 10.
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Alphabetical tie-break (A<C<G<T) for determinism (Geneious/LANL rule) | INV-3, M3 |
-| 2 | Pure most-frequent consensus, no plurality threshold (matches Registry signature) | §6 scope |
+| 2 | Pure most-frequent consensus, no plurality threshold (matches Registry signature) — `CreateConsensusFromAlignment` only; the EMBOSS plurality consensus is `GenerateEmbossConsensus` | §6 scope |
+| 3 | `GenerateEmbossConsensus`: no-consensus symbol from the explicit residue type (EMBOSS decides from the first sequence's composition); unequal rows rejected | E-D1 |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. Decision: tie-breaking fixed to alphabetical order to guarantee determinism (Source 4). Rosalind permits any tied symbol, so the rank-5 worked example (no decisive ties) remains conformant.
+
+## 8. B05 follow-up tests (2026-09-30): EMBOSS `cons`, Biopython `dumb_consensus`
+
+| ID | Test | Evidence |
+|----|------|----------|
+| E-M1 | 110 alignments (40 classic × parameter sets + 70 seeded random DNA/protein, gaps, weights, plurality/identity/setcase) — exact string = EMBOSS 6.6.0 `cons` binary output, command line in each test description (`MotifFinder_AlignmentConsensus_Tests.EmbossCases`) | `em_cons` run 2026-09-30; full run 780/780 |
+| E-M2 | hand-derived columns from `embConsCalc` (score, gap-incumbent tie, lower-case `n`), `-identity 4` → `NNGNNNNT`, reader normalisation `AC-Tna` | embcons.c, binary |
+| E-D1 | protein alignment with nucleotide-looking first row → `x` (binary: `n`) | documented deviation |
+| E-S1 | guards: < 2 rows, null, unequal, invalid char, weight count/negative/NaN, identity < 0, NaN thresholds, undefined type; zero-length alignment → "" | contract (cons.c: "Insufficient sequences") |
+| B-M1 | 34 alignments = Biopython 1.85 `dumb_consensus` (`DumbCases`); doc example ANGT; gap_consensus rows → NTGT | Biopython 1.85 |
+| B-S1 | empty, all-gap, single residue + require_multiple, case-sensitive tie, guards | AlignInfo.py |
+| P/MR/F | `Properties/AlignmentConsensusProperties` (C3, C4), `Metamorphic/AlignmentConsensusMetamorphicTests` (case, gap chars, weight scaling, duplication = weight 2, dumb permutation/monotonicity), `Fuzzing/AlignmentConsensusFuzzTests` | invariants |
+
+## EMBOSS `cons` Auto type / ragged padding (B05 audit group C, F28, 2026-10-01)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| E-A1 | 70 alignments (14 strata: DNA, IUPAC, protein ± BZX*, mixed, nucleotide-looking first row; equal and ragged) with `Auto` + `padRaggedRows` = `cons` without type flag (`MotifFinder_EmbossConsensusAutoPad_Tests.AutoCases`); full run 3,700/3,700 | cons binary |
+| E-A2 | per-sequence typing probes (`an`, `a*`, `E-`, `ANGT`, `anGT`) and first-sequence type (`V,x,~` → `n` vs explicit Protein `x`) | ajSeqType / ajSeqSetNuc / ajSeqsetIsNuc |
+| E-A3 | `?` under `-snucleotide` is an unscored X written as N (`USC?TK` → `n`, `???` → `n`; `AWASGdNU` → `w`) | ajSeqTypeCheckIn order, binary |
+| E-A4 | padding = explicit `-` padding (`ACGnnn`); original overload still rejects ragged rows; guards | ajSeqsetFill |

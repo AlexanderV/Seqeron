@@ -52,7 +52,17 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `SemiGlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)` | SequenceAligner | **Canonical** | Query-in-reference fitting alignment |
+| `SemiGlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)` | SequenceAligner | **Canonical** | Query-in-reference fitting alignment, linear gaps (GapExtend per position; GapOpen ignored) |
+| `SemiGlobalAlignAffine(DnaSequence\|string, …, ScoringMatrix?)` | SequenceAligner | Variant | Same fitting variant, affine gaps (Gotoh; gap of length k = GapOpen + k·GapExtend) via the shared `AffineAlignCore` |
+
+**Reference equivalents (2026-09 review, confirmed on 2428 random/edge cases):** Biopython 1.88
+`PairwiseAligner(mode="global", end_insertion_score=0)` with target = sequence 1 (linear: open = extend = GapExtend;
+affine: open_gap_score = GapOpen + GapExtend, extend_gap_score = GapExtend) and parasail 1.3.4 `sg_dx`
+(s1 = sequence 1; affine open = −(GapOpen + GapExtend), extend = −GapExtend). Only end gaps *in sequence 1*
+(overhanging reference residues) are free; a query overhang is charged (ACGTAA / CCACGT → 2, not 4).
+Ties: smallest end column j of the last row (j = 0 allowed, i.e. query entirely against gaps), traceback
+diagonal > up > left (affine: M > X > Y). Aligned strings span both full inputs (free reference flanks shown
+against '-'); Start/End positions are 0 and length − 1.
 
 ---
 
@@ -63,7 +73,7 @@
 | INV-1 | AlignmentType = SemiGlobal | Yes | Implementation contract |
 | INV-2 | Aligned sequences have equal length | Yes | Alignment definition (all types) |
 | INV-3 | `RemoveGaps(aligned1) == query` | Yes | Fitting alignment: query fully aligned (Rosalind SIMS) |
-| INV-4 | `RemoveGaps(aligned2)` is substring of reference | Yes | Fitting alignment: free reference end gaps |
+| INV-4 | Reference part of the scored region (columns between the first and last query residue) is a substring of the reference; `RemoveGaps(aligned2) == reference` (free flanks shown against gaps) | Yes | Fitting alignment: free reference end gaps |
 | INV-5 | Score = $\max_j F_{m,j}$ | Yes | Fitting alignment traceback from max of last row |
 
 ---
@@ -97,12 +107,18 @@
 
 | ID | Test Case | Input | Expected | Evidence |
 |----|-----------|-------|----------|----------|
-| NEG | All mismatches → exact negative score | query="AAAA", ref="CCCC" | Score=-4 (exact, 4×mismatch) | NW recurrence: no zero floor |
+| NEG | All mismatches → exact negative score | query="AAAA", ref="CCCC" | Score=-4; tie at j=0 → `AAAA----`/`----CCCC` (4×gap ties 4×mismatch) | NW recurrence: no zero floor; Biopython co-optimal set |
 | MAX | Score is max of last row, not bottom-right | query="ATG", ref="ATGCCC" | Score=3 (not 0) | Fitting alignment: $\max_j F_{m,j}$ |
 | OFS | Match with offset — exact score | query="ACG", ref="AACGG" | Score=3 | Hand-computed DP |
 | INV | All invariants validated in one test | query="GCATGCG", ref="AAAGCATGCGAAA" | Score=7 (7×match), INV-1..5 | Hand-computed DP |
 | MIX | Mixed matches and mismatches | query="AGT", ref="AAACTAAA" | Score=1 (2×match + 1×mismatch) | Hand-computed DP |
 | GAP | Gap in optimal alignment | query="ACGT", ref="AGT" | Score=2 (3×match + 1×gap), gap in aligned ref | Hand-computed DP |
+| REF | Biopython/parasail reference alignments (linear) | GATTACA/CCGATTTACAGG (2,−3,d=−2) → 12 `--GA-TTACA--`; ACGTAA/CCACGT → 2 `--ACGTAA`/`CCACGT--`; GGGACGT/ACGTCCC → 1 | Exact strings + positions | Biopython 1.88, parasail sg_dx_trace |
+| AFF-1 | Affine long gap | ACGTACGTTTTTTACGTACGT / GGGGACGTACGTACGTACGTGGGG, HighIdentityDna | 65 (linear 75) | Biopython = parasail |
+| AFF-2 | Affine opening cost prevents gap | ACGTACGTACGT / TTACGTACGTTTTTACGTAA, (1,−1,−5,−1) | 6 ungapped (linear 8) | Biopython = parasail |
+| AFF-3 | Affine reference values | ACGTAA/CCACGT → 0; AAAA/CCCC → −4 `AAAA`/`CCCC`; GATTACA/CCGATTTACAGG (2,−3,−5,−2) → 7 | Exact strings | Biopython = parasail |
+| AFF-4 | GapOpen = 0 ⇒ affine = linear | GATTACA/CCGATTTACAGG (2,−3,0,−2) | 12 | Model reduction |
+| AFF-5 | Empty inputs | ""/ACGT → 0 `----`/`ACGT`; ACG/"" → −5 (linear −3) | Exact | DP borders |
 
 ---
 
@@ -172,7 +188,7 @@
 | Decision | Rationale | Source |
 |----------|-----------|--------|
 | Query-in-reference (fitting) variant | Corresponds to Rosalind SIMS; most common bioinformatics use case | Rosalind SIMS; Wikipedia |
-| Linear gap cost (GapExtend only) | GapOpen unused; affine gaps are a separate algorithm | NW linear gap model |
+| Linear gap cost (GapExtend only) in `SemiGlobalAlign` | GapOpen unused; affine gaps are provided by `SemiGlobalAlignAffine` | NW linear gap model; Gotoh (1982) |
 | No other variant implementations | Out of scope for this test unit | Design scope |
 
 ---

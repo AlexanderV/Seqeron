@@ -6,11 +6,11 @@
 | Test Unit ID | ONCO-HETERO-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-15 |
+| Last Reviewed | 2026-09-28 (review-2026-09 B24: F20–F22) |
 
 ## 1. Overview
 
-Quantifies intratumour heterogeneity (ITH) from somatic-mutation evidence using established, retrievable metrics. The MATH (Mutant-Allele Tumour Heterogeneity) score measures the spread of the variant-allele-fraction (VAF) distribution as `100·MAD/median` [1][2]; the Shannon diversity index `H = −Σ pᵢ ln pᵢ` measures clonal diversity over CCF-cluster fractions [4][5]; the subclone count is the number of occupied CCF clusters [4]; and the subclonal fraction is the proportion of mutations with CCF below the clonal threshold [6]. All metrics are exact deterministic statistics over the inputs.
+Quantifies intratumour heterogeneity (ITH) from somatic-mutation evidence using established, retrievable metrics. The MATH (Mutant-Allele Tumour Heterogeneity) score measures the spread of the variant-allele-fraction (VAF) distribution as `100·MAD/median` [1][2]; the Shannon diversity index `H = −Σ pᵢ ln pᵢ` measures clonal diversity over CCF-cluster fractions [4][5]; the subclone count is the number of occupied CCF clusters [4]; and the subclonal fraction is the proportion of mutations that are not clonal (clonal ⇔ CCF > 0.95) [6]. All metrics are exact deterministic statistics over the inputs.
 
 ## 2. Scientific / Formal Basis
 
@@ -37,7 +37,7 @@ H = −Σᵢ pᵢ · ln(pᵢ)      (natural logarithm)
 
 where `pᵢ` is the fraction of mutations assigned to clone/cluster `i` and richness `R` is the number of occupied clusters [4].
 
-**Subclonal fraction** [6]: a mutation is subclonal when `CCF < 0.95`; the fraction is `#(CCF < 0.95)/n`.
+**Subclonal fraction** [6]: Landau et al. "classified a mutation as clonal if the CCF harboring it was >0.95 [with probability >0.5] and subclonal otherwise"; for CCF point estimates a mutation is subclonal when `CCF ≤ 0.95` (so exactly 0.95 is subclonal), and the fraction is `#(CCF ≤ 0.95)/n = 1 − |IdentifyClonalMutations|/n`.
 
 ### 2.4 Properties and Invariants
 
@@ -70,27 +70,27 @@ where `pᵢ` is the fraction of mutations assigned to clone/cluster `i` and rich
 | HeterogeneityResult.MathScore | double | MATH over VAFs |
 | HeterogeneityResult.ShannonDiversity | double | H = −Σ pᵢ ln pᵢ |
 | HeterogeneityResult.SubcloneCount | int | occupied clusters |
-| HeterogeneityResult.SubclonalFraction | double | fraction with CCF < 0.95 |
+| HeterogeneityResult.SubclonalFraction | double | fraction with CCF ≤ 0.95 (not clonal) |
 
 ### 3.3 Preconditions and Validation
 
-Null lists throw `ArgumentNullException`. Empty lists, non-finite or out-of-[0,1] values, mismatched VAF/CCF lengths, and a zero median (MATH division by zero) throw `ArgumentException`; `clusterCount` outside `[1, count]` throws `ArgumentOutOfRangeException`. Inputs are not mutated.
+Null lists throw `ArgumentNullException`. Empty lists, non-finite or out-of-[0,1] values, mismatched VAF/CCF lengths, a `CcfClustering` assignment label outside `[0, centroid count)`, and a zero median (MATH division by zero) throw `ArgumentException`; `clusterCount` outside `[1, count]` throws `ArgumentOutOfRangeException`. Inputs are not mutated.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. **MATH:** compute `median(f)`; reject median = 0; compute raw MAD = `median(|fᵢ − median|)`; `MATH = 100·1.4826·MAD/median`.
+1. **MATH:** compute `median(f)`; reject median = 0; compute raw MAD = `median(|fᵢ − median|)`; `MATH = ((MAD·100)·1.4826)/median` — maftools' operation order, bit-identical to R (0/19 999 random vectors differ; the former `100·(1.4826·MAD)/median` order differed by 1 ulp on 6 912).
 2. **Subclones:** cluster CCFs (ONCO-CCF-001); count distinct occupied cluster labels.
-3. **Shannon:** clone fractions `pᵢ = sizeᵢ/n`; `H = −Σ pᵢ ln pᵢ`.
-4. **Subclonal fraction:** count CCF < 0.95, divide by n.
+3. **Shannon:** clone fractions `pᵢ = sizeᵢ/n`; `H = −Σ pᵢ ln pᵢ` via canonical `StatisticsHelper.ShannonIndex` (= `scipy.stats.entropy`).
+4. **Subclonal fraction:** `1 − |IdentifyClonalMutations(ccf)|/n` (canonical Landau rule, CCF > 0.95 clonal).
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 - MAD consistency constant `1.4826 = 1/Φ⁻¹(3/4)` [2][3].
 - Percentage scale `100` [1].
 - Clonal CCF threshold `0.95` (reused from ONCO-CLONAL-001, Landau et al. 2013) [6].
-- Median for even counts = mean of the two central order statistics (R/maftools convention) [3].
+- Median = canonical `StatisticsHelper.Median` (R `median`: mean of the two central order statistics for even counts) [3].
 
 ### 4.3 Complexity
 
@@ -104,7 +104,7 @@ Null lists throw `ArgumentNullException`. Empty lists, non-finite or out-of-[0,1
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.PhylogenyHeterogeneity.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.PhylogenyHeterogeneity.cs); helpers `StatisticsHelper.Median` / `StatisticsHelper.ShannonIndex` in [StatisticsHelper.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/StatisticsHelper.cs)
 
 - `OncologyAnalyzer.CalculateITH(IReadOnlyList<double>)`: MATH score.
 - `OncologyAnalyzer.InferSubclones(CcfClustering)`: occupied-cluster count.
@@ -112,7 +112,7 @@ Null lists throw `ArgumentNullException`. Empty lists, non-finite or out-of-[0,1
 
 ### 5.2 Current Behavior
 
-Reuses `ClusterCcfValues` (ONCO-CCF-001) for CCF clustering and the existing `ClonalCcfThreshold` constant (ONCO-CLONAL-001) for the subclonal cutoff. No search/matching is involved, so the repository suffix tree is not applicable. The median helper clones the input before sorting, so callers' arrays are never mutated.
+Reuses `ClusterCcfValues` (ONCO-CCF-001, Ckmeans.1d.dp) for CCF clustering and `IdentifyClonalMutations` (ONCO-CLONAL-001) for the subclonal cutoff. No search/matching is involved, so the repository suffix tree is not applicable. The median helper clones the input before sorting, so callers' arrays are never mutated.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -120,7 +120,7 @@ Reuses `ClusterCcfValues` (ONCO-CCF-001) for CCF clustering and the existing `Cl
 
 - `MATH = 100·1.4826·median(|f − median|)/median` exactly as Mroz & Rocco (2013) / Mroz et al. (2015) and maftools `mathScore.R` [1][2][3].
 - `H = −Σ pᵢ ln pᵢ` with natural log, over clone fractions [4][5].
-- Subclonal cutoff CCF < 0.95 [6].
+- Subclonal ⇔ not clonal, clonal ⇔ CCF > 0.95 [6].
 
 **Intentionally simplified:**
 
@@ -128,7 +128,9 @@ Reuses `ClusterCcfValues` (ONCO-CCF-001) for CCF clustering and the existing `Cl
 
 **Not implemented:**
 
-- Probabilistic/Bayesian subclone inference (e.g., PyClone/SciClone posterior clustering); **users should rely on:** dedicated tools — clustering here is the deterministic k-means of ONCO-CCF-001.
+- maftools `math.score` pre-filters (drops VAF < `vafCutOff` = 0.075 and skips samples with < 5 mutations); these are caller-side choices, not part of the MATH definition [1][2] — filter the input before calling `CalculateITH` to reproduce maftools per-sample output.
+
+- Probabilistic/Bayesian subclone inference (e.g., PyClone/SciClone posterior clustering); **users should rely on:** dedicated tools — clustering here is the exact 1-D k-means (Ckmeans.1d.dp) of ONCO-CCF-001.
 
 ### 5.4 Deviations and Assumptions
 

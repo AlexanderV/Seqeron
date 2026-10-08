@@ -294,3 +294,18 @@ machine-retrievable as FASTA and in third-party HMM repositories (enigene/HumAS-
 logsdon-lab) that ship **no LICENSE file** — therefore not redistributable here (cf. the
 TIGRFAM/LM22 non-redistribution rule). Callers who hold an SF-resolved consensus set can pass it to
 `AssignSuprachromosomalFamily(sequence, reference)`.
+
+## Review 2026-09 (campaign B19)
+
+- **Levan et al. (1964)** — WebSearch snippets (Wiley record 10.1111/j.1601-5223.1964.tb01953.x; ResearchGate
+  table "Levan et al. (1964) nomenclature"; T&F Caryologia 2015 "Which chromosomes are subtelocentric or
+  acrocentric?"): M–T distance divided into four equal lengths m/sm/st/t; arm ratio m 1–1.7, sm 1.7–3,
+  st 3–7, a/t > 7. The geometric cut-points are ci 37.5/25/12.5 (r = 1.667/3/7); the published table rounds
+  to 1.7 — the implementation uses the published 1.7/3.0/7.0. Confirmed unchanged.
+- **Heuristic scan defects fixed** (confirmed against an independent Python/numpy reference of the documented
+  §4 procedure): windows fully inside the sequence including the one ending at L; population SD over all full
+  1-kb sub-windows; extension by full half-windows up to 0 / L; step clamped ≥ 1 (windowSize < 4 hung);
+  windowSize ≤ 0 throws. Repeat counting now calls the canonical `KmerAnalyzer.CountKmers`.
+- **SF rule tightened to the documented Evidence table:** period 2 → {SF1,SF2} only when the unit is one A-type
+  + one B-type monomer (J1=A·J2=B, D1=B·D2=A; McNulty & Sullivan 2018); a monomeric B-only array → Unknown
+  (SF4 is A-type M1; SF5 is an irregular R1(B)/R2(A) mix).

@@ -53,9 +53,9 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///               bases, case-insensitive; 0 for empty input.
 ///   • Entropy = Shannon entropy H = −Σ p·log₂p over per-symbol frequencies (bits);
 ///               0 for empty input. Maximum is log₂k for k equiprobable symbols.
-///   • Complexity = linguistic complexity (mean of vocabulary-usage ratios across
-///               word sizes k=1..6), in [0,1]; 0 for empty input.
-///   • MeltingTemperature = Wallace 2(A+T)+4(G+C) when |S| < 14, else GC/Marmur-Doty
+///   • Complexity = linguistic complexity Σ V_k / Σ min(4^k, n−k+1) (Orlov & Potapov 2004,
+///               canonical SequenceComplexity; k=1..6), in [0,1] for ACGT; 0 for empty input.
+///   • MeltingTemperature = Wallace 2(A+T)+4(G+C) when A+C+G+T < 14, else GC/Marmur-Doty
 ///               64.9 + 41·(GC−16.4)/N; 0 for empty input
 ///               (ThermoConstants.WallaceMaxLength = 14, strict <).
 ///   • Composition = a 6-entry map {A,T,G,C,U,N} of the composition counts.
@@ -177,8 +177,9 @@ public class SequenceSummaryFuzzTests
         var comp = SequenceStatistics.CalculateNucleotideComposition(seq);
         double entropy = SequenceStatistics.CalculateShannonEntropy(seq);
         double complexity = SequenceStatistics.CalculateLinguisticComplexity(seq);
-        double tm = SequenceStatistics.CalculateMeltingTemperature(
-            seq, useWallaceRule: seq.Length < WallaceMaxLength);
+        // SEQ-TM-001 F12: the summary lets CalculateMeltingTemperature pick the formula from the
+        // A/C/G/T count (OligoCalc), rather than pre-selecting it from the raw length.
+        double tm = SequenceStatistics.CalculateMeltingTemperature(seq, useWallaceRule: true);
 
         var s = SequenceStatistics.SummarizeNucleotideSequence(input);
 
@@ -186,7 +187,7 @@ public class SequenceSummaryFuzzTests
         s.GcContent.Should().Be(comp.GcContent, "INV-02: GcContent copies composition GcContent");
         s.Entropy.Should().Be(entropy, "INV-03: Entropy = CalculateShannonEntropy");
         s.Complexity.Should().Be(complexity, "INV-04: Complexity = CalculateLinguisticComplexity");
-        s.MeltingTemperature.Should().Be(tm, "INV-05: Tm = CalculateMeltingTemperature(len<14)");
+        s.MeltingTemperature.Should().Be(tm, "INV-05: Tm = CalculateMeltingTemperature(seq, useWallaceRule: true)");
 
         // INV-06: composition map equals the composition record's counts.
         s.Composition['A'].Should().Be(comp.CountA);
@@ -210,8 +211,8 @@ public class SequenceSummaryFuzzTests
     /// must reproduce EXACTLY. "ATGCATGC" → A=2,T=2,G=2,C=2:
     ///   Length 8; GcContent = 4/8 = 0.5; four equiprobable symbols → Entropy log₂4 = 2.0;
     ///   length 8 &lt; 14 → Wallace Tm = 2·(2+2) + 4·(2+2) = 8 + 16 = 24.0 °C;
-    ///   Complexity = mean vocabulary-usage ratio = 0.8396825396825397 (hand-derived,
-    ///   externally re-grounded — docs/Validation/FINDINGS_REGISTER.md A39).
+    ///   Complexity = Σ V_k / Σ min(4^k, n−k+1), k=1..6 = 23/29 (V = 4,4,4,4,4,3; V_max = 4,7,6,5,4,3;
+    ///   Orlov &amp; Potapov 2004 — B03 F21 replaced the unsourced mean-of-U_k lock 529/630 of A39).
     /// Confirms the suite asserts the BUSINESS contract, not just non-throwing.
     /// — Sequence_Summary.md §7.1; SequenceStatistics.cs lines 990–1020.
     /// </summary>
@@ -225,8 +226,8 @@ public class SequenceSummaryFuzzTests
         s.Entropy.Should().BeApproximately(2.0, Tolerance, "four equiprobable symbols → log2 4");
         s.MeltingTemperature.Should().BeApproximately(24.0, Tolerance,
             "len 8 < 14 → Wallace 2*(A+T)+4*(G+C) = 2*4 + 4*4");
-        s.Complexity.Should().BeApproximately(0.8396825396825397, 1e-10,
-            "externally-derived vocabulary-usage-mean lock (FINDINGS_REGISTER A39)");
+        s.Complexity.Should().BeApproximately(23.0 / 29.0, 1e-10,
+            "Σ V_k / Σ V_max,k sum form (Orlov & Potapov 2004; Python reference, B03 F21)");
 
         s.Composition['A'].Should().Be(2);
         s.Composition['T'].Should().Be(2);
@@ -357,14 +358,13 @@ public class SequenceSummaryFuzzTests
     }
 
     /// <summary>
-    /// BE: a single 'U' (RNA) is counted (Length 1, CountU 1) with GcContent 0.0, but
-    /// the Wallace Tm is 0.0 — Wallace sums only A+T and G+C (SequenceStatistics.cs
-    /// line 580: `comp.CountA + comp.CountT`), so a lone U contributes nothing to Tm.
-    /// This is the documented per-metric behaviour the summary faithfully copies, and a
-    /// distinct boundary from A/T whose Wallace Tm is 2.0.
+    /// BE: a single 'U' (RNA) is counted (Length 1, CountU 1) with GcContent 0.0 and
+    /// Wallace Tm 2.0 — U is read as T (Biopython MeltingTemp._check back-transcription:
+    /// Tm_Wallace("U") = 2.0; 2026-09 B03 F20, formerly asserted 0.0 from our own doc only),
+    /// the same boundary as a lone A/T.
     /// </summary>
     [Test]
-    public void Summary_SingleU_GcZero_WallaceZero()
+    public void Summary_SingleU_GcZero_WallaceTwo()
     {
         var s = SequenceStatistics.SummarizeNucleotideSequence("U");
 
@@ -372,7 +372,7 @@ public class SequenceSummaryFuzzTests
         s.Composition['U'].Should().Be(1);
         s.GcContent.Should().BeApproximately(0.0, Tolerance, "U is not GC");
         s.Entropy.Should().BeApproximately(0.0, Tolerance);
-        s.MeltingTemperature.Should().Be(0.0, "Wallace counts only A/T (not U) → lone U gives Tm 0");
+        s.MeltingTemperature.Should().Be(2.0, "U is read as T (Biopython Tm_Wallace(\"U\") = 2.0)");
         AssertWellFormed(s);
         AssertMatchesComponentMetrics("U");
     }

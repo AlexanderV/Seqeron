@@ -39,15 +39,15 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   — docs/algorithms/Complexity/Lempel_Ziv_Complexity.md
 ///     §2.2 (core model + normalization), §2.4 (invariants INV-01..INV-05),
 ///     §3 (contract), §6.1 (edge cases), §7.1 (worked example).
-///     Sources: Lempel & Ziv (1976) [1]; Naereen reference parse [3];
+///     Sources: Lempel & Ziv (1976) [1]; Kaspar & Schuster (1987) scan [3];
 ///     entropy/antropy lziv_complexity normalization [4]; Zhang et al. (2009) [5].
 ///
 /// Every expected value below is derived INDEPENDENTLY from the doc and the
 /// primary-source parse rule (Lempel_Ziv_Complexity.md §2.2 / §7.1), NOT read off
 /// the code's arrays. The raw-count walk-throughs were reproduced by hand:
-///   • "1001111011000010" → 1 / 0 / 01 / 11 / 10 / 110 / 00 / 010 → c = 8;
-///     n=16, b=2, log₂16=4, b(n)=4, LZ_norm = 8/4 = 2.0 (§7.1).
-///   • homopolymer "0"×16 → 0 / 00 / 000 / 0000 / 00000 → c = 5 (§6.1).
+///   • "1001111011000010" → 1 / 0 / 01 / 1110 / 1100 / 0010 → c = 6;
+///     n=16, b=2, log₂16=4, b(n)=4, LZ_norm = 6/4 = 1.5 (§7.1; antropy doctest).
+///   • homopolymer "0"×16 → 0 / 000000000000000 → c = 2 (§6.1).
 ///   • single base "A" → c = 1 (INV-02).
 /// A test that would still pass against an implementation that, say, dropped the
 /// normalization or mis-counted the trailing partial component is invalid.
@@ -80,8 +80,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • single-symbol input (alphabet b<2): the log base is undefined, so the
 ///     normalizer clamps b := max(b, 2); for the length-1 degenerate case
 ///     (log_b(1)=0) it returns the RAW count. So a homopolymer's normalized value
-///     is c / (n / log₂ n) and is NOT bounded by 1 (it can exceed 1 — e.g. "AAAA"
-///     gives 2 / (4/2) = 1.0, and "0"×16 gives 5 / (16/4) = 1.25). This is a
+///     is c / (n / log₂ n) and is NOT bounded by 1 (e.g. "AAAA" gives
+///     2 / (4/2) = 1.0, while "0"×16 gives 2 / (16/4) = 0.5). This is a
 ///     *defined* consequence of the b<2 clamp, NOT a bug — we pin it explicitly so
 ///     the homopolymer-vs-random ORDERING is asserted via the RAW count (which is
 ///     monotone and model-clean), reserving the exact normalized homopolymer value
@@ -121,39 +121,35 @@ public class ComplexityFuzzTests
     }
 
     /// <summary>
-    /// Independent reference parse of the raw Lempel–Ziv (1976) complexity, written
-    /// straight from Lempel_Ziv_Complexity.md §2.2 (exhaustive-history rule) and the
-    /// Naereen reference [3] — deliberately NOT calling the production code, so it
-    /// can cross-check the implementation rather than echo it.
+    /// Independent brute-force reference of the raw Lempel–Ziv (1976) complexity, written
+    /// straight from the exhaustive-history DEFINITION (Lempel_Ziv_Complexity.md §2.2) —
+    /// NOT the Kaspar–Schuster scan used in production, so it cross-checks rather than
+    /// echoes it: the component starting at p is extended while S[p..p+L) still occurs in
+    /// S[0..p+L−1) (i.e. starting before p, overlap allowed); the first non-reproducible
+    /// extension (or the end of S) closes it. Cubic, only for test-sized inputs.
     /// </summary>
     private static int ReferenceLempelZiv(string seq)
     {
-        var components = new HashSet<string>();
-        int ind = 0, inc = 1;
-        while (ind + inc <= seq.Length)
+        int n = seq.Length, p = 0, c = 0;
+        while (p < n)
         {
-            string sub = seq.Substring(ind, inc);
-            if (components.Contains(sub))
-            {
-                inc++;
-            }
-            else
-            {
-                components.Add(sub);
-                ind += inc;
-                inc = 1;
-            }
+            int len = 1;
+            while (p + len <= n &&
+                   seq.Substring(0, p + len - 1).Contains(seq.Substring(p, len), StringComparison.Ordinal))
+                len++;
+            c++;
+            p += len;
         }
-        return components.Count;
+        return c;
     }
 
     /// <summary>
     /// Independent reference DUST score, written straight from DUST_Score.md §2.2 and the
     /// Morgulis et al. (2006) / Li (2025) restatement — deliberately NOT calling the
     /// production code, so it cross-checks the implementation rather than echoes it:
-    ///   S(x) = ( Σ_t c_t·(c_t − 1)/2 ) / (L − wordSize + 1),
+    ///   S(x) = ( Σ_t c_t·(c_t − 1)/2 ) / (ℓ − 1),  ℓ = L − wordSize + 1 words,
     /// where c_t is the occurrence count of each overlapping word t. Returns 0 for the
-    /// documented degenerate L &lt; wordSize case (no word exists, §3.3 / §6.1). Inputs
+    /// documented degenerate ℓ &lt; 2 case (no pair of words exists, §3.3 / §6.1). Inputs
     /// are treated alphabet-agnostically (each char is an opaque symbol), mirroring the
     /// lenient string surface AFTER upper-casing.
     /// </summary>
@@ -163,6 +159,7 @@ public class ComplexityFuzzTests
         if (string.IsNullOrEmpty(seq) || seq.Length < wordSize) return 0.0;
 
         int wordCount = seq.Length - wordSize + 1;
+        if (wordCount < 2) return 0.0;
         var counts = new Dictionary<string, int>();
         for (int i = 0; i < wordCount; i++)
         {
@@ -174,7 +171,7 @@ public class ComplexityFuzzTests
         foreach (int c in counts.Values)
             numerator += c * (c - 1) / 2.0;
 
-        return numerator / wordCount;
+        return numerator / (wordCount - 1);
     }
 
     /// <summary>
@@ -219,10 +216,10 @@ public class ComplexityFuzzTests
 
     /// <summary>
     /// The §7.1 worked example, derived independently: "1001111011000010" parses as
-    /// 1 / 0 / 01 / 11 / 10 / 110 / 00 / 010 → c = 8, and normalized with n=16,
-    /// b=2, log₂16=4, b(n)=4 gives LZ_norm = 8/4 = 2.0. EstimateCompressionRatio is
+    /// 1 / 0 / 01 / 1110 / 1100 / 0010 → c = 6, and normalized with n=16,
+    /// b=2, log₂16=4, b(n)=4 gives LZ_norm = 6/4 = 1.5 (antropy doctests). EstimateCompressionRatio is
     /// a thin delegate to the normalized value (INV-05), so it must return the same
-    /// 2.0. This is the alphabet-agnostic binary example; it runs on the lenient
+    /// 1.5. This is the alphabet-agnostic binary example; it runs on the lenient
     /// string surface because it is not DNA.
     /// </summary>
     [Test]
@@ -231,27 +228,27 @@ public class ComplexityFuzzTests
         const string s = "1001111011000010";
 
         int raw = SequenceComplexity.CalculateLempelZivComplexity(s);
-        raw.Should().Be(8, "the §7.1 walk-through 1/0/01/11/10/110/00/010 produces 8 components");
+        raw.Should().Be(6, "the §7.1 walk-through 1/0/01/1110/1100/0010 produces 6 components");
 
         double norm = SequenceComplexity.CalculateNormalizedLempelZivComplexity(s);
-        norm.Should().BeApproximately(2.0, Tolerance,
-            "n=16, b=2, b(n)=16/log₂16=4 ⇒ LZ_norm = 8/4 = 2.0 (§7.1)");
+        norm.Should().BeApproximately(1.5, Tolerance,
+            "n=16, b=2, b(n)=16/log₂16=4 ⇒ LZ_norm = 6/4 = 1.5 (§7.1)");
 
-        SequenceComplexity.EstimateCompressionRatio(s).Should().BeApproximately(2.0, Tolerance,
+        SequenceComplexity.EstimateCompressionRatio(s).Should().BeApproximately(1.5, Tolerance,
             "EstimateCompressionRatio delegates to the normalized value (INV-05)");
     }
 
     /// <summary>
     /// The homopolymer edge case from §6.1, derived independently: "0"×16 parses as
-    /// 0 / 00 / 000 / 0000 / 00000 → c = 5. Pinned exactly to guard the
-    /// productivity-buildup behaviour (INV-04) at the raw-count level.
+    /// 0 / 000000000000000 (self-overlapping copy) → c = 2. Pinned exactly to guard
+    /// the LZ76 copy-with-overlap behaviour (INV-04) at the raw-count level.
     /// </summary>
     [Test]
-    public void LempelZiv_Homopolymer16_RawIsFive()
+    public void LempelZiv_Homopolymer16_RawIsTwo()
     {
         int raw = SequenceComplexity.CalculateLempelZivComplexity(new string('0', 16));
 
-        raw.Should().Be(5, "0/00/000/0000/00000 is the exhaustive-history parse of \"0\"×16 (§6.1)");
+        raw.Should().Be(2, "0/0…0 is the exhaustive-history parse of \"0\"×16 (§6.1)");
     }
 
     /// <summary>
@@ -441,37 +438,34 @@ public class ComplexityFuzzTests
 
     /// <summary>
     /// BE: a homopolymer is maximally compressible ⇒ minimal complexity. For "X"×n
-    /// the exhaustive-history parse yields components X / XX / XXX / … whose total
-    /// length is 1+2+…+m = m(m+1)/2 ≤ n, so c(S) is the largest m with m(m+1)/2 ≤ n
-    /// (a triangular bound) — independently of WHICH symbol repeats. We assert this
-    /// closed form against the implementation across a range of lengths and several
-    /// symbols (DNA and non-DNA), and confirm c grows only ~√(2n), far below n. This
-    /// pins INV-03 (c ≤ n) and INV-04 (homopolymer minimal) at the extreme.
+    /// the exhaustive history is X / X…X (the second component copies the first with
+    /// overlap), so c(S) = min(n, 2) — independently of WHICH symbol repeats and of n.
+    /// We assert this closed form against the implementation across a range of lengths
+    /// and several symbols (DNA and non-DNA). This pins INV-03 (c ≤ n) and INV-04
+    /// (homopolymer minimal) at the extreme.
     /// </summary>
     [Test]
-    public void Homopolymer_RawComplexity_IsTriangularBound()
+    public void Homopolymer_RawComplexity_IsMinNTwo()
     {
         foreach (char sym in new[] { 'A', 'G', '0', 'Z' })
         {
             foreach (int n in new[] { 1, 2, 3, 4, 9, 10, 16, 17, 100, 1000 })
             {
-                // Largest m with m(m+1)/2 <= n: this is exactly the number of
-                // components 1/2/.../m the homopolymer parse emits (derived from §6.1).
-                int expected = 0;
-                while ((long)(expected + 1) * (expected + 2) / 2 <= n) expected++;
+                // X / X…X: one component for n = 1, two for n ≥ 2 (§6.1).
+                int expected = Math.Min(n, 2);
 
                 string s = new string(sym, n);
                 int raw = SequenceComplexity.CalculateLempelZivComplexity(s);
 
                 raw.Should().Be(expected,
-                    $"\"{sym}\"×{n} parses into the triangular number of distinct runs (§6.1)");
+                    $"\"{sym}\"×{n} parses as X / X…X (§6.1)");
                 raw.Should().BeLessThanOrEqualTo(n, "c(S) ≤ n (INV-03)");
             }
         }
     }
 
     /// <summary>
-    /// BE: the §6.1 anchor "0"×16 → c=5 must equal the triangular closed form, and a
+    /// BE: the §6.1 anchor "0"×16 → c=2 must equal the closed form, and a
     /// same-length all-distinct-ish DNA sequence must be strictly more complex —
     /// pinning the homopolymer as the minimal-complexity extreme (INV-04) at a
     /// hand-checked length.
@@ -480,7 +474,7 @@ public class ComplexityFuzzTests
     public void Homopolymer_IsMinimalComplexity_VersusDiverseSameLength()
     {
         int homopolymer = SequenceComplexity.CalculateLempelZivComplexity(new string('0', 16));
-        homopolymer.Should().Be(5, "0/00/000/0000/00000 (§6.1)");
+        homopolymer.Should().Be(2, "0/0…0 (§6.1)");
 
         int diverse = SequenceComplexity.CalculateLempelZivComplexity("ACGTACGTACGTACGT");
         diverse.Should().BeGreaterThan(homopolymer, "a more diverse string of equal length is more complex (INV-04)");
@@ -645,24 +639,24 @@ public class ComplexityFuzzTests
      *  let c_t be the number of occurrences of each overlapping word t among the
      *  L − wordSize + 1 windows (wordSize = 3 by default). The score is (§2.2):
      *
-     *      S(x) = ( Σ_t c_t·(c_t − 1)/2 ) / (L − wordSize + 1)
+     *      S(x) = ( Σ_t c_t·(c_t − 1)/2 ) / (ℓ − 1),   ℓ = L − wordSize + 1
      *
      *  The numerator counts pairs of IDENTICAL triplets; the denominator is the
-     *  number of triplets. A HIGHER score ⇒ LOWER complexity (more repeated words);
+     *  number of triplets minus one (Morgulis 2006; NCBI symdust; lh3/sdust). A HIGHER score ⇒ LOWER complexity (more repeated words);
      *  fully distinct triplets give exactly 0 (§3.2, INV-02, INV-04). Documented
      *  invariants pinned here:
-     *    • INV-01 S(x) ≥ 0 (each c(c−1)/2 ≥ 0, divisor > 0 for L ≥ 3).
+     *    • INV-01 S(x) ≥ 0 (each c(c−1)/2 ≥ 0, divisor > 0 for L ≥ 4; 0 for ℓ ≤ 1).
      *    • INV-02 all-distinct triplets ⇒ S = 0.
-     *    • INV-03 homopolymer of length L ⇒ S = (L−3)/2 (one triplet repeated
-     *             L−2 times: (L−2)(L−3)/2 / (L−2)).
+     *    • INV-03 homopolymer of length L ⇒ S = (L−2)/2 (one triplet repeated
+     *             ℓ = L−2 times: (L−2)(L−3)/2 / (L−3)).
      *    • INV-04 higher S ⇒ lower complexity (repeats raise Σ c(c−1)/2).
      *  Mask threshold (§4.2): 2.0 (reference level T = 20); S > 2.0 ⇒ masked.
      *
      *  Every expected value below is derived INDEPENDENTLY from DUST_Score.md and
      *  the Morgulis/Li formula (see ReferenceDustScore + the by-hand worked
      *  examples), NOT read off the code's arrays. A test that would still pass
-     *  against an implementation that, say, divided by (words − 1) instead of the
-     *  word count (the §5.2 historical bug) is invalid.
+     *  against an implementation that, say, divided by the word count instead of
+     *  (words − 1) (the 2026-06 regression reverted in 2026-09) is invalid.
      *
      *  ─────────────────────────────────────────────────────────────────────────
      *  Surfaces and their documented validation (§3.1, §3.3, §6.1)
@@ -674,8 +668,8 @@ public class ComplexityFuzzTests
      *      is upper-cased (ToUpperInvariant) and the word tally is alphabet-agnostic,
      *      so ANY character (digits, gaps, '\0', unicode, surrogate halves) is parsed
      *      as an opaque symbol and NEVER throws.
-     *  Both surfaces: wordSize < 1 ⇒ ArgumentOutOfRangeException; L < wordSize ⇒ 0
-     *  (no word exists — defined-output convention, §3.3 / deviation #1).
+     *  Both surfaces: wordSize < 1 ⇒ ArgumentOutOfRangeException; fewer than two
+     *  words ⇒ 0 (no word pair exists — defined-output convention, §3.3).
      *  ───────────────────────────────────────────────────────────────────────── */
 
     // ───────────────────────────────────────────────────────────────────
@@ -686,18 +680,18 @@ public class ComplexityFuzzTests
 
     /// <summary>
     /// The §7.1 worked example, derived independently: "AAAAAA" (L=6) has triplet
-    /// AAA at positions 0..3 ⇒ c_AAA = 4, numerator = 4·3/2 = 6, divisor = L−2 = 4,
-    /// so S = 6/4 = 1.5. This also equals INV-03's (L−3)/2 = 3/2. Pinned exactly to
-    /// guard the triplet-count formula AND the §5.2-corrected divisor (number of
-    /// words, NOT words−1, which would give 6/3 = 2.0).
+    /// AAA at positions 0..3 ⇒ c_AAA = 4, numerator = 4·3/2 = 6, divisor = ℓ−1 = 3,
+    /// so S = 6/3 = 2.0. This also equals INV-03's (L−2)/2 = 2. Pinned exactly to
+    /// guard the triplet-count formula AND the reference divisor (words−1, as in
+    /// NCBI symdust / lh3/sdust; dividing by the word count would give 6/4 = 1.5).
     /// </summary>
     [Test]
-    public void Dust_HexamerA_WorkedExample_IsOnePointFive()
+    public void Dust_HexamerA_WorkedExample_IsTwo()
     {
         double score = SequenceComplexity.CalculateDustScore("AAAAAA");
 
-        score.Should().BeApproximately(1.5, Tolerance,
-            "AAA repeats 4×: numerator 4·3/2=6, divisor L−2=4 ⇒ 6/4 = 1.5 (§7.1, INV-03)");
+        score.Should().BeApproximately(2.0, Tolerance,
+            "AAA repeats 4×: numerator 4·3/2=6, divisor ℓ−1=3 ⇒ 6/3 = 2.0 (§7.1, INV-03)");
         score.Should().BeApproximately(ReferenceDustScore("AAAAAA"), Tolerance,
             "must match the independent triplet-frequency reference");
     }
@@ -705,18 +699,18 @@ public class ComplexityFuzzTests
     /// <summary>
     /// The second §7.1 worked example, derived independently: "ACGTACGT" (L=8) has
     /// triplets ACG=2, CGT=2, GTA=1, TAC=1 ⇒ numerator = 1 + 1 + 0 + 0 = 2, divisor
-    /// = L−2 = 6, so S = 2/6 = 1/3 ≈ 0.3333. Run on BOTH the lenient string surface
+    /// = ℓ−1 = 5, so S = 2/5 = 0.4. Run on BOTH the lenient string surface
     /// and the strict typed DnaSequence surface (the input is valid DNA), pinning the
     /// strict/lenient agreement on a non-degenerate case.
     /// </summary>
     [Test]
-    public void Dust_AcgtAcgt_WorkedExample_IsOneThird()
+    public void Dust_AcgtAcgt_WorkedExample_IsTwoFifths()
     {
         const string s = "ACGTACGT";
 
         double viaString = SequenceComplexity.CalculateDustScore(s);
-        viaString.Should().BeApproximately(1.0 / 3.0, Tolerance,
-            "ACG=2,CGT=2,GTA=1,TAC=1 ⇒ numerator 1+1=2, divisor 6 ⇒ 1/3 (§7.1)");
+        viaString.Should().BeApproximately(0.4, Tolerance,
+            "ACG=2,CGT=2,GTA=1,TAC=1 ⇒ numerator 1+1=2, divisor 5 ⇒ 0.4 (§7.1)");
 
         double viaDna = SequenceComplexity.CalculateDustScore(new DnaSequence(s));
         viaDna.Should().BeApproximately(viaString, Tolerance,
@@ -730,7 +724,7 @@ public class ComplexityFuzzTests
     /// scores exactly 0. "ACGTACG" reuses words, so instead we use a hand-built
     /// all-distinct-triplet string. The shortest non-trivial all-distinct case is two
     /// triplets that differ: "ACGA" (L=4) has triplets ACG, CGA — both unique — so
-    /// numerator = 0, divisor = 2, S = 0. Pinned across a few all-distinct strings.
+    /// numerator = 0, divisor = 1, S = 0. Pinned across a few all-distinct strings.
     /// </summary>
     [Test]
     public void Dust_AllDistinctTriplets_IsZero()
@@ -747,7 +741,7 @@ public class ComplexityFuzzTests
 
     /// <summary>
     /// INV-03 / INV-04, the core "higher score ⇒ lower complexity" contract: a
-    /// homopolymer (one repeated triplet) attains the documented (L−3)/2 score, which
+    /// homopolymer (one repeated triplet) attains the documented (L−2)/2 score, which
     /// is STRICTLY higher than the score of a diverse same-length sequence (which
     /// approaches 0). This is the discriminating fuzz assertion — a degenerate
     /// implementation returning a constant or echoing the count would fail it.
@@ -761,8 +755,8 @@ public class ComplexityFuzzTests
         double diverse = SequenceComplexity.CalculateDustScore(
             new DnaSequence(string.Concat(Enumerable.Repeat("ACGT", n / 4))));
 
-        homopolymer.Should().BeApproximately((n - 3) / 2.0, Tolerance,
-            "homopolymer of length L scores (L−3)/2 (INV-03)");
+        homopolymer.Should().BeApproximately((n - 2) / 2.0, Tolerance,
+            "homopolymer of length L scores (L−2)/2 (INV-03)");
         homopolymer.Should().BeGreaterThan(diverse,
             "a homopolymer is far lower complexity ⇒ far higher DUST score (INV-04)");
         diverse.Should().BeGreaterThanOrEqualTo(0.0, "S ≥ 0 (INV-01)");
@@ -778,7 +772,7 @@ public class ComplexityFuzzTests
 
     /// <summary>
     /// BE: empty/null on the lenient string surface short-circuits to a defined 0 —
-    /// NO division by L−2 (which would be −2, then 0/0 on the count), NO NaN, NO
+    /// NO division by ℓ−1 (which would be negative on no words), NO NaN, NO
     /// exception (§3.3, §6.1: "no words ⇒ minimal complexity").
     /// </summary>
     [Test]
@@ -795,7 +789,7 @@ public class ComplexityFuzzTests
 
     /// <summary>
     /// BE: the empty DnaSequence (built from "" via the ctor short-circuit) scores a
-    /// defined 0 — no division-by-zero on the L−2 = −2 word count, no NaN.
+    /// defined 0 — no division-by-zero on the ℓ−1 word-pair normaliser, no NaN.
     /// </summary>
     [Test]
     public void Dust_EmptyDnaSequence_IsZeroAndDoesNotThrow()
@@ -858,43 +852,45 @@ public class ComplexityFuzzTests
     }
 
     /// <summary>
-    /// BE: the "shorter than the WORD" boundary is parameterised by wordSize. For any
-    /// wordSize > L the score is the defined 0; the exact boundary L == wordSize gives
-    /// exactly ONE word (S = 0, a single distinct word ⇒ c=1 ⇒ c(c−1)/2 = 0, divided
-    /// by 1). This pins the off-by-one around the window edge — the first length at
-    /// which a word exists yields a finite, non-NaN 0, not a crash.
+    /// BE: the "shorter than the WORD" boundary for the (only defined) triplet word. L &lt; 3 gives
+    /// the defined 0; L == 3 gives exactly ONE word (S = 0); L == 4 two distinct words (S = 0).
+    /// This pins the off-by-one around the window edge — a finite, non-NaN 0, not a crash.
     /// </summary>
-    [TestCase("ACGTAC", 4)]   // L=6 > wordSize=4 ⇒ words exist
-    [TestCase("ACG", 3)]      // L == wordSize ⇒ exactly one word, S = 0
-    [TestCase("AC", 3)]       // L < wordSize ⇒ 0
-    [TestCase("A", 5)]        // L << wordSize ⇒ 0
-    [TestCase("ACGTACGT", 8)] // whole sequence is one word, S = 0
-    public void Dust_WordSizeBoundary_IsDefinedAndFinite(string s, int wordSize)
+    [TestCase("ACG")]      // L == wordSize ⇒ exactly one word, S = 0
+    [TestCase("AC")]       // L < wordSize ⇒ 0
+    [TestCase("A")]        // L << wordSize ⇒ 0
+    [TestCase("AAAA")]     // two identical words: 1 pair / (2 − 1) = 1
+    public void Dust_WordSizeBoundary_IsDefinedAndFinite(string s)
     {
-        double score = SequenceComplexity.CalculateDustScore(s, wordSize);
+        double score = SequenceComplexity.CalculateDustScore(s, 3);
 
         double.IsNaN(score).Should().BeFalse("no NaN at the window edge");
         double.IsInfinity(score).Should().BeFalse("no Infinity at the window edge");
         score.Should().BeGreaterThanOrEqualTo(0.0, "S ≥ 0 (INV-01)");
-        score.Should().BeApproximately(ReferenceDustScore(s, wordSize), Tolerance,
-            "must match the independent generalized reference S = Σ c(c−1)/2 / (L − wordSize + 1)");
+        score.Should().BeApproximately(ReferenceDustScore(s, 3), Tolerance,
+            "must match the independent reference S = Σ c(c−1)/2 / (L − 3)");
     }
 
     /// <summary>
-    /// BE: wordSize &lt; 1 is the documented ArgumentOutOfRangeException boundary
-    /// (§3.3) on both surfaces — including the BE archetype 0 and −1. An intentional
-    /// validation throw, never a DivideByZero or empty-loop silent 0.
+    /// BE: every word size other than 3 is rejected with ArgumentOutOfRangeException on both
+    /// surfaces (DUST is defined for triplets only: Morgulis 2006, NCBI symdust, lh3/sdust
+    /// SD_WLEN = 3; B04 F34) — including the BE archetypes 0, −1 and int.MinValue and the former
+    /// extrapolated sizes 1, 2, 4, 8.
     /// </summary>
     [TestCase(0)]
     [TestCase(-1)]
     [TestCase(int.MinValue)]
-    public void Dust_WordSizeBelowOne_ThrowsArgumentOutOfRange(int wordSize)
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(4)]
+    [TestCase(8)]
+    public void Dust_WordSizeNotThree_ThrowsArgumentOutOfRange(int wordSize)
     {
         var viaString = () => SequenceComplexity.CalculateDustScore("ACGTACGT", wordSize);
         var viaDna = () => SequenceComplexity.CalculateDustScore(new DnaSequence("ACGTACGT"), wordSize);
 
-        viaString.Should().Throw<ArgumentOutOfRangeException>("wordSize < 1 is invalid (§3.3)");
-        viaDna.Should().Throw<ArgumentOutOfRangeException>("wordSize < 1 is invalid (§3.3)");
+        viaString.Should().Throw<ArgumentOutOfRangeException>("DUST is defined for word size 3 only");
+        viaDna.Should().Throw<ArgumentOutOfRangeException>("DUST is defined for word size 3 only");
     }
 
     #endregion
@@ -907,24 +903,26 @@ public class ComplexityFuzzTests
 
     /// <summary>
     /// BE: a homopolymer is the lowest-complexity extreme ⇒ MAXIMAL DUST score. For
-    /// "X"×L (L ≥ 3) there is exactly ONE triplet repeated L−2 times, so numerator =
-    /// (L−2)(L−3)/2 and S = (L−3)/2 (INV-03), independently of WHICH base/symbol
+    /// "X"×L (L ≥ 4) there is exactly ONE triplet repeated ℓ = L−2 times, so numerator =
+    /// (L−2)(L−3)/2, divisor ℓ−1 = L−3 and S = (L−2)/2 (INV-03); L = 3 (ℓ = 1) ⇒ 0, independently of WHICH base/symbol
     /// repeats. Verified against the closed form across many lengths and several
     /// symbols (DNA bases and a non-DNA symbol on the lenient surface). This pins both
     /// the triplet-count formula and the symbol-agnostic core.
     /// </summary>
     [Test]
-    public void Dust_Homopolymer_ScoreIsLMinus3Over2()
+    public void Dust_Homopolymer_ScoreIsLMinus2Over2()
     {
         foreach (char sym in new[] { 'A', 'C', 'G', 'T', '0', 'Z' })
         {
-            foreach (int n in new[] { 3, 4, 5, 6, 10, 16, 100, 1000 })
+            SequenceComplexity.CalculateDustScore(new string(sym, 3))
+                .Should().Be(0.0, "a single triplet (ℓ = 1) has no word pair ⇒ S = 0");
+            foreach (int n in new[] { 4, 5, 6, 10, 16, 100, 1000 })
             {
                 string s = new string(sym, n);
                 double score = SequenceComplexity.CalculateDustScore(s);
 
-                score.Should().BeApproximately((n - 3) / 2.0, Tolerance,
-                    $"\"{sym}\"×{n}: one triplet repeated {n - 2}× ⇒ S = (L−3)/2 (INV-03)");
+                score.Should().BeApproximately((n - 2) / 2.0, Tolerance,
+                    $"\"{sym}\"×{n}: one triplet repeated {n - 2}× ⇒ S = (L−2)/2 (INV-03)");
                 score.Should().BeApproximately(ReferenceDustScore(s), Tolerance,
                     "matches the independent reference");
             }
@@ -933,20 +931,21 @@ public class ComplexityFuzzTests
 
     /// <summary>
     /// BE: at the homopolymer extreme the DUST score grows without bound with length
-    /// ((L−3)/2 → ∞), so a long homopolymer must EXCEED the masking threshold 2.0
-    /// (§4.2) while a short one (L ≤ 7 ⇒ (L−3)/2 ≤ 2) does not. This pins the
-    /// documented masking semantics at the boundary length L = 7 (score exactly 2.0,
-    /// NOT strictly above threshold) and L = 8 (score 2.5, above).
+    /// ((L−2)/2 → ∞), so a long homopolymer must EXCEED the masking threshold 2.0
+    /// (§4.2) while a short one (L ≤ 6 ⇒ (L−2)/2 ≤ 2) does not. This pins the
+    /// documented masking semantics at the boundary length L = 6 (score exactly 2.0,
+    /// NOT strictly above threshold) and L = 7 (score 2.5, above) — exactly where the
+    /// lh3/sdust reference (-t 20) starts masking an isolated A-run.
     /// </summary>
     [Test]
     public void Dust_Homopolymer_MaskThresholdBoundary()
     {
-        // L = 7 ⇒ (7−3)/2 = 2.0, exactly the threshold (not strictly above).
-        SequenceComplexity.CalculateDustScore(new string('A', 7))
-            .Should().BeApproximately(2.0, Tolerance, "(L−3)/2 = 2.0 at L=7 (§4.2 threshold)");
-        // L = 8 ⇒ 2.5, strictly above ⇒ would be masked.
-        double l8 = SequenceComplexity.CalculateDustScore(new string('A', 8));
-        l8.Should().BeApproximately(2.5, Tolerance, "(L−3)/2 = 2.5 at L=8");
+        // L = 6 ⇒ (6−2)/2 = 2.0, exactly the threshold (not strictly above).
+        SequenceComplexity.CalculateDustScore(new string('A', 6))
+            .Should().BeApproximately(2.0, Tolerance, "(L−2)/2 = 2.0 at L=6 (§4.2 threshold)");
+        // L = 7 ⇒ 2.5, strictly above ⇒ masked (sdust -t 20 masks A×7).
+        double l8 = SequenceComplexity.CalculateDustScore(new string('A', 7));
+        l8.Should().BeApproximately(2.5, Tolerance, "(L−2)/2 = 2.5 at L=7");
         l8.Should().BeGreaterThan(2.0, "a longer homopolymer exceeds the mask threshold (§4.2)");
     }
 
@@ -963,7 +962,7 @@ public class ComplexityFuzzTests
     /// DnaSequence ctor with ArgumentException (so the metric never sees garbage),
     /// while the LENIENT string surface is alphabet-agnostic: it upper-cases and
     /// tallies each char as an opaque triplet symbol, never throwing (§3.3). We pin
-    /// both: a non-DNA homopolymer "NNNNNN" scores the same (L−3)/2 = 1.5 as "AAAAAA"
+    /// both: a non-DNA homopolymer "NNNNNN" scores the same (L−2)/2 = 2.0 as "AAAAAA"
     /// (the symbol identity is irrelevant), and gaps/digits form valid distinct
     /// triplets that score 0 when all-distinct.
     /// </summary>
@@ -972,10 +971,10 @@ public class ComplexityFuzzTests
     {
         // Lenient surface: alphabet-agnostic, non-DNA homopolymer behaves like a DNA one.
         SequenceComplexity.CalculateDustScore("NNNNNN")
-            .Should().BeApproximately(1.5, Tolerance,
-                "the core is symbol-agnostic: \"N\"×6 scores (L−3)/2 = 1.5 like \"A\"×6 (§3.3)");
+            .Should().BeApproximately(2.0, Tolerance,
+                "the core is symbol-agnostic: \"N\"×6 scores (L−2)/2 = 2.0 like \"A\"×6 (§3.3)");
         SequenceComplexity.CalculateDustScore("------")
-            .Should().BeApproximately(1.5, Tolerance, "gap homopolymer scores identically (§3.3)");
+            .Should().BeApproximately(2.0, Tolerance, "gap homopolymer scores identically (§3.3)");
 
         // Lenient: a non-DNA all-distinct-triplet string still scores 0 (INV-02).
         double digits = SequenceComplexity.CalculateDustScore("12345");
@@ -1075,7 +1074,7 @@ public class ComplexityFuzzTests
     /// <summary>
     /// BE/OVF: a very long sequence (200,000 bases) must score without overflow or
     /// hang under a CancelAfter guard. Both a long homopolymer (the maximal-score
-    /// extreme, S = (L−3)/2 ≈ 1e5) and a long random sequence must yield a finite,
+    /// extreme, S = (L−2)/2 ≈ 1e5) and a long random sequence must yield a finite,
     /// non-negative score matching the closed-form/reference, with the homopolymer far
     /// exceeding the random score (INV-04) and the masking threshold (§4.2).
     /// </summary>
@@ -1097,8 +1096,8 @@ public class ComplexityFuzzTests
         double.IsInfinity(homoScore).Should().BeFalse();
         double.IsInfinity(randomScore).Should().BeFalse();
 
-        homoScore.Should().BeApproximately((n - 3) / 2.0, Tolerance,
-            "homopolymer score (L−3)/2 holds at scale (INV-03)");
+        homoScore.Should().BeApproximately((n - 2) / 2.0, Tolerance,
+            "homopolymer score (L−2)/2 holds at scale (INV-03)");
         randomScore.Should().BeGreaterThanOrEqualTo(0.0, "S ≥ 0 (INV-01)");
         homoScore.Should().BeGreaterThan(randomScore,
             "the homopolymer is the lowest-complexity ⇒ highest-score input (INV-04)");

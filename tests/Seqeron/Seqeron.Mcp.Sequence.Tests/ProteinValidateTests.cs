@@ -22,9 +22,12 @@ public class ProteinValidateTests
         Assert.That(valid.Length, Is.EqualTo(10));
         Assert.That(valid.Error, Is.Null);
 
-        var invalid = SequenceTools.ProteinValidate("MAEGEITTFJ"); // J is invalid
+        var invalid = SequenceTools.ProteinValidate("MAEGEITTF1"); // '1' is not an amino-acid code
         Assert.That(invalid.Valid, Is.False);
-        Assert.That(invalid.Error, Does.Contain("J"));
+        Assert.That(invalid.Error, Does.Contain("1"));
+
+        // IUPAC ambiguity codes B (Asx), Z (Glx), J (Xle) are valid (Biopython extended_protein_letters).
+        Assert.That(SequenceTools.ProteinValidate("MAEGBZJ").Valid, Is.True);
 
         var withStop = SequenceTools.ProteinValidate("MAEG*");
         Assert.That(withStop.Valid, Is.True); // * is valid stop codon

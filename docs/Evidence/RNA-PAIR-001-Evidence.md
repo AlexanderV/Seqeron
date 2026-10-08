@@ -63,6 +63,18 @@
 1. **complement_rna mapping (from documented example):** `complement_rna(Seq("CGAUT"))` returns `Seq("GCUAA")`, i.e. C→G, G→C, A→U, U→A, and T→A (T treated as U, whose complement is A).
 2. This matches the repository helper `SequenceExtensions.GetRnaComplementBase` (A→U, U→A, G→C, C→G, T→A).
 
+### ViennaRNA 2.7 — default pair matrix and nucleotide encoding (reference implementation)
+
+**URL:** https://raw.githubusercontent.com/ViennaRNA/ViennaRNA/master/src/ViennaRNA/model.c and .../src/ViennaRNA/sequences/alphabet.c
+**Accessed:** 2026-09-28
+**Authority rank:** 3 (established reference implementation; Lorenz et al. 2011, Algorithms Mol Biol 6:26)
+
+**Key Extracted Points:**
+
+1. `BP_ENCODING_DEFAULT` (model.c): over `_ A C G U X K I`, the non-zero pair types are CG=1, GC=2, GU=3, UG=4, AU=5, UA=6 — exactly Watson-Crick + G·U wobble.
+2. `vrna_nucleotide_encode` (alphabet.c): `c = toupper(c)`; lookup in `"_ACGUTXKI"`; `if (code > 5) code = 0;` `if (code > 4) code--; /* make T and U equivalent */` — case-insensitive, T ≡ U, every other character → 0 (never pairs).
+3. Numerical confirmation (RNA Python 2.7.2, `md = RNA.md()`, encodings from `fold_compound(...).sequence_encoding`): over the alphabet "ACGUTacgutNnXxRYI-." exactly 40 ordered pairs have `md.pair != 0` (e.g. AT:5, GT:3, TA:6, TG:4, at:5); `RNA.fold("GGGATAAAAATATCCC")` = `RNA.fold("GGGAUAAAAAUAUCCC")` = `((((((....))))))`, −6.10 (dangles=0).
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -72,7 +84,7 @@
 1. **Order independence (Base pair article):** pairing is symmetric; `CanPair(x,y)` must equal `CanPair(y,x)` and `GetBasePairType(x,y)` must equal `GetBasePairType(y,x)`.
 2. **G–U is Wobble, not Watson-Crick (Wobble base pair article):** `GetBasePairType('G','U')` must report a distinct Wobble type, never WatsonCrick.
 3. **Non-pairs return false / null:** combinations other than A-U, U-A, G-C, C-G, G-U, U-G do not form pairs (e.g., A-A, A-G, A-C, C-U, G-G, C-C).
-4. **DNA T in GetComplement (Biopython, IUPAC):** T is treated as U for RNA complement; `GetComplement('T')` = A. Pairing (`CanPair`) is defined over the RNA alphabet {A,C,G,U}; T is a DNA base and is not a pairing input the sources define.
+4. **DNA T (Biopython, IUPAC, ViennaRNA):** T is treated as U for RNA complement (`GetComplement('T')` = A) and for pairing (`CanPair('A','T')` = true, WatsonCrick; `CanPair('G','T')` = true, Wobble), matching ViennaRNA's encoding. (Revised 2026-09: the earlier "T does not pair" contract had no source and contradicted the reference and the library's own folding engines.)
 
 ---
 
@@ -146,3 +158,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Added ViennaRNA reference (pair matrix + T≡U encoding); T now pairs as U.

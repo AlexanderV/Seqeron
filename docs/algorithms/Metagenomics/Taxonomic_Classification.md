@@ -6,7 +6,7 @@
 | Test Unit ID | META-CLASS-001 |
 | Related Projects | N/A |
 | Implementation Status | Implemented (Kraken k-mer / LCA / RTL) |
-| Last Reviewed | 2026-06-17 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -99,7 +99,9 @@ Both methods uppercase input internally and skip any k-mer containing a non-`A/C
 with zero counts. Null arguments throw `ArgumentNullException`; a non-positive `k` throws
 `ArgumentOutOfRangeException`; a reference taxon absent from the tree throws `KeyNotFoundException`.
 The `TaxonomyTree` constructor validates that there is exactly one self-parented root, no duplicate
-ids, and that every non-root parent is present.
+ids, that every non-root parent is present, and that every parent chain terminates at the root (a
+parent cycle such as 2→3→2 is rejected with `ArgumentException`; before 2026-09-28 it was accepted
+and made the parent-chain walks loop forever).
 
 ## 4. Algorithm
 
@@ -162,12 +164,24 @@ exact-k-mer Kraken 1 model); paired-end concatenation; the `--confidence` re-wal
 | K-mer shared by several taxa (DB build) | Stored as the LCA of those taxa |
 | Read split equally between sibling species | Assigned their genus (LCA of tied leaves) |
 | Read split equally across genera | Assigned their family (LCA of tied leaves) |
+| Taxonomy with a parent cycle not reaching the root | `ArgumentException` from the `TaxonomyTree` constructor |
 
 ### 6.2 Limitations
 
 This is the exact-k-mer Kraken 1 model; it does not use minimizers/spaced seeds and depends on the
 caller-supplied reference database and taxonomy. Choice of `k` trades specificity against
 sensitivity.
+
+### 6.3 Reference cross-check (review 2026-09)
+
+A literal Python port of Kraken 1 `lca` / `resolve_tree` (`src/krakenutil.cpp`), `set_lcas`
+(`src/set_lcas.cpp`) and the ambiguous-k-mer scan of `classify_sequence` (`src/classify.cpp`,
+DerrickWood/kraken on raw.githubusercontent.com), plus the Kraken 2 manual C/Q definition, agreed
+with this implementation on 400 random taxonomies / databases and 2000 reads (assigned taxon,
+RTL score, C, Q all identical). The Kraken 2 manual worked example
+(`562:13 561:4 A:31 0:1 562:3` → C/Q = 16/21) is locked as a unit test. Scoring every hit taxon
+(Kraken) and scoring only classification-tree leaves (here) are equivalent: a hit ancestor always
+scores strictly less than its hit descendant.
 
 ## 7. Examples and Related Material
 

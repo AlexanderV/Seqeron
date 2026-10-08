@@ -169,8 +169,8 @@ public class KmerAnalyzer_CountKmersAsync_Tests
     }
 
     /// <summary>
-    /// M8: k ≤ 0 surfaces ArgumentOutOfRangeException via the awaited task.
-    /// Evidence: synchronous contract (KMER-COUNT-001) preserved through Task.Run; INV-4.
+    /// M8: k ≤ 0 surfaces ArgumentOutOfRangeException to an awaiting caller (thrown synchronously
+    /// from the call per TAP — see CountKmersAsync_InvalidK_ThrowsSynchronouslyFromCall); INV-4.
     /// </summary>
     [Test]
     public void CountKmersAsync_InvalidK_ThrowsArgumentOutOfRangeException()
@@ -316,6 +316,131 @@ public class KmerAnalyzer_CountKmersAsync_Tests
 
         Assert.That(actual, Is.EqualTo(expected),
             "Span variant must produce the same counts as CountKmers.");
+    }
+
+    #endregion
+
+    #region TAP contract — synchronous usage errors, Canceled state, progress (review 2026-09)
+
+    // Source: Microsoft Learn — "Task-based asynchronous pattern (TAP)" (dotnet/docs
+    // docs/standard/asynchronous-programming-patterns/task-based-asynchronous-pattern-tap.md):
+    //  • "An asynchronous method should throw an exception directly from the asynchronous method
+    //    call only in response to a usage error ... For all other errors, assign exceptions ...
+    //    to the returned task."  "... can do a small amount of work synchronously, such as
+    //    validating arguments".
+    //  • "If a cancellation token requests cancellation before the TAP method that accepts that
+    //    token is called, the TAP method should return a Canceled task."
+    //  • "TAP implementations should report the progress to the Progress<T> object synchronously".
+    // "Implementing the TAP": a compute-bound task ends Canceled when the token passed to Run is
+    // signaled before it runs, or when an OperationCanceledException carrying that same token
+    // goes unhandled in its body.
+
+    /// <summary>TAP: k ≤ 0 is a usage error — thrown directly from the call, before any task exists.</summary>
+    [Test]
+    public void CountKmersAsync_InvalidK_ThrowsSynchronouslyFromCall()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => KmerAnalyzer.CountKmersAsync(Gtagagctgt, 0), "k=0 must throw from the call itself (TAP usage error).");
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(
+                () => KmerAnalyzer.CountKmersAsync(Gtagagctgt, -1), "k=-1 must throw from the call itself (TAP usage error).");
+            Assert.That(ex!.ParamName, Is.EqualTo("k"));
+        });
+    }
+
+    /// <summary>TAP: the usage error is reported even when the token is already canceled (validation precedes scheduling).</summary>
+    [Test]
+    public void CountKmersAsync_InvalidKWithCanceledToken_ThrowsUsageErrorNotCanceledTask()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Assert.Throws<ArgumentOutOfRangeException>(() => KmerAnalyzer.CountKmersAsync(Gtagagctgt, 0, cts.Token));
+    }
+
+    /// <summary>Null/empty input is not a usage error for any k (synchronous contract): no throw, empty result.</summary>
+    [Test]
+    public async Task CountKmersAsync_EmptySequenceWithNonPositiveK_ReturnsEmptyWithoutThrowing()
+    {
+        Assert.That(await KmerAnalyzer.CountKmersAsync("", 0), Is.Empty);
+        Assert.That(await KmerAnalyzer.CountKmersAsync(null!, -1), Is.Empty);
+    }
+
+    /// <summary>
+    /// TAP: a token signaled before the call ⇒ the returned task is Canceled, its exception carries
+    /// that token, and the counting delegate never runs (no progress is reported).
+    /// </summary>
+    [Test]
+    public void CountKmersAsync_PreCanceledToken_ReturnsCanceledTaskWithToken_AndDoesNotRun()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var reports = new List<double>();
+
+        var task = KmerAnalyzer.CountKmersAsync(Gtagagctgt, 3, cts.Token, new SynchronousProgress(reports.Add));
+        var ex = Assert.CatchAsync<OperationCanceledException>(async () => await task);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(task.Status, Is.EqualTo(TaskStatus.Canceled));
+            Assert.That(ex!.CancellationToken, Is.EqualTo(cts.Token));
+            Assert.That(reports, Is.Empty, "Task.Run must not start the delegate for a pre-canceled token.");
+        });
+    }
+
+    /// <summary>
+    /// Mid-run cancellation (deterministic: canceled from the i = 0 progress report): observed at the
+    /// next checkpoint (i = 1000); task ends Canceled with the same token; no final 1.0 is reported.
+    /// </summary>
+    [Test]
+    public void CountKmersAsync_CanceledDuringRun_EndsCanceledWithSameToken_NoCompletionReport()
+    {
+        using var cts = new CancellationTokenSource();
+        var reports = new List<double>();
+        var progress = new SynchronousProgress(v => { reports.Add(v); cts.Cancel(); });
+        var seq = string.Concat(Enumerable.Repeat("ACGTACGGTA", 500)); // 5000 nt ⇒ 4997 windows (k=4)
+
+        var task = KmerAnalyzer.CountKmersAsync(seq, 4, cts.Token, progress);
+        var ex = Assert.CatchAsync<OperationCanceledException>(async () => await task);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(task.Status, Is.EqualTo(TaskStatus.Canceled));
+            Assert.That(ex!.CancellationToken, Is.EqualTo(cts.Token));
+            Assert.That(reports, Is.EqualTo(new[] { 0.0 }), "Only the i=0 checkpoint ran before cancellation was observed.");
+        });
+    }
+
+    /// <summary>
+    /// Progress granularity: one report per 1000-window checkpoint (i / (L−k+1)), strictly increasing,
+    /// then exactly one final 1.0. L = 2503, k = 4 ⇒ 2500 windows ⇒ [0, 0.4, 0.8, 1.0].
+    /// </summary>
+    [Test]
+    public async Task CountKmersAsync_Progress_CheckpointFractionsThenSingleFinalOne()
+    {
+        var seq = string.Concat(Enumerable.Repeat("ACGTA", 500)) + "ACG"; // 2503 nt
+        var reports = new List<double>();
+
+        await KmerAnalyzer.CountKmersAsync(seq, 4, CancellationToken.None, new SynchronousProgress(reports.Add));
+
+        Assert.That(reports, Is.EqualTo(new[] { 0.0, 1000.0 / 2500, 2000.0 / 2500, 1.0 }));
+    }
+
+    /// <summary>Trivial completion (empty input, k &gt; L) still reports the documented final 1.0 exactly once.</summary>
+    [Test]
+    public async Task CountKmersAsync_TrivialCompletion_ReportsFinalOneOnce()
+    {
+        var empty = new List<double>();
+        var tooLong = new List<double>();
+
+        await KmerAnalyzer.CountKmersAsync("", 3, CancellationToken.None, new SynchronousProgress(empty.Add));
+        await KmerAnalyzer.CountKmersAsync("ACG", 4, CancellationToken.None, new SynchronousProgress(tooLong.Add));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(empty, Is.EqualTo(new[] { 1.0 }));
+            Assert.That(tooLong, Is.EqualTo(new[] { 1.0 }));
+        });
     }
 
     #endregion

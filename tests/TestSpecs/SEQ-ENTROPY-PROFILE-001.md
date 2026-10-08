@@ -84,6 +84,11 @@
 | S3 | null / empty input | `CalculateEntropyProfile(null/"" ,4,1)` | empty | guarded input |
 | S4 | Max-entropy invariant | every profile value ≤ 2.0 for DNA | holds | INV-2 |
 | S5 | Non-negativity invariant | every profile value ≥ 0 | holds | INV-1 |
+| S6 | window/step < 1 (B03 F18) | W ∈ {0, −5}, step ∈ {0, −1} | `ArgumentOutOfRangeException` at call time | step 0 previously hung |
+| S7 | scipy parity, N counted (B03) | `ACGTNNacgu` w=5 s=1 | [2.3219280948873626, 1.9219280948873625 ×4, 2.3219280948873626] | `scipy.stats.entropy(base=2)` executed |
+| S8 | Protein (B03) | `MKWVTFISLLLLFSSAYSRGVFRR` w=8 s=4 | [3, 2, 1.75, 2.4056390622295667 ×2] | scipy = scikit-bio `shannon(base=2)` |
+| S9 | Polluted 60-mer (B03) | w=10 s=7 | 8 values locked | scipy executed |
+| S10 | Canonical kernel (B03 D7) | 2000 random inputs | == `ShannonIndex/ln2`; within 1e-12 of former log₂ kernel | behaviour preservation |
 
 ### 4.3 COULD Tests (Nice to have)
 

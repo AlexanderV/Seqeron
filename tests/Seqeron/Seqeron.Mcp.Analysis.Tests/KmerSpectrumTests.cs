@@ -52,4 +52,30 @@ public class KmerSpectrumTests
             Assert.That(homo, Has.Count.EqualTo(1));
         });
     }
+
+    [Test]
+    public void KmerSpectrum_HistoOptions_MatchJellyfishHisto()
+    {
+        const string ba1b = "ACGTTGCATGTCGCATGATGCATGAGAGCT";
+        // No histo option: histogram stays null (backward-compatible result).
+        Assert.That(AnalysisTools.KmerSpectrum(ba1b, 4).Histogram, Is.Null);
+
+        // Jellyfish 2.3.1: count -C -m 4 + histo -> 1 16 2 2 3 1 4 1; histo -f -l 2 -h 6 -> 1 16 2 2 3 1 4 1 5 0 6 0 7 0.
+        var canonical = AnalysisTools.KmerSpectrum(ba1b, 4, canonical: true);
+        Assert.That(canonical.Spectrum, Is.EquivalentTo(new Dictionary<int, int> { [1] = 16, [2] = 2, [3] = 1, [4] = 1 }));
+        var full = AnalysisTools.KmerSpectrum(ba1b, 4, canonical: true, low: 2, high: 6, full: true).Histogram!;
+        Assert.That(string.Join(" ", full.Select(r => $"{r.Bin} {r.Frequency}")), Is.EqualTo("1 16 2 2 3 1 4 1 5 0 6 0 7 0"));
+
+        // Homopolymer-rich input, plain count + histo -h 5 -> 1 6 3 2 4 2 6 1 (count 29 pooled in cap bin 6).
+        var capped = AnalysisTools.KmerSpectrum("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACGTACGTACGTACGTTTGCA", 3, acgtOnly: true, high: 5).Histogram!;
+        Assert.That(string.Join(" ", capped.Select(r => $"{r.Bin} {r.Frequency}")), Is.EqualTo("1 6 3 2 4 2 6 1"));
+    }
+
+    [Test]
+    public void KmerSpectrum_InvalidHistoOptions_ThrowArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => AnalysisTools.KmerSpectrum("ACGTACGT", 2, low: 5, high: 4));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.KmerSpectrum("ACGTACGT", 2, increment: 0));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.KmerSpectrum("ACGTACGT", 2, low: -1));
+    }
 }

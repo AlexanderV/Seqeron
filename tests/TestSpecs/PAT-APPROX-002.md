@@ -9,7 +9,7 @@
 | **Area** | Pattern Matching |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-03-01 |
+| **Last Updated** | 2026-09-30 |
 
 ---
 
@@ -18,8 +18,18 @@
 | Method | Class | Type | Complexity |
 |--------|-------|------|------------|
 | `EditDistance(string s1, string s2)` | ApproximateMatcher | Canonical | O(m × n) |
-| `FindWithEdits(string sequence, string pattern, int maxEdits)` | ApproximateMatcher | Canonical | O(n × m²) |
+| `FindWithEdits(string sequence, string pattern, int maxEdits)` | ApproximateMatcher | Canonical | O(n × m × (m+k)) |
+| `FindEditEndPositions(string sequence, string pattern, int maxEdits)` | ApproximateMatcher | Canonical (Sellers 1980) | O(n × m) |
 | `FindWithEdits(DnaSequence sequence, string pattern, int maxEdits)` | ApproximateMatcher | Wrapper | Delegates to string version |
+| `GetEditAlignment(string query, string target)` | ApproximateMatcher | Canonical (traceback, edlib CIGAR) | O(m × n) |
+| `GetEditAlignmentLinearSpace(string query, string target)` | ApproximateMatcher | Canonical (Hirschberg 1975, linear space) | O(m × n) time, O(m + n) space |
+| `OptimalStringAlignmentDistance(string s1, string s2)` | ApproximateMatcher | Canonical (restricted Damerau) | O(m × n) |
+| `DamerauLevenshteinDistance(string s1, string s2)` | ApproximateMatcher | Canonical (Lowrance–Wagner 1975; Zhao & Sahni 2020 linear-space engine) | O(m × n) time, O(n + σ) space |
+| `EditDistance(string s1, string s2, int insertionCost, int deletionCost, int substitutionCost)` / `EditDistance(s1, s2, EditCosts)` | ApproximateMatcher | Canonical (weighted Wagner–Fischer, rapidfuzz weights) | O(m × n) |
+| `GetEditAlignment(query, target, EditCosts)` / `GetEditAlignmentLinearSpace(query, target, EditCosts)` | ApproximateMatcher | Canonical (weighted traceback / Hirschberg) | O(m × n) |
+| `FindEditEndPositions(sequence, pattern, int maxCost, EditCosts)` | ApproximateMatcher | Canonical (weighted Sellers) | O(n × m) |
+
+`EditDistance` and `FindEditEndPositions` run on the Myers (1999) bit-parallel engine (Hyyrö 2003 global form, ⌈m/64⌉ words, edlib `calculateBlock`); the Wagner–Fischer references `EditDistanceDp` / `FindEditEndPositionsDp` (internal) are the test oracles.
 
 ---
 
@@ -29,7 +39,28 @@
 1. **Wikipedia - Levenshtein Distance**: Definition, mathematical formula, canonical examples
 2. **Wikipedia - Edit Distance**: Properties, metric axioms, algorithm types
 3. **Rosetta Code - Levenshtein Distance**: Test vectors, cross-language validation
-4. **Navarro (2001)**: "A Guided Tour to Approximate String Matching" - theoretical foundation
+4. **Navarro (2001)**: "A Guided Tour to Approximate String Matching" - theoretical foundation; §5.1 Sellers DP and `survey`/`surgery` example
+5. **edlib 1.3 (infix/HW mode)**, rapidfuzz 3.14 Levenshtein: reference implementations used for the review-2026-09 cross-check
+6. **Myers (1999) J. ACM 46(3):395; Hyyrö (2003); edlib source** (`edlib.cpp`: `calculateBlock`, `obtainAlignmentTraceback`, `edlibAlignmentToCigar`; `edlib.h`: EDLIB_EDOP_*, EDLIB_CIGAR_*) — bit-parallel engine and CIGAR convention (B05 follow-up, 2026-09-30)
+7. **Lowrance & Wagner (1975) J. ACM 22(2):177; Damerau (1964); Boytsov (2011)**; rapidfuzz `OSA` / `DamerauLevenshtein`, jellyfish — Damerau variants
+
+### B05 follow-up reference cross-check (2026-09-30)
+
+| Check | Cases | Result |
+|-------|-------|--------|
+| `EditDistance` (Myers) vs rapidfuzz Levenshtein | 3160 random pairs, lengths 0–300, alphabets {AC, ACGT, ACGTN, a–z, ACαβ} | 3160/3160 equal |
+| `GetEditAlignment` vs edlib NW `task='path'` | 2000 random pairs (≤25, {AC}/{ACGT}) | distance + CIGAR replay 2000/2000; CIGAR identical 116; identical on all 115 pairs with a unique optimal path |
+| edlib tie-break reproduction (Python traceback I → D → diagonal) | 2000 pairs | 2000/2000 identical to edlib ⇒ differences are co-optimal ties only |
+| `FindEditEndPositions` (Myers) vs Python Sellers DP; edlib HW best distance + end locations | 600 (text ≤300, pattern ≤150) | 600/600 |
+| `FindWithEdits` windows, CIGAR replay, MismatchPositions, MismatchType | 500 cases, 13019 hits | 0 errors; 7461 CIGARs identical to edlib NW |
+| `GetEditAlignmentLinearSpace` (Hirschberg) vs edlib NW `editDistance`, `GetEditAlignment`, `EditDistance` | 3501 pairs (3000 random ≤120 incl. non-ASCII + mutated copies, 500 exhaustive-small, one 3000×3300) | distance 3501/3501 equal; CIGAR replay 3501/3501; path identical to `GetEditAlignment` 1757/3501 (co-optimal ties ⇒ separate method) |
+| OSA / DL vs rapidfuzz, DL vs jellyfish | 4507 pairs | 0 differences (CA/ABC: OSA 3, DL 2; pyxDamerauLevenshtein gives 3 = OSA) |
+| DL (Zhao & Sahni engine) vs rapidfuzz 3.14.6 `DamerauLevenshtein`, jellyfish (2026-10-01) | 7620 pairs (≤120 random/mutated incl. non-ASCII, 3600 small {A,B,C}, 20 up to 2500) | 7620/7620 rapidfuzz, 7600/7600 jellyfish; = Lowrance–Wagner full matrix on all 364² strings ≤ 5 over {A,B,C} |
+| Weighted `EditDistance` vs rapidfuzz `Levenshtein.distance(weights=…)` | 4010 pairs, weights 0–6 / uniform / ≤1000 | 4010/4010 |
+| Weighted `GetEditAlignment` / `GetEditAlignmentLinearSpace` | 3000 pairs | distance = rapidfuzz and weighted replay = distance 3000/3000 (both) |
+| Weighted Sellers vs Python brute force min_i rapidfuzz distance | 800 cases, 8330 hits | 800/800 |
+
+**Tie-break (documented, deterministic):** traceback from (m, n) takes the diagonal when optimal, then `I`, then `D` (edlib: `I`, `D`, diagonal). Diagonal-first makes a substitution-only optimum (equal-length window with ed = Hamming) come back as the Hamming path, so `MismatchPositions` of `Substitution` hits equal the Hamming mismatch indices.
 
 ### Canonical Test Vectors (from Sources)
 
@@ -93,6 +124,22 @@
 | ID | Test Name | Rationale | Source |
 |----|-----------|-----------|--------|
 | C01 | FindWithEdits_DnaSequenceOverload_DelegatesToStringVersion | Wrapper verification | Implementation |
+| C02 | FindEditEndPositions_NavarroSurveySurgery_ReturnsSellersEnds | Sellers worked example (ends 4,5,6 at d=2) | Navarro 2001 §5.1; edlib |
+| C03 | FindEditEndPositions_TtacInGattaca_MatchesEdlib | Sellers end positions | edlib HW |
+| C04 | FindEditEndPositions_AcgaK2_MatchesEdlib | Sellers end positions, case-insensitive text | edlib HW |
+| C05 | FindEditEndPositions_Guards | Negative k / empty input | Contract |
+| C06 | FindWithEdits_NavarroSurveySurgery_ReturnsAllWindows | Window enumeration | Navarro 2001 §5.1; rapidfuzz |
+| C07 | FindWithEdits_EndPositionSet_EqualsSellers | Window ends ≡ Sellers ends (300 seeded cases) | Sellers 1980 |
+| C08 | GetEditAlignment_UniqueOptimalPath_EqualsEdlibCigar (4 cases) | CIGAR = edlib on unique optimal paths | edlib NW |
+| C09 | GetEditAlignment_CoOptimalPaths_UsesDiagonalFirstTieBreak (3 cases) | Documented tie-break; edlib path same cost | edlib NW |
+| C10 | GetEditAlignment_AlignedStringsAndSubstitutions / _EmptyInputs | Gapped strings, guards | edlib convention |
+| C11 | FindWithEdits_SurveySurgery_AlignmentsEqualEdlib / _TtacInGattaca_Cigars | Per-hit CIGAR + MismatchPositions | edlib NW per window |
+| C12 | FindWithEdits_HugeMaxEdits_DoesNotOverflow | maxEdits = int.MaxValue reports every window | k-differences definition |
+| C13 | EditDistance_MultiBlock_EqualsRapidfuzz, _Myers_EqualsDp_Exhaustive, _NonAsciiSymbols_EqualDp, FindEditEndPositions_Myers_EqualsDp | Myers engine == DP / rapidfuzz, m > 64 | Myers 1999; rapidfuzz |
+| C14 | DamerauVariants_EqualRapidfuzz (11 cases), DamerauVariants_NullInput_Throws | OSA / DL reference values | rapidfuzz, jellyfish |
+| P01 | Properties/EditAlignmentProperties P1–P5 | Myers == DP; CIGAR replay cost = distance; hit alignments; DL ≤ OSA ≤ Lev; DL triangle | Myers 1999; Lowrance–Wagner 1975 |
+| P02 | Metamorphic/PatternApproxB05MetamorphicTests.EditDistance_ReversingBothStrings_PreservesDistance | Reversal invariance | Definition |
+| P03 | Fuzzing/PatternApproxEditFuzzTests | Word-boundary lengths 63–129, non-ASCII, int.MaxValue | Myers 1999 |
 
 ---
 
@@ -124,6 +171,14 @@
 | S09 | FindWithEdits_WithDeletion_Found | ✅ Covered |
 | S10 | EditDistance_SleepFleeting_ReturnsFive | ✅ Covered |
 | C01 | FindWithEdits_DnaSequenceOverload_DelegatesToStringVersion | ✅ Covered |
+| C02 | FindEditEndPositions_NavarroSurveySurgery_ReturnsSellersEnds | ✅ Covered |
+| C03 | FindEditEndPositions_TtacInGattaca_MatchesEdlib | ✅ Covered |
+| C04 | FindEditEndPositions_AcgaK2_MatchesEdlib | ✅ Covered |
+| C05 | FindEditEndPositions_Guards | ✅ Covered |
+| C06 | FindWithEdits_NavarroSurveySurgery_ReturnsAllWindows | ✅ Covered |
+| C07 | FindWithEdits_EndPositionSet_EqualsSellers | ✅ Covered |
+| C08–C14 | ApproximateMatcher_EditAlignment_Tests | ✅ Covered |
+| P01–P03 | Property / Metamorphic / Fuzzing (B05 follow-up) | ✅ Covered |
 
 ---
 
@@ -135,3 +190,25 @@
 - [x] Tests are deterministic
 - [x] Tests follow NUnit conventions
 - [x] Naming follows `Method_Scenario_ExpectedResult` pattern
+
+### Linear-space alignment tests (B05 follow-up, 2026-09-30)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| LS-M1 | 14 literal pairs: distance = edlib NW, CIGAR replays with that cost, distance = `GetEditAlignment` (`ApproximateMatcher_EditAlignmentLinearSpace_Tests`) | edlib 1.3 |
+| LS-M2 | co-optimal path may differ from `GetEditAlignment` (locked example, distance 5) | documented decision |
+| LS-S1 | aligned strings / SubstitutionPositions / HasIndels / STANDARD CIGAR; null guards; 3000×3300 input | contract |
+| LS-P6 | `Properties/EditAlignmentProperties.P6`: 1500 random pairs, distance = full traceback = Myers, replay valid | Hirschberg 1975 optimality |
+| LS-MR | `Metamorphic/PatternApproxB05MetamorphicTests`: swap (I↔D script valid for swapped pair), reversal preserve distance | symmetry of ed |
+| LS-F | `Fuzzing/PatternApproxEditFuzzTests`: extreme shapes (0×n, 1×700, 900×2, 1000×1000), non-ASCII/lone surrogates | robustness |
+
+### Weighted Damerau distances + transposition-aware traceback (B05 audit round 2 group G3, 2026-10-01)
+
+| ID | Test | Evidence |
+|----|------|----------|
+| WD-M1 | 40 locked pairs × (ins, del, sub, trans): weighted OSA (both overloads) = R stringdist 0.9.12 `osa`; weighted DL (both overloads) = exhaustive Dijkstra minimum; both alignments replay s1 → s2 with summed cost = distance (`ApproximateMatcher_WeightedDamerau_Tests`) | stringdist / Dijkstra |
+| WD-M2 | 600 random weighted pairs ({A,B,C} ≤ 4, costs 0–6, 2·T ≥ I + D): DL distance and alignment = in-test Dijkstra over all edit sequences; OSA alignment = OSA distance; replays valid | Lowrance & Wagner 1975 exactness |
+| WD-M3 | exhaustive {A,B,C} ≤ 4 (14641 pairs): `DamerauCosts.Unit` = unit engines, uniform (3,3,3,3) = 3 × unit, unit alignments' distance = unit engines, replays valid | bit-identical unit path |
+| WD-M4 | CA → ABC: DL script `Td` (one block, cost 2), OSA 3; ab → ba `T`; AXB → BA `Ti` | Lowrance–Wagner trace |
+| WD-S1 | 2·T < I + D rejected for unrestricted (ABC → BCA, (2,2,4,1)), OSA still 4; negative costs, nulls, overflow | contract |
+| WD-MCP | `damerau_levenshtein_distance` weighted params, `damerau_alignment` delegation + doc examples (`Seqeron.Mcp.Alignment.Tests/DamerauLevenshteinDistanceTests.cs`) | delegation |

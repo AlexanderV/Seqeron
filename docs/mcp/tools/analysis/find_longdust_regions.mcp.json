@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_longdust_regions",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.FindLongdustRegions",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1336",
+  "description": "Finds low-complexity regions with **longdust** (Li & Li 2025; port of lh3/longdust 1.4-r97 ld_dust1/ld_dust2, MIT) — the k-mer generalisation of SDUST for long windows (STRs, VNTRs, satellites). At each position a backward then forward scan over the last windowSize k-mers finds a good interval with S_L(x) − T·ℓ(x) > 0 (see longdust_score), with X-drop and the reference's speed-ups; overlapping hits are merged; by default the union over both strands is returned (forwardOnly = -f). Output = longdust BED intervals, 0-based half-open. Non-ACGT symbols make the overlapping k-mers ambiguous. Defaults = longdust -k7 -w5000 -t0.6 -e50 -b3.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence (A/C/G/T plus IUPAC codes such as N; case-insensitive)",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "k-mer length (-k)",
+        "minimum": 1,
+        "maximum": 14,
+        "default": 7
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "Window size in k-mers (-w)",
+        "minimum": 1,
+        "maximum": 65534,
+        "default": 5000
+      },
+      "threshold": {
+        "type": "number",
+        "description": "Score threshold T per k-mer (-t)",
+        "exclusiveMinimum": 0,
+        "default": 0.6
+      },
+      "xdropLength": {
+        "type": "integer",
+        "description": "X-drop length (-e; 0 disables X-drop)",
+        "minimum": 0,
+        "default": 50
+      },
+      "minStartCount": {
+        "type": "integer",
+        "description": "Minimum count of the current k-mer before a search starts (-b)",
+        "minimum": 2,
+        "default": 3
+      },
+      "forwardOnly": {
+        "type": "boolean",
+        "description": "Forward strand only (-f)",
+        "default": false
+      },
+      "approximate": {
+        "type": "boolean",
+        "description": "Guaranteed O(Lw) one-pass mode (-a)",
+        "default": false
+      },
+      "gcContent": {
+        "type": "number",
+        "description": "Genome GC fraction in (0, 1) for GC correction (-g); omit = off",
+        "exclusiveMinimum": 0,
+        "exclusiveMaximum": 1
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer"
+            },
+            "end": {
+              "type": "integer"
+            },
+            "length": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "start",
+            "end",
+            "length"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+    },
+    {
+      "code": 1003,
+      "message": "k 1-14; windowSize 1-65534; threshold finite > 0; xdropLength >= 0; minStartCount >= 2; gcContent in (0, 1)"
+    }
+  ],
+  "examples": [
+    {
+      "name": "VNTR, longdust defaults",
+      "input": {
+        "sequence": "ATCAGTCATTAAACTATAAACCACTTGAACCACAACGATGTCGTTTATAGCGCGCGGGGACGGCAGCTGCGATACCCCCTCGAATCCCCGGCGGCTCTCACCTGCAGGGTGGACGTTTGGGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAACCGAGCCTCAACGGAAAGGCGGCATTGGGCGTAGATCATTGTAAGAATTGAGAGGACTGAGGGATAGGGAAAGGTACGGGCCCCGATTTCCCATGCAGGCATCTCCAAGTGTAAGCACG"
+      },
+      "output": {
+        "items": [
+          {
+            "start": 120,
+            "end": 288,
+            "length": 168
+          }
+        ]
+      }
+    },
+    {
+      "name": "longdust -k5 -w100",
+      "input": {
+        "sequence": "ATCAGTCATTAAACTATAAACCACTTGAACCACAACGATGTCGTTTATAGCGCGCGGGGACGGCAGCTGCGATACCCCCTCGAATCCCCGGCGGCTCTCACCTGCAGGGTGGACGTTTGGGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAGGTACCATTGCAACCGAGCCTCAACGGAAAGGCGGCATTGGGCGTAGATCATTGTAAGAATTGAGAGGACTGAGGGATAGGGAAAGGTACGGGCCCCGATTTCCCATGCAGGCATCTCCAAGTGTAAGCACG",
+        "k": 5,
+        "windowSize": 100
+      },
+      "output": {
+        "items": [
+          {
+            "start": 117,
+            "end": 291,
+            "length": 174
+          }
+        ]
+      }
+    },
+    {
+      "name": "Only N",
+      "input": {
+        "sequence": "NNNNNNNNNN"
+      },
+      "output": {
+        "items": []
+      }
+    }
+  ]
+}

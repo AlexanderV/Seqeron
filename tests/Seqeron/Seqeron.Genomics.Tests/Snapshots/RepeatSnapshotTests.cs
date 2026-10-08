@@ -26,6 +26,8 @@ public class RepeatSnapshotTests
     [Test]
     public Task FindDirectRepeats_KnownSequence_MatchesSnapshot()
     {
+        // Maximal pairs (REP-DIRECT-001, B04 F11) = MUMmer repeat-match -f -n 4 with spacing ≥ 1:
+        // (0,16,8), (0,20,4), (3,15,5), (7,12,4).
         string seq = "ACGTACGTTTTTTTTTACGTACGT";
         var repeats = RepeatFinder.FindDirectRepeats(seq, minLength: 4)
             .Select(r => new { r.FirstPosition, r.SecondPosition, r.RepeatSequence, r.Length, r.Spacing })

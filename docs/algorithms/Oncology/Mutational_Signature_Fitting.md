@@ -96,7 +96,8 @@ S·x is the reconstruction-quality measure; ≥ 0.95 indicates a successful reco
 Null inputs throw `ArgumentNullException`. Empty / ragged / count-mismatched / dimension-mismatched inputs
 throw `ArgumentException`. Vectors are indexed 0-based; channel order is the caller's responsibility (it must
 be consistent between `catalog` and each signature). A zero-norm vector in `CosineSimilarity` yields 0.0
-(division by zero is undefined; treated as no shared direction).
+(division by zero is undefined; treated as no shared direction — the SigProfilerAssignment `cos_sim`
+convention [6]; MutationalPatterns `cos_sim` would return NaN).
 
 ## 4. Algorithm
 
@@ -109,13 +110,18 @@ be consistent between `catalog` and each signature). A zero-norm vector in `Cosi
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-Lawson-Hanson active set [3]: maintain passive set P (free variables) and active set R (clamped to 0).
-Initialise x = 0; while R ≠ ∅ and max over R of the gradient w = Sᵀ(d − Sx) exceeds ε, move the max-gradient
-index into P, solve the unconstrained LS on P via the normal equations
-`s_P = ((S_P)ᵀ S_P)⁻¹ (S_P)ᵀ d`; while any passive component ≤ 0, take the bounded step
-`α = min x_i/(x_i − s_i)` (over i∈P with s_i ≤ 0), update x = x + α(s − x), move ≤ 0 indices back to R, and
-re-solve; then set x = s. ε = 1e-12; the normal equations are solved by Gaussian elimination with partial
-pivoting.
+Lawson-Hanson Algorithm NNLS [3][5] — a faithful port of the reference Fortran subroutines `NNLS`, `H12`
+(Householder) and `G1`/`G2` (Givens) that `scipy.optimize.nnls` also implements. Maintain passive set P (free
+variables) and zero set Z. Initialise x = 0; while Z ≠ ∅ and |P| < m: compute the dual vector w = Sᵀ(d − Sx)
+over Z; pick the largest **positive** w_j (sign test, no absolute tolerance — stop when max w ≤ 0, the
+Kuhn-Tucker conditions); apply the Householder transformation that triangularises column j and admit j only if
+it is numerically independent of P (`(‖a_P,j‖ + 0.01·|pivot|) − ‖a_P,j‖ > 0`) **and** its proposed value
+ztest > 0, otherwise set w_j = 0 and try the next candidate. The passive-set LS solution comes from the updated
+QR factor (back-substitution), never from the normal equations. While any passive component ≤ 0, take the
+bounded step `α = min −x_i/(z_i − x_i)` (i∈P, z_i ≤ 0), set x = x + α(z − x), move the zeroed indices back to Z
+with Givens rotations that restore triangularity, and re-solve. The secondary-loop iteration limit is the
+reference default 3·k; exceeding it throws `InvalidOperationException` (reference MODE = 3; scipy raises
+`RuntimeError`).
 
 ### 4.3 Complexity
 
@@ -123,22 +129,28 @@ pivoting.
 |-----------|------|-------|-------|
 | CosineSimilarity | O(n) | O(1) | n = vector length |
 | ReconstructCatalog | O(k·n) | O(n) | k signatures, n channels |
-| FitSignatures (NNLS) | O(k³ + k²·n) per outer iteration; ≤ O(k) outer iterations | O(k² + n) | k = #signatures, n = #channels; small k in practice |
+| FitSignatures (NNLS) | O(k·n) per Householder/Givens update; ≤ min(n, k) passive columns, ≤ 3k secondary iterations | O(k·n) | k = #signatures, n = #channels |
 
 ## 5. Implementation Notes
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.Signatures.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.Signatures.cs)
 
 - `OncologyAnalyzer.CosineSimilarity(a, b)`: cosine similarity of two vectors.
 - `OncologyAnalyzer.FitSignatures(catalog, signatures)`: NNLS refit → `SignatureFitResult`.
 - `OncologyAnalyzer.ReconstructCatalog(signatures, exposures)`: S·x.
+- `OncologyAnalyzer.SolveNonNegativeLeastSquares(double[,] A, double[] b, int maxIterations = 0)` (internal):
+  the assembly's canonical Lawson-Hanson NNLS solver used by `FitSignatures` (and by `BootstrapExposures`).
 
 ### 5.2 Current Behavior
 
-The NNLS solver uses dense normal equations (small k); a singular passive-set matrix (collinear signatures)
-leaves the affected component at 0 rather than throwing. Reference signatures are supplied per call; nothing
+The NNLS solver uses Householder QR updates (Lawson-Hanson); a candidate signature that is numerically
+linearly dependent on the passive set (e.g. a duplicate column) is rejected and keeps exposure 0. NaN / ±∞ in
+the catalog or signatures throw `ArgumentException` (the reference rejects non-finite input:
+`np.asarray_chkfinite`). The solution is positively homogeneous: scaling d by c > 0 scales x by c (no absolute
+tolerance), verified from 1e-12 to 1e12. Cross-checked against `scipy.optimize.nnls` on 500 randomised refits
+to COSMIC v3.4 SBS subsets (max relative exposure difference 8.0e-15) and on the full 86-signature set. Reference signatures are supplied per call; nothing
 is cached or hardcoded. No substring/pattern search is involved, so the repository suffix tree is **not
 applicable** to this unit.
 
@@ -173,12 +185,15 @@ applicable** to this unit.
 | Identical vectors | cosine = 1 | INV-02 [1] |
 | Orthogonal vectors | cosine = 0 | dot product 0 [1] |
 | Unconstrained LS coefficient < 0 | clamped to 0, refit on remaining set | active-set constraint [3] |
+| Duplicate / collinear signature | first copy fitted, dependent copy exposure 0 | LH independence test [5] |
+| Very small / very large catalog magnitude | exposures scale linearly (no absolute cut-off) | sign test w_j > 0 [5] |
+| NaN / ±∞ input | `ArgumentException` | scipy `asarray_chkfinite` [5] |
 | null / empty / dimension mismatch | `ArgumentNullException` / `ArgumentException` | input validation |
 
 ### 6.2 Limitations
 
 Reference signatures must be supplied by the caller (not bundled). The NNLS solver targets small signature
-counts (dense normal equations); it is not tuned for thousands of signatures. Collinear signatures make the
+counts (dense k×n working copy); it is not tuned for thousands of signatures. Collinear signatures make the
 decomposition non-unique; the solver returns one minimiser. No statistical uncertainty (confidence intervals)
 is produced here.
 
@@ -211,3 +226,5 @@ var fit = OncologyAnalyzer.FitSignatures(catalog, signatures);
 2. Rosenthal R, McGranahan N, Herrero J, Taylor BS, Swanton C. 2016. deconstructSigs. Genome Biology 17:31. https://pmc.ncbi.nlm.nih.gov/articles/PMC4762164/
 3. Lawson CL, Hanson RJ. 1974. Solving Least Squares Problems, Ch. 23 (active-set NNLS). Prentice-Hall. https://en.wikipedia.org/wiki/Non-negative_least_squares
 4. Pan W, Wang X. 2020. iMutSig: a web application to identify the most similar mutational signature. https://pmc.ncbi.nlm.nih.gov/articles/PMC7702159/
+5. Lawson CL, Hanson RJ. NNLS / H12 / G1 Fortran (1973, rev. 1995 SIAM reprint), as distributed with SciPy: https://raw.githubusercontent.com/scipy/scipy/v1.5.0/scipy/optimize/__nnls/nnls.f ; C translation https://raw.githubusercontent.com/scipy/scipy/v1.17.1/scipy/optimize/__nnls.c ; wrapper `scipy/optimize/_nnls.py` (SciPy 1.17.1).
+6. MutationalPatterns `fit_to_signatures.R` (pracma::lsqnonneg per sample) and `cos_sim.R`: https://raw.githubusercontent.com/UMCUGenetics/MutationalPatterns/master/R/ ; SigProfilerAssignment `decompose_subroutines.py` `cos_sim` (returns 0.0 for a zero-sum vector); COSMIC v3.4 SBS GRCh37 reference file from SigProfilerAssignment.

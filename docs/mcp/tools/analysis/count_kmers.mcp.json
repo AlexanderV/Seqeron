@@ -5,13 +5,15 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.CountKmers",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L20",
-  "description": "Counts every overlapping k-mer occurrence in a sequence. Returns k-mer -> count; counts sum to L - k + 1.",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L84",
+  "description": "Counts every overlapping k-mer occurrence in a sequence. Returns k-mer -> count; counts sum to L - k + 1. Optional Jellyfish modes: acgtOnly (skip windows with a non-ACGT symbol) and canonical (jellyfish count -C, key = min(k-mer, reverse complement); implies acgtOnly).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
-      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "canonical": { "type": "boolean", "description": "Canonical counting (jellyfish count -C); implies acgtOnly", "default": false },
+      "acgtOnly": { "type": "boolean", "description": "Skip windows containing a symbol other than A/C/G/T (case-insensitive)", "default": false }
     },
     "required": ["sequence", "k"]
   },
@@ -40,6 +42,16 @@
       "name": "Mixed 3-mers",
       "input": { "sequence": "ATGATG", "k": 3 },
       "output": { "counts": { "ATG": 2, "TGA": 1, "GAT": 1 } }
+    },
+    {
+      "name": "Canonical 3-mers (jellyfish -C)",
+      "input": { "sequence": "ATGATG", "k": 3, "canonical": true },
+      "output": { "counts": { "ATG": 2, "ATC": 1, "TCA": 1 } }
+    },
+    {
+      "name": "ACGT-only (N resets the window)",
+      "input": { "sequence": "ACGTNACGT", "k": 4, "acgtOnly": true },
+      "output": { "counts": { "ACGT": 2 } }
     }
   ]
 }

@@ -5,7 +5,7 @@
 | Algorithm Group | Alignment |
 | Test Unit ID | ALIGN-LOCAL-001 |
 | Related Projects | Seqeron.Genomics |
-| Implementation Status | Simplified |
+| Implementation Status | Complete |
 | Last Reviewed | 2026-04-30 |
 
 ## 1. Overview
@@ -34,7 +34,7 @@ $$
 H_{i,j} = \max\left(0,\; H_{i-1,j-1} + s(a_i,b_j),\; H_{i-1,j} - W_1,\; H_{i,j-1} - W_1\right)
 $$
 
-This simplified linear-gap form is the variant implemented in the repository. (Smith-Waterman algorithm)
+This linear-gap form is implemented by `LocalAlign`. The affine form $W_k = o + k\,e$ (Gotoh 1982) is implemented by `LocalAlignAffine` with three states: $M_{i,j} = \max(0, M_{i-1,j-1}, X_{i-1,j-1}, Y_{i-1,j-1}) + s(a_i,b_j)$, $X_{i,j} = \max(M_{i-1,j}+o+e,\; X_{i-1,j}+e,\; Y_{i-1,j}+o+e)$, $Y_{i,j}$ symmetric, all borders $-\infty$, score $= \max M_{i,j}$ (o = `GapOpen`, e = `GapExtend`; Biopython `open_gap_score = o+e`, parasail `open = -(o+e)`). (Smith-Waterman algorithm; Gotoh 1982)
 
 ### 2.4 Properties and Invariants
 
@@ -93,7 +93,7 @@ This simplified linear-gap form is the variant implemented in the repository. (S
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The repository implementation uses `scoring.GapExtend` as a linear gap penalty inside the recurrence. During traceback, ties are resolved deterministically by preferring diagonal moves, then up moves, then left moves. The implementation records the matrix coordinates of the maximal cell and converts them to 0-based inclusive source positions when building `AlignmentResult`.
+The repository implementation uses `scoring.GapExtend` as a linear gap penalty inside the recurrence. The end cell is the first maximal cell in row-major order (smallest end in input 1, then input 2; parasail's `sw` instead prefers the smallest end in input 2). During traceback, ties are resolved deterministically by preferring diagonal moves, then up moves, then left moves, and the traceback stops at the first zero cell, so the reported alignment is always one of the co-optimal alignments Biopython's local `PairwiseAligner` enumerates (verified on 3192 random/edge cases, 2026-09 review). The implementation records the matrix coordinates of the maximal cell and converts them to 0-based inclusive source positions when building `AlignmentResult`.
 
 ### 4.3 Complexity
 
@@ -111,6 +111,7 @@ The repository implementation uses `scoring.GapExtend` as a linear gap penalty i
 - `SequenceAligner.LocalAlign(string, string, ScoringMatrix?)`: raw-string overload with null and empty short-circuit behavior.
 - `SequenceAligner.LocalAlignCore(string, string, ScoringMatrix)`: fills the Smith-Waterman score matrix and tracks the maximum-scoring cell.
 - `SequenceAligner.TracebackLocal(...)`: reconstructs the local alignment and source positions.
+- `SequenceAligner.LocalAlignAffine(DnaSequence|string, DnaSequence|string, ScoringMatrix?)`: Smith-Waterman-Gotoh affine-gap local alignment; shares the three-state core `AffineAlignCore` with `GlobalAlignAffine`.
 
 **Supporting types:** [AlignmentTypes.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/AlignmentTypes.cs), [DnaSequence.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs)
 
@@ -126,13 +127,13 @@ The repository implements the linear-gap form of Smith-Waterman with `Math.Max(0
 - Smith-Waterman zero floor for every matrix cell.
 - Traceback from the matrix maximum until a zero-valued cell is reached.
 
-**Intentionally simplified:**
+**Model split:**
 
-- The repository uses `GapExtend` as a linear gap penalty and does not evaluate the general $W_k$ gap-cost form; **consequence:** separate gap-open and gap-extension behavior is not modeled in `LocalAlign`.
+- `LocalAlign` uses `GapExtend` as a linear gap penalty (`GapOpen` ignored); affine gap costs (`GapOpen + k·GapExtend`) are provided by `LocalAlignAffine` (Smith-Waterman-Gotoh), cross-checked against Biopython 1.88 and parasail 1.3.4.
 
 **Not implemented:**
 
-- Affine-gap or arbitrary-gap-cost Smith-Waterman variants; **users should rely on:** no current alternative in the pairwise local-alignment API.
+- Arbitrary (non-affine) $W_k$ gap-cost functions.
 
 ## 6. Edge Cases and Limitations
 
@@ -149,7 +150,7 @@ The repository implements the linear-gap form of Smith-Waterman with `Math.Max(0
 
 ### 6.2 Limitations
 
-The implementation returns one optimal local alignment, not the full set of equally optimal tracebacks. The algorithm keeps the full `O(mn)` score matrix and does not implement the linear-space refinements mentioned in the literature. The public string overload does not validate the alphabet beyond uppercasing its input. The pairwise local-alignment API does not expose affine-gap scoring.
+The implementation returns one optimal local alignment, not the full set of equally optimal tracebacks. The algorithm keeps the full `O(mn)` score matrix and does not implement the linear-space refinements mentioned in the literature. The public string overload does not validate the alphabet beyond uppercasing its input. Affine-gap scoring is available through `LocalAlignAffine`; like the linear version it expects non-positive gap scores.
 
 ## 7. Examples and Related Material
 
@@ -169,3 +170,5 @@ with score `13`, matching the expected Smith-Waterman example used in the test s
 1. [Smith-Waterman algorithm](https://en.wikipedia.org/wiki/Smith%E2%80%93Waterman_algorithm)
 2. [Sequence alignment](https://en.wikipedia.org/wiki/Sequence_alignment)
 3. Smith, T. F.; Waterman, M. S. (1981). "Identification of Common Molecular Subsequences." Journal of Molecular Biology 147(1): 195-197.
+4. Gotoh, O. (1982). "An improved algorithm for matching biological sequences." Journal of Molecular Biology 162: 705-708.
+5. Reference implementations: Biopython `Bio/Align/_pairwisealigner.c` (GOTOH_LOCAL_SCORE), parasail `src/sw.c`.

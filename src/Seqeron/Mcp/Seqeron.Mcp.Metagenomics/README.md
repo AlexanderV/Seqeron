@@ -27,7 +27,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `classify_reads` | Classify metagenomic reads with the Kraken k-mer/LCA algorithm against a canonical-k-mer→taxon-id database and a taxonomy tree. |
 | `cluster_genes` | Cluster genes from multiple genomes into ortholog groups using 7-mer Jaccard similarity. |
 | `construct_pangenome` | Construct a pan-genome (core/accessory/unique partition, genome fluidity, open-vs-closed classification per Tettelin 2005) from a set of… |
-| `core_gene_clusters` | Filter gene clusters down to the core set: those present in at least floor(threshold * totalGenomes) genomes. |
+| `core_gene_clusters` | Filter gene clusters down to the core set: those with genomeCount / totalGenomes >= threshold (Roary: present in at least 99% of samples). |
 | `core_genome_alignment` | Concatenate a single genome's representative sequences for the supplied core clusters into a per-genome alignment block. |
 | `differential_abundance` | Welch's t-test for differential taxon abundance between two condition groups. |
 | `find_genome_specific_genes` | For each genome, list the cluster ids that occur only in that genome (singleton accessory clusters). |

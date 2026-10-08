@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "alphabet_pwm_score_thresholds",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "AlphabetPositionWeightMatrix.ScoreDistribution",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.AlphabetPwm.cs#L394",
+  "description": "Build a PWM over an arbitrary alphabet (protein, RNA, …) from aligned instances (as create_alphabet_pwm; positive pseudocount) and return the score thresholds of its discretised score distribution — Biopython pssm.distribution(background, precision) (Bio.motifs.thresholds.ScoreDistribution iterates the PSSM's own alphabet): background false-positive-rate, motif false-negative-rate, balanced (FNR = FPR × rateProportion) and patser thresholds. For exact p-values use alphabet_pwm_score_pvalue.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Aligned instances defining the motif"
+      },
+      "alphabet": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Alphabet in row order (e.g. ACDEFGHIKLMNPQRSTVWY)"
+      },
+      "pseudocount": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "default": 0.5,
+        "description": "Pseudocount per cell (default 0.5; every cell must be finite)"
+      },
+      "pseudocounts": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "description": "Per-symbol pseudocounts in alphabet order"
+      },
+      "background": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "description": "Background in alphabet order (uniform when omitted)"
+      },
+      "ignoreUnknownSymbols": {
+        "type": "boolean",
+        "default": false,
+        "description": "Skip symbols outside the alphabet when counting the instances"
+      },
+      "precision": {
+        "type": "integer",
+        "description": "Grid points per motif position (default 1000)",
+        "minimum": 1,
+        "default": 1000
+      },
+      "fpr": {
+        "type": "number",
+        "description": "Target false-positive rate in [0,1] (default 0.01)",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.01
+      },
+      "fnr": {
+        "type": "number",
+        "description": "Target false-negative rate in [0,1] (default 0.1)",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.1
+      },
+      "rateProportion": {
+        "type": "number",
+        "description": "Balanced threshold FNR/FPR proportion (default 1.0)",
+        "default": 1.0
+      }
+    },
+    "required": [
+      "sequences",
+      "alphabet"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "minScore": {
+        "type": "number"
+      },
+      "step": {
+        "type": "number"
+      },
+      "pointCount": {
+        "type": "integer"
+      },
+      "meanScore": {
+        "type": "number"
+      },
+      "thresholdFpr": {
+        "type": "number"
+      },
+      "thresholdFnr": {
+        "type": "number"
+      },
+      "thresholdBalanced": {
+        "type": "number"
+      },
+      "balancedFalsePositiveRate": {
+        "type": "number"
+      },
+      "thresholdPatser": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "minScore",
+      "step",
+      "pointCount",
+      "meanScore",
+      "thresholdFpr",
+      "thresholdFnr",
+      "thresholdBalanced",
+      "balancedFalsePositiveRate",
+      "thresholdPatser"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1002,
+      "message": "At least one sequence is required."
+    },
+    {
+      "code": 1003,
+      "message": "PWM cells must be finite: use a positive pseudocount."
+    },
+    {
+      "code": 1003,
+      "message": "Precision must be >= 1."
+    },
+    {
+      "code": 1004,
+      "message": "fpr must be in [0, 1]."
+    },
+    {
+      "code": 1004,
+      "message": "fnr must be in [0, 1]."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Protein motif thresholds (Biopython defaults)",
+      "input": {
+        "sequences": [
+          "MKVLAT",
+          "MRVLGT",
+          "MKILAS",
+          "LKVLAT",
+          "MKVIAT",
+          "MEVLAT"
+        ],
+        "alphabet": "ACDEFGHIKLMNPQRSTVWY"
+      },
+      "output": {
+        "minScore": -4.068431430675826,
+        "step": 0.0034117491406282377,
+        "pointCount": 6000,
+        "meanScore": 3.809139711610947,
+        "thresholdFpr": 2.843772328236984,
+        "thresholdFnr": -0.6157413003600496,
+        "thresholdBalanced": -0.6157413003600496,
+        "balancedFalsePositiveRate": 0.23819500000000032,
+        "thresholdPatser": 0.970722050032081
+      }
+    }
+  ]
+}

@@ -5,7 +5,7 @@
 **Algorithm:** Tumor Ploidy Estimation (length-weighted mean segment copy number) + Whole-Genome-Doubling detection
 **Status:** ☐ In Progress (limitation fix — pending re-validation)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-22
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -27,7 +27,7 @@
 2. Ploidy is reported on the n-scale (2n = diploid); ">2.7n" marks aneuploidy / near-triploid genomes — Van Loo et al. 2010, PNAS abstract.
 3. WGD is called when the autosome-restricted fraction of genome with **major copy number ≥ 2** is strictly greater than 0.5: `frac_elevated_mcn > treshold` (treshold = 0.5) — facets-suite `is_genome_doubled` (PMID 30013179).
 4. Major copy number `mcn = tcn - lcn` (total − minor); WGD uses the major allele CN ≥ 2, not total CN ≥ 2 — facets-suite `parse_segs`.
-5. WGD fraction denominator is the **reference autosomal genome length**: `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])`, and the numerator is restricted to autosomes (`chrom %in% 1:22`) — facets-suite `is_genome_doubled`. GRCh38 Σ(chr1–22) = 2,875,001,522 bp; GRCh37 = 2,881,033,286 bp (UCSC `*.chrom.sizes`, Ensembl-cross-verified).
+5. facets-suite WGD denominator: `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])` with `chrom_info = get_sample_genome(segs)` — per-autosome interrogated span max(end) − min(start); numerator restricted to autosomes (`chrom %in% 1:22`) — implemented exactly by `DetectWholeGenomeDoublingFromSuppliedLength`. The canonical `DetectWholeGenomeDoubling` instead divides by the reference autosomal length GRCh38 Σ(chr1–22) = 2,875,001,522 bp / GRCh37 = 2,881,033,286 bp (UCSC `*.chrom.sizes`) — a documented deviation (review 2026-09, F9).
 
 ### 1.3 Documented Corner Cases
 
@@ -52,7 +52,7 @@
 |--------|-------|------|-------|
 | `EstimatePloidy(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Canonical | ψ = Σ(CN·L)/Σ(L), CN = Major+Minor |
 | `DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>, ReferenceGenome=GRCh38)` | OncologyAnalyzer | Canonical | facets-suite rule: frac(autosomal major CN ≥ 2 length) / reference autosomal genome > 0.5 |
-| `DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Variant | legacy denominator = Σ supplied segment length; smoke verification only |
+| `DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Variant | facets-suite exact: denominator = Σ autosomal interrogated span (get_sample_genome) |
 | `GetAutosomeLengths(ReferenceGenome)` / `GetAutosomalGenomeLength(ReferenceGenome)` | OncologyAnalyzer | Canonical | embedded reference chromosome-size table + autosomal sum |
 
 ---
@@ -102,9 +102,15 @@
 | S2 | Ploidy with a CN-0 (homozygous deletion) segment | 0 (0:0)/4 (2:2) equal lengths | ψ = 2.0 | weighted mean includes zeros |
 | S3 | WGD excludes sex chromosomes | chrX/chrY amplified, no autosomal elevation | false | facets-suite `chrom %in% 1:22` |
 | S4 | WGD recognises "chr"-prefixed autosomes | chr7 over half the reference genome at major ≥ 2 | true | autosome parser accepts chr-prefix |
-| L1 | Legacy supplied-length WGD 60% → true | 60% of supplied length at major CN ≥ 2 | true | `DetectWholeGenomeDoublingFromSuppliedLength` |
-| L2 | Legacy supplied-length WGD exactly 50% → false | half supplied length elevated | false | strict `>` 0.5 |
-| L3 | Legacy WGD empty → reject | no segments | ArgumentException | supplied-length denominator undefined |
+| L1 | facets-exact WGD 60% → true | 60% of interrogated span at major CN ≥ 2 | true | `DetectWholeGenomeDoublingFromSuppliedLength` |
+| L2 | facets-exact WGD exactly 50% → false | half interrogated span elevated | false | strict `>` 0.5 |
+| L3 | facets-exact WGD empty → reject | no segments | ArgumentException | interrogated denominator 0 (R `NA`) |
+| L5 | facets-exact gap inside chromosome | (1,0,60M,2:2),(1,100M,140M,1:1) | false (0.4286) | get_sample_genome span (F9) |
+| L6 | facets-exact excludes chrX from both terms | (1,0,40M,2:2),(1,40M,100M,1:1),(X,0,100M,2:2) | false (0.4) | chrom %in% 1:22 (F9) |
+| L7 | facets-exact span starts at min start | (chr1,10M,70M,2:2),(chr1,70M,110M,1:1) | true (0.6) | size = max(end) − min(start) (F9) |
+| L8 | facets-exact only non-autosomal → reject | X / chrY only | ArgumentException | 0/0 → NA (F9) |
+| S5 | swapped allele labels | Major 1 / Minor 2 | elevated (mcn = 3 − 1 = 2) in both WGD methods | mcn = tcn − lcn (F10) |
+| S6 | Σ L beyond Int64 | two 5e18-bp segments | ψ = 2; WGD true (both) | as.numeric sums (F11) |
 | L4 | Legacy WGD null → reject | null | ArgumentNullException | guard contract |
 
 ### 4.3 COULD Tests (Nice to have)

@@ -6,7 +6,7 @@
 | Test Unit ID | DISORDER-PRED-001 |
 | Related Projects | Seqeron.Genomics |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -49,7 +49,7 @@ where $p_{\min} = -0.884$ for tryptophan and $p_{\max} = 0.987$ for proline (Cam
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequence` | `string` | required | Protein sequence to score residue by residue. | `null` or empty input returns an empty result instead of throwing ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). |
-| `windowSize` | `int` | `21` | Width of the local scoring window used for TOP-IDP averaging. | No explicit argument validation is performed in the public method. |
+| `windowSize` | `int` | `21` | Width of the local scoring window used for TOP-IDP averaging (centered, ⌊w/2⌋ residues each side, truncated at termini). | Must be ≥ 1, otherwise `ArgumentOutOfRangeException` (2026-09 review). Campen et al. (2008) use an odd window (21); an even `w` spans `w + 1` residues. |
 | `disorderThreshold` | `double` | `0.542` | Score cutoff used to set `ResiduePrediction.IsDisordered`. | Default matches the TOP-IDP cutoff cited in the code comments and tests (Campen et al. 2008; [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs)). |
 | `minRegionLength` | `int` | `5` | Minimum contiguous run length used when constructing `DisorderedRegions`. | Applied after residue-level scoring; shorter runs are omitted from the region list ([Disordered_Region_Detection.md](Disordered_Region_Detection.md)). |
 
@@ -95,7 +95,7 @@ where $p_{\min} = -0.884$ for tryptophan and $p_{\max} = 0.987$ for proline (Cam
 - `DisorderPredictor.CalculateDisorderScore(string)`: private helper that computes the normalized TOP-IDP average for one window.
 - `DisorderPredictor.GetDisorderPropensity(char)`: public accessor for the raw TOP-IDP table.
 - `DisorderPredictor.IsDisorderPromoting(char)`: public check for the Dunker disorder-promoting residue set.
-- `DisorderPredictor.CalculateHydropathy(string)`: public Kyte-Doolittle utility for mean hydropathy.
+- `DisorderPredictor.CalculateHydropathy(string)`: public Kyte-Doolittle mean hydropathy (GRAVY); delegates to the canonical `SequenceStatistics.CalculateHydrophobicity(string)` (identical to Biopython `ProteinAnalysis.gravy()` for standard residues; non-standard residues skipped).
 
 **Supporting tests:** [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs), [DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderedRegion_Tests.cs)
 
@@ -138,7 +138,7 @@ The implementation clips edge windows to the available sequence bounds rather th
 
 ### 6.2 Limitations
 
-The source remarks state that this code is a single-feature heuristic toolkit and not a publication-grade disorder predictor ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). It does not add evolutionary profiles, predicted structural context, or machine-learned features beyond the TOP-IDP composition signal. The public method also performs no explicit validation for non-default `windowSize`, `disorderThreshold`, or `minRegionLength` values.
+The source remarks state that this code is a single-feature heuristic toolkit and not a publication-grade disorder predictor ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). It does not add evolutionary profiles, predicted structural context, or machine-learned features beyond the TOP-IDP composition signal. `windowSize < 1` is rejected; `disorderThreshold` and `minRegionLength` are not range-validated. The comparison is `score >= 0.542`, while Campen's index I = −(⟨TOP-IDP⟩ − 0.542) is exactly 0 (neither class) at equality — a measure-zero tie resolved toward disorder.
 
 ## 7. Examples and Related Material
 
@@ -148,6 +148,7 @@ The prediction tests use homopolymeric anchor sequences to verify the normalizat
 
 - `new string('W', 30)` produces an interior disorder score of `0.0`, the normalized minimum.
 - `new string('P', 30)` produces an interior disorder score of `1.0` and `OverallDisorderContent = 1.0`.
+- Human α-synuclein (UniProt P37840, 140 aa), default parameters, cross-checked against an independent Python re-implementation of the Campen (2008) normalized-scale window mean: score[0] = 0.472134, score[10] = 0.542236 (disordered), score[69] = 0.540684 (ordered), content = 102/140 = 0.728571, mean = 0.576684, regions (0-based inclusive) [10–43], [47–66], [94–139] — the NAC core (≈61–95) is predicted ordered.
 - `new string('E', 30)` produces an interior disorder score of about `0.866`, which is above the default `0.542` cutoff.
 
 ## 8. References

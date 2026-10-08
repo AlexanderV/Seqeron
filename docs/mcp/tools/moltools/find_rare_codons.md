@@ -14,7 +14,7 @@ Report codons rarer than a threshold in the target organism.
 
 ## Description
 
-Splits the coding sequence into frame-0 codons (T→U), and reports each codon whose frequency in the target organism's codon-usage table is below `threshold` (default 0.15). Each result carries the codon's 0-based nucleotide position, RNA codon, amino acid, and frequency. Rare codons slow translation and are candidates for optimization.
+Splits the coding sequence into frame-0 codons (T→U), and reports each codon whose frequency in the target organism's codon-usage table is below `threshold` (default 0.15). Only the 64 unambiguous codons are screened: a triplet containing an ambiguity code (N, R, Y, …) is skipped without shifting the frame, and a trailing partial triplet is ignored; a valid codon absent from an inline table has frequency 0. Each result carries the codon's 0-based nucleotide position, RNA codon, amino acid (NCBI Standard code, `*` for stop), and frequency. Rare codons slow translation and are candidates for optimization.
 
 ## Core Documentation Reference
 

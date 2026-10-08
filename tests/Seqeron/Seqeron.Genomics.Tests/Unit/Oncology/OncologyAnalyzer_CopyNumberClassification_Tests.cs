@@ -260,6 +260,83 @@ public class OncologyAnalyzer_CopyNumberClassification_Tests
         });
     }
 
+    // S4 — non-default (triploid) reference ploidy: CNVkit absolute_threshold keeps the bin index for
+    // log2 <= last cutoff and uses ceil(ploidy*2^log2) above it. Reference (faithful Python port of
+    // cnvlib/call.py absolute_threshold, ploidy 3): log2 0 -> 2, 0.8 -> ceil(5.223) = 6, 1.0 -> 6.
+    [TestCase(0.0, 2, TestName = "CallCopyNumber_Triploid_Log2Zero_BinIndex2")]
+    [TestCase(0.8, 6, TestName = "CallCopyNumber_Triploid_Log2PointEight_Ceil6")]
+    [TestCase(1.0, 6, TestName = "CallCopyNumber_Triploid_Log2One_Ceil6")]
+    public void CallCopyNumber_TriploidReference_MatchesCnvkit(double log2, int expected)
+    {
+        Assert.That(OncologyAnalyzer.CallCopyNumber(log2, ploidy: 3.0), Is.EqualTo(expected),
+            "CNVkit absolute_threshold with ploidy 3.");
+    }
+
+    // S5 — NaN no-call with a non-integer ploidy: CNVkit stores ref_copies (= ploidy) and do_call then
+    // applies numpy ndarray.round(), which rounds half to even: round(2.5) = 2, round(3.5) = 4.
+    [TestCase(2.5, 2, TestName = "CallCopyNumber_NaN_Ploidy2_5_RoundsHalfToEven_2")]
+    [TestCase(3.5, 4, TestName = "CallCopyNumber_NaN_Ploidy3_5_RoundsHalfToEven_4")]
+    public void CallCopyNumber_NaNNonIntegerPloidy_RoundsHalfToEven(double ploidy, int expected)
+    {
+        Assert.That(OncologyAnalyzer.CallCopyNumber(double.NaN, ploidy: ploidy), Is.EqualTo(expected),
+            "CNVkit do_call: cn = absolutes.round() (numpy round-half-to-even) of the neutral ref_copies.");
+    }
+
+    // S6 — largest representable amplification: log2 29.9 -> ceil(2*2^29.9) = 2003673093 (CNVkit /
+    // numpy reference), still within Int32 and still Amplification (INV-3: CN >= 0).
+    [Test]
+    public void CallCopyNumber_VeryHighLog2WithinInt32_MatchesReference()
+    {
+        var call = OncologyAnalyzer.ClassifyCopyNumber(29.9);
+        Assert.Multiple(() =>
+        {
+            Assert.That(call.IntegerCopyNumber, Is.EqualTo(2003673093), "ceil(2*2^29.9) per CNVkit.");
+            Assert.That(call.State, Is.EqualTo(CopyNumberState.Amplification));
+        });
+    }
+
+    // E6 — the integer copy number ceil(2*2^log2) exceeds Int32 for log2 >= 30 (CNVkit: 2^31 = 2147483648)
+    // and is infinite for log2 = +Infinity (CNVkit int(np.ceil(inf)) raises OverflowError). The int-valued call
+    // saturates at Int32.MaxValue: CN >= 0 (INV-3) and state Amplification — never a wrapped negative value.
+    [TestCase(30.0, TestName = "CallCopyNumber_Log2Thirty_ExceedsInt32_Saturates")]
+    [TestCase(1024.0, TestName = "CallCopyNumber_Log2OverflowsDouble_Saturates")]
+    [TestCase(double.PositiveInfinity, TestName = "CallCopyNumber_PositiveInfinityLog2_Saturates")]
+    public void CallCopyNumber_UnrepresentableCopyNumber_SaturatesAtInt32Max(double log2)
+    {
+        var call = OncologyAnalyzer.ClassifyCopyNumber(log2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CallCopyNumber(log2), Is.EqualTo(int.MaxValue));
+            Assert.That(call.IntegerCopyNumber, Is.EqualTo(int.MaxValue));
+            Assert.That(call.State, Is.EqualTo(CopyNumberState.Amplification));
+        });
+    }
+
+    // S7 — log2 = -Infinity (zero depth) is below every cutoff -> CN 0 DeepDeletion, absolute 0 (CNVkit).
+    [Test]
+    public void ClassifyCopyNumber_NegativeInfinityLog2_IsDeepDeletion()
+    {
+        var call = OncologyAnalyzer.ClassifyCopyNumber(double.NegativeInfinity);
+        Assert.Multiple(() =>
+        {
+            Assert.That(call.IntegerCopyNumber, Is.EqualTo(0));
+            Assert.That(call.State, Is.EqualTo(CopyNumberState.DeepDeletion));
+            Assert.That(call.AbsoluteCopyNumber, Is.EqualTo(0.0));
+        });
+    }
+
+    // E7 — ploidy must be a finite positive number (n = ploidy*2^log2).
+    [TestCase(double.NaN, TestName = "Log2RatioToCopyNumber_NaNPloidy_Throws")]
+    [TestCase(double.PositiveInfinity, TestName = "Log2RatioToCopyNumber_InfinitePloidy_Throws")]
+    public void Log2RatioToCopyNumber_NonFinitePloidy_Throws(double ploidy)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.Log2RatioToCopyNumber(0.0, ploidy));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CallCopyNumber(0.0, ploidy: ploidy));
+        });
+    }
+
     // E4 — non-positive ploidy throws on classify path.
     [Test]
     public void ClassifyCopyNumber_NonPositivePloidy_Throws()

@@ -235,4 +235,160 @@ public class DisorderPredictor_RegionFlavor_Tests
     }
 
     #endregion
+
+    #region PredictFlavorSubregionsMobiDbLite — full windowed MobiDB-lite v3 feature step
+
+    // Expected values below were produced by running the VERBATIM MobiDB-lite v3 code
+    // (raw.githubusercontent.com/BioComputingUP/MobiDB-lite/v3/mdblib/{states,consensus,prediction}.py,
+    // MobidbLiteConsensus.get_region_features(merge=True, only_in_idr=True)) with the given IDRs
+    // and SEG mask; coordinates converted from its 1-based output to 0-based inclusive.
+    // Additionally, 400 random fixtures (seed 20260928) matched the reference 400/400 during review.
+
+    private static readonly bool[] NoLc58 = new bool[58];
+
+    private const string AlphaSynuclein =
+        "MDVFMKGLSKAKEGVVAAAEKTKQGVAEAAGKTKEGVLYVGSKTKEGVVHGVATVAEKTKEQVTNVGGAVVTGVTAVAQKTVEGAGSIAAATGFVKKDQLGKNEEGAPQEGILEDMPVDPDNEAYEMPSEEGYQDYEPEA";
+
+    // FS1 — two feature blocks separated by neutral residues: PPE and proline-rich sub-regions.
+    [Test]
+    public void PredictFlavorSubregions_TwoFeatureBlocks_MatchesMobiDbLiteReference()
+    {
+        string seq = new string('A', 10) + string.Concat(Enumerable.Repeat("RK", 7)) + new string('A', 11)
+                     + new string('P', 13) + new string('A', 10);
+        var got = DisorderPredictor.PredictFlavorSubregionsMobiDbLite(seq, new[] { (0, 57) }, NoLc58);
+        Assert.That(got.Select(r => (r.Start, r.End, r.Flavor)), Is.EqualTo(new[]
+        {
+            (9, 24, DisorderPredictor.DisorderFlavor.PositivePolyelectrolyte),
+            (34, 48, DisorderPredictor.DisorderFlavor.ProlineRich)
+        }));
+    }
+
+    // FS2 — α-synuclein (P37840) with its TOP-IDP regions (10–43, 47–66, 94–139): the acidic C-terminal
+    // tail splits into PA (94–104) and NPE (111–139); the region-level label of 94–139 is PA
+    // (f+ = 3/46, f− = 15/46, FCR = 0.391 > 0.35, NCPR = 0.261 ≤ 0.35) — the windowed algorithm
+    // resolves the NPE tail that the whole-region label cannot.
+    [Test]
+    public void PredictFlavorSubregions_AlphaSynuclein_MatchesMobiDbLiteReference()
+    {
+        var regions = DisorderPredictor.PredictDisorderRegions(AlphaSynuclein).DisorderedRegions
+            .Select(r => (r.Start, r.End)).ToList();
+        var got = DisorderPredictor.PredictFlavorSubregionsMobiDbLite(
+            AlphaSynuclein, regions, new bool[AlphaSynuclein.Length]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(regions, Is.EqualTo(new[] { (10, 43), (47, 66), (94, 139) }));
+            Assert.That(got.Select(r => (r.Start, r.End, r.Flavor)), Is.EqualTo(new[]
+            {
+                (94, 104, DisorderPredictor.DisorderFlavor.Polyampholyte),
+                (111, 139, DisorderPredictor.DisorderFlavor.NegativePolyelectrolyte)
+            }));
+            Assert.That(DisorderPredictor.ClassifyRegionFlavorMobiDbLite(AlphaSynuclein[94..140]),
+                Is.EqualTo(DisorderPredictor.DisorderFlavor.Polyampholyte));
+        });
+    }
+
+    // FS3 — the SEG low-complexity class (code 7) outranks polar (code 8); without a mask the
+    // same (SQ)10 block is polar, and morphology/windowing widens it to 9–30.
+    [Test]
+    public void PredictFlavorSubregions_LowComplexityBeatsPolar_MatchesMobiDbLiteReference()
+    {
+        string seq = new string('W', 10) + string.Concat(Enumerable.Repeat("SQ", 10)) + new string('W', 10);
+        var lc = Enumerable.Range(0, 40).Select(i => i >= 10 && i < 30).ToArray();
+        var withLc = DisorderPredictor.PredictFlavorSubregionsMobiDbLite(seq, new[] { (0, 39) }, lc);
+        var noLc = DisorderPredictor.PredictFlavorSubregionsMobiDbLite(seq, new[] { (0, 39) }, new bool[40]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(withLc.Select(r => (r.Start, r.End, r.Flavor)),
+                Is.EqualTo(new[] { (10, 29, DisorderPredictor.DisorderFlavor.LowComplexity) }));
+            Assert.That(noLc.Select(r => (r.Start, r.End, r.Flavor)),
+                Is.EqualTo(new[] { (9, 30, DisorderPredictor.DisorderFlavor.Polar) }));
+        });
+    }
+
+    // FS4 — math_morphology(rmax=5): a 3-residue neutral gap inside NPE is closed (one run 0–26);
+    // an 8-residue gap is not (two runs).
+    [Test]
+    public void PredictFlavorSubregions_Morphology_ClosesShortGapsOnly()
+    {
+        string shortGap = new string('E', 12) + "AAA" + new string('E', 12);
+        string longGap = new string('E', 12) + new string('A', 8) + new string('E', 12);
+        var a = DisorderPredictor.PredictFlavorSubregionsMobiDbLite(shortGap, null, new bool[shortGap.Length]);
+        var b = DisorderPredictor.PredictFlavorSubregionsMobiDbLite(longGap, null, new bool[longGap.Length]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.Select(r => (r.Start, r.End, r.Flavor)),
+                Is.EqualTo(new[] { (0, 26, DisorderPredictor.DisorderFlavor.NegativePolyelectrolyte) }));
+            Assert.That(b.Select(r => (r.Start, r.End, r.Flavor)), Is.EqualTo(new[]
+            {
+                (0, 12, DisorderPredictor.DisorderFlavor.NegativePolyelectrolyte),
+                (19, 31, DisorderPredictor.DisorderFlavor.NegativePolyelectrolyte)
+            }));
+        });
+    }
+
+    // FS5 — feature_len_thr = 10 is applied to the run clipped to the IDR: 9 residues → none, 10 → one.
+    [Test]
+    public void PredictFlavorSubregions_MinimumLengthTen_AppliedWithinRegion()
+    {
+        string polyE = new string('E', 30);
+        var nine = DisorderPredictor.PredictFlavorSubregionsMobiDbLite(polyE, new[] { (5, 13) }, new bool[30]);
+        var ten = DisorderPredictor.PredictFlavorSubregionsMobiDbLite(polyE, new[] { (5, 14) }, new bool[30]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(nine, Is.Empty);
+            Assert.That(ten.Select(r => (r.Start, r.End, r.Flavor)),
+                Is.EqualTo(new[] { (5, 14, DisorderPredictor.DisorderFlavor.NegativePolyelectrolyte) }));
+        });
+    }
+
+    // FS6 — per-residue windows separate a glycine block from an acidic block (G12 D12), whereas the
+    // whole-region label is NPE (f− = 0.5).
+    [Test]
+    public void PredictFlavorSubregions_GlycineThenAcidic_SplitsIntoTwoFlavors()
+    {
+        string seq = new string('G', 12) + new string('D', 12);
+        var got = DisorderPredictor.PredictFlavorSubregionsMobiDbLite(seq, null, new bool[24]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(got.Select(r => (r.Start, r.End, r.Flavor)), Is.EqualTo(new[]
+            {
+                (0, 10, DisorderPredictor.DisorderFlavor.GlycineRich),
+                (11, 23, DisorderPredictor.DisorderFlavor.NegativePolyelectrolyte)
+            }));
+            Assert.That(DisorderPredictor.ClassifyRegionFlavorMobiDbLite(seq),
+                Is.EqualTo(DisorderPredictor.DisorderFlavor.NegativePolyelectrolyte));
+        });
+    }
+
+    // FS7 — short / edge inputs: L = 2 (window shrinks to L, no run ≥ 10); lowercase input.
+    [Test]
+    public void PredictFlavorSubregions_ShortAndLowercaseInputs()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(DisorderPredictor.PredictFlavorSubregionsMobiDbLite("RK", null, new bool[2]), Is.Empty);
+            Assert.That(DisorderPredictor.PredictFlavorSubregionsMobiDbLite(new string('e', 12), null, new bool[12])
+                    .Select(r => (r.Start, r.End, r.Flavor)),
+                Is.EqualTo(new[] { (0, 11, DisorderPredictor.DisorderFlavor.NegativePolyelectrolyte) }));
+        });
+    }
+
+    // FS8 — input validation.
+    [Test]
+    public void PredictFlavorSubregions_InvalidInputs_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => DisorderPredictor.PredictFlavorSubregionsMobiDbLite(""));
+            Assert.Throws<ArgumentException>(() => DisorderPredictor.PredictFlavorSubregionsMobiDbLite(null!));
+            Assert.Throws<ArgumentException>(() =>
+                DisorderPredictor.PredictFlavorSubregionsMobiDbLite("EEEE", null, new bool[3]));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                DisorderPredictor.PredictFlavorSubregionsMobiDbLite("EEEE", new[] { (2, 4) }, new bool[4]));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                DisorderPredictor.PredictFlavorSubregionsMobiDbLite("EEEE", new[] { (3, 2) }, new bool[4]));
+        });
+    }
+
+    #endregion
 }

@@ -12,8 +12,8 @@ namespace Seqeron.Genomics.Tests.Mutation;
 /// Evidence:
 ///  - Target-site context (3'UTR AU enrichment, positional bias): Grimson et al. (2007)
 ///    Mol Cell 27:91–105; Agarwal et al. (2015) eLife 4:e05005 (TargetScan context++).
-///  - Local accessibility (less local structure ⇒ more accessible site): Kertesz et al.
-///    (2007) Nat Genet 39:1278–1284 (PITA); Watson–Crick pairing per Crick (1966).
+///  - Local accessibility: McCaskill region-unpaired probability (RNAplfold-style local
+///    window; Bernhart et al. 2006; TargetScan SA), via RnaSecondaryStructure.
 ///  - Seed families (shared 7-nt seed, single-mismatch neighbours): Bartel (2009) Cell
 ///    136:215–233; Lewis et al. (2005) Cell 120:15–20.
 /// </summary>
@@ -22,166 +22,172 @@ public class MiRnaAnalyzerMutationTests
 {
     private const double Tol = 1e-9;
 
-    #region AnalyzeTargetContext — positional thresholds, AU bonus, context score
+    #region AnalyzeTargetContext — Grimson (2007) site context
 
-    // Model (algorithm doc §"Target Context Analysis"):
-    //   window  = mrna[max(0,start-W) .. min(len,end+W))     (W = contextWindow = 30)
-    //   auContent = #(A|U in window) / window.Length
-    //   nearStart = start < len*0.15 ;  nearEnd = end > len*0.85
-    //   contextScore = auContent*0.5  (+0.3 only when NOT nearStart AND NOT nearEnd)
-    //                  clamped to ≤ 1.0
-    // A 100-nt poly(A) carrier makes auContent ≡ 1.0 for every window (auContent term is
-    // isolated), and len*0.15 = 15.0, len*0.85 = 85.0 are exact integers so the thresholds
-    // are unambiguous.
+    // Model (MiRnaAnalyzer.AnalyzeTargetContext XML doc; Grimson et al. 2007 Mol Cell 27:91;
+    // TargetScan targetscan_70_context_scores.pl getLocalAU_contribution / $MIN_DIST_TO_CDS = 15):
+    //   AuContent  = Σ_{A/U flank nt} 1/d ÷ Σ_{flank nt} 1/d, d = distance from the site edge
+    //                (up to W = 30 nt each side, site excluded)
+    //   NearStart  = 1-based start < 15 (ribosome-occluded, TargetScan "too_close")
+    //   NearEnd    = end > len*0.85 (descriptive)
+    //   ContextScore = NearStart ? 0 : 0.5*AuContent + 0.5*(1 − min(d5,d3)/((d5+d3)/2))
 
     private static readonly string PolyA100 = new string('A', 100);
 
     [Test]
-    public void AnalyzeTargetContext_MiddleSite_GetsAuBonus_ExactScore()
+    public void AnalyzeTargetContext_MiddleSite_ScoresLowerThanEndSite()
     {
-        // start=40,end=50: nearStart=40<15=false, nearEnd=50>85=false ⇒ +0.3 bonus.
-        var ctx = AnalyzeTargetContext(PolyA100, 40, 50);
+        // Grimson 2007: sites in the middle of the UTR are the LEAST effective; sites near the
+        // ends are more effective. (40,50): d5=40, d3=49 ⇒ EndProximity = 1 − 40/44.5.
+        var mid = AnalyzeTargetContext(PolyA100, 40, 50);
+        // (90,95): d5=90, d3=4 ⇒ EndProximity = 1 − 4/47.
+        var end = AnalyzeTargetContext(PolyA100, 90, 95);
 
-        Assert.That(ctx.AuContent, Is.EqualTo(1.0).Within(Tol));
-        Assert.That(ctx.NearStart, Is.False);   // kills start>… and start/0.15 mutants
-        Assert.That(ctx.NearEnd, Is.False);
-        Assert.That(ctx.ContextScore, Is.EqualTo(0.8).Within(Tol)); // 1.0*0.5 + 0.3
+        Assert.Multiple(() =>
+        {
+            Assert.That(mid.AuContent, Is.EqualTo(1.0).Within(Tol));
+            Assert.That(mid.NearStart, Is.False);
+            Assert.That(mid.NearEnd, Is.False);
+            Assert.That(mid.ContextScore, Is.EqualTo(0.5 + 0.5 * (1 - 40 / 44.5)).Within(Tol)); // 0.5505617977528090
+            Assert.That(end.NearEnd, Is.True);
+            Assert.That(end.ContextScore, Is.EqualTo(0.5 + 0.5 * (1 - 4.0 / 47.0)).Within(Tol)); // 0.9574468085106382
+            Assert.That(end.ContextScore, Is.GreaterThan(mid.ContextScore));
+        });
     }
 
     [Test]
-    public void AnalyzeTargetContext_StartProximal_NoBonus_ExactScore()
+    public void AnalyzeTargetContext_WithinFirst15nt_NearStart_ContextScoreZero()
     {
-        // start=5<15 ⇒ nearStart=true; end=10>85=false. !nearEnd && !nearStart = false ⇒ no bonus.
+        // Grimson 2007: sites within ~15 nt of the stop codon are cleared by the ribosome.
+        // TargetScan: `if ($utrStart < $MIN_DIST_TO_CDS)` (1-based, MIN = 15) ⇒ no context score.
         var ctx = AnalyzeTargetContext(PolyA100, 5, 10);
-
-        Assert.That(ctx.NearStart, Is.True);    // kills start>… mutant (5>15=false)
-        Assert.That(ctx.NearEnd, Is.False);
-        Assert.That(ctx.ContextScore, Is.EqualTo(0.5).Within(Tol)); // 1.0*0.5, no bonus
-        // With the && replaced by ||, !nearEnd||!nearStart = true ⇒ bonus would push this to 0.8.
+        Assert.That(ctx.NearStart, Is.True);
+        Assert.That(ctx.ContextScore, Is.EqualTo(0.0).Within(Tol));
     }
 
     [Test]
-    public void AnalyzeTargetContext_EndProximal_NoBonus_ExactScore()
+    public void AnalyzeTargetContext_Start15ntBoundary()
     {
-        // start=90 ⇒ nearStart=false; end=95>85 ⇒ nearEnd=true ⇒ no bonus.
-        var ctx = AnalyzeTargetContext(PolyA100, 90, 95);
-
-        Assert.That(ctx.NearStart, Is.False);
-        Assert.That(ctx.NearEnd, Is.True);      // kills end/0.85 mutant (95>117.6=false)
-        Assert.That(ctx.ContextScore, Is.EqualTo(0.5).Within(Tol));
-    }
-
-    [Test]
-    public void AnalyzeTargetContext_StartExactlyAtThreshold_IsNotNearStart()
-    {
-        // start = 15 == len*0.15. Strict '<' ⇒ NOT nearStart; a '<=' mutant would flip it.
-        var ctx = AnalyzeTargetContext(PolyA100, 15, 20);
-
-        Assert.That(ctx.NearStart, Is.False);   // kills start<=len*0.15 mutant
-        Assert.That(ctx.NearEnd, Is.False);
-        Assert.That(ctx.ContextScore, Is.EqualTo(0.8).Within(Tol)); // bonus applies
+        // 0-based 13 ⇒ 1-based 14 < 15 ⇒ too close; 0-based 14 ⇒ 1-based 15 ⇒ scored.
+        Assert.That(AnalyzeTargetContext(PolyA100, 13, 20).NearStart, Is.True);
+        var ok = AnalyzeTargetContext(PolyA100, 14, 20);
+        Assert.That(ok.NearStart, Is.False);
+        Assert.That(ok.ContextScore, Is.GreaterThan(0.0));
     }
 
     [Test]
     public void AnalyzeTargetContext_EndExactlyAtThreshold_IsNotNearEnd()
     {
-        // end = 85 == len*0.85. Strict '>' ⇒ NOT nearEnd; a '>=' mutant would flip it.
+        // end = 85 == len*0.85. Strict '>' ⇒ NOT nearEnd.
         var ctx = AnalyzeTargetContext(PolyA100, 50, 85);
-
-        Assert.That(ctx.NearStart, Is.False);
-        Assert.That(ctx.NearEnd, Is.False);     // kills end>=len*0.85 mutant
-        Assert.That(ctx.ContextScore, Is.EqualTo(0.8).Within(Tol));
+        Assert.That(ctx.NearEnd, Is.False);
     }
 
     [Test]
-    public void AnalyzeTargetContext_AuContentDrivesHalfWeight()
+    public void AnalyzeTargetContext_NoAu_OnlyPositionTerm()
     {
-        // GC-only window ⇒ auContent = 0 ⇒ contextScore = 0*0.5 (+0.3 bonus, middle site) = 0.3.
-        // This pins the auContent*0.5 term (separates *0.5 from /0.5: 0/0.5 == 0 either way,
-        // but the additive bonus is isolated to exactly 0.3 here).
         string polyGc = string.Concat(Enumerable.Repeat("GC", 50)); // 100 nt, no A/U
         var ctx = AnalyzeTargetContext(polyGc, 40, 50);
 
         Assert.That(ctx.AuContent, Is.EqualTo(0.0).Within(Tol));
-        Assert.That(ctx.ContextScore, Is.EqualTo(0.3).Within(Tol)); // 0*0.5 + 0.3
+        Assert.That(ctx.ContextScore, Is.EqualTo(0.5 * (1 - 40 / 44.5)).Within(Tol)); // 0.050561797752809
+    }
+
+    [Test]
+    public void AnalyzeTargetContext_AuContent_IsInverseDistanceWeighted_SiteExcluded()
+    {
+        // TargetScan getLocalAU_contribution: weight 1/(i+1) for the i-th flank nt outward.
+        // Site [10..15] = CCCCCC; upstream (outward) G, A×9; downstream G, U×9.
+        // Each flank: Σ weights = H10, A/U weight = H10 − 1 ⇒ fraction = (H10 − 1)/H10
+        // = 0.6585828478525945 (an unweighted count would give 18/20 = 0.9; counting the
+        // site itself, as the old code did, gives even less).
+        string mrna = "AAAAAAAAAG" + "CCCCCC" + "GUUUUUUUUU";
+        double h10 = Enumerable.Range(1, 10).Sum(k => 1.0 / k);
+        var ctx = AnalyzeTargetContext(mrna, 10, 15);
+        Assert.That(ctx.AuContent, Is.EqualTo((h10 - 1) / h10).Within(Tol));
+
+        // contextWindow = 1 ⇒ only the adjacent G on each side ⇒ 0.
+        Assert.That(AnalyzeTargetContext(mrna, 10, 15, contextWindow: 1).AuContent, Is.EqualTo(0.0).Within(Tol));
+    }
+
+    [Test]
+    public void AnalyzeTargetContext_InvalidCoordinates_ReturnZeros()
+    {
+        Assert.That(AnalyzeTargetContext(PolyA100, -1, 5), Is.EqualTo((0.0, false, false, 0.0)));
+        Assert.That(AnalyzeTargetContext(PolyA100, 10, 100), Is.EqualTo((0.0, false, false, 0.0)));
+        Assert.That(AnalyzeTargetContext(PolyA100, 20, 10), Is.EqualTo((0.0, false, false, 0.0)));
     }
 
     #endregion
 
-    #region CalculateSiteAccessibility — windowed structure density
+    #region CalculateSiteAccessibility — McCaskill region-unpaired probability (delegates to RnaSecondaryStructure)
 
-    // Model (algorithm doc §"Site accessibility"):
-    //   guard: empty || siteStart<0 || siteEnd>=len ⇒ 0
-    //   window  = mrna[max(0,siteStart-50) .. min(len,siteEnd+50))
-    //   structureScore = #{(i,j): j>=i+4, CanPair(w_i,w_j) AND NOT G:U-wobble}
-    //   maxPairs = (W*(W-4))/2  ;  density = structureScore / max(1,maxPairs)
-    //   accessibility = max(0, 1 - density*10)
-    //
-    // Reference sequence GAAAAUAAAC (len 10). The window covers the whole sequence.
-    // Watson–Crick (non-wobble) pairs with j>=i+4:
-    //   (0=G,9=C) G-C ; (1=A,5=U) A-U  ⇒ structureScore = 2  (G0:U5 is wobble, excluded).
-    //   maxPairs = (10*6)/2 = 30 ;  accessibility = 1 - (2/30)*10 = 1 - 20/30.
-    private const string AccSeq = "GAAAAUAAAC";
-    private const double AccExpected = 1.0 - 20.0 / 30.0; // ≈ 0.333333…
+    // Accessibility = P(site entirely unpaired) = Z_open/Z (Turner 2004 McCaskill), via the canonical
+    // RnaSecondaryStructure.CalculateRegionUnpairedProbability over an RNAplfold-style W = 80 local
+    // context. For sequences ≤ 80 nt the context is the whole sequence.
+    // ViennaRNA 2.x cross-check (RNA.fold_compound pf with hc_add_up over the site; Z_c/Z):
+    //   seq                                              site    Vienna d0   Vienna d2   Seqeron
+    //   GGGGGCUACCUCAGGGGG                               5..12   1.872e-3    1.28e-4     3.225e-4
+    //   GGGAAACCCAAAGGGUUUCCCAAGCUACCUCAAA               23..30  0.993777    0.976954    0.972098
+    //   AUGCUACCUCAAAAAAAAAAAAAAAAA                      3..10   0.993008    0.970119    0.963046
+    // The superseded pair-density heuristic returned 0 for all three.
 
-    [Test]
-    public void CalculateSiteAccessibility_KnownWindow_ExactValue()
+    [TestCase("GGGAAACCCAAAGGGUUUCCCAAGCUACCUCAAA", 23, 30, 0.976954)]
+    [TestCase("AUGCUACCUCAAAAAAAAAAAAAAAAA", 3, 10, 0.970119)]
+    public void CalculateSiteAccessibility_UnstructuredSite_MatchesViennaRna(string seq, int s, int e, double vienna)
     {
-        double acc = CalculateSiteAccessibility(AccSeq, 2, 7);
-
-        Assert.That(acc, Is.EqualTo(AccExpected).Within(Tol));
-        // Pins: pair-count loop bounds, the CanPair AND !wobble predicate, the structureScore++
-        // block, maxPairs = (W*(W-4))/2, density division, and the 1 - density*10 form.
+        double acc = CalculateSiteAccessibility(seq, s, e);
+        Assert.That(acc, Is.EqualTo(vienna).Within(0.01));
     }
 
     [Test]
-    public void CalculateSiteAccessibility_OddLengthWindow_UsesFloatingPointMaxPairs()
+    public void CalculateSiteAccessibility_SiteLockedInHelix_NearZero_MatchesViennaRna()
     {
-        // Discriminating case for the maxPairs = (W*(W-4))/2 → /2.0 fix. The KnownWindow test above
-        // uses an even window (W=10, 60/2 == 60/2.0 == 30) and therefore CANNOT detect integer-division
-        // truncation. Here W=11 (odd) ⇒ W*(W-4) = 77 is odd, so the correct maxPairs = 77/2.0 = 38.5
-        // while the old truncating `77/2` gave 38. Sequence G·A₉·C (len 11) has exactly one Watson–Crick
-        // non-wobble pair with j ≥ i+4 (G0–C10) ⇒ structureScore = 1.
-        double acc = CalculateSiteAccessibility("GAAAAAAAAAC", 2, 7);
-
-        // Correct model: 1 − (1/38.5)·10 ≈ 0.74026. The old truncating `/2` produced 1 − (1/38)·10 ≈ 0.73684.
-        Assert.That(acc, Is.EqualTo(1.0 - (1.0 / (11.0 * 7.0 / 2.0)) * 10.0).Within(Tol));
+        // GGGGG·CUACCUCA·GGGGG: the site's C's pair with the G flanks. Vienna: 1.9e-3 (d0) / 1.3e-4 (d2).
+        double acc = CalculateSiteAccessibility("GGGGGCUACCUCAGGGGG", 5, 12);
+        Assert.That(acc, Is.LessThan(0.002));
     }
 
     [Test]
-    public void CalculateSiteAccessibility_SiteStartZero_StillComputes()
+    public void CalculateSiteAccessibility_DelegatesToCanonicalRegionUnpairedProbability()
     {
-        // siteStart == 0 is valid (guard is strict siteStart < 0). A '<=' mutant returns 0.
-        double acc = CalculateSiteAccessibility(AccSeq, 0, 7);
-        Assert.That(acc, Is.EqualTo(AccExpected).Within(Tol));
+        const string seq = "GGGAAACCCAAAGGGUUUCCCAAGCUACCUCAAA"; // 34 nt ⇒ context = whole sequence
+        double canonical = Seqeron.Genomics.Analysis.RnaSecondaryStructure
+            .CalculateRegionUnpairedProbability(seq, windowEnd: 30, windowLength: 8);
+        Assert.That(CalculateSiteAccessibility(seq, 23, 30), Is.EqualTo(canonical));
+        // DNA / lower-case input is the same molecule.
+        Assert.That(CalculateSiteAccessibility(seq.ToLowerInvariant().Replace('u', 't'), 23, 30), Is.EqualTo(canonical));
     }
 
     [Test]
-    public void CalculateSiteAccessibility_SiteEndEqualsLength_ReturnsZeroByGuard()
+    public void CalculateSiteAccessibility_LongSequence_UsesLocal80ntContext()
     {
-        // siteEnd == len triggers the siteEnd >= len guard ⇒ 0. A '>' mutant would compute instead.
-        double acc = CalculateSiteAccessibility(AccSeq, 2, AccSeq.Length);
-        Assert.That(acc, Is.EqualTo(0.0).Within(Tol));
+        // 200-nt sequence: the site [100..107] is folded within the 80-nt window centred on it
+        // (RNAplfold -W 80), i.e. context [64..143], local site end = 107 − 64 = 43.
+        var rnd = new Random(7);
+        string seq = new string(Enumerable.Range(0, 200).Select(_ => "ACGU"[rnd.Next(4)]).ToArray());
+        double expected = Seqeron.Genomics.Analysis.RnaSecondaryStructure
+            .CalculateRegionUnpairedProbability(seq.Substring(64, 80), windowEnd: 43, windowLength: 8);
+        Assert.That(CalculateSiteAccessibility(seq, 100, 107), Is.EqualTo(expected));
     }
 
     [Test]
-    public void CalculateSiteAccessibility_NegativeStart_WithRoomAfter_ReturnsZero()
+    public void CalculateSiteAccessibility_PolyA_NoPairs_FullyAccessible()
     {
-        // siteStart < 0 with siteEnd < len: only the (siteStart<0) disjunct fires.
-        // The '||'→'&&' mutant on the first guard term would let this fall through and compute.
-        double acc = CalculateSiteAccessibility(AccSeq, -1, 5);
-        Assert.That(acc, Is.EqualTo(0.0).Within(Tol));
+        Assert.That(CalculateSiteAccessibility(new string('A', 120), 60, 65), Is.EqualTo(1.0).Within(Tol));
     }
 
     [Test]
-    public void CalculateSiteAccessibility_OffsetWindow_NoStructure_FullyAccessible()
+    public void CalculateSiteAccessibility_InvalidCoordinates_ReturnZero()
     {
-        // siteStart=60 ⇒ window start = 60-50 = 10 (non-zero), exercising end-start length.
-        // poly(A) ⇒ no base pairs ⇒ density 0 ⇒ accessibility = 1.0. An 'end+start' mutant
-        // requests an out-of-range substring length and throws.
-        string polyA = new string('A', 120);
-        double acc = CalculateSiteAccessibility(polyA, 60, 65);
-        Assert.That(acc, Is.EqualTo(1.0).Within(Tol));
+        const string seq = "GAAAAUAAAC";
+        Assert.Multiple(() =>
+        {
+            Assert.That(CalculateSiteAccessibility(seq, 2, seq.Length), Is.EqualTo(0.0));
+            Assert.That(CalculateSiteAccessibility(seq, -1, 5), Is.EqualTo(0.0));
+            Assert.That(CalculateSiteAccessibility(seq, 6, 2), Is.EqualTo(0.0));
+            Assert.That(CalculateSiteAccessibility("", 0, 0), Is.EqualTo(0.0));
+        });
     }
 
     #endregion

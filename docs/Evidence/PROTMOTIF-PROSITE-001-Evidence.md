@@ -107,6 +107,28 @@
 1. ScanProsite is the reference implementation for scanning PROSITE patterns.
 2. Overlapping matches are supported via match mode parameters.
 
+### ps_scan.pl — PROSITE reference scanner source (2026-09 review)
+
+**URL:** https://raw.githubusercontent.com/ebi-pf-team/interproscan/master/core/jms-implementation/support-mini-x86-32/bin/prosite/ps_scan.pl
+**Accessed:** 2026-09-28 (source opened and executed with perl)
+**Authority rank:** 2 (reference implementation behind ScanProsite)
+
+1. `prositeToRegexp` tokenizer: element = letter | `[...]` | `{...}`, optionally followed by `(range)` or `*` (`# support e.g. "<{C}*>"`); `-` ignored; `<`/`>` → `^`/`$`; any other token → "Parsing error".
+2. `$state =~ /x/i` → `.` (upper- or lower-case x, also inside brackets).
+3. B/Z: accepted sets `s/B/NDB/g or s/([ND])/$1B/g; s/Z/QEZ/g or s/([QE])/$1Z/g`; exclusions only `B→NDB`, `Z→QEZ`; `X` appended to accepted sets unless `preventX` (user patterns and `-x 0`); `scanPattern` rejects hits with more than `max_x` (default 0) X's at non-x positions.
+
+### ps_scan README
+
+**URL:** https://raw.githubusercontent.com/anuragkh/succinctx/master/scanprosite/ps_scan/README (mirror of ftp.expasy.org/databases/prosite/ps_scan/README; ftp.expasy.org blocked)
+**Accessed:** 2026-09-28
+
+1. "The ps_scan program will produce a match if the sequence has a "B" and the pattern allows either a "D" or a "N", or both (and similarly for Z)."
+2. Match modes: greedy by default (`-g` off), overlaps (`-v`), included matches (`-i`).
+
+### ScanProsite documentation (2026-09: search snippet only; prosite.expasy.org blocked)
+
+1. "`<{C}*>`" describes all sequences which do not contain any cysteine (Kleene-star extended syntax).
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -233,3 +255,4 @@
 
 - **2026-02-12**: Initial documentation.
 - **2026-02-13**: Implemented `[G>]` C-terminus inside brackets (PS00267, PS00539). Removed all assumptions.
+- **2026-09-28**: Review 2026-09 — converter rewritten as the ps_scan `prositeToRegexp` tokenizer: `*` Kleene star supported, `X` = any, B/Z ambiguity handling in `FindMotifByProsite`, stricter malformed-syntax rejection. Cross-check vs ps_scan.pl: 3388/3388 identical hits (28 patterns × 70 sequences with B/Z/X).

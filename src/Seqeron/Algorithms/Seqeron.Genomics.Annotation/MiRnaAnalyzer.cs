@@ -87,7 +87,11 @@ public static class MiRnaAnalyzer
     #region Seed Matching
 
     /// <summary>
-    /// Extracts the seed region from a miRNA sequence (positions 2-8).
+    /// Extracts the seed region from a miRNA sequence: nucleotides 2–8 of the mature miRNA
+    /// (7 nt, the TargetScan "Seed+m8" family-defining region; Bartel 2009), upper-cased.
+    /// Returns "" for null or sequences shorter than 8 nt. The alphabet is preserved (a DNA
+    /// input keeps T); <see cref="CreateMiRna"/> performs the T→U normalisation, and
+    /// <see cref="CompareSeedRegions"/> / <see cref="GroupBySeedFamily"/> treat T ≡ U.
     /// </summary>
     public static string GetSeedSequence(string miRnaSequence)
     {
@@ -98,10 +102,14 @@ public static class MiRnaAnalyzer
     }
 
     /// <summary>
-    /// Creates a MiRna record from a sequence.
+    /// Creates a MiRna record from a sequence. The sequence is upper-cased and DNA T is
+    /// converted to RNA U (the same normalisation TargetScan applies to its seed input:
+    /// <c>targetscan_70.pl</c> <c>s/T/U/gi; uc()</c>) before the nt 2–8 seed is extracted.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     public static MiRna CreateMiRna(string name, string sequence)
     {
+        ArgumentNullException.ThrowIfNull(sequence);
         string upper = sequence.ToUpperInvariant().Replace('T', 'U');
         string seed = GetSeedSequence(upper);
 
@@ -117,39 +125,58 @@ public static class MiRnaAnalyzer
     /// Compares the seed regions of two miRNAs, returning the number of matches,
     /// mismatches (Hamming distance), and whether they belong to the same seed family.
     /// </summary>
+    /// <remarks>
+    /// A miRNA family is the set of miRNAs sharing the same sequence at nucleotides 2–8
+    /// (Bartel 2009, Cell 136:215; TargetScan <c>miR_Family_Info</c> "Seed+m8"). Seeds are
+    /// compared after the TargetScan normalisation (upper-case, T→U; <c>targetscan_70.pl</c>
+    /// lines 229–232), so a DNA- or lower-case-encoded seed is the same seed as its RNA form.
+    /// Mismatches = Hamming distance over the common prefix (canonical
+    /// <see cref="SequenceExtensions.HammingDistance"/>) plus the length difference. An empty
+    /// (undefined) seed on either side yields a zeroed, non-family comparison.
+    /// </remarks>
     public static SeedComparison CompareSeedRegions(MiRna mirna1, MiRna mirna2)
     {
-        string seed1 = mirna1.SeedSequence;
-        string seed2 = mirna2.SeedSequence;
+        string seed1 = NormalizeSeed(mirna1.SeedSequence);
+        string seed2 = NormalizeSeed(mirna2.SeedSequence);
 
-        if (string.IsNullOrEmpty(seed1) || string.IsNullOrEmpty(seed2))
+        if (seed1.Length == 0 || seed2.Length == 0)
             return new SeedComparison(Matches: 0, Mismatches: 0, IsSameFamily: false);
 
         int length = Math.Min(seed1.Length, seed2.Length);
-        int matches = 0;
-        int mismatches = 0;
-
-        for (int i = 0; i < length; i++)
-        {
-            if (seed1[i] == seed2[i])
-                matches++;
-            else
-                mismatches++;
-        }
+        int hamming = seed1.AsSpan(0, length).HammingDistance(seed2.AsSpan(0, length));
+        int matches = length - hamming;
 
         // Account for length differences (if seeds have different lengths)
-        mismatches += Math.Abs(seed1.Length - seed2.Length);
+        int mismatches = hamming + Math.Abs(seed1.Length - seed2.Length);
 
-        bool isSameFamily = seed1 == seed2;
+        bool isSameFamily = mismatches == 0;
 
         return new SeedComparison(Matches: matches, Mismatches: mismatches, IsSameFamily: isSameFamily);
     }
+
+    /// <summary>
+    /// TargetScan seed normalisation (<c>targetscan_70.pl</c>: <c>s/T/U/gi; uc()</c>):
+    /// upper-case, DNA T → RNA U. Null → empty.
+    /// </summary>
+    private static string NormalizeSeed(string? seed) =>
+        string.IsNullOrEmpty(seed) ? "" : seed.ToUpperInvariant().Replace('T', 'U');
 
     /// <summary>
     /// Finds all potential target sites for a miRNA in an mRNA sequence.
     /// Scans for the 6mer core (RC of miRNA positions 2-7), then extends to classify
     /// site types per Bartel (2009) and TargetScan conventions.
     /// </summary>
+    /// <remarks>
+    /// Each site's duplex (<see cref="TargetSite.TargetSequence"/>, <see cref="TargetSite.Alignment"/>,
+    /// <see cref="TargetSite.FreeEnergy"/>) is the full miRNA aligned antiparallel in the seed-match
+    /// register, extending UPSTREAM of the site (see <c>CreateTargetSite</c>).
+    /// <see cref="TargetSite.Score"/> is a heuristic ranking: site-type base proportional to the
+    /// Grimson (2007) efficacies (8mer 1.0, 7mer-m8 0.52, 7mer-A1 0.32; 6mer 0.15 and offset 6mer
+    /// 0.10 not fitted), +0.05 if &gt; 10 Watson-Crick pairs, −0.01 per unpaired position, clamped to
+    /// [0,1]. It is not a fitted repression model — use <see cref="ScoreTargetSiteContextPlusPlus"/>
+    /// for TargetScan context++. With the default <paramref name="minScore"/> 0.5 typically only
+    /// 8mer sites are returned; pass a lower threshold to obtain every canonical site.
+    /// </remarks>
     public static IEnumerable<TargetSite> FindTargetSites(
         string mRnaSequence,
         MiRna miRna,
@@ -223,7 +250,8 @@ public static class MiRnaAnalyzer
                 seedMatchLen = 6;
             }
 
-            var site = CreateTargetSite(mrna, siteStart, siteLength, mirna, miRna.Name, type, seedMatchLen);
+            // The mRNA base opposite miRNA nt 1 is the one just 3' of the 6mer core (i + 6).
+            var site = CreateTargetSite(mrna, siteStart, siteLength, i + 6, mirna, miRna.Name, type, seedMatchLen);
             if (site.Score >= minScore)
             {
                 for (int j = siteStart; j < siteStart + siteLength; j++)
@@ -254,7 +282,8 @@ public static class MiRnaAnalyzer
             if (i + 7 <= mrna.Length && mrna[i + 6] == seedRC[6])
                 continue;
 
-            var site = CreateTargetSite(mrna, i, 6, mirna, miRna.Name, TargetSiteType.Offset6mer, 6);
+            // Offset 6mer pairs miRNA nt 3-8 at mrna[i..i+5]; nt 1 is therefore opposite i + 7.
+            var site = CreateTargetSite(mrna, i, 6, i + 7, mirna, miRna.Name, TargetSiteType.Offset6mer, 6);
             if (site.Score >= minScore)
             {
                 yield return site;
@@ -262,13 +291,26 @@ public static class MiRnaAnalyzer
         }
     }
 
-    private static TargetSite CreateTargetSite(string mrna, int pos, int length, string mirna, string mirnaName, TargetSiteType type, int seedMatchLength)
+    /// <summary>
+    /// Builds a <see cref="TargetSite"/>, aligning the full miRNA antiparallel to the mRNA in the
+    /// register fixed by the seed match. miRNA nt k pairs with mRNA index
+    /// <paramref name="nt1Index"/> − (k − 1), so the miRNA 3' end pairs UPSTREAM (5') of the seed
+    /// match (Bartel 2009 Fig. 1; TargetScan <c>extractSubseqForAlignment</c> takes the pairing
+    /// subsequence from utrStart − 16 up to the site end). <c>TargetSequence</c> is the mRNA segment
+    /// opposite the miRNA: mrna[max(0, nt1Index − L + 1) .. nt1Index] (truncated at the mRNA ends).
+    /// When nt1Index lies past the mRNA 3' end (a 6mer / offset 6mer flush with the end), the missing
+    /// partner(s) are padded with 'N' for the duplex only, so miRNA nt 1 keeps its register and is
+    /// reported as unpaired.
+    /// </summary>
+    private static TargetSite CreateTargetSite(string mrna, int pos, int length, int nt1Index, string mirna, string mirnaName, TargetSiteType type, int seedMatchLength)
     {
-        // Extend alignment for full miRNA
-        int extendedLength = Math.Min(mirna.Length, mrna.Length - pos);
-        string targetSeq = mrna.Substring(pos, extendedLength);
+        int windowStart = Math.Max(0, nt1Index - mirna.Length + 1);
+        int windowEnd = Math.Min(nt1Index, mrna.Length - 1);
+        string targetSeq = mrna.Substring(windowStart, windowEnd - windowStart + 1);
+        int missing3Prime = nt1Index - windowEnd;
+        string duplexTarget = missing3Prime > 0 ? targetSeq + new string('N', missing3Prime) : targetSeq;
 
-        var duplex = AlignMiRnaToTarget(mirna, targetSeq);
+        var duplex = AlignMiRnaToTarget(mirna, duplexTarget);
         double score = CalculateTargetScore(type, duplex);
 
         return new TargetSite(
@@ -1007,45 +1049,13 @@ public static class MiRnaAnalyzer
     internal static double LocalAuContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
     {
         // Perl uses 1-based utrStart/utrEnd; here Start/End are 0-based inclusive site coordinates.
-        // utrUp = up to 30 nt ending at the position immediately before the site (siteStart-1).
-        // utrDown = up to 30 nt beginning at the position immediately after the site (siteEnd+1).
-        double scoreSum = 0.0;
-        double maxRaw = 0.0;
-
-        // Upstream: walk from siteStart-1 backwards (i = 0 at the adjacent base).
-        for (int i = 0; i < LocalAuFlankLength; i++)
-        {
-            int idx = siteStart - 1 - i;
-            if (idx < 0) break;
-            // 8mer (Seed8mer) and 7mer-m8 use 1/(i+1); 7mer-A1 and 6mer use 1/(i+2).
-            double weight = (type is TargetSiteType.Seed8mer or TargetSiteType.Seed7merM8)
-                ? 1.0 / (i + 1)
-                : 1.0 / (i + 2);
-            char b = mrna[idx];
-            if (b == 'A' || b == 'U')
-                scoreSum += weight;
-            maxRaw += weight;
-        }
-
-        // Downstream: walk from siteEnd+1 forwards (i = 0 at the adjacent base).
-        for (int i = 0; i < LocalAuFlankLength; i++)
-        {
-            int idx = siteEnd + 1 + i;
-            if (idx >= mrna.Length) break;
-            // 8mer and 7mer-A1 use 1/(i+2); 7mer-m8 and 6mer use 1/(i+1).
-            double weight = (type is TargetSiteType.Seed8mer or TargetSiteType.Seed7merA1)
-                ? 1.0 / (i + 2)
-                : 1.0 / (i + 1);
-            char b = mrna[idx];
-            if (b == 'A' || b == 'U')
-                scoreSum += weight;
-            maxRaw += weight;
-        }
-
-        if (maxRaw == 0.0)
+        // 8mer (Seed8mer) and 7mer-m8 weight upstream by 1/(i+1); 7mer-A1 and 6mer by 1/(i+2).
+        // 8mer and 7mer-A1 weight downstream by 1/(i+2); 7mer-m8 and 6mer by 1/(i+1).
+        int upOffset = (type is TargetSiteType.Seed8mer or TargetSiteType.Seed7merM8) ? 1 : 2;
+        int downOffset = (type is TargetSiteType.Seed8mer or TargetSiteType.Seed7merA1) ? 2 : 1;
+        double? weighted = LocalAuFraction(mrna, siteStart, siteEnd, LocalAuFlankLength, upOffset, downOffset);
+        if (weighted is not double fraction)
             return 0.0;
-
-        double fraction = scoreSum / maxRaw;
 
         (double coeff, double min, double max) = type switch
         {
@@ -1057,6 +1067,46 @@ public static class MiRnaAnalyzer
 
         double scaled = (fraction - min) / (max - min);
         return coeff * scaled;
+    }
+
+    /// <summary>
+    /// TargetScan/Grimson (2007) position-weighted local A/U fraction — the raw value of
+    /// <c>getLocalAU_contribution</c> (<c>targetscan_70_context_scores.pl</c>): up to
+    /// <paramref name="flank"/> nt immediately 5' of the site (walked outward from
+    /// <paramref name="siteStart"/>−1, weight 1/(i+<paramref name="upOffset"/>)) and up to
+    /// <paramref name="flank"/> nt immediately 3' (from <paramref name="siteEnd"/>+1, weight
+    /// 1/(i+<paramref name="downOffset"/>)); fraction = Σ weights at A/U ÷ Σ all weights. The site
+    /// itself is excluded. Returns null when there is no flanking nucleotide at all.
+    /// Expects an upper-case RNA sequence.
+    /// </summary>
+    private static double? LocalAuFraction(string mrna, int siteStart, int siteEnd, int flank, int upOffset, int downOffset)
+    {
+        double scoreSum = 0.0;
+        double maxRaw = 0.0;
+
+        for (int i = 0; i < flank; i++)
+        {
+            int idx = siteStart - 1 - i;
+            if (idx < 0) break;
+            double weight = 1.0 / (i + upOffset);
+            char b = mrna[idx];
+            if (b == 'A' || b == 'U')
+                scoreSum += weight;
+            maxRaw += weight;
+        }
+
+        for (int i = 0; i < flank; i++)
+        {
+            int idx = siteEnd + 1 + i;
+            if (idx >= mrna.Length) break;
+            double weight = 1.0 / (i + downOffset);
+            char b = mrna[idx];
+            if (b == 'A' || b == 'U')
+                scoreSum += weight;
+            maxRaw += weight;
+        }
+
+        return maxRaw == 0.0 ? null : scoreSum / maxRaw;
     }
 
     // sRNA position-1 indicators: contributions are 0 when miRNA nt1 is U (perl: only computed
@@ -1150,18 +1200,7 @@ public static class MiRnaAnalyzer
         if (windowStart0 < 0 || windowEnd0 >= mrna.Length)
             return 0.0; // window does not fit → SA omitted (perl: plfold missing → 0)
 
-        // Local fold context: up to W = 80 nt centred on the window, clamped to the UTR. RNAplfold
-        // averages over length-W windows; folding this local context captures the local
-        // accessibility of the 14-nt window (a base can only pair within ±L = 40 nt).
-        int contextStart = Math.Max(0, windowEnd0 - (SaPlfoldWindowSize - SaUnpairedWindowLength) / 2 - SaUnpairedWindowLength + 1);
-        contextStart = Math.Min(contextStart, windowStart0);
-        int contextEnd = Math.Min(mrna.Length - 1, contextStart + SaPlfoldWindowSize - 1);
-        contextStart = Math.Max(0, contextEnd - SaPlfoldWindowSize + 1);
-        string context = mrna.Substring(contextStart, contextEnd - contextStart + 1);
-        int localWindowEnd = windowEnd0 - contextStart;
-
-        double plfold = RnaSecondaryStructure.CalculateRegionUnpairedProbability(
-            context, localWindowEnd, SaUnpairedWindowLength);
+        double plfold = LocalRegionUnpairedProbability(mrna, windowStart0, windowEnd0);
 
         // log10(plfold); perl returns 0 when plfold is not a nonzero number (isNonzeroNumber).
         double log10Plfold = (plfold > 0) ? Math.Log10(plfold) : 0.0;
@@ -1176,6 +1215,32 @@ public static class MiRnaAnalyzer
 
         included = true;
         return ScaledContribution(log10Plfold, coeff, min, max);
+    }
+
+    /// <summary>
+    /// Probability that the region [<paramref name="windowStart0"/>..<paramref name="windowEnd0"/>]
+    /// (0-based, inclusive) is entirely unpaired, from the Turner-2004 McCaskill partition function
+    /// (canonical <see cref="RnaSecondaryStructure.CalculateRegionUnpairedProbability"/>, Z_open/Z),
+    /// folded over a local context of W = max(80, region length) nt centred on the region and clamped
+    /// to the sequence — the RNAplfold <c>-W 80</c> local-folding window used by TargetScan
+    /// (<c>runRNAplfold_all_UTRs</c>; Bernhart et al. 2006). Caller guarantees the region is in range.
+    /// </summary>
+    private static double LocalRegionUnpairedProbability(string mrna, int windowStart0, int windowEnd0)
+    {
+        int regionLength = windowEnd0 - windowStart0 + 1;
+        int foldWindow = Math.Max(SaPlfoldWindowSize, regionLength);
+
+        // Local fold context: up to W nt centred on the region, clamped to the sequence. RNAplfold
+        // averages over length-W windows; folding this local context captures the local
+        // accessibility of the region (a base can only pair within the local window).
+        int contextStart = Math.Max(0, windowEnd0 - (foldWindow - regionLength) / 2 - regionLength + 1);
+        contextStart = Math.Min(contextStart, windowStart0);
+        int contextEnd = Math.Min(mrna.Length - 1, contextStart + foldWindow - 1);
+        contextStart = Math.Max(0, contextEnd - foldWindow + 1);
+        string context = mrna.Substring(contextStart, contextEnd - contextStart + 1);
+        int localWindowEnd = windowEnd0 - contextStart;
+
+        return RnaSecondaryStructure.CalculateRegionUnpairedProbability(context, localWindowEnd, regionLength);
     }
 
     // ── Generic min-max scaling (getAgarwalContribution) ──────────────────────────────────
@@ -2586,77 +2651,92 @@ public static class MiRnaAnalyzer
     #region Target Context Analysis
 
     /// <summary>
-    /// Analyzes the context around a target site (AU content, position in 3'UTR, etc.).
+    /// TargetScan <c>$MIN_DIST_TO_CDS</c>: a site whose 1-based 3'UTR start is &lt; 15 lies in the
+    /// ribosome-occluded first 15 nt after the stop codon and receives no context score
+    /// (<c>targetscan_70_context_scores.pl</c> "too_close"; Grimson et al. 2007).
     /// </summary>
+    private const int MinDistToCds = 15;
+
+    /// <summary>
+    /// Annotates the 3'UTR context of a target site with the site-context determinants of
+    /// Grimson et al. (2007, Mol Cell 27:91): AU-rich flanks, placement ≥ 15 nt downstream of the
+    /// stop codon, and placement away from the centre of the UTR (near either end).
+    /// <paramref name="mRnaSequence"/> is interpreted as the 3'UTR (index 0 = first nt after the stop codon).
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item><b>AuContent</b> — position-weighted local A/U fraction of up to
+    /// <paramref name="contextWindow"/> nt (TargetScan: 30) on each side of the site, the site
+    /// itself excluded, weight 1/d for the nucleotide d positions from the site edge. This is the
+    /// raw local-AU value of TargetScan <c>getLocalAU_contribution</c> with the offset-1 weighting
+    /// on both flanks (the perl's 7mer-m8 convention, used because a bare coordinate range carries
+    /// no site type). 0 when the site has no flanking nucleotide.</item>
+    /// <item><b>NearStart</b> — the site starts within the first 15 nt of the 3'UTR (1-based start
+    /// &lt; 15, TargetScan <c>$MIN_DIST_TO_CDS</c>); such sites are cleared by the translating
+    /// ribosome and are not effective (Grimson 2007).</item>
+    /// <item><b>NearEnd</b> — descriptive flag: the site ends in the 3'-terminal 15% of the sequence.</item>
+    /// <item><b>ContextScore</b> ∈ [0,1] — 0 when <b>NearStart</b>; otherwise
+    /// 0.5·AuContent + 0.5·EndProximity, where EndProximity = 1 − min(d5′, d3′)/((d5′ + d3′)/2)
+    /// (1 at either UTR end, 0 at the centre; d5′/d3′ = nt between the site and the 5′/3′ end),
+    /// following Grimson's finding that efficacy falls toward the middle of the UTR with equal
+    /// effects from both ends. The directions of both terms are sourced; the equal 0.5/0.5
+    /// weighting is NOT a fitted model — for the regression-fitted score use
+    /// <see cref="ScoreTargetSiteContextPlusPlus"/> (Agarwal 2015 Local_AU / Min_dist terms).</item>
+    /// </list>
+    /// Empty input or an out-of-range site ([start, end] not within the sequence, or start &gt; end)
+    /// yields all zeros / false.
+    /// </remarks>
     public static (double AuContent, bool NearStart, bool NearEnd, double ContextScore) AnalyzeTargetContext(
         string mRnaSequence,
         int targetStart,
         int targetEnd,
         int contextWindow = 30)
     {
-        if (string.IsNullOrEmpty(mRnaSequence))
+        if (string.IsNullOrEmpty(mRnaSequence) || targetStart < 0 || targetEnd >= mRnaSequence.Length || targetStart > targetEnd)
             return (0, false, false, 0);
 
-        string mrna = mRnaSequence.ToUpperInvariant();
+        string mrna = mRnaSequence.ToUpperInvariant().Replace('T', 'U');
+        int n = mrna.Length;
 
-        // Get context window
-        int windowStart = Math.Max(0, targetStart - contextWindow);
-        int windowEnd = Math.Min(mrna.Length, targetEnd + contextWindow);
-        string context = mrna.Substring(windowStart, windowEnd - windowStart);
+        double auContent = LocalAuFraction(mrna, targetStart, targetEnd, Math.Max(0, contextWindow), 1, 1) ?? 0.0;
 
-        // Calculate AU content
-        int auCount = context.Count(c => c == 'A' || c == 'U');
-        double auContent = (double)auCount / context.Length;
+        bool nearStart = targetStart + 1 < MinDistToCds;
+        bool nearEnd = targetEnd > n * 0.85;
 
-        // Check position
-        bool nearStart = targetStart < mrna.Length * 0.15;
-        bool nearEnd = targetEnd > mrna.Length * 0.85;
+        if (nearStart)
+            return (auContent, true, nearEnd, 0.0);
 
-        // Calculate context score (higher AU content near target is favorable)
-        double contextScore = auContent * 0.5;
+        int d5 = targetStart;
+        int d3 = n - 1 - targetEnd;
+        double centreDistance = (d5 + d3) / 2.0;
+        double endProximity = centreDistance > 0 ? 1.0 - Math.Min(d5, d3) / centreDistance : 1.0;
 
-        // Bonus for not being at very end
-        if (!nearEnd && !nearStart)
-        {
-            contextScore += 0.3;
-        }
-
-        return (auContent, nearStart, nearEnd, Math.Min(1.0, contextScore));
+        double contextScore = 0.5 * auContent + 0.5 * endProximity;
+        return (auContent, false, nearEnd, Math.Clamp(contextScore, 0.0, 1.0));
     }
 
     /// <summary>
-    /// Checks for site accessibility based on local structure.
+    /// Structural accessibility of a target site: the equilibrium probability that every
+    /// nucleotide of [<paramref name="siteStart"/>..<paramref name="siteEnd"/>] (0-based, inclusive)
+    /// is unpaired, P = Z_open/Z from the Turner-2004 McCaskill partition function (canonical
+    /// <see cref="RnaSecondaryStructure.CalculateRegionUnpairedProbability"/>), folded over a local
+    /// RNAplfold-style context of W = max(80, site length) nt centred on the site (TargetScan runs
+    /// <c>RNAplfold -W 80</c>; Bernhart et al. 2006).
+    /// 1 = fully accessible, 0 = always paired.
     /// </summary>
+    /// <remarks>
+    /// Returns 0 for empty input or an out-of-range site (start &lt; 0, end ≥ length, start &gt; end).
+    /// DNA input (T) and lower case are accepted. RNAplfold additionally limits base-pair span to
+    /// L = 40 and averages over all W-windows covering the site; here the single centred window is
+    /// folded without a span limit (same approach as the context++ SA feature).
+    /// </remarks>
     public static double CalculateSiteAccessibility(string mRnaSequence, int siteStart, int siteEnd)
     {
-        if (string.IsNullOrEmpty(mRnaSequence) || siteStart < 0 || siteEnd >= mRnaSequence.Length)
+        if (string.IsNullOrEmpty(mRnaSequence) || siteStart < 0 || siteEnd >= mRnaSequence.Length || siteStart > siteEnd)
             return 0;
 
-        // Simplified accessibility: check for self-complementarity in local region
-        int windowSize = 50;
-        int start = Math.Max(0, siteStart - windowSize);
-        int end = Math.Min(mRnaSequence.Length, siteEnd + windowSize);
-
-        string window = mRnaSequence.Substring(start, end - start).ToUpperInvariant();
-
-        // Count potential base pairs in the window (indicating structure)
-        int structureScore = 0;
-        for (int i = 0; i < window.Length; i++)
-        {
-            for (int j = i + 4; j < window.Length; j++)
-            {
-                if (CanPair(window[i], window[j]) && !IsWobblePair(window[i], window[j]))
-                {
-                    structureScore++;
-                }
-            }
-        }
-
-        // Higher structure score = less accessible
-        double maxPairs = window.Length * (window.Length - 4) / 2.0;
-        double structureDensity = structureScore / Math.Max(1, maxPairs);
-
-        return Math.Max(0, 1.0 - structureDensity * 10);
+        string mrna = mRnaSequence.ToUpperInvariant().Replace('T', 'U');
+        return LocalRegionUnpairedProbability(mrna, siteStart, siteEnd);
     }
 
     #endregion
@@ -2666,36 +2746,54 @@ public static class MiRnaAnalyzer
     /// <summary>
     /// Groups miRNAs by their seed sequence family.
     /// </summary>
+    /// <remarks>
+    /// Family = identical sequence at nucleotides 2–8 (Bartel 2009; TargetScan
+    /// <c>miR_Family_Info</c> "Seed+m8"). The family key is the TargetScan-normalised seed
+    /// (upper-case, T→U), so the grouping agrees with <see cref="CompareSeedRegions"/>.
+    /// miRNAs without a defined seed (sequence shorter than 8 nt ⇒ empty seed) belong to no
+    /// family and are omitted.
+    /// </remarks>
     public static IEnumerable<(string SeedFamily, IReadOnlyList<MiRna> Members)> GroupBySeedFamily(IEnumerable<MiRna> miRnas)
     {
+        ArgumentNullException.ThrowIfNull(miRnas);
+
         return miRnas
-            .GroupBy(m => m.SeedSequence)
+            .Select(m => (Key: NormalizeSeed(m.SeedSequence), MiRna: m))
+            .Where(x => x.Key.Length > 0)
+            .GroupBy(x => x.Key, x => x.MiRna)
             .Select(g => (g.Key, (IReadOnlyList<MiRna>)g.ToList()));
     }
 
     /// <summary>
-    /// Finds miRNAs with similar seed sequences.
+    /// Finds miRNAs whose seed (nt 2–8) is within <paramref name="maxMismatches"/> of the query seed.
     /// </summary>
+    /// <remarks>
+    /// Distance is the seed mismatch count of <see cref="CompareSeedRegions"/> (Hamming distance
+    /// plus length difference, after TargetScan normalisation). Entries with the same
+    /// <see cref="MiRna.Name"/> as the query are skipped. A miRNA with an undefined (empty) seed
+    /// is never similar to anything: if the query seed is empty, nothing is returned.
+    /// </remarks>
     public static IEnumerable<MiRna> FindSimilarMiRnas(MiRna query, IEnumerable<MiRna> database, int maxMismatches = 1)
     {
-        string querySeed = query.SeedSequence;
+        ArgumentNullException.ThrowIfNull(database);
+        return FindSimilarMiRnasIterator(query, database, maxMismatches);
+    }
+
+    private static IEnumerable<MiRna> FindSimilarMiRnasIterator(MiRna query, IEnumerable<MiRna> database, int maxMismatches)
+    {
+        if (NormalizeSeed(query.SeedSequence).Length == 0)
+            yield break;
 
         foreach (var mirna in database)
         {
             if (mirna.Name == query.Name)
                 continue;
 
-            int mismatches = 0;
-            for (int i = 0; i < Math.Min(querySeed.Length, mirna.SeedSequence.Length); i++)
-            {
-                if (querySeed[i] != mirna.SeedSequence[i])
-                    mismatches++;
-            }
+            if (NormalizeSeed(mirna.SeedSequence).Length == 0)
+                continue;
 
-            if (mismatches <= maxMismatches)
-            {
+            if (CompareSeedRegions(query, mirna).Mismatches <= maxMismatches)
                 yield return mirna;
-            }
         }
     }
 
@@ -2704,15 +2802,31 @@ public static class MiRnaAnalyzer
     #region Utility Methods
 
     /// <summary>
-    /// Calculates the GC content of a sequence.
+    /// Calculates the GC content of a sequence as a fraction in [0, 1].
+    /// Delegates to the canonical <see cref="SequenceExtensions.CalculateGcFractionFast"/>
+    /// ((G+C)/(A+C+G+T+U); other characters excluded from both counts).
     /// </summary>
     public static double CalculateGcContent(string sequence) =>
         string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcFractionFast();
 
     /// <summary>
-    /// Generates all possible seed sequences for a given miRNA.
+    /// Enumerates the seed itself followed by every single-nucleotide substitution over
+    /// A/C/G/U (1 + 3·L sequences for a length-L seed, in position-then-ACGU order).
     /// </summary>
+    /// <remarks>
+    /// The input is TargetScan-normalised first (upper-case, T→U) so that no variant duplicates
+    /// the original. <paramref name="includeWobble"/> has no effect: every single substitution,
+    /// including those whose target-site pairing would be a G:U wobble, is always enumerated.
+    /// It is retained only for API compatibility.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="seedSequence"/> is null.</exception>
     public static IEnumerable<string> GenerateSeedVariants(string seedSequence, bool includeWobble = true)
+    {
+        ArgumentNullException.ThrowIfNull(seedSequence);
+        return GenerateSeedVariantsIterator(NormalizeSeed(seedSequence));
+    }
+
+    private static IEnumerable<string> GenerateSeedVariantsIterator(string seedSequence)
     {
         yield return seedSequence;
 

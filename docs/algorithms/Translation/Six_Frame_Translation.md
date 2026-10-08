@@ -6,7 +6,7 @@
 | Test Unit ID | TRANS-SIXFRAME-001 |
 | Related Projects | Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -37,7 +37,8 @@ codons [2]. Reverse frame `-f` is the same construction applied to `revcomp(s)` 
 offset `o = f-1` [2]; this is Biopython's `frames[-(i+1)] = translate(anti[i:])`
 convention (see §5.4). An ORF (getorf `-find 1`) is a maximal region beginning at a
 START codon and ending at the next in-frame STOP codon, both selected from the active
-genetic code [4]. The Standard code (NCBI table 1) has start codons TTG, CTG, ATG and
+genetic code [4]. The initiator residue is reported as Met whatever the start codon
+(getorf `-methionine`, default Y [6]; Biopython `translate(cds=True)` [2]; NCBI [3]). The Standard code (NCBI table 1) has start codons TTG, CTG, ATG and
 stop codons TAA, TAG, TGA [3].
 
 ### 2.4 Properties and Invariants
@@ -48,8 +49,8 @@ stop codons TAA, TAG, TGA [3].
 | INV-02 | Forward frame `+f` = translation at offset `f−1` of the input | direct codon reading [2] |
 | INV-03 | Reverse frame `−f` = translation at offset `f−1` of the reverse complement | Biopython reverse-frame loop [2] |
 | INV-04 | Each frame length = ⌊(len−offset)/3⌋; trailing partial codon ignored | only complete codons consumed [2] |
-| INV-05 | Every ORF starts at a START codon; if terminated, EndPosition is the STOP's last base (inclusive) and the protein excludes the STOP | getorf START→STOP model [4] |
-| INV-06 | `NucleotideLength = EndPosition − StartPosition + 1`; `AminoAcidLength = Protein.Length` | inclusive coordinates [4] |
+| INV-05 | Every ORF starts at a START codon and its protein starts with `M`; if terminated, EndPosition is the STOP's last base (inclusive, INSDC CDS convention [7]) and the protein excludes the STOP; if open, EndPosition is the last base of the last complete codon | getorf START→STOP model [4][6]; INSDC [7] |
+| INV-06 | `NucleotideLength = EndPosition − StartPosition + 1` = 3·(AminoAcidLength + 1) if terminated, 3·AminoAcidLength if open; `AminoAcidLength = Protein.Length` | inclusive coordinates [6][7] |
 
 ### 2.5 Comparison with Related Methods
 
@@ -64,7 +65,7 @@ stop codons TAA, TAG, TGA [3].
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | dna | DnaSequence | required | Sequence to translate / scan | non-null |
-| geneticCode | GeneticCode? | Standard (table 1) | Codon→amino-acid table | NCBI translation table |
+| geneticCode | GeneticCode? | Standard (table 1) | Codon→amino-acid table | NCBI translation table; `FindOrfs` rejects the dual-coding-stop tables 27, 28, 31 (`ArgumentException`) |
 | minLength | int | 100 | Minimum ORF length, in **amino acids** | ≥ 0 |
 | searchBothStrands | bool | true | Also scan the reverse complement for ORFs | — |
 
@@ -74,16 +75,16 @@ stop codons TAA, TAG, TGA [3].
 |-------|------|-------------|
 | (six frames) | IReadOnlyDictionary<int, ProteinSequence> | Keys +1,+2,+3,−1,−2,−3 → protein per frame |
 | OrfResult.StartPosition | int | 0-based first base of the START codon (in the scanned strand's coordinates) |
-| OrfResult.EndPosition | int | 0-based last base of the STOP codon, inclusive |
+| OrfResult.EndPosition | int | 0-based, inclusive: last base of the STOP codon (INSDC CDS convention [7]; getorf prints this − 3); for an open ORF the last base of the last complete codon |
 | OrfResult.Frame | int | +1..+3 forward, −1..−3 reverse |
-| OrfResult.Protein | ProteinSequence | Translated residues, START included, STOP excluded |
+| OrfResult.Protein | ProteinSequence | Translated residues; initiator reported as `M` (getorf `-methionine` [6]); STOP excluded |
 
 ### 3.3 Preconditions and Validation
 
 Null `dna` throws `ArgumentNullException`. Input is upper-cased and T→U normalised
 before codon lookup; indexing is 0-based; ORF EndPosition is inclusive. An empty
-sequence yields six empty frames and no ORFs. IUPAC-ambiguous codons translate to `X`
-(inherited from `GeneticCode.Translate`).
+sequence yields six empty frames and no ORFs. IUPAC-ambiguous codons are resolved as in
+Biopython (inherited from `GeneticCode.Translate`: e.g. `GCN`→`A`, `TAR`→`*`, `RAY`→`B`, `NNN`/`TAN`→`X`).
 
 ## 4. Algorithm
 
@@ -94,8 +95,10 @@ sequence yields six empty frames and no ORFs. IUPAC-ambiguous codons translate t
 3. For offsets 0,1,2: translate the forward strand (→ +1,+2,+3) and the reverse
    complement (→ −1,−2,−3), consuming only complete codons.
 4. For ORFs: in each frame, on entering a START codon begin accumulating residues;
-   on the next in-frame STOP, emit an ORF if its protein length ≥ `minLength`; if the
-   strand ends mid-ORF, emit the open ORF if long enough.
+   (the first residue is written as `M`); on the next in-frame STOP, emit an ORF if its
+   protein length ≥ `minLength`; if the strand ends mid-ORF, emit the open ORF (ending at
+   the last complete codon) if long enough. Starts inside an open ORF are not reported
+   separately (getorf `ORF[frame]` flag [6]).
 5. If `searchBothStrands`, repeat ORF scanning on the reverse complement with negative
    frame labels.
 
@@ -136,7 +139,9 @@ toFirstStop: true)`.
 - Six frames keyed +1..+3 / −1..−3, forward offsets 0/1/2 and reverse-complement offsets 0/1/2 (Biopython six_frame_translations) [2].
 - Trailing partial codon ignored (Biopython `fragment_length` truncation) [2].
 - Standard code start/stop codons {TTG,CTG,ATG} / {TAA,TAG,TGA} (NCBI table 1) [3].
-- ORF = START→STOP region with inclusive STOP end position (EMBOSS getorf `-find 1`) [4].
+- ORF = START→STOP region (EMBOSS getorf `-find 1`, `getorf_FindORFs`) [4][6]; initiator → `M` (`-methionine` default Y) [6]; open ORF ends at last complete codon (`WriteORF(start, pos+2)`) [6].
+- End coordinate includes the STOP codon (INSDC feature table CDS: "location includes stop codon") [7]; getorf's printed end excludes it (`WriteORF(start, pos-1)`) — a coordinate-convention difference of exactly 3.
+- Tables 27/28/31: every stop codon is dual-coding (Biopython `CodonTable`: `stop_codons ⊂ forward_table`), so `FindOrfs` throws `ArgumentException` — as Biopython refuses `to_stop=True` for these tables [2].
 
 **Intentionally simplified:**
 
@@ -153,6 +158,9 @@ toFirstStop: true)`.
 |---|------|------|--------|--------|-------|
 | 1 | Reverse-frame numbering = Biopython independent-offset (not EMBOSS phase-locked) | Assumption | −1/−2/−3 labels differ from EMBOSS default | accepted | Documented alternative in EMBOSS transeq [1]; see INV-03 |
 | 2 | `minLength` in amino acids, not nucleotides | Deviation | Different parameter unit than getorf | accepted | §3.1 |
+| 3 | End coordinate includes the STOP (INSDC) | Convention | getorf's printed end = EndPosition − 3 | accepted | [7] |
+| 4 | Reverse-strand ORF coordinates in reverse-complement coordinates | Convention | getorf prints forward-strand coordinates (`len−s+1`) | accepted | §6.2 |
+| 5 | A START in the very last complete codon of a frame (no STOP) is reported as a 1-aa open ORF when `minLength ≤ 1` | Divergence | getorf never writes it (branch-order artefact of `getorf_FindORFs`: the START branch opens the ORF and the loop ends) | accepted | unobservable for `minLength ≥ 2` (getorf default minsize 30 nt = 10 aa) |
 
 ## 6. Edge Cases and Limitations
 
@@ -164,7 +172,9 @@ toFirstStop: true)`.
 | Empty sequence | six empty frames; no ORFs | no complete codons [2] |
 | Length not multiple of 3 | trailing 1–2 nt ignored | Biopython truncation [2] |
 | No START codon | no ORF | getorf START→STOP [4] |
-| ORF runs to sequence end without STOP | open ORF emitted if ≥ minLength | getorf incomplete-ORF handling [4] |
+| ORF runs to sequence end without STOP | open ORF emitted if ≥ minLength; ends at last complete codon | getorf `WriteORF(start, pos+2)` [6] |
+| Alternative start codon (TTG, CTG, GTG…) | initiator reported as `M` | getorf `-methionine` [6]; Biopython `cds=True` [2] |
+| Genetic code 27, 28 or 31 in `FindOrfs` | `ArgumentException` | no unambiguous stop codon; Biopython `to_stop` refusal [2] |
 
 ### 6.2 Limitations
 
@@ -202,3 +212,5 @@ var orfs = Translator.FindOrfs(new DnaSequence("GGGATGAAACCCTAAGGG"),
 3. NCBI. The Genetic Codes — Standard Code (transl_table=1). https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi
 4. Rice P, Longden I, Bleasby A. 2000. EMBOSS: getorf application documentation. EMBOSS. https://emboss.sourceforge.net/apps/cvs/emboss/apps/getorf.html
 5. Wikipedia contributors. Reading frame (cites Lodish 2007; Pierce 2012). https://en.wikipedia.org/wiki/Reading_frame
+6. EMBOSS getorf source: `emboss/getorf.c` (`getorf_FindORFs`, `getorf_WriteORF`) and `emboss/acd/getorf.acd` (`-methionine` default Y). https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/getorf.c
+7. INSDC. The DDBJ/ENA/GenBank Feature Table Definition — CDS: "sequence of nucleotides that corresponds with the sequence of amino acids in a protein (location includes stop codon)". https://www.insdc.org/submitting-standards/feature-table/

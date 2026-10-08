@@ -63,6 +63,19 @@
 
 ---
 
+### ViennaRNA 2.7.2 source — `vrna_ptable_from_string` (reference implementation)
+
+**Opened:** PyPI sdist `viennarna-2.7.2.tar.gz`, `src/ViennaRNA/structures/structure_pairtable.c` (2026-09-28)
+**Authority rank:** 3 (reference implementation)
+
+**Key Extracted Points:**
+
+1. `vrna_ptable_from_string(s, options)` runs `extract_pairs` once per enabled bracket type (`()`, `<>`, `{}`, `[]`) — one independent stack per family; a closer with an empty stack, or a non-empty stack at the end, returns `NULL` (invalid).
+2. `VRNA_BRACKETS_ALPHA`: `for (i = 65; i < 91; i++) pairs = {(char)i, (char)(i + 32)}` — only ASCII `A`–`Z` / `a`–`z` are letter families; every other character is ignored (unpaired).
+3. Cross-check (Python `RNA.ptable(s, RNA.BRACKETS_ANY)`, ViennaRNA 2.7.2): 6 713 strings (random bracket/letter/WUSS mixtures, random well-formed multi-family structures, `RNA.fold` MFE structures, non-ASCII mixtures) — validity and pair sets 100 % identical to `ValidateDotBracket`/`ParseDotBracket` after the 2026-09 fix (before: 46 non-ASCII mismatches, e.g. `É.é` paired (0,2), `É...` invalid).
+
+---
+
 ## Documented Corner Cases and Failure Modes
 
 ### From ViennaRNA / WUSS documentation
@@ -138,3 +151,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28**: Review B12 — added ViennaRNA 2.7.2 source/`RNA.ptable` cross-check; ASCII-only letter families.

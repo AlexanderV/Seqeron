@@ -18,12 +18,16 @@ Returns the melting temperature (Tm), GC content, molecular weight, and 260 nm m
 extinction coefficient of an oligonucleotide (primer, probe, or short synthetic oligo).
 Call this when the user needs the basic physical characterization of an oligo.
 
-- **Tm** uses the **Wallace rule** (`2·(A+T) + 4·(G+C)`) for sequences shorter than 14 bases,
-  and a **salt-adjusted formula** (`81.5 + 16.6·log10(0.05) + 41·%GC − 600/length`, 50 mM Na⁺)
-  for sequences of 14 bases or longer.
+- **Tm** is Primer3's `seqtm` (identical to primer3-py `calc_tm(..., max_nn_length=36)`, Primer3 MAX_NN_TM_LENGTH) at the Primer3
+  hybridization-probe defaults (50 nM oligo, 50 mM monovalent, no Mg²⁺, no dNTP): SantaLucia 1998
+  nearest-neighbour Tm with the SantaLucia salt correction for ≤ 36 nt, Primer3 `long_seq_tm`
+  (`81.5 + 16.6·log10([Na⁺]) + 0.41·%GC − 600/N`) above. It is `null` when not computable
+  (fewer than 2 bases, or any non-ACGT base — e.g. an RNA oligo).
 - **GC content** is returned as a **fraction in [0,1]** (not a percentage).
-- **Molecular weight** (Da) sums per-base average weights (A=331.2, C=307.2, G=347.2,
-  T=322.2, U=308.2) and subtracts one water (18.0 Da) per phosphodiester bond.
+- **Molecular weight** (Da) is the single-stranded Biopython `molecular_weight(seq, "DNA"|"RNA")`
+  (canonical `SequenceStatistics.CalculateNucleotideMolecularWeight`; nucleoside-monophosphate masses
+  minus one water 18.01528 Da per phosphodiester bond; RNA when the oligo contains U and no T;
+  unknown symbols skipped).
 - **Extinction coefficient** (M⁻¹·cm⁻¹ at 260 nm) sums per-base contributions
   (A=15400, C=7400, G=11500, T=8700, U=9900; unknown bases fall back to 10000).
 
@@ -31,7 +35,7 @@ Input is treated case-insensitively.
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L1299](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1299)
+- Source: [ProbeDesigner.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs) (`AnalyzeOligo`)
 - Tm constants: [ThermoConstants.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/ThermoConstants.cs)
 
 ## Input Schema
@@ -44,7 +48,7 @@ Input is treated case-insensitively.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `tm` | number | Melting temperature in °C |
+| `tm` | number \| null | Melting temperature in °C (null when not computable) |
 | `gcContent` | number | GC content as a fraction (0–1) |
 | `molecularWeight` | number | Molecular weight in Da |
 | `extinctionCoefficient` | number | Molar extinction coefficient at 260 nm (M⁻¹·cm⁻¹) |
@@ -57,7 +61,7 @@ Input is treated case-insensitively.
 
 ## Examples
 
-### Example 1: 4-mer (Wallace rule Tm)
+### Example 1: 4-mer
 
 **User Prompt:**
 > Analyze the oligo "ATGC".
@@ -75,14 +79,14 @@ Input is treated case-insensitively.
 **Response:**
 ```json
 {
-  "tm": 12,
+  "tm": -54.53620887888866,
   "gcContent": 0.5,
-  "molecularWeight": 1253.8,
+  "molecularWeight": 1253.8027,
   "extinctionCoefficient": 43000
 }
 ```
 
-### Example 2: 20-mer (salt-adjusted Tm)
+### Example 2: 20-mer (nearest-neighbour Tm)
 
 **User Prompt:**
 > What are the properties of "ACGTACGTACGTACGTACGT"?
@@ -100,9 +104,9 @@ Input is treated case-insensitively.
 **Response:**
 ```json
 {
-  "tm": 50.402902071977906,
+  "tm": 53.99351583691026,
   "gcContent": 0.5,
-  "molecularWeight": 6197,
+  "molecularWeight": 6196.9523,
   "extinctionCoefficient": 215000
 }
 ```

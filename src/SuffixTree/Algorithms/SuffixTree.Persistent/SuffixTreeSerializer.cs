@@ -34,27 +34,8 @@ public static class SuffixTreeSerializer
         {
             var hasher = new HashVisitor(sha256);
 
-            // Hash the text in chunks to avoid materializing the full string
-            const int chunkSize = 4096;
-            char[] charBuf = ArrayPool<char>.Shared.Rent(chunkSize);
-            byte[] byteBuf = ArrayPool<byte>.Shared.Rent(chunkSize * 2);
-            try
-            {
-                int textLen = tree.Text.Length;
-                for (int offset = 0; offset < textLen; offset += chunkSize)
-                {
-                    int count = Math.Min(chunkSize, textLen - offset);
-                    for (int i = 0; i < count; i++)
-                        charBuf[i] = tree.Text[offset + i];
-                    int byteCount = Encoding.Unicode.GetBytes(charBuf, 0, count, byteBuf, 0);
-                    sha256.TransformBlock(byteBuf, 0, byteCount, null, 0);
-                }
-            }
-            finally
-            {
-                ArrayPool<char>.Shared.Return(charBuf);
-                ArrayPool<byte>.Shared.Return(byteBuf);
-            }
+            // Hash the text as raw UTF-16LE code units (same bytes as the export payload)
+            WriteTextCodeUnits(tree.Text, (buf, count) => sha256.TransformBlock(buf, 0, count, null, 0));
 
             // Hash the tree structure deterministically
             tree.Traverse(hasher);
@@ -80,25 +61,12 @@ public static class SuffixTreeSerializer
             writer.Write(LOGICAL_MAGIC);
             writer.Write(VERSION);
 
-            // Write text using chunked approach to avoid full materialization for large MMF sources
+            // Write text as raw UTF-16LE code units in chunks (no full materialization for
+            // large MMF sources). Encoding.Unicode is NOT used: it would replace lone
+            // surrogates — and surrogate pairs split by a chunk boundary — with U+FFFD.
             var text = tree.Text;
             writer.Write7BitEncodedInt(text.Length);
-            const int chunkSize = 4096;
-            char[] charBuf = ArrayPool<char>.Shared.Rent(chunkSize);
-            try
-            {
-                for (int offset = 0; offset < text.Length; offset += chunkSize)
-                {
-                    int count = Math.Min(chunkSize, text.Length - offset);
-                    for (int i = 0; i < count; i++)
-                        charBuf[i] = text[offset + i];
-                    writer.Write(charBuf, 0, count);
-                }
-            }
-            finally
-            {
-                ArrayPool<char>.Shared.Return(charBuf);
-            }
+            WriteTextCodeUnits(text, (buf, count) => writer.Write(buf, 0, count));
 
             writer.Write(tree.NodeCount);
             writer.Write(hash.Length);
@@ -132,24 +100,37 @@ public static class SuffixTreeSerializer
             if (version != VERSION)
                 throw new NotSupportedException($"Format version {version} is not supported (expected {VERSION}).");
 
-            // Read chunked text (matches Export's Write7BitEncodedInt + Write(char[]) format)
-            int textLen = reader.Read7BitEncodedInt();
-            string text;
-            if (textLen == 0)
+            // Read the text payload (Write7BitEncodedInt length + raw UTF-16LE code units)
+            int textLen;
+            try { textLen = reader.Read7BitEncodedInt(); }
+            catch (FormatException ex) { throw new InvalidDataException("Corrupted stream: invalid text length prefix.", ex); }
+            if (textLen < 0 || textLen > int.MaxValue / sizeof(char))
+                throw new InvalidDataException($"Corrupted stream: invalid text length {textLen}.");
+
+            byte[] textBytes = reader.ReadBytes(textLen * sizeof(char));
+            if (textBytes.Length != textLen * sizeof(char))
+                throw new InvalidDataException(
+                    $"Truncated stream: expected {textLen} characters, got {textBytes.Length / sizeof(char)}.");
+            string text = Utf16CodeUnits.Read(textBytes);
+
+            int expectedNodeCount;
+            byte[] expectedHash;
+            try
             {
-                text = string.Empty;
-            }
-            else
-            {
-                char[] chars = reader.ReadChars(textLen);
-                if (chars.Length != textLen)
+                expectedNodeCount = reader.ReadInt32();
+                int hashLen = reader.ReadInt32();
+                if (hashLen != SHA256.HashSizeInBytes)
                     throw new InvalidDataException(
-                        $"Truncated stream: expected {textLen} characters, got {chars.Length}.");
-                text = new string(chars);
+                        $"Corrupted stream: hash length {hashLen} (expected {SHA256.HashSizeInBytes}).");
+                expectedHash = reader.ReadBytes(hashLen);
             }
-            int expectedNodeCount = reader.ReadInt32();
-            int hashLen = reader.ReadInt32();
-            byte[] expectedHash = reader.ReadBytes(hashLen);
+            catch (EndOfStreamException ex)
+            {
+                throw new InvalidDataException("Truncated stream: node count / hash trailer is missing.", ex);
+            }
+            if (expectedHash.Length != SHA256.HashSizeInBytes)
+                throw new InvalidDataException(
+                    $"Truncated stream: expected {SHA256.HashSizeInBytes} hash bytes, got {expectedHash.Length}.");
 
             var textSource = new StringTextSource(text);
             return ImportBuild(target, textSource, expectedNodeCount, expectedHash);
@@ -208,6 +189,31 @@ public static class SuffixTreeSerializer
     public static ISuffixTree LoadFromFile(string filePath)
     {
         return PersistentSuffixTreeFactory.Load(filePath);
+    }
+
+    /// <summary>
+    /// Streams <paramref name="text"/> as raw little-endian UTF-16 code units in fixed-size
+    /// chunks. Shared by <see cref="CalculateLogicalHash"/> and <see cref="Export"/> so the
+    /// hashed bytes and the exported payload are identical and lossless.
+    /// </summary>
+    private static void WriteTextCodeUnits(ITextSource text, Action<byte[], int> sink)
+    {
+        const int chunkSize = 4096;
+        byte[] byteBuf = ArrayPool<byte>.Shared.Rent(chunkSize * sizeof(char));
+        try
+        {
+            int textLen = text.Length;
+            for (int offset = 0; offset < textLen; offset += chunkSize)
+            {
+                int count = Math.Min(chunkSize, textLen - offset);
+                int byteCount = Utf16CodeUnits.Write(text.Slice(offset, count), byteBuf);
+                sink(byteBuf, byteCount);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(byteBuf);
+        }
     }
 
     private sealed class HashVisitor : ISuffixTreeVisitor

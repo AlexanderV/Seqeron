@@ -137,6 +137,46 @@
 
 ---
 
+## 2026-09 review (campaign B05) — sources opened and reference computation
+
+Network: academic.oup.com, pnas.org, cell.com, frontiersin.org, jaspar.* and promega.com were blocked (egress 403); the following were read as WebSearch result records only:
+
+- **Kozak 1987 (NAR 15:8125) abstract** (OUP record): "(GCC)GCC(A/G)CCATGG emerges as the consensus sequence for initiation of translation in vertebrates … 97% of vertebrate mRNAs have a purine, most often A, in position −3" → constant `GCCGCCRCCATGG`.
+- **AP-1**: "The consensus AP-1 binding site is the palindrome TGA(C/G)TCA (Lee et al., 1987, Nature 325:368; Lee et al., 1987, Cell 49:741)" (PNAS 94:5826 record); Angel et al. 1987 Cell 49:729 record: TRE of collagenase/stromelysin/hMTIIA/SV40, canonical collagenase TRE `TGAGTCA` → constant `TGASTCA`. `TGAGTCA` = reverse complement of `TGACTCA`.
+- **NF-κB**: "NF-κB binds to the consensus sequence 5′-GGGRNWYYCC-3′" (records of Gilmore 2006 Oncogene 25:6680 and Front Immunol 10:609, 2019) → constant `GGGRNWYYCC`.
+- **GC box / Sp1**: "21-bp repeats of the SV40 promoter contain six tandem copies of the GGGCGG hexanucleotide (GC-box), each of which can bind Sp1" (Dynan & Tjian 1983 Cell record; Gidoni, Dynan & Tjian 1984). Lundin et al. 1994 (previously cited) is about yeast MIG1.
+- **Shine & Dalgarno 1974 (PNAS 71:1342)** record: 16S rRNA 3′ end `…ACCUCCUUA`; ACCUCC complementary to GGAGGU upstream of initiation codons → `AGGAGG` unchanged.
+- **Bucher 1990** (PubMed/EPFL records): weight matrices for TATA, cap, CCAAT, GC box from 502 promoters; core strings TATAAA / CCAAT unchanged (matrix scoring declared not implemented at that point; implemented 2026-09-30 by B05 F22 as `FindPromoterElementsByMatrix`, see the follow-up section below).
+
+Reference implementation: Biopython 1.88 `Bio.SeqUtils.nt_search` over the 12-pattern library (library order):
+
+| Sequence | Result (Name:Pos:Seq) |
+|---|---|
+| TTGCCGCCGCCATGGAA | Kozak:2:GCCGCCGCCATGG |
+| TTGCCGCCTCCATGGAA | — |
+| AATGAGTCAGG | AP-1:2:TGAGTCA |
+| AATGATTCAGG | — |
+| AAGGGAAATTCCAA | NF-κB:2:GGGAAATTCC |
+| AAGGGACGTTCCAA | — |
+| CCAATAAACC | CAAT Box:0:CCAAT, Poly(A) Signal:2:AATAAA |
+| GTATAATATAAA | TATA Box:6:TATAAA, -10 Box:1:TATAAT |
+| CACATGTG | E-box:0:CACATG, E-box:2:CATGTG |
+
+All 12 original single-element probes give the same (Name, position) as before.
+
+## 2026-09 follow-up (B05) — both strands and Bucher weight matrices
+
+Sources opened:
+- **Orientation independence** (WebSearch records; publisher sites blocked): Mantovani 1998 NAR 26:1135 — "the CCAAT box … found in the forward or reverse orientation"; Gidoni et al. 1985 Science 230:511 (PMID 2996137) "Bidirectional SV40 transcription mediated by tandem Sp1 binding interactions"; Banerji, Rusconi & Schaffner 1981 Cell 27:299 — enhancer fragments "could act in either orientation". NF-κB `GGGRNWYYCC` is not self-reverse-complementary (revcomp `GGRRWNYCCC`); AP-1 `TGASTCA`, E-box `CANNTG`, CREB `TGACGTCA` are (checked with the canonical IUPAC reverse complement).
+- **Bucher 1990 matrices**: jaspar.elixir.no / jaspar.genereg.net / jaspar2020.genereg.net REST API and epd.expasy.org (`promoter_elements/tata_old.php`) → proxy 403. Obtained from PyPI `pyjaspar` 4.0.0 wheel (`pyjaspar/data/JASPAR{2014,2016,2018,2020}.sqlite`, tables MATRIX / MATRIX_DATA / MATRIX_ANNOTATION): POLII collection POL012.1 TATA-Box (A 61 16 352 3 354 268 360 222 155 56 83 82 82 68 77 …), POL002.1 INR (= Bucher cap signal), POL004.1 CCAAT-box, POL003.1 GC-box, all annotated `medline 2329577` (= Bucher 1990); MD5 of the four matrices identical across the four releases (POLII collection absent from JASPAR 2024/2026).
+- **Bucher cut-off**: only the TATA-box cut-off −8.16 (97 %) was found (WebSearch record of the paper); it is on Bucher's smoothed ln-weight scale, whose exact transform was not obtainable → not used; thresholds are chosen by background FPR (Biopython `threshold_fpr`).
+
+Reference computation (Biopython 1.88):
+- `nt_search(seq, pat)` + `nt_search(seq.reverse_complement(), pat)` (minus start = n − p − m) for CAAT/GC/NF-κB:
+  `ATTGGTTTATAAACCGCCCATCCAATGGAAAGTCCCTGACTCAGGGCGGA` → TATA 7+, CAAT 0− / 21+, GC 13− / 43+, AP-1 36+, NF-κB 26− (GGGACTTTCC);
+  `GGGACTTTCCATTGGCCAATTTATTTAGGCACGTGCCGCCCGGGCGG` → CAAT 10− / 15+, GC 35− / 41+, E-box 29+, NF-κB 0+.
+- `motifs.read(open("POL012.1.jaspar"), "jaspar")`; `m.pseudocounts = motifs.jaspar.calculate_pseudocounts(m)` (TATA √389·0.25 = 4.926543751285817); `m.pssm` max/min/consensus/mean; `pssm.distribution().threshold_fpr(1e-3)` (TATA 7.042753822501211, cap 6.115969817666912, CCAAT 7.094645943646782, GC 6.836719879834341); `pssm.search(PROM, thr, both=…)` on the 105-nt test promoter (TATA +4 14.6749; cap +34 6.7934; CCAAT +64 12.0773 / −19 12.3150; GC +11 13.3694 / +17 8.6593 / −28 13.0702).
+
 ## Documented Corner Cases and Failure Modes
 
 ### From the consensus definitions
@@ -162,22 +202,22 @@
 | -35 Box | TTGACA | `AATTGACAGG` | 2 |
 | CAAT Box | CCAAT | `GGCCAATGG` | 2 |
 | GC Box | GGGCGG | `AAGGGCGGTT` | 2 |
-| Kozak | GCCGCCACCATGG | `TTGCCGCCACCATGGAA` | 2 |
+| Kozak | GCCGCCRCCATGG (GCCGCCACCATGG) | `TTGCCGCCACCATGGAA` | 2 |
 | Shine-Dalgarno | AGGAGG | `TTAGGAGGTTT` | 2 |
 | Poly(A) Signal | AATAAA | `CCAATAAACC` | 2 |
 | E-box | CANNTG (CACGTG) | `GGCACGTGGG` | 2 |
-| AP-1 | TGACTCA | `AATGACTCAGG` | 2 |
-| NF-κB | GGGACTTTCC | `AAGGGACTTTCCAA` | 2 |
+| AP-1 | TGASTCA (TGACTCA) | `AATGACTCAGG` | 2 |
+| NF-κB | GGGRNWYYCC (GGGACTTTCC) | `AAGGGACTTTCCAA` | 2 |
 | CREB | TGACGTCA | `CCTGACGTCAGG` | 2 |
 
-### Dataset: AP-1 negative control (defect regression)
+### Dataset: AP-1 collagenase TRE (superseded negative control, 2026-09)
 
-**Source:** Lee, Mitchell & Tjian (1987).
+**Source:** Angel et al. (1987); Lee, Mitchell & Tjian (1987) consensus TGA(C/G)TCA.
 
 | Parameter | Value |
 |-----------|-------|
-| Sequence | `AATGAGTCAGG` (contains the old wrong pattern TGAGTCA) |
-| Expected AP-1 hits | 0 (TGAGTCA is NOT the consensus; correct consensus is TGACTCA) |
+| Sequence | `AATGAGTCAGG` (collagenase TRE TGAGTCA) |
+| Expected AP-1 hits | 1 at position 2 (Biopython nt_search → [2]); `AATGATTCAGG` → 0 |
 
 ---
 
@@ -211,9 +251,15 @@
 8. Sen R., Baltimore D. (1986). Multiple nuclear factors interact with the immunoglobulin enhancer sequences. Cell 46(5):705-716. https://doi.org/10.1016/0092-8674(86)90346-6
 9. Montminy M.R., Sevarino K.A., Wagner J.A., Mandel G., Goodman R.H. (1986). Identification of a cyclic-AMP-responsive element within the rat somatostatin gene. PNAS 83(18):6682-6686. https://doi.org/10.1073/pnas.83.18.6682
 10. Wikipedia: TATA box — https://en.wikipedia.org/wiki/TATA_box ; Pribnow box — https://en.wikipedia.org/wiki/Pribnow_box ; GC box — https://en.wikipedia.org/wiki/GC_box ; E-box — https://en.wikipedia.org/wiki/E-box ; Shine–Dalgarno sequence — https://en.wikipedia.org/wiki/Shine%E2%80%93Dalgarno_sequence ; Kozak consensus sequence — https://en.wikipedia.org/wiki/Kozak_consensus_sequence (all accessed 2026-06-14).
+11. Angel P., Imagawa M., Chiu R., Stein B., Imbra R.J., Rahmsdorf H.J., Jonat C., Herrlich P., Karin M. (1987). Phorbol ester-inducible genes contain a common cis element recognized by a TPA-modulated trans-acting factor. Cell 49(6):729-739. https://doi.org/10.1016/0092-8674(87)90611-8
+12. Gilmore T.D. (2006). Introduction to NF-κB: players, pathways, perspectives. Oncogene 25(51):6680-6684. https://doi.org/10.1038/sj.onc.1209954
+13. La Fleur T.L., Hossain A., Salis H.M. (2022). Automated model-predictive design of synthetic promoters to control transcriptional profiles in bacteria. Nat Commun 13:5159. https://doi.org/10.1038/s41467-022-32829-5 ; reference code https://github.com/hsalis/SalisLabCode/tree/master/Promoter_Calculator
 
 ---
 
 ## Change History
 
 - **2026-06-14**: Initial documentation. Recorded AP-1 defect (TGAGTCA → TGACTCA) and addition of -10/-35 prokaryotic promoter hexamers.
+- **2026-09-29**: Kozak → GCCGCCRCCATGG, AP-1 → TGASTCA (TGAGTCA is the collagenase TRE / reverse complement, not a defect), NF-κB → GGGRNWYYCC; GC box and Shine-Dalgarno citations replaced by primaries. The AP-1 negative-control dataset below is superseded (TGAGTCA now expected as an AP-1 hit).
+- **2026-09-30**: Both-strand scan (`FindRegulatoryElements(seq, bothStrands)`) for CAAT / GC box / NF-κB; Bucher 1990 matrices (JASPAR POL012.1/POL002.1/POL004.1/POL003.1) with FPR-threshold PWM scan (`FindPromoterElementsByMatrix`).
+- **2026-10-01**: B05 F30 — σ70 −35/−10 consensus pairing `FindSigma70Promoters` (Harley & Reynolds 1987) and Promoter Calculator v1.0 port `PredictSigma70Promoters` (La Fleur, Hossain & Salis 2022), bit-identical to the reference code. Doc sync: Assumptions / Recommendation 2 / AP-1 and NF-κB key points rewritten to the F12 IUPAC constants (`GCCGCCRCCATGG`, `TGASTCA`, `GGGRNWYYCC`); the 2026-06-14 AP-1 "defect" marked superseded.

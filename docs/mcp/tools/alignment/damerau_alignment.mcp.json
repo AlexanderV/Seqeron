@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "damerau_alignment",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.GetDamerauLevenshteinAlignment",
+  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.Damerau.cs#L151",
+  "description": "Optimal transposition-aware edit script turning sequence1 into sequence2 — the Lowrance & Wagner (1975) trace. `variant` = `unrestricted` (default; `ApproximateMatcher.GetDamerauLevenshteinAlignment`): a transposition block a_k…a_i → b_l…b_j (a_k = b_j, a_i = b_l) deletes the characters between the swapped pair, swaps it and inserts b_(l+1..j−1) between them, at cost (i−k−1)·deletionCost + transpositionCost + (j−l−1)·insertionCost; `osa` (`ApproximateMatcher.GetOptimalStringAlignment`): adjacent swaps only. Returns the distance (summed operation cost, equal to damerau_levenshtein_distance), a compact script ('=' match, 'X' substitution, 'I' sequence1 character deleted, 'D' sequence2 character inserted — edlib letters as in edit_alignment — and 'T' followed by one 'i' per character deleted and one 'd' per character inserted inside a transposition block), the transposition count and the operations with 0-based positions, lengths and costs. Traceback tie-break: diagonal, transposition, deletion, insertion. Optional weighted costs as in damerau_levenshtein_distance. Case-sensitive. O(m·n) time and space.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": {
+        "type": "string",
+        "description": "Source sequence (s1).",
+        "minLength": 1
+      },
+      "sequence2": {
+        "type": "string",
+        "description": "Target sequence (s2).",
+        "minLength": 1
+      },
+      "variant": {
+        "type": "string",
+        "description": "'unrestricted' (true Damerau–Levenshtein, default) or 'osa' (optimal string alignment).",
+        "enum": [
+          "unrestricted",
+          "osa"
+        ],
+        "default": "unrestricted"
+      },
+      "insertionCost": {
+        "type": "integer",
+        "description": "Cost of inserting a sequence2 character (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "deletionCost": {
+        "type": "integer",
+        "description": "Cost of deleting a sequence1 character (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "substitutionCost": {
+        "type": "integer",
+        "description": "Cost of a substitution (>= 0; default 1).",
+        "minimum": 0,
+        "default": 1
+      },
+      "transpositionCost": {
+        "type": "integer",
+        "description": "Cost of swapping two adjacent characters (>= 0; default 1; 'unrestricted' needs 2*transpositionCost >= insertionCost + deletionCost).",
+        "minimum": 0,
+        "default": 1
+      }
+    },
+    "required": [
+      "sequence1",
+      "sequence2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "distance": {
+        "type": "integer"
+      },
+      "variant": {
+        "type": "string",
+        "enum": [
+          "unrestricted",
+          "osa"
+        ]
+      },
+      "script": {
+        "type": "string"
+      },
+      "transpositionCount": {
+        "type": "integer"
+      },
+      "operations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "match",
+                "substitution",
+                "insertion",
+                "deletion",
+                "transposition"
+              ]
+            },
+            "sourcePosition": {
+              "type": "integer"
+            },
+            "sourceLength": {
+              "type": "integer"
+            },
+            "targetPosition": {
+              "type": "integer"
+            },
+            "targetLength": {
+              "type": "integer"
+            },
+            "cost": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "sourcePosition",
+            "sourceLength",
+            "targetPosition",
+            "targetLength",
+            "cost"
+          ]
+        }
+      }
+    },
+    "required": [
+      "distance",
+      "variant",
+      "script",
+      "transpositionCount",
+      "operations"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1004,
+      "message": "Variant must be 'unrestricted' or 'osa'"
+    },
+    {
+      "code": 1004,
+      "message": "Costs must be >= 0; 'unrestricted' requires 2*transpositionCost >= insertionCost + deletionCost"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Transposition with an inserted character",
+      "input": {
+        "sequence1": "CA",
+        "sequence2": "ABC"
+      },
+      "output": {
+        "distance": 2,
+        "variant": "unrestricted",
+        "script": "Td",
+        "transpositionCount": 1,
+        "operations": [
+          {
+            "kind": "transposition",
+            "sourcePosition": 0,
+            "sourceLength": 2,
+            "targetPosition": 0,
+            "targetLength": 3,
+            "cost": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Adjacent swap (OSA)",
+      "input": {
+        "sequence1": "ACGT",
+        "sequence2": "AGCT",
+        "variant": "osa"
+      },
+      "output": {
+        "distance": 1,
+        "variant": "osa",
+        "script": "=T=",
+        "transpositionCount": 1,
+        "operations": [
+          {
+            "kind": "match",
+            "sourcePosition": 0,
+            "sourceLength": 1,
+            "targetPosition": 0,
+            "targetLength": 1,
+            "cost": 0
+          },
+          {
+            "kind": "transposition",
+            "sourcePosition": 1,
+            "sourceLength": 2,
+            "targetPosition": 1,
+            "targetLength": 2,
+            "cost": 1
+          },
+          {
+            "kind": "match",
+            "sourcePosition": 3,
+            "sourceLength": 1,
+            "targetPosition": 3,
+            "targetLength": 1,
+            "cost": 0
+          }
+        ]
+      }
+    }
+  ]
+}

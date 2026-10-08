@@ -12,8 +12,8 @@ namespace Seqeron.Genomics.Tests.Metamorphic;
 /// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 48.
 ///
 /// API under test (ChromosomeAnalyzer.AnalyzeTelomeres):
-///   Scans the 3' end for tandem TTAGGG repeats (≥70 % per-hexamer identity) counting inward,
-///   and the 5' start for the reverse-complement CCCTAA; reports the terminal repeat-tract
+///   seqtk-telo maximal-scoring scan (rotations of TTAGGG from the 3' end inward, of CCCTAA
+///   from the 5' start inward; +1 hit / -1 miss, X-drop); reports the terminal repeat-tract
 ///   LENGTHS and purities at each end.
 ///
 /// Relations (derived from that definition, NOT from output):
@@ -40,7 +40,7 @@ public class ChromosomeMetamorphicTests
 
     private static string Repeat(string unit, int count) => string.Concat(Enumerable.Repeat(unit, count));
 
-    /// <summary>Non-telomeric filler whose every hexamer falls well below the 70 % match threshold for both tracts.</summary>
+    /// <summary>Non-telomeric filler: no hexamer of (GC)n is a rotation of TTAGGG or CCCTAA.</summary>
     private static string Filler(int length)
     {
         var sb = new System.Text.StringBuilder(length);
@@ -72,7 +72,9 @@ public class ChromosomeMetamorphicTests
     {
         int prev3 = int.MinValue, prev5 = int.MinValue;
 
-        foreach (int k in new[] { 1, 2, 5, 10, 20, 50 })
+        // k starts at 2: seqtk telo (the reference algorithm) scores 5' positions only from i >= 6, so a
+        // single 5' unit is not a tract (seqtk telo -s 1: t5_1 -> none, t5_2 -> 12, t3_1 -> 6).
+        foreach (int k in new[] { 2, 5, 10, 20, 50 })
         {
             var three = ChromosomeAnalyzer.AnalyzeTelomeres("chr", Filler(60) + Repeat(TeloRepeat, k));
             three.TelomereLength3Prime.Should().Be(6 * k,

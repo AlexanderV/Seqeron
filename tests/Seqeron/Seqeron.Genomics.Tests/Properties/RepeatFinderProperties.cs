@@ -76,6 +76,34 @@ public class RepeatFinderProperties
     }
 
     /// <summary>
+    /// INV-05 (maximal runs, REP-STR-001 review 2026-09): every reported microsatellite is left-maximal
+    /// (<c>Position = 0</c> or <c>S[Position-1] != S[Position-1+p]</c>), right-maximal (the next copy is
+    /// incomplete: fewer than p further bases continue the period), primitive and ACGT-only, so the same run is
+    /// never reported twice in different rotations. Evidence: Kolpakov &amp; Kucherov (1999) maximal repetitions;
+    /// MISA leftmost match / pytrf run start (see REP-STR-001-Evidence.md).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Microsatellite_EachResult_IsMaximalRun()
+    {
+        return Prop.ForAll(SeededMicrosatelliteArbitrary(), seq =>
+        {
+            var results = RepeatFinder.FindMicrosatellites(seq, 1, 6, minRepeats: 2).ToList();
+            bool ok = results.All(r =>
+            {
+                int p = r.RepeatUnit.Length, a = r.Position;
+                bool leftMax = a == 0 || seq[a - 1] != seq[a - 1 + p];
+                int e = a + r.TotalLength;
+                int ext = 0;
+                while (e + ext < seq.Length && seq[e + ext] == seq[e + ext - p]) ext++;
+                bool primitive = Enumerable.Range(1, p - 1)
+                    .All(d => p % d != 0 || string.Concat(Enumerable.Repeat(r.RepeatUnit[..d], p / d)) != r.RepeatUnit);
+                return leftMax && ext < p && primitive && r.RepeatUnit.All(c => "ACGT".Contains(c));
+            });
+            return ok.Label("Each result must be one maximal primitive run reported at its left end");
+        });
+    }
+
+    /// <summary>
     /// INV-3 (R): every reported microsatellite repeats at least <c>minRepeats</c> times.
     /// Evidence: FindMicrosatellites only yields a run when its maximal repeat count ≥ minRepeats.
     /// Exercised against sequences carrying a genuine planted tandem repeat.
@@ -262,7 +290,8 @@ public class RepeatFinderProperties
 
     /// <summary>
     /// INV-3: Sub-type counts sum to total repeats.
-    /// Evidence: TotalRepeats = Mono + Di + Tri + Tetra + remaining types.
+    /// Evidence: every reported unit has length 1–6 and each class has its own field (MISA "Distribution to
+    /// different repeat type classes" / Krait Mono…Hexa), so Mono+Di+Tri+Tetra+Penta+Hexa = TotalRepeats.
     /// </summary>
     [Test]
     [Category("Property")]
@@ -272,10 +301,33 @@ public class RepeatFinderProperties
             new DnaSequence(MicrosatelliteSequence), minRepeats: 3);
 
         int subSum = summary.MononucleotideRepeats + summary.DinucleotideRepeats +
-                     summary.TrinucleotideRepeats + summary.TetranucleotideRepeats;
+                     summary.TrinucleotideRepeats + summary.TetranucleotideRepeats +
+                     summary.PentanucleotideRepeats + summary.HexanucleotideRepeats;
 
-        Assert.That(subSum, Is.LessThanOrEqualTo(summary.TotalRepeats),
-            "Mono+Di+Tri+Tetra sub-types must be ≤ TotalRepeats (penta/hexa/complex may exist)");
+        Assert.That(subSum, Is.EqualTo(summary.TotalRepeats),
+            "Mono+Di+Tri+Tetra+Penta+Hexa must equal TotalRepeats");
+    }
+
+    /// <summary>
+    /// INV-3b: for random sequences the six class counts sum to TotalRepeats, covered bases (union) never
+    /// exceed TotalRepeatBases (sum of lengths), and LongestRepeat / MostFrequentUnit are null exactly when
+    /// nothing is found.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TandemSummary_ClassCounts_Coverage_LongestNull_Consistent()
+    {
+        return Prop.ForAll(DnaArbitrary(40), seq =>
+        {
+            var s = RepeatFinder.GetTandemRepeatSummary(new DnaSequence(seq), minRepeats: 2);
+            int subSum = s.MononucleotideRepeats + s.DinucleotideRepeats + s.TrinucleotideRepeats +
+                         s.TetranucleotideRepeats + s.PentanucleotideRepeats + s.HexanucleotideRepeats;
+            double covered = seq.Length == 0 ? 0 : s.PercentageOfSequence * seq.Length / 100.0;
+            bool ok = subSum == s.TotalRepeats
+                      && covered <= s.TotalRepeatBases + 1e-9
+                      && (s.LongestRepeat is null) == (s.TotalRepeats == 0)
+                      && (s.MostFrequentUnit is null) == (s.TotalRepeats == 0);
+            return ok.Label($"seq={seq} sum={subSum} total={s.TotalRepeats} covered={covered} bases={s.TotalRepeatBases}");
+        });
     }
 
     /// <summary>
@@ -398,6 +450,48 @@ public class RepeatFinderProperties
         });
     }
 
+    /// <summary>
+    /// INV-6: Maximality (EMBOSS palindrome -overlap Y): no reported stem lies inside another reported stem
+    /// in both arms, and no reported stem can be extended outward by one more Watson–Crick pair.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property InvertedRepeat_ReportedStems_AreMaximal()
+    {
+        return Prop.ForAll(DnaArbitrary(30), seq =>
+        {
+            var repeats = RepeatFinder.FindInvertedRepeats(seq, minArmLength: 2, maxLoopLength: 10, minLoopLength: 0).ToList();
+            bool nested = repeats.Any(a => repeats.Any(b => b != a
+                && b.LeftArmStart <= a.LeftArmStart && a.LeftArmStart + a.ArmLength <= b.LeftArmStart + b.ArmLength
+                && b.RightArmStart <= a.RightArmStart && a.RightArmStart + a.ArmLength <= b.RightArmStart + b.ArmLength));
+            bool extendable = repeats.Any(r =>
+            {
+                int i = r.LeftArmStart - 1, j = r.RightArmStart + r.ArmLength;
+                return i >= 0 && j < seq.Length && ReverseComplement(seq[i].ToString()) == seq[j].ToString();
+            });
+            return (!nested && !extendable).Label("reported inverted repeats must be maximal and non-nested");
+        });
+    }
+
+    /// <summary>
+    /// INV-7: Strand symmetry: the stems of revcomp(S) are exactly the mirror images of the stems of S
+    /// (stem (i, j, A) maps to (n − j − A, n − i − A, A)).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property InvertedRepeat_ReverseComplement_MirrorsStems()
+    {
+        return Prop.ForAll(DnaArbitrary(30), seq =>
+        {
+            int n = seq.Length;
+            var fwd = RepeatFinder.FindInvertedRepeats(seq, minArmLength: 3, maxLoopLength: 12, minLoopLength: 2)
+                .Select(r => (n - r.RightArmStart - r.ArmLength, n - r.LeftArmStart - r.ArmLength, r.ArmLength))
+                .OrderBy(t => t).ToList();
+            var rev = RepeatFinder.FindInvertedRepeats(ReverseComplement(seq), minArmLength: 3, maxLoopLength: 12, minLoopLength: 2)
+                .Select(r => (r.LeftArmStart, r.RightArmStart, r.ArmLength))
+                .OrderBy(t => t).ToList();
+            return fwd.SequenceEqual(rev).Label("revcomp(S) stems must mirror S stems");
+        });
+    }
+
     #endregion
 
     #region REP-DIRECT-001: R: positions valid; M: lower minLen → ≥ results; P: two copies identical; D: deterministic
@@ -488,6 +582,25 @@ public class RepeatFinderProperties
         });
     }
 
+    /// <summary>
+    /// INV-6: Every reported pair is a maximal repeated pair (Gusfield 1997 §7.12; MUMmer repeat-match -f):
+    /// left-maximal (i = 0 or S[i−1] ≠ S[j−1]) and right-maximal (end of text or S[i+L] ≠ S[j+L]),
+    /// and each position pair appears once. Checked with overlaps admitted (minSpacing = int.MinValue).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DirectRepeat_Pairs_AreLeftAndRightMaximal()
+    {
+        return Prop.ForAll(DnaArbitrary(30), seq =>
+        {
+            var repeats = RepeatFinder.FindDirectRepeats(seq, minLength: 2, maxLength: int.MaxValue, minSpacing: int.MinValue).ToList();
+            bool maximal = repeats.All(r =>
+                (r.FirstPosition == 0 || seq[r.FirstPosition - 1] != seq[r.SecondPosition - 1]) &&
+                (r.SecondPosition + r.Length == seq.Length || seq[r.FirstPosition + r.Length] != seq[r.SecondPosition + r.Length]));
+            bool unique = repeats.Select(r => (r.FirstPosition, r.SecondPosition)).Distinct().Count() == repeats.Count;
+            return (maximal && unique).Label("Direct repeats must be unique left- and right-maximal pairs");
+        });
+    }
+
     #endregion
 
     #region REP-APPROX-001: R: percent-matches ∈ [0,100]; R: score ≥ MinScore (50); D: deterministic
@@ -495,7 +608,7 @@ public class RepeatFinderProperties
     // FindApproximateTandemRepeats — TRF-style imperfect tandem-repeat detection (Benson 1999). Every
     // reported repeat passes the minimum alignment-score gate (default 50) and has a match percentage in [0,100].
 
-    // Length-bounded planted tandem repeat (the TRF scan is super-linear, so cap the generated size).
+    // Length-bounded planted tandem repeat.
     private static Arbitrary<string> BoundedSeededRepeatArbitrary() =>
         (from prefixLen in Gen.Choose(0, 10)
          from suffixLen in Gen.Choose(0, 10)
@@ -519,6 +632,37 @@ public class RepeatFinderProperties
             var results = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 6, minScore).ToList();
             return results.All(r => r.PercentMatches is >= 0.0 and <= 100.0 + 1e-9 && r.AlignmentScore >= minScore)
                 .Label($"a repeat had PercentMatches/score out of contract (results={results.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV (TRF redundancy, README "Redundancy"): after elimination no pair of reported repeats overlapping by
+    /// ≥ 90 % of one of them is redundant — i.e. has the same period with no higher score, or a period that is
+    /// a multiple of the other's with score ≤ 1.1×; results are ordered by start.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproximateRepeats_NoRedundantPairRemains_AndOrderedByStart()
+    {
+        static bool Redundant(ApproximateTandemRepeatResult x, ApproximateTandemRepeatResult y) =>
+            (x.Period > y.Period && y.Period > 0 && x.Period % y.Period == 0 && x.AlignmentScore <= 1.1 * y.AlignmentScore) ||
+            (x.Period == y.Period && x.AlignmentScore <= y.AlignmentScore);
+
+        return Prop.ForAll(BoundedSeededRepeatArbitrary(), seq =>
+        {
+            var results = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 30, 20).ToList();
+            bool ordered = results.Zip(results.Skip(1)).All(p => p.First.Start <= p.Second.Start);
+            bool clean = true;
+            for (int i = 0; i < results.Count; i++)
+                for (int j = i + 1; j < results.Count; j++)
+                {
+                    var a = results[i];
+                    var b = results[j];
+                    int overlap = Math.Min(a.Start + a.SpanLength, b.Start + b.SpanLength) - Math.Max(a.Start, b.Start);
+                    if (overlap <= 0) continue;
+                    if ((overlap >= 0.9 * a.SpanLength && Redundant(a, b)) || (overlap >= 0.9 * b.SpanLength && Redundant(b, a)))
+                        clean = false;
+                }
+            return (ordered && clean).Label("no TRF-redundant pair may remain and output is ordered by start");
         });
     }
 

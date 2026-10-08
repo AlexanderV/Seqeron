@@ -156,9 +156,9 @@ Where $f_i(c)$ is the frequency of codon $c$ in sequence $i$.
 | Corner Case | Expected Result | Rationale |
 |-------------|-----------------|-----------|
 | Empty string | {} / 0.0 | No codons to process |
-| Null input | ArgumentNullException | Defensive programming |
+| Null input | {} / 0.0 (no throw) | Same as empty |
 | 1-2 nucleotides | {} | Not a complete codon |
-| Non-standard characters | Ignore or handle gracefully | Robustness |
+| Ambiguity codes / non-nucleotide characters | The containing triplet is skipped, frame preserved (`ATGNNNGCT` → {AUG:1, GCU:1}) | EMBOSS `ajcod.c` `ajCodSetTripletsS` ("Skips triplets with ambiguity codes and any incomplete triplet at the end"); Biopython 1.88 `CodonAdaptationIndex` 64-ACGT-codon count table |
 | Mixed case | Case-insensitive | Standard practice |
 | DNA (T) vs RNA (U) | Treat equivalently | Biological equivalence |
 
@@ -202,5 +202,10 @@ Verification method: per-thousand frequencies from Kazusa converted to relative 
 - **CODON-CAI-001**: Uses codon frequencies for CAI calculation
 - **CODON-RARE-001**: Identifies rare codons based on usage tables
 
+## Review 2026-09 (B02) cross-check
+
+Opened: EMBOSS `emboss/cusp.c`, `ajax/core/ajcod.c` (`ajCodSetTripletsS`, `ajCodIndexC`, `ajCodBase`, `ajCodCalcUsage`), `ajax/core/ajbase.c` (raw.githubusercontent.com/kimrutherford/EMBOSS); Biopython 1.88 `Bio/SeqUtils/__init__.py` `CodonAdaptationIndex` (installed package). Kazusa pages were not reachable (proxy 403).
+300 random inputs (pure ACGT, lower-case DNA/RNA mixes, IUPAC-ambiguous, gaps/X/space, RNA) compared against a port of the documented cusp counting loop: 0 mismatches; the 60 pure-ACGT multiple-of-3 inputs also match the verbatim Biopython counting loop. 303 `CompareCodonUsage` pairs vs `1 − scipy.spatial.distance.cityblock(f₁,f₂)/2` over the 64-codon vectors: max |Δ| = 1.2e-15.
+
 ## Last Updated
-2026-03-11
+2026-09-28

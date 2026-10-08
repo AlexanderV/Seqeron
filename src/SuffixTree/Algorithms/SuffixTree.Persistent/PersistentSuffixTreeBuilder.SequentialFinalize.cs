@@ -62,7 +62,7 @@ public partial class PersistentSuffixTreeBuilder
             long batchEnd = batchStart + batchSize;
             long batchPos = batchStart;
 
-            // Reusable child buffer (max 256 children per node)
+            // Reusable child buffer; nodes with more children fall back to an exact-size buffer in Pass1Internal
             const int CHILD_BUF_MAX = 256;
             uint* cKeys = stackalloc uint[CHILD_BUF_MAX];
             long* cOffs = stackalloc long[CHILD_BUF_MAX];

@@ -173,32 +173,43 @@ public static partial class OncologyAnalyzer
 
         // Expected alt-allele fraction f(c) = ρ·M·c / (2(1−ρ) + ρ·q): mutant copies M·c per cell scaled by
         // purity over the total DNA (normal 2(1−ρ) + tumour ρ·q). Landau 2013 (M=1) generalised by DeCiFering Eq.1.
-        double denominator = NormalDiploidCopyNumber * (1.0 - purity) + purity * variant.LocalCopyNumber;
+        double denominator = MixtureCopiesPerCell(purity, variant.LocalCopyNumber);
         double alleleFractionPerUnitCcf = purity * variant.Multiplicity / denominator;
 
-        // Posterior P(c) ∝ Binomial(a | N, f(c)) on a uniform grid c ∈ [0.01, 1], uniform prior; normalise by sum.
-        // The binomial coefficient C(N, a) is constant in c, so it cancels in normalisation and is omitted.
-        double step = (CcfGridUpperBound - CcfGridLowerBound) / (CcfGridPointCount - 1);
-        Span<double> weights = stackalloc double[CcfGridPointCount];
+        // Posterior P(c) ∝ Binomial(a | N, f(c)) on Landau's regular grid of 100 values c = 0.01, 0.02, …, 1.00,
+        // uniform prior, normalised by the sum. The binomial coefficient C(N, a) is constant in c, so it cancels in
+        // normalisation and is omitted. The kernel is kept in log space and shifted by its maximum before
+        // exponentiation (log-sum-exp): without the C(N, a) factor the raw kernel p^a(1−p)^(N−a) underflows to 0 at
+        // every grid point once N ≳ 1100 (e.g. a = 1000, N = 2000), which previously collapsed the posterior to a
+        // flat grid (CCF 0.505, subclonal) instead of R dbinom's normalised posterior (CCF 0.985, clonal).
+        Span<double> weights = stackalloc double[CcfGridPointCount]; // log weights, then max-shifted weights
+        double maxLogWeight = double.NegativeInfinity;
+        for (int i = 0; i < CcfGridPointCount; i++)
+        {
+            double f = Math.Min(1.0, alleleFractionPerUnitCcf * CcfGridPoint(i));
+            double logLikelihood = BinomialLogLikelihoodKernel(variant.AltReads, variant.TotalReads, f);
+            weights[i] = logLikelihood;
+            maxLogWeight = Math.Max(maxLogWeight, logLikelihood);
+        }
+
+        // f(c) ∈ (0, 1) for every grid point except possibly f(1) = 1 (ρ = 1, M = q), so at least one log weight is
+        // finite and the shifted weights sum to ≥ 1: the posterior is always well defined.
         double weightSum = 0.0;
         for (int i = 0; i < CcfGridPointCount; i++)
         {
-            double c = CcfGridLowerBound + step * i;
-            double f = Math.Min(1.0, alleleFractionPerUnitCcf * c);
-            double likelihood = BinomialLikelihoodKernel(variant.AltReads, variant.TotalReads, f);
-            weights[i] = likelihood;
-            weightSum += likelihood;
+            double weight = Math.Exp(weights[i] - maxLogWeight);
+            weights[i] = weight;
+            weightSum += weight;
         }
 
         double ccfMean = 0.0;
         double probabilityClonal = 0.0;
-        // Guard against an all-zero posterior (e.g. f≈0 with a>0): fall back to a flat posterior over the grid.
-        bool degenerate = weightSum <= 0.0 || double.IsNaN(weightSum);
         for (int i = 0; i < CcfGridPointCount; i++)
         {
-            double c = CcfGridLowerBound + step * i;
-            double posterior = degenerate ? 1.0 / CcfGridPointCount : weights[i] / weightSum;
+            double c = CcfGridPoint(i);
+            double posterior = weights[i] / weightSum;
             ccfMean += c * posterior;
+            // Strict "CCF > 0.95" (Landau 2013). Grid points are exact decimals, so c = 0.95 is excluded.
             if (c > ClonalCcfThreshold)
             {
                 probabilityClonal += posterior;
@@ -220,26 +231,35 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Binomial likelihood kernel L(a | N, p) = p^a · (1−p)^(N−a), without the constant C(N, a) factor (it cancels
-    /// under grid normalisation). Computed via log-space to avoid underflow for large N.
+    /// The i-th point (0-based) of Landau's regular CCF grid of <see cref="CcfGridPointCount"/> values over
+    /// [<see cref="CcfGridLowerBound"/>, <see cref="CcfGridUpperBound"/>]: c_i = (i + 1) / 100, i.e. 0.01, 0.02, …, 1.00.
+    /// Computed as a single correctly-rounded division so every grid point is the double nearest its decimal value;
+    /// the accumulated form 0.01 + i·(0.99/99) yields 0.9500000000000001 at i = 94, which made the strict
+    /// "CCF &gt; 0.95" test count the c = 0.95 grid point as clonal.
     /// </summary>
-    private static double BinomialLikelihoodKernel(int altReads, int totalReads, double p)
+    private static double CcfGridPoint(int index) => (double)(index + 1) / CcfGridPointCount;
+
+    /// <summary>
+    /// Binomial log-likelihood kernel ln L(a | N, p) = a·ln p + (N−a)·ln(1−p), without the constant ln C(N, a)
+    /// (it cancels under grid normalisation). Returns −∞ where the likelihood is exactly zero (p = 0 with a &gt; 0,
+    /// p = 1 with a &lt; N).
+    /// </summary>
+    private static double BinomialLogLikelihoodKernel(int altReads, int totalReads, double p)
     {
         int refReads = totalReads - altReads;
         if (p <= 0.0)
         {
             // p = 0 explains zero alternate reads exactly, nothing else.
-            return altReads == 0 ? 1.0 : 0.0;
+            return altReads == 0 ? 0.0 : double.NegativeInfinity;
         }
 
         if (p >= 1.0)
         {
             // p = 1 explains all-alternate reads exactly, nothing else.
-            return refReads == 0 ? 1.0 : 0.0;
+            return refReads == 0 ? 0.0 : double.NegativeInfinity;
         }
 
-        double logLikelihood = altReads * Math.Log(p) + refReads * Math.Log(1.0 - p);
-        return Math.Exp(logLikelihood);
+        return (altReads * Math.Log(p)) + (refReads * Math.Log(1.0 - p));
     }
 
     /// <summary>Validates read counts, local copy number, and multiplicity of a clonality variant.</summary>
@@ -274,13 +294,6 @@ public static partial class OncologyAnalyzer
 
 
     #region EstimateCcf
-
-    /// <summary>
-    /// Normal locus copy number (diploid) contributing the 2(1−ρ) term in the CCF denominator.
-    /// Source: McGranahan et al. (2016), <i>Science</i> 351(6280):1463–1469 — n_mut = VAF·(1/p)·[p·CN_t + CN_n·(1−p)]
-    /// with CN_n = 2; Tarabichi et al. (2021), <i>Nat. Methods</i> 18:144–155 (Box 1).
-    /// </summary>
-    private const double NormalLocusCopyNumber = 2.0;
 
     /// <summary>Upper bound on a reported cancer cell fraction (a mutation in all cancer cells has CCF = 1).</summary>
     private const double MaxCancerCellFraction = 1.0;
@@ -353,26 +366,40 @@ public static partial class OncologyAnalyzer
 
         // CCF = VAF·(ρ·N_T + 2(1−ρ)) / (ρ·m): total DNA per cell = tumour ρ·N_T + normal 2(1−ρ); dividing the
         // observed mutant fraction by ρ·m / totalDna recovers the fraction of cancer cells carrying the mutation.
-        double totalDnaPerCell = purity * tumorCopyNumber + NormalLocusCopyNumber * (1.0 - purity);
-        double rawCcf = vaf * totalDnaPerCell / (purity * multiplicity);
+        // The observed mutation copy number n_mut = VAF·(ρ·N_T + 2(1−ρ))/ρ is the canonical CNAqc purity/copy-number
+        // VAF correction (AdjustVAFForPurity, ONCO-VAF-001); CCF = n_mut / m (McGranahan 2016).
+        double rawCcf = AdjustVAFForPurity(vaf, purity, tumorCopyNumber) / multiplicity;
         double cappedCcf = Math.Min(MaxCancerCellFraction, rawCcf);
         return new CcfEstimate(cappedCcf, rawCcf);
     }
 
     /// <summary>
-    /// Clusters cancer cell fractions into <paramref name="clusterCount"/> clones/subclones using a deterministic
-    /// one-dimensional Lloyd's k-means (Lloyd 1982, <i>IEEE Trans. Inf. Theory</i> 28(2):129–137): each value is
-    /// assigned to the nearest centroid (least squared distance) and each centroid is recomputed as the mean of
-    /// its members, iterating to convergence. Determinism is achieved without any RNG by seeding the centroids at
-    /// evenly spaced quantiles of the sorted input. The clonal cluster is the one with the highest centroid
-    /// (Tarabichi et al. 2021, <i>Nat. Methods</i> 18:144–155: "the cluster with the highest CP can be deemed clonal").
+    /// Upper bound on the number of cells (clusters × values) of the Ckmeans.1d.dp backtrack matrix J that
+    /// <see cref="ClusterCcfValues"/> allocates (4 bytes per cell, i.e. at most 400 MB).
+    /// </summary>
+    private const long MaxCcfClusteringDpCells = 100_000_000;
+
+    /// <summary>
+    /// Clusters cancer cell fractions into <paramref name="clusterCount"/> clones/subclones by <b>optimal</b>
+    /// one-dimensional k-means: the partition minimising the within-cluster sum of squares
+    /// Σ_j Σ_{x∈S_j} (x − μ_j)² (the k-means objective, Lloyd 1982), found exactly by the dynamic program of
+    /// Wang &amp; Song (2011), <i>The R Journal</i> 3(2):29–33 (R package Ckmeans.1d.dp). This is a line-by-line port
+    /// of Ckmeans.1d.dp 4.3.x <c>EWL2::fill_dp_matrix</c> (median-shifted prefix sums, log-linear row fill
+    /// <c>fill_row_q_log_linear</c>) and <c>backtrack</c>; unlike Lloyd iterations it cannot stop in a local
+    /// optimum and needs no seeding, so the result is deterministic and independent of input order. As in
+    /// Ckmeans.1d.dp, when the input has fewer distinct values than <paramref name="clusterCount"/> the number of
+    /// clusters is reduced to the number of distinct values (every returned cluster is non-empty). The clonal
+    /// cluster is the one with the highest centroid (Tarabichi et al. 2021, <i>Nat. Methods</i> 18:144–155: "the
+    /// cluster with the highest CP can be deemed clonal").
     /// </summary>
     /// <param name="ccfValues">Cancer cell fractions to cluster (each finite).</param>
     /// <param name="clusterCount">Number of clusters k, in [1, count of values].</param>
-    /// <returns>Ascending-sorted centroids, per-value cluster assignments (input order), and the clonal cluster index.</returns>
+    /// <returns>Ascending centroids (min(k, number of distinct values) of them, each the mean of a non-empty
+    /// cluster), per-value cluster assignments (input order), and the clonal cluster index (the last centroid).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="ccfValues"/> is null.</exception>
     /// <exception cref="ArgumentException">no values are supplied, or a value is NaN/infinite.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">clusterCount ∉ [1, count].</exception>
+    /// <exception cref="ArgumentOutOfRangeException">clusterCount ∉ [1, count], or the dynamic-programming
+    /// matrix (effective k × count) would exceed 10⁸ cells.</exception>
     public static CcfClustering ClusterCcfValues(IReadOnlyList<double> ccfValues, int clusterCount)
     {
         ArgumentNullException.ThrowIfNull(ccfValues);
@@ -397,104 +424,208 @@ public static partial class OncologyAnalyzer
                 nameof(clusterCount), clusterCount, $"Cluster count must be in [1, {n}].");
         }
 
-        // Sort values (carrying original indices) so seeding and assignment are deterministic and order-independent.
+        // Sort values (carrying original indices; stable) — Ckmeans.1d.dp works on the sorted data.
         int[] order = Enumerable.Range(0, n).OrderBy(i => ccfValues[i]).ToArray();
-        double[] sorted = order.Select(i => ccfValues[i]).ToArray();
-
-        // Deterministic seeding: place centroid j at the value at quantile (j + 0.5)/k of the sorted data.
-        double[] centroids = new double[clusterCount];
-        for (int j = 0; j < clusterCount; j++)
+        double[] x = new double[n];
+        for (int s = 0; s < n; s++)
         {
-            int idx = (int)((j + 0.5) / clusterCount * n);
-            if (idx >= n)
-            {
-                idx = n - 1;
-            }
-
-            centroids[j] = sorted[idx];
+            x[s] = ccfValues[order[s]];
         }
 
-        int[] sortedAssignments = new int[n];
-        // Lloyd iterations: assignment step then update step; converges when no assignment changes.
-        // Bounded by n iterations (each iteration strictly reduces WCSS until a fixed point on a finite set).
-        for (int iteration = 0; iteration <= n; iteration++)
+        // Ckmeans.1d.dp: Kmax = min(k, number of unique values).
+        int distinct = 1;
+        for (int s = 1; s < n; s++)
         {
-            bool changed = AssignToNearestCentroid(sorted, centroids, sortedAssignments);
-            RecomputeCentroids(sorted, sortedAssignments, centroids);
-            if (!changed && iteration > 0)
+            if (x[s] != x[s - 1])
             {
-                break;
+                distinct++;
             }
         }
 
-        // Map cluster labels to ascending-centroid order so the result is canonical and assignments are stable.
-        int[] centroidRank = Enumerable.Range(0, clusterCount).OrderBy(j => centroids[j]).ToArray();
-        int[] rankOfCluster = new int[clusterCount];
-        double[] sortedCentroids = new double[clusterCount];
-        for (int rank = 0; rank < clusterCount; rank++)
+        int k = Math.Min(clusterCount, distinct);
+        if (k > 1 && k < n && (long)k * n > MaxCcfClusteringDpCells)
         {
-            rankOfCluster[centroidRank[rank]] = rank;
-            sortedCentroids[rank] = centroids[centroidRank[rank]];
+            throw new ArgumentOutOfRangeException(
+                nameof(clusterCount), clusterCount,
+                $"Optimal 1-D k-means needs a {k} × {n} matrix, above the {MaxCcfClusteringDpCells}-cell limit.");
+        }
+
+        int[] clusterStart = CkmeansClusterStarts(x, k);
+
+        // Backtrack (Ckmeans.1d.dp backtrack): centre = arithmetic mean of each contiguous sorted block.
+        double[] centroids = new double[k];
+        int[] sortedCluster = new int[n];
+        for (int q = 0; q < k; q++)
+        {
+            int left = clusterStart[q];
+            int right = q + 1 < k ? clusterStart[q + 1] - 1 : n - 1;
+            double sum = 0.0;
+            for (int s = left; s <= right; s++)
+            {
+                sum += x[s];
+                sortedCluster[s] = q;
+            }
+
+            centroids[q] = sum / (right - left + 1);
         }
 
         int[] assignments = new int[n];
         for (int s = 0; s < n; s++)
         {
-            assignments[order[s]] = rankOfCluster[sortedAssignments[s]];
+            assignments[order[s]] = sortedCluster[s];
         }
 
-        // Clonal cluster = highest centroid; centroids are ascending so it is the last index.
-        int clonalClusterIndex = clusterCount - 1;
-        return new CcfClustering(sortedCentroids, assignments, clonalClusterIndex);
+        // Clonal cluster = highest centroid; blocks of sorted data give ascending centroids, so it is the last index.
+        return new CcfClustering(centroids, assignments, k - 1);
     }
 
-    /// <summary>Assignment step: assigns each value to the nearest centroid; returns whether any assignment changed.</summary>
-    private static bool AssignToNearestCentroid(double[] values, double[] centroids, int[] assignments)
+    /// <summary>
+    /// Ckmeans.1d.dp (Wang &amp; Song 2011) optimal 1-D k-means on sorted <paramref name="x"/> with
+    /// <paramref name="k"/> ≤ number of distinct values: returns the first sorted index of each of the k clusters.
+    /// Port of <c>EWL2::fill_dp_matrix</c> + <c>EWL2::fill_row_q_log_linear</c> + <c>backtrack</c>.
+    /// </summary>
+    private static int[] CkmeansClusterStarts(double[] x, int k)
     {
-        bool changed = false;
-        for (int i = 0; i < values.Length; i++)
+        int n = x.Length;
+        int[] starts = new int[k];
+        if (k == 1)
         {
-            int best = 0;
-            double bestDistance = double.PositiveInfinity;
-            for (int j = 0; j < centroids.Length; j++)
+            return starts;
+        }
+
+        if (k == n)
+        {
+            // Every value distinct and its own cluster: the unique zero-cost optimum.
+            for (int q = 0; q < k; q++)
             {
-                double diff = values[i] - centroids[j];
-                double distance = diff * diff;
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    best = j;
-                }
+                starts[q] = q;
             }
 
-            if (assignments[i] != best)
+            return starts;
+        }
+
+        // Median-shifted running sums for numerical stability (Ckmeans.1d.dp: shift = x[N/2]).
+        double shift = x[n / 2];
+        double[] sumX = new double[n];
+        double[] sumXSq = new double[n];
+        sumX[0] = x[0] - shift;
+        sumXSq[0] = (x[0] - shift) * (x[0] - shift);
+
+        // S keeps only rows q−1 and q; J (backtrack) keeps every row.
+        double[] sPrev = new double[n];
+        double[] sCur = new double[n];
+        int[][] j = new int[k][];
+        j[0] = new int[n];
+        for (int i = 1; i < n; i++)
+        {
+            sumX[i] = sumX[i - 1] + x[i] - shift;
+            sumXSq[i] = sumXSq[i - 1] + (x[i] - shift) * (x[i] - shift);
+            sPrev[i] = CkmeansSsq(0, i, sumX, sumXSq);
+        }
+
+        for (int q = 1; q < k; q++)
+        {
+            j[q] = new int[n];
+            int imin = q < k - 1 ? Math.Max(1, q) : n - 1;
+            CkmeansFillRowLogLinear(imin, n - 1, q, q, n - 1, sPrev, sCur, j[q - 1], j[q], sumX, sumXSq);
+            (sPrev, sCur) = (sCur, sPrev);
+        }
+
+        int right = n - 1;
+        for (int q = k - 1; q >= 0; q--)
+        {
+            int left = j[q][right];
+            starts[q] = left;
+            if (q > 0)
             {
-                assignments[i] = best;
-                changed = true;
+                right = left - 1;
             }
         }
 
-        return changed;
+        return starts;
     }
 
-    /// <summary>Update step: recomputes each centroid as the mean of its assigned values (empty clusters keep their centroid).</summary>
-    private static void RecomputeCentroids(double[] values, int[] assignments, double[] centroids)
+    /// <summary>Ckmeans.1d.dp <c>EWL2::fill_row_q_log_linear</c> (divide and conquer over i with monotone J).</summary>
+    private static void CkmeansFillRowLogLinear(
+        int imin, int imax, int q, int jmin, int jmax,
+        double[] sPrev, double[] sCur, int[] jPrev, int[] jCur, double[] sumX, double[] sumXSq)
     {
-        Span<double> sums = stackalloc double[centroids.Length];
-        Span<int> counts = stackalloc int[centroids.Length];
-        for (int i = 0; i < values.Length; i++)
+        if (imin > imax)
         {
-            sums[assignments[i]] += values[i];
-            counts[assignments[i]]++;
+            return;
         }
 
-        for (int j = 0; j < centroids.Length; j++)
+        int n = sCur.Length;
+        int i = (imin + imax) / 2;
+
+        sCur[i] = sPrev[i - 1];
+        jCur[i] = i;
+
+        int jlow = q;
+        if (imin > q)
         {
-            if (counts[j] > 0)
+            jlow = Math.Max(jlow, jmin);
+        }
+
+        jlow = Math.Max(jlow, jPrev[i]);
+
+        int jhigh = i - 1;
+        if (imax < n - 1)
+        {
+            jhigh = Math.Min(jhigh, jmax);
+        }
+
+        for (int jj = jhigh; jj >= jlow; --jj)
+        {
+            double sji = CkmeansSsq(jj, i, sumX, sumXSq);
+            if (sji + sPrev[jlow - 1] >= sCur[i])
             {
-                centroids[j] = sums[j] / counts[j];
+                break;
+            }
+
+            double ssqJlow = CkmeansSsq(jlow, i, sumX, sumXSq) + sPrev[jlow - 1];
+            if (ssqJlow < sCur[i])
+            {
+                sCur[i] = ssqJlow;
+                jCur[i] = jlow;
+            }
+
+            jlow++;
+
+            double ssqJ = sji + sPrev[jj - 1];
+            if (ssqJ < sCur[i])
+            {
+                sCur[i] = ssqJ;
+                jCur[i] = jj;
             }
         }
+
+        int leftJmin = imin > q ? jCur[imin - 1] : q;
+        CkmeansFillRowLogLinear(imin, i - 1, q, leftJmin, jCur[i], sPrev, sCur, jPrev, jCur, sumX, sumXSq);
+
+        int rightJmax = imax < n - 1 ? jCur[imax + 1] : imax;
+        CkmeansFillRowLogLinear(i + 1, imax, q, jCur[i], rightJmax, sPrev, sCur, jPrev, jCur, sumX, sumXSq);
+    }
+
+    /// <summary>Ckmeans.1d.dp <c>EWL2::ssq</c>: within-cluster sum of squares of sorted x[j..i] from prefix sums.</summary>
+    private static double CkmeansSsq(int j, int i, double[] sumX, double[] sumXSq)
+    {
+        double sji;
+        if (j >= i)
+        {
+            sji = 0.0;
+        }
+        else if (j > 0)
+        {
+            double muji = (sumX[i] - sumX[j - 1]) / (i - j + 1);
+            sji = sumXSq[i] - sumXSq[j - 1] - (i - j + 1) * muji * muji;
+        }
+        else
+        {
+            sji = sumXSq[i] - sumX[i] * sumX[i] / (i + 1);
+        }
+
+        return sji < 0 ? 0 : sji;
     }
 
     #endregion

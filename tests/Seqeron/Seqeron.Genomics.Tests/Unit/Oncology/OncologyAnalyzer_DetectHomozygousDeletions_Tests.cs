@@ -303,6 +303,65 @@ public class OncologyAnalyzer_DetectHomozygousDeletions_Tests
             "IsHomozygousDeletion must validate the segment (End <= Start ⇒ ArgumentException).");
     }
 
+    // F1 (review 2026-09) — extreme positive log2 lies above the last CNVkit cutoff, so its copy number is
+    // ceil(ploidy·2^log2) >= 4 (amplification), never CN 0. CNVkit absolute_threshold: log2 = 40 ⇒ CN
+    // 2,199,023,255,552 (beyond Int32, so CallCopyNumber rejects it — ONCO-CNA-001 guard); log2 = +∞ ⇒ CNVkit
+    // OverflowError. The CN-0 predicate must still answer false instead of throwing.
+    // Source: CNVkit cnvlib/call.py absolute_threshold ("Above the last threshold value ... rounding up").
+    [Test]
+    public void IsHomozygousDeletion_Log2BeyondInt32CopyNumber_IsFalse_WhileCallCopyNumberSaturates()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.IsHomozygousDeletion(Seg("9p", 40.0)), Is.False,
+                "log2 = 40 ⇒ CNVkit CN = ceil(2·2^40) = 2199023255552 (amplification), not CN 0.");
+            Assert.That(OncologyAnalyzer.IsHomozygousDeletion(Seg("9p", double.PositiveInfinity)), Is.False,
+                "log2 = +∞ is above every cutoff (unbounded amplification), not CN 0.");
+            Assert.That(OncologyAnalyzer.IsHomozygousDeletion(Seg("9p", double.MaxValue)), Is.False,
+                "log2 = double.MaxValue is above every cutoff, not CN 0.");
+            Assert.That(OncologyAnalyzer.CallCopyNumber(40.0), Is.EqualTo(int.MaxValue),
+                "ONCO-CNA-001 contract: an integer CN beyond Int32 saturates at Int32.MaxValue (Amplification).");
+            Assert.That(OncologyAnalyzer.CallCopyNumber(double.PositiveInfinity), Is.EqualTo(int.MaxValue),
+                "ONCO-CNA-001 contract: +∞ saturates at Int32.MaxValue (CNVkit raises OverflowError).");
+        });
+    }
+
+    // F1 — the filter must not crash on a stream containing extreme amplifications; −∞ (zero copies) is CN 0.
+    [Test]
+    public void DetectHomozygousDeletions_StreamWithExtremeAmplifications_ReportsOnlyCn0()
+    {
+        var segments = new[]
+        {
+            Seg("17p", double.PositiveInfinity), // unbounded amplification
+            Seg("9p", -2.0),                     // CN 0
+            Seg("8q", 40.0),                     // CN 2.2e12
+            Seg("10q", double.NegativeInfinity), // 2^-∞ = 0 copies ⇒ CN 0
+        };
+
+        var result = OncologyAnalyzer.DetectHomozygousDeletions(segments);
+
+        Assert.That(result.Select(s => s.Arm), Is.EqualTo(new[] { "9p", "10q" }),
+            "Only the CN-0 segments are reported, in input order; extreme amplifications are excluded without throwing.");
+    }
+
+    // F2 (review 2026-09) — calling parameters are validated eagerly, even for an empty segment list
+    // (consistent with DetectFocalAmplifications / ClassifyCopyNumbers).
+    [Test]
+    public void DetectHomozygousDeletions_EmptyInputWithInvalidParameters_Throws()
+    {
+        var empty = Array.Empty<Segment>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.DetectHomozygousDeletions(empty, new[] { -1.1, -0.25, 0.2 }),
+                "Three thresholds are invalid even when there are no segments.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.DetectHomozygousDeletions(empty, thresholds: null, ploidy: double.NaN),
+                "A NaN ploidy is invalid even when there are no segments.");
+        });
+    }
+
     #endregion
 
     #region IdentifyDeletedTumorSuppressors

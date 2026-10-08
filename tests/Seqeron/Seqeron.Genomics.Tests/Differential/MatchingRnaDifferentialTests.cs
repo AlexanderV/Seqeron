@@ -76,8 +76,12 @@ public class MatchingRnaDifferentialTests
             var counts = new Dictionary<char, int> { ['A'] = 0, ['C'] = 0, ['G'] = 0, ['T'] = 0 };
             foreach (var s in seqs) if (counts.TryGetValue(s[col], out int value)) counts[s[col]] = ++value;
             var present = counts.Where(kv => kv.Value > threshold).Select(kv => kv.Key).OrderBy(c => c).ToList();
-            if (present.Count == 0) sb.Append(counts.MaxBy(kv => kv.Value).Key);
-            else sb.Append(Iupac.GetValueOrDefault(string.Concat(present), 'N'));
+            if (present.Count == 0)
+            {
+                int max = counts.Values.Max();   // tie fallback: code of all equally abundant bases
+                present = counts.Where(kv => kv.Value == max).Select(kv => kv.Key).OrderBy(c => c).ToList();
+            }
+            sb.Append(Iupac.GetValueOrDefault(string.Concat(present), 'N'));
         }
         return sb.ToString();
     }
@@ -90,7 +94,7 @@ public class MatchingRnaDifferentialTests
         {
             new[] { "AG", "AG", "AG", "AG" },
             new[] { "AG", "AC", "AG", "AC" },   // col1 {C,G} -> S
-            new[] { "ACGT", "AGGT", "ATGT", "AAGT" },
+            new[] { "ACGT", "AGGT", "ATGT", "AAGT" },   // col1 {A,C,G,T} tie -> N
         })
         {
             Assert.That(MotifFinder.GenerateConsensus(seqs), Is.EqualTo(IupacConsensus(seqs)),

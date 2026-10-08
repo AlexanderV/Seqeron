@@ -25,7 +25,7 @@
 7. **Range repetition:** "x(2,4) corresponds to x-x or x-x-x or x-x-x-x." → maps to `.{2,4}`.
 8. **Range restriction:** "Ranges can only be used with 'x', for instance 'A(2,4)' is not a valid pattern element." (fixed counts on a residue letter such as `A(3)` are still valid).
 9. **Terminal anchors:** "When a pattern is restricted to either the N- or C-terminal of a sequence, that pattern respectively starts with a '<' symbol or ends with a '>' symbol." → `<` maps to `^`, `>` maps to `$`.
-10. **Extended ScanProsite query metacharacter:** negative search uses `<{C}*>` (the `*` Kleene star is a ScanProsite query extension, not part of the standard PA-line grammar).
+10. **Extended ScanProsite query metacharacter:** negative search uses `<{C}*>` (the `*` Kleene star is ScanProsite extended syntax, not used in PA lines; the reference scanner ps_scan.pl `prositeToRegexp` accepts it after any element — supported since the 2026-09 PROTMOTIF-PROSITE-001 review).
 
 ### PROSITE Entry PS00001 (worked example)
 
@@ -105,7 +105,7 @@
 
 1. **Period terminator:** A PROSITE PA line ends with a period `.`; characters after the period are not part of the pattern.
 2. **Ranges only on `x`:** `x(2,4)` is valid; a range on a residue letter such as `A(2,4)` is *not* a valid PROSITE pattern element (fixed counts like `A(3)` remain valid).
-3. **Unsupported ScanProsite query metacharacters:** the `*` Kleene star (`<{C}*>`) belongs to the ScanProsite *query* extension, not the standard PA-line grammar; a PA-line→regex converter must not treat it as a residue.
+3. **Unsupported ScanProsite query metacharacters:** the `*` Kleene star (`<{C}*>`) belongs to the ScanProsite *query* extension, not the standard PA-line grammar; a converter must not treat it as a residue; ps_scan.pl translates it to regex `*` (e.g. `<{C}*>` → `^[^C]*$`), which is what the converter now does.
 
 ### From Schneider & Stephens (1990)
 

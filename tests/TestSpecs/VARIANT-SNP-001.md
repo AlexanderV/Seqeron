@@ -5,7 +5,7 @@
 **Algorithm:** SNP Detection (single-nucleotide substitution identification: `FindSnps`, `FindSnpsDirect`)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -31,13 +31,15 @@
 ### 1.3 Documented Corner Cases
 
 - REF == ALT (matching column) is not a SNP and must be skipped — Source 1.
-- Hamming distance is defined for equal-length strings only; unequal-length inputs to `FindSnpsDirect` are compared over the common prefix, the trailing region of the longer sequence is out of scope (indels) — Source 3 (ASSUMPTION-1).
+- Hamming distance is defined for equal-length strings only; unequal-length non-empty inputs to `FindSnpsDirect` are rejected with `ArgumentException` (scipy `hamming` / scikit-bio `mismatches` raise ValueError) — Source 3.
+- A gap `-` is not a VCF base (VCFv4.3 l.350); gap columns in aligned input are indels, never SNPs — Source 1.
 - Lowercase bases must classify identically to uppercase — Source 1.
 
 ### 1.4 Known Failure Modes / Pitfalls
 
 1. Treating an indel region as a SNP — a SNP is a substitution only; insertions/deletions are distinct classes (VARIANT-INDEL-001) — Source 1.
-2. Comparing beyond the common length for unequal inputs — undefined for substitution semantics — Source 3.
+2. Silently truncating unequal-length inputs to the common prefix — hides the unmatched tail; undefined for Hamming semantics — Source 3.
+3. Case-sensitive comparison reporting `a`→`A` as a SNP — REF/ALT are case-insensitive — Source 1.
 
 ---
 
@@ -59,7 +61,8 @@
 | INV-03 | Every emitted SNP has `ReferenceAllele != AlternateAllele` (a substitution). | Yes | Source 1 |
 | INV-04 | `FindSnpsDirect` reports a SNP at each 0-based mismatch index `i` with `Position == i`, `ReferenceAllele == ref[i]`, `AlternateAllele == query[i]`. | Yes | Sources 1, 3 |
 | INV-05 | For two equal-length sequences, the SNP count from `FindSnpsDirect` equals their Hamming distance. | Yes | Source 3 |
-| INV-06 | `FindSnpsDirect` compares only the common prefix `min(len(ref), len(query))` of unequal-length inputs. | Yes | Source 3 (ASSUMPTION-1) |
+| INV-06 | `FindSnpsDirect` throws `ArgumentException` for unequal-length non-empty inputs. | Yes | Source 3; scipy/scikit-bio |
+| INV-07 | Comparison is case-insensitive; gap columns are never SNPs; positions are ungapped coordinates. | Yes | Source 1 |
 
 ---
 
@@ -73,7 +76,12 @@
 | M2 | Direct single substitution | `FindSnpsDirect("ATGC","ATTC")` | 1 SNP: Position 2, REF "G", ALT "T", QueryPosition 2 | Sources 1, 3; INV-04 |
 | M3 | Direct multiple substitutions | `FindSnpsDirect("AAAA","TGTA")` | 3 SNPs at positions {0,1,2}; ALTs {"T","G","T"}; all REF "A" | Source 3; INV-04 |
 | M4 | Direct all SNP type & distinct alleles | `FindSnpsDirect("AAAA","TGTA")` | every variant Type==SNP and REF≠ALT | Source 1; INV-02, INV-03 |
-| M5 | Direct unequal length → common prefix only | `FindSnpsDirect("ATGCAA","ATTC")` | only prefix indices 0–3 compared; 1 SNP at Position 2 (G→T); index 3 matches (C==C); trailing "AA" ignored | Source 3; INV-06 |
+| M5 | Direct unequal length → rejected | `FindSnpsDirect("ATGCAA","ATTC")`, `("ATGC","ATGCAAAA")` | `ArgumentException` | Source 3; scipy 1.17.1 / scikit-bio 0.7.4 ValueError; INV-06 |
+| M7 | Case-only difference | `FindSnpsDirect("acgt","ACGT")` | empty | Source 1 (l.339/350); bcftools norm: REF=C ALT=c "Duplicate alleles"; INV-07 |
+| M8 | Lowercase substitution | `FindSnpsDirect("acGt","ACtT")` | 1 SNP pos 2, REF "G", ALT "t" (as given), Transversion | Source 1; INV-07 |
+| M9 | Gap column | `FindSnpsDirect("AC-TA","ACGTC")` | 1 SNP A→C, Position 3, QueryPosition 4 | Source 1 (l.350); INV-07 |
+| M10 | `CalculateStatistics` (uncovered method) | ref `ACGTACGTACGTACGTACGT`, query `GCGTATGTACTTACGTACGT` | Snps 3, indels 0, Ti/Tv 2.0, density 150/kb | bcftools stats (pysam 0.24.1): SNPs 3, ts 2, tv 1, ts/tv 2.00 |
+| M11 | `ClassifyMutation` with N (uncovered edge in owned file) | A→N, n→g; Ti/Tv over {A→N, C→T} | Other, Other; 0.0 | bcftools stats: SNPs 2, ts=1 tv=0, ts/tv 0.00 |
 | M6 | `FindSnps` substitution-only input → SNPs only | `FindSnps(ref "ATGCATGC", query "ATGAATGC")` | exactly 1 variant, Type SNP, REF "C", ALT "A", Position 3; no insertions/deletions | Source 1; INV-02 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -176,7 +184,7 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | `FindSnpsDirect` compares only the common prefix `min(len(ref),len(query))` of unequal-length inputs (Hamming defined for equal length only). | M5, INV-06 |
+| 1 | (retired 2026-09-28) Common-prefix truncation replaced by `ArgumentException` — sourced (Hamming undefined for unequal lengths). | M5, INV-06 |
 | 2 | In-memory `Variant.Position` is 0-based (VCF 1-based POS applies only to serialized `ToVcfLines`). | M2, M3, M5, M6, INV-04 |
 
 ---
@@ -184,3 +192,9 @@
 ## 7. Open Questions / Decisions
 
 1. None. Both methods conform to retrieved sources (VCF SNP = single-base substitution; positional detection = Hamming mismatch enumeration); no correctness-affecting constants are involved.
+
+---
+
+## 8. Review 2026-09 (campaign B21)
+
+- `FindSnpsDirect` now delegates to `CallVariantsFromAlignment` (single column-scan implementation): case-insensitive comparison (VCFv4.3 l.339/350), gap columns not SNPs, unequal lengths → `ArgumentException`. `ClassifyMutation` returns Other for non-ACGT bases (bcftools stats). Tests M5 (rewritten), M7–M11 added in `VariantCaller_FindSnps_Tests.cs`; fuzz/legacy/MCP tests updated accordingly.

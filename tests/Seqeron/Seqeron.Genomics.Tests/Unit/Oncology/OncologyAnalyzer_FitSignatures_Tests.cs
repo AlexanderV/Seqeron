@@ -383,4 +383,211 @@ public class OncologyAnalyzer_FitSignatures_Tests
     }
 
     #endregion
+
+    #region Reference cross-checks (scipy.optimize.nnls / Lawson-Hanson NNLS) — campaign 2026-09
+
+    // scipy.optimize.nnls docstring worked example (SciPy 1.17, _nnls.py "Examples"):
+    // A=[[1,0],[1,0],[0,1]], b=[2,1,1] -> x=[1.5, 1.0], ‖Ax−b‖ = 0.7071067811865476.
+    // Columns of A are the signatures: s0=[1,1,0], s1=[0,0,1].
+    [Test]
+    public void FitSignatures_ScipyDocstringExample_MatchesReferenceSolution()
+    {
+        var signatures = new IReadOnlyList<double>[] { new double[] { 1, 1, 0 }, new double[] { 0, 0, 1 } };
+
+        var fit = OncologyAnalyzer.FitSignatures(new double[] { 2, 1, 1 }, signatures);
+
+        double rnorm = Math.Sqrt(
+            Math.Pow(fit.Reconstruction[0] - 2, 2) + Math.Pow(fit.Reconstruction[1] - 1, 2) +
+            Math.Pow(fit.Reconstruction[2] - 1, 2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.Exposures[0], Is.EqualTo(1.5).Within(1e-12), "scipy.optimize.nnls example: x0 = 1.5.");
+            Assert.That(fit.Exposures[1], Is.EqualTo(1.0).Within(1e-12), "scipy.optimize.nnls example: x1 = 1.0.");
+            Assert.That(rnorm, Is.EqualTo(0.7071067811865476).Within(1e-12), "scipy rnorm = 1/√2.");
+        });
+    }
+
+    // scipy.optimize.nnls docstring worked example: b=[-1,-1,-1] -> x=[0,0], rnorm=√3 (every dual coefficient
+    // w = Aᵀb is negative, so the Kuhn-Tucker conditions hold at x = 0).
+    [Test]
+    public void FitSignatures_ScipyDocstringNegativeTarget_ReturnsZero()
+    {
+        var signatures = new IReadOnlyList<double>[] { new double[] { 1, 1, 0 }, new double[] { 0, 0, 1 } };
+
+        var fit = OncologyAnalyzer.FitSignatures(new double[] { -1, -1, -1 }, signatures);
+
+        Assert.That(fit.Exposures, Is.EqualTo(new[] { 0.0, 0.0 }), "scipy.optimize.nnls example: x = [0, 0].");
+    }
+
+    // Regression (campaign 2026-09, F1): the former solver stopped when max(w_R) ≤ 1e-12 (absolute), so a catalog
+    // whose dual coefficients are below 1e-12 returned the all-zero fit. Lawson-Hanson NNLS uses the sign test
+    // w_j > 0 (no absolute threshold); scipy.optimize.nnls(I, [3e-13, 5e-13]) = [3e-13, 5e-13], rnorm 0.
+    [Test]
+    public void FitSignatures_TinyMagnitudeCatalog_IsNotTruncatedToZero()
+    {
+        var signatures = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+
+        var fit = OncologyAnalyzer.FitSignatures(new double[] { 3e-13, 5e-13 }, signatures);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.Exposures[0], Is.EqualTo(3e-13).Within(1e-27), "scipy: x0 = 3e-13.");
+            Assert.That(fit.Exposures[1], Is.EqualTo(5e-13).Within(1e-27), "scipy: x1 = 5e-13.");
+            Assert.That(fit.NormalizedExposures[0], Is.EqualTo(0.375).Within(1e-12), "Proportions are scale-free.");
+        });
+    }
+
+    // NNLS is positively homogeneous: x*(c·d) = c·x*(d) for c > 0 (the feasible cone and the objective scale
+    // together). Constraint-binding case M6: S=[[1,1],[0,1]] (columns), d=[0,1] -> x=[0,0.5] (scipy).
+    [TestCase(1e-12)]
+    [TestCase(1e-6)]
+    [TestCase(1.0)]
+    [TestCase(1e6)]
+    [TestCase(1e12)]
+    public void FitSignatures_ScaledCatalog_ExposuresScaleLinearly(double scale)
+    {
+        var signatures = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 1, 1 } };
+
+        var fit = OncologyAnalyzer.FitSignatures(new[] { 0.0, 1.0 * scale }, signatures);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.Exposures[0], Is.EqualTo(0.0), "The binding coefficient stays exactly 0 at every scale.");
+            Assert.That(fit.Exposures[1], Is.EqualTo(0.5 * scale).Within(1e-12 * scale), "x1 = 0.5·scale.");
+        });
+    }
+
+    // Non-finite input: scipy.optimize.nnls rejects NaN/Inf (np.asarray_chkfinite -> ValueError). Previously a NaN
+    // catalog silently produced the all-zero fit (every NaN comparison is false).
+    [Test]
+    public void FitSignatures_NonFiniteInput_Throws()
+    {
+        var signatures = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+        var badSignatures = new IReadOnlyList<double>[] { new double[] { 1, double.PositiveInfinity }, new double[] { 0, 1 } };
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.FitSignatures(new[] { double.NaN, 1.0 }, signatures), "NaN catalog value.");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.FitSignatures(new[] { 1.0, double.PositiveInfinity }, signatures), "Infinite catalog value.");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.FitSignatures(new[] { 1.0, 1.0 }, badSignatures), "Infinite signature value.");
+        });
+    }
+
+    // Duplicate (collinear) signature columns: Lawson-Hanson rejects a candidate column that is numerically dependent
+    // on the passive set, so the duplicate keeps exposure 0 and the fit is unique in its first occurrence.
+    // scipy.optimize.nnls([[1,1,0],[0,0,1]]ᵀ-with-duplicate, [2,1,1]) = [1.5, 0, 1].
+    [Test]
+    public void FitSignatures_DuplicateSignature_AssignsExposureToFirstCopyOnly()
+    {
+        var signatures = new IReadOnlyList<double>[]
+        {
+            new double[] { 1, 1, 0 }, new double[] { 1, 1, 0 }, new double[] { 0, 0, 1 }
+        };
+
+        var fit = OncologyAnalyzer.FitSignatures(new double[] { 2, 1, 1 }, signatures);
+
+        Assert.That(fit.Exposures.ToArray(), Is.EqualTo(new[] { 1.5, 0.0, 1.0 }).Within(1e-12),
+            "scipy.optimize.nnls returns [1.5, 0, 1] (duplicate column rejected as linearly dependent).");
+    }
+
+    private const string CosmicResource = "Seqeron.Genomics.Tests.TestData.Cosmic.COSMIC_v3.4_SBS_GRCh37.txt";
+
+    // Sample catalog (SBS96, COSMIC file row order): Poisson draw of 300·SBS1 + 800·SBS5 + 200·SBS32
+    // (numpy default_rng(7)); total 1345 mutations.
+    private static readonly double[] CosmicSampleCatalog =
+    {
+        18, 10, 0, 13, 4, 6, 0, 5, 46, 41, 126, 39, 6, 8, 7, 7, 38, 12, 29, 32, 2, 1, 9, 5, 5, 7, 4, 12, 10, 5, 4, 9,
+        20, 10, 68, 28, 3, 6, 5, 2, 12, 10, 19, 10, 3, 5, 4, 6, 8, 4, 3, 9, 3, 4, 0, 12, 21, 24, 88, 24, 6, 5, 3, 5,
+        17, 6, 21, 12, 1, 1, 5, 2, 7, 11, 2, 15, 8, 6, 2, 13, 32, 25, 55, 33, 4, 6, 3, 6, 20, 16, 11, 21, 4, 8, 6, 16
+    };
+
+    // scipy.optimize.nnls(COSMIC_v3.4 (96×86), CosmicSampleCatalog): the 38 non-zero exposures (all others 0),
+    // ‖Sx − d‖ = 21.901597834456467, cos(d, Sx) = 0.9953491259911486.
+    private static readonly (int Index, double Exposure)[] CosmicScipyExposures =
+    {
+        (0, 304.0688771932464), (1, 23.73211791015279), (2, 53.86002360763532), (4, 311.23237916325286),
+        (6, 1.2438724289510348), (12, 0.9025016760233332), (13, 23.513232263685637), (17, 88.67694064659317),
+        (18, 7.968045767608636), (19, 17.716670821732798), (20, 40.218825827644956), (21, 37.976441064275285),
+        (23, 2.1268139033159748), (25, 2.1731210882910674), (27, 6.138432736752313), (35, 4.146875469314331),
+        (37, 14.375339604630556), (39, 191.62931731138946), (40, 1.2447328629706593), (46, 22.163770905276937),
+        (48, 24.11656401977636), (53, 20.35475176897135), (57, 0.2353436147162052), (58, 0.22641770305395006),
+        (59, 17.71897831104093), (60, 9.29127287421852), (63, 30.429149364272057), (64, 3.0423928376482268),
+        (66, 11.854094560342078), (68, 2.484737117036816), (70, 2.05630013505543), (74, 20.782638412503584),
+        (75, 9.756729641081455), (79, 1.0553900904886457), (82, 4.343798767503239), (83, 13.630725698197786),
+        (84, 3.8763612238757204), (85, 14.554738516180588)
+    };
+
+    private static IReadOnlyList<IReadOnlyList<double>> LoadCosmicSignatures()
+    {
+        var asm = typeof(OncologyAnalyzer_FitSignatures_Tests).Assembly;
+        using Stream stream = asm.GetManifestResourceStream(CosmicResource)
+            ?? throw new InvalidOperationException($"Embedded resource '{CosmicResource}' not found.");
+        using var reader = new StreamReader(stream);
+        string[] header = reader.ReadLine()!.Split('\t');
+        int signatureCount = header.Length - 1;
+        var columns = new List<double>[signatureCount];
+        for (int j = 0; j < signatureCount; j++)
+        {
+            columns[j] = new List<double>(96);
+        }
+
+        string? line;
+        while ((line = reader.ReadLine()) != null)
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            string[] fields = line.Split('\t');
+            for (int j = 0; j < signatureCount; j++)
+            {
+                columns[j].Add(double.Parse(fields[j + 1], System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        return columns.Select(c => (IReadOnlyList<double>)c.ToArray()).ToArray();
+    }
+
+    // Refit to the full COSMIC v3.4 SBS set (MutationalPatterns fit_to_signatures usage: pracma::lsqnonneg over all
+    // reference signatures). Every exposure matches scipy.optimize.nnls (Lawson-Hanson) to 1e-9 relative.
+    // scale = 1e6 is the regression for F1: the former solver did not terminate within 90 s on this input
+    // (absolute 1e-12 dual tolerance + no ztest/independence safeguards -> add/drop cycling).
+    [TestCase(1.0)]
+    [TestCase(1e6)]
+    public void FitSignatures_FullCosmicV34Refit_MatchesScipyNnls(double scale)
+    {
+        IReadOnlyList<IReadOnlyList<double>> cosmic = LoadCosmicSignatures();
+        double[] catalog = CosmicSampleCatalog.Select(v => v * scale).ToArray();
+
+        var task = Task.Run(() => OncologyAnalyzer.FitSignatures(catalog, cosmic));
+        Assert.That(task.Wait(TimeSpan.FromSeconds(60)), Is.True, "NNLS must terminate (Lawson-Hanson is finite).");
+        var fit = task.Result;
+
+        var expected = new double[cosmic.Count];
+        foreach ((int index, double exposure) in CosmicScipyExposures)
+        {
+            expected[index] = exposure * scale;
+        }
+
+        double rnorm = Math.Sqrt(catalog.Select((d, k) => Math.Pow(d - fit.Reconstruction[k], 2)).Sum());
+        Assert.Multiple(() =>
+        {
+            Assert.That(cosmic.Count, Is.EqualTo(86), "COSMIC v3.4 SBS has 86 signatures.");
+            for (int j = 0; j < cosmic.Count; j++)
+            {
+                Assert.That(fit.Exposures[j], Is.EqualTo(expected[j]).Within(1e-9 * scale * 311.23),
+                    $"Exposure of COSMIC column {j} must equal scipy.optimize.nnls.");
+            }
+
+            Assert.That(rnorm, Is.EqualTo(21.901597834456467 * scale).Within(1e-9 * scale), "scipy rnorm.");
+            Assert.That(fit.ReconstructionCosineSimilarity, Is.EqualTo(0.9953491259911486).Within(1e-12),
+                "Reconstruction cosine (MutationalPatterns cos_sim) of the scipy solution.");
+        });
+    }
+
+    #endregion
 }

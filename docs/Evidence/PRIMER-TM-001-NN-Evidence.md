@@ -18,7 +18,7 @@
 
 **URL:** https://users.cs.duke.edu/~reif/courses/molcomplectures/DNA.Thermodynamics&Kinetics/Annu._Rev._Biophys._Biomol._Struct._2004_SantaLucia_Jr.pdf (Duke mirror of Annu Rev Biophys Biomol Struct 33:415-440)
 **Accessed:** 2026-06-24 (fetched the PDF and read pages 419–423 directly)
-**Authority rank:** 1 (peer-reviewed review reproducing the SantaLucia 1998 unified parameters)
+**Authority rank:** 1 (peer-reviewed review; its Table 1 is the 2004 parameter set — same stacks as SantaLucia 1998 except AA/TT −7.6/−21.3 (1998: −7.9/−22.2), with one duplex-initiation term + terminal A·T penalty instead of 1998's per-end initiation)
 
 **Key Extracted Points:**
 
@@ -71,7 +71,7 @@
 
 **Key Extracted Points:**
 
-1. **`DNA_NN4` (SantaLucia 1998)** verbatim, matching Table 1 above:
+1. **`DNA_NN4` (SantaLucia & Hicks 2004; NOT 1998 — 1998/Allawi & SantaLucia 1997 is `DNA_NN3`)** verbatim, matching Table 1 above:
    `init (0.2, -5.7)`, `init_A/T (2.2, 6.9)`, `sym (0, -1.4)`, AA/TT (−7.6,−21.3), AT/TA (−7.2,−20.4),
    TA/AT (−7.2,−21.3), CA/GT (−8.5,−22.7), GT/CA (−8.4,−22.4), CT/GA (−7.8,−21.0), GA/CT (−8.2,−22.2),
    CG/GC (−10.6,−27.2), GC/CG (−9.8,−24.4), GG/CC (−8.0,−19.9). **Independent cross-check of Table 1.**
@@ -256,3 +256,14 @@ Stack-by-stack (AGCGCGC/.CGCGCG): left-DE `AG/.C`(−3.7,−10.0), then WC `GC/C
   (Bommarito 2000) NN ΔH°/ΔS° tables and the `*Mismatch` Tm path (opt-in extension). The mismatch table was
   cross-checked against the SantaLucia & Hicks (2004) Table 2 worked example; all 32 dangling-end ΔH° values
   were cross-checked term-by-term against SantaLucia & Hicks (2004) Table 3.
+- **2026-10-01 (review campaign B07, PRIMER-NNTM-001)**: all NN arithmetic now delegates to the canonical
+  `ThermoConstants.CalculateNearestNeighborDuplex` (Infrastructure), a line-by-line port of Biopython 1.88
+  `Tm_NN`/`salt_correction` (tables DNA_NN1–4, DNA_IMM1, DNA_TMM1, DNA_DE1; salt methods 0–7). Port is
+  bit-exact vs Biopython on ~23 000 random duplexes. Tables cross-checked against MELTING 5 data files
+  (rmelting `inst/extdata/Data`: Breslauer1986nn, Sugimoto1996nn, AllawiSantalucia1997nn, Santalucia2004nn,
+  AllawiSantaluciaPeyret1997_1998_1999mm/tanmm, Santalucia2005inomn, Bommarito2000de): identical except MELTING's
+  Santalucia2004nn TA/AT ΔS° −20.4 (a MELTING typo: SantaLucia & Hicks 2004 Table 1 TA/AT −7.2/−21.3, ΔG°37 −0.58).
+  DNA_TMM1 (SantaLucia & Peyret 2001 patent, not reachable) agrees with primer3-py `primer3_config/tstack2` in
+  47/48 entries (AC/TC ΔS° +0.5 vs −0.5; Biopython kept). Mismatch path fixed (F15): terminal mismatches now use
+  DNA_TMM1 instead of the internal-mismatch table, and the terminal A·T penalty uses the top strand's real end
+  bases when the bottom strand carries the dangling base (Tm_NN `ends = seq[0] + seq[-1]`).

@@ -103,8 +103,8 @@ public class MolToolsCombinatorialTests
             site.TargetSequence.Length.Should().Be(system.GuideLength, "the protospacer is guide-length");
             site.System.PamSequence.Should().Be(system.PamSequence);
 
-            // The PAM, read on the strand it was found on, satisfies the IUPAC motif.
-            string pamOnStrand = site.IsForwardStrand ? site.PamSequence : RevComp(site.PamSequence);
+            // PamSequence is always read on the strand it was found on, so it satisfies the IUPAC motif directly.
+            string pamOnStrand = site.PamSequence;
             for (int j = 0; j < system.PamSequence.Length; j++)
                 IupacHelper.MatchesIupac(pamOnStrand[j], system.PamSequence[j]).Should().BeTrue(
                     $"PAM char {j} of \"{pamOnStrand}\" must match motif {system.PamSequence}");
@@ -327,14 +327,15 @@ public class MolToolsCombinatorialTests
     // axis "basic/SantaLucia", but the implemented Tm models are (a) a salt-free
     // base Tm whose FORMULA is itself length-selected — Wallace's rule 2·(A+T)+4·(G+C)
     // for short oligos (<14 valid nt) and the Marmur-Doty GC% formula
-    // 64.9 + 41·(#GC − 16.4)/N for ≥14 nt — and (b) that base Tm plus a
-    // Schildkraut-Lifson salt correction 16.6·log10([Na⁺]). (A SantaLucia
+    // 64.9 + 41·(#GC − 16.4)/N for ≥14 nt (both assume 50 mM Na⁺) — and (b) the
+    // OligoCalc salt-adjusted Tm (Kibbe 2007): Wallace + 16.6·log10([Na⁺]/0.050 M) for
+    // <14 nt, 100.5 + 41·GC/N − 820/N + 16.6·log10([Na⁺] M) for ≥14 nt. (A SantaLucia
     // nearest-neighbour model exists only as the ΔG-based 3′-stability metric, not a
     // Tm.) So method = {Basic, SaltCorrected}, and primerLen straddles the
     // Wallace↔Marmur-Doty switch (10 nt → Wallace; 14, 24 nt → Marmur-Doty).
     //
     // The combinatorial point: method and saltConc INTERACT. Under SaltCorrected the
-    // salt axis shifts Tm by +16.6·log10([Na⁺]/1000) and is monotone increasing in
+    // salt axis shifts Tm by +16.6 °C per decade of [Na⁺] and is monotone increasing in
     // [Na⁺]; under Basic the salt axis is INERT (identical Tm at every saltConc).
     // primerLen interacts with method by selecting which base formula applies.
     // — Wallace 1979 NAR 6:3543; Marmur & Doty 1962 JMB 5:109; Schildkraut & Lifson
@@ -345,6 +346,17 @@ public class MolToolsCombinatorialTests
 
     /// <summary>Deterministic 50%-GC primer of length n ("ACGT…").</summary>
     private static string PrimerOfLen(int n) => string.Concat(Enumerable.Range(0, n).Select(i => "ACGT"[i % 4]));
+
+    /// <summary>Independent re-derivation of the OligoCalc salt-adjusted Tm.</summary>
+    private static double ExpectedSaltTm(string seq, double saltMm)
+    {
+        int at = seq.Count(c => c is 'A' or 'T'), gc = seq.Count(c => c is 'G' or 'C');
+        int n = at + gc;
+        double m = saltMm / 1000.0;
+        return n < 14
+            ? 2 * at + 4 * gc + 16.6 * Math.Log10(m / 0.050)
+            : 100.5 + 41.0 * gc / n - 820.0 / n + 16.6 * Math.Log10(m);
+    }
 
     /// <summary>Independent re-derivation of the documented base Tm (no salt).</summary>
     private static double ExpectedBaseTm(string seq)
@@ -370,13 +382,12 @@ public class MolToolsCombinatorialTests
 
         double expected = method == TmMethod.Basic
             ? baseTm                                                       // salt axis inert
-            : Math.Round(baseTm + 16.6 * Math.Log10(saltMm / 1000.0), 1);  // Schildkraut-Lifson
+            : Math.Round(ExpectedSaltTm(seq, saltMm), 1);                  // OligoCalc salt adjusted
 
         actual.Should().BeApproximately(expected, 1e-9,
             $"{method} Tm of a {primerLen}-mer at {saltMm} mM follows the documented formula");
 
-        // Only the base Tm is clamped at 0; the additive salt correction may legitimately
-        // drive a low-Tm short primer below 0 at very low [Na⁺] (e.g. 10-mer at 10 mM → −3.2 °C).
+        // Only the base Tm is clamped at 0 (the salt-adjusted formula is reported as computed).
         if (method == TmMethod.Basic)
             actual.Should().BeGreaterThanOrEqualTo(0.0, "the base melting temperature is clamped non-negative");
     }
@@ -400,9 +411,10 @@ public class MolToolsCombinatorialTests
         s10.Should().BeLessThan(s50);
         s50.Should().BeLessThan(s200, "Tm rises with [Na⁺] via +16.6·log10([Na⁺])");
 
-        // At 1 M Na⁺ the correction vanishes, so salt-corrected ≡ base Tm.
-        PrimerDesigner.CalculateMeltingTemperatureWithSalt(seq, 1000.0)
-            .Should().BeApproximately(b10, 0.05);
+        // Short oligo: the Wallace rule is defined at 50 mM, so salt-adjusted(50 mM) ≡ base Tm.
+        string shortSeq = PrimerOfLen(10);
+        PrimerDesigner.CalculateMeltingTemperatureWithSalt(shortSeq, 50.0)
+            .Should().BeApproximately(PrimerDesigner.CalculateMeltingTemperature(shortSeq), 1e-9);
     }
 
     /// <summary>
@@ -433,17 +445,18 @@ public class MolToolsCombinatorialTests
     // violation of any single window must surface its own diagnostic.
     //
     // The combinatorial point: the four windows interact multiplicatively. The probe
-    // primer (20 nt, 50% GC, Tm 51.78 °C) is placed so each axis straddles its three
+    // primer (20 nt, 50% GC, Primer3-default Tm 56.43 °C) is placed so each axis straddles its three
     // windows — minLen {15,20,22} and maxLen {18,20,25} bracket length 20 on both
-    // sides, the GC windows straddle 50%, the Tm windows straddle 51.78 °C — so every
+    // sides, the GC windows straddle 50%, the Tm windows straddle 56.43 °C — so every
     // axis genuinely flips acceptance and the AND is exercised across the grid.
     // ═══════════════════════════════════════════════════════════════════════
 
-    // 20-mer, 50% GC, Tm 51.78 °C, hairpin-free, max homopolymer 2 (verified independently).
+    // 20-mer, 50% GC, Primer3-default Tm 56.4298 °C (primer3-py 2.3.1 calc_tm), hairpin-free,
+    // max homopolymer 2 (verified independently).
     private const string CleanPrimer20 = "GACGCTGTCTGAGACTAGAA";
 
     private static readonly (double Lo, double Hi)[] GcWindows = { (30, 45), (45, 55), (55, 70) };
-    private static readonly (double Lo, double Hi)[] TmWindows = { (40, 50), (50, 60), (52, 62) };
+    private static readonly (double Lo, double Hi)[] TmWindows = { (45, 55), (55, 65), (57, 67) };
 
     /// <summary>Permissive structural filters so only the length/GC/Tm windows can gate acceptance.</summary>
     private static PrimerParameters WithWindows(int minLen, int maxLen, double gcLo, double gcHi, double tmLo, double tmHi) =>
@@ -475,7 +488,7 @@ public class MolToolsCombinatorialTests
             WithWindows(minLen, maxLen, gcLo, gcHi, tmLo, tmHi));
 
         double gc = PrimerDesigner.CalculateGcContent(CleanPrimer20);
-        double tm = PrimerDesigner.CalculateMeltingTemperature(CleanPrimer20);
+        double tm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(CleanPrimer20);
         int len = CleanPrimer20.Length;
 
         bool lenOk = len >= minLen && len <= maxLen;
@@ -504,7 +517,7 @@ public class MolToolsCombinatorialTests
             .Should().BeTrue("a clean primer is accepted under an all-permissive config");
 
         double gc = PrimerDesigner.CalculateGcContent(CleanPrimer20);
-        double tm = PrimerDesigner.CalculateMeltingTemperature(CleanPrimer20);
+        double tm = PrimerDesigner.CalculateMeltingTemperaturePrimer3(CleanPrimer20);
 
         PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true, wide with { MinGcContent = gc + 5 })
             .IsValid.Should().BeFalse("a GC floor above the primer's GC excludes it");
@@ -523,7 +536,7 @@ public class MolToolsCombinatorialTests
     public void PrimerDesign_DesignedPair_HonoursEveryWindow()
     {
         var template = new DnaSequence(DiverseDna(600));
-        // Tm window chosen to match the Marmur-Doty scale for 18–25-mers.
+        // Wide Tm window on the Primer3-default (SantaLucia NN) scale for 18–25-mers.
         var param = PrimerDesigner.DefaultParameters with
         {
             MinLength = 18, MaxLength = 25, MinGcContent = 35, MaxGcContent = 65, MinTm = 45, MaxTm = 65,
@@ -555,23 +568,23 @@ public class MolToolsCombinatorialTests
     // the primer-dimer decision boundary — over 3′-complementarity × minComplementarity ×
     // primerLen, with hairpin and 3′-stability covered as theory-anchored witnesses.
     //
-    // Model (Wikipedia Primer-dimer; Primer3): two primers dimerize when their 3′ ends
-    // are complementary. HasPrimerDimer compares the 3′ window (≤8 nt) of primer1 against
-    // the 3′ window of primer2 and reports a dimer iff the complementary-base count meets
-    // minComplementarity. So detection = (3′-complementary count ≥ minComplementarity),
-    // and — crucially — depends ONLY on the 3′ window, not on total primer length.
+    // Model (Primer3 alignment-mode PRIMER_PAIR_COMPL_END, libprimer3.cc characterize_pair +
+    // dpal.c DPAL_GLOBAL_END): two primers dimerize when their 3′ ends are complementary, i.e. the
+    // 3′-terminal K bases of primer2 are the reverse complement of the 3′-terminal K bases of
+    // primer1. HasPrimerDimer reports a dimer iff that 3′-anchored complementarity score meets
+    // minComplementarity, independently of the 5′ length.
     // ═══════════════════════════════════════════════════════════════════════
 
-    // Each pair is engineered so the 8-base 3′ comparison window holds EXACTLY K complementary
-    // bases: primer1's 3′ window is fixed (DimerP1Window); E2 is the first 8 bases that
-    // reverse-complement(primer2) must present, complementary to primer1 in its 3′-most K positions.
+    // primer1 = A-filler + DimerP1Window; primer2 = A-filler + revcomp(last K bases of the window).
+    // The A fillers cannot pair with each other, so the compl_end score is exactly K (verified
+    // against Primer3's dpal.c compiled from source: 200/400/600 for K = 2/4/6 at lengths 8/12/20).
     private const string DimerP1Window = "GACTGACT";
-    private static readonly (int K, string E2)[] DimerWindows = { (2, "AAACAAGA"), (4, "AAACCTGA"), (6, "AAGACTGA") };
+    private static readonly int[] DimerWindows = { 2, 4, 6 };
 
-    private static (string P1, string P2) MakeDimerPair(string e2, int length)
+    private static (string P1, string P2) MakeDimerPair(int k, int length)
     {
-        string p1 = new string('T', length - 8) + DimerP1Window;          // 5′ filler outside the 3′ window
-        string p2 = RevComp(e2 + new string('A', length - 8));            // revComp(p2) starts with E2
+        string p1 = new string('A', length - 8) + DimerP1Window;
+        string p2 = new string('A', length - k) + RevComp(DimerP1Window[^k..]);
         return (p1, p2);
     }
 
@@ -581,8 +594,8 @@ public class MolToolsCombinatorialTests
         [Values(3, 4, 5)] int minComplementarity,
         [Values(8, 12, 20)] int primerLen)
     {
-        var (k, e2) = DimerWindows[windowIdx];
-        var (p1, p2) = MakeDimerPair(e2, primerLen);
+        int k = DimerWindows[windowIdx];
+        var (p1, p2) = MakeDimerPair(k, primerLen);
 
         PrimerDesigner.HasPrimerDimer(p1, p2, minComplementarity)
             .Should().Be(k >= minComplementarity,
@@ -597,11 +610,11 @@ public class MolToolsCombinatorialTests
     [Test]
     public void PrimerStruct_Dimer_HasExactCount_AndIgnoresPrimerLength()
     {
-        foreach (var (k, e2) in DimerWindows)
+        foreach (int k in DimerWindows)
         {
             foreach (int len in new[] { 8, 12, 20 })
             {
-                var (p1, p2) = MakeDimerPair(e2, len);
+                var (p1, p2) = MakeDimerPair(k, len);
                 PrimerDesigner.HasPrimerDimer(p1, p2, k).Should().BeTrue($"the 3′ window has {k} complementary bases");
                 PrimerDesigner.HasPrimerDimer(p1, p2, k + 1).Should().BeFalse($"the 3′ window has only {k} complementary bases");
             }
@@ -763,17 +776,19 @@ public class MolToolsCombinatorialTests
     // N ⇒ 1/N (invariants #4-6). A probe is reported invalid when it accumulates issues
     // (>1 off-target site, self-comp above threshold, secondary structure) UNLESS the
     // lenient clause holds (≤1 hit AND self-comp ≤ 0.4). The combinatorial point: the
-    // IsValid decision composes the off-target and self-complementarity checks, and the
-    // self-comp threshold interacts with the probe's self-comp to gate that issue.
+    // IsValid decision composes the off-target and self-complementarity checks. Since audit
+    // round 2 (B07 A6) the fallback self-complementarity issue is Primer3's alignment-mode
+    // self_any/self_end > 12.00; the legacy selfCompThreshold axis must have no effect.
     // ═══════════════════════════════════════════════════════════════════════
 
     // selfComp = fraction of positions Watson-Crick-paired with the mirror position; all
     // three probes are secondary-structure-free by construction (verified independently).
-    private static readonly (string Seq, double SelfComp)[] ValidationProbes =
+    // SelfAny = Primer3 alignment-mode self_any (dpal.c + align(), compiled): 0.00, 10.00, 20.00 (self_end equal).
+    private static readonly (string Seq, double SelfComp, double SelfAny)[] ValidationProbes =
     {
-        ("AAAAAAAAAAAAAAAAAAAA", 0.0),
-        ("TGGCGCGGGGTAACGCGCGC", 0.5),
-        ("ACGTACGTACGTACGTACGT", 1.0),
+        ("AAAAAAAAAAAAAAAAAAAA", 0.0, 0.0),
+        ("TGGCGCGGGGTAACGCGCGC", 0.5, 10.0),
+        ("ACGTACGTACGTACGTACGT", 1.0, 20.0),
     };
 
     /// <summary>Reference holding exactly <paramref name="k"/> exact copies of the probe, C-padded, G-spaced.</summary>
@@ -789,11 +804,15 @@ public class MolToolsCombinatorialTests
         [Values(0, 1, 2)] int probeIdx,
         [Values(0.25, 0.40, 0.60)] double selfCompThreshold)
     {
-        var (probe, expSelfComp) = ValidationProbes[probeIdx];
+        var (probe, expSelfComp, expSelfAny) = ValidationProbes[probeIdx];
         string reference = BuildOffTargetReference(probe, offTargetCount);
 
+        // Fallback self-structure screen: the self-complementarity criterion is Primer3 alignment-mode self_any /
+        // self_end > PRIMER_INTERNAL_MAX_SELF_ANY/_END 12.00 (audit round 2, A6); the fold-back fraction and the legacy
+        // selfComplementarityThreshold no longer gate the issue.
         var v = ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 0,
-            selfComplementarityThreshold: selfCompThreshold);
+            selfComplementarityThreshold: selfCompThreshold,
+            conditions: ProbeDesigner.Defaults.Microarray with { StructureScreen = ProbeDesigner.ProbeStructureScreen.Heuristic });
 
         // Specificity invariants (#4/#5/#6) — depend solely on off-target multiplicity.
         double expSpec = offTargetCount == 0 ? 0.0 : offTargetCount == 1 ? 1.0 : 1.0 / offTargetCount;
@@ -802,14 +821,15 @@ public class MolToolsCombinatorialTests
 
         // Self-complementarity measured exactly and bounded to [0,1] (#2).
         v.SelfComplementarity.Should().BeApproximately(expSelfComp, 1e-9);
+        v.SelfAny.Should().Be(expSelfAny);
         v.SelfComplementarity.Should().BeInRange(0.0, 1.0);
         v.HasSecondaryStructure.Should().BeFalse("the three probes are structure-free by construction");
 
-        // IsValid composes the off-target and self-comp checks (with the lenient clause).
+        // IsValid = no recorded issue (off-target multiplicity, self-complementarity).
         bool offIssue = offTargetCount > 1;
-        bool selfIssue = expSelfComp > selfCompThreshold;
+        bool selfIssue = expSelfAny > PrimerDesigner.Primer3InternalMaxSelfComplementarity;
         int issueCount = (offIssue ? 1 : 0) + (selfIssue ? 1 : 0);
-        bool expectedValid = issueCount == 0 || (offTargetCount <= 1 && expSelfComp <= 0.4);
+        bool expectedValid = issueCount == 0;
 
         v.IsValid.Should().Be(expectedValid);
         v.Issues.Any(i => i.Contains("off-target")).Should().Be(offIssue);
@@ -824,7 +844,7 @@ public class MolToolsCombinatorialTests
     [Test]
     public void ProbeValid_CheckSpecificity_AgreesWithValidateProbe()
     {
-        foreach (var (probe, _) in ValidationProbes)
+        foreach (var (probe, _, _) in ValidationProbes)
             foreach (int k in new[] { 0, 1, 3 })
             {
                 string reference = BuildOffTargetReference(probe, k);
@@ -1227,7 +1247,9 @@ public class MolToolsCombinatorialTests
         double tm0 = PrimerDesigner.CalculateMeltingTemperatureNNLna(probe, System.Array.Empty<int>());
 
         if (lnaCount == 0)
-            tm.Should().Be(PrimerDesigner.CalculateMeltingTemperatureNN(probe), "zero LNA reduces to the plain DNA NN Tm");
+            tm.Should().BeApproximately(ThermoConstants.CalculateNearestNeighborTm(probe, parameterSet: NnParameterSet.AllawiSantaLucia1997,
+                dnac1: 500, dnac2: 0, selfComplementary: true, sodium: 50, saltCorrection: NnSaltCorrection.Owczarzy2004, gasConstant: 1.9872), 1e-9,
+                "zero LNA reduces to the SantaLucia (1998) unified DNA NN Tm (the base set of the LNA models); the GCAT-repeat probes are self-complementary");
         else
             tm.Should().BeGreaterThan(tm0, "stabilising LNA increments raise Tm above the unmodified probe");
 

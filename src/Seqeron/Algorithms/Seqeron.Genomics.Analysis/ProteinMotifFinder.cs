@@ -188,15 +188,40 @@ public static class ProteinMotifFinder
     private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(2);
 
     /// <summary>
-    /// Finds all occurrences of a specific pattern in a protein sequence.
-    /// Uses lookahead-based matching to discover overlapping occurrences,
-    /// consistent with PROSITE ScanProsite behavior (De Castro et al. 2006).
+    /// Finds all occurrences of a specific pattern in a protein sequence, reproducing the
+    /// default match semantics of the PROSITE reference scanner <c>ps_scan</c> / ScanProsite
+    /// (De Castro et al. 2006; Gattiker et al. 2002): <b>greedy</b> (variable-length elements
+    /// extend as far as possible), <b>overlaps allowed</b> (the scan restarts one residue after
+    /// the start of each hit), and <b>included matches suppressed</b> (a hit whose end does not
+    /// extend beyond the end of the previously reported hit lies entirely inside it and is not
+    /// reported). Source: <c>ps_scan.pl</c> <c>scanPattern</c> (behaviour flags greedy=1,
+    /// overlap=1, include=0; options <c>-g</c>/<c>-v</c>/<c>-i</c>).
     /// </summary>
+    /// <remarks>
+    /// For fixed-length patterns no hit can be included in another, so every overlapping
+    /// occurrence is reported. <c>Score</c>/<c>EValue</c> are repository information-content
+    /// heuristics under a uniform 20-residue background (Schneider &amp; Stephens 1990), not
+    /// ScanProsite values; for arbitrary regex constructs (alternation, <c>*</c>, <c>+</c>, <c>?</c>,
+    /// ranges inside classes) the per-position allowed-count parse is approximate.
+    /// </remarks>
     public static IEnumerable<MotifMatch> FindMotifByPattern(
         string proteinSequence,
         string regexPattern,
         string motifName = "Custom",
-        string patternId = "")
+        string patternId = "") =>
+        FindMotifByPatternCore(proteinSequence, regexPattern, regexPattern, motifName, patternId);
+
+    /// <summary>
+    /// Scan core of <see cref="FindMotifByPattern"/>: matches <paramref name="regexPattern"/>
+    /// and scores each hit against <paramref name="scoringPattern"/> (the per-position
+    /// allowed-residue sets used by the information-content score).
+    /// </summary>
+    private static IEnumerable<MotifMatch> FindMotifByPatternCore(
+        string proteinSequence,
+        string regexPattern,
+        string scoringPattern,
+        string motifName,
+        string patternId)
     {
         if (string.IsNullOrEmpty(proteinSequence) || string.IsNullOrEmpty(regexPattern))
             yield break;
@@ -231,6 +256,10 @@ public static class ProteinMotifFinder
             yield break;
         }
 
+        // ps_scan scanPattern: a hit is reported only if its end lies beyond the end of the
+        // previously reported hit ("$stop > $prevstop"); otherwise it is included in it.
+        int previousEnd = -1;
+
         foreach (Match match in matches)
         {
             var captured = match.Groups[1];
@@ -243,11 +272,16 @@ public static class ProteinMotifFinder
             if (captured.Length == 0)
                 continue;
 
-            double score = CalculateMotifScore(captured.Value, regexPattern);
+            int end = match.Index + captured.Length - 1;
+            if (end <= previousEnd)
+                continue; // included in the previous hit (ScanProsite default include=0)
+            previousEnd = end;
+
+            double score = CalculateMotifScore(captured.Value, scoringPattern);
 
             yield return new MotifMatch(
                 Start: match.Index,
-                End: match.Index + captured.Length - 1,
+                End: end,
                 Sequence: captured.Value,
                 MotifName: motifName,
                 Pattern: patternId,
@@ -257,21 +291,67 @@ public static class ProteinMotifFinder
     }
 
     /// <summary>
-    /// Finds motif using PROSITE pattern syntax.
+    /// Finds motif occurrences using PROSITE pattern syntax, reproducing the PROSITE reference
+    /// scanner <c>ps_scan</c> / ScanProsite: the pattern is translated with
+    /// <see cref="ConvertPrositeToRegex(string, bool)"/> in ambiguity-aware mode (IUBMB
+    /// <c>B</c> = Asx, <c>Z</c> = Glx in either the sequence or the pattern) and scanned with the
+    /// ps_scan default greedy / overlap / no-include semantics of
+    /// <see cref="FindMotifByPattern"/>.
     /// </summary>
+    /// <remarks>
+    /// Source: <c>ps_scan.pl</c> <c>prositeToRegexp</c> (ebi-pf-team/interproscan,
+    /// support-mini-x86-32/bin/prosite/ps_scan.pl) and the ps_scan README
+    /// ("The ps_scan program will produce a match if the sequence has a 'B' and the pattern allows
+    /// either a 'D' or a 'N', or both (and similarly for Z)"). An <c>X</c> in the sequence is
+    /// matched only by pattern positions that accept any residue (<c>x</c>) or by exclusions
+    /// <c>{...}</c>, as in ps_scan with its effective default <c>max_x = 0</c> and for user patterns
+    /// (<c>-p</c>). <c>Score</c>/<c>EValue</c> are computed from the plain syntax translation
+    /// (<see cref="ConvertPrositeToRegex(string)"/>), so the ambiguity alternatives do not alter them.
+    /// </remarks>
+    /// <exception cref="FormatException">The pattern is not valid PROSITE syntax.</exception>
     public static IEnumerable<MotifMatch> FindMotifByProsite(
         string proteinSequence,
         string prositePattern,
         string motifName = "Custom")
     {
-        string regexPattern = ConvertPrositeToRegex(prositePattern);
-        return FindMotifByPattern(proteinSequence, regexPattern, motifName, prositePattern);
+        // Convert eagerly so a malformed pattern throws at call time, not on first enumeration.
+        string matchRegex = ConvertPrositeToRegex(prositePattern, matchAmbiguityCodes: true);
+        string scoringRegex = ConvertPrositeToRegex(prositePattern);
+        return FindMotifByPatternCore(proteinSequence, matchRegex, scoringRegex, motifName, prositePattern);
     }
 
     /// <summary>
-    /// Converts PROSITE pattern to regex.
+    /// Converts a PROSITE pattern (PA-line syntax, PROSITE User Manual §IV.E / ScanProsite
+    /// documentation) to an equivalent .NET regular expression. Residue letters are translated
+    /// literally; see <see cref="ConvertPrositeToRegex(string, bool)"/> for the ps_scan
+    /// ambiguity-aware (B/Z) translation.
     /// </summary>
-    public static string ConvertPrositeToRegex(string prositePattern)
+    /// <exception cref="FormatException">The pattern is not valid PROSITE syntax.</exception>
+    public static string ConvertPrositeToRegex(string prositePattern) =>
+        ConvertPrositeToRegex(prositePattern, matchAmbiguityCodes: false);
+
+    /// <summary>
+    /// Converts a PROSITE pattern to a .NET regular expression with the tokenizing grammar of
+    /// the PROSITE reference scanner <c>ps_scan.pl</c> (<c>prositeToRegexp</c>):
+    /// an element is a residue letter, <c>x</c> (any residue), <c>[...]</c> (any of) or
+    /// <c>{...}</c> (none of), optionally followed by a repetition <c>(n)</c> / <c>(n,m)</c> or the
+    /// ScanProsite extended-syntax Kleene star <c>*</c> (e.g. <c>&lt;{C}*&gt;</c>, "sequences without
+    /// Cys"); <c>-</c> separates elements; <c>&lt;</c>/<c>&gt;</c> anchor to the N-/C-terminus, also
+    /// inside the terminal bracket (<c>[G&gt;]</c> = G or C-terminus, PS00267/PS00539); a period
+    /// ends the pattern.
+    /// </summary>
+    /// <param name="prositePattern">PROSITE pattern; null/empty converts to the empty string.</param>
+    /// <param name="matchAmbiguityCodes">
+    /// When true, apply ps_scan's IUBMB ambiguity handling: a pattern <c>B</c> accepts N/D/B and
+    /// <c>Z</c> accepts Q/E/Z; a pattern position accepting N or D also accepts a sequence
+    /// <c>B</c>, and one accepting Q or E also accepts <c>Z</c>; an exclusion of <c>B</c>
+    /// (<c>Z</c>) excludes N, D, B (Q, E, Z).
+    /// </param>
+    /// <exception cref="FormatException">
+    /// Unsupported character, unterminated or empty <c>[...]</c>/<c>{...}</c>, malformed
+    /// repetition, or a repetition/<c>*</c> not following an element (ps_scan: "Parsing error").
+    /// </exception>
+    public static string ConvertPrositeToRegex(string prositePattern, bool matchAmbiguityCodes)
     {
         if (string.IsNullOrEmpty(prositePattern))
             return "";
@@ -283,162 +363,152 @@ public static class ProteinMotifFinder
         {
             char c = prositePattern[i];
 
+            if (c == '.')
+                break; // PROSITE User Manual: a period ends the pattern.
+
             if (c == '-')
             {
-                // Separator, skip
                 i++;
+                continue;
             }
-            else if (c == 'x')
-            {
-                // Any amino acid
-                if (i + 1 < prositePattern.Length && prositePattern[i + 1] == '(')
-                {
-                    // x(n) or x(n,m)
-                    int end = prositePattern.IndexOf(')', i);
-                    if (end > i)
-                    {
-                        string range = prositePattern.Substring(i + 2, end - i - 2);
-                        sb.Append(".{" + range + "}");
-                        i = end + 1;
-                    }
-                    else
-                    {
-                        sb.Append('.');
-                        i++;
-                    }
-                }
-                else
-                {
-                    sb.Append('.');
-                    i++;
-                }
-            }
-            else if (c == '[')
-            {
-                // Character class - may contain '>' (C-terminus) or '<' (N-terminus)
-                // Per PROSITE User Manual §IV.E: "In some rare cases (e.g. PS00267
-                // or PS00539), '>' can also occur inside square brackets for the
-                // C-terminal element. 'F-[GSTV]-P-R-L-[G>]' means that either
-                // 'F-[GSTV]-P-R-L-G' or 'F-[GSTV]-P-R-L>' are considered."
-                int end = prositePattern.IndexOf(']', i);
-                if (end > i)
-                {
-                    string content = prositePattern.Substring(i + 1, end - i - 1);
-                    bool hasCterm = content.Contains('>');
-                    bool hasNterm = content.Contains('<');
 
-                    if (hasCterm || hasNterm)
-                    {
-                        string letters = content
-                            .Replace(">", "")
-                            .Replace("<", "");
-
-                        if (hasCterm && letters.Length > 0)
-                        {
-                            sb.Append("(?:");
-                            sb.Append(letters.Length == 1 ? letters : "[" + letters + "]");
-                            sb.Append("|$)");
-                        }
-                        else if (hasNterm && letters.Length > 0)
-                        {
-                            sb.Append("(?:^|");
-                            sb.Append(letters.Length == 1 ? letters : "[" + letters + "]");
-                            sb.Append(')');
-                        }
-                        else if (hasCterm)
-                        {
-                            sb.Append('$');
-                        }
-                        else
-                        {
-                            sb.Append('^');
-                        }
-                    }
-                    else
-                    {
-                        sb.Append(prositePattern.AsSpan(i, end - i + 1));
-                    }
-                    i = end + 1;
-                }
-                else
-                {
-                    sb.Append(c);
-                    i++;
-                }
-            }
-            else if (c == '{')
+            if (c == '<')
             {
-                // Exclusion class - convert to [^...]
-                int end = prositePattern.IndexOf('}', i);
-                if (end > i)
-                {
-                    string excluded = prositePattern.Substring(i + 1, end - i - 1);
-                    sb.Append("[^" + excluded + "]");
-                    i = end + 1;
-                }
-                else
-                {
-                    sb.Append(c);
-                    i++;
-                }
-            }
-            else if (c == '<')
-            {
-                // N-terminus
                 sb.Append('^');
                 i++;
+                continue;
             }
-            else if (c == '>')
+
+            if (c == '>')
             {
-                // C-terminus
                 sb.Append('$');
                 i++;
+                continue;
             }
-            else if (c == '(')
+
+            string state;
+            bool excluded = false;
+            if (c == '[' || c == '{')
             {
-                // Repetition count after amino acid
-                int end = prositePattern.IndexOf(')', i);
-                if (end > i)
+                char close = c == '[' ? ']' : '}';
+                excluded = c == '{';
+                int end = prositePattern.IndexOf(close, i + 1);
+                if (end < 0)
+                    throw PrositeFormatError(prositePattern, i, $"unterminated '{c}'");
+                state = prositePattern.Substring(i + 1, end - i - 1);
+                if (state.Length == 0)
+                    throw PrositeFormatError(prositePattern, i, $"empty '{c}{close}' element");
+                foreach (char s in state)
                 {
-                    string range = prositePattern.Substring(i + 1, end - i - 1);
-                    sb.Append("{" + range + "}");
-                    i = end + 1;
+                    if (!IsAsciiLetter(s) && !(!excluded && (s == '<' || s == '>')))
+                        throw PrositeFormatError(prositePattern, i, $"invalid character '{s}' inside '{c}{close}'");
                 }
-                else
-                {
-                    i++;
-                }
+                i = end + 1;
             }
-            else if (char.IsLetter(c))
+            else if (IsAsciiLetter(c))
             {
-                // Single amino acid
-                sb.Append(char.ToUpperInvariant(c));
+                state = c.ToString();
                 i++;
-            }
-            else if (c == '.')
-            {
-                // PROSITE User Manual: "A period ends the pattern"
-                break;
             }
             else
             {
-                // Unsupported construct. The supported PROSITE PA-line grammar is handled by
-                // the branches above ('-', 'x', '[...]', '{...}', '<', '>', '(...)', letters,
-                // '.'). Any other character — notably the extended ScanProsite *query*
-                // metacharacter '*' (Kleene star, e.g. '<{C}*>'), or stray '?'/'+' — would
-                // otherwise fall through and be silently dropped, mis-parsing the pattern.
-                // Mirror the "reject, don't silently drop" policy used by the Newick parser
-                // and throw rather than producing a deceptively-valid regex.
-                throw new FormatException(
-                    $"Unsupported PROSITE construct: '{c}' at position {i} in pattern " +
-                    $"\"{prositePattern}\". The PROSITE→regex converter supports only the " +
-                    "standard PA-line grammar (residue letters, x, [...], {...}, <, >, " +
-                    "(n)/(m,n) repetition, '-' separators and the '.' terminator); the " +
-                    "extended ScanProsite query metacharacter '*' (Kleene star) is not supported.");
+                throw PrositeFormatError(prositePattern, i, $"unsupported construct '{c}'");
             }
+
+            string quantifier = "";
+            if (i < prositePattern.Length && prositePattern[i] == '(')
+            {
+                int end = prositePattern.IndexOf(')', i + 1);
+                if (end < 0)
+                    throw PrositeFormatError(prositePattern, i, "unterminated '('");
+                string range = prositePattern.Substring(i + 1, end - i - 1);
+                if (!RepetitionRegex.IsMatch(range))
+                    throw PrositeFormatError(prositePattern, i, $"malformed repetition '({range})'");
+                quantifier = "{" + range + "}";
+                i = end + 1;
+            }
+            else if (i < prositePattern.Length && prositePattern[i] == '*')
+            {
+                quantifier = "*";
+                i++;
+            }
+
+            sb.Append(ElementToRegex(state, excluded, bracketed: c == '[' || c == '{', matchAmbiguityCodes));
+            sb.Append(quantifier);
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>Repetition body: <c>n</c> or <c>n,m</c>.</summary>
+    private static readonly Regex RepetitionRegex = new(@"^\d+(,\d+)?$", RegexOptions.CultureInvariant);
+
+    private static bool IsAsciiLetter(char c) => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+
+    private static FormatException PrositeFormatError(string pattern, int position, string reason) =>
+        new($"Unsupported PROSITE construct in pattern \"{pattern}\" at position {position}: {reason}. Supported " +
+            "grammar: residue letters, x, [...], {...}, each optionally followed by (n), (n,m) or " +
+            "'*'; '-' separators; '<' / '>' terminus anchors (also inside the terminal [...]); " +
+            "'.' terminator.");
+
+    /// <summary>
+    /// Translates one PROSITE element (letters of a single residue, a <c>[...]</c> set or a
+    /// <c>{...}</c> exclusion) to regex, following ps_scan <c>prositeToRegexp</c>.
+    /// </summary>
+    private static string ElementToRegex(string state, bool excluded, bool bracketed, bool matchAmbiguityCodes)
+    {
+        bool hasCterm = state.Contains('>');
+        bool hasNterm = state.Contains('<');
+        string letters = state.Replace(">", "").Replace("<", "");
+
+        // ps_scan: an element containing 'x' (either case) accepts any residue.
+        if (letters.Contains('x') || letters.Contains('X'))
+            letters = ".";
+        else
+        {
+            letters = letters.ToUpperInvariant();
+            if (matchAmbiguityCodes)
+                letters = ExpandAmbiguityCodes(letters, excluded);
+        }
+
+        string core;
+        if (letters.Length == 0)
+            core = "";
+        else if (excluded)
+            core = "[^" + letters + "]";
+        else if (letters == ".")
+            core = ".";
+        else if (letters.Length > 1 || (bracketed && !hasCterm && !hasNterm))
+            core = "[" + letters + "]";
+        else
+            core = letters;
+
+        if (hasCterm)
+            return core.Length == 0 ? "$" : "(?:" + core + "|$)";
+        if (hasNterm)
+            return core.Length == 0 ? "^" : "(?:^|" + core + ")";
+        return core;
+    }
+
+    /// <summary>
+    /// ps_scan IUBMB ambiguity expansion (B = Asx, Z = Glx):
+    /// <c>s/B/NDB/g or s/([ND])/$1B/g; s/Z/QEZ/g or s/([QE])/$1Z/g</c> for accepted sets, and
+    /// only <c>B→NDB</c>, <c>Z→QEZ</c> for exclusions.
+    /// </summary>
+    private static string ExpandAmbiguityCodes(string letters, bool excluded)
+    {
+        string result = letters;
+        if (result.Contains('B'))
+            result = result.Replace("B", "NDB");
+        else if (!excluded && (result.Contains('N') || result.Contains('D')))
+            result += "B";
+
+        if (result.Contains('Z'))
+            result = result.Replace("Z", "QEZ");
+        else if (!excluded && (result.Contains('Q') || result.Contains('E')))
+            result += "Z";
+
+        return result;
     }
 
     #endregion

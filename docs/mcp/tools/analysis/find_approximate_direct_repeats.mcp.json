@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_approximate_direct_repeats",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.FindApproximateDirectRepeats",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L4847",
+  "description": "Finds **all maximal k-mismatch (Hamming) direct repeats** (Kurtz et al. 2000 REPuter; Vmatch -h k): two copies of equal length length at 0-based firstPosition < secondPosition with at most maxMismatches mismatches that cannot be extended on either side within k. Seeds are exact maximal pairs of length ⌊minLength/(k+1)⌋ (pigeonhole), extended to every maximal window. Default per-diagonal maximality (for k = 0 equal to find_direct_repeats); excludeContained = true also drops repeats contained in a k-mismatch repeat on another diagonal — output identical to vmatch -l minLength -h k -allmax. Non-ACGT symbols are mismatches. Filters length ≤ maxLength, spacing = secondPosition − firstPosition − length ≥ minSpacing. Sorted by (firstPosition, secondPosition, length). For edit distance or palindromic repeats use find_degenerate_repeats. reporting = \"bestPerSeed\" gives Vmatch's default vmatch -h k output without -allmax (one E-value-best extension per exact seed; rows may repeat; maxMismatches ≥ 1; excludeContained ignored); vmatchCompatible = true reproduces stock Vmatch's left-extension seed shortcut (Evidence REP-DIRECT-001 §WP15).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "Minimum repeat length (> maxMismatches)",
+        "minimum": 2,
+        "default": 10
+      },
+      "maxMismatches": {
+        "type": "integer",
+        "description": "Maximum Hamming distance k",
+        "minimum": 0,
+        "default": 1
+      },
+      "maxLength": {
+        "type": "integer",
+        "description": "Maximum repeat length",
+        "default": 2147483647
+      },
+      "minSpacing": {
+        "type": "integer",
+        "description": "Minimum number of bases between the copies (negative admits overlap)",
+        "default": 1
+      },
+      "excludeContained": {
+        "type": "boolean",
+        "description": "Drop repeats contained in a k-mismatch repeat on another diagonal (vmatch -allmax)",
+        "default": false
+      },
+      "reporting": {
+        "type": "string",
+        "description": "allMaximal (every maximal match, Vmatch -allmax) or bestPerSeed (Vmatch default output, one best match per seed)",
+        "enum": [
+          "allMaximal",
+          "bestPerSeed"
+        ],
+        "default": "allMaximal"
+      },
+      "vmatchCompatible": {
+        "type": "boolean",
+        "description": "Reproduce stock Vmatch 2.3.1 (left-extension seed shortcut) instead of the complete extension",
+        "default": false
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "firstPosition": {
+              "type": "integer"
+            },
+            "secondPosition": {
+              "type": "integer"
+            },
+            "length": {
+              "type": "integer"
+            },
+            "mismatches": {
+              "type": "integer"
+            },
+            "spacing": {
+              "type": "integer"
+            },
+            "firstCopy": {
+              "type": "string"
+            },
+            "secondCopy": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "firstPosition",
+            "secondPosition",
+            "length",
+            "mismatches",
+            "spacing",
+            "firstCopy",
+            "secondCopy"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "minLength must be >= 2 and > maxMismatches; maxMismatches >= 0; maxLength >= minLength"
+    }
+  ],
+  "examples": [
+    {
+      "name": "vmatch -l 10 -h 2: one repeat with 2 mismatches",
+      "input": {
+        "sequence": "ACGTTGCAAGCTTACGGGGGGACGATGCAAGCATACGG",
+        "minLength": 10,
+        "maxMismatches": 2,
+        "maxLength": 2147483647,
+        "minSpacing": -2147483648
+      },
+      "output": {
+        "items": [
+          {
+            "firstPosition": 0,
+            "secondPosition": 21,
+            "length": 17,
+            "mismatches": 2,
+            "spacing": 4,
+            "firstCopy": "ACGTTGCAAGCTTACGG",
+            "secondCopy": "ACGATGCAAGCATACGG"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Boundary-limited exact repeat (0 mismatches)",
+      "input": {
+        "sequence": "GATTACAGATTACA",
+        "minLength": 6,
+        "maxMismatches": 1,
+        "maxLength": 2147483647,
+        "minSpacing": -2147483648
+      },
+      "output": {
+        "items": [
+          {
+            "firstPosition": 0,
+            "secondPosition": 7,
+            "length": 7,
+            "mismatches": 0,
+            "spacing": 0,
+            "firstCopy": "GATTACA",
+            "secondCopy": "GATTACA"
+          }
+        ]
+      }
+    },
+    {
+      "name": "vmatch -l 5 -h 1 -allmax",
+      "input": {
+        "sequence": "AAAAAAAACGTTGCAACGTAAAA",
+        "minLength": 5,
+        "maxMismatches": 1,
+        "maxLength": 2147483647,
+        "minSpacing": -2147483648,
+        "excludeContained": true
+      },
+      "output": {
+        "items": [
+          {
+            "firstPosition": 0,
+            "secondPosition": 1,
+            "length": 8,
+            "mismatches": 1,
+            "spacing": -7,
+            "firstCopy": "AAAAAAAA",
+            "secondCopy": "AAAAAAAC"
+          },
+          {
+            "firstPosition": 0,
+            "secondPosition": 18,
+            "length": 5,
+            "mismatches": 1,
+            "spacing": 13,
+            "firstCopy": "AAAAA",
+            "secondCopy": "TAAAA"
+          },
+          {
+            "firstPosition": 1,
+            "secondPosition": 18,
+            "length": 5,
+            "mismatches": 1,
+            "spacing": 12,
+            "firstCopy": "AAAAA",
+            "secondCopy": "TAAAA"
+          },
+          {
+            "firstPosition": 2,
+            "secondPosition": 18,
+            "length": 5,
+            "mismatches": 1,
+            "spacing": 11,
+            "firstCopy": "AAAAA",
+            "secondCopy": "TAAAA"
+          },
+          {
+            "firstPosition": 3,
+            "secondPosition": 18,
+            "length": 5,
+            "mismatches": 1,
+            "spacing": 10,
+            "firstCopy": "AAAAA",
+            "secondCopy": "TAAAA"
+          },
+          {
+            "firstPosition": 5,
+            "secondPosition": 13,
+            "length": 6,
+            "mismatches": 1,
+            "spacing": 2,
+            "firstCopy": "AAACGT",
+            "secondCopy": "CAACGT"
+          },
+          {
+            "firstPosition": 6,
+            "secondPosition": 14,
+            "length": 6,
+            "mismatches": 1,
+            "spacing": 2,
+            "firstCopy": "AACGTT",
+            "secondCopy": "AACGTA"
+          }
+        ]
+      }
+    }
+  ]
+}

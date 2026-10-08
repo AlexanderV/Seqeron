@@ -5,7 +5,7 @@
 **Algorithm:** Windowed Sequence Complexity (sliding-window complexity profile)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-30
 
 ---
 
@@ -19,6 +19,8 @@
 | 2 | Troyanskaya et al. (2002), Sequence complexity profiles … fast algorithm | 1 | https://doi.org/10.1093/bioinformatics/18.5.679 (https://pubmed.ncbi.nlm.nih.gov/12050064/) | 2026-06-14 |
 | 3 | Gabrielian & Bolshoy (1999), Sequence complexity and DNA curvature | 1 | https://doi.org/10.1016/S0097-8485(99)00007-8 (via Wikipedia LC) | 2026-06-14 |
 | 4 | Wikipedia, Linguistic sequence complexity (cites Trifonov 1990, Troyanskaya 2002) | 4 | https://en.wikipedia.org/wiki/Linguistic_sequence_complexity | 2026-06-14 |
+| 5 | BBTools BBMap 40.02 — `jgi/BBDuk.java` `maskLowEntropy`, `tracker/EntropyTracker.java`, `dna/AminoAcid.java` (source in the release `bbtools.jar`; release binary run as the oracle) | 2 (reference implementation) | https://sourceforge.net/projects/bbmap/ ; https://raw.githubusercontent.com/BioInfoTools/BBMap/master/current/structures/EntropyTracker.java | 2026-09-30 |
+| 6 | Gabrielian & Bolshoy (1999) abstract (search snippet): LC word length "not in the range of 2 to N−1 but only up to W"; universalmotif `R/sequence_complexity.R` (`trifonov.max.word.size = 7`) | 1 / 3 | https://www.sciencedirect.com/science/article/abs/pii/S0097848599000078 ; https://raw.githubusercontent.com/bjmt/universalmotif/master/R/sequence_complexity.R | 2026-09-30 |
 
 ### 1.2 Key Evidence Points
 
@@ -26,6 +28,8 @@
 2. Per-window Shannon entropy `H = -Σ p log₂ p` (bits); uniform DNA window ⇒ 2.0, homopolymer ⇒ 0 — Shannon (1948) via Wikipedia Entropy.
 3. Per-window linguistic complexity (summation form) `LC = (Σ Vᵢ)/(Σ Vmax,i)`, `Vmax,i = min(4^i, N-i+1)`, range (0,1) — Wikipedia LC / Troyanskaya (2002); repo LC unit SEQ-COMPLEX-001.
 4. Worked window `ACGTACGT` (maxWordLength=6): H=2.0, LC=23/29. Window `AAAAAAAA`: H=0.0, LC=6/29 — hand-derivation in Evidence §Test Datasets.
+6. BBDuk low-entropy masking: window statistic = entropy of the w−k+1 overlapping k-mers normalised by ln(w−k+1) (defaults k=5, w=50), window fails when value < cutoff (float), only windows with no undefined base (`ns()<1`; A/C/G/T/U either case defined), masked set = union of failing windows, reads shorter than w untouched — BBDuk/EntropyTracker source (5).
+7. Windowed LC word length is bounded by a free parameter W (Gabrielian & Bolshoy 1999); 6 is this library's default, now the `lcMaxWordLength` parameter — source (6).
 5. Window enumeration emits only fully-contained windows (`i + w ≤ L`), advancing by `step`; count = floor((L-w)/s)+1 for L≥w — repository contract + profile definition.
 
 ### 1.3 Documented Corner Cases
@@ -37,7 +41,8 @@
 ### 1.4 Known Failure Modes / Pitfalls
 
 1. Off-by-one in window count or in WindowEnd (inclusive vs exclusive) — repository contract (0-based, end inclusive).
-2. Using a different per-window LC maxWordLength than min(6, windowSize) would change LC values — repo LC convention (Gabrielian & Bolshoy efficiency cap).
+2. Per-window LC depends on the word-length cap `min(lcMaxWordLength, w)` (default 6) — Gabrielian & Bolshoy bounded-W form.
+3. Treating the Shannon window scan as BBDuk's default rule: BBDuk scores normalised 5-mer entropy; the Shannon scan equals BBDuk only with `entropyk=1 entropy=t/log₂w` — source (5).
 
 ---
 
@@ -46,6 +51,9 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `CalculateWindowedComplexity(DnaSequence, int windowSize, int stepSize)` | SequenceComplexity | **Canonical** | Sliding-window driver returning `ComplexityPoint` per window |
+| `CalculateWindowedComplexity(string, int, int, int lcMaxWordLength = 6)` | SequenceComplexity | **Canonical** | String overload; windows with a non-ACGTU symbol skipped (BBDuk `ns()<1`) |
+| `FindLowComplexityRegions(DnaSequence \| string, int windowSize, double entropyThreshold)` | SequenceComplexity | **Canonical** | Region = union (maximal covered run) of step-1 windows with per-base Shannon entropy < threshold (BBDuk window-union reporting, 1-mer statistic); string overload never flags windows with non-ACGTU; threshold NaN/∞/<0 rejected; tests in `SequenceComplexityTests.cs` `#region Low Complexity Region Tests` + `SequenceComplexity_AuditWp5_Tests.cs` |
+| `FindLowEntropyRegionsBbduk(string, double entropyCutoff, int windowSize = 50, int k = 5)` | SequenceComplexity | **Canonical** | Port of BBDuk `maskLowEntropy` (`entropymask=t`); tests in `SequenceComplexity_AuditWp5_Tests.cs` |
 
 ---
 
@@ -90,6 +98,43 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Bounds invariant | mixed sequence | every point: 0≤H≤2 and 0<LC≤1 | INV-3/INV-4 |
+
+### 4.4 FindLowComplexityRegions (added 2026-09-29, review-2026-09 B04)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| R1 | ATGC×20 + A×64 + ATGC×20, w=20, thr=0.5 | one region 79..145, length 67, MinEntropy 0 | BBDuk window union; Python reference |
+| R2 | ATGCATGC + A×64 + ATGCATGC, w=32, thr=0.5 | one region 6..74, length 69 | idem |
+| R3 | CAAAAACAAAAACAAACAAA, w=8, thr=0.6 | overlapping flagged windows merge: one region 1..15, MinEntropy 0.5435644431995964 | idem |
+| R4 | A×10 + (ACGT)×3 + C×10, w=8, thr=1.0 | two disjoint regions 0..11 and 21..31 (trailing) | idem |
+| R5 | null / windowSize 0 | ArgumentNullException / ArgumentOutOfRangeException at call time (eager) | repository contract |
+| R6 | differential windowed profile (L=50, w=16, s=7) | per-window H and LC equal scipy/set reference to 1e-12 | Evidence §Python reference |
+
+### 4.5 Completeness audit WP5 (2026-09-30, B04 F38/F39) — `SequenceComplexity_AuditWp5_Tests.cs`
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| W1 | `ACGTACGT`, w=8, lcMaxWordLength 8 / 1 / default | LC 13/16 / 1.0 / 23/29; H unchanged | brute force |
+| W2 | string `acgtacgtaaNaaaaaacguacgt`, w=8, s=4 | points at 0, 12, 16 only (N windows skipped); U = T | source (5) `ns()<1` |
+| W3 | string overload vs `DnaSequence` on ACGT (lower-cased input) | identical points / regions | contract |
+| W4 | windowed `lcMaxWordLength 0`, string w/s 0, null | ArgumentOutOfRange / ArgumentNull (eager) | contract |
+| W5 | `FindLowComplexityRegions` threshold NaN, ±∞, −0.1 (both overloads) | ArgumentOutOfRangeException | contract |
+| W6 | ATGC×5 + A×20 + N + A×20 + ATGC×5, w=10, t=0.5 | regions 19..39 and 41..62 (N windows never flagged) | brute force |
+| B1 | 30 bp + A×40 + 30 bp, defaults, cutoff 0.5 (also lower-case RNA spelling) | masked 11..88 | `bbduk.sh` 40.02 output |
+| B2 | 40 bp + (AC)×40 + 30 bp, cutoff 0.7 / w=20 k=3 cutoff 0.6 | 17..143 / 34..125 | `bbduk.sh` output |
+| B3 | 40 bp + (AAG)×10 + 30 bp, w=25 k=2 cutoff 0.55 | 32..74 | `bbduk.sh` output |
+| B4 | MinEntropy of B1 / B2 | (float) 0.2674965368023891 / 0.1810425967800402 | −Σp ln p / ln 46 |
+| B5 | N inside the 50-bp poly-A; 49-bp read with cutoff 1; empty | nothing masked | `bbduk.sh` output |
+| B6 | k = 1, cutoff t/log₂w ≡ Shannon scan (w 8/16/20, t 0.5/1/1.3) | identical regions | §2.3 identity; 1 600 cases vs bbduk k=1 |
+| B7 | null, cutoff −0.01 / 1.01 / NaN, k 0 / 16, w ≤ k | ArgumentNull / ArgumentOutOfRange | EntropyTracker assertions |
+| X1 | differential vs compiled-release `bbduk.sh` 40.02 (harness, not a unit test) | 4 500 random cases + 20 long reads: 0 mismatches | Evidence 2026-09-30 |
+
+### 4.6 Suffix-tree window LC (2026-10-01, B04 F55)
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| T1 | `CalculateWindowedComplexity_SuffixTreePath_BitIdenticalToDefinition` (m 1, 3, 4, 6, 12, 13, 40, 200; w/s 8/3, 37/5, 64/10, 150/50) | LC `==` HashSet definition on every window | Troyanskaya 2002 definition |
+| X2 | harness: 10 000 random cases / 325 636 windows (string + DnaSequence; m up to 3w+1) | byte-identical to the pre-change profile (195 745 windows) and `==` brute force: 0 mismatches | Evidence 2026-10-01 |
 
 ---
 

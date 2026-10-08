@@ -34,4 +34,14 @@ public class IupacMatchTests
         var result3 = SequenceTools.IupacMatch("R", "Y");
         Assert.That(result3.Matches, Is.False);
     }
+
+    [Test]
+    [Description("B01-SWEEP: lower-case codes (echoed upper-case) must match like upper-case — Biopython ambiguous_dna_values R={A,G}")]
+    public void IupacMatch_LowerCaseCodes_MatchLikeUpperCase()
+    {
+        var result = SequenceTools.IupacMatch("r", "a");
+        Assert.That(result.Matches, Is.True);
+        Assert.That(result.Code1, Is.EqualTo("R"));
+        Assert.That(SequenceTools.IupacMatch("s", "w").Matches, Is.False);
+    }
 }

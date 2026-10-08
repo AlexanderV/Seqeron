@@ -9,7 +9,7 @@
 | **Title** | Tandem Repeat Detection |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-03-01 |
+| **Last Updated** | 2026-09-30 |
 
 ---
 
@@ -19,6 +19,10 @@
 |--------|-------|------|---------------|
 | `FindTandemRepeats(seq, minUnitLength, minRepetitions)` | GenomicAnalyzer | Canonical | Deep testing |
 | `GetTandemRepeatSummary(seq, minRepeats)` | RepeatFinder | Summary/Delegate | Smoke testing |
+| `GetTandemRepeatSummary(seq, IReadOnlyDictionary<int,int> minRepeatsByUnitLength)` | RepeatFinder | MISA per-unit-size thresholds | Deep (D10) |
+| `GetTandemRepeatSummary(string, …)` (uniform / map / map + `MicrosatelliteScanMode`) | RepeatFinder | N/IUPAC-tolerant raw-string overloads (WP11) | Deep (D13) |
+| `GetCanonicalMotifClass`, `GetCanonicalMotifFrequencies` | RepeatFinder | MISA repeat-type classes | Deep (D11) |
+| `GetStandardMotif(motif, level)`, `GetStandardMotifFrequencies` | RepeatFinder | Krait standard motifs | Deep (D12) |
 
 ---
 
@@ -29,6 +33,8 @@
 | [Wikipedia - Tandem repeat](https://en.wikipedia.org/wiki/Tandem_repeat) | Definition | Adjacent repeating patterns; 8% of human genome; >50 diseases; detection via suffix trees/arrays |
 | [Wikipedia - Microsatellite](https://en.wikipedia.org/wiki/Microsatellite) | Classification | STR = 1–6 bp (up to 10 bp by some authors); mutation via slippage (~1 per 1,000 generations); forensic STRs are tetra-/pentanucleotide only |
 | Richard et al. (2008) | Review | Comparative genomics of DNA repeats in eukaryotes, MMBR 72(4):686–727 |
+| MISA `misa.pl` v1.0 (Thiel et al. 2003, TAG 106:411) — source opened (raw GitHub mirror, 2026-09-29) | Reference tool | `.statistics`: total SSRs; "Distribution to different repeat type classes" = one row per unit size of the `def` line that has ≥ 1 SSR — any unit size, not only 1–6 (`def` parsed as free `size-min` pairs, lines 76–81; one regex `([acgt]{size})\2{min−1,}` per defined size, lines 101–106; `$count_class{size}++`, line 125) — exposed as `CountsByUnitLength`; "Frequency of identified SSR motifs" counts raw motifs (a second table groups rotations + reverse complement) |
+| Krait `src/statistics.py` (Du et al. 2018, Bioinformatics 34:681) — source opened (raw GitHub, 2026-09-29) | Reference tool | Type table Mono…Hexa; "Length (bp)" = `SUM(length)`; density = length / valid (ACGT) size |
 
 ---
 
@@ -93,6 +99,46 @@ These tests verify the delegate method which wraps FindMicrosatellites.
 | D2 | NoRepeats_ZeroValues | Edge case |
 | D3 | LongestRepeat_Identified | Correct identification |
 | D4 | MononucleotideCount_Correct | Category counting |
+| D5 | PentaAndHexa_CountedAndSumToTotal | All six classes counted (MISA/Krait); counts sum to TotalRepeats; sum-of-lengths 71 vs union coverage 44/46 |
+| D6 | OverlappingRuns_SumExceedsCoveredBases | `AAAAATATATAT`: 13 repeat bases, 100 % coverage |
+| D7 | NoRepeats / EmptySequence → LongestRepeat and MostFrequentUnit null | Null contract (was a default Position-0 record) |
+| D8 | HigherMinRepeats_PartialCoverage | minRepeats 4 → 14/32 = 43.75 % |
+| D9 | InvalidArguments_Throw | null → ArgumentNullException; minRepeats < 2 → ArgumentOutOfRangeException |
+| D10 | `GetTandemRepeatSummary_MisaThresholds_StatSequence` (+ map validation: unit length < 1 throws; sizes > 6 accepted since F61) | misa.pl default ini: 7 SSRs, class counts 2 / 4 / 1 |
+| D11 | `GetCanonicalMotifClass_MatchesMisaStatisticsRowName` (10), `GetCanonicalMotifFrequencies_StatSequence_MatchesMisaClassifiedTable` | misa.pl `.statistics` "Frequency of classified repeat types (considering sequence complementary)": AC/CA/GT/TG → AC/GT; table A/T 2, AC/GT 4, ACAT/ATGT 1 |
+| D12 | `GetStandardMotif_MatchesKraitAllLevels` (8 motifs × levels 0–4) | Krait `motif.py` `StandardMotif(level).standard()` (A < T < C < G order; level 2 = rotations + reverse complement, e.g. ACAT → ATAC; Krait GUI default level 3) |
+
+| D13 | `RepeatFinder_TandemSummaryString_Tests` (6) | Raw-string overloads (WP11): N/IUPAC never form or extend an SSR (MISA `[acgt]`); `PercentageOfSequence` denominator = full length incl. N (misa.pl `length $seq`); `MisaRegex` counts = misa.pl `.statistics` (93-mer: 6 SSRs, 3/1/1/1; 87-mer: default 3 SSRs 1/2, uniform 3 copies 4 SSRs 1/3); ACGT-only input = DnaSequence overloads; maximal-runs class counts = sum over ACGT pieces; null/empty → empty summary |
+| D14 | `RepeatFinder_MisaUnitSizes_Tests` (5) | Unit sizes > 6 (WP16, F61): misa.pl with `1-10 2-6 3-5 4-5 5-5 6-5 7-3 8-3 9-2 10-2` / int 10 on a 140-mer → SSRs (ACGTTGC)3, (A)12, (TTAGGCA)3, (ACGT)6, (ATCCATGCA)2, `.misa` row `c (ACGTTGC)3g(A)12cc(TTAGGCA)3ttcg(ACGT)6gg(ATCCATGCA)2 105 1 105`, `.statistics` total 5 / distribution 1→1, 4→1, 7→2, 9→1 = `CountsByUnitLength` (zeros for 2, 3, 5, 6, 8, 10); `ParseMisaDefinition` (misa.ini `def` syntax, strict validation); uniform overloads: keys 1–6 = the six named fields; content equality of the summary; 300 random long-unit sequences × 3 definitions (sizes ≤ 12) = transcription of misa.pl's scan loop, summary counts = per-size counts of that list |
+
+2026-10-01 (WP16, F61): `MisaRegex` with definitions containing unit sizes 7–12 vs real `perl misa.pl` v1.0 (sha1 1504182747…;
+re-downloaded from raw GitHub cfljam/SSR_marker_design, identical) on 6 000 random sequences (20–800 bp, 7–12 bp units
+over-represented, non-primitive units, point mutations, N runs, mixed case) × 7 `misa.ini` settings (`1-10 2-6 3-5 4-5 5-5 6-5
+7-5 8-5 9-5 10-5`/100, `1-3 2-2 … 10-2`/10, `7-2 8-2 9-2 10-2`/0, `1-5 2-3 … 10-3 11-2 12-2`/50, `2-3 4-2 7-2 9-2`/20,
+`8-2 10-2`/5, `1-10 2-6 3-5 4-5 5-5 6-5 7-5`/100): 434 008 misa.pl SSRs (107 762 with units > 6), 79 690 `.misa` rows —
+SSR lists, `.misa` rows (compound interruption parameter included) and per-sequence per-unit-size counts identical in all
+42 000 (sequence, setting) pairs (ties broken by SSR number, F48); aggregate `.statistics` (sequences, size, total SSRs,
+SSR-containing sequences, > 1 SSR, SSRs in compound formation, every "Distribution" row) identical to stock misa.pl
+(`PERL_HASH_SEED=1`) in 7/7 settings except the compound count of `7-2 8-2 9-2 10-2` (one start-tie sequence; F48);
+2 100 per-sequence stock misa.pl runs (300 × 7): total and distribution rows 2 100 / 2 100 identical.
+
+2026-10-01 (WP11): string overloads with `MicrosatelliteScanMode.MisaRegex` vs real `perl misa.pl` `.statistics` on 6 000 random
+sequences (5 684 containing N/IUPAC/lower case, 1 882 307 bp) × 6 `misa.ini` definitions: total size, total SSRs, SSR-containing
+sequences, sequences with > 1 SSR and the six per-unit-size counts identical (aggregate, all 6 definitions); per sequence (one
+misa.pl run each) for the default and the `1-3 2-2 3-2 4-2 5-2 6-2` definitions: 12 000 / 12 000 identical.
+
+Summary expected values come from an independent Python reference (brute-force maximal primitive runs
++ aggregation); the code agreed on 9000/9000 random sequences (2026-09-29). Per-class totals of the
+same reference agreed exactly with running `misa.pl` for minRepeats ≥ 4; for minRepeats 2–3 MISA differs
+only by the run-level conventions documented under REP-STR-001 (greedy consumption of non-primitive
+regions, same-period overlapping runs).
+
+2026-09-30: MISA class names equal real misa.pl `.statistics` rows for all 5 356 primitive motifs of 1–6 bp
+(one misa.pl run per motif); Krait standard motifs equal Krait's `StandardMotif.standard()` for all 5 460 motifs
+of 1–6 bp at levels 0–4 (note: Krait caches in a class-level dict shared by all levels; the reference was run with
+a fresh cache per level). The classified table built from misa.pl's own SSR list equals misa.pl's table in all
+6 `misa.ini` configurations (6 048 sequences); built from this library's SSR list it differs only through the
+documented SSR-list conventions. Tests: `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_MisaCompound_Tests.cs`.
 
 ---
 
@@ -104,8 +150,8 @@ These tests verify the delegate method which wraps FindMicrosatellites.
 | SHOULD | 5 |
 | COULD | 2 |
 | Property (invariants) | 3 |
-| Summary (delegate) | 4 |
-| **Total** | 27 |
+| Summary (delegate) | 14 |
+| **Total** | 37 |
 
 ### Deviations and Assumptions
 

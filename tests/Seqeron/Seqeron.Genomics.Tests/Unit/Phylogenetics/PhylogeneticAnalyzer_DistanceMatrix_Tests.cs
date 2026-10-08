@@ -632,4 +632,51 @@ public class PhylogeneticAnalyzer_DistanceMatrix_Tests
     }
 
     #endregion
+
+    #region R01-R02: Reference cross-checks (scikit-bio 0.7.4, ape dist_dna.c pairwise deletion)
+
+    [Test]
+    [Description("R01: No comparable site (empty/all-gap/all-ambiguous) → p, JC69, K80 are NaN (0/0); Hamming count is 0 — ape dist.dna pairwise deletion and scikit-bio pdist/jc69/k2p")]
+    public void CalculatePairwiseDistance_NoComparableSites_ProportionsNaN_HammingZero()
+    {
+        // scikit-bio 0.7.4: pdist/jc69/k2p(DNA("----"), DNA("NNNN")) = nan, nan, nan.
+        // ape dist_dna.c *_pairdel: L = 0 ⇒ p = Nd/L = 0/0 = NaN.
+        var pairs = new[] { ("----", "NNNN"), ("", ""), ("ACGT", "----"), ("RYKM", "ACGT") };
+        foreach (var (a, b) in pairs)
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(PhylogeneticAnalyzer.CalculatePairwiseDistance(a, b, PhylogeneticAnalyzer.DistanceMethod.Hamming), Is.EqualTo(0));
+                Assert.That(PhylogeneticAnalyzer.CalculatePairwiseDistance(a, b, PhylogeneticAnalyzer.DistanceMethod.PDistance), Is.NaN);
+                Assert.That(PhylogeneticAnalyzer.CalculatePairwiseDistance(a, b, PhylogeneticAnalyzer.DistanceMethod.JukesCantor), Is.NaN);
+                Assert.That(PhylogeneticAnalyzer.CalculatePairwiseDistance(a, b, PhylogeneticAnalyzer.DistanceMethod.Kimura2Parameter), Is.NaN);
+            });
+        }
+
+        var m = PhylogeneticAnalyzer.CalculateDistanceMatrix(new[] { "AC--", "--GT" }, PhylogeneticAnalyzer.DistanceMethod.JukesCantor);
+        Assert.Multiple(() =>
+        {
+            Assert.That(m[0, 1], Is.NaN, "non-overlapping pair is not computable");
+            Assert.That(m[1, 0], Is.NaN);
+            Assert.That(m[0, 0], Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    [Description("R02: Gapped/ambiguous alignments match scikit-bio 0.7.4 pdist/jc69/k2p exactly (pairwise deletion)")]
+    [TestCase("ACGTACGTAC-GTNACGTRA", "GCTTACCTACAGTAACGAYA", 4, 0.23529411764705882, 0.28235817842618405, 0.28298286494856933)]
+    [TestCase("AACCGGTTAACCGGTT", "GACTAGCTGGCAGATT", 8, 0.5, 0.8239592165010822, 1.4196772092760213)]
+    public void CalculatePairwiseDistance_MatchesScikitBio(
+        string a, string b, int hamming, double p, double jc, double k2p)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PhylogeneticAnalyzer.CalculatePairwiseDistance(a, b, PhylogeneticAnalyzer.DistanceMethod.Hamming), Is.EqualTo(hamming));
+            Assert.That(PhylogeneticAnalyzer.CalculatePairwiseDistance(a, b, PhylogeneticAnalyzer.DistanceMethod.PDistance), Is.EqualTo(p).Within(1e-12));
+            Assert.That(PhylogeneticAnalyzer.CalculatePairwiseDistance(a, b, PhylogeneticAnalyzer.DistanceMethod.JukesCantor), Is.EqualTo(jc).Within(1e-12));
+            Assert.That(PhylogeneticAnalyzer.CalculatePairwiseDistance(a, b, PhylogeneticAnalyzer.DistanceMethod.Kimura2Parameter), Is.EqualTo(k2p).Within(1e-12));
+        });
+    }
+
+    #endregion
 }

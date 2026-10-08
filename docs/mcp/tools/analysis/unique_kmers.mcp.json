@@ -5,13 +5,15 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.FindUniqueKmers",
-  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L253",
-  "description": "Returns the k-mers that occur exactly once (overlapping occurrence count = 1) in the sequence — the singleton k-mers.",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2592",
+  "description": "Returns the k-mers that occur exactly once (overlapping occurrence count = 1) in the sequence — the singleton k-mers. Optional Jellyfish modes: canonical (count -C + dump -L 1 -U 1) and acgtOnly.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
-      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "canonical": { "type": "boolean", "description": "Canonical k-mers (jellyfish count -C); implies acgtOnly", "default": false },
+      "acgtOnly": { "type": "boolean", "description": "Skip windows containing a symbol other than A/C/G/T (case-insensitive)", "default": false }
     },
     "required": ["sequence", "k"]
   },
@@ -20,7 +22,7 @@
     "properties": {
       "kmers": {
         "type": "array",
-        "description": "k-mers occurring exactly once (order unspecified)",
+        "description": "k-mers occurring exactly once (ascending lexicographic order)",
         "items": { "type": "string" }
       }
     },
@@ -34,12 +36,17 @@
     {
       "name": "Singletons of ATGATG k=3",
       "input": { "sequence": "ATGATG", "k": 3 },
-      "output": { "kmers": ["TGA", "GAT"] }
+      "output": { "kmers": ["GAT", "TGA"] }
     },
     {
       "name": "No singletons (homopolymer) AAAA k=2",
       "input": { "sequence": "AAAA", "k": 2 },
       "output": { "kmers": [] }
+    },
+    {
+      "name": "Canonical singletons of ATGATG k=3 (Jellyfish 2.3.1 count -C + dump -L 1 -U 1)",
+      "input": { "sequence": "ATGATG", "k": 3, "canonical": true },
+      "output": { "kmers": ["ATC", "TCA"] }
     }
   ]
 }

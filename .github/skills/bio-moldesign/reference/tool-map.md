@@ -1,4 +1,4 @@
-# MolTools tool map (47 tools)
+# MolTools tool map (48 tools)
 
 Grouped by sub-domain. All on the **MolTools** MCP server; C# in `Seqeron.Genomics.MolTools`.
 One line = tool · one-line purpose · `Method ID`. Open the per-tool doc under
@@ -69,10 +69,11 @@ guess. Source of truth for names/status: `docs/mcp/MCP_STATUS.md`.
 | Tool | Purpose | Method ID |
 |---|---|---|
 | `design_probes` | Ranked hybridization probes for a target | `ProbeDesigner.DesignProbes` |
+| `design_probes_primer3` | Primer3 `pick_hyb_probe_only` probe picker (primer3-py parity) | `ProbeDesigner.DesignProbesPrimer3` |
 | `design_tiling_probes` | Tiling probe set across a target | `ProbeDesigner.DesignTilingProbes` |
 | `design_antisense_probes` | Antisense probes | `ProbeDesigner.DesignAntisenseProbes` |
 | `design_molecular_beacon` | Molecular-beacon probe design | `ProbeDesigner.DesignMolecularBeacon` |
-| `validate_probe` | Validate a probe vs parameters | `ProbeDesigner.ValidateProbe` |
+| `validate_probe` | Validate a probe: k-mismatch hits, Primer3 ntthal self-structure, Kane (2000) non-target cross-hybridization | `ProbeDesigner.ValidateProbe` |
 | `analyze_oligo` | Oligo properties (GC, Tm, structure) | `ProbeDesigner.AnalyzeOligo` |
 | `oligo_extinction_coefficient` | Extinction coefficient | `ProbeDesigner.CalculateExtinctionCoefficient` |
 | `oligo_concentration_from_absorbance` | Concentration from A260 | `ProbeDesigner.CalculateConcentration` |

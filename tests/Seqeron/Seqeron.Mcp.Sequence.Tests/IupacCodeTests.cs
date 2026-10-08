@@ -30,4 +30,11 @@ public class IupacCodeTests
         var result3 = SequenceTools.IupacCode("A");
         Assert.That(result3.Code, Is.EqualTo("A"));
     }
+
+    [Test]
+    [Description("B01-SWEEP: RNA U = T — Biopython ambiguous_rna_values W='AU'")]
+    public void IupacCode_RnaBases_UracilTreatedAsThymine()
+    {
+        Assert.That(SequenceTools.IupacCode("AU").Code, Is.EqualTo("W"));
+    }
 }

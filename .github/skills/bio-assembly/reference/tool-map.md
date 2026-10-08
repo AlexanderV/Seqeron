@@ -64,6 +64,15 @@ motif/variant/ORF/RNA/protein on Analysis is `bio-annotation`'s, not listed here
 | [`find_low_complexity_regions`](../../../../docs/mcp/tools/analysis/find_low_complexity_regions.md) | `SequenceComplexity.FindLowComplexityRegions` | Low-complexity region intervals. |
 | [`dust_score`](../../../../docs/mcp/tools/analysis/dust_score.md) | `SequenceComplexity.CalculateDustScore` | DUST low-complexity score. |
 | [`mask_low_complexity`](../../../../docs/mcp/tools/analysis/mask_low_complexity.md) | `SequenceComplexity.MaskLowComplexity` | Mask low-complexity before assembly. |
+| [`find_inverted_repeats_scored`](../../../../docs/mcp/tools/analysis/find_inverted_repeats_scored.md) | `RepeatFinder.FindInvertedRepeatsScored` | Gapped, mismatch-tolerant inverted repeats scored like EMBOSS einverted. |
+| [`find_reverse_complement_repeats`](../../../../docs/mcp/tools/analysis/find_reverse_complement_repeats.md) | `RepeatFinder.FindReverseComplementRepeats` | Maximal exact reverse-complement repeat pairs (repeat-match / Vmatch -p). |
+| [`find_approximate_direct_repeats`](../../../../docs/mcp/tools/analysis/find_approximate_direct_repeats.md) | `RepeatFinder.FindApproximateDirectRepeats` | Maximal k-mismatch direct repeats (REPuter / Vmatch -h). |
+| [`find_degenerate_repeats`](../../../../docs/mcp/tools/analysis/find_degenerate_repeats.md) | `RepeatFinder.FindDegenerateRepeats` | Maximal k-differences / k-mismatches repeats, direct or palindromic (Vmatch -e/-h, -p). |
+| [`find_supermaximal_repeats`](../../../../docs/mcp/tools/analysis/find_supermaximal_repeats.md) | `RepeatFinder.FindSupermaximalRepeats` | Supermaximal repeats (Vmatch -supermax). |
+| [`find_approximate_tandem_repeats`](../../../../docs/mcp/tools/analysis/find_approximate_tandem_repeats.md) | `RepeatFinder.FindApproximateTandemRepeats` | Approximate tandem repeats, Tandem Repeats Finder model and parameters. |
+| [`mask_approximate_tandem_repeats`](../../../../docs/mcp/tools/analysis/mask_approximate_tandem_repeats.md) | `RepeatFinder.MaskApproximateTandemRepeats` | TRF -m masked sequence (N or soft mask). |
+| [`find_low_complexity_intervals`](../../../../docs/mcp/tools/analysis/find_low_complexity_intervals.md) | `SequenceComplexity.FindLowComplexityIntervals` | SDUST intervals (sdust / dustmasker -outfmt interval). |
+| [`find_longdust_regions`](../../../../docs/mcp/tools/analysis/find_longdust_regions.md) | `SequenceComplexity.FindLongdustRegions` | Longdust low-complexity regions (STR/VNTR/satellites). |
 
 ## Repeats — independent suffix-tree path (Core server)
 

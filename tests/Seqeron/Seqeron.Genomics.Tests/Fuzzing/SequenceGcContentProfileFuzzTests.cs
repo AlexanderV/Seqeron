@@ -334,47 +334,30 @@ public class SequenceGcContentProfileFuzzTests
 
     #endregion
 
-    #region BE — Boundary: windowSize == 0 (degenerate parameter, defined result)
+    #region BE — Boundary: windowSize / stepSize below 1 (rejected eagerly)
 
     /// <summary>
-    /// BE: windowSize = 0 is the degenerate zero-window-width boundary. It is NOT
-    /// guarded by the W &gt; length check (0 ≤ length), so by INV-03 the profile has
-    /// ⌊(n−0)/step⌋+1 = n+1 windows, each a length-0 substring whose GC% (no counted
-    /// bases, total = 0) is the documented 0.0 (INV-05, zero-division convention). The
-    /// key fuzz guarantee: NO divide-by-zero (the kernel returns 0 on a zero total) and
-    /// NO infinite loop (step ≥ 1 advances the offset to termination at i = n). We pin
-    /// the exact shape: n+1 zero values. — GC_Content_Profile.md §4.1 (offsets while
-    /// i ≤ n − W = n) / INV-03 / INV-05.
+    /// BE: windowSize ≤ 0 or stepSize ≤ 0 are invalid parameters. Earlier versions returned
+    /// n+1 zero values for W = 0 and never terminated for step = 0 (the offset never
+    /// advances). They are now rejected eagerly with ArgumentOutOfRangeException — at call
+    /// time, before enumeration, even for an empty sequence — like
+    /// GcSkewCalculator.CalculateWindowedGcSkew and the MCP wrapper; Biopython GC_skew raises
+    /// ValueError for window 0 (range step 0). — GC_Content_Profile.md §3.3 (B03 F17/F18).
     /// </summary>
-    [TestCase("ACGT", 5)]   // n = 4 → 5 windows
-    [TestCase("A", 2)]      // n = 1 → 2 windows
-    [TestCase("GCGCATATGC", 11)]
+    [TestCase("ACGT", 0, 1)]
+    [TestCase("A", 0, 1)]
+    [TestCase("", 0, 1)]
+    [TestCase("ACGTACGTAC", -1, 1)]
+    [TestCase("ACGTACGTAC", 4, 0)]
+    [TestCase("ACGTACGTAC", 4, -3)]
+    [TestCase("", 4, 0)]
     [CancelAfter(5000)]
-    public void GcProfile_WindowZero_YieldsZeroPercentPerOffset_NoCrashNoHang(string seq, int expectedCount)
+    public void GcProfile_WindowOrStepBelowOne_ThrowsEagerly_NoHang(string seq, int windowSize, int stepSize)
     {
-        IReadOnlyList<double> profile = null!;
-        var act = () => profile = SequenceStatistics.CalculateGcContentProfile(seq, windowSize: 0, stepSize: 1)
-            .ToArray();
+        var act = () => SequenceStatistics.CalculateGcContentProfile(seq, windowSize, stepSize);
 
-        act.Should().NotThrow("windowSize = 0 must not divide by zero or throw");
-        profile.Should().HaveCount(expectedCount, "INV-03: ⌊(n−0)/1⌋+1 = n+1 zero-width windows");
-        profile.Should().OnlyContain(v => v == 0.0,
-            "a zero-width window has no counted bases ⇒ total 0 ⇒ GC% 0.0 (INV-05)");
-        AssertWellFormed(profile);
-    }
-
-    /// <summary>
-    /// BE: windowSize = 0 on the EMPTY string is guarded by the null/empty
-    /// short-circuit (§3.3) ⇒ empty profile, even though 0 ≤ 0. Confirms the empty
-    /// guard precedes the zero-window logic. — GC_Content_Profile.md §3.3.
-    /// </summary>
-    [Test]
-    public void GcProfile_WindowZero_OnEmptySequence_IsEmpty()
-    {
-        var act = () => SequenceStatistics.CalculateGcContentProfile(string.Empty, windowSize: 0).ToArray();
-
-        act.Should().NotThrow();
-        act().Should().BeEmpty("empty sequence is guarded before any window is produced (§3.3)");
+        act.Should().Throw<ArgumentOutOfRangeException>(
+            "window/step < 1 are invalid and must be rejected at call time (no deferred hang)");
     }
 
     #endregion
@@ -520,7 +503,7 @@ public class SequenceGcContentProfileFuzzTests
 
     /// <summary>
     /// BE: a randomized sweep over the documented boundary space — random DNA length
-    /// (incl. 0 and 1), random windowSize that straddles 0, &lt; len, == len and &gt; len,
+    /// (incl. 0 and 1), random windowSize that straddles 1, &lt; len, == len and &gt; len,
     /// and random step ≥ 1. The profile must EXACTLY match the independent offset-rule
     /// + GC% oracle (count = INV-03; values = §2.2) and be well-formed in [0,100], with
     /// no crash, hang, NaN or Infinity. Locally seeded Random.
@@ -536,8 +519,8 @@ public class SequenceGcContentProfileFuzzTests
         {
             int len = rng.Next(0, 40);
             string seq = RandomDna(rng, len);
-            // windowSize straddles every boundary: 0, < len, == len, > len.
-            int windowSize = rng.Next(0, len + 4);
+            // windowSize straddles every valid boundary: 1, < len, == len, > len (W < 1 throws; see WindowOrStepBelowOne).
+            int windowSize = rng.Next(1, len + 4);
             int stepSize = rng.Next(1, 5);
 
             IReadOnlyList<double> profile = null!;
@@ -577,7 +560,7 @@ public class SequenceGcContentProfileFuzzTests
         {
             int len = rng.Next(0, 60);
             string seq = RandomBmpChars(rng, len);
-            int windowSize = rng.Next(0, len + 4);
+            int windowSize = rng.Next(1, len + 4);
             int stepSize = rng.Next(1, 5);
 
             IReadOnlyList<double> profile = null!;

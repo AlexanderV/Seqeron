@@ -1,7 +1,7 @@
 # Claude Code Skills Strategy — Seqeron
 
 > **Мета.** Перетворити добре документовану біобібліотеку `Seqeron.Genomics` (+`SuffixTree`)
-> та 11 MCP-серверів (427 інструментів) на систему, яка **надійно розв'язує складні комплексні
+> та 11 MCP-серверів (474 інструментів) на систему, яка **надійно розв'язує складні комплексні
 > біологічні задачі** — як через MCP-оркестрацію (LLM-клієнт), так і через прямий C#/.NET API.
 >
 > **Статус:** DRAFT / plan of record. Реалізація — фазами (див. §8).
@@ -25,17 +25,17 @@
 - **Бібліотека:** 258 алгоритмічних юнітів; ~15k тестів; 10 методологій тестування;
   campaign валідації + `docs/Validation/LIMITATIONS.md` + рантаймовий `LimitationPolicy`
   (Strict < Moderate < Permissive, дефолт Moderate; 9 guarded-юнітів).
-- **MCP:** 11 серверів, **427 інструментів**, кожен — gold-standard binding + схема + тест.
+- **MCP:** 11 серверів, **474 інструментів**, кожен — gold-standard binding + схема + тест.
   Source of truth статусу: `docs/mcp/MCP_STATUS.md`.
 - **Документація (вже вичерпна):**
   - `docs/algorithms/<Area>/<Unit>.md` — 247 доків з інваріантами, формулами, контрактами, `Test Unit ID`.
-  - `docs/mcp/tools/<server>/<tool>.md` (+`.mcp.json`) — 427 per-tool доків: схема I/O, `Method ID`, лінк на джерело.
+  - `docs/mcp/tools/<server>/<tool>.md` (+`.mcp.json`) — 474 per-tool доків: схема I/O, `Method ID`, лінк на джерело.
   - `docs/checklists/*.md` — трекери тест-дисциплін.
 
 **Висновок.** Вузьке місце для розв'язання задач — **не документація і не покриття**, а три речі,
 які довідник сам по собі не закриває:
 
-1. **Discovery / routing** — з 427 інструментів обрати правильні; підключення всіх 11 серверів
+1. **Discovery / routing** — з 474 інструментів обрати правильні; підключення всіх 11 серверів
    одночасно роздуває контекст.
 2. **Orchestration** — коректний порядок кроків, вибір параметрів, передача форматів
    (FASTA → aligner → stats), 0-based координати, одиниці.
@@ -76,7 +76,7 @@
   крос-звірка критичних результатів двома незалежними шляхами · перевірка одиниць і 0-based координат.
 - **`seqeron-discovery`** [both] — «чи є інструмент/алгоритм для X?».
   Скрипт-пошук по `docs/mcp/tools/` + `docs/algorithms/` → повертає ім'я інструмента, `Method ID`,
-  лінк на схему й на алгоритм-док. Дешевше, ніж тримати 427 схем у контексті.
+  лінк на схему й на алгоритм-док. Дешевше, ніж тримати 474 схем у контексті.
 
 ### 4.2 Доменні (workflow-родини, а не «сервер=скіл»)
 
@@ -144,7 +144,7 @@ reference-файли (детальні рецепти, gotchas, вибір па�
 Скіл вважається готовим, коли:
 
 1. **Triggering** — вмикається на реалістичних формулюваннях задачі домену (перевірено ≥3 промптами).
-2. **Routing** — обирає правильні інструменти без завантаження всіх 427 схем.
+2. **Routing** — обирає правильні інструменти без завантаження всіх 474 схем.
 3. **Both-mode** — дає робочий MCP-рецепт і робочий C#-рецепт для тієї ж задачі.
 4. **Rigor** — делегує `bio-rigor`; поважає envelope; віддає provenance.
 5. **No-drift** — індекс інструментів згенерований, `check-catalog-fresh` зелений.
@@ -161,8 +161,8 @@ reference-файли (детальні рецепти, gotchas, вибір па�
   скіли `.claude/skills/bio-rigor/` та `.claude/skills/seqeron-discovery/`.
   427 інструментів; drift-детекція перевірена; обидва скіли зареєстровані harness'ом.
 - **Ф1 — найцінніші домени. ✅ ГОТОВО (2026-07-01).** `bio-annotation` (annotation+analysis, 188 tools),
-  `bio-moldesign` (moltools, 47), `bio-alignment` (alignment+core, 34) — dual-mode, end-to-end кейси,
-  guarded-юніти з STOP-правилом; `_generated/tools.md` slice'и згенеровано (34/47/188), freshness зелений.
+  `bio-moldesign` (moltools, 48), `bio-alignment` (alignment+core, 34) — dual-mode, end-to-end кейси,
+  guarded-юніти з STOP-правилом; `_generated/tools.md` slice'и згенеровано (34/48/188), freshness зелений.
 - **Ф2 — решта доменів. ✅ ГОТОВО (2026-07-01).** `bio-qc` (76), `bio-assembly` (analysis+core k-mer/repeat
   subset; engine на Alignment-сервері, крос-лінк на `bio-alignment`), `bio-phylo-popgen` (31),
   `bio-metagenomics` (19), `bio-chromosome` (32). Dual-mode, guarded-юніти зі STOP; slice'и згенеровано;

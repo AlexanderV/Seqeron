@@ -5,7 +5,7 @@
 **Algorithm:** Cancer Cell Fraction (CCF) point estimation and 1D CCF clustering into clones/subclones
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-15
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -20,6 +20,7 @@
 | 3 | McGranahan et al. 2016, *Science* 351:1463–1469 | 1 | https://www.science.org/doi/10.1126/science.aaf1490 | 2026-06-15 |
 | 4 | CNAqc — CCF computation vignette | 3 | https://caravagnalab.github.io/CNAqc/articles/a4_ccf_computation.html | 2026-06-15 |
 | 5 | Lloyd 1982, *IEEE Trans. Inf. Theory* 28(2):129–137 (k-means) | 1 | https://doi.org/10.1109/TIT.1982.1056489 | 2026-06-15 |
+| 6 | Wang & Song 2011, *The R Journal* 3(2):29–33 (Ckmeans.1d.dp, optimal 1-D k-means) + C++ source v4.3.6 | 1 | https://journal.r-project.org/archive/2011/RJ-2011-015/index.html | 2026-09-28 |
 
 ### 1.2 Key Evidence Points
 
@@ -27,7 +28,7 @@
 2. Multiplicity m = f·(ρ·N_T + 2(1−ρ))/ρ, rounded to the nearest non-zero integer for clonal CN regions — Box 1, Tarabichi 2021.
 3. The cluster with the highest cellular prevalence/CCF is the clonal cluster — Tarabichi 2021 SNV clustering section.
 4. Raw CCF can exceed 1 due to sampling noise (CNAqc shows 1.06); registry invariant requires 0 ≤ CCF ≤ 1 — CNAqc + registry.
-5. Lloyd k-means: assign each point to nearest centroid (least squared distance), recompute centroids as cluster means, minimize WCSS — Lloyd 1982.
+5. k-means objective: minimize WCSS (Lloyd 1982). Lloyd iteration is only locally optimal; the exact 1-D optimum is the Ckmeans.1d.dp DP, with k reduced to the number of distinct values — Wang & Song 2011.
 
 ### 1.3 Documented Corner Cases
 
@@ -38,7 +39,7 @@
 ### 1.4 Known Failure Modes / Pitfalls
 
 1. Treating VAF·2 as CCF regardless of copy number/multiplicity overestimates CCF at amplified/LOH loci. — Tarabichi 2021.
-2. Non-deterministic k-means seeding gives unstable clusters; fixed quantile seeding required. — Lloyd 1982 (algorithm is seed-dependent).
+2. Lloyd k-means is seed-dependent and stops in local optima (also in 1-D); exact DP avoids both. — Wang & Song 2011.
 
 ---
 
@@ -47,7 +48,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `EstimateCcf(vaf, purity, tumorCopyNumber, multiplicity)` | OncologyAnalyzer | Canonical | Point CCF per McGranahan/PMC formula; returns raw + capped. |
-| `ClusterCcfValues(ccfValues, clusterCount)` | OncologyAnalyzer | Canonical | Deterministic 1D Lloyd k-means; identifies clonal (max-centroid) cluster. |
+| `ClusterCcfValues(ccfValues, clusterCount)` | OncologyAnalyzer | Canonical | Optimal 1D k-means (Ckmeans.1d.dp DP); identifies clonal (max-centroid) cluster. |
 
 ---
 
@@ -60,6 +61,7 @@
 | INV-3 | Every clustered value is assigned to exactly one cluster; assignments ∈ [0, k) | Yes | Lloyd 1982 partition |
 | INV-4 | Cluster centroid equals the mean of its members | Yes | Lloyd 1982 update step |
 | INV-5 | Clonal cluster index = argmax centroid | Yes | Tarabichi 2021 |
+| INV-6 | WCSS = global minimum over contiguous partitions into min(k, distinct) clusters; no empty cluster | Yes | Wang & Song 2011 |
 
 ---
 
@@ -84,6 +86,11 @@
 | M13 | ClusterCcfValues clonal index | dataset M11 | ClonalClusterIndex centroid = 0.98 (max) | Tarabichi 2021 |
 | M14 | ClusterCcfValues null | null input | ArgumentNullException | Failure mode |
 | M15 | ClusterCcfValues k invalid | k=0 or k>n | ArgumentOutOfRangeException | k ∈ [1, n] |
+| M16 | ClusterCcfValues global optimum (Lloyd local-optimum case) | {1.0,0.98,0.96,0.55,0.50,0.20}, k=3 | centroids {0.2,0.525,0.98}, labels 2,2,2,1,1,0, WCSS 0.00205 | Ckmeans.1d.dp (ckwrap) |
+| M17 | ClusterCcfValues unsorted reference | {0.81,0.54,0.82,0.55,0.71,0.31}, k=3 | centroids {0.31,0.545,0.78}, labels 2,1,2,1,2,0 | Ckmeans.1d.dp (ckwrap) |
+| M18 | ClusterCcfValues k > distinct | {0.5×4, 1.0}, k=3 | 2 clusters {0.5,1.0}, none empty | Ckmeans.1d.dp Kmax=min(k,unique) |
+| M19 | ClusterCcfValues DP size guard | n=20001, k=5000 | ArgumentOutOfRangeException | 10⁸-cell limit |
+| P1 | Optimality property | random n ≤ 9 | WCSS ≤ brute-force minimum | Wang & Song 2011 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -186,7 +193,7 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Reported CCF capped to [0,1] (raw exposed) per registry invariant + McGranahan clonal def | M6, INV-1 |
-| 2 | 1D clustering = deterministic Lloyd k-means with quantile seeding (no RNG); clonal=max centroid | M11–M13, S1, INV-3..5 |
+| 2 | 1D clustering = optimal k-means by Ckmeans.1d.dp DP (replaced Lloyd + quantile seeding, F17 2026-09-28); clonal=max centroid | M11–M13, M16–M19, S1, INV-3..6 |
 
 ---
 

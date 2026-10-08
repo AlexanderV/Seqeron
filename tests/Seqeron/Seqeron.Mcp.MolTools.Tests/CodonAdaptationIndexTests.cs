@@ -34,4 +34,13 @@ public class CodonAdaptationIndexTests
             Assert.That(pair.Cai, Is.EqualTo(Math.Sqrt(0.5)).Within(1e-9));
         });
     }
+
+    [Test]
+    public void CodonAdaptationIndex_ZeroWeightCodon_ScoredAs001()
+    {
+        // TTC has w = 0 → 0.01 (CodonW cai_out), not dropped: TTTTTC → sqrt(1 × 0.01) = 0.1.
+        var rscu = new Dictionary<string, double> { ["TTT"] = 2.0, ["TTC"] = 0.0 };
+
+        Assert.That(MolToolsTools.codon_adaptation_index("TTTTTC", rscu).Cai, Is.EqualTo(0.1).Within(1e-12));
+    }
 }

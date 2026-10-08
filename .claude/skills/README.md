@@ -1,6 +1,6 @@
 # Seqeron Agent Skills
 
-**A routing + discipline layer that turns a 427-tool bioinformatics library into an assistant which
+**A routing + discipline layer that turns a 474-tool bioinformatics library into an assistant which
 solves whole biological tasks.** You describe the task in plain language; the right skill loads
 itself, picks the correct tools, chains a multi-step pipeline, and keeps the science honest — every
 number computed by a validated algorithm, never guessed.
@@ -26,12 +26,12 @@ or the equivalent **C# `Method ID`** — so you never need MCP unless you want i
 
 ## Why a skill layer
 
-With **427 tools across 11 MCP servers**, attaching every schema drowns the model — thousands of
+With **474 tools across 11 MCP servers**, attaching every schema drowns the model — thousands of
 tokens of tool definitions before it reads a word of your question. Skills solve this with
 **progressive disclosure**: only a skill's one-line `description` sits in context. When your request
 matches, its body loads and teaches the model to do three things well —
 
-- **Discover** the right tool among 427 (without loading all the schemas),
+- **Discover** the right tool among 474 (without loading all the schemas),
 - **Orchestrate** a correct multi-step pipeline (QC → align → call variant → design primer),
 - **Stay honest** — compute with tools, respect each algorithm's validated envelope, carry provenance.
 
@@ -76,7 +76,7 @@ These apply across every task; the first three fire automatically when relevant.
 | Skill | What it does | Fires when… |
 |-------|--------------|-------------|
 | [`bio-rigor`](bio-rigor/SKILL.md) | Enforces tool-only computation, provenance, 0-based coordinates, and each algorithm's envelope STOP-rules. Always on. | you compute any result from real data |
-| [`seqeron-discovery`](seqeron-discovery/SKILL.md) | Finds the right tool/algorithm among 427 **without** loading every schema. | "which Seqeron tool does X?" |
+| [`seqeron-discovery`](seqeron-discovery/SKILL.md) | Finds the right tool/algorithm among 474 **without** loading every schema. | "which Seqeron tool does X?" |
 | [`seqeron-setup`](seqeron-setup/SKILL.md) | One-time install & configuration for a freshly cloned repo. | "install and configure", "get me started" |
 | [`seqeron-dev`](seqeron-dev/SKILL.md) | The C# API path — namespaces, `LimitationPolicy`, `TryCreate`, conventions. | you call the library in-process, not over MCP |
 | [`seqeron-python-client`](seqeron-python-client/SKILL.md) | Wrap any Seqeron MCP tool in a small Python script. | "make a python wrapper for this tool" |

@@ -29,6 +29,11 @@ namespace Seqeron.Mcp.Alignment;
 [JsonSerializable(typeof(FrequentKmerItem))]
 [JsonSerializable(typeof(FrequentKmerItem[]))]
 [JsonSerializable(typeof(FrequentKmersResult))]
+[JsonSerializable(typeof(EditEndPositionItem))]
+[JsonSerializable(typeof(EditEndPositionItem[]))]
+[JsonSerializable(typeof(EditEndPositionsResult))]
+[JsonSerializable(typeof(EditAlignmentDto))]
+[JsonSerializable(typeof(DamerauDistanceResult))]
 // SequenceAssembler outputs
 [JsonSerializable(typeof(AssemblyResultDto))]
 [JsonSerializable(typeof(OverlapDto))]

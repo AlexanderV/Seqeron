@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.EstimateCompressionRatio",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L523",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L1772",
   "description": "Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). Lower values indicate more repetitive/less complex sequences.",
   "inputSchema": {
     "type": "object",
@@ -28,12 +28,12 @@
     {
       "name": "LZ doctest",
       "input": { "sequence": "1001111011000010" },
-      "output": { "ratio": 2.0 }
+      "output": { "ratio": 1.5 }
     },
     {
       "name": "Tandem repeat ACGT x4",
       "input": { "sequence": "ACGTACGTACGTACGT" },
-      "output": { "ratio": 1.125 }
+      "output": { "ratio": 0.625 }
     }
   ]
 }

@@ -16,11 +16,11 @@ Optimize a coding sequence's codons for expression in a target organism.
 
 Rewrites the synonymous codons of a coding sequence for a target organism (an `EColiK12`/`Yeast`/`Human` preset or an inline custom RNA-alphabet table) under one of five strategies. The input is upper-cased, converted T→U, and trimmed to whole codons; stop codons and single-codon amino acids (Met, Trp) are never changed. Returns the original and optimized RNA, the translated protein, original/optimized CAI (Sharp & Li 1987), original/optimized GC fraction, the number of changed codons, and each `(position, original, optimized)` change.
 
-- **MaximizeCAI** — pick the most frequent synonymous codon (deterministic).
-- **BalancedOptimization** (default) — pick the most frequent codon above the rare-codon threshold, then GC-balance.
-- **AvoidRareCodeons** — only replace codons below the rare-codon threshold.
-- **MinimizeSecondary** — as balanced (structure-aware helpers elsewhere).
-- **HarmonizeExpression** — weighted-random synonymous selection (**non-deterministic**).
+- **MaximizeCAI** — pick the most frequent synonymous codon; ties break by NCBI codon order (identical to DNA Chisel `use_best_codon`).
+- **BalancedOptimization** (default) — as MaximizeCAI, then GC-balance into `[gc_target_min, gc_target_max]` with further synonymous swaps.
+- **AvoidRareCodeons** — only replace codons below the rare-codon threshold (with the most frequent synonym).
+- **MinimizeSecondary** — same selection and GC pass as balanced (the structure pass is `reduce_secondary_structure`).
+- **HarmonizeExpression** — match the target codon-usage profile as closely as integer codon counts allow (DNA Chisel `match_codon_usage`); **deterministic** since review 2026-09.
 
 ## Core Documentation Reference
 

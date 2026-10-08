@@ -107,12 +107,18 @@ Border values: $F(i,0) = -i$, $F(0,j) = -j$ — directly from Wikipedia.
 
 ---
 
+## Affine gaps (added 2026-09 review)
+
+- **Gotoh O (1982)** J Mol Biol 162:705-708 — three-matrix DP for w(k) = v + u·k. **Flouri T, Kobert K, Rognes T, Stamatakis A (2015)** "Are all global alignment algorithms and implementations correct?" bioRxiv 10.1101/031500 — Gotoh's P/Q border initialization is wrong (opened via search snippets; bioRxiv PDF blocked). Implemented as `GlobalAlignAffine` with M/X/Y states, X(i,0) = o + i·e, Y(0,j) = o + j·e, all other border cells −∞, state-switching traceback.
+- **NCBI BLAST+ User Manual** (NBK279684, blastn options; via search snippet): blastn task default reward 2 / penalty −3 / gapopen 5 / gapextend 2 → `SequenceAligner.BlastDna`.
+- Cross-check: Biopython 1.88 `PairwiseAligner` (`open_gap_score = GapOpen + GapExtend`) and parasail 1.3.4 `nw_trace` (`open = -(GapOpen + GapExtend)`) agree with `GlobalAlignAffine` on 2008 cases (random 1–40 nt, 8 scoring schemes, edge cases). A vs CAC (1, −10, −5, −1): −11 (Gotoh's original border: −9).
+
 ## Deviations and Assumptions
 
 **None.**
 
 - The implementation follows the standard Needleman–Wunsch linear gap penalty model exactly as given in the Wikipedia pseudocode.
-- `ScoringMatrix.GapExtend` acts as the linear gap penalty $d$. `ScoringMatrix.GapOpen` is not used by `GlobalAlign`.
+- `ScoringMatrix.GapExtend` acts as the linear gap penalty $d$. `ScoringMatrix.GapOpen` is not used by `GlobalAlign`; it is used by `GlobalAlignAffine` (see above).
 - When multiple optimal alignments exist, one is returned deterministically. This is explicitly allowed by the source.
 - Empty-input and null-argument handling are API-level contract behaviors, not part of the NW algorithm specification.
 

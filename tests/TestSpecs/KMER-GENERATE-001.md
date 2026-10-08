@@ -85,6 +85,11 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | unsorted alphabet "TGCA", k=1 | ordering follows alphabet | [T,G,C,A] (not sorted) | Source 3 (order depends on alphabet) |
+| C2 | Rosalind LEXF sample "TAGC", k=2 | exact sample output | TT,TA,TG,TC,AT,AA,AG,AC,GT,GA,GG,GC,CT,CA,CG,CC | Rosalind LEXF (review 2026-09) |
+| C3 | unsorted "GTCA", k=3 | LEXF order definition (pairwise) | 64; GGG, GGT, …, AAA; each adjacent pair <Lex in alphabet order | Rosalind LEXF |
+| C4 | repeated symbol "AAC", k=2 | itertools.product semantics | AA,AA,AC,AA,AA,AC,CA,CA,CC | Python itertools.product output |
+| C5 | "A", k=100000 | O(k) working space | single homopolymer of length 100000 | §4.3 complexity (O(k) working) |
+| C6 | k=0 / empty alphabet | eager validation | throws without enumeration | contract |
 
 ---
 

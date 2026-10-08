@@ -7,8 +7,8 @@
 | Algorithm Group | Phylogenetics |
 | Test Unit ID | PHYLO-DIST-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Production |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -142,7 +142,7 @@ where $S$ is the proportion of transitions and $V$ is the proportion of transver
 
 ### 3.3 Preconditions and Validation
 
-Pairwise comparison is case-insensitive because the implementation uppercases each site before inspection. Only standard DNA bases `A/C/G/T` are comparable; gaps and ambiguous IUPAC symbols are skipped by pairwise deletion. If no comparable sites remain, the pairwise distance returns `0`. `CalculatePairwiseDistance` throws `ArgumentException` when the two sequences have different lengths, and `CalculateDistanceMatrix` relies on that pairwise routine for its sequence pairs.
+Pairwise comparison is case-insensitive because the implementation uppercases each site before inspection. Only standard DNA bases `A/C/G/T` are comparable; gaps, ambiguous IUPAC symbols, `U` and any other character are skipped by pairwise deletion (the same rule as ape `dist.dna(pairwise.deletion = TRUE)` and scikit-bio's canonical-alphabet distances). If no comparable sites remain (empty, all-gap or all-ambiguous pair), `Hamming` returns `0` (no difference counted) while `PDistance`, `JukesCantor` and `Kimura2Parameter` return `NaN`, because `p = 0/0` is undefined — exactly as ape (`dist_dna.c`, `p = Nd/L` with `L = 0`) and scikit-bio 0.7.4 (`pdist`/`jc69`/`k2p`) do. A `0` would falsely assert identity on zero evidence. `CalculatePairwiseDistance` throws `ArgumentException` when the two sequences have different lengths, and `CalculateDistanceMatrix` relies on that pairwise routine for its sequence pairs.
 
 ## 4. Algorithm
 
@@ -157,7 +157,7 @@ Pairwise comparison is case-insensitive because the implementation uppercases ea
 
 #### Decision Rules / Reference Tables
 
-Only positions where both bases are one of `A/C/G/T` contribute to the count.
+Only positions where both bases are one of `A/C/G/T` contribute to the count. This is therefore the pairwise-deletion difference count (ape model `"N"`), not the raw character Hamming distance of `SequenceExtensions.HammingDistance` / `ApproximateMatcher.HammingDistance`, which count gap/ambiguity mismatches too; the two are intentionally distinct quantities.
 
 #### Complexity
 
@@ -171,7 +171,7 @@ Only positions where both bases are one of `A/C/G/T` contribute to the count.
 
 1. Perform the shared pairwise scan over comparable sites.
 2. Count differences and comparable positions.
-3. Return `differences / comparableSites`, or `0` when no comparable sites remain.
+3. Return `differences / comparableSites`, or `NaN` when no comparable sites remain (0/0).
 
 #### Decision Rules / Reference Tables
 
@@ -231,7 +231,7 @@ The implementation treats `A<->G` and `C<->T` as transitions; all other standard
 
 ### 5.2 Current Behavior
 
-The repository performs one shared pairwise scan regardless of the requested method. Gaps and ambiguous characters are skipped, so distance is computed only on positions where both sequences contain standard DNA bases. `CalculateDistanceMatrix` initializes the diagonal to zero and mirrors pairwise distances across the matrix. The JC69 and K2P helpers return `double.PositiveInfinity` when the correction formula becomes undefined at high divergence.
+The repository performs one shared pairwise scan regardless of the requested method. Gaps and ambiguous characters are skipped, so distance is computed only on positions where both sequences contain standard DNA bases. `CalculateDistanceMatrix` initializes the diagonal to zero and mirrors pairwise distances across the matrix. The JC69 and K2P helpers return `double.PositiveInfinity` when the correction formula becomes undefined at high divergence. A pair with no comparable site yields `NaN` for p/JC69/K2P (and `0` for Hamming); the matrix builder propagates it unchanged. The Seqeron `Hamming` model deliberately stays inside the fused scan (it shares the comparable-site filter and transition/transversion counters), so it does not call the raw-string Hamming helpers.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -298,13 +298,14 @@ The repository performs one shared pairwise scan regardless of the requested met
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
 | Identical comparable sequences | Distance `0` for all methods | No mismatches are observed |
-| All sites skipped because of gaps or ambiguity | Distance `0` | The implementation returns `0` when `comparableSites = 0` |
-| `p >= 0.75` in JC69 | Returns positive infinity | The JC69 logarithm argument becomes non-positive |
+| All sites skipped because of gaps or ambiguity (or empty sequences) | `Hamming` = `0`; `PDistance`/`JukesCantor`/`Kimura2Parameter` = `NaN` | `p = 0/0` is undefined; ape and scikit-bio both return NaN |
+| `1 − 2P − Q ≤ 0` or `1 − 2Q ≤ 0` in K80 | Returns positive infinity | Saturation; scikit-bio returns NaN and ape returns Inf at the boundary / NaN beyond it — Seqeron uses +∞ uniformly as the saturation signal |
+| `p >= 0.75` in JC69 | Returns positive infinity | The JC69 logarithm argument becomes non-positive (scikit-bio: NaN; ape: +Inf at p = 0.75, NaN above) |
 | Unequal sequence lengths | `ArgumentException` | Pairwise comparison requires aligned sequences |
 
 ### 6.2 Limitations
 
-The current implementation supports only four simple nucleotide-distance models and uses pairwise deletion for gaps and ambiguous symbols. It does not provide richer substitution models, codon-aware distances, or ambiguity-code matching beyond site exclusion.
+The current implementation supports only four simple nucleotide-distance models and uses pairwise deletion for gaps and ambiguous symbols. It does not provide richer substitution models (F81, F84, TN93, LogDet), gamma rate-heterogeneity correction, variance estimates, complete-deletion mode, codon-aware distances, or ambiguity-code matching beyond site exclusion. RNA input is not normalised: `U` is not comparable, so pass DNA (T) alignments. Callers that feed the matrix into tree construction must handle `NaN` entries (non-overlapping pairs).
 
 ## 7. Examples and Related Material
 
@@ -318,4 +319,6 @@ The current implementation supports only four simple nucleotide-distance models 
 3. Felsenstein, J. 2004. Inferring Phylogenies. Sinauer Associates.
 4. Wikipedia contributors. Models of DNA evolution. Wikipedia. https://en.wikipedia.org/wiki/Models_of_DNA_evolution
 5. Wikipedia contributors. Distance matrices in phylogeny. Wikipedia. https://en.wikipedia.org/wiki/Distance_matrices_in_phylogeny
+6. Paradis, E. et al. ape — `src/dist_dna.c` (`distDNA_raw_pairdel`, `distDNA_JC69_pairdel`, `distDNA_K80_pairdel`). https://raw.githubusercontent.com/cran/ape/master/src/dist_dna.c
+7. scikit-bio 0.7.4 — `skbio.sequence.distance.pdist`, `jc69`, `k2p` (numerical cross-check of every finite value; 406 random gapped/ambiguous pairs, max |Δ| = 0).
 

@@ -79,11 +79,19 @@
    single base or empty input has no NN contribution and no defined duplex.
 2. **Lowercase / mixed case:** sequences are processed case-insensitively (Biopython upper-cases
    the sequence); the repository implementation upper-cases via `ToUpperInvariant`.
+3. **Non-base characters (`_check(seq, "Tm_NN")`, Biopython 1.88 installed source):** whitespace
+   removed, RNA back-transcribed (U→T), every character outside A/C/G/T/I removed before scoring.
+   Executed: `Tm_NN('ACGUACGUACGU')` = `Tm_NN('ACGTNACGTACGT')` = 38.200122; `'acgt acgt'` =
+   `'NACGTACGTN'` = 17.075039 (defaults dnac 125/125 nM ≡ C_T 250 nM).
+4. **Self-complementary (`selfcomp=True`):** adds `DNA_NN3['sym']` = (0, −1.4) and uses
+   k = dnac1. Executed (C_T 250 nM, Na 50 mM): GCGC −15.668610; AATT −72.086274;
+   GCGCGCGCGCGC 63.265423 (non-self 61.897321); CGCGAATTCGCG 46.968724 (Na 1 M, 100 µM: 73.305570).
+5. **Zero ion concentration:** `salt_correction` raises `ValueError("Total ion concentration of zero is not allowed in this method.")`; negative → `math domain error`.
 
 ### From MELTING 5 User Guide
 
 1. **Self-complementary vs non-self-complementary:** the factor F changes the C_T term (1 vs 4);
-   this unit uses the default non-self-complementary case F = 4.
+   default F = 4; `selfComplementary: true` gives F = 1 plus the symmetry term (2026-09 review).
 
 ---
 
@@ -156,3 +164,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-09-28**: Review B03 (F9–F11): Biopython `_check` normalisation, self-complementary overload, concentration validation; Biopython 1.88 `Tm_NN(DNA_NN3)` executed on 14 cases (Tm identical before rounding).

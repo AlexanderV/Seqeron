@@ -322,4 +322,40 @@ public class TranslationMetamorphicTests
     }
 
     #endregion
+
+    #region INV (review 2026-09, B02 heavy tier) — spelling invariance over IUPAC input and all 27 tables
+
+    [Test]
+    [Description("INV: Translate reads U as T and is case-insensitive (Biopython; NCBI gc.prt tables are spelling-free), so for any IUPAC DNA string, its RNA spelling (T→U) and its lower-case form translate identically in every NCBI table and frame.")]
+    public void Translate_DnaRnaAndLowerCaseSpellings_TranslateIdentically_AllTables()
+    {
+        const string iupacDna = "ACGTRYSWKMBDHVN";
+        var rng = new Random(20260928);
+        foreach (int table in GeneticCode.SupportedTableNumbers)
+        {
+            var code = GeneticCode.GetByTableNumber(table);
+            for (int iteration = 0; iteration < 40; iteration++)
+            {
+                int length = rng.Next(0, 61);
+                var chars = new char[length];
+                for (int i = 0; i < length; i++)
+                    chars[i] = iupacDna[rng.Next(iupacDna.Length)];
+                string dna = new(chars);
+                string rna = dna.Replace('T', 'U');
+                string lower = dna.ToLowerInvariant();
+                string lowerRna = rna.ToLowerInvariant();
+                int frame = rng.Next(0, 3);
+
+                string expected = Translator.Translate(dna, code, frame).Sequence;
+                Translator.Translate(rna, code, frame).Sequence.Should().Be(expected,
+                    because: $"table {table}: the RNA spelling of \"{dna}\" encodes the same protein");
+                Translator.Translate(lower, code, frame).Sequence.Should().Be(expected,
+                    because: $"table {table}: translation is case-insensitive (\"{dna}\")");
+                Translator.Translate(lowerRna, code, frame).Sequence.Should().Be(expected,
+                    because: $"table {table}: lower-case RNA spelling of \"{dna}\" encodes the same protein");
+            }
+        }
+    }
+
+    #endregion
 }

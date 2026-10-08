@@ -407,18 +407,26 @@ public class CodonMetamorphicTests
     #region CODON-USAGE-001 INV — usage ratios are invariant to duplication and codon order
 
     [Test]
-    [Description("INV: duplicating the reference sequence scales every codon count by 2; the count/Σcount normalisation cancels the factor, so the per-codon usage ratios are identical.")]
-    public void CreateCodonTable_DuplicatedSequence_PreservesRatios()
+    [Description("INV: duplicating the reference sequence doubles every observed codon count, so the ratio between two observed codons of a family is unchanged (the 0.5 pseudo-count of absent codons does not scale, so the absolute fractions do change).")]
+    public void CreateCodonTable_DuplicatedSequence_PreservesObservedCodonRatios()
     {
         var single = CodonOptimizer.CreateCodonTableFromSequence(UsageReference, "single");
         var doubled = CodonOptimizer.CreateCodonTableFromSequence(UsageReference + UsageReference, "doubled");
 
         doubled.CodonFrequencies.Keys.Should().BeEquivalentTo(single.CodonFrequencies.Keys,
-            because: "duplication adds no new codons, only doubles existing counts");
+            because: "the table always covers all 64 codons");
 
-        foreach (var (codon, freq) in single.CodonFrequencies)
-            doubled.CodonFrequencies[codon].Should().BeApproximately(freq, 1e-12,
-                because: $"the within-family fraction of {codon} is unchanged when all counts double");
+        // Observed codons: CUG/CUA = 2 and GCC/GCA = 2 before and after duplication.
+        foreach (var (a, b) in new[] { ("CUG", "CUA"), ("GCC", "GCA") })
+        {
+            (doubled.CodonFrequencies[a] / doubled.CodonFrequencies[b])
+                .Should().BeApproximately(single.CodonFrequencies[a] / single.CodonFrequencies[b], 1e-12,
+                    because: $"the observed counts of {a} and {b} scale by the same factor");
+        }
+
+        // The pseudo-counted codons carry proportionally less weight in the doubled set.
+        doubled.CodonFrequencies["CUU"].Should().BeLessThan(single.CodonFrequencies["CUU"],
+            because: "the fixed 0.5 pseudo-count of an unobserved codon does not scale with the reference set");
     }
 
     [Test]
@@ -452,7 +460,7 @@ public class CodonMetamorphicTests
         var table = CodonOptimizer.CreateCodonTableFromSequence(UsageReference, "ref");
 
         var sums = FamilySums(table);
-        sums.Should().NotBeEmpty(because: "the reference sequence contains several amino-acid families");
+        sums.Should().NotBeEmpty(because: "the table covers every amino-acid family");
 
         foreach (var (aa, sum) in sums)
             sum.Should().BeApproximately(1.0, 1e-12,
@@ -460,10 +468,13 @@ public class CodonMetamorphicTests
 
         // Spot-check the engineered 2:1 splits to prove the fractions are the real ratios,
         // not an accidental 1.0 from single-codon families.
-        table.CodonFrequencies["CUG"].Should().BeApproximately(2.0 / 3.0, 1e-12, because: "Leucine is CTG×2 vs CTA×1");
-        table.CodonFrequencies["CUA"].Should().BeApproximately(1.0 / 3.0, 1e-12, because: "Leucine is CTG×2 vs CTA×1");
-        table.CodonFrequencies["GCC"].Should().BeApproximately(2.0 / 3.0, 1e-12, because: "Alanine is GCC×2 vs GCA×1");
-        table.CodonFrequencies["GCA"].Should().BeApproximately(1.0 / 3.0, 1e-12, because: "Alanine is GCC×2 vs GCA×1");
+        // Leucine: CTG×2, CTA×1 and four unobserved codons at 0.5 → total 5.
+        table.CodonFrequencies["CUG"].Should().BeApproximately(2.0 / 5.0, 1e-12, because: "Leucine is CTG×2 of a family total of 5");
+        table.CodonFrequencies["CUA"].Should().BeApproximately(1.0 / 5.0, 1e-12, because: "Leucine is CTA×1 of a family total of 5");
+        table.CodonFrequencies["CUU"].Should().BeApproximately(0.5 / 5.0, 1e-12, because: "an unobserved Leu codon carries the 0.5 pseudo-count");
+        // Alanine: GCC×2, GCA×1 and two unobserved codons at 0.5 → total 4.
+        table.CodonFrequencies["GCC"].Should().BeApproximately(2.0 / 4.0, 1e-12, because: "Alanine is GCC×2 of a family total of 4");
+        table.CodonFrequencies["GCA"].Should().BeApproximately(1.0 / 4.0, 1e-12, because: "Alanine is GCA×1 of a family total of 4");
     }
 
     #endregion
@@ -706,6 +717,93 @@ public class CodonMetamorphicTests
         CodonUsageAnalyzer.GetStatistics(a + b).TotalCodons
             .Should().Be(CodonUsageAnalyzer.GetStatistics(a).TotalCodons + CodonUsageAnalyzer.GetStatistics(b).TotalCodons,
                 because: "the total codon count is additive over a frame-aligned concatenation");
+    }
+
+    #endregion
+
+    #region INV (review 2026-09, B02 heavy tier) — DNA/RNA/lower-case spelling invariance, every NCBI table
+
+    // Random coding strings (mostly ACGT, some N) with a fixed seed; the relation compares each with
+    // its RNA spelling (T→U) and lower-case form. CodonW ident_codon reads T/t/U/u as the same base
+    // (B02 F10), so every codon-usage index and the optimizer must be spelling-invariant.
+    private static IEnumerable<(string Dna, GeneticCode Code)> SpellingCases()
+    {
+        var rng = new Random(20260928);
+        const string alphabet = "ACGTACGTACGTN";
+        foreach (int table in GeneticCode.SupportedTableNumbers)
+        {
+            var code = GeneticCode.GetByTableNumber(table);
+            for (int k = 0; k < 12; k++)
+            {
+                int length = rng.Next(0, 301);
+                var sb = new StringBuilder(length);
+                for (int i = 0; i < length; i++)
+                    sb.Append(alphabet[rng.Next(alphabet.Length)]);
+                yield return (sb.ToString(), code);
+            }
+        }
+    }
+
+    private static void ShouldEqualDictionary<T>(IReadOnlyDictionary<string, T> actual, IReadOnlyDictionary<string, T> expected, string because)
+    {
+        actual.Count.Should().Be(expected.Count, because);
+        foreach (var (key, value) in expected)
+            actual[key].Should().Be(value, because);
+    }
+
+    [Test]
+    [Description("INV: RSCU, ENC, CAI and GetStatistics are identical for the DNA spelling, the RNA spelling (T→U) and the lower-case form of the same coding sequence, under every NCBI genetic code (CodonW reads U as T; B02 F10/F11/F14/F17/F18).")]
+    public void CodonIndices_DnaRnaLowerCaseSpellings_Identical_AllTables()
+    {
+        var reference = CodonUsageAnalyzer.EColiOptimalCodons;
+        foreach (var (dna, code) in SpellingCases())
+        {
+            string because = $"table {code.TableNumber}, input length {dna.Length}";
+            foreach (string variant in new[] { dna.Replace('T', 'U'), dna.ToLowerInvariant(), dna.Replace('T', 'U').ToLowerInvariant() })
+            {
+                ShouldEqualDictionary(CodonUsageAnalyzer.CalculateRscu(variant, code), CodonUsageAnalyzer.CalculateRscu(dna, code), because);
+                CodonUsageAnalyzer.CalculateEnc(variant, code).Should().Be(CodonUsageAnalyzer.CalculateEnc(dna, code), because);
+                CodonUsageAnalyzer.CalculateCai(variant, reference, code).Should().Be(CodonUsageAnalyzer.CalculateCai(dna, reference, code), because);
+
+                var expected = CodonUsageAnalyzer.GetStatistics(dna, code);
+                var actual = CodonUsageAnalyzer.GetStatistics(variant, code);
+                ShouldEqualDictionary(actual.CodonCounts, expected.CodonCounts, because);
+                ShouldEqualDictionary(actual.Rscu, expected.Rscu, because);
+                actual.Enc.Should().Be(expected.Enc, because);
+                actual.TotalCodons.Should().Be(expected.TotalCodons, because);
+                actual.Gc1.Should().Be(expected.Gc1, because);
+                actual.Gc2.Should().Be(expected.Gc2, because);
+                actual.Gc3.Should().Be(expected.Gc3, because);
+                actual.Gc3s.Should().Be(expected.Gc3s, because);
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: CodonOptimizer CAI, codon usage, every optimization strategy and RemoveRestrictionSites give identical results for the DNA, RNA and lower-case spellings of a coding sequence (input is upper-cased and read as RNA; B02 F9/F12/F21/F22).")]
+    public void Optimizer_DnaRnaLowerCaseSpellings_Identical()
+    {
+        foreach (var (dna, code) in SpellingCases())
+        {
+            if (code.TableNumber != 1) continue; // the optimizer works on the Standard code only
+            string because = $"input length {dna.Length}";
+            foreach (string variant in new[] { dna.Replace('T', 'U'), dna.ToLowerInvariant() })
+            {
+                CodonOptimizer.CalculateCAI(variant, CodonOptimizer.EColiK12)
+                    .Should().Be(CodonOptimizer.CalculateCAI(dna, CodonOptimizer.EColiK12), because);
+                ShouldEqualDictionary(CodonOptimizer.CalculateCodonUsage(variant), CodonOptimizer.CalculateCodonUsage(dna), because);
+                CodonOptimizer.RemoveRestrictionSites(variant, new[] { "GAATTC", "GGTCTC" }, CodonOptimizer.EColiK12)
+                    .Should().Be(CodonOptimizer.RemoveRestrictionSites(dna, new[] { "GAATTC", "GGTCTC" }, CodonOptimizer.EColiK12), because);
+                foreach (var strategy in Enum.GetValues<CodonOptimizer.OptimizationStrategy>())
+                {
+                    var a = CodonOptimizer.OptimizeSequence(dna, CodonOptimizer.EColiK12, strategy);
+                    var b = CodonOptimizer.OptimizeSequence(variant, CodonOptimizer.EColiK12, strategy);
+                    b.OptimizedSequence.Should().Be(a.OptimizedSequence, $"[{strategy}] {because}");
+                    b.ProteinSequence.Should().Be(a.ProteinSequence, $"[{strategy}] {because}");
+                    b.OptimizedCAI.Should().Be(a.OptimizedCAI, $"[{strategy}] {because}");
+                }
+            }
+        }
     }
 
     #endregion

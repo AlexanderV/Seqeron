@@ -758,11 +758,14 @@ public class CodonProperties
 
     #region CODON-ENC-001: R: ENC ∈ [20,61]; M: more biased usage → lower ENC; D: deterministic
 
-    // CalculateEnc is Wright's (1990) effective number of codons, clamped to [20,61]. A more biased
-    // codon usage (higher within-family homozygosity) lowers ENC toward 20.
+    // CalculateEnc is Wright's (1990) effective number of codons (CodonW enc_out): in [20,61] when it
+    // can be calculated, 0 when a synonymous class has no estimable amino acid (CodonW "*****").
+    // A more biased codon usage (higher within-family homozygosity) lowers ENC toward 20.
 
     /// <summary>
-    /// INV-1 (R): ENC always lies in [20,61] for any coding sequence.
+    /// INV-1 (R): ENC is either 0 (not calculable) or lies in [20,61] for any coding sequence.
+    /// (Validation 2026-09, F15: previously "always in [20,61]" — true only because empty classes
+    /// were given a non-sourced full-count contribution.)
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property Enc_InRange()
@@ -770,7 +773,25 @@ public class CodonProperties
         return Prop.ForAll(CodingDnaArbitrary(), seq =>
         {
             double enc = CodonUsageAnalyzer.CalculateEnc(seq);
-            return (enc is >= 20.0 - 1e-9 and <= 61.0 + 1e-9).Label($"ENC={enc} outside [20,61]");
+            return (enc == 0.0 || enc is >= 20.0 - 1e-9 and <= 61.0 + 1e-9).Label($"ENC={enc} neither 0 nor in [20,61]");
+        });
+    }
+
+    /// <summary>
+    /// INV-1b (R, genetic-code aware): under every NCBI table ENC is 0 or lies in
+    /// [20, number of sense codons of the table] (Wright 1990 re-adjustment).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Enc_AnyGeneticCode_InRange()
+    {
+        var tables = GeneticCode.SupportedTableNumbers.ToArray();
+        return Prop.ForAll(CodingDnaArbitrary(), Gen.Elements(tables).ToArbitrary(), (seq, table) =>
+        {
+            var code = GeneticCode.GetByTableNumber(table);
+            int sense = code.CodonTable.Count(kv => kv.Value != '*');
+            double enc = CodonUsageAnalyzer.CalculateEnc(seq, code);
+            return (enc == 0.0 || enc is >= 20.0 - 1e-9 && enc <= sense + 1e-9)
+                .Label($"table {table}: ENC={enc} neither 0 nor in [20,{sense}]");
         });
     }
 
@@ -782,9 +803,11 @@ public class CodonProperties
     [Category("Property")]
     public void Enc_MoreBiased_LowerEnc()
     {
-        // AAA/AAG are the two synonymous Lys codons; the rest of the families are unobserved.
-        string lessBiased = string.Concat(Enumerable.Repeat("AAA", 3)) + "AAG"; // 3:1
-        string moreBiased = string.Concat(Enumerable.Repeat("AAA", 9)) + "AAG"; // 9:1
+        // Background gene with every synonymous class estimable (Phe, Ile, Val, Leu), so Nc is
+        // calculable (CodonW enc_out); only the Lys (AAA/AAG) ratio differs between the two.
+        string background = "TTTTTTTTC" + "ATTATTATC" + "GTGGTGGTC" + "CTGCTGCTC";
+        string lessBiased = background + string.Concat(Enumerable.Repeat("AAA", 3)) + "AAG"; // 3:1
+        string moreBiased = background + string.Concat(Enumerable.Repeat("AAA", 9)) + "AAG"; // 9:1
 
         double encLess = CodonUsageAnalyzer.CalculateEnc(lessBiased);
         double encMore = CodonUsageAnalyzer.CalculateEnc(moreBiased);
@@ -860,7 +883,7 @@ public class CodonProperties
 
     /// <summary>
     /// INV-1 (R + P): codon counts are non-negative and sum to TotalCodons, which equals the number of
-    /// valid codons; ENC ∈ [20,61] and the positional GC fractions are in [0,1].
+    /// valid codons; ENC is 0 (not calculable) or ∈ [20,61]; the positional GC values are in [0,100].
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property CodonStatistics_AreConsistent()
@@ -871,7 +894,7 @@ public class CodonProperties
             int sum = stats.CodonCounts.Values.Sum();
             bool ok = stats.CodonCounts.Values.All(c => c >= 0)
                       && sum == stats.TotalCodons
-                      && stats.Enc is >= 20.0 - 1e-9 and <= 61.0 + 1e-9
+                      && (stats.Enc == 0.0 || stats.Enc is >= 20.0 - 1e-9 and <= 61.0 + 1e-9)
                       // Positional GC values are reported as percentages in [0,100] (EMBOSS cusp).
                       && stats.Gc1 is >= 0.0 and <= 100.0 && stats.Gc2 is >= 0.0 and <= 100.0
                       && stats.Gc3 is >= 0.0 and <= 100.0;
@@ -946,6 +969,343 @@ public class CodonProperties
             var b = Translator.TranslateSixFrames(new DnaSequence(seq));
             return a.All(kv => b[kv.Key].Sequence == kv.Value.Sequence)
                 .Label("TranslateSixFrames must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region Review 2026-09 (B02 heavy tier) — IUPAC/RNA input, every NCBI table, optimizer, ProteinSequence
+
+    // Coding strings with RNA spelling, lower case, IUPAC ambiguity codes and junk (gap, X):
+    // the B02 codon counters must count only ACGT/U triplets (F9, F10), frame-preservingly.
+    private const string NoisyCodingAlphabet = "ACGTUacgtuNRYn-X";
+
+    private static Arbitrary<string> NoisyCodingArbitrary() =>
+        Gen.Elements(NoisyCodingAlphabet.ToCharArray()).ArrayOf().Select(a => new string(a)).ToArbitrary();
+
+    // Mostly-clean coding DNA/RNA (so synonymous families are populated) in random case/spelling.
+    private static Arbitrary<string> MixedSpellingCodingArbitrary() =>
+        Gen.Elements("ACGTACGTACGTUacgtuN".ToCharArray()).ArrayOf().Select(a => new string(a)).ToArbitrary();
+
+    private static Arbitrary<int> TableArbitrary() =>
+        Gen.Elements(GeneticCode.SupportedTableNumbers.ToArray()).ToArbitrary();
+
+    // Codons over the IUPAC nucleotide alphabet (DNA or RNA spelling), frame-aligned, ≥ 1 codon.
+    private static Arbitrary<string> IupacCodonSequenceArbitrary() =>
+        Gen.Elements("ACGTACGTACGTUNRYSWKMBDHV".ToCharArray())
+            .ArrayOf()
+            .Where(a => a.Length >= 3)
+            .Select(a => new string(a, 0, a.Length - a.Length % 3))
+            .ToArbitrary();
+
+    private static int CleanTripletCount(string seq)
+    {
+        int count = 0;
+        for (int i = 0; i + 3 <= seq.Length; i += 3)
+        {
+            if (seq.Substring(i, 3).All(c => "ACGTUacgtu".Contains(c)))
+                count++;
+        }
+        return count;
+    }
+
+    // Independent oracle: translate every triplet with the canonical GeneticCode.Standard
+    // (accepts U and IUPAC codes, resolved per Biopython).
+    private static string TranslateCodons(string sequence)
+    {
+        var sb = new System.Text.StringBuilder(sequence.Length / 3);
+        for (int i = 0; i + 3 <= sequence.Length; i += 3)
+            sb.Append(GeneticCode.Standard.Translate(sequence.Substring(i, 3)));
+        return sb.ToString();
+    }
+
+    private static int CountOccurrencesBothStrands(string sequence, string site)
+    {
+        string dna = sequence.ToUpperInvariant().Replace('U', 'T');
+        var patterns = new HashSet<string> { site, DnaSequence.GetReverseComplementString(site) };
+        int count = 0;
+        foreach (string pattern in patterns)
+        {
+            for (int i = 0; i + pattern.Length <= dna.Length; i++)
+            {
+                bool match = true;
+                for (int k = 0; k < pattern.Length && match; k++)
+                    match = IupacHelper.MatchesIupac(dna[i + k], pattern[k]);
+                if (match) count++;
+            }
+        }
+        return count;
+    }
+
+    // Returns a description of the first occurrence (either strand) of the site in the RNA coding
+    // sequence that a single synonymous substitution of one overlapping sense codon would remove,
+    // or null when every remaining occurrence is unremovable that way.
+    private static string? FirstRemovableOccurrence(string rna, string site)
+    {
+        var patterns = new HashSet<string> { site, DnaSequence.GetReverseComplementString(site) };
+        string dna = rna.Replace('U', 'T');
+        foreach (string pattern in patterns)
+        {
+            for (int p = 0; p + pattern.Length <= dna.Length; p++)
+            {
+                if (!MatchesAt(dna, pattern, p)) continue;
+                int first = p / 3, last = Math.Min((p + pattern.Length - 1) / 3, dna.Length / 3 - 1);
+                for (int ci = first; ci <= last; ci++)
+                {
+                    string codon = dna.Substring(3 * ci, 3);
+                    char aa = GeneticCode.Standard.Translate(codon);
+                    if (aa == '*') continue;
+                    foreach (string alt in GeneticCode.Standard.GetCodonsForAminoAcid(aa))
+                    {
+                        string altDna = alt.Replace('U', 'T');
+                        if (altDna == codon) continue;
+                        string mutated = dna[..(3 * ci)] + altDna + dna[(3 * ci + 3)..];
+                        if (!MatchesAt(mutated, pattern, p))
+                            return $"{pattern}@{p} via codon {ci} {codon}→{altDna}";
+                    }
+                }
+            }
+        }
+        return null;
+
+        static bool MatchesAt(string s, string pattern, int p)
+        {
+            for (int k = 0; k < pattern.Length; k++)
+                if (!IupacHelper.MatchesIupac(s[p + k], pattern[k])) return false;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// CODON-USAGE-001 (F9/F10): Σ counts of the canonical counter = number of complete in-frame
+    /// triplets made only of A/C/G/T/U (any case) — ambiguous or junk triplets are skipped without
+    /// shifting the frame (EMBOSS <c>ajCodSetTripletsS</c>), U is read as T (CodonW). The two
+    /// public delegates (CodonUsageAnalyzer.CountCodons, CodonOptimizer.CalculateCodonUsage) agree.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CountCodons_SumEqualsCleanInFrameTriplets()
+    {
+        return Prop.ForAll(NoisyCodingArbitrary(), seq =>
+        {
+            int expected = CleanTripletCount(seq);
+            var canonical = Translator.CountCodons(seq);
+            bool keysDna = canonical.Keys.All(k => k.Length == 3 && k.All(c => "ACGT".Contains(c)));
+            return (canonical.Values.Sum() == expected
+                    && CodonUsageAnalyzer.CountCodons(seq).Values.Sum() == expected
+                    && CodonOptimizer.CalculateCodonUsage(seq).Values.Sum() == expected
+                    && keysDna)
+                .Label($"'{seq}': Σ={canonical.Values.Sum()}, expected {expected}, DNA keys={keysDna}");
+        });
+    }
+
+    /// <summary>
+    /// CODON-USAGE-001 (F10): counting is spelling-invariant — the RNA spelling (T→U) and the
+    /// lower-case form give the identical count table.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CountCodons_DnaRnaLowerCase_Identical()
+    {
+        return Prop.ForAll(NoisyCodingArbitrary(), seq =>
+        {
+            var dna = Translator.CountCodons(seq);
+            var rna = Translator.CountCodons(seq.Replace('T', 'U').Replace('t', 'u'));
+            var lower = Translator.CountCodons(seq.ToLowerInvariant());
+            bool same = dna.Count == rna.Count && dna.Count == lower.Count
+                        && dna.All(kv => rna.GetValueOrDefault(kv.Key) == kv.Value
+                                         && lower.GetValueOrDefault(kv.Key) == kv.Value);
+            return same.Label($"spelling changed codon counts for '{seq}'");
+        });
+    }
+
+    /// <summary>
+    /// CODON-RSCU-001 (F11): for every NCBI table all 64 codons are reported, RSCU ≥ 0, and within
+    /// each synonymous family of that table (CodonW: families from the genetic code, stops one
+    /// family, dual-coding stops of 27/28/31 in their amino-acid family) the RSCU values sum to the
+    /// family size when the family is observed and to 0 otherwise (RSCU = n·x/Σx).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Rscu_AnyGeneticCode_FamilySumsEqualFamilySize()
+    {
+        return Prop.ForAll(MixedSpellingCodingArbitrary(), TableArbitrary(), (seq, table) =>
+        {
+            var code = GeneticCode.GetByTableNumber(table);
+            var rscu = CodonUsageAnalyzer.CalculateRscu(seq, code);
+            if (seq.Length == 0) return (rscu.Count == 0).Label("empty input → empty RSCU");
+            if (rscu.Count != 64) return false.Label($"table {table}: {rscu.Count} codons reported, expected 64");
+            if (rscu.Values.Any(v => v < 0 || double.IsNaN(v))) return false.Label("negative/NaN RSCU");
+
+            var counts = Translator.CountCodons(seq);
+            foreach (var family in code.CodonTable.GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T')))
+            {
+                var members = family.ToList();
+                bool observed = members.Any(c => counts.GetValueOrDefault(c) > 0);
+                double sum = members.Sum(c => rscu[c]);
+                double expected = observed ? members.Count : 0.0;
+                if (Math.Abs(sum - expected) > 1e-9)
+                    return false.Label($"table {table}, family '{family.Key}': ΣRSCU={sum}, expected {expected}");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// CODON-ENC-001 (F15–F17) on noisy/RNA/lower-case input: under every NCBI table ENC is 0
+    /// (not calculable, CodonW "*****") or lies in [number of amino acids of the code, number of
+    /// sense codons of the code] (F̂ ≤ 1 bounds Nc below by the amino-acid count; Wright 1990 cap).
+    /// For table 1 that is [20, 61].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Enc_AnyGeneticCode_NoisyInput_ZeroOrWithinCodeBounds()
+    {
+        return Prop.ForAll(MixedSpellingCodingArbitrary(), TableArbitrary(), (seq, table) =>
+        {
+            var code = GeneticCode.GetByTableNumber(table);
+            int sense = code.CodonTable.Count(kv => kv.Value != '*');
+            int aminoAcids = code.CodonTable.Values.Where(v => v != '*').Distinct().Count();
+            double enc = CodonUsageAnalyzer.CalculateEnc(seq, code);
+            bool ok = enc == 0.0 || (enc >= aminoAcids - 1e-9 && enc <= sense + 1e-9);
+            if (table == 1) ok &= enc == 0.0 || (enc >= 20 - 1e-9 && enc <= 61 + 1e-9);
+            return ok.Label($"table {table}: ENC={enc} neither 0 nor in [{aminoAcids},{sense}]");
+        });
+    }
+
+    /// <summary>
+    /// CODON-STATS-001 (F18) / CODON-CAI-001 (F12–F14): under every NCBI table GetStatistics
+    /// reports GC1/GC2/GC3/GC3s in [0,100], TotalCodons = number of clean triplets, and the CAI
+    /// against the E. coli reference is in [0,1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Statistics_AnyGeneticCode_PercentagesInRange_CaiInUnitInterval()
+    {
+        var reference = CodonUsageAnalyzer.EColiOptimalCodons;
+        return Prop.ForAll(MixedSpellingCodingArbitrary(), TableArbitrary(), (seq, table) =>
+        {
+            var code = GeneticCode.GetByTableNumber(table);
+            var stats = CodonUsageAnalyzer.GetStatistics(seq, code);
+            double cai = CodonUsageAnalyzer.CalculateCai(seq, reference, code);
+            bool ok = stats.Gc3s is >= 0.0 and <= 100.0
+                      && stats.Gc1 is >= 0.0 and <= 100.0
+                      && stats.Gc2 is >= 0.0 and <= 100.0
+                      && stats.Gc3 is >= 0.0 and <= 100.0
+                      && stats.TotalCodons == CleanTripletCount(seq)
+                      && cai is >= 0.0 and <= 1.0 + 1e-12;
+            return ok.Label($"table {table}: GC3s={stats.Gc3s}, total={stats.TotalCodons}, CAI={cai}");
+        });
+    }
+
+    /// <summary>
+    /// CODON-OPT-001 (F21, F23, F26, F27): every strategy preserves the protein encoded under
+    /// GeneticCode.Standard — including IUPAC-ambiguous codons (resolved per Biopython, e.g. GCN → A,
+    /// NNN → X) — keeps the length, reports the translated protein, and is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property(MaxTest = 60)]
+    public Property Optimizer_AllStrategies_PreserveProteinIncludingIupac_AndAreDeterministic()
+    {
+        return Prop.ForAll(IupacCodonSequenceArbitrary(), seq =>
+        {
+            foreach (var strategy in Enum.GetValues<CodonOptimizer.OptimizationStrategy>())
+            {
+                var a = CodonOptimizer.OptimizeSequence(seq, CodonOptimizer.EColiK12, strategy);
+                var b = CodonOptimizer.OptimizeSequence(seq, CodonOptimizer.EColiK12, strategy);
+                string original = TranslateCodons(a.OriginalSequence);
+                if (TranslateCodons(a.OptimizedSequence) != original)
+                    return false.Label($"[{strategy}] protein changed for '{seq}': '{original}' → '{TranslateCodons(a.OptimizedSequence)}'");
+                if (a.ProteinSequence != original)
+                    return false.Label($"[{strategy}] reported protein '{a.ProteinSequence}' ≠ '{original}'");
+                if (a.OptimizedSequence.Length != a.OriginalSequence.Length)
+                    return false.Label($"[{strategy}] length changed");
+                if (a.OptimizedSequence != b.OptimizedSequence || a.OptimizedCAI != b.OptimizedCAI)
+                    return false.Label($"[{strategy}] not deterministic for '{seq}'");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// CODON-OPT-001 (F22): RemoveRestrictionSites preserves the protein (GeneticCode.Standard),
+    /// keeps the length, is deterministic, never increases the number of site occurrences counted
+    /// on both strands with IUPAC matching (a restriction enzyme cuts dsDNA; REBASE lists one
+    /// strand), and every occurrence left in the output is one that no single synonymous
+    /// substitution of an overlapping sense codon can remove (the documented "unremovable
+    /// occurrence is kept" rule; DNA Chisel AvoidPattern resolved one codon at a time).
+    /// </summary>
+    [FsCheck.NUnit.Property(MaxTest = 60)]
+    public Property RemoveRestrictionSites_PreservesProtein_NeverAddsOccurrences()
+    {
+        var sites = Gen.Elements("GAATTC", "GGATCC", "GGTCTC", "RGATCY", "GCNGC", "CTGCAG", "AAGCTT");
+        var seqGen = Gen.Elements("ACGT".ToCharArray()).ArrayOf()
+            .Select(a => new string(a, 0, a.Length - a.Length % 3));
+        // Seed each sequence with a site occurrence so the removal path is exercised.
+        Gen<(string Seq, string Site)> inputs =
+            from left in seqGen
+            from right in seqGen
+            from site in sites
+            let seeded = left + site.Replace('R', 'A').Replace('Y', 'C').Replace('N', 'G') + right
+            select (seeded[..(seeded.Length - seeded.Length % 3)], site);
+
+        return Prop.ForAll(inputs.ToArbitrary(), input =>
+        {
+            var (seq, site) = input;
+            string outA = CodonOptimizer.RemoveRestrictionSites(seq, new[] { site }, CodonOptimizer.EColiK12);
+            string outB = CodonOptimizer.RemoveRestrictionSites(seq, new[] { site }, CodonOptimizer.EColiK12);
+            string normalized = seq.ToUpperInvariant().Replace('T', 'U');
+            int before = CountOccurrencesBothStrands(normalized, site);
+            int after = CountOccurrencesBothStrands(outA, site);
+            bool ok = outA == outB
+                      && outA.Length == normalized.Length
+                      && TranslateCodons(outA) == TranslateCodons(normalized)
+                      && after <= before;
+            string? removable = FirstRemovableOccurrence(outA, site);
+            return (ok && removable is null)
+                .Label($"site {site}, '{seq}' → '{outA}': occurrences {before}→{after}; removable left: {removable ?? "none"}");
+        });
+    }
+
+    /// <summary>
+    /// CODON-OPT-001 (F25): CreateCodonTableFromSequence returns all 64 codons (Sharp &amp; Li 0.5
+    /// pseudo-count for unobserved ones, as Biopython CodonAdaptationIndex) with frequencies in (0,1],
+    /// each synonymous family of the Standard code (stops one family) summing to 1.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CreateCodonTableFromSequence_All64Codons_FamiliesSumToOne()
+    {
+        return Prop.ForAll(NoisyCodingArbitrary(), seq =>
+        {
+            var table = CodonOptimizer.CreateCodonTableFromSequence(seq, "ref");
+            if (table.CodonFrequencies.Count != 64)
+                return false.Label($"{table.CodonFrequencies.Count} codons, expected 64");
+            if (table.CodonFrequencies.Values.Any(f => !(f > 0 && f <= 1)))
+                return false.Label("a frequency is outside (0,1]");
+            foreach (var family in GeneticCode.Standard.CodonTable.GroupBy(kv => kv.Value, kv => kv.Key))
+            {
+                double sum = family.Sum(c => table.CodonFrequencies[c]);
+                if (Math.Abs(sum - 1.0) > 1e-12)
+                    return false.Label($"family '{family.Key}' sums to {sum}");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// B02 sweep (F28–F30): ProteinSequence MW / pI / GRAVY delegate to the canonical
+    /// ProteinPhysicochemistry and are therefore identical to SequenceStatistics (Biopython masses,
+    /// EMBOSS pK scale, Kyte–Doolittle) for any protein over the ProteinSequence alphabet
+    /// (20 amino acids, B/Z/J/X, '*').
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ProteinSequence_MwPiGravy_EqualSequenceStatistics()
+    {
+        var proteinGen = Gen.Elements("ACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWYBZJX*".ToCharArray())
+            .ArrayOf().Where(a => a.Length > 0).Select(a => new string(a)).ToArbitrary();
+        return Prop.ForAll(proteinGen, seq =>
+        {
+            var protein = new ProteinSequence(seq);
+            bool ok = protein.MolecularWeight().Equals(SequenceStatistics.CalculateMolecularWeight(seq))
+                      && protein.IsoelectricPoint().Equals(SequenceStatistics.CalculateIsoelectricPoint(seq))
+                      && protein.Gravy().Equals(SequenceStatistics.CalculateHydrophobicity(seq));
+            return ok.Label($"'{seq}': MW {protein.MolecularWeight()} vs {SequenceStatistics.CalculateMolecularWeight(seq)}, " +
+                            $"pI {protein.IsoelectricPoint()} vs {SequenceStatistics.CalculateIsoelectricPoint(seq)}, " +
+                            $"GRAVY {protein.Gravy()} vs {SequenceStatistics.CalculateHydrophobicity(seq)}");
         });
     }
 

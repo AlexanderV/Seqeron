@@ -5,12 +5,12 @@
 | Algorithm Group | Sequence Composition |
 | Test Unit ID | SEQ-COMPLEX-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Complete |
+| Last Reviewed | 2026-09-30 |
 
 ## 1. Overview
 
-Linguistic complexity measures how many distinct subsequences appear in a sequence relative to how many could appear in principle. In this repository, the implementation computes the summation variant over word lengths from 1 up to a configurable maximum and uses it as a DNA-oriented complexity metric for low-complexity analysis. The current implementation follows the definition directly with hash-based subword enumeration rather than the suffix-tree optimization discussed in some of the cited literature.
+Linguistic complexity measures how many distinct subsequences appear in a sequence relative to how many could appear in principle. In this repository, the implementation computes the summation variant over word lengths from 1 up to a configurable maximum and uses it as a DNA-oriented complexity metric for low-complexity analysis. Small word-length limits use direct hash-based subword enumeration; larger limits (m > 12, including Troyanskaya's all-length LC) count distinct subwords from the suffix tree in linear time, as in Troyanskaya et al. (2002). Both paths give identical values.
 
 ## 2. Scientific / Formal Basis
 
@@ -26,19 +26,21 @@ $$
 LC = \frac{\sum_{i=1}^{m} V_i}{\sum_{i=1}^{m} V_{max,i}}
 $$
 
-where `V_i` is the number of distinct observed subwords of length `i`, `V_{max,i}` is the maximum possible number of distinct subwords of that length, and `m` is the maximum word length parameter. For DNA with alphabet size `K = 4`:
+where `V_i` is the number of distinct observed subwords of length `i`, `V_{max,i}` is the maximum possible number of distinct subwords of that length, and `m` is the maximum word length parameter. With alphabet size `K` (Troyanskaya et al. 2002; Rosalind LING: "for an alphabet of size a"):
 
 $$
 V_{max,i} = \min(K^i, N - i + 1)
 $$
 
-where `N` is sequence length.
+where `N` is sequence length. The implementation takes `K = |{A, C, G, T} ∪ symbols(s)|` (U replaces T when U occurs and T does not): pure DNA/RNA gives `K = 4`; every other symbol present (N, IUPAC codes, gaps, …) enlarges the alphabet, so `V_i ≤ V_max,i` and `LC ≤ 1` for every input (e.g. `ACGTN` → 15/15 = 1.0, `ATGCATGCNN` → 44/50 = 0.88).
+
+This word-length-limited sum is the Orlov & Potapov (2004) CL (`m ≤ N`); with `m ≥ N` it is exactly the Troyanskaya et al. (2002) LC `A(s)/M(s)` over all lengths (Rosalind LING sample `ATTTGGATT` → 0.875). It is distinct from Trifonov's (1990) product form `C = Π U_i` (implemented e.g. by the R package universalmotif, method "Trifonov"); the two are not interchangeable.
 
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | `0 <= LC <= 1` for DNA-alphabet inputs | Observed distinct counts cannot exceed the DNA-theoretical maximum when the input alphabet matches the hard-coded `K = 4` denominator |
+| INV-01 | `0 <= LC <= 1` for every input | Every observed symbol is in the alphabet of size `K`, so `V_i <= min(K^i, N-i+1)` |
 | INV-02 | Empty sequences return `0` | The implementation short-circuits before accumulating counts |
 | INV-03 | Word lengths are limited to `min(maxWordLength, sequence.Length)` | The source explicitly caps the loop bound |
 
@@ -49,13 +51,14 @@ where `N` is sequence length.
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequence` | `DnaSequence` or `string` | required | DNA-oriented sequence to analyze | Null `DnaSequence` input throws `ArgumentNullException`; empty string returns `0` |
-| `maxWordLength` | `int` | `10` | Maximum subword length included in the summation | `DnaSequence` overload throws `ArgumentOutOfRangeException` when `< 1` |
+| `maxWordLength` | `int` | `10` | Maximum subword length included in the summation | `DnaSequence` overload and the fixed-alphabet overloads throw `ArgumentOutOfRangeException` when `< 1` |
+| `alphabetSize` | `int` | inferred | Optional fixed alphabet size `K` (3-argument overloads; Troyanskaya et al. 2002 / Rosalind LING `a`, 4 for DNA, 20 for protein) | `< 1` ⇒ `ArgumentOutOfRangeException`; fewer than the distinct (upper-cased) symbols of the sequence ⇒ `ArgumentException` |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `lc` | `double` | Linguistic-complexity ratio; for DNA-alphabet inputs it lies between `0` and `1` |
+| `lc` | `double` | Linguistic-complexity ratio in `[0, 1]` |
 
 ### 3.3 Preconditions and Validation
 
@@ -66,16 +69,17 @@ where `N` is sequence length.
 ### 4.1 High-Level Steps
 
 1. Normalize the input sequence to uppercase.
-2. For each word length from 1 to `min(maxWordLength, sequence.Length)`, enumerate all overlapping subwords.
-3. Count distinct subwords for that length with a `HashSet<string>`.
-4. Compute the maximum possible count for that length using `min(4^i, N - i + 1)`.
+2. Let `m = min(maxWordLength, sequence.Length)`. If `m ≤ 12`, count the distinct overlapping subwords of each length as the key count of the canonical `KmerAnalyzer.CountKmers` tally.
+3. Otherwise build (or reuse the cached `DnaSequence.SuffixTree`) suffix tree and call the shared `ISuffixTree.CountDistinctSubstringsByLength(m)` (SuffixTree project): for every edge spanning depths `d+1..d+len` (leaf edges excluding the terminator), add 1 to `V_i` for each covered `i ≤ m` (difference array).
+4. Compute the maximum possible count for that length using `min(K^i, N - i + 1)` (K = 4 for DNA/RNA, extended by any other symbol present).
 5. Sum observed and possible counts across all lengths and return their ratio.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `CalculateLinguisticComplexity` | `O(n × k^2)` effective | `O(u)` | `n` is sequence length, `k` is the effective maximum word length, and the direct implementation allocates and hashes substrings of lengths `1..k` for each window |
+| `CalculateLinguisticComplexity` (m ≤ 12) | `O(n × m^2)` | `O(n × m)` | direct substring hashing |
+| `CalculateLinguisticComplexity` (m > 12) | `O(n)` (+ tree build) | `O(n)` | suffix-tree edge-depth counting (Troyanskaya 2002) |
 
 ## 5. Implementation Notes
 
@@ -85,12 +89,13 @@ where `N` is sequence length.
 
 - `SequenceComplexity.CalculateLinguisticComplexity(DnaSequence, int)`: Canonical typed overload.
 - `SequenceComplexity.CalculateLinguisticComplexity(string, int)`: Raw-string overload.
+- `SequenceComplexity.CalculateLinguisticComplexity(DnaSequence | string, int maxWordLength, int alphabetSize)`: fixed alphabet size `K` (no inference). Cross-check: exact-Fraction Python brute force on 4 001 random cases (alphabets ACGT/AC/AT/ACGTN/ACGU/20 aa/unary, lower case, m 1–100, both hash and suffix-tree paths, a from 1 to int.MaxValue incl. 723 cases with a < distinct symbols → `ArgumentException`): 0 mismatches; Rosalind LING sample 0.875.
 - `SequenceComplexity.FindLowComplexityRegions(...)`: Uses complexity metrics downstream.
 - `SequenceComplexity.MaskLowComplexity(...)`: Related masking workflow using DUST score.
 
 ### 5.2 Current Behavior
 
-The current implementation counts distinct subwords with `HashSet<string>` collections for each word length and sums the observed and possible totals directly. It allocates and hashes fresh substrings for each tested window length rather than using a suffix-tree index. The typed overload enforces `maxWordLength >= 1`, while the raw-string overload uppercases input and delegates to the same core computation without alphabet validation. The denominator remains hard-coded to the DNA alphabet size `4`, so raw-string inputs containing other symbols can exceed the DNA-bounded `[0, 1]` interpretation. The effective word-length range is capped at sequence length.
+For `m ≤ 12` the implementation counts distinct subwords as the key count of the canonical `KmerAnalyzer.CountKmers` tally; for larger `m` it counts them from the suffix tree in linear time (terminator excluded). `V_max,i` uses a saturating `K^i` (multiplication stops once it exceeds `N`, so no overflow for any `K ≤ 65536` or `i`). The typed overload enforces `maxWordLength >= 1` (and only admits ACGT, so `K = 4`), while the raw-string overload uppercases input and uses `K = |{A,C,G,T/U} ∪ symbols|` (2026-09-30, B04 F20: previously `K = 4` always, so `ACGTN` gave 15/14 > 1). The effective word-length range is capped at sequence length.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -98,22 +103,19 @@ The current implementation counts distinct subwords with `HashSet<string>` colle
 
 - Summation-form linguistic complexity over subword lengths.
 - Maximum distinct-subword bounds based on both alphabet size and positional availability.
-- DNA-oriented complexity scoring in the range `[0, 1]`.
+- Complexity scoring in the range `[0, 1]` for any input alphabet (DNA/RNA `K = 4`).
 
 **Intentionally simplified:**
 
-- The implementation assumes a DNA alphabet of size 4; **consequence:** the metric is not generalized to arbitrary alphabets in this code path.
-- The raw-string overload accepts arbitrary uppercase symbols while still using the DNA denominator `4^i`; **consequence:** callers should treat the reported value as DNA-oriented and not assume the usual `[0, 1]` bound for non-ACGT inputs.
+- None for the alphabet: non-ACGT symbols extend the alphabet size `K` (not filtered out).
 
-**Not implemented:**
-
-- The fast suffix-tree algorithm described in some cited literature; **users should rely on:** the current direct enumeration path, which prioritizes clarity over that optimization.
+- The linear-time suffix-tree counting of Troyanskaya et al. (2002) for `m > 12` (incl. all-length LC).
 
 ### 5.4 Deviations and Assumptions (Optional)
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Current source uses hash-based subword enumeration rather than the fast suffix-tree approach highlighted by Troyanskaya et al. (2002) | Deviation | Runtime follows direct enumeration rather than a suffix-tree optimization | accepted | Confirmed from `SequenceComplexity.CalculateLinguisticComplexityCore(...)` |
+| 1 | Hash enumeration is used for `m ≤ 12`, suffix tree above | Implementation choice | None on values (both exact; locked by LC-14..LC-17) | resolved 2026-09 | Previously the suffix-tree path was missing (O(N²) for all-length LC) |
 
 ## 6. Edge Cases and Limitations
 
@@ -127,11 +129,11 @@ The current implementation counts distinct subwords with `HashSet<string>` colle
 | Single nucleotide such as `A` | Returns a positive value | One distinct 1-mer exists |
 | Homopolymer sequence | Returns a low value | Only one word per length is observed |
 | Random-like sequence | Returns a high value | Observed vocabulary approaches the maximum |
-| Raw-string input with non-ACGT symbols | May exceed the usual DNA-bounded interpretation | Observed words can include symbols outside the hard-coded DNA denominator |
+| Raw-string input with non-ACGT symbols | Alphabet enlarged (`ACGTN` → 1.0, `ATGCATGCNN` → 0.88, `NNNNNNNN` → 8/33); never > 1 | `K = |{A,C,G,T/U} ∪ symbols|` |
 
 ### 6.2 Limitations
 
-The current implementation is DNA-specific and uses direct `HashSet<string>` enumeration rather than the faster suffix-tree approach discussed in some of the cited papers. Runtime therefore includes repeated substring allocation and hashing across the tested word lengths, and memory usage grows with the number of distinct observed subwords. The raw-string overload also accepts arbitrary uppercase symbols without reconciling the denominator to a larger alphabet.
+The two-argument overloads infer the alphabet from the sequence (nucleotide alphabet ∪ observed symbols); a caller wanting a different fixed alphabet (e.g. 20 amino acids for a short peptide lacking some residues, or a binary alphabet) passes it via the `alphabetSize` overloads (MCP: optional `alphabetSize` of `complexity_linguistic` / `linguistic_complexity`).
 
 ## 7. Examples and Related Material
 
@@ -148,4 +150,6 @@ The current implementation is DNA-specific and uses direct `HashSet<string>` enu
 3. Orlov, Y.L., Potapov, V.N. (2004). "Complexity: an internet resource for analysis of DNA sequence complexity." Nucleic Acids Research, 32(Web Server issue), W628–W633.
 4. Gabrielian, A., Bolshoy, A. (1999). "Sequence complexity and DNA curvature." Computers & Chemistry, 23(3–4), 263–274.
 5. Wikipedia - "Linguistic sequence complexity".
+6. Rosalind, problem LING "Linguistic Complexity of a Genome" (sample ATTTGGATT → 0.875).
+7. universalmotif (R), `R/sequence_complexity.R` — Trifonov product-form reference implementation.
    - *Summary of approaches and formulas*

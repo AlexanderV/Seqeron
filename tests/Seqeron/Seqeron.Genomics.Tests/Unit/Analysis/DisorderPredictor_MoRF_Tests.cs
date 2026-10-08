@@ -52,6 +52,24 @@ public class DisorderPredictor_MoRF_Tests
         });
     }
 
+    /// <summary>
+    /// PredictMoRFs uses only per-residue TOP-IDP scores, so it must not be blocked by the
+    /// DISORDER-REGION-001 guard on the uncalibrated per-region Confidence (previously it called
+    /// PredictDisorder and threw SeqeronLimitationException under the library default Moderate
+    /// and under Strict). Same coordinates/score as M1.
+    /// </summary>
+    [TestCase(Seqeron.Genomics.Core.LimitationMode.Moderate)]
+    [TestCase(Seqeron.Genomics.Core.LimitationMode.Strict)]
+    public void PredictMoRFs_NotBlockedByRegionConfidenceGuard(Seqeron.Genomics.Core.LimitationMode mode)
+    {
+        List<(int Start, int End, double Score)> morfs;
+        using (Seqeron.Genomics.Core.LimitationPolicy.Use(mode))
+            morfs = DisorderPredictor.PredictMoRFs(DipInDisorderL).ToList();
+
+        Assert.That(morfs.Select(m => (m.Start, m.End)), Is.EqualTo(new[] { (29, 50) }));
+        Assert.That(morfs[0].Score, Is.EqualTo(0.275934).Within(1e-6));
+    }
+
     [Test]
     public void M2_FullyOrderedSequence_NoMoRFs()
     {

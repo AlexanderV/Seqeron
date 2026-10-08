@@ -2,7 +2,7 @@
   OriginalSequence: AUGAAAGCGUUCAAGCGUACUGCGUGA,
   OptimizedSequence: AUGAAAGCGUUUAAACGCACCGCGUGA,
   ProteinSequence: MKAFKRTA*,
-  OriginalCAI: 0.7319,
+  OriginalCAI: 0.6999,
   OptimizedCAI: 1.0,
   GcOriginal: 0.4815,
   GcOptimized: 0.4815,

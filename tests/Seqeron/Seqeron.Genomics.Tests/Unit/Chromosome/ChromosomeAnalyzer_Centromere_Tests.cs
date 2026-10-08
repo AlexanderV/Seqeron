@@ -555,6 +555,138 @@ public class ChromosomeAnalyzer_Centromere_Tests
 
     #endregion
 
+    #region Review 2026-09 — scan coverage / step / GC-variability locks
+
+    // Expected values below are computed by an independent Python reference of the documented
+    // heuristic (docs/algorithms/Chromosome_Analysis/Centromere_Analysis.md §4): every full window
+    // i ∈ {0, step, …} with i + W ≤ L (step = W/4), repeatContent = fraction of 15-mer positions
+    // whose N-free 15-mer occurs > 1×, gcVariability = numpy.std (population SD) of GC fractions
+    // over ALL consecutive full 1-kb sub-windows, extension by adjacent full half-windows while
+    // repeatContent ≥ 0.7·threshold; Levan (1964) r = long/short: ≤1.7 m, ≤3.0 sm, <7.0 st, else a.
+
+    [Test]
+    public void AnalyzeCentromere_SequenceExactlyWindowSize_IsAnalysed()
+    {
+        // L == W: the single window [0, W) lies fully inside the sequence and must be scanned.
+        // (Pre-fix the loop used i < L - W and returned Unknown.) Python reference: (0, 2400, 1.0, Metacentric).
+        string seq = string.Concat(Enumerable.Repeat("ACGTGA", 400));
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize: 2400);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Start, Is.EqualTo(0));
+            Assert.That(r.End, Is.EqualTo(2400));
+            Assert.That(r.AlphaSatelliteContent, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(r.CentromereType, Is.EqualTo("Metacentric"));
+        });
+    }
+
+    [Test]
+    public void AnalyzeCentromere_GcVariability_UsesAllFullOneKbSubWindows()
+    {
+        // Window = (AT)500 + (GC)500: 1-kb sub-window GC fractions {0, 1} → population SD = 0.5.
+        // repeatContent = 1972/1986 (14 junction 15-mers are unique). score = 1972/1986 × 0.5.
+        // Python/numpy reference: 0.49647532729103727. (Pre-fix the last full sub-window was
+        // dropped → a single sub-window → gcVariability 0.)
+        string seq = string.Concat(Enumerable.Repeat("AT", 500)) + string.Concat(Enumerable.Repeat("GC", 500));
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize: 2000, minAlphaSatelliteContent: 0.3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Start, Is.EqualTo(0));
+            Assert.That(r.End, Is.EqualTo(2000));
+            Assert.That(r.AlphaSatelliteContent, Is.EqualTo(0.49647532729103727).Within(1e-12));
+            Assert.That(r.AlphaSatelliteContent, Is.EqualTo(1972.0 / 1986.0 * 0.5).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void AnalyzeCentromere_GcVariability_SelectsWindowWithLowerSd()
+    {
+        // (AT)500 + (GC)750, W = 2000, step 500 → windows [0,2000) and [500,2500).
+        // Both have repeatContent 1972/1986; 1-kb sub-window GC SDs are 0.5 and 0.25 (numpy.std),
+        // so scores are 0.4965 and 0.7447 and the second window wins.
+        // Python/numpy reference: (500, 2500, 0.744712990936556, Metacentric).
+        // (Pre-fix: last full sub-window dropped → SD 0 for both → first window, score 0.99295.)
+        string seq = string.Concat(Enumerable.Repeat("AT", 500)) + string.Concat(Enumerable.Repeat("GC", 750));
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize: 2000, minAlphaSatelliteContent: 0.3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Start, Is.EqualTo(500));
+            Assert.That(r.End, Is.EqualTo(2500));
+            Assert.That(r.AlphaSatelliteContent, Is.EqualTo(0.744712990936556).Within(1e-12));
+            Assert.That(r.CentromereType, Is.EqualTo("Metacentric"));
+        });
+    }
+
+    [Test]
+    public void AnalyzeCentromere_LeftExtension_CanReachSequenceStart()
+    {
+        // 400 bp (TTAGGC)n prefix + 2400 bp (ACGTGA)n + 6000 bp LCG-random, W = 800 (half = 400).
+        // Best window starts at 400 (== half); the adjacent half-window [0,400) is repetitive, so
+        // the region extends to 0 (pre-fix `centStart > half` blocked it at 400).
+        // Python reference: (0, 2800, 1.0, Subtelocentric) — mid 1400, r = 7400/1400 ≈ 5.29.
+        string prefix = string.Concat(Enumerable.Repeat("TTAGGC", 66)) + "TTAG";
+        string seq = prefix + string.Concat(Enumerable.Repeat("ACGTGA", 400)) + Lcg(5, 6000);
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize: 800, minAlphaSatelliteContent: 0.3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Start, Is.EqualTo(0));
+            Assert.That(r.End, Is.EqualTo(2800));
+            Assert.That(r.AlphaSatelliteContent, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(r.CentromereType, Is.EqualTo("Subtelocentric"));
+        });
+    }
+
+    [Test]
+    public void AnalyzeCentromere_EmbeddedArray_ExactBoundariesMatchReference()
+    {
+        // 3000 bp LCG(7) + 2400 bp (ACGTGA)n + 5000 bp LCG(11), W = 400.
+        // Python reference: (3000, 5400, 1.0, Metacentric) — mid 4200, r = 6200/4200 ≈ 1.48.
+        string seq = Lcg(7, 3000) + string.Concat(Enumerable.Repeat("ACGTGA", 400)) + Lcg(11, 5000);
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize: 400, minAlphaSatelliteContent: 0.3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Start, Is.EqualTo(3000));
+            Assert.That(r.End, Is.EqualTo(5400));
+            Assert.That(r.Length, Is.EqualTo(2400));
+            Assert.That(r.AlphaSatelliteContent, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(r.CentromereType, Is.EqualTo("Metacentric"));
+        });
+    }
+
+    [Test]
+    public void AnalyzeCentromere_TinyWindow_TerminatesAndReturnsUnknown()
+    {
+        // windowSize < 4 previously gave a scan step of windowSize/4 = 0 → infinite loop.
+        // Windows < 30 bp carry no 15-mer repeat evidence (EstimateRepeatContent needs ≥ 2k), so Unknown.
+        string seq = string.Concat(Enumerable.Repeat("ACGT", 50));
+        var task = Task.Run(() => ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize: 3));
+        Assert.That(task.Wait(TimeSpan.FromSeconds(10)), Is.True, "AnalyzeCentromere must terminate for windowSize 3");
+        Assert.That(task.Result.CentromereType, Is.EqualTo("Unknown"));
+    }
+
+    [TestCase(0)]
+    [TestCase(-5)]
+    public void AnalyzeCentromere_NonPositiveWindow_Throws(int windowSize)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => ChromosomeAnalyzer.AnalyzeCentromere("chr", "ACGTACGT", windowSize));
+    }
+
+    private static string Lcg(long seed, int n)
+    {
+        // Same LCG as the Python reference: x = (x·1103515245 + 12345) & 0x7fffffff; base = "ACGT"[(x>>16)&3].
+        var chars = new char[n];
+        long x = seed;
+        for (int i = 0; i < n; i++)
+        {
+            x = (x * 1103515245 + 12345) & 0x7fffffff;
+            chars[i] = "ACGT"[(int)((x >> 16) & 3)];
+        }
+        return new string(chars);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static string GenerateRandomSequence(int seed, int length)

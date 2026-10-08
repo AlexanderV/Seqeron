@@ -162,3 +162,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28** (review 2026-09, B24): Re-verified. CNVkit `cnvlib/call.py` (raw.githubusercontent.com/etal/cnvkit/master) re-read: `absolute_threshold` assigns CN = index of first cutoff with `log2 <= thresh`, else `int(np.ceil(ref_copies*2**log2))`; faithful Python re-run: −∞→0, −2→0, −1.1→0, −1.0999→1, −0.5→1, 0→2, 0.5→3, 1→4, 40→2199023255552, 1e6/+∞→OverflowError, NaN→2. Cheng 2017 definition ("regions having zero copies of both alleles in the tumour cells") and cBioPortal (−2 = "deep loss, possibly a homozygous deletion"; −1 = "shallow loss, possibly a heterozygous deletion") confirmed via search snippets. Fix F1: the CN-0 predicate uses the unbounded CNVkit call shared with `CallCopyNumber`; a huge/+∞ log2 (CN ≥ 4) is not homozygous and never throws. Fix F2: `DetectHomozygousDeletions` validates thresholds/ploidy eagerly.

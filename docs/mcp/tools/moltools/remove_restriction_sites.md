@@ -14,7 +14,7 @@ Synonymously eliminate restriction sites from a coding sequence.
 
 ## Description
 
-Rewrites codons to remove the listed restriction recognition sequences while preserving the encoded protein (only synonymous swaps are used). Site strings may be DNA or RNA (converted to RNA internally); the output is RNA-alphabet. Sites for which no synonymous alternative eliminates the match are left in place.
+Rewrites codons to remove the listed restriction recognition sequences while preserving the encoded protein (only synonymous swaps are used). Site strings may be DNA or RNA and may contain IUPAC ambiguity codes; **both strands** are cleared (a non-palindromic site such as BsaI `GGTCTC` is also removed where its reverse complement `GAGACC` occurs). Each removed occurrence changes exactly one codon — the synonymous substitution with the highest usage frequency in the supplied table. The output is RNA-alphabet, trimmed to whole codons. Sites for which no synonymous alternative eliminates the match are left in place.
 
 ## Core Documentation Reference
 
@@ -45,7 +45,7 @@ Rewrites codons to remove the listed restriction recognition sequences while pre
 
 ### Example 1: Remove EcoRI
 
-`GAATTC` (Glu-Phe) with site `GAATTC` → e.g. `GAGUUC` (same protein, no `GAAUUC`).
+`GAATTC` (Glu-Phe) with site `GAATTC` → `GAAUUU` (UUC→UUU, the highest-frequency E. coli substitution; same protein, no `GAAUUC`).
 
 ### Example 2: No site present → sequence returned unchanged (as RNA).
 

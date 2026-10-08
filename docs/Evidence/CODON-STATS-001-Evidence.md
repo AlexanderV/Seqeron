@@ -75,6 +75,15 @@
 
 1. **GC fields (verbatim labels):** "#Coding GC" (overall), "#1st letter GC" (codon position 1), "#2nd letter GC" (position 2), "#3rd letter GC" (position 3).
 2. **Fraction field:** "the proportion of usage of the codon among its redundant set" (used to confirm RSCU-style per-amino-acid normalization).
+3. **Source code (review 2026-09, EMBOSS 6.6 `ajcod.c`, opened locally):** `ajCodSetTripletsS` skips triplets that are not A/C/G/T(U) without shifting the frame and decrements the codon count; `ajCodWrite` sums G/C per position over all 64 codons (`AJCODSTART` = 64, i.e. **termination codons included**) and divides by `CodonCount`. "Coding GC" = mean of the three positions.
+
+### CodonW 1.4.4 source + binary (review 2026-09)
+
+**Opened:** `codon_us.c` (`gc_out`, `how_synon`, `base_sil_us_out`) and `README_indices.txt` of CodonW 1.4.4, compiled locally; Peden 1999 thesis PDF text-extracted (§1.8.2.1.3, verbatim quote above).
+
+1. `how_synon`: a codon's degeneracy is the number of codons encoding the same amino acid **in the selected genetic code** (`-code`); `gc_out` skips stop codons (`ca == 11`) and codons with degeneracy 1 when accumulating GC3s/L_sym. So GC3s is genetic-code dependent (NCBI 2: Met = {ATA, ATG} and Trp = {TGA, TGG} are synonymous; AGA/AGG are stops).
+2. CodonW's `GC` and GC1/GC2/GC3 (`-base`) exclude stop codons (denominator L_aa); EMBOSS cusp includes them. Seqeron's Gc1/Gc2/Gc3/OverallGc follow cusp (identical to CodonW for stop-free genes).
+3. Cross-check (review 2026-09): 708 genes (random DNA/RNA/lower-case/N/R/Y, codon-sampled, few-codon) × 8 CodonW codes (NCBI 1,2,3,4,5,6,9,10) = 5664 comparisons — a Python port of `gc_out` equals CodonW's GC3s/GC/L_sym/L_aa/GC1-3 (3 dp) on every gene with output, and C# `GetStatistics(…, GeneticCode)` equals the port (GC3s) and the cusp formula (TotalCodons, GC1-3, OverallGc) to 1e-9 — 0 mismatches. Biopython 1.88 `GC123` equals (OverallGc, Gc1, Gc2, Gc3) on all 450 clean ACGT whole-codon genes.
 
 ### Biopython `SharpEcoliIndex` (reference implementation of Sharp & Li 1987 w values)
 
@@ -115,7 +124,7 @@
 ### From seqinr / CodonW
 
 1. **Single-codon amino acids and stop codons:** excluded from CAI (and from GC3s). A sequence containing only Met/Trp/stop codons has no scorable codons → CAI is undefined (this implementation returns 0).
-2. **Zero-frequency codons:** seqinr/EMBOSS substitute a small value (0.01, Bulmer 1988) to avoid `ln(0)`. This implementation instead skips codons whose relative adaptiveness is 0 (so an entirely-zero gene yields CAI 0). Documented as a deviation in the algorithm doc.
+2. **Zero-frequency codons:** seqinr/EMBOSS substitute a small value (0.01, Bulmer 1988) to avoid `ln(0)`. *(Resolved 2026-09, CODON-CAI-001 F13: the implementation now does the same — w < 0.0001 → 0.01, CodonW `cai_out` — instead of skipping such codons.)*
 
 ### From Peden thesis
 
@@ -171,7 +180,7 @@
 ## Assumptions
 
 1. **ASSUMPTION: GC3s reported as a percentage.** CodonW reports GC3s as a fraction in [0,1]; this implementation reports it as a percentage (×100) for consistency with the existing GC1/GC2/GC3 fields (which follow EMBOSS cusp percentage style). Non-correctness-affecting unit/labeling choice; documented in the algorithm doc. The synonymous-codon *subset* used in the numerator/denominator is exactly per Peden.
-2. **ASSUMPTION: zero-w codons are skipped rather than floored to 0.01.** Sharp & Li / Bulmer floor missing codons to 0.01; this implementation skips codons whose relative adaptiveness is 0. For the supplied reference tables no synonymous codon has w=0, so CAI on real CDS is unaffected; only a gene using a codon entirely absent from the reference differs. Documented as a deviation.
+2. **~~ASSUMPTION~~ (resolved 2026-09, CODON-CAI-001 F13 — now floored to 0.01 as CodonW): zero-w codons were skipped rather than floored to 0.01.** Sharp & Li / Bulmer floor missing codons to 0.01; this implementation skips codons whose relative adaptiveness is 0. For the supplied reference tables no synonymous codon has w=0, so CAI on real CDS is unaffected; only a gene using a codon entirely absent from the reference differs. Documented as a deviation.
 
 ---
 
@@ -206,3 +215,4 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation (CODON-STATS-001).
+- **2026-09-28**: Review 2026-09 (CODON-STATS-001 F18): CodonW/EMBOSS source opened; GC3s is genetic-code dependent (`GetStatistics(…, GeneticCode)`); cusp stop-inclusion recorded; CodonW/Biopython cross-check added.

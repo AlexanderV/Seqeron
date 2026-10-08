@@ -238,6 +238,60 @@ public class OncologyAnalyzer_DetectFocalAmplifications_Tests
             "A segment with End <= Start must throw ArgumentException.");
     }
 
+    // C5 — thresholds outside the GISTIC2 reference-implementation ranges are rejected.
+    // Source: GISTIC2 source/gp_gistic2_from_seg.m — numeric_arg(a,'ta',0.1,[0,Inf]),
+    // numeric_arg(a,'brlen',0.98,[0 2]); non-numeric (NaN) values throw 'snp:badarg:nonnumeric'.
+    [TestCase(-0.1, 0.98, TestName = "DetectFocalAmplifications_NegativeTamp_Throws")]
+    [TestCase(double.NaN, 0.98, TestName = "DetectFocalAmplifications_NaNTamp_Throws")]
+    [TestCase(0.1, double.NaN, TestName = "DetectFocalAmplifications_NaNBroadLenCutoff_Throws")]
+    [TestCase(0.1, -0.01, TestName = "DetectFocalAmplifications_NegativeBroadLenCutoff_Throws")]
+    [TestCase(0.1, 2.01, TestName = "DetectFocalAmplifications_BroadLenCutoffAbove2_Throws")]
+    public void DetectFocalAmplifications_ThresholdsOutsideGistic2Range_Throw(double tAmp, double cutoff)
+    {
+        var thresholds = new Thresholds(tAmp, cutoff);
+        var segments = new[] { Seg("17q", 0, 100_000, 1.0) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.DetectFocalAmplifications(segments, thresholds),
+                "Thresholds outside GISTIC2 ranges (t_amp in [0,Inf], broad_len_cutoff in [0,2]) must be rejected.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.IsFocalAmplification(segments[0], thresholds),
+                "The single-segment predicate must reject the same out-of-range thresholds.");
+            // Validation happens even for empty input (no silent acceptance of a bad parameter).
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.DetectFocalAmplifications(Array.Empty<Segment>(), thresholds),
+                "Out-of-range thresholds must be rejected even when there are no segments.");
+        });
+    }
+
+    // C5b — range endpoints are allowed: t_amp = 0 (any positive gain amplified), broad_len_cutoff = 2
+    // (upper bound of GISTIC2 -brlen). A 0.99-of-arm log2 0.05 segment is then a focal amplification.
+    // Source: GISTIC2 gp_gistic2_from_seg.m ranges [0,Inf] and [0 2] are inclusive (val < lo || val > hi rejects).
+    [Test]
+    public void DetectFocalAmplifications_Gistic2RangeEndpoints_Accepted()
+    {
+        var thresholds = new Thresholds(0.0, 2.0);
+        var segments = new[] { Seg("8q", 0, 990_000, 0.05) };
+
+        var result = OncologyAnalyzer.DetectFocalAmplifications(segments, thresholds);
+
+        Assert.That(result, Has.Count.EqualTo(1),
+            "With t_amp=0 and broad_len_cutoff=2, log2 0.05 > 0 and 0.99 < 2, so the segment is reported.");
+    }
+
+    // C6 — a NaN log2 ratio is a no-call: NaN is not "above" t_amp, so the segment is not amplified.
+    // Source: GISTIC2 amplitude test (value compared against t_amp; NaN comparisons are false).
+    [Test]
+    public void DetectFocalAmplifications_NaNLog2_NotReported()
+    {
+        var segments = new[] { Seg("17q", 0, 100_000, double.NaN) };
+
+        Assert.That(OncologyAnalyzer.DetectFocalAmplifications(segments), Is.Empty,
+            "A NaN (no-call) log2 ratio is not above t_amp, so the segment must not be reported.");
+    }
+
     #endregion
 
     #region IdentifyAmplifiedOncogenes
@@ -312,6 +366,22 @@ public class OncologyAnalyzer_DetectFocalAmplifications_Tests
         var genes = OncologyAnalyzer.IdentifyAmplifiedOncogenes(new[] { Seg("5q", 0, 100_000, 1.0) });
 
         Assert.That(genes, Is.Empty, "An amplification on 5q maps to no panel oncogene.");
+    }
+
+    // INV-4 — several amplifications on the same/mixed-case arms report each gene once, in panel order.
+    // Source: NCBI Gene loci (ERBB2 17q12, CCND1 11q13.3); arm labels matched case-insensitively.
+    [Test]
+    public void IdentifyAmplifiedOncogenes_DuplicateAndMixedCaseArms_DistinctInPanelOrder()
+    {
+        var genes = OncologyAnalyzer.IdentifyAmplifiedOncogenes(new[]
+        {
+            Seg("11q", 0, 100_000, 1.0),
+            Seg("17Q", 0, 100_000, 1.0),
+            Seg("17q", 200_000, 300_000, 2.0),
+        });
+
+        Assert.That(genes, Is.EqualTo(new[] { "ERBB2", "CCND1" }),
+            "ERBB2 (17q) and CCND1 (11q) must each be reported once, in panel order (ERBB2 before CCND1).");
     }
 
     // C3 — null amplifications ⇒ ArgumentNullException.

@@ -15,13 +15,13 @@ description: >-
   Triggers: "annotate this
   sequence", "find ORFs / genes / promoters", "call variants", "what motifs are
   in…", "classify this variant", "predict the effect", "mask low-complexity",
-  "find repeats", "k-mer profile". Servers: annotation + analysis (~188 tools).
+  "find repeats", "k-mer profile". Servers: annotation + analysis (~210 tools).
 allowed-tools: Read, Bash, Grep, Glob
 ---
 
 # bio-annotation — structural annotation, variants, motifs, repeats, k-mers
 
-Routing + orchestration skill for the **Annotation** (97 tools) and **Analysis** (91 tools) servers.
+Routing + orchestration skill for the **Annotation** (97 tools) and **Analysis** (113 tools) servers.
 It picks the right tool for an annotation/characterization question and gives a **dual-mode** recipe
 (MCP tool calls **and** the equivalent `Seqeron.Genomics` C# `Method ID`s).
 
@@ -36,7 +36,7 @@ It picks the right tool for an annotation/characterization question and gives a 
 
 ## Decision guide — question → workflow family → entry tool(s)
 
-With ~188 tools, route by **family** first, then open the family table in
+With ~210 tools, route by **family** first, then open the family table in
 [`reference/tool-map.md`](reference/tool-map.md) for the full per-tool list.
 
 | If the task is about… | Family | Key entry tool(s) ([MCP] / `Method ID`) |
@@ -44,7 +44,7 @@ With ~188 tools, route by **family** first, then open the family table in
 | ORFs, genes, promoters, RBS, coding potential, GFF3 | **Structural annotation** | `find_orfs`/`GenomeAnnotator.FindOrfs` · `predict_genes`/`GenomeAnnotator.PredictGenes` · `find_promoter_motifs`/`GenomeAnnotator.FindPromoterMotifs` |
 | SNP/indel calling, effect, classification, pathogenicity, Ti/Tv, VCF | **Variant calling + annotation** | `call_variants`/`VariantCaller.CallVariants` · `annotate_variants`/`VariantCaller.AnnotateVariants` · `classify_variant`/`VariantAnnotator.ClassifyVariant` · `predict_pathogenicity`/`VariantAnnotator.PredictPathogenicity` |
 | SVs, CNVs, breakpoints, discordant/split reads | → **seqeron-structural-variants** | see [../seqeron-structural-variants/SKILL.md](../seqeron-structural-variants/SKILL.md) |
-| Motif discovery / exact / degenerate / PROSITE / PWM scan | **Motif discovery & scan** | `discover_motifs`/`MotifFinder.DiscoverMotifs` · `find_exact_motif`/`MotifFinder.FindExactMotif` · `create_pwm`+`scan_with_pwm`/`MotifFinder.CreatePwm`+`ScanWithPwm` |
+| Motif discovery / exact / degenerate / PROSITE / PWM scan | **Motif discovery & scan** | `discover_motifs`/`MotifFinder.DiscoverMotifs` · `find_exact_motif`/`MotifFinder.FindExactMotif` · `create_pwm`+`scan_with_pwm`/`MotifFinder.CreatePwm`+`ScanWithPwm` · protein/any alphabet: `create_alphabet_pwm`+`scan_with_alphabet_pwm` |
 | Tandem/inverted/direct repeats, microsatellites, palindromes | **Repeat analysis** | `find_tandem_repeats`/`GenomicAnalyzer.FindTandemRepeats` · `find_microsatellites`/`RepeatFinder.FindMicrosatellites` · `find_inverted_repeats`/`RepeatFinder.FindInvertedRepeats` |
 | Low-complexity regions, DUST/SEG, masking, entropy | **Complexity / masking** | `find_low_complexity_regions`/`SequenceComplexity.FindLowComplexityRegions` · `mask_low_complexity`/`SequenceComplexity.MaskLowComplexity` · `dust_score`/`SequenceComplexity.CalculateDustScore` |
 | k-mer counts/frequencies/spectrum/positions/distance | **k-mer & composition** | `count_kmers`/`KmerAnalyzer.CountKmers` · `most_frequent_kmers`/`KmerAnalyzer.FindMostFrequentKmers` · `kmer_distance`/`KmerAnalyzer.KmerDistance` · `analyze_gc_content`/`GcSkewCalculator.AnalyzeGcContent` |
@@ -72,7 +72,7 @@ says otherwise (`call_variants` `position` is 0-based; `predict_variant_effect` 
 ### (a) Structural annotation: sequence → ORFs → genes → promoters/RBS → GFF3
 1. **[MCP]** `find_orfs`(dnaSequence, minLength=100, searchBothStrands=true) → `orfs[{start,end,frame,isReverseComplement,proteinSequence}]` (0-based, `end` incl. stop).
 2. **[MCP]** `predict_genes`(dnaSequence, …) → ORF-based gene models.
-3. **[MCP]** `find_promoter_motifs`(dnaSequence) → −10/−35 boxes; `find_ribosome_binding_sites`(dnaSequence) → Shine–Dalgarno.
+3. **[MCP]** `find_promoter_motifs`(dnaSequence) → −10/−35 boxes; `find_ribosome_binding_sites`(dnaSequence) → Shine–Dalgarno. Paired σ70 promoters: `find_sigma70_promoters`(sequence) → −35/−10 pairs over a 15–21 bp spacer; `predict_sigma70_promoters`(sequence) → per-TSS ΔG + transcription rate (Promoter Calculator v1.0).
 4. **[MCP]** `to_gff3`(genes) → GFF3 lines for downstream tools.
 - **[C# API]** `GenomeAnnotator.FindOrfs` → `GenomeAnnotator.PredictGenes` → `GenomeAnnotator.FindPromoterMotifs` / `FindRibosomeBindingSites` → `GenomeAnnotator.ToGff3`.
 - **Cross-check:** `longest_orfs_per_frame`/`GenomeAnnotator.FindLongestOrfsPerFrame` should agree with the longest ORF per frame from step 1; `coding_potential`/`GenomeAnnotator.CalculateCodingPotential` corroborates that a called ORF is coding.
@@ -149,7 +149,7 @@ Caveat: alpha software; not for clinical use — independently validate before a
 
 - **Full domain tool index (all ~188, generated — do NOT hand-edit):** [`_generated/tools.md`](_generated/tools.md)
   (produced by `scripts/skills/gen-catalog.py`; if absent, use `seqeron-discovery`).
-- **Tool map (~188 tools by family, one-liners + Method ID):** [`reference/tool-map.md`](reference/tool-map.md)
+- **Tool map (~210 tools by family, one-liners + Method ID):** [`reference/tool-map.md`](reference/tool-map.md)
 - **Fuller recipes + parameter/coordinate guidance + envelope STOP rules:** [`reference/pipelines.md`](reference/pipelines.md)
 - **Algorithm background (invariants/formulas — link, don't copy):**
   [`docs/algorithms/Annotation/`](../../../docs/algorithms/Annotation/) ·

@@ -206,6 +206,151 @@ public class AlignmentTools
         return new ApproximateMatchListResult(items.ToArray());
     }
 
+    [McpServerTool(Name = "find_edit_end_positions", Title = "Approximate — Edit End Positions (Sellers)", ReadOnly = true)]
+    [Description("Sellers (1980) k-differences search: reports every 0-based end position j in sequence at which some substring ending at j is within maxEdits Levenshtein edits of pattern, with that minimum distance (case-insensitive; Myers bit-parallel engine). Ordered by increasing end position. Optional insertionCost/deletionCost/substitutionCost (default 1) switch to the weighted Sellers DP (pattern = s1, text window = s2, rapidfuzz weights convention); maxEdits is then the maximum weighted cost.")]
+    public static EditEndPositionsResult FindEditEndPositions(
+        [Description("Sequence to search in.")] string sequence,
+        [Description("Pattern to find.")] string pattern,
+        [Description("Maximum allowed edit distance (>= 0); the maximum weighted cost when costs are given.")] int maxEdits,
+        [Description("Cost of a text character absent from the pattern (insertion into the pattern, >= 0; default 1).")] int insertionCost = 1,
+        [Description("Cost of a pattern character absent from the text (deletion from the pattern, >= 0; default 1).")] int deletionCost = 1,
+        [Description("Cost of a substitution (>= 0; default 1).")] int substitutionCost = 1)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (string.IsNullOrEmpty(pattern))
+            throw new ArgumentException("Pattern cannot be null or empty.", nameof(pattern));
+        if (maxEdits < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxEdits), "maxEdits must be >= 0.");
+
+        var costs = ToEditCosts(insertionCost, deletionCost, substitutionCost);
+        var positions = costs == global::Seqeron.Genomics.Alignment.EditCosts.Unit
+            ? global::Seqeron.Genomics.Alignment.ApproximateMatcher.FindEditEndPositions(sequence, pattern, maxEdits)
+            : global::Seqeron.Genomics.Alignment.ApproximateMatcher.FindEditEndPositions(sequence, pattern, maxEdits, costs);
+        var items = positions
+            .Select(e => new EditEndPositionItem(e.EndPosition, e.Distance))
+            .ToArray();
+        return new EditEndPositionsResult(items);
+    }
+
+    [McpServerTool(Name = "edit_alignment", Title = "Approximate — Edit (Levenshtein) Alignment", ReadOnly = true)]
+    [Description("Optimal global unit-cost (Levenshtein) alignment of query against target in edlib's convention: operations '=' match, 'X' mismatch, 'I' query character absent from the target, 'D' target character absent from the query; returns the distance, extended and standard CIGAR, gapped strings and substitution positions. Case-sensitive. linearSpace=true uses Hirschberg's O(m+n)-space algorithm (same distance, possibly a different co-optimal path). Optional insertionCost/deletionCost/substitutionCost (default 1) give a weighted alignment with rapidfuzz Levenshtein weights semantics (query = s1, target = s2: 'D' costs insertionCost, 'I' deletionCost, 'X' substitutionCost); distance is then the weighted cost.")]
+    public static EditAlignmentDto EditAlignment(
+        [Description("Query sequence (alignment rows).")] string query,
+        [Description("Target sequence (alignment columns).")] string target,
+        [Description("Use Hirschberg's linear-space algorithm instead of the full-matrix diagonal-first traceback (default false).")] bool linearSpace = false,
+        [Description("Cost of inserting a target character, i.e. a 'D' column (>= 0; default 1).")] int insertionCost = 1,
+        [Description("Cost of deleting a query character, i.e. an 'I' column (>= 0; default 1).")] int deletionCost = 1,
+        [Description("Cost of a substitution, i.e. an 'X' column (>= 0; default 1).")] int substitutionCost = 1)
+    {
+        if (string.IsNullOrEmpty(query))
+            throw new ArgumentException("Query cannot be null or empty.", nameof(query));
+        if (string.IsNullOrEmpty(target))
+            throw new ArgumentException("Target cannot be null or empty.", nameof(target));
+
+        var costs = ToEditCosts(insertionCost, deletionCost, substitutionCost);
+        bool unit = costs == global::Seqeron.Genomics.Alignment.EditCosts.Unit;
+        var a = (linearSpace, unit) switch
+        {
+            (true, true) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignmentLinearSpace(query, target),
+            (false, true) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignment(query, target),
+            (true, false) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignmentLinearSpace(query, target, costs),
+            (false, false) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetEditAlignment(query, target, costs),
+        };
+        return new EditAlignmentDto(
+            a.Distance, a.Operations, a.Cigar, a.StandardCigar,
+            a.AlignedQuery, a.AlignedTarget, a.SubstitutionPositions.ToArray(), a.HasIndels);
+    }
+
+    private static global::Seqeron.Genomics.Alignment.EditCosts ToEditCosts(int insertionCost, int deletionCost, int substitutionCost)
+    {
+        if (insertionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(insertionCost), "insertionCost must be >= 0.");
+        if (deletionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(deletionCost), "deletionCost must be >= 0.");
+        if (substitutionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(substitutionCost), "substitutionCost must be >= 0.");
+        return new global::Seqeron.Genomics.Alignment.EditCosts(insertionCost, deletionCost, substitutionCost);
+    }
+
+    [McpServerTool(Name = "damerau_levenshtein_distance", Title = "Approximate — Damerau–Levenshtein Distance", ReadOnly = true)]
+    [Description("Edit distance with adjacent transpositions. variant 'unrestricted' (default) is the true Damerau–Levenshtein metric (Lowrance & Wagner 1975; DL(CA,ABC)=2); 'osa' is the optimal string alignment (restricted) distance where no substring is edited twice (OSA(CA,ABC)=3). Case-sensitive. Optional insertionCost/deletionCost/substitutionCost/transpositionCost (default 1) give the weighted distance (sequence1 = s1 transformed into sequence2: insertion adds a sequence2 character, deletion removes a sequence1 character); 'unrestricted' requires 2*transpositionCost >= insertionCost + deletionCost (Lowrance-Wagner exactness condition).")]
+    public static DamerauDistanceResult DamerauLevenshteinDistance(
+        [Description("First sequence.")] string sequence1,
+        [Description("Second sequence.")] string sequence2,
+        [Description("'unrestricted' (true Damerau–Levenshtein, default) or 'osa' (optimal string alignment).")] string variant = "unrestricted",
+        [Description("Cost of inserting a sequence2 character (>= 0; default 1).")] int insertionCost = 1,
+        [Description("Cost of deleting a sequence1 character (>= 0; default 1).")] int deletionCost = 1,
+        [Description("Cost of a substitution (>= 0; default 1).")] int substitutionCost = 1,
+        [Description("Cost of swapping two adjacent characters (>= 0; default 1; 'unrestricted' needs 2*transpositionCost >= insertionCost + deletionCost).")] int transpositionCost = 1)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+
+        string v = ParseDamerauVariant(variant);
+        var costs = ToDamerauCosts(insertionCost, deletionCost, substitutionCost, transpositionCost, v);
+        bool unit = costs == global::Seqeron.Genomics.Alignment.DamerauCosts.Unit;
+        int distance = (v, unit) switch
+        {
+            ("unrestricted", true) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.DamerauLevenshteinDistance(sequence1, sequence2),
+            ("unrestricted", false) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.DamerauLevenshteinDistance(sequence1, sequence2, costs),
+            (_, true) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.OptimalStringAlignmentDistance(sequence1, sequence2),
+            (_, false) => global::Seqeron.Genomics.Alignment.ApproximateMatcher.OptimalStringAlignmentDistance(sequence1, sequence2, costs),
+        };
+        return new DamerauDistanceResult(distance, v);
+    }
+
+    [McpServerTool(Name = "damerau_alignment", Title = "Approximate — Damerau–Levenshtein Alignment (Edit Script)", ReadOnly = true)]
+    [Description("Optimal transposition-aware edit script turning sequence1 into sequence2 (Lowrance & Wagner 1975 trace). variant 'unrestricted' (default, true Damerau–Levenshtein: a transposition block a_k..a_i -> b_l..b_j deletes the characters between the swapped pair and inserts b_(l+1..j-1) between them) or 'osa' (adjacent swaps only). Returns the distance (summed cost), a compact script ('=' match, 'X' substitution, 'I' sequence1 character deleted, 'D' sequence2 character inserted, 'T' transposition followed by one 'i' per character deleted and one 'd' per character inserted inside the block) and the operations with 0-based positions and costs. Optional weighted costs as in damerau_levenshtein_distance. Case-sensitive. O(m*n) time and space.")]
+    public static DamerauAlignmentDto DamerauAlignment(
+        [Description("Source sequence (s1).")] string sequence1,
+        [Description("Target sequence (s2).")] string sequence2,
+        [Description("'unrestricted' (true Damerau–Levenshtein, default) or 'osa' (optimal string alignment).")] string variant = "unrestricted",
+        [Description("Cost of inserting a sequence2 character (>= 0; default 1).")] int insertionCost = 1,
+        [Description("Cost of deleting a sequence1 character (>= 0; default 1).")] int deletionCost = 1,
+        [Description("Cost of a substitution (>= 0; default 1).")] int substitutionCost = 1,
+        [Description("Cost of swapping two adjacent characters (>= 0; default 1; 'unrestricted' needs 2*transpositionCost >= insertionCost + deletionCost).")] int transpositionCost = 1)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+
+        string v = ParseDamerauVariant(variant);
+        var costs = ToDamerauCosts(insertionCost, deletionCost, substitutionCost, transpositionCost, v);
+        var a = v == "unrestricted"
+            ? global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetDamerauLevenshteinAlignment(sequence1, sequence2, costs)
+            : global::Seqeron.Genomics.Alignment.ApproximateMatcher.GetOptimalStringAlignment(sequence1, sequence2, costs);
+        var ops = a.Operations
+            .Select(o => new DamerauOperationDto(
+                o.Kind.ToString().ToLowerInvariant(), o.SourcePosition, o.SourceLength, o.TargetPosition, o.TargetLength, o.Cost))
+            .ToArray();
+        return new DamerauAlignmentDto(a.Distance, v, a.Script, a.TranspositionCount, ops);
+    }
+
+    private static string ParseDamerauVariant(string variant)
+    {
+        string v = (variant ?? string.Empty).Trim().ToLowerInvariant();
+        if (v != "unrestricted" && v != "osa")
+            throw new ArgumentException("Variant must be 'unrestricted' or 'osa'.", nameof(variant));
+        return v;
+    }
+
+    private static global::Seqeron.Genomics.Alignment.DamerauCosts ToDamerauCosts(
+        int insertionCost, int deletionCost, int substitutionCost, int transpositionCost, string variant)
+    {
+        var edit = ToEditCosts(insertionCost, deletionCost, substitutionCost);
+        if (transpositionCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(transpositionCost), "transpositionCost must be >= 0.");
+        if (variant == "unrestricted" && 2L * transpositionCost < (long)insertionCost + deletionCost)
+            throw new ArgumentException(
+                "variant 'unrestricted' requires 2*transpositionCost >= insertionCost + deletionCost (Lowrance & Wagner 1975); use variant 'osa'.",
+                nameof(transpositionCost));
+        return new global::Seqeron.Genomics.Alignment.DamerauCosts(edit, transpositionCost);
+    }
+
     [McpServerTool(Name = "find_best_match", Title = "Approximate — Find Best (Minimum Hamming)", ReadOnly = true)]
     [Description("Returns the single best (minimum-Hamming-distance) fixed-length window of pattern inside sequence. Stops early on perfect (distance=0) match.")]
     public static FindBestMatchResult FindBestMatch(
@@ -245,6 +390,29 @@ public class AlignmentTools
             items.Add(new FrequentKmerItem(t.Kmer, t.Count));
         }
         return new FrequentKmersResult(items.ToArray());
+    }
+
+    [McpServerTool(Name = "frequent_kmers_with_mismatches_and_revcomp", Title = "K-mers — Frequent with Mismatches + Reverse Complements", ReadOnly = true)]
+    [Description("Frequent words with mismatches and reverse complements (ROSALIND BA1J): all DNA k-mers P maximising Count_d(sequence, P) + Count_d(sequence, reverseComplement(P)), ties included; the set is closed under reverse complement. Items sorted by k-mer (ordinal).")]
+    public static FrequentKmersResult FrequentKmersWithMismatchesAndRevcomp(
+        [Description("Sequence to analyze.")] string sequence,
+        [Description("K-mer length (> 0).")] int k,
+        [Description("Maximum mismatches in neighborhood (>= 0).")] int d)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "k must be > 0.");
+        if (d < 0)
+            throw new ArgumentOutOfRangeException(nameof(d), "d must be >= 0.");
+
+        // The library leaves the order unspecified; sort for a deterministic tool output.
+        var items = global::Seqeron.Genomics.Alignment.ApproximateMatcher
+            .FindFrequentKmersWithMismatchesAndReverseComplements(sequence, k, d)
+            .OrderBy(t => t.Kmer, StringComparer.Ordinal)
+            .Select(t => new FrequentKmerItem(t.Kmer, t.Count))
+            .ToArray();
+        return new FrequentKmersResult(items);
     }
 
     #endregion

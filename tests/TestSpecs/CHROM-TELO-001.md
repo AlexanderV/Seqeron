@@ -58,7 +58,12 @@
 |----|-----------|-------------|--------|
 | S1 | CustomRepeat_Detected | Non-default repeat (e.g., TTTAGGG) works | Species variation |
 | S2 | CaseInsensitive_Works | Lowercase sequence handled correctly | Robustness |
-| S3 | DivergentRepeats_LowerPurity | Imperfect repeats reduce purity score | Algorithm behavior |
+| S3 | DivergentRepeats_LowerPurity | Every-10th-unit TTAGGA over 200 units → length 1194, purity 1075/1189 | seqtk telo |
+| S6 | NonMotifHexamerTract_NotDetected | TTAGGA×200 → no tract | seqtk telo |
+| S7 | TerminalPartialRepeat_MatchesSeqtkTelo | Tract ending in partial unit: 3' 1204, 5' 1202 (F1 regression) | seqtk telo |
+| S8 | AmbiguousBaseInsideTract_MatchesSeqtkTelo | N inside tract → 1201, purity 1190/1196 | seqtk telo |
+| S9 | SingleUnit_SeqtkScoringOffsets | 1 unit: 3' → 6, 5' → 0; 2 units 5' → 12 | seqtk telo |
+| S10 | InvalidMotif_Throws | Empty / non-ACGT motif → ArgumentException | seqtk asserts ACGT motif |
 | S4 | LongTelomere_FullyMeasured | Very long telomere (>10kb) measured correctly | Boundary |
 | S5 | SearchLength_Limits | Only searches within searchLength from ends | API contract |
 
@@ -126,6 +131,8 @@ Empty: ""
 ---
 
 ## Deviations and Assumptions
+
+- **2026-09 review:** `AnalyzeTelomeres` now ports `seqtk telo` (H. Li, seqtk.c `stk_telo`); lengths are base-resolution (not multiples of the unit) and verified against the compiled seqtk on 66 sequences.
 
 None — implementation and tests verified against external sources:
 - **Telomere repeat (TTAGGG):** Wikipedia telomere sequences table; Meyne et al. (1989)

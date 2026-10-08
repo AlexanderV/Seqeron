@@ -88,8 +88,8 @@ public class AssemblyOlcFuzzTests
     /// documented contract, independent of how the layout chained the reads:
     ///   • every contig has length ≥ <paramref name="minContigLength"/> (the min-length
     ///     filter, §3.2);
-    ///   • every contig is composed only of characters that occur in the input reads
-    ///     (the assembler invents no symbols — it only concatenates read substrings);
+    ///   • every contig is composed only of read characters, their upper-case forms, or the
+    ///     consensus no-majority symbol 'N' (majority-vote consensus, 2026-09 review);
     ///   • the reported statistics are self-consistent: TotalReads = read count,
     ///     TotalLength = Σ |contig|, LongestContig = max |contig| (or 0 when empty),
     ///     and N50 lies within the contig length range (INV/§3.2).
@@ -101,10 +101,17 @@ public class AssemblyOlcFuzzTests
     {
         result.TotalReads.Should().Be(reads.Count, "TotalReads echoes the input read count (§3.2)");
 
-        var alphabet = new HashSet<char>();
+        // Multi-read contigs are a column-wise majority-vote consensus (Langmead OLC p.28;
+        // Biopython dumb_consensus rule via SequenceAssembler.ComputeConsensus): residues are
+        // compared/emitted upper-cased and a column without a strict majority emits 'N'.
+        // So the admissible alphabet is the read characters, their upper-case forms, and 'N'.
+        var alphabet = new HashSet<char> { 'N' };
         foreach (string read in reads)
             foreach (char c in read)
+            {
                 alphabet.Add(c);
+                alphabet.Add(char.ToUpperInvariant(c));
+            }
 
         foreach (string contig in result.Contigs)
         {
@@ -112,7 +119,7 @@ public class AssemblyOlcFuzzTests
                 "every emitted contig survives the MinContigLength filter (§3.2)");
             foreach (char c in contig)
                 alphabet.Should().Contain(c,
-                    "the assembler only concatenates read substrings; it invents no character");
+                    "a contig holds only read residues (upper-cased by consensus) or the 'N' no-majority symbol");
         }
 
         int sumLen = result.Contigs.Sum(c => c.Length);

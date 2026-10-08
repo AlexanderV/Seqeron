@@ -6,7 +6,7 @@
 | Test Unit ID | MOTIF-SHARED-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-29 |
 
 ## 1. Overview
 
@@ -80,6 +80,9 @@ oligonucleotide" [2]. Prevalence is reported as `|M(w)| / m`.
 ### 3.3 Preconditions and Validation
 
 `sequences` null → `ArgumentNullException`. `k < 1` or `minSequences < 1` → `ArgumentOutOfRangeException`.
+A null element → `ArgumentException` (param `sequences`), thrown when the result is enumerated.
+Results are yielded in order of each word's first occurrence (lowest sequence index, then lowest
+position); `SequenceIndices` is strictly ascending.
 Input is 0-based; `DnaSequence` normalizes to uppercase A/C/G/T. Empty collection → no results. A
 sequence shorter than k yields no words (no length-k window). Matching is exact and case-normalized.
 
@@ -89,7 +92,7 @@ sequence shorter than k yields no words (no length-k window). Matching is exact 
 
 1. Materialize the sequences; record total count `m`.
 2. For each sequence index `i`, slide a length-k window; collect the **distinct** words seen in `s_i`
-   (a per-sequence `HashSet`) so each word contributes 1 to that sequence.
+   (the keys of the canonical `SequenceExtensions.CountKmersSpan` dictionary) so each word contributes 1 to that sequence.
 3. For each distinct word seen in `s_i`, append `i` to the word's matching-sequence list.
 4. Emit every word whose matching-sequence list size ≥ `minSequences`, with its indices and prevalence.
 
@@ -102,7 +105,7 @@ sequence shorter than k yields no words (no length-k window). Matching is exact 
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| FindSharedMotifs | O(Σᵢ (nᵢ − k + 1) · k) | O(distinct words · k) | nᵢ = length of sequence i; per-sequence HashSet of length-k words |
+| FindSharedMotifs | O(Σᵢ (nᵢ − k + 1) · k) | O(distinct words · k) | nᵢ = length of sequence i; per-sequence `CountKmersSpan` dictionary of length-k words |
 
 ## 5. Implementation Notes
 
@@ -111,18 +114,25 @@ sequence shorter than k yields no words (no length-k window). Matching is exact 
 **Implementation location:** [MotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs)
 
 - `MotifFinder.FindSharedMotifs(IEnumerable<DnaSequence>, int, int)`: enumerates fixed-length words and reports those meeting the matching-sequence quorum.
+- `MotifFinder.FindSharedMotifs(IEnumerable<DnaSequence>, int k, int minSequences, OligoBackgroundModel, OligoStrandMode = Single)` → `SharedMotifAnalysisResult` ([MotifFinder.OligoAnalysis.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs)): the same quorum words with RSAT `oligo-analysis -return mseq,proba` statistics — exp_freq, exp_ms, `ms_P`, `ms_E`, `ms_sig` — under any `OligoBackgroundModel` (equiprobable, input Bernoulli, given Bernoulli, `-markov m`, `-bgfile` table, `-lexicon`) and `-1str`/`-2str` [5].
+- `MotifFinder.FindSharedMotifs(…, OligoStrandMode, double pseudoFrequency)`: the same with RSAT `-pseudo` — exp_freq ← (1 − ψ)·exp_freq + ψ/NPO per strand before the reverse-complement sum (`CalcExpected`); equals RSAT `-return mseq,proba -pseudo ψ` (40 random runs, all backgrounds, ≤ 4.7e-14); ψ = 0 is the plain overload.
 
 ### 5.2 Current Behavior
 
-Each sequence is scanned once with a per-sequence `HashSet<string>` so a word repeated within a
-sequence is counted once (matching-sequence semantics) [3]. Words are accumulated in a dictionary
-`word → list of sequence indices`; results are filtered by the quorum and yielded lazily.
+The distinct words of each sequence are the keys of the canonical overlapping k-mer counter
+`SequenceExtensions.CountKmersSpan` (no local window loop), so a word repeated within a sequence is
+counted once (matching-sequence semantics) [3]. Words are accumulated in a dictionary
+`word → ascending list of sequence indices`; results are filtered by the quorum and yielded lazily.
+This is exactly the RSAT `oligo-analysis` `mseq` count with `-1str -ovlp` (source
+`perl-scripts/oligo-analysis`: per sequence `$current_mseq{$pattern_seq} = 1`, then
+`$patterns{$pattern_seq}->{mseq} += 1` for every marked word) [3][5].
 
-**Suffix tree decision — not used.** The repository `SuffixTree` is a single-text generalized suffix
-tree; its `LongestCommonSubstring(other)` computes a *two-string* longest common substring, which
+**Suffix tree decision — not used.** The repository `SuffixTree` is a single-text suffix tree (no
+generalized multi-string tree / k-string LCS exists in `src/SuffixTree/**`, re-checked 2026-09); its
+`LongestCommonSubstring(other)` computes a *two-string* longest common substring, which
 solves neither the fixed-k enumeration nor the k-sequence matching-sequence count needed here. The
 required operation is "for every length-k word, in how many distinct sequences does it occur," which a
-linear per-sequence window scan with a HashSet computes directly in O(Σᵢ nᵢ · k); building one suffix
+linear per-sequence window scan (distinct keys of `CountKmersSpan`) computes directly in O(Σᵢ nᵢ · k); building one suffix
 tree per sequence would add construction overhead without changing the result. Therefore a direct
 scan is used; correctness is unchanged.
 
@@ -136,16 +146,28 @@ scan is used; correctness is unchanged.
 - Quorum reporting (≥ minSequences) [2].
 - Exact (non-degenerate) matching [2].
 
-**Intentionally simplified:**
+- Matching-sequence significance (`OligoBackgroundModel` overload; RSAT `CalcExpected`/`CalcProba`) [5]:
+  with S sequences (all of them — RSAT `sequence_number`), nb_pos = Σ (Lᵢ − k + 1) over sequences with Lᵢ ≥ k,
+  π = nb_pos / S and p = exp_freq: P₁ = 1 − (1 − p)^π, exp_ms = S·P₁,
+  `ms_P = P(X ≥ mseq)`, X ~ Binomial(S, P₁) (`binomial_boe`), `ms_E = ms_P × nb_possible_oligos`
+  (4^k; (4^k + 4^{k/2})/2 with `-2str`), `ms_sig = −log10 ms_E`. P₁ is evaluated as −expm1(π·log1p(−p))
+  (mathematically identical, no cancellation for tiny p).
+- Both strands (`-2str`): a sequence matches W|W' if it contains W or W' (RSAT `current_mseq` with `SmartRC`);
+  exp_freq(W|W') = exp_freq(W) + exp_freq(W') (documented formula; see the discovery doc §5.3 for the RSAT code
+  deviation with strand-asymmetric backgrounds).
+- Input-estimated backgrounds use every sequence of length ≥ k (RSAT skips shorter sequences when counting).
 
-- Statistical significance: van Helden / RSAT also rank words by an over-representation P-value against
-  a genome-wide background table [1]; **consequence:** this method reports the matching-sequence quorum
-  only, without the P-value ranking, so users get presence-based shared words, not significance-ranked ones.
+- Degenerate words (`FindSharedMotifs(…, pseudoFrequency, OligoDegeneracy)`, RSAT `-oneN` / `-onedeg` with
+  `-return mseq,proba`; MCP `shared_motifs_significance` `degenerate`): every word is replaced by the words with one
+  position replaced by N or by each IUPAC code containing its residue; mseq(D) = number of sequences containing a word
+  matching D (the union over its words — RSAT 1.169 sums per-word counts and can exceed S, see the discovery doc §5.5),
+  exp_freq(D) = Σ over the matching words, NPO = k·|codes|·4^(k−1) (`-2str`-reduced); checked against the repaired
+  RSAT oracle on 300 random runs (68,997 patterns, ≤ 1.3e-13).
 
-**Not implemented:**
-
-- Degenerate / substituted matching (e.g. dyad-analysis, spacer words); **users should rely on:**
-  `FindDegenerateMotif` for IUPAC-degenerate single-pattern search, or external RSAT for significance ranking.
+**Related RSAT analyses elsewhere:** spaced dyads (RSAT `dyad-analysis`) are `MotifFinder.AnalyzeDyads` / MCP
+`dyad_analysis`; occurrence significance with z-scores, calibrations, lexicon and degenerate occurrences is
+`MotifFinder.AnalyzeOligos` / MCP `oligo_analysis` (discovery doc §5.3–§5.5); a single IUPAC pattern is searched with
+`FindDegenerateMotif`.
 
 ### 5.4 Deviations and Assumptions (Optional)
 
@@ -169,9 +191,12 @@ scan is used; correctness is unchanged.
 
 ### 6.2 Limitations
 
-Exact words only — no mismatches, gaps, or degeneracy; no statistical significance / background model;
-fixed k (does not find variable-length shared substrings — see LCSM [4]); does not consider the
-reverse-complement strand.
+Fixed-length words with exact matching, or with one degenerate position in the `OligoDegeneracy` overload (no
+mismatches or gaps). Variable-length substrings shared by at least a given number of sequences are
+`SuffixTree.FindLongestCommonSubstrings(texts, minSupport)` (generalized suffix tree, k-common substrings; MCP
+`suffix_tree_k_common_substrings`; cf. LCSM [4]). The quorum-only overload is `-1str` without significance;
+significance, background models, `-2str`, `-pseudo` and degenerate words are in the `OligoBackgroundModel`
+overloads (§5.3).
 
 ## 7. Examples and Related Material (Optional)
 
@@ -185,9 +210,15 @@ var shared = MotifFinder.FindSharedMotifs(seqs, k: 3, minSequences: 2).ToList();
 // "GGG" only in seq2 -> excluded (matching sequences 1 < 2)
 ```
 
+**RSAT run (oligo-analysis 1.169)**, sequences `ACGTACGTTAGC`, `TTACGTAGCAAC`, `GGTAGCACGTTT`, `CATTTTACG`,
+k = 4, `-1str -return occ,mseq,proba -lth mseq 2` (input Bernoulli): nb_pos 33, S = 4; `ACGT` mseq 3,
+exp_freq 0.0037555250723974999, exp_ms 0.12225827585979898, ms_P 0.00011159466135309564, ms_E = ms_P × 256 =
+0.028568233306392483, ms_sig 1.5441166160753867. With `-2str`: `cgta|tacg` mseq 3 (sequences 0, 1, 3),
+ms_P 0.00087319490302470882, ms_E = ms_P × 136, ms_sig 0.9253498996301337.
+
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MotifFinder_FindSharedMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_FindSharedMotifs_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [MotifFinder_FindSharedMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_FindSharedMotifs_Tests.cs) — covers `INV-01`–`INV-05`; [MotifFinder_OligoAnalysis_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_OligoAnalysis_Tests.cs) — RSAT-run ms_P/ms_E/ms_sig (`-1str`, `-2str`, `-markov 1`, `-bg equi`)
 - Evidence: [MOTIF-SHARED-001-Evidence.md](../../../docs/Evidence/MOTIF-SHARED-001-Evidence.md)
 - Related algorithms: [Overrepresented_Kmer_Discovery](./Overrepresented_Kmer_Discovery.md)
 
@@ -197,3 +228,4 @@ var shared = MotifFinder.FindSharedMotifs(seqs, k: 3, minSequences: 2).ToList();
 2. Das MK, Dai HK. 2007. A survey of DNA motif finding algorithms. BMC Bioinformatics 8(Suppl 7):S21. https://pmc.ncbi.nlm.nih.gov/articles/PMC2099490/
 3. RSAT. oligo-analysis manual (Regulatory Sequence Analysis Tools). https://rsat.eead.csic.es/plants/help.oligo-analysis.html (accessed 2026-06-14)
 4. ROSALIND. Finding a Shared Motif (LCSM). https://rosalind.info/problems/lcsm/ (accessed 2026-06-14)
+5. RSAT source code, `perl-scripts/oligo-analysis` (matching-sequence counting). https://raw.githubusercontent.com/rsa-tools/rsat-code/master/perl-scripts/oligo-analysis (opened 2026-09-29); for the significance overload: git clone of rsa-tools/rsat-code master 10043f2, run with perl 5.38 — `oligo-analysis` `CalcExpected` (exp_ms, `pos_per_seq`), `CalcProba` (ms_P, ms_E, ms_sig), `lib/RSA.disco.lib` `NbPossibleOligos`, `lib/RSAT/stats.pm` `binomial_boe` (opened 2026-09-30).

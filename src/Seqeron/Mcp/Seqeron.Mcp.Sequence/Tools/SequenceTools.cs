@@ -23,26 +23,11 @@ public class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var isValid = global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out _);
-
-        if (isValid)
-        {
-            return new DnaValidateResult(true, sequence.Length, null);
-        }
-        else
-        {
-            // Find the invalid character for error message
-            var upperSeq = sequence.ToUpperInvariant();
-            for (int i = 0; i < upperSeq.Length; i++)
-            {
-                char c = upperSeq[i];
-                if (c != 'A' && c != 'C' && c != 'G' && c != 'T')
-                {
-                    return new DnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[i]}' at position {i}");
-                }
-            }
-            return new DnaValidateResult(false, sequence.Length, "Invalid sequence");
-        }
+        // Delegates to the canonical SEQ-VALID-001 predicate (same check as DnaSequence construction).
+        int invalidAt = global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidDna(sequence.AsSpan());
+        return invalidAt < 0
+            ? new DnaValidateResult(true, sequence.Length, null)
+            : new DnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[invalidAt]}' at position {invalidAt}");
     }
 
     /// <summary>
@@ -75,26 +60,11 @@ public class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var isValid = global::Seqeron.Genomics.Core.RnaSequence.TryCreate(sequence, out _);
-
-        if (isValid)
-        {
-            return new RnaValidateResult(true, sequence.Length, null);
-        }
-        else
-        {
-            // Find the invalid character for error message
-            var upperSeq = sequence.ToUpperInvariant();
-            for (int i = 0; i < upperSeq.Length; i++)
-            {
-                char c = upperSeq[i];
-                if (c != 'A' && c != 'C' && c != 'G' && c != 'U')
-                {
-                    return new RnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[i]}' at position {i}");
-                }
-            }
-            return new RnaValidateResult(false, sequence.Length, "Invalid sequence");
-        }
+        // Delegates to the canonical SEQ-VALID-001 predicate (same check as RnaSequence construction).
+        int invalidAt = global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidRna(sequence.AsSpan());
+        return invalidAt < 0
+            ? new RnaValidateResult(true, sequence.Length, null)
+            : new RnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[invalidAt]}' at position {invalidAt}");
     }
 
     /// <summary>
@@ -321,12 +291,15 @@ public class SequenceTools
     [Description("Calculate linguistic complexity of a sequence based on k-mer diversity. Values range from 0 to 1.")]
     public static LinguisticComplexityResult LinguisticComplexity(
         [Description("The sequence to analyze")] string sequence,
-        [Description("Maximum k-mer length to consider (default: 6)")] int maxK = 6)
+        [Description("Maximum k-mer length to consider (default: 6)")] int maxK = 6,
+        [Description("Optional fixed alphabet size a for the denominator min(a^i, N-i+1) (4 for DNA as in Rosalind LING, 20 for protein); default: inferred from the sequence.")] int? alphabetSize = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var complexity = SequenceStatistics.CalculateLinguisticComplexity(sequence, maxK);
+        var complexity = alphabetSize is int a
+            ? SequenceComplexity.CalculateLinguisticComplexity(sequence, maxK, a)
+            : SequenceStatistics.CalculateLinguisticComplexity(sequence, maxK);
         return new LinguisticComplexityResult(complexity);
     }
 
@@ -440,7 +413,8 @@ public class SequenceTools
     [Description("Calculate DNA linguistic complexity as ratio of observed to possible subwords. LC = 1.0 for maximum complexity.")]
     public static ComplexityLinguisticResult ComplexityLinguistic(
         [Description("The DNA sequence to analyze")] string sequence,
-        [Description("Maximum word length to consider (default: 10)")] int maxWordLength = 10)
+        [Description("Maximum word length to consider (default: 10)")] int maxWordLength = 10,
+        [Description("Optional fixed alphabet size a (Troyanskaya et al. 2002; 4 for DNA as in Rosalind LING); must be >= the number of distinct symbols. Default: inferred from the sequence.")] int? alphabetSize = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -448,7 +422,9 @@ public class SequenceTools
         if (maxWordLength < 1)
             throw new ArgumentException("Max word length must be at least 1", nameof(maxWordLength));
 
-        var complexity = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength);
+        var complexity = alphabetSize is int a
+            ? SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength, a)
+            : SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength);
         return new ComplexityLinguisticResult(complexity, maxWordLength);
     }
 
@@ -471,10 +447,12 @@ public class SequenceTools
     /// Calculate k-mer entropy using SequenceComplexity class.
     /// </summary>
     [McpServerTool(Name = "complexity_kmer_entropy", Title = "Complexity — K-mer Entropy", ReadOnly = true)]
-    [Description("Calculate k-mer based Shannon entropy for DNA complexity analysis.")]
+    [Description("Calculate the Shannon entropy (bits) of the overlapping k-mer distribution (block entropy) for DNA complexity analysis; optional finite-sample bias correction (Miller-Madow 1955 or Grassberger 2003) and normalisation by log2 of the number of k-mers (BBTools EntropyTracker 0-1 scale).")]
     public static ComplexityKmerEntropyResult ComplexityKmerEntropy(
         [Description("The DNA sequence to analyze")] string sequence,
-        [Description("K-mer size (default: 2 for dinucleotides)")] int k = 2)
+        [Description("K-mer size (default: 2 for dinucleotides)")] int k = 2,
+        [Description("Bias correction: 'none' (plug-in, default), 'millerMadow' (+ (D-1)/(2N) nats, D = observed k-mers), 'grassberger' (Grassberger 2003: ln N - (1/N) sum n_i G(n_i)).")] string correction = "none",
+        [Description("Divide the (corrected) entropy by log2 N, N = number of k-mers (0 when N <= 1). Default false.")] bool normalize = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -485,39 +463,48 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
             throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
 
-        var entropy = SequenceComplexity.CalculateKmerEntropy(dna!, k);
-        return new ComplexityKmerEntropyResult(entropy, k);
+        var mode = SequenceComplexity.ParseKmerEntropyCorrection(correction);
+        var entropy = SequenceComplexity.CalculateKmerEntropy(dna!, k, mode, normalize);
+        return new ComplexityKmerEntropyResult(entropy, k, mode switch
+        {
+            KmerEntropyCorrection.MillerMadow => "millerMadow",
+            KmerEntropyCorrection.Grassberger => "grassberger",
+            _ => "none",
+        }, normalize);
     }
 
     /// <summary>
-    /// Calculate DUST score for low-complexity filtering.
+    /// Calculate the DUST low-complexity score (triplets; Morgulis et al. 2006).
     /// </summary>
     [McpServerTool(Name = "complexity_dust_score", Title = "Complexity — DUST Score", ReadOnly = true)]
-    [Description("Calculate DUST score for low-complexity filtering (as used in BLAST). Higher scores indicate lower complexity.")]
+    [Description("Calculate the DUST low-complexity score (Morgulis et al. 2006; the score thresholded by NCBI dustmasker and lh3/sdust): sum over triplets of c(c-1)/2 divided by (number of triplets - 1). Higher scores indicate lower complexity.")]
     public static ComplexityDustScoreResult ComplexityDustScore(
         [Description("The DNA sequence to analyze")] string sequence,
-        [Description("Word size for triplet counting (default: 3)")] int wordSize = 3)
+        [Description("Word size; must be 3 (DUST is defined for triplets only). Kept for compatibility.")] int wordSize = 3)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        if (wordSize < 1)
-            throw new ArgumentException("Word size must be at least 1", nameof(wordSize));
+        if (wordSize != 3)
+            throw new ArgumentException("The DUST score is defined for triplets only (word size 3)", nameof(wordSize));
 
         var dustScore = SequenceComplexity.CalculateDustScore(sequence, wordSize);
         return new ComplexityDustScoreResult(dustScore, wordSize);
     }
 
     /// <summary>
-    /// Mask low-complexity regions using DUST algorithm.
+    /// Mask low-complexity regions using symmetric DUST (SDUST).
     /// </summary>
     [McpServerTool(Name = "complexity_mask_low", Title = "Complexity — Mask Low-Complexity Regions", ReadOnly = true)]
-    [Description("Mask low-complexity regions in a DNA sequence using the DUST algorithm. Replaces low-complexity bases with mask character.")]
+    [Description("Mask low-complexity regions in a DNA sequence with the symmetric DUST algorithm (SDUST; Morgulis et al. 2006, identical to lh3/sdust). N and other IUPAC codes are accepted; each maximal A/C/G/T run is scanned independently (sdust's documented contract: \"N effectively breaks input into pieces of independent sequences\"; sdust's code itself carries its scoring window across N). Optional dustmasker linker merge and soft (lower-case) masking. engine='dustmasker' reproduces NCBI dustmasker 2.12.0 output exactly (symdust core, IUPAC scanned as bases, long/terminal N runs masked).")]
     public static ComplexityMaskLowResult ComplexityMaskLow(
-        [Description("The DNA sequence to mask")] string sequence,
-        [Description("Window size for analysis (default: 64)")] int windowSize = 64,
-        [Description("DUST threshold above which to mask (default: 2.0)")] double threshold = 2.0,
-        [Description("Character to use for masking (default: 'N')")] char maskChar = 'N')
+        [Description("The DNA sequence to mask (A/C/G/T plus IUPAC codes such as N; case-insensitive)")] string sequence,
+        [Description("SDUST window length in bases (default: 64, >= 3)")] int windowSize = 64,
+        [Description("DUST threshold; intervals scoring strictly above it are masked (default: 2.0)")] double threshold = 2.0,
+        [Description("Character to use for masking (default: 'N'; ignored when softMask is true)")] char maskChar = 'N',
+        [Description("dustmasker linker: merge masked intervals separated by fewer than linker unmasked bases (1-32, default: 1 = sdust/dustmasker default)")] int linker = 1,
+        [Description("Soft-mask: lower-case masked bases, upper-case the rest (dustmasker -outfmt fasta). Default: false")] bool softMask = false,
+        [Description("DUST engine: 'sdust' (default: lh3/sdust port, non-ACGT symbols split the scan) or 'dustmasker' (exact NCBI dustmasker 2.12.0 parity: IUPAC codes scanned as bases, only N runs longer than the window plus leading/trailing N runs cut the scan and are masked; window 8-64, 10*threshold an integer 2-64).")] string engine = "sdust")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -525,18 +512,19 @@ public class SequenceTools
         if (windowSize < 1)
             throw new ArgumentException("Window size must be at least 1", nameof(windowSize));
 
-        if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
-            throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
+        if (!global::Seqeron.Genomics.Core.SequenceExtensions.IsValidIupacDna(sequence.AsSpan()))
+            throw new ArgumentException("Invalid DNA sequence (A/C/G/T and IUPAC codes only)", nameof(sequence));
 
-        var masked = SequenceComplexity.MaskLowComplexity(dna!, windowSize, threshold, maskChar);
+        var dustEngine = SequenceComplexity.ParseDustEngine(engine);
+        var masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize, threshold, maskChar, linker, softMask, dustEngine);
         return new ComplexityMaskLowResult(masked, sequence.Length, maskChar);
     }
 
     /// <summary>
-    /// Estimate sequence complexity using compression ratio.
+    /// Normalized Lempel–Ziv (LZ76) complexity (tool name kept for compatibility).
     /// </summary>
-    [McpServerTool(Name = "complexity_compression_ratio", Title = "Complexity — Compression Ratio", ReadOnly = true)]
-    [Description("Estimate sequence complexity using compression ratio. Lower ratios indicate more repetitive/less complex sequences.")]
+    [McpServerTool(Name = "complexity_compression_ratio", Title = "Complexity — Normalized Lempel-Ziv Complexity", ReadOnly = true)]
+    [Description("Normalized Lempel-Ziv (LZ76) complexity c/(n/log_b n) (Lempel & Ziv 1976; Zhang et al. 2009): c = number of components of the LZ76 exhaustive history, n = length, b = number of distinct symbols (at least 2). Not a compressor's compression ratio (the tool name is historical). About 1 for random sequences (finite sequences may exceed 1); lower values indicate more repetitive/less complex sequences.")]
     public static ComplexityCompressionRatioResult ComplexityCompressionRatio(
         [Description("The sequence to analyze")] string sequence)
     {
@@ -551,10 +539,12 @@ public class SequenceTools
     /// Count k-mer frequencies in a sequence.
     /// </summary>
     [McpServerTool(Name = "kmer_count", Title = "K-mer — Count Frequencies", ReadOnly = true)]
-    [Description("Count k-mer (substring of length k) frequencies in a sequence. Returns a dictionary of k-mers and their counts.")]
+    [Description("Count k-mer (substring of length k) frequencies in a sequence. Returns a dictionary of k-mers and their counts. Optional Jellyfish modes (same as the Analysis server's count_kmers): acgtOnly skips windows containing a non-ACGT symbol; canonical keys each k-mer by min(k-mer, reverse complement) (jellyfish count -C, implies acgtOnly).")]
     public static KmerCountResult KmerCount(
         [Description("The sequence to analyze")] string sequence,
-        [Description("K-mer length (default: 3)")] int k = 3)
+        [Description("K-mer length (default: 3)")] int k = 3,
+        [Description("Canonical counting (jellyfish count -C): key = lexicographically smaller of the k-mer and its reverse complement; implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip every window containing a symbol other than A/C/G/T (case-insensitive), as Jellyfish does. Default false (all symbols counted literally).")] bool acgtOnly = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -562,7 +552,7 @@ public class SequenceTools
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
 
-        var counts = KmerAnalyzer.CountKmers(sequence, k);
+        var counts = KmerAnalyzer.CountKmers(sequence, k, new KmerCountingOptions(canonical, acgtOnly));
         return new KmerCountResult(counts, k, counts.Count, counts.Values.Sum());
     }
 
@@ -570,11 +560,14 @@ public class SequenceTools
     /// Calculate k-mer distance between two sequences.
     /// </summary>
     [McpServerTool(Name = "kmer_distance", Title = "K-mer — Distance Between Sequences", ReadOnly = true)]
-    [Description("Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies. Lower values indicate more similar sequences.")]
+    [Description("Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies. Lower values indicate more similar sequences. Optional metric (same as the Analysis server's kmer_distance): euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2 (a similarity), d2star / d2shepherd (background-adjusted, k <= 12, Markov order markovOrder, bothStrands = CAFE -R), jensen_shannon, euclidean_counts, ev (spaced -d EV evolutionary distance with the contiguous pattern 1^k; bothStrands = spaced's reverse-complement mode).")]
     public static KmerDistanceResult KmerDistance(
         [Description("First sequence")] string sequence1,
         [Description("Second sequence")] string sequence2,
-        [Description("K-mer length (default: 3)")] int k = 3)
+        [Description("K-mer length (default: 3)")] int k = 3,
+        [Description("Metric: euclidean (default), squared_euclidean_counts, manhattan, chebyshev, canberra, cosine, d2, d2star, d2shepherd (alias d2s), jensen_shannon (alias js), euclidean_counts, ev (alias evolutionary).")] string metric = "euclidean",
+        [Description("Background Markov order r (0 <= r < k) for d2star/d2shepherd, or -1 to choose each sequence's order by BIC; default 0. Must be 0 for the other metrics.")] int markovOrder = 0,
+        [Description("d2star/d2shepherd: CAFE -R both-strand mode (count of w + count of its reverse complement, background averaged over both); ev: spaced's reverse-complement mode (seq1 on both strands). Default false.")] bool bothStrands = false)
     {
         if (string.IsNullOrEmpty(sequence1))
             throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
@@ -585,7 +578,7 @@ public class SequenceTools
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
 
-        var distance = KmerAnalyzer.KmerDistance(sequence1, sequence2, k);
+        var distance = KmerAnalyzer.KmerDistance(sequence1, sequence2, k, KmerAnalyzer.ParseDistanceMetric(metric), markovOrder, bothStrands);
         return new KmerDistanceResult(distance, k);
     }
 
@@ -593,18 +586,26 @@ public class SequenceTools
     /// Analyze k-mer composition of a sequence.
     /// </summary>
     [McpServerTool(Name = "kmer_analyze", Title = "K-mer — Comprehensive Analysis", ReadOnly = true)]
-    [Description("Comprehensive k-mer analysis including statistics about frequency distribution, entropy, and unique k-mers.")]
+    [Description("Comprehensive k-mer analysis (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters and canonical (count -C) / acgtOnly modes (same as analyze_kmers).")]
     public static KmerAnalyzeResult KmerAnalyze(
         [Description("The sequence to analyze")] string sequence,
-        [Description("K-mer length (default: 3)")] int k = 3)
+        [Description("K-mer length (default: 3)")] int k = 3,
+        [Description("Ignore k-mers with count below this value (Jellyfish stats -L; default 0).")] int lowerCount = 0,
+        [Description("Ignore k-mers with count above this value (Jellyfish stats -U; default unbounded).")] int upperCount = int.MaxValue,
+        [Description("Canonical k-mers min(k-mer, reverse complement) (jellyfish count -C); implies acgtOnly. Default false.")] bool canonical = false,
+        [Description("Skip windows containing a non-ACGT symbol (Jellyfish convention). Default false.")] bool acgtOnly = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
+        if (lowerCount < 0)
+            throw new ArgumentException("lowerCount must be non-negative", nameof(lowerCount));
+        if (upperCount < 0)
+            throw new ArgumentException("upperCount must be non-negative", nameof(upperCount));
 
-        var stats = KmerAnalyzer.AnalyzeKmers(sequence, k);
+        var stats = KmerAnalyzer.AnalyzeKmers(sequence, k, new KmerCountingOptions(canonical, acgtOnly), lowerCount, upperCount);
         return new KmerAnalyzeResult(
             stats.TotalKmers,
             stats.UniqueKmers,
@@ -612,7 +613,11 @@ public class SequenceTools
             stats.MinCount,
             stats.AverageCount,
             stats.Entropy,
-            k);
+            k)
+        {
+            DistinctKmers = stats.DistinctKmers,
+            SingletonKmers = stats.SingletonKmers,
+        };
     }
 
     /// <summary>

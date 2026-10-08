@@ -119,7 +119,12 @@ indels, doublet (DBS), and multi-base substitutions belong to other catalogues a
 - Six pyrimidine substitutions: C>A, C>G, C>T, T>A, T>C, T>G [2].
 - Complement map: A↔T, C↔G [4].
 - Channel enumeration order: substitution-major, then 5' (A,C,G,T), then 3' (A,C,G,T) — a deterministic
-  presentation convention; per-variant classification is independent of it.
+  presentation convention (the COSMIC SBS96 plot order, as in SigProfilerPlotting `plotSBS`); per-variant
+  classification is independent of it. **Note:** SigProfilerMatrixGenerator `.SBS96` matrices and the COSMIC v3.x
+  reference-signature files (e.g. `COSMIC_v3.4_SBS_GRCh37.txt`) list rows in *ordinal (lexicographic) label order*
+  (`A[C>A]A, A[C>A]C, …, A[C>G]A, …, T[T>G]T`, i.e. 5'-major), which equals `EnumerateSbs96Channels()` sorted with
+  `StringComparer.Ordinal` (verified row-by-row against the v3.4 file, 2026-09-28). Align vectors by label.
+- Complementation calls the canonical `SequenceExtensions.GetComplementBase` (Core); no local complement table.
 
 ### 4.3 Complexity
 
@@ -133,7 +138,7 @@ indels, doublet (DBS), and multi-base substitutions belong to other catalogues a
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.Signatures.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.Signatures.cs)
 
 - `OncologyAnalyzer.ClassifySbsContext(char, char, char, char)`: folds one SBS to its 96-channel label.
 - `OncologyAnalyzer.EnumerateSbs96Channels()`: returns the 96 canonical channel labels.
@@ -162,7 +167,7 @@ the repository suffix tree is not applicable to this unit.
 **Not implemented:**
 
 - Signature reference profiles / decomposition (NMF, COSMIC fitting): out of scope; **users should rely on**
-  caller-supplied signature matrices and ONCO-SIG-002..004 (not yet implemented).
+  caller-supplied signature matrices and ONCO-SIG-002..004 (fitting, NMF extraction, bootstrap).
 - Genome trinucleotide-frequency normalisation of the spectrum: out of scope; **users should rely on** a
   separate normalisation step when comparing to COSMIC profiles.
 - DBS / ID / SBS-1536 catalogues: out of scope; **users should rely on** dedicated catalogues.

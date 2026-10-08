@@ -38,7 +38,7 @@
 **Key Extracted Points:**
 
 1. **Abstract (verbatim):** "A novel method of cumulative diagrams shows that the nucleotide composition of a microbial chromosome changes at two points separated by about a half of its length. These points coincide with sites of replication origin and terminus for all bacteria where such sites are known."
-2. **Construction:** a running (cumulative) sum of the nucleotide skew along the sequence, integrated from a start point to each position.
+2. **Construction:** "a sum of (G−C)/(G+C) in adjacent windows from an arbitrary start to a given point in a sequence" (WebSearch snippet of the article, re-checked 2026-09-28; academic.oup.com blocked for WebFetch). With a one-base window each window's skew is +1 (G), −1 (C) or 0, so this is exactly the per-nucleotide #G−#C diagram of Rosalind BA1F; Seqeron computes the prediction from the canonical `CalculateCumulativeGcSkew` kernel at window 1.
 3. **Origin/terminus location:** the cumulative GC-skew diagram reaches its global minimum at the replication origin and its global maximum near the terminus; the two extrema are separated by roughly half the chromosome length.
 4. **Strand bias:** the leading strand contains more guanine than cytosine.
 
@@ -145,3 +145,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-09-28** (review campaign B01): Grigoriev construction quoted (windowed (G−C)/(G+C) sum; window 1 = BA1F diagram). Reference cross-check added: python BA1F re-implementation + `numpy.cumsum(Bio.SeqUtils.GC_skew(seq, w))` on a 100 kb synthetic genome (`ACGTC`×6000 + `AGGTC`×10000 + `ACGTC`×4000; ori 30000 / ter 80000): per-base minimizers [29997, 30000, 30001, …] = −6000, maximizers [79998, 79999] = +4001; windowed (w=1000) min −10 in window ending 30000, max 20/3 in window ending 80000; rotation by 50000 (circular genome) → 79997/29998, which map back to 29997/79998. BA1F sample: Biopython `GC_skew(seq,1)` cumsum min −4 at [53, 97], max +2 at [16, 20, 21].

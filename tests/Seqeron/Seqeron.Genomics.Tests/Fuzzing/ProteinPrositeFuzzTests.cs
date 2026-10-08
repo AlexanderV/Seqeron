@@ -429,17 +429,13 @@ public class ProteinPrositeFuzzTests
 
     #endregion
 
-    #region INJ — Kleene star / unsupported quantifiers: reject, don't silently drop
+    #region INJ — unsupported quantifiers: reject, don't silently drop; Kleene star as ps_scan
 
     /// <summary>
-    /// Target "regex injection" (headline): the ScanProsite extended Kleene star `*` (e.g. <c>&lt;{C}*&gt;</c>),
-    /// and the stray quantifiers `?` and `+`, are NOT part of the PA-line grammar and MUST be REJECTED
-    /// with a <see cref="FormatException"/> — the converter's explicit "reject, don't silently drop"
-    /// policy (Pattern_Matching_Methods.md INV-06, §5.2; PROSITE_Pattern_Matching.md §2.2; the
-    /// converter's own source comment). This is the core anti-injection guarantee: a pattern author
-    /// cannot smuggle an UNBOUNDED quantifier past the grammar to be silently dropped (mis-parsing the
-    /// pattern) or to inflate the regex into a catastrophic-backtracking bomb. The exception MUST be
-    /// the documented FormatException — never an IndexOutOfRange / NullReference / regex parse error —
+    /// Target "regex injection" (headline): the stray quantifiers `?` and `+`, and a `*` that does not
+    /// directly follow an element, are not PROSITE syntax (ps_scan.pl <c>prositeToRegexp</c>: "Parsing
+    /// error") and MUST be REJECTED with a <see cref="FormatException"/> — never silently dropped and
+    /// never an IndexOutOfRange / NullReference / regex parse error —
     /// and FindMotifByProsite must propagate the SAME FormatException (it converts before matching).
     /// </summary>
     [Test]
@@ -447,14 +443,10 @@ public class ProteinPrositeFuzzTests
     {
         foreach (string pattern in new[]
                  {
-                     "<{C}*>",          // canonical ScanProsite Kleene-star query (docs example)
-                     "C*",              // star on a literal
-                     "[ST]*",           // star on a class
-                     "x*",              // star on the wildcard
-                     "R-G-D*",          // star at the tail
-                     "C?",              // optional quantifier (unsupported)
-                     "C+",              // one-or-more quantifier (unsupported)
-                     "R-G-D-*-Y",       // star mid-pattern
+                     "C?",              // optional quantifier (unsupported; ps_scan: parsing error)
+                     "C+",              // one-or-more quantifier (unsupported; ps_scan: parsing error)
+                     "R-G-D-*-Y",       // star not following an element (ps_scan: parsing error)
+                     "*-C",             // leading star (ps_scan: parsing error)
                  })
         {
             var convert = () => ConvertPrositeToRegex(pattern);
@@ -473,6 +465,31 @@ public class ProteinPrositeFuzzTests
         var safe = () => ConvertPrositeToRegex("R-G-D.*");
         safe.Should().NotThrow("a '*' after the '.' terminator is never parsed, so no rejection occurs")
             .Subject.Should().Be("RGD");
+    }
+
+    /// <summary>
+    /// The ScanProsite extended-syntax Kleene star directly after an element IS supported, exactly as
+    /// in the reference scanner ps_scan.pl <c>prositeToRegexp</c> (<c>elsif ($tok eq "*") {# support
+    /// e.g. "&lt;{C}*&gt;"</c>): the element is followed by regex <c>*</c>. Pathological backtracking is
+    /// still bounded by the matcher's regex timeout (no hang).
+    /// </summary>
+    [Test]
+    public void ConvertPrositeToRegex_KleeneStarAfterElement_ConvertsAsPsScan()
+    {
+        foreach (var (pattern, expected) in new[]
+                 {
+                     ("<{C}*>", "^[^C]*$"),   // ps_scan: ^([^C]*)$
+                     ("C*", "C*"),            // ps_scan: (C*)
+                     ("[ST]*", "[ST]*"),      // ps_scan: ([ST]*)
+                     ("x*", ".*"),            // ps_scan: (.*)
+                     ("R-G-D*", "RGD*"),      // ps_scan: (R)(G)(D*)
+                 })
+        {
+            ConvertPrositeToRegex(pattern).Should().Be(expected, $"ps_scan translates \"{pattern}\" this way");
+        }
+
+        var bomb = () => FindMotifByProsite(new string('A', 5000), "x*-x*-x*-x*-x*-C").ToList();
+        bomb.Should().NotThrow("a catastrophic-backtracking pattern is bounded by the regex timeout");
     }
 
     #endregion

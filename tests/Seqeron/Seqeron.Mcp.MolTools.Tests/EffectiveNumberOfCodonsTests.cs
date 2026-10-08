@@ -34,8 +34,10 @@ public class EffectiveNumberOfCodonsTests
         Assert.That(MolToolsTools.effective_number_of_codons(biased).Enc,
             Is.EqualTo(41.288461538461526).Within(1e-9));
 
-        // Result is always clamped to the documented [20, 61] range.
+        // Short gene whose 3-, 4- and 6-fold classes have no estimable amino acid: CodonW 1.4.4
+        // (-enc) prints "*****" (Nc not calculated); the tool returns 0. (Validation 2026-09, F15:
+        // previously asserted a value in [20, 61] produced by the non-sourced full-count fallback.)
         var enc = MolToolsTools.effective_number_of_codons("ATGAAAGAGCTGTTCGCCAAA").Enc;
-        Assert.That(enc, Is.InRange(20.0, 61.0));
+        Assert.That(enc, Is.EqualTo(0.0));
     }
 }

@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-GC-PROFILE-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 (B03 review) |
 
 ## 1. Overview
 
@@ -64,8 +64,10 @@ The profile applies this formula to each window at offsets `0, step, 2·step, �
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | sequence | string | required | Nucleotide sequence (DNA or RNA) | case-insensitive; A/C/G/T/U standard, other symbols excluded from denominator |
-| windowSize | int | 100 | Window width W in bases | windows produced only when W ≤ length |
-| stepSize | int | 1 | Window advance in bases | ≥ 1 for forward progress |
+| windowSize | int | 100 | Window width W in bases | ≥ 1 (else `ArgumentOutOfRangeException`); windows produced only when W ≤ length |
+| stepSize | int | 1 | Window advance in bases | ≥ 1 (else `ArgumentOutOfRangeException`) |
+| fraction | bool | false | true → value in [0, 1] (Biopython `gc_fraction`), false → percentage | — |
+| ambiguityMode | `SequenceExtensions.GcAmbiguityMode` | (overload) | Biopython `ambiguous=` `Remove`/`Ignore`/`Weighted` | 5-argument overload only |
 
 ### 3.2 Output / Return Value
 
@@ -80,17 +82,24 @@ profile (no windows). Input is case-folded to uppercase before counting (lowerca
 T and U are both non-GC bases. The denominator counts only the standard bases A/T/U/G/C in
 the window; ambiguous symbols (e.g. `N`) are excluded from the denominator. A window whose
 bases are all non-standard yields 0 (zero-division convention). No exceptions are thrown for
-these input classes.
+these input classes. `windowSize < 1` or `stepSize < 1` throws `ArgumentOutOfRangeException`
+eagerly at call time (B03 F17: step 0 previously never terminated and W 0 returned n+1 zeros;
+Biopython `GC_skew(seq, 0)` raises `ValueError`; same contract as
+`GcSkewCalculator.CalculateWindowedGcSkew` and the MCP `gc_content_profile` wrapper).
+Only complete windows are reported (EMBOSS `isochore` and `GcSkewCalculator` likewise; Biopython
+`GC_skew` appends a trailing partial window). Values carry no coordinates: window k starts at
+0-based offset k·step (EMBOSS `isochore` prints the 1-based window centre).
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. Return empty if the sequence is null/empty or `windowSize` exceeds its length.
-2. Case-fold the sequence to uppercase.
+1. Throw if `windowSize < 1` or `stepSize < 1`.
+2. Return empty if the sequence is null/empty or `windowSize` exceeds its length.
 3. For each offset `i = 0, step, 2·step, …` while `i ≤ length − windowSize`:
-   1. Count `gc` (G or C) and `total` (A, T, U, G, or C) over the window `[i, i+windowSize)`.
-   2. Yield `gc / total × 100` if `total > 0`, else `0`.
+   yield the canonical `SequenceExtensions.CalculateGcFraction(window)` (case-insensitive
+   `gc / total`, 0 when `total = 0`) × 100 (or × 1 when `fraction`), or
+   `CalculateGcFraction(window, ambiguityMode)` for the ambiguity-mode overload.
 
 ### 4.3 Complexity
 
@@ -104,8 +113,12 @@ these input classes.
 
 **Implementation location:** [SequenceStatistics.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs)
 
-- `SequenceStatistics.CalculateGcContentProfile(string, int, int)`: streams the GC% of each
-  sliding window via deferred `yield return`.
+- `SequenceStatistics.CalculateGcContentProfile(string, int windowSize = 100, int stepSize = 1, bool fraction = false)`:
+  streams the GC% of each sliding window (arguments validated eagerly, values deferred).
+- `SequenceStatistics.CalculateGcContentProfile(string, int, int, bool, SequenceExtensions.GcAmbiguityMode)`:
+  Biopython `gc_fraction(window, ambiguous=…)` parity (B03 F19).
+- Per-window kernel: canonical `SequenceExtensions.CalculateGcFraction` (B01) — no inline
+  counting (B03 D6).
 
 ### 5.2 Current Behavior
 
@@ -129,9 +142,10 @@ produced lazily (deferred execution), so callers materialise with `ToList()`/`To
 
 **Not implemented:**
 
-- Ambiguity-weighted GC counting (Biopython `ambiguous="weighted"`/`"ignore"` modes);
-  **users should rely on:** the default `remove` convention only — degenerate IUPAC codes
-  beyond N are not weighted.
+- (none). Biopython `ambiguous="remove"/"ignore"/"weighted"` are available through the
+  ambiguity-mode overload (B03 F19). Note: the default overload excludes S/W like every other
+  ambiguity code (canonical `CalculateGcFraction` convention); use `GcAmbiguityMode.Remove` for
+  exact Biopython default parity when S/W occur.
 
 ### 5.4 Deviations and Assumptions (Optional)
 
@@ -156,9 +170,10 @@ produced lazily (deferred execution), so callers materialise with `ToList()`/`To
 ### 6.2 Limitations
 
 Each window is recounted from scratch (no incremental sliding sum), so cost scales with
-`windowSize` per overlapping window. Only N-style exclusion is modelled; other IUPAC
-degenerate codes are treated as non-standard (excluded from the denominator) rather than
-fractionally weighted. The profile reports composition only — it does not classify GC
+`windowSize` per overlapping window. In the default overload IUPAC degenerate codes are
+excluded from the denominator; fractional weighting is available via
+`GcAmbiguityMode.Weighted`. EMBOSS `isochore` uses the whole window as denominator (N = non-GC,
+= `GcAmbiguityMode.Ignore` without S) — identical to the default for pure A/C/G/T/U input. The profile reports composition only — it does not classify GC
 islands or isochores.
 
 ## 7. Examples and Related Material (Optional)
@@ -189,3 +204,4 @@ offsets and values from the formula [1].
 
 1. Wikipedia. 2026. GC-content. https://en.wikipedia.org/wiki/GC-content (accessed 2026-06-14).
 2. Cock P.J.A. et al. 2009. Biopython: freely available Python tools for computational molecular biology and bioinformatics. Bioinformatics 25(11):1422–1423. https://doi.org/10.1093/bioinformatics/btp163 ; `Bio.SeqUtils.gc_fraction` source: https://raw.githubusercontent.com/biopython/biopython/master/Bio/SeqUtils/__init__.py (accessed 2026-06-14).
+3. EMBOSS 6.6.0 `isochore` (apt binary, executed 2026-09-28): `GGGAAATGCC`, window 4 → 0.750 0.500 0.250 0.000 0.250 0.500 0.750.

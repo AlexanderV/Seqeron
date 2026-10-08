@@ -51,7 +51,19 @@ public static OptimizationResult OptimizeSequence(
 
 | # | Test Name | Description | Evidence |
 |---|-----------|-------------|----------|
-| C1 | OptimizeSequence_HarmonizeExpression_MaintainsDistribution | Codon distribution matches host pattern | Mignon et al. (2018) |
+| C1 | OptimizeSequence_HarmonizeExpression_MaintainsDistribution | Codon distribution matches host pattern | DNA Chisel `match_codon_usage` |
+
+### Reference cross-checks (added review 2026-09)
+
+| # | Test Name | Description | Evidence |
+|---|-----------|-------------|----------|
+| R1 | OptimizeSequence_MaximizeCAI_MatchesDnaChiselUseBestCodon | MaximizeCAI = DNA Chisel `CodonOptimize(method="use_best_codon")`, codon for codon | DNA Chisel 3.2.16 |
+| R2 | OptimizeSequence_HarmonizeExpression_MatchesTargetUsageDeterministically | Deterministic largest-remainder allocation; same `match_codon_usage` score as DNA Chisel's optimizer (−11.77) | DNA Chisel 3.2.16 |
+| R3 | OptimizeSequence_BalancedOptimization_MakesNoNeutralSwaps | GC pass only swaps codons that move GC toward the window and stops on entry | DNA Chisel `EnforceGCContent` |
+| R4 | OptimizeSequence_AvoidRareCodons_NoSynonymAboveThreshold_UsesBestCodon | With no synonym above the threshold the best codon is still used | DNA Chisel `use_best_codon` |
+| R5 | OptimizeSequence_AmbiguousCodons_HandledPerGeneticCode | GCN → best Ala codon; NNN and non-IUPAC triplets untouched, protein 'X' | GeneticCode / Biopython ambiguity |
+| R6 | RemoveRestrictionSites_* (5 tests) | One codon per site, best-frequency substitution, both strands, IUPAC sites, unremovable site kept | REBASE/IUPAC, DNA Chisel `AvoidPattern` |
+| R7 | CreateCodonTableFromSequence_MatchesBiopythonRelativeAdaptiveness | w from the built table = Biopython `CodonAdaptationIndex` (0.5 pseudo-count) | Biopython 1.88, Sharp & Li 1987 |
 
 ## Invariants to Verify
 
@@ -139,11 +151,20 @@ File: `CodonOptimizer_OptimizeSequence_Tests.cs`
 
 - **BalancedOptimization Changes rebuild (fixed 2026-03-10)**: Previously, `Changes` list only reflected the initial optimization pass, missing GC content balancing modifications. Fixed to rebuild changes by comparing original vs final codons.
 - **Codon usage tables**: All three tables (E. coli, Yeast, Human) verified against Kazusa Codon Usage Database raw data (per-thousand frequencies → relative fractions per amino acid).
-- **CAI formula**: Matches Sharp & Li (1987) definition: w_i = f_i / max(f_j), CAI = exp((1/L)·Σ ln(w_i)). Zero-frequency codons clamped to 1e-6 per original prescription.
+- **CAI formula**: Matches Sharp & Li (1987) definition: w_i = f_i / max(f_j), CAI = exp((1/L)·Σ ln(w_i)). Met/Trp and stops are not scored; w < 0.0001 → 0.01 (CodonW `cai_out`) — review 2026-09, CODON-CAI-001 F12/F13 (formerly Met/Trp scored with w = 1 and a 1e-6 clamp).
 - **Standard genetic code**: All 64 codons verified correct.
 - **Optimization strategies**: All thresholds exposed as configurable parameters (`rareCodonThreshold`, `gcTargetMin`, `gcTargetMax`); no hardcoded assumptions.
-- **MinimizeSecondary**: Falls through to BalancedOptimization in `SelectOptimalCodon`; separate `ReduceSecondaryStructure` method exists for dedicated secondary structure reduction.
+- **MinimizeSecondary**: Uses the same codon selection (and GC pass) as BalancedOptimization; the dedicated `ReduceSecondaryStructure` method handles structure reduction.
+
+### Review 2026-09 (CODON-OPT-001, F21–F25)
+
+- **Genetic code**: the private RNA-keyed `StandardGeneticCode` / `AminoAcidToCodons` copies were removed; amino acids and synonymous families now come from `GeneticCode.Standard` (NCBI table 1). Codon families are in NCBI order, which is the documented, deterministic tie-break for every "most frequent synonymous codon" choice. IUPAC-ambiguous triplets resolve through `GeneticCode.Translate` (GCN → Ala → best Ala codon); a triplet with non-IUPAC symbols is left untouched and contributes `X` to the protein.
+- **Strategies**: `MaximizeCAI` = DNA Chisel `use_best_codon` (verified identical output). `AvoidRareCodeons` / `BalancedOptimization` no longer keep a rare codon when *no* synonym reaches the threshold — the most frequent synonym is used. `HarmonizeExpression` is no longer weighted-random (`new Random()` per call): it is the deterministic largest-remainder match of the target codon-usage profile (DNA Chisel `match_codon_usage`), which reaches the same DNA Chisel objective score as that library's own optimizer.
+- **GC balancing**: only swaps that move GC toward `[gcTargetMin, gcTargetMax]` are applied (no neutral swaps), a candidate that lands inside the window is preferred over one that overshoots, the direction is re-evaluated each step and the pass stops as soon as the sequence is inside the window; the replacement frequency floor is the caller's `rareCodonThreshold` instead of a hard-coded 0.1; the GC count is maintained incrementally (was an O(n²) full rescan).
+- **RemoveRestrictionSites**: exactly one codon changes per removed occurrence (the old loop kept rewriting the following codons after the site was already gone), the substitution is the most frequent synonymous codon in the supplied table (the table was previously ignored), sites are matched with IUPAC semantics and on both strands, and an unremovable occurrence no longer aborts the remaining occurrences.
+- **ReduceSecondaryStructure**: base pairing delegates to `RnaSecondaryStructure.CanPair` (ViennaRNA pair set, so the G·U wobble counts); the window baseline is re-evaluated after each accepted change; output is always normalised RNA.
+- **CreateCodonTableFromSequence**: codons absent from the reference set get the Sharp & Li (1987) count of 0.5 ("following the description in the original paper", Biopython `CodonAdaptationIndex` 1.88), so all 64 codons are present and the derived relative adaptiveness equals Biopython's index exactly. Previously an absent codon was missing from the table and was scored by `CalculateCAI` with the CodonW zero substitute 0.01.
 
 ## Date
-2026-03-10
+2026-03-10 (reviewed 2026-09-28, campaign review-2026-09 / B02)
 

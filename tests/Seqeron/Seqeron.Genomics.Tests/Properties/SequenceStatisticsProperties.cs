@@ -488,7 +488,7 @@ public class SequenceStatisticsProperties
         ['H'] = (6.5, 1), ['K'] = (10.8, 1), ['R'] = (12.5, 1),
     };
 
-    private const double NTerminusPkaOracle = 8.6;
+    private const double NTerminusPkaOracle = 7.5; // EMBOSS 6.6.0 Epk.dat "Amino" (the value iep actually uses)
     private const double CTerminusPkaOracle = 3.6;
 
     private static (double charge, int groups) OracleNetCharge(string seq, double pH)
@@ -1039,6 +1039,26 @@ public class SequenceStatisticsProperties
         });
     }
 
+    /// <summary>
+    /// INV-3 (review 2026-09 B03 F15): RNA U is read as T (EMBOSS cusp, CodonW), so the lower-case RNA
+    /// spelling of a CDS gives exactly the DNA table in every frame.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonFrequencies_RnaSpelling_EqualsDnaSpelling()
+    {
+        return Prop.ForAll(CodonDnaArbitrary(), seq =>
+        {
+            string rna = seq.Replace('T', 'U').ToLowerInvariant();
+            bool ok = Enumerable.Range(0, 3).All(f =>
+            {
+                var dna = SequenceStatistics.CalculateCodonFrequencies(seq, f);
+                var r = SequenceStatistics.CalculateCodonFrequencies(rna, f);
+                return dna.Count == r.Count && dna.All(kv => r.TryGetValue(kv.Key, out double v) && v == kv.Value);
+            });
+            return ok.Label("RNA spelling must equal DNA spelling");
+        });
+    }
+
     #endregion
 
     #region SEQ-ENTROPY-PROFILE-001: R: each entropy ≥ 0; P: profile length = len−w+1; D: deterministic
@@ -1096,6 +1116,321 @@ public class SequenceStatisticsProperties
             SequenceStatistics.CalculateGcContentProfile(seq, ProfileWindow, 1)
                 .SequenceEqual(SequenceStatistics.CalculateGcContentProfile(seq, ProfileWindow, 1))
                 .Label("CalculateGcContentProfile must be deterministic"));
+    }
+
+    #endregion
+
+    #region Review 2026-09 B03 — new behaviour (heavy tier)
+
+    // -------------------------------------------------------------------------
+    // Invariants of the behaviour introduced by review batch B03 (docs/Validation/review-2026-09/B03.md).
+    // Each follows from the model definition, not from observed output:
+    //   F3–F6  pI / net charge: every Henderson–Hasselbalch term is strictly decreasing in pH, so the net
+    //          charge is monotone non-increasing on both pK scales; the pI is the unique root, located by
+    //          bisection to 1e-9 and rounded to 0.01, so the charge changes sign within ±0.005 of it;
+    //          |charge| ≤ ionizable groups (each group carries at most one charge).
+    //   F8     edge-weighted hydropathy: a normalised weighted mean (Σw·kd/Σw) — homopolymer windows
+    //          return the residue's kd, every value lies in [min kd, max kd] = [−4.5, 4.5], count n−W+1.
+    //   F2     ds / circular nucleotide MW (Biopython molecular_weight): ds = ss(seq) + ss(complement);
+    //          circular = linear − one water (18.0153 Da) per strand.
+    //   F9/F10 NN thermodynamics: Biopython _check (U→T, non-ACGT dropped); the symmetry correction adds
+    //          ΔS −1.4 and leaves ΔH unchanged.
+    //   F12/F20 basic Tm: switch on the A/C/G/T/U count, U read as T, other symbols ignored.
+    //   F13    Karlin ρ*: computed on seq + revcomp(seq), hence revcomp-invariant and ρ*_XY = ρ*_revcomp(XY).
+    //   F19    GC profile ambiguity modes: Remove = default when the window holds no S/W; values in range.
+    //   F21    linguistic complexity = canonical SequenceComplexity (Σ V_k / Σ V_max,k) ∈ [0, 1].
+    // -------------------------------------------------------------------------
+
+    private static readonly SequenceStatistics.PkaScale[] AllPkaScales =
+        { SequenceStatistics.PkaScale.Emboss, SequenceStatistics.PkaScale.Bjellqvist };
+
+    private static string DnaComplementOracle(string s) =>
+        new(s.Select(c => c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c }).ToArray());
+
+    private static string RnaComplementOracle(string s) =>
+        new(s.Select(c => c switch { 'A' => 'U', 'U' => 'A', 'C' => 'G', 'G' => 'C', _ => c }).ToArray());
+
+    private static string RevCompOracle(string s) =>
+        new(s.Reverse().Select(c => c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c }).ToArray());
+
+    private static Arbitrary<string> AlphabetArbitrary(string alphabet, int minLen, int maxLen) =>
+        (from n in Gen.Choose(minLen, maxLen)
+         from chars in Gen.Elements(alphabet.ToCharArray()).ArrayOf(n)
+         select new string(chars)).ToArbitrary();
+
+    /// <summary>
+    /// F3–F6 (P, MON): the net charge is monotone non-increasing in pH on both pK scales, and bounded by the
+    /// number of ionizable groups (termini + D/E/C/Y/H/K/R).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property NetCharge_MonotoneNonIncreasingInPh_AndBoundedByGroups()
+    {
+        return Prop.ForAll(BoundedProteinArbitrary(40), seq =>
+        {
+            if (seq.Length == 0) return true.ToProperty();
+            int acidic = seq.Count(c => c is 'D' or 'E' or 'C' or 'Y') + 1;
+            int basic = seq.Count(c => c is 'H' or 'K' or 'R') + 1;
+            foreach (var scale in AllPkaScales)
+            {
+                double previous = double.PositiveInfinity;
+                for (int k = 0; k <= 56; k++)
+                {
+                    double pH = k * 0.25;
+                    double q = SequenceStatistics.CalculateNetCharge(seq, pH, scale);
+                    if (q > previous + 1e-12)
+                        return false.Label($"{scale}: charge rose from {previous} to {q} at pH {pH} for '{seq}'");
+                    if (q < -acidic - 1e-12 || q > basic + 1e-12)
+                        return false.Label($"{scale}: charge {q} outside [−{acidic}, {basic}] at pH {pH}");
+                    previous = q;
+                }
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// F5/F6 (P): on both scales pI ∈ [0,14] and the exact net charge changes sign within the rounding
+    /// half-width of the returned pI (root bisected to 1e-9, rounded to 0.01) — much tighter than the
+    /// oracle-based tolerance above. The 1-argument overload and the default net-charge scale are EMBOSS.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsoelectricPoint_BothScales_ChargeChangesSignAtPi()
+    {
+        return Prop.ForAll(BoundedProteinArbitrary(40), seq =>
+        {
+            if (seq.Length == 0) return true.ToProperty();
+            if (SequenceStatistics.CalculateIsoelectricPoint(seq)
+                != SequenceStatistics.CalculateIsoelectricPoint(seq, SequenceStatistics.PkaScale.Emboss))
+                return false.Label("1-argument pI must equal the EMBOSS scale");
+            if (SequenceStatistics.CalculateNetCharge(seq, 7.0)
+                != SequenceStatistics.CalculateNetCharge(seq, 7.0, SequenceStatistics.PkaScale.Emboss))
+                return false.Label("default net-charge scale must be EMBOSS");
+
+            foreach (var scale in AllPkaScales)
+            {
+                double pi = SequenceStatistics.CalculateIsoelectricPoint(seq, scale);
+                if (pi is < 0.0 or > 14.0)
+                    return false.Label($"{scale}: pI {pi} outside [0,14]");
+                double below = SequenceStatistics.CalculateNetCharge(seq, pi - 0.0051, scale);
+                double above = SequenceStatistics.CalculateNetCharge(seq, pi + 0.0051, scale);
+                if (below < 0 || above > 0)
+                    return false.Label($"{scale}: charge {below} at pI−0.0051, {above} at pI+0.0051 (pI {pi}, '{seq}')");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>F3/F6 (INV): pI and net charge are case-insensitive on both scales.</summary>
+    [FsCheck.NUnit.Property]
+    public Property IsoelectricPoint_BothScales_CaseInsensitive()
+    {
+        return Prop.ForAll(BoundedProteinArbitrary(30), seq =>
+            AllPkaScales.All(scale =>
+                SequenceStatistics.CalculateIsoelectricPoint(seq.ToLowerInvariant(), scale)
+                    == SequenceStatistics.CalculateIsoelectricPoint(seq, scale)
+                && SequenceStatistics.CalculateNetCharge(seq.ToLowerInvariant(), 6.3, scale)
+                    == SequenceStatistics.CalculateNetCharge(seq, 6.3, scale))
+            .Label("lower-case input must give the same pI and charge"));
+    }
+
+    /// <summary>
+    /// F8 (R + P): for any odd window and edge weight in [0,1] the profile has n−W+1 values in
+    /// [−4.5, 4.5] (a normalised weighted mean of KD values, unknown residues contributing 0);
+    /// edge = 1 is identical to the unweighted 2-argument call.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HydrophobicityProfile_EdgeWeighted_LengthRangeAndUnitEdgeIdentity()
+    {
+        var gen = from seq in ProteinArbitrary().Generator
+                  from half in Gen.Choose(0, 6)
+                  from edgeTenths in Gen.Choose(0, 10)
+                  select (seq, w: 2 * half + 1, edge: edgeTenths / 10.0);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var profile = SequenceStatistics.CalculateHydrophobicityProfile(t.seq, t.w, t.edge).ToList();
+            int expected = Math.Max(0, t.seq.Length - t.w + 1);
+            bool lengthOk = profile.Count == expected;
+            bool rangeOk = profile.All(v => v is >= -4.5 - 1e-12 and <= 4.5 + 1e-12);
+            bool unitOk = SequenceStatistics.CalculateHydrophobicityProfile(t.seq, t.w, 1.0)
+                .SequenceEqual(SequenceStatistics.CalculateHydrophobicityProfile(t.seq, t.w));
+            return (lengthOk && rangeOk && unitOk)
+                .Label($"W={t.w} edge={t.edge}: count {profile.Count}/{expected}, range {rangeOk}, edge-1 identity {unitOk}");
+        });
+    }
+
+    /// <summary>
+    /// F8 (P): the weights are normalised (Σw·kd / Σw), so a homopolymer window returns the residue's
+    /// Kyte–Doolittle value for every odd window and every edge weight.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HydrophobicityProfile_EdgeWeighted_HomopolymerIsResidueValue()
+    {
+        var gen = from aa in Gen.Elements("ARNDCEQGHILKMFPSTWYV".ToCharArray())
+                  from half in Gen.Choose(0, 6)
+                  from extra in Gen.Choose(0, 10)
+                  from edgeTenths in Gen.Choose(0, 10)
+                  select (aa, w: 2 * half + 1, extra, edge: edgeTenths / 10.0);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            string seq = new(t.aa, t.w + t.extra);
+            double kd = OracleGravy(t.aa.ToString());
+            var profile = SequenceStatistics.CalculateHydrophobicityProfile(seq, t.w, t.edge).ToList();
+            return (profile.Count == t.extra + 1 && profile.All(v => Math.Abs(v - kd) < 1e-12))
+                .Label($"poly-{t.aa} W={t.w} edge={t.edge}: expected {kd}, got [{string.Join(", ", profile)}]");
+        });
+    }
+
+    /// <summary>
+    /// F2 (P): double-stranded MW = single-strand MW of the strand + single-strand MW of its Watson–Crick
+    /// complement (DNA and RNA, linear and circular); circular = linear − one water per strand.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property NucleotideMolecularWeight_DoubleStrandedAndCircular_Decompose()
+    {
+        var gen = from isDna in Gen.Elements(true, false)
+                  from seq in AlphabetArbitrary(isDna ? "ACGT" : "ACGU", 1, 60).Generator
+                  select (isDna, seq);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            string comp = t.isDna ? DnaComplementOracle(t.seq) : RnaComplementOracle(t.seq);
+            bool ok = true;
+            var sb = new System.Text.StringBuilder();
+            foreach (bool circular in new[] { false, true })
+            {
+                double ds = SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, true, circular);
+                double sum = SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, false, circular)
+                             + SequenceStatistics.CalculateNucleotideMolecularWeight(comp, t.isDna, false, circular);
+                if (Math.Abs(ds - sum) > 1e-7) { ok = false; sb.Append($" ds {ds} ≠ ss+comp {sum} (circular {circular});"); }
+            }
+            foreach (bool ds in new[] { false, true })
+            {
+                double linear = SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, ds, false);
+                double circ = SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, ds, true);
+                double expected = linear - (ds ? 2 : 1) * WaterMassOracle;
+                if (Math.Abs(circ - expected) > 1e-7) { ok = false; sb.Append($" circular {circ} ≠ {expected} (ds {ds});"); }
+            }
+            double legacy = SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna);
+            if (legacy != SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, false, false))
+            { ok = false; sb.Append(" 2-arg overload ≠ ss linear;"); }
+            return ok.Label($"{(t.isDna ? "DNA" : "RNA")} '{t.seq}':{sb}");
+        });
+    }
+
+    /// <summary>
+    /// F9/F10 (P + INV): the self-complementary model only adds the symmetry entropy (ΔH unchanged,
+    /// ΔS − 1.4 within the 2-dp output rounding); selfComplementary=false equals the 3-argument call;
+    /// the RNA/lower-case spelling and inserted N/gaps/whitespace are normalised away (Biopython _check).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Thermodynamics_SymmetryCorrection_AndBiopythonCheckNormalisation()
+    {
+        return Prop.ForAll(AlphabetArbitrary("ACGT", 2, 40), seq =>
+        {
+            var plain = SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7);
+            var nonSelf = SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, selfComplementary: false);
+            var self = SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, selfComplementary: true);
+            string junked = string.Concat(seq.Select((c, i) => i % 3 == 0 ? "N" + c + " -" : c.ToString()));
+            var rna = SequenceStatistics.CalculateThermodynamics(seq.Replace('T', 'U').ToLowerInvariant(), 0.05, 2.5e-7);
+            var junk = SequenceStatistics.CalculateThermodynamics(junked, 0.05, 2.5e-7);
+
+            bool overloadOk = nonSelf == plain;
+            bool dhOk = self.DeltaH == plain.DeltaH;
+            bool dsOk = Math.Abs(self.DeltaS - (plain.DeltaS - 1.4)) <= 0.0100001;
+            bool normOk = rna == plain && junk == plain;
+            return (overloadOk && dhOk && dsOk && normOk)
+                .Label($"'{seq}': overload {overloadOk}, ΔH {self.DeltaH}/{plain.DeltaH}, ΔS {self.DeltaS}/{plain.DeltaS}, normalisation {normOk}");
+        });
+    }
+
+    /// <summary>
+    /// F12/F20 (INV): basic Tm reads U as T and ignores every non-ACGTU symbol, including for the
+    /// Wallace/GC switch (it depends on the base count, not the raw length).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MeltingTemperature_RnaSpellingAndJunk_Invariant()
+    {
+        return Prop.ForAll(AlphabetArbitrary("ACGT", 1, 30), seq =>
+        {
+            string junked = string.Concat(seq.Select(c => "N-" + c + " R"));
+            bool ok = new[] { true, false }.All(wallace =>
+            {
+                double tm = SequenceStatistics.CalculateMeltingTemperature(seq, wallace);
+                return SequenceStatistics.CalculateMeltingTemperature(seq.Replace('T', 'U').ToLowerInvariant(), wallace) == tm
+                       && SequenceStatistics.CalculateMeltingTemperature(junked, wallace) == tm;
+            });
+            return ok.Label($"'{seq}': RNA spelling or junk insertion changed Tm");
+        });
+    }
+
+    /// <summary>
+    /// F13 (INV + P): Karlin ρ* is computed on the sequence together with its reverse complement, so it is
+    /// invariant under reverse complementation and satisfies ρ*_XY = ρ*_revcomp(XY); strandSymmetric=false
+    /// equals the 1-argument single-strand ρ.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DinucleotideRatios_StrandSymmetric_RevcompInvariantAndSymmetric()
+    {
+        return Prop.ForAll(AlphabetArbitrary("ACGTN", 2, 60), seq =>
+        {
+            var rho = SequenceStatistics.CalculateDinucleotideRatios(seq, strandSymmetric: true);
+            var rhoRc = SequenceStatistics.CalculateDinucleotideRatios(RevCompOracle(seq), strandSymmetric: true);
+            bool rcOk = rho.Count == rhoRc.Count
+                        && rho.All(kv => rhoRc.TryGetValue(kv.Key, out double v) && Math.Abs(v - kv.Value) <= 1e-12 * Math.Max(1, v));
+            bool symOk = rho.All(kv => rho.TryGetValue(RevCompOracle(kv.Key), out double v) && Math.Abs(v - kv.Value) <= 1e-12 * Math.Max(1, v));
+            var single = SequenceStatistics.CalculateDinucleotideRatios(seq);
+            var single2 = SequenceStatistics.CalculateDinucleotideRatios(seq, strandSymmetric: false);
+            bool overloadOk = single.Count == single2.Count && single.All(kv => single2[kv.Key] == kv.Value);
+            return (rcOk && symOk && overloadOk)
+                .Label($"'{seq}': revcomp-invariant {rcOk}, ρ*_XY=ρ*_rc(XY) {symOk}, overload {overloadOk}");
+        });
+    }
+
+    /// <summary>
+    /// F19 (P + R): with no S/W in the input, the Biopython Remove mode equals the default profile (both
+    /// count A/C/G/T/U case-insensitively and exclude N/gaps); every mode yields values in [0,100]
+    /// (percent) and the fraction form is the percent form / 100.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GcProfile_AmbiguityModes_RemoveEqualsDefaultAndInRange()
+    {
+        var gen = from seq in AlphabetArbitrary("ACGTUNacgtun-RY", 1, 60).Generator
+                  from w in Gen.Choose(1, 12)
+                  from step in Gen.Choose(1, 4)
+                  select (seq, w, step);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var def = SequenceStatistics.CalculateGcContentProfile(t.seq, t.w, t.step).ToList();
+            var remove = SequenceStatistics.CalculateGcContentProfile(t.seq, t.w, t.step, false,
+                SequenceExtensions.GcAmbiguityMode.Remove).ToList();
+            bool removeOk = def.Count == remove.Count && def.Zip(remove).All(p => Math.Abs(p.First - p.Second) <= 1e-9);
+            bool modesOk = Enum.GetValues<SequenceExtensions.GcAmbiguityMode>().All(mode =>
+            {
+                var pct = SequenceStatistics.CalculateGcContentProfile(t.seq, t.w, t.step, false, mode).ToList();
+                var frac = SequenceStatistics.CalculateGcContentProfile(t.seq, t.w, t.step, true, mode).ToList();
+                return pct.Count == def.Count && pct.All(v => v is >= 0.0 and <= 100.0)
+                       && pct.Zip(frac).All(p => Math.Abs(p.First / 100.0 - p.Second) <= 1e-12);
+            });
+            return (removeOk && modesOk).Label($"'{t.seq}' W={t.w} s={t.step}: Remove=default {removeOk}, modes {modesOk}");
+        });
+    }
+
+    /// <summary>
+    /// F21 (P + R): linguistic complexity is the canonical Orlov–Potapov Σ V_k / Σ V_max,k
+    /// (SequenceComplexity) for every maxK, and lies in [0,1] over the DNA alphabet.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property LinguisticComplexity_EqualsCanonical_InUnitInterval()
+    {
+        var gen = from seq in AlphabetArbitrary("ACGT", 1, 50).Generator
+                  from m in Gen.Choose(1, 10)
+                  select (seq, m);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            double lc = SequenceStatistics.CalculateLinguisticComplexity(t.seq, t.m);
+            double canonical = SequenceComplexity.CalculateLinguisticComplexity(t.seq, t.m);
+            return (lc == canonical && lc is >= 0.0 and <= 1.0)
+                .Label($"'{t.seq}' m={t.m}: {lc} vs canonical {canonical}");
+        });
     }
 
     #endregion

@@ -46,7 +46,7 @@
    goodnessOfFit  = (1 - m/TheoretMaxdist) * 100
    ```
    (0.25 = (½)² is the worst-case distance to an integer; GoF reported as a percentage.)
-4. **Integer assignment:** `nA = pmax(round(nAfull),0)`, `nB = pmax(round(nBfull),0)` — round to nearest, clamp at 0; the major allele is the larger of the rounded {nA,nB}.
+4. **Integer assignment:** per-probe plotting values use `nA = pmax(round(nAfull),0)`; the **segment** output (`seg`/`seg_raw`) first corrects negative values (`nA+nB<0 ⇒ 0,0`; a negative allele is added to the other), then rounds with R `round` (half-to-even) and, for BAF = 0.5 segments, applies `limitround = 0.5` (odd total ⇒ nA+1 or nB−1). With ASCAT's segmented BAF ≤ 0.5, nA is the major allele. *(Corrected 2026-09; the earlier reading omitted the segment rules.)*
 
 ### ASCAT README — γ (gamma) platform parameter
 
@@ -107,10 +107,13 @@ https://github.com/Wedge-lab/battenberg/blob/master/README.md
    give the total copy number for that segment and an estimate fraction of tumour cells that carry each allele."
 2. **Output columns:** `nMaj1_A, nMin1_A, frac1_A` (state 1 CN + tumour-cell fraction), `nMaj2_A, nMin2_A,
    frac2_A` (state 2; NA for clonal). `frac1 + frac2 = 1`.
-3. **Decomposition (algebra of the two-population model):** the observed real-valued allele-specific copy number is
-   the fraction-weighted average of the two integer states, `n_obs = f·n₁ + (1 − f)·n₂`, with the two states the
-   integers bracketing `n_obs` (`n₂ = ⌊n_obs⌋`, `n₁ = ⌈n_obs⌉`) and `f = (n_obs − n₂)/(n₁ − n₂) ∈ [0,1]`.
-   Integer `n_obs` ⇒ clonal single state (`f ≈ 0` or `1`).
+3. **Decomposition** *(corrected 2026-09 from the Battenberg source, R/fitcopynumber.R `determine_copynumber` +
+   R/orderEdges.R)*: the two states are the corners of the **nearest edge** of the copy-number square around
+   (nMajor, nMinor) — they differ in one allele — chosen by the segment BAF l relative to the corner BAF levels and
+   the total-copy-number priority `ntot < x + y + 1`; the fraction of state 1 is the BAF-mixture solution
+   `τ = (1−ρ+ρM₂−2l(1−ρ)−lρ(m₂+M₂)) / (lρ(m₁+M₁)−lρ(m₂+M₂)−ρM₁+ρM₂)` (unclamped). A segment is clonal when
+   |l − closest corner level| < maxdist = 0.01 or the per-SNP t-test is not significant (constant SNP BAF ⇒ pval 0).
+   The earlier "both alleles bracketed with one shared least-squares fraction" reading was not Battenberg's model.
 
 ### McGranahan et al. (2016) — clonal neoantigens (Science) [already cited in repo]
 
@@ -150,7 +153,7 @@ https://github.com/Wedge-lab/battenberg/blob/master/README.md
 ### From ASCAT (Van Loo 2010 / source)
 
 1. **Balanced (BAF = 0.5) segments** carry little allele-specific information and are down-weighted ×0.05 in the goodness-of-fit (they cannot distinguish e.g. 1+1 from 2+2 except via logR).
-2. **Non-identifiability / multiple optima:** the sunrise plot can show several local minima (e.g. a 2n vs 4n solution); ASCAT selects the global minimum over the grid. A planted single-solution genome must have a unique minimum within tolerance.
+2. **Non-identifiability / multiple optima:** the sunrise plot can show several local minima (e.g. a 2n vs 4n solution). *(Corrected 2026-09.)* ASCAT does **not** take the global grid minimum: `runASCAT` keeps strict minima of a 7×7 window that pass a 4-pass filter cascade (ploidy in (min_ploidy, max_ploidy), ρ ≥ 0.2, GoF > 80 %, percentzero > 0.02; fallbacks with strict ploidy 1.7–2.3, perczeroAbb > 0.1, percOddEven > 0.05 and ρ>1 columns masked) and selects the smallest distance; when none passes it returns rho = NA.
 3. **γ must match the platform:** γ=1 for sequencing, ≈0.55 for arrays; a wrong γ rescales logR and biases copy number.
 
 ### From McGranahan / PICTograph
@@ -184,6 +187,8 @@ Forward model (algebraic inverse of the two nA/nB equations, γ=1):
 
 ### Dataset: Planted two-level logR track (ASPCF breakpoint recovery)
 
+> **Superseded 2026-09:** ASCAT's ASPCF places no breakpoint on noise-free data (MAD sd = 0); the unit tests now use the R-verified noisy tracks of §"2026-09 review".
+
 **Source:** synthesised per Nilsen et al. 2012 PCF objective (deterministic).
 
 | Parameter | Value |
@@ -194,6 +199,8 @@ Forward model (algebraic inverse of the two nA/nB equations, γ=1):
 | Expected | 2 segments; breakpoint between position 9 and 10; means 0.0 and 1.0 |
 
 ### Dataset: Planted sub-clonal segment (mixture recovery)
+
+> **Superseded 2026-09:** Battenberg mixes the two corners of the nearest edge; for this input it returns (2,0)@0.142857 + (2,1)@0.857143 (§"2026-09 review").
 
 **Source:** Battenberg two-state model (Nik-Zainal 2012).
 
@@ -242,6 +249,50 @@ B. **ASSUMPTION: two-state mixture uses the two bracketing integers.** A single 
 
 ---
 
+## 2026-09 review (B24 — F12, F13, F14)
+
+### Sources opened (2026-09-28)
+
+| Source | What it confirmed |
+|---|---|
+| `raw.githubusercontent.com/VanLoo-lab/ascat/master/ASCAT/R/ascat.runAscat.R` | `runASCAT`, `make_segments` (length = probe count), `create_distance_matrix` (grid seq(min_ploidy−0.5, max_ploidy+0.5, 0.05) × seq(min_purity, max_purity, 0.01); genome-wide minor-allele choice), local-minimum scan + filter cascade + constants, ρ>1 ⇒ 1, `seg_raw` rounding, autosome-only fit, rho_manual/psi_manual path |
+| `.../ASCAT/R/ascat.aspcf.R` | `ascat.aspcf` (penalty 70, ladder 35/50/70/100/140 while ≥ 800 levels, MAD winsorisation, < 6 loci ⇒ one segment), `fastAspcf` (1000/100 windows, sd validity, BAF shrinkage), `aspcfpart` (kmin 6, standardised costs), `getMad`, `madWins`, `medianFilter` |
+| `.../ASCAT/R/ascat.metrics.R` | ASCAT's WGD / ploidy metrics (not used by this unit) |
+| `raw.githubusercontent.com/Wedge-lab/battenberg/master/R/fitcopynumber.R`, `R/orderEdges.R`, `R/clonal_ascat.R` | `callSubclones` / `determine_copynumber` (maxdist 0.01, siglevel 0.05, cn_upper_limit 1000, τ formula), `orderEdges` |
+| R 4.3 `stats::runmed`, `stats::smoothEnds` (printed source) | running median with `endrule = "median"` (ends kept, then Tukey end rule) |
+
+### ASCAT R cross-check (executed, not transcribed)
+
+R 4.3 with the original files sourced; plotting functions stubbed. `runASCAT(lrr, baf, lrrsegmented, bafsegmented,
+"XX", SNPpos, ch, chrs, c("X","Y"), FALSE, …, gamma = 1, min_ploidy 1.5, max_ploidy 5.5, min_purity 0.1,
+max_purity 1.05)` on one probe per heterozygous locus (a segment = LocusCount probes with its r and 1 − mirrored b);
+integer segments from the verbatim `seg_raw` block per segment. `ascat.aspcf(obj, penalty, out.dir = NA)` with
+Germline_BAF = 0.5 (all heterozygous). Battenberg: the verbatim `determine_copynumber` per-segment body with
+`orderEdges` sourced.
+
+| Check | Cases | Result (C# vs R) | Pre-fix code vs R |
+|---|---|---|---|
+| `FitPurityPloidy` / `TryFitPurityPloidy` (ρ, ψ, GoF, nonaberrant, integer segments) | 150 random genomes (3–9 segments, ρ 0.25–1, doubled genomes, noise, chrX, 2 NA) | 150/150 identical (max |Δ| 4.3e-14) | 123/148 differ (ρ/ψ in 123, segments in 54) |
+| `SegmentAlleleSpecificAspcf` (breakpoints, logR, BAF) | 60 genomes, 681 segments, up to 4 500 loci/chromosome, penalties 5–150 | 60/60 identical (max |Δ| 5.0e-16) | 52/60 breakpoint sets differ (83 vs 681 segments) |
+| `FitSubclonalCopyNumber` | 402 segments (random + exact clonal, BAF 1, unmirrored BAF) | 402/402 identical | — (different model) |
+
+Locked reference values (unit tests): runASCAT case A (chrX, 3:1…) ρ = 1, ψ = 2.7, GoF 99.781420571107006, 2:1 ×3;
+case B ρ = 0.85, ψ = 2.2, GoF 99.999772627448223, 2:0 2:1 1:1 (pre-fix 0.72 / 4.45); two genomes with rho = NA;
+ascat.aspcf noisy step: logR −0.023565 / 0.60321, BAF 0.5 / 0.75129407875; LOH track BAF 0.966975; penalty 1e6
+single segment logR 0.2898225, BAF 0.637905789375; noise-free step ⇒ one segment; 5-locus chromosome logR 0.13,
+BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,0)@0.14285714285714241 + (2,1).
+
+### Notes
+
+- ASCAT cannot segment noise-free data (every window has MAD sd = 0 and is skipped); planted-truth tests of the
+  segmenter therefore use deterministic noisy tracks.
+- A single-segment genome never yields an accepted ASCAT optimum (no strict 7×7 minimum passes the filters): runASCAT
+  returns NA for all 21 single-segment edge inputs of the fuzz suite.
+- Battenberg reproduces a floating-point artefact at exact-integer inputs (e.g. ρ = 1, BAF 0.66666666666666674,
+  logR log2(1.5): ntot rounds to 3 ⇒ sub-clonal (3,0)/(3,1) with τ = −0.5); the port reproduces it bit-for-bit.
+
+---
+
 ## References
 
 1. Van Loo P, Nordgard SH, Lingjærde OC, et al. (2010). Allele-specific copy number analysis of tumors. PNAS 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
@@ -259,3 +310,4 @@ B. **ASSUMPTION: two-state mixture uses the two bracketing integers.** A single 
 
 - **2026-06-23**: Initial documentation.
 - **2026-06-23**: Added ASPCF penalised-least-squares segmentation (Nilsen 2012, Ross 2021) and sub-clonal copy-number two-state mixture (Nik-Zainal 2012 / Battenberg) evidence for the residual-closing fix.
+- **2026-09-28**: B24 review — FitPurityPloidy = runASCAT port, ASPCF = ascat.aspcf port, sub-clonal fit = Battenberg determine_copynumber port; corrected corner case 2, integer-assignment and Battenberg decomposition statements; R cross-check section added.

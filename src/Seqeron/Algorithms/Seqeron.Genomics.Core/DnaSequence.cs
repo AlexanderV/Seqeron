@@ -48,29 +48,18 @@ namespace Seqeron.Genomics.Core
         /// Gets the complement of this DNA sequence.
         /// A ↔ T, C ↔ G
         /// </summary>
+        /// <remarks>Delegates to the canonical <see cref="SequenceExtensions.TryGetComplement"/>.</remarks>
         public DnaSequence Complement()
-        {
-            var result = new char[_sequence.Length];
-            for (int i = 0; i < _sequence.Length; i++)
-            {
-                result[i] = SequenceExtensions.GetComplementBase(_sequence[i]);
-            }
-            return new DnaSequence(new string(result));
-        }
+            => new DnaSequence(string.Create(_sequence.Length, _sequence,
+                static (dest, src) => src.AsSpan().TryGetComplement(dest)));
 
         /// <summary>
         /// Gets the reverse complement of this DNA sequence.
         /// This is important for double-stranded DNA analysis.
         /// </summary>
+        /// <remarks>Delegates to the canonical <see cref="SequenceExtensions.TryGetReverseComplement"/>.</remarks>
         public DnaSequence ReverseComplement()
-        {
-            var result = new char[_sequence.Length];
-            for (int i = 0; i < _sequence.Length; i++)
-            {
-                result[i] = SequenceExtensions.GetComplementBase(_sequence[_sequence.Length - 1 - i]);
-            }
-            return new DnaSequence(new string(result));
-        }
+            => new DnaSequence(GetReverseComplementString(_sequence));
 
         /// <summary>
         /// Calculates GC content (percentage of G and C nucleotides).
@@ -108,15 +97,13 @@ namespace Seqeron.Genomics.Core
 
         private static void ValidateSequence(string sequence)
         {
-            for (int i = 0; i < sequence.Length; i++)
+            // Canonical predicate: SequenceExtensions.IndexOfInvalidDna (SEQ-VALID-001).
+            int i = sequence.AsSpan().IndexOfInvalidDna();
+            if (i >= 0)
             {
-                char c = sequence[i];
-                if (c != 'A' && c != 'C' && c != 'G' && c != 'T')
-                {
-                    throw new ArgumentException(
-                        $"Invalid nucleotide '{c}' at position {i}. Valid nucleotides: A, C, G, T.",
-                        nameof(sequence));
-                }
+                throw new ArgumentException(
+                    $"Invalid nucleotide '{sequence[i]}' at position {i}. Valid nucleotides: A, C, G, T.",
+                    nameof(sequence));
             }
         }
 
@@ -148,12 +135,10 @@ namespace Seqeron.Genomics.Core
             if (string.IsNullOrEmpty(sequence))
                 return sequence;
 
-            var result = new char[sequence.Length];
-            for (int i = 0; i < sequence.Length; i++)
-            {
-                result[sequence.Length - 1 - i] = SequenceExtensions.GetComplementBase(sequence[i]);
-            }
-            return new string(result);
+            // Delegates to the canonical SequenceExtensions.TryGetReverseComplement
+            // (IUPAC NC-IUB 1984 complement, uppercase output, non-IUPAC chars pass through).
+            return string.Create(sequence.Length, sequence,
+                static (dest, src) => src.AsSpan().TryGetReverseComplement(dest));
         }
 
         #region Span-based Methods

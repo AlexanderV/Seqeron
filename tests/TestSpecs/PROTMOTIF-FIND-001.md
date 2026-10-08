@@ -5,7 +5,7 @@
 **Algorithm:** Protein Motif Search
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-03-19
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -22,6 +22,7 @@
 | 5 | Wikipedia: Sequence motif | 4 | https://en.wikipedia.org/wiki/Sequence_motif | 2026-02-12 |
 | 6 | PROSITE PS00001–PS00029 entries | 2 | https://prosite.expasy.org/PS00001 etc. | 2026-02-12 |
 | 7 | Wikipedia: Nuclear localization sequence | 4 | https://en.wikipedia.org/wiki/Nuclear_localization_sequence | 2026-03-19 |
+| 8 | `ps_scan.pl` (PROSITE reference scanner, `scanPattern`) | 2 | https://raw.githubusercontent.com/ebi-pf-team/interproscan/master/core/jms-implementation/support-mini-x86-32/bin/prosite/ps_scan.pl | 2026-09-28 |
 
 ### 1.2 Key Evidence Points
 
@@ -59,7 +60,7 @@
 
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
-| INV-1 | FindMotifByPattern discovers all matches including overlapping occurrences | Yes | Lookahead regex; ScanProsite behavior (De Castro et al. 2006) |
+| INV-1 | FindMotifByPattern discovers all matches including overlapping occurrences, except a hit included in the previously reported hit (End ≤ previous End) | Yes | Lookahead regex; ScanProsite default greedy=1, overlap=1, include=0 (`ps_scan.pl` scanPattern `$stop > $prevstop`) |
 | INV-2 | Every match Start ≥ 0 and End < sequence.Length | Yes | Array bounds correctness |
 | INV-3 | Every match Sequence equals sequence.Substring(Start, End - Start + 1) | Yes | Regex match value consistency |
 | INV-4 | FindMotifByPattern is case-insensitive (upper/lower yield same results) | Yes | PROSITE convention |
@@ -99,7 +100,10 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | MultiplePatterns_SameSequence | FindCommonMotifs returns matches from different patterns on one sequence | Exactly 4 motif types: ASN_GLYCOSYLATION, PKC_PHOSPHO_SITE, RGD, ATP_GTP_A | Integration |
 | S2 | NoMatch_ReturnsEmpty | Pattern that doesn't match the sequence returns empty | Empty result | Edge case |
-| S3 | OverlappingPotential_HandledConsistently | Sequence with potential overlapping motifs produces consistent results | Non-overlapping matches per regex semantics | **ASSUMPTION: non-overlapping** |
+| S3 | OverlappingPotential_HandledConsistently | Sequence with potential overlapping motifs produces consistent results | Overlapping hits reported (lookahead) | ScanProsite overlap=1 |
+| S6 | IncludedMatch_Suppressed | `L.{2,3}L` over `LLALLAL` | Exactly (0,4) LLALL and (3,6) LLAL; included (1,4) suppressed | `ps_scan.pl` run: 1-5, 4-7 |
+| S7 | Nes1_IncludedMatch_Suppressed | NES1 over `LLAALAALAL` | Exactly one hit (0,9) | `ps_scan.pl` run: 1-10 |
+| S8 | Nes1_PartialOverlapsKept | NES1 over `MKTLLLTLVVVTLVLSSQPVLSRELRECPRGSGKSCQACPAG` | (0,10),(3,12),(4,14) | `ps_scan.pl` run: 1-11, 4-13, 5-15 |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -143,6 +147,9 @@
 | S2 | ✅ Covered | `FindMotifByPattern_NoMatch_ReturnsEmpty`, `FindMotifByPattern_EmptyPattern_ReturnsEmpty` |
 | S3 | ✅ Covered | `FindMotifByPattern_MatchFields_ArePopulated` |
 | S4 | ✅ Covered | `FindMotifByPattern_OverlappingMatches_AllDiscovered`, `FindMotifByPattern_NonOverlapping_SameAsOverlapping` |
+| S6 | ✅ Covered | `FindMotifByPattern_IncludedMatch_IsSuppressed_AsScanProsite` |
+| S7 | ✅ Covered | `FindCommonMotifs_Nes1_IncludedMatch_IsSuppressed_AsScanProsite` |
+| S8 | ✅ Covered | `FindCommonMotifs_Nes1_PartialOverlapsKept_IncludedDropped` |
 | S5 | ✅ Covered | `CommonMotifs_NLS1_MatchesChelskysConsensus`, `CommonMotifs_NES1_MatchesLaCourConsensus`, `CommonMotifs_SIM1_MatchesHeckerConsensus`, `CommonMotifs_WW1_MatchesChenSudolConsensus`, `CommonMotifs_SH3_1_MatchesMayerClassIConsensus`, `CommonMotifs_AllNonProsite_HaveCorrectPatterns` |
 
 **Missing:** 0 &emsp; **Weak:** 0 (5 strengthened: M3, M5, M6, M7, S1) &emsp; **Duplicate:** 0
@@ -175,7 +182,7 @@ All 12 weak tests were strengthened (exact values, unconditional asserts, assert
 | `FindDomains_PLloop_FindsKinase` | DOMAIN-001 | ✅ Strengthened — exact count=1, name, start=4, end=11 |
 | `FindDomains_EmptySequence_ReturnsEmpty` | DOMAIN-001 | ✅ OK |
 | `PredictSignalPeptide_HandlesLowercase` | SP-001 | ✅ OK |
-| `FullWorkflow_AnalyzeProtein` | Integration | ✅ Strengthened — exact motif count=63, specific motif checks |
+| `FullWorkflow_AnalyzeProtein` | Integration | ✅ Strengthened — exact motif count=60 (ps_scan reference; was 64 before the 2026-09 included-match fix), specific motif checks |
 | `FullWorkflow_LargeProtein` | Integration | ✅ Strengthened — was `Is.Not.Null` on `.ToList()`, now exact counts for all methods |
 
 **Residual:** Missing: 0 &emsp; Weak: 0 (12 fixed) &emsp; Duplicate: 0

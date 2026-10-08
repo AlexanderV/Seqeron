@@ -48,34 +48,28 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///    record struct) — there is no lazy iterator, so any exception or hang would
 ///    surface at the call itself; no `.ToList()` forcing is needed.
 ///
-/// How the scan works (ChromosomeAnalyzer.cs lines 263–288, MeasureTelomereLength
-/// lines 293–340; Telomere_Analysis.md §4.1, §5.2):
+/// How the scan works (seqtk telo port, Telomere_Analysis.md §4.1):
 ///   • The sequence and repeat motif are upper-cased; the 5' motif is the reverse
-///     complement of `telomereRepeat`.
-///   • The 5' PREFIX window (first min(searchLength, len) bases) is scanned left→
-///     right against CCCTAA; the 3' SUFFIX window (last min(searchLength, len)
-///     bases) is scanned right→left against TTAGGG.
-///   • Scanning advances in repeat-sized (6-bp) steps, counting a window only while
-///     its per-base similarity to the motif is ≥ 70%; the first window below 70%
-///     stops that end. Only COMPLETE 6-bp windows are counted, so the measured
-///     length is always a multiple of 6 and equals 6 × (number of accepted windows)
-///     (INV-01 length ≥ 0).
-///   • RepeatPurity = matchingBases / totalBases ∈ [0,1], or 0 when nothing counted
-///     (INV-02). Has*Telomere ⇔ measured length ≥ minTelomereLength (INV-03).
+///     complement of `telomereRepeat`. Hits = k-mers equal to any motif ROTATION.
+///   • 5' prefix scanned left→right, 3' suffix right→left (within searchLength);
+///     +1 per hit, −penalty per miss; the tract ends at the maximal cumulative
+///     score; X-drop stop after maxDrop. Non-ACGT bases reset the k-mer.
+///   • RepeatPurity = hits / scored positions in the tract ∈ [0,1], 0 when no
+///     tract (INV-02). Has*Telomere ⇔ length ≥ minTelomereLength and > 0 (INV-03).
 ///
 /// Documented edge-case contract (Telomere_Analysis.md §3.1, §3.3, §6.1):
 ///   • Empty OR null sequence → the method special-cases it (line 258) and returns
 ///     a no-telomere result: lengths 0, Has*Telomere = false, purities 0, and
 ///     IsCriticallyShort = TRUE (the documented empty-input flag).
-///   • Sequence shorter than the 6-bp repeat → MeasureTelomereLength exits
-///     immediately (region.Length < repeatLen, line 299) → zero-length telomeres.
-///   • No telomeric repeats → no window meets the 70% bar → zero lengths,
+///   • Sequence shorter than the 6-bp repeat → no k-mer ever
+///     reaches the motif length → zero-length telomeres.
+///   • No telomeric repeats → no motif-rotation hit → zero lengths,
 ///     Has*Telomere = false, and (non-empty input) IsCriticallyShort = FALSE
 ///     (§5.2: critically-short is only flagged when a telomere is actually
 ///     detected and is shorter than criticalLength).
 ///   • Non-DNA characters → there is NO validation/rejection gate: the input is
-///     upper-cased and scanned verbatim. Garbage bases simply fail the 70%
-///     similarity test, so a non-DNA sequence behaves like "no telomere" and must
+///     upper-cased and scanned verbatim. Garbage bases reset the k-mer
+///     (never a hit), so a non-DNA sequence behaves like "no telomere" and must
 ///     NEVER crash on indexing. This is the MC contract pinned below.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
@@ -83,7 +77,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// ───────────────────────────────────────────────────────────────────────────
 /// • Algorithm doc: docs/algorithms/Chromosome_Analysis/Telomere_Analysis.md.
 /// • Source: src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs
-///   (AnalyzeTelomeres + MeasureTelomereLength).
+///   (AnalyzeTelomeres).
 /// • Meyne, Ratliff, Moyzis (1989): conservation of (TTAGGG)n among vertebrates.
 /// ───────────────────────────────────────────────────────────────────────────
 ///
@@ -466,7 +460,7 @@ public class ChromosomeFuzzTests
 
     /// <summary>
     /// BE: a sequence shorter than the 6-bp repeat cannot contain a single complete
-    /// repeat window — MeasureTelomereLength exits at region.Length &lt; repeatLen
+    /// repeat window — no k-mer reaches the motif length
     /// (line 299). Both ends must report length 0 with no Substring out-of-range, and
     /// (non-empty input) IsCriticallyShort = false.
     /// </summary>
@@ -490,11 +484,11 @@ public class ChromosomeFuzzTests
     #region BE — Boundary: no TTAGGG in sequence
 
     /// <summary>
-    /// BE: a sequence with NO telomeric repeat. No 6-bp window on either end reaches
-    /// the 70% similarity bar, so both lengths are 0, both Has*Telomere = false, and
+    /// BE: a sequence with NO telomeric repeat. No 6-bp window on either end is
+    /// any motif-rotation hit, so both lengths are 0, both Has*Telomere = false, and
     /// IsCriticallyShort = false for non-empty input (§6.1, §5.2). A poly-A tract is
     /// the cleanest "no motif" input: it shares at most one base with TTAGGG/CCCTAA
-    /// (1/6 ≈ 17% &lt; 70%).
+    /// (no hexamer is a rotation of the motif).
     /// </summary>
     [Test]
     public void AnalyzeTelomeres_NoTelomericRepeat_DetectsNothing()
@@ -550,7 +544,7 @@ public class ChromosomeFuzzTests
     /// <summary>
     /// BE (KEY positive): a sequence that is ONLY the telomeric repeat. A pure tract
     /// of N copies of TTAGGG must be detected at the 3' end with the correct measured
-    /// length = 6 × N (every window is a perfect TTAGGG match, similarity 100% ≥ 70%),
+    /// length = 6 × N (every window is a perfect TTAGGG match, every position a motif-rotation hit),
     /// repeat purity exactly 1.0, and Has3PrimeTelomere true when 6·N ≥ 500. This is
     /// the core "only TTAGGG ⇒ telomere with correct repeat count (length/6)" check.
     /// </summary>
@@ -603,7 +597,7 @@ public class ChromosomeFuzzTests
     /// <summary>
     /// MC: non-DNA characters (digits, IUPAC ambiguity codes, whitespace, unicode)
     /// must be handled without a crash. There is no validation gate — input is
-    /// upper-cased and scanned verbatim — so garbage bases simply fail the 70%
+    /// upper-cased and scanned verbatim — so garbage bases reset the k-mer and never hit;
     /// similarity bar and the sequence behaves like "no telomere": zero lengths,
     /// no detection, no IndexOutOfRange. We pin no-throw + no spurious detection.
     /// </summary>
@@ -617,8 +611,8 @@ public class ChromosomeFuzzTests
 
         var result = ChromosomeAnalyzer.AnalyzeTelomeres("chrGarbage", garbage);
 
-        result.Has5PrimeTelomere.Should().BeFalse("no non-DNA window can reach 70% similarity to CCCTAA");
-        result.Has3PrimeTelomere.Should().BeFalse("no non-DNA window can reach 70% similarity to TTAGGG");
+        result.Has5PrimeTelomere.Should().BeFalse("non-ACGT characters reset the k-mer, so no CCCTAA-rotation hit");
+        result.Has3PrimeTelomere.Should().BeFalse("non-ACGT characters reset the k-mer, so no TTAGGG-rotation hit");
         result.TelomereLength5Prime.Should().Be(0);
         result.TelomereLength3Prime.Should().Be(0);
     }
@@ -627,7 +621,7 @@ public class ChromosomeFuzzTests
     /// MC: a non-DNA-decorated but otherwise pure telomeric tract. Even when garbage
     /// characters are interleaved at the chromosome interior, a clean TTAGGG tract at
     /// the 3' terminus must still be detected (the 3' scan walks inward from the end
-    /// and stops at the first sub-70% window), and the run must never crash on the
+    /// and stops at the maximal-score boundary), and the run must never crash on the
     /// non-DNA bytes. This pins that malformed content elsewhere in the sequence does
     /// not corrupt or suppress a legitimate terminal telomere.
     /// </summary>

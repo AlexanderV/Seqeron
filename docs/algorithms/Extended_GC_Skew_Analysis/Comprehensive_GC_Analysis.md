@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-GC-ANALYSIS-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -44,9 +44,10 @@ For a sequence with base counts G, C, A, T:
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| sequence | `DnaSequence` or `string` | required | DNA sequence; case-insensitive | only A/C/G/T counted, other symbols ignored |
-| windowSize | `int` | 1000 | sliding-window length for profiles | ≥ 1 (validated by the windowed cores) |
-| stepSize | `int` | 100 | step between window starts | ≥ 1 |
+| sequence | `DnaSequence` or `string` | required | DNA (or, string overload, RNA) sequence; case-insensitive | GC% counts G+C over A/C/G/T/U; skews count only their own pair; other symbols ignored |
+| windowSize | `int` | 1000 | sliding-window length for profiles | ≥ 1 (`ArgumentOutOfRangeException`, validated eagerly on both overloads) |
+| stepSize | `int` | 100 | step between window starts | ≥ 1 (`ArgumentOutOfRangeException`; a zero step would never terminate) |
+| fraction | `bool` | false | report GC content in [0,1] (Biopython `gc_fraction`) instead of % | — |
 
 ### 3.2 Output / Return Value
 
@@ -65,7 +66,7 @@ For a sequence with base counts G, C, A, T:
 
 ### 3.3 Preconditions and Validation
 
-A null `DnaSequence` throws `ArgumentNullException`. A null/empty string returns a zero result with empty windowed lists and `SequenceLength = 0`. Counting is case-insensitive (uppercased internally); only A/C/G/T affect the metrics — ambiguous/other symbols are ignored in numerators and denominators (matching Biopython `GC_skew`, which ignores ambiguous bases) [5]. Indexing of window positions is 0-based; `WindowStart`/`WindowEnd` are inclusive and `Position` is the window midpoint `start + windowSize/2`.
+A null `DnaSequence` throws `ArgumentNullException`. A null/empty string returns a zero result with empty windowed lists and `SequenceLength = 0`. `windowSize < 1` or `stepSize < 1` throws `ArgumentOutOfRangeException` on both overloads (checked before the null/empty short-circuit). Counting is case-insensitive (uppercased internally). GC content is computed by the canonical `SequenceExtensions.CalculateGcFraction`: G+C over A+C+G+T+U — U is the RNA counterpart of T (GC-content is defined for DNA or RNA, "adenine and uracil in RNA" [3]; Biopython `gc_fraction(seq, "remove")` counts U likewise [5]). GC skew counts only G/C and AT skew only A/T; ambiguous/other symbols are ignored in numerators and denominators (matching Biopython `GC_skew`, which ignores ambiguous bases) [5]. Indexing of window positions is 0-based; `WindowStart`/`WindowEnd` are inclusive and `Position` is the window midpoint `start + windowSize/2`.
 
 ## 4. Algorithm
 
@@ -103,7 +104,7 @@ Each window's counts are recomputed independently (no incremental sliding accumu
 - GC content `(G+C)/(A+T+G+C)×100` [3].
 - GC skew `(G−C)/(G+C)` with G+C=0 → 0 [1][2][5].
 - AT skew `(A−T)/(A+T)` with A+T=0 → 0 [6].
-- Population variance `Σ(xᵢ−μ)²/N` of windowed values [7].
+- Population variance `Σ(xᵢ−μ)²/N` of windowed values [7], via the canonical `StatisticsHelper.PopulationVariance` (= `numpy.var`, ddof=0).
 
 **Intentionally simplified:**
 
@@ -130,11 +131,13 @@ Each window's counts are recomputed independently (no incremental sliding accumu
 | null/empty string | zero result, empty windows, length 0 | string-overload contract |
 | sequence shorter than window | empty windowed lists, variances 0, scalars still computed | only full windows are emitted [5] |
 | no G/C bases | OverallGcSkew = 0, GcContent = 0 | zero-division → 0 [5]; numerator 0 [3] |
+| RNA string (e.g. `GGAUCUUCGGAUCU`) | GC% = 50 (U in denominator) | Biopython `gc_fraction` [5] |
+| windowSize or stepSize < 1 | `ArgumentOutOfRangeException` | Biopython `GC_skew` rejects window 0 [5] |
 | pure-G / pure-C sequence | OverallGcSkew = +1 / −1, GcContent = 100 | skew bounds [2] |
 
 ### 6.2 Limitations
 
-Windows are recomputed per step (no incremental optimization); for very large windows this is O(W·w). Only A/C/G/T are counted; degenerate IUPAC codes do not contribute. The aggregation does not itself locate replication origins — use the dedicated origin predictor.
+Windows are recomputed per step (no incremental optimization); for very large windows this is O(W·w). Only A/C/G/T/U are counted for GC% (A/T and G/C for the skews); degenerate IUPAC codes (including S/W, which Biopython `gc_fraction` counts) do not contribute. The aggregation does not itself locate replication origins — use the dedicated origin predictor.
 
 ## 7. Examples and Related Material
 

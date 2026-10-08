@@ -6,11 +6,11 @@
 | Test Unit ID | ANNOT-GENE-001 |
 | Related Projects | Seqeron.Genomics |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
-Gene prediction in this repository is a prokaryote-oriented, ORF-first heuristic. `GenomeAnnotator.PredictGenes(...)` converts qualifying ORFs into `CDS` annotations, while `FindRibosomeBindingSites(...)` separately scans upstream regions for Shine-Dalgarno-like motifs. The implementation is deterministic for its fixed codon and motif sets, but it does not implement a trained promoter or coding-potential model and it does not resolve overlaps between competing ORFs. It is therefore best understood as annotation scaffolding rather than a substitute for specialized gene finders such as GLIMMER or GeneMark.
+Gene prediction in this repository is a prokaryote-oriented, ORF-first heuristic. `GenomeAnnotator.PredictGenes(...)` converts qualifying ORFs into `CDS` annotations, while `FindRibosomeBindingSites(...)` separately scans upstream regions for Shine-Dalgarno-like motifs. The implementation is deterministic for its fixed codon and motif sets, but it does not implement a trained promoter or coding-potential model. Nested start codons that share one stop are collapsed to a single gene (first start, longest ORF), but overlaps between ORFs with different stops are not resolved. It is therefore best understood as annotation scaffolding rather than a substitute for specialized gene finders such as GLIMMER or GeneMark.
 
 ## 2. Scientific / Formal Basis
 
@@ -18,7 +18,7 @@ Gene prediction in this repository is a prokaryote-oriented, ORF-first heuristic
 
 The current document models prokaryotic genes as continuous coding regions without introns. In that model, an annotated coding sequence is associated with a start codon, a stop codon, and often upstream regulatory signals such as promoter elements and a ribosome-binding site. The current document identifies the canonical bacterial promoter elements as the `-35` box (`TTGACA`) and the `-10` box (`TATAAT`), and it describes the Shine-Dalgarno (SD) ribosome-binding sequence as an upstream translation-initiation signal that base-pairs with the `3'` end of `16S` rRNA.
 
-The same source material describes the bacterial SD consensus as `AGGAGG` (or `AGGAGGU` in the E. coli form cited in the document), with shorter variants such as `GGAGG`, `AGGAG`, `GAGG`, and `AGGA`. The cited range for SD placement is `4` to `15` nucleotides upstream of the start codon, with Chen et al. (1994) reporting an optimal aligned spacing of `5` nucleotides from the motif `3'` end to the start codon.
+The same source material describes the bacterial SD consensus as `AGGAGG` (or `AGGAGGU` in the E. coli form cited in the document), with shorter variants — every contiguous sub-motif of length ≥ 4: `GGAGG`, `AGGAG`, `GGAG`, `GAGG`, and `AGGA` (the exact-match motif set of Prodigal's `shine_dalgarno_exact()`, whose 4-base class is labelled `AGGA/GGAG/GAGG`). The cited range for SD placement is `4` to `15` nucleotides upstream of the start codon, with Chen et al. (1994) reporting an optimal aligned spacing of `5` nucleotides from the motif `3'` end to the start codon.
 
 ### 2.2 Core Model
 
@@ -40,6 +40,7 @@ For a start codon at index $s$ and a stop codon beginning at index $t$ in the sa
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
+| INV-00 | At most one predicted gene per (strand, stop codon); it starts at the most upstream in-frame start after the previous stop | `PredictGenes(...)` groups ORFs by stop and keeps the longest (EMBOSS getorf `-find 1`; Prodigal selects one start per stop) |
 | INV-01 | Every predicted gene is derived from an ORF that begins with `ATG`, `GTG`, or `TTG` and ends with `TAA`, `TAG`, or `TGA` | `PredictGenes(...)` delegates to the canonical ORF finder with `requireStartCodon: true` |
 | INV-02 | Every predicted gene has valid genomic bounds and a frame attribute in `{1, 2, 3}` | `PredictGenes(...)` emits `GeneAnnotation` records from `OpenReadingFrame` values and preserves the positive frame index |
 | INV-03 | Every reported RBS hit lies between `minDistance` and `maxDistance` from the associated start codon | `FindRibosomeBindingSites(...)` checks aligned spacing before emitting a hit |
@@ -84,9 +85,9 @@ Both `PredictGenes(...)` and `FindRibosomeBindingSites(...)` return an empty seq
 ### 4.1 High-Level Steps
 
 1. Find ORFs across both strands using the repository's canonical ORF finder.
-2. For `PredictGenes(...)`, keep ORFs whose translated length is at least `minOrfLength`, order them by genomic start coordinate, and emit `GeneAnnotation` records with sequential IDs and fixed metadata.
+2. For `PredictGenes(...)`, keep ORFs whose translated length is at least `minOrfLength`, keep only the longest ORF (first start) per stop codon and strand, order them by genomic start coordinate, and emit `GeneAnnotation` records with sequential IDs and fixed metadata.
 3. For `FindRibosomeBindingSites(...)`, find ORFs with a minimum length of `30` amino acids, inspect the upstream region before each forward-strand ORF, and scan that region for exact SD-like motifs.
-4. Emit only those motif hits whose aligned distance from the motif `3'` end to the ORF start lies within `[minDistance, maxDistance]`.
+4. Emit only those motif hits whose aligned distance from the motif `3'` end to the ORF start lies within `[minDistance, maxDistance]`; per start codon keep only maximal hits (a hit contained in another in-range hit is the same site), and report each (position, motif) once even if it lies upstream of several nested starts.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -94,8 +95,8 @@ Both `PredictGenes(...)` and `FindRibosomeBindingSites(...)` return an empty seq
 |----------|---------------|
 | Start codons | `ATG`, `GTG`, `TTG` |
 | Stop codons | `TAA`, `TAG`, `TGA` |
-| SD-like motif library | `AGGAGG`, `GGAGG`, `AGGAG`, `GAGG`, `AGGA` |
-| RBS scoring | `score = motif.Length / 6.0` |
+| SD-like motif library | `AGGAGG`, `GGAGG`, `AGGAG`, `GGAG`, `GAGG`, `AGGA` (all contiguous ≥4-nt substrings of AGGAGG) |
+| RBS scoring | `score = motif.Length / 6.0` — declared heuristic (see §5.3) |
 | SD distance measurement | Aligned spacing from motif `3'` end to the first nucleotide of the start codon |
 
 ### 4.3 Complexity
@@ -120,7 +121,7 @@ Both `PredictGenes(...)` and `FindRibosomeBindingSites(...)` return an empty seq
 Repository-specific behavior confirmed by source and tests:
 
 - `PredictGenes(...)` calls `FindOrfs(...)` with `searchBothStrands: true` and `requireStartCodon: true`, then sorts the resulting ORFs by `Start` before generating gene IDs.
-- Every qualifying ORF is emitted as its own `CDS` annotation, including overlapping or nested candidates; there is no best-model selection or overlap suppression step.
+- Nested ORFs that share a stop codon are collapsed to one `CDS` (the longest, i.e. first start after the previous in-frame stop), matching EMBOSS getorf `-find 1` (cross-checked on a 326-nt construct: getorf 6.6.0 `[3 - 176]`, `[324 - 190] (REVERSE SENSE)` ↔ `+ [2,179)`, `− [186,324)`). ORFs with different stops are all emitted, overlapping or not.
 - Every emitted annotation has `Type = "CDS"` and `Product = "hypothetical protein"`.
 - The emitted attributes are `frame`, `protein_length`, and `translation`; `protein_length` trims the terminal `*` from the translated protein, while `translation` preserves the raw translated sequence.
 - `FindRibosomeBindingSites(...)` internally uses `FindOrfs(dnaSequence, minLength: 30)` and then filters to forward-strand ORFs before scanning upstream windows.
@@ -137,8 +138,8 @@ Repository-specific behavior confirmed by source and tests:
 **Intentionally simplified:**
 
 - `PredictGenes(...)` uses ORF structure only and does not incorporate promoter boxes or RBS scores into the generated gene annotations; **consequence:** the gene list is not ranked or filtered by upstream regulatory evidence.
-- `PredictGenes(...)` emits every qualifying ORF after start-coordinate sorting; **consequence:** overlapping or nested coding candidates remain separate predictions instead of being reconciled into one preferred model.
-- `FindRibosomeBindingSites(...)` uses a fixed motif library and length-normalized scores; **consequence:** the reported scores do not model the literature's detailed initiation-strength differences.
+- `PredictGenes(...)` picks the first (most upstream) start per stop and emits every stop-distinct ORF; **consequence:** start sites are not refined by RBS/coding evidence (Prodigal-style) and overlapping ORFs with different stops are not reconciled into one preferred model.
+- `FindRibosomeBindingSites(...)` uses a fixed motif library and length-normalized scores; **consequence:** the reported scores do not model initiation strength or spacer effects. This is kept because the published RBS scores are genome- or model-specific: Prodigal scores each (motif, spacer) bin (`shine_dalgarno_exact`/`_mm`, 28 bins, spacers 3-4/5-10/11-12/13-15 bp) with log-likelihood weights trained iteratively on the input genome's own predicted genes (`train_starts_sd()`, requires the complete Prodigal gene model), and the RBS Calculator (Salis et al. 2009) needs ViennaRNA/NUPACK-exact mRNA–16S folding energies plus empirically fitted spacing/standby terms.
 - The helper scans only forward-strand ORFs for RBS hits; **consequence:** reverse-strand genes can be predicted without a corresponding RBS record from this method.
 
 **Not implemented:**
@@ -179,3 +180,5 @@ The repository implements a simple ORF-based predictor rather than a trained gen
 5. Chen H, Bjerknes M, Kumar R, Jay E. Determination of the optimal aligned spacing between the Shine-Dalgarno sequence and the translation initiation codon. Nucleic Acids Research. 1994;22(23):4953-4957.
 6. Laursen BS, Sorensen HP, Mortensen KK, Sperling-Petersen HU. Initiation of protein synthesis in bacteria. Microbiology and Molecular Biology Reviews. 2005;69(1):101-123.
 7. Stormo GD, Schneider TD, Gold L, Ehrenfeucht A. Characterization of translational initiation sites in E. coli. Nucleic Acids Research. 1982;10(9):2971-2996.
+8. Hyatt D, Chen GL, LoCascio PF, Land ML, Larimer FW, Hauser LJ. Prodigal: prokaryotic gene recognition and translation initiation site identification. BMC Bioinformatics. 2010;11:119. Source code: https://raw.githubusercontent.com/hyattpd/Prodigal/GoogleImport/sequence.c (`shine_dalgarno_exact`, `shine_dalgarno_mm`), `node.c` (`rbs_score`, `train_starts_sd`), `gene.c` (RBS bin labels).
+9. EMBOSS 6.6.0 getorf (`-find 1`), numeric reference for one gene per stop codon.

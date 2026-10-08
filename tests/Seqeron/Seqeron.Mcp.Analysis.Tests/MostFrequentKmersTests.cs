@@ -32,4 +32,16 @@ public class MostFrequentKmersTests
         var tie = AnalysisTools.MostFrequentKmers("ACGTTGCATGTCGCATGATGCATGAGAGCT", 4).Kmers;
         Assert.That(tie, Is.EquivalentTo(new[] { "CATG", "GCAT" }));
     }
+
+    [Test]
+    public void MostFrequentKmers_CanonicalAndAcgtOnly_EqualJellyfishDump()
+    {
+        // jellyfish 2.3.1 count -m 4 -C + dump -c on the BA1B sample: ATGC = 4 is the maximum (CATG 3);
+        // without -C (ACGT-only) CATG = GCAT = 3.
+        const string ba1b = "ACGTTGCATGTCGCATGATGCATGAGAGCT";
+        Assert.That(AnalysisTools.MostFrequentKmers(ba1b, 4, canonical: true).Kmers, Is.EquivalentTo(new[] { "ATGC" }));
+        // AAAANTTTTGGGGuCCCC k=2: -C -> AA = CC = 6; ACGT-only -> AA = CC = GG = TT = 3.
+        Assert.That(AnalysisTools.MostFrequentKmers("AAAANTTTTGGGGuCCCC", 2, canonical: true).Kmers, Is.EquivalentTo(new[] { "AA", "CC" }));
+        Assert.That(AnalysisTools.MostFrequentKmers("AAAANTTTTGGGGuCCCC", 2, acgtOnly: true).Kmers, Is.EquivalentTo(new[] { "AA", "CC", "GG", "TT" }));
+    }
 }

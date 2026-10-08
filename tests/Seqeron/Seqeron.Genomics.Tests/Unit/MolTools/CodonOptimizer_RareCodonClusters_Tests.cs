@@ -428,4 +428,76 @@ public class CodonOptimizer_RareCodonClusters_Tests
     }
 
     #endregion
+
+    #region Review 2026-09 (B02) — reference-implementation locks
+
+    // S. cerevisiae codon usage per thousand codons (Kazusa species=4932), verbatim from the
+    // Clark-lab CHARMING repository file ScerCUB.txt (github.com/wrightgs/CHARMING); its
+    // per-amino-acid ratios round to the python-codon-tables s_cerevisiae_4932 fractions
+    // (stop codons within 0.01, as their per-thousand values are rounded to 0.1).
+    private static readonly CodonOptimizer.CodonUsageTable YeastPerThousand = new(
+        "S. cerevisiae (per thousand)",
+        new Dictionary<string, double>
+        {
+            { "AAA", 41.9 }, { "AAC", 24.8 }, { "AAG", 30.8 }, { "AAU", 35.7 }, { "ACA", 17.8 }, { "ACC", 12.7 }, { "ACG", 8.0 }, { "ACU", 20.3 },
+            { "AGA", 21.3 }, { "AGC", 9.8 }, { "AGG", 9.2 }, { "AGU", 14.2 }, { "AUA", 17.8 }, { "AUC", 17.2 }, { "AUG", 20.9 }, { "AUU", 30.1 },
+            { "CAA", 27.3 }, { "CAC", 7.8 }, { "CAG", 12.1 }, { "CAU", 13.6 }, { "CCA", 18.3 }, { "CCC", 6.8 }, { "CCG", 5.3 }, { "CCU", 13.5 },
+            { "CGA", 3.0 }, { "CGC", 2.6 }, { "CGG", 1.7 }, { "CGU", 6.4 }, { "CUA", 13.4 }, { "CUC", 5.4 }, { "CUG", 10.5 }, { "CUU", 12.3 },
+            { "GAA", 45.6 }, { "GAC", 20.2 }, { "GAG", 19.2 }, { "GAU", 37.6 }, { "GCA", 16.2 }, { "GCC", 12.6 }, { "GCG", 6.2 }, { "GCU", 21.2 },
+            { "GGA", 10.9 }, { "GGC", 9.8 }, { "GGG", 6.0 }, { "GGU", 23.9 }, { "GUA", 11.8 }, { "GUC", 11.8 }, { "GUG", 10.8 }, { "GUU", 22.1 },
+            { "UAA", 1.1 }, { "UAC", 14.8 }, { "UAG", 0.5 }, { "UAU", 18.8 }, { "UCA", 18.7 }, { "UCC", 14.2 }, { "UCG", 8.6 }, { "UCU", 23.5 },
+            { "UGA", 0.7 }, { "UGC", 4.8 }, { "UGG", 10.4 }, { "UGU", 8.1 }, { "UUA", 26.2 }, { "UUC", 18.4 }, { "UUG", 27.2 }, { "UUU", 26.1 },
+        },
+        new Dictionary<string, string>());
+
+    // %MinMax with the reference's per-thousand input: values from the Clark-lab reference
+    // code calculateMinMax (CHARMING.py, Wright et al. 2022), which prints them rounded to
+    // 2 dp (0, 33.99 for CUG·AGA; 12.69, 17.03, 15.99 for the 20-codon gene); the unrounded
+    // values below come from the same formula in the Python reference.
+    [Test]
+    public void CalculateMinMaxProfile_PerThousandTable_MatchesClarkLabReference()
+    {
+        var two = CodonOptimizer.CalculateMinMaxProfile("CUGAGA", YeastPerThousand, windowSize: 2);
+        Assert.That(two.Select(w => w.PercentMinMax), Is.EqualTo(new[] { 33.99209486166008 }).Within(1e-9));
+
+        const string gene = "AUGCUGAGAAAAGAAGCUCUGAGGUUUCCCGGAAUAUCUCGAUGGAAGACCCUAGUUCAG";
+        var profile = CodonOptimizer.CalculateMinMaxProfile(gene, YeastPerThousand, windowSize: 18);
+        Assert.That(profile.Select(w => w.WindowStartCodon), Is.EqualTo(new[] { 0, 1, 2 }));
+        Assert.That(profile.Select(w => w.PercentMinMax),
+            Is.EqualTo(new[] { 12.68791340950089, 17.028571428571425, 15.991062879029688 }).Within(1e-9));
+    }
+
+    // The same CUG·AGA window with the built-in per-amino-acid relative fractions gives a
+    // different value (58.62 vs 33.99): relative fractions weight every residue equally, so
+    // they reproduce the reference only for single-amino-acid windows (documented contract).
+    [Test]
+    public void CalculateMinMaxProfile_RelativeFractionPreset_WeightsResiduesEqually()
+    {
+        var rel = CodonOptimizer.CalculateMinMaxProfile("CUGAGA", CodonOptimizer.Yeast, windowSize: 2);
+        Assert.That(rel[0].PercentMinMax, Is.EqualTo(58.620689655172406).Within(1e-9));
+    }
+
+    // The stop family {UAA, UAG, UGA} is a synonymous family in the reference (aaDict['*']):
+    // UAG·UAG in E. coli (UAG = family minimum 0.07) is −100 %Min.
+    [Test]
+    public void CalculateMinMaxProfile_StopFamily_IsSynonymousFamily()
+    {
+        var p = CodonOptimizer.CalculateMinMaxProfile("UAGUAG", CodonOptimizer.EColiK12, windowSize: 2);
+        Assert.That(p[0].PercentMinMax, Is.EqualTo(-100.0).Within(1e-9));
+    }
+
+    // Ambiguous triplets are never pause positions (no usage frequency). Previously NNN
+    // counted as frequency 0 < threshold, so a run of seven NNN was reported as a cluster.
+    [Test]
+    public void FindRareCodonClusters_AmbiguousTriplets_AreNotPausePositions()
+    {
+        Assert.That(CodonOptimizer.FindRareCodonClusters(string.Concat(Enumerable.Repeat("NNN", 7)), CodonOptimizer.EColiK12),
+            Is.Empty);
+
+        var mixed = CodonOptimizer.FindRareCodonClusters(
+            string.Concat(Enumerable.Repeat("AGA", 4)) + "NNNNNNNNN", CodonOptimizer.EColiK12);
+        Assert.That(mixed, Is.EqualTo(new[] { new CodonOptimizer.RareCodonCluster(0, 6, 4) }));
+    }
+
+    #endregion
 }

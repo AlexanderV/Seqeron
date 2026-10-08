@@ -5,8 +5,8 @@
 **Area:** MolTools
 **Status:** Active
 **Created:** 2026-01-22
-**Last Verified:** 2026-03-04
-**Evidence Sources:** Marmur & Doty (1962), Thein & Wallace (1986), Sigma-Aldrich/Merck Technical Docs, Owczarzy et al. (2004)
+**Last Verified:** 2026-09-28 (review-2026-09 B07: salt-adjusted Tm corrected)
+**Evidence Sources:** Thein & Wallace (1986), Marmur & Doty (1962), OligoCalc (Kibbe 2007, NAR 35:W43), Schildkraut & Lifson (1965), Biopython `Bio.SeqUtils.MeltingTemp` 1.88, Sigma-Aldrich/Merck Technical Docs
 
 ---
 
@@ -33,7 +33,14 @@ Melting temperature (Tm) is the temperature at which 50% of the DNA duplex is di
 | `MarmurDotyGcCoefficient` | 41.0 | GC coefficient |
 | `MarmurDotyGcOffset` | 16.4 | GC offset correction |
 | `CalculateMarmurDotyTm(gc, len)` | 64.9 + 41×(GC-16.4)/len | Marmur-Doty formula |
-| `CalculateSaltCorrection(Na_mM)` | 16.6 × log10(Na/1000) | Salt correction |
+| `CalculateSaltCorrection(Na_mM)` | 16.6 × log10(Na/1000) | Absolute Schildkraut–Lifson term (Biopython method 1); NOT used by the primer Tm |
+| `CalculateOligoCalcSaltAdjustedTm(at, gc, Na_M)` | N<14: 2AT+4GC+16.6·log10(Na/0.050); N≥14: 100.5+41·GC/N−820/N+16.6·log10(Na) | OligoCalc salt-adjusted Tm |
+
+Guards (B07 audit round 3, A3-16; Biopython `Tm_GC`/`salt_correction` raise `ValueError` for [Na+] ≤ 0): the salt
+helpers throw `ArgumentOutOfRangeException` for [Na+] ≤ 0 / NaN / ∞, the count/length helpers for negative
+counts/lengths, `CalculateSaltAdjustedTm` also for GC fraction ∉ [0, 1] — `ThermoConstants_SaltHelpers_NonPositiveSodium_Throw`,
+`ThermoConstants_CountHelpers_NegativeCountOrLength_Throw`, `ThermoConstants_CalculateSaltAdjustedTm_GcFractionOutOfRange_Throws`,
+`ThermoConstants_SaltHelpers_PositiveInputs_Unchanged`.
 
 ---
 
@@ -92,17 +99,24 @@ basic primer analysis. This is consistent with widely-published bioinformatics r
 | 50% GC (10 each) | 10 | 50% | 64.9 + 41×(-6.4)/20 = 51.78°C |
 | All G/C | 20 | 100% | 64.9 + 41×(3.6)/20 = 72.28°C |
 
-### 2.3 Salt Correction
+### 2.3 Salt-Adjusted Tm (OligoCalc)
 
-**Source:** Owczarzy et al. (2004), general PCR literature
+**Source:** OligoCalc (Kibbe 2007, Nucleic Acids Res 35:W43–W46), "Salt Adjusted" Tm; salt slope 16.6·log10 from
+Schildkraut & Lifson (1965). The basic formulas of §2.1/§2.2 are OligoCalc's "Basic" Tm and **assume 50 nM primer,
+50 mM Na+, pH 7.0**, so an absolute 16.6·log10([Na+]) term must not be added on top of them.
 
-**Formula:** Salt correction = 16.6 × log10([Na⁺]/1000)
+**Formula ([Na+] in mol/L; the API takes mM):**
+- N < 14: Tm = 2(A+T) + 4(G+C) − 16.6·log10(0.050) + 16.6·log10([Na+])
+- N ≥ 14: Tm = 100.5 + 41·(G+C)/N − 820/N + 16.6·log10([Na+])
 
-Where [Na⁺] is in mM (typical PCR: 50 mM)
+Result rounded to 1 decimal. [Na+] ≤ 0 / NaN / ∞ → `ArgumentOutOfRangeException`.
 
-**Example:** At 50 mM Na⁺: 16.6 × log10(0.05) = 16.6 × (-1.301) ≈ -21.6°C
+**Reference cross-check:** OligoCalc output for `GAGCAGGATCCCTATAGAGTGACAAAAGGATCTTGGTCC` @ 50 mM: basic 67.6 °C,
+salt-adjusted 78 °C (ours 67.633 / 77.852). 20-mer `ACGTACGTACGTACGTACGT` @ 50 mM: ours 58.4; Biopython `Tm_GC(valueset=7)` 50.40;
+primer3 `calc_tm` (NN, 50 mM, no Mg) 53.99. **Fixed defect (2026-09):** the previous implementation added
+16.6·log10([Na+]/1000) to the basic Tm (double-counting salt): 20-mer 50 %GC @ 50 mM → 30.2 °C.
 
-**Defined Behavior:** Salt correction returns 0 for empty/null input (no duplex to correct).
+**Defined Behavior:** returns 0 for empty/null input or no A/C/G/T.
 
 ---
 
@@ -210,31 +224,30 @@ Input: "atatatat"
 Expected: Same as "ATATATAT" = 16.0 (exact value asserted)
 ```
 
-#### M12: Salt Correction - Standard 50mM
-**Evidence:** Standard PCR salt concentration
+#### M12: Salt-Adjusted - 50mM (≥14 nt)
+**Evidence:** OligoCalc salt-adjusted formula
 ```
 Input: primer="ACGTACGTACGTACGTACGT", Na=50mM
-Base Tm: 51.78
-Salt correction: 16.6 × log10(50/1000) ≈ -21.6
-Expected: ≈30.2
+Expected: 100.5 + 41×10/20 − 820/20 + 16.6×log10(0.05) = 58.403 → 58.4
 ```
 
-#### M13: Salt Correction - Low Salt (10mM)
-**Evidence:** Owczarzy et al. (2004). Lower salt destabilizes duplex.
+#### M13: Salt-Adjusted - 10mM (≥14 nt)
 ```
 Input: primer="ACGTACGTACGTACGTACGT", Na=10mM
-Base Tm: ≈51.78
-Salt correction: 16.6 × log10(10/1000) = 16.6 × (-2) = -33.2
-Expected: ≈18.58
+Expected: 100.5 + 20.5 − 41 − 33.2 = 46.8
 ```
 
-#### M14: Salt Correction - High Salt (200mM)
-**Evidence:** Owczarzy et al. (2004). Higher salt stabilizes duplex.
+#### M14: Salt-Adjusted - 200mM (≥14 nt)
 ```
 Input: primer="ACGTACGTACGTACGTACGT", Na=200mM
-Base Tm: ≈51.78
-Salt correction: 16.6 × log10(200/1000) ≈ -11.6
-Expected: ≈40.18
+Expected: 68.397 → 68.4
+```
+
+#### M14b: Salt-Adjusted short oligo / OligoCalc worked example
+```
+"ACGTACGT" @ 50 mM → 24.0 (= Wallace); @ 10 mM → 12.4; @ 200 mM → 34.0; "ACGT" @ 1000 mM → 33.6
+OligoCalc 39-mer GAGCAGGATCCCTATAGAGTGACAAAAGGATCTTGGTCC @ 50 mM → 77.9 (OligoCalc: 78)
+Na ≤ 0, NaN, ∞ → ArgumentOutOfRangeException
 ```
 
 #### M15: Non-ACGT Characters Ignored
@@ -280,7 +293,7 @@ Expected: 64.9 + 41×(0-16.4)/16 = 22.875
 |----|-----------|------------|
 | INV-1 | Result ≥ 0 for any valid input | Assert.That(tm, Is.GreaterThanOrEqualTo(0)) |
 | INV-2 | Higher GC content → Higher Tm | Compare equal-length sequences |
-| INV-3 | Salt correction is additive to base Tm | Tm_salt = Tm_base + correction |
+| INV-3 | Salt-adjusted Tm follows the OligoCalc formula; for N<14 at 50 mM it equals the basic Tm; +16.6 °C per decade of [Na+] | property tests |
 | INV-4 | Case insensitivity | toupper(input) == input produces same Tm |
 
 ---
@@ -309,7 +322,7 @@ Expected: 64.9 + 41×(0-16.4)/16 = 22.875
 | Short oligo formula | Tm = 2(A+T) + 4(G+C) | Tm = 2(A+T) + 4(G+C) − 7 | **Variant** — −7 correction omitted by design |
 | Short oligo threshold | < 14 valid bases | ≤ 14 bases | Aligned (both use 14 as boundary) |
 | Long primer formula | Marmur-Doty: 64.9 + 41(GC−16.4)/N | Nearest-neighbor (SantaLucia 1998) | **Simplified** — Marmur-Doty is a simpler, well-published alternative |
-| Salt correction | 16.6 × log₁₀(Na_mM/1000) | Integrated into NN formula | Consistent with Owczarzy (2004) |
+| Salt adjustment | OligoCalc salt-adjusted Tm (relative to the 50 mM basis for N<14) | Integrated into NN formula | Matches OligoCalc output |
 | Non-ACGT handling | Ignored (only ACGT counted) | Not documented (clean input expected) | Defined behavior |
 | RNA (U) | Not supported (ignored) | Not applicable (DNA tool) | Defined behavior |
 
@@ -320,7 +333,7 @@ oligonucleotides used in solution (as opposed to membrane hybridization).
 Our implementation uses the original Wallace rule without this correction.
 This is a **deliberate design choice** — the Wallace rule as published by
 Thein & Wallace (1986) does not include the correction.
-If in-solution calibration is needed, use `CalculateMeltingTemperatureWithSalt`.
+For a different [Na+] use `CalculateMeltingTemperatureWithSalt` (OligoCalc salt-adjusted Tm); for accuracy use `CalculateMeltingTemperatureNN`.
 
 ---
 
@@ -341,9 +354,8 @@ All spec test cases verified against `PrimerDesigner_MeltingTemperature_Tests.cs
 | M9 | Marmur-Doty 20bp Low GC | ✅ Covered | `_MarmurDoty_20bp_0GC_ReturnsExpected` |
 | M10 | Marmur-Doty 20bp High GC | ✅ Covered | `_MarmurDoty_20bp_100GC_ReturnsExpected` |
 | M11 | Case Insensitivity | ✅ Covered | `_LowercaseInput_MatchesUppercase` (exact 16.0) |
-| M12 | Salt 50mM | ✅ Covered | `_50mM_AppliesCorrection` |
-| M13 | Salt 10mM | ✅ Covered | `_10mM_AppliesCorrection` (exact value) |
-| M14 | Salt 200mM | ✅ Covered | `_200mM_AppliesCorrection` (exact value) |
+| M12–M14 | Salt-adjusted ≥14 nt | ✅ Covered | `CalculateMeltingTemperatureWithSalt_Long_OligoCalcSaltAdjusted` (50/10/200/1000 mM) |
+| M14b | Salt-adjusted <14 nt, OligoCalc example, invalid Na | ✅ Covered | `_Short_WallaceRelativeCorrection`, `_OligoCalcWorkedExample_39mer`, `_Short_At50mM_EqualsBasicWallace`, `_IncreasesBy16_6PerDecade`, `_InvalidSodium_Throws` |
 | M15 | Non-ACGT Ignored | ✅ Covered | `_NonAcgtIgnored_OnlyValidBasesCounted` |
 | M16 | RNA U Ignored | ✅ Covered | `_RnaUracil_NotCountedAsDnaBase` |
 | M17 | All Non-Standard → 0 | ✅ Covered | `_AllNonAcgt_Returns0` |
@@ -351,7 +363,7 @@ All spec test cases verified against `PrimerDesigner_MeltingTemperature_Tests.cs
 | M19 | All Same Base 16bp | ✅ Covered | `_MarmurDoty_AllSameBase16bp_ReturnsExpected` |
 | INV-1 | Non-negative | ✅ Covered | `_AlwaysNonNegative` |
 | INV-2 | Higher GC → Higher Tm | ✅ Covered | `_HigherGC_ProducesHigherTm` |
-| INV-3 | Salt additive | ✅ Covered | `_50mM_AppliesCorrection` |
+| INV-3 | Salt-adjusted formula | ✅ Covered | `PrimerProbeProperties.MeltingTemperatureWithSalt_MatchesOligoCalcSaltAdjusted`, `_ShortOligoAt50mM_EqualsBaseTm`, `_50mMTo1M_Adds16_6LogTwenty` |
 | INV-4 | Case insensitive | ✅ Covered | `_LowercaseInput…` + `_MixedCaseInput…` |
 
 **Additional tests** (not spec-required, but valuable):

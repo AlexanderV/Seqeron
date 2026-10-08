@@ -25,6 +25,27 @@ public sealed partial class PersistentSuffixTree
     }
 
     /// <inheritdoc />
+    public long[] CountDistinctSubstringsByLength(int maxLength)
+    {
+        ThrowIfDisposed();
+        return SuffixTreeAlgorithms.CountDistinctSubstringsByLength(this, maxLength);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<(string Substring, IReadOnlyList<int> Positions)> FindAllLongestRepeatedSubstrings()
+    {
+        ThrowIfDisposed();
+        return SuffixTreeAlgorithms.FindAllLongestRepeatedSubstrings(this);
+    }
+
+    /// <inheritdoc />
+    public long CountDistinctSubstrings()
+    {
+        ThrowIfDisposed();
+        return SuffixTreeAlgorithms.CountDistinctSubstrings(this);
+    }
+
+    /// <inheritdoc />
     public IReadOnlyList<string> GetAllSuffixes()
     {
         ThrowIfDisposed();
@@ -115,6 +136,23 @@ public sealed partial class PersistentSuffixTree
         return (results.Substring, results.PositionsInText, results.PositionsInOther);
     }
 
+    /// <inheritdoc />
+    public IReadOnlyList<(string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther)>
+        FindAllDistinctLongestCommonSubstrings(string other)
+    {
+        ThrowIfDisposed();
+        var nav = CreateNavigator();
+        return SuffixTreeAlgorithms.FindAllDistinctLongestCommonSubstrings<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, other);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<(int FirstPosition, int SecondPosition, int Length)> FindMaximalRepeatedPairs(
+        int minLength, Func<char, bool>? isUniqueSymbol = null)
+    {
+        ThrowIfDisposed();
+        return SuffixTreeAlgorithms.FindMaximalRepeatedPairs(this, minLength, isUniqueSymbol);
+    }
+
     /// <summary>
     /// O(m) LCS using suffix-link-based streaming — delegates to shared <see cref="SuffixTreeAlgorithms"/>.
     /// </summary>
@@ -131,6 +169,24 @@ public sealed partial class PersistentSuffixTree
         ThrowIfDisposed();
         var nav = CreateNavigator();
         return SuffixTreeAlgorithms.FindExactMatchAnchors<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, query, minLength);
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalExactMatches(
+        string query, int minLength)
+    {
+        ThrowIfDisposed();
+        var nav = CreateNavigator();
+        return SuffixTreeAlgorithms.FindMaximalExactMatches<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, query, minLength);
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindMaximalUniqueMatches(
+        string query, int minLength, MumUniqueness uniqueness = MumUniqueness.Both)
+    {
+        ThrowIfDisposed();
+        var nav = CreateNavigator();
+        return SuffixTreeAlgorithms.FindMaximalUniqueMatches<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, query, minLength, uniqueness);
     }
 
     private (PersistentSuffixTreeNode Node, int Depth) FindDeepestInternalNodeWithDepth(PersistentSuffixTreeNode root)

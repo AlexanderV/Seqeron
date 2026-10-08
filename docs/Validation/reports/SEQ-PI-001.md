@@ -115,3 +115,13 @@ every pI assertion. No `*Fast`/instance duplicate exists.
   completely fixed (exact sourced values locked in, missing edge-case covered), build + full
   suite green.
 - Test-quality gate: **PASS** (after fixes).
+
+---
+
+## Review 2026-09 (campaign B03)
+
+- **Stage A:** FAIL → fixed. The description claimed "EMBOSS Epk.dat" but used N-terminus pKa 8.6 taken from the stale listing on the EMBOSS iep web page (also in the Peptides R "EMBOSS" scale). EMBOSS 6.6.0 source (`emboss/data/Epk.dat`, `nucleus/embiep.c`) and the `iep` binary use **Amino 7.5**; the doc page's own worked outputs (LACI_ECOLI 6.8385, IFNA2_HUMAN 5.7240) reproduce only with 7.5 (8.6 gives 6.8820 / 5.7322). The spec's "intentional simplification" (no Bjellqvist terminal-residue pKs) was implementable (Biopython/ExPASy tables).
+- **Stage B:** FAIL → fixed. (1) N-term 8.6 → 7.5: e.g. `A` 6.10 → 5.55 (iep 5.5500), all-20 7.36 → 6.97 (iep 6.9681), FLPV… 9.67 → 9.57 (iep 9.5678), LACI_ECOLI 6.88 → 6.84 (iep 6.8385). (2) EMBOSS B/Z Dayhoff split was missing (`B` gave 6.10; iep 3.7498). (3) Bisection stopped at a 0.01 bracket then rounded the midpoint — not the correctly rounded root; now bisects to 1e-9. (4) Added `PkaScale.Bjellqvist` (terminal-residue-specific pKs) matching Biopython `IsoelectricPoint` to all printed digits, and public `CalculateNetCharge`.
+- **Tests:** `SequenceStatistics_CalculateIsoelectricPoint_Tests` rewritten on `iep`/Biopython values; fuzz + property oracles moved to 7.5 (+ B/Z split).
+- **Remaining documented differences:** search window [0,14] vs EMBOSS [1,14] / Biopython [4.05,12]; iep options `-disulphides`, `-lysinemodified`, `-notermini` not exposed.
+- **State:** CLEAN (FIXED).

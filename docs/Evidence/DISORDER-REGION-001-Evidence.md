@@ -71,6 +71,19 @@
 
 This is a **citable, deterministic scheme** that maps cleanly onto the per-residue propensity output (it is composition-only over the region's residues). It is implemented as the **opt-in** `ClassifyRegionFlavorMobiDbLite` (boundaries unchanged; the default `RegionType`/`Confidence` heuristic is unchanged). MobiDB-lite reports **no per-residue confidence value**, so the existing rescaled `Confidence` remains a declared first-principles heuristic.
 
+### MobiDB-lite v3 full feature step (review 2026-09-28)
+
+**Opened:** `raw.githubusercontent.com/BioComputingUP/MobiDB-lite/v3/` — `mdblib/states.py`, `mdblib/consensus.py`, `mdblib/prediction.py`, `mdblib/predictor.py`, `mdblib/cli.py`, `mobidb_lite.py`.
+
+1. `get_region_features(window_size=9, feature_len_thr=10, merge=True, only_in_idr=True)` tokenizes with `States.tokenize(n=window_size // 2 - 1)` → n = 3, windows of 2n+1 = **7** residues (the paper text says nine); termini padded with the mirror image excluding the terminal residue (`states[1:n+1][::-1]`, `states[-n-1:-1][::-1]`); for L ≤ n, n = L − 1.
+2. Per-residue hierarchy: `pappu_class != 'WC'` → PA/PPE/NPE (codes 1–3); else `is_enriched(['C'])` 4, `['P']` 5, `['G']` 6, SEG mask at residue i 7, `['S','T','N','Q']` 8.
+3. For codes 8 → 1: `make_binary`, `math_morphology(rmax=5)` (dilation then erosion by string replacement of `d^r s^r d^r`, r = 1..5, each r applied r+1 times), write into the merged track (lower code overwrites).
+4. `to_regions(len_thr=10)` (paper text, WebSearch snippet of academic.oup.com btaa1045: "reported for at least nine residues"; v3 code: ≥ 10 — code followed) on the merged track clipped to each IDR (CLI default `--featuresOutsideIdr` False ⇒ `only_in_idr=True`).
+5. SEG track: `seg <fasta> -x` with defaults (W 12, K1 2.2, K2 2.5); residue masked 'x' ⇒ 1.
+6. MobiDB-lite's IDRs themselves come from an 8-predictor consensus (threshold 0.625, math_morphology rmax 3, merge of long IDRs, length ≥ 20) — not reproducible here; the caller supplies the IDRs.
+
+**Implemented as** `PredictFlavorSubregionsMobiDbLite`. **Cross-check:** the verbatim v3 Python functions were executed (harness instantiating `MobidbLiteConsensus` with caller IDRs and a SEG mask) on 400 random fixtures (seed 20260928, all 8 classes represented) → C# matched **400/400**. Locked fixtures FS1–FS8 in the TestSpec.
+
 ### Wikipedia — Intrinsically Disordered Proteins
 
 **URL:** https://en.wikipedia.org/wiki/Intrinsically_disordered_proteins
@@ -228,3 +241,4 @@ All values computed directly from `get_disorder_class` / `is_enriched` (no imple
 
 - **2026-02-12**: Initial documentation.
 - **2026-06-24**: Added the MobiDB-lite 3.0 (Necci et al. 2020) deterministic disorder-flavor scheme as a sourced, opt-in alternative to the default first-principles `RegionType` label (charge classes from the Das & Pappu 2013 diagram of states; composition classes at the verbatim 0.32 enrichment threshold). Implemented as `ClassifyRegionFlavorMobiDbLite`. Region boundaries (validated TOP-IDP) and the default `RegionType`/`Confidence` are unchanged; MobiDB-lite defines no per-residue confidence, so the rescaled `Confidence` remains a declared heuristic.
+- **2026-09-28**: Review 2026-09 (B15). Added the full MobiDB-lite v3 windowed feature step (`PredictFlavorSubregionsMobiDbLite`, `DisorderFlavor.LowComplexity`), verified 400/400 against the verbatim v3 code; recorded the paper-vs-code window discrepancy (9 vs 7).

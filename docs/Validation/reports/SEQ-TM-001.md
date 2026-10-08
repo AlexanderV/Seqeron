@@ -81,3 +81,7 @@ Stage B verdict: **PASS**.
 - **Test-quality gate: PASS** — full unfiltered suite **6613 passed, 0 failed, 0 skipped**; `dotnet build` 0 errors; changed test file warning-free. (Suite was 6612; +1 new evidence-locked test.)
 - Finding logged in `FINDINGS_REGISTER.md`; ledger row #107 added.
 - No production code changed; the algorithm is fully functional.
+
+## Review 2026-09-28 (campaign B03)
+- Stage B FAIL→FIXED (F12): the Wallace/GC switch used the raw string length while the GC formula used the A+C+G+T count, so N/gaps pushed short oligos into the GC formula outside its domain (`ACGTNNNNNNNNNNNN` → −82.7; OligoCalc/`PrimerDesigner.CalculateMeltingTemperature` → 12). Switch now on N = A+T+G+C (OligoCalc denominator); `useWallaceRule: true` equals `PrimerDesigner.CalculateMeltingTemperature` on 2000 random inputs. `SummarizeNucleotideSequence` now passes `useWallaceRule: true` (it pre-selected the branch by raw length).
+- `PrimerDesigner`'s ≥ 0 clamp is unreachable when the switch is on the valid count (min GC-formula value at N = 14 is 16.87 °C), so the two agree without it. Delegation impossible (Analysis cannot reference MolTools) → cross-batch request B03 R10.

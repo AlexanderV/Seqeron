@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_approximate_tandem_repeats",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.FindApproximateTandemRepeats",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L1002",
+  "description": "Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match Mismatch Delta PM PI Minscore MaxPeriod [-l] [-r] [-f]). Defaults are TRF's recommended 2 7 7 80 10 50 500. Detection follows TRF (k-tuple matches, sum-of-heads and apparent-size criteria, random-walk distance range for d > 20, best-period list, wraparound DP alignment, narrow band for patterns > 20, redundancy elimination); candidate distances are examined up to TRF's MAXDISTANCE and maxPeriod filters the reported periods. Each item carries TRF's .dat columns — start (0-based; TRF prints 1-based), spanLength, period, copyNumber, consensusSize, percentMatches, percentIndels (exact; TRF truncates), alignmentScore, base percentages, entropyTrf (TRF's entropy column) and entropy (A/C/G/T-only) — plus the final alignment rows and, when flankLength > 0, the flanking sequences. minPeriod is a library filter applied after redundancy elimination. examineUpToMaxPeriodOnly = true (legacy library mode) examines candidate distances only up to maxPeriod (faster for short periods) and requires the recommended weights/PM/PI and default -l/-r/-f. format = dat / ngs / html adds TRF 4.10.0's data-file, -ngs or HTML repeat-table text (rows in TRF's report order, TRF's truncations and C rounding; byte-identical to the TRF binary for identical loci). apparentSizeTable optionally replaces the exact apparent-size table (e.g. by TRF's own simulated table, which a TRF holder can supply; then the output equals TRF's bit for bit). Measured against the TRF binary: 99.8 % identical rows with the exact table, 100 % (whole .dat / -ngs / HTML files byte-identical) with TRF's table (Evidence REP-APPROX-001).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Sequence (case-insensitive; any non-A/C/G/T symbol never matches)",
+        "minLength": 1
+      },
+      "minPeriod": {
+        "type": "integer",
+        "description": "Minimum reported period",
+        "minimum": 1,
+        "default": 1
+      },
+      "maxPeriod": {
+        "type": "integer",
+        "description": "TRF MaxPeriod",
+        "minimum": 1,
+        "maximum": 2000,
+        "default": 500
+      },
+      "minScore": {
+        "type": "integer",
+        "description": "TRF Minscore",
+        "minimum": 1,
+        "default": 50
+      },
+      "matchWeight": {
+        "type": "integer",
+        "description": "TRF Match weight",
+        "minimum": 1,
+        "default": 2
+      },
+      "mismatchPenalty": {
+        "type": "integer",
+        "description": "TRF Mismatch penalty",
+        "minimum": 1,
+        "default": 7
+      },
+      "indelPenalty": {
+        "type": "integer",
+        "description": "TRF Delta (indel penalty)",
+        "minimum": 1,
+        "default": 7
+      },
+      "matchProbability": {
+        "type": "integer",
+        "description": "TRF PM in percent (80 or 75)",
+        "enum": [
+          80,
+          75
+        ],
+        "default": 80
+      },
+      "indelProbability": {
+        "type": "integer",
+        "description": "TRF PI in percent",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 10
+      },
+      "maxRepeatLength": {
+        "type": "integer",
+        "description": "TRF -l: maximum tandem-repeat length in bp",
+        "minimum": 1,
+        "default": 2000000
+      },
+      "eliminateRedundancy": {
+        "type": "boolean",
+        "description": "Redundancy elimination (TRF -r turns it off)",
+        "default": true
+      },
+      "flankLength": {
+        "type": "integer",
+        "description": "TRF -f: flanking-sequence length on each side (0 = none; TRF -f uses 500)",
+        "minimum": 0,
+        "default": 0
+      },
+      "examineUpToMaxPeriodOnly": {
+        "type": "boolean",
+        "description": "Examine candidate distances only up to maxPeriod (legacy mode; recommended weights required)",
+        "default": false
+      },
+      "apparentSizeTable": {
+        "type": "string",
+        "description": "Optional apparent-size table y(d) for TRF's apparent-size criterion: 2001 comma/space-separated integers for d = 0..2000 (entry 0 ignored; each y(d) in 0..max(d,20)-1). Empty = the exact table the library computes. TRF 4.10.0's own waitdata80/waitdata75 array (tr30dat.c; AGPL, not shipped) given with apparentSizeTableKind='trfWaitingTimes' reproduces TRF's output bit for bit."
+      },
+      "apparentSizeTableKind": {
+        "type": "string",
+        "description": "How apparentSizeTable is expressed: 'apparent' (y(d)) or 'trfWaitingTimes' (TRF waitdata w(d); y = max(d,20) - w - 1)",
+        "enum": [
+          "apparent",
+          "trfWaitingTimes"
+        ],
+        "default": "apparent"
+      },
+      "format": {
+        "type": "string",
+        "description": "Extra output text in TRF 4.10.0 layout (byte-identical rows): 'json' (items only), 'dat' (-d data file: header, Sequence/Parameters block, rows), 'ngs' (-ngs block with 50-bp flanks) or 'html' (repeat-table pages, 120 rows per page, plus the .N.txt.html alignment pages they link to)",
+        "enum": [
+          "json",
+          "dat",
+          "ngs",
+          "html"
+        ],
+        "default": "json"
+      },
+      "sequenceName": {
+        "type": "string",
+        "description": "Sequence description printed in dat/ngs/html output (TRF prints the FASTA header after '>', keeping only its first 199 characters; pass the truncated name for parity); also the HTML file prefix",
+        "default": "sequence"
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer"
+            },
+            "spanLength": {
+              "type": "integer"
+            },
+            "period": {
+              "type": "integer"
+            },
+            "consensusSize": {
+              "type": "integer"
+            },
+            "consensus": {
+              "type": "string"
+            },
+            "copyNumber": {
+              "type": "number"
+            },
+            "percentMatches": {
+              "type": "number"
+            },
+            "percentIndels": {
+              "type": "number"
+            },
+            "alignmentScore": {
+              "type": "integer"
+            },
+            "percentA": {
+              "type": "number"
+            },
+            "percentC": {
+              "type": "number"
+            },
+            "percentG": {
+              "type": "number"
+            },
+            "percentT": {
+              "type": "number"
+            },
+            "entropy": {
+              "type": "number"
+            },
+            "entropyTrf": {
+              "type": "number"
+            },
+            "alignedSequence": {
+              "type": "string"
+            },
+            "alignedConsensus": {
+              "type": "string"
+            },
+            "leftFlank": {
+              "type": "string"
+            },
+            "rightFlank": {
+              "type": "string"
+            },
+            "copyMatches": {
+              "type": "integer"
+            },
+            "copyMismatches": {
+              "type": "integer"
+            },
+            "copyIndels": {
+              "type": "integer"
+            },
+            "outputIndex": {
+              "type": "integer"
+            },
+            "outputCount": {
+              "type": "integer",
+              "description": "Alignments reported for the whole sequence before MaxPeriod filtering / redundancy elimination (TRF OUTPUTcount)"
+            },
+            "detectionPosition": {
+              "type": "integer",
+              "description": "0-based detection position (TRF alignment page 'Found at i:' = this + 1)"
+            },
+            "detectionDistance": {
+              "type": "integer",
+              "description": "Candidate distance at detection (TRF 'original size')"
+            }
+          },
+          "required": [
+            "start",
+            "spanLength",
+            "period",
+            "consensusSize",
+            "consensus",
+            "copyNumber",
+            "percentMatches",
+            "percentIndels",
+            "alignmentScore"
+          ]
+        }
+      },
+      "formatted": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "TRF .dat ('dat') or -ngs ('ngs') text"
+      },
+      "htmlPages": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "fileName": {
+              "type": "string"
+            },
+            "html": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "fileName",
+            "html"
+          ]
+        },
+        "description": "TRF repeat-table HTML pages ('html')"
+      },
+      "alignmentPages": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "fileName": {
+              "type": "string"
+            },
+            "html": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "fileName",
+            "html"
+          ]
+        },
+        "description": "TRF alignment pages <name>.<parameters>.N.txt.html ('html'), the targets of the table links"
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "examineUpToMaxPeriodOnly requires the TRF recommended weights, default -l/-r/-f and the exact apparent-size table"
+    },
+    {
+      "code": 1003,
+      "message": "TRF parameter out of range (weights >= 1, PM 80/75, PI 1-100, MaxPeriod 1-2000, -l >= 1, flankLength >= 0, minPeriod >= 1)"
+    },
+    {
+      "code": 1004,
+      "message": "apparentSizeTable must hold 2001 integers, each in 0..max(d,20)-1 (waiting times likewise); apparentSizeTableKind must be 'apparent' or 'trfWaitingTimes'"
+    },
+    {
+      "code": 1005,
+      "message": "format must be 'json', 'dat', 'ngs' or 'html'"
+    }
+  ],
+  "examples": [
+    {
+      "name": "TRF recommended parameters (TRF row 61 124 7 9.1 7 92 0 110 14 14 26 42 1.83 TCATTGG)",
+      "input": {
+        "sequence": "CTATCCTAACCCGACCCTAGGAGCGGTTGGCGTGTATGCCGTGAATTTTCTCATTTCCGCTCATTGGTCATTGGTCANTGGTCATTGGTCATTGGTCATTNGTCATTGGTCATTGGTCATTGGTAGACATAATCGTTCTGCCTATATCTGGACAACATCCCGGCGACTTAGGCGACCCACAGA"
+      },
+      "output": {
+        "items": [
+          {
+            "start": 60,
+            "spanLength": 64,
+            "period": 7,
+            "consensusSize": 7,
+            "consensus": "TCATTGG",
+            "copyNumber": 9.142857142857142,
+            "percentMatches": 92.98245614035088,
+            "percentIndels": 0,
+            "alignmentScore": 110,
+            "percentA": 14.0625,
+            "percentC": 14.0625,
+            "percentG": 26.5625,
+            "percentT": 42.1875,
+            "entropy": 1.8424627477154065,
+            "entropyTrf": 1.829258111162015,
+            "alignedSequence": "TCATTGGTCATTGGTCANTGGTCATTGGTCATTGGTCATTNGTCATTGGTCATTGGTCATTGGT",
+            "alignedConsensus": "TCATTGGTCATTGGTCATTGGTCATTGGTCATTGGTCATTGGTCATTGGTCATTGGTCATTGGT"
+          }
+        ]
+      }
+    },
+    {
+      "name": "trf 2 3 5 80 10 40 200 (TRF row 1 60 2 30.0 2 89 0 105 CA)",
+      "input": {
+        "sequence": "CACACACACACACACACGCACACACACACCGACACACACACACACACACACACACACACAAGATCGTCAACGACCATCGTTCTTCTGCTTTAAGTGTGAGTTCTCTCTTACAAGCTAATACACCCCAGCGTTCTCCGTAC",
+        "maxPeriod": 200,
+        "minScore": 40,
+        "mismatchPenalty": 3,
+        "indelPenalty": 5
+      },
+      "output": {
+        "items": [
+          {
+            "start": 0,
+            "spanLength": 60,
+            "period": 2,
+            "consensusSize": 2,
+            "consensus": "CA",
+            "copyNumber": 30,
+            "percentMatches": 89.65517241379311,
+            "percentIndels": 0,
+            "alignmentScore": 105,
+            "percentA": 46.666666666666664,
+            "percentC": 50,
+            "percentG": 3.3333333333333335,
+            "percentT": 0,
+            "entropy": 1.1766796675107107,
+            "entropyTrf": 1.1766796675107107,
+            "alignedSequence": "CACACACACACACACACGCACACACACACCGACACACACACACACACACACACACACACA",
+            "alignedConsensus": "CACACACACACACACACACACACACACACACACACACACACACACACACACACACACACA"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Legacy short-period scan",
+      "input": {
+        "sequence": "CAGCAGCAGTAGCAGCAG",
+        "maxPeriod": 6,
+        "minScore": 20,
+        "examineUpToMaxPeriodOnly": true
+      },
+      "output": {
+        "items": [
+          {
+            "start": 0,
+            "spanLength": 18,
+            "period": 3,
+            "consensusSize": 3,
+            "consensus": "CAG",
+            "copyNumber": 6,
+            "percentMatches": 86.66666666666667,
+            "percentIndels": 0,
+            "alignmentScore": 27,
+            "percentA": 33.333333333333336,
+            "percentC": 27.77777777777778,
+            "percentG": 33.333333333333336,
+            "percentT": 5.555555555555555,
+            "entropy": 1.8016366412706073,
+            "entropyTrf": 1.8016366412706075,
+            "alignedSequence": "CAGCAGCAGTAGCAGCAG",
+            "alignedConsensus": "CAGCAGCAGCAGCAGCAG"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TRF -ngs block (format = ngs; TRF stdout of trf U1.fa 2 7 7 80 10 50 500 -ngs -h)",
+      "input": {
+        "sequence": "CTATCCTAACCCGACCCTAGGAGCGGTTGGCGTGTATGCCGTGAATTTTCTCATTTCCGCTCATTGGTCATTGGTCANTGGTCATTGGTCATTGGTCATTNGTCATTGGTCATTGGTCATTGGTAGACATAATCGTTCTGCCTATATCTGGACAACATCCCGGCGACTTAGGCGACCCACAGA",
+        "format": "ngs",
+        "sequenceName": "U1"
+      },
+      "output": {
+        "formatted": "@U1\n61 124 7 9.1 7 92 0 110 14 14 26 42 1.83 TCATTGG TCATTGGTCATTGGTCANTGGTCATTGGTCATTGGTCATTNGTCATTGGTCATTGGTCATTGGT CCGACCCTAGGAGCGGTTGGCGTGTATGCCGTGAATTTTCTCATTTCCGC AGACATAATCGTTCTGCCTATATCTGGACAACATCCCGGCGACTTAGGCG\n"
+      }
+    }
+  ]
+}

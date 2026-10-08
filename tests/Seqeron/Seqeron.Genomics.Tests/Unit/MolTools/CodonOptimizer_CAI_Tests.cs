@@ -3,7 +3,11 @@ namespace Seqeron.Genomics.Tests.Unit.MolTools;
 /// <summary>
 /// Tests for CodonOptimizer.CalculateCAI method.
 /// Test Unit: CODON-CAI-001
-/// Evidence: Sharp & Li (1987), Wikipedia CAI
+/// Evidence: Sharp & Li (1987); CodonW 1.4.4 cai_out (Peden 1999) — the reference implementation
+/// (single-codon families and stops excluded, w &lt; 0.0001 → 0.01); Biopython 1.88 CodonAdaptationIndex.
+/// Review 2026-09 (F12/F13): the default now excludes Met/Trp (Sharp &amp; Li) and absent codons use the
+/// CodonW 0.01 substitution instead of the unsourced 1e-6 clamp; tests asserting the old behaviour
+/// were corrected to the sourced values.
 /// </summary>
 [TestFixture]
 public class CodonOptimizer_CAI_Tests
@@ -34,46 +38,37 @@ public class CodonOptimizer_CAI_Tests
 
     #region Single-Codon Amino Acid Tests (Must)
 
+    // Sharp & Li (1987) exclude single-codon families (Met/AUG, Trp/UGG; quoted by Xia 2007);
+    // CodonW cai_out skips them, so a gene of only Met/Trp has no scored codon → 0
+    // (CodonW 1.4.4 binary: "ATGTGG" → 0.000). The EMBOSS-style inclusion (w = 1) is opt-in.
+
     [Test]
-    public void CalculateCAI_SingleMetCodon_ReturnsOne()
+    public void CalculateCAI_SingleMetCodon_ExcludedByDefault_ReturnsZero()
     {
-        // Arrange - AUG is the only codon for Methionine
-        // w = 1.0/1.0 = 1.0, CAI = 1.0^(1/1) = 1.0
-        const string sequence = "AUG";
-
-        // Act
-        double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
-
-        // Assert
-        Assert.That(cai, Is.EqualTo(1.0).Within(0.001));
+        Assert.Multiple(() =>
+        {
+            Assert.That(CodonOptimizer.CalculateCAI("AUG", CodonOptimizer.EColiK12), Is.EqualTo(0));
+            Assert.That(CodonOptimizer.CalculateCAI("AUG", CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: false),
+                Is.EqualTo(1.0).Within(1e-12), "opt-in inclusion scores AUG with w = 1");
+        });
     }
 
     [Test]
-    public void CalculateCAI_SingleTrpCodon_ReturnsOne()
+    public void CalculateCAI_SingleTrpCodon_ExcludedByDefault_ReturnsZero()
     {
-        // Arrange - UGG is the only codon for Tryptophan
-        // w = 1.0/1.0 = 1.0, CAI = 1.0^(1/1) = 1.0
-        const string sequence = "UGG";
-
-        // Act
-        double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
-
-        // Assert
-        Assert.That(cai, Is.EqualTo(1.0).Within(0.001));
+        Assert.Multiple(() =>
+        {
+            Assert.That(CodonOptimizer.CalculateCAI("UGG", CodonOptimizer.EColiK12), Is.EqualTo(0));
+            Assert.That(CodonOptimizer.CalculateCAI("UGG", CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: false),
+                Is.EqualTo(1.0).Within(1e-12), "opt-in inclusion scores UGG with w = 1");
+        });
     }
 
     [Test]
-    public void CalculateCAI_MetAndTrp_ReturnsOne()
+    public void CalculateCAI_MetAndTrp_ExcludedByDefault_ReturnsZero()
     {
-        // Arrange - Both single-codon amino acids: AUG (Met, w=1.0) + UGG (Trp, w=1.0)
-        // CAI = (1.0 × 1.0)^(1/2) = 1.0
-        const string sequence = "AUGUGG";
-
-        // Act
-        double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
-
-        // Assert
-        Assert.That(cai, Is.EqualTo(1.0).Within(0.001));
+        Assert.That(CodonOptimizer.CalculateCAI("AUGUGG", CodonOptimizer.EColiK12), Is.EqualTo(0),
+            "CodonW 1.4.4: ATGTGG → 0.000 (no scored codon)");
     }
 
     #endregion
@@ -231,12 +226,14 @@ public class CodonOptimizer_CAI_Tests
     [Test]
     public void CalculateCAI_AllThreeOrganismTables_MatchHandCalculated()
     {
-        // Arrange - AUG-CUG-CCG-ACC
+        // Arrange - AUG-CUG-CCG-ACC; AUG (Met) is not scored (Sharp & Li / CodonW), L = 3.
+        // (Corrected 2026-09: the former values 0.5109 / 0.7656 scored AUG with w = 1, L = 4.)
         // E. coli: all w=1.0 → CAI=1.0
-        // Yeast: AUG(1.0), CUG(0.11/0.29=0.3793), CCG(0.12/0.42=0.2857), ACC(0.22/0.35=0.6286)
-        //   CAI = exp((0 + ln(0.3793) + ln(0.2857) + ln(0.6286))/4) = 0.5109
-        // Human: AUG(1.0), CUG(0.40/0.40=1.0), CCG(0.11/0.32=0.34375), ACC(0.36/0.36=1.0)
-        //   CAI = exp((0 + 0 + ln(0.34375) + 0)/4) = 0.7656
+        // Yeast: CUG(0.11/0.29), CCG(0.12/0.42), ACC(0.22/0.35)
+        //   CAI = exp((ln(0.11/0.29) + ln(0.12/0.42) + ln(0.22/0.35))/3) = 0.40840754788171785
+        // Human: CUG(0.40/0.40=1.0), CCG(0.11/0.32=0.34375), ACC(0.36/0.36=1.0)
+        //   CAI = 0.34375^(1/3) = 0.7005098326638467
+        // (CodonW cai_out port on the same w tables gives the identical values.)
         // Source: Kazusa species=316407, 4932, 9606
         const string sequence = "AUGCUGCCGACC";
 
@@ -249,8 +246,8 @@ public class CodonOptimizer_CAI_Tests
         Assert.Multiple(() =>
         {
             Assert.That(ecoliCai, Is.EqualTo(1.0).Within(0.001));
-            Assert.That(yeastCai, Is.EqualTo(0.5109).Within(0.005));
-            Assert.That(humanCai, Is.EqualTo(0.7656).Within(0.005));
+            Assert.That(yeastCai, Is.EqualTo(0.40840754788171785).Within(1e-12));
+            Assert.That(humanCai, Is.EqualTo(0.7005098326638467).Within(1e-12));
         });
     }
 
@@ -439,14 +436,15 @@ public class CodonOptimizer_CAI_Tests
     [Test]
     public void CalculateCAI_IncompleteFinalCodon_IgnoredCorrectly()
     {
-        // Arrange - AUG + incomplete (only complete codons counted)
-        const string sequence = "AUGC"; // AUG + C (incomplete)
+        // Arrange - CUA + incomplete (only complete codons counted)
+        // (Corrected 2026-09: the former "AUGC" → 1.0 relied on scoring Met, which Sharp & Li exclude.)
+        const string sequence = "CUAC"; // CUA + C (incomplete)
 
         // Act
         double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
-        // Assert - Should be 1.0 (only AUG counted)
-        Assert.That(cai, Is.EqualTo(1.0).Within(0.001));
+        // Assert - only CUA counted: w = 0.04/0.50 = 0.08
+        Assert.That(cai, Is.EqualTo(0.08).Within(1e-12));
     }
 
     [Test]
@@ -464,34 +462,33 @@ public class CodonOptimizer_CAI_Tests
 
     #endregion
 
-    #region Single-Codon Amino Acid Exclusion (Sharp & Li 1987 / Jansen 2003)
+    #region Single-Codon Amino Acid Exclusion (Sharp & Li 1987 / Xia 2007)
 
-    // Source: Jansen, Bauer & Stadler (2003), Nucleic Acids Research — "An Improved
-    // Implementation of the Codon Adaptation Index" (PMC2684136), quoting Sharp & Li (1987):
+    // Source: Xia X. (2007) "An Improved Implementation of Codon Adaptation Index",
+    // Evolutionary Bioinformatics 3:53-58 (PMC2684136), quoting Sharp & Li (1987):
     // "The original paper proposing CAI (Sharp and Li, 1987) specifically stated that codon
     // families containing a single codon (e.g. AUG and UGG in the standard genetic code)
     // should be excluded in computing CAI" because "their corresponding w value will always
     // be 1 regardless of codon usage bias of the gene."
-    // The exclusion is opt-in (excludeSingleCodonAminoAcids: true); default is unchanged.
+    // CodonW cai_out, seqinr cai and Biopython CodonAdaptationIndex implement it; it is the default.
+    // excludeSingleCodonAminoAcids: false is the EMBOSS-style inclusion (w = 1).
 
     [Test]
-    public void CalculateCAI_DefaultMode_IncludesSingleCodonAminoAcids()
+    public void CalculateCAI_DefaultMode_ExcludesSingleCodonAminoAcids()
     {
-        // Arrange - default behaviour (excludeSingleCodonAminoAcids omitted) must be UNCHANGED:
-        // AUG (Met, w=1.0) + UGG (Trp, w=1.0) → CAI = (1×1)^(1/2) = 1.0
+        // Default = Sharp & Li / CodonW convention: Met/Trp not scored. AUGUGG has no scored codon → 0.
+        // (Corrected 2026-09: the default used to include them, giving 1.0.)
         const string sequence = "AUGUGG";
 
-        // Act
         double defaultCai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
+        double explicitExclude = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: true);
         double explicitInclude = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: false);
 
-        // Assert - default == explicit-false == 1.0 (historical inclusive behaviour preserved)
         Assert.Multiple(() =>
         {
-            Assert.That(defaultCai, Is.EqualTo(1.0).Within(1e-10),
-                "Default mode must still include Met/Trp with w=1.0 (CAI=1.0)");
-            Assert.That(explicitInclude, Is.EqualTo(defaultCai).Within(1e-10),
-                "excludeSingleCodonAminoAcids:false must equal the default");
+            Assert.That(defaultCai, Is.EqualTo(0));
+            Assert.That(explicitExclude, Is.EqualTo(defaultCai), "default must equal explicit true");
+            Assert.That(explicitInclude, Is.EqualTo(1.0).Within(1e-12), "opt-in inclusion: w(AUG)=w(UGG)=1");
         });
     }
 
@@ -522,14 +519,14 @@ public class CodonOptimizer_CAI_Tests
         const string sequence = "AUGCUACUA";
 
         // Act
-        double inclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
-        double exclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: true);
+        double inclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: false);
+        double exclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
         // Assert - exact independently-derived values
         Assert.Multiple(() =>
         {
             Assert.That(inclusive, Is.EqualTo(0.18566355334451112).Within(1e-10),
-                "Default mode keeps Met (w=1.0) in the L=3 geometric mean");
+                "Opt-in inclusion keeps Met (w=1.0) in the L=3 geometric mean");
             Assert.That(exclusive, Is.EqualTo(0.08).Within(1e-10),
                 "Excluding Met leaves only the two CUA codons → geometric mean = 0.08");
         });
@@ -544,14 +541,14 @@ public class CodonOptimizer_CAI_Tests
         const string sequence = "AUGUGGCUA";
 
         // Act
-        double inclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
-        double exclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: true);
+        double inclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: false);
+        double exclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
         // Assert - exact independently-derived values
         Assert.Multiple(() =>
         {
             Assert.That(inclusive, Is.EqualTo(0.43088693800637673).Within(1e-10),
-                "Default mode keeps Met and Trp (w=1.0 each) in the L=3 geometric mean");
+                "Opt-in inclusion keeps Met and Trp (w=1.0 each) in the L=3 geometric mean");
             Assert.That(exclusive, Is.EqualTo(0.08).Within(1e-10),
                 "Excluding Met and Trp leaves only CUA → CAI=0.08");
         });
@@ -581,43 +578,53 @@ public class CodonOptimizer_CAI_Tests
 
     #region Zero-Frequency / No-Data Reference Codon Tests (Must)
 
-    // These cover the implementation's handling of partial reference tables (gaps), which
-    // Sharp & Li (1987) did not encounter (they used complete reference sets). They lock the
-    // two documented fallbacks so they cannot regress:
-    //   (a) codon present-in-sequence but ABSENT from the table while another synonymous codon
-    //       IS present (maxFreq > 0, f = 0): w is clamped to 1e-6 (avoids ln(0) = -inf).
-    //   (b) amino acid with NO frequency data at all (maxFreq <= 0): w = NaN -> codon skipped.
+    // (a) codon ABSENT from the table while a synonym is present (w = 0 < 0.0001): CodonW 1.4.4
+    //     cai_out adjusts it to 0.01 (Bulmer 1988; seqinr cai zero.to = 0.01). CodonW binary with a
+    //     w file where CTA = 0: "CTGCTA" → 0.100, "CTA" → 0.010, "CTGCTGCTGCTA" → 0.316.
+    //     (Corrected 2026-09: the former unsourced 1e-6 clamp gave 0.001 and 1e-6.)
+    // (b) amino acid with NO frequency data at all: not scored (no reference information).
 
     [Test]
-    public void CalculateCAI_AbsentCodonWithPresentSynonym_ClampsWeightToEpsilon()
+    public void CalculateCAI_AbsentCodonWithPresentSynonym_UsesCodonWZeroSubstitute()
     {
-        // Arrange - custom table built from a reference of only "CUG" (Leu): CUG freq = 1.0,
-        // all other Leu codons absent. Score "CUACUG": CUA is absent (f=0) but Leu's maxFreq
-        // is 1.0 (CUG present) -> w_CUA = max(0/1.0, 1e-6) = 1e-6; w_CUG = 1.0.
-        // CAI = exp((ln(1e-6) + ln(1.0)) / 2) = 0.001 exactly.
-        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+        // Table from reference "CUG": Leu = {CUG: 1.0}. w_CUA = 0 → 0.01; w_CUG = 1.
+        // CAI = sqrt(0.01 × 1) = 0.1 (CodonW: 0.100).
+        // A reference table that contains ONLY CUG, so CUA is genuinely absent. (Built inline:
+        // CreateCodonTableFromSequence now applies the Sharp & Li 1987 / Biopython 0.5
+        // pseudo-count to unobserved codons — review 2026-09, CODON-OPT-001 F25.)
+        var partial = CodonOptimizer.CreateCodonUsageTable(
+            "partial-Leu", new Dictionary<string, double> { ["CUG"] = 1.0 });
 
-        // Act
-        double cai = CodonOptimizer.CalculateCAI("CUACUG", partial);
-
-        // Assert - clamp keeps the value finite and bounded, not 0 and not NaN.
-        Assert.That(cai, Is.EqualTo(0.001).Within(1e-9),
-            "Absent codon with a present synonym must clamp w to 1e-6, not collapse to 0 or NaN");
+        Assert.That(CodonOptimizer.CalculateCAI("CUACUG", partial), Is.EqualTo(0.1).Within(1e-12));
     }
 
     [Test]
-    public void CalculateCAI_AllCodonsAbsentFromFamily_ClampsToEpsilon()
+    public void CalculateCAI_LoneAbsentCodon_UsesCodonWZeroSubstitute()
     {
-        // Arrange - only CUA in the sequence, table has CUG=1.0 (CUA absent).
-        // Single codon, w clamped to 1e-6 -> CAI = exp(ln(1e-6)/1) = 1e-6.
-        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+        // Only CUA (absent, synonym CUG present) → w = 0.01 → CAI = 0.01 (CodonW: 0.010).
+        // A reference table that contains ONLY CUG, so CUA is genuinely absent. (Built inline:
+        // CreateCodonTableFromSequence now applies the Sharp & Li 1987 / Biopython 0.5
+        // pseudo-count to unobserved codons — review 2026-09, CODON-OPT-001 F25.)
+        var partial = CodonOptimizer.CreateCodonUsageTable(
+            "partial-Leu", new Dictionary<string, double> { ["CUG"] = 1.0 });
 
-        // Act
-        double cai = CodonOptimizer.CalculateCAI("CUA", partial);
+        Assert.That(CodonOptimizer.CalculateCAI("CUA", partial), Is.EqualTo(0.01).Within(1e-12));
+    }
 
-        // Assert
-        Assert.That(cai, Is.EqualTo(1e-6).Within(1e-12),
-            "A lone absent codon (synonym present) must yield the 1e-6 clamp, never ln(0)");
+    [Test]
+    public void CalculateCAI_ZeroSubstituteThreshold_IsCodonW0_0001()
+    {
+        // CodonW: "if (w < 0.0001) w = 0.01". w = 0.0001 exactly is kept; w = 0.00009 becomes 0.01.
+        var atThreshold = new CodonOptimizer.CodonUsageTable("t",
+            new Dictionary<string, double> { ["CUG"] = 1.0, ["CUA"] = 0.0001 }, new Dictionary<string, string>());
+        var below = new CodonOptimizer.CodonUsageTable("b",
+            new Dictionary<string, double> { ["CUG"] = 1.0, ["CUA"] = 0.00009 }, new Dictionary<string, string>());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CodonOptimizer.CalculateCAI("CUA", atThreshold), Is.EqualTo(0.0001).Within(1e-15));
+            Assert.That(CodonOptimizer.CalculateCAI("CUA", below), Is.EqualTo(0.01).Within(1e-15));
+        });
     }
 
     [Test]
@@ -626,7 +633,11 @@ public class CodonOptimizer_CAI_Tests
         // Arrange - table built from only "CUG" (Leu) has NO Phe data. Score "UUUCUG":
         // UUU (Phe) has maxFreq = 0 in this table -> w = NaN -> skipped (not counted in L).
         // Only CUG (w = 1.0) remains -> CAI = 1.0.
-        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+        // A reference table that contains ONLY CUG, so CUA is genuinely absent. (Built inline:
+        // CreateCodonTableFromSequence now applies the Sharp & Li 1987 / Biopython 0.5
+        // pseudo-count to unobserved codons — review 2026-09, CODON-OPT-001 F25.)
+        var partial = CodonOptimizer.CreateCodonUsageTable(
+            "partial-Leu", new Dictionary<string, double> { ["CUG"] = 1.0 });
 
         // Act
         double cai = CodonOptimizer.CalculateCAI("UUUCUG", partial);
@@ -641,7 +652,11 @@ public class CodonOptimizer_CAI_Tests
     {
         // Arrange - table built from only "CUG" (Leu); sequence is all Phe (UUU), which has
         // no data in this table -> every codon NaN-skipped -> count=0 -> returns 0.
-        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+        // A reference table that contains ONLY CUG, so CUA is genuinely absent. (Built inline:
+        // CreateCodonTableFromSequence now applies the Sharp & Li 1987 / Biopython 0.5
+        // pseudo-count to unobserved codons — review 2026-09, CODON-OPT-001 F25.)
+        var partial = CodonOptimizer.CreateCodonUsageTable(
+            "partial-Leu", new Dictionary<string, double> { ["CUG"] = 1.0 });
 
         // Act
         double cai = CodonOptimizer.CalculateCAI("UUUUUU", partial);
@@ -649,6 +664,58 @@ public class CodonOptimizer_CAI_Tests
         // Assert
         Assert.That(cai, Is.EqualTo(0),
             "When no codon has table data, count=0 and CAI is 0 by the no-codons convention");
+    }
+
+    #endregion
+
+    #region Canonical core / input robustness (review 2026-09)
+
+    [Test]
+    public void CalculateCAI_DelegatesToCanonicalCodonUsageAnalyzerCore()
+    {
+        // One CAI implementation: the frequency table rescaled by family maximum is the w table,
+        // so CodonOptimizer must equal CodonUsageAnalyzer.CalculateCai on the same values.
+        var dnaKeyed = CodonOptimizer.Human.CodonFrequencies
+            .ToDictionary(kv => kv.Key.Replace('U', 'T'), kv => kv.Value);
+        string[] genes = { "ATGAAAGCGTTCAAGCGTACTGCGTGA", "CTCACTCACACGAACTTGTTTGCACTACTC", "atgcgacggagaaggatatgg" };
+
+        foreach (var gene in genes)
+            Assert.That(CodonOptimizer.CalculateCAI(gene, CodonOptimizer.Human),
+                Is.EqualTo(CodonUsageAnalyzer.CalculateCai(gene, dnaKeyed)).Within(1e-15), gene);
+    }
+
+    [Test]
+    public void CalculateCAI_AmbiguousTriplet_SkippedWithoutFrameShift()
+    {
+        // NNN / CUR are not codons (CodonW ident_codon → 0, not counted); CUG and CUA keep their frame.
+        // CAI = sqrt(1 × 0.08) = 0.282842712474619.
+        Assert.Multiple(() =>
+        {
+            Assert.That(CodonOptimizer.CalculateCAI("CUGNNNCUA", CodonOptimizer.EColiK12),
+                Is.EqualTo(Math.Sqrt(0.08)).Within(1e-12));
+            Assert.That(CodonOptimizer.CalculateCAI("CUGCURCUA", CodonOptimizer.EColiK12),
+                Is.EqualTo(Math.Sqrt(0.08)).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void CalculateCAI_DnaKeyedTable_SameAsRnaKeyed()
+    {
+        var rna = CodonOptimizer.EColiK12;
+        var dna = new CodonOptimizer.CodonUsageTable("dna",
+            rna.CodonFrequencies.ToDictionary(kv => kv.Key.Replace('U', 'T'), kv => kv.Value),
+            new Dictionary<string, string>());
+
+        Assert.That(CodonOptimizer.CalculateCAI("CUAACU", dna), Is.EqualTo(Math.Sqrt(0.08 * 0.16 / 0.44)).Within(1e-12));
+    }
+
+    [Test]
+    public void CalculateCAI_NegativeFrequency_Throws()
+    {
+        var bad = new CodonOptimizer.CodonUsageTable("bad",
+            new Dictionary<string, double> { ["CUG"] = 1.0, ["CUA"] = -0.1 }, new Dictionary<string, string>());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => CodonOptimizer.CalculateCAI("CUA", bad));
     }
 
     #endregion

@@ -5,7 +5,7 @@
 **Algorithm:** Local Alignment (Smith–Waterman)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-03-07
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -48,6 +48,7 @@
 |--------|-------|------|-------|
 | `LocalAlign(DnaSequence, DnaSequence, ScoringMatrix?)` | SequenceAligner | **Canonical** | Smith–Waterman local alignment |
 | `LocalAlign(string, string, ScoringMatrix?)` | SequenceAligner | Delegate | String wrapper — delegates to same `LocalAlignCore` after `ToUpperInvariant()` |
+| `LocalAlignAffine(DnaSequence, DnaSequence, ScoringMatrix?)` / `(string, string, ScoringMatrix?)` | SequenceAligner | **Canonical (affine)** | Smith-Waterman-Gotoh; gap of length k = GapOpen + k·GapExtend; shares `AffineAlignCore` with `GlobalAlignAffine` (2026-09 review) |
 
 ---
 
@@ -80,6 +81,21 @@
 |----|-----------|-------|----------|----------|
 | S1 | Identical sequences produce full-length alignment with exact score | seq1=seq2=`ACGTACGT`, scoring: match +3, mismatch −3, gap −2 | Score=24 (8×3), full alignment `ACGTACGT`/`ACGTACGT` | Derivable: identical seqs → diagonal dominates → score = n×match |
 | S2 | Completely dissimilar sequences produce score exactly 0 | seq1=`AAAA`, seq2=`TTTT`, scoring: match +3, mismatch −3, gap −2 | Score=0, empty alignment | Derivable: no matches → all $H_{ij} = \max(0, \text{neg}, \text{neg}, \text{neg}) = 0$ |
+
+### 4.2b Tie-breaking and affine-gap tests — added 2026-09 review
+
+Reference values: Biopython 1.88 `PairwiseAligner(mode='local', open_gap_score=GapOpen+GapExtend, extend_gap_score=GapExtend)` and parasail 1.3.4 `sw_trace(open=-(GapOpen+GapExtend), extend=-GapExtend)`; scores identical on 3192 random/edge cases (linear + affine), every Seqeron alignment re-scores to its score, is among Biopython's co-optimal alignments, and its end cell is the row-major-first maximum.
+
+| ID | Test Case | Input | Expected | Evidence |
+|----|-----------|-------|----------|----------|
+| T1 | Tied optima → first row-major end | ACGTTTTTACGT / ACGT, SimpleDna | 4, ACGT, (0,3)/(0,3) | Biopython first alignment; parasail end 3/3 |
+| T2 | Traceback stops at first zero cell | ACGTTTTACGT / ACGTACGT, BlastDna (linear) | 10, TACGT, (6,10)/(3,7) | parasail; one of Biopython's 4 optima |
+| A1 | Long gap charged one opening | ACGTACGTAAAAAAACGTACGT / ACGTACGTACGTACGT, HighIdentityDna | affine 64 (end 21/15); linear 74 | Biopython = parasail |
+| A2 | Opening cost prevents bridging | ACGTACGTTTTTTACGT / ACGTACGTACGT, (1,−1,−5,−1) | 8, ACGTACGT, (0,7)/(0,7) | Biopython = parasail |
+| A3 | Reference values | GGGACGTTTACGTCCC / TTACGTACGTAA BlastDna → 12 (7,12)/(0,5); ACGTTTTACGT / ACGTACGT BlastDna → 10 (6,10)/(3,7) | as listed | Biopython = parasail |
+| A4 | GapOpen = 0 reduces to linear SW | Wikipedia example | 13, GTT-AC/GTTGAC | W_k = k·e |
+| A5 | No positive region / empty input | AAAA/TTTT, ""/ACGT, ""/"" | Score 0, "", Local, coordinates −1 | same as typed linear path |
+| A6 | Ties, overloads, nulls | AC/CA SimpleDna; DnaSequence vs lower-case string; null | A/A (0,0)/(1,1) = linear; equal; ArgumentNullException | API contract |
 
 ### 4.3 COULD Tests (Nice to have)
 

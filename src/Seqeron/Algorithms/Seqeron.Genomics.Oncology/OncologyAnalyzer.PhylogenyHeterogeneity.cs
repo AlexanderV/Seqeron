@@ -5,26 +5,40 @@ public static partial class OncologyAnalyzer
     #region Tumor Phylogeny Reconstruction (ONCO-PHYLO-001)
 
     /// <summary>
-    /// Cancer cell fraction (CCF) of the synthetic root (normal / germline) clone in every sample: it is, by
-    /// definition, present in 100% of cells. Source: Popic et al. (2015), <i>Genome Biology</i> 16:91 — the
-    /// lineage tree is a spanning tree rooted at the population that contains all observed clones.
+    /// Cancer cell fraction (CCF) of the synthetic root (normal / germline) node in every sample. LICHeE's cell-prevalence
+    /// mode (<c>-cp</c>) sets the root value <c>VAF_MAX = 1.0</c> (LICHeE <c>LineageEngine</c> / <c>PHYNode.getAAF</c>);
+    /// Popic et al. (2015), <i>Genome Biology</i> 16:91.
     /// </summary>
     private const double RootCcf = 1.0;
 
     /// <summary>
-    /// Default noise margin ε for the lineage-precedence (Eq. 2) and sum-rule (Eq. 5) inequalities. The cited
-    /// sources relax both rules by a configurable ε (Popic et al. 2015 ϵ; Zheng et al. 2022 ε₁=0.1, ε₂=0.2). Because
-    /// this unit consumes already-clustered CCF point estimates (clustering and its noise model are ONCO-CCF-001),
-    /// the default is the strict ε = 0; callers may pass a positive tolerance to reproduce the source defaults.
+    /// Default noise margin ε for the lineage-precedence (Eq. 2) and sum-rule (Eq. 5) inequalities. LICHeE's default
+    /// (<c>-e</c>, <c>Parameters.VAF_ERROR_MARGIN</c>) is 0.1 and PICTograph uses ε₁=0.1, ε₂=0.2; this unit consumes
+    /// already-clustered CCF point estimates, so the library default is the strict ε = 0 and callers pass a positive
+    /// tolerance to reproduce the source defaults.
     /// </summary>
     public const double DefaultPhylogenyTolerance = 0.0;
+
+    /// <summary>
+    /// Maximum number of valid spanning trees enumerated before the search stops — LICHeE
+    /// <c>Parameters.MAX_NUM_TREES</c> = 100 000 (github.com/viq854/lichee).
+    /// </summary>
+    public const int MaxPhylogenyTreesEnumerated = 100_000;
+
+    /// <summary>
+    /// Maximum number of recursive <c>grow</c> calls of the Gabow–Myers spanning-tree enumeration — LICHeE
+    /// <c>Parameters.MAX_NUM_GROW_CALLS</c> = 10⁸. When the budget is exhausted the enumeration stops and the best tree
+    /// found so far is returned.
+    /// </summary>
+    public const int MaxPhylogenyGrowCalls = 100_000_000;
 
     /// <summary>
     /// One CCF cluster (a candidate clone/subclone) used as input to phylogeny reconstruction. Each cluster carries
     /// its cancer cell fraction in each sequenced sample. CCF clustering itself is out of scope (ONCO-CCF-001).
     /// </summary>
-    /// <param name="Id">Caller-assigned cluster identifier (e.g. a subclone label). Used for deterministic tie-breaking.</param>
-    /// <param name="CcfPerSample">Cancer cell fraction in each sample, each value in [0, 1]; all clusters must share length.</param>
+    /// <param name="Id">Caller-assigned cluster identifier (e.g. a subclone label).</param>
+    /// <param name="CcfPerSample">Cancer cell fraction in each sample, each value in [0, 1]; all clusters must share length.
+    /// A value of exactly 0 means "absent from that sample" (LICHeE presence profile).</param>
     public readonly record struct CcfCluster(int Id, IReadOnlyList<double> CcfPerSample);
 
     /// <summary>A single parent → child edge of the reconstructed clonal tree.</summary>
@@ -38,7 +52,7 @@ public static partial class OncologyAnalyzer
     /// </summary>
     /// <param name="RootId">Identifier of the synthetic normal/germline root node.</param>
     /// <param name="Clusters">Input clusters keyed by id, in input order.</param>
-    /// <param name="Edges">Tree edges (parent→child), one per non-root cluster.</param>
+    /// <param name="Edges">Tree edges (parent→child), one per cluster, in input order of the child.</param>
     /// <param name="SampleCount">Number of samples per cluster.</param>
     public readonly record struct ClonalPhylogeny(
         int RootId,
@@ -46,6 +60,24 @@ public static partial class OncologyAnalyzer
         IReadOnlyList<ClonalEdge> Edges,
         int SampleCount)
     {
+        /// <summary>Noise margin ε the tree was reconstructed with (also used by <see cref="IdentifyTrunkMutations"/>).</summary>
+        public double Tolerance { get; init; }
+
+        /// <summary>
+        /// LICHeE error score of the returned tree: √(Σ_nodes Σ_samples max(0, Σ_children CCF − node CCF)²)
+        /// (<c>PHYTree.computeErrorScore</c>). 0 when every sum rule holds without using the margin ε.
+        /// </summary>
+        public double ErrorScore { get; init; }
+
+        /// <summary>Number of valid spanning trees enumerated (LICHeE "Found N valid tree(s)"), capped at <see cref="MaxPhylogenyTreesEnumerated"/>.</summary>
+        public int ValidTreeCount { get; init; }
+
+        /// <summary>
+        /// True when the default constraint network admitted no valid tree and the complete network
+        /// (LICHeE <c>-c</c> / <c>ALL_EDGES</c> fallback) was used.
+        /// </summary>
+        public bool UsedCompleteNetwork { get; init; }
+
         /// <summary>Returns the parent id of <paramref name="clusterId"/>, or null if it is the root or absent.</summary>
         public int? ParentOf(int clusterId)
         {
@@ -60,7 +92,7 @@ public static partial class OncologyAnalyzer
             return null;
         }
 
-        /// <summary>Returns the ids of the direct children of <paramref name="clusterId"/>, in input order.</summary>
+        /// <summary>Returns the ids of the direct children of <paramref name="clusterId"/>, in edge order.</summary>
         public IReadOnlyList<int> ChildrenOf(int clusterId)
         {
             var children = new List<int>();
@@ -77,30 +109,55 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Reconstructs a rooted clonal (tumor) phylogeny from per-sample CCF clusters, applying the two lineage
-    /// constraints from the multi-sample perfect-phylogeny model:
+    /// Reconstructs a rooted clonal (tumor) phylogeny from per-sample CCF clusters with the LICHeE algorithm
+    /// (Popic et al. 2015, <i>Genome Biology</i> 16:91; reference code github.com/viq854/lichee, run in cell-prevalence
+    /// mode <c>-cp</c> on pre-computed clusters):
     /// <list type="number">
-    /// <item><description><b>Lineage precedence (ancestor ≥ descendant), Eq. 2:</b> an edge u→v is admissible only if,
-    /// for every sample i, <c>u.CCF[i] ≥ v.CCF[i] − ε</c> and (presence) <c>u.CCF[i] = 0 ⇒ v.CCF[i] = 0</c>. Source:
-    /// Popic et al. (2015), <i>Genome Biology</i> 16:91, Eq. 2; Zheng et al. (2022) PICTograph, <i>Bioinformatics</i>
-    /// 38(15):3677–3683 — "the CCF of any mutation cannot exceed the CCF of its ancestor".</description></item>
-    /// <item><description><b>Sum rule, Eq. 5:</b> for every node u and every sample i, the children CCFs may not exceed
-    /// the parent: <c>Σ_children v.CCF[i] ≤ u.CCF[i] + ε</c>. Source: Popic et al. (2015) Eq. 5; Zheng et al. (2022) —
-    /// "the CCF of an ancestral clone must be greater than or equal to the sum of CCFs of its descendants".</description></item>
+    /// <item><description><b>Constraint network</b> (<c>PHYNetwork</c>): nodes are the clusters, levelled by the number of
+    /// samples they are present in (CCF &gt; 0); the root sits above every level. An edge u→v is admissible iff for every
+    /// sample i <c>u.CCF[i] ≥ v.CCF[i] − ε</c> and <c>u.CCF[i] = 0 ⇒ v.CCF[i] = 0</c> (Eq. 2); when both directions are
+    /// admissible the one with the smaller one-sided CCF excess is kept. Edges are added within a presence profile,
+    /// between each level and the next non-empty lower level, and nodes left without a parent are linked to the closest
+    /// higher level that admits them, else to the root.</description></item>
+    /// <item><description><b>Tree search</b>: every spanning tree of the network rooted at the normal node that satisfies
+    /// the sum rule <c>Σ_children v.CCF[i] ≤ u.CCF[i] + ε</c> (Eq. 5) is enumerated (Gabow &amp; Myers 1978, as in
+    /// LICHeE <c>grow</c>).</description></item>
+    /// <item><description><b>Ranking</b>: trees are ranked by the LICHeE error score (stable order); the top-ranking
+    /// tree is returned. If the default network admits no valid tree, the complete network (<c>ALL_EDGES</c>) is
+    /// searched, as LICHeE does.</description></item>
     /// </list>
-    /// The constraints leave a set of valid trees; to return a single deterministic tree this method attaches each
-    /// cluster (processed in descending order of total CCF) to its <i>deepest valid ancestor</i> — the admissible
-    /// parent with the smallest total CCF whose remaining per-sample sum-rule budget still admits the child — with
-    /// ties broken by ascending cluster id (Evidence Assumption 1).
+    /// Presence profiles are grouped in order of first appearance in <paramref name="clusters"/> (LICHeE iterates a
+    /// <c>HashMap</c>), which fixes the enumeration order and therefore the tie-break among equal-score trees.
     /// </summary>
     /// <param name="clusters">CCF clusters to place; each cluster's <see cref="CcfCluster.CcfPerSample"/> must have the same length.</param>
     /// <param name="tolerance">Noise margin ε for both inequalities; default <see cref="DefaultPhylogenyTolerance"/> (0).</param>
-    /// <returns>The reconstructed <see cref="ClonalPhylogeny"/> rooted at a synthetic normal node.</returns>
+    /// <returns>The top-ranking <see cref="ClonalPhylogeny"/> rooted at a synthetic normal node.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="clusters"/> or any cluster's CCF list is null.</exception>
     /// <exception cref="ArgumentException">CCF lists differ in length, are empty, or contain NaN / out-of-[0,1] values; or two clusters share an id.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> is negative or NaN.</exception>
+    /// <exception cref="InvalidOperationException">No spanning tree satisfies the sum rule (LICHeE finds no valid tree); use <see cref="TryReconstructPhylogeny"/>.</exception>
     public static ClonalPhylogeny ReconstructPhylogeny(
         IReadOnlyList<CcfCluster> clusters,
+        double tolerance = DefaultPhylogenyTolerance)
+    {
+        if (!TryReconstructPhylogeny(clusters, out ClonalPhylogeny phylogeny, tolerance))
+        {
+            throw new InvalidOperationException(
+                "No lineage tree satisfies the sum rule (LICHeE Eq. 5) for these CCF clusters at the given tolerance; "
+                + "increase the tolerance or re-cluster the CCFs.");
+        }
+
+        return phylogeny;
+    }
+
+    /// <summary>
+    /// Non-throwing variant of <see cref="ReconstructPhylogeny"/>: returns false (and a default phylogeny) when no
+    /// spanning tree of the LICHeE constraint network satisfies the sum rule, also after the complete-network fallback.
+    /// Argument validation still throws as in <see cref="ReconstructPhylogeny"/>.
+    /// </summary>
+    public static bool TryReconstructPhylogeny(
+        IReadOnlyList<CcfCluster> clusters,
+        out ClonalPhylogeny phylogeny,
         double tolerance = DefaultPhylogenyTolerance)
     {
         ArgumentNullException.ThrowIfNull(clusters);
@@ -114,101 +171,56 @@ public static partial class OncologyAnalyzer
         if (clusters.Count == 0)
         {
             // Empty cohort: tree is the root alone, no clusters, no edges. One synthetic sample of CCF 1.
-            return new ClonalPhylogeny(rootId, Array.Empty<CcfCluster>(), Array.Empty<ClonalEdge>(), 1);
+            phylogeny = new ClonalPhylogeny(rootId, Array.Empty<CcfCluster>(), Array.Empty<ClonalEdge>(), 1)
+            {
+                Tolerance = tolerance,
+                ValidTreeCount = 1,
+            };
+            return true;
         }
 
         int sampleCount = ValidateAndGetSampleCount(clusters);
 
-        // Synthetic root: present in 100% of cells in every sample, so it is a valid ancestor of every cluster and
-        // its sum-rule budget is the full RootCcf. The root participates in placement as node id = rootId.
-        double[] rootCcf = new double[sampleCount];
-        Array.Fill(rootCcf, RootCcf);
-
-        // Per-node remaining sum-rule budget = node CCF minus the sum of CCFs of children already attached (per sample).
-        var remainingBudget = new Dictionary<int, double[]>(clusters.Count + 1);
-        remainingBudget[rootId] = (double[])rootCcf.Clone();
-        var ccfById = new Dictionary<int, double[]>(clusters.Count + 1) { [rootId] = rootCcf };
-        foreach (CcfCluster c in clusters)
+        bool usedComplete = false;
+        LicheeSearchResult result = new LicheeNetwork(clusters, sampleCount, tolerance, completeNetwork: false).Search();
+        if (result.TreeCount == 0)
         {
-            double[] ccf = c.CcfPerSample.ToArray();
-            ccfById[c.Id] = ccf;
-            remainingBudget[c.Id] = (double[])ccf.Clone();
+            usedComplete = true;
+            result = new LicheeNetwork(clusters, sampleCount, tolerance, completeNetwork: true).Search();
         }
 
-        // Process clusters most-clonal-first (descending total CCF) so that ancestors are placed before descendants;
-        // ties broken by ascending id for determinism (Evidence Assumption 1).
-        var ordered = clusters
-            .OrderByDescending(c => TotalCcf(ccfById[c.Id]))
-            .ThenBy(c => c.Id)
-            .ToList();
-
-        var edges = new List<ClonalEdge>(clusters.Count);
-        foreach (CcfCluster child in ordered)
+        if (result.TreeCount == 0)
         {
-            double[] childCcf = ccfById[child.Id];
-
-            // Candidate parents: the root plus every already-placed cluster. Choose the deepest valid ancestor =
-            // the candidate with the smallest total CCF that (a) satisfies lineage precedence and (b) still has
-            // per-sample budget for this child. Ties broken by ascending id.
-            int bestParent = rootId;
-            double bestParentTotal = double.PositiveInfinity;
-            bool found = false;
-            foreach (int candidateId in EnumerateCandidates(rootId, edges))
-            {
-                if (candidateId == child.Id)
-                {
-                    continue;
-                }
-
-                double[] parentCcf = ccfById[candidateId];
-                if (!SatisfiesLineagePrecedence(parentCcf, childCcf, tolerance))
-                {
-                    continue;
-                }
-
-                if (!FitsSumRule(remainingBudget[candidateId], childCcf, tolerance))
-                {
-                    continue;
-                }
-
-                double candidateTotal = TotalCcf(parentCcf);
-                if (!found
-                    || candidateTotal < bestParentTotal
-                    || (candidateTotal == bestParentTotal && candidateId < bestParent))
-                {
-                    bestParent = candidateId;
-                    bestParentTotal = candidateTotal;
-                    found = true;
-                }
-            }
-
-            // The root always satisfies lineage precedence (CCF=1 ≥ any child) and, per the sum rule, can only be
-            // exhausted if children already consumed its full budget; in that degenerate case we still attach to the
-            // root because every cluster must have a parent (Popic 2015: spanning tree). 'found' is therefore the
-            // generic path; the explicit root fallback preserves the spanning-tree invariant.
-            int parentId = found ? bestParent : rootId;
-            edges.Add(new ClonalEdge(parentId, child.Id));
-
-            // Debit the chosen parent's per-sample budget by the child's CCF.
-            double[] budget = remainingBudget[parentId];
-            for (int i = 0; i < sampleCount; i++)
-            {
-                budget[i] -= childCcf[i];
-            }
+            phylogeny = default;
+            return false;
         }
 
-        var clusterList = clusters.ToArray();
-        return new ClonalPhylogeny(rootId, clusterList, edges, sampleCount);
+        var edges = new ClonalEdge[clusters.Count];
+        for (int c = 0; c < clusters.Count; c++)
+        {
+            int parentCluster = result.ParentClusterIndex[c];
+            edges[c] = new ClonalEdge(parentCluster < 0 ? rootId : clusters[parentCluster].Id, clusters[c].Id);
+        }
+
+        phylogeny = new ClonalPhylogeny(rootId, clusters.ToArray(), edges, sampleCount)
+        {
+            Tolerance = tolerance,
+            ErrorScore = result.ErrorScore,
+            ValidTreeCount = result.TreeCount,
+            UsedCompleteNetwork = usedComplete,
+        };
+        return true;
     }
 
     /// <summary>
-    /// Returns the ids of clusters on the <b>trunk</b> of the phylogeny — the clonal mutations shared by every
-    /// tumor cell. The trunk is the path from the root down to (but excluding) the first branch point: a maximal
-    /// chain of single-child nodes starting at the root's unique child. Source: Popic et al. (2015) — the trunk
-    /// holds the mutations of the common predecessor present across all samples.
+    /// Returns the ids of clusters on the <b>trunk</b> of the phylogeny — the truncal (clonal) mutations present in
+    /// every cancer cell of every sample. A trunk alteration "must be present in all cells of the tumour" (Werner et
+    /// al. 2017, <i>Sci. Rep.</i> 7:44991), i.e. CCF = 1 in every sample; in the tree these are the nodes on the path
+    /// from the root whose CCF equals the root's (≥ 1 − ε, ε = <see cref="ClonalPhylogeny.Tolerance"/>) in every sample.
+    /// A single-child descendant with CCF &lt; 1 is subclonal (the parent keeps a residual population without it).
     /// </summary>
     /// <param name="phylogeny">A phylogeny produced by <see cref="ReconstructPhylogeny"/>.</param>
-    /// <returns>Trunk cluster ids, ordered from the root downward; empty if the tree has no clusters.</returns>
+    /// <returns>Trunk cluster ids, ordered from the root downward; empty if no cluster is clonal in every sample.</returns>
     public static IReadOnlyList<int> IdentifyTrunkMutations(ClonalPhylogeny phylogeny)
     {
         var trunk = new List<int>();
@@ -217,20 +229,36 @@ public static partial class OncologyAnalyzer
             return trunk;
         }
 
-        // Walk down from the root while each node has exactly one child (no branching yet) and the root itself has
-        // exactly one child. The first node with ≠1 children is the branch point; nodes below it are subclonal.
+        var ccfById = new Dictionary<int, IReadOnlyList<double>>(phylogeny.Clusters.Count);
+        foreach (CcfCluster c in phylogeny.Clusters)
+        {
+            ccfById[c.Id] = c.CcfPerSample;
+        }
+
+        double clonalThreshold = RootCcf - phylogeny.Tolerance;
         int current = phylogeny.RootId;
         while (true)
         {
-            IReadOnlyList<int> children = phylogeny.ChildrenOf(current);
-            if (children.Count != 1)
+            int next = 0;
+            int clonalChildren = 0;
+            foreach (int child in phylogeny.ChildrenOf(current))
+            {
+                if (ccfById.TryGetValue(child, out IReadOnlyList<double>? ccf) && IsClonalInEverySample(ccf, clonalThreshold))
+                {
+                    next = child;
+                    clonalChildren++;
+                }
+            }
+
+            // Exactly one clonal child continues the trunk; none (or an ambiguous pair, only possible for ε ≥ 0.5)
+            // ends it.
+            if (clonalChildren != 1)
             {
                 break;
             }
 
-            int only = children[0];
-            trunk.Add(only);
-            current = only;
+            trunk.Add(next);
+            current = next;
         }
 
         return trunk;
@@ -238,7 +266,7 @@ public static partial class OncologyAnalyzer
 
     /// <summary>
     /// Returns the ids of <b>branch</b> (subclonal) clusters — every input cluster that is not on the trunk.
-    /// Source: Popic et al. (2015) — mutations off the common-predecessor trunk are subclonal lineage branches.
+    /// Source: Werner et al. (2017) — alterations off the trunk are present in only a subset of tumour cells.
     /// </summary>
     /// <param name="phylogeny">A phylogeny produced by <see cref="ReconstructPhylogeny"/>.</param>
     /// <returns>Branch cluster ids in input order.</returns>
@@ -262,65 +290,554 @@ public static partial class OncologyAnalyzer
         return branches;
     }
 
-    /// <summary>
-    /// Lineage precedence (Popic 2015 Eq. 2): for every sample i, <c>parent ≥ child − ε</c> and a parent absent in
-    /// a sample (CCF = 0) cannot have a child present there (presence pattern, constraint (1)).
-    /// </summary>
-    private static bool SatisfiesLineagePrecedence(double[] parentCcf, double[] childCcf, double tolerance)
+    private static bool IsClonalInEverySample(IReadOnlyList<double> ccf, double threshold)
     {
-        for (int i = 0; i < parentCcf.Length; i++)
-        {
-            if (parentCcf[i] < childCcf[i] - tolerance)
-            {
-                return false;
-            }
-
-            // Presence: if the parent is absent in sample i, the child must also be absent there.
-            if (parentCcf[i] <= 0.0 && childCcf[i] > 0.0)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Sum rule (Popic 2015 Eq. 5): the child's CCF fits a parent only if, in every sample, the parent's remaining
-    /// budget (parent CCF minus already-attached children) is ≥ child CCF − ε.
-    /// </summary>
-    private static bool FitsSumRule(double[] remainingParentBudget, double[] childCcf, double tolerance)
-    {
-        for (int i = 0; i < remainingParentBudget.Length; i++)
-        {
-            if (remainingParentBudget[i] < childCcf[i] - tolerance)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>Sum of a cluster's CCF over all samples (proxy for clonal dominance / processing order).</summary>
-    private static double TotalCcf(double[] ccf)
-    {
-        double total = 0.0;
         foreach (double v in ccf)
         {
-            total += v;
+            if (v < threshold)
+            {
+                return false;
+            }
         }
 
-        return total;
+        return true;
     }
 
-    /// <summary>Candidate parents = the root plus every cluster already attached to the tree (in attachment order).</summary>
-    private static IEnumerable<int> EnumerateCandidates(int rootId, List<ClonalEdge> edges)
+    private readonly record struct LicheeSearchResult(int TreeCount, double ErrorScore, int[] ParentClusterIndex);
+
+    /// <summary>
+    /// Port of LICHeE's <c>PHYNetwork</c> (constraint network construction, <c>checkAndAddEdge</c>,
+    /// <c>getLineageTrees</c>/<c>grow</c> Gabow–Myers enumeration with the <c>PHYTree.checkConstraint</c> sum rule) and
+    /// <c>PHYTree.computeErrorScore</c> ranking. Node 0 is the root; nodes 1..n are the clusters grouped by presence
+    /// profile (first-appearance order), within a profile in input order — the LICHeE node-id order.
+    /// </summary>
+    private sealed class LicheeNetwork
     {
-        yield return rootId;
-        foreach (ClonalEdge e in edges)
+        private readonly int _samples;
+        private readonly double _eps;
+        private readonly int _nodeCount;
+        private readonly double[][] _ccf;
+        private readonly int[] _level;
+        private readonly int[] _clusterIndex;
+        private readonly SortedDictionary<int, List<int>> _levels = new();
+        private readonly List<int>[] _net;
+
+        // Search state (LICHeE grow): f stack, working tree t (= L after the first complete tree).
+        private readonly List<(int From, int To)> _f = new();
+        private readonly List<int> _treeNodes = new();
+        private readonly Dictionary<int, List<int>> _treeEdges = new();
+        private bool _haveL;
+        private int _growCalls;
+        private int _treeCount;
+        private bool _stop;
+        private double _bestError = double.PositiveInfinity;
+        private int[]? _bestParent;
+
+        public LicheeNetwork(IReadOnlyList<CcfCluster> clusters, int samples, double eps, bool completeNetwork)
         {
-            yield return e.ChildId;
+            _samples = samples;
+            _eps = eps;
+            _nodeCount = clusters.Count + 1;
+            _ccf = new double[_nodeCount][];
+            _level = new int[_nodeCount];
+            _clusterIndex = new int[_nodeCount];
+            _net = new List<int>[_nodeCount];
+            for (int i = 0; i < _nodeCount; i++)
+            {
+                _net[i] = new List<int>();
+            }
+
+            // Root (LICHeE: level numSamples + 1, AAF = VAF_MAX = 1 in -cp mode).
+            _ccf[0] = new double[samples];
+            Array.Fill(_ccf[0], RootCcf);
+            _clusterIndex[0] = -1;
+            AddNode(0, samples + 1);
+
+            // Group clusters by presence profile in order of first appearance.
+            var groups = new List<List<int>>();
+            var groupByProfile = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+            for (int c = 0; c < clusters.Count; c++)
+            {
+                var profile = new char[samples];
+                for (int s = 0; s < samples; s++)
+                {
+                    profile[s] = clusters[c].CcfPerSample[s] > 0.0 ? '1' : '0';
+                }
+
+                string key = new(profile);
+                if (!groupByProfile.TryGetValue(key, out List<int>? members))
+                {
+                    members = new List<int>();
+                    groupByProfile[key] = members;
+                    groups.Add(members);
+                }
+
+                members.Add(c);
+            }
+
+            int nextId = 1;
+            foreach (List<int> group in groups)
+            {
+                int first = nextId;
+                foreach (int c in group)
+                {
+                    int id = nextId++;
+                    _ccf[id] = clusters[c].CcfPerSample.ToArray();
+                    _clusterIndex[id] = c;
+                    int present = 0;
+                    foreach (double v in _ccf[id])
+                    {
+                        if (v > 0.0)
+                        {
+                            present++;
+                        }
+                    }
+
+                    AddNode(id, present);
+                }
+
+                // Edges between each group's sub-population nodes.
+                for (int i = first; i < nextId; i++)
+                {
+                    for (int j = i + 1; j < nextId; j++)
+                    {
+                        CheckAndAddEdge(i, j);
+                    }
+                }
+            }
+
+            // Inter-level edges: each level to the next non-empty lower level.
+            for (int i = samples + 1; i > 0; i--)
+            {
+                if (!_levels.TryGetValue(i, out List<int>? fromLevel))
+                {
+                    continue;
+                }
+
+                int j = i - 1;
+                _levels.TryGetValue(j, out List<int>? toLevel);
+                while (toLevel is null && j > 0)
+                {
+                    j--;
+                    _levels.TryGetValue(j, out toLevel);
+                }
+
+                if (toLevel is null)
+                {
+                    continue;
+                }
+
+                foreach (int n1 in fromLevel)
+                {
+                    foreach (int n2 in toLevel)
+                    {
+                        CheckAndAddEdge(n1, n2);
+                    }
+                }
+            }
+
+            if (completeNetwork)
+            {
+                // addAllHiddenEdges: every higher level to every lower level ≥ 1.
+                for (int i = samples + 1; i > 0; i--)
+                {
+                    if (!_levels.TryGetValue(i, out List<int>? fromLevel))
+                    {
+                        continue;
+                    }
+
+                    for (int j = i - 1; j >= 1; j--)
+                    {
+                        if (!_levels.TryGetValue(j, out List<int>? toLevel))
+                        {
+                            continue;
+                        }
+
+                        foreach (int n1 in fromLevel)
+                        {
+                            foreach (int n2 in toLevel)
+                            {
+                                CheckAndAddEdge(n1, n2);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Nodes with no incoming edge: connect to a valid node in the closest higher level, else to the root.
+            var hasParent = new bool[_nodeCount];
+            for (int u = 0; u < _nodeCount; u++)
+            {
+                foreach (int v in _net[u])
+                {
+                    hasParent[v] = true;
+                }
+            }
+
+            for (int n = 1; n < _nodeCount; n++)
+            {
+                if (hasParent[n])
+                {
+                    continue;
+                }
+
+                bool found = false;
+                for (int j = _level[n] + 2; j <= samples + 1 && !found; j++)
+                {
+                    if (!_levels.TryGetValue(j, out List<int>? fromLevel))
+                    {
+                        continue;
+                    }
+
+                    foreach (int n2 in fromLevel)
+                    {
+                        if (CheckAndAddEdge(n2, n) == 0)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!found)
+                {
+                    AddNetEdge(0, n);
+                }
+            }
+        }
+
+        public LicheeSearchResult Search()
+        {
+            // getLineageTrees: t = {root}; f = all (root, v).
+            _treeNodes.Add(0);
+            if (_net[0].Count == 0)
+            {
+                return new LicheeSearchResult(0, double.NaN, Array.Empty<int>());
+            }
+
+            foreach (int v in _net[0])
+            {
+                _f.Add((0, v));
+            }
+
+            Grow();
+            return new LicheeSearchResult(_treeCount, _bestError, _bestParent ?? Array.Empty<int>());
+        }
+
+        private void AddNode(int id, int level)
+        {
+            _level[id] = level;
+            if (!_levels.TryGetValue(level, out List<int>? list))
+            {
+                list = new List<int>();
+                _levels[level] = list;
+            }
+
+            list.Add(id);
+        }
+
+        private void AddNetEdge(int from, int to)
+        {
+            if (!_net[from].Contains(to))
+            {
+                _net[from].Add(to);
+            }
+        }
+
+        /// <summary>LICHeE <c>checkAndAddEdge</c>: 0 = added n1→n2, 1 = added n2→n1, −1 = none.</summary>
+        private int CheckAndAddEdge(int n1, int n2)
+        {
+            double[] a1 = _ccf[n1];
+            double[] a2 = _ccf[n2];
+            int comp12 = 0;
+            int comp21 = 0;
+            double err12 = 0.0;
+            double err21 = 0.0;
+            for (int i = 0; i < _samples; i++)
+            {
+                if (a1[i] == 0.0 && a2[i] != 0.0)
+                {
+                    break;
+                }
+
+                comp12 += a1[i] >= a2[i] - _eps ? 1 : 0;
+                if (a1[i] < a2[i])
+                {
+                    err12 += a2[i] - a1[i];
+                }
+            }
+
+            for (int i = 0; i < _samples; i++)
+            {
+                if (a2[i] == 0.0 && a1[i] != 0.0)
+                {
+                    break;
+                }
+
+                comp21 += a2[i] >= a1[i] - _eps ? 1 : 0;
+                if (a2[i] < a1[i])
+                {
+                    err21 += a1[i] - a2[i];
+                }
+            }
+
+            if (comp12 == _samples)
+            {
+                if (comp21 == _samples && !(err12 < err21))
+                {
+                    AddNetEdge(n2, n1);
+                    return 1;
+                }
+
+                AddNetEdge(n1, n2);
+                return 0;
+            }
+
+            if (comp21 == _samples)
+            {
+                AddNetEdge(n2, n1);
+                return 1;
+            }
+
+            return -1;
+        }
+
+        // ---- Gabow & Myers (1978) spanning-tree enumeration, LICHeE PHYNetwork.grow ----
+
+        private void Grow()
+        {
+            _growCalls++;
+            if (_treeNodes.Count == _nodeCount)
+            {
+                _haveL = true;
+                _treeCount++;
+                double error = ComputeErrorScore();
+                if (error < _bestError)
+                {
+                    // Stable sort by error score: the first tree reaching the minimum ranks first.
+                    _bestError = error;
+                    _bestParent = CurrentParents();
+                }
+
+                if (_treeCount == MaxPhylogenyTreesEnumerated)
+                {
+                    _stop = true;
+                }
+
+                return;
+            }
+
+            var ff = new List<(int From, int To)>();
+            bool b = false;
+            while (!b && _f.Count > 0)
+            {
+                (int From, int To) e = _f[^1];
+                _f.RemoveAt(_f.Count - 1);
+                int v = e.To;
+                TreeAddNode(v);
+                TreeAddEdge(e.From, v);
+
+                if (CheckConstraint(e.From))
+                {
+                    var edgesAdded = new List<(int From, int To)>();
+                    foreach (int w in _net[v])
+                    {
+                        if (!_treeNodes.Contains(w))
+                        {
+                            _f.Add((v, w));
+                            edgesAdded.Add((v, w));
+                        }
+                    }
+
+                    var edgesRemoved = new List<(int From, int To)>();
+                    foreach ((int From, int To) wv in _f)
+                    {
+                        if (_treeNodes.Contains(wv.From) && wv.To == v)
+                        {
+                            edgesRemoved.Add(wv);
+                        }
+                    }
+
+                    _f.RemoveAll(edgesRemoved.Contains);
+
+                    if (_growCalls >= MaxPhylogenyGrowCalls)
+                    {
+                        _stop = true;
+                        return;
+                    }
+
+                    Grow();
+                    if (_stop)
+                    {
+                        return;
+                    }
+
+                    _f.RemoveAll(edgesAdded.Contains);
+                    _f.AddRange(edgesRemoved);
+                }
+
+                TreeRemoveEdge(e.From, e.To);
+                _net[e.From].Remove(e.To);
+                ff.Add(e);
+
+                // Bridge test: stop when every remaining network edge into v comes from a descendant of v in L.
+                b = true;
+                for (int w = 0; w < _nodeCount && b; w++)
+                {
+                    foreach (int n in _net[w])
+                    {
+                        if (n == v && (!_haveL || !IsDescendant(v, w)))
+                        {
+                            b = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            for (int i = ff.Count - 1; i >= 0; i--)
+            {
+                _f.Add(ff[i]);
+                AddNetEdge(ff[i].From, ff[i].To);
+            }
+        }
+
+        private void TreeAddNode(int n)
+        {
+            if (!_treeNodes.Contains(n))
+            {
+                _treeNodes.Add(n);
+            }
+        }
+
+        private void TreeAddEdge(int from, int to)
+        {
+            if (!_treeEdges.TryGetValue(from, out List<int>? children))
+            {
+                children = new List<int>();
+                _treeEdges[from] = children;
+            }
+
+            if (!children.Contains(to))
+            {
+                children.Add(to);
+            }
+        }
+
+        private void TreeRemoveEdge(int from, int to)
+        {
+            if (_treeEdges.TryGetValue(from, out List<int>? children))
+            {
+                children.Remove(to);
+            }
+
+            foreach (List<int> list in _treeEdges.Values)
+            {
+                if (list.Contains(to))
+                {
+                    return;
+                }
+            }
+
+            _treeNodes.Remove(to);
+        }
+
+        private bool IsDescendant(int v, int w)
+        {
+            if (!_treeEdges.TryGetValue(v, out List<int>? start))
+            {
+                return false;
+            }
+
+            var queue = new Queue<int>(start);
+            while (queue.Count > 0)
+            {
+                int n = queue.Dequeue();
+                if (n == w)
+                {
+                    return true;
+                }
+
+                if (_treeEdges.TryGetValue(n, out List<int>? next))
+                {
+                    foreach (int c in next)
+                    {
+                        queue.Enqueue(c);
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>LICHeE <c>PHYTree.checkConstraint</c>: sum rule (Eq. 5) at node n with margin ε.</summary>
+        private bool CheckConstraint(int n)
+        {
+            if (!_treeEdges.TryGetValue(n, out List<int>? children))
+            {
+                return true;
+            }
+
+            for (int i = 0; i < _samples; i++)
+            {
+                double sum = 0.0;
+                foreach (int c in children)
+                {
+                    sum += _ccf[c][i];
+                }
+
+                if (sum > _ccf[n][i] + _eps)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>LICHeE <c>PHYTree.computeErrorScore</c> (nodes in descending id order).</summary>
+        private double ComputeErrorScore()
+        {
+            double err = 0.0;
+            for (int n = _nodeCount - 1; n >= 0; n--)
+            {
+                if (!_treeEdges.TryGetValue(n, out List<int>? children))
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < _samples; i++)
+                {
+                    double sum = 0.0;
+                    foreach (int c in children)
+                    {
+                        sum += _ccf[c][i];
+                    }
+
+                    if (sum > _ccf[n][i])
+                    {
+                        double d = sum - _ccf[n][i];
+                        err += d * d;
+                    }
+                }
+            }
+
+            return Math.Sqrt(err);
+        }
+
+        /// <summary>Parent of every input cluster (by input index) in the current complete tree; −1 = root.</summary>
+        private int[] CurrentParents()
+        {
+            var parent = new int[_nodeCount - 1];
+            foreach (KeyValuePair<int, List<int>> kv in _treeEdges)
+            {
+                foreach (int child in kv.Value)
+                {
+                    parent[_clusterIndex[child]] = _clusterIndex[kv.Key];
+                }
+            }
+
+            return parent;
         }
     }
 
@@ -415,7 +932,7 @@ public static partial class OncologyAnalyzer
     /// <param name="ShannonDiversity">Shannon diversity index H = −Σ pᵢ·ln(pᵢ) over the clone fractions pᵢ
     /// (fraction of mutations assigned to each CCF cluster), using the natural logarithm (Shannon 1948).</param>
     /// <param name="SubcloneCount">Number of distinct clones/subclones = number of non-empty CCF clusters.</param>
-    /// <param name="SubclonalFraction">Fraction of mutations whose CCF is below the clonal threshold (CCF &lt; 0.95,
+    /// <param name="SubclonalFraction">Fraction of mutations whose CCF does not exceed the clonal threshold (CCF ≤ 0.95, i.e. not clonal under
     /// Landau et al. 2013) and are therefore subclonal.</param>
     public readonly record struct HeterogeneityResult(
         double MathScore,
@@ -461,7 +978,7 @@ public static partial class OncologyAnalyzer
             values[i] = v;
         }
 
-        double median = Median(values);
+        double median = StatisticsHelper.Median(values);
         if (median == 0.0)
         {
             throw new ArgumentException(
@@ -469,16 +986,12 @@ public static partial class OncologyAnalyzer
                 nameof(ccfDistribution));
         }
 
-        // Raw MAD = median of absolute deviations from the median; scale by 1.4826 for normal consistency.
-        double[] absDeviations = new double[n];
-        for (int i = 0; i < n; i++)
-        {
-            absDeviations[i] = Math.Abs(values[i] - median);
-        }
-
-        double rawMad = Median(absDeviations);
-        double scaledMad = MadConsistencyConstant * rawMad;
-        return MathPercentScale * scaledMad / median;
+        // Raw MAD = median of absolute deviations from the median (shared helper, also behind R mad in ASPCF).
+        // Same operation order as maftools mathScore.R (pat.mad = median(abs.med.dev) * 100;
+        // pat.math = pat.mad * 1.4826 / median(vaf)) so the result is bit-identical to the reference.
+        double rawMad = RawMedianAbsoluteDeviation(values, median);
+        double percentMad = rawMad * MathPercentScale;
+        return percentMad * MadConsistencyConstant / median;
     }
 
     /// <summary>
@@ -491,7 +1004,8 @@ public static partial class OncologyAnalyzer
     /// <param name="ccfClusters">A CCF clustering (its <see cref="CcfClustering.Assignments"/> determine which
     /// clusters actually contain at least one mutation).</param>
     /// <returns>The number of clusters that contain at least one assigned mutation (≥ 1).</returns>
-    /// <exception cref="ArgumentException"><paramref name="ccfClusters"/> has no centroids or no assignments.</exception>
+    /// <exception cref="ArgumentException"><paramref name="ccfClusters"/> has no centroids or no assignments, or an
+    /// assignment label lies outside [0, centroid count).</exception>
     public static int InferSubclones(CcfClustering ccfClusters)
     {
         IReadOnlyList<int> assignments = ccfClusters.Assignments;
@@ -500,9 +1014,18 @@ public static partial class OncologyAnalyzer
             throw new ArgumentException("The CCF clustering must contain at least one cluster and one assignment.", nameof(ccfClusters));
         }
 
+        int clusterCount = ccfClusters.Centroids.Count;
         var occupied = new HashSet<int>();
-        foreach (int label in assignments)
+        for (int i = 0; i < assignments.Count; i++)
         {
+            int label = assignments[i];
+            if (label < 0 || label >= clusterCount)
+            {
+                throw new ArgumentException(
+                    $"Assignment {i} refers to cluster {label}, outside the {clusterCount} centroid(s) [0, {clusterCount - 1}].",
+                    nameof(ccfClusters));
+            }
+
             occupied.Add(label);
         }
 
@@ -513,7 +1036,7 @@ public static partial class OncologyAnalyzer
     /// Performs a tumour intratumour-heterogeneity (ITH) analysis from per-mutation variant allele fractions and
     /// cancer cell fractions, returning four standard ITH metrics: the MATH score over the VAFs (Mroz &amp; Rocco
     /// 2013), the Shannon diversity index H = −Σ pᵢ·ln(pᵢ) over the clone fractions (Shannon 1948), the number of
-    /// subclones (CCF clusters), and the fraction of subclonal mutations (CCF &lt; 0.95, Landau et al. 2013). CCF
+    /// subclones (CCF clusters), and the fraction of subclonal mutations (CCF ≤ 0.95 — Landau et al. 2013: clonal if CCF &gt; 0.95, "subclonal otherwise"). CCF
     /// values are clustered with <see cref="ClusterCcfValues"/> (ONCO-CCF-001) into <paramref name="clusterCount"/>
     /// clones; the clone fractions pᵢ are the proportions of mutations assigned to each cluster.
     /// </summary>
@@ -551,47 +1074,23 @@ public static partial class OncologyAnalyzer
         CcfClustering clustering = ClusterCcfValues(ccfValues, clusterCount);
         int subcloneCount = InferSubclones(clustering);
 
-        // Clone fractions pᵢ = proportion of mutations in each occupied cluster; Shannon H = −Σ pᵢ·ln pᵢ.
+        // Clone fractions pᵢ = proportion of mutations in each occupied cluster; Shannon H = −Σ pᵢ·ln pᵢ
+        // (canonical StatisticsHelper.ShannonIndex; empty clusters contribute 0).
         int n = ccfValues.Count;
-        var clusterSizes = new Dictionary<int, int>();
+        var clusterSizes = new int[clustering.Centroids.Count];
         foreach (int label in clustering.Assignments)
         {
-            clusterSizes[label] = clusterSizes.TryGetValue(label, out int existing) ? existing + 1 : 1;
+            clusterSizes[label]++;
         }
 
-        double shannon = 0.0;
-        foreach (int size in clusterSizes.Values)
-        {
-            double p = (double)size / n;
-            shannon -= p * Math.Log(p);
-        }
+        double shannon = StatisticsHelper.ShannonIndex(clusterSizes);
 
-        // Subclonal mutations: CCF strictly below the clonal threshold (Landau et al. 2013, reused from ONCO-CLONAL-001).
-        int subclonal = 0;
-        for (int i = 0; i < n; i++)
-        {
-            if (ccfValues[i] < ClonalCcfThreshold)
-            {
-                subclonal++;
-            }
-        }
+        // Subclonal mutations = those not clonal under the canonical Landau et al. (2013) rule
+        // (IdentifyClonalMutations: clonal ⇔ CCF > 0.95, "subclonal otherwise"), so CCF = 0.95 is subclonal.
+        int subclonal = n - IdentifyClonalMutations(ccfValues).Count;
 
         double subclonalFraction = (double)subclonal / n;
         return new HeterogeneityResult(math, shannon, subcloneCount, subclonalFraction);
-    }
-
-    /// <summary>
-    /// Returns the median of the supplied values. For an even count the median is the arithmetic mean of the two
-    /// central order statistics; for an odd count it is the central value (standard definition; matches R's
-    /// <c>median</c> used by maftools <c>mathScore.R</c>). Does not mutate the input.
-    /// </summary>
-    private static double Median(double[] values)
-    {
-        double[] sorted = (double[])values.Clone();
-        Array.Sort(sorted);
-        int n = sorted.Length;
-        int mid = n / 2;
-        return (n % 2 == 1) ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2.0;
     }
 
     #endregion

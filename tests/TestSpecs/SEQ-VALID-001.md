@@ -5,7 +5,7 @@
 **Algorithm:** Sequence Validation
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-02-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -88,6 +88,9 @@ represent uncertainty in consensus sequences and are correctly rejected by unamb
 | `IsValidRna(ReadOnlySpan<char>)` | SequenceExtensions | **Canonical** | Returns true if all chars ∈ {A,C,G,U} |
 | `TryCreate(string, out DnaSequence)` | DnaSequence | Factory | Wraps validation + construction |
 | `DnaSequence(string)` constructor | DnaSequence | Constructor | Throws on invalid input |
+| `IndexOfInvalidDna/Rna(ReadOnlySpan<char>)` | SequenceExtensions | **Canonical predicate** | First invalid index or -1; used by IsValid*, ctors, MCP `dna_validate`/`rna_validate` |
+| `IsValidIupacDna/Rna(ReadOnlySpan<char>)` | SequenceExtensions | IUPAC mode | Biopython `ambiguous_dna_letters` "GATCRYWSMKHBVDN" / `ambiguous_rna_letters` "GAUCRYWSMKHBVDN"; gaps rejected |
+| `IupacHelper.IsNucleotideCode(char)` | IupacHelper | Code set | The 15 NC-IUB 1984 DNA codes (upper case) |
 
 ---
 
@@ -228,6 +231,16 @@ represent uncertainty in consensus sequences and are correctly rejected by unamb
 | 🔁 Removed | `SequenceCompositionProperties.InvalidChars_NotValidDna` (3 runs) | Duplicate of M11, M12 |
 
 ---
+
+## 6.5 Review 2026-09 additions
+
+| Test | Values | Source |
+|------|--------|--------|
+| `IndexOfInvalidDna_ReturnsFirstInvalidPosition` (7) / `IndexOfInvalidRna_…` (5) | e.g. `"ACGTX"`→4, `"ACGU"`→3 (DNA), `"ACGT"`→3 (RNA); asserts INV-5 TryCreate ⇔ IsValid | Biopython unambiguous letters |
+| `IsValidIupac_MatchesBiopythonAndScikitBio` (14) | `"ACGTNRYSWKMBDHV"`→(DNA true, RNA false); `"ACGUNRYSWKMBDHV"`→(false, true); `"AC-GT"`, `"ACGX"`, `"ſ"`→(false, false) | Biopython 1.88 ambiguous_*_letters; scikit-bio 0.7.4 DNA/RNA(lowercase=True) |
+| `IupacHelper_IsNucleotideCode_ExactlyFifteenCodes` | ASCII set = "ABCDGHKMNRSTVWY" | Biopython ambiguous_dna_letters |
+| `IupacDnaSequence_LongSNonAscii_IsInvalid` | `IupacDnaSequence("ACſ").IsValid()` = false (was true: invariant upper-casing mapped U+017F→'S') | scikit-bio DNA("ſ", lowercase=True) raises |
+| `IsValidDna_LongSNonAscii_ReturnsFalse` | `"ACGſ"` → index 3 | ASCII-only folding |
 
 ## 7. Deviations and Assumptions
 

@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.AnalyzeKmers",
-  "docRef": "Seqeron.Genomics/KmerAnalyzer.cs#L363",
-  "description": "Comprehensive k-mer analysis including statistics about frequency distribution, entropy, and unique k-mers.",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L3167",
+  "description": "Comprehensive k-mer analysis (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy. Optional Jellyfish -L/-U count filters (lowerCount/upperCount) and canonical (count -C) / acgtOnly modes, same as the Analysis server's analyze_kmers.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -20,32 +20,122 @@
         "description": "K-mer length (default: 3)",
         "default": 3,
         "minimum": 1
+      },
+      "lowerCount": {
+        "type": "integer",
+        "description": "Ignore k-mers with count below this value (Jellyfish stats -L)",
+        "default": 0,
+        "minimum": 0
+      },
+      "upperCount": {
+        "type": "integer",
+        "description": "Ignore k-mers with count above this value (Jellyfish stats -U)",
+        "default": 2147483647,
+        "minimum": 0
+      },
+      "canonical": {
+        "type": "boolean",
+        "description": "Canonical k-mers min(k-mer, reverse complement) (jellyfish count -C); implies acgtOnly",
+        "default": false
+      },
+      "acgtOnly": {
+        "type": "boolean",
+        "description": "Skip windows containing a non-ACGT symbol (Jellyfish convention)",
+        "default": false
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "totalKmers": { "type": "integer", "description": "Total number of k-mers" },
-      "uniqueKmers": { "type": "integer", "description": "Number of unique k-mers" },
-      "maxCount": { "type": "integer", "description": "Maximum k-mer frequency" },
-      "minCount": { "type": "integer", "description": "Minimum k-mer frequency" },
-      "averageCount": { "type": "number", "description": "Average k-mer frequency" },
-      "entropy": { "type": "number", "description": "K-mer entropy (bits)" },
-      "k": { "type": "integer", "description": "K-mer length used" }
+      "totalKmers": {
+        "type": "integer",
+        "description": "Total number of k-mers including multiplicity (Jellyfish Total), L - k + 1"
+      },
+      "uniqueKmers": {
+        "type": "integer",
+        "description": "Number of DISTINCT k-mers (legacy name; = distinctKmers; not Jellyfish Unique)"
+      },
+      "distinctKmers": {
+        "type": "integer",
+        "description": "Number of distinct k-mers (Jellyfish Distinct)"
+      },
+      "singletonKmers": {
+        "type": "integer",
+        "description": "Number of k-mers occurring exactly once (Jellyfish Unique)"
+      },
+      "maxCount": {
+        "type": "integer",
+        "description": "Maximum k-mer frequency"
+      },
+      "minCount": {
+        "type": "integer",
+        "description": "Minimum k-mer frequency"
+      },
+      "averageCount": {
+        "type": "number",
+        "description": "Exact mean multiplicity total/distinct"
+      },
+      "entropy": {
+        "type": "number",
+        "description": "K-mer entropy (bits)"
+      },
+      "k": {
+        "type": "integer",
+        "description": "K-mer length used"
+      }
     },
-    "required": ["totalKmers", "uniqueKmers", "maxCount", "minCount", "averageCount", "entropy", "k"]
+    "required": [
+      "totalKmers",
+      "uniqueKmers",
+      "maxCount",
+      "minCount",
+      "averageCount",
+      "entropy",
+      "k",
+      "distinctKmers",
+      "singletonKmers"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1003, "message": "K must be at least 1" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "K must be at least 1"
+    },
+    {
+      "code": 1002,
+      "message": "lowerCount must be non-negative"
+    },
+    {
+      "code": 1002,
+      "message": "upperCount must be non-negative"
+    }
   ],
   "examples": [
     {
       "name": "Analyze DNA sequence",
-      "input": { "sequence": "ATGCATGCATGC", "k": 3 },
-      "output": { "totalKmers": 10, "uniqueKmers": 4, "maxCount": 3, "minCount": 2, "averageCount": 2.5, "entropy": 1.97, "k": 3 }
+      "input": {
+        "sequence": "ATGCATGCATGC",
+        "k": 3
+      },
+      "output": {
+        "totalKmers": 10,
+        "uniqueKmers": 4,
+        "maxCount": 3,
+        "minCount": 2,
+        "averageCount": 2.5,
+        "entropy": 1.970950594454669,
+        "k": 3,
+        "distinctKmers": 4,
+        "singletonKmers": 0
+      }
     }
   ]
 }

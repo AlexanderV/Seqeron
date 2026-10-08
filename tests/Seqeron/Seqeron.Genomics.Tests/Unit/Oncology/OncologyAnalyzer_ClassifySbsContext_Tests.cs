@@ -174,6 +174,35 @@ public class OncologyAnalyzer_ClassifySbsContext_Tests
         });
     }
 
+    // M11 — Channel order: substitution-major (COSMIC plot / SigProfilerPlotting order); sorting ordinally yields the
+    // SigProfilerMatrixGenerator .SBS96 / COSMIC v3.4 reference-file row order. Source: COSMIC_v3.4_SBS_GRCh37.txt
+    // (raw.githubusercontent.com/AlexandrovLab/SigProfilerAssignment/main/.../Reference_Signatures/GRCh37/) —
+    // rows 1-8: A[C>A]A, A[C>A]C, A[C>A]G, A[C>A]T, A[C>G]A, A[C>G]C, A[C>G]G, A[C>G]T; last row T[T>G]T;
+    // SigProfilerMatrixGenerator builds the 96 index with pandas groupby (sorted keys).
+    [Test]
+    public void EnumerateSbs96Channels_Order_SubstitutionMajor_OrdinalSortEqualsCosmicV34FileOrder()
+    {
+        var channels = OncologyAnalyzer.EnumerateSbs96Channels();
+        var sorted = channels.OrderBy(c => c, StringComparer.Ordinal).ToList();
+
+        Assert.Multiple(() =>
+        {
+            // Substitution-major: first 16 are C>A with 5' A,C,G,T x 3' A,C,G,T; index 16 starts C>G.
+            Assert.That(channels.Take(5), Is.EqualTo(new[] { "A[C>A]A", "A[C>A]C", "A[C>A]G", "A[C>A]T", "C[C>A]A" }));
+            Assert.That(channels[16], Is.EqualTo("A[C>G]A"));
+            Assert.That(channels[95], Is.EqualTo("T[T>G]T"));
+
+            // COSMIC v3.4 / SigProfilerMatrixGenerator row order.
+            Assert.That(sorted.Take(8), Is.EqualTo(new[]
+            {
+                "A[C>A]A", "A[C>A]C", "A[C>A]G", "A[C>A]T", "A[C>G]A", "A[C>G]C", "A[C>G]G", "A[C>G]T"
+            }));
+            Assert.That(sorted[23], Is.EqualTo("A[T>G]T"), "5'=A block holds 6 substitutions x 4 3'-bases = 24 rows.");
+            Assert.That(sorted[24], Is.EqualTo("C[C>A]A"));
+            Assert.That(sorted[95], Is.EqualTo("T[T>G]T"));
+        });
+    }
+
     #endregion
 
     #region Build96ContextCatalog

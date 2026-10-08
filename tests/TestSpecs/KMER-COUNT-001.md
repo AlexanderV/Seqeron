@@ -19,6 +19,9 @@
 | `CountKmersBothStrands(DnaSequence, int)` | KmerAnalyzer | Both strands | Deep |
 | `CountKmers(DnaSequence, int)` | KmerAnalyzer | Wrapper | Smoke |
 | `CountKmers(string, int, CancellationToken, IProgress<double>)` | KmerAnalyzer | Async delegate | Smoke |
+| `CountKmers(string, int, KmerCountingOptions, CancellationToken, IProgress<double>)` | KmerAnalyzer | ACGT-only / canonical (Jellyfish) | Deep |
+| `DistinctKmers(string, int[, KmerCountingOptions])` | KmerAnalyzer | Distinct set | Smoke |
+| `GetKmerSpectrum` / `AnalyzeKmers` with `KmerCountingOptions` | KmerAnalyzer | Jellyfish histo/stats on -C | Deep |
 
 ## Evidence Sources
 
@@ -28,6 +31,8 @@
    - URL: https://rosalind.info/problems/kmer/
 3. **Rosalind — Clump Finding (BA1E):** K-mer clump definition
    - URL: https://rosalind.info/problems/ba1e/
+4. **Jellyfish source + executed binary 2.3.1:** `mer_iterator.hpp` (non-ACGT window reset; canonical `m_ < rcm_`), `mer_dna.hpp` (`codes[256]`), `count_main_cmdline.yaggo` (`-C`)
+   - URL: https://github.com/gmarcais/Jellyfish
 
 ## Test Categories
 
@@ -111,7 +116,41 @@ All tests use exact values derived from theory (Wikipedia/Rosalind), not from im
 | CountKmersSpan_LowercaseInput_NormalizesToUppercase | ✅ Covered | M7/M10 regression |
 | CountKmersSpan_MixedCase_MatchesCountKmers | ✅ Covered | M10 case regression |
 | CountKmers_CancellationOverload_NormalizesCase | ✅ Covered | M15 |
+| CountKmers_RosalindKmerSample_FullCompositionArray_AllOverloads | ✅ Covered | M14/M10/M7: full 256-value Rosalind array locked for string, cancellation, async, DnaSequence, Span and lower-case input (review 2026-09) |
 
 ## Deviations and Assumptions
 
-None — all behavior verified against external evidence sources.
+- Non-ACGT symbols (e.g. `N`) are counted literally by the option-less overloads (generic string k-mer definition, Wikipedia). The Jellyfish convention, which drops every window containing a non-ACGT base, is `KmerCountingOptions.AcgtOnly`, and Jellyfish `-C` is `KmerCountingOptions.Canonical` (which implies ACGT-only).
+- `CountKmers(string,…)` returns empty for null/empty input *before* validating `k`; `CountKmersSpan` validates `k` first (empty span with `k ≤ 0` throws). Documented overload asymmetry.
+- `CountKmers(DnaSequence null, k)` throws `NullReferenceException` (no explicit null guard).
+
+## Review 2026-09 (batch B06)
+
+Stage A PASS-with-notes, Stage B PASS-with-notes. Rosalind KMER sample output (256 values) reproduced exactly by Python `collections.Counter` and Biopython `Seq.count_overlap` (sum 412, 209 non-zero, max CAGT = 8) and by every C# overload. The synchronous `CountKmers(string,int)` now delegates to the cancellation-aware overload (single counting loop).
+
+## Audit round 1 (B06 WP1) — ACGT-only and canonical counting
+
+Test file: `tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_CountingOptions_Tests.cs` (36 cases). All values below come from the executed Jellyfish 2.3.1 binary and are not derived from the code.
+
+| ID | Test | Expected (Jellyfish 2.3.1) |
+|----|------|----------------------------|
+| O1 | `-C` full `dump -c` tables, 8 inputs (incl. lower case, N, R, U, homopolymer) | e.g. ATGATG k=3 → ATC:1 ATG:2 TCA:1; `acgtNNacgtacgRtTTGCAnA` k=3 → AAA:1 ACG:5 CAA:1 GCA:2 GTA:2 |
+| O2 | ACGT-only `dump -c` tables, 4 inputs | `ACGTNACGT` k=4 → ACGT:2; `AAUUAA` k=2 → AA:2 |
+| O3 | `stats` + `histo` rows on plain/`-C` counts (9 rows), plus the `DistinctKmers` size | Rosalind k=4 `-C`: 23/130/412/10, histo 1:23 … 10:2 |
+| O4 | Mean and entropy on `-C` tables | scipy `entropy(base=2)`: 6.779144227048732, 4.1343361131944505, 2.0403733936884962 |
+| O5 | `-C` with `-L 2` | BA1B: Distinct 4, Total 11, Max 4 |
+| O6 | Invariants: default options equal the literal overloads; `Canonical` implies ACGT-only; keys = ordinal min(w, RC(w)); canonical table invariant under reverse complement of the input; sum = number of all-ACGT windows | — |
+| O7 | Contracts: null/empty/k>L/all-N give empty results; k ≤ 0 throws (ParamName "k"); cancellation and progress (0.0, 1.0); `DistinctKmers` returns a caller-owned ordinal set | — |
+
+## Audit round 1 (B06 WP4) — single span-lookup loop, CountKmersSpan contract, null DnaSequence, parallel count
+
+Test file: `Unit/Analysis/KmerAnalyzer_ParallelAndBackgroundD2_Tests.cs`.
+
+| ID | Test | Evidence |
+|----|------|----------|
+| P1 | `CountKmers` (literal and ACGT-only) equals an independent naive substring counter on 300 random inputs (alphabet ACGTacgtNR, L ≤ 3000, k ≤ 8) | k-mer definition; Jellyfish window rule (WP1) |
+| P2 | `KmerAnalyzer.CountKmersSpan` equals `CountKmers` for every k incl. k > L on mixed-case/IUPAC input | same contract |
+| P3 | Empty span with k ≤ 0 → empty (as `CountKmers`); non-empty with k ≤ 0 → `ArgumentOutOfRangeException("k")` | `ValidateKmerLength` contract (F2) |
+| P4 | `CountKmers(DnaSequence)`, `CountKmers(DnaSequence, k, ct)`, `CountKmersBothStrands(DnaSequence)` with null → `ArgumentNullException("dna")` | .NET Framework Design Guidelines, argument validation |
+| P5 | `CountKmersParallel` equals the serial count on 8 random inputs × 3 option sets × degrees 2/3/4/8/−1 (140k–420k windows) | counting is a sum over windows (any partition) |
+

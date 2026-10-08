@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_sigma70_promoters",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.FindSigma70Promoters",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.Sigma70Promoters.cs#L47",
+  "description": "Pairs σ70 promoter boxes per Harley & Reynolds (1987, NAR 15:2343): every −35 hexamer within `maxMismatches35` of TTGACA followed, after a spacer of `minSpacer` … `maxSpacer` bp (15–21; 17 ± 1 in 92 % of promoters), by a −10 hexamer within `maxMismatches10` of TATAAT. Each candidate reports both mismatch counts, their sum and |spacer − 17|. Coordinates are 0-based forward-strand starts; with `bothStrands` the reverse complement is scanned too (minus-strand boxes read 5'→3' on that strand). Order: `+` before `-`, then −35 start, then spacer. For a quantitative promoter score use `predict_sigma70_promoters`.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "minLength": 1,
+        "description": "DNA sequence"
+      },
+      "maxMismatches35": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 6,
+        "default": 2,
+        "description": "Max mismatches to TTGACA, 0–6 (default 2)"
+      },
+      "maxMismatches10": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 6,
+        "default": 2,
+        "description": "Max mismatches to TATAAT, 0–6 (default 2)"
+      },
+      "minSpacer": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 15,
+        "description": "Minimum spacer (default 15)"
+      },
+      "maxSpacer": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 21,
+        "description": "Maximum spacer (default 21)"
+      },
+      "bothStrands": {
+        "type": "boolean",
+        "default": false,
+        "description": "Also scan the minus strand (default false)"
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "strand": {
+              "type": "string",
+              "enum": [
+                "+",
+                "-"
+              ]
+            },
+            "minus35Start": {
+              "type": "integer"
+            },
+            "minus35": {
+              "type": "string"
+            },
+            "minus10Start": {
+              "type": "integer"
+            },
+            "minus10": {
+              "type": "string"
+            },
+            "spacer": {
+              "type": "integer"
+            },
+            "mismatches35": {
+              "type": "integer"
+            },
+            "mismatches10": {
+              "type": "integer"
+            },
+            "totalMismatches": {
+              "type": "integer"
+            },
+            "spacerDeviation": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "strand",
+            "minus35Start",
+            "minus35",
+            "minus10Start",
+            "minus10",
+            "spacer",
+            "mismatches35",
+            "mismatches10",
+            "totalMismatches",
+            "spacerDeviation"
+          ]
+        }
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence"
+    },
+    {
+      "code": 1002,
+      "message": "Must be in 0 … 6."
+    },
+    {
+      "code": 1002,
+      "message": "Must be ≥ minSpacer."
+    }
+  ],
+  "examples": [
+    {
+      "name": "E. coli lacUV5 promoter",
+      "input": {
+        "sequence": "TCAGCATTCGAGCTTACGGAGCGCAACGCAATTAATGTGAGTTAGCTCACTCATTAGGCACCCCAGGCTTTACACTTTATGCTTCCGGCTCGTATAATGTGTGGAATTGTGAGCGGATAACAATTTCACACAGGAAACAGCT",
+        "maxMismatches35": 1,
+        "maxMismatches10": 0
+      },
+      "output": {
+        "items": [
+          {
+            "strand": "+",
+            "minus35Start": 68,
+            "minus35": "TTTACA",
+            "minus10Start": 92,
+            "minus10": "TATAAT",
+            "spacer": 18,
+            "mismatches35": 1,
+            "mismatches10": 0,
+            "totalMismatches": 1,
+            "spacerDeviation": 1
+          }
+        ]
+      }
+    }
+  ]
+}

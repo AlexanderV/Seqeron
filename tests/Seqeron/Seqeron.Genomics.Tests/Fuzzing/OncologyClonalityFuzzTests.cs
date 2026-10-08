@@ -430,5 +430,27 @@ public sealed class OncologyClonalityFuzzTests
         AssertWellFormedResult(result, expectedTotal: 3);
     }
 
+    // F15: deep coverage used to underflow every grid weight (no C(N,a) factor) and collapse to a flat
+    // posterior (CCF 0.505, subclonal). For a clonal heterozygous SNV observed at its expected VAF
+    // f(1) = ρ/2 (q = 2, M = 1) the normalised dbinom posterior concentrates on c = 1 as N grows (Landau 2013).
+    [Test]
+    [CancelAfter(20_000)]
+    public void ClassifyClonality_FuzzDeepCoverageAtClonalVaf_IsClonal()
+    {
+        var rng = new Random(20_260_928);
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int total = rng.Next(2_000, 5_000_000);
+            double purity = 0.5 + (0.5 * rng.NextDouble());
+            double clonalVaf = purity / 2.0; // q = 2, M = 1, c = 1
+            int alt = (int)Math.Round(clonalVaf * total);
+
+            ClonalityCall call = ClassifyClonality(new[] { new ClonalityVariant(alt, total, 2) }, purity).Calls[0];
+
+            call.Status.Should().Be(ClonalityStatus.Clonal, $"N={total}, ρ={purity}, a={alt}");
+            call.Ccf.Should().BeGreaterThan(0.95, "posterior mass concentrates near c = 1");
+        }
+    }
+
     #endregion
 }

@@ -49,6 +49,20 @@
 2. **Lexicographic ordering guarantee:** "The nested loops cycle like an odometer with the rightmost element advancing on every iteration. This pattern creates a lexicographic ordering so that if the input's iterables are sorted, the product tuples are emitted in sorted order." (verbatim) — the rightmost (last) position varies fastest; if the alphabet is supplied in sorted order, the enumerated k-mers come out in lexicographic order. {A,C,G,T} is already sorted, so DNA k-mers are emitted as AAA, AAC, AAG, AAT, ACA, … , TTT.
 3. **Worked enumeration example:** "product(range(2), repeat=3) → 000 001 010 011 100 101 110 111" (verbatim) — the canonical odometer ordering over a 2-letter sorted alphabet, structurally identical to k-mer generation over {A,C,G,T}.
 
+### Rosalind — LEXF: Enumerating k-mers Lexicographically (added review 2026-09-28)
+
+**URL:** https://rosalind.info/problems/lexf/ (blocked for direct fetch; statement + sample read from the archived copy https://raw.githubusercontent.com/mtarbit/Rosalind-Problems/master/e015-lexf.py and WebSearch snippets of the problem page)
+**Authority rank:** 3 (standard bioinformatics problem set with a fixed sample dataset)
+
+**Key Extracted Points:**
+
+1. "Assume that an alphabet 𝒜 has a predetermined order; that is, we write the alphabet as a permutation 𝒜=(a1,a2,…,ak), where a1<a2<⋯<ak." — lexicographic order is taken **w.r.t. the given alphabet order**.
+2. "s precedes t in the lexicographic order … if the first symbol s[j] that doesn't match t[j] satisfies sj<tj in 𝒜."
+3. Given "a positive integer n (n≤10)" — n = 0 is outside the problem.
+4. Sample dataset `T A G C` / `2` → `TT TA TG TC AT AA AG AC GT GA GG GC CT CA CG CC` (the current problem page's variant uses a sorted alphabet; both are the same rule).
+
+**Reference cross-check (Python 3 itertools.product, 2026-09-28):** product("TAGC",2) reproduces the sample exactly; product("AAC",2) = AA AA AC AA AA AC CA CA CC; product("ACGT", repeat=0) = [()] (one empty tuple — the library rejects k=0 by contract). The C# output was byte-identical to itertools.product for ACGT k=1,5; TAGC k=4; 20-letter protein k=3; AB k=10; AAC k=3; acgT k=3; A k=7.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -156,5 +170,7 @@
 ---
 
 ## Change History
+
+- **2026-09-28**: Review 2026-09 — added Rosalind LEXF source, itertools.product cross-check; odometer implementation (O(k) working space).
 
 - **2026-06-14**: Initial documentation.

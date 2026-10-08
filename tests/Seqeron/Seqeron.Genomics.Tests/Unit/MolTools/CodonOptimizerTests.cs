@@ -134,4 +134,126 @@ public class CodonOptimizerTests
     }
 
     #endregion
+
+    #region Restriction-site removal — review 2026-09 (F22)
+
+    [Test]
+    [Description("One codon per removed site, chosen as the most frequent synonymous substitution")]
+    public void RemoveRestrictionSites_ChangesExactlyOneCodonPerSite()
+    {
+        // EcoRI GAAUUC over Glu-Phe-Gly. Candidate substitutions that destroy the site:
+        // GAA→GAG (f 0.31) and UUC→UUU (f 0.57); the higher-frequency one wins, and the codons
+        // that follow the site are NOT touched (they were, before 2026-09).
+        string result = CodonOptimizer.RemoveRestrictionSites("GAATTCGGG", new[] { "GAATTC" }, CodonOptimizer.EColiK12);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo("GAAUUUGGG"));
+            Assert.That(result, Does.Not.Contain("GAAUUC"));
+        });
+    }
+
+    [Test]
+    [Description("A non-palindromic site is also removed where its reverse complement occurs (both strands are cut)")]
+    public void RemoveRestrictionSites_ReverseComplementOccurrence_IsRemoved()
+    {
+        // BsaI recognises GGTCTC / GAGACC (REBASE lists the top strand only). Both must go.
+        string forward = CodonOptimizer.RemoveRestrictionSites("ATGGGTCTCGCTAAA", new[] { "GGTCTC" }, CodonOptimizer.EColiK12);
+        string reverse = CodonOptimizer.RemoveRestrictionSites("ATGGAGACCGCTAAA", new[] { "GGTCTC" }, CodonOptimizer.EColiK12);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forward, Does.Not.Contain("GGUCUC"));
+            Assert.That(reverse, Does.Not.Contain("GAGACC"), "the reverse-complement strand is cut by the same enzyme");
+            Assert.That(reverse, Is.EqualTo("AUGGAAACCGCUAAA"));
+        });
+    }
+
+    [Test]
+    [Description("Recognition sequences may contain IUPAC ambiguity codes (XhoII RGATCY)")]
+    public void RemoveRestrictionSites_IupacSite_IsMatchedAndRemoved()
+    {
+        string result = CodonOptimizer.RemoveRestrictionSites("ATGAGATCTGCTAAA", new[] { "RGATCY" }, CodonOptimizer.EColiK12);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo("AUGCGCUCUGCUAAA"));
+            Assert.That(result, Does.Not.Contain("AGAUCU"));
+        });
+    }
+
+    [Test]
+    [Description("A site that no synonymous substitution can remove is left in place, without throwing")]
+    public void RemoveRestrictionSites_UnremovableSite_IsLeftInPlace()
+    {
+        // UGGUGG inside a Trp-Trp run: Trp has a single codon, so the site cannot be removed.
+        string result = CodonOptimizer.RemoveRestrictionSites("ATGTGGTGGTGGAAA", new[] { "TGGTGG" }, CodonOptimizer.EColiK12);
+
+        Assert.That(result, Is.EqualTo("AUGUGGUGGUGGAAA"));
+    }
+
+    [Test]
+    public void RemoveRestrictionSites_InvalidSiteCharacter_Throws()
+    {
+        Assert.Throws<ArgumentException>(
+            () => CodonOptimizer.RemoveRestrictionSites("AUGGCU", new[] { "GA@TTC" }, CodonOptimizer.EColiK12));
+    }
+
+    #endregion
+
+    #region Reference codon table from a gene set — review 2026-09 (F25)
+
+    [Test]
+    [Description("Relative adaptiveness from the built table equals Biopython CodonAdaptationIndex (0.5 pseudo-count)")]
+    public void CreateCodonTableFromSequence_MatchesBiopythonRelativeAdaptiveness()
+    {
+        // Biopython 1.88: CodonAdaptationIndex(["ATGAAAGCGTTCAAGCGTACTGCGATGCCCAAAGGGTTTTAA"]) →
+        // AAA 1.0, AAG 0.5, GCG 1.0, GCT 0.25, TTT 1.0, TTC 1.0, CGT 1.0, AGA 0.5, TAA 1.0, TAG 0.5.
+        // Our table stores f = count / family total, so w = f / max f must reproduce those values.
+        const string reference = "ATGAAAGCGTTCAAGCGTACTGCGATGCCCAAAGGGTTTTAA";
+        var table = CodonOptimizer.CreateCodonTableFromSequence(reference, "T");
+
+        double W(string codon, params string[] family)
+        {
+            double max = family.Max(c => table.CodonFrequencies[c]);
+            return table.CodonFrequencies[codon] / max;
+        }
+
+        string[] lys = { "AAA", "AAG" };
+        string[] ala = { "GCU", "GCC", "GCA", "GCG" };
+        string[] phe = { "UUU", "UUC" };
+        string[] arg = { "CGU", "CGC", "CGA", "CGG", "AGA", "AGG" };
+        string[] stop = { "UAA", "UAG", "UGA" };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(table.CodonFrequencies, Has.Count.EqualTo(64), "absent codons are pseudo-counted, not dropped");
+            Assert.That(W("AAA", lys), Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(W("AAG", lys), Is.EqualTo(0.5).Within(1e-9));
+            Assert.That(W("GCG", ala), Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(W("GCU", ala), Is.EqualTo(0.25).Within(1e-9));
+            Assert.That(W("UUU", phe), Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(W("UUC", phe), Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(W("CGU", arg), Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(W("AGA", arg), Is.EqualTo(0.5).Within(1e-9));
+            Assert.That(W("UAG", stop), Is.EqualTo(0.5).Within(1e-9));
+            Assert.That(table.CodonToAminoAcid["GCG"], Is.EqualTo("A"), "the table carries the Standard code mapping");
+        });
+    }
+
+    [Test]
+    [Description("Every amino-acid family of the built table sums to 1")]
+    public void CreateCodonTableFromSequence_FamiliesSumToOne()
+    {
+        var table = CodonOptimizer.CreateCodonTableFromSequence("AUGGCUGCUGCCAAAUAA", "T");
+
+        var sums = table.CodonFrequencies
+            .GroupBy(kv => table.CodonToAminoAcid[kv.Key])
+            .ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value));
+
+        foreach (var (aminoAcid, sum) in sums)
+            Assert.That(sum, Is.EqualTo(1.0).Within(1e-9), $"family {aminoAcid}");
+    }
+
+    #endregion
 }

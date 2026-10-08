@@ -50,7 +50,7 @@
    `Base3  = TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG`
 2. **Start codons (the three `M` positions in the Starts line):** TTG, CTG, ATG.
 3. **Stop codons:** TAA, TAG, TGA.
-4. **Initiator translated as Met:** "The initiator codon - whether it is AUG, CTG, TTG or something else, - is by default translated as methionine (Met, M)." (Note: this is a display convention for the *initiator* position; see Assumptions for how the repository handles it.)
+4. **Initiator translated as Met:** "The initiator codon - whether it is AUG, CTG, TTG or something else, - is by default translated as methionine (Met, M)." `FindOrfs` reports the initiator as `M` (review 2026-09; getorf `-methionine`).
 
 ### EMBOSS getorf — application documentation (ORF definition)
 
@@ -75,6 +75,26 @@
 
 1. **Six frames:** "any given sequence of DNA can therefore be read in six different ways: Three reading frames in one direction (starting at different nucleotides) and three in the opposite direction."
 2. **Reverse strand direction:** the three additional frames "may be read from the other, complementary strand in the 5′→3′ direction along this strand"; the 5′→3′ direction on the second strand corresponds to 3′→5′ on the first — i.e. the reverse-complement read forward.
+
+### EMBOSS getorf — C source (opened 2026-09-28, B02 code review)
+
+**URL:** https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/getorf.c and `emboss/acd/getorf.acd`
+**Authority rank:** 3 (reference implementation source)
+
+1. `-find 1` (P_START2STOP): an ORF opens at a START only when none is open in that frame (`codon == START && !ORF[frame]`) — nested starts are not reported.
+2. `-methionine` (acd default `Y`, "Change initial START codons to Methionine"): the first residue is appended as `'M'`.
+3. On a STOP: `getorf_WriteORF(..., start[frame], pos-1, ...)` — the printed range EXCLUDES the stop codon.
+4. At the end without a STOP (`pos >= seqlen-5`): the last codon is appended and `WriteORF(..., pos+2)` — the ORF ends at the last base of the last complete codon.
+5. `minsize` (default 30 nt) is divided by 3 and compared to the protein length.
+6. EMBOSS ships genetic codes EGC.1 … but not EGC.25–33 (HTTP 404 for 25, 26, 27, 28, 31, 33), so getorf defines nothing for the dual-coding tables 27/28/31.
+
+### INSDC Feature Table Definition — CDS (WebSearch snippet; insdc.org / ddbj blocked for fetch)
+
+"CDS: sequence of nucleotides that corresponds with the sequence of amino acids in a protein (location includes stop codon)". This is the stop-inclusive end-coordinate convention used by `OrfResult.EndPosition`.
+
+### Biopython 1.88 `Bio.Seq._translate_str` (installed source)
+
+`cds=True`: first codon must be a start and "will be translated as methionine"; final codon must be a stop and is excluded. For tables whose stop codons are also in `forward_table` (27: TGA; 28: TAA, TAG, TGA; 31: TAA, TAG — i.e. every stop codon of these tables) `to_stop=True` raises `ValueError`.
 
 ---
 
@@ -135,7 +155,7 @@ Input DNA: `GGGATGAAACCCTAAGGG`. ATG begins at index 3; stop `TAA` occupies indi
 | Field | Value |
 |-------|-------|
 | StartPosition (0-based, start codon first base) | 3 |
-| EndPosition (0-based, stop codon last base, inclusive) | 14 |
+| EndPosition (0-based, stop codon last base, inclusive; getorf prints 1-based [4 - 12], stop excluded) | 14 |
 | Frame | 1 |
 | Protein (start residue included, stop excluded) | `MKP` |
 | AminoAcidLength | 3 |
@@ -146,7 +166,7 @@ Input DNA: `GGGATGAAACCCTAAGGG`. ATG begins at index 3; stop `TAA` occupies indi
 ## Assumptions
 
 1. **ASSUMPTION: Reverse-frame numbering convention.** Two documented conventions exist (EMBOSS phase-locked vs. Biopython independent-offset). The repository follows the **Biopython** convention (frame -k = reverse-complement offset k−1), which is the dominant reference-implementation behaviour and is explicitly listed as an accepted alternative in the EMBOSS transeq documentation. This is a convention choice, not an invented value; both produce correct biology, only the −1/−2/−3 labels differ.
-2. **ASSUMPTION: Stop codons rendered as `*`; ambiguous IUPAC codons rendered as `X`.** The `*` for stop is universal (NCBI). Rendering ambiguous codons as `X` (unknown amino acid) follows the IUPAC single-letter "any amino acid" code; it is the established behaviour of the existing `GeneticCode.Translate` and is not exercised as a six-frame-specific MUST.
+2. **ASSUMPTION: Stop codons rendered as `*`; ambiguous IUPAC codons resolved as in Biopython (all-same → that residue, all-stop → `*`, D/N → `B`, E/Q → `Z`, I/L → `J`, otherwise `X`; TRANS-CODON-001 review 2026-09).** The `*` for stop is universal (NCBI). The ambiguity resolution is Biopython's `Bio.Data.CodonTable` ambiguous-table rule, implemented and oracle-tested in `GeneticCode.Translate` (TRANS-CODON-001); it is not exercised as a six-frame-specific MUST.
 3. **ASSUMPTION: ORF length filter is in amino acids.** getorf's `-minsize` is in nucleotides; the repository's `FindOrfs(minLength)` parameter counts amino acids (protein length). This is an API-shape choice documented in the contract; behaviour is well-defined for any value.
 
 ---

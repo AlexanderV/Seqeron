@@ -5,7 +5,7 @@
 **Algorithm:** Codon Frequencies (non-overlapping in-frame triplet usage)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28 (review 2026-09 B03: M6–M11)
 
 ---
 
@@ -58,6 +58,7 @@
 | INV-02 | Frequencies over all counted codons sum to 1.0 (when ≥1 valid codon) | Yes | count/total normalization, Source 2 |
 | INV-03 | Codons with any non-ACGT base never appear and never affect the total | Yes | Source 2 ("ambiguous excluded") |
 | INV-04 | Result is independent of input letter case | Yes | codons are case-independent; impl upper-cases |
+| INV-06 | RNA spelling (U) gives the DNA table; keys DNA-spelled | Yes | EMBOSS cusp (executed), CodonW; property `CodonFrequencies_RnaSpelling_EqualsDnaSpelling` |
 | INV-05 | count/total fraction = Kazusa per-thousand frequency ÷ 1000 | Yes | Source 3 (cusp 22/386×1000 = 56.995) |
 
 ---
@@ -73,6 +74,13 @@
 | M3 | Sum to one (INV-02) | `ATGATGAAA` frame 0 | Σ freq = 1.0 | Source 2 normalization |
 | M4 | Non-ACGT excluded (INV-03) | `ATGNNNAAA` frame 0 → ATG, AAA | ATG=1/2, AAA=1/2, no NNN key | Source 2 |
 | M5 | cusp cross-check (INV-05) | Multiset of 386 codons matching cusp: build CGC×22 etc.; minimal proxy `CGCCGCCGC`+filler reproducing fraction | a codon with count k over total n gives k/n = per-thousand/1000 | Source 3 (22/386=0.056995) |
+
+| M6 | RNA U read as T (review 2026-09 F15) | `AUGAUGAAAUUUCGC`, `augAAAuuuTTT`, `ATGGCUGCAUAAgc` | = EMBOSS cusp /1000 ÷ 1000 (0.4/0.2/0.2/0.2; 0.25/0.25/0.5; 0.25×4); RNA spelling = DNA spelling | cusp 6.6.0 executed; CodonW `ident_codon` |
+| M7 | Frame = offset (compseq) | `ATGCCCGGGT` frames 1/2/3 | TGC,CCG,GGT 1/3; GCC,CGG 1/2; CCC,GGG 1/2 | compseq `-word 3 -frame f` executed |
+| M8 | Ambiguous triplet skipped without frame shift | `ATGNNNaaaRYTTAG`, `ATG-GCAAAX-TTTT` | 1/3 each of ATG,AAA,TAG / ATG,AAA,TTT | EMBOSS `ajCodSetTripletsS` |
+| M9 | Negative frame (F16) | frame −1/−3 | `ArgumentOutOfRangeException` | compseq ACD "Integer 0 or more" |
+| M10 | Canonical consistency | 2000 random DNA/RNA/IUPAC/gap inputs, frames 0–3 | = `CodonUsageAnalyzer.CountCodons(seq[f..])` / Σ | B02 canonical counter |
+| M11 | Biopython CAI counting loop | `atgGCCgccTAA` | ATG .25, GCC .5, TAA .25 | Biopython 1.88 `CodonAdaptationIndex.train` |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 

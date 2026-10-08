@@ -175,6 +175,33 @@ new His tests; total across projects all green). Changed source project builds w
 test coverage; boundary logic remains correct; the no-confidence-standard is the declared heuristic boundary.
 
 
+## Review 2026-09 (campaign B15, 2026-09-28)
+
+- **Stage A:** PASS-WITH-NOTES · **Stage B:** PASS-WITH-NOTES (two findings fixed) · **State:** CLEAN
+- **Methods covered:** `PredictDisorder` → `IdentifyDisorderedRegions` / `ClassifyDisorderedRegion` / `CalculateConfidence`; `PredictDisorderRegions`; `ClassifyRegionFlavorMobiDbLite`; new `PredictFlavorSubregionsMobiDbLite`.
+
+### Stage A — sources opened this session
+- MobiDB-lite v3 source, fetched from `raw.githubusercontent.com/BioComputingUP/MobiDB-lite/v3/`: `mdblib/states.py`, `consensus.py`, `prediction.py`, `predictor.py`, `cli.py`, `mobidb_lite.py`. Confirmed verbatim: charge classes (R,K,H positive; D,E negative; gate 0.35), `is_enriched` ≥ 0.32, priority PA→PPE→NPE→C→P→G→LC→polar, `tokenize(n = 9//2 − 1 = 3)` (7-residue mirrored windows), `math_morphology(rmax=5)` per feature, `feature_len_thr=10`, CLI default features clipped to IDRs, SEG `seg -x` defaults.
+- Necci et al. 2020 (academic.oup.com btaa1045) via WebSearch snippet: "sliding window of nine residues", sub-regions "at least nine residues". **Notes:** the published code uses 7-residue windows and ≥ 10-residue sub-regions; the code (which produces MobiDB annotations) is followed and the discrepancy documented.
+- TOP-IDP region rule (Campen 2008) as validated in DISORDER-PRED-001 (same batch) — unchanged.
+
+### Findings
+1. **Simplification replaced by the real algorithm (rule 2).** `ClassifyRegionFlavorMobiDbLite` applies the MobiDB-lite window function to the whole region; the real MobiDB-lite flavour step is per-residue windowed + morphology + ≥10 runs, fully specified by the public v3 code. Implemented verbatim as `PredictFlavorSubregionsMobiDbLite` (+ `DisorderFlavor.LowComplexity`, `FlavorSubregion`). Example where they differ: α-synuclein region 94–139 → whole-region PA, windowed PA 94–104 + NPE 111–139; G12D12 → whole-region NPE, windowed GR 0–10 + NPE 11–23. `ClassifyRegionFlavorMobiDbLite` is kept (for the charge class it equals MobiDB-lite's own region label `set_pappu_classes_per_region`) and now shares the window function (behaviour-preserving; the 18 existing flavour tests are unchanged and green).
+2. **`PredictMoRFs` blocked by this unit's confidence guard.** `PredictMoRFs` called `PredictDisorder`, which runs `LimitationPolicy.Enforce("DISORDER-REGION-001")` (minimum Permissive). Under the library default Moderate (and Strict) `PredictMoRFs(any sequence)` threw `SeqeronLimitationException` although it only uses per-residue scores. Hidden in tests because the test assembly bootstraps Permissive. Fixed: `PredictMoRFs` calls the unguarded `ComputeDisorder` (same defaults 21/0.542/5 — identical scores).
+
+### Stage B — cross-checks
+- Verbatim v3 Python (`MobidbLiteConsensus.get_region_features` with caller IDRs and SEG mask) vs C# on 400 random fixtures (seed 20260928; all 8 classes represented): **400/400 identical**.
+- α-synuclein (P37840) `PredictDisorderRegions`, independent Python TOP-IDP: regions (10,43),(47,66),(94,139); MeanScore 0.5851639426481442 / 0.5699485887353337 / 0.6185213382503114; Confidence NaN.
+- Region grouping edge cases (empty, all-ordered/disordered, trailing, min-length inclusive, sorted/non-overlapping) re-traced in code — correct.
+
+### Tests added
+- `DisorderPredictor_RegionFlavor_Tests`: FS1–FS8 (`PredictFlavorSubregions_*`), values from the verbatim v3 code.
+- `DisorderPredictor_DisorderedRegion_Tests.PredictDisorderRegions_AlphaSynuclein_MatchesIndependentReference`.
+- `DisorderPredictor_MoRF_Tests.PredictMoRFs_NotBlockedByRegionConfidenceGuard` (Moderate, Strict) → (29,50), 0.275934.
+
+### Kept / limitations
+- Default `RegionType` (0.25 enrichment, internal priority) and `Confidence` remain declared internal heuristics (no published region-typing/confidence standard; LIMITATIONS entry already exists for confidence). MobiDB-lite's IDR consensus (8 external predictors) is not reproducible; flavours use caller IDRs. Default LC track uses the in-library SEG (DISORDER-LC-001 approximation) unless an exact mask is passed.
+
 ## Runtime enforcement (LimitationPolicy)
 
 This unit's guarded branch — the uncalibrated per-region `Confidence` (use `PredictDisorderRegions` for the validated TOP-IDP boundaries without a confidence) — has **minimum access mode `Permissive`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it throws `SeqeronLimitationException` (this guarded branch is allowed only under `Permissive`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

@@ -212,11 +212,19 @@ public class CodonCombinatorialTests
         return list.ToArray();
     }
 
+    private static readonly string[] OneCodonPerAminoAcid = EncSenseCodons
+        .GroupBy(c => GeneticCode.Standard.Translate(c.Replace('T', 'U')))
+        .Select(g => g.First())
+        .ToArray();
+
     private static string EncSequence(CodonBias bias, int nCodons)
     {
         string[] palette = bias switch
         {
-            CodonBias.Biased => new[] { "GCT" },                 // one codon (Ala) ⇒ maximal bias
+            // one codon per amino acid ⇒ maximal bias (every class estimable, Nc = 20). A single-codon
+            // gene ("GCT" only, as before 2026-09) leaves synonymous classes empty, so CodonW enc_out
+            // does not calculate Nc (library: 0) — it is not a point of the [20,61] grid.
+            CodonBias.Biased => OneCodonPerAminoAcid,
             CodonBias.Mixed => EncSenseCodons.Take(10).ToArray(),
             _ => EncSenseCodons,                                    // all 61 sense codons ⇒ minimal bias
         };
@@ -228,7 +236,9 @@ public class CodonCombinatorialTests
     [Test, Combinatorial]
     public void CodonEnc_WithinWrightBound_AcrossBiasAndLength(
         [Values(CodonBias.Biased, CodonBias.Mixed, CodonBias.Uniform)] CodonBias bias,
-        [Values(60, 150, 300)] int nCodons)
+        // 122 (not 60): cycling the 61 sense codons 60 times uses each codon at most once, so every
+        // F̂ = 0 and CodonW enc_out does not calculate Nc (library: 0) — outside this grid's domain.
+        [Values(122, 150, 300)] int nCodons)
     {
         double enc = CodonUsageAnalyzer.CalculateEnc(EncSequence(bias, nCodons));
         enc.Should().BeInRange(20.0, 61.0, "Nc lies in the Wright [20,61] bound");

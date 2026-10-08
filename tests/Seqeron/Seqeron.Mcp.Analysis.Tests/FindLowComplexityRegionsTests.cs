@@ -7,7 +7,7 @@ namespace Seqeron.Mcp.Analysis.Tests;
 /// Tests for the <c>find_low_complexity_regions</c> MCP tool.
 /// Expected values from SequenceComplexity's own unit test
 /// (SequenceComplexityTests.FindLowComplexityRegions_FindsPolyARegion: ATGCx20 + A64 +
-/// ATGCx20, w=20 thr=0.5 -> region 79..146, minEntropy 0), NOT the wrapper output.
+/// ATGCx20, w=20 thr=0.5 -> region 79..145 (union of windows with H < 0.5; Python scipy reference), minEntropy 0), NOT the wrapper output.
 /// </summary>
 [TestFixture]
 public class FindLowComplexityRegionsTests
@@ -27,18 +27,32 @@ public class FindLowComplexityRegionsTests
     [Test]
     public void FindLowComplexityRegions_Binding_InvokesSuccessfully()
     {
-        // The internal poly-A tract is the single low-complexity region at 79..146.
+        // The internal poly-A tract is the single low-complexity region at 79..145.
         var regions = AnalysisTools.FindLowComplexityRegions(PolyAFlanked(), 20, 0.5).Items;
         Assert.Multiple(() =>
         {
             Assert.That(regions, Has.Length.EqualTo(1));
             Assert.That(regions[0].Start, Is.EqualTo(79));
-            Assert.That(regions[0].End, Is.EqualTo(146));
+            Assert.That(regions[0].End, Is.EqualTo(145));
+            Assert.That(regions[0].Length, Is.EqualTo(67));
             Assert.That(regions[0].MinEntropy, Is.EqualTo(0.0).Within(1e-10));
         });
 
         // A pure ATGC repeat has uniformly high entropy -> no low-complexity region.
         var none = AnalysisTools.FindLowComplexityRegions(string.Concat(Enumerable.Repeat("ATGC", 20)), 20, 0.5).Items;
         Assert.That(none, Is.Empty);
+    }
+
+    [Test]
+    public void FindLowComplexityRegions_BbdukMethod_MatchesBbdukOutput()
+    {
+        // bbduk.sh 40.02 entropy=0.5 entropymask=t (entropywindow=50 entropyk=5) masks 11..88 of this read (B04 F39).
+        const string s1 = "CGGAGCCTGTTCCTGTACCATTATCTCTTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATACCCTGAAGAGGATCTACAGATGCAAAGC";
+        var r = AnalysisTools.FindLowComplexityRegions(s1, 50, 0.5, method: "bbduk", entropyK: 5).Items;
+        Assert.That(r.Select(x => (x.Start, x.End)), Is.EqualTo(new[] { (11, 88) }));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.FindLowComplexityRegions(s1, 50, 0.5, method: "dust"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.FindLowComplexityRegions(s1, 50, double.NaN));
+        // N accepted; windows containing it are never flagged.
+        Assert.DoesNotThrow(() => AnalysisTools.FindLowComplexityRegions("ACGTNNACGT", 4, 1.0));
     }
 }

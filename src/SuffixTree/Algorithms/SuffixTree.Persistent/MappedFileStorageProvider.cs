@@ -82,10 +82,7 @@ public sealed unsafe partial class MappedFileStorageProvider : IStorageProvider
                 oldAccessor.Dispose();
                 oldMmf.Dispose();
 
-                using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
-                {
-                    fs.SetLength(_capacity);
-                }
+                ResizeBackingFile(_capacity);
 
                 _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
                 _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
@@ -281,10 +278,7 @@ public sealed unsafe partial class MappedFileStorageProvider : IStorageProvider
             oldAccessor.Dispose();
             oldMmf.Dispose();
 
-            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
-            {
-                fs.SetLength(_capacity);
-            }
+            ResizeBackingFile(_capacity);
 
             _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
             _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
@@ -293,6 +287,24 @@ public sealed unsafe partial class MappedFileStorageProvider : IStorageProvider
         catch (IOException) { RecoverMapping(oldCapacity); throw; }
         catch (UnauthorizedAccessException) { RecoverMapping(oldCapacity); throw; }
         catch (OutOfMemoryException) { RecoverMapping(oldCapacity); throw; }
+    }
+
+    /// <summary>
+    /// Test-only fault injection for the backing-file resize step. When set, it is invoked with
+    /// the requested length before the file is resized; throwing from it simulates an OS-level
+    /// resize failure (disk full, EFBIG, permission denied). File permissions cannot be used for
+    /// this: a process with CAP_DAC_OVERRIDE (e.g. root in a container) ignores the read-only bit.
+    /// </summary>
+    internal Action<long>? ResizeFaultInjector { get; set; }
+
+    /// <summary>
+    /// Resizes the backing file to <paramref name="length"/> bytes. The mapping must already be released.
+    /// </summary>
+    private void ResizeBackingFile(long length)
+    {
+        ResizeFaultInjector?.Invoke(length);
+        using var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+        fs.SetLength(length);
     }
 
     /// <summary>

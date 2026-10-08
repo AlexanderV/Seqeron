@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-CLONAL-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -34,7 +34,7 @@ The posterior over `c` assumes a uniform prior and a binomial read model [1]:
 P(c) ∝ Binomial(a | N, f(c)),   c ∈ [0.01, 1]
 ```
 
-evaluated on a regular grid of 100 values of `c` and normalised by its sum [1].
+evaluated on a regular grid of 100 values of `c` (0.01, 0.02, …, 1.00) and normalised by its sum [1]. The same model (with R `dbinom`, a finer 0.001 grid) is used by MSKCC facets-suite `estimate_ccf` [3].
 
 **Classification rule** [1]: a mutation is **clonal** if `P(CCF > 0.95) > 0.5`, and **subclonal** otherwise.
 
@@ -85,8 +85,8 @@ evaluated on a regular grid of 100 values of `c` and normalised by its sum [1].
 
 1. Validate `purity` and (per variant) read counts, local copy number, multiplicity.
 2. For each variant, compute the per-unit-CCF allele fraction `α·M / (2(1−α)+αq)`.
-3. Over a 100-point grid c ∈ [0.01, 1], compute `f(c) = min(1, perUnit·c)` and the binomial likelihood `f^a·(1−f)^(N−a)` (in log-space).
-4. Normalise the grid weights to a posterior; take the posterior mean (CCF estimate) and the mass above 0.95.
+3. Over the grid c_i = i/100, i = 1..100 (each point computed as one division, so c = 0.95 is exactly the threshold), compute `f(c) = min(1, perUnit·c)` and the binomial log-likelihood `a·ln f + (N−a)·ln(1−f)`.
+4. Shift the log-likelihoods by their maximum, exponentiate, normalise to a posterior (log-sum-exp; no underflow at any depth); take the posterior mean (CCF estimate) and the mass strictly above 0.95 (grid points 0.96..1.00).
 5. Call clonal if that mass > 0.5, else subclonal; accumulate counts and the clonal fraction.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
@@ -107,14 +107,14 @@ evaluated on a regular grid of 100 values of `c` and normalised by its sum [1].
 
 ### 5.1 Location and Entry Points
 
-**Implementation location:** [OncologyAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs)
+**Implementation location:** [OncologyAnalyzer.Clonality.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.Clonality.cs)
 
 - `OncologyAnalyzer.ClassifyClonality(variants, purity)`: posterior-grid clonal/subclonal classification with counts and clonal fraction.
 - `OncologyAnalyzer.IdentifyClonalMutations(ccfValues)`: point-estimate clonal selection (CCF > 0.95).
 
 ### 5.2 Current Behavior
 
-The binomial likelihood is computed in log-space and the constant binomial coefficient C(N,a) is omitted (it cancels under grid normalisation). For the degenerate case of an all-zero posterior (e.g. `f ≈ 0` with `a > 0`), a flat posterior over the grid is used so the result stays well-defined (subclonal). This is a search/matching-free numerical computation, so the repository suffix tree is not applicable.
+The binomial likelihood is computed in log-space and the constant binomial coefficient C(N,a) is omitted (it cancels under grid normalisation); the log weights are shifted by their maximum before exponentiation, so the posterior equals the normalised R `dbinom` posterior at any depth (review 2026-09 F15: the unshifted kernel underflowed to 0 for N ≳ 1100 and a flat-posterior fallback then reported CCF 0.505 / subclonal). Since f(c) ∈ (0,1) at every grid point below c = 1, at least one weight is positive and no degenerate fallback is needed. Grid points are computed as i/100 (review 2026-09 F16: the accumulated form 0.01 + 94·0.01 = 0.9500000000000001 had counted c = 0.95 in P(CCF > 0.95)). This is a search/matching-free numerical computation, so the repository suffix tree is not applicable.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -178,3 +178,4 @@ OncologyAnalyzer.ClonalityResult result = OncologyAnalyzer.ClassifyClonality(var
 
 1. Landau DA, Carter SL, Stojanov P, et al. 2013. Evolution and Impact of Subclonal Mutations in Chronic Lymphocytic Leukemia. *Cell* 152(4):714–726. https://doi.org/10.1016/j.cell.2013.01.019
 2. Satas G, Zaccaria S, El-Kebir M, Raphael BJ. 2021. DeCiFering the Elusive Cancer Cell Fraction in Tumor Heterogeneity and Evolution. *Cell Systems* 12(10):1004–1018. https://doi.org/10.1016/j.cels.2021.07.006
+3. MSKCC facets-suite, `R/ccf-annotate-maf.R` (`estimate_ccf`: `probs = dbinom(t_alt_count, t_depth, purity·ccf·mutant_copies/(2(1−purity)+purity·total_copies)); probs = probs/sum(probs)`). https://github.com/mskcc/facets-suite

@@ -60,7 +60,7 @@ The seed region is defined as the last 10 nucleotides for PAM-after-target syste
 | Field | Type | Description |
 |-------|------|-------------|
 | `Sequence` | `string` | Guide sequence being evaluated |
-| `Position` | `int` | `pamSite.TargetStart` for designed guides and `-1` for standalone evaluation; reverse-strand designed guides currently keep that reverse-complement coordinate rather than a forward-source remap |
+| `Position` | `int` | `pamSite.TargetStart` for designed guides and `-1` for standalone evaluation; since the 2026-09 review `PamSite.TargetStart` is a forward-strand, 0-based protospacer start on both strands (CRISPOR convention), so designed guides report forward-source coordinates for reverse-strand designs too |
 | `IsForwardStrand` | `bool` | Strand orientation for designed candidates |
 | `GcContent` | `double` | Overall GC percentage |
 | `SeedGcContent` | `double` | GC percentage of the seed region |
@@ -117,7 +117,7 @@ Guide-design defaults confirmed in source:
 
 ### 5.2 Current Behavior
 
-The current implementation matches the documented `40-70%` GC window, penalizes `TTTT` poly-T sequences, uses a 10-base seed region, and reports issues when the seed GC falls outside `30-80%`. `DesignGuideRnas(...)` first filters PAM sites by a cut-site-in-region check and then evaluates the extracted guide. Standalone evaluation accepts non-standard guide lengths and scores them naturally from their composition, while designed guides follow the guide length of the selected CRISPR system for PAM-adjacent extraction. The internal `EvaluateGuideRna(PamSite, ...)` helper remaps only `SpCas9`, `SaCas9`, and `Cas12a/Cpf1` by name, so designed guides for systems such as `SpCas9NAG`, `AsCas12a`, `LbCas12a`, and `CasX` currently reuse `SpCas9` scoring metadata in the returned candidate. The reported `Position` is copied from `pamSite.TargetStart`, which is not remapped back to the original forward-sequence coordinate for reverse-strand designs. The `AvoidPolyT` and `CheckSelfComplementarity` parameter flags are currently passive record fields: the scoring path still applies poly-T and self-complementarity penalties even when those booleans are set to `false`. The derived `FullGuideRna` appends a fixed scaffold sequence to the spacer.
+The current implementation matches the documented `40-70%` GC window, penalizes `TTTT` poly-T sequences, uses a 10-base seed region, and reports issues when the seed GC falls outside `30-80%`. `DesignGuideRnas(...)` first filters PAM sites by a cut-site-in-region check and then evaluates the extracted guide. Standalone evaluation accepts non-standard guide lengths and scores them naturally from their composition, while designed guides follow the guide length of the selected CRISPR system for PAM-adjacent extraction. The internal `EvaluateGuideRna(PamSite, ...)` helper remaps only `SpCas9`, `SaCas9`, and `Cas12a/Cpf1` by name, so designed guides for systems such as `SpCas9NAG`, `AsCas12a`, `LbCas12a`, and `CasX` currently reuse `SpCas9` scoring metadata in the returned candidate. The reported `Position` is copied from `pamSite.TargetStart`, which is a forward-strand coordinate on both strands (see `PAM_Site_Detection.md`). The `AvoidPolyT` and `CheckSelfComplementarity` parameter flags are currently passive record fields: the scoring path still applies poly-T and self-complementarity penalties even when those booleans are set to `false`. The derived `FullGuideRna` appends a fixed scaffold sequence to the spacer.
 
 ### 5.3 Conformance to Theory / Spec
 

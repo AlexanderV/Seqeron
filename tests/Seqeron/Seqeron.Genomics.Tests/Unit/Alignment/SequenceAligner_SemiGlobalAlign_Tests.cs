@@ -160,9 +160,19 @@ public class SequenceAligner_SemiGlobalAlign_Tests
 
         var result = SequenceAligner.SemiGlobalAlign(query, reference, SimpleDna);
 
-        string refFromAlignment = RemoveGaps(result.AlignedSequence2);
-        Assert.That(reference.Sequence, Does.Contain(refFromAlignment),
-            "INV-4: Removing gaps from aligned seq2 must yield substring of original reference");
+        // The scored region lies between the first and last query residue; the free reference
+        // prefix/suffix outside it is shown against gaps, so the full aligned seq2 is the reference.
+        int first = result.AlignedSequence1.IndexOfAny("ACGT".ToCharArray());
+        int last = result.AlignedSequence1.LastIndexOfAny("ACGT".ToCharArray());
+        string scoredRef = RemoveGaps(result.AlignedSequence2.Substring(first, last - first + 1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(scoredRef, Is.EqualTo("ATGC"),
+                "INV-4: the reference part of the scored region is a substring of the reference");
+            Assert.That(RemoveGaps(result.AlignedSequence2), Is.EqualTo(reference.Sequence),
+                "Aligned seq2 spans the whole reference (free flanks shown against gaps)");
+            Assert.That((result.StartPosition2, result.EndPosition2), Is.EqualTo((0, 9)));
+        });
     }
 
     #endregion
@@ -393,9 +403,11 @@ public class SequenceAligner_SemiGlobalAlign_Tests
     /// query="AAAA" (len 4), ref="CCCC" (len 4). All mismatches, score = 4 × (−1) = −4.
     ///
     /// Hand-computed DP (match=1, mismatch=−1, gap=−1):
-    ///   For all-mismatch equal-length sequences, F(i,j) = −i for all j ≥ 1.
+    ///   For all-mismatch equal-length sequences, F(i,j) = −i for all j.
     ///   F(4,j): [−4, −4, −4, −4, −4]
-    ///   max at j=1 (leftmost tie), score = −4.
+    ///   max at j=0 (leftmost tie), score = −4: the reported co-optimal alignment is the
+    ///   query entirely against gaps (AAAA---- / ----CCCC, 4 × gap), which ties with the
+    ///   4-mismatch placement (Biopython enumerates both; 48 co-optimal alignments).
     ///
     /// Evidence: The NW recurrence F(i,j) = max(diag, up, left) has no max(0, ...) term.
     /// Wikipedia (Needleman–Wunsch): recurrence section. Wikipedia (Sequence alignment):
@@ -409,8 +421,13 @@ public class SequenceAligner_SemiGlobalAlign_Tests
 
         var result = SequenceAligner.SemiGlobalAlign(query, reference, SimpleDna);
 
-        Assert.That(result.Score, Is.EqualTo(-4),
-            "Score = 4 × (−1) = −4 (all mismatches, no zero floor in NW recurrence)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Score, Is.EqualTo(-4),
+                "Score = −4 (no zero floor in NW recurrence)");
+            Assert.That((result.AlignedSequence1, result.AlignedSequence2), Is.EqualTo(("AAAA----", "----CCCC")),
+                "Tie on the last row → smallest end column j = 0");
+        });
     }
 
     #endregion
@@ -557,6 +574,167 @@ public class SequenceAligner_SemiGlobalAlign_Tests
                 "Optimal alignment must contain a gap in the reference");
             Assert.That(result.Score, Is.EqualTo(2),
                 "Score = 3 matches(+1) + 1 gap(−1) = 2");
+        });
+    }
+
+    #endregion
+
+    #region Reference cross-check (Biopython / parasail)
+
+    // Fitting variant = Biopython 1.88 PairwiseAligner(mode="global", end_insertion_score=0,
+    // target = sequence1) = parasail 1.3.4 sg_dx (s1 = sequence1). Linear: open = extend = GapExtend.
+    // Affine: Biopython open_gap_score = GapOpen + GapExtend; parasail open = -(GapOpen + GapExtend).
+    // Seqeron agreed with both on 2428 random/edge cases (scores; every returned alignment is one of
+    // Biopython's co-optimal alignments). Expected strings below are Biopython/parasail tracebacks.
+
+    /// <summary>
+    /// Linear fitting alignments. ACGTAA / CCACGT: the query overhang "AA" is charged (2 × −1)
+    /// → 2; an overlap aligner (free end gaps on both sequences) would score 4 — this fixes the
+    /// variant as query-in-reference fitting.
+    /// </summary>
+    [TestCase("GATTACA", "CCGATTTACAGG", 2, -3, -2, 12, "--GA-TTACA--", "CCGATTTACAGG")]
+    [TestCase("ACGTAA", "CCACGT", 1, -1, -1, 2, "--ACGTAA", "CCACGT--")]
+    [TestCase("GGGACGT", "ACGTCCC", 1, -1, -1, 1, "GGGACGT---", "---ACGTCCC")]
+    public void SemiGlobalAlign_ReferenceAlignments_MatchBiopythonAndParasail(
+        string query, string reference, int match, int mismatch, int gap, int expectedScore,
+        string expected1, string expected2)
+    {
+        var r = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference),
+            new ScoringMatrix(match, mismatch, -100, gap));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(expectedScore));
+            Assert.That((r.AlignedSequence1, r.AlignedSequence2), Is.EqualTo((expected1, expected2)));
+            Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2),
+                Is.EqualTo((0, query.Length - 1, 0, reference.Length - 1)));
+        });
+    }
+
+    #endregion
+
+    #region Affine gaps (SemiGlobalAlignAffine)
+
+    /// <summary>
+    /// One 5-residue gap, HighIdentityDna (5, −4, −10, −1): affine 65 (Biopython = parasail),
+    /// linear 75 (Biopython = parasail); the gap run is charged one opening.
+    /// </summary>
+    [Test]
+    public void SemiGlobalAlignAffine_LongGap_ChargedOneOpening()
+    {
+        const string q = "ACGTACGTTTTTTACGTACGT";
+        const string r = "GGGGACGTACGTACGTACGTGGGG";
+
+        var affine = SequenceAligner.SemiGlobalAlignAffine(q, r, SequenceAligner.HighIdentityDna);
+        var linear = SequenceAligner.SemiGlobalAlign(new DnaSequence(q), new DnaSequence(r), SequenceAligner.HighIdentityDna);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(affine.Score, Is.EqualTo(65));
+            Assert.That(affine.AlignmentType, Is.EqualTo(AlignmentType.SemiGlobal));
+            Assert.That((affine.AlignedSequence1, affine.AlignedSequence2),
+                Is.EqualTo(("----ACGTACGTTTTTTACGTACGT----", "GGGGACGTACG-----TACGTACGTGGGG")),
+                "Biopython first alignment = parasail sg_dx_trace");
+            Assert.That(RemoveGaps(affine.AlignedSequence1), Is.EqualTo(q));
+            Assert.That(RemoveGaps(affine.AlignedSequence2), Is.EqualTo(r));
+            Assert.That(linear.Score, Is.EqualTo(75));
+        });
+    }
+
+    /// <summary>
+    /// Opening cost removes the gap: ACGTACGTACGT in TTACGTACGTTTTTACGTAA, (1, −1, −5, −1) →
+    /// ungapped 9 matches + 3 mismatches = 6 (Biopython = parasail); linear (d = −1) → 8 with a 4-gap.
+    /// </summary>
+    [Test]
+    public void SemiGlobalAlignAffine_OpeningCostPreventsGap()
+    {
+        var scoring = new ScoringMatrix(1, -1, -5, -1);
+        var affine = SequenceAligner.SemiGlobalAlignAffine("ACGTACGTACGT", "TTACGTACGTTTTTACGTAA", scoring);
+        var linear = SequenceAligner.SemiGlobalAlign(new DnaSequence("ACGTACGTACGT"), new DnaSequence("TTACGTACGTTTTTACGTAA"), scoring);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(affine.Score, Is.EqualTo(6));
+            Assert.That((affine.AlignedSequence1, affine.AlignedSequence2),
+                Is.EqualTo(("--ACGTACGTACGT------", "TTACGTACGTTTTTACGTAA")));
+            Assert.That(linear.Score, Is.EqualTo(8));
+        });
+    }
+
+    /// <summary>
+    /// Only reference (sequence 2) overhangs are free: the query overhang "AA" is an end gap in
+    /// sequence 2 and costs GapOpen + 2·GapExtend = −4 → 4 − 4 = 0 (Biopython = parasail).
+    /// All-mismatch AAAA / CCCC: 4 mismatches (−4) beat the all-gap placement (−2 − 4 = −6).
+    /// </summary>
+    [TestCase("ACGTAA", "CCACGT", 1, -1, -2, -1, 0, "--ACGTAA", "CCACGT--")]
+    [TestCase("AAAA", "CCCC", 1, -1, -2, -1, -4, "AAAA", "CCCC")]
+    [TestCase("GATTACA", "CCGATTTACAGG", 2, -3, -5, -2, 7, "--GA-TTACA--", "CCGATTTACAGG")]
+    public void SemiGlobalAlignAffine_ReferenceValues_MatchBiopythonAndParasail(
+        string query, string reference, int match, int mismatch, int open, int extend,
+        int expectedScore, string expected1, string expected2)
+    {
+        var r = SequenceAligner.SemiGlobalAlignAffine(query, reference, new ScoringMatrix(match, mismatch, open, extend));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Score, Is.EqualTo(expectedScore));
+            Assert.That((r.AlignedSequence1, r.AlignedSequence2), Is.EqualTo((expected1, expected2)));
+            Assert.That((r.StartPosition1, r.EndPosition1, r.StartPosition2, r.EndPosition2),
+                Is.EqualTo((0, query.Length - 1, 0, reference.Length - 1)));
+        });
+    }
+
+    /// <summary>With GapOpen = 0 the affine score equals the linear fitting score (GATTACA → 12).</summary>
+    [Test]
+    public void SemiGlobalAlignAffine_ZeroGapOpen_EqualsLinear()
+    {
+        var scoring = new ScoringMatrix(2, -3, 0, -2);
+        var affine = SequenceAligner.SemiGlobalAlignAffine("GATTACA", "CCGATTTACAGG", scoring);
+        var linear = SequenceAligner.SemiGlobalAlign(new DnaSequence("GATTACA"), new DnaSequence("CCGATTTACAGG"), scoring);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(affine.Score, Is.EqualTo(12));
+            Assert.That(linear.Score, Is.EqualTo(12));
+        });
+    }
+
+    /// <summary>
+    /// Empty inputs: empty query → score 0, whole reference free; empty reference → the query is one
+    /// gap run, GapOpen + 3·GapExtend = −5 (linear: 3 × −1 = −3).
+    /// </summary>
+    [Test]
+    public void SemiGlobalAlignAffine_EmptyInputs()
+    {
+        var scoring = new ScoringMatrix(1, -1, -2, -1);
+        var emptyQuery = SequenceAligner.SemiGlobalAlignAffine("", "ACGT", scoring);
+        var emptyRef = SequenceAligner.SemiGlobalAlignAffine("ACG", "", scoring);
+        var emptyRefLinear = SequenceAligner.SemiGlobalAlign(new DnaSequence("ACG"), new DnaSequence(""), scoring);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((emptyQuery.AlignedSequence1, emptyQuery.AlignedSequence2, emptyQuery.Score), Is.EqualTo(("----", "ACGT", 0)));
+            Assert.That((emptyRef.AlignedSequence1, emptyRef.AlignedSequence2, emptyRef.Score), Is.EqualTo(("ACG", "---", -5)));
+            Assert.That((emptyRefLinear.AlignedSequence1, emptyRefLinear.AlignedSequence2, emptyRefLinear.Score), Is.EqualTo(("ACG", "---", -3)));
+        });
+    }
+
+    [Test]
+    public void SemiGlobalAlignAffine_DnaSequenceAndStringOverloads_Agree()
+    {
+        var typed = SequenceAligner.SemiGlobalAlignAffine(new DnaSequence("GATTACA"), new DnaSequence("CCGATTTACAGG"), SequenceAligner.BlastDna);
+        var raw = SequenceAligner.SemiGlobalAlignAffine("gattaca", "ccgatttacagg", SequenceAligner.BlastDna);
+
+        Assert.That(raw, Is.EqualTo(typed));
+    }
+
+    [Test]
+    public void SemiGlobalAlignAffine_NullArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.SemiGlobalAlignAffine((DnaSequence)null!, new DnaSequence("ACGT")));
+            Assert.Throws<ArgumentNullException>(() => SequenceAligner.SemiGlobalAlignAffine("ACGT", (string)null!));
         });
     }
 

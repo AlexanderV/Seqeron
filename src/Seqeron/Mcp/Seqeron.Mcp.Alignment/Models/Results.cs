@@ -52,6 +52,32 @@ public record ApproximateMatchListResult(ApproximateMatchDto[] Items);
 /// <summary>Best (minimum distance) approximate match, or null.</summary>
 public record FindBestMatchResult(ApproximateMatchDto? Match);
 
+/// <summary>One Sellers end position with the minimum edit distance of a substring ending there.</summary>
+public record EditEndPositionItem(int EndPosition, int Distance);
+
+/// <summary>Container for Sellers end positions (increasing end position).</summary>
+public record EditEndPositionsResult(EditEndPositionItem[] Items);
+
+/// <summary>Unit-cost (Levenshtein) alignment path in edlib's convention.</summary>
+public record EditAlignmentDto(
+    int Distance,
+    string Operations,
+    string Cigar,
+    string StandardCigar,
+    string AlignedQuery,
+    string AlignedTarget,
+    int[] SubstitutionPositions,
+    bool HasIndels);
+
+/// <summary>Damerau–Levenshtein (unrestricted) or optimal string alignment distance.</summary>
+public record DamerauDistanceResult(int Distance, string Variant);
+
+/// <summary>One step of a Damerau edit script (kind: match, substitution, insertion, deletion, transposition).</summary>
+public record DamerauOperationDto(string Kind, int SourcePosition, int SourceLength, int TargetPosition, int TargetLength, int Cost);
+
+/// <summary>Transposition-aware (Lowrance–Wagner) edit script from sequence1 to sequence2.</summary>
+public record DamerauAlignmentDto(int Distance, string Variant, string Script, int TranspositionCount, DamerauOperationDto[] Operations);
+
 /// <summary>Frequent k-mer item.</summary>
 public record FrequentKmerItem(string Kmer, int Count);
 

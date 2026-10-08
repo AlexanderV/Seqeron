@@ -4,7 +4,7 @@
 **Area:** Composition
 **Status:** Active
 **Created:** 2026-01-22
-**Last Updated:** 2026-02-15
+**Last Updated:** 2026-09-28
 **Owner:** Algorithm QA Architect
 
 ---
@@ -21,8 +21,10 @@
 ### Delegate/Wrapper Methods
 | Method | Class | Type |
 |--------|-------|------|
-| `Complement()` | DnaSequence | Instance (inline Watson-Crick switch) |
-| `Complement()` | RnaSequence | Instance (inline Watson-Crick switch) |
+| `Complement()` | DnaSequence | Instance (delegates per base to `GetComplementBase`) |
+| `Complement()` / `ReverseComplement()` | RnaSequence | Instance (delegates per base to `GetRnaComplementBase`; inline switch removed 2026-09) |
+| `GetComplement()` / `GetReverseComplement()` | IupacDnaSequence | Delegates to `GetComplementBase` for alphabet symbols; non-alphabet → `N` (private duplicate table removed 2026-09) |
+| `GetComplement()` / `GetReverseComplement()` | QualitySequence | Delegates to `GetComplementBase`; non-IUPAC → `N`; self-complementary S/W/N kept (fixed 2026-09, Biopython `complement("ASWRN")` = `"TSWYN"`) |
 
 ### Invariants
 1. **Involution Property:** `Complement(Complement(x)) = x` for all valid bases

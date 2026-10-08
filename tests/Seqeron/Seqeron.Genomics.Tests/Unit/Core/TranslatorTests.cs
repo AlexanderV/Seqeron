@@ -373,20 +373,18 @@ public class TranslatorTests
     }
 
     [Test]
-    public void Translate_AmbiguousIupacCodon_ProducesX()
+    public void Translate_AmbiguousIupacCodon_ResolvedAsBiopython()
     {
-        // Biopython Seq.translate: a codon containing IUPAC ambiguity codes
-        // (e.g. "NNN", "GCN") that could resolve to more than one amino acid /
-        // stop is translated to 'X' (the unknown amino acid), not an error.
-        // Source: Bio.Seq docs — "Ambiguous codons like 'TAN' or 'NNN' ... are
-        // translated as 'X'."
-        // AUG (M) · NNN (X) · GCN (X, all GCx = Ala but N keeps it ambiguous) · UAA (*)
+        // Biopython Seq.translate (ambiguous codon tables): an IUPAC-ambiguous codon is
+        // expanded; if every expansion gives the same amino acid that residue is emitted
+        // (GCN -> A, since GCA/GCC/GCG/GCU are all Ala); a codon that may be a stop or
+        // several unrelated residues (NNN) is emitted as 'X'.
+        // Oracle (Biopython 1.88): Seq("AUGNNNGCNUAA").translate() == "MXA*".
+        // (Review 2026-09 TRANS-CODON-001: previous expectation "MXX*" contradicted Biopython.)
         // NOTE: the typed DnaSequence/RnaSequence overloads reject IUPAC ambiguity
-        // codes at construction (only A/C/G/U[/T] are valid bases), so the 'X'
-        // (unknown amino acid) path is reachable only via the string overload,
-        // which does not pre-validate the alphabet.
+        // codes at construction, so this path is reachable only via the string overload.
         var protein = Translator.Translate("AUGNNNGCNUAA");
-        Assert.That(protein.Sequence, Is.EqualTo("MXX*"));
+        Assert.That(protein.Sequence, Is.EqualTo("MXA*"));
     }
 
     [Test]
@@ -425,6 +423,157 @@ public class TranslatorTests
         var protein = Translator.Translate(dna);
 
         Assert.That(protein.Sequence, Is.EqualTo("FVNQHLCGSHLVEALYLVCGERGFFYTPKT"));
+    }
+
+    #endregion
+
+    #region Review 2026-09 — Biopython differential (TRANS-PROT-001)
+
+    /// <summary>
+    /// Differential oracle: Biopython 1.88 <c>Bio.Seq.translate(seq[frame:], table=t, to_stop=s)</c>
+    /// for two sequences per NCBI table (one ACGT, one IUPAC-ambiguous, some RNA / lower case).
+    /// Trailing partial codons are dropped as Biopython does. Values generated with Biopython 1.88.
+    /// </summary>
+    [TestCase(1, 2, true, "CTGTTTGCGTTC", "VCV")]
+    [TestCase(1, 0, true, "AACAADTCGGNGGWTS", "NXSXX")]
+    [TestCase(2, 1, true, "CTGGAGCCCGCAGTGCTC", "WSPQC")]
+    [TestCase(2, 1, true, "uacaaydauggcdugghnuurckug", "TXMAWXXX")]
+    [TestCase(3, 0, true, "CCAGGCGCTCCGTTG", "PGAPL")]
+    [TestCase(3, 1, false, "GMGSVCHCGSVRHGCBAHA", "XXRXAX")]
+    [TestCase(4, 2, false, "TAGTTGGACGTTCGAAGTTGAGTTTCCT", "VGRSKLSF")]
+    [TestCase(4, 2, false, "aadaggwaugcgavukauggu", "XXCXXW")]
+    [TestCase(5, 1, true, "CATAGTCTAGTAGTGTATCCCACCCC", "MV")]
+    [TestCase(5, 1, false, "CTGTTCACAAGGTMBCABGYKCT", "CSQGXXX")]
+    [TestCase(6, 2, true, "CCGACTAGTGAGGCTCCCACTTCAAAA", "DQ")]
+    [TestCase(6, 0, true, "kuruhccgndybyhgvgsg", "XXRXXX")]
+    [TestCase(9, 1, false, "CGTTCCGATAATAAAGGTCCACCTGTAAGGG", "VPIIKVHL*G")]
+    [TestCase(9, 2, false, "ACGCCVTBTRVTCTWC", "AXXS")]
+    [TestCase(10, 2, false, "TCTGTTTCTTATCACGGCTGAGATTTTGT", "CFLSRLRFC")]
+    [TestCase(10, 1, true, "cucsahubyca", "SXX")]
+    [TestCase(11, 2, false, "TGGAGAGCCAGTACGCTAGAGCCTTT", "ESQYARAF")]
+    [TestCase(11, 0, true, "TCTCDTDTAGGCATANTDSGTRGHATMYGTAK", "SXXGIXXXIX")]
+    [TestCase(12, 0, true, "CTACGCTGTCATAGCTCTCAGGACTCTCAGATG", "LRCHSSQDSQM")]
+    [TestCase(12, 0, false, "uuguggawuyubwugrag", "LWXXXX")]
+    [TestCase(13, 1, true, "GCCGCTCTCAAATCAAC", "PLSNQ")]
+    [TestCase(13, 1, false, "TCWNANVCRYA", "XXX")]
+    [TestCase(14, 1, true, "ATAGGATCGCCC", "")]
+    [TestCase(14, 1, true, "auamcwccbgcagasry", "YXXQX")]
+    [TestCase(15, 1, true, "AGGCCCATTACTTGCAGACAGGGTCTCG", "GPLLADRVS")]
+    [TestCase(15, 1, false, "GTTATNSAMRARAKVCCTGGCACATTTAC", "LXXXXLAHL")]
+    [TestCase(16, 2, true, "GCTAGCACTGTCAGTAGATAGCC", "LHCQLIA")]
+    [TestCase(16, 1, false, "gbynugvuadsaasuacucvnanrhkcgaudb", "XXXZXLXXXX")]
+    [TestCase(21, 1, false, "TGTCGGTGCCGC", "VGA")]
+    [TestCase(21, 0, false, "CAATGAKKVTTACAGCB", "QWXLQ")]
+    [TestCase(22, 2, false, "TTGGTCATAGCAATCAAAAACCGCAGGTCTCT", "GHSNQKPQVS")]
+    [TestCase(22, 0, false, "uuvagcacgaangacckuha", "XSTXDX")]
+    [TestCase(23, 0, true, "GGGACGCTTCTGATT", "GTLLI")]
+    [TestCase(23, 0, false, "CCACCRGCDS", "PPA")]
+    [TestCase(24, 0, true, "TGACAACGCGAAATCTGCAATTGG", "WQREICNW")]
+    [TestCase(24, 0, true, "akcuamayurgvayacadvuuncwaahcgar", "XXXXXXXXXR")]
+    [TestCase(25, 0, true, "AAGATAGTCGCA", "KIVA")]
+    [TestCase(25, 0, true, "MBVGGVCGTGBMATCNCNNCYGK", "XGRXIXX")]
+    [TestCase(26, 2, false, "GGCGCGTGCTAGA", "RVL")]
+    [TestCase(26, 1, true, "cgugguacaugcgnuumv", "VVHAX")]
+    [TestCase(27, 1, false, "TGAGCTCTAGCGTAACCTAG", "ELQRNL")]
+    [TestCase(27, 0, false, "TNAGGGTDA", "XGX")]
+    [TestCase(28, 2, false, "CATTGCCGTATTCAAACTT", "LPYSN")]
+    [TestCase(28, 1, false, "waagdauggaacucucavaauc", "KXGTLXI")]
+    [TestCase(29, 2, false, "GCTCGGGCTTCG", "SGF")]
+    [TestCase(29, 1, true, "GATTCSBCHSGGTVCDCHTGCHTRG", "IXXGXXAX")]
+    [TestCase(30, 0, false, "CACTCGGGCTCCCCCCGTCTTACCCTGA", "HSGSPRLTL")]
+    [TestCase(30, 1, false, "cagbugruuaa", "XXL")]
+    [TestCase(31, 1, false, "GAATTTGACTGT", "NLT")]
+    [TestCase(31, 1, false, "HTMGHGATNCGAGTMGTKCKKG", "XXXEXXX")]
+    [TestCase(32, 1, false, "CGAATCTACCTTAGAGACCGTAAGTTAACACG", "ESTLETVS*H")]
+    [TestCase(32, 1, false, "wvghuucnungvsgh", "XFXX")]
+    [TestCase(33, 0, false, "CTTGAATTACCTGTTCC", "LELPV")]
+    [TestCase(33, 0, false, "ANCTCCNMYTTABTTYYARDCVTTKT", "XSXLXXXX")]
+    public void Translate_String_AllTables_MatchBiopython(int table, int frame, bool toFirstStop, string sequence, string expected)
+    {
+        var protein = Translator.Translate(sequence, GeneticCode.GetByTableNumber(table), frame, toFirstStop);
+        Assert.That(protein.Sequence, Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    /// Ambiguous codons that resolve to IUPAC ambiguous amino acids (RAY → B = Asx, SAR → Z = Glx,
+    /// MTH → J = Xle) must be representable in the translated protein. Before the review fix,
+    /// <see cref="ProteinSequence"/> rejected B/Z/J and Translate threw ArgumentException.
+    /// Oracle: Biopython 1.88 <c>translate(seq, table)</c> / <c>translate(seq, table, to_stop=True)</c>.
+    /// </summary>
+    [TestCase("RAYSARMTH", 1, false, "BZJ")]
+    [TestCase("ATGRAYSARMTHTAA", 1, false, "MBZJ*")]
+    [TestCase("ATGRAYSARMTHTAA", 1, true, "MBZJ")]
+    [TestCase("atgraysarmthtaa", 1, false, "MBZJ*")]
+    [TestCase("AUGRAYSARMUHUAA", 1, false, "MBZJ*")]
+    [TestCase("GCNRAYTARGGN", 1, false, "AB*G")]
+    [TestCase("GCNRAYTARGGN", 1, true, "AB")]
+    [TestCase("ATGRAYTAAMTH", 1, false, "MB*J")]
+    [TestCase("ATGAGRRAY", 2, false, "M*B")]
+    [TestCase("ATGAGRRAY", 2, true, "M")]
+    [TestCase("WTARAY", 2, false, "XB")]
+    [TestCase("CTNRAY", 3, false, "TB")]
+    public void Translate_AmbiguousCodonsToAsxGlxXle_MatchBiopython(string sequence, int table, bool toFirstStop, string expected)
+    {
+        var protein = Translator.Translate(sequence, GeneticCode.GetByTableNumber(table), 0, toFirstStop);
+        Assert.That(protein.Sequence, Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    /// NCBI tables 27, 28 and 31 contain dual-coding stop codons (translated as an amino acid,
+    /// but also terminators in context). "Translate to first stop" is undefined for them:
+    /// Biopython 1.88 raises ValueError ("You cannot use 'to_stop=True' with this table ...").
+    /// Previously Seqeron silently read through the terminator (table 27 "ATGTGAGGG" → "MWG").
+    /// </summary>
+    [TestCase(27)]
+    [TestCase(28)]
+    [TestCase(31)]
+    public void Translate_ToFirstStop_DualCodingStopTable_ThrowsArgumentException(int table)
+    {
+        var code = GeneticCode.GetByTableNumber(table);
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => Translator.Translate("ATGTAAGGGTGA", code, 0, toFirstStop: true));
+            Assert.Throws<ArgumentException>(() => Translator.Translate(new DnaSequence("ATGTAAGGGTGA"), code, 0, toFirstStop: true));
+            Assert.Throws<ArgumentException>(() => Translator.Translate(new RnaSequence("AUGUAAGGGUGA"), code, 0, toFirstStop: true));
+            Assert.Throws<ArgumentException>(() => Translator.Translate("", code, 0, toFirstStop: true));
+        });
+    }
+
+    /// <summary>
+    /// Without toFirstStop the dual-coding codons are translated as their amino acid
+    /// (Biopython 1.88: table 27 "ATGTAAGGGTGA" → "MQGW", 28 → "MQGW", 31 → "MEGW").
+    /// </summary>
+    [TestCase(27, "MQGW")]
+    [TestCase(28, "MQGW")]
+    [TestCase(31, "MEGW")]
+    public void Translate_DualCodingStopTable_WithoutToFirstStop_TranslatesAsAminoAcid(int table, string expected)
+    {
+        var protein = Translator.Translate("ATGTAAGGGTGA", GeneticCode.GetByTableNumber(table));
+        Assert.That(protein.Sequence, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void Translate_ToFirstStop_AllTablesWithoutDualCodingStops_DoNotThrow()
+    {
+        // Biopython 1.88: only tables 27, 28, 31 have a stop codon that is also in forward_table.
+        foreach (int table in GeneticCode.SupportedTableNumbers.Where(t => t is not (27 or 28 or 31)))
+        {
+            var code = GeneticCode.GetByTableNumber(table);
+            Assert.DoesNotThrow(() => Translator.Translate("ATGGCC", code, 0, toFirstStop: true), $"table {table}");
+        }
+    }
+
+    [TestCase(-1)]
+    [TestCase(3)]
+    public void Translate_EmptyOrNullString_InvalidFrame_ThrowsLikeTypedOverloads(int frame)
+    {
+        // The string overload validates its arguments exactly like the DnaSequence overload.
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => Translator.Translate("", frame: frame));
+            Assert.Throws<ArgumentOutOfRangeException>(() => Translator.Translate((string)null!, frame: frame));
+            Assert.Throws<ArgumentOutOfRangeException>(() => Translator.Translate(new DnaSequence(""), frame: frame));
+        });
     }
 
     #endregion

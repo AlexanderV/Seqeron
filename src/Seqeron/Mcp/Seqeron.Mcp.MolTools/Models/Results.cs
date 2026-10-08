@@ -7,9 +7,33 @@ public sealed record TmResult(double Tm);
 public sealed record HomopolymerLengthResult(int Length);
 public sealed record DinucleotideRepeatResult(int Repeats);
 public sealed record HairpinPotentialResult(bool HasHairpin);
-public sealed record PrimerDimerResult(bool HasDimer, int ComplementaryBases);
+/// <summary>primer_dimer output: Primer3 alignment-mode PRIMER_PAIR_COMPL_END (flag, floor, exact) and PRIMER_PAIR_COMPL_ANY.</summary>
+public sealed record PrimerDimerResult(bool HasDimer, int ComplementaryBases, double ComplEndScore, double ComplAnyScore = 0.0);
 public sealed record ThreePrimeStabilityResult(double DeltaG);
 public sealed record PrimerCandidateListResult(IReadOnlyList<PrimerCandidate> Candidates);
+
+/// <summary>
+/// design_primers output: the best pair (same fields as <see cref="PrimerPairResult"/>; Primer3 PRIMER_PAIR_0_*)
+/// plus <see cref="Pairs"/>, the ranked valid pairs (PRIMER_NUM_RETURN; empty when no pair qualifies). With a mispriming
+/// library, <c>LibraryMispriming</c>/<c>LibraryMisprimingName</c> are PRIMER_PAIR_0_LIBRARY_MISPRIMING (score, entry).
+/// </summary>
+public sealed record DesignPrimersResult(
+    PrimerCandidate? Forward,
+    PrimerCandidate? Reverse,
+    bool IsValid,
+    string Message,
+    int ProductSize,
+    double? PairPenalty,
+    double? ProductTm,
+    double? ComplAnyTh,
+    double? ComplEndTh,
+    ProbeDesigner.Primer3Probe? InternalOligo,
+    IReadOnlyList<PrimerPairResult> Pairs,
+    double? ComplAny = null,
+    double? ComplEnd = null,
+    double? LibraryMispriming = null,
+    string? LibraryMisprimingName = null,
+    double? TemplateMispriming = null);
 
 // RestrictionAnalyzer result wrappers
 public sealed record EnzymeLookupResult(RestrictionEnzyme? Enzyme);
@@ -67,10 +91,12 @@ public sealed record PamSitesResult(IReadOnlyList<global::Seqeron.Genomics.MolTo
 public sealed record GuideRnasResult(IReadOnlyList<global::Seqeron.Genomics.MolTools.GuideRnaCandidate> Guides);
 public sealed record OffTargetsResult(IReadOnlyList<global::Seqeron.Genomics.MolTools.OffTargetSite> OffTargets);
 public sealed record SpecificityResult(double Specificity);
+public sealed record OnTargetScoreResult(double Score);
 
 // ProbeDesigner result wrappers
 public sealed record ProbesResult(IReadOnlyList<global::Seqeron.Genomics.MolTools.ProbeDesigner.Probe> Probes);
+public sealed record Primer3ProbesResult(IReadOnlyList<global::Seqeron.Genomics.MolTools.ProbeDesigner.Primer3Probe> Probes);
 public sealed record MolecularBeaconResult(global::Seqeron.Genomics.MolTools.ProbeDesigner.Probe? Probe);
-public sealed record OligoAnalysisResult(double Tm, double GcContent, double MolecularWeight, double ExtinctionCoefficient);
+public sealed record OligoAnalysisResult(double? Tm, double GcContent, double MolecularWeight, double ExtinctionCoefficient);
 public sealed record ExtinctionCoefficientResult(double ExtinctionCoefficient);
 public sealed record ConcentrationResult(double ConcentrationMicromolar);

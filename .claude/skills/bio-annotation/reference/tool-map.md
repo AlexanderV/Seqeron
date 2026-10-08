@@ -1,6 +1,6 @@
-# bio-annotation tool map — ~188 tools by family
+# bio-annotation tool map — ~197 tools by family
 
-Human index for the **Annotation** (97) + **Analysis** (91) servers. Grouped by workflow family.
+Human index for the **Annotation** (97) + **Analysis** (100) servers. Grouped by workflow family.
 Each row: `tool` · server · one-line purpose · `Method ID`. Open the per-tool doc for the full I/O
 schema — **point, don't duplicate**: docs live at `docs/mcp/tools/{annotation,analysis}/<tool>.md`.
 
@@ -82,15 +82,33 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|
 | `discover_motifs` | X | De novo overrepresented k-mer motifs | `MotifFinder.DiscoverMotifs` |
+| `oligo_analysis` | X | RSAT oligo-analysis: occ_P/occ_E/occ_sig vs equiprobable/Bernoulli/Markov/lexicon background, 1 or 2 strands; options zscore, -pseudo, -oneN/-onedeg, -calibN/-calib1, multi-sequence, protein / free-text input (`sequenceType`, -seqtype prot|other) | `MotifFinder.DiscoverMotifs` (RSAT overload) / `MotifFinder.AnalyzeOligos` / `MotifFinder.AnalyzeOligoStrings` |
+| `dyad_analysis` | X | RSAT dyad-analysis: spaced dyads M1 n{s} M2 (any/dr/ir/rep), monad-based exp_freq, z-score, occ_P/occ_E/occ_sig | `MotifFinder.AnalyzeDyads` |
 | `find_exact_motif` | X | Exact motif positions (suffix tree) | `MotifFinder.FindExactMotif` |
 | `find_motif` | X | Exact motif occurrences | `GenomicAnalyzer.FindMotif` |
 | `find_degenerate_motif` | X | IUPAC-degenerate matches | `MotifFinder.FindDegenerateMotif` |
 | `find_known_motifs` | X | Search a set of known motifs at once | `GenomicAnalyzer.FindKnownMotifs` |
 | `find_shared_motifs` | X | k-mers shared across sequences | `MotifFinder.FindSharedMotifs` |
+| `shared_motifs_significance` | X | Shared k-mers with RSAT ms_P/ms_E/ms_sig significance; degenerate words (-oneN/-onedeg) | `MotifFinder.FindSharedMotifs` (RSAT overloads) |
 | `find_regulatory_elements` | X | Built-in regulatory motif scan | `MotifFinder.FindRegulatoryElements` |
-| `generate_consensus` | X | IUPAC consensus from aligned seqs | `MotifFinder.GenerateConsensus` |
-| `create_pwm` | X | Log-odds PWM from aligned DNA | `MotifFinder.CreatePwm` |
+| `find_regulatory_elements_both_strands` | X | Regulatory scan with strand; orientation-independent elements on both strands | `MotifFinder.FindRegulatoryElements(seq, bothStrands)` |
+| `find_promoter_elements_by_matrix` | X | Bucher/JASPAR TATA, Inr, CCAAT, GC-box weight matrices at a background FPR | `MotifFinder.FindPromoterElementsByMatrix` |
+| `find_sigma70_promoters` | X | Bacterial σ70 −35/−10 consensus pairing (TTGACA/TATAAT, spacer 15–21; Harley & Reynolds 1987) | `MotifFinder.FindSigma70Promoters` |
+| `predict_sigma70_promoters` | X | σ70 promoter ΔG + transcription rate per TSS (Promoter Calculator v1.0, La Fleur 2022) | `MotifFinder.PredictSigma70Promoters` |
+| `generate_consensus` | X | IUPAC consensus from aligned seqs (inclusionThreshold, default 0.25) | `MotifFinder.GenerateConsensus` |
+| `generate_decipher_consensus` | X | DECIPHER ConsensusSequence (DNA/RNA/protein, gaps, IUPAC input) | `MotifFinder.GenerateDecipherConsensus` |
+| `generate_cavener_consensus` | X | Cavener (1987) degenerate consensus (Biopython degenerate_consensus) | `MotifFinder.GenerateCavenerConsensus` |
+| `generate_emboss_consensus` | X | EMBOSS cons plurality consensus (DNA/protein/auto, gaps, weights, ragged padding) | `MotifFinder.GenerateEmbossConsensus` |
+| `generate_dumb_consensus` | X | Biopython dumb_consensus majority-threshold consensus | `MotifFinder.GenerateDumbConsensus` |
+| `create_pwm` | X | Log-odds PWM from aligned DNA (scalar / per-base / JASPAR pseudocounts, background) | `MotifFinder.CreatePwm` |
 | `scan_with_pwm` | X | Scan a sequence with a PWM | `MotifFinder.ScanWithPwm` |
+| `scan_with_pwm_both_strands` | X | PWM scan on both strands (Biopython search both=True) | `MotifFinder.ScanWithPwmBothStrands` |
+| `create_alphabet_pwm` | X | Log-odds PWM over any alphabet (protein/RNA/gapped), consensus, max/min, mean/std | `MotifFinder.CreateAlphabetPwm` |
+| `scan_with_alphabet_pwm` | X | Window scores (NaN outside alphabet) + forward hits with an any-alphabet PWM | `MotifFinder.ScanWithAlphabetPwm` |
+| `pwm_score_pvalue` | X | Exact PWM score p-value / p-value threshold (Touzet & Varré 2007 TFM-Pvalue), i.i.d. or Markov (RSAT table) background, search options / exhaustive mode | `MotifFinder.PwmScorePValue` / `PwmMarkovScorePValue` |
+| `alphabet_pwm_score_pvalue` | X | Exact p-value / p-value threshold of an any-alphabet (protein) PWM | `MotifFinder.AlphabetPwmScorePValue` |
+| `alphabet_pwm_score_thresholds` | X | Biopython pssm.distribution thresholds (FPR/FNR/balanced/patser) of an any-alphabet PWM | `AlphabetPositionWeightMatrix.ScoreDistribution` |
+| `pwm_score_thresholds` | X | PWM score thresholds (FPR / FNR / balanced / patser) from the score distribution | `PositionWeightMatrix.ScoreDistribution` |
 | `find_protein_motifs` | X | PROSITE-style protein motif catalog — owned by **seqeron-protein-features** | `ProteinMotifFinder.FindCommonMotifs` |
 | `find_motif_by_pattern` | X | Regex match in a protein | `ProteinMotifFinder.FindMotifByPattern` |
 | `find_motif_by_prosite` | X | PROSITE-pattern match in a protein | `ProteinMotifFinder.FindMotifByProsite` |
@@ -109,6 +127,15 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `find_palindromes` | X | DNA palindromes (restriction sites) | `RepeatFinder.FindPalindromes` |
 | `find_repeats` | X | All repeats ≥ minLength | `GenomicAnalyzer.FindRepeats` |
 | `find_rna_inverted_repeats` | X | RNA hairpin stems | `RnaSecondaryStructure.FindInvertedRepeats` |
+| `find_inverted_repeats_scored` | X | Gapped, mismatch-tolerant inverted repeats scored like EMBOSS einverted | `RepeatFinder.FindInvertedRepeatsScored` |
+| `find_reverse_complement_repeats` | X | Maximal exact reverse-complement repeat pairs (repeat-match / Vmatch -p) | `RepeatFinder.FindReverseComplementRepeats` |
+| `find_approximate_direct_repeats` | X | Maximal k-mismatch direct repeats (REPuter / Vmatch -h) | `RepeatFinder.FindApproximateDirectRepeats` |
+| `find_degenerate_repeats` | X | Maximal k-differences / k-mismatches repeats, direct or palindromic (Vmatch -e/-h, -p) | `RepeatFinder.FindDegenerateRepeats` |
+| `find_supermaximal_repeats` | X | Supermaximal repeats (Vmatch -supermax) | `RepeatFinder.FindSupermaximalRepeats` |
+| `find_approximate_tandem_repeats` | X | Approximate tandem repeats, Tandem Repeats Finder model and parameters | `RepeatFinder.FindApproximateTandemRepeats` |
+| `mask_approximate_tandem_repeats` | X | TRF -m masked sequence (N or soft mask) | `RepeatFinder.MaskApproximateTandemRepeats` |
+| `tandem_repeat_bernoulli_statistics` | X | TRF Bernoulli PM/PI between adjacent copies of a tract | `RepeatFinder.ComputeBernoulliStatistics` |
+| `standardize_repeat_motif` | X | MISA repeat-type class + Krait standard motif of a unit | `RepeatFinder.GetStandardMotif` |
 
 ## 6. Complexity / low-complexity masking
 
@@ -119,6 +146,10 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `dust_score` | X | DUST low-complexity score | `SequenceComplexity.CalculateDustScore` |
 | `compression_ratio` | X | LZ-normalized complexity | `SequenceComplexity.EstimateCompressionRatio` |
 | `windowed_complexity` | X | Windowed Shannon + linguistic complexity | `SequenceComplexity.CalculateWindowedComplexity` |
+| `find_low_complexity_intervals` | X | SDUST intervals (sdust / dustmasker -outfmt interval) | `SequenceComplexity.FindLowComplexityIntervals` |
+| `longdust_score` | X | Longdust k-mer complexity score S_L(x) | `SequenceComplexity.CalculateLongdustScore` |
+| `find_longdust_regions` | X | Longdust low-complexity regions (STR/VNTR/satellites) | `SequenceComplexity.FindLongdustRegions` |
+| `lempel_ziv_complexity` | X | Raw + normalized LZ76 complexity | `SequenceComplexity.CalculateLempelZivComplexity` |
 | `entropy_profile` | X | Sliding-window Shannon entropy | `SequenceStatistics.CalculateEntropyProfile` |
 | `find_protein_low_complexity_regions` | X | Protein LCRs via SEG | `ProteinMotifFinder.FindLowComplexityRegions` |
 | `predict_low_complexity_seg` | X | SEG LCRs in a protein | `DisorderPredictor.PredictLowComplexityRegions` |

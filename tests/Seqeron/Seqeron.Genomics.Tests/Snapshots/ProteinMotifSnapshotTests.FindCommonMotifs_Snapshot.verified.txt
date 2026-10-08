@@ -67,12 +67,6 @@
     },
     {
       Start: 5,
-      End: 14,
-      Sequence: LTLVVVTLVL,
-      MotifName: NES
-    },
-    {
-      Start: 5,
       End: 8,
       Sequence: LTLV,
       MotifName: SUMO_INTERACTION

@@ -61,6 +61,47 @@
 1. **Most-frequent rule:** the consensus at each column is the most frequently occurring character in that column.
 2. **Tie-breaking options:** ties may be broken (a) with the correct IUPAC ambiguity code (nucleotides only), (b) by a specified residue order, or (c) by an ambiguity symbol ('?'). The web-search summary of the same family of tools (Geneious manual) also documents an explicit **alphabetical** tie-break: "In the event of a tie, the residue letter occurring earlier in the alphabet was chosen."
 
+### Biopython `Bio.motifs` — reference implementation (review 2026-09)
+
+**Source:** installed Biopython 1.88 package source `Bio/motifs/matrix.py` (`GenericPositionMatrix.consensus`), opened 2026-09-29.
+**Authority rank:** 3 (reference implementation)
+
+1. `consensus` iterates `for letter in self.alphabet` (A, C, G, T) and replaces the incumbent only when `count > maximum` — i.e. profile-column maximum with the alphabetically-earliest base on ties (the rule this method implements).
+2. `degenerate_consensus` (Cavener 1987 rules) is a *different* method (IUPAC output) — not this unit.
+3. Reference values (`motifs.create([...]).consensus`): Rosalind sample → `ATGCAACT`; `AT,GT` → `AT`; `CA,GA,TC,TG` → `TA`; `ACGT,TGCA` → `ACCA`; `A,A,C` → `A`.
+
+### EMBOSS `cons` source (review 2026-09)
+
+`nucleus/embcons.c` (raw.githubusercontent.com/kimrutherford/EMBOSS) opened 2026-09-29: residue chosen by highest *substitution-matrix* score, emitted only if its matching weight ≥ plurality, else 'N'/'X'. A different (scored, thresholded) algorithm — ~~declared "not implemented"~~ implemented 2026-09-30 as `GenerateEmbossConsensus` (below).
+
+### EMBOSS `cons` implementation and binary cross-check (B05 follow-up, 2026-09-30)
+
+Opened: `nucleus/embcons.c` (`embConsCalc`), `emboss/cons.c`, `emboss/acd/cons.acd` (plurality/setcase default `$(sequence.totweight)/2`, identity default 0, min 2 sequences), `ajax/core/ajseq.c` (`ajSeqcvtNewStr`: label i → code i+1, others 0; `ajSeqsetGetTotweight` float sum; `ajSeqsetIsNuc` tests only the first sequence), `ajax/core/ajseqtype.c` (gap chars `.~-`, `?`/`X` → `N` for DNA), matrices `/usr/share/EMBOSS/data/EDNAFULL`, `EBLOSUM62` (Ubuntu `emboss-data 6.6.0+dfsg-12ubuntu2`). Reference binary: EMBOSS 6.6.0 `cons` (Debian name `em_cons`), `-auto -snucleotide|-sprotein`, weights via MSF `Weight:`.
+
+| Check | Cases | Result |
+|-------|-------|--------|
+| Classic alignments × {default, `-plurality 0`, `-identity N`, `-plurality 1 -setcase 3`, `-plurality 2.5 -identity 1 -setcase 0`} | 40 | 40/40 identical |
+| Seeded random (seeds 20260930, 7): DNA (ACGT or IUPAC incl. U) and protein (20 aa ± BZX), 2–12 rows, 1–50 columns, 0/10/30 % gaps incl. `.`/`~`, lower case, weights 0.25–3 (MSF) on ~30 %, random plurality/identity/setcase | 700 | 700/700 identical (14 after the first-sequence N/X rule, see deviation) |
+| Examples | `ACGTAC-T,ACGTTCAT,AGGTAC-T,tCGAAG-T` → `ACGTACnT`; `-plurality 3.5 -setcase 3.5` → `nnGnnnnT`; `-identity 4` → `NNGNNNNT`; `-plurality 0` → `ACGTACaT`; MSF weights 0.5/2/0.25/1 `ACGT,TCGA,ACGA,ACCT` → `nCGA` | binary |
+
+Deviation (documented): `cons` picks `N` vs `X` from the first sequence (`ajSeqsetIsNuc` ignores `-sprotein`); the API uses the explicit residue type (F28 adds `Auto`, which reproduces `cons` without a type flag). Unequal row lengths are rejected by the original overload; `cons` pads them (`ajSeqsetFill`), as the F28 `padRaggedRows` overload does.
+
+### EMBOSS `cons` residue type Auto, ragged padding, `?` under `-snucleotide` (B05 audit group C, F28, 2026-10-01)
+
+Opened (Ubuntu `emboss_6.6.0+dfsg.orig.tar.xz`, archive.ubuntu.com pool): `emboss/cons.c` (`ajSeqsetIsNuc` → `ajSeqSetNuc(seqo)` on the output), `nucleus/embcons.c` (nocon from `ajSeqsetIsNuc`/`ajSeqsetIsProt`), `ajax/core/ajseq.c` (`ajSeqsetFill`: append `-` × (Len − own length); `ajSeqsetIsNuc`: Type "N", else first sequence `ajSeqTypeGapnucS`; `ajSeqsetIsProt`; `ajSeqIsNuc`/`ajSeqIsProt`), `ajax/core/ajseqtype.c` (`ajSeqType`; `ajSeqSetNuc`: x/X → n/N; `ajSeqTypeCheckIn`: `seqin->IsNuc` → `ajSeqSetNuc` before the type conversion; `gapany` `?` → `X`; charsets `seqCharNucPure` ACGTU, `seqCharNucAmbig` BDHKMNRSVWXY?, `seqCharGap` .~-), `ajax/core/ajseqread.c` (`ajSeqsetFromList`/`ajSeqsetApp`: set Type = first sequence's, Len = longest; `seqDefine` → `ajSeqType`), `ajax/acd/ajacd.c` (aligned seqsets → `ajSeqsetFill`; `acdprotein` = `$(sequence.protein)`), `emboss/acd/cons.acd` (`aligned: "Y"`, matrix default by `$(acdprotein)`). Binary: Ubuntu noble `emboss` 6.6.0 `/usr/lib/emboss/cons`, FASTA input, `-auto -osformat2 raw`.
+
+| Check | Cases | Result |
+|---|---|---|
+| `Auto` + `padRaggedRows` vs `cons` (no type flag): seeds 20261001 ×1200, 99 ×1000 (DNA, IUPAC incl. U/X/?, protein ± BZX*, mixed rows, nucleotide-looking first row + protein rows, 50 % ragged, plurality incl. 0/negative, identity, setcase) | 2,200 | 2,200/2,200 identical |
+| `Auto` on equal-length sets, seeds 20260930 ×800, 4242 ×700 | 1,500 | 1,500/1,500 identical |
+| Explicit `Nucleotide` vs `cons -snucleotide` (same sets) | 592 | 592/592 after the `?` fix (33/315 of seed 20260930 differed before, all containing `?`) |
+| Explicit `Protein` vs `cons -sprotein` (same sets) | 908 | 865 identical; the 43 others all have a nucleotide-looking first row (documented first-sequence N/X deviation; `Auto` = `cons` without flags there) |
+| Probes (`-plurality 0`): `A-,EX,EX` → `an`; `A-,E?,E?` → `an`; `A-,E*,E*` → `a*`; `E-,AX,EX` → `E-`; `EXGT,AXGT,A?GT` → `ANGT`; `A?GT,E?GT,E?GT` → `anGT`; ragged `ACGTAC,ACG,AC` → `ACGnnn`; one-column `USC?TK` `-plurality 4.51 -setcase 1.1` → `n` with `-snucleotide`, `N` without | 9 | locked |
+
+### Biopython `dumb_consensus` (B05 follow-up, 2026-09-30)
+
+Opened: `Bio/Align/AlignInfo.py` at tags biopython-181 and biopython-185 (raw.githubusercontent.com); the method is absent from the installed 1.88, so the PyPI wheel biopython==1.85 was installed aside and used as the reference. 708 alignments (4 classic + 704 seeded random, DNA/RNA/protein, gaps `-`/`.`, lower case, thresholds 0–1 and random, `require_multiple`) → 708/708 identical; doc example `ACGT,ATGT,ATGT` (ambiguous N) → `ANGT`.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -108,7 +149,7 @@
 ## Assumptions
 
 1. **ASSUMPTION: Alphabetical tie-break (A<C<G<T).** Rosalind explicitly permits any most-common symbol on a tie; EMBOSS uses scoring/plurality; the Geneious/LANL family documents an explicit alphabetical tie-break. To make the method deterministic (a library requirement) we adopt the alphabetical-order tie-break documented by Geneious/LANL. This is correctness-affecting only on tied columns; on the Rosalind worked example there are no ties affecting the published consensus, so conformance to the rank-5 dataset is unaffected.
-2. **ASSUMPTION: Pure most-frequent consensus, no plurality threshold.** The Registry canonical signature `CreateConsensusFromAlignment(alignedSequences)` takes no threshold parameter, matching the Rosalind/Wikipedia "most common symbol" definition rather than EMBOSS's parameterised plurality. Threshold-based no-consensus ('n'/'x') output is therefore out of scope for this method (the area already exposes IUPAC-degenerate consensus via `GenerateConsensus`).
+2. **ASSUMPTION: Pure most-frequent consensus, no plurality threshold.** The Registry canonical signature `CreateConsensusFromAlignment(alignedSequences)` takes no threshold parameter, matching the Rosalind/Wikipedia "most common symbol" definition rather than EMBOSS's parameterised plurality. Threshold-based no-consensus ('n'/'x') output is therefore out of scope for this method (the area already exposes IUPAC-degenerate consensus via `GenerateConsensus`; since B05 F24/F28 the EMBOSS plurality consensus is `GenerateEmbossConsensus` and Biopython `dumb_consensus` is `GenerateDumbConsensus`).
 
 ---
 
@@ -137,3 +178,5 @@
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-09-29**: Review 2026-09 — Biopython `.consensus` and EMBOSS `embcons.c` source added; null-element contract.
+- **2026-09-30**: B05 follow-up — EMBOSS `cons` (`GenerateEmbossConsensus`, 780/780 vs binary) and Biopython `dumb_consensus` (`GenerateDumbConsensus`, 708/708) implemented.

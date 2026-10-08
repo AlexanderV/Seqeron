@@ -18,7 +18,7 @@ Calculates Shannon entropy based on k-mer frequencies in a sequence. Higher entr
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L243](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L243)
+- Source: [KmerAnalyzer.cs#L2744](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L2744)
 
 ## Input Schema
 
@@ -62,10 +62,12 @@ Calculates Shannon entropy based on k-mer frequencies in a sequence. Higher entr
 **Response:**
 ```json
 {
-  "entropy": 3.17,
+  "entropy": 1.974937501201927,
   "k": 2
 }
 ```
+
+2-mer counts AT 3, TG 2, GC 2, CA 2 (9 windows): −Σ p log₂ p = 1.974937501201927 bits (`scipy.stats.entropy([3,2,2,2], base=2)`, identical).
 
 ### Example 2: Low complexity sequence
 

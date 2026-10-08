@@ -114,15 +114,16 @@
 | A,C,G | 3 | 0.75 | {A,C,G} | V |
 | A,A,G,G,C | 5 | 1.25 | {A(2),G(2)}; C(1) dropped | R |
 | A,A,A,G | 4 | 1.0 | {A(3)}; G(1) at ≤threshold dropped | A |
-| A,C,G,T | 4 | 1.0 | none (each 1, not >1.0) → fallback to most-frequent | A (tie→alphabetical) |
+| A,C,G,T | 4 | 1.0 | none (each 1, not >1.0) → all four tied at max | N (F13, 2026-09; was A) |
+| A,C,-,- | 4 | 1.0 | none → A,C tied at max | M (F13) |
 
 ---
 
 ## Assumptions
 
 1. **ASSUMPTION: 25 % inclusion threshold is a documented design constant.** This implementation includes a base in a column's IUPAC code iff its count is strictly greater than 25 % of the number of sequences (`count > total × 0.25`). The *threshold-consensus family* and the "include bases above a frequency threshold, encode the set with an IUPAC code" rule are authoritative (DECIPHER); the specific 25 % cut and the strict `>` boundary are this implementation's design choice (DECIPHER's own default is 0.05 and tools vary). It is correctness-affecting but documented and named (`threshold = total * 0.25`), not invented-untraceable. Tests pin the boundary behaviour explicitly and otherwise use inputs where the inclusion decision is unambiguous so the verified *symbol* is dictated solely by the authoritative NC-IUB table.
-2. **ASSUMPTION: Fallback when no base passes the threshold.** When no base exceeds the threshold (e.g. four equally-frequent bases at exactly 25 %), the implementation falls back to the single most-frequent base (ties broken by dictionary/alphabetical order). No authoritative spec defines this corner; it is an implementation contract, verified as a documented edge case.
-3. **ASSUMPTION: Column length taken from the first sequence; case-insensitive over {A,C,G,T}; non-ACGT characters at a position are ignored in the counts.** Inputs are upper-cased; only A/C/G/T are counted per the four-base alphabet.
+2. **Fallback when no base passes the threshold (sourced since 2026-09-29, B05 F13a).** When no base exceeds the threshold, the column is the IUPAC code of **all bases tied at the maximum count** (DECIPHER `ConsensusSequence`: "degeneracy codes are always used in cases where multiple characters are equally abundant"; Biopython `degenerate_consensus` agrees): four equal bases ACGT → `N`, `A,C,-,-` → `M`; a column without any A/C/G/T → `N`. (Previously the single first most-frequent base was emitted, e.g. ACGT → `A` — superseded.)
+3. **Input contract (since 2026-09-29, B05 F13b): all rows must have equal length; case-insensitive over {A,C,G,T}; non-ACGT characters at a position are ignored in the counts.** Ragged rows (and null rows) throw `ArgumentException` ("All sequences must have the same length."), as Biopython `MultipleSeqAlignment` / `motifs.create`; the column length is no longer silently taken from the first sequence. Inputs are upper-cased; only A/C/G/T are counted per the four-base alphabet.
 
 ---
 
@@ -150,3 +151,47 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-10-01**: Assumptions 2/3 synced to B05 F13 (tied-max IUPAC fallback, ACGT → N; ragged/null rows → `ArgumentException`).
+
+---
+
+## Review 2026-09 (B05, F13) — sources actually opened
+
+- **Biopython 1.88** installed source `Bio/motifs/matrix.py` `GenericPositionMatrix.degenerate_consensus` — Cavener rules verbatim: `counts[0] > sum(counts[1:]) and counts[0] > 2*counts[1]` → single; `4*sum(counts[:2]) > 3*sum(counts)` → pair; `counts[3] == 0` → triple; else N ("The same rules are used by TRANSFAC").
+- **Biopython Tutorial** `Doc/Tutorial/chapter_motifs.rst` (raw.githubusercontent.com): `m.degenerate_consensus` = `WACVC`; reverse complement `GBGTW`; slice `m[2:-1]` = `CV`, "constructed following the rules specified by Cavener".
+- **Cavener 1987** NAR 15(4):1353 (PMID 3822832) — WebSearch snippet only: single base if frequency > 50 % and > twice the second; two bases if their sum > 75 %.
+- **DECIPHER `ConsensusSequence`** — WebSearch snippet (rdrr.io/bioc manuals blocked for curl) confirms verbatim "Degeneracy codes are always used in cases where multiple characters are equally abundant." DECIPHER's `threshold` is cumulative (least-frequent characters removed while together < threshold, default 0.05) — the library's per-base 25 % cut is therefore a design constant, not DECIPHER's rule.
+- Biopython `MultipleSeqAlignment` rejects unequal rows ("Sequences must all be the same length"); `motifs.create` likewise.
+
+### Reference numbers (Biopython 1.88 `degenerate_consensus`)
+
+| Rows | Result |
+|---|---|
+| A,C,G,T | N |
+| A,A,A,C | A |
+| A,A,G,G | R |
+| A,C,G | V |
+| A,A,C,G,T | N |
+| A×5 C×3 G T | M |
+| A×6 C×2 G T | A |
+| AAAA, AAGT, AACT, AATT | AANT |
+| tutorial 7 rows | WACVC |
+
+Plus 12 random alignments (seed 20260930) locked in `MotifFinder_GenerateConsensus_Tests.CavenerBiopythonCases`.
+
+## Configurable inclusion threshold (B05 follow-up, 2026-09-30)
+
+`GenerateConsensus(sequences, θ)` generalises the 25 % design constant (declared limitation) to θ ∈ [0, 1]; θ = 0.25 shares the code path of the parameterless overload (bit-identical; property test on 500 random alignments). The rule (count > θ·n, tie fallback to the maximum-count bases, no A/C/G/T → N, NC-IUB map) was cross-checked against an independent Python implementation on 700 random alignments (1–12 rows, 1–40 columns, alphabets ACGT/ACGTN with gaps and lower case; θ ∈ {0, 0.1, 0.25, 0.3, 1/3, 0.5, 0.75, 1, random}) → 700/700 identical; 20 locked in `MotifFinder_AlignmentConsensus_Tests.ThresholdCases`. Not a published rule (DECIPHER's threshold is cumulative; Cavener = `GenerateCavenerConsensus`).
+
+## DECIPHER `ConsensusSequence` (B05 audit group C, F28, 2026-10-01)
+
+Opened (raw.githubusercontent.com/bioc/DECIPHER/devel — Bioconductor git mirror; bioconductor.org and codeload were proxy-blocked): `DESCRIPTION` (Version 3.9.4), `R/ConsensusSequence.R` (argument checks: threshold ∈ [0, 1), minInformation ∈ (0, 1], noConsensusChar ∈ DNA_/RNA_/AA_ALPHABET; `includeNonLetters` passed to the C argument `ignoreNonLetters`; RNA `T` → `U`; `?` → noConsensusChar), `src/ConsensusSequence.c` (`frontTerminalGaps`/`endTerminalGaps`(`AA`), `alphabetFrequency`(`AA`), `makeConsensus`, `makeConsensusAA`, `consensusSequence`(`AA`) — threshold passed as 1 − threshold), `man/ConsensusSequence.Rd` (examples with stated outputs), `src/DECIPHER.h`, `src/Biostrings_stubs.c`.
+
+Reference build: the verbatim `ConsensusSequence.R` + `ConsensusSequence.c` compiled as an R package (`R CMD INSTALL`, package name DECIPHER, `useDynLib(DECIPHER)`) against Ubuntu noble `r-base-core` 4.3.3 and `r-bioc-biostrings` 2.70.2 (the full DECIPHER package is not packaged for Ubuntu and Bioconductor is unreachable; ConsensusSequence depends only on these two files). All `.Rd` examples reproduce their stated outputs (`W`, `A`, `+`, `N`; `W`/`W`/`X`/`X`/`J`/`J`; `ANSCT-`/`+NSCT-`; `ABZJX-`; `ANNNA`/`AAAAA`; `AWNDA`/`AAAAA`) plus `SWD`/`GTD`/`++D` for the majority example.
+
+| Check | Cases | Result |
+|---|---|---|
+| `GenerateDecipherConsensus` vs the R/C build, random (seeds 20261001 ×4000, 7 ×6000): DNA/RNA/AA, pure/IUPAC/`BZJX*UO` cores, 0–60 % `-`/`.`/`+`, terminal gaps, 20 % ragged rows, lower case, 1–41 rows, threshold ∈ {0, .05, .1, .25, .3, .5, .75, .9, .99, random}, minInformation default or random, random noConsensusChar from the alphabet, random ambiguity/includeNonLetters/includeTerminalGaps | 10,000 | 10,000/10,000 identical |
+| Locked in `MotifFinder_DecipherConsensus_Tests` | 90 stratified + 22 manual + hand-derived | — |
+
+Behaviour notes (from the source, confirmed by the build): the tests run in source order (singletons, `Y K W S R M`, `B D H V`, `N`), each requiring every included base strictly above every excluded one, so A 0.9 / C 0.06 / G 0.04 gives `M`; protein `B`/`Z`/`J` require N/Q/I to be the (possibly D/E/L-tied) maximum; a column with nothing counted is `-` without terminal gaps and `noConsensusChar` with them; with `includeNonLetters = TRUE` gaps and masks are dropped (the R argument is passed to C `ignoreNonLetters`, consistent with the manual's examples although its prose says the opposite); with `ambiguity = FALSE` DNA gaps/masks are always counted.

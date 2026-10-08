@@ -6,7 +6,7 @@
 | Test Unit ID | META-ALPHA-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -56,7 +56,13 @@ $$
 \hat{S}_{Chao1} = S_{obs} + \frac{f_1^2}{2f_2}
 $$
 
-where $f_1$ is the number of singleton taxa and $f_2$ is the number of doubleton taxa.
+where $f_1$ is the number of singleton taxa and $f_2$ is the number of doubleton taxa (Chao 1984, Eq. 6). When $f_1 = 0$ or $f_2 = 0$ the bias-corrected form (Chao 1987; EstimateS; scikit-bio `chao1`) is used:
+
+$$
+\hat{S}_{Chao1,bc} = S_{obs} + \frac{f_1(f_1-1)}{2(f_2+1)}
+$$
+
+which reduces to $S_{obs} + f_1(f_1-1)/2$ when $f_2 = 0$. This branch selection is exactly scikit-bio `chao1(counts, bias_corrected=False)` (scikit-bio's default `bias_corrected=True` always uses the bias-corrected form). Arithmetic is carried out in double precision (f₁² overflows a 32-bit integer for f₁ > 46340).
 
 ### 2.4 Properties and Invariants
 
@@ -176,6 +182,8 @@ Chao1 is only meaningful in this implementation when the input behaves like coun
 2. Simpson, E. H. 1949. Measurement of Diversity. Nature 163(4148):688.
 3. Hill, M. O. 1973. Diversity and Evenness: A Unifying Notation and Its Consequences. Ecology 54(2):427-432.
 4. Chao, A. 1984. Non-parametric estimation of the number of classes in a population. Scandinavian Journal of Statistics 11:265-270.
+4a. Chao, A. 1987. Estimating the population size for capture-recapture data with unequal catchability. Biometrics 43:783-791 (bias-corrected Chao1).
+4b. scikit-bio `skbio/diversity/alpha/_chao1.py` (raw.githubusercontent.com/scikit-bio/scikit-bio/main) — reference implementation used for cross-checks (v0.7.4).
 5. Pielou, E. C. 1966. The measurement of diversity in different types of biological collections. Journal of Theoretical Biology 13:131-144.
 6. Whittaker, R. H. 1960. Vegetation of the Siskiyou Mountains, Oregon and California. Ecological Monographs 30(3):279-338.
 7. Wikipedia contributors. Diversity index. Wikipedia. https://en.wikipedia.org/wiki/Diversity_index

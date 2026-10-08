@@ -352,4 +352,105 @@ public class PrimerDesigner_DimerTm_Tests
     }
 
     #endregion
+
+    #region PRIMER-DIMER-001 — bit-faithful thal.c (primer3-py 2.3.1) dimer engine
+
+    // Reference values: primer3-py 2.3.1 calc_heterodimer / calc_homodimer / calc_end_stability
+    // (thal.c vendored at libnano/primer3-py tag v2.3.1), captured 2026-10-01; ΔG in cal/mol.
+    // Before the fix (LSH/RSH tstack2-vs-A·T selection, thal.c keeps T1 = −∞ unless a dangling-end
+    // branch is taken) these optima were off by e.g. ΔG +13.8 / −208.5 / +150 / −1014 cal/mol.
+    private const double P3Mv = 0.050, P3Dv = 0.0015, P3Dntp = 0.0006;
+
+    [TestCase("GTTCGTCCAGAACA", "ATGACACGATAGATGTTCT", "Any", -11.594804143101555, -3951.231144607904,
+        TestName = "Ntthal_Heterodimer_InternalLoop_Primer3Py")]
+    [TestCase("TAAAGTTCTAGAACTTTA", "TAAAGTTCTAGAACTTTA", "Any", 43.371422025418724, -12953.955891666876,
+        TestName = "Ntthal_Homodimer_SelfComplementary_Primer3Py")]
+    [TestCase("CGCGATACACTACGGCCTAAGCTACTTGTA", "TACAAGTAGCTTAGGCCGTAGTGTATCGCG", "Any", 67.38845421445683, -32632.44563872894,
+        TestName = "Ntthal_Heterodimer_FullComplement30_Primer3Py")]
+    [TestCase("TCATTGTA", "TACAATGA", "Any", 1.7375724971710156, -4634.953602451074,
+        TestName = "Ntthal_Heterodimer_Short8_Primer3Py")]
+    [TestCase("AGGGTTGACTATCAA", "GCCCCCTCCGGT", "Any", -28.534615097293596, -3124.8436867678465,
+        TestName = "Ntthal_Heterodimer_GcRich_Primer3Py")]
+    [TestCase("CGGGCG", "CGTCCGAATCAGTTGTGAT", "End2", -277.9275859468325, 1967.854999993797,
+        TestName = "Ntthal_End2_PositiveDeltaG_Primer3Py")]
+    public void CalculateDimerThermodynamicsNtthal_FormerDiscrepancies_MatchPrimer3Py(
+        string a, string b, string mode, double tm, double dgCalPerMol)
+    {
+        var d = PrimerDesigner.CalculateDimerThermodynamicsNtthal(a, b,
+            Enum.Parse<PrimerDesigner.NtthalAlignmentMode>(mode), P3Mv, P3Dv, P3Dntp, Ct)!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(d.TmCelsius, Is.EqualTo(tm).Within(1e-9));
+            Assert.That(d.DeltaG37 * 1000.0, Is.EqualTo(dgCalPerMol).Within(1e-6));
+        });
+    }
+
+    // temp_c only changes the reported ΔG (calcDimer G = H − (temp_c+273.15)·S); max_loop bounds loops.
+    // primer3-py 2.3.1: calc_heterodimer(..., mv 100, dv 3, dntp 0.8, dna 250, temp_c 55, max_loop 10)
+    // and calc_end_stability(..., mv 10, dv 0, dntp 0, dna 1000, temp_c 25, max_loop 0).
+    [Test]
+    public void CalculateDimerThermodynamicsNtthal_TemperatureAndMaxLoop_MatchPrimer3Py()
+    {
+        var any = PrimerDesigner.CalculateDimerThermodynamicsNtthal("GTTCGTCCAGAACA", "ATGACACGATAGATGTTCT",
+            PrimerDesigner.NtthalAlignmentMode.Any, 0.100, 0.003, 0.0008, 250e-9, 55.0, 10)!.Value;
+        var end1 = PrimerDesigner.CalculateDimerThermodynamicsNtthal(
+            "AATCGGGACGGATGTGCGAGTACCATGGAAGTTTTA", "TAAAACTTCCATGGTACTCGCACATCCGTCCCGATT",
+            PrimerDesigner.NtthalAlignmentMode.End1, 0.010, 0.0, 0.0, 1000e-9, 25.0, 0)!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(any.TmCelsius, Is.EqualTo(-4.087492730870167).Within(1e-9));
+            Assert.That(any.DeltaG37 * 1000.0, Is.EqualTo(-2230.535706584131).Within(1e-6));
+            Assert.That(any.DeltaH * 1000.0, Is.EqualTo(-39100.0).Within(1e-6));
+            Assert.That(any.DeltaS, Is.EqualTo(-112.355521235459).Within(1e-9));
+            Assert.That(end1.TmCelsius, Is.EqualTo(59.31897668193989).Within(1e-9));
+            Assert.That(end1.DeltaG37 * 1000.0, Is.EqualTo(-38436.15439653373).Within(1e-6));
+            Assert.That(end1.DeltaS, Is.EqualTo(-827.3145919955267).Within(1e-9));
+        });
+    }
+
+    // thal.c drawDimer ≡ primer3-py ThermoResult.ascii_structure_lines (output_structure=True).
+    [Test]
+    public void CalculateDimerStructureNtthal_AsciiStructure_MatchesPrimer3Py()
+    {
+        var a = PrimerDesigner.CalculateDimerStructureNtthal("GTTCGTCCAGAACA", "ATGACACGATAGATGTTCT")!;
+        var b = PrimerDesigner.CalculateDimerStructureNtthal("AGGGTTGACTATCAA", "GCCCCCTCCGGT")!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.AsciiStructureLines, Is.EqualTo(new[]
+            {
+                "SEQ\tGTTCGTCC      -------------", "SEQ\t        AGAACA",
+                "STR\t        TCTTGT", "STR\t              AGATAGCACAGTA",
+            }));
+            Assert.That(a.Thermodynamics.TmCelsius, Is.EqualTo(-11.594804143101555).Within(1e-9));
+            Assert.That(b.AsciiStructureLines, Is.EqualTo(new[]
+            {
+                "SEQ\t         TTGACTATCAA", "SEQ\t     AGGG", "STR\t     TCCC", "STR\tTGGCC    CCG--------",
+            }));
+            Assert.That(PrimerDesigner.CalculateDimerStructureNtthal("AAAAAAAA", "AAAAAAAA"), Is.Null,
+                "No structure (primer3-py structure_found = False).");
+        });
+    }
+
+    // thal.c CHECK_ERROR: both strands > THAL_MAX_ALIGN (60) → error (primer3-py raises RuntimeError
+    // "At least one sequence must be equal to or shorter than 60bp ..."); one strand ≤ 60 is accepted
+    // (primer3-py calc_heterodimer('A'*61, 'T'*20) → Tm 41.77010955785738 at the default conditions).
+    // primer3-py max_loop setter rejects values outside 0..30.
+    [Test]
+    public void CalculateDimerThermodynamicsNtthal_ThalLimits()
+    {
+        string a61 = new('A', 61), t61 = new('T', 61), t20 = new('T', 20);
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => PrimerDesigner.CalculateDimerThermodynamicsNtthal(
+                a61, t61, PrimerDesigner.NtthalAlignmentMode.Any, P3Mv, P3Dv, P3Dntp, Ct));
+            Assert.Throws<ArgumentException>(() => PrimerDesigner.CalculateDimerMeltingTemperature(a61, t61));
+            Assert.That(PrimerDesigner.CalculateDimerThermodynamicsNtthal(
+                    a61, t20, PrimerDesigner.NtthalAlignmentMode.Any, P3Mv, P3Dv, P3Dntp, Ct)!.Value.TmCelsius,
+                Is.EqualTo(41.77010955785738).Within(1e-9));
+            Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.CalculateDimerThermodynamicsNtthal(
+                "ACGT", "ACGT", PrimerDesigner.NtthalAlignmentMode.Any, P3Mv, P3Dv, P3Dntp, Ct, 37.0, 31));
+        });
+    }
+
+    #endregion
 }

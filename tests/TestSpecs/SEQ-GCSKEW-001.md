@@ -4,7 +4,7 @@
 **Algorithm:** GC Skew Analysis
 **Area:** Sequence Composition
 **Status:** ☑ Complete
-**Last Updated:** 2026-02-14
+**Last Updated:** 2026-09-28
 **Owner:** QA Architect
 
 ---
@@ -114,8 +114,11 @@ This Test Unit covers all GC/AT skew and related analysis methods in `GcSkewCalc
 | M-13 | Null sequence → ArgumentNullException | Exception | Guard clause |
 | M-14 | Window size ≤ 0 → ArgumentOutOfRangeException | Exception | Guard clause |
 | M-15 | Step size ≤ 0 → ArgumentOutOfRangeException | Exception | Guard clause |
+| M-15b | Raw-string overloads: window/step ≤ 0 → ArgumentOutOfRangeException, eagerly at call time (previously non-terminating for step 0 / cumulative window 0) | Exception | Guard clause (review 2026-09) |
+| M-22 | Biopython 1.88 `GC_skew("GGGCACGTGGCCCCAT",4)` = [0.5,0,0,−1]; accumulated = [0.5,0.5,0.5,−0.5] (Grigoriev 1998 adjacent-window sum) | Windowed + cumulative equal | Biopython / Grigoriev 1998 |
+| M-23 | Trailing partial window not reported: `"GGGGCCCCGG"`, w=4 → [1,−1] (Biopython [1,−1,1]) | Complete-window prefix equals Biopython | §8 deviation |
 | M-16 | Case insensitivity: lowercase handled | Same result as uppercase | Biopython: counts both cases |
-| M-17 | Sequence shorter than window → empty result | No windows fit | Logic |
+| M-17 | Sequence shorter than window → empty result | No complete window fits | Complete-window convention (SkewIT gcskew.py); Biopython would return one partial window — see §8 |
 | M-18 | Biopython cross-verification: GGGGCCCC w=4 | [1.0, −1.0] | Biopython GC_skew |
 | M-19 | Biopython cross-verification: ATGCATGC w=4 | [0.0, 0.0] | Biopython GC_skew |
 | M-20 | Biopython cross-verification: AAAAAAAA w=4 | [0.0, 0.0] | Biopython: ZeroDivisionError |
@@ -178,7 +181,7 @@ Applied systematic coverage classification (2026-02-14):
 
 ## 8. Deviations
 
-None — implementation matches all evidence sources.
+- **Trailing partial window (documented convention).** Biopython `GC_skew` iterates `range(0, len(seq), window)` and appends the final partial window; Seqeron (like SkewIT `gcskew.py`, which `break`s when the window would run past the end) emits only complete windows. Neither Lobry (1996) nor Grigoriev (1998) defines the tail; values agree exactly on every complete window.
 
 ---
 

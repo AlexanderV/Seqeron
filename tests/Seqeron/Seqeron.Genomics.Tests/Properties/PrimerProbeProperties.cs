@@ -65,7 +65,9 @@ public class PrimerProbeProperties
     /// </summary>
     private static Arbitrary<(string clean, string dirty)> CleanDirtyArbitrary() =>
         (from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 1)
-         from junk in Gen.Elements('N', 'n', 'U', 'u', 'R', 'Y', '-', ' ', 'x', '9', '.')
+         // U/u is NOT junk: the basic Tm reads it as T (Biopython _check back-transcription), see
+         // MeltingTemperature_UracilCountsAsThymine.
+         from junk in Gen.Elements('N', 'n', 'R', 'Y', '-', ' ', 'x', '9', '.')
                          .ArrayOf().Where(a => a.Length >= 1)
          let clean = new string(chars)
          select (clean, Sprinkle(clean, new string(junk)))).ToArbitrary();
@@ -83,13 +85,16 @@ public class PrimerProbeProperties
         return sb.ToString();
     }
 
-    /// <summary>Counts valid DNA bases (case-insensitive), partitioned into A/T and G/C.</summary>
+    /// <summary>
+    /// Counts the bases the basic Tm uses (case-insensitive), partitioned into A/T and G/C; U counts
+    /// as T (Biopython <c>MeltingTemp._check</c> back-transcription, ThermoConstants.CountBasicTmBases).
+    /// </summary>
     private static (int at, int gc) CountAtGc(string s)
     {
         int at = 0, gc = 0;
         foreach (char ch in s.ToUpperInvariant())
         {
-            if (ch is 'A' or 'T') at++;
+            if (ch is 'A' or 'T' or 'U') at++;
             else if (ch is 'G' or 'C') gc++;
         }
         return (at, gc);
@@ -334,6 +339,24 @@ public class PrimerProbeProperties
     }
 
     /// <summary>
+    /// INV-5b: U is read as T — the RNA spelling of a primer has the same basic Tm as its DNA spelling
+    /// (ThermoConstants.CountBasicTmBases: Biopython <c>MeltingTemp._check</c> back-transcription).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MeltingTemperature_UracilCountsAsThymine()
+    {
+        return Prop.ForAll(CleanDirtyArbitrary(), pair =>
+        {
+            string dna = pair.clean;
+            string rna = dna.Replace('T', 'U');
+            double tmDna = PrimerDesigner.CalculateMeltingTemperature(dna);
+            double tmRna = PrimerDesigner.CalculateMeltingTemperature(rna);
+            return (Math.Abs(tmDna - tmRna) < 1e-9)
+                .Label($"U not read as T: '{dna}'={tmDna}, '{rna}'={tmRna}");
+        });
+    }
+
+    /// <summary>
     /// INV-6 (D): Tm is deterministic — repeated evaluation of the same input is bit-identical.
     /// </summary>
     [FsCheck.NUnit.Property]
@@ -352,18 +375,23 @@ public class PrimerProbeProperties
     #region PRIMER-TM-001 — Salt Correction Invariants
 
     /// <summary>
-    /// INV-7 (P): Salt-corrected Tm equals the base Tm plus the published salt term
-    /// 16.6 × log₁₀([Na⁺]/1000), rounded to one decimal. The correction is computed here
-    /// directly from the Owczarzy (2004) formula — independent of production code.
+    /// INV-7 (P): Salt-adjusted Tm equals the OligoCalc "Salt Adjusted" formula (Kibbe 2007),
+    /// written here independently of production code: N &lt; 14 → 2(A+T)+4(G+C)+16.6·log10([Na+]/0.050 M);
+    /// N ≥ 14 → 100.5 + 41·GC/N − 820/N + 16.6·log10([Na+] M); rounded to one decimal.
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property MeltingTemperatureWithSalt_IsAdditiveCorrection()
+    public Property MeltingTemperatureWithSalt_MatchesOligoCalcSaltAdjusted()
     {
         return Prop.ForAll(PrimerSaltPairArbitrary(), t =>
         {
             var (primer, na, _) = t;
-            double baseTm = PrimerDesigner.CalculateMeltingTemperature(primer);
-            double expected = Math.Round(baseTm + 16.6 * Math.Log10(na / 1000.0), 1);
+            string u = primer.ToUpperInvariant();
+            int at = u.Count(c => c is 'A' or 'T'), gc = u.Count(c => c is 'G' or 'C'), n = at + gc;
+            double m = na / 1000.0;
+            double oracle = n < 14
+                ? 2 * at + 4 * gc + 16.6 * Math.Log10(m / 0.050)
+                : 100.5 + 41.0 * gc / n - 820.0 / n + 16.6 * Math.Log10(m);
+            double expected = Math.Round(oracle, 1);
             double actual = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, na);
             return (Math.Abs(actual - expected) < 1e-9)
                 .Label($"salt Tm mismatch for '{primer}' @ {na}mM: {actual} vs {expected}");
@@ -390,35 +418,35 @@ public class PrimerProbeProperties
     }
 
     /// <summary>
-    /// INV-9 (P): At the 1 M (1000 mM) reference concentration the salt term is exactly 0
-    /// (log₁₀(1) = 0), so the corrected Tm collapses to the base Tm (rounded). This pins the
-    /// zero-crossing of the correction curve.
+    /// INV-9 (P): The basic Wallace rule is defined at 50 mM Na+ (OligoCalc), so for short oligos
+    /// (&lt; 14 valid bases) the salt-adjusted Tm at 50 mM equals the basic Tm — the salt term is not
+    /// counted twice.
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property MeltingTemperatureWithSalt_ReferenceConcentration_EqualsBaseTm()
+    public Property MeltingTemperatureWithSalt_ShortOligoAt50mM_EqualsBaseTm()
     {
-        return Prop.ForAll(ValidPrimerArbitrary(8, 30), primer =>
+        return Prop.ForAll(ValidPrimerArbitrary(1, 13), primer =>
         {
             double expected = Math.Round(PrimerDesigner.CalculateMeltingTemperature(primer), 1);
-            double actual = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 1000);
+            double actual = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 50);
             return (Math.Abs(actual - expected) < 1e-9)
-                .Label($"@1000mM '{primer}': {actual} vs base {expected}");
+                .Label($"@50mM '{primer}': {actual} vs base {expected}");
         });
     }
 
     /// <summary>
-    /// INV-10 (M): Standard PCR salt (50 mM) is below the 1 M reference, so it destabilizes the
-    /// duplex and yields a Tm strictly lower than the uncorrected base Tm for any real primer.
+    /// INV-10 (M): Raising [Na+] from 50 mM to 1 M raises the salt-adjusted Tm by
+    /// 16.6·log10(20) ≈ 21.6 °C for every primer (Schildkraut–Lifson slope), within rounding.
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property MeltingTemperatureWithSalt_StandardPcrSalt_LowersTm()
+    public Property MeltingTemperatureWithSalt_50mMTo1M_Adds16_6LogTwenty()
     {
         return Prop.ForAll(ValidPrimerArbitrary(8, 30), primer =>
         {
-            double baseTm = PrimerDesigner.CalculateMeltingTemperature(primer);
-            double salted = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 50);
-            return (salted < baseTm)
-                .Label($"50mM did not lower Tm for '{primer}': base={baseTm}, salted={salted}");
+            double d = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 1000)
+                       - PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 50);
+            return (Math.Abs(d - 16.6 * Math.Log10(20.0)) <= 0.1 + 1e-9)
+                .Label($"'{primer}': ΔTm(50mM→1M) = {d}");
         });
     }
 
@@ -565,18 +593,54 @@ public class PrimerProbeProperties
     }
 
     /// <summary>
-    /// INV-02 (Edge): ΔG = 0 for any sequence shorter than 5 nt (the method short-circuits).
-    /// Source: Primer_Structure_Analysis.md §2.4 INV-02.
+    /// INV-02 (Edge): a primer shorter than 5 nt is its own 3′ window — Primer3
+    /// <c>end_oligodg(s, 5)</c> evaluates <c>oligodg</c> on the whole primer — and empty input gives 0.
+    /// Checked against an independent oracle built from SantaLucia (1998) Table 1 unified ΔG°37 with
+    /// the <c>oligodg</c> terms (initiation +1.96, +0.05 per terminal A·T, +0.43 if self-complementary).
+    /// Source: Primer_Structure_Analysis.md §2.4 INV-02 and §6 ("Primer shorter than 5 nt").
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property Calculate3PrimeStability_IsZero_ForLengthBelow5()
+    public Property Calculate3PrimeStability_UsesWholePrimer_ForLengthBelow5()
     {
         var shortGen = (from len in Gen.Choose(0, 4)
                         from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
                         select new string(chars)).ToArbitrary();
         return Prop.ForAll(shortGen, seq =>
-            (PrimerDesigner.Calculate3PrimeStability(seq) == 0.0)
-                .Label($"ΔG not 0 for short '{seq}'"));
+        {
+            double dg = PrimerDesigner.Calculate3PrimeStability(seq);
+            double expected = seq.Length == 0 ? 0.0 : OligoDgOracle(seq);
+            return (Math.Abs(dg - expected) < 1e-9)
+                .Label($"ΔG {dg} != whole-primer oligodg {expected} for short '{seq}'");
+        });
+    }
+
+    /// <summary>
+    /// Independent Primer3 <c>oligodg</c> (SantaLucia 1998) oracle, kcal/mol: Σ Table 1 ΔG°37 over the
+    /// NN steps + 1.96 initiation + 0.05 per terminal A·T end (+0.43 for an even-length
+    /// self-complementary sequence).
+    /// </summary>
+    private static double OligoDgOracle(string seq)
+    {
+        static double Step(char a, char b) => (a, b) switch
+        {
+            ('A', 'A') or ('T', 'T') => -1.00,
+            ('A', 'T') => -0.88,
+            ('T', 'A') => -0.58,
+            ('C', 'A') or ('T', 'G') => -1.45,
+            ('G', 'T') or ('A', 'C') => -1.44,
+            ('C', 'T') or ('A', 'G') => -1.28,
+            ('G', 'A') or ('T', 'C') => -1.30,
+            ('C', 'G') => -2.17,
+            ('G', 'C') => -2.24,
+            ('G', 'G') or ('C', 'C') => -1.84,
+            _ => throw new ArgumentException($"not ACGT: {a}{b}"),
+        };
+        double dg = 1.96;
+        for (int i = 0; i + 1 < seq.Length; i++) dg += Step(seq[i], seq[i + 1]);
+        if (seq[0] is 'A' or 'T') dg += 0.05;
+        if (seq[^1] is 'A' or 'T') dg += 0.05;
+        if (seq.Length % 2 == 0 && seq == RevComp(seq)) dg += 0.43;
+        return dg;
     }
 
     /// <summary>
@@ -793,36 +857,38 @@ public class PrimerProbeProperties
     }
 
     /// <summary>
-    /// Constructed positive anchor with independent recomputation: the production rule compares the
-    /// last min(8,len) bases of primer1 against the FIRST min(8,len) bases of revcomp(primer2) and
-    /// counts Watson-Crick pairs. We build a primer pair whose terminal windows are fully complementary
-    /// and verify (a) production flags the dimer at minComplementarity=4, and (b) the independently
-    /// recomputed complementary count equals 8 (the full window) — confirming the rule, not just the bit.
-    /// Source: §2.2 / §5.2 (last min(8,len) bases vs start of revcomp of the other primer).
+    /// Constructed positive anchor with independent recomputation: a 3′ primer-dimer forms when the
+    /// 3′ terminus of primer1 anneals ANTIPARALLEL to the 3′ terminus of primer2, i.e. primer1's
+    /// 3′ k-mer is the reverse complement of primer2's 3′ k-mer (equivalently: it equals the FIRST k
+    /// bases of revcomp(primer2)). Primer3's alignment-mode <c>compl_end</c> (end-anchored
+    /// <c>align(p1, revcomp(p2))</c>, +1 per pair) then scores k. We build such a pair with k = 8 and
+    /// verify (a) the independently recomputed antiparallel pair count is 8, (b) production's
+    /// <c>compl_end</c> is 8 (primer3-py 2.3.1 <c>check_primers</c>,
+    /// <c>PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=0</c>: <c>PRIMER_PAIR_0_COMPL_END = 8.0</c>) and (c) the
+    /// dimer is flagged at minComplementarity = 4. Source: Primer_Structure_Analysis.md §2.2 / §5.2.
     /// </summary>
     [Test]
     [Category("Property")]
     public void HasPrimerDimer_EngineeredComplementaryEnds_ReturnsTrue()
     {
-        // primer2 fixed; choose primer1 so its 3' 8-mer == first 8 of revcomp(primer2) ⇒ all complementary.
+        // primer2 fixed; choose primer1 so its 3' 8-mer == first 8 of revcomp(primer2), i.e. the
+        // reverse complement of primer2's 3' 8-mer ⇒ the two 3' ends pair antiparallel over 8 bases.
         const string primer2 = "TTTTTTTTGGCCAATT";
         string rc2 = RevComp(primer2);                 // independent reverse complement
         string window2 = rc2.Substring(0, 8);          // first 8 bases of revcomp(primer2)
-        // Make primer1 end in a stretch that is Watson-Crick complementary to window2 base-by-base.
-        var tail = new char[8];
-        for (int i = 0; i < 8; i++)
-            tail[i] = window2[i] switch { 'A' => 'T', 'T' => 'A', 'G' => 'C', 'C' => 'G', _ => 'A' };
-        string primer1 = "ACGTACGT" + new string(tail); // length 16, last 8 = engineered complement
+        string primer1 = "ACGTACGT" + window2;          // length 16, last 8 = revcomp(primer2's 3' 8-mer)
 
-        // Independent recomputation of the terminal complementary-pair count.
+        // Independent recomputation: primer1[n1-8+i] pairs antiparallel with primer2[n2-1-i].
         string end1 = primer1.Substring(primer1.Length - 8);
         int comp = 0;
         for (int i = 0; i < 8; i++)
-            if (IsWatsonCrick(end1[i], window2[i])) comp++;
+            if (IsWatsonCrick(end1[i], primer2[primer2.Length - 8 + (7 - i)])) comp++;
 
         Assert.Multiple(() =>
         {
-            Assert.That(comp, Is.EqualTo(8), "engineered terminal window must be fully complementary");
+            Assert.That(comp, Is.EqualTo(8), "engineered 3' ends must pair antiparallel over all 8 bases");
+            Assert.That(PrimerDesigner.CalculatePrimerDimerEndComplementarity(primer1, primer2), Is.EqualTo(8.0),
+                "Primer3 compl_end of the engineered pair (primer3-py 2.3.1: 8.0)");
             Assert.That(PrimerDesigner.HasPrimerDimer(primer1, primer2, minComplementarity: 4),
                 Is.True, "fully complementary 3' ends must be flagged as a primer-dimer");
         });
@@ -902,9 +968,27 @@ public class PrimerProbeProperties
     /// doc contract rather than reused production code: a pair is valid iff |Tm_f − Tm_r| ≤ 5
     /// AND the two primers do not form a primer-dimer.
     /// </summary>
-    private static bool ExpectedPairValid(PrimerCandidate fwd, PrimerCandidate rev) =>
-        Math.Abs(fwd.MeltingTemperature - rev.MeltingTemperature) <= 5.0
-        && !PrimerDesigner.HasPrimerDimer(fwd.Sequence, rev.Sequence);
+    // Primer3 compares unrounded Tm values (PrimerCandidate.MeltingTemperature is rounded to 0.1 °C).
+    /// <summary>
+    /// Independent pair-validity predicate of Primer_Design.md §2.4 INV-02 at the library defaults
+    /// (<see cref="PrimerPairOptions.Default"/>): product size inside a PRIMER_PRODUCT_SIZE_RANGE range
+    /// (default 100-300), |Tm_f − Tm_r| ≤ PRIMER_PAIR_MAX_DIFF_TM (5 °C, unrounded Primer3 Tm) and no
+    /// primer-dimer by Primer3's default thermodynamic screen (PRIMER_PAIR_MAX_COMPL_ANY_TH /
+    /// PRIMER_PAIR_MAX_COMPL_END_TH: compl_any_th / compl_end_th ≤ 47 °C at the default primer conditions).
+    /// </summary>
+    private static bool ExpectedPairValid(PrimerCandidate fwd, PrimerCandidate rev)
+    {
+        var opt = PrimerPairOptions.Default;
+        int product = rev.Position + rev.Sequence.Length - fwd.Position;
+        bool sizeOk = opt.ProductSizeRanges.Any(r => product >= r.Min && product <= r.Max);
+        bool tmOk = Math.Abs(PrimerDesigner.CalculateMeltingTemperaturePrimer3(fwd.Sequence)
+                             - PrimerDesigner.CalculateMeltingTemperaturePrimer3(rev.Sequence)) <= opt.MaxTmDifference;
+        var compl = PrimerDesigner.CalculatePrimer3PairComplementarity(fwd.Sequence, rev.Sequence);
+        bool dimerOk = compl is { } c
+                       && c.ComplAnyTh <= PrimerDesigner.Primer3MaxStructureTm
+                       && c.ComplEndTh <= PrimerDesigner.Primer3MaxStructureTm;
+        return sizeOk && tmOk && dimerOk;
+    }
 
     #endregion
 
@@ -1052,8 +1136,10 @@ public class PrimerProbeProperties
     }
 
     /// <summary>
-    /// INV-02 (pair validity): result.IsValid ⟺ (|Tm_f − Tm_r| ≤ 5 AND not HasPrimerDimer(fwd,rev)),
-    /// with the predicate recomputed independently (ExpectedPairValid) from the returned candidates.
+    /// INV-02 (pair validity): result.IsValid ⟺ (product size in range AND |Tm_f − Tm_r| ≤ 5 AND no
+    /// thermodynamic primer-dimer), with the predicate recomputed independently (ExpectedPairValid)
+    /// from the returned candidates (on failure DesignPrimers returns the individually best primers,
+    /// which then must violate a pair constraint — otherwise the exhaustive search would have paired them).
     /// Source: Primer_Design.md §2.4 INV-02.
     /// </summary>
     [FsCheck.NUnit.Property]
@@ -1182,11 +1268,10 @@ public class PrimerProbeProperties
     }
 
     /// <summary>
-    /// Evidence anchor (GcContent + Tm): a hand-constructed 22-mer with a known composition.
-    /// "CGGTTCACTACGTCCGTTCTGG" has 13 G/C of 22 bases ⇒ GC% = 1300/22 = 59.09 → 59.1 (rounded),
-    /// and (≥14 bases) Marmur-Doty Tm = 64.9 + 41×(13 − 16.4)/22 = 58.56 → 58.6 (rounded).
-    /// Both fall inside the default windows (GC 40-60, Tm 57-63), pinning EvaluatePrimer's
-    /// per-primer metrics to literally computed values independent of production constants.
+    /// Evidence anchor (GcContent + Tm): "CGGTTCACTACGTCCGTTCTGG" has 13 G/C of 22 bases ⇒
+    /// GC% = 1300/22 = 59.09 → 59.1 (rounded). EvaluatePrimer's Tm is the Primer3-default Tm
+    /// (SantaLucia 1998 NN, 50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP, 50 nM): primer3-py 2.3.1
+    /// calc_tm = 63.1228 °C → 63.1, just above PRIMER_MAX_TM = 63 ⇒ the primer is rejected.
     /// </summary>
     [Test]
     [Category("Property")]
@@ -1198,31 +1283,35 @@ public class PrimerProbeProperties
             Assert.That(c.Length, Is.EqualTo(22));
             Assert.That(c.GcContent, Is.EqualTo(59.1).Within(0.05),
                 "GC% = 100×13/22 = 59.09 → 59.1");
-            Assert.That(c.MeltingTemperature, Is.EqualTo(58.6).Within(0.05),
-                "Marmur-Doty Tm = 64.9 + 41×(13−16.4)/22 = 58.56 → 58.6");
+            Assert.That(c.MeltingTemperature, Is.EqualTo(63.1).Within(0.05),
+                "primer3.calc_tm = 63.1228 → 63.1");
+            Assert.That(c.IsValid, Is.False, "Tm 63.12 > PRIMER_MAX_TM 63");
+            Assert.That(c.Issues, Has.Some.StartsWith("Tm"));
         });
     }
 
     /// <summary>
-    /// Evidence anchor (valid pair + product size): a hand-constructed 48 bp template engineered so
-    /// the design produces a known-valid pair. The forward flank is the verified valid 22-mer
-    /// "CGGTTCACTACGTCCGTTCTGG" (positions 0-21); a 4 bp target ("AAAA") occupies 22-25; the reverse
-    /// flank (positions 26-47) is the reverse complement of the verified valid 22-mer
-    /// "CAAGCCGGGGCTAATCCGTCAT", so reverse-complementing it back recovers that primer. Both Tm = 58.6
-    /// (|ΔTm| = 0 ≤ 5) and they are not a dimer ⇒ a valid pair. ProductSize = reverse.Position(26) +
-    /// reverse.Length(22) − forward.Position(0) = 48. This pins INV-03 and INV-02 to literal values.
+    /// Evidence anchor (valid pair + product size): 44 bp template = forward 20-mer
+    /// "GATTCGAAGGGGATAGCGCA" (0-19) + target "AAAA" (20-23) + reverse complement of the reverse
+    /// 20-mer "ATGGGCGTGGGCATAATACC" (24-43). primer3-py 2.3.1 design_primers (sizes 18/20/25,
+    /// Tm 57/60/63, GC 40-60, poly-X 4, pair ΔTm ≤ 5, SEQUENCE_TARGET 20,4,
+    /// PRIMER_PRODUCT_SIZE_RANGE 40-60 — the 44-bp template is below Primer3's default 100-300) returns
+    /// PRIMER_LEFT_0 = [0,20] (Tm 59.9665, penalty 0.033504), PRIMER_RIGHT_0 = [43,20]
+    /// (Tm 60.2512, penalty 0.251165), PRIMER_PAIR_0_PENALTY = 0.284669, product 44.
+    /// ProductSize = reverse.Position(24) + reverse.Length(20) − forward.Position(0) = 44.
     /// </summary>
     [Test]
     [Category("Property")]
     public void DesignPrimers_KnownTemplate_ProductSizeEqualsSpan()
     {
-        const string forwardPrimer = "CGGTTCACTACGTCCGTTCTGG";
-        const string reversePrimer = "CAAGCCGGGGCTAATCCGTCAT";
-        string reverseFlank = new DnaSequence(reversePrimer).ReverseComplement().Sequence;
-        string template = forwardPrimer + "AAAA" + reverseFlank; // length 48
+        const string forwardPrimer = "GATTCGAAGGGGATAGCGCA";
+        const string reversePrimer = "ATGGGCGTGGGCATAATACC";
+        string reverseFlank = DnaSequence.GetReverseComplementString(reversePrimer);
+        string template = forwardPrimer + "AAAA" + reverseFlank; // length 44
 
         var dna = new DnaSequence(template);
-        var result = PrimerDesigner.DesignPrimers(dna, targetStart: 22, targetEnd: 26);
+        var pairOptions = new PrimerPairOptions { ProductSizeRanges = [new ProductSizeRange(40, 60)] };
+        var result = PrimerDesigner.DesignPrimers(dna, targetStart: 20, targetEnd: 24, pairOptions: pairOptions);
 
         Assert.That(result.Forward, Is.Not.Null, "expected a forward primer on this template");
         Assert.That(result.Reverse, Is.Not.Null, "expected a reverse primer on this template");
@@ -1233,9 +1322,12 @@ public class PrimerProbeProperties
             Assert.That(result.IsValid, Is.True, "engineered pair must be compatible");
             Assert.That(result.Forward!.Sequence, Is.EqualTo(forwardPrimer));
             Assert.That(result.Reverse!.Sequence, Is.EqualTo(reversePrimer));
+            Assert.That(result.Reverse.Position, Is.EqualTo(24));
+            Assert.That(result.Forward.Penalty, Is.EqualTo(0.033504).Within(1e-6));
+            Assert.That(result.Reverse.Penalty, Is.EqualTo(0.251165).Within(1e-6));
+            Assert.That(result.Forward.Penalty + result.Reverse.Penalty, Is.EqualTo(0.284669).Within(1e-6));
             Assert.That(result.ProductSize, Is.EqualTo(expected));
-            Assert.That(result.ProductSize, Is.EqualTo(48),
-                "ProductSize = 26 + 22 − 0 = 48");
+            Assert.That(result.ProductSize, Is.EqualTo(44), "ProductSize = 24 + 20 − 0 = 44");
         });
     }
 
@@ -1809,12 +1901,12 @@ public class PrimerProbeProperties
     #region PROBE-VALID-001 — IsValid Rule (R: pass/fail) &amp; Determinism (D)
 
     /// <summary>
-    /// IsValid rule (R, pass/fail): recomputed INDEPENDENTLY as
-    /// <c>Issues.Count == 0 || (OffTargetHits ≤ 1 &amp;&amp; SelfComplementarity ≤ 0.4)</c> and asserted to
-    /// match production. (Issues are recorded for &gt;1 off-target hits, self-comp above the threshold,
-    /// and secondary structure.) We feed the recomputation production's own Issues/hits/selfComp,
-    /// so this isolates the BOOLEAN decision rule itself. Source: doc §5.2; ProbeDesigner.cs
-    /// §ValidateProbe isValid expression.
+    /// IsValid rule (R, pass/fail): <c>IsValid ⟺ Issues.Count == 0</c> (Probe_Validation.md §3.2 / §6:
+    /// "IsValid is true exactly when no issue was recorded"; the former lenient rule "≤ 1 hit and
+    /// fold-back fraction ≤ 0.4 ⇒ valid despite issues" had no source and was removed in B07 F22).
+    /// Issues are recorded for &gt;1 off-target hits, a self-structure Tm above MaxStructureTm (or the
+    /// fallback alignment limits) and secondary structure. We feed production's own Issues, so this
+    /// isolates the BOOLEAN decision rule itself.
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property ValidateProbe_IsValid_FollowsDecisionRule()
@@ -1823,7 +1915,7 @@ public class PrimerProbeProperties
         {
             var (probe, refs, maxMismatches) = s;
             var v = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches);
-            bool expected = v.Issues.Count == 0 || (v.OffTargetHits <= 1 && v.SelfComplementarity <= 0.4);
+            bool expected = v.Issues.Count == 0;
             return (v.IsValid == expected)
                 .Label($"IsValid {v.IsValid} != rule {expected} " +
                        $"(issues={v.Issues.Count}, hits={v.OffTargetHits}, selfComp={v.SelfComplementarity})");

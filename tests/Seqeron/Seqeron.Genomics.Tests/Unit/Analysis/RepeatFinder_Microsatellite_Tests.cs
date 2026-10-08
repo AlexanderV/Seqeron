@@ -49,16 +49,15 @@ public class RepeatFinder_Microsatellite_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(results, Has.Count.EqualTo(2));
+            // One maximal period-2 run S[2..13) = ACACACACACA (11 bp): reported ONCE at its left end with
+            // ⌊11/2⌋ = 5 complete copies; the rotation CA×5 at 3 is the same locus and is not re-reported
+            // (MISA leftmost match / pytrf run start; independent brute-force maximal-run reference agrees).
+            Assert.That(results, Has.Count.EqualTo(1));
             Assert.That(results[0].RepeatUnit, Is.EqualTo("AC"));
             Assert.That(results[0].RepeatCount, Is.EqualTo(5));
             Assert.That(results[0].Position, Is.EqualTo(2));
             Assert.That(results[0].TotalLength, Is.EqualTo(10));
             Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Dinucleotide));
-            Assert.That(results[1].RepeatUnit, Is.EqualTo("CA"));
-            Assert.That(results[1].RepeatCount, Is.EqualTo(5));
-            Assert.That(results[1].Position, Is.EqualTo(3));
-            Assert.That(results[1].RepeatType, Is.EqualTo(RepeatType.Dinucleotide));
         });
     }
 
@@ -126,16 +125,15 @@ public class RepeatFinder_Microsatellite_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(results, Has.Count.EqualTo(2));
+            // The period-3 run is S[2..18) = G + (CAG)×5 (16 bp, starts at the G because S[2] = S[5]);
+            // reported once at its left end as GCA×5 (MISA / pytrf report the run-start phase). The
+            // rotation CAG×5 at 3 is the same locus and is not re-reported.
+            Assert.That(results, Has.Count.EqualTo(1));
             Assert.That(results[0].RepeatUnit, Is.EqualTo("GCA"));
             Assert.That(results[0].RepeatCount, Is.EqualTo(5));
             Assert.That(results[0].Position, Is.EqualTo(2));
             Assert.That(results[0].TotalLength, Is.EqualTo(15));
-            Assert.That(results[1].RepeatUnit, Is.EqualTo("CAG"));
-            Assert.That(results[1].RepeatCount, Is.EqualTo(5));
-            Assert.That(results[1].Position, Is.EqualTo(3));
-            Assert.That(results[1].TotalLength, Is.EqualTo(15));
-            Assert.That(results[1].RepeatType, Is.EqualTo(RepeatType.Trinucleotide));
+            Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Trinucleotide));
         });
     }
 
@@ -153,16 +151,14 @@ public class RepeatFinder_Microsatellite_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(results, Has.Count.EqualTo(2));
+            // Period-4 run S[1..18) = A(GATA)×4 (17 bp, S[0]=A ≠ S[4]=T) → AGAT×4 at 1 (⌊17/4⌋ = 4),
+            // reported once; the GATA×4 rotation at 2 is the same locus.
+            Assert.That(results, Has.Count.EqualTo(1));
             Assert.That(results[0].RepeatUnit, Is.EqualTo("AGAT"));
             Assert.That(results[0].RepeatCount, Is.EqualTo(4));
             Assert.That(results[0].Position, Is.EqualTo(1));
             Assert.That(results[0].TotalLength, Is.EqualTo(16));
             Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Tetranucleotide));
-            Assert.That(results[1].RepeatUnit, Is.EqualTo("GATA"));
-            Assert.That(results[1].RepeatCount, Is.EqualTo(4));
-            Assert.That(results[1].Position, Is.EqualTo(2));
-            Assert.That(results[1].RepeatType, Is.EqualTo(RepeatType.Tetranucleotide));
         });
     }
 
@@ -489,30 +485,68 @@ public class RepeatFinder_Microsatellite_Tests
     }
 
     /// <summary>
-    /// S05: Non-standard characters (N) — DnaSequence rejects N (only ACGT valid),
-    /// but string overload processes raw characters without DNA alphabet validation.
+    /// S05: Non-standard characters (N) — DnaSequence rejects N (only ACGT valid); the string overload
+    /// accepts N but never reports a unit containing a non-ACGT symbol: MISA searches <c>[acgt]{p}</c> motifs
+    /// only and pytrf skips N, so a run of N (assembly gap) is not a microsatellite.
     /// </summary>
     [Test]
-    public void FindMicrosatellites_NonStandardCharacterN_DnaSequenceRejectsStringOverloadAccepts()
+    public void FindMicrosatellites_NonStandardCharacterN_DnaSequenceRejectsStringOverloadSkipsN()
     {
         // DnaSequence constructor rejects N
         Assert.Throws<ArgumentException>(() => new DnaSequence("AAANNNAAACGT"));
 
-        // String overload processes N as a regular character — finds repeats of A and N
         var results = RepeatFinder.FindMicrosatellites("AAANNNAAACGT", 1, 6, 3).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(results, Has.Count.EqualTo(3));
+            Assert.That(results, Has.Count.EqualTo(2));
             Assert.That(results[0].RepeatUnit, Is.EqualTo("A"));
             Assert.That(results[0].RepeatCount, Is.EqualTo(3));
             Assert.That(results[0].Position, Is.EqualTo(0));
-            Assert.That(results[1].RepeatUnit, Is.EqualTo("N"));
+            Assert.That(results[1].RepeatUnit, Is.EqualTo("A"));
             Assert.That(results[1].RepeatCount, Is.EqualTo(3));
-            Assert.That(results[1].Position, Is.EqualTo(3));
-            Assert.That(results[2].RepeatUnit, Is.EqualTo("A"));
-            Assert.That(results[2].RepeatCount, Is.EqualTo(3));
-            Assert.That(results[2].Position, Is.EqualTo(6));
+            Assert.That(results[1].Position, Is.EqualTo(6));
+            Assert.That(RepeatFinder.FindMicrosatellites("NNNNNNNN", 1, 6, 3), Is.Empty);
+            Assert.That(RepeatFinder.FindMicrosatellites("ANANANAN", 1, 6, 3), Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// Maximal-run semantics (each locus reported once per unit length). Expected values produced by an
+    /// independent brute-force maximal-repetition reference (Kolpakov &amp; Kucherov 1999) and agreeing with
+    /// MISA (leftmost regex <c>([ACGT]{p})\2{k-1,}</c>) and pytrf 1.5.0 <c>STRFinder</c> run-start output.
+    /// </summary>
+    [TestCase("ATATATA", 2, 2, 3, "0,AT,3")]              // partial trailing A is not a copy; TA×3 rotation at 1 not re-reported
+    [TestCase("ATATATAT", 2, 2, 2, "0,AT,4")]             // TA×3 at 1 is a suffix of the same run
+    [TestCase("CAGCAGCAGCAGCAGCAGCAGCAGCAGCAGCA", 3, 3, 3, "0,CAG,10")]
+    [TestCase("AAAAAACACACAC", 1, 2, 3, "0,A,6;5,AC,4")]  // AC run starts at 5 (S[4]=A ≠ S[6]=C)
+    [TestCase("ACACACGCGCGC", 2, 2, 3, "0,AC,3;5,CG,3")]  // two distinct period-2 runs overlapping by 1 base
+    [TestCase("AAGATAGATAGATAGATAAA", 1, 6, 3, "17,A,3;1,AGAT,4")]
+    public void FindMicrosatellites_MaximalRuns_EachLocusReportedOnce(
+        string sequence, int minUnit, int maxUnit, int minRepeats, string expected)
+    {
+        var results = RepeatFinder.FindMicrosatellites(sequence, minUnit, maxUnit, minRepeats)
+            .Select(r => $"{r.Position},{r.RepeatUnit},{r.RepeatCount}");
+
+        Assert.That(string.Join(";", results), Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    /// The cancellable DnaSequence overload validates parameters like the others (minUnitLength = 0
+    /// previously reached the scan with an empty unit, which never terminates).
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_CancellableDnaOverload_InvalidParameters_Throw()
+    {
+        var dna = new DnaSequence("ACACAC");
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                RepeatFinder.FindMicrosatellites(dna, 0, 6, 3, CancellationToken.None).ToList());
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                RepeatFinder.FindMicrosatellites(dna, 3, 2, 3, CancellationToken.None).ToList());
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                RepeatFinder.FindMicrosatellites(dna, 1, 6, 1, CancellationToken.None).ToList());
         });
     }
 

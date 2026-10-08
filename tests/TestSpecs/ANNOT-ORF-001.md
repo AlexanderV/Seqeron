@@ -4,7 +4,7 @@
 **Area:** Annotation
 **Algorithm:** ORF Detection
 **Status:** Complete
-**Last Updated:** 2026-01-24
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -114,6 +114,10 @@
 | FindOrfs_VeryShortSequence_ReturnsEmpty | Edge | ✅ Strong |
 | FindOrfs_OnlyStartCodon_ReturnsEmpty | Edge | ✅ Strong |
 | FindOrfs_NullSequence_ReturnsEmpty | Edge | ✅ Strong |
+| FindOrfs_AlternativeStartCodon_TranslatedAsInitiatorMethionine (GTG, TTG, gtg) | M05b | ✅ Strong (exact "MKKK*"; EMBOSS getorf -methionine, Biopython cds=True) |
+| FindOrfs_RosalindDataset_ExactSixFrameSetMatchesBiopythonReference | M12b | ✅ Strong (exact 7-ORF set with coordinates, Biopython reference) |
+| FindOrfs_NoStartRequired_ReportsLeadingAndTrailingStopToStopRegions | M18 | ✅ Strong (EMBOSS getorf -find 0) |
+| FindOrfs_NoStartRequired_OneRegionPerStopDelimitedSegment | M19 | ✅ Strong (EMBOSS getorf -find 0; no duplicate sub-ORFs) |
 
 ### TranslatorTests.cs (Wrapper — 3 Smoke Tests)
 | Test | Status |
@@ -151,4 +155,7 @@ None. All behaviors are verified against external sources.
 | Item | Status | Evidence |
 |------|--------|----------|
 | N character handling | Resolved | NCBI C++ Toolkit `orf.cpp`: codons containing N do not match start/stop patterns. Our implementation matches this behavior — `.ToUpperInvariant()` + set lookup naturally excludes N-containing codons. |
+| Initiator translation | Resolved (2026-09) | Start-to-stop ORFs render the initiating codon as M (EMBOSS getorf `-methionine` default Y; Biopython `translate(cds=True)`). GTG/TTG ORFs previously began with V/L. |
+| requireStartCodon = false | Resolved (2026-09) | Stop-to-stop regions per EMBOSS getorf `-find 0` (linear): leading and trailing segments reported, one region per segment, zero-sense-codon segments skipped. |
+| Stop recognition / translation | Resolved (2026-09) | Uses canonical `GeneticCode.Standard.IsStopCodon` and `Translator.Translate`; local stop table removed. Start set ATG/GTG/TTG = Prodigal `is_start()` for table 11. |
 | ORF without stop codon | Resolved | Rosalind, NCBI ORF Finder, orfipy: standard ORF detection requires a stop codon. Our implementation returns empty when no stop codon is found (with `requireStartCodon=true`). |

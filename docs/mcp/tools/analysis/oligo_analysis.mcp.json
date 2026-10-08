@@ -1,0 +1,737 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "oligo_analysis",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.DiscoverMotifs",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.OligoAnalysis.cs#L58",
+  "description": "RSAT `oligo-analysis` (van Helden et al. 1998) over-representation of the length-k words of one DNA sequence (the RSAT overload of `MotifFinder.DiscoverMotifs`): for every word (or reverse-complement pair with `strands` = `both`, RSAT `-2str`) with occ ≥ `minCount`, the expected frequency under the background model, exp_occ, the ratio occ/exp_occ and the binomial right-tail significance occ_P = P(X ≥ occ), X ~ Bin(N−k+1, exp_freq), occ_E = occ_P × tested patterns, occ_sig = −log10 occ_E. Backgrounds: `equiprobable` (`-bg equi`), `input` (Bernoulli from input, RSAT default), `bernoulli` (given A,C,G,T), `markov` (order m from input, `-markov m`), `markov_table` (RSAT `-bgfile` oligo frequencies with pseudo-frequency). `countOverlapping` = false is RSAT `-noov`. Reproduces the RSAT perl code (≤ 1e-12). Values beyond the double range (`ratio`, `possibleOligos` for very long k) are returned as null. RSAT options (routed to `MotifFinder.AnalyzeOligos`): `extraSequences` (multi-sequence input), `zscore` (RSAT `-return zscore`: exp_var = n·p·(2·ovlp − 1 − (2k+1)·p), or exp_occ with `-noov`; ovlp = Pevzner overlap coefficient), `expectedFrequencyPseudo` (RSAT `-pseudo`: exp_freq ← (1 − ψ)·exp_freq + ψ/NPO per strand), `degenerate` (`oneN` / `onedeg`: one IUPAC position, occ and exp_freq summed over matching words), background `lexicon` (RSAT `-lexicon` segmentation frequencies), `calibrationTable` + `calibrationMode` (RSAT `-calibN` / `-calib1`: P(occ ≤ X ≤ n) under a negative binomial when mean < variance, else Poisson). Patterns without a valid expected frequency (RSAT \"NA\") are omitted in this mode. `sequenceType` (RSAT `-seqtype`, routed to `MotifFinder.AnalyzeOligoStrings`): `protein` (20 amino acids; windows with other residues such as X or * are discarded and n counts only the remaining windows; NPO = 20^k) or `other` (any text; alphabet = the distinct residues of the input, NPO = |A|^k); white space removed, ASCII case folded; single strand, no degenerate words or calibration; backgrounds input / equiprobable / markov / lexicon.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "Oligonucleotide length (>= 1, default 6)",
+        "minimum": 1,
+        "default": 6
+      },
+      "minCount": {
+        "type": "integer",
+        "description": "Occurrence threshold (RSAT -lth occ, default 2)",
+        "default": 2
+      },
+      "background": {
+        "type": "string",
+        "description": "Background model: 'input' (Bernoulli from input, default), 'equiprobable', 'bernoulli' (needs residueFrequencies), 'markov' (order markovOrder from input), 'markov_table' (needs oligoFrequencies), 'lexicon' (RSAT -lexicon, k >= 2)",
+        "enum": [
+          "input",
+          "equiprobable",
+          "bernoulli",
+          "markov",
+          "markov_table",
+          "lexicon"
+        ],
+        "default": "input"
+      },
+      "markovOrder": {
+        "type": "integer",
+        "description": "Markov order for background 'markov' (>= 0; <= k-2 when > 0; default 1)",
+        "minimum": 0,
+        "default": 1
+      },
+      "residueFrequencies": {
+        "type": "array",
+        "description": "Residue probabilities A,C,G,T for background 'bernoulli'",
+        "items": {
+          "type": "number"
+        },
+        "minItems": 4,
+        "maxItems": 4
+      },
+      "oligoFrequencies": {
+        "type": "object",
+        "description": "(m+1)-mer -> frequency table for background 'markov_table' (RSAT -bgfile oligos format)",
+        "additionalProperties": {
+          "type": "number"
+        }
+      },
+      "pseudoFrequency": {
+        "type": "number",
+        "description": "Pseudo-frequency in [0,1] for background 'markov_table' (default 0.01)",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.01
+      },
+      "strandInsensitive": {
+        "type": "boolean",
+        "description": "The 'markov_table' frequencies are strand-insensitive pair frequencies (default false)",
+        "default": false
+      },
+      "strands": {
+        "type": "string",
+        "description": "'single' (-1str, default) or 'both' (-2str)",
+        "enum": [
+          "single",
+          "both"
+        ],
+        "default": "single"
+      },
+      "countOverlapping": {
+        "type": "boolean",
+        "description": "Count overlapping occurrences (default true); false = -noov",
+        "default": true
+      },
+      "extraSequences": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Additional DNA sequences analysed together with 'sequence' (RSAT multi-sequence input)"
+      },
+      "zscore": {
+        "type": "boolean",
+        "default": false,
+        "description": "Also report expectedVariance, overlapCoefficient and zScore (RSAT -return zscore; default false)"
+      },
+      "expectedFrequencyPseudo": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0,
+        "description": "RSAT -pseudo: pseudo-frequency psi in [0,1] on the expected frequencies (default 0 = off)"
+      },
+      "degenerate": {
+        "type": "string",
+        "enum": [
+          "none",
+          "oneN",
+          "onedeg"
+        ],
+        "default": "none",
+        "description": "'none' (default), 'oneN' (RSAT -oneN) or 'onedeg' (RSAT -onedeg: one of R Y W S M K H B V D N per word)"
+      },
+      "calibrationTable": {
+        "type": "string",
+        "description": "RSAT calibration file text (-calibN / -calib1; word [id] mean sd variance ...)"
+      },
+      "calibrationMode": {
+        "type": "string",
+        "enum": [
+          "set",
+          "sequence"
+        ],
+        "default": "set",
+        "description": "'set' (-calibN, default) or 'sequence' (-calib1: mean and variance × number of sequences)"
+      },
+      "sequenceType": {
+        "type": "string",
+        "enum": [
+          "dna",
+          "protein",
+          "other"
+        ],
+        "default": "dna",
+        "description": "RSAT -seqtype: 'dna' (default), 'protein' (20-amino-acid alphabet) or 'other' (any text; alphabet = observed residues). Protein / other: single strand, no degenerate words or calibration, background input / equiprobable / markov / lexicon"
+      }
+    },
+    "required": [
+      "sequence"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "motifs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sequence": {
+              "type": "string"
+            },
+            "reverseComplement": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "count": {
+              "type": "integer"
+            },
+            "positions": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "expectedFrequency": {
+              "type": "number"
+            },
+            "expectedOccurrences": {
+              "type": "number"
+            },
+            "ratio": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "occurrenceProbability": {
+              "type": "number"
+            },
+            "occurrenceEValue": {
+              "type": "number"
+            },
+            "occurrenceSignificance": {
+              "type": "number"
+            },
+            "sequenceIndices": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "integer"
+              }
+            },
+            "overlaps": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "observedFrequency": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "expectedVariance": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "overlapCoefficient": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "zScore": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "fittedDistribution": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "Binomial",
+                "Poisson",
+                "NegativeBinomial",
+                null
+              ]
+            },
+            "lexiconSegmentation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "sequence",
+            "count",
+            "positions",
+            "expectedFrequency",
+            "expectedOccurrences",
+            "occurrenceProbability",
+            "occurrenceEValue",
+            "occurrenceSignificance"
+          ]
+        }
+      },
+      "oligoLength": {
+        "type": "integer"
+      },
+      "strands": {
+        "type": "string"
+      },
+      "countOverlapping": {
+        "type": "boolean"
+      },
+      "totalOccurrences": {
+        "type": "integer"
+      },
+      "testedPatterns": {
+        "type": "integer"
+      },
+      "possibleOligos": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "sequenceCount": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "degenerate": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "sequenceType": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "alphabetSize": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "motifs",
+      "oligoLength",
+      "strands",
+      "countOverlapping",
+      "totalOccurrences",
+      "testedPatterns"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence"
+    },
+    {
+      "code": 1002,
+      "message": "k must be >= 1"
+    },
+    {
+      "code": 1003,
+      "message": "Background must be 'input', 'equiprobable', 'bernoulli', 'markov', 'markov_table' or 'lexicon'"
+    },
+    {
+      "code": 1004,
+      "message": "Background 'bernoulli' requires 4 residueFrequencies (A,C,G,T)"
+    },
+    {
+      "code": 1005,
+      "message": "Background 'markov_table' requires oligoFrequencies"
+    },
+    {
+      "code": 1006,
+      "message": "Strands must be 'single' or 'both'"
+    },
+    {
+      "code": 1007,
+      "message": "degenerate must be 'none', 'oneN' or 'onedeg'."
+    },
+    {
+      "code": 1008,
+      "message": "expectedFrequencyPseudo must be in [0, 1]."
+    },
+    {
+      "code": 1009,
+      "message": "calibrationMode must be 'set' or 'sequence'."
+    },
+    {
+      "code": 1009,
+      "message": "Calibration line N: expected <pattern> [id] <mean> <sd> <variance>"
+    },
+    {
+      "code": 1010,
+      "message": "sequenceType must be 'dna', 'protein' or 'other'."
+    },
+    {
+      "code": 1010,
+      "message": "sequenceType 'protein'/'other': single strand, background input/equiprobable/markov/lexicon, no degenerate words or calibration table"
+    }
+  ],
+  "examples": [
+    {
+      "name": "RSAT -l 4 -1str -bg equi -lth occ 5",
+      "input": {
+        "sequence": "ATGCATGCATGCAAATTTGGGCCCATGCTTAGCGGATCCATGCATGCTTTAAACGTACGTAGC",
+        "k": 4,
+        "minCount": 5,
+        "background": "equiprobable"
+      },
+      "output": {
+        "motifs": [
+          {
+            "sequence": "ATGC",
+            "reverseComplement": null,
+            "count": 6,
+            "positions": [
+              0,
+              4,
+              8,
+              24,
+              39,
+              43
+            ],
+            "expectedFrequency": 0.003906250000000001,
+            "expectedOccurrences": 0.23437499999999997,
+            "ratio": 25.6,
+            "occurrenceProbability": 1.4844942103072874e-07,
+            "occurrenceEValue": 2.968988420614575e-07,
+            "occurrenceSignificance": 6.527391496197488
+          },
+          {
+            "sequence": "CATG",
+            "reverseComplement": null,
+            "count": 5,
+            "positions": [
+              3,
+              7,
+              23,
+              38,
+              42
+            ],
+            "expectedFrequency": 0.003906250000000001,
+            "expectedOccurrences": 0.23437499999999997,
+            "ratio": 21.33333333333334,
+            "occurrenceProbability": 4.153655783353449e-06,
+            "occurrenceEValue": 8.307311566706898e-06,
+            "occurrenceSignificance": 5.080539500963187
+          }
+        ],
+        "oligoLength": 4,
+        "strands": "single",
+        "countOverlapping": true,
+        "totalOccurrences": 60,
+        "testedPatterns": 2,
+        "possibleOligos": 256
+      }
+    },
+    {
+      "name": "RSAT -l 4 -2str -lth occ 6",
+      "input": {
+        "sequence": "ATGCATGCATGCAAATTTGGGCCCATGCTTAGCGGATCCATGCATGCTTTAAACGTACGTAGC",
+        "k": 4,
+        "minCount": 6,
+        "strands": "both"
+      },
+      "output": {
+        "motifs": [
+          {
+            "sequence": "ATGC",
+            "reverseComplement": "GCAT",
+            "count": 9,
+            "positions": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              24,
+              39,
+              41,
+              43
+            ],
+            "expectedFrequency": 0.007777109332017005,
+            "expectedOccurrences": 0.4666265599210202,
+            "ratio": 19.287371900826464,
+            "occurrenceProbability": 1.076064733019135e-09,
+            "occurrenceEValue": 1.076064733019135e-09,
+            "occurrenceSignificance": 8.968161601952728
+          }
+        ],
+        "oligoLength": 4,
+        "strands": "both",
+        "countOverlapping": true,
+        "totalOccurrences": 60,
+        "testedPatterns": 1,
+        "possibleOligos": 136
+      }
+    },
+    {
+      "name": "RSAT -l 4 -1str -bg equi -lth occ 5 -return occ,proba,zscore",
+      "input": {
+        "sequence": "ATGCATGCATGCAAATTTGGGCCCATGCTTAGCGGATCCATGCATGCTTTAAACGTACGTAGC",
+        "k": 4,
+        "minCount": 5,
+        "background": "equiprobable",
+        "zscore": true
+      },
+      "output": {
+        "motifs": [
+          {
+            "sequence": "ATGC",
+            "reverseComplement": null,
+            "count": 6,
+            "positions": [
+              0,
+              4,
+              8,
+              24,
+              39,
+              43
+            ],
+            "expectedFrequency": 0.003906250000000001,
+            "expectedOccurrences": 0.23437499999999997,
+            "ratio": 25.6,
+            "occurrenceProbability": 1.4844942103072874e-07,
+            "occurrenceEValue": 2.968988420614575e-07,
+            "occurrenceSignificance": 6.527391496197488,
+            "sequenceIndices": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "overlaps": 0,
+            "observedFrequency": 0.1,
+            "expectedVariance": 0.22613525390625006,
+            "overlapCoefficient": 1,
+            "zScore": 12.124455829017545,
+            "fittedDistribution": "Binomial",
+            "lexiconSegmentation": null
+          },
+          {
+            "sequence": "CATG",
+            "reverseComplement": null,
+            "count": 5,
+            "positions": [
+              3,
+              7,
+              23,
+              38,
+              42
+            ],
+            "expectedFrequency": 0.003906250000000001,
+            "expectedOccurrences": 0.23437499999999997,
+            "ratio": 21.33333333333334,
+            "occurrenceProbability": 4.153655783353449e-06,
+            "occurrenceEValue": 8.307311566706898e-06,
+            "occurrenceSignificance": 5.080539500963187,
+            "sequenceIndices": [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "overlaps": 0,
+            "observedFrequency": 0.08333333333333333,
+            "expectedVariance": 0.22613525390625006,
+            "overlapCoefficient": 1,
+            "zScore": 10.021569181166264,
+            "fittedDistribution": "Binomial",
+            "lexiconSegmentation": null
+          }
+        ],
+        "oligoLength": 4,
+        "strands": "single",
+        "countOverlapping": true,
+        "totalOccurrences": 60,
+        "testedPatterns": 2,
+        "possibleOligos": 256,
+        "sequenceCount": 1,
+        "degenerate": "none"
+      }
+    },
+    {
+      "name": "RSAT -l 3 -1str -calibN (negative binomial)",
+      "input": {
+        "sequence": "ATGCATGCATGCAAATTTGGGCCCATGCTTAGCGGATCCATGCATGCTTTAAACGTACGTAGC",
+        "k": 3,
+        "minCount": 6,
+        "calibrationTable": "; pattern\tavg\tstd\tvar\natg\t0.9\t1.2\t1.44\ntgc\t1.5\t1.1\t1.21\n"
+      },
+      "output": {
+        "motifs": [
+          {
+            "sequence": "ATG",
+            "reverseComplement": null,
+            "count": 6,
+            "positions": [
+              0,
+              4,
+              8,
+              24,
+              39,
+              43
+            ],
+            "expectedFrequency": 0.014754098360655738,
+            "expectedOccurrences": 0.9,
+            "ratio": 6.666666666666666,
+            "occurrenceProbability": 0.006714235225703919,
+            "occurrenceEValue": 0.01342847045140784,
+            "occurrenceSignificance": 1.8719734521372047,
+            "sequenceIndices": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "overlaps": 0,
+            "observedFrequency": 0.09836065573770492,
+            "expectedVariance": 1.44,
+            "overlapCoefficient": null,
+            "zScore": null,
+            "fittedDistribution": "NegativeBinomial",
+            "lexiconSegmentation": null
+          },
+          {
+            "sequence": "TGC",
+            "reverseComplement": null,
+            "count": 6,
+            "positions": [
+              1,
+              5,
+              9,
+              25,
+              40,
+              44
+            ],
+            "expectedFrequency": 0.02459016393442623,
+            "expectedOccurrences": 1.5,
+            "ratio": 4,
+            "occurrenceProbability": 0.004455980775247846,
+            "occurrenceEValue": 0.008911961550495694,
+            "occurrenceSignificance": 2.0500266958736195,
+            "sequenceIndices": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "overlaps": 0,
+            "observedFrequency": 0.09836065573770492,
+            "expectedVariance": 1.21,
+            "overlapCoefficient": null,
+            "zScore": null,
+            "fittedDistribution": "Poisson",
+            "lexiconSegmentation": null
+          }
+        ],
+        "oligoLength": 3,
+        "strands": "single",
+        "countOverlapping": true,
+        "totalOccurrences": 61,
+        "testedPatterns": 2,
+        "possibleOligos": 64,
+        "sequenceCount": 1,
+        "degenerate": "none"
+      }
+    },
+    {
+      "name": "RSAT -seqtype prot -l 2 -lth occ 4 (two protein sequences)",
+      "input": {
+        "sequence": "MKLLVAAGLLKLMKXLLA*",
+        "k": 2,
+        "minCount": 4,
+        "extraSequences": [
+          "mkllvqqKLLAA"
+        ],
+        "sequenceType": "protein"
+      },
+      "output": {
+        "motifs": [
+          {
+            "sequence": "KL",
+            "reverseComplement": null,
+            "count": 4,
+            "positions": [
+              1,
+              10,
+              1,
+              7
+            ],
+            "expectedFrequency": 0.06539833531510107,
+            "expectedOccurrences": 1.700356718192628,
+            "ratio": 2.352447552447552,
+            "occurrenceProbability": 0.08653947270656044,
+            "occurrenceEValue": 0.17307894541312088,
+            "occurrenceSignificance": 0.7617557596638471,
+            "sequenceIndices": [
+              0,
+              0,
+              1,
+              1
+            ],
+            "overlaps": 0,
+            "observedFrequency": 0.15384615384615385,
+            "expectedVariance": null,
+            "overlapCoefficient": null,
+            "zScore": null,
+            "fittedDistribution": "Binomial",
+            "lexiconSegmentation": null
+          },
+          {
+            "sequence": "LL",
+            "reverseComplement": null,
+            "count": 5,
+            "positions": [
+              2,
+              8,
+              15,
+              2,
+              8
+            ],
+            "expectedFrequency": 0.14387633769322233,
+            "expectedOccurrences": 3.740784780023781,
+            "ratio": 1.3366179275270185,
+            "occurrenceProbability": 0.3161933586536668,
+            "occurrenceEValue": 0.6323867173073336,
+            "occurrenceSignificance": 0.19901726059421093,
+            "sequenceIndices": [
+              0,
+              0,
+              0,
+              1,
+              1
+            ],
+            "overlaps": 0,
+            "observedFrequency": 0.19230769230769232,
+            "expectedVariance": null,
+            "overlapCoefficient": null,
+            "zScore": null,
+            "fittedDistribution": "Binomial",
+            "lexiconSegmentation": null
+          }
+        ],
+        "oligoLength": 2,
+        "strands": "single",
+        "countOverlapping": true,
+        "totalOccurrences": 26,
+        "testedPatterns": 2,
+        "possibleOligos": 400,
+        "sequenceCount": 2,
+        "degenerate": "none",
+        "sequenceType": "protein",
+        "alphabetSize": 20
+      }
+    }
+  ]
+}

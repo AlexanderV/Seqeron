@@ -117,12 +117,13 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • NON-DNA content — a non-IUPAC symbol inside a complete codon is malformed
 ///     content: GeneticCode.Translate throws the documented ArgumentException
 ///     (NOT a KeyNotFoundException) and Translator propagates it unchanged; a
-///     valid-but-ambiguous IUPAC codon (e.g. NNN) is instead untranslatable and
-///     maps to 'X' (Translator.cs line 153; GeneticCode.cs lines 65–78;
-///     Codon_Translation.md §3.1).
-/// The produced amino-acid string ('*' and 'X' included) is always a valid
-/// ProteinSequence, so wrapping the result never throws either
-/// (ProteinSequence.cs lines 45–47).
+///     valid-but-ambiguous IUPAC codon is resolved per Biopython (review 2026-09
+///     F1): a single amino acid when all expansions agree (GCN → 'A'), '*' when
+///     all are stops (TAR), B/Z/J for {D,N}/{E,Q}/{I,L}, otherwise 'X' (e.g. NNN)
+///     (GeneticCode.Translate; Codon_Translation.md §3.1).
+/// The produced amino-acid string ('*', 'X' and the IUPAC B/Z/J included — F3) is
+/// always a valid ProteinSequence, so wrapping the result never throws either
+/// (ProteinSequence.ValidCharacters).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// Determinism note: every test uses FIXED, hand-chosen inputs (the genetic-code
@@ -135,8 +136,10 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 [Category("Fuzzing")]
 public class TranslationFuzzTests
 {
-    /// <summary>The four NCBI table numbers this repository supports.</summary>
-    private static readonly int[] SupportedTables = { 1, 2, 3, 11 };
+    /// <summary>The 27 NCBI table numbers this repository supports (= GeneticCode.SupportedTableNumbers).</summary>
+    // NCBI gc.prt Version 4.6 translation tables (TRANS-CODON-001, review 2026-09).
+    private static readonly int[] SupportedTables =
+        { 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33 };
 
     // ═══════════════════════════════════════════════════════════════════
     //  TRANS-CODON-001 — codon table / genetic code : fuzz targets
@@ -280,7 +283,7 @@ public class TranslationFuzzTests
     {
         int[] invalidIds =
         {
-            0, -1, -42, 4, 5, 6, 7, 8, 9, 10, 12, 13, 25, 9999,
+            0, -1, -42, 7, 8, 17, 18, 19, 20, 34, 9999,
             int.MaxValue, int.MinValue,
         };
 
@@ -296,7 +299,7 @@ public class TranslationFuzzTests
     /// <summary>
     /// Fuzz target "invalid table ID" — randomized sweep (MC): a local fixed-seed
     /// Random generates many integers; each one must either be a supported table
-    /// (1/2/3/11, returning a non-null GeneticCode with the matching TableNumber) or
+    /// (an NCBI gc.prt table, returning a non-null GeneticCode with the matching TableNumber) or
     /// throw ArgumentException. No other exception type may ever escape, and no input
     /// may return null — proving the lookup is total over the entire int domain.
     /// </summary>
@@ -628,6 +631,77 @@ public class TranslationFuzzTests
     }
 
     #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  Review 2026-09 (B02 heavy tier) — IUPAC resolution over all 27 NCBI tables
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region Fuzz target: random IUPAC DNA/RNA strings × all 27 tables (F1–F5)
+
+    // Every IUPAC nucleotide code (NC-IUB 1984) in DNA and RNA spelling, both cases.
+    private const string IupacAlphabet = "ACGTURYSWKMBDHVNacgturyswkmbdhvn";
+
+    // NCBI tables whose stop codons all also code for an amino acid (gc.prt v4.6; Biopython
+    // refuses to_stop=True for exactly these) — B02 F4.
+    private static readonly HashSet<int> DualCodingStopTables = new() { 27, 28, 31 };
+
+    /// <summary>
+    /// Fuzz (MC/BE, review 2026-09 F1–F5): any string over the IUPAC nucleotide alphabet (DNA or
+    /// RNA spelling, any case) translates in every one of the 27 NCBI tables and every frame
+    /// WITHOUT throwing when <c>toFirstStop</c> is false — ambiguous codons resolve per Biopython
+    /// (single AA, B/Z/J, '*' or 'X') and every such residue is a valid <see cref="ProteinSequence"/>
+    /// symbol; the protein has floor((len − frame)/3) residues. With <c>toFirstStop</c> the call
+    /// throws <see cref="ArgumentException"/> if and only if the table is 27, 28 or 31
+    /// (Biopython 1.88 <c>_translate_str</c>: "You cannot use 'to_stop=True' with this table"),
+    /// otherwise it returns a stop-free prefix of the full translation.
+    /// </summary>
+    [Test]
+    [CancelAfter(60_000)]
+    public void Translate_RandomIupacStrings_AllTables_NeverThrow_ToFirstStopThrowsOnlyForDualCodingTables(
+        CancellationToken token)
+    {
+        var rng = new Random(20260928);
+        foreach (int table in SupportedTables)
+        {
+            var code = GeneticCode.GetByTableNumber(table);
+            for (int iteration = 0; iteration < 60; iteration++)
+            {
+                token.ThrowIfCancellationRequested();
+                int length = rng.Next(0, 61);
+                var chars = new char[length];
+                for (int i = 0; i < length; i++)
+                    chars[i] = IupacAlphabet[rng.Next(IupacAlphabet.Length)];
+                string seq = new(chars);
+                int frame = rng.Next(0, 3);
+
+                ProteinSequence full = null!;
+                Action translate = () => full = Translator.Translate(seq, code, frame);
+                translate.Should().NotThrow("IUPAC input \"{0}\" (table {1}, frame {2}) is valid content", seq, table, frame);
+                full.Length.Should().Be(Math.Max(0, length - frame) / 3,
+                    "one residue per complete codon (\"{0}\", frame {1})", seq, frame);
+                full.Sequence.All(ProteinSequence.ValidCharacters.Contains).Should().BeTrue(
+                    "every resolved residue is a ProteinSequence symbol (\"{0}\" → \"{1}\")", seq, full.Sequence);
+
+                Action toStop = () => Translator.Translate(seq, code, frame, toFirstStop: true);
+                if (DualCodingStopTables.Contains(table))
+                {
+                    toStop.Should().Throw<ArgumentException>(
+                        "table {0} has dual-coding stops, so to-first-stop is undefined (Biopython)", table);
+                }
+                else
+                {
+                    string truncated = Translator.Translate(seq, code, frame, toFirstStop: true).Sequence;
+                    truncated.Should().NotContain("*");
+                    full.Sequence.Should().StartWith(truncated,
+                        "to-first-stop is the prefix of the full translation before the first '*'");
+                    int firstStop = full.Sequence.IndexOf('*');
+                    truncated.Length.Should().Be(firstStop < 0 ? full.Length : firstStop);
+                }
+            }
+        }
+    }
 
     #endregion
 }

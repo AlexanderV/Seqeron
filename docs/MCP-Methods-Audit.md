@@ -93,9 +93,9 @@
 | 86 | ISequence.cs | PhredToErrorProbability | 484 |
 | 87 | ISequence.cs | ErrorProbabilityToPhred | 490 |
 | 88 | IupacHelper.cs | MatchesIupac | 14 |
-| 89 | KmerAnalyzer.cs | KmerDistance | 165 |
-| 90 | KmerAnalyzer.cs | CalculateKmerEntropy | 243 |
-| 91 | KmerAnalyzer.cs | AnalyzeKmers | 363 |
+| 89 | KmerAnalyzer.cs | KmerDistance | 652 |
+| 90 | KmerAnalyzer.cs | CalculateKmerEntropy | 1714 |
+| 91 | KmerAnalyzer.cs | AnalyzeKmers | 2060 |
 | 92 | MetagenomicsAnalyzer.cs | GenerateTaxonomicProfile | 229 |
 | 93 | MetagenomicsAnalyzer.cs | CalculateAlphaDiversity | 288 |
 | 94 | MetagenomicsAnalyzer.cs | CalculateBetaDiversity | 353 |
@@ -162,7 +162,7 @@
 | 155 | QualityScoreAnalyzer.cs | CalculateExpectedErrors | 402 |
 | 156 | QualityScoreAnalyzer.cs | MaskLowQualityBases | 413 |
 | 157 | QualityScoreAnalyzer.cs | CalculateConsensusQuality | 569 |
-| 158 | RepeatFinder.cs | GetTandemRepeatSummary | 358 |
+| 158 | RepeatFinder.cs | GetTandemRepeatSummary | 4864 |
 | 159 | ReportGenerator.cs | CreateBuilder | 77 |
 | 160 | ReportGenerator.cs | Generate | 174 |
 | 161 | ReportGenerator.cs | SaveToFile | 190 |
@@ -198,16 +198,16 @@
 | 191 | SequenceAssembler.cs | CalculateStats | 388 |
 | 192 | SequenceAssembler.cs | MergeContigs | 423 |
 | 193 | SequenceAssembler.cs | ComputeConsensus | 534 |
-| 194 | SequenceComplexity.cs | CalculateLinguisticComplexity (DnaSequence) | 22 |
-| 195 | SequenceComplexity.cs | CalculateLinguisticComplexity (string) | 33 |
-| 196 | SequenceComplexity.cs | CalculateShannonEntropy (DnaSequence) | 78 |
-| 197 | SequenceComplexity.cs | CalculateShannonEntropy (string) | 87 |
-| 198 | SequenceComplexity.cs | CalculateKmerEntropy | 128 |
-| 199 | SequenceComplexity.cs | CalculateDustScore (DnaSequence) | 296 |
-| 200 | SequenceComplexity.cs | CalculateDustScore (string) | 305 |
-| 201 | SequenceComplexity.cs | MaskLowComplexity | 346 |
-| 202 | SequenceComplexity.cs | EstimateCompressionRatio (DnaSequence) | 391 |
-| 203 | SequenceComplexity.cs | EstimateCompressionRatio (string) | 400 |
+| 194 | SequenceComplexity.cs | CalculateLinguisticComplexity (DnaSequence) | 29 |
+| 195 | SequenceComplexity.cs | CalculateLinguisticComplexity (string) | 105 |
+| 196 | SequenceComplexity.cs | CalculateShannonEntropy (DnaSequence) | 183 |
+| 197 | SequenceComplexity.cs | CalculateShannonEntropy (string) | 198 |
+| 198 | SequenceComplexity.cs | CalculateKmerEntropy | 267 |
+| 199 | SequenceComplexity.cs | CalculateDustScore (DnaSequence) | 698 |
+| 200 | SequenceComplexity.cs | CalculateDustScore (string) | 723 |
+| 201 | SequenceComplexity.cs | MaskLowComplexity | 826 |
+| 202 | SequenceComplexity.cs | EstimateCompressionRatio (DnaSequence) | 1621 |
+| 203 | SequenceComplexity.cs | EstimateCompressionRatio (string) | 1631 |
 | 204 | SequenceExtensions.cs | CalculateGcContent | 21 |
 | 205 | SequenceExtensions.cs | CalculateGcContentFast | 41 |
 | 206 | SequenceExtensions.cs | CalculateGcFraction | 50 |

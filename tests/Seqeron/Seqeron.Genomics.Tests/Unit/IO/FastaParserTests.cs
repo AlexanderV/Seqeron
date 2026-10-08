@@ -635,4 +635,165 @@ public class FastaParserTests
     }
 
     #endregion
+
+    #region Review 2026-09 — sourced fixes (Biopython 1.88 / fasta36 cross-checks)
+
+    /// <summary>
+    /// lineWidth = 0 previously looped forever (step 0). Biopython 1.88 <c>FastaWriter(wrap=0)</c>
+    /// ("Use zero (or None) for no line wrapping") writes the whole sequence on one line:
+    /// SeqRecord("ACGTACGTAC", id="s1", description="demo") → ">s1 demo\nACGTACGTAC\n".
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void ToFasta_LineWidthZero_WritesUnwrappedSequence()
+    {
+        var entries = new[] { new FastaEntry("s1", "demo", new DnaSequence("ACGTACGTAC")) };
+
+        Assert.That(FastaParser.ToFasta(entries, lineWidth: 0), Is.EqualTo(">s1 demo\nACGTACGTAC\n"));
+    }
+
+    /// <summary>
+    /// Negative widths are invalid (Biopython FastaWriter raises ValueError for wrap=-1);
+    /// previously <c>AsSpan</c> threw an unrelated ArgumentOutOfRange from inside the loop.
+    /// </summary>
+    [Test]
+    public void ToFasta_NegativeLineWidth_ThrowsArgumentOutOfRange()
+    {
+        var entries = new[] { new FastaEntry("s1", null, new DnaSequence("ACGT")) };
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => FastaParser.ToFasta(entries, lineWidth: -1));
+        Assert.That(ex!.ParamName, Is.EqualTo("lineWidth"));
+    }
+
+    /// <summary>
+    /// ';' lines are comments in the original Pearson FASTA format (fasta36 src/nmgetlib.c agetlib:
+    /// <c>if (*seqb==';') ... continue;</c>). Biopython 1.88 SeqIO "fasta-pearson" on
+    /// ">s1 desc\n;comment line\nACGT\n;another\nGGCC\n>s2\n;c\nTTAA\n" →
+    /// [("s1","ACGTGGCC"), ("s2","TTAA")]. Previously the default parser threw on ';'.
+    /// </summary>
+    [Test]
+    public void Parse_SemicolonCommentLines_AreIgnored()
+    {
+        const string fasta = ">s1 desc\n;comment line\nACGT\n;another\nGGCC\n>s2\n;c\nTTAA\n";
+
+        var entries = FastaParser.Parse(fasta).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(entries.Select(e => e.Id), Is.EqualTo(new[] { "s1", "s2" }));
+            Assert.That(entries[0].Description, Is.EqualTo("desc"));
+            Assert.That(entries[0].Sequence.Sequence, Is.EqualTo("ACGTGGCC"));
+            Assert.That(entries[1].Sequence.Sequence, Is.EqualTo("TTAA"));
+        });
+    }
+
+    /// <summary>
+    /// Leading ';' comments before the first record (Biopython "fasta-pearson":
+    /// ";leading comment\n;more\n>s1 d\nAC\n" → [("s1", "s1 d", "AC")]).
+    /// </summary>
+    [Test]
+    public void Parse_LeadingSemicolonComments_AreIgnored()
+    {
+        var entries = FastaParser.Parse(";leading comment\n;more\n>s1 d\nAC\n").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(entries, Has.Count.EqualTo(1));
+            Assert.That(entries[0].Id, Is.EqualTo("s1"));
+            Assert.That(entries[0].Description, Is.EqualTo("d"));
+            Assert.That(entries[0].Sequence.Sequence, Is.EqualTo("AC"));
+        });
+    }
+
+    /// <summary>
+    /// Comment handling is shared by the alphabet overloads and the async file path (single
+    /// state machine). CRLF variant; Biopython "fasta-pearson" → [("s1","ACGTGGCC"), ("s2","TTAA")].
+    /// </summary>
+    [Test]
+    public async System.Threading.Tasks.Task ParseFileAsync_And_AlphabetOverload_IgnoreCommentLines()
+    {
+        const string fasta = ">s1 desc\r\n;comment line\r\nACGT\r\n;another\r\nGGCC\r\n>s2\r\n;c\r\nTTAA\r\n";
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            await File.WriteAllTextAsync(tempFile, fasta);
+
+            var asyncEntries = new System.Collections.Generic.List<FastaEntry>();
+            await foreach (var e in FastaParser.ParseFileAsync(tempFile))
+                asyncEntries.Add(e);
+            var asyncRecords = new System.Collections.Generic.List<FastaRecord>();
+            await foreach (var r in FastaParser.ParseFileAsync(tempFile, SequenceAlphabet.IupacNucleotide))
+                asyncRecords.Add(r);
+            var typed = FastaParser.Parse(fasta, SequenceAlphabet.StrictDna).ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(asyncEntries.Select(e => e.Sequence.Sequence), Is.EqualTo(new[] { "ACGTGGCC", "TTAA" }));
+                Assert.That(asyncRecords.Select(r => r.Sequence), Is.EqualTo(new[] { "ACGTGGCC", "TTAA" }));
+                Assert.That(typed.Select(r => r.Sequence), Is.EqualTo(new[] { "ACGTGGCC", "TTAA" }));
+            });
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    /// <summary>
+    /// id = first whitespace-delimited word for ANY whitespace (Biopython <c>title.split(None, 1)[0]</c>):
+    /// ">s1\u000Bdesc" → id "s1"; ">s1\u00A0desc x" → id "s1". Previously only ' '/'\t' split.
+    /// </summary>
+    [TestCase("s1\u000Bdesc", "desc")]
+    [TestCase("s1\u00A0desc x", "desc x")]
+    public void Parse_HeaderSplitOnAnyWhitespace_MatchesBiopythonId(string title, string expectedDescription)
+    {
+        var entry = FastaParser.Parse(">" + title + "\nAC\n").Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(entry.Id, Is.EqualTo("s1"));
+            Assert.That(entry.Description, Is.EqualTo(expectedDescription));
+        });
+    }
+
+    /// <summary>
+    /// Serialization of alphabet-typed records (previously "not implemented"). Layout matches
+    /// Biopython 1.88 FastaWriter(wrap=4) on ">p1 prot\nmwyx\nBZJUO*\n" →
+    /// ">p1 prot\nmwyx\nBZJU\nO*\n" (Seqeron additionally uppercases on parse, per NCBI/Wikipedia).
+    /// </summary>
+    [Test]
+    public void ToFasta_FastaRecords_Protein_WrapsLikeBiopython()
+    {
+        var records = FastaParser.Parse(">p1 prot\nmwyx\nBZJUO*\n", SequenceAlphabet.Protein).ToList();
+
+        string fasta = FastaParser.ToFasta(records, lineWidth: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fasta, Is.EqualTo(">p1 prot\nMWYX\nBZJU\nO*\n"));
+            var reparsed = FastaParser.Parse(fasta, SequenceAlphabet.Protein).Single();
+            Assert.That(reparsed.Sequence, Is.EqualTo("MWYXBZJUO*"));
+            Assert.That(reparsed.Header, Is.EqualTo("p1 prot"));
+        });
+    }
+
+    /// <summary>WriteFile overload for FastaRecord writes exactly ToFasta output.</summary>
+    [Test]
+    public void WriteFile_FastaRecords_WritesToFastaOutput()
+    {
+        var records = new[] { new FastaRecord("r1", "rna", "AUGCAUGC", SequenceAlphabet.Rna) };
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            FastaParser.WriteFile(tempFile, records, lineWidth: 0);
+
+            Assert.That(File.ReadAllText(tempFile), Is.EqualTo(">r1 rna\nAUGCAUGC\n"));
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    #endregion
 }

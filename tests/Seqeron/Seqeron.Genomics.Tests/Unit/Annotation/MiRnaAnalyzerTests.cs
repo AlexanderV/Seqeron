@@ -82,13 +82,14 @@ public class MiRnaAnalyzerTests
     }
 
     [Test]
-    public void AnalyzeTargetContext_MiddlePosition_BonusScore()
+    public void AnalyzeTargetContext_EndPosition_ScoresAboveMiddle()
     {
+        // Grimson et al. (2007): sites away from the centre of the UTR are more effective.
         string mrna = new string('A', 100);
         var contextMiddle = AnalyzeTargetContext(mrna, 40, 50);
         var contextEnd = AnalyzeTargetContext(mrna, 90, 95);
 
-        Assert.That(contextMiddle.ContextScore, Is.GreaterThanOrEqualTo(contextEnd.ContextScore));
+        Assert.That(contextEnd.ContextScore, Is.GreaterThan(contextMiddle.ContextScore));
     }
 
     [Test]
@@ -107,7 +108,7 @@ public class MiRnaAnalyzerTests
         string mrna = "ACGUACGUACGUACGUACGUACGU";
         double access = CalculateSiteAccessibility(mrna, 8, 16);
 
-        Assert.That(access, Is.GreaterThanOrEqualTo(0));
+        Assert.That(access, Is.InRange(0.0, 1.0));
     }
 
     [Test]

@@ -64,6 +64,19 @@
 2. **Update step (verbatim):** "Recalculate means (centroids) for observations assigned to each cluster."
 3. **Objective (verbatim):** minimize the within-cluster sum of squares (WCSS), Σ_{i=1..k} Σ_{x∈S_i} ‖x − μ_i‖².
 
+### Ckmeans.1d.dp — optimal 1-D k-means by dynamic programming (Wang & Song 2011, *The R Journal* 3(2):29–33)
+
+**URL:** https://raw.githubusercontent.com/cran/Ckmeans.1d.dp/master/ (v4.3.6: `R/Ckmeans.1d.dp.R`, `src/Ckmeans.1d.dp.cpp`, `src/EWL2_dynamic_prog.cpp`, `src/EWL2_fill_log_linear.cpp`, `src/EWL2_within_cluster.h`, `src/dynamic_prog.cpp`, `src/precision.h`); paper via WebSearch snippets (journal.r-project.org RJ-2011-015)
+**Accessed:** 2026-09-28 (B24 review)
+**Authority rank:** 1 (peer-reviewed) + 3 (reference implementation)
+
+**Key Extracted Points:**
+
+1. "The heuristic k-means algorithm … does not guarantee optimality"; a dynamic program finds the optimal 1-D k-means partition (minimum WCSS).
+2. `cluster.1d.dp` / `kmeans_1d_dp`: Kmax is reduced to the number of unique input values (no empty clusters).
+3. EWL2 fill: median-shifted prefix sums; `ssq(j,i)` = Σx² − n·μ² (clamped at 0); row fill by divide and conquer over monotone J; `backtrack` centre = block mean. `ldouble` = `double`.
+4. Numerical reference: Python `ckwrap` 1.2.3 (wraps the same C++; R CRAN mirror unreachable in the sandbox).
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -107,12 +120,20 @@
 |------------|---|--------------------|--------------------|----------------|
 | {1.0, 0.98, 0.96, 0.50, 0.48, 0.52} | 2 | {0.50, 0.98} | low: indices 3,4,5; high: 0,1,2 | high (centroid 0.98) |
 
+### Dataset: Ckmeans.1d.dp reference optima (ckwrap 1.2.3) — B24 review 2026-09 (F17)
+
+| CCF values | k | Ckmeans.1d.dp centers | labels | WCSS | former Lloyd (quantile seed) |
+|------------|---|------------------------|--------|------|------------------------------|
+| {1.0, 0.98, 0.96, 0.55, 0.50, 0.20} | 3 | {0.2, 0.525, 0.98} | 2,2,2,1,1,0 | 0.00205 | {0.4167, 0.97, 1.0}, 0.071867 |
+| {0.81, 0.54, 0.82, 0.55, 0.71, 0.31} | 3 | {0.31, 0.545, 0.78} | 2,1,2,1,2,0 | 0.00745 | {0.4667, 0.71, 0.815}, 0.036917 |
+| {0.5, 0.5, 0.5, 0.5, 1.0} | 3 | {0.5, 1.0} (k → 2 distinct) | 0,0,0,0,1 | 0 | {0.5, 0.5, 1.0} with an empty cluster |
+
 ---
 
 ## Assumptions
 
 1. **ASSUMPTION: CCF reported value is capped to [0,1].** The raw formula can exceed 1 (CNAqc, 1.06). The registry invariant is 0 ≤ CCF ≤ 1; we report min(1, raw) as the bounded CCF (consistent with the McGranahan clonal definition that a mutation in all cancer cells has CCF = 1) while also exposing the uncapped raw value. Justification: invariant + McGranahan clonal definition; no source forbids capping.
-2. **ASSUMPTION: 1D clustering algorithm = deterministic Lloyd k-means with quantile seeding.** Sources name CCF clustering broadly (Dirichlet process, variational beta mixtures) but the unit requires a *deterministic, well-defined* 1D method (per task constraints, no fabricated Dirichlet process). Lloyd's k-means (Lloyd 1982) is fully specified; determinism is achieved by sorting values and seeding centroids at evenly-spaced quantiles (no RNG). The clonal-cluster rule (highest centroid) is source-backed (PMC7867630).
+2. **1D clustering algorithm = optimal k-means (Ckmeans.1d.dp, Wang & Song 2011).** Sources name CCF clustering broadly (Dirichlet process, variational beta mixtures — these need read counts, not point CCFs) but the unit's contract is a deterministic partition of point CCFs into k groups minimizing WCSS. *Corrected 2026-09-28 (F17):* the original assumption (Lloyd iteration with quantile seeding, claimed "exact in one dimension") was wrong — Lloyd only reaches a local optimum (suboptimal on 2367/4999 random inputs); the exact optimum is computed by the Ckmeans.1d.dp dynamic program. The clonal-cluster rule (highest centroid) is source-backed (PMC7867630).
 
 ---
 
@@ -142,3 +163,4 @@
 ## Change History
 
 - **2026-06-15**: Initial documentation.
+- **2026-09-28**: B24 review F17 — Lloyd/quantile seeding replaced by Ckmeans.1d.dp exact DP; reference optima dataset added.

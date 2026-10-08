@@ -37,7 +37,12 @@
 | M10 | GetCodonsForAminoAcid_Met_ReturnsOneCodon | M has only AUG | NCBI degeneracy |
 | M11 | GetCodonsForAminoAcid_Leu_ReturnsSixCodons | L has 6 codons | NCBI degeneracy |
 | M12 | Translate_InvalidLength_ThrowsException | Codon must be 3 chars | Definition |
-| M19 | Translate_InvalidNucleotide_ThrowsException | Non-ACGTU nucleotides rejected | NCBI definition |
+| M19 | Translate_InvalidNucleotide_ThrowsException | Non-IUPAC symbols rejected | IUPAC nomenclature |
+| M20 | SupportedTableNumbers_MatchNcbiGcPrt_V46 | All 27 NCBI tables supported | gc.prt v4.6 |
+| M21 | Translate_AllIupacCodons_AllTables_MatchBiopython | 15³ codons × 27 tables | Biopython 1.88 oracle |
+| M22 | IsStartStopCodon_AllIupacCodons_AllTables_MatchBiopython | Start/stop incl. ambiguous | Biopython 1.88 oracle |
+| M23 | Translate_AmbiguousCodons_ResolvedAsBiopython | GCN→A, TAR→*, RAY→B, SAR→Z, MTH→J, TAN→X | Biopython 1.88 |
+| M24 | DualCodingStops_Tables27_28_31_TranslateToAminoAcidAndAreStops | Dual-coding stops | gc.prt v4.6, Biopython |
 | M13 | VertebrateMito_UGA_IsTryptophan | Table 2 difference | NCBI Table 2 |
 | M14 | VertebrateMito_AGA_IsStop | Table 2 difference | NCBI Table 2 |
 | M15 | YeastMito_CUU_IsThreonine | Table 3 difference | NCBI Table 3 |
@@ -158,10 +163,10 @@ Key differences documented in Evidence file.
 
 ## Deviations and Assumptions
 
-**None.** Implementation and tests match NCBI translation tables exactly.
-
-All start/stop codon sets are derived directly from NCBI `Starts` and `AAs` strings
-for Tables 1, 2, 3, and 11 (NCBI last updated Sep. 23, 2024).
+Implementation and tests match NCBI translation tables exactly; all 27 tables are built from
+the NCBI gc.prt v4.6 `ncbieaa`/`sncbieaa` strings. Ambiguous IUPAC codons follow Biopython
+(review 2026-09; the former blanket 'X' for ambiguous codons was a defect).
+'X' as a nucleotide symbol is rejected (Biopython inconsistently accepts it in some codons).
 
 ---
 
@@ -171,4 +176,4 @@ for Tables 1, 2, 3, and 11 (NCBI last updated Sep. 23, 2024).
    **A**: Group test for coverage, individual tests for specific behaviors
 
 2. **Q**: Should invalid nucleotides (X, N) be tested?
-   **A**: Yes — `Translate_InvalidNucleotide_ThrowsException` (M19) covers this
+   **A**: Yes — non-IUPAC symbols (X, Z, digits) throw (M19); N and other IUPAC codes are resolved per Biopython (M21, M23)

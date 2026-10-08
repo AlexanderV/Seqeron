@@ -5,45 +5,356 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RepeatFinder.GetTandemRepeatSummary",
-  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L871",
-  "description": "Aggregate statistics across all microsatellites (STRs) in a DNA sequence: total repeats, repeat bases, percent of sequence covered, per-type counts, longest repeat and most frequent unit.",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L6352",
+  "description": "Aggregate statistics across all microsatellites (STRs) in a DNA sequence: total repeats, repeat bases, percent of sequence covered, per-type counts (mono..hexa), longest repeat and most frequent unit. Also the MISA table of repeat-type classes considering sequence complementarity (motif rotations + reverse complement, e.g. AC/CA/GT/TG -> AC/GT); optional MISA per-unit-size thresholds (default or a custom misa.ini definition with any unit sizes, misaDefinition; per-size counts in countsByUnitLength) and misa.pl regex scan (misaScan; counts = misa.pl .statistics). N and other IUPAC codes are accepted (case-insensitive) and never form or extend an STR, as in find_microsatellites; percentageOfSequence uses the full length (N included) as denominator.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "minRepeats": { "type": "integer", "description": "Minimum repeats (default 3)", "minimum": 2, "default": 3 }
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence: A/C/G/T plus IUPAC codes such as N (case-insensitive); N/IUPAC never form or extend an STR",
+        "minLength": 1
+      },
+      "minRepeats": {
+        "type": "integer",
+        "description": "Minimum repeats (default 3); ignored when misaThresholds is true",
+        "minimum": 2,
+        "default": 3
+      },
+      "misaThresholds": {
+        "type": "boolean",
+        "description": "Use MISA default minimum copies per unit length (1-10 2-6 3-5 4-5 5-5 6-5) instead of minRepeats",
+        "default": false
+      },
+      "standardMotifLevel": {
+        "type": "integer",
+        "description": "When 0-4, also count STRs per Krait standard motif at this level (Du et al. 2018; 2 = rotations + reverse complement); -1 = not reported",
+        "minimum": -1,
+        "maximum": 4,
+        "default": -1
+      },
+      "misaScan": {
+        "type": "boolean",
+        "description": "Use misa.pl's regex scan (leftmost greedy match resumed after each match; non-primitive matches consumed then rejected) instead of maximal primitive runs, so the counts equal misa.pl's .statistics",
+        "default": false
+      },
+      "misaDefinition": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Custom MISA definition in misa.ini 'def' syntax: unit size-minimum copies pairs, any unit size (e.g. \"1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5\"); replaces minRepeats; cannot be combined with misaThresholds; countsByUnitLength then has one entry per defined size",
+        "default": null
+      }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "totalRepeats": { "type": "integer" },
-      "totalRepeatBases": { "type": "integer" },
-      "percentageOfSequence": { "type": "number" },
-      "mononucleotideRepeats": { "type": "integer" },
-      "dinucleotideRepeats": { "type": "integer" },
-      "trinucleotideRepeats": { "type": "integer" },
-      "tetranucleotideRepeats": { "type": "integer" },
-      "longestRepeat": { "type": ["object", "null"] },
-      "mostFrequentUnit": { "type": ["string", "null"] }
+      "totalRepeats": {
+        "type": "integer"
+      },
+      "totalRepeatBases": {
+        "type": "integer"
+      },
+      "percentageOfSequence": {
+        "type": "number"
+      },
+      "mononucleotideRepeats": {
+        "type": "integer"
+      },
+      "dinucleotideRepeats": {
+        "type": "integer"
+      },
+      "trinucleotideRepeats": {
+        "type": "integer"
+      },
+      "tetranucleotideRepeats": {
+        "type": "integer"
+      },
+      "pentanucleotideRepeats": {
+        "type": "integer"
+      },
+      "hexanucleotideRepeats": {
+        "type": "integer"
+      },
+      "countsByUnitLength": {
+        "type": "object",
+        "description": "STR count per searched unit size (keys = unit size in bp); sums to totalRepeats (misa.pl .statistics distribution)",
+        "additionalProperties": {
+          "type": "integer"
+        }
+      },
+      "longestRepeat": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "mostFrequentUnit": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "canonicalMotifCounts": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": {
+          "type": "integer"
+        },
+        "description": "STR count per MISA repeat-type class (e.g. AC/GT)"
+      },
+      "standardMotifCounts": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": {
+          "type": "integer"
+        },
+        "description": "STR count per Krait standard motif (only when standardMotifLevel is 0-4)"
+      }
     },
-    "required": ["totalRepeats", "totalRepeatBases", "percentageOfSequence", "mononucleotideRepeats", "dinucleotideRepeats", "trinucleotideRepeats", "tetranucleotideRepeats"]
+    "required": [
+      "totalRepeats",
+      "totalRepeatBases",
+      "percentageOfSequence",
+      "mononucleotideRepeats",
+      "dinucleotideRepeats",
+      "trinucleotideRepeats",
+      "tetranucleotideRepeats",
+      "pentanucleotideRepeats",
+      "hexanucleotideRepeats"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1001, "message": "Invalid DNA sequence" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Invalid DNA sequence (A/C/G/T and IUPAC codes only)"
+    }
   ],
   "examples": [
     {
       "name": "Single trinucleotide STR",
-      "input": { "sequence": "CAGCAGCAG", "minRepeats": 3 },
-      "output": { "totalRepeats": 1, "totalRepeatBases": 9, "percentageOfSequence": 100.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 1, "tetranucleotideRepeats": 0, "mostFrequentUnit": "CAG" }
+      "input": {
+        "sequence": "CAGCAGCAG",
+        "minRepeats": 3
+      },
+      "output": {
+        "totalRepeats": 1,
+        "totalRepeatBases": 9,
+        "percentageOfSequence": 100.0,
+        "mononucleotideRepeats": 0,
+        "dinucleotideRepeats": 0,
+        "trinucleotideRepeats": 1,
+        "tetranucleotideRepeats": 0,
+        "pentanucleotideRepeats": 0,
+        "hexanucleotideRepeats": 0,
+        "countsByUnitLength": {
+          "1": 0,
+          "2": 0,
+          "3": 1,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "longestRepeat": {
+          "position": 0,
+          "repeatUnit": "CAG",
+          "repeatCount": 3,
+          "totalLength": 9,
+          "repeatType": "Trinucleotide"
+        },
+        "mostFrequentUnit": "CAG",
+        "canonicalMotifCounts": {
+          "AGC/CTG": 1
+        }
+      }
     },
     {
       "name": "No STRs",
-      "input": { "sequence": "ACGT", "minRepeats": 3 },
-      "output": { "totalRepeats": 0, "totalRepeatBases": 0, "percentageOfSequence": 0.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0 }
+      "input": {
+        "sequence": "ACGT",
+        "minRepeats": 3
+      },
+      "output": {
+        "totalRepeats": 0,
+        "totalRepeatBases": 0,
+        "percentageOfSequence": 0.0,
+        "mononucleotideRepeats": 0,
+        "dinucleotideRepeats": 0,
+        "trinucleotideRepeats": 0,
+        "tetranucleotideRepeats": 0,
+        "pentanucleotideRepeats": 0,
+        "hexanucleotideRepeats": 0,
+        "countsByUnitLength": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "longestRepeat": null,
+        "mostFrequentUnit": null,
+        "canonicalMotifCounts": {}
+      }
+    },
+    {
+      "name": "Penta + hexa STRs with overlapping homopolymers",
+      "input": {
+        "sequence": "AAAGAAAAGAAAAGAAAAGACCTTAGGGTTAGGGTTAGGGTTAGGG",
+        "minRepeats": 3
+      },
+      "output": {
+        "totalRepeats": 10,
+        "totalRepeatBases": 71,
+        "percentageOfSequence": 95.65217391304348,
+        "mononucleotideRepeats": 8,
+        "dinucleotideRepeats": 0,
+        "trinucleotideRepeats": 0,
+        "tetranucleotideRepeats": 0,
+        "pentanucleotideRepeats": 1,
+        "hexanucleotideRepeats": 1,
+        "countsByUnitLength": {
+          "1": 8,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 1,
+          "6": 1
+        },
+        "longestRepeat": {
+          "position": 22,
+          "repeatUnit": "TTAGGG",
+          "repeatCount": 4,
+          "totalLength": 24,
+          "repeatType": "Hexanucleotide"
+        },
+        "mostFrequentUnit": "A",
+        "canonicalMotifCounts": {
+          "A/T": 4,
+          "C/G": 4,
+          "AAAAG/CTTTT": 1,
+          "AACCCT/AGGGTT": 1
+        }
+      }
+    },
+    {
+      "name": "MISA thresholds + Krait standard motifs (level 2); output abridged to the two count tables",
+      "input": {
+        "sequence": "ACACACACACACTCTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTACACACACACACATCTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTAGTGTGTGTGTGTACTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTATGTGTGTGTGTGACTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTAACATACATACATACATACATGCTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTAAAAAAAAAAAAAGCTAAGCCAACTGCATTGCTAGAGCGAAGTCTTCGTAATGGACCGACCGTTCTGTCCGGACTAGTGAATCGCTGTACAAGTCCGAGGCATCAAGGACTAGTATTTTTTTTTTTTTG",
+        "misaThresholds": true,
+        "standardMotifLevel": 2
+      },
+      "output": {
+        "canonicalMotifCounts": {
+          "A/T": 2,
+          "AC/GT": 4,
+          "ACAT/ATGT": 1
+        },
+        "standardMotifCounts": {
+          "A": 2,
+          "AC": 4,
+          "ATAC": 1
+        }
+      }
+    },
+    {
+      "name": "N and IUPAC codes, misa.pl scan (misa.pl .statistics: size 87, 3 SSRs, unit sizes 1:1 2:2)",
+      "input": {
+        "sequence": "ACACACACANCACACACACACACACAGTNNNNNNNNNNNNNNNNNNNNATATATATATATATATATRYSWKMggggggggggggggg",
+        "misaThresholds": true,
+        "misaScan": true
+      },
+      "output": {
+        "totalRepeats": 3,
+        "totalRepeatBases": 49,
+        "percentageOfSequence": 56.32183908045977,
+        "mononucleotideRepeats": 1,
+        "dinucleotideRepeats": 2,
+        "trinucleotideRepeats": 0,
+        "tetranucleotideRepeats": 0,
+        "pentanucleotideRepeats": 0,
+        "hexanucleotideRepeats": 0,
+        "countsByUnitLength": {
+          "1": 1,
+          "2": 2,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "longestRepeat": {
+          "position": 48,
+          "repeatUnit": "AT",
+          "repeatCount": 9,
+          "totalLength": 18,
+          "repeatType": "Dinucleotide"
+        },
+        "mostFrequentUnit": "G",
+        "canonicalMotifCounts": {
+          "C/G": 1,
+          "AC/GT": 1,
+          "AT/AT": 1
+        }
+      }
+    },
+    {
+      "name": "Custom MISA definition with 7-10 bp units (misa.pl .statistics: 5 SSRs; 1:1, 4:1, 7:2, 9:1)",
+      "input": {
+        "sequence": "ACGTTGCACGTTGCACGTTGCGAAAAAAAAAAAACCTTAGGCATTAGGCATTAGGCATTCGACGTACGTACGTACGTACGTACGTGGATCCATGCAATCCATGCAATTGCACCTTGAGACCTTGAGANNACCTTGAGAGG",
+        "misaScan": true,
+        "misaDefinition": "1-10 2-6 3-5 4-5 5-5 6-5 7-3 8-3 9-2 10-2"
+      },
+      "output": {
+        "totalRepeats": 5,
+        "totalRepeatBases": 96,
+        "percentageOfSequence": 68.57142857142857,
+        "mononucleotideRepeats": 1,
+        "dinucleotideRepeats": 0,
+        "trinucleotideRepeats": 0,
+        "tetranucleotideRepeats": 1,
+        "pentanucleotideRepeats": 0,
+        "hexanucleotideRepeats": 0,
+        "countsByUnitLength": {
+          "1": 1,
+          "2": 0,
+          "3": 0,
+          "4": 1,
+          "5": 0,
+          "6": 0,
+          "7": 2,
+          "8": 0,
+          "9": 1,
+          "10": 0
+        },
+        "longestRepeat": {
+          "position": 61,
+          "repeatUnit": "ACGT",
+          "repeatCount": 6,
+          "totalLength": 24,
+          "repeatType": "Tetranucleotide"
+        },
+        "mostFrequentUnit": "A",
+        "canonicalMotifCounts": {
+          "A/T": 1,
+          "ACGT/ACGT": 1,
+          "AACGTGC/ACGTTGC": 1,
+          "AATGCCT/AGGCATT": 1,
+          "AATCCATGC/ATGGATTGC": 1
+        }
+      }
     }
   ]
 }

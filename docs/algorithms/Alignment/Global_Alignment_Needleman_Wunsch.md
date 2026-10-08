@@ -109,7 +109,7 @@ The recurrence uses one substitution score per aligned character pair and one li
 
 ### 5.2 Current Behavior
 
-The repository exposes four global-alignment entry points, but all compute the same linear-gap algorithm. `GlobalAlignCore` rents a flat integer buffer from `ArrayPool<int>`, fills it as a flattened matrix, copies it into an `int[,]`, and then calls `Traceback`. The cancellation-aware overload uses an `int[,]` directly and checks cancellation periodically during matrix fill and traceback. The traceback code is deterministic because it tests diagonal first, then up, then left. `ScoringMatrix.GapOpen` is not used by the global dynamic program; the gap cost comes from `ScoringMatrix.GapExtend`. Only the non-cancellation typed overload sends empty `DnaSequence` inputs through `Traceback`, producing end coordinates derived as `sequence.Length - 1` and therefore `-1` for empty typed inputs. The cancellation-aware typed overload delegates to the raw-string cancellation path and returns `AlignmentResult.Empty` on empty typed inputs.
+The repository exposes four linear-gap global-alignment entry points that share one core (`GlobalAlignCore`): it fills an `int[,]` matrix (checking cancellation every 100 rows and reporting progress for the cancellation-aware overloads) and calls `Traceback`. The traceback code is deterministic because it tests diagonal first, then up, then left. `ScoringMatrix.GapOpen` is not used by the linear dynamic program; the gap cost comes from `ScoringMatrix.GapExtend`. The raw-string overloads return `AlignmentResult.Empty` when either input is empty; the typed overloads (with or without cancellation) run the DP, yielding the all-gap border alignment `F(0,n) = n·d`. Affine gap costs are provided by `GlobalAlignAffine` (Gotoh 1982 three-state DP with the Flouri et al. 2015 border initialization; gap of length k = `GapOpen + k·GapExtend`, the NCBI BLAST existence + extension convention).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -121,7 +121,7 @@ The repository exposes four global-alignment entry points, but all compute the s
 
 **Intentionally simplified:**
 
-- The public `ScoringMatrix` includes `GapOpen`, but `GlobalAlign` uses only `GapExtend`; **consequence:** the repository implements a linear gap model rather than an affine gap model.
+- The public `ScoringMatrix` includes `GapOpen`, but `GlobalAlign` uses only `GapExtend` (linear model); the affine model is the separate `GlobalAlignAffine`.
 
 **Not implemented:**
 
@@ -143,7 +143,7 @@ The repository exposes four global-alignment entry points, but all compute the s
 
 ### 6.2 Limitations
 
-The implementation returns one optimal alignment, not all optimal alignments, because traceback uses a fixed tie order. The public string overload does not validate the alphabet beyond uppercasing the input. The full dynamic-programming matrix keeps the asymptotic memory requirement at `O(mn)`. Affine gap penalties are not implemented in the pairwise global-alignment API.
+The implementation returns one optimal alignment, not all optimal alignments, because traceback uses a fixed tie order. The public string overload does not validate the alphabet beyond uppercasing the input. The full dynamic-programming matrix keeps the asymptotic memory requirement at `O(mn)`. Affine gap penalties are available through `GlobalAlignAffine`.
 
 ## 7. Examples and Related Material
 

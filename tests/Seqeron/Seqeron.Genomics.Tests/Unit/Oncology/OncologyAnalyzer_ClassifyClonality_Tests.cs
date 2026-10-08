@@ -53,10 +53,10 @@ public class OncologyAnalyzer_ClassifyClonality_Tests
         Assert.Multiple(() =>
         {
             Assert.That(call.Status, Is.EqualTo(OncologyAnalyzer.ClonalityStatus.Clonal),
-                "P(CCF>0.95)≈0.864 > 0.5 ⇒ clonal (Landau 2013)");
+                "P(CCF>0.95)≈0.783 > 0.5 ⇒ clonal (Landau 2013)");
             Assert.That(call.Ccf, Is.EqualTo(0.972455).Within(1e-6), "posterior-mean CCF");
-            Assert.That(call.ProbabilityClonal, Is.EqualTo(0.864167).Within(1e-6),
-                "posterior mass above CCF 0.95");
+            Assert.That(call.ProbabilityClonal, Is.EqualTo(0.783253).Within(1e-6),
+                "posterior mass strictly above CCF 0.95 (grid 0.96..1.00; R dbinom 0.78325276530300703)");
         });
     }
 
@@ -109,8 +109,8 @@ public class OncologyAnalyzer_ClassifyClonality_Tests
             Assert.That(call.Status, Is.EqualTo(OncologyAnalyzer.ClonalityStatus.Clonal),
                 "M=2 doubles the per-CCF allele fraction ⇒ clonal (Satas 2021)");
             Assert.That(call.Ccf, Is.EqualTo(0.994330).Within(1e-6), "posterior-mean CCF");
-            Assert.That(call.ProbabilityClonal, Is.EqualTo(0.998016).Within(1e-6),
-                "posterior mass above CCF 0.95");
+            Assert.That(call.ProbabilityClonal, Is.EqualTo(0.994250).Within(1e-6),
+                "posterior mass strictly above CCF 0.95 (grid 0.96..1.00; R dbinom 0.99425019970772277)");
         });
     }
 
@@ -124,7 +124,63 @@ public class OncologyAnalyzer_ClassifyClonality_Tests
             OncologyAnalyzer.ClassifyClonality(new[] { V(50, 100, 2, 1) }, purity: 1.0);
 
         Assert.That(result.Calls[0].Status, Is.EqualTo(OncologyAnalyzer.ClonalityStatus.Subclonal),
-            "VAF 0.5 at N=100, M=1 has P(CCF>0.95)≈0.443 < 0.5 ⇒ subclonal (Landau 2013)");
+            "VAF 0.5 at N=100, M=1 has P(CCF>0.95)≈0.375 < 0.5 ⇒ subclonal (Landau 2013; R dbinom 0.37513140381769816)");
+    }
+
+    // F15 — deep coverage: the C(N,a)-free kernel p^a(1-p)^(N-a) underflows to 0 at every grid point for N ≳ 1100;
+    // the posterior must still equal the normalised R dbinom posterior (Landau 2013 grid (1:100)/100).
+    // Reference values: R 4.3, p <- dbinom(a, N, rho*M*cc/(2*(1-rho)+rho*q)); p <- p/sum(p).
+    [TestCase(1000, 2000, 2, 1, 1.0, 0.98512524832331427, 0.96416629807826371, true)]
+    [TestCase(5000, 10000, 2, 1, 1.0, 0.99479991701077286, 0.99999789898268343, true)]
+    [TestCase(800, 2000, 2, 1, 0.8, 0.98129140132654513, 0.91649159105544009, true)]
+    [TestCase(480, 2000, 2, 1, 0.8, 0.60064935064935066, 3.3874710002977841e-42, false)]
+    [TestCase(50000, 100000, 2, 1, 1.0, 0.99993308806930992, 1.0, true)]
+    public void ClassifyClonality_DeepCoverage_MatchesNormalisedDbinomPosterior(
+        int alt, int total, int cn, int mult, double purity, double expectedCcf, double expectedP, bool clonal)
+    {
+        OncologyAnalyzer.ClonalityCall call =
+            OncologyAnalyzer.ClassifyClonality(new[] { V(alt, total, cn, mult) }, purity).Calls[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(call.Ccf, Is.EqualTo(expectedCcf).Within(1e-9), "posterior-mean CCF (R dbinom)");
+            Assert.That(call.ProbabilityClonal, Is.EqualTo(expectedP).Within(1e-9), "P(CCF>0.95) (R dbinom)");
+            Assert.That(call.Status, Is.EqualTo(clonal ? OncologyAnalyzer.ClonalityStatus.Clonal : OncologyAnalyzer.ClonalityStatus.Subclonal));
+        });
+    }
+
+    // F16 — Landau (2013) rule is strict: "CCF >0.95 with probability > 0.5". The grid point c = 0.95 must not count.
+    // a=52, N=100, q=2, M=1, rho=1: P(c>0.95)=0.45841754388728939 (subclonal) but P(c>=0.95)=0.53207696872894572.
+    // Reference: R 4.3 with cc <- (1:100)/100, sum(p[cc > 0.95]).
+    [Test]
+    public void ClassifyClonality_GridPointAtThreshold_IsExcludedFromClonalMass()
+    {
+        OncologyAnalyzer.ClonalityCall call =
+            OncologyAnalyzer.ClassifyClonality(new[] { V(52, 100, 2, 1) }, purity: 1.0).Calls[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(call.ProbabilityClonal, Is.EqualTo(0.45841754388728939).Within(1e-12),
+                "mass on c ∈ {0.96..1.00} only");
+            Assert.That(call.Ccf, Is.EqualTo(0.93730748909543438).Within(1e-12), "posterior-mean CCF");
+            Assert.That(call.Status, Is.EqualTo(OncologyAnalyzer.ClonalityStatus.Subclonal),
+                "0.458 ≤ 0.5 ⇒ subclonal (Landau 2013)");
+        });
+    }
+
+    // Impure multi-copy locus, q=3, M=2, rho=0.7, a=3, N=4 (R dbinom reference: 0.78003009367131881 / 0.15564285879902454).
+    [Test]
+    public void ClassifyClonality_ImpureMultiCopyShallow_MatchesDbinomReference()
+    {
+        OncologyAnalyzer.ClonalityCall call =
+            OncologyAnalyzer.ClassifyClonality(new[] { V(3, 4, 3, 2) }, purity: 0.7).Calls[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(call.Ccf, Is.EqualTo(0.78003009367131881).Within(1e-12));
+            Assert.That(call.ProbabilityClonal, Is.EqualTo(0.15564285879902454).Within(1e-12));
+            Assert.That(call.Status, Is.EqualTo(OncologyAnalyzer.ClonalityStatus.Subclonal));
+        });
     }
 
     // M6 — Counts partition (INV-1): one clonal (M1) + one subclonal (M3).

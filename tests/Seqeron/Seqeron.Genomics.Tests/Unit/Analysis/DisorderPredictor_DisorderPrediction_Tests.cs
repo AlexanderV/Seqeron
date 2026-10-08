@@ -428,4 +428,89 @@ public class DisorderPredictor_DisorderPrediction_Tests
     }
 
     #endregion
+
+    #region 2026-09 review: independent reference cross-checks (Campen 2008 normalized TOP-IDP; Biopython GRAVY)
+
+    // Human alpha-synuclein (UniProt P37840, 140 aa) — a canonical IDP with an ordered-prone NAC core.
+    private const string AlphaSynuclein =
+        "MDVFMKGLSKAKEGVVAAAEKTKQGVAEAAGKTKEGVLYVGSKTKEGVVHGVATVAEKTKEQVTNVGGAVVTGVTAVAQKTVEGAGSIAAATGFVKKDQLGKNEEGAPQEGILEDMPVDPDNEAYEMPSEEGYQDYEPEA";
+
+    [Test]
+    public void PredictDisorder_AlphaSynuclein_MatchesIndependentTopIdpReference()
+    {
+        // Reference: independent Python re-implementation of Campen et al. (2008): Table 2 scale
+        // normalized to [0,1] (min W −0.884, max P 0.987), centered window 21 truncated at the
+        // termini, cutoff 0.542 (score >= 0.542 ⟹ disordered), regions >= 5 residues.
+        var r = DisorderPredictor.PredictDisorder(AlphaSynuclein);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.ResiduePredictions[0].DisorderScore, Is.EqualTo(0.47213449297896126).Within(1e-12));
+            Assert.That(r.ResiduePredictions[10].DisorderScore, Is.EqualTo(0.5422361355017687).Within(1e-12));
+            Assert.That(r.ResiduePredictions[10].IsDisordered, Is.True, "0.54224 >= 0.542");
+            Assert.That(r.ResiduePredictions[69].DisorderScore, Is.EqualTo(0.5406836171133337).Within(1e-12));
+            Assert.That(r.ResiduePredictions[69].IsDisordered, Is.False, "0.54068 < 0.542");
+            Assert.That(r.ResiduePredictions[70].DisorderScore, Is.EqualTo(0.5272708762821002).Within(1e-12));
+            Assert.That(r.ResiduePredictions[120].DisorderScore, Is.EqualTo(0.6138301392176325).Within(1e-12));
+            Assert.That(r.ResiduePredictions[139].DisorderScore, Is.EqualTo(0.6496768864486662).Within(1e-12));
+            Assert.That(r.OverallDisorderContent, Is.EqualTo(102.0 / 140.0).Within(1e-12));
+            Assert.That(r.MeanDisorderScore, Is.EqualTo(0.5766836603016358).Within(1e-12));
+            Assert.That(r.DisorderedRegions.Select(g => (g.Start, g.End)),
+                Is.EqualTo(new[] { (10, 43), (47, 66), (94, 139) }));
+        });
+    }
+
+    [Test]
+    public void PredictDisorder_Window7_OrderDisorderTransition_MatchesReference()
+    {
+        // I10 P10 E5, window 7 (3 each side, truncated). Reference values from the same
+        // independent Python re-implementation of the normalized TOP-IDP window mean.
+        var r = DisorderPredictor.PredictDisorder("IIIIIIIIIIPPPPPPPPPPEEEEE", windowSize: 7);
+        double[] expected =
+        {
+            0.21272, 0.21272, 0.21272, 0.21272, 0.21272, 0.21272, 0.21272, 0.325189, 0.437657,
+            0.550126, 0.662594, 0.775063, 0.887531, 1.0, 1.0, 1.0, 1.0, 0.980835, 0.961671,
+            0.942506, 0.923341, 0.904177, 0.888206, 0.865847, 0.865847
+        };
+        Assert.That(r.ResiduePredictions.Select(p => p.DisorderScore), Is.EqualTo(expected).Within(1e-6));
+        // First disordered residue is index 9 (0.550126 >= 0.542; index 8 = 0.437657 < 0.542).
+        Assert.That(r.DisorderedRegions.Single().Start, Is.EqualTo(9));
+    }
+
+    [TestCase(0)]
+    [TestCase(-1)]
+    [TestCase(-21)]
+    public void PredictDisorder_NonPositiveWindow_Throws(int windowSize)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => DisorderPredictor.PredictDisorder("PPPPPEEEEE", windowSize));
+        Assert.Throws<ArgumentOutOfRangeException>(() => DisorderPredictor.PredictDisorderRegions("PPPPPEEEEE", windowSize));
+    }
+
+    [Test]
+    public void CalculateHydropathy_MatchesBiopythonGravy()
+    {
+        // Biopython 1.88 Bio.SeqUtils.ProtParam.ProteinAnalysis(seq).gravy()
+        Assert.Multiple(() =>
+        {
+            Assert.That(DisorderPredictor.CalculateHydropathy(AlphaSynuclein), Is.EqualTo(-0.40285714285714286).Within(1e-12));
+            Assert.That(DisorderPredictor.CalculateHydropathy("ACDEFGHIKLMNPQRSTVWY"), Is.EqualTo(-0.49).Within(1e-12));
+            Assert.That(DisorderPredictor.CalculateHydropathy("MKWVTFISLLLLFSSAYS"), Is.EqualTo(1.2888888888888888).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void CalculateHydropathy_NonStandardResiduesSkipped_DelegatesToCanonicalGravy()
+    {
+        // "AXI": X is skipped → (1.8 + 4.5) / 2 = 3.15; identical to the canonical GRAVY.
+        Assert.Multiple(() =>
+        {
+            Assert.That(DisorderPredictor.CalculateHydropathy("AXI"), Is.EqualTo(3.15).Within(1e-12));
+            Assert.That(DisorderPredictor.CalculateHydropathy("XXX"), Is.EqualTo(0.0));
+            Assert.That(DisorderPredictor.CalculateHydropathy(null!), Is.EqualTo(0.0));
+            Assert.That(DisorderPredictor.CalculateHydropathy(AlphaSynuclein),
+                Is.EqualTo(SequenceStatistics.CalculateHydrophobicity(AlphaSynuclein)));
+        });
+    }
+
+    #endregion
 }

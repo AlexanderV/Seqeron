@@ -1,5 +1,7 @@
 # Evidence Artifact: REP-STR-001
 
+> **2026-09-30:** the approximate-detector (TRF) parts of this artifact are superseded by `docs/Evidence/REP-APPROX-001-Evidence.md` (TRF 4.10.0 compiled and used as the oracle; % matches / % indels are between adjacent copies, not vs the consensus).
+
 **Test Unit ID:** REP-STR-001
 **Algorithm:** Microsatellite / Short Tandem Repeat (STR) detection — perfect (default) and approximate / imperfect / interrupted (opt-in, Tandem Repeats Finder model)
 **Date Collected:** 2026-06-24
@@ -83,6 +85,144 @@ validation report `docs/Validation/reports/REP-STR-001.md`.
 3. **Minscore meaning (verbatim):** "if we set the matching weight to 2 and the minimun score to 50, assuming perfect alignment, we will need to align at least 25 characters to meet the minimum score (for example 5 copies with a period of size 5)."
 
 ---
+
+### MISA — Thiel et al. (2003) Theor Appl Genet 106:411-422, `misa.pl` v1.0 source
+
+**URL:** https://raw.githubusercontent.com/cfljam/SSR_marker_design/master/misa.pl (mirror of the IPK script; the IPK host is blocked)
+**Accessed:** 2026-09-29 (downloaded and read in this session)
+
+1. Per motif size: `my $search = "(([acgt]{$motiflen})\\2{$minreps,})"; while ( $seq =~ /$search/ig )` — leftmost, greedy, non-overlapping matches; only `a/c/g/t` motifs.
+2. `#reject false type motifs [e.g. (TT)6 or (ACAC)5]` — non-primitive motifs are dropped.
+3. `$repeats{$nr} = length($ssr) / $motiflen` over the matched complete copies.
+
+### pytrf 1.5.0 (Krait engine) — Du et al. (2018) Bioinformatics 34(4):681-683
+
+**URL:** PyPI `pytrf==1.5.0` sdist, `src/str.c` (installed and read in this session)
+
+1. Run found by `while ((i < b) && (self->seq[i] == self->seq[i+j])) ++i; rl = i + j - cs;` — the period-j run from the seed `cs`.
+2. `ssr->repeat = rl/j; ssr->length = ssr->repeat * j;` — complete copies only; `next_start = end`.
+3. `if (self->seq[i] == 78) continue;` — `N` is skipped. No primitivity check (smaller sizes are tried first).
+
+### Kolpakov R, Kucherov G (1999) "Finding maximal repetitions in a word in linear time", FOCS
+
+Maximal repetition (run): a periodic factor `S[a..e)` with minimal period p, exponent ≥ 2, not extendable left or right with the same period. (Definition as used here; paper not opened.)
+
+### Numerical cross-check (review 2026-09)
+
+Harness: C# `RepeatFinder.FindMicrosatellites(string, p, p, k)` vs (a) Python brute-force maximal-repetition reference, (b) MISA regex rule, (c) pytrf `STRFinder` with only size p enabled. 3,132 cases (11 crafted × p=1..6 × k∈{2,3} + 3,000 random, seed 20260929, alphabets incl. `N`, planted repeats).
+
+| Reference | Agreement | All disagreements explained by |
+|-----------|-----------|--------------------------------|
+| Brute-force maximal runs | 3,132 / 3,132 | — |
+| MISA rule | 3,099 / 3,132 | 17 same-period runs overlapping by < p (MISA restarts after the first run's copies); 16 non-primitive region consumed by the regex first |
+| pytrf single size | 2,752 / 3,132 | 17 same overlap case; 363 non-primitive/`N` units (pytrf has no primitivity check) |
+
+Before the fix the code additionally reported every rotation of a run that reached past the run-start's complete copies (e.g. `ATATATA` → `AT×3@0` **and** `TA×3@1`; `AAACACACACACAAA` → `AC×5@2` **and** `CA×5@3`) — one locus reported up to p times, disagreeing with all three references — and reported runs of `N` as mononucleotide microsatellites.
+
+### MISA per-unit-size thresholds, compound SSRs and repeat-type classes (review 2026-09-30, audit WP3)
+
+**Source:** the same `misa.pl` v1.0 (read in full and executed with `perl` 5; an instrumented copy that additionally prints
+the per-sequence SSR list in `@order` and the rejected non-primitive matches was used only as a harness).
+
+1. `misa.ini` header example: `definition(unit_size,min_repeats): 1-10 2-6 3-5 4-5 5-5 6-5`, `interruptions(max_difference_for_2_SSRs): 100`.
+2. Compound loop: `@order = sort { $start{$a} <=> $start{$b} } keys %start`; `$space = $amb + 1`; two SSRs join when
+   `$start{next} - $end{prev} <= $space` (1-based inclusive coordinates ⇒ ≤ `amb` bases in between); `< 1` ⇒ overlap,
+   type `c*`, notation `($motif)$repeats*`; otherwise `$interssr = lc substr($seq, $end, $start − $end − 1)` and type `c`;
+   the inner `while` compares with `$end{$order[$i]}` of the previous SSR and sets `$end = $end{$order[$i+1]}`.
+3. `.statistics` "Frequency of classified repeat types (considering sequence complementary)": for each motif, the
+   smallest rotation of the motif and of its reverse complement (`tr/ACGT/TGCA/`, `reverse`), joined `A/B` with the
+   smaller first; counts summed over the group.
+4. Krait `src/motif.py` (`StandardMotif`, raw.githubusercontent lmdu/krait): `similar_motif` = rotations,
+   `reverse_complete_motif`, `complete_motif`, `reverse_motif`; `motif_sorted` by `motif_to_number` (A=1, T=2, C=3, G=4);
+   levels 0–4; `src/widgets.py` default `ssr/level` = 3. `_motifs` is a class attribute, so its cache is shared by all
+   levels until `setLevel` — the reference runs used a fresh cache per call.
+
+**Numerical cross-check (C# harness vs `perl misa.pl`, PERL_HASH_SEED=0):** 6 048 sequences (6 × 8 crafted + 6 000 random
+SSR-rich, with interruptions of 0–130 bp, N runs, lowercase) in six configurations — `1-10 2-6 3-5 4-5 5-5 6-5` with
+interruptions 100 and 0; `1-5 2-3 3-3 4-3 5-3 6-3` / 20; `1-3 2-2 3-2 4-2 5-2 6-2` / 5; `2-4 3-3 5-2` / 50;
+defaults + `7-4 8-3 10-3` / 100 — 72 974 misa.pl SSRs, 12 330 compounds.
+
+| Check | Result |
+|-------|--------|
+| `FindMicrosatellites(seq, map)` vs brute-force maximal primitive runs with per-size thresholds | 0 mismatching sequences |
+| `AssembleCompoundMicrosatellites` fed misa.pl's SSR list in misa.pl order vs misa.pl `.misa` (type, notation, size, start, end) | 0 mismatching sequences |
+| End to end vs misa.pl, sequences with identical SSR lists | `.misa` rows identical in all of them |
+| SSR-list differences (971 sequences) | 1 220 SSRs: same-size run overlapping the previous match by < p (misa.pl truncates); 1 365 SSRs: primitive run inside a rejected non-primitive match (misa.pl consumed it); 0 unexplained |
+| Same SSR set, equal-start SSRs ordered differently (53 sequences, configurations with minimum copies 2–3) | Perl hash order in misa.pl; stable input order here |
+| `GetCanonicalMotifFrequencies` on misa.pl's SSR list vs misa.pl classified table | identical in all 6 configurations |
+| `GetCanonicalMotifClass` vs misa.pl `.statistics` (one run per motif, motif × 12) | 5 356 / 5 356 primitive motifs of 1–6 bp |
+| `GetStandardMotif(m, level)` vs Krait `StandardMotif(level).standard(m)` | 5 460 motifs × 5 levels, 0 mismatches |
+
+**Progress contract (`IProgress<double>` on the cancellable overloads):** values `(k·n + i)/(K·n)` for the k-th of K
+unit lengths every 1000 visited run starts — non-decreasing, in [0, 1) — then exactly 1.0; the token is checked at
+the same points and before the final report. (The 2026-06 TestSpec entry "progress reporting not implemented" was wrong.)
+
+### misa.pl-parity scan (review 2026-10-01, audit WP8)
+
+**Source:** `misa.pl` v1.0 (raw GitHub `cfljam/SSR_marker_design`, re-downloaded; perl 5.38.2). Scan loop (lines
+101–125): `for` unit sizes in `sort { $a <=> $b } keys %typrep`; `$search = "(([acgt]{$motiflen})\\2{$minreps,})"`;
+`while ($seq =~ /$search/ig)`; redundancy test `([ACGT]{$j})\\1{($motiflen/$j-1)}` for `$j = $motiflen-1 … 1` —
+for j ∤ p the count is fractional, perl warns "Unescaped left brace in regex is passed through" and the brace is a
+literal, so only divisors can match; `next if $redundant` after `pos()` advanced; `$end = pos($seq)`,
+`$start = $end - length($ssr) + 1`. Order (line 130): `sort { $start{$a} <=> $start{$b} } keys %start`.
+
+**Hash order (task check):** misa.pl run with `PERL_HASH_SEED` = 1, 2, 3 on the 6 000-sequence set: outputs differ in
+the settings `1-3 2-2 3-2 4-2 5-2 6-2`/10 (933 `.misa` rows between seeds 1 and 2), `1-5 2-3 3-3 4-3 5-3 6-3`/0 (115),
+`1-2 3-2 5-2`/5 (1 667); identical for `1-10 2-6 3-5 4-5 5-5 6-5`/100, `1-12 2-4 3-4 4-3 5-3 6-3`/50, `2-3 4-2 6-2`/20
+(no start ties). Same seed twice: identical; two unseeded runs: differ. Example `TTTGTTTGTTTGTTTGTTTGTTT`
+(`1-3 2-2 …`/10): seed 1 `c* (TTTG)5(T)3*g(T)3g(T)3g(T)3g(T)3g(T)3 23 1 23`, seed 2
+`c* (T)3(TTTG)5*(T)3*g(T)3g(T)3g(T)3g(T)3 23 1 23`. Ties need two primitive runs of periods p ≠ q starting at one
+position; with run lengths ≥ p + q − gcd(p, q) they would share period gcd (Fine–Wilf), which the MISA default
+thresholds always guarantee — so default-setting output never depends on the hash order.
+
+**Cross-check (`scratchpad/wp8/misa`, C# harness `xcm`):** 6 000 SSR-rich sequences (20–600 bp; runs of 1–6-bp units
+incl. non-primitive ones, partial copies, AC/AT/A-rich spacers, N runs, 20 % mixed case) × 6 settings above; misa.pl
+instrumented to dump its SSR list, and a copy with the tie broken by SSR number (`|| $a <=> $b`).
+
+| Setting | misa.pl SSRs | `.misa` rows | `MisaRegex` vs misa.pl (tie by SSR nr): SSR lists / rows | vs stock misa.pl seed 1 / seed 2 (sequences) | all explained by start ties with equal SSR set | `MaximalRuns` SSR lists differing |
+|---|---|---|---|---|---|---|
+| 1-10 2-6 3-5 4-5 5-5 6-5 / 100 | 37 299 | 5 944 | 0 / 0 | 0 / 0 | — | 534 |
+| 1-3 2-2 3-2 4-2 5-2 6-2 / 10 | 174 866 | 8 772 | 0 / 0 | 908 / 900 | yes | 3 048 |
+| 1-5 2-3 3-3 4-3 5-3 6-3 / 0 | 58 909 | 41 103 | 0 / 0 | 14 / 10 | yes | 1 037 |
+| 1-12 2-4 3-4 4-3 5-3 6-3 / 50 | 41 252 | 6 965 | 0 / 0 | 0 / 0 | — | 868 |
+| 2-3 4-2 6-2 / 20 | 25 885 | 14 938 | 0 / 0 | 0 / 0 | — | 1 038 |
+| 1-2 3-2 5-2 / 5 | 324 737 | 21 578 | 0 / 0 | 1 501 / 1 556 | yes | 1 425 |
+
+### MISA definitions with unit sizes above 6 (review 2026-10-01, audit WP16)
+
+**Source:** `misa.pl` v1.0 (raw GitHub `cfljam/SSR_marker_design`, re-downloaded 2026-10-01, sha1 `150418274728…`
+identical to the WP8 copy; perl 5.38.2). Lines 76–81: `%typrep = $1 =~ /(\d+)/gi if (/^def\S*\s+(.*)/i)` — every
+pair of numbers on the `def` line, no limit on the unit size; line 81 `@typ = sort { $a <=> $b } keys %typrep`;
+lines 101–106 one search `(([acgt]{$motiflen})\2{$minreps,})` per defined size; line 125 `$count_class{$typ[$i]}++`;
+lines 230–233 `.statistics` "Distribution to different repeat type classes" prints `Unit size / Number of SSRs` for
+every size with ≥ 1 SSR (`keys %count_class`). Hence the former 1–6 cap of the summary map overloads and of
+TestSpec REP-TANDEM-001 ("one count per unit size 1–6") was not misa.pl's behaviour. Observation: misa.pl's
+"Number of SSRs present in compound formation" adds 1 for the first pair of a compound and 1 per further SSR
+(lines 159/166/177/184), i.e. k − 1 for a k-SSR compound; the harness compares that figure as such.
+
+**Cross-check (`scratchpad/wp16`, public-API harness `xc16` — map from `RepeatFinder.ParseMisaDefinition` on the
+misa.ini `def` line, `FindMicrosatellites` / `FindCompoundMicrosatellites` / `GetTandemRepeatSummary(string, map,
+MisaRegex)`; `run16.py`, `perseq.py`):** 6 000 random sequences per setting (20–800 bp; units 1–12 bp with 7–12 bp
+over-represented, non-primitive units, partial copies, point mutations, AC/AT/A/ACG spacers, N runs, 20 % mixed
+case); misa.pl with ties broken by SSR number (F48) and stock misa.pl (`PERL_HASH_SEED=1`).
+
+| Setting (def / int) | misa.pl SSRs | of which unit > 6 | `.misa` rows | SSR lists / rows / per-sequence per-size counts differing (sequences) | `.statistics` vs tie-broken misa.pl | `.statistics` vs stock misa.pl | stock `.misa` differing sequences |
+|---|---|---|---|---|---|---|---|
+| 1-10 2-6 3-5 4-5 5-5 6-5 7-5 8-5 9-5 10-5 / 100 | 28 791 | 12 240 | 7 578 | 0 / 0 / 0 | identical | identical | 0 (all start ties: yes) |
+| 1-3 2-2 3-2 4-2 5-2 6-2 7-2 8-2 9-2 10-2 / 10 | 259 541 | 22 495 | 12 199 | 0 / 0 / 0 | identical | identical | 1477 (all start ties: yes) |
+| 7-2 8-2 9-2 10-2 / 0 | 22 481 | 22 481 | 20 249 | 0 / 0 / 0 | identical | identical except compound count (1 start-tie sequence) | 1 (all start ties: yes) |
+| 1-5 2-3 3-3 4-3 5-3 6-3 7-3 8-3 9-3 10-3 11-2 12-2 / 50 | 63 403 | 24 641 | 6 476 | 0 / 0 / 0 | identical | identical | 71 (all start ties: yes) |
+| 2-3 4-2 7-2 9-2 / 20 | 29 129 | 11 735 | 15 155 | 0 / 0 / 0 | identical | identical | 33 (all start ties: yes) |
+| 8-2 10-2 / 5 | 10 799 | 10 799 | 9 643 | 0 / 0 / 0 | identical | identical | 0 (all start ties: yes) |
+| 1-10 2-6 3-5 4-5 5-5 6-5 7-5 / 100 | 19 864 | 3 371 | 8 390 | 0 / 0 / 0 | identical | identical | 0 (all start ties: yes) |
+
+Totals: 434 008 SSRs (107 762 with units > 6), 79 690 `.misa` rows, 42 000 (sequence, setting) pairs — 0
+mismatches. `.statistics` compared on: sequences examined, total size, total SSRs, SSR-containing sequences,
+sequences with > 1 SSR, SSRs in compound formation and every distribution row. Per-sequence stock misa.pl runs
+(first 300 sequences of each setting, one run each): total and distribution rows **2 100 / 2 100** identical to
+`GetTandemRepeatSummary(…).CountsByUnitLength`. misa.pl's fractional redundancy counts (`{2.5}` for p = 7, j = 2,
+`{0.5}` for p = 9, j = 6, …) are literal braces (perl warns) and never match, so the divisor-only primitivity test
+is equivalent on all runs.
 
 ## Documented Corner Cases and Failure Modes
 
@@ -206,6 +346,16 @@ default PM = 0.80; the `CACACATACACA` tract sits exactly on that threshold (PM =
    exactly by the source ("average percent identity"); the closed-form mean/variance of the sum-of-heads
    R(d,k,pM) and its 95% percentile are NOT reproduced (non-redistributable simulation tables — the
    genome-scale seeding residual).
+   > **Superseded (2026-10-01, B04 audit WP16, F63)** — the "NOT reproduced" clause above is out of date.
+   > The sum-of-heads distribution and its 95 % cut-off are derived exactly (exact moments / distribution of
+   > R(d,k,PM)) and equal TRF's `sumdata80` for 2000/2000 d (B04 F14–F18) and `sumdata75` for 2000/2000 d
+   > (B04 **F41**). TRF's second simulated criterion, the apparent-size 95 % percentile, is derived exactly as
+   > well (README example y = 56 reproduced; equal to TRF's Monte-Carlo `waitdata` 825/2000 (PM 80) and
+   > 713/2000 (PM 75), the rest within its simulation noise; B04 **F43**). Callers who hold TRF's own
+   > `waitdata` table can supply it (`TandemRepeatsFinderParameters.ApparentSizeTable`), which makes the
+   > `.dat` / `-ngs` / HTML outputs byte-identical to compiled TRF 4.10.0 on all seven tested parameter sets
+   > (B04 **F56**). Only that table is not shipped (AGPL literal array, no generator). The adjacent-copy
+   > segmentation assumption for the Bernoulli PM/PI estimate itself is unchanged.
 
 ---
 
@@ -237,3 +387,10 @@ default PM = 0.80; the `CACACATACACA` tract sits exactly on that threshold (PM =
 
 - **2026-06-24**: Initial documentation — Benson (1999) TRF approximate-repeat model added to support the opt-in `FindApproximateTandemRepeats` detector (REP-STR-001 limitation fix). Perfect-repeat detector evidence (Wikipedia / MISA) carried from the prior validation.
 - **2026-06-24**: Added the TRF Bernoulli statistical-significance model (Benson 1999) — verbatim PM/PI/Bernoulli-trial definitions from the TRF desc/definitions pages, the adjacent-copy PM/PI dataset, and the supporting assumption — for the new opt-in `ComputeBernoulliStatistics`. The R(d,k,pM)/W(d,pI) k-tuple seeding remains the documented genome-scale-performance residual.
+- **2026-09-30** (review 2026-09, B04 audit WP3): MISA per-unit-size thresholds, compound SSRs (types c / c*), MISA
+  repeat-type classes and Krait standard motifs — sources, misa.pl / Krait cross-checks; progress-reporting contract.
+- **2026-10-01** (B04 audit WP8): misa.pl-parity scan (`MicrosatelliteScanMode.MisaRegex`) — scan-loop source, Perl hash-order
+  check (PERL_HASH_SEED), 6 000 × 6 cross-check (0 differences with deterministic tie order).
+- **2026-10-01** (B04 audit WP16): MISA definitions with unit sizes above 6 (misa.pl `def` parsing / per-size regex /
+  `.statistics` distribution), 6 000 × 7 cross-check incl. sizes 7–12 (0 mismatches; F61); Assumption 3 marked
+  superseded for R(d,k,PM) / the 95 % cut-offs (F41 / F43 / F56; F63).

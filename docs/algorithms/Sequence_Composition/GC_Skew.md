@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-GCSKEW-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
 
@@ -32,6 +32,8 @@ $$
 Cumulative\ GC\ skew(n) = \sum_{i=1}^{n} GC\ skew(window_i)
 $$
 
+i.e. "a sum of (G−C)/(G+C) in adjacent windows from an arbitrary start to a given point in a sequence" (Grigoriev 1998, abstract). Windows are adjacent and non-overlapping (step = window size).
+
 The original document interprets the global minimum of cumulative skew as the replication origin and the global maximum as the terminus for typical circular bacterial chromosomes.
 
 ### 2.4 Properties and Invariants
@@ -51,10 +53,10 @@ The original document interprets the global minimum of cumulative skew as the re
 | `sequence` | `DnaSequence` or `string` | required | Sequence to analyze | Null `DnaSequence` input throws `ArgumentNullException`; empty string yields `0` or no points |
 | `[CalculateWindowedGcSkew/CalculateCumulativeGcSkew DnaSequence] windowSize` | `int` | `1000` | Sliding-window or cumulative window length | Must be `>= 1` |
 | `[CalculateWindowedGcSkew DnaSequence] stepSize` | `int` | `100` | Step size for windowed GC skew | Must be `>= 1` |
-| `[PredictReplicationOrigin/AnalyzeGcContent DnaSequence] windowSize` | `int` | `1000` | Window length used by higher-level helpers | Positive values are expected, but the current helpers do not validate them before calling the core loops |
-| `[AnalyzeGcContent DnaSequence] stepSize` | `int` | `100` | Step size used by the comprehensive analysis helper | Positive values are expected, but the current helper does not validate them before calling the core loops |
-| `[string] windowSize` | `int` | `1000` | Sliding-window or cumulative window length | Nonpositive values are not validated and are currently unsupported |
-| `[string] stepSize` | `int` | `100` | Step size for windowed GC skew | Nonpositive values are not validated and are currently unsupported |
+| `[string] windowSize` | `int` | `1000` | Sliding-window or cumulative window length | Must be `>= 1` (validated eagerly, same as the typed overloads) |
+| `[string] stepSize` | `int` | `100` | Step size for windowed GC skew | Must be `>= 1` (validated eagerly) |
+
+`PredictReplicationOrigin(...)` (SEQ-REPLICATION-001) takes no window parameter; `AnalyzeGcContent(...)` is covered by SEQ-GC-ANALYSIS-001.
 
 ### 3.2 Output / Return Value
 
@@ -67,7 +69,7 @@ The original document interprets the global minimum of cumulative skew as the re
 
 ### 3.3 Preconditions and Validation
 
-`CalculateGcSkew(...)` returns `0` for empty string input and throws `ArgumentNullException` for null `DnaSequence` input. The typed `CalculateWindowedGcSkew(...)` and `CalculateCumulativeGcSkew(...)` overloads throw `ArgumentOutOfRangeException` when `windowSize < 1` or `stepSize < 1`. The raw-string overloads only guard empty input and otherwise delegate directly to the core loops, so nonpositive sizes are currently unsupported rather than consistently validated; in particular, `stepSize = 0` in `CalculateWindowedGcSkew(string, ...)` and `windowSize = 0` in `CalculateCumulativeGcSkew(string, ...)` can produce non-terminating enumerations. The higher-level typed helpers `PredictReplicationOrigin(...)` and `AnalyzeGcContent(...)` also call the unvalidated core routines directly, so they likewise assume positive `windowSize` and `stepSize` without enforcing them. `PredictReplicationOrigin(...)` returns a zeroed prediction when no cumulative points are available.
+`CalculateGcSkew(...)` returns `0` for empty string input and throws `ArgumentNullException` for null `DnaSequence` input. Both the typed and the raw-string `CalculateWindowedGcSkew(...)` / `CalculateCumulativeGcSkew(...)` overloads throw `ArgumentOutOfRangeException` when `windowSize < 1` or `stepSize < 1`; validation is eager (at call time, not at first enumeration). Before the 2026-09 review the raw-string overloads did not validate, and `stepSize = 0` (windowed) / `windowSize = 0` (cumulative) produced non-terminating enumerations. Null or empty strings yield `0` / an empty sequence of points.
 
 ## 4. Algorithm
 
@@ -77,7 +79,7 @@ The original document interprets the global minimum of cumulative skew as the re
 2. Compute `(G - C) / (G + C)` and return `0` when the denominator is zero.
 3. For sliding-window analysis, emit the skew at each window center.
 4. For cumulative skew, sum each window's skew value across the traversal.
-5. For origin prediction, choose the cumulative-skew minimum as the origin and the maximum as the terminus.
+5. For origin prediction (SEQ-REPLICATION-001), build the per-nucleotide cumulative skew (G = +1, C = −1) and choose its first global minimum as the origin and first global maximum as the terminus.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -94,9 +96,9 @@ The same source file also provides `CalculateAtSkew(...)` helpers and a combined
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | `CalculateGcSkew` | `O(n)` | `O(1)` | Single pass over the sequence |
-| `CalculateWindowedGcSkew` | `O(n)` | `O(1)` streaming | Emits one point per valid window |
-| `CalculateCumulativeGcSkew` | `O(n)` | `O(1)` streaming | Uses fixed-size windows |
-| `PredictReplicationOrigin` | `O(n)` | `O(w)` | Materializes cumulative points to find extrema |
+| `CalculateWindowedGcSkew` | `O(n·w/s)` | `O(w)` streaming | Recounts each window (w = window, s = step); `O(n)` when `s = w` |
+| `CalculateCumulativeGcSkew` | `O(n)` | `O(w)` streaming | Adjacent non-overlapping windows |
+| `PredictReplicationOrigin` | `O(n)` | `O(1)` | Single pass over the per-nucleotide cumulative skew |
 
 ## 5. Implementation Notes
 
@@ -111,7 +113,7 @@ The same source file also provides `CalculateAtSkew(...)` helpers and a combined
 
 ### 5.2 Current Behavior
 
-Windowed GC skew reports positions at the center of each analyzed window. Cumulative GC skew uses non-overlapping windows because the source sets `stepSize = windowSize` inside the cumulative routine. `PredictReplicationOrigin(...)` flags the result as significant only when the cumulative-skew amplitude exceeds `0.01 × pointCount`. The raw-string windowed and cumulative overloads uppercase input but do not validate nonpositive window or step values before entering the shared loops. The higher-level typed helpers `PredictReplicationOrigin(...)` and `AnalyzeGcContent(...)` also bypass the validated typed windowed/cumulative entry points and call the same core loops directly. The same class also provides `CalculateAtSkew(...)` and a combined `AnalyzeGcContent(...)` helper.
+Windowed GC skew reports positions at the center of each analyzed window. Cumulative GC skew uses non-overlapping windows because the source sets `stepSize = windowSize` inside the cumulative routine. Only complete windows are reported (window starts `0, s, 2s, …` while `start + w ≤ n`); a trailing partial window is dropped. This matches SkewIT `gcskew.py` (Lu & Salzberg 2020), whereas Biopython `Bio.SeqUtils.GC_skew` appends the partial tail window (e.g. `GC_skew("GGGGCCCCGG", 4)` = `[1.0, -1.0, 1.0]` vs Seqeron `[1.0, -1.0]`); on the complete windows the values agree exactly. Counting is case-insensitive; only `G`/`C` are counted (ambiguity codes such as `S` are ignored, as in Biopython). `PredictReplicationOrigin(...)` works on the per-nucleotide cumulative skew and flags significance when max > min (see SEQ-REPLICATION-001). The same class also provides `CalculateAtSkew(...)` and a combined `AnalyzeGcContent(...)` helper.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -124,7 +126,7 @@ Windowed GC skew reports positions at the center of each analyzed window. Cumula
 **Intentionally simplified:**
 
 - Origin prediction assumes the cumulative-skew minimum and maximum map directly to ori/ter; **consequence:** more complex replication architectures are not modeled.
-- Significance is determined by a fixed amplitude heuristic; **consequence:** predictions depend on the source-specific threshold rather than a statistical test.
+- Significance is only "non-zero amplitude" (max > min); **consequence:** no statistical test is applied.
 
 **Not implemented:**
 
@@ -138,13 +140,12 @@ Windowed GC skew reports positions at the center of each analyzed window. Cumula
 |------|-------------------|-----------|
 | Empty sequence | Returns `0` or yields no points | Explicit source guard |
 | No `G` or `C` bases | Returns `0` | Division-by-zero protection |
-| Invalid window or step size on validated typed windowed/cumulative overloads | Throws `ArgumentOutOfRangeException` | Explicit validation exists only in those typed overloads |
-| Nonpositive `windowSize`/`stepSize` in `PredictReplicationOrigin(...)` or `AnalyzeGcContent(...)` | Unsupported; the helpers do not validate before calling the core loops | These methods bypass the validated typed windowed/cumulative entry points |
-| Nonpositive window or step size on raw-string windowed/cumulative overloads | Unsupported; zero values can fail to terminate | Those overloads delegate directly to the core loops without parameter validation |
+| `windowSize < 1` or `stepSize < 1` (typed or raw-string windowed/cumulative overloads) | Throws `ArgumentOutOfRangeException` at call time | Eager guard clause |
+| Sequence shorter than the window / trailing partial window | Not reported | Complete-window convention (SkewIT); Biopython appends the partial window |
 
 ### 6.2 Limitations
 
-Origin and terminus prediction assume a single circular chromosome with bidirectional replication, use a heuristic significance threshold, and do not account for genome rearrangements or horizontal transfer that may distort the skew profile. The raw-string windowed and cumulative overloads also do not consistently validate nonpositive `windowSize` or `stepSize` values.
+Origin and terminus prediction assume a single circular chromosome with bidirectional replication, use a simple non-zero-amplitude significance flag, and do not account for genome rearrangements or horizontal transfer that may distort the skew profile.
 
 ## 8. References
 
@@ -152,3 +153,5 @@ Origin and terminus prediction assume a single circular chromosome with bidirect
 2. Grigoriev, A. (1998). "Analyzing genomes with cumulative skew diagrams." *Nucleic Acids Research*, 26(10):2286-2290.
 3. Tillier, E.R. & Collins, R.A. (2000). "The contributions of replication orientation, gene direction, and signal sequences to base-composition asymmetries in bacterial genomes." *Journal of Molecular Evolution*, 50:249-257.
 4. Wikipedia contributors. "GC skew." *Wikipedia, The Free Encyclopedia*.
+5. Biopython 1.88, `Bio.SeqUtils.GC_skew` / `xGC_skew` (reference implementation, numerically cross-checked).
+6. Lu, J. & Salzberg, S.L. (2020). SkewIT: The Skew Index Test for large-scale GC Skew analysis of bacterial genomes. *PLoS Comput Biol* 16(12):e1008439; `gcskew.py` (github.com/jenniferlu717/SkewIT).

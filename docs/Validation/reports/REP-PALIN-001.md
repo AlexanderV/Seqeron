@@ -2,8 +2,20 @@
 
 - **Validated:** 2026-06-24   **Area:** Repeats
 - **Canonical method(s):** `RepeatFinder.FindPalindromes(DnaSequence, minLength, maxLength)`; overload `FindPalindromes(string, ...)`; alternate `GenomicAnalyzer.FindPalindromes(...)`
-- **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** PASS
+- **Stage A verdict:** PASS-WITH-NOTES (REVP "every reverse palindrome, length 4–12, any order" re-sourced; ACGT-only alphabet added; TestSpec TATA/ATAT label swap fixed)
+- **Stage B verdict:** FAIL → fixed (review campaign 2026-09, batch B04: F12, F13) — supersedes the 2026-06 "PASS / CLEAN" below
+
+## Review campaign 2026-09 revision (B04) — supersedes the 2026-06 verdicts below
+
+- **End-state: FIXED** (batch report `docs/Validation/review-2026-09/B04.md`, F12, F13).
+- **F12 (defect):** the string overload / MCP `find_palindromes` compared each window with the IUPAC-aware `GetReverseComplementString`, so N/IUPAC/gap/other symbols formed "palindromes" (`NNNNNN` → 4 hits; `ANNT`, `SSSS`, `RYRY`, `A--T`, `1111` → 1 each). Now only A/C/G/T Watson–Crick pairs count (shared `IsWatsonCrickPair` + canonical `SequenceExtensions.GetComplementBase`, as REP-INV-001); the 2026-06 "Variant/delegate consistency" and "Findings: none functional" statements below are wrong in this respect.
+- **F13 (defect):** `maxLength` near `int.MaxValue` overflowed the length counter (`FindPalindromes("ACGT", 4, int.MaxValue)` spun ~10⁹ iterations, then threw); now capped at n.
+- **Algorithm:** capped centre expansion per inter-base gap, O(n·maxLength), output ordered (position, length) like the REVP sample; shared eager validation; string overload returns empty for null/empty.
+- **Reference cross-check (0 mismatches each):** Biopython 1.88 `Seq(w).reverse_complement() == w` over every even ACGT-only window: 6 000 random cases (ACGT, AT, GC, ACGTN, mixed case, ACGTNRYSWU-, ACGTS; 18 378 palindromes), 20 kb ACGT (4–40), 5 kb AT-only (4–100); a public REVP solution 2 000 cases; REVP sample reproduced exactly (1-based `4 6, 5 4, 6 6, 7 4, 17 4, 18 4, 20 6, 21 4`).
+- **Tests:** `RepeatFinder_Palindrome_Tests` R1 (non-ACGT never reported), R2 (`GAATTCNNNNGAATTC`), R3–R5 (huge / odd `maxLength`, eager validation), R6 (ordering); differential oracle rewritten; MCP `FindPalindromes_AmbiguousBases_NeverPair_OrderedByPosition`. Evidence `docs/Evidence/REP-PALIN-001-Evidence.md`, algorithm doc (Simplified → Complete).
+- **Current code path:** `RepeatFinder.cs:5038/5054` (overloads), core `FindPalindromesCore` :5073. `GenomicAnalyzer.FindPalindromes` (B09) does **not** delegate and still lacks validation / ACGT restriction — cross-batch request in B04.md.
+
+*Historical 2026-06-24 report (superseded where it conflicts with the revision above; line numbers are 2026-06):*
 
 ## Stage A — Description
 

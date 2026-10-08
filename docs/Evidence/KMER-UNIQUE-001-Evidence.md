@@ -51,6 +51,27 @@
 1. **Count(Text, Pattern):** the number of times a k-mer `Pattern` appears as a substring of `Text` (overlapping occurrences counted). This is the per-k-mer frequency on which both "unique" (Count = 1) and "min-count" (Count ≥ t) filters operate.
 2. **Most-frequent / recurrent k-mers:** a k-mer is a most frequent k-mer if it maximises Count(Text, Pattern); selecting k-mers whose Count ≥ a threshold t is the standard way to isolate recurrent/over-represented k-mers (the basis for `FindKmersWithMinCount`).
 
+### Jellyfish source — dump / stats (B06 review, 2026-10-01)
+
+**URL:** https://raw.githubusercontent.com/gmarcais/Jellyfish/master/sub_commands/dump_main.cc, `dump_main_cmdline.yaggo`, `stats_main.cc` (opened)
+**Authority rank:** 2 (reference implementation; Marçais & Kingsford 2011, *Bioinformatics* 27:764)
+
+**Key Extracted Points:**
+
+1. `dump`: `if(it.val() < lower_count || it.val() > upper_count) continue;` — inclusive range filter; defaults `lower_count = 0`, `upper_count = numeric_limits<uint64_t>::max()`. yaggo: `-L` "Don't output k-mer with count < lower-count", `-U` "Don't output k-mer with count > upper-count".
+2. Output order is the database iteration (hash) order — no sorted order is promised; this API therefore documents its own deterministic order (count desc, ties ordinal k-mer).
+3. `stats` "Unique" = `uniq += val == 1` — same definition of unique as BioInfoLogics; Distinct is separate.
+
+### KMC 3 CLI (B06 review, 2026-10-01)
+
+**URL:** https://raw.githubusercontent.com/refresh-bio/KMC/master/kmc_CLI/kmc.cpp (opened)
+
+1. `-ci<value> - exclude k-mers occurring less than <value> times (default: 2)`; `-cx<value> - exclude k-mers occurring more of than <value> times (default: 1e9)` — lower and upper count cut-offs, as in Jellyfish.
+
+### Reference cross-check (Python Counter replica of `jellyfish dump`)
+
+BA1B sample ACGTTGCATGTCGCATGATGCATGAGAGCT, k=4: `-L1 -U1` → 17 k-mers (ACGT … TTGC, = Jellyfish stats Unique 17); `-L2` → CATG:3 GCAT:3 ATGA:2 TGCA:2; `-L2 -U2` → ATGA:2 TGCA:2; `-L3 -U3` → CATG:3 GCAT:3. GTAGAGCTGT k=2 unique → CT GA GC TA TG; `-L2` → AG:2 GT:2. AAAACGTAAA k=2 `-L2` → AA:5, `-L2 -U2` → none. Full table: docs/algorithms/K-mer/Unique_And_MinCount_Kmers.md §7.2.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -127,6 +148,16 @@
 
 ---
 
+## Audit round 1, WP3 (B06, F12) — Jellyfish `count -C` + `dump -L/-U` and `histo` options (executed reference)
+
+- **Sources opened** (raw.githubusercontent.com, gmarcais/Jellyfish master): `sub_commands/dump_main.cc` (`if(it.val() < lower_count || it.val() > upper_count) continue;`), `sub_commands/histo_main.cc` (`compute_histo`: `base = inc >= low ? 0 : low - inc`, `ceil = high + inc`, `nb_buckets = (ceil + inc - base) / inc`, `< base → histo[0]`, `> ceil → histo[nb_buckets-1]`, else `(val - base) / inc`; rows printed when `histo[i] > 0 || full`), `sub_commands/histo_main_cmdline.yaggo` (`-l` default 1, `-h` default 10000, `-i` default 1, `-f` "Full histo. Don't skip count 0."; "The last bucket in the output behaves as a catchall").
+- **Reference program executed:** Jellyfish 2.3.1 (`apt jellyfish 2.3.1-3build1`), `count -m k -s 10000 -t 1 [-C]`, then `dump -c -L l [-U u]` (20 runs) and `histo [-l] [-h] [-i] [-f]` (72 runs). A Python replica of `histo_main.cc` reproduces all 72 histo rows.
+- **Numbers (dump, `-C`):** BA1B k=4 `-L 1 -U 1` → 16 k-mers (AACG … GCGA); `-L 2` → ATGC:4 CATG:3 ATGA:2 TGCA:2; `-L 2 -U 3` → CATG:3 ATGA:2 TGCA:2; `acgtNNacgtacgRtTTGCAnA` k=3 `-L 1 -U 1` → AAA CAA; ATGATG k=3 → ATC TCA / ATG:2; Rosalind KMER k=4 `-L 7` → AACT:10 ACTC:10 ACTG:9 AGTC:9 CTCA:9 AGAC:7 AGTA:7 CAGC:7 GTGA:7. Full table: docs/algorithms/K-mer/Unique_And_MinCount_Kmers.md §7.3.
+- **Numbers (histo):** Rosalind k=4 `-C` defaults → 1 23 2 34 3 27 4 25 5 7 6 5 7 4 9 3 10 2; `-h 5` → … 5 7 6 14 (cap bin); `-i 2` → 0 23 2 61 4 32 6 9 8 3 10 2; `-l 3 -h 8 -i 2` → 1 57 3 52 5 12 7 4 9 5. Table: docs/algorithms/K-mer/K-mer_Frequency_Analysis.md §7.3.
+- **Implementation:** `FindUniqueKmers` / `FindKmersWithMinCount` option overloads (one 5-argument implementation over the option-aware `CountKmers` + the shared `SelectByCountRange`); `GetKmerHistogram` (sequence and count-table overloads). C# equals every row.
+
+---
+
 ## References
 
 1. Wikipedia contributors. 2026. *K-mer*. Wikipedia. https://en.wikipedia.org/wiki/K-mer
@@ -138,3 +169,4 @@
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-10-01**: B06 audit round 1 WP3 — option-aware overloads and Jellyfish histo cross-check (executed Jellyfish 2.3.1).

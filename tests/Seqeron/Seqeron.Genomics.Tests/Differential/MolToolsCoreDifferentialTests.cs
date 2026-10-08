@@ -40,20 +40,25 @@ public class MolToolsCoreDifferentialTests
         Assert.That(sites.Count(p => !p.IsForwardStrand), Is.EqualTo(FwdCount(RevComp(seq))), "reverse count");
 
         // Each site is reconstructible from the spec, independently of the search internals.
+        // Convention (CRISPOR crispor.py findAllPams/flankSeqIter): Position/TargetStart are
+        // forward-strand coordinates; PamSequence/TargetSequence are read on the protospacer strand.
         foreach (var p in sites)
         {
-            Assert.That(p.PamSequence, Is.EqualTo(seq.Substring(p.Position, 3)), "PAM on forward coords");
+            Assert.That(p.PamSequence[1] == 'G' && p.PamSequence[2] == 'G', Is.True, "NGG on its own strand");
             if (p.IsForwardStrand)
             {
-                Assert.That(p.PamSequence[1] == 'G' && p.PamSequence[2] == 'G', Is.True, "NGG");
+                Assert.That(p.PamSequence, Is.EqualTo(seq.Substring(p.Position, 3)), "PAM on forward coords");
                 Assert.That(p.TargetStart, Is.EqualTo(p.Position - 20));
                 Assert.That(p.TargetSequence, Is.EqualTo(seq.Substring(p.Position - 20, 20)));
             }
             else
             {
-                // Reverse PAM reads "CCN" on the forward strand; target is the revcomp of the 20 nt 3' of it.
-                Assert.That(p.PamSequence.StartsWith("CC", StringComparison.Ordinal), Is.True, "revcomp NGG = CCN");
-                Assert.That(p.TargetSequence, Is.EqualTo(RevComp(seq.Substring(p.Position + 3, 20))));
+                // Reverse PAM reads "CCN" on the forward strand and is reported as its revcomp NGG;
+                // the target is the revcomp of the 20 nt lying 3' of the PAM in forward coordinates.
+                Assert.That(seq.Substring(p.Position, 3), Does.StartWith("CC"), "forward bases of a reverse PAM = CCN");
+                Assert.That(p.PamSequence, Is.EqualTo(RevComp(seq.Substring(p.Position, 3))), "PAM read on the reverse strand");
+                Assert.That(p.TargetStart, Is.EqualTo(p.Position + 3), "forward-strand start of the protospacer");
+                Assert.That(p.TargetSequence, Is.EqualTo(RevComp(seq.Substring(p.TargetStart, 20))));
             }
         }
     }

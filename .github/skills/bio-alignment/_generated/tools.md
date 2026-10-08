@@ -12,14 +12,19 @@
 | `assembly_stats` | Alignment | `SequenceAssembler.CalculateStats` | [doc](../../../../docs/mcp/tools/alignment/assembly_stats.md) |
 | `calculate_coverage` | Alignment | `SequenceAssembler.CalculateCoverage` | [doc](../../../../docs/mcp/tools/alignment/calculate_coverage.md) |
 | `compute_consensus` | Alignment | `SequenceAssembler.ComputeConsensus` | [doc](../../../../docs/mcp/tools/alignment/compute_consensus.md) |
+| `damerau_alignment` | Alignment | `ApproximateMatcher.GetDamerauLevenshteinAlignment` | [doc](../../../../docs/mcp/tools/alignment/damerau_alignment.md) |
+| `damerau_levenshtein_distance` | Alignment | `ApproximateMatcher.DamerauLevenshteinDistance` | [doc](../../../../docs/mcp/tools/alignment/damerau_levenshtein_distance.md) |
+| `edit_alignment` | Alignment | `ApproximateMatcher.GetEditAlignment` | [doc](../../../../docs/mcp/tools/alignment/edit_alignment.md) |
 | `error_correct_reads` | Alignment | `SequenceAssembler.ErrorCorrectReads` | [doc](../../../../docs/mcp/tools/alignment/error_correct_reads.md) |
 | `find_all_overlaps` | Alignment | `SequenceAssembler.FindAllOverlaps` | [doc](../../../../docs/mcp/tools/alignment/find_all_overlaps.md) |
 | `find_best_match` | Alignment | `ApproximateMatcher.FindBestMatch` | [doc](../../../../docs/mcp/tools/alignment/find_best_match.md) |
+| `find_edit_end_positions` | Alignment | `ApproximateMatcher.FindEditEndPositions` | [doc](../../../../docs/mcp/tools/alignment/find_edit_end_positions.md) |
 | `find_overlap` | Alignment | `SequenceAssembler.FindOverlap` | [doc](../../../../docs/mcp/tools/alignment/find_overlap.md) |
 | `find_with_edits` | Alignment | `ApproximateMatcher.FindWithEdits` | [doc](../../../../docs/mcp/tools/alignment/find_with_edits.md) |
 | `find_with_mismatches` | Alignment | `ApproximateMatcher.FindWithMismatches` | [doc](../../../../docs/mcp/tools/alignment/find_with_mismatches.md) |
 | `format_alignment` | Alignment | `SequenceAligner.FormatAlignment` | [doc](../../../../docs/mcp/tools/alignment/format_alignment.md) |
 | `frequent_kmers_with_mismatches` | Alignment | `ApproximateMatcher.FindFrequentKmersWithMismatches` | [doc](../../../../docs/mcp/tools/alignment/frequent_kmers_with_mismatches.md) |
+| `frequent_kmers_with_mismatches_and_revcomp` | Alignment | `ApproximateMatcher.FindFrequentKmersWithMismatchesAndReverseComplements` | [doc](../../../../docs/mcp/tools/alignment/frequent_kmers_with_mismatches_and_revcomp.md) |
 | `global_align` | Alignment | `SequenceAligner.GlobalAlign` | [doc](../../../../docs/mcp/tools/alignment/global_align.md) |
 | `local_align` | Alignment | `SequenceAligner.LocalAlign` | [doc](../../../../docs/mcp/tools/alignment/local_align.md) |
 | `merge_contigs` | Alignment | `SequenceAssembler.MergeContigs` | [doc](../../../../docs/mcp/tools/alignment/merge_contigs.md) |
@@ -34,11 +39,17 @@
 | `find_longest_common_region` | Core | `GenomicAnalyzer.FindLongestCommonRegion` | [doc](../../../../docs/mcp/tools/core/find_longest_common_region.md) |
 | `find_longest_repeat` | Core | `GenomicAnalyzer.FindLongestRepeat` | [doc](../../../../docs/mcp/tools/core/find_longest_repeat.md) |
 | `hamming_distance` | Core | `ApproximateMatcher.HammingDistance` | [doc](../../../../docs/mcp/tools/core/hamming_distance.md) |
+| `suffix_tree_all_lcs` | Core | `SuffixTree.FindAllDistinctLongestCommonSubstrings` | [doc](../../../../docs/mcp/tools/core/suffix_tree_all_lcs.md) |
+| `suffix_tree_all_lrs` | Core | `SuffixTree.FindAllLongestRepeatedSubstrings` | [doc](../../../../docs/mcp/tools/core/suffix_tree_all_lrs.md) |
 | `suffix_tree_contains` | Core | `SuffixTree.Contains` | [doc](../../../../docs/mcp/tools/core/suffix_tree_contains.md) |
 | `suffix_tree_count` | Core | `SuffixTree.CountOccurrences` | [doc](../../../../docs/mcp/tools/core/suffix_tree_count.md) |
 | `suffix_tree_find_all` | Core | `SuffixTree.FindAllOccurrences` | [doc](../../../../docs/mcp/tools/core/suffix_tree_find_all.md) |
+| `suffix_tree_find_mems` | Core | `SuffixTree.FindMaximalExactMatches` | [doc](../../../../docs/mcp/tools/core/suffix_tree_find_mems.md) |
+| `suffix_tree_find_mums` | Core | `SuffixTree.FindMaximalUniqueMatches` | [doc](../../../../docs/mcp/tools/core/suffix_tree_find_mums.md) |
+| `suffix_tree_k_common_substrings` | Core | `SuffixTree.FindLongestCommonSubstrings` | [doc](../../../../docs/mcp/tools/core/suffix_tree_k_common_substrings.md) |
 | `suffix_tree_lcs` | Core | `SuffixTree.LongestCommonSubstring` | [doc](../../../../docs/mcp/tools/core/suffix_tree_lcs.md) |
 | `suffix_tree_lrs` | Core | `SuffixTree.LongestRepeatedSubstring` | [doc](../../../../docs/mcp/tools/core/suffix_tree_lrs.md) |
+| `suffix_tree_maximal_repeats` | Core | `SuffixTree.FindMaximalRepeatedPairs` | [doc](../../../../docs/mcp/tools/core/suffix_tree_maximal_repeats.md) |
 | `suffix_tree_stats` | Core | `SuffixTree.Properties` | [doc](../../../../docs/mcp/tools/core/suffix_tree_stats.md) |
 
 <!-- END generated -->

@@ -1,6 +1,6 @@
 # find_snps_direct
 
-Detect SNPs by direct positional comparison without alignment.
+Detect SNPs by direct positional comparison without alignment. Inputs must be pre-aligned and of equal length (unequal lengths are rejected); bases compare case-insensitively and gap columns are not SNPs.
 
 ## Overview
 
@@ -14,10 +14,12 @@ Detect SNPs by direct positional comparison without alignment.
 
 ## Description
 
-Compares the reference and query base-by-base at the same index (no alignment), reporting a `SNP`
-for every mismatched position over the common prefix (the shorter of the two lengths). Because it is
-purely positional, `queryPosition` always equals `position`, and the SNP count equals the Hamming
-distance for equal-length inputs. Use this when the sequences are already aligned/registered; use
+Compares the pre-aligned reference and query column by column (no alignment is run), reporting a
+`SNP` for every column whose two bases differ (case-insensitive, VCF v4.3). It delegates to
+`VariantCaller.CallVariantsFromAlignment` and keeps the SNP columns: gap (`-`) columns are indels and
+are not reported, and positions are ungapped coordinates. For gap-free inputs `queryPosition` equals
+`position` and the SNP count equals the Hamming distance. The inputs must have equal length (Hamming
+distance is undefined otherwise); unequal lengths are rejected. Use this when the sequences are already aligned/registered; use
 [`find_snps`](find_snps.md) when they may contain indels.
 
 ## Core Documentation Reference
@@ -43,6 +45,7 @@ distance for equal-length inputs. Use this when the sequences are already aligne
 |------|---------|
 | 1001 | Reference cannot be null or empty |
 | 1001 | Query cannot be null or empty |
+| 1001 | Aligned sequences must have the same length. |
 
 ## Examples
 
@@ -55,13 +58,18 @@ distance for equal-length inputs. Use this when the sequences are already aligne
 { "variants": [ { "position": 2, "referenceAllele": "G", "alternateAllele": "T", "type": "SNP", "queryPosition": 2 } ] }
 ```
 
-### Example 2: Unequal lengths compare the common prefix
+### Example 2: Unequal lengths are rejected
 
-`ATGCAA` vs `ATTC` → only the 4-base common prefix is compared, yielding one SNP at position 2.
+`ATGCAA` vs `ATTC` → error "Aligned sequences must have the same length." (positional comparison is
+undefined for unequal lengths).
+
+### Example 3: Case-insensitive
+
+`acgt` vs `ACGT` → no variants (soft-masked bases are matches).
 
 ## Performance
 
-- **Time Complexity:** O(min(n, m))
+- **Time Complexity:** O(n)
 - **Space Complexity:** O(k)
 
 ## See Also

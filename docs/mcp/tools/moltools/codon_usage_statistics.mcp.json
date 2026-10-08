@@ -19,7 +19,7 @@
     "properties": {
       "codonCounts": { "type": "object", "additionalProperties": { "type": "integer" } },
       "rscu": { "type": "object", "additionalProperties": { "type": "number" } },
-      "enc": { "type": "number", "description": "Effective Number of Codons (20..61)." },
+      "enc": { "type": "number", "description": "Effective Number of Codons (20..61; 0 = not calculable, see effective_number_of_codons)." },
       "totalCodons": { "type": "integer" },
       "gc1": { "type": "number", "description": "GC% at codon position 1." },
       "gc2": { "type": "number", "description": "GC% at codon position 2." },

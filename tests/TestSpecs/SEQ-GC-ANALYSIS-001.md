@@ -5,7 +5,7 @@
 **Algorithm:** Comprehensive GC Analysis (`GcSkewCalculator.AnalyzeGcContent`)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -78,6 +78,10 @@
 | M7 | Windowed counts & boundaries | "ACGTACGTAC" w=4,step=2 → 4 windows; first WindowStart=0,WindowEnd=3,Position=2 | 4 windows; boundaries exact | Source 3, INV-5 |
 | M8 | Pure-G overall skew bound | "GGGG" | OverallGcSkew = +1, GcContent=100 | Source 2 |
 | M9 | No G/C overall skew | "ATATAT" | OverallGcSkew=0, GcContent=0, AtSkew=0 | Source 3 |
+
+| M10 | RNA U counted in GC denominator (review 2026-09, F1) | "GGAUCUUCGGAUCU" w=7,step=7; "ACGU" fraction | GC% 50; windows 42.857142857142854, 57.14285714285714; variance 51.0204081632653; ACGU fraction 0.5 | Biopython 1.88 `gc_fraction` (docstring example 0.50); numpy.var |
+| M11 | window/step < 1 rejected (review 2026-09, F2) | w∈{0,−1} or step∈{0,−2}, both overloads, also for "" | ArgumentOutOfRangeException | Biopython `GC_skew(seq,0)` → ValueError; zero step never terminated |
+| M12 | Canonical population variance | StatisticsHelper.PopulationVariance {12,13,12,14,19} | 6.8; empty → 0 | Source 4; numpy.var |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -178,3 +182,4 @@
 
 1. Decided: add a `string` overload of `AnalyzeGcContent` for API parity with the other `GcSkewCalculator` methods (all of which expose both `DnaSequence` and `string`). No change to the numerical contract.
 2. None remaining on numerical behavior — all formulas are source-backed.
+3. Review 2026-09 (campaign B01): GC content now delegates to the canonical `SequenceExtensions.CalculateGcFraction` (G+C over A/C/G/T/U; U was previously dropped from the denominator — "ACGU" gave 66.67 % instead of Biopython's 50 %); variances delegate to `StatisticsHelper.PopulationVariance`; `windowSize`/`stepSize` < 1 now throw eagerly (a zero step previously hung). Fuzz reference `ExpectedOverallScalars` updated to count U in the GC% denominator; the former "GUCU ignored" fuzz case (which encoded the defect) was replaced by `AnalyzeGcContent_RnaBaseU_CountedInGcDenominatorOnly`.

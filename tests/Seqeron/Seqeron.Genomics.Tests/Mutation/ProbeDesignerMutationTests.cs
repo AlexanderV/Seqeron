@@ -12,23 +12,26 @@ namespace Seqeron.Genomics.Tests.Mutation;
 [TestFixture]
 public class ProbeDesignerMutationTests
 {
-    // ── Oligo analysis: molecular weight (Σ residue mass − (n−1)·H2O) ────────────────
+    // ── Oligo analysis: molecular weight = Biopython molecular_weight (single-stranded) ──
 
     [Test]
-    [TestCase("ACGT", 1253.8)]   // 331.2+307.2+347.2+322.2 − 3·18
-    [TestCase("A", 331.2)]       // single base, no phosphodiester subtraction
-    [TestCase("AA", 644.4)]      // 662.4 − 1·18
-    [TestCase("U", 308.2)]       // uracil branch
-    public void CalculateMolecularWeight_MatchesResidueSumMinusWater(string seq, double expected)
+    [TestCase("ACGT", 1253.8027)]   // Biopython molecular_weight("ACGT", "DNA")
+    [TestCase("A", 331.2218)]       // single base, no phosphodiester water
+    [TestCase("AA", 644.4283)]      // 2·331.2218 − 18.01528
+    [TestCase("AAA", 957.6348)]     // (n−1)·water term
+    [TestCase("U", 324.1813)]       // RNA inferred (U, no T): UMP 324.1813 (was dUMP-like 308.2)
+    public void CalculateMolecularWeight_MatchesBiopython(string seq, double expected)
     {
         ProbeDesigner.CalculateMolecularWeight(seq).Should().BeApproximately(expected, 1e-6);
     }
 
     [Test]
-    public void CalculateMolecularWeight_WaterSubtractionScalesWithLength()
+    public void CalculateMolecularWeight_ExplicitType_DelegatesToCanonical()
     {
-        // (n−1)·18 term: AAA = 3·331.2 − 2·18 = 993.6 − 36 = 957.6 (kills the (n−1)·18 mutants)
-        ProbeDesigner.CalculateMolecularWeight("AAA").Should().BeApproximately(957.6, 1e-6);
+        // Biopython molecular_weight("ACGU", "RNA") = 1303.7737; DNA table skips U.
+        ProbeDesigner.CalculateMolecularWeight("acgu", isDna: false).Should().BeApproximately(1303.7737, 1e-6);
+        ProbeDesigner.CalculateMolecularWeight("ACGT", isDna: true)
+            .Should().Be(SequenceStatistics.CalculateNucleotideMolecularWeight("ACGT", true));
     }
 
     // ── Oligo analysis: extinction coefficient (Σ per-base ε260) ─────────────────────
@@ -54,38 +57,19 @@ public class ProbeDesignerMutationTests
         ProbeDesigner.CalculateConcentration(a260, eps, path).Should().BeApproximately(expected, 1e-6);
     }
 
-    // ── AnalyzeOligo: Tm (Wallace for <14 nt, salt-adjusted for ≥14 nt) + GC fraction ─
+    // ── AnalyzeOligo: Tm = Primer3 seqtm at the Primer3 probe defaults (primer3-py calc_tm) ─
 
     [Test]
-    [TestCase("ACGT", 2, 2)] // at=2, gc=2
-    [TestCase("AAAA", 4, 0)]
-    [TestCase("GCGC", 0, 4)]
-    public void AnalyzeOligo_ShortOligoTm_UsesWallaceRuleOnExactAtGcCounts(string seq, int at, int gc)
+    [TestCase("ACGT", -49.425877921255164)]
+    [TestCase("AAAA", -77.98477365271953)]
+    [TestCase("GCGC", -22.546940310554163)]                 // self-complementary (C_T/1 branch)
+    [TestCase("GCGCGCATATGCGCGCATAT", 59.65041128691587)]   // 20 nt nearest-neighbour
+    [TestCase("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAC", 66.11718778626361)] // 42 nt: long_seq_tm (max_nn_length = 36)
+    public void AnalyzeOligo_Tm_MatchesPrimer3CalcTmAtProbeDefaults(string seq, double expected)
     {
-        var result = ProbeDesigner.AnalyzeOligo(seq);
-
-        // Pins the A/T and G/C counting predicates: a mis-count changes the Wallace Tm.
-        result.Tm.Should().BeApproximately(ThermoConstants.CalculateWallaceTm(at, gc), 1e-6);
-    }
-
-    [Test]
-    public void AnalyzeOligo_LongOligoTm_UsesSaltAdjustedFormula()
-    {
-        // 20 nt (≥ WallaceMaxLength) → salt-adjusted branch on the GC fraction.
-        const string seq = "GCGCGCATATGCGCGCATAT"; // 20 nt, gc = 12/20 = 0.6
-        var result = ProbeDesigner.AnalyzeOligo(seq);
-
-        result.Tm.Should().BeApproximately(ThermoConstants.CalculateSaltAdjustedTm(0.6, seq.Length), 1e-6);
-    }
-
-    [Test]
-    [TestCase("ACGT", 0.5)]
-    [TestCase("GGGG", 1.0)]
-    [TestCase("AAAA", 0.0)]
-    [TestCase("GGGGCCCCAA", 0.8)]
-    public void AnalyzeOligo_GcContent_MatchesFraction(string seq, double expected)
-    {
-        ProbeDesigner.AnalyzeOligo(seq).GcContent.Should().BeApproximately(expected, 1e-9);
+        // primer3-py 2.3.1 calc_tm(seq, mv_conc=50, dv_conc=0, dntp_conc=0, dna_conc=50, max_nn_length=36)
+        // (Primer3 MAX_NN_TM_LENGTH = 36, as libprimer3 seqtm uses when picking oligos)
+        ProbeDesigner.AnalyzeOligo(seq).Tm.Should().BeApproximately(expected, 1e-9);
     }
 
     // ── ValidateProbe: specificity score (0 hits→0, 1→1, N→1/N) + off-target rule ────
@@ -203,7 +187,7 @@ public class ProbeDesignerMutationTests
     // ── EvaluateProbeWithGc scoring: exact penalty bookkeeping via DesignProbes ───────
 
     private static ProbeDesigner.ProbeParameters Tiny(
-        double minGc = 0.0, double maxGc = 1.0, double minTm = 0, double maxTm = 1000,
+        double minGc = 0.0, double maxGc = 1.0, double minTm = -1000, double maxTm = 1000,
         int maxHomo = 100, bool avoidStructure = false, double maxSelfComp = 1.0) =>
         new(MinLength: 4, MaxLength: 4, MinTm: minTm, MaxTm: maxTm,
             MinGc: minGc, MaxGc: maxGc, MaxHomopolymer: maxHomo,

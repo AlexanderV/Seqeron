@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 
 namespace Seqeron.Genomics.Core
 {
@@ -47,43 +46,30 @@ namespace Seqeron.Genomics.Core
 
         /// <summary>
         /// Gets the complement of this RNA sequence.
-        /// A ↔ U, C ↔ G
+        /// A ↔ U, C ↔ G. Delegates to the canonical <see cref="SequenceExtensions.GetRnaComplementBase(char)"/>.
         /// </summary>
         public RnaSequence Complement()
         {
-            var sb = new StringBuilder(_sequence.Length);
-            foreach (char c in _sequence)
+            var result = new char[_sequence.Length];
+            for (int i = 0; i < _sequence.Length; i++)
             {
-                sb.Append(c switch
-                {
-                    'A' => 'U',
-                    'U' => 'A',
-                    'C' => 'G',
-                    'G' => 'C',
-                    _ => c
-                });
+                result[i] = SequenceExtensions.GetRnaComplementBase(_sequence[i]);
             }
-            return new RnaSequence(sb.ToString());
+            return new RnaSequence(new string(result));
         }
 
         /// <summary>
         /// Gets the reverse complement of this RNA sequence.
+        /// Delegates per base to the canonical <see cref="SequenceExtensions.GetRnaComplementBase(char)"/>.
         /// </summary>
         public RnaSequence ReverseComplement()
         {
-            var sb = new StringBuilder(_sequence.Length);
-            for (int i = _sequence.Length - 1; i >= 0; i--)
+            var result = new char[_sequence.Length];
+            for (int i = 0; i < _sequence.Length; i++)
             {
-                sb.Append(_sequence[i] switch
-                {
-                    'A' => 'U',
-                    'U' => 'A',
-                    'C' => 'G',
-                    'G' => 'C',
-                    _ => _sequence[i]
-                });
+                result[i] = SequenceExtensions.GetRnaComplementBase(_sequence[_sequence.Length - 1 - i]);
             }
-            return new RnaSequence(sb.ToString());
+            return new RnaSequence(new string(result));
         }
 
         /// <summary>
@@ -135,20 +121,25 @@ namespace Seqeron.Genomics.Core
         /// <summary>
         /// Calculates AU content (percentage of A and U nucleotides).
         /// </summary>
+        /// <remarks>
+        /// The sequence is validated A/C/G/U, so AU = valid − GC from the canonical
+        /// <see cref="SequenceExtensions.CountGcAndValidNucleotides"/> (no separate counting loop).
+        /// </remarks>
         public double AuContent()
         {
             if (_sequence.Length == 0) return 0;
 
-            int auCount = _sequence.Count(c => c == 'A' || c == 'U');
-            return (double)auCount / _sequence.Length * 100;
+            var (gc, valid) = _sequence.AsSpan().CountGcAndValidNucleotides();
+            return (double)(valid - gc) / _sequence.Length * 100;
         }
 
         /// <summary>
         /// Creates an RNA sequence from a DNA sequence (transcription).
         /// </summary>
+        /// <remarks>Delegates to <see cref="DnaSequence.Transcribe"/> (T → U).</remarks>
         public static RnaSequence FromDna(DnaSequence dna)
         {
-            return new RnaSequence(dna.Sequence.Replace('T', 'U'));
+            return new RnaSequence(dna.Transcribe());
         }
 
         public override string ToString() => _sequence;
@@ -160,15 +151,13 @@ namespace Seqeron.Genomics.Core
 
         private static void ValidateSequence(string sequence)
         {
-            for (int i = 0; i < sequence.Length; i++)
+            // Canonical predicate: SequenceExtensions.IndexOfInvalidRna (SEQ-VALID-001).
+            int i = sequence.AsSpan().IndexOfInvalidRna();
+            if (i >= 0)
             {
-                char c = sequence[i];
-                if (c != 'A' && c != 'C' && c != 'G' && c != 'U')
-                {
-                    throw new ArgumentException(
-                        $"Invalid nucleotide '{c}' at position {i}. Valid nucleotides: A, C, G, U.",
-                        nameof(sequence));
-                }
+                throw new ArgumentException(
+                    $"Invalid nucleotide '{sequence[i]}' at position {i}. Valid nucleotides: A, C, G, U.",
+                    nameof(sequence));
             }
         }
 

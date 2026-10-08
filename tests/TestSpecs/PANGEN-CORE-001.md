@@ -5,7 +5,7 @@
 **Algorithm:** Core / Accessory / Unique genome construction, genome fluidity, open/closed classification
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-09-28
 
 ---
 
@@ -19,7 +19,7 @@
 | 2 | Tettelin et al. (2008), Curr Opin Microbiol 11:472 | 1 | https://doi.org/10.1016/j.mib.2008.09.006 | 2026-06-13 |
 | 3 | Kislyuk et al. (2011), BMC Genomics 12:32 | 1 | https://doi.org/10.1186/1471-2164-12-32 | 2026-06-13 |
 | 4 | Page et al. (2015), Roary, Bioinformatics 31:3691 | 3 | https://doi.org/10.1093/bioinformatics/btv421 | 2026-06-13 |
-| 5 | micropan `heaps()`/`fluidity()` (CRAN) | 3 | https://rdrr.io/cran/micropan/man/heaps.html | 2026-06-13 |
+| 5 | micropan `heaps()`/`fluidity()`/`panMatrix()` (CRAN; R source) | 3 | https://rdrr.io/cran/micropan/man/heaps.html ; https://raw.githubusercontent.com/larssnip/micropan/master/R/powerlaw.R | 2026-06-13 / 2026-09-28 |
 | 6 | Wikipedia, Pan-genome (citing primaries) | 4 | https://en.wikipedia.org/wiki/Pan-genome | 2026-06-13 |
 
 ### 1.2 Key Evidence Points
@@ -27,14 +27,15 @@
 1. Core genome = gene families present in all genomes; accessory/dispensable = present in some but not all; unique/strain-specific = in exactly one genome — Tettelin (2005, 2008).
 2. Operational core threshold is a fraction of genomes (Roary default 99%); membership = present in ≥ coreFraction of genomes, i.e. occupancy / N ≥ coreFraction (a fractional/percentage test, NOT floor(coreFraction · N)) — Page et al. (2015): "a gene being in at least 99% of samples".
 3. Genome fluidity `φ = [2/(N(N−1))]·Σ_{k<l}(U_k+U_l)/(M_k+M_l)`, range 0..1; 0 = identical gene content, 1 = disjoint — Kislyuk (2011).
-4. Open pan-genome ⟺ Heaps'-law decay exponent alpha < 1 (new genes keep accumulating); closed ⟺ alpha > 1 — Tettelin (2008), micropan.
+4. Open pan-genome ⟺ Heaps'-law decay exponent alpha < 1 (new genes keep accumulating); closed ⟺ alpha > 1 — Tettelin (2008), micropan. Alpha is fitted to new-cluster counts pooled over **random genome orderings** (micropan `heaps()`, n.perm = 100), so the call does not depend on input order.
+5. Presence/absence: cell [genome, cluster] = genome contributes ≥ 1 member to the cluster (micropan `panMatrix()` keys members by genome id, not by gene name).
 
 ### 1.3 Documented Corner Cases
 
 - Empty input → empty pan-genome.
 - Single genome (N=1): no pairs ⇒ fluidity 0; every cluster has occupancy 1 (unique).
-- Fluidity pair with `M_k+M_l = 0` contributes 0 (undefined term, neutral element).
-- Openness fit needs ≥ 3 genomes; below that openness is not determinable from the new-gene curve (defaults to Closed).
+- Fluidity pair with `M_k+M_l = 0` (two empty genomes) is undefined (micropan would give NaN); it is excluded from the average, which is taken over defined pairs.
+- Openness fit needs ≥ 3 genomes: with N = 2 every pooled point is at x = 2, so only K·2^(−α) is identifiable (defaults to Closed).
 
 ### 1.4 Known Failure Modes / Pitfalls
 
@@ -51,7 +52,9 @@
 | `ClusterGenes(genomes, identityThreshold)` | PanGenomeAnalyzer | Internal | Occupancy source; exercised via ConstructPanGenome and directly for occupancy invariants |
 | `GetCoreGeneClusters(clusters, totalGenomes, threshold)` | PanGenomeAnalyzer | Canonical | Core-gene identification (`IdentifyCoreGenes` referent in Registry) |
 | `CalculateGenomeFluidity` (private, via ConstructPanGenome.Statistics.GenomeFluidity) | PanGenomeAnalyzer | Internal | Kislyuk formula |
-| `DeterminePanGenomeType` (private, via ConstructPanGenome.Statistics.Type) | PanGenomeAnalyzer | Internal | Heaps decay-exponent openness |
+| `DeterminePanGenomeType` (private, via ConstructPanGenome.Statistics.Type) | PanGenomeAnalyzer | Internal | Delegates to canonical `FitHeapsLaw(CreatePresenceAbsenceMatrix(...))` |
+| `CreatePresenceAbsenceMatrix(genomes, clusters)` | PanGenomeAnalyzer | Canonical | Membership by member genome (`GenomeIds`) |
+| `AnalyzeAccessoryGenes`, `FindGenomeSpecificGenes` | PanGenomeAnalyzer | Helpers | strict accessory 1<occ<N; unique occ=1 |
 
 ---
 
@@ -82,7 +85,10 @@
 | M5 | Fluidity = 1 for pairwise-disjoint content | each genome has a distinct cluster only | GenomeFluidity = 1 | Kislyuk (2011) |
 | M6 | INV-04 bounds | M3 input | 0 ≤ fluidity ≤ 1 | Kislyuk (2011) |
 | M7 | Open classification | ≥3 genomes, each adding new unique genes (decay alpha < 1) | Type = Open | Tettelin (2008); micropan |
-| M8 | Closed classification | ≥3 genomes with shared core, few/no new genes after first (decay alpha > 1) | Type = Closed | Tettelin (2008); micropan |
+| M8 | Closed classification | 4 genomes, each lacks one distinct accessory cluster → permutation-averaged curve (1,0,0); Python micropan objective: K=3.1745, alpha=2.0 | Type = Closed | Tettelin (2008); micropan |
+| M8b | Order invariance / singleton novelty | base + 4,2,1,0 strain-specific clusters, forward and reversed input order; expected curve flat 1.75 → alpha=0 | Type = Open in both orders | micropan heaps() permutations |
+| M11 | Presence matrix keyed by genome | same gene id "x" in two genomes, different clusters | each cluster present only in its own genome; PresentGenes 1 each | micropan panMatrix() |
+| M12 | Partition/fluidity/openness with reused gene ids | 3 genomes, gene "x" each, disjoint sequences | 3 unique, φ=1, Open | Kislyuk (2011); micropan |
 | M9 | Core-gene identification threshold | GetCoreGeneClusters with threshold 1.0 over occupancy {3,2,1}/3 | only the occupancy-3 cluster returned | Page (2015) |
 | M10 | INV-06 core fraction | M1 input | CoreFraction = CoreGeneCount / TotalGenes | definitional |
 
@@ -92,7 +98,7 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | Empty input | empty genomes dict | empty result, TotalGenomes=0, fluidity 0, Type Closed | corner case |
 | S2 | Null input | null genomes | empty result (no throw) | matches existing contract |
-| S3 | Single genome | N=1, two clusters | no pairs ⇒ fluidity 0; both clusters unique (occupancy 1) | corner case |
+| S3 | Single genome | N=1, two clusters | no pairs ⇒ fluidity 0; both clusters core (occupancy 1 = N; core test takes precedence over unique) | corner case |
 | S4 | Core threshold boundary | 3 genomes, coreFraction 0.99 → core iff occupancy/3 ≥ 0.99 → only occupancy 3; occupancy 2 (66.7%) is accessory | only the 3/3 cluster counted core; 2/3 accessory | Page (2015) fractional "≥ 99% of samples" |
 | S4b | Core threshold float boundary | N=100, coreFraction 0.99 → 99/100 (99%) core, 98/100 (98%) not | 99-occupancy cluster core, 98 not | Page (2015) exact 99% boundary |
 | S5 | GetCoreGeneClusters empty | empty cluster list | empty | trivial |
@@ -143,7 +149,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `PanGenomeAnalyzer_ConstructPanGenome_Tests.cs` | Canonical PANGEN-CORE-001 | 17 |
+| `PanGenomeAnalyzer_ConstructPanGenome_Tests.cs` | Canonical PANGEN-CORE-001 | 21 |
 | `PanGenomeAnalyzerTests.cs` | Legacy, out-of-scope methods only | reduced |
 
 ### 5.5 Phase 7 Work Queue
@@ -188,7 +194,7 @@
 | S1 | ✅ | empty result exact |
 | S2 | ✅ | null → empty |
 | S3 | ✅ | single genome exact |
-| S4 | ✅ | floor boundary |
+| S4 | ✅ | fractional boundary |
 | S5 | ✅ | empty clusters |
 | C1 | ✅ | determinism |
 | C2 | ✅ | property bounds |
@@ -203,11 +209,13 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Clustering identity metric (k-mer Jaccard) is upstream of partition logic; tests use unambiguous identical/disjoint sequences | M1, M3–M8 inputs |
-| 2 | Empty-pair (`M_k+M_l=0`) fluidity term = 0 | fluidity edge cases |
+| 1 | Clustering identity metric (CD-HIT, PANGEN-CLUSTER-001) is upstream of partition logic; tests use unambiguous identical/disjoint sequences | M1, M3–M12 inputs |
+| 2 | Empty-pair (`M_k+M_l=0`) fluidity term excluded from the average (undefined) | fluidity edge cases |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. `DeterminePanGenomeType` previously used an unsourced `uniqueFraction > 0.1` heuristic. Decision: replaced with the source-backed Heaps'-law decay-exponent criterion (open ⟺ alpha < 1, requires N ≥ 3 else Closed). This is a correctness-affecting fix within `ConstructPanGenome`'s scope.
+2. (2026-09 review) The replacement fit used a single dictionary-order curve with log-log OLS and zero-novelty floored to 1 → order-dependent and not micropan. Decision: delegate to canonical `FitHeapsLaw` (permutation-averaged micropan `heaps()`); the old "decaying novelty 4,2,1 ⇒ Closed" test was wrong (singleton novelty gives a flat expected curve ⇒ Open) and was replaced by M8/M8b.
+3. (2026-09 review) `CreatePresenceAbsenceMatrix` matched clusters by gene id; fixed to membership by member genome (M11, M12).
