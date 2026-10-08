@@ -6,12 +6,12 @@
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignProbes",
   "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L493",
-  "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-scoring probes. Probes > 60 nt use Primer3's alignment-mode self_any/self_end (<= 12) self-dimer screen plus an inverted-repeat hairpin screen.",
+  "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-ranked probes (default: additive library-heuristic score; parameters.Ranking = Primer3Penalty: Primer3 internal-oligo penalty p_obj_fn, sourced). Probes > 60 nt use Primer3's alignment-mode self_any/self_end (<= 12) self-dimer screen plus an inverted-repeat hairpin screen.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "target_sequence": { "type": "string", "description": "Target DNA sequence.", "minLength": 1 },
-      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold). Defaults to Microarray when null.", "default": null },
+      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold; Ranking = AdditiveScore (default, library heuristic) or Primer3Penalty (Primer3 internal-oligo p_obj_fn around OptTm / OptLength)). Defaults to Microarray when null.", "default": null },
       "max_probes": { "type": "integer", "description": "Maximum probes to return (default 10).", "minimum": 1, "default": 10 }
     },
     "required": ["target_sequence"]
@@ -21,7 +21,7 @@
     "properties": {
       "probes": {
         "type": "array",
-        "description": "Score-descending Probe records.",
+        "description": "Probe records, score-descending (default) or Primer3-penalty-ascending (Ranking = Primer3Penalty, with primer3Penalty).",
         "items": { "type": "object" }
       }
     },

@@ -24,7 +24,12 @@ Hybridization probes are used in sequence-detection assays such as FISH, DNA mic
 
 ### 2.2 Core Model
 
-The candidate score starts at `1.0` and is reduced by a fixed set of penalties:
+**Ranking (`ProbeParameters.Ranking`, audit round 3, A3-11).** Two orders are available; the candidate set (windows with additive score > 0) is the same for both:
+
+- `ProbeRanking.AdditiveScore` (default, unchanged) — the additive score below, score descending (ties by length, then start). **This score is a library heuristic**: the penalty values (0.3, 0.3, 0.2, 0.2, 0.15, 0.1, 0.02) have no published source; the score ranks candidates but is not a hybridization probability.
+- `ProbeRanking.Primer3Penalty` — **the sourced ranking**: Primer3's internal-oligo objective `p_obj_fn` (`libprimer3.cc`, `OT_INTL` branch; PRIMER_INTERNAL_n_PENALTY) with Primer3's default internal-oligo weights (PRIMER_INTERNAL_WT_TM_GT/_LT = PRIMER_INTERNAL_WT_SIZE_GT/_LT = 1, all other weights 0), i.e. $|T_m - OptTm| + |N - OptLength|$ with the probe Tm at the parameters' conditions, computed by the canonical `PrimerDesigner.CalculatePrimer3Penalty` (the same call `DesignProbesPrimer3` makes) and reported in `Probe.Primer3Penalty`; order = Primer3 `primer_rec_comp` (penalty ↑, start ↓, length ↑); a probe whose Tm is not computable (non-ACGT base, which Primer3 rejects) ranks last with `Primer3Penalty = null`. `ProbeParameters.OptTm` / `OptLength` default to Primer3's PRIMER_INTERNAL_OPT_TM = 60 °C / PRIMER_INTERNAL_OPT_SIZE = 20 and must lie within [MinTm, MaxTm] / [MinLength, MaxLength] (`ArgumentOutOfRangeException`, Primer3 `_pr_data_control` "Optimum internal oligo Tm lower than minimum or higher than maximum" / "PRIMER_INTERNAL_{OPT,DEFAULT}_SIZE > MAX_SIZE / < MIN_SIZE"; checked eagerly) — so a preset such as Microarray (82–90 °C, 50–60 nt) needs its own optima. `Score` stays the additive score. Cross-check: primer3-py 2.3.1 `design_primers` PRIMER_TASK = pick_hyb_probe_only (PRIMER_PICK_INTERNAL_OLIGO, internal size 18–27, Tm 57–63, GC 20–80 %, poly-X 5, optima (60, 20), (61.5, 22), (59, 19), (60, 24)) on four random 70-nt templates: every one of the 48 Primer3 probes is a `DesignProbes` candidate with the same PRIMER_INTERNAL_n_PENALTY and Tm (|Δ| ≤ 1e-9) and the same relative order, including the start-descending ties (`ProbeDesigner_Primer3Ranking_Tests`). `DesignProbesPrimer3` remains Primer3's complete picker (its acceptance limits and five-prime-problem enumeration as well as its ranking).
+
+The additive candidate score starts at `1.0` and is reduced by a fixed set of penalties:
 
 | Factor | Penalty |
 |--------|---------|
@@ -75,6 +80,8 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 | `targetSequence` | `string` | required | Sequence from which probe candidates are generated | Uppercased before processing |
 | `parameters` | `ProbeParameters?` | `Defaults.Microarray` | Application-specific probe design limits | Includes length, Tm, GC, homopolymer, and self-complementarity thresholds |
 | `maxProbes` | `int` | `10` | Maximum number of returned probes | Applied after ranking |
+| `parameters.Ranking` | `ProbeRanking` | `AdditiveScore` | `AdditiveScore` (library heuristic) or `Primer3Penalty` (Primer3 internal-oligo `p_obj_fn`, sourced) | Enum value must be defined |
+| `parameters.OptTm` / `OptLength` | `double` / `int` | `60` / `20` | PRIMER_INTERNAL_OPT_TM / _OPT_SIZE of the Primer3 ranking | Within [MinTm, MaxTm] / [MinLength, MaxLength] when `Ranking = Primer3Penalty` |
 | `genomeIndex` | `ISuffixTree` | required for specificity overload | Pre-built suffix tree for genome-wide uniqueness filtering | Used only by the overload with specificity checking |
 | `requireUnique` | `bool` | `true` | Whether non-unique probes are excluded when `genomeIndex` is provided | Filters candidates with specificity `< 1.0` |
 
@@ -86,7 +93,8 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 | `Start` / `End` | `int` | Probe coordinates in the source sequence |
 | `Tm` | `double` | Melting-temperature estimate |
 | `GcContent` | `double` | GC fraction |
-| `Score` | `double` | Heuristic quality score |
+| `Score` | `double` | Additive library-heuristic quality score (unsourced penalty values) |
+| `Primer3Penalty` | `double?` | Primer3 PRIMER_INTERNAL_n_PENALTY (`p_obj_fn`) with `Ranking = Primer3Penalty`; `null` otherwise or when the Tm is not computable |
 | `Type` | `ProbeType` | Probe category such as `Standard`, `Tiling`, `Antisense`, `LNA`, or `MolecularBeacon` |
 | `Warnings` | `IReadOnlyList<string>` | Quality warnings recorded during evaluation |
 
@@ -102,7 +110,7 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 2. Precompute GC prefix sums for the target sequence.
 3. Enumerate all candidate windows within the configured length range.
 4. Evaluate each candidate for GC content, Tm, homopolymers, self-complementarity, secondary structure, repeats, and terminal G/C penalties.
-5. Keep only candidates with positive raw scores, sort them by score, and return the top results.
+5. Keep only candidates with positive raw scores, sort them by score (default) or by Primer3 internal-oligo penalty (`Ranking = Primer3Penalty`), and return the top results.
 6. In the genome-index overload, apply suffix-tree specificity filtering or post-shortlist score adjustment before yielding the final probes.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
@@ -177,7 +185,7 @@ The implementation evaluates candidates with prefix-sum GC optimization and begi
 
 **Intentionally simplified:**
 
-- `DesignProbes` ranks with a fixed additive penalty score (the published Primer3 objective is available as `DesignProbesPrimer3`); **consequence:** scores rank candidates but are not hybridization probabilities.
+- `DesignProbes` ranks by default with a fixed additive penalty score — a library heuristic without a published source; the sourced Primer3 internal-oligo objective is the opt-in `ProbeParameters.Ranking = ProbeRanking.Primer3Penalty` (and Primer3's complete picker is `DesignProbesPrimer3`); **consequence:** additive scores rank candidates but are not hybridization probabilities.
 - Probes > 60 nt (Northern/Southern/FISH presets): ntthal cannot align a self-structure whose two strands are both > 60 nt (thal.c `THAL_MAX_ALIGN` = 60, "Both sequences longer than 60 for thermodynamic alignment"), so their self-dimer criterion is Primer3's alignment-mode internal-oligo screen (dpal `self_any` / `self_end` ≤ `MaxSelfAny` / `MaxSelfEnd` = 12.00, no length limit; F37) and only the hairpin criterion stays the sequence-only inverted-repeat stem screen (§2.2).
 - Genome-index specificity is applied only after an initial raw-score shortlist is formed; **consequence:** uniqueness-aware results are specificity-filtered or specificity-scaled subsets of the top raw-score candidates rather than a full-candidate rerank.
 

@@ -95,6 +95,51 @@ public static class ProbeDesigner
         /// (PRIMER_INTERNAL_MAX_SELF_END, Primer3 default 12.00; flagged when strictly greater).
         /// </summary>
         public double MaxSelfEnd { get; init; } = PrimerDesigner.Primer3InternalMaxSelfComplementarity;
+
+        /// <summary>
+        /// Ranking of <see cref="DesignProbes(string, ProbeParameters?, int)"/> (default
+        /// <see cref="ProbeRanking.AdditiveScore"/>, the library heuristic). <see cref="ProbeRanking.Primer3Penalty"/>
+        /// ranks by Primer3's internal-oligo objective <c>p_obj_fn</c> (PRIMER_INTERNAL_n_PENALTY) around
+        /// <see cref="OptTm"/> / <see cref="OptLength"/> — the sourced ranking.
+        /// </summary>
+        public ProbeRanking Ranking { get; init; } = ProbeRanking.AdditiveScore;
+
+        /// <summary>
+        /// Optimum probe Tm (°C) of the <see cref="ProbeRanking.Primer3Penalty"/> ranking (Primer3 PRIMER_INTERNAL_OPT_TM,
+        /// default 60 °C, <c>pr_set_default_global_args</c> <c>o_args.opt_tm</c>). With that ranking it must lie in
+        /// [<see cref="MinTm"/>, <see cref="MaxTm"/>] (Primer3 <c>_pr_data_control</c>: "Optimum internal oligo Tm lower
+        /// than minimum or higher than maximum"); unused by the additive score.
+        /// </summary>
+        public double OptTm { get; init; } = PrimerDesigner.DefaultPrimer3Optima.OptTm;
+
+        /// <summary>
+        /// Optimum probe length (nt) of the <see cref="ProbeRanking.Primer3Penalty"/> ranking (Primer3 PRIMER_INTERNAL_OPT_SIZE,
+        /// default 20, <c>o_args.opt_size</c>). With that ranking it must lie in [<see cref="MinLength"/>, <see cref="MaxLength"/>]
+        /// (Primer3 <c>_pr_data_control</c>: "PRIMER_INTERNAL_{OPT,DEFAULT}_SIZE &gt; MAX_SIZE" / "&lt; MIN_SIZE");
+        /// unused by the additive score.
+        /// </summary>
+        public int OptLength { get; init; } = PrimerDesigner.DefaultPrimer3Optima.OptSize;
+    }
+
+    /// <summary>Ranking order of <see cref="DesignProbes(string, ProbeParameters?, int)"/> (see <see cref="ProbeParameters.Ranking"/>).</summary>
+    public enum ProbeRanking
+    {
+        /// <summary>
+        /// Library heuristic (default, unchanged): 1.0 minus fixed penalties (GC 0.3, Tm 0.3, homopolymer 0.2,
+        /// self-complementarity 0.2, secondary structure 0.15, repeats 0.1, terminal G/C 0.02 each), score descending.
+        /// The penalty values have no published source.
+        /// </summary>
+        AdditiveScore,
+
+        /// <summary>
+        /// Primer3's internal-oligo objective <c>p_obj_fn</c> (<c>OT_INTL</c> branch, Primer3 default internal-oligo
+        /// weights: PRIMER_INTERNAL_WT_TM_GT/_LT = PRIMER_INTERNAL_WT_SIZE_GT/_LT = 1, every other weight 0), i.e.
+        /// |Tm − <see cref="ProbeParameters.OptTm"/>| + |length − <see cref="ProbeParameters.OptLength"/>| with the probe Tm
+        /// at the parameters' conditions (<see cref="PrimerDesigner.CalculatePrimer3Penalty"/>), ordered as Primer3's
+        /// <c>primer_rec_comp</c>: penalty ascending, then start descending, then length ascending. Sourced ranking
+        /// (Primer3 <c>libprimer3.cc</c>; = primer3-py PRIMER_INTERNAL_n_PENALTY).
+        /// </summary>
+        Primer3Penalty
     }
 
     /// <summary>Self-structure screen used by the probe designers (see <see cref="ProbeParameters"/>).</summary>
@@ -212,7 +257,15 @@ public static class ProbeDesigner
         double GcContent,
         double Score,
         ProbeType Type,
-        IReadOnlyList<string> Warnings);
+        IReadOnlyList<string> Warnings)
+    {
+        /// <summary>
+        /// Primer3 internal-oligo penalty (<c>p_obj_fn</c>, PRIMER_INTERNAL_n_PENALTY) of the probe when
+        /// <see cref="ProbeParameters.Ranking"/> = <see cref="ProbeRanking.Primer3Penalty"/> and its Tm is computable;
+        /// otherwise <c>null</c>. Lower is better. <see cref="Score"/> stays the additive library score.
+        /// </summary>
+        public double? Primer3Penalty { get; init; }
+    }
 
     /// <summary>
     /// Probe set for tiling.
@@ -726,15 +779,30 @@ public static class ProbeDesigner
     /// secondary structure 0.15 (only with <see cref="ProbeParameters.AvoidSecondaryStructure"/>), di-/trinucleotide
     /// microsatellite ≥ 4 copies 0.1, G/C at each terminus 0.02 (see <see cref="ProbeParameters"/> for the self-structure
     /// screens). Probes with score &gt; 0 are returned by score descending, ties by (length, start) ascending. This
-    /// additive score is a library ranking heuristic; <see cref="DesignProbesPrimer3"/> is Primer3's published picker.
+    /// additive score (the default, <see cref="ProbeRanking.AdditiveScore"/>) is a library ranking heuristic: its penalty
+    /// values have no published source. With <see cref="ProbeParameters.Ranking"/> = <see cref="ProbeRanking.Primer3Penalty"/>
+    /// the same candidates (score &gt; 0) are instead ranked by Primer3's internal-oligo objective <c>p_obj_fn</c>
+    /// (PRIMER_INTERNAL_n_PENALTY = |Tm − <see cref="ProbeParameters.OptTm"/>| + |length − <see cref="ProbeParameters.OptLength"/>|
+    /// with Primer3's default internal-oligo weights, reported in <see cref="Probe.Primer3Penalty"/>) in Primer3's
+    /// <c>primer_rec_comp</c> order (penalty ascending, start descending, length ascending; a probe whose Tm is not
+    /// computable ranks last) — the sourced ranking. <see cref="DesignProbesPrimer3"/> is Primer3's complete picker
+    /// (Primer3's acceptance limits as well as its ranking).
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">With the <see cref="ProbeRanking.Primer3Penalty"/> ranking:
+    /// <see cref="ProbeParameters.OptLength"/> outside [MinLength, MaxLength] or <see cref="ProbeParameters.OptTm"/> outside
+    /// [MinTm, MaxTm] (Primer3 <c>_pr_data_control</c>); an undefined <see cref="ProbeParameters.Ranking"/> value.</exception>
     public static IEnumerable<Probe> DesignProbes(
         string targetSequence,
         ProbeParameters? parameters = null,
         int maxProbes = 10)
     {
         var param = parameters ?? Defaults.Microarray;
+        ValidateRanking(param, nameof(parameters));
+        return DesignProbesIterator(targetSequence, param, maxProbes);
+    }
 
+    private static IEnumerable<Probe> DesignProbesIterator(string targetSequence, ProbeParameters param, int maxProbes)
+    {
         if (string.IsNullOrEmpty(targetSequence) || targetSequence.Length < param.MinLength)
             yield break;
 
@@ -758,6 +826,10 @@ public static class ProbeDesigner
     /// <param name="parameters">Probe design parameters.</param>
     /// <param name="maxProbes">Maximum number of probes to return.</param>
     /// <param name="requireUnique">If true, only return probes unique in the genome.</param>
+    /// <remarks>Candidates come in the order of <see cref="ProbeParameters.Ranking"/> (see
+    /// <see cref="DesignProbes(string, ProbeParameters?, int)"/>).</remarks>
+    /// <exception cref="ArgumentOutOfRangeException">Invalid Primer3-ranking optima (see
+    /// <see cref="DesignProbes(string, ProbeParameters?, int)"/>).</exception>
     public static IEnumerable<Probe> DesignProbes(
         string targetSequence,
         global::SuffixTree.ISuffixTree genomeIndex,
@@ -766,7 +838,17 @@ public static class ProbeDesigner
         bool requireUnique = true)
     {
         var param = parameters ?? Defaults.Microarray;
+        ValidateRanking(param, nameof(parameters));
+        return DesignProbesIterator(targetSequence, genomeIndex, param, maxProbes, requireUnique);
+    }
 
+    private static IEnumerable<Probe> DesignProbesIterator(
+        string targetSequence,
+        global::SuffixTree.ISuffixTree genomeIndex,
+        ProbeParameters param,
+        int maxProbes,
+        bool requireUnique)
+    {
         if (string.IsNullOrEmpty(targetSequence) || targetSequence.Length < param.MinLength)
             yield break;
 
@@ -813,7 +895,45 @@ public static class ProbeDesigner
         int Homopolymer,
         bool HasRepeats,
         double PositionPenalty,
-        double BaseScore);
+        double BaseScore,
+        double? Primer3Penalty);
+
+    // Primer3 _pr_data_control checks of the optima used by the Primer3Penalty ranking.
+    private static void ValidateRanking(ProbeParameters param, string paramName)
+    {
+        if (!Enum.IsDefined(param.Ranking))
+            throw new ArgumentOutOfRangeException(paramName, $"Undefined probe ranking {param.Ranking}.");
+        if (param.Ranking != ProbeRanking.Primer3Penalty)
+            return;
+        if (param.OptLength > param.MaxLength)
+            throw new ArgumentOutOfRangeException(paramName,
+                "PRIMER_INTERNAL_{OPT,DEFAULT}_SIZE > MAX_SIZE (Primer3 _pr_data_control): OptLength must not exceed MaxLength.");
+        if (param.OptLength < param.MinLength)
+            throw new ArgumentOutOfRangeException(paramName,
+                "PRIMER_INTERNAL_{OPT,DEFAULT}_SIZE < MIN_SIZE (Primer3 _pr_data_control): OptLength must not be below MinLength.");
+        if (!(param.OptTm >= param.MinTm && param.OptTm <= param.MaxTm))
+            throw new ArgumentOutOfRangeException(paramName,
+                "Optimum internal oligo Tm lower than minimum or higher than maximum (Primer3 _pr_data_control): OptTm must lie in [MinTm, MaxTm].");
+    }
+
+    // Primer3 p_obj_fn, internal-oligo branch (OT_INTL) with Primer3's default internal-oligo weights (Tm and size
+    // weights 1, every other weight 0) around the parameters' optima; null when the Tm is not computable.
+    private static double? ComputePrimer3ProbePenalty(double tm, int length, double gcFraction, ProbeParameters param) =>
+        double.IsNaN(tm)
+            ? null
+            : PrimerDesigner.CalculatePrimer3Penalty(
+                new Primer3PenaltyInputs(tm, length, 100.0 * gcFraction),
+                PrimerDesigner.DefaultPrimer3Weights,
+                new Primer3Optima(param.OptTm, param.OptLength, null));
+
+    // Primer3 primer_rec_comp: penalty (quality) ascending, then start descending, then length ascending.
+    private static int ComparePrimer3Rank(double penaltyA, int startA, int lengthA, double penaltyB, int startB, int lengthB)
+    {
+        int c = penaltyA.CompareTo(penaltyB);
+        if (c != 0) return c;
+        c = startB.CompareTo(startA);
+        return c != 0 ? c : lengthA.CompareTo(lengthB);
+    }
 
     private static ProbeBase EvaluateProbeBase(string sequence, int start, int order, ProbeParameters param, double gc)
     {
@@ -839,8 +959,12 @@ public static class ProbeDesigner
         if (repeats) score -= 0.1;
         score -= positionPenalty;
 
+        double? primer3Penalty = param.Ranking == ProbeRanking.Primer3Penalty
+            ? ComputePrimer3ProbePenalty(tmRaw, sequence.Length, gc, param)
+            : null;
+
         return new ProbeBase(sequence, start, order, gc, tm, tmComputable, gcOutside, tmOutside,
-            homopolymer, repeats, positionPenalty, score);
+            homopolymer, repeats, positionPenalty, score, primer3Penalty);
     }
 
     // Adds the self-structure screens to a base evaluation (penalties in the original order:
@@ -910,7 +1034,10 @@ public static class ProbeDesigner
             b.Gc,
             Math.Max(0, score),
             ProbeType.Standard,
-            warnings);
+            warnings)
+        {
+            Primer3Penalty = b.Primer3Penalty,
+        };
     }
 
     // Self-structure screens (see ProbeParameters remarks). Returns (self-complementarity flag + warning,
@@ -1029,6 +1156,9 @@ public static class ProbeDesigner
             }
         }
 
+        if (param.Ranking == ProbeRanking.Primer3Penalty)
+            return RankByPrimer3Penalty(bases, param, maxProbes);
+
         // Rank key: score descending, then enumeration order ascending (= stable sort of the eager scan).
         static int CompareKeys((double Score, int Order) a, (double Score, int Order) b)
         {
@@ -1062,6 +1192,28 @@ public static class ProbeDesigner
         return best.Select(k => probesByOrder[k.Order]).ToList();
     }
 
+    // Primer3Penalty ranking: the penalty does not depend on the self-structure screens, so the candidates are sorted
+    // by primer_rec_comp (a non-computable penalty ranks last) and screened lazily until maxProbes survive (score > 0).
+    private static List<Probe> RankByPrimer3Penalty(List<ProbeBase> bases, ProbeParameters param, int maxProbes)
+    {
+        bases.Sort((a, b) => ComparePrimer3Rank(
+            a.Primer3Penalty ?? double.PositiveInfinity, a.Start, a.Sequence.Length,
+            b.Primer3Penalty ?? double.PositiveInfinity, b.Start, b.Sequence.Length));
+
+        var result = new List<Probe>(Math.Min(maxProbes, bases.Count));
+        var structureCache = new Dictionary<string, (bool, string?, bool, string?)>(StringComparer.Ordinal);
+        foreach (var b in bases)
+        {
+            if (FinishProbe(b, param, structureCache) is { } p)
+            {
+                result.Add(p);
+                if (result.Count == maxProbes)
+                    break;
+            }
+        }
+        return result;
+    }
+
     /// <summary>
     /// Evaluates a potential probe sequence (all screens, eager).
     /// </summary>
@@ -1078,7 +1230,9 @@ public static class ProbeDesigner
     /// Windows of <paramref name="probeLength"/> start every <c>probeLength − overlap</c> bases; each is scored
     /// like <see cref="DesignProbes(string, ProbeParameters?, int)"/> (Tm = Primer3 <c>seqtm</c> at the
     /// parameters' conditions, thermodynamic self-structure screen for ≤ 60 nt). A window whose score is
-    /// ≤ 0 is still emitted (score 0.3, warning "Suboptimal probe…") so coverage is preserved.
+    /// ≤ 0 is still emitted (score 0.3, warning "Suboptimal probe…") so coverage is preserved. Windows keep their
+    /// tiling order; with <see cref="ProbeParameters.Ranking"/> = <see cref="ProbeRanking.Primer3Penalty"/> each scored
+    /// window also carries <see cref="Probe.Primer3Penalty"/>.
     /// </remarks>
     public static TilingProbeSet DesignTilingProbes(
         string targetSequence,
@@ -1091,6 +1245,7 @@ public static class ProbeDesigner
             MinLength = probeLength,
             MaxLength = probeLength
         };
+        ValidateRanking(param, nameof(parameters));
 
         targetSequence = targetSequence.ToUpperInvariant();
         var probes = new List<Probe>();
@@ -1433,13 +1588,7 @@ public static class ProbeDesigner
             sequenceQuality is { Count: > 0 } ? sequenceQuality : null, s.LowercaseMasking ? template : null);
 
         // primer_rec_comp: quality ascending, then start descending, then length ascending.
-        accepted.Sort((a, b) =>
-        {
-            int c = a.Penalty.CompareTo(b.Penalty);
-            if (c != 0) return c;
-            c = b.Start.CompareTo(a.Start);
-            return c != 0 ? c : a.Length.CompareTo(b.Length);
-        });
+        accepted.Sort((a, b) => ComparePrimer3Rank(a.Penalty, a.Start, a.Length, b.Penalty, b.Start, b.Length));
 
         return accepted.Count > numReturn ? accepted.GetRange(0, numReturn) : accepted;
     }

@@ -72,6 +72,7 @@
 | M15 | maxProbes parameter limits returned count | API contract | Implementation |
 | M17 | Each preset's Tm window is reachable on its own scale for its length × G+C window: witness probe per preset (primer3-py calc_tm at the preset conditions: Microarray 86.25468810488348 at 1 M / 1 µM, NN ≤ 60; qPCR 68.58490905493761; FISH 77.4029020719779; Northern 74.4029020719779; Southern 73.30290207197791); long-probe presets' exact long_seq_tm range (FISH 71.25–85.35, Northern 70.30–82.50, Southern 70.32–85.35) overlaps the window; the former Microarray window 75–85 °C at 50 mM had maximum 74.5029020719779 (unreachable) | Preset contract | OligoArray 2.0; primer3 oligotm.c |
 | M16 | GC of a window with N = G+C over the non-N bases (Primer3 `gc_and_n_content`; primer3-py PRIMER_INTERNAL_0_GC_PERCENT 50.0 for `GACNTGAAGCNCTTAGCAAC`), `DesignProbes` prefix sums = tiling (eager) path | Invariant #2 | primer3 libprimer3.cc |
+| M18 | `DesignProbes` ranking option (A3-11): default `ProbeRanking.AdditiveScore` = the library-heuristic additive score (unsourced penalty values, unchanged); `ProbeRanking.Primer3Penalty` ranks the same candidates by Primer3 internal-oligo `p_obj_fn` (|Tm − OptTm| + |len − OptLength|, default weights, `CalculatePrimer3Penalty`) in `primer_rec_comp` order (penalty ↑, start ↓, length ↑; non-computable Tm last, `Primer3Penalty` null): on 4 random 70-nt templates every primer3-py 2.3.1 pick_hyb_probe_only probe (48, PRIMER_NUM_RETURN 12, size 18–27, Tm 57–63, optima (60,20)/(61.5,22)/(59,19)/(60,24)) has the same PRIMER_INTERNAL_n_PENALTY and Tm (1e-9) and the same relative order (incl. two start-descending ties); `= DesignProbesPrimer3` penalty; OptTm / OptLength outside the window, NaN or an undefined ranking → `ArgumentOutOfRangeException` (Primer3 `_pr_data_control`) | Ranking contract | primer3 libprimer3.cc p_obj_fn, primer_rec_comp |
 | TM1 | TaqMan probe with 5' G is flagged (`NoGuanineAt5Prime == false`) and `PassesAll == false` | 5' G quenches reporter even after cleavage | ABI / ScienceDirect |
 | TM2 | Run of ≥4 consecutive Gs flagged (`NoRunOfFourOrMoreG == false`) | No ≥4-G runs | PREMIER Biosoft |
 | TM3 | More G than C flagged (`MoreCytosineThanGuanine == false`; C=1, G=9) | More Cs than Gs | PREMIER Biosoft |
@@ -108,7 +109,7 @@
 | S3 | DesignAntisenseProbes returns Antisense type | Type correctness | Implementation |
 | S4 | MolecularBeacon has stem sequences | Structure check | Implementation |
 | S5 | Tiling probes calculate mean Tm correctly | Statistics | Implementation |
-| S6 | Probes are sorted by score descending | Ranking | Implementation |
+| S6 | Probes are sorted by score descending (default `AdditiveScore` ranking, library heuristic; see M18 for the sourced Primer3 ranking) | Ranking | Implementation |
 
 ### Could (Optional)
 
@@ -146,6 +147,7 @@ Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE
 | M15 | DesignProbes_MaxProbesParameter_LimitsResultCount | ✅ Covered |
 | M16 | DesignProbes_WindowWithN_GcIsFractionOfNonNBases_MatchesPrimer3 | ✅ Covered |
 | M17 | ProbeDesigner_Primer3Probe_Tests.Defaults_Microarray_UsesOligoArrayConditionsAndTmWindow, Defaults_OldMicroarrayWindow_WasUnreachableAtPrimer3Conditions, Defaults_TmWindow_IsReachableForLengthAndGcWindow (5), Defaults_LongProbePresets_AttainableTmRangeOverlapsWindow (3), CalculateMeltingTemperaturePrimer3_MaxNearestNeighborLength_MatchesPrimer3SeqTm, DefaultConditions_OfValidateAnalyzeBeacon_StayPrimer3ProbeConditions | ✅ Covered |
+| M18 | ProbeDesigner_Primer3Ranking_Tests (DesignProbes_Primer3Ranking_PenaltiesAndOrderMatchPrimer3PickHybProbeOnly ×4, _PenaltyEqualsDesignProbesPrimer3AndCanonicalPenalty, _ReordersTheSameCandidatesAsTheAdditiveScore, DesignProbes_DefaultRanking_IsTheAdditiveScore, _NonComputableTmRanksLastWithoutPenalty, _OptimaOutsideTheWindow_ThrowLikePrimer3, _MicroarrayWithOptima_RanksByPenalty) | ✅ Covered |
 | S1 | DesignProbes_HomopolymerSequence_GeneratesWarnings | ✅ Covered |
 | S2 | DesignProbes_CaseInsensitiveInput_ProducesConsistentResults | ✅ Covered |
 | S3 | DesignAntisenseProbes_ReturnsAntisenseType | ✅ Covered |

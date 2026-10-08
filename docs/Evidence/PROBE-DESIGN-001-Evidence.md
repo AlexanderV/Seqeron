@@ -167,6 +167,15 @@ WebSearch result extract)
   Cross-check: primer3-py 2.3.1 `calc_tm(AGTCCTCGATCCGTTCCTAATAAGGAATGGTGATTCCCTGTCATACCAAT, mv 1000, dv 0, dntp 0,
   dna 1000, max_nn_length 60)` = 86.25468810488348 = Biopython `Tm_NN(DNA_NN3, Na 1000, dnac1 = dnac2 = 500,
   saltcorr 0)` 86.2547; old window max (60-mer, 60 % G+C, 50 mM, long_seq_tm) 74.5029020719779 < 75.
+- **`DesignProbes` ranking (audit round 3, A3-11)**: Primer3 `src/libprimer3.cc` (raw.githubusercontent.com/primer3-org/primer3/main)
+  `p_obj_fn` OT_INTL branch (`o_args.weights.temp_gt/temp_lt` × |Tm − opt_tm|, `length_lt/length_gt` × |len − opt_size|, …),
+  `primer_rec_comp` (quality ↑, start ↓, length ↑), `_pr_data_control` ("PRIMER_INTERNAL_{OPT,DEFAULT}_SIZE > MAX_SIZE" /
+  "< MIN_SIZE", "Optimum internal oligo Tm lower than minimum or higher than maximum"). The default additive score of
+  `DesignProbes` has no published source (library heuristic); `ProbeRanking.Primer3Penalty` is the sourced option. Cross-check:
+  primer3-py 2.3.1 `design_primers` (pick_hyb_probe_only, PRIMER_PICK_INTERNAL_OLIGO, size 18–27, Tm 57–63, GC 20–80, poly-X 5,
+  PRIMER_NUM_RETURN 12) on 4 random 70-nt templates (random.seed(20261008)): 48/48 Primer3 probes are `DesignProbes` candidates
+  with identical PRIMER_INTERNAL_n_PENALTY and Tm (|Δ| ≤ 1e-9, e.g. 27/22 0.007361159225695246, 14/19 0.007730506722964492)
+  and order (ties 16/20 before 15/20 at 2.374406691313709, 22/24 before 21/24 at 2.6378890608341408).
 - **Kane et al. 2000** (NAR 28:4552; WebSearch extracts): 50-mer probes; > 75 % identity or a ≥ 15-nt contiguous stretch to
   non-targets may cross-hybridize (specificity rule — PROBE-VALID-001 scope).
 - **Molecular beacons** (Tyagi & Kramer 1996; Marras/Vet design protocol; WebSearch extracts, publisher pages blocked):
