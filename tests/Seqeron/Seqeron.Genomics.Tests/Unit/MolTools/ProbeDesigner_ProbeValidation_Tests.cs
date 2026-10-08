@@ -2041,4 +2041,24 @@ public class ProbeDesigner_ProbeValidation_Tests
     }
 
     #endregion
+
+    // Audit round 7 (F68 follow-up): mismatch = int.MinValue overflowed the private gcd / series span. BLAST+
+    // (blast_stat.h) limits one-letter scores to BLAST_SCORE_MIN = INT2_MIN … BLAST_SCORE_MAX = INT2_MAX.
+    [TestCase(1, int.MinValue, "mismatch")]
+    [TestCase(1, short.MinValue - 1, "mismatch")]
+    [TestCase(int.MaxValue, -3, "match")]
+    [TestCase(short.MaxValue + 1, -3, "match")]
+    public void ComputeUngappedKarlinParameters_ScoreOutsideBlastScoreRange_Throws(int match, int mismatch, string param)
+    {
+        foreach (var method in new[] { ProbeDesigner.KarlinKMethod.ReducedLattice, ProbeDesigner.KarlinKMethod.NcbiBlast })
+            Assert.That(() => ProbeDesigner.ComputeUngappedKarlinParameters(match, mismatch, kMethod: method),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo(param));
+    }
+
+    [Test]
+    public void ComputeUngappedKarlinParameters_BlastScoreRangeLimits_Accepted()
+    {
+        var p = ProbeDesigner.ComputeUngappedKarlinParameters(1, short.MinValue);
+        Assert.That(double.IsFinite(p.Lambda) && p.Lambda > 0, Is.True);
+    }
 }

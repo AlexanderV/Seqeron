@@ -3040,7 +3040,8 @@ public static class ProbeDesigner
     /// as blastn prints it: +4/−6 → 1.1666856431064105). Identical for δ = 1.
     /// </param>
     /// <exception cref="ArgumentOutOfRangeException">λ undefined (no positive score, non-negative mismatch or
-    /// non-negative expected score), a base frequency outside (0, 0.5), or an undefined <paramref name="kMethod"/>.</exception>
+    /// non-negative expected score), a score outside BLAST+'s BLAST_SCORE_MIN … BLAST_SCORE_MAX (INT2 range), a base
+    /// frequency outside (0, 0.5), or an undefined <paramref name="kMethod"/>.</exception>
     public static KarlinAltschulParameters ComputeUngappedKarlinParameters(
         int match, int mismatch, double baseFrequency = UniformBaseFrequency,
         KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
@@ -3378,6 +3379,11 @@ public static class ProbeDesigner
         if (mismatch >= 0)
             throw new ArgumentOutOfRangeException(nameof(mismatch),
                 "Karlin–Altschul λ is undefined: the mismatch score must be negative.");
+        // BLAST+ blast_stat.h: BLAST_SCORE_MIN = INT2_MIN, BLAST_SCORE_MAX = INT2_MAX (one-letter comparison scores).
+        if (match > short.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(match), "Match score exceeds BLAST_SCORE_MAX (32767).");
+        if (mismatch < short.MinValue)
+            throw new ArgumentOutOfRangeException(nameof(mismatch), "Mismatch score is below BLAST_SCORE_MIN (−32768).");
     }
 
     // p(match) = 4·p² for four equiprobable bases of frequency p (p must keep it a probability in (0, 1)).
@@ -3515,11 +3521,12 @@ public static class ProbeDesigner
 
     private static int Gcd(int a, int b)
     {
-        a = Math.Abs(a);
-        b = Math.Abs(b);
-        while (b != 0)
-            (a, b) = (b, a % b);
-        return a;
+        // long: |int.MinValue| (e.g. -penalty for penalty = int.MinValue) does not fit in int. The result divides a
+        // validated positive int, so it fits.
+        long x = Math.Abs((long)a), y = Math.Abs((long)b);
+        while (y != 0)
+            (x, y) = (y, x % y);
+        return (int)x;
     }
 
     #endregion

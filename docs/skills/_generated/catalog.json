@@ -2237,7 +2237,7 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.AnalyzeOligo",
     "docPath": "docs/mcp/tools/moltools/analyze_oligo.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3538"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3545"
   },
   {
     "tool": "blunt_cutters",
@@ -2475,14 +2475,14 @@
     "server": "MolTools",
     "methodId": "ProbeDesigner.CalculateConcentration",
     "docPath": "docs/mcp/tools/moltools/oligo_concentration_from_absorbance.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3673"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3680"
   },
   {
     "tool": "oligo_extinction_coefficient",
     "server": "MolTools",
     "methodId": "ProbeDesigner.CalculateExtinctionCoefficient",
     "docPath": "docs/mcp/tools/moltools/oligo_extinction_coefficient.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3584"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3591"
   },
   {
     "tool": "optimize_codons",

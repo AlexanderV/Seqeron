@@ -215,4 +215,23 @@ public class ThermoConstants_NearestNeighborCore_Tests
     {
         Assert.That(ThermoConstants.CalculateBasicTm(seq), Is.EqualTo(expected).Within(1e-12));
     }
+
+    // Audit round 7 (F68 follow-up): a shift past the other strand leaves the same strands after the over-dangling
+    // ends are removed (Biopython raises "no thermodynamic data" for every such shift); int.MinValue / int.MaxValue
+    // must behave like any other out-of-overlap shift instead of crashing on negation or padding allocation.
+    [TestCase(17)]
+    [TestCase(40)]
+    [TestCase(int.MaxValue)]
+    [TestCase(-17)]
+    [TestCase(-40)]
+    [TestCase(int.MinValue)]
+    public void CalculateNearestNeighborTm_ShiftBeyondOverlap_SameErrorAsAnyNonOverlappingShift(int shift)
+    {
+        const string s = "ACGTACGTACGTAGCT", c = "TGCATGCATGCATCGA";
+        int reference = shift > 0 ? 17 : -17;
+        var expected = Assert.Catch(() => ThermoConstants.CalculateNearestNeighborTm(s, c, shift: reference));
+        var actual = Assert.Catch(() => ThermoConstants.CalculateNearestNeighborTm(s, c, shift: shift));
+        Assert.That(actual!.GetType(), Is.EqualTo(expected!.GetType()));
+        Assert.That(actual.Message, Is.EqualTo(expected.Message));
+    }
 }
