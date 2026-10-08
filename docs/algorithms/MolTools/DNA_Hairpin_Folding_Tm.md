@@ -78,7 +78,7 @@ Jacobson-Stockmayer extrapolation `ΔG°37(n) = ΔG°37(x) + 2.44·R·310.15·ln
 |------|------|---------|-------------|-------------|
 | sequence | string | required | DNA oligo, 5'→3' | A/C/G/T only (case-insensitive); else null |
 | minStemLength | int | 2 | minimum stem base pairs (≥1 NN stack) | must be ≥ 2 |
-| loopBonusDeltaG37 | double | 0.0 | opt-in caller-supplied terminal-mismatch / special-loop ΔG°37 increment (kcal/mol) | not bundled |
+| loopBonusDeltaG37 | double | 0.0 | opt-in caller-supplied terminal-mismatch / special-loop ΔG°37 increment (kcal/mol) | the bundled tables are used by `CalculateHairpinThermodynamicsNtthal`, not by this core |
 
 ### 3.2 Output / Return Value
 
@@ -172,7 +172,7 @@ lets a caller add the supplementary terminal-mismatch / triloop-tetraloop increm
 |---|------|------|--------|--------|-------|
 | 1 | Bimolecular init excluded | Assumption | small ΔG°37/Tm offset | accepted | ASM-01 (unimolecular model) |
 | 2 | Terminal-AT penalty omitted | Assumption | small ΔG°37 offset | accepted | ASM-02 |
-| 3 | Triloop/tetraloop + terminal-mismatch tables not bundled | Deviation | length-3/4 special loops not auto-corrected | accepted | opt-in `loopBonusDeltaG37` |
+| 3 | Triloop/tetraloop + terminal-mismatch tables not applied in this single-stem core | Deviation | length-3/4 special loops not auto-corrected here | accepted | tables bundled and applied by `CalculateHairpinThermodynamicsNtthal` (DNA_Hairpin_Special_Loop_Bonus.md); this core keeps the opt-in `loopBonusDeltaG37` |
 
 ## 6. Edge Cases and Limitations
 

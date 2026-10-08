@@ -154,8 +154,9 @@ regime thresholds 0.22 / 6.0) [4][5]. Every constant is named and source-cited i
 ### 5.2 Current Behavior
 
 The default `CalculateMeltingTemperature` (Wallace/Marmur-Doty) and `Calculate3PrimeStability`
-(NN ΔG°37 for 3'-end stability) are unchanged. The new NN Tm uses the **1998 unified**
-parameters (DNA_NN4); note `SequenceStatistics.CalculateThermodynamics` (SEQ-THERMO-001) uses
+(NN ΔG°37 for 3'-end stability) are unchanged. The NN Tm uses the SantaLucia & Hicks (2004) unified
+parameters (Biopython DNA_NN4) through the canonical `ThermoConstants.CalculateNearestNeighborDuplex` (a port of
+Biopython `Tm_NN`); note `SequenceStatistics.CalculateThermodynamics` (SEQ-THERMO-001) uses
 the older **1997 (Allawi)** parameters and a different default concentration — a distinct unit,
 not modified here. No substring search / matching is involved, so the repository suffix tree is
 **not applicable** to this unit.
@@ -169,8 +170,11 @@ not modified here. No substring search / matching is involved, so the repository
 - SantaLucia Eq. 5 entropy salt correction (N = 2·(L−1)) [2].
 - Owczarzy 2004 monovalent quadratic 1/Tm correction [3][5].
 - Owczarzy 2008 divalent Mg²⁺/dNTP correction with R-regime selection [4][5].
-- Internal single-mismatch NN ΔH°/ΔS° (Allawi/SantaLucia 1997/1998; Peyret 1999) [6][7][9] and single
-  dangling-end NN ΔH°/ΔS° (Bommarito 2000) [8], via `CalculateMeltingTemperatureNNMismatch` (opt-in).
+- Internal mismatch NN ΔH°/ΔS° (Allawi/SantaLucia 1997/1998; Peyret 1999; Biopython `DNA_IMM1`, incl. its tandem
+  G·T motifs) [6][7][9], terminal-mismatch NN ΔH°/ΔS° (SantaLucia & Peyret 2001; Biopython `DNA_TMM1`) and single
+  dangling-end NN ΔH°/ΔS° (Bommarito 2000; `DNA_DE1`) [8], via `CalculateMeltingTemperatureNNMismatch` (opt-in;
+  identical to Biopython `Tm_NN(seq, c_seq, shift, nn_table=DNA_NN4, tmm_table=DNA_TMM1, imm_table=DNA_IMM1,
+  de_table=DNA_DE1)`).
   Convention mirrors Biopython `Tm_NN` (bottom strand 3'→5'; `top2/bottom2` keys tried forward then
   character-reversed; `.` marks the dangling base; terminal-AT from the un-dotted top termini). A
   perfectly paired duplex through this path equals the perfect-match `CalculateMeltingTemperatureNN`.
@@ -180,14 +184,13 @@ not modified here. No substring search / matching is involved, so the repository
 - Owczarzy 2004/2008 coefficients are taken from the Biopython reference implementation
   (the Biochemistry 43:3537 full text is paywalled); **consequence:** none — values are
   cross-corroborated and the published 35.8 °C worked example reproduces exactly.
-- The internal-mismatch table covers a **single** internal mismatch (one mismatched column per NN step);
-  two adjacent mismatches (a tandem mismatch) or a non-ACGT character yield no NN parameter → not
-  computable (null/NaN). Terminal mismatches and coaxial stacking are out of scope.
+- A neighbour pair with no parameter in the Biopython tables (adjacent mismatches other than the tandem G·T
+  motifs of `DNA_IMM1`) or a non-ACGT character → not computable (null/NaN), as Biopython raises for it.
+  Coaxial stacking is not part of a two-strand duplex model.
 
-**Not implemented:**
-
-- Hairpin / secondary-structure Tm (folding-based melting); **users should rely on:** dedicated
-  folding tools (UNAFold, ViennaRNA, MELTING 5) for those.
+**Implemented elsewhere:** hairpin / secondary-structure Tm — `PrimerDesigner.CalculateHairpinThermodynamicsNtthal`
+(primer3 `thal.c` hairpin, exact to primer3-py `calc_hairpin`; PRIMER-HAIRPIN-001) and self-/cross-dimer Tm —
+`CalculateDimerThermodynamicsNtthal` (PRIMER-DIMER-001).
 
 ### 5.4 Deviations and Assumptions
 
@@ -209,14 +212,15 @@ not modified here. No substring search / matching is involved, so the repository
 | Single internal mismatch | mismatch NN term applied | Allawi/SantaLucia/Peyret [6][7][9] |
 | Single dangling end (`.` marker) | dangling-end NN term applied | Bommarito 2000 [8] |
 | Perfect duplex via `*Mismatch` path | equals perfect-match path | strict superset |
-| Tandem mismatch / unequal length / null | null (thermo) / NaN (Tm) | no NN parameter |
+| Terminal mismatch | terminal-mismatch NN term applied | SantaLucia & Peyret 2001 (`DNA_TMM1`) |
+| Adjacent mismatches without a parameter / unequal length / null | null (thermo) / NaN (Tm) | no NN parameter |
 
 ### 6.2 Limitations
 
-The NN model assumes two-state melting and a fixed buffer. A **single** internal mismatch and a
-**single** dangling end are now modelled (opt-in `*Mismatch` path); tandem/adjacent mismatches,
-terminal mismatches, coaxial stacking, and hairpin/secondary-structure Tm are not — use a folding
-tool (UNAFold, ViennaRNA, MELTING 5). The salt corrections are valid within their published ranges
+The NN model assumes two-state melting and a fixed buffer. Internal mismatches, terminal mismatches and a single
+dangling end per side are modelled by the opt-in `*Mismatch` path (Biopython `Tm_NN` tables); adjacent mismatches
+without a tabulated parameter and coaxial stacking are not computable. Hairpin and dimer Tm are separate methods
+(`CalculateHairpinThermodynamicsNtthal`, `CalculateDimerThermodynamicsNtthal`). The salt corrections are valid within their published ranges
 ([Na⁺] 0.05–1.1 M; Eq. 5 for ≤16 bp). Outside these ranges Tm is an extrapolation.
 
 ## 7. Examples and Related Material

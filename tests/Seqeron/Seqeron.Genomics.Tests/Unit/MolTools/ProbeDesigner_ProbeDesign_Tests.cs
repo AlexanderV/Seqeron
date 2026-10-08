@@ -269,6 +269,29 @@ public class ProbeDesigner_ProbeDesign_Tests
         }
     }
 
+    [Test]
+    public void DesignProbes_WindowWithN_GcIsFractionOfNonNBases_MatchesPrimer3()
+    {
+        // M16 (B07 audit round 3, A3-19): GC of a window with N bases = G+C over the non-N bases, as Primer3
+        // libprimer3.cc gc_and_n_content (100·num_gc/num_gcat, N excluded) and the canonical CalculateGcFractionFast.
+        // primer3-py 2.3.1 design_primers(pick_hyb_probe_only, PRIMER_INTERNAL_MAX_NS_ACCEPTED = 2) on this 20-mer:
+        // PRIMER_INTERNAL_0_GC_PERCENT = 50.0 (9 G/C of 18 non-N bases; the former G+C/length gave 0.45).
+        const string target = "GACNTGAAGCNCTTAGCAAC";
+        var param = new ProbeDesigner.ProbeParameters(
+            MinLength: 20, MaxLength: 20, MinTm: -1000, MaxTm: 1000, MinGc: 0.0, MaxGc: 1.0,
+            MaxHomopolymer: 10, AvoidSecondaryStructure: false, MaxSelfComplementarity: 1.0);
+
+        var probes = ProbeDesigner.DesignProbes(target, param).ToList();
+        var tiling = ProbeDesigner.DesignTilingProbes(target, probeLength: 20, overlap: 0, parameters: param);
+
+        Assert.That(probes, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(probes[0].GcContent, Is.EqualTo(0.5));
+            Assert.That(tiling.Probes.Single().GcContent, Is.EqualTo(0.5), "tiling path (eager) agrees");
+        });
+    }
+
     #endregion
 
     #region DesignTilingProbes (Must)

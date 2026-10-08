@@ -68,6 +68,7 @@
 | M13 | High GC content (100%) results in GcContent ≈ 1.0 | Edge case | Mathematical |
 | M14 | Low GC content (all A/T) results in low GcContent | Edge case | Mathematical |
 | M15 | maxProbes parameter limits returned count | API contract | Implementation |
+| M16 | GC of a window with N = G+C over the non-N bases (Primer3 `gc_and_n_content`; primer3-py PRIMER_INTERNAL_0_GC_PERCENT 50.0 for `GACNTGAAGCNCTTAGCAAC`), `DesignProbes` prefix sums = tiling (eager) path | Invariant #2 | primer3 libprimer3.cc |
 | TM1 | TaqMan probe with 5' G is flagged (`NoGuanineAt5Prime == false`) and `PassesAll == false` | 5' G quenches reporter even after cleavage | ABI / ScienceDirect |
 | TM2 | Run of ≥4 consecutive Gs flagged (`NoRunOfFourOrMoreG == false`) | No ≥4-G runs | PREMIER Biosoft |
 | TM3 | More G than C flagged (`MoreCytosineThanGuanine == false`; C=1, G=9) | More Cs than Gs | PREMIER Biosoft |
@@ -140,6 +141,7 @@ Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE
 | M13 | DesignProbes_AllGC_ReturnsProbesWithHighGcContent | ✅ Covered |
 | M14 | DesignProbes_AllAT_ReturnsProbesWithLowGcContent | ✅ Covered |
 | M15 | DesignProbes_MaxProbesParameter_LimitsResultCount | ✅ Covered |
+| M16 | DesignProbes_WindowWithN_GcIsFractionOfNonNBases_MatchesPrimer3 | ✅ Covered |
 | S1 | DesignProbes_HomopolymerSequence_GeneratesWarnings | ✅ Covered |
 | S2 | DesignProbes_CaseInsensitiveInput_ProducesConsistentResults | ✅ Covered |
 | S3 | DesignAntisenseProbes_ReturnsAntisenseType | ✅ Covered |

@@ -3172,7 +3172,8 @@ public static partial class PrimerDesigner
     // 0.368 entropy salt coefficient already used by CalculateMeltingTemperatureNN.
     // The duplex Tm / hairpin Tm / default Tm methods and their defaults are UNCHANGED.
     //
-    // Model (Primer3 / ntthal — SantaLucia & Hicks 2004 unified NN):
+    // Model (gapless contiguous-WC scorer on the ntthal duplex terms — SantaLucia & Hicks 2004 unified NN;
+    // the full ntthal DP with mismatches/loops/bulges/overhangs is NtthalDimer via CalculateDimerThermodynamicsNtthal):
     //   For each gapless antiparallel offset of strand2 (read 3'→5') under strand1 (5'→3'),
     //   each maximal contiguous run of Watson-Crick pairs (≥ 1 NN stack) is a candidate
     //   duplex with
@@ -3201,8 +3202,11 @@ public static partial class PrimerDesigner
     //     (mv=50, dv=0, dntp=0, dna_conc=50 nM): this method reproduces ntthal's ΔH°, ΔS°
     //     and Tm to machine precision for every case whose optimal structure is a contiguous
     //     Watson-Crick duplex (e.g. GCGCGCGC, ACGTACGTACGT, ATCGATCGATCG/CGATCGATCGAT,
-    //     CGATCGATCG self-dimer, GCATGC, GGGGCCCC). ntthal's extra terminal-stack /
-    //     overhang-extension terms for some sequences are NOT modelled here (documented limit).
+    //     CGATCGATCG self-dimer, GCATGC, GGGGCCCC). By design this record keeps the contiguous-WC
+    //     optimum (DNA_Dimer_Tm.md §5.3/§5.4): ntthal's mismatch / loop / bulge / terminal-overhang
+    //     (tstack2 / dangle) terms are in the full port NtthalDimer — CalculateDimerThermodynamicsNtthal,
+    //     CalculateSelfDimerMeltingTemperature and CalculateDimerMeltingTemperature use it (bit-exact to
+    //     primer3-py 2.3.1, incl. dv/dntp, temp_c, max_loop; PRIMER-DIMER-001).
 
     /// <summary>
     /// The most stable intermolecular DNA duplex (self- or hetero-dimer) found between two
@@ -3220,9 +3224,10 @@ public static partial class PrimerDesigner
         double DeltaH, double DeltaS, double DeltaG37);
 
     /// <summary>
-    /// Finds the most stable (highest-Tm) intermolecular DNA duplex between two oligonucleotides
-    /// using the Primer3 / <c>ntthal</c> thermodynamic alignment over the SantaLucia &amp; Hicks
-    /// (2004) unified nearest-neighbour model. A <b>self-dimer</b> is obtained by passing the same
+    /// Finds the most stable (highest-Tm) gapless, contiguous Watson–Crick intermolecular DNA duplex between two
+    /// oligonucleotides, scored with the <c>ntthal</c> duplex terms over the SantaLucia &amp; Hicks (2004) unified
+    /// nearest-neighbour model (the full <c>ntthal</c> alignment with mismatches, loops, bulges and terminal
+    /// overhangs is <see cref="CalculateDimerThermodynamicsNtthal(string, string, NtthalAlignmentMode, double, double, double, double)"/>). A <b>self-dimer</b> is obtained by passing the same
     /// sequence as both strands; a <b>hetero/cross-dimer</b> by passing two different sequences.
     /// <b>Opt-in</b>: the duplex (<see cref="CalculateMeltingTemperatureNN"/>) and hairpin Tm
     /// methods, and the default <see cref="CalculateMeltingTemperature(string)"/>, are unchanged.

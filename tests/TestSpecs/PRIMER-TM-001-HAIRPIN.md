@@ -30,8 +30,9 @@
 
 ### 1.3 Documented Corner Cases
 
-- Loop < 3 nt → prohibited. Homopolymer / no complementary stem → no hairpin. Length 3/4 special bonuses are
-  supplementary (not bundled; opt-in increment). Non-ACGT / empty / null → not computable.
+- Loop < 3 nt → prohibited. Homopolymer / no complementary stem → no hairpin. Length 3/4 special bonuses and
+  terminal mismatches are not applied by this single-stem core (opt-in increment); they are bundled and applied by
+  the ntthal hairpin `CalculateHairpinThermodynamicsNtthal` (PRIMER-TM-001-SPECIAL-LOOP / PRIMER-HAIRPIN-001). Non-ACGT / empty / null → not computable.
 
 ### 1.4 Known Failure Modes / Pitfalls
 
@@ -182,6 +183,9 @@
 
 ## 7. Open Questions / Decisions
 
-1. The supplementary triloop/tetraloop bonus and terminal-mismatch tables (length-3/4 loops) are not bundled;
-   exposed as an opt-in `loopBonusDeltaG37` increment (default 0). This is the honest residual recorded in
-   LIMITATIONS / the report — the stem-stack + loop-initiation core is exact and fully sourced.
+1. **Decision (B07 PRIMER-HAIRPIN-001):** the triloop/tetraloop bonus and terminal-mismatch tables are bundled
+   (primer3 `triloop`/`tetraloop`/`tstack2`/`dangle`) and applied by `CalculateHairpinThermodynamicsNtthal` /
+   `CalculateHairpinStructureNtthal` (exact to primer3-py 2.3.1 `calc_hairpin`; PRIMER-TM-001-SPECIAL-LOOP). This
+   legacy single-stem core (`FindMostStableHairpin` / `CalculateHairpinMeltingTemperature`) is kept unchanged for API
+   and value compatibility with its opt-in `loopBonusDeltaG37` increment (default 0); mixing thal's loop terms into
+   the SantaLucia & Hicks (2004) Table 1/4 core would create a hybrid with no reference implementation.

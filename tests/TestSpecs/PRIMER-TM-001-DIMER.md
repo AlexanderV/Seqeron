@@ -177,4 +177,4 @@
 
 ## 7. Open Questions / Decisions
 
-1. None. The full ntthal dimer DP (internal loops, bulges, terminal-overhang `tstack2` extension) is now implemented and verified against primer3-py 2.3.0 for non-contiguous optima. The only ntthal capability not ported is the optional caller-supplied tri/tetraloop & terminal-mismatch hairpin bonus tables — a hairpin/monomer feature, not part of the dimer model.
+1. None. The full ntthal dimer DP (internal loops, bulges, terminal-overhang `tstack2` extension) is now implemented and verified against primer3-py 2.3.0 for non-contiguous optima (re-verified bit-exact against primer3-py 2.3.1 incl. dv/dntp, `temp_c`, `max_loop` and END1/END2 modes — PRIMER-DIMER-001, B07 F11). No ntthal dimer capability is missing; the tri/tetraloop tables are a hairpin feature, applied by `CalculateHairpinThermodynamicsNtthal`. `FindMostStableDimer` keeps its gapless contiguous-WC `DimerResult` by design (DNA_Dimer_Tm.md §5.3).

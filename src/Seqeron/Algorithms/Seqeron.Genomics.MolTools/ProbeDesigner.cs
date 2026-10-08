@@ -480,7 +480,7 @@ public static class ProbeDesigner
             violations.Add($"run of {maxGRun} consecutive Gs (>= {TaqManMaxGuanineRun})");
 
         // Rule 4: G+C content within 30-80%.
-        double gc = CalculateGcContent(seq);
+        double gc = seq.CalculateGcFractionFast();
         bool gcInRange = gc >= TaqManMinGc && gc <= TaqManMaxGc;
         if (!gcInRange)
             violations.Add($"G+C content {gc:P0} outside {TaqManMinGc:P0}-{TaqManMaxGc:P0}");
@@ -949,12 +949,16 @@ public static class ProbeDesigner
         if (maxProbes <= 0)
             return new List<Probe>();
 
-        // gcPrefixSum[i] = count of G/C in sequence[0..i-1]
+        // gcPrefixSum[i] / validPrefixSum[i] = count of G/C / of valid nucleotides (A/C/G/T/U) in sequence[0..i-1],
+        // classified by the canonical SequenceExtensions.CountGcAndValidNucleotides, so a window's GC fraction equals
+        // CalculateGcFractionFast(window) (= Primer3 gc_and_n_content: G+C over the non-N bases) in O(1).
         int[] gcPrefixSum = new int[n + 1];
+        int[] validPrefixSum = new int[n + 1];
         for (int i = 0; i < n; i++)
         {
-            char c = targetSequence[i];
-            gcPrefixSum[i + 1] = gcPrefixSum[i] + (c == 'G' || c == 'C' ? 1 : 0);
+            var (gcBase, validBase) = targetSequence.AsSpan(i, 1).CountGcAndValidNucleotides();
+            gcPrefixSum[i + 1] = gcPrefixSum[i] + gcBase;
+            validPrefixSum[i + 1] = validPrefixSum[i] + validBase;
         }
 
         var bases = new List<ProbeBase>();
@@ -964,7 +968,8 @@ public static class ProbeDesigner
             for (int start = 0; start <= n - length; start++)
             {
                 int gcCount = gcPrefixSum[start + length] - gcPrefixSum[start];
-                double gc = (double)gcCount / length;
+                int validCount = validPrefixSum[start + length] - validPrefixSum[start];
+                double gc = validCount == 0 ? 0 : (double)gcCount / validCount;
 
                 // Early rejection far outside the GC window.
                 if (gc < param.MinGc - 0.1 || gc > param.MaxGc + 0.1)
@@ -1014,7 +1019,7 @@ public static class ProbeDesigner
     /// </summary>
     private static Probe? EvaluateProbe(string sequence, int start, ProbeParameters param)
     {
-        double gc = CalculateGcContent(sequence);
+        double gc = sequence.CalculateGcFractionFast();
         return FinishProbe(EvaluateProbeBase(sequence, start, 0, param, gc), param);
     }
 
@@ -1056,7 +1061,7 @@ public static class ProbeDesigner
             {
                 // Add with warnings for coverage
                 double tm = CalculateProbeTm(probeSeq, param);
-                double gc = CalculateGcContent(probeSeq);
+                double gc = probeSeq.CalculateGcFractionFast();
                 probes.Add(new Probe(
                     probeSeq, start, start + probeLength - 1,
                     double.IsNaN(tm) ? 0.0 : tm, gc, 0.3, ProbeType.Tiling,
@@ -1673,7 +1678,7 @@ public static class ProbeDesigner
         for (int start = 0; start <= targetSequence.Length - loopLength; start++)
         {
             string loop = targetSequence.Substring(start, loopLength);
-            double gc = CalculateGcContent(loop);
+            double gc = loop.CalculateGcFractionFast();
             double tmRaw = CalculateProbeTm(loop, conditions);
             double tm = double.IsNaN(tmRaw) ? 0.0 : tmRaw;
 
@@ -1726,7 +1731,7 @@ public static class ProbeDesigner
             bestStart,
             bestStart + loopLength - 1,
             bestTm,
-            CalculateGcContent(beaconSequence),
+            beaconSequence.CalculateGcFractionFast(),
             bestScore,
             ProbeType.MolecularBeacon,
             warnings);
@@ -3031,7 +3036,7 @@ public static class ProbeDesigner
         sequence = sequence.ToUpperInvariant();
 
         double tm = CalculateProbeTm(sequence, Defaults.Microarray);
-        double gc = CalculateGcContent(sequence);
+        double gc = sequence.CalculateGcFractionFast();
         double mw = CalculateMolecularWeight(sequence);
         double extinction = CalculateExtinctionCoefficient(sequence);
 
@@ -3172,9 +3177,6 @@ public static class ProbeDesigner
 
     // thal.c THAL_MAX_ALIGN: ntthal cannot align two strands both longer than 60 nt (self-dimer, hairpin).
     private const int NtthalMaxLength = 60;
-
-    private static double CalculateGcContent(string sequence) =>
-        sequence.Length > 0 ? sequence.CalculateGcFractionFast() : 0;
 
     // Probe Tm = Primer3 seqtm at the parameters' hybridization conditions (NaN when not computable).
     private static double CalculateProbeTm(string sequence, ProbeParameters param) =>

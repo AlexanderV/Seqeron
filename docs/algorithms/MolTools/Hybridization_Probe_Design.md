@@ -63,7 +63,7 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | The base ranking pass retains only raw-score-positive candidates before optional specificity rescaling | `DesignProbesOptimized(...)` rejects candidates when `score <= 0`, but the suffix-tree overload can later rescale shortlisted scores |
-| INV-02 | Probe GC content is computed as a fraction of length | The source uses `gcCount / length` |
+| INV-02 | Probe GC content is a fraction: G+C over the valid (A/C/G/T/U) bases, N excluded | canonical `CalculateGcFractionFast` (the `DesignProbes` prefix sums count with the same `CountGcAndValidNucleotides`); = Primer3 `gc_and_n_content` (100·num_gc/num_gcat) |
 | INV-03 | `CheckSpecificity(...)` returns `0` for no hits, `1` for a unique hit, and `1 / hits` otherwise | That mapping is explicit in source |
 
 ## 3. Contract
@@ -178,13 +178,15 @@ The implementation evaluates candidates with prefix-sum GC optimization and begi
 **Intentionally simplified:**
 
 - `DesignProbes` ranks with a fixed additive penalty score (the published Primer3 objective is available as `DesignProbesPrimer3`); **consequence:** scores rank candidates but are not hybridization probabilities.
-- Probes > 60 nt (Northern/Southern/FISH presets) use the sequence-only self-structure screens: ntthal (thal.c THAL_MAX_ALIGN = 60) and Primer3 do not handle longer oligos.
+- Probes > 60 nt (Northern/Southern/FISH presets): ntthal cannot align a self-structure whose two strands are both > 60 nt (thal.c `THAL_MAX_ALIGN` = 60, "Both sequences longer than 60 for thermodynamic alignment"), so their self-dimer criterion is Primer3's alignment-mode internal-oligo screen (dpal `self_any` / `self_end` ≤ `MaxSelfAny` / `MaxSelfEnd` = 12.00, no length limit; F37) and only the hairpin criterion stays the sequence-only inverted-repeat stem screen (§2.2).
 - Genome-index specificity is applied only after an initial raw-score shortlist is formed; **consequence:** uniqueness-aware results are specificity-filtered or specificity-scaled subsets of the top raw-score candidates rather than a full-candidate rerank.
 
 **Not implemented:**
 
 - Database-style alignment or experimentally calibrated hybridization prediction; **users should rely on:** external probe-validation workflows when those are required.
-- MGB (minor-groove binder), LNA, and dual-quencher probe chemistries; **users should rely on:** the relevant chemistry's own design tool for those. The TaqMan rules implemented here target standard (single reporter/quencher) hydrolysis probes.
+- Dual-quencher probe chemistries and the quantitative MGB ΔTm (vendor `MGB_dds` parameters unpublished — BLOCKED, B07 F28). The TaqMan rules implemented here target standard (single reporter/quencher) hydrolysis probes.
+
+**Implemented elsewhere:** LNA-modified probe Tm — `PrimerDesigner.CalculateMeltingTemperatureNNLna` / `CalculateNearestNeighborThermodynamicsLna` (Owczarzy 2011 default, McTigue 2004 option; MELTING 5 parity; [LNA_Adjusted_Nearest_Neighbor_Tm.md](LNA_Adjusted_Nearest_Neighbor_Tm.md), PROBE-LNATM-001); the citable 3′-MGB design rules (Kutyavin 2000: 3′ attachment, 12–20-mer) — `ProbeDesigner.EvaluateMgbProbeDesign`. `DesignProbes` itself designs unmodified DNA probes (`ProbeType.LNA` is a label only).
 
 ### 5.4 Deviations and Assumptions (Optional)
 
@@ -208,7 +210,7 @@ The implementation evaluates candidates with prefix-sum GC optimization and begi
 
 ### 6.2 Limitations
 
-The current implementation uses heuristic penalties, simple self-structure detection, and shared Tm helpers instead of a full thermodynamic or database-backed specificity model. It is suitable for fast candidate generation and filtering, but not for high-confidence experimental validation by itself.
+`DesignProbes` ranks with heuristic additive penalties over Primer3-exact measurements (seqtm Tm; ntthal self-dimer / hairpin Tm for ≤ 60-nt ACGT probes, dpal self_any / self_end and a sequence-only hairpin stem otherwise); specificity is exact-hit uniqueness through the suffix tree (mismatch-aware off-target assessment is `ValidateProbe` / `ScanOffTargetsGapped`, PROBE-VALID-001). It is suitable for fast candidate generation and filtering, but not for high-confidence experimental validation by itself.
 
 ## 8. References
 

@@ -28,7 +28,7 @@
 
 1. Per-primer penalty = weighted sum of one-sided deviations of Tm, size, GC% from their optima, plus weighted self_any, self_end and num_ns terms; lower is better — Source 3 (`p_obj_fn`), Source 4 (§19).
 2. Default weights: `WT_TM_GT = WT_TM_LT = WT_SIZE_GT = WT_SIZE_LT = 1`; `WT_GC_GT = WT_GC_LT = WT_SELF_ANY = WT_SELF_END = WT_NUM_NS = 0` — Source 3.
-3. Default optima: `OPT_TM = 60.0`°C, `OPT_SIZE = 20` bases, `OPT_GC_PERCENT = 50.0`% — Source 3 (60/20), Source 4 (GC 50.0).
+3. Default optima: `OPT_TM = 60.0`°C, `OPT_SIZE = 20` bases — Source 3; `OPT_GC_PERCENT` **undefined** in the Primer3 code (`DEFAULT_OPT_GC_PERCENT = PR_UNDEFINED_INT_OPT`; the manual's 50.0 is not applied) and a non-zero GC weight without an explicit optimum is rejected by `_pr_data_control` — Source 3 (B07 audit round 3, A3-25 / F46). GC-term tests (M5, M6, M10, C2) set the optimum to 50 explicitly.
 4. `gc_content` is a percentage 0–100 (`100.0 * num_gc/num_gcat`) — Source 3 (line 3856).
 5. Each term is sign- and weight-gated; the total is always ≥ 0 — Source 3.
 
@@ -63,7 +63,7 @@
 | INV-2 | Penalty = 0 ⇔ Tm=opt, len=opt, GC=opt, self/numNs=0 | Yes | Source 3 (sign-gated terms) |
 | INV-3 | Parameter at optimum contributes 0 to its term | Yes | Source 3 (strict gates) |
 | INV-4 | Term scales linearly with its weight | Yes | Source 3/4 |
-| INV-5 | Default weights TM/SIZE=1, GC/SELF/NUM_NS=0; optima 60/20/50 | Yes | Source 3, Source 4 |
+| INV-5 | Default weights TM/SIZE=1, GC/SELF/NUM_NS=0; optima 60/20, OPT_GC undefined (null) | Yes | Source 3 (F46) |
 
 ---
 
@@ -83,7 +83,7 @@
 | M8 | self_end term | selfEnd=3, WT_SELF_END=0.2 | 0.6 | Evidence dataset H |
 | M9 | num_ns term | N=2, WT_NUM_NS=1 | 2.0 | Evidence dataset I |
 | M10 | Combined multi-term | dataset J | 8.0 | Evidence dataset J |
-| M11 | Default weights/optima constants | inspect default structs | TM/SIZE=1, GC/SELF/NUM_NS=0; 60/20/50 | INV-5 |
+| M11 | Default weights/optima constants | inspect default structs | TM/SIZE=1, GC/SELF/NUM_NS=0; 60/20; `OptGcPercent` null | INV-5 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -195,10 +195,10 @@ Note: `WT_SELF_ANY`/`WT_SELF_END` (M7, M8, M10, S3) apply only in alignment mode
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | `self_any`/`self_end` alignment scores are caller-supplied (dpal local-alignment value not reproduced); the penalty arithmetic on them is exact, and default weights make these terms 0. | M7, M8, M10 |
+| 1 | A direct `CalculatePrimer3Penalty` call takes `self_any`/`self_end` (and every other measured value) from `Primer3PenaltyInputs`; the library computes them bit-exact to dpal.c (`CalculatePrimerSelfAnyComplementarity` / `CalculatePrimerSelfEndComplementarity`) and feeds them from `EvaluatePrimer` / `DesignPrimers` (B07 audit round 2, A1). | M7, M8, M10 |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. Pair-level objective (`PRIMER_PAIR_*`, Tm-difference, product-size) is out of scope; this unit reproduces the per-primer `p_obj_fn`.
+1. This unit reproduces the per-oligo `p_obj_fn`; the pair-level objective (`obj_fn`: `PRIMER_PAIR_WT_*`, Tm difference, product Tm/size) is implemented and tested under PRIMER-DESIGN-001 (`DesignPrimers` / `DesignPrimerPairs`, `Primer3PairWeights`).
