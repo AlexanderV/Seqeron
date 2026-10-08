@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.EvaluatePrimer",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1080",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1079",
   "description": "Evaluate a single primer against quality criteria and return a scored candidate.",
   "inputSchema": {
     "type": "object",

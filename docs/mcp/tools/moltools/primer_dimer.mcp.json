@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.HasPrimerDimer",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1899 (HasPrimerDimer, CalculatePrimerDimerEndComplementarity, CalculatePrimerDimerAnyComplementarity)",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1898 (HasPrimerDimer, CalculatePrimerDimerEndComplementarity, CalculatePrimerDimerAnyComplementarity)",
   "description": "Primer3 alignment-mode 3'-end primer-dimer check (PRIMER_PAIR_COMPL_END, dpal GLOBAL_END, max of both orientations). Also returns complAnyScore = PRIMER_PAIR_COMPL_ANY (dpal LOCAL of primer1 vs revcomp(primer2)).",
   "inputSchema": {
     "type": "object",

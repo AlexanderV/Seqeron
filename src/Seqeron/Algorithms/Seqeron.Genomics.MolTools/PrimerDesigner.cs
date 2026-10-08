@@ -260,9 +260,8 @@ public static partial class PrimerDesigner
         double monovalentEq = Primer3MonovalentEquivalent(monovalentMillimolar, divalentMillimolar, dntpMillimolar);
         if (!(monovalentEq > 0))
             throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), "Total monovalent-equivalent cation concentration must be > 0 mM.");
-        int gc = 0;
-        foreach (char c in product)
-            if (c is 'G' or 'C' or 'g' or 'c') gc++;
+        // long_seq_tm: G+C (canonical counter, case-insensitive) over the full product length.
+        int gc = product.AsSpan().CountGcAndValidNucleotides().GcCount;
         return LongSeqTm(gc, product.Length, monovalentEq);
     }
 
@@ -4161,13 +4160,8 @@ public static partial class PrimerDesigner
     /// <param name="AsciiStructureLines">The "SEQ\t…" and "STR\t…" lines.</param>
     public sealed record NtthalHairpinStructure(HairpinThermodynamics Thermodynamics, IReadOnlyList<string> AsciiStructureLines);
 
-    private static bool IsAcgtOnly(string? s)
-    {
-        if (string.IsNullOrEmpty(s)) return false;
-        foreach (char c in s)
-            if (c is not ('A' or 'C' or 'G' or 'T' or 'a' or 'c' or 'g' or 't')) return false;
-        return true;
-    }
+    // Non-empty and A/C/G/T only (case-insensitive): the canonical Core predicate SequenceExtensions.IsValidDna.
+    private static bool IsAcgtOnly(string? s) => !string.IsNullOrEmpty(s) && s.AsSpan().IsValidDna();
 
     /// <summary>
     /// Primer3's default (thermodynamic) limit, in °C, on every secondary-structure Tm:

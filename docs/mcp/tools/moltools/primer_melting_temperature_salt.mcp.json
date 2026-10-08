@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.CalculateMeltingTemperatureWithSalt",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1445",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1444",
   "description": "Salt-adjusted primer Tm (OligoCalc, Kibbe 2007): N<14: 2(A+T)+4(G+C)+16.6*log10([Na+]/0.050 M); N>=14: 100.5+41*(G+C)/N-820/N+16.6*log10([Na+] M); rounded to 1 decimal.",
   "inputSchema": {
     "type": "object",

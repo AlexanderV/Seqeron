@@ -2521,13 +2521,8 @@ public static class ProbeDesigner
 
         static (int Score, int Identical, int Start, int End) Summarize(AlignmentResult aln, int offset)
         {
-            int identical = 0;
-            for (int k = 0; k < aln.AlignedSequence1.Length; k++)
-            {
-                char c1 = aln.AlignedSequence1[k];
-                if (c1 != AlignmentGapChar && c1 == aln.AlignedSequence2[k])
-                    identical++;
-            }
+            // Identical (non-gap) columns: the canonical SequenceAligner.CalculateStatistics Matches.
+            int identical = SequenceAligner.CalculateStatistics(aln).Matches;
 
             return aln.Score > 0
                 ? (aln.Score, identical, offset + aln.StartPosition2, offset + aln.EndPosition2)
@@ -2548,9 +2543,6 @@ public static class ProbeDesigner
     // the local alignment (a gap shifts the reference frame). Two extra bases lets the Smith-Waterman
     // local alignment absorb short insertions/deletions while keeping each window O(probeLen) wide.
     private const int GappedScanGapAllowance = 2;
-
-    // Gap character emitted by SequenceAligner in its aligned-output strings.
-    private const char AlignmentGapChar = '-';
 
     /// <summary>
     /// Opt-in <b>gapped</b> off-target scan using the library's validated Smith-Waterman local
@@ -2669,23 +2661,12 @@ public static class ProbeDesigner
             if (ap.Length == 0)
                 continue;
 
-            int identical = 0;
-            int ungapped = 0;
-            bool hasGap = false;
-            for (int k = 0; k < ap.Length; k++)
-            {
-                char c1 = ap[k];
-                char c2 = ar[k];
-                if (c1 == AlignmentGapChar || c2 == AlignmentGapChar)
-                {
-                    hasGap = true;
-                    continue;
-                }
-
-                ungapped++;
-                if (c1 == c2)
-                    identical++;
-            }
+            // Column counts from the canonical SequenceAligner.CalculateStatistics: identical = Matches,
+            // ungapped = Matches + Mismatches, gapped = Gaps > 0.
+            var stats = SequenceAligner.CalculateStatistics(aln);
+            int identical = stats.Matches;
+            int ungapped = stats.Matches + stats.Mismatches;
+            bool hasGap = stats.Gaps > 0;
 
             double identity = (double)identical / probeLen;
             if (identity < minIdentity)

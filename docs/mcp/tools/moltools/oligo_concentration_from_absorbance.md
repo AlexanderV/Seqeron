@@ -18,7 +18,7 @@ Applies the Beer–Lambert law to convert a 260 nm absorbance reading into an ol
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L3721](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3721)
+- Source: [ProbeDesigner.cs#L3702](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3702)
 
 ## Input Schema
 
