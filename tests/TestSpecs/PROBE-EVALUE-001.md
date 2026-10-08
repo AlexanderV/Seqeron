@@ -37,7 +37,7 @@
 - **M:** larger search space → higher E; E is **linear** in m, in n, and in K.
 - **Identity:** E = K·m·n·e^(−λS) = m·n·2^(−S'), with S' = (λS − ln K)/ln 2.
 - **Boundary:** S = 0 → E = K·m·n, S' = −ln K/ln 2.
-- **Model note:** λ uses the **uniform-0.25** background; for a simple match/mismatch matrix this is the exact root of 0.25·e^{λ·match}+0.75·e^{λ·mismatch}=1. This reproduces the ungapped λ NCBI blastn prints for every scheme (1/−3 → 1.374, 2/−3 → 0.634). K is computed by the BLAST+ `BlastKarlinLHtoK` lattice formula on the gcd-reduced lattice (scale-invariant; blastn 2.12 itself prints a non-invariant K for gcd > 1 schemes, e.g. 1.17 for 4/−6); a caller K overrides it. Gapped scores use the BLAST+ tables via `ComputeBlastnStatistics`.
+- **Model note:** λ uses the **uniform-0.25** background; for a simple match/mismatch matrix this is the exact root of 0.25·e^{λ·match}+0.75·e^{λ·mismatch}=1. This reproduces the ungapped λ NCBI blastn prints for every scheme (1/−3 → 1.374, 2/−3 → 0.634). K is computed by the BLAST+ `BlastKarlinLHtoK` lattice formula on the gcd-reduced lattice (scale-invariant; default `KarlinKMethod.ReducedLattice`); `KarlinKMethod.NcbiBlast` reproduces the non-invariant K blastn 2.12 prints for gcd > 1 schemes (series indexed from the unreduced array: 4/−6 → 1.17, 4/−10 → 1.06, 6/−4 → 1.63) and is the default of `ComputeBlastnStatistics` / `GetBlastnGappedKarlinParameters` (ungapped and infinite-gap-domain blocks) — tests KA22–KA24 (audit round 3, A3-17, B07 F54); a caller K overrides it. Gapped scores use the BLAST+ tables via `ComputeBlastnStatistics`.
 
 ## 4. Cross-check / Differential Oracle
 

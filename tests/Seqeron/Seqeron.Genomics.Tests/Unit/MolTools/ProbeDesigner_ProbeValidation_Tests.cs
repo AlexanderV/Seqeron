@@ -1172,6 +1172,115 @@ public class ProbeDesigner_ProbeValidation_Tests
         Assert.That(stats.K, Is.EqualTo(0.7106027952162398).Within(1e-9));
     }
 
+    // KA22 — gcd > 1 schemes, K as BLAST+ computes it (KarlinKMethod.NcbiBlast): BlastKarlinLHtoK reduces low/high/λ by
+    // δ = gcd but its series reads probArrayStartLow[j] from the UNREDUCED array. blastn 2.12.0+ -task blastn -ungapped
+    // footers (λ K H): 4/−6 0.317 1.17 0.912; 6/−9 0.211 1.17 0.912; 8/−12 0.158 1.17 0.912; 4/−10 0.340 1.06 1.24;
+    // 6/−4 0.136 1.63 0.222; 6/−10 0.216 1.03 0.997; 8/−10 0.151 1.07 0.753; 10/−8 0.0958 1.31 0.357; closed forms
+    // 4/−2 0.132 0.0532 0.0722, 2/−2 0.549 0.333 0.549, 2/−4 0.666 0.621 1.12. Exact values: line-by-line Python port of
+    // blast_stat.c (Blast_KarlinBlkUngappedCalc / BlastKarlinLtoH / BlastKarlinLHtoK, verbatim indexing).
+    [TestCase(4, -6, 0.31686572154895387, 1.1666856431064105, 0.9124383922742287)]
+    [TestCase(6, -9, 0.21124381436596928, 1.1666856431064097, 0.9124383922742297)]
+    [TestCase(8, -12, 0.15843286077447694, 1.1666856431064099, 0.9124383922742294)]
+    [TestCase(4, -10, 0.34025265263757676, 1.0551429674627688, 1.2420803627364985)]
+    [TestCase(6, -4, 0.1355894744877687, 1.633485999782881, 0.22232354260180115)]
+    [TestCase(6, -10, 0.21596619831296326, 1.030863998562112, 0.9968202121665337)]
+    [TestCase(8, -10, 0.15052619278167545, 1.0682924577828306, 0.7531655560686317)]
+    [TestCase(10, -8, 0.09576464169521554, 1.3071030460951232, 0.356723851056931)]
+    [TestCase(4, -2, 0.1322485471578545, 0.05322292075469216, 0.07218608985058102)] // closed form (reduced low −1)
+    [TestCase(2, -2, 0.549306144334055, 0.3333333333333333, 0.5493061443340556)]    // closed form (reduced ±1)
+    [TestCase(2, -4, 0.6663528814101303, 0.6209911172603868, 1.1240918464926628)]   // closed form (reduced high +1)
+    [TestCase(2, -3, 0.6337314430979077, 0.4081456625463164, 0.9124383922742287)]   // δ = 1: same as ReducedLattice
+    public void ComputeUngappedKarlinParameters_NcbiBlastK_MatchesBlastn(int match, int mismatch, double lambda, double k, double h)
+    {
+        var ncbi = ProbeDesigner.ComputeUngappedKarlinParameters(
+            match, mismatch, 0.25, ProbeDesigner.KarlinKMethod.NcbiBlast);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ncbi.Lambda, Is.EqualTo(lambda).Within(1e-9));
+            Assert.That(ncbi.K, Is.EqualTo(k).Within(1e-9));
+            Assert.That(ncbi.H, Is.EqualTo(h).Within(1e-9));
+        });
+    }
+
+    // KA23 — the default stays the scale-invariant reduced lattice (Karlin & Altschul 1990): K(δ·a, −δ·b) = K(a, −b);
+    // for closed-form and δ = 1 schemes both methods agree.
+    [TestCase(4, -6, 2, -3)]
+    [TestCase(4, -10, 2, -5)]
+    [TestCase(6, -4, 3, -2)]
+    [TestCase(10, -8, 5, -4)]
+    [TestCase(4, -2, 2, -1)]
+    public void ComputeUngappedKarlinParameters_ReducedLattice_IsScaleInvariant(int match, int mismatch, int rMatch, int rMismatch)
+    {
+        var scaled = ProbeDesigner.ComputeUngappedKarlinParameters(match, mismatch);
+        var reduced = ProbeDesigner.ComputeUngappedKarlinParameters(rMatch, rMismatch);
+        var explicitReduced = ProbeDesigner.ComputeUngappedKarlinParameters(
+            match, mismatch, 0.25, ProbeDesigner.KarlinKMethod.ReducedLattice);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scaled.K, Is.EqualTo(reduced.K).Within(1e-12));
+            Assert.That(explicitReduced, Is.EqualTo(scaled));
+        });
+    }
+
+    [Test]
+    public void ComputeUngappedKarlinParameters_KMethods_AgreeForCoprimeAndClosedForm_DifferOtherwise()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var (m, mm) in new[] { (1, -3), (2, -3), (3, -4), (5, -4), (2, -2), (2, -4), (4, -2) })
+                Assert.That(ProbeDesigner.ComputeUngappedKarlinParameters(m, mm, 0.25, ProbeDesigner.KarlinKMethod.NcbiBlast).K,
+                    Is.EqualTo(ProbeDesigner.ComputeUngappedKarlinParameters(m, mm).K).Within(1e-12), $"{m}/{mm}");
+            Assert.That(ProbeDesigner.ComputeUngappedKarlinParameters(4, -6).K, Is.EqualTo(0.4081456625463167).Within(1e-9));
+            Assert.That(ProbeDesigner.ComputeUngappedKarlinParameters(1, -3, new[] { 0.3, 0.2, 0.2, 0.3 },
+                ProbeDesigner.KarlinKMethod.NcbiBlast).K, Is.EqualTo(0.6965155054507803).Within(1e-9), "δ = 1 composition (KA15)");
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                ProbeDesigner.ComputeUngappedKarlinParameters(4, -6, 0.25, (ProbeDesigner.KarlinKMethod)7));
+        });
+    }
+
+    // KA24 — ComputeBlastnStatistics (BLAST semantics) uses BLAST+'s K by default. blastn 2.12.0+ -task blastn, 200-nt
+    // query vs 3100-nt subject: 4/−6 -ungapped → "Effective search space used: 573996", score 400 → 182 bits, E 6.03e-50;
+    // 6/−4 -ungapped → 425600, score 602 → 117 bits, E 2.47e-30; 4/−6 gap 12/8 (≥ 2/−3 infinite domain 6/4 × 2) →
+    // "Gapped 0.317 1.17 0.912", 573996, 6.03e-50. Exact E/bits from the Python port (E = space·K·e^{−λS}).
+    [Test]
+    public void ComputeBlastnStatistics_GcdScheme_UsesBlastK_MatchesBlastn()
+    {
+        var m46 = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: 4, Mismatch: -6, GapOpen: -12, GapExtend: -8);
+        var m64 = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: 6, Mismatch: -4, GapOpen: -10, GapExtend: -6);
+        var u46 = ProbeDesigner.ComputeBlastnStatistics(400, 200, 3100, scoring: m46, gapped: false);
+        var g46 = ProbeDesigner.ComputeBlastnStatistics(400, 200, 3100, scoring: m46);
+        var u64 = ProbeDesigner.ComputeBlastnStatistics(602, 200, 3100, scoring: m64, gapped: false);
+        var reduced = ProbeDesigner.ComputeBlastnStatistics(400, 200, 3100, scoring: m46, gapped: false,
+            kMethod: ProbeDesigner.KarlinKMethod.ReducedLattice);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(u46.Parameters.K, Is.EqualTo(1.1666856431064105).Within(1e-9));
+            Assert.That(u46.LengthAdjustment, Is.EqualTo(14));
+            Assert.That(u46.EffectiveSearchSpace, Is.EqualTo(573996));
+            Assert.That(u46.EValue, Is.EqualTo(6.034606696310044e-50).Within(1e-58));
+            Assert.That(u46.BitScore, Is.EqualTo(182.63382615522124).Within(1e-6));
+            Assert.That(g46.Parameters, Is.EqualTo(u46.Parameters with { Gapped = true, RoundDown = true }),
+                "infinite domain copies BLAST's ungapped block (2/−3 table: round_down)");
+            Assert.That(g46.EffectiveSearchSpace, Is.EqualTo(573996));
+            Assert.That(g46.EValue, Is.EqualTo(6.034606696310044e-50).Within(1e-58));
+            Assert.That(u64.Parameters.K, Is.EqualTo(1.633485999782881).Within(1e-9));
+            Assert.That(u64.LengthAdjustment, Is.EqualTo(60));
+            Assert.That(u64.EffectiveSearchSpace, Is.EqualTo(425600));
+            Assert.That(u64.EValue, Is.EqualTo(2.471093453808567e-30).Within(1e-38));
+            Assert.That(u64.BitScore, Is.EqualTo(117.05183189919178).Within(1e-6));
+            Assert.That(reduced.Parameters.K, Is.EqualTo(0.4081456625463167).Within(1e-9), "opt-out: scale-invariant K");
+            Assert.That(ProbeDesigner.GetBlastnGappedKarlinParameters(4, -6, 12, 8, ProbeDesigner.KarlinKMethod.ReducedLattice).K,
+                Is.EqualTo(0.4081456625463167).Within(1e-9));
+            Assert.That(ProbeDesigner.ComputeKarlinAltschul(400, 200, 3100, m46, kMethod: ProbeDesigner.KarlinKMethod.NcbiBlast).K,
+                Is.EqualTo(1.1666856431064105).Within(1e-9));
+            Assert.That(ProbeDesigner.ComputeKarlinAltschul(400, 200, 3100, m46).K,
+                Is.EqualTo(0.4081456625463167).Within(1e-9), "ComputeKarlinAltschul default unchanged (reduced lattice)");
+        });
+    }
+
     #endregion
 
     #region ValidateProbe - Primer3 thermodynamic self-structure screen (PROBE-VALID-001, B07)

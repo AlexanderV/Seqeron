@@ -2595,7 +2595,7 @@ public static class ProbeDesigner
     /// Per-base background frequency (default 0.25, uniform — the standard nucleotide composition NCBI blastn uses).
     /// The model takes p(match) = 4·p² and p(mismatch) = 1 − 4·p², which is the composition-exact value only at
     /// p = 0.25; for a non-uniform composition use
-    /// <see cref="ComputeUngappedKarlinParameters(int, int, IReadOnlyList{double})"/>. Must lie in (0, 0.5).
+    /// <see cref="ComputeUngappedKarlinParameters(int, int, IReadOnlyList{double}, KarlinKMethod)"/>. Must lie in (0, 0.5).
     /// </param>
     /// <returns>The positive λ solving the Karlin–Altschul equation.</returns>
     /// <exception cref="ArgumentOutOfRangeException">
@@ -2636,13 +2636,13 @@ public static class ProbeDesigner
     /// Altschul et al. 1990). λ is computed from <paramref name="scoring"/> by
     /// <see cref="ComputeLambdaNucleotide"/>; K is, unless the caller supplies it, computed for the same
     /// scoring scheme and background by the Karlin–Altschul (1990) lattice formula as NCBI BLAST+ computes it
-    /// (<see cref="ComputeUngappedKarlinParameters(int, int, double)"/>; +1/−3 → K = 0.7106, +2/−3 → K = 0.4081,
+    /// (<see cref="ComputeUngappedKarlinParameters(int, int, double, KarlinKMethod)"/>; +1/−3 → K = 0.7106, +2/−3 → K = 0.4081,
     /// the values blastn 2.12 reports for ungapped searches).
     /// </para>
     /// <para>
     /// These are the <b>ungapped</b> statistics on the raw search space m·n. For a gapped (affine) alignment score
     /// such as <see cref="CrossHybridizationAssessment.AlignmentScore"/>, and for BLAST's edge-effect length
-    /// correction, use <see cref="ComputeBlastnStatistics(int, int, long, int, ScoringMatrix?, bool)"/>.
+    /// correction, use <see cref="ComputeBlastnStatistics(int, int, long, int, ScoringMatrix?, bool, KarlinKMethod)"/>.
     /// </para>
     /// </remarks>
     /// <param name="rawScore">The raw alignment score S of the hit.</param>
@@ -2655,9 +2655,14 @@ public static class ProbeDesigner
     /// </param>
     /// <param name="k">
     /// The Karlin–Altschul K parameter; null (default) computes it for <paramref name="scoring"/> and
-    /// <paramref name="baseFrequency"/> (<see cref="ComputeUngappedKarlinParameters(int, int, double)"/>).
+    /// <paramref name="baseFrequency"/> (<see cref="ComputeUngappedKarlinParameters(int, int, double, KarlinKMethod)"/>).
     /// </param>
     /// <param name="baseFrequency">Per-base background frequency for λ (default 0.25, uniform).</param>
+    /// <param name="kMethod">
+    /// How the computed K treats schemes whose scores share a divisor &gt; 1 (default
+    /// <see cref="KarlinKMethod.ReducedLattice"/>, scale-invariant; <see cref="KarlinKMethod.NcbiBlast"/> reproduces
+    /// blastn's printed K, e.g. 1.17 for +4/−6). Ignored when <paramref name="k"/> is given.
+    /// </param>
     /// <returns>The <see cref="KarlinAltschulStatistics"/> for the hit.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="scoring"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown for non-positive lengths or K, or a scheme for which λ is undefined.</exception>
@@ -2667,7 +2672,8 @@ public static class ProbeDesigner
         long databaseLength,
         ScoringMatrix? scoring = null,
         double? k = null,
-        double baseFrequency = UniformBaseFrequency)
+        double baseFrequency = UniformBaseFrequency,
+        KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
     {
         var matrix = scoring ?? SequenceAligner.BlastDna;
         ArgumentNullException.ThrowIfNull(matrix);
@@ -2679,7 +2685,7 @@ public static class ProbeDesigner
             throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
 
         double lambda = ComputeLambdaNucleotide(matrix.Match, matrix.Mismatch, baseFrequency);
-        double kValue = k ?? ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch, baseFrequency).K;
+        double kValue = k ?? ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch, baseFrequency, kMethod).K;
 
         // S' = (λS − ln K) / ln 2  (Altschul et al. 1990).
         double bitScore = (lambda * rawScore - Math.Log(kValue)) / Math.Log(2.0);
@@ -2727,6 +2733,29 @@ public static class ProbeDesigner
         double Beta,
         bool RoundDown,
         bool Gapped);
+
+    /// <summary>
+    /// How the ungapped Karlin–Altschul K is evaluated when the scores share a common divisor δ &gt; 1
+    /// (e.g. +4/−6, δ = 2). Schemes with δ = 1 give identical K under both choices.
+    /// </summary>
+    public enum KarlinKMethod
+    {
+        /// <summary>
+        /// Karlin &amp; Altschul (1990, PNAS 87:2264, appendix) on the δ-reduced lattice: K is invariant under
+        /// multiplying all scores by an integer (+4/−6 → K = 0.4081 = K(+2/−3)).
+        /// </summary>
+        ReducedLattice = 0,
+
+        /// <summary>
+        /// Exactly as NCBI BLAST+ <c>BlastKarlinLHtoK</c> (blast_stat.c) computes it: low/high/λ are reduced by δ but
+        /// the series reads the score probabilities at the reduced offsets from the unreduced lowest score
+        /// (<c>probArrayStartLow[j]</c>, j = 0…range/δ), so K is not scale-invariant. Reproduces the K blastn 2.12.0+
+        /// prints: +4/−6 → 1.17, +4/−10 → 1.06, +6/−4 → 1.63, +6/−10 → 1.03, +8/−10 → 1.07, +10/−8 → 1.31.
+        /// The closed forms (reduced lowest score −1 or highest +1, e.g. +2/−2, +2/−4, +4/−2) agree with
+        /// <see cref="ReducedLattice"/>.
+        /// </summary>
+        NcbiBlast = 1,
+    }
 
     /// <summary>
     /// NCBI BLAST+ blastn statistics of an alignment score: bit score and E-value over the effective
@@ -2823,39 +2852,49 @@ public static class ProbeDesigner
     /// </summary>
     /// <remarks>
     /// Reproduces the Lambda/K/H that NCBI blastn 2.12.0+ prints for ungapped searches: +1/−3 → 1.374 / 0.711 / 1.31,
-    /// +2/−3 → 0.634 / 0.408 / 0.912, +1/−2 → 1.33 / 0.621 / 1.12. K is computed on the reduced lattice, so it is
-    /// invariant under multiplying all scores by an integer (λ scales by its inverse) as the theory requires;
-    /// BLAST+ 2.12 indexes the probabilities by the unreduced offset when δ &gt; 1 (e.g. it prints K = 1.17 for
-    /// +4/−6 although +2/−3 gives 0.408), which this port does not reproduce. <see cref="KarlinAltschulParameters.Alpha"/>
+    /// +2/−3 → 0.634 / 0.408 / 0.912, +1/−2 → 1.33 / 0.621 / 1.12. By default (<see cref="KarlinKMethod.ReducedLattice"/>)
+    /// K is computed on the reduced lattice, so it is invariant under multiplying all scores by an integer (λ scales by
+    /// its inverse) as the theory requires; BLAST+ indexes the series' probabilities by the reduced offset from the
+    /// unreduced lowest score when δ &gt; 1 (blastn 2.12.0+ prints K = 1.17 for +4/−6 although +2/−3 gives 0.408) —
+    /// <see cref="KarlinKMethod.NcbiBlast"/> reproduces that value exactly. <see cref="KarlinAltschulParameters.Alpha"/>
     /// = λ/H and <see cref="KarlinAltschulParameters.Beta"/> = BLAST+ <c>s_GetUngappedBeta</c> (−2 for +1/−1 and
     /// +2/−3, else 0).
     /// </remarks>
     /// <param name="match">Match score (&gt; 0).</param>
     /// <param name="mismatch">Mismatch score (&lt; 0).</param>
     /// <param name="baseFrequency">Per-base frequency, p(match) = 4·p² (default 0.25; must lie in (0, 0.5)).</param>
+    /// <param name="kMethod">
+    /// K for schemes whose scores share a divisor δ &gt; 1: <see cref="KarlinKMethod.ReducedLattice"/> (default,
+    /// scale-invariant per Karlin &amp; Altschul 1990) or <see cref="KarlinKMethod.NcbiBlast"/> (BLAST+ indexing,
+    /// as blastn prints it: +4/−6 → 1.1666856431064105). Identical for δ = 1.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException">λ undefined (no positive score, non-negative mismatch or
-    /// non-negative expected score) or a base frequency outside (0, 0.5).</exception>
+    /// non-negative expected score), a base frequency outside (0, 0.5), or an undefined <paramref name="kMethod"/>.</exception>
     public static KarlinAltschulParameters ComputeUngappedKarlinParameters(
-        int match, int mismatch, double baseFrequency = UniformBaseFrequency)
+        int match, int mismatch, double baseFrequency = UniformBaseFrequency,
+        KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
     {
         ValidateMatchMismatch(match, mismatch);
-        return UngappedKarlinParameters(match, mismatch, MatchProbability(baseFrequency));
+        return UngappedKarlinParameters(match, mismatch, MatchProbability(baseFrequency), kMethod);
     }
 
     /// <summary>
     /// Ungapped Karlin–Altschul parameters for a match/mismatch scheme under an arbitrary base composition
     /// (Σ_{i,j} p_i p_j e^{λ s_ij} = 1 with p(match) = Σ p_i²), computed as in
-    /// <see cref="ComputeUngappedKarlinParameters(int, int, double)"/>.
+    /// <see cref="ComputeUngappedKarlinParameters(int, int, double, KarlinKMethod)"/>.
     /// </summary>
     /// <param name="match">Match score (&gt; 0).</param>
     /// <param name="mismatch">Mismatch score (&lt; 0).</param>
     /// <param name="baseFrequencies">Frequencies of A, C, G, T (four finite non-negative values with a positive sum;
     /// normalized to sum 1 as BLAST+ <c>BlastScoreFreqCalc</c> normalizes the score probabilities).</param>
+    /// <param name="kMethod">K for schemes whose scores share a divisor &gt; 1 (default
+    /// <see cref="KarlinKMethod.ReducedLattice"/>; <see cref="KarlinKMethod.NcbiBlast"/> = BLAST+ indexing).</param>
     /// <exception cref="ArgumentNullException"><paramref name="baseFrequencies"/> is null.</exception>
     /// <exception cref="ArgumentException">Not exactly four frequencies, a negative/non-finite one, or a zero sum.</exception>
     /// <exception cref="ArgumentOutOfRangeException">λ undefined for the scheme and composition.</exception>
     public static KarlinAltschulParameters ComputeUngappedKarlinParameters(
-        int match, int mismatch, IReadOnlyList<double> baseFrequencies)
+        int match, int mismatch, IReadOnlyList<double> baseFrequencies,
+        KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
     {
         ArgumentNullException.ThrowIfNull(baseFrequencies);
         if (baseFrequencies.Count != 4)
@@ -2877,7 +2916,7 @@ public static class ProbeDesigner
         if (!(pMatch < 1.0))
             throw new ArgumentOutOfRangeException(nameof(baseFrequencies),
                 "Karlin–Altschul λ is undefined: a single-base composition has no mismatch (expected score not negative).");
-        return UngappedKarlinParameters(match, mismatch, pMatch);
+        return UngappedKarlinParameters(match, mismatch, pMatch, kMethod);
     }
 
     /// <summary>
@@ -2895,10 +2934,16 @@ public static class ProbeDesigner
     /// <param name="penalty">Mismatch penalty (&lt; 0).</param>
     /// <param name="gapOpen">Gap existence cost (≥ 0; a gap of length k costs gapOpen + k·gapExtend).</param>
     /// <param name="gapExtend">Gap extension cost (≥ 0).</param>
-    /// <exception cref="ArgumentOutOfRangeException">Non-positive reward, non-negative penalty or negative gap costs.</exception>
+    /// <param name="kMethod">
+    /// K of the ungapped block copied in the infinite gap-cost domain for a scheme whose scores share a divisor &gt; 1:
+    /// <see cref="KarlinKMethod.NcbiBlast"/> (default — what BLAST+ copies; blastn +4/−6 gap 12/8 prints "Gapped …
+    /// 0.317 1.17 0.912") or <see cref="KarlinKMethod.ReducedLattice"/> (scale-invariant). The tabulated rows are unaffected.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">Non-positive reward, non-negative penalty, negative gap costs or
+    /// an undefined <paramref name="kMethod"/>.</exception>
     /// <exception cref="ArgumentException">A reward/penalty or gap-cost combination BLAST+ does not support.</exception>
     public static KarlinAltschulParameters GetBlastnGappedKarlinParameters(
-        int reward, int penalty, int gapOpen, int gapExtend)
+        int reward, int penalty, int gapOpen, int gapExtend, KarlinKMethod kMethod = KarlinKMethod.NcbiBlast)
     {
         ValidateMatchMismatch(reward, penalty);
         if (gapOpen < 0)
@@ -2938,7 +2983,7 @@ public static class ProbeDesigner
         if (gapOpen >= table.GapOpenMax * divisor && gapExtend >= table.GapExtendMax * divisor)
         {
             // Infinite gap-cost domain: Blast_KarlinBlkCopy(kbp, kbp_ungap); α/β fall back to the ungapped values.
-            var ungapped = UngappedKarlinParameters(reward, penalty, MatchProbability(UniformBaseFrequency));
+            var ungapped = UngappedKarlinParameters(reward, penalty, MatchProbability(UniformBaseFrequency), kMethod);
             return ungapped with { RoundDown = table.RoundDown, Gapped = true };
         }
 
@@ -3042,7 +3087,7 @@ public static class ProbeDesigner
 
     /// <summary>
     /// NCBI BLAST+ blastn statistics of an alignment score: the Karlin–Altschul parameters of the scoring scheme
-    /// (gapped: <see cref="GetBlastnGappedKarlinParameters"/>; ungapped: <see cref="ComputeUngappedKarlinParameters(int, int, double)"/>),
+    /// (gapped: <see cref="GetBlastnGappedKarlinParameters"/>; ungapped: <see cref="ComputeUngappedKarlinParameters(int, int, double, KarlinKMethod)"/>),
     /// the edge-effect length adjustment (<see cref="ComputeLengthAdjustment"/>), the effective search space
     /// (m − ℓ)·max(1, n − N·ℓ) (<c>BLAST_CalcEffLengths</c>), the bit score S' = (λS − ln K)/ln 2 and the E-value
     /// E = K·(m − ℓ)(n − N·ℓ)·e^{−λS}, with odd gapped scores rounded down to even for the E-value where the BLAST+
@@ -3060,6 +3105,12 @@ public static class ProbeDesigner
     /// <param name="databaseSequenceCount">Number of database sequences N (≥ 1; default 1, a single subject).</param>
     /// <param name="scoring">Scoring scheme (default <see cref="SequenceAligner.BlastDna"/>: +2/−3, gap 5/2).</param>
     /// <param name="gapped">Gapped statistics (default true, as blastn); false for ungapped HSP scores.</param>
+    /// <param name="kMethod">
+    /// Ungapped K for a scheme whose scores share a divisor &gt; 1 (ungapped statistics, or gapped in the infinite
+    /// gap-cost domain): <see cref="KarlinKMethod.NcbiBlast"/> (default — blastn's own value; +4/−6 ungapped prints
+    /// K 1.17, effective search space 573996 for a 200-nt query vs a 3100-nt subject) or
+    /// <see cref="KarlinKMethod.ReducedLattice"/> (scale-invariant K, = the reduced scheme's). No effect for δ = 1.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException">Non-positive lengths/count, or positive gap scores.</exception>
     /// <exception cref="ArgumentException">A scoring scheme BLAST+ has no gapped statistics for.</exception>
     public static BlastnStatistics ComputeBlastnStatistics(
@@ -3068,7 +3119,8 @@ public static class ProbeDesigner
         long databaseLength,
         int databaseSequenceCount = 1,
         ScoringMatrix? scoring = null,
-        bool gapped = true)
+        bool gapped = true,
+        KarlinKMethod kMethod = KarlinKMethod.NcbiBlast)
     {
         var matrix = scoring ?? SequenceAligner.BlastDna;
         if (queryLength <= 0)
@@ -3081,8 +3133,8 @@ public static class ProbeDesigner
             throw new ArgumentOutOfRangeException(nameof(scoring), "Gap scores must be non-positive (penalties).");
 
         KarlinAltschulParameters p = gapped
-            ? GetBlastnGappedKarlinParameters(matrix.Match, matrix.Mismatch, -matrix.GapOpen, -matrix.GapExtend)
-            : ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch);
+            ? GetBlastnGappedKarlinParameters(matrix.Match, matrix.Mismatch, -matrix.GapOpen, -matrix.GapExtend, kMethod)
+            : ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch, UniformBaseFrequency, kMethod);
 
         int adjustment = ComputeLengthAdjustment(
             p.K, p.Alpha / p.Lambda, p.Beta, queryLength, databaseLength, databaseSequenceCount);
@@ -3106,7 +3158,7 @@ public static class ProbeDesigner
     /// search space: m = probe length, n = subject length, N = 1). The alignment is the canonical affine
     /// Smith–Waterman–Gotoh <see cref="SequenceAligner.LocalAlignAffine(string, string, ScoringMatrix?)"/> — the same
     /// optimal local score <see cref="AssessCrossHybridization"/> reports — and its score is evaluated by
-    /// <see cref="ComputeBlastnStatistics(int, int, long, int, ScoringMatrix?, bool)"/> with gapped parameters.
+    /// <see cref="ComputeBlastnStatistics(int, int, long, int, ScoringMatrix?, bool, KarlinKMethod)"/> with gapped parameters.
     /// Only the given strand is aligned; pass the reverse complement for the other strand.
     /// </summary>
     /// <param name="probeSequence">Probe (query) sequence (non-empty).</param>
@@ -3149,8 +3201,12 @@ public static class ProbeDesigner
     }
 
     // Blast_KarlinBlkUngappedCalc for the two-score distribution {match: pMatch, mismatch: 1 − pMatch}.
-    private static KarlinAltschulParameters UngappedKarlinParameters(int match, int mismatch, double pMatch)
+    private static KarlinAltschulParameters UngappedKarlinParameters(
+        int match, int mismatch, double pMatch, KarlinKMethod kMethod = KarlinKMethod.ReducedLattice)
     {
+        if (kMethod is not (KarlinKMethod.ReducedLattice or KarlinKMethod.NcbiBlast))
+            throw new ArgumentOutOfRangeException(nameof(kMethod), kMethod, "Unknown K method.");
+
         double pMismatch = 1.0 - pMatch;
         double expected = pMatch * match + pMismatch * mismatch;
         if (expected >= 0)
@@ -3163,13 +3219,18 @@ public static class ProbeDesigner
         double h = lambda * (pMatch * match * Math.Exp(lambda * match) + pMismatch * mismatch * Math.Exp(lambda * mismatch));
 
         // BlastKarlinLHtoK on the lattice reduced by δ = gcd(match, −mismatch): scores low = mismatch/δ … high = match/δ,
-        // λ·δ, mean score / δ (H is scale-invariant).
+        // λ·δ, mean score / δ (H is scale-invariant). The closed forms read the true probabilities of the lowest and
+        // highest scores; the series reads seriesProb[j], j = 0 … high − low:
+        //  - ReducedLattice: the reduced lattice (seriesProb[j] = probability of reduced score low + j);
+        //  - NcbiBlast: BLAST+'s probArrayStartLow, the UNREDUCED array (seriesProb[j] = probability of the unreduced
+        //    score mismatch + j), which BlastKarlinLHtoK indexes with the reduced offsets.
         int delta = Gcd(match, -mismatch);
         int low = mismatch / delta, high = match / delta;
-        var prob = new double[high - low + 1];
-        prob[0] = pMismatch;
-        prob[high - low] = pMatch;
-        double k = KarlinLHtoK(prob, low, high, lambda * delta, h, expected / delta);
+        int seriesSpan = kMethod == KarlinKMethod.NcbiBlast ? match - mismatch : high - low;
+        var seriesProb = new double[seriesSpan + 1];
+        seriesProb[0] = pMismatch;
+        seriesProb[seriesSpan] = pMatch;
+        double k = KarlinLHtoK(seriesProb, pMismatch, pMatch, low, high, lambda * delta, h, expected / delta);
 
         double beta = (match == 1 && mismatch == -1) || (match == 2 && mismatch == -3) ? -2.0 : 0.0;
         return new KarlinAltschulParameters(lambda, k, h, lambda / h, beta, RoundDown: false, Gapped: false);
@@ -3192,18 +3253,18 @@ public static class ProbeDesigner
         return 0.5 * (lo + hi);
     }
 
-    // BlastKarlinLHtoK (blast_stat.c) on a gcd-1 lattice: prob[j] is the probability of score low + j.
-    private static double KarlinLHtoK(double[] prob, int low, int high, double lambda, double h, double scoreAverage)
+    // BlastKarlinLHtoK (blast_stat.c) after the gcd reduction: low/high/λ/mean are the reduced values, pLow/pHigh the
+    // probabilities of the lowest/highest score (closed forms, sprob[low·δ]/sprob[high·δ]) and prob[j], j = 0 … high − low,
+    // the score probabilities the series reads (probArrayStartLow[j]).
+    private static double KarlinLHtoK(
+        double[] prob, double pLow, double pHigh, int low, int high, double lambda, double h, double scoreAverage)
     {
         int range = high - low;
         double firstTermClosedForm = h / lambda;
         double expMinusLambda = Math.Exp(-lambda);
 
         if (low == -1 && high == 1)
-        {
-            double pLow = prob[0], pHigh = prob[range];
             return (pLow - pHigh) * (pLow - pHigh) / pLow;
-        }
 
         if (low == -1 || high == 1)
         {
