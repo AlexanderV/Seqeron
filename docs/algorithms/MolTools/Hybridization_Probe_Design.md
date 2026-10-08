@@ -67,7 +67,7 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | The base ranking pass retains only raw-score-positive candidates before optional specificity rescaling | `DesignProbesOptimized(...)` rejects candidates when `score <= 0`, but the suffix-tree overload can later rescale shortlisted scores |
+| INV-01 | The ranking pass retains only raw-score-positive candidates before optional specificity rescaling | `EnumerateRankedProbes(...)` rejects candidates when `score <= 0`; the suffix-tree overload then rescales (or filters) every retained candidate |
 | INV-02 | Probe GC content is a fraction: G+C over the valid (A/C/G/T/U) bases, N excluded | canonical `CalculateGcFractionFast` (the `DesignProbes` prefix sums count with the same `CountGcAndValidNucleotides`); = Primer3 `gc_and_n_content` (100·num_gc/num_gcat) |
 | INV-03 | `CheckSpecificity(...)` returns `0` for no hits, `1` for a unique hit, and `1 / hits` otherwise | That mapping is explicit in source |
 
@@ -79,7 +79,7 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 |------|------|---------|-------------|-------------|
 | `targetSequence` | `string` | required | Sequence from which probe candidates are generated | Uppercased before processing |
 | `parameters` | `ProbeParameters?` | `Defaults.Microarray` | Application-specific probe design limits | Includes length, Tm, GC, homopolymer, and self-complementarity thresholds |
-| `maxProbes` | `int` | `10` | Maximum number of returned probes | Applied after ranking |
+| `maxProbes` | `int` | `10` | Maximum number of returned probes | Applied after ranking (and, in the genome-index overload, after the specificity filter / re-rank); `<= 0` returns none |
 | `parameters.Ranking` | `ProbeRanking` | `AdditiveScore` | `AdditiveScore` (library heuristic) or `Primer3Penalty` (Primer3 internal-oligo `p_obj_fn`, sourced) | Enum value must be defined |
 | `parameters.OptTm` / `OptLength` | `double` / `int` | `60` / `20` | PRIMER_INTERNAL_OPT_TM / _OPT_SIZE of the Primer3 ranking | Within [MinTm, MaxTm] / [MinLength, MaxLength] when `Ranking = Primer3Penalty` |
 | `genomeIndex` | `ISuffixTree` | required for specificity overload | Pre-built suffix tree for genome-wide uniqueness filtering | Used only by the overload with specificity checking |
@@ -100,7 +100,7 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 
 ### 3.3 Preconditions and Validation
 
-`DesignProbes(...)` returns no probes when the target sequence is null, empty, or shorter than the configured minimum length. All sequences are converted to uppercase before processing. The suffix-tree overload first builds a larger raw-score shortlist than the final requested count, then either filters that shortlist for uniqueness or scales shortlisted scores by the specificity value returned by `CheckSpecificity(...)`; when `requireUnique` is `false`, a shortlisted probe can therefore remain in the output with final score `0` if specificity is `0`.
+`DesignProbes(...)` returns no probes when the target sequence is null, empty, shorter than the configured minimum length, or when `maxProbes <= 0`. All sequences are converted to uppercase before processing. The suffix-tree overload walks **every** candidate in the ranking order (lazily, stopping once `maxProbes` probes have been produced) and applies the specificity value returned by `CheckSpecificity(...)`: with `requireUnique` a candidate occurring more than once is dropped (the surviving probes keep their score and order), otherwise the score is multiplied by the specificity and the probes are re-ranked on the scaled score (stable — equal scores keep the documented `(length, start)` tie order; the `Primer3Penalty` order is unchanged because the specificity does not enter the penalty). With `requireUnique = false` a probe whose specificity is `0` (not present in the index) therefore still appears, with final score `0`, last.
 
 ## 4. Algorithm
 
@@ -111,7 +111,7 @@ If a 5' G cannot be avoided on the sense strand, the probe is designed on the co
 3. Enumerate all candidate windows within the configured length range.
 4. Evaluate each candidate for GC content, Tm, homopolymers, self-complementarity, secondary structure, repeats, and terminal G/C penalties.
 5. Keep only candidates with positive raw scores, sort them by score (default) or by Primer3 internal-oligo penalty (`Ranking = Primer3Penalty`), and return the top results.
-6. In the genome-index overload, apply suffix-tree specificity filtering or post-shortlist score adjustment before yielding the final probes.
+6. In the genome-index overload, walk the whole ranked candidate list lazily and apply suffix-tree specificity (uniqueness filter, or score scaling followed by a stable re-rank) before yielding up to `maxProbes` probes.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -162,7 +162,7 @@ GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeS
 **Implementation location:** [ProbeDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs), [ThermoConstants.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/ThermoConstants.cs)
 
 - `ProbeDesigner.DesignProbes(string, ProbeParameters?, int)`: Main probe-generation and ranking routine.
-- `ProbeDesigner.DesignProbes(string, ISuffixTree, ProbeParameters?, int, bool)`: Uniqueness-aware overload using a suffix tree.
+- `ProbeDesigner.DesignProbes(string, ISuffixTree, ProbeParameters?, int, bool)`: Uniqueness-aware overload using a suffix tree (lazy walk of all candidates; `EnumerateRankedProbes(...)` is the shared ranking stream).
 - `ProbeDesigner.DesignTilingProbes(...)`: Generates overlapping tiling probes for coverage.
 - `ProbeDesigner.CheckSpecificity(string, ISuffixTree)`: Maps suffix-tree hit counts to a specificity score.
 - `ProbeDesigner.EvaluateTaqManProbe(string, double?, int, int)`: Opt-in TaqMan rule check; returns a `TaqManProbeEvaluation` with one boolean per rule and a `PassesAll` conjunction.
@@ -172,7 +172,7 @@ GC optimum and lower-case masking (audit round 3, A3-25 + A3-26): `Primer3ProbeS
 
 ### 5.2 Current Behavior
 
-The implementation evaluates candidates with prefix-sum GC optimization and begins from a raw-score-positive shortlist. Probe sequences are uppercased before evaluation. The suffix-tree overload does not rescore the full candidate universe: it rechecks only a larger raw-score shortlist, currently `maxProbes * 5`, can enforce uniqueness on that shortlist, or scales shortlisted scores by `1 / hitCount`; if `requireUnique` is `false` and specificity is `0`, a shortlisted probe can remain in the final output with score `0`, so final ordering still inherits the initial raw-score pass. `DesignTilingProbes(...)` includes suboptimal probes when needed for coverage and reports coverage, mean Tm, and Tm range. The source also defines probe types `Standard`, `Tiling`, `Antisense`, `LNA`, and `MolecularBeacon`.
+The implementation evaluates candidates with prefix-sum GC optimization and keeps the raw-score-positive ones. Probe sequences are uppercased before evaluation. `EnumerateRankedProbes(...)` yields them lazily in the ranking order — the self-structure screens (and the specificity scaling) can only lower a score, so finished candidates are released through a priority queue as soon as no unfinished candidate can outrank them, and the enumeration equals an exhaustive evaluation followed by a stable sort. The suffix-tree overload consumes that stream, so it considers **every** candidate (`maxProbes * 5` shortlist removed, audit round 4, A4-1, F59) while costing only the candidates a prefix of the output needs: it enforces uniqueness (`CheckSpecificity(...) < 1` dropped) or scales the score by `1 / hitCount` and re-ranks on the scaled score; with `requireUnique = false` a probe with specificity `0` stays in the output with score `0` (ranked last). `DesignTilingProbes(...)` includes suboptimal probes when needed for coverage and reports coverage, mean Tm, and Tm range. The source also defines probe types `Standard`, `Tiling`, `Antisense`, `LNA`, and `MolecularBeacon`.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -180,7 +180,7 @@ The implementation evaluates candidates with prefix-sum GC optimization and begi
 
 - Application-specific probe-length, GC, and Tm windows.
 - Heuristic penalties for GC, Tm, self-complementarity, secondary structure, and repeats.
-- Genome-index-based uniqueness checking through a suffix tree.
+- Genome-index-based uniqueness checking through a suffix tree, over the **whole** ranked candidate list (`requireUnique` returns the best `maxProbes` unique probes; without it the score is scaled by `1 / hits` and the probes are re-ranked) — audit round 4, A4-1, F59.
 - Opt-in TaqMan rules (no 5'-G, more C than G, no ≥4-G run, GC 30–80%, length 18–22 nt, probe Tm ≥ primer Tm + 10 °C) and strand selection. [7][8][9]
 
 **Intentionally simplified:**
@@ -188,7 +188,6 @@ The implementation evaluates candidates with prefix-sum GC optimization and begi
 - `DesignProbes` ranks by default with a fixed additive penalty score — a library heuristic without a published source; the sourced Primer3 internal-oligo objective is the opt-in `ProbeParameters.Ranking = ProbeRanking.Primer3Penalty` (and Primer3's complete picker is `DesignProbesPrimer3`); **consequence:** additive scores rank candidates but are not hybridization probabilities.
 - Probes > 60 nt (Northern/Southern/FISH presets): by default ntthal does not align a self-structure whose two strands are both > 60 nt (thal.h `THAL_MAX_ALIGN` = 60; primer3-py raises "At least one sequence must be equal to or shorter than 60bp for thermodynamic calculations"), so their self-dimer criterion is Primer3's alignment-mode internal-oligo screen (dpal `self_any` / `self_end` ≤ `MaxSelfAny` / `MaxSelfEnd` = 12.00, no length limit; F37) and the hairpin criterion is the sequence-only inverted-repeat stem screen (§2.2).
 - **Opt-in thermodynamic screen for > 60 nt (audit round 3, A3-9, F55).** `THAL_MAX_ALIGN` is a compile-time guard of thal.c (`#ifndef THAL_MAX_ALIGN` in thal.h; used only by `thal_check_errors` — the DP tables are allocated from the actual lengths), not a limit of the recursions. `ProbeParameters.ThermodynamicScreenMaxLength` (default 60 = unchanged behaviour; 60–10 000 = THAL_MAX_SEQ, else `ArgumentOutOfRangeException`) raises it: ACGT probes up to that length get the full ntthal self-dimer (ANY), 3′ self-dimer (END1) and hairpin Tm ≤ `MaxStructureTm` screen in `DesignProbes` / `DesignTilingProbes` / `ValidateProbe`. The engines are exposed as `PrimerDesigner.CalculateHairpinThermodynamicsNtthal` / `CalculateHairpinStructureNtthal` / `CalculateDimerThermodynamicsNtthal` / `CalculateDimerStructureNtthal` / `CalculatePrimer3OligoStructure` overloads with a trailing `maxAlignLength` (constants `PrimerDesigner.NtthalMaxAlignLength` = 60, `NtthalMaxSequenceLength` = 10 000). Verified against thal.c + thal_parameters.c of primer3-py 2.3.1 compiled with `-DTHAL_MAX_ALIGN=10000` (driven through `thal()` exactly as primer3-py's `calc_hairpin` / `calc_homodimer` / `calc_end_stability`; the same build reproduces primer3-py on 600 ≤ 60-nt cases): 560 oligos of 61–120 nt (random, designed stem-loops with mismatches, palindromes, GC-rich) × hairpin/ANY/END1 at four condition sets (50/0/0/50 nM 37 °C; 50/1.5/0.6; 100/3/0.8/250 nM 55 °C max_loop 20; 10/0/0/1 µM 25 °C max_loop 10) → 0 mismatches (|ΔTm| = 0, |ΔG| ≤ 1.5e-11 cal/mol). Caveats: (1) Primer3 chose 60 as "the maximum reasonable length for nearest neighbor models … only two states of melting" (thal.h) — beyond it the same single-structure two-state model is applied, which over-simplifies long-probe melting; (2) cost is O(n²·30²) per probe and screen (the three ntthal runs together ≈ 0.08 s for a 120-mer, 0.3 s for a 250-mer, 1.4 s for a 500-mer; Release build), multiplied by the number of windows `DesignProbes` evaluates — keep the value to the probe lengths in use. The same opt-in reaches `AssessCrossHybridization` (the conditions' `ThermodynamicScreenMaxLength` is the THAL_MAX_ALIGN of the site duplex; the duplex Tm is computed when the probe **or** the site is within it, as thal.c `thal_check_errors` — so a > 60-nt probe on a ≤ 60-nt site gets primer3-py's `calc_heterodimer` value by default) and `DesignMolecularBeacon(…, maxAlignLength)` (stem-loop Tm of beacons up to that length); MCP `design_probes` / `design_tiling_probes` / `design_antisense_probes` / `validate_probe` (`thermodynamic_screen_max_length`) and `design_molecular_beacon` (`max_align_length`) expose it (audit round 3, A3-27 + A3-28, F56; 600/600 random probe/site strands of 40–120-nt probes and 60/60 beacons of 61–112 nt = thal.c `-DTHAL_MAX_ALIGN=10000`, the default equal to primer3-py on all 563 strands it accepts).
-- Genome-index specificity is applied only after an initial raw-score shortlist is formed; **consequence:** uniqueness-aware results are specificity-filtered or specificity-scaled subsets of the top raw-score candidates rather than a full-candidate rerank.
 
 **Not implemented:**
 
@@ -219,7 +218,7 @@ The implementation evaluates candidates with prefix-sum GC optimization and begi
 
 ### 6.2 Limitations
 
-`DesignProbes` ranks with heuristic additive penalties over Primer3-exact measurements (seqtm Tm; ntthal self-dimer / hairpin Tm for ≤ 60-nt ACGT probes, dpal self_any / self_end and a sequence-only hairpin stem otherwise); specificity is exact-hit uniqueness through the suffix tree (mismatch-aware off-target assessment is `ValidateProbe` / `ScanOffTargetsGapped`, PROBE-VALID-001). It is suitable for fast candidate generation and filtering, but not for high-confidence experimental validation by itself.
+`DesignProbes` ranks with heuristic additive penalties over Primer3-exact measurements (seqtm Tm; ntthal self-dimer / hairpin Tm for ≤ 60-nt ACGT probes, dpal self_any / self_end and a sequence-only hairpin stem otherwise); specificity is exact-hit uniqueness through the suffix tree over **all** candidates (mismatch-aware off-target assessment is `ValidateProbe` / `ScanOffTargetsGapped`, PROBE-VALID-001). A unique-probe request can therefore cost a suffix-tree lookup per candidate window when few candidates are unique (the lookup is O(probe length); the walk stops at `maxProbes` probes). It is suitable for fast candidate generation and filtering, but not for high-confidence experimental validation by itself.
 
 ## 8. References
 

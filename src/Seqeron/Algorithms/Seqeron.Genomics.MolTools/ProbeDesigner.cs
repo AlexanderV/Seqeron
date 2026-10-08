@@ -843,16 +843,26 @@ public static class ProbeDesigner
     }
 
     /// <summary>
-    /// Designs probes with genome-wide specificity check using suffix tree.
+    /// Designs probes with a genome-wide specificity check through a suffix tree: the candidates of
+    /// <see cref="DesignProbes(string, ProbeParameters?, int)"/> are walked in their ranking order and each one's
+    /// <see cref="CheckSpecificity(string, global::SuffixTree.ISuffixTree, bool)"/> value (1 / occurrences in the index)
+    /// is applied — with <paramref name="requireUnique"/> a probe occurring more than once is dropped (the remaining
+    /// probes keep their score and order), otherwise <see cref="Probe.Score"/> is multiplied by the specificity and the
+    /// probes are re-ranked on the scaled score (stable: equal scores keep the documented tie order; the
+    /// <see cref="ProbeRanking.Primer3Penalty"/> order is unaffected because the specificity does not enter the penalty).
+    /// <b>Every</b> candidate is considered, lazily: the walk stops as soon as <paramref name="maxProbes"/> probes are
+    /// produced, so the common case costs no more than the base design plus O(m) per inspected candidate.
     /// O(n × m) for probe generation + O(m) per specificity check.
     /// </summary>
     /// <param name="targetSequence">Target sequence to design probes for.</param>
     /// <param name="genomeIndex">Pre-built suffix tree index for the genome (enables O(m) specificity lookup).</param>
     /// <param name="parameters">Probe design parameters.</param>
-    /// <param name="maxProbes">Maximum number of probes to return.</param>
+    /// <param name="maxProbes">Maximum number of probes to return (none when ≤ 0).</param>
     /// <param name="requireUnique">If true, only return probes unique in the genome.</param>
     /// <remarks>Candidates come in the order of <see cref="ProbeParameters.Ranking"/> (see
-    /// <see cref="DesignProbes(string, ProbeParameters?, int)"/>).</remarks>
+    /// <see cref="DesignProbes(string, ProbeParameters?, int)"/>), after the specificity scaling when
+    /// <paramref name="requireUnique"/> is false. Before audit round 4 (B07 F59) only the top
+    /// <paramref name="maxProbes"/> × 5 candidates were inspected and the scaled scores were not re-ranked.</remarks>
     /// <exception cref="ArgumentOutOfRangeException">Invalid Primer3-ranking optima (see
     /// <see cref="DesignProbes(string, ProbeParameters?, int)"/>).</exception>
     public static IEnumerable<Probe> DesignProbes(
@@ -875,34 +885,24 @@ public static class ProbeDesigner
         int maxProbes,
         bool requireUnique)
     {
-        if (string.IsNullOrEmpty(targetSequence) || targetSequence.Length < param.MinLength)
+        if (string.IsNullOrEmpty(targetSequence) || targetSequence.Length < param.MinLength || maxProbes <= 0)
             yield break;
 
         targetSequence = targetSequence.ToUpperInvariant();
 
-        // Get candidates using optimized method
-        var candidates = DesignProbesOptimized(targetSequence, param, maxProbes * 5); // Get more candidates for filtering
+        // Every candidate is considered, lazily in ranking order, until maxProbes survive (audit round 4, A4-1, F59):
+        // requireUnique drops a probe with specificity < 1 (its score is unchanged, so the order is the base ranking);
+        // otherwise the score is scaled by the specificity (never raised) and EnumerateRankedProbes re-ranks on it.
+        Func<Probe, Probe?> applySpecificity = requireUnique
+            ? probe => CheckSpecificity(probe.Sequence, genomeIndex) < 1.0 ? null : probe
+            : probe => probe with { Score = probe.Score * CheckSpecificity(probe.Sequence, genomeIndex) };
 
         int returned = 0;
-        foreach (var probe in candidates)
+        foreach (var probe in EnumerateRankedProbes(targetSequence, param, applySpecificity))
         {
-            if (returned >= maxProbes)
+            yield return probe;
+            if (++returned >= maxProbes)
                 yield break;
-
-            // Fast O(m) specificity check using suffix tree
-            double specificity = CheckSpecificity(probe.Sequence, genomeIndex);
-
-            if (requireUnique && specificity < 1.0)
-                continue; // Skip non-unique probes
-
-            // Boost score based on specificity
-            var adjustedProbe = probe with
-            {
-                Score = probe.Score * specificity
-            };
-
-            returned++;
-            yield return adjustedProbe;
         }
     }
 
@@ -1144,20 +1144,86 @@ public static class ProbeDesigner
     }
 
     /// <summary>
-    /// Ranks every window of the configured length range (prefix-sum GC). The self-structure screens
-    /// only lower a score, so they are evaluated lazily in descending base-score order and the scan stops
-    /// once no remaining candidate can enter the top <paramref name="maxProbes"/> (branch and bound); the
-    /// result equals an exhaustive evaluation: probes with score &gt; 0, ordered by score descending, ties
-    /// by (length, start) ascending.
+    /// The top <paramref name="maxProbes"/> of <see cref="EnumerateRankedProbes"/>: every window of the configured
+    /// length range (prefix-sum GC) is ranked; the self-structure screens only lower a score, so they are evaluated
+    /// lazily and the scan stops once no remaining candidate can enter the top <paramref name="maxProbes"/>; the
+    /// result equals an exhaustive evaluation: probes with score &gt; 0, ordered by score descending, ties by
+    /// (length, start) ascending (or by the Primer3 penalty with <see cref="ProbeRanking.Primer3Penalty"/>).
     /// </summary>
     private static List<Probe> DesignProbesOptimized(
         string targetSequence,
         ProbeParameters param,
-        int maxProbes)
+        int maxProbes) =>
+        maxProbes <= 0
+            ? new List<Probe>()
+            : EnumerateRankedProbes(targetSequence, param).Take(maxProbes).ToList();
+
+    /// <summary>
+    /// Lazily yields every candidate (score &gt; 0 after the self-structure screens, then <paramref name="adjust"/>;
+    /// a null from <paramref name="adjust"/> drops the probe) in the ranking order of <see cref="ProbeParameters.Ranking"/>:
+    /// <see cref="ProbeRanking.AdditiveScore"/> — (adjusted) score descending, ties by enumeration order (length, start)
+    /// ascending; <see cref="ProbeRanking.Primer3Penalty"/> — Primer3 <c>primer_rec_comp</c> on the penalty (which
+    /// <paramref name="adjust"/> does not change). <paramref name="adjust"/> must never raise a score: the additive order is
+    /// then produced by a lazy merge — candidates are finished in descending base-score order (an upper bound of their final
+    /// score) and a finished probe is released once it ranks before the bound of every unfinished candidate — so a prefix
+    /// of the output costs only the candidates it needs, and the full output equals an exhaustive evaluation + stable sort.
+    /// </summary>
+    private static IEnumerable<Probe> EnumerateRankedProbes(
+        string targetSequence,
+        ProbeParameters param,
+        Func<Probe, Probe?>? adjust = null)
+    {
+        var bases = EvaluateCandidateBases(targetSequence, param);
+        var structureCache = new Dictionary<string, (bool, string?, bool, string?)>(StringComparer.Ordinal);
+
+        if (param.Ranking == ProbeRanking.Primer3Penalty)
+        {
+            // The penalty does not depend on the self-structure screens: sort by primer_rec_comp (a non-computable
+            // penalty ranks last) and finish lazily.
+            bases.Sort((a, b) => ComparePrimer3Rank(
+                a.Primer3Penalty ?? double.PositiveInfinity, a.Start, a.Sequence.Length,
+                b.Primer3Penalty ?? double.PositiveInfinity, b.Start, b.Sequence.Length));
+            foreach (var b in bases)
+            {
+                if (FinishProbe(b, param, structureCache) is { } p && (adjust is null ? p : adjust(p)) is { } q)
+                    yield return q;
+            }
+            yield break;
+        }
+
+        // Rank key: score descending, then enumeration order ascending (= stable sort of the eager scan).
+        static int CompareKeys((double Score, int Order) a, (double Score, int Order) b)
+        {
+            int c = b.Score.CompareTo(a.Score);
+            return c != 0 ? c : a.Order.CompareTo(b.Order);
+        }
+
+        var pending = new PriorityQueue<Probe, (double Score, int Order)>(
+            Comparer<(double Score, int Order)>.Create(CompareKeys));
+        // Stable: equal base scores keep the enumeration order, so the bound (BaseScore, Order) is non-decreasing in rank.
+        foreach (var b in bases.OrderByDescending(x => x.BaseScore))
+        {
+            // Structure screens and adjust never raise a score: a pending probe that ranks before this candidate's best
+            // possible key ranks before every later candidate too.
+            while (pending.TryPeek(out var head, out var key) && CompareKeys(key, (b.BaseScore, b.Order)) < 0)
+            {
+                pending.Dequeue();
+                yield return head;
+            }
+
+            if (FinishProbe(b, param, structureCache) is { } p && (adjust is null ? p : adjust(p)) is { } q)
+                pending.Enqueue(q, (q.Score, b.Order));
+        }
+
+        while (pending.TryDequeue(out var rest, out _))
+            yield return rest;
+    }
+
+    // Every window of the configured length range (prefix-sum GC) with base score > 0, in enumeration order
+    // (length ascending, then start ascending).
+    private static List<ProbeBase> EvaluateCandidateBases(string targetSequence, ProbeParameters param)
     {
         int n = targetSequence.Length;
-        if (maxProbes <= 0)
-            return new List<Probe>();
 
         // gcPrefixSum[i] / validPrefixSum[i] = count of G/C / of valid nucleotides (A/C/G/T/U) in sequence[0..i-1],
         // classified by the canonical SequenceExtensions.CountGcAndValidNucleotides, so a window's GC fraction equals
@@ -1190,63 +1256,7 @@ public static class ProbeDesigner
                     bases.Add(b);
             }
         }
-
-        if (param.Ranking == ProbeRanking.Primer3Penalty)
-            return RankByPrimer3Penalty(bases, param, maxProbes);
-
-        // Rank key: score descending, then enumeration order ascending (= stable sort of the eager scan).
-        static int CompareKeys((double Score, int Order) a, (double Score, int Order) b)
-        {
-            int c = b.Score.CompareTo(a.Score);
-            return c != 0 ? c : a.Order.CompareTo(b.Order);
-        }
-
-        var best = new SortedSet<(double Score, int Order)>(Comparer<(double Score, int Order)>.Create(CompareKeys));
-        var probesByOrder = new Dictionary<int, Probe>();
-        var structureCache = new Dictionary<string, (bool, string?, bool, string?)>(StringComparer.Ordinal);
-        foreach (var b in bases.OrderByDescending(x => x.BaseScore))
-        {
-            // Structure screens never raise a score: once a candidate's best possible key ranks after the
-            // current k-th best, so does every later candidate (base score non-increasing, ties by order).
-            if (best.Count == maxProbes && CompareKeys((b.BaseScore, b.Order), best.Max) > 0)
-                break;
-
-            if (FinishProbe(b, param, structureCache) is not { } p)
-                continue;
-
-            best.Add((p.Score, b.Order));
-            probesByOrder[b.Order] = p;
-            if (best.Count > maxProbes)
-            {
-                var worst = best.Max;
-                best.Remove(worst);
-                probesByOrder.Remove(worst.Order);
-            }
-        }
-
-        return best.Select(k => probesByOrder[k.Order]).ToList();
-    }
-
-    // Primer3Penalty ranking: the penalty does not depend on the self-structure screens, so the candidates are sorted
-    // by primer_rec_comp (a non-computable penalty ranks last) and screened lazily until maxProbes survive (score > 0).
-    private static List<Probe> RankByPrimer3Penalty(List<ProbeBase> bases, ProbeParameters param, int maxProbes)
-    {
-        bases.Sort((a, b) => ComparePrimer3Rank(
-            a.Primer3Penalty ?? double.PositiveInfinity, a.Start, a.Sequence.Length,
-            b.Primer3Penalty ?? double.PositiveInfinity, b.Start, b.Sequence.Length));
-
-        var result = new List<Probe>(Math.Min(maxProbes, bases.Count));
-        var structureCache = new Dictionary<string, (bool, string?, bool, string?)>(StringComparer.Ordinal);
-        foreach (var b in bases)
-        {
-            if (FinishProbe(b, param, structureCache) is { } p)
-            {
-                result.Add(p);
-                if (result.Count == maxProbes)
-                    break;
-            }
-        }
-        return result;
+        return bases;
     }
 
     /// <summary>

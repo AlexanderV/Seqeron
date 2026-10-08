@@ -1763,9 +1763,11 @@ public class MolToolsMetamorphicTests
     //        early-reject band [MinGc−0.1, MaxGc+0.1] is dropped BEFORE scoring.
     //     4. return the top-`maxProbes` candidates by descending score.
     //   DesignProbes(target, ISuffixTree genomeIndex, params, maxProbes, requireUnique)
-    //     forms the same raw-score shortlist, then (requireUnique) SKIPS any probe with
-    //     CheckSpecificity < 1.0, i.e. any probe occurring more than once in the genome
-    //     index (INV-03: spec = 0 / 1 / 1·hits⁻¹).
+    //     walks the SAME ranked candidate stream (every candidate, lazily — B07 F59) and
+    //     (requireUnique) SKIPS any probe with CheckSpecificity < 1.0, i.e. any probe
+    //     occurring more than once in the genome index (INV-03: spec = 0 / 1 / 1·hits⁻¹);
+    //     with requireUnique = false it instead scales Score by that specificity and
+    //     re-ranks on the scaled score (the candidate SET is unchanged either way).
     //
     // A probe's run-order-independent identity is (Start, Sequence); its full record
     // (Tm, GcContent, Score, Warnings) is a PURE function of that one window's substring
@@ -1789,8 +1791,8 @@ public class MolToolsMetamorphicTests
     //     window, so the toggle is real).
     //
     //   • SUB (stricter uniqueness → ⊆ results): `requireUnique=true` applies an EXTRA
-    //     conjunct (skip specificity < 1) over the SAME ordered candidate stream that
-    //     `requireUnique=false` yields. With the cap lifted it therefore yields a SUBSET:
+    //     conjunct (skip specificity < 1) over the SAME candidate stream that
+    //     `requireUnique=false` yields (which only rescales and re-ranks it). With the cap lifted it therefore yields a SUBSET:
     //     ids(requireUnique) ⊆ ids(¬requireUnique), count non-increasing. A genome that
     //     fully duplicates the target makes EVERY probe non-unique, so the strict filter
     //     empties the result (the SUB endpoint), while the lenient design stays non-empty.
@@ -1953,7 +1955,7 @@ public class MolToolsMetamorphicTests
                 .Select(ProbeId).ToHashSet();
 
             lenient.IsSupersetOf(unique).Should().BeTrue(
-                because: "requiring genome uniqueness only SKIPS candidates with specificity < 1 from the same ordered stream, " +
+                because: "requiring genome uniqueness only SKIPS candidates with specificity < 1 from the same candidate stream, " +
                          "so the unique-only probe set is a subset of the lenient one");
             unique.Count.Should().BeLessThanOrEqualTo(lenient.Count,
                 because: "a stricter uniqueness requirement removes-or-keeps each candidate, never adds one — count is non-increasing");

@@ -183,3 +183,23 @@ WebSearch result extract)
 - **ε260 nearest-neighbour tables** (Cantor, Warshaw & Shapiro 1970; Warshaw & Tinoco 1966; WebSearch extracts of
   vendor/ATDBio tables — ATDBio/TriLink pages blocked): DNA ApA 27400, ApC 21200, ApG 25000, CpC 14600, CpG 18000,
   CpT 15200 …; RNA ApA 27400, ApC 21000, ApG 25000, ApU 24000, CpC 14200, CpG 17800, CpU 16200 …
+
+## 2026-10-08 review (B07, F59, audit round 4 A4-1) — genome-index overload walks all candidates
+
+- **Contract source opened:** `ProbeDesigner.DesignProbes(string, ISuffixTree, ProbeParameters?, int, bool)` XML
+  ("Maximum number of probes to return", "If true, only return probes unique in the genome") and
+  `docs/algorithms/MolTools/Hybridization_Probe_Design.md` §3.1/§3.3/§5.3 (which admitted the `maxProbes * 5`
+  shortlist as an intentional simplification). No external reference defines this library overload; the contract is
+  the specification, so the shortlist was a defect (unique probes that exist are not returned) and the missing
+  re-rank after the `Score × specificity` scaling broke the documented score-descending order.
+- **Repro fixture (auditor):** `genome = X + T10 + X + T10 + Y`, `target = X + Y` with X (400 nt) and Y (80 nt) drawn
+  from `new Random(7)` as uniform ACGT; Microarray preset, `maxProbes = 2`, `requireUnique = true` → 0 probes before
+  the fix, the unique 50-mers at target 402 and 417 (additive score 0.85) after it.
+- **Independent cross-check (Python 3, `str.find` overlapping-occurrence count over the same two strings dumped from
+  the C# fixture):** of the 4686 candidate windows (lengths 50–60) 3806 occur exactly twice in the genome (inside the
+  duplicated X), 583 not at all (crossing the X|Y junction) and **297 occur exactly once** (all starting at ≥ 399, i.e.
+  inside Y) — so unique probes exist although none of them is in the top `maxProbes * 5 = 10` raw-score candidates.
+  The 50-mers at 402 / 417 have G+C 0.50 / 0.46 (inside the preset's 0.40–0.60) and occurrence count 1.
+  In-test oracle: the exhaustive non-index `DesignProbes(target, param, int.MaxValue)` candidate list (the documented
+  ranking) filtered / scaled with that naive occurrence count reproduces the overload's output for
+  `maxProbes` ∈ {1, 3, 100000} and both `requireUnique` values, and for the `Primer3Penalty` ranking (F51).
