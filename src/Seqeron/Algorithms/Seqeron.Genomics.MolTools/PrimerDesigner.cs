@@ -1464,7 +1464,8 @@ public static partial class PrimerDesigner
     // for oligos longer than MAX_NN_TM_LENGTH (36). Source: primer3 src/oligotm.c (oligotm,
     // seqtm, long_seq_tm, divalent_to_monovalent, symmetry; SantaLucia_1998_dH/dS tables);
     // SantaLucia (1998) PNAS 95:1460 Table 2 (NN + terminal-initiation terms); von Ahsen et al.
-    // (2001) Clin Chem 47:1956. Cross-checked against primer3-py 2.3.1 primer3.calc_tm.
+    // (2001) Clin Chem 47:1956. Cross-checked against primer3-py 2.3.1 primer3.calc_tm(max_nn_length=36)
+    // (calc_tm's own default is max_nn_length=60; see the maxNearestNeighborLength overload).
 
     /// <summary>Primer3 MAX_NN_TM_LENGTH: longer oligos use the long_seq_tm GC/length formula.</summary>
     public const int Primer3MaxNnTmLength = 36;
@@ -1512,8 +1513,14 @@ public static partial class PrimerDesigner
     /// for N &gt; <see cref="Primer3MaxNnTmLength"/>: Tm = 81.5 + 16.6·log10([Mon]_eq/1000) + 41·GC/N − 600/N.
     /// </para>
     /// Defaults are Primer3's PRIMER_DNA_CONC = 50 nM, PRIMER_SALT_MONOVALENT = 50 mM,
-    /// PRIMER_SALT_DIVALENT = 1.5 mM, PRIMER_DNTP_CONC = 0.6 mM. Matches primer3-py
-    /// <c>calc_tm</c> (e.g. AGCTAGCTAGCTAGCTAGCT → 58.101 °C).
+    /// PRIMER_SALT_DIVALENT = 1.5 mM, PRIMER_DNTP_CONC = 0.6 mM. Equals primer3-py
+    /// <c>calc_tm(…, max_nn_length=36)</c> — the MAX_NN_TM_LENGTH libprimer3 uses when picking primers and probes
+    /// (e.g. AGCTAGCTAGCTAGCTAGCT → 58.101 °C). primer3-py's <c>calc_tm</c> itself defaults to
+    /// <c>max_nn_length=60</c>, so for 37–60-nt oligos it differs from this method (39-mer
+    /// CTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTAC: 73.049 °C here and with <c>max_nn_length=36</c>, 70.425 °C with the
+    /// <c>calc_tm</c> default); use
+    /// <see cref="CalculateMeltingTemperaturePrimer3(string, double, double, double, double, int)"/> with
+    /// <c>maxNearestNeighborLength</c> = 60 to reproduce <c>calc_tm</c>'s default.
     /// </summary>
     /// <param name="primer">Primer sequence (case-insensitive).</param>
     /// <param name="dnaConcentrationNanomolar">Oligo concentration, nM (&gt; 0).</param>
@@ -1539,7 +1546,8 @@ public static partial class PrimerDesigner
     /// <paramref name="maxNearestNeighborLength"/> nt get the SantaLucia 1998 nearest-neighbour Tm, longer ones
     /// Primer3's <c>long_seq_tm</c> (<c>oligotm.c</c> <c>seqtm</c>: <c>if (len &gt; nn_max_len) long_seq_tm … else
     /// oligotm</c>; primer3-py <c>calc_tm(…, max_nn_length)</c>). Primer3's own primer/probe picker uses
-    /// <see cref="Primer3MaxNnTmLength"/> = 36; e.g. OligoArray-style microarray probes of 50–60 nt need the
+    /// <see cref="Primer3MaxNnTmLength"/> = 36 (the five-argument overload); primer3-py <c>calc_tm</c> defaults to
+    /// <c>max_nn_length=60</c>, i.e. <paramref name="maxNearestNeighborLength"/> = 60 reproduces it; e.g. OligoArray-style microarray probes of 50–60 nt need the
     /// nearest-neighbour Tm over the whole oligo (limit ≥ 60).
     /// </summary>
     /// <param name="primer">Oligo sequence (case-insensitive).</param>

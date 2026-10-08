@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "PrimerDesigner.CalculateMeltingTemperature",
-  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L197",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1424",
   "description": "Compute a primer's melting temperature (Wallace rule < 14 bases, Marmur-Doty >= 14 bases).",
   "inputSchema": {
     "type": "object",

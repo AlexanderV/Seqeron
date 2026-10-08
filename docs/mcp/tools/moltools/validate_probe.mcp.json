@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.ValidateProbe",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2006",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L2093",
   "description": "Validate a probe: ungapped k-mismatch site scan over references (given strand, or with both_strands also the probe's reverse complement; sites judged by the Kane et al. 2000 criteria — > 1 such site is an issue; 1/N uniqueness score and the 3-mismatch radius are library conventions), Primer3 ntthal self-dimer/hairpin screen at the stated reaction conditions (ACGT probes <= thermodynamic_screen_max_length nt, default 60 = THAL_MAX_ALIGN, opt-in up to 10000; otherwise Primer3 alignment-mode self_any/self_end + inverted-repeat hairpin fallback), optional Kane et al. (2000) cross-hybridization criteria (identity > 75 % or > 15 contiguous identical nt) against non-targets.",
   "inputSchema": {
     "type": "object",

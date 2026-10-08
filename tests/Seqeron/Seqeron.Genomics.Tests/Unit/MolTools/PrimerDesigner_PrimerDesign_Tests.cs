@@ -883,8 +883,25 @@ public class PrimerDesigner_PrimerDesign_Tests
     [TestCase("GAGCAGGATCCCTATAGAGTGACAAAAGGATCTTGGTCCA", 72.93445880948137)] // 40 nt > 36: long_seq_tm
     public void CalculateMeltingTemperaturePrimer3_DefaultConditions_MatchesPrimer3CalcTm(string seq, double expected)
     {
-        // primer3.calc_tm(seq) (max_nn_length = 36 as in Primer3's design engine).
+        // primer3.calc_tm(seq, max_nn_length=36) (MAX_NN_TM_LENGTH of Primer3's design engine; calc_tm's own default is 60).
         Assert.That(PrimerDesigner.CalculateMeltingTemperaturePrimer3(seq), Is.EqualTo(expected).Within(1e-9));
+    }
+
+    [Test]
+    public void CalculateMeltingTemperaturePrimer3_Over36Nt_EqualsCalcTmMaxNn36_NotCalcTmDefault60()
+    {
+        // B07 audit round 5, A5-4: the five-argument overload is calc_tm(..., max_nn_length=36), not calc_tm's
+        // default (max_nn_length=60). primer3-py 2.3.1, default conditions (50 nM, 50 mM, 1.5 mM Mg2+, 0.6 mM dNTP):
+        //   calc_tm(s, max_nn_length=36) = 73.04920239922497 (long_seq_tm), calc_tm(s) = 70.42485123288441 (NN).
+        const string s = "CTGTATAGTCCCACCTGGTGATCCTATGCTTGTGAGTAC"; // 39 nt
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculateMeltingTemperaturePrimer3(s), Is.EqualTo(73.04920239922497).Within(1e-9));
+            Assert.That(PrimerDesigner.CalculateMeltingTemperaturePrimer3(s, 50, 50, 1.5, 0.6, 60),
+                Is.EqualTo(70.42485123288441).Within(1e-9));
+            Assert.That(PrimerDesigner.CalculateMeltingTemperaturePrimer3(s, 50, 50, 1.5, 0.6, 36),
+                Is.EqualTo(PrimerDesigner.CalculateMeltingTemperaturePrimer3(s)));
+        });
     }
 
     [Test]

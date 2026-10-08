@@ -18,7 +18,7 @@ Estimates the melting temperature (Tm, °C) of a primer. For fewer than 14 count
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L462](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L462)
+- Source: [PrimerDesigner.cs#L1424](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1424)
 
 ## Input Schema
 

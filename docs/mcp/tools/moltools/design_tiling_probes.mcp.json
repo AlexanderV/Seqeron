@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignTilingProbes",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L707",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1293",
   "description": "Tile a target with fixed-length overlapping probes for full coverage, reporting covered positions and Tm statistics.",
   "inputSchema": {
     "type": "object",

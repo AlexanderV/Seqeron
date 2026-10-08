@@ -22,7 +22,7 @@ Implements Primer3's pair search (`libprimer3.cc` `choose_pair_or_triple` / `cha
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs#L104](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L104)
+- Source: [PrimerDesigner.cs#L138](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L138)
 
 ## Input Schema
 

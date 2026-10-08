@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using ModelContextProtocol.Server;
 using NUnit.Framework;
@@ -88,6 +89,38 @@ public sealed class B07ToolDocsContractTests
                     Assert.That(JsonEqual(hDefault, wDefault), Is.True, $"{tool}.{w.Name}: default {hDefault} vs {wDefault}");
             }
         });
+    }
+
+    // docRef "Seqeron.Genomics.MolTools/{File}.cs#L{n}" and the .md "Source: [File.cs#L{n}](…)" must both point at a
+    // declaration line of the methodId's method (B07 audit round 5, A5-1: anchors had rotted after code edits).
+    [TestCaseSource(nameof(B07Tools))]
+    public void DocRef_LineAnchor_PointsAtMethodDeclaration(string tool)
+    {
+        string docsDir = DocsDirectory();
+        using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(docsDir, tool + ".mcp.json")));
+        string methodId = doc.RootElement.GetProperty("methodId").GetString()!;
+        string docRef = doc.RootElement.GetProperty("docRef").GetString()!;
+        string method = methodId.Split('.')[^1];
+
+        var m = Regex.Match(docRef, @"^Seqeron\.Genomics\.MolTools/(?<file>\w+\.cs)#L(?<line>\d+)\b");
+        Assert.That(m.Success, Is.True, $"{tool}: docRef '{docRef}' has no File.cs#L<n> anchor");
+        string file = m.Groups["file"].Value;
+        int line = int.Parse(m.Groups["line"].Value);
+
+        string repoRoot = Path.GetFullPath(Path.Combine(docsDir, "..", "..", "..", ".."));
+        string[] source = File.ReadAllLines(Path.Combine(repoRoot, "src", "Seqeron", "Algorithms", "Seqeron.Genomics.MolTools", file));
+        Assert.That(line, Is.InRange(1, source.Length), $"{tool}: {file}#L{line} out of range");
+        string target = source[line - 1];
+        string previous = line >= 2 ? source[line - 2] : string.Empty;
+        Assert.That(Regex.IsMatch(target, $@"\b{Regex.Escape(method)}\(") &&
+                    (target.Contains("public static") || previous.Contains("public static")),
+            Is.True, $"{tool}: {file}#L{line} is '{target.Trim()}', not the declaration of {method}");
+
+        string md = File.ReadAllText(Path.Combine(docsDir, tool + ".md"));
+        var src = Regex.Match(md, @"Source: \[(?<file>\w+\.cs)#L(?<a>\d+)\]\([^)]*/(?<file2>\w+\.cs)#L(?<b>\d+)\)");
+        Assert.That(src.Success, Is.True, $"{tool}.md: no anchored 'Source:' link");
+        Assert.That((src.Groups["file"].Value, src.Groups["a"].Value, src.Groups["file2"].Value, src.Groups["b"].Value),
+            Is.EqualTo((file, line.ToString(), file, line.ToString())), $"{tool}.md: Source anchor differs from docRef");
     }
 
     [TestCaseSource(nameof(B07Tools))]

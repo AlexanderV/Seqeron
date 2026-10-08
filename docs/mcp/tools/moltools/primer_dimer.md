@@ -27,7 +27,7 @@ Identical poly-A primers are not a dimer (A·A cannot pair). Primer3's default t
 
 ## Core Documentation Reference
 
-- Source: [PrimerDesigner.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs) (`HasPrimerDimer`, `CalculatePrimerDimerEndComplementarity`)
+- Source: [PrimerDesigner.cs#L1888](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1888) (`HasPrimerDimer`, `CalculatePrimerDimerEndComplementarity`)
 
 ## Input Schema
 
