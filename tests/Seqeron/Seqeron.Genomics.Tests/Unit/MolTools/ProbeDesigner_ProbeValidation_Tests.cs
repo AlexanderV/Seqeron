@@ -1309,6 +1309,64 @@ public class ProbeDesigner_ProbeValidation_Tests
         });
     }
 
+    // KA25 — ungapped schemes with no BLAST+ blastn_values_* table: Blast_GetNuclAlphaBeta returns the
+    // s_GetNuclValuesArray error without setting α/β, BLAST_CalcEffLengths keeps α = β = 0 → ℓ = 0, search space m·n.
+    // NCBI blastn 2.12.0+ -task blastn -ungapped -word_size 7 -dust no, 73-nt query vs 446-nt subject (query with 3
+    // substitutions embedded, seed 71): "Effective search space used: 32558" (= 73·446) for every unsupported scheme;
+    // top-HSP raw score, E-value and bit score as printed (-outfmt "6 score evalue bitscore"). Auditor repro (same
+    // lengths): 2/−1 raw 98 → E 9.58e-09.
+    [TestCase(3, -5, 195, "3.40e-33", 122.0)]
+    [TestCase(1, -6, 52, "1.21e-27", 104.0)]
+    [TestCase(3, -7, 189, "1.34e-33", 124.0)]
+    [TestCase(5, -7, 329, "2.68e-32", 119.0)]
+    [TestCase(2, -1, 137, "3.17e-13", 56.5)]
+    [TestCase(6, -10, 390, "8.84e-33", 121.0)]
+    [TestCase(2, -1, 98, "9.58e-09", double.NaN)]
+    public void ComputeBlastnStatistics_UngappedSchemeWithoutBlastTable_NoLengthAdjustment_MatchesBlastn(
+        int reward, int penalty, int rawScore, string blastnEValue, double blastnBits)
+    {
+        var m = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: reward, Mismatch: penalty, GapOpen: -5, GapExtend: -2);
+        var st = ProbeDesigner.ComputeBlastnStatistics(rawScore, 73, 446, scoring: m, gapped: false);
+        var ka = ProbeDesigner.ComputeUngappedKarlinParameters(reward, penalty, kMethod: ProbeDesigner.KarlinKMethod.NcbiBlast);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(st.LengthAdjustment, Is.EqualTo(0));
+            Assert.That(st.EffectiveSearchSpace, Is.EqualTo(32558));
+            Assert.That(st.Parameters.Alpha, Is.EqualTo(0.0));
+            Assert.That(st.Parameters.Beta, Is.EqualTo(0.0));
+            Assert.That(st.Parameters, Is.EqualTo(ka with { Alpha = 0, Beta = 0 }), "λ, K, H unchanged");
+            Assert.That(st.EValue, Is.EqualTo(32558 * ka.K * Math.Exp(-ka.Lambda * rawScore)).Within(1e-12).Percent);
+            Assert.That(st.EValue.ToString("0.00e+00", System.Globalization.CultureInfo.InvariantCulture),
+                Is.EqualTo(blastnEValue));
+            // Tabular output: bit scores > 99.9 are printed truncated to an integer, smaller ones with one decimal.
+            if (!double.IsNaN(blastnBits))
+                Assert.That(blastnBits >= 100 ? Math.Floor(st.BitScore) : Math.Round(st.BitScore, 1), Is.EqualTo(blastnBits));
+        });
+    }
+
+    // KA25 control — tabulated schemes keep BLAST's α = λ/H, β = s_GetUngappedBeta and ℓ > 0 (same blastn runs:
+    // 2/−3 → 28470, 1/−3 → 28974, 1/−2 → 28470, 4/−6 (gcd 2 → 2/−3 table, β 0) → 26970).
+    [TestCase(2, -3, 131, 28470, "1.02e-32")]
+    [TestCase(1, -3, 61, 28974, "8.17e-33")]
+    [TestCase(1, -2, 64, 28470, "1.60e-33")]
+    [TestCase(4, -6, 262, 26970, "2.77e-32")]
+    public void ComputeBlastnStatistics_UngappedTabulatedScheme_KeepsLengthAdjustment_MatchesBlastn(
+        int reward, int penalty, int rawScore, double blastnSpace, string blastnEValue)
+    {
+        var m = new Seqeron.Genomics.Infrastructure.ScoringMatrix(Match: reward, Mismatch: penalty, GapOpen: -5, GapExtend: -2);
+        var st = ProbeDesigner.ComputeBlastnStatistics(rawScore, 73, 446, scoring: m, gapped: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(st.LengthAdjustment, Is.GreaterThan(0));
+            Assert.That(st.EffectiveSearchSpace, Is.EqualTo(blastnSpace));
+            Assert.That(st.Parameters.Alpha, Is.EqualTo(st.Parameters.Lambda / st.Parameters.H));
+            Assert.That(st.EValue.ToString("0.00e+00", System.Globalization.CultureInfo.InvariantCulture),
+                Is.EqualTo(blastnEValue));
+        });
+    }
+
     #endregion
 
     #region ValidateProbe - Primer3 thermodynamic self-structure screen (PROBE-VALID-001, B07)

@@ -28,7 +28,8 @@
   via DNA_IMM1. McTigue model: isolated LNAs; runs use the Owczarzy tables (MELTING behaviour).
 - Oracle: melting5.jar 5.2.0 run in full precision (`Main.getMeltingResults`): rmelting test values 63.61426 / 63.48299 /
   12.94323; Owczarzy (2011) triplet set (14 duplexes, 2 µM); McTigue (2004) duplexes (5 µM, both models); Na⁺ 50 mM;
-  Mg²⁺ 3 mM; DNA mismatch. 4 200 random duplexes: ΔH°/ΔS° bit-identical, same not-computable set.
+  Mg²⁺ 3 mM; DNA mismatch. 4 200 random duplexes: ΔH°/ΔS° bit-identical, same not-computable set for internal LNAs (terminal LNAs:
+  MELTING 5.2.0 computes them because its terminal-LNA `isApplicable` guard never fires — we return not computable, see below).
 - Reduction (empty LNA set) = Biopython `Tm_NN(nn_table=DNA_NN3)` (R 1.987): 59.833634529845824, 75.52391452117843,
   46.231595611732246 (self-comp), 16.621392992113726 (self-comp, 50 mM, method 6).
 - LNA-modified strands are never self-complementary duplexes; C_T/Na⁺/Mg²⁺/dNTP/R guards throw like `CalculateMeltingTemperatureNN`.
@@ -48,7 +49,11 @@
 - **Additivity:** LNA-adjusted ΔH°/ΔS° = base DNA NN stack + Σ McTigue increment per LNA-containing step.
 - **Reduction:** empty LNA set ⇒ result equals PRIMER-NNTM-001 exactly (`Within 1e-9`).
 - **Each internal LNA contributes two increments** (3'-locked for its left step, 5'-locked for its right step).
-- **Terminal/out-of-range LNA ⇒ not computable** (`null` thermo / `NaN` Tm); McTigue parameterises internal NN only.
+- **Terminal/out-of-range LNA ⇒ not computable** (`null` thermo / `NaN` Tm); McTigue / Owczarzy parameterise internal LNAs only.
+  MELTING 5.2.0 intends the same (its `isApplicable` warns "not established for terminal locked nucleic acids" and returns
+  false) but the guard compares the end pair with the literal `"L"`/`"-"` and never fires, so melting5 extrapolates the
+  internal-LNA doublet parameter (`CLCATTGCTACC`, 0.1 mM, 1 M Na⁺: owc11 66.65650883512683 °C) — deliberately not reproduced
+  (audit round 7, A7-5, B07 F66; test `NotComputable_Cases`).
 - **Non-ACGT ⇒ not computable.** Order/duplicates of positions tolerated (set semantics).
 - **Determinism.** MGB rules: boolean length-window + 3'-attachment guidance; quantitative ΔTm intentionally not computed (empirical, no closed form).
 

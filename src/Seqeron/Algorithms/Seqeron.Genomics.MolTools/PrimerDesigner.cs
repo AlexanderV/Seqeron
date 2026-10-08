@@ -2669,7 +2669,12 @@ public static partial class PrimerDesigner
     //    consecutive-LNA parameters (Owczarzy2011lockedTandemmn.xml); two LNAs, a mismatch opposite one of
     //    them → LNA-mismatch parameters (Owczarzy2011lockedmmn.xml). A mismatched LNA is therefore
     //    computable only when both of its neighbours are LNAs (the paper's +X+M+Y triplets).
-    //  * Terminal LNAs and terminal mismatches are not parameterised (MELTING isApplicable → not computable).
+    //  * Terminal LNAs and terminal mismatches are not parameterised by either paper → not computable.
+    //    MELTING 5.2.0 rejects terminal mismatches ("No method for terminal mismatches"), but it does evaluate a
+    //    terminal LNA: its isApplicable guard (warning "not established for terminal locked nucleic acids", then
+    //    false) compares the end base pair with the literal "L"/"-" and never fires, so it applies the internal-LNA
+    //    doublet parameter at the duplex end (e.g. CLCATTGCTACC, 0.1 mM, 1 M Na⁺ → 66.6565 °C). That extrapolation
+    //    outside the parameters' validated (internal) range is deliberately not reproduced (B07 F66).
     //  * Tm = 1000·ΔH° / (ΔS° + R·ln(C_T/x)) − 273.15 (x = 4, 1 if self-complementary) with the salt
     //    correction of saltMode (MELTING default for Na⁺ only = Owczarzy et al. 2004 Eq. 22 = Biopython
     //    method 6). MELTING's code uses R = 1.99 (NearestNeighborMode.computesMeltingTemperature); this
@@ -2840,7 +2845,8 @@ public static partial class PrimerDesigner
     /// </summary>
     /// <param name="sequence">LNA-modified oligonucleotide (DNA letters, 5'→3'; case-insensitive), ≥ 2 ACGT bases.</param>
     /// <param name="lnaPositions">Zero-based positions of the LNA monomers in <paramref name="sequence"/>; order and
-    /// duplicates are tolerated. A terminal (0 or length − 1) or out-of-range position is not parameterised.</param>
+    /// duplicates are tolerated. A terminal (0 or length − 1) or out-of-range position is not parameterised (neither
+    /// paper covers terminal LNAs; MELTING 5.2.0 extrapolates them only because its terminal-LNA guard never fires).</param>
     /// <param name="model">LNA nearest-neighbour model.</param>
     /// <param name="target">The DNA strand opposite <paramref name="sequence"/>, written 3'→5' (base i pairs with
     /// sequence[i]; same length); <c>null</c> = the perfect complement. Internal mismatches are allowed opposite a DNA
@@ -2874,7 +2880,7 @@ public static partial class PrimerDesigner
         var locked = new bool[n];
         foreach (int pos in lnaPositions)
         {
-            // Terminal LNAs are not parameterised by either model (MELTING isApplicable).
+            // Terminal LNAs are not parameterised by either model (MELTING's intended isApplicable rejection).
             if (pos <= 0 || pos >= n - 1)
                 return null;
             locked[pos] = true;

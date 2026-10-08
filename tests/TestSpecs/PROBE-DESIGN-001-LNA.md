@@ -63,7 +63,7 @@
 |----|-----------|------------|----------|
 | INV-1 | Adding an internal LNA monomer raises the NN Tm vs the all-DNA duplex (stabilization). | Yes | McTigue 2004 (source 1) |
 | INV-2 | LNA increment is additive to the base DNA NN: with no LNA positions, the LNA Tm equals the plain `CalculateMeltingTemperatureNN`. | Yes | MELTING (source 2) |
-| INV-3 | A terminal LNA (index 0 or length−1) is not computable (null/NaN). | Yes | MELTING `isApplicable` (source 2) |
+| INV-3 | A terminal LNA (index 0 or length−1) is not computable (null/NaN). | Yes | MELTING `isApplicable` intent (source 2; in 5.2.0 the guard never fires and melting5 extrapolates — B07 F66) |
 | INV-4 | The applied increment equals the verbatim McTigue value (cal/mol → kcal/mol) for the correct (NN step, locked-position) key. | Yes | source 2 (XML) |
 
 ---

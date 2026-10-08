@@ -2856,6 +2856,8 @@ public static class ProbeDesigner
     /// <param name="H">Relative entropy H (nats per aligned pair).</param>
     /// <param name="Alpha">
     /// Edge-effect parameter α (BLAST+ <c>Blast_GetNuclAlphaBeta</c>; ungapped: λ/H). The length adjustment uses α/λ.
+    /// In ungapped <see cref="BlastnStatistics"/> of a reward/penalty scheme without a BLAST+ <c>blastn_values_*</c>
+    /// table, α = β = 0 (BLAST+ then applies no length adjustment).
     /// </param>
     /// <param name="Beta">Edge-effect parameter β (BLAST+ <c>Blast_GetNuclAlphaBeta</c>).</param>
     /// <param name="RoundDown">
@@ -3236,6 +3238,10 @@ public static class ProbeDesigner
     /// ℓ = 11, effective search space 88972, raw score 80 → 73.4 bits, E = 7e-18; a raw score of 15 is evaluated as 14.
     /// The scoring follows <see cref="ScoringMatrix"/>'s convention (gap of length k = GapOpen + k·GapExtend),
     /// so BLAST's gap existence/extension costs are −GapOpen/−GapExtend.
+    /// Ungapped statistics of a reward/penalty scheme whose gcd-reduced form has no BLAST+ <c>blastn_values_*</c> table
+    /// (e.g. +3/−5, +1/−6, +2/−1, +6/−10) use α = β = 0 as BLAST+ does (<c>Blast_GetNuclAlphaBeta</c> fails and
+    /// <c>BLAST_CalcEffLengths</c> keeps its zero initial values), so ℓ = 0 and the search space is m·n: blastn 2.12.0+
+    /// -ungapped, 73-nt query vs 446-nt subject → 32558 for all of them, while a tabulated scheme (+2/−3) gives 28470.
     /// </remarks>
     /// <param name="rawScore">Raw alignment score S (e.g. <see cref="CrossHybridizationAssessment.AlignmentScore"/>).</param>
     /// <param name="queryLength">Query (probe) length m (&gt; 0).</param>
@@ -3273,6 +3279,12 @@ public static class ProbeDesigner
         KarlinAltschulParameters p = gapped
             ? GetBlastnGappedKarlinParameters(matrix.Match, matrix.Mismatch, -matrix.GapOpen, -matrix.GapExtend, kMethod)
             : ComputeUngappedKarlinParameters(matrix.Match, matrix.Mismatch, UniformBaseFrequency, kMethod);
+
+        // Blast_GetNuclAlphaBeta returns s_GetNuclValuesArray's error status without setting α/β when the reduced
+        // reward/penalty has no blastn_values_* table; BLAST_CalcEffLengths ignores the status and keeps its
+        // initial α = β = 0, so ℓ = 0 (ungapped only — a gapped search with such a scheme is rejected above).
+        if (!gapped && !HasBlastnValueTable(matrix.Match, matrix.Mismatch))
+            p = p with { Alpha = 0, Beta = 0 };
 
         int adjustment = ComputeLengthAdjustment(
             p.K, p.Alpha / p.Lambda, p.Beta, queryLength, databaseLength, databaseSequenceCount);
@@ -3318,6 +3330,13 @@ public static class ProbeDesigner
         var (score, _, _, _) = BestLocalAlignment(
             probeSequence.ToUpperInvariant(), subjectSequence.ToUpperInvariant(), matrix);
         return ComputeBlastnStatistics(score, probeSequence.Length, subjectSequence.Length, 1, matrix, gapped: true);
+    }
+
+    // s_GetNuclValuesArray: is there a blastn_values_* table for the gcd-reduced reward/penalty?
+    private static bool HasBlastnValueTable(int reward, int penalty)
+    {
+        int divisor = Gcd(reward, -penalty);
+        return BlastnValueTables.ContainsKey((reward / divisor, penalty / divisor));
     }
 
     private static void ValidateMatchMismatch(int match, int mismatch)
