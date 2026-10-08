@@ -781,14 +781,16 @@ public class MolToolsCombinatorialTests
     // self_any/self_end > 12.00; the legacy selfCompThreshold axis must have no effect.
     // ═══════════════════════════════════════════════════════════════════════
 
-    // selfComp = fraction of positions Watson-Crick-paired with the mirror position; all
-    // three probes are secondary-structure-free by construction (verified independently).
+    // selfComp = fraction of positions Watson-Crick-paired with the mirror position.
     // SelfAny = Primer3 alignment-mode self_any (dpal.c + align(), compiled): 0.00, 10.00, 20.00 (self_end equal).
-    private static readonly (string Seq, double SelfComp, double SelfAny)[] ValidationProbes =
+    // Hairpin = the fallback stem-loop screen PrimerDesigner.HasHairpinPotential (exact ≥ 4-bp stem, loop ≥ 3 nt;
+    // audit round 5, A5-2): poly-A has no stem; GCGC (pos 2) · GCGC (pos 16) and ACGT (pos 0) · ACGT (pos 8) are exact
+    // 4-bp stems with ≥ 3-nt loops. (The former private scan tested a loop of exactly 3 nt only and missed both.)
+    private static readonly (string Seq, double SelfComp, double SelfAny, bool Hairpin)[] ValidationProbes =
     {
-        ("AAAAAAAAAAAAAAAAAAAA", 0.0, 0.0),
-        ("TGGCGCGGGGTAACGCGCGC", 0.5, 10.0),
-        ("ACGTACGTACGTACGTACGT", 1.0, 20.0),
+        ("AAAAAAAAAAAAAAAAAAAA", 0.0, 0.0, false),
+        ("TGGCGCGGGGTAACGCGCGC", 0.5, 10.0, true),
+        ("ACGTACGTACGTACGTACGT", 1.0, 20.0, true),
     };
 
     /// <summary>Reference holding exactly <paramref name="k"/> exact copies of the probe, C-padded, G-spaced.</summary>
@@ -804,7 +806,7 @@ public class MolToolsCombinatorialTests
         [Values(0, 1, 2)] int probeIdx,
         [Values(0.25, 0.40, 0.60)] double selfCompThreshold)
     {
-        var (probe, expSelfComp, expSelfAny) = ValidationProbes[probeIdx];
+        var (probe, expSelfComp, expSelfAny, expHairpin) = ValidationProbes[probeIdx];
         string reference = BuildOffTargetReference(probe, offTargetCount);
 
         // Fallback self-structure screen: the self-complementarity criterion is Primer3 alignment-mode self_any /
@@ -823,17 +825,18 @@ public class MolToolsCombinatorialTests
         v.SelfComplementarity.Should().BeApproximately(expSelfComp, 1e-9);
         v.SelfAny.Should().Be(expSelfAny);
         v.SelfComplementarity.Should().BeInRange(0.0, 1.0);
-        v.HasSecondaryStructure.Should().BeFalse("the three probes are structure-free by construction");
+        v.HasSecondaryStructure.Should().Be(expHairpin, "fallback hairpin = PrimerDesigner.HasHairpinPotential");
 
-        // IsValid = no recorded issue (off-target multiplicity, self-complementarity).
+        // IsValid = no recorded issue (off-target multiplicity, self-complementarity, secondary structure).
         bool offIssue = offTargetCount > 1;
         bool selfIssue = expSelfAny > PrimerDesigner.Primer3InternalMaxSelfComplementarity;
-        int issueCount = (offIssue ? 1 : 0) + (selfIssue ? 1 : 0);
+        int issueCount = (offIssue ? 1 : 0) + (selfIssue ? 1 : 0) + (expHairpin ? 1 : 0);
         bool expectedValid = issueCount == 0;
 
         v.IsValid.Should().Be(expectedValid);
         v.Issues.Any(i => i.Contains("off-target")).Should().Be(offIssue);
         v.Issues.Any(i => i.StartsWith("Self-complementarity")).Should().Be(selfIssue);
+        v.Issues.Contains("Potential secondary structure formation").Should().Be(expHairpin);
     }
 
     /// <summary>
@@ -844,7 +847,7 @@ public class MolToolsCombinatorialTests
     [Test]
     public void ProbeValid_CheckSpecificity_AgreesWithValidateProbe()
     {
-        foreach (var (probe, _, _) in ValidationProbes)
+        foreach (var (probe, _, _, _) in ValidationProbes)
             foreach (int k in new[] { 0, 1, 3 })
             {
                 string reference = BuildOffTargetReference(probe, k);

@@ -314,6 +314,25 @@ public class PrimerDesigner_PrimerStructure_Tests
     /// Long sequence without hairpin returns false.
     /// Source: Performance optimization test.
     /// </summary>
+    /// <summary>
+    /// A5-2: only A·T / G·C pairs form a stem at every length. The ≥ 100-nt suffix-tree path used the IUPAC reverse
+    /// complement (N→N), so two NNNN blocks counted as a stem there but not in the &lt; 100-nt scan.
+    /// </summary>
+    [TestCase(97)]
+    [TestCase(113)]
+    public void HasHairpinPotential_NonAcgtBlocks_NeverPair_OnBothPaths(int length)
+    {
+        string flank = string.Concat(Enumerable.Repeat("ACCA", (length - 13) / 8));
+        string seq = flank + "NNNNACCACNNNN" + string.Concat(Enumerable.Repeat("CAAC", (length - 13 - flank.Length) / 4));
+        Assert.Multiple(() =>
+        {
+            Assert.That(seq.Length, Is.EqualTo(length));
+            Assert.That(PrimerDesigner.HasHairpinPotential(seq), Is.False, "A/C/N only: no Watson–Crick stem");
+            Assert.That(PrimerDesigner.HasHairpinPotential(seq.Replace("NNNNACCACNNNN", "GGTTACCACAACC")), Is.True,
+                "control: GGTT·AACC stem with a 5-nt loop");
+        });
+    }
+
     [Test]
     public void HasHairpinPotential_LongSequenceNoHairpin_ReturnsFalse()
     {

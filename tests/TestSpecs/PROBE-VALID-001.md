@@ -54,6 +54,7 @@
 14. **IsValid**: IsValid ⇔ Issues is empty (Source: Primer3 rejects an oligo violating any limit; Kane decision); SpecificityScore never enters it (library convention)
 17. **Reference sites (Kane)**: CrossHybridizingHits = #{hits with (L − d)/L > maxNonTargetIdentity ∨ longest identical run > maxContiguousMatch}; off-target issue ⇔ CrossHybridizingHits > 1; for L ≥ 13 and maxMismatches ≤ 3, CrossHybridizingHits = OffTargetHits (Source: Kane et al. 2000; audit round 3, A3-12)
 18. **Both strands (opt-in `bothStrands`)**: sites = ∪ over references of the hit positions of the probe and of its reverse complement; a position hit in both orientations is one site, a Kane site when either orientation meets a criterion; a reverse-palindromic probe or site is counted once (= `CheckSpecificity(bothStrands)` for exact matching); default false = given strand only, bit-identical to before; OffTargetHits(both) ≥ OffTargetHits(single), CrossHybridizingHits likewise (Source: blastn 2.12.0+ `-strand both` default; audit round 4, A4-2)
+19. **Fallback hairpin screen** (> `ThermodynamicScreenMaxLength` nt, non-ACGT, `Heuristic`): HasSecondaryStructure = `PrimerDesigner.HasHairpinPotential(probe)` — an exactly complementary A·T/G·C stem ≥ 4 bp (library convention, F49) closing a loop ≥ 3 nt (thal.c `min_hrpn_loop` = 3); no mismatch tolerance (audit round 5, A5-2)
 15. **Kane criteria**: CrossHybridizes ⇔ Identity > maxIdentity (0.75) ∨ LongestContiguousMatch > maxContiguousMatch (15) ∨ (maxDuplexTm given ∧ DuplexTm > maxDuplexTm); AlignmentScore = Biopython local score; LongestContiguousMatch = LCS length; both strands by default (Source: Kane et al. 2000; OligoArray 2.0)
 16. **Site duplex Tm**: DuplexTm = primer3-py calc_heterodimer(probe, revcomp(site)).tm (0 if no duplex); null when the probe and the site are both longer than the conditions' `ThermodynamicScreenMaxLength` (THAL_MAX_ALIGN, default 60; thal.c `thal_check_errors` needs only one strand ≤ it — primer3-py raises otherwise), for non-ACGT probes/sites or no site (Source: thal.c, OligoArray 2.0; A3-27)
 
@@ -94,6 +95,10 @@
 | TH4 | > 60-nt probe → fallback screens, ntthal fields null; (ACGT)16 self_any = self_end = 64.00 > PRIMER_INTERNAL_MAX_SELF_ANY 12.00 → issue | Invariant #13 | thal.c THAL_MAX_ALIGN; dpal.c |
 | TH5 | Opt-in `ThermodynamicScreenMaxLength` = 64 / 100 (THAL_MAX_ALIGN override): (ACGT)16 hairpin 77.098245155727511, self-dimer = 3′ self-dimer 72.769499884640766 → both issues; 82-nt stem-loop hairpin 68.102992186803021 (issue), self-dimer 45.91673334496744 (none); 59 → `ArgumentOutOfRangeException` (A3-9, F55; `PrimerDesigner_NtthalMaxAlign_Tests.ValidateProbe_ThermodynamicScreenMaxLength_ScreensLongProbeWithNtthal`) | Invariant #13 | thal.c compiled with -DTHAL_MAX_ALIGN=10000 |
 | KN7 | Opt-in THAL_MAX_ALIGN for the site duplex (A3-27, F56): 75-nt probe vs 75-nt site → null by default, 66.457703046655695 with `ThermodynamicScreenMaxLength` = 120; ≤ 60-nt sites (7 / 40 / 13 nt) computed by default = primer3-py calc_heterodimer 19.05924515571178 / 63.99555300270714 / −33.229679404433625; 62-nt probe / 49-nt site 36.11423712379826; `ValidateProbe` passes the conditions' value (hairpin 36.318725375690178, ANY 23.325175622075108, END1 17.579447109879538) | Invariant #16 | thal.c -DTHAL_MAX_ALIGN=10000; primer3-py 2.3.1 |
+| HP1 | 74-nt probe, 10-bp perfect stem + 4-nt loop: fallback flags it (was missed); opt-in ntthal hairpin 77.95325865166825 °C (50 mM/50 nM) / 92.272558368972682 °C (Microarray 1 M/1 µM) | Invariant #19 | thal.c `-DTHAL_MAX_ALIGN=10000` |
+| HP2 | Loops 3 / 4 / 8 nt all flagged | Invariant #19 | thal.c min_hrpn_loop |
+| HP3 | 4-of-5 matched stem, no exact 4-bp stem → not flagged (80 % tolerance dropped) | Invariant #19 | F49 convention |
+| HP4 | Fallback = HasHairpinPotential for 34 long / non-ACGT / Heuristic probes (ValidateProbe and DesignProbes warning) | Invariant #19 | canonical screen |
 | KN1 | Kane fixtures A–E: score / identical / LCS = Biopython | Invariant #15 | Biopython 1.88 |
 | KN2 | Kane thresholds strict (0.80 ↛ > 0.80; 15 nt ↛ > 15) | Invariant #15 | Kane et al. 2000 |
 | KN3 | Chunked long non-target score = canonical whole-strand LocalAlignAffine | Invariant #15 | SequenceAligner |
@@ -106,6 +111,10 @@
 | KS3 | Guards: identity ∉ [0,1] / NaN, contiguous < 0, illegal stated conditions (Primer3 `_pr_data_control`) throw | API | Primer3 `libprimer3.cc` |
 | BS1 | 20-mer + reference with exact site, rc site (2 subst., 0.90) and rc site (5 subst., 0.75, run 3): given strand (1,1); both strands radius 3 → (2,2) + issue, specificity 0.5; radius 5 → (3,2) | Invariant #18 | Python brute force over both strands; blastn 2.12.0+ `-strand plus` vs `both` |
 | BS2 | Reverse-palindromic probe `GAATTCCGGAATTC` and reverse-palindromic site `GACGTCAGCTGACGTC` (probe 1 subst. from it, rc too) counted once on both strands | Invariant #18 | Python brute force; CheckSpecificity rule |
+| HP1 | `ValidateProbe_LongProbeFallback_FlagsStemLoopWithFourNtLoop` | ✅ Covered | repro + thal.c Tm within 1e-6 |
+| HP2 | `ValidateProbe_LongProbeFallback_AnyLoopOfAtLeastThreeIsFlagged` | ✅ Covered | 3 loops |
+| HP3 | `ValidateProbe_LongProbeFallback_NoMismatchTolerance` | ✅ Covered | not flagged |
+| HP4 | `FallbackHairpinScreen_EqualsHasHairpinPotential_ForLongNonAcgtAndHeuristicProbes`; `MolToolsCombinatorialTests.ProbeValid_SpecificityAndIssues_FollowValidationRules` (updated: GCGC·GCGC / ACGT·ACGT probes now flagged) | ✅ Covered | equality |
 | BS3 | 11 random cases (Python random.Random(7)) where the modes differ: (hits, Kane sites) for both modes = oracle | Invariant #18 | Python brute force over both strands |
 
 ### Should (Important)

@@ -241,8 +241,8 @@ public class ProbeDesigner_ProbeValidation_Tests
     {
         // S1: Secondary structure potential detected for hairpin sequences
         // Stem-loop: GCGC (stem, 4nt) + TTT (loop, 3nt) + GCGC (stem, 4nt) + filler
-        // HasSecondaryStructurePotential checks inverted repeats with stemLen≥4, gap=3
-        // revComp("GCGC") = "GCGC" → 4/4 = 100% match ≥ 80% threshold → detected
+        // A 20-nt A/C/G/T probe gets the default Primer3 ntthal hairpin screen (Tm > 47 °C); the fallback
+        // stem-loop screen PrimerDesigner.HasHairpinPotential (exact ≥ 4-bp stem, loop ≥ 3) flags it as well.
         string hairpinProbe = "GCGCTTTGCGCAAAAAAAAA"; // 20 chars
 
         var validation = ProbeDesigner.ValidateProbe(hairpinProbe, Enumerable.Empty<string>());
@@ -1780,6 +1780,100 @@ public class ProbeDesigner_ProbeValidation_Tests
             Assert.That((both.OffTargetHits, both.CrossHybridizingHits), Is.EqualTo((bothHits, bothKane)), "both strands");
             Assert.That(both.SpecificityScore, Is.EqualTo(bothHits == 0 ? 0.0 : 1.0 / bothHits).Within(1e-12));
             Assert.That(both.Issues.Any(i => i.Contains("off-target")), Is.EqualTo(bothKane > 1));
+        });
+    }
+
+    #endregion
+
+    #region ValidateProbe - fallback hairpin screen = PrimerDesigner.HasHairpinPotential (audit round 5, A5-2)
+
+    // 74-nt probe with a 10-bp perfect stem GCGCATCCAG·CTGGATGCGC closing the 4-nt loop TTTT;
+    // the A/C-only flanks cannot pair. Auditor's repro: the former private scan (loop of exactly 3 nt) missed it.
+    private const string StemLoop74 =
+        "ACCAACCACACAACCCAAACCCAACGCGCATCCAGTTTTCTGGATGCGCAAAAACCCAACCCACCCCACCACCC";
+
+    // 73-nt: a 5-bp "stem" ACCAC·GTAGT (4 of 5 complementary, central C·A mismatch) closing a 3-nt loop in an A/C-only
+    // background, no exact 4-bp stem anywhere: flagged only by the former unsourced "≥ 80 % matched" tolerance.
+    private const string MismatchedStem73 =
+        "ACCAACCACACAACCCAAACCCAACACCAAACCACAAAGTAGTACCAACCACACAACCCAAACCCAACACCAA";
+
+    [Test]
+    public void ValidateProbe_LongProbeFallback_FlagsStemLoopWithFourNtLoop()
+    {
+        var fallback = ProbeDesigner.ValidateProbe(StemLoop74, new[] { StemLoop74 });
+        var noTargets = new ProbeDesigner.ProbeParameters(20, 120, -1000, 1000, 0, 1, 100, true, 0.3);
+        // Opt-in ntthal (F55): thal.c (primer3-py 2.3.1 sources) compiled with -DTHAL_MAX_ALIGN=10000, calc_hairpin
+        // arguments: 50 mM / 0 / 0 / 50 nM, 37 °C, max loop 30 → Tm 77.95325865166825 °C (dG −10369.44 cal/mol; the same
+        // value primer3-py calc_hairpin gives for the 60-nt window ACACAACC…CACCCC); at the Microarray preset's
+        // OligoArray 1 M / 1 µM → 92.272558368972682 °C.
+        var thermo = ProbeDesigner.ValidateProbe(StemLoop74, new[] { StemLoop74 },
+            conditions: noTargets with { ThermodynamicScreenMaxLength = 74 });
+        var thermoMicroarray = ProbeDesigner.ValidateProbe(StemLoop74, new[] { StemLoop74 },
+            conditions: ProbeDesigner.Defaults.Microarray with { ThermodynamicScreenMaxLength = 74 });
+        Assert.Multiple(() =>
+        {
+            Assert.That(fallback.ThermodynamicScreen, Is.False, "74 nt > THAL_MAX_ALIGN 60 → fallback screens");
+            Assert.That(fallback.HasSecondaryStructure, Is.True, "10-bp stem + 4-nt loop must be flagged (was False)");
+            Assert.That(fallback.Issues, Has.Some.EqualTo("Potential secondary structure formation"));
+            Assert.That(thermo.HairpinTm, Is.EqualTo(77.95325865166825).Within(1e-6));
+            Assert.That(thermo.HasSecondaryStructure, Is.True);
+            Assert.That(thermoMicroarray.HairpinTm, Is.EqualTo(92.272558368972682).Within(1e-6));
+        });
+    }
+
+    [TestCase("TTT")]
+    [TestCase("TTTT")]
+    [TestCase("TTTTTTTT")]
+    public void ValidateProbe_LongProbeFallback_AnyLoopOfAtLeastThreeIsFlagged(string loop)
+    {
+        string probe = StemLoop74.Replace("CAGTTTTCTG", "CAG" + loop + "CTG");
+        var v = ProbeDesigner.ValidateProbe(probe, Enumerable.Empty<string>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.ThermodynamicScreen, Is.False);
+            Assert.That(v.HasSecondaryStructure, Is.True);
+            Assert.That(v.HasSecondaryStructure, Is.EqualTo(PrimerDesigner.HasHairpinPotential(probe)));
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_LongProbeFallback_NoMismatchTolerance()
+    {
+        // The canonical screen requires an exactly complementary ≥ 4-bp stem (F49 library convention); the former
+        // unsourced 80 % match tolerance is dropped.
+        var v = ProbeDesigner.ValidateProbe(MismatchedStem73, Enumerable.Empty<string>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.ThermodynamicScreen, Is.False);
+            Assert.That(v.HasSecondaryStructure, Is.False);
+            Assert.That(v.Issues, Has.None.Contain("secondary structure"));
+        });
+    }
+
+    [Test]
+    public void FallbackHairpinScreen_EqualsHasHairpinPotential_ForLongNonAcgtAndHeuristicProbes()
+    {
+        var rng = new Random(20261008);
+        var probes = new List<string> { StemLoop74, MismatchedStem73, "GCGCTTTGCGCAAAAAAAAANAAAAAAAA", "ACGTNNNNACGTAAAAAAA" };
+        for (int i = 0; i < 20; i++)
+            probes.Add(new string(Enumerable.Range(0, 61 + rng.Next(140)).Select(_ => "ACGT"[rng.Next(4)]).ToArray()));
+        for (int i = 0; i < 10; i++)
+            probes.Add(new string(Enumerable.Range(0, 61 + rng.Next(140)).Select(_ => "AC"[rng.Next(2)]).ToArray()));
+        var heuristic = new ProbeDesigner.ProbeParameters(20, 300, -1000, 1000, 0, 1, 300, true, 0.3)
+            { StructureScreen = ProbeDesigner.ProbeStructureScreen.Heuristic };
+        Assert.Multiple(() =>
+        {
+            foreach (string p in probes)
+            {
+                bool expected = PrimerDesigner.HasHairpinPotential(p);
+                Assert.That(ProbeDesigner.ValidateProbe(p, Enumerable.Empty<string>()).HasSecondaryStructure,
+                    Is.EqualTo(expected), p);
+                Assert.That(ProbeDesigner.ValidateProbe(p, Enumerable.Empty<string>(), conditions: heuristic).HasSecondaryStructure,
+                    Is.EqualTo(expected), "Heuristic " + p);
+                var designed = ProbeDesigner.DesignProbes(p, heuristic with { MinLength = p.Length, MaxLength = p.Length }, 1).ToList();
+                if (designed.Count == 1)
+                    Assert.That(designed[0].Warnings.Contains("Potential secondary structure"), Is.EqualTo(expected), "DesignProbes " + p);
+            }
         });
     }
 

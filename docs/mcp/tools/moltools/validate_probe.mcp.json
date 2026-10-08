@@ -93,7 +93,7 @@
       },
       "thermodynamic_screen": {
         "type": "boolean",
-        "description": "true (default) = Primer3 ntthal self-dimer / 3' self-dimer / hairpin Tm screen for A/C/G/T probes <= thermodynamic_screen_max_length nt (default 60) (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1); false = the fallback screens for every probe (Primer3 alignment-mode self_any / self_end + inverted-repeat hairpin stem).",
+        "description": "true (default) = Primer3 ntthal self-dimer / 3' self-dimer / hairpin Tm screen for A/C/G/T probes <= thermodynamic_screen_max_length nt (default 60) (PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT=1); false = the fallback screens for every probe (Primer3 alignment-mode self_any / self_end + the sequence-only stem-loop screen of hairpin_potential: an exactly complementary stem >= 4 bp closing a loop >= 3 nt).",
         "default": true
       },
       "max_structure_tm": {

@@ -40,8 +40,11 @@ public static class ProbeDesigner
     /// <c>self_any</c> (<see cref="PrimerDesigner.CalculatePrimerSelfAnyComplementarity"/>) and <c>self_end</c>
     /// (<see cref="PrimerDesigner.CalculatePrimerSelfEndComplementarity"/>) scores, which have no length limit, must not
     /// exceed <see cref="MaxSelfAny"/> / <see cref="MaxSelfEnd"/> (PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00);
-    /// the hairpin criterion stays the sequence-only inverted-repeat stem screen (≥ 4 bp, loop 3, ≥ 80 % matched) —
-    /// with the default THAL_MAX_ALIGN = 60 a &gt; 60-nt probe gets no thermodynamic hairpin; raise
+    /// the hairpin criterion is the canonical sequence-only stem-loop screen
+    /// <see cref="PrimerDesigner.HasHairpinPotential"/> (an exactly complementary stem of ≥ 4 bp — library convention,
+    /// no published source — closing a loop of ≥ 3 nt, thal.c <c>min_hrpn_loop</c> = 3; audit round 5, A5-2). It is a
+    /// conservative presence test, not a stability estimate: almost every random probe of &gt; 60 nt contains such a
+    /// stem. With the default THAL_MAX_ALIGN = 60 a &gt; 60-nt probe gets no thermodynamic hairpin; raise
     /// <see cref="ThermodynamicScreenMaxLength"/> for the ntthal hairpin of longer probes (audit round 3, A3-9).
     /// <see cref="MaxSelfComplementarity"/> (position-wise fold-back fraction limit) is
     /// no longer used by any screen; it is kept for source compatibility.
@@ -164,7 +167,7 @@ public static class ProbeDesigner
 
         /// <summary>The fallback screens for every probe: Primer3 alignment-mode self_any / self_end (dpal, limits
         /// <see cref="ProbeParameters.MaxSelfAny"/> / <see cref="ProbeParameters.MaxSelfEnd"/>) and the sequence-only
-        /// inverted-repeat hairpin stem.</summary>
+        /// stem-loop screen <see cref="PrimerDesigner.HasHairpinPotential"/> (stem ≥ 4 bp, loop ≥ 3 nt).</summary>
         Heuristic
     }
 
@@ -305,7 +308,8 @@ public static class ProbeDesigner
     /// self-dimer criterion is ntthal or, in the fallback, Primer3 alignment-mode <see cref="SelfAny"/> /
     /// <see cref="SelfEnd"/>).</param>
     /// <param name="HasSecondaryStructure">Hairpin flag: ntthal hairpin Tm &gt; MaxStructureTm (thermodynamic
-    /// screen) or the inverted-repeat stem screen (fallback).</param>
+    /// screen) or the sequence-only stem-loop screen <see cref="PrimerDesigner.HasHairpinPotential"/> (fallback: an exactly
+    /// complementary stem of ≥ 4 bp closing a loop of ≥ 3 nt).</param>
     /// <param name="Issues">Recorded validation issues.</param>
     public readonly record struct ProbeValidation(
         bool IsValid,
@@ -317,7 +321,7 @@ public static class ProbeDesigner
     {
         /// <summary>True when the Primer3 thermodynamic self-structure screen was applied (A/C/G/T, ≤ ThermodynamicScreenMaxLength nt
         /// probe with <see cref="ProbeStructureScreen.Thermodynamic"/>); false for the fallback screen (Primer3
-        /// alignment-mode self_any / self_end + inverted-repeat hairpin stem).</summary>
+        /// alignment-mode self_any / self_end + the <see cref="PrimerDesigner.HasHairpinPotential"/> stem-loop screen).</summary>
         public bool ThermodynamicScreen { get; init; }
 
         /// <summary>ntthal self-dimer (ANY) Tm in °C (Primer3 SELF_ANY_TH); null when the fallback screen was used.</summary>
@@ -2041,7 +2045,10 @@ public static class ProbeDesigner
     /// <see cref="ProbeStructureScreen.Heuristic"/> use the fallback screens: Primer3 alignment-mode internal-oligo
     /// self-complementarity (dpal <c>self_any</c> / <c>self_end</c> &gt; <see cref="ProbeParameters.MaxSelfAny"/> /
     /// <see cref="ProbeParameters.MaxSelfEnd"/>, PRIMER_INTERNAL_MAX_SELF_ANY / _SELF_END = 12.00, no length limit)
-    /// and the sequence-only inverted-repeat hairpin stem. The alignment-mode
+    /// and the sequence-only stem-loop screen <see cref="PrimerDesigner.HasHairpinPotential"/> (an exactly complementary
+    /// stem of ≥ 4 bp — library convention — closing a loop of ≥ 3 nt, thal.c <c>min_hrpn_loop</c>; almost every random
+    /// probe of &gt; 60 nt is flagged, so raise <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> for a hairpin
+    /// Tm decision on long probes). The alignment-mode
     /// values are reported for every probe in <see cref="ProbeValidation.SelfAny"/> / <see cref="ProbeValidation.SelfEnd"/>;
     /// <see cref="ProbeValidation.SelfComplementarity"/> (fold-back fraction) is a library metric only.
     /// </para>
@@ -2162,7 +2169,7 @@ public static class ProbeDesigner
         }
 
         // Self-structure: the DesignProbes screen (Primer3 ntthal for ACGT probes ≤ ThermodynamicScreenMaxLength; otherwise Primer3
-        // alignment-mode self_any / self_end + the inverted-repeat hairpin stem).
+        // alignment-mode self_any / self_end + the PrimerDesigner.HasHairpinPotential stem-loop screen).
         var param = (conditions ?? Primer3ProbeConditions) with { MaxSelfComplementarity = selfComplementarityThreshold };
         double selfComp = CalculateSelfComplementarity(probeSequence);
         double alnSelfAny = PrimerDesigner.CalculatePrimerSelfAnyComplementarity(probeSequence);
@@ -3630,33 +3637,12 @@ public static class ProbeDesigner
         return matches / (double)sequence.Length;
     }
 
-    private static bool HasSecondaryStructurePotential(string sequence)
-    {
-        // Check for inverted repeats that could form hairpins
-        int halfLen = sequence.Length / 2;
-
-        for (int stemLen = 4; stemLen <= halfLen; stemLen++)
-        {
-            for (int i = 0; i <= sequence.Length - stemLen * 2 - 3; i++)
-            {
-                string left = sequence.Substring(i, stemLen);
-                string right = sequence.Substring(i + stemLen + 3, stemLen);
-                string rightRC = DnaSequence.GetReverseComplementString(right);
-
-                int matches = 0;
-                for (int j = 0; j < stemLen; j++)
-                {
-                    if (left[j] == rightRC[j])
-                        matches++;
-                }
-
-                if (matches >= stemLen * 0.8)
-                    return true;
-            }
-        }
-
-        return false;
-    }
+    // Fallback hairpin criterion (> ThermodynamicScreenMaxLength nt, non-ACGT, ProbeStructureScreen.Heuristic): the
+    // canonical sequence-only stem-loop screen PrimerDesigner.HasHairpinPotential with its defaults — an exactly
+    // complementary stem of ≥ 4 bp (library convention, F49) closing a loop of ≥ 3 nt (thal.c min_hrpn_loop = 3) —
+    // in place of the former private scan that tested a loop of exactly 3 nt with an unsourced ≥ 80 % stem match
+    // (audit round 5, A5-2).
+    private static bool HasSecondaryStructurePotential(string sequence) => PrimerDesigner.HasHairpinPotential(sequence);
 
     // Simple-sequence repeat: a di- or trinucleotide microsatellite of ≥ 4 complete copies, found by the
     // canonical MISA-convention scanner (primitive units only, A/C/G/T only).

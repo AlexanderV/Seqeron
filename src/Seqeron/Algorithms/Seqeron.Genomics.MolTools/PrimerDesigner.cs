@@ -1750,7 +1750,8 @@ public static partial class PrimerDesigner
     /// Library screen (sequence-only heuristic, no Primer3 counterpart): <c>true</c> when the sequence contains
     /// two non-overlapping segments of <paramref name="minStemLength"/> bases that are exact Watson–Crick reverse
     /// complements of each other (an antiparallel stem) separated by at least
-    /// <paramref name="minLoopLength"/> unpaired bases. Case-insensitive; no G·T wobble, mismatches or energies.
+    /// <paramref name="minLoopLength"/> unpaired bases. Case-insensitive; only A·T and G·C pairs (a stem window with
+    /// N or another non-ACGT symbol never pairs, at any length); no G·T wobble, mismatches or energies.
     /// The default minimum loop of 3 nt is Primer3's hairpin minimum (<c>thal.c</c> <c>min_hrpn_loop = 3</c>); the
     /// default minimum stem of 4 bp is an unsourced library threshold (no published definition of a
     /// "≥ 4-bp stem + ≥ 3-nt loop" rule was found, audit round 3, A3-8). It is not equivalent to Primer3's
@@ -1759,8 +1760,10 @@ public static partial class PrimerDesigner
     /// 50 mM / 1.5 mM / 0.6 mM / 50 nM), below PRIMER_MAX_HAIRPIN_TH = 47 °C. The sourced Primer3 hairpin screen
     /// (PRIMER_HAIRPIN_TH) is <see cref="CalculatePrimer3OligoStructure"/> /
     /// <see cref="CalculateHairpinThermodynamicsNtthal(string, double)"/>, which
-    /// <see cref="EvaluatePrimer"/> uses by default; this screen is used only with
-    /// <see cref="PrimerStructureScreen.Heuristic"/>. Uses an O(n²) scan below 100 nt and a suffix tree
+    /// <see cref="EvaluatePrimer"/> uses by default; primer evaluation uses this screen only with
+    /// <see cref="PrimerStructureScreen.Heuristic"/>. It is also the fallback hairpin screen of the probe designers
+    /// (<see cref="ProbeDesigner.ProbeParameters"/>: probes longer than the THAL_MAX_ALIGN of the thermodynamic screen,
+    /// non-ACGT probes, <see cref="ProbeDesigner.ProbeStructureScreen.Heuristic"/>; audit round 5, A5-2). Uses an O(n²) scan below 100 nt and a suffix tree
     /// at ≥ 100 nt (identical results).
     /// </summary>
     /// <param name="sequence">DNA sequence to check.</param>
@@ -1806,6 +1809,8 @@ public static partial class PrimerDesigner
         return false;
     }
 
+    private static readonly System.Buffers.SearchValues<char> AcgtBases = System.Buffers.SearchValues.Create("ACGT");
+
     /// <summary>
     /// Suffix tree-based O(n) hairpin detection for long sequences.
     /// 
@@ -1830,6 +1835,10 @@ public static partial class PrimerDesigner
         for (int p = 0; p <= n - minStemLength; p++)
         {
             var pattern = revComp.AsSpan(p, minStemLength);
+            // Only Watson–Crick A·T / G·C pairs form a stem (IsComplementary, as in the < 100-nt scan): the IUPAC
+            // reverse complement maps N→N, S→S, W→W, so a stem window with a non-ACGT base would otherwise match itself.
+            if (pattern.ContainsAnyExcept(AcgtBases))
+                continue;
             var matches = tree.FindAllOccurrences(pattern);
 
             foreach (int i in matches)
