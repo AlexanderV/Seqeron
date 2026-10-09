@@ -3238,4 +3238,479 @@ public static partial class OncologyAnalyzer
 
     #endregion
 
+    #region CNAqc peak-based purity QC (ONCO-PURITY-001)
+
+    /// <summary>
+    /// A somatic mutation for CNAqc's peak-based purity QC: its VAF and the clonal allele-specific copy-number state
+    /// (Major:minor) of the segment it maps to (CNAqc <c>karyotype = "Major:minor"</c>).
+    /// </summary>
+    /// <param name="Vaf">Variant allele frequency NV/DP in [0, 1].</param>
+    /// <param name="MajorCopyNumber">Major allele copy number (≥ 0).</param>
+    /// <param name="MinorCopyNumber">Minor allele copy number (≥ 0).</param>
+    public readonly record struct PurityPeakMutation(double Vaf, int MajorCopyNumber, int MinorCopyNumber);
+
+    /// <summary>How detected VAF peaks are assigned to the expected clonal peaks of a karyotype.</summary>
+    public enum PurityPeakMatchingStrategy
+    {
+        /// <summary>
+        /// Each expected peak takes the nearest non-discarded data peak (first on ties) — CNAqc 1.1.5
+        /// <c>analyze_peaks_common</c>, the only strategy its <c>analyze_peaks</c> runs.
+        /// </summary>
+        Closest,
+
+        /// <summary>
+        /// Expected peaks (descending) are paired with the highest-VAF non-discarded data peaks (descending), padding
+        /// with the rightmost peak when there are fewer data peaks — CNAqc's legacy <c>peak_detector</c>
+        /// (<c>matching_strategy = "rightmost"</c>; still documented by <c>analyze_peaks</c> but no longer forwarded to
+        /// <c>analyze_peaks_common</c> in 1.1.5).
+        /// </summary>
+        Rightmost,
+    }
+
+    /// <summary>Origin of a data peak.</summary>
+    public enum PurityPeakSource
+    {
+        /// <summary>Gaussian-KDE maximum found by <c>peakPick</c> (CNAqc <c>from = "KDE"</c>).</summary>
+        Kde,
+
+        /// <summary>A caller-supplied mixture-component mean (e.g. BMix Binomial <c>B.params</c>; CNAqc <c>from = "BMix"</c>).</summary>
+        Mixture,
+    }
+
+    /// <summary>
+    /// Parameters of <see cref="AnalyzePurityPeaks"/>; defaults are CNAqc 1.1.5 <c>analyze_peaks</c> defaults.
+    /// </summary>
+    public sealed record PurityPeakOptions
+    {
+        /// <summary>CNAqc default simple clonal karyotypes <c>c('1:0', '1:1', '2:0', '2:1', '2:2')</c> as (Major, minor).</summary>
+        public static IReadOnlyList<(int Major, int Minor)> SimpleClonalKaryotypes { get; } =
+            new[] { (1, 0), (1, 1), (2, 0), (2, 1), (2, 2) };
+
+        /// <summary>Default options (CNAqc defaults).</summary>
+        public static PurityPeakOptions Default { get; } = new();
+
+        /// <summary>Karyotypes to QC (<c>karyotypes</c>); must be a subset of <see cref="SimpleClonalKaryotypes"/>.</summary>
+        public IReadOnlyList<(int Major, int Minor)> Karyotypes { get; init; } = SimpleClonalKaryotypes;
+
+        /// <summary>Minimum share n_k / N of all mutations (<c>min_karyotype_size</c>, default 0), in [0, 1).</summary>
+        public double MinKaryotypeSize { get; init; }
+
+        /// <summary>Minimum mutations per karyotype (<c>min_absolute_karyotype_mutations</c>, default 100; n ≥ this).</summary>
+        public int MinAbsoluteKaryotypeMutations { get; init; } = 100;
+
+        /// <summary>Purity error ε (<c>purity_error</c>, default 0.05), in (0, 1); sets the VAF bands δ.</summary>
+        public double PurityError { get; init; } = 0.05;
+
+        /// <summary>VAF tolerance around a data peak for band overlap (<c>VAF_tolerance</c>, default 0.015), ≥ 0.</summary>
+        public double VafTolerance { get; init; } = 0.015;
+
+        /// <summary>KDE bandwidth multiplier (<c>kernel_adjust</c>, default 1), &gt; 0.</summary>
+        public double KernelAdjust { get; init; } = 1.0;
+
+        /// <summary>Peak-matching rule (default <see cref="PurityPeakMatchingStrategy.Closest"/>).</summary>
+        public PurityPeakMatchingStrategy MatchingStrategy { get; init; } = PurityPeakMatchingStrategy.Closest;
+
+        /// <summary>Only mutations with VAF &gt; this are analysed (<c>min_VAF</c>, default 0).</summary>
+        public double MinVaf { get; init; }
+
+        /// <summary>
+        /// Optional mixture-component means per karyotype (CNAqc adds BMix Binomial-mixture peaks,
+        /// <c>bmixfit(K.Binomials = 1:4)</c>, to the KDE peaks). Each mean is snapped to the nearest KDE grid point.
+        /// BMix is stochastic (k-means starts, jittered initial means) and is not ported; null = KDE peaks only.
+        /// </summary>
+        public IReadOnlyDictionary<(int Major, int Minor), IReadOnlyList<double>>? MixturePeaks { get; init; }
+
+        /// <summary>true reproduces R ≤ 4.3 <c>density</c> values (<c>old.coords = TRUE</c>); default R ≥ 4.4.</summary>
+        public bool LegacyDensityCoordinates { get; init; }
+    }
+
+    /// <summary>A VAF peak detected in a karyotype's data (CNAqc <c>xy_peaks</c> row).</summary>
+    /// <param name="X">Peak VAF (KDE peaks rounded to 2 decimals; mixture peaks at the snapped KDE grid point).</param>
+    /// <param name="Y">Density at the peak (KDE peaks rounded to 2 decimals).</param>
+    /// <param name="CountsPerBin">Mutations in the 0.01-wide VAF histogram bin <c>round(100·X)</c> (null if outside 1..100).</param>
+    /// <param name="Discarded">KDE peak with Y ≤ max(Y)/20 (never used for matching); mixture peaks are never discarded.</param>
+    /// <param name="Source">KDE or mixture.</param>
+    public readonly record struct PurityDataPeak(double X, double Y, int? CountsPerBin, bool Discarded, PurityPeakSource Source);
+
+    /// <summary>One expected clonal peak and its matched data peak (CNAqc <c>peaks_analysis$matches</c> row).</summary>
+    /// <param name="MajorCopyNumber">Karyotype Major.</param>
+    /// <param name="MinorCopyNumber">Karyotype minor.</param>
+    /// <param name="Multiplicity">Mutation multiplicity m (1 or Major).</param>
+    /// <param name="ExpectedPeak">m·π / (2(1−π) + π·(Major + minor)).</param>
+    /// <param name="DeltaVaf">VAF band half-width δ = 2·m·ε / (2 + π·(ploidy − 2))².</param>
+    /// <param name="MatchedPeak">The data peak assigned to this expectation.</param>
+    /// <param name="OffsetVaf">ExpectedPeak − MatchedPeak.X.</param>
+    /// <param name="Offset">Purity-space offset 2·m·OffsetVaf / (m + X·(2 − ploidy))².</param>
+    /// <param name="Weight">Karyotype weight n_k / Σ n over analysed karyotypes.</param>
+    /// <param name="Matched">[X ± VafTolerance] overlaps [ExpectedPeak ± δ].</param>
+    public readonly record struct PurityPeakMatch(
+        int MajorCopyNumber,
+        int MinorCopyNumber,
+        int Multiplicity,
+        double ExpectedPeak,
+        double DeltaVaf,
+        PurityDataPeak MatchedPeak,
+        double OffsetVaf,
+        double Offset,
+        double Weight,
+        bool Matched);
+
+    /// <summary>Per-karyotype result of <see cref="AnalyzePurityPeaks"/>.</summary>
+    /// <param name="MajorCopyNumber">Karyotype Major.</param>
+    /// <param name="MinorCopyNumber">Karyotype minor.</param>
+    /// <param name="MutationCount">Mutations pooled for this karyotype (VAF &gt; MinVaf).</param>
+    /// <param name="Weight">n_k / Σ n over analysed karyotypes.</param>
+    /// <param name="Score">Σ Weight·Offset over this karyotype's expected peaks.</param>
+    /// <param name="Pass">QC of the expected peak whose matched data peak holds the most mutations (CountsPerBin).</param>
+    /// <param name="Density">The Gaussian KDE of the karyotype's VAFs.</param>
+    /// <param name="Peaks">All data peaks (KDE, then mixture).</param>
+    /// <param name="Matches">Expected-peak matches (Closest: m = 1 then Major; Rightmost: descending expected VAF).</param>
+    public sealed record PurityPeakKaryotype(
+        int MajorCopyNumber,
+        int MinorCopyNumber,
+        int MutationCount,
+        double Weight,
+        double Score,
+        bool Pass,
+        KernelDensityEstimate Density,
+        IReadOnlyList<PurityDataPeak> Peaks,
+        IReadOnlyList<PurityPeakMatch> Matches);
+
+    /// <summary>Result of <see cref="AnalyzePurityPeaks"/> (CNAqc <c>x$peaks_analysis</c> for simple clonal CNAs).</summary>
+    /// <param name="Purity">The purity being QC'd.</param>
+    /// <param name="Score">Σ Weight·Offset over all matches (CNAqc λ, printed as "Purity correction"); NaN if nothing analysed.</param>
+    /// <param name="Pass">Sample QC: the PASS/FAIL class with the larger summed match weight (ties → FAIL); null if no karyotype passed the filters.</param>
+    /// <param name="Karyotypes">Analysed karyotypes in (Major, minor) order.</param>
+    /// <param name="Matches">All matches, karyotype by karyotype.</param>
+    public sealed record PurityPeakAnalysis(
+        double Purity,
+        double Score,
+        bool? Pass,
+        IReadOnlyList<PurityPeakKaryotype> Karyotypes,
+        IReadOnlyList<PurityPeakMatch> Matches);
+
+    /// <summary>
+    /// CNAqc peak-based QC of a tumour purity estimate for simple clonal karyotypes (CNAqc 1.1.5
+    /// <c>analyze_peaks</c> → <c>analyze_peaks_common</c>; Antonello et al. 2024, <i>Genome Biology</i> 25:38).
+    /// For each karyotype K = Major:minor in <see cref="PurityPeakOptions.Karyotypes"/> with n_K ≥ MinAbsoluteKaryotypeMutations
+    /// and n_K / N ≥ MinKaryotypeSize (N = all mutations with VAF &gt; MinVaf, any karyotype):
+    /// <list type="number">
+    /// <item>pool its VAFs; Gaussian KDE (R <c>density</c>, bw.nrd0 × KernelAdjust); peaks = union of
+    /// <c>peakPick::peakpick(neighlim = 1..5)</c> maxima, (x, y) rounded to 2 decimals, distinct x, clamped to [0, 1];
+    /// a KDE peak is discarded if y ≤ max(y)/20; optional mixture peaks are appended;</item>
+    /// <item>expected peaks for m ∈ {1, Major}: v_m = m·π / (2(1−π) + π·(Major + minor)), bands
+    /// δ_m = 2·m·ε / (2 + π·(ploidy − 2))²;</item>
+    /// <item>match each expected peak to a non-discarded data peak (<see cref="PurityPeakMatchingStrategy"/>);
+    /// offset = 2·m·(v_m − x) / (m + x·(2 − ploidy))² (purity units), weight = n_K / Σ n_analysed;
+    /// matched ⇔ [x ± VafTolerance] ∩ [v_m ± δ_m] ≠ ∅;</item>
+    /// <item>karyotype PASS ⇔ the expected peak whose matched data peak has the largest histogram count is matched;
+    /// sample PASS ⇔ PASS rows carry more total weight than FAIL rows; score λ = Σ weight·offset.</item>
+    /// </list>
+    /// CNAqc does not threshold λ against ε (ε only sets the bands) and proposes no corrected purity: <c>print</c>
+    /// reports λ as "Purity correction". <c>p_binsize_peaks</c> is accepted by CNAqc 1.1.5 but unused. KDE peak
+    /// detection is deterministic and ported exactly; CNAqc's BMix mixture peaks (stochastic) can be supplied via
+    /// <see cref="PurityPeakOptions.MixturePeaks"/>. Bootstrap (<c>n_bootstrap</c> &gt; 1), complex and subclonal
+    /// karyotypes (<c>analyze_peaks_general</c>/<c>_subclonal</c>) are not ported.
+    /// </summary>
+    /// <param name="mutations">Mutations with VAF and karyotype (all karyotypes; non-simple ones count towards N).</param>
+    /// <param name="purity">The purity π ∈ (0, 1] to QC.</param>
+    /// <param name="options">CNAqc parameters (null = defaults).</param>
+    /// <returns>Per-karyotype peaks, matches, scores and the QC verdict.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="mutations"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Invalid purity, option, VAF or copy number.</exception>
+    /// <exception cref="ArgumentException">A requested karyotype is not a simple clonal karyotype.</exception>
+    /// <exception cref="InvalidOperationException">An analysed karyotype yields no usable VAF peak (CNAqc errors too).</exception>
+    public static PurityPeakAnalysis AnalyzePurityPeaks(
+        IEnumerable<PurityPeakMutation> mutations,
+        double purity,
+        PurityPeakOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(mutations);
+        options ??= PurityPeakOptions.Default;
+        ValidatePurityPeakArguments(purity, options);
+
+        var byKaryotype = new SortedDictionary<(int Major, int Minor), List<double>>();
+        int total = 0;
+        foreach (PurityPeakMutation mutation in mutations)
+        {
+            if (double.IsNaN(mutation.Vaf) || mutation.Vaf < 0.0 || mutation.Vaf > 1.0)
+                throw new ArgumentOutOfRangeException(nameof(mutations), mutation.Vaf, "VAF must be in [0, 1].");
+            if (mutation.MajorCopyNumber < 0 || mutation.MinorCopyNumber < 0)
+                throw new ArgumentOutOfRangeException(nameof(mutations), "Allele copy numbers must be non-negative.");
+            if (!(mutation.Vaf > options.MinVaf)) continue; // CNAqc: filter(VAF > min_VAF)
+
+            var key = (mutation.MajorCopyNumber, mutation.MinorCopyNumber);
+            if (!byKaryotype.TryGetValue(key, out List<double>? vafs))
+            {
+                vafs = new List<double>();
+                byKaryotype[key] = vafs;
+            }
+
+            vafs.Add(mutation.Vaf);
+            total++;
+        }
+
+        var analysed = new List<(int Major, int Minor)>();
+        int analysedTotal = 0;
+        foreach (KeyValuePair<(int Major, int Minor), List<double>> entry in byKaryotype)
+        {
+            int n = entry.Value.Count;
+            if (options.Karyotypes.Contains(entry.Key)
+                && n >= options.MinAbsoluteKaryotypeMutations
+                && (double)n / total >= options.MinKaryotypeSize)
+            {
+                analysed.Add(entry.Key);
+                analysedTotal += n;
+            }
+        }
+
+        if (analysed.Count == 0)
+        {
+            return new PurityPeakAnalysis(purity, double.NaN, null, Array.Empty<PurityPeakKaryotype>(), Array.Empty<PurityPeakMatch>());
+        }
+
+        var karyotypes = new List<PurityPeakKaryotype>(analysed.Count);
+        var allMatches = new List<PurityPeakMatch>();
+        foreach ((int major, int minor) in analysed)
+        {
+            List<double> vafs = byKaryotype[(major, minor)];
+            double weight = (double)vafs.Count / analysedTotal;
+            IReadOnlyList<double>? mixturePeaks = null;
+            if (options.MixturePeaks is not null && options.MixturePeaks.TryGetValue((major, minor), out IReadOnlyList<double>? m))
+                mixturePeaks = m;
+
+            PurityPeakKaryotype result = AnalyzePurityPeaksKaryotype(major, minor, vafs, weight, purity, options, mixturePeaks);
+            karyotypes.Add(result);
+            allMatches.AddRange(result.Matches);
+        }
+
+        double score = 0.0, passWeight = 0.0, failWeight = 0.0;
+        foreach (PurityPeakKaryotype k in karyotypes)
+        {
+            foreach (PurityPeakMatch match in k.Matches)
+            {
+                score += match.Weight * match.Offset;
+                if (k.Pass) passWeight += match.Weight; else failWeight += match.Weight;
+            }
+        }
+
+        // dplyr group_by(QC) orders "FAIL" < "PASS"; arrange(desc(prop)) is stable, so a tie resolves to FAIL.
+        return new PurityPeakAnalysis(purity, score, passWeight > failWeight, karyotypes, allMatches);
+    }
+
+    private static void ValidatePurityPeakArguments(double purity, PurityPeakOptions options)
+    {
+        if (!(purity > 0.0 && purity <= 1.0))
+            throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity must be in (0, 1].");
+        if (!(options.PurityError > 0.0 && options.PurityError < 1.0))
+            throw new ArgumentOutOfRangeException(nameof(options), options.PurityError, "PurityError must be in (0, 1).");
+        if (!(options.MinKaryotypeSize >= 0.0 && options.MinKaryotypeSize < 1.0))
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinKaryotypeSize, "MinKaryotypeSize must be in [0, 1).");
+        if (options.MinAbsoluteKaryotypeMutations < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinAbsoluteKaryotypeMutations, "MinAbsoluteKaryotypeMutations must be ≥ 0.");
+        if (!(options.VafTolerance >= 0.0) || double.IsPositiveInfinity(options.VafTolerance))
+            throw new ArgumentOutOfRangeException(nameof(options), options.VafTolerance, "VafTolerance must be finite and ≥ 0.");
+        if (!(options.KernelAdjust > 0.0) || double.IsPositiveInfinity(options.KernelAdjust))
+            throw new ArgumentOutOfRangeException(nameof(options), options.KernelAdjust, "KernelAdjust must be finite and > 0.");
+        if (double.IsNaN(options.MinVaf))
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinVaf, "MinVaf must not be NaN.");
+        if (options.Karyotypes is null)
+            throw new ArgumentException("Karyotypes must not be null.", nameof(options));
+        foreach ((int Major, int Minor) k in options.Karyotypes)
+        {
+            if (!PurityPeakOptions.SimpleClonalKaryotypes.Contains(k))
+                throw new ArgumentException(
+                    $"Karyotype {k.Major}:{k.Minor} is not a simple clonal karyotype (1:0, 1:1, 2:0, 2:1, 2:2).", nameof(options));
+        }
+    }
+
+    private static PurityPeakKaryotype AnalyzePurityPeaksKaryotype(
+        int major, int minor, List<double> vafs, double weight, double purity, PurityPeakOptions options,
+        IReadOnlyList<double>? mixturePeaks)
+    {
+        int ploidy = major + minor;
+        KernelDensityEstimate density = StatisticsHelper.GaussianKernelDensity(
+            vafs, options.KernelAdjust, legacyCoordinates: options.LegacyDensityCoordinates);
+        int[] histogram = VafHistogram(vafs);
+        List<PurityDataPeak> peaks = DetectKdePeaks(density, histogram);
+        if (peaks.Count == 0)
+        {
+            // CNAqc simple_peak_detector: `if (indexes[1] == 0)` on an empty peak set is an R error.
+            throw new InvalidOperationException($"Cannot find KDE peaks for karyotype {major}:{minor}.");
+        }
+
+        if (mixturePeaks is not null)
+        {
+            foreach (double p in mixturePeaks)
+            {
+                // CNAqc mixture_peak_detector: w_den = which.min(abs(den$x − p)); x, y from the grid (unrounded).
+                int w = 0;
+                for (int i = 1; i < density.X.Count; i++)
+                {
+                    if (Math.Abs(density.X[i] - p) < Math.Abs(density.X[w] - p)) w = i;
+                }
+
+                double x = density.X[w];
+                peaks.Add(new PurityDataPeak(x, density.Y[w], HistogramCount(histogram, Math.Round(x * 100, MidpointRounding.ToEven)), false, PurityPeakSource.Mixture));
+            }
+        }
+
+        var candidates = peaks.Where(p => !p.Discarded).ToList();
+        if (candidates.Count == 0)
+            throw new InvalidOperationException($"No non-discarded VAF peak for karyotype {major}:{minor}.");
+
+        // expected_vaf_peak: multiplicities unique(c(1, Major)).
+        var multiplicities = major == 1 ? new[] { 1 } : new[] { 1, major };
+        var expected = multiplicities
+            .Select(m => (Multiplicity: m, Peak: m * purity / MixtureCopiesPerCell(purity, ploidy)))
+            .ToList();
+
+        var assignment = new List<((int Multiplicity, double Peak) Expectation, PurityDataPeak Peak)>();
+        if (options.MatchingStrategy == PurityPeakMatchingStrategy.Closest)
+        {
+            foreach (var e in expected)
+            {
+                PurityDataPeak best = candidates[0];
+                foreach (PurityDataPeak c in candidates)
+                {
+                    if (Math.Abs(c.X - e.Peak) < Math.Abs(best.X - e.Peak)) best = c;
+                }
+
+                assignment.Add((e, best));
+            }
+        }
+        else
+        {
+            var expectedDesc = expected.OrderByDescending(e => e.Peak).ToList(); // stable
+            var peaksDesc = candidates.OrderByDescending(p => p.X).ToList();      // stable
+            for (int i = 0; i < expectedDesc.Count; i++)
+            {
+                assignment.Add((expectedDesc[i], i < peaksDesc.Count ? peaksDesc[i] : peaksDesc[0]));
+            }
+        }
+
+        var matches = new List<PurityPeakMatch>(assignment.Count);
+        double karyotypeScore = 0.0;
+        foreach (((int m, double peak), PurityDataPeak data) in assignment)
+        {
+            double band = 2 * m * options.PurityError;
+            double spread = 2 + (purity * (ploidy - 2));
+            double deltaVaf = band / (spread * spread);
+            double offsetVaf = peak - data.X;
+            double denom = m + (data.X * (2 - ploidy));
+            double offset = 2 * m * offsetVaf / (denom * denom);
+            bool matched = Math.Max(data.X - options.VafTolerance, peak - deltaVaf)
+                           <= Math.Min(data.X + options.VafTolerance, peak + deltaVaf);
+            matches.Add(new PurityPeakMatch(major, minor, m, peak, deltaVaf, data, offsetVaf, offset, weight, matched));
+            karyotypeScore += weight * offset;
+        }
+
+        // QC per karyotype: arrange(desc(counts_per_bin)) (stable, NA last) → first row's `matched`.
+        PurityPeakMatch lead = matches[0];
+        foreach (PurityPeakMatch match in matches)
+        {
+            if ((match.MatchedPeak.CountsPerBin ?? int.MinValue) > (lead.MatchedPeak.CountsPerBin ?? int.MinValue)) lead = match;
+        }
+
+        return new PurityPeakKaryotype(major, minor, vafs.Count, weight, karyotypeScore, lead.Matched, density, peaks, matches);
+    }
+
+    // CNAqc simple_peak_detector: union of peakpick(neighlim = 1..5) on the density's y; arrange(x); round(x, 2),
+    // round(y, 2); distinct(x) keeping the first; x ∈ (1, 1.01) → 1, x ∈ (−0.01, 0) → 0; keep 0 ≤ x ≤ 1; counts from
+    // hist(breaks = seq(0, 1, 0.01)) at round(100·x) (first index 0 → 1); discarded ⇔ y ≤ max(y)·(1/20).
+    private static List<PurityDataPeak> DetectKdePeaks(KernelDensityEstimate density, int[] histogram)
+    {
+        var picked = new SortedSet<int>();
+        for (int neighlim = 1; neighlim <= 5; neighlim++)
+        {
+            bool[] mask = StatisticsHelper.PeakPick(density.Y, neighlim);
+            for (int i = 0; i < mask.Length; i++)
+            {
+                if (mask[i]) picked.Add(i);
+            }
+        }
+
+        var rows = new List<(double X, double Y)>();
+        var seen = new HashSet<double>();
+        foreach (int i in picked) // grid x increases with the index, so this is arrange(x)
+        {
+            double x = RRound(density.X[i], 2);
+            if (!seen.Add(x)) continue;
+            double y = RRound(density.Y[i], 2);
+            if (x > 1 && x < 1.01) x = 1;
+            else if (x < 0 && x > -0.01) x = 0;
+            if (x <= 1 && x >= 0) rows.Add((x, y));
+        }
+
+        var peaks = new List<PurityDataPeak>(rows.Count);
+        if (rows.Count == 0) return peaks;
+        double maxY = rows.Max(r => r.Y);
+        for (int k = 0; k < rows.Count; k++)
+        {
+            double index = Math.Round(rows[k].X * 100, MidpointRounding.ToEven);
+            if (k == 0 && index == 0) index = 1;
+            peaks.Add(new PurityDataPeak(rows[k].X, rows[k].Y, HistogramCount(histogram, index),
+                rows[k].Y <= maxY * (1.0 / 20), PurityPeakSource.Kde));
+        }
+
+        return peaks;
+    }
+
+    // R hist(VAF, breaks = seq(0, 1, 0.01), plot = FALSE)$counts: right-closed bins, include.lowest, breaks fuzzed by
+    // 1e-7·median(diff(breaks)) (first break down, the others up) before R's C_BinCount bisection.
+    private static int[] VafHistogram(List<double> vafs)
+    {
+        const int Bins = 100;
+        var breaks = new double[Bins + 1];
+        for (int k = 0; k <= Bins; k++) breaks[k] = Math.Min(k * 0.01, 1.0); // seq(0, 1, 0.01) = from + (0:n)·by, pmin(to)
+        var widths = new double[Bins];
+        for (int k = 0; k < Bins; k++) widths[k] = breaks[k + 1] - breaks[k];
+        double diddle = 1e-7 * StatisticsHelper.Median(widths);
+        var fuzzy = new double[Bins + 1];
+        fuzzy[0] = breaks[0] - diddle;
+        for (int k = 1; k <= Bins; k++) fuzzy[k] = breaks[k] + diddle;
+
+        var counts = new int[Bins];
+        foreach (double v in vafs)
+        {
+            if (!(fuzzy[0] <= v && v <= fuzzy[Bins])) continue;
+            int lo = 0, hi = Bins;
+            while (hi - lo >= 2)
+            {
+                int mid = (hi + lo) / 2;
+                if (v > fuzzy[mid]) lo = mid; else hi = mid;
+            }
+
+            counts[lo]++;
+        }
+
+        return counts;
+    }
+
+    // R 1-based hst[index]; indices outside 1..100 give NA (null).
+    private static int? HistogramCount(int[] histogram, double index) =>
+        index >= 1 && index <= histogram.Length ? histogram[(int)index - 1] : null;
+
+    // R ≥ 4.0 round(x, digits) (src/nmath/fround.c): pick the closer of floor/ceil(x·10^d)/10^d, even on ties.
+    private static double RRound(double x, int digits)
+    {
+        if (double.IsNaN(x) || double.IsInfinity(x) || x == 0.0) return x;
+        double sgn = 1.0;
+        if (x < 0)
+        {
+            sgn = -1.0;
+            x = -x;
+        }
+
+        double l10x = 0.30102999566398119521 * (0.5 + Math.Floor(Math.Log2(x))); // M_LOG10_2·(0.5 + logb(x))
+        if (l10x + digits > 15) return sgn * x; // DBL_DIG
+        double pow10 = Math.Pow(10, digits);
+        double x10 = x * pow10, i10 = Math.Floor(x10);
+        double xd = i10 / pow10, xu = Math.Ceiling(x10) / pow10;
+        double du = xu - x, dd = x - xd;
+        return sgn * ((du < dd || (i10 % 2 == 1 && du == dd)) ? xu : xd);
+    }
+
+    #endregion
+
 }

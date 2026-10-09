@@ -6,11 +6,11 @@
 | Test Unit ID | ONCO-PURITY-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-10-09 |
 
 ## 1. Overview
 
-Tumor purity ρ (also π) is the fraction of cells in a bulk sequencing sample that are tumour cells, the remainder being normal/stromal cells. These estimators recover ρ from the variant allele frequencies (VAFs) of clonal somatic mutations by inverting the closed-form expected-VAF relation that links VAF to purity, mutation multiplicity, and local copy number [1][2]. The computation is exact (deterministic, closed form) for a given (VAF, multiplicity, copy-number) state; the canonical special case — a clonal heterozygous somatic SNV at a copy-neutral diploid locus — gives ρ = 2·VAF [1]. It should be used when somatic SNV calls (and, for non-diploid loci, allele-specific copy-number state) are available; it is not a copy-ratio or B-allele-frequency segmentation method.
+Tumor purity ρ (also π) is the fraction of cells in a bulk sequencing sample that are tumour cells, the remainder being normal/stromal cells. These estimators recover ρ from the variant allele frequencies (VAFs) of clonal somatic mutations by inverting the closed-form expected-VAF relation that links VAF to purity, mutation multiplicity, and local copy number [1][2]. The computation is exact (deterministic, closed form) for a given (VAF, multiplicity, copy-number) state; the canonical special case — a clonal heterozygous somatic SNV at a copy-neutral diploid locus — gives ρ = 2·VAF [1]. It should be used when somatic SNV calls (and, for non-diploid loci, allele-specific copy-number state) are available; it is not a copy-ratio or B-allele-frequency segmentation method. CNAqc's own purity procedure — the peak-based QC of `analyze_peaks` for simple clonal karyotypes — is ported as `AnalyzePurityPeaks` (§4.4): it does not estimate purity but scores a supplied purity against the VAF peaks it implies [1].
 
 ## 2. Scientific / Formal Basis
 
@@ -66,16 +66,20 @@ For a clonal **heterozygous** SNV at a **copy-neutral diploid** locus (m = 1, n_
 | variants (`EstimatePurityFromVAF`) | `IEnumerable<VariantObservation>` | required | Clonal heterozygous diploid somatic SNVs | non-null, non-empty; valid read counts; each VAF ≤ 0.5 |
 | vaf (`EstimatePurityFromVaf`) | `double` | required | Single clonal het diploid SNV VAF | ∈ [0, 0.5] |
 | variants (`EstimatePurity`) | `IEnumerable<PurityVariant>` | required | Clonal SNVs with VAF, multiplicity m, total CN n_tot | non-null, non-empty; 1 ≤ m ≤ n_tot; VAF ∈ [0,1] |
+| mutations (`AnalyzePurityPeaks`) | `IEnumerable<PurityPeakMutation>` | required | Somatic mutations with VAF and segment karyotype Major:minor (all karyotypes) | non-null; VAF ∈ [0,1]; Major, minor ≥ 0 |
+| purity (`AnalyzePurityPeaks`) | `double` | required | Purity π to QC | ∈ (0, 1] |
+| options (`AnalyzePurityPeaks`) | `PurityPeakOptions?` | CNAqc defaults | karyotypes {1:0,1:1,2:0,2:1,2:2}, `MinKaryotypeSize` 0, `MinAbsoluteKaryotypeMutations` 100, `PurityError` ε 0.05, `VafTolerance` 0.015, `KernelAdjust` 1, `MatchingStrategy` Closest, `MinVaf` 0, `MixturePeaks` null, `LegacyDensityCoordinates` false | ε ∈ (0,1); size ∈ [0,1); adjust > 0; karyotypes ⊆ simple set |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
 | (return) | `double` | Estimated tumour purity ρ ∈ [0, 1]; median of per-variant estimates for the collection overloads |
+| (return, `AnalyzePurityPeaks`) | `PurityPeakAnalysis` | `Score` λ = Σ weight·offset (purity units; CNAqc prints it as "Purity correction"), `Pass` (sample QC; null = no karyotype passed the filters), per-karyotype `PurityPeakKaryotype` (n, weight, score, PASS/FAIL, KDE, data peaks) and per-expected-peak `PurityPeakMatch` (expected peak, δ, matched peak, offset_VAF, offset, weight, matched) |
 
 ### 3.3 Preconditions and Validation
 
-Null collections throw `ArgumentNullException`; empty collections throw `ArgumentException` (purity undefined). A VAF outside [0,1] throws `ArgumentOutOfRangeException`; for the diploid model a VAF > 0.5 (implying ρ > 1) throws `ArgumentOutOfRangeException`. For the allele-specific overload, m < 1, n_tot < 1, m > n_tot, or any (VAF, m, n_tot) combination yielding ρ outside [0,1] (including a non-positive denominator), throws `ArgumentOutOfRangeException`; a computed ρ in (1, 1 + (n_tot+4)·ε] is IEEE rounding of an exact π = 1 peak and is clamped to 1.0. Read counts are validated via `CalculateVAF` (alt/total) as in ONCO-VAF-001.
+Null collections throw `ArgumentNullException`; empty collections throw `ArgumentException` (purity undefined). A VAF outside [0,1] throws `ArgumentOutOfRangeException`; for the diploid model a VAF > 0.5 (implying ρ > 1) throws `ArgumentOutOfRangeException`. For the allele-specific overload, m < 1, n_tot < 1, m > n_tot, or any (VAF, m, n_tot) combination yielding ρ outside [0,1] (including a non-positive denominator), throws `ArgumentOutOfRangeException`; a computed ρ in (1, 1 + (n_tot+4)·ε] is IEEE rounding of an exact π = 1 peak and is clamped to 1.0. Read counts are validated via `CalculateVAF` (alt/total) as in ONCO-VAF-001. `AnalyzePurityPeaks`: null mutations → `ArgumentNullException`; π ∉ (0, 1], ε ∉ (0, 1), size ∉ [0, 1), negative minimum count, adjust ≤ 0, negative/infinite tolerance, NaN `MinVaf`, a VAF ∉ [0, 1] or a negative allele copy number → `ArgumentOutOfRangeException`; a requested karyotype outside {1:0, 1:1, 2:0, 2:1, 2:2} → `ArgumentException`.
 
 ## 4. Algorithm
 
@@ -98,6 +102,20 @@ Null collections throw `ArgumentNullException`; empty collections throw `Argumen
 |-----------|------|-------|-------|
 | EstimatePurity / EstimatePurityFromVAF | O(n log n) | O(n) | n = #variants; dominated by the median sort. O(1) per variant. |
 | EstimatePurityFromVaf | O(1) | O(1) | single closed-form evaluation |
+| AnalyzePurityPeaks | O(n + K·512²) | O(n) | per karyotype: one 512-point KDE (direct convolution) + peakPick ×5 |
+
+### 4.4 CNAqc peak-based purity QC (`AnalyzePurityPeaks`)
+
+Port of CNAqc 1.1.5 `analyze_peaks` → `analyze_peaks_common` (caravagnalab/CNAqc `R/peak_algorithms.R`, `R/vaf_functions.R`, `R/equations.R`, `R/peak_detector.R`) [1]:
+
+1. Keep mutations with VAF > `min_VAF`; count n_K per karyotype over **all** karyotypes (N = Σ n_K). Analyse K ∈ `karyotypes` with n_K ≥ `min_absolute_karyotype_mutations` and n_K/N ≥ `min_karyotype_size` (mutations of all segments with the same karyotype are pooled). None → no analysis.
+2. Data peaks per K: Gaussian KDE of the VAFs (R `density`, `bw.nrd0`·`kernel_adjust`, n = 512, cut = 3; `StatisticsHelper.GaussianKernelDensity`); union of `peakPick::peakpick(neighlim = 1..5)` maxima (`StatisticsHelper.PeakPick`); x, y rounded to 2 decimals (R `round`), distinct x, kept in [0, 1]; `counts_per_bin` = `hist(VAF, breaks = seq(0, 1, 0.01))` count at bin round(100·x); discarded ⇔ y ≤ max(y)/20. CNAqc also appends BMix Binomial-mixture means (`bmixfit(K.Binomials = 1:4)`) snapped to the KDE grid — supplied via `MixturePeaks`.
+3. Expected peaks for m ∈ {1, Major}: v_m = m·π / (2(1−π) + π·(Major+minor)) (`ascat()` in `vaf_functions.R`); band δ_m = 2·m·ε / (2 + π·(ploidy−2))² (`delta_vaf_karyo`).
+4. Matching (`Closest`, the only strategy 1.1.5 runs): each v_m takes the nearest non-discarded data peak x. (`Rightmost`, legacy `peak_detector`: expected peaks descending ↔ highest-x data peaks descending, padded with the rightmost.)
+5. offset = 2·m·(v_m − x) / (m + x·(2 − ploidy))² (`compute_delta_purity`, purity units); weight = n_K / Σ n_analysed; matched ⇔ max(x − tol, v_m − δ_m) ≤ min(x + tol, v_m + δ_m) (`overlap_bands`).
+6. Karyotype QC = `matched` of its row with the largest `counts_per_bin` (stable, first on ties); sample QC = PASS/FAIL class with the larger Σ weight over rows (tie → FAIL); λ = Σ weight·offset.
+
+CNAqc does **not** compare λ with ε (ε only sizes the bands), the `p_binsize_peaks` argument is unused in 1.1.5, and no corrected purity is proposed — `print.cnaqc` shows λ as "Purity correction". Example (R-locked, seeded dataset D1, true π = 0.7): at π = 0.7 λ = 0.00238, PASS; at π = 0.5 λ = −0.296, FAIL; at π = 0.62 the 1:0 karyotype fails but the sample passes by weight (0.87) although |λ| = 0.114 > ε.
 
 ## 5. Implementation Notes
 
@@ -108,6 +126,7 @@ Null collections throw `ArgumentNullException`; empty collections throw `Argumen
 - `OncologyAnalyzer.EstimatePurityFromVAF(IEnumerable<VariantObservation>)`: median of ρ = 2·VAF over clonal het diploid SNVs.
 - `OncologyAnalyzer.EstimatePurityFromVaf(double)`: single-VAF closed form ρ = 2·VAF.
 - `OncologyAnalyzer.EstimatePurity(IEnumerable<PurityVariant>)`: median of the allele-specific inversion ρ = 2v/[m+v(2−n_tot)].
+- `OncologyAnalyzer.AnalyzePurityPeaks(IEnumerable<PurityPeakMutation>, double purity, PurityPeakOptions? options = null)` ([OncologyAnalyzer.CopyNumberPloidy.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CopyNumberPloidy.cs)): CNAqc peak-based purity QC (§4.4); KDE / peak picking via `StatisticsHelper.GaussianKernelDensity` / `PeakPick` (Infrastructure).
 
 ### 5.2 Current Behavior
 
@@ -125,8 +144,11 @@ Collection overloads aggregate per-variant purities by median (lower-mid average
 
 - Aggregation uses the median of per-variant point estimates; **consequence:** no model-fit confidence interval or joint ploidy estimate (unlike ABSOLUTE/FACETS, or `FitPurityPloidy`, ONCO-ASCAT-001) is produced.
 
+**Implemented from CNAqc (FIN-B24 F33/F34):** the peak-based purity QC for simple clonal karyotypes (`analyze_peaks_common`, §4.4), R-locked on seeded datasets.
+
 **Not implemented:**
 
+- CNAqc BMix mixture fitting (stochastic EM; supply its component means via `PurityPeakOptions.MixturePeaks`), `n_bootstrap` > 1 peak bootstrap, and the complex-karyotype (`analyze_peaks_general`) and subclonal (`analyze_peaks_subclonal`) peak analyses.
 - Joint purity+ploidy+absolute-CN model fitting inside this VAF estimator; **users should rely on:** `OncologyAnalyzer.FitPurityPloidy` (ONCO-ASCAT-001, ASCAT runASCAT port over segment logR/BAF, after `SegmentAlleleSpecificAspcf`) for the genome-wide joint fit; ABSOLUTE [3] / FACETS [4] remain external alternatives.
 
 ### 5.4 Deviations and Assumptions
@@ -136,6 +158,8 @@ Collection overloads aggregate per-variant purities by median (lower-mid average
 | 1 | VAF-only estimator fixes m=1, n_tot=2 | Assumption | Wrong on amplified/LOH loci | accepted | ASM-02; use `EstimatePurity` for other states |
 | 2 | Median aggregation | Assumption | Robust central estimate, not a fitted value | accepted | does not change the per-variant formula |
 | 3 | Multiplicity bounded by n_tot in `EstimatePurity` | Validation (fixed) | m > n_tot (physically impossible; CNAqc `expectations_generalised` enumerates m ∈ 1..Major ≤ n_tot) throws `ArgumentOutOfRangeException`, e.g. (v 0.5, m 3, n_tot 2) — previously returned 1/3 | fixed | review-2026-09 B24 F7 → FIN-B24 F24 |
+| 5 | `AnalyzePurityPeaks` KDE lattice | Version choice | R ≥ 4.4 `density` kernel lattice by default (densities ≈ 0.1 % different from R ≤ 4.3; `LegacyDensityCoordinates = true` reproduces R 4.3.3); convolution evaluated directly instead of FFT (≤ 1e−12 relative) | accepted | FIN-B24 F33 |
+| 6 | `AnalyzePurityPeaks` degenerate inputs | Error handling | an analysed karyotype with no KDE peak in [0, 1] (R: error in `simple_peak_detector`) or no non-discarded peak throws `InvalidOperationException`; a mixture peak snapped outside histogram bins 1..100 gets `CountsPerBin = null` (R: NA / error) | accepted | FIN-B24 F34 |
 | 4 | Boundary π = 1 rounding in `EstimatePurity` | Numerical tolerance (fixed) | the exact CNAqc clonal peak at π = 1, v = m/n_tot, can evaluate to 1 + k·ulp (≤ 0.47·(n_tot+4)·ε for n_tot ≤ 2000); a computed π ≤ 1 + (n_tot+4)·ε (ε = 2⁻⁵²) is accepted and clamped to 1.0, e.g. (v 0.2, m 1, n_tot 5) → 1.0, (v 0.4, m 2, n_tot 5) → 1.0; larger excess still throws | fixed | review-2026-09 B24 F8 → FIN-B24 F25 |
 
 ## 6. Edge Cases and Limitations
@@ -156,6 +180,8 @@ Collection overloads aggregate per-variant purities by median (lower-mid average
 ### 6.2 Limitations
 
 Purity below ~0.1 approaches sequencing noise and is reported as a small value, not validated against a detection-limit model. The VAF-only estimator assumes clonality (c=1) and copy-neutral diploid heterozygosity; subclonal or amplified-segment variants must use the allele-specific overload with the correct (m, n_tot). No confidence interval, ploidy, or whole-genome-doubling handling is provided here (see ONCO-PLOIDY-001).
+
+**LIMITATIONS:** `EstimatePurity*` combine per-variant closed-form CNAqc estimates by their median — no read-depth weighting, no binomial likelihood (e.g. PurBayes), no joint ploidy fit; use `FitPurityPloidy` (ASCAT) for a genome-wide joint estimate. VAF-only overloads assume clonal heterozygous copy-neutral diploid SNVs. CNAqc itself provides no purity point estimate: its purity procedure is the peak-based QC of a caller-supplied purity (`analyze_peaks`), ported as `AnalyzePurityPeaks` (score λ = Σ weight·offset, reported by CNAqc as "Purity correction", plus a PASS/FAIL verdict); BMix mixture peaks are not fitted (supply them), and complex/subclonal karyotype peak analyses are not ported.
 
 ## 7. Examples and Related Material
 
@@ -178,7 +204,7 @@ double rho = OncologyAnalyzer.EstimatePurity(new[]
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_EstimatePurity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_EstimatePurity_Tests.cs) — covers INV-01..INV-04
+- Tests: [OncologyAnalyzer_EstimatePurity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_EstimatePurity_Tests.cs) — covers INV-01..INV-04; [OncologyAnalyzer_AnalyzePurityPeaks_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AnalyzePurityPeaks_Tests.cs) — CNAqc R-locked peak QC (16 scenarios); [StatisticsHelper_GaussianKde_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_GaussianKde_Tests.cs) — R `density`/`bw.nrd0`/`peakpick`
 - Evidence: [ONCO-PURITY-001-Evidence.md](../../../docs/Evidence/ONCO-PURITY-001-Evidence.md)
 - Related algorithms: [Variant_Allele_Frequency](../Oncology/Variant_Allele_Frequency.md)
 

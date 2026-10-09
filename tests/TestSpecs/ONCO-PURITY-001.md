@@ -49,6 +49,8 @@
 | `EstimatePurityFromVAF(IEnumerable<VariantObservation>)` | OncologyAnalyzer | Canonical | Copy-neutral diploid heterozygous model: per-variant ρ = 2·VAF, aggregated by median. |
 | `EstimatePurity(IEnumerable<PurityVariant>)` | OncologyAnalyzer | Canonical | Allele-specific model: inverts v = mπ/[2(1−π)+π·n_tot]; aggregated by median. |
 | `EstimatePurityFromVaf(double vaf)` | OncologyAnalyzer | Delegate | Single-VAF closed form ρ = 2·VAF; smoke only. |
+| `AnalyzePurityPeaks(IEnumerable<PurityPeakMutation>, double, PurityPeakOptions?)` | OncologyAnalyzer | Canonical | CNAqc 1.1.5 `analyze_peaks_common` peak-based purity QC (FIN-B24 F34). |
+| `StatisticsHelper.BandwidthNrd0` / `GaussianKernelDensity` / `PeakPick` | StatisticsHelper (Infrastructure) | Canonical (shared) | R `bw.nrd0` / `density.default` / `peakPick::peakpick` (FIN-B24 F33). |
 
 ---
 
@@ -185,6 +187,31 @@
 Property `KnownPurityVariantGen` (Properties/OncologyProperties.cs) now draws π ∈ (0, 1] (cap 950‰ → 1000‰) since the π = 1 boundary no longer throws (FIN-B24 F25; property class passes, 422 tests).
 
 Fixed (FIN-B24 F24/F25, code in B22-owned `OncologyAnalyzer.SomaticCalling.cs` under orchestrator special permission).
+
+### 5.8 FIN-B24 F33/F34 — CNAqc peak-based purity QC
+
+Data: `TestData/CNAqc/cnaqc_D{1,3,4}.tsv` — seeded R simulations (D1 π 0.7: 1:1 ×400, 2:1 ×250, 2:2 ×150, 1:0 ×120, 3:1 ×60; D3 π 0.45: 1:1 ×500 clonal + ×200 CCF 0.35, 2:0 ×150, + 60 true-4:0 m = 4 mutations labelled 2:0; D4 π 0.3: 1:1 ×150, 2:1 ×90, 1:0 ×110). Reference: CNAqc 1.1.5 (4b7cea4a) `analyze_peaks_common` sourced in R 4.3.3 (prefix-strip + `easypar::run` shims), density lattice R ≥ 4.4 unless "old".
+
+| ID | Test | Expected (CNAqc R) |
+|----|------|--------------------|
+| P1 | D1 π 0.7 default | λ 0.0023756289876209163, PASS (all karyotypes PASS); full match + peak tables |
+| P2 | D1 π 0.7 `LegacyDensityCoordinates` (R 4.3.3 native `density`) | λ identical, peak y 8.64 vs 8.63 (1:0) |
+| P3 | D1 π 0.5 (wrong purity) | λ −0.29645326597409133, FAIL (all karyotypes FAIL) |
+| P4 | D1 π 0.7 `KernelAdjust` 0.5 | λ 0.023857243903529196, PASS; 1:1 6 KDE peaks incl. one discarded (y 0.31 ≤ 8.19/20) |
+| P5 | D1 π 0.7 ε 0.01, tol 0.005 | 1:0 FAIL, sample PASS (weight 0.87 vs 0.13) |
+| P6 | D1 π 0.62 | λ −0.11362481021020236 (|λ| > ε) yet PASS; 2:1 m = 2 unmatched but 2:1 PASS (lead row = highest counts_per_bin) |
+| P7 | D3 π 0.45 / `MinVaf` 0.12 | λ 0.014615384615384629 / 0.030000000000000027 (subclonal tail removed changes weights) |
+| P8 | D4 π 0.3: default / size 0.35 / min count 80 / min count 200 | λ 0.0039996443291489122 / 0 (only 1:1) / −0.010660215188956853 (2:1 included) / not analysed (`Pass` null, λ NaN) |
+| P9 | Rightmost (legacy `peak_detector` matching) on D1, D3 | same peaks as Closest; rows in descending expected-peak order |
+| P10 | Mixture peaks = R BMix `B.params` (set.seed 7): D1, D3 Closest, D3 Rightmost | λ 0.0045358591466179345, 0.0037889790909820253, −0.13824761798675933; D3 2:0 Closest PASS vs Rightmost FAIL (0.45 → BMix 0.618 peak) |
+| P11 | Σ karyotype scores = λ; Σ weights = 1; counts 120/400/250/150 | identity |
+| P12 | MinKaryotypeSize denominator includes non-simple karyotypes (1:0 = 120/980) | kept at 120/980, dropped at +1e−9 |
+| P13 | invalid arguments (null, π ∉ (0,1], ε 0, size 1, adjust 0, min count −1, karyotype 3:1, VAF 1.2, Major −1) | throws |
+| K1 | `BandwidthNrd0` ×3 datasets + 4 fall-back cases | R `bw.nrd0` |
+| K2 | `GaussianKernelDensity` ×6 (dataset, adjust, coords) × 9 grid points | R `density` (≤ 1e−12 rel.) |
+| K3 | `PeakPick` on R densities (neighlim 1–5) and synthetic series (neighlim 0/1/8/12/20; deriv.lim, peak.min.sd, npos) | peakPick 0.11 |
+
+Tests: `OncologyAnalyzer_AnalyzePurityPeaks_Tests` (21), `StatisticsHelper_GaussianKde_Tests` (26).
 
 ## 6. Assumption Register
 
