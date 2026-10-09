@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GcSkewCalculator.AnalyzeGcContent",
-  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L861",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L985",
   "description": "Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. GC content is a percentage [0,100] by default, or a fraction [0,1] with fraction=true. Optional ambiguity (remove|ignore|weighted) applies Biopython gc_fraction IUPAC handling to the GC content.",
   "inputSchema": {
     "type": "object",

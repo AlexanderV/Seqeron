@@ -42,7 +42,7 @@ each code's mean GC (N = 0.5, B/V = 2/3, D/H = 1/3). The skews and their window 
 
 ## Core Documentation Reference
 
-- Source: [GcSkewCalculator.cs#L861](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L861)
+- Source: [GcSkewCalculator.cs#L985](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L985)
 - Evidence: `docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md`
 
 ## Input Schema

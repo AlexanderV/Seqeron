@@ -485,7 +485,8 @@ public static class GcSkewCalculator
     /// <param name="sequence">DNA sequence (typically a complete bacterial chromosome).</param>
     /// <returns>Predicted origin and terminus positions and their cumulative skew values.
     /// <see cref="ReplicationOriginPrediction.IsSignificant"/> is true when the diagram has a
-    /// non-zero amplitude (max &gt; min), i.e. a detectable strand-composition asymmetry.</returns>
+    /// non-zero amplitude (max &gt; min), i.e. a detectable strand-composition asymmetry (no statistical
+    /// cutoff; for SkewIT's sourced per-genus test see <see cref="IsSkewIBelowGenusThreshold"/>).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     public static ReplicationOriginPrediction PredictReplicationOrigin(DnaSequence sequence)
     {
@@ -756,7 +757,8 @@ public static class GcSkewCalculator
     /// method upper-cases the input (identical on upper-case FASTA). There is no universal SkewI
     /// cutoff: SkewIT publishes per-genus thresholds (genus mean − 2 SD, genera with ≥ 10 RefSeq-97
     /// genomes; data/RefSeq97_Bacteria_GenusSkewIThresholds.txt, e.g. Escherichia 0.7110); a SkewI
-    /// below its genus threshold flags a possible mis-assembly. <see cref="ReplicationOriginPrediction.IsSignificant"/>
+    /// below its genus threshold flags a possible mis-assembly — see <see cref="ParseSkewIGenusThresholds"/>,
+    /// <see cref="IsSkewIBelowGenusThreshold"/> and <see cref="IsSkewIBelowThreshold"/>. <see cref="ReplicationOriginPrediction.IsSignificant"/>
     /// is unrelated and unchanged.
     /// </remarks>
     /// <param name="sequence">Complete chromosome sequence.</param>
@@ -825,6 +827,128 @@ public static class GcSkewCalculator
 
         double skewI = (double)maxDiff / seq.Length * windowSize;
         return skewI > 1 ? 1.0 : skewI;
+    }
+
+    /// <summary>
+    /// Parses SkewIT's per-genus SkewI threshold table (Lu &amp; Salzberg 2020,
+    /// <c>data/RefSeq97_Bacteria_GenusSkewIThresholds.txt</c>, github.com/jenniferlu717/SkewIT).
+    /// </summary>
+    /// <remarks>
+    /// Format: tab-separated, header row <c>Genus  Num_Genomes  Mean  STDEV  Threshold</c>, one row per
+    /// genus named <c>g__&lt;Genus&gt;</c>, CRLF or LF line endings. Threshold = genus mean − 2 SD and is
+    /// published only for genera with ≥ 10 RefSeq-97 genomes; rows with an empty threshold column are
+    /// skipped. The <c>g__</c> prefix is removed; the returned map is case-insensitive (ordinal).
+    /// The table is <b>not bundled</b> with Seqeron: the SkewIT repository is licensed GPL-3.0, Seqeron
+    /// MIT, so callers download the file themselves and pass it here.
+    /// </remarks>
+    /// <param name="reader">Reader positioned at the start of the table.</param>
+    /// <returns>Genus → threshold (the RefSeq-97 file gives 160 genera, out of 1 147 rows).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="reader"/> is null.</exception>
+    /// <exception cref="FormatException">A row has a malformed threshold or a duplicate genus.</exception>
+    public static IReadOnlyDictionary<string, double> ParseSkewIGenusThresholds(TextReader reader)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        var map = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        string? line;
+        int lineNo = 0;
+        while ((line = reader.ReadLine()) != null)
+        {
+            lineNo++;
+            line = line.TrimEnd('\r');
+            if (line.Length == 0 || (lineNo == 1 && line.StartsWith("Genus", StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            string[] cols = line.Split('\t');
+            if (cols.Length < 5 || string.IsNullOrWhiteSpace(cols[4]))
+                continue; // genus with < 10 genomes: no published threshold
+
+            string genus = NormalizeSkewIGenus(cols[0]);
+            if (!double.TryParse(cols[4].Trim(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double threshold)
+                || !double.IsFinite(threshold))
+                throw new FormatException($"Line {lineNo}: malformed SkewI threshold '{cols[4]}'.");
+            if (genus.Length == 0 || !map.TryAdd(genus, threshold))
+                throw new FormatException($"Line {lineNo}: empty or duplicate genus '{cols[0]}'.");
+        }
+
+        return new System.Collections.ObjectModel.ReadOnlyDictionary<string, double>(map);
+    }
+
+    /// <summary>
+    /// Looks up a genus in a SkewIT threshold table (see <see cref="ParseSkewIGenusThresholds"/>):
+    /// exact genus name, case-insensitive (ordinal); an optional <c>g__</c> prefix and surrounding
+    /// white space are ignored.
+    /// </summary>
+    /// <returns>True when the table holds a threshold for the genus.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="thresholds"/> is null.</exception>
+    public static bool TryGetSkewIThreshold(
+        IReadOnlyDictionary<string, double> thresholds, string genus, out double threshold)
+    {
+        ArgumentNullException.ThrowIfNull(thresholds);
+        threshold = 0;
+        if (string.IsNullOrWhiteSpace(genus))
+            return false;
+
+        string key = NormalizeSkewIGenus(genus);
+        if (thresholds.TryGetValue(key, out threshold))
+            return true;
+
+        // Caller-built maps may use a case-sensitive comparer.
+        foreach (var kv in thresholds)
+        {
+            if (string.Equals(NormalizeSkewIGenus(kv.Key), key, StringComparison.OrdinalIgnoreCase))
+            {
+                threshold = kv.Value;
+                return true;
+            }
+        }
+
+        threshold = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// SkewIT significance rule (Lu &amp; Salzberg 2020): a genome whose SkewI is <b>below</b> the
+    /// threshold (strict &lt;) is flagged as atypical / potentially mis-assembled.
+    /// </summary>
+    /// <param name="sequence">Complete chromosome sequence.</param>
+    /// <param name="threshold">SkewI threshold, e.g. a genus value from SkewIT's table (Escherichia 0.7110).</param>
+    /// <param name="windowSize">SkewIT window k. SkewIT's tables use its default k = 20 000; other
+    /// values give a SkewI not comparable to the published thresholds.</param>
+    /// <returns>True/false, or null when <see cref="CalculateSkewIndex(string,int)"/> is null.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="threshold"/> is not finite, or
+    /// <paramref name="windowSize"/> is less than 1.</exception>
+    public static bool? IsSkewIBelowThreshold(string sequence, double threshold, int windowSize = DefaultSkewIndexWindow)
+    {
+        if (!double.IsFinite(threshold))
+            throw new ArgumentOutOfRangeException(nameof(threshold), threshold, "Threshold must be finite.");
+
+        double? skewI = CalculateSkewIndex(sequence, windowSize);
+        return skewI.HasValue ? skewI.Value < threshold : null;
+    }
+
+    /// <summary>
+    /// <see cref="IsSkewIBelowThreshold"/> with the threshold of <paramref name="genus"/> taken from a
+    /// SkewIT table (<see cref="ParseSkewIGenusThresholds"/>, <see cref="TryGetSkewIThreshold"/>).
+    /// </summary>
+    /// <returns>Null when the genus has no threshold in the table or SkewI is null.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="thresholds"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> is less than 1.</exception>
+    public static bool? IsSkewIBelowGenusThreshold(
+        string sequence, string genus, IReadOnlyDictionary<string, double> thresholds,
+        int windowSize = DefaultSkewIndexWindow)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        if (!TryGetSkewIThreshold(thresholds, genus, out double threshold))
+            return null;
+
+        return IsSkewIBelowThreshold(sequence, threshold, windowSize);
+    }
+
+    private static string NormalizeSkewIGenus(string genus)
+    {
+        string g = genus.Trim();
+        return g.StartsWith("g__", StringComparison.OrdinalIgnoreCase) ? g[3..] : g;
     }
 
     #endregion

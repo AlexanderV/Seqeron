@@ -207,7 +207,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.AnalyzeGcContent",
     "docPath": "docs/mcp/tools/analysis/analyze_gc_content.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L861"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L985"
   },
   {
     "tool": "analyze_kmers",
@@ -907,7 +907,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.PredictReplicationOrigin",
     "docPath": "docs/mcp/tools/analysis/predict_replication_origin.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L656"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L657"
   },
   {
     "tool": "predict_rna_structure",

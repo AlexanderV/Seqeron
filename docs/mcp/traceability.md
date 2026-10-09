@@ -191,7 +191,7 @@
 | validate_probe | MolTools | ProbeDesigner.ValidateProbe | ProbeDesigner.cs#L1366 | 0/0 | – | – | Build-Ready |
 | alphabet_pwm_score_pvalue | Analysis | MotifFinder.AlphabetPwmScorePValue | MotifFinder.PwmPValue.cs#L190 | 2/2 | ✓ | ✓ | Ready |
 | alphabet_pwm_score_thresholds | Analysis | AlphabetPositionWeightMatrix.ScoreDistribution | MotifFinder.AlphabetPwm.cs#L394 | 1/1 | ✓ | ✓ | Ready |
-| analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L861 | 0/0 | – | – | Build-Ready |
+| analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L985 | 0/0 | – | – | Build-Ready |
 | analyze_kmers | Analysis | KmerAnalyzer.AnalyzeKmers | KmerAnalyzer.cs#L3167 | 0/0 | – | – | Build-Ready |
 | at_skew | Analysis | GcSkewCalculator.CalculateAtSkew | GcSkewCalculator.cs#L336 | 0/0 | – | – | Build-Ready |
 | base_pair_type | Analysis | RnaSecondaryStructure.GetBasePairType | RnaSecondaryStructure.cs#L565 | 0/0 | – | – | Build-Ready |
@@ -291,7 +291,7 @@
 | predict_disorder | Analysis | DisorderPredictor.PredictDisorder | DisorderPredictor.cs#L185 | 0/0 | – | – | Build-Ready |
 | predict_low_complexity_seg | Analysis | DisorderPredictor.PredictLowComplexityRegions | DisorderPredictor.cs#L425 | 0/0 | – | – | Build-Ready |
 | predict_morfs | Analysis | DisorderPredictor.PredictMoRFs | DisorderPredictor.cs#L505 | 0/0 | – | – | Build-Ready |
-| predict_replication_origin | Analysis | GcSkewCalculator.PredictReplicationOrigin | GcSkewCalculator.cs#L656 | 0/0 | – | – | Build-Ready |
+| predict_replication_origin | Analysis | GcSkewCalculator.PredictReplicationOrigin | GcSkewCalculator.cs#L657 | 0/0 | – | – | Build-Ready |
 | predict_rna_structure | Analysis | RnaSecondaryStructure.PredictStructure | RnaSecondaryStructure.cs#L1245 | 0/0 | – | – | Build-Ready |
 | predict_sigma70_promoters | Analysis | MotifFinder.PredictSigma70Promoters | MotifFinder.Sigma70Promoters.cs#L149 | 1/1 | ✓ | ✓ | Ready |
 | predict_signal_peptide | Analysis | ProteinMotifFinder.PredictSignalPeptide | ProteinMotifFinder.cs#L325 | 0/0 | – | – | Build-Ready |

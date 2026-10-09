@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-COMPLEX-001 |
 | Related Projects | N/A |
 | Implementation Status | Complete |
-| Last Reviewed | 2026-09-30 |
+| Last Reviewed | 2026-10-09 |
 
 ## 1. Overview
 
@@ -104,12 +104,11 @@ For `m ≤ 12` the implementation counts distinct subwords as the key count of t
 - Summation-form linguistic complexity over subword lengths.
 - Maximum distinct-subword bounds based on both alphabet size and positional availability.
 - Complexity scoring in the range `[0, 1]` for any input alphabet (DNA/RNA `K = 4`).
+- The linear-time suffix-tree counting of Troyanskaya et al. (2002) for `m > 12` (incl. all-length LC).
 
 **Intentionally simplified:**
 
-- None for the alphabet: non-ACGT symbols extend the alphabet size `K` (not filtered out).
-
-- The linear-time suffix-tree counting of Troyanskaya et al. (2002) for `m > 12` (incl. all-length LC).
+- None. Non-ACGT symbols extend the alphabet size `K` (they are not filtered out).
 
 ### 5.4 Deviations and Assumptions (Optional)
 

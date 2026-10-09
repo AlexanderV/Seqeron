@@ -5,12 +5,12 @@
 | Algorithm Group | Sequence Composition |
 | Test Unit ID | SEQ-GCSKEW-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-09-28 |
+| Implementation Status | Production |
+| Last Reviewed | 2026-10-09 |
 
 ## 1. Overview
 
-GC skew measures strand-specific asymmetry between guanine and cytosine counts and is commonly used to study replication-associated composition bias. In this repository, the documented surface covers whole-sequence skew, sliding-window skew, cumulative skew, and a heuristic origin/terminus prediction based on cumulative-skew extrema. The core skew formula is exact, while the replication-boundary predictor adds implementation-specific heuristics.
+GC skew measures strand-specific asymmetry between guanine and cytosine counts and is commonly used to study replication-associated composition bias. In this repository, the documented surface covers whole-sequence skew, sliding-window skew (optionally with the trailing partial window, Biopython `GC_skew` parity), cumulative skew, and origin/terminus prediction from cumulative-skew extrema (SEQ-REPLICATION-001: all BA1F minimizers/maximizers, Grigoriev windowed diagram, circular reporting, SkewIT Skew Index with per-genus thresholds). All of these are exact computations of their cited definitions.
 
 ## 2. Scientific / Formal Basis
 
@@ -57,7 +57,7 @@ The original document interprets the global minimum of cumulative skew as the re
 | `[string] stepSize` | `int` | `100` | Step size for windowed GC skew | Must be `>= 1` (validated eagerly) |
 | `includePartialWindow` (additional overloads `CalculateWindowedGcSkew(seq, windowSize, stepSize, bool)` / `CalculateCumulativeGcSkew(seq, windowSize, bool)`) | `bool` | `false` (original overloads) | Also emit the trailing partial window(s), truncated at the sequence end | With `stepSize == windowSize` the skews equal Biopython 1.88 `GC_skew(seq, window)` exactly |
 
-`PredictReplicationOrigin(...)` (SEQ-REPLICATION-001) takes no window parameter; `AnalyzeGcContent(...)` is covered by SEQ-GC-ANALYSIS-001.
+`PredictReplicationOrigin(...)`, `Find{Minimum,Maximum}SkewPositions(...)`, `CalculateSkewIndex(...)` and the SkewI threshold methods are specified in SEQ-REPLICATION-001 ([Replication_Origin_Prediction](./Replication_Origin_Prediction.md)); `AnalyzeGcContent(...)` is covered by SEQ-GC-ANALYSIS-001.
 
 ### 3.2 Output / Return Value
 
@@ -80,7 +80,7 @@ The original document interprets the global minimum of cumulative skew as the re
 2. Compute `(G - C) / (G + C)` and return `0` when the denominator is zero.
 3. For sliding-window analysis, emit the skew at each window center.
 4. For cumulative skew, sum each window's skew value across the traversal.
-5. For origin prediction (SEQ-REPLICATION-001), build the per-nucleotide cumulative skew (G = +1, C = −1) and choose its first global minimum as the origin and first global maximum as the terminus.
+5. For origin prediction (SEQ-REPLICATION-001), build the per-nucleotide cumulative skew (G = +1, C = −1) and choose its first global minimum as the origin and first global maximum as the terminus (all tied extrema via `Find{Minimum,Maximum}SkewPositions`; optional circular reporting mod n; or the windowed Grigoriev diagram via `PredictReplicationOrigin(seq, windowSize)`).
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -110,24 +110,26 @@ The same source file also provides `CalculateAtSkew(...)` helpers and a combined
 - `GcSkewCalculator.CalculateGcSkew(...)`: Computes whole-sequence GC skew.
 - `GcSkewCalculator.CalculateWindowedGcSkew(...)`: Computes windowed skew with configurable step size.
 - `GcSkewCalculator.CalculateCumulativeGcSkew(...)`: Produces cumulative skew points.
-- `GcSkewCalculator.PredictReplicationOrigin(...)`: Predicts origin and terminus positions from cumulative skew.
+- `GcSkewCalculator.PredictReplicationOrigin(...)`: Predicts origin and terminus positions from cumulative skew (per-base, `circular`, or `windowSize` overloads).
+- `GcSkewCalculator.FindMinimumSkewPositions(...)` / `FindMaximumSkewPositions(...)`, `CalculateSkewIndex(...)`, `IsSkewIBelowGenusThreshold(...)` / `IsSkewIBelowThreshold(...)`: SEQ-REPLICATION-001 extensions.
 
 ### 5.2 Current Behavior
 
-Windowed GC skew reports positions at the center of each analyzed window. Cumulative GC skew uses non-overlapping windows because the source sets `stepSize = windowSize` inside the cumulative routine. By default only complete windows are reported (window starts `0, s, 2s, …` while `start + w ≤ n`); a trailing partial window is dropped. This matches SkewIT `gcskew.py` (Lu & Salzberg 2020), whereas Biopython `Bio.SeqUtils.GC_skew` appends the partial tail window (e.g. `GC_skew("GGGGCCCCGG", 4)` = `[1.0, -1.0, 1.0]` vs Seqeron default `[1.0, -1.0]`); on the complete windows the values agree exactly. The `includePartialWindow: true` overloads (2026-10 finisher, A1-1) emit every window start `i = 0, s, 2s, … < n`, truncating the window to `[i, n−1]` (Biopython slicing `seq[i:i+window]`); for `s = w` the values equal Biopython exactly (`GC_skew("GGGCACGTGGCCCCATG", 4)` = `[0.5, 0, 0, −1, 1.0]`, cumulative = `itertools.accumulate` of it). For `s < w` several trailing starts may be truncated (each is emitted). A partial window's `Position` is `start + actualLength/2` (equal to `start + w/2` for complete windows). An all-A/T (no G/C) window has skew `0`, the same as Biopython's ZeroDivisionError → `0.0`. Counting is case-insensitive; only `G`/`C` are counted (ambiguity codes such as `S` are ignored, as in Biopython). `PredictReplicationOrigin(...)` works on the per-nucleotide cumulative skew and flags significance when max > min (see SEQ-REPLICATION-001). The same class also provides `CalculateAtSkew(...)` and a combined `AnalyzeGcContent(...)` helper.
+Windowed GC skew reports positions at the center of each analyzed window. Cumulative GC skew uses non-overlapping windows because the source sets `stepSize = windowSize` inside the cumulative routine. By default only complete windows are reported (window starts `0, s, 2s, …` while `start + w ≤ n`); a trailing partial window is dropped. This matches SkewIT `gcskew.py` (Lu & Salzberg 2020), whereas Biopython `Bio.SeqUtils.GC_skew` appends the partial tail window (e.g. `GC_skew("GGGGCCCCGG", 4)` = `[1.0, -1.0, 1.0]` vs Seqeron default `[1.0, -1.0]`); on the complete windows the values agree exactly. The `includePartialWindow: true` overloads (2026-10 finisher, A1-1) emit every window start `i = 0, s, 2s, … < n`, truncating the window to `[i, n−1]` (Biopython slicing `seq[i:i+window]`); for `s = w` the values equal Biopython exactly (`GC_skew("GGGCACGTGGCCCCATG", 4)` = `[0.5, 0, 0, −1, 1.0]`, cumulative = `itertools.accumulate` of it). For `s < w` several trailing starts may be truncated (each is emitted). A partial window's `Position` is `start + actualLength/2` (equal to `start + w/2` for complete windows). An all-A/T (no G/C) window has skew `0`, the same as Biopython's ZeroDivisionError → `0.0`. Counting is case-insensitive; only `G`/`C` are counted (ambiguity codes such as `S` are ignored, as in Biopython). `PredictReplicationOrigin(...)` works on the per-nucleotide cumulative skew (or, with `windowSize`, on the windowed diagram) and its `IsSignificant` flag is the threshold-free max > min; the sourced quantitative test is SkewIT's SkewI against its per-genus threshold (`IsSkewIBelowGenusThreshold`, see SEQ-REPLICATION-001). The same class also provides `CalculateAtSkew(...)` and a combined `AnalyzeGcContent(...)` helper.
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
 - Standard GC skew calculation.
-- Sliding-window and cumulative-skew analysis.
-- Origin/terminus prediction from cumulative-skew extrema.
+- Sliding-window and cumulative-skew analysis; trailing partial windows on request (`includePartialWindow`, equal to Biopython 1.88 `GC_skew` for step = window).
+- Origin/terminus prediction from cumulative-skew extrema: all minimizers/maximizers (Rosalind BA1F), Grigoriev windowed diagram, circular-chromosome reporting (SEQ-REPLICATION-001).
+- SkewIT Skew Index (`skewi.py`) and its per-genus significance rule (SkewI below the genus mean − 2 SD threshold), with the threshold table supplied by the caller (SEQ-REPLICATION-001 §5.5).
 
 **Intentionally simplified:**
 
-- Origin prediction assumes the cumulative-skew minimum and maximum map directly to ori/ter; **consequence:** more complex replication architectures are not modeled.
-- Significance is only "non-zero amplitude" (max > min); **consequence:** no statistical test is applied.
+- Origin prediction assumes the cumulative-skew minimum and maximum map directly to ori/ter (the single-origin model of Lobry 1996 / Grigoriev 1998); **consequence:** multi-origin or rearranged replication architectures are not modeled.
+- `ReplicationOriginPrediction.IsSignificant` stays the threshold-free "non-zero amplitude" (max > min); **consequence:** it is not a statistical test — use the SkewI genus-threshold methods for SkewIT's sourced test.
 
 **Not implemented:**
 
@@ -146,7 +148,7 @@ Windowed GC skew reports positions at the center of each analyzed window. Cumula
 
 ### 6.2 Limitations
 
-Origin and terminus prediction assume a single circular chromosome with bidirectional replication, use a simple non-zero-amplitude significance flag, and do not account for genome rearrangements or horizontal transfer that may distort the skew profile.
+Origin and terminus prediction assume a single chromosome with one bidirectionally replicated origin. The `IsSignificant` flag is only the non-zero-amplitude test; SkewIT's per-genus SkewI thresholds are available but need the caller-supplied table (not bundled, GPL-3.0). Genome rearrangements and horizontal transfer that distort the skew profile are not corrected.
 
 ## 8. References
 

@@ -40,8 +40,8 @@ no plasmids) are not applied.
 
 ## Core Documentation Reference
 
-- Source: [GcSkewCalculator.cs#L656](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L656)
-- Windowed (`windowSize`): [GcSkewCalculator.cs#L692](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L692); Skew Index (`skewIndexWindow`): [GcSkewCalculator.cs#L767](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L767)
+- Source: [GcSkewCalculator.cs#L657](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L657)
+- Windowed (`windowSize`): [GcSkewCalculator.cs#L693](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L693); Skew Index (`skewIndexWindow`): [GcSkewCalculator.cs#L769](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L769)
 - Evidence: `docs/Evidence/SEQ-REPLICATION-001-Evidence.md`
 
 ## Input Schema

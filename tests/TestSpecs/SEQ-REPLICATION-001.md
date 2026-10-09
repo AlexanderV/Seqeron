@@ -53,6 +53,8 @@
 | `PredictReplicationOrigin(DnaSequence\|string, bool circular)` | GcSkewCalculator | Canonical | Positions mod n (n ≡ 0) |
 | `PredictReplicationOrigin(DnaSequence\|string, int windowSize)` | GcSkewCalculator | Canonical | Grigoriev windowed cumulative diagram extrema (window centres) |
 | `CalculateSkewIndex(DnaSequence\|string, int windowSize = 20000)` | GcSkewCalculator | Canonical | SkewIT SkewI (`skewi.py`), null when skewi.py reports none |
+| `ParseSkewIGenusThresholds(TextReader)` / `TryGetSkewIThreshold(table, genus, out)` | GcSkewCalculator | Canonical | SkewIT RefSeq-97 per-genus threshold table (caller-supplied; SkewIT is GPL-3.0) |
+| `IsSkewIBelowThreshold(string, double, int = 20000)` / `IsSkewIBelowGenusThreshold(string, string, table, int = 20000)` | GcSkewCalculator | Canonical | SkewI < threshold; null when SkewI null or genus unknown |
 
 ---
 
@@ -113,6 +115,11 @@
 | K3 | SkewI BA1F extra k1000 / k20 | 0.203158581311549 / 0.034430033253851994 | SkewIT code run |
 | K4 | SkewI ideal genome | 1.0 (cap) | SkewIT code run |
 | K5 | defaults/guards/case | k=20000; 5 windows → null; lower case = upper | SkewIT code + documented deviation |
+| T1 | threshold table parse, 8 verbatim rows (CRLF, empty thresholds, no final newline) | 5 entries; Escherichia 0.7110, Bordetella 0.2200, Mycobacterium 0.3959, Streptomyces 0.046, Synechococcus −0.222; < 10-genome genera absent; full file → 160 (one-off, Evidence) | SkewIT data file |
+| T2 | LF endings, malformed threshold, duplicate genus, null reader | same map; FormatException; ArgumentNullException | contract |
+| T3 | genus lookup | case-insensitive exact, `g__` prefix ok, prefix match / blank → false; case-sensitive caller map | contract |
+| T4 | decision BA1F extra k1000 (SkewI 0.203158581311549) | below Escherichia/Mycobacterium/Bordetella; not below Streptomyces/Synechococcus; synthetic (1.0) never below | SkewIT `skewi.py -k 1000` (run) + README rule |
+| T5 | explicit threshold | strict < at the skewi.py value; k20000 (5 windows) → null; unknown / no-threshold genus → null; NaN, k < 1, null table throw | skewi.py + contract |
 | M-W | MCP `predict_replication_origin` `windowSize` (F29) | BA1F sample w10 → 45 / −0.3095238095238095, 15 / 0.5; w25 → 37 / −0.15384615384615385, 62 / 0.11888111888111885; position arrays empty; `circular`+`windowSize` → ArgumentException; w/k < 1 → AOORE; "ACG" w10 → zero, not significant | Biopython 1.88 `numpy.cumsum(GC_skew(seq, w)[:n//w])` |
 | M-K | MCP `predict_replication_origin` `skewIndexWindow` (F29) | k4: 52-mer 0.23076923076923078, 58-mer 0.6206896551724138, BA1F sample 0.16, 12 windows → null; omitted → null; independent of `windowSize` | SkewIT `skewi.py -k 4 --min-len 0` (run) |
 

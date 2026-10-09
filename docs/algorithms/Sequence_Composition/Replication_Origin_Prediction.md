@@ -77,6 +77,7 @@ Additional entry points (finisher 2026-10-09, additive):
 - `PredictReplicationOrigin(seq, bool circular)`: as the base method; circular = true visits Skew_0 … Skew_{n−1} only (index n ≡ 0, the junction carries Skew_0 = 0), so positions lie in [0, n−1]. Let D = Skew_n (total #G − #C). D = 0: rotation-equivariant (each extremum moves to (p − r) mod n). D ≠ 0: the rotated walk is Skew'_j = Skew_{j+r} − Skew_r for j + r < n and Skew_{j+r−n} + D − Skew_r beyond the junction, so the extrema can change with the start (e.g. `CCGGG` → minimizers {2}; rotated by 3 → {0, 4}, i.e. {3, 2} mapped back). No detrending is applied — supply the chromosome from its coordinate 0.
 - `PredictReplicationOrigin(seq, int windowSize)`: Grigoriev's windowed diagram — cumulative sum of (G−C)/(G+C) over adjacent complete windows (the points of `CalculateCumulativeGcSkew(seq, windowSize)`); origin/terminus = `Position` (window centre start + w/2) of the first min/max point, skews = those cumulative values, `IsSignificant` = max > min. There is no Skew_0 baseline point, so `OriginSkew` may be > 0; shorter-than-one-window input → zero prediction.
 - `CalculateSkewIndex(seq, windowSize = 20000)` → `double?`: SkewIT Skew Index [5][6] (see 5.5).
+- `ParseSkewIGenusThresholds(TextReader)` → `IReadOnlyDictionary<string, double>`, `TryGetSkewIThreshold(table, genus, out threshold)`, `IsSkewIBelowGenusThreshold(seq, genus, table, windowSize = 20000)` and `IsSkewIBelowThreshold(seq, threshold, windowSize = 20000)` → `bool?`: SkewIT's per-genus significance rule (see 5.5). The table is supplied by the caller (not bundled: SkewIT is GPL-3.0).
 
 ### 3.3 Preconditions and Validation
 
@@ -93,7 +94,7 @@ Indexing is 0-based over prefix indices [0, n] (position *i* refers to the bound
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-Per-base skew increment table [2]: G → +1, C → −1, A/T (and any non-G/C symbol) → 0. These are the only constants; there is no threshold or window parameter.
+Per-base skew increment table [2]: G → +1, C → −1, A/T (and any non-G/C symbol) → 0. These are the only constants of the per-base walk; the windowed overload takes a window size, and the SkewI thresholds come from SkewIT's per-genus table supplied by the caller (5.5).
 
 ### 4.3 Complexity
 
@@ -115,6 +116,7 @@ Per-base skew increment table [2]: G → +1, C → −1, A/T (and any non-G/C sy
 - `GcSkewCalculator.PredictReplicationOrigin(DnaSequence|string, bool circular)`, `PredictReplicationOrigin(DnaSequence|string, int windowSize)`.
 - `GcSkewCalculator.FindMinimumSkewPositions` / `FindMaximumSkewPositions(DnaSequence|string, bool circular = false)`.
 - `GcSkewCalculator.CalculateSkewIndex(DnaSequence|string, int windowSize = 20000)`.
+- `GcSkewCalculator.ParseSkewIGenusThresholds`, `TryGetSkewIThreshold`, `IsSkewIBelowGenusThreshold`, `IsSkewIBelowThreshold`.
 - MCP `predict_replication_origin` (Analysis server): optional `circular`; optional `windowSize` → the windowed overload (linear only: `circular: true` with `windowSize` is rejected with `ArgumentException`, since the windowed Grigoriev core has no circular form; `originPositions`/`terminusPositions` are then empty); optional `skewIndexWindow` → `skewIndex` = `CalculateSkewIndex(dna, k)` (null when not requested or when skewi.py prints nothing).
 
 ### 5.2 Current Behavior
@@ -132,11 +134,12 @@ A single O(1)-space pass folds over the canonical cumulative-skew iterator (`Cal
 - Grigoriev's windowed cumulative diagram prediction (`PredictReplicationOrigin(seq, windowSize)`), equal to `numpy.cumsum(Bio.SeqUtils.GC_skew(seq, w))` extrema [1].
 - Circular-chromosome reporting (positions mod n) [1].
 - SkewIT Skew Index, computed as the authors' `skewi.py` [5][6].
+- SkewIT significance rule: SkewI below the genus threshold (mean − 2 SD) flags an atypical / possibly mis-assembled genome, using the authors' `RefSeq97_Bacteria_GenusSkewIThresholds.txt` format [5][6].
 
 **Intentionally simplified:**
 
 - `ReplicationOriginPrediction` holds a single origin and terminus position (first extreme index); the full tie sets are returned by `FindMinimumSkewPositions` / `FindMaximumSkewPositions`.
-- `IsSignificant` uses the threshold-free predicate `max > min` rather than a quantitative confidence measure (unchanged). **Consequence:** any non-flat diagram is flagged significant; for a quantitative measure use `CalculateSkewIndex` (SkewI) and compare it with SkewIT's per-genus threshold (5.5) — no universal cutoff is published.
+- `IsSignificant` uses the threshold-free predicate `max > min` rather than a quantitative confidence measure (unchanged). **Consequence:** any non-flat diagram is flagged significant; for SkewIT's sourced quantitative test use `IsSkewIBelowGenusThreshold` with SkewIT's per-genus table, or `IsSkewIBelowThreshold` with an explicit threshold (5.5) — no universal cutoff is published.
 
 **Not implemented:**
 
@@ -152,6 +155,12 @@ A single O(1)-space pass folds over the canonical cumulative-skew iterator (`Cal
 
 `CalculateSkewIndex` reproduces `src/skewi.py` of SkewIT [6] (Lu & Salzberg 2020 [5]) step by step: windows of k bases starting at 0, k, 2k, … (last one partial) each get sign(#G − #C); with L windows, h = round(L/2) and r = round(0.04·L) (Python 3 half-to-even rounding), the sign list is doubled and maxDiff = max over i ∈ [0, L), t ∈ [i+h−r, i+h+r) of |Σ skew[i:t] − Σ skew[t:i+L]|; SkewI = min(1, maxDiff / n · k). skewi.py reports no value when maxDiff ≤ 0 (no G/C-signed window, or L ≤ 12 so r = 0) → `null`. Computed with prefix sums (O(L·r)) instead of the script's O(L²·r) slice sums — identical integers. CLI-only input filters of skewi.py are not applied (default `--min-len` 500 kb, "complete" required / "plasmid" excluded in the FASTA header; `-f` is parsed but unused by its computation). skewi.py counts only upper-case `G`/`C`; this method upper-cases (identical on RefSeq FASTA). Thresholds: SkewIT publishes per-genus thresholds = genus mean − 2 SD for genera with ≥ 10 RefSeq-97 genomes (`data/RefSeq97_Bacteria_GenusSkewIThresholds.txt`, e.g. Escherichia 0.7110, Salmonella 0.8478); a value below its genus threshold flags a possibly mis-assembled genome. There is no default cutoff, so none is built in.
 
+**Per-genus test (finisher A2-3).** `ParseSkewIGenusThresholds(TextReader)` reads SkewIT's table as published (tab-separated, header `Genus Num_Genomes Mean STDEV Threshold`, `g__` genus prefix stripped, CRLF or LF; rows with an empty threshold — genera with < 10 genomes — are skipped; malformed threshold or duplicate genus → `FormatException`). The RefSeq-97 file has 1 147 genus rows, of which 160 carry a threshold (e.g. Escherichia 0.7110, Bordetella 0.2200, Mycobacterium 0.3959, Streptomyces 0.046; the smallest is Synechococcus −0.222). `TryGetSkewIThreshold` matches the exact genus name case-insensitively (an optional `g__` prefix is ignored). `IsSkewIBelowThreshold(seq, threshold, k)` returns `SkewI < threshold` (strict, as SkewIT's "below the threshold"), or `null` when SkewI is null. `IsSkewIBelowGenusThreshold(seq, genus, table, k)` also returns `null` when the genus has no threshold. `IsSignificant` is unchanged.
+
+The table is **not bundled**. The SkewIT repository is licensed GPL-3.0 (its `LICENSE` file), while Seqeron is MIT, so the file cannot be embedded in the library without imposing GPL terms. Download it from https://github.com/jenniferlu717/SkewIT/blob/master/data/RefSeq97_Bacteria_GenusSkewIThresholds.txt and pass it to `ParseSkewIGenusThresholds`, or pass an explicit threshold.
+
+**Window size.** The README gives skewi.py's default as non-overlapping 20 kb windows (`-k 20000`, minimum sequence length 500 kb). It names no other k for the RefSeq-97 data, so the published thresholds correspond to k = 20 000, the default of these methods. A SkewI computed with another k is not comparable with them.
+
 ## 6. Edge Cases and Limitations
 
 ### 6.1 Edge Cases
@@ -166,6 +175,7 @@ A single O(1)-space pass folds over the canonical cumulative-skew iterator (`Cal
 | Circular `GGGCCC` | minimizers {0} (linear {0, 6}) | n ≡ 0 |
 | Circular, Skew_n ≠ 0 | result depends on the start | 5.2 / 3.2 |
 | SkewI with ≤ 12 windows or no signed window | `null` | skewi.py prints nothing |
+| Genus without a threshold (< 10 genomes, or absent) | `IsSkewIBelowGenusThreshold` → `null` | SkewIT publishes no threshold |
 
 ### 6.2 Limitations
 
@@ -188,7 +198,7 @@ var pred = GcSkewCalculator.PredictReplicationOrigin(genome);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GcSkewCalculator_PredictReplicationOrigin_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GcSkewCalculator_PredictReplicationOrigin_Tests.cs) — covers `INV-01`…`INV-06`; [GcSkewCalculator_ReplicationOriginExtensions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GcSkewCalculator_ReplicationOriginExtensions_Tests.cs) — `INV-07`, `INV-08`, windowed; [GcSkewCalculator_SkewIndex_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GcSkewCalculator_SkewIndex_Tests.cs) — SkewI
+- Tests: [GcSkewCalculator_PredictReplicationOrigin_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GcSkewCalculator_PredictReplicationOrigin_Tests.cs) — covers `INV-01`…`INV-06`; [GcSkewCalculator_ReplicationOriginExtensions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GcSkewCalculator_ReplicationOriginExtensions_Tests.cs) — `INV-07`, `INV-08`, windowed; [GcSkewCalculator_SkewIndex_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GcSkewCalculator_SkewIndex_Tests.cs) — SkewI; [GcSkewCalculator_SkewIThreshold_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GcSkewCalculator_SkewIThreshold_Tests.cs) — per-genus thresholds
 - Evidence: [SEQ-REPLICATION-001-Evidence.md](../../../docs/Evidence/SEQ-REPLICATION-001-Evidence.md)
 - Related algorithms: [GC_Skew](./GC_Skew.md), [AT_Skew](../Extended_GC_Skew_Analysis/AT_Skew.md)
 
