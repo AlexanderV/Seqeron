@@ -243,6 +243,9 @@ represent uncertainty in consensus sequences and are correctly rejected by unamb
 | `IupacDnaSequence_ExpandCodeAndMatchesAt_NonAsciiLettersNotFolded` | `ExpandCode('ſ'/'ı'/'K')` = {N} (was {G,C} for 'ſ'); pattern 'ſ' matches only literal 'ſ' (was G/C/S) | Biopython `ambiguous_dna_values` has no 'ſ' (nt_search KeyError); scikit-bio DNA('ſ') raises |
 | `DnaRnaSequence_Ctor_NonAsciiLetter_RejectedAndReportedVerbatim` | ctor error names 'ſ' (was 'S') | ASCII-only folding |
 | `IsValidDna_LongSNonAscii_ReturnsFalse` | `"ACGſ"` → index 3 | ASCII-only folding |
+| `IupacDnaSequence_DefiniteAndDegenerateFractions_MatchScikitBio` (9) | `GetAmbiguityLevel`/`GetDegenerateFraction`: "ACNR-G.T" 0.5/0.25, "ACGTN" 0.8/0.2, "RYSWKMBDHVN" 0/1, "----" 0/0, "A-" 0.5/0 | scikit-bio 0.7.4 `DNA(s, lowercase=True).definites().mean()` / `degenerates().mean()` |
+| `IupacDnaSequence_DefiniteAndDegenerateFractions_EmptyAndU_DocumentedConventions` | "" → 1.0/0.0 (scikit-bio NaN); "ACGU" → 0.75/0.0 (scikit-bio `DNA` rejects U) | documented convention |
+| `QualitySequence_MeanQuality_Empty_ThrowsDocumentedException` | empty → `InvalidOperationException`; {0,93,41} → 44.666666666666664 | Python `statistics.mean` |
 
 ## 7. Deviations and Assumptions
 

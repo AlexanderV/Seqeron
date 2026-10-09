@@ -126,6 +126,42 @@ public class ISequenceTests
         Assert.That(allAmbiguous.GetAmbiguityLevel(), Is.EqualTo(0.0));
     }
 
+    // scikit-bio 0.7.4: DNA(s, lowercase=True).definites().mean() / .degenerates().mean()
+    [TestCase("ACNR-G.T", 0.5, 0.25)]
+    [TestCase("ACGT", 1.0, 0.0)]
+    [TestCase("NNNN", 0.0, 1.0)]
+    [TestCase("acgt", 1.0, 0.0)]
+    [TestCase("ACGTN", 0.8, 0.2)]
+    [TestCase("RYSWKMBDHVN", 0.0, 1.0)]
+    [TestCase("----", 0.0, 0.0)]
+    [TestCase("A-", 0.5, 0.0)]
+    [TestCase("ACGTNNNN", 0.5, 0.5)]
+    public void IupacDnaSequence_DefiniteAndDegenerateFractions_MatchScikitBio(string seq, double definite, double degenerate)
+    {
+        var s = new IupacDnaSequence(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.GetAmbiguityLevel(), Is.EqualTo(definite).Within(1e-15), "definites().mean()");
+            Assert.That(s.GetDegenerateFraction(), Is.EqualTo(degenerate).Within(1e-15), "degenerates().mean()");
+        });
+    }
+
+    [Test]
+    public void IupacDnaSequence_DefiniteAndDegenerateFractions_EmptyAndU_DocumentedConventions()
+    {
+        // scikit-bio gives NaN for the empty mean; Seqeron documents 1.0 / 0.0 (no degenerate position).
+        var empty = new IupacDnaSequence("");
+        // scikit-bio DNA rejects U; this container tolerates it and counts it as neither definite nor degenerate.
+        var withU = new IupacDnaSequence("ACGU");
+        Assert.Multiple(() =>
+        {
+            Assert.That(empty.GetAmbiguityLevel(), Is.EqualTo(1.0));
+            Assert.That(empty.GetDegenerateFraction(), Is.EqualTo(0.0));
+            Assert.That(withU.GetAmbiguityLevel(), Is.EqualTo(0.75));
+            Assert.That(withU.GetDegenerateFraction(), Is.EqualTo(0.0));
+        });
+    }
+
     [Test]
     public void IupacDnaSequence_ExpandAll_GeneratesAllPossibilities()
     {
@@ -200,6 +236,18 @@ public class ISequenceTests
         var seq = new QualitySequence("ACGT", new byte[] { 10, 20, 30, 40 });
 
         Assert.That(seq.MeanQuality, Is.EqualTo(25.0));
+    }
+
+    [Test]
+    public void QualitySequence_MeanQuality_Empty_ThrowsDocumentedException()
+    {
+        // Python statistics.mean([]) raises StatisticsError ("mean requires at least one data point").
+        var empty = new QualitySequence("", Array.Empty<byte>());
+        var ex = Assert.Throws<InvalidOperationException>(() => _ = empty.MeanQuality);
+        Assert.That(ex!.Message, Does.Contain("empty"));
+        // statistics.mean([0, 93, 41]) = 44.666666666666664
+        Assert.That(new QualitySequence("ACG", new byte[] { 0, 93, 41 }).MeanQuality,
+            Is.EqualTo(44.666666666666664).Within(1e-12));
     }
 
     [Test]
