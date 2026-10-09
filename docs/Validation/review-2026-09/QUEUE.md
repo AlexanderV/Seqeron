@@ -19,7 +19,16 @@ and commits it after every change. Batch definitions (units, owned files) are in
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
 
-## State (2026-10-09 20:25 UTC) — R1 DONE; EVERYTHING PAUSED by user
+## State (2026-10-09 20:45 UTC) — FIN-B24 RUNNING (only it)
+- User 10-09 ~20:40 "Давай доробимо B24": session_01SLG1sxNgXVQkrwHr1EHya2 = FIN-B24 (completeness-audit loop over the
+  old-process B24 report → all DOABLE incl. LIMITED ONCO-CNA-002 / ONCO-PURITY-001 and the LIMITATIONS proposals →
+  dedup sweep → final audit → heavy tier once → `## Leftovers`). WIP branch `claude/stoic-maxwell-0olr2z-wip-B24`.
+- Orchestrator permission: FIN-B24 may edit ONLY the ONCO-PURITY-001 methods (`EstimatePurity*`) in B22-owned
+  `OncologyAnalyzer.SomaticCalling.cs` (B24 F7/F8 patches), logged in B22.md "## Changes made by FIN-B24 in this file";
+  every other B22 item stays a request. B25's ONCO-CHIP-001 methods in Clonality.cs are excluded.
+- Everything else paused; B08 paused (not archived); check-in trigger re-armed (FIN-B24 check-in).
+
+### Earlier state (2026-10-09 20:25 UTC) — R1 DONE; EVERYTHING PAUSED by user
 - R1 done (session_01N4ZfEhLRF1Fh8ZLet3KyaQ, 20:04–20:20, archived, cost ≈ $1.4): test defect, production code unchanged
   (bd780061 + 233381ac). Primer3 `oligo_repeat_library_mispriming` keeps the first entry above the INTEGER running max, so
   only ⌊score⌋ is order-invariant/monotone; the port matches primer3-py 2.3.1 bit-exactly. Property now asserts the integer
