@@ -234,4 +234,99 @@ public class ThermoConstants_NearestNeighborCore_Tests
         Assert.That(actual!.GetType(), Is.EqualTo(expected!.GetType()));
         Assert.That(actual.Message, Is.EqualTo(expected.Message));
     }
+
+    // Final audit AF-7 (F73): direct tests of the Tm_NN final step. Expected values: Biopython 1.88 Tm_NN's
+    // closing formula evaluated with repr on the literal ΔH/ΔS — k = (dnac1 − dnac2/2)·1e-9 (dnac1·1e-9 when
+    // selfcomp), corr = salt_correction(Na, K, Tris, Mg, dNTPs, method, seq), method 5 → ΔS + corr,
+    // Tm = 1000·ΔH/(ΔS + 1.987·ln k) − 273.15, methods 1–4 → Tm + corr, 6–7 → 1/(1/Tm_K + corr) − 273.15.
+    // ΔH −222.9 / ΔS −602.5 on Seq28 with Na 50, K 20, Tris 10, Mg 1.5, dNTPs 0.2 mM, dnac 25/25 nM.
+    [TestCase(NnSaltCorrection.None, false, 75.86281007878165)]
+    [TestCase(NnSaltCorrection.SchildkrautLifson1965, false, 64.67389744730015)]
+    [TestCase(NnSaltCorrection.Wetmur1991, false, 63.677137007918134)]
+    [TestCase(NnSaltCorrection.SantaLucia1996, false, 67.4374240610998)]
+    [TestCase(NnSaltCorrection.SantaLucia1998Tm, false, 67.97664876623143)]
+    [TestCase(NnSaltCorrection.SantaLucia1998Entropy, false, 67.63436034219092)]
+    [TestCase(NnSaltCorrection.Owczarzy2004, false, 69.79959448399649)]
+    [TestCase(NnSaltCorrection.Owczarzy2008, false, 66.95553773950132)]
+    // Self-complementary branch: k = dnac1·1e-9 (the symmetry ΔH/ΔS is the caller's, already in deltaS).
+    [TestCase(NnSaltCorrection.None, true, 76.6170917821621)]
+    [TestCase(NnSaltCorrection.SantaLucia1998Entropy, true, 68.35345824311355)]
+    [TestCase(NnSaltCorrection.Owczarzy2008, true, 67.67177068088472)]
+    public void CalculateNearestNeighborTmFromThermodynamics_EverySaltMethod_MatchesBiopythonTmNNFormula(
+        NnSaltCorrection salt, bool self, double expected)
+    {
+        var r = ThermoConstants.CalculateNearestNeighborTmFromThermodynamics(-222.9, -602.5, Seq28,
+            dnac1: 25, dnac2: 25, selfComplementary: self, sodium: 50, potassium: 20, tris: 10, magnesium: 1.5,
+            dntps: 0.2, saltCorrection: salt);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.MeltingTemperature, Is.EqualTo(expected).Within(Exact));
+            Assert.That(r.DeltaH, Is.EqualTo(-222.9));
+            Assert.That(r.DeltaS, Is.EqualTo(-602.5));
+            if (salt == NnSaltCorrection.SantaLucia1998Entropy) // salt_correction(method 5) = 0.368·(N−1)·ln[Na_eq]
+                Assert.That(r.SaltCorrectedDeltaS, Is.EqualTo(-602.5 + ThermoConstants.CalculateNnSaltCorrection(
+                    salt, 50, 20, 10, 1.5, 0.2, Seq28)).Within(1e-12));
+            else
+                Assert.That(r.SaltCorrectedDeltaS, Is.EqualTo(-602.5));
+        });
+    }
+
+    // Unequal strand concentrations (dnac1 100, dnac2 40 nM; Na 50, K 20, Tris 10, Mg 1.5, dNTPs 0.2) on "ACGTACGT":
+    // non-self k = (100 − 20)·1e-9, self k = 100·1e-9. Biopython formula values (repr).
+    [TestCase(NnSaltCorrection.None, false, 25.659637782741243)]
+    [TestCase(NnSaltCorrection.SantaLucia1998Entropy, false, 19.873575139530715)]
+    [TestCase(NnSaltCorrection.Owczarzy2008, false, 19.432909614384698)]
+    [TestCase(NnSaltCorrection.None, true, 26.31543283127445)]
+    [TestCase(NnSaltCorrection.SantaLucia1998Entropy, true, 20.504192032992876)]
+    [TestCase(NnSaltCorrection.Owczarzy2008, true, 20.061629184086257)]
+    public void CalculateNearestNeighborTmFromThermodynamics_UnequalStrands_KTerm(
+        NnSaltCorrection salt, bool self, double expected)
+    {
+        var r = ThermoConstants.CalculateNearestNeighborTmFromThermodynamics(-60.5, -170.0, "ACGTACGT",
+            dnac1: 100, dnac2: 40, selfComplementary: self, sodium: 50, potassium: 20, tris: 10, magnesium: 1.5,
+            dntps: 0.2, saltCorrection: salt);
+        Assert.That(r.MeltingTemperature, Is.EqualTo(expected).Within(Exact));
+    }
+
+    [Test]
+    public void CalculateNearestNeighborTmFromThermodynamics_NonPositiveK_Throws()
+    {
+        // k = (10 − 20/2)·1e-9 = 0: Biopython would take log(0) (ValueError).
+        Assert.Throws<ArgumentException>(() =>
+            ThermoConstants.CalculateNearestNeighborTmFromThermodynamics(-222.9, -602.5, Seq28, dnac1: 10, dnac2: 20));
+    }
+
+    // Tm_NN zipping-loop lookup: key "top/bottom" (and reversed) in DNA_IMM1 first, then the Watson–Crick table.
+    [TestCase(NnParameterSet.AllawiSantaLucia1997, "AG", "TT", true, 1.0, 0.9)]    // DNA_IMM1 AG/TT
+    [TestCase(NnParameterSet.AllawiSantaLucia1997, "TT", "GA", true, 1.0, 0.9)]    // reversed key of AG/TT
+    [TestCase(NnParameterSet.AllawiSantaLucia1997, "AA", "TT", true, -7.9, -22.2)] // DNA_NN3 AA/TT
+    [TestCase(NnParameterSet.AllawiSantaLucia1997, "TT", "AA", true, -7.9, -22.2)] // reversed
+    [TestCase(NnParameterSet.AllawiSantaLucia1997, "GT", "CA", true, -8.4, -22.4)] // DNA_NN3 GT/CA
+    [TestCase(NnParameterSet.AllawiSantaLucia1997, "AC", "TG", true, -8.4, -22.4)] // reversed
+    [TestCase(NnParameterSet.SantaLuciaHicks2004, "AA", "TT", true, -7.6, -21.3)]  // DNA_NN4 AA/TT (table-dependent)
+    [TestCase(NnParameterSet.SantaLuciaHicks2004, "AG", "TT", true, 1.0, 0.9)]     // IMM1 is table-independent
+    [TestCase(NnParameterSet.AllawiSantaLucia1997, "AX", "TT", false, 0.0, 0.0)]   // no such key
+    [TestCase(NnParameterSet.AllawiSantaLucia1997, "A", "T", false, 0.0, 0.0)]     // not a dinucleotide
+    [TestCase(NnParameterSet.AllawiSantaLucia1997, "AAA", "TTT", false, 0.0, 0.0)]
+    public void TryGetNearestNeighborDuplexStep_BiopythonTables(
+        NnParameterSet set, string top, string bottom, bool found, double dH, double dS)
+    {
+        bool ok = ThermoConstants.TryGetNearestNeighborDuplexStep(set, top, bottom, out var p);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ok, Is.EqualTo(found));
+            Assert.That(p.DeltaH, Is.EqualTo(dH));
+            Assert.That(p.DeltaS, Is.EqualTo(dS));
+        });
+    }
+
+    [Test]
+    public void TryGetNearestNeighborDuplexStep_NullStrand_False()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ThermoConstants.TryGetNearestNeighborDuplexStep(NnParameterSet.AllawiSantaLucia1997, null!, "TT", out _), Is.False);
+            Assert.That(ThermoConstants.TryGetNearestNeighborDuplexStep(NnParameterSet.AllawiSantaLucia1997, "AA", null!, out _), Is.False);
+        });
+    }
 }
