@@ -67,6 +67,7 @@
 1. `expected_vaf_fun(m, M, mut.allele, p) = mut.allele·p / (2(1−p) + p(m+M))` — identical to the vignette formula (c = 1).
 2. `expectations_generalised` enumerates multiplicities `1:m` and `1:M` only, i.e. 1 ≤ multiplicity ≤ Major ≤ n_tot.
 3. Python port cross-check (IEEE double): forward VAFs 3:1 m=3 p=0.7 → 0.6176470588235293; 3:1 m=1 → 0.20588235294117646; 2:0 m=2 p=0.45 → 0.45; 1:0 p=0.8 → 0.6666666666666667; 2:2 m=2 p=0.35 → 0.25925925925925924; the inversion π = 2v/[m + v(2−n_tot)] recovers p to ≤ 2 ulp. At p = 1 the clonal peak v = m/n_tot inverts to 1 + k·ulp for 66 of the 210 (m ≤ n_tot ≤ 20) pairs (e.g. m=1, n_tot=5 → 1.0000000000000002); maximum excess over n_tot ≤ 2000 is 922 ulp ≈ 0.47·(n_tot+4)·ε.
+4. FIN-B24 re-verification (2026-10-09): CNAqc `expected_vaf_fun` evaluated in R: (1,4,1,1) → 0.20000000000000001, (2,3,2,1) → 0.40000000000000002 (the doubles of literals 0.2 / 0.4); `sort(unique(c(1:m,1:M)))` for 1:4 → 1..4, for 2:3 → 1..3 (max multiplicity = Major). Tolerance (n_tot+4)·ε, ε = 2⁻⁵² (Python IEEE double, same operation order as C#): all 2 001 000 exact peaks v = m/n_tot, 1 ≤ m ≤ n_tot ≤ 2000, accepted (max excess 0.468·(n_tot+4)·ε) and clamp to 1.0; with v = (m/n_tot)(1+1e-9) 0 of 1 999 000 pairs (v ≤ 1) falsely accepted.
 
 ---
 
@@ -145,3 +146,4 @@
 
 - **2026-06-14**: Initial documentation.
 - **2026-09-28**: B24 review — CNAqc R source cross-check; boundary-rounding and multiplicity-bound defects recorded (cross-batch, B22 file).
+- **2026-10-09**: FIN-B24 F24/F25 — m > n_tot rejected; π = 1 rounding tolerance (n_tot+4)·ε with clamp; R + Python re-verification recorded (point 4).

@@ -680,7 +680,8 @@ public static partial class OncologyAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="variants"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="variants"/> is empty (purity is undefined).</exception>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// A variant has vaf ∉ [0, 1], multiplicity &lt; 1, n_tot &lt; 1, or yields a purity outside [0, 1].
+    /// A variant has vaf ∉ [0, 1], multiplicity &lt; 1, n_tot &lt; 1, multiplicity &gt; n_tot, or yields a purity
+    /// outside [0, 1] (beyond a machine-ε rounding tolerance of (n_tot + 4)·ε, which is clamped to 1).
     /// </exception>
     public static double EstimatePurity(IEnumerable<PurityVariant> variants)
     {
@@ -704,6 +705,8 @@ public static partial class OncologyAnalyzer
     /// Inverts the CNAqc expected-VAF relation for a single allele-specific variant:
     /// π = 2·v / [m + v·(2 − n_tot)].
     /// </summary>
+    private const double PurityInversionMachineEpsilon = 2.220446049250313e-16; // IEEE-754 double machine ε (2^-52)
+
     private static double EstimatePurityFromAlleleSpecificVaf(in PurityVariant variant)
     {
         if (double.IsNaN(variant.Vaf) || variant.Vaf < 0.0 || variant.Vaf > 1.0)
@@ -724,6 +727,14 @@ public static partial class OncologyAnalyzer
                 nameof(variant), variant.TumorTotalCopyNumber, "Tumour total copy number n_tot must be at least 1.");
         }
 
+        // CNAqc expectations_generalised enumerates multiplicities only over 1..Major ≤ n_tot.
+        if (variant.Multiplicity > variant.TumorTotalCopyNumber)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(variant), variant.Multiplicity,
+                "Multiplicity m cannot exceed the tumour total copy number n_tot (CNAqc: m ∈ 1..Major).");
+        }
+
         // π = 2v / [m + v(2 − n_tot)], the algebraic inverse of v = mπ / [2(1−π) + π·n_tot].
         double denominator = variant.Multiplicity + variant.Vaf * (NormalDiploidCopyNumber - variant.TumorTotalCopyNumber);
         if (denominator <= 0.0)
@@ -734,14 +745,18 @@ public static partial class OncologyAnalyzer
         }
 
         double purity = NormalDiploidCopyNumber * variant.Vaf / denominator;
-        if (purity < 0.0 || purity > 1.0)
+
+        // An exact clonal peak at π = 1 (v = m/n_tot) can round to 1 + a few ulp; the inversion error is
+        // ≤ 0.47·(n_tot + 4)·ε for n_tot ≤ 2000, so accept up to (n_tot + 4)·ε and clamp to 1.
+        double tolerance = (variant.TumorTotalCopyNumber + 4) * PurityInversionMachineEpsilon;
+        if (purity < 0.0 || purity > 1.0 + tolerance)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(variant), variant.Vaf,
                 "The (VAF, multiplicity, copy-number) combination yields a purity outside [0, 1].");
         }
 
-        return purity;
+        return Math.Min(1.0, purity);
     }
 
     /// <summary>Median of a non-empty list of values (lower-mid average for even counts). Does not mutate the input.</summary>

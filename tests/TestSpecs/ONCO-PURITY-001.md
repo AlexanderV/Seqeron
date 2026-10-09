@@ -178,7 +178,13 @@
 | `EstimatePurity_CnaqcExpectedVafFun_RoundTripRecoversPurity` (6 karyotypes) | CNAqc `R/equations.R` `expected_vaf_fun`, Python port values |
 | `EstimateCcf_RawCcf_EqualsCanonicalPurityCorrectionOverMultiplicity` | dedup lock: EstimateCcf/DeriveMultiplicity route through `AdjustVAFForPurity` |
 
-Open (cross-batch, code in B22-owned `OncologyAnalyzer.SomaticCalling.cs`): tests for m > n_tot rejection and the π = 1 boundary (v 0.2, m 1, n_tot 5 → 1.0) are added with the fix.
+| `EstimatePurity_MultiplicityAboveTotalCopyNumber_Throws` (v 0.5, m 3, n_tot 2) | CNAqc `expectations_generalised` m ∈ 1..Major (R source); FIN-B24 F24 |
+| `EstimatePurity_ExactClonalPeakAtFullPurity_ReturnsExactlyOne` ((0.2,1,5), (0.4,2,5) → 1.0) | CNAqc `expected_vaf_fun(1,4,1,1)` = 0.20000000000000001, `(2,3,2,1)` = 0.40000000000000002 in R; raw inversion 1.0000000000000002; FIN-B24 F25 |
+| `EstimatePurity_SlightlyAboveFullPurityPeak_StillThrows` (v 0.2·(1+1e-9), m 1, n_tot 5 → π 1.0000000025000004) | tolerance guard; FIN-B24 F25 |
+
+Property `KnownPurityVariantGen` (Properties/OncologyProperties.cs) now draws π ∈ (0, 1] (cap 950‰ → 1000‰) since the π = 1 boundary no longer throws (FIN-B24 F25; property class passes, 422 tests).
+
+Fixed (FIN-B24 F24/F25, code in B22-owned `OncologyAnalyzer.SomaticCalling.cs` under orchestrator special permission).
 
 ## 6. Assumption Register
 

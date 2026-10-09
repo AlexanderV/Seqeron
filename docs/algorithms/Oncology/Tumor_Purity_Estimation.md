@@ -65,7 +65,7 @@ For a clonal **heterozygous** SNV at a **copy-neutral diploid** locus (m = 1, n_
 |------|------|---------|-------------|-------------|
 | variants (`EstimatePurityFromVAF`) | `IEnumerable<VariantObservation>` | required | Clonal heterozygous diploid somatic SNVs | non-null, non-empty; valid read counts; each VAF ≤ 0.5 |
 | vaf (`EstimatePurityFromVaf`) | `double` | required | Single clonal het diploid SNV VAF | ∈ [0, 0.5] |
-| variants (`EstimatePurity`) | `IEnumerable<PurityVariant>` | required | Clonal SNVs with VAF, multiplicity m, total CN n_tot | non-null, non-empty; m ≥ 1; n_tot ≥ 1; VAF ∈ [0,1] |
+| variants (`EstimatePurity`) | `IEnumerable<PurityVariant>` | required | Clonal SNVs with VAF, multiplicity m, total CN n_tot | non-null, non-empty; 1 ≤ m ≤ n_tot; VAF ∈ [0,1] |
 
 ### 3.2 Output / Return Value
 
@@ -75,7 +75,7 @@ For a clonal **heterozygous** SNV at a **copy-neutral diploid** locus (m = 1, n_
 
 ### 3.3 Preconditions and Validation
 
-Null collections throw `ArgumentNullException`; empty collections throw `ArgumentException` (purity undefined). A VAF outside [0,1] throws `ArgumentOutOfRangeException`; for the diploid model a VAF > 0.5 (implying ρ > 1) throws `ArgumentOutOfRangeException`. For the allele-specific overload, m < 1 or n_tot < 1, or any (VAF, m, n_tot) combination yielding ρ outside [0,1] (including a non-positive denominator), throws `ArgumentOutOfRangeException`. Read counts are validated via `CalculateVAF` (alt/total) as in ONCO-VAF-001.
+Null collections throw `ArgumentNullException`; empty collections throw `ArgumentException` (purity undefined). A VAF outside [0,1] throws `ArgumentOutOfRangeException`; for the diploid model a VAF > 0.5 (implying ρ > 1) throws `ArgumentOutOfRangeException`. For the allele-specific overload, m < 1, n_tot < 1, m > n_tot, or any (VAF, m, n_tot) combination yielding ρ outside [0,1] (including a non-positive denominator), throws `ArgumentOutOfRangeException`; a computed ρ in (1, 1 + (n_tot+4)·ε] is IEEE rounding of an exact π = 1 peak and is clamped to 1.0. Read counts are validated via `CalculateVAF` (alt/total) as in ONCO-VAF-001.
 
 ## 4. Algorithm
 
@@ -135,8 +135,8 @@ Collection overloads aggregate per-variant purities by median (lower-mid average
 |---|------|------|--------|--------|-------|
 | 1 | VAF-only estimator fixes m=1, n_tot=2 | Assumption | Wrong on amplified/LOH loci | accepted | ASM-02; use `EstimatePurity` for other states |
 | 2 | Median aggregation | Assumption | Robust central estimate, not a fitted value | accepted | does not change the per-variant formula |
-| 3 | Multiplicity not bounded by n_tot in `EstimatePurity` | Defect (open, B22 file) | m > n_tot (physically impossible; CNAqc `expectations_generalised` uses m ∈ 1..Major) is accepted, e.g. (v 0.5, m 3, n_tot 2) → 1/3 | pending cross-batch fix | review-2026-09 B24 F7 |
-| 4 | Boundary π = 1 rounding in `EstimatePurity` | Defect (open, B22 file) | the exact CNAqc clonal peak at π = 1, v = m/n_tot, can evaluate to 1 + k·ulp and is rejected, e.g. (v 0.2, m 1, n_tot 5) throws | pending cross-batch fix | review-2026-09 B24 F8 |
+| 3 | Multiplicity bounded by n_tot in `EstimatePurity` | Validation (fixed) | m > n_tot (physically impossible; CNAqc `expectations_generalised` enumerates m ∈ 1..Major ≤ n_tot) throws `ArgumentOutOfRangeException`, e.g. (v 0.5, m 3, n_tot 2) — previously returned 1/3 | fixed | review-2026-09 B24 F7 → FIN-B24 F24 |
+| 4 | Boundary π = 1 rounding in `EstimatePurity` | Numerical tolerance (fixed) | the exact CNAqc clonal peak at π = 1, v = m/n_tot, can evaluate to 1 + k·ulp (≤ 0.47·(n_tot+4)·ε for n_tot ≤ 2000); a computed π ≤ 1 + (n_tot+4)·ε (ε = 2⁻⁵²) is accepted and clamped to 1.0, e.g. (v 0.2, m 1, n_tot 5) → 1.0, (v 0.4, m 2, n_tot 5) → 1.0; larger excess still throws | fixed | review-2026-09 B24 F8 → FIN-B24 F25 |
 
 ## 6. Edge Cases and Limitations
 
@@ -150,6 +150,8 @@ Collection overloads aggregate per-variant purities by median (lower-mid average
 | Empty collection | ArgumentException | purity undefined [1] |
 | null collection | ArgumentNullException | guard |
 | n_tot < 1 or m < 1 (allele-specific) | ArgumentOutOfRangeException | formula domain |
+| m > n_tot (allele-specific) | ArgumentOutOfRangeException | CNAqc m ∈ 1..Major ≤ n_tot |
+| v = m/n_tot (π = 1 clonal peak) | purity = 1.0 exactly | rounding excess ≤ (n_tot+4)·ε clamped |
 
 ### 6.2 Limitations
 

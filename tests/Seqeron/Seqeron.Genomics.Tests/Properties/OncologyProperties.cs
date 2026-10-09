@@ -7106,11 +7106,9 @@ public class OncologyProperties
     /// expected VAF v = m·π / [2 + π·(n_tot−2)] ∈ [0,1]. EstimatePurity must recover π.
     /// </summary>
     private static Gen<(double pi, int m, int nTot, double vaf)> KnownPurityVariantGen() =>
-        // π capped strictly below 1 so the inverse round-trip cannot round to just above 1.0
-        // (EstimatePurity rejects a computed purity > 1).
         from nTot in Gen.Choose(1, 6)
         from m in Gen.Choose(1, nTot)
-        from piMilli in Gen.Choose(1, 950)
+        from piMilli in Gen.Choose(1, 1000)
         let pi = piMilli / 1000.0
         let vaf = m * pi / (2.0 + pi * (nTot - 2))
         select (pi, m, nTot, vaf);
