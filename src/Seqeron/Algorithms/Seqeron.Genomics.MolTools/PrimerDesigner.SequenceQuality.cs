@@ -30,7 +30,7 @@ public static partial class PrimerDesigner
         IReadOnlyList<int> quality, int position, int length, bool isForward, int qualityRangeMax = Primer3QualityRangeMax)
     {
         ArgumentNullException.ThrowIfNull(quality);
-        if (length < 1 || position < 0 || position + length > quality.Count)
+        if (length < 1 || position < 0 || position > quality.Count - length) // overflow-safe (heavy-tier guard fuzz, F74)
             throw new ArgumentOutOfRangeException(nameof(position), "The oligo must lie inside the quality array.");
         int j = position, k = position + length - 1;
         // The 3' window first (left / internal: k-4..k; right: j..j+4), then the rest with the running minimum.

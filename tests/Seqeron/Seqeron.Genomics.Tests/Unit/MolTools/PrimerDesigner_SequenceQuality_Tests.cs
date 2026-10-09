@@ -92,6 +92,18 @@ public class PrimerDesigner_SequenceQuality_Tests
         Assert.Throws<ArgumentOutOfRangeException>(() => PrimerDesigner.CalculateSequenceQualityPrimer3(Q, 290, 20, true));
     }
 
+    [TestCase(int.MaxValue, 1)]
+    [TestCase(1, int.MaxValue)]
+    [TestCase(int.MaxValue, int.MaxValue)]
+    public void CalculateSequenceQualityPrimer3_PositionPlusLengthOverflow_ThrowsNamedArgumentOutOfRange(int position, int length)
+    {
+        // B07 F74 (heavy-tier guard fuzz): position + length overflowed past the site check and reached the raw
+        // collection indexer (AOORE "index"); the site check is now overflow-safe and names the parameter.
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => PrimerDesigner.CalculateSequenceQualityPrimer3(Q, position, length, false));
+        Assert.That(ex!.ParamName, Is.EqualTo("position"));
+    }
+
     #endregion
 
     #region Pair designs
