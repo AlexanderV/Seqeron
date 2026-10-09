@@ -27,7 +27,12 @@ and commits it after every change. Batch definitions (units, owned files) are in
   strands / terminal LNA, genome-wide primer specificity, extreme-score K runtime). Full `Seqeron.Genomics.Tests`
   24397/0, Mcp.MolTools 214/0. WIP branch -wip-B07 = main (clean). resume5 cost ≈ $158.9.
 - **Everything paused by user:** nothing launched after B07 — no finisher, no B08, no other batch. B08
-  (session_01NvVQb3FM1E4YGuhxEtXqjH) stays paused, not archived. Check-in trigger disabled.
+  (session_01NvVQb3FM1E4YGuhxEtXqjH) stays paused, not archived. Check-in trigger trig_01MvAagyZjUaqveNm9GXWGtm
+  disabled. Old B07 session_01AJjD6znMPKvtM3iddFir9r idle, not archived. Branch carries 54 commits not yet in master
+  (no PR yet — only on the user's request).
+- Batch status: fully done B04 B05 B06 B07; units done but FINISHER needed B01 B02 (1 open item) B03 B24 (2 LIMITED);
+  B08 2/6 paused; B09–B23, B25, B26 not run under the full process (first-pass 09-28: 0–3 units each);
+  Phase 2 and consolidation not started.
 - Next when the user resumes: queue order as above (B08 resume first, then new batches, then finishers).
 
 ### Earlier state (2026-10-08 11:48 UTC)
