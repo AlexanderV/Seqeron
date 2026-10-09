@@ -48,6 +48,7 @@
 |--------|-------|------|-------|
 | `AnalyzeGcContent(DnaSequence, windowSize, stepSize)` | GcSkewCalculator | **Canonical** | Aggregates GC content, GC skew, AT skew, windowed profiles, population variances. |
 | `AnalyzeGcContent(string, windowSize, stepSize)` | GcSkewCalculator | **Delegate** | New string overload; same core, smoke-tested for delegation + null/empty. |
+| `CalculateWindowedGcContent(string\|DnaSequence, windowSize, stepSize, fraction)` / `(string, w, step, fraction, GcAmbiguityMode)` | GcSkewCalculator | **Canonical driver** (review 2026-09 B03 R18, F27) | Public exposure of the single sliding-GC driver behind `WindowedGcContent`; ambiguity overload scores windows with Biopython `gc_fraction(…, ambiguous=…)`. |
 
 ---
 
@@ -82,6 +83,10 @@
 | M10 | RNA U counted in GC denominator (review 2026-09, F1) | "GGAUCUUCGGAUCU" w=7,step=7; "ACGU" fraction | GC% 50; windows 42.857142857142854, 57.14285714285714; variance 51.0204081632653; ACGU fraction 0.5 | Biopython 1.88 `gc_fraction` (docstring example 0.50); numpy.var |
 | M11 | window/step < 1 rejected (review 2026-09, F2) | w∈{0,−1} or step∈{0,−2}, both overloads, also for "" | ArgumentOutOfRangeException | Biopython `GC_skew(seq,0)` → ValueError; zero step never terminated |
 | M12 | Canonical population variance | StatisticsHelper.PopulationVariance {12,13,12,14,19} | 6.8; empty → 0 | Source 4; numpy.var |
+| M13 | `CalculateWindowedGcContent` per-window values (F27) | "ATGCGCGATTACGGCCATatgcgt" w=5,step=3, fraction | [0.6, 0.8, 0.2, 0.6, 0.8, 0.2, 0.6]; starts 0..18 step 3; Position start+2; % = ×100; equals `AnalyzeGcContent(...).WindowedGcContent`; variance 0.053877551020408164 | Biopython 1.88 `gc_fraction(s[i:i+5])`; numpy.var |
+| M14 | Ambiguity overload (F27) | "GGSNNBWAAC" w=4,step=2 | remove [1,1,0,0.25]; ignore [0.75,0.25,0,0.25]; weighted [0.875, 0.6666666666666666, 0.29166666666666663, 0.25] | Biopython 1.88 `gc_fraction(win, ambiguous=…)` |
+| M15 | Driver guards (F27) | w/step < 1 (also ""), null DnaSequence, null/"" string, w > len, step = int.MaxValue | AOORE; ANE; empty; empty; single window, no overflow | sibling windowed methods |
+| M16 | MCP `analyze_gc_content` `fraction=true` (F26) | "GGGCCAT" w=4,step=3 | overall 0.7142857142857143; windows [1.0, 0.5]; GC variance 0.0625; skew variance 0.5625 | Biopython 1.88 `gc_fraction`, `GC_skew`; numpy.var |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 

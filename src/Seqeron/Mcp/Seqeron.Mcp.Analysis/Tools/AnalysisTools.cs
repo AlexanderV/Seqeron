@@ -2799,14 +2799,15 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "analyze_gc_content", Title = "GC — Comprehensive Analysis", ReadOnly = true)]
-    [Description("Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles.")]
+    [Description("Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. GC content is a percentage [0,100] by default, or a fraction [0,1] with fraction=true.")]
     public static AnalyzeGcContentResult AnalyzeGcContent(
         [Description("DNA sequence.")] string sequence,
         [Description("Window size (default 1000).")] int windowSize = 1000,
-        [Description("Step size (default 100).")] int stepSize = 100)
+        [Description("Step size (default 100).")] int stepSize = 100,
+        [Description("Report overall and windowed GC content (and its variance) as a fraction in [0,1] (Biopython gc_fraction) instead of a percentage. Default false.")] bool fraction = false)
     {
         var dna = RequireDna(sequence, nameof(sequence));
-        var r = GcSkewCalculator.AnalyzeGcContent(dna, windowSize, stepSize);
+        var r = GcSkewCalculator.AnalyzeGcContent(dna, windowSize, stepSize, fraction);
         var skewPoints = r.WindowedGcSkew
             .Select(p => new GcSkewPointItem(p.Position, p.GcSkew, p.WindowStart, p.WindowEnd))
             .ToArray();

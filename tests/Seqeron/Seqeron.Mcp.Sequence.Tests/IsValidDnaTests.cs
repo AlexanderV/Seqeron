@@ -34,4 +34,16 @@ public class IsValidDnaTests
         var lowercase = SequenceTools.IsValidDna("atgc");
         Assert.That(lowercase.IsValid, Is.True);
     }
+
+    [Test]
+    public void IsValidDna_Iupac_AcceptsAmbiguityCodes()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceTools.IsValidDna("ACGTN").IsValid, Is.False);
+            Assert.That(SequenceTools.IsValidDna("ACGTRYSWKMBDHVN", iupac: true).IsValid, Is.True);
+            Assert.That(SequenceTools.IsValidDna("ACGU", iupac: true).IsValid, Is.False);
+            Assert.That(SequenceTools.IsValidDna("ACG-", iupac: true).IsValid, Is.False);
+        });
+    }
 }

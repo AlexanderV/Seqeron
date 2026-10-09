@@ -21,7 +21,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 |------|-------------|
 | `alphabet_pwm_score_pvalue` | Exact p-value of a score / exact score threshold of a p-value for a PWM over any alphabet (protein, RNA, …) built from aligned instances — the TFM-Pvalue engine of pwm_score_pvalue with K rows… |
 | `alphabet_pwm_score_thresholds` | Score thresholds (FPR / FNR / balanced / patser) of an any-alphabet PWM from its discretised score distribution — Biopython pssm.distribution… |
-| `analyze_gc_content` | Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. |
+| `analyze_gc_content` | Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles (`fraction=true` for [0,1]). |
 | `analyze_kmers` | Aggregate k-mer statistics (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters and canonical (count -C) / acgtOnly modes. |
 | `at_skew` | Whole-sequence AT skew = (A - T) / (A + T). |
 | `base_pair_type` | Classification of an RNA base-pair candidate: WatsonCrick, Wobble, or null if bases cannot pair. |

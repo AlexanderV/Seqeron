@@ -90,6 +90,7 @@ represent uncertainty in consensus sequences and are correctly rejected by unamb
 | `DnaSequence(string)` constructor | DnaSequence | Constructor | Throws on invalid input |
 | `IndexOfInvalidDna/Rna(ReadOnlySpan<char>)` | SequenceExtensions | **Canonical predicate** | First invalid index or -1; used by IsValid*, ctors, MCP `dna_validate`/`rna_validate` |
 | `IsValidIupacDna/Rna(ReadOnlySpan<char>)` | SequenceExtensions | IUPAC mode | Biopython `ambiguous_dna_letters` "GATCRYWSMKHBVDN" / `ambiguous_rna_letters` "GAUCRYWSMKHBVDN"; gaps rejected |
+| `IndexOfInvalidIupacDna/Rna(ReadOnlySpan<char>)` | SequenceExtensions | IUPAC predicate (F26) | First index outside the IUPAC alphabet or -1; backs `IsValidIupac*` and MCP `dna_validate`/`rna_validate` `iupac=true` |
 | `IupacHelper.IsNucleotideCode(char)` | IupacHelper | Code set | The 15 NC-IUB 1984 DNA codes (upper case) |
 
 ---
@@ -238,6 +239,8 @@ represent uncertainty in consensus sequences and are correctly rejected by unamb
 |------|--------|--------|
 | `IndexOfInvalidDna_ReturnsFirstInvalidPosition` (7) / `IndexOfInvalidRna_…` (5) | e.g. `"ACGTX"`→4, `"ACGU"`→3 (DNA), `"ACGT"`→3 (RNA); asserts INV-5 TryCreate ⇔ IsValid | Biopython unambiguous letters |
 | `IsValidIupac_MatchesBiopythonAndScikitBio` (14) | `"ACGTNRYSWKMBDHV"`→(DNA true, RNA false); `"ACGUNRYSWKMBDHV"`→(false, true); `"AC-GT"`, `"ACGX"`, `"ſ"`→(false, false) | Biopython 1.88 ambiguous_*_letters; scikit-bio 0.7.4 DNA/RNA(lowercase=True) |
+| `IndexOfInvalidIupac_ReturnsFirstOffendingPosition` (5) | `""`→(−1,−1); `"ACGTNRYSWKMBDHV"`→(−1, 3); `"acgunryswkmbdhv"`→(3, −1); `"ACNX"`→(3,3); `"AC-G"`→(2,2) | Biopython 1.88 ambiguous_*_letters |
+| MCP `DnaValidate/RnaValidate/IsValidDna/IsValidRna` `iupac=true` (F26) | `"ACGTRYSWKMBDHVN"` valid (DNA); `"ACGNU"` → "Invalid nucleotide 'U' at position 4"; `"ACGTN"` (RNA) → 'T' at 3; strict default unchanged; `""` still throws (MCP convention) | Biopython 1.88; scikit-bio 0.7.4 DNA("ACGTN") ok, DNA("ACGTU") ValueError |
 | `IupacHelper_IsNucleotideCode_ExactlyFifteenCodes` | ASCII set = "ABCDGHKMNRSTVWY" | Biopython ambiguous_dna_letters |
 | `IupacDnaSequence_LongSNonAscii_IsInvalid` | `IupacDnaSequence("ACſ").IsValid()` = false (was true: invariant upper-casing mapped U+017F→'S') | scikit-bio DNA("ſ", lowercase=True) raises |
 | `IupacDnaSequence_ExpandCodeAndMatchesAt_NonAsciiLettersNotFolded` | `ExpandCode('ſ'/'ı'/'K')` = {N} (was {G,C} for 'ſ'); pattern 'ſ' matches only literal 'ſ' (was G/C/S) | Biopython `ambiguous_dna_values` has no 'ſ' (nt_search KeyError); scikit-bio DNA('ſ') raises |

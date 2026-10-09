@@ -27,9 +27,13 @@ no full window exists, so both windowed profiles are empty and both window-deriv
 variances are 0, while the overall scalar metrics are still computed over the whole
 sequence.
 
+With `fraction=true` (Core `AnalyzeGcContent(…, fraction: true)`) the overall and windowed GC content
+are reported in [0,1] like Biopython 1.88 `Bio.SeqUtils.gc_fraction`, and `gcContentVariance` is the
+variance of those fractions (= the percentage variance / 10⁴); the skew fields are unchanged.
+
 ## Core Documentation Reference
 
-- Source: [GcSkewCalculator.cs#L310](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L310)
+- Source: [GcSkewCalculator.cs#L861](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L861)
 - Evidence: `docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md`
 
 ## Input Schema
@@ -39,15 +43,16 @@ sequence.
 | `sequence` | string | Yes | DNA sequence (A/C/G/T, min length 1) |
 | `windowSize` | integer | No | Sliding-window length for the profiles (default 1000) |
 | `stepSize` | integer | No | Step between window starts (default 100) |
+| `fraction` | boolean | No | Report overall and windowed GC content (and its variance) as a fraction in [0,1] (Biopython gc_fraction) instead of a percentage. Default false. |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `overallGcContent` | number | GC% over the whole sequence, `(G+C)/(A+T+G+C)·100` |
+| `overallGcContent` | number | GC% over the whole sequence, `(G+C)/(A+T+G+C)·100` (a fraction in [0,1] with `fraction=true`) |
 | `overallGcSkew` | number | GC skew `(G−C)/(G+C)`, in [−1, 1] |
 | `overallAtSkew` | number | AT skew `(A−T)/(A+T)`, in [−1, 1] |
-| `gcContentVariance` | number | Population variance of per-window GC% |
+| `gcContentVariance` | number | Population variance of per-window GC% (of per-window fractions with `fraction=true`) |
 | `gcSkewVariance` | number | Population variance of per-window GC skew |
 | `windowedGcSkew` | array | Per-window GC-skew points (`position`, `gcSkew`, `windowStart`, `windowEnd`) |
 | `windowedGcContent` | array | Per-window GC-content points (`position`, `gcContent`, `windowStart`, `windowEnd`) |
@@ -116,6 +121,29 @@ sequence.
 Windows `GG` (skew +1) and `CC` (skew −1): population variance of {+1, −1} is
 `((1−0)²+(−1−0)²)/2 = 1.0` (division by N, not N−1). Both windows are 100% GC, so
 `gcContentVariance = 0`.
+
+### Example 3: GC content as a fraction
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "analyze_gc_content",
+  "arguments": { "sequence": "GGGCCAT", "windowSize": 4, "stepSize": 3, "fraction": true }
+}
+```
+
+**Response (key fields):**
+```json
+{
+  "overallGcContent": 0.7142857142857143,
+  "overallGcSkew": 0.2,
+  "gcContentVariance": 0.0625,
+  "gcSkewVariance": 0.5625,
+  "sequenceLength": 7
+}
+```
+Windows `GGGC` and `CCAT`: Biopython `gc_fraction` 1.0 and 0.5 (population variance 0.0625),
+`GC_skew` 0.5 and −1.0 (population variance 0.5625).
 
 ## Performance
 

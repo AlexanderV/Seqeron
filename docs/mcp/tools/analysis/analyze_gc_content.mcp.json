@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GcSkewCalculator.AnalyzeGcContent",
-  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L310",
-  "description": "Comprehensive GC report: overall GC content, GC/AT skew, content/skew population variances, and windowed GC-skew/GC-content profiles.",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L861",
+  "description": "Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. GC content is a percentage [0,100] by default, or a fraction [0,1] with fraction=true.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -26,6 +26,11 @@
         "description": "Step between window starts",
         "default": 100,
         "minimum": 1
+      },
+      "fraction": {
+        "type": "boolean",
+        "description": "Report overall and windowed GC content (and its variance) as a fraction in [0,1] (Biopython gc_fraction) instead of a percentage. Default false.",
+        "default": false
       }
     },
     "required": ["sequence"]
@@ -33,10 +38,10 @@
   "outputSchema": {
     "type": "object",
     "properties": {
-      "overallGcContent": { "type": "number", "description": "GC% over whole sequence = (G+C)/(A+T+G+C)*100" },
+      "overallGcContent": { "type": "number", "description": "GC% over whole sequence = (G+C)/(A+T+G+C)*100 (fraction in [0,1] when fraction=true)" },
       "overallGcSkew": { "type": "number", "description": "GC skew = (G-C)/(G+C) in [-1,1]" },
       "overallAtSkew": { "type": "number", "description": "AT skew = (A-T)/(A+T) in [-1,1]" },
-      "gcContentVariance": { "type": "number", "description": "Population variance of per-window GC%" },
+      "gcContentVariance": { "type": "number", "description": "Population variance of per-window GC% (of per-window fractions when fraction=true)" },
       "gcSkewVariance": { "type": "number", "description": "Population variance of per-window GC skew" },
       "windowedGcSkew": {
         "type": "array",
@@ -98,6 +103,17 @@
         "gcSkewVariance": 1.0,
         "gcContentVariance": 0.0,
         "sequenceLength": 4
+      }
+    },
+    {
+      "name": "GC content as a fraction (fraction=true) on GGGCCAT (window 4, step 3)",
+      "input": { "sequence": "GGGCCAT", "windowSize": 4, "stepSize": 3, "fraction": true },
+      "output": {
+        "overallGcContent": 0.7142857142857143,
+        "overallGcSkew": 0.2,
+        "gcContentVariance": 0.0625,
+        "gcSkewVariance": 0.5625,
+        "sequenceLength": 7
       }
     }
   ]

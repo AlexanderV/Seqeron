@@ -16,6 +16,10 @@ Validate an RNA sequence.
 
 Validates whether a sequence contains only valid RNA nucleotides (A, C, G, U). Returns validation status, sequence length, and detailed error message if invalid. Case-insensitive validation. Note: T (thymine) is invalid in RNA; use U (uracil) instead.
 
+With `iupac=true` the alphabet widens to the 15 IUPAC nucleotide codes (Biopython 1.88 `IUPACData.ambiguous_rna_letters` (`GAUCRYWSMKHBVDN`) = scikit-bio `RNA` definite ∪ degenerate chars), delegating to Core `SequenceExtensions.IndexOfInvalidIupacRna`; T, `X` and gap symbols remain invalid. The default (`false`) keeps the strict behaviour.
+
+**Empty input** is rejected with error 1001, as by every Seqeron MCP tool: null/empty input → `ArgumentException` is the project-wide MCP input convention (`docs/mcp-prompt.md`, Definition of Done §1–§2). This deliberately differs from the Core predicates (`SequenceExtensions.IsValid*` return `true` for an empty span), Biopython and scikit-bio, which treat a zero-length sequence as valid.
+
 ## Core Documentation Reference
 
 - Source: [RnaSequence.cs#L176](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/RnaSequence.cs#L176)
@@ -25,6 +29,7 @@ Validates whether a sequence contains only valid RNA nucleotides (A, C, G, U). R
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The RNA sequence to validate (min length: 1) |
+| `iupac` | boolean | No | Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (T, X and gaps still invalid). Default false = strict A/C/G/U. |
 
 ## Output Schema
 
@@ -87,6 +92,28 @@ Validates whether a sequence contains only valid RNA nucleotides (A, C, G, U). R
   "valid": false,
   "length": 8,
   "error": "Invalid nucleotide 'T' at position 3"
+}
+```
+
+### Example 3: IUPAC ambiguity codes accepted with `iupac=true`
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "rna_validate",
+  "arguments": {
+    "sequence": "ACGURYN",
+    "iupac": true
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "valid": true,
+  "length": 7,
+  "error": null
 }
 ```
 

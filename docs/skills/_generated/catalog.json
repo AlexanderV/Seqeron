@@ -207,7 +207,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.AnalyzeGcContent",
     "docPath": "docs/mcp/tools/analysis/analyze_gc_content.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L310"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L861"
   },
   {
     "tool": "analyze_kmers",

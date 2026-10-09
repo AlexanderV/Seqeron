@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceExtensions.IsValidRna",
   "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L225",
-  "description": "Quick check if a sequence contains only valid RNA characters (A, U, G, C). Faster than rna_validate but returns less information.",
+  "description": "Quick check if a sequence contains only valid RNA characters (A, U, G, C; case-insensitive); iupac=true also accepts the IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N. Faster than rna_validate but returns less information. Empty input is rejected.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -14,6 +14,11 @@
         "type": "string",
         "description": "The sequence to validate",
         "minLength": 1
+      },
+      "iupac": {
+        "type": "boolean",
+        "description": "Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (T, X and gaps still invalid). Default false = strict.",
+        "default": false
       }
     },
     "required": ["sequence"]
@@ -39,6 +44,11 @@
       "name": "Invalid RNA (contains T)",
       "input": { "sequence": "ATGC" },
       "output": { "isValid": false, "length": 4 }
+    },
+    {
+      "name": "IUPAC-ambiguous RNA (iupac=true)",
+      "input": { "sequence": "ACGURYN", "iupac": true },
+      "output": { "isValid": true, "length": 7 }
     }
   ]
 }

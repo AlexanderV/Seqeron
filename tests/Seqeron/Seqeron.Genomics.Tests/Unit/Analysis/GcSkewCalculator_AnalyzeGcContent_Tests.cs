@@ -317,4 +317,97 @@ public class GcSkewCalculator_AnalyzeGcContent_Tests
     }
 
     #endregion
+
+    #region CalculateWindowedGcContent — public sliding-GC driver (review 2026-09 B03 R18, F27)
+
+    // M13 — per-window GC fraction locked to Biopython 1.88:
+    //   s = "ATGCGCGATTACGGCCATatgcgt"; [gc_fraction(s[i:i+5]) for i in range(0, len(s)-4, 3)]
+    //   = [0.6, 0.8, 0.2, 0.6, 0.8, 0.2, 0.6]  (lower case folded; trailing partial window dropped).
+    // Position = start + 5/2, WindowEnd = start + 4 (inclusive).
+    [Test]
+    public void CalculateWindowedGcContent_MatchesBiopythonPerWindowGcFraction()
+    {
+        const string s = "ATGCGCGATTACGGCCATatgcgt";
+        double[] expected = { 0.6, 0.8, 0.2, 0.6, 0.8, 0.2, 0.6 };
+
+        var fractions = GcSkewCalculator.CalculateWindowedGcContent(s, 5, 3, fraction: true).ToList();
+        var percents = GcSkewCalculator.CalculateWindowedGcContent(s, 5, 3).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fractions.Select(p => p.GcContent), Is.EqualTo(expected).Within(1e-12));
+            Assert.That(percents.Select(p => p.GcContent), Is.EqualTo(expected.Select(f => f * 100.0)).Within(1e-10));
+            Assert.That(fractions.Select(p => p.WindowStart), Is.EqualTo(new[] { 0, 3, 6, 9, 12, 15, 18 }));
+            Assert.That(fractions.Select(p => p.Position), Is.EqualTo(new[] { 2, 5, 8, 11, 14, 17, 20 }));
+            Assert.That(fractions.Select(p => p.WindowEnd), Is.EqualTo(new[] { 4, 7, 10, 13, 16, 19, 22 }));
+        });
+    }
+
+    // M13 (cont.) — it is the driver behind AnalyzeGcContent: identical windows and values; the
+    // DnaSequence overload agrees with the string overload.
+    [Test]
+    public void CalculateWindowedGcContent_IsTheAnalyzeGcContentDriver()
+    {
+        const string s = "ATGCGCGATTACGGCCATATGCGT";
+        var analysis = GcSkewCalculator.AnalyzeGcContent(s, 5, 3, fraction: true).WindowedGcContent;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(GcSkewCalculator.CalculateWindowedGcContent(s, 5, 3, fraction: true), Is.EqualTo(analysis));
+            Assert.That(GcSkewCalculator.CalculateWindowedGcContent(new DnaSequence(s), 5, 3, fraction: true),
+                Is.EqualTo(analysis));
+            // numpy.var(ddof=0) of the Biopython per-window fractions = 0.053877551020408164.
+            Assert.That(GcSkewCalculator.AnalyzeGcContent(s, 5, 3, fraction: true).GcContentVariance,
+                Is.EqualTo(0.053877551020408164).Within(1e-12));
+        });
+    }
+
+    // M14 — ambiguity overload locked to Biopython 1.88 gc_fraction(window, ambiguous=…):
+    //   "GGSNNBWAAC", w=4, step=2 → windows GGSN, SNNB, NBWA, WAAC
+    //   remove   [1.0, 1.0, 0.0, 0.25]
+    //   ignore   [0.75, 0.25, 0.0, 0.25]
+    //   weighted [0.875, 0.6666666666666666, 0.29166666666666663, 0.25]
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Remove, new[] { 1.0, 1.0, 0.0, 0.25 })]
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Ignore, new[] { 0.75, 0.25, 0.0, 0.25 })]
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Weighted, new[] { 0.875, 0.6666666666666666, 0.29166666666666663, 0.25 })]
+    public void CalculateWindowedGcContent_AmbiguityMode_MatchesBiopython(
+        SequenceExtensions.GcAmbiguityMode mode, double[] expected)
+    {
+        var points = GcSkewCalculator.CalculateWindowedGcContent("GGSNNBWAAC", 4, 2, true, mode).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(points.Select(p => p.GcContent), Is.EqualTo(expected).Within(1e-12));
+            Assert.That(points.Select(p => p.WindowStart), Is.EqualTo(new[] { 0, 2, 4, 6 }));
+            Assert.That(GcSkewCalculator.CalculateWindowedGcContent("GGSNNBWAAC", 4, 2, false, mode)
+                .Select(p => p.GcContent), Is.EqualTo(expected.Select(f => f * 100.0)).Within(1e-10));
+        });
+    }
+
+    // M15 — guards as the sibling windowed methods: window/step < 1 throw eagerly (also for ""),
+    // null DnaSequence throws, null/empty string or window > length yields no windows; a huge step
+    // terminates after the first window (no int overflow).
+    [Test]
+    public void CalculateWindowedGcContent_Guards()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => GcSkewCalculator.CalculateWindowedGcContent("ACGT", 0, 1),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => GcSkewCalculator.CalculateWindowedGcContent("", 4, 0),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => GcSkewCalculator.CalculateWindowedGcContent("ACGT", 2, 0, true,
+                    SequenceExtensions.GcAmbiguityMode.Remove),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => GcSkewCalculator.CalculateWindowedGcContent((DnaSequence)null!),
+                NUnit.Framework.Throws.ArgumentNullException);
+            Assert.That(GcSkewCalculator.CalculateWindowedGcContent((string)null!), Is.Empty);
+            Assert.That(GcSkewCalculator.CalculateWindowedGcContent(""), Is.Empty);
+            Assert.That(GcSkewCalculator.CalculateWindowedGcContent("ACGT", 5, 1), Is.Empty);
+            Assert.That(GcSkewCalculator.CalculateWindowedGcContent("GCAT", 2, int.MaxValue, true)
+                .Select(p => p.GcContent), Is.EqualTo(new[] { 1.0 }));
+        });
+    }
+
+    #endregion
 }

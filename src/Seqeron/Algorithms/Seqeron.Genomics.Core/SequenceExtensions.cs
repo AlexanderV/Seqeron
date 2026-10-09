@@ -526,14 +526,23 @@ public static class SequenceExtensions
     /// character are rejected (NC-IUB 1984 defines no gap symbol). Empty span is valid.
     /// </remarks>
     public static bool IsValidIupacDna(this ReadOnlySpan<char> sequence)
+        => IndexOfInvalidIupacDna(sequence) < 0;
+
+    /// <summary>
+    /// Returns the index of the first character that is not an IUPAC DNA nucleotide code
+    /// (the alphabet of <see cref="IsValidIupacDna"/>: A, C, G, T, R, Y, S, W, K, M, B, D, H, V, N;
+    /// ASCII case-insensitive), or -1 when every character is valid. Canonical predicate behind
+    /// <see cref="IsValidIupacDna"/>; lets callers report the offending symbol and position.
+    /// </summary>
+    public static int IndexOfInvalidIupacDna(this ReadOnlySpan<char> sequence)
     {
         for (int i = 0; i < sequence.Length; i++)
         {
             char c = ToUpperAscii(sequence[i]);
             if (c == 'U' || !IupacHelper.IsNucleotideCode(c))
-                return false;
+                return i;
         }
-        return true;
+        return -1;
     }
 
     /// <summary>
@@ -546,14 +555,23 @@ public static class SequenceExtensions
     /// Empty span is valid.
     /// </remarks>
     public static bool IsValidIupacRna(this ReadOnlySpan<char> sequence)
+        => IndexOfInvalidIupacRna(sequence) < 0;
+
+    /// <summary>
+    /// Returns the index of the first character that is not an IUPAC RNA nucleotide code
+    /// (the alphabet of <see cref="IsValidIupacRna"/>: A, C, G, U, R, Y, S, W, K, M, B, D, H, V, N;
+    /// ASCII case-insensitive), or -1 when every character is valid. Canonical predicate behind
+    /// <see cref="IsValidIupacRna"/>.
+    /// </summary>
+    public static int IndexOfInvalidIupacRna(this ReadOnlySpan<char> sequence)
     {
         for (int i = 0; i < sequence.Length; i++)
         {
             char c = ToUpperAscii(sequence[i]);
             if (c == 'T' || !(c == 'U' || IupacHelper.IsNucleotideCode(c)))
-                return false;
+                return i;
         }
-        return true;
+        return -1;
     }
 
     /// <summary>

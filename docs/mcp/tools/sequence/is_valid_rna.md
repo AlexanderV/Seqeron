@@ -16,6 +16,10 @@ Quick validation if a sequence contains only valid RNA characters.
 
 Performs a fast check if a sequence contains only valid RNA characters (A, U, G, C). This is faster than `rna_validate` but returns less detailed information. Use this when you only need a boolean check without error details.
 
+With `iupac=true` the alphabet widens to the 15 IUPAC nucleotide codes (Biopython 1.88 `IUPACData.ambiguous_rna_letters` (`GAUCRYWSMKHBVDN`) = scikit-bio `RNA` definite ∪ degenerate chars), delegating to Core `SequenceExtensions.IsValidIupacRna`; T, `X` and gap symbols remain invalid. The default (`false`) keeps the strict behaviour.
+
+**Empty input** is rejected with error 1001, as by every Seqeron MCP tool: null/empty input → `ArgumentException` is the project-wide MCP input convention (`docs/mcp-prompt.md`, Definition of Done §1–§2). This deliberately differs from the Core predicates (`SequenceExtensions.IsValid*` return `true` for an empty span), Biopython and scikit-bio, which treat a zero-length sequence as valid.
+
 ## Core Documentation Reference
 
 - Source: [SequenceExtensions.cs#L225](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L225)
@@ -25,6 +29,7 @@ Performs a fast check if a sequence contains only valid RNA characters (A, U, G,
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The sequence to validate (min length: 1) |
+| `iupac` | boolean | No | Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (T, X and gaps still invalid). Default false = strict. |
 
 ## Output Schema
 
@@ -84,6 +89,27 @@ Performs a fast check if a sequence contains only valid RNA characters (A, U, G,
 {
   "isValid": false,
   "length": 4
+}
+```
+
+### Example 3: IUPAC ambiguity codes accepted with `iupac=true`
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "is_valid_rna",
+  "arguments": {
+    "sequence": "ACGURYN",
+    "iupac": true
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "isValid": true,
+  "length": 7
 }
 ```
 

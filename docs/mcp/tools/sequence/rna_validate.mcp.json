@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RnaSequence.TryCreate",
   "docRef": "Seqeron.Genomics/RnaSequence.cs#L176",
-  "description": "Validate an RNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, U).",
+  "description": "Validate an RNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, U; case-insensitive). With iupac=true the 11 IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N are also accepted (Biopython ambiguous_rna_letters). Empty input is rejected.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -14,6 +14,11 @@
         "type": "string",
         "description": "The RNA sequence to validate",
         "minLength": 1
+      },
+      "iupac": {
+        "type": "boolean",
+        "description": "Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (T, X and gaps still invalid). Default false = strict A/C/G/U.",
+        "default": false
       }
     },
     "required": ["sequence"]
@@ -49,6 +54,11 @@
       "name": "Invalid RNA (contains T)",
       "input": { "sequence": "AUGTATGC" },
       "output": { "valid": false, "length": 8, "error": "Invalid nucleotide 'T' at position 3" }
+    },
+    {
+      "name": "IUPAC-ambiguous RNA (iupac=true)",
+      "input": { "sequence": "ACGURYN", "iupac": true },
+      "output": { "valid": true, "length": 7, "error": null }
     }
   ]
 }

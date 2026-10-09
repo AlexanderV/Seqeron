@@ -16,15 +16,21 @@ public class SequenceTools
     /// Validate a DNA sequence.
     /// </summary>
     [McpServerTool(Name = "dna_validate", Title = "DNA — Validate Sequence", ReadOnly = true)]
-    [Description("Validate a DNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, T).")]
+    [Description("Validate a DNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, T; case-insensitive). With iupac=true the 11 IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N are also accepted (Biopython ambiguous_dna_letters). Empty input is rejected.")]
     public static DnaValidateResult DnaValidate(
-        [Description("The DNA sequence to validate")] string sequence)
+        [Description("The DNA sequence to validate")] string sequence,
+        [Description("Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (U, X and gaps still invalid). Default false = strict A/C/G/T.")] bool iupac = false)
     {
+        // Null/empty → ArgumentException is the project-wide MCP input convention (docs/mcp-prompt.md
+        // "Definition of Done" §1; error 1001). Core IsValid*/Biopython/scikit-bio treat "" as valid.
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        // Delegates to the canonical SEQ-VALID-001 predicate (same check as DnaSequence construction).
-        int invalidAt = global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidDna(sequence.AsSpan());
+        // Delegates to the canonical SEQ-VALID-001 predicates (strict = same check as DnaSequence
+        // construction; iupac = SequenceExtensions.IsValidIupacDna).
+        int invalidAt = iupac
+            ? global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidIupacDna(sequence.AsSpan())
+            : global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidDna(sequence.AsSpan());
         return invalidAt < 0
             ? new DnaValidateResult(true, sequence.Length, null)
             : new DnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[invalidAt]}' at position {invalidAt}");
@@ -53,15 +59,21 @@ public class SequenceTools
     /// Validate an RNA sequence.
     /// </summary>
     [McpServerTool(Name = "rna_validate", Title = "RNA — Validate Sequence", ReadOnly = true)]
-    [Description("Validate an RNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, U).")]
+    [Description("Validate an RNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, U; case-insensitive). With iupac=true the 11 IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N are also accepted (Biopython ambiguous_rna_letters). Empty input is rejected.")]
     public static RnaValidateResult RnaValidate(
-        [Description("The RNA sequence to validate")] string sequence)
+        [Description("The RNA sequence to validate")] string sequence,
+        [Description("Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (T, X and gaps still invalid). Default false = strict A/C/G/U.")] bool iupac = false)
     {
+        // Null/empty → ArgumentException is the project-wide MCP input convention (docs/mcp-prompt.md
+        // "Definition of Done" §1; error 1001). Core IsValid*/Biopython/scikit-bio treat "" as valid.
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        // Delegates to the canonical SEQ-VALID-001 predicate (same check as RnaSequence construction).
-        int invalidAt = global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidRna(sequence.AsSpan());
+        // Delegates to the canonical SEQ-VALID-001 predicates (strict = same check as RnaSequence
+        // construction; iupac = SequenceExtensions.IsValidIupacRna).
+        int invalidAt = iupac
+            ? global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidIupacRna(sequence.AsSpan())
+            : global::Seqeron.Genomics.Core.SequenceExtensions.IndexOfInvalidRna(sequence.AsSpan());
         return invalidAt < 0
             ? new RnaValidateResult(true, sequence.Length, null)
             : new RnaValidateResult(false, sequence.Length, $"Invalid nucleotide '{sequence[invalidAt]}' at position {invalidAt}");
@@ -366,14 +378,19 @@ public class SequenceTools
     /// Quick validation if a sequence contains only valid DNA characters.
     /// </summary>
     [McpServerTool(Name = "is_valid_dna", Title = "DNA — Quick Validate", ReadOnly = true)]
-    [Description("Quick check if a sequence contains only valid DNA characters (A, T, G, C). Faster than dna_validate but returns less information.")]
+    [Description("Quick check if a sequence contains only valid DNA characters (A, T, G, C; case-insensitive); iupac=true also accepts the IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N. Faster than dna_validate but returns less information. Empty input is rejected.")]
     public static IsValidDnaResult IsValidDna(
-        [Description("The sequence to validate")] string sequence)
+        [Description("The sequence to validate")] string sequence,
+        [Description("Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (U, X and gaps still invalid). Default false = strict.")] bool iupac = false)
     {
+        // Null/empty → ArgumentException is the project-wide MCP input convention (docs/mcp-prompt.md
+        // "Definition of Done" §1; error 1001). Core IsValid*/Biopython/scikit-bio treat "" as valid.
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        bool isValid = global::Seqeron.Genomics.Core.SequenceExtensions.IsValidDna(sequence.AsSpan());
+        bool isValid = iupac
+            ? global::Seqeron.Genomics.Core.SequenceExtensions.IsValidIupacDna(sequence.AsSpan())
+            : global::Seqeron.Genomics.Core.SequenceExtensions.IsValidDna(sequence.AsSpan());
         return new IsValidDnaResult(isValid, sequence.Length);
     }
 
@@ -381,14 +398,19 @@ public class SequenceTools
     /// Quick validation if a sequence contains only valid RNA characters.
     /// </summary>
     [McpServerTool(Name = "is_valid_rna", Title = "RNA — Quick Validate", ReadOnly = true)]
-    [Description("Quick check if a sequence contains only valid RNA characters (A, U, G, C). Faster than rna_validate but returns less information.")]
+    [Description("Quick check if a sequence contains only valid RNA characters (A, U, G, C; case-insensitive); iupac=true also accepts the IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N. Faster than rna_validate but returns less information. Empty input is rejected.")]
     public static IsValidRnaResult IsValidRna(
-        [Description("The sequence to validate")] string sequence)
+        [Description("The sequence to validate")] string sequence,
+        [Description("Also accept IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (T, X and gaps still invalid). Default false = strict.")] bool iupac = false)
     {
+        // Null/empty → ArgumentException is the project-wide MCP input convention (docs/mcp-prompt.md
+        // "Definition of Done" §1; error 1001). Core IsValid*/Biopython/scikit-bio treat "" as valid.
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        bool isValid = global::Seqeron.Genomics.Core.SequenceExtensions.IsValidRna(sequence.AsSpan());
+        bool isValid = iupac
+            ? global::Seqeron.Genomics.Core.SequenceExtensions.IsValidIupacRna(sequence.AsSpan())
+            : global::Seqeron.Genomics.Core.SequenceExtensions.IsValidRna(sequence.AsSpan());
         return new IsValidRnaResult(isValid, sequence.Length);
     }
 

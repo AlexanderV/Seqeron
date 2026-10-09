@@ -28,11 +28,11 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `complexity_mask_low` | Mask low-complexity regions in a DNA sequence using the DUST algorithm. |
 | `complexity_shannon` | Calculate nucleotide Shannon entropy (bits per base) over A/C/G/T/U, U counted as T, other characters ignored. |
 | `dna_reverse_complement` | Get the reverse complement of a DNA sequence. |
-| `dna_validate` | Validate a DNA sequence. |
+| `dna_validate` | Validate a DNA sequence (A/C/G/T; `iupac=true` also accepts IUPAC ambiguity codes). |
 | `gc_content` | Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence; IUPAC codes, N and gaps are excluded from both counts. |
 | `hydrophobicity` | Calculate the grand average of hydropathy (GRAVY) index of a protein sequence. |
-| `is_valid_dna` | Quick check if a sequence contains only valid DNA characters (A, T, G, C). |
-| `is_valid_rna` | Quick check if a sequence contains only valid RNA characters (A, U, G, C). |
+| `is_valid_dna` | Quick check if a sequence contains only valid DNA characters (A, T, G, C; `iupac=true` adds IUPAC ambiguity codes). |
+| `is_valid_rna` | Quick check if a sequence contains only valid RNA characters (A, U, G, C; `iupac=true` adds IUPAC ambiguity codes). |
 | `isoelectric_point` | Calculate the isoelectric point (pI) of a protein sequence. |
 | `iupac_code` | Get the IUPAC ambiguity code that represents a set of nucleotide bases. |
 | `iupac_match` | Check if two IUPAC codes can represent the same nucleotide base. |
@@ -48,7 +48,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `nucleotide_composition` | Calculate nucleotide composition (A, T, G, C, U counts) and GC content of a DNA/RNA sequence. |
 | `protein_validate` | Validate a protein sequence. |
 | `rna_from_dna` | Transcribe DNA to RNA by replacing T (thymine) with U (uracil). |
-| `rna_validate` | Validate an RNA sequence. |
+| `rna_validate` | Validate an RNA sequence (A/C/G/U; `iupac=true` also accepts IUPAC ambiguity codes). |
 | `shannon_entropy` | Calculate Shannon entropy of a sequence. |
 | `summarize_sequence` | Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content, entropy, complexity, and Tm. |
 | `thermodynamics` | Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method. |

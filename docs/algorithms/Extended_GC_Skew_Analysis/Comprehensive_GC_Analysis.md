@@ -92,6 +92,7 @@ A null `DnaSequence` throws `ArgumentNullException`. A null/empty string returns
 
 - `GcSkewCalculator.AnalyzeGcContent(DnaSequence, windowSize, stepSize)`: canonical entry point; validates non-null and delegates to the core.
 - `GcSkewCalculator.AnalyzeGcContent(string, windowSize, stepSize)`: string overload (API parity with sibling methods); zero result for null/empty.
+- `GcSkewCalculator.CalculateWindowedGcContent(string | DnaSequence, windowSize, stepSize, fraction)` and `(string, windowSize, stepSize, fraction, GcAmbiguityMode)`: the public single sliding-GC driver behind `WindowedGcContent` (complete windows only; same guards as the windowed-skew methods; per-window value = canonical `CalculateGcFraction`, or Biopython `gc_fraction(…, ambiguous=…)` with a mode). Lets `SequenceStatistics.CalculateGcContentProfile` project `GcContent` instead of keeping its own loop (B03 R18).
 
 ### 5.2 Current Behavior
 

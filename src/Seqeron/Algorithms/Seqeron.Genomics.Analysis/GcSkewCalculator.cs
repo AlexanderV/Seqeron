@@ -922,21 +922,115 @@ public static class GcSkewCalculator
             SequenceLength: seq.Length);
     }
 
+    /// <summary>
+    /// Sliding-window GC-content profile: the GC content of every complete window of length
+    /// <paramref name="windowSize"/> starting at 0, <paramref name="stepSize"/>, 2·<paramref name="stepSize"/>, …
+    /// (while start + windowSize ≤ length; a trailing partial window is not reported). This is the
+    /// single sliding-GC driver behind <see cref="AnalyzeGcContent(string,int,int,bool)"/>'s
+    /// <see cref="GcAnalysisResult.WindowedGcContent"/>.
+    /// </summary>
+    /// <remarks>
+    /// Per-window GC is the canonical <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char})"/>
+    /// (ASCII case-insensitive; G+C over A+C+G+T+U; every other symbol excluded from both counts; 0 for a
+    /// window with no valid base) — for an A/C/G/T/U window this equals Biopython 1.88
+    /// <c>Bio.SeqUtils.gc_fraction(seq[i:i+windowSize])</c> (default <c>ambiguous="remove"</c>).
+    /// <c>Position</c> is the 0-based window centre <c>WindowStart + windowSize / 2</c> (integer division),
+    /// <c>WindowEnd = WindowStart + windowSize − 1</c> (inclusive), matching
+    /// <see cref="CalculateWindowedGcSkew(string,int,int)"/>. Returns an empty sequence for null/empty
+    /// input or when <paramref name="windowSize"/> exceeds the length.
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence (DNA or RNA).</param>
+    /// <param name="windowSize">Window length (≥ 1; default 1000).</param>
+    /// <param name="stepSize">Step between window starts (≥ 1; default 100).</param>
+    /// <param name="fraction">When true, GC content is reported in [0,1] (Biopython <c>gc_fraction</c>);
+    /// default false reports a percentage in [0,100].</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (validated eagerly; a zero step would never terminate).</exception>
+    public static IEnumerable<GcContentPoint> CalculateWindowedGcContent(
+        string sequence,
+        int windowSize = 1000,
+        int stepSize = 100,
+        bool fraction = false)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
+
+        if (string.IsNullOrEmpty(sequence))
+            return Enumerable.Empty<GcContentPoint>();
+
+        return CalculateWindowedGcContentCore(sequence, windowSize, stepSize, fraction);
+    }
+
+    /// <summary>
+    /// Sliding-window GC-content profile with Biopython <c>gc_fraction(window, ambiguous=…)</c>
+    /// IUPAC-ambiguity handling: each complete window is scored by the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char},SequenceExtensions.GcAmbiguityMode)"/>
+    /// (<c>Remove</c>: S counts as GC, S/W in the denominator, other codes excluded; <c>Ignore</c>:
+    /// denominator = window length; <c>Weighted</c>: ambiguity codes add their mean GC, e.g. N = 0.5).
+    /// Window/step/position semantics and guards are those of
+    /// <see cref="CalculateWindowedGcContent(string,int,int,bool)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1.</exception>
+    public static IEnumerable<GcContentPoint> CalculateWindowedGcContent(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool fraction,
+        SequenceExtensions.GcAmbiguityMode ambiguityMode)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
+
+        if (string.IsNullOrEmpty(sequence))
+            return Enumerable.Empty<GcContentPoint>();
+
+        return CalculateWindowedGcContentCore(sequence, windowSize, stepSize, fraction, ambiguityMode);
+    }
+
+    /// <summary>
+    /// <see cref="DnaSequence"/> overload of <see cref="CalculateWindowedGcContent(string,int,int,bool)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1.</exception>
+    public static IEnumerable<GcContentPoint> CalculateWindowedGcContent(
+        DnaSequence sequence,
+        int windowSize = 1000,
+        int stepSize = 100,
+        bool fraction = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
+
+        return CalculateWindowedGcContentCore(sequence.Sequence, windowSize, stepSize, fraction);
+    }
+
+    // Single sliding-GC driver (complete windows only). mode == null → default A/C/G/T/U counting;
+    // otherwise Biopython gc_fraction ambiguity handling.
     private static IEnumerable<GcContentPoint> CalculateWindowedGcContentCore(
         string seq,
         int windowSize,
         int stepSize,
-        bool fraction = false)
+        bool fraction = false,
+        SequenceExtensions.GcAmbiguityMode? mode = null)
     {
-        for (int i = 0; i + windowSize <= seq.Length; i += stepSize)
+        double scale = fraction ? 1.0 : PercentScale;
+        for (int i = 0; windowSize <= seq.Length - i; i += stepSize)
         {
-            double gcContent = CalculateGcContent(seq.AsSpan(i, windowSize), fraction);
+            var window = seq.AsSpan(i, windowSize);
+            double gcFraction = mode is { } m ? window.CalculateGcFraction(m) : window.CalculateGcFraction();
 
             yield return new GcContentPoint(
                 Position: i + windowSize / 2,
-                GcContent: gcContent,
+                GcContent: gcFraction * scale,
                 WindowStart: i,
                 WindowEnd: i + windowSize - 1);
+
+            // Guard against int overflow of i + stepSize on huge steps.
+            if (stepSize > seq.Length - i)
+                yield break;
         }
     }
 

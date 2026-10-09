@@ -59,4 +59,22 @@ public class AnalyzeGcContentTests
             Assert.That(r.WindowedGcContent[0].Position, Is.EqualTo(1));
         });
     }
+
+    // fraction=true forwards to Core AnalyzeGcContent(fraction): GC content in [0,1] (Biopython 1.88
+    // gc_fraction("GGGCCAT") = 0.7142857142857143); skew values are unaffected.
+    [Test]
+    public void AnalyzeGcContent_Fraction_ReportsFractions()
+    {
+        var r = AnalysisTools.AnalyzeGcContent("GGGCCAT", windowSize: 4, stepSize: 3, fraction: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.OverallGcContent, Is.EqualTo(5.0 / 7.0).Within(1e-12));
+            Assert.That(r.OverallGcSkew, Is.EqualTo(0.2).Within(1e-12));
+            // windows GGGC (gc_fraction 1.0), CCAT (0.5)
+            Assert.That(r.WindowedGcContent.Select(p => p.GcContent), Is.EqualTo(new[] { 1.0, 0.5 }).Within(1e-12));
+            Assert.That(r.GcContentVariance, Is.EqualTo(0.0625).Within(1e-12));
+            // Biopython GC_skew("GGGC")=0.5, GC_skew("CCAT")=-1.0 → numpy.var = 0.5625 (unaffected by fraction).
+            Assert.That(r.GcSkewVariance, Is.EqualTo(0.5625).Within(1e-12));
+        });
+    }
 }
