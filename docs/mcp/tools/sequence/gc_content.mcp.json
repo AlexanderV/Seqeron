@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceExtensions.CalculateGcContentFast",
-  "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L41",
+  "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L78",
   "description": "Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence: (G+C)/(A+C+G+T+U) × 100, case-insensitive; IUPAC ambiguity codes (incl. S/W), N, gaps and other characters are excluded from both counts. totalCount is the number of valid A/C/G/T/U nucleotides (the denominator), not the sequence length.",
   "inputSchema": {
     "type": "object",

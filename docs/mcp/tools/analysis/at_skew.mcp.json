@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GcSkewCalculator.CalculateAtSkew",
-  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L189",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L336",
   "description": "Whole-sequence AT skew = (A - T) / (A + T). Range [-1, 1]; 0 if no A/T. Only A/T counted, other symbols ignored.",
   "inputSchema": {
     "type": "object",

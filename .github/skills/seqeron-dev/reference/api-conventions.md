@@ -12,10 +12,10 @@ is delegated to [`bio-rigor`](../../bio-rigor/SKILL.md); envelope mechanics are 
 ```csharp
 using Seqeron.Genomics.Core;
 
-var dna = new DnaSequence("AAAGAATTCAAA");            // DnaSequence.cs:22 — throws on invalid input
-if (!DnaSequence.TryCreate("ACGTNN", out var seq))   // DnaSequence.cs:129 — false on invalid, no throw
+var dna = new DnaSequence("AAAGAATTCAAA");            // DnaSequence.cs:19 — throws on invalid input
+if (!DnaSequence.TryCreate("ACGTNN", out var seq))   // DnaSequence.cs:115 — false on invalid, no throw
     return;                                            // seq is DnaSequence? here
-double gc = seq!.GcContent();                          // DnaSequence.cs:82
+double gc = seq!.GcContent();                          // DnaSequence.cs:70
 ```
 
 Rule of thumb: **`TryCreate` for untrusted input** (parsers, user data, file records); the throwing
@@ -99,7 +99,7 @@ using Seqeron.Genomics.Core;
 
 foreach (var raw in userSuppliedSequences)
 {
-    if (!DnaSequence.TryCreate(raw, out var dna))   // DnaSequence.cs:129
+    if (!DnaSequence.TryCreate(raw, out var dna))   // DnaSequence.cs:115
     {
         Console.WriteLine($"skip invalid: {raw}");
         continue;

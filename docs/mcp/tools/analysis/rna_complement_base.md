@@ -25,7 +25,7 @@ Cross-check: `complement_rna("ACGTURYSWKMBDHVN")` = `UGCAAYRSWMKVHDBN`.
 
 ## Core Documentation Reference
 
-- Source: [RnaSecondaryStructure.cs#L449](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L449)
+- Source: [RnaSecondaryStructure.cs#L455](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L455)
 
 ## Input Schema
 

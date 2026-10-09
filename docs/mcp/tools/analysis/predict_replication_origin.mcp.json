@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GcSkewCalculator.PredictReplicationOrigin",
-  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L247",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L656",
   "description": "Predict replication origin and terminus from cumulative GC-skew extrema: origin ~ prefix index of the minimum, terminus ~ prefix index of the maximum; also returns all minimizing/maximizing indices (Rosalind BA1F) and supports a circular flag (positions mod n). Best on complete circular bacterial genomes.",
   "inputSchema": {
     "type": "object",

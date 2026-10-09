@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GcSkewCalculator.CalculateWindowedGcSkew",
-  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L73",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L147",
   "description": "Sliding-window GC skew along a DNA sequence. Each point reports the (G-C)/(G+C) skew, the window center position, and the window bounds.",
   "inputSchema": {
     "type": "object",

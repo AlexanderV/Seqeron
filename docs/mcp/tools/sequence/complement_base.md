@@ -27,7 +27,7 @@ The default mode always emits the DNA alphabet, so `A` → `T` even for an RNA i
 
 ## Core Documentation Reference
 
-- Source: [SequenceExtensions.cs#L83](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L83)
+- Source: [SequenceExtensions.cs#L244](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L244)
 
 ## Input Schema
 

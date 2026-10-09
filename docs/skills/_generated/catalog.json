@@ -221,7 +221,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.CalculateAtSkew",
     "docPath": "docs/mcp/tools/analysis/at_skew.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L189"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L336"
   },
   {
     "tool": "base_pair_type",
@@ -305,7 +305,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.CalculateCumulativeGcSkew",
     "docPath": "docs/mcp/tools/analysis/cumulative_gc_skew.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L115"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L275"
   },
   {
     "tool": "dangling_end_energy",
@@ -669,7 +669,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.CalculateGcSkew",
     "docPath": "docs/mcp/tools/analysis/gc_skew.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L30"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L26"
   },
   {
     "tool": "generate_all_kmers",
@@ -907,7 +907,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.PredictReplicationOrigin",
     "docPath": "docs/mcp/tools/analysis/predict_replication_origin.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L247"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L656"
   },
   {
     "tool": "predict_rna_structure",
@@ -970,7 +970,7 @@
     "server": "Analysis",
     "methodId": "RnaSecondaryStructure.GetComplement",
     "docPath": "docs/mcp/tools/analysis/rna_complement_base.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L449"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L455"
   },
   {
     "tool": "scan_with_alphabet_pwm",
@@ -1068,7 +1068,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.CalculateWindowedGcSkew",
     "docPath": "docs/mcp/tools/analysis/windowed_gc_skew.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L73"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L147"
   },
   {
     "tool": "align_mirna_to_target",
@@ -3084,7 +3084,7 @@
     "server": "Sequence",
     "methodId": "SequenceExtensions.GetComplementBase",
     "docPath": "docs/mcp/tools/sequence/complement_base.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L83"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L244"
   },
   {
     "tool": "complexity_compression_ratio",
@@ -3133,21 +3133,21 @@
     "server": "Sequence",
     "methodId": "DnaSequence.GetReverseComplementString",
     "docPath": "docs/mcp/tools/sequence/dna_reverse_complement.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs#L149"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs#L135"
   },
   {
     "tool": "dna_validate",
     "server": "Sequence",
     "methodId": "DnaSequence.TryCreate",
     "docPath": "docs/mcp/tools/sequence/dna_validate.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs#L129"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs#L115"
   },
   {
     "tool": "gc_content",
     "server": "Sequence",
     "methodId": "SequenceExtensions.CalculateGcContentFast",
     "docPath": "docs/mcp/tools/sequence/gc_content.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L41"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L78"
   },
   {
     "tool": "hydrophobicity",
@@ -3161,14 +3161,14 @@
     "server": "Sequence",
     "methodId": "SequenceExtensions.IsValidDna",
     "docPath": "docs/mcp/tools/sequence/is_valid_dna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L210"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L474"
   },
   {
     "tool": "is_valid_rna",
     "server": "Sequence",
     "methodId": "SequenceExtensions.IsValidRna",
     "docPath": "docs/mcp/tools/sequence/is_valid_rna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L225"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L485"
   },
   {
     "tool": "isoelectric_point",
@@ -3182,21 +3182,21 @@
     "server": "Sequence",
     "methodId": "IupacDnaSequence.GetIupacCode",
     "docPath": "docs/mcp/tools/sequence/iupac_code.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L228"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L225"
   },
   {
     "tool": "iupac_match",
     "server": "Sequence",
     "methodId": "IupacDnaSequence.CodesMatch",
     "docPath": "docs/mcp/tools/sequence/iupac_match.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L273"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L278"
   },
   {
     "tool": "iupac_matches",
     "server": "Sequence",
     "methodId": "IupacHelper.MatchesIupac",
     "docPath": "docs/mcp/tools/sequence/iupac_matches.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/IupacHelper.cs#L16"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/IupacHelper.cs#L24"
   },
   {
     "tool": "kmer_analyze",
@@ -3273,14 +3273,14 @@
     "server": "Sequence",
     "methodId": "RnaSequence.FromDna",
     "docPath": "docs/mcp/tools/sequence/rna_from_dna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/RnaSequence.cs#L147"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/RnaSequence.cs#L142"
   },
   {
     "tool": "rna_validate",
     "server": "Sequence",
     "methodId": "RnaSequence.TryCreate",
     "docPath": "docs/mcp/tools/sequence/rna_validate.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/RnaSequence.cs#L176"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/RnaSequence.cs#L169"
   },
   {
     "tool": "shannon_entropy",

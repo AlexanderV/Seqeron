@@ -22,7 +22,7 @@ Cross-check (Biopython 1.88 `gc_fraction(seq, "remove")` × 100): `"ATGCGATCGATC
 
 ## Core Documentation Reference
 
-- Source: [SequenceExtensions.cs#L41](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L41)
+- Source: [SequenceExtensions.cs#L78](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L78)
 
 ## Input Schema
 

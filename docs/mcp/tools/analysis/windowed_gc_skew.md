@@ -20,7 +20,7 @@ and the window bounds `[i, i + windowSize − 1]`. Windows are advanced by `step
 
 ## Core Documentation Reference
 
-- Source: [GcSkewCalculator.cs#L73](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L73)
+- Source: [GcSkewCalculator.cs#L147](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L147)
 
 ## Input Schema
 

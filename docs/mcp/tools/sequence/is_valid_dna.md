@@ -22,7 +22,7 @@ With `iupac=true` the alphabet widens to the 15 IUPAC nucleotide codes (Biopytho
 
 ## Core Documentation Reference
 
-- Source: [SequenceExtensions.cs#L210](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L210)
+- Source: [SequenceExtensions.cs#L474](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L474)
 
 ## Input Schema
 

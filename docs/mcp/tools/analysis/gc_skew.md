@@ -20,7 +20,7 @@ replication origin and terminus in bacterial genomes.
 
 ## Core Documentation Reference
 
-- Source: [GcSkewCalculator.cs#L30](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L30)
+- Source: [GcSkewCalculator.cs#L26](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L26)
 
 ## Input Schema
 

@@ -23,7 +23,7 @@ the terminus (Grigoriev 1998; Lobry 1996).
 
 ## Core Documentation Reference
 
-- Source: [GcSkewCalculator.cs#L115](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L115)
+- Source: [GcSkewCalculator.cs#L275](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L275)
 
 ## Input Schema
 

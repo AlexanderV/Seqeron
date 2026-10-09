@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceExtensions.GetComplementBase",
-  "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L83",
+  "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L244",
   "description": "Get the complement of a single nucleotide base (IUPAC-complete, case-insensitive, upper-case output). Default (rna=false) emits the DNA alphabet like Biopython complement: A→T, T→A, U→A, G↔C. With rna=true emits the RNA alphabet like Biopython complement_rna: A→U, U→A, T→A, G↔C. Ambiguity codes in both modes: R↔Y, K↔M, B↔V, D↔H, S, W, N unchanged; other characters pass through.",
   "inputSchema": {
     "type": "object",

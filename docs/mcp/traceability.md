@@ -20,10 +20,10 @@
 | hamming_distance | Core | ApproximateMatcher.HammingDistance | ApproximateMatcher.cs#L163 | 2/2 | ✓ | ✓ | Ready |
 | edit_distance | Core | ApproximateMatcher.EditDistance | ApproximateMatcher.cs#L186 | 2/2 | ✓ | ✓ | Ready |
 | count_approximate_occurrences | Core | ApproximateMatcher.CountApproximateOccurrences | ApproximateMatcher.cs#L283 | 2/2 | ✓ | ✓ | Ready |
-| dna_validate | Sequence | DnaSequence.TryCreate | DnaSequence.cs#L129 | 2/2 | ✓ | ✓ | Ready |
-| dna_reverse_complement | Sequence | DnaSequence.GetReverseComplementString | DnaSequence.cs#L149 | 2/2 | ✓ | ✓ | Ready |
-| rna_validate | Sequence | RnaSequence.TryCreate | RnaSequence.cs#L176 | 2/2 | ✓ | ✓ | Ready |
-| rna_from_dna | Sequence | RnaSequence.FromDna | RnaSequence.cs#L147 | 2/2 | ✓ | ✓ | Ready |
+| dna_validate | Sequence | DnaSequence.TryCreate | DnaSequence.cs#L115 | 2/2 | ✓ | ✓ | Ready |
+| dna_reverse_complement | Sequence | DnaSequence.GetReverseComplementString | DnaSequence.cs#L135 | 2/2 | ✓ | ✓ | Ready |
+| rna_validate | Sequence | RnaSequence.TryCreate | RnaSequence.cs#L169 | 2/2 | ✓ | ✓ | Ready |
+| rna_from_dna | Sequence | RnaSequence.FromDna | RnaSequence.cs#L142 | 2/2 | ✓ | ✓ | Ready |
 | protein_validate | Sequence | ProteinSequence.TryCreate | ProteinSequence.cs#L357 | 2/2 | ✓ | ✓ | Ready |
 | nucleotide_composition | Sequence | SequenceStatistics.CalculateNucleotideComposition | SequenceStatistics.cs#L48 | 2/2 | ✓ | ✓ | Ready |
 | amino_acid_composition | Sequence | SequenceStatistics.CalculateAminoAcidComposition | SequenceStatistics.cs#L98 | 2/2 | ✓ | ✓ | Ready |
@@ -36,10 +36,10 @@
 | shannon_entropy | Sequence | SequenceStatistics.CalculateShannonEntropy | SequenceStatistics.cs#L580 | 2/2 | ✓ | ✓ | Ready |
 | linguistic_complexity | Sequence | SequenceStatistics.CalculateLinguisticComplexity | SequenceStatistics.cs#L615 | 2/2 | ✓ | ✓ | Ready |
 | summarize_sequence | Sequence | SequenceStatistics.SummarizeNucleotideSequence | SequenceStatistics.cs#L775 | 2/2 | ✓ | ✓ | Ready |
-| gc_content | Sequence | SequenceExtensions.CalculateGcContentFast | SequenceExtensions.cs#L41 | 2/2 | ✓ | ✓ | Ready |
-| complement_base | Sequence | SequenceExtensions.GetComplementBase | SequenceExtensions.cs#L83 | 2/2 | ✓ | ✓ | Ready |
-| is_valid_dna | Sequence | SequenceExtensions.IsValidDna | SequenceExtensions.cs#L210 | 2/2 | ✓ | ✓ | Ready |
-| is_valid_rna | Sequence | SequenceExtensions.IsValidRna | SequenceExtensions.cs#L225 | 2/2 | ✓ | ✓ | Ready |
+| gc_content | Sequence | SequenceExtensions.CalculateGcContentFast | SequenceExtensions.cs#L78 | 2/2 | ✓ | ✓ | Ready |
+| complement_base | Sequence | SequenceExtensions.GetComplementBase | SequenceExtensions.cs#L244 | 2/2 | ✓ | ✓ | Ready |
+| is_valid_dna | Sequence | SequenceExtensions.IsValidDna | SequenceExtensions.cs#L474 | 2/2 | ✓ | ✓ | Ready |
+| is_valid_rna | Sequence | SequenceExtensions.IsValidRna | SequenceExtensions.cs#L485 | 2/2 | ✓ | ✓ | Ready |
 | kmer_entropy | Sequence | KmerAnalyzer.CalculateKmerEntropy | KmerAnalyzer.cs#L2744 | 2/2 | ✓ | ✓ | Ready |
 | kmer_count | Sequence | KmerAnalyzer.CountKmers | KmerAnalyzer.cs#L84 | 2/2 | ✓ | ✓ | Ready |
 | kmer_distance | Sequence | KmerAnalyzer.KmerDistance | KmerAnalyzer.cs#L779 | 2/2 | ✓ | ✓ | Ready |
@@ -191,9 +191,9 @@
 | validate_probe | MolTools | ProbeDesigner.ValidateProbe | ProbeDesigner.cs#L1366 | 0/0 | – | – | Build-Ready |
 | alphabet_pwm_score_pvalue | Analysis | MotifFinder.AlphabetPwmScorePValue | MotifFinder.PwmPValue.cs#L190 | 2/2 | ✓ | ✓ | Ready |
 | alphabet_pwm_score_thresholds | Analysis | AlphabetPositionWeightMatrix.ScoreDistribution | MotifFinder.AlphabetPwm.cs#L394 | 1/1 | ✓ | ✓ | Ready |
-| analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L243 | 0/0 | – | – | Build-Ready |
+| analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L861 | 0/0 | – | – | Build-Ready |
 | analyze_kmers | Analysis | KmerAnalyzer.AnalyzeKmers | KmerAnalyzer.cs#L3167 | 0/0 | – | – | Build-Ready |
-| at_skew | Analysis | GcSkewCalculator.CalculateAtSkew | GcSkewCalculator.cs#L172 | 0/0 | – | – | Build-Ready |
+| at_skew | Analysis | GcSkewCalculator.CalculateAtSkew | GcSkewCalculator.cs#L336 | 0/0 | – | – | Build-Ready |
 | base_pair_type | Analysis | RnaSecondaryStructure.GetBasePairType | RnaSecondaryStructure.cs#L565 | 0/0 | – | – | Build-Ready |
 | bulge_loop_energy | Analysis | RnaSecondaryStructure.CalculateBulgeLoopEnergy | RnaSecondaryStructure.cs#L890 | 0/0 | – | – | Build-Ready |
 | calculate_ani | Analysis | ComparativeGenomics.CalculateANI | ComparativeGenomics.cs#L513 | 0/0 | – | – | Build-Ready |
@@ -205,7 +205,7 @@
 | count_kmers_both_strands | Analysis | KmerAnalyzer.CountKmersBothStrands | KmerAnalyzer.cs#L3086 | 0/0 | – | – | Build-Ready |
 | create_alphabet_pwm | Analysis | MotifFinder.CreateAlphabetPwm | MotifFinder.AlphabetPwm.cs#L42 | 2/2 | ✓ | ✓ | Ready |
 | create_pwm | Analysis | MotifFinder.CreatePwm | MotifFinder.cs#L196 | 0/0 | – | – | Build-Ready |
-| cumulative_gc_skew | Analysis | GcSkewCalculator.CalculateCumulativeGcSkew | GcSkewCalculator.cs#L130 | 0/0 | – | – | Build-Ready |
+| cumulative_gc_skew | Analysis | GcSkewCalculator.CalculateCumulativeGcSkew | GcSkewCalculator.cs#L275 | 0/0 | – | – | Build-Ready |
 | dangling_end_energy | Analysis | RnaSecondaryStructure.GetDanglingEndEnergy | RnaSecondaryStructure.cs#L735 | 0/0 | – | – | Build-Ready |
 | detect_pseudoknots | Analysis | RnaSecondaryStructure.DetectPseudoknots | RnaSecondaryStructure.cs#L1320 | 0/0 | – | – | Build-Ready |
 | detect_rearrangements | Analysis | ComparativeGenomics.DetectRearrangements | ComparativeGenomics.cs#L320 | 0/0 | – | – | Build-Ready |
@@ -257,7 +257,7 @@
 | find_tandem_repeats | Analysis | GenomicAnalyzer.FindTandemRepeats | GenomicAnalyzer.cs#L75 | 0/0 | – | – | Build-Ready |
 | flush_coaxial_stacking | Analysis | RnaSecondaryStructure.CalculateFlushCoaxialStacking | RnaSecondaryStructure.cs#L955 | 0/0 | – | – | Build-Ready |
 | gc_content_profile | Analysis | SequenceStatistics.CalculateGcContentProfile | SequenceStatistics.cs#L700 | 0/0 | – | – | Build-Ready |
-| gc_skew | Analysis | GcSkewCalculator.CalculateGcSkew | GcSkewCalculator.cs#L29 | 0/0 | – | – | Build-Ready |
+| gc_skew | Analysis | GcSkewCalculator.CalculateGcSkew | GcSkewCalculator.cs#L26 | 0/0 | – | – | Build-Ready |
 | generate_all_kmers | Analysis | KmerAnalyzer.GenerateAllKmers | KmerAnalyzer.cs#L2685 | 0/0 | – | – | Build-Ready |
 | generate_cavener_consensus | Analysis | MotifFinder.GenerateCavenerConsensus | MotifFinder.cs#L492 | 2/2 | ✓ | ✓ | Ready |
 | generate_consensus | Analysis | MotifFinder.GenerateConsensus | MotifFinder.cs#L441 | 0/0 | – | – | Build-Ready |
@@ -291,7 +291,7 @@
 | predict_disorder | Analysis | DisorderPredictor.PredictDisorder | DisorderPredictor.cs#L185 | 0/0 | – | – | Build-Ready |
 | predict_low_complexity_seg | Analysis | DisorderPredictor.PredictLowComplexityRegions | DisorderPredictor.cs#L425 | 0/0 | – | – | Build-Ready |
 | predict_morfs | Analysis | DisorderPredictor.PredictMoRFs | DisorderPredictor.cs#L505 | 0/0 | – | – | Build-Ready |
-| predict_replication_origin | Analysis | GcSkewCalculator.PredictReplicationOrigin | GcSkewCalculator.cs#L213 | 0/0 | – | – | Build-Ready |
+| predict_replication_origin | Analysis | GcSkewCalculator.PredictReplicationOrigin | GcSkewCalculator.cs#L656 | 0/0 | – | – | Build-Ready |
 | predict_rna_structure | Analysis | RnaSecondaryStructure.PredictStructure | RnaSecondaryStructure.cs#L1245 | 0/0 | – | – | Build-Ready |
 | predict_sigma70_promoters | Analysis | MotifFinder.PredictSigma70Promoters | MotifFinder.Sigma70Promoters.cs#L149 | 1/1 | ✓ | ✓ | Ready |
 | predict_signal_peptide | Analysis | ProteinMotifFinder.PredictSignalPeptide | ProteinMotifFinder.cs#L325 | 0/0 | – | – | Build-Ready |
@@ -300,7 +300,7 @@
 | pwm_score_pvalue | Analysis | MotifFinder.PwmScorePValue | MotifFinder.PwmPValue.cs#L45 | 4/4 | ✓ | ✓ | Ready |
 | pwm_score_thresholds | Analysis | PositionWeightMatrix.ScoreDistribution | MotifFinder.PwmScoring.cs#L322 | 2/2 | ✓ | ✓ | Ready |
 | reversal_distance | Analysis | ComparativeGenomics.CalculateReversalDistance | ComparativeGenomics.cs#L425 | 0/0 | – | – | Build-Ready |
-| rna_complement_base | Analysis | RnaSecondaryStructure.GetComplement | RnaSecondaryStructure.cs#L580 | 0/0 | – | – | Build-Ready |
+| rna_complement_base | Analysis | RnaSecondaryStructure.GetComplement | RnaSecondaryStructure.cs#L455 | 0/0 | – | – | Build-Ready |
 | scan_with_alphabet_pwm | Analysis | MotifFinder.ScanWithAlphabetPwm | MotifFinder.AlphabetPwm.cs#L142 | 1/1 | ✓ | ✓ | Ready |
 | scan_with_pwm | Analysis | MotifFinder.ScanWithPwm | MotifFinder.cs#L255 | 0/0 | – | – | Build-Ready |
 | scan_with_pwm_both_strands | Analysis | MotifFinder.ScanWithPwmBothStrands | MotifFinder.PwmScoring.cs#L100 | 2/2 | ✓ | ✓ | Ready |
@@ -314,7 +314,7 @@
 | unique_kmers | Analysis | KmerAnalyzer.FindUniqueKmers | KmerAnalyzer.cs#L2592 | 0/0 | – | – | Build-Ready |
 | validate_dot_bracket | Analysis | RnaSecondaryStructure.ValidateDotBracket | RnaSecondaryStructure.cs#L1418 | 0/0 | – | – | Build-Ready |
 | windowed_complexity | Analysis | SequenceComplexity.CalculateWindowedComplexity | SequenceComplexity.cs#L470 | 0/0 | – | – | Build-Ready |
-| windowed_gc_skew | Analysis | GcSkewCalculator.CalculateWindowedGcSkew | GcSkewCalculator.cs#L80 | 0/0 | – | – | Build-Ready |
+| windowed_gc_skew | Analysis | GcSkewCalculator.CalculateWindowedGcSkew | GcSkewCalculator.cs#L147 | 0/0 | – | – | Build-Ready |
 | alignment_statistics | Alignment | SequenceAligner.CalculateStatistics | Alignment/SequenceAligner.cs#L543 | 0/0 | – | – | Build-Ready |
 | assemble_de_bruijn | Alignment | SequenceAssembler.AssembleDeBruijn | Alignment/SequenceAssembler.cs#L75 | 0/0 | – | – | Build-Ready |
 | assemble_olc | Alignment | SequenceAssembler.AssembleOLC | Alignment/SequenceAssembler.cs#L48 | 0/0 | – | – | Build-Ready |

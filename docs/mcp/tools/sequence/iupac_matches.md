@@ -18,7 +18,7 @@ Determines if a specific nucleotide (A, C, G, T) matches an IUPAC ambiguity code
 
 ## Core Documentation Reference
 
-- Source: [IupacHelper.cs#L16](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/IupacHelper.cs#L16)
+- Source: [IupacHelper.cs#L24](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/IupacHelper.cs#L24)
 
 ## Input Schema
 

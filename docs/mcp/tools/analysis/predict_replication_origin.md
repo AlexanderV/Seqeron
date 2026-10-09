@@ -24,7 +24,7 @@ prefix indices (Rosalind BA1F returns all minimizers, e.g. `53 97` for its sampl
 
 ## Core Documentation Reference
 
-- Source: [GcSkewCalculator.cs#L247](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L247)
+- Source: [GcSkewCalculator.cs#L656](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L656)
 
 ## Input Schema
 

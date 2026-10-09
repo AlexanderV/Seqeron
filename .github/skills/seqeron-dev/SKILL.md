@@ -21,7 +21,7 @@ Quickstart writes `using Seqeron.Genomics;` as shorthand, but the real declarati
 
 | Type | Real namespace | Source |
 |---|---|---|
-| `DnaSequence`, `RnaSequence`, `ProteinSequence` | `Seqeron.Genomics.Core` | `src/.../Seqeron.Genomics.Core/DnaSequence.cs:6` |
+| `DnaSequence`, `RnaSequence`, `ProteinSequence` | `Seqeron.Genomics.Core` | `src/.../Seqeron.Genomics.Core/DnaSequence.cs:9` |
 | `LimitationPolicy`, `LimitationMode`, `SeqeronLimitationException`, `LimitationCatalog` | `Seqeron.Genomics.Core` | `src/.../Seqeron.Genomics.Core/LimitationPolicy.cs:6` |
 | `SequenceAligner` | `Seqeron.Genomics.Alignment` | `src/.../Seqeron.Genomics.Alignment/SequenceAligner.cs:9` |
 | `AlignmentResult`, `AlignmentStatistics`, `MultipleAlignmentResult` | `Seqeron.Genomics.Infrastructure` | `src/.../Seqeron.Genomics.Infrastructure/AlignmentTypes.cs:3` |
@@ -38,11 +38,11 @@ Two paths, both real (`DnaSequence.cs`):
 using Seqeron.Genomics.Core;
 
 // Throwing constructor — throws on invalid input. Use when input is trusted.
-var dna = new DnaSequence("AAAGAATTCAAA");          // DnaSequence.cs:22
-Console.WriteLine(dna.GcContent());                 // DnaSequence.cs:82
+var dna = new DnaSequence("AAAGAATTCAAA");          // DnaSequence.cs:19
+Console.WriteLine(dna.GcContent());                 // DnaSequence.cs:70
 
 // Validation-friendly path — no exception; returns false on invalid input.
-if (!DnaSequence.TryCreate("ACGTNN", out var seq))  // DnaSequence.cs:129
+if (!DnaSequence.TryCreate("ACGTNN", out var seq))  // DnaSequence.cs:115
     Console.WriteLine("Invalid DNA sequence");
 else
     Console.WriteLine(seq.GcContent());
