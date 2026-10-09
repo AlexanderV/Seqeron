@@ -18,7 +18,7 @@ Reverse-complements the supplied mRNA-sense sequence and runs the probe designer
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L1388](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1388)
+- Source: [ProbeDesigner.cs#L1401](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1401)
 
 ## Input Schema
 

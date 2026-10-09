@@ -594,6 +594,9 @@ public static class ProbeDesigner
     /// primer Tm computed on the same scale (e.g. <see cref="PrimerDesigner.CalculateMeltingTemperaturePrimer3"/>);
     /// it is <c>NaN</c> when the probe has fewer than 2 bases or a non-ACGT base, and the Tm gate then fails
     /// whenever a primer Tm is supplied.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="probeSequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">DNA or monovalent concentration not &gt; 0, divalent or dNTP concentration
+    /// negative, or any of them non-finite (Primer3 <c>_pr_data_control</c>).</exception>
     public static TaqManProbeEvaluation EvaluateTaqManProbe(
         string probeSequence,
         double? primerTm = null,
@@ -605,6 +608,16 @@ public static class ProbeDesigner
         double dntpMillimolar = PrimerDesigner.Primer3InternalDntpMillimolar)
     {
         ArgumentNullException.ThrowIfNull(probeSequence);
+        // Primer3 _pr_data_control condition limits, each reported under its own parameter (heavy tier, HEAVY-2: an
+        // infinite salt surfaced as ThermoConstants' "naConcentration").
+        if (!(dnaConcentrationNanomolar > 0) || double.IsInfinity(dnaConcentrationNanomolar))
+            throw new ArgumentOutOfRangeException(nameof(dnaConcentrationNanomolar), dnaConcentrationNanomolar, "PRIMER_INTERNAL_DNA_CONC must be > 0 and finite.");
+        if (!(monovalentMillimolar > 0) || double.IsInfinity(monovalentMillimolar))
+            throw new ArgumentOutOfRangeException(nameof(monovalentMillimolar), monovalentMillimolar, "PRIMER_INTERNAL_SALT_MONOVALENT must be > 0 and finite.");
+        if (!(divalentMillimolar >= 0) || double.IsInfinity(divalentMillimolar))
+            throw new ArgumentOutOfRangeException(nameof(divalentMillimolar), divalentMillimolar, "PRIMER_INTERNAL_SALT_DIVALENT must be ≥ 0 and finite.");
+        if (!(dntpMillimolar >= 0) || double.IsInfinity(dntpMillimolar))
+            throw new ArgumentOutOfRangeException(nameof(dntpMillimolar), dntpMillimolar, "PRIMER_INTERNAL_DNTP_CONC must be ≥ 0 and finite.");
 
         string seq = probeSequence.ToUpperInvariant();
         var violations = new List<string>();
@@ -839,7 +852,7 @@ public static class ProbeDesigner
     /// <exception cref="ArgumentOutOfRangeException">With the <see cref="ProbeRanking.Primer3Penalty"/> ranking:
     /// <see cref="ProbeParameters.OptLength"/> outside [MinLength, MaxLength] or <see cref="ProbeParameters.OptTm"/> outside
     /// [MinTm, MaxTm] (Primer3 <c>_pr_data_control</c>); an undefined <see cref="ProbeParameters.Ranking"/> value;
-    /// <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> outside 60–10 000.</exception>
+    /// <see cref="ProbeParameters.ThermodynamicScreenMaxLength"/> outside 60–10 000; <see cref="ProbeParameters.MinLength"/> &lt; 1 (Primer3 <c>_pr_data_control</c>: PRIMER_INTERNAL_MIN_SIZE must be ≥ 1), a negative <see cref="ProbeParameters.MaxNearestNeighborLength"/>, or illegal reaction conditions (monovalent salt or DNA concentration not &gt; 0, divalent salt or dNTP negative, or non-finite — Primer3 <c>_pr_data_control</c>; audit heavy tier, HEAVY-2).</exception>
     public static IEnumerable<Probe> DesignProbes(
         string targetSequence,
         ProbeParameters? parameters = null,
@@ -847,7 +860,7 @@ public static class ProbeDesigner
     {
         var param = parameters ?? Defaults.Microarray;
         ValidateRanking(param, nameof(parameters));
-        ValidateThermodynamicScreenMaxLength(param, nameof(parameters));
+        ValidateDesignParameters(param, nameof(parameters), checkLengths: true);
         return DesignProbesIterator(targetSequence, param, maxProbes);
     }
 
@@ -893,7 +906,7 @@ public static class ProbeDesigner
     /// <see cref="DesignProbes(string, ProbeParameters?, int)"/>), after the specificity scaling when
     /// <paramref name="requireUnique"/> is false. Before audit round 4 (B07 F59) only the top
     /// <paramref name="maxProbes"/> × 5 candidates were inspected and the scaled scores were not re-ranked.</remarks>
-    /// <exception cref="ArgumentOutOfRangeException">Invalid Primer3-ranking optima (see
+    /// <exception cref="ArgumentOutOfRangeException">Invalid Primer3-ranking optima or other invalid parameters (see
     /// <see cref="DesignProbes(string, ProbeParameters?, int)"/>).</exception>
     public static IEnumerable<Probe> DesignProbes(
         string targetSequence,
@@ -905,7 +918,7 @@ public static class ProbeDesigner
     {
         var param = parameters ?? Defaults.Microarray;
         ValidateRanking(param, nameof(parameters));
-        ValidateThermodynamicScreenMaxLength(param, nameof(parameters));
+        ValidateDesignParameters(param, nameof(parameters), checkLengths: true);
         return DesignProbesIterator(targetSequence, genomeIndex, param, maxProbes, requireUnique, bothStrands);
     }
 
@@ -1315,7 +1328,7 @@ public static class ProbeDesigner
     /// <exception cref="ArgumentNullException"><paramref name="targetSequence"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="probeLength"/> ≤ 0 or longer than the target
     /// (CATCH rejects a sequence shorter than the probe length), or <paramref name="overlap"/> ≥
-    /// <paramref name="probeLength"/> (the step would not advance).</exception>
+    /// <paramref name="probeLength"/> (the step would not advance); invalid <paramref name="parameters"/> (Primer3-ranking optima, ThermodynamicScreenMaxLength outside 60–10 000, a negative MaxNearestNeighborLength or illegal reaction conditions, as for <see cref="DesignProbes(string, ProbeParameters?, int)"/>; its MinLength / MaxLength are not used).</exception>
     public static TilingProbeSet DesignTilingProbes(
         string targetSequence,
         int probeLength = 60,
@@ -1338,7 +1351,7 @@ public static class ProbeDesigner
             MaxLength = probeLength
         };
         ValidateRanking(param, nameof(parameters));
-        ValidateThermodynamicScreenMaxLength(param, nameof(parameters));
+        ValidateDesignParameters(param, nameof(parameters), checkLengths: false);
 
         targetSequence = targetSequence.ToUpperInvariant();
         var probes = new List<Probe>();
@@ -1946,6 +1959,7 @@ public static class ProbeDesigner
     /// <exception cref="ArgumentNullException"><paramref name="targetSequence"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="probeLength"/> or <paramref name="stemLength"/> ≤ 0
     /// (a beacon needs a loop and two arms; the Tyagi &amp; Kramer ranges are recommendations and are not enforced),
+    /// <paramref name="stemLength"/> so large that the beacon (2·stem + loop) cannot be built,
     /// or <paramref name="maxAlignLength"/> outside 60–10 000.</exception>
     public static Probe? DesignMolecularBeacon(
         string targetSequence,
@@ -1957,6 +1971,10 @@ public static class ProbeDesigner
         ArgumentNullException.ThrowIfNull(targetSequence);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(probeLength);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(stemLength);
+        // The beacon (two arms + loop) must fit in a string (heavy tier, HEAVY-2: stemLength = int.MaxValue overflowed
+        // into an OutOfMemoryException).
+        if (2L * stemLength + probeLength > Array.MaxLength)
+            throw new ArgumentOutOfRangeException(nameof(stemLength), stemLength, "The beacon (2·stemLength + probeLength) is too long.");
         if (maxAlignLength < PrimerDesigner.NtthalMaxAlignLength || maxAlignLength > PrimerDesigner.NtthalMaxSequenceLength)
             throw new ArgumentOutOfRangeException(nameof(maxAlignLength), maxAlignLength,
                 "THAL_MAX_ALIGN must be in 60..10000.");
@@ -3750,6 +3768,23 @@ public static class ProbeDesigner
     // in place of the former private scan that tested a loop of exactly 3 nt with an unsourced ≥ 80 % stem match
     // (audit round 5, A5-2).
     private static bool HasSecondaryStructurePotential(string sequence) => PrimerDesigner.HasHairpinPotential(sequence);
+
+    // Eager ProbeParameters checks of the designers (heavy tier, HEAVY-2): MinLength < 1 crashed the window scan
+    // (IndexOutOfRange) and illegal conditions surfaced lazily from the Tm with a foreign parameter name. Primer3
+    // _pr_data_control: PRIMER_INTERNAL_MIN_SIZE must be >= 1 (checked only where MinLength is used), PRIMER_INTERNAL_SALT_
+    // MONOVALENT / DNA_CONC > 0, SALT_DIVALENT / DNTP_CONC >= 0 (canonical ValidatePrimer3Conditions); the Tm's
+    // max_nn_length must be >= 0; plus the ranking optima and THAL_MAX_ALIGN range.
+    private static void ValidateDesignParameters(ProbeParameters param, string paramName, bool checkLengths)
+    {
+        if (checkLengths && param.MinLength < 1)
+            throw new ArgumentOutOfRangeException(paramName,
+                "PRIMER_INTERNAL_MIN_SIZE must be >= 1 (Primer3 _pr_data_control): MinLength must be at least 1.");
+        if (param.MaxNearestNeighborLength < 0)
+            throw new ArgumentOutOfRangeException(paramName, "MaxNearestNeighborLength (max_nn_length) cannot be negative.");
+        PrimerDesigner.ValidatePrimer3Conditions(param.MonovalentMillimolar, param.DivalentMillimolar,
+            param.DntpMillimolar, param.DnaConcentrationNanomolar, paramName);
+        ValidateThermodynamicScreenMaxLength(param, paramName);
+    }
 
     // Simple-sequence repeat: a di- or trinucleotide microsatellite of ≥ 4 complete copies, found by the
     // canonical MISA-convention scanner (primitive units only, A/C/G/T only).

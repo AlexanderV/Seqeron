@@ -35,7 +35,7 @@ Input is treated case-insensitively.
 
 ## Core Documentation Reference
 
-- Source: [ProbeDesigner.cs#L3551](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3551) (`AnalyzeOligo`)
+- Source: [ProbeDesigner.cs#L3569](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs#L3569) (`AnalyzeOligo`)
 - Tm constants: [ThermoConstants.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/ThermoConstants.cs)
 
 ## Input Schema

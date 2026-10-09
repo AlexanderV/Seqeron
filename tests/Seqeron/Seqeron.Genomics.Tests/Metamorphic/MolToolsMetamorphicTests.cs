@@ -1990,14 +1990,20 @@ public class MolToolsMetamorphicTests
     [Description("INV: appending any unrelated downstream region preserves every original probe EXACTLY (same Start/Sequence/Tm/GC/Score/Warnings); the extended valid set is a superset.")]
     public void DesignProbes_AppendUnrelatedRegion_PreservesOriginalProbesExactly()
     {
+        // Microarray preset (1 M Na⁺ / 1 µM, Tm 82–90, G+C 0.40–0.60, ntthal screen) with the length window narrowed
+        // to 50–51 nt (B07 heavy tier, HEAVY-2): with the cap lifted every window gets the three ntthal recursions
+        // (≈ 30 ms per 50–60-mer in Debug), so the full 50–60 window over the 25 designs below took 9–11 min (B06
+        // "hang"). The relation — a window's record depends only on the window — is independent of the length range;
+        // two lengths keep the multi-length enumeration / tie order in play. Same targets, same appends, same checks.
+        var param = Microarray with { MaxLength = Microarray.MinLength + 1 };
         foreach (var target in ProbeTargets())
         {
-            var baseProbes = DesignAll(target, Microarray);
+            var baseProbes = DesignAll(target, param);
             baseProbes.Should().NotBeEmpty(because: "each target is constructed to yield Microarray probes");
 
             foreach (var ext in new[] { RandomDna(30), RandomDna(60), "GGGGCCCCAAAATTTT", NonPamRegion(40) })
             {
-                var extById = DesignById(target + ext, Microarray);
+                var extById = DesignById(target + ext, param);
 
                 foreach (var bp in baseProbes)
                 {

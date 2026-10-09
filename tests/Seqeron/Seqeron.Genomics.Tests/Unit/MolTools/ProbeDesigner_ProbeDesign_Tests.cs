@@ -795,4 +795,91 @@ public class ProbeDesigner_ProbeDesign_Tests
     }
 
     #endregion
+
+    #region B07 heavy tier (HEAVY-2, F75): ProbeParameters / condition guards found by the guard fuzz
+
+    private const string GuardTarget = "ATGCGTACGTTAGCCGATCGATCGGCTAGCTAGGATCCGATCGTAGCTAGCATCGACTGACTTAGGCA";
+
+    private static IEnumerable<TestCaseData> IllegalDesignParameters()
+    {
+        var q = ProbeDesigner.Defaults.qPCR;
+        // MinLength < 1 crashed the window scan with IndexOutOfRangeException (Primer3: PRIMER_INTERNAL_MIN_SIZE ≥ 1).
+        yield return new TestCaseData(q with { MinLength = 0, MaxLength = 3 }).SetName("MinLength 0");
+        yield return new TestCaseData(q with { MinLength = -5, MaxLength = 3 }).SetName("MinLength -5");
+        // Illegal conditions surfaced lazily from the Tm with a foreign ParamName (maxNearestNeighborLength / naConcentration).
+        yield return new TestCaseData(q with { MaxNearestNeighborLength = -1 }).SetName("MaxNearestNeighborLength -1");
+        yield return new TestCaseData(q with { MonovalentMillimolar = -1 }).SetName("monovalent -1");
+        yield return new TestCaseData(q with { DnaConcentrationNanomolar = 0 }).SetName("DNA 0");
+        yield return new TestCaseData(q with { DivalentMillimolar = double.NaN }).SetName("divalent NaN");
+        yield return new TestCaseData(q with { DntpMillimolar = double.PositiveInfinity }).SetName("dNTP +inf");
+    }
+
+    [TestCaseSource(nameof(IllegalDesignParameters))]
+    public void DesignProbes_IllegalParameters_ThrowEagerlyWithParameterName(ProbeDesigner.ProbeParameters p)
+    {
+        // Eager: the exception is raised by the call itself, before enumeration.
+        Assert.Multiple(() =>
+        {
+            Assert.That(Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.DesignProbes(GuardTarget, p))!.ParamName,
+                Is.EqualTo("parameters"));
+            var index = global::SuffixTree.SuffixTree.Build(GuardTarget);
+            Assert.That(Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.DesignProbes(GuardTarget, index, p))!.ParamName,
+                Is.EqualTo("parameters"));
+            Assert.That(Assert.Throws<ArgumentOutOfRangeException>(() => ProbeDesigner.DesignAntisenseProbes(GuardTarget, p).ToList())!.ParamName,
+                Is.EqualTo("parameters"));
+        });
+    }
+
+    [Test]
+    public void DesignTilingProbes_IllegalConditions_Throw_UnusedLengthsIgnored()
+    {
+        var q = ProbeDesigner.Defaults.qPCR;
+        Assert.Multiple(() =>
+        {
+            Assert.That(Assert.Throws<ArgumentOutOfRangeException>(
+                () => ProbeDesigner.DesignTilingProbes(GuardTarget, 20, 5, q with { MonovalentMillimolar = 0 }))!.ParamName,
+                Is.EqualTo("parameters"));
+            Assert.That(Assert.Throws<ArgumentOutOfRangeException>(
+                () => ProbeDesigner.DesignTilingProbes(GuardTarget, 20, 5, q with { MaxNearestNeighborLength = -1 }))!.ParamName,
+                Is.EqualTo("parameters"));
+            // Tiling windows have probeLength nt; the parameters' MinLength / MaxLength are not used, so 0 is accepted.
+            var set = ProbeDesigner.DesignTilingProbes(GuardTarget, 20, 5, q with { MinLength = 0, MaxLength = 0 });
+            Assert.That(set.Coverage, Is.EqualTo(GuardTarget.Length));
+        });
+    }
+
+    [Test]
+    public void DesignProbes_LegalPresets_Unchanged()
+    {
+        // The new guards accept every preset (OligoArray 1 M / 1 µM included) and the defaults.
+        foreach (var p in new[] { ProbeDesigner.Defaults.qPCR, ProbeDesigner.Defaults.Microarray with { StructureScreen = ProbeDesigner.ProbeStructureScreen.Heuristic } })
+            Assert.DoesNotThrow(() => ProbeDesigner.DesignProbes(GuardTarget, p, 3).ToList());
+        Assert.DoesNotThrow(() => ProbeDesigner.DesignProbes(GuardTarget, (ProbeDesigner.ProbeParameters?)null, 1).ToList());
+    }
+
+    [TestCase(0.0, 50.0, 0.0, 0.0, "dnaConcentrationNanomolar")]
+    [TestCase(double.PositiveInfinity, 50.0, 0.0, 0.0, "dnaConcentrationNanomolar")]
+    [TestCase(50.0, 0.0, 0.0, 0.0, "monovalentMillimolar")]
+    [TestCase(50.0, double.PositiveInfinity, 0.0, 0.0, "monovalentMillimolar")]
+    [TestCase(50.0, 50.0, -1.0, 0.0, "divalentMillimolar")]
+    [TestCase(50.0, 50.0, double.NaN, 0.0, "divalentMillimolar")]
+    [TestCase(50.0, 50.0, 0.0, double.PositiveInfinity, "dntpMillimolar")]
+    public void EvaluateTaqManProbe_IllegalConditions_ThrowWithOwnParameterName(double dna, double mv, double dv, double dntp, string param)
+    {
+        // Before: an infinite salt reached ThermoConstants and threw with ParamName "naConcentration".
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => ProbeDesigner.EvaluateTaqManProbe("CCATCACCCTACATCACC", null, 18, 22, dna, mv, dv, dntp));
+        Assert.That(ex!.ParamName, Is.EqualTo(param));
+    }
+
+    [Test]
+    public void DesignMolecularBeacon_StemTooLongForAString_ThrowsArgumentOutOfRange()
+    {
+        // Before: stemLength = int.MaxValue → OutOfMemoryException building the arms.
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => ProbeDesigner.DesignMolecularBeacon(BeaconTarget, 25, int.MaxValue));
+        Assert.That(ex!.ParamName, Is.EqualTo("stemLength"));
+    }
+
+    #endregion
 }

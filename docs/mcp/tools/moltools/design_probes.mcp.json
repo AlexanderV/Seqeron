@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProbeDesigner.DesignProbes",
-  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L843",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L856",
   "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-ranked probes (default: additive library-heuristic score; parameters.Ranking = Primer3Penalty: Primer3 internal-oligo penalty p_obj_fn, sourced). Probes longer than thermodynamic_screen_max_length (default 60 = THAL_MAX_ALIGN; opt-in up to 10000) use Primer3's alignment-mode self_any/self_end (<= 12) self-dimer screen plus an inverted-repeat hairpin screen.",
   "inputSchema": {
     "type": "object",
