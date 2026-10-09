@@ -37,7 +37,7 @@ The integer copy number maps to a CNA state: `CN 0 → DeepDeletion`, `CN 1 → 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
 | ASM-01 | Reference ploidy is 2 (autosomal diploid) [2] | A non-diploid baseline (e.g. sex chromosomes, whole-genome doubling) shifts the absolute CN and amplification ceiling; the discrete cutoffs would no longer correspond to the same integer states |
-| ASM-02 | Sample is treated as pure for the absolute-CN formula [2] | At low purity the same true CN yields a log2 ratio closer to 0, so impure samples under-call gains/losses (the cutoffs are calibrated for purity ≥ 30%) |
+| ASM-02 | Sample is treated as pure unless a `purity` is supplied (purity overloads, CNVkit `do_call` purity path) [2] | Without `purity`, at low purity the same true CN yields a log2 ratio closer to 0, so impure samples under-call gains/losses (the cutoffs are calibrated for purity ≥ 30%); with `purity` < 1 the log2 is first rescaled by `_log2_ratio_to_absolute` + `log2_ratios` |
 
 ### 2.4 Properties and Invariants
 
@@ -125,10 +125,7 @@ This unit is the oncology classification layer. SV-CNV-001 (`StructuralVariantAn
 - Hard-threshold integer calling: first cutoff with `log2 ≤ cutoff`, else `⌈ploidy·2^log2⌉` (CNVkit `absolute_threshold`) [2].
 - Default tumor cutoffs (−1.1, −0.25, 0.2, 0.7) and the 0/1/2/3/≥4 → DeepDeletion/Loss/Neutral/Gain/Amplification mapping [2].
 - NaN log2 → neutral no-call [2].
-
-**Intentionally simplified:**
-
-- Purity/impurity correction (`_log2_ratio_to_absolute`): only the pure-sample formula is implemented; **consequence:** at low purity the same true CN gives a log2 closer to 0 and may be under-called (cutoffs assume purity ≥ 30%) [2][3].
+- Purity correction (B24 F29): overloads `Log2RatioToCopyNumber(log2, ploidy, purity)`, `CallCopyNumber(log2, thresholds, ploidy, purity)`, `ClassifyCopyNumber(s)(…, purity)` port CNVkit `do_call(method="threshold", purity=p)`: for `p < 1`, `n = max(0, (ploidy·2^v − ploidy·(1−p))/p)` (`_log2_ratio_to_absolute`, #503 clamp), rescaled `v' = log2(max(n/ploidy, 1e-3))` (`log2_ratios`), then `absolute_threshold` on `v'`; `p = 1` is the pure path. Purity range (0, 1] as CNVkit `call --purity`. Shared math lives in `Seqeron.Genomics.Infrastructure.CopyNumberMath` (B24 F28). Autosomal form (reference = expected copies = ploidy); sex-chromosome reference/expect copies are available via `CopyNumberMath.Log2RatioToAbsolute(v, r, x, p)` [2].
 
 **Not implemented:**
 
@@ -158,7 +155,7 @@ This unit is the oncology classification layer. SV-CNV-001 (`StructuralVariantAn
 
 ### 6.2 Limitations
 
-Single-region classification only (no segmentation/joining); pure-sample absolute CN (no purity correction); diploid reference unless overridden; no allele-specific (major/minor) decomposition; cutoffs calibrated for tumor purity ≥ 30% [3].
+Single-region classification only (no segmentation/joining); purity correction only via the explicit `purity` overloads (autosomal reference = expected copies); diploid reference unless overridden; no allele-specific (major/minor) decomposition; cutoffs calibrated for tumor purity ≥ 30% [3].
 
 ## 7. Examples and Related Material
 
@@ -182,6 +179,6 @@ var call = OncologyAnalyzer.ClassifyCopyNumber(1.0);
 ## 8. References
 
 1. Mermel CH, Schumacher SE, Hill B, Meyerson ML, Beroukhim R, Getz G. 2011. GISTIC2.0 facilitates sensitive and confident localization of the targets of focal somatic copy-number alteration in human cancers. Genome Biology 12(4):R41. https://doi.org/10.1186/gb-2011-12-4-r41
-2. CNVkit. `cnvlib/call.py` — `absolute_threshold`, `_log2_ratio_to_absolute_pure`, `do_call`. https://raw.githubusercontent.com/etal/cnvkit/master/cnvlib/call.py
+2. CNVkit. `cnvlib/call.py` — `absolute_threshold`, `_log2_ratio_to_absolute_pure`, `_log2_ratio_to_absolute`, `log2_ratios`, `do_call`. https://raw.githubusercontent.com/etal/cnvkit/master/cnvlib/call.py
 3. CNVkit documentation. `call` command threshold method. https://cnvkit.readthedocs.io/en/stable/pipeline.html
 4. GISTIC2 documentation. `-ta` / `-td` amplification/deletion thresholds. https://broadinstitute.github.io/gistic2/

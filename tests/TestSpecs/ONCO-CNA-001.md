@@ -98,6 +98,10 @@
 | S3 | Amplification ceil | log2 = 0.8 | CN ceil(2·2^0.8)=4, Amplification | `ceil` not `round` |
 | S4 | Triploid reference | ploidy 3; log2 0 / 0.8 / 1.0 | CN 2 / 6 / 6 | CNVkit `absolute_threshold` (Python port) |
 | S5 | NaN, non-integer ploidy | ploidy 2.5 / 3.5 | CN 2 / 4 | numpy round-half-to-even in `do_call` |
+| S6 | Purity path (F29) | `CallCopyNumber(v, null, 2, p)`: p 0.7: −1.0/−0.2/0.15/0.8/1.5 → 0/1/3/5/8; p 0.5: −0.4/1.0 → 1/6; p 0.3: −0.6/−0.25/0/0.3/1.0 → 0/1/2/4/9; ploidy 3 p 0.6: −1/−0.3/0.4/1 → 0/1/3/8 | CNVkit 0.9.14 `do_call` | `OncologyAnalyzer_CopyNumberPurity_Tests` |
+| S7 | Purity deletion boundary | p 0.7, v* = −0.6744718626824432 ± 1e-9 | CN 0 / 1 | CNVkit 0.9.14 |
+| S8 | Purity 1 ≡ pure overloads; purity ∉ (0,1] throws | — | identical / `ArgumentOutOfRangeException` | CNVkit `purity_value` |
+| S9 | Canonical `CopyNumberMath` (F28) | pure/purity absolute, #503 clamp, `log2_ratios` floor | CNVkit 0.9.14 values | `CopyNumberMathTests` |
 | S6 | Largest Int32 amplification | log2 29.9 | CN 2003673093, Amplification | numpy `ceil(2·2^29.9)` |
 | S7 | −∞ log2 | log2 = −∞ | CN 0, DeepDeletion, absolute 0 | below every cutoff |
 
@@ -198,7 +202,7 @@ Total in-scope cases: 22. ✅: 22.
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Diploid (autosomal) reference ploidy = 2 (CNVkit default; sex/haploid out of scope) | Log2RatioToCopyNumber, CallCopyNumber, ClassifyCopyNumber |
+| 1 | Diploid (autosomal) reference ploidy = 2 (CNVkit default; sex/haploid out of scope — sex-chromosome reference/expect copies only via `CopyNumberMath`) | Log2RatioToCopyNumber, CallCopyNumber, ClassifyCopyNumber (incl. purity overloads, reference = expected = ploidy) |
 
 ---
 

@@ -87,7 +87,54 @@ public static partial class OncologyAnalyzer
     public static double Log2RatioToCopyNumber(double log2Ratio, double ploidy = DiploidReferencePloidy)
     {
         ValidatePloidy(ploidy);
-        return ploidy * Math.Pow(2.0, log2Ratio);
+        return CopyNumberMath.Log2RatioToAbsolute(log2Ratio, ploidy);
+    }
+
+    /// <summary>
+    /// Converts a log2 copy ratio to a continuous absolute tumour copy number corrected for tumour purity
+    /// (normal-cell contamination). For <c>purity &lt; 1</c>:
+    /// <c>n = max(0, (ploidy · 2^log2 − ploidy · (1 − purity)) / purity)</c>; for <c>purity = 1</c> this is exactly
+    /// <see cref="Log2RatioToCopyNumber(double, double)"/>. Autosomal form (reference = expected copies = ploidy).
+    /// Source: CNVkit <c>cnvlib/call.py</c> <c>_log2_ratio_to_absolute</c> (via
+    /// <see cref="CopyNumberMath.Log2RatioToAbsolute(double, double, double, double)"/>).
+    /// </summary>
+    /// <param name="log2Ratio">Observed log2 copy ratio; NaN propagates to NaN.</param>
+    /// <param name="ploidy">Reference (germline) ploidy; finite positive.</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1] (CNVkit <c>call --purity</c> range).</param>
+    /// <returns>Purity-corrected continuous absolute copy number (≥ 0 unless NaN).</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
+    public static double Log2RatioToCopyNumber(double log2Ratio, double ploidy, double purity)
+    {
+        ValidatePloidy(ploidy);
+        return CopyNumberMath.Log2RatioToAbsolute(log2Ratio, ploidy, ploidy, purity);
+    }
+
+    /// <summary>
+    /// Rescales an observed log2 ratio for tumour purity as CNVkit <c>do_call</c> does before thresholding:
+    /// absolute = <c>_log2_ratio_to_absolute(v, ploidy, ploidy, purity)</c>, then
+    /// <c>log2 = log2(max(absolute / ploidy, 1e-3))</c> (<c>log2_ratios</c>, autosomal). Purity 1 (CNVkit skips
+    /// rescaling when <c>purity &lt; 1.0</c> is false) and NaN (CNVkit 0.9.14 propagates NaN to the threshold
+    /// no-call) return the input unchanged.
+    /// </summary>
+    private static double RescaleLog2ForPurity(double log2Ratio, double ploidy, double purity)
+    {
+        ValidatePurity(purity);
+        if (purity >= 1.0 || double.IsNaN(log2Ratio))
+        {
+            return log2Ratio;
+        }
+
+        double absolute = CopyNumberMath.Log2RatioToAbsolute(log2Ratio, ploidy, ploidy, purity);
+        return CopyNumberMath.AbsoluteToLog2Ratio(absolute, ploidy);
+    }
+
+    /// <summary>Validates tumour purity ∈ (0, 1] (CNVkit <c>commands.py</c> <c>purity_value</c>).</summary>
+    private static void ValidatePurity(double purity)
+    {
+        if (!(purity > 0.0 && purity <= 1.0))
+        {
+            throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity must be in (0, 1].");
+        }
     }
 
     /// <summary>
@@ -138,6 +185,34 @@ public static partial class OncologyAnalyzer
         // by this int-valued API (CNVkit itself raises OverflowError for +∞). The call is saturated explicitly
         // at Int32.MaxValue: the state stays Amplification (CN ≥ 4) and CN ≥ 0 (INV-3) — never a wrapped value.
         return copyNumber >= int.MaxValue ? int.MaxValue : (int)copyNumber;
+    }
+
+    /// <summary>
+    /// Purity-aware CNVkit threshold call (<c>do_call(method="threshold", purity=…)</c>): when
+    /// <paramref name="purity"/> &lt; 1 the log2 ratio is first rescaled for normal-cell contamination
+    /// (<c>absolute_clonal</c> → <c>log2_ratios</c>: <c>log2(max(n/ploidy, 1e-3))</c> with
+    /// <c>n = max(0, (ploidy·2^v − ploidy·(1−p))/p)</c>), then the hard thresholds of
+    /// <see cref="CallCopyNumber(double, IReadOnlyList{double}?, double)"/> are applied to the rescaled value.
+    /// <paramref name="purity"/> = 1 is identical to the purity-less overload. Autosomal form.
+    /// Source: CNVkit <c>cnvlib/call.py</c> <c>do_call</c>, <c>absolute_dataframe</c>, <c>_log2_ratio_to_absolute</c>,
+    /// <c>log2_ratios</c>, <c>absolute_threshold</c>.
+    /// </summary>
+    /// <param name="log2Ratio">Observed log2 copy ratio; NaN is a no-call (neutral).</param>
+    /// <param name="thresholds">Four strictly ascending cutoffs; null uses <see cref="DefaultCopyNumberThresholds"/>.</param>
+    /// <param name="ploidy">Reference ploidy (default diploid in the purity-less overload).</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1].</param>
+    /// <returns>The integer copy number (≥ 0), saturated at <see cref="int.MaxValue"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
+    public static int CallCopyNumber(
+        double log2Ratio,
+        IReadOnlyList<double>? thresholds,
+        double ploidy,
+        double purity)
+    {
+        var cutoffs = ValidateThresholds(thresholds);
+        ValidatePloidy(ploidy);
+        return CallCopyNumber(RescaleLog2ForPurity(log2Ratio, ploidy, purity), cutoffs, ploidy);
     }
 
     /// <summary>
@@ -200,6 +275,64 @@ public static partial class OncologyAnalyzer
         CopyNumberState state = StateFromCopyNumber(integerCopyNumber);
 
         return new CopyNumberCall(log2Ratio, absolute, integerCopyNumber, state);
+    }
+
+    /// <summary>
+    /// Purity-aware <see cref="ClassifyCopyNumber(double, IReadOnlyList{double}?, double)"/>: the integer copy number
+    /// is <see cref="CallCopyNumber(double, IReadOnlyList{double}?, double, double)"/> (thresholds applied to the
+    /// purity-rescaled log2, CNVkit <c>do_call</c>) and <see cref="CopyNumberCall.AbsoluteCopyNumber"/> is the
+    /// purity-corrected absolute copy number (<see cref="Log2RatioToCopyNumber(double, double, double)"/>; ploidy for a
+    /// NaN no-call). <see cref="CopyNumberCall.Log2Ratio"/> keeps the observed (input) value.
+    /// <paramref name="purity"/> = 1 is identical to the purity-less overload.
+    /// </summary>
+    /// <param name="log2Ratio">Observed log2 copy ratio; NaN is a no-call.</param>
+    /// <param name="thresholds">Four ascending cutoffs; null uses <see cref="DefaultCopyNumberThresholds"/>.</param>
+    /// <param name="ploidy">Reference ploidy.</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1].</param>
+    /// <returns>The copy-number call.</returns>
+    /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
+    public static CopyNumberCall ClassifyCopyNumber(
+        double log2Ratio,
+        IReadOnlyList<double>? thresholds,
+        double ploidy,
+        double purity)
+    {
+        int integerCopyNumber = CallCopyNumber(log2Ratio, thresholds, ploidy, purity);
+        double absolute = double.IsNaN(log2Ratio) ? ploidy : Log2RatioToCopyNumber(log2Ratio, ploidy, purity);
+        return new CopyNumberCall(log2Ratio, absolute, integerCopyNumber, StateFromCopyNumber(integerCopyNumber));
+    }
+
+    /// <summary>
+    /// Purity-aware <see cref="ClassifyCopyNumbers(IEnumerable{double}, IReadOnlyList{double}?, double)"/>: one
+    /// <see cref="ClassifyCopyNumber(double, IReadOnlyList{double}?, double, double)"/> call per input, in input order.
+    /// </summary>
+    /// <param name="log2Ratios">Per-region observed log2 copy ratios.</param>
+    /// <param name="thresholds">Four ascending cutoffs; null uses <see cref="DefaultCopyNumberThresholds"/>.</param>
+    /// <param name="ploidy">Reference ploidy.</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1].</param>
+    /// <returns>One call per input log2 ratio, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="log2Ratios"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
+    public static IReadOnlyList<CopyNumberCall> ClassifyCopyNumbers(
+        IEnumerable<double> log2Ratios,
+        IReadOnlyList<double>? thresholds,
+        double ploidy,
+        double purity)
+    {
+        ArgumentNullException.ThrowIfNull(log2Ratios);
+        var cutoffs = ValidateThresholds(thresholds);
+        ValidatePloidy(ploidy);
+        ValidatePurity(purity);
+
+        var calls = new List<CopyNumberCall>();
+        foreach (double log2Ratio in log2Ratios)
+        {
+            calls.Add(ClassifyCopyNumber(log2Ratio, cutoffs, ploidy, purity));
+        }
+
+        return calls;
     }
 
     /// <summary>
@@ -572,6 +705,34 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Purity-aware <see cref="IsHomozygousDeletion(in CopyNumberArmSegment, IReadOnlyList{double}?, double)"/>: the
+    /// segment's log2 ratio is rescaled for tumour purity exactly as CNVkit <c>do_call</c> does
+    /// (<c>_log2_ratio_to_absolute</c> → <c>log2_ratios</c>) before the hard-threshold call; the segment is a
+    /// homozygous deletion when that integer copy number is 0. With normal contamination an observed log2 of −1.0
+    /// (CN 1 when pure) is CN 0 at purity 0.7 (absolute 0.571 → rescaled log2 −1.807 ≤ −1.1).
+    /// <paramref name="purity"/> = 1 is identical to the purity-less overload.
+    /// </summary>
+    /// <param name="segment">The arm-anchored copy-number segment.</param>
+    /// <param name="thresholds">Four strictly ascending log2 cutoffs; null uses CNVkit defaults.</param>
+    /// <param name="ploidy">Reference (germline) ploidy.</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1].</param>
+    /// <returns><c>true</c> when the purity-corrected integer copy number is 0.</returns>
+    /// <exception cref="ArgumentException"><paramref name="segment"/> has non-positive arm length or End ≤ Start; or invalid thresholds.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
+    public static bool IsHomozygousDeletion(
+        in CopyNumberArmSegment segment,
+        IReadOnlyList<double>? thresholds,
+        double ploidy,
+        double purity)
+    {
+        ValidateArmSegment(segment);
+        var cutoffs = ValidateThresholds(thresholds);
+        ValidatePloidy(ploidy);
+        return CallCopyNumberUnbounded(RescaleLog2ForPurity(segment.Log2Ratio, ploidy, purity), cutoffs, ploidy)
+            == HomozygousDeletionCopyNumber;
+    }
+
+    /// <summary>
     /// Detects homozygous (deep) deletions among arm-anchored copy-number segments. A segment is reported when
     /// its hard-threshold integer copy number is 0 — total copy number 0, i.e. both alleles lost — which is the
     /// cBioPortal "−2" Deep Deletion / DeepDeletion state. Single-copy (heterozygous) losses, neutral, gain and
@@ -602,6 +763,44 @@ public static partial class OncologyAnalyzer
         foreach (CopyNumberArmSegment segment in segments)
         {
             if (IsHomozygousDeletion(segment, cutoffs, ploidy))
+            {
+                result.Add(segment);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Purity-aware <see cref="DetectHomozygousDeletions(IEnumerable{CopyNumberArmSegment}, IReadOnlyList{double}?, double)"/>:
+    /// reports, in input order, the segments for which
+    /// <see cref="IsHomozygousDeletion(in CopyNumberArmSegment, IReadOnlyList{double}?, double, double)"/> holds
+    /// (CNVkit <c>do_call</c> purity rescaling, then threshold CN 0). <paramref name="purity"/> = 1 is identical to
+    /// the purity-less overload.
+    /// </summary>
+    /// <param name="segments">Arm-anchored copy-number segments. Must not be null.</param>
+    /// <param name="thresholds">Four strictly ascending log2 cutoffs; null uses CNVkit defaults.</param>
+    /// <param name="ploidy">Reference (germline) ploidy.</param>
+    /// <param name="purity">Tumour purity ∈ (0, 1].</param>
+    /// <returns>The homozygous-deletion segments, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment is malformed; or invalid thresholds (checked even for empty input).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> or <paramref name="purity"/> is invalid (checked even for empty input).</exception>
+    public static IReadOnlyList<CopyNumberArmSegment> DetectHomozygousDeletions(
+        IEnumerable<CopyNumberArmSegment> segments,
+        IReadOnlyList<double>? thresholds,
+        double ploidy,
+        double purity)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        var cutoffs = ValidateThresholds(thresholds);
+        ValidatePloidy(ploidy);
+        ValidatePurity(purity);
+
+        var result = new List<CopyNumberArmSegment>();
+        foreach (CopyNumberArmSegment segment in segments)
+        {
+            if (IsHomozygousDeletion(segment, cutoffs, ploidy, purity))
             {
                 result.Add(segment);
             }

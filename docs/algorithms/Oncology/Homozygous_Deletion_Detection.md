@@ -112,9 +112,7 @@ Reuses the ONCO-CNA-002 `CopyNumberArmSegment` record and `ValidateArmSegment`, 
 
 - Homozygous status is inferred from total integer copy number (CN 0), not from allele-specific copy number; **consequence:** a copy-neutral LOH or an allele-specific zero with a retained other allele is not distinguished here (total-CN model, consistent with cBioPortal discrete calls).
 
-**Not implemented:**
-
-- Purity/ploidy correction of the discrete calls beyond the `ploidy` parameter; **users should rely on:** purity/ploidy estimation units (ONCO-PURITY/PLOIDY) upstream before classification.
+- Purity correction (B24 F29): `IsHomozygousDeletion(segment, thresholds, ploidy, purity)` / `DetectHomozygousDeletions(…, purity)` rescale the segment log2 exactly as CNVkit `do_call(purity=p)` (`_log2_ratio_to_absolute` with the #503 clamp at 0 → `log2_ratios`) before the CN-0 test; e.g. log2 −1.0 is CN 1 when pure but CN 0 at purity 0.7 (CNVkit 0.9.14) [4]. Purity itself must come from upstream estimation (ONCO-PURITY).
 
 ## 6. Edge Cases and Limitations
 
@@ -126,13 +124,14 @@ Reuses the ONCO-CNA-002 `CopyNumberArmSegment` record and `ValidateArmSegment`, 
 | log2 exactly −1.1 | Reported (CN 0) | CNVkit "≤ each threshold in sequence" [4] |
 | log2 just above −1.1 | Not reported (CN 1) | CNVkit threshold boundary [4] |
 | NaN log2 | Not reported (neutral no-call) | CNVkit no-call → reference CN [4] |
+| log2 −1.0, purity 0.7 | Reported (rescaled log2 −1.807 → CN 0) | CNVkit `do_call` purity path [4] |
 | Empty input | Empty result | Filter of empty set |
 | Null input | `ArgumentNullException` | Validation |
 | Deletion on non-panel arm | No gene reported | Closed panel |
 
 ### 6.2 Limitations
 
-Uses total copy number, not allele-specific copy number; cannot separate homozygous deletion from copy-neutral LOH. Discrete calls are putative and sensitive to tumour purity/ploidy [2]; the gene panel is the fixed six-gene tumour-suppressor list (TP53, RB1, CDKN2A, PTEN, BRCA1, BRCA2) and does not annotate other deleted loci.
+Uses total copy number, not allele-specific copy number; cannot separate homozygous deletion from copy-neutral LOH. Discrete calls are putative and sensitive to tumour purity/ploidy [2] (pass `purity` to apply the CNVkit correction); the gene panel is the fixed six-gene tumour-suppressor list (TP53, RB1, CDKN2A, PTEN, BRCA1, BRCA2) and does not annotate other deleted loci.
 
 ## 7. Examples and Related Material
 

@@ -76,6 +76,10 @@
 
 ---
 
+### CNVkit purity path (B24 F29, 2026-10-09)
+
+Shared with ONCO-CNA-001 (see `docs/Evidence/ONCO-CNA-001-Evidence.md`, "CNVkit purity path"). For the CN-0 predicate: CNVkit 0.9.14 `do_call(method="threshold", purity=p)` gives log2 −1.0 → CN 1 (pure / p = 1), CN 0 at p = 0.7 (absolute 0.571 → rescaled log2 −1.807) and p = 0.5 (absolute clamped to 0); log2 −0.4 → CN 1 at p = 0.5, CN 0 at p = 0.3 (absolute 0.3857 → log2 −2.374). Implemented as `IsHomozygousDeletion(segment, thresholds, ploidy, purity)` / `DetectHomozygousDeletions(…, purity)`.
+
 ## Documented Corner Cases and Failure Modes
 
 ### From cBioPortal
@@ -163,3 +167,4 @@
 
 - **2026-06-14**: Initial documentation.
 - **2026-09-28** (review 2026-09, B24): Re-verified. CNVkit `cnvlib/call.py` (raw.githubusercontent.com/etal/cnvkit/master) re-read: `absolute_threshold` assigns CN = index of first cutoff with `log2 <= thresh`, else `int(np.ceil(ref_copies*2**log2))`; faithful Python re-run: −∞→0, −2→0, −1.1→0, −1.0999→1, −0.5→1, 0→2, 0.5→3, 1→4, 40→2199023255552, 1e6/+∞→OverflowError, NaN→2. Cheng 2017 definition ("regions having zero copies of both alleles in the tumour cells") and cBioPortal (−2 = "deep loss, possibly a homozygous deletion"; −1 = "shallow loss, possibly a heterozygous deletion") confirmed via search snippets. Fix F1: the CN-0 predicate uses the unbounded CNVkit call shared with `CallCopyNumber`; a huge/+∞ log2 (CN ≥ 4) is not homozygous and never throws. Fix F2: `DetectHomozygousDeletions` validates thresholds/ploidy eagerly.
+- **2026-10-09** (B24 F29): CNVkit purity path added (purity overloads of `IsHomozygousDeletion` / `DetectHomozygousDeletions`); CNVkit 0.9.14 values recorded above.
