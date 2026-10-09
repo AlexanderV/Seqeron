@@ -130,7 +130,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `pwm_score_pvalue` | Exact p-value of a PWM score, P(S >= score) for a random background word (i.i.d. or order-m Markov table; TFM-Pvalue search options, exhaustive mode), or the exact score threshold of a p-value (smallest word score t with P(S >= t) <= pValue) — Touzet & Varré 2007 TFM-Pvalue… |
 | `pwm_score_thresholds` | Score thresholds of a PWM from its discretised score distribution (Biopython Bio.motifs.thresholds.ScoreDistribution): background false-pos… |
 | `reversal_distance` | Lower-bound reversal distance via breakpoint count for two equal-length permutations. |
-| `rna_complement_base` | Returns the RNA complement (A↔U, G↔C) for a single base. |
+| `rna_complement_base` | Returns the RNA complement of a single base (Biopython `complement_rna`): A↔U, G↔C, T→A, IUPAC ambiguity codes complemented. |
 | `scan_with_alphabet_pwm` | Build a PWM over an arbitrary alphabet from aligned instances (as create_alphabet_pwm) and score every window of a sequence (Biopython pssm.calculate rule)… |
 | `scan_with_pwm` | Scan a DNA sequence with a 4×L Position Weight Matrix; |
 | `scan_with_pwm_both_strands` | Scan both strands of a DNA sequence with a 4×L PWM (rows A,C,G,T), as Biopython pssm.search(both=True): minus strand scored with the revers… |

@@ -328,16 +328,18 @@ public class SequenceTools
     /// Calculate GC content of a DNA/RNA sequence.
     /// </summary>
     [McpServerTool(Name = "gc_content", Title = "Sequence — GC Content", ReadOnly = true)]
-    [Description("Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence.")]
+    [Description("Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence: (G+C)/(A+C+G+T+U) × 100, case-insensitive; IUPAC ambiguity codes (incl. S/W), N, gaps and other characters are excluded from both counts. totalCount is the number of valid A/C/G/T/U nucleotides (the denominator), not the sequence length.")]
     public static GcContentResult GcContent(
         [Description("The DNA or RNA sequence")] string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
+        // Both values come from the Core canonical primitives: the percentage from CalculateGcContentFast and the
+        // raw counts from CountGcAndValidNucleotides, the very counts that percentage is computed from
+        // (GcCount = #G+#C, ValidCount = #A+#C+#G+#T+#U, case-insensitive; IUPAC codes, N, gaps excluded).
         var gcContent = global::Seqeron.Genomics.Core.SequenceExtensions.CalculateGcContentFast(sequence);
-        int gcCount = sequence.Count(c => c == 'G' || c == 'C' || c == 'g' || c == 'c');
-        int validCount = sequence.Count(c => c is 'A' or 'a' or 'T' or 't' or 'G' or 'g' or 'C' or 'c' or 'U' or 'u');
+        var (gcCount, validCount) = global::Seqeron.Genomics.Core.SequenceExtensions.CountGcAndValidNucleotides(sequence.AsSpan());
         return new GcContentResult(gcContent, gcCount, validCount);
     }
 
@@ -345,15 +347,18 @@ public class SequenceTools
     /// Get the complement of a single nucleotide base.
     /// </summary>
     [McpServerTool(Name = "complement_base", Title = "Sequence — Complement Base", ReadOnly = true)]
-    [Description("Get the Watson-Crick complement of a single nucleotide base (A↔T, C↔G for DNA; A↔U for RNA).")]
+    [Description("Get the complement of a single nucleotide base (IUPAC-complete, case-insensitive, upper-case output). Default (rna=false) emits the DNA alphabet like Biopython complement: A→T, T→A, U→A, G↔C. With rna=true emits the RNA alphabet like Biopython complement_rna: A→U, U→A, T→A, G↔C. Ambiguity codes in both modes: R↔Y, K↔M, B↔V, D↔H, S, W, N unchanged; other characters pass through.")]
     public static ComplementBaseResult ComplementBase(
-        [Description("The nucleotide base (A, T, G, C, or U)")] string nucleotide)
+        [Description("The nucleotide base (A, C, G, T, U or an IUPAC ambiguity code), exactly one character")] string nucleotide,
+        [Description("Emit the RNA alphabet (A→U, as Biopython complement_rna) instead of DNA (A→T). Default false.")] bool rna = false)
     {
         if (string.IsNullOrEmpty(nucleotide) || nucleotide.Length != 1)
             throw new ArgumentException("Must provide exactly one nucleotide character", nameof(nucleotide));
 
         char input = nucleotide[0];
-        char complement = global::Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(input);
+        char complement = rna
+            ? global::Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase(input)
+            : global::Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(input);
         return new ComplementBaseResult(complement.ToString(), input.ToString());
     }
 
@@ -432,9 +437,9 @@ public class SequenceTools
     /// Calculate Shannon entropy using SequenceComplexity class.
     /// </summary>
     [McpServerTool(Name = "complexity_shannon", Title = "Complexity — Shannon Entropy", ReadOnly = true)]
-    [Description("Calculate DNA Shannon entropy (bits per base). Maximum entropy for DNA is 2 bits.")]
+    [Description("Calculate nucleotide Shannon entropy (bits per base) over the alphabet A/C/G/T/U, case-insensitive, with RNA U counted as T (an RNA and its DNA transcript give the same value). Other characters (N, IUPAC codes, gaps) are ignored. Maximum is 2 bits.")]
     public static ComplexityShannonResult ComplexityShannon(
-        [Description("The DNA sequence to analyze")] string sequence)
+        [Description("The DNA or RNA sequence to analyze")] string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));

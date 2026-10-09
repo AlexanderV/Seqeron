@@ -20,16 +20,16 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | Tool | Description |
 |------|-------------|
 | `amino_acid_composition` | Calculate amino acid composition, molecular weight, and other properties of a protein sequence. |
-| `complement_base` | Get the Watson-Crick complement of a single nucleotide base (A↔T, C↔G for DNA; |
+| `complement_base` | Get the IUPAC complement of a single base: DNA alphabet by default (A→T, U→A, Biopython `complement`), RNA alphabet with `rna=true` (A→U, T→A, Biopython `complement_rna`). |
 | `complexity_compression_ratio` | Estimate sequence complexity using compression ratio. |
 | `complexity_dust_score` | Calculate DUST score for low-complexity filtering (as used in BLAST). |
 | `complexity_kmer_entropy` | Calculate k-mer based Shannon entropy for DNA complexity analysis. |
 | `complexity_linguistic` | Calculate DNA linguistic complexity as ratio of observed to possible subwords. |
 | `complexity_mask_low` | Mask low-complexity regions in a DNA sequence using the DUST algorithm. |
-| `complexity_shannon` | Calculate DNA Shannon entropy (bits per base). |
+| `complexity_shannon` | Calculate nucleotide Shannon entropy (bits per base) over A/C/G/T/U, U counted as T, other characters ignored. |
 | `dna_reverse_complement` | Get the reverse complement of a DNA sequence. |
 | `dna_validate` | Validate a DNA sequence. |
-| `gc_content` | Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence. |
+| `gc_content` | Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence; IUPAC codes, N and gaps are excluded from both counts. |
 | `hydrophobicity` | Calculate the grand average of hydropathy (GRAVY) index of a protein sequence. |
 | `is_valid_dna` | Quick check if a sequence contains only valid DNA characters (A, T, G, C). |
 | `is_valid_rna` | Quick check if a sequence contains only valid RNA characters (A, U, G, C). |

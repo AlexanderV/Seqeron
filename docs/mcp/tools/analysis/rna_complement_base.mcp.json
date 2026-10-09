@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RnaSecondaryStructure.GetComplement",
   "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L449",
-  "description": "Return the RNA complement (A<->U, G<->C) for a single base.",
+  "description": "Returns the RNA complement of a single base, as Biopython complement_rna: A→U, U→A, G↔C, DNA T→A; IUPAC ambiguity codes are complemented (R↔Y, K↔M, B↔V, D↔H; S, W, N unchanged). Case-insensitive, upper-case output for recognized codes; other characters pass through.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -34,6 +34,16 @@
       "name": "G -> C",
       "input": { "base": "G" },
       "output": { "complement": "C" }
+    },
+    {
+      "name": "DNA T -> A",
+      "input": { "base": "T" },
+      "output": { "complement": "A" }
+    },
+    {
+      "name": "IUPAC R -> Y",
+      "input": { "base": "R" },
+      "output": { "complement": "Y" }
     }
   ]
 }

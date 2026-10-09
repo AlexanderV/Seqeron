@@ -6,15 +6,20 @@
   "stability": "stable",
   "methodId": "SequenceExtensions.GetComplementBase",
   "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L83",
-  "description": "Get the Watson-Crick complement of a single nucleotide base (A↔T, C↔G for DNA; A↔U for RNA).",
+  "description": "Get the complement of a single nucleotide base (IUPAC-complete, case-insensitive, upper-case output). Default (rna=false) emits the DNA alphabet like Biopython complement: A→T, T→A, U→A, G↔C. With rna=true emits the RNA alphabet like Biopython complement_rna: A→U, U→A, T→A, G↔C. Ambiguity codes in both modes: R↔Y, K↔M, B↔V, D↔H, S, W, N unchanged; other characters pass through.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "nucleotide": {
         "type": "string",
-        "description": "The nucleotide base (A, T, G, C, or U)",
+        "description": "The nucleotide base (A, C, G, T, U or an IUPAC ambiguity code), exactly one character",
         "minLength": 1,
         "maxLength": 1
+      },
+      "rna": {
+        "type": "boolean",
+        "description": "Emit the RNA alphabet (A→U, as Biopython complement_rna) instead of DNA (A→T). Default false.",
+        "default": false
       }
     },
     "required": ["nucleotide"]
@@ -40,6 +45,11 @@
       "name": "RNA U→A",
       "input": { "nucleotide": "U" },
       "output": { "complement": "A", "original": "U" }
+    },
+    {
+      "name": "RNA alphabet A→U",
+      "input": { "nucleotide": "A", "rna": true },
+      "output": { "complement": "U", "original": "A" }
     }
   ]
 }

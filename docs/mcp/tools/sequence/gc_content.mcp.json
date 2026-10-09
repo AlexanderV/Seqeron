@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceExtensions.CalculateGcContentFast",
   "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L41",
-  "description": "Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence.",
+  "description": "Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence: (G+C)/(A+C+G+T+U) × 100, case-insensitive; IUPAC ambiguity codes (incl. S/W), N, gaps and other characters are excluded from both counts. totalCount is the number of valid A/C/G/T/U nucleotides (the denominator), not the sequence length.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -23,7 +23,7 @@
     "properties": {
       "gcContent": { "type": "number", "description": "GC content percentage (0-100)" },
       "gcCount": { "type": "integer", "description": "Number of G and C nucleotides" },
-      "totalCount": { "type": "integer", "description": "Total sequence length" }
+      "totalCount": { "type": "integer", "description": "Number of valid A/C/G/T/U nucleotides (denominator); IUPAC codes, N and gaps are not counted" }
     },
     "required": ["gcContent", "gcCount", "totalCount"]
   },
@@ -40,6 +40,11 @@
       "name": "GC-rich sequence",
       "input": { "sequence": "GCGCGC" },
       "output": { "gcContent": 100, "gcCount": 6, "totalCount": 6 }
+    },
+    {
+      "name": "N and gaps excluded (Biopython gc_fraction remove)",
+      "input": { "sequence": "ACGT-NNNN" },
+      "output": { "gcContent": 50, "gcCount": 2, "totalCount": 4 }
     }
   ]
 }

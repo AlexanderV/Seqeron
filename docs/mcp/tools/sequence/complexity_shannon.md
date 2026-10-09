@@ -14,7 +14,9 @@ Calculate DNA Shannon entropy.
 
 ## Description
 
-Calculates Shannon entropy for a DNA sequence (bits per base). Maximum entropy for DNA is 2 bits (log2(4)), indicating equal distribution of all four nucleotides. Lower entropy values indicate biased composition or repetitive sequences.
+Calculates Shannon entropy H = −Σ pᵢ·log₂ pᵢ (bits per base) of a DNA or RNA sequence over the alphabet A/C/G/T/U. Counting is case-insensitive and RNA U is counted as T (the same nucleotide class), so an RNA and its DNA transcript give the same value. Any other character (N, IUPAC ambiguity codes, gaps) is ignored, i.e. excluded from the counts and from the total. Maximum entropy is 2 bits (log2(4)), indicating equal distribution of all four nucleotides. Lower entropy values indicate biased composition or repetitive sequences.
+
+Cross-check (scipy `scipy.stats.entropy(counts, base=2)`): `"ACGU"` → 2.0, `"AUAUAU"` → 1.0, `"AACG-"` → 1.5.
 
 ## Core Documentation Reference
 
@@ -24,7 +26,7 @@ Calculates Shannon entropy for a DNA sequence (bits per base). Maximum entropy f
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | The DNA sequence to analyze (min length: 1) |
+| `sequence` | string | Yes | The DNA or RNA sequence to analyze (min length: 1) |
 
 ## Output Schema
 

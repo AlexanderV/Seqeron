@@ -16,6 +16,10 @@ Calculate GC content of a DNA/RNA sequence.
 
 Calculates the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence. GC content is an important metric for primer design, genome analysis, and sequence characterization.
 
+Formula: GC% = (G + C) / (A + C + G + T + U) × 100, case-insensitive. IUPAC ambiguity codes (including S and W), N, gaps and every other character are excluded from both the numerator and the denominator; a sequence with no A/C/G/T/U returns 0. The percentage and both counts come from the Core canonical primitives (`SequenceExtensions.CalculateGcContentFast` and `SequenceExtensions.CountGcAndValidNucleotides`), so the tool output is identical to the C# API.
+
+Cross-check (Biopython 1.88 `gc_fraction(seq, "remove")` × 100): `"ATGCGATCGATCG"` → 53.846…, `"ACGT-NNNN"` → 50, `"acguACGU"` → 50. Difference: Biopython counts S as G/C and W as A/T; this tool excludes them like every other ambiguity code (`"ACGTSS"`: Biopython 66.67, tool 50 — use `SequenceExtensions.CalculateGcFraction(seq, GcAmbiguityMode.Remove)` in C# for exact Biopython parity).
+
 ## Core Documentation Reference
 
 - Source: [SequenceExtensions.cs#L41](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L41)
@@ -32,7 +36,7 @@ Calculates the GC content (percentage of G and C nucleotides) of a DNA/RNA seque
 |-------|------|-------------|
 | `gcContent` | number | GC content percentage (0-100) |
 | `gcCount` | integer | Number of G and C nucleotides |
-| `totalCount` | integer | Total sequence length |
+| `totalCount` | integer | Number of valid A/C/G/T/U nucleotides (the denominator); IUPAC codes, N and gaps are not counted, so this is not the sequence length when such characters are present |
 
 ## Errors
 

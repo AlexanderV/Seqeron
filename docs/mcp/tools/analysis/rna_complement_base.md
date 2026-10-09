@@ -14,8 +14,14 @@ RNA complement of a single base.
 
 ## Description
 
-Returns the **RNA complement** of a single base: A↔U, G↔C (IUPAC ambiguity codes are
-also mapped). T is treated as U's DNA equivalent and complements to A.
+Returns the **RNA complement** of a single base, matching Biopython 1.88 `complement_rna`:
+A→U, U→A, G↔C, and DNA T→A (T is read as U's DNA equivalent). IUPAC ambiguity codes are
+complemented in the RNA alphabet (IUPAC NC-IUB 1984): R↔Y, K↔M, B↔V, D↔H; S, W and N map to
+themselves. Input is case-insensitive; recognized codes are returned upper-case; any other character
+(e.g. a gap) passes through unchanged. Core method: `SequenceExtensions.GetRnaComplementBase`
+(via `RnaSecondaryStructure.GetComplement`).
+
+Cross-check: `complement_rna("ACGTURYSWKMBDHVN")` = `UGCAAYRSWMKVHDBN`.
 
 ## Core Documentation Reference
 

@@ -2878,7 +2878,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "rna_complement_base", Title = "RNA — Complement Base", ReadOnly = true)]
-    [Description("Returns the RNA complement (A↔U, G↔C) for a single base.")]
+    [Description("Returns the RNA complement of a single base, as Biopython complement_rna: A→U, U→A, G↔C, DNA T→A; IUPAC ambiguity codes are complemented (R↔Y, K↔M, B↔V, D↔H; S, W, N unchanged). Case-insensitive, upper-case output for recognized codes; other characters pass through.")]
     public static RnaComplementBaseResult RnaComplementBase(
         [Description("RNA base (length-1 string).")] string @base)
     {
