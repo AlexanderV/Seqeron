@@ -19,7 +19,16 @@ and commits it after every change. Batch definitions (units, owned files) are in
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
 
-## State (2026-10-09 03:55 UTC) — B07 DONE; EVERYTHING PAUSED by user
+## State (2026-10-09 15:58 UTC) — FIN-B01 RUNNING (only it)
+- **User 10-09 ~15:50: "А тепер давай доробимо B01"** → FIN-B01 launched as cloud session_018dhx24UekZpd2HKsvqhw3X
+  (prompt: B01 finisher — re-audit B01.md, completeness-audit loop, all DOABLE incl. LIMITATIONS proposals and
+  cross-batch requests addressed to B01 (B06 CountKmersSpan, B03 R18, StatisticsHelper.ShannonEntropy), dedup sweep,
+  final audit, heavy once, final B01.md with `## Leftovers`). WIP branch `claude/stoic-maxwell-0olr2z-wip-B01`.
+  (A first launch, session_01ESJRAKGAm3Af18dZknYwM9, got an empty prompt and was archived at once.)
+- Only FIN-B01 runs; after it finishes everything stops again (launch nothing). B08 stays paused, not archived.
+  Check-in trigger trig_01MvAagyZjUaqveNm9GXWGtm re-enabled (every ~45 min, disables itself after FIN-B01).
+
+### Earlier state (2026-10-09 03:55 UTC) — B07 DONE; EVERYTHING PAUSED by user
 - **B07 done** (user 10-08 ~21:20: "B07 доходим до конца и останавливаемся"). resume5 (cloud
   session_01XittAhqmUUdF5idpt2X6rU, archived 10-09 03:53) ran audit rounds 3–10 (round 10 = zero DOABLE),
   the duplication sweep (DUP-1), the final audit (AF-4/5/7) and the heavy tier once, then wrote the final report
