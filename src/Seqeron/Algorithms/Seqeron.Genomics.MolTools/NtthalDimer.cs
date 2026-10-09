@@ -101,7 +101,9 @@ internal static class NtthalDimer
         _ => 4,
     };
 
-    internal static bool IsFinite(double x) => !double.IsInfinity(x);
+    // thal.c `#define isFinite(x) isfinite(x)` (C isfinite: false for ±∞ and NaN); the one finiteness
+    // test of both ntthal engines (dimer and NtthalHairpin).
+    internal static bool IsFinite(double x) => double.IsFinite(x);
 
     // Table accessors shared by the dimer and hairpin engines: 4-D flat arrays indexed [i][ii][j][jj] ->
     // ((i*5+ii)*5+j)*5+jj; 3-D dangle tables i*25 + col*5 + col2.
@@ -594,7 +596,9 @@ internal static class NtthalDimer
     /// never symmetric; each mirrored pair fails only when one side is A/T/C/G and the other is not
     /// its Watson–Crick partner (two non-ACGT characters pass, as in thal.c). Also oligotm.c
     /// <c>symmetry()</c> (the same test on raw characters), used by <see cref="PrimerDesigner.Calculate3PrimeStability"/>
-    /// on its upper-cased window.
+    /// on its upper-cased window, and the one self-complementarity test of <see cref="PrimerDesigner"/>'s
+    /// nearest-neighbour paths (oligotm <c>oligotm()</c> → <c>symmetry()</c>, Biopython <c>Tm_NN</c> <c>selfcomp</c>,
+    /// the LNA / mismatch / SantaLucia dimer duplexes), all of which pass validated upper-case ACGT only.
     /// </summary>
     internal static bool IsSymmetric(string oligo)
     {

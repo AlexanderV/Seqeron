@@ -1622,7 +1622,7 @@ public static partial class PrimerDesigner
             return (ThermoConstants.CalculateSaltAdjustedTm((double)gc / n, n, monovalentEq / 1000.0), Primer3OligoTmError);
 
         // oligotm(): integer accumulation, then ΔH = dh·(−100) cal/mol, ΔS = ds·(−0.1) cal/(K·mol).
-        bool symmetric = IsSelfComplementary(seq);
+        bool symmetric = NtthalDimer.IsSymmetric(seq);
         int dh = 0, ds = symmetric ? Primer3SymmetryDs : 0;
         foreach (char end in new[] { seq[0], seq[^1] })
         {
@@ -2394,7 +2394,7 @@ public static partial class PrimerDesigner
         if (!IsAcgtOnly(seq))
             return null; // non-ACGT base present
 
-        bool selfComp = IsSelfComplementary(seq);
+        bool selfComp = NtthalDimer.IsSymmetric(seq);
         var (dH, dS) = ThermoConstants.CalculateNearestNeighborThermodynamics(
             seq, parameterSet: DesignNnParameterSet, selfComplementary: selfComp, check: false);
         return (dH, dS, selfComp);
@@ -2584,7 +2584,7 @@ public static partial class PrimerDesigner
 
         // Symmetry term only for a fully paired, self-complementary duplex (Tm_NN's selfcomp flag).
         bool hasDangling = t.Contains('.') || b.Contains('.');
-        bool selfComp = !hasDangling && IsSelfComplementary(t)
+        bool selfComp = !hasDangling && NtthalDimer.IsSymmetric(t)
                         && string.Equals(b, Complement(t), StringComparison.Ordinal);
         return (seq, cSeq, shift, selfComp);
     }
@@ -2885,7 +2885,7 @@ public static partial class PrimerDesigner
         // An LNA-modified strand paired with an unmodified DNA strand is never a symmetric duplex (the two
         // strands differ chemically), so only an LNA-free self-complementary sequence with its own complement
         // is treated as self-complementary (symmetry term, x = 1); MELTING likewise rejects -self with LNAs.
-        bool selfComp = target is null && !locked.Contains(true) && IsSelfComplementary(seq);
+        bool selfComp = target is null && !locked.Contains(true) && NtthalDimer.IsSymmetric(seq);
         var init = ThermoConstants.GetNearestNeighborInitiation(LnaBaseParameterSet);
         double dH = init.Initiation.DeltaH, dS = init.Initiation.DeltaS;
         var oneOrAll = seq.Any(c => c is 'G' or 'C') ? init.OneGC : init.AllAT;
@@ -3482,7 +3482,7 @@ public static partial class PrimerDesigner
             if (c is not ('A' or 'C' or 'G' or 'T')) return null;
 
         // x = 1 only when both strands are reverse-complement palindromes (ntthal symmetry_thermo).
-        bool symmetric = IsSelfComplementary(s1) && IsSelfComplementary(s2);
+        bool symmetric = NtthalDimer.IsSymmetric(s1) && NtthalDimer.IsSymmetric(s2);
         double x = symmetric ? SelfComplementaryFactor : NonSelfComplementaryFactor;
         // Strand-concentration term R·ln(C_T / x) for the bimolecular Tm (constant over candidates).
         double rcTerm = GasConstant * Math.Log(strandConcentrationMolar / x);
@@ -4408,22 +4408,6 @@ public static partial class PrimerDesigner
     // validated ACGT duplexes it is applied to.
     private static string Complement(string seq) =>
         string.Create(seq.Length, seq, static (dest, src) => src.AsSpan().TryGetComplement(dest));
-
-    /// <summary>True if the sequence equals its own reverse complement (self-complementary).</summary>
-    private static bool IsSelfComplementary(string seq)
-    {
-        int n = seq.Length;
-        if (n % 2 != 0) return false; // odd-length cannot be self-complementary
-        for (int i = 0; i < n; i++)
-        {
-            char a = seq[i];
-            char b = seq[n - 1 - i];
-            bool pair = (a == 'A' && b == 'T') || (a == 'T' && b == 'A')
-                     || (a == 'G' && b == 'C') || (a == 'C' && b == 'G');
-            if (!pair) return false;
-        }
-        return true;
-    }
 
     /// <summary>
     /// Generates all possible primers for a region.

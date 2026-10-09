@@ -54,8 +54,8 @@ internal static class NtthalHairpin
     private const double DplxInitS = -1e-11;
     private const double Rc = 0.0;
 
-    // thal.c isFinite == C isfinite (false for ±∞ and NaN).
-    private static bool IsFinite(double x) => double.IsFinite(x);
+    // thal.c isFinite == C isfinite (false for ±∞ and NaN): the shared NtthalDimer.IsFinite.
+    private static bool IsFinite(double x) => NtthalDimer.IsFinite(x);
 
     /// <summary>The most stable hairpin's ntthal thermodynamics (native ntthal units).</summary>
     /// <param name="DeltaH">Hairpin ΔH° in cal/mol (salt-independent).</param>

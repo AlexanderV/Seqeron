@@ -2440,7 +2440,7 @@
     "server": "MolTools",
     "methodId": "PrimerDesigner.GeneratePrimerCandidates",
     "docPath": "docs/mcp/tools/moltools/generate_primer_candidates.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L4435"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs#L4419"
   },
   {
     "tool": "get_enzyme",
