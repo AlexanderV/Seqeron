@@ -56,6 +56,25 @@ Batches run concurrently in separate sessions and push to the same branch.
   canonical lives in another batch's file and must change), do **not** do it — record it in your
   report under *Cross-batch dedup requests*; the dedup phase handles it.
 - Removing a duplicate by making **your own** file call an existing canonical method elsewhere is allowed.
+- **Requests to a FINISHED batch (user decision 2026-10-09).** Finished batches are listed in QUEUE.md
+  "Finished batches". No session owns their files any more, so the concurrency reason for "do not do it" above
+  does not apply to them, and a request that only sits in your own report would never be acted on.
+  1. **Verify first (every cross-batch request, to any batch).** Check the request against the current code and
+     the target batch's report: a real duplicate or defect (same semantics; file:line; minimal repro or an
+     equivalence argument), not a similar-looking loop, and not already resolved there. Unverified → do not record.
+  2. **Small → do it yourself** in the finished batch's file: a caller switch to an existing canonical with no
+     behaviour change, a doc / XML-doc / MCP-description fix, a test-robustness fix with a sourced reason, or a
+     one-method bug fix locked to a reference value. Run the targeted tier for the touched classes (+ their MCP test
+     project), commit with `(<YOUR BATCH> for <TARGET>)` in the message, mark the request **done** in your report and
+     append one line (what, why, commit) to the target's report under `## Post-completion changes`.
+  3. **Large → register it**: a behaviour change of a public method, a new option/algorithm, many callers, or
+     anything needing the heavy tier. Do not do it; add it to QUEUE.md "Requests to finished batches" (target,
+     file:line, evidence, requesting batch). The orchestrator reads that register on every check-in and launches a
+     short finisher for the target batch (audit of just those items → fix → targeted/fast tier → heavy tier for the
+     touched classes → report) as soon as one item is a correctness defect or several items have piled up.
+  - A failing or seed-dependent test in a finished batch is a request too ("flake" is not a root cause: an FsCheck
+    counterexample is real) — small → root-cause and fix it yourself, otherwise register it.
+  - A request to a finished batch never ends only in your own report: it is either **done** or in the register.
 - **Do not edit** `VALIDATION_LEDGER.md` / `FINDINGS_REGISTER.md` / `ALGORITHMS_CHECKLIST_V2.md`
   (the orchestrator consolidates). Write your results only to `docs/Validation/review-2026-09/<BATCH>.md`.
 - Commit per unit (or per fix), then `git fetch origin claude/stoic-maxwell-0olr2z && git rebase origin/claude/stoic-maxwell-0olr2z && git push -u origin claude/stoic-maxwell-0olr2z`; on rejection repeat the fetch/rebase/push (network errors: retry with backoff 2/4/8/16 s).

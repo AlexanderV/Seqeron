@@ -78,8 +78,24 @@ and commits it after every change. Batch definitions (units, owned files) are in
 - **Done:** B01, B02, B03, B24 (finishers pending, see leftovers notes in their reports), B04 (F1–F65), B05 (F1–F35),
   B06 (F1–F38, 43841d1, Leftovers none).
 
+## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
+B01 (FIN-B01 2026-10-09), B04, B05, B06, B07. Add a batch here when its final report with `## Leftovers` is pushed.
+
+## Requests to finished batches (register — orchestrator checks it on every check-in)
+| # | Target | File:line / test | Evidence | From | Status |
+|---|---|---|---|---|---|
+| R1 | B07 | `B07PrimerDesignMetamorphicTests.LibraryMispriming_OrderInvariant_MonotoneInWeight` | FsCheck counterexample in the FIN-B01 full heavy run (passed on re-run) — root-cause in `PrimerDesigner` library mispriming or the generator | FIN-B01 | open |
+
+Pre-rule candidates (recorded before 2026-10-09 as "open" in reports; VERIFY each against current code before
+acting — several may already be resolved): B06.md → B04 `SequenceComplexity.ShannonEntropyBits` visibility (B01 F-entry
+may have resolved via `StatisticsHelper`), B04 `Bbduk_MonotoneInCutoff` generator (w = k = 5); B06.md → B05
+`MotifFinder` Core `CountKmersSpan` callers → `KmerAnalyzer.CountKmers`, B05.md D3 stale rationale, `FindExactMotif`
+vs B09 `FindMotif`; B05.md → B04 `RepeatFinder.EnumerateForwardMaximalPairs` → `FindMaximalRepeatedPairs`; B05.md → B07
+`ProbeDesigner.FindApproximateMatches` → `ApproximateMatcher.FindWithMismatches`; B04.md → B06
+`KmerAnalyzer.CalculateKmerEntropy` delegation + `kmer_entropy` MCP doc example; B01.md → B06 `K-mer_Counting.md` stale
+sentence, B05 D3 rationale.
+
 ## Known cross-batch items to carry into Phase 2
-- **B07 (finished batch):** `B07PrimerDesignMetamorphicTests.LibraryMispriming_OrderInvariant_MonotoneInWeight` failed once in the FIN-B01 heavy run (FsCheck, seed-dependent, passed on re-run) → a real counterexample exists; needs root-causing in B07 code or the generator (not a "flake").
 - B04: `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` generator can draw w = k = 5 → draw w from [k+1, 60] (flaky ~1/30).
 - B06 report "Cross-batch requests" (B01, B04, B05, B07, B09, B10, B17, B18, MCP owner) — k-mer counting routed to canonical KmerAnalyzer.
 - Stray branch `claude/stoic-maxwell-0olr2z-wip-TEST` (proxy cannot delete it) — ignore or delete in the GitHub UI.
