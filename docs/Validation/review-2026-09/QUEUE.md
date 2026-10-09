@@ -19,7 +19,18 @@ and commits it after every change. Batch definitions (units, owned files) are in
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
 
-## State (2026-10-08 11:48 UTC)
+## State (2026-10-09 03:55 UTC) — B07 DONE; EVERYTHING PAUSED by user
+- **B07 done** (user 10-08 ~21:20: "B07 доходим до конца и останавливаемся"). resume5 (cloud
+  session_01XittAhqmUUdF5idpt2X6rU, archived 10-09 03:53) ran audit rounds 3–10 (round 10 = zero DOABLE),
+  the duplication sweep (DUP-1), the final audit (AF-4/5/7) and the heavy tier once, then wrote the final report
+  (ecb6a84d). All 10 units FIXED (F1–F75); `## Leftovers`: none DOABLE; BLOCKED only (MGB ΔTm, LNA on both
+  strands / terminal LNA, genome-wide primer specificity, extreme-score K runtime). Full `Seqeron.Genomics.Tests`
+  24397/0, Mcp.MolTools 214/0. WIP branch -wip-B07 = main (clean). resume5 cost ≈ $158.9.
+- **Everything paused by user:** nothing launched after B07 — no finisher, no B08, no other batch. B08
+  (session_01NvVQb3FM1E4YGuhxEtXqjH) stays paused, not archived. Check-in trigger disabled.
+- Next when the user resumes: queue order as above (B08 resume first, then new batches, then finishers).
+
+### Earlier state (2026-10-08 11:48 UTC)
 - **Running:** B07 resume5 (cloud session_01XittAhqmUUdF5idpt2X6rU, launched 10-08 11:48 on the user's word
   "продолжаем B07"): audit round 3 (A3-8…A3-14, A3-17…A3-19) → further rounds → sweep → final audit → heavy → report.
   Everything else stays paused (B08 included).
