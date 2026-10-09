@@ -589,11 +589,7 @@ public static class SequenceExtensions
     {
         if (s.AsSpan().IndexOfAnyInRange('a', 'z') < 0)
             return s;
-        return string.Create(s.Length, s, static (dest, src) =>
-        {
-            for (int i = 0; i < src.Length; i++)
-                dest[i] = ToUpperAscii(src[i]);
-        });
+        return string.Create(s.Length, s, static (dest, src) => CopyToUpperAscii(src, dest));
     }
 
     #endregion

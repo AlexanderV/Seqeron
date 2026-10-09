@@ -182,15 +182,45 @@ public static class GcSkewCalculator
         char plus,
         char minus)
     {
-        for (int i = 0; includePartialWindow ? i < seq.Length : i + windowSize <= seq.Length; i += stepSize)
+        foreach (var (start, length) in EnumerateWindows(seq.Length, windowSize, stepSize, includePartialWindow))
         {
-            int length = Math.Min(windowSize, seq.Length - i);
-            double skew = CalculateSkewCore(seq.AsSpan(i, length), plus, minus);
-            yield return (i + length / 2, skew, i, i + length - 1);
+            double skew = CalculateSkewCore(seq.AsSpan(start, length), plus, minus);
+            yield return (start + length / 2, skew, start, start + length - 1);
+        }
+    }
+
+    /// <summary>
+    /// The single window-placement rule of this class (skew, cumulative skew, SkewI and GC-content
+    /// profiles): starts 0, step, 2·step, …; complete windows only (start + windowSize ≤ length) unless
+    /// <paramref name="includePartialWindow"/>, in which case every start &lt; length is emitted with the
+    /// window truncated at the sequence end (Biopython <c>GC_skew</c> slicing <c>seq[i:i+window]</c>).
+    /// Yields (start, actual length); overflow-safe for huge steps.
+    /// </summary>
+    private static IEnumerable<(int Start, int Length)> EnumerateWindows(
+        int sequenceLength, int windowSize, int stepSize, bool includePartialWindow)
+    {
+        for (int i = 0; includePartialWindow ? i < sequenceLength : windowSize <= sequenceLength - i; i += stepSize)
+        {
+            yield return (i, Math.Min(windowSize, sequenceLength - i));
 
             // Guard against int overflow of i + stepSize on huge steps.
-            if (stepSize > seq.Length - i)
+            if (stepSize > sequenceLength - i)
                 yield break;
+        }
+    }
+
+    /// <summary>
+    /// Shared running-sum driver for cumulative GC and AT skew: adjacent, non-overlapping windows
+    /// (step == windowSize, Grigoriev 1998), cumulative = Σ window skews in order.
+    /// </summary>
+    private static IEnumerable<(int Position, double Skew, double Cumulative)> EnumerateCumulativeSkew(
+        string seq, int windowSize, bool includePartialWindow, char plus, char minus)
+    {
+        double cumulative = 0;
+        foreach (var w in EnumerateSkewWindows(seq, windowSize, windowSize, includePartialWindow, plus, minus))
+        {
+            cumulative += w.Skew;
+            yield return (w.Position, w.Skew, cumulative);
         }
     }
 
@@ -288,20 +318,13 @@ public static class GcSkewCalculator
     private static IEnumerable<CumulativeGcSkewPoint> CalculateCumulativeGcSkewCore(
         string seq,
         int windowSize,
-        bool includePartialWindow = false)
-    {
-        double cumulative = 0;
-
+        bool includePartialWindow = false) =>
         // Adjacent, non-overlapping windows: step == windowSize (Grigoriev 1998).
-        foreach (var w in EnumerateSkewWindows(seq, windowSize, windowSize, includePartialWindow, 'G', 'C'))
-        {
-            cumulative += w.Skew;
-            yield return new CumulativeGcSkewPoint(
+        EnumerateCumulativeSkew(seq, windowSize, includePartialWindow, 'G', 'C')
+            .Select(w => new CumulativeGcSkewPoint(
                 Position: w.Position,
                 GcSkew: w.Skew,
-                CumulativeGcSkew: cumulative);
-        }
-    }
+                CumulativeGcSkew: w.Cumulative));
 
     #endregion
 
@@ -440,15 +463,9 @@ public static class GcSkewCalculator
     private static IEnumerable<CumulativeAtSkewPoint> CalculateCumulativeAtSkewCore(
         string seq,
         int windowSize,
-        bool includePartialWindow)
-    {
-        double cumulative = 0;
-        foreach (var w in EnumerateSkewWindows(seq, windowSize, windowSize, includePartialWindow, 'A', 'T'))
-        {
-            cumulative += w.Skew;
-            yield return new CumulativeAtSkewPoint(w.Position, w.Skew, cumulative);
-        }
-    }
+        bool includePartialWindow) =>
+        EnumerateCumulativeSkew(seq, windowSize, includePartialWindow, 'A', 'T')
+            .Select(w => new CumulativeAtSkewPoint(w.Position, w.Skew, w.Cumulative));
 
     #endregion
 
@@ -1186,21 +1203,13 @@ public static class GcSkewCalculator
         bool fraction = false,
         SequenceExtensions.GcAmbiguityMode? mode = null)
     {
-        double scale = fraction ? 1.0 : PercentScale;
-        for (int i = 0; windowSize <= seq.Length - i; i += stepSize)
+        foreach (var (start, _) in EnumerateWindows(seq.Length, windowSize, stepSize, includePartialWindow: false))
         {
-            var window = seq.AsSpan(i, windowSize);
-            double gcFraction = mode is { } m ? window.CalculateGcFraction(m) : window.CalculateGcFraction();
-
             yield return new GcContentPoint(
-                Position: i + windowSize / 2,
-                GcContent: gcFraction * scale,
-                WindowStart: i,
-                WindowEnd: i + windowSize - 1);
-
-            // Guard against int overflow of i + stepSize on huge steps.
-            if (stepSize > seq.Length - i)
-                yield break;
+                Position: start + windowSize / 2,
+                GcContent: CalculateGcContent(seq.AsSpan(start, windowSize), fraction, mode),
+                WindowStart: start,
+                WindowEnd: start + windowSize - 1);
         }
     }
 

@@ -207,7 +207,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.AnalyzeGcContent",
     "docPath": "docs/mcp/tools/analysis/analyze_gc_content.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L985"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L1002"
   },
   {
     "tool": "analyze_kmers",
@@ -221,7 +221,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.CalculateAtSkew",
     "docPath": "docs/mcp/tools/analysis/at_skew.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L336"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L359"
   },
   {
     "tool": "base_pair_type",
@@ -305,7 +305,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.CalculateCumulativeGcSkew",
     "docPath": "docs/mcp/tools/analysis/cumulative_gc_skew.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L275"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L305"
   },
   {
     "tool": "dangling_end_energy",
@@ -907,7 +907,7 @@
     "server": "Analysis",
     "methodId": "GcSkewCalculator.PredictReplicationOrigin",
     "docPath": "docs/mcp/tools/analysis/predict_replication_origin.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L657"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L674"
   },
   {
     "tool": "predict_rna_structure",

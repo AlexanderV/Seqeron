@@ -23,7 +23,7 @@ the skew is defined as `0` (Biopython zero-division convention).
 
 ## Core Documentation Reference
 
-- Source: [GcSkewCalculator.cs#L336](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L336)
+- Source: [GcSkewCalculator.cs#L359](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L359)
 
 ## Input Schema
 

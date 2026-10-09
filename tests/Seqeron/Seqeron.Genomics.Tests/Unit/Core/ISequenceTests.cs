@@ -363,6 +363,25 @@ public class ISequenceTests
         Assert.That(rc.Qualities, Is.EquivalentTo(new byte[] { 40, 30, 20, 10 }));
     }
 
+    // B01 finisher dedup sweep (uncovered public method): GetReverse. Reference Biopython 1.88:
+    // Seq("ACNR-G.T")[::-1] = "T.G-RNCA"; SeqRecord(Seq("ACGTN"), phred_quality=[10,20,30,40,2])[::-1]
+    // → "NTGCA", [2,40,30,20,10] (letter annotations are reversed with the sequence).
+    [Test]
+    public void IupacAndQualitySequence_GetReverse_MatchesBiopythonSliceReversal()
+    {
+        var iupac = new IupacDnaSequence("ACNR-G.T").GetReverse();
+        var qual = new QualitySequence("ACGTN", new byte[] { 10, 20, 30, 40, 2 }).GetReverse() as QualitySequence;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(iupac, Is.InstanceOf<IupacDnaSequence>());
+            Assert.That(iupac.Sequence, Is.EqualTo("T.G-RNCA"));
+            Assert.That(qual, Is.Not.Null);
+            Assert.That(qual!.Sequence, Is.EqualTo("NTGCA"));
+            Assert.That(qual.Qualities, Is.EqualTo(new byte[] { 2, 40, 30, 20, 10 }));
+        });
+    }
+
     [Test]
     public void QualitySequence_Subsequence_PreservesQuality()
     {

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GcSkewCalculator.CalculateCumulativeGcSkew",
-  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L275",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L305",
   "description": "Cumulative GC skew over non-overlapping windows (step == windowSize); running sum of (G-C)/(G+C). Minimum approximates replication origin, maximum the terminus.",
   "inputSchema": {
     "type": "object",

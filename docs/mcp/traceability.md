@@ -191,9 +191,9 @@
 | validate_probe | MolTools | ProbeDesigner.ValidateProbe | ProbeDesigner.cs#L1366 | 0/0 | – | – | Build-Ready |
 | alphabet_pwm_score_pvalue | Analysis | MotifFinder.AlphabetPwmScorePValue | MotifFinder.PwmPValue.cs#L190 | 2/2 | ✓ | ✓ | Ready |
 | alphabet_pwm_score_thresholds | Analysis | AlphabetPositionWeightMatrix.ScoreDistribution | MotifFinder.AlphabetPwm.cs#L394 | 1/1 | ✓ | ✓ | Ready |
-| analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L985 | 0/0 | – | – | Build-Ready |
+| analyze_gc_content | Analysis | GcSkewCalculator.AnalyzeGcContent | GcSkewCalculator.cs#L1002 | 0/0 | – | – | Build-Ready |
 | analyze_kmers | Analysis | KmerAnalyzer.AnalyzeKmers | KmerAnalyzer.cs#L3167 | 0/0 | – | – | Build-Ready |
-| at_skew | Analysis | GcSkewCalculator.CalculateAtSkew | GcSkewCalculator.cs#L336 | 0/0 | – | – | Build-Ready |
+| at_skew | Analysis | GcSkewCalculator.CalculateAtSkew | GcSkewCalculator.cs#L359 | 0/0 | – | – | Build-Ready |
 | base_pair_type | Analysis | RnaSecondaryStructure.GetBasePairType | RnaSecondaryStructure.cs#L565 | 0/0 | – | – | Build-Ready |
 | bulge_loop_energy | Analysis | RnaSecondaryStructure.CalculateBulgeLoopEnergy | RnaSecondaryStructure.cs#L890 | 0/0 | – | – | Build-Ready |
 | calculate_ani | Analysis | ComparativeGenomics.CalculateANI | ComparativeGenomics.cs#L513 | 0/0 | – | – | Build-Ready |
@@ -205,7 +205,7 @@
 | count_kmers_both_strands | Analysis | KmerAnalyzer.CountKmersBothStrands | KmerAnalyzer.cs#L3086 | 0/0 | – | – | Build-Ready |
 | create_alphabet_pwm | Analysis | MotifFinder.CreateAlphabetPwm | MotifFinder.AlphabetPwm.cs#L42 | 2/2 | ✓ | ✓ | Ready |
 | create_pwm | Analysis | MotifFinder.CreatePwm | MotifFinder.cs#L196 | 0/0 | – | – | Build-Ready |
-| cumulative_gc_skew | Analysis | GcSkewCalculator.CalculateCumulativeGcSkew | GcSkewCalculator.cs#L275 | 0/0 | – | – | Build-Ready |
+| cumulative_gc_skew | Analysis | GcSkewCalculator.CalculateCumulativeGcSkew | GcSkewCalculator.cs#L305 | 0/0 | – | – | Build-Ready |
 | dangling_end_energy | Analysis | RnaSecondaryStructure.GetDanglingEndEnergy | RnaSecondaryStructure.cs#L735 | 0/0 | – | – | Build-Ready |
 | detect_pseudoknots | Analysis | RnaSecondaryStructure.DetectPseudoknots | RnaSecondaryStructure.cs#L1320 | 0/0 | – | – | Build-Ready |
 | detect_rearrangements | Analysis | ComparativeGenomics.DetectRearrangements | ComparativeGenomics.cs#L320 | 0/0 | – | – | Build-Ready |
@@ -291,7 +291,7 @@
 | predict_disorder | Analysis | DisorderPredictor.PredictDisorder | DisorderPredictor.cs#L185 | 0/0 | – | – | Build-Ready |
 | predict_low_complexity_seg | Analysis | DisorderPredictor.PredictLowComplexityRegions | DisorderPredictor.cs#L425 | 0/0 | – | – | Build-Ready |
 | predict_morfs | Analysis | DisorderPredictor.PredictMoRFs | DisorderPredictor.cs#L505 | 0/0 | – | – | Build-Ready |
-| predict_replication_origin | Analysis | GcSkewCalculator.PredictReplicationOrigin | GcSkewCalculator.cs#L657 | 0/0 | – | – | Build-Ready |
+| predict_replication_origin | Analysis | GcSkewCalculator.PredictReplicationOrigin | GcSkewCalculator.cs#L674 | 0/0 | – | – | Build-Ready |
 | predict_rna_structure | Analysis | RnaSecondaryStructure.PredictStructure | RnaSecondaryStructure.cs#L1245 | 0/0 | – | – | Build-Ready |
 | predict_sigma70_promoters | Analysis | MotifFinder.PredictSigma70Promoters | MotifFinder.Sigma70Promoters.cs#L149 | 1/1 | ✓ | ✓ | Ready |
 | predict_signal_peptide | Analysis | ProteinMotifFinder.PredictSignalPeptide | ProteinMotifFinder.cs#L325 | 0/0 | – | – | Build-Ready |
