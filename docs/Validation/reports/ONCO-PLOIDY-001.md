@@ -1,5 +1,7 @@
 # Validation Report: ONCO-PLOIDY-001 — Tumor Ploidy Estimation + Whole-Genome-Doubling Detection
 
+> **Superseded in part (2026-10-09, FIN-B24 F9/F32):** the reference-assembly denominator described below was a misreading of facets-suite. `DetectWholeGenomeDoubling(segments)` now divides by the sample's interrogated span (`get_sample_genome`, facets-suite `R/copy-number-scores.R`); the reference-assembly denominator is the explicit overload `DetectWholeGenomeDoubling(segments, ReferenceGenome)`. ASCAT `ascat.metrics` WGD and probe-weighted ploidy were added (F30/F31). See `docs/Validation/review-2026-09/B24.md`.
+
 - **Validated:** 2026-06-24   **Area:** Oncology
 - **Canonical method(s):**
   `OncologyAnalyzer.EstimatePloidy(IEnumerable<AlleleSpecificSegment>)`,
