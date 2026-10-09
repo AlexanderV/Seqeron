@@ -89,7 +89,7 @@ B01 (FIN-B01 2026-10-09), B04, B05, B06, B07. Add a batch here when its final re
 ## Requests to finished batches (register — orchestrator checks it on every check-in)
 | # | Target | File:line / test | Evidence | From | Status |
 |---|---|---|---|---|---|
-| R1 | B07 | `B07PrimerDesignMetamorphicTests.LibraryMispriming_OrderInvariant_MonotoneInWeight` | FsCheck counterexample in the FIN-B01 full heavy run (passed on re-run) — root-cause in `PrimerDesigner` library mispriming or the generator | FIN-B01 | open |
+| R1 | B07 | `B07PrimerDesignMetamorphicTests.LibraryMispriming_OrderInvariant_MonotoneInWeight` | FsCheck counterexample in the FIN-B01 full heavy run (passed on re-run) — root-cause in `PrimerDesigner` library mispriming or the generator | FIN-B01 | done (bd78006) |
 
 Pre-rule candidates (recorded before 2026-10-09 as "open" in reports; VERIFY each against current code before
 acting — several may already be resolved): B06.md → B04 `SequenceComplexity.ShannonEntropyBits` visibility (B01 F-entry
