@@ -1216,6 +1216,255 @@ public static partial class OncologyAnalyzer
     private static bool IsElevatedMajorCopyNumber(in AlleleSpecificSegment segment)
         => Math.Max(segment.MajorCopyNumber, segment.MinorCopyNumber) >= WholeGenomeDoublingMajorCopyNumber;
 
+    /// <summary>
+    /// Estimates the tumour ploidy as ASCAT reports it: the <b>probe-count</b>-weighted mean of per-segment total copy
+    /// number, ψ = Σ(CN_i · n_i) / Σ n_i, with CN_i = Major + Minor and n_i the number of probes (SNPs / loci) in
+    /// segment i. Source: ASCAT <c>R/ascat.runAscat.R</c> (VanLoo-lab/ascat, master): the search-time ploidy
+    /// <c>ploidy = sum((nA+nB) * s[, "length"]) / sum(s[, "length"])</c> (runASCAT, l. 283), where
+    /// <c>s[, "length"]</c> is the probe count of each <c>make_segments</c> segment, and the reported
+    /// <c>ploidy = mean(nA+nB, na.rm=TRUE)</c> over per-probe copy numbers (ascat.runAscat, l. 98) — a per-probe mean
+    /// is exactly the probe-count-weighted mean of the segment values. This differs from
+    /// <see cref="EstimatePloidy(IEnumerable{AlleleSpecificSegment})"/> (Patchwork, bp-weighted) unless probe density
+    /// is uniform. The caller chooses which probes the counts represent (ASCAT's reported ploidy counts every non-NA
+    /// logR probe on every chromosome; the search-time value counts autosomal heterozygous probes).
+    /// </summary>
+    /// <param name="segments">Allele-specific integer copy-number segments; every segment must have End &gt; Start and
+    /// non-negative copy numbers.</param>
+    /// <param name="probeCounts">Number of probes in each segment, aligned by position with
+    /// <paramref name="segments"/>; every count must be ≥ 1 (an ASCAT segment contains at least one probe).</param>
+    /// <returns>The probe-count-weighted mean total copy number.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">The inputs are empty or of different lengths, a segment is invalid, or a
+    /// probe count is &lt; 1.</exception>
+    public static double EstimatePloidy(IEnumerable<AlleleSpecificSegment> segments, IEnumerable<int> probeCounts)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        ArgumentNullException.ThrowIfNull(probeCounts);
+
+        double weightedCopyNumberSum = 0.0;
+        double totalProbes = 0.0;
+        int segmentCount = 0;
+        using IEnumerator<int> counts = probeCounts.GetEnumerator();
+        foreach (AlleleSpecificSegment segment in segments)
+        {
+            ValidateSegment(segment);
+            if (!counts.MoveNext())
+            {
+                throw new ArgumentException("Each segment needs exactly one probe count (fewer counts than segments).",
+                    nameof(probeCounts));
+            }
+
+            int probes = counts.Current;
+            if (probes < 1)
+            {
+                throw new ArgumentException(
+                    $"Every segment must contain at least one probe (got {probes}).", nameof(probeCounts));
+            }
+
+            // ASCAT: sum((nA+nB) * length) / sum(length), length = probe count.
+            weightedCopyNumberSum += ((double)segment.MajorCopyNumber + segment.MinorCopyNumber) * probes;
+            totalProbes += probes;
+            segmentCount++;
+        }
+
+        if (counts.MoveNext())
+        {
+            throw new ArgumentException("Each segment needs exactly one probe count (more counts than segments).",
+                nameof(probeCounts));
+        }
+
+        if (segmentCount == 0)
+        {
+            throw new ArgumentException(
+                "Cannot estimate ploidy from an empty segment set (the probe-weighted mean is undefined).",
+                nameof(segments));
+        }
+
+        return weightedCopyNumberSum / totalProbes;
+    }
+
+    /// <summary>
+    /// Whole-genome-doubling status as defined by ASCAT <c>ascat.metrics</c> (column <c>WGD</c>), derived from the
+    /// size-weighted mode of the autosomal major-allele copy number.
+    /// </summary>
+    public enum AscatWgdStatus
+    {
+        /// <summary>ASCAT <c>NA</c>: the mode of the major allele is 0 (or outside 1–5), so WGD is undefined.</summary>
+        NotAvailable,
+
+        /// <summary>ASCAT <c>0</c>: mode of the major allele = 1 (no WGD).</summary>
+        NoWgd,
+
+        /// <summary>ASCAT <c>1</c>: mode of the major allele = 2 (one WGD).</summary>
+        Wgd,
+
+        /// <summary>ASCAT <c>"1+"</c>: mode of the major allele ∈ {3, 4, 5} (at least one WGD).</summary>
+        WgdPlus,
+    }
+
+    /// <summary>
+    /// The WGD-related genome metrics of ASCAT <c>ascat.metrics</c>, computed on autosomes only.
+    /// </summary>
+    /// <param name="ModeMinorAllele">ASCAT <c>mode_minA</c>: size-weighted mode of the minor allele copy number (capped at 5).</param>
+    /// <param name="ModeMajorAllele">ASCAT <c>mode_majA</c>: size-weighted mode of the major allele copy number (capped at 5).</param>
+    /// <param name="WgdStatus">ASCAT <c>WGD</c>: NA / 0 / 1 / "1+" from <paramref name="ModeMajorAllele"/>.</param>
+    /// <param name="GenomicInstability">ASCAT <c>GI</c>: fraction of the autosomal genome not at the baseline
+    /// state (1:1 without WGD, 2:2 with WGD or "1+"), rounded to 4 decimals; <c>null</c> when WGD is NA.</param>
+    /// <param name="LossOfHeterozygosity">ASCAT <c>LOH</c>: fraction of the autosomal genome with minor allele 0,
+    /// rounded to 4 decimals.</param>
+    public readonly record struct AscatGenomeMetrics(
+        int ModeMinorAllele,
+        int ModeMajorAllele,
+        AscatWgdStatus WgdStatus,
+        double? GenomicInstability,
+        double LossOfHeterozygosity)
+    {
+        /// <summary>The ASCAT <c>WGD</c> label: "NA", "0", "1" or "1+".</summary>
+        public string WgdLabel => WgdStatus switch
+        {
+            AscatWgdStatus.NoWgd => "0",
+            AscatWgdStatus.Wgd => "1",
+            AscatWgdStatus.WgdPlus => "1+",
+            _ => "NA",
+        };
+    }
+
+    /// <summary>Cap applied to allele copy numbers before taking the mode (ascat.metrics <c>modeAllele</c>: <c>y[y&gt;5]=5</c>).</summary>
+    private const int AscatModeAlleleCap = 5;
+
+    /// <summary>Decimal places of the rounded ASCAT GI / LOH metrics (<c>round(…, 4)</c>).</summary>
+    private const int AscatMetricDecimals = 4;
+
+    /// <summary>
+    /// Computes ASCAT's whole-genome-doubling status and genomic-instability (GI) score — the
+    /// <c>mode_minA</c>, <c>mode_majA</c>, <c>WGD</c>, <c>GI</c> and <c>LOH</c> columns of <c>ascat.metrics</c>.
+    /// Source: ASCAT <c>R/ascat.metrics.R</c> (VanLoo-lab/ascat, master), ported verbatim:
+    /// <list type="bullet">
+    /// <item>Only autosomes: <c>profile[chr %in% setdiff(chrs, sexchromosomes)]</c> with ASCAT's default
+    /// <c>sexchromosomes = c("X","Y")</c> (an optional "chr" prefix is ignored).</item>
+    /// <item><c>modeAllele</c>: per-segment weight <c>(endpos − startpos)/1e6</c> (no +1); allele copy number
+    /// <c>round</c>ed and capped at 5; weights summed per value (<c>tapply</c>, groups in ascending value order);
+    /// the mode is the first maximum after the stable decreasing <c>order</c>, so an exact tie resolves to the
+    /// <b>smaller</b> copy number.</item>
+    /// <item>WGD: <c>mode_majA</c> = 0 → NA; 1 → "0"; 2 → "1"; 3–5 → "1+".</item>
+    /// <item><c>computeGIscore</c>: <c>round(1 − Σ size[nMajor = b ∧ nMinor = b] / Σ size, 4)</c>, size =
+    /// <c>endpos − startpos + 1</c>, baseline b = 1 for WGD "0" and b = 2 for WGD "1" and "1+"; NA when WGD is NA.</item>
+    /// <item>LOH: <c>round(Σ size[nMinor = 0] / Σ size, 4)</c> over the same autosomal profile.</item>
+    /// </list>
+    /// Major/minor are taken as max/min of the two allele copy numbers (ASCAT's nMajor ≥ nMinor), so the result does
+    /// not depend on the allele labelling. Per-value weights are summed in input order in double precision (R's
+    /// <c>sum</c> accumulates in extended precision; this can matter only for ties broken by the last ulp).
+    /// </summary>
+    /// <param name="segments">Allele-specific integer copy-number segments (ASCAT <c>segments</c>). Must contain at
+    /// least one autosomal segment; every segment must have End &gt; Start and non-negative copy numbers.</param>
+    /// <returns>The ASCAT WGD / GI genome metrics.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment is invalid, or there is no autosomal segment (ASCAT's mode is
+    /// then empty and the metrics undefined).</exception>
+    public static AscatGenomeMetrics ComputeAscatGenomeMetrics(IEnumerable<AlleleSpecificSegment> segments)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        // tapply groups: index = capped allele copy number 0..5.
+        var majorWeight = new double[AscatModeAlleleCap + 1];
+        var minorWeight = new double[AscatModeAlleleCap + 1];
+        var majorSeen = new bool[AscatModeAlleleCap + 1];
+        var minorSeen = new bool[AscatModeAlleleCap + 1];
+        var profile = new List<(int Major, int Minor, double Size)>();
+        foreach (AlleleSpecificSegment segment in segments)
+        {
+            ValidateSegment(segment);
+            if (segment.Chromosome is null)
+            {
+                throw new ArgumentException("A segment has a null chromosome label.", nameof(segments));
+            }
+
+            if (IsAscatSexChromosome(segment.Chromosome))
+            {
+                continue; // setdiff(chrs, sexchromosomes)
+            }
+
+            int major = Math.Max(segment.MajorCopyNumber, segment.MinorCopyNumber);
+            int minor = Math.Min(segment.MajorCopyNumber, segment.MinorCopyNumber);
+            double modeWeight = ((double)segment.End - segment.Start) / 1e6; // (endpos − startpos)/1e6
+            int majorKey = Math.Min(major, AscatModeAlleleCap);
+            int minorKey = Math.Min(minor, AscatModeAlleleCap);
+            majorWeight[majorKey] += modeWeight;
+            majorSeen[majorKey] = true;
+            minorWeight[minorKey] += modeWeight;
+            minorSeen[minorKey] = true;
+            profile.Add((major, minor, (double)segment.End - segment.Start + 1.0)); // size = endpos − startpos + 1
+        }
+
+        if (profile.Count == 0)
+        {
+            throw new ArgumentException(
+                "ASCAT genome metrics are computed on autosomes only (X/Y excluded); no autosomal segment was supplied.",
+                nameof(segments));
+        }
+
+        int modeMajor = AscatModeAllele(majorWeight, majorSeen);
+        int modeMinor = AscatModeAllele(minorWeight, minorSeen);
+
+        double totalSize = 0.0, lohSize = 0.0;
+        foreach ((int _, int minor, double size) in profile)
+        {
+            totalSize += size;
+            if (minor == 0)
+            {
+                lohSize += size;
+            }
+        }
+
+        double loh = Math.Round(lohSize / totalSize, AscatMetricDecimals, MidpointRounding.ToEven);
+
+        AscatWgdStatus status = modeMajor switch
+        {
+            1 => AscatWgdStatus.NoWgd,
+            2 => AscatWgdStatus.Wgd,
+            >= 3 and <= AscatModeAlleleCap => AscatWgdStatus.WgdPlus,
+            _ => AscatWgdStatus.NotAvailable, // mode_majA == 0
+        };
+
+        double? gi = null;
+        if (status != AscatWgdStatus.NotAvailable)
+        {
+            // computeGIscore: baseline 1 (WGD 0) or 2 (WGD 1; "1+" is scored with WGD = 1).
+            int baseline = status == AscatWgdStatus.NoWgd ? 1 : 2;
+            double baselineSize = 0.0;
+            foreach ((int major, int minor, double size) in profile)
+            {
+                if (major == baseline && minor == baseline)
+                {
+                    baselineSize += size;
+                }
+            }
+
+            gi = Math.Round(1.0 - baselineSize / totalSize, AscatMetricDecimals, MidpointRounding.ToEven);
+        }
+
+        return new AscatGenomeMetrics(modeMinor, modeMajor, status, gi, loh);
+    }
+
+    /// <summary>
+    /// ascat.metrics <c>modeAllele</c> selection: the copy-number value with the largest summed weight; groups are
+    /// visited in ascending value order (tapply) and only a strictly larger weight replaces the current best
+    /// (stable <c>order(decreasing = TRUE)</c> + <c>which.max</c>), so ties go to the smaller value.
+    /// </summary>
+    private static int AscatModeAllele(double[] weights, bool[] seen)
+    {
+        int best = -1;
+        for (int value = 0; value < weights.Length; value++)
+        {
+            if (seen[value] && (best < 0 || weights[value] > weights[best]))
+            {
+                best = value;
+            }
+        }
+
+        return best;
+    }
+
     #endregion
 
 
@@ -1692,20 +1941,21 @@ public static partial class OncologyAnalyzer
         bool nonAberrant)
     {
         var result = new List<AlleleSpecificSegment>(segments.Count);
-        double cnSum = 0.0, probeSum = 0.0;
-        foreach (AlleleSpecificSegmentSummary s in segments)
+        var probeCounts = new int[segments.Count];
+        for (int i = 0; i < segments.Count; i++)
         {
+            AlleleSpecificSegmentSummary s = segments[i];
             (double major, double minor) = AscatRoundSegment(s.MeanLogR, ToAscatBaf(s.MeanBAF), rho, psi, gamma);
             int majorInt = AscatCopyNumberToInt(major);
             int minorInt = AscatCopyNumberToInt(minor);
             // Segments with End == Start (single-position) get a 1 bp span so AlleleSpecificSegment.Length > 0.
             long end = s.End > s.Start ? s.End : s.Start + 1;
             result.Add(new AlleleSpecificSegment(s.Chromosome, s.Start, end, majorInt, minorInt));
-            cnSum += ((double)majorInt + minorInt) * s.LocusCount;
-            probeSum += s.LocusCount;
+            probeCounts[i] = s.LocusCount;
         }
 
-        return new PurityPloidyFit(rho, cnSum / probeSum, goodnessOfFit, result)
+        // ASCAT ploidy = mean(nA + nB) over probes = probe-count-weighted mean (canonical overload).
+        return new PurityPloidyFit(rho, EstimatePloidy(result, probeCounts), goodnessOfFit, result)
         {
             Psi = psi,
             IsNonAberrant = nonAberrant,

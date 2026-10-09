@@ -95,6 +95,8 @@ Coordinates are half-open [Start, End) with length End − Start in base pairs (
 **Implementation location:** [OncologyAnalyzer.CopyNumberPloidy.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CopyNumberPloidy.cs)
 
 - `OncologyAnalyzer.EstimatePloidy(IEnumerable<AlleleSpecificSegment>)`: length-weighted average ploidy ψ.
+- `OncologyAnalyzer.EstimatePloidy(IEnumerable<AlleleSpecificSegment>, IEnumerable<int> probeCounts)`: ASCAT probe-count-weighted ploidy Σ(CN_i·n_i)/Σn_i (runASCAT) [6]; also used by `FitPurityPloidy` for `PurityPloidyFit.Ploidy`.
+- `OncologyAnalyzer.ComputeAscatGenomeMetrics(IEnumerable<AlleleSpecificSegment>)` → `AscatGenomeMetrics(ModeMinorAllele, ModeMajorAllele, WgdStatus, GenomicInstability, LossOfHeterozygosity)`: ASCAT `ascat.metrics` `mode_minA`/`mode_majA`/`WGD` (NA/0/1/1+)/`GI`/`LOH` [6].
 - `OncologyAnalyzer.DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>, ReferenceGenome = GRCh38)`: WGD flag via the Bielski/facets-suite major-CN≥2 / >50% rule, against the reference autosomal chromosome-size table.
 - `OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment>)`: WGD flag exactly as facets-suite `is_genome_doubled(segs, get_sample_genome(segs))` — denominator Σ over autosomes of the interrogated span (max End − min Start); non-autosomal segments ignored.
 - `OncologyAnalyzer.GetAutosomeLengths(ReferenceGenome)` / `GetAutosomalGenomeLength(ReferenceGenome)`: the embedded reference chromosome-size table and its autosomal sum.
@@ -111,10 +113,12 @@ Both methods stream the input in a single pass and reuse the existing `AlleleSpe
 - WGD ⇔ fraction of genome with major CN ≥ 2 (mcn = tcn − lcn) strictly > 0.5 — facets-suite `is_genome_doubled` (PMID 30013179) [3][4].
 - `DetectWholeGenomeDoublingFromSuppliedLength`: facets-suite `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])` with `chrom_info = get_sample_genome(segs)` (size = max(end) − min(start)), numerator restricted to autosomes — line-by-line equal to the R code (Python port cross-check, review 2026-09) [4].
 - `DetectWholeGenomeDoubling`: same numerator/threshold; denominator = reference autosomal length from the embedded UCSC `*.chrom.sizes` tables (GRCh38/GRCh37) [5] — see §5.4 #1.
+- `EstimatePloidy(segments, probeCounts)` (review 2026-09, F31): ASCAT runASCAT `ploidy = sum((nA+nB)*s[,"length"])/sum(s[,"length"])` (l. 283, length = #probes of each `make_segments` segment) = the reported `mean(nA+nB, na.rm=TRUE)` over probes (l. 98) [6]. R cross-check: `mean(rep(c(2,4,3), c(1000,200,800)))` = 2.6000000000000001 (bp-weighted default on the same segments: 3.0); 3000 random genomes bit-identical.
+- `ComputeAscatGenomeMetrics` (review 2026-09, F30): ASCAT `ascat.metrics` verbatim [6] — autosomes only (`setdiff(chrs, sexchromosomes)`, X/Y); `modeAllele`: `round`, cap 5, weight `(endpos−startpos)/1e6` (no +1) summed per value, stable decreasing `order` + `which.max` ⇒ ties go to the smaller copy number; WGD: mode_majA 0 → NA, 1 → "0", 2 → "1", 3–5 → "1+"; `computeGIscore`: `round(1 − Σsize[nMajor=b ∧ nMinor=b]/Σsize, 4)`, size = `endpos−startpos+1`, b = 1 (WGD 0) or 2 (WGD 1 / 1+); LOH = `round(Σsize[nMinor=0]/Σsize, 4)`. Bit-identical to the R function on 9 hand-built genomes (tie, NA, cap, sex-chromosome cases) and 3000 random genomes (108 exact mode ties).
 
 **Intentionally simplified:**
 
-- (none). Note: `EstimatePloidy` weights by base pairs (Patchwork [1]); ASCAT's internal ploidy weights segments by probe count (`sum((nA+nB)*s[,"length"])/sum(s[,"length"])`, length = #probes) and reports `mean(nA+nB)` over probes — identical for uniform probe density; `AlleleSpecificSegment` carries no probe counts.
+- (none). Note: the default `EstimatePloidy` weights by base pairs (Patchwork [1]); ASCAT's probe-count weighting is implemented as the `probeCounts` overload (F31; identical for uniform probe density). ASCAT's own WGD metric (`ascat.metrics`: mode of nMajor) is implemented as `ComputeAscatGenomeMetrics` (F30), alongside the facets-suite/Bielski rule.
 
 **Not implemented:**
 
@@ -189,3 +193,4 @@ bool wgdFacets = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(se
 4. facets-suite (MSKCC). `R/copy-number-scores.R`, `is_genome_doubled` (treshold = 0.5, mcn = tcn − lcn, `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])`, PMID 30013179), `get_sample_genome` (size = max(end) − min(start) per chromosome), `parse_segs`, `calculate_fraction_cna`. https://raw.githubusercontent.com/mskcc/facets-suite/master/R/copy-number-scores.R (re-read 2026-09-28)
 5. UCSC Genome Browser. `hg38.chrom.sizes` (https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/latest/hg38.chrom.sizes) and `hg19.chrom.sizes` (https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes); GRCh38 chromosome lengths cross-verified against Ensembl REST GRCh38.p14 (https://rest.ensembl.org/info/assembly/homo_sapiens). Accessed 2026-06-22.
 </content>
+6. ASCAT (VanLoo-lab). `R/ascat.metrics.R` (`ascat.metrics`, `modeAllele`, `computeGIscore`) and `R/ascat.runAscat.R` (`ploidy = sum((nA+nB)*s[,"length"])/sum(s[,"length"])`, l. 283; `ploidy = mean(nA+nB, na.rm=TRUE)`, l. 98). https://raw.githubusercontent.com/VanLoo-lab/ascat/master/ASCAT/R/ascat.metrics.R, …/ascat.runAscat.R (read and executed in R 4.3.3, 2026-10-09)

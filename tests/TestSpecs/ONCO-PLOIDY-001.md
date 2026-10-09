@@ -54,6 +54,8 @@
 | `DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>, ReferenceGenome=GRCh38)` | OncologyAnalyzer | Canonical | facets-suite rule: frac(autosomal major CN ≥ 2 length) / reference autosomal genome > 0.5 |
 | `DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Variant | facets-suite exact: denominator = Σ autosomal interrogated span (get_sample_genome) |
 | `GetAutosomeLengths(ReferenceGenome)` / `GetAutosomalGenomeLength(ReferenceGenome)` | OncologyAnalyzer | Canonical | embedded reference chromosome-size table + autosomal sum |
+| `EstimatePloidy(IEnumerable<AlleleSpecificSegment>, IEnumerable<int> probeCounts)` | OncologyAnalyzer | Variant | ASCAT runASCAT probe-count-weighted ψ = Σ(CN·n)/Σn (F31) |
+| `ComputeAscatGenomeMetrics(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Variant | ASCAT `ascat.metrics` mode_minA / mode_majA / WGD (NA/0/1/1+) / GI / LOH (F30) |
 
 ---
 
@@ -112,6 +114,12 @@
 | S5 | swapped allele labels | Major 1 / Minor 2 | elevated (mcn = 3 − 1 = 2) in both WGD methods | mcn = tcn − lcn (F10) |
 | S6 | Σ L beyond Int64 | two 5e18-bp segments | ψ = 2; WGD true (both) | as.numeric sums (F11) |
 | L4 | Legacy WGD null → reject | null | ArgumentNullException | guard contract |
+| A1–A9 | ASCAT ascat.metrics G1–G9 | Evidence table "ASCAT ascat.metrics" (diploid, WGD, 1+, tie → smaller value, mode 0 → NA, X excluded, cap 5, tie 3/4, +1 size / chr prefix) | R values (mode_minA, mode_majA, WGD, GI, LOH) exactly | F30, R-executed |
+| A10 | ASCAT metrics swapped allele labels | Major 0 / Minor 2 | same as 2:0 | nMajor = max |
+| A11 | ASCAT metrics only X/Y or null | — | ArgumentException / ArgumentNullException | R zero-length mode errors |
+| P1 | ASCAT probe-weighted ploidy | CN 2/4/3, probes 1000/200/800 | 2.6000000000000001 (bp default 3.0 unchanged) | F31, R `mean(rep())` |
+| P2 | ASCAT probe-weighted, non-terminating | CN 2/3/5, probes 1/1/1 | 3.3333333333333335 | F31 |
+| P3 | Probe-weighted invalid input | count mismatch, 0 probes, empty, null | ArgumentException / ArgumentNullException | guard contract |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -204,6 +212,12 @@
 | L3 | ✅ Covered | DetectWholeGenomeDoublingFromSuppliedLength_Empty_Throws |
 | L4 | ✅ Covered | DetectWholeGenomeDoublingFromSuppliedLength_Null_Throws |
 | C1 | ✅ Covered | EstimatePloidy_NearTriploidGenome_ExceedsAneuploidyDirection |
+| A1–A9 | ✅ Covered | ComputeAscatGenomeMetrics_MatchesAscatR (AscatMetrics_G1…G9) |
+| A10 | ✅ Covered | ComputeAscatGenomeMetrics_SwappedAlleleLabels_SameResult |
+| A11 | ✅ Covered | ComputeAscatGenomeMetrics_OnlySexChromosomes_Throws / _Null_Throws |
+| P1 | ✅ Covered | EstimatePloidy_ProbeCounts_MatchesAscatR |
+| P2 | ✅ Covered | EstimatePloidy_ProbeCounts_NonTerminating_MatchesAscatR |
+| P3 | ✅ Covered | EstimatePloidy_ProbeCounts_InvalidInput_Throws |
 
 ---
 

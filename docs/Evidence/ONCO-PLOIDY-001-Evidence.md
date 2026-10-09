@@ -151,6 +151,45 @@ max(end) − min(start), `get_sample_genome`). Expected values from a line-by-li
 | (1, 0, 60M, 1:2), (2, 0, 40M, 1:1) | 0.6 | true (mcn = tcn − lcn = 3 − 1) |
 | (X, 0, 1000, 2:2) only | NaN (R `NA`) | ArgumentException |
 
+### Dataset: ASCAT `ascat.metrics` WGD / GI / LOH (F30, review 2026-10-09)
+
+Source: ASCAT `R/ascat.metrics.R` (https://raw.githubusercontent.com/VanLoo-lab/ascat/master/ASCAT/R/ascat.metrics.R),
+**executed** in R 4.3.3 (file sourced; `ascat.metrics(inputObj, outputObj)` called on minimal ASCAT objects,
+`sexchromosomes` = X/Y). Rules read from the code: autosomes only; `modeAllele` weight `(endpos−startpos)/1e6`
+(no +1), `round`, cap `y[y>5]=5`, `tapply` groups ascending, stable `order(decreasing=TRUE)` + `which.max` ⇒ ties →
+smaller value; WGD mode_majA 0 → NA, 1 → 0, 2 → 1, 3–5 → "1+"; `computeGIscore` size `endpos−startpos+1`,
+baseline 1:1 (WGD 0) or 2:2 (WGD 1 and "1+"), `round(…, 4)`; LOH = `round(Σsize[nMinor=0]/Σsize, 4)`.
+
+| Genome (chr, start, end, nMajor:nMinor) | mode_minA | mode_majA | WGD | GI | LOH |
+|---|---|---|---|---|---|
+| G1 (1,1,50M,1:1) (2,1,40M,1:1) (3,1,30M,2:1) | 1 | 1 | 0 | 0.25 | 0 |
+| G2 (1,1,60M,2:2) (2,1,50M,2:0) (3,1,20M,1:1) (4,1,10M,3:2) | 2 | 2 | 1 | 0.5714 | 0.3571 |
+| G3 (1,1,70M,3:1) (2,1,30M,2:2) (3,1,20M,2:2) | 1 | 3 | 1+ | 0.5833 | 0 |
+| G4 tie (1,0,10M,2:2) (1,10M,20M,2:1) (2,0,20M,1:1) | 1 | 1 | 0 | 0.5 | 0 |
+| G5 (1,1,60M,0:0) (2,1,40M,1:1) | 0 | 0 | NA | NA | 0.6 |
+| G6 (1,1,30M,1:1) (2,1,20M,2:2) (X,1,150M,2:2) | 1 | 1 | 0 | 0.4 | 0 |
+| G7 cap (1,1,8M,6:1) (2,1,8M,7:0) (3,1,10M,2:2) (4,1,5M,1:1) | 1 | 5 | 1+ | 0.6774 | 0.2581 |
+| G8 tie 3/4 (1,100,5000100,4:2) (2,100,5000100,3:1) (3,100,3000100,2:2) | 2 | 3 | 1+ | 0.7692 | 0 |
+| G9 (chr1,12345,23456789,2:2) (chr2,777,9876543,1:1) (chr5,1,13579246,2:0) (chrY,1,50M,1:0) | 2 | 2 | 1 | 0.5001 | 0.2895 |
+
+Differential check: 3000 random genomes (seed 20261009; 1–12 segments, chr 1–22/X/Y, nMajor 0–8; 108 with an exact
+major-mode tie) — `ComputeAscatGenomeMetrics` vs R `ascat.metrics`: **0 mismatches** (all five columns bit-identical).
+
+### Dataset: ASCAT probe-count-weighted ploidy (F31, review 2026-10-09)
+
+Source: ASCAT `R/ascat.runAscat.R` — `ploidy = sum((nA+nB) * s[, "length"]) / sum(s[, "length"])` (runASCAT, l. 283;
+`s[, "length"]` = probes per `make_segments` segment) and the reported `ploidy = mean(nA+nB, na.rm=TRUE)` over
+probes (ascat.runAscat, l. 98). R 4.3.3:
+
+| Total CN per segment | Probes | R `mean(rep(cn, probes))` | bp-weighted (100/100/50 Mb) |
+|---|---|---|---|
+| 2, 4, 3 | 1000, 200, 800 | 2.6000000000000001 | 3.0 |
+| 2, 4, 3 | 1, 1, 1 | 3 | 3.0 |
+| 2, 3, 5 | 1, 1, 1 | 3.3333333333333335 | — |
+
+The same 3000 random genomes (probes 1–500 per segment): `EstimatePloidy(segments, probeCounts)` = R `mean(rep(…))`
+= R `sum(cn*len)/sum(len)` bit-for-bit (0 mismatches).
+
 ---
 
 ## Assumptions

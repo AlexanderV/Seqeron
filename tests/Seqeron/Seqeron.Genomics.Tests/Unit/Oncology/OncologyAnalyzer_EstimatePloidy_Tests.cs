@@ -581,4 +581,129 @@ public class OncologyAnalyzer_EstimatePloidy_Tests
     }
 
     #endregion
+
+    #region FIN-B24 F30/F31 — ASCAT ascat.metrics WGD/GI and runASCAT probe-weighted ploidy
+
+    // Expected values produced by running the real ASCAT R function ascat.metrics (VanLoo-lab/ascat master,
+    // R/ascat.metrics.R, sourced in R 4.3.3) on the same segment tables (sexchromosomes = X/Y). Additionally
+    // 3000 random genomes (108 with exact mode ties) matched bit-for-bit (docs/Evidence/ONCO-PLOIDY-001-Evidence.md).
+    private static IEnumerable<TestCaseData> AscatMetricsCases()
+    {
+        static Segment S(string chr, long start, long end, int major, int minor) => new(chr, start, end, major, minor);
+
+        yield return new TestCaseData(new[] { S("1", 1, 50_000_000, 1, 1), S("2", 1, 40_000_000, 1, 1), S("3", 1, 30_000_000, 2, 1) },
+            1, 1, OncologyAnalyzer.AscatWgdStatus.NoWgd, "0", (double?)0.25, 0.0).SetName("AscatMetrics_G1_Diploid");
+        yield return new TestCaseData(new[] { S("1", 1, 60_000_000, 2, 2), S("2", 1, 50_000_000, 2, 0), S("3", 1, 20_000_000, 1, 1), S("4", 1, 10_000_000, 3, 2) },
+            2, 2, OncologyAnalyzer.AscatWgdStatus.Wgd, "1", (double?)0.5714, 0.3571).SetName("AscatMetrics_G2_Wgd");
+        yield return new TestCaseData(new[] { S("1", 1, 70_000_000, 3, 1), S("2", 1, 30_000_000, 2, 2), S("3", 1, 20_000_000, 2, 2) },
+            1, 3, OncologyAnalyzer.AscatWgdStatus.WgdPlus, "1+", (double?)0.5833, 0.0).SetName("AscatMetrics_G3_ModeThree_WgdPlus");
+        // Tie: nMajor 2 (10 + 10 Mb, two segments) vs nMajor 1 (20 Mb) on (end − start) → smaller value wins (mode 1).
+        yield return new TestCaseData(new[] { S("1", 0, 10_000_000, 2, 2), S("1", 10_000_000, 20_000_000, 2, 1), S("2", 0, 20_000_000, 1, 1) },
+            1, 1, OncologyAnalyzer.AscatWgdStatus.NoWgd, "0", (double?)0.5, 0.0).SetName("AscatMetrics_G4_Tie_SmallerValueWins");
+        yield return new TestCaseData(new[] { S("1", 1, 60_000_000, 0, 0), S("2", 1, 40_000_000, 1, 1) },
+            0, 0, OncologyAnalyzer.AscatWgdStatus.NotAvailable, "NA", (double?)null, 0.6).SetName("AscatMetrics_G5_ModeZero_NA");
+        // A 150 Mb X 2:2 segment would make the mode 2; ASCAT ignores sex chromosomes.
+        yield return new TestCaseData(new[] { S("1", 1, 30_000_000, 1, 1), S("2", 1, 20_000_000, 2, 2), S("X", 1, 150_000_000, 2, 2) },
+            1, 1, OncologyAnalyzer.AscatWgdStatus.NoWgd, "0", (double?)0.4, 0.0).SetName("AscatMetrics_G6_SexChromosomeExcluded");
+        // nMajor 6 and 7 are capped to 5 and pooled (16 Mb) → beat nMajor 2 (10 Mb).
+        yield return new TestCaseData(new[] { S("1", 1, 8_000_000, 6, 1), S("2", 1, 8_000_000, 7, 0), S("3", 1, 10_000_000, 2, 2), S("4", 1, 5_000_000, 1, 1) },
+            1, 5, OncologyAnalyzer.AscatWgdStatus.WgdPlus, "1+", (double?)0.6774, 0.2581).SetName("AscatMetrics_G7_CapAtFive");
+        yield return new TestCaseData(new[] { S("1", 100, 5_000_100, 4, 2), S("2", 100, 5_000_100, 3, 1), S("3", 100, 3_000_100, 2, 2) },
+            2, 3, OncologyAnalyzer.AscatWgdStatus.WgdPlus, "1+", (double?)0.7692, 0.0).SetName("AscatMetrics_G8_TieThreeFour_GiBaselineTwo");
+        // Non-round coordinates: GI/LOH use size = end − start + 1; chrY excluded.
+        yield return new TestCaseData(new[] { S("chr1", 12_345, 23_456_789, 2, 2), S("chr2", 777, 9_876_543, 1, 1), S("chr5", 1, 13_579_246, 2, 0), S("chrY", 1, 50_000_000, 1, 0) },
+            2, 2, OncologyAnalyzer.AscatWgdStatus.Wgd, "1", (double?)0.5001, 0.2895).SetName("AscatMetrics_G9_PlusOneSize_ChrPrefix");
+    }
+
+    [TestCaseSource(nameof(AscatMetricsCases))]
+    public void ComputeAscatGenomeMetrics_MatchesAscatR(
+        Segment[] segments, int modeMinor, int modeMajor, OncologyAnalyzer.AscatWgdStatus status, string label,
+        double? gi, double loh)
+    {
+        OncologyAnalyzer.AscatGenomeMetrics m = OncologyAnalyzer.ComputeAscatGenomeMetrics(segments);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(m.ModeMinorAllele, Is.EqualTo(modeMinor), "mode_minA (ASCAT R)");
+            Assert.That(m.ModeMajorAllele, Is.EqualTo(modeMajor), "mode_majA (ASCAT R)");
+            Assert.That(m.WgdStatus, Is.EqualTo(status), "WGD (ASCAT R)");
+            Assert.That(m.WgdLabel, Is.EqualTo(label), "WGD label (ASCAT R)");
+            Assert.That(m.GenomicInstability, Is.EqualTo(gi), "GI = round(1 − baseline/Σsize, 4) (ASCAT R)");
+            Assert.That(m.LossOfHeterozygosity, Is.EqualTo(loh), "LOH = round(Σsize[nMinor=0]/Σsize, 4) (ASCAT R)");
+        });
+    }
+
+    [Test]
+    public void ComputeAscatGenomeMetrics_SwappedAlleleLabels_SameResult()
+    {
+        var labelled = new[] { new Segment("1", 0, 60_000_000, 2, 2), new Segment("2", 0, 50_000_000, 2, 0) };
+        var swapped = new[] { new Segment("1", 0, 60_000_000, 2, 2), new Segment("2", 0, 50_000_000, 0, 2) };
+
+        Assert.That(OncologyAnalyzer.ComputeAscatGenomeMetrics(swapped),
+            Is.EqualTo(OncologyAnalyzer.ComputeAscatGenomeMetrics(labelled)), "nMajor = max, nMinor = min of the allele CNs.");
+    }
+
+    [Test]
+    public void ComputeAscatGenomeMetrics_OnlySexChromosomes_Throws()
+    {
+        var segments = new[] { new Segment("X", 0, 1_000_000, 1, 1), new Segment("chrY", 0, 1_000_000, 1, 0) };
+
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.ComputeAscatGenomeMetrics(segments),
+            "ASCAT's autosomal profile is empty → mode undefined (R errors on a zero-length mode).");
+    }
+
+    [Test]
+    public void ComputeAscatGenomeMetrics_Null_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.ComputeAscatGenomeMetrics(null!));
+    }
+
+    // F31 — ASCAT runASCAT ploidy = sum((nA+nB)·length)/sum(length), length = probe count; reported
+    // ploidy = mean(nA+nB) over probes. R: mean(rep(c(2,4,3), c(1000,200,800))) = 2.6000000000000001.
+    [Test]
+    public void EstimatePloidy_ProbeCounts_MatchesAscatR()
+    {
+        var segments = new List<Segment>
+        {
+            new("1", 0, 100_000_000, 1, 1),
+            new("2", 0, 100_000_000, 2, 2),
+            new("3", 0,  50_000_000, 2, 1),
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.EstimatePloidy(segments, new[] { 1000, 200, 800 }), Is.EqualTo(2.6000000000000001),
+                "probe-weighted (ASCAT R) = 5200/2000");
+            Assert.That(OncologyAnalyzer.EstimatePloidy(segments), Is.EqualTo(3.0),
+                "bp-weighted default (Patchwork) is unchanged");
+            Assert.That(OncologyAnalyzer.EstimatePloidy(segments, new[] { 1, 1, 1 }), Is.EqualTo(3.0),
+                "equal probe counts → plain segment mean (2+4+3)/3");
+        });
+    }
+
+    [Test]
+    public void EstimatePloidy_ProbeCounts_NonTerminating_MatchesAscatR()
+    {
+        var segments = new[] { new Segment("1", 0, 10, 1, 1), new Segment("1", 10, 20, 2, 1), new Segment("2", 0, 5, 3, 2) };
+
+        // R: mean(rep(c(2,3,5), c(1,1,1))) = 3.3333333333333335
+        Assert.That(OncologyAnalyzer.EstimatePloidy(segments, new[] { 1, 1, 1 }), Is.EqualTo(3.3333333333333335));
+    }
+
+    [Test]
+    public void EstimatePloidy_ProbeCounts_InvalidInput_Throws()
+    {
+        var segments = new[] { new Segment("1", 0, 10, 1, 1), new Segment("2", 0, 10, 2, 1) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimatePloidy(segments, new[] { 5 }), "fewer counts");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimatePloidy(segments, new[] { 5, 5, 5 }), "more counts");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimatePloidy(segments, new[] { 5, 0 }), "zero probes");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimatePloidy(Array.Empty<Segment>(), Array.Empty<int>()), "empty");
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.EstimatePloidy(segments, null!));
+        });
+    }
+
+    #endregion
 }
