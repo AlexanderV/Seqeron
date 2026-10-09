@@ -33,6 +33,12 @@
          published answer "89969 89970 89971 90345 90346"), verbatim from the mirror
          raw.githubusercontent.com/charlesreid1/go-rosalind/master/rosalind/data/minimum_skew.txt. -->
     <EmbeddedResource Include="TestData\Rosalind\ba1f_extra_dataset.txt" />
+    <!-- ONCO-PURITY-001 (FIN-B24 F33/F34): seeded synthetic clonal SNV sets (VAF, Major, minor, NV, DP) simulated in R
+         (set.seed 20261009/10/11; NV ~ Binom(DP, m·π/(2(1−π)+π(M+m)))) and run through CNAqc 1.1.5 analyze_peaks_common
+         (caravagnalab/CNAqc 4b7cea4a); generator: docs/Evidence/ONCO-PURITY-001-Evidence.md §CNAqc peak QC. -->
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_D1.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_D3.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_D4.tsv" />
   </ItemGroup>
 
   <ItemGroup>

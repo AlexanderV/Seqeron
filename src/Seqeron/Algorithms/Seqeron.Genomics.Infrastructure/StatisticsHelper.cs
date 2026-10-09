@@ -466,5 +466,359 @@ namespace Seqeron.Genomics.Infrastructure
             }
             return x * Math.Log(x / np) + np - x;
         }
+        /// <summary>
+        /// Silverman's rule-of-thumb bandwidth for a Gaussian kernel density estimate, exactly as R
+        /// <c>stats::bw.nrd0</c>: <c>h = 0.9 · lo · n^(−1/5)</c> with <c>lo = min(sd(x), IQR(x)/1.34)</c> (sample SD,
+        /// n − 1 divisor; IQR from R's default type-7 quantiles); when that is 0, <c>lo</c> falls back to sd(x), then
+        /// to |x₁| (the first value as supplied), then to 1 (R: <c>(lo &lt;- hi) || (lo &lt;- abs(x[1L])) || (lo &lt;- 1)</c>).
+        /// Silverman (1986) <i>Density Estimation</i>, eq. 3.31. Agrees with R 4.3.3 <c>bw.nrd0</c> to ≈ 1e−15 relative.
+        /// </summary>
+        /// <param name="values">The sample (at least two finite values).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        /// <exception cref="ArgumentException">fewer than two values, or a value is not finite.</exception>
+        public static double BandwidthNrd0(IReadOnlyList<double> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            int n = values.Count;
+            if (n < 2)
+            {
+                throw new ArgumentException("bw.nrd0 needs at least 2 data points.", nameof(values));
+            }
+
+            double sum = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                if (!double.IsFinite(values[i]))
+                {
+                    throw new ArgumentException("All values must be finite.", nameof(values));
+                }
+
+                sum += values[i];
+            }
+
+            double mean = sum / n;
+            double ss = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                double d = values[i] - mean;
+                ss += d * d;
+            }
+
+            double hi = Math.Sqrt(ss / (n - 1));
+            var sorted = new double[n];
+            for (int i = 0; i < n; i++) sorted[i] = values[i];
+            Array.Sort(sorted);
+            double iqr = QuantileType7(sorted, 0.75) - QuantileType7(sorted, 0.25);
+
+            double lo = Math.Min(hi, iqr / 1.34);
+            if (lo == 0.0)
+            {
+                lo = hi;
+                if (lo == 0.0) lo = Math.Abs(values[0]);
+                if (lo == 0.0) lo = 1.0;
+            }
+
+            return 0.9 * lo * Math.Pow(n, -0.2);
+        }
+
+        // R stats::quantile type 7 on an ascending-sorted sample: index = 1 + (n − 1)·p; interpolate
+        // (1 − h)·x[lo] + h·x[hi] only when index > lo and x[hi] ≠ x[lo] (R quantile.default).
+        private static double QuantileType7(double[] sorted, double probability)
+        {
+            int n = sorted.Length;
+            double index = (n - 1) * probability; // 0-based
+            int lo = (int)Math.Floor(index);
+            int hi = (int)Math.Ceiling(index);
+            double qs = sorted[lo];
+            if (index > lo && sorted[hi] != qs)
+            {
+                double h = index - lo;
+                qs = ((1 - h) * qs) + (h * sorted[hi]);
+            }
+
+            return qs;
+        }
+
+        /// <summary>
+        /// Gaussian kernel density estimate exactly as R <c>stats::density.default(x, bw = "nrd0", adjust, kernel =
+        /// "gaussian", n, cut)</c> with unit weights: bandwidth <c>bw = adjust · bw.nrd0(x)</c>; output grid
+        /// <c>seq(min(x) − cut·bw, max(x) + cut·bw, length.out = n)</c>; the data are linearly binned
+        /// (<c>C_BinDist</c>, weight 1/N) onto <c>N_g = max(n, 512)</c> (rounded up to a power of two above 512) points
+        /// spanning <c>[from − 4·bw, to + 4·bw]</c>, convolved with the Gaussian kernel, clamped at 0 and linearly
+        /// interpolated (<c>approx</c>) onto the output grid. R evaluates the circular convolution by FFT; here it is
+        /// evaluated directly (the binned mass occupies only the first half of the zero-padded 2·N_g buffer, so the
+        /// circular and linear sums coincide), which agrees with R to ≈ 1e−15 absolute.
+        /// <para>
+        /// Kernel lattice: R ≥ 4.4 (default <c>old.coords = FALSE</c>) evaluates the kernel at multiples of the bin
+        /// spacing (up − lo)/(N_g − 1); R ≤ 4.3 (or <c>old.coords = TRUE</c>) used 2·(up − lo)/(2·N_g − 1), which
+        /// rescales densities by ≈ 0.999 (R PR#18337). <paramref name="legacyCoordinates"/> selects the R ≤ 4.3 lattice.
+        /// </para>
+        /// </summary>
+        /// <param name="values">The sample (at least two finite values).</param>
+        /// <param name="adjust">Bandwidth multiplier (R <c>adjust</c>), &gt; 0.</param>
+        /// <param name="points">Number of output grid points (R <c>n</c>, default 512), ≥ 2.</param>
+        /// <param name="cut">Grid extension beyond the data in bandwidths (R <c>cut</c>, default 3), ≥ 0.</param>
+        /// <param name="legacyCoordinates">true reproduces R ≤ 4.3 (<c>old.coords = TRUE</c>) values.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        /// <exception cref="ArgumentException">fewer than two values or a non-finite value.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">invalid <paramref name="adjust"/>, <paramref name="points"/> or <paramref name="cut"/>.</exception>
+        public static KernelDensityEstimate GaussianKernelDensity(
+            IReadOnlyList<double> values,
+            double adjust = 1.0,
+            int points = 512,
+            double cut = 3.0,
+            bool legacyCoordinates = false)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            if (!(adjust > 0.0) || double.IsPositiveInfinity(adjust))
+                throw new ArgumentOutOfRangeException(nameof(adjust), adjust, "adjust must be a finite positive number.");
+            if (points < 2)
+                throw new ArgumentOutOfRangeException(nameof(points), points, "At least two grid points are required.");
+            if (!(cut >= 0.0) || double.IsPositiveInfinity(cut))
+                throw new ArgumentOutOfRangeException(nameof(cut), cut, "cut must be a finite non-negative number.");
+
+            double bw = adjust * BandwidthNrd0(values);
+            int nx = values.Count;
+            double min = double.PositiveInfinity, max = double.NegativeInfinity;
+            for (int i = 0; i < nx; i++)
+            {
+                min = Math.Min(min, values[i]);
+                max = Math.Max(max, values[i]);
+            }
+
+            int ng = Math.Max(points, 512);
+            if (ng > 512) ng = 1 << (int)Math.Ceiling(Math.Log2(ng));
+
+            double from = min - (cut * bw);
+            double to = max + (cut * bw);
+            double lo = from - (4 * bw);
+            double up = to + (4 * bw);
+
+            // C_BinDist: linear binning of weight 1/N onto ng points over [lo, up].
+            var binned = new double[ng];
+            double weight = 1.0 / nx;
+            double xdelta = (up - lo) / (ng - 1);
+            int ixmax = ng - 2;
+            for (int i = 0; i < nx; i++)
+            {
+                double xpos = (values[i] - lo) / xdelta;
+                int ix = (int)Math.Floor(xpos);
+                double fx = xpos - ix;
+                if (ix >= 0 && ix <= ixmax)
+                {
+                    binned[ix] += (1 - fx) * weight;
+                    binned[ix + 1] += fx * weight;
+                }
+                else if (ix == -1)
+                {
+                    binned[0] += fx * weight;
+                }
+                else if (ix == ixmax + 1)
+                {
+                    binned[ix] += (1 - fx) * weight;
+                }
+            }
+
+            // Kernel ordinates kords = seq.int(0, L, length.out = 2·ng) with L = ((2ng − 1)/(ng − 1))·(up − lo)
+            // (R ≥ 4.4) or 2·(up − lo) (old.coords); the lag-d kernel weight is dnorm(d·step, sd = bw).
+            double span = legacyCoordinates ? 2 * (up - lo) : (2.0 * ng - 1) / (ng - 1) * (up - lo);
+            double step = span / ((2 * ng) - 1);
+            var kernel = new double[ng];
+            for (int d = 0; d < ng; d++)
+            {
+                double z = d * step / bw;
+                kernel[d] = InvSqrt2Pi * Math.Exp(-0.5 * z * z) / bw; // R dnorm4: M_1_SQRT_2PI·exp(−x²/2)/σ
+            }
+
+            var kords = new double[ng];
+            for (int j = 0; j < ng; j++)
+            {
+                double acc = 0.0;
+                for (int m = 0; m < ng; m++)
+                {
+                    if (binned[m] != 0.0) acc += binned[m] * kernel[Math.Abs(m - j)];
+                }
+
+                kords[j] = Math.Max(0.0, acc);
+            }
+
+            double[] xords = RSequence(lo, up, ng);
+            double[] gridX = RSequence(from, to, points);
+            var gridY = new double[points];
+            for (int k = 0; k < points; k++)
+            {
+                gridY[k] = LinearInterpolate(xords, kords, gridX[k]);
+            }
+
+            return new KernelDensityEstimate(gridX, gridY, bw);
+        }
+
+        private const double InvSqrt2Pi = 0.398942280401432677939946059934; // R M_1_SQRT_2PI
+
+        // R seq.int(from, to, length.out = n): from + i·((to − from)/(n − 1)), last element exactly `to`.
+        private static double[] RSequence(double from, double to, int n)
+        {
+            var seq = new double[n];
+            double by = (to - from) / (n - 1);
+            seq[0] = from;
+            for (int i = 1; i < n - 1; i++) seq[i] = from + (i * by);
+            seq[n - 1] = to;
+            return seq;
+        }
+
+        // R stats approx1 (method = "linear", rule = 1): bisection, exact knots returned verbatim.
+        private static double LinearInterpolate(double[] x, double[] y, double v)
+        {
+            int i = 0, j = x.Length - 1;
+            if (v < x[i] || v > x[j]) return double.NaN;
+            while (i < j - 1)
+            {
+                int ij = (i + j) / 2;
+                if (v < x[ij]) j = ij; else i = ij;
+            }
+
+            if (v == x[j]) return y[j];
+            if (v == x[i]) return y[i];
+            return y[i] + ((y[j] - y[i]) * ((v - x[i]) / (x[j] - x[i])));
+        }
+
+        /// <summary>
+        /// Smooth-peak detection of R <c>peakPick::peakpick</c> (v0.11; Weber, Ramachandran &amp; Henikoff 2014,
+        /// <i>Mol Cell</i> 53:819) on one series: (1) centred derivative <c>der[i] = (v[i+1] − v[i−1])/2</c>; a candidate is
+        /// a point adjacent to a non-flat +→− derivative sign change with <c>|der| &lt; derivativeLimit</c>; (2) candidates
+        /// within <paramref name="peakPositions"/> of either end are dropped, and a candidate survives only if
+        /// <c>v[i] &gt; mean + peakMinSd · sd / √(2·npos + 1)</c> over its ±npos window; (3) while two candidates are
+        /// ≤ <paramref name="neighborLimit"/> apart, the lower of the closest pair is removed (first on ties).
+        /// Returns a boolean peak mask of the same length.
+        /// </summary>
+        /// <param name="series">The series (e.g. a density's y values).</param>
+        /// <param name="neighborLimit">peakpick <c>neighlim</c> (≥ 0).</param>
+        /// <param name="derivativeLimit">peakpick <c>deriv.lim</c> (default 0.04).</param>
+        /// <param name="peakMinSd">peakpick <c>peak.min.sd</c> (default 0.5).</param>
+        /// <param name="peakPositions">peakpick <c>peak.npos</c> (default 10).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="series"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">negative <paramref name="neighborLimit"/> or <paramref name="peakPositions"/>.</exception>
+        public static bool[] PeakPick(
+            IReadOnlyList<double> series,
+            int neighborLimit,
+            double derivativeLimit = 0.04,
+            double peakMinSd = 0.5,
+            int peakPositions = 10)
+        {
+            ArgumentNullException.ThrowIfNull(series);
+            if (neighborLimit < 0)
+                throw new ArgumentOutOfRangeException(nameof(neighborLimit), neighborLimit, "neighlim must be non-negative.");
+            if (peakPositions < 0)
+                throw new ArgumentOutOfRangeException(nameof(peakPositions), peakPositions, "peak.npos must be non-negative.");
+
+            int n = series.Count;
+            var candidates = new bool[n];
+            if (n < 3) return candidates;
+
+            // der = rbind(NA, diff(mat, lag = 2)/2, NA); NaN plays R's NA.
+            var der = new double[n];
+            der[0] = double.NaN;
+            der[n - 1] = double.NaN;
+            for (int i = 1; i < n - 1; i++) der[i] = (series[i + 1] - series[i - 1]) / 2;
+
+            // pos2neg[i] = der[i] ≥ 0 & der[i+1] ≤ 0 & !(der[i] == 0 & der[i+1] == 0), R three-valued logic.
+            var pos2neg = new bool?[n - 1];
+            for (int i = 0; i < n - 1; i++)
+            {
+                bool? a = Cmp(der[i], v => v >= 0), b = Cmp(der[i + 1], v => v <= 0);
+                bool? bothZero = And(Cmp(der[i], v => v == 0), Cmp(der[i + 1], v => v == 0));
+                pos2neg[i] = And(And(a, b), Not(bothZero));
+            }
+
+            for (int j = 0; j < n; j++)
+            {
+                bool? sign = Or(j < n - 1 ? pos2neg[j] : null, j > 0 ? pos2neg[j - 1] : null);
+                bool? small = Cmp(der[j], v => Math.Abs(v) < derivativeLimit);
+                candidates[j] = And(small, sign) == true;
+            }
+
+            // smallpeaks: drop the npos head/tail positions, then candidates not rising above mean + nsd·SEM.
+            for (int j = 0; j < Math.Min(peakPositions, n); j++)
+            {
+                candidates[j] = false;
+                candidates[n - 1 - j] = false;
+            }
+
+            var toDelete = new List<int>();
+            for (int pos = 0; pos < n; pos++)
+            {
+                if (!candidates[pos]) continue;
+                int count = (2 * peakPositions) + 1;
+                double mean = 0.0;
+                for (int k = pos - peakPositions; k <= pos + peakPositions; k++) mean += series[k];
+                mean /= count;
+                if (count == 1)
+                {
+                    continue; // R: sd() of one value is NA, ifelse(NA) is NA and which() drops it — kept
+                }
+
+                double ss = 0.0;
+                for (int k = pos - peakPositions; k <= pos + peakPositions; k++)
+                {
+                    double d = series[k] - mean;
+                    ss += d * d;
+                }
+
+                double sd = Math.Sqrt(ss / (count - 1));
+                double limit = mean + (peakMinSd * sd / Math.Sqrt(count));
+                if (!(series[pos] > limit)) toDelete.Add(pos);
+            }
+
+            foreach (int pos in toDelete) candidates[pos] = false;
+
+            // keepmax: repeatedly drop the lower member of the closest pair while any pair is ≤ neighlim apart.
+            while (true)
+            {
+                var positions = new List<int>();
+                for (int k = 0; k < n; k++) if (candidates[k]) positions.Add(k);
+                int best = -1, bestDist = int.MaxValue;
+                for (int k = 0; k + 1 < positions.Count; k++)
+                {
+                    int dist = positions[k + 1] - positions[k];
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        best = k;
+                    }
+                }
+
+                if (best < 0 || bestDist > neighborLimit) return candidates;
+                int p1 = positions[best], p2 = positions[best + 1];
+                candidates[series[p2] < series[p1] ? p2 : p1] = false;
+            }
+        }
+
+        private static bool? Cmp(double v, Func<double, bool> predicate) => double.IsNaN(v) ? null : predicate(v);
+
+        // R three-valued `&`: FALSE dominates, then NA.
+        private static bool? And(bool? a, bool? b)
+        {
+            if (a == false || b == false) return false;
+            if (a == true && b == true) return true;
+            return null;
+        }
+
+        // R three-valued `|`: TRUE dominates, then NA.
+        private static bool? Or(bool? a, bool? b)
+        {
+            if (a == true || b == true) return true;
+            if (a == false && b == false) return false;
+            return null;
+        }
+
+        private static bool? Not(bool? a) => a.HasValue ? !a.Value : null;
     }
+
+    /// <summary>
+    /// A kernel density estimate on an evenly spaced grid (R <c>density</c> object: <c>$x</c>, <c>$y</c>, <c>$bw</c>).
+    /// </summary>
+    /// <param name="X">Grid abscissae.</param>
+    /// <param name="Y">Density ordinates at <paramref name="X"/>.</param>
+    /// <param name="Bandwidth">The kernel standard deviation used (after <c>adjust</c>).</param>
+    public sealed record KernelDensityEstimate(IReadOnlyList<double> X, IReadOnlyList<double> Y, double Bandwidth);
 }
