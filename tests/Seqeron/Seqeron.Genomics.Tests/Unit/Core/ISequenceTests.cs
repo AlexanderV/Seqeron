@@ -390,6 +390,49 @@ public class ISequenceTests
         });
     }
 
+    [Test]
+    [Description("A1-6/F19: ExpandCode/MatchesAt fold ASCII only — U+017F 'ſ' is not S (Biopython ambiguous_dna_values has no 'ſ' key, nt_search raises KeyError; scikit-bio DNA('ſ') raises)")]
+    public void IupacDnaSequence_ExpandCodeAndMatchesAt_NonAsciiLettersNotFolded()
+    {
+        var seq = new IupacDnaSequence("ACGTSN\u017f");
+        Assert.Multiple(() =>
+        {
+            // Unknown-character contract: { 'N' } (as for 'X', '1', '-').
+            Assert.That(IupacDnaSequence.ExpandCode('\u017f'), Is.EqualTo(new[] { 'N' }));
+            Assert.That(IupacDnaSequence.ExpandCode('\u0131'), Is.EqualTo(new[] { 'N' }));
+            Assert.That(IupacDnaSequence.ExpandCode('\u212a'), Is.EqualTo(new[] { 'N' }));
+            Assert.That(IupacDnaSequence.ExpandCode('X'), Is.EqualTo(new[] { 'N' }));
+            Assert.That(IupacDnaSequence.ExpandCode('s'), Is.EquivalentTo(new[] { 'G', 'C' }));
+            Assert.That(IupacDnaSequence.ExpandCode('k'), Is.EquivalentTo(new[] { 'G', 'T' }));
+
+            // Pattern 'ſ' is not S: no match at G (2), C (1) or S (4); it matches only the literal 'ſ' (6),
+            // a non-code symbol matching itself per the CodesMatch contract.
+            Assert.That(seq.MatchesAt("\u017f", 1), Is.False);
+            Assert.That(seq.MatchesAt("\u017f", 2), Is.False);
+            Assert.That(seq.MatchesAt("\u017f", 4), Is.False);
+            Assert.That(seq.FindPattern("\u017f").ToList(), Is.EqualTo(new[] { 6 }));
+            Assert.That(seq.FindPattern("s").ToList(), Is.EqualTo(new[] { 1, 2, 4, 5 }));
+            Assert.That(seq.FindPattern("\u212a").ToList(), Is.Empty);
+            Assert.That(seq.MatchesAt("acgtsn", 0), Is.True);
+        });
+    }
+
+    [TestCase("\u017f")]
+    [TestCase("AC\u017f")]
+    [Description("A1-6/F19: DnaSequence/RnaSequence ctor reports the rejected non-ASCII character verbatim (not the ToUpperInvariant fold 'S')")]
+    public void DnaRnaSequence_Ctor_NonAsciiLetter_RejectedAndReportedVerbatim(string sequence)
+    {
+        Assert.Multiple(() =>
+        {
+            var dna = Assert.Throws<ArgumentException>(() => new DnaSequence(sequence));
+            Assert.That(dna!.Message, Does.Contain("'\u017f'"));
+            var rna = Assert.Throws<ArgumentException>(() => new RnaSequence(sequence));
+            Assert.That(rna!.Message, Does.Contain("'\u017f'"));
+            Assert.That(new DnaSequence("acgt").Sequence, Is.EqualTo("ACGT"));
+            Assert.That(new RnaSequence("acgu").Sequence, Is.EqualTo("ACGU"));
+        });
+    }
+
     [TestCase("AU", 'W')]
     [TestCase("cu", 'Y')]
     [TestCase("gu", 'K')]

@@ -176,7 +176,10 @@ public static class SequenceExtensions
 
         for (int i = 0; i < sequence.Length; i++)
         {
-            switch (char.ToUpperInvariant(sequence[i]))
+            // ASCII-only folding: char.ToUpperInvariant maps U+017F 'ſ' onto 'S' (strong), which Biopython
+            // gc_fraction does not count (it matches the literal letters "CGScgs"; gc_fraction("ſ", "ignore") = 0).
+            char c = ToUpperAscii(sequence[i]);
+            switch (c)
             {
                 case 'G':
                 case 'C':
@@ -192,7 +195,7 @@ public static class SequenceExtensions
                     break;
                 default:
                     if (mode == GcAmbiguityMode.Weighted)
-                        gc += WeightedGcValue(char.ToUpperInvariant(sequence[i]));
+                        gc += WeightedGcValue(c);
                     break;
             }
         }
@@ -507,6 +510,21 @@ public static class SequenceExtensions
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
+
+    /// <summary>
+    /// String form of <see cref="ToUpperAscii(char)"/>: upper-cases ASCII letters only and returns
+    /// <paramref name="s"/> itself when it has no ASCII lower-case letter. Length-preserving.
+    /// </summary>
+    internal static string ToUpperAscii(string s)
+    {
+        if (s.AsSpan().IndexOfAnyInRange('a', 'z') < 0)
+            return s;
+        return string.Create(s.Length, s, static (dest, src) =>
+        {
+            for (int i = 0; i < src.Length; i++)
+                dest[i] = ToUpperAscii(src[i]);
+        });
+    }
 
     #endregion
 }

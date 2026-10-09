@@ -120,7 +120,7 @@ Validation is case-insensitive because characters are normalized with uppercase 
 - `DnaSequence.TryCreate(string, out DnaSequence?)`: Factory-style DNA validation and creation that returns `false` when `DnaSequence` construction throws `ArgumentException`.
 - `SequenceExtensions.IndexOfInvalidDna/IndexOfInvalidRna(ReadOnlySpan<char>)`: canonical predicate (first invalid index or -1) shared by `IsValidDna/IsValidRna`, the `DnaSequence`/`RnaSequence` constructors and the MCP `dna_validate`/`rna_validate` tools.
 - `SequenceExtensions.IsValidIupacDna/IsValidIupacRna(ReadOnlySpan<char>)`: IUPAC mode — the 4 bases plus the 11 NC-IUB 1984 codes R, Y, S, W, K, M, B, D, H, V, N (= Biopython `ambiguous_dna_letters` "GATCRYWSMKHBVDN" / `ambiguous_rna_letters` "GAUCRYWSMKHBVDN"); gaps rejected. Code set = `IupacHelper.IsNucleotideCode`.
-- Case folding is ASCII-only (U+017F 'ſ' is never folded to 'S'; scikit-bio rejects it too). `IupacDnaSequence` (container) additionally tolerates `U`, `-`, `.` in `IsValid()`.
+- Case folding is ASCII-only (U+017F 'ſ' is never folded to 'S'; scikit-bio rejects it too). `IupacDnaSequence` (container) additionally tolerates `U`, `-`, `.` in `IsValid()`. The same ASCII-only folding applies to `IupacDnaSequence.ExpandCode` (non-code characters, incl. 'ſ', → `{ 'N' }`), `MatchesAt`/`FindPattern` (pattern 'ſ' matches only a literal 'ſ', never G/C/S), and the `DnaSequence`/`RnaSequence` constructors (a rejected 'ſ' is reported verbatim, not as 'S').
 
 ### 5.2 Current Behavior
 

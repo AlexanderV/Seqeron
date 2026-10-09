@@ -84,11 +84,7 @@ public abstract class SequenceBase : ISequence
     protected SequenceBase(string sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        _sequence = string.Create(sequence.Length, sequence, static (dest, src) =>
-        {
-            for (int i = 0; i < src.Length; i++)
-                dest[i] = SequenceExtensions.ToUpperAscii(src[i]);
-        });
+        _sequence = SequenceExtensions.ToUpperAscii(sequence);
     }
 
     public string Sequence => _sequence;
@@ -204,9 +200,15 @@ public class IupacDnaSequence : SequenceBase
     /// <summary>
     /// Expands IUPAC code to possible bases.
     /// </summary>
+    /// <remarks>
+    /// ASCII letters are case-folded (as in <see cref="CodesMatch"/>); any other character, including
+    /// non-ASCII letters such as U+017F 'ſ' (which <see cref="char.ToUpperInvariant(char)"/> would turn
+    /// into 'S'), is not a code and yields { 'N' }. Biopython <c>IUPACData.ambiguous_dna_values</c> has no
+    /// 'ſ' key (<c>nt_search(s, "ſ")</c> raises KeyError) and scikit-bio <c>DNA("ſ")</c> raises.
+    /// </remarks>
     public static char[] ExpandCode(char iupacCode)
     {
-        return _expansions.TryGetValue(char.ToUpperInvariant(iupacCode), out var bases)
+        return _expansions.TryGetValue(SequenceExtensions.ToUpperAscii(iupacCode), out var bases)
             ? bases
             : new[] { 'N' };
     }
@@ -256,10 +258,8 @@ public class IupacDnaSequence : SequenceBase
 
         for (int i = 0; i < pattern.Length; i++)
         {
-            char p = char.ToUpperInvariant(pattern[i]);
-            char s = _sequence[position + i];
-
-            if (!CodesMatch(p, s))
+            // CodesMatch applies the ASCII-only case folding (no 'ſ' → 'S').
+            if (!CodesMatch(pattern[i], _sequence[position + i]))
                 return false;
         }
 

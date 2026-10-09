@@ -240,6 +240,8 @@ represent uncertainty in consensus sequences and are correctly rejected by unamb
 | `IsValidIupac_MatchesBiopythonAndScikitBio` (14) | `"ACGTNRYSWKMBDHV"`→(DNA true, RNA false); `"ACGUNRYSWKMBDHV"`→(false, true); `"AC-GT"`, `"ACGX"`, `"ſ"`→(false, false) | Biopython 1.88 ambiguous_*_letters; scikit-bio 0.7.4 DNA/RNA(lowercase=True) |
 | `IupacHelper_IsNucleotideCode_ExactlyFifteenCodes` | ASCII set = "ABCDGHKMNRSTVWY" | Biopython ambiguous_dna_letters |
 | `IupacDnaSequence_LongSNonAscii_IsInvalid` | `IupacDnaSequence("ACſ").IsValid()` = false (was true: invariant upper-casing mapped U+017F→'S') | scikit-bio DNA("ſ", lowercase=True) raises |
+| `IupacDnaSequence_ExpandCodeAndMatchesAt_NonAsciiLettersNotFolded` | `ExpandCode('ſ'/'ı'/'K')` = {N} (was {G,C} for 'ſ'); pattern 'ſ' matches only literal 'ſ' (was G/C/S) | Biopython `ambiguous_dna_values` has no 'ſ' (nt_search KeyError); scikit-bio DNA('ſ') raises |
+| `DnaRnaSequence_Ctor_NonAsciiLetter_RejectedAndReportedVerbatim` | ctor error names 'ſ' (was 'S') | ASCII-only folding |
 | `IsValidDna_LongSNonAscii_ReturnsFalse` | `"ACGſ"` → index 3 | ASCII-only folding |
 
 ## 7. Deviations and Assumptions

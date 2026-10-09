@@ -51,6 +51,7 @@ Note: Biopython also counts S (Strong = G|C) as GC and W (Weak = A|T) as AT. Our
 | All G/C | 100% (or 1.0) | Formula: (G+C)/(G+C) = 1 |
 | All A/T | 0% (or 0.0) | Formula: 0/(A+T) = 0 |
 | Mixed case | Case-insensitive | Biopython: "Copes with mixed case sequences" |
+| Non-ASCII letters (U+017F 'ſ', U+0131 'ı', U+212A Kelvin) | Not nucleotides in any mode (ASCII-only case folding; `ToUpperInvariant` would map 'ſ'→'S') | Biopython 1.88 `gc_fraction("ſ", m)` = 0 for remove/ignore/weighted; `CalculateGcFraction_AmbiguityModes_NonAsciiLettersNotFolded_MatchBiopython` (11 cases) |
 | Contains N/ambiguous chars | Excluded from calculation | Wikipedia formula + Biopython "remove" mode |
 | Only non-nucleotide chars | Return 0 | No valid nucleotides → 0 (same as empty) |
 | Contains U (RNA) | U counted as valid nucleotide (not GC) | Biopython: U included in valid set |
