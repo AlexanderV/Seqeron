@@ -11,7 +11,8 @@
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
-      "windowSize": { "type": "integer", "description": "Window size", "minimum": 1, "default": 1000 }
+      "windowSize": { "type": "integer", "description": "Window size", "minimum": 1, "default": 1000 },
+      "includePartialWindow": { "type": "boolean", "description": "Also include the trailing partial window in the running sum; true matches Biopython GC_skew + accumulate", "default": false }
     },
     "required": ["sequence"]
   },

@@ -55,6 +55,7 @@ The original document interprets the global minimum of cumulative skew as the re
 | `[CalculateWindowedGcSkew DnaSequence] stepSize` | `int` | `100` | Step size for windowed GC skew | Must be `>= 1` |
 | `[string] windowSize` | `int` | `1000` | Sliding-window or cumulative window length | Must be `>= 1` (validated eagerly, same as the typed overloads) |
 | `[string] stepSize` | `int` | `100` | Step size for windowed GC skew | Must be `>= 1` (validated eagerly) |
+| `includePartialWindow` (additional overloads `CalculateWindowedGcSkew(seq, windowSize, stepSize, bool)` / `CalculateCumulativeGcSkew(seq, windowSize, bool)`) | `bool` | `false` (original overloads) | Also emit the trailing partial window(s), truncated at the sequence end | With `stepSize == windowSize` the skews equal Biopython 1.88 `GC_skew(seq, window)` exactly |
 
 `PredictReplicationOrigin(...)` (SEQ-REPLICATION-001) takes no window parameter; `AnalyzeGcContent(...)` is covered by SEQ-GC-ANALYSIS-001.
 
@@ -113,7 +114,7 @@ The same source file also provides `CalculateAtSkew(...)` helpers and a combined
 
 ### 5.2 Current Behavior
 
-Windowed GC skew reports positions at the center of each analyzed window. Cumulative GC skew uses non-overlapping windows because the source sets `stepSize = windowSize` inside the cumulative routine. Only complete windows are reported (window starts `0, s, 2s, …` while `start + w ≤ n`); a trailing partial window is dropped. This matches SkewIT `gcskew.py` (Lu & Salzberg 2020), whereas Biopython `Bio.SeqUtils.GC_skew` appends the partial tail window (e.g. `GC_skew("GGGGCCCCGG", 4)` = `[1.0, -1.0, 1.0]` vs Seqeron `[1.0, -1.0]`); on the complete windows the values agree exactly. Counting is case-insensitive; only `G`/`C` are counted (ambiguity codes such as `S` are ignored, as in Biopython). `PredictReplicationOrigin(...)` works on the per-nucleotide cumulative skew and flags significance when max > min (see SEQ-REPLICATION-001). The same class also provides `CalculateAtSkew(...)` and a combined `AnalyzeGcContent(...)` helper.
+Windowed GC skew reports positions at the center of each analyzed window. Cumulative GC skew uses non-overlapping windows because the source sets `stepSize = windowSize` inside the cumulative routine. By default only complete windows are reported (window starts `0, s, 2s, …` while `start + w ≤ n`); a trailing partial window is dropped. This matches SkewIT `gcskew.py` (Lu & Salzberg 2020), whereas Biopython `Bio.SeqUtils.GC_skew` appends the partial tail window (e.g. `GC_skew("GGGGCCCCGG", 4)` = `[1.0, -1.0, 1.0]` vs Seqeron default `[1.0, -1.0]`); on the complete windows the values agree exactly. The `includePartialWindow: true` overloads (2026-10 finisher, A1-1) emit every window start `i = 0, s, 2s, … < n`, truncating the window to `[i, n−1]` (Biopython slicing `seq[i:i+window]`); for `s = w` the values equal Biopython exactly (`GC_skew("GGGCACGTGGCCCCATG", 4)` = `[0.5, 0, 0, −1, 1.0]`, cumulative = `itertools.accumulate` of it). For `s < w` several trailing starts may be truncated (each is emitted). A partial window's `Position` is `start + actualLength/2` (equal to `start + w/2` for complete windows). An all-A/T (no G/C) window has skew `0`, the same as Biopython's ZeroDivisionError → `0.0`. Counting is case-insensitive; only `G`/`C` are counted (ambiguity codes such as `S` are ignored, as in Biopython). `PredictReplicationOrigin(...)` works on the per-nucleotide cumulative skew and flags significance when max > min (see SEQ-REPLICATION-001). The same class also provides `CalculateAtSkew(...)` and a combined `AnalyzeGcContent(...)` helper.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -141,7 +142,7 @@ Windowed GC skew reports positions at the center of each analyzed window. Cumula
 | Empty sequence | Returns `0` or yields no points | Explicit source guard |
 | No `G` or `C` bases | Returns `0` | Division-by-zero protection |
 | `windowSize < 1` or `stepSize < 1` (typed or raw-string windowed/cumulative overloads) | Throws `ArgumentOutOfRangeException` at call time | Eager guard clause |
-| Sequence shorter than the window / trailing partial window | Not reported | Complete-window convention (SkewIT); Biopython appends the partial window |
+| Sequence shorter than the window / trailing partial window | Not reported by default; reported (truncated window) with `includePartialWindow: true` | Complete-window convention (SkewIT) by default; opt-in Biopython `GC_skew` parity |
 
 ### 6.2 Limitations
 

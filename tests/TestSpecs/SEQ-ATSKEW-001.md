@@ -47,6 +47,8 @@
 |--------|-------|------|-------|
 | `CalculateAtSkew(string)` | GcSkewCalculator | **Canonical** | Core (A−T)/(A+T) over raw string; uppercases input. |
 | `CalculateAtSkew(DnaSequence)` | GcSkewCalculator | **Delegate** | Forwards to the same core on the normalized `DnaSequence.Sequence`; smoke-tested for equivalence + null. |
+| `CalculateWindowedAtSkew(string/DnaSequence, windowSize, stepSize, includePartialWindow)` | GcSkewCalculator | **Canonical** (A1-4) | Shared skew window enumerator + `CalculateSkewCore(seq,'A','T')`; `GcSkewCalculator_WindowedAtSkew_Tests` (numpy cross-check: `"AAATTTAAGCAT"` w5 → [0.2, 1/3] (+0.0 partial); `"aaTtGCgcAtT"` w4 s3 partial → [0, −1, 0, −1]; each point = `CalculateAtSkew` of its window; guards). |
+| `CalculateCumulativeAtSkew(string/DnaSequence, windowSize, includePartialWindow)` | GcSkewCalculator | **Canonical** (A1-4) | Running sum over adjacent windows; numpy: w4 → cumulative [0.5,0.5,0.5]; w5+partial → [0.2, 0.5333…, 0.5333…]. |
 
 ---
 

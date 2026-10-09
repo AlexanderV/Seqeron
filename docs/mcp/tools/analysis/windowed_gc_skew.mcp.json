@@ -12,7 +12,8 @@
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
       "windowSize": { "type": "integer", "description": "Window size in bp (default 1000)", "minimum": 1, "default": 1000 },
-      "stepSize": { "type": "integer", "description": "Step size in bp (default 100)", "minimum": 1, "default": 100 }
+      "stepSize": { "type": "integer", "description": "Step size in bp (default 100)", "minimum": 1, "default": 100 },
+      "includePartialWindow": { "type": "boolean", "description": "Also emit trailing partial window(s) truncated at the sequence end; with stepSize == windowSize matches Biopython GC_skew", "default": false }
     },
     "required": ["sequence"]
   },

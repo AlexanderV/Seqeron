@@ -2735,7 +2735,8 @@ public class AnalysisTools
     public static WindowedGcSkewResult WindowedGcSkew(
         [Description("DNA sequence.")] string sequence,
         [Description("Window size in bp (default 1000).")] int windowSize = 1000,
-        [Description("Step size in bp (default 100).")] int stepSize = 100)
+        [Description("Step size in bp (default 100).")] int stepSize = 100,
+        [Description("Also emit trailing partial window(s) truncated at the sequence end (default false). With stepSize == windowSize this matches Biopython GC_skew.")] bool includePartialWindow = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -2745,7 +2746,7 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be at least 1");
 
         var items = GcSkewCalculator
-            .CalculateWindowedGcSkew(sequence, windowSize, stepSize)
+            .CalculateWindowedGcSkew(sequence, windowSize, stepSize, includePartialWindow)
             .Select(p => new GcSkewPointItem(p.Position, p.GcSkew, p.WindowStart, p.WindowEnd))
             .ToArray();
         return new WindowedGcSkewResult(items);
@@ -2755,7 +2756,8 @@ public class AnalysisTools
     [Description("Cumulative GC skew along the sequence — minimum approximates origin and maximum approximates terminus of replication.")]
     public static CumulativeGcSkewResult CumulativeGcSkew(
         [Description("DNA sequence.")] string sequence,
-        [Description("Window size (default 1000).")] int windowSize = 1000)
+        [Description("Window size (default 1000).")] int windowSize = 1000,
+        [Description("Also include the trailing partial window in the running sum (default false; true matches Biopython GC_skew).")] bool includePartialWindow = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -2763,7 +2765,7 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
 
         var items = GcSkewCalculator
-            .CalculateCumulativeGcSkew(sequence, windowSize)
+            .CalculateCumulativeGcSkew(sequence, windowSize, includePartialWindow)
             .Select(p => new CumulativeGcSkewPointItem(p.Position, p.GcSkew, p.CumulativeGcSkew))
             .ToArray();
         return new CumulativeGcSkewResult(items);

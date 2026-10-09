@@ -29,6 +29,7 @@ and the window bounds `[i, i + windowSize − 1]`. Windows are advanced by `step
 | `sequence` | string | Yes | DNA sequence (min length 1) |
 | `windowSize` | integer | No | Window size in bp (default 1000, ≥ 1) |
 | `stepSize` | integer | No | Step size in bp (default 100, ≥ 1) |
+| `includePartialWindow` | boolean | No | Also emit trailing partial window(s), truncated at the sequence end (default false). With `stepSize == windowSize` the skews equal Biopython `GC_skew` (e.g. `"GGGCACGTGGCCCCATG"`, 4, 4 → [0.5, 0, 0, −1, 1.0]) |
 
 ## Output Schema
 
