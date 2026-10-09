@@ -2783,31 +2783,71 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "predict_replication_origin", Title = "GC Skew — Predict Origin/Terminus", ReadOnly = true)]
-    [Description("Predicts replication origin and terminus from cumulative GC skew extrema (per-base #G-#C walk, Rosalind BA1F). Also returns ALL minimizing/maximizing prefix indices. Best on complete circular bacterial genomes.")]
+    [Description("Predicts replication origin and terminus from cumulative GC skew extrema (per-base #G-#C walk, Rosalind BA1F). Also returns ALL minimizing/maximizing prefix indices. Optional windowSize switches to Grigoriev's windowed cumulative skew (window centres; linear only). Optional skewIndexWindow adds the SkewIT Skew Index (skewi.py). Best on complete circular bacterial genomes.")]
     public static PredictReplicationOriginResult PredictReplicationOrigin(
         [Description("DNA sequence (ideally complete circular genome).")] string sequence,
-        [Description("Treat the input as a circular chromosome: prefix index n is the same junction as 0, positions reported mod n in [0, n-1] (default false = linear, positions in [0, n]).")] bool circular = false)
+        [Description("Treat the input as a circular chromosome: prefix index n is the same junction as 0, positions reported mod n in [0, n-1] (default false = linear, positions in [0, n]). Not combinable with windowSize.")] bool circular = false,
+        [Description("Optional Grigoriev (1998) window in bp (>= 1): origin/terminus = centre (start + windowSize/2) of the first adjacent non-overlapping complete window with the minimum/maximum running sum of (G-C)/(G+C); skews are those cumulative values. Omit (default) for the per-base walk. With a window, originPositions/terminusPositions are empty (they are per-base prefix indices); circular=true is rejected.")] int? windowSize = null,
+        [Description("Optional SkewIT window k in bp (>= 1; SkewIT default 20000): adds skewIndex, the Lu & Salzberg 2020 Skew Index in (0, 1] exactly as skewi.py, or null when skewi.py reports none (e.g. fewer than 13 windows). Omit to skip.")] int? skewIndexWindow = null)
     {
         var dna = RequireDna(sequence, nameof(sequence));
+        if (windowSize is < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+        if (skewIndexWindow is < 1)
+            throw new ArgumentOutOfRangeException(nameof(skewIndexWindow), "Skew index window must be at least 1");
+        if (windowSize is not null && circular)
+            throw new ArgumentException(
+                "circular is not supported with windowSize (the windowed Grigoriev prediction is linear)", nameof(circular));
+
+        double? skewIndex = skewIndexWindow is { } k ? GcSkewCalculator.CalculateSkewIndex(dna, k) : null;
+
+        if (windowSize is { } w)
+        {
+            var rw = GcSkewCalculator.PredictReplicationOrigin(dna, w);
+            return new PredictReplicationOriginResult(
+                rw.PredictedOrigin, rw.PredictedTerminus, rw.OriginSkew, rw.TerminusSkew, rw.IsSignificant)
+            {
+                SkewIndex = skewIndex,
+            };
+        }
+
         var r = GcSkewCalculator.PredictReplicationOrigin(dna, circular);
         return new PredictReplicationOriginResult(
             r.PredictedOrigin, r.PredictedTerminus, r.OriginSkew, r.TerminusSkew, r.IsSignificant)
         {
             OriginPositions = GcSkewCalculator.FindMinimumSkewPositions(dna, circular).ToArray(),
             TerminusPositions = GcSkewCalculator.FindMaximumSkewPositions(dna, circular).ToArray(),
+            SkewIndex = skewIndex,
         };
     }
 
     [McpServerTool(Name = "analyze_gc_content", Title = "GC — Comprehensive Analysis", ReadOnly = true)]
-    [Description("Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. GC content is a percentage [0,100] by default, or a fraction [0,1] with fraction=true.")]
+    [Description("Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. GC content is a percentage [0,100] by default, or a fraction [0,1] with fraction=true. Optional ambiguity (remove|ignore|weighted) applies Biopython gc_fraction IUPAC handling to the GC content and accepts IUPAC DNA input.")]
     public static AnalyzeGcContentResult AnalyzeGcContent(
-        [Description("DNA sequence.")] string sequence,
+        [Description("DNA sequence (A/C/G/T; IUPAC codes allowed when ambiguity is set).")] string sequence,
         [Description("Window size (default 1000).")] int windowSize = 1000,
         [Description("Step size (default 100).")] int stepSize = 100,
-        [Description("Report overall and windowed GC content (and its variance) as a fraction in [0,1] (Biopython gc_fraction) instead of a percentage. Default false.")] bool fraction = false)
+        [Description("Report overall and windowed GC content (and its variance) as a fraction in [0,1] (Biopython gc_fraction) instead of a percentage. Default false.")] bool fraction = false,
+        [Description("Optional Biopython gc_fraction ambiguous mode for the overall and windowed GC content (case-insensitive): remove (Biopython default: S counts as GC, S/W in the denominator, other codes dropped; GGSW -> 0.75), ignore (denominator = length), weighted (codes add their mean GC, N = 0.5). Input may then contain IUPAC codes ACGTRYSWKMBDHVN. Skews are unchanged (G/C and A/T only). Omit for the default strict-DNA counting.")] string? ambiguity = null)
     {
-        var dna = RequireDna(sequence, nameof(sequence));
-        var r = GcSkewCalculator.AnalyzeGcContent(dna, windowSize, stepSize, fraction);
+        GcAnalysisResult r;
+        if (ambiguity is null)
+        {
+            var dna = RequireDna(sequence, nameof(sequence));
+            r = GcSkewCalculator.AnalyzeGcContent(dna, windowSize, stepSize, fraction);
+        }
+        else
+        {
+            var mode = ParseGcAmbiguityMode(ambiguity);
+            if (string.IsNullOrEmpty(sequence))
+                throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+            int bad = sequence.AsSpan().IndexOfInvalidIupacDna();
+            if (bad >= 0)
+                throw new ArgumentException(
+                    $"Invalid IUPAC DNA symbol '{sequence[bad]}' at position {bad}", nameof(sequence));
+            r = GcSkewCalculator.AnalyzeGcContent(sequence, windowSize, stepSize, fraction, mode);
+        }
+
         var skewPoints = r.WindowedGcSkew
             .Select(p => new GcSkewPointItem(p.Position, p.GcSkew, p.WindowStart, p.WindowEnd))
             .ToArray();
@@ -2818,6 +2858,20 @@ public class AnalysisTools
             r.OverallGcContent, r.OverallGcSkew, r.OverallAtSkew,
             r.GcContentVariance, r.GcSkewVariance,
             skewPoints, contentPoints, r.SequenceLength);
+    }
+
+    // Exact (case-insensitive) GcAmbiguityMode name; Enum.TryParse alone would also accept
+    // numeric strings ("1") and comma lists.
+    private static SequenceExtensions.GcAmbiguityMode ParseGcAmbiguityMode(string ambiguity)
+    {
+        foreach (var mode in Enum.GetValues<SequenceExtensions.GcAmbiguityMode>())
+        {
+            if (string.Equals(mode.ToString(), ambiguity, StringComparison.OrdinalIgnoreCase))
+                return mode;
+        }
+
+        throw new ArgumentException(
+            $"Unknown ambiguity mode '{ambiguity}'. Expected one of: remove, ignore, weighted.", nameof(ambiguity));
     }
 
     #endregion

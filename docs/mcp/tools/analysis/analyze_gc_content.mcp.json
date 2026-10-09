@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "GcSkewCalculator.AnalyzeGcContent",
   "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L861",
-  "description": "Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. GC content is a percentage [0,100] by default, or a fraction [0,1] with fraction=true.",
+  "description": "Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles. GC content is a percentage [0,100] by default, or a fraction [0,1] with fraction=true. Optional ambiguity (remove|ignore|weighted) applies Biopython gc_fraction IUPAC handling to the GC content.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -31,6 +31,11 @@
         "type": "boolean",
         "description": "Report overall and windowed GC content (and its variance) as a fraction in [0,1] (Biopython gc_fraction) instead of a percentage. Default false.",
         "default": false
+      },
+      "ambiguity": {
+        "type": "string",
+        "description": "Biopython gc_fraction ambiguous mode for overall and windowed GC content (case-insensitive): remove (S counts as GC, S/W in denominator, other codes dropped; GGSW -> 0.75), ignore (denominator = length), weighted (codes add mean GC). Allows IUPAC DNA input ACGTRYSWKMBDHVN. Omit for strict A/C/G/T.",
+        "enum": ["remove", "ignore", "weighted"]
       }
     },
     "required": ["sequence"]
@@ -77,7 +82,9 @@
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1002, "message": "Invalid DNA sequence" }
+    { "code": 1002, "message": "Invalid DNA sequence" },
+    { "code": 1001, "message": "Invalid IUPAC DNA symbol '<c>' at position <i> (with ambiguity)" },
+    { "code": 1001, "message": "Unknown ambiguity mode '<m>'. Expected one of: remove, ignore, weighted." }
   ],
   "examples": [
     {
@@ -114,6 +121,18 @@
         "gcContentVariance": 0.0625,
         "gcSkewVariance": 0.5625,
         "sequenceLength": 7
+      }
+    },
+    {
+      "name": "IUPAC ambiguity (Biopython gc_fraction remove) on GGSNNBWAACSSWWGCGNAT (window 5, step 3)",
+      "input": { "sequence": "GGSNNBWAACSSWWGCGNAT", "windowSize": 5, "stepSize": 3, "fraction": true, "ambiguity": "remove" },
+      "output": {
+        "overallGcContent": 0.5625,
+        "overallGcSkew": 0.3333333333333333,
+        "overallAtSkew": 0.5,
+        "gcContentVariance": 0.08805555555555555,
+        "gcSkewVariance": 0.5061728395061729,
+        "sequenceLength": 20
       }
     }
   ]

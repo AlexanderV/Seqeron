@@ -77,4 +77,43 @@ public class AnalyzeGcContentTests
             Assert.That(r.GcSkewVariance, Is.EqualTo(0.5625).Within(1e-12));
         });
     }
+
+    // Finisher A2-2: ambiguity = Biopython 1.88 gc_fraction(…, ambiguous=mode). "GGSW" remove → 0.75
+    // (default strict-DNA tool rejects S/W); "GGSNNBWAACSSWWGCGNAT" w5 s3 windows/numpy.var per mode.
+    [TestCase("remove", 0.5625, new[] { 1.0, 0.0, 0.4, 0.6, 0.6, 0.5 }, 0.08805555555555555)]
+    [TestCase("IGNORE", 0.45, new[] { 0.6, 0.0, 0.4, 0.6, 0.6, 0.4 }, 0.04555555555555555)]
+    [TestCase("Weighted", 0.5583333333333333, new[] { 0.8, 0.3333333333333333, 0.4, 0.6, 0.6, 0.5 }, 0.023117283950617292)]
+    public void AnalyzeGcContent_Ambiguity_MatchesBiopythonGcFraction(
+        string ambiguity, double overall, double[] windows, double variance)
+    {
+        var r = AnalysisTools.AnalyzeGcContent("GGSNNBWAACSSWWGCGNAT", 5, 3, fraction: true, ambiguity: ambiguity);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.OverallGcContent, Is.EqualTo(overall).Within(1e-15));
+            Assert.That(r.WindowedGcContent.Select(p => p.GcContent), Is.EqualTo(windows).Within(1e-15));
+            Assert.That(r.GcContentVariance, Is.EqualTo(variance).Within(1e-15));
+            // Skews unchanged: Biopython GC_skew whole sequence 1/3, window variance 0.5061728395061729.
+            Assert.That(r.OverallGcSkew, Is.EqualTo(1.0 / 3).Within(1e-15));
+            Assert.That(r.GcSkewVariance, Is.EqualTo(0.5061728395061729).Within(1e-15));
+        });
+    }
+
+    [Test]
+    public void AnalyzeGcContent_Ambiguity_GgswAndValidation()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AnalysisTools.AnalyzeGcContent("GGSW", fraction: true, ambiguity: "remove").OverallGcContent,
+                Is.EqualTo(0.75));
+            Assert.That(AnalysisTools.AnalyzeGcContent("ggsw", ambiguity: "remove").OverallGcContent,
+                Is.EqualTo(75.0).Within(1e-12));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.AnalyzeGcContent("GGSW"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.AnalyzeGcContent("GGSW", ambiguity: "strict"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.AnalyzeGcContent("GGSW", ambiguity: "1"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.AnalyzeGcContent("GGSW", ambiguity: ""));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.AnalyzeGcContent("GGSX", ambiguity: "remove"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.AnalyzeGcContent("", ambiguity: "remove"));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.AnalyzeGcContent("GGSW", 0, ambiguity: "remove"));
+        });
+    }
 }

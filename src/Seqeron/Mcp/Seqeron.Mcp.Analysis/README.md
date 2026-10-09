@@ -21,7 +21,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 |------|-------------|
 | `alphabet_pwm_score_pvalue` | Exact p-value of a score / exact score threshold of a p-value for a PWM over any alphabet (protein, RNA, …) built from aligned instances — the TFM-Pvalue engine of pwm_score_pvalue with K rows… |
 | `alphabet_pwm_score_thresholds` | Score thresholds (FPR / FNR / balanced / patser) of an any-alphabet PWM from its discretised score distribution — Biopython pssm.distribution… |
-| `analyze_gc_content` | Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles (`fraction=true` for [0,1]). |
+| `analyze_gc_content` | Comprehensive GC report: overall GC content, GC/AT skew, content/skew variances, and windowed GC profiles (`fraction=true` for [0,1]; `ambiguity=remove\|ignore\|weighted` for Biopython `gc_fraction` IUPAC handling). |
 | `analyze_kmers` | Aggregate k-mer statistics (Jellyfish stats fields): total, distinct (uniqueKmers/distinctKmers), singleton (count-1) k-mers, min/max/mean count, and Shannon entropy; optional Jellyfish -L/-U count filters and canonical (count -C) / acgtOnly modes. |
 | `at_skew` | Whole-sequence AT skew = (A - T) / (A + T). |
 | `base_pair_type` | Classification of an RNA base-pair candidate: WatsonCrick, Wobble, or null if bases cannot pair. |
@@ -121,7 +121,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `predict_disorder` | TOP-IDP disorder prediction (Campen 2008): per-residue scores plus contiguous IDR regions with confidence and subtype classification. |
 | `predict_low_complexity_seg` | SEG algorithm (Wootton & Federhen 1993/1996) for low-complexity protein regions: trigger window K1 + extension K2. |
 | `predict_morfs` | Predicts Molecular Recognition Features within IDRs by hydropathy enrichment (heuristic, Mohan 2006-inspired). |
-| `predict_replication_origin` | Predicts replication origin and terminus from cumulative GC skew extrema. |
+| `predict_replication_origin` | Predicts replication origin and terminus from cumulative GC skew extrema (optional `circular`; `windowSize` = Grigoriev windowed diagram; `skewIndexWindow` adds the SkewIT Skew Index). |
 | `predict_rna_structure` | Greedy non-overlapping stem-loop selection — produces dot-bracket notation, base pairs, stems, pseudoknots, and total MFE. |
 | `predict_sigma70_promoters` | σ70 promoter prediction with the Promoter Calculator v1.0 (La Fleur, Hossain & Salis 2022, Nat Commun 13:5159; port of the authors' reference code)… |
 | `predict_signal_peptide` | von Heijne (1986) weight-matrix signal-peptide cleavage-site prediction (EMBOSS sigcleave). |

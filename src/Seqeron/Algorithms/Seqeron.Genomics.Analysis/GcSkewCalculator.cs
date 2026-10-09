@@ -894,14 +894,60 @@ public static class GcSkewCalculator
         return AnalyzeGcContentCore(sequence.ToUpperInvariant(), windowSize, stepSize, fraction);
     }
 
-    private static GcAnalysisResult AnalyzeGcContentCore(string seq, int windowSize, int stepSize, bool fraction)
+    /// <summary>
+    /// Comprehensive GC analysis with Biopython <c>gc_fraction(seq, ambiguous=…)</c> IUPAC-ambiguity
+    /// handling for the GC content (overall and windowed): both are scored by the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char},SequenceExtensions.GcAmbiguityMode)"/>.
+    /// <c>Remove</c> (Biopython default): S counts as GC, A/C/G/T/U/S/W form the denominator, other
+    /// codes are excluded (<c>"GGSW"</c> → 0.75, where the mode-less overloads give 2/2 = 1.0);
+    /// <c>Ignore</c>: denominator = length; <c>Weighted</c>: each ambiguity code adds its mean GC
+    /// (N = 0.5). The GC/AT skews and their window profile are unchanged — they count only G/C and A/T.
+    /// </summary>
+    /// <remarks>
+    /// Same windows, guards, variance definition and null/empty result as
+    /// <see cref="AnalyzeGcContent(string,int,int,bool)"/> (windowed GC = the windows of
+    /// <see cref="CalculateWindowedGcContent(string,int,int,bool,SequenceExtensions.GcAmbiguityMode)"/>).
+    /// Case is folded ASCII-only for the GC count (as Biopython's literal <c>"CGScgs"</c> counting), so a
+    /// non-ASCII letter such as U+017F is never counted as S. No <see cref="DnaSequence"/> overload:
+    /// a <see cref="DnaSequence"/> holds only A/C/G/T, for which all three modes equal the default.
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence, IUPAC codes allowed.</param>
+    /// <param name="windowSize">Sliding-window length (≥ 1).</param>
+    /// <param name="stepSize">Step between window starts (≥ 1).</param>
+    /// <param name="fraction">True → GC content in [0,1]; false → percentage [0,100].</param>
+    /// <param name="ambiguityMode">Biopython <c>ambiguous</c> mode.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (validated eagerly, before the null/empty check).</exception>
+    public static GcAnalysisResult AnalyzeGcContent(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool fraction,
+        SequenceExtensions.GcAmbiguityMode ambiguityMode)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
+
+        if (string.IsNullOrEmpty(sequence))
+            return new GcAnalysisResult(0, 0, 0, 0, 0, Array.Empty<GcSkewPoint>(), Array.Empty<GcContentPoint>(), 0);
+
+        return AnalyzeGcContentCore(sequence.ToUpperInvariant(), windowSize, stepSize, fraction, ambiguityMode, sequence);
+    }
+
+    // seq: upper-cased input for the G/C/A/T skew counts. mode == null → default A/C/G/T/U GC counting
+    // on seq; otherwise Biopython gc_fraction ambiguity handling on gcSeq (the raw input; the canonical
+    // mode counter folds case ASCII-only).
+    private static GcAnalysisResult AnalyzeGcContentCore(
+        string seq, int windowSize, int stepSize, bool fraction,
+        SequenceExtensions.GcAmbiguityMode? mode = null, string? gcSeq = null)
+    {
+        gcSeq ??= seq;
         var windowedSkew = CalculateWindowedGcSkewCore(seq, windowSize, stepSize).ToList();
-        var windowedContent = CalculateWindowedGcContentCore(seq, windowSize, stepSize, fraction).ToList();
+        var windowedContent = CalculateWindowedGcContentCore(gcSeq, windowSize, stepSize, fraction, mode).ToList();
 
         // Opt-in Biopython convention: fraction == true reports GC content in [0,1]
         // (Bio.SeqUtils.gc_fraction); the default (false) keeps the existing percentage [0,100].
-        double overallGcContent = CalculateGcContent(seq, fraction);
+        double overallGcContent = CalculateGcContent(gcSeq, fraction, mode);
         double overallGcSkew = CalculateGcSkewCore(seq);
         double overallAtSkew = CalculateAtSkewCore(seq);
 
@@ -1041,11 +1087,13 @@ public static class GcSkewCalculator
     // Delegates to the canonical SequenceExtensions.CalculateGcFraction (case-insensitive;
     // G/C over A/C/G/T/U — U is the RNA counterpart of T, as in Biopython gc_fraction
     // "remove", whose denominator counts ATWU; every other symbol is excluded from both counts).
-    private static double CalculateGcContent(ReadOnlySpan<char> seq, bool fraction = false)
+    // mode != null → Biopython gc_fraction ambiguity handling (canonical CalculateGcFraction(mode)).
+    private static double CalculateGcContent(
+        ReadOnlySpan<char> seq, bool fraction = false, SequenceExtensions.GcAmbiguityMode? mode = null)
     {
         // Opt-in Biopython convention: fraction == true reports [0,1] (Bio.SeqUtils.gc_fraction);
         // default (false) keeps the percentage GC% = fraction·100.
-        double gcFraction = seq.CalculateGcFraction();
+        double gcFraction = mode is { } m ? seq.CalculateGcFraction(m) : seq.CalculateGcFraction();
         return fraction ? gcFraction : gcFraction * PercentScale;
     }
 

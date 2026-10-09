@@ -113,6 +113,8 @@
 | K3 | SkewI BA1F extra k1000 / k20 | 0.203158581311549 / 0.034430033253851994 | SkewIT code run |
 | K4 | SkewI ideal genome | 1.0 (cap) | SkewIT code run |
 | K5 | defaults/guards/case | k=20000; 5 windows → null; lower case = upper | SkewIT code + documented deviation |
+| M-W | MCP `predict_replication_origin` `windowSize` (F29) | BA1F sample w10 → 45 / −0.3095238095238095, 15 / 0.5; w25 → 37 / −0.15384615384615385, 62 / 0.11888111888111885; position arrays empty; `circular`+`windowSize` → ArgumentException; w/k < 1 → AOORE; "ACG" w10 → zero, not significant | Biopython 1.88 `numpy.cumsum(GC_skew(seq, w)[:n//w])` |
+| M-K | MCP `predict_replication_origin` `skewIndexWindow` (F29) | k4: 52-mer 0.23076923076923078, 58-mer 0.6206896551724138, BA1F sample 0.16, 12 windows → null; omitted → null; independent of `windowSize` | SkewIT `skewi.py -k 4 --min-len 0` (run) |
 
 ### 4.3 COULD Tests (Nice to have)
 

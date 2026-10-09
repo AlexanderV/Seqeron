@@ -410,4 +410,96 @@ public class GcSkewCalculator_AnalyzeGcContent_Tests
     }
 
     #endregion
+
+    #region AnalyzeGcContent(string, …, GcAmbiguityMode) — Biopython gc_fraction ambiguous= (finisher A2-2)
+
+    // M17 — overall GC = Biopython 1.88 gc_fraction(s, ambiguous=mode) on whole sequences
+    // ("GGSW" remove → 0.75; the mode-less overload gives 2/2 = 1.0).
+    [TestCase("GGSW", 0.75, 0.75, 0.75)]
+    [TestCase("GGSNNBWAAC", 0.5714285714285714, 0.4, 0.5666666666666667)]
+    [TestCase("ACGTSSWWNNRY", 0.5, 0.3333333333333333, 0.5)]
+    [TestCase("ATGCSWNN", 0.5, 0.375, 0.5)]
+    [TestCase("acgtsw", 0.5, 0.5, 0.5)]
+    public void AnalyzeGcContent_AmbiguityMode_OverallMatchesBiopythonGcFraction(
+        string seq, double remove, double ignore, double weighted)
+    {
+        double Overall(SequenceExtensions.GcAmbiguityMode m, bool fraction) =>
+            GcSkewCalculator.AnalyzeGcContent(seq, 1000, 100, fraction, m).OverallGcContent;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Overall(SequenceExtensions.GcAmbiguityMode.Remove, true), Is.EqualTo(remove).Within(1e-15));
+            Assert.That(Overall(SequenceExtensions.GcAmbiguityMode.Ignore, true), Is.EqualTo(ignore).Within(1e-15));
+            Assert.That(Overall(SequenceExtensions.GcAmbiguityMode.Weighted, true), Is.EqualTo(weighted).Within(1e-15));
+            Assert.That(Overall(SequenceExtensions.GcAmbiguityMode.Remove, false), Is.EqualTo(remove * 100).Within(1e-12));
+        });
+        if (seq == "GGSW")
+            Assert.That(GcSkewCalculator.AnalyzeGcContent(seq, 1000, 100, true).OverallGcContent, Is.EqualTo(1.0));
+    }
+
+    // M18 — windowed GC and its population variance: s = "GGSNNBWAACSSWWGCGNAT", w = 5, step = 3;
+    // Biopython [gc_fraction(s[i:i+5], mode) for i in range(0, len(s)-4, 3)] and numpy.var.
+    // Skews are mode-independent: Biopython GC_skew per window [1, 0, −1, −1, 1/3, 0] (numpy.var
+    // 0.5061728395061729), whole-sequence GC_skew 1/3; AT skew (3−1)/(3+1) = 0.5.
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Remove, 0.5625,
+        new[] { 1.0, 0.0, 0.4, 0.6, 0.6, 0.5 }, 0.08805555555555555)]
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Ignore, 0.45,
+        new[] { 0.6, 0.0, 0.4, 0.6, 0.6, 0.4 }, 0.04555555555555555)]
+    [TestCase(SequenceExtensions.GcAmbiguityMode.Weighted, 0.5583333333333333,
+        new[] { 0.8, 0.3333333333333333, 0.4, 0.6, 0.6, 0.5 }, 0.023117283950617292)]
+    public void AnalyzeGcContent_AmbiguityMode_WindowsMatchBiopython(
+        SequenceExtensions.GcAmbiguityMode mode, double overall, double[] windows, double variance)
+    {
+        const string s = "GGSNNBWAACSSWWGCGNAT";
+        var r = GcSkewCalculator.AnalyzeGcContent(s, 5, 3, true, mode);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.OverallGcContent, Is.EqualTo(overall).Within(1e-15));
+            Assert.That(r.WindowedGcContent.Select(p => p.GcContent), Is.EqualTo(windows).Within(1e-15));
+            Assert.That(r.WindowedGcContent.Select(p => p.WindowStart), Is.EqualTo(new[] { 0, 3, 6, 9, 12, 15 }));
+            Assert.That(r.GcContentVariance, Is.EqualTo(variance).Within(1e-15));
+            Assert.That(r.WindowedGcSkew.Select(p => p.GcSkew),
+                Is.EqualTo(new[] { 1.0, 0.0, -1.0, -1.0, 1.0 / 3, 0.0 }).Within(1e-15));
+            Assert.That(r.GcSkewVariance, Is.EqualTo(0.5061728395061729).Within(1e-15));
+            Assert.That(r.OverallGcSkew, Is.EqualTo(1.0 / 3).Within(1e-15));
+            Assert.That(r.OverallAtSkew, Is.EqualTo(0.5));
+            Assert.That(r.SequenceLength, Is.EqualTo(20));
+            Assert.That(r.WindowedGcContent.Select(p => p.GcContent), Is.EqualTo(
+                GcSkewCalculator.CalculateWindowedGcContent(s, 5, 3, true, mode).Select(p => p.GcContent)));
+        });
+    }
+
+    // M19 — on A/C/G/T input every mode equals the default overload; guards and null/empty as the
+    // mode-less string overload; a non-ASCII letter (U+017F, which ToUpperInvariant folds to 'S') is not
+    // counted as S (Biopython 1.88 gc_fraction("ſſſG", "ignore") = 0.25, "remove" = 1.0).
+    [Test]
+    public void AnalyzeGcContent_AmbiguityMode_AcgtEqualsDefault_GuardsAndNonAscii()
+    {
+        const string acgt = "ATGCGCGATTACGGCCATatgcgt";
+        var d = GcSkewCalculator.AnalyzeGcContent(acgt, 5, 3);
+        foreach (var m in Enum.GetValues<SequenceExtensions.GcAmbiguityMode>())
+        {
+            var r = GcSkewCalculator.AnalyzeGcContent(acgt, 5, 3, false, m);
+            Assert.That(r.OverallGcContent, Is.EqualTo(d.OverallGcContent));
+            Assert.That(r.WindowedGcContent, Is.EqualTo(d.WindowedGcContent));
+            Assert.That(r.GcContentVariance, Is.EqualTo(d.GcContentVariance));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => GcSkewCalculator.AnalyzeGcContent("", 0, 1, true, SequenceExtensions.GcAmbiguityMode.Remove),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => GcSkewCalculator.AnalyzeGcContent("ACGT", 1, 0, true, SequenceExtensions.GcAmbiguityMode.Remove),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            var empty = GcSkewCalculator.AnalyzeGcContent((string)null!, 4, 2, true, SequenceExtensions.GcAmbiguityMode.Ignore);
+            Assert.That((empty.OverallGcContent, empty.SequenceLength, empty.WindowedGcContent.Count), Is.EqualTo((0.0, 0, 0)));
+            Assert.That(GcSkewCalculator.AnalyzeGcContent("ſſſG", 4, 1, true, SequenceExtensions.GcAmbiguityMode.Ignore)
+                .OverallGcContent, Is.EqualTo(0.25));
+            Assert.That(GcSkewCalculator.AnalyzeGcContent("ſſſG", 4, 1, true, SequenceExtensions.GcAmbiguityMode.Remove)
+                .OverallGcContent, Is.EqualTo(1.0));
+        });
+    }
+
+    #endregion
 }

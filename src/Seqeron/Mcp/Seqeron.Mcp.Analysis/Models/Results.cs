@@ -947,6 +947,10 @@ public record PredictReplicationOriginResult(
 
     /// <summary>All prefix indices maximizing the cumulative skew, ascending.</summary>
     public int[] TerminusPositions { get; init; } = [];
+
+    /// <summary>SkewIT Skew Index (when <c>skewIndexWindow</c> is given); null when not requested or
+    /// when SkewIT's skewi.py reports no value for the sequence.</summary>
+    public double? SkewIndex { get; init; }
 }
 
 /// <summary>Result of <c>analyze_gc_content</c>.</summary>

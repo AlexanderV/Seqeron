@@ -6,12 +6,14 @@
   "stability": "stable",
   "methodId": "GcSkewCalculator.PredictReplicationOrigin",
   "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L656",
-  "description": "Predict replication origin and terminus from cumulative GC-skew extrema: origin ~ prefix index of the minimum, terminus ~ prefix index of the maximum; also returns all minimizing/maximizing indices (Rosalind BA1F) and supports a circular flag (positions mod n). Best on complete circular bacterial genomes.",
+  "description": "Predict replication origin and terminus from cumulative GC-skew extrema: origin ~ prefix index of the minimum, terminus ~ prefix index of the maximum; also returns all minimizing/maximizing indices (Rosalind BA1F) and supports a circular flag (positions mod n). Optional windowSize = Grigoriev windowed cumulative skew (window centres; linear only); optional skewIndexWindow adds the SkewIT Skew Index (skewi.py). Best on complete circular bacterial genomes.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence (ideally complete circular genome)", "minLength": 1 },
-      "circular": { "type": "boolean", "description": "Treat the input as a circular chromosome: prefix index n = junction 0, positions reported mod n in [0, n-1]", "default": false }
+      "circular": { "type": "boolean", "description": "Treat the input as a circular chromosome: prefix index n = junction 0, positions reported mod n in [0, n-1]. Not combinable with windowSize", "default": false },
+      "windowSize": { "type": "integer", "minimum": 1, "description": "Grigoriev (1998) window in bp: origin/terminus = centre of the first adjacent complete window with min/max running sum of (G-C)/(G+C); position arrays empty. Omit for the per-base walk" },
+      "skewIndexWindow": { "type": "integer", "minimum": 1, "description": "SkewIT window k in bp (SkewIT default 20000): adds skewIndex (Lu & Salzberg 2020, exactly skewi.py)" }
     },
     "required": ["sequence"]
   },
@@ -24,13 +26,17 @@
       "terminusSkew": { "type": "number" },
       "isSignificant": { "type": "boolean" },
       "originPositions": { "type": "array", "items": { "type": "integer" }, "description": "All prefix indices minimizing the cumulative skew (Rosalind BA1F answer), ascending" },
-      "terminusPositions": { "type": "array", "items": { "type": "integer" }, "description": "All prefix indices maximizing the cumulative skew, ascending" }
+      "terminusPositions": { "type": "array", "items": { "type": "integer" }, "description": "All prefix indices maximizing the cumulative skew, ascending (empty with windowSize)" },
+      "skewIndex": { "type": ["number", "null"], "description": "SkewIT Skew Index in (0, 1]; null when not requested or when skewi.py reports none" }
     },
     "required": ["predictedOrigin", "predictedTerminus", "originSkew", "terminusSkew", "isSignificant"]
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1001, "message": "Invalid DNA sequence" }
+    { "code": 1001, "message": "Invalid DNA sequence" },
+    { "code": 1001, "message": "circular is not supported with windowSize (the windowed Grigoriev prediction is linear)" },
+    { "code": 1001, "message": "Window size must be at least 1" },
+    { "code": 1001, "message": "Skew index window must be at least 1" }
   ],
   "examples": [
     {
@@ -42,6 +48,11 @@
       "name": "GGGCCC",
       "input": { "sequence": "GGGCCC" },
       "output": { "predictedOrigin": 0, "predictedTerminus": 3, "originSkew": 0.0, "terminusSkew": 3.0 }
+    },
+    {
+      "name": "Windowed prediction + Skew Index on the Rosalind BA1F sample",
+      "input": { "sequence": "CCTATCGGTGGATTAGCATGTCCCTGTACGTTTCGCCGCGAACTAGTTCACACGGCTTGATGGCAAATGGTTTTTCCGGCGACCGTAATCGTCCACCGAG", "windowSize": 10, "skewIndexWindow": 4 },
+      "output": { "predictedOrigin": 45, "predictedTerminus": 15, "originSkew": -0.3095238095238095, "terminusSkew": 0.5, "skewIndex": 0.16 }
     }
   ]
 }

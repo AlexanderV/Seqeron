@@ -115,6 +115,7 @@ Per-base skew increment table [2]: G → +1, C → −1, A/T (and any non-G/C sy
 - `GcSkewCalculator.PredictReplicationOrigin(DnaSequence|string, bool circular)`, `PredictReplicationOrigin(DnaSequence|string, int windowSize)`.
 - `GcSkewCalculator.FindMinimumSkewPositions` / `FindMaximumSkewPositions(DnaSequence|string, bool circular = false)`.
 - `GcSkewCalculator.CalculateSkewIndex(DnaSequence|string, int windowSize = 20000)`.
+- MCP `predict_replication_origin` (Analysis server): optional `circular`; optional `windowSize` → the windowed overload (linear only: `circular: true` with `windowSize` is rejected with `ArgumentException`, since the windowed Grigoriev core has no circular form; `originPositions`/`terminusPositions` are then empty); optional `skewIndexWindow` → `skewIndex` = `CalculateSkewIndex(dna, k)` (null when not requested or when skewi.py prints nothing).
 
 ### 5.2 Current Behavior
 

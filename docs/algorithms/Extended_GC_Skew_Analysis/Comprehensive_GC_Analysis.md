@@ -48,6 +48,7 @@ For a sequence with base counts G, C, A, T:
 | windowSize | `int` | 1000 | sliding-window length for profiles | ≥ 1 (`ArgumentOutOfRangeException`, validated eagerly on both overloads) |
 | stepSize | `int` | 100 | step between window starts | ≥ 1 (`ArgumentOutOfRangeException`; a zero step would never terminate) |
 | fraction | `bool` | false | report GC content in [0,1] (Biopython `gc_fraction`) instead of % | — |
+| ambiguityMode | `SequenceExtensions.GcAmbiguityMode` | (overload without it) | string overload `AnalyzeGcContent(string, windowSize, stepSize, fraction, ambiguityMode)`: overall and windowed GC follow Biopython `gc_fraction(seq, ambiguous=…)` — `Remove` (Biopython default: S counts as GC, A/C/G/T/U/S/W in the denominator, other codes dropped; `"GGSW"` → 0.75), `Ignore` (denominator = length), `Weighted` (codes add their mean GC, N = 0.5) [5] | skews unchanged (G/C, A/T only); ASCII-only case folding for the GC count |
 
 ### 3.2 Output / Return Value
 
@@ -92,6 +93,7 @@ A null `DnaSequence` throws `ArgumentNullException`. A null/empty string returns
 
 - `GcSkewCalculator.AnalyzeGcContent(DnaSequence, windowSize, stepSize)`: canonical entry point; validates non-null and delegates to the core.
 - `GcSkewCalculator.AnalyzeGcContent(string, windowSize, stepSize)`: string overload (API parity with sibling methods); zero result for null/empty.
+- `GcSkewCalculator.AnalyzeGcContent(string, windowSize, stepSize, fraction, GcAmbiguityMode)`: Biopython `gc_fraction(…, ambiguous=…)` GC content (overall + windows, via the canonical `CalculateGcFraction(mode)` and the shared windowed driver); no `DnaSequence` form, since a `DnaSequence` holds only A/C/G/T, where all modes equal the default. MCP `analyze_gc_content` exposes it as `ambiguity` (`remove|ignore|weighted`, case-insensitive; IUPAC DNA input accepted only then).
 - `GcSkewCalculator.CalculateWindowedGcContent(string | DnaSequence, windowSize, stepSize, fraction)` and `(string, windowSize, stepSize, fraction, GcAmbiguityMode)`: the public single sliding-GC driver behind `WindowedGcContent` (complete windows only; same guards as the windowed-skew methods; per-window value = canonical `CalculateGcFraction`, or Biopython `gc_fraction(…, ambiguous=…)` with a mode). Lets `SequenceStatistics.CalculateGcContentProfile` project `GcContent` instead of keeping its own loop (B03 R18).
 
 ### 5.2 Current Behavior
@@ -119,7 +121,8 @@ Each window's counts are recomputed independently (no incremental sliding accumu
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | GC content reported as percentage, not Biopython [0,1] fraction | Assumption | value differs from `gc_fraction` by ×100 | accepted | repository/Brock convention [3]; locked by tests |
+| 1 | GC content reported as a percentage by default | Assumption | default value = `gc_fraction` ×100 | resolved by option | repository/Brock convention [3]; `fraction: true` (Core and MCP, F26) reports Biopython's [0,1] fraction |
+| 1b | Default GC count ignores S/W (Biopython `gc_fraction` default `remove` counts S as GC, W in the denominator) | Assumption | `"GGSW"`: default 2/2 = 1.0 vs Biopython 0.75 | resolved by option | `AnalyzeGcContent(string, …, GcAmbiguityMode)` / MCP `ambiguity` reproduce all three Biopython modes (F30); the default is kept for backward compatibility |
 | 2 | "Variability" = population variance (÷N), not sample (÷N−1) | Assumption | smaller than Bessel-corrected variance | accepted | windows are the full population [7] |
 
 ## 6. Edge Cases and Limitations
@@ -138,7 +141,7 @@ Each window's counts are recomputed independently (no incremental sliding accumu
 
 ### 6.2 Limitations
 
-Windows are recomputed per step (no incremental optimization); for very large windows this is O(W·w). Only A/C/G/T/U are counted for GC% (A/T and G/C for the skews); degenerate IUPAC codes (including S/W, which Biopython `gc_fraction` counts) do not contribute. The aggregation does not itself locate replication origins — use the dedicated origin predictor.
+Windows are recomputed per step (no incremental optimization); for very large windows this is O(W·w). By default only A/C/G/T/U are counted for GC% (A/T and G/C for the skews); degenerate IUPAC codes (including S/W, which Biopython `gc_fraction` counts) do not contribute unless a `GcAmbiguityMode` is given (string overload / MCP `ambiguity`). The aggregation does not itself locate replication origins — use the dedicated origin predictor.
 
 ## 7. Examples and Related Material
 

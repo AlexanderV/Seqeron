@@ -87,6 +87,10 @@
 | M14 | Ambiguity overload (F27) | "GGSNNBWAAC" w=4,step=2 | remove [1,1,0,0.25]; ignore [0.75,0.25,0,0.25]; weighted [0.875, 0.6666666666666666, 0.29166666666666663, 0.25] | Biopython 1.88 `gc_fraction(win, ambiguous=…)` |
 | M15 | Driver guards (F27) | w/step < 1 (also ""), null DnaSequence, null/"" string, w > len, step = int.MaxValue | AOORE; ANE; empty; empty; single window, no overflow | sibling windowed methods |
 | M16 | MCP `analyze_gc_content` `fraction=true` (F26) | "GGGCCAT" w=4,step=3 | overall 0.7142857142857143; windows [1.0, 0.5]; GC variance 0.0625; skew variance 0.5625 | Biopython 1.88 `gc_fraction`, `GC_skew`; numpy.var |
+| M17 | `AnalyzeGcContent(string,…,GcAmbiguityMode)` overall GC (F30) | "GGSW", "GGSNNBWAAC", "ACGTSSWWNNRY", "ATGCSWNN", "acgtsw" | remove/ignore/weighted: GGSW 0.75/0.75/0.75 (mode-less 1.0); GGSNNBWAAC 0.5714285714285714/0.4/0.5666666666666667; ACGTSSWWNNRY 0.5/0.3333333333333333/0.5; ATGCSWNN 0.5/0.375/0.5; acgtsw 0.5 all; % = ×100 | Biopython 1.88 `gc_fraction(s, ambiguous=…)` |
+| M18 | Ambiguity overload windows + variance; skews unchanged (F30) | "GGSNNBWAACSSWWGCGNAT" w=5,step=3, fraction | remove 0.5625, [1,0,0.4,0.6,0.6,0.5], var 0.08805555555555555; ignore 0.45, [0.6,0,0.4,0.6,0.6,0.4], var 0.04555555555555555; weighted 0.5583333333333333, [0.8,0.3333333333333333,0.4,0.6,0.6,0.5], var 0.023117283950617292; skews [1,0,−1,−1,1/3,0], var 0.5061728395061729, overall 1/3; AT skew 0.5 | Biopython 1.88 `gc_fraction`, `GC_skew`; numpy.var |
+| M19 | Ambiguity overload on ACGT = default; guards; non-ASCII (F30) | ACGT mixed-case w5/s3; w/step 0; null; "ſſſG" | every mode = default overload; AOORE; zero result; ignore 0.25, remove 1.0 (U+017F not folded to S) | Biopython 1.88 `gc_fraction("ſſſG")` |
+| M20 | MCP `analyze_gc_content` `ambiguity` (F30) | M18 input via MCP (`remove`/`IGNORE`/`Weighted`); "GGSW"; invalid mode/sequence | M18 values; "GGSW" remove 0.75 / 75 %; default tool rejects "GGSW"; "strict", "1", "" and "GGSX" → ArgumentException | Biopython 1.88 `gc_fraction` |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 

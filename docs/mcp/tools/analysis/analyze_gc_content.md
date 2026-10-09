@@ -31,6 +31,15 @@ With `fraction=true` (Core `AnalyzeGcContent(…, fraction: true)`) the overall 
 are reported in [0,1] like Biopython 1.88 `Bio.SeqUtils.gc_fraction`, and `gcContentVariance` is the
 variance of those fractions (= the percentage variance / 10⁴); the skew fields are unchanged.
 
+With `ambiguity` set (`remove`, `ignore` or `weighted`, case-insensitive; Core
+`AnalyzeGcContent(string, windowSize, stepSize, fraction, GcAmbiguityMode)`) the input may contain the
+IUPAC DNA codes `ACGTRYSWKMBDHVN` and the overall and windowed GC content follow Biopython 1.88
+`gc_fraction(seq, ambiguous=…)`: `remove` (Biopython's default) counts S as G/C and keeps S/W in the
+denominator while dropping the other codes (`"GGSW"` → 0.75, whereas the default tool rejects S/W
+and the mode-less Core count gives 2/2 = 1.0); `ignore` divides by the full length; `weighted` adds
+each code's mean GC (N = 0.5, B/V = 2/3, D/H = 1/3). The skews and their window profile are unchanged
+(they count only G/C and A/T). Omitting `ambiguity` keeps the strict A/C/G/T input check.
+
 ## Core Documentation Reference
 
 - Source: [GcSkewCalculator.cs#L861](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L861)
@@ -44,6 +53,7 @@ variance of those fractions (= the percentage variance / 10⁴); the skew fields
 | `windowSize` | integer | No | Sliding-window length for the profiles (default 1000) |
 | `stepSize` | integer | No | Step between window starts (default 100) |
 | `fraction` | boolean | No | Report overall and windowed GC content (and its variance) as a fraction in [0,1] (Biopython gc_fraction) instead of a percentage. Default false. |
+| `ambiguity` | string | No | Biopython `gc_fraction` `ambiguous` mode for the GC content: `remove` \| `ignore` \| `weighted` (case-insensitive). Allows IUPAC DNA input. Omit for strict A/C/G/T counting. |
 
 ## Output Schema
 
@@ -64,6 +74,8 @@ variance of those fractions (= the percentage variance / 10⁴); the skew fields
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1002 | Invalid DNA sequence |
+| 1001 | Invalid IUPAC DNA symbol '<c>' at position <i> (with `ambiguity`) |
+| 1001 | Unknown ambiguity mode '<m>'. Expected one of: remove, ignore, weighted. |
 
 ## Examples
 
@@ -144,6 +156,32 @@ Windows `GG` (skew +1) and `CC` (skew −1): population variance of {+1, −1} i
 ```
 Windows `GGGC` and `CCAT`: Biopython `gc_fraction` 1.0 and 0.5 (population variance 0.0625),
 `GC_skew` 0.5 and −1.0 (population variance 0.5625).
+
+### Example 4: IUPAC ambiguity codes (Biopython default `remove`)
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "analyze_gc_content",
+  "arguments": { "sequence": "GGSNNBWAACSSWWGCGNAT", "windowSize": 5, "stepSize": 3, "fraction": true, "ambiguity": "remove" }
+}
+```
+
+**Response (key fields):**
+```json
+{
+  "overallGcContent": 0.5625,
+  "overallGcSkew": 0.3333333333333333,
+  "overallAtSkew": 0.5,
+  "gcContentVariance": 0.08805555555555555,
+  "gcSkewVariance": 0.5061728395061729,
+  "sequenceLength": 20
+}
+```
+Biopython 1.88: `gc_fraction(s)` = 0.5625; windowed `[gc_fraction(s[i:i+5]) for i in range(0, 16, 3)]`
+= [1.0, 0.0, 0.4, 0.6, 0.6, 0.5] (numpy.var 0.08805555555555555). `ignore` → 0.45 / variance
+0.04555555555555555; `weighted` → 0.5583333333333333 / 0.023117283950617292. Skews equal Biopython
+`GC_skew` in every mode.
 
 ## Performance
 
