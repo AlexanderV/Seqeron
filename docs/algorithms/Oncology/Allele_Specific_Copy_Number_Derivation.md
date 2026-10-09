@@ -66,8 +66,14 @@ Mutation multiplicity (number of mutated copies per cancer cell) is the rounded 
 
 ```
 n_mut = VAF · (1/ρ) · [ρ·N_T + 2(1−ρ)]
-m     = clamp( round(n_mut), 1, majorCopyNumber )
+m     = clamp( round(n_mut), 1, majorCopyNumber )     round = R round(), half-to-even (2.5 → 2, 1.5 → 2)
 ```
+
+The rounding is that of facets-suite `expected_mutant_copies` (mskcc/facets-suite `R/ccf-annotate-maf.R`, "Based on
+PMID 28270531"): `mu < 1 → 1`, then R `round` (IEC 60559 half-to-even). The floor at 1 is facets-suite's; the cap at
+the major-allele copy number is a Seqeron extra (facets-suite leaves `expected_alt_copies` uncapped). Exact `.5`
+ties: `(VAF, ρ, N_T) = (0.625, 1, 4)` → n_mut = 2.5 → m = 2; `(0.375, 0.5, 2)` → 1.5 → 2; `(0.5625, 1, 8)` → 4.5 → 4
+(R 4.x `expected_mutant_copies` output; FIN-B24 F26).
 
 which is the inversion of the PICTograph generative model VAF = m·CCF·ρ / (N_T·ρ + 2(1−ρ)) at clonal CCF = 1 [4].
 
@@ -178,7 +184,7 @@ about 0.5 (b' = 0.5 + |b − 0.5|) during segmentation so the two symmetric het 
    through the four-pass filter cascade, keep the smallest distance (ρ > 1 ⇒ 1), emit the `seg_raw` integer
    segments for every summary (sex chromosomes with the diploid model), the ASCAT ploidy and GoF. No candidate ⇒
    rho = NA. `EvaluatePurityPloidy` is the rho_manual/psi_manual path.
-3. **Multiplicity:** m = clamp(round(VAF·[ρ·N_T + 2(1−ρ)]/ρ), 1, major). Feed (VAF, ρ, N_T, m) into `EstimateCcf`.
+3. **Multiplicity:** m = clamp(round_half_even(VAF·[ρ·N_T + 2(1−ρ)]/ρ), 1, major). Feed (VAF, ρ, N_T, m) into `EstimateCcf`.
 4. **ASPCF (`ascat.aspcf`, alternative to step 1):** per chromosome, MAD-winsorise logR and mirrored BAF; < 6 loci ⇒
    one segment; else `fastAspcf`: 1000-locus windows (overlap 100), per window MAD sd of both tracks (a window with
    sd 0 is skipped), `aspcfpart` exact DP with kmin 6 on the standardised joint cost; segment logR = mean raw logR,

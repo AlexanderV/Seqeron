@@ -1920,8 +1920,11 @@ public static partial class OncologyAnalyzer
     /// mutated copies for a clonal mutation is n_mut = VAF·(1/ρ)·[ρ·N_T + 2(1−ρ)] (McGranahan et al. 2016,
     /// <i>Science</i> 351:1463; equivalently the inversion of the PICTograph model VAF = m·CCF·ρ /
     /// (N_T·ρ + 2(1−ρ)) at CCF = 1, Zheng et al. 2022, <i>Bioinformatics</i> 38:3677). The result is rounded to
-    /// the nearest integer and clamped to [1, majorCopyNumber] (a variant present on at least one copy cannot
-    /// exceed the major-allele copy number).
+    /// the nearest integer with ties to even and floored at 1, exactly as facets-suite
+    /// <c>expected_mutant_copies</c> (mskcc/facets-suite <c>R/ccf-annotate-maf.R</c>, "Based on PMID 28270531":
+    /// <c>mu &lt; 1 → 1</c>, then R <c>round</c> = IEC 60559 half-to-even, so n_mut = 2.5 → 2 and 1.5 → 2). In
+    /// addition (not in facets-suite) the result is capped at majorCopyNumber (a variant present on at least one
+    /// copy cannot exceed the major-allele copy number).
     /// </summary>
     /// <param name="vaf">Observed variant allele fraction ∈ [0, 1].</param>
     /// <param name="purity">Tumour purity ρ ∈ (0, 1].</param>
@@ -1955,8 +1958,10 @@ public static partial class OncologyAnalyzer
         // n_mut = VAF·(1/ρ)·[ρ·N_T + 2(1−ρ)] — McGranahan 2016 observed mutation copy number (CCF=1 ⇒ m = n_mut).
         // This is exactly the canonical CNAqc purity/copy-number VAF correction (AdjustVAFForPurity, ONCO-VAF-001).
         double rawMultiplicity = AdjustVAFForPurity(vaf, purity, totalCopyNumber);
-        int rounded = (int)Math.Round(rawMultiplicity, MidpointRounding.AwayFromZero);
-        // Clamp to [1, major CN]: an observed variant sits on ≥ 1 copy and ≤ the major-allele copy number.
+        // facets-suite expected_mutant_copies: R round() is IEC 60559 half-to-even (2.5 → 2), and mu < 1 → 1.
+        int rounded = (int)Math.Round(rawMultiplicity, MidpointRounding.ToEven);
+        // Clamp to [1, major CN]: the floor at 1 is facets-suite's mu < 1 → 1 (round(mu) ≤ 1 there); the cap at the
+        // major-allele copy number is a documented extra (facets-suite leaves expected_alt_copies uncapped).
         return Math.Clamp(rounded, 1, majorCopyNumber);
     }
 
@@ -2609,6 +2614,7 @@ public static partial class OncologyAnalyzer
     /// implementation called a segment clonal. <b>No longer used</b> by <see cref="FitSubclonalCopyNumber"/>, which now
     /// applies Battenberg's own BAF-space tolerance <see cref="BattenbergMaxBafDistance"/>; retained for API compatibility.
     /// </summary>
+    [Obsolete("Unused since FIN-B24/F14: Battenberg determine_copynumber uses maxdist; kept for binary compatibility.")]
     public const double SubclonalIntegerTolerance = 0.05;
 
     /// <summary>

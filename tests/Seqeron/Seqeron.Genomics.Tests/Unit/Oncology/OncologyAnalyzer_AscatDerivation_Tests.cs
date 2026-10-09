@@ -445,6 +445,26 @@ public class OncologyAnalyzer_AscatDerivation_Tests
         Assert.That(m, Is.EqualTo(1), "n_mut = 0 rounds to 0 but is clamped up to 1.");
     }
 
+    // M11 — exact .5 ties round half-to-even, as facets-suite expected_mutant_copies (R round = IEC 60559).
+    // All inputs are dyadic, so n_mut is the exact double shown. R 4.x reference output:
+    //   expected_mutant_copies(0.625, 4, 1.0) = 2   (mu = 2.5)
+    //   expected_mutant_copies(0.375, 2, 0.5) = 2   (mu = 1.5)
+    //   expected_mutant_copies(0.875, 4, 1.0) = 4   (mu = 3.5)
+    //   expected_mutant_copies(0.5625, 8, 1.0) = 4  (mu = 4.5)
+    //   expected_mutant_copies(0.125, 4, 1.0) = 1   (mu = 0.5 < 1 -> 1)
+    [TestCase(0.625, 1.0, 4, 4, 2)]
+    [TestCase(0.375, 0.5, 2, 2, 2)]
+    [TestCase(0.875, 1.0, 4, 4, 4)]
+    [TestCase(0.5625, 1.0, 8, 8, 4)]
+    [TestCase(0.125, 1.0, 4, 4, 1)]
+    public void DeriveMultiplicity_ExactHalfTie_RoundsHalfToEven_MatchesFacetsSuite(
+        double vaf, double purity, int totalCopyNumber, int majorCopyNumber, int expected)
+    {
+        int m = OncologyAnalyzer.DeriveMultiplicity(vaf, purity, totalCopyNumber, majorCopyNumber);
+        Assert.That(m, Is.EqualTo(expected),
+            "facets-suite expected_mutant_copies: mu < 1 -> 1, then R round() (half-to-even).");
+    }
+
     // M10 — invalid arguments throw.
     [Test]
     public void DeriveMultiplicity_InvalidArguments_Throw()

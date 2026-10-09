@@ -291,6 +291,20 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 - Battenberg reproduces a floating-point artefact at exact-integer inputs (e.g. ρ = 1, BAF 0.66666666666666674,
   logR log2(1.5): ntot rounds to 3 ⇒ sub-clonal (3,0)/(3,1) with τ = −0.5); the port reproduces it bit-for-bit.
 
+## 2026-10 FIN-B24 F26 — DeriveMultiplicity tie rule (facets-suite)
+
+- Source opened: mskcc/facets-suite `R/ccf-annotate-maf.R` (master @ 7d54d0f6, raw.githubusercontent.com),
+  `expected_mutant_copies(t_var_freq, total_copies, purity)` — "Based on PMID 28270531":
+  `mu = t_var_freq·(1/purity)·(purity·total_copies + (1−purity)·2)`; `alt_copies = ifelse(mu < 1, 1, abs(mu))`;
+  `round(alt_copies)` (R `round` = IEC 60559 half-to-even). `total_copies == 0 → 1` (Seqeron rejects N_T < 1 instead).
+  facets-suite does not cap at the major copy number — Seqeron's cap at `majorCopyNumber` is a documented extra.
+- Same quantity as `DeriveMultiplicity` (n_mut = `AdjustVAFForPurity`, identical formula); floor at 1 is equivalent
+  (`round(mu) ≤ 1` for mu < 1). Only exact .5 ties differ from the former away-from-zero rounding.
+- R 4.3.3 output of `expected_mutant_copies` (sourced from the fetched file; all inputs dyadic ⇒ mu exact):
+  (0.625, 4, 1.0) mu 2.5 → 2; (0.375, 2, 0.5) mu 1.5 → 2; (0.75, 2, 1.0) 1.5 → 2; (0.875, 4, 1.0) 3.5 → 4;
+  (0.5625, 8, 1.0) 4.5 → 4; (0.125, 4, 1.0) 0.5 → 1; (0.3, 2, 1.0) 0.59999999999999998 → 1;
+  (0.55, 4, 0.8) 2.4750000000000001 → 2. C# `Math.Round(·, MidpointRounding.ToEven)` reproduces all.
+
 ---
 
 ## References
@@ -310,4 +324,5 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 - **2026-06-23**: Initial documentation.
 - **2026-06-23**: Added ASPCF penalised-least-squares segmentation (Nilsen 2012, Ross 2021) and sub-clonal copy-number two-state mixture (Nik-Zainal 2012 / Battenberg) evidence for the residual-closing fix.
+- **2026-10-09**: FIN-B24 F26 — `DeriveMultiplicity` ties half-to-even per facets-suite `expected_mutant_copies`; F27 `SubclonalIntegerTolerance` `[Obsolete]`.
 - **2026-09-28**: B24 review — FitPurityPloidy = runASCAT port, ASPCF = ascat.aspcf port, sub-clonal fit = Battenberg determine_copynumber port; corrected corner case 2, integer-assignment and Battenberg decomposition statements; R cross-check section added.

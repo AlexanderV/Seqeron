@@ -93,6 +93,7 @@
 | M7 | Multiplicity clamped to major CN | High VAF that rounds above major CN | result = majorCopyNumber | source 3/4 |
 | M8 | Multiplicity clamped to ≥ 1 | Tiny VAF that rounds to 0 | result = 1 | source 3/4 |
 | M9 | End-to-end CCF = 1.0 (clonal) | Fit → derive CN, multiplicity → EstimateCcf on VAF=0.40 | CCF = 1.0 | source 3/5 |
+| M11 | Multiplicity exact .5 ties → half-to-even (FIN-B24 F26) | (VAF,ρ,N_T,major) = (0.625,1,4,4); (0.375,0.5,2,2); (0.875,1,4,4); (0.5625,1,8,8); (0.125,1,4,4) | 2; 2; 4; 4; 1 (R `expected_mutant_copies` output) | facets-suite `ccf-annotate-maf.R` |
 | M10 | DeriveMultiplicity invalid args throw | vaf>1, purity≤0, CN<1, major∉[1,CN] | ArgumentOutOfRangeException | contract |
 | M11 | SegmentAlleleSpecific invalid args throw | null loci, threshold≤0, minLoci<1 | ArgumentNullException / ArgumentOutOfRangeException | contract |
 | M12 | FitPurityPloidy invalid args throw | null/empty segments, bad grid bounds | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
