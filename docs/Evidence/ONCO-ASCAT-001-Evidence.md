@@ -231,7 +231,8 @@ Forward model (algebraic inverse of the two nA/nB equations, γ=1):
 6. **SHOULD Test:** Null/empty inputs and invalid (ρ,ψ) grid bounds throw — Rationale: contract robustness.
 7. **COULD Test:** A balanced-only genome (all 1+1) yields BAF≈0.5 segments down-weighted in GoF — Rationale: documented corner case.
 8. **MUST Test (ASPCF):** ASPCF recovers the planted single breakpoint on a two-level logR track with a sourced γ — Evidence: Nilsen 2012 PCF objective + DP recurrence.
-9. **MUST Test (ASPCF):** On a constructed noisy track, the ASPCF penalised cost ≤ the greedy `SegmentAlleleSpecific` cost (DP global optimum) — Evidence: Nilsen 2012 (DP returns the global minimum).
+9. **MUST Test (ASPCF):** On a constructed noisy track, the ASPCF penalised cost ≤ the cost of any other segmentation (DP global optimum) — Evidence: Nilsen 2012 (DP returns the global minimum). *(B24 F35: the greedy `SegmentAlleleSpecific` comparator no longer exists — the method now delegates to ASPCF at penalty 70; the R-locked M-ASPCF-1/2 outputs pin the optimum.)*
+14. **MUST Test (F35):** `SegmentAlleleSpecific(loci, …)` ≡ `SegmentAlleleSpecificAspcf(loci, 70)`: on the R-locked noisy step track it returns the ascat.aspcf output (2 segments, loci 1–40 / 41–80, logR −0.023564999999999999 / 0.60321000000000002, BAF 0.5 / 0.75129407874999998), independent of the ignored legacy thresholds; NaN/±∞ logR or BAF ∉ [0, 1] → `ArgumentException` (ASPCF input contract).
 10. **MUST Test (ASPCF):** Mirrored-BAF joint cost separates a copy-neutral-LOH segment from a balanced segment that share logR — Evidence: ASCAT joint segmentation (Ross 2021).
 11. **MUST Test (ASPCF):** Large γ collapses to a single segment; small γ recovers each level — Evidence: Nilsen 2012.
 12. **MUST Test (sub-clonal):** Sub-clonal fit recovers planted f₀ = 0.4 with states (2,0)/(1,1) within tolerance — Evidence: Battenberg two-state model.
@@ -321,6 +322,8 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 ---
 
 ## Change History
+
+- **2026-10-09**: FIN-B24 F35 — the unsourced greedy `SegmentAlleleSpecific` heuristic was removed; the public name now delegates to `SegmentAlleleSpecificAspcf(loci, AspcfDefaultPenalty = 70)` (ascat.aspcf port, R-verified 60/60), with the ASPCF finite-logR / BAF ∈ [0, 1] validation; legacy thresholds ignored (range-checked for compatibility). Test point 14 added; point 9 reworded.
 
 - **2026-06-23**: Initial documentation.
 - **2026-06-23**: Added ASPCF penalised-least-squares segmentation (Nilsen 2012, Ross 2021) and sub-clonal copy-number two-state mixture (Nik-Zainal 2012 / Battenberg) evidence for the residual-closing fix.

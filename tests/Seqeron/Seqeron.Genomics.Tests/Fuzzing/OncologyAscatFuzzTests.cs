@@ -7,7 +7,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// The units under test are the ASCAT-style entry points implemented in
 /// src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs:
 ///   • <see cref="OncologyAnalyzer.SegmentAlleleSpecific(IEnumerable{OncologyAnalyzer.AlleleSpecificLocus},double,double,int)"/>
-///       — greedy joint logR/mirrored-BAF mean-shift segmentation of per-locus signal;
+///       — ASCAT ascat.aspcf joint logR/mirrored-BAF segmentation at the default penalty 70 (B24 F35: the former
+///         unsourced greedy mean-shift heuristic was replaced by a delegation to SegmentAlleleSpecificAspcf);
 ///   • <see cref="OncologyAnalyzer.FitPurityPloidy(IReadOnlyList{OncologyAnalyzer.AlleleSpecificSegmentSummary},double,double,double,double,double,double,double)"/>
 ///       — the ASCAT grid fit → ρ, ψ, GoF % and the implied integer allele-specific segments;
 ///   • <see cref="OncologyAnalyzer.DeriveMultiplicity(double,double,int,int)"/>
@@ -24,14 +25,14 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// empty locus run, DivideByZero on ρ → 0, an overflow-wrapped length). Every input
 /// must resolve to EITHER a well-defined, theory-correct result OR a *documented,
 /// intentional* outcome (an <see cref="ArgumentNullException"/> for null loci/segments,
-/// an <see cref="ArgumentException"/> for an empty segment set or a null chromosome
-/// label, an <see cref="ArgumentOutOfRangeException"/> for an out-of-range threshold,
+/// an <see cref="ArgumentException"/> for an empty segment set, a null chromosome
+/// label, a non-finite locus logR or a locus BAF outside [0, 1] (ASPCF input contract, F35), an <see cref="ArgumentOutOfRangeException"/> for an out-of-range threshold,
 /// grid bound, or multiplicity argument).
 ///
 /// For ASCAT derivation the headline BE hazards (checklist row 235, targets
 /// "empty loci, single locus, all-het, all-hom, extreme logR/BAF") are:
 ///   • empty loci — SegmentAlleleSpecific over an empty sequence emits ZERO segments
-///     (an empty list), NEVER an IndexOutOfRange from BuildSegmentSummary on an empty
+///     (an empty list), NEVER an IndexOutOfRange on an empty
 ///     run; that empty summary list then makes FitPurityPloidy throw the documented
 ///     ArgumentException (§3.3 "empty segments ⇒ ArgumentException"), not a 0/0 GoF;
 ///   • single locus — one locus ⇒ exactly one segment, LocusCount = 1, the minimal
@@ -81,7 +82,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///
 /// SOURCE (2026-09, B24 F12): FitPurityPloidy became a runASCAT port; the single-segment
 /// expectations were re-derived from the original R code (rho = NA), not bent to the
-/// code. SegmentAlleleSpecific returns an empty list for empty loci, DeriveMultiplicity
+/// code. SegmentAlleleSpecific (ascat.aspcf since F35) returns an empty list for empty loci, DeriveMultiplicity
 /// clamps to [1, major], the (ρ, ψ) grid is bounded, so there is no hang.
 ///
 /// All randomness is LOCALLY seeded (new Random(seed)); no shared static Rng.
@@ -153,22 +154,21 @@ public sealed class OncologyAscatFuzzTests
     #region ONCO-ASCAT-001 — SegmentAlleleSpecific: positive sanity
 
     // ── POSITIVE sanity: a copy-neutral-LOH region splits from a balanced region ──
-    // §4.1: BAF-aware segmentation must NOT merge a 2:0 LOH run (folded BAF = 1.0,
-    // logR ≈ 0) with a balanced 1:1 run (folded BAF = 0.5, logR ≈ 0): identical logR,
-    // different BAF ⇒ a BAF mean-shift split. Pins that BAF actually segments.
+    // §4.1: BAF-aware segmentation must NOT merge a copy-neutral LOH run with a balanced
+    // run of the same logR. On the R-locked noisy LOH track (80 loci, identical logR,
+    // BAF 0.5 → 0.5 ± 0.47 at locus 41) ascat.aspcf (penalty 70) splits after locus 40
+    // (unit M-ASPCF-2). B24 F35: SegmentAlleleSpecific now runs ASPCF, whose minimum
+    // segment length is 6, so a 4-locus toy (2 + 2) is one segment by ASCAT's own rule.
     [Test]
     public void SegmentAlleleSpecific_LohVsBalancedSameLogR_SplitsOnBaf()
     {
-        var loci = new[]
-        {
-            Locus("1", 0, 0.0, 0.5), Locus("1", 100, 0.0, 0.5),  // balanced 1:1
-            Locus("1", 200, 0.0, 1.0), Locus("1", 300, 0.0, 1.0), // copy-neutral LOH 2:0
-        };
+        var loci = Seqeron.Genomics.Tests.Unit.Oncology.OncologyAnalyzer_AscatDerivation_Tests.AspcfLohTrack();
 
         var segments = SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, bafChangeThreshold: 0.1);
 
-        segments.Should().HaveCountGreaterThan(1, "a BAF shift at identical logR must split the run (§4.1)");
-        segments.Sum(s => s.LocusCount).Should().Be(loci.Length, "every locus is summarised exactly once");
+        segments.Should().HaveCount(2, "a BAF shift at identical logR splits the run (ascat.aspcf, §4.1)");
+        segments[0].LocusCount.Should().Be(40, "ascat.aspcf breakpoint after locus 40");
+        segments.Sum(s => s.LocusCount).Should().Be(loci.Count, "every locus is summarised exactly once");
     }
 
     #endregion
@@ -176,7 +176,7 @@ public sealed class OncologyAscatFuzzTests
     #region ONCO-ASCAT-001 — BE: empty loci and single locus
 
     // ── BE: empty loci ⇒ ZERO segments, never an IndexOutOfRange on an empty run ──
-    // BuildSegmentSummary is only called for current.Count > 0, so an empty sequence
+    // ascat.aspcf segments each contiguous same-chromosome run; with no loci there is no run, so an empty sequence
     // yields an empty list (not a crash). The empty list is the documented input that
     // then makes FitPurityPloidy throw ArgumentException.
     [Test]
@@ -185,7 +185,7 @@ public sealed class OncologyAscatFuzzTests
         var segments = SegmentAlleleSpecific(Array.Empty<AlleleSpecificLocus>(), logRChangeThreshold: 0.2);
 
         segments.Should().NotBeNull();
-        segments.Should().BeEmpty("no loci ⇒ no segments (BuildSegmentSummary never indexes an empty run)");
+        segments.Should().BeEmpty("no loci ⇒ no segments (no chromosome run to segment)");
     }
 
     [Test]
@@ -247,7 +247,9 @@ public sealed class OncologyAscatFuzzTests
 
     // ── BE: segmentation never invents or drops loci, whatever the random signal ──
     // The structural invariant: Σ LocusCount == #loci and 1 ≤ #segments ≤ #loci, even
-    // with extreme/NaN-free logR and out-of-[0,1] BAF, and no segment summary is NaN.
+    // with extreme (finite) logR and boundary BAF 0 / 0.5 / 1, and no segment summary is NaN
+    // or has a BAF outside [0.5, 1]. Out-of-domain BAF (−0.3) is the documented ASPCF input-contract
+    // violation (B24 F35: finite logR, BAF ∈ [0, 1], as ascat.aspcf) ⇒ ArgumentException.
     [Test]
     [CancelAfter(20_000)]
     public void SegmentAlleleSpecific_RandomSignal_PreservesLocusCountNoMalformedSummary()
@@ -259,20 +261,29 @@ public sealed class OncologyAscatFuzzTests
             var loci = new List<AlleleSpecificLocus>(n);
             for (int i = 0; i < n; i++)
             {
-                // extreme logR (±large) and BAF including out-of-domain values 0, 0.5, 1 and beyond.
+                // extreme logR (±large) and boundary BAF 0, 0.5, 1; every 5th seed also injects the
+                // out-of-domain BAF −0.3 (documented ArgumentException), the rest stay in [0, 1].
                 double logR = (rng.NextDouble() - 0.5) * 2_000.0;
-                double baf = rng.Next(5) switch { 0 => 0.0, 1 => 0.5, 2 => 1.0, 3 => -0.3, _ => rng.NextDouble() };
+                double baf = rng.Next(5) switch { 0 => 0.0, 1 => 0.5, 2 => 1.0, 3 => seed % 5 == 0 ? -0.3 : 0.25, _ => rng.NextDouble() };
                 loci.Add(Locus(rng.Next(2) == 0 ? "1" : "2", i * 100L, logR, baf));
             }
 
-            var segments = SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2 + rng.NextDouble());
+            double threshold = 0.2 + rng.NextDouble();
+            if (loci.Any(l => l.BAF < 0.0 || l.BAF > 1.0))
+            {
+                ((Action)(() => SegmentAlleleSpecific(loci, logRChangeThreshold: threshold)))
+                    .Should().Throw<ArgumentException>("a BAF outside [0, 1] violates the ASPCF input contract, seed {0}", seed);
+                continue;
+            }
+
+            var segments = SegmentAlleleSpecific(loci, logRChangeThreshold: threshold);
 
             segments.Sum(s => s.LocusCount).Should().Be(n, "every locus summarised exactly once, seed {0}", seed);
             segments.Count.Should().BeInRange(1, n, "1 ≤ #segments ≤ #loci, seed {0}", seed);
             foreach (var s in segments)
             {
                 double.IsNaN(s.MeanLogR).Should().BeFalse("a finite-logR run yields a finite mean, seed {0}", seed);
-                double.IsNaN(s.MeanBAF).Should().BeFalse("folded-BAF mean is finite, seed {0}", seed);
+                s.MeanBAF.Should().BeInRange(0.5, 1.0, "the ASPCF mirrored BAF lies in [0.5, 1], seed {0}", seed);
             }
         }
     }

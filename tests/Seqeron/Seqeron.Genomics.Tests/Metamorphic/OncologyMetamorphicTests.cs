@@ -2233,18 +2233,16 @@ public class OncologyMetamorphicTests
     //   Two metamorphic relations (checklist row 235) follow from these equations and from
     //   the way the upstream segmenter places breakpoints:
     //
-    //   • INV (constant logR shift preserves breakpoints): both segmenters place a boundary
-    //     on a logR *change*. The greedy SegmentAlleleSpecific splits when
-    //     |rᵢ − runningMean| exceeds the threshold; ASCAT's ASPCF minimises the MAD-standardised within-segment
-    //     logR SSE plus a fixed per-segment penalty. Adding a constant c to every locus's logR
-    //     shifts each running mean by c too, so every consecutive difference (greedy) and every
-    //     within-segment SSE (ASPCF) is unchanged: the breakpoint set is invariant and each
-    //     segment's mean logR simply shifts by c. The BAF channel is untouched.
+    //   • INV (constant logR shift preserves breakpoints): ASCAT's ASPCF (run by both
+    //     SegmentAlleleSpecificAspcf and, since B24 F35, SegmentAlleleSpecific at penalty 70) minimises the
+    //     MAD-standardised within-segment logR SSE plus a fixed per-segment penalty. Adding a constant c to every
+    //     locus's logR leaves every within-segment SSE and the MAD unchanged: the breakpoint set is invariant and
+    //     each segment's mean logR simply shifts by c. The BAF channel is untouched.
     //
     //   • INV (A/B allele swap preserves total CN): "allele A" vs "allele B" is an arbitrary
     //     label. Swapping it maps the raw BAF b → 1−b, which the equations above send to
     //     nA ↔ nB exactly (so the total nA+nB is invariant), and which the segmenter's
-    //     BAF-mirroring (foldedBAF = 0.5 + |b−0.5|) folds to the *same* value. The whole integer
+    //     BAF-mirroring (ascat.aspcf max(b, 1−b)) folds to the *same* value. The whole integer
     //     copy-number fit — and in particular every segment's total copy number — is therefore
     //     invariant to the allele labelling.
     //
@@ -2282,37 +2280,29 @@ public class OncologyMetamorphicTests
     }
 
     [Test]
-    [Description("INV: the greedy segmenter splits on |logRᵢ − runningMean| > threshold, so adding a constant c to every locus's logR leaves the breakpoint set unchanged and shifts each segment mean by exactly c.")]
-    public void Ascat_ConstantLogRShift_PreservesGreedyBreakpoints()
+    [Description("INV (B24 F35): SegmentAlleleSpecific runs ascat.aspcf at ASCAT's default penalty 70, whose MAD-standardised penalised cost is translation-invariant, so a constant logR shift preserves the breakpoints and shifts each segment mean by c.")]
+    public void Ascat_ConstantLogRShift_PreservesSegmentAlleleSpecificBreakpoints()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
-        void AddLevel(string chrom, long start, double logR, int n)
-        {
-            for (int i = 0; i < n; i++)
-                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus(chrom, start + i * 1000, logR, 0.5));
-        }
-
-        AddLevel("1", 1000, 0.0, 6);
-        AddLevel("1", 7000, 0.8, 6);
-        AddLevel("1", 13000, -0.5, 6);
-        AddLevel("2", 1000, 0.0, 6);
+        // Noisy two-level track (ASCAT's getMad is 0 on noise-free data, which places no breakpoint at all).
+        // ascat.aspcf (R, penalty 70) gives the same breakpoints for shifts 0.3137, −0.8123, 1.9071 (Evidence).
+        List<OncologyAnalyzer.AlleleSpecificLocus> loci =
+            Seqeron.Genomics.Tests.Unit.Oncology.OncologyAnalyzer_AscatDerivation_Tests.AspcfStepTrack();
 
         IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> baseline =
             OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.3);
-        baseline.Count.Should().Be(4,
-            because: "three logR levels on chr1 plus a chromosome change yield four segments — the non-vacuity guard");
+        baseline.Count.Should().Be(2,
+            because: "the noisy two-level track gives exactly one ASPCF breakpoint — the non-vacuity guard");
 
-        foreach (double c in new[] { 0.3, -0.7, 1.5 })
+        foreach (double c in new[] { 0.3137, -0.8123, 1.9071 })
         {
-            var shifted = loci
-                .Select(l => new OncologyAnalyzer.AlleleSpecificLocus(l.Chromosome, l.Position, l.LogR + c, l.BAF))
-                .ToList();
+            List<OncologyAnalyzer.AlleleSpecificLocus> shifted =
+                Seqeron.Genomics.Tests.Unit.Oncology.OncologyAnalyzer_AscatDerivation_Tests.AspcfStepTrack(c);
 
             IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
                 OncologyAnalyzer.SegmentAlleleSpecific(shifted, logRChangeThreshold: 0.3);
 
             segs.Count.Should().Be(baseline.Count,
-                because: $"a constant logR shift of {c} leaves every consecutive |Δ logR| unchanged, so the breakpoint count is invariant");
+                because: $"the standardised joint cost is translation-invariant, so a logR shift of {c} keeps the breakpoint count");
             for (int i = 0; i < baseline.Count; i++)
             {
                 segs[i].LocusCount.Should().Be(baseline[i].LocusCount,
@@ -2365,13 +2355,15 @@ public class OncologyMetamorphicTests
     }
 
     /// <summary>A planted diploid genome with balanced, copy-neutral-LOH and gain segments (some allele-imbalanced).</summary>
+    // One chromosome per segment (5 loci < ASCAT kmin = 6), so ascat.aspcf — run by SegmentAlleleSpecific (B24 F35) —
+    // emits one segment per planted segment.
     private static readonly (string Chrom, int NA, int NB)[] AscatPlantedGenome =
     {
         ("1", 1, 1), // balanced, b = 0.5
-        ("1", 2, 0), // copy-neutral LOH, b ≠ 0.5
-        ("1", 1, 1),
-        ("1", 2, 1), // gain, b ≠ 0.5
-        ("1", 1, 1),
+        ("2", 2, 0), // copy-neutral LOH, b ≠ 0.5
+        ("3", 1, 1),
+        ("4", 2, 1), // gain, b ≠ 0.5
+        ("5", 1, 1),
     };
 
     [Test]

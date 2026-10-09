@@ -3402,18 +3402,22 @@ public class OncologyCombinatorialTests
         return (Math.Log2(denom / d), (rho * nB + (1.0 - rho)) / denom);
     }
 
-    /// <summary>Replicates each integer segment into adjacent loci carrying its planted (logR, BAF).</summary>
+    /// <summary>Replicates each integer segment into adjacent loci carrying its planted (logR, BAF), one chromosome
+    /// per segment: with 5 loci (&lt; ASCAT kmin = 6) ascat.aspcf — run by SegmentAlleleSpecific (B24 F35) — emits
+    /// exactly one segment per chromosome (noise-free data has MAD 0 ⇒ no in-chromosome breakpoint).</summary>
     private static List<OncologyAnalyzer.AlleleSpecificLocus> AscatLoci(
         IReadOnlyList<(int NA, int NB)> segments, double rho, double psi, int lociPerSegment = 5)
     {
         var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
         long pos = 1000;
+        int chromosome = 0;
         foreach (var (nA, nB) in segments)
         {
             (double r, double b) = AscatForward(nA, nB, rho, psi);
+            string chrom = (++chromosome).ToString(System.Globalization.CultureInfo.InvariantCulture);
             for (int i = 0; i < lociPerSegment; i++)
             {
-                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", pos, r, b));
+                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus(chrom, pos, r, b));
                 pos += 1000;
             }
         }
@@ -3421,7 +3425,7 @@ public class OncologyCombinatorialTests
     }
 
     // Integer-CN segment sets whose mean total CN equals each planted ploidy. No two ADJACENT
-    // segments are equal (so segmentation emits one run per entry) and each set carries an LOH
+    // segments are equal (each entry is also its own chromosome, so segmentation emits one run per entry) and each set carries an LOH
     // segment (minor = 0, BAF far from 0.5) which breaks the 2n-vs-4n sunrise symmetry.
     private static (int NA, int NB)[] AscatSegmentsForPloidy(double ploidy) => ploidy switch
     {

@@ -55,39 +55,52 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     private const double PlantedPurity = 0.80;
     private const double PlantedPloidy = 2.2;
 
+    // Each planted segment sits on its own chromosome (5 loci < ASCAT kmin = 6), so ascat.aspcf — which
+    // SegmentAlleleSpecific runs (F35) — emits exactly one segment per planted segment: a chromosome with fewer than
+    // 6 loci is one segment (S-ASPCF-3), and noise-free data has MAD sd = 0 so no in-chromosome breakpoint is placed
+    // anyway (S-ASPCF-2).
     private static readonly (string Chrom, int NA, int NB)[] PlantedSegments =
     {
         ("1", 1, 1), // balanced diploid, b=0.5
-        ("1", 2, 0), // copy-neutral LOH, b=0.1
-        ("1", 1, 1),
-        ("1", 2, 1), // gain
-        ("1", 1, 1),
+        ("2", 2, 0), // copy-neutral LOH, b=0.1
+        ("3", 1, 1),
+        ("4", 2, 1), // gain
+        ("5", 1, 1),
     };
 
     #region SegmentAlleleSpecific
 
-    // M1 — two clear logR levels on chr1 then a chromosome change: 3 segments at the planted boundaries.
+    // M1 (F35) — SegmentAlleleSpecific runs ascat.aspcf with ASCAT's default penalty 70: on the R-locked noisy step
+    // track it returns the ascat.aspcf output (same values as M-ASPCF-1), whatever the ignored legacy thresholds.
     [Test]
-    public void SegmentAlleleSpecific_TwoLevelsAndChromChange_RecoversThreeSegments()
+    public void SegmentAlleleSpecific_NoisyStep_MatchesAscatAspcfDefaultPenalty()
     {
-        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
-        // chr1: level 0.0 (5 loci), then level 1.0 (5 loci) -> mean-shift split
-        for (int i = 0; i < 5; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
-        for (int i = 0; i < 5; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 6000 + i * 1000, 1.0, 0.5));
-        // chr2: level 0.0 -> chromosome change forces a new segment
-        for (int i = 0; i < 5; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("2", 1000 + i * 1000, 0.0, 0.5));
-
         IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
-            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.5, minLociPerSegment: 1);
+            OncologyAnalyzer.SegmentAlleleSpecific(AspcfStepTrack(), logRChangeThreshold: 0.5, minLociPerSegment: 1);
 
         Assert.Multiple(() =>
         {
-            Assert.That(segs.Count, Is.EqualTo(3), "Two logR levels on chr1 plus a chromosome change yield 3 segments.");
-            Assert.That(segs[0].Chromosome, Is.EqualTo("1"), "First segment is the chr1 low level.");
-            Assert.That(segs[0].MeanLogR, Is.EqualTo(0.0).Within(1e-12), "First segment mean logR is the planted 0.0.");
-            Assert.That(segs[1].MeanLogR, Is.EqualTo(1.0).Within(1e-12), "Second segment mean logR is the planted 1.0.");
-            Assert.That(segs[2].Chromosome, Is.EqualTo("2"), "Third segment is chr2 after the chromosome change.");
+            Assert.That(segs.Count, Is.EqualTo(2), "ascat.aspcf (penalty 70): 2 segments.");
+            Assert.That((segs[0].Start, segs[0].End, segs[0].LocusCount), Is.EqualTo((1000L, 40000L, 40)), "Segment 1 = loci 1–40.");
+            Assert.That((segs[1].Start, segs[1].End, segs[1].LocusCount), Is.EqualTo((41000L, 80000L, 40)), "Segment 2 = loci 41–80.");
+            Assert.That(segs[0].MeanLogR, Is.EqualTo(-0.023564999999999999).Within(1e-15), "ascat.aspcf logR level 1.");
+            Assert.That(segs[1].MeanLogR, Is.EqualTo(0.60321000000000002).Within(1e-15), "ascat.aspcf logR level 2.");
+            Assert.That(segs[0].MeanBAF, Is.EqualTo(0.5), "Balanced segment BAF shrunk to exactly 0.5 (ASCAT).");
+            Assert.That(segs[1].MeanBAF, Is.EqualTo(0.75129407874999998).Within(1e-15), "ascat.aspcf BAF level 2 (0.5 + μ).");
+            Assert.That(segs, Is.EqualTo(OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack(), OncologyAnalyzer.AspcfDefaultPenalty)),
+                "Identical to SegmentAlleleSpecificAspcf at the ASCAT default penalty.");
         });
+    }
+
+    // M1b (F35) — the legacy greedy thresholds have no ASPCF meaning and are ignored: very different values give the
+    // identical ascat.aspcf segmentation.
+    [Test]
+    public void SegmentAlleleSpecific_LegacyThresholds_AreIgnored()
+    {
+        var a = OncologyAnalyzer.SegmentAlleleSpecific(AspcfStepTrack(), logRChangeThreshold: 0.05, bafChangeThreshold: 0.01, minLociPerSegment: 1);
+        var b = OncologyAnalyzer.SegmentAlleleSpecific(AspcfStepTrack(), logRChangeThreshold: 10.0, bafChangeThreshold: 5.0, minLociPerSegment: 50);
+
+        Assert.That(a, Is.EqualTo(b), "Thresholds / minLociPerSegment do not change the ASPCF result.");
     }
 
     // C1 — one locus per chromosome -> one segment per chromosome, LocusCount = 1.
@@ -124,6 +137,19 @@ public class OncologyAnalyzer_AscatDerivation_Tests
                 () => OncologyAnalyzer.SegmentAlleleSpecific(loci, 0.0), "Non-positive threshold must throw.");
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => OncologyAnalyzer.SegmentAlleleSpecific(loci, 0.2, minLociPerSegment: 0), "minLoci < 1 must throw.");
+            // F35: the ASPCF input contract (IsValidAlleleSignal) — finite logR, BAF in [0, 1].
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.SegmentAlleleSpecific(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, double.NaN, 0.5) }, 0.2),
+                "NaN logR must throw.");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.SegmentAlleleSpecific(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, double.PositiveInfinity, 0.5) }, 0.2),
+                "Infinite logR must throw.");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.SegmentAlleleSpecific(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, 0.0, -0.3) }, 0.2),
+                "BAF < 0 must throw.");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.SegmentAlleleSpecific(new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, 0.0, 1.5) }, 0.2),
+                "BAF > 1 must throw.");
         });
     }
 
@@ -173,10 +199,10 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     {
         var triploid = new (string Chrom, int NA, int NB)[]
         {
-            ("1", 2, 1), // total 3
-            ("1", 2, 1),
-            ("1", 3, 0), // total 3, LOH
-            ("1", 2, 1),
+            ("1", 2, 1), // total 3 (one chromosome per planted segment, see PlantedSegments)
+            ("2", 2, 1),
+            ("3", 3, 0), // total 3, LOH
+            ("4", 2, 1),
         };
         double psi0 = triploid.Average(s => s.NA + s.NB); // 3.0
         List<OncologyAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(triploid, PlantedPurity, psi0);
@@ -371,7 +397,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     [Test]
     public void FitPurityPloidy_BalancedOnlyGenome_CompletesWithBalancedSegments()
     {
-        var balanced = new (string Chrom, int NA, int NB)[] { ("1", 1, 1), ("1", 2, 2) };
+        var balanced = new (string Chrom, int NA, int NB)[] { ("1", 1, 1), ("2", 2, 2) };
         double psi0 = balanced.Average(s => s.NA + s.NB); // 3.0
         List<OncologyAnalyzer.AlleleSpecificLocus> loci = SynthesiseLoci(balanced, PlantedPurity, psi0);
         IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> summaries =
@@ -542,7 +568,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
     }
 
     // Dataset 2: identical logR everywhere; BAF balanced → copy-neutral LOH (0.5 ± 0.47) at locus 41.
-    private static List<OncologyAnalyzer.AlleleSpecificLocus> AspcfLohTrack()
+    internal static List<OncologyAnalyzer.AlleleSpecificLocus> AspcfLohTrack()
     {
         var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
         for (int i = 0; i < 80; i++)

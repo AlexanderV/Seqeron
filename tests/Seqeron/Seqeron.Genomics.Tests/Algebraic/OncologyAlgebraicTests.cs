@@ -216,13 +216,15 @@ public class OncologyAlgebraicTests
         return loci;
     }
 
+    // One chromosome per planted segment (5 loci < ASCAT kmin = 6): SegmentAlleleSpecific runs ascat.aspcf (B24 F35),
+    // which emits one segment per such chromosome (noise-free data has MAD 0 ⇒ no in-chromosome breakpoint).
     private static readonly (string Chrom, int NA, int NB)[] AscatPlantedSegments =
     {
         ("1", 1, 1), // balanced diploid, b = 0.5
-        ("1", 2, 0), // copy-neutral LOH, b ≈ 0.1
-        ("1", 1, 1),
-        ("1", 2, 1), // gain
-        ("1", 1, 1),
+        ("2", 2, 0), // copy-neutral LOH, b ≈ 0.1
+        ("3", 1, 1),
+        ("4", 2, 1), // gain
+        ("5", 1, 1),
     };
 
     [Test]

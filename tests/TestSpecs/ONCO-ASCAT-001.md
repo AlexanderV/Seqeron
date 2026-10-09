@@ -53,7 +53,7 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `SegmentAlleleSpecific` | OncologyAnalyzer | **Canonical** | PCF/CBS-style mean-shift segmentation of per-locus logR/BAF |
+| `SegmentAlleleSpecific` | OncologyAnalyzer | **Delegate** | ≡ `SegmentAlleleSpecificAspcf(loci, 70)` since B24 F35 (former unsourced greedy heuristic removed; thresholds ignored) |
 | `FitPurityPloidy` | OncologyAnalyzer | **Canonical** | ASCAT grid fit; recovers ρ, ψ, integer (nA,nB) |
 | `DeriveMultiplicity` | OncologyAnalyzer | **Canonical** | McGranahan n_mut rounding/clamp |
 | `SegmentAlleleSpecificAspcf` | OncologyAnalyzer | **Canonical** | ASPCF penalised-least-squares (PCF DP) joint logR/BAF segmentation [6][7] |
@@ -70,9 +70,9 @@
 | INV-2 | Recovered ρ, ψ equal planted ρ₀, ψ₀ within the grid step | Yes | source 1 |
 | INV-3 | Derived multiplicity ∈ [1, majorCopyNumber] | Yes | sources 3, 4 |
 | INV-4 | End-to-end CCF of a planted clonal mutation = 1.0 (within tolerance) | Yes | sources 3, 5 |
-| INV-5 | Segment count = number of distinct mean-shift runs; breakpoints at planted change positions | Yes | source 1 (segmentation) |
+| INV-5 | Segmentation = ascat.aspcf output (breakpoints at the R-verified positions); `SegmentAlleleSpecific` ≡ ASPCF at γ = 70 (F35) | Yes | source 2 (R run) |
 | INV-6 | GoF percentage ≤ 100; distance at true (ρ,ψ) ≤ distance at a wrong (ρ,ψ) | Yes | source 2 |
-| INV-7 | ASPCF penalised cost is the global minimum: ≤ greedy cost on the same track | Yes | source 6 |
+| INV-7 | ASPCF penalised cost is the global minimum over segmentations of the track (pinned by the R-locked outputs) | Yes | source 6 |
 | INV-8 | ASPCF: γ→large ⇒ 1 segment; small γ recovers each level; no segment crosses a chromosome | Yes | source 6 |
 | INV-9 | Sub-clonal state fractions sum to 1; integer (nA,nB) ⇒ single clonal state (f=1) | Yes | source 8 |
 
@@ -84,7 +84,8 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | Segmentation recovers breakpoints | Per-locus logR with two clear levels and a chromosome change | 3 segments at the planted boundaries | source 1 |
+| M1 | `SegmentAlleleSpecific` = ascat.aspcf (penalty 70) (F35) | M-ASPCF-1 noisy step track, logRChangeThreshold 0.5 | 2 segments (40/40), logR −0.023564999999999999/0.60321000000000002, BAF 0.5/0.75129407874999998; equal to `SegmentAlleleSpecificAspcf(…, 70)` | source 2 (R run) |
+| M1b | Legacy thresholds ignored (F35) | same track, thresholds (0.05, 0.01, 1) vs (10, 5, 50) | identical segmentations | F35 delegation |
 | M2 | Grid fit recovers ρ₀, ψ₀ | Synthesise (r,b) from ρ₀=0.80, ψ₀=2.2, segs {1+1,2+0,1+1,2+1,1+1} | Purity=0.80, Ploidy=2.2 | source 1/2 |
 | M3 | Grid fit recovers integer (nA,nB) | Same input as M2 | Segments: (1,1),(2,0),(1,1),(2,1),(1,1) | source 2 |
 | M4 | GoF ≈ 100% at true params | Same input as M2 | GoodnessOfFit ≈ 100 (distance ≈ 0) | source 2 |
@@ -95,7 +96,7 @@
 | M9 | End-to-end CCF = 1.0 (clonal) | Fit → derive CN, multiplicity → EstimateCcf on VAF=0.40 | CCF = 1.0 | source 3/5 |
 | M11 | Multiplicity exact .5 ties → half-to-even (FIN-B24 F26) | (VAF,ρ,N_T,major) = (0.625,1,4,4); (0.375,0.5,2,2); (0.875,1,4,4); (0.5625,1,8,8); (0.125,1,4,4) | 2; 2; 4; 4; 1 (R `expected_mutant_copies` output) | facets-suite `ccf-annotate-maf.R` |
 | M10 | DeriveMultiplicity invalid args throw | vaf>1, purity≤0, CN<1, major∉[1,CN] | ArgumentOutOfRangeException | contract |
-| M11 | SegmentAlleleSpecific invalid args throw | null loci, threshold≤0, minLoci<1 | ArgumentNullException / ArgumentOutOfRangeException | contract |
+| M11 | SegmentAlleleSpecific invalid args throw | null loci, threshold≤0, minLoci<1; NaN/+∞ logR, BAF −0.3 / 1.5 (F35) | ArgumentNullException / ArgumentOutOfRangeException / ArgumentException | contract; ASPCF input contract |
 | M12 | FitPurityPloidy invalid args throw | null/empty segments, bad grid bounds | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
 | M-ASPCF-1 | ASPCF = ascat.aspcf on a noisy step | 80 loci, logR 0→0.6, BAF balanced→0.5±0.25, penalty 70 | 2 segments (40/40), logR −0.023565/0.60321, BAF 0.5 (shrunk)/0.751294079 | source 2 (R run) |
 | M-ASPCF-2 | noise-free track | 10×0.0 + 10×1.0, penalty 0.5 | 1 segment (MAD 0 ⇒ window skipped), logR 0.5 | source 2 (R run) |
@@ -138,7 +139,7 @@
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| M1–M12, S1–S3, C1 | ✅ Covered | prior session (greedy segmentation, fit, multiplicity) |
+| M1–M12, S1–S3, C1 | ✅ Covered | prior session (greedy segmentation, fit, multiplicity); M1/M11 re-locked to ASPCF by F35 (§9) |
 | M-ASPCF-1..3, S-ASPCF-1..2, C-ASPCF-1 | ❌ Missing | new ASPCF half |
 | M-SUB-1..2, C-SUB-1 | ❌ Missing | new sub-clonal half |
 
@@ -237,3 +238,20 @@ Assumptions 1–2 affect only test-input synthesis (not production code) and are
 - Tests: unit (`OncologyAnalyzer_AscatDerivation_Tests.cs`) M-ASCAT-1..4, M-ASPCF-1..3, S-ASPCF-1..4, M-SUB-1..3;
   fuzz (`OncologyAscatFuzzTests.cs`) single-segment genomes ⇒ ASCAT NA, random genomes ⇒ well-formed or NA;
   properties (`OncologyProperties.cs`) ranges/determinism over found optima; metamorphic ASPCF logR-shift on a noisy track.
+
+## 9. FIN-B24 F35 — `SegmentAlleleSpecific` delegates to ASPCF (2026-10-09)
+
+- The unsourced greedy mean-shift heuristic behind `SegmentAlleleSpecific` was removed; the method now returns
+  `SegmentAlleleSpecificAspcf(loci, AspcfDefaultPenalty = 70)` (ascat.aspcf port, R-verified F13). Legacy parameters
+  `logRChangeThreshold` / `bafChangeThreshold` / `minLociPerSegment` are ignored (still range-checked). Loci with
+  NaN/±∞ logR or BAF ∉ [0, 1] → `ArgumentException` (ASPCF input contract).
+- M1 now locks the R ascat.aspcf output of the M-ASPCF-1 track through `SegmentAlleleSpecific`; M1b: thresholds
+  ignored; M11 extended with the ASPCF validation.
+- Fit tests (M2–M4, M9, S1–S3) and the Algebraic / Combinatorial / Metamorphic allele-swap fixtures place each planted
+  segment on its own chromosome (5 loci < kmin 6 ⇒ one ascat.aspcf segment per chromosome, S-ASPCF-3; noise-free
+  data has MAD 0 ⇒ no in-chromosome breakpoint, S-ASPCF-2) — the planted fit expectations are unchanged.
+- Heavy-tier contracts changed: Fuzz `SegmentAlleleSpecific_LohVsBalancedSameLogR_SplitsOnBaf` (now the R-locked
+  80-locus LOH track ⇒ 2 segments, 40/40), `SegmentAlleleSpecific_RandomSignal_PreservesLocusCountNoMalformedSummary`
+  (out-of-domain BAF on every 5th seed ⇒ `ArgumentException`; in-domain ⇒ invariants + BAF ∈ [0.5, 1]);
+  Metamorphic `Ascat_ConstantLogRShift_PreservesGreedyBreakpoints` → `…PreservesSegmentAlleleSpecificBreakpoints`
+  (noisy track, R-verified shifts).

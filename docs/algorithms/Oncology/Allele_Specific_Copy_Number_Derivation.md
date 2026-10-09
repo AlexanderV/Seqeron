@@ -5,7 +5,7 @@
 | Algorithm Group | Oncology |
 | Test Unit ID | ONCO-ASCAT-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
-| Implementation Status | Complete (ASCAT runASCAT / ascat.aspcf, Battenberg determine_copynumber ports; greedy segmenter retained) |
+| Implementation Status | Complete (ASCAT runASCAT / ascat.aspcf, Battenberg determine_copynumber ports; `SegmentAlleleSpecific` = ASPCF at penalty 70 since B24 F35) |
 | Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
@@ -144,9 +144,8 @@ a segment summary has constant SNP BAF, for which Battenberg sets pval = 0) [8].
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| loci | IEnumerable\<AlleleSpecificLocus\> | required | per-locus (chrom, pos, logR, BAF) measurements | non-null; chrom non-null |
-| logRChangeThreshold | double | required | mean-shift split threshold (logR units) | > 0 |
-| minLociPerSegment | int | 1 | min loci before a split | ≥ 1 |
+| loci | IEnumerable\<AlleleSpecificLocus\> | required | per-locus (chrom, pos, logR, BAF) measurements | non-null; chrom non-null; finite logR; BAF ∈ [0,1] |
+| logRChangeThreshold, bafChangeThreshold, minLociPerSegment | double, double, int | required, 0.1, 1 | `SegmentAlleleSpecific` legacy parameters — **ignored** since B24 F35 (the method runs ASPCF at γ = 70; no ASPCF equivalent), still range-checked for compatibility | > 0, > 0, ≥ 1 |
 | penalty (ASPCF γ) | double | 70.0 | per-breakpoint penalty on the standardised cost (`ascat.aspcf`) | > 0, finite |
 | purity, ploidy (sub-clonal) | double | required | fitted ρ, ψ for the sub-clonal decomposition | ρ∈(0,1]; ψ>0 |
 | segments | IReadOnlyList\<AlleleSpecificSegmentSummary\> | required | segment summaries for the fit | non-empty; finite logR; BAF ∈ [0,1]; LocusCount ≥ 1; ≥ 1 autosomal |
@@ -169,16 +168,17 @@ a segment summary has constant SNP BAF, for which Battenberg sets pval = 0) [8].
 Positions are 0-based. Null `loci`/`segments` → `ArgumentNullException`; empty/malformed `segments` (or no autosomal
 segment) → `ArgumentException`; out-of-range thresholds, grid bounds, or multiplicity arguments →
 `ArgumentOutOfRangeException`; no acceptable ASCAT optimum → `InvalidOperationException` from `FitPurityPloidy`
-(`TryFitPurityPloidy` returns false). BAF is mirrored
-about 0.5 (b' = 0.5 + |b − 0.5|) during segmentation so the two symmetric het clusters reinforce.
+(`TryFitPurityPloidy` returns false). Both segmentation entry points (`SegmentAlleleSpecific` delegates to
+`SegmentAlleleSpecificAspcf`) reject a locus with a non-finite logR or a BAF outside [0, 1] (`ArgumentException`). BAF is
+mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentation so the two symmetric het clusters reinforce.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
-1. **Segment:** scan loci in order; start a new segment on chromosome change, on a logR mean-shift, OR on a
-   (mirrored) BAF mean-shift (after `minLociPerSegment`). Summarise each run by mean logR and mirrored mean BAF.
-   Segmenting on BAF as well as logR is essential because copy-neutral LOH (e.g. 2:0) shares a balanced region's
+1. **Segment (ASPCF, `ascat.aspcf`):** per contiguous chromosome run, minimise the MAD-standardised joint logR +
+   mirrored-BAF squared error plus γ per breakpoint (kmin 6; γ = 70 for `SegmentAlleleSpecific`, B24 F35). Summarise
+   each segment by mean raw logR and the ASPCF mirrored BAF. Segmenting on BAF as well as logR is essential because copy-neutral LOH (e.g. 2:0) shares a balanced region's
    logR but not its BAF.
 2. **Fit (`runASCAT`):** build the distance matrix over the autosomal segments, collect strict 7 × 7 local minima
    through the four-pass filter cascade, keep the smallest distance (ρ > 1 ⇒ 1), emit the `seg_raw` integer
@@ -205,7 +205,6 @@ about 0.5 (b' = 0.5 + |b − 0.5|) during segmentation so the two symmetric het 
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| Segmentation (greedy) | O(L) | O(L) | L = loci |
 | ASPCF segmentation | O(L·W) per chromosome (W = 1000-locus window) | O(W) | windowed PCF DP [2][6] |
 | Purity/ploidy fit | O(P·Q·S) | O(P·Q + S) | P,Q = grid sizes (≤ 4·10⁶ cells), S = segments |
 | Multiplicity | O(1) | O(1) | closed form |
@@ -217,7 +216,7 @@ about 0.5 (b' = 0.5 + |b − 0.5|) during segmentation so the two symmetric het 
 
 **Implementation location:** [OncologyAnalyzer.CopyNumberPloidy.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CopyNumberPloidy.cs)
 
-- `OncologyAnalyzer.SegmentAlleleSpecific(...)`: greedy mean-shift segmentation of per-locus logR/BAF — a heuristic with no published reference (not ASPCF/CBS; one left-to-right pass, absolute thresholds, locus values not validated); use `SegmentAlleleSpecificAspcf` for the ASCAT path.
+- `OncologyAnalyzer.SegmentAlleleSpecific(...)`: `SegmentAlleleSpecificAspcf(loci, AspcfDefaultPenalty = 70)` (B24 F35). It formerly ran an unsourced greedy mean-shift heuristic; that heuristic was removed and its threshold parameters are now ignored (kept for source compatibility, still range-checked).
 - `OncologyAnalyzer.SegmentAlleleSpecificAspcf(...)`: ASCAT ASPCF (`ascat.aspcf` port).
 - `OncologyAnalyzer.FitPurityPloidy(...)` / `TryFitPurityPloidy(...)`: ASCAT `runASCAT` fit → ρ, ψ, ploidy, GoF, integer segments.
 - `OncologyAnalyzer.EvaluatePurityPloidy(...)`: ASCAT rho_manual/psi_manual path.
@@ -227,8 +226,8 @@ about 0.5 (b' = 0.5 + |b − 0.5|) during segmentation so the two symmetric het 
 ### 5.2 Current Behavior
 
 Single-sample ASCAT fit (runASCAT port, R-verified 150/150); ASPCF = `ascat.aspcf` port (R-verified 60/60);
-sub-clonal = Battenberg `determine_copynumber` port (R-verified 402/402). The greedy mean-shift segmenter is kept as
-a lightweight alternative (not ASCAT). Not a search/matching task, so the repository
+sub-clonal = Battenberg `determine_copynumber` port (R-verified 402/402). `SegmentAlleleSpecific` runs the same ASPCF
+at ASCAT's default penalty 70 (the former greedy heuristic was removed, B24 F35). Not a search/matching task, so the repository
 suffix tree is **not used** (no occurrence enumeration).
 
 ### 5.3 Conformance to Theory / Spec
@@ -260,7 +259,7 @@ suffix tree is **not used** (no occurrence enumeration).
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Greedy mean-shift segmentation retained alongside ASPCF | Deviation | breakpoint sensitivity of the greedy path | accepted | ASPCF (`SegmentAlleleSpecificAspcf`) is the ASCAT path [2] |
+| 1 | ~~Greedy mean-shift segmentation retained alongside ASPCF~~ | Deviation | — | **resolved (B24 F35)** | `SegmentAlleleSpecific` now delegates to ASPCF (`ascat.aspcf`, penalty 70) [2]; legacy thresholds ignored |
 | 2 | Segment summaries instead of probes | Assumption | no homozygous-probe logR, no haploid X/Y model | accepted | see §5.3 |
 | 3 | No per-SNP t-test in the sub-clonal fit | Assumption | clonality by maxdist only | accepted | constant-BAF branch of Battenberg [8] |
 | 4 | `PurityPloidyFit.Ploidy` = probe-weighted mean integer CN over heterozygous probes | Assumption | ASCAT averages over all probes | accepted | `Psi` carries ψ |
@@ -298,8 +297,8 @@ minimum passes the filters — use `TryFitPurityPloidy`, or `EvaluatePurityPloid
 
 ```csharp
 var loci = /* per-locus (chrom, pos, logR, BAF) measurements */;
-var summaries = OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2);
-var summaries2 = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci); // ASCAT ASPCF segmentation
+var summaries2 = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci); // ASCAT ASPCF segmentation (penalty 70)
+// SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2) returns the same (legacy name; thresholds ignored, F35)
 var fit = OncologyAnalyzer.FitPurityPloidy(summaries2);         // → ρ, ψ, integer segments (throws if ASCAT finds none)
 double ploidy = OncologyAnalyzer.EstimatePloidy(fit.Segments);  // downstream consumer
 var seg = fit.Segments[0];

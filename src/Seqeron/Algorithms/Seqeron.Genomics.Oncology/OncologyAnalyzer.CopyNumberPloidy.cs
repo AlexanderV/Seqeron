@@ -1575,29 +1575,29 @@ public static partial class OncologyAnalyzer
 
     /// <summary>
     /// Segments per-locus allele-specific signal (logR, BAF) into contiguous regions, producing one
-    /// (mean logR, mean BAF) summary per segment, with a deterministic <b>greedy joint mean-shift heuristic</b> on the
-    /// logR and the (mirrored) BAF tracks. <b>This is not ASPCF or CBS</b> and has no published reference
-    /// implementation: it is a single left-to-right pass with caller-chosen absolute thresholds, no noise
-    /// standardisation and no global (penalised least-squares) optimisation, so its breakpoints differ from ASCAT's.
-    /// For the published allele-specific segmentation (ASCAT <c>ascat.aspcf</c>; Nilsen et al. 2012, <i>BMC Genomics</i>
-    /// 13:591; Ross et al. 2021) use <see cref="SegmentAlleleSpecificAspcf"/>. Rule: a new
-    /// segment starts when the next locus's logR deviates from the running segment mean by more than
-    /// <paramref name="logRChangeThreshold"/>, OR its mirrored BAF deviates by more than
-    /// <paramref name="bafChangeThreshold"/>, or when the chromosome changes. Segmenting on BAF as well as logR is
-    /// essential: a copy-neutral LOH region (e.g. 2:0) has the same logR as a balanced 1:1 region but a very
-    /// different BAF, so a logR-only scan would wrongly merge them. The BAF is "folded" to its distance from 0.5
-    /// and re-centred (b' = 0.5 + |b − 0.5|) before averaging so that the two symmetric heterozygous BAF clusters
-    /// (b and 1 − b) do not cancel — the standard mirrored-BAF summary used by allele-specific callers.
-    /// Unlike <see cref="SegmentAlleleSpecificAspcf"/>, locus values are not validated (a BAF outside [0, 1] yields a
-    /// folded mean above 1, which <see cref="FitPurityPloidy"/> then rejects).
+    /// (mean logR, mirrored BAF) summary per segment, by running the published ASCAT allele-specific segmentation
+    /// (<c>ascat.aspcf</c>, VanLoo-lab/ascat ascat.aspcf.R; Nilsen et al. 2012, <i>BMC Genomics</i> 13:591; Ross et al.
+    /// 2021, <i>Bioinformatics</i> 37:1909) with ASCAT's default penalty
+    /// (<see cref="AspcfDefaultPenalty"/> = 70). It is exactly
+    /// <c><see cref="SegmentAlleleSpecificAspcf"/>(loci, <see cref="AspcfDefaultPenalty"/>)</c>.
+    /// <para>
+    /// Compatibility (B24 F35): this name formerly ran an unsourced greedy left-to-right mean-shift heuristic with
+    /// caller-chosen absolute thresholds. That heuristic has no published reference and was replaced; the threshold
+    /// parameters below have no ASPCF meaning (ASPCF's cost is MAD-standardised and penalised, with the fixed minimum
+    /// segment length kmin = 6) and are <b>ignored</b> — they are kept, and still range-checked, only so existing call
+    /// sites keep compiling and keep their argument-validation behaviour. Pass a penalty to
+    /// <see cref="SegmentAlleleSpecificAspcf"/> to tune the segmentation.
+    /// </para>
     /// </summary>
-    /// <param name="loci">Per-locus measurements; processed in input order within each chromosome.</param>
-    /// <param name="logRChangeThreshold">logR mean-shift threshold that starts a new segment. Must be &gt; 0.</param>
-    /// <param name="bafChangeThreshold">Mirrored-BAF mean-shift threshold that starts a new segment. Must be &gt; 0.</param>
-    /// <param name="minLociPerSegment">Minimum loci a running segment must have before a change can split it. Must be ≥ 1.</param>
-    /// <returns>The segment summaries in input order.</returns>
+    /// <param name="loci">Per-locus measurements; processed in input order within each chromosome. LogR must be
+    /// finite and BAF in [0, 1] (as <see cref="SegmentAlleleSpecificAspcf"/>).</param>
+    /// <param name="logRChangeThreshold">Ignored (former greedy-heuristic logR threshold; no ASPCF equivalent). Must be &gt; 0.</param>
+    /// <param name="bafChangeThreshold">Ignored (former greedy-heuristic BAF threshold; no ASPCF equivalent). Must be &gt; 0.</param>
+    /// <param name="minLociPerSegment">Ignored (ASPCF uses ASCAT's fixed kmin = 6). Must be ≥ 1.</param>
+    /// <returns>The ASPCF segment summaries (mean raw logR, ASPCF mirrored BAF) in input order.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">a threshold ≤ 0 or minLociPerSegment &lt; 1.</exception>
+    /// <exception cref="ArgumentException">a locus has a null chromosome label, a non-finite logR or a BAF outside [0, 1].</exception>
+    /// <exception cref="ArgumentOutOfRangeException">a threshold ≤ 0 or NaN, or minLociPerSegment &lt; 1.</exception>
     public static IReadOnlyList<AlleleSpecificSegmentSummary> SegmentAlleleSpecific(
         IEnumerable<AlleleSpecificLocus> loci,
         double logRChangeThreshold,
@@ -1624,69 +1624,7 @@ public static partial class OncologyAnalyzer
                 nameof(minLociPerSegment), minLociPerSegment, "At least one locus per segment is required.");
         }
 
-        var result = new List<AlleleSpecificSegmentSummary>();
-        var current = new List<AlleleSpecificLocus>();
-        double runningLogRSum = 0.0;
-        double runningFoldedBafSum = 0.0;
-
-        foreach (AlleleSpecificLocus locus in loci)
-        {
-            if (locus.Chromosome is null)
-            {
-                throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
-            }
-
-            double foldedBaf = FoldBafAboutHalf(locus.BAF);
-            bool chromosomeChanged = current.Count > 0 && current[^1].Chromosome != locus.Chromosome;
-            bool meanShift = false;
-            if (!chromosomeChanged && current.Count >= minLociPerSegment)
-            {
-                double currentLogRMean = runningLogRSum / current.Count;
-                double currentBafMean = runningFoldedBafSum / current.Count;
-                // ASPCF/CBS joint mean-shift: split on a logR change OR a (mirrored) BAF change.
-                meanShift = Math.Abs(locus.LogR - currentLogRMean) > logRChangeThreshold
-                            || Math.Abs(foldedBaf - currentBafMean) > bafChangeThreshold;
-            }
-
-            if ((chromosomeChanged || meanShift) && current.Count > 0)
-            {
-                result.Add(BuildSegmentSummary(current, runningLogRSum, runningFoldedBafSum));
-                current = new List<AlleleSpecificLocus>();
-                runningLogRSum = 0.0;
-                runningFoldedBafSum = 0.0;
-            }
-
-            current.Add(locus);
-            runningLogRSum += locus.LogR;
-            runningFoldedBafSum += foldedBaf;
-        }
-
-        if (current.Count > 0)
-        {
-            result.Add(BuildSegmentSummary(current, runningLogRSum, runningFoldedBafSum));
-        }
-
-        return result;
-    }
-
-    /// <summary>Greedy-segmenter BAF fold: b' = 0.5 + |b − 0.5|, so the two symmetric het clusters (b, 1−b) reinforce
-    /// instead of cancel when averaged.</summary>
-    private static double FoldBafAboutHalf(double baf) => BalancedBaf + Math.Abs(baf - BalancedBaf);
-
-    /// <summary>
-    /// Builds a (mean logR, mirrored-mean BAF) summary from a non-empty run of same-chromosome loci, given the run's
-    /// logR sum and folded-BAF sum (accumulated in locus order by the caller).
-    /// </summary>
-    private static AlleleSpecificSegmentSummary BuildSegmentSummary(
-        List<AlleleSpecificLocus> loci, double logRSum, double foldedBafSum)
-    {
-        return new AlleleSpecificSegmentSummary(
-            Chromosome: loci[0].Chromosome,
-            Start: loci[0].Position,
-            End: loci[^1].Position,
-            MeanLogR: logRSum / loci.Count,
-            MeanBAF: foldedBafSum / loci.Count,
-            LocusCount: loci.Count);
+        return SegmentAlleleSpecificAspcf(loci, AspcfDefaultPenalty);
     }
 
     /// <summary>
