@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Seqeron.Genomics.Core;
 
@@ -339,8 +341,19 @@ public static class SequenceExtensions
     #region Span-based K-mer Operations
 
     /// <summary>
-    /// Counts k-mers using span-based iteration (memory efficient).
+    /// Counts the L − k + 1 overlapping k-mers of <paramref name="sequence"/> (case-insensitive; keys are
+    /// upper-case).
     /// </summary>
+    /// <remarks>
+    /// The input is upper-cased once (ASCII letters only, see <see cref="ToUpperAscii(char)"/>), and each
+    /// window is looked up as a span through <see cref="Dictionary{TKey,TValue}.GetAlternateLookup{TAlternateKey}"/>
+    /// with <see cref="CollectionsMarshal.GetValueRefOrAddDefault{TKey,TValue,TAlternateKey}"/>, so a string is
+    /// allocated only for the first occurrence of each distinct k-mer (previously one string per window, two
+    /// for lower-case input). Keys enumerate in order of first occurrence. Non-ASCII characters are kept as
+    /// they are: U+017F 'ſ' is not counted as 'S' (Seqeron alphabets are ASCII; consistent with
+    /// <c>IupacDnaSequence</c> and <c>CalculateGcFraction</c>).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> ≤ 0.</exception>
     public static Dictionary<string, int> CountKmersSpan(this ReadOnlySpan<char> sequence, int k)
     {
         if (k <= 0)
@@ -351,17 +364,49 @@ public static class SequenceExtensions
         if (sequence.Length < k)
             return counts;
 
-        for (int i = 0; i <= sequence.Length - k; i++)
+        if (sequence.IndexOfAnyInRange('a', 'z') < 0)
         {
-            var kmer = sequence.Slice(i, k);
-            var kmerStr = new string(kmer).ToUpperInvariant();
-
-            if (!counts.TryAdd(kmerStr, 1))
-                counts[kmerStr]++;
+            CountUpperCaseWindows(sequence, k, counts);
+        }
+        else if (sequence.Length <= StackallocCharThreshold)
+        {
+            Span<char> buffer = stackalloc char[sequence.Length];
+            CopyToUpperAscii(sequence, buffer);
+            CountUpperCaseWindows(buffer, k, counts);
+        }
+        else
+        {
+            char[] rented = ArrayPool<char>.Shared.Rent(sequence.Length);
+            try
+            {
+                Span<char> buffer = rented.AsSpan(0, sequence.Length);
+                CopyToUpperAscii(sequence, buffer);
+                CountUpperCaseWindows(buffer, k, counts);
+            }
+            finally
+            {
+                ArrayPool<char>.Shared.Return(rented);
+            }
         }
 
         return counts;
     }
+
+    private static void CopyToUpperAscii(ReadOnlySpan<char> source, Span<char> destination)
+    {
+        for (int i = 0; i < source.Length; i++)
+            destination[i] = ToUpperAscii(source[i]);
+    }
+
+    /// <summary>Adds every window of the already upper-cased <paramref name="upper"/> to <paramref name="counts"/>.</summary>
+    private static void CountUpperCaseWindows(ReadOnlySpan<char> upper, int k, Dictionary<string, int> counts)
+    {
+        var lookup = counts.GetAlternateLookup<ReadOnlySpan<char>>();
+        for (int i = 0; i <= upper.Length - k; i++)
+            CollectionsMarshal.GetValueRefOrAddDefault(lookup, upper.Slice(i, k), out _)++;
+    }
+
+    private const int StackallocCharThreshold = 256;
 
     /// <summary>
     /// Enumerates k-mers without allocating strings (yields spans).
@@ -386,8 +431,15 @@ public static class SequenceExtensions
     #region Span-based Hamming Distance
 
     /// <summary>
-    /// Calculates Hamming distance between two spans of equal length.
+    /// Calculates Hamming distance between two spans of equal length (case-insensitive).
     /// </summary>
+    /// <remarks>
+    /// Number of positions whose characters differ after upper-casing ASCII letters only
+    /// (<see cref="ToUpperAscii(char)"/>), i.e. scipy <c>hamming(list(a.upper()), list(b.upper())) · n</c> for
+    /// ASCII input. Non-ASCII characters are compared as they are, so U+017F 'ſ' vs 'S' is a mismatch
+    /// (Seqeron alphabets are ASCII; consistent with <c>IupacDnaSequence</c> and <c>CalculateGcFraction</c>).
+    /// </remarks>
+    /// <exception cref="ArgumentException">The spans differ in length.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int HammingDistance(this ReadOnlySpan<char> s1, ReadOnlySpan<char> s2)
     {
@@ -397,7 +449,7 @@ public static class SequenceExtensions
         int distance = 0;
         for (int i = 0; i < s1.Length; i++)
         {
-            if (char.ToUpperInvariant(s1[i]) != char.ToUpperInvariant(s2[i]))
+            if (ToUpperAscii(s1[i]) != ToUpperAscii(s2[i]))
                 distance++;
         }
 
