@@ -123,11 +123,11 @@ Collection overloads aggregate per-variant purities by median (lower-mid average
 
 **Intentionally simplified:**
 
-- Aggregation uses the median of per-variant point estimates; **consequence:** no model-fit confidence interval or joint ploidy estimate (unlike ABSOLUTE/FACETS) is produced.
+- Aggregation uses the median of per-variant point estimates; **consequence:** no model-fit confidence interval or joint ploidy estimate (unlike ABSOLUTE/FACETS, or `FitPurityPloidy`, ONCO-ASCAT-001) is produced.
 
 **Not implemented:**
 
-- Joint purity+ploidy+absolute-CN model fitting; **users should rely on:** ABSOLUTE [3] / FACETS [4] for genome-wide joint inference.
+- Joint purity+ploidy+absolute-CN model fitting inside this VAF estimator; **users should rely on:** `OncologyAnalyzer.FitPurityPloidy` (ONCO-ASCAT-001, ASCAT runASCAT port over segment logR/BAF, after `SegmentAlleleSpecificAspcf`) for the genome-wide joint fit; ABSOLUTE [3] / FACETS [4] remain external alternatives.
 
 ### 5.4 Deviations and Assumptions
 

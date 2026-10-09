@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-PLOIDY-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-10-09 |
 
 ## 1. Overview
 
@@ -32,8 +32,8 @@ frac_elevated_mcn = Σ_{i: mcn_i ≥ 2, chrom_i ∈ 1..22} L_i / G_autosomal;  W
 
 where mcn_i = tcn_i − lcn_i is the major-allele copy number (total minus the lesser/minor allele, i.e. max of the two allele copy numbers). The reference implementation (facets-suite `copy-number-scores.R`) computes `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])` with `chrom_info = get_sample_genome(segs, genome)`, whose per-chromosome `size = max(end) − min(start)` is the **interrogated span of the sample's own segments** (the `genome` build only supplies centromeres), and uses `treshold = 0.5` with the strict comparison `frac_elevated_mcn > treshold` [4]. Two denominators are therefore provided:
 
-- **facets-suite exact** (`DetectWholeGenomeDoublingFromSuppliedLength`): G_autosomal = Σ over autosomes present of (max End − min Start); gaps between a chromosome's first and last segment count in the denominator only.
-- **reference-assembly** (`DetectWholeGenomeDoubling`, default): G_autosomal = Σ_{c=1..22} of the reference chromosome size — 2,875,001,522 bp (GRCh38) / 2,881,033,286 bp (GRCh37), UCSC `*.chrom.sizes` [5]. This reads Bielski's "autosomal genome" literally and is robust to partial-genome inputs; it deviates from the facets-suite code whenever the segments do not span every autosome end-to-end (review 2026-09, F9).
+- **facets-suite (default)** (`DetectWholeGenomeDoubling(segments)`, identical to `DetectWholeGenomeDoublingFromSuppliedLength`): G_autosomal = Σ over autosomes present of (max End − min Start); gaps between a chromosome's first and last segment count in the denominator only. This is the reference implementation's call and is the default since review 2026-09 F32.
+- **reference-assembly option** (`DetectWholeGenomeDoubling(segments, ReferenceGenome)`, explicit): G_autosomal = Σ_{c=1..22} of the reference chromosome size — 2,875,001,522 bp (GRCh38) / 2,881,033,286 bp (GRCh37), UCSC `*.chrom.sizes` [5]. Robust to partial-genome inputs, but not the facets-suite call: the two agree only when the segments span every autosome end-to-end (R-confirmed, Evidence "F32").
 
 ### 2.4 Properties and Invariants
 
@@ -42,7 +42,7 @@ where mcn_i = tcn_i − lcn_i is the major-allele copy number (total minus the l
 | INV-01 | ψ > 0 for any non-empty valid genome with at least one positive copy number | weighted mean of non-negative CN with positive total length [1] |
 | INV-02 | a genome of pure 1:1 segments has ψ = 2.0 exactly | every CN_i = 2, so the weighted mean is 2 (n-scale 2n diploid) [1][2] |
 | INV-03 | min_i CN_i ≤ ψ ≤ max_i CN_i | a length-weighted mean lies within the value range [1] |
-| INV-04 | WGD = true ⇔ (Σ autosomal length where major CN ≥ 2) / G_autosomal > 0.5 | direct definition; strict threshold against the reference chromosome-size table [3][4][5] |
+| INV-04 | WGD = true ⇔ (Σ autosomal length where major CN ≥ 2) / G_autosomal > 0.5 | direct definition; strict threshold; G_autosomal = interrogated autosomal span (default, facets-suite) or the reference chromosome-size table (explicit option) [3][4][5] |
 
 ## 3. Contract
 
@@ -50,26 +50,26 @@ where mcn_i = tcn_i − lcn_i is the major-allele copy number (total minus the l
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| segments | `IEnumerable<AlleleSpecificSegment>` | required | Allele-specific copy-number segments; total CN = Major+Minor, length = End−Start | non-null; each segment End > Start, Major ≥ 0, Minor ≥ 0. `EstimatePloidy` requires non-empty (ψ undefined for Σ L = 0); `DetectWholeGenomeDoubling` accepts empty (fixed reference denominator) |
-| genome | `ReferenceGenome` | `GRCh38` | Reference assembly whose autosomal chromosome-size table is the WGD fraction denominator (GRCh38 or GRCh37) | enum value; `DetectWholeGenomeDoubling` only |
+| segments | `IEnumerable<AlleleSpecificSegment>` | required | Allele-specific copy-number segments; total CN = Major+Minor, length = End−Start | non-null; each segment End > Start, Major ≥ 0, Minor ≥ 0. `EstimatePloidy` requires non-empty (ψ undefined for Σ L = 0); default `DetectWholeGenomeDoubling` requires ≥ 1 autosomal segment (facets 0/0 → NA); the `ReferenceGenome` overload accepts empty (fixed reference denominator) |
+| genome | `ReferenceGenome` | — (overload) | Selects the explicit reference-assembly WGD denominator (GRCh38 or GRCh37 autosomal chromosome-size table); omit for the facets-suite default | enum value; `DetectWholeGenomeDoubling(segments, genome)` only |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `EstimatePloidy` → ψ | `double` | Length-weighted average ploidy on the n-scale (2n = diploid) |
-| `DetectWholeGenomeDoubling` → wgd | `bool` | `true` when > 50% of the reference autosomal genome (by length) has major CN ≥ 2 |
+| `DetectWholeGenomeDoubling` → wgd | `bool` | `true` when > 50% of the interrogated autosomal genome (default; or of the reference autosomal genome with a `ReferenceGenome`) has major CN ≥ 2 |
 
 ### 3.3 Preconditions and Validation
 
-Coordinates are half-open [Start, End) with length End − Start in base pairs (per the shared `AlleleSpecificSegment`). `segments` null → `ArgumentNullException`. A segment with End ≤ Start (length ≤ 0) or a negative copy number → `ArgumentException`; both methods share the same per-segment validation (`ValidateSegment`). `EstimatePloidy` additionally rejects an empty segment set (ψ is undefined for Σ L = 0). `DetectWholeGenomeDoubling` divides by the fixed reference autosomal genome length, so an empty set yields numerator 0 → fraction 0 → `false` (no exception); an undefined `ReferenceGenome` value → `ArgumentOutOfRangeException`. `DetectWholeGenomeDoublingFromSuppliedLength` (facets-suite exact) rejects input with no autosomal segment (empty included) with `ArgumentException` — its interrogated-span denominator is 0 (R: 0/0 → `NA`).
+Coordinates are half-open [Start, End) with length End − Start in base pairs (per the shared `AlleleSpecificSegment`). `segments` null → `ArgumentNullException`. A segment with End ≤ Start (length ≤ 0) or a negative copy number → `ArgumentException`; both methods share the same per-segment validation (`ValidateSegment`). `EstimatePloidy` additionally rejects an empty segment set (ψ is undefined for Σ L = 0). The default `DetectWholeGenomeDoubling(segments)` and `DetectWholeGenomeDoublingFromSuppliedLength` (facets-suite) reject input with no autosomal segment (empty included) with `ArgumentException` — the interrogated-span denominator is 0 (R: 0/0 → `NA`). `DetectWholeGenomeDoubling(segments, ReferenceGenome)` divides by the fixed reference autosomal genome length, so an empty set yields numerator 0 → fraction 0 → `false` (no exception); an undefined `ReferenceGenome` value → `ArgumentOutOfRangeException`.
 
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
 
 1. For each segment, validate (End > Start, non-negative CN) and accumulate the length and (for ploidy) the product CN_i · L_i; (for WGD) accumulate length where major CN ≥ 2 **on autosomes (chr1–22 only)**.
-2. Ploidy: if total length is 0 (empty input), reject. WGD: look up the reference autosomal genome length G_autosomal from the embedded chromosome-size table for the selected `ReferenceGenome`.
+2. Ploidy: if total length is 0 (empty input), reject. WGD: G_autosomal = Σ per-autosome interrogated span max(End) − min(Start) (default, facets-suite `get_sample_genome`; 0 → reject), or the embedded chromosome-size table of the selected `ReferenceGenome` (explicit option).
 3. Ploidy: return Σ(CN·L) / Σ(L). WGD: return (elevated autosomal length / G_autosomal) > 0.5.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
@@ -97,8 +97,9 @@ Coordinates are half-open [Start, End) with length End − Start in base pairs (
 - `OncologyAnalyzer.EstimatePloidy(IEnumerable<AlleleSpecificSegment>)`: length-weighted average ploidy ψ.
 - `OncologyAnalyzer.EstimatePloidy(IEnumerable<AlleleSpecificSegment>, IEnumerable<int> probeCounts)`: ASCAT probe-count-weighted ploidy Σ(CN_i·n_i)/Σn_i (runASCAT) [6]; also used by `FitPurityPloidy` for `PurityPloidyFit.Ploidy`.
 - `OncologyAnalyzer.ComputeAscatGenomeMetrics(IEnumerable<AlleleSpecificSegment>)` → `AscatGenomeMetrics(ModeMinorAllele, ModeMajorAllele, WgdStatus, GenomicInstability, LossOfHeterozygosity)`: ASCAT `ascat.metrics` `mode_minA`/`mode_majA`/`WGD` (NA/0/1/1+)/`GI`/`LOH` [6].
-- `OncologyAnalyzer.DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>, ReferenceGenome = GRCh38)`: WGD flag via the Bielski/facets-suite major-CN≥2 / >50% rule, against the reference autosomal chromosome-size table.
-- `OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment>)`: WGD flag exactly as facets-suite `is_genome_doubled(segs, get_sample_genome(segs))` — denominator Σ over autosomes of the interrogated span (max End − min Start); non-autosomal segments ignored.
+- `OncologyAnalyzer.DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>)` (default): WGD flag exactly as facets-suite `is_genome_doubled(segs, get_sample_genome(segs))` — denominator Σ over autosomes of the interrogated span (max End − min Start); non-autosomal segments ignored (F32).
+- `OncologyAnalyzer.DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>, ReferenceGenome)`: explicit option — same numerator/threshold against the reference autosomal chromosome-size table.
+- `OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment>)`: the same facets-suite call as the default (kept for existing callers).
 - `OncologyAnalyzer.GetAutosomeLengths(ReferenceGenome)` / `GetAutosomalGenomeLength(ReferenceGenome)`: the embedded reference chromosome-size table and its autosomal sum.
 
 ### 5.2 Current Behavior
@@ -111,8 +112,8 @@ Both methods stream the input in a single pass and reuse the existing `AlleleSpe
 
 - Average ploidy ψ = Σ(CN_i · L_i) / Σ(L_i), CN_i = Major+Minor — Patchwork length-weighted mean of total copy number [1].
 - WGD ⇔ fraction of genome with major CN ≥ 2 (mcn = tcn − lcn) strictly > 0.5 — facets-suite `is_genome_doubled` (PMID 30013179) [3][4].
-- `DetectWholeGenomeDoublingFromSuppliedLength`: facets-suite `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])` with `chrom_info = get_sample_genome(segs)` (size = max(end) − min(start)), numerator restricted to autosomes — line-by-line equal to the R code (Python port cross-check, review 2026-09) [4].
-- `DetectWholeGenomeDoubling`: same numerator/threshold; denominator = reference autosomal length from the embedded UCSC `*.chrom.sizes` tables (GRCh38/GRCh37) [5] — see §5.4 #1.
+- `DetectWholeGenomeDoubling(segments)` (default, F32) = `DetectWholeGenomeDoublingFromSuppliedLength`: facets-suite `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])` with `chrom_info = get_sample_genome(segs)` (size = max(end) − min(start)), numerator restricted to autosomes — line-by-line equal to the R code (Python port cross-check, review 2026-09; the real R functions sourced from facets-suite master on 6 genomes incl. gapped / telomere-trimmed / chrX inputs, review 2026-09 F32 — Evidence) [4].
+- `DetectWholeGenomeDoubling(segments, ReferenceGenome)` (explicit option): same numerator/threshold; denominator = reference autosomal length from the embedded UCSC `*.chrom.sizes` tables (GRCh38/GRCh37) [5] — see §5.4 #1.
 - `EstimatePloidy(segments, probeCounts)` (review 2026-09, F31): ASCAT runASCAT `ploidy = sum((nA+nB)*s[,"length"])/sum(s[,"length"])` (l. 283, length = #probes of each `make_segments` segment) = the reported `mean(nA+nB, na.rm=TRUE)` over probes (l. 98) [6]. R cross-check: `mean(rep(c(2,4,3), c(1000,200,800)))` = 2.6000000000000001 (bp-weighted default on the same segments: 3.0); 3000 random genomes bit-identical.
 - `ComputeAscatGenomeMetrics` (review 2026-09, F30): ASCAT `ascat.metrics` verbatim [6] — autosomes only (`setdiff(chrs, sexchromosomes)`, X/Y); `modeAllele`: `round`, cap 5, weight `(endpos−startpos)/1e6` (no +1) summed per value, stable decreasing `order` + `which.max` ⇒ ties go to the smaller copy number; WGD: mode_majA 0 → NA, 1 → "0", 2 → "1", 3–5 → "1+"; `computeGIscore`: `round(1 − Σsize[nMajor=b ∧ nMinor=b]/Σsize, 4)`, size = `endpos−startpos+1`, b = 1 (WGD 0) or 2 (WGD 1 / 1+); LOH = `round(Σsize[nMinor=0]/Σsize, 4)`. Bit-identical to the R function on 9 hand-built genomes (tie, NA, cap, sex-chromosome cases) and 3000 random genomes (108 exact mode ties).
 
@@ -122,13 +123,13 @@ Both methods stream the input in a single pass and reuse the existing `AlleleSpe
 
 **Not implemented:**
 
-- Inference of allele-specific copy numbers themselves (grid search over purity/ploidy); **users should rely on:** an upstream segmenter (ASCAT/FACETS) to produce `AlleleSpecificSegment` inputs.
+- (none for this unit's scope.) Allele-specific copy numbers themselves are inferred by ONCO-ASCAT-001, not here: `SegmentAlleleSpecificAspcf` (ASCAT ASPCF segmentation) → `FitPurityPloidy` (ASCAT runASCAT purity/ploidy grid search; `PurityPloidyFit.Segments` are `AlleleSpecificSegment`s ready for `EstimatePloidy` / `DetectWholeGenomeDoubling`). An external segmenter (ASCAT/FACETS) can still supply the segments.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | `DetectWholeGenomeDoubling` denominator = reference autosomal genome length (chromosome-size table) | Deviation | Differs from facets-suite code (`get_sample_genome` interrogated span) when segments do not span each autosome end-to-end | documented 2026-09-28 | The 2026-06-22 claim that facets-suite uses a reference table was a misreading (`chrom_info` is `get_sample_genome(segs)`); the exact facets rule is `DetectWholeGenomeDoublingFromSuppliedLength` (fixed in review 2026-09, F9) |
+| 1 | WGD denominator: default = facets-suite interrogated span; reference-assembly length only via the explicit `ReferenceGenome` overload | Resolved | Default call now equals facets-suite `is_genome_doubled(segs, get_sample_genome(segs))`; the reference-assembly option differs when segments do not span each autosome end-to-end | resolved 2026-10-09 (review 2026-09 F32) | The 2026-06-22 reference-table default rested on a misreading of facets-suite (`chrom_info` is `get_sample_genome(segs)`, F9); F32 made the reference's denominator the default (R-confirmed) and kept the reference-assembly denominator as an explicit option |
 | 2 | Registry lists `DetectWholeGenomeDoubling(ploidy)` (scalar); canonical method takes segments | Deviation | API shape differs from registry stub | accepted | The cited WGD definition (major CN ≥ 2 over >50% genome) requires per-segment data, not a scalar ploidy |
 
 ## 6. Edge Cases and Limitations
@@ -137,22 +138,22 @@ Both methods stream the input in a single pass and reuse the existing `AlleleSpe
 
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
-| Only non-autosomal segments | `DetectWholeGenomeDoublingFromSuppliedLength` → `ArgumentException` | facets-suite 0/0 → `NA` [4] |
-| Gap between segments of one chromosome | facets-exact: gap counted in denominator (60 Mb elevated over a 140 Mb span → 0.43 → false) | `get_sample_genome` size = max(end) − min(start) [4] |
+| Only non-autosomal segments | default `DetectWholeGenomeDoubling` / `…FromSuppliedLength` → `ArgumentException` | facets-suite 0/0 → `NA` [4] |
+| Gap between segments of one chromosome | default (facets): gap counted in denominator (60 Mb elevated over a 140 Mb span → 0.43 → false) | `get_sample_genome` size = max(end) − min(start) [4] |
 | Allele labels swapped (Major < Minor) | mcn = max(Major, Minor) | mcn = tcn − lcn, lcn = lesser allele [4] |
-| Empty segment set | `EstimatePloidy` → `ArgumentException`; `DetectWholeGenomeDoubling` → `false` | ψ undefined (Σ L = 0); WGD numerator 0 over a fixed reference denominator [1][4] |
+| Empty segment set | `EstimatePloidy` → `ArgumentException`; default `DetectWholeGenomeDoubling` → `ArgumentException`; `ReferenceGenome` overload → `false` | ψ undefined (Σ L = 0); facets 0/0 → NA; numerator 0 over a fixed reference denominator [1][4] |
 | Segment End ≤ Start | `ArgumentException` | non-positive length is invalid input |
 | Negative copy number | `ArgumentException` | invalid input |
 | All 1:1 autosomal segments | ψ = 2.0; WGD = false | total CN 2 but major CN 1 < 2 [1][4] |
-| Exactly half the GRCh38 autosomal genome at major CN ≥ 2 | WGD = false | strict `>` 0.5 against G_autosomal [4][5] |
-| Just over half the reference autosomal genome at major CN ≥ 2 | WGD = true | frac > 0.5 [4][5] |
-| Small fully-amplified region (e.g. 100 Mb, genome not tiled) | WGD = false | 100 Mb / 2.875 Gb ≈ 0.035 < 0.5 — reference denominator removes supplied-segment bias [4][5] |
+| Exactly half the GRCh38 autosomal genome at major CN ≥ 2 (`ReferenceGenome` overload) | WGD = false | strict `>` 0.5 against G_autosomal [4][5] |
+| Just over half the reference autosomal genome at major CN ≥ 2 (`ReferenceGenome` overload) | WGD = true | frac > 0.5 [4][5] |
+| Small fully-amplified region (e.g. 100 Mb, genome not tiled) | default (facets): WGD = true (100/100 Mb); `ReferenceGenome` overload: false | facets divides by the interrogated span; 100 Mb / 2.875 Gb ≈ 0.035 < 0.5 against the reference [4][5] |
 | chrX/chrY amplified, no autosomal elevation | WGD = false | numerator restricted to autosomes (chr1–22) [4][5] |
 | 2:0 (LOH) over >50% of the autosomal genome | WGD = true | doubling uses major (not total) CN [4] |
 
 ### 6.2 Limitations
 
-Average ploidy and WGD are summary statistics over the supplied segments; they do not infer copy numbers and do not separate clonal/subclonal copy-number states. `EstimatePloidy` is still a length-weighted mean over whatever segments are supplied (it assumes they represent the genome of interest). WGD now uses the reference autosomal genome length as the denominator, so it is robust to partial-genome inputs; the caller must select the `ReferenceGenome` matching the coordinate system of its segments (GRCh38 default). The n-scale interpretation (2n = diploid) presumes a diploid reference [2].
+Average ploidy and WGD are summary statistics over the supplied segments; they do not infer copy numbers and do not separate clonal/subclonal copy-number states. `EstimatePloidy` is still a length-weighted mean over whatever segments are supplied (it assumes they represent the genome of interest). The default WGD call divides by the interrogated autosomal span exactly as facets-suite does, so it judges only the genome the segments cover (a partial-genome input is judged on its own span); callers who want partial inputs judged against the whole autosomal genome pass the `ReferenceGenome` matching their coordinates to the explicit overload. The n-scale interpretation (2n = diploid) presumes a diploid reference [2].
 
 ## 7. Examples and Related Material
 
@@ -161,7 +162,9 @@ Average ploidy and WGD are summary statistics over the supplied segments; they d
 **Ploidy walk-through:** segments with total CN 2 (1:1, 100 Mb), 4 (2:2, 100 Mb), 3 (2:1, 50 Mb):
 ψ = (2·100 + 4·100 + 3·50) Mb / (100+100+50) Mb = 750 / 250 = **3.0** [1].
 
-**WGD walk-through (reference denominator):** the GRCh38 autosomal genome is G = 2,875,001,522 bp (half = 1,437,500,761 bp) [5]. A single autosomal segment of 1,437,500,762 bp at major CN 2 gives 1,437,500,762 / G > 0.5 → **doubled**; at exactly 1,437,500,761 bp the fraction is 0.5, not > 0.5 → **not doubled** (strict) [4]. The same 150 Mb of major-CN≥2 from the ploidy example is only 150 Mb / 2.875 Gb ≈ 0.052 → **not doubled**, because the segments do not tile the genome.
+**WGD walk-through (default = facets-suite span):** the three segments above span chr1 100 + chr2 100 + chr3 50 = 250 Mb; 150 Mb has major CN ≥ 2 → 150/250 = 0.60 > 0.5 → **doubled** [4].
+
+**WGD walk-through (explicit reference-assembly option):** the GRCh38 autosomal genome is G = 2,875,001,522 bp (half = 1,437,500,761 bp) [5]. A single autosomal segment of 1,437,500,762 bp at major CN 2 gives 1,437,500,762 / G > 0.5 → **doubled**; at exactly 1,437,500,761 bp the fraction is 0.5, not > 0.5 → **not doubled** (strict) [4]. The same 150 Mb of major-CN≥2 from the ploidy example is only 150 Mb / 2.875 Gb ≈ 0.052 → **not doubled**, because the segments do not tile the genome.
 
 **API usage example:**
 
@@ -173,10 +176,10 @@ var segments = new[]
     new OncologyAnalyzer.AlleleSpecificSegment("3", 0,  50_000_000, 2, 1),
 };
 double ploidy = OncologyAnalyzer.EstimatePloidy(segments);          // 3.0
-// Against the GRCh38 autosomal genome (2.875 Gb), 150 Mb at major CN ≥ 2 ≈ 5% → not doubled.
-bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);    // false (GRCh38 default)
-// facets-suite exact (interrogated spans chr1 100 + chr2 100 + chr3 50 Mb): 150/250 = 0.60 > 0.5 → doubled.
-bool wgdFacets = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments); // true
+// Default = facets-suite (interrogated spans chr1 100 + chr2 100 + chr3 50 Mb): 150/250 = 0.60 > 0.5 → doubled.
+bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);    // true
+// Explicit reference-assembly option: 150 Mb / 2.875 Gb (GRCh38 autosomes) ≈ 5% → not doubled.
+bool wgdRef = OncologyAnalyzer.DetectWholeGenomeDoubling(segments, OncologyAnalyzer.ReferenceGenome.GRCh38); // false
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents

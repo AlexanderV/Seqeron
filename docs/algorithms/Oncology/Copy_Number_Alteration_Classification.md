@@ -129,7 +129,7 @@ This unit is the oncology classification layer. SV-CNV-001 (`StructuralVariantAn
 
 **Not implemented:**
 
-- Segmentation (CBS) and allele-specific (major/minor) copy number; **users should rely on:** `StructuralVariantAnalyzer.SegmentCopyNumber` for segmentation and ONCO-LOH-001 for allele-specific LOH.
+- Segmentation (CBS) and allele-specific (major/minor) copy number; **users should rely on:** `StructuralVariantAnalyzer.SegmentCopyNumber` for total-CN segmentation, ONCO-ASCAT-001 (`SegmentAlleleSpecificAspcf` → `FitPurityPloidy`) for allele-specific copy number, and ONCO-LOH-001 for allele-specific LOH.
 
 ### 5.4 Deviations and Assumptions
 

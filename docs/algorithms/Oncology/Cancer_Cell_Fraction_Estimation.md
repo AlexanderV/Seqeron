@@ -174,8 +174,9 @@ k × n exceeds 10⁸ backtrack cells are rejected (`ArgumentOutOfRangeException`
 
 ### 5.2 Current Behavior
 
-Multiplicity is a caller-supplied integer (multi-region/PICTograph convention); automatic multiplicity inference
-from VAF is out of scope. Clustering is the exact Ckmeans.1d.dp optimum (no seeding), so output is identical
+Multiplicity is an integer input of `EstimateCcf` (multi-region/PICTograph convention); it can be inferred from VAF,
+purity and local copy number with `OncologyAnalyzer.DeriveMultiplicity` (ONCO-ASCAT-001; facets-suite
+`expected_mutant_copies`, McGranahan 2016). Clustering is the exact Ckmeans.1d.dp optimum (no seeding), so output is identical
 across runs and independent of input order; cross-checked against the Ckmeans.1d.dp C++ code (ckwrap 1.2.3):
 2999/3000 random inputs bit-identical labels and centroids, 1 equal-WCSS tie broken differently (ckwrap uses the
 SMAWK row fill, this port the log-linear fill). No substring/pattern search is
@@ -196,7 +197,7 @@ involved, so the repository suffix tree is not applicable.
 **Not implemented:**
 
 - Posterior/uncertainty modeling of CCF; **users should rely on:** ONCO-CLONAL-001 `ClassifyClonality` (Bayesian grid posterior) when probabilistic CCF is needed.
-- Automatic multiplicity inference; **users should rely on:** caller-supplied integer multiplicity.
+- Multiplicity inference inside `EstimateCcf`; **users should rely on:** `OncologyAnalyzer.DeriveMultiplicity(vaf, purity, totalCopyNumber, majorCopyNumber)` (ONCO-ASCAT-001, facets-suite `expected_mutant_copies`) to derive m, then pass it to `EstimateCcf`.
 
 #### 5.3.B 1D CCF clustering
 

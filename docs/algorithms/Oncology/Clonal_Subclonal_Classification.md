@@ -126,11 +126,11 @@ The binomial likelihood is computed in log-space and the constant binomial coeff
 
 **Intentionally simplified:**
 
-- Multiplicity `M` is supplied by the caller rather than inferred; **consequence:** if the caller omits it, M = 1 (heterozygous SNV) is assumed, which can overestimate CCF for multi-copy mutant loci.
+- Multiplicity `M` is an input to `ClassifyClonality` rather than inferred inside it; derive it with `OncologyAnalyzer.DeriveMultiplicity` (ONCO-ASCAT-001, facets-suite `expected_mutant_copies`); **consequence:** if the caller omits it, M = 1 (heterozygous SNV) is assumed, which can overestimate CCF for multi-copy mutant loci.
 
 **Not implemented:**
 
-- CCF estimation itself beyond the internal posterior, and CCF clustering / subclone inference; **users should rely on:** ONCO-CCF-001 (`EstimateCCF`, `ClusterCCFValues`) once implemented.
+- Point CCF estimation and CCF clustering are not part of this unit; **users should rely on:** ONCO-CCF-001 `EstimateCcf` (McGranahan point CCF) and `ClusterCcfValues` (exact 1-D k-means, Ckmeans.1d.dp), both implemented; probabilistic subclone inference (PyClone/DPClust) remains external.
 
 ### 5.4 Deviations and Assumptions
 
