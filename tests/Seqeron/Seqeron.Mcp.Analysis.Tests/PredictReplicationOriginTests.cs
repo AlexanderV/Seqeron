@@ -44,4 +44,28 @@ public class PredictReplicationOriginTests
             Assert.That(r2.OriginSkew, Is.EqualTo(0.0).Within(1e-10));
         });
     }
+
+    // Finisher A1-2/A1-3: all BA1F minimizers (Rosalind sample answer "53 97"; maximizers [16, 20, 21]
+    // by python brute force) and the circular flag ("GGGCCC": linear minimizers [0, 6] → circular [0]).
+    [Test]
+    public void PredictReplicationOrigin_AllPositionsAndCircular()
+    {
+        const string ba1f =
+            "CCTATCGGTGGATTAGCATGTCCCTGTACGTTTCGCCGCGAACTAGTTCACACGGCTTGATGGCAAATGGTTTTTCCGGCGACCGTAATCGTCCACCGAG";
+        var r = AnalysisTools.PredictReplicationOrigin(ba1f);
+        var lin = AnalysisTools.PredictReplicationOrigin("GGGCCC");
+        var circ = AnalysisTools.PredictReplicationOrigin("GGGCCC", circular: true);
+        var circG = AnalysisTools.PredictReplicationOrigin("G", circular: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.OriginPositions, Is.EqualTo(new[] { 53, 97 }));
+            Assert.That(r.TerminusPositions, Is.EqualTo(new[] { 16, 20, 21 }));
+            Assert.That(r.PredictedOrigin, Is.EqualTo(53));
+            Assert.That(lin.OriginPositions, Is.EqualTo(new[] { 0, 6 }));
+            Assert.That(circ.OriginPositions, Is.EqualTo(new[] { 0 }));
+            Assert.That(circ.TerminusPositions, Is.EqualTo(new[] { 3 }));
+            Assert.That(circG.PredictedTerminus, Is.EqualTo(0));
+            Assert.That(AnalysisTools.PredictReplicationOrigin("G").PredictedTerminus, Is.EqualTo(1));
+        });
+    }
 }

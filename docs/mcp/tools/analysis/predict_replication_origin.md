@@ -18,7 +18,9 @@ Predicts the **replication origin and terminus** from cumulative GC-skew extrema
 origin is approximated by the prefix index where the cumulative skew is minimal, and
 the terminus by the index where it is maximal (Lobry 1996; Grigoriev 1998). Works best
 on complete circular bacterial genomes. Returns both predicted positions, their skew
-values, and whether the signal is significant.
+values, whether the signal is significant, and the full sets of minimizing/maximizing
+prefix indices (Rosalind BA1F returns all minimizers, e.g. `53 97` for its sample). With
+`circular: true` positions are reported modulo n.
 
 ## Core Documentation Reference
 
@@ -29,6 +31,7 @@ values, and whether the signal is significant.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | DNA sequence, ideally a complete circular genome (min length 1) |
+| `circular` | boolean | No | Treat the input as circular: prefix index n is the same junction as 0, positions reported mod n in [0, n−1] (default `false`: linear, [0, n]). Rotation-equivariant when total #G−#C = 0; otherwise the walk depends on the start |
 
 ## Output Schema
 
@@ -38,7 +41,9 @@ values, and whether the signal is significant.
 | `predictedTerminus` | integer | Prefix index of the cumulative-skew maximum |
 | `originSkew` | number | Cumulative skew at the origin |
 | `terminusSkew` | number | Cumulative skew at the terminus |
-| `isSignificant` | boolean | Whether the skew signal is significant |
+| `isSignificant` | boolean | Threshold-free: true when max > min (non-zero amplitude) |
+| `originPositions` | integer[] | All prefix indices minimizing the cumulative skew (Rosalind BA1F answer), ascending; first = `predictedOrigin` |
+| `terminusPositions` | integer[] | All prefix indices maximizing the cumulative skew, ascending; first = `predictedTerminus` |
 
 ## Errors
 
@@ -64,7 +69,7 @@ values, and whether the signal is significant.
 
 **Response:**
 ```json
-{ "predictedOrigin": 2, "predictedTerminus": 6, "originSkew": -2.0, "terminusSkew": 2.0 }
+{ "predictedOrigin": 2, "predictedTerminus": 6, "originSkew": -2.0, "terminusSkew": 2.0, "isSignificant": true, "originPositions": [2], "terminusPositions": [6] }
 ```
 The cumulative skew reaches its minimum (−2) after the two leading C's and its maximum
 (+2) at the end.
@@ -84,13 +89,14 @@ The cumulative skew reaches its minimum (−2) after the two leading C's and its
 
 **Response:**
 ```json
-{ "predictedOrigin": 0, "predictedTerminus": 3, "originSkew": 0.0, "terminusSkew": 3.0 }
+{ "predictedOrigin": 0, "predictedTerminus": 3, "originSkew": 0.0, "terminusSkew": 3.0, "isSignificant": true, "originPositions": [0, 6], "terminusPositions": [3] }
 ```
+With `"circular": true` the same input gives `"originPositions": [0]` (prefix 6 ≡ 0).
 
 ## Performance
 
 - **Time Complexity:** O(n).
-- **Space Complexity:** O(n) for the cumulative profile.
+- **Space Complexity:** O(1) for the prediction plus O(#ties) for the position lists.
 
 ## See Also
 

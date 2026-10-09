@@ -474,9 +474,13 @@ public static class GcSkewCalculator
     /// <b>terminus</b> (Lobry 1996; Grigoriev 1998; GC-skew Wikipedia citing both). Positions
     /// are 0-based prefix indices i ∈ [0, n], so position i refers to the boundary <i>before</i>
     /// base i, matching the Rosalind BA1F convention (its sample returns 53 and 97). When
-    /// several positions tie for the extreme value, the first (smallest index) is reported.
+    /// several positions tie for the extreme value, the first (smallest index) is reported; the
+    /// full BA1F answer (all minimizers / maximizers) is given by
+    /// <see cref="FindMinimumSkewPositions(DnaSequence,bool)"/> /
+    /// <see cref="FindMaximumSkewPositions(DnaSequence,bool)"/>.
     /// The input is treated as a linear string read from index 0 (Grigoriev's "arbitrary start");
-    /// for a circular chromosome prefix index n denotes the same junction as index 0.
+    /// for a circular chromosome prefix index n denotes the same junction as index 0 (use the
+    /// <see cref="PredictReplicationOrigin(DnaSequence,bool)"/> overload to report positions mod n).
     /// </remarks>
     /// <param name="sequence">DNA sequence (typically a complete bacterial chromosome).</param>
     /// <returns>Predicted origin and terminus positions and their cumulative skew values.
@@ -502,35 +506,325 @@ public static class GcSkewCalculator
         return PredictReplicationOriginCore(sequence.ToUpperInvariant());
     }
 
-    private static ReplicationOriginPrediction PredictReplicationOriginCore(string seq)
+    private static ReplicationOriginPrediction PredictReplicationOriginCore(string seq, bool circular = false)
     {
         if (seq.Length == 0)
             return new ReplicationOriginPrediction(0, 0, 0, 0, false);
 
-        // Skew_0 = 0 (empty prefix) is part of the diagram; the canonical cumulative point for the
-        // one-base window starting at i carries Skew_{i+1}. Strict comparisons keep the first
-        // (smallest prefix index) extremum on ties.
+        var e = ScanSkewExtrema(seq, circular, collectPositions: false);
+
+        return new ReplicationOriginPrediction(
+            PredictedOrigin: e.FirstMin,
+            PredictedTerminus: e.FirstMax,
+            OriginSkew: e.Min,
+            TerminusSkew: e.Max,
+            // Amplitude > 0 means the strands differ in G/C composition (a detectable origin signal).
+            IsSignificant: e.Max > e.Min);
+    }
+
+    /// <summary>
+    /// Single pass over the per-nucleotide cumulative skew Skew_0 … Skew_n (Rosalind BA1F), folded
+    /// from the canonical <see cref="CalculateCumulativeGcSkewCore"/> at window 1. Skew_0 = 0 (empty
+    /// prefix) is part of the diagram; the cumulative point of the one-base window starting at i
+    /// carries Skew_{i+1}. Strict comparisons keep the first (smallest prefix index) extremum.
+    /// When <paramref name="circular"/>, prefix index n is identified with index 0 (the same
+    /// junction of a circular chromosome), so Skew_n is not visited and positions lie in [0, n−1].
+    /// </summary>
+    private static (double Min, double Max, int FirstMin, int FirstMax, List<int>? MinPositions, List<int>? MaxPositions)
+        ScanSkewExtrema(string seq, bool circular, bool collectPositions)
+    {
         double minSkew = 0, maxSkew = 0;
         int minPos = 0, maxPos = 0;
+        List<int>? minPositions = collectPositions ? new List<int> { 0 } : null;
+        List<int>? maxPositions = collectPositions ? new List<int> { 0 } : null;
+        int lastPrefixIndex = circular ? seq.Length - 1 : seq.Length;
         int prefixIndex = 0;
 
         foreach (var point in CalculateCumulativeGcSkewCore(seq, PerNucleotideWindow))
         {
             prefixIndex++;
+            if (prefixIndex > lastPrefixIndex)
+                break;
+
             double cumulative = point.CumulativeGcSkew;
-            if (cumulative < minSkew) { minSkew = cumulative; minPos = prefixIndex; }
-            if (cumulative > maxSkew) { maxSkew = cumulative; maxPos = prefixIndex; }
+            if (cumulative < minSkew)
+            {
+                minSkew = cumulative; minPos = prefixIndex;
+                if (minPositions is not null) { minPositions.Clear(); minPositions.Add(prefixIndex); }
+            }
+            else if (cumulative == minSkew)
+            {
+                minPositions?.Add(prefixIndex);
+            }
+
+            if (cumulative > maxSkew)
+            {
+                maxSkew = cumulative; maxPos = prefixIndex;
+                if (maxPositions is not null) { maxPositions.Clear(); maxPositions.Add(prefixIndex); }
+            }
+            else if (cumulative == maxSkew)
+            {
+                maxPositions?.Add(prefixIndex);
+            }
         }
 
-        // Amplitude > 0 means the strands differ in G/C composition (a detectable origin signal).
-        bool isSignificant = maxSkew > minSkew;
+        return (minSkew, maxSkew, minPos, maxPos, minPositions, maxPositions);
+    }
 
-        return new ReplicationOriginPrediction(
-            PredictedOrigin: minPos,
-            PredictedTerminus: maxPos,
-            OriginSkew: minSkew,
-            TerminusSkew: maxSkew,
-            IsSignificant: isSignificant);
+    /// <summary>
+    /// Minimum Skew Problem (Rosalind BA1F): returns <b>all</b> prefix indices i minimizing the
+    /// cumulative skew Skew_i = #G − #C over Genome[0..i) (Skew_0 = 0), in ascending order —
+    /// the candidate replication origins (Lobry 1996; Grigoriev 1998). The first element equals
+    /// <see cref="ReplicationOriginPrediction.PredictedOrigin"/> of
+    /// <see cref="PredictReplicationOrigin(DnaSequence)"/> (linear) or
+    /// <see cref="PredictReplicationOrigin(DnaSequence,bool)"/> (circular).
+    /// </summary>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <param name="circular">When false (default) positions range over [0, n] as in BA1F. When true the
+    /// input is a circular chromosome read from index 0: prefix index n denotes the same junction as 0
+    /// and is not reported separately, so positions range over [0, n−1]. See
+    /// <see cref="PredictReplicationOrigin(DnaSequence,bool)"/> for the rotation behaviour.</param>
+    /// <returns>Ascending minimizing prefix indices (never empty: Skew_0 is always a candidate value).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static IReadOnlyList<int> FindMinimumSkewPositions(DnaSequence sequence, bool circular = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindSkewExtremumPositionsCore(sequence.Sequence, circular, minimum: true);
+    }
+
+    /// <summary>
+    /// Minimum Skew Problem (Rosalind BA1F) on a raw string (case-insensitive); see
+    /// <see cref="FindMinimumSkewPositions(DnaSequence,bool)"/>. Null/empty input → <c>[0]</c>
+    /// (the diagram is the single value Skew_0 = 0).
+    /// </summary>
+    public static IReadOnlyList<int> FindMinimumSkewPositions(string sequence, bool circular = false) =>
+        FindSkewExtremumPositionsCore(string.IsNullOrEmpty(sequence) ? string.Empty : sequence.ToUpperInvariant(), circular, minimum: true);
+
+    /// <summary>
+    /// Returns <b>all</b> prefix indices i maximizing the cumulative skew Skew_i (the candidate
+    /// replication termini; Grigoriev 1998), in ascending order — the BA1F definition with the
+    /// maximum in place of the minimum. Indexing and <paramref name="circular"/> as in
+    /// <see cref="FindMinimumSkewPositions(DnaSequence,bool)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static IReadOnlyList<int> FindMaximumSkewPositions(DnaSequence sequence, bool circular = false)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindSkewExtremumPositionsCore(sequence.Sequence, circular, minimum: false);
+    }
+
+    /// <summary>
+    /// All maximizing prefix indices of the cumulative skew of a raw string (case-insensitive); see
+    /// <see cref="FindMaximumSkewPositions(DnaSequence,bool)"/>. Null/empty input → <c>[0]</c>.
+    /// </summary>
+    public static IReadOnlyList<int> FindMaximumSkewPositions(string sequence, bool circular = false) =>
+        FindSkewExtremumPositionsCore(string.IsNullOrEmpty(sequence) ? string.Empty : sequence.ToUpperInvariant(), circular, minimum: false);
+
+    private static IReadOnlyList<int> FindSkewExtremumPositionsCore(string seq, bool circular, bool minimum)
+    {
+        if (seq.Length == 0)
+            return new[] { 0 };
+
+        var e = ScanSkewExtrema(seq, circular, collectPositions: true);
+        return minimum ? e.MinPositions! : e.MaxPositions!;
+    }
+
+    /// <summary>
+    /// Predicts the origin and terminus of replication, optionally treating the input as a
+    /// circular chromosome.
+    /// </summary>
+    /// <remarks>
+    /// With <paramref name="circular"/> = false this is identical to
+    /// <see cref="PredictReplicationOrigin(DnaSequence)"/>. With <paramref name="circular"/> = true
+    /// the same prefix walk Skew_0 … Skew_{n−1} is computed from index 0 (Grigoriev's 1998
+    /// "arbitrary start" on a circular chromosome), but prefix index n is identified with 0, so
+    /// positions are reported modulo n in [0, n−1] and Skew_n is not visited (the junction carries
+    /// the value Skew_0 = 0). Let D = Skew_n = total #G − #C:
+    /// <list type="bullet">
+    /// <item>D = 0: the walk closes on the circle and rotating the input left by r gives
+    /// Skew'_j = Skew_{(j+r) mod n} − Skew_r, so every minimizing/maximizing position shifts to
+    /// (p − r) mod n — the prediction is rotation-equivariant (ties aside, see
+    /// <see cref="FindMinimumSkewPositions(DnaSequence,bool)"/> for the full sets).</item>
+    /// <item>D ≠ 0: the circle's cumulative skew is not single-valued — the rotated walk equals the
+    /// original one shifted by −Skew_r, plus a step of D for every position past the junction
+    /// (Skew'_j = Skew_{j+r−n} + D − Skew_r when j + r ≥ n), so the extrema can move with the start.
+    /// No detrending is applied: the result is the walk from the supplied start, so supply the
+    /// chromosome from its annotated coordinate 0 (ASM-02).</item>
+    /// </list>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static ReplicationOriginPrediction PredictReplicationOrigin(DnaSequence sequence, bool circular)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return PredictReplicationOriginCore(sequence.Sequence, circular);
+    }
+
+    /// <summary>
+    /// Raw-string (case-insensitive) form of <see cref="PredictReplicationOrigin(DnaSequence,bool)"/>.
+    /// Null/empty input → zero prediction, <c>IsSignificant = false</c>.
+    /// </summary>
+    public static ReplicationOriginPrediction PredictReplicationOrigin(string sequence, bool circular)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return new ReplicationOriginPrediction(0, 0, 0, 0, false);
+
+        return PredictReplicationOriginCore(sequence.ToUpperInvariant(), circular);
+    }
+
+    /// <summary>
+    /// Predicts the origin and terminus from Grigoriev's (1998) <b>windowed</b> cumulative skew
+    /// diagram: the running sum of (G−C)/(G+C) over adjacent, non-overlapping windows of
+    /// <paramref name="windowSize"/> bases (exactly the points of
+    /// <see cref="CalculateCumulativeGcSkew(DnaSequence,int)"/>; complete windows only).
+    /// </summary>
+    /// <remarks>
+    /// Origin = <c>Position</c> (window centre, start + windowSize/2) of the first point with the
+    /// minimum cumulative value; terminus = that of the first point with the maximum (Grigoriev
+    /// 1998: minimum = origin, maximum = terminus). <c>OriginSkew</c>/<c>TerminusSkew</c> are those
+    /// cumulative values; <c>IsSignificant</c> = max &gt; min. Only emitted window points are
+    /// candidates (there is no Skew_0 = 0 baseline point), so unlike the per-nucleotide method
+    /// <c>OriginSkew</c> may be positive. With windowSize = 1 the values equal the per-nucleotide
+    /// diagram without Skew_0. A sequence shorter than one window yields no point → zero prediction,
+    /// not significant.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> is less than 1.</exception>
+    public static ReplicationOriginPrediction PredictReplicationOrigin(DnaSequence sequence, int windowSize)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        return PredictReplicationOriginWindowedCore(sequence.Sequence, windowSize);
+    }
+
+    /// <summary>
+    /// Raw-string (case-insensitive) form of <see cref="PredictReplicationOrigin(DnaSequence,int)"/>.
+    /// Null/empty input → zero prediction, <c>IsSignificant = false</c>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> is less than 1.</exception>
+    public static ReplicationOriginPrediction PredictReplicationOrigin(string sequence, int windowSize)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        if (string.IsNullOrEmpty(sequence))
+            return new ReplicationOriginPrediction(0, 0, 0, 0, false);
+
+        return PredictReplicationOriginWindowedCore(sequence.ToUpperInvariant(), windowSize);
+    }
+
+    private static ReplicationOriginPrediction PredictReplicationOriginWindowedCore(string seq, int windowSize)
+    {
+        bool any = false;
+        double minSkew = 0, maxSkew = 0;
+        int minPos = 0, maxPos = 0;
+
+        foreach (var point in CalculateCumulativeGcSkewCore(seq, windowSize))
+        {
+            double cumulative = point.CumulativeGcSkew;
+            if (!any || cumulative < minSkew) { minSkew = cumulative; minPos = point.Position; }
+            if (!any || cumulative > maxSkew) { maxSkew = cumulative; maxPos = point.Position; }
+            any = true;
+        }
+
+        return new ReplicationOriginPrediction(minPos, maxPos, minSkew, maxSkew, IsSignificant: maxSkew > minSkew);
+    }
+
+    #endregion
+
+    #region Skew Index (SkewIT)
+
+    /// <summary>Default SkewIT window (skewi.py <c>-k</c>, 20 kb).</summary>
+    public const int DefaultSkewIndexWindow = 20000;
+
+    /// <summary>
+    /// Skew Index (SkewI) of Lu &amp; Salzberg (2020, PLoS Comput Biol 16:e1008439, "SkewIT"),
+    /// computed exactly as the authors' <c>src/skewi.py</c>: a single [0, 1] measure of how strongly a
+    /// complete chromosome shows the two-strand GC-skew pattern (higher = stronger).
+    /// </summary>
+    /// <remarks>
+    /// Steps (verbatim from <c>skewi.py</c>, github.com/jenniferlu717/SkewIT):
+    /// <list type="number">
+    /// <item>Windows start at 0, k, 2k, … (the last one may be partial); each gets sign(#G − #C) ∈ {+1, 0, −1}.</item>
+    /// <item>With L windows, h = round(L/2) and r = round(0.04·L) (Python 3 round, half-to-even), the
+    /// window list is doubled (circular) and, for each start i ∈ [0, L) and split t ∈ [i+h−r, i+h+r),
+    /// D = |Σ skew[i:t] − Σ skew[t:i+L]|; maxDiff = max D.</item>
+    /// <item>SkewI = maxDiff / n · k, capped at 1.0.</item>
+    /// </list>
+    /// skewi.py writes no SkewI for a sequence when maxDiff ≤ 0 (all windows sign 0, or fewer than 13
+    /// windows so that r = 0); this method then returns <c>null</c>. Differences from the CLI, which
+    /// are input filters rather than part of the metric: skewi.py by default skips sequences shorter
+    /// than 500 kb, without "complete" in the FASTA header, or with "plasmid" in it; its <c>-f</c>
+    /// option is parsed but not used by the computation. skewi.py counts only upper-case G/C; this
+    /// method upper-cases the input (identical on upper-case FASTA). There is no universal SkewI
+    /// cutoff: SkewIT publishes per-genus thresholds (genus mean − 2 SD, genera with ≥ 10 RefSeq-97
+    /// genomes; data/RefSeq97_Bacteria_GenusSkewIThresholds.txt, e.g. Escherichia 0.7110); a SkewI
+    /// below its genus threshold flags a possible mis-assembly. <see cref="ReplicationOriginPrediction.IsSignificant"/>
+    /// is unrelated and unchanged.
+    /// </remarks>
+    /// <param name="sequence">Complete chromosome sequence.</param>
+    /// <param name="windowSize">SkewIT window k (default 20 000).</param>
+    /// <returns>SkewI in (0, 1], or null when skewi.py would report none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> is less than 1.</exception>
+    public static double? CalculateSkewIndex(DnaSequence sequence, int windowSize = DefaultSkewIndexWindow)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        return CalculateSkewIndexCore(sequence.Sequence, windowSize);
+    }
+
+    /// <summary>
+    /// Raw-string form of <see cref="CalculateSkewIndex(DnaSequence,int)"/> (case-insensitive).
+    /// Null/empty input → null.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> is less than 1.</exception>
+    public static double? CalculateSkewIndex(string sequence, int windowSize = DefaultSkewIndexWindow)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        if (string.IsNullOrEmpty(sequence))
+            return null;
+
+        return CalculateSkewIndexCore(sequence.ToUpperInvariant(), windowSize);
+    }
+
+    private static double? CalculateSkewIndexCore(string seq, int windowSize)
+    {
+        // Window signs: skewi.py `for i in range(0, len(seq), k)` over seq[i:i+k] (partial tail kept);
+        // sign((G−C)/(G+C)) == sign(G−C), and the shared kernel returns 0 for G+C = 0.
+        var signs = EnumerateSkewWindows(seq, windowSize, windowSize, includePartialWindow: true, 'G', 'C')
+            .Select(w => Math.Sign(w.Skew))
+            .ToArray();
+
+        int fullLen = signs.Length;
+        int halfLen = (int)Math.Round(fullLen / 2.0, MidpointRounding.ToEven);
+        int currRange = (int)Math.Round(fullLen * 0.04, MidpointRounding.ToEven);
+
+        // Prefix sums over the doubled list (skew += skew[:full_len]); Sum(a, b) = Σ skew[a:b]
+        // with Python slice semantics for non-negative indices.
+        var prefix = new long[2 * fullLen + 1];
+        for (int j = 0; j < 2 * fullLen; j++)
+            prefix[j + 1] = prefix[j] + signs[j % fullLen];
+        long Sum(int a, int b)
+        {
+            a = Math.Min(a, 2 * fullLen);
+            b = Math.Min(b, 2 * fullLen);
+            return b > a ? prefix[b] - prefix[a] : 0;
+        }
+
+        long maxDiff = -1;
+        for (int i = 0; i < fullLen; i++)
+        {
+            for (int t = i + halfLen - currRange; t < i + halfLen + currRange; t++)
+            {
+                long diff = Math.Abs(Sum(i, t) - Sum(t, i + fullLen));
+                if (diff > maxDiff)
+                    maxDiff = diff;
+            }
+        }
+
+        if (maxDiff <= 0)
+            return null;
+
+        double skewI = (double)maxDiff / seq.Length * windowSize;
+        return skewI > 1 ? 1.0 : skewI;
     }
 
     #endregion

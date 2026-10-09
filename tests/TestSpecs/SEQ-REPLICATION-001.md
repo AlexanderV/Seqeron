@@ -5,7 +5,7 @@
 **Algorithm:** Replication Origin Prediction (cumulative GC-skew minimum)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-10-09
 
 ---
 
@@ -19,6 +19,8 @@
 | 2 | Lobry JR (1996), Mol Biol Evol 13(5):660–665 | 1 | https://pubmed.ncbi.nlm.nih.gov/8676740/ | 2026-06-14 |
 | 3 | Rosalind, Minimum Skew Problem (BA1F) | 3 | https://rosalind.info/problems/ba1f/ | 2026-06-14 |
 | 4 | Wikipedia, GC skew (cited primaries 1,2) | 4 | https://en.wikipedia.org/wiki/GC_skew | 2026-06-14 |
+| 5 | Rosalind BA1F extra dataset (go-rosalind mirror) | 3 | https://raw.githubusercontent.com/charlesreid1/go-rosalind/master/rosalind/data/minimum_skew.txt | 2026-10-09 |
+| 6 | Lu & Salzberg (2020) SkewIT + `src/skewi.py` | 1 | https://doi.org/10.1371/journal.pcbi.1008439 ; https://github.com/jenniferlu717/SkewIT | 2026-10-09 |
 
 ### 1.2 Key Evidence Points
 
@@ -47,6 +49,10 @@
 |--------|-------|------|-------|
 | `PredictReplicationOrigin(DnaSequence)` | GcSkewCalculator | Canonical | Origin = min prefix, terminus = max prefix |
 | `PredictReplicationOrigin(string)` | GcSkewCalculator | Delegate | Same core; null/empty → zero prediction; case-insensitive |
+| `FindMinimumSkewPositions` / `FindMaximumSkewPositions(DnaSequence\|string, bool circular = false)` | GcSkewCalculator | Canonical | All BA1F minimizers / maximizers, ascending |
+| `PredictReplicationOrigin(DnaSequence\|string, bool circular)` | GcSkewCalculator | Canonical | Positions mod n (n ≡ 0) |
+| `PredictReplicationOrigin(DnaSequence\|string, int windowSize)` | GcSkewCalculator | Canonical | Grigoriev windowed cumulative diagram extrema (window centres) |
+| `CalculateSkewIndex(DnaSequence\|string, int windowSize = 20000)` | GcSkewCalculator | Canonical | SkewIT SkewI (`skewi.py`), null when skewi.py reports none |
 
 ---
 
@@ -84,6 +90,29 @@
 | S2 | Significant flag | BA1F sample | IsSignificant=true (max −min > 0) | INV-5 |
 | S3 | Case-insensitive | lowercase BA1F-style snippet vs upper | identical result | string overload uppercases |
 | S4 | Positions within bounds | `GGGCCC` | 0 ≤ origin,terminus ≤ 6 | INV-4 |
+
+### 4.2b Finisher additions (2026-10-09, A1-2/A1-3) — `GcSkewCalculator_ReplicationOriginExtensions_Tests`, `GcSkewCalculator_SkewIndex_Tests`
+
+| ID | Test Case | Expected Outcome | Evidence |
+|----|-----------|------------------|----------|
+| A1 | BA1F sample all minimizers | `[53, 97]` | Rosalind sample output |
+| A2 | BA1F extra dataset (embedded) | `[89969, 89970, 89971, 90345, 90346]`; max `[20377, 20378, 20379]`; −184/+154 | published answer + python |
+| A3 | BA1F sample all maximizers | `[16, 20, 21]` | python brute force |
+| A4 | small ties (`CCGGCC`, `GGGCCC`, `CGCG`, `AATT`, lower case) | brute-force sets | python |
+| A5 | null/empty | null DnaSequence throws; string → `[0]` | contract |
+| C4 | circular mod n (`GGGCCC` → {0}, `G` → max 0, …) | brute force over Skew_0..Skew_{n−1} | python |
+| C5 | Skew_n = 0 rotation-equivariance (r = 0, 12345, 50000, 99999) | (p + r) mod n = original sets | python; Grigoriev arbitrary start |
+| C6 | Skew_n ≠ 0 non-equivariance (`CCGGG` vs rotation 3) | {2} vs {0, 4} | python |
+| C7 | circular=false ≡ original; BA1F circular unchanged | equality | — |
+| C8 | circular null/empty | throws / zero prediction | contract |
+| W1 | windowed prediction (synthetic w1000; extra w1000, w5000; BA1F w10) | Biopython cumsum values (Evidence table) | Biopython 1.88 + numpy |
+| W2 | window 1 on `GGGCCC` | origin 5 (0), terminus 2 (+3) | definition (no Skew_0) |
+| W3 | windowed guards | w < 1 throws; short → zero | contract |
+| K1 | SkewI small sequences k4 | skewi.py values (Evidence) | SkewIT code run |
+| K2 | SkewI none (12 windows / no G-C) | null | SkewIT code run |
+| K3 | SkewI BA1F extra k1000 / k20 | 0.203158581311549 / 0.034430033253851994 | SkewIT code run |
+| K4 | SkewI ideal genome | 1.0 (cap) | SkewIT code run |
+| K5 | defaults/guards/case | k=20000; 5 windows → null; lower case = upper | SkewIT code + documented deviation |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -188,5 +217,5 @@
 
 ## 7. Open Questions / Decisions
 
-1. Decision: BA1F asks for ALL minimizing positions; the repository API returns a single position, so the deterministic tie-break is "first (smallest) extreme index". Documented in the algorithm doc and Evidence; tested by M4.
+1. Decision: BA1F asks for ALL minimizing positions; the repository API returns a single position, so the deterministic tie-break is "first (smallest) extreme index". Documented in the algorithm doc and Evidence; tested by M4. (2026-10-09: all positions now available via `FindMinimumSkewPositions` / `FindMaximumSkewPositions`, A1–A5.)
 2. Decision: the windowed-cumulative `PredictReplicationOrigin(windowSize)` overload is replaced by the canonical per-nucleotide method; legacy tests asserting the windowed model are removed as nonconforming.

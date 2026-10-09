@@ -940,7 +940,14 @@ public record PredictReplicationOriginResult(
     int PredictedTerminus,
     double OriginSkew,
     double TerminusSkew,
-    bool IsSignificant);
+    bool IsSignificant)
+{
+    /// <summary>All prefix indices minimizing the cumulative skew (Rosalind BA1F answer), ascending.</summary>
+    public int[] OriginPositions { get; init; } = [];
+
+    /// <summary>All prefix indices maximizing the cumulative skew, ascending.</summary>
+    public int[] TerminusPositions { get; init; } = [];
+}
 
 /// <summary>Result of <c>analyze_gc_content</c>.</summary>
 public record AnalyzeGcContentResult(

@@ -6,11 +6,12 @@
   "stability": "stable",
   "methodId": "GcSkewCalculator.PredictReplicationOrigin",
   "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L247",
-  "description": "Predict replication origin and terminus from cumulative GC-skew extrema: origin ~ prefix index of the minimum, terminus ~ prefix index of the maximum. Best on complete circular bacterial genomes.",
+  "description": "Predict replication origin and terminus from cumulative GC-skew extrema: origin ~ prefix index of the minimum, terminus ~ prefix index of the maximum; also returns all minimizing/maximizing indices (Rosalind BA1F) and supports a circular flag (positions mod n). Best on complete circular bacterial genomes.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence (ideally complete circular genome)", "minLength": 1 }
+      "sequence": { "type": "string", "description": "DNA sequence (ideally complete circular genome)", "minLength": 1 },
+      "circular": { "type": "boolean", "description": "Treat the input as a circular chromosome: prefix index n = junction 0, positions reported mod n in [0, n-1]", "default": false }
     },
     "required": ["sequence"]
   },
@@ -21,7 +22,9 @@
       "predictedTerminus": { "type": "integer" },
       "originSkew": { "type": "number" },
       "terminusSkew": { "type": "number" },
-      "isSignificant": { "type": "boolean" }
+      "isSignificant": { "type": "boolean" },
+      "originPositions": { "type": "array", "items": { "type": "integer" }, "description": "All prefix indices minimizing the cumulative skew (Rosalind BA1F answer), ascending" },
+      "terminusPositions": { "type": "array", "items": { "type": "integer" }, "description": "All prefix indices maximizing the cumulative skew, ascending" }
     },
     "required": ["predictedOrigin", "predictedTerminus", "originSkew", "terminusSkew", "isSignificant"]
   },

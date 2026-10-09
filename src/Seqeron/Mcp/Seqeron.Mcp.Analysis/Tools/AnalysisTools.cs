@@ -2783,14 +2783,19 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "predict_replication_origin", Title = "GC Skew — Predict Origin/Terminus", ReadOnly = true)]
-    [Description("Predicts replication origin and terminus from cumulative GC skew extrema. Best on complete circular bacterial genomes.")]
+    [Description("Predicts replication origin and terminus from cumulative GC skew extrema (per-base #G-#C walk, Rosalind BA1F). Also returns ALL minimizing/maximizing prefix indices. Best on complete circular bacterial genomes.")]
     public static PredictReplicationOriginResult PredictReplicationOrigin(
-        [Description("DNA sequence (ideally complete circular genome).")] string sequence)
+        [Description("DNA sequence (ideally complete circular genome).")] string sequence,
+        [Description("Treat the input as a circular chromosome: prefix index n is the same junction as 0, positions reported mod n in [0, n-1] (default false = linear, positions in [0, n]).")] bool circular = false)
     {
         var dna = RequireDna(sequence, nameof(sequence));
-        var r = GcSkewCalculator.PredictReplicationOrigin(dna);
+        var r = GcSkewCalculator.PredictReplicationOrigin(dna, circular);
         return new PredictReplicationOriginResult(
-            r.PredictedOrigin, r.PredictedTerminus, r.OriginSkew, r.TerminusSkew, r.IsSignificant);
+            r.PredictedOrigin, r.PredictedTerminus, r.OriginSkew, r.TerminusSkew, r.IsSignificant)
+        {
+            OriginPositions = GcSkewCalculator.FindMinimumSkewPositions(dna, circular).ToArray(),
+            TerminusPositions = GcSkewCalculator.FindMaximumSkewPositions(dna, circular).ToArray(),
+        };
     }
 
     [McpServerTool(Name = "analyze_gc_content", Title = "GC — Comprehensive Analysis", ReadOnly = true)]

@@ -29,6 +29,10 @@
          (SigProfilerAssignment/data/Reference_Signatures/GRCh37/COSMIC_v3.4_SBS_GRCh37.txt). Used to cross-check
          FitSignatures (NNLS refit to the full COSMIC set) against scipy.optimize.nnls. -->
     <EmbeddedResource Include="TestData\Cosmic\COSMIC_v3.4_SBS_GRCh37.txt" />
+    <!-- SEQ-REPLICATION-001: Rosalind BA1F ("Minimum Skew Problem") extra dataset (93 523 bp genome +
+         published answer "89969 89970 89971 90345 90346"), verbatim from the mirror
+         raw.githubusercontent.com/charlesreid1/go-rosalind/master/rosalind/data/minimum_skew.txt. -->
+    <EmbeddedResource Include="TestData\Rosalind\ba1f_extra_dataset.txt" />
   </ItemGroup>
 
   <ItemGroup>
