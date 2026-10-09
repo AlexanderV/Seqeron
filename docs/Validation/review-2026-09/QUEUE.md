@@ -19,7 +19,14 @@ and commits it after every change. Batch definitions (units, owned files) are in
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
 
-## State (2026-10-09 20:05 UTC) — R1 (B07 post-completion) RUNNING (only it)
+## State (2026-10-09 20:25 UTC) — R1 DONE; EVERYTHING PAUSED by user
+- R1 done (session_01N4ZfEhLRF1Fh8ZLet3KyaQ, 20:04–20:20, archived, cost ≈ $1.4): test defect, production code unchanged
+  (bd780061 + 233381ac). Primer3 `oligo_repeat_library_mispriming` keeps the first entry above the INTEGER running max, so
+  only ⌊score⌋ is order-invariant/monotone; the port matches primer3-py 2.3.1 bit-exactly. Property now asserts the integer
+  part; regression locks the primer3-py values. Recorded in B07.md "## Post-completion changes".
+- Nothing running; B08 paused (not archived); check-in trigger disabled.
+
+### Earlier state (2026-10-09 20:05 UTC) — R1 (B07 post-completion) RUNNING (only it)
 - User 10-09 ~20:00 "Запускай": session_01N4ZfEhLRF1Fh8ZLet3KyaQ root-causes register item R1 (B07 FsCheck counterexample
   in LibraryMispriming_OrderInvariant_MonotoneInWeight) under the new "Requests to a FINISHED batch" rule. Nothing else
   runs; after it everything stops again. Check-in trigger re-enabled (+30 min).
