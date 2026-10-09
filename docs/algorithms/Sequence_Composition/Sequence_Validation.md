@@ -11,7 +11,7 @@
 
 ## 1. Overview
 
-Sequence validation determines whether a nucleic acid string contains only valid nucleotide characters according to IUPAC nomenclature standards. In this repository, the documented validation surface is a strict character-membership check for DNA and RNA alphabets, with linear time complexity in sequence length.
+Sequence validation determines whether a nucleic acid string contains only valid nucleotide characters according to IUPAC nomenclature standards. In this repository, validation has two modes, both linear in sequence length: a strict character-membership check for the unambiguous DNA/RNA alphabets (`IsValidDna`/`IsValidRna`), and an IUPAC mode that also accepts the NC-IUB 1984 ambiguity codes (`IsValidIupacDna`/`IsValidIupacRna`, F2; Biopython `ambiguous_*_letters` and scikit-bio agree).
 
 ## 2. Scientific / Formal Basis
 
@@ -162,14 +162,14 @@ Behavior examples documented for the current implementation:
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Strict validation vs full IUPAC alphabet | Deviation | Sequences containing ambiguity codes or gaps are rejected even though they are defined by the IUPAC standard | accepted | See deviation aspects below: ambiguity codes, gap character, and case handling |
+| 1 | Strict validation vs full IUPAC alphabet | Deviation | Strict mode rejects ambiguity codes | resolved by IUPAC mode (`IsValidIupacDna/Rna`, F2) | See aspects below: ambiguity codes, gap character, and case handling |
 
 Deviation aspects documented for the current implementation:
 
 | Aspect | IUPAC Standard | Implementation | Reason |
 |--------|----------------|----------------|--------|
-| Ambiguity codes | Defined | Not accepted | Strict validation mode |
-| Gap character (`-`) | Defined | Not accepted | Strict validation mode |
+| Ambiguity codes | Defined | Strict: rejected; IUPAC mode: accepted | Two validation modes |
+| Gap character (`-`) | Not an NC-IUB 1984 code (listed by Bioinformatics.org [4]) | Rejected in both modes; `IupacDnaSequence.IsValid()` tolerates `-`/`.` | Gaps are alignment symbols, not nucleotides |
 | Case | Not specified | Case-insensitive | Common bioinformatics practice |
 
 ## 6. Edge Cases and Limitations
