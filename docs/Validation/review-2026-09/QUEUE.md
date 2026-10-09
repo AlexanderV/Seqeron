@@ -19,7 +19,19 @@ and commits it after every change. Batch definitions (units, owned files) are in
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
 
-## State (2026-10-09 15:58 UTC) — FIN-B01 RUNNING (only it)
+## State (2026-10-09 19:40 UTC) — FIN-B01 DONE; EVERYTHING PAUSED by user
+- **FIN-B01 done** (session_018dhx24UekZpd2HKsvqhw3X, 15:57–19:19, archived 19:36, cost ≈ $39.4): audit rounds 1–3 +
+  final round (20 DOABLE items), fixes F14–F31, dedup sweep c019eae4, heavy once f2e48444 (+29 tests), final report
+  0ca2e247. `## Leftovers`: B01 none (all LIMITATIONS proposals resolved). Full Seqeron.Genomics.Tests 24544/1 — the 1 is
+  B07 `B07PrimerDesignMetamorphicTests.LibraryMispriming_OrderInvariant_MonotoneInWeight` (seed-dependent, passes on re-run);
+  Mcp.Sequence 112/0, Mcp.Analysis 377/0. WIP branch -wip-B01 clean (= 0ca2e247).
+- Orchestrator fix in B01.md: "B07 ProbeDesigner Wallace count loops" was a false positive (Wallace Tm already routed to
+  ThermoConstants.CalculateBasicTm by B07; :633 C-vs-G TaqMan rule and :741 G-run rule are not GC counting) → moved to done.
+- Everything paused again: nothing launched. B08 paused (not archived). Trigger trig_01MvAagyZjUaqveNm9GXWGtm disabled.
+- Batch status: fully done B01 B04 B05 B06 B07; finisher needed B02 (1 open item) B03 B24 (2 LIMITED); B08 2/6 paused;
+  B09–B23, B25, B26 not run under the full process; Phase 2 and consolidation not started.
+
+### Earlier state (2026-10-09 15:58 UTC) — FIN-B01 RUNNING (only it)
 - **User 10-09 ~15:50: "А тепер давай доробимо B01"** → FIN-B01 launched as cloud session_018dhx24UekZpd2HKsvqhw3X
   (prompt: B01 finisher — re-audit B01.md, completeness-audit loop, all DOABLE incl. LIMITATIONS proposals and
   cross-batch requests addressed to B01 (B06 CountKmersSpan, B03 R18, StatisticsHelper.ShannonEntropy), dedup sweep,
@@ -67,6 +79,7 @@ and commits it after every change. Batch definitions (units, owned files) are in
   B06 (F1–F38, 43841d1, Leftovers none).
 
 ## Known cross-batch items to carry into Phase 2
+- **B07 (finished batch):** `B07PrimerDesignMetamorphicTests.LibraryMispriming_OrderInvariant_MonotoneInWeight` failed once in the FIN-B01 heavy run (FsCheck, seed-dependent, passed on re-run) → a real counterexample exists; needs root-causing in B07 code or the generator (not a "flake").
 - B04: `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` generator can draw w = k = 5 → draw w from [k+1, 60] (flaky ~1/30).
 - B06 report "Cross-batch requests" (B01, B04, B05, B07, B09, B10, B17, B18, MCP owner) — k-mer counting routed to canonical KmerAnalyzer.
 - Stray branch `claude/stoic-maxwell-0olr2z-wip-TEST` (proxy cannot delete it) — ignore or delete in the GitHub UI.
