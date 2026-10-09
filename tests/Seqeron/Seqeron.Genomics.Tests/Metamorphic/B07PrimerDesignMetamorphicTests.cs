@@ -385,8 +385,12 @@ public class B07PrimerDesignMetamorphicTests
         new(entries.Select(e => new KeyValuePair<string, string>(e.Name, e.Seq)));
 
     /// <summary>
-    /// F41: the library mispriming score is a maximum over entries, so it is invariant to the entry order and
-    /// non-decreasing when one entry's weight is raised.
+    /// F41: the library mispriming score is Primer3's <c>score[repeat_sim.max]</c>, where <c>repeat_sim.max</c> is the
+    /// first entry whose weighted score exceeds the <em>integer</em> running maximum (<c>libprimer3.cc</c>
+    /// <c>oligo_repeat_library_mispriming</c>: <c>int max; if (w &gt; max) { max = (int) w; … }</c>). Its integer part is
+    /// therefore ⌊max over entries⌋ — invariant to the entry order and non-decreasing when one entry's weight is raised —
+    /// while the fractional part depends on the scan order (R1; locked to primer3-py in
+    /// <see cref="LibraryMispriming_FractionalPart_FollowsPrimer3ScanOrder"/>).
     /// </summary>
     [FsCheck.NUnit.Property(MaxTest = 60)]
     public Property LibraryMispriming_OrderInvariant_MonotoneInWeight()
@@ -414,7 +418,42 @@ public class B07PrimerDesignMetamorphicTests
             double s0 = CalculateLibraryMispriming(primer, x.forward, baseLib).Score;
             double s1 = CalculateLibraryMispriming(primer, x.forward, shuffled).Score;
             double s2 = CalculateLibraryMispriming(primer, x.forward, heavier).Score;
-            return (s0 == s1 && s2 >= s0).Label($"{primer} fwd={x.forward}: base {s0}, shuffled {s1}, heavier {s2}");
+            return ((int)s0 == (int)s1 && (int)s2 >= (int)s0).Label($"{primer} fwd={x.forward}: base {s0}, shuffled {s1}, heavier {s2}");
+        });
+    }
+
+    /// <summary>
+    /// R1 regression (FsCheck counterexamples of the property above, seeds 215 and 236): Primer3 keeps the first entry
+    /// whose score exceeds the integer running maximum, so entries with the same integer part are reported in scan
+    /// order. Reference values: primer3-py 2.3.1 <c>design_primers</c> (PRIMER_TASK=check_primers, SEQUENCE_PRIMER,
+    /// <c>misprime_lib</c> in the given order) PRIMER_LEFT_0_LIBRARY_MISPRIMING.
+    /// </summary>
+    [Test]
+    public void LibraryMispriming_FractionalPart_FollowsPrimer3ScanOrder()
+    {
+        const string primer = "TACCCACGGGCCCCCACC";
+        var e0 = ("e0*2.8", "ATTTCACGGGCCCACACCTAGATCGAATAAG");
+        var e1 = ("e1*2.9", "TAGCGTCACCCACGGGCCCCCACCCGT");
+        var e2 = ("e2*3.1", "TGGAGCCCACGGGCCCCCACCACACA");
+        Assert.Multiple(() =>
+        {
+            Assert.That(CalculateLibraryMispriming(primer, true, Library([e0, e1, e2])), Is.EqualTo(new LibraryMisprimingScore(49.6, "e2*3.1")));
+            Assert.That(CalculateLibraryMispriming(primer, true, Library([e2, e1, e0])), Is.EqualTo(new LibraryMisprimingScore(49.3, "e1*2.9")));
+        });
+
+        // Raising a weight can lower the fraction: e3 (1.3 → 3.3) now exceeds 46 after e1's 46.5 and is reported.
+        const string p2 = "AGTTTGTACAGTAACACA";
+        (string, string)[] Lib2(string w3) =>
+        [
+            ("e0*2.8", "CTCTTGACGATGTGTACAGTAACACAATTGCAT"), ("e1*3.1", "TAAGCCGTTTTTACAGTAACACACA"),
+            ("e2*1.6", "GGTAATTGAATCTAAGTTTGTACAGTAACACAGGG"), ($"e3*{w3}", "TTCACTGTACAGTAACACAAATCAGTAGTGAGG"),
+        ];
+        Assert.Multiple(() =>
+        {
+            Assert.That(CalculateLibraryMispriming(p2, true, Library(Lib2("1.3"))), Is.EqualTo(new LibraryMisprimingScore(46.5, "e1*3.1")));
+            var heavier = CalculateLibraryMispriming(p2, true, Library(Lib2("3.3")));
+            Assert.That(heavier.Score, Is.EqualTo(46.2).Within(1e-9));
+            Assert.That(heavier.Name, Is.EqualTo("e3*3.3"));
         });
     }
 
