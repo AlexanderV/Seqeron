@@ -41,7 +41,8 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • null or empty string  → an empty sequence; GcContent() == 0
 ///     (string.IsNullOrEmpty short-circuit). This is a *defined result*, NOT an
 ///     exception: the public surface treats null as "no sequence".
-///   • input is case-folded with ToUpperInvariant, then validated; so lowercase
+///   • input is case-folded (ASCII letters only, SequenceExtensions.ToUpperAscii since B01 F19), then
+///     validated; so lowercase
 ///     a/c/g/t round-trips to the same GC% as uppercase.
 ///   • ANY character that is not A/C/G/T after upper-casing (digits, whitespace,
 ///     N/IUPAC ambiguity codes, U, '\0', unicode letters, combining marks,
@@ -84,7 +85,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///       • null or empty string  → an empty sequence; Complement() is the empty
 ///         sequence; no exception (string.IsNullOrEmpty short-circuit). A defined
 ///         result, NOT an error.
-///       • input is case-folded with ToUpperInvariant before validation, so
+///       • input is case-folded (ASCII-only ToUpperAscii, B01 F19) before validation, so
 ///         lowercase / mixed case a-c-g-t is accepted and complements identically
 ///         to uppercase.
 ///       • ANY character that is not A/C/G/T after upper-casing (digits,
@@ -137,7 +138,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///       • null or empty string  → an empty sequence; ReverseComplement() is the
 ///         empty sequence; no exception (string.IsNullOrEmpty short-circuit). A
 ///         defined result, NOT an error.
-///       • input is case-folded with ToUpperInvariant before validation, so a
+///       • input is case-folded (ASCII-only ToUpperAscii, B01 F19) before validation, so a
 ///         single lowercase base and mixed case a-c-g-t are accepted and
 ///         reverse-complement identically to uppercase.
 ///       • a single base maps to its complement (A→T, C→G, G→C, T→A): with one
@@ -196,7 +197,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// (1) SequenceExtensions.IsValidDna(ReadOnlySpan&lt;char&gt;)
 ///     (SequenceExtensions.cs lines 302–311): a TOTAL predicate — for ANY input
 ///     it returns true/false and NEVER throws. Case-insensitive
-///     (char.ToUpperInvariant per char). true iff every char ∈ {A,C,G,T};
+///     (ASCII a/c/g/t accepted literally; no Unicode folding). true iff every char ∈ {A,C,G,T};
 ///     empty → true (vacuous truth). Because it folds char-by-char, surrogate
 ///     halves, null bytes, control chars and astral code points are simply "not
 ///     A/C/G/T" → false, never a crash and never an encoding surprise.
@@ -940,7 +941,7 @@ public class CompositionFuzzTests
 
     /// <summary>
     /// INJ: mixed and lower case input is accepted by the strict path — it is
-    /// upper-cased before validation (ToUpperInvariant, DnaSequence.cs line 30) —
+    /// upper-cased before validation (ASCII-only ToUpperAscii, DnaSequence.cs line 29; B01 F19) —
     /// and must complement IDENTICALLY to the uppercase form, always emitting
     /// uppercase A/T/G/C. This guards that case-folding neither rejects valid DNA
     /// nor corrupts the A↔T / C↔G mapping.
@@ -1422,7 +1423,7 @@ public class CompositionFuzzTests
     /// <summary>
     /// BE: a one-character input is the minimal non-empty case. Each unambiguous
     /// base is valid for exactly the alphabet that contains it, case-insensitively
-    /// (char.ToUpperInvariant per char). This pins the documented DNA/RNA asymmetry
+    /// (ASCII letters only). This pins the documented DNA/RNA asymmetry
     /// at the smallest scale: A/C/G are valid for both; T is DNA-only; U is RNA-only
     /// (Sequence_Validation.md §5.2 table).
     /// </summary>
@@ -1450,7 +1451,7 @@ public class CompositionFuzzTests
 
     /// <summary>
     /// INJ: mixed and lower case must be accepted because validation folds each
-    /// char with char.ToUpperInvariant before the membership test
+    /// ASCII char (a/c/g/t/u accepted literally, no Unicode folding) before the membership test
     /// (Sequence_Validation.md §3.3, "case-insensitive"). Lowercase/mixed a-c-g-t
     /// is valid DNA and TryCreate materializes it; a-c-g-u is valid RNA. Case must
     /// neither reject valid bases nor flip the classification.
@@ -1476,7 +1477,7 @@ public class CompositionFuzzTests
         created.Should().BeTrue("lowercase/mixed-case A/C/G/T is valid DNA after case folding");
         result.Should().NotBeNull();
         result!.Sequence.Should().Be(input.ToUpperInvariant(),
-            because: "the ctor normalizes accepted input to uppercase (DnaSequence.cs line 30)");
+            because: "the ctor normalizes accepted input to uppercase (ASCII-only, DnaSequence.cs line 29)");
     }
 
     #endregion
