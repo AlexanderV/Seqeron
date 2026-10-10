@@ -903,6 +903,136 @@ namespace Seqeron.Genomics.Infrastructure
             return x * Math.Log(x / np) + np - x;
         }
         /// <summary>
+        /// R <c>sum(x)</c> on x86-64: the values are accumulated left to right in an x87 80-bit <c>long double</c>
+        /// (64-bit significand, round-to-nearest-even after every addition; R <c>summary.c</c> <c>rsum</c>, also
+        /// <c>colSums</c> and the <c>matprod = "internal"</c> dot product) and the total is rounded once more to double.
+        /// The accumulator is emulated exactly with integer arithmetic, so the result is bit-identical to R's (± overflow
+        /// to ±∞ as R). With <paramref name="skipNaN"/> (R <c>na.rm = TRUE</c>) NaN values are skipped, otherwise a NaN
+        /// makes the sum NaN; +∞ and −∞ together give NaN.
+        /// </summary>
+        /// <param name="values">Values in summation order.</param>
+        /// <param name="skipNaN">Skip NaN values (R <c>na.rm = TRUE</c>).</param>
+        /// <returns>The sum rounded to double.</returns>
+        public static double ExtendedPrecisionSum(ReadOnlySpan<double> values, bool skipNaN = false)
+        {
+            System.Numerics.BigInteger mantissa = System.Numerics.BigInteger.Zero; // value = mantissa · 2^exponent
+            int exponent = 0;
+            bool nan = false, positiveInfinity = false, negativeInfinity = false;
+            foreach (double v in values)
+            {
+                if (double.IsNaN(v))
+                {
+                    if (!skipNaN) nan = true;
+                    continue;
+                }
+
+                if (double.IsPositiveInfinity(v)) { positiveInfinity = true; continue; }
+                if (double.IsNegativeInfinity(v)) { negativeInfinity = true; continue; }
+                if (v == 0.0) continue;
+
+                long bits = BitConverter.DoubleToInt64Bits(v);
+                int biased = (int)((bits >> 52) & 0x7FF);
+                long fraction = bits & 0xFFFFFFFFFFFFFL;
+                long m = biased == 0 ? fraction : fraction | (1L << 52);
+                int e = biased == 0 ? -1074 : biased - 1075;
+                System.Numerics.BigInteger term = v < 0 ? -(System.Numerics.BigInteger)m : m;
+                if (mantissa.IsZero)
+                {
+                    mantissa = term;
+                    exponent = e;
+                }
+                else if (e >= exponent)
+                {
+                    mantissa += term << (e - exponent);
+                }
+                else
+                {
+                    mantissa = (mantissa << (exponent - e)) + term;
+                    exponent = e;
+                }
+
+                (mantissa, exponent) = RoundToSignificantBits(mantissa, exponent, 64);
+            }
+
+            if (nan || (positiveInfinity && negativeInfinity)) return double.NaN;
+            if (positiveInfinity) return double.PositiveInfinity;
+            if (negativeInfinity) return double.NegativeInfinity;
+            if (mantissa.IsZero) return 0.0;
+            (mantissa, exponent) = RoundToSignificantBits(mantissa, exponent, 53);
+            return Math.ScaleB((double)mantissa, exponent); // |mantissa| ≤ 2^53: exact; ScaleB overflows to ±∞ as R
+        }
+
+        // Rounds mantissa·2^exponent to `bits` significant bits, ties to even.
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) RoundToSignificantBits(
+            System.Numerics.BigInteger mantissa, int exponent, int bits)
+        {
+            if (mantissa.IsZero) return (mantissa, 0);
+            bool negative = mantissa.Sign < 0;
+            System.Numerics.BigInteger magnitude = System.Numerics.BigInteger.Abs(mantissa);
+            long length = magnitude.GetBitLength();
+            if (length > bits)
+            {
+                int shift = (int)(length - bits);
+                System.Numerics.BigInteger quotient = magnitude >> shift;
+                System.Numerics.BigInteger remainder = magnitude - (quotient << shift);
+                System.Numerics.BigInteger half = System.Numerics.BigInteger.One << (shift - 1);
+                if (remainder > half || (remainder == half && !quotient.IsEven)) quotient += 1;
+                magnitude = quotient;
+                exponent += shift;
+                if (magnitude.GetBitLength() > bits)
+                {
+                    magnitude >>= 1; // rounding carried to a power of two: exact
+                    exponent += 1;
+                }
+            }
+
+            // Drop trailing zero bits so the exponent stays bounded (does not change the value).
+            while (!magnitude.IsZero && magnitude.IsEven)
+            {
+                int tz = (int)System.Numerics.BigInteger.TrailingZeroCount(magnitude);
+                magnitude >>= tz;
+                exponent += tz;
+            }
+
+            return (negative ? -magnitude : magnitude, exponent);
+        }
+
+        /// <summary>
+        /// R <c>dbinom(x, size, prob, log = TRUE)</c> (R 4.3 nmath <c>dbinom.c</c> → <c>dbinom_raw(x, n, p, 1 − p)</c>:
+        /// Loader's saddle-point form with <c>stirlerr</c> and <c>bd0</c>): ln P(X = x), X ~ Binomial(size, prob).
+        /// NaN arguments propagate; prob ∉ [0, 1] or a negative / non-integer size give NaN; x &lt; 0, non-integer
+        /// or &gt; size give −∞.
+        /// </summary>
+        /// <param name="x">Number of successes.</param>
+        /// <param name="size">Number of trials.</param>
+        /// <param name="prob">Success probability.</param>
+        /// <returns>The log probability.</returns>
+        public static double BinomialLogDensity(double x, double size, double prob)
+        {
+            if (double.IsNaN(x) || double.IsNaN(size) || double.IsNaN(prob)) return x + size + prob;
+            if (prob < 0 || prob > 1 || size < 0 || Math.Abs(size - Math.Round(size)) > 1e-7 * Math.Max(1.0, Math.Abs(size)))
+                return double.NaN;
+            if (Math.Abs(x - Math.Round(x)) > 1e-7 * Math.Max(1.0, Math.Abs(x))) return double.NegativeInfinity; // R_D_nonint_check
+            if (x < 0 || double.IsInfinity(x)) return double.NegativeInfinity;
+            double n = Math.Round(size), k = Math.Round(x), p = prob, q = 1 - prob;
+
+            if (p == 0) return k == 0 ? 0.0 : double.NegativeInfinity;
+            if (q == 0) return k == n ? 0.0 : double.NegativeInfinity;
+            if (k == 0)
+            {
+                if (n == 0) return 0.0;
+                return p < 0.1 ? -BinomialDeviance(n, n * q) - n * p : n * Math.Log(q);
+            }
+
+            if (k == n) return q < 0.1 ? -BinomialDeviance(n, n * p) - n * q : n * Math.Log(p);
+            if (k < 0 || k > n) return double.NegativeInfinity;
+            double lc = StirlingError((long)n) - StirlingError((long)k) - StirlingError((long)(n - k))
+                        - BinomialDeviance(k, n * p) - BinomialDeviance(n - k, n * q);
+            double lf = Log2Pi + Math.Log(k) + Log1P(-k / n);
+            return lc - 0.5 * lf;
+        }
+
+        /// <summary>
         /// Silverman's rule-of-thumb bandwidth for a Gaussian kernel density estimate, exactly as R
         /// <c>stats::bw.nrd0</c>: <c>h = 0.9 · lo · n^(−1/5)</c> with <c>lo = min(sd(x), IQR(x)/1.34)</c> (sample SD,
         /// n − 1 divisor; IQR from R's default type-7 quantiles); when that is 0, <c>lo</c> falls back to sd(x), then

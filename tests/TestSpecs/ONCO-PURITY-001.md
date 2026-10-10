@@ -53,6 +53,8 @@
 | `StatisticsHelper.BandwidthNrd0` / `GaussianKernelDensity` / `PeakPick` | StatisticsHelper (Infrastructure) | Canonical (shared) | R `bw.nrd0` / `density.default` / `peakPick::peakpick` (FIN-B24 F33). |
 | `AnalyzeComplexKaryotypePeaks(IEnumerable<PurityPeakMutation>, double, PurityPeakOptions?)` | OncologyAnalyzer | Canonical | CNAqc 1.1.5 `analyze_peaks_general` (FIN-B24 F62). |
 | `AnalyzeSubclonalPurityPeaks(IEnumerable<SubclonalPeakSegment>, double, SubclonalPeakOptions?)` | OncologyAnalyzer | Canonical | CNAqc 1.1.5 `analyze_peaks_subclonal` + `expectations_subclonal` (FIN-B24 F62). |
+| `FitBinomialMixture(IReadOnlyList<int>, IReadOnlyList<int>, int, IReadOnlyList<int>?)` | OncologyAnalyzer | Canonical | BMix `bmixfit(K.Binomials = 1:4)` as called by CNAqc `mixture_peak_detector` (FIN-B24 F63). |
+| `StatisticsHelper.ExtendedPrecisionSum` / `BinomialLogDensity` | StatisticsHelper (Infrastructure) | Canonical (shared) | R long-double `sum` / `dbinom(log = TRUE)` (FIN-B24 F63). |
 
 ---
 
@@ -234,6 +236,28 @@ Data: `TestData/CNAqc/cnaqc_G{1,2,3}.tsv` (seeded clonal sets with complex karyo
 | U13 | invalid arguments (null, π 1.5, ε 0, start 1:2, karyotype 3:1, CCF 1, VAF 1.5) | throws |
 
 Tests: `OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests` (28).
+
+### 5.10 FIN-B24 F63 — BMix mixture peaks and `n_bootstrap`
+
+Reference: caravagnalab/BMix `bmixfit` / `bmixfit_EM` and CNAqc 1.1.5 `combined_peak_detector` / `mixture_peak_detector` / `simple_peak_detector` in R 4.3.3, `set.seed(seed)` immediately before each call; outputs `TestData/CNAqc/cnaqc_bmix_R.txt` (both `options(matprod = "default")` (OpenBLAS) and `"internal"`), `cnaqc_common_boot_R.txt`, `cnaqc_general_boot_R.txt`, `cnaqc_subclonal_boot_R.txt`.
+
+| ID | Test | Expected (R) |
+|----|------|--------------|
+| B1–B7 | `FitBinomialMixture` on D1 2:1 / 1:1 / 2:2, D3 2:0 / 1:1, G1 3:1 / 1:1 (seeds 7, 7, 11, 7, 3, 42, 5) | all 8 grid fits (NLL, BIC, ICL) and best K, means, π bit-identical to `matprod = "internal"`; ≤ 1e−12 relative to the default (OpenBLAS) run |
+| B8 | D1 2:1 seed 7 | grid K 1,1,2,2,3,3,4,4; best K = 2, ICL 1901.1530982123516, means 0.51667932020615859 / 0.26289651855238316 |
+| B9 | 2 distinct frequencies | K = 3, 4 fail (R `kmeans` error, retried, dropped); best K = 2 |
+| B10 | invalid arguments (null, length mismatch, NV > DP, K = 0) | throws |
+| C1–C9 | `AnalyzePurityPeaks` with `FitMixturePeaks`: D1 π 0.7 seed 7, D3 π 0.45 seed 7, D4 π 0.3 seed 11 (B = 1); D1 seed 7 B = 3; D3 seed 21 B = 5; D4 seed 11 B = 2; D1 π 0.6 seed 3 B = 4 adjust 0.5; KDE-only bootstrap D3 seed 5 B = 5, D1 seed 9 B = 10 adjust 0.5 | λ, QC, every match row (x, y, counts, source, offset, matched, karyotype QC) and peak row equal (numbers ≤ 1e−12 relative — KDE heights / grid x at FFT-vs-direct rounding); e.g. D1 B = 1 λ 0.0045358591466179345, D1 B = 3 −0.0047951961423504073 |
+| C10 | fitted vs supplied R means (D1 seed 7) | λ 0.0045358591466179345, PASS |
+| C11 | defaults ignore `Seed` and read counts | λ 0.0023756289876209163 (F34 unchanged) |
+| C12 | invalid: `BootstrapCount` 0 (all three analyses), `FitMixturePeaks` without reads, `FitMixturePeaks` + `MixturePeaks` | throws |
+| C13–C15 | `AnalyzeComplexKaryotypePeaks` bootstrap G1 seed 4 B = 3, G1 seed 8 B = 10 adjust 0.5, G2 seed 1 B = 5 | all lines equal (≤ 1e−12) |
+| C16–C17 | `AnalyzeSubclonalPurityPeaks` bootstrap S1 seed 13 B = 3, S2 seed 2 B = 6 adjust 0.5 | all lines equal incl. identifiers |
+| C18 | bootstrap keeps the full-data peaks first | prefix equality |
+| R1 | `ExtendedPrecisionSum` | R `sum`: c(1, 2⁻⁵³, 2⁻⁵³) → 1.0000000000000002; c(1, 2⁻⁵³, 2⁻⁶⁴) → 1 (x87 double rounding); c(1e16, 1, 1) → 10000000000000002; 0.1+0.2+0.3 → 0.59999999999999998; Inf / NaN / na.rm cases |
+| R2 | `BinomialLogDensity` | R `dbinom(log = TRUE)` 7 interior/edge values (≤ 4e−16 relative) + boundaries (p 0/1, x > n, non-integer x, p 1.5 → NaN) |
+
+Tests: `OncologyAnalyzer_CnaqcBMixBootstrap_Tests` (28), `StatisticsHelper_RSumDbinom_Tests` (16).
 
 ## 6. Assumption Register
 

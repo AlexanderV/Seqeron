@@ -18,15 +18,15 @@ namespace Seqeron.Genomics.Tests.Unit.Oncology;
 [TestFixture]
 public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
 {
-    private static string F(double v) => v.ToString("G17", CultureInfo.InvariantCulture);
+    internal static string F(double v) => v.ToString("G17", CultureInfo.InvariantCulture);
 
-    private static string B(bool b) => b ? "TRUE" : "FALSE";
+    internal static string B(bool b) => b ? "TRUE" : "FALSE";
 
     private static List<OncologyAnalyzer.PurityPeakMutation> Mutations(string dataset) =>
         CnaqcTestData.Load(dataset).Select(r => new OncologyAnalyzer.PurityPeakMutation(r.Vaf, r.Major, r.Minor)).ToList();
 
     // The block of the R reference file that starts with "== <tag>".
-    private static List<string> ReferenceBlock(string file, string tag)
+    internal static List<string> ReferenceBlock(string file, string tag)
     {
         var lines = CnaqcTestData.Text(file).Split('\n').Select(l => l.TrimEnd('\r')).ToList();
         int start = lines.FindIndex(l => l == $"== {tag}" || l.StartsWith($"== {tag} ", StringComparison.Ordinal));
@@ -57,6 +57,12 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     public void AnalyzeComplexKaryotypePeaks_MatchesCnaqcR(string tag, string dataset, double purity, OncologyAnalyzer.PurityPeakOptions options)
     {
         var r = OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(Mutations(dataset), purity, options);
+        Assert.That(FormatGeneral(tag, r), Is.EqualTo(ReferenceBlock("cnaqc_general_R.txt", tag)));
+    }
+
+    // R dumpG format: analysis order, expected peaks, data peaks (group_split order), summary rows.
+    internal static List<string> FormatGeneral(string tag, OncologyAnalyzer.ComplexKaryotypePeakAnalysis r)
+    {
         var actual = new List<string>();
         if (!r.Ran)
         {
@@ -83,7 +89,7 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
                 actual.Add($"  S {s.MajorCopyNumber}:{s.MinorCopyNumber} n={s.MutationCount} matched={s.MatchedPeaks} mismatched={s.MismatchedPeaks} prop={F(s.MatchedProportion)}");
         }
 
-        Assert.That(actual, Is.EqualTo(ReferenceBlock("cnaqc_general_R.txt", tag)));
+        return actual;
     }
 
     // G1, π = 0.6 (R): 3:0 expects 3 peaks (m = 1..3, minor 0 → Major multiplicities), 3:1 → 1..3, 4:1 → 1..4; the
@@ -168,6 +174,12 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
     public void AnalyzeSubclonalPurityPeaks_MatchesCnaqcR(string tag, string dataset, double purity, OncologyAnalyzer.SubclonalPeakOptions options, int take)
     {
         var r = OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(CnaqcTestData.Segments(dataset).Take(take), purity, options);
+        Assert.That(FormatSubclonal(tag, r), Is.EqualTo(ReferenceBlock("cnaqc_subclonal_R.txt", tag)));
+    }
+
+    // R dumpS format (segment id reduced to the chromosome).
+    internal static List<string> FormatSubclonal(string tag, IReadOnlyList<OncologyAnalyzer.SubclonalSegmentPeakResult> r)
+    {
         var actual = new List<string>();
         if (r.Count == 0)
         {
@@ -205,7 +217,7 @@ public class OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests
             }
         }
 
-        Assert.That(actual, Is.EqualTo(ReferenceBlock("cnaqc_subclonal_R.txt", tag)));
+        return actual;
     }
 
     // S1 chr1 (2:1 at CCF 0.6 / 1:1 at 0.4, π 0.7): three models, the branching A1B1 → A1A2B1 | A1B1 and the linear

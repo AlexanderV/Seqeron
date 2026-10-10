@@ -54,6 +54,13 @@
     <EmbeddedResource Include="TestData\CNAqc\cnaqc_S3_mutations.tsv" />
     <EmbeddedResource Include="TestData\CNAqc\cnaqc_general_R.txt" />
     <EmbeddedResource Include="TestData\CNAqc\cnaqc_subclonal_R.txt" />
+    <!-- ONCO-PURITY-001 (FIN-B24 F63): BMix bmixfit grids (R matprod default + internal), CNAqc analyze_peaks_common with
+         BMix and n_bootstrap, analyze_peaks_general / _subclonal with n_bootstrap (set.seed per run); generator:
+         docs/Evidence/ONCO-PURITY-001-Evidence.md "BMix and n_bootstrap". -->
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_bmix_R.txt" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_common_boot_R.txt" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_general_boot_R.txt" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_subclonal_boot_R.txt" />
   </ItemGroup>
 
   <ItemGroup>
