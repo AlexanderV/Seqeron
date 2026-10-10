@@ -120,6 +120,14 @@ t-test of its phased SNP BAFs against that corner's BAF is not significant (pval
 or constant SNP BAFs give pval = 0 [8]. `FitSubclonalCopyNumber` (segment summaries, constant BAF) therefore decides by
 maxdist alone; `FitSubclonalCopyNumberWithSnpTest` (B24 F39) runs the t-test on the supplied SNP BAFs.
 
+**Alternative solutions and confidence intervals (Battenberg `determine_copynumber`, B24 F41).** For a sub-clonal
+segment Battenberg reports all six `orderEdges` solutions A–F (A = nearest edge; rows needing a negative copy number
+are NA and moved last), each with τ, the delta-method `SDfrac = |τ(l + s) − τ|/2 + |τ(l − s) − τ|/2` (s = sd(BAFke)/√n)
+and a non-parametric bootstrap: noperms = 1000 resamples of the segment's SNP BAFs with replacement, τ at each resample
+mean; `SDfrac_BS = sd(τ*)`, `frac1_0.025 = sort(τ*)[25]`, `frac1_0.975 = sort(τ*)[975]` (fixed order statistics — the
+2.5 %/97.5 % points only for noperms = 1000; NA below). The RNG is R's (`set.seed` → Mersenne-Twister, rejection
+`sample`), so with the same seed the resamples are Battenberg's [8].
+
 **Phased-BAF segmentation (Battenberg `segment.baf.phased`, B24 F40).** Battenberg phases germline-heterozygous SNPs
 with IMPUTE2/Beagle5 against the 1000 Genomes reference panel (external executables + multi-GB reference bundle; not
 run here — the caller supplies phased BAFs), then per chromosome pre-segments at prior (SV) breakpoints and SNP gaps
@@ -164,6 +172,7 @@ then exact Potts filtering on the compacted array; windowed `runPcfSubset` above
 | purity, ploidy (sub-clonal) | double | required | fitted ρ, ψ for the sub-clonal decomposition | ρ∈(0,1]; ψ>0 |
 | segments (t-test) | IReadOnlyList\<SubclonalSegmentSnpBafs\> | — (`FitSubclonalCopyNumberWithSnpTest`) | segment summary + its phased SNP BAFs (Battenberg `BAFphased`, used unmirrored) (B24 F39) | non-null; SNP BAFs ∈ [0,1] (list may be empty) |
 | significanceLevel, maxBafDistance | double | 0.05, 0.01 | Battenberg `siglevel`, `maxdist` | siglevel ∈ [0,1]; maxdist ≥ 0, finite |
+| seed, permutations | int, int | required, 1000 | `FitSubclonalCopyNumberWithBootstrap`: R `set.seed` value and Battenberg `noperms` (B24 F41) | any int; permutations ≥ 1 |
 | snps (phased segmentation) | IReadOnlyList\<PhasedBafSnp\> | — (`SegmentPhasedBaf`) | caller-phased SNP BAFs (chromosome, position, BAF of haplotype 1) (B24 F40) | non-null; BAF ∈ [0,1] or NaN (= missing, dropped) |
 | options (phased segmentation) | BattenbergPhasedSegmentationOptions | Battenberg defaults | gamma 10, phasegamma 3, kmin 3, phasekmin 3, no_segmentation false, calc_seg_baf_option 3, prior breakpoints none | gammas finite ≥ 0; kmins ∈ [1, 14] |
 | segmentedSnps, logR | IReadOnlyList\<PhasedBafSegmentedSnp\>, IReadOnlyList\<LogRProbe\> | — (`BuildBattenbergSegments`) | `segment.baf.phased` rows + raw logR probes → `SubclonalSegmentSnpBafs` for the t-test fit (B24 F40) | BAFs ∈ [0,1]; non-finite logR ignored |
@@ -239,6 +248,10 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
    two `selectFastPcf` passes, `calc_seg_baf_option`) → `BuildBattenbergSegments` (`determine_copynumber`
    switchpoints: new segment where BAFseg or chromosome changes; LogR = mean finite logR within [startpos, endpos],
    0 when none) → `FitSubclonalCopyNumberWithSnpTest` [8].
+7. **Alternative solutions + bootstrap CIs (B24 F41, `FitSubclonalCopyNumberWithBootstrap`):** after step 5, for a
+   sub-clonal segment the six `orderEdges` options (NA rows last), τ, SDfrac, and per option `noperms` bootstrap
+   resamples (R RNG stream: segments in order, options A–F, NA options included) → SDfrac_BS and the 25th/975th order
+   statistics [8].
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -256,6 +269,7 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 | Purity/ploidy fit | O(P·Q·S) | O(P·Q + S) | P,Q = grid sizes (≤ 4·10⁶ cells), S = segments |
 | Multiplicity | O(1) | O(1) | closed form |
 | Sub-clonal fit | O(S) | O(S) | closed-form decomposition per segment |
+| Bootstrap CIs | O(6·noperms·Σnₛ) | O(noperms + n) | nₛ = SNPs of sub-clonal segment s [8] |
 | Phased-BAF segmentation | O(C²) per presegment, C = filterMarkS4 candidates (≈ 15–30 % of SNPs); 5000-SNP windows above 15 000 | O(n) | Potts DP on the compacted array [8] |
 
 ## 5. Implementation Notes
@@ -280,6 +294,9 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
   (Battenberg `segment.baf.phased`; private port of `selectFastPcf`/`filterMarkS4`/`PottsCompact`/`runPcfSubset`, shared
   `GetMad`; type-7 quantile = `StatisticsHelper.SampleQuantileType7`) and
   `OncologyAnalyzer.BuildBattenbergSegments(rows, LogRProbe[])` → `SubclonalSegmentSnpBafs[]` (B24 F40).
+- `OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(SubclonalSegmentSnpBafs[], ρ, ψ, seed, γ, siglevel, maxdist,
+  permutations = 1000)` → `BattenbergSegmentCall` (Fit = solution A, pval, BAF l, ntot, `BattenbergSubclonalSolution` A–F
+  with SDfrac / SDfrac_BS / frac1_0.025 / frac1_0.975); private `RMersenneTwister` = R's default RNG (B24 F41).
 
 ### 5.2 Current Behavior
 
@@ -325,8 +342,11 @@ suffix tree is **not used** (no occurrence enumeration).
   BAFs, R-verified on 6 tracks (300–16 000 SNPs, all three `selectFastPcf` regimes, prior breakpoints, ≥ 3 Mb gaps,
   options 1/2/3, no_segmentation): every segment extent identical and BAFseg ≤ 1e−12; end-to-end with
   `determine_copynumber` 9/9 segments identical. The phasing itself (IMPUTE2/Beagle5 + 1000 Genomes panel) is not
-  run (BLOCKED: external executables + multi-GB reference bundle). Bootstrap CIs and alternative solutions B–F are not
-  produced.
+  run (BLOCKED: external executables + multi-GB reference bundle). ~~Bootstrap CIs and alternative solutions B–F are not
+  produced~~ — **resolved by F41** (`FitSubclonalCopyNumberWithBootstrap`): R-verified on 7 single segments (NA solution,
+  noperms 500/20 ⇒ NA bounds, 1 SNP ⇒ SDfrac NA, seeds 0/−12345/2³¹−1) and the 2 multi-segment F40 tracks — every
+  column ≤ 1e−12 including the bootstrap ones (R's RNG reproduced; resamples identical); 100 other seeds agree with R's
+  400-seed Monte-Carlo means within 5 standard errors.
 
 **Not implemented:**
 
@@ -372,7 +392,9 @@ ASPCF overload, F36); the haploid X/Y (male) model is available through `AscatSe
 `FitSubclonalCopyNumberWithSnpTest` (F39; phased SNP BAFs supplied by the caller). Multi-sample (asmultipcf)
 segmentation and Battenberg's built-in haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes reference panel —
 external executables and a multi-GB reference bundle) are out of scope; the downstream phased path is available
-(`SegmentPhasedBaf` → `BuildBattenbergSegments` → `FitSubclonalCopyNumberWithSnpTest`, F40) on caller-phased BAFs. Bootstrap CIs are not run. `FitPurityPloidy` fails (like ASCAT) when no local
+(`SegmentPhasedBaf` → `BuildBattenbergSegments` → `FitSubclonalCopyNumberWithSnpTest`, F40) on caller-phased BAFs; alternative
+solutions B–F and the seeded bootstrap CIs are available through `FitSubclonalCopyNumberWithBootstrap` (F41). Battenberg's
+`merge_segments` / `mask_high_cn_segments` post-processing in `callSubclones` is not ported. `FitPurityPloidy` fails (like ASCAT) when no local
 minimum passes the filters — use `TryFitPurityPloidy`, or `EvaluatePurityPloidy` with externally chosen (ρ, ψ).
 
 ## 7. Examples and Related Material
@@ -404,6 +426,7 @@ var ccf = OncologyAnalyzer.EstimateCcf(0.40, fit.Purity,
 - Tests: [OncologyAnalyzer_AscatGermlineHomozygous_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatGermlineHomozygous_Tests.cs) — germline-homozygous probes (F36/F37), R-locked
 - Tests: [StatisticsHelper_StudentT_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_StudentT_Tests.cs) — Student t / incomplete beta / one-sample t-test vs R (F39); Battenberg t-test rows in `OncologyAnalyzer_AscatDerivation_Tests.cs` (F39), R-locked
 - Tests: [OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs) — `segment.baf.phased` on 6 tracks + end-to-end `determine_copynumber` (F40), R-locked; [StatisticsHelper_QuantileType7_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_QuantileType7_Tests.cs) (F40)
+- Tests: [OncologyAnalyzer_BattenbergBootstrap_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BattenbergBootstrap_Tests.cs) — solutions A–F, SDfrac, bootstrap CIs (F41), R-locked + Monte-Carlo agreement
 - Tests: [OncologyAnalyzer_AscatSexChromosome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatSexChromosome_Tests.cs) — male haploid X/Y, X non-PAR, XX default (F38), R-locked
 - Evidence: [ONCO-ASCAT-001-Evidence.md](../../../docs/Evidence/ONCO-ASCAT-001-Evidence.md)
 - Related algorithms: [Tumor_Ploidy_Estimation](./Tumor_Ploidy_Estimation.md), [Cancer_Cell_Fraction_Estimation](./Cancer_Cell_Fraction_Estimation.md), [Tumor_Purity_Estimation](./Tumor_Purity_Estimation.md)

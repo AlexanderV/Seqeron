@@ -499,6 +499,42 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 - New shared helper: `StatisticsHelper.SampleQuantileType7` (R `quantile(type = 7)`, 1-based index arithmetic) —
   R 4.3.3 e.g. x = {0.31, 0.12, 0.97, 0.55, 0.12, 0.44, 0.08}: p 0.05 ⇒ 0.091999999999999998, p 0.88 ⇒ 0.66760000000000019.
 
+## 2026-10 FIN-B24 F41 — Battenberg alternative solutions A–F, SDfrac and bootstrap CIs
+
+- Sources opened: Wedge-lab/battenberg master 57a8f7e `R/fitcopynumber.R` (`callSubclones(..., noperms = 1000, seed =
+  as.integer(Sys.time()))` → `set.seed(seed)` once, `determine_copynumber` called twice, before and after `merge_segments`;
+  `determine_copynumber` sub-clonal branch: `all.edges = orderEdges(...)`, NA rows (`which(nMaj1<0|nMin1<0|...)`) moved
+  last, `tau`, `sdl = sd(BAFke, na.rm = T)/sqrt(sum(!is.na(BAFke)))`, `sdtau = |τ(l+sdl) − τ|/2 + |τ(l−sdl) − τ|/2`;
+  "Bootstrapping to obtain 95% confidence intervals": for each of the 6 options, `noperms` × `permBAFs = sample(BAFke,
+  length(BAFke), replace = T)`, `permFraction[j] = τ(mean(permBAFs))`, `sdtaubootstrap = sd(permFraction)`, `tau25 =
+  sort(permFraction)[25]`, `tau975 = sort(permFraction)[975]`; columns `nMaj1_X … frac1_X_0.975` for X = A–F, NA for
+  clonal rows), `R/orderEdges.R` (six options per case). The bounds are fixed order statistics, **not** `quantile()`
+  (type 7 is not used): exact 2.5 %/97.5 % points only for noperms = 1000; NA when fewer than 25 / 975 non-NA resamples.
+  Alternative solutions B–F are the same `determine_copynumber` output row ⇒ in scope, ported.
+- R RNG (R 4.3.3 `src/main/RNG.c`, `src/main/random.c`): `set.seed` → `RNG_Init` (50 × `seed = 69069·seed + 1`, then
+  625 LCG values into `dummy[]`, `FixupSeeds` sets `mti = 624`), `MT_genrand` (MT19937 tempering, ·2.3283064365386963e−10,
+  `fixup` into (0, 1)), `sample.kind = "Rejection"` (R ≥ 3.6): `R_unif_index(n)` = `rbits(ceil(log2 n))` (16-bit chunks of
+  `floor(unif_rand()·65536)`) until < n. Ported as a private class; `set.seed(42); sample(5, 10, TRUE)` = 1 5 1 1 2 4 2 2 1 4.
+- R cross-check (executed; `determine_copynumber` + `orderEdges` sourced verbatim, `set.seed(seed)` then one call):
+
+  | Case | Input | Key R values (solution A unless noted) |
+  |---|---|---|
+  | s1 (ρ 0.8, ψ 2.5, seed 7) | 5 SNPs around (2,0)/(2,1) | τ 0.15605024544591201, SDfrac 0.0064798217571942303, SDfrac_BS 0.0058290159705588597, CI [0.145295959445356, 0.16716042067841799]; F = NA (x − 1 < 0) |
+  | s1n500 / s1n20 | noperms 500 / 20 | SDfrac_BS 0.0060085874798433301 / 0.0084178392254478495; frac1_0.975 NA / both NA |
+  | s2 (seed 3) | 1 SNP | SDfrac NA, SDfrac_BS 0, bounds 0.15626393223361601 (= τ(SNP BAF) ≠ τ(l)) |
+  | s3 (ρ 0.55, ψ 3.1, seed −12345) | 3 SNPs | SDfrac 0.0335351207441906, SDfrac_BS 0.027099948479094901, CI [0.78233132237708902, 0.89740146907827201] |
+  | s4 (ρ 0.35, ψ 1.9, seed 2³¹ − 1) | 5 SNPs | SDfrac 0.14517451315980001, SDfrac_BS 0.12696742413780401, CI [0.28061684037572598, 0.75502869611456302] |
+  | s5 (ρ 1, ψ 2, seed 0) | 12 SNPs | SDfrac 0.0187275272879537, SDfrac_BS 0.018022906735212799, CI [0.66620363939436, 0.73567095563232898] |
+  | e1 / e2 (F40 tracks, seeds 4711 / 99) | 3 / 6 segments, RNG stream across sub-clonal segments | all 60 columns of every row |
+
+  C# `FitSubclonalCopyNumberWithBootstrap`: every column of every row (all six solutions, incl. NA placement and NA
+  bounds) ≤ 1e−12 — the bootstrap columns too, i.e. the resamples are R's (R's long-double `mean`/`sd` change only
+  the last bits).
+- Statistical agreement (seed-independent): R, s4, seeds 1..400: mean (sd) SDfrac_A_BS 0.130353 (0.002746),
+  frac1_A_0.025 0.280433 (0.007417), frac1_A_0.975 0.785209 (0.012439); C# seeds 100001..100100 agree within
+  5·sd·√(1/100 + 1/400).
+- Gap shown (pre-F41): Battenberg's `SDfrac_*`, `SDfrac_*_BS`, `frac1_*_0.025/0.975` and solutions B–F had no counterpart.
+
 ---
 
 ## References
@@ -516,6 +552,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 ## Change History
 
+- **2026-10-10**: FIN-B24 F41 — Battenberg solutions A–F, SDfrac and seeded bootstrap CIs (`FitSubclonalCopyNumberWithBootstrap`, R RNG port) R cross-check + Monte-Carlo agreement section added.
 - **2026-10-10**: FIN-B24 F40 — Battenberg `segment.baf.phased` port (`SegmentPhasedBaf`, `BuildBattenbergSegments`) R cross-check; built-in IMPUTE2/Beagle5 haplotype imputation BLOCKED (proof recorded).
 - **2026-10-10**: FIN-B24 F38 — runASCAT sex-chromosome model (male haploid X/Y, `X_nonPAR` rule, XX default) R cross-check section added.
 - **2026-10-10**: FIN-B24 F37 — runASCAT with homozygous segments (`bafke` NA ⇒ 0, all-probe ploidy) R cross-check section added.

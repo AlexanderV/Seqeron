@@ -56,7 +56,7 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
         return result;
     }
 
-    private static List<OncologyAnalyzer.PhasedBafSnp> Track(string name) => name switch
+    internal static List<OncologyAnalyzer.PhasedBafSnp> Track(string name) => name switch
     {
         "t1" => Gen("1", 300, new[] { 0.5, 0.72, 0.6 }, new[] { 100, 200, 300 }, 15, 12345, 0.04, 1000, 1000),
         "t2" => Gen("2", 2000, new[] { 0.55, 0.8, 0.5, 0.67 }, new[] { 500, 900, 1500, 2000 }, 40, 777, 0.05, 50000, 1500, 1200, 4_000_000)
@@ -217,7 +217,7 @@ public class OncologyAnalyzer_BattenbergPhasedSegmentation_Tests
     }
 
     // Battenberg-like logR track: per chromosome-local SNP index i, lv[seg] + ((i mod 7) − 3)·0.01 at every SNP position.
-    private static List<OncologyAnalyzer.LogRProbe> LogRTrack(
+    internal static List<OncologyAnalyzer.LogRProbe> LogRTrack(
         IReadOnlyList<OncologyAnalyzer.PhasedBafSegmentedSnp> rows, double[] lv, int[] bounds)
     {
         var probes = new List<OncologyAnalyzer.LogRProbe>();

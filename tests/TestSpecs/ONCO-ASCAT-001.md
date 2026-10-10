@@ -346,3 +346,16 @@ deterministic LCG generator reproduced in the test (Evidence § F40).
 | S-PHSEG-9 | `BuildBattenbergSegments`: no finite logR ⇒ 0; chromosome change splits | 3 rows | 2 segments, LogR 0 | `determine_copynumber` code |
 | C-PHSEG-1 | invalid arguments | null, BAF 1.2, kmin 0, phasekmin 15, gamma NaN, option 4, BAFseg 1.5 | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
 | M-STAT-Q1 | `SampleQuantileType7` | 7-value sample, p ∈ {0, 0.05, 0.25, 0.5, 0.85, 0.88, 1}; {3,1,4,1,5} p 0.85 | R `quantile` ≤ 1e−15 | R run |
+
+## 15. FIN-B24 F41 — Battenberg solutions A–F, SDfrac and bootstrap CIs (2026-10-10)
+
+File `OncologyAnalyzer_BattenbergBootstrap_Tests.cs`. Expected values = `set.seed(seed); determine_copynumber(...)`
+sourced verbatim (R 4.3.3), every column %.17g (Evidence § F41).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-BOOT-1 | single segments, all 60 columns | s1, s1n500, s1n20, s2, s3, s4, s5 (seeds 7, 3, −12345, 2³¹−1, 0) | CNs exact, τ/SDfrac/SDfrac_BS/bounds ≤ 1e−12; NA solution F last; NA bounds for noperms < 975 / < 25; 1 SNP ⇒ SDfrac NA, SD_BS 0 | R run |
+| M-BOOT-2 | RNG stream across segments | F40 tracks e1 (seed 4711), e2 (seed 99) | every sub-clonal row ≤ 1e−12; clonal rows no solutions | R run |
+| M-BOOT-3 | statistical agreement, seeds disjoint from R | s4, 100 C# seeds vs R 400 seeds | means of SD_BS / bounds within 5 MC standard errors; SDfrac seed-independent | R run |
+| S-BOOT-4 | reproducibility, clonal ⇒ empty, guards | s1 twice; within-maxdist segment; permutations 0, null, ρ 0 | identical; Solutions empty; ArgumentOutOfRange / ArgumentNull | contract |
+

@@ -4291,8 +4291,8 @@ public static partial class OncologyAnalyzer
     /// A segment summary carries a single BAF value, i.e. its SNP BAFs have zero spread; Battenberg's per-SNP
     /// t-test then returns <c>pval = 0</c> (<c>if (is.na(sd(BAFke)) || sd(BAFke) == 0) pval = 0</c>), so only the
     /// maxdist rule can make a segment clonal — exactly the path ported here (with per-SNP BAFs, Battenberg's t-test is
-    /// run by <see cref="FitSubclonalCopyNumberWithSnpTest"/>). The bootstrap confidence intervals and the
-    /// alternative solutions B–F of Battenberg's output are not produced.
+    /// run by <see cref="FitSubclonalCopyNumberWithSnpTest"/>; the alternative solutions B–F, SDfrac and the seeded
+    /// bootstrap confidence intervals by <see cref="FitSubclonalCopyNumberWithBootstrap"/>).
     /// </summary>
     /// <param name="segments">Segment summaries (e.g. from <see cref="SegmentAlleleSpecificAspcf"/>). Non-null; finite logR,
     /// BAF in [0, 1].</param>
@@ -4443,6 +4443,17 @@ public static partial class OncologyAnalyzer
         public double Level1 { get; init; }
 
         public double Level2 { get; init; }
+
+        /// <summary>Battenberg <c>levels[2]</c>/<c>levels[3]</c> (corner BAFs of the square, 0/0 ⇒ 0.5), x, y and ntot.</summary>
+        public double SquareLevel2 { get; init; }
+
+        public double SquareLevel3 { get; init; }
+
+        public double X { get; init; }
+
+        public double Y { get; init; }
+
+        public double Ntot { get; init; }
     }
 
     /// <summary>The <c>determine_copynumber</c> body up to <c>whichclosestlevel.test</c> (shared by both clonality rules).</summary>
@@ -4485,6 +4496,11 @@ public static partial class OncologyAnalyzer
         {
             Level1 = testLevel1,
             Level2 = testLevel2,
+            SquareLevel2 = level2,
+            SquareLevel3 = level3,
+            X = x,
+            Y = y,
+            Ntot = ntot,
         };
     }
 
@@ -4503,8 +4519,7 @@ public static partial class OncologyAnalyzer
             return new SubclonalSegmentFit(s, clonal, SecondaryState: null, IsSubclonal: false);
         }
 
-        double tau = (1.0 - rho + rho * maj2 - 2.0 * l * (1.0 - rho) - l * rho * (min2 + maj2))
-                     / (l * rho * (min1 + maj1) - l * rho * (min2 + maj2) - rho * maj1 + rho * maj2);
+        double tau = BattenbergTau(l, rho, maj1, min1, maj2, min2);
         return new SubclonalSegmentFit(
             s,
             new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), tau),
@@ -4549,6 +4564,378 @@ public static partial class OncologyAnalyzer
 
         // case 2b
         return lowerTotal ? (y, x, y, x + 1.0) : (y, x + 1.0, y + 1.0, x + 1.0);
+    }
+
+    /// <summary>
+    /// One of Battenberg's six candidate sub-clonal solutions A–F of a segment (<c>callSubclones</c> extended output
+    /// columns <c>nMaj1_X, nMin1_X, frac1_X, nMaj2_X, nMin2_X, frac2_X, SDfrac_X, SDfrac_X_BS, frac1_X_0.025, frac1_X_0.975</c>).
+    /// A solution whose edge would need a negative copy number is <c>NA</c> in Battenberg: its copy numbers are
+    /// <c>null</c> and its numbers NaN (such solutions are listed last).
+    /// </summary>
+    /// <param name="MajorCopyNumber1">nMaj1 (state 1 major), or null (NA).</param>
+    /// <param name="MinorCopyNumber1">nMin1, or null.</param>
+    /// <param name="Fraction1">frac1 = τ (unclamped), NaN when NA.</param>
+    /// <param name="MajorCopyNumber2">nMaj2 (state 2 major), or null.</param>
+    /// <param name="MinorCopyNumber2">nMin2, or null.</param>
+    /// <param name="Fraction2">frac2 = 1 − τ.</param>
+    /// <param name="FractionSd">SDfrac: |τ(l + s) − τ|/2 + |τ(l − s) − τ|/2 with s = sd(BAFke)/√n (NaN for &lt; 2 SNPs).</param>
+    /// <param name="FractionBootstrapSd">SDfrac_BS: sd of the bootstrap τ values (NaN when any is NaN).</param>
+    /// <param name="Fraction1Lower">frac1_0.025: the 25th smallest bootstrap τ (NaN when fewer than 25 non-NaN values).</param>
+    /// <param name="Fraction1Upper">frac1_0.975: the 975th smallest bootstrap τ (NaN when fewer than 975).</param>
+    public readonly record struct BattenbergSubclonalSolution(
+        int? MajorCopyNumber1,
+        int? MinorCopyNumber1,
+        double Fraction1,
+        int? MajorCopyNumber2,
+        int? MinorCopyNumber2,
+        double Fraction2,
+        double FractionSd,
+        double FractionBootstrapSd,
+        double Fraction1Lower,
+        double Fraction1Upper);
+
+    /// <summary>
+    /// A Battenberg <c>determine_copynumber</c> output row with its alternative solutions and confidence intervals.
+    /// </summary>
+    /// <param name="Fit">Solution A as a clonal / sub-clonal fit (identical to <see cref="FitSubclonalCopyNumberWithSnpTest"/>).</param>
+    /// <param name="PValue">Battenberg <c>pval</c>.</param>
+    /// <param name="Baf">Battenberg <c>BAF</c> column: the mirrored segment level l = max(BAFseg, 1 − BAFseg).</param>
+    /// <param name="TotalCopyNumber">Battenberg <c>ntot</c> = nMajor + nMinor (raw, after the negative-minor correction).</param>
+    /// <param name="Solutions">Solutions A–F (six entries) for a sub-clonal segment; empty for a clonal one (Battenberg NA).</param>
+    public sealed record BattenbergSegmentCall(
+        SubclonalSegmentFit Fit,
+        double PValue,
+        double Baf,
+        double TotalCopyNumber,
+        IReadOnlyList<BattenbergSubclonalSolution> Solutions);
+
+    /// <summary>Battenberg <c>noperms = 1000</c> (<c>callSubclones</c> default).</summary>
+    public const int BattenbergDefaultPermutations = 1000;
+
+    /// <summary>
+    /// <see cref="FitSubclonalCopyNumberWithSnpTest"/> plus the rest of Battenberg's <c>determine_copynumber</c> row
+    /// (Wedge-lab/battenberg R/fitcopynumber.R; B24 F41): for a sub-clonal segment all six <c>orderEdges</c> solutions
+    /// A–F (rows with a negative copy number become NA and move to the end), each with τ, the delta-method
+    /// <c>SDfrac</c> and the bootstrap <c>SDfrac_BS</c> / <c>frac1_0.025</c> / <c>frac1_0.975</c>:
+    /// <code>
+    /// for (option in 1:6) for (j in 1:noperms) {
+    ///   permBAFs = sample(BAFke, length(BAFke), replace = T); permMeanBAF = mean(permBAFs)
+    ///   permFraction[j] = τ(permMeanBAF; option) }
+    /// SDfrac_BS = sd(permFraction); frac1_0.025 = sort(permFraction)[25]; frac1_0.975 = sort(permFraction)[975]
+    /// </code>
+    /// Note the bounds are fixed order statistics, not <c>quantile()</c>: they are the 2.5 %/97.5 % points only for
+    /// noperms = 1000 and NA for fewer resamples. Resampling uses a port of R's default generator — Mersenne-Twister
+    /// seeded by <c>set.seed(seed)</c> (initial scrambling + LCG fill) with R ≥ 3.6 "Rejection" <c>sample</c>
+    /// (<c>R_unif_index</c>/<c>rbits</c>) — consuming draws in Battenberg's order (segments in input order, options
+    /// A–F, NA options included), so the resamples are R's: <c>set.seed(seed); determine_copynumber(…)</c> is reproduced
+    /// (the bootstrap columns agree to ~1e−15; R's long-double <c>mean</c>/<c>sd</c> differ only in the last bits).
+    /// <c>callSubclones</c> calls <c>set.seed</c> once and then <c>determine_copynumber</c> twice (before/after
+    /// <c>merge_segments</c>), so its final table matches this method only for the RNG state at the second call.
+    /// </summary>
+    /// <param name="segments">Segments with their phased SNP BAFs (e.g. from <see cref="BuildBattenbergSegments"/>).</param>
+    /// <param name="purity">Fitted tumour purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Fitted tumour ploidy ψ (&gt; 0).</param>
+    /// <param name="seed">R <c>set.seed</c> value (Battenberg <c>seed</c>; any 32-bit integer).</param>
+    /// <param name="gamma">Platform parameter γ (&gt; 0).</param>
+    /// <param name="significanceLevel">Battenberg <c>siglevel</c> ∈ [0, 1].</param>
+    /// <param name="maxBafDistance">Battenberg <c>maxdist</c> ≥ 0.</param>
+    /// <param name="permutations">Battenberg <c>noperms</c> ≥ 1 (default 1000).</param>
+    /// <returns>One call per segment, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> or a SNP-BAF list is null.</exception>
+    /// <exception cref="ArgumentException">invalid segment or SNP BAF (as <see cref="FitSubclonalCopyNumberWithSnpTest"/>).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">invalid ρ, ψ, γ, siglevel, maxdist, or permutations &lt; 1.</exception>
+    public static IReadOnlyList<BattenbergSegmentCall> FitSubclonalCopyNumberWithBootstrap(
+        IReadOnlyList<SubclonalSegmentSnpBafs> segments,
+        double purity,
+        double ploidy,
+        int seed,
+        double gamma = AscatSequencingGamma,
+        double significanceLevel = BattenbergSignificanceLevel,
+        double maxBafDistance = BattenbergMaxBafDistance,
+        int permutations = BattenbergDefaultPermutations)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(permutations, 1);
+        IReadOnlyList<SubclonalSegmentTestedFit> tested = FitSubclonalCopyNumberWithSnpTest(
+            segments, purity, ploidy, gamma, significanceLevel, maxBafDistance);
+        double psiAll = MixtureCopiesPerCell(purity, ploidy);
+        var rng = new RMersenneTwister(seed);
+        var calls = new List<BattenbergSegmentCall>(tested.Count);
+        for (int i = 0; i < tested.Count; i++)
+        {
+            SubclonalSegmentTestedFit t = tested[i];
+            BattenbergSegmentGeometry g = BattenbergSegmentEdge(segments[i].Segment, purity, psiAll, gamma, nameof(segments));
+            IReadOnlyList<BattenbergSubclonalSolution> solutions = t.Fit.IsSubclonal
+                ? BattenbergSolutions(g, purity, segments[i].PhasedSnpBafs, permutations, rng)
+                : Array.Empty<BattenbergSubclonalSolution>();
+            calls.Add(new BattenbergSegmentCall(t.Fit, t.PValue, g.L, g.Ntot, solutions));
+        }
+
+        return calls;
+    }
+
+    /// <summary>The sub-clonal branch of <c>determine_copynumber</c>: six solutions with SDfrac and bootstrap columns.</summary>
+    private static BattenbergSubclonalSolution[] BattenbergSolutions(
+        BattenbergSegmentGeometry g, double rho, IReadOnlyList<double> bafke, int noperms, RMersenneTwister rng)
+    {
+        (double Maj1, double Min1, double Maj2, double Min2)[] edges = BattenbergAllEdges(g.SquareLevel2, g.SquareLevel3, g.L, g.Ntot, g.X, g.Y);
+        double l = g.L;
+        int n = bafke.Count;
+        double sdl = n < 2 ? double.NaN : RSampleSd(bafke) / Math.Sqrt(n);
+        var result = new BattenbergSubclonalSolution[edges.Length];
+        var perm = new double[n];
+        var permFraction = new double[noperms];
+        for (int o = 0; o < edges.Length; o++)
+        {
+            (double maj1, double min1, double maj2, double min2) = edges[o];
+            double tau = BattenbergTau(l, rho, maj1, min1, maj2, min2);
+            double sdtau = Math.Abs(BattenbergTau(l + sdl, rho, maj1, min1, maj2, min2) - tau) / 2
+                           + Math.Abs(BattenbergTau(l - sdl, rho, maj1, min1, maj2, min2) - tau) / 2;
+            for (int j = 0; j < noperms; j++)
+            {
+                for (int k = 0; k < n; k++)
+                {
+                    perm[k] = bafke[rng.UnifIndex(n)];
+                }
+
+                double permMean = n == 0 ? double.NaN : RMean(perm);
+                permFraction[j] = BattenbergTau(permMean, rho, maj1, min1, maj2, min2);
+            }
+
+            double sdBoot = RSampleSd(permFraction);
+            var ordered = permFraction.Where(v => !double.IsNaN(v)).ToArray(); // sort() drops NA/NaN
+            Array.Sort(ordered);
+            bool na = double.IsNaN(maj1);
+            result[o] = new BattenbergSubclonalSolution(
+                na ? null : AscatCopyNumberToInt(maj1),
+                na ? null : AscatCopyNumberToInt(min1),
+                tau,
+                na ? null : AscatCopyNumberToInt(maj2),
+                na ? null : AscatCopyNumberToInt(min2),
+                1.0 - tau,
+                sdtau,
+                sdBoot,
+                ordered.Length >= 25 ? ordered[24] : double.NaN,
+                ordered.Length >= 975 ? ordered[974] : double.NaN);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Battenberg sub-clonal fraction of state 1 at BAF <paramref name="l"/>:
+    /// τ = (1 − ρ + ρM₂ − 2l(1 − ρ) − lρ(m₂ + M₂)) / (lρ(m₁ + M₁) − lρ(m₂ + M₂) − ρM₁ + ρM₂) (R operation order).
+    /// </summary>
+    private static double BattenbergTau(double l, double rho, double maj1, double min1, double maj2, double min2) =>
+        (1.0 - rho + rho * maj2 - 2.0 * l * (1.0 - rho) - l * rho * (min2 + maj2))
+        / (l * rho * (min1 + maj1) - l * rho * (min2 + maj2) - rho * maj1 + rho * maj2);
+
+    /// <summary>R <c>sd(x)</c>: √(Σ(x − x̄)²/(n − 1)) with R's refined mean; NaN for n &lt; 2 or any NaN.</summary>
+    private static double RSampleSd(IReadOnlyList<double> x)
+    {
+        int n = x.Count;
+        if (n < 2)
+        {
+            return double.NaN;
+        }
+
+        double mean = RMean(x);
+        double ss = 0.0;
+        for (int i = 0; i < n; i++)
+        {
+            double d = x[i] - mean;
+            ss += d * d;
+        }
+
+        return Math.Sqrt(ss / (n - 1));
+    }
+
+    /// <summary>
+    /// Battenberg <c>orderEdges(levels, l, ntot, x, y)</c>, all six options (R/orderEdges.R), negative-copy-number rows
+    /// set to NaN and moved to the end (<c>determine_copynumber</c>: <c>rbind(all.edges[-na.indices,], all.edges[na.indices,])</c>).
+    /// </summary>
+    private static (double Maj1, double Min1, double Maj2, double Min2)[] BattenbergAllEdges(
+        double level2, double level3, double l, double ntot, double x, double y)
+    {
+        double[] maj1, min1, maj2, min2;
+        bool lower = ntot < x + y + 1.0;
+        if (l > level3)
+        {
+            // case 1 or 2a
+            if (lower)
+            {
+                maj1 = new[] { y, y - 1, y, y + 1, y + 1, y + 1 };
+                min1 = new[] { x, x, x, x, x - 1, x };
+                maj2 = new[] { y + 1, y + 1, y + 2, y + 1, y + 1, y + 1 };
+                min2 = new[] { x, x, x, x + 1, x + 1, x + 2 };
+            }
+            else
+            {
+                maj1 = new[] { y + 1, y + 1, y + 1, y, y - 1, y };
+                min1 = new[] { x, x - 1, x, x, x, x };
+                maj2 = new[] { y + 1, y + 1, y + 1, y + 1, y + 1, y + 2 };
+                min2 = new[] { x + 1, x + 1, x + 2, x, x, x };
+            }
+        }
+        else if (l > level2)
+        {
+            // case 2c
+            if (lower)
+            {
+                maj1 = new[] { y, y, y, y + 1, y + 1, y + 1 };
+                min1 = new[] { x, x - 1, x, x, x - 1, x };
+                maj2 = new[] { y, y, y, y + 1, y + 1, y + 1 };
+                min2 = new[] { x + 1, x + 1, x + 2, x + 1, x + 1, x + 2 };
+            }
+            else
+            {
+                maj1 = new[] { y + 1, y + 1, y + 1, y, y, y };
+                min1 = new[] { x, x - 1, x, x, x - 1, x };
+                maj2 = new[] { y + 1, y + 1, y + 1, y, y, y };
+                min2 = new[] { x + 1, x + 1, x + 2, x + 1, x + 1, x + 2 };
+            }
+        }
+        else
+        {
+            // case 2b
+            if (lower)
+            {
+                maj1 = new[] { y, y, y, y, y - 1, y };
+                min1 = new[] { x, x - 1, x, x + 1, x + 1, x + 1 };
+                maj2 = new[] { y, y, y, y + 1, y + 1, y + 2 };
+                min2 = new[] { x + 1, x + 1, x + 2, x + 1, x + 1, x + 1 };
+            }
+            else
+            {
+                maj1 = new[] { y, y - 1, y, y, y, y };
+                min1 = new[] { x + 1, x + 1, x + 1, x, x - 1, x };
+                maj2 = new[] { y + 1, y + 1, y + 2, y, y, y };
+                min2 = new[] { x + 1, x + 1, x + 1, x + 1, x + 1, x + 2 };
+            }
+        }
+
+        var valid = new List<(double, double, double, double)>(6);
+        var invalid = new List<(double, double, double, double)>(6);
+        for (int i = 0; i < 6; i++)
+        {
+            if (maj1[i] < 0 || min1[i] < 0 || maj2[i] < 0 || min2[i] < 0)
+            {
+                invalid.Add((double.NaN, double.NaN, double.NaN, double.NaN));
+            }
+            else
+            {
+                valid.Add((maj1[i], min1[i], maj2[i], min2[i]));
+            }
+        }
+
+        valid.AddRange(invalid);
+        return valid.ToArray();
+    }
+
+    /// <summary>
+    /// R's default RNG (RNG.c): Mersenne-Twister (<c>MT_genrand</c>, unsigned 32-bit state, output ·2.3283064365386963e−10,
+    /// <c>fixup</c> into (0, 1)), seeded as <c>set.seed(seed)</c> does (<c>Randomize</c>: 50 LCG scrambles
+    /// <c>seed = 69069·seed + 1</c>, then 625 LCG values fill <c>dummy[0..624]</c>, <c>dummy[0] = mti = 624</c>), with R ≥ 3.6
+    /// <c>sample.kind = "Rejection"</c> integer draws (<c>R_unif_index</c>: <c>rbits(ceil(log2(n)))</c> until &lt; n).
+    /// E.g. <c>set.seed(42); sample(5, 10, TRUE)</c> = 1 5 1 1 2 4 2 2 1 4.
+    /// </summary>
+    private sealed class RMersenneTwister
+    {
+        private const int N = 624;
+        private const int M = 397;
+        private const uint MatrixA = 0x9908b0df;
+        private const uint UpperMask = 0x80000000;
+        private const uint LowerMask = 0x7fffffff;
+        private const double TwoTo32Inverse = 2.3283064365386963e-10;
+        private const double I2To32M1 = 2.328306437080797e-10;
+        private readonly uint[] _mt = new uint[N];
+        private int _mti;
+
+        public RMersenneTwister(int seed)
+        {
+            uint s = unchecked((uint)seed);
+            for (int j = 0; j < 50; j++)
+            {
+                s = unchecked((69069u * s) + 1u);
+            }
+
+            s = unchecked((69069u * s) + 1u); // dummy[0] (mti), overwritten by FixupSeeds
+            for (int j = 0; j < N; j++)
+            {
+                s = unchecked((69069u * s) + 1u);
+                _mt[j] = s;
+            }
+
+            _mti = N;
+        }
+
+        /// <summary>R <c>unif_rand()</c>.</summary>
+        public double UnifRand()
+        {
+            double v = Genrand();
+            if (v <= 0.0)
+            {
+                return 0.5 * I2To32M1;
+            }
+
+            return 1.0 - v <= 0.0 ? 1.0 - (0.5 * I2To32M1) : v;
+        }
+
+        /// <summary>R <c>R_unif_index(n)</c> (rejection sampling); 0-based index in [0, n).</summary>
+        public int UnifIndex(int n)
+        {
+            if (n <= 0)
+            {
+                return 0;
+            }
+
+            int bits = (int)Math.Ceiling(Math.Log2(n));
+            double dv;
+            do
+            {
+                long v = 0;
+                for (int k = 0; k <= bits; k += 16)
+                {
+                    int v1 = (int)Math.Floor(UnifRand() * 65536);
+                    v = (65536 * v) + v1;
+                }
+
+                dv = v & ((1L << bits) - 1);
+            }
+            while (n <= dv);
+
+            return (int)dv;
+        }
+
+        private double Genrand()
+        {
+            uint y;
+            if (_mti >= N)
+            {
+                int kk;
+                for (kk = 0; kk < N - M; kk++)
+                {
+                    y = (_mt[kk] & UpperMask) | (_mt[kk + 1] & LowerMask);
+                    _mt[kk] = _mt[kk + M] ^ (y >> 1) ^ ((y & 1u) != 0 ? MatrixA : 0u);
+                }
+
+                for (; kk < N - 1; kk++)
+                {
+                    y = (_mt[kk] & UpperMask) | (_mt[kk + 1] & LowerMask);
+                    _mt[kk] = _mt[kk + (M - N)] ^ (y >> 1) ^ ((y & 1u) != 0 ? MatrixA : 0u);
+                }
+
+                y = (_mt[N - 1] & UpperMask) | (_mt[0] & LowerMask);
+                _mt[N - 1] = _mt[M - 1] ^ (y >> 1) ^ ((y & 1u) != 0 ? MatrixA : 0u);
+                _mti = 0;
+            }
+
+            y = _mt[_mti++];
+            y ^= y >> 11;
+            y ^= (y << 7) & 0x9d2c5680u;
+            y ^= (y << 15) & 0xefc60000u;
+            y ^= y >> 18;
+            return y * TwoTo32Inverse;
+        }
     }
 
     #endregion
