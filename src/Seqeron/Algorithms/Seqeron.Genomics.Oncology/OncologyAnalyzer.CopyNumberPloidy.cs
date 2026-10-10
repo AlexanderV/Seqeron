@@ -3560,7 +3560,7 @@ public static partial class OncologyAnalyzer
             for (int t = 0; t < m; t++)
             {
                 double x = gbaf[nonPar[t]];
-                dist[t] = 1.0 - (x > 0.5 ? x : 1.0 - x);
+                dist[t] = 1.0 - MirrorBaf(x);
             }
 
             for (int t = 0; t < m; t++)
@@ -3688,6 +3688,14 @@ public static partial class OncologyAnalyzer
     private static double MixtureCopiesPerCell(double purity, double tumorCopies) =>
         NormalDiploidCopyNumber * (1.0 - purity) + purity * tumorCopies;
 
+    /// <summary>
+    /// CNAqc <c>expected_vaf_fun(m, purity, ploidy)</c> = <c>m·ρ / (2(1 − ρ) + ρ·n)</c>: the clonal VAF peak of a mutation
+    /// on <paramref name="multiplicity"/> of the <paramref name="tumorCopies"/> tumour copies (shared by
+    /// <see cref="AnalyzePurityPeaks"/> and <see cref="AnalyzeComplexKaryotypePeaks"/>; R operation order).
+    /// </summary>
+    private static double CnaqcExpectedVaf(int multiplicity, double purity, double tumorCopies) =>
+        multiplicity * purity / MixtureCopiesPerCell(purity, tumorCopies);
+
     // ---- ASCAT runASCAT solution-selection constants (ascat.runAscat.R, verbatim) ----
 
     /// <summary>ASCAT <c>MINRHO = 0.2</c>: minimum aberrant-cell fraction of an accepted optimum.</summary>
@@ -3754,7 +3762,15 @@ public static partial class OncologyAnalyzer
     private static bool IsAscatBafOrMissing(double baf) => double.IsNaN(baf) || (baf >= 0.0 && baf <= 1.0);
 
     /// <summary>Mirrored BAF max(b, 1 − b) ∈ [0.5, 1] (ascat.aspcf <c>ifelse(b &gt; 0.5, b, 1 − b)</c>; Battenberg <c>l</c>).</summary>
-    private static double MirrorBaf(double baf) => baf > BalancedBaf ? baf : 1.0 - baf;
+    private static double MirrorBaf(double baf) => OrientBaf(baf, baf);
+
+    /// <summary>
+    /// <paramref name="value"/> when <paramref name="reference"/> &gt; 0.5, otherwise 1 − value (R
+    /// <c>ifelse(reference &gt; 0.5, value, 1 − value)</c>): mirrors a BAF onto the upper half
+    /// (<see cref="MirrorBaf"/> = <c>OrientBaf(b, b)</c>) or restores the orientation of a mirrored value from the original
+    /// BAF (ascat.aspcf / ascat.asmultipcf <c>bafwins</c>, Battenberg <c>BAFphased</c>). NaN reference ⇒ 1 − value.
+    /// </summary>
+    private static double OrientBaf(double reference, double value) => reference > BalancedBaf ? value : 1.0 - value;
 
     /// <summary>ASCAT segmented-BAF orientation: <c>Tumor_BAF_segmented = 1 − mirroredBAF</c> ∈ [0, 0.5].</summary>
     private static double ToAscatBaf(double baf) => baf > BalancedBaf ? 1.0 - baf : baf;
@@ -4955,7 +4971,7 @@ public static partial class OncologyAnalyzer
         var bafWins = new double[n];
         for (int i = 0; i < n; i++)
         {
-            bafWins[i] = baf[i] > BalancedBaf ? bafWinsMirrored[i] : 1.0 - bafWinsMirrored[i];
+            bafWins[i] = OrientBaf(baf[i], bafWinsMirrored[i]);
         }
 
         if (n < AspcfMinSegmentLength)
@@ -5097,16 +5113,18 @@ public static partial class OncologyAnalyzer
             }
 
             mu = lastExclusive > first ? mu / (lastExclusive - first) : 0.0;
-            if (Math.Sqrt(sd2Pooled * sd2Pooled + mu * mu) < 2.0 * sd2Pooled)
-            {
-                mu = 0.0;
-            }
-
-            segmentBaf[s] = mu + BalancedBaf;
+            segmentBaf[s] = AscatShrunkBafLevel(mu, sd2Pooled);
         }
 
         return (unique.ToArray(), segmentBaf);
     }
+
+    /// <summary>
+    /// ASCAT segment BAF level <c>0.5 + μ</c> with μ = mean |b − 0.5|, shrunk to 0 when <c>sqrt(sd² + μ²) &lt; 2·sd</c>
+    /// (ascat.aspcf <c>fastAspcf</c> and ascat.asmultipcf BAF correction, verbatim).
+    /// </summary>
+    private static double AscatShrunkBafLevel(double mu, double sd) =>
+        (Math.Sqrt(sd * sd + mu * mu) < 2.0 * sd ? 0.0 : mu) + BalancedBaf;
 
     /// <summary>
     /// ASCAT/copynumber <c>aspcfpart</c>: exact bivariate PCF (minimum segment length <paramref name="kmin"/>) on one
@@ -5893,7 +5911,7 @@ public static partial class OncologyAnalyzer
         var bafWins = new double[h];
         for (int k = 0; k < h; k++)
         {
-            bafWins[k] = bafSel[k] > BalancedBaf ? bafWinsMirrored[k] : 1.0 - bafWinsMirrored[k];
+            bafWins[k] = OrientBaf(bafSel[k], bafWinsMirrored[k]);
         }
 
         // averageIndices = c(1, (indices[-h] + indices[-1])/2, length(lr) + 0.01); start = ceiling, end = floor(· − 0.01).
@@ -6803,7 +6821,7 @@ public static partial class OncologyAnalyzer
             {
                 double bafMean = MeanNaRm(bafWins[s], 0, m);
                 logRAspcf[s] = Filled(m, MeanNaRm(logRAveraged[s], 0, m));
-                bafAspcf[s] = Filled(m, bafMean >= BalancedBaf ? bafMean : 1.0 - bafMean); // NaN stays NaN
+                bafAspcf[s] = Filled(m, MirrorBaf(bafMean)); // R bafMean >= 0.5 ? … : 1 − …: equal at 0.5; NaN stays NaN
             }
         }
         else
@@ -6979,13 +6997,7 @@ public static partial class OncologyAnalyzer
             double level = double.NaN;
             if (!double.IsNaN(yi))
             {
-                double mu = Math.Abs(yi - BalancedBaf);
-                if (Math.Sqrt(sd * sd + mu * mu) < 2.0 * sd)
-                {
-                    mu = 0.0;
-                }
-
-                level = mu + BalancedBaf;
+                level = AscatShrunkBafLevel(Math.Abs(yi - BalancedBaf), sd);
             }
 
             for (int q = runStart; q < k; q++)
@@ -7775,7 +7787,7 @@ public static partial class OncologyAnalyzer
         (double Maj1, double Min1, double Maj2, double Min2)[] edges = BattenbergAllEdges(g.SquareLevel2, g.SquareLevel3, g.L, g.Ntot, g.X, g.Y);
         double l = g.L;
         int n = bafke.Count;
-        double sdl = n < 2 ? double.NaN : RSampleSd(bafke) / Math.Sqrt(n);
+        double sdl = n < 2 ? double.NaN : Math.Sqrt(StatisticsHelper.RSampleVariance(bafke)) / Math.Sqrt(n);
         var result = new BattenbergSubclonalSolution[edges.Length];
         var perm = new double[n];
         var permFraction = new double[noperms];
@@ -7792,11 +7804,11 @@ public static partial class OncologyAnalyzer
                     perm[k] = bafke[rng.UnifIndex(n)];
                 }
 
-                double permMean = n == 0 ? double.NaN : RMean(perm);
+                double permMean = n == 0 ? double.NaN : StatisticsHelper.RMean(perm);
                 permFraction[j] = BattenbergTau(permMean, rho, maj1, min1, maj2, min2);
             }
 
-            double sdBoot = RSampleSd(permFraction);
+            double sdBoot = Math.Sqrt(StatisticsHelper.RSampleVariance(permFraction));
             var ordered = permFraction.Where(v => !double.IsNaN(v)).ToArray(); // sort() drops NA/NaN
             Array.Sort(ordered);
             bool na = double.IsNaN(maj1);
@@ -7823,26 +7835,6 @@ public static partial class OncologyAnalyzer
     private static double BattenbergTau(double l, double rho, double maj1, double min1, double maj2, double min2) =>
         (1.0 - rho + rho * maj2 - 2.0 * l * (1.0 - rho) - l * rho * (min2 + maj2))
         / (l * rho * (min1 + maj1) - l * rho * (min2 + maj2) - rho * maj1 + rho * maj2);
-
-    /// <summary>R <c>sd(x)</c>: √(Σ(x − x̄)²/(n − 1)) with R's refined mean; NaN for n &lt; 2 or any NaN.</summary>
-    private static double RSampleSd(IReadOnlyList<double> x)
-    {
-        int n = x.Count;
-        if (n < 2)
-        {
-            return double.NaN;
-        }
-
-        double mean = RMean(x);
-        double ss = 0.0;
-        for (int i = 0; i < n; i++)
-        {
-            double d = x[i] - mean;
-            ss += d * d;
-        }
-
-        return Math.Sqrt(ss / (n - 1));
-    }
 
     /// <summary>
     /// Battenberg <c>orderEdges(levels, l, ntot, x, y)</c>, all six options (R/orderEdges.R), negative-copy-number rows
@@ -8324,7 +8316,7 @@ public static partial class OncologyAnalyzer
                 }
             }
 
-            double segLogR = inRange.Count == 0 ? 0.0 : RMean(inRange); // is.na(LogR) ⇒ 0
+            double segLogR = inRange.Count == 0 ? 0.0 : StatisticsHelper.RMean(inRange); // is.na(LogR) ⇒ 0
             result.Add(new SubclonalSegmentSnpBafs(
                 new AlleleSpecificSegmentSummary(row.Chromosome, start, end, segLogR, row.BafSegment, phased.Length),
                 phased));
@@ -8498,7 +8490,7 @@ public static partial class OncologyAnalyzer
         for (int k = 0; k < n; k++)
         {
             baf[k] = bafAll[idx[k]];
-            folded[k] = baf[k] < BalancedBaf ? baf[k] : 1.0 - baf[k];
+            folded[k] = ToAscatBaf(baf[k]); // min(b, 1 − b); equal at 0.5
         }
 
         double sdev = GetMad(folded, 25);
@@ -8513,17 +8505,17 @@ public static partial class OncologyAnalyzer
         }
 
         double[] bafSegm = n < BattenbergMinPcfSnps
-            ? Filled(n, RMean(baf))
+            ? Filled(n, StatisticsHelper.RMean(baf))
             : BattenbergSelectFastPcf(baf, o.PhaseKmin, o.PhaseGamma * sdev);
 
         var phased = new double[n];
         for (int k = 0; k < n; k++)
         {
-            phased[k] = bafSegm[k] > BalancedBaf ? baf[k] : 1.0 - baf[k];
+            phased[k] = OrientBaf(bafSegm[k], baf[k]);
         }
 
         double[] phSeg = n < BattenbergMinPcfSnps || o.NoSegmentation
-            ? Filled(n, RMean(phased))
+            ? Filled(n, StatisticsHelper.RMean(phased))
             : BattenbergSelectFastPcf(phased, o.Kmin, o.Gamma * sdev);
 
         if (o.SegmentBafOption != BattenbergSegmentBafOption.Mean)
@@ -8575,30 +8567,6 @@ public static partial class OncologyAnalyzer
         return a;
     }
 
-    /// <summary>R <c>mean(x)</c>: sum/n refined by the mean residual (R summary.c; R accumulates in long double).</summary>
-    private static double RMean(IReadOnlyList<double> x)
-    {
-        int n = x.Count;
-        double s = 0.0;
-        for (int i = 0; i < n; i++)
-        {
-            s += x[i];
-        }
-
-        s /= n;
-        if (double.IsFinite(s))
-        {
-            double t = 0.0;
-            for (int i = 0; i < n; i++)
-            {
-                t += x[i] - s;
-            }
-
-            s += t / n;
-        }
-
-        return s;
-    }
 
     /// <summary>
     /// Battenberg/copynumber <c>selectFastPcf(x, kmin, gamma, yest = T)$yhat</c> (R/fastPCF.R): <c>runFastPcf</c> with
@@ -9214,7 +9182,7 @@ public static partial class OncologyAnalyzer
         }
 
         double psiAll = MixtureCopiesPerCell(purity, ploidy);
-        double cellCopies = (1.0 - purity) * 2.0 + purity * psiAll; // Battenberg ((1-rho)*2+rho*psi), psi of all cells
+        double cellCopies = MixtureCopiesPerCell(purity, psiAll); // Battenberg ((1-rho)*2+rho*psi), psi of all cells
         var bafSegOut = new double[segmentedSnps.Count];
         for (int i = 0; i < bafSegOut.Length; i++)
         {
@@ -9441,16 +9409,16 @@ public static partial class OncologyAnalyzer
                     newBaf = StatisticsHelper.Median(baf);
                     break;
                 case BattenbergSegmentBafOption.Mean:
-                    newBaf = RMean(baf);
+                    newBaf = StatisticsHelper.RMean(baf);
                     break;
                 default:
                     double median = StatisticsHelper.Median(baf);
-                    newBaf = median != 0.0 && median != 1.0 ? median : RMean(baf);
+                    newBaf = median != 0.0 && median != 1.0 ? median : StatisticsHelper.RMean(baf);
                     break;
             }
 
             (int count, List<double> values) = LogRs(start, end);
-            double newLogR = count == 0 ? 0.0 : RMean(values); // mean(numeric(0)) = NaN when every probe is NA
+            double newLogR = count == 0 ? 0.0 : StatisticsHelper.RMean(values); // mean(numeric(0)) = NaN when every probe is NA
             foreach (int i in rowIndices)
             {
                 if (rows[i].Position >= start && rows[i].Position <= end)
@@ -10221,7 +10189,7 @@ public static partial class OncologyAnalyzer
         // expected_vaf_peak: multiplicities unique(c(1, Major)).
         var multiplicities = major == 1 ? new[] { 1 } : new[] { 1, major };
         var expected = multiplicities
-            .Select(m => (Multiplicity: m, Peak: m * purity / MixtureCopiesPerCell(purity, ploidy)))
+            .Select(m => (Multiplicity: m, Peak: CnaqcExpectedVaf(m, purity, ploidy)))
             .ToList();
 
         var assignment = new List<((int Multiplicity, double Peak) Expectation, PurityDataPeak Peak)>();
@@ -10506,7 +10474,7 @@ public static partial class OncologyAnalyzer
             int matched = 0;
             for (int m = 1; m <= maxMultiplicity; m++)
             {
-                double peak = m * purity / MixtureCopiesPerCell(purity, ploidy); // expected_vaf_fun
+                double peak = CnaqcExpectedVaf(m, purity, ploidy); // expected_vaf_fun
                 bool hit = peaks.Any(p => Math.Abs(p.X - peak) < options.PurityError);
                 if (hit) matched++;
                 expected.Add(new ComplexKaryotypeExpectedPeak(major, minor, m, peak, hit));
@@ -10970,7 +10938,7 @@ public static partial class OncologyAnalyzer
 
         List<(string Id, int N)> m1 = Table(clone1), m2 = Table(clone2);
         string g1 = CnaqcGenotype(clone1), g2 = CnaqcGenotype(clone2);
-        double denominator = (2 * (1 - purity)) + (purity * ((ccf * clone1.Count) + ((1 - ccf) * clone2.Count)));
+        double denominator = MixtureCopiesPerCell(purity, (ccf * clone1.Count) + ((1 - ccf) * clone2.Count));
         var in2 = m2.ToDictionary(t => t.Id, t => t.N, StringComparer.Ordinal);
         var in1 = new HashSet<string>(m1.Select(t => t.Id), StringComparer.Ordinal);
 
