@@ -79,6 +79,12 @@
 | M10 | Complete-network fallback | ε=0.02, 3-sample case (Evidence) | root→{A,B}, B→C; error 0.003292532308117998 | lichee.jar |
 | M11 | Tree count / top tree | 0.05..0.053 single sample | 15 trees; chain from 0.053 | lichee.jar |
 | M12 | Trunk = CCF 1 | chain 1.0/0.5/0.25; two CCF-1 clusters; 0.97 with ε 0/0.05 | trunk {A}; both CCF-1; {} / {A} | Werner 2017 (B24 F19) |
+| M13 | `FromMembers` = LICHeE `recomputeCentroidAndStdDev` | t02150 / p1 member rows | centroid Σ/n, population SD bit-identical to the Java doubles (e.g. 0.5379999999999999 / 0.02654555832275271) | lichee.jar harness (B24 F42) |
+| M14 | Per-cluster margins flip orientation | p1 (ε 0.05, 4 samples) | margins: no valid tree; static: root→B→A, error 0.06928203230275505 | lichee.jar (F42) |
+| M15 | Per-cluster margins → complete network | t02150 (ε 0) | margins: complete network, 2 trees, root→{1,2,3}; static: 1 tree, 2→1 | lichee.jar (F42) |
+| M16 | Per-cluster margins → none | t01061 (ε 0.1) | margins: no tree; static: root→2→3→4→1, error 0.10016236818286589 | lichee.jar (F42) |
+| M17 | Per-cluster margins top tree | t00298 (ε 0) | margins: complete network, 28 trees, root→{1,3,4,5}, 4→2, 1→6; static: 5 trees | lichee.jar (F42) |
+| M18 | Zero SD ≡ static | F18 complete-network fixture with SD 0 | identical edges / error / tree count | `getAAFErrorMargin` with sd 0 = ε (F42) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -93,6 +99,8 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Determinism | M2 input run twice | identical edge set | INV-5 |
+| C2 | SD at absent sample ignored | t02150 with SD 0.9 where centroid 0 | same tree | `PHYNode.getStdDev` (F42) |
+| C3 | Summary validation | null/short/negative/NaN SD, n = 0, ragged/empty members, ε < 0 | exceptions | F42 |
 
 ---
 
@@ -120,6 +128,7 @@
 | File | Role | Test Count |
 |------|------|------------|
 | OncologyAnalyzer_ReconstructPhylogeny_Tests.cs | canonical | 14 |
+| OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests.cs | LICHeE per-cluster margins (F42) | M13–M18, C2, C3 |
 
 ### 5.5 Phase 7 Work Queue
 

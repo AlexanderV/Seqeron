@@ -47,6 +47,25 @@
 3. Ranking: `PHYTree.computeErrorScore` = √(Σ_nodes Σ_samples max(0, Σ_children − u)²); `Collections.sort` (stable); top tree = index 0. QP consistency check off by default (`NUM_TREES_FOR_CONSISTENCY_CHECK = 0`).
 4. No valid tree ⇒ LICHeE reports none (after `fixNetwork` removal of non-robust clusters and the `ALL_EDGES` retry) — it never returns a sum-rule-violating tree.
 
+### LICHeE per-cluster error margins — opened 2026-10-10 (B24 F42)
+
+**Source:** github.com/viq854/lichee master `26c2a7018aa3c5f777bf5c894e440017f7e50e2b`: `PHYNetwork.getAAFErrorMargin` (l. 237–263), `checkAndAddEdge` (l. 180–232), `PHYTree.checkConstraint`, `PHYNode.getStdDev`, `AAFClusterer.Cluster.recomputeCentroidAndStdDev` and `AAFClusterer.em` (cluster SD).
+
+1. `getAAFErrorMargin(from, to, i)`: `se_parent = 1.96·from.getStdDev(i)/√|from.members|` (root: `VAF_ERROR_MARGIN`), same for the child; returns `se_parent + se_child` if it exceeds `VAF_ERROR_MARGIN`, else `VAF_ERROR_MARGIN` — i.e. `max(ε, se_u + se_v)`; ε is a floor, not added (except that the root's own se is ε). The `STATIC_ERROR_MARGIN` switch is commented out: LICHeE always uses it.
+2. Used only in `checkAndAddEdge` (`comp_12 += n1.AAF(i) ≥ n2.AAF(i) − margin(n1,n2,i)`, and symmetric); the one-sided error totals that choose the orientation use no margin. `PHYTree.checkConstraint` (sum rule) uses the static `VAF_ERROR_MARGIN` (`errMargin += getAAFErrorMargin` is commented out).
+3. SD = population SD (divisor n) of the member AAFs per sample (`Math.sqrt(Σ (x − mean)²/members.size())`, both in `recomputeCentroidAndStdDev` and in `em`); centroid = Σ/n. `PHYNode.getStdDev` returns 0 for a sample outside the presence profile; the root's SD is 0. With a clusters file (`--clustersFile`) LICHeE sets SD = 0 (`c.setStdDev(new double[numSamples])`), i.e. the static margin.
+4. Harness (`F4243Harness.java`, scratch, compiled against `lichee.jar` + `LICHeE/lib/*.jar`, OpenJDK 21): builds one `SNVGroup` per presence profile (first-appearance order) from member CCF rows, one `Cluster` per input cluster via `recomputeCentroidAndStdDev`, robustness as in `SNVGroup.setSubPopulations`, then runs `LineageEngine.buildLineage` steps 4–6 verbatim (`VAF_MAX = 1`, `VAF_ERROR_MARGIN = ε`).
+5. Cross-check: 9 000 random member-level inputs (1–3 samples, 2–6 clusters × 2–5 robust members, member noise SD 0.01–0.2, ε ∈ {0, 0.02, 0.05, 0.1}; seeds 1 and 2): 9 000 / 9 000 identical (feasibility, network mode, tree count, top tree, error score); 57 594 / 57 594 centroids/SDs bit-identical. Margins changed the outcome vs the static ε on 16 inputs.
+
+| Fixture | ε | lichee.jar with margins | lichee.jar static (SD 0) |
+|---------|---|-------------------------|--------------------------|
+| p1: A = {0.44×4},{0.56×4} (mean 0.5, SD 0.060000000000000026); B = 2 × [0.46,0.46,0.46,0.57] | 0.05 | 0 valid trees | 1 tree root→B→A, error 0.06928203230275505 |
+| t02150 (3 clusters, 2 samples) | 0 | complete network, 2 trees, root→{1,2,3}, error 0 | 1 tree, 2→1, root→{2,3} |
+| t01061 (4 clusters, 3 samples) | 0.1 | 0 valid trees | 1 tree root→2→3→4→1, error 0.10016236818286589 |
+| t00298 (6 clusters, 2 samples) | 0 | complete network, 28 trees, root→{1,3,4,5}, 4→2, 1→6, error 0 | 5 trees, root→{1,4}, 4→2, 2→3, 1→6, 6→5 |
+
+(Member rows in `OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests.cs`.) A margin-admitted edge u→v with `v.CCF[i] − u.CCF[i] > ε` can never pass the static-ε sum rule, so the margins act through orientation (both directions pass → the smaller one-sided excess wins) and orphan attachment.
+
 ### Werner B et al. (2017), *Sci Rep* 7:44991 — trunk definition (WebSearch snippet)
 
 "alterations that are in the trunk of the tree must be present in all cells of the tumour" ⇒ truncal ⇔ CCF = 1 in every sample.
@@ -153,3 +172,4 @@ Expected: with B and C both 0.6 they cannot both be children of the same parent 
 
 - **2026-06-15**: Initial documentation.
 - **2026-09-28**: B24 F18/F19 — LICHeE reference code + jar cross-check; datasets corrected to LICHeE output; no-valid-tree case; CCF-based trunk (Werner 2017).
+- **2026-10-10**: B24 F42 — LICHeE per-cluster `1.96·sd/√n` edge margins (`getAAFErrorMargin`), jar-locked.

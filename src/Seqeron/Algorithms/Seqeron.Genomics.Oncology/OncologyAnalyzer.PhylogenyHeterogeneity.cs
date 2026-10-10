@@ -161,11 +161,7 @@ public static partial class OncologyAnalyzer
         double tolerance = DefaultPhylogenyTolerance)
     {
         ArgumentNullException.ThrowIfNull(clusters);
-        if (double.IsNaN(tolerance) || tolerance < 0.0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(tolerance), tolerance, "Phylogeny tolerance ε must be a non-negative number.");
-        }
+        ValidatePhylogenyTolerance(tolerance);
 
         int rootId = RootIdFor(clusters);
         if (clusters.Count == 0)
@@ -180,13 +176,31 @@ public static partial class OncologyAnalyzer
         }
 
         int sampleCount = ValidateAndGetSampleCount(clusters);
+        return TryReconstructLichee(clusters, sampleCount, tolerance, standardErrors: null, out phylogeny);
+    }
 
+    /// <summary>
+    /// LICHeE <c>LineageEngine.buildLineage</c> steps 4–6 on validated clusters: constraint network, tree search,
+    /// complete-network (<c>ALL_EDGES</c>) fallback, ranking. <paramref name="standardErrors"/> = per-cluster
+    /// <c>1.96·sd/√n</c> (null = static ε).
+    /// </summary>
+    private static bool TryReconstructLichee(
+        IReadOnlyList<CcfCluster> clusters,
+        int sampleCount,
+        double tolerance,
+        double[][]? standardErrors,
+        out ClonalPhylogeny phylogeny)
+    {
+        int rootId = RootIdFor(clusters);
+        int[] nodeOrder = LicheeNodeOrder(clusters, sampleCount);
         bool usedComplete = false;
-        LicheeSearchResult result = new LicheeNetwork(clusters, sampleCount, tolerance, completeNetwork: false).Search();
+        LicheeSearchResult result = new LicheeNetwork(
+            clusters, sampleCount, tolerance, completeNetwork: false, nodeOrder, standardErrors).Search();
         if (result.TreeCount == 0)
         {
             usedComplete = true;
-            result = new LicheeNetwork(clusters, sampleCount, tolerance, completeNetwork: true).Search();
+            result = new LicheeNetwork(
+                clusters, sampleCount, tolerance, completeNetwork: true, nodeOrder, standardErrors).Search();
         }
 
         if (result.TreeCount == 0)
@@ -210,6 +224,182 @@ public static partial class OncologyAnalyzer
             UsedCompleteNetwork = usedComplete,
         };
         return true;
+    }
+
+    /// <summary>
+    /// LICHeE's per-cluster standard-error multiplier: the edge margin uses <c>1.96·sd/√n</c> per cluster and sample
+    /// (<c>PHYNetwork.getAAFErrorMargin</c>, github.com/viq854/lichee) — the two-sided 95 % normal quantile.
+    /// </summary>
+    public const double LicheeStandardErrorZ = 1.96;
+
+    /// <summary>
+    /// A CCF cluster with the dispersion summary LICHeE keeps per cluster (<c>AAFClusterer.Cluster</c>): centroid
+    /// (mean member CCF per sample), per-sample standard deviation of the member CCFs and member count. Used by
+    /// <see cref="ReconstructPhylogenyFromClusterSummaries"/> for LICHeE's per-cluster edge error margins.
+    /// </summary>
+    /// <param name="Id">Caller-assigned cluster identifier.</param>
+    /// <param name="CcfPerSample">Centroid CCF per sample, each in [0, 1] (0 = absent, LICHeE presence profile).</param>
+    /// <param name="StdDevPerSample">Standard deviation of the member CCFs per sample (LICHeE: population SD, divisor
+    /// n — <c>Cluster.recomputeCentroidAndStdDev</c> / EM <c>setStdDev</c>), finite and ≥ 0; ignored (treated as 0)
+    /// where the centroid is 0, as LICHeE <c>PHYNode.getStdDev</c> returns 0 for samples outside the profile.</param>
+    /// <param name="MemberCount">Number of member mutations n ≥ 1 (<c>getMembership().size()</c>).</param>
+    public readonly record struct CcfClusterSummary(
+        int Id,
+        IReadOnlyList<double> CcfPerSample,
+        IReadOnlyList<double> StdDevPerSample,
+        int MemberCount)
+    {
+        /// <summary>
+        /// Builds the summary from member-level CCFs exactly as LICHeE does
+        /// (<c>Cluster.recomputeCentroidAndStdDev</c>): centroid = Σ member / n, SD = √(Σ (member − centroid)² / n)
+        /// per sample (population SD, <see cref="StatisticsHelper.PopulationVariance"/>), n = member count.
+        /// </summary>
+        /// <param name="id">Cluster identifier.</param>
+        /// <param name="memberCcfs">One CCF vector per member mutation (all of equal length ≥ 1, values in [0, 1]).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="memberCcfs"/> or a member vector is null.</exception>
+        /// <exception cref="ArgumentException">No members, empty or ragged vectors.</exception>
+        public static CcfClusterSummary FromMembers(int id, IReadOnlyList<IReadOnlyList<double>> memberCcfs)
+        {
+            ArgumentNullException.ThrowIfNull(memberCcfs);
+            if (memberCcfs.Count == 0)
+            {
+                throw new ArgumentException($"Cluster {id} has no members.", nameof(memberCcfs));
+            }
+
+            int samples = -1;
+            foreach (IReadOnlyList<double> m in memberCcfs)
+            {
+                if (m is null)
+                {
+                    throw new ArgumentNullException(nameof(memberCcfs), $"Cluster {id} has a null member CCF vector.");
+                }
+
+                if (samples < 0)
+                {
+                    samples = m.Count;
+                }
+                else if (m.Count != samples)
+                {
+                    throw new ArgumentException($"Cluster {id}: all member CCF vectors must have the same length.", nameof(memberCcfs));
+                }
+            }
+
+            if (samples == 0)
+            {
+                throw new ArgumentException($"Cluster {id}: member CCF vectors are empty.", nameof(memberCcfs));
+            }
+
+            int n = memberCcfs.Count;
+            var centroid = new double[samples];
+            var sd = new double[samples];
+            var column = new double[n];
+            for (int s = 0; s < samples; s++)
+            {
+                double sum = 0.0;
+                for (int m = 0; m < n; m++)
+                {
+                    column[m] = memberCcfs[m][s];
+                    sum += column[m];
+                }
+
+                centroid[s] = sum / n;
+                sd[s] = Math.Sqrt(StatisticsHelper.PopulationVariance(column));
+            }
+
+            return new CcfClusterSummary(id, centroid, sd, n);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="ReconstructPhylogeny"/> with LICHeE's per-cluster edge error margins
+    /// (<c>PHYNetwork.getAAFErrorMargin</c>): the lineage-precedence test (Eq. 2) of an edge u→v in sample i uses
+    /// <c>max(ε, se_u,i + se_v,i)</c> with <c>se = 1.96·sd/√n</c> for a cluster (<see cref="LicheeStandardErrorZ"/>)
+    /// and <c>se = ε</c> for the root, instead of the static ε. The sum rule (Eq. 5, <c>PHYTree.checkConstraint</c>)
+    /// keeps the static ε, as in LICHeE. With every SD = 0 the result is identical to <see cref="ReconstructPhylogeny"/>.
+    /// </summary>
+    /// <param name="clusters">Cluster summaries (centroid, SD, member count), e.g. from <see cref="CcfClusterSummary.FromMembers"/>.</param>
+    /// <param name="tolerance">Static margin ε (LICHeE <c>-e</c>); default <see cref="DefaultPhylogenyTolerance"/>.</param>
+    /// <returns>The top-ranking phylogeny; <see cref="ClonalPhylogeny.Clusters"/> holds the centroids.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="clusters"/>, a CCF or an SD list is null.</exception>
+    /// <exception cref="ArgumentException">As <see cref="ReconstructPhylogeny"/>; SD lists of the wrong length or with
+    /// negative / non-finite values; member count &lt; 1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> is negative or NaN.</exception>
+    /// <exception cref="InvalidOperationException">No valid lineage tree exists.</exception>
+    public static ClonalPhylogeny ReconstructPhylogenyFromClusterSummaries(
+        IReadOnlyList<CcfClusterSummary> clusters,
+        double tolerance = DefaultPhylogenyTolerance)
+    {
+        if (!TryReconstructPhylogenyFromClusterSummaries(clusters, out ClonalPhylogeny phylogeny, tolerance))
+        {
+            throw new InvalidOperationException(
+                "No lineage tree satisfies the sum rule (LICHeE Eq. 5) for these CCF clusters at the given tolerance; "
+                + "increase the tolerance or re-cluster the CCFs.");
+        }
+
+        return phylogeny;
+    }
+
+    /// <summary>
+    /// Non-throwing variant of <see cref="ReconstructPhylogenyFromClusterSummaries"/>: false (and a default phylogeny)
+    /// when no valid lineage tree exists. Argument validation still throws.
+    /// </summary>
+    public static bool TryReconstructPhylogenyFromClusterSummaries(
+        IReadOnlyList<CcfClusterSummary> clusters,
+        out ClonalPhylogeny phylogeny,
+        double tolerance = DefaultPhylogenyTolerance)
+    {
+        ArgumentNullException.ThrowIfNull(clusters);
+        ValidatePhylogenyTolerance(tolerance);
+        var centroids = new CcfCluster[clusters.Count];
+        for (int c = 0; c < clusters.Count; c++)
+        {
+            centroids[c] = new CcfCluster(clusters[c].Id, clusters[c].CcfPerSample);
+        }
+
+        if (clusters.Count == 0)
+        {
+            return TryReconstructPhylogeny(centroids, out phylogeny, tolerance);
+        }
+
+        int sampleCount = ValidateAndGetSampleCount(centroids);
+        var standardErrors = new double[clusters.Count][];
+        for (int c = 0; c < clusters.Count; c++)
+        {
+            CcfClusterSummary summary = clusters[c];
+            if (summary.StdDevPerSample is null)
+            {
+                throw new ArgumentNullException(nameof(clusters), $"Cluster {summary.Id} has a null SD list.");
+            }
+
+            if (summary.StdDevPerSample.Count != sampleCount)
+            {
+                throw new ArgumentException(
+                    $"Cluster {summary.Id} has {summary.StdDevPerSample.Count} SD values, expected {sampleCount}.", nameof(clusters));
+            }
+
+            if (summary.MemberCount < 1)
+            {
+                throw new ArgumentException($"Cluster {summary.Id} must have at least one member.", nameof(clusters));
+            }
+
+            double rootN = Math.Sqrt((double)summary.MemberCount);
+            standardErrors[c] = new double[sampleCount];
+            for (int s = 0; s < sampleCount; s++)
+            {
+                double sd = summary.StdDevPerSample[s];
+                if (!double.IsFinite(sd) || sd < 0.0)
+                {
+                    throw new ArgumentException(
+                        $"Standard deviation must be finite and non-negative; cluster {summary.Id} has {sd}.", nameof(clusters));
+                }
+
+                // PHYNode.getStdDev: 0 for a sample outside the presence profile.
+                double effectiveSd = summary.CcfPerSample[s] > 0.0 ? sd : 0.0;
+                standardErrors[c][s] = LicheeStandardErrorZ * effectiveSd / rootN;
+            }
+        }
+
+        return TryReconstructLichee(centroids, sampleCount, tolerance, standardErrors, out phylogeny);
     }
 
     /// <summary>
@@ -316,7 +506,9 @@ public static partial class OncologyAnalyzer
         private readonly int _samples;
         private readonly double _eps;
         private readonly int _nodeCount;
+        private readonly int _clusterTotal;
         private readonly double[][] _ccf;
+        private readonly double[][]? _se;
         private readonly int[] _level;
         private readonly int[] _clusterIndex;
         private readonly SortedDictionary<int, List<int>> _levels = new();
@@ -333,12 +525,28 @@ public static partial class OncologyAnalyzer
         private double _bestError = double.PositiveInfinity;
         private int[]? _bestParent;
 
-        public LicheeNetwork(IReadOnlyList<CcfCluster> clusters, int samples, double eps, bool completeNetwork)
+        /// <param name="clusters">All input clusters (indexed by input position).</param>
+        /// <param name="samples">Sample count.</param>
+        /// <param name="eps">Static margin ε (<c>VAF_ERROR_MARGIN</c>).</param>
+        /// <param name="completeNetwork">LICHeE <c>ALL_EDGES</c>.</param>
+        /// <param name="nodeOrder">Input indices of the clusters in the network, in LICHeE node-id order (grouped by
+        /// presence profile, see <see cref="LicheeNodeOrder"/>); clusters not listed are absent (removed by fixNetwork).</param>
+        /// <param name="standardErrors">Per input cluster and sample, LICHeE's <c>1.96·sd/√n</c> (null = static ε,
+        /// i.e. every cluster's standard error is 0).</param>
+        public LicheeNetwork(
+            IReadOnlyList<CcfCluster> clusters,
+            int samples,
+            double eps,
+            bool completeNetwork,
+            IReadOnlyList<int> nodeOrder,
+            double[][]? standardErrors)
         {
             _samples = samples;
             _eps = eps;
-            _nodeCount = clusters.Count + 1;
+            _nodeCount = nodeOrder.Count + 1;
+            _clusterTotal = clusters.Count;
             _ccf = new double[_nodeCount][];
+            _se = standardErrors is null ? null : new double[_nodeCount][];
             _level = new int[_nodeCount];
             _clusterIndex = new int[_nodeCount];
             _net = new List<int>[_nodeCount];
@@ -353,57 +561,43 @@ public static partial class OncologyAnalyzer
             _clusterIndex[0] = -1;
             AddNode(0, samples + 1);
 
-            // Group clusters by presence profile in order of first appearance.
-            var groups = new List<List<int>>();
-            var groupByProfile = new Dictionary<string, List<int>>(StringComparer.Ordinal);
-            for (int c = 0; c < clusters.Count; c++)
+            // Clusters grouped by presence profile (nodeOrder is already grouped); node ids follow nodeOrder.
+            int first = 1;
+            string? groupKey = null;
+            for (int k = 0; k < nodeOrder.Count; k++)
             {
-                var profile = new char[samples];
-                for (int s = 0; s < samples; s++)
+                int c = nodeOrder[k];
+                int id = k + 1;
+                string key = PresenceProfile(clusters[c].CcfPerSample, samples);
+                if (groupKey is not null && key != groupKey)
                 {
-                    profile[s] = clusters[c].CcfPerSample[s] > 0.0 ? '1' : '0';
+                    AddIntraGroupEdges(first, id);
+                    first = id;
                 }
 
-                string key = new(profile);
-                if (!groupByProfile.TryGetValue(key, out List<int>? members))
+                groupKey = key;
+                _ccf[id] = clusters[c].CcfPerSample.ToArray();
+                if (_se is not null)
                 {
-                    members = new List<int>();
-                    groupByProfile[key] = members;
-                    groups.Add(members);
+                    _se[id] = standardErrors![c];
                 }
 
-                members.Add(c);
+                _clusterIndex[id] = c;
+                int present = 0;
+                foreach (double v in _ccf[id])
+                {
+                    if (v > 0.0)
+                    {
+                        present++;
+                    }
+                }
+
+                AddNode(id, present);
             }
 
-            int nextId = 1;
-            foreach (List<int> group in groups)
+            if (nodeOrder.Count > 0)
             {
-                int first = nextId;
-                foreach (int c in group)
-                {
-                    int id = nextId++;
-                    _ccf[id] = clusters[c].CcfPerSample.ToArray();
-                    _clusterIndex[id] = c;
-                    int present = 0;
-                    foreach (double v in _ccf[id])
-                    {
-                        if (v > 0.0)
-                        {
-                            present++;
-                        }
-                    }
-
-                    AddNode(id, present);
-                }
-
-                // Edges between each group's sub-population nodes.
-                for (int i = first; i < nextId; i++)
-                {
-                    for (int j = i + 1; j < nextId; j++)
-                    {
-                        CheckAndAddEdge(i, j);
-                    }
-                }
+                AddIntraGroupEdges(first, _nodeCount);
             }
 
             // Inter-level edges: each level to the next non-empty lower level.
@@ -536,6 +730,36 @@ public static partial class OncologyAnalyzer
             list.Add(id);
         }
 
+        /// <summary>Edges between each group's sub-population nodes (node ids [first, end)).</summary>
+        private void AddIntraGroupEdges(int first, int end)
+        {
+            for (int i = first; i < end; i++)
+            {
+                for (int j = i + 1; j < end; j++)
+                {
+                    CheckAndAddEdge(i, j);
+                }
+            }
+        }
+
+        /// <summary>
+        /// LICHeE <c>PHYNetwork.getAAFErrorMargin(from, to, i)</c>: <c>max(ε, se_from + se_to)</c> with
+        /// <c>se = 1.96·sd/√n</c> for a cluster and <c>se = ε</c> for the root; the static margin ε when no per-cluster
+        /// dispersion was supplied.
+        /// </summary>
+        private double ErrorMargin(int from, int to, int i)
+        {
+            if (_se is null)
+            {
+                return _eps;
+            }
+
+            double parentStdError = from == 0 ? _eps : _se[from]![i];
+            double childStdError = to == 0 ? _eps : _se[to]![i];
+            double standardError = parentStdError + childStdError;
+            return standardError > _eps ? standardError : _eps;
+        }
+
         private void AddNetEdge(int from, int to)
         {
             if (!_net[from].Contains(to))
@@ -560,7 +784,7 @@ public static partial class OncologyAnalyzer
                     break;
                 }
 
-                comp12 += a1[i] >= a2[i] - _eps ? 1 : 0;
+                comp12 += a1[i] >= a2[i] - ErrorMargin(n1, n2, i) ? 1 : 0;
                 if (a1[i] < a2[i])
                 {
                     err12 += a2[i] - a1[i];
@@ -574,7 +798,7 @@ public static partial class OncologyAnalyzer
                     break;
                 }
 
-                comp21 += a2[i] >= a1[i] - _eps ? 1 : 0;
+                comp21 += a2[i] >= a1[i] - ErrorMargin(n2, n1, i) ? 1 : 0;
                 if (a2[i] < a1[i])
                 {
                     err21 += a1[i] - a2[i];
@@ -828,7 +1052,8 @@ public static partial class OncologyAnalyzer
         /// <summary>Parent of every input cluster (by input index) in the current complete tree; −1 = root.</summary>
         private int[] CurrentParents()
         {
-            var parent = new int[_nodeCount - 1];
+            var parent = new int[_clusterTotal];
+            Array.Fill(parent, int.MinValue);
             foreach (KeyValuePair<int, List<int>> kv in _treeEdges)
             {
                 foreach (int child in kv.Value)
@@ -839,6 +1064,61 @@ public static partial class OncologyAnalyzer
 
             return parent;
         }
+    }
+
+    private static void ValidatePhylogenyTolerance(double tolerance)
+    {
+        if (double.IsNaN(tolerance) || tolerance < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(tolerance), tolerance, "Phylogeny tolerance ε must be a non-negative number.");
+        }
+    }
+
+    /// <summary>LICHeE presence profile of a cluster: '1' where CCF &gt; 0, else '0'.</summary>
+    private static string PresenceProfile(IReadOnlyList<double> ccf, int samples)
+    {
+        var profile = new char[samples];
+        for (int s = 0; s < samples; s++)
+        {
+            profile[s] = ccf[s] > 0.0 ? '1' : '0';
+        }
+
+        return new string(profile);
+    }
+
+    /// <summary>
+    /// LICHeE node-id order of the input clusters: presence-profile groups in order of first appearance, within a
+    /// group in input order (node 0 is the root).
+    /// </summary>
+    private static int[] LicheeNodeOrder(IReadOnlyList<CcfCluster> clusters, int samples)
+    {
+        var groups = new List<List<int>>();
+        var groupByProfile = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+        for (int c = 0; c < clusters.Count; c++)
+        {
+            string key = PresenceProfile(clusters[c].CcfPerSample, samples);
+            if (!groupByProfile.TryGetValue(key, out List<int>? members))
+            {
+                members = new List<int>();
+                groupByProfile[key] = members;
+                groups.Add(members);
+            }
+
+            members.Add(c);
+        }
+
+        var order = new int[clusters.Count];
+        int k = 0;
+        foreach (List<int> group in groups)
+        {
+            foreach (int c in group)
+            {
+                order[k++] = c;
+            }
+        }
+
+        return order;
     }
 
     /// <summary>Chooses a synthetic root id distinct from every cluster id (one less than the minimum, or -1).</summary>
