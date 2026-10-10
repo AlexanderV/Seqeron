@@ -432,8 +432,9 @@ public class B04AuditProperties
     {
         var gen = from seed in Seeds
                   from n in Gen.Choose(0, 300)
-                  from w in Gen.Choose(5, 60)
                   from k in Gen.Choose(1, 5)
+                  // BBTools EntropyTracker asserts k < windowBases (FindLowEntropyRegionsBbduk throws for w <= k).
+                  from w in Gen.Choose(Math.Max(5, k + 1), 60)
                   from c1 in Gen.Choose(0, 100)
                   from dc in Gen.Choose(0, 100)
                   select (seed, n, w, k, c1: c1 / 100.0, c2: Math.Min(1.0, (c1 + dc) / 100.0));
