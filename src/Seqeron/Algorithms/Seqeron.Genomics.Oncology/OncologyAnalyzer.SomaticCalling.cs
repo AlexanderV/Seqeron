@@ -634,7 +634,7 @@ public static partial class OncologyAnalyzer
             throw new ArgumentException("Cannot estimate purity from an empty variant set.", nameof(variants));
         }
 
-        return StatisticsHelper.Median(purities);
+        return Median(purities);
     }
 
     /// <summary>
@@ -698,7 +698,7 @@ public static partial class OncologyAnalyzer
             throw new ArgumentException("Cannot estimate purity from an empty variant set.", nameof(variants));
         }
 
-        return StatisticsHelper.Median(purities);
+        return Median(purities);
     }
 
     /// <summary>
@@ -757,6 +757,16 @@ public static partial class OncologyAnalyzer
         }
 
         return Math.Min(1.0, purity);
+    }
+
+    /// <summary>Median of a non-empty list of values (lower-mid average for even counts). Does not mutate the input.</summary>
+    private static double Median(List<double> values)
+    {
+        double[] sorted = values.ToArray();
+        Array.Sort(sorted);
+        int n = sorted.Length;
+        int mid = n / 2;
+        return (n % 2 == 1) ? sorted[mid] : 0.5 * (sorted[mid - 1] + sorted[mid]);
     }
 
     #endregion
