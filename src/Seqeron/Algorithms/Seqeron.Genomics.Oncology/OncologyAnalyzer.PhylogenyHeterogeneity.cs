@@ -135,8 +135,10 @@ public static partial class OncologyAnalyzer
     /// tree is returned. If the default network admits no valid tree, the complete network (<c>ALL_EDGES</c>) is
     /// searched, as LICHeE does.</description></item>
     /// </list>
-    /// Presence profiles are grouped in order of first appearance in <paramref name="clusters"/> (LICHeE iterates a
-    /// <c>HashMap</c>), which fixes the enumeration order and therefore the tie-break among equal-score trees.
+    /// Presence-profile groups are visited in LICHeE's order — the iteration order of its <c>HashMap&lt;String, …&gt;</c> of
+    /// profile tags ('1'/'0' per sample) filled in order of first appearance, emulated exactly (String hash codes are
+    /// deterministic) — within a group in input order. This fixes the node ids, the network's edge order and the
+    /// enumeration order, and therefore the tie-break among equal-score trees.
     /// </summary>
     /// <param name="clusters">CCF clusters to place; each cluster's <see cref="CcfCluster.CcfPerSample"/> must have the same length.</param>
     /// <param name="tolerance">Noise margin ε for both inequalities; default <see cref="DefaultPhylogenyTolerance"/> (0.1, LICHeE <c>-e</c>).</param>
@@ -614,7 +616,8 @@ public static partial class OncologyAnalyzer
     /// Port of LICHeE's <c>PHYNetwork</c> (constraint network construction, <c>checkAndAddEdge</c>,
     /// <c>getLineageTrees</c>/<c>grow</c> Gabow–Myers enumeration with the <c>PHYTree.checkConstraint</c> sum rule) and
     /// <c>PHYTree.computeErrorScore</c> ranking. Node 0 is the root; nodes 1..n are the clusters grouped by presence
-    /// profile (first-appearance order), within a profile in input order — the LICHeE node-id order.
+    /// profile (LICHeE <c>HashMap</c> order, see <see cref="LicheeNodeOrder"/>), within a profile in input order — the
+    /// LICHeE node-id order.
     /// </summary>
     private sealed class LicheeNetwork
     {
@@ -1209,12 +1212,14 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// LICHeE node-id order of the input clusters: presence-profile groups in order of first appearance, within a
-    /// group in input order (node 0 is the root).
+    /// LICHeE node-id order of the input clusters: one SNV group per presence profile, groups in the iteration order of
+    /// LICHeE's <c>HashMap&lt;String, …&gt; tag2SNVs</c> (<c>SNVDataStore</c> clusters-file loader inserts the profile tags in
+    /// order of first appearance, never removes one; <c>LineageEngine.buildLineage</c> step 2 iterates its
+    /// <c>keySet()</c>), within a group in input order (node 0 is the root). See <see cref="JavaStringHashMapOrder"/>.
     /// </summary>
     private static int[] LicheeNodeOrder(IReadOnlyList<CcfCluster> clusters, int samples)
     {
-        var groups = new List<List<int>>();
+        var profiles = new List<string>();
         var groupByProfile = new Dictionary<string, List<int>>(StringComparer.Ordinal);
         for (int c = 0; c < clusters.Count; c++)
         {
@@ -1223,7 +1228,7 @@ public static partial class OncologyAnalyzer
             {
                 members = new List<int>();
                 groupByProfile[key] = members;
-                groups.Add(members);
+                profiles.Add(key);
             }
 
             members.Add(c);
@@ -1231,15 +1236,628 @@ public static partial class OncologyAnalyzer
 
         var order = new int[clusters.Count];
         int k = 0;
-        foreach (List<int> group in groups)
+        foreach (string profile in JavaStringHashMapOrder.KeyOrder(profiles))
         {
-            foreach (int c in group)
+            foreach (int c in groupByProfile[profile])
             {
                 order[k++] = c;
             }
         }
 
         return order;
+    }
+
+    /// <summary>
+    /// Key iteration order of a <c>java.util.HashMap&lt;String, ?&gt;</c> (default capacity 16, load factor 0.75) after
+    /// the given distinct keys are inserted in order with no removals — LICHeE's <c>tag2SNVs</c> presence-profile map,
+    /// whose <c>keySet()</c> order fixes the SNV-group (node-id) order. Port of OpenJDK 8–21 <c>HashMap.putVal</c> /
+    /// <c>resize</c> / <c>treeifyBin</c> and <c>TreeNode.treeify</c> / <c>putTreeVal</c> / <c>split</c> /
+    /// <c>untreeify</c> / <c>balanceInsertion</c> / <c>moveRootToFront</c>: <c>String.hashCode</c>, spread
+    /// <c>h ^ (h &gt;&gt;&gt; 16)</c>, bucket <c>(n − 1) &amp; hash</c>, doubling once size exceeds 0.75·n, bins of ≥ 9 nodes
+    /// treeified (table ≥ 64, else resized) with red-black insertion ordered by hash then <c>String.compareTo</c>;
+    /// iteration walks the buckets in index order and each bin along its <c>next</c> chain.
+    /// </summary>
+    internal static class JavaStringHashMapOrder
+    {
+        private const int TreeifyThreshold = 8;
+        private const int UntreeifyThreshold = 6;
+        private const int MinTreeifyCapacity = 64;
+        private const int DefaultCapacity = 16;
+
+        private sealed class Node
+        {
+            public Node(int hash, string key)
+            {
+                Hash = hash;
+                Key = key;
+            }
+
+            public int Hash { get; }
+
+            public string Key { get; }
+
+            public Node? Next { get; set; }
+
+            public bool IsTree { get; set; }
+
+            public Node? Parent { get; set; }
+
+            public Node? Left { get; set; }
+
+            public Node? Right { get; set; }
+
+            public Node? Prev { get; set; }
+
+            public bool Red { get; set; }
+        }
+
+        /// <summary>Java <c>String.hashCode</c> (UTF-16 code units, s[0]·31^(n−1) + … with int overflow).</summary>
+        public static int JavaStringHash(string s)
+        {
+            int h = 0;
+            unchecked
+            {
+                foreach (char c in s)
+                {
+                    h = (31 * h) + c;
+                }
+            }
+
+            return h;
+        }
+
+        /// <summary>Iteration order of the keys (duplicates are ignored, as <c>put</c> on an existing key).</summary>
+        public static IReadOnlyList<string> KeyOrder(IEnumerable<string> keysInInsertionOrder)
+        {
+            Node?[] table = Array.Empty<Node?>();
+            int threshold = 0;
+            int size = 0;
+            foreach (string key in keysInInsertionOrder)
+            {
+                int h = JavaStringHash(key);
+                int hash = h ^ (int)((uint)h >> 16);
+                if (table.Length == 0)
+                {
+                    (table, threshold) = Resize(table, threshold);
+                }
+
+                int i = (table.Length - 1) & hash;
+                Node? p = table[i];
+                bool inserted = true;
+                if (p is null)
+                {
+                    table[i] = new Node(hash, key);
+                }
+                else if (p.Hash == hash && p.Key == key)
+                {
+                    inserted = false;
+                }
+                else if (p.IsTree)
+                {
+                    inserted = PutTreeVal(table, p, hash, key);
+                }
+                else
+                {
+                    int binCount = 0;
+                    while (true)
+                    {
+                        Node? e = p.Next;
+                        if (e is null)
+                        {
+                            p.Next = new Node(hash, key);
+                            if (binCount >= TreeifyThreshold - 1)
+                            {
+                                (table, threshold) = TreeifyBin(table, threshold, hash);
+                            }
+
+                            break;
+                        }
+
+                        if (e.Hash == hash && e.Key == key)
+                        {
+                            inserted = false;
+                            break;
+                        }
+
+                        p = e;
+                        binCount++;
+                    }
+                }
+
+                if (inserted && ++size > threshold)
+                {
+                    (table, threshold) = Resize(table, threshold);
+                }
+            }
+
+            var order = new List<string>(size);
+            foreach (Node? bin in table)
+            {
+                for (Node? e = bin; e is not null; e = e.Next)
+                {
+                    order.Add(e.Key);
+                }
+            }
+
+            return order;
+        }
+
+        /// <summary>TreeNode direction: hash first, then <c>String.compareTo</c> (distinct keys never compare equal).</summary>
+        private static int Compare(Node x, int hash, string key)
+        {
+            if (x.Hash > hash)
+            {
+                return -1;
+            }
+
+            if (x.Hash < hash)
+            {
+                return 1;
+            }
+
+            return Math.Sign(string.CompareOrdinal(key, x.Key));
+        }
+
+        private static (Node?[] Table, int Threshold) Resize(Node?[] oldTab, int oldThr)
+        {
+            int oldCap = oldTab.Length;
+            int newCap = oldCap > 0 ? oldCap << 1 : DefaultCapacity;
+            int newThr = oldCap >= DefaultCapacity ? oldThr << 1 : (int)(newCap * 0.75f);
+            var newTab = new Node?[newCap];
+            for (int j = 0; j < oldCap; j++)
+            {
+                Node? e = oldTab[j];
+                if (e is null)
+                {
+                    continue;
+                }
+
+                if (e.Next is null)
+                {
+                    newTab[e.Hash & (newCap - 1)] = e;
+                }
+                else if (e.IsTree)
+                {
+                    SplitTree(newTab, e, j, oldCap);
+                }
+                else
+                {
+                    Node? loHead = null, loTail = null, hiHead = null, hiTail = null;
+                    for (Node? x = e; x is not null;)
+                    {
+                        Node? next = x.Next;
+                        if ((x.Hash & oldCap) == 0)
+                        {
+                            if (loTail is null)
+                            {
+                                loHead = x;
+                            }
+                            else
+                            {
+                                loTail.Next = x;
+                            }
+
+                            loTail = x;
+                        }
+                        else
+                        {
+                            if (hiTail is null)
+                            {
+                                hiHead = x;
+                            }
+                            else
+                            {
+                                hiTail.Next = x;
+                            }
+
+                            hiTail = x;
+                        }
+
+                        x = next;
+                    }
+
+                    if (loTail is not null)
+                    {
+                        loTail.Next = null;
+                        newTab[j] = loHead;
+                    }
+
+                    if (hiTail is not null)
+                    {
+                        hiTail.Next = null;
+                        newTab[j + oldCap] = hiHead;
+                    }
+                }
+            }
+
+            return (newTab, newThr);
+        }
+
+        private static (Node?[] Table, int Threshold) TreeifyBin(Node?[] table, int threshold, int hash)
+        {
+            if (table.Length < MinTreeifyCapacity)
+            {
+                return Resize(table, threshold);
+            }
+
+            int index = (table.Length - 1) & hash;
+            Node? prev = null;
+            for (Node? e = table[index]; e is not null; e = e.Next)
+            {
+                e.IsTree = true;
+                e.Prev = prev;
+                prev = e;
+            }
+
+            Treeify(table, table[index]!);
+            return (table, threshold);
+        }
+
+        private static void Treeify(Node?[] table, Node head)
+        {
+            Node? root = null;
+            for (Node? x = head; x is not null; x = x.Next)
+            {
+                x.Left = null;
+                x.Right = null;
+                if (root is null)
+                {
+                    x.Parent = null;
+                    x.Red = false;
+                    root = x;
+                    continue;
+                }
+
+                for (Node p = root; ;)
+                {
+                    int dir = Compare(p, x.Hash, x.Key);
+                    Node xp = p;
+                    Node? child = dir <= 0 ? p.Left : p.Right;
+                    if (child is null)
+                    {
+                        x.Parent = xp;
+                        if (dir <= 0)
+                        {
+                            xp.Left = x;
+                        }
+                        else
+                        {
+                            xp.Right = x;
+                        }
+
+                        root = BalanceInsertion(root, x);
+                        break;
+                    }
+
+                    p = child;
+                }
+            }
+
+            MoveRootToFront(table, root!);
+        }
+
+        private static bool PutTreeVal(Node?[] table, Node first, int hash, string key)
+        {
+            Node root = first;
+            while (root.Parent is not null)
+            {
+                root = root.Parent;
+            }
+
+            for (Node p = root; ;)
+            {
+                if (p.Hash == hash && p.Key == key)
+                {
+                    return false;
+                }
+
+                int dir = Compare(p, hash, key);
+                Node xp = p;
+                Node? child = dir <= 0 ? p.Left : p.Right;
+                if (child is null)
+                {
+                    Node? xpn = xp.Next;
+                    var x = new Node(hash, key) { IsTree = true, Next = xpn };
+                    if (dir <= 0)
+                    {
+                        xp.Left = x;
+                    }
+                    else
+                    {
+                        xp.Right = x;
+                    }
+
+                    xp.Next = x;
+                    x.Parent = xp;
+                    x.Prev = xp;
+                    if (xpn is not null)
+                    {
+                        xpn.Prev = x;
+                    }
+
+                    MoveRootToFront(table, BalanceInsertion(root, x));
+                    return true;
+                }
+
+                p = child;
+            }
+        }
+
+        private static void SplitTree(Node?[] table, Node head, int index, int bit)
+        {
+            Node? loHead = null, loTail = null, hiHead = null, hiTail = null;
+            int lc = 0, hc = 0;
+            for (Node? e = head; e is not null;)
+            {
+                Node? next = e.Next;
+                e.Next = null;
+                if ((e.Hash & bit) == 0)
+                {
+                    e.Prev = loTail;
+                    if (loTail is null)
+                    {
+                        loHead = e;
+                    }
+                    else
+                    {
+                        loTail.Next = e;
+                    }
+
+                    loTail = e;
+                    lc++;
+                }
+                else
+                {
+                    e.Prev = hiTail;
+                    if (hiTail is null)
+                    {
+                        hiHead = e;
+                    }
+                    else
+                    {
+                        hiTail.Next = e;
+                    }
+
+                    hiTail = e;
+                    hc++;
+                }
+
+                e = next;
+            }
+
+            if (loHead is not null)
+            {
+                if (lc <= UntreeifyThreshold)
+                {
+                    table[index] = Untreeify(loHead);
+                }
+                else
+                {
+                    table[index] = loHead;
+                    if (hiHead is not null)
+                    {
+                        Treeify(table, loHead);
+                    }
+                }
+            }
+
+            if (hiHead is not null)
+            {
+                if (hc <= UntreeifyThreshold)
+                {
+                    table[index + bit] = Untreeify(hiHead);
+                }
+                else
+                {
+                    table[index + bit] = hiHead;
+                    if (loHead is not null)
+                    {
+                        Treeify(table, hiHead);
+                    }
+                }
+            }
+        }
+
+        private static Node Untreeify(Node head)
+        {
+            for (Node? e = head; e is not null; e = e.Next)
+            {
+                e.IsTree = false;
+                e.Parent = null;
+                e.Left = null;
+                e.Right = null;
+                e.Prev = null;
+                e.Red = false;
+            }
+
+            return head;
+        }
+
+        private static void MoveRootToFront(Node?[] table, Node root)
+        {
+            int index = (table.Length - 1) & root.Hash;
+            Node? first = table[index];
+            if (ReferenceEquals(root, first))
+            {
+                return;
+            }
+
+            table[index] = root;
+            Node? rp = root.Prev;
+            Node? rn = root.Next;
+            if (rn is not null)
+            {
+                rn.Prev = rp;
+            }
+
+            if (rp is not null)
+            {
+                rp.Next = rn;
+            }
+
+            if (first is not null)
+            {
+                first.Prev = root;
+            }
+
+            root.Next = first;
+            root.Prev = null;
+        }
+
+        private static Node RotateLeft(Node root, Node p)
+        {
+            Node? r = p.Right;
+            if (r is null)
+            {
+                return root;
+            }
+
+            Node? rl = r.Left;
+            p.Right = rl;
+            if (rl is not null)
+            {
+                rl.Parent = p;
+            }
+
+            Node? pp = p.Parent;
+            r.Parent = pp;
+            if (pp is null)
+            {
+                root = r;
+                r.Red = false;
+            }
+            else if (ReferenceEquals(pp.Left, p))
+            {
+                pp.Left = r;
+            }
+            else
+            {
+                pp.Right = r;
+            }
+
+            r.Left = p;
+            p.Parent = r;
+            return root;
+        }
+
+        private static Node RotateRight(Node root, Node p)
+        {
+            Node? l = p.Left;
+            if (l is null)
+            {
+                return root;
+            }
+
+            Node? lr = l.Right;
+            p.Left = lr;
+            if (lr is not null)
+            {
+                lr.Parent = p;
+            }
+
+            Node? pp = p.Parent;
+            l.Parent = pp;
+            if (pp is null)
+            {
+                root = l;
+                l.Red = false;
+            }
+            else if (ReferenceEquals(pp.Right, p))
+            {
+                pp.Right = l;
+            }
+            else
+            {
+                pp.Left = l;
+            }
+
+            l.Right = p;
+            p.Parent = l;
+            return root;
+        }
+
+        private static Node BalanceInsertion(Node root, Node x)
+        {
+            x.Red = true;
+            while (true)
+            {
+                Node? xp = x.Parent;
+                if (xp is null)
+                {
+                    x.Red = false;
+                    return x;
+                }
+
+                Node? xpp = xp.Parent;
+                if (!xp.Red || xpp is null)
+                {
+                    return root;
+                }
+
+                Node? xppl = xpp.Left;
+                if (ReferenceEquals(xp, xppl))
+                {
+                    Node? xppr = xpp.Right;
+                    if (xppr is not null && xppr.Red)
+                    {
+                        xppr.Red = false;
+                        xp.Red = false;
+                        xpp.Red = true;
+                        x = xpp;
+                    }
+                    else
+                    {
+                        if (ReferenceEquals(x, xp.Right))
+                        {
+                            x = xp;
+                            root = RotateLeft(root, x);
+                            xp = x.Parent;
+                            xpp = xp?.Parent;
+                        }
+
+                        if (xp is not null)
+                        {
+                            xp.Red = false;
+                            if (xpp is not null)
+                            {
+                                xpp.Red = true;
+                                root = RotateRight(root, xpp);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (xppl is not null && xppl.Red)
+                    {
+                        xppl.Red = false;
+                        xp.Red = false;
+                        xpp.Red = true;
+                        x = xpp;
+                    }
+                    else
+                    {
+                        if (ReferenceEquals(x, xp.Left))
+                        {
+                            x = xp;
+                            root = RotateRight(root, x);
+                            xp = x.Parent;
+                            xpp = xp?.Parent;
+                        }
+
+                        if (xp is not null)
+                        {
+                            xp.Red = false;
+                            if (xpp is not null)
+                            {
+                                xpp.Red = true;
+                                root = RotateLeft(root, xpp);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>Chooses a synthetic root id distinct from every cluster id (one less than the minimum, or -1).</summary>

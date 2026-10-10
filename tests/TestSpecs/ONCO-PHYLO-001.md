@@ -87,12 +87,15 @@
 | M19 | fixNetwork size tie | f1: A=[0.5,0.5], B=[0.55,0], 1 member each, ε 0 | A dropped (first node on tie), root→B; keep-all: no tree | lichee.jar (F43) |
 | M20 | fixNetwork smallest | f2: A 3 members/1 robust, B 1 member | B dropped, root→A | lichee.jar (F43) |
 | M21 | clusters-file robustness | f4: RobustMemberCount 0, A 2 / B 3 members | A dropped, root→B; robust variant: no tree | lichee.jar (F43) |
-| M22 | repeated removal | f6: A robust, B=[0.55,0], C=[0,0.55] singletons | removed [2,3], root→A | lichee.jar (F43) |
+| M22 | repeated removal | f6: A robust, B=[0.55,0], C=[0,0.55] singletons | removed [3,2] (HashMap node order, F45), root→A | lichee.jar (F43/F45) |
 | M23 | removal then ALL_EDGES | f3: F18 complete-network fixture + singleton D | removed [4], complete network, error 0.003292532308117998 | lichee.jar (F43) |
 | M24 | removal then none | f7 | Try false | lichee.jar (F43) |
 | M25 | Default ε = LICHeE 0.1 | `DefaultPhylogenyTolerance`; S3 input at the default | 0.1; root→A→B, 1 tree, error 0.050000000000000044 | `Parameters.VAF_ERROR_MARGIN`, `-cp` parsing (F44) |
 | M26 | Grow-call cap | c1 (7 clusters, ε 0.05) via the internal `maxGrowCalls` hook, caps 40/80/320/10⁸ | none / 7 trees err 0.07071067811865477 / 17 trees err 0.050000000000000044 / 176 trees err 0 + parents | lichee.jar with patched `MAX_NUM_GROW_CALLS` (F44) |
 | M27 | Fixtures at the default ε | t02150 / static t02150 / t00298 / f1 at 0.1 | see Evidence § F44 item 4 | lichee.jar `-e 0.1` (F44) |
+| M28 | Java `HashMap<String>` key order | 6 small profile sets + 50-key treeified/split bin + `String.hashCode` | `keySet()` order / hash codes of java.util.HashMap (OpenJDK 21) | F45 |
+| M29 | Equal-score tie = HashMap-ordered enumeration | t02042 (ε 0.1), t02235 (0.2), t00750 (0), t01561 (0) | lichee.jar top trees (Evidence § F45 table) | lichee.jar, HashMap group order (F45) |
+| M30 | Node-id order → error summation | t01396 (ε 0.05) | error 0.03741657386773935 bit-identical | lichee.jar (F45) |
 | M18 | Zero SD ≡ static | F18 complete-network fixture with SD 0 | identical edges / error / tree count | `getAAFErrorMargin` with sd 0 = ε (F42) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -139,6 +142,7 @@
 |------|------|------------|
 | OncologyAnalyzer_ReconstructPhylogeny_Tests.cs | canonical | 14 |
 | OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests.cs | LICHeE per-cluster margins (F42), fixNetwork (F43) | M13–M24, C2–C4 |
+| OncologyAnalyzer_ReconstructPhylogenyTieOrder_Tests.cs | Java HashMap group order, equal-score ties (F45) | M28–M30 |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -187,7 +191,7 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Deepest-valid-ancestor + id tie-break for under-constrained placement | INV-5, M1–M3, determinism |
+| 1 | ~~Deepest-valid-ancestor + id tie-break~~ — resolved: LICHeE enumeration with its exact HashMap group order (F18, F45) | INV-5, M1–M3, M29, determinism |
 | 2 | ~~Default noise margin ε = 0~~ — resolved by F44: default = LICHeE 0.1 | S2, S3, M25 |
 
 ---

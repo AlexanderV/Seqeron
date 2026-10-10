@@ -382,8 +382,10 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
         });
     }
 
-    // f6: A robust (2 members) [0.5,0.5]; B=[0.55,0], C=[0,0.55] single members. Removing B (first size-1 node) still
-    // leaves root children 0.5 + 0.55 > 1 in sample 2 -> C removed next -> root->A (jar "removed [2, 3]").
+    // f6: A robust (2 members) [0.5,0.5]; B=[0.55,0], C=[0,0.55] single members. LICHeE's node ids follow the
+    // HashMap profile order 11, 01, 10 (B24 F45), so C (node 2) is the first size-1 node and is removed first; root
+    // children 0.5 + 0.55 > 1 in sample 1 remain -> B removed next -> root->A (jar with the HashMap group order:
+    // "removalStep [3]", "removalStep [2]"; the F43 first-appearance harness removed B first).
     [Test]
     public void FixNetwork_RemovesRepeatedlyUntilTreeFound()
     {
@@ -393,7 +395,7 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(p.RemovedClusterIds, Is.EqualTo(new[] { 2, 3 }));
+            Assert.That(p.RemovedClusterIds, Is.EqualTo(new[] { 3, 2 }));
             Assert.That(p.Edges, Is.EqualTo(new[] { new OncologyAnalyzer.ClonalEdge(p.RootId, 1) }));
             Assert.That(OncologyAnalyzer.IdentifyBranchMutations(p), Is.EqualTo(new[] { 1 }),
                 "removed clusters are neither trunk nor branch");

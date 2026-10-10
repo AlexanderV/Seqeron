@@ -103,6 +103,25 @@
 
 4. Re-derived unit fixtures at the new default (jar `-e 0.1`): S3 [0.5,0.5]/[0.55,0] → 1 tree root→A→B, error 0.050000000000000044 (ε 0: none); 4 private 0.05…0.053 → 24 trees (15 at ε 0), same top chain; t02150 margins → default network, 1 tree, root→2, 2→{1,3}, error 0.016000000000000014 (static with the Java centroids: same); t00298 margins → complete network, 44 trees (28 at ε 0), same top tree; static t00298 → 6 trees (5), same top tree; f1 → nothing removed, root→1→2, error 0.050000000000000044; f2/f4/f4r → root→1→2, error 0.050000000000000044; f6 → root→1→{2,3}, f7 → root→1→{2,3}, 3→4, both error 0.07071067811865482; trunk fixtures unchanged ([1,1],[1,1],[0.4,0] → 2→1→3; [0.97],[0.5] → root→1→2). Fixtures whose purpose is ε = 0 (S3, F42 t02150/t00298, F43 f1–f7, the strict trunk case) now pass `tolerance: 0` explicitly — their ε = 0 jar values are unchanged.
 
+### LICHeE equal-score tie order — opened 2026-10-10 (B24 F45)
+
+**Source:** same commit: `SNVDataStore.loadSNVFileWithClusters` (`tag2SNVs = new HashMap<String, ArrayList<SNVEntry>>()`; per cluster line `if (tag2SNVs.containsKey(profile)) … else tag2SNVs.put(profile, …)`; no removal on this path), `LineageEngine.buildLineage` step 2 (`for (String groupTag : snvsByTag.keySet()) groups.add(…)`), `PHYNetwork` constructor (node ids assigned in group order; `nodes` `HashMap<Integer,…>`, `nodesById` `HashMap<Integer,…>`, `edges` `HashMap<PHYNode,…>` with `PHYNode.hashCode() = nodeId`), `PHYTree.compareTo` + `Collections.sort` (stable), OpenJDK 21 `java.util.HashMap` / `String.hashCode`.
+
+1. **Which maps decide the order:** the only map whose iteration order reaches the result is `tag2SNVs` (key = presence-profile `String`, e.g. "101"). Node ids follow its `keySet()` order; ids fix the `edges` insertion order (hence the `grow` stack and the enumeration order), the argument order of intra-group `checkAndAddEdge` (orientation when both directions tie), the `computeErrorScore` summation order (sorted by id) and the `fixNetwork` scan (`nodesById.values()`, Integer keys = ascending id). The other maps have Integer keys or `PHYNode` keys with `hashCode = nodeId` (deterministic) or are only read order-insensitively (bridge test). The single identity-hash structure is `fixNetwork`'s `HashSet<SNVGroup>` (F43, post-removal only).
+2. **Determinism:** `String.hashCode` is a fixed 31-polynomial ⇒ the order is the same in every JVM run (g45_s2: 2 000 inputs on a default JVM, no hash flags, identical to the port). Exact emulation is therefore possible; nothing is BLOCKED.
+3. **Emulation:** `OncologyAnalyzer.JavaStringHashMapOrder.KeyOrder` ports `putVal` (tail append; note `computeIfAbsent` would insert at the bin head — the F42/F43 harness's `LinkedHashMap.computeIfAbsent` was insertion-ordered and is replaced), `resize` (16 → ×2 when size > 0.75·n, lo/hi split keeping order), `treeifyBin` (bin ≥ 9 nodes: resize if n < 64, else `TreeNode.treeify`), `putTreeVal` (new node linked after its tree parent), `balanceInsertion`/rotations, `moveRootToFront`, `split` (re-treeify > 6, `untreeify` ≤ 6). Check vs `java.util.HashMap.keySet()` (HmOrder.java): 8 000 / 8 000 random key sets identical (1–20-char 0/1 keys, up to 202 keys, 1 404 sets with treeified bins, 2 732 treeify events).
+4. **Harness `F4445Harness -Dhm=1`** (`containsKey` + `put` like `SNVDataStore`, `removalStep` per `fixNetwork` call): port identical on r1 3 000 + r2 6 000 (F42 sets), m1 4 000 (F43 set, `-XX:hashCode=2`, removal order per step), g45 static 3 000 + member 3 000 (1–5 samples, 2–8 clusters, ε ∈ {0, 0.02, 0.05, 0.1, 0.2}) + g45_s2 2 000 = 21 000 / 21 000. Insertion-order grouping differs from the jar on 5 / 3 000 (static) and 85 / 3 000 (member-level) g45 inputs.
+
+| Fixture (ε) | Clusters | Profiles: first appearance → HashMap order | lichee.jar (HashMap order) | Insertion order would give |
+|-------------|----------|---------------------------------------------|----------------------------|-----------------------------|
+| t02042 (0.1) | [0.25,0,0.8], [0.2,0.68,0], [0.2,0,0], [0.73,0,0.9] | 101,110,100 → 110,100,101 | 3 trees tied at 0; root→{2,4}, 4→1, 4→3 | 2→3 |
+| t02235 (0.2) | [0,0.74,0], [0.4,0,0.6], [0.3,0.21,0], [0.8,0,0.8], [0.3,0,0] | 010,101,110,100 → 110,100,101,010 | 3 trees tied at 0.10000000000000009; root→{1,3,4}, 4→2, 4→5 | 3→5 |
+| t00750 (0) | [0,0,0.23,0.3,0], [0,0,0.44,0.34,0.9], [0.1,0.3,0,0,0.1], [0,0,0,0,0.07], [0,0,0.3,0.6,0] | 00110,00111,11001,00001 → 11001,00110,00111,00001 | 2 trees tied at 0; root→{2,3,5}, 5→1, 3→4 | 2→4 |
+| t01561 (0) | [0.46,0,0.6], [0,0,0.4], [0,0,0.3], [0,0.45,0.3] | 101,001,011 → 011,001,101 | 2 trees tied at 0; root→{1,4}, 1→2, 2→3 | 4→3 |
+| t01396 (0.05) | [0,0,0.5,0,0.1], [0,0.19,0.48,0,0.19], [0.41,0.42,0,0.7,0], [0.4,0.42,0.04,0.67,0] | 00101,01101,11010,11110 → 11010,00101,11110,01101 | 1 tree, error 0.03741657386773935 | error 0.03741657386773934 |
+
+5. **F43 fixture f6 re-derived:** with HashMap order (11, 01, 10) C = [0,0.55] is node 2 and is removed first: jar `removalStep [3]`, `removalStep [2]` → `RemovedClusterIds` = [3, 2] (was [2, 3] under the insertion-order harness; final tree unchanged). Other F42/F43/F44 fixtures: unchanged.
+
 ### Werner B et al. (2017), *Sci Rep* 7:44991 — trunk definition (WebSearch snippet)
 
 "alterations that are in the trunk of the tree must be present in all cells of the tumour" ⇒ truncal ⇔ CCF = 1 in every sample.
@@ -178,7 +197,7 @@ Expected: with B and C both 0.6 they cannot both be children of the same parent 
 
 ## Assumptions
 
-1. **ASSUMPTION: Tie-break among equal-score trees** — LICHeE returns the first tree of its Gabow–Myers enumeration among those with the minimal error score; the enumeration order depends on node order, which LICHeE takes from a Java `HashMap` of presence profiles. This implementation visits profiles in order of first appearance in the input (within a profile: input order). (Superseded 2026-09-28: the former "deepest valid ancestor" greedy, which could return sum-rule-violating trees — B24 F18.)
+1. **Tie-break among equal-score trees** — LICHeE returns the first tree of its Gabow–Myers enumeration among those with the minimal error score; the enumeration order depends on node order, which LICHeE takes from a Java `HashMap<String>` of presence profiles. Since B24 F45 the port reproduces that `HashMap` iteration order exactly (`JavaStringHashMapOrder`; within a profile: input order) — no longer an assumption. (Superseded 2026-09-28: the former "deepest valid ancestor" greedy, which could return sum-rule-violating trees — B24 F18.)
 2. ~~**ASSUMPTION: Noise margin ε = 0**~~ — superseded 2026-10-10 (B24 F44): the default is LICHeE's `-e` default 0.1 (also in `-cp` mode); `tolerance: 0` gives the strict inequalities.
 
 ---
@@ -212,3 +231,4 @@ Expected: with B and C both 0.6 they cannot both be children of the same parent 
 - **2026-10-10**: B24 F42 — LICHeE per-cluster `1.96·sd/√n` edge margins (`getAAFErrorMargin`), jar-locked.
 - **2026-10-10**: B24 F43 — LICHeE `fixNetwork` (non-robust cluster removal, then `ALL_EDGES` on the reduced set), jar-locked.
 - **2026-10-10**: B24 F44 — default ε = LICHeE 0.1 (`-cp` keeps `VAF_ERROR_MARGIN`); post-10⁸-cap equivalence proof + reduced-cap jar locks; fixtures re-derived at `-e 0.1`.
+- **2026-10-10**: B24 F45 — group order = Java `HashMap<String>` iteration of the profile tags (exact emulation incl. treeified bins); 21 000 / 21 000 jar inputs, 8 000 / 8 000 key sets; f6 removal order [3, 2].
