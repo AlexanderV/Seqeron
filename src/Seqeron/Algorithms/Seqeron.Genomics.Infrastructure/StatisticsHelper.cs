@@ -526,6 +526,71 @@ namespace Seqeron.Genomics.Infrastructure
             return StudentTTwoSidedTail(tStat, n - 1);
         }
 
+        /// <summary>
+        /// Two-sided Welch (unequal-variance) two-sample t-test p-value of H₀: mean(x) = mean(y), exactly as R
+        /// <c>t.test(x, y)$p.value</c> (stats/R/t.test.R, defaults <c>var.equal = FALSE</c>, <c>mu = 0</c>):
+        /// sₓ = √(var(x)/nₓ), s_y = √(var(y)/n_y), s = √(sₓ² + s_y²), ν = s⁴/(sₓ⁴/(nₓ − 1) + s_y⁴/(n_y − 1)),
+        /// t = (x̄ − ȳ)/s, p = 2·pt(−|t|, ν) = I_{ν/(ν+t²)}(ν/2, ½) (Welch 1947; Satterthwaite 1946). Returns
+        /// <see cref="double.NaN"/> where R's <c>t.test</c> stops with an error: fewer than two values in either sample
+        /// ("not enough observations") and "data are essentially constant" (s &lt; 10·ε·max(|x̄|, |ȳ|), ε = 2⁻⁵²). NaN
+        /// values must be removed by the caller (R drops <c>NA</c> before testing). For ν &gt; 4·10⁵ R's <c>pt</c> switches to
+        /// a normal approximation; this keeps the exact form (see <see cref="StudentTCdf"/>).
+        /// E.g. x = {0.61, 0.64, 0.66, 0.59, 0.70}, y = {0.55, 0.58, 0.62, 0.57} ⇒ p = 0.042862029945299411 (R 4.3.3).
+        /// </summary>
+        /// <param name="x">First sample (finite values).</param>
+        /// <param name="y">Second sample (finite values).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="x"/> or <paramref name="y"/> is null.</exception>
+        /// <exception cref="ArgumentException">a value is not finite.</exception>
+        public static double WelchTTestPValue(IReadOnlyList<double> x, IReadOnlyList<double> y)
+        {
+            ArgumentNullException.ThrowIfNull(x);
+            ArgumentNullException.ThrowIfNull(y);
+            (double mx, double vx) = RMeanAndVariance(x, nameof(x));
+            (double my, double vy) = RMeanAndVariance(y, nameof(y));
+            int nx = x.Count, ny = y.Count;
+            if (nx < 2 || ny < 2)
+                return double.NaN; // R: "not enough 'x' / 'y' observations"
+
+            double stderrX = Math.Sqrt(vx / nx);
+            double stderrY = Math.Sqrt(vy / ny);
+            double stderr = Math.Sqrt(stderrX * stderrX + stderrY * stderrY);
+            double df = Math.Pow(stderr, 4) / (Math.Pow(stderrX, 4) / (nx - 1) + Math.Pow(stderrY, 4) / (ny - 1));
+            if (stderr < 10.0 * MachineEpsilon * Math.Max(Math.Abs(mx), Math.Abs(my)))
+                return double.NaN; // R: "data are essentially constant"
+
+            return StudentTTwoSidedTail((mx - my) / stderr, df);
+        }
+
+        // R mean.default (sum/n refined by the mean residual) and var (two-pass Σ(x − x̄)²/(n − 1)); NaN variance for n < 2.
+        private static (double Mean, double Variance) RMeanAndVariance(IReadOnlyList<double> values, string name)
+        {
+            int n = values.Count;
+            double sum = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                if (!double.IsFinite(values[i]))
+                    throw new ArgumentException("Every value must be finite.", name);
+                sum += values[i];
+            }
+
+            if (n == 0)
+                return (double.NaN, double.NaN);
+            double mean = sum / n;
+            double residual = 0.0;
+            for (int i = 0; i < n; i++) residual += values[i] - mean;
+            mean += residual / n;
+            if (n < 2)
+                return (mean, double.NaN);
+            double sumSq = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                double d = values[i] - mean;
+                sumSq += d * d;
+            }
+
+            return (mean, sumSq / (n - 1));
+        }
+
         private const double MachineEpsilon = 2.220446049250313e-16; // 2⁻⁵² (R .Machine$double.eps)
 
         // P(|T| ≥ |t|) = I_{ν/(ν+t²)}(ν/2, ½), with x = 1/(1+q), 1 − x = q/(1+q), q = t²/ν (R nmath/pt.c); x and 1 − x are

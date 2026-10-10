@@ -128,6 +128,18 @@ mean; `SDfrac_BS = sd(τ*)`, `frac1_0.025 = sort(τ*)[25]`, `frac1_0.975 = sort(
 2.5 %/97.5 % points only for noperms = 1000; NA below). The RNG is R's (`set.seed` → Mersenne-Twister, rejection
 `sample`), so with the same seed the resamples are Battenberg's [8].
 
+**Merging and masking (Battenberg `merge_segments` / `mask_high_cn_segments`, B24 F60).** After the first fit,
+`callSubclones` merges adjacent segments "if there is not enough evidence for them to be separate": per chromosome the
+smallest segment (width end − start + 1) with an unchecked neighbour is compared with its neighbours, closest first —
+never across > 3 Mb (`GenomicRanges::distance`); merged when both are clonal with the same (nMaj1_A, nMin1_A); otherwise
+merged when they lie in the same square (round(nmin) or round(nmaj) equal, with
+nmin = (ρ − 1 − (BAF − 1)·2^(LogR/γ)·(2(1 − ρ) + ρψ))/ρ, nmaj = (ρ − 1 + BAF·2^(LogR/γ)·(2(1 − ρ) + ρψ))/ρ and ψ the
+psi of all cells — Battenberg's formula verbatim) and neither the Welch two-sample t-test on their logR nor on their
+`BAFphased` is significant (p < 0.05; > 10 values each). The surviving neighbour is extended, its BAF recomputed
+(`calc_seg_baf_option`) and written into `BAFseg`, its LogR re-averaged, and both sides re-checked. After the second fit,
+segments with nMaj1_A or nMin1_A > `max_allowed_state` (250) are masked (A's copy numbers NA; `BAFseg` NA for
+startpos < Position ≤ endpos) [8].
+
 **Phased-BAF segmentation (Battenberg `segment.baf.phased`, B24 F40).** Battenberg phases germline-heterozygous SNPs
 with IMPUTE2/Beagle5 against the 1000 Genomes reference panel (external executables + multi-GB reference bundle; not
 run here — the caller supplies phased BAFs), then per chromosome pre-segments at prior (SV) breakpoints and SNP gaps
@@ -175,6 +187,8 @@ then exact Potts filtering on the compacted array; windowed `runPcfSubset` above
 | segments (t-test) | IReadOnlyList\<SubclonalSegmentSnpBafs\> | — (`FitSubclonalCopyNumberWithSnpTest`) | segment summary + its phased SNP BAFs (Battenberg `BAFphased`, used unmirrored) (B24 F39) | non-null; SNP BAFs ∈ [0,1] (list may be empty) |
 | significanceLevel, maxBafDistance | double | 0.05, 0.01 | Battenberg `siglevel`, `maxdist` | siglevel ∈ [0,1]; maxdist ≥ 0, finite |
 | seed, permutations | int, int | required, 1000 | `FitSubclonalCopyNumberWithBootstrap`: R `set.seed` value and Battenberg `noperms` (B24 F41) | any int; permutations ≥ 1 |
+| calls, segmentedSnps, logR, bafOption (merge) | IReadOnlyList\<BattenbergSegmentCall\>, rows, IReadOnlyList\<LogRProbe\>, BattenbergSegmentBafOption | — (`MergeBattenbergSegments`), option 3 | fitted profile + its `BAFsegmented` rows + raw logR (B24 F60) | BAFs ∈ [0,1]; logR finite or NaN (= NA); every chromosome of the rows needs ≥ 1 call and ≥ 1 logR probe (R `stopifnot`) |
+| maxAllowedState | int | 250 | `MaskHighCopyNumberSegments`: Battenberg `max_allowed_state` (B24 F60) | any int |
 | snps (phased segmentation) | IReadOnlyList\<PhasedBafSnp\> | — (`SegmentPhasedBaf`) | caller-phased SNP BAFs (chromosome, position, BAF of haplotype 1) (B24 F40) | non-null; BAF ∈ [0,1] or NaN (= missing, dropped) |
 | options (phased segmentation) | BattenbergPhasedSegmentationOptions | Battenberg defaults | gamma 10, phasegamma 3, kmin 3, phasekmin 3, no_segmentation false, calc_seg_baf_option 3, prior breakpoints none | gammas finite ≥ 0; kmins ∈ [1, 14] |
 | segmentedSnps, logR | IReadOnlyList\<PhasedBafSegmentedSnp\>, IReadOnlyList\<LogRProbe\> | — (`BuildBattenbergSegments`) | `segment.baf.phased` rows + raw logR probes → `SubclonalSegmentSnpBafs` for the t-test fit (B24 F40) | BAFs ∈ [0,1]; non-finite logR ignored |
@@ -258,6 +272,10 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
    sub-clonal segment the six `orderEdges` options (NA rows last), τ, SDfrac, and per option `noperms` bootstrap
    resamples (R RNG stream: segments in order, options A–F, NA options included) → SDfrac_BS and the 25th/975th order
    statistics [8].
+   7a. **Merge + mask (B24 F60, `MergeBattenbergSegments` / `MaskHighCopyNumberSegments`):** the `merge_segments` loop of
+   §2.2 on the fitted rows (output chromosomes in `GenomeInfoDb` seqlevel order — the order `makeGRangesFromDataFrame`
+   gives, e.g. "10", "2", "X" → 2, 10, X — which reorders `BAFsegmented` for unsorted input); `BuildBattenbergSegments`
+   of the merged rows feeds the second fit; masking flags rows with a state-1 copy number above `max_allowed_state` [8].
 8. **Multi-sample segmentation (ASCAT `ascat.asmultipcf`, B24 F53, `SegmentAlleleSpecificAsMultiPcf`):** per chromosome
    part, each sample's winsorised logR (every probe) and mirrored winsorised BAF (heterozygous probes; weight 0 at
    homozygous probes) form 2·S tracks; `ASmultiPCFcompact` minimises Σ_segments Σ_tracks −(Σw·y)²/Σw + γ·#breaks on the
@@ -294,6 +312,7 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 | Multiplicity | O(1) | O(1) | closed form |
 | Sub-clonal fit | O(S) | O(S) | closed-form decomposition per segment |
 | Bootstrap CIs | O(6·noperms·Σnₛ) | O(noperms + n) | nₛ = SNPs of sub-clonal segment s [8] |
+| merge_segments | O(S²·n_c) per chromosome (S segments, n_c SNPs/probes of the chromosome; ranges found by linear scan) | O(n_c) | each iteration merges or closes one side [8] |
 | Phased-BAF segmentation | O(C²) per presegment, C = filterMarkS4 candidates (≈ 15–30 % of SNPs); 5000-SNP windows above 15 000 | O(n) | Potts DP on the compacted array [8] |
 
 ## 5. Implementation Notes
@@ -323,6 +342,11 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 - `OncologyAnalyzer.FitSubclonalCopyNumberWithBootstrap(SubclonalSegmentSnpBafs[], ρ, ψ, seed, γ, siglevel, maxdist,
   permutations = 1000)` → `BattenbergSegmentCall` (Fit = solution A, pval, BAF l, ntot, `BattenbergSubclonalSolution` A–F
   with SDfrac / SDfrac_BS / frac1_0.025 / frac1_0.975); private `RMersenneTwister` = R's default RNG (B24 F41).
+- `OncologyAnalyzer.MergeBattenbergSegments(calls, rows, LogRProbe[], ρ, ψ, γ, bafOption)` → `BattenbergSegmentMerge`
+  (`BattenbergMergedSegment` rows + updated `BAFsegmented`) and `OncologyAnalyzer.MaskHighCopyNumberSegments(calls, rows,
+  maxAllowedState = 250)` → `BattenbergHighCopyNumberMask` (`BattenbergSegmentCall.IsMasked`, masked rows,
+  `masked_count`, `masked_size`); Welch test = `StatisticsHelper.WelchTTestPValue` (R `t.test(x, y)`); seqlevel order =
+  internal `BattenbergSeqlevelOrder` (GenomeInfoDb `rankSeqlevels`) (B24 F60).
 
 ### 5.2 Current Behavior
 
@@ -384,7 +408,12 @@ suffix tree is **not used** (no occurrence enumeration).
   produced~~ — **resolved by F41** (`FitSubclonalCopyNumberWithBootstrap`): R-verified on 7 single segments (NA solution,
   noperms 500/20 ⇒ NA bounds, 1 SNP ⇒ SDfrac NA, seeds 0/−12345/2³¹−1) and the 2 multi-segment F40 tracks — every
   column ≤ 1e−12 including the bootstrap ones (R's RNG reproduced; resamples identical); 100 other seeds agree with R's
-  400-seed Monte-Carlo means within 5 standard errors.
+  400-seed Monte-Carlo means within 5 standard errors. ~~`merge_segments` / `mask_high_cn_segments` not ported~~ —
+  **resolved by F60** (`MergeBattenbergSegments`, `MaskHighCopyNumberSegments`): R-verified (GenomicRanges 1.54.1) on 4
+  genomes covering every merge branch (same clonal state, same square with non-significant / significant Welch tests,
+  too few values, different squares, > 3 Mb), options 1/2/3 (incl. a median of exactly 1 ⇒ mean), chromosome reordering
+  and two masked segments (max_allowed_state 5 and the BAF = 1 ⇒ cn_upper_limit segment at 250): merged extents and
+  states identical, BAF/LogR ≤ 1e−12, `BAFsegmented` runs identical, masked count/size/rows identical.
 
 **Not implemented:**
 
@@ -428,6 +457,9 @@ suffix tree is **not used** (no occurrence enumeration).
 | Male (`AscatSexModel` XY): X/Y segment | haploid: nB = 0, nA = round((ρ − 1 + (2(1−ρ)+ρψ)·2^(r/γ))/ρ), negative ⇒ 0:0 | source [2] (R run, F38) |
 | Male with X non-PAR: X segment overlapping non-PAR by exactly 50 % | diploid (rule is strictly > 0.5) | source [2] (`diploidprobes_fixnonPAR`) |
 | Sub-clonal: BAF within 0.01 of a corner | single clonal state, f=1 | INV-07 [8] |
+| merge_segments: Welch t-test on essentially constant data | `InvalidOperationException` (R `t.test` stops) | source [8] (F60) |
+| merge_segments: ±∞ logR; chromosome without calls or logR probes | `ArgumentException` (R fails: non-finite means/tests; `stopifnot`) | source [8] (F60) |
+| mask_high_cn_segments: first SNP of a masked segment | keeps its BAFseg (`startpos < Position`) | source [8] (R run, F60) |
 
 ### 6.2 Limitations
 
@@ -441,7 +473,8 @@ explicit seed (ASCAT's default seed is `as.integer(Sys.time())`). Battenberg's b
 external executables and a multi-GB reference bundle) is out of scope; the downstream phased path is available
 (`SegmentPhasedBaf` → `BuildBattenbergSegments` → `FitSubclonalCopyNumberWithSnpTest`, F40) on caller-phased BAFs; alternative
 solutions B–F and the seeded bootstrap CIs are available through `FitSubclonalCopyNumberWithBootstrap` (F41). Battenberg's
-`merge_segments` / `mask_high_cn_segments` post-processing in `callSubclones` is not ported. `FitPurityPloidy` fails (like ASCAT) when no local
+`merge_segments` / `mask_high_cn_segments` post-processing is available through `MergeBattenbergSegments` /
+`MaskHighCopyNumberSegments` (F60). `FitPurityPloidy` fails (like ASCAT) when no local
 minimum passes the filters — use `TryFitPurityPloidy`, or `EvaluatePurityPloidy` with externally chosen (ρ, ψ).
 
 ## 7. Examples and Related Material
@@ -474,6 +507,7 @@ var ccf = OncologyAnalyzer.EstimateCcf(0.40, fit.Purity,
 - Tests: [StatisticsHelper_StudentT_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_StudentT_Tests.cs) — Student t / incomplete beta / one-sample t-test vs R (F39); Battenberg t-test rows in `OncologyAnalyzer_AscatDerivation_Tests.cs` (F39), R-locked
 - Tests: [OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs) — `segment.baf.phased` on 6 tracks + end-to-end `determine_copynumber` (F40), R-locked; [StatisticsHelper_QuantileType7_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_QuantileType7_Tests.cs) (F40)
 - Tests: [OncologyAnalyzer_BattenbergBootstrap_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BattenbergBootstrap_Tests.cs) — solutions A–F, SDfrac, bootstrap CIs (F41), R-locked + Monte-Carlo agreement
+- Tests: [OncologyAnalyzer_BattenbergMergeMask_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BattenbergMergeMask_Tests.cs) — `merge_segments` / `mask_high_cn_segments` (F60), R-locked on 4 genomes; seqlevel order vs GenomeInfoDb; [StatisticsHelper_WelchTTest_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_WelchTTest_Tests.cs) (F60)
 - Tests: [OncologyAnalyzer_AscatAsMultiPcf_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatAsMultiPcf_Tests.cs) — multi-sample `ascat.asmultipcf` (F53), R-locked on 5 cohorts / 14 runs
 - Tests: [OncologyAnalyzer_AscatMissingData_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatMissingData_Tests.cs) — NA path of `ascat.asmultipcf` / `ascat.aspcf` + runASCAT (F59), R-locked on 3 NA cohorts (6 segmentations, 12 fits)
 - Tests: [OncologyAnalyzer_AscatMaleXNonPar_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatMaleXNonPar_Tests.cs) — male X non-PAR re-genotyping in aspcf / asmultipcf (F58), R-locked on 7 tracks
@@ -490,4 +524,4 @@ var ccf = OncologyAnalyzer.EstimateCcf(0.40, fit.Purity,
 5. Satas G, Zaccaria S, El-Kebir M, Raphael BJ. 2021. DeCiFering the elusive cancer cell fraction. PMC8542635. https://pmc.ncbi.nlm.nih.gov/articles/PMC8542635/
 6. Nilsen G, Liestøl K, Van Loo P, et al. 2012. Copynumber: Efficient algorithms for single- and multi-track copy number segmentation. BMC Genomics 13:591. https://doi.org/10.1186/1471-2164-13-591
 7. Ross EM, Haase K, Van Loo P, Markowetz F. 2021. Allele-specific multi-sample copy number segmentation in ASCAT. Bioinformatics 37(13):1909–1911. https://doi.org/10.1093/bioinformatics/btaa538
-8. Nik-Zainal S, Van Loo P, Wedge DC, et al. 2012. The Life History of 21 Breast Cancers. Cell 149(5):994–1007. https://doi.org/10.1016/j.cell.2012.04.023 ; Battenberg `R/fitcopynumber.R` (`determine_copynumber`), `R/orderEdges.R` (master, read 2026-09-28), https://github.com/Wedge-lab/battenberg
+8. Nik-Zainal S, Van Loo P, Wedge DC, et al. 2012. The Life History of 21 Breast Cancers. Cell 149(5):994–1007. https://doi.org/10.1016/j.cell.2012.04.023 ; Battenberg `R/fitcopynumber.R` (`determine_copynumber`; `merge_segments`, `mask_high_cn_segments`, read 2026-10-10 at 57a8f7e), `R/orderEdges.R` (master, read 2026-09-28), https://github.com/Wedge-lab/battenberg

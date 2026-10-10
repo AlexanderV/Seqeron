@@ -401,3 +401,20 @@ deterministic NA rules (Evidence § F59).
 | S-ANA-1 | complete data unchanged | N1 without NA | BAF exactly at heterozygous probes (F53 / F36 / F37 R-locked suites unchanged) | source |
 | S-ANA-2 | whole part missing | N3 chr5 | no NaN level anywhere; asmultipcf: chr5 = previous level (`prevlevel`), no BAF | R run / source |
 | C-ANA-1 | non-finite input | NaN logR / BAF; ±∞ logR / BAF | NaN accepted by both drivers; ±∞ `ArgumentException`; the fastAspcf overload still rejects NaN | source / contract |
+
+## 19. FIN-B24 F60 — Battenberg `merge_segments` / `mask_high_cn_segments` (2026-10-10)
+
+Files `OncologyAnalyzer_BattenbergMergeMask_Tests.cs`, `BattenbergCallSubclonesData.cs` (shared genomes G1–G4 and R
+expectations), `Unit/Core/StatisticsHelper_WelchTTest_Tests.cs`. Expected values = R 4.3.3 + GenomicRanges 1.54.1 running
+Battenberg's `determine_copynumber` → `merge_segments` → `determine_copynumber` → `mask_high_cn_segments` (Evidence § F60).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-MERGE-1..4 | `MergeBattenbergSegments_MatchesR` | G1–G4 (every merge branch; options 2/3/1/3; reordered chromosomes) | first fit = R r1 (≤ 1e−12, pval 1e−9 rel); merged extents/states identical, BAF/LogR ≤ 1e−12; `BAFsegmented` runs identical | R run |
+| M-MASK-1..4 | `MaskHighCopyNumberSegments_MatchesR` | second fit of the merged rows; max state 5 / 250 / 250 / 250 | masked_count, masked_size, masked rows, BAFseg NA count identical | R run |
+| M-MASK-5 | half-open BAFseg mask | G1 (6,1) segment | first SNP keeps BAFseg; default 250 masks nothing | R run / source |
+| M-SEQLVL-1..7 | `BattenbergSeqlevelOrder_MatchesGenomeInfoDb` | 7 name sets | = R `s[rankSeqlevels(s)] <- s` | R run |
+| M-WELCH-1 | `WelchTTestPValue_MatchesRTTest` | 5 sample pairs | R `t.test(x, y)$p.value` ≤ 1e−13 rel | R run |
+| C-MERGE-1 | constant data / invalid input | identical logR/BAF; null; ±∞ logR; chromosome without calls/probes; option 4; ρ = 0 | `InvalidOperationException` (R stops); `ArgumentNullException` / `ArgumentException` / `ArgumentOutOfRangeException` | source / contract |
+| C-WELCH-1 | R error cases | constant; n < 2; NaN / ∞ | NaN; NaN; `ArgumentException` | R run / contract |
+

@@ -681,6 +681,47 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
   NA logR, and asmultipcf probes with a segmented BAF but a missing raw BAF, are NA in `n1all + n2all`).
 - Harness: scratchpad `wp29/harness.R`, `cohorts.R`, `run.R` (segmentations → `expected.cs`), `fit.R` (runASCAT → `fits.cs`).
 
+## 2026-10 FIN-B24 F60 — Battenberg `merge_segments` and `mask_high_cn_segments`
+
+- Sources opened (Wedge-lab/battenberg master 57a8f7e, `R/fitcopynumber.R`): `callSubclones` ll. 216–277 (`psi = rho·psit +
+  2(1 − rho)` passed to `merge_segments`; `res$bafsegmented` feeds the second `determine_copynumber`; `mask_high_cn_segments(…,
+  max_allowed_state = 250)`), `merge_segments` ll. 591–831 (`calc_nmin`/`calc_nmaj` with `((1−rho)*2+rho*psi)`;
+  `updateNeighbour`, `updateAround`, `checkStatus`, `merge_seg` — extend the neighbour, `calc_seg_baf_option` 1 median /
+  2 mean / 3 median unless 0 or 1 of `BAFphased` in the new range (`findOverlaps`), `LogR = mean(logR, na.rm = T)` (0 when
+  no probe overlaps), `BAFseg` overwritten; per chromosome `which.min(width)` among segments with an unchecked side,
+  neighbours by `order(distance)`, `distance > 3e6` ⇒ no merge, same clonal `nMaj1_A`/`nMin1_A` with `frac1_A == 1` ⇒ merge,
+  else `round(nmin)` or `round(nmaj)` equal and > 10 non-NA logR and `BAFphased` values on both sides ⇒ `t.test(x, y)$p.value
+  < 0.05` on logR and on BAF, merge when neither is significant; the result is rebuilt by `Reduce(c, …)` over
+  `seqnames(seqinfo(bafsegmented))`), `mask_high_cn_segments` ll. 832–848 (`nMaj1_A > max | nMin1_A > max` ⇒ `nMaj1_A`,
+  `nMin1_A`, `nMaj2_A`, `nMin2_A` NA; `BAFseg` NA for `startpos < Position & endpos >= Position`; `masked_size += endpos −
+  startpos`). R `stats::t.test.default` (Welch: `var.equal = FALSE`, `df = stderr⁴/(stderrx⁴/(nx−1) + stderry⁴/(ny−1))`,
+  "data are essentially constant" stop). GenomicRanges 1.54.1: `distance` of adjacent ranges = 0 (gap − 1 otherwise),
+  `width = end − start + 1`; `makeGRangesFromDataFrame` orders character seqlevels by `GenomeInfoDb::rankSeqlevels`
+  (checked: `c("2","2","10","1","X")` → 1, 2, 10, X; source of `rankSeqlevels`, `.isShortNb`, `isRoman` printed in the
+  session and ported). `determine_copynumber` builds its table with `rbind(c(chrom, …))`, i.e. a character matrix ⇒ BAF,
+  LogR and frac1_A reach `merge_segments` rounded to 15 significant digits (`as.character`), reproduced.
+- Welch helper (`StatisticsHelper.WelchTTestPValue`, reusing the F39 `StudentTTwoSidedTail`): R 4.3.3 `t.test(x, y)$p.value`
+  for 5 cases (ν 6.90 non-integer, n = 2, far apart 2.2976696502632257e−05, n 200/150 0.64314653287604995, equal means at
+  1e6) ≤ 1e−13 relative; constant data / n < 2 = R errors ⇒ NaN.
+- R cross-check (executed; R 4.3.3, GenomicRanges 1.54.1; `fitcopynumber.R` + `orderEdges.R` sourced verbatim; harness:
+  integer LCG blocks — scratchpad `wp30/harness.R`, `genomes.R`, `emit.R`): `set.seed(rseed); r1 = determine_copynumber(…);
+  merge_segments(r1, …, calc_seg_baf_option); r2 = determine_copynumber(merged …); mask_high_cn_segments(r2, …)`:
+
+  | Genome | ρ / psit | opt | chromosomes (input → R order) | merge branches (R verbose) | rows r1 → merged | masked |
+  |--------|----------|-----|-------------------------------|-----------------------------|------------------|--------|
+  | G1 | 0.7 / 2.6 | 2 | 1, 2 | too few ×2, same clonal, no-sig. merge, sig. ×2, different squares, > 3 Mb | 10 → 8 | (6,1) at max 5: 1 seg, 780 000 bp, 39 of 40 BAFseg (first SNP kept) |
+  | G2 | 0.85 / 3.1 | 3 | 10, 2, X → 2, 10, X | same clonal ×3 (chr10 cascade 3 → 1, X pair), LOH pair (1001 vs 1864 major) merged by non-significant t-tests, sig. ×3 | 10 → 6 | 0 |
+  | G3 | 0.5 / 2.0 | 1 | chr3, chr1, chrX → chr1, chr3, chrX | different squares, sig. ×5, no-sig. merge of two sub-clonal segments, > 3 Mb | 9 → 8 | BAFseg 1 segment (nMaj 1001) at 250: 232 000 bp, 29 rows |
+  | G4 | 0.7 / 2.6 | 3 | MT, GL000192.1, 2, Y, 1_gl000191_random, X, 10 → 2, 10, X, Y, MT, 1_gl000191_random, GL000192.1 | same clonal with merged median BAFphased = 1 ⇒ mean 0.98202172785997388 | 10 → 9 | 0 |
+
+  Result: the C# first fit (`FitSubclonalCopyNumberWithBootstrap`, same seed) equals R's r1 in every column; merged rows —
+  extents, kept `nMaj1_A`/`nMin1_A`/`frac1_A`, BAF and LogR (e.g. G1 merged 1:20000–1220000 BAF 0.62990101180076596 = mean
+  option, LogR 0.14598358798027039) — ≤ 1e−12; every `BAFsegmented` run (chromosome order, extents, BAFseg) identical;
+  masked count, size, rows and BAFseg NA count identical. `GenomeInfoDb` ordering locked on 7 name sets
+  (`s[rankSeqlevels(s)] <- s`, incl. chrUn/random contigs, Roman numerals, A/a/B/b/L/R suffixes, W/Z/U/Mito/MTx, prefixes
+  CHR/chr/CH/ch).
+- Not R-reproducible by design: R stops on an essentially-constant t-test or non-finite logR; the port throws.
+
 ## References
 
 1. Van Loo P, Nordgard SH, Lingjærde OC, et al. (2010). Allele-specific copy number analysis of tumors. PNAS 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
@@ -696,6 +737,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 ## Change History
 
+- **2026-10-10**: FIN-B24 F60 — Battenberg `merge_segments` / `mask_high_cn_segments` port (`MergeBattenbergSegments`, `MaskHighCopyNumberSegments`, `StatisticsHelper.WelchTTestPValue`) R cross-check (4 genomes, every merge branch, seqlevel order).
 - **2026-10-10**: FIN-B24 F59 — NA path of `ascat.asmultipcf` / `ascat.aspcf` and runASCAT on NA segmentations R cross-check (3 NA cohorts, 14 tracks, 12 fits).
 - **2026-10-10**: FIN-B24 F58 — male X non-PAR seeded germline re-genotyping (`AscatMaleXGenotyping`) in aspcf / asmultipcf R cross-check (7 tracks); the F38 "not ported" note is superseded.
 - **2026-10-10**: FIN-B24 F53 — multi-sample `ascat.asmultipcf` port (`SegmentAlleleSpecificAsMultiPcf`) R cross-check (5 cohorts, 14 runs); "WGD refit search" phrase removed (no ASCAT counterpart); F36 last-window descending-range fix.
