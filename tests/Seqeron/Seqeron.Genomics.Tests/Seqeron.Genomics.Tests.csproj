@@ -39,6 +39,21 @@
     <EmbeddedResource Include="TestData\CNAqc\cnaqc_D1.tsv" />
     <EmbeddedResource Include="TestData\CNAqc\cnaqc_D3.tsv" />
     <EmbeddedResource Include="TestData\CNAqc\cnaqc_D4.tsv" />
+    <!-- ONCO-PURITY-001 (FIN-B24 F62): seeded complex-karyotype sets G1–G3 (set.seed 20261020/21/22) and subclonal segment
+         sets S1–S3 (segments + mutations simulated from CNAqc expectations_subclonal peaks), with the CNAqc 1.1.5
+         analyze_peaks_general / analyze_peaks_subclonal R outputs (cnaqc_general_R.txt, cnaqc_subclonal_R.txt);
+         generator: docs/Evidence/ONCO-PURITY-001-Evidence.md "CNAqc analyze_peaks_general / analyze_peaks_subclonal". -->
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_G1.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_G2.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_G3.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S1_segments.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S1_mutations.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S2_segments.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S2_mutations.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S3_segments.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_S3_mutations.tsv" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_general_R.txt" />
+    <EmbeddedResource Include="TestData\CNAqc\cnaqc_subclonal_R.txt" />
   </ItemGroup>
 
   <ItemGroup>

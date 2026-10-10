@@ -1,0 +1,245 @@
+== S1 p=0.7 seed=1
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|VNFASSHF n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A1B1 role=private peak=0.11570247933884296 matched=TRUE
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|ATCFJJFO n1=1 n2=0 k1=2:1 g1=A1A2B1 k2=NA g2=NA role=private peak=0.17355371900826447 matched=TRUE
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|RSAUUJVN n1=1 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A1B1 role=shared peak=0.28925619834710742 matched=FALSE
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|YDGABWKN n1=2 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A1B1 role=shared peak=0.46280991735537186 matched=TRUE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|GNCSLQIR n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A2B1 role=private peak=0.11570247933884296 matched=TRUE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|FQIGWSVR n1=1 n2=0 k1=2:1 g1=A1A2B1 k2=NA g2=NA role=private peak=0.17355371900826447 matched=TRUE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|AKZOZXJP n1=1 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A2B1 role=shared peak=0.28925619834710742 matched=FALSE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|MHYPYWNT n1=2 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A2B1 role=shared peak=0.46280991735537186 matched=TRUE
+  E chr1|linear|A1B1 -> A1B1 -> A1A2B1|BHNDZHUE n1=0 n2=1 k1=NA g1=NA k2=2:1 g2=A1A2B1 role=private peak=0.17355371900826447 matched=TRUE
+  E chr1|linear|A1B1 -> A1B1 -> A1A2B1|TEILUHDQ n1=1 n2=1 k1=1:1 g1=A1B1 k2=2:1 g2=A1A2B1 role=shared peak=0.28925619834710742 matched=FALSE
+  E chr1|linear|A1B1 -> A1B1 -> A1A2B1|IUAUTJNJ n1=1 n2=2 k1=1:1 g1=A1B1 k2=2:1 g2=A1A2B1 role=shared peak=0.46280991735537186 matched=TRUE
+  E chr3|branching|A1B1 -> B1 | A1B1|UXJGGKRI n1=1 n2=0 k1=1:0 g1=B1 k2=NA g2=NA role=private peak=0.11731843575418993 matched=TRUE
+  E chr3|branching|A1B1 -> B1 | A1B1|DUUVYXEL n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A1B1 role=private peak=0.27374301675977647 matched=FALSE
+  E chr3|branching|A1B1 -> B1 | A1B1|ONOQORAH n1=1 n2=1 k1=1:0 g1=B1 k2=1:1 g2=A1B1 role=shared peak=0.39106145251396646 matched=FALSE
+  E chr3|linear|A1B1 -> A1B1 -> B1|YFQXIMNI n1=0 n2=1 k1=NA g1=NA k2=1:0 g2=B1 role=private peak=0.11731843575418996 matched=TRUE
+  E chr3|linear|A1B1 -> A1B1 -> B1|AWACKMWR n1=1 n2=0 k1=1:1 g1=A1B1 k2=NA g2=NA role=private peak=0.27374301675977647 matched=FALSE
+  E chr3|linear|A1B1 -> A1B1 -> B1|EZZPHBDX n1=1 n2=1 k1=1:1 g1=A1B1 k2=1:0 g2=B1 role=shared peak=0.39106145251396646 matched=FALSE
+  E chr5|branching|A1B1 -> A1A2B1B2 | A1A2B1|CCTVYIVS n1=1 n2=0 k1=2:2 g1=A1A2B1B2 k2=NA g2=NA role=private peak=0.11475409836065574 matched=TRUE
+  E chr5|branching|A1B1 -> A1A2B1B2 | A1A2B1|CYWUCDIW n1=2 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A1A2B1 role=shared peak=0.34426229508196715 matched=FALSE
+  E chr5|branching|A1B1 -> A1A2B1B2 | A1A2B1|DMAHUEJL n1=2 n2=2 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A1A2B1 role=shared peak=0.45901639344262296 matched=FALSE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|EBUELCZR n1=1 n2=0 k1=2:2 g1=A1A2B1B2 k2=NA g2=NA role=private peak=0.11475409836065574 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|MFSPLJAF n1=1 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.22950819672131148 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|MHQSPOPQ n1=2 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.34426229508196715 matched=FALSE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|SNFKHWTS n1=2 n2=2 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.45901639344262296 matched=FALSE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|BZASQSMR n1=0 n2=1 k1=NA g1=NA k2=2:2 g2=A1A2B1B2 role=private peak=0.11475409836065574 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|BEUNYUWF n1=1 n2=1 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.22950819672131148 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|KMSBHFOW n1=1 n2=2 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.34426229508196715 matched=FALSE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|YBGZJHVC n1=2 n2=2 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.45901639344262296 matched=FALSE
+  D chr1 x=0.14000000000000001 y=3.6400000000000001 cpb=5 disc=FALSE
+  D chr1 x=0.45000000000000001 y=1.52 cpb=5 disc=FALSE
+  D chr3 x=0.13 y=2.7799999999999998 cpb=8 disc=FALSE
+  D chr3 x=0.33000000000000002 y=2.8399999999999999 cpb=11 disc=FALSE
+  D chr5 x=0.13 y=2.4100000000000001 cpb=8 disc=FALSE
+  D chr5 x=0.22 y=2.27 cpb=2 disc=FALSE
+  S chr1|A1B1 -> A1A2B1 -> A2B1|linear prop=0.75
+  S chr1|A1B1 -> A1A2B1 | A1B1|branching prop=0.75
+  S chr3|A1B1 -> A1B1 -> B1|linear prop=0.33333333333333331
+  S chr3|A1B1 -> B1 | A1B1|branching prop=0.33333333333333331
+  S chr5|A1B1 -> A1A2B1 -> A1A2B1B2|linear prop=0.5
+  S chr5|A1B1 -> A1A2B1B2 -> A2B1B2|linear prop=0.5
+== S1 p=0.7 seed=99 eps=0.02
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|KRMDOOWK n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A1B1 role=private peak=0.11570247933884296 matched=FALSE
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|RGFEHWZV n1=1 n2=0 k1=2:1 g1=A1A2B1 k2=NA g2=NA role=private peak=0.17355371900826447 matched=FALSE
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|BFMTDDIR n1=1 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A1B1 role=shared peak=0.28925619834710742 matched=FALSE
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|PALVVUCJ n1=2 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A1B1 role=shared peak=0.46280991735537186 matched=TRUE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|TRCLUJJK n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A2B1 role=private peak=0.11570247933884296 matched=FALSE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|WKPVZKWX n1=1 n2=0 k1=2:1 g1=A1A2B1 k2=NA g2=NA role=private peak=0.17355371900826447 matched=FALSE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|HSQSGTRF n1=1 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A2B1 role=shared peak=0.28925619834710742 matched=FALSE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|UODQHCGY n1=2 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A2B1 role=shared peak=0.46280991735537186 matched=TRUE
+  E chr1|linear|A1B1 -> A1B1 -> A1A2B1|GFNUNWUJ n1=0 n2=1 k1=NA g1=NA k2=2:1 g2=A1A2B1 role=private peak=0.17355371900826447 matched=FALSE
+  E chr1|linear|A1B1 -> A1B1 -> A1A2B1|RXXRJRPL n1=1 n2=1 k1=1:1 g1=A1B1 k2=2:1 g2=A1A2B1 role=shared peak=0.28925619834710742 matched=FALSE
+  E chr1|linear|A1B1 -> A1B1 -> A1A2B1|FMNFASMJ n1=1 n2=2 k1=1:1 g1=A1B1 k2=2:1 g2=A1A2B1 role=shared peak=0.46280991735537186 matched=TRUE
+  E chr3|branching|A1B1 -> B1 | A1B1|CEJKKMNI n1=1 n2=0 k1=1:0 g1=B1 k2=NA g2=NA role=private peak=0.11731843575418993 matched=TRUE
+  E chr3|branching|A1B1 -> B1 | A1B1|AYVBEMKI n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A1B1 role=private peak=0.27374301675977647 matched=FALSE
+  E chr3|branching|A1B1 -> B1 | A1B1|VFHWRSGS n1=1 n2=1 k1=1:0 g1=B1 k2=1:1 g2=A1B1 role=shared peak=0.39106145251396646 matched=FALSE
+  E chr3|linear|A1B1 -> A1B1 -> B1|GSMINIQS n1=0 n2=1 k1=NA g1=NA k2=1:0 g2=B1 role=private peak=0.11731843575418996 matched=TRUE
+  E chr3|linear|A1B1 -> A1B1 -> B1|JDTXFOZF n1=1 n2=0 k1=1:1 g1=A1B1 k2=NA g2=NA role=private peak=0.27374301675977647 matched=FALSE
+  E chr3|linear|A1B1 -> A1B1 -> B1|BTPLTMCW n1=1 n2=1 k1=1:1 g1=A1B1 k2=1:0 g2=B1 role=shared peak=0.39106145251396646 matched=FALSE
+  E chr5|branching|A1B1 -> A1A2B1B2 | A1A2B1|FENDKTQG n1=1 n2=0 k1=2:2 g1=A1A2B1B2 k2=NA g2=NA role=private peak=0.11475409836065574 matched=TRUE
+  E chr5|branching|A1B1 -> A1A2B1B2 | A1A2B1|EJNAKZHP n1=2 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A1A2B1 role=shared peak=0.34426229508196715 matched=FALSE
+  E chr5|branching|A1B1 -> A1A2B1B2 | A1A2B1|KCUPIDZW n1=2 n2=2 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A1A2B1 role=shared peak=0.45901639344262296 matched=FALSE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|HISUZDOK n1=1 n2=0 k1=2:2 g1=A1A2B1B2 k2=NA g2=NA role=private peak=0.11475409836065574 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|DPNUSMHS n1=1 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.22950819672131148 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|SLTLUYWC n1=2 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.34426229508196715 matched=FALSE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|TWQVUFBA n1=2 n2=2 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.45901639344262296 matched=FALSE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|BLLQRSSC n1=0 n2=1 k1=NA g1=NA k2=2:2 g2=A1A2B1B2 role=private peak=0.11475409836065574 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|GCIMECJF n1=1 n2=1 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.22950819672131148 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|AHBKQAKF n1=1 n2=2 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.34426229508196715 matched=FALSE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|JCLBDWMU n1=2 n2=2 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.45901639344262296 matched=FALSE
+  D chr1 x=0.14000000000000001 y=3.6400000000000001 cpb=5 disc=FALSE
+  D chr1 x=0.45000000000000001 y=1.52 cpb=5 disc=FALSE
+  D chr3 x=0.13 y=2.7799999999999998 cpb=8 disc=FALSE
+  D chr3 x=0.33000000000000002 y=2.8399999999999999 cpb=11 disc=FALSE
+  D chr5 x=0.13 y=2.4100000000000001 cpb=8 disc=FALSE
+  D chr5 x=0.22 y=2.27 cpb=2 disc=FALSE
+  S chr1|A1B1 -> A1B1 -> A1A2B1|linear prop=0.33333333333333331
+  S chr3|A1B1 -> A1B1 -> B1|linear prop=0.33333333333333331
+  S chr3|A1B1 -> B1 | A1B1|branching prop=0.33333333333333331
+  S chr5|A1B1 -> A1A2B1 -> A1A2B1B2|linear prop=0.5
+  S chr5|A1B1 -> A1A2B1B2 -> A2B1B2|linear prop=0.5
+== S1 p=0.7 seed=5 nmin=150 adj=0.5
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|KIDCCDPI n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A1B1 role=private peak=0.11570247933884296 matched=TRUE
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|LPZEIVJU n1=1 n2=0 k1=2:1 g1=A1A2B1 k2=NA g2=NA role=private peak=0.17355371900826447 matched=TRUE
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|GWSCFZOU n1=1 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A1B1 role=shared peak=0.28925619834710742 matched=TRUE
+  E chr1|branching|A1B1 -> A1A2B1 | A1B1|BKYOKYIU n1=2 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A1B1 role=shared peak=0.46280991735537186 matched=TRUE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|IDYTTEDY n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A2B1 role=private peak=0.11570247933884296 matched=TRUE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|QNPQTMIM n1=1 n2=0 k1=2:1 g1=A1A2B1 k2=NA g2=NA role=private peak=0.17355371900826447 matched=TRUE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|GKDUOMJG n1=1 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A2B1 role=shared peak=0.28925619834710742 matched=TRUE
+  E chr1|linear|A1B1 -> A1A2B1 -> A2B1|FBPUIIQF n1=2 n2=1 k1=2:1 g1=A1A2B1 k2=1:1 g2=A2B1 role=shared peak=0.46280991735537186 matched=TRUE
+  E chr1|linear|A1B1 -> A1B1 -> A1A2B1|DITTHNUB n1=0 n2=1 k1=NA g1=NA k2=2:1 g2=A1A2B1 role=private peak=0.17355371900826447 matched=TRUE
+  E chr1|linear|A1B1 -> A1B1 -> A1A2B1|PUKVNPBG n1=1 n2=1 k1=1:1 g1=A1B1 k2=2:1 g2=A1A2B1 role=shared peak=0.28925619834710742 matched=TRUE
+  E chr1|linear|A1B1 -> A1B1 -> A1A2B1|EXJEMYMD n1=1 n2=2 k1=1:1 g1=A1B1 k2=2:1 g2=A1A2B1 role=shared peak=0.46280991735537186 matched=TRUE
+  E chr5|branching|A1B1 -> A1A2B1B2 | A1A2B1|DQDVZCUP n1=1 n2=0 k1=2:2 g1=A1A2B1B2 k2=NA g2=NA role=private peak=0.11475409836065574 matched=TRUE
+  E chr5|branching|A1B1 -> A1A2B1B2 | A1A2B1|IOXVHEGB n1=2 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A1A2B1 role=shared peak=0.34426229508196715 matched=TRUE
+  E chr5|branching|A1B1 -> A1A2B1B2 | A1A2B1|ZFNZGBUP n1=2 n2=2 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A1A2B1 role=shared peak=0.45901639344262296 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|HDMTBEHM n1=1 n2=0 k1=2:2 g1=A1A2B1B2 k2=NA g2=NA role=private peak=0.11475409836065574 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|QEHHBKEF n1=1 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.22950819672131148 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|MJQJOACA n1=2 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.34426229508196715 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1B2 -> A2B1B2|LPQCUHZT n1=2 n2=2 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.45901639344262296 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|LFQQOOBJ n1=0 n2=1 k1=NA g1=NA k2=2:2 g2=A1A2B1B2 role=private peak=0.11475409836065574 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|CZGDUQRM n1=1 n2=1 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.22950819672131148 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|SQLELSAT n1=1 n2=2 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.34426229508196715 matched=TRUE
+  E chr5|linear|A1B1 -> A1A2B1 -> A1A2B1B2|XIQARTEA n1=2 n2=2 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.45901639344262296 matched=TRUE
+  D chr1 x=0.14000000000000001 y=4.5999999999999996 cpb=5 disc=FALSE
+  D chr1 x=0.29999999999999999 y=1.72 cpb=4 disc=FALSE
+  D chr1 x=0.45000000000000001 y=1.8999999999999999 cpb=5 disc=FALSE
+  D chr5 x=0.11 y=3.1800000000000002 cpb=10 disc=FALSE
+  D chr5 x=0.23999999999999999 y=2.5600000000000001 cpb=8 disc=FALSE
+  D chr5 x=0.32000000000000001 y=2.2799999999999998 cpb=5 disc=FALSE
+  D chr5 x=0.45000000000000001 y=2.0600000000000001 cpb=8 disc=FALSE
+  S chr1|A1B1 -> A1A2B1 -> A2B1|linear prop=1
+  S chr1|A1B1 -> A1A2B1 | A1B1|branching prop=1
+  S chr1|A1B1 -> A1B1 -> A1A2B1|linear prop=1
+  S chr5|A1B1 -> A1A2B1 -> A1A2B1B2|linear prop=1
+  S chr5|A1B1 -> A1A2B1B2 -> A2B1B2|linear prop=1
+  S chr5|A1B1 -> A1A2B1B2 | A1A2B1|branching prop=1
+== S2 p=0.5 seed=2
+  E chr2|branching|A1B1 -> B1B2 | A1B1|DKFINHPM n1=1 n2=0 k1=2:0 g1=B1B2 k2=NA g2=NA role=private peak=0.10000000000000001 matched=TRUE
+  E chr2|branching|A1B1 -> B1B2 | A1B1|DMEBUVMG n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A1B1 role=private peak=0.14999999999999999 matched=TRUE
+  E chr2|branching|A1B1 -> B1B2 | A1B1|IRKACVPR n1=2 n2=1 k1=2:0 g1=B1B2 k2=1:1 g2=A1B1 role=shared peak=0.34999999999999998 matched=TRUE
+  E chr2|linear|A1B1 -> A1B1 -> B1B2|KIOJNEKQ n1=0 n2=1 k1=NA g1=NA k2=2:0 g2=B1B2 role=private peak=0.10000000000000001 matched=TRUE
+  E chr2|linear|A1B1 -> A1B1 -> B1B2|RFLTDIJO n1=1 n2=0 k1=1:1 g1=A1B1 k2=NA g2=NA role=private peak=0.14999999999999999 matched=TRUE
+  E chr2|linear|A1B1 -> A1B1 -> B1B2|RFVSOMCH n1=1 n2=2 k1=1:1 g1=A1B1 k2=2:0 g2=B1B2 role=shared peak=0.34999999999999998 matched=TRUE
+  E chr4|branching|A1B1 -> A1A2B1 | A1A2B1B2|KPFXFMKR n1=0 n2=1 k1=NA g1=NA k2=2:2 g2=A1A2B1B2 role=private peak=0.047619047619047616 matched=TRUE
+  E chr4|branching|A1B1 -> A1A2B1 | A1A2B1B2|HMQEPDGX n1=1 n2=0 k1=2:1 g1=A1A2B1 k2=NA g2=NA role=private peak=0.14285714285714285 matched=FALSE
+  E chr4|branching|A1B1 -> A1A2B1 | A1A2B1B2|CCFALBZT n1=1 n2=2 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.23809523809523808 matched=TRUE
+  E chr4|branching|A1B1 -> A1A2B1 | A1A2B1B2|ZCAGNYKE n1=2 n2=2 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.38095238095238093 matched=TRUE
+  E chr4|linear|A1B1 -> A1A2B1 -> A1A2B1B2|BOSSMTTO n1=0 n2=1 k1=NA g1=NA k2=2:2 g2=A1A2B1B2 role=private peak=0.047619047619047616 matched=TRUE
+  E chr4|linear|A1B1 -> A1A2B1 -> A1A2B1B2|RKUCTKUW n1=1 n2=1 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.19047619047619047 matched=TRUE
+  E chr4|linear|A1B1 -> A1A2B1 -> A1A2B1B2|IQTMXZZK n1=1 n2=2 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.23809523809523808 matched=TRUE
+  E chr4|linear|A1B1 -> A1A2B1 -> A1A2B1B2|WDADJCQN n1=2 n2=2 k1=2:1 g1=A1A2B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.38095238095238093 matched=TRUE
+  E chr4|linear|A1B1 -> A1A2B1B2 -> A2B1B2|QSZVNIUO n1=1 n2=0 k1=2:2 g1=A1A2B1B2 k2=NA g2=NA role=private peak=0.047619047619047616 matched=TRUE
+  E chr4|linear|A1B1 -> A1A2B1B2 -> A2B1B2|HZIYJOJU n1=0 n2=1 k1=NA g1=NA k2=2:1 g2=A2B1B2 role=private peak=0.14285714285714285 matched=FALSE
+  E chr4|linear|A1B1 -> A1A2B1B2 -> A2B1B2|IIBLXORT n1=1 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.19047619047619047 matched=TRUE
+  E chr4|linear|A1B1 -> A1A2B1B2 -> A2B1B2|YEKFWFGZ n1=2 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.23809523809523808 matched=TRUE
+  E chr4|linear|A1B1 -> A1A2B1B2 -> A2B1B2|DRCHKDXK n1=2 n2=2 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.38095238095238093 matched=TRUE
+  E chr8|branching|A1B1 -> B1 | B1B2|ELJUORWR n1=0 n2=1 k1=NA g1=NA k2=2:0 g2=B1B2 role=private peak=0.11242603550295859 matched=TRUE
+  E chr8|branching|A1B1 -> B1 | B1B2|RWYHHDGD n1=1 n2=0 k1=1:0 g1=B1 k2=NA g2=NA role=private peak=0.18343195266272189 matched=TRUE
+  E chr8|branching|A1B1 -> B1 | B1B2|NFVJEJMV n1=1 n2=2 k1=1:0 g1=B1 k2=2:0 g2=B1B2 role=shared peak=0.40828402366863903 matched=FALSE
+  E chr8|branching|A1B1 -> B1 | A1A2|ITFQKPEF n1=0 n2=1 k1=NA g1=NA k2=2:0 g2=A1A2 role=private peak=0.11242603550295859 matched=TRUE
+  E chr8|branching|A1B1 -> B1 | A1A2|NFVJEJMV n1=1 n2=0 k1=1:0 g1=B1 k2=NA g2=NA role=private peak=0.18343195266272189 matched=TRUE
+  E chr8|branching|A1B1 -> B1 | A1A2|ZBPHGRPH n1=0 n2=2 k1=NA g1=NA k2=2:0 g2=A1A2 role=private peak=0.22485207100591717 matched=FALSE
+  E chr8|linear|A1B1 -> B1 -> B1B2|QQRLNHRI n1=0 n2=1 k1=NA g1=NA k2=2:0 g2=B1B2 role=private peak=0.11242603550295859 matched=TRUE
+  E chr8|linear|A1B1 -> B1 -> B1B2|QSVNNTCP n1=1 n2=2 k1=1:0 g1=B1 k2=2:0 g2=B1B2 role=shared peak=0.40828402366863903 matched=FALSE
+  E chr8|linear|A1B1 -> B1B2 -> B2|INQGCWDF n1=1 n2=0 k1=2:0 g1=B1B2 k2=NA g2=NA role=private peak=0.11242603550295859 matched=TRUE
+  E chr8|linear|A1B1 -> B1B2 -> B2|DNXICZPR n1=0 n2=1 k1=NA g1=NA k2=1:0 g2=B2 role=private peak=0.18343195266272189 matched=TRUE
+  E chr8|linear|A1B1 -> B1B2 -> B2|UKEKCBNM n1=1 n2=1 k1=2:0 g1=B1B2 k2=1:0 g2=B2 role=shared peak=0.29585798816568049 matched=FALSE
+  E chr8|linear|A1B1 -> B1B2 -> B2|GTRHLEIK n1=2 n2=1 k1=2:0 g1=B1B2 k2=1:0 g2=B2 role=shared peak=0.40828402366863903 matched=FALSE
+  D chr2 x=0.12 y=5.1100000000000003 cpb=14 disc=FALSE
+  D chr2 x=0.34999999999999998 y=2.1499999999999999 cpb=5 disc=FALSE
+  D chr4 x=0.070000000000000007 y=3.0600000000000001 cpb=9 disc=FALSE
+  D chr4 x=0.20000000000000001 y=2.6299999999999999 cpb=2 disc=FALSE
+  D chr4 x=0.38 y=1.46 cpb=3 disc=FALSE
+  D chr8 x=0.16 y=6.1900000000000004 cpb=7 disc=FALSE
+  S chr2|A1B1 -> A1B1 -> B1B2|linear prop=1
+  S chr2|A1B1 -> B1B2 | A1B1|branching prop=1
+  S chr4|A1B1 -> A1A2B1 -> A1A2B1B2|linear prop=1
+  S chr8|A1B1 -> B1 | A1A2|branching prop=0.66666666666666663
+  S chr8|A1B1 -> B1 | B1B2|branching prop=0.66666666666666663
+== S2 p=0.5 seed=3 start=2:2
+  E chr2|branching|A1A2B1B2 -> B1B2 | A2B2|AIQIERFH n1=1 n2=0 k1=2:0 g1=B1B2 k2=NA g2=NA role=private peak=0.10000000000000001 matched=TRUE
+  E chr2|branching|A1A2B1B2 -> B1B2 | A2B2|EZLGDZHK n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A2B2 role=private peak=0.14999999999999999 matched=TRUE
+  E chr2|branching|A1A2B1B2 -> B1B2 | A2B2|CEWVHJDA n1=1 n2=1 k1=2:0 g1=B1B2 k2=1:1 g2=A2B2 role=shared peak=0.25 matched=FALSE
+  E chr2|branching|A1A2B1B2 -> B1B2 | A2B2|HTJWHPHH n1=2 n2=1 k1=2:0 g1=B1B2 k2=1:1 g2=A2B2 role=shared peak=0.34999999999999998 matched=TRUE
+  E chr2|linear|A1A2B1B2 -> A2B2 -> B2B3|DGVAQBOS n1=0 n2=1 k1=NA g1=NA k2=2:0 g2=B2B3 role=private peak=0.10000000000000001 matched=TRUE
+  E chr2|linear|A1A2B1B2 -> A2B2 -> B2B3|HBSIVDJQ n1=1 n2=0 k1=1:1 g1=A2B2 k2=NA g2=NA role=private peak=0.14999999999999999 matched=TRUE
+  E chr2|linear|A1A2B1B2 -> A2B2 -> B2B3|BNNUSLPT n1=1 n2=2 k1=1:1 g1=A2B2 k2=2:0 g2=B2B3 role=shared peak=0.34999999999999998 matched=TRUE
+  E chr4|branching|A1A2B1B2 -> A2B1B2 | A1A2B1B2|ETYCLYLG n1=0 n2=1 k1=NA g1=NA k2=2:2 g2=A1A2B1B2 role=private peak=0.047619047619047616 matched=TRUE
+  E chr4|branching|A1A2B1B2 -> A2B1B2 | A1A2B1B2|SVRQJPCR n1=1 n2=0 k1=2:1 g1=A2B1B2 k2=NA g2=NA role=private peak=0.14285714285714285 matched=FALSE
+  E chr4|branching|A1A2B1B2 -> A2B1B2 | A1A2B1B2|BOEJTIQU n1=1 n2=1 k1=2:1 g1=A2B1B2 k2=2:2 g2=A1A2B1B2 role=shared peak=0.19047619047619047 matched=TRUE
+  E chr4|branching|A1A2B1B2 -> A2B1B2 | A1A2B1B2|IRIIJOHE n1=1 n2=2 k1=2:1 g1=A2B1B2 k2=2:2 g2=A1A2B1B2 role=shared peak=0.23809523809523808 matched=TRUE
+  E chr4|branching|A1A2B1B2 -> A2B1B2 | A1A2B1B2|ZZNNVHQB n1=2 n2=2 k1=2:1 g1=A2B1B2 k2=2:2 g2=A1A2B1B2 role=shared peak=0.38095238095238093 matched=TRUE
+  E chr4|linear|A1A2B1B2 -> A2B1B2 -> A2A3B1B2|CCCYYSJX n1=0 n2=1 k1=NA g1=NA k2=2:2 g2=A2A3B1B2 role=private peak=0.047619047619047616 matched=TRUE
+  E chr4|linear|A1A2B1B2 -> A2B1B2 -> A2A3B1B2|BBOTNHXN n1=1 n2=1 k1=2:1 g1=A2B1B2 k2=2:2 g2=A2A3B1B2 role=shared peak=0.19047619047619047 matched=TRUE
+  E chr4|linear|A1A2B1B2 -> A2B1B2 -> A2A3B1B2|FFMHVLGZ n1=1 n2=2 k1=2:1 g1=A2B1B2 k2=2:2 g2=A2A3B1B2 role=shared peak=0.23809523809523808 matched=TRUE
+  E chr4|linear|A1A2B1B2 -> A2B1B2 -> A2A3B1B2|KIFOCMIA n1=2 n2=2 k1=2:1 g1=A2B1B2 k2=2:2 g2=A2A3B1B2 role=shared peak=0.38095238095238093 matched=TRUE
+  E chr4|linear|A1A2B1B2 -> A1A2B1B2 -> A2B1B2|IMUPZWLH n1=1 n2=0 k1=2:2 g1=A1A2B1B2 k2=NA g2=NA role=private peak=0.047619047619047616 matched=TRUE
+  E chr4|linear|A1A2B1B2 -> A1A2B1B2 -> A2B1B2|CWFFQLWJ n1=0 n2=1 k1=NA g1=NA k2=2:1 g2=A2B1B2 role=private peak=0.14285714285714285 matched=FALSE
+  E chr4|linear|A1A2B1B2 -> A1A2B1B2 -> A2B1B2|BJNJFRSA n1=1 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.19047619047619047 matched=TRUE
+  E chr4|linear|A1A2B1B2 -> A1A2B1B2 -> A2B1B2|ZOONFOXY n1=2 n2=1 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.23809523809523808 matched=TRUE
+  E chr4|linear|A1A2B1B2 -> A1A2B1B2 -> A2B1B2|FMUEGKCX n1=2 n2=2 k1=2:2 g1=A1A2B1B2 k2=2:1 g2=A2B1B2 role=shared peak=0.38095238095238093 matched=TRUE
+  D chr2 x=0.12 y=5.1100000000000003 cpb=14 disc=FALSE
+  D chr2 x=0.34999999999999998 y=2.1499999999999999 cpb=5 disc=FALSE
+  D chr4 x=0.070000000000000007 y=3.0600000000000001 cpb=9 disc=FALSE
+  D chr4 x=0.20000000000000001 y=2.6299999999999999 cpb=2 disc=FALSE
+  D chr4 x=0.38 y=1.46 cpb=3 disc=FALSE
+  S chr2|A1A2B1B2 -> A2B2 -> B2B3|linear prop=1
+  S chr4|A1A2B1B2 -> A2B1B2 -> A2A3B1B2|linear prop=1
+== S3 p=0.8 seed=4
+  E chr10|branching|A1B1 -> B1 | B1B2|TKCMPPEB n1=1 n2=0 k1=1:0 g1=B1 k2=NA g2=NA role=private peak=0.25 matched=TRUE
+  E chr10|branching|A1B1 -> B1 | B1B2|UZSXFBXA n1=1 n2=2 k1=1:0 g1=B1 k2=2:0 g2=B1B2 role=shared peak=0.75000000000000011 matched=TRUE
+  E chr10|branching|A1B1 -> B1 | A1A2|TKCMPPEB n1=1 n2=0 k1=1:0 g1=B1 k2=NA g2=NA role=private peak=0.25 matched=TRUE
+  E chr10|branching|A1B1 -> B1 | A1A2|XKSCGLSV n1=0 n2=2 k1=NA g1=NA k2=2:0 g2=A1A2 role=private peak=0.5 matched=FALSE
+  E chr10|linear|A1B1 -> B1 -> B1B2|EISDXHDT n1=0 n2=1 k1=NA g1=NA k2=2:0 g2=B1B2 role=private peak=0.25 matched=TRUE
+  E chr10|linear|A1B1 -> B1 -> B1B2|EHTJAHAP n1=1 n2=2 k1=1:0 g1=B1 k2=2:0 g2=B1B2 role=shared peak=0.75000000000000011 matched=TRUE
+  E chr10|linear|A1B1 -> B1B2 -> B2|GGZBNNKM n1=1 n2=0 k1=2:0 g1=B1B2 k2=NA g2=NA role=private peak=0.25 matched=TRUE
+  E chr10|linear|A1B1 -> B1B2 -> B2|OXSUXCUG n1=1 n2=1 k1=2:0 g1=B1B2 k2=1:0 g2=B2 role=shared peak=0.5 matched=FALSE
+  E chr10|linear|A1B1 -> B1B2 -> B2|JKRZMSUH n1=2 n2=1 k1=2:0 g1=B1B2 k2=1:0 g2=B2 role=shared peak=0.75000000000000011 matched=TRUE
+  E chr12|branching|A1B1 -> A1A2B1B2 | A1B1|DFDRDPRY n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A1B1 role=private peak=0.048780487804878037 matched=TRUE
+  E chr12|branching|A1B1 -> A1A2B1B2 | A1B1|BJKKQXNA n1=1 n2=0 k1=2:2 g1=A1A2B1B2 k2=NA g2=NA role=private peak=0.19512195121951223 matched=TRUE
+  E chr12|branching|A1B1 -> A1A2B1B2 | A1B1|LPZTHPQY n1=2 n2=1 k1=2:2 g1=A1A2B1B2 k2=1:1 g2=A1B1 role=shared peak=0.43902439024390244 matched=TRUE
+  E chr12|linear|A1B1 -> A1A2B1B2 -> A2B2|OPBZEESY n1=0 n2=1 k1=NA g1=NA k2=1:1 g2=A2B2 role=private peak=0.048780487804878037 matched=TRUE
+  E chr12|linear|A1B1 -> A1A2B1B2 -> A2B2|NQXXFTUX n1=1 n2=0 k1=2:2 g1=A1A2B1B2 k2=NA g2=NA role=private peak=0.19512195121951223 matched=TRUE
+  E chr12|linear|A1B1 -> A1A2B1B2 -> A2B2|ADOAGNII n1=1 n2=1 k1=2:2 g1=A1A2B1B2 k2=1:1 g2=A2B2 role=shared peak=0.24390243902439024 matched=FALSE
+  E chr12|linear|A1B1 -> A1A2B1B2 -> A2B2|HGTIYPYY n1=2 n2=1 k1=2:2 g1=A1A2B1B2 k2=1:1 g2=A2B2 role=shared peak=0.43902439024390244 matched=TRUE
+  E chr12|linear|A1B1 -> A1B1 -> A1A2B1B2|OHQCFYLX n1=0 n2=1 k1=NA g1=NA k2=2:2 g2=A1A2B1B2 role=private peak=0.19512195121951223 matched=TRUE
+  E chr12|linear|A1B1 -> A1B1 -> A1A2B1B2|ANJONBPU n1=1 n2=2 k1=1:1 g1=A1B1 k2=2:2 g2=A1A2B1B2 role=shared peak=0.43902439024390244 matched=TRUE
+  E chr17|branching|A1B1 -> A1B1 | B1B2|FAOPKMCT n1=1 n2=0 k1=1:1 g1=A1B1 k2=NA g2=NA role=private peak=0.13999999999999999 matched=FALSE
+  E chr17|branching|A1B1 -> A1B1 | B1B2|QUGGEUHR n1=0 n2=1 k1=NA g1=NA k2=2:0 g2=B1B2 role=private peak=0.26000000000000001 matched=FALSE
+  E chr17|branching|A1B1 -> A1B1 | B1B2|STWUHGCY n1=1 n2=2 k1=1:1 g1=A1B1 k2=2:0 g2=B1B2 role=shared peak=0.66000000000000003 matched=TRUE
+  E chr17|linear|A1B1 -> A1B1 -> B1B2|LDDJSIVM n1=1 n2=0 k1=1:1 g1=A1B1 k2=NA g2=NA role=private peak=0.13999999999999999 matched=FALSE
+  E chr17|linear|A1B1 -> A1B1 -> B1B2|NMORUFHZ n1=0 n2=1 k1=NA g1=NA k2=2:0 g2=B1B2 role=private peak=0.26000000000000001 matched=FALSE
+  E chr17|linear|A1B1 -> A1B1 -> B1B2|DQNDMJWX n1=1 n2=2 k1=1:1 g1=A1B1 k2=2:0 g2=B1B2 role=shared peak=0.66000000000000003 matched=TRUE
+  D chr10 x=0.25 y=2.1899999999999999 cpb=5 disc=FALSE
+  D chr10 x=0.76000000000000001 y=2.1800000000000002 cpb=10 disc=FALSE
+  D chr12 x=0.059999999999999998 y=2.5699999999999998 cpb=8 disc=FALSE
+  D chr12 x=0.19 y=2.0899999999999999 cpb=2 disc=FALSE
+  D chr12 x=0.42999999999999999 y=1.77 cpb=7 disc=FALSE
+  D chr17 x=0.19 y=3.1299999999999999 cpb=3 disc=FALSE
+  D chr17 x=0.66000000000000003 y=1.3400000000000001 cpb=4 disc=FALSE
+  S chr10|A1B1 -> B1 -> B1B2|linear prop=1
+  S chr10|A1B1 -> B1 | B1B2|branching prop=1
+  S chr12|A1B1 -> A1A2B1B2 | A1B1|branching prop=1
+  S chr12|A1B1 -> A1B1 -> A1A2B1B2|linear prop=1
+  S chr17|A1B1 -> A1B1 -> B1B2|linear prop=0.33333333333333331
+  S chr17|A1B1 -> A1B1 | B1B2|branching prop=0.33333333333333331
+== S3 p=0.8 seed=6 start=1:0
+  E chr10|branching|B1 -> B1 | B1B2|BUSMNACM n1=1 n2=0 k1=1:0 g1=B1 k2=NA g2=NA role=private peak=0.25 matched=TRUE
+  E chr10|branching|B1 -> B1 | B1B2|BBZBCUHQ n1=1 n2=2 k1=1:0 g1=B1 k2=2:0 g2=B1B2 role=shared peak=0.75000000000000011 matched=TRUE
+  E chr10|linear|B1 -> B1 -> B1B2|HNXLCZQC n1=0 n2=1 k1=NA g1=NA k2=2:0 g2=B1B2 role=private peak=0.25 matched=TRUE
+  E chr10|linear|B1 -> B1 -> B1B2|EJKKHDVT n1=1 n2=2 k1=1:0 g1=B1 k2=2:0 g2=B1B2 role=shared peak=0.75000000000000011 matched=TRUE
+  E chr10|linear|B1 -> B1B2 -> B2|VDDQRUYQ n1=1 n2=0 k1=2:0 g1=B1B2 k2=NA g2=NA role=private peak=0.25 matched=TRUE
+  E chr10|linear|B1 -> B1B2 -> B2|JJPIRYUL n1=1 n2=1 k1=2:0 g1=B1B2 k2=1:0 g2=B2 role=shared peak=0.5 matched=FALSE
+  E chr10|linear|B1 -> B1B2 -> B2|EASSUMKQ n1=2 n2=1 k1=2:0 g1=B1B2 k2=1:0 g2=B2 role=shared peak=0.75000000000000011 matched=TRUE
+  D chr10 x=0.25 y=2.1899999999999999 cpb=5 disc=FALSE
+  D chr10 x=0.76000000000000001 y=2.1800000000000002 cpb=10 disc=FALSE
+  D chr12 x=0.059999999999999998 y=2.5699999999999998 cpb=8 disc=FALSE
+  D chr12 x=0.19 y=2.0899999999999999 cpb=2 disc=FALSE
+  D chr12 x=0.42999999999999999 y=1.77 cpb=7 disc=FALSE
+  D chr17 x=0.19 y=3.1299999999999999 cpb=3 disc=FALSE
+  D chr17 x=0.66000000000000003 y=1.3400000000000001 cpb=4 disc=FALSE
+  S chr10|B1 -> B1 -> B1B2|linear prop=1
+  S chr10|B1 -> B1 | B1B2|branching prop=1
+== S3 p=0.8 seed=4 nmin=300 NO-SUBCLONAL

@@ -6,11 +6,11 @@
 | Test Unit ID | ONCO-PURITY-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-10-09 |
+| Last Reviewed | 2026-10-10 |
 
 ## 1. Overview
 
-Tumor purity ρ (also π) is the fraction of cells in a bulk sequencing sample that are tumour cells, the remainder being normal/stromal cells. These estimators recover ρ from the variant allele frequencies (VAFs) of clonal somatic mutations by inverting the closed-form expected-VAF relation that links VAF to purity, mutation multiplicity, and local copy number [1][2]. The computation is exact (deterministic, closed form) for a given (VAF, multiplicity, copy-number) state; the canonical special case — a clonal heterozygous somatic SNV at a copy-neutral diploid locus — gives ρ = 2·VAF [1]. It should be used when somatic SNV calls (and, for non-diploid loci, allele-specific copy-number state) are available; it is not a copy-ratio or B-allele-frequency segmentation method. CNAqc's own purity procedure — the peak-based QC of `analyze_peaks` for simple clonal karyotypes — is ported as `AnalyzePurityPeaks` (§4.4): it does not estimate purity but scores a supplied purity against the VAF peaks it implies [1].
+Tumor purity ρ (also π) is the fraction of cells in a bulk sequencing sample that are tumour cells, the remainder being normal/stromal cells. These estimators recover ρ from the variant allele frequencies (VAFs) of clonal somatic mutations by inverting the closed-form expected-VAF relation that links VAF to purity, mutation multiplicity, and local copy number [1][2]. The computation is exact (deterministic, closed form) for a given (VAF, multiplicity, copy-number) state; the canonical special case — a clonal heterozygous somatic SNV at a copy-neutral diploid locus — gives ρ = 2·VAF [1]. It should be used when somatic SNV calls (and, for non-diploid loci, allele-specific copy-number state) are available; it is not a copy-ratio or B-allele-frequency segmentation method. CNAqc's own purity procedure — the peak-based QC of `analyze_peaks` for simple clonal karyotypes — is ported as `AnalyzePurityPeaks` (§4.4): it does not estimate purity but scores a supplied purity against the VAF peaks it implies [1]. The two companion analyses `analyze_peaks` runs on the same purity — complex clonal karyotypes (`analyze_peaks_general`) and subclonal segments (`analyze_peaks_subclonal`) — are ported as `AnalyzeComplexKaryotypePeaks` and `AnalyzeSubclonalPurityPeaks` (§4.5).
 
 ## 2. Scientific / Formal Basis
 
@@ -69,12 +69,17 @@ For a clonal **heterozygous** SNV at a **copy-neutral diploid** locus (m = 1, n_
 | mutations (`AnalyzePurityPeaks`) | `IEnumerable<PurityPeakMutation>` | required | Somatic mutations with VAF and segment karyotype Major:minor (all karyotypes) | non-null; VAF ∈ [0,1]; Major, minor ≥ 0 |
 | purity (`AnalyzePurityPeaks`) | `double` | required | Purity π to QC | ∈ (0, 1] |
 | options (`AnalyzePurityPeaks`) | `PurityPeakOptions?` | CNAqc defaults | karyotypes {1:0,1:1,2:0,2:1,2:2}, `MinKaryotypeSize` 0, `MinAbsoluteKaryotypeMutations` 100, `PurityError` ε 0.05, `VafTolerance` 0.015, `KernelAdjust` 1, `MatchingStrategy` Closest, `MinVaf` 0, `MixturePeaks` null, `LegacyDensityCoordinates` false | ε ∈ (0,1); size ∈ [0,1); adjust > 0; karyotypes ⊆ simple set |
+| mutations, purity, options (`AnalyzeComplexKaryotypePeaks`) | as `AnalyzePurityPeaks` | CNAqc defaults | uses `Karyotypes` (gate only), `MinAbsoluteKaryotypeMutations` (`n_min`), `PurityError` (`epsilon`), `KernelAdjust`, `MinVaf`, `LegacyDensityCoordinates` | as above |
+| segments (`AnalyzeSubclonalPurityPeaks`) | `IEnumerable<SubclonalPeakSegment>` | required | subclonal segments: karyotype 1 at `Ccf`, karyotype 2 at 1 − `Ccf`, segment VAFs | both karyotypes simple; CCF ∈ (0,1); VAF ∈ [0,1] |
+| options (`AnalyzeSubclonalPurityPeaks`) | `SubclonalPeakOptions?` | `analyze_peaks` values | `MinMutations` 100 (n > it), `Epsilon` 0.05, `KernelAdjust` 1, `StartingState` 1:1, `Seed` 0 (R `set.seed` for the mutation identifiers), `LegacyDensityCoordinates` false | ε ∈ (0,1); start Major ≥ minor ≥ 0, Major ≥ 1 |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
 | (return) | `double` | Estimated tumour purity ρ ∈ [0, 1]; median of per-variant estimates for the collection overloads |
+| (return, `AnalyzeComplexKaryotypePeaks`) | `ComplexKaryotypePeakAnalysis` | `Ran` (gate), per-karyotype `ComplexKaryotypePeakResult` in CNAqc summary order (matched / mismatched expected peaks, `MatchedProportion`, `Pass` = prop ≥ 0.5, KDE, data peaks) and all `ComplexKaryotypeExpectedPeak`s (m, expected VAF, matched) |
+| (return, `AnalyzeSubclonalPurityPeaks`) | `IReadOnlyList<SubclonalSegmentPeakResult>` | per analysed segment: KDE, data peaks, every model's expected peaks (`SubclonalExpectedPeak`: model id, linear/branching, copies in each clone, genotypes, shared/private, expected VAF, matched), `Rankings` and `BestModels` (CNAqc decision table) |
 | (return, `AnalyzePurityPeaks`) | `PurityPeakAnalysis` | `Score` λ = Σ weight·offset (purity units; CNAqc prints it as "Purity correction"), `Pass` (sample QC; null = no karyotype passed the filters), per-karyotype `PurityPeakKaryotype` (n, weight, score, PASS/FAIL, KDE, data peaks) and per-expected-peak `PurityPeakMatch` (expected peak, δ, matched peak, offset_VAF, offset, weight, matched) |
 
 ### 3.3 Preconditions and Validation
@@ -103,6 +108,8 @@ Null collections throw `ArgumentNullException`; empty collections throw `Argumen
 | EstimatePurity / EstimatePurityFromVAF | O(n log n) | O(n) | n = #variants; dominated by the median sort. O(1) per variant. |
 | EstimatePurityFromVaf | O(1) | O(1) | single closed-form evaluation |
 | AnalyzePurityPeaks | O(n + K·512²) | O(n) | per karyotype: one 512-point KDE (direct convolution) + peakPick ×5 |
+| AnalyzeComplexKaryotypePeaks | O(n + K·512²) | O(n) | as above, no mixture peaks |
+| AnalyzeSubclonalPurityPeaks | O(S·(n_s + 512² + E)) | O(n + E) | E = evolution states explored (breadth-first, ploidy ≤ 2·target ploidy; a few hundred for simple karyotypes) |
 
 ### 4.4 CNAqc peak-based purity QC (`AnalyzePurityPeaks`)
 
@@ -117,6 +124,16 @@ Port of CNAqc 1.1.5 `analyze_peaks` → `analyze_peaks_common` (caravagnalab/CNA
 
 CNAqc does **not** compare λ with ε (ε only sizes the bands), the `p_binsize_peaks` argument is unused in 1.1.5, and no corrected purity is proposed — `print.cnaqc` shows λ as "Purity correction". Example (R-locked, seeded dataset D1, true π = 0.7): at π = 0.7 λ = 0.00238, PASS; at π = 0.5 λ = −0.296, FAIL; at π = 0.62 the 1:0 karyotype fails but the sample passes by weight (0.87) although |λ| = 0.114 > ε.
 
+### 4.5 Complex and subclonal karyotypes (`AnalyzeComplexKaryotypePeaks`, `AnalyzeSubclonalPurityPeaks`)
+
+Ports of CNAqc 1.1.5 `analyze_peaks_general` and `analyze_peaks_subclonal` (`R/peak_algorithms.R`) with `expectations_generalised` / `expectations_subclonal` (`R/equations.R`), called by `analyze_peaks` after the simple-karyotype QC with `n_min = min_absolute_karyotype_mutations`, `epsilon = purity_error` [1]:
+
+- **Complex clonal karyotypes.** `analyze_peaks` runs the step only if some karyotype outside `karyotypes` has n > `min_absolute_karyotype_mutations` (strict); it then analyses every karyotype other than the fixed simple five with n ≥ `n_min` (inclusive), in first-appearance order. Data peaks = the simple-karyotype KDE detector (no BMix). Expected peaks for m = 1..max(Major, minor, 1): m·π / (2(1−π) + π·ploidy). An expected peak is matched iff some data peak — discarded ones included — satisfies |x − v_m| < ε. Summary: matched / mismatched counts, prop = matched / total, ordered by descending prop (ties by the "Major:minor" string); `analyze_peaks` labels the karyotype's segments and mutations QC PASS iff prop ≥ 0.5. No score or sample verdict.
+- **Subclonal segments** (`cluster_subclonal_CCF = FALSE`; each segment with n > `n_min` on its own). Evolution models from the starting state (1:1 = alleles A1 B1 by default): breadth-first single-allele amplification / deletion and whole-genome doubling, ploidy capped at 2·(target ploidy), until the target karyotype appears; distinct allele sets kept; every reached state gives each allele a new mutation. Models: branching (both clones from the start) and linear in both directions (clone 1 → clone 2 only if clone 1 has no LOH or both have LOH; symmetric for clone 2 → clone 1 with cell fraction 1 − CCF). For a clone pair each mutation with n1, n2 copies gives the peak π·(n1·CCF + n2·(1 − CCF)) / (2(1−π) + π·(CCF·ploidy1 + (1 − CCF)·ploidy2)); distinct values, ascending; clone pairs with identical peak vectors (R `paste`, 15 significant digits) are dropped. Matched ⇔ |x − peak| ≤ ε for some KDE data peak; each model scores matched / #peaks; the top-scoring models are the decision (CNAqc `summary`). CNAqc names mutations by `sample(LETTERS, 8, replace = TRUE)`; the port draws them from the R RNG (`Seed` = `set.seed`), so identifiers — and which of several equal-VAF mutations is reported — are reproduced; peaks and decisions do not depend on the seed.
+- CNAqc quirks kept: a LOH starting state cannot reach a karyotype without LOH → `cli_abort` for that segment, caught by `easypar` → the segment keeps its data peaks but has no model; `evolve()` loops forever when every move exceeds the ploidy cap (e.g. start 2:2 → 1:0) — the port throws `InvalidOperationException` instead.
+
+Example (R-locked, seeded segment S1 chr1, 2:1 at CCF 0.6 / 1:1, π = 0.7): three models; branching A1B1 → A1A2B1 | A1B1 and linear A1B1 → A1A2B1 → A2B1 both match 3 of 4 peaks (0.116, 0.174, 0.289, 0.463; data peaks 0.14, 0.45) and are reported; linear A1B1 → A1B1 → A1A2B1 scores 2/3.
+
 ## 5. Implementation Notes
 
 ### 5.1 Location and Entry Points
@@ -127,6 +144,8 @@ CNAqc does **not** compare λ with ε (ε only sizes the bands), the `p_binsize_
 - `OncologyAnalyzer.EstimatePurityFromVaf(double)`: single-VAF closed form ρ = 2·VAF.
 - `OncologyAnalyzer.EstimatePurity(IEnumerable<PurityVariant>)`: median of the allele-specific inversion ρ = 2v/[m+v(2−n_tot)].
 - `OncologyAnalyzer.AnalyzePurityPeaks(IEnumerable<PurityPeakMutation>, double purity, PurityPeakOptions? options = null)` ([OncologyAnalyzer.CopyNumberPloidy.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CopyNumberPloidy.cs)): CNAqc peak-based purity QC (§4.4); KDE / peak picking via `StatisticsHelper.GaussianKernelDensity` / `PeakPick` (Infrastructure).
+- `OncologyAnalyzer.AnalyzeComplexKaryotypePeaks(IEnumerable<PurityPeakMutation>, double purity, PurityPeakOptions? options = null)` (same file): CNAqc `analyze_peaks_general` (§4.5).
+- `OncologyAnalyzer.AnalyzeSubclonalPurityPeaks(IEnumerable<SubclonalPeakSegment>, double purity, SubclonalPeakOptions? options = null)` (same file): CNAqc `analyze_peaks_subclonal` + `expectations_subclonal` (§4.5); mutation identifiers from the R Mersenne-Twister port (`RMersenneTwister`, F41).
 
 ### 5.2 Current Behavior
 
@@ -144,11 +163,12 @@ Collection overloads aggregate per-variant purities by median (lower-mid average
 
 - Aggregation uses the median of per-variant point estimates; **consequence:** no model-fit confidence interval or joint ploidy estimate (unlike ABSOLUTE/FACETS, or `FitPurityPloidy`, ONCO-ASCAT-001) is produced.
 
-**Implemented from CNAqc (FIN-B24 F33/F34):** the peak-based purity QC for simple clonal karyotypes (`analyze_peaks_common`, §4.4), R-locked on seeded datasets.
+**Implemented from CNAqc (FIN-B24 F33/F34, F62):** the peak-based purity QC for simple clonal karyotypes (`analyze_peaks_common`, §4.4), the complex-karyotype (`analyze_peaks_general`) and subclonal (`analyze_peaks_subclonal`) peak analyses (§4.5), all R-locked on seeded datasets.
 
 **Not implemented:**
 
-- CNAqc BMix mixture fitting (stochastic EM; supply its component means via `PurityPeakOptions.MixturePeaks`), `n_bootstrap` > 1 peak bootstrap, and the complex-karyotype (`analyze_peaks_general`) and subclonal (`analyze_peaks_subclonal`) peak analyses.
+- CNAqc BMix mixture fitting (stochastic EM; supply its component means via `PurityPeakOptions.MixturePeaks`) and `n_bootstrap` > 1 peak bootstrap.
+- CCF clustering of subclonal segments (`cluster_subclonal_CCF = TRUE`, mclust `Mclust(modelNames = "E")`) — not the `analyze_peaks` default.
 - Joint purity+ploidy+absolute-CN model fitting inside this VAF estimator; **users should rely on:** `OncologyAnalyzer.FitPurityPloidy` (ONCO-ASCAT-001, ASCAT runASCAT port over segment logR/BAF, after `SegmentAlleleSpecificAspcf`) for the genome-wide joint fit; ABSOLUTE [3] / FACETS [4] remain external alternatives.
 
 ### 5.4 Deviations and Assumptions
@@ -160,6 +180,8 @@ Collection overloads aggregate per-variant purities by median (lower-mid average
 | 3 | Multiplicity bounded by n_tot in `EstimatePurity` | Validation (fixed) | m > n_tot (physically impossible; CNAqc `expectations_generalised` enumerates m ∈ 1..Major ≤ n_tot) throws `ArgumentOutOfRangeException`, e.g. (v 0.5, m 3, n_tot 2) — previously returned 1/3 | fixed | review-2026-09 B24 F7 → FIN-B24 F24 |
 | 5 | `AnalyzePurityPeaks` KDE lattice | Version choice | R ≥ 4.4 `density` kernel lattice by default (densities ≈ 0.1 % different from R ≤ 4.3; `LegacyDensityCoordinates = true` reproduces R 4.3.3); convolution evaluated directly instead of FFT (≤ 1e−12 relative) | accepted | FIN-B24 F33 |
 | 6 | `AnalyzePurityPeaks` degenerate inputs | Error handling | an analysed karyotype with no KDE peak in [0, 1] (R: error in `simple_peak_detector`) or no non-discarded peak throws `InvalidOperationException`; a mixture peak snapped outside histogram bins 1..100 gets `CountsPerBin = null` (R: NA / error) | accepted | FIN-B24 F34 |
+| 7 | `AnalyzeSubclonalPurityPeaks` non-terminating model search | Error handling | CNAqc `evolve()` loops forever when no move stays under the ploidy cap (e.g. start 2:2 → 1:0, i.e. a 1:0 segment with `starting_state` 2:2); the port throws `InvalidOperationException` | accepted | FIN-B24 F62 |
+| 8 | `AnalyzeComplexKaryotypePeaks` gate without complex karyotypes | Error handling | the `analyze_peaks` gate (a karyotype outside `karyotypes` with n > `n_min`) can open with no complex karyotype to analyse (`karyotypes` omits a simple one); CNAqc then fails (`1:nrow(NULL)`), the port throws `InvalidOperationException` | accepted | FIN-B24 F62 |
 | 4 | Boundary π = 1 rounding in `EstimatePurity` | Numerical tolerance (fixed) | the exact CNAqc clonal peak at π = 1, v = m/n_tot, can evaluate to 1 + k·ulp (≤ 0.47·(n_tot+4)·ε for n_tot ≤ 2000); a computed π ≤ 1 + (n_tot+4)·ε (ε = 2⁻⁵²) is accepted and clamped to 1.0, e.g. (v 0.2, m 1, n_tot 5) → 1.0, (v 0.4, m 2, n_tot 5) → 1.0; larger excess still throws | fixed | review-2026-09 B24 F8 → FIN-B24 F25 |
 
 ## 6. Edge Cases and Limitations
@@ -181,7 +203,7 @@ Collection overloads aggregate per-variant purities by median (lower-mid average
 
 Purity below ~0.1 approaches sequencing noise and is reported as a small value, not validated against a detection-limit model. The VAF-only estimator assumes clonality (c=1) and copy-neutral diploid heterozygosity; subclonal or amplified-segment variants must use the allele-specific overload with the correct (m, n_tot). No confidence interval, ploidy, or whole-genome-doubling handling is provided here (see ONCO-PLOIDY-001).
 
-**LIMITATIONS:** `EstimatePurity*` combine per-variant closed-form CNAqc estimates by their median — no read-depth weighting, no binomial likelihood (e.g. PurBayes), no joint ploidy fit; use `FitPurityPloidy` (ASCAT) for a genome-wide joint estimate. VAF-only overloads assume clonal heterozygous copy-neutral diploid SNVs. CNAqc itself provides no purity point estimate: its purity procedure is the peak-based QC of a caller-supplied purity (`analyze_peaks`), ported as `AnalyzePurityPeaks` (score λ = Σ weight·offset, reported by CNAqc as "Purity correction", plus a PASS/FAIL verdict); BMix mixture peaks are not fitted (supply them), and complex/subclonal karyotype peak analyses are not ported.
+**LIMITATIONS:** the purity entry points answer three different questions. (1) `EstimatePurityFromVaf` / `EstimatePurityFromVAF` / `EstimatePurity` are point estimators: each variant's VAF is inverted in closed form (CNAqc `expected_vaf_fun`) and the per-variant purities are combined by their median — unweighted by read depth, with no binomial likelihood (e.g. PurBayes) and no ploidy estimation; the VAF-only overloads assume clonal heterozygous copy-neutral diploid SNVs. (2) `AnalyzePurityPeaks` / `AnalyzeComplexKaryotypePeaks` / `AnalyzeSubclonalPurityPeaks` (CNAqc `analyze_peaks`) do not estimate purity: they QC a caller-supplied purity against the VAF peaks it implies — λ = Σ weight·offset (CNAqc's "Purity correction") with a PASS/FAIL verdict for simple karyotypes, matched-peak proportions for complex karyotypes and evolution-model rankings for subclonal segments. (3) The joint purity + ploidy + absolute copy-number fit is `FitPurityPloidy` (ASCAT `runASCAT`, ONCO-ASCAT-001), with sub-clonal copy number via `FitSubclonalCopyNumber` / `CallBattenbergSubclones`. Not ported from CNAqc: BMix mixture peaks (supply them via `MixturePeaks`), `n_bootstrap` > 1, and the non-default CCF clustering of subclonal segments (mclust).
 
 ## 7. Examples and Related Material
 
@@ -204,7 +226,7 @@ double rho = OncologyAnalyzer.EstimatePurity(new[]
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_EstimatePurity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_EstimatePurity_Tests.cs) — covers INV-01..INV-04; [OncologyAnalyzer_AnalyzePurityPeaks_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AnalyzePurityPeaks_Tests.cs) — CNAqc R-locked peak QC (16 scenarios); [StatisticsHelper_GaussianKde_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_GaussianKde_Tests.cs) — R `density`/`bw.nrd0`/`peakpick`
+- Tests: [OncologyAnalyzer_EstimatePurity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_EstimatePurity_Tests.cs) — covers INV-01..INV-04; [OncologyAnalyzer_AnalyzePurityPeaks_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AnalyzePurityPeaks_Tests.cs) — CNAqc R-locked peak QC (16 scenarios); [OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_CnaqcGeneralSubclonalPeaks_Tests.cs) — `analyze_peaks_general` (10 R runs) / `analyze_peaks_subclonal` (8 R runs) line-identical; [StatisticsHelper_GaussianKde_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_GaussianKde_Tests.cs) — R `density`/`bw.nrd0`/`peakpick`
 - Evidence: [ONCO-PURITY-001-Evidence.md](../../../docs/Evidence/ONCO-PURITY-001-Evidence.md)
 - Related algorithms: [Variant_Allele_Frequency](../Oncology/Variant_Allele_Frequency.md)
 
