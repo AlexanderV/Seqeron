@@ -534,20 +534,20 @@ public static partial class OncologyAnalyzer
     /// <c>broad_len_cutoff</c> AND amplitude vs <c>t_amp</c>). The amplitude test is strict (&gt; <c>t_amp</c>), following
     /// the GISTIC2 documentation ("gain above this positive value") and GISTIC2 <c>gene_calls.m</c>;
     /// <c>reconstruct_genomes.m</c> uses &gt;=, which differs only at exact equality.
-    /// <para><b>Not implemented — ziggurat deconstruction.</b> GISTIC2 applies this filter to SCNA <i>events</i>
-    /// produced by its ziggurat deconstruction (amplitude measured relative to the underlying level; broad levels
-    /// estimated from the whole cohort). Here each input segment is treated as one event with amplitude = its
-    /// <see cref="CopyNumberArmSegment.Log2Ratio"/>. Consequence: when raw segments are supplied, an arm-level gain
-    /// interrupted by a focal peak (e.g. 0.5 | 1.5 | 0.5) yields flank segments that are individually &lt; 98% of the arm
-    /// and are reported as focal, whereas GISTIC2 would call one broad event (0.5) plus one focal event (+1.0).
-    /// Supply deconstructed events (or whole-arm-merged segments) to match GISTIC2.</para>
+    /// <para><b>Per-segment events.</b> GISTIC2 applies this filter to SCNA <i>events</i> produced by its ziggurat
+    /// deconstruction (amplitude measured relative to the underlying level; broad levels learned from the cohort). This
+    /// overload treats each input segment as one event with amplitude = its <see cref="CopyNumberArmSegment.Log2Ratio"/>,
+    /// so raw segments of an arm-level gain interrupted by a focal peak (e.g. 0.5 | 1.5 | 0.5) report the flanks as focal.
+    /// For GISTIC2 events (one broad 0.5 + one focal +1.0) use <see cref="DeconstructZiggurat"/> followed by
+    /// <see cref="DetectFocalAmplificationEvents"/> (B24 F50–F52).</para>
     /// Segment coordinates are half-open (<c>Length = End − Start</c>). <para><b>Arm-fraction units.</b> GISTIC2 measures
     /// the arm fraction in markers by default (<c>make_sample_B.m</c> → <c>normalize_by_arm_length(D,B,cyto,1,2)</c>,
     /// <c>norm_type = 1</c>: segment markers ÷ markers in the arm's cytoband span). When a segment carries
     /// <see cref="CopyNumberArmSegment.MarkerCount"/> and <see cref="CopyNumberArmSegment.ArmMarkerCount"/>, its
     /// <see cref="CopyNumberArmSegment.ArmFraction"/> is in marker units (e.g. 39/40 = 0.975 &lt; 0.98 is focal even if the
     /// segment covers 99% of the arm in bp); without marker counts it is in bp (Length ÷ ArmLength). Centromere-spanning
-    /// events (GISTIC2 <c>ref_length = 2</c>: p-fraction + q-fraction) are outside the arm-anchored model.</para>
+    /// events (GISTIC2 <c>ref_length = 2</c>: p-fraction + q-fraction) are outside the arm-anchored model; they are handled
+    /// by <see cref="DeconstructZiggurat"/>.</para>
     /// </remarks>
     /// <param name="segments">Arm-anchored copy-number segments. Must not be null.</param>
     /// <param name="thresholds">Amplitude and length cutoffs; null uses <see cref="FocalAmplificationThresholds.Default"/> (GISTIC2 defaults).</param>
@@ -1555,7 +1555,7 @@ public static partial class OncologyAnalyzer
         foreach (GisticZiggRow source in qas)
         {
             GisticZiggRow row = source;
-            row.StartLevel = Math.Max(source.StartLevel, level);
+            row.StartLevel = source.StartLevel >= level ? source.StartLevel : level; // Octave max(x, y): x >= y ? x : y
             bool changed = source.StartLevel - row.StartLevel != 0;
             row.Amplitude = row.EndLevel - row.StartLevel;
             if (row.Amplitude > 0)
@@ -1572,7 +1572,7 @@ public static partial class OncologyAnalyzer
         foreach (GisticZiggRow source in qds)
         {
             GisticZiggRow row = source;
-            row.StartLevel = Math.Min(source.StartLevel, level);
+            row.StartLevel = source.StartLevel <= level ? source.StartLevel : level; // Octave min(x, y): x <= y ? x : y
             bool changed = source.StartLevel - row.StartLevel != 0;
             row.Amplitude = row.EndLevel - row.StartLevel;
             if (row.Amplitude < 0)
@@ -1603,12 +1603,16 @@ public static partial class OncologyAnalyzer
     internal static GisticBroadLevelChoice GisticFindMaxBroadLevel(
         List<GisticZiggRow> b, GisticLengthAmplitudeTable table, double armFraction)
     {
-        var levels = b.Select(r => r.Amplitude).ToList();
-        levels.Sort();
-        var unique = new List<double>(levels.Count);
-        foreach (double v in levels)
+        // unique(B(:,4)) as in GNU Octave unique.m: stable sort, then the LAST element of each run of equal values is
+        // kept (only observable for −0 vs +0).
+        var unique = new List<double>(b.Count);
+        foreach (double v in b.Select(r => r.Amplitude).OrderBy(v => v))
         {
-            if (unique.Count == 0 || unique[^1] != v)
+            if (unique.Count > 0 && unique[^1] == v)
+            {
+                unique[^1] = v;
+            }
+            else
             {
                 unique.Add(v);
             }
@@ -1685,6 +1689,437 @@ public static partial class OncologyAnalyzer
         }
 
         return new GisticBroadLevelChoice(0, new List<GisticZiggRow>(), 0, 0);
+    }
+
+    /// <summary>Kind of a GISTIC2 ziggurat event (the four <c>Qs</c> fields of <c>perform_ziggurat_deconstruction.m</c>).</summary>
+    public enum ZigguratEventType
+    {
+        /// <summary><c>Qs.amp</c> — amplification starting at or above copy-number level 0.</summary>
+        Amplification,
+
+        /// <summary><c>Qs.del</c> — deletion starting at or below level 0.</summary>
+        Deletion,
+
+        /// <summary><c>Qs.aod</c> — amplification ending at or below level 0 (gain over a deletion).</summary>
+        AmplificationOverDeletion,
+
+        /// <summary><c>Qs.doa</c> — deletion ending at or above level 0 (loss over an amplification).</summary>
+        DeletionOverAmplification,
+    }
+
+    /// <summary>
+    /// One GISTIC2 SCNA event from the ziggurat deconstruction (a row of <c>Qs.amp/del/aod/doa</c>; <c>Qs.m</c> columns).
+    /// </summary>
+    /// <param name="Type">Event kind (which <c>Qs</c> field).</param>
+    /// <param name="Sample">0-based sample index (GISTIC2 column 5 − 1).</param>
+    /// <param name="Chromosome">Chromosome label (column 1).</param>
+    /// <param name="StartMarker">First marker, 1-based within the chromosome (column 2).</param>
+    /// <param name="EndMarker">Last marker, inclusive (column 3).</param>
+    /// <param name="Amplitude">Event amplitude, positive for all four kinds (column 12, in copy number − 2 units).</param>
+    /// <param name="StartLevel">Starting copy-number level (column 6).</param>
+    /// <param name="EndLevel">Ending copy-number level (column 7).</param>
+    /// <param name="ArmFraction">Length as chromosome-arm fraction in markers; p + q for centromere-spanning events (column 8).</param>
+    /// <param name="Score">Deconstruction (table log-likelihood) score (column 9; 0 for single-segment chromosomes and single-level arms).</param>
+    /// <param name="ArmLevel">Broad level of the arm the event lies on (column 10).</param>
+    public readonly record struct ZigguratEvent(
+        ZigguratEventType Type,
+        int Sample,
+        string Chromosome,
+        int StartMarker,
+        int EndMarker,
+        double Amplitude,
+        double StartLevel,
+        double EndLevel,
+        double ArmFraction,
+        double Score,
+        double ArmLevel)
+    {
+        /// <summary>
+        /// GISTIC2 <c>reconstruct_genomes.m</c> length test: focal when <see cref="ArmFraction"/> &lt;
+        /// <paramref name="broadLengthCutoff"/> (default 0.98), broad otherwise.
+        /// </summary>
+        public bool IsFocal(double broadLengthCutoff = DefaultBroadLengthCutoff) => ArmFraction < broadLengthCutoff;
+    }
+
+    /// <summary>
+    /// Options of <see cref="DeconstructZiggurat"/>, with the GISTIC2 defaults (<c>gistic2_param_defaults.m</c>,
+    /// <c>run_focal_gistic.m</c> → <c>perform_ziggurat_deconstruction(D,cyto,ziggs,cap)</c> → <c>perform_deconstruction(…,1)</c>).
+    /// </summary>
+    public sealed record ZigguratOptions
+    {
+        /// <summary>GISTIC2 defaults: log2 input, cap 1.5, one iteration.</summary>
+        public static ZigguratOptions Default { get; } = new();
+
+        /// <summary>
+        /// Segment values are log2 ratios (GISTIC2 <c>D.islog</c>, default true) and are converted to copy number − 2 by
+        /// <c>2^(x+1) − 2</c>; false = values already in copy number − 2 units.
+        /// </summary>
+        public bool InputIsLog2 { get; init; } = true;
+
+        /// <summary>
+        /// Symmetric cap (GISTIC2 <c>cap</c>, default 1.5) applied before conversion: log2 values are clipped to
+        /// [−cap, cap]; copy-number input to [2^(1−cap) − 2, 2^(1+cap) − 2]. null = no cap. Must be &gt; 0.
+        /// </summary>
+        public double? Cap { get; init; } = 1.5;
+
+        /// <summary>Number of broad-level re-estimation iterations (<c>niters</c>, GISTIC2 uses 1); ≥ 1.</summary>
+        public int Iterations { get; init; } = 1;
+    }
+
+    /// <summary>
+    /// Result of <see cref="DeconstructZiggurat"/>: the GISTIC2 SCNA events of all samples, in <c>Qs</c> order
+    /// (all <c>amp</c>, then <c>del</c>, <c>aod</c>, <c>doa</c>; within a field chromosome-major, then sample, then p before q).
+    /// </summary>
+    /// <param name="Events">The deconstructed events.</param>
+    public sealed record ZigguratDeconstruction(IReadOnlyList<ZigguratEvent> Events)
+    {
+        /// <summary>Events of one sample (0-based index), in <see cref="Events"/> order.</summary>
+        public IReadOnlyList<ZigguratEvent> ForSample(int sample) => Events.Where(e => e.Sample == sample).ToList();
+    }
+
+    /// <summary>
+    /// GISTIC2 ziggurat deconstruction of segmented copy-number data into broad and focal SCNA events, each measured
+    /// relative to the level it sits on. Port of <c>perform_ziggurat_deconstruction.m</c> (cap, log2 → copy number − 2)
+    /// and <c>perform_deconstruction.m</c>: initial deconstruction against level 0 (<c>make_sample_B</c>,
+    /// <c>deconstruct_sample</c>), cohort length × amplitude log-likelihood table (<c>generate_2d_hists</c>), then per
+    /// sample and chromosome the p/q breakpoint maximising the table score of the arm deconstructions
+    /// (<c>find_max_broad_level_by_table</c>) minus a BIC-style penalty, final event split around level 0
+    /// (<c>make_final_Qs</c>), repeated <see cref="ZigguratOptions.Iterations"/> times with the table rebuilt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Penalty as coded in GISTIC2.</b> The comment reads "(2k − 1)·ln n where k = #broad levels"; the code uses
+    /// n = number of segments on the chromosome and gives 3·ln n when both arm parts are non-empty, but ln(1) = 0 when the
+    /// breakpoint is the chromosome's last segment (q part empty: <c>len_bpts = 1</c>). This port follows the code.</para>
+    /// <para><b>Cohort model.</b> The table is learned from all supplied samples, so a sample's events depend on the
+    /// cohort; n = 1 is allowed (<c>perform_deconstruction</c> runs on any sample set; only the outer GISTIC2 wrapper
+    /// requires ≥ 2 samples after noise filtering). Not ported: <c>remove_noisy_samples</c> (samples with more than
+    /// <c>max_segs_per_sample</c> breakpoints are dropped by GISTIC2 before deconstruction — filter beforehand if needed).
+    /// When no sample has any non-zero segment the result is empty (every chromosome is one zero segment; GISTIC2 returns
+    /// empty event arrays too — Octave-checked).</para>
+    /// <para><b>Units.</b> Amplitudes and levels are in copy number − 2 units (GISTIC2 <c>Qs</c> columns 4/6/7/12); the
+    /// arm fraction is in markers (<c>norm_type = 1</c>), p + q for centromere-spanning events.</para>
+    /// </remarks>
+    /// <param name="chromosomes">Marker layout (GISTIC2 chromosome order = list order; every chromosome present in every sample).</param>
+    /// <param name="samples">Per-sample segments tiling every layout chromosome (<see cref="ZigguratSegment"/>).</param>
+    /// <param name="options">Options; null = <see cref="ZigguratOptions.Default"/>.</param>
+    /// <returns>The events of all samples.</returns>
+    /// <exception cref="ArgumentNullException">A required argument or a sample list is null.</exception>
+    /// <exception cref="ArgumentException">Invalid layout, no samples, segments that do not tile a chromosome, NaN values,
+    /// or a non-finite converted value (e.g. +∞ log2 with no cap).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Cap ≤ 0 or NaN, or Iterations &lt; 1.</exception>
+    public static ZigguratDeconstruction DeconstructZiggurat(
+        IReadOnlyList<ZigguratChromosome> chromosomes,
+        IReadOnlyList<IReadOnlyList<ZigguratSegment>> samples,
+        ZigguratOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(chromosomes);
+        ArgumentNullException.ThrowIfNull(samples);
+        ZigguratOptions opts = options ?? ZigguratOptions.Default;
+        if (opts.Cap is double capValue && (double.IsNaN(capValue) || capValue <= 0))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), capValue, "ZigguratOptions.Cap must be a positive number (or null).");
+        }
+
+        if (opts.Iterations < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), opts.Iterations, "ZigguratOptions.Iterations must be at least 1.");
+        }
+
+        var layout = new GisticMarkerLayout(chromosomes);
+        if (samples.Count == 0)
+        {
+            throw new ArgumentException("At least one sample is required.", nameof(samples));
+        }
+
+        Func<double, double> transform = GisticInputTransform(opts);
+        var b = new List<GisticZiggRow>[samples.Count];
+        for (int j = 0; j < samples.Count; j++)
+        {
+            IReadOnlyList<ZigguratSegment> segments = samples[j]
+                ?? throw new ArgumentNullException(nameof(samples), $"Sample {j} is null.");
+            b[j] = GisticMakeSampleB(layout, segments, j + 1, transform);
+        }
+
+        List<GisticZiggRow> q = GisticPerformDeconstruction(layout, b, opts.Iterations, out bool any);
+        if (!any)
+        {
+            return new ZigguratDeconstruction(Array.Empty<ZigguratEvent>());
+        }
+
+        var (qa, qd, qaod, qdoa) = GisticMakeFinalQs(q);
+        var events = new List<ZigguratEvent>(qa.Count + qd.Count + qaod.Count + qdoa.Count);
+        AddEvents(qa, ZigguratEventType.Amplification, 1);
+        AddEvents(qd, ZigguratEventType.Deletion, -1);
+        AddEvents(qaod, ZigguratEventType.AmplificationOverDeletion, 1);
+        AddEvents(qdoa, ZigguratEventType.DeletionOverAmplification, -1);
+        return new ZigguratDeconstruction(events);
+
+        void AddEvents(List<GisticZiggRow> rows, ZigguratEventType type, int sign)
+        {
+            foreach (GisticZiggRow r in rows)
+            {
+                int offset = layout.Offset(r.Chromosome);
+                events.Add(new ZigguratEvent(
+                    type, r.Sample - 1, layout.Name(r.Chromosome), r.Start - offset, r.End - offset,
+                    sign * r.Amplitude, r.StartLevel, r.EndLevel, r.Fraction, r.Score, r.ArmLevel));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Focal amplifications among deconstructed GISTIC2 events — <c>reconstruct_genomes.m</c> with
+    /// <c>broad_or_focal = 'focal'</c> on the <c>amp</c> and <c>aod</c> fields: <c>Q(:,8) &lt; broad_len_cutoff</c> and
+    /// <c>Q(:,12) ≥ t_amp</c> (≥, as in <c>reconstruct_genomes.m</c>; the amplitude is in the deconstruction's copy
+    /// number − 2 units, as GISTIC2 compares it). For 1p 0.5 | 1.5 | 0.5 this yields the +1.0 step only; the 0.5
+    /// underlying level is one broad event (whole-arm fraction ≥ 0.98).
+    /// </summary>
+    /// <param name="deconstruction">Result of <see cref="DeconstructZiggurat"/>.</param>
+    /// <param name="thresholds">Amplitude and length cutoffs; null = GISTIC2 defaults (t_amp 0.1, broad_len_cutoff 0.98).</param>
+    /// <returns>Focal amplification events (<c>amp</c> events first, then <c>aod</c>), in event order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="deconstruction"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="thresholds"/> is NaN or outside the GISTIC2 ranges.</exception>
+    public static IReadOnlyList<ZigguratEvent> DetectFocalAmplificationEvents(
+        ZigguratDeconstruction deconstruction,
+        FocalAmplificationThresholds? thresholds = null)
+    {
+        ArgumentNullException.ThrowIfNull(deconstruction);
+        FocalAmplificationThresholds cutoffs = thresholds ?? FocalAmplificationThresholds.Default;
+        ValidateFocalThresholds(cutoffs);
+        return deconstruction.Events
+            .Where(e => e.Type is ZigguratEventType.Amplification or ZigguratEventType.AmplificationOverDeletion
+                        && e.ArmFraction < cutoffs.BroadLengthCutoff
+                        && e.Amplitude >= cutoffs.AmplificationLog2Threshold)
+            .ToList();
+    }
+
+    /// <summary>
+    /// <c>perform_ziggurat_deconstruction.m</c> value preparation: cap (<c>D.dat(D.dat &gt; maxcap) = maxcap</c>, then the
+    /// minimum), then log2 → copy number − 2 (<c>2.^(D.dat+1)−2</c>); for copy-number input the cap is
+    /// <c>2^(1±cap) − 2</c>.
+    /// </summary>
+    private static Func<double, double> GisticInputTransform(ZigguratOptions options)
+    {
+        double maxCap = double.PositiveInfinity;
+        double minCap = double.NegativeInfinity;
+        if (options.Cap is double cap)
+        {
+            maxCap = cap;
+            minCap = -cap;
+            if (!options.InputIsLog2)
+            {
+                maxCap = Math.Pow(2, 1 + maxCap) - 2;
+                minCap = Math.Pow(2, 1 + minCap) - 2;
+            }
+        }
+
+        bool log = options.InputIsLog2;
+        return value =>
+        {
+            if (value > maxCap)
+            {
+                value = maxCap;
+            }
+
+            if (value < minCap)
+            {
+                value = minCap;
+            }
+
+            return log ? Math.Pow(2, value + 1) - 2 : value;
+        };
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>perform_deconstruction.m</c> (after <c>make_sample_B</c>): returns the final Q array (before
+    /// <c>make_final_Qs</c>); <paramref name="anyEvent"/> is false when the initial deconstruction has no events.
+    /// </summary>
+    internal static List<GisticZiggRow> GisticPerformDeconstruction(
+        GisticMarkerLayout layout, IReadOnlyList<List<GisticZiggRow>> b, int iterations, out bool anyEvent)
+    {
+        int nChr = layout.ChromosomeCount;
+        var chrnEnd = new int[nChr];
+        for (int ch = 1; ch <= nChr; ch++)
+        {
+            chrnEnd[ch - 1] = layout.ChromosomeEnd(ch);
+        }
+
+        var zeroLevels = new double[2 * nChr];
+        var qa = new List<GisticZiggRow>();
+        var qd = new List<GisticZiggRow>();
+        foreach (List<GisticZiggRow> sample in b)
+        {
+            (List<GisticZiggRow> za, List<GisticZiggRow> zd) = GisticDeconstructSample(sample, zeroLevels, chrnEnd);
+            qa.AddRange(za);
+            foreach (GisticZiggRow row in zd)
+            {
+                GisticZiggRow negated = row;
+                negated.Amplitude = -1 * row.Amplitude;
+                qd.Add(negated);
+            }
+        }
+
+        anyEvent = qa.Count + qd.Count > 0;
+        var q = new List<GisticZiggRow>();
+        if (!anyEvent)
+        {
+            return q;
+        }
+
+        GisticLengthAmplitudeTable table = GisticGenerate2dHistogram(qa, qd);
+        for (int iteration = 0; iteration < iterations; iteration++)
+        {
+            var perChromosome = new List<GisticZiggRow>[nChr, b.Count];
+            for (int j = 0; j < b.Count; j++)
+            {
+                for (int ch = 1; ch <= nChr; ch++)
+                {
+                    perChromosome[ch - 1, j] = GisticDeconstructChromosomeByTable(b[j].FindAll(r => r.Chromosome == ch), table);
+                }
+            }
+
+            q = new List<GisticZiggRow>();
+            for (int ch = 0; ch < nChr; ch++)
+            {
+                for (int j = 0; j < b.Count; j++)
+                {
+                    q.AddRange(perChromosome[ch, j]);
+                }
+            }
+
+            if (iteration < iterations - 1)
+            {
+                var (finalA, finalD, _, _) = GisticMakeFinalQs(q);
+                table = GisticGenerate2dHistogram(finalA, finalD);
+            }
+        }
+
+        return q;
+    }
+
+    /// <summary>
+    /// The per-chromosome body of the <c>perform_deconstruction.m</c> iteration: a single segment is one broad event
+    /// (<c>[Bt(1:5) 0 amp sum(fract) 0 amp]</c>); otherwise every segment end i is tried as the p/q breakpoint, each arm
+    /// part gets its table-optimal broad level, and the breakpoint with the highest
+    /// <c>p_score + q_score − penalty</c> wins (first on ties), penalty = <c>ln(len_bpts)</c> when an arm part has no
+    /// levels, else <c>3·ln(len_bpts)</c>, with <c>len_bpts = 1</c> when the q part is empty and the segment count otherwise.
+    /// </summary>
+    private static List<GisticZiggRow> GisticDeconstructChromosomeByTable(List<GisticZiggRow> bt, GisticLengthAmplitudeTable table)
+    {
+        int n = bt.Count;
+        if (n == 1)
+        {
+            GisticZiggRow only = bt[0];
+            return new List<GisticZiggRow>
+            {
+                new()
+                {
+                    Chromosome = only.Chromosome,
+                    Start = only.Start,
+                    End = only.End,
+                    Amplitude = only.Amplitude,
+                    Sample = only.Sample,
+                    StartLevel = 0,
+                    EndLevel = only.Amplitude,
+                    Fraction = 0 + only.Fraction,
+                    Score = 0,
+                    ArmLevel = only.Amplitude,
+                },
+            };
+        }
+
+        List<GisticZiggRow>? best = null;
+        double bestScore = double.NaN;
+        for (int i = 1; i <= n; i++)
+        {
+            double pFract = 0;
+            for (int k = 0; k < i; k++)
+            {
+                pFract += bt[k].Fraction;
+            }
+
+            double qFract = 0;
+            for (int k = i; k < n; k++)
+            {
+                qFract += bt[k].Fraction;
+            }
+
+            GisticBroadLevelChoice p = GisticFindMaxBroadLevel(bt.GetRange(0, i), table, pFract);
+            GisticBroadLevelChoice qChoice = GisticFindMaxBroadLevel(bt.GetRange(i, n - i), table, qFract);
+            double ziggScore = p.Score + qChoice.Score;
+            int lenBpts = qChoice.LevelCount == 0 ? 1 : n;
+            double penalty = p.LevelCount == 0 || qChoice.LevelCount == 0
+                ? Math.Log(lenBpts)
+                : 3 * Math.Log(lenBpts);
+            double score = ziggScore - penalty;
+
+            if (best is null || (!double.IsNaN(score) && (double.IsNaN(bestScore) || score > bestScore)))
+            {
+                best = WithArmLevel(p.Events, p.BroadLevel);
+                best.AddRange(WithArmLevel(qChoice.Events, qChoice.BroadLevel));
+                bestScore = score;
+            }
+        }
+
+        return best!;
+
+        static List<GisticZiggRow> WithArmLevel(List<GisticZiggRow> rows, double level)
+        {
+            var result = new List<GisticZiggRow>(rows.Count);
+            foreach (GisticZiggRow row in rows)
+            {
+                GisticZiggRow r = row;
+                r.ArmLevel = level;
+                result.Add(r);
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>make_final_Qs.m</c>: QA = amp &gt; 0 ∧ cn_st ≥ 0; QD = amp &lt; 0 ∧ cn_st ≤ 0; QAOD = amp &gt; 0 ∧
+    /// cn_en ≤ 0; QDOA = amp &lt; 0 ∧ cn_en ≥ 0; events crossing level 0 (cn_st·cn_en &lt; 0) are split at 0 and the
+    /// parts appended (to QA/QAOD resp. QD/QDOA).
+    /// </summary>
+    internal static (List<GisticZiggRow> Amp, List<GisticZiggRow> Del, List<GisticZiggRow> AmpOverDel, List<GisticZiggRow> DelOverAmp)
+        GisticMakeFinalQs(List<GisticZiggRow> q)
+    {
+        var qa = q.FindAll(r => r.Amplitude > 0 && r.StartLevel >= 0);
+        var qd = q.FindAll(r => r.Amplitude < 0 && r.StartLevel <= 0);
+        var qaod = q.FindAll(r => r.Amplitude > 0 && r.EndLevel <= 0);
+        var qdoa = q.FindAll(r => r.Amplitude < 0 && r.EndLevel >= 0);
+        var newA = new List<GisticZiggRow>();
+        var newAod = new List<GisticZiggRow>();
+        var newD = new List<GisticZiggRow>();
+        var newDoa = new List<GisticZiggRow>();
+        foreach (GisticZiggRow cur in q)
+        {
+            if (cur.StartLevel * cur.EndLevel < 0 && (cur.Amplitude > 0 || cur.Amplitude < 0))
+            {
+                GisticZiggRow over = cur;   // [cur(1:6) 0 cur(8:10)]
+                over.EndLevel = 0;
+                over.Amplitude = over.EndLevel - over.StartLevel;
+                GisticZiggRow pure = cur;   // [cur(1:5) 0 cur(7:10)]
+                pure.StartLevel = 0;
+                pure.Amplitude = pure.EndLevel - pure.StartLevel;
+                if (cur.Amplitude > 0)
+                {
+                    newA.Add(pure);
+                    newAod.Add(over);
+                }
+                else
+                {
+                    newD.Add(pure);
+                    newDoa.Add(over);
+                }
+            }
+        }
+
+        qa.AddRange(newA);
+        qd.AddRange(newD);
+        qaod.AddRange(newAod);
+        qdoa.AddRange(newDoa);
+        return (qa, qd, qaod, qdoa);
     }
 
     #endregion

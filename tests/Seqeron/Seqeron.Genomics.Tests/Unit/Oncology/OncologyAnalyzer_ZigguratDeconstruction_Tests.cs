@@ -391,4 +391,217 @@ public class OncologyAnalyzer_ZigguratDeconstruction_Tests
     }
 
     #endregion
+
+    #region F52 — perform_deconstruction / make_final_Qs / DeconstructZiggurat (Octave-locked)
+
+    // Expected rows: "type sample chr startMarker endMarker amplitude cn_st cn_en fract score armLevel" with
+    // type 0 = amp, 1 = del, 2 = aod, 3 = doa (Qs field order), sample 0-based, markers local, amplitude = Qs column 12.
+    private static double[] EventColumns(OncologyAnalyzer.ZigguratEvent e) =>
+        new[] { (double)(int)e.Type, e.Sample, double.Parse(e.Chromosome, CultureInfo.InvariantCulture), e.StartMarker, e.EndMarker,
+                e.Amplitude, e.StartLevel, e.EndLevel, e.ArmFraction, e.Score, e.ArmLevel };
+
+    private static void AssertEvents(OncologyAnalyzer.ZigguratDeconstruction result, string expected, string what)
+    {
+        double[][] want = Parse(expected);
+        Assert.That(result.Events, Has.Count.EqualTo(want.Length), $"{what}: event count (Octave)");
+        for (int i = 0; i < want.Length; i++)
+        {
+            double[] got = EventColumns(result.Events[i]);
+            Assert.That(got, Is.EqualTo(want[i]), $"{what}: event {i + 1} must equal Octave bit-for-bit");
+            for (int c = 5; c < got.Length; c++)
+            {
+                Assert.That(double.IsNegative(got[c]), Is.EqualTo(double.IsNegative(want[i][c])), $"{what}: event {i + 1} column {c + 1} sign (incl. −0)");
+            }
+        }
+    }
+
+    private static readonly OncologyAnalyzer.ZigguratOptions CopyNumberInput = new() { InputIsLog2 = false, Cap = null };
+
+    // R1 — one sample, 1p 0.5 | 1.5 | 0.5 (copy number − 2 units): one broad 0.5 event over 1p (fraction 1) and one
+    // focal +1.0 event (markers 4–6, fraction 0.3) — the B24 LIMITATIONS repro, resolved.
+    [Test]
+    public void DeconstructZiggurat_InterruptedArmGain_OneBroadOneFocal_MatchesOctave()
+    {
+        var sample = new[] { S("1", 1, 3, 0.5), S("1", 4, 6, 1.5), S("1", 7, 10, 0.5), S("1", 11, 20, 0), S("2", 1, 20, 0) };
+        string expected = """
+            0 0 1 4 6 1 0.5 1.5 0.29999999999999999 -0.9241382834507913 0
+            0 0 1 1 10 0.5 0 0.5 1 -9.4415314548696951 0
+            """;
+
+        var result = OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { sample }, CopyNumberInput);
+        AssertEvents(result, expected, "R1 niters 1");
+        AssertEvents(OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { sample }, CopyNumberInput with { Iterations = 2 }),
+            """
+            0 0 1 4 6 1 0.5 1.5 0.29999999999999999 -0.9241382834507913 0
+            0 0 1 1 10 0.5 0 0.5 1 -9.4415314548696951 0
+            """, "R1 niters 2");
+
+        var focal = OncologyAnalyzer.DetectFocalAmplificationEvents(result);
+        Assert.That(focal, Has.Count.EqualTo(1), "GISTIC2 focal filter on the events: only the +1.0 step is focal");
+        Assert.That((focal[0].StartMarker, focal[0].EndMarker, focal[0].Amplitude, focal[0].StartLevel, focal[0].EndLevel),
+            Is.EqualTo((4, 6, 1.0, 0.5, 1.5)), "focal +1.0 over the 0.5 level");
+        var broad = result.Events.Where(e => !e.IsFocal()).ToList();
+        Assert.That(broad.Select(e => (e.StartMarker, e.EndMarker, e.Amplitude)), Is.EqualTo(new[] { (1, 10, 0.5) }),
+            "one broad 0.5 event over the whole p arm (fraction 1 ≥ 0.98)");
+        Assert.That(result.ForSample(0), Has.Count.EqualTo(2));
+
+        // Contrast: the per-segment filter (unchanged) reports both flanks and the peak as focal.
+        var perSegment = OncologyAnalyzer.DetectFocalAmplifications(new[]
+        {
+            new OncologyAnalyzer.CopyNumberArmSegment("1p", 0, 3, 10, 0.5) { MarkerCount = 3, ArmMarkerCount = 10 },
+            new OncologyAnalyzer.CopyNumberArmSegment("1p", 3, 6, 10, 1.5) { MarkerCount = 3, ArmMarkerCount = 10 },
+            new OncologyAnalyzer.CopyNumberArmSegment("1p", 6, 10, 10, 0.5) { MarkerCount = 4, ArmMarkerCount = 10 },
+        });
+        Assert.That(perSegment, Has.Count.EqualTo(3), "per-segment overload unchanged");
+    }
+
+    // R2 — deletion inside a 1q gain (0.6 | −0.8 | 0.6) and chr 2 −0.3: the −1.4 step crosses 0 and is split
+    // (make_final_Qs) into a deletion 0 → −0.8 and a deletion-over-amplification 0.6 → 0; signed zeros as in Octave.
+    [Test]
+    public void DeconstructZiggurat_DeletionInsideGain_SplitAtZero_MatchesOctave()
+    {
+        var sample = new[] { S("1", 1, 10, 0), S("1", 11, 14, 0.6), S("1", 15, 16, -0.8), S("1", 17, 20, 0.6), S("2", 1, 20, -0.3) };
+        AssertEvents(OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { sample }, CopyNumberInput), """
+            0 0 1 1 20 0.59999999999999998 0 0.59999999999999998 2 -9.4415314548696916 0.59999999999999998
+            1 0 2 1 20 0.29999999999999999 0 -0.29999999999999999 2 0 -0.29999999999999999
+            1 0 1 15 16 0.79999999999999993 0 -0.79999999999999993 0.20000000000000001 -9.4415314548696916 0.59999999999999998
+            3 0 1 1 10 0.59999999999999998 0.59999999999999998 -0 1 -9.4415314548696916 0.59999999999999998
+            3 0 1 15 16 0.59999999999999998 0.59999999999999998 0 0.20000000000000001 -9.4415314548696916 0.59999999999999998
+            """, "R2 niters 1");
+        AssertEvents(OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { sample }, CopyNumberInput with { Iterations = 2 }),
+            """
+            0 0 1 1 20 0.59999999999999998 0 0.59999999999999998 2 -9.4415314548696951 0.59999999999999998
+            1 0 2 1 20 0.29999999999999999 0 -0.29999999999999999 2 0 -0.29999999999999999
+            1 0 1 15 16 0.79999999999999993 0 -0.79999999999999993 0.20000000000000001 -9.4415314548696951 0.59999999999999998
+            3 0 1 1 10 0.59999999999999998 0.59999999999999998 -0 1 -9.4415314548696951 0.59999999999999998
+            3 0 1 15 16 0.59999999999999998 0.59999999999999998 0 0.20000000000000001 -9.4415314548696951 0.59999999999999998
+            """, "R2 niters 2");
+    }
+
+    // R4 — centromere-spanning gain on chr 2 (local markers 6..12): one event, fraction 3/8 + 4/12.
+    [Test]
+    public void DeconstructZiggurat_CentromereSpanningGain_MatchesOctave()
+    {
+        var sample = new[] { S("1", 1, 20, 0), S("2", 1, 5, 0), S("2", 6, 12, 1.0), S("2", 13, 20, 0) };
+        var result = OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { sample }, CopyNumberInput);
+        AssertEvents(result, """
+            0 0 2 6 12 1 0 1 0.70833333333333326 -0.23109108789317978 0
+            """, "R4");
+        Assert.That(OncologyAnalyzer.DetectFocalAmplificationEvents(result), Has.Count.EqualTo(1),
+            "0.7083 (p + q) < 0.98 ⇒ focal");
+    }
+
+    // R3 — 3-sample cohort (the F51 cohort), niters 1 and 2 (the table is rebuilt from the final events).
+    [Test]
+    public void DeconstructZiggurat_ThreeSampleCohort_MatchesOctave()
+    {
+        AssertEvents(OncologyAnalyzer.DeconstructZiggurat(Layout, Cohort, CopyNumberInput), """
+            0 0 1 4 6 1 0.5 1.5 0.29999999999999999 -2.714898452106028 0
+            0 0 1 1 10 0.5 0 0.5 1 -9.4415314548696934 0
+            0 1 1 1 20 0.59999999999999998 0 0.59999999999999998 2 -9.4415314548696934 0.59999999999999998
+            0 0 2 1 20 0.20000000000000001 0 0.20000000000000001 2 0 0.20000000000000001
+            0 2 2 9 10 2.1499999999999999 0.25 2.3999999999999999 0.16666666666666666 -2.714898452106028 0.25
+            0 2 2 1 20 0.25 0 0.25 2 -9.4415314548696934 0.25
+            0 1 2 6 12 0.89999999999999991 0 0.89999999999999991 0.70833333333333326 -9.4415314548696934 -0.29999999999999999
+            1 2 1 1 20 0.40000000000000002 0 -0.40000000000000002 2 0 -0.40000000000000002
+            1 1 2 1 20 0.29999999999999999 0 -0.29999999999999999 2 -9.4415314548696934 -0.29999999999999999
+            1 1 1 15 16 0.79999999999999993 0 -0.79999999999999993 0.20000000000000001 -9.4415314548696934 0.59999999999999998
+            2 1 2 6 12 0.29999999999999999 -0.29999999999999999 0 0.70833333333333326 -9.4415314548696934 -0.29999999999999999
+            3 1 1 1 10 0.59999999999999998 0.59999999999999998 -0 1 -9.4415314548696934 0.59999999999999998
+            3 1 1 15 16 0.59999999999999998 0.59999999999999998 0 0.20000000000000001 -9.4415314548696934 0.59999999999999998
+            """, "R3 niters 1");
+        AssertEvents(OncologyAnalyzer.DeconstructZiggurat(Layout, Cohort, CopyNumberInput with { Iterations = 2 }),
+            """
+            0 0 1 4 6 1 0.5 1.5 0.29999999999999999 -2.5327766755544729 0
+            0 0 1 1 10 0.5 0 0.5 1 -9.4415314548696934 0
+            0 1 1 1 20 0.59999999999999998 0 0.59999999999999998 2 -9.4415314548696934 0.59999999999999998
+            0 0 2 1 20 0.20000000000000001 0 0.20000000000000001 2 0 0.20000000000000001
+            0 2 2 9 10 2.1499999999999999 0.25 2.3999999999999999 0.16666666666666666 -2.5327766755544729 0.25
+            0 2 2 1 20 0.25 0 0.25 2 -9.4415314548696934 0.25
+            0 1 2 6 12 0.89999999999999991 0 0.89999999999999991 0.70833333333333326 -9.4415314548696934 -0.29999999999999999
+            1 2 1 1 20 0.40000000000000002 0 -0.40000000000000002 2 0 -0.40000000000000002
+            1 1 2 1 20 0.29999999999999999 0 -0.29999999999999999 2 -9.4415314548696934 -0.29999999999999999
+            1 1 1 15 16 0.79999999999999993 0 -0.79999999999999993 0.20000000000000001 -9.4415314548696934 0.59999999999999998
+            2 1 2 6 12 0.29999999999999999 -0.29999999999999999 0 0.70833333333333326 -9.4415314548696934 -0.29999999999999999
+            3 1 1 1 10 0.59999999999999998 0.59999999999999998 -0 1 -9.4415314548696934 0.59999999999999998
+            3 1 1 15 16 0.59999999999999998 0.59999999999999998 0 0.20000000000000001 -9.4415314548696934 0.59999999999999998
+            """, "R3 niters 2");
+    }
+
+    // R5 — full perform_ziggurat_deconstruction: log2 input, default cap 1.5 (1.9 and 1.6 capped, −∞ capped to −1.5),
+    // 2^(x+1) − 2 conversion; Qs.amp/del/aod/doa with column 12 = amplitude.
+    [Test]
+    public void DeconstructZiggurat_Log2InputWithDefaultCap_MatchesOctavePerformZigguratDeconstruction()
+    {
+        var samples = new[]
+        {
+            new[] { S("1", 1, 4, 0.3), S("1", 5, 6, 1.9), S("1", 7, 20, 0.3), S("2", 1, 20, 0) },
+            new[] { S("1", 1, 20, -0.2), S("2", 1, 3, 0), S("2", 4, 15, double.NegativeInfinity), S("2", 16, 20, 0) },
+            new[] { S("1", 1, 12, 0.584962500721156), S("1", 13, 20, -1), S("2", 1, 9, 0.1), S("2", 10, 11, 1.6), S("2", 12, 20, 0.1) },
+        };
+        AssertEvents(OncologyAnalyzer.DeconstructZiggurat(Layout, samples), """
+            0 0 1 5 6 3.194565422802548 0.46228882668983262 3.6568542494923806 0.20000000000000001 -2.309832944402781 0.46228882668983262
+            0 0 1 1 20 0.46228882668983262 0 0.46228882668983262 2 -9.4415314548696916 0.46228882668983262
+            0 2 2 10 11 3.5133073244197943 0.14354692507258626 3.6568542494923806 0.16666666666666666 -2.309832944402781 0.14354692507258626
+            0 2 2 1 20 0.14354692507258626 0 0.14354692507258626 2 -9.4415314548696916 0.14354692507258626
+            0 2 1 1 12 1 0 1 1.2 -9.4415314548696916 -1
+            1 1 1 1 20 0.25889887340775175 0 -0.25889887340775175 2 0 -0.25889887340775175
+            1 2 1 1 20 1 0 -1 2 -9.4415314548696916 -1
+            1 1 2 4 15 1.2928932188134525 0 -1.2928932188134525 1.2083333333333335 -2.309832944402781 0
+            2 2 1 1 12 1 -1 0 1.2 -9.4415314548696916 -1
+            """, "R5");
+    }
+
+    // The GISTIC2 focal filter on events (reconstruct_genomes.m): amp + aod, fraction < cutoff, amplitude ≥ t_amp.
+    [Test]
+    public void DetectFocalAmplificationEvents_AppliesReconstructGenomesFilter()
+    {
+        var result = OncologyAnalyzer.DeconstructZiggurat(Layout, Cohort, CopyNumberInput);
+        var focal = OncologyAnalyzer.DetectFocalAmplificationEvents(result);
+        Assert.That(focal.Select(e => (e.Type, e.Sample, e.Chromosome, e.StartMarker, e.EndMarker)), Is.EqualTo(new[]
+        {
+            (OncologyAnalyzer.ZigguratEventType.Amplification, 0, "1", 4, 6),
+            (OncologyAnalyzer.ZigguratEventType.Amplification, 2, "2", 9, 10),
+            (OncologyAnalyzer.ZigguratEventType.Amplification, 1, "2", 6, 12),
+            (OncologyAnalyzer.ZigguratEventType.AmplificationOverDeletion, 1, "2", 6, 12),
+        }), "focal amp + aod events of the cohort (fraction < 0.98, amplitude ≥ 0.1)");
+
+        // ≥ t_amp (reconstruct_genomes.m): an event of amplitude exactly t_amp passes.
+        var exact = OncologyAnalyzer.DetectFocalAmplificationEvents(result, new OncologyAnalyzer.FocalAmplificationThresholds(1.0, 0.98));
+        Assert.That(exact.Select(e => e.Amplitude), Is.EqualTo(new[] { 1.0, 2.1499999999999999 }), "amplitude 1.0 ≥ t_amp 1.0 is kept");
+        Assert.That(() => OncologyAnalyzer.DetectFocalAmplificationEvents(result, new OncologyAnalyzer.FocalAmplificationThresholds(double.NaN, 0.98)),
+            NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+        Assert.That(() => OncologyAnalyzer.DetectFocalAmplificationEvents(null!), NUnit.Framework.Throws.ArgumentNullException);
+    }
+
+    // All-neutral cohort: every chromosome is one zero segment ⇒ no events (Octave perform_deconstruction: empty Q arrays).
+    [Test]
+    public void DeconstructZiggurat_AllNeutral_NoEvents()
+    {
+        var neutral = new[] { S("1", 1, 20, 0), S("2", 1, 4, 0), S("2", 5, 20, 0) };
+        Assert.That(OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { neutral, neutral }, CopyNumberInput).Events, Is.Empty);
+    }
+
+    [Test]
+    public void DeconstructZiggurat_InvalidArguments_Throw()
+    {
+        var ok = new[] { S("1", 1, 20, 0.5), S("2", 1, 20, 0) };
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => OncologyAnalyzer.DeconstructZiggurat(null!, new[] { ok }), NUnit.Framework.Throws.ArgumentNullException);
+            Assert.That(() => OncologyAnalyzer.DeconstructZiggurat(Layout, null!), NUnit.Framework.Throws.ArgumentNullException);
+            Assert.That(() => OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { ok, null! }), NUnit.Framework.Throws.ArgumentNullException);
+            Assert.That(() => OncologyAnalyzer.DeconstructZiggurat(Layout, Array.Empty<ZSeg[]>()), NUnit.Framework.Throws.ArgumentException);
+            Assert.That(() => OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { ok }, new() { Cap = 0 }),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { ok }, new() { Cap = double.NaN }),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { ok }, new() { Iterations = 0 }),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => OncologyAnalyzer.DeconstructZiggurat(Layout, new[] { new[] { S("1", 1, 20, double.PositiveInfinity), S("2", 1, 20, 0) } },
+                new() { Cap = null }), NUnit.Framework.Throws.ArgumentException, "+∞ log2 without a cap is not finite after conversion");
+        });
+    }
+
+    #endregion
 }

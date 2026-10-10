@@ -120,6 +120,8 @@ the cutoff (0.98) is arm-level (the focal test is strictly less-than).
 - `OncologyAnalyzer.IdentifyAmplifiedOncogenes(amplifications)`: maps focal amplifications to panel oncogenes (arm-level).
 - `OncologyAnalyzer.IdentifyAmplifiedOncogenes(IEnumerable<CopyNumberRegion>, IReadOnlyList<GeneLocus>? genePanel = null)`: GISTIC2 locus-overlap mapping (F49); default panel `DefaultOncogeneLoci`.
 - `OncologyAnalyzer.IsFocalAmplification(segment, thresholds)`: single-segment predicate (internal helper, public for reuse).
+- `OncologyAnalyzer.DeconstructZiggurat(chromosomes, samples, options?)`: GISTIC2 ziggurat deconstruction of one or more samples into broad and focal SCNA events (`ZigguratEvent`, F50–F52).
+- `OncologyAnalyzer.DetectFocalAmplificationEvents(deconstruction, thresholds?)`: GISTIC2 `reconstruct_genomes` focal filter on the deconstructed `amp` + `aod` events (F52).
 
 ### 5.2 Current Behavior
 
@@ -181,6 +183,26 @@ chooses an arm's broad level among its distinct segment values: for each candida
 that level (`ziggurat_on_extremes` + `iterative_ziggurat`) and scores every event and the broad event by table lookup
 (`score_ziggs_by_table`: last edge strictly below the value); the highest total wins (first on ties).
 
+**Ziggurat deconstruction — full pipeline (F52).** `DeconstructZiggurat` ports `perform_ziggurat_deconstruction.m`
+(cap — default 1.5, applied to log2 values, or `2^(1±cap) − 2` for copy-number input — then `2^(x+1) − 2`) and
+`perform_deconstruction.m`: initial deconstruction of every sample against level 0, the cohort table, then for every
+sample and chromosome every segment end is tried as the p/q breakpoint; each part gets its table-optimal broad level and
+the breakpoint maximising `p_score + q_score − penalty` wins (first on ties); the final Q array is split around level 0 by
+`make_final_Qs.m` into `amp` / `del` / `aod` / `doa`; with `Iterations > 1` the table is rebuilt from the final `amp` +
+`del` events and the loop repeated (GISTIC2 runs 1). **Penalty as coded:** the comment says "(2k − 1)·ln n,
+k = #broad levels", the code gives `3·ln n` (n = segments on the chromosome) when both parts are non-empty and
+`ln(len_bpts)` with `len_bpts = 1`, i.e. **0**, when the q part is empty (breakpoint at the last segment) — ported as coded.
+Events report amplitude (GISTIC2 column 12, positive; copy number − 2 units), start/end level, arm fraction (markers,
+p + q when spanning), score and arm level. `DetectFocalAmplificationEvents` applies `reconstruct_genomes.m`'s focal
+filter (`Q(:,8) < broad_len_cutoff` and `Q(:,12) ≥ t_amp`, on `amp` and `aod`; ≥ as in that file, amplitude in
+copy-number units as GISTIC2 compares it). Example: 1p 0.5 | 1.5 | 0.5 (copy number − 2) → one broad 0.5 event over 1p
+(fraction 1) + one focal +1.0 event (0.5 → 1.5, fraction 0.3). Confirmed bit-for-bit (incl. signed zeros) against
+Octave running the original files on 2000 random cohorts (27 469 events) and 5 hand cases. Signed-zero details follow
+GNU Octave (`unique` keeps the last of equal values; `max(x,y) = x ≥ y ? x : y`); MATLAB's `unique` keeps the first, so
+MATLAB-run GISTIC2 can differ in the sign of a zero level only. Not ported: `remove_noisy_samples` (GISTIC2 drops
+samples with more than `max_segs_per_sample` breakpoints before deconstruction; filter beforehand) and the outer
+wrapper's ≥ 2-sample requirement (`perform_deconstruction` itself runs on n = 1).
+
 **Reference-implementation cross-check (2026-09 review):** the predicate equals the GISTIC2 focal-event filter in
 `snputil/reconstruct_genomes.m` (`broad_or_focal='focal'`: `Q(:,8) < broad_len_cutoff` and amplitude vs `t_amp`)
 and `score_genome.m` (`Qs.del(:,8) < broad_len_cutoff`). The length test is strict `<`, as in GISTIC2. The amplitude
@@ -189,12 +211,8 @@ uses `>=` — the two differ only at exact floating-point equality.
 
 **Not implemented:**
 
-- GISTIC2 **ziggurat deconstruction** (`perform_deconstruction.m`, `atomic_zigg_deconstruction.m`,
-  cohort-learned broad levels via `find_max_broad_level_by_table`). GISTIC2 applies the focal filter to deconstructed
-  SCNA events whose amplitude is relative to the underlying level; this unit treats every input segment as one event
-  with amplitude = its log2. **Consequence:** raw segments of an arm-level gain interrupted by a focal peak
-  (0.5 | 1.5 | 0.5) report the flanks as focal amplifications, whereas GISTIC2 calls one broad (0.5) + one focal (+1.0)
-  event. Callers should pass deconstructed events or arm-merged segments.
+- ~~GISTIC2 **ziggurat deconstruction**~~ — **Resolved by F50–F52** (`DeconstructZiggurat` + `DetectFocalAmplificationEvents`;
+  the per-segment `DetectFocalAmplifications` is unchanged and still treats each segment as one event).
 
 - GISTIC2's probabilistic peak/q-value boundary estimation and background-rate modeling; **users should
   rely on:** the full GISTIC2 tool for genome-wide significance peaks. This unit implements only the
@@ -208,6 +226,8 @@ uses `>=` — the two differ only at exact floating-point equality.
 | 2 | Caller-supplied arm length | Assumption | Caller must provide cytoband-derived arm length | accepted | No bundled cytoband table |
 | 3 | Arm fraction units | Option | bp unless marker counts supplied | resolved (F48) | GISTIC2 default = markers (`norm_type = 1`) |
 | 4 | Gene mapping | Option | arm-level overload kept; locus overlap via `CopyNumberRegion` overload | resolved (F49) | GISTIC2 `genes_at` `partial_hits = 1` |
+| 5 | Ziggurat deconstruction | Option | per-segment overload unchanged; GISTIC2 events via `DeconstructZiggurat` | resolved (F50–F52) | `remove_noisy_samples` not ported; signed zeros follow Octave `unique`/`max` |
+| 6 | BIC penalty | Reference quirk | 0 (not ln n) when the breakpoint is the last segment | ported as coded | `perform_deconstruction.m` `len_bpts = 1` |
 
 ## 6. Edge Cases and Limitations
 
@@ -227,10 +247,14 @@ uses `>=` — the two differ only at exact floating-point equality.
 | 39/40 markers covering 99% of arm bp | Focal (0.975 < 0.98) | GISTIC2 marker units (F48) |
 | Region touching a gene end at one base | Gene reported | `genes_at` closed overlap (F49) |
 | Region End < Start, empty chromosome | ArgumentException | `genes_at` errors on End < Start |
+| 0.5 \| 1.5 \| 0.5 on 1p (DeconstructZiggurat) | one broad 0.5 + one focal +1.0 event | GISTIC2 ziggurat (F52) |
+| Centromere-spanning event | fraction = p part/p markers + q part/q markers | `normalize_by_arm_length` ref_length 2 (F50) |
+| All samples neutral (0) | no events | Octave `perform_deconstruction` empty |
+| Segments not tiling a chromosome, NaN value, +∞ log2 with no cap, Cap ≤ 0, Iterations < 1 | ArgumentException / ArgumentOutOfRangeException | Validation (F52) |
 
 ### 6.2 Limitations
 
-No ziggurat deconstruction, no significance testing, no background-rate modeling, and no sub-arm peak localization (these are
+Ziggurat deconstruction is available as `DeconstructZiggurat` (F50–F52; noisy-sample removal not ported). No significance testing, no background-rate modeling, and no sub-arm peak localization (these are
 GISTIC2's probabilistic stages). The arm-level overload maps the six-gene registry panel by arm; the
 `CopyNumberRegion` overload applies GISTIC2 locus overlap (F49) to the default or a caller panel. Arm fraction is in
 markers when marker counts are supplied (F48), else bp. Deletions are out of scope (ONCO-CNA-003).

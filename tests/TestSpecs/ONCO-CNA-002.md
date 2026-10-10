@@ -48,6 +48,8 @@
 | `DetectFocalAmplifications(segments, thresholds?)` | OncologyAnalyzer | Canonical | GISTIC2 length(<0.98·arm) + amplitude(>t_amp) predicate |
 | `IdentifyAmplifiedOncogenes(amplifications)` | OncologyAnalyzer | Canonical | Maps focal amplifications to ERBB2/MYC/EGFR/CCND1/MDM2/CDK4 by chromosome arm |
 | `IsFocalAmplification(segment, thresholds)` | OncologyAnalyzer | Internal | Single-segment predicate; tested via canonicals |
+| `DeconstructZiggurat(chromosomes, samples, options?)` | OncologyAnalyzer | Canonical | GISTIC2 ziggurat deconstruction (F50–F52), Octave-locked |
+| `DetectFocalAmplificationEvents(deconstruction, thresholds?)` | OncologyAnalyzer | Canonical | GISTIC2 `reconstruct_genomes` focal filter on events (F52) |
 
 ---
 
@@ -115,6 +117,13 @@
 | C20 | Equal adjacent values merged; invalid tiling (F50) | 0.5,0.5 adjacent; gaps / overrun / NaN / unknown chr / empty or duplicate layout | one B row; ArgumentException | MakeSampleB_EqualAdjacentValues_Merged, MakeSampleB_InvalidTiling_Throws |
 | C21 | Length × amplitude log table (F51) | 3-sample cohort, initial (level 0) events | all 51×51 `log_hd` cells = Octave `generate_2d_hists(QA,QD,[],[],.01,1)` (11 occupied bins, background −9.4415314548696934) | Generate2dHistogram_CohortInitialEvents_MatchOctaveLogTable |
 | C22 | Arm broad-level selection (F51) | every (sample, chromosome, breakpoint, p/q part) of the cohort, 32 calls | level, max score, num_levels, max_Q rows = Octave `find_max_broad_level_by_table` | FindMaxBroadLevelByTable_EveryArmSplitOfCohort_MatchesOctave |
+| C23 | 0.5\|1.5\|0.5 on 1p, one sample (F52) | `DeconstructZiggurat`, copy-number input, niters 1 / 2 | Octave events: broad 0.5 (1p, fract 1) + focal +1.0; `DetectFocalAmplificationEvents` → the +1.0 only; per-segment overload unchanged (3) | DeconstructZiggurat_InterruptedArmGain_OneBroadOneFocal_MatchesOctave |
+| C24 | Deletion inside gain (F52) | 1q 0.6\|−0.8\|0.6 | Octave events incl. make_final_Qs split and −0 levels | DeconstructZiggurat_DeletionInsideGain_SplitAtZero_MatchesOctave |
+| C25 | Centromere-spanning event (F52) | chr2 markers 6..12 | one focal amp, fract 0.70833333333333326 | DeconstructZiggurat_CentromereSpanningGain_MatchesOctave |
+| C26 | 3-sample cohort (F52) | niters 1 and 2 | 13 Octave events each, bit-exact | DeconstructZiggurat_ThreeSampleCohort_MatchesOctave |
+| C27 | Full pipeline log2 + cap (F52) | 3 samples, 1.9 / 1.6 / −∞ capped at 1.5 | 9 events = Octave `perform_ziggurat_deconstruction` Qs | DeconstructZiggurat_Log2InputWithDefaultCap_MatchesOctavePerformZigguratDeconstruction |
+| C28 | Focal filter on events (F52) | cohort; t_amp 1.0 equality; NaN threshold; null | amp+aod, fract < 0.98, amplitude ≥ t_amp; throws | DetectFocalAmplificationEvents_AppliesReconstructGenomesFilter |
+| C29 | All neutral; invalid arguments (F52) | zeros; null/empty samples, Cap 0/NaN, Iterations 0, +∞ without cap | no events; ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | DeconstructZiggurat_AllNeutral_NoEvents, DeconstructZiggurat_InvalidArguments_Throw |
 
 ---
 
@@ -203,7 +212,7 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Amplitude "amplified" test uses GISTIC2 `t_amp` = 0.1 combined with the paper's length rule — confirmed as GISTIC2's own focal filter (`reconstruct_genomes.m`, 2026-09 review) | DetectFocalAmplifications predicate |
-| 3 | Each input segment is one SCNA event (no ziggurat deconstruction); raw flanks of a broad gain interrupted by a focal peak are reported as focal | Input contract (documented limitation) |
+| 3 | `DetectFocalAmplifications` treats each input segment as one SCNA event; GISTIC2 events (ziggurat deconstruction) via `DeconstructZiggurat` + `DetectFocalAmplificationEvents` (F50–F52) | Input contract of the per-segment overload |
 | 2 | Arm label + arm length supplied by caller (no bundled cytoband table) | Segment input contract |
 
 ---
