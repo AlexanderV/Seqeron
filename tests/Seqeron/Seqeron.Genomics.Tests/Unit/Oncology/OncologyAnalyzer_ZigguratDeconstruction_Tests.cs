@@ -604,4 +604,101 @@ public class OncologyAnalyzer_ZigguratDeconstruction_Tests
     }
 
     #endregion
+
+    #region F54 — remove_noisy_samples (Octave-locked)
+
+    // FIN-B24 WP26 / F54. Log2 input, default cap 1.5. Octave: SegArray branch of remove_noisy_samples.m
+    // (cap_vals → getbpt_counts, keepers = count <= max) gives counts [2 5 2 6]: S0 0.4 runs across the chr1/chr2
+    // boundary (one segment), S2 2.0 | 2.2 both capped to 1.5 (annealed), S3 two equal 0.5 segments joined. The
+    // uncompressed branch would give [1 4 1 5] (diff ~= 0) — not followed (GISTIC2 default use_segarray = 1).
+    // Events: perform_ziggurat_deconstruction on the kept columns, sample = original index (Qs.sdesc).
+    private static readonly ZSeg[][] NoisyCohort =
+    {
+        new[] { S("1", 1, 20, 0.4), S("2", 1, 8, 0.4), S("2", 9, 20, -0.5) },
+        new[] { S("1", 1, 5, 0.3), S("1", 6, 8, 0.9), S("1", 9, 20, 0.3), S("2", 1, 10, -0.4), S("2", 11, 20, 0.2) },
+        new[] { S("1", 1, 4, 2.0), S("1", 5, 9, 2.2), S("1", 10, 20, 0.5), S("2", 1, 20, 0.5) },
+        new[] { S("1", 1, 6, 0.5), S("1", 7, 12, 0.5), S("1", 13, 20, 1.0), S("2", 1, 5, 0.2), S("2", 6, 9, 0.6), S("2", 10, 15, 0.2), S("2", 16, 20, -0.6) },
+    };
+
+    private const string NoisyCohortAllKept = """
+            0 0 1 1 20 0.6390158215457884 0 0.6390158215457884 2 0 0.6390158215457884
+            0 1 1 6 8 1.269843139457397 0.46228882668983262 1.7321319661472296 0.29999999999999999 -2.9377424078719847 0.46228882668983262
+            0 1 1 1 20 0.46228882668983262 0 0.46228882668983262 2 -9.4415314548696934 0.46228882668983262
+            0 2 1 1 9 2.8284271247461903 0.82842712474619029 3.6568542494923806 0.90000000000000002 -2.9377424078719847 0.82842712474619029
+            0 2 1 1 20 0.82842712474619029 0 0.82842712474619029 2 -9.4415314548696934 0.82842712474619029
+            0 3 1 13 20 1.1715728752538097 0.82842712474619029 2 0.80000000000000004 -9.4415314548696934 0.82842712474619029
+            0 3 1 1 20 0.82842712474619029 0 0.82842712474619029 2 -9.4415314548696934 0.82842712474619029
+            0 1 2 11 20 0.29739670999406975 0 0.29739670999406975 0.83333333333333337 0 0.29739670999406975
+            0 2 2 1 20 0.82842712474619029 0 0.82842712474619029 2 0 0.82842712474619029
+            0 3 2 6 9 0.73403642302672667 0.29739670999406975 1.0314331330207964 0.45833333333333331 -2.9377424078719847 0.29739670999406975
+            0 3 2 1 15 0.29739670999406975 0 0.29739670999406975 1.5833333333333333 -2.9377424078719847 0.29739670999406975
+            0 0 2 1 8 0.6390158215457884 0 0.6390158215457884 1 -9.4415314548696934 -0.58578643762690485
+            1 0 2 1 20 0.58578643762690485 0 -0.58578643762690485 2 -9.4415314548696934 -0.58578643762690485
+            1 1 2 1 10 0.48428343348960201 0 -0.48428343348960201 1.1666666666666667 0 -0.48428343348960201
+            1 3 2 16 20 0.6804920892271058 0 -0.6804920892271058 0.41666666666666669 0 -0.6804920892271058
+            2 0 2 1 8 0.58578643762690485 -0.58578643762690485 0 1 -9.4415314548696934 -0.58578643762690485
+            """;
+
+    [Test]
+    public void DeconstructZiggurat_NoiseFilter_SegmentCountsAndDefault2500_MatchOctave()
+    {
+        Assert.That(OncologyAnalyzer.ZigguratOptions.Default.MaxSegmentsPerSample, Is.EqualTo(2500), "gistic2_param_defaults.m l.136");
+        var result = OncologyAnalyzer.DeconstructZiggurat(Layout, NoisyCohort);
+        Assert.That(result.SegmentCounts, Is.EqualTo(new[] { 2, 5, 2, 6 }), "Octave getbpt_counts(cap_vals(SegArray(D.dat)))");
+        Assert.That(result.RemovedSamples, Is.Empty);
+        AssertEvents(result, NoisyCohortAllKept, "max 2500");
+        AssertEvents(OncologyAnalyzer.DeconstructZiggurat(Layout, NoisyCohort, new() { MaxSegmentsPerSample = 6 }), NoisyCohortAllKept, "max 6 (count 6 kept: <=)");
+
+        var unfiltered = OncologyAnalyzer.DeconstructZiggurat(Layout, NoisyCohort, new() { MaxSegmentsPerSample = null });
+        Assert.That(unfiltered.SegmentCounts, Is.Empty, "filter disabled");
+        AssertEvents(unfiltered, NoisyCohortAllKept, "no filter");
+    }
+
+    [Test]
+    public void DeconstructZiggurat_NoiseFilter_Max5_RemovesSample3_MatchesOctave()
+    {
+        var result = OncologyAnalyzer.DeconstructZiggurat(Layout, NoisyCohort, new() { MaxSegmentsPerSample = 5 });
+        Assert.That(result.RemovedSamples, Is.EqualTo(new[] { 3 }), "count 6 > 5 removed, count 5 kept");
+        AssertEvents(result, """
+            0 0 1 1 20 0.6390158215457884 0 0.6390158215457884 2 0 0.6390158215457884
+            0 1 1 6 8 1.269843139457397 0.46228882668983262 1.7321319661472296 0.29999999999999999 -2.5327766755544725 0.46228882668983262
+            0 1 1 1 20 0.46228882668983262 0 0.46228882668983262 2 -9.4415314548696934 0.46228882668983262
+            0 2 1 1 9 2.8284271247461903 0.82842712474619029 3.6568542494923806 0.90000000000000002 -2.5327766755544725 0.82842712474619029
+            0 2 1 1 20 0.82842712474619029 0 0.82842712474619029 2 -9.4415314548696934 0.82842712474619029
+            0 1 2 11 20 0.29739670999406975 0 0.29739670999406975 0.83333333333333337 0 0.29739670999406975
+            0 2 2 1 20 0.82842712474619029 0 0.82842712474619029 2 0 0.82842712474619029
+            0 0 2 1 8 0.6390158215457884 0 0.6390158215457884 1 -9.4415314548696934 -0.58578643762690485
+            1 0 2 1 20 0.58578643762690485 0 -0.58578643762690485 2 -9.4415314548696934 -0.58578643762690485
+            1 1 2 1 10 0.48428343348960201 0 -0.48428343348960201 1.1666666666666667 0 -0.48428343348960201
+            2 0 2 1 8 0.58578643762690485 -0.58578643762690485 0 1 -9.4415314548696934 -0.58578643762690485
+            """, "max 5");
+    }
+
+    [Test]
+    public void DeconstructZiggurat_NoiseFilter_Max2_KeepsSamples0And2_OriginalIndices_MatchesOctave()
+    {
+        var result = OncologyAnalyzer.DeconstructZiggurat(Layout, NoisyCohort, new() { MaxSegmentsPerSample = 2 });
+        Assert.That(result.RemovedSamples, Is.EqualTo(new[] { 1, 3 }));
+        Assert.That(result.SegmentCounts, Is.EqualTo(new[] { 2, 5, 2, 6 }));
+        AssertEvents(result, """
+            0 0 1 1 20 0.6390158215457884 0 0.6390158215457884 2 0 0.6390158215457884
+            0 2 1 1 9 2.8284271247461903 0.82842712474619029 3.6568542494923806 0.90000000000000002 -2.0223507320495968 0.82842712474619029
+            0 2 1 1 20 0.82842712474619029 0 0.82842712474619029 2 -9.4415314548696916 0.82842712474619029
+            0 2 2 1 20 0.82842712474619029 0 0.82842712474619029 2 0 0.82842712474619029
+            0 0 2 1 8 0.6390158215457884 0 0.6390158215457884 1 -9.4415314548696916 -0.58578643762690485
+            1 0 2 1 20 0.58578643762690485 0 -0.58578643762690485 2 -9.4415314548696916 -0.58578643762690485
+            2 0 2 1 8 0.58578643762690485 -0.58578643762690485 0 1 -9.4415314548696916 -0.58578643762690485
+            """, "max 2");
+    }
+
+    [Test]
+    public void DeconstructZiggurat_NoiseFilter_AllRemoved_OrNegative_Throws()
+    {
+        Assert.That(() => OncologyAnalyzer.DeconstructZiggurat(Layout, NoisyCohort, new() { MaxSegmentsPerSample = 1 }),
+            NUnit.Framework.Throws.ArgumentException, "GISTIC2 snp:perform_ziggurat_deconstruction:all_data_removed");
+        Assert.That(() => OncologyAnalyzer.DeconstructZiggurat(Layout, NoisyCohort, new() { MaxSegmentsPerSample = -1 }),
+            NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+    }
+
+    #endregion
 }

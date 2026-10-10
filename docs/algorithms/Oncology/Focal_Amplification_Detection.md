@@ -5,8 +5,8 @@
 | Algorithm Group | Oncology |
 | Test Unit ID | ONCO-CNA-002 |
 | Related Projects | Seqeron.Genomics.Oncology |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-09-28 |
+| Implementation Status | Production (deterministic GISTIC2 stages: focal/broad rule, ziggurat deconstruction with noise filter, locus-overlap mapping, cytoband arm table; significance peaks are proposed unit ONCO-GISTIC-001 — §5.3) |
+| Last Reviewed | 2026-10-10 |
 
 ## 1. Overview
 
@@ -121,6 +121,7 @@ the cutoff (0.98) is arm-level (the focal test is strictly less-than).
 - `OncologyAnalyzer.IdentifyAmplifiedOncogenes(IEnumerable<CopyNumberRegion>, IReadOnlyList<GeneLocus>? genePanel = null)`: GISTIC2 locus-overlap mapping (F49); default panel `DefaultOncogeneLoci`.
 - `OncologyAnalyzer.IsFocalAmplification(segment, thresholds)`: single-segment predicate (internal helper, public for reuse).
 - `OncologyAnalyzer.DeconstructZiggurat(chromosomes, samples, options?)`: GISTIC2 ziggurat deconstruction of one or more samples into broad and focal SCNA events (`ZigguratEvent`, F50–F52).
+- `OncologyAnalyzer.GetChromosomeArmLengths(genome)`: GRCh38 / GRCh37 arm table from the UCSC cytoband (`ChromosomeArms`, F55).
 - `OncologyAnalyzer.DetectFocalAmplificationEvents(deconstruction, thresholds?)`: GISTIC2 `reconstruct_genomes` focal filter on the deconstructed `amp` + `aod` events (F52).
 
 ### 5.2 Current Behavior
@@ -138,11 +139,19 @@ case-insensitive ordinal comparison; arms outside the six-gene panel map to no o
 - Amplitude threshold t_amp = 0.1 for calling a gain amplified (GISTIC2 `t_amp`) [2].
 - Oncogene→arm panel from NCBI Gene cytogenetic locations [4].
 
+**Arm lengths from the cytoband (F55).** `GetChromosomeArmLengths(ReferenceGenome)` returns the bundled arm table
+(chr1–22, X, Y) for GRCh38 (UCSC `cytoBand.txt` as shipped in gistic2 26c590bd `refgenes/hg38.UCSC.add_mir.160920/`,
+acen rows e.g. chr1 l.34-35) and GRCh37 (UCSC hg19 cytoband, the `cyto` struct of gistic2
+`support/refgenefiles/hg19.UCSC.add_miR.140312.refgene.mat`). Arms are split as GISTIC2 splits them
+(`normalize_by_arm_length.m` l.40-53: every band named chromosome + `p` / `q`, so each arm keeps its own acen band):
+p-arm = [0, end of the p acen band), q-arm = [that boundary, chromosome end); the centromere span (both acen bands) is
+also reported. GRCh38 Σ p = 1,030,800,000 bp, Σ q = 2,057,469,832 bp; GRCh37 Σ p = 1,040,600,000 bp, Σ q =
+2,055,077,412 bp; chromosome ends equal `GetAutosomeLengths`. All 96 arm lengths equal Octave
+`normalize_by_arm_length` `chrarms{1}.length` on the same cyto. The `CopyNumberArmSegment` overload still takes the
+arm length from the caller, who can now take it from this table.
+
 **Intentionally simplified:**
 
-- Arm boundaries / arm length are supplied by the caller rather than derived from a bundled cytoband
-  file; **consequence:** the caller must provide each arm's length (GISTIC2 reads this from the genome
-  assembly). The 0.98 rule and amplitude test are unchanged.
 - Oncogene mapping of the `CopyNumberArmSegment` overload is arm-level (any focal amplification on the arm flags the
   gene); **consequence:** a focal amplification elsewhere on the same arm also flags the gene. The GISTIC2 rule —
   locus overlap — is available as the `CopyNumberRegion` overload (below, F49).
@@ -163,9 +172,10 @@ bp (`Length / ArmLength`, GISTIC2 `norm_type = 2`). Octave running the original 
 reference-gene order, deduplicated (`filt_uniq_gene`). `IdentifyAmplifiedOncogenes(IEnumerable<CopyNumberRegion>, …)`
 implements this rule (panel order, each gene once; chromosome names match ignoring a leading "chr" and case). The
 default panel `DefaultOncogeneLoci` holds GRCh38 loci from GISTIC2's own hg38 reference-gene source
-(`refgenes/Gencode.v22.170324/gencode_genes.tsv`, GENCODE v22). Not applied: the "[closest gene]" fallback for
-gene-less peaks and widening of peak boundaries to the flanking markers (`genomic_location(…,1)`) — regions are used
-as given.
+(`refgenes/Gencode.v22.170324/gencode_genes.tsv`, GENCODE v22). Regions are used as given. The "[closest gene]" fallback
+for gene-less peaks and the widening of peak boundaries to the flanking markers (`genomic_location(…,1)`,
+`genetables.m` l.50-75) act on GISTIC2 significance peaks — a separate stage, proposed unit ONCO-GISTIC-001
+(ALGORITHMS_CHECKLIST_V2 l.317/6506), outside this unit's scope.
 
 **Ziggurat deconstruction — per-sample building blocks (F50).** Ported from GISTIC2 (internal, Octave-locked):
 `make_sample_B.m` (a sample's segments → B rows `[chrn st en amp sample fract]` at value changes and chromosome ends;
@@ -199,9 +209,20 @@ copy-number units as GISTIC2 compares it). Example: 1p 0.5 | 1.5 | 0.5 (copy num
 (fraction 1) + one focal +1.0 event (0.5 → 1.5, fraction 0.3). Confirmed bit-for-bit (incl. signed zeros) against
 Octave running the original files on 2000 random cohorts (27 469 events) and 5 hand cases. Signed-zero details follow
 GNU Octave (`unique` keeps the last of equal values; `max(x,y) = x ≥ y ? x : y`); MATLAB's `unique` keeps the first, so
-MATLAB-run GISTIC2 can differ in the sign of a zero level only. Not ported: `remove_noisy_samples` (GISTIC2 drops
-samples with more than `max_segs_per_sample` breakpoints before deconstruction; filter beforehand) and the outer
-wrapper's ≥ 2-sample requirement (`perform_deconstruction` itself runs on n = 1).
+MATLAB-run GISTIC2 can differ in the sign of a zero level only. The outer wrapper's ≥ 2-sample requirement is not
+mirrored (`perform_deconstruction` itself runs on n = 1).
+
+**Noise filter (F54).** `remove_noisy_samples.m` (called in `perform_ziggurat_deconstruction.m` l.102, after the cap)
+is applied via `ZigguratOptions.MaxSegmentsPerSample`, default **2500** — the GISTIC2 pipeline default
+(`gistic2_param_defaults.m` l.136, `gp_gistic2_from_seg.m` `-maxseg` l.224; the 500 in `perform_ziggurat_deconstruction.m`
+l.60 / `remove_noisy_samples.m` l.12 is only a fallback when `ziggs` lacks the field). A sample is kept when its segment
+count ≤ the maximum (`keepers = num_bpts <= max_segs_per_sample`, l.25). The count is GISTIC2's default SegArray branch
+(`use_segarray = 1`): `cap_vals` anneals equal adjacent values, then `getbpt_counts` = number of segments of the
+genome-ordered column (equal values across a chromosome boundary form one segment). The uncompressed branch counts
+`diff ~= 0` breakpoints, one less — Octave-checked ([2 5 2 6] vs [1 4 1 5]), not followed. Removed samples are reported
+(`ZigguratDeconstruction.RemovedSamples`, `SegmentCounts` = the `sample_seg_counts` file); events keep input sample
+indices (GISTIC2 maps through `Qs.sdesc`); all samples removed ⇒ `ArgumentException` (`all_data_removed`). `null`
+disables the filter.
 
 **Reference-implementation cross-check (2026-09 review):** the predicate equals the GISTIC2 focal-event filter in
 `snputil/reconstruct_genomes.m` (`broad_or_focal='focal'`: `Q(:,8) < broad_len_cutoff` and amplitude vs `t_amp`)
@@ -214,19 +235,20 @@ uses `>=` — the two differ only at exact floating-point equality.
 - ~~GISTIC2 **ziggurat deconstruction**~~ — **Resolved by F50–F52** (`DeconstructZiggurat` + `DetectFocalAmplificationEvents`;
   the per-segment `DetectFocalAmplifications` is unchanged and still treats each segment as one event).
 
-- GISTIC2's probabilistic peak/q-value boundary estimation and background-rate modeling; **users should
-  rely on:** the full GISTIC2 tool for genome-wide significance peaks. This unit implements only the
-  deterministic focal/broad length rule and the oncogene panel mapping.
+- GISTIC2's significance stages (G-scores, permutation background, q-values, peak boundaries, peak gene tables with
+  closest-gene fallback / peak widening) belong to the proposed unit ONCO-GISTIC-001 (ALGORITHMS_CHECKLIST_V2
+  l.317/6506) and are outside this unit's scope; this unit covers the deterministic focal/broad rule, the ziggurat
+  deconstruction and the oncogene mapping.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Amplitude test combined with length rule | Assumption | Defines which gains count as amplifications | accepted | t_amp from GISTIC2 docs (0.1); length rule from paper |
-| 2 | Caller-supplied arm length | Assumption | Caller must provide cytoband-derived arm length | accepted | No bundled cytoband table |
+| 2 | Arm length | Option | `CopyNumberArmSegment` takes the caller's arm length; bundled table via `GetChromosomeArmLengths` | resolved (F55) | UCSC cytoBand GRCh38/GRCh37, GISTIC2 p/q acen split |
 | 3 | Arm fraction units | Option | bp unless marker counts supplied | resolved (F48) | GISTIC2 default = markers (`norm_type = 1`) |
 | 4 | Gene mapping | Option | arm-level overload kept; locus overlap via `CopyNumberRegion` overload | resolved (F49) | GISTIC2 `genes_at` `partial_hits = 1` |
-| 5 | Ziggurat deconstruction | Option | per-segment overload unchanged; GISTIC2 events via `DeconstructZiggurat` | resolved (F50–F52) | `remove_noisy_samples` not ported; signed zeros follow Octave `unique`/`max` |
+| 5 | Ziggurat deconstruction | Option | per-segment overload unchanged; GISTIC2 events via `DeconstructZiggurat` | resolved (F50–F52, F54) | `remove_noisy_samples` ported (F54, default 2500); signed zeros follow Octave `unique`/`max` |
 | 6 | BIC penalty | Reference quirk | 0 (not ln n) when the breakpoint is the last segment | ported as coded | `perform_deconstruction.m` `len_bpts = 1` |
 
 ## 6. Edge Cases and Limitations
@@ -251,11 +273,14 @@ uses `>=` — the two differ only at exact floating-point equality.
 | Centromere-spanning event | fraction = p part/p markers + q part/q markers | `normalize_by_arm_length` ref_length 2 (F50) |
 | All samples neutral (0) | no events | Octave `perform_deconstruction` empty |
 | Segments not tiling a chromosome, NaN value, +∞ log2 with no cap, Cap ≤ 0, Iterations < 1 | ArgumentException / ArgumentOutOfRangeException | Validation (F52) |
+| Sample with segment count = MaxSegmentsPerSample / > it | kept / removed (`RemovedSamples`) | `remove_noisy_samples.m` `<=` (F54) |
+| Every sample removed by the noise filter; MaxSegmentsPerSample < 0 | ArgumentException / ArgumentOutOfRangeException | GISTIC2 `all_data_removed` (F54) |
 
 ### 6.2 Limitations
 
-Ziggurat deconstruction is available as `DeconstructZiggurat` (F50–F52; noisy-sample removal not ported). No significance testing, no background-rate modeling, and no sub-arm peak localization (these are
-GISTIC2's probabilistic stages). The arm-level overload maps the six-gene registry panel by arm; the
+Ziggurat deconstruction is available as `DeconstructZiggurat` (F50–F52, noise filter F54). Significance testing,
+background-rate modeling and peak localization are GISTIC2's significance stages — proposed unit ONCO-GISTIC-001, out
+of this unit's scope. The arm-level overload maps the six-gene registry panel by arm; the
 `CopyNumberRegion` overload applies GISTIC2 locus overlap (F49) to the default or a caller panel. Arm fraction is in
 markers when marker counts are supplied (F48), else bp. Deletions are out of scope (ONCO-CNA-003).
 

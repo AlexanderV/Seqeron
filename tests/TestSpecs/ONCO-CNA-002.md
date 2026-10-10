@@ -50,6 +50,7 @@
 | `IsFocalAmplification(segment, thresholds)` | OncologyAnalyzer | Internal | Single-segment predicate; tested via canonicals |
 | `DeconstructZiggurat(chromosomes, samples, options?)` | OncologyAnalyzer | Canonical | GISTIC2 ziggurat deconstruction (F50–F52), Octave-locked |
 | `DetectFocalAmplificationEvents(deconstruction, thresholds?)` | OncologyAnalyzer | Canonical | GISTIC2 `reconstruct_genomes` focal filter on events (F52) |
+| `GetChromosomeArmLengths(genome)` | OncologyAnalyzer | Canonical | GRCh38/GRCh37 arm table from UCSC cytoBand, GISTIC2 p/q acen split (F55) |
 
 ---
 
@@ -124,6 +125,10 @@
 | C27 | Full pipeline log2 + cap (F52) | 3 samples, 1.9 / 1.6 / −∞ capped at 1.5 | 9 events = Octave `perform_ziggurat_deconstruction` Qs | DeconstructZiggurat_Log2InputWithDefaultCap_MatchesOctavePerformZigguratDeconstruction |
 | C28 | Focal filter on events (F52) | cohort; t_amp 1.0 equality; NaN threshold; null | amp+aod, fract < 0.98, amplitude ≥ t_amp; throws | DetectFocalAmplificationEvents_AppliesReconstructGenomesFilter |
 | C29 | All neutral; invalid arguments (F52) | zeros; null/empty samples, Cap 0/NaN, Iterations 0, +∞ without cap | no events; ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | DeconstructZiggurat_AllNeutral_NoEvents, DeconstructZiggurat_InvalidArguments_Throw |
+| C30 | Noise filter counts + default 2500 (F54) | 4-sample log2 cohort: cross-chromosome equal run, cap-merged 2.0\|2.2, equal adjacent segments | SegmentCounts [2 5 2 6] (Octave SegArray `getbpt_counts` after `cap_vals`); default / max 6 / null: 16 Octave events, nothing removed | DeconstructZiggurat_NoiseFilter_SegmentCountsAndDefault2500_MatchOctave |
+| C31 | Noise filter max 5 / max 2 (F54) | same cohort | removes [3] / [1, 3] (`<=` keeps count 5); events = Octave `perform_ziggurat_deconstruction` on kept columns, original sample indices | DeconstructZiggurat_NoiseFilter_Max5_RemovesSample3_MatchesOctave, DeconstructZiggurat_NoiseFilter_Max2_KeepsSamples0And2_OriginalIndices_MatchesOctave |
+| C32 | Noise filter all removed / negative (F54) | max 1; max −1 | ArgumentException (`all_data_removed`); ArgumentOutOfRangeException | DeconstructZiggurat_NoiseFilter_AllRemoved_OrNegative_Throws |
+| C33 | Arm table (F55) | GRCh38, GRCh37 | Σ p / Σ q (Python on cytoBand; = Octave `normalize_by_arm_length` lengths), chr1 acen, ends = `GetAutosomeLengths`, spot rows chr13/22/X/Y (hg38), chr9/Y (hg19); undefined enum throws | GetChromosomeArmLengths_SumsAndChr1_MatchUcscCytoBand, GetChromosomeArmLengths_SpotValues_MatchCytoBandAcenRows |
 
 ---
 
@@ -174,7 +179,7 @@
 | 18 | C4 | ❌ Missing | Implemented | ✅ Done |
 
 **Total items:** 18
-**✅ Done:** 18 | **⛔ Blocked:** 0 | **Remaining:** must be 0
+**✅ Done:** 18 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -213,7 +218,7 @@
 |---|-----------|---------|
 | 1 | Amplitude "amplified" test uses GISTIC2 `t_amp` = 0.1 combined with the paper's length rule — confirmed as GISTIC2's own focal filter (`reconstruct_genomes.m`, 2026-09 review) | DetectFocalAmplifications predicate |
 | 3 | `DetectFocalAmplifications` treats each input segment as one SCNA event; GISTIC2 events (ziggurat deconstruction) via `DeconstructZiggurat` + `DetectFocalAmplificationEvents` (F50–F52) | Input contract of the per-segment overload |
-| 2 | Arm label + arm length supplied by caller (no bundled cytoband table) | Segment input contract |
+| 2 | Arm label + arm length supplied by caller for `CopyNumberArmSegment`; bundled UCSC cytoband arm table available via `GetChromosomeArmLengths` (F55) | Segment input contract |
 
 ---
 

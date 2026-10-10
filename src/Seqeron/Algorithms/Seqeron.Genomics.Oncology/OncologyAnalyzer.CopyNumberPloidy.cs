@@ -1711,7 +1711,7 @@ public static partial class OncologyAnalyzer
     /// One GISTIC2 SCNA event from the ziggurat deconstruction (a row of <c>Qs.amp/del/aod/doa</c>; <c>Qs.m</c> columns).
     /// </summary>
     /// <param name="Type">Event kind (which <c>Qs</c> field).</param>
-    /// <param name="Sample">0-based sample index (GISTIC2 column 5 − 1).</param>
+    /// <param name="Sample">0-based index into the input sample list (GISTIC2 column 5 − 1, mapped through <c>Qs.sdesc</c> when the noise filter removed samples).</param>
     /// <param name="Chromosome">Chromosome label (column 1).</param>
     /// <param name="StartMarker">First marker, 1-based within the chromosome (column 2).</param>
     /// <param name="EndMarker">Last marker, inclusive (column 3).</param>
@@ -1764,7 +1764,20 @@ public static partial class OncologyAnalyzer
 
         /// <summary>Number of broad-level re-estimation iterations (<c>niters</c>, GISTIC2 uses 1); ≥ 1.</summary>
         public int Iterations { get; init; } = 1;
+
+        /// <summary>
+        /// GISTIC2 noise filter (<c>remove_noisy_samples.m</c>, called from <c>perform_ziggurat_deconstruction.m</c>
+        /// l.102): samples with more than this many segments are removed before deconstruction (kept when
+        /// <c>count ≤ max</c>). Default <see cref="DefaultMaxSegmentsPerSample"/> = 2500, the GISTIC2 pipeline default
+        /// (<c>gistic2_param_defaults.m</c> l.136, <c>gp_gistic2_from_seg.m</c> <c>-maxseg</c> l.224; the 500 fallback in
+        /// <c>perform_ziggurat_deconstruction.m</c> l.60 applies only when <c>ziggs</c> lacks the field, which the
+        /// pipeline always sets). null = no filtering. Must be ≥ 0.
+        /// </summary>
+        public int? MaxSegmentsPerSample { get; init; } = DefaultMaxSegmentsPerSample;
     }
+
+    /// <summary>GISTIC2 default <c>max_segs_per_sample</c> (<c>gistic2_param_defaults.m</c> l.136): 2500.</summary>
+    public const int DefaultMaxSegmentsPerSample = 2500;
 
     /// <summary>
     /// Result of <see cref="DeconstructZiggurat"/>: the GISTIC2 SCNA events of all samples, in <c>Qs</c> order
@@ -1773,6 +1786,20 @@ public static partial class OncologyAnalyzer
     /// <param name="Events">The deconstructed events.</param>
     public sealed record ZigguratDeconstruction(IReadOnlyList<ZigguratEvent> Events)
     {
+        /// <summary>
+        /// Per input sample, the GISTIC2 segment count used by the noise filter (<c>remove_noisy_samples.m</c>
+        /// <c>segment_count</c>): maximal runs of equal capped value along the genome-ordered marker column
+        /// (chromosomes in layout order, equal values across a chromosome boundary forming one run) — the
+        /// <c>getbpt_counts</c> of the annealed SegArray after <c>cap_vals</c>. Empty when the filter is disabled.
+        /// </summary>
+        public IReadOnlyList<int> SegmentCounts { get; init; } = Array.Empty<int>();
+
+        /// <summary>
+        /// 0-based indices (into the input sample list) of the samples removed by the noise filter
+        /// (<see cref="ZigguratOptions.MaxSegmentsPerSample"/>), ascending; empty when none was removed.
+        /// </summary>
+        public IReadOnlyList<int> RemovedSamples { get; init; } = Array.Empty<int>();
+
         /// <summary>Events of one sample (0-based index), in <see cref="Events"/> order.</summary>
         public IReadOnlyList<ZigguratEvent> ForSample(int sample) => Events.Where(e => e.Sample == sample).ToList();
     }
@@ -1792,9 +1819,16 @@ public static partial class OncologyAnalyzer
     /// breakpoint is the chromosome's last segment (q part empty: <c>len_bpts = 1</c>). This port follows the code.</para>
     /// <para><b>Cohort model.</b> The table is learned from all supplied samples, so a sample's events depend on the
     /// cohort; n = 1 is allowed (<c>perform_deconstruction</c> runs on any sample set; only the outer GISTIC2 wrapper
-    /// requires ≥ 2 samples after noise filtering). Not ported: <c>remove_noisy_samples</c> (samples with more than
-    /// <c>max_segs_per_sample</c> breakpoints are dropped by GISTIC2 before deconstruction — filter beforehand if needed).
-    /// When no sample has any non-zero segment the result is empty (every chromosome is one zero segment; GISTIC2 returns
+    /// requires ≥ 2 samples after noise filtering; here one remaining sample is accepted, consistently with n = 1 input).</para>
+    /// <para><b>Noise filter.</b> <c>remove_noisy_samples.m</c> runs after the cap: samples whose segment count
+    /// (<see cref="ZigguratDeconstruction.SegmentCounts"/>) exceeds <see cref="ZigguratOptions.MaxSegmentsPerSample"/>
+    /// (default 2500) are dropped and listed in <see cref="ZigguratDeconstruction.RemovedSamples"/>; the cohort table is
+    /// learned from the kept samples only. The count follows the default SegArray branch (<c>use_segarray = 1</c>:
+    /// <c>getbpt_counts</c> = number of segments); GISTIC2's uncompressed branch counts <c>diff ~= 0</c> breakpoints
+    /// (one less) — Octave-checked, not followed. All samples removed ⇒ <see cref="ArgumentException"/>
+    /// (GISTIC2 <c>all_data_removed</c>). <see cref="ZigguratEvent.Sample"/> always indexes the input list (GISTIC2 maps
+    /// <c>Qs</c> column 5 through the filtered <c>Qs.sdesc</c>).</para>
+    /// <para>When no sample has any non-zero segment the result is empty (every chromosome is one zero segment; GISTIC2 returns
     /// empty event arrays too — Octave-checked).</para>
     /// <para><b>Units.</b> Amplitudes and levels are in copy number − 2 units (GISTIC2 <c>Qs</c> columns 4/6/7/12); the
     /// arm fraction is in markers (<c>norm_type = 1</c>), p + q for centromere-spanning events.</para>
@@ -1805,8 +1839,8 @@ public static partial class OncologyAnalyzer
     /// <returns>The events of all samples.</returns>
     /// <exception cref="ArgumentNullException">A required argument or a sample list is null.</exception>
     /// <exception cref="ArgumentException">Invalid layout, no samples, segments that do not tile a chromosome, NaN values,
-    /// or a non-finite converted value (e.g. +∞ log2 with no cap).</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Cap ≤ 0 or NaN, or Iterations &lt; 1.</exception>
+    /// a non-finite converted value (e.g. +∞ log2 with no cap), or every sample removed by the noise filter.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Cap ≤ 0 or NaN, Iterations &lt; 1, or MaxSegmentsPerSample &lt; 0.</exception>
     public static ZigguratDeconstruction DeconstructZiggurat(
         IReadOnlyList<ZigguratChromosome> chromosomes,
         IReadOnlyList<IReadOnlyList<ZigguratSegment>> samples,
@@ -1825,6 +1859,11 @@ public static partial class OncologyAnalyzer
             throw new ArgumentOutOfRangeException(nameof(options), opts.Iterations, "ZigguratOptions.Iterations must be at least 1.");
         }
 
+        if (opts.MaxSegmentsPerSample is int maxSegs && maxSegs < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), maxSegs, "ZigguratOptions.MaxSegmentsPerSample must be non-negative (or null).");
+        }
+
         var layout = new GisticMarkerLayout(chromosomes);
         if (samples.Count == 0)
         {
@@ -1832,18 +1871,63 @@ public static partial class OncologyAnalyzer
         }
 
         Func<double, double> transform = GisticInputTransform(opts);
-        var b = new List<GisticZiggRow>[samples.Count];
+        var all = new List<GisticZiggRow>[samples.Count];
         for (int j = 0; j < samples.Count; j++)
         {
             IReadOnlyList<ZigguratSegment> segments = samples[j]
                 ?? throw new ArgumentNullException(nameof(samples), $"Sample {j} is null.");
-            b[j] = GisticMakeSampleB(layout, segments, j + 1, transform);
+            all[j] = GisticMakeSampleB(layout, segments, j + 1, transform);
+        }
+
+        // remove_noisy_samples.m: keepers = num_bpts <= max_segs_per_sample (after the cap, perform_ziggurat_deconstruction l.102).
+        int[] segmentCounts = Array.Empty<int>();
+        var kept = new List<int>(samples.Count);
+        var removed = new List<int>();
+        if (opts.MaxSegmentsPerSample is int maxSegments)
+        {
+            Func<double, double> cap = GisticCap(opts);
+            segmentCounts = new int[samples.Count];
+            for (int j = 0; j < samples.Count; j++)
+            {
+                segmentCounts[j] = GisticSegmentCount(layout, samples[j], cap);
+                (segmentCounts[j] <= maxSegments ? kept : removed).Add(j);
+            }
+
+            if (kept.Count == 0)
+            {
+                throw new ArgumentException(
+                    $"All samples were removed by noise filtering (more than {maxSegments} segments each; GISTIC2 all_data_removed).",
+                    nameof(samples));
+            }
+        }
+        else
+        {
+            kept.AddRange(Enumerable.Range(0, samples.Count));
+        }
+
+        var b = new List<GisticZiggRow>[kept.Count];
+        for (int k = 0; k < kept.Count; k++)
+        {
+            b[k] = all[kept[k]];
+            if (removed.Count > 0)
+            {
+                for (int r = 0; r < b[k].Count; r++)
+                {
+                    GisticZiggRow row = b[k][r];
+                    row.Sample = k + 1;
+                    b[k][r] = row;
+                }
+            }
         }
 
         List<GisticZiggRow> q = GisticPerformDeconstruction(layout, b, opts.Iterations, out bool any);
         if (!any)
         {
-            return new ZigguratDeconstruction(Array.Empty<ZigguratEvent>());
+            return new ZigguratDeconstruction(Array.Empty<ZigguratEvent>())
+            {
+                SegmentCounts = segmentCounts,
+                RemovedSamples = removed,
+            };
         }
 
         var (qa, qd, qaod, qdoa) = GisticMakeFinalQs(q);
@@ -1852,7 +1936,7 @@ public static partial class OncologyAnalyzer
         AddEvents(qd, ZigguratEventType.Deletion, -1);
         AddEvents(qaod, ZigguratEventType.AmplificationOverDeletion, 1);
         AddEvents(qdoa, ZigguratEventType.DeletionOverAmplification, -1);
-        return new ZigguratDeconstruction(events);
+        return new ZigguratDeconstruction(events) { SegmentCounts = segmentCounts, RemovedSamples = removed };
 
         void AddEvents(List<GisticZiggRow> rows, ZigguratEventType type, int sign)
         {
@@ -1860,7 +1944,7 @@ public static partial class OncologyAnalyzer
             {
                 int offset = layout.Offset(r.Chromosome);
                 events.Add(new ZigguratEvent(
-                    type, r.Sample - 1, layout.Name(r.Chromosome), r.Start - offset, r.End - offset,
+                    type, kept[r.Sample - 1], layout.Name(r.Chromosome), r.Start - offset, r.End - offset,
                     sign * r.Amplitude, r.StartLevel, r.EndLevel, r.Fraction, r.Score, r.ArmLevel));
             }
         }
@@ -1899,6 +1983,21 @@ public static partial class OncologyAnalyzer
     /// </summary>
     private static Func<double, double> GisticInputTransform(ZigguratOptions options)
     {
+        Func<double, double> cap = GisticCap(options);
+        bool log = options.InputIsLog2;
+        return value =>
+        {
+            value = cap(value);
+            return log ? Math.Pow(2, value + 1) - 2 : value;
+        };
+    }
+
+    /// <summary>
+    /// <c>perform_ziggurat_deconstruction.m</c> cap only (input units): <c>D.dat(D.dat &gt; maxcap) = maxcap</c>, then
+    /// the minimum; identity when <see cref="ZigguratOptions.Cap"/> is null.
+    /// </summary>
+    private static Func<double, double> GisticCap(ZigguratOptions options)
+    {
         double maxCap = double.PositiveInfinity;
         double minCap = double.NegativeInfinity;
         if (options.Cap is double cap)
@@ -1912,7 +2011,6 @@ public static partial class OncologyAnalyzer
             }
         }
 
-        bool log = options.InputIsLog2;
         return value =>
         {
             if (value > maxCap)
@@ -1925,8 +2023,32 @@ public static partial class OncologyAnalyzer
                 value = minCap;
             }
 
-            return log ? Math.Pow(2, value + 1) - 2 : value;
+            return value;
         };
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>remove_noisy_samples.m</c> segment count of one (already validated) sample: <c>cap_vals</c> anneals the
+    /// SegArray column (<c>anneal.m</c>: adjacent equal values joined, <c>diff(vals) ~= 0</c>), then
+    /// <c>getbpt_counts</c> = number of stored segments — i.e. 1 + the number of value changes between consecutive
+    /// segments of the genome-ordered column (layout chromosome order, chromosome boundaries not kept).
+    /// </summary>
+    private static int GisticSegmentCount(GisticMarkerLayout layout, IReadOnlyList<ZigguratSegment> segments, Func<double, double> cap)
+    {
+        var ordered = segments
+            .OrderBy(s => layout.IndexOf(s.Chromosome))
+            .ThenBy(s => s.StartMarker)
+            .ToList();
+        int count = 1;
+        for (int i = 1; i < ordered.Count; i++)
+        {
+            if (cap(ordered[i].Value) != cap(ordered[i - 1].Value))
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     /// <summary>
@@ -2489,6 +2611,112 @@ public static partial class OncologyAnalyzer
 
         return sum;
     }
+
+    /// <summary>
+    /// Chromosome arm geometry of a reference assembly from the UCSC cytoBand table, split as GISTIC2 splits arms
+    /// (<c>normalize_by_arm_length.m</c> l.40-53: an arm is every band whose name starts with chromosome + <c>p</c> /
+    /// <c>q</c>, so the p-arm acen band (<c>p11.1</c>/<c>p11</c>) belongs to p and the q-arm acen band to q). Half-open,
+    /// 0-based UCSC coordinates: p-arm = [0, <see cref="PArmEnd"/>), q-arm = [<see cref="PArmEnd"/>, <see cref="Length"/>);
+    /// GISTIC2 arm length = <c>band.end − band.start + 1</c> with <c>band.start = cyto.start + 1</c>, i.e. the same values.
+    /// </summary>
+    /// <param name="Chromosome">Chromosome label without "chr" ("1"–"22", "X", "Y").</param>
+    /// <param name="CentromereStart">Start of the p-arm acen band (centromere start).</param>
+    /// <param name="PArmEnd">End of the p-arm acen band = start of the q-arm acen band (GISTIC2 p/q boundary).</param>
+    /// <param name="CentromereEnd">End of the q-arm acen band (centromere end).</param>
+    /// <param name="Length">Chromosome length (end of the last band; equals UCSC <c>chrom.sizes</c>).</param>
+    public readonly record struct ChromosomeArms(string Chromosome, long CentromereStart, long PArmEnd, long CentromereEnd, long Length)
+    {
+        /// <summary>GISTIC2 p-arm length in bp (= <see cref="PArmEnd"/>).</summary>
+        public long PArmLength => PArmEnd;
+
+        /// <summary>GISTIC2 q-arm length in bp (<see cref="Length"/> − <see cref="PArmEnd"/>).</summary>
+        public long QArmLength => Length - PArmEnd;
+    }
+
+    /// <summary>
+    /// GRCh38 / hg38 arm geometry (chr1–22, X, Y) from UCSC <c>hg38/database/cytoBand.txt</c> as shipped in GISTIC2
+    /// (broadinstitute/gistic2 26c590bd <c>refgenes/hg38.UCSC.add_mir.160920/cytoBand.txt</c>, identical to
+    /// <c>refgenes/Gencode.v22.170324/cytoBand.txt</c> and to the <c>cyto</c> struct of
+    /// <c>support/refgenefiles/hg38.UCSC.add_miR.160920.refgene.mat</c>); acen rows, e.g. chr1 l.34-35
+    /// (<c>121700000 123400000 p11.1</c> / <c>123400000 125100000 q11</c>).
+    /// </summary>
+    private static readonly ChromosomeArms[] GRCh38Arms =
+    {
+        new("1", 121_700_000L, 123_400_000L, 125_100_000L, 248_956_422L),
+        new("2", 91_800_000L, 93_900_000L, 96_000_000L, 242_193_529L),
+        new("3", 87_800_000L, 90_900_000L, 94_000_000L, 198_295_559L),
+        new("4", 48_200_000L, 50_000_000L, 51_800_000L, 190_214_555L),
+        new("5", 46_100_000L, 48_800_000L, 51_400_000L, 181_538_259L),
+        new("6", 58_500_000L, 59_800_000L, 62_600_000L, 170_805_979L),
+        new("7", 58_100_000L, 60_100_000L, 62_100_000L, 159_345_973L),
+        new("8", 43_200_000L, 45_200_000L, 47_200_000L, 145_138_636L),
+        new("9", 42_200_000L, 43_000_000L, 45_500_000L, 138_394_717L),
+        new("10", 38_000_000L, 39_800_000L, 41_600_000L, 133_797_422L),
+        new("11", 51_000_000L, 53_400_000L, 55_800_000L, 135_086_622L),
+        new("12", 33_200_000L, 35_500_000L, 37_800_000L, 133_275_309L),
+        new("13", 16_500_000L, 17_700_000L, 18_900_000L, 114_364_328L),
+        new("14", 16_100_000L, 17_200_000L, 18_200_000L, 107_043_718L),
+        new("15", 17_500_000L, 19_000_000L, 20_500_000L, 101_991_189L),
+        new("16", 35_300_000L, 36_800_000L, 38_400_000L, 90_338_345L),
+        new("17", 22_700_000L, 25_100_000L, 27_400_000L, 83_257_441L),
+        new("18", 15_400_000L, 18_500_000L, 21_500_000L, 80_373_285L),
+        new("19", 24_200_000L, 26_200_000L, 28_100_000L, 58_617_616L),
+        new("20", 25_700_000L, 28_100_000L, 30_400_000L, 64_444_167L),
+        new("21", 10_900_000L, 12_000_000L, 13_000_000L, 46_709_983L),
+        new("22", 13_700_000L, 15_000_000L, 17_400_000L, 50_818_468L),
+        new("X", 58_100_000L, 61_000_000L, 63_800_000L, 156_040_895L),
+        new("Y", 10_300_000L, 10_400_000L, 10_600_000L, 57_227_415L),
+    };
+
+    /// <summary>
+    /// GRCh37 / hg19 arm geometry (chr1–22, X, Y) from the UCSC hg19 cytoBand table (862 bands) bundled in GISTIC2 as
+    /// the <c>cyto</c> struct of <c>support/refgenefiles/hg19.UCSC.add_miR.140312.refgene.mat</c> (gistic2 26c590bd;
+    /// read with GNU Octave 8.4 <c>load</c>), e.g. chr1 acen <c>121500000 125000000 1p11.1</c> /
+    /// <c>125000000 128900000 1q11</c>.
+    /// </summary>
+    private static readonly ChromosomeArms[] GRCh37Arms =
+    {
+        new("1", 121_500_000L, 125_000_000L, 128_900_000L, 249_250_621L),
+        new("2", 90_500_000L, 93_300_000L, 96_800_000L, 243_199_373L),
+        new("3", 87_900_000L, 91_000_000L, 93_900_000L, 198_022_430L),
+        new("4", 48_200_000L, 50_400_000L, 52_700_000L, 191_154_276L),
+        new("5", 46_100_000L, 48_400_000L, 50_700_000L, 180_915_260L),
+        new("6", 58_700_000L, 61_000_000L, 63_300_000L, 171_115_067L),
+        new("7", 58_000_000L, 59_900_000L, 61_700_000L, 159_138_663L),
+        new("8", 43_100_000L, 45_600_000L, 48_100_000L, 146_364_022L),
+        new("9", 47_300_000L, 49_000_000L, 50_700_000L, 141_213_431L),
+        new("10", 38_000_000L, 40_200_000L, 42_300_000L, 135_534_747L),
+        new("11", 51_600_000L, 53_700_000L, 55_700_000L, 135_006_516L),
+        new("12", 33_300_000L, 35_800_000L, 38_200_000L, 133_851_895L),
+        new("13", 16_300_000L, 17_900_000L, 19_500_000L, 115_169_878L),
+        new("14", 16_100_000L, 17_600_000L, 19_100_000L, 107_349_540L),
+        new("15", 15_800_000L, 19_000_000L, 20_700_000L, 102_531_392L),
+        new("16", 34_600_000L, 36_600_000L, 38_600_000L, 90_354_753L),
+        new("17", 22_200_000L, 24_000_000L, 25_800_000L, 81_195_210L),
+        new("18", 15_400_000L, 17_200_000L, 19_000_000L, 78_077_248L),
+        new("19", 24_400_000L, 26_500_000L, 28_600_000L, 59_128_983L),
+        new("20", 25_600_000L, 27_500_000L, 29_400_000L, 63_025_520L),
+        new("21", 10_900_000L, 13_200_000L, 14_300_000L, 48_129_895L),
+        new("22", 12_200_000L, 14_700_000L, 17_900_000L, 51_304_566L),
+        new("X", 58_100_000L, 60_600_000L, 63_000_000L, 155_270_560L),
+        new("Y", 11_600_000L, 12_500_000L, 13_400_000L, 59_373_566L),
+    };
+
+    /// <summary>
+    /// Chromosome arm lengths of a reference assembly (24 entries: chr1–22, X, Y in that order), split at the p/q
+    /// acen band boundary as GISTIC2 does (<see cref="ChromosomeArms"/>). GRCh38: Σ p 1,030,800,000 bp, Σ q
+    /// 2,057,469,832 bp; GRCh37: Σ p 1,040,600,000 bp, Σ q 2,055,077,412 bp. Chromosome lengths 1–22 equal
+    /// <see cref="GetAutosomeLengths"/>.
+    /// </summary>
+    /// <param name="genome">The reference assembly.</param>
+    /// <returns>The arm table of the assembly.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static IReadOnlyList<ChromosomeArms> GetChromosomeArmLengths(ReferenceGenome genome) => genome switch
+    {
+        ReferenceGenome.GRCh38 => GRCh38Arms,
+        ReferenceGenome.GRCh37 => GRCh37Arms,
+        _ => throw new ArgumentOutOfRangeException(nameof(genome), genome, "Unknown reference genome."),
+    };
 
     /// <summary>
     /// Parses a chromosome identifier to its autosome number (1–22), accepting both bare ("7") and "chr"-prefixed

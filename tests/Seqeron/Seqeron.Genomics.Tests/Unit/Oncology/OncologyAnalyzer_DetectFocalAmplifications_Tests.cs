@@ -5,6 +5,7 @@
 //         https://pmc.ncbi.nlm.nih.gov/articles/PMC3218867/
 //         GISTIC2 docs broad_len_cutoff=0.98, t_amp=0.1; NCBI Gene oncogene arms.
 
+using System.Globalization;
 using Segment = Seqeron.Genomics.Oncology.OncologyAnalyzer.CopyNumberArmSegment;
 using Thresholds = Seqeron.Genomics.Oncology.OncologyAnalyzer.FocalAmplificationThresholds;
 
@@ -525,6 +526,48 @@ public class OncologyAnalyzer_DetectFocalAmplifications_Tests
             new OncologyAnalyzer.GeneLocus("MDM2", "12", 68_808_172, 68_850_686),
             new OncologyAnalyzer.GeneLocus("CDK4", "12", 57_747_727, 57_756_013),
         }));
+    }
+
+    #endregion
+
+    #region F55 — GetChromosomeArmLengths (UCSC cytoBand, GISTIC2 arm split)
+
+    // FIN-B24 WP26 / F55. Values computed in Python from gistic2 26c590bd refgenes/hg38.UCSC.add_mir.160920/cytoBand.txt
+    // (hg38) and the cyto struct of support/refgenefiles/hg19.UCSC.add_miR.140312.refgene.mat (hg19, Octave load);
+    // all 96 arm lengths also equal GISTIC2 normalize_by_arm_length.m chrarms{1}.length run in Octave on the same cyto.
+    [TestCase(OncologyAnalyzer.ReferenceGenome.GRCh38, 1_030_800_000L, 2_057_469_832L, 123_400_000L, 125_556_422L, 121_700_000L, 125_100_000L)]
+    [TestCase(OncologyAnalyzer.ReferenceGenome.GRCh37, 1_040_600_000L, 2_055_077_412L, 125_000_000L, 124_250_621L, 121_500_000L, 128_900_000L)]
+    public void GetChromosomeArmLengths_SumsAndChr1_MatchUcscCytoBand(
+        OncologyAnalyzer.ReferenceGenome genome, long sumP, long sumQ, long chr1P, long chr1Q, long acenStart, long acenEnd)
+    {
+        var arms = OncologyAnalyzer.GetChromosomeArmLengths(genome);
+        Assert.That(arms.Select(a => a.Chromosome), Is.EqualTo(Enumerable.Range(1, 22).Select(i => i.ToString(CultureInfo.InvariantCulture)).Append("X").Append("Y")));
+        Assert.That(arms.Sum(a => a.PArmLength), Is.EqualTo(sumP), "Σ p-arm (Python, cytoBand)");
+        Assert.That(arms.Sum(a => a.QArmLength), Is.EqualTo(sumQ), "Σ q-arm (Python, cytoBand)");
+        Assert.That((arms[0].PArmLength, arms[0].QArmLength, arms[0].CentromereStart, arms[0].CentromereEnd),
+            Is.EqualTo((chr1P, chr1Q, acenStart, acenEnd)), "chr1 acen rows");
+        // Chromosome ends = UCSC chrom.sizes (existing GetAutosomeLengths table).
+        Assert.That(arms.Take(22).Select(a => a.Length), Is.EqualTo(OncologyAnalyzer.GetAutosomeLengths(genome)));
+        Assert.That(arms.All(a => a.CentromereStart < a.PArmEnd && a.PArmEnd < a.CentromereEnd && a.CentromereEnd < a.Length), Is.True);
+    }
+
+    // Acrocentric / sex chromosomes (GISTIC2 split = p/q acen boundary): spot values from the cytoBand acen rows.
+    [Test]
+    public void GetChromosomeArmLengths_SpotValues_MatchCytoBandAcenRows()
+    {
+        var g38 = OncologyAnalyzer.GetChromosomeArmLengths(OncologyAnalyzer.ReferenceGenome.GRCh38);
+        var g37 = OncologyAnalyzer.GetChromosomeArmLengths(OncologyAnalyzer.ReferenceGenome.GRCh37);
+        Assert.Multiple(() =>
+        {
+            Assert.That(g38[12], Is.EqualTo(new OncologyAnalyzer.ChromosomeArms("13", 16_500_000L, 17_700_000L, 18_900_000L, 114_364_328L)));
+            Assert.That(g38[21], Is.EqualTo(new OncologyAnalyzer.ChromosomeArms("22", 13_700_000L, 15_000_000L, 17_400_000L, 50_818_468L)));
+            Assert.That(g38[22], Is.EqualTo(new OncologyAnalyzer.ChromosomeArms("X", 58_100_000L, 61_000_000L, 63_800_000L, 156_040_895L)));
+            Assert.That(g38[23], Is.EqualTo(new OncologyAnalyzer.ChromosomeArms("Y", 10_300_000L, 10_400_000L, 10_600_000L, 57_227_415L)));
+            Assert.That(g37[8], Is.EqualTo(new OncologyAnalyzer.ChromosomeArms("9", 47_300_000L, 49_000_000L, 50_700_000L, 141_213_431L)));
+            Assert.That(g37[23].QArmLength, Is.EqualTo(46_873_566L));
+            Assert.That(() => OncologyAnalyzer.GetChromosomeArmLengths((OncologyAnalyzer.ReferenceGenome)99),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+        });
     }
 
     #endregion
