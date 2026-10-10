@@ -270,3 +270,18 @@ MINSTD generator (Evidence § F36); expected values = output of the original R `
 | S-ASPCF-G2 | all heterozygous ⇒ het-only overload | het subsets of G1–G3 | segments bit-identical to `SegmentAlleleSpecificAspcf(loci, 70)` | F13 behaviour preserved |
 | S-ASPCF-G3 | homozygous probes carry CN information | G1 with homozygous probes dropped | het-only overload has no level < −1; germline overload finds the deletion at 281000 | source 2 (R run) |
 | C-ASPCF-G1 | invalid arguments | null loci / genotypes, length mismatch, het BAF NaN, +∞ logR, penalty 0; homozygous BAF NaN accepted | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
+
+## 11. FIN-B24 F37 — runASCAT with homozygous segments (2026-10-10)
+
+Same file and genomes as §10; expected values = original R `ascat.runAscat(gamma = 1)` on the `ascat.aspcf` output.
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-ASCAT-G1 | end-to-end fit, homozygous deletion + no-het chromosome | G1 | ρ 0.7, ψ 2.45, ploidy 2.4722222222222223, GoF 99.937918942624279, seg_raw 1:1 2:1 2:1 0:0 2:1 2:1 1:0 2:2 2:0 3:1 1:1 | source 2 (R run) |
+| M-ASCAT-G2 | breakpoint in homozygous gap, chrX | G2 | ρ 0.53, ψ 2.35, ploidy 2.1816367265469063, GoF 99.634551649302338, 1:1 3:0 1:0 2:1 2:2 1:0 1:1 | source 2 (R run) |
+| M-ASCAT-G3 | focal gain in homozygous stretch | G3 | ρ 0.92, ψ 3.15, ploidy 3.3818181818181818, GoF 98.658353206884712, 2:2 3:1 2:0 4:0 2:0 3:2 2:1 3:0 | source 2 (R run) |
+| S-ASCAT-G1 | segment without het probes | G1 | minor 0 on every no-BAF segment; chr3 2:0 (`bafke = 0`) | source 2 |
+| S-ASCAT-G2 | ploidy over all probes | G1–G3 | = LocusCount-weighted mean; het-probe mean = R 2.6134868421052633 / 2.2716666666666665 / 3.539047619047619 (≠ ploidy) | source 2 (R run) |
+| S-ASCAT-G3 | manual (ρ, ψ) at the optimum | G3 | `EvaluatePurityPloidyFromAspcf` = fit (GoF, segments, ploidy); `TryFit…` true | rho_manual path |
+| S-ASCAT-G4 | all heterozygous ⇒ summary fit | het subsets of G1–G3 | identical ρ, ψ, GoF, ploidy, segments to `FitPurityPloidy(SegmentAlleleSpecificAspcf(…))` | F12 behaviour preserved |
+| C-ASCAT-G1 | invalid arguments | null; homozygous-only; X-only; purityStep 0; ρ 1.5 | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |

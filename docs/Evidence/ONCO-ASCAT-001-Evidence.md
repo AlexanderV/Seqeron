@@ -349,6 +349,31 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
   (the two R genome-wide steps it adds — `fillNA` of a level exactly 0, re-averaging of bit-equal adjacent levels across
   chromosomes — do not occur there).
 
+## 2026-10 FIN-B24 F37 — runASCAT with homozygous segments
+
+- Source opened: `raw.githubusercontent.com/VanLoo-lab/ascat/master/ASCAT/R/ascat.runAscat.R` — `runASCAT`:
+  `b = bafsegmented; r = lrrsegmented[names(bafsegmented)]` (heterozygous probes only), `autoprobes`, `make_segments(r2, b2)`
+  (runs of identical (r, b), no chromosome check; length = probes), distance matrix / TheoretMaxdist / nonaberrant /
+  filter cascade on those segments only; `seg` loop over `rle(lrrsegmented)` ∪ chromosome ends with
+  `bafke = bafsegmented[bafpos][1]` and "if bafke is NA … germline homozygous stretch … just their sum matters":
+  `bafke = 0`; `ascat.runAscat`: `ploidy = mean(nA + nB, na.rm = TRUE)` over `n1all`/`n2all` = every non-NA probe
+  (CN probes and homozygous probes get nMajor + nMinor).
+- Consequences ported: homozygous probes never enter the distance matrix or the GoF (only via the logR levels); a
+  segment without heterozygous probes gets nAraw = total + (1 − ρ)/ρ, nBraw = (ρ − 1)/ρ ≤ 0 ⇒ negative-value correction
+  ⇒ (round(total), 0); ploidy is weighted by all probes.
+- R cross-check (executed; same genomes and harness as F36, `ascat.runAscat(gamma = 1)`):
+
+  | Genome | purity | psi | ploidy (all probes) | goodnessOfFit | seg_raw (nMajor, nMinor) | het-probe mean nA+nB |
+  |---|---|---|---|---|---|---|
+  | G1 | 0.7 | 2.45 | 2.4722222222222223 | 99.937918942624279 | 1:1 2:1 2:1 0:0 2:1 2:1 1:0 2:2 2:0 3:1 1:1 | 2.6134868421052633 |
+  | G2 | 0.53 | 2.35 | 2.1816367265469063 | 99.634551649302338 | 1:1 3:0 1:0 2:1 2:2 1:0 1:1 | 2.2716666666666665 |
+  | G3 | 0.92 | 3.15 | 3.3818181818181818 | 98.658353206884712 | 2:2 3:1 2:0 4:0 2:0 3:2 2:1 3:0 | 3.539047619047619 |
+
+  C# `FitPurityPloidyFromAspcf`: ρ, ψ, ploidy and GoF bit-identical, every seg_raw row identical; nonaberrant FALSE.
+  Homozygous-only segments: G1 chr3 (nAraw 2.0120388012516401, nBraw 0 ⇒ 2:0), G1 deletion 0:0, G3 focal 4:0, chr4 3:0.
+- Gap shown (pre-F37): the summary fit on heterozygous loci reports ploidy over heterozygous probes only
+  (G1 2.6134868421052633 vs ASCAT 2.4722222222222223) and cannot emit homozygous segments.
+
 ---
 
 ## References
@@ -366,6 +391,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 ## Change History
 
+- **2026-10-10**: FIN-B24 F37 — runASCAT with homozygous segments (`bafke` NA ⇒ 0, all-probe ploidy) R cross-check section added.
 - **2026-10-10**: FIN-B24 F36 — germline-aware `ascat.aspcf` (homozygous probes, homozygous-stretch resegmentation) R cross-check section added.
 - **2026-10-09**: FIN-B24 F35 — the unsourced greedy `SegmentAlleleSpecific` heuristic was removed; the public name now delegates to `SegmentAlleleSpecificAspcf(loci, AspcfDefaultPenalty = 70)` (ascat.aspcf port, R-verified 60/60), with the ASPCF finite-logR / BAF ∈ [0, 1] validation; legacy thresholds ignored (range-checked for compatibility). Test point 14 added; point 9 reworded.
 

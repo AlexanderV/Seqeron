@@ -1556,7 +1556,9 @@ public static partial class OncologyAnalyzer
     /// <param name="Purity">Recovered tumour purity ρ (aberrant cell fraction) ∈ (0, 1] (ASCAT <c>purity</c>).</param>
     /// <param name="Ploidy">ASCAT output <c>ploidy</c>: the mean integer total copy number (major + minor) over the
     /// heterozygous probes, i.e. the <see cref="AlleleSpecificSegmentSummary.LocusCount"/>-weighted mean of the emitted
-    /// segments' total copy number. It equals ψ for an exact integer-copy-number genome.</param>
+    /// segments' total copy number. It equals ψ for an exact integer-copy-number genome. From the germline-aware path
+    /// (<see cref="FitPurityPloidyFromAspcf"/>, B24 F37) it is ASCAT's <c>mean(nA + nB)</c> over <b>all</b> probes,
+    /// heterozygous and homozygous.</param>
     /// <param name="GoodnessOfFit">Percentage goodness of fit (1 − distance/TheoretMaxdist)·100, in (−∞, 100].</param>
     /// <param name="Segments">The allele-specific integer copy-number segments (major/minor CN) implied by (ρ, ψ).</param>
     public readonly record struct PurityPloidyFit(
@@ -2043,7 +2045,27 @@ public static partial class OncologyAnalyzer
     {
         AscatFitSegment[] s = PrepareAscatSegments(segments);
         ValidateGrid(purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+        if (!TryFindAscatOptimum(s, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma,
+                out double rhoOpt, out double psiOpt, out double goodnessOfFit, out bool nonAberrant))
+        {
+            fit = default;
+            return false;
+        }
 
+        fit = BuildAscatFit(segments, rhoOpt, psiOpt, gamma, goodnessOfFit, nonAberrant);
+        return true;
+    }
+
+    /// <summary>
+    /// The runASCAT grid search (ascat.runAscat.R) on validated autosomal fitting segments: distance matrix, strict
+    /// 7 × 7 local minima, the four-pass filter cascade and the optimum selection (see <see cref="FitPurityPloidy"/>).
+    /// Returns <c>false</c> when no candidate passes (ASCAT <c>rho = NA</c>); ρ &gt; 1 is reported as 1.
+    /// </summary>
+    private static bool TryFindAscatOptimum(
+        AscatFitSegment[] s, double purityMin, double purityMax, double purityStep,
+        double ploidyMin, double ploidyMax, double ploidyStep, double gamma,
+        out double rhoOpt, out double psiOpt, out double goodnessOfFitOpt, out bool nonAberrant)
+    {
         double[] psiPos = RSeq(ploidyMin - 0.5, ploidyMax + 0.5, ploidyStep);
         double[] rhoPos = RSeq(purityMin, purityMax, purityStep);
         int rows = psiPos.Length, cols = rhoPos.Length;
@@ -2056,14 +2078,15 @@ public static partial class OncologyAnalyzer
             }
         }
 
-        (double theoreticalMaxDistance, bool nonAberrant) = AscatSampleSummary(s);
+        (double theoreticalMaxDistance, nonAberrant) = AscatSampleSummary(s);
+        bool sampleNonAberrant = nonAberrant;
 
         var candidates = new List<(double M, int I, int J, double GoodnessOfFit)>();
         bool strictPloidyWindowReachable = ploidyMin < AscatMaxPloidyStrict && ploidyMax > AscatMinPloidyStrict;
 
         // Pass 1: all filters.
         CollectAscatOptima(d, psiPos, rhoPos, s, gamma, theoreticalMaxDistance, candidates, st =>
-            !nonAberrant && st.Ploidy > ploidyMin && st.Ploidy < ploidyMax && st.Rho >= AscatMinRho
+            !sampleNonAberrant && st.Ploidy > ploidyMin && st.Ploidy < ploidyMax && st.Rho >= AscatMinRho
             && st.GoodnessOfFit > AscatMinGoodnessOfFit && st.PercentZero > AscatMinPercentZero);
 
         // Pass 2: drop percentzero (allow non-aberrant solutions) with strict ploidy borders.
@@ -2089,7 +2112,7 @@ public static partial class OncologyAnalyzer
             }
 
             CollectAscatOptima(d, psiPos, rhoPos, s, gamma, theoreticalMaxDistance, candidates, st =>
-                !nonAberrant && st.Ploidy > ploidyMin && st.Ploidy < ploidyMax && st.Rho >= AscatMinRho
+                !sampleNonAberrant && st.Ploidy > ploidyMin && st.Ploidy < ploidyMax && st.Rho >= AscatMinRho
                 && st.GoodnessOfFit > AscatMinGoodnessOfFit
                 && (st.PercentZeroAberrant > AscatMinPercentZeroAberrant || st.PercentZero > AscatMinPercentZero
                     || st.PercentOddEven > AscatMinPercentOddEven));
@@ -2105,7 +2128,7 @@ public static partial class OncologyAnalyzer
 
         if (candidates.Count == 0)
         {
-            fit = default;
+            rhoOpt = psiOpt = goodnessOfFitOpt = double.NaN;
             return false;
         }
 
@@ -2125,9 +2148,9 @@ public static partial class OncologyAnalyzer
             }
         }
 
-        double psiOpt = RDimnameValue(psiPos[best.I]);
-        double rhoOpt = Math.Min(1.0, RDimnameValue(rhoPos[best.J])); // if (rho_opt1 > 1) rho_opt1 = 1
-        fit = BuildAscatFit(segments, rhoOpt, psiOpt, gamma, best.GoodnessOfFit, nonAberrant);
+        psiOpt = RDimnameValue(psiPos[best.I]);
+        rhoOpt = Math.Min(1.0, RDimnameValue(rhoPos[best.J])); // if (rho_opt1 > 1) rho_opt1 = 1
+        goodnessOfFitOpt = best.GoodnessOfFit;
         return true;
     }
 
@@ -2244,6 +2267,187 @@ public static partial class OncologyAnalyzer
         double m = AscatDistance(s, purity, ploidy, gamma);
         double goodnessOfFit = (1.0 - m / theoreticalMaxDistance) * 100.0;
         return BuildAscatFit(segments, purity, ploidy, gamma, goodnessOfFit, nonAberrant);
+    }
+
+    /// <summary>
+    /// ASCAT purity/ploidy fit (runASCAT, ascat.runAscat.R) on a germline-aware ASPCF segmentation
+    /// (<see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/>), i.e.
+    /// with germline-homozygous probes, exactly as runASCAT treats them:
+    /// <list type="bullet">
+    /// <item><b>Fit</b>: the distance matrix, filters, goodness of fit and non-aberrant flag use the heterozygous
+    /// autosomal probes only (<c>r = lrrsegmented[names(bafsegmented)]</c>), grouped by <c>make_segments</c> into runs of
+    /// identical (segmented logR, segmented BAF) with length = number of heterozygous probes. Homozygous probes enter
+    /// only through the logR levels; the grid search is the one of <see cref="FitPurityPloidy"/>.</item>
+    /// <item><b>Segments</b> (<c>seg_raw</c>): one per <see cref="AspcfSegmentation.Segments"/> entry (runs of equal
+    /// segmented logR within a chromosome), using the BAF of the run's first heterozygous probe; a run without
+    /// heterozygous probes (BAF NA) uses ASCAT's <c>bafke = 0</c>, which after the negative-value correction puts the
+    /// whole total copy number on the major allele (only nA + nB is meaningful there).</item>
+    /// <item><b>Ploidy</b>: ASCAT's reported <c>ploidy = mean(nA + nB)</c> over <b>all</b> probes (heterozygous and
+    /// homozygous, sex chromosomes included), i.e. the <see cref="AspcfSegment.LocusCount"/>-weighted mean total copy
+    /// number of the segments.</item>
+    /// </list>
+    /// Parameters and the no-optimum behaviour are those of <see cref="FitPurityPloidy"/>.
+    /// </summary>
+    /// <param name="segmentation">The germline-aware ASPCF segmentation.</param>
+    /// <param name="purityMin">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="purityMax">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="purityStep">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="ploidyMin">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="ploidyMax">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="ploidyStep">See <see cref="FitPurityPloidy"/>.</param>
+    /// <param name="gamma">See <see cref="FitPurityPloidy"/>.</param>
+    /// <returns>ρ, the all-probe ASCAT ploidy, GoF, the <c>seg_raw</c> integer segments and ψ.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segmentation"/> is null.</exception>
+    /// <exception cref="ArgumentException">The segmentation has no heterozygous autosomal probe.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A grid bound or step is out of range.</exception>
+    /// <exception cref="InvalidOperationException">ASCAT finds no acceptable optimum (use
+    /// <see cref="TryFitPurityPloidyFromAspcf"/>).</exception>
+    public static PurityPloidyFit FitPurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
+    {
+        if (!TryFitPurityPloidyFromAspcf(segmentation, out PurityPloidyFit fit, purityMin, purityMax, purityStep,
+                ploidyMin, ploidyMax, ploidyStep, gamma))
+        {
+            throw new InvalidOperationException(
+                "ASCAT could not find an optimal ploidy and purity value: no local minimum of the distance matrix passes " +
+                "the ASCAT solution filters (ascat.runAscat.R).");
+        }
+
+        return fit;
+    }
+
+    /// <summary>
+    /// <see cref="FitPurityPloidyFromAspcf"/> reporting ASCAT's <c>rho = NA</c> outcome as <c>false</c> instead of throwing.
+    /// </summary>
+    public static bool TryFitPurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        out PurityPloidyFit fit,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
+    {
+        AscatFitSegment[] s = AscatMakeSegments(segmentation);
+        ValidateGrid(purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+        if (!TryFindAscatOptimum(s, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma,
+                out double rhoOpt, out double psiOpt, out double goodnessOfFit, out bool nonAberrant))
+        {
+            fit = default;
+            return false;
+        }
+
+        fit = BuildAscatFitFromAspcf(segmentation, rhoOpt, psiOpt, gamma, goodnessOfFit, nonAberrant);
+        return true;
+    }
+
+    /// <summary>
+    /// ASCAT with a user-supplied purity and ploidy (<c>rho_manual</c>/<c>psi_manual</c>) on a germline-aware ASPCF
+    /// segmentation: GoF over the heterozygous autosomal <c>make_segments</c> runs, <c>seg_raw</c> segments and the
+    /// all-probe ploidy as in <see cref="FitPurityPloidyFromAspcf"/>.
+    /// </summary>
+    /// <param name="segmentation">The germline-aware ASPCF segmentation.</param>
+    /// <param name="purity">Purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Ploidy parameter ψ (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (&gt; 0).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segmentation"/> is null.</exception>
+    /// <exception cref="ArgumentException">The segmentation has no heterozygous autosomal probe.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">ρ ∉ (0, 1], ψ ≤ 0 or γ ≤ 0 (or any is non-finite).</exception>
+    public static PurityPloidyFit EvaluatePurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma)
+    {
+        AscatFitSegment[] s = AscatMakeSegments(segmentation);
+        ValidateAscatModelParameters(purity, ploidy, gamma);
+
+        (double theoreticalMaxDistance, bool nonAberrant) = AscatSampleSummary(s);
+        double m = AscatDistance(s, purity, ploidy, gamma);
+        double goodnessOfFit = (1.0 - m / theoreticalMaxDistance) * 100.0;
+        return BuildAscatFitFromAspcf(segmentation, purity, ploidy, gamma, goodnessOfFit, nonAberrant);
+    }
+
+    /// <summary>
+    /// runASCAT fitting segments from a germline-aware segmentation: the heterozygous autosomal probes' (segmented logR,
+    /// 1 − mirrored segmented BAF) pairs, grouped by ASCAT <c>make_segments</c> into runs of identical pairs (the runs
+    /// ignore chromosome boundaries, as in R); length = number of probes in the run.
+    /// </summary>
+    private static AscatFitSegment[] AscatMakeSegments(AspcfSegmentation segmentation)
+    {
+        ArgumentNullException.ThrowIfNull(segmentation);
+        var result = new List<AscatFitSegment>();
+        double previousR = 1e10, previousB = -1.0;
+        int count = 0;
+        for (int i = 0; i < segmentation.Loci.Count; i++)
+        {
+            if (!segmentation.GermlineHeterozygous[i] || IsAscatSexChromosome(segmentation.Loci[i].Chromosome))
+            {
+                continue;
+            }
+
+            double r = segmentation.SegmentedLogR[i];
+            double b = 1.0 - segmentation.SegmentedBaf[i]; // Tumor_BAF_segmented = 1 - bafPCFed
+            if (b != previousB || r != previousR)
+            {
+                if (count > 0)
+                {
+                    result.Add(new AscatFitSegment(previousR, previousB, count));
+                }
+
+                count = 0;
+            }
+
+            count++;
+            previousR = r;
+            previousB = b;
+        }
+
+        if (count == 0)
+        {
+            throw new ArgumentException(
+                "ASCAT fits purity and ploidy on heterozygous autosomal probes; the segmentation has none.",
+                nameof(segmentation));
+        }
+
+        result.Add(new AscatFitSegment(previousR, previousB, count));
+        return result.ToArray();
+    }
+
+    /// <summary>
+    /// runASCAT output at the selected (ρ, ψ) for a germline-aware segmentation: <c>seg_raw</c> integer segments (one per
+    /// logR segment; <c>bafke</c> = first heterozygous BAF, 0 when none) and <c>ploidy = mean(nA + nB)</c> over all probes.
+    /// </summary>
+    private static PurityPloidyFit BuildAscatFitFromAspcf(
+        AspcfSegmentation segmentation, double rho, double psi, double gamma, double goodnessOfFit, bool nonAberrant)
+    {
+        var result = new List<AlleleSpecificSegment>(segmentation.Segments.Count);
+        var probeCounts = new int[segmentation.Segments.Count];
+        for (int i = 0; i < segmentation.Segments.Count; i++)
+        {
+            AspcfSegment s = segmentation.Segments[i];
+            double bafke = s.HasBaf ? 1.0 - s.MeanBAF : 0.0; // "if (is.na(bafke)) bafke = 0"
+            (double major, double minor) = AscatRoundSegment(s.MeanLogR, bafke, rho, psi, gamma);
+            long end = s.End > s.Start ? s.End : s.Start + 1;
+            result.Add(new AlleleSpecificSegment(
+                s.Chromosome, s.Start, end, AscatCopyNumberToInt(major), AscatCopyNumberToInt(minor)));
+            probeCounts[i] = s.LocusCount;
+        }
+
+        return new PurityPloidyFit(rho, EstimatePloidy(result, probeCounts), goodnessOfFit, result)
+        {
+            Psi = psi,
+            IsNonAberrant = nonAberrant,
+        };
     }
 
     /// <summary>
@@ -3031,7 +3235,7 @@ public static partial class OncologyAnalyzer
     /// Result of ASCAT allele-specific segmentation with germline genotypes
     /// (<see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/>): the
     /// per-locus ASCAT <c>Tumor_LogR_segmented</c> (every locus) and <c>Tumor_BAF_segmented</c> (heterozygous loci only),
-    /// plus the logR segments runASCAT builds from them.
+    /// plus the logR segments runASCAT builds from them. Consumed by <see cref="FitPurityPloidyFromAspcf"/>.
     /// </summary>
     public sealed class AspcfSegmentation
     {

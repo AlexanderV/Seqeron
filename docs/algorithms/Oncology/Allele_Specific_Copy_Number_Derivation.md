@@ -161,7 +161,7 @@ a segment summary has constant SNP BAF, for which Battenberg sets pval = 0) [8].
 |-------|------|-------------|
 | AlleleSpecificSegmentSummary | record | per-segment mean logR, mirrored mean BAF, locus count |
 | AspcfSegmentation | class | germline-aware ASPCF (F36): per-locus `SegmentedLogR` (ASCAT `Tumor_LogR_segmented`, every locus), `SegmentedBaf` (mirrored, NaN at homozygous loci) and `Segments` (`AspcfSegment`: runASCAT logR runs within a chromosome, BAF of the first heterozygous locus or NaN, `LocusCount`, `HeterozygousLocusCount`) |
-| PurityPloidyFit | record | ρ, ASCAT output ploidy (probe-weighted mean integer total CN), GoF %, integer `AlleleSpecificSegment`s (one per summary, ASCAT `seg_raw`), `Psi` (ψ), `IsNonAberrant` |
+| PurityPloidyFit | record | ρ, ASCAT output ploidy (probe-weighted mean integer total CN; over all probes from `FitPurityPloidyFromAspcf`, F37), GoF %, integer `AlleleSpecificSegment`s (one per summary / per `AspcfSegment`, ASCAT `seg_raw`), `Psi` (ψ), `IsNonAberrant` |
 | DeriveMultiplicity | int | integer multiplicity m ∈ [1, majorCopyNumber] |
 | SubclonalSegmentFit | record | per-segment primary/secondary `SubclonalCopyNumberState` (major, minor, cellFraction) + IsSubclonal flag |
 
@@ -186,6 +186,12 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
    through the four-pass filter cascade, keep the smallest distance (ρ > 1 ⇒ 1), emit the `seg_raw` integer
    segments for every summary (sex chromosomes with the diploid model), the ASCAT ploidy and GoF. No candidate ⇒
    rho = NA. `EvaluatePurityPloidy` is the rho_manual/psi_manual path.
+   **With homozygous probes (B24 F37, `FitPurityPloidyFromAspcf` / `TryFitPurityPloidyFromAspcf` /
+   `EvaluatePurityPloidyFromAspcf` on an `AspcfSegmentation`):** the fit uses the heterozygous autosomal probes only
+   (`r = lrrsegmented[names(bafsegmented)]`) grouped by `make_segments` (runs of identical (r, b), length = het probes);
+   `seg_raw` has one row per logR segment with `bafke` = BAF of its first heterozygous probe, and `bafke = 0` when the
+   segment has none (NA), which after the negative-value correction puts the whole total on nA (only nA + nB matters);
+   ploidy = `mean(nA + nB)` over all probes (heterozygous and homozygous, ascat.runAscat l. 98).
 3. **Multiplicity:** m = clamp(round_half_even(VAF·[ρ·N_T + 2(1−ρ)]/ρ), 1, major). Feed (VAF, ρ, N_T, m) into `EstimateCcf`.
 4. **ASPCF (`ascat.aspcf`, alternative to step 1):** per chromosome, MAD-winsorise logR and mirrored BAF; < 6 loci ⇒
    one segment; else `fastAspcf`: 1000-locus windows (overlap 100), per window MAD sd of both tracks (a window with
@@ -231,6 +237,7 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 - `OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, germlineHeterozygous, penalty)`: complete `ascat.aspcf` with germline genotypes (homozygous probes, homozygous-stretch resegmentation) → `AspcfSegmentation` (B24 F36).
 - `OncologyAnalyzer.FitPurityPloidy(...)` / `TryFitPurityPloidy(...)`: ASCAT `runASCAT` fit → ρ, ψ, ploidy, GoF, integer segments.
 - `OncologyAnalyzer.EvaluatePurityPloidy(...)`: ASCAT rho_manual/psi_manual path.
+- `OncologyAnalyzer.FitPurityPloidyFromAspcf(...)` / `TryFitPurityPloidyFromAspcf(...)` / `EvaluatePurityPloidyFromAspcf(...)`: runASCAT on a germline-aware `AspcfSegmentation` (homozygous segments, all-probe ploidy; B24 F37).
 - `OncologyAnalyzer.DeriveMultiplicity(...)`: McGranahan multiplicity (rounded, clamped).
 - `OncologyAnalyzer.FitSubclonalCopyNumber(...)`: Battenberg `determine_copynumber` (nearest edge, τ, maxdist).
 
@@ -247,6 +254,8 @@ suffix tree is **not used** (no occurrence enumeration).
 
 - ASCAT `runASCAT`: nA/nB equations, distance matrix (probe-count weights, autosomes, genome-wide minor allele),
   local-minimum scan, filter cascade, ρ clamp, `seg_raw` rounding, GoF, non-aberrant flag, manual (ρ, ψ) path [2].
+- runASCAT with germline-homozygous probes (B24 F37): het-only `make_segments` fit, `bafke` NA ⇒ 0 for homozygous
+  segments, `ploidy = mean(nA + nB)` over all probes — R-verified end to end (ascat.aspcf → runASCAT) on 3 genomes [2].
 - McGranahan observed mutation copy number n_mut and the [1, major] multiplicity clamp [3][4].
 - ASCAT ASPCF: winsorisation, MAD-standardised joint cost, kmin 6, windows, BAF shrinkage, penalty ladder [2][6][7].
 - ASCAT `ascat.aspcf` with germline genotypes (B24 F36): heterozygous-only BAF, logR from all probes averaged onto the
@@ -277,7 +286,7 @@ suffix tree is **not used** (no occurrence enumeration).
 | 1 | ~~Greedy mean-shift segmentation retained alongside ASPCF~~ | Deviation | — | **resolved (B24 F35)** | `SegmentAlleleSpecific` now delegates to ASPCF (`ascat.aspcf`, penalty 70) [2]; legacy thresholds ignored |
 | 2 | Segment summaries instead of probes | Assumption | ~~no homozygous-probe logR~~ (resolved F36), no haploid X/Y model | partly resolved | see §5.3 |
 | 3 | No per-SNP t-test in the sub-clonal fit | Assumption | clonality by maxdist only | accepted | constant-BAF branch of Battenberg [8] |
-| 4 | `PurityPloidyFit.Ploidy` = probe-weighted mean integer CN over heterozygous probes | Assumption | ASCAT averages over all probes | accepted | `Psi` carries ψ |
+| 4 | ~~`PurityPloidyFit.Ploidy` = probe-weighted mean integer CN over heterozygous probes~~ | Assumption | ASCAT averages over all probes | **resolved (B24 F37)** | `FitPurityPloidyFromAspcf` averages over all probes; summary-based `FitPurityPloidy` has only heterozygous loci, where both coincide |
 
 ## 6. Edge Cases and Limitations
 
@@ -318,6 +327,9 @@ var loci = /* per-locus (chrom, pos, logR, BAF) measurements */;
 var summaries2 = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci); // ASCAT ASPCF segmentation (penalty 70)
 // SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2) returns the same (legacy name; thresholds ignored, F35)
 var fit = OncologyAnalyzer.FitPurityPloidy(summaries2);         // → ρ, ψ, integer segments (throws if ASCAT finds none)
+// With germline genotypes (true = heterozygous): full ascat.aspcf + runASCAT incl. homozygous probes (F36/F37)
+var aspcf = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, germlineHeterozygous);
+var fitAll = OncologyAnalyzer.FitPurityPloidyFromAspcf(aspcf);  // ploidy = mean(nA + nB) over all probes
 double ploidy = OncologyAnalyzer.EstimatePloidy(fit.Segments);  // downstream consumer
 var seg = fit.Segments[0];
 int m = OncologyAnalyzer.DeriveMultiplicity(vaf: 0.40, purity: fit.Purity,

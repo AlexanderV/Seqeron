@@ -274,4 +274,153 @@ public class OncologyAnalyzer_AscatGermlineHomozygous_Tests
     }
 
     #endregion
+
+    #region FitPurityPloidyFromAspcf — runASCAT with homozygous segments (F37)
+
+    // runASCAT (gamma = 1, defaults) on the ascat.aspcf output: purity, psi, ploidy = mean(nA + nB) over ALL probes,
+    // goodnessOfFit, and seg_raw (nMajor, nMinor) per logR segment.
+    private static IEnumerable<TestCaseData> ReferenceFits()
+    {
+        yield return new TestCaseData(G1, 0.7, 2.45, 2.4722222222222223, 99.937918942624279,
+                new[] { (1, 1), (2, 1), (2, 1), (0, 0), (2, 1), (2, 1), (1, 0), (2, 2), (2, 0), (3, 1), (1, 1) })
+            .SetName("RunAscatGermline_G1_MatchesRunAscat");
+        yield return new TestCaseData(G2, 0.53, 2.35, 2.1816367265469063, 99.634551649302338,
+                new[] { (1, 1), (3, 0), (1, 0), (2, 1), (2, 2), (1, 0), (1, 1) })
+            .SetName("RunAscatGermline_G2_MatchesRunAscat");
+        yield return new TestCaseData(G3, 0.92, 3.15, 3.3818181818181818, 98.658353206884712,
+                new[] { (2, 2), (3, 1), (2, 0), (4, 0), (2, 0), (3, 2), (2, 1), (3, 0) })
+            .SetName("RunAscatGermline_G3_MatchesRunAscat");
+    }
+
+    // M-ASCAT-G1..G3 — ascat.aspcf → runASCAT end to end on genomes with homozygous segments.
+    [TestCaseSource(nameof(ReferenceFits))]
+    public void FitPurityPloidyFromAspcf_MatchesRunAscat(
+        Genome genome, double rho, double psi, double ploidy, double goodnessOfFit, (int Major, int Minor)[] segRaw)
+    {
+        var fit = OncologyAnalyzer.FitPurityPloidyFromAspcf(Segment(genome));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.Purity, Is.EqualTo(rho).Within(1e-12), "runASCAT purity.");
+            Assert.That(fit.Psi, Is.EqualTo(psi).Within(1e-12), "runASCAT psi.");
+            Assert.That(fit.Ploidy, Is.EqualTo(ploidy).Within(1e-14), "ASCAT ploidy = mean(nA + nB) over all probes.");
+            Assert.That(fit.GoodnessOfFit, Is.EqualTo(goodnessOfFit).Within(1e-9), "runASCAT goodnessOfFit.");
+            Assert.That(fit.IsNonAberrant, Is.False, "runASCAT nonaberrant = FALSE.");
+            Assert.That(fit.Segments.Select(s => (s.MajorCopyNumber, s.MinorCopyNumber)), Is.EqualTo(segRaw),
+                "seg_raw nMajor / nMinor per logR segment.");
+        });
+    }
+
+    // S-ASCAT-G1 — a segment without heterozygous probes (BAF NA ⇒ bafke = 0): the whole total copy number is on the
+    // major allele (R seg_raw: G1 chr3 2:0 with nAraw 2.01204 / nBraw 0, the homozygous deletion 0:0; G3 4:0, 3:0).
+    [Test]
+    public void FitPurityPloidyFromAspcf_HomozygousOnlySegments_CarryTotalOnMajorAllele()
+    {
+        var seg = Segment(G1);
+        var fit = OncologyAnalyzer.FitPurityPloidyFromAspcf(seg);
+
+        Assert.Multiple(() =>
+        {
+            for (int i = 0; i < seg.Segments.Count; i++)
+            {
+                if (!seg.Segments[i].HasBaf)
+                {
+                    Assert.That(fit.Segments[i].MinorCopyNumber, Is.Zero, $"Segment {i + 1}: no BAF ⇒ nB = 0 (ASCAT bafke = 0).");
+                }
+            }
+
+            var chr3 = fit.Segments.Single(s => s.Chromosome == "3");
+            Assert.That((chr3.MajorCopyNumber, chr3.MinorCopyNumber), Is.EqualTo((2, 0)), "Homozygous-only chr3: total 2 on nA.");
+        });
+    }
+
+    // S-ASCAT-G2 — Ploidy averages over all probes (ASCAT ascat.runAscat ploidy = mean(nA + nB)); the heterozygous-probe
+    // mean is R's mean over het probes: 2.6134868421052633 (G1), 2.2716666666666665 (G2), 3.539047619047619 (G3).
+    [TestCase(0, 2.6134868421052633)]
+    [TestCase(1, 2.2716666666666665)]
+    [TestCase(2, 3.539047619047619)]
+    public void FitPurityPloidyFromAspcf_PloidyAveragesAllProbes_NotHeterozygousOnly(int genomeIndex, double hetMean)
+    {
+        var genome = new[] { G1, G2, G3 }[genomeIndex];
+        var seg = Segment(genome);
+        var fit = OncologyAnalyzer.FitPurityPloidyFromAspcf(seg);
+
+        double hetWeighted = seg.Segments.Zip(fit.Segments)
+            .Sum(p => (double)(p.Second.MajorCopyNumber + p.Second.MinorCopyNumber) * p.First.HeterozygousLocusCount)
+            / seg.Segments.Sum(s => s.HeterozygousLocusCount);
+        double allWeighted = OncologyAnalyzer.EstimatePloidy(fit.Segments, seg.Segments.Select(s => s.LocusCount));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hetWeighted, Is.EqualTo(hetMean).Within(1e-14), "R mean(nA + nB) over heterozygous probes.");
+            Assert.That(fit.Ploidy, Is.EqualTo(allWeighted), "Ploidy = all-probe (LocusCount) weighted mean.");
+            Assert.That(fit.Ploidy, Is.Not.EqualTo(hetWeighted).Within(1e-6), "All-probe ploidy differs from the het-only mean.");
+        });
+    }
+
+    // S-ASCAT-G3 — rho_manual / psi_manual at the fitted optimum reproduces the fit (GoF, segments, ploidy).
+    [Test]
+    public void EvaluatePurityPloidyFromAspcf_AtOptimum_ReproducesFit()
+    {
+        var seg = Segment(G3);
+        var fit = OncologyAnalyzer.FitPurityPloidyFromAspcf(seg);
+        var manual = OncologyAnalyzer.EvaluatePurityPloidyFromAspcf(seg, fit.Purity, fit.Psi);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manual.GoodnessOfFit, Is.EqualTo(fit.GoodnessOfFit), "Same distance ⇒ same GoF.");
+            Assert.That(manual.Ploidy, Is.EqualTo(fit.Ploidy));
+            Assert.That(manual.Segments, Is.EqualTo(fit.Segments));
+            Assert.That(OncologyAnalyzer.TryFitPurityPloidyFromAspcf(seg, out var tried), Is.True);
+            Assert.That((tried.Purity, tried.Psi), Is.EqualTo((fit.Purity, fit.Psi)));
+        });
+    }
+
+    // S-ASCAT-G4 — all heterozygous: the germline-aware fit equals FitPurityPloidy on the het-only summaries
+    // (make_segments over het probes = one fitting segment per summary here; ploidy over all = over het probes).
+    [TestCaseSource(nameof(ReferenceGenomes))]
+    public void FitPurityPloidyFromAspcf_AllHeterozygous_EqualsSummaryFit(
+        Genome genome, (string Chr, long Start, long End, double LogR, double Baf, int N, int NHet)[] _)
+    {
+        var (loci, het) = Simulate(genome);
+        var hetLoci = loci.Where((_, i) => het[i]).ToList();
+        var legacy = OncologyAnalyzer.FitPurityPloidy(OncologyAnalyzer.SegmentAlleleSpecificAspcf(hetLoci, 70.0));
+        var germline = OncologyAnalyzer.FitPurityPloidyFromAspcf(
+            OncologyAnalyzer.SegmentAlleleSpecificAspcf(hetLoci, hetLoci.Select(_ => true).ToList(), 70.0));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((germline.Purity, germline.Psi), Is.EqualTo((legacy.Purity, legacy.Psi)));
+            Assert.That(germline.GoodnessOfFit, Is.EqualTo(legacy.GoodnessOfFit));
+            Assert.That(germline.Ploidy, Is.EqualTo(legacy.Ploidy));
+            Assert.That(germline.Segments, Is.EqualTo(legacy.Segments));
+        });
+    }
+
+    // C-ASCAT-G1 — invalid arguments.
+    [Test]
+    public void FitPurityPloidyFromAspcf_InvalidArguments_Throw()
+    {
+        var homOnly = OncologyAnalyzer.SegmentAlleleSpecificAspcf(
+            Enumerable.Range(0, 20).Select(i => new OncologyAnalyzer.AlleleSpecificLocus("1", i * 1000L, 0.1 * (i % 3), 0.0)),
+            Enumerable.Repeat(false, 20).ToList());
+        var xOnly = OncologyAnalyzer.SegmentAlleleSpecificAspcf(
+            Enumerable.Range(0, 20).Select(i => new OncologyAnalyzer.AlleleSpecificLocus("X", i * 1000L, 0.1 * (i % 3), 0.3)),
+            Enumerable.Repeat(true, 20).ToList());
+        var seg = Segment(G2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.FitPurityPloidyFromAspcf(null!));
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.EvaluatePurityPloidyFromAspcf(null!, 0.5, 2.0));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitPurityPloidyFromAspcf(homOnly),
+                "No heterozygous probe ⇒ nothing to fit.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitPurityPloidyFromAspcf(xOnly),
+                "Sex-chromosome probes are excluded from the fit.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.FitPurityPloidyFromAspcf(seg, purityStep: 0.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EvaluatePurityPloidyFromAspcf(seg, 1.5, 2.0));
+        });
+    }
+
+    #endregion
 }
