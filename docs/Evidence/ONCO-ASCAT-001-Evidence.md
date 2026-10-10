@@ -411,6 +411,45 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 - Gap shown (pre-F38): X/Y were always emitted with the diploid model — e.g. M1 male X segment of 2 tumour copies came
   out 1:1 instead of ASCAT's 2:0 and the ploidy 2.1775362318840581 instead of 2.181159420289855.
 
+## 2026-10 FIN-B24 F39 — Battenberg per-SNP clonality t-test
+
+- Source opened: `raw.githubusercontent.com/Wedge-lab/battenberg/master/R/fitcopynumber.R` — `determine_copynumber`
+  (called twice by `callSubclones(..., siglevel = 0.05, maxdist = 0.01, ...)`) and `R/segmentation.R`:
+  `BAFke = BAFphased[segment]` (per-SNP BAFs flipped to the segment side, `BAFphased = ifelse(BAFsegm > 0.5, BAF, 1 − BAF)`;
+  **not** mirrored again), `l = max(BAFseg, 1 − BAFseg)`, `test.levels` = BAF of the two corners of the nearest edge,
+  `whichclosestlevel.test = which.min(abs(test.levels − l))`;
+  `if (is.na(sd(BAFke)) || sd(BAFke) == 0) pval = 0 else pval = t.test(BAFke, alternative = "two.sided", mu = test.levels[whichclosestlevel.test])$p.value`;
+  `if (abs(l − test.level) < maxdist) pval = 1`; sub-clonal iff `pval <= siglevel`. < 2 SNPs ⇒ sd NA ⇒ pval 0; constant ⇒ 0;
+  no tryCatch — R `t.test`'s "data are essentially constant" stop (stderr < 10·eps·|mean|) would abort Battenberg (port: pval 0).
+- Student t: R `stats:::t.test.default` (stderr = sqrt(var/n), df = n − 1, p = 2·pt(−|t|, df)); R nmath `pt.c`
+  (pbeta(1/(1 + t²/n), n/2, ½)), `lbeta.c`, `toms708.c` (`brcomp` large-parameter prefactor). New
+  `StatisticsHelper.RegularizedIncompleteBeta` / `StudentTCdf` / `OneSampleTTestPValue` (continued fraction in
+  double-double). Sweep vs R 4.3.3: `pt` 400 cases (ν 1–3·10⁵, |t| 1e−3–40): median 1.1e−16, max 1.7e−14 for P > 1e−30,
+  max 1.7e−13 in the far tail (P ~ 1e−175); `pbeta` 300 cases (a, b 0.01–3·10⁴): 90 % ≤ 8.7e−15, max 1.5e−13. scipy 1.18.1
+  `t.cdf` / `betainc` / `ttest_1samp` agree to the same digits (e.g. pt(−6, 2·10⁵) R 9.8827494396739874e−10, scipy
+  9.882749439674027e−10, exact (mpmath) 9.8827494396740285e−10).
+- R cross-check (executed; `determine_copynumber` sourced verbatim + `orderEdges.R`, R 4.3.3, noperms 1000): 4 genomes
+  (ρ/ψ 0.8/2.5, 1/2, 0.55/3.1, 0.35/1.9), 45 segments each (40 random: integer or planted-mixture states, BAF offsets
+  0/±0.004/0.012/−0.015, 1–200 SNPs, SNP sd 0–0.15; 5 designed): **180/180 identical** (pval rel ≤ 1.2e−13, states equal,
+  fractions ≤ 1e−13). The maxdist-only `FitSubclonalCopyNumber` disagrees with Battenberg on 32/180.
+
+  | Segment | SNP BAFs | R pval | Battenberg call | maxdist-only call |
+  |---|---|---|---|---|
+  | G1S41 (ρ 0.8, ψ 2.5, l = level(2,1) + 0.03) | 0.5529 0.7629 0.5729 0.7829 0.6929 | 0.56090425422510204 | clonal 2:1 | sub-clonal |
+  | G1S42 (same, tight SNPs) | 0.6689 0.6759 0.6739 0.6709 0.6749 | 2.1020858614373501e−05 | (2,0)@0.15605024544591201 + (2,1) | same |
+  | G1S43 / S44 (constant / 1 SNP) | 0.6729 ×4 / 0.6729 | 0 / 0 | (2,0)@0.15605… + (2,1) | same |
+  | G1S45 (l − level 0.005) | 0.6379 0.6579 0.6484 | 1 (maxdist) | clonal 2:1 | same |
+  | G1S28 | 0.8864 0.7955 0.8486 0.7765 0.617 | 0.067325006438243504 | clonal 2:0 | sub-clonal |
+  | G1S40 | 8 SNPs | 0.0354791289104208 | (3,0)@0.69556883269516401 + (3,1) | same |
+  | G3S40 (ρ 0.55, ψ 3.1) | 0.7938 0.7866 0.8057 | 0.036949670267513897 | (3,0)@0.84149606261457699 + (3,1) | same |
+  | G4S27 (ρ 0.35, ψ 1.9) | 0.693 0.7098 0.7167 0.7037 0.6761 | 0.024885230920557801 | (2,0)@0.554567052328231 + (3,0) | same |
+
+  Parameter variants (single-segment R runs): G1S28 with siglevel 0.1 ⇒ (2,0)@0.61666732876527997 + (2,1)@0.38333267123471998;
+  G1S45 with maxdist 0.001 or 0 ⇒ pval 0.46228196278297101, clonal; BAFseg 1 − 0.672857 with SNPs 1 − G1S42 (unmirrored)
+  ⇒ pval 1.7441626943676701e−09, sub-clonal (2,0)@0.15605024544591201.
+- Gap shown (pre-F39): only maxdist decided clonality (a summary has no SNP spread ⇒ Battenberg pval 0), so noisy segments
+  just beyond 0.01 BAF were always sub-clonal (G1S41, G1S28).
+
 ---
 
 ## References
@@ -430,6 +469,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 - **2026-10-10**: FIN-B24 F38 — runASCAT sex-chromosome model (male haploid X/Y, `X_nonPAR` rule, XX default) R cross-check section added.
 - **2026-10-10**: FIN-B24 F37 — runASCAT with homozygous segments (`bafke` NA ⇒ 0, all-probe ploidy) R cross-check section added.
+- **2026-10-10**: FIN-B24 F39 — Battenberg per-SNP t-test (`FitSubclonalCopyNumberWithSnpTest`) and StatisticsHelper Student-t R cross-check section added.
 - **2026-10-10**: FIN-B24 F36 — germline-aware `ascat.aspcf` (homozygous probes, homozygous-stretch resegmentation) R cross-check section added.
 - **2026-10-09**: FIN-B24 F35 — the unsourced greedy `SegmentAlleleSpecific` heuristic was removed; the public name now delegates to `SegmentAlleleSpecificAspcf(loci, AspcfDefaultPenalty = 70)` (ascat.aspcf port, R-verified 60/60), with the ASPCF finite-logR / BAF ∈ [0, 1] validation; legacy thresholds ignored (range-checked for compatibility). Test point 14 added; point 9 reworded.
 

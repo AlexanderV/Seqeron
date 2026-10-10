@@ -393,6 +393,336 @@ namespace Seqeron.Genomics.Infrastructure
             return result + Math.Log(x) - 0.5 / x - series;
         }
 
+        /// <summary>
+        /// Regularized incomplete beta function I_x(a, b) = B(x; a, b) / B(a, b) (R <c>pbeta(x, a, b)</c>,
+        /// <c>scipy.special.betainc(a, b, x)</c>), for a, b &gt; 0 and x ∈ [0, 1]. Evaluated by the modified-Lentz continued
+        /// fraction (Press et al., <i>Numerical Recipes</i> 3rd ed. §6.4, <c>betacf</c>) on the side
+        /// x &lt; (a + 1)/(a + b + 2), else through I_x(a, b) = 1 − I_{1−x}(b, a); the prefactor xᵃ(1 − x)ᵇ/B(a, b) uses
+        /// R's <c>lbeta</c> (nmath/lbeta.c: Stirling-correction form for large arguments), or TOMS 708 <c>brcomp</c>'s
+        /// large-parameter form when a, b ≥ 8; the continued fraction runs in double-double arithmetic. Agrees with R 4.3.3
+        /// <c>pbeta</c> to ≤ 9e−15 relative in 90 % and ≤ 1.5e−13 in all of a 300-case sweep (a, b ∈ [0.01, 3·10⁴];
+        /// Evidence ONCO-ASCAT-001 §F39).
+        /// </summary>
+        /// <param name="x">Upper integration limit, in [0, 1].</param>
+        /// <param name="a">Shape a &gt; 0 (finite).</param>
+        /// <param name="b">Shape b &gt; 0 (finite).</param>
+        /// <exception cref="ArgumentOutOfRangeException">x ∉ [0, 1] or a shape is not a finite positive number.</exception>
+        public static double RegularizedIncompleteBeta(double x, double a, double b)
+        {
+            if (!(x >= 0.0 && x <= 1.0))
+                throw new ArgumentOutOfRangeException(nameof(x), x, "x must lie in [0, 1].");
+            ValidateBetaShape(a, nameof(a));
+            ValidateBetaShape(b, nameof(b));
+            return RegularizedIncompleteBetaCore(new DoubleDouble(x), DoubleDouble.Sum(1.0, -x), Math.Log(x), Log1P(-x), a, b);
+        }
+
+        /// <summary>
+        /// Cumulative distribution function of Student's t distribution with <paramref name="degreesOfFreedom"/> degrees
+        /// of freedom (R <c>pt(t, df)</c>, <c>scipy.stats.t.cdf</c>): with q = t²/ν, P(T ≤ t) = ½·I_{1/(1+q)}(ν/2, ½) for
+        /// t &lt; 0 and 1 − ½·I_{1/(1+q)}(ν/2, ½) for t ≥ 0 (Abramowitz &amp; Stegun 26.7.1 / 26.5.27; R nmath/pt.c), with
+        /// 1/(1+q) and q/(1+q) formed in double-double. Agrees with R 4.3.3 <c>pt</c> to ≤ 2e−14 relative for
+        /// probabilities above 1e−30 and ≤ 2e−13 in the far tail (400-case sweep, ν ∈ [1, 3·10⁵]); for ν &gt; 4·10⁵ R switches
+        /// to a normal approximation, this keeps the exact form.
+        /// </summary>
+        /// <param name="t">The quantile (±∞ allowed: 0 / 1).</param>
+        /// <param name="degreesOfFreedom">ν &gt; 0 (finite; non-integer allowed).</param>
+        /// <exception cref="ArgumentOutOfRangeException">ν is not a finite positive number, or t is NaN.</exception>
+        public static double StudentTCdf(double t, double degreesOfFreedom)
+        {
+            if (double.IsNaN(t))
+                throw new ArgumentOutOfRangeException(nameof(t), t, "t must not be NaN.");
+            ValidateBetaShape(degreesOfFreedom, nameof(degreesOfFreedom));
+            double halfTail = 0.5 * StudentTTwoSidedTail(t, degreesOfFreedom);
+            return t < 0.0 ? halfTail : 1.0 - halfTail;
+        }
+
+        /// <summary>
+        /// Two-sided one-sample Student t-test p-value of H₀: mean = <paramref name="mu"/>, exactly as R
+        /// <c>t.test(x, mu = mu, alternative = "two.sided")$p.value</c> (stats/R/t.test.R): t = (x̄ − μ)/√(s²/n),
+        /// ν = n − 1, p = 2·pt(−|t|, ν) = I_{ν/(ν+t²)}(ν/2, ½) (s² the n − 1 sample variance). Returns
+        /// <see cref="double.NaN"/> in the two cases where R's <c>t.test</c> stops with an error: fewer than two values
+        /// ("not enough 'x' observations") and "data are essentially constant" (√(s²/n) &lt; 10·ε·|x̄|, ε = 2⁻⁵²).
+        /// E.g. x = {0.61, 0.64, 0.66, 0.59, 0.70}, μ = 0.6 ⇒ p = 0.10608282922154902 (R 4.3.3).
+        /// </summary>
+        /// <param name="values">The sample (finite values).</param>
+        /// <param name="mu">Hypothesised mean (finite).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        /// <exception cref="ArgumentException">a value or <paramref name="mu"/> is not finite.</exception>
+        public static double OneSampleTTestPValue(IReadOnlyList<double> values, double mu)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            if (!double.IsFinite(mu))
+                throw new ArgumentException("mu must be finite.", nameof(mu));
+            int n = values.Count;
+            double sum = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                if (!double.IsFinite(values[i]))
+                    throw new ArgumentException("Every value must be finite.", nameof(values));
+                sum += values[i];
+            }
+
+            if (n < 2)
+                return double.NaN; // R: "not enough 'x' observations"
+
+            // R mean.default: sum/n refined by the mean residual; var: two-pass Σ(x − x̄)²/(n − 1).
+            double mean = sum / n;
+            double residual = 0.0;
+            for (int i = 0; i < n; i++) residual += values[i] - mean;
+            mean += residual / n;
+            double sumSq = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                double d = values[i] - mean;
+                sumSq += d * d;
+            }
+
+            double stdErr = Math.Sqrt(sumSq / (n - 1) / n);
+            if (stdErr < 10.0 * MachineEpsilon * Math.Abs(mean))
+                return double.NaN; // R: "data are essentially constant"
+
+            double tStat = (mean - mu) / stdErr;
+            return StudentTTwoSidedTail(tStat, n - 1);
+        }
+
+        private const double MachineEpsilon = 2.220446049250313e-16; // 2⁻⁵² (R .Machine$double.eps)
+
+        // P(|T| ≥ |t|) = I_{ν/(ν+t²)}(ν/2, ½), with x = 1/(1+q), 1 − x = q/(1+q), q = t²/ν (R nmath/pt.c); x and 1 − x are
+        // formed in double-double so the continued fraction sees the exact pair.
+        private static double StudentTTwoSidedTail(double t, double df)
+        {
+            if (double.IsNaN(t))
+                return double.NaN; // R: an all-zero sample tested against mu = 0 gives t = 0/0
+            double r = t / Math.Sqrt(df);
+            double q = r * r;
+            if (double.IsPositiveInfinity(q))
+                return 0.0;
+            if (q == 0.0)
+                return 1.0;
+            DoubleDouble onePlusQ = DoubleDouble.Sum(1.0, q);
+            DoubleDouble x = DoubleDouble.One / onePlusQ;
+            DoubleDouble y = new DoubleDouble(q) / onePlusQ;
+            return RegularizedIncompleteBetaCore(x, y, -Log1P(q), Math.Log(y.Hi), 0.5 * df, 0.5);
+        }
+
+        private static void ValidateBetaShape(double value, string name)
+        {
+            if (!(value > 0.0) || double.IsPositiveInfinity(value))
+                throw new ArgumentOutOfRangeException(name, value, "Must be a finite positive number.");
+        }
+
+        // I_x(a, b) given x and y = 1 − x (double-double, so neither carries the other's cancellation) and ln x, ln y.
+        // Continued fraction on the side where it converges fast (NR betacf), else the complement.
+        private static double RegularizedIncompleteBetaCore(
+            DoubleDouble x, DoubleDouble y, double logX, double logY, double a, double b)
+        {
+            if (x.Hi <= 0.0) return 0.0;
+            if (y.Hi <= 0.0) return 1.0;
+            double front = BetaPrefactor(x, y, logX, logY, a, b);
+            if (x.Hi < (a + 1.0) / (a + b + 2.0))
+                return front * BetaContinuedFraction(x, a, b) / a;
+            // Symmetry I_x(a, b) = 1 − I_{1−x}(b, a): the shapes are swapped on purpose.
+#pragma warning disable S2234
+            return 1.0 - front * BetaContinuedFraction(y, b, a) / b;
+#pragma warning restore S2234
+        }
+
+        // xᵃ·yᵇ / B(a, b). For a, b ≥ 8 the TOMS 708 brcomp form (Didonato & Morris 1992; R nmath/toms708.c), which
+        // avoids the cancellation of a·ln x + b·ln y − ln B(a, b) between large terms; otherwise exp of that sum.
+        private static double BetaPrefactor(DoubleDouble x, DoubleDouble y, double logX, double logY, double a, double b)
+        {
+            if (a < 8.0 || b < 8.0)
+                return Math.Exp(a * logX + b * logY - LogBeta(a, b));
+
+            double h, x0, y0, lambda;
+            if (a > b)
+            {
+                h = b / a;
+                x0 = 1.0 / (1.0 + h);
+                y0 = h / (1.0 + h);
+                lambda = (DoubleDouble.Sum(a, b) * y - new DoubleDouble(b)).ToDouble();
+            }
+            else
+            {
+                h = a / b;
+                x0 = h / (1.0 + h);
+                y0 = 1.0 / (1.0 + h);
+                lambda = (new DoubleDouble(a) - DoubleDouble.Sum(a, b) * x).ToDouble();
+            }
+
+            double e = -lambda / a;
+            double u = Math.Abs(e) > 0.6 ? e - (logX - Math.Log(x0)) : Rlog1(e);
+            e = lambda / b;
+            double v = Math.Abs(e) > 0.6 ? e - (logY - Math.Log(y0)) : Rlog1(e);
+            double z = Math.Exp(-(a * u + b * v));
+            double bcorr = LogGammaCorrection(a) + LogGammaCorrection(b) - LogGammaCorrection(a + b);
+            return InvSqrt2Pi * Math.Sqrt(b * x0) * z * Math.Exp(-bcorr);
+        }
+
+        // rlog1(x) = x − ln(1 + x) for |x| ≤ 0.6 without cancellation: with r = x/(2 + x), ln(1 + x) = 2·atanh r, so
+        // x − ln(1 + x) = r·x − 2(r³/3 + r⁵/5 + …) (r² ≤ 0.18, summed to machine precision).
+        private static double Rlog1(double x)
+        {
+            double r = x / (2.0 + x);
+            double r2 = r * r;
+            double power = r * r2;
+            double series = 0.0;
+            for (int k = 3; k < 200; k += 2)
+            {
+                double term = power / k;
+                series += term;
+                if (Math.Abs(term) <= 1e-17 * Math.Abs(series))
+                    break;
+                power *= r2;
+            }
+
+            return r * x - 2.0 * series;
+        }
+
+        // Modified Lentz evaluation of the incomplete-beta continued fraction (NR 3rd ed. §6.4, betacf) in
+        // double-double arithmetic: near x ≈ (a + 1)/(a + b + 2) with large shapes the recurrence 1 + aa·d cancels by
+        // several orders of magnitude, which plain doubles turn into ~1e−11 relative error.
+        private static double BetaContinuedFraction(DoubleDouble x, double a, double b)
+        {
+            const double Tiny = 1e-300;
+            const int MaxIterations = 1_000_000;
+            DoubleDouble one = DoubleDouble.One;
+            DoubleDouble da = new(a), qab = DoubleDouble.Sum(a, b), qap = DoubleDouble.Sum(a, 1.0), qam = DoubleDouble.Sum(a, -1.0);
+            DoubleDouble c = one;
+            DoubleDouble d = one - qab * x / qap;
+            if (Math.Abs(d.Hi) < Tiny) d = new DoubleDouble(Tiny);
+            d = one / d;
+            DoubleDouble h = d;
+            for (int m = 1; m <= MaxIterations; m++)
+            {
+                double m2 = 2.0 * m;
+                DoubleDouble aa = new DoubleDouble(m) * DoubleDouble.Sum(b, -m) * x / ((qam + m2) * (da + m2));
+                d = one + aa * d;
+                if (Math.Abs(d.Hi) < Tiny) d = new DoubleDouble(Tiny);
+                c = one + aa / c;
+                if (Math.Abs(c.Hi) < Tiny) c = new DoubleDouble(Tiny);
+                d = one / d;
+                h = h * d * c;
+                aa = -(DoubleDouble.Sum(a, m) * (qab + m) * x / ((da + m2) * (qap + m2)));
+                d = one + aa * d;
+                if (Math.Abs(d.Hi) < Tiny) d = new DoubleDouble(Tiny);
+                c = one + aa / c;
+                if (Math.Abs(c.Hi) < Tiny) c = new DoubleDouble(Tiny);
+                d = one / d;
+                DoubleDouble del = d * c;
+                h *= del;
+                if (Math.Abs((del - one).Hi) <= 1e-17)
+                    break;
+            }
+
+            return h.ToDouble();
+        }
+
+        // Double-double number Hi + Lo (|Lo| ≤ ½ ulp(Hi)), ~106-bit significand (Dekker 1971; Hida, Li &amp; Bailey 2001 QD).
+        private readonly struct DoubleDouble
+        {
+            public DoubleDouble(double hi, double lo = 0.0)
+            {
+                Hi = hi;
+                Lo = lo;
+            }
+
+            public double Hi { get; }
+
+            public double Lo { get; }
+
+            public static DoubleDouble One => new(1.0);
+
+            public double ToDouble() => Hi + Lo;
+
+            // Exact a + b.
+            public static DoubleDouble Sum(double a, double b)
+            {
+                double s = a + b;
+                double bb = s - a;
+                return new DoubleDouble(s, (a - (s - bb)) + (b - bb));
+            }
+
+            private static DoubleDouble QuickSum(double a, double b)
+            {
+                double s = a + b;
+                return new DoubleDouble(s, b - (s - a));
+            }
+
+            public static DoubleDouble operator -(DoubleDouble v) => new(-v.Hi, -v.Lo);
+
+            public static DoubleDouble operator +(DoubleDouble l, DoubleDouble r)
+            {
+                DoubleDouble s = Sum(l.Hi, r.Hi);
+                DoubleDouble t = Sum(l.Lo, r.Lo);
+                DoubleDouble u = QuickSum(s.Hi, s.Lo + t.Hi);
+                return QuickSum(u.Hi, u.Lo + t.Lo);
+            }
+
+            public static DoubleDouble operator +(DoubleDouble l, double r) => l + new DoubleDouble(r);
+
+            public static DoubleDouble operator -(DoubleDouble l, DoubleDouble r) => l + -r;
+
+            public static DoubleDouble operator *(DoubleDouble l, DoubleDouble r)
+            {
+                double p = l.Hi * r.Hi;
+                double e = Math.FusedMultiplyAdd(l.Hi, r.Hi, -p);
+                e += l.Hi * r.Lo + l.Lo * r.Hi;
+                return QuickSum(p, e);
+            }
+
+            public static DoubleDouble operator /(DoubleDouble l, DoubleDouble r)
+            {
+                double q1 = l.Hi / r.Hi;
+                DoubleDouble rem = l - r * new DoubleDouble(q1);
+                double q2 = rem.Hi / r.Hi;
+                rem -= r * new DoubleDouble(q2);
+                double q3 = rem.Hi / r.Hi;
+                return QuickSum(q1, q2) + new DoubleDouble(q3);
+            }
+        }
+
+        // ln B(a, b) as R nmath/lbeta.c: Stirling-correction forms when an argument is ≥ 10, else ln Γ(p)Γ(q)/Γ(p+q).
+        private static double LogBeta(double a, double b)
+        {
+            double p = Math.Min(a, b), q = Math.Max(a, b);
+            if (p >= 10.0)
+            {
+                double corr = LogGammaCorrection(p) + LogGammaCorrection(q) - LogGammaCorrection(p + q);
+                return Math.Log(q) * -0.5 + LogSqrt2Pi + corr + (p - 0.5) * Math.Log(p / (p + q)) + q * Log1P(-p / (p + q));
+            }
+
+            if (q >= 10.0)
+            {
+                double corr = LogGammaCorrection(q) - LogGammaCorrection(p + q);
+                return LogGammaSmall(p) + corr + p - p * Math.Log(p + q) + (q - 0.5) * Log1P(-p / (p + q));
+            }
+
+            return LogGammaSmall(p) + LogGammaSmall(q) - LogGammaSmall(p + q);
+        }
+
+        // lgammacor(x) = ln Γ(x) − ((x − ½)·ln x − x + ln √(2π)) for x ≥ 10: Stirling series through B₁₄ (next term
+        // < 3e−17 at x = 10).
+        private static double LogGammaCorrection(double x)
+        {
+            double inv2 = 1.0 / (x * x);
+            return (1.0 / 12 - inv2 * (1.0 / 360 - inv2 * (1.0 / 1260 - inv2 * (1.0 / 1680 - inv2 * (1.0 / 1188
+                - inv2 * (691.0 / 360360 - inv2 / 156)))))) / x;
+        }
+
+        // ln Γ(x) for 0 < x < 20: shift to z = x + n ≥ 10, Stirling with lgammacor, minus ln Π_{k<n}(x + k).
+        private static double LogGammaSmall(double x)
+        {
+            double product = 1.0;
+            while (x < 10.0)
+            {
+                product *= x;
+                x += 1.0;
+            }
+
+            return (x - 0.5) * Math.Log(x) - x + LogSqrt2Pi + LogGammaCorrection(x) - Math.Log(product);
+        }
+
         // ln P(X = x), X ~ Binomial(n, p), 0 ≤ x ≤ n, 0 < p < 1 — Loader (2000) / R nmath dbinom_raw.
         private static double LogBinomialPmf(long x, long n, double logP, double p, double logQ)
         {

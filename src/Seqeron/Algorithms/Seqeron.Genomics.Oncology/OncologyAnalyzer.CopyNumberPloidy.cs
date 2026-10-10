@@ -4290,7 +4290,8 @@ public static partial class OncologyAnalyzer
     /// </list>
     /// A segment summary carries a single BAF value, i.e. its SNP BAFs have zero spread; Battenberg's per-SNP
     /// t-test then returns <c>pval = 0</c> (<c>if (is.na(sd(BAFke)) || sd(BAFke) == 0) pval = 0</c>), so only the
-    /// maxdist rule can make a segment clonal — exactly the path ported here. The bootstrap confidence intervals and the
+    /// maxdist rule can make a segment clonal — exactly the path ported here (with per-SNP BAFs, Battenberg's t-test is
+    /// run by <see cref="FitSubclonalCopyNumberWithSnpTest"/>). The bootstrap confidence intervals and the
     /// alternative solutions B–F of Battenberg's output are not produced.
     /// </summary>
     /// <param name="segments">Segment summaries (e.g. from <see cref="SegmentAlleleSpecificAspcf"/>). Non-null; finite logR,
@@ -4311,64 +4312,204 @@ public static partial class OncologyAnalyzer
         ArgumentNullException.ThrowIfNull(segments);
         ValidateAscatModelParameters(purity, ploidy, gamma);
 
-        double rho = purity;
-        double psiAll = MixtureCopiesPerCell(rho, ploidy); // psi = rho*psit + 2*(1-rho)
+        double psiAll = MixtureCopiesPerCell(purity, ploidy); // psi = rho*psit + 2*(1-rho)
         var fits = new List<SubclonalSegmentFit>(segments.Count);
         foreach (AlleleSpecificSegmentSummary s in segments)
         {
-            if (!IsValidAlleleSignal(s.MeanLogR, s.MeanBAF))
-            {
-                throw new ArgumentException("Every segment needs a finite mean logR and a mean BAF in [0, 1].", nameof(segments));
-            }
-
-            double l = MirrorBaf(s.MeanBAF); // max(BAF, 1 − BAF)
-            double scaled = psiAll * Math.Pow(2.0, s.MeanLogR / gamma);
-            double nMajor = (rho - 1.0 + l * scaled) / rho;
-            double nMinor = (rho - 1.0 + (1.0 - l) * scaled) / rho;
-
-            // Increase nMajor and nMinor together, to avoid impossible combinations (negative sub-clonal fractions).
-            if (nMinor < 0.0)
-            {
-                nMajor = l == 1.0
-                    ? BattenbergCopyNumberUpperLimit
-                    : nMajor + l * (BattenbergMinimumMinorCopyNumber - nMinor) / (1.0 - l);
-                nMinor = BattenbergMinimumMinorCopyNumber;
-            }
-
-            double x = Math.Floor(nMinor), y = Math.Floor(nMajor);
-            double ntot = nMajor + nMinor;
-            // Corners, sorted in the order of ascending BAF: (⌊M⌋,⌈m⌉), (⌈M⌉,⌈m⌉), (⌊M⌋,⌊m⌋), (⌈M⌉,⌊m⌋).
-            double level2 = BattenbergCornerLevel(Math.Ceiling(nMajor), Math.Ceiling(nMinor), rho, zeroCornerIsBalanced: true);
-            double level3 = BattenbergCornerLevel(Math.Floor(nMajor), Math.Floor(nMinor), rho, zeroCornerIsBalanced: true);
-            (double maj1, double min1, double maj2, double min2) = BattenbergNearestEdge(level2, level3, l, ntot, x, y);
-
-            // Clonality test on the corners of the nearest edge (test.levels carry no 0/0 correction in Battenberg).
-            double testLevel1 = BattenbergCornerLevel(maj1, min1, rho, zeroCornerIsBalanced: false);
-            double testLevel2 = BattenbergCornerLevel(maj2, min2, rho, zeroCornerIsBalanced: false);
-            double dist1 = double.IsNaN(testLevel1) ? double.PositiveInfinity : Math.Abs(testLevel1 - l);
-            double dist2 = double.IsNaN(testLevel2) ? double.PositiveInfinity : Math.Abs(testLevel2 - l);
-            bool firstClosest = dist1 <= dist2; // which.min: first index on a tie
-            double closestDistance = firstClosest ? dist1 : dist2;
-
-            if (closestDistance < BattenbergMaxBafDistance)
-            {
-                var clonal = firstClosest
-                    ? new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), 1.0)
-                    : new SubclonalCopyNumberState(AscatCopyNumberToInt(maj2), AscatCopyNumberToInt(min2), 1.0);
-                fits.Add(new SubclonalSegmentFit(s, clonal, SecondaryState: null, IsSubclonal: false));
-                continue;
-            }
-
-            double tau = (1.0 - rho + rho * maj2 - 2.0 * l * (1.0 - rho) - l * rho * (min2 + maj2))
-                         / (l * rho * (min1 + maj1) - l * rho * (min2 + maj2) - rho * maj1 + rho * maj2);
-            fits.Add(new SubclonalSegmentFit(
-                s,
-                new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), tau),
-                new SubclonalCopyNumberState(AscatCopyNumberToInt(maj2), AscatCopyNumberToInt(min2), 1.0 - tau),
-                IsSubclonal: true));
+            BattenbergSegmentGeometry g = BattenbergSegmentEdge(s, purity, psiAll, gamma, nameof(segments));
+            // Constant (summary) BAF ⇒ Battenberg pval = 0; only maxdist can make the segment clonal.
+            fits.Add(BattenbergSegmentFit(s, g, purity, g.ClosestDistance < BattenbergMaxBafDistance));
         }
 
         return fits;
+    }
+
+    /// <summary>
+    /// Battenberg's significance level <c>siglevel = 0.05</c> (<c>callSubclones</c> default): a segment is sub-clonal when
+    /// its SNP-BAF t-test p-value is ≤ siglevel (<c>if (pval[i] &lt;= siglevel)</c>).
+    /// </summary>
+    public const double BattenbergSignificanceLevel = 0.05;
+
+    /// <summary>
+    /// A segment summary together with the phased BAFs of its heterozygous SNPs (Battenberg <c>BAFphased</c> — the raw
+    /// SNP BAF flipped to the segment's side, <c>ifelse(BAFsegm &gt; 0.5, BAF, 1 − BAF)</c>; used as given, not mirrored
+    /// again), the input of Battenberg's per-segment clonality t-test.
+    /// </summary>
+    /// <param name="Segment">The segment (its <see cref="AlleleSpecificSegmentSummary.MeanBAF"/> is Battenberg's
+    /// segment level <c>BAFseg</c>, its <see cref="AlleleSpecificSegmentSummary.MeanLogR"/> the segment logR).</param>
+    /// <param name="PhasedSnpBafs">The segment's phased SNP BAFs (Battenberg <c>BAFke</c>), each in [0, 1]; may be empty.</param>
+    public readonly record struct SubclonalSegmentSnpBafs(
+        AlleleSpecificSegmentSummary Segment,
+        IReadOnlyList<double> PhasedSnpBafs);
+
+    /// <summary>
+    /// A Battenberg segment fit with the clonality-test p-value Battenberg reports (<c>subcloneres$pval</c>).
+    /// </summary>
+    /// <param name="Fit">The clonal / sub-clonal copy-number fit.</param>
+    /// <param name="PValue">Battenberg <c>pval</c>: 1 when the segment BAF is within maxdist of the closest corner level,
+    /// 0 when the SNP BAFs have no spread (fewer than two SNPs, or constant), else the two-sided one-sample t-test p-value
+    /// of the SNP BAFs against that corner level.</param>
+    public readonly record struct SubclonalSegmentTestedFit(SubclonalSegmentFit Fit, double PValue);
+
+    /// <summary>
+    /// <see cref="FitSubclonalCopyNumber"/> with Battenberg's per-SNP clonality test (Wedge-lab/battenberg
+    /// R/fitcopynumber.R, <c>determine_copynumber</c>; B24 F39). After the nearest edge and its closest corner level
+    /// <c>test.level</c> are found exactly as in <see cref="FitSubclonalCopyNumber"/>:
+    /// <code>
+    /// if (is.na(sd(BAFke)) || sd(BAFke) == 0) pval = 0
+    /// else pval = t.test(BAFke, alternative = "two.sided", mu = test.level)$p.value
+    /// if (abs(l − test.level) &lt; maxdist) pval = 1
+    /// sub-clonal ⇔ pval ≤ siglevel
+    /// </code>
+    /// so a segment whose BAF is beyond maxdist but whose SNP BAFs are too noisy to reject the clonal level is called
+    /// clonal (and a segment with ≥ 2 distinct SNP BAFs that rejects it is sub-clonal). The t-test is
+    /// <see cref="StatisticsHelper.OneSampleTTestPValue"/>; where R's <c>t.test</c> would stop ("data are essentially
+    /// constant", Battenberg would abort) the p-value is taken as 0, as for exactly constant BAFs. With every
+    /// segment's SNP BAFs constant this reproduces <see cref="FitSubclonalCopyNumber"/> exactly.
+    /// </summary>
+    /// <param name="segments">Segments with their phased SNP BAFs. Non-null; finite logR, BAF in [0, 1], SNP BAFs in [0, 1].</param>
+    /// <param name="purity">Fitted tumour purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Fitted tumour ploidy ψ (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (&gt; 0).</param>
+    /// <param name="significanceLevel">Battenberg <c>siglevel</c> ∈ [0, 1] (default <see cref="BattenbergSignificanceLevel"/>).</param>
+    /// <param name="maxBafDistance">Battenberg <c>maxdist</c> ≥ 0 (default <see cref="BattenbergMaxBafDistance"/>).</param>
+    /// <returns>Per-segment fits with Battenberg's p-value, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> or a SNP-BAF list is null.</exception>
+    /// <exception cref="ArgumentException">a segment has a non-finite logR, a BAF outside [0, 1], or a SNP BAF outside [0, 1].</exception>
+    /// <exception cref="ArgumentOutOfRangeException">ρ ∉ (0,1], ψ ≤ 0, γ ≤ 0, siglevel ∉ [0, 1] or maxdist &lt; 0 / not finite.</exception>
+    public static IReadOnlyList<SubclonalSegmentTestedFit> FitSubclonalCopyNumberWithSnpTest(
+        IReadOnlyList<SubclonalSegmentSnpBafs> segments,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma,
+        double significanceLevel = BattenbergSignificanceLevel,
+        double maxBafDistance = BattenbergMaxBafDistance)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        ValidateAscatModelParameters(purity, ploidy, gamma);
+        if (!(significanceLevel >= 0.0 && significanceLevel <= 1.0))
+        {
+            throw new ArgumentOutOfRangeException(nameof(significanceLevel), significanceLevel, "siglevel must lie in [0, 1].");
+        }
+
+        if (!(maxBafDistance >= 0.0) || double.IsPositiveInfinity(maxBafDistance))
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxBafDistance), maxBafDistance, "maxdist must be finite and ≥ 0.");
+        }
+
+        double psiAll = MixtureCopiesPerCell(purity, ploidy);
+        var fits = new List<SubclonalSegmentTestedFit>(segments.Count);
+        foreach (SubclonalSegmentSnpBafs item in segments)
+        {
+            if (item.PhasedSnpBafs is null)
+            {
+                throw new ArgumentNullException(nameof(segments), "Every segment needs a (possibly empty) phased SNP-BAF list.");
+            }
+
+            foreach (double b in item.PhasedSnpBafs)
+            {
+                if (!(b >= 0.0 && b <= 1.0))
+                {
+                    throw new ArgumentException("Every phased SNP BAF must lie in [0, 1].", nameof(segments));
+                }
+            }
+
+            BattenbergSegmentGeometry g = BattenbergSegmentEdge(item.Segment, purity, psiAll, gamma, nameof(segments));
+            double pValue = StatisticsHelper.OneSampleTTestPValue(item.PhasedSnpBafs, g.ClosestTestLevel);
+            if (double.IsNaN(pValue))
+            {
+                pValue = 0.0; // sd NA (< 2 SNPs) or 0 (constant BAF): Battenberg pval = 0
+            }
+
+            if (g.ClosestDistance < maxBafDistance)
+            {
+                pValue = 1.0;
+            }
+
+            fits.Add(new SubclonalSegmentTestedFit(
+                BattenbergSegmentFit(item.Segment, g, purity, isClonal: !(pValue <= significanceLevel)),
+                pValue));
+        }
+
+        return fits;
+    }
+
+    /// <summary>Battenberg per-segment geometry: mirrored BAF l, nearest edge, and the closest corner of that edge.</summary>
+    private readonly record struct BattenbergSegmentGeometry(
+        double L, double Maj1, double Min1, double Maj2, double Min2, bool FirstClosest, double ClosestDistance)
+    {
+        public double ClosestTestLevel => FirstClosest ? Level1 : Level2;
+
+        public double Level1 { get; init; }
+
+        public double Level2 { get; init; }
+    }
+
+    /// <summary>The <c>determine_copynumber</c> body up to <c>whichclosestlevel.test</c> (shared by both clonality rules).</summary>
+    private static BattenbergSegmentGeometry BattenbergSegmentEdge(
+        AlleleSpecificSegmentSummary s, double rho, double psiAll, double gamma, string paramName)
+    {
+        if (!IsValidAlleleSignal(s.MeanLogR, s.MeanBAF))
+        {
+            throw new ArgumentException("Every segment needs a finite mean logR and a mean BAF in [0, 1].", paramName);
+        }
+
+        double l = MirrorBaf(s.MeanBAF); // max(BAF, 1 − BAF)
+        double scaled = psiAll * Math.Pow(2.0, s.MeanLogR / gamma);
+        double nMajor = (rho - 1.0 + l * scaled) / rho;
+        double nMinor = (rho - 1.0 + (1.0 - l) * scaled) / rho;
+
+        // Increase nMajor and nMinor together, to avoid impossible combinations (negative sub-clonal fractions).
+        if (nMinor < 0.0)
+        {
+            nMajor = l == 1.0
+                ? BattenbergCopyNumberUpperLimit
+                : nMajor + l * (BattenbergMinimumMinorCopyNumber - nMinor) / (1.0 - l);
+            nMinor = BattenbergMinimumMinorCopyNumber;
+        }
+
+        double x = Math.Floor(nMinor), y = Math.Floor(nMajor);
+        double ntot = nMajor + nMinor;
+        // Corners, sorted in the order of ascending BAF: (⌊M⌋,⌈m⌉), (⌈M⌉,⌈m⌉), (⌊M⌋,⌊m⌋), (⌈M⌉,⌊m⌋).
+        double level2 = BattenbergCornerLevel(Math.Ceiling(nMajor), Math.Ceiling(nMinor), rho, zeroCornerIsBalanced: true);
+        double level3 = BattenbergCornerLevel(Math.Floor(nMajor), Math.Floor(nMinor), rho, zeroCornerIsBalanced: true);
+        (double maj1, double min1, double maj2, double min2) = BattenbergNearestEdge(level2, level3, l, ntot, x, y);
+
+        // Clonality test on the corners of the nearest edge (test.levels carry no 0/0 correction in Battenberg).
+        double testLevel1 = BattenbergCornerLevel(maj1, min1, rho, zeroCornerIsBalanced: false);
+        double testLevel2 = BattenbergCornerLevel(maj2, min2, rho, zeroCornerIsBalanced: false);
+        double dist1 = double.IsNaN(testLevel1) ? double.PositiveInfinity : Math.Abs(testLevel1 - l);
+        double dist2 = double.IsNaN(testLevel2) ? double.PositiveInfinity : Math.Abs(testLevel2 - l);
+        bool firstClosest = dist1 <= dist2; // which.min: first index on a tie
+        return new BattenbergSegmentGeometry(l, maj1, min1, maj2, min2, firstClosest, firstClosest ? dist1 : dist2)
+        {
+            Level1 = testLevel1,
+            Level2 = testLevel2,
+        };
+    }
+
+    /// <summary>
+    /// Battenberg output row: the closest corner with fraction 1 when clonal, else state 1 at τ and state 2 at 1 − τ.
+    /// </summary>
+    private static SubclonalSegmentFit BattenbergSegmentFit(
+        AlleleSpecificSegmentSummary s, BattenbergSegmentGeometry g, double rho, bool isClonal)
+    {
+        double l = g.L, maj1 = g.Maj1, min1 = g.Min1, maj2 = g.Maj2, min2 = g.Min2;
+        if (isClonal)
+        {
+            var clonal = g.FirstClosest
+                ? new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), 1.0)
+                : new SubclonalCopyNumberState(AscatCopyNumberToInt(maj2), AscatCopyNumberToInt(min2), 1.0);
+            return new SubclonalSegmentFit(s, clonal, SecondaryState: null, IsSubclonal: false);
+        }
+
+        double tau = (1.0 - rho + rho * maj2 - 2.0 * l * (1.0 - rho) - l * rho * (min2 + maj2))
+                     / (l * rho * (min1 + maj1) - l * rho * (min2 + maj2) - rho * maj1 + rho * maj2);
+        return new SubclonalSegmentFit(
+            s,
+            new SubclonalCopyNumberState(AscatCopyNumberToInt(maj1), AscatCopyNumberToInt(min1), tau),
+            new SubclonalCopyNumberState(AscatCopyNumberToInt(maj2), AscatCopyNumberToInt(min2), 1.0 - tau),
+            IsSubclonal: true);
     }
 
     /// <summary>

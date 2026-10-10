@@ -308,3 +308,22 @@ M2 XY with custom non-PAR [890000, 1090000], M3 `MaleWithXNonPar(GRCh37)` (hg19 
 | S-ASCAT-X5 | haploid deletion | Y r = −5 | 0:0 (nAraw −0.875) | negative-value correction |
 | S-ASCAT-X6 | presets | — | hg19 (2699521, 154931043), hg38 (2781480, 155701382), CHM13 (2394411, 153925834) | ascat.loadData.R |
 | C-ASCAT-X1 | invalid arguments | Start > End; undefined gender / genome; null model on all six overloads | ArgumentOutOfRangeException / ArgumentNullException | contract |
+
+## 13. FIN-B24 F39 — Battenberg per-SNP clonality t-test (2026-10-10)
+
+File `OncologyAnalyzer_AscatDerivation_Tests.cs` (region `FitSubclonalCopyNumberWithSnpTest`) and
+`Unit/Core/StatisticsHelper_StudentT_Tests.cs`. Expected values = Battenberg `determine_copynumber` sourced verbatim
+(R 4.3.3; maxdist 0.01, siglevel 0.05) and R `pbeta` / `pt` / `t.test` (Evidence § F39).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-SUBT-1 | Battenberg rows | 18 segments of 4 genomes (G1S28/40–45, G2S15/41/42, G3S31/40–42, G4S27/41/42/44) | R pval (≤ 1e−12 rel), clonal/sub-clonal call, states, fractions | R run |
+| M-SUBT-2 | t-test overrides maxdist | G1S41 | maxdist-only sub-clonal, Battenberg clonal 2:1 (p 0.5609) | R run |
+| M-SUBT-3 | siglevel / maxdist parameters | G1S28 siglevel 0.1; G1S45 maxdist 0.001 / 0 | (2,0)@0.61666732876527997 + (2,1); p 0.46228196278297101 clonal | R run |
+| M-SUBT-4 | SNP BAFs not mirrored | BAFseg < 0.5, SNPs 1 − G1S42 | p 1.7441626943676701e−09, (2,0)@0.15605024544591201 | R run |
+| S-SUBT-5 | constant / single SNP ≡ maxdist-only overload | 3 segments | fits identical | `sd == 0 ⇒ pval 0` |
+| C-SUBT-1 | invalid arguments | null list / SNP list, SNP BAF 1.2 / NaN, ρ 0, siglevel 1.5, maxdist −0.1 | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
+| M-STAT-T1 | `RegularizedIncompleteBeta` | 9 (x, a, b) incl. a = b = 10⁴, a = 500 b = ½ | R `pbeta` ≤ 1e−13 rel | R run |
+| M-STAT-T2 | `StudentTCdf` | 11 (t, ν) incl. ν 2·10⁵, P 1.7e−24 | R `pt` ≤ 1e−13 rel | R run |
+| M-STAT-T3 | `OneSampleTTestPValue` | 5 samples | R `t.test(x, mu)$p.value` ≤ 1e−12 rel; n < 2 / constant ⇒ NaN (R stops) | R run |
+
