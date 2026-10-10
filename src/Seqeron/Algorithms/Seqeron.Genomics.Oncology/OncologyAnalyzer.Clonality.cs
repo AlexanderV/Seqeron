@@ -404,6 +404,109 @@ public static partial class OncologyAnalyzer
     /// matrix (effective k × count) would exceed 10⁸ cells.</exception>
     public static CcfClustering ClusterCcfValues(IReadOnlyList<double> ccfValues, int clusterCount)
     {
+        (double[] x, int[] order, int distinct) = CkmeansSortInput(ccfValues);
+        int n = x.Length;
+
+        if (clusterCount < 1 || clusterCount > n)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(clusterCount), clusterCount, $"Cluster count must be in [1, {n}].");
+        }
+
+        // Ckmeans.1d.dp: Kmax = min(k, number of unique values).
+        int k = Math.Min(clusterCount, distinct);
+        if (k > 1 && k < n)
+        {
+            CkmeansCheckDpSize(k, n, nameof(clusterCount), clusterCount);
+        }
+
+        return CkmeansBuildClustering(x, order, CkmeansClusterStarts(x, k));
+    }
+
+    /// <summary>
+    /// Clusters cancer cell fractions by optimal one-dimensional k-means (Ckmeans.1d.dp, Wang &amp; Song 2011) with
+    /// the number of clusters <b>chosen automatically</b> in [<paramref name="minClusters"/>,
+    /// <paramref name="maxClusters"/>] by the Bayesian information criterion — R
+    /// <c>Ckmeans.1d.dp(x, k = c(minClusters, maxClusters))</c> with its defaults (<c>method = "linear"</c>,
+    /// <c>estimate.k = "BIC"</c>, unweighted). Port of Ckmeans.1d.dp 4.3.6: the R wrapper's bound adjustment
+    /// (<c>cluster.1d.dp</c>: if the number of distinct values is below k_min both bounds become that number,
+    /// otherwise k_max is capped at it), one dynamic program for K = k_max (<c>EWL2::fill_dp_matrix</c>, SMAWK), and
+    /// <c>select_levels</c>: for each K, a Gaussian mixture with the K clusters' proportions λ = n_k/N, means and
+    /// sample variances (a zero variance becomes d²/36 and a singleton's variance d², d = gap to the nearest
+    /// neighbouring cluster's value), log-likelihood Σ_i log Σ_k λ_k φ(x_i; μ_k, σ²_k), and
+    /// BIC = 2·logL − (3K − 1)·ln N; the first K with the largest BIC wins (strict <c>&gt;</c>, ties keep the
+    /// smaller K). All values equal → one cluster.
+    /// </summary>
+    /// <param name="ccfValues">Cancer cell fractions to cluster (each finite).</param>
+    /// <param name="minClusters">Smallest number of clusters considered (≥ 1; R <c>k[1]</c>).</param>
+    /// <param name="maxClusters">Largest number of clusters considered (≥ <paramref name="minClusters"/>; may exceed
+    /// the number of values — as in R it is capped at the number of distinct values).</param>
+    /// <returns>The clustering for the selected number of clusters; the chosen k is
+    /// <c>Centroids.Count</c>. Centroids ascend; the clonal cluster is the last.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="ccfValues"/> is null.</exception>
+    /// <exception cref="ArgumentException">no values are supplied, or a value is NaN/infinite.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">minClusters &lt; 1, maxClusters &lt; minClusters, or the
+    /// dynamic-programming matrix (effective k_max × count) would exceed 10⁸ cells.</exception>
+    public static CcfClustering ClusterCcfValues(IReadOnlyList<double> ccfValues, int minClusters, int maxClusters) =>
+        ClusterCcfValuesSelectingK(ccfValues, minClusters, maxClusters).Clustering;
+
+    /// <summary>
+    /// <see cref="ClusterCcfValues(IReadOnlyList{double}, int, int)"/> that also returns R's <c>$BIC</c> vector
+    /// (one value per K in the adjusted [k_min, k_max]; all zero when every value is equal, as in Ckmeans.1d.dp).
+    /// </summary>
+    internal static (CcfClustering Clustering, double[] Bic) ClusterCcfValuesSelectingK(
+        IReadOnlyList<double> ccfValues, int minClusters, int maxClusters)
+    {
+        (double[] x, int[] order, int distinct) = CkmeansSortInput(ccfValues);
+        int n = x.Length;
+
+        if (minClusters < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(minClusters), minClusters, "Minimum cluster count must be ≥ 1.");
+        }
+
+        if (maxClusters < minClusters)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxClusters), maxClusters, $"Maximum cluster count must be ≥ minClusters ({minClusters}).");
+        }
+
+        // R cluster.1d.dp bound adjustment to the number of unique values.
+        int kMin = minClusters;
+        int kMax = maxClusters;
+        if (distinct < kMin)
+        {
+            kMin = distinct;
+            kMax = distinct;
+        }
+        else if (distinct < kMax)
+        {
+            kMax = distinct;
+        }
+
+        double[] bic = new double[kMax - kMin + 1];
+        if (distinct == 1)
+        {
+            // kmeans_1d_dp: all elements equal → a single cluster; BIC is left at 0.
+            return (CkmeansBuildClustering(x, order, new int[1]), bic);
+        }
+
+        if (kMax > 1)
+        {
+            CkmeansCheckDpSize(kMax, n, nameof(maxClusters), maxClusters);
+        }
+
+        int[][] j = CkmeansFillDpMatrix(x, kMax);
+        int kOpt = CkmeansSelectLevels(x, j, kMin, kMax, bic);
+        return (CkmeansBuildClustering(x, order, CkmeansBacktrackStarts(j, kOpt)), bic);
+    }
+
+    /// <summary>
+    /// Validates the CCF values and returns them sorted ascending (stable; Ckmeans.1d.dp works on sorted data),
+    /// the original index of each sorted value, and the number of distinct values.
+    /// </summary>
+    private static (double[] Sorted, int[] Order, int Distinct) CkmeansSortInput(IReadOnlyList<double> ccfValues)
+    {
         ArgumentNullException.ThrowIfNull(ccfValues);
 
         int n = ccfValues.Count;
@@ -420,13 +523,6 @@ public static partial class OncologyAnalyzer
             }
         }
 
-        if (clusterCount < 1 || clusterCount > n)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(clusterCount), clusterCount, $"Cluster count must be in [1, {n}].");
-        }
-
-        // Sort values (carrying original indices; stable) — Ckmeans.1d.dp works on the sorted data.
         int[] order = Enumerable.Range(0, n).OrderBy(i => ccfValues[i]).ToArray();
         double[] x = new double[n];
         for (int s = 0; s < n; s++)
@@ -434,7 +530,6 @@ public static partial class OncologyAnalyzer
             x[s] = ccfValues[order[s]];
         }
 
-        // Ckmeans.1d.dp: Kmax = min(k, number of unique values).
         int distinct = 1;
         for (int s = 1; s < n; s++)
         {
@@ -444,17 +539,27 @@ public static partial class OncologyAnalyzer
             }
         }
 
-        int k = Math.Min(clusterCount, distinct);
-        if (k > 1 && k < n && (long)k * n > MaxCcfClusteringDpCells)
+        return (x, order, distinct);
+    }
+
+    private static void CkmeansCheckDpSize(int k, int n, string paramName, int requested)
+    {
+        if ((long)k * n > MaxCcfClusteringDpCells)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(clusterCount), clusterCount,
+                paramName, requested,
                 $"Optimal 1-D k-means needs a {k} × {n} matrix, above the {MaxCcfClusteringDpCells}-cell limit.");
         }
+    }
 
-        int[] clusterStart = CkmeansClusterStarts(x, k);
-
-        // Backtrack (Ckmeans.1d.dp backtrack): centre = arithmetic mean of each contiguous sorted block.
+    /// <summary>
+    /// Ckmeans.1d.dp <c>backtrack</c> output: centre = arithmetic mean of each contiguous sorted block, labels mapped
+    /// back to input order; the clonal cluster (highest centroid) is the last block.
+    /// </summary>
+    private static CcfClustering CkmeansBuildClustering(double[] x, int[] order, int[] clusterStart)
+    {
+        int n = x.Length;
+        int k = clusterStart.Length;
         double[] centroids = new double[k];
         int[] sortedCluster = new int[n];
         for (int q = 0; q < k; q++)
@@ -477,8 +582,130 @@ public static partial class OncologyAnalyzer
             assignments[order[s]] = sortedCluster[s];
         }
 
-        // Clonal cluster = highest centroid; blocks of sorted data give ascending centroids, so it is the last index.
         return new CcfClustering(centroids, assignments, k - 1);
+    }
+
+    /// <summary>
+    /// Ckmeans.1d.dp 4.3.6 <c>select_levels</c> (<c>src/select_levels.cpp</c>, R default <c>estimate.k = "BIC"</c>):
+    /// returns the K in [<paramref name="kMin"/>, <paramref name="kMax"/>] maximising the Gaussian-mixture BIC and
+    /// writes each BIC to <paramref name="bic"/>[K − kMin].
+    /// </summary>
+    private static int CkmeansSelectLevels(double[] x, int[][] j, int kMin, int kMax, double[] bic)
+    {
+        int n = x.Length;
+        if (kMin > kMax || n < 2)
+        {
+            return Math.Min(kMin, kMax);
+        }
+
+        int kOpt = kMin;
+        double maxBic = 0.0;
+        double[] lambda = new double[kMax];
+        double[] mu = new double[kMax];
+        double[] sigma2 = new double[kMax];
+        double[] coeff = new double[kMax];
+
+        for (int kk = kMin; kk <= kMax; kk++)
+        {
+            int[] starts = CkmeansBacktrackStarts(j, kk);
+            int indexLeft = 0;
+            for (int k = 0; k < kk; k++)
+            {
+                int size = (k + 1 < kk ? starts[k + 1] : n) - starts[k];
+                lambda[k] = size / (double)n;
+                int indexRight = indexLeft + size - 1;
+                (mu[k], sigma2[k]) = CkmeansShiftedDataVariance(x, indexLeft, indexRight);
+
+                if (sigma2[k] == 0 || size == 1)
+                {
+                    double dmin;
+                    if (indexLeft > 0 && indexRight < n - 1)
+                    {
+                        dmin = Math.Min(x[indexLeft] - x[indexLeft - 1], x[indexRight + 1] - x[indexRight]);
+                    }
+                    else if (indexLeft > 0)
+                    {
+                        dmin = x[indexLeft] - x[indexLeft - 1];
+                    }
+                    else
+                    {
+                        dmin = x[indexRight + 1] - x[indexRight];
+                    }
+
+                    if (sigma2[k] == 0)
+                    {
+                        sigma2[k] = dmin * dmin / 4.0 / 9.0;
+                    }
+
+                    if (size == 1)
+                    {
+                        sigma2[k] = dmin * dmin;
+                    }
+                }
+
+                coeff[k] = lambda[k] / Math.Sqrt(2.0 * Math.PI * sigma2[k]);
+                indexLeft = indexRight + 1;
+            }
+
+            double logLikelihood = 0;
+            for (int i = 0; i < n; i++)
+            {
+                double l = 0;
+                for (int k = 0; k < kk; k++)
+                {
+                    l += coeff[k] * Math.Exp(-(x[i] - mu[k]) * (x[i] - mu[k]) / (2.0 * sigma2[k]));
+                }
+
+                logLikelihood += Math.Log(l);
+            }
+
+            double b = 2 * logLikelihood - (3 * kk - 1) * Math.Log(n);
+            bic[kk - kMin] = b;
+
+            if (kk == kMin)
+            {
+                maxBic = b;
+                kOpt = kMin;
+            }
+            else if (b > maxBic)
+            {
+                maxBic = b;
+                kOpt = kk;
+            }
+        }
+
+        return kOpt;
+    }
+
+    /// <summary>
+    /// Ckmeans.1d.dp <c>shifted_data_variance</c>: mean and unbiased sample variance of sorted x[left..right],
+    /// computed around the block median for stability (variance 0 for a single value).
+    /// </summary>
+    private static (double Mean, double Variance) CkmeansShiftedDataVariance(double[] x, int left, int right)
+    {
+        double sum = 0.0;
+        double sumsq = 0.0;
+        double mean = 0.0;
+        double variance = 0.0;
+        int n = right - left + 1;
+
+        if (right >= left)
+        {
+            double median = x[(left + right) / 2];
+            for (int i = left; i <= right; ++i)
+            {
+                sum += x[i] - median;
+                sumsq += (x[i] - median) * (x[i] - median);
+            }
+
+            mean = sum / n + median;
+            if (n > 1)
+            {
+                variance = (sumsq - sum * sum / n) / (n - 1);
+            }
+        }
+
+        return (mean, variance);
     }
 
     /// <summary>

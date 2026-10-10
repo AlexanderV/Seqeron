@@ -49,6 +49,7 @@
 |--------|-------|------|-------|
 | `EstimateCcf(vaf, purity, tumorCopyNumber, multiplicity)` | OncologyAnalyzer | Canonical | Point CCF per McGranahan/PMC formula; returns raw + capped. |
 | `ClusterCcfValues(ccfValues, clusterCount)` | OncologyAnalyzer | Canonical | Optimal 1D k-means (Ckmeans.1d.dp DP); identifies clonal (max-centroid) cluster. |
+| `ClusterCcfValues(ccfValues, minClusters, maxClusters)` | OncologyAnalyzer | Canonical (overload) | Same, k chosen by BIC (Ckmeans.1d.dp `select_levels`). |
 
 ---
 
@@ -93,6 +94,9 @@
 | M20 | ClusterCcfValues equal-WCSS tie = R default SMAWK | {0.5,0.25,1,0.5,0,0.25,0.75,0.25,0.5,0,1,0,0,0,0,1}, k=4 | labels 2,1,3,2,0,1,2,1,2,0,3,0,0,0,0,3; centers {0,0.25,0.5625,1} | R Ckmeans.1d.dp 4.3.6 `method="linear"` (F46) |
 | M21 | ClusterCcfValues 8-cluster tie case | 23 values on a 0.1 grid, k=8 | R labels + centers bit-identical | R Ckmeans.1d.dp 4.3.6 (F46) |
 | M22 | ClusterCcfValues equally spaced ties | 4 inputs (k 2–4) | R labels | R Ckmeans.1d.dp 4.3.6 (F46) |
+| M23 | ClusterCcfValues automatic k (BIC) | 20 inputs incl. k = 1 selected, kmax > distinct, kmin > distinct, all equal, ties, n = 2 | R labels, k = max label + 1, `$BIC` bit-exact | R Ckmeans.1d.dp 4.3.6 `select_levels` (F47) |
+| M24 | ClusterCcfValues automatic k, kmin = kmax | tie input, k 4–4 | = fixed-k overload | single DP fill (F47) |
+| M25 | ClusterCcfValues automatic k validation | minClusters 0; max < min; null; empty; NaN; kmax 50 > n | throws / allowed | R `k.max <= 0` stop; R caps kmax (F47) |
 | P1 | Optimality property | random n ≤ 9 | WCSS ≤ brute-force minimum | Wang & Song 2011 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -187,8 +191,11 @@
 | M20 | ✅ Covered | `ClusterCcfValues_EqualWcssTie_MatchesRDefaultLinearMethod` (F46) |
 | M21 | ✅ Covered | `ClusterCcfValues_EightClusterTieCase_BitIdenticalToR` (F46) |
 | M22 | ✅ Covered | `ClusterCcfValues_EquallySpacedTies_MatchR` (F46) |
+| M23 | ✅ Covered | `ClusterCcfValues_AutomaticK_MatchesRCkmeansBic` (F47) |
+| M24 | ✅ Covered | `ClusterCcfValues_AutomaticKWithEqualBounds_EqualsFixedK` (F47) |
+| M25 | ✅ Covered | `ClusterCcfValues_AutomaticK_InvalidArguments_Throw` (F47) |
 
-**In-scope cases:** 22 — **✅:** 22
+**In-scope cases:** 25 — **✅:** 25
 
 ---
 
@@ -199,7 +206,7 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Reported CCF capped to [0,1] (raw exposed) per registry invariant + McGranahan clonal def | M6, INV-1 |
-| 2 | 1D clustering = optimal k-means by Ckmeans.1d.dp DP (replaced Lloyd + quantile seeding, F17 2026-09-28; R default SMAWK fill, F46 2026-10-10); clonal=max centroid | M11–M13, M16–M22, S1, INV-3..6 |
+| 2 | 1D clustering = optimal k-means by Ckmeans.1d.dp DP (replaced Lloyd + quantile seeding, F17 2026-09-28; R default SMAWK fill, F46 2026-10-10; optional automatic k by the Ckmeans.1d.dp BIC, F47); clonal=max centroid | M11–M13, M16–M25, S1, INV-3..6 |
 
 ---
 

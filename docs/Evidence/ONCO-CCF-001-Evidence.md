@@ -77,6 +77,7 @@
 3. EWL2 fill: median-shifted prefix sums; `ssq(j,i)` = Σx² − n·μ² (clamped at 0); row fill by divide and conquer over monotone J; `backtrack` centre = block mean. `ldouble` = `double`.
 4. Numerical reference (F17): Python `ckwrap` 1.2.3 (wraps the same C++; R CRAN mirror unreachable in the sandbox).
 5. *Added 2026-10-10 (F46):* R wrapper `Ckmeans.1d.dp(x, k = c(1,9), y = 1, method = c("linear", "loglinear", "quadratic"), estimate.k = c("BIC", "BIC 3.4.12"))` — default `method = "linear"` → `EWL2::fill_dp_matrix` calls `fill_row_q_SMAWK` (`src/EWL2_fill_SMAWK.cpp`: `SMAWK`, `reduce_in_place` with strict `Sl < Slplus1` keeping the left column, `fill_even_positions` / `find_min_from_candidates` with `Sj <= S[q][i]` keeping the largest optimal j). Default `y = 1` has length ≠ length(x) → `yp = 0` → unweighted; `Ckmeans.1d.dp` always passes criterion `"L2"`. Numerical reference: R 4.x + Ckmeans.1d.dp 4.3.6 built from the CRAN GitHub mirror (github.com/cran/Ckmeans.1d.dp; Rdpack import dropped — documentation-only — because the Rdpack help build crashes in the sandbox; computational sources untouched).
+6. *Added 2026-10-10 (F47):* automatic k — R `k = c(kmin, kmax)` (default `k = c(1, 9)`); `cluster.1d.dp` sets both bounds to n.unique when n.unique < k.min, else caps k.max at n.unique; C++ `kmeans_1d_dp` fills one DP for K = Kmax and calls `select_levels` (`src/select_levels.cpp`, `estimate.k = "BIC"` default; `"BIC 3.4.12"` = legacy `select_levels_3_4_12`, not default): per K, `backtrack` sizes, λ_k = n_k/N, `shifted_data_variance` (median-shifted mean, unbiased variance), σ² = 0 → dmin²/4/9, size 1 → dmin² (dmin = gap to the adjacent value of the neighbouring block(s)), coeff = λ/√(2πσ²), logL = Σ_i log Σ_k coeff·exp(−(x−μ)²/(2σ²)), BIC = 2·logL − (3K − 1)·log N, Kopt = first maximum (strict `>`). `N < 2` → min(Kmin, Kmax); all values equal → one cluster, BIC untouched (0). Then J is truncated to Kopt rows and backtracked.
 
 ---
 
@@ -145,6 +146,23 @@ on 6000/6000. R `method = "linear"` vs `"loglinear"` disagree on 21/6000 (all eq
 | {0.1, …, 0.6} | 4 | 0,1,2,2,3,3 | {0.1, 0.2, 0.35, 0.55} | same |
 | {0, 0.25, 0.5, 0.75, 1} | 3 | 0,0,1,1,2 | {0.125, 0.625, 1} | same |
 
+### Dataset: R Ckmeans.1d.dp 4.3.6 automatic k by BIC — B24 review 2026-10 (F47)
+
+Comparison: 3000 random inputs (R `set.seed(7)`, n 2–60, 7 generators incl. grid ties and clonal+subclonal mixtures,
+kmin 1–3, kmax = kmin + 0..9; R selected k = 1 on 483, 2 on 876, 3 on 932, 4–10 on 709) → C# vs R labels, centers
+and the full `$BIC` vector bit-identical 3000/3000; the 6000 fixed-k inputs above also stay 6000/6000. 20 R cases are
+locked in `ClusterCcfValues_AutomaticK_MatchesRCkmeansBic` (`set.seed(46)` for the random rows), e.g.:
+
+| CCF values | k range | R labels (0-based) | R `$BIC` |
+|------------|---------|--------------------|----------|
+| {0.98,1,0.97,1.02,0.5,0.52,0.48,0.51} | 1–9 (→ 1–8) | 1,1,1,1,0,0,0,0 (k = 2) | −4.4652525291599927, 20.839855023899851, … |
+| {0.95,0.97,1.0,0.99,0.96,1.01} | 1–5 | all 0 (k = 1) | 25.31466130849828, 23.032182234478128, … |
+| {0.5,0.5,0.5,1,1} | 1–9 (→ 1–2) | 0,0,0,1,1 | −3.4569253296857951, 0.8823750858700059 |
+| {0.3,0.3,0.6,0.6} | 3–5 (→ 2–2) | 0,0,1,1 | 4.1377007945553688 |
+| {0.7,0.7,0.7} | 1–3 (→ 1–1) | 0,0,0 | 0 |
+| {0.2,0.9} | 1–9 (→ 1–2) | 0,0 (k = 1) | −3.2490543570637609, −6.5910710453828418 |
+| {0,0,0,1} | 1–9 (→ 1–2) | 0,0,0,0 (k = 1) | −7.5789195433975998, −7.8322586329281041 |
+
 ---
 
 ## Assumptions
@@ -182,3 +200,4 @@ on 6000/6000. R `method = "linear"` vs `"loglinear"` disagree on 21/6000 (all eq
 - **2026-06-15**: Initial documentation.
 - **2026-09-28**: B24 review F17 — Lloyd/quantile seeding replaced by Ckmeans.1d.dp exact DP; reference optima dataset added.
 - **2026-10-10**: B24 FIN F46 — row fill switched to R's default SMAWK (`method = "linear"`); R tie-case dataset added (6000/6000 bit-identical).
+- **2026-10-10**: B24 FIN F47 — automatic k by the Ckmeans.1d.dp BIC (`select_levels`), additive overload; R dataset added (3000/3000 bit-identical incl. BIC).

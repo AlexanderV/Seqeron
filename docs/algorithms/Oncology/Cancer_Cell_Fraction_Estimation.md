@@ -77,11 +77,17 @@ the sorted values, so the global optimum is found exactly by dynamic programming
 x₁..xᵢ in q clusters, `D[q][i] = min_{q≤j≤i} D[q−1][j−1] + ssq(x_j..x_i)` (Wang & Song 2011, Ckmeans.1d.dp [6]),
 followed by backtracking. The result needs no seeding and is fully reproducible.
 
+When k is not known, Ckmeans.1d.dp chooses it in [k_min, k_max] by the Bayesian information criterion
+(`select_levels`, R default `estimate.k = "BIC"` [6]): for each K the optimal partition defines a Gaussian mixture
+with weights λ_k = n_k/N, block means μ_k and unbiased block variances σ²_k (σ² = 0 → d²/36, singleton → d², d the
+gap to the nearest neighbouring value outside the block); `BIC(K) = 2·Σ_i ln Σ_k λ_k·φ(x_i; μ_k, σ²_k) − (3K − 1)·ln N`,
+and the smallest K with the maximal BIC is selected.
+
 #### Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
-| ASM-CL-01 | The number of clones k is supplied | Wrong k over-/under-splits populations |
+| ASM-CL-01 | The number of clones k is supplied, or chosen in [k_min, k_max] by the Ckmeans.1d.dp Gaussian-mixture BIC | Wrong k / non-Gaussian clusters over-/under-split populations |
 | ASM-CL-02 | Clones are separable by 1D CCF distance | Overlapping CCF distributions merge distinct clones |
 
 #### Properties and Invariants
@@ -106,7 +112,8 @@ followed by backtracking. The result needs no seeding and is fully reproducible.
 | tumorCopyNumber | int | required | Local tumor copy number N_T | ≥ 1 |
 | multiplicity | int | required | Mutated copies per cancer cell m | [1, tumorCopyNumber] |
 | ccfValues | IReadOnlyList&lt;double&gt; | required | CCF values to cluster | non-empty, finite |
-| clusterCount | int | required | Number of clusters k | [1, count] |
+| clusterCount | int | required (fixed-k overload) | Number of clusters k | [1, count] |
+| minClusters, maxClusters | int | required (BIC overload) | Range of k searched by BIC (R `k = c(kmin, kmax)`) | 1 ≤ minClusters ≤ maxClusters; capped at #distinct values as in R |
 
 ### 3.2 Output / Return Value
 
@@ -123,7 +130,10 @@ followed by backtracking. The result needs no seeding and is fully reproducible.
 `EstimateCcf` throws `ArgumentOutOfRangeException` for vaf ∉ [0,1], purity ∉ (0,1], or tumorCopyNumber < 1, and
 `ArgumentException` for multiplicity ∉ [1, tumorCopyNumber]. `ClusterCcfValues` throws `ArgumentNullException`
 for null input, `ArgumentException` for an empty list or a NaN/infinite value, and `ArgumentOutOfRangeException`
-for clusterCount ∉ [1, count]. All indices are 0-based.
+for clusterCount ∉ [1, count]; the BIC overload throws `ArgumentOutOfRangeException` for minClusters < 1 or
+maxClusters < minClusters (maxClusters above the number of values is allowed: R caps it at the number of distinct
+values; if minClusters exceeds that number both bounds become it). Either overload rejects a DP matrix above 10⁸
+cells. All indices are 0-based.
 
 ## 4. Algorithm
 
@@ -151,6 +161,9 @@ for clusterCount ∉ [1, count]. All indices are 0-based.
    `method = "linear"`, incl. its tie-breaking among equal-WCSS splits); only two rows of D are kept, the backtrack
    matrix J is k × n.
 4. Backtrack cluster boundaries from J; centroid = block mean; clusters are ascending, the last is clonal.
+5. BIC overload: adjust [k_min, k_max] to the number of distinct values (R `cluster.1d.dp`), fill one DP for
+   K = k_max, compute BIC(K) for K = k_min..k_max by `select_levels`, backtrack with the selected K (all values
+   equal → one cluster).
 
 #### Decision Rules / Reference Tables
 
@@ -173,6 +186,8 @@ k × n exceeds 10⁸ backtrack cells are rejected (`ArgumentOutOfRangeException`
 
 - `OncologyAnalyzer.EstimateCcf(vaf, purity, tumorCopyNumber, multiplicity)`: point CCF estimate (capped + raw).
 - `OncologyAnalyzer.ClusterCcfValues(ccfValues, clusterCount)`: optimal 1D k-means (Ckmeans.1d.dp) + clonal-cluster id.
+- `OncologyAnalyzer.ClusterCcfValues(ccfValues, minClusters, maxClusters)`: same, with k chosen by BIC
+  (R `Ckmeans.1d.dp(x, k = c(minClusters, maxClusters))`); chosen k = `Centroids.Count`.
 
 ### 5.2 Current Behavior
 
@@ -181,7 +196,9 @@ purity and local copy number with `OncologyAnalyzer.DeriveMultiplicity` (ONCO-AS
 `expected_mutant_copies`, McGranahan 2016). Clustering is the exact Ckmeans.1d.dp optimum (no seeding), so output is identical
 across runs and independent of input order. Cross-checked against R Ckmeans.1d.dp 4.3.6 `Ckmeans.1d.dp(x, k)`
 (defaults): 6000/6000 random inputs (n 2–60, k 1–8, 5 of 6 generators tie-heavy) bit-identical labels and centroids
-(F46; the former log-linear fill, = R `method = "loglinear"`, differed on 21 equal-WCSS ties). No substring/pattern search is
+(F46; the former log-linear fill, = R `method = "loglinear"`, differed on 21 equal-WCSS ties). The BIC overload matches
+R `Ckmeans.1d.dp(x, c(kmin, kmax))` on 3000/3000 random inputs (kmin 1–3, kmax kmin..kmin+9; selected k 1–10):
+labels, centers and the `$BIC` vector bit-identical (F47). No substring/pattern search is
 involved, so the repository suffix tree is not applicable.
 
 ### 5.3 Conformance to Theory / Spec
@@ -209,7 +226,8 @@ involved, so the repository suffix tree is not applicable.
 
 **Intentionally simplified:**
 
-- k must be supplied; **consequence:** no automatic model selection of the number of clones.
+- ~~k must be supplied~~ — **Resolved (F47):** automatic k by the Ckmeans.1d.dp BIC (`select_levels`) via
+  `ClusterCcfValues(ccfValues, minClusters, maxClusters)`; R-locked bit for bit (labels, centers, BIC vector).
 
 **Not implemented:**
 
@@ -225,6 +243,8 @@ involved, so the repository suffix tree is not applicable.
 | raw CCF > 1 | reported 1.0, RawCcf > 1 | INV-CCF-01 / CNAqc [4] |
 | multi-copy locus (N_T>2, m>1) | uses supplied m | multiplicity definition [1] |
 | k = 1 | single cluster at the global mean; clonal index 0 | trivial partition |
+| BIC overload, all values equal | one cluster; BIC vector all 0 | Ckmeans.1d.dp `nUnique == 1` branch [6] |
+| BIC overload, minClusters > distinct values | both bounds set to the number of distinct values | R `cluster.1d.dp` [6] |
 | k > distinct values | k reduced to the number of distinct values (no empty clusters) | Ckmeans.1d.dp [6] |
 | empty values / null / k out of range | exception | validation |
 
