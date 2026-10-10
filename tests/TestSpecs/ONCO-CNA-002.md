@@ -113,6 +113,8 @@
 | C18 | Centromere-spanning segment (F50) | chr2 markers 6..12 (3/8 p + 4/12 q) | fract 0.70833333333333326; whole chromosome 2 | MakeSampleB_CentromereSpanningSegment_SumsArmFractions_MatchOctave |
 | C19 | Breakpoint on first row (F50) | chr2 0.4\|1.2\|−0.5, bpt = first row | all rows vs q level (Octave) | DeconstructSample_BreakpointOnFirstRow_TreatsChromosomeAsQ_MatchOctave |
 | C20 | Equal adjacent values merged; invalid tiling (F50) | 0.5,0.5 adjacent; gaps / overrun / NaN / unknown chr / empty or duplicate layout | one B row; ArgumentException | MakeSampleB_EqualAdjacentValues_Merged, MakeSampleB_InvalidTiling_Throws |
+| C21 | Length × amplitude log table (F51) | 3-sample cohort, initial (level 0) events | all 51×51 `log_hd` cells = Octave `generate_2d_hists(QA,QD,[],[],.01,1)` (11 occupied bins, background −9.4415314548696934) | Generate2dHistogram_CohortInitialEvents_MatchOctaveLogTable |
+| C22 | Arm broad-level selection (F51) | every (sample, chromosome, breakpoint, p/q part) of the cohort, 32 calls | level, max score, num_levels, max_Q rows = Octave `find_max_broad_level_by_table` | FindMaxBroadLevelByTable_EveryArmSplitOfCohort_MatchesOctave |
 
 ---
 

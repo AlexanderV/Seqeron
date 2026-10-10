@@ -1346,6 +1346,346 @@ public static partial class OncologyAnalyzer
         return (za, zd);
     }
 
+    /// <summary>
+    /// GISTIC2 event length × amplitude log-likelihood table (<c>generate_2d_hists.m</c> output): amplitude bin edges
+    /// <c>xamp = −2:0.08:2</c>, length bin edges <c>ylen = 0:0.04:2</c> (arm fractions) and <c>log_hd</c> (51 × 51).
+    /// </summary>
+    internal sealed class GisticLengthAmplitudeTable
+    {
+        internal GisticLengthAmplitudeTable(double[] amplitudeEdges, double[] lengthEdges, double[,] logDensity)
+        {
+            AmplitudeEdges = amplitudeEdges;
+            LengthEdges = lengthEdges;
+            LogDensity = logDensity;
+        }
+
+        /// <summary><c>xamp</c> — amplitude bin edges.</summary>
+        internal double[] AmplitudeEdges { get; }
+
+        /// <summary><c>ylen</c> — length (arm fraction) bin edges.</summary>
+        internal double[] LengthEdges { get; }
+
+        /// <summary><c>log_hd(xidx, yidx)</c> (0-based here).</summary>
+        internal double[,] LogDensity { get; }
+    }
+
+    /// <summary>GISTIC2 <c>generate_2d_hists</c> pseudocount argument used by <c>perform_deconstruction.m</c> (<c>.01</c>).</summary>
+    private const double GisticHistogramPseudocount = 0.01;
+
+    /// <summary>
+    /// GNU Octave colon range <c>start:step:limit</c> for the GISTIC2 bin edges: element i = start + i·step (verified
+    /// equal to Octave's <c>-2:.08:2</c> and <c>0:.04:2</c> for all 51 elements).
+    /// </summary>
+    private static double[] GisticRange(double start, double step, int count)
+    {
+        var r = new double[count];
+        for (int i = 0; i < count; i++)
+        {
+            r[i] = start + i * step;
+        }
+
+        return r;
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>hist2d.m</c> bin index (1-based) of <paramref name="x"/> over edges <paramref name="r"/>: 1 when
+    /// x ≤ r(1), length(r) when x ≥ r(end), otherwise i with r(i) ≤ x &lt; r(i+1).
+    /// </summary>
+    private static int GisticHistBin(double x, double[] r)
+    {
+        int bin = 0;
+        if (x <= r[0])
+        {
+            bin = 1;
+        }
+
+        if (x >= r[^1])
+        {
+            bin = r.Length;
+        }
+
+        for (int i = 0; i < r.Length - 1; i++)
+        {
+            if (x >= r[i] && x < r[i + 1])
+            {
+                bin = i + 1;
+            }
+        }
+
+        return bin;
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>generate_2d_hists(QA,QD,[],[],.01,1)</c>: 2-D histogram (<c>hist2d</c> / <c>crosstab_full</c>) of event
+    /// amplitude (column 4) × arm fraction (column 8) over QA ∪ QD, plus <c>pseudocount/100·sum(sum(hd))</c> per bin,
+    /// normalised by <c>sum(sum(hd1))</c> (column sums first, as MATLAB/Octave <c>sum</c>), then <c>log</c>. The
+    /// plotting branch (<c>do_plot</c>) has no effect on the table.
+    /// </summary>
+    internal static GisticLengthAmplitudeTable GisticGenerate2dHistogram(
+        IReadOnlyList<GisticZiggRow> amplifications, IReadOnlyList<GisticZiggRow> deletions)
+    {
+        double[] xamp = GisticRange(-2, 0.08, 51);
+        double[] ylen = GisticRange(0, 0.04, 51);
+        int nx = xamp.Length;
+        int ny = ylen.Length;
+        var hd = new double[nx, ny];
+        foreach (GisticZiggRow row in amplifications.Concat(deletions))
+        {
+            int xi = GisticHistBin(row.Amplitude, xamp);
+            int yi = GisticHistBin(row.Fraction, ylen);
+            hd[xi - 1, yi - 1] += 1;
+        }
+
+        double total = SumColumnsThenTotal(hd);
+        double pseudo = GisticHistogramPseudocount / 100 * total;
+        var hd1 = new double[nx, ny];
+        for (int i = 0; i < nx; i++)
+        {
+            for (int j = 0; j < ny; j++)
+            {
+                hd1[i, j] = hd[i, j] + pseudo;
+            }
+        }
+
+        double total1 = SumColumnsThenTotal(hd1);
+        var logHd = new double[nx, ny];
+        for (int i = 0; i < nx; i++)
+        {
+            for (int j = 0; j < ny; j++)
+            {
+                logHd[i, j] = Math.Log(hd1[i, j] / total1);
+            }
+        }
+
+        return new GisticLengthAmplitudeTable(xamp, ylen, logHd);
+
+        static double SumColumnsThenTotal(double[,] m)
+        {
+            double total = 0;
+            for (int j = 0; j < m.GetLength(1); j++)
+            {
+                double column = 0;
+                for (int i = 0; i < m.GetLength(0); i++)
+                {
+                    column += m[i, j];
+                }
+
+                total += column;
+            }
+
+            return total;
+        }
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>score_ziggs_by_table.m</c>: <c>log_hd(xidx, yidx)</c> with xidx = last amplitude edge strictly below
+    /// the event amplitude (else 1) and yidx = last length edge strictly below the arm fraction (else 1).
+    /// </summary>
+    internal static double GisticScoreByTable(in GisticZiggRow row, GisticLengthAmplitudeTable table)
+    {
+        return table.LogDensity[LastBelow(table.AmplitudeEdges, row.Amplitude), LastBelow(table.LengthEdges, row.Fraction)];
+
+        static int LastBelow(double[] edges, double value)
+        {
+            for (int i = edges.Length - 1; i >= 0; i--)
+            {
+                if (edges[i] < value)
+                {
+                    return i;
+                }
+            }
+
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>ziggurat_on_extremes.m</c>: deconstructs the segments above the minimum level (QAS, levels shifted
+    /// back by +min) and below the maximum level (QDS, inverted back: levels −(l − max), amplitude negated), each scored.
+    /// </summary>
+    private static (List<GisticZiggRow> Amp, List<GisticZiggRow> Del) GisticZigguratOnExtremes(
+        List<GisticZiggRow> b, double minLevel, double maxLevel, GisticLengthAmplitudeTable table)
+    {
+        var ba = new List<GisticZiggRow>(b.Count);
+        var bd = new List<GisticZiggRow>(b.Count);
+        foreach (GisticZiggRow row in b)
+        {
+            GisticZiggRow a = row;
+            a.Amplitude = row.Amplitude - minLevel;
+            ba.Add(a);
+            GisticZiggRow d = row;
+            d.Amplitude = -1 * (row.Amplitude - maxLevel);
+            bd.Add(d);
+        }
+
+        GisticMergeAdjacentSegments(ba);
+        GisticMergeAdjacentSegments(bd);
+        List<GisticZiggRow> qas = GisticAtomicZigguratDeconstruction(ba);
+        List<GisticZiggRow> qds = GisticAtomicZigguratDeconstruction(bd);
+        for (int i = 0; i < qas.Count; i++)
+        {
+            GisticZiggRow row = qas[i];
+            row.StartLevel += minLevel;
+            row.EndLevel += minLevel;
+            row.Score = GisticScoreByTable(row, table);
+            qas[i] = row;
+        }
+
+        for (int i = 0; i < qds.Count; i++)
+        {
+            GisticZiggRow row = qds[i];
+            row.StartLevel = -1 * (row.StartLevel - maxLevel);
+            row.EndLevel = -1 * (row.EndLevel - maxLevel);
+            row.Amplitude = -1 * row.Amplitude;
+            row.Score = GisticScoreByTable(row, table);
+            qds[i] = row;
+        }
+
+        return (qas, qds);
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>iterative_ziggurat.m</c>: amplifications must start at least at <paramref name="level"/>, deletions at
+    /// most at it; amplitudes recomputed (<c>cn_en − cn_st</c>), events with the wrong sign dropped, changed events rescored.
+    /// </summary>
+    private static List<GisticZiggRow> GisticIterativeZiggurat(
+        List<GisticZiggRow> qas, List<GisticZiggRow> qds, double level, GisticLengthAmplitudeTable table)
+    {
+        var q = new List<GisticZiggRow>(qas.Count + qds.Count);
+        foreach (GisticZiggRow source in qas)
+        {
+            GisticZiggRow row = source;
+            row.StartLevel = Math.Max(source.StartLevel, level);
+            bool changed = source.StartLevel - row.StartLevel != 0;
+            row.Amplitude = row.EndLevel - row.StartLevel;
+            if (row.Amplitude > 0)
+            {
+                if (changed)
+                {
+                    row.Score = GisticScoreByTable(row, table);
+                }
+
+                q.Add(row);
+            }
+        }
+
+        foreach (GisticZiggRow source in qds)
+        {
+            GisticZiggRow row = source;
+            row.StartLevel = Math.Min(source.StartLevel, level);
+            bool changed = source.StartLevel - row.StartLevel != 0;
+            row.Amplitude = row.EndLevel - row.StartLevel;
+            if (row.Amplitude < 0)
+            {
+                if (changed)
+                {
+                    row.Score = GisticScoreByTable(row, table);
+                }
+
+                q.Add(row);
+            }
+        }
+
+        return q;
+    }
+
+    /// <summary>Result of <see cref="GisticFindMaxBroadLevel"/> (<c>[broad_level max_Q max_score num_levels]</c>).</summary>
+    internal readonly record struct GisticBroadLevelChoice(
+        double BroadLevel, List<GisticZiggRow> Events, double Score, int LevelCount);
+
+    /// <summary>
+    /// GISTIC2 <c>find_max_broad_level_by_table.m</c>: for each distinct segment value of an arm (ascending), deconstruct
+    /// the arm against it (<c>ziggurat_on_extremes</c> + <c>iterative_ziggurat</c>), score the events plus the broad event
+    /// (<c>[chrn min(st) max(en) level sample 0 level arm_fract]</c>), and keep the level with the highest total score
+    /// (first on ties). One distinct value: that level, a single broad row (score column 0) scored by table. Empty: level
+    /// 0, no events, score 0.
+    /// </summary>
+    internal static GisticBroadLevelChoice GisticFindMaxBroadLevel(
+        List<GisticZiggRow> b, GisticLengthAmplitudeTable table, double armFraction)
+    {
+        var levels = b.Select(r => r.Amplitude).ToList();
+        levels.Sort();
+        var unique = new List<double>(levels.Count);
+        foreach (double v in levels)
+        {
+            if (unique.Count == 0 || unique[^1] != v)
+            {
+                unique.Add(v);
+            }
+        }
+
+        if (unique.Count > 1)
+        {
+            (List<GisticZiggRow> qas, List<GisticZiggRow> qds) = GisticZigguratOnExtremes(b, unique[0], unique[^1], table);
+            int start = int.MaxValue;
+            int end = int.MinValue;
+            foreach (GisticZiggRow row in b)
+            {
+                start = Math.Min(start, row.Start);
+                end = Math.Max(end, row.End);
+            }
+
+            List<GisticZiggRow>? best = null;
+            double bestScore = double.NaN;
+            int bestIndex = -1;
+            for (int k = 0; k < unique.Count; k++)
+            {
+                List<GisticZiggRow> q = GisticIterativeZiggurat(qas, qds, unique[k], table);
+                var broad = new GisticZiggRow
+                {
+                    Chromosome = b[0].Chromosome,
+                    Start = start,
+                    End = end,
+                    Amplitude = unique[k],
+                    Sample = b[0].Sample,
+                    StartLevel = 0,
+                    EndLevel = unique[k],
+                    Fraction = armFraction,
+                };
+                broad.Score = GisticScoreByTable(broad, table);
+                double sum = 0;
+                foreach (GisticZiggRow row in q)
+                {
+                    sum += row.Score;
+                }
+
+                double score = sum + broad.Score;
+                if (broad.Amplitude != 0)
+                {
+                    q.Add(broad);
+                }
+
+                // MATLAB [m, i] = max(score): first maximum, NaN ignored (index 1 when all NaN).
+                if (bestIndex < 0 || (!double.IsNaN(score) && (double.IsNaN(bestScore) || score > bestScore)))
+                {
+                    best = q;
+                    bestScore = score;
+                    bestIndex = k;
+                }
+            }
+
+            return new GisticBroadLevelChoice(unique[bestIndex], best!, bestScore, unique.Count);
+        }
+
+        if (unique.Count == 1)
+        {
+            var single = new GisticZiggRow
+            {
+                Chromosome = b[0].Chromosome,
+                Start = b[0].Start,
+                End = b[0].End,
+                Amplitude = unique[0],
+                Sample = b[0].Sample,
+                StartLevel = 0,
+                EndLevel = unique[0],
+                Fraction = armFraction,
+            };
+            double score = GisticScoreByTable(single, table);
+            return new GisticBroadLevelChoice(unique[0], new List<GisticZiggRow> { single }, score, 1);
+        }
+
+        return new GisticBroadLevelChoice(0, new List<GisticZiggRow>(), 0, 0);
+    }
 
     #endregion
 

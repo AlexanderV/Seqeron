@@ -174,6 +174,13 @@ given p / q broad levels; the reference quirk "breakpoint on the first of severa
 kept). Input model: `ZigguratChromosome(Chromosome, PArmMarkerCount, QArmMarkerCount)` (markers 1..P on p, P+1..P+Q on
 q) and `ZigguratSegment(Chromosome, StartMarker, EndMarker, Value)` tiling every chromosome of a sample.
 
+**Ziggurat deconstruction — likelihood table and arm broad level (F51).** `generate_2d_hists.m` builds the cohort
+event table: a 51 × 51 histogram of event amplitude (edges −2:0.08:2) × arm fraction (edges 0:0.04:2), plus a
+pseudocount of 0.01 % of the event total per bin, normalised and log-transformed (`log_hd`). `find_max_broad_level_by_table.m`
+chooses an arm's broad level among its distinct segment values: for each candidate it deconstructs the arm relative to
+that level (`ziggurat_on_extremes` + `iterative_ziggurat`) and scores every event and the broad event by table lookup
+(`score_ziggs_by_table`: last edge strictly below the value); the highest total wins (first on ties).
+
 **Reference-implementation cross-check (2026-09 review):** the predicate equals the GISTIC2 focal-event filter in
 `snputil/reconstruct_genomes.m` (`broad_or_focal='focal'`: `Q(:,8) < broad_len_cutoff` and amplitude vs `t_amp`)
 and `score_genome.m` (`Qs.del(:,8) < broad_len_cutoff`). The length test is strict `<`, as in GISTIC2. The amplitude
