@@ -9765,10 +9765,13 @@ public static partial class OncologyAnalyzer
     /// <param name="MinorCopyNumber">Minor allele copy number (≥ 0).</param>
     public readonly record struct PurityPeakMutation(double Vaf, int MajorCopyNumber, int MinorCopyNumber)
     {
-        /// <summary>Alternate-allele read count NV (CNAqc <c>NV</c>); used only by <see cref="PurityPeakOptions.FitMixturePeaks"/>.</summary>
+        /// <summary>Alternate-allele read count NV (CNAqc <c>NV</c>); used by the BMix fit (<see cref="PurityPeakOptions.FitMixturePeaks"/>).</summary>
         public int AlternateReads { get; init; }
 
-        /// <summary>Read depth DP (CNAqc <c>DP</c>; 0 = not supplied); used only by <see cref="PurityPeakOptions.FitMixturePeaks"/>.</summary>
+        /// <summary>
+        /// Read depth DP (CNAqc <c>DP</c>; 0 = not supplied). When every analysed mutation has DP ≥ 1, BMix mixture peaks are
+        /// fitted by default (<see cref="PurityPeakOptions.FitMixturePeaks"/>).
+        /// </summary>
         public int Depth { get; init; }
     }
 
@@ -9848,11 +9851,15 @@ public static partial class OncologyAnalyzer
 
         /// <summary>
         /// Fit CNAqc's BMix Binomial-mixture peaks (<c>mixture_peak_detector</c>: <see cref="FitBinomialMixture"/> on
-        /// (NV, DP) of each analysed karyotype, ICL-best component means snapped to the KDE grid) — CNAqc's default
-        /// behaviour; requires <see cref="PurityPeakMutation.AlternateReads"/> / <see cref="PurityPeakMutation.Depth"/>.
-        /// Default false (KDE peaks only, plus any <see cref="MixturePeaks"/>).
+        /// (NV, DP) of each analysed karyotype, ICL-best component means snapped to the KDE grid). CNAqc's
+        /// <c>analyze_peaks</c> always runs them (<c>combined_peak_detector</c> → <c>mixture_peak_detector</c> → <c>bmixfit</c>).
+        /// <para>null (default) = automatic, as CNAqc: on when every mutation of the analysed karyotypes carries read counts
+        /// (<see cref="PurityPeakMutation.Depth"/> ≥ 1), off when none does (VAF-only input → KDE peaks only) or when
+        /// <see cref="MixturePeaks"/> are supplied; a mix of mutations with and without read counts throws
+        /// <see cref="ArgumentException"/>. true = always fit (read counts required); false = never (KDE peaks only, plus
+        /// any <see cref="MixturePeaks"/>).</para>
         /// </summary>
-        public bool FitMixturePeaks { get; init; }
+        public bool? FitMixturePeaks { get; init; }
 
         /// <summary>
         /// Peak-detection bootstrap replicates (<c>n_bootstrap</c>, default 1 = none), ≥ 1. With n &gt; 1 every analysed
@@ -9954,9 +9961,10 @@ public static partial class OncologyAnalyzer
     /// </list>
     /// CNAqc does not threshold λ against ε (ε only sets the bands) and proposes no corrected purity: <c>print</c>
     /// reports λ as "Purity correction". <c>p_binsize_peaks</c> is accepted by CNAqc 1.1.5 but unused. KDE peak
-    /// detection is deterministic and ported exactly; CNAqc's BMix mixture peaks are fitted with
-    /// <see cref="PurityPeakOptions.FitMixturePeaks"/> (<see cref="FitBinomialMixture"/>, R random stream reproduced from
-    /// <see cref="PurityPeakOptions.Seed"/>) or supplied via <see cref="PurityPeakOptions.MixturePeaks"/>;
+    /// detection is deterministic and ported exactly; CNAqc's BMix mixture peaks are fitted by default whenever the
+    /// analysed mutations carry read counts (<see cref="PurityPeakOptions.FitMixturePeaks"/> null = auto;
+    /// <see cref="FitBinomialMixture"/>, R random stream reproduced from <see cref="PurityPeakOptions.Seed"/>) or supplied
+    /// via <see cref="PurityPeakOptions.MixturePeaks"/>;
     /// <c>n_bootstrap</c> is <see cref="PurityPeakOptions.BootstrapCount"/>. Complex and subclonal karyotypes:
     /// <see cref="AnalyzeComplexKaryotypePeaks"/>, <see cref="AnalyzeSubclonalPurityPeaks"/>.
     /// </summary>
@@ -10017,19 +10025,10 @@ public static partial class OncologyAnalyzer
             return new PurityPeakAnalysis(purity, double.NaN, null, Array.Empty<PurityPeakKaryotype>(), Array.Empty<PurityPeakMatch>());
         }
 
-        if (options.FitMixturePeaks)
-        {
-            foreach ((int Major, int Minor) k in analysed)
-            {
-                if (byKaryotype[k].Any(m => m.Depth < 1 || m.AlternateReads < 0 || m.AlternateReads > m.Depth))
-                    throw new ArgumentException(
-                        "FitMixturePeaks needs read counts: every analysed mutation must have Depth ≥ 1 and 0 ≤ AlternateReads ≤ Depth.",
-                        nameof(mutations));
-            }
-        }
+        bool fitMixture = ResolveFitMixturePeaks(options, analysed.SelectMany(k => byKaryotype[k]), nameof(mutations));
 
         // One R random stream for the whole call (set.seed before analyze_peaks_common), consumed karyotype by karyotype.
-        RMersenneTwister? rng = options.FitMixturePeaks || options.BootstrapCount > 1 ? new RMersenneTwister(options.Seed) : null;
+        RMersenneTwister? rng = fitMixture || options.BootstrapCount > 1 ? new RMersenneTwister(options.Seed) : null;
         var karyotypes = new List<PurityPeakKaryotype>(analysed.Count);
         var allMatches = new List<PurityPeakMatch>();
         foreach ((int major, int minor) in analysed)
@@ -10040,7 +10039,7 @@ public static partial class OncologyAnalyzer
             if (options.MixturePeaks is not null && options.MixturePeaks.TryGetValue((major, minor), out IReadOnlyList<double>? m))
                 mixturePeaks = m;
 
-            PurityPeakKaryotype result = AnalyzePurityPeaksKaryotype(major, minor, group, weight, purity, options, mixturePeaks, rng);
+            PurityPeakKaryotype result = AnalyzePurityPeaksKaryotype(major, minor, group, weight, purity, options, fitMixture, mixturePeaks, rng);
             karyotypes.Add(result);
             allMatches.AddRange(result.Matches);
         }
@@ -10057,6 +10056,40 @@ public static partial class OncologyAnalyzer
 
         // dplyr group_by(QC) orders "FAIL" < "PASS"; arrange(desc(prop)) is stable, so a tie resolves to FAIL.
         return new PurityPeakAnalysis(purity, score, passWeight > failWeight, karyotypes, allMatches);
+    }
+
+    // PurityPeakOptions.FitMixturePeaks: explicit true/false as given; null (auto) = CNAqc's always-on BMix whenever every
+    // analysed mutation carries read counts (DP ≥ 1), off for VAF-only input or caller-supplied MixturePeaks. Mixed input
+    // (some DP = 0, some ≥ 1) is rejected: CNAqc requires NV/DP on every mutation, and silently dropping BMix would hide
+    // partially missing read counts.
+    private static bool ResolveFitMixturePeaks(PurityPeakOptions options, IEnumerable<PurityPeakMutation> analysed, string paramName)
+    {
+        if (options.FitMixturePeaks == false || (options.FitMixturePeaks is null && options.MixturePeaks is not null))
+            return false;
+
+        int withReads = 0, withoutReads = 0;
+        foreach (PurityPeakMutation m in analysed)
+        {
+            if (m.Depth >= 1) withReads++; else withoutReads++;
+            if (m.Depth >= 1 && (m.AlternateReads < 0 || m.AlternateReads > m.Depth))
+                throw new ArgumentException("BMix mixture peaks need 0 ≤ AlternateReads ≤ Depth on every analysed mutation.", paramName);
+        }
+
+        if (options.FitMixturePeaks == true)
+        {
+            if (withoutReads > 0)
+                throw new ArgumentException(
+                    "FitMixturePeaks needs read counts: every analysed mutation must have Depth ≥ 1 and 0 ≤ AlternateReads ≤ Depth.",
+                    paramName);
+            return true;
+        }
+
+        if (withReads > 0 && withoutReads > 0)
+            throw new ArgumentException(
+                $"Read counts supplied for {withReads} of {withReads + withoutReads} analysed mutations: supply Depth ≥ 1 for all " +
+                "(BMix mixture peaks, CNAqc default) or for none (KDE peaks only), or set FitMixturePeaks explicitly.",
+                paramName);
+        return withReads > 0;
     }
 
     private static void ValidatePurityPeakArguments(double purity, PurityPeakOptions options)
@@ -10077,7 +10110,7 @@ public static partial class OncologyAnalyzer
             throw new ArgumentOutOfRangeException(nameof(options), options.MinVaf, "MinVaf must not be NaN.");
         if (options.BootstrapCount < 1)
             throw new ArgumentOutOfRangeException(nameof(options), options.BootstrapCount, "BootstrapCount must be ≥ 1.");
-        if (options.FitMixturePeaks && options.MixturePeaks is not null)
+        if (options.FitMixturePeaks == true && options.MixturePeaks is not null)
             throw new ArgumentException("Use either FitMixturePeaks or caller-supplied MixturePeaks, not both.", nameof(options));
         if (options.Karyotypes is null)
             throw new ArgumentException("Karyotypes must not be null.", nameof(options));
@@ -10091,7 +10124,7 @@ public static partial class OncologyAnalyzer
 
     private static PurityPeakKaryotype AnalyzePurityPeaksKaryotype(
         int major, int minor, List<PurityPeakMutation> group, double weight, double purity, PurityPeakOptions options,
-        IReadOnlyList<double>? mixturePeaks, RMersenneTwister? rng)
+        bool fitMixture, IReadOnlyList<double>? mixturePeaks, RMersenneTwister? rng)
     {
         int ploidy = major + minor;
         var vafs = group.Select(g => g.Vaf).ToList();
@@ -10099,7 +10132,7 @@ public static partial class OncologyAnalyzer
         (KernelDensityEstimate density, List<PurityDataPeak> peaks) = SimplePeakDetector(
             vafs, options.KernelAdjust, options.LegacyDensityCoordinates, $"karyotype {major}:{minor}", options.BootstrapCount, rng);
         int[] histogram = VafHistogram(vafs);
-        if (options.FitMixturePeaks)
+        if (fitMixture)
             peaks.AddRange(MixturePeakDetector(group, options.KernelAdjust, options.LegacyDensityCoordinates, options.BootstrapCount, rng!));
 
         if (mixturePeaks is not null)

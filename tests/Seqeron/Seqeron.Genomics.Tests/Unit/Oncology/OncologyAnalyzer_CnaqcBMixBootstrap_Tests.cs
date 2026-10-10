@@ -129,8 +129,8 @@ public class OncologyAnalyzer_CnaqcBMixBootstrap_Tests
         yield return C("D3 p=0.45 bmix seed=21 nb=5", "D3", 0.45, new() { FitMixturePeaks = true, Seed = 21, BootstrapCount = 5 });
         yield return C("D4 p=0.3 bmix seed=11 nb=2", "D4", 0.3, new() { FitMixturePeaks = true, Seed = 11, BootstrapCount = 2 });
         yield return C("D1 p=0.6 bmix seed=3 nb=4 adj=0.5", "D1", 0.6, new() { FitMixturePeaks = true, Seed = 3, BootstrapCount = 4, KernelAdjust = 0.5 });
-        yield return C("D3 p=0.45 kde seed=5 nb=5", "D3", 0.45, new() { Seed = 5, BootstrapCount = 5 });
-        yield return C("D1 p=0.7 kde seed=9 nb=10 adj=0.5", "D1", 0.7, new() { Seed = 9, BootstrapCount = 10, KernelAdjust = 0.5 });
+        yield return C("D3 p=0.45 kde seed=5 nb=5", "D3", 0.45, new() { FitMixturePeaks = false, Seed = 5, BootstrapCount = 5 });
+        yield return C("D1 p=0.7 kde seed=9 nb=10 adj=0.5", "D1", 0.7, new() { FitMixturePeaks = false, Seed = 9, BootstrapCount = 10, KernelAdjust = 0.5 });
     }
 
     [TestCaseSource(nameof(CommonCases))]
@@ -167,15 +167,60 @@ public class OncologyAnalyzer_CnaqcBMixBootstrap_Tests
         Assert.That(fitted.Karyotypes.SelectMany(k => k.Peaks).Count(p => p.Source == OncologyAnalyzer.PurityPeakSource.Mixture), Is.GreaterThan(0));
     }
 
-    // Defaults are unchanged: no read counts needed, no randomness (F34 results bit-identical).
+    // VAF-only input (Depth 0): no BMix, no randomness — F34 results bit-identical; explicit opt-out with read counts
+    // gives the same KDE-only result.
     [Test]
-    public void AnalyzePurityPeaks_DefaultOptions_IgnoreSeedAndReads()
+    public void AnalyzePurityPeaks_DefaultOptions_VafOnly_KdeOnly()
     {
         var plain = OncologyAnalyzer.AnalyzePurityPeaks(
             CnaqcTestData.Load("D1").Select(r => new OncologyAnalyzer.PurityPeakMutation(r.Vaf, r.Major, r.Minor)), 0.7);
-        var seeded = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.7, new() { Seed = 123 });
+        var seeded = OncologyAnalyzer.AnalyzePurityPeaks(
+            CnaqcTestData.Load("D1").Select(r => new OncologyAnalyzer.PurityPeakMutation(r.Vaf, r.Major, r.Minor)), 0.7, new() { Seed = 123 });
+        var optOut = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.7, new() { FitMixturePeaks = false, Seed = 123 });
         Assert.That(seeded.Score, Is.EqualTo(plain.Score));
+        Assert.That(optOut.Score, Is.EqualTo(plain.Score));
         Assert.That(plain.Score, Is.EqualTo(0.0023756289876209163));
+        Assert.That(plain.Karyotypes.SelectMany(k => k.Peaks).All(p => p.Source == OncologyAnalyzer.PurityPeakSource.Kde), Is.True);
+    }
+
+    // F64: CNAqc analyze_peaks always runs BMix (combined_peak_detector → mixture_peak_detector → bmixfit). With read
+    // counts on every mutation and no flag, the default equals R `set.seed(7); analyze_peaks(x)` (D1, π 0.7): λ 0.00453585…,
+    // every match/peak row as in the R dump (same as the explicit FitMixturePeaks = true run).
+    [Test]
+    public void AnalyzePurityPeaks_DefaultOptions_WithReadCounts_RunBMixLikeCnaqc()
+    {
+        var auto = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.7, new() { Seed = 7 });
+        var on = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.7, new() { FitMixturePeaks = true, Seed = 7 });
+        Assert.That(auto.Score, Is.EqualTo(0.0045358591466179345).Within(1e-15));
+        Assert.That(auto.Pass, Is.True);
+        Assert.That(auto.Score, Is.EqualTo(on.Score));
+        Assert.That(auto.Matches, Is.EqualTo(on.Matches));
+        Assert.That(auto.Karyotypes.SelectMany(k => k.Peaks).Count(p => p.Source == OncologyAnalyzer.PurityPeakSource.Mixture), Is.GreaterThan(0));
+    }
+
+    // Auto mode: caller-supplied MixturePeaks replace the fit (no conflict); a mix of mutations with and without read
+    // counts is rejected; mutations outside the analysed karyotypes do not count.
+    [Test]
+    public void AnalyzePurityPeaks_AutoMixture_SuppliedMeansAndMixedReadCounts()
+    {
+        var supplied = new Dictionary<(int Major, int Minor), IReadOnlyList<double>>
+        {
+            [(1, 0)] = new[] { 0.53894927536231885 }, [(1, 1)] = new[] { 0.35226677286160424 },
+            [(2, 1)] = new[] { 0.26285730659499063, 0.5165650460721285 }, [(2, 2)] = new[] { 0.41368298792735059, 0.19704338051414069 },
+        };
+        var withSupplied = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D1"), 0.7, new() { MixturePeaks = supplied });
+        Assert.That(withSupplied.Score, Is.EqualTo(0.0045358591466179345).Within(1e-15));
+
+        var mixed = Mutations("D1");
+        mixed[0] = mixed[0] with { AlternateReads = 0, Depth = 0 };
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.AnalyzePurityPeaks(mixed, 0.7, new() { Seed = 7 }));
+        Assert.That(OncologyAnalyzer.AnalyzePurityPeaks(mixed, 0.7, new() { FitMixturePeaks = false }).Pass, Is.Not.Null);
+
+        // A 3:1 mutation without reads (not a simple karyotype, so not analysed) does not block auto BMix.
+        var extra = Mutations("D1");
+        extra.Add(new OncologyAnalyzer.PurityPeakMutation(0.5, 3, 1));
+        Assert.That(OncologyAnalyzer.AnalyzePurityPeaks(extra, 0.7, new() { Seed = 7 }).Karyotypes
+            .SelectMany(k => k.Peaks).Any(p => p.Source == OncologyAnalyzer.PurityPeakSource.Mixture), Is.True);
     }
 
     [Test]
@@ -232,8 +277,8 @@ public class OncologyAnalyzer_CnaqcBMixBootstrap_Tests
     [Test]
     public void AnalyzePurityPeaks_Bootstrap_KeepsFullDataPeaksFirst()
     {
-        var single = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D3"), 0.45);
-        var boot = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D3"), 0.45, new() { Seed = 5, BootstrapCount = 5 });
+        var single = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D3"), 0.45, new() { FitMixturePeaks = false });
+        var boot = OncologyAnalyzer.AnalyzePurityPeaks(Mutations("D3"), 0.45, new() { FitMixturePeaks = false, Seed = 5, BootstrapCount = 5 });
         for (int k = 0; k < single.Karyotypes.Count; k++)
         {
             var p1 = single.Karyotypes[k].Peaks;

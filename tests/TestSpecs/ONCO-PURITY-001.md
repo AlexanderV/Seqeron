@@ -249,7 +249,9 @@ Reference: caravagnalab/BMix `bmixfit` / `bmixfit_EM` and CNAqc 1.1.5 `combined_
 | B10 | invalid arguments (null, length mismatch, NV > DP, K = 0) | throws |
 | C1–C9 | `AnalyzePurityPeaks` with `FitMixturePeaks`: D1 π 0.7 seed 7, D3 π 0.45 seed 7, D4 π 0.3 seed 11 (B = 1); D1 seed 7 B = 3; D3 seed 21 B = 5; D4 seed 11 B = 2; D1 π 0.6 seed 3 B = 4 adjust 0.5; KDE-only bootstrap D3 seed 5 B = 5, D1 seed 9 B = 10 adjust 0.5 | λ, QC, every match row (x, y, counts, source, offset, matched, karyotype QC) and peak row equal (numbers ≤ 1e−12 relative — KDE heights / grid x at FFT-vs-direct rounding); e.g. D1 B = 1 λ 0.0045358591466179345, D1 B = 3 −0.0047951961423504073 |
 | C10 | fitted vs supplied R means (D1 seed 7) | λ 0.0045358591466179345, PASS |
-| C11 | defaults ignore `Seed` and read counts | λ 0.0023756289876209163 (F34 unchanged) |
+| C11 | VAF-only input (Depth 0), any `Seed`, or `FitMixturePeaks = false` with reads → KDE only (F64) | λ 0.0023756289876209163 (F34 unchanged) |
+| C11a | F64: read counts on every mutation, no flag, `Seed` 7 (D1 π 0.7) = R `set.seed(7); analyze_peaks` default | λ 0.0045358591466179345, PASS, BMix peaks present; matches identical to `FitMixturePeaks = true` |
+| C11b | F64 auto: caller `MixturePeaks` → no fit (λ 0.0045358591466179345); one mutation without reads → `ArgumentException` (explicit `false` runs); unanalysed 3:1 mutation without reads ignored | as stated |
 | C12 | invalid: `BootstrapCount` 0 (all three analyses), `FitMixturePeaks` without reads, `FitMixturePeaks` + `MixturePeaks` | throws |
 | C13–C15 | `AnalyzeComplexKaryotypePeaks` bootstrap G1 seed 4 B = 3, G1 seed 8 B = 10 adjust 0.5, G2 seed 1 B = 5 | all lines equal (≤ 1e−12) |
 | C16–C17 | `AnalyzeSubclonalPurityPeaks` bootstrap S1 seed 13 B = 3, S2 seed 2 B = 6 adjust 0.5 | all lines equal incl. identifiers |
@@ -257,7 +259,7 @@ Reference: caravagnalab/BMix `bmixfit` / `bmixfit_EM` and CNAqc 1.1.5 `combined_
 | R1 | `ExtendedPrecisionSum` | R `sum`: c(1, 2⁻⁵³, 2⁻⁵³) → 1.0000000000000002; c(1, 2⁻⁵³, 2⁻⁶⁴) → 1 (x87 double rounding); c(1e16, 1, 1) → 10000000000000002; 0.1+0.2+0.3 → 0.59999999999999998; Inf / NaN / na.rm cases |
 | R2 | `BinomialLogDensity` | R `dbinom(log = TRUE)` 7 interior/edge values (≤ 4e−16 relative) + boundaries (p 0/1, x > n, non-integer x, p 1.5 → NaN) |
 
-Tests: `OncologyAnalyzer_CnaqcBMixBootstrap_Tests` (28), `StatisticsHelper_RSumDbinom_Tests` (16).
+Tests: `OncologyAnalyzer_CnaqcBMixBootstrap_Tests` (30), `StatisticsHelper_RSumDbinom_Tests` (16). C1–C9 KDE-only rows and C18 set `FitMixturePeaks = false` since F64.
 
 ## 6. Assumption Register
 
