@@ -303,6 +303,11 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
    and the homozygous-stretch `exactPcf` (`pcfed` = 0 at NA, `!anyNA(dif)`), then `fillNA` and `prevlevel`. runASCAT then
    fits on the probes with a segmented BAF (`SNPposhet = SNPpos[names(bafsegmented), ]`, `bafke` = first of them) and
    `ploidy = mean(nA + nB, na.rm = TRUE)` (NA at missing raw logR, and at a probe with a segmented but missing raw BAF).
+   Every R `mean()` of the ASPCF ports (`mean(logRaveraged)`, `mean(bafselwinsmirrored)`, fastAspcf `yhat1 =
+   mean(logR[frst:last])` and `mu = mean(abs(yi2 − 0.5))`, exactPcf `mean(y)`, and the `na.rm = TRUE` level / averaging
+   means of `ascat.aspcf` / `ascat.asmultipcf`) is R's `real_mean` reproduced bit for bit — long-double Σx/n plus the
+   residual-refinement pass, emulated exactly by `StatisticsHelper.ExtendedPrecisionMean` (B24 F66); the R-locked segment
+   levels are therefore bit-identical (formerly ≤ 7.8e−16 from a plain double Σx/n).
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -410,7 +415,7 @@ suffix tree is **not used** (no occurrence enumeration).
   (`AscatMaleXGenotyping`: all non-PAR X probes homozygous, then `round(m · h_auto)` re-marked heterozygous — the
   smallest germline-BAF distance to 0/1 with R's runif tie-break, or `sample()` without germline BAF — from R's seeded
   Mersenne-Twister; R-verified on 4 aspcf tracks and 3 asmultipcf cohorts: selected probes identical, segments identical,
-  levels ≤ 1e−12).
+  levels ≤ 1e−12; bit-identical since F66).
 - Sub-clonal fit: ~~a summary carries no per-SNP BAF spread, so Battenberg's t-test cannot be run~~ — **resolved by
   F39** (`FitSubclonalCopyNumberWithSnpTest` takes the phased SNP BAFs; the summary overload still decides by maxdist,
   exactly Battenberg's result for constant BAF). Where R's `t.test` would stop ("data are essentially constant") and
@@ -487,7 +492,7 @@ ASPCF overload, F36); the haploid X/Y (male) model is available through `AscatSe
 `FitSubclonalCopyNumberWithSnpTest` (F39; phased SNP BAFs supplied by the caller). Multi-sample segmentation is available
 through `SegmentAlleleSpecificAsMultiPcf` (`ascat.asmultipcf`, F53; missing logR/BAF as R's NA since F59). ASCAT's male `X_nonPAR`
 germline re-genotyping is available through `AscatMaleXGenotyping` (F58); it is random, so it reproduces R only for an
-explicit seed (ASCAT's default seed is `as.integer(Sys.time())`); a multi-sample `ascat.aspcf` run (one seed, one stream across samples) is reproduced by `SegmentAlleleSpecificAspcfSamples` (F65). Battenberg's built-in haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes reference panel —
+explicit seed (ASCAT's default seed is `as.integer(Sys.time())`, exposed as `AscatMaleXGenotyping.DefaultSeed()` and used when `seed` is null); a multi-sample `ascat.aspcf` run (one seed, one stream across samples) is reproduced by `SegmentAlleleSpecificAspcfSamples` (F65). Battenberg's built-in haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes reference panel —
 external executables and a multi-GB reference bundle) is out of scope; the downstream phased path is available
 (`SegmentPhasedBaf` → `BuildBattenbergSegments` → `FitSubclonalCopyNumberWithSnpTest`, F40) on caller-phased BAFs; alternative
 solutions B–F and the seeded bootstrap CIs are available through `FitSubclonalCopyNumberWithBootstrap` (F41). Battenberg's

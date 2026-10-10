@@ -120,15 +120,7 @@ namespace Seqeron.Genomics.Infrastructure
                 throw new ArgumentException("The total count must be positive.", nameof(counts));
             }
 
-            double h = 0.0;
-            for (int i = 0; i < counts.Count; i++)
-            {
-                if (counts[i] == 0) continue;
-                double p = (double)counts[i] / total;
-                h -= p * Math.Log(p);
-            }
-
-            return h;
+            return ShannonEntropyCore(counts, total);
         }
 
         /// <summary>
@@ -160,11 +152,20 @@ namespace Seqeron.Genomics.Infrastructure
                 throw new ArgumentException("The total weight must be positive and finite.", nameof(weights));
             }
 
+            return ShannonEntropyCore(weights, total);
+        }
+
+        // −Σ pᵢ·ln pᵢ with pᵢ = wᵢ / total over validated non-negative values, zeros skipped (shared by ShannonIndex and
+        // ShannonIndexOfWeights; an int count converts to double exactly, as the former (double)count / (long) total did).
+        private static double ShannonEntropyCore<T>(IReadOnlyList<T> values, double total)
+            where T : System.Numerics.INumberBase<T>
+        {
             double h = 0.0;
-            for (int i = 0; i < weights.Count; i++)
+            for (int i = 0; i < values.Count; i++)
             {
-                if (weights[i] == 0.0) continue;
-                double p = weights[i] / total;
+                double w = double.CreateTruncating(values[i]);
+                if (w == 0.0) continue;
+                double p = w / total;
                 h -= p * Math.Log(p);
             }
 
@@ -556,7 +557,8 @@ namespace Seqeron.Genomics.Infrastructure
 
         /// <summary>
         /// R <c>mean(x)</c> (<c>mean.default</c> → summary.c <c>real_mean</c>): s = Σx/n, then, when s is finite, refined by
-        /// the mean residual s + Σ(x − s)/n (R accumulates in 80-bit long double; here in double, left to right).
+        /// the mean residual s + Σ(x − s)/n (R accumulates in 80-bit long double; here in double, left to right — for R's
+        /// exact bits use <see cref="ExtendedPrecisionMean"/>).
         /// NaN for an empty list or any NaN value. E.g. {1, 2, 3, 4} → 2.5.
         /// </summary>
         /// <param name="values">The values.</param>
@@ -948,35 +950,172 @@ namespace Seqeron.Genomics.Infrastructure
                 if (double.IsNegativeInfinity(v)) { negativeInfinity = true; continue; }
                 if (v == 0.0) continue;
 
-                long bits = BitConverter.DoubleToInt64Bits(v);
-                int biased = (int)((bits >> 52) & 0x7FF);
-                long fraction = bits & 0xFFFFFFFFFFFFFL;
-                long m = biased == 0 ? fraction : fraction | (1L << 52);
-                int e = biased == 0 ? -1074 : biased - 1075;
-                System.Numerics.BigInteger term = v < 0 ? -(System.Numerics.BigInteger)m : m;
-                if (mantissa.IsZero)
-                {
-                    mantissa = term;
-                    exponent = e;
-                }
-                else if (e >= exponent)
-                {
-                    mantissa += term << (e - exponent);
-                }
-                else
-                {
-                    mantissa = (mantissa << (exponent - e)) + term;
-                    exponent = e;
-                }
-
-                (mantissa, exponent) = RoundToSignificantBits(mantissa, exponent, 64);
+                (mantissa, exponent) = LongDoubleAdd((mantissa, exponent), LongDoubleOf(v));
             }
 
             if (nan || (positiveInfinity && negativeInfinity)) return double.NaN;
             if (positiveInfinity) return double.PositiveInfinity;
             if (negativeInfinity) return double.NegativeInfinity;
-            if (mantissa.IsZero) return 0.0;
-            (mantissa, exponent) = RoundToSignificantBits(mantissa, exponent, 53);
+            return LongDoubleToDouble((mantissa, exponent));
+        }
+
+        /// <summary>
+        /// R <c>mean(x)</c> on x86-64, bit-identical: summary.c <c>real_mean</c> accumulates s = Σx in an x87 80-bit
+        /// <c>long double</c>, divides by n, and — when s is finite — adds the mean residual Σ(x − s)/n, every step in
+        /// long double (emulated exactly as in <see cref="ExtendedPrecisionSum"/>); the result is rounded once to double.
+        /// When Σx overflows a double, R's fallback Σ(x/n) (then Σ((x − s)/n)) is followed. With
+        /// <paramref name="skipNaN"/> this is R <c>mean(x, na.rm = TRUE)</c> (<c>mean.default</c> drops the NA values
+        /// first, n = number kept). NaN for no values or (without <paramref name="skipNaN"/>) any NaN; ±∞ as R
+        /// (+∞ with −∞ ⇒ NaN). <see cref="RMean"/> is the same algorithm accumulated in double.
+        /// E.g. {1, 2, 3, 4} → 2.5; {0.1, 0.2, 0.3} → 0.20000000000000001 (R; plain Σx/n gives 0.20000000000000004).
+        /// </summary>
+        /// <param name="values">Values in summation order.</param>
+        /// <param name="skipNaN">Skip NaN values (R <c>na.rm = TRUE</c>).</param>
+        /// <returns>The mean rounded to double.</returns>
+        public static double ExtendedPrecisionMean(ReadOnlySpan<double> values, bool skipNaN = false)
+        {
+            int n = 0;
+            bool positiveInfinity = false, negativeInfinity = false;
+            foreach (double v in values)
+            {
+                if (double.IsNaN(v))
+                {
+                    if (!skipNaN) return double.NaN;
+                    continue;
+                }
+
+                positiveInfinity |= double.IsPositiveInfinity(v);
+                negativeInfinity |= double.IsNegativeInfinity(v);
+                n++;
+            }
+
+            if (n == 0 || (positiveInfinity && negativeInfinity)) return double.NaN; // R: 0/0; Inf − Inf
+            if (positiveInfinity) return double.PositiveInfinity;
+            if (negativeInfinity) return double.NegativeInfinity;
+            return LongDoubleToDouble(LongDoubleRefinedMean(values, n, overflowFallback: true));
+        }
+
+        /// <summary>
+        /// R <c>var(x)</c> of a vector on x86-64, bit-identical (stats cov.c, <c>use = "everything"</c> /
+        /// <c>"na.or.complete"</c> on complete data): the mean x̄ is the two-pass long-double mean of
+        /// <see cref="ExtendedPrecisionMean"/> rounded to double, then Σ (x − x̄)·(x − x̄) and the division by n − 1 are
+        /// carried out in 80-bit <c>long double</c> (<c>sum += (LDOUBLE)(xx[k] − xxm) * (yy[k] − yym)</c>, xxm a long
+        /// double) and the result is rounded once to double. R <c>sd(x)</c> is its square root. NaN for fewer than two
+        /// values or any non-finite value (R gives NA / NaN). <see cref="RSampleVariance"/> is the same algorithm in
+        /// double. E.g. {1, 2, 3, 4} → 1.6666666666666667.
+        /// </summary>
+        /// <param name="values">The values.</param>
+        /// <returns>The sample variance (n − 1 divisor) rounded to double.</returns>
+        public static double ExtendedPrecisionVariance(ReadOnlySpan<double> values)
+        {
+            int n = values.Length;
+            if (n < 2) return double.NaN;
+            foreach (double v in values)
+            {
+                if (!double.IsFinite(v)) return double.NaN;
+            }
+
+            // cov.c MEAN_: no overflow fallback; xm[i] = (double) tmp, then xxm (long double) = xm[i].
+            var mean = LongDoubleOf(LongDoubleToDouble(LongDoubleRefinedMean(values, n, overflowFallback: false)));
+            var negativeMean = (-mean.Mantissa, mean.Exponent);
+            (System.Numerics.BigInteger Mantissa, int Exponent) sum = (System.Numerics.BigInteger.Zero, 0);
+            foreach (double v in values)
+            {
+                var d = LongDoubleAdd(LongDoubleOf(v), negativeMean);
+                sum = LongDoubleAdd(sum, LongDoubleMultiply(d, d));
+            }
+
+            return LongDoubleToDouble(LongDoubleDivide(sum, n - 1));
+        }
+
+        // R real_mean / cov.c MEAN_ in long double over the non-NaN finite values (n of them): s = Σx/n, refined by Σ(x − s)/n
+        // when s is finite. With overflowFallback (real_mean only), a sum that overflows a double is replaced by Σ(x/n).
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) LongDoubleRefinedMean(
+            ReadOnlySpan<double> values, int n, bool overflowFallback)
+        {
+            (System.Numerics.BigInteger Mantissa, int Exponent) s = (System.Numerics.BigInteger.Zero, 0);
+            foreach (double v in values)
+            {
+                if (!double.IsNaN(v)) s = LongDoubleAdd(s, LongDoubleOf(v));
+            }
+
+            bool finiteSum = double.IsFinite(LongDoubleToDouble(s));
+            if (finiteSum || !overflowFallback)
+            {
+                s = LongDoubleDivide(s, n);
+            }
+            else
+            {
+                s = (System.Numerics.BigInteger.Zero, 0);
+                foreach (double v in values)
+                {
+                    if (!double.IsNaN(v)) s = LongDoubleAdd(s, LongDoubleDivide(LongDoubleOf(v), n));
+                }
+            }
+
+            if (!double.IsFinite(LongDoubleToDouble(s))) return s;
+            var negativeS = (-s.Mantissa, s.Exponent);
+            (System.Numerics.BigInteger Mantissa, int Exponent) t = (System.Numerics.BigInteger.Zero, 0);
+            foreach (double v in values)
+            {
+                if (double.IsNaN(v)) continue;
+                var residual = LongDoubleAdd(LongDoubleOf(v), negativeS);
+                t = LongDoubleAdd(t, finiteSum || !overflowFallback ? residual : LongDoubleDivide(residual, n));
+            }
+
+            return LongDoubleAdd(s, finiteSum || !overflowFallback ? LongDoubleDivide(t, n) : t);
+        }
+
+        // ── x87 80-bit long double emulation (finite values; value = Mantissa·2^Exponent, ≤ 64 significant bits after each
+        // operation, round to nearest, ties to even; the exponent range is unbounded, R's long double never overflows here).
+
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) LongDoubleOf(double v)
+        {
+            if (v == 0.0) return (System.Numerics.BigInteger.Zero, 0);
+            long bits = BitConverter.DoubleToInt64Bits(v);
+            int biased = (int)((bits >> 52) & 0x7FF);
+            long fraction = bits & 0xFFFFFFFFFFFFFL;
+            long m = biased == 0 ? fraction : fraction | (1L << 52);
+            int e = biased == 0 ? -1074 : biased - 1075;
+            return (v < 0 ? -(System.Numerics.BigInteger)m : m, e);
+        }
+
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) LongDoubleAdd(
+            (System.Numerics.BigInteger Mantissa, int Exponent) a, (System.Numerics.BigInteger Mantissa, int Exponent) b)
+        {
+            if (b.Mantissa.IsZero) return a;
+            if (a.Mantissa.IsZero) return b;
+            int e = Math.Min(a.Exponent, b.Exponent);
+            System.Numerics.BigInteger sum = (a.Mantissa << (a.Exponent - e)) + (b.Mantissa << (b.Exponent - e));
+            return RoundToSignificantBits(sum, e, 64);
+        }
+
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) LongDoubleMultiply(
+            (System.Numerics.BigInteger Mantissa, int Exponent) a, (System.Numerics.BigInteger Mantissa, int Exponent) b) =>
+            RoundToSignificantBits(a.Mantissa * b.Mantissa, a.Exponent + b.Exponent, 64);
+
+        // a / divisor (divisor ≥ 1): a quotient with ≥ 66 significant bits plus a sticky bit, then one rounding to 64 bits.
+        private static (System.Numerics.BigInteger Mantissa, int Exponent) LongDoubleDivide(
+            (System.Numerics.BigInteger Mantissa, int Exponent) a, long divisor)
+        {
+            if (a.Mantissa.IsZero) return a;
+            System.Numerics.BigInteger magnitude = System.Numerics.BigInteger.Abs(a.Mantissa);
+            int shift = (int)Math.Max(0L, 67 + (64 - long.LeadingZeroCount(divisor)) - magnitude.GetBitLength());
+            System.Numerics.BigInteger quotient = System.Numerics.BigInteger.DivRem(magnitude << shift, divisor, out var remainder);
+            int exponent = a.Exponent - shift;
+            if (!remainder.IsZero)
+            {
+                quotient = (quotient << 1) | System.Numerics.BigInteger.One; // sticky bit below the rounding position
+                exponent--;
+            }
+
+            return RoundToSignificantBits(a.Mantissa.Sign < 0 ? -quotient : quotient, exponent, 64);
+        }
+
+        private static double LongDoubleToDouble((System.Numerics.BigInteger Mantissa, int Exponent) a)
+        {
+            if (a.Mantissa.IsZero) return 0.0;
+            (System.Numerics.BigInteger mantissa, int exponent) = RoundToSignificantBits(a.Mantissa, a.Exponent, 53);
             return Math.ScaleB((double)mantissa, exponent); // |mantissa| ≤ 2^53: exact; ScaleB overflows to ±∞ as R
         }
 
@@ -1052,7 +1191,8 @@ namespace Seqeron.Genomics.Infrastructure
         /// <c>stats::bw.nrd0</c>: <c>h = 0.9 · lo · n^(−1/5)</c> with <c>lo = min(sd(x), IQR(x)/1.34)</c> (sample SD,
         /// n − 1 divisor; IQR from R's default type-7 quantiles); when that is 0, <c>lo</c> falls back to sd(x), then
         /// to |x₁| (the first value as supplied), then to 1 (R: <c>(lo &lt;- hi) || (lo &lt;- abs(x[1L])) || (lo &lt;- 1)</c>).
-        /// Silverman (1986) <i>Density Estimation</i>, eq. 3.31. Agrees with R 4.3.3 <c>bw.nrd0</c> to ≈ 1e−15 relative.
+        /// Silverman (1986) <i>Density Estimation</i>, eq. 3.31. sd(x) is R's long-double <c>var</c>
+        /// (<see cref="ExtendedPrecisionVariance"/>), so the result is bit-identical to R 4.3.3 <c>bw.nrd0</c> on x86-64.
         /// </summary>
         /// <param name="values">The sample (at least two finite values).</param>
         /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
@@ -1066,7 +1206,7 @@ namespace Seqeron.Genomics.Infrastructure
                 throw new ArgumentException("bw.nrd0 needs at least 2 data points.", nameof(values));
             }
 
-            double sum = 0.0;
+            var sorted = new double[n];
             for (int i = 0; i < n; i++)
             {
                 if (!double.IsFinite(values[i]))
@@ -1074,20 +1214,10 @@ namespace Seqeron.Genomics.Infrastructure
                     throw new ArgumentException("All values must be finite.", nameof(values));
                 }
 
-                sum += values[i];
+                sorted[i] = values[i];
             }
 
-            double mean = sum / n;
-            double ss = 0.0;
-            for (int i = 0; i < n; i++)
-            {
-                double d = values[i] - mean;
-                ss += d * d;
-            }
-
-            double hi = Math.Sqrt(ss / (n - 1));
-            var sorted = new double[n];
-            for (int i = 0; i < n; i++) sorted[i] = values[i];
+            double hi = Math.Sqrt(ExtendedPrecisionVariance(sorted)); // sd(x) = sqrt(var(x)), R's long-double cov.c (F66)
             Array.Sort(sorted);
             // R's 1-based index 1 + (n − 1)·p is exact for p = ¼, ¾, so this is the same arithmetic as the former 0-based form.
             double iqr = QuantileType7(sorted, 0.75) - QuantileType7(sorted, 0.25);
@@ -1303,7 +1433,8 @@ namespace Seqeron.Genomics.Infrastructure
         /// <i>Mol Cell</i> 53:819) on one series: (1) centred derivative <c>der[i] = (v[i+1] − v[i−1])/2</c>; a candidate is
         /// a point adjacent to a non-flat +→− derivative sign change with <c>|der| &lt; derivativeLimit</c>; (2) candidates
         /// within <paramref name="peakPositions"/> of either end are dropped, and a candidate survives only if
-        /// <c>v[i] &gt; mean + peakMinSd · sd / √(2·npos + 1)</c> over its ±npos window; (3) while two candidates are
+        /// <c>v[i] &gt; mean + peakMinSd · sd / √(2·npos + 1)</c> over its ±npos window (R's long-double <c>mean</c> / <c>sd</c>,
+        /// <see cref="ExtendedPrecisionMean"/> / <see cref="ExtendedPrecisionVariance"/>); (3) while two candidates are
         /// ≤ <paramref name="neighborLimit"/> apart, the lower of the closest pair is removed (first on ties).
         /// Returns a boolean peak mask of the same length.
         /// </summary>
@@ -1365,22 +1496,15 @@ namespace Seqeron.Genomics.Infrastructure
             {
                 if (!candidates[pos]) continue;
                 int count = (2 * peakPositions) + 1;
-                double mean = 0.0;
-                for (int k = pos - peakPositions; k <= pos + peakPositions; k++) mean += series[k];
-                mean /= count;
                 if (count == 1)
                 {
                     continue; // R: sd() of one value is NA, ifelse(NA) is NA and which() drops it — kept
                 }
 
-                double ss = 0.0;
-                for (int k = pos - peakPositions; k <= pos + peakPositions; k++)
-                {
-                    double d = series[k] - mean;
-                    ss += d * d;
-                }
-
-                double sd = Math.Sqrt(ss / (count - 1));
+                var window = new double[count];
+                for (int k = 0; k < count; k++) window[k] = series[pos - peakPositions + k];
+                double mean = ExtendedPrecisionMean(window, skipNaN: true); // mean(vec[postocheck], na.rm = TRUE)
+                double sd = Math.Sqrt(ExtendedPrecisionVariance(window)); // sd(vec[postocheck], na.rm = TRUE)
                 double limit = mean + (peakMinSd * sd / Math.Sqrt(count));
                 if (!(series[pos] > limit)) toDelete.Add(pos);
             }

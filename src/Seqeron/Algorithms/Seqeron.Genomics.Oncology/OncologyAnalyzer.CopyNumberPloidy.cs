@@ -86,7 +86,7 @@ public static partial class OncologyAnalyzer
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not a finite positive number.</exception>
     public static double Log2RatioToCopyNumber(double log2Ratio, double ploidy = DiploidReferencePloidy)
     {
-        ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePloidy(ploidy);
         return CopyNumberMath.Log2RatioToAbsolute(log2Ratio, ploidy);
     }
 
@@ -105,7 +105,7 @@ public static partial class OncologyAnalyzer
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not finite positive, or <paramref name="purity"/> ∉ (0, 1].</exception>
     public static double Log2RatioToCopyNumber(double log2Ratio, double ploidy, double purity)
     {
-        ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePloidy(ploidy);
         return CopyNumberMath.Log2RatioToAbsolute(log2Ratio, ploidy, ploidy, purity);
     }
 
@@ -118,7 +118,7 @@ public static partial class OncologyAnalyzer
     /// </summary>
     private static double RescaleLog2ForPurity(double log2Ratio, double ploidy, double purity)
     {
-        ValidatePurity(purity);
+        CopyNumberMath.ValidatePurity(purity);
         if (purity >= 1.0 || double.IsNaN(log2Ratio))
         {
             return log2Ratio;
@@ -126,27 +126,6 @@ public static partial class OncologyAnalyzer
 
         double absolute = CopyNumberMath.Log2RatioToAbsolute(log2Ratio, ploidy, ploidy, purity);
         return CopyNumberMath.AbsoluteToLog2Ratio(absolute, ploidy);
-    }
-
-    /// <summary>Validates tumour purity ∈ (0, 1] (CNVkit <c>commands.py</c> <c>purity_value</c>).</summary>
-    private static void ValidatePurity(double purity)
-    {
-        if (!(purity > 0.0 && purity <= 1.0))
-        {
-            throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity must be in (0, 1].");
-        }
-    }
-
-    /// <summary>
-    /// Validates the reference ploidy: it must be a finite positive number, because
-    /// <c>n = ploidy · 2^log2</c> (CNVkit <c>_log2_ratio_to_absolute_pure</c>) is meaningless otherwise.
-    /// </summary>
-    private static void ValidatePloidy(double ploidy)
-    {
-        if (!double.IsFinite(ploidy) || ploidy <= 0.0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy must be a finite positive number.");
-        }
     }
 
     /// <summary>
@@ -211,7 +190,7 @@ public static partial class OncologyAnalyzer
         double purity)
     {
         var cutoffs = ValidateThresholds(thresholds);
-        ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePloidy(ploidy);
         return CallCopyNumber(RescaleLog2ForPurity(log2Ratio, ploidy, purity), cutoffs, ploidy);
     }
 
@@ -230,7 +209,7 @@ public static partial class OncologyAnalyzer
     /// <returns>The integer copy number (≥ 0) as a double; may exceed Int32 or be +∞.</returns>
     private static double CallCopyNumberUnbounded(double log2Ratio, IReadOnlyList<double> cutoffs, double ploidy)
     {
-        ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePloidy(ploidy);
 
         if (double.IsNaN(log2Ratio))
         {
@@ -323,8 +302,8 @@ public static partial class OncologyAnalyzer
     {
         ArgumentNullException.ThrowIfNull(log2Ratios);
         var cutoffs = ValidateThresholds(thresholds);
-        ValidatePloidy(ploidy);
-        ValidatePurity(purity);
+        CopyNumberMath.ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePurity(purity);
 
         var calls = new List<CopyNumberCall>();
         foreach (double log2Ratio in log2Ratios)
@@ -2315,7 +2294,7 @@ public static partial class OncologyAnalyzer
     {
         ValidateArmSegment(segment);
         var cutoffs = ValidateThresholds(thresholds);
-        ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePloidy(ploidy);
         return CallCopyNumberUnbounded(RescaleLog2ForPurity(segment.Log2Ratio, ploidy, purity), cutoffs, ploidy)
             == HomozygousDeletionCopyNumber;
     }
@@ -2345,7 +2324,7 @@ public static partial class OncologyAnalyzer
         // Validate the calling parameters eagerly (once), so malformed thresholds / ploidy are rejected even for
         // an empty segment list — consistent with DetectFocalAmplifications and ClassifyCopyNumbers.
         var cutoffs = ValidateThresholds(thresholds);
-        ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePloidy(ploidy);
 
         var result = new List<CopyNumberArmSegment>();
         foreach (CopyNumberArmSegment segment in segments)
@@ -2382,8 +2361,8 @@ public static partial class OncologyAnalyzer
     {
         ArgumentNullException.ThrowIfNull(segments);
         var cutoffs = ValidateThresholds(thresholds);
-        ValidatePloidy(ploidy);
-        ValidatePurity(purity);
+        CopyNumberMath.ValidatePloidy(ploidy);
+        CopyNumberMath.ValidatePurity(purity);
 
         var result = new List<CopyNumberArmSegment>();
         foreach (CopyNumberArmSegment segment in segments)
@@ -5000,35 +4979,18 @@ public static partial class OncologyAnalyzer
             MeanBAF: segmentBaf,
             LocusCount: to - from);
 
-    /// <summary>Arithmetic mean of x[from..to) (R <c>mean</c>).</summary>
-    private static double Mean(double[] x, int from, int to)
-    {
-        double sum = 0.0;
-        for (int i = from; i < to; i++)
-        {
-            sum += x[i];
-        }
+    /// <summary>R <c>mean(x[from..to))</c>, bit-identical to R's long-double two-pass <c>real_mean</c>
+    /// (<see cref="StatisticsHelper.ExtendedPrecisionMean"/>, B24 F66). Call sites: ascat.aspcf <c>mean(logRaveraged)</c>,
+    /// <c>mean(bafselwinsmirrored)</c>, fastAspcf <c>yhat1 = mean(logR[frst:last])</c>, exactPcf <c>mean(y)</c>.</summary>
+    private static double Mean(double[] x, int from, int to) =>
+        StatisticsHelper.ExtendedPrecisionMean(x.AsSpan(from, to - from));
 
-        return sum / (to - from);
-    }
-
-    /// <summary>R <c>mean(x[from..to), na.rm = TRUE)</c>: NaN entries (R NA) are skipped; NaN when none remains. Equals
-    /// <see cref="Mean"/> on complete data (same summation order).</summary>
-    private static double MeanNaRm(double[] x, int from, int to)
-    {
-        double sum = 0.0;
-        int count = 0;
-        for (int i = from; i < to; i++)
-        {
-            if (!double.IsNaN(x[i]))
-            {
-                sum += x[i];
-                count++;
-            }
-        }
-
-        return count == 0 ? double.NaN : sum / count;
-    }
+    /// <summary>R <c>mean(x[from..to), na.rm = TRUE)</c>: NaN entries (R NA) are dropped first, NaN when none remains;
+    /// bit-identical to R (<see cref="StatisticsHelper.ExtendedPrecisionMean"/> with skipNaN, B24 F66). Call sites:
+    /// ascat.aspcf / ascat.asmultipcf <c>mean(lr[startprobe:endprobe], na.rm=TRUE)</c>, <c>mean(lr, na.rm=TRUE)</c>,
+    /// <c>logRaveraged[i] = mean(lrwins[start:end], na.rm=TRUE)</c>, asmultipcf <c>mean(x, na.rm=TRUE)</c>.</summary>
+    private static double MeanNaRm(double[] x, int from, int to) =>
+        StatisticsHelper.ExtendedPrecisionMean(x.AsSpan(from, to - from), skipNaN: true);
 
     /// <summary>
     /// ASCAT <c>fastAspcf(logR, allB, kmin, gamma)</c>: windowed exact bivariate PCF. Returns the segment boundaries
@@ -5106,13 +5068,14 @@ public static partial class OncologyAnalyzer
         for (int s = 0; s + 1 < unique.Count; s++)
         {
             int first = unique[s], lastExclusive = unique[s + 1];
-            double mu = 0.0;
+            // mu = mean(abs(yi2 - 0.5)) (0 for an empty segment), R's long-double mean (B24 F66).
+            var deviation = new double[lastExclusive - first];
             for (int i = first; i < lastExclusive; i++)
             {
-                mu += Math.Abs(allB[i] - BalancedBaf);
+                deviation[i - first] = Math.Abs(allB[i] - BalancedBaf);
             }
 
-            mu = lastExclusive > first ? mu / (lastExclusive - first) : 0.0;
+            double mu = deviation.Length > 0 ? StatisticsHelper.ExtendedPrecisionMean(deviation) : 0.0;
             segmentBaf[s] = AscatShrunkBafLevel(mu, sd2Pooled);
         }
 

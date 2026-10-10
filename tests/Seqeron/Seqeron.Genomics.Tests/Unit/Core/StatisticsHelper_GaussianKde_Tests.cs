@@ -22,7 +22,7 @@ public class StatisticsHelper_GaussianKde_Tests
     public void BandwidthNrd0_MatchesR(string dataset, int major, int minor, double expected)
     {
         double bw = StatisticsHelper.BandwidthNrd0(CnaqcTestData.Vafs(dataset, major, minor));
-        Assert.That(bw, Is.EqualTo(expected).Within(1e-14 * expected));
+        Assert.That(bw, Is.EqualTo(expected));
     }
 
     [Test]
@@ -30,13 +30,13 @@ public class StatisticsHelper_GaussianKde_Tests
     {
         // R 4.3.3 sprintf("%.17g", bw.nrd0(...)):
         // c(1,2,3,4,10): min(sd = 3.54, IQR/1.34 = 2/1.34) → 0.9·(2/1.34)·5^(−1/5)
-        Assert.That(StatisticsHelper.BandwidthNrd0(new[] { 1.0, 2, 3, 4, 10 }), Is.EqualTo(0.97358462285063574).Within(1e-15));
+        Assert.That(StatisticsHelper.BandwidthNrd0(new[] { 1.0, 2, 3, 4, 10 }), Is.EqualTo(0.97358462285063574));
         // c(5,5,5): zero spread → |x₁| fallback, 0.9·5·3^(−1/5)
-        Assert.That(StatisticsHelper.BandwidthNrd0(new[] { 5.0, 5, 5 }), Is.EqualTo(3.6123370279210381).Within(1e-15));
+        Assert.That(StatisticsHelper.BandwidthNrd0(new[] { 5.0, 5, 5 }), Is.EqualTo(3.6123370279210381));
         // c(0,0): → 1 fallback, 0.9·2^(−1/5)
-        Assert.That(StatisticsHelper.BandwidthNrd0(new[] { 0.0, 0 }), Is.EqualTo(0.78349550696651171).Within(1e-15));
+        Assert.That(StatisticsHelper.BandwidthNrd0(new[] { 0.0, 0 }), Is.EqualTo(0.78349550696651171));
         // c(1,1,1,1,9): IQR = 0 but sd = √12.8 > 0 → sd
-        Assert.That(StatisticsHelper.BandwidthNrd0(new[] { 1.0, 1, 1, 1, 9 }), Is.EqualTo(2.3337454992375779).Within(1e-15));
+        Assert.That(StatisticsHelper.BandwidthNrd0(new[] { 1.0, 1, 1, 1, 9 }), Is.EqualTo(2.3337454992375779));
     }
 
     [Test]
@@ -90,7 +90,7 @@ public class StatisticsHelper_GaussianKde_Tests
 
         Assert.That(kde.X, Has.Count.EqualTo(512));
         Assert.That(kde.Y, Has.Count.EqualTo(512));
-        Assert.That(kde.Bandwidth, Is.EqualTo(bw).Within(1e-14 * bw));
+        Assert.That(kde.Bandwidth, Is.EqualTo(bw));
         for (int k = 0; k < GridIndices.Length; k++)
         {
             int i = GridIndices[k] - 1;

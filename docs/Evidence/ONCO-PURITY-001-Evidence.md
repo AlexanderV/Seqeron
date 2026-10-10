@@ -129,6 +129,21 @@
 6. Reference runs (R scripts in the scratch harness: `bm2.R`, `f63.R`; outputs committed as TestData): 7 `bmixfit` fits (D1 2:1 / 1:1 / 2:2, D3 2:0 / 1:1, G1 3:1 / 1:1) under `matprod = "internal"` — C# **bit-identical** in all 56 grid rows (NLL, BIC, ICL), best K, means and π, and in the R stream position (`runif(1)` after the fit); under the default OpenBLAS the means differ by ≤ 1e−15 relative, all NLL/ICL and selections identical. R `kmeans(nstart = 100)` on the same 7 vectors × K = 1..4 (28 runs, set.seed 7+K…): C# centres, sizes, cluster labels and stream position identical (scratch checker). Pipelines: `analyze_peaks_common` with BMix, B = 1 (D1 seed 7 λ 0.0045358591466179345; D3 seed 7 0.0037889790909820258; D4 seed 11 −0.00024275702143296041), B > 1 (D1 seed 7 B 3 −0.0047951961423504073; D3 seed 21 B 5 −0.0025587792395481744; D4 seed 11 B 2 −0.00048528291056931561; D1 π 0.6 seed 3 B 4 adjust 0.5 −0.050331258431030236), KDE-only bootstrap (D3 seed 5 B 5 0.010000000000000009; D1 seed 9 B 10 adjust 0.5 0.0045152161241509108), `analyze_peaks_general` B 3/10/5 and `analyze_peaks_subclonal` B 3/6: 285 + 89 + 139 lines equal, numbers ≤ 9.1e−14 relative (KDE heights: FFT vs direct convolution, F33).
 7. **F64 — BMix is the default (FIN-B24 WP35).** `analyze_peaks` has no switch for it: it calls `analyze_peaks_common` with defaults (`R/analyze_peaks.R:176`; its `KDE` argument is documented "Deprecated parameter" and unused), and `combined_peak_detector` calls `mixture_peak_detector` unconditionally (`R/peak_algorithms.R:795–801`). CNAqc inputs always carry `NV`/`DP`. Re-run (scratch `wp35/f64.R`, R 4.3.3): `set.seed(7); analyze_peaks_common(D1, purity 0.7)` with no options → λ 0.0045358591466179345, QC PASS, matched-peak sources BMix and KDE — the value the port now returns with read counts on every mutation and no flag (`Seed` 7). `PurityPeakOptions.FitMixturePeaks` became `bool?` (null = auto): on iff every analysed mutation has `Depth` ≥ 1; VAF-only input (`Depth` 0, outside CNAqc's input contract) stays KDE-only (F34/F62 bit-identical, D1 λ 0.0023756289876209163); a partial set of read counts throws (CNAqc would fail on NA NV/DP); caller `MixturePeaks` or `false` turn it off.
 
+### R `var` / `sd` / `mean` in `bw.nrd0` and `peakpick` (FIN-B24 F66)
+
+- Source opened: R 4.3 branch `src/library/stats/src/cov.c` (`MEAN_`/`MEAN` two-pass long-double mean, `xm = (double) tmp`;
+  `sum += (LDOUBLE)(xx[k] − xxm) * (yy[k] − yym)` with `xxm`, `yym` long double; `ANS = (double)(sum / n1)`),
+  `src/library/stats/R/cor.R` (`var` → `C_cov`, `use = "everything"` / `"na.or.complete"`), `bandwidths.R` (`bw.nrd0`:
+  `hi <- sd(x)`), peakPick 0.11 `helperpeak` (`mean(vec[w], na.rm=TRUE) + nsd*sd(vec[w], na.rm=TRUE)/sqrt(n)`).
+- Defect: `BandwidthNrd0` and the `PeakPick` window used a plain double mean and Σd² / (n − 1); e.g. R
+  `var(c(0.52, 0.05, 0.08, 0.41, 0.58))` = 0.061469999999999997, double two-pass 0.061470000000000004.
+- Fix: additive `StatisticsHelper.ExtendedPrecisionVariance` (cov.c emulated exactly) and `ExtendedPrecisionMean`
+  (`real_mean`); `BandwidthNrd0` sd and `PeakPick` window mean / sd call them. (`RSampleVariance`, a double version, is
+  not R-exact: 1455/2851.)
+- R cross-check: 2851 random vectors: `var` and `bw.nrd0` 2851/2851 bit-identical (old `bw.nrd0` 2360/2851); CNAqc corpus
+  `bw.nrd0` D1 1:1, D3 1:1, D1 2:1 and the four small samples now exact (D3 1:1 and one small sample previously differed in the last bits); every CNAqc
+  peak / λ / QC lock unchanged.
+
 ## Documented Corner Cases and Failure Modes
 
 ### From CNAqc
@@ -210,3 +225,4 @@
 - **2026-10-10**: FIN-B24 F62 — CNAqc `analyze_peaks_general` / `analyze_peaks_subclonal` (incl. `expectations_subclonal` evolution models) source review, default call path, R harness, seeded datasets G1–G3 / S1–S3 and reference outputs recorded.
 - **2026-10-10**: FIN-B24 F63 — BMix `bmixfit` (incl. R `kmeans` Hartigan–Wong, one-iteration EM, ICL) and CNAqc `n_bootstrap` source review; B14 decision (BMix on the default `analyze_peaks` path → ported); R reference fits and pipelines recorded.
 - **2026-10-10**: FIN-B24 F64 — BMix default (auto when every analysed mutation carries read counts) confirmed against CNAqc's unconditional `combined_peak_detector` → `mixture_peak_detector`; R re-run recorded (point 7).
+- **2026-10-10**: FIN-B24 F66 — `bw.nrd0` / peakpick `mean`, `sd` = R long-double `real_mean` / cov.c `var` (bit-identical, 2851/2851 random vectors).

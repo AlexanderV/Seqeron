@@ -149,7 +149,7 @@ public class OncologyAnalyzer_AscatGermlineHomozygous_Tests
     #region SegmentAlleleSpecificAspcf with germline genotypes (F36)
 
     // M-ASPCF-G1..G3 — the complete ascat.aspcf on mixed heterozygous / homozygous input reproduces R segment for
-    // segment (logR levels ≤ 1e-14; R mean() accumulates in long double, so the last bit may differ).
+    // segment (logR and BAF levels bit-identical: R's long-double mean() is emulated, B24 F66).
     [TestCaseSource(nameof(ReferenceGenomes))]
     public void SegmentAlleleSpecificAspcf_Germline_MatchesAscatAspcf(
         Genome genome, (string Chr, long Start, long End, double LogR, double Baf, int N, int NHet)[] expected)
@@ -165,14 +165,14 @@ public class OncologyAnalyzer_AscatGermlineHomozygous_Tests
                 var e = expected[i];
                 Assert.That((s.Chromosome, s.Start, s.End, s.LocusCount, s.HeterozygousLocusCount),
                     Is.EqualTo((e.Chr, e.Start, e.End, e.N, e.NHet)), $"Segment {i + 1} extent.");
-                Assert.That(s.MeanLogR, Is.EqualTo(e.LogR).Within(1e-14), $"Segment {i + 1} ascat.aspcf logR level.");
+                Assert.That(s.MeanLogR, Is.EqualTo(e.LogR), $"Segment {i + 1} ascat.aspcf logR level.");
                 if (double.IsNaN(e.Baf))
                 {
                     Assert.That(s.HasBaf, Is.False, $"Segment {i + 1}: no heterozygous probe ⇒ no BAF (ASCAT NA).");
                 }
                 else
                 {
-                    Assert.That(s.MeanBAF, Is.EqualTo(e.Baf).Within(1e-15), $"Segment {i + 1} ascat.aspcf BAF.");
+                    Assert.That(s.MeanBAF, Is.EqualTo(e.Baf), $"Segment {i + 1} ascat.aspcf BAF.");
                 }
             }
         });
@@ -301,8 +301,8 @@ public class OncologyAnalyzer_AscatGermlineHomozygous_Tests
         {
             for (int i = 0; i < expected.Length; i++)
             {
-                Assert.That(seg.Segments[i].MeanLogR, Is.EqualTo(expected[i].LogR).Within(1e-14), $"Segment {i + 1} logR.");
-                Assert.That(seg.Segments[i].MeanBAF, Is.EqualTo(expected[i].Baf).Within(1e-15), $"Segment {i + 1} BAF.");
+                Assert.That(seg.Segments[i].MeanLogR, Is.EqualTo(expected[i].LogR), $"Segment {i + 1} logR.");
+                Assert.That(seg.Segments[i].MeanBAF, Is.EqualTo(expected[i].Baf), $"Segment {i + 1} BAF.");
             }
         });
     }
@@ -335,10 +335,10 @@ public class OncologyAnalyzer_AscatGermlineHomozygous_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(fit.Purity, Is.EqualTo(rho).Within(1e-12), "runASCAT purity.");
-            Assert.That(fit.Psi, Is.EqualTo(psi).Within(1e-12), "runASCAT psi.");
-            Assert.That(fit.Ploidy, Is.EqualTo(ploidy).Within(1e-14), "ASCAT ploidy = mean(nA + nB) over all probes.");
-            Assert.That(fit.GoodnessOfFit, Is.EqualTo(goodnessOfFit).Within(1e-9), "runASCAT goodnessOfFit.");
+            Assert.That(fit.Purity, Is.EqualTo(rho), "runASCAT purity.");
+            Assert.That(fit.Psi, Is.EqualTo(psi), "runASCAT psi.");
+            Assert.That(fit.Ploidy, Is.EqualTo(ploidy), "ASCAT ploidy = mean(nA + nB) over all probes.");
+            Assert.That(fit.GoodnessOfFit, Is.EqualTo(goodnessOfFit), "runASCAT goodnessOfFit.");
             Assert.That(fit.IsNonAberrant, Is.False, "runASCAT nonaberrant = FALSE.");
             Assert.That(fit.Segments.Select(s => (s.MajorCopyNumber, s.MinorCopyNumber)), Is.EqualTo(segRaw),
                 "seg_raw nMajor / nMinor per logR segment.");

@@ -79,11 +79,7 @@ namespace Seqeron.Genomics.Infrastructure
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> or <paramref name="minAbsoluteRatio"/> is not finite positive.</exception>
         public static double AbsoluteToLog2Ratio(double absoluteCopies, double ploidy, double minAbsoluteRatio = DefaultMinAbsoluteRatio)
         {
-            if (!double.IsFinite(ploidy) || ploidy <= 0.0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy must be a finite positive number.");
-            }
-
+            ValidatePloidy(ploidy);
             if (!double.IsFinite(minAbsoluteRatio) || minAbsoluteRatio <= 0.0)
             {
                 throw new ArgumentOutOfRangeException(nameof(minAbsoluteRatio), minAbsoluteRatio, "The ratio floor must be a finite positive number.");
@@ -101,11 +97,31 @@ namespace Seqeron.Genomics.Infrastructure
             }
         }
 
-        private static void ValidatePurity(double purity)
+        /// <summary>
+        /// Guard shared by the copy-number analyzers: tumour purity must lie in (0, 1] (CNVkit <c>commands.py</c>
+        /// <c>purity_value</c>; NaN is rejected).
+        /// </summary>
+        /// <param name="purity">Tumour purity.</param>
+        /// <exception cref="ArgumentOutOfRangeException">(param <c>purity</c>) purity ∉ (0, 1].</exception>
+        public static void ValidatePurity(double purity)
         {
             if (!(purity > 0.0 && purity <= 1.0))
             {
                 throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity must be in (0, 1].");
+            }
+        }
+
+        /// <summary>
+        /// Guard shared by the copy-number analyzers: the ploidy must be a finite positive number, because
+        /// <c>n = ploidy · 2^log2</c> (CNVkit <c>_log2_ratio_to_absolute_pure</c>) is meaningless otherwise.
+        /// </summary>
+        /// <param name="ploidy">Sample / reference ploidy.</param>
+        /// <exception cref="ArgumentOutOfRangeException">(param <c>ploidy</c>) ploidy is NaN, infinite or ≤ 0.</exception>
+        public static void ValidatePloidy(double ploidy)
+        {
+            if (!double.IsFinite(ploidy) || ploidy <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy must be a finite positive number.");
             }
         }
     }

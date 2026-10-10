@@ -83,10 +83,10 @@ public class OncologyAnalyzer_AscatDerivation_Tests
             Assert.That(segs.Count, Is.EqualTo(2), "ascat.aspcf (penalty 70): 2 segments.");
             Assert.That((segs[0].Start, segs[0].End, segs[0].LocusCount), Is.EqualTo((1000L, 40000L, 40)), "Segment 1 = loci 1–40.");
             Assert.That((segs[1].Start, segs[1].End, segs[1].LocusCount), Is.EqualTo((41000L, 80000L, 40)), "Segment 2 = loci 41–80.");
-            Assert.That(segs[0].MeanLogR, Is.EqualTo(-0.023564999999999999).Within(1e-15), "ascat.aspcf logR level 1.");
-            Assert.That(segs[1].MeanLogR, Is.EqualTo(0.60321000000000002).Within(1e-15), "ascat.aspcf logR level 2.");
+            Assert.That(segs[0].MeanLogR, Is.EqualTo(-0.023564999999999999), "ascat.aspcf logR level 1.");
+            Assert.That(segs[1].MeanLogR, Is.EqualTo(0.60321000000000002), "ascat.aspcf logR level 2.");
             Assert.That(segs[0].MeanBAF, Is.EqualTo(0.5), "Balanced segment BAF shrunk to exactly 0.5 (ASCAT).");
-            Assert.That(segs[1].MeanBAF, Is.EqualTo(0.75129407874999998).Within(1e-15), "ascat.aspcf BAF level 2 (0.5 + μ).");
+            Assert.That(segs[1].MeanBAF, Is.EqualTo(0.75129407874999998), "ascat.aspcf BAF level 2 (0.5 + μ).");
             Assert.That(segs, Is.EqualTo(OncologyAnalyzer.SegmentAlleleSpecificAspcf(AspcfStepTrack(), OncologyAnalyzer.AspcfDefaultPenalty)),
                 "Identical to SegmentAlleleSpecificAspcf at the ASCAT default penalty.");
         });
@@ -592,10 +592,10 @@ public class OncologyAnalyzer_AscatDerivation_Tests
             Assert.That(segs.Count, Is.EqualTo(2), "ascat.aspcf: 2 segments.");
             Assert.That((segs[0].Start, segs[0].End, segs[0].LocusCount), Is.EqualTo((1000L, 40000L, 40)), "Segment 1 = loci 1–40.");
             Assert.That((segs[1].Start, segs[1].End, segs[1].LocusCount), Is.EqualTo((41000L, 80000L, 40)), "Segment 2 = loci 41–80.");
-            Assert.That(segs[0].MeanLogR, Is.EqualTo(-0.023564999999999999).Within(1e-15), "ascat.aspcf logR level 1.");
-            Assert.That(segs[1].MeanLogR, Is.EqualTo(0.60321000000000002).Within(1e-15), "ascat.aspcf logR level 2.");
+            Assert.That(segs[0].MeanLogR, Is.EqualTo(-0.023564999999999999), "ascat.aspcf logR level 1.");
+            Assert.That(segs[1].MeanLogR, Is.EqualTo(0.60321000000000002), "ascat.aspcf logR level 2.");
             Assert.That(segs[0].MeanBAF, Is.EqualTo(0.5), "Balanced segment BAF shrunk to exactly 0.5 (ASCAT).");
-            Assert.That(segs[1].MeanBAF, Is.EqualTo(0.75129407874999998).Within(1e-15), "ascat.aspcf BAF level 2 (0.5 + μ).");
+            Assert.That(segs[1].MeanBAF, Is.EqualTo(0.75129407874999998), "ascat.aspcf BAF level 2 (0.5 + μ).");
         });
     }
 
@@ -610,8 +610,8 @@ public class OncologyAnalyzer_AscatDerivation_Tests
             Assert.That(segs.Count, Is.EqualTo(2), "ascat.aspcf: 2 segments despite identical logR.");
             Assert.That(segs[0].LocusCount, Is.EqualTo(40), "Breakpoint after locus 40.");
             Assert.That(segs[0].MeanBAF, Is.EqualTo(0.5), "Balanced half: BAF 0.5.");
-            Assert.That(segs[1].MeanBAF, Is.EqualTo(0.96697500000000003).Within(1e-15), "LOH half: ascat.aspcf BAF 0.966975.");
-            Assert.That(segs[1].MeanLogR, Is.EqualTo(0.003210000000000001).Within(1e-15), "ascat.aspcf logR level of the LOH half.");
+            Assert.That(segs[1].MeanBAF, Is.EqualTo(0.96697500000000003), "LOH half: ascat.aspcf BAF 0.966975.");
+            Assert.That(segs[1].MeanLogR, Is.EqualTo(0.003210000000000001), "ascat.aspcf logR level of the LOH half.");
         });
     }
 
@@ -625,8 +625,8 @@ public class OncologyAnalyzer_AscatDerivation_Tests
         Assert.Multiple(() =>
         {
             Assert.That(big.Count, Is.EqualTo(1), "A very large penalty forces a single segment (no breakpoints).");
-            Assert.That(big[0].MeanLogR, Is.EqualTo(0.28982249999999998).Within(1e-15), "ascat.aspcf single-segment logR.");
-            Assert.That(big[0].MeanBAF, Is.EqualTo(0.63790578937499998).Within(1e-15), "ascat.aspcf single-segment BAF.");
+            Assert.That(big[0].MeanLogR, Is.EqualTo(0.28982249999999998), "ascat.aspcf single-segment logR.");
+            Assert.That(big[0].MeanBAF, Is.EqualTo(0.63790578937499998), "ascat.aspcf single-segment BAF.");
             Assert.That(def.Count, Is.EqualTo(2), "The ASCAT default penalty (70) recovers the two levels.");
             Assert.That(OncologyAnalyzer.AspcfDefaultPenalty, Is.EqualTo(70.0), "ascat.aspcf(..., penalty = 70).");
         });
@@ -647,7 +647,7 @@ public class OncologyAnalyzer_AscatDerivation_Tests
         Assert.Multiple(() =>
         {
             Assert.That(segs.Count, Is.EqualTo(1), "MAD = 0 ⇒ window skipped ⇒ no breakpoint (ascat.aspcf).");
-            Assert.That(segs[0].MeanLogR, Is.EqualTo(0.5).Within(1e-15), "Mean raw logR.");
+            Assert.That(segs[0].MeanLogR, Is.EqualTo(0.5), "Mean raw logR.");
             Assert.That(segs[0].MeanBAF, Is.EqualTo(0.5), "Balanced BAF.");
         });
     }
@@ -666,8 +666,8 @@ public class OncologyAnalyzer_AscatDerivation_Tests
         Assert.Multiple(() =>
         {
             Assert.That(segs.Count, Is.EqualTo(1), "n < 6 ⇒ one segment.");
-            Assert.That(segs[0].MeanLogR, Is.EqualTo(0.13).Within(1e-15), "ascat.aspcf logR.");
-            Assert.That(segs[0].MeanBAF, Is.EqualTo(0.77400000000000002).Within(1e-15), "ascat.aspcf BAF (mean mirrored).");
+            Assert.That(segs[0].MeanLogR, Is.EqualTo(0.13), "ascat.aspcf logR.");
+            Assert.That(segs[0].MeanBAF, Is.EqualTo(0.77400000000000002), "ascat.aspcf BAF (mean mirrored).");
         });
     }
 

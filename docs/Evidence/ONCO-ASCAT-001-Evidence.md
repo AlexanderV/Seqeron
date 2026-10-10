@@ -756,6 +756,27 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
   vs 0.039379769001487798 / [0.51378450709526202, 0.66762323719414596] with a fresh `set.seed(2024)` before the second fit
   (the F41 caveat); G3 chr1:409000 0.057697644086242297 vs 0.0566284153574272. The driver reproduces the former.
 
+## 2026-10 FIN-B24 F66 — R `mean()` in the ASPCF ports = R's long-double `real_mean`
+
+- Source opened: R 4.3 branch `src/main/summary.c` `real_mean` (raw.githubusercontent.com/wch/r-source): `LDOUBLE s = Σx`;
+  if `(double) s` finite, `s /= n`, else `s = Σ x/n`; then, when finite, `t = Σ (x − s)` and `s += t/n` (all in 80-bit long
+  double on x86-64), returned as `(double) s`; `mean.default(na.rm = TRUE)` drops NA first. ASCAT `ascat.aspcf.R` /
+  `ascat.asmultipcf.R` call sites: `mean(logRaveraged)`, `mean(bafselwinsmirrored)` (l. 116–117), `mean(lrwins[s:e],
+  na.rm=TRUE)` (l. 108; asmultipcf l. 126), `mean(lr[startprobe:endprobe], na.rm=TRUE)` / `mean(lr, na.rm=TRUE)` (l. 157,
+  164, 218; asmultipcf l. 134, 143–144, 313), fastAspcf `yhat1 = mean(logR[frst:last])` and `mu = mean(abs(yi2 − 0.5))`
+  (l. 376, 382), exactPcf `yhat <- rep(mean(y), N)` (l. 552). Every one is an R `mean()`; none is `sum(x)/n` or a cumsum.
+- Defect: the C# helpers `Mean` / `MeanNaRm` (and the fastAspcf μ loop) used a plain double Σx/n, e.g. R
+  `mean(c(0.28, 0.01, 0.37, 0.96))` = 0.40499999999999997, plain 0.405.
+- Fix: new additive `StatisticsHelper.ExtendedPrecisionMean(span, skipNaN)` emulates `real_mean` exactly (x87 64-bit
+  significand, round-to-nearest-even after every operation, integer arithmetic as `ExtendedPrecisionSum`); `Mean`,
+  `MeanNaRm` (all callers incl. `RColonMeanNaRm`) and fastAspcf μ call it.
+- R cross-check: 3004 random vectors (n 1–1000; uniform, normal, 2-decimal, 1e6-offset, |u − 0.5|, overflow): 3004/3004
+  bit-identical (plain Σx/n 2137, double-refined `RMean` 2719). Existing R-locked corpora (Derivation, germline G1–G3,
+  asmultipcf C1–C5, male-X M1–M4/K1–K3, NA N1–N3, runASCAT XX/XY/germline/NA fits) re-run with tolerance 0: 54 tests that
+  failed bit-identity before now pass (87 → 33 non-exact assertions in the probed files; the 33 left are FFT density /
+  BMix / Battenberg / CNAqc outputs not affected by `mean`); no test changed outcome otherwise. ASPCF level and runASCAT
+  ρ/ψ/ploidy/GoF tolerances tightened to exact equality (one fit, N2Single S2, still differs in the last bits and keeps 1e−12).
+
 ## References
 
 1. Van Loo P, Nordgard SH, Lingjærde OC, et al. (2010). Allele-specific copy number analysis of tumors. PNAS 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
@@ -789,3 +810,4 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 - **2026-06-23**: Added ASPCF penalised-least-squares segmentation (Nilsen 2012, Ross 2021) and sub-clonal copy-number two-state mixture (Nik-Zainal 2012 / Battenberg) evidence for the residual-closing fix.
 - **2026-10-09**: FIN-B24 F26 — `DeriveMultiplicity` ties half-to-even per facets-suite `expected_mutant_copies`; F27 `SubclonalIntegerTolerance` `[Obsolete]`.
 - **2026-09-28**: B24 review — FitPurityPloidy = runASCAT port, ASPCF = ascat.aspcf port, sub-clonal fit = Battenberg determine_copynumber port; corrected corner case 2, integer-assignment and Battenberg decomposition statements; R cross-check section added.
+- **2026-10-10**: FIN-B24 F66 — ASPCF `mean()` call sites = R long-double `real_mean` (`ExtendedPrecisionMean`); R-locked levels bit-identical.

@@ -130,10 +130,10 @@ public class OncologyAnalyzer_AscatSexChromosome_Tests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(fit.Purity, Is.EqualTo(rho).Within(1e-12), "runASCAT purity.");
-            Assert.That(fit.Psi, Is.EqualTo(psi).Within(1e-12), "runASCAT psi.");
-            Assert.That(fit.Ploidy, Is.EqualTo(ploidy).Within(1e-14), "ASCAT ploidy = mean(nA + nB) over all probes.");
-            Assert.That(fit.GoodnessOfFit, Is.EqualTo(goodnessOfFit).Within(1e-9), "runASCAT goodnessOfFit.");
+            Assert.That(fit.Purity, Is.EqualTo(rho), "runASCAT purity.");
+            Assert.That(fit.Psi, Is.EqualTo(psi), "runASCAT psi.");
+            Assert.That(fit.Ploidy, Is.EqualTo(ploidy), "ASCAT ploidy = mean(nA + nB) over all probes.");
+            Assert.That(fit.GoodnessOfFit, Is.EqualTo(goodnessOfFit), "runASCAT goodnessOfFit.");
             Assert.That(fit.Segments.Select(s => (s.MajorCopyNumber, s.MinorCopyNumber)), Is.EqualTo(segRaw),
                 "seg_raw nMajor / nMinor per segment.");
         });

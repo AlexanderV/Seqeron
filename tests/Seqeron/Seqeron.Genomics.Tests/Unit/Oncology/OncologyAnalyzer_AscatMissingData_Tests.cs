@@ -210,7 +210,7 @@ public class OncologyAnalyzer_AscatMissingData_Tests
         }
     }
 
-    // M-ANA-1..6 — per probe: identical breakpoints, values within 1e-12 and identical NaN (NA) positions of
+    // M-ANA-1..6 — per probe: identical breakpoints, bit-identical values (B24 F66) and identical NaN (NA) positions of
     // Tumor_LogR_segmented and the mirrored Tumor_BAF_segmented, for both segmenters on all three NA cohorts.
     [TestCaseSource(nameof(ReferenceTracks))]
     public void Segmentation_WithMissingData_MatchesAscat(string id, bool multi)
@@ -247,14 +247,14 @@ public class OncologyAnalyzer_AscatMissingData_Tests
                 Assert.That(present, Has.Length.EqualTo(expected[s].PresentBaf.Sum(r => r.Length)), $"S{s + 1}: BAF site count.");
                 for (int i = 0; i < n; i++)
                 {
-                    Assert.That(result[s].SegmentedLogR[i], Is.EqualTo(logR[i]).Within(1e-12), $"S{s + 1} probe {i + 1}: logR.");
+                    Assert.That(result[s].SegmentedLogR[i], Is.EqualTo(logR[i]), $"S{s + 1} probe {i + 1}: logR.");
                     if (double.IsNaN(baf[i]))
                     {
                         Assert.That(double.IsNaN(result[s].SegmentedBaf[i]), Is.True, $"S{s + 1} probe {i + 1}: BAF NA.");
                     }
                     else
                     {
-                        Assert.That(result[s].SegmentedBaf[i], Is.EqualTo(baf[i]).Within(1e-12), $"S{s + 1} probe {i + 1}: BAF.");
+                        Assert.That(result[s].SegmentedBaf[i], Is.EqualTo(baf[i]), $"S{s + 1} probe {i + 1}: BAF.");
                     }
                 }
 

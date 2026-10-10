@@ -434,3 +434,13 @@ mask_high_cn_segments` (Evidence § F61).
 | M-CALLSUB-5 | stream continuation | G1 | τ equals a re-seeded second fit, SDfrac_A_BS differs from it and equals R's 0.039088938618727802 | R run |
 | C-CALLSUB-1 | invalid input | null rows / logR; permutations 0; ρ 1.5 | `ArgumentNullException`; `ArgumentOutOfRangeException` | contract |
 
+
+## 21. FIN-B24 F66 — R `mean()` bit-identical in the ASPCF ports (2026-10-10)
+
+`Mean` / `MeanNaRm` / fastAspcf μ = `StatisticsHelper.ExtendedPrecisionMean` (R `real_mean`, long double; Evidence § F66).
+
+| ID | Test | Expected | Evidence |
+|----|------|----------|----------|
+| M-MEAN-1 | `ExtendedPrecisionMean_MatchesRMean` (StatisticsHelper_RSumDbinom_Tests) | c(0.28, 0.01, 0.37, 0.96) → 0.40499999999999997; two 6-value vectors where double refinement is 1 ulp off; 0.1/0.2/0.3 → 0.20000000000000001; overflow fallback c(1e308, 1e308) → 1e308 | R 4.3.3 |
+| M-MEAN-2 | `ExtendedPrecisionMean_SpecialValues_MatchR` | na.rm skips NaN; empty / all-NA → NaN; NA propagates; Inf; Inf − Inf → NaN | R 4.3.3 |
+| M-MEAN-3 | existing ASPCF / asmultipcf / male-X / germline / NA segment-level locks and runASCAT XX/XY/germline fits | now exact equality (formerly 1e−15…1e−12) | R runs (§§ 6–19) |

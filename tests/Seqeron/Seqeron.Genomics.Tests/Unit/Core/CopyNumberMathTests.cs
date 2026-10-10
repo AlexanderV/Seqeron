@@ -103,4 +103,34 @@ public class CopyNumberMathTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => CopyNumberMath.AbsoluteToLog2Ratio(1.0, ploidy));
     }
+
+    // Shared guards (B24 F66 / E7): the oncology CNA methods call these instead of private copies; same exception type,
+    // parameter name and message as before. CNVkit purity_value accepts (0, 1]; ploidy must be finite and > 0.
+    [TestCase(0.0)]
+    [TestCase(-0.1)]
+    [TestCase(1.0000000000000002)]
+    [TestCase(double.NaN)]
+    public void ValidatePurity_OutsideUnitInterval_Throws(double purity)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => CopyNumberMath.ValidatePurity(purity));
+        Assert.That(ex!.ParamName, Is.EqualTo("purity"));
+    }
+
+    [TestCase(0.0)]
+    [TestCase(-2.0)]
+    [TestCase(double.PositiveInfinity)]
+    [TestCase(double.NaN)]
+    public void ValidatePloidy_NotFinitePositive_Throws(double ploidy)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => CopyNumberMath.ValidatePloidy(ploidy));
+        Assert.That(ex!.ParamName, Is.EqualTo("ploidy"));
+    }
+
+    [Test]
+    public void ValidatePurityPloidy_Boundaries_Accepted()
+    {
+        Assert.DoesNotThrow(() => CopyNumberMath.ValidatePurity(1.0));
+        Assert.DoesNotThrow(() => CopyNumberMath.ValidatePurity(double.Epsilon));
+        Assert.DoesNotThrow(() => CopyNumberMath.ValidatePloidy(double.Epsilon));
+    }
 }

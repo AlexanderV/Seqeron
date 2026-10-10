@@ -366,7 +366,7 @@ public class OncologyAnalyzer_AscatAsMultiPcf_Tests
     }
 
     // M-AMPCF-1..14 — breakpoints (segment extents, probe and heterozygous counts) identical to R; per-sample segment logR
-    // ≤ 1e-12 (observed ≤ 7.8e-16) and BAF ≤ 1e-12 (observed ≤ 1.2e-16).
+    // and BAF bit-identical to R (R long-double mean(), B24 F66; previously ≤ 7.8e-16).
     [TestCaseSource(nameof(ReferenceRuns))]
     public void SegmentAlleleSpecificAsMultiPcf_MatchesAscatAsMultiPcf(
         Cohort cohort, double penalty, OncologyAnalyzer.AsMultiPcfOptions? options, Seg[][] expected)
@@ -388,14 +388,14 @@ public class OncologyAnalyzer_AscatAsMultiPcf_Tests
 
                 for (int i = 0; i < expected[s].Length; i++)
                 {
-                    Assert.That(actual[i].MeanLogR, Is.EqualTo(expected[s][i].LogR).Within(1e-12), $"Sample {s + 1} segment {i + 1} logR.");
+                    Assert.That(actual[i].MeanLogR, Is.EqualTo(expected[s][i].LogR), $"Sample {s + 1} segment {i + 1} logR.");
                     if (double.IsNaN(expected[s][i].Baf))
                     {
                         Assert.That(actual[i].HasBaf, Is.False, $"Sample {s + 1} segment {i + 1}: no heterozygous probe.");
                     }
                     else
                     {
-                        Assert.That(actual[i].MeanBAF, Is.EqualTo(expected[s][i].Baf).Within(1e-12), $"Sample {s + 1} segment {i + 1} BAF.");
+                        Assert.That(actual[i].MeanBAF, Is.EqualTo(expected[s][i].Baf), $"Sample {s + 1} segment {i + 1} BAF.");
                     }
                 }
             }
@@ -433,7 +433,7 @@ public class OncologyAnalyzer_AscatAsMultiPcf_Tests
         {
             Assert.That(refined[0].Segments.Count(s => s.Chromosome == "4"), Is.EqualTo(1));
             Assert.That(joint[0].Segments.Where(s => s.Chromosome == "4").Select(s => s.LocusCount), Is.EqualTo(new[] { 150, 150 }));
-            Assert.That(joint[0].Segments[^1].MeanLogR, Is.EqualTo(-1.4828774511765428).Within(1e-12));
+            Assert.That(joint[0].Segments[^1].MeanLogR, Is.EqualTo(-1.4828774511765428));
         });
     }
 

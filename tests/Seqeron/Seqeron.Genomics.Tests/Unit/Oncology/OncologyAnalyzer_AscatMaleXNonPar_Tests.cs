@@ -343,7 +343,7 @@ public class OncologyAnalyzer_AscatMaleXNonPar_Tests
     }
 
     // M-MALEX-1..7 — re-genotyped X non-PAR probes bit-identical to R; segment extents, probe and heterozygous counts identical;
-    // segment logR and BAF ≤ 1e-12 of R.
+    // segment logR and BAF bit-identical to R (B24 F66).
     [TestCaseSource(nameof(ReferenceRuns))]
     public void MaleXNonParRegenotyping_MatchesAscat(Track track, Expected expected)
     {
@@ -366,14 +366,14 @@ public class OncologyAnalyzer_AscatMaleXNonPar_Tests
 
                 for (int i = 0; i < exp.Length; i++)
                 {
-                    Assert.That(actual[i].MeanLogR, Is.EqualTo(exp[i].LogR).Within(1e-12), $"Sample {s + 1} segment {i + 1} logR.");
+                    Assert.That(actual[i].MeanLogR, Is.EqualTo(exp[i].LogR), $"Sample {s + 1} segment {i + 1} logR.");
                     if (double.IsNaN(exp[i].Baf))
                     {
                         Assert.That(actual[i].HasBaf, Is.False, $"Sample {s + 1} segment {i + 1}: no heterozygous probe.");
                     }
                     else
                     {
-                        Assert.That(actual[i].MeanBAF, Is.EqualTo(exp[i].Baf).Within(1e-12), $"Sample {s + 1} segment {i + 1} BAF.");
+                        Assert.That(actual[i].MeanBAF, Is.EqualTo(exp[i].Baf), $"Sample {s + 1} segment {i + 1} BAF.");
                     }
                 }
             }
@@ -608,7 +608,7 @@ public class OncologyAnalyzer_AscatMaleXNonPar_Tests
     }
 
     // M-MALEX-9..11 (F65) — per sample: re-genotyped X non-PAR probe set bit-identical to the one-stream R run; segments
-    // identical, levels ≤ 1e-12.
+    // identical, levels bit-identical (B24 F66).
     [TestCaseSource(nameof(MultiSampleAspcfRuns))]
     public void MaleXNonParRegenotyping_AspcfSamples_OneStream_MatchesAscat(Track track, bool[] male, MultiExpected expected)
     {
@@ -630,14 +630,14 @@ public class OncologyAnalyzer_AscatMaleXNonPar_Tests
 
                 for (int i = 0; i < exp.Length; i++)
                 {
-                    Assert.That(actual[i].MeanLogR, Is.EqualTo(exp[i].LogR).Within(1e-12), $"Sample {s + 1} segment {i + 1} logR.");
+                    Assert.That(actual[i].MeanLogR, Is.EqualTo(exp[i].LogR), $"Sample {s + 1} segment {i + 1} logR.");
                     if (double.IsNaN(exp[i].Baf))
                     {
                         Assert.That(actual[i].HasBaf, Is.False);
                     }
                     else
                     {
-                        Assert.That(actual[i].MeanBAF, Is.EqualTo(exp[i].Baf).Within(1e-12), $"Sample {s + 1} segment {i + 1} BAF.");
+                        Assert.That(actual[i].MeanBAF, Is.EqualTo(exp[i].Baf), $"Sample {s + 1} segment {i + 1} BAF.");
                     }
                 }
             }

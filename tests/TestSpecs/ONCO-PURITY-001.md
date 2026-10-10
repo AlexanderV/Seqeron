@@ -261,6 +261,14 @@ Reference: caravagnalab/BMix `bmixfit` / `bmixfit_EM` and CNAqc 1.1.5 `combined_
 
 Tests: `OncologyAnalyzer_CnaqcBMixBootstrap_Tests` (30), `StatisticsHelper_RSumDbinom_Tests` (16). C1–C9 KDE-only rows and C18 set `FitMixturePeaks = false` since F64.
 
+### 5.11 FIN-B24 F66 — R-exact `mean` / `var` in `bw.nrd0` and `peakpick`
+
+| ID | Test | Expected (R 4.3.3) |
+|----|------|--------------------|
+| V1 | `ExtendedPrecisionVariance_MatchesRVar` | var(c(0.52, 0.05, 0.08, 0.41, 0.58)) = 0.061469999999999997, sd 0.24793144213673263, bw.nrd0 0.16172610052228839; var(1:4) = 1.6666666666666667; n = 1 / Inf → NaN |
+| V2 | `BandwidthNrd0_MatchesR` (D1 1:1, D3 1:1, D1 2:1), `BandwidthNrd0_SmallSamples_MatchR`, KDE `Bandwidth` | exact equality (formerly 1e−14 relative / 1e−15) |
+| V3 | every CNAqc peak / λ / QC lock (F34, F62–F64) | unchanged |
+
 ## 6. Assumption Register
 
 **Total assumptions:** 2
