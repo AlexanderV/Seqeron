@@ -1,6 +1,6 @@
 // ONCO-ASCAT-001 — ASCAT male X non-PAR germline re-genotyping in ascat.aspcf / ascat.asmultipcf (B24 F58)
 // Evidence: docs/Evidence/ONCO-ASCAT-001-Evidence.md (§ "Male X non-PAR re-genotyping (F58)")
-// TestSpec: tests/TestSpecs/ONCO-ASCAT-001.md (M-MALEX-*, S-MALEX-*, C-MALEX-*)
+// TestSpec: tests/TestSpecs/ONCO-ASCAT-001.md (M-MALEX-*, S-MALEX-*, C-MALEX-*); multi-sample ascat.aspcf one-stream driver: F65
 // Source:  VanLoo-lab/ascat master, ASCAT/R/ascat.aspcf.R (ascat.aspcf: set.seed(seed); nonPAR block) and
 //          ASCAT/R/ascat.asmultipcf.R (same block on the first germline); R 4.3.3 base::rank (ties.method = "random" =
 //          sort.list(order(x, stats::runif(n)))) and src/main/random.c (do_sample without replacement, R_unif_index).
@@ -478,5 +478,208 @@ public class OncologyAnalyzer_AscatMaleXNonPar_Tests
         var result = OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, allHom,
             new OncologyAnalyzer.AscatMaleXGenotyping(OncologyAnalyzer.AscatSexModel.MaleWithXNonPar(OncologyAnalyzer.ReferenceGenome.GRCh37), 1, gbaf));
         Assert.That(result.GermlineHeterozygous, Has.None.True);
+    }
+
+    // ---- FIN-B24 F65: ascat.aspcf over several samples after ONE set.seed (one R stream across male samples) ----
+    // R: ascat.aspcf(ASCATobj with S samples, gender per sample, Germline_BAF / ascat.gg with S identical columns,
+    // out.dir = NA, seed) — penalty 70; tracks K1 (2 × XY, rank, seed 1), K2 (XY, XX, XY, rank, seed 2024), K3 (2 × XY,
+    // sample(), seed 99). Scratch harness wp35/f65.R (sources wp28/harness.R).
+
+    public sealed record MultiExpected(string[] Selected, Seg[][] Samples);
+
+    private static readonly MultiExpected Aspcf1Expected = new(
+        new[]
+        {
+            "1111011111011101111100110111101111111000000100100001011111111110111011011110011111111011001111011111111001111111111010110011011101111011101001111011011001111111111111010101010001111101111010111100100110111000011011110111111011101100110111111100111101100111111011110101110101110100111111111111100110111100110111100010111111011100101011111011111010111111100100101001110110111111111111110110111111000110",
+            "1111011111011101111100110111101111111000000100100001011111111110111011011110011111111011001111011111111001111111111010110011011101111011101001111011011001111111111111010101010001111101111010111100100110111000011011110111111011101100110111111100111101100111111011110101110101110100111111111111100110111100110111100010111111011100101011111011111010111111100100101001110110111111111111110110111111000110",
+        },
+        new Seg[][]
+        {
+            new Seg[]
+            {
+                new("1", 1000, 250000, -0.0056612790581124289, 0.5, 250, 183),
+                new("1", 251000, 400000, -0.59699503755491612, 0.79989260436133891, 150, 107),
+                new("2", 1000, 200000, 0.29533357747752853, 0.6497881900647785, 200, 134),
+                new("X", 100000, 2420000, -0.0028774364926902455, 0.5, 30, 20),
+                new("X", 3000000, 122600000, -0.49449837066194274, 0.94510651915841148, 300, 213),
+                new("X", 123000000, 152700000, -1.1950872407560642, 0.95205503915779288, 100, 70),
+                new("X", 155000000, 155190000, 0.02319127442463826, 0.5, 20, 13),
+            },
+            new Seg[]
+            {
+                new("1", 1000, 400000, 0.0073888739395834846, 0.5, 400, 290),
+                new("2", 1000, 200000, 0.3052299522097362, 0.64991722467921487, 200, 134),
+                new("X", 100000, 2020000, -0.002850025204406133, 0.5, 25, 16),
+                new("X", 2100000, 2420000, 0.0064263438277069266, 0.5, 5, 4),
+                new("X", 3000000, 152700000, -0.49738498197793263, 0.94471087454973635, 400, 283),
+                new("X", 155000000, 155040000, 0.017201612171345228, 0.5, 5, 3),
+                new("X", 155050000, 155190000, -0.022427944309277439, 0.5, 15, 10),
+            },
+        });
+
+    private static readonly MultiExpected Aspcf2Expected = new(
+        new[]
+        {
+            "0111100000000000010000001001001100010000100001001010010010100001010010000010001101010001001010010100000001001000100011000100100000000100000000011010100100010000001000010110111101001010001110101001110000000101110000000100000100000000001000000001100000111011000010111100000010000110010000000110011000001001000110000100000001100000110001000000000011010100001010111001000010100001011100001111001000100001",
+            "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "0010100000010000010000001001001101000000100000001010010010100001010010000010001101010001000010000000000001001000100111001100100000000100000000011010100100010000001000010110111101001010011110100000110010000101010000000100000100000000001000000001100000111011000010110100000000000111010000010100011000001001001110000100010001100011110000000011000011010110101000111001000000100001010000001111001010101001",
+        },
+        new Seg[][]
+        {
+            new Seg[]
+            {
+                new("1", 1000, 200000, 0.0003760916368924485, 0.5, 200, 67),
+                new("1", 201000, 400000, 0.50572514801692459, 0.70212434518249178, 200, 53),
+                new("2", 1000, 150000, -0.38578970044562116, 0.80796569759035974, 150, 49),
+                new("X", 100000, 1940000, -0.055107277451753908, 0.5, 24, 11),
+                new("X", 2020000, 2420000, -0.018276099884700702, 0.5, 6, 2),
+                new("X", 3000000, 152700000, -0.5004535857839294, 0.93999704031460629, 400, 123),
+                new("X", 155000000, 155040000, 0.063687678847316534, 0.5, 5, 3),
+                new("X", 155050000, 155190000, -0.048268862538164883, 0.5, 15, 3),
+            },
+            new Seg[]
+            {
+                new("1", 1000, 200000, -0.0012141176775163577, 0.5, 200, 67),
+                new("1", 201000, 400000, 0.4913606567323956, 0.70010047530228037, 200, 53),
+                new("2", 1000, 150000, -0.40580779533793271, 0.80627188077013379, 150, 49),
+                new("X", 100000, 122600000, -0.45773096543743985, 0.55283135779617765, 330, 13),
+                new("X", 123000000, 155040000, 0.18115648486439243, 0.55283135779617765, 105, 3),
+                new("X", 155050000, 155190000, -0.0054230392687440428, 0.55283135779617765, 15, 3),
+            },
+            new Seg[]
+            {
+                new("1", 1000, 400000, -0.008451731696702415, 0.5, 400, 120),
+                new("2", 1000, 150000, -0.41184865547274957, 0.78094707594259216, 150, 49),
+                new("X", 100000, 1940000, -0.0049890712314855281, 0.5, 24, 11),
+                new("X", 2020000, 2420000, 0.057129550844956897, 0.5, 6, 2),
+                new("X", 3000000, 152700000, -0.49414195179550069, 0.94125465615983506, 400, 123),
+                new("X", 155000000, 155040000, 0.024176517549984372, 0.5, 5, 3),
+                new("X", 155050000, 155190000, -0.022569924603481738, 0.5, 15, 3),
+            },
+        });
+
+    private static readonly MultiExpected Aspcf3Expected = new(
+        new[]
+        {
+            "1010101110101110001101001000111000010111111101110101110111010101111111111110111111111111111011110111111101101010011111110010101101110100011101000011001001101101101011111001101001111000110111110001111111011111110101011100111001011111111100110111111101101111111111111111111111001111111111011011011000011111111101111110101011001011010011101101111111111111110111101111111110111011111111011111100011001111",
+            "1111110111100100001101110111101000101111001111111110011011010111110010101110101001111101110000101111101001111111110010110100000001011100011111001110111101111111111111101110111011111111111101111111111001010100111111111111111111111111101011011101111100111111110101011001011111101001111111111001110011011010101011111101111111100101101101011111101101011111010100111111101001111111111110001111100111111111",
+        },
+        new Seg[][]
+        {
+            new Seg[]
+            {
+                new("1", 1000, 300000, -0.004694502421667723, 0.5, 300, 215),
+                new("2", 1000, 200000, 0.39876659286709809, 0.69762241957600191, 200, 144),
+                new("X", 100000, 1940000, 0.033330073719842701, 0.5, 24, 17),
+                new("X", 2020000, 2420000, -0.020855063318362652, 0.5, 6, 5),
+                new("X", 3000000, 122600000, -0.48315902092920571, 0.94486920083657611, 300, 209),
+                new("X", 123000000, 152700000, -1.1229922483139636, 0.95411648230706114, 100, 78),
+                new("X", 155000000, 155190000, -0.016595012702324899, 0.5, 20, 14),
+            },
+            new Seg[]
+            {
+                new("1", 1000, 300000, -0.0074741996906111949, 0.5, 300, 215),
+                new("2", 1000, 200000, -0.39482088465421505, 0.7999183697910186, 200, 144),
+                new("X", 100000, 1940000, 0.023938720067468802, 0.5, 24, 17),
+                new("X", 2020000, 2420000, 0.077156821813973056, 0.5, 6, 5),
+                new("X", 3000000, 152700000, -0.49347274589979684, 0.94202856320771333, 400, 287),
+                new("X", 155000000, 155040000, 0.068870239103618197, 0.5, 5, 3),
+                new("X", 155050000, 155190000, -0.0079015235267120929, 0.5, 15, 11),
+            },
+        });
+
+    private static IReadOnlyList<OncologyAnalyzer.AspcfSegmentation> RunAspcfSamples(Track t, bool[] male)
+    {
+        var (samples, het, gbaf) = Simulate(t);
+        var model = OncologyAnalyzer.AscatSexModel.MaleWithXNonPar(OncologyAnalyzer.ReferenceGenome.GRCh37);
+        var inputs = samples.Select((loci, s) => new OncologyAnalyzer.AspcfSampleInput(loci, het)
+        {
+            SexModel = male[s] ? model : null,
+            GermlineBaf = t.UseGermlineBaf ? gbaf : null,
+        }).ToList();
+        return OncologyAnalyzer.SegmentAlleleSpecificAspcfSamples(inputs, t.RSeed);
+    }
+
+    private static IEnumerable<TestCaseData> MultiSampleAspcfRuns()
+    {
+        yield return new TestCaseData(K1, new[] { true, true }, Aspcf1Expected).SetName("MaleX_AspcfSamples_K1_TwoMales_Rank_Seed1_MatchesAscat");
+        yield return new TestCaseData(K2, new[] { true, false, true }, Aspcf2Expected).SetName("MaleX_AspcfSamples_K2_MaleFemaleMale_TieBreak_Seed2024_MatchesAscat");
+        yield return new TestCaseData(K3, new[] { true, true }, Aspcf3Expected).SetName("MaleX_AspcfSamples_K3_TwoMales_Sample_Seed99_MatchesAscat");
+    }
+
+    // M-MALEX-9..11 (F65) — per sample: re-genotyped X non-PAR probe set bit-identical to the one-stream R run; segments
+    // identical, levels ≤ 1e-12.
+    [TestCaseSource(nameof(MultiSampleAspcfRuns))]
+    public void MaleXNonParRegenotyping_AspcfSamples_OneStream_MatchesAscat(Track track, bool[] male, MultiExpected expected)
+    {
+        var result = RunAspcfSamples(track, male);
+        Assert.That(result, Has.Count.EqualTo(expected.Samples.Length));
+        Assert.Multiple(() =>
+        {
+            for (int s = 0; s < expected.Samples.Length; s++)
+            {
+                Assert.That(SelectedBits(result[s]), Is.EqualTo(expected.Selected[s]), $"Sample {s + 1}: re-genotyped X non-PAR probes.");
+                var actual = result[s].Segments;
+                var exp = expected.Samples[s];
+                Assert.That(actual.Select(a => (a.Chromosome, a.Start, a.End, a.LocusCount, a.HeterozygousLocusCount)),
+                    Is.EqualTo(exp.Select(e => (e.Chr, e.Start, e.End, e.N, e.NHet))), $"Sample {s + 1} breakpoints.");
+                if (actual.Count != exp.Length)
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < exp.Length; i++)
+                {
+                    Assert.That(actual[i].MeanLogR, Is.EqualTo(exp[i].LogR).Within(1e-12), $"Sample {s + 1} segment {i + 1} logR.");
+                    if (double.IsNaN(exp[i].Baf))
+                    {
+                        Assert.That(actual[i].HasBaf, Is.False);
+                    }
+                    else
+                    {
+                        Assert.That(actual[i].MeanBAF, Is.EqualTo(exp[i].Baf).Within(1e-12), $"Sample {s + 1} segment {i + 1} BAF.");
+                    }
+                }
+            }
+        });
+    }
+
+    // S-MALEX-5 (F65) — the first male sample equals the single-sample call with the same seed; a later male sample continues
+    // the stream, so it differs from a fresh set.seed per sample (R: K2 sample 3 and K3 sample 2 differ, K1 sample 2 does not
+    // because all exact ties fall inside k); a female sample draws nothing and equals the plain overload.
+    [Test]
+    public void MaleXNonParRegenotyping_AspcfSamples_StreamContinuesAcrossMales()
+    {
+        var (samples, het, gbaf) = Simulate(K2);
+        var model = OncologyAnalyzer.AscatSexModel.MaleWithXNonPar(OncologyAnalyzer.ReferenceGenome.GRCh37);
+        var multi = RunAspcfSamples(K2, new[] { true, false, true });
+        var single1 = OncologyAnalyzer.SegmentAlleleSpecificAspcf(samples[0], het, new OncologyAnalyzer.AscatMaleXGenotyping(model, K2.RSeed, gbaf));
+        var single3 = OncologyAnalyzer.SegmentAlleleSpecificAspcf(samples[2], het, new OncologyAnalyzer.AscatMaleXGenotyping(model, K2.RSeed, gbaf));
+        var female = OncologyAnalyzer.SegmentAlleleSpecificAspcf(samples[1], het);
+        Assert.Multiple(() =>
+        {
+            Assert.That(SelectedBits(multi[0]), Is.EqualTo(SelectedBits(single1)));
+            Assert.That(multi[0].Segments, Is.EqualTo(single1.Segments));
+            Assert.That(SelectedBits(multi[2]), Is.Not.EqualTo(SelectedBits(single3)));
+            Assert.That(multi[1].Segments, Is.EqualTo(female.Segments));
+            Assert.That(multi[1].GermlineHeterozygous, Is.EqualTo(het));
+        });
+    }
+
+    // C-MALEX-2 (F65) — guards; an empty sample list returns no segmentation.
+    [Test]
+    public void MaleXNonParRegenotyping_AspcfSamples_InvalidArguments_Throw()
+    {
+        var (samples, het, _) = Simulate(K1);
+        var ok = new OncologyAnalyzer.AspcfSampleInput(samples[0], het);
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.SegmentAlleleSpecificAspcfSamples(null!, 1));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.SegmentAlleleSpecificAspcfSamples(new[] { ok, null! }, 1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.SegmentAlleleSpecificAspcfSamples(new[] { ok }, 1, 0.0));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.SegmentAlleleSpecificAspcfSamples(
+                new[] { new OncologyAnalyzer.AspcfSampleInput(samples[0], het.Take(10).ToList()) }, 1));
+            Assert.That(OncologyAnalyzer.SegmentAlleleSpecificAspcfSamples(Array.Empty<OncologyAnalyzer.AspcfSampleInput>(), 1), Is.Empty);
+        });
     }
 }

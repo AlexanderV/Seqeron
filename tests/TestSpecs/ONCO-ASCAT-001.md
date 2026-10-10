@@ -388,6 +388,10 @@ verbatim (R 4.3.3) with `gender = "XY"`, `X_nonPAR` = hg19, on the MINSTD male t
 | S-MALEX-4 | no heterozygous autosome, germline BAF | M1 all homozygous | `rank(DIST) <= NA` selects none ⇒ all non-PAR homozygous | source |
 | C-MALEX-1 | guards | null model / spec, germline BAF 1.2, wrong count, `sample()` branch without autosomal het (R: `sample(x, NA)` fails) | `ArgumentNullException` / `ArgumentException` | source / contract |
 
+| M-MALEX-9..11 | `MaleXNonParRegenotyping_AspcfSamples_OneStream_MatchesAscat` (F65) | K1 (2 × XY, rank, seed 1), K2 (XY/XX/XY, rank, seed 2024), K3 (2 × XY, `sample()`, seed 99); `ascat.aspcf` multi-sample, penalty 70 | per sample: re-genotyped set identical; segments identical, levels ≤ 1e−12 | R run (Evidence § F65) |
+| S-MALEX-5 | stream continues (F65) | K2 | sample 1 = single call; sample 3 ≠ fresh-seed call; female sample = plain overload | R run / source |
+| C-MALEX-2 | driver guards (F65) | null list / element, penalty 0, wrong genotype count; empty list | throws; empty result | contract |
+
 ## 18. FIN-B24 F59 — missing data (R NA) in `ascat.asmultipcf` / `ascat.aspcf` (2026-10-10)
 
 File `OncologyAnalyzer_AscatMissingData_Tests.cs` (+ C-AMPCF-1 / C-ASPCF-G1 updated: NaN is accepted, +∞ still throws).

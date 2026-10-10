@@ -138,7 +138,7 @@ Reuses `ClusterCcfValues` (ONCO-CCF-001, Ckmeans.1d.dp) for CCF clustering and `
 
 **Not implemented:**
 
-- Probabilistic/Bayesian subclone inference (e.g., PyClone/SciClone posterior clustering); **users should rely on:** dedicated tools — clustering here is the exact 1-D k-means (Ckmeans.1d.dp) of ONCO-CCF-001.
+- Probabilistic/Bayesian subclone inference (e.g., PyClone/SciClone posterior clustering) — scope of the proposed unit ONCO-PYCLONE-001 (Dirichlet-process subclonal clustering; ALGORITHMS_CHECKLIST_V2.md); **until then users should rely on:** dedicated tools — clustering here is the exact 1-D k-means (Ckmeans.1d.dp) of ONCO-CCF-001.
 
 ### 5.4 Deviations and Assumptions
 

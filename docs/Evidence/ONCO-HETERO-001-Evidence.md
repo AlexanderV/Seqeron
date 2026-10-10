@@ -49,7 +49,7 @@
 
 > **Citation corrected 2026-10-10 (B24 F57):** PMC5468233 is Martinez P et al., *Scientific Reports* 7:3248 (doi:10.1038/s41598-017-03496-0), not "Liu Z, Zhang S, BMC Genomics 18:457" as first recorded (WebSearch "Quantification of within-sample genetic heterogeneity from SNP-array data" → nature.com / PMC / UCL Discovery records).
 
-**URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC5468233/ (BMC Genomics 18:457)
+**URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC5468233/ (Sci Rep 7:3248)
 **Retrieved by:** WebSearch "intratumor heterogeneity Shannon diversity index clone fractions" → WebFetch of the PMC article.
 **Accessed:** 2026-06-15
 **Authority rank:** 1 (peer-reviewed) / 4 (Shannon primary cited within)

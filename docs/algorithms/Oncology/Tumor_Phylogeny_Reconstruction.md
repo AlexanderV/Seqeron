@@ -144,7 +144,7 @@ Cross-checked against the original `lichee.jar` (PHYNetwork + getLineageTrees + 
 
 **Not implemented:**
 
-- Probabilistic clone clustering / posterior over trees (PyClone, PhyloWGS, CITUP); **users should rely on:** ONCO-CCF-001 for CCF clustering and dedicated external tools for posterior tree inference.
+- Probabilistic clone clustering — scope of the proposed unit ONCO-PYCLONE-001 (Dirichlet-process subclonal clustering; ALGORITHMS_CHECKLIST_V2.md); deterministic CCF clustering is ONCO-CCF-001. Posterior over trees (PhyloWGS, CITUP) is outside ONCO-PHYLO-001, a deterministic sum-rule method; **users should rely on:** dedicated external tools for posterior tree inference.
 - CNA-aware multiplicity corrections to CCF inside this unit (it consumes already-corrected CCF clusters); **users should rely on:** `DeriveMultiplicity` (ONCO-ASCAT-001) + `EstimateCcf` with the local copy number (ONCO-CCF-001) upstream.
 
 ### 5.4 Deviations and Assumptions

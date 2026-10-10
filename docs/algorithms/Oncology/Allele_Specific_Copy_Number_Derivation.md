@@ -339,7 +339,7 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 - `OncologyAnalyzer.EvaluatePurityPloidy(...)`: ASCAT rho_manual/psi_manual path.
 - `OncologyAnalyzer.FitPurityPloidyFromAspcf(...)` / `TryFitPurityPloidyFromAspcf(...)` / `EvaluatePurityPloidyFromAspcf(...)`: runASCAT on a germline-aware `AspcfSegmentation` (homozygous segments, all-probe ploidy; B24 F37).
 - `AscatSexModel` / `AscatGender` + an `AscatSexModel` overload of each of the six fit entry points above: runASCAT `gender` / `X_nonPAR` (B24 F38).
-- `AscatMaleXGenotyping(sexModel, seed?, germlineBaf?)` with `SegmentAlleleSpecificAspcf(loci, germlineHeterozygous, maleX, penalty)` and `AsMultiPcfOptions.MaleXGenotyping`: the male `X_nonPAR` germline re-genotyping of `ascat.aspcf` / `ascat.asmultipcf` (`set.seed(seed)`; `rank(DIST, ties.method = "random")` with germline BAF, `sample()` without), reusing the private `RMersenneTwister` (B24 F58).
+- `AscatMaleXGenotyping(sexModel, seed?, germlineBaf?)` with `SegmentAlleleSpecificAspcf(loci, germlineHeterozygous, maleX, penalty)` and `AsMultiPcfOptions.MaleXGenotyping`: the male `X_nonPAR` germline re-genotyping of `ascat.aspcf` / `ascat.asmultipcf` (`set.seed(seed)`; `rank(DIST, ties.method = "random")` with germline BAF, `sample()` without), reusing the private `RMersenneTwister` (B24 F58). `SegmentAlleleSpecificAspcfSamples(samples, seed?, penalty)` (`AspcfSampleInput`: loci, genotypes, per-sample `SexModel` / `GermlineBaf`): `ascat.aspcf` over several samples after one `set.seed`, the re-genotyping draws continuing on one R stream from male sample to male sample (B24 F65).
 - `OncologyAnalyzer.DeriveMultiplicity(...)`: McGranahan multiplicity (rounded, clamped).
 - `OncologyAnalyzer.FitSubclonalCopyNumber(...)`: Battenberg `determine_copynumber` (nearest edge, τ, maxdist).
 - `OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(SubclonalSegmentSnpBafs[], ρ, ψ, γ, siglevel = 0.05, maxdist = 0.01)` →
@@ -487,7 +487,7 @@ ASPCF overload, F36); the haploid X/Y (male) model is available through `AscatSe
 `FitSubclonalCopyNumberWithSnpTest` (F39; phased SNP BAFs supplied by the caller). Multi-sample segmentation is available
 through `SegmentAlleleSpecificAsMultiPcf` (`ascat.asmultipcf`, F53; missing logR/BAF as R's NA since F59). ASCAT's male `X_nonPAR`
 germline re-genotyping is available through `AscatMaleXGenotyping` (F58); it is random, so it reproduces R only for an
-explicit seed (ASCAT's default seed is `as.integer(Sys.time())`). Battenberg's built-in haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes reference panel —
+explicit seed (ASCAT's default seed is `as.integer(Sys.time())`); a multi-sample `ascat.aspcf` run (one seed, one stream across samples) is reproduced by `SegmentAlleleSpecificAspcfSamples` (F65). Battenberg's built-in haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes reference panel —
 external executables and a multi-GB reference bundle) is out of scope; the downstream phased path is available
 (`SegmentPhasedBaf` → `BuildBattenbergSegments` → `FitSubclonalCopyNumberWithSnpTest`, F40) on caller-phased BAFs; alternative
 solutions B–F and the seeded bootstrap CIs are available through `FitSubclonalCopyNumberWithBootstrap` (F41). Battenberg's

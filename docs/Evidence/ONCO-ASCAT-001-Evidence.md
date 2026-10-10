@@ -635,6 +635,24 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
   Harness and generated data: scratchpad `wp28/harness.R`, `run.R`, `gen.py` (same MINSTD generator as `Simulate()` in
   `OncologyAnalyzer_AscatMaleXNonPar_Tests.cs`).
 
+## 2026-10 FIN-B24 F65 — Multi-sample `ascat.aspcf`: one R random stream across male samples
+
+- Source: `ASCAT/R/ascat.aspcf.R` (master 61ddf3b) l. 27 `set.seed(seed)` once, before `for (sample in selectsamples)`;
+  the male block (ll. 51–70) runs per sample on `gg[, sample]`, `Germline_BAF[, sample]`, `gender[sample]`, so a second
+  male sample continues the stream where the first stopped (female samples / ≤ 5 known non-PAR probes draw nothing). F58
+  reproduced one `set.seed` per call; the per-call note ("documented difference") is replaced by the driver.
+- R cross-check (executed; R 4.3.3, sourced `ascat.aspcf.R`; scratch `wp35/f65.R` on the F58 MINSTD tracks, penalty 70,
+  `Germline_BAF` / `ascat.gg` with one identical column per sample):
+
+  | Run | Samples (gender) | Branch | seed | one-stream vs per-sample seed |
+  |-----|------------------|--------|------|-------------------------------|
+  | K1 | 2 (XY, XY) | Germline_BAF / rank | 1 | identical (all exact ties fall inside k) |
+  | K2 | 3 (XY, XX, XY) | Germline_BAF / rank | 2024 | sample 3 differs (tie-break draws continue) |
+  | K3 | 2 (XY, XY) | ascat.gg / sample | 99 | sample 2 differs |
+
+  C# `SegmentAlleleSpecificAspcfSamples`: every sample's re-genotyped probe set bit-identical to R
+  (`rownames(Tumor_BAF_segmented[[s]])`), all segment extents / probe / het counts identical, levels ≤ 1e−12.
+
 ## 2026-10 FIN-B24 F59 — Missing data: the NA path of `ascat.asmultipcf` / `ascat.aspcf` (+ runASCAT)
 
 - Sources opened (VanLoo-lab/ascat master 61ddf3b): `ASCAT/R/ascat.asmultipcf.R` ll. 79–129 (`bafna[homo | is.na(homo), ]
@@ -757,6 +775,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 - **2026-10-10**: FIN-B24 F60 — Battenberg `merge_segments` / `mask_high_cn_segments` port (`MergeBattenbergSegments`, `MaskHighCopyNumberSegments`, `StatisticsHelper.WelchTTestPValue`) R cross-check (4 genomes, every merge branch, seqlevel order).
 - **2026-10-10**: FIN-B24 F59 — NA path of `ascat.asmultipcf` / `ascat.aspcf` and runASCAT on NA segmentations R cross-check (3 NA cohorts, 14 tracks, 12 fits).
 - **2026-10-10**: FIN-B24 F58 — male X non-PAR seeded germline re-genotyping (`AscatMaleXGenotyping`) in aspcf / asmultipcf R cross-check (7 tracks); the F38 "not ported" note is superseded.
+- **2026-10-10**: FIN-B24 F65 — multi-sample `ascat.aspcf` one-stream male re-genotyping R cross-check (3 runs).
 - **2026-10-10**: FIN-B24 F53 — multi-sample `ascat.asmultipcf` port (`SegmentAlleleSpecificAsMultiPcf`) R cross-check (5 cohorts, 14 runs); "WGD refit search" phrase removed (no ASCAT counterpart); F36 last-window descending-range fix.
 - **2026-10-10**: FIN-B24 F41 — Battenberg solutions A–F, SDfrac and seeded bootstrap CIs (`FitSubclonalCopyNumberWithBootstrap`, R RNG port) R cross-check + Monte-Carlo agreement section added.
 - **2026-10-10**: FIN-B24 F40 — Battenberg `segment.baf.phased` port (`SegmentPhasedBaf`, `BuildBattenbergSegments`) R cross-check; built-in IMPUTE2/Beagle5 haplotype imputation BLOCKED (proof recorded).

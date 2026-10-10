@@ -3443,8 +3443,9 @@ public static partial class OncologyAnalyzer
     /// Draws come from R's default generator seeded by <c>set.seed(<see cref="Seed"/>)</c> (Mersenne-Twister, R ≥ 3.6
     /// "Rejection" sampling — the same port as the Battenberg bootstrap). ASCAT's default seed is
     /// <c>as.integer(Sys.time())</c> (the Unix time in whole seconds), so an R run is reproducible only with an explicit
-    /// seed; a null seed here mirrors that default. One call consumes the stream of one ASCAT call on one male sample (for
-    /// <c>ascat.aspcf</c> over several male samples R continues the same stream from sample to sample).
+    /// seed; a null seed here mirrors that default. One call consumes the stream of one ASCAT call on one male sample;
+    /// <c>ascat.aspcf</c> over several samples (one <c>set.seed</c>, the stream continuing from male sample to male
+    /// sample) is <see cref="SegmentAlleleSpecificAspcfSamples"/> (B24 F65).
     /// </summary>
     public sealed record AscatMaleXGenotyping
     {
@@ -3496,8 +3497,11 @@ public static partial class OncologyAnalyzer
     /// <summary>
     /// Applies <see cref="AscatMaleXGenotyping"/> to <paramref name="het"/> in place (ascat.aspcf.R ll. 51–70,
     /// ascat.asmultipcf.R ll. 44–63, verbatim order of random draws). No-op when <paramref name="spec"/> is null or inactive.
+    /// Draws from <paramref name="rng"/> when given (a stream shared across samples), else from a fresh
+    /// <c>set.seed(spec.Seed)</c> stream.
     /// </summary>
-    private static void RegenotypeMaleXNonPar(AlleleSpecificLocus[] loci, bool[] het, AscatMaleXGenotyping? spec, string paramName)
+    private static void RegenotypeMaleXNonPar(
+        AlleleSpecificLocus[] loci, bool[] het, AscatMaleXGenotyping? spec, string paramName, RMersenneTwister? rng = null)
     {
         if (spec is null || !spec.IsActive)
         {
@@ -3547,7 +3551,7 @@ public static partial class OncologyAnalyzer
             het[i] = false;
         }
 
-        var rng = new RMersenneTwister(spec.Seed);
+        rng ??= new RMersenneTwister(spec.Seed);
         if (gbaf is not null)
         {
             // DIST = 1 - max(x, 1 - x); rank(DIST, ties.method = "random") = sort.list(order(DIST, runif(m))).
@@ -5617,11 +5621,70 @@ public static partial class OncologyAnalyzer
         return SegmentAlleleSpecificAspcfCore(loci, germlineHeterozygous, maleX, penalty);
     }
 
+    /// <summary>One sample of a multi-sample <c>ascat.aspcf</c> run (<see cref="SegmentAlleleSpecificAspcfSamples"/>).</summary>
+    /// <param name="Loci">The sample's per-locus logR/BAF in genome order (as the single-sample overloads).</param>
+    /// <param name="GermlineHeterozygous">The caller's germline genotypes (true = heterozygous), before re-genotyping.</param>
+    public sealed record AspcfSampleInput(IReadOnlyList<AlleleSpecificLocus> Loci, IReadOnlyList<bool> GermlineHeterozygous)
+    {
+        /// <summary>
+        /// The sample's sex model (ASCAT <c>gender[sample]</c> and <c>X_nonPAR</c>); null = no re-genotyping (as a female
+        /// sample or a run without <c>X_nonPAR</c>).
+        /// </summary>
+        public AscatSexModel? SexModel { get; init; }
+
+        /// <summary>The sample's germline BAF per locus (ASCAT <c>Germline_BAF[, sample]</c>), or null (<c>sample()</c> branch).</summary>
+        public IReadOnlyList<double>? GermlineBaf { get; init; }
+    }
+
+    /// <summary>
+    /// <c>ascat.aspcf</c> over several samples in one call (VanLoo-lab/ascat ascat.aspcf.R: <c>set.seed(seed)</c> once,
+    /// then <c>for (sample in selectsamples)</c>; B24 F65). Each sample is segmented exactly as
+    /// <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, AscatMaleXGenotyping, double)"/>,
+    /// but the male X non-PAR re-genotyping (<see cref="AscatMaleXGenotyping"/>) of all samples draws from ONE R random
+    /// stream, in sample order: a later male sample continues where the previous one stopped (samples without active
+    /// re-genotyping — female, no X non-PAR interval, or ≤ 5 known non-PAR probes — draw nothing). The first male sample
+    /// therefore equals the single-sample call with the same seed; later ones generally differ from it.
+    /// </summary>
+    /// <param name="samples">The samples, in ASCAT's <c>selectsamples</c> order.</param>
+    /// <param name="seed">R <c>set.seed</c> value (ASCAT <c>seed</c>); null = <see cref="AscatMaleXGenotyping.DefaultSeed"/>.</param>
+    /// <param name="penalty">ASPCF penalty (default <see cref="AspcfDefaultPenalty"/> = 70), shared by all samples.</param>
+    /// <returns>One segmentation per sample, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="samples"/> is null.</exception>
+    /// <exception cref="ArgumentException">A sample is null, or a sample fails the single-sample contract.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0, NaN or infinite.</exception>
+    public static IReadOnlyList<AspcfSegmentation> SegmentAlleleSpecificAspcfSamples(
+        IReadOnlyList<AspcfSampleInput> samples,
+        int? seed = null,
+        double penalty = AspcfDefaultPenalty)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        if (!double.IsFinite(penalty) || penalty <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(penalty), penalty, "The ASPCF penalty γ must be positive and finite.");
+        }
+
+        int rSeed = seed ?? AscatMaleXGenotyping.DefaultSeed();
+        var rng = new RMersenneTwister(rSeed); // ascat.aspcf: set.seed(seed) before the sample loop.
+        var results = new AspcfSegmentation[samples.Count];
+        for (int s = 0; s < samples.Count; s++)
+        {
+            AspcfSampleInput sample = samples[s]
+                ?? throw new ArgumentException($"Sample {s} is null.", nameof(samples));
+            AscatMaleXGenotyping? maleX = sample.SexModel is null
+                ? null
+                : new AscatMaleXGenotyping(sample.SexModel, rSeed, sample.GermlineBaf);
+            results[s] = SegmentAlleleSpecificAspcfCore(sample.Loci, sample.GermlineHeterozygous, maleX, penalty, rng);
+        }
+
+        return results;
+    }
+
     private static AspcfSegmentation SegmentAlleleSpecificAspcfCore(
         IEnumerable<AlleleSpecificLocus> loci,
         IReadOnlyList<bool> germlineHeterozygous,
         AscatMaleXGenotyping? maleX,
-        double penalty)
+        double penalty,
+        RMersenneTwister? rng = null)
     {
         ArgumentNullException.ThrowIfNull(loci);
         ArgumentNullException.ThrowIfNull(germlineHeterozygous);
@@ -5663,7 +5726,7 @@ public static partial class OncologyAnalyzer
 
         // ascat.aspcf: ghs = predictGermlineHomozygousStretches(chr, gg) precedes the male X non-PAR re-genotyping.
         List<(int Run, int Start, int End)> stretches = PredictGermlineHomozygousStretches(runs, het);
-        RegenotypeMaleXNonPar(probes, het, maleX, nameof(maleX));
+        RegenotypeMaleXNonPar(probes, het, maleX, nameof(maleX), rng);
         for (int i = 0; i < n; i++)
         {
             if (het[i] && !IsAscatBafOrMissing(probes[i].BAF))

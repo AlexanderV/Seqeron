@@ -231,7 +231,7 @@ involved, so the repository suffix tree is not applicable.
 
 **Not implemented:**
 
-- Dirichlet-process / beta-binomial mixture clustering; **users should rely on:** external tools (PyClone, SciClone, DPClust) for full probabilistic subclone inference.
+- Dirichlet-process / beta-binomial mixture clustering — scope of the proposed unit ONCO-PYCLONE-001 (Dirichlet-process subclonal clustering, PyClone / PyClone-VI; ALGORITHMS_CHECKLIST_V2.md); **until then users should rely on:** external tools (PyClone, SciClone, DPClust) for full probabilistic subclone inference.
 
 ## 6. Edge Cases and Limitations
 
