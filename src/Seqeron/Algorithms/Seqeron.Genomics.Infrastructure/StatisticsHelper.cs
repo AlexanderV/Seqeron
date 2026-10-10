@@ -851,6 +851,49 @@ namespace Seqeron.Genomics.Infrastructure
             return 0.9 * lo * Math.Pow(n, -0.2);
         }
 
+        /// <summary>
+        /// R <c>quantile(x, probability, type = 7, names = FALSE)</c> (stats/R/quantile.R, Hyndman &amp; Fan 1996 type 7),
+        /// with R's own 1-based arithmetic: <c>index = 1 + (n − 1)·p</c>, <c>lo = floor(index)</c>, <c>hi = ceiling(index)</c>,
+        /// <c>qs = x[lo]</c>, and <c>(1 − h)·qs + h·x[hi]</c> (h = index − lo) only when <c>index &gt; lo</c> and
+        /// <c>x[hi] ≠ qs</c>. E.g. x = {3, 1, 4, 1, 5}, p = 0.85 ⇒ 4.4 (R 4.3.3). Added for Battenberg's
+        /// <c>filterMarkS4</c> (FIN-B24 F40).
+        /// </summary>
+        /// <param name="values">The sample (unsorted; at least one finite value).</param>
+        /// <param name="probability">Probability p ∈ [0, 1].</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        /// <exception cref="ArgumentException">empty sample or a non-finite value.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">p outside [0, 1].</exception>
+        public static double SampleQuantileType7(IReadOnlyList<double> values, double probability)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            if (!(probability >= 0.0 && probability <= 1.0))
+                throw new ArgumentOutOfRangeException(nameof(probability), probability, "p must lie in [0, 1].");
+            int n = values.Count;
+            if (n == 0)
+                throw new ArgumentException("The sample must not be empty.", nameof(values));
+            var x = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                if (!double.IsFinite(values[i]))
+                    throw new ArgumentException("Every value must be finite.", nameof(values));
+                x[i] = values[i];
+            }
+
+            Array.Sort(x);
+            double index = 1.0 + (n - 1) * probability;
+            double lo = Math.Floor(index);
+            double hi = Math.Ceiling(index);
+            double qs = x[(int)lo - 1];
+            double xHi = x[(int)hi - 1];
+            if (index > lo && xHi != qs)
+            {
+                double h = index - lo;
+                qs = ((1 - h) * qs) + (h * xHi);
+            }
+
+            return qs;
+        }
+
         // R stats::quantile type 7 on an ascending-sorted sample: index = 1 + (n − 1)·p; interpolate
         // (1 − h)·x[lo] + h·x[hi] only when index > lo and x[hi] ≠ x[lo] (R quantile.default).
         private static double QuantileType7(double[] sorted, double probability)

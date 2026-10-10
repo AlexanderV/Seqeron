@@ -450,6 +450,55 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 - Gap shown (pre-F39): only maxdist decided clonality (a summary has no SNP spread ⇒ Battenberg pval 0), so noisy segments
   just beyond 0.01 BAF were always sub-clonal (G1S41, G1S28).
 
+## 2026-10 FIN-B24 F40 — Battenberg phased-BAF segmentation (`segment.baf.phased`); built-in imputation BLOCKED
+
+- Sources opened (Wedge-lab/battenberg master, commit 57a8f7e, 2025-12-08): `R/segmentation.R` (`segment.baf.phased`:
+  `bkps_to_presegment_breakpoints` with `maxsnpdist = 3000000` and `addin_bigholes`; `run_pcf`: `sdev = getMad(ifelse(BAF < 0.5,
+  BAF, 1 − BAF), k = 25)`, NA ⇒ 0, `< 0.09` ⇒ 0.09; `length(BAF) < 50` ⇒ mean; `selectFastPcf(BAF, phasekmin, phasegamma·sdev, T)`;
+  `BAFphased = ifelse(BAFsegm > 0.5, BAF, 1 − BAF)`; `selectFastPcf(BAFphased, kmin, gamma·sdev, T)`; `calc_seg_baf_option`
+  1/2/3 via `adjustSegmValues` (rle median); defaults gamma 10, phasegamma 3, kmin 3, phasekmin 3, option 3), `R/fastPCF.R`
+  (`selectFastPcf`: < 1000 ⇒ `runFastPcf(…, 0.15, 0.15)`, < 15000 ⇒ `runFastPcf(…, 0.12, 0.05)`, else `runPcfSubset`;
+  `filterMarkS4(x, kmin, 8, 1, frac1, frac2, 0.02, 0.9)`, `compact`, `PottsCompact`, `findEst`, `markWithPotts`,
+  `findMarks`, `getMad`, `medianFilter`). Battenberg's `getMad`/`medianFilter` are identical to ASCAT's (reused);
+  `selectFastPcf` is **not** ASCAT's `exactPcf`/`fastAspcf` (ASCAT's ascat.aspcf.R has no `selectFastPcf`), so it is
+  ported once (private) — no duplication.
+- **Haplotype imputation BLOCKED (proof).** `R/impute.R::run_haplotyping` calls `run.impute` → `system("impute2 -m
+  <genetic_map> -h <impute_hap> -l <impute_legend> -g <input> -int … -Ne 20000 -phase …")` per 5 Mb region, or
+  `run.beagle5` → `system("java -Xmx10g -jar beagle.jar gt=… ref=<chrN.1kg.phase3.v5a.b37.bref3> map=<plink.chrN.GRCh37.map>
+  impute=false")`. Both are external binaries driven by the README's "Required reference files": GRCh37 bundle
+  (ora.ox.ac.uk uuid:2c1fec09…) `battenberg_1000genomesloci2012_v3.tar.gz`, `battenberg_impute_1000G_v3.tar.gz`,
+  `probloci_270415.txt.gz`, GC/replication-timing correction tarballs; GRCh38 bundle (doi 10.48420/30406441)
+  `1000G_loci_hg38.zip`, `imputation.zip`, `shapeit2.zip`, `beagle5.zip`, … . Sizes: a public mirror of the same
+  bundle (bcgsc.ca morinlab/reference, via web search) lists `battenberg_impute_grch37.tar.gz` 3.7 GB and
+  `battenberg_1000genomesloci_grch37.tar.gz` 240 MB; direct downloads from this sandbox are refused (proxy HTTP 403 for
+  ora.ox.ac.uk / doi.org / figshare.manchester.ac.uk). A statistical phasing engine + 1000 Genomes haplotype panel
+  cannot be shipped in or run by a pure C# library ⇒ the caller supplies phased BAFs (the `combine.baf.files` output).
+- R cross-check (executed; `fastPCF.R` + `segmentation.R` sourced verbatim, plots stubbed, R 4.3.3). Inputs from a
+  deterministic integer LCG reproduced bit-for-bit in the C# test (switched haplotype blocks, noise, clamping):
+
+  | Track | SNPs / regime | Options | R segments (first–last pos, n, BAFseg) | Σ BAFphased / Σ BAFseg |
+  |---|---|---|---|---|
+  | t1 | 300, `runFastPcf` 0.15/0.15 | defaults | 2000–101000 100 0.49788217067718499; 102000–201000 100 0.71850197553634598; 202000–301000 100 0.58956708192825302 | 176.48445771217348 / 180.59512281417841 |
+  | t2 | chr2 2000 (0.12/0.05) with 4 Mb gap + chr3 40 (< 50 ⇒ mean) | option 3 = option 1 | 6 segments (chr2 split at the gap; chr3 0.50574477136135099) | 1246.572572066784 / 1248.5744446992874 |
+  | t2 | same | option 2 (mean) | 0.54146806168556205, 0.80023094666004202, 0.50063822877407005, 0.50009172968069704, 0.67059457948207901, 0.505747132062912 | Σ BAFseg 1246.572572066784 |
+  | t3 | 16 000, `runPcfSubset` | defaults | 5 segments 3000/4000/2000/3500/3500 SNPs, BAFseg 0.50033228099346105 … 0.50094892680644998 | 10639.269587749242 / 10632.704436182976 |
+  | t4 | 400, prior breakpoints 150500, 320000 | gamma 5, kmin 5 | 149/101/69/81 SNPs (0.59599266052246103, 0.60799378395080605, 0.80668817043304497, 0.80411475181579595) | 270.88505104064944 / 271.00505725383766 |
+  | t4 | same | no_segmentation | one segment 0.63947307586669999 | Σ BAFseg 255.78923034668 |
+  | t5 | 1500, sd 0.1, 7-SNP blocks | defaults | 336/367/396/401 SNPs (breakpoints at 100801/210901/329701 ≠ truth) | 869.7522670245171 / 876.50769936084771 |
+
+  C#: every segment extent identical, BAFseg ≤ 1e−12, sums ≤ 1e−12 relative (R `cumsum`/`sum`/`mean` accumulate in
+  80-bit long double; only Σ over 16 000 SNPs shows the 1e−13-relative difference).
+- End-to-end (`set.seed(s); determine_copynumber(BAFvals, LogRvals, ρ, ψ_all, 1, ctrans, ctrans, 0.01, 0.05, 1000, 1000)`
+  on the R `segment.baf.phased` output; logR = lv[seg] + ((i mod 7) − 3)·0.01 per chromosome-local SNP index, plus one `Inf`
+  probe): e1 (t1, ρ 0.7, ψ 2.6): clonal 1:1 (pval 1, LogR −0.0003); (2,0)@0.47709449087559203 + (2,1) (pval 6.2072657065460898e−36,
+  LogR 0.1501); (1,1)@0.37649750519839498 + (2,1) (pval 5.0025818343502595e−13). e2 (t2, ρ 0.85, ψ 3): 6 segments, e.g.
+  (3,0)@0.39163557478371203 + (3,1) pval 2.2067308446755200e−101; clonal 1:1, 2:2, 1:1 (chr3). C# `BuildBattenbergSegments` +
+  `FitSubclonalCopyNumberWithSnpTest`: 9/9 segments identical (startpos/endpos, LogR ≤ 1e−12, pval ≤ 1e−9 rel, states, fractions ≤ 1e−12).
+- Harness note: R `read.table` turns numeric chromosome labels into integers, which `ctrans[...]` then indexes by
+  position (NA startpos); the harness casts chromosomes to character as Battenberg's `read_bafsegmented` does.
+- New shared helper: `StatisticsHelper.SampleQuantileType7` (R `quantile(type = 7)`, 1-based index arithmetic) —
+  R 4.3.3 e.g. x = {0.31, 0.12, 0.97, 0.55, 0.12, 0.44, 0.08}: p 0.05 ⇒ 0.091999999999999998, p 0.88 ⇒ 0.66760000000000019.
+
 ---
 
 ## References
@@ -467,6 +516,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 ## Change History
 
+- **2026-10-10**: FIN-B24 F40 — Battenberg `segment.baf.phased` port (`SegmentPhasedBaf`, `BuildBattenbergSegments`) R cross-check; built-in IMPUTE2/Beagle5 haplotype imputation BLOCKED (proof recorded).
 - **2026-10-10**: FIN-B24 F38 — runASCAT sex-chromosome model (male haploid X/Y, `X_nonPAR` rule, XX default) R cross-check section added.
 - **2026-10-10**: FIN-B24 F37 — runASCAT with homozygous segments (`bafke` NA ⇒ 0, all-probe ploidy) R cross-check section added.
 - **2026-10-10**: FIN-B24 F39 — Battenberg per-SNP t-test (`FitSubclonalCopyNumberWithSnpTest`) and StatisticsHelper Student-t R cross-check section added.

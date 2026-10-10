@@ -327,3 +327,22 @@ File `OncologyAnalyzer_AscatDerivation_Tests.cs` (region `FitSubclonalCopyNumber
 | M-STAT-T2 | `StudentTCdf` | 11 (t, ν) incl. ν 2·10⁵, P 1.7e−24 | R `pt` ≤ 1e−13 rel | R run |
 | M-STAT-T3 | `OneSampleTTestPValue` | 5 samples | R `t.test(x, mu)$p.value` ≤ 1e−12 rel; n < 2 / constant ⇒ NaN (R stops) | R run |
 
+## 14. FIN-B24 F40 — Battenberg phased-BAF segmentation (2026-10-10)
+
+File `OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs` and `Unit/Core/StatisticsHelper_QuantileType7_Tests.cs`.
+Expected values = Battenberg `segment.baf.phased` / `determine_copynumber` sourced verbatim (R 4.3.3), inputs from a
+deterministic LCG generator reproduced in the test (Evidence § F40).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-PHSEG-1 | `runFastPcf` < 1000 SNPs | t1 (300 SNPs, 15-SNP switched blocks) | 3 segments, BAFseg ≤ 1e−12, Σ ≤ 1e−12 rel | R run |
+| M-PHSEG-2 | 1000–15 000 SNPs, ≥ 3 Mb gap, < 50-SNP chromosome, options 3 / 1 / 2 | t2 | 6 segments each option | R run |
+| M-PHSEG-3 | `runPcfSubset` ≥ 15 000 SNPs | t3 (16 000) | 5 segments | R run |
+| M-PHSEG-4 | prior breakpoints, gamma 5, kmin 5; no_segmentation | t4 | 4 segments; 1 segment 0.63947307586669999 | R run |
+| M-PHSEG-5 | noisy track (sd 0.1, 7-SNP blocks) | t5 | 4 segments at R's breakpoints | R run |
+| M-PHSEG-6 | end-to-end `BuildBattenbergSegments` → `FitSubclonalCopyNumberWithSnpTest` | e1 (t1, ρ 0.7, ψ 2.6, Inf probe), e2 (t2, ρ 0.85, ψ 3) | 9/9 segments: extents, LogR, pval, states, fractions | R run |
+| S-PHSEG-7 | NA dropped; < 50 SNPs ⇒ mean phase, median segment BAF | 4 SNPs | phased (0.8, 0.7, 0.1), BAFseg 0.7 | `run_pcf` code |
+| S-PHSEG-8 | option 3 keeps mean when median ∈ {0, 1} | (1, 1, 0.7) | 0.9 (option 1: 1) | `run_pcf` code |
+| S-PHSEG-9 | `BuildBattenbergSegments`: no finite logR ⇒ 0; chromosome change splits | 3 rows | 2 segments, LogR 0 | `determine_copynumber` code |
+| C-PHSEG-1 | invalid arguments | null, BAF 1.2, kmin 0, phasekmin 15, gamma NaN, option 4, BAFseg 1.5 | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
+| M-STAT-Q1 | `SampleQuantileType7` | 7-value sample, p ∈ {0, 0.05, 0.25, 0.5, 0.85, 0.88, 1}; {3,1,4,1,5} p 0.85 | R `quantile` ≤ 1e−15 | R run |

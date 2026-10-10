@@ -120,6 +120,17 @@ t-test of its phased SNP BAFs against that corner's BAF is not significant (pval
 or constant SNP BAFs give pval = 0 [8]. `FitSubclonalCopyNumber` (segment summaries, constant BAF) therefore decides by
 maxdist alone; `FitSubclonalCopyNumberWithSnpTest` (B24 F39) runs the t-test on the supplied SNP BAFs.
 
+**Phased-BAF segmentation (Battenberg `segment.baf.phased`, B24 F40).** Battenberg phases germline-heterozygous SNPs
+with IMPUTE2/Beagle5 against the 1000 Genomes reference panel (external executables + multi-GB reference bundle; not
+run here — the caller supplies phased BAFs), then per chromosome pre-segments at prior (SV) breakpoints and SNP gaps
+≥ 3 Mb and, per presegment, estimates sd = max(0.09, getMad(min(BAF, 1 − BAF), 25)); a first fast PCF
+(`selectFastPcf`, kmin = phasekmin = 3, penalty phasegamma·sd = 3·sd) on the raw phased BAF locates switched haplotype
+blocks, `BAFphased = BAF if BAFsegm > 0.5 else 1 − BAF`; a second PCF (kmin 3, penalty gamma·sd = 10·sd) on BAFphased
+gives the segments, whose BAF is the median of BAFphased (`calc_seg_baf_option` 3: the mean when the median is 0 or 1;
+1: median; 2: PCF mean). Presegments of < 50 SNPs are not segmented (mean). `selectFastPcf` is the copynumber-package
+fast PCF (`filterMarkS4` candidate breakpoints from 6L/6L2 high-pass and kmin filters with type-7 quantile limits,
+then exact Potts filtering on the compacted array; windowed `runPcfSubset` above 15 000 SNPs) [8].
+
 ### 2.3 Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
@@ -153,6 +164,9 @@ maxdist alone; `FitSubclonalCopyNumberWithSnpTest` (B24 F39) runs the t-test on 
 | purity, ploidy (sub-clonal) | double | required | fitted ρ, ψ for the sub-clonal decomposition | ρ∈(0,1]; ψ>0 |
 | segments (t-test) | IReadOnlyList\<SubclonalSegmentSnpBafs\> | — (`FitSubclonalCopyNumberWithSnpTest`) | segment summary + its phased SNP BAFs (Battenberg `BAFphased`, used unmirrored) (B24 F39) | non-null; SNP BAFs ∈ [0,1] (list may be empty) |
 | significanceLevel, maxBafDistance | double | 0.05, 0.01 | Battenberg `siglevel`, `maxdist` | siglevel ∈ [0,1]; maxdist ≥ 0, finite |
+| snps (phased segmentation) | IReadOnlyList\<PhasedBafSnp\> | — (`SegmentPhasedBaf`) | caller-phased SNP BAFs (chromosome, position, BAF of haplotype 1) (B24 F40) | non-null; BAF ∈ [0,1] or NaN (= missing, dropped) |
+| options (phased segmentation) | BattenbergPhasedSegmentationOptions | Battenberg defaults | gamma 10, phasegamma 3, kmin 3, phasekmin 3, no_segmentation false, calc_seg_baf_option 3, prior breakpoints none | gammas finite ≥ 0; kmins ∈ [1, 14] |
+| segmentedSnps, logR | IReadOnlyList\<PhasedBafSegmentedSnp\>, IReadOnlyList\<LogRProbe\> | — (`BuildBattenbergSegments`) | `segment.baf.phased` rows + raw logR probes → `SubclonalSegmentSnpBafs` for the t-test fit (B24 F40) | BAFs ∈ [0,1]; non-finite logR ignored |
 | segments | IReadOnlyList\<AlleleSpecificSegmentSummary\> | required | segment summaries for the fit | non-empty; finite logR; BAF ∈ [0,1]; LocusCount ≥ 1; ≥ 1 autosomal |
 | purityMin/Max/Step | double | 0.1 / 1.05 / 0.01 | purity grid (ASCAT min/max_purity) | min ∈ (0,1]; max ≥ min, finite; step > 0 |
 | ploidyMin/Max/Step | double | 1.5 / 5.5 / 0.05 | ASCAT min/max_ploidy filter; ψ grid spans ±0.5 beyond | > 0; max ≥ min; step > 0 |
@@ -221,6 +235,10 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 5. **Sub-clonal fit (Battenberg `determine_copynumber`):** nMajor/nMinor at (ρ, ψ) from l = max(b, 1 − b); nearest
    edge (`orderEdges` option 1); clonal if the closest corner is within 0.01 BAF or (with SNP BAFs) the t-test against
    its level gives p > 0.05, else two states with fraction τ [8].
+6. **Phased-BAF segmentation (Battenberg `segment.baf.phased`, B24 F40):** `SegmentPhasedBaf` (presegments, MAD sd,
+   two `selectFastPcf` passes, `calc_seg_baf_option`) → `BuildBattenbergSegments` (`determine_copynumber`
+   switchpoints: new segment where BAFseg or chromosome changes; LogR = mean finite logR within [startpos, endpos],
+   0 when none) → `FitSubclonalCopyNumberWithSnpTest` [8].
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -238,6 +256,7 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 | Purity/ploidy fit | O(P·Q·S) | O(P·Q + S) | P,Q = grid sizes (≤ 4·10⁶ cells), S = segments |
 | Multiplicity | O(1) | O(1) | closed form |
 | Sub-clonal fit | O(S) | O(S) | closed-form decomposition per segment |
+| Phased-BAF segmentation | O(C²) per presegment, C = filterMarkS4 candidates (≈ 15–30 % of SNPs); 5000-SNP windows above 15 000 | O(n) | Potts DP on the compacted array [8] |
 
 ## 5. Implementation Notes
 
@@ -257,6 +276,10 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 - `OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(SubclonalSegmentSnpBafs[], ρ, ψ, γ, siglevel = 0.05, maxdist = 0.01)` →
   `SubclonalSegmentTestedFit` (fit + Battenberg pval): the per-SNP t-test (B24 F39; t-test =
   `StatisticsHelper.OneSampleTTestPValue`).
+- `OncologyAnalyzer.SegmentPhasedBaf(PhasedBafSnp[], BattenbergPhasedSegmentationOptions?)` → `PhasedBafSegmentedSnp[]`
+  (Battenberg `segment.baf.phased`; private port of `selectFastPcf`/`filterMarkS4`/`PottsCompact`/`runPcfSubset`, shared
+  `GetMad`; type-7 quantile = `StatisticsHelper.SampleQuantileType7`) and
+  `OncologyAnalyzer.BuildBattenbergSegments(rows, LogRProbe[])` → `SubclonalSegmentSnpBafs[]` (B24 F40).
 
 ### 5.2 Current Behavior
 
@@ -297,8 +320,13 @@ suffix tree is **not used** (no occurrence enumeration).
 - Sub-clonal fit: ~~a summary carries no per-SNP BAF spread, so Battenberg's t-test cannot be run~~ — **resolved by
   F39** (`FitSubclonalCopyNumberWithSnpTest` takes the phased SNP BAFs; the summary overload still decides by maxdist,
   exactly Battenberg's result for constant BAF). Where R's `t.test` would stop ("data are essentially constant") and
-  abort Battenberg, pval 0 is used. Haplotype phasing (`BAFphased` is the caller's input), bootstrap CIs and alternative
-  solutions B–F are not produced.
+  abort Battenberg, pval 0 is used. ~~Haplotype phasing (`BAFphased` is the caller's input)~~ — **phased-BAF path resolved
+  by F40**: `SegmentPhasedBaf` ports `segment.baf.phased` (haplotype-block correction + segmentation) on caller-phased
+  BAFs, R-verified on 6 tracks (300–16 000 SNPs, all three `selectFastPcf` regimes, prior breakpoints, ≥ 3 Mb gaps,
+  options 1/2/3, no_segmentation): every segment extent identical and BAFseg ≤ 1e−12; end-to-end with
+  `determine_copynumber` 9/9 segments identical. The phasing itself (IMPUTE2/Beagle5 + 1000 Genomes panel) is not
+  run (BLOCKED: external executables + multi-GB reference bundle). Bootstrap CIs and alternative solutions B–F are not
+  produced.
 
 **Not implemented:**
 
@@ -342,7 +370,9 @@ logR and BAF are observed measurements and are always a caller input — this is
 derivation. The unit works on heterozygous-locus segment summaries (germline-homozygous probes: use the germline-aware
 ASPCF overload, F36); the haploid X/Y (male) model is available through `AscatSexModel` (F38). Battenberg's per-SNP t-test is available through
 `FitSubclonalCopyNumberWithSnpTest` (F39; phased SNP BAFs supplied by the caller). Multi-sample (asmultipcf)
-segmentation and Battenberg's haplotype phasing / bootstrap are out of scope (phased BAFs need an imputation reference panel). `FitPurityPloidy` fails (like ASCAT) when no local
+segmentation and Battenberg's built-in haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes reference panel —
+external executables and a multi-GB reference bundle) are out of scope; the downstream phased path is available
+(`SegmentPhasedBaf` → `BuildBattenbergSegments` → `FitSubclonalCopyNumberWithSnpTest`, F40) on caller-phased BAFs. Bootstrap CIs are not run. `FitPurityPloidy` fails (like ASCAT) when no local
 minimum passes the filters — use `TryFitPurityPloidy`, or `EvaluatePurityPloidy` with externally chosen (ρ, ψ).
 
 ## 7. Examples and Related Material
@@ -373,6 +403,7 @@ var ccf = OncologyAnalyzer.EstimateCcf(0.40, fit.Purity,
 - Tests: [OncologyAnalyzer_AscatDerivation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatDerivation_Tests.cs) — covers `INV-01`–`INV-07`
 - Tests: [OncologyAnalyzer_AscatGermlineHomozygous_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatGermlineHomozygous_Tests.cs) — germline-homozygous probes (F36/F37), R-locked
 - Tests: [StatisticsHelper_StudentT_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_StudentT_Tests.cs) — Student t / incomplete beta / one-sample t-test vs R (F39); Battenberg t-test rows in `OncologyAnalyzer_AscatDerivation_Tests.cs` (F39), R-locked
+- Tests: [OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs) — `segment.baf.phased` on 6 tracks + end-to-end `determine_copynumber` (F40), R-locked; [StatisticsHelper_QuantileType7_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_QuantileType7_Tests.cs) (F40)
 - Tests: [OncologyAnalyzer_AscatSexChromosome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatSexChromosome_Tests.cs) — male haploid X/Y, X non-PAR, XX default (F38), R-locked
 - Evidence: [ONCO-ASCAT-001-Evidence.md](../../../docs/Evidence/ONCO-ASCAT-001-Evidence.md)
 - Related algorithms: [Tumor_Ploidy_Estimation](./Tumor_Ploidy_Estimation.md), [Cancer_Cell_Fraction_Estimation](./Cancer_Cell_Fraction_Estimation.md), [Tumor_Purity_Estimation](./Tumor_Purity_Estimation.md)
