@@ -108,6 +108,11 @@
 | C13 | Custom panel, chr-prefix/case, distinct (F49) | panel G2,G1 on X; regions chrX:150, x:120-250 | ["G2","G1"] | IdentifyAmplifiedOncogenes_LocusOverlap_CustomPanelAndDistinct |
 | C14 | Locus-overlap guards (F49) | null regions; End < Start; empty chromosome | ArgumentNullException / ArgumentException | IdentifyAmplifiedOncogenes_LocusOverlap_InvalidInput_Throws |
 | C15 | Default GRCh38 panel (F49) | DefaultOncogeneLoci | GISTIC2 GENCODE v22 coordinates | DefaultOncogeneLoci_Gistic2Gencode22Coordinates |
+| C16 | Ziggurat B array + per-sample deconstruction: interrupted arm gain (F50) | 1p 0.5\|1.5\|0.5, levels 0 and (0.5, 0, 0.2, 0.2) | Octave `make_sample_B` / `deconstruct_sample` rows bit-exact | MakeSampleB_And_DeconstructSample_InterruptedArmGain_MatchOctave |
+| C17 | Deletion inside gain (F50) | 1q 0.6\|−0.8\|0.6; levels 0 and (0, 0.6, −0.3, −0.3), first-row breakpoint quirk | Octave rows bit-exact | MakeSampleB_And_DeconstructSample_DeletionInsideGain_MatchOctave |
+| C18 | Centromere-spanning segment (F50) | chr2 markers 6..12 (3/8 p + 4/12 q) | fract 0.70833333333333326; whole chromosome 2 | MakeSampleB_CentromereSpanningSegment_SumsArmFractions_MatchOctave |
+| C19 | Breakpoint on first row (F50) | chr2 0.4\|1.2\|−0.5, bpt = first row | all rows vs q level (Octave) | DeconstructSample_BreakpointOnFirstRow_TreatsChromosomeAsQ_MatchOctave |
+| C20 | Equal adjacent values merged; invalid tiling (F50) | 0.5,0.5 adjacent; gaps / overrun / NaN / unknown chr / empty or duplicate layout | one B row; ArgumentException | MakeSampleB_EqualAdjacentValues_Merged, MakeSampleB_InvalidTiling_Throws |
 
 ---
 

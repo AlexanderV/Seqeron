@@ -165,6 +165,15 @@ default panel `DefaultOncogeneLoci` holds GRCh38 loci from GISTIC2's own hg38 re
 gene-less peaks and widening of peak boundaries to the flanking markers (`genomic_location(…,1)`) — regions are used
 as given.
 
+**Ziggurat deconstruction — per-sample building blocks (F50).** Ported from GISTIC2 (internal, Octave-locked):
+`make_sample_B.m` (a sample's segments → B rows `[chrn st en amp sample fract]` at value changes and chromosome ends;
+`fract` in marker units with `ref_length = 2`, so a **centromere-spanning** row gets p-part ÷ p markers + q-part ÷ q
+markers — e.g. 3/8 + 4/12 = 0.70833333333333326, a whole chromosome 2) and `deconstruct_sample.m` /
+`deconstruct_chr.m` / `prepare_B.m` / `atomic_zigg_deconstruction.m` / `add_broad_levels_to_zigg.m` (events relative to
+given p / q broad levels; the reference quirk "breakpoint on the first of several rows ⇒ all rows use the q level" is
+kept). Input model: `ZigguratChromosome(Chromosome, PArmMarkerCount, QArmMarkerCount)` (markers 1..P on p, P+1..P+Q on
+q) and `ZigguratSegment(Chromosome, StartMarker, EndMarker, Value)` tiling every chromosome of a sample.
+
 **Reference-implementation cross-check (2026-09 review):** the predicate equals the GISTIC2 focal-event filter in
 `snputil/reconstruct_genomes.m` (`broad_or_focal='focal'`: `Q(:,8) < broad_len_cutoff` and amplitude vs `t_amp`)
 and `score_genome.m` (`Qs.del(:,8) < broad_len_cutoff`). The length test is strict `<`, as in GISTIC2. The amplitude

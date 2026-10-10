@@ -111,6 +111,25 @@
 
 All values are locked in `OncologyAnalyzer_DetectFocalAmplifications_Tests` / `OncologyAnalyzer_DetectHomozygousDeletions_Tests` (F48/F49 regions).
 
+### GISTIC2 ziggurat deconstruction — source and Octave runs (FIN-B24 WP22–WP24, F50–F52)
+
+**Source:** broadinstitute/gistic2 master `26c590bd` (`source/`) + submodule broadinstitute/snputil `cf3172b8` (`git submodule update --init snputil`), accessed 2026-10-10. Authority rank 3 (reference implementation).
+
+**Octave harness.** GNU Octave 8.4.0, `addpath source; addpath snputil`, original `.m` files unmodified. One shim, documented: `bar3.m` (no-op) — Octave 8 has no `bar3`, which is called only in the plotting branch of `generate_2d_hists` (`do_plot = 1` in `perform_deconstruction`); figures are created invisible (`set(0,'defaultfigurevisible','off')`). `modi.m` (progress print) comes from snputil (no shim). Test D/cyto structures are built by a driver (`mkD.m`): chromosome c with P p-arm and Q q-arm markers has markers at k·10⁵ bp (k = 1..P+Q), p band [0, P·10⁵ + 5·10⁴], q band [P·10⁵ + 5·10⁴, (P+Q+1)·10⁵] — so `find_snps` puts exactly the first P markers on p (`band.start = cyto.start + 1`, `find_snps` closed, returns global indices `in_chr(snps)`). Output printed with `%.17g` and parsed exactly in the tests.
+
+**F50 — per-sample building blocks.** `make_sample_B.m`: breakpoints `find(diff(D.dat(:,idx)) ~= 0)` ∪ `chrnEnd`, rows `[chrn st en D.dat(bpt) sample]`, column 6 = `normalize_by_arm_length(D,B,cyto,1,2,chrarms)` (marker units; centromere-spanning rows: `Q(:,3) = armstart_by_snp − 1` on p, `QQ(:,2) = armstart_by_snp` on q, fractions summed — `armstart_by_snp` is a global marker index because `find_snps` returns `in_chr(snps)`, verified on chr 2 with P ≠ Q). `deconstruct_sample.m` → `deconstruct_chr.m` (row with `en == chr_bpt`; last row → all p; **first row (and more rows) → all rows q** — reference quirk kept; else split; levels subtracted) → `prepare_B.m` (`B.*(B>0)`, `−(B.*(B<0))`, `merge_adj_segs`) → `atomic_zigg_deconstruction.m` (first maximum, higher neighbour with left on ties `>=`, event `[chrn st en amp sample cn_st cn_en fract]` when the step is > 0, merge equal neighbours, residual level from 0) → `add_broad_levels_to_zigg.m` (cn_st, cn_en += level; deletion levels stay in the negated space + level, as in the reference).
+
+| Case (layout chr1 10p+10q, chr2 8p+12q) | B rows (chrn st en amp sample fract) | ZA / ZD (chrn st en amp sample cn_st cn_en fract) |
+|---|---|---|
+| A: 1p 0.5\|1.5\|0.5, 1q 0, chr2 0.2; levels 0 | 1 1 3 0.5 1 0.3; 1 4 6 1.5 1 0.3; 1 7 10 0.5 1 0.4; 1 11 20 0 1 1; 2 21 40 0.2 1 2 | ZA: 1 4 6 1 1 0.5 1.5 0.3; 1 1 10 0.5 1 0 0.5 1; 2 21 40 0.2 1 0 0.2 2 — ZD: none |
+| A with levels (1p 0.5, 1q 0, chr2 0.2), bpt (10, 40) | — | ZA: 1 4 6 1 1 0.5 1.5 0.3 — ZD: none |
+| B: 1q 0.6\|−0.8\|0.6, chr2 −0.3; levels 0 | 1 1 10 0 1 1; 1 11 14 0.6 1 0.4; 1 15 16 −0.8 1 0.2; 1 17 20 0.6 1 0.4; 2 21 40 −0.3 1 2 | ZA: 1 11 14 0.6 …0.4 (×2, 11–14, 17–20) — ZD: 1 15 16 0.8 1 0 0.8 0.2; 2 21 40 0.3 1 0 0.3 2 |
+| B with levels (0, 0.6, −0.3, −0.3), bpt (10, 40) (first-row quirk) | — | ZA: none — ZD: 1 15 16 1.3999999999999999 1 0.6 2 0.2; 1 1 10 0.6 1 0.6 1.2 1 |
+| C: chr2 0\|1.0\|0 with the gain on local markers 6..12, sample 2 | …; 2 26 32 1 2 0.70833333333333326 (3/8 + 4/12); 2 33 40 0 2 0.66666666666666663 | ZA: 1 1 20 0.3 2 0 0.3 2; 2 26 32 1 2 0 1 0.70833333333333326 |
+| D: chr2 0.4\|1.2\|−0.5, levels (0.1, 0.1, 0.7, 0.4), bpt (20, 24) | 2 21 24 0.4 1 0.5; 2 25 29 1.2 1 0.58333333333333337; 2 30 40 −0.5 1 0.91666666666666663 | ZA: 2 25 29 0.79999999999999993 1 0.4 1.2 …; ZD: 2 30 40 0.9 1 0.4 1.3 … |
+
+(Abbreviated decimals in the table; the tests hold the full `%.17g` strings.) All rows equal bit-for-bit in `OncologyAnalyzer_ZigguratDeconstruction_Tests` (F50 region).
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -173,3 +192,4 @@ All values are locked in `OncologyAnalyzer_DetectFocalAmplifications_Tests` / `O
 - **2026-06-14**: Initial documentation.
 - **2026-09-28**: Review B24 — GISTIC2 MATLAB source cross-check; threshold range validation (t_amp ∈ [0,∞), broad_len_cutoff ∈ [0,2], NaN rejected); ziggurat-deconstruction limitation documented.
 - **2026-10-10**: FIN-B24 WP21 — F48 marker-unit arm fraction (GISTIC2 `normalize_by_arm_length` norm_type 1), F49 locus-overlap gene mapping (GISTIC2 `genes_at` partial_hits 1) with GRCh38 default panels; Octave reference runs recorded.
+- **2026-10-10**: FIN-B24 WP22 — F50 GISTIC2 ziggurat per-sample building blocks (`make_sample_B`, `deconstruct_sample`) ported (internal); Octave runs of the original `.m` files recorded.

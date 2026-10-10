@@ -834,6 +834,521 @@ public static partial class OncologyAnalyzer
 
     #endregion
 
+    #region GISTIC2 ziggurat deconstruction (ONCO-CNA-002, B24 F50–F52)
+
+    /// <summary>
+    /// Marker layout of one chromosome for the GISTIC2 ziggurat deconstruction. The chromosome's markers are numbered
+    /// 1..(<see cref="PArmMarkerCount"/> + <see cref="QArmMarkerCount"/>) in genomic order; the first
+    /// <see cref="PArmMarkerCount"/> lie on the p arm and the rest on the q arm (GISTIC2 <c>normalize_by_arm_length</c>:
+    /// <c>band.snp_length</c> = markers in the arm's cytoband span, a marker is on q when its position is ≥ the q-arm start).
+    /// An arm without markers (e.g. the p arm of an acrocentric chromosome) has count 0.
+    /// </summary>
+    /// <param name="Chromosome">Chromosome label (e.g. "1", "17", "X"); unique within a layout.</param>
+    /// <param name="PArmMarkerCount">Number of markers on the p arm (≥ 0).</param>
+    /// <param name="QArmMarkerCount">Number of markers on the q arm (≥ 0); P + Q ≥ 1.</param>
+    public readonly record struct ZigguratChromosome(string Chromosome, int PArmMarkerCount, int QArmMarkerCount);
+
+    /// <summary>
+    /// A copy-number segment of one sample in marker coordinates (1-based, closed, within its chromosome; see
+    /// <see cref="ZigguratChromosome"/>). A sample's segments must tile every chromosome of the layout exactly
+    /// (GISTIC2 <c>D.dat</c> is a full marker × sample matrix).
+    /// </summary>
+    /// <param name="Chromosome">Chromosome label matching a <see cref="ZigguratChromosome.Chromosome"/>.</param>
+    /// <param name="StartMarker">First marker (1-based within the chromosome).</param>
+    /// <param name="EndMarker">Last marker (inclusive), ≥ <paramref name="StartMarker"/>.</param>
+    /// <param name="Value">Segment value: log2 ratio (GISTIC2 default input) or copy number − 2.</param>
+    public readonly record struct ZigguratSegment(string Chromosome, int StartMarker, int EndMarker, double Value);
+
+    /// <summary>One row of a GISTIC2 B / Z / Q array (columns 1–10 of <c>Qs.m</c>; B uses 1–5 and fraction).</summary>
+    internal struct GisticZiggRow
+    {
+        /// <summary>Column 1 — chromosome index (1-based position in the layout).</summary>
+        public int Chromosome;
+        /// <summary>Column 2 — start marker (global, 1-based).</summary>
+        public int Start;
+        /// <summary>Column 3 — end marker (global, 1-based, inclusive).</summary>
+        public int End;
+        /// <summary>Column 4 — amplitude (B: segment value; Z/Q: event amplitude).</summary>
+        public double Amplitude;
+        /// <summary>Column 5 — sample index (1-based, column of <c>D.dat</c>).</summary>
+        public int Sample;
+        /// <summary>Column 6 — starting copy-number level.</summary>
+        public double StartLevel;
+        /// <summary>Column 7 — ending copy-number level.</summary>
+        public double EndLevel;
+        /// <summary>Column 8 (B column 6) — length as chromosome-arm fraction (marker units, p + q when spanning).</summary>
+        public double Fraction;
+        /// <summary>Column 9 — deconstruction (table) score.</summary>
+        public double Score;
+        /// <summary>Column 10 — broad level of the arm.</summary>
+        public double ArmLevel;
+    }
+
+    /// <summary>
+    /// GISTIC2 marker layout: chromosomes in layout order are GISTIC2 chromosome numbers 1..C, markers are numbered
+    /// globally 1..M (chromosome-major), as in <c>D.chrn</c> / <c>D.pos</c>.
+    /// </summary>
+    internal sealed class GisticMarkerLayout
+    {
+        private readonly int[] _offset;
+        private readonly int[] _p;
+        private readonly int[] _q;
+        private readonly string[] _names;
+        private readonly Dictionary<string, int> _index;
+
+        internal GisticMarkerLayout(IReadOnlyList<ZigguratChromosome> chromosomes)
+        {
+            ArgumentNullException.ThrowIfNull(chromosomes);
+            if (chromosomes.Count == 0)
+            {
+                throw new ArgumentException("The marker layout must contain at least one chromosome.", nameof(chromosomes));
+            }
+
+            int n = chromosomes.Count;
+            _offset = new int[n];
+            _p = new int[n];
+            _q = new int[n];
+            _names = new string[n];
+            _index = new Dictionary<string, int>(StringComparer.Ordinal);
+            long total = 0;
+            for (int i = 0; i < n; i++)
+            {
+                ZigguratChromosome c = chromosomes[i];
+                if (string.IsNullOrWhiteSpace(c.Chromosome))
+                {
+                    throw new ArgumentException("Chromosome labels must be non-empty.", nameof(chromosomes));
+                }
+
+                if (c.PArmMarkerCount < 0 || c.QArmMarkerCount < 0 || (long)c.PArmMarkerCount + c.QArmMarkerCount < 1)
+                {
+                    throw new ArgumentException(
+                        $"Chromosome '{c.Chromosome}' must have non-negative arm marker counts with at least one marker " +
+                        $"(got p={c.PArmMarkerCount}, q={c.QArmMarkerCount}).", nameof(chromosomes));
+                }
+
+                if (!_index.TryAdd(c.Chromosome, i + 1))
+                {
+                    throw new ArgumentException($"Chromosome '{c.Chromosome}' appears more than once in the layout.", nameof(chromosomes));
+                }
+
+                _offset[i] = (int)total;
+                _p[i] = c.PArmMarkerCount;
+                _q[i] = c.QArmMarkerCount;
+                _names[i] = c.Chromosome;
+                total += (long)c.PArmMarkerCount + c.QArmMarkerCount;
+                if (total > int.MaxValue)
+                {
+                    throw new ArgumentException("The layout holds more than Int32.MaxValue markers.", nameof(chromosomes));
+                }
+            }
+
+            MarkerCount = (int)total;
+        }
+
+        /// <summary>Number of chromosomes C.</summary>
+        internal int ChromosomeCount => _names.Length;
+
+        /// <summary>Total number of markers M.</summary>
+        internal int MarkerCount { get; }
+
+        /// <summary>Label of chromosome <paramref name="chr"/> (1-based).</summary>
+        internal string Name(int chr) => _names[chr - 1];
+
+        /// <summary>Global index of the marker before the chromosome's first marker.</summary>
+        internal int Offset(int chr) => _offset[chr - 1];
+
+        /// <summary>p-arm marker count (<c>armlengths_by_snp(2·chr − 1)</c>).</summary>
+        internal int PCount(int chr) => _p[chr - 1];
+
+        /// <summary>q-arm marker count (<c>armlengths_by_snp(2·chr)</c>).</summary>
+        internal int QCount(int chr) => _q[chr - 1];
+
+        /// <summary>Global index of the chromosome's last marker (<c>chrnEnd</c>).</summary>
+        internal int ChromosomeEnd(int chr) => _offset[chr - 1] + _p[chr - 1] + _q[chr - 1];
+
+        /// <summary>Global index of the first q-arm marker (<c>armstart_by_snp(2·chr)</c>).</summary>
+        internal int QStart(int chr) => _offset[chr - 1] + _p[chr - 1] + 1;
+
+        /// <summary>1-based chromosome number of a label, or 0 when absent.</summary>
+        internal int IndexOf(string label) => label is not null && _index.TryGetValue(label, out int i) ? i : 0;
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>normalize_by_arm_length(D,Q,cyto,1,2)</c> (norm_type 1 = marker units, ref_length 2 = p + q sum) for one
+    /// segment: a segment starting on q is divided by the q-arm marker count, one ending on p by the p-arm count, and a
+    /// centromere-spanning segment is the sum of its p part ÷ p markers and its q part ÷ q markers.
+    /// </summary>
+    internal static double GisticArmFraction(GisticMarkerLayout layout, int chr, int start, int end)
+    {
+        int qStart = layout.QStart(chr);
+        if (start >= qStart)
+        {
+            return (double)(end - start + 1) / layout.QCount(chr);
+        }
+
+        if (end >= qStart)
+        {
+            // spans_cent, ref_length 2: Q(:,3) = armstart_by_snp − 1 on p; QQ(:,2) = armstart_by_snp on q; summed.
+            double fract = (double)((qStart - 1) - start + 1) / layout.PCount(chr);
+            return fract + (double)(end - qStart + 1) / layout.QCount(chr);
+        }
+
+        return (double)(end - start + 1) / layout.PCount(chr);
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>make_sample_B.m</c>: converts one sample's segments into the B array
+    /// <c>[chrn st en amp sample fract]</c> — breakpoints where the (transformed) value changes
+    /// (<c>find(diff(D.dat(:,idx)) ~= 0)</c>) plus chromosome ends, value = <c>D.dat(bpt)</c>, arm fraction from
+    /// <see cref="GisticArmFraction"/>. Validates that the segments tile every layout chromosome exactly.
+    /// </summary>
+    /// <param name="layout">Marker layout.</param>
+    /// <param name="segments">The sample's segments.</param>
+    /// <param name="sample">1-based sample index (B column 5).</param>
+    /// <param name="transform">Value transform applied per segment before breakpoint detection (cap / log→CN); null = identity.</param>
+    internal static List<GisticZiggRow> GisticMakeSampleB(
+        GisticMarkerLayout layout,
+        IReadOnlyList<ZigguratSegment> segments,
+        int sample,
+        Func<double, double>? transform = null)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        int c = layout.ChromosomeCount;
+        var byChromosome = new List<ZigguratSegment>[c];
+        for (int i = 0; i < c; i++)
+        {
+            byChromosome[i] = new List<ZigguratSegment>();
+        }
+
+        foreach (ZigguratSegment s in segments)
+        {
+            int chr = layout.IndexOf(s.Chromosome);
+            if (chr == 0)
+            {
+                throw new ArgumentException(
+                    $"Sample {sample - 1}: chromosome '{s.Chromosome}' is not in the marker layout.", nameof(segments));
+            }
+
+            if (double.IsNaN(s.Value))
+            {
+                throw new ArgumentException(
+                    $"Sample {sample - 1}: segment {s.Chromosome}:{s.StartMarker}-{s.EndMarker} has a NaN value.", nameof(segments));
+            }
+
+            byChromosome[chr - 1].Add(s);
+        }
+
+        var b = new List<GisticZiggRow>();
+        for (int chr = 1; chr <= c; chr++)
+        {
+            List<ZigguratSegment> list = byChromosome[chr - 1];
+            list.Sort((x, y) => x.StartMarker.CompareTo(y.StartMarker));
+            int markers = layout.PCount(chr) + layout.QCount(chr);
+            int expectedStart = 1;
+            int offset = layout.Offset(chr);
+            int runStart = 0;
+            double runValue = 0;
+            bool open = false;
+            foreach (ZigguratSegment s in list)
+            {
+                if (s.StartMarker != expectedStart || s.EndMarker < s.StartMarker || s.EndMarker > markers)
+                {
+                    throw new ArgumentException(
+                        $"Sample {sample - 1}: segments on chromosome '{layout.Name(chr)}' must tile markers 1..{markers} " +
+                        $"without gaps or overlaps (segment {s.StartMarker}-{s.EndMarker}, expected start {expectedStart}).",
+                        nameof(segments));
+                }
+
+                double value = transform is null ? s.Value : transform(s.Value);
+                if (!double.IsFinite(value))
+                {
+                    throw new ArgumentException(
+                        $"Sample {sample - 1}: segment {s.Chromosome}:{s.StartMarker}-{s.EndMarker} has a non-finite " +
+                        "copy-number value (set ZigguratOptions.Cap to bound infinite input).", nameof(segments));
+                }
+
+                if (open && value != runValue)
+                {
+                    AddBRow(b, layout, chr, offset + runStart, offset + s.StartMarker - 1, runValue, sample);
+                    runStart = s.StartMarker;
+                }
+                else if (!open)
+                {
+                    runStart = s.StartMarker;
+                    open = true;
+                }
+
+                runValue = value;
+                expectedStart = s.EndMarker + 1;
+            }
+
+            if (expectedStart != markers + 1)
+            {
+                throw new ArgumentException(
+                    $"Sample {sample - 1}: segments on chromosome '{layout.Name(chr)}' must tile markers 1..{markers} " +
+                    $"(covered up to {expectedStart - 1}).", nameof(segments));
+            }
+
+            AddBRow(b, layout, chr, offset + runStart, offset + markers, runValue, sample);
+        }
+
+        return b;
+    }
+
+    private static void AddBRow(List<GisticZiggRow> b, GisticMarkerLayout layout, int chr, int start, int end, double value, int sample) =>
+        b.Add(new GisticZiggRow
+        {
+            Chromosome = chr,
+            Start = start,
+            End = end,
+            Amplitude = value,
+            Sample = sample,
+            Fraction = GisticArmFraction(layout, chr, start, end),
+        });
+
+    /// <summary>
+    /// GISTIC2 <c>merge_adj_segs.m</c>: merges adjacent rows with equal amplitude (end extended, fractions added).
+    /// </summary>
+    private static void GisticMergeAdjacentSegments(List<GisticZiggRow> m)
+    {
+        int i = 0;
+        while (i < m.Count - 1)
+        {
+            if (m[i].Amplitude == m[i + 1].Amplitude)
+            {
+                GisticZiggRow row = m[i];
+                row.End = m[i + 1].End;
+                row.Fraction = row.Fraction + m[i + 1].Fraction;
+                m[i] = row;
+                m.RemoveAt(i + 1);
+            }
+            else
+            {
+                i++;
+            }
+        }
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>atomic_zigg_deconstruction.m</c>: repeatedly takes the (first) highest segment, records the step from
+    /// its higher neighbour (left on ties) as an event <c>[chrn st en amp sample cn_st cn_en fract]</c>, lowers it to that
+    /// neighbour and merges equal neighbours; a non-zero residual level is recorded as a final event from 0.
+    /// </summary>
+    internal static List<GisticZiggRow> GisticAtomicZigguratDeconstruction(List<GisticZiggRow> source)
+    {
+        var z = new List<GisticZiggRow>();
+        if (source.Count == 0)
+        {
+            return z;
+        }
+
+        var bt = new List<GisticZiggRow>(source);
+        int sample = bt[0].Sample;
+        while (bt.Count > 1 && MaxAmplitude(bt, out int mi) > 0)
+        {
+            int adj;
+            if (mi == 0)
+            {
+                adj = 1;
+            }
+            else if (mi == bt.Count - 1)
+            {
+                adj = mi - 1;
+            }
+            else
+            {
+                adj = bt[mi - 1].Amplitude >= bt[mi + 1].Amplitude ? mi - 1 : mi + 1;
+            }
+
+            double diff = bt[mi].Amplitude - bt[adj].Amplitude;
+            if (diff > 0)
+            {
+                z.Add(new GisticZiggRow
+                {
+                    Chromosome = bt[mi].Chromosome,
+                    Start = bt[mi].Start,
+                    End = bt[mi].End,
+                    Fraction = bt[mi].Fraction,
+                    StartLevel = bt[adj].Amplitude,
+                    EndLevel = bt[mi].Amplitude,
+                });
+            }
+
+            int kk = Math.Min(adj, mi);
+            GisticZiggRow lowered = bt[mi];
+            lowered.Amplitude = bt[adj].Amplitude;
+            bt[mi] = lowered;
+            while (kk < bt.Count - 1 && bt[kk].Amplitude == bt[kk + 1].Amplitude)
+            {
+                GisticZiggRow row = bt[kk];
+                row.End = bt[kk + 1].End;
+                row.Fraction = row.Fraction + bt[kk + 1].Fraction;
+                bt[kk] = row;
+                bt.RemoveAt(kk + 1);
+            }
+        }
+
+        if (bt[0].Amplitude != 0)
+        {
+            z.Add(new GisticZiggRow
+            {
+                Chromosome = bt[0].Chromosome,
+                Start = bt[0].Start,
+                End = bt[0].End,
+                Fraction = bt[0].Fraction,
+                StartLevel = 0,
+                EndLevel = bt[0].Amplitude,
+            });
+        }
+
+        for (int i = 0; i < z.Count; i++)
+        {
+            GisticZiggRow row = z[i];
+            row.Amplitude = row.EndLevel - row.StartLevel;
+            row.Sample = sample;
+            z[i] = row;
+        }
+
+        return z;
+    }
+
+    /// <summary>MATLAB <c>[m, i] = max(x)</c> over amplitudes: first index of the maximum (no NaN reaches here).</summary>
+    private static double MaxAmplitude(List<GisticZiggRow> rows, out int index)
+    {
+        index = 0;
+        double max = rows[0].Amplitude;
+        for (int i = 1; i < rows.Count; i++)
+        {
+            if (rows[i].Amplitude > max)
+            {
+                max = rows[i].Amplitude;
+                index = i;
+            }
+        }
+
+        return max;
+    }
+
+    /// <summary>GISTIC2 <c>prepare_B.m</c>: positive part (Ba) and negated negative part (Bd), each merged.</summary>
+    private static (List<GisticZiggRow> Amp, List<GisticZiggRow> Del) GisticPrepareB(List<GisticZiggRow> b)
+    {
+        var ba = new List<GisticZiggRow>(b.Count);
+        var bd = new List<GisticZiggRow>(b.Count);
+        foreach (GisticZiggRow row in b)
+        {
+            GisticZiggRow a = row;
+            a.Amplitude = row.Amplitude * (row.Amplitude > 0 ? 1.0 : 0.0); // B.*(B>0): keeps −0 for negatives
+            ba.Add(a);
+            GisticZiggRow d = row;
+            d.Amplitude = -1 * (row.Amplitude * (row.Amplitude < 0 ? 1.0 : 0.0));
+            bd.Add(d);
+        }
+
+        GisticMergeAdjacentSegments(ba);
+        GisticMergeAdjacentSegments(bd);
+        return (ba, bd);
+    }
+
+    /// <summary>GISTIC2 <c>add_broad_levels_to_zigg.m</c>: shifts cn_st / cn_en by the arm's broad level.</summary>
+    private static List<GisticZiggRow> GisticAddBroadLevel(List<GisticZiggRow> z, double broadLevel)
+    {
+        for (int i = 0; i < z.Count; i++)
+        {
+            GisticZiggRow row = z[i];
+            row.StartLevel += broadLevel;
+            row.EndLevel += broadLevel;
+            z[i] = row;
+        }
+
+        return z;
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>deconstruct_chr.m</c>: splits a chromosome's B rows at the breakpoint row (<c>en == chr_bpt</c>),
+    /// subtracts the p / q broad levels, and deconstructs the positive and negative parts of each arm. Note the
+    /// reference quirk kept as is: a breakpoint on the first row (with more rows following) treats all rows as q.
+    /// </summary>
+    internal static (List<GisticZiggRow> Amp, List<GisticZiggRow> Del) GisticDeconstructChromosome(
+        List<GisticZiggRow> b, int chrBreakpoint, double pLevel, double qLevel)
+    {
+        int bptRow = b.FindIndex(r => r.End == chrBreakpoint);
+        if (bptRow < 0)
+        {
+            throw new InvalidOperationException("Chromosome breakpoint must correspond to segment breakpoint!");
+        }
+
+        List<GisticZiggRow> bp = new();
+        List<GisticZiggRow> bq = new();
+        if (bptRow == b.Count - 1)
+        {
+            bp = Shift(b, 0, b.Count, pLevel);
+        }
+        else if (bptRow == 0)
+        {
+            bq = Shift(b, 0, b.Count, qLevel);
+        }
+        else
+        {
+            bp = Shift(b, 0, bptRow + 1, pLevel);
+            bq = Shift(b, bptRow + 1, b.Count, qLevel);
+        }
+
+        (List<GisticZiggRow> bpa, List<GisticZiggRow> bpd) = GisticPrepareB(bp);
+        (List<GisticZiggRow> bqa, List<GisticZiggRow> bqd) = GisticPrepareB(bq);
+        List<GisticZiggRow> zap = GisticAddBroadLevel(GisticAtomicZigguratDeconstruction(bpa), pLevel);
+        List<GisticZiggRow> zdp = GisticAddBroadLevel(GisticAtomicZigguratDeconstruction(bpd), pLevel);
+        List<GisticZiggRow> zaq = GisticAddBroadLevel(GisticAtomicZigguratDeconstruction(bqa), qLevel);
+        List<GisticZiggRow> zdq = GisticAddBroadLevel(GisticAtomicZigguratDeconstruction(bqd), qLevel);
+        zap.AddRange(zaq);
+        zdp.AddRange(zdq);
+        return (zap, zdp);
+
+        static List<GisticZiggRow> Shift(List<GisticZiggRow> rows, int from, int to, double level)
+        {
+            var result = new List<GisticZiggRow>(to - from);
+            for (int i = from; i < to; i++)
+            {
+                GisticZiggRow row = rows[i];
+                row.Amplitude -= level;
+                result.Add(row);
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// GISTIC2 <c>deconstruct_sample.m</c>: ziggurat deconstruction of one sample's B array against given broad levels
+    /// (<paramref name="broadLevels"/>[2·ch − 2] = p level, [2·ch − 1] = q level) and per-chromosome breakpoints
+    /// (global end marker of the last p segment). Returns the amplification events (ZA) and the deletion events (ZD,
+    /// amplitudes positive as returned by the reference; <c>perform_deconstruction</c> negates them).
+    /// </summary>
+    internal static (List<GisticZiggRow> Amp, List<GisticZiggRow> Del) GisticDeconstructSample(
+        List<GisticZiggRow> b, IReadOnlyList<double> broadLevels, IReadOnlyList<int> chromosomeBreakpoints)
+    {
+        var za = new List<GisticZiggRow>();
+        var zd = new List<GisticZiggRow>();
+        int maxChr = 0;
+        foreach (GisticZiggRow row in b)
+        {
+            maxChr = Math.Max(maxChr, row.Chromosome);
+        }
+
+        for (int ch = 1; ch <= maxChr; ch++)
+        {
+            List<GisticZiggRow> bt = b.FindAll(r => r.Chromosome == ch);
+            (List<GisticZiggRow> a, List<GisticZiggRow> d) = GisticDeconstructChromosome(
+                bt, chromosomeBreakpoints[ch - 1], broadLevels[2 * ch - 2], broadLevels[2 * ch - 1]);
+            za.AddRange(a);
+            zd.AddRange(d);
+        }
+
+        return (za, zd);
+    }
+
+
+    #endregion
+
 
     #region Homozygous Deletion Detection (ONCO-CNA-003)
 
