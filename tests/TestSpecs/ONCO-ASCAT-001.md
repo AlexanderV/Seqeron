@@ -418,3 +418,15 @@ Battenberg's `determine_copynumber` → `merge_segments` → `determine_copynumb
 | C-MERGE-1 | constant data / invalid input | identical logR/BAF; null; ±∞ logR; chromosome without calls/probes; option 4; ρ = 0 | `InvalidOperationException` (R stops); `ArgumentNullException` / `ArgumentException` / `ArgumentOutOfRangeException` | source / contract |
 | C-WELCH-1 | R error cases | constant; n < 2; NaN / ∞ | NaN; NaN; `ArgumentException` | R run / contract |
 
+## 20. FIN-B24 F61 — Battenberg `callSubclones` driver (2026-10-10)
+
+File `OncologyAnalyzer_BattenbergCallSubclones_Tests.cs` (data: `BattenbergCallSubclonesData.cs`, genomes G1–G4 of §19).
+Expected values = R 4.3.3 `set.seed(rseed); determine_copynumber; merge_segments; determine_copynumber;
+mask_high_cn_segments` (Evidence § F61).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-CALLSUB-1..4 | `CallBattenbergSubclones_MatchesR` | G1–G4 | initial table and final masked table: every column ≤ 1e−12 (pval 1e−9 rel), incl. the second fit's bootstrap columns; merged extents; masked_count / masked_size | R run |
+| M-CALLSUB-5 | stream continuation | G1 | τ equals a re-seeded second fit, SDfrac_A_BS differs from it and equals R's 0.039088938618727802 | R run |
+| C-CALLSUB-1 | invalid input | null rows / logR; permutations 0; ρ 1.5 | `ArgumentNullException`; `ArgumentOutOfRangeException` | contract |
+

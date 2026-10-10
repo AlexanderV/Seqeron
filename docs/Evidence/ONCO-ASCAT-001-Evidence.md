@@ -722,6 +722,22 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
   CHR/chr/CH/ch).
 - Not R-reproducible by design: R stops on an essentially-constant t-test or non-finite logR; the port throws.
 
+## 2026-10 FIN-B24 F61 — Battenberg `callSubclones` copy-number driver (one seeded RNG stream)
+
+- Source opened: Wedge-lab/battenberg 57a8f7e `R/fitcopynumber.R` `callSubclones` ll. 216–277: `set.seed(seed)` once, then
+  `determine_copynumber(BAFvals, …)` (written as `…_1.txt`), `merge_segments(subcloneres, BAFvals, LogRvals, rho, psi, gamma,
+  calc_seg_baf_option)`, `BAFvals = res$bafsegmented`, `determine_copynumber(BAFvals, …)` again (its `sample()` calls continue
+  the same stream), `mask_high_cn_segments(subcloneres, BAFvals, max_allowed_state)`; `psi = rho·psit + 2(1 − rho)`; the
+  rest of the function (plots, PGA.is.clonal, ploidy recalculation, files) is reporting, not part of the copy-number table.
+- R cross-check (executed; same harness and genomes as F60, `emit.R`): R's initial table and final masked table, all 64
+  numeric columns per row (BAF, pval, LogR, ntot, solutions A–F with SDfrac, SDfrac_BS, frac1_0.025/0.975), vs
+  `CallBattenbergSubclones(rows, logR, ρ, psit, rseed, maxAllowedState, bafOption)`: 4/4 genomes, 39 initial + 31 final rows,
+  every column ≤ 1e−12 × max(1, |x|) (pval ≤ 1e−9 rel), masked rows identical. G1 and G3 have sub-clonal segments in both
+  fits (3 → 2 and 5 → 4), so the second fit's bootstrap depends on the first fit's draws: G1 1:1240000 (merged) frac1_A
+  0.59329619995317195, SDfrac_A_BS 0.039088938618727802 / CI [0.51879471062442495, 0.66918038808017899] in `callSubclones`
+  vs 0.039379769001487798 / [0.51378450709526202, 0.66762323719414596] with a fresh `set.seed(2024)` before the second fit
+  (the F41 caveat); G3 chr1:409000 0.057697644086242297 vs 0.0566284153574272. The driver reproduces the former.
+
 ## References
 
 1. Van Loo P, Nordgard SH, Lingjærde OC, et al. (2010). Allele-specific copy number analysis of tumors. PNAS 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
@@ -737,6 +753,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 ## Change History
 
+- **2026-10-10**: FIN-B24 F61 — `callSubclones` driver (`CallBattenbergSubclones`, one seeded RNG stream across both `determine_copynumber` calls) R cross-check (4 genomes, all columns); F41 caveat resolved.
 - **2026-10-10**: FIN-B24 F60 — Battenberg `merge_segments` / `mask_high_cn_segments` port (`MergeBattenbergSegments`, `MaskHighCopyNumberSegments`, `StatisticsHelper.WelchTTestPValue`) R cross-check (4 genomes, every merge branch, seqlevel order).
 - **2026-10-10**: FIN-B24 F59 — NA path of `ascat.asmultipcf` / `ascat.aspcf` and runASCAT on NA segmentations R cross-check (3 NA cohorts, 14 tracks, 12 fits).
 - **2026-10-10**: FIN-B24 F58 — male X non-PAR seeded germline re-genotyping (`AscatMaleXGenotyping`) in aspcf / asmultipcf R cross-check (7 tracks); the F38 "not ported" note is superseded.

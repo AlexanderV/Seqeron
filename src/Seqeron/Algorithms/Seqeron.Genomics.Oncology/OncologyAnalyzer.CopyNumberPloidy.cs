@@ -7643,7 +7643,8 @@ public static partial class OncologyAnalyzer
     /// A–F, NA options included), so the resamples are R's: <c>set.seed(seed); determine_copynumber(…)</c> is reproduced
     /// (the bootstrap columns agree to ~1e−15; R's long-double <c>mean</c>/<c>sd</c> differ only in the last bits).
     /// <c>callSubclones</c> calls <c>set.seed</c> once and then <c>determine_copynumber</c> twice (before/after
-    /// <c>merge_segments</c>), so its final table matches this method only for the RNG state at the second call.
+    /// <c>merge_segments</c>), so its final table matches this method only for the RNG state at the second call —
+    /// <see cref="CallBattenbergSubclones"/> runs the whole sequence on one stream (B24 F61).
     /// </summary>
     /// <param name="segments">Segments with their phased SNP BAFs (e.g. from <see cref="BuildBattenbergSegments"/>).</param>
     /// <param name="purity">Fitted tumour purity ρ ∈ (0, 1].</param>
@@ -7674,7 +7675,8 @@ public static partial class OncologyAnalyzer
 
     /// <summary>
     /// <c>determine_copynumber</c> drawing its bootstrap resamples from <paramref name="rng"/> — shared by
-    /// <see cref="FitSubclonalCopyNumberWithBootstrap"/> (fresh <c>set.seed</c>).
+    /// <see cref="FitSubclonalCopyNumberWithBootstrap"/> (fresh <c>set.seed</c>) and <see cref="CallBattenbergSubclones"/>
+    /// (one stream across both calls, as <c>callSubclones</c>).
     /// </summary>
     private static List<BattenbergSegmentCall> BattenbergDetermineCopyNumber(
         IReadOnlyList<SubclonalSegmentSnpBafs> segments,
@@ -8998,6 +9000,22 @@ public static partial class OncologyAnalyzer
         long MaskedSize);
 
     /// <summary>
+    /// Result of <see cref="CallBattenbergSubclones"/>: the three stages of Battenberg <c>callSubclones</c>.
+    /// </summary>
+    /// <param name="InitialCalls">First <c>determine_copynumber</c> (Battenberg's <c>…_1.txt</c> table).</param>
+    /// <param name="Merge"><c>merge_segments</c> of the initial calls.</param>
+    /// <param name="Mask"><c>mask_high_cn_segments</c> of the second <c>determine_copynumber</c> on the merged
+    /// <c>BAFsegmented</c>; <see cref="Calls"/> is Battenberg's final (extended) copy-number table.</param>
+    public sealed record BattenbergSubcloneCalls(
+        IReadOnlyList<BattenbergSegmentCall> InitialCalls,
+        BattenbergSegmentMerge Merge,
+        BattenbergHighCopyNumberMask Mask)
+    {
+        /// <summary>The final per-segment calls (second <c>determine_copynumber</c>, masked).</summary>
+        public IReadOnlyList<BattenbergSegmentCall> Calls => Mask.Calls;
+    }
+
+    /// <summary>
     /// Battenberg <c>merge_segments</c> (Wedge-lab/battenberg R/fitcopynumber.R; B24 F60): merges adjacent segments of a
     /// fitted copy-number profile when there is not enough evidence for them to be separate. Per chromosome, repeatedly
     /// the <b>smallest</b> segment (width end − start + 1; first on a tie) that still has an unchecked neighbour is taken,
@@ -9230,6 +9248,55 @@ public static partial class OncologyAnalyzer
         }
 
         return new BattenbergHighCopyNumberMask(outCalls, rows, count, size);
+    }
+
+    /// <summary>
+    /// Battenberg <c>callSubclones</c> copy-number driver (R/fitcopynumber.R, B24 F61): <c>set.seed(seed)</c> →
+    /// <c>determine_copynumber</c> (<see cref="BuildBattenbergSegments"/> + <see cref="FitSubclonalCopyNumberWithBootstrap"/>)
+    /// → <see cref="MergeBattenbergSegments"/> → <c>determine_copynumber</c> on the merged <c>BAFsegmented</c> →
+    /// <see cref="MaskHighCopyNumberSegments"/>. Both <c>determine_copynumber</c> calls draw their bootstrap resamples
+    /// from <b>one</b> R Mersenne-Twister stream seeded once, as in Battenberg, so the final table (including
+    /// <c>SDfrac_BS</c> and the bootstrap bounds) is Battenberg's for the same seed. Plots, file output, the PGA-clonal
+    /// statistic and the ploidy recalculation of <c>callSubclones</c> are not part of this method. ψ of all cells is
+    /// derived from <paramref name="ploidy"/> (psit) as in <c>callSubclones</c>: <c>psi = rho·psit + 2(1 − rho)</c>.
+    /// </summary>
+    /// <param name="segmentedSnps">Battenberg <c>BAFsegmented</c> rows (e.g. <see cref="SegmentPhasedBaf"/>).</param>
+    /// <param name="logR">Raw logR probes (NaN = NA; ±∞ rejected by the merge step).</param>
+    /// <param name="purity">ρ ∈ (0, 1] (<c>rho.psi.file</c> rho).</param>
+    /// <param name="ploidy">Tumour ploidy psit (&gt; 0).</param>
+    /// <param name="seed">R <c>set.seed</c> value (Battenberg <c>seed</c>).</param>
+    /// <param name="gamma">Platform γ (&gt; 0).</param>
+    /// <param name="significanceLevel">Battenberg <c>siglevel</c> (default 0.05).</param>
+    /// <param name="maxBafDistance">Battenberg <c>maxdist</c> (default 0.01).</param>
+    /// <param name="permutations">Battenberg <c>noperms</c> (default 1000).</param>
+    /// <param name="maxAllowedState">Battenberg <c>max_allowed_state</c> (default 250).</param>
+    /// <param name="bafOption">Battenberg <c>calc_seg_baf_option</c> used by the merge (default 3).</param>
+    /// <returns>The initial calls, the merge, and the masked final calls.</returns>
+    /// <exception cref="ArgumentNullException">an argument is null.</exception>
+    /// <exception cref="ArgumentException">as <see cref="BuildBattenbergSegments"/> / <see cref="MergeBattenbergSegments"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">invalid ρ, ψ, γ, siglevel, maxdist, permutations &lt; 1 or bafOption.</exception>
+    /// <exception cref="InvalidOperationException">a merge t-test on essentially constant data (R stops).</exception>
+    public static BattenbergSubcloneCalls CallBattenbergSubclones(
+        IReadOnlyList<PhasedBafSegmentedSnp> segmentedSnps,
+        IReadOnlyList<LogRProbe> logR,
+        double purity,
+        double ploidy,
+        int seed,
+        double gamma = AscatSequencingGamma,
+        double significanceLevel = BattenbergSignificanceLevel,
+        double maxBafDistance = BattenbergMaxBafDistance,
+        int permutations = BattenbergDefaultPermutations,
+        int maxAllowedState = BattenbergMaxAllowedState,
+        BattenbergSegmentBafOption bafOption = BattenbergSegmentBafOption.MedianUnlessExtreme)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(permutations, 1);
+        var rng = new RMersenneTwister(seed);
+        List<BattenbergSegmentCall> initial = BattenbergDetermineCopyNumber(
+            BuildBattenbergSegments(segmentedSnps, logR), purity, ploidy, rng, gamma, significanceLevel, maxBafDistance, permutations);
+        BattenbergSegmentMerge merge = MergeBattenbergSegments(initial, segmentedSnps, logR, purity, ploidy, gamma, bafOption);
+        List<BattenbergSegmentCall> final = BattenbergDetermineCopyNumber(
+            BuildBattenbergSegments(merge.SegmentedSnps, logR), purity, ploidy, rng, gamma, significanceLevel, maxBafDistance, permutations);
+        return new BattenbergSubcloneCalls(initial, merge, MaskHighCopyNumberSegments(final, merge.SegmentedSnps, maxAllowedState));
     }
 
     /// <summary>A mutable <c>merge_segments</c> GRanges row (<c>ID</c> = list index, <c>Prev_checked</c>, <c>Next_checked</c>).</summary>
