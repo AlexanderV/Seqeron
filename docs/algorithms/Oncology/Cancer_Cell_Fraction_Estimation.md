@@ -147,21 +147,23 @@ for clusterCount ∉ [1, count]. All indices are 0-based.
 
 1. Validate; stable-sort values carrying original indices; k ← min(k, number of distinct values) [6].
 2. Median-shifted prefix sums Σx, Σx² (Ckmeans.1d.dp `EWL2::fill_dp_matrix`).
-3. Fill the DP rows q = 1..k−1 with the log-linear divide-and-conquer row fill (`fill_row_q_log_linear`,
-   monotone split index J); only two rows of D are kept, the backtrack matrix J is k × n.
+3. Fill the DP rows q = 1..k−1 with the O(n) SMAWK row fill (`fill_row_q_SMAWK`, R's default
+   `method = "linear"`, incl. its tie-breaking among equal-WCSS splits); only two rows of D are kept, the backtrack
+   matrix J is k × n.
 4. Backtrack cluster boundaries from J; centroid = block mean; clusters are ascending, the last is clonal.
 
 #### Decision Rules / Reference Tables
 
-Port of Ckmeans.1d.dp 4.3.6 C++ (`EWL2_dynamic_prog.cpp`, `EWL2_fill_log_linear.cpp`, `EWL2_within_cluster.h`,
-`dynamic_prog.cpp::backtrack`); `ldouble` is `double` there, so arithmetic is identical. Inputs whose effective
+Port of Ckmeans.1d.dp 4.3.6 C++ (`EWL2_dynamic_prog.cpp`, `EWL2_fill_SMAWK.cpp`, `EWL2_within_cluster.h`,
+`dynamic_prog.cpp::backtrack`); `ldouble` is `double` there, so arithmetic is identical. The R defaults are
+reproduced: `method = "linear"` (SMAWK), unweighted (`y = 1`), criterion `"L2"`. Inputs whose effective
 k × n exceeds 10⁸ backtrack cells are rejected (`ArgumentOutOfRangeException`).
 
 #### Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| ClusterCcfValues | O(k·n·log n) | O(k·n) | log-linear DP row fill [6]; sort O(n log n); n=10⁵, k=10 ≈ 0.2 s |
+| ClusterCcfValues | O(k·n) | O(k·n) | SMAWK DP row fill [6]; sort O(n log n) |
 
 ## 5. Implementation Notes
 
@@ -177,9 +179,9 @@ k × n exceeds 10⁸ backtrack cells are rejected (`ArgumentOutOfRangeException`
 Multiplicity is an integer input of `EstimateCcf` (multi-region/PICTograph convention); it can be inferred from VAF,
 purity and local copy number with `OncologyAnalyzer.DeriveMultiplicity` (ONCO-ASCAT-001; facets-suite
 `expected_mutant_copies`, McGranahan 2016). Clustering is the exact Ckmeans.1d.dp optimum (no seeding), so output is identical
-across runs and independent of input order; cross-checked against the Ckmeans.1d.dp C++ code (ckwrap 1.2.3):
-2999/3000 random inputs bit-identical labels and centroids, 1 equal-WCSS tie broken differently (ckwrap uses the
-SMAWK row fill, this port the log-linear fill). No substring/pattern search is
+across runs and independent of input order. Cross-checked against R Ckmeans.1d.dp 4.3.6 `Ckmeans.1d.dp(x, k)`
+(defaults): 6000/6000 random inputs (n 2–60, k 1–8, 5 of 6 generators tie-heavy) bit-identical labels and centroids
+(F46; the former log-linear fill, = R `method = "loglinear"`, differed on 21 equal-WCSS ties). No substring/pattern search is
 involved, so the repository suffix tree is not applicable.
 
 ### 5.3 Conformance to Theory / Spec

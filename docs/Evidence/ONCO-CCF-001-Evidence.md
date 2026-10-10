@@ -66,7 +66,7 @@
 
 ### Ckmeans.1d.dp — optimal 1-D k-means by dynamic programming (Wang & Song 2011, *The R Journal* 3(2):29–33)
 
-**URL:** https://raw.githubusercontent.com/cran/Ckmeans.1d.dp/master/ (v4.3.6: `R/Ckmeans.1d.dp.R`, `src/Ckmeans.1d.dp.cpp`, `src/EWL2_dynamic_prog.cpp`, `src/EWL2_fill_log_linear.cpp`, `src/EWL2_within_cluster.h`, `src/dynamic_prog.cpp`, `src/precision.h`); paper via WebSearch snippets (journal.r-project.org RJ-2011-015)
+**URL:** https://raw.githubusercontent.com/cran/Ckmeans.1d.dp/master/ (v4.3.6: `R/Ckmeans.1d.dp.R`, `src/Ckmeans.1d.dp.cpp`, `src/EWL2_dynamic_prog.cpp`, `src/EWL2_fill_log_linear.cpp`, `src/EWL2_fill_SMAWK.cpp` (F46), `src/EWL2_within_cluster.h`, `src/dynamic_prog.cpp`, `src/precision.h`); paper via WebSearch snippets (journal.r-project.org RJ-2011-015)
 **Accessed:** 2026-09-28 (B24 review)
 **Authority rank:** 1 (peer-reviewed) + 3 (reference implementation)
 
@@ -75,7 +75,8 @@
 1. "The heuristic k-means algorithm … does not guarantee optimality"; a dynamic program finds the optimal 1-D k-means partition (minimum WCSS).
 2. `cluster.1d.dp` / `kmeans_1d_dp`: Kmax is reduced to the number of unique input values (no empty clusters).
 3. EWL2 fill: median-shifted prefix sums; `ssq(j,i)` = Σx² − n·μ² (clamped at 0); row fill by divide and conquer over monotone J; `backtrack` centre = block mean. `ldouble` = `double`.
-4. Numerical reference: Python `ckwrap` 1.2.3 (wraps the same C++; R CRAN mirror unreachable in the sandbox).
+4. Numerical reference (F17): Python `ckwrap` 1.2.3 (wraps the same C++; R CRAN mirror unreachable in the sandbox).
+5. *Added 2026-10-10 (F46):* R wrapper `Ckmeans.1d.dp(x, k = c(1,9), y = 1, method = c("linear", "loglinear", "quadratic"), estimate.k = c("BIC", "BIC 3.4.12"))` — default `method = "linear"` → `EWL2::fill_dp_matrix` calls `fill_row_q_SMAWK` (`src/EWL2_fill_SMAWK.cpp`: `SMAWK`, `reduce_in_place` with strict `Sl < Slplus1` keeping the left column, `fill_even_positions` / `find_min_from_candidates` with `Sj <= S[q][i]` keeping the largest optimal j). Default `y = 1` has length ≠ length(x) → `yp = 0` → unweighted; `Ckmeans.1d.dp` always passes criterion `"L2"`. Numerical reference: R 4.x + Ckmeans.1d.dp 4.3.6 built from the CRAN GitHub mirror (github.com/cran/Ckmeans.1d.dp; Rdpack import dropped — documentation-only — because the Rdpack help build crashes in the sandbox; computational sources untouched).
 
 ---
 
@@ -128,6 +129,22 @@
 | {0.81, 0.54, 0.82, 0.55, 0.71, 0.31} | 3 | {0.31, 0.545, 0.78} | 2,1,2,1,2,0 | 0.00745 | {0.4667, 0.71, 0.815}, 0.036917 |
 | {0.5, 0.5, 0.5, 0.5, 1.0} | 3 | {0.5, 1.0} (k → 2 distinct) | 0,0,0,0,1 | 0 | {0.5, 0.5, 1.0} with an empty cluster |
 
+### Dataset: R Ckmeans.1d.dp 4.3.6 default (`method = "linear"`, SMAWK) tie cases — B24 review 2026-10 (F46)
+
+Comparison: 6000 random inputs (R `set.seed(20261010)`, n 2–60, k 1–8; generators: uniform, rounded to 0.1 / 0.01,
+quarter grid, clustered+noise rounded, 7-value grid) → C# vs R `Ckmeans.1d.dp(x, k)` labels and centers bit-identical
+on 6000/6000. R `method = "linear"` vs `"loglinear"` disagree on 21/6000 (all equal-WCSS ties); the former C# port
+(log-linear fill) reproduced `"loglinear"` and mismatched the R default on exactly those 21.
+
+| CCF values | k | R default labels (0-based) | R default centers | R `"loglinear"` (former port) |
+|------------|---|----------------------------|-------------------|-------------------------------|
+| {0.5,0.25,1,0.5,0,0.25,0.75,0.25,0.5,0,1,0,0,0,0,1} | 4 | 2,1,3,2,0,1,2,1,2,0,3,0,0,0,0,3 | {0, 0.25, 0.5625, 1} | 0.75 with the 1s: {0, 0.25, 0.5, 0.9375} (both splits: WCSS 0.046875 over the top two clusters) |
+| {0.4,0.7,0.3,0.8,0.8,0,0.5,0.8,0.5,0.6,0.1,0.7,0.2,0.2,0.6,0,0.5,0.6,0.7,0.4,0.9,0.8,0.9} | 8 | 2,5,1,6,6,0,3,6,3,4,0,5,1,1,4,0,3,4,5,2,7,6,7 | {0.0333…, 0.2333…, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9} | 0.1 with 0.2: {0, 0.1667, 0.3667, …} |
+| {0, 0.5, 1} | 2 | 0,0,1 | {0.25, 1} | same |
+| {0.2, 0.4, 0.6, 0.8} | 3 | 0,1,1,2 | {0.2, 0.5, 0.8} | same |
+| {0.1, …, 0.6} | 4 | 0,1,2,2,3,3 | {0.1, 0.2, 0.35, 0.55} | same |
+| {0, 0.25, 0.5, 0.75, 1} | 3 | 0,0,1,1,2 | {0.125, 0.625, 1} | same |
+
 ---
 
 ## Assumptions
@@ -164,3 +181,4 @@
 
 - **2026-06-15**: Initial documentation.
 - **2026-09-28**: B24 review F17 — Lloyd/quantile seeding replaced by Ckmeans.1d.dp exact DP; reference optima dataset added.
+- **2026-10-10**: B24 FIN F46 — row fill switched to R's default SMAWK (`method = "linear"`); R tie-case dataset added (6000/6000 bit-identical).

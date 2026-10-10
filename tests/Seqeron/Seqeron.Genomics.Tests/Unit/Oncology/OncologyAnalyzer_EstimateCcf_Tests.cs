@@ -398,6 +398,63 @@ public class OncologyAnalyzer_EstimateCcf_Tests
         Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClusterCcfValues(values, 5_000));
     }
 
+    // B24 review 2026-09 (ONCO-CCF-001, F46): R's default Ckmeans.1d.dp(x, k) uses method = "linear" (SMAWK row fill,
+    // EWL2_fill_SMAWK.cpp); among equal-WCSS optima its tie-breaking picks a different split than the former
+    // "loglinear" fill. Here {0.5,0.5,0.5,0.75} and {0.75,1,1,1} both have WCSS 0.046875: R 4.3.6 default puts 0.75
+    // with the 0.5s (centers {0, 0.25, 0.5625, 1}); method = "loglinear" (the former port) put it with the 1s
+    // (centers {0, 0.25, 0.5, 0.9375}).
+    [Test]
+    public void ClusterCcfValues_EqualWcssTie_MatchesRDefaultLinearMethod()
+    {
+        var values = new[] { 0.5, 0.25, 1, 0.5, 0, 0.25, 0.75, 0.25, 0.5, 0, 1, 0, 0, 0, 0, 1 };
+
+        OncologyAnalyzer.CcfClustering result = OncologyAnalyzer.ClusterCcfValues(values, 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Assignments, Is.EqualTo(new[] { 2, 1, 3, 2, 0, 1, 2, 1, 2, 0, 3, 0, 0, 0, 0, 3 }),
+                "R Ckmeans.1d.dp(x, 4)$cluster - 1.");
+            Assert.That(result.Centroids, Is.EqualTo(new[] { 0.0, 0.25, 0.5625, 1.0 }), "R $centers (exact).");
+        });
+    }
+
+    // F46: a tie case from the 6000-input R comparison (one of the 21 where R "linear" and "loglinear" disagree);
+    // labels and centers are R 4.3.6 Ckmeans.1d.dp(x, 8) output, compared bit for bit.
+    [Test]
+    public void ClusterCcfValues_EightClusterTieCase_BitIdenticalToR()
+    {
+        var values = new[]
+        {
+            0.4, 0.7, 0.3, 0.8, 0.8, 0, 0.5, 0.8, 0.5, 0.6, 0.1, 0.7, 0.2, 0.2, 0.6, 0, 0.5, 0.6, 0.7, 0.4, 0.9, 0.8, 0.9,
+        };
+
+        OncologyAnalyzer.CcfClustering result = OncologyAnalyzer.ClusterCcfValues(values, 8);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Assignments, Is.EqualTo(new[]
+            {
+                2, 5, 1, 6, 6, 0, 3, 6, 3, 4, 0, 5, 1, 1, 4, 0, 3, 4, 5, 2, 7, 6, 7,
+            }));
+            Assert.That(result.Centroids, Is.EqualTo(new[]
+            {
+                0.033333333333333333, 0.23333333333333331, 0.40000000000000002, 0.5, 0.59999999999999998,
+                0.69999999999999984, 0.80000000000000004, 0.90000000000000002,
+            }));
+        });
+    }
+
+    // F46: equally spaced inputs have equal-WCSS splits; R 4.3.6 Ckmeans.1d.dp(x, k)$cluster - 1 (linear and
+    // loglinear agree here).
+    [TestCase(new[] { 0.0, 0.5, 1.0 }, 2, new[] { 0, 0, 1 })]
+    [TestCase(new[] { 0.2, 0.4, 0.6, 0.8 }, 3, new[] { 0, 1, 1, 2 })]
+    [TestCase(new[] { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 }, 4, new[] { 0, 1, 2, 2, 3, 3 })]
+    [TestCase(new[] { 0.0, 0.25, 0.5, 0.75, 1.0 }, 3, new[] { 0, 0, 1, 1, 2 })]
+    public void ClusterCcfValues_EquallySpacedTies_MatchR(double[] values, int k, int[] expected)
+    {
+        Assert.That(OncologyAnalyzer.ClusterCcfValues(values, k).Assignments, Is.EqualTo(expected));
+    }
+
     #endregion
 
     // B24 review 2026-09 (ONCO-PURITY-001 dedup): EstimateCcf routes through the canonical CNAqc

@@ -90,6 +90,9 @@
 | M17 | ClusterCcfValues unsorted reference | {0.81,0.54,0.82,0.55,0.71,0.31}, k=3 | centroids {0.31,0.545,0.78}, labels 2,1,2,1,2,0 | Ckmeans.1d.dp (ckwrap) |
 | M18 | ClusterCcfValues k > distinct | {0.5×4, 1.0}, k=3 | 2 clusters {0.5,1.0}, none empty | Ckmeans.1d.dp Kmax=min(k,unique) |
 | M19 | ClusterCcfValues DP size guard | n=20001, k=5000 | ArgumentOutOfRangeException | 10⁸-cell limit |
+| M20 | ClusterCcfValues equal-WCSS tie = R default SMAWK | {0.5,0.25,1,0.5,0,0.25,0.75,0.25,0.5,0,1,0,0,0,0,1}, k=4 | labels 2,1,3,2,0,1,2,1,2,0,3,0,0,0,0,3; centers {0,0.25,0.5625,1} | R Ckmeans.1d.dp 4.3.6 `method="linear"` (F46) |
+| M21 | ClusterCcfValues 8-cluster tie case | 23 values on a 0.1 grid, k=8 | R labels + centers bit-identical | R Ckmeans.1d.dp 4.3.6 (F46) |
+| M22 | ClusterCcfValues equally spaced ties | 4 inputs (k 2–4) | R labels | R Ckmeans.1d.dp 4.3.6 (F46) |
 | P1 | Optimality property | random n ≤ 9 | WCSS ≤ brute-force minimum | Wang & Song 2011 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -181,8 +184,11 @@
 | S2 | ✅ Covered | monotonicity |
 | S3 | ✅ Covered | empty guard |
 | C1 | ✅ Covered | zero VAF |
+| M20 | ✅ Covered | `ClusterCcfValues_EqualWcssTie_MatchesRDefaultLinearMethod` (F46) |
+| M21 | ✅ Covered | `ClusterCcfValues_EightClusterTieCase_BitIdenticalToR` (F46) |
+| M22 | ✅ Covered | `ClusterCcfValues_EquallySpacedTies_MatchR` (F46) |
 
-**In-scope cases:** 19 — **✅:** 19
+**In-scope cases:** 22 — **✅:** 22
 
 ---
 
@@ -193,7 +199,7 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Reported CCF capped to [0,1] (raw exposed) per registry invariant + McGranahan clonal def | M6, INV-1 |
-| 2 | 1D clustering = optimal k-means by Ckmeans.1d.dp DP (replaced Lloyd + quantile seeding, F17 2026-09-28); clonal=max centroid | M11–M13, M16–M19, S1, INV-3..6 |
+| 2 | 1D clustering = optimal k-means by Ckmeans.1d.dp DP (replaced Lloyd + quantile seeding, F17 2026-09-28; R default SMAWK fill, F46 2026-10-10); clonal=max centroid | M11–M13, M16–M22, S1, INV-3..6 |
 
 ---
 

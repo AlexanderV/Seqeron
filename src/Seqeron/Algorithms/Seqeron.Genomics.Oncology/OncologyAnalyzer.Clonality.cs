@@ -384,8 +384,10 @@ public static partial class OncologyAnalyzer
     /// one-dimensional k-means: the partition minimising the within-cluster sum of squares
     /// Σ_j Σ_{x∈S_j} (x − μ_j)² (the k-means objective, Lloyd 1982), found exactly by the dynamic program of
     /// Wang &amp; Song (2011), <i>The R Journal</i> 3(2):29–33 (R package Ckmeans.1d.dp). This is a line-by-line port
-    /// of Ckmeans.1d.dp 4.3.x <c>EWL2::fill_dp_matrix</c> (median-shifted prefix sums, log-linear row fill
-    /// <c>fill_row_q_log_linear</c>) and <c>backtrack</c>; unlike Lloyd iterations it cannot stop in a local
+    /// of Ckmeans.1d.dp 4.3.6 <c>EWL2::fill_dp_matrix</c> (median-shifted prefix sums, R's default
+    /// <c>method = "linear"</c> SMAWK row fill <c>fill_row_q_SMAWK</c>, whose tie-breaking selects the same split as
+    /// R among equal-WCSS optima) and <c>backtrack</c>, i.e. it reproduces R <c>Ckmeans.1d.dp(x, k)</c> (unweighted,
+    /// L2 criterion — the R defaults <c>y = 1</c>, <c>criterion "L2"</c>); unlike Lloyd iterations it cannot stop in a local
     /// optimum and needs no seeding, so the result is deterministic and independent of input order. As in
     /// Ckmeans.1d.dp, when the input has fewer distinct values than <paramref name="clusterCount"/> the number of
     /// clusters is reduced to the number of distinct values (every returned cluster is non-empty). The clonal
@@ -482,27 +484,34 @@ public static partial class OncologyAnalyzer
     /// <summary>
     /// Ckmeans.1d.dp (Wang &amp; Song 2011) optimal 1-D k-means on sorted <paramref name="x"/> with
     /// <paramref name="k"/> ≤ number of distinct values: returns the first sorted index of each of the k clusters.
-    /// Port of <c>EWL2::fill_dp_matrix</c> + <c>EWL2::fill_row_q_log_linear</c> + <c>backtrack</c>.
+    /// Port of <c>EWL2::fill_dp_matrix</c> with R's default <c>method = "linear"</c> (SMAWK row fill) + <c>backtrack</c>.
     /// </summary>
     private static int[] CkmeansClusterStarts(double[] x, int k)
     {
         int n = x.Length;
-        int[] starts = new int[k];
         if (k == 1)
         {
-            return starts;
+            return new int[1];
         }
 
         if (k == n)
         {
             // Every value distinct and its own cluster: the unique zero-cost optimum.
-            for (int q = 0; q < k; q++)
-            {
-                starts[q] = q;
-            }
-
-            return starts;
+            return Enumerable.Range(0, n).ToArray();
         }
+
+        return CkmeansBacktrackStarts(CkmeansFillDpMatrix(x, k), k);
+    }
+
+    /// <summary>
+    /// Ckmeans.1d.dp <c>EWL2::fill_dp_matrix(x, w, S, J, "linear")</c>: fills the K × N backtrack matrix J of
+    /// optimal 1-D k-means on sorted <paramref name="x"/> for K = <paramref name="kMax"/>, with median-shifted
+    /// prefix sums and the O(N) SMAWK row fill <c>fill_row_q_SMAWK</c> (R's default <c>method = "linear"</c>).
+    /// Only two rows of S are kept; J keeps every row (needed by <c>backtrack</c> and <c>select_levels</c>).
+    /// </summary>
+    private static int[][] CkmeansFillDpMatrix(double[] x, int kMax)
+    {
+        int n = x.Length;
 
         // Median-shifted running sums for numerical stability (Ckmeans.1d.dp: shift = x[N/2]).
         double shift = x[n / 2];
@@ -511,10 +520,9 @@ public static partial class OncologyAnalyzer
         sumX[0] = x[0] - shift;
         sumXSq[0] = (x[0] - shift) * (x[0] - shift);
 
-        // S keeps only rows q−1 and q; J (backtrack) keeps every row.
         double[] sPrev = new double[n];
         double[] sCur = new double[n];
-        int[][] j = new int[k][];
+        int[][] j = new int[kMax][];
         j[0] = new int[n];
         for (int i = 1; i < n; i++)
         {
@@ -523,15 +531,26 @@ public static partial class OncologyAnalyzer
             sPrev[i] = CkmeansSsq(0, i, sumX, sumXSq);
         }
 
-        for (int q = 1; q < k; q++)
+        for (int q = 1; q < kMax; q++)
         {
             j[q] = new int[n];
-            int imin = q < k - 1 ? Math.Max(1, q) : n - 1;
-            CkmeansFillRowLogLinear(imin, n - 1, q, q, n - 1, sPrev, sCur, j[q - 1], j[q], sumX, sumXSq);
+            int imin = q < kMax - 1 ? Math.Max(1, q) : n - 1;
+            var row = new CkmeansSmawkRow(q, sPrev, sCur, j[q - 1], j[q], sumX, sumXSq);
+            row.Fill(imin, n - 1);
             (sPrev, sCur) = (sCur, sPrev);
         }
 
-        int right = n - 1;
+        return j;
+    }
+
+    /// <summary>
+    /// Ckmeans.1d.dp <c>backtrack</c>: walks J from the last value back through <paramref name="k"/> clusters and
+    /// returns the first sorted index of each cluster.
+    /// </summary>
+    private static int[] CkmeansBacktrackStarts(int[][] j, int k)
+    {
+        int[] starts = new int[k];
+        int right = j[0].Length - 1;
         for (int q = k - 1; q >= 0; q--)
         {
             int left = j[q][right];
@@ -545,66 +564,185 @@ public static partial class OncologyAnalyzer
         return starts;
     }
 
-    /// <summary>Ckmeans.1d.dp <c>EWL2::fill_row_q_log_linear</c> (divide and conquer over i with monotone J).</summary>
-    private static void CkmeansFillRowLogLinear(
-        int imin, int imax, int q, int jmin, int jmax,
-        double[] sPrev, double[] sCur, int[] jPrev, int[] jCur, double[] sumX, double[] sumXSq)
+    /// <summary>
+    /// One row q of the Ckmeans.1d.dp dynamic program filled by <c>EWL2_fill_SMAWK.cpp</c> (Ckmeans.1d.dp 4.3.6):
+    /// <c>fill_row_q_SMAWK</c>, <c>SMAWK</c>, <c>reduce_in_place</c>, <c>fill_even_positions</c> and
+    /// <c>find_min_from_candidates</c>, ported line by line including their tie-breaking (strict <c>&lt;</c> in the
+    /// column reduction, <c>&lt;=</c> — i.e. the largest optimal j — in the candidate scans), which decides the
+    /// split chosen among equal-WCSS optima. S[q−1] / S[q] are <c>sPrev</c> / <c>sCur</c>.
+    /// </summary>
+    private readonly struct CkmeansSmawkRow(
+        int q, double[] sPrev, double[] sCur, int[] jPrev, int[] jCur, double[] sumX, double[] sumXSq)
     {
-        if (imin > imax)
+        /// <summary><c>fill_row_q_SMAWK(imin, imax, q, …)</c>: candidate columns js = q..imax.</summary>
+        public void Fill(int imin, int imax)
         {
-            return;
-        }
-
-        int n = sCur.Length;
-        int i = (imin + imax) / 2;
-
-        sCur[i] = sPrev[i - 1];
-        jCur[i] = i;
-
-        int jlow = q;
-        if (imin > q)
-        {
-            jlow = Math.Max(jlow, jmin);
-        }
-
-        jlow = Math.Max(jlow, jPrev[i]);
-
-        int jhigh = i - 1;
-        if (imax < n - 1)
-        {
-            jhigh = Math.Min(jhigh, jmax);
-        }
-
-        for (int jj = jhigh; jj >= jlow; --jj)
-        {
-            double sji = CkmeansSsq(jj, i, sumX, sumXSq);
-            if (sji + sPrev[jlow - 1] >= sCur[i])
+            int[] js = new int[imax - q + 1];
+            for (int r = 0; r < js.Length; r++)
             {
-                break;
+                js[r] = q + r;
             }
 
-            double ssqJlow = CkmeansSsq(jlow, i, sumX, sumXSq) + sPrev[jlow - 1];
-            if (ssqJlow < sCur[i])
+            Smawk(imin, imax, 1, js);
+        }
+
+        private void Smawk(int imin, int imax, int istep, int[] js)
+        {
+            if (imax - imin <= 0)
             {
-                sCur[i] = ssqJlow;
-                jCur[i] = jlow;
+                // Base case: only one element left.
+                FindMinFromCandidates(imin, imax, istep, js);
+                return;
             }
 
-            jlow++;
+            int[] jsOdd = ReduceInPlace(imin, imax, istep, js);
 
-            double ssqJ = sji + sPrev[jj - 1];
-            if (ssqJ < sCur[i])
+            int istepx2 = istep << 1;
+            int iminOdd = imin + istep;
+            int imaxOdd = iminOdd + (imax - iminOdd) / istepx2 * istepx2;
+
+            Smawk(iminOdd, imaxOdd, istepx2, jsOdd);
+
+            FillEvenPositions(imin, imax, istep, js);
+        }
+
+        private int[] ReduceInPlace(int imin, int imax, int istep, int[] js)
+        {
+            int n = (imax - imin) / istep + 1;
+            int[] jsRed = (int[])js.Clone();
+            if (n >= js.Length)
             {
-                sCur[i] = ssqJ;
-                jCur[i] = jj;
+                return jsRed;
+            }
+
+            int left = -1;  // last favourable position / column
+            int right = 0;  // current position / column
+            int m = jsRed.Length;
+
+            while (m > n)
+            {
+                int p = left + 1;
+                int i = imin + p * istep;
+                int j = jsRed[right];
+                double sl = sPrev[j - 1] + CkmeansSsq(j, i, sumX, sumXSq);
+                int jplus1 = jsRed[right + 1];
+                double slplus1 = sPrev[jplus1 - 1] + CkmeansSsq(jplus1, i, sumX, sumXSq);
+
+                if (sl < slplus1 && p < n - 1)
+                {
+                    jsRed[++left] = j;
+                    right++;
+                }
+                else if (sl < slplus1 && p == n - 1)
+                {
+                    jsRed[++right] = j;  // delete column p+1
+                    m--;
+                }
+                else
+                {
+                    if (p > 0)
+                    {
+                        jsRed[right] = jsRed[left--];
+                    }
+                    else
+                    {
+                        right++;  // delete column 0
+                    }
+
+                    m--;
+                }
+            }
+
+            for (int r = left + 1; r < m; ++r)
+            {
+                jsRed[r] = jsRed[right++];
+            }
+
+            return jsRed[..m];
+        }
+
+        private void FillEvenPositions(int imin, int imax, int istep, int[] js)
+        {
+            int n = js.Length;
+            int istepx2 = istep << 1;
+            int jl = js[0];
+            for (int i = imin, r = 0; i <= imax; i += istepx2)
+            {
+                while (js[r] < jl)
+                {
+                    r++;
+                }
+
+                sCur[i] = sPrev[js[r] - 1] + CkmeansSsq(js[r], i, sumX, sumXSq);
+                jCur[i] = js[r];
+
+                int jh = i + istep <= imax ? jCur[i + istep] : js[n - 1];
+                int jmax = Math.Min(jh, i);
+                double sjimin = CkmeansSsq(jmax, i, sumX, sumXSq);
+
+                for (++r; r < n && js[r] <= jmax; r++)
+                {
+                    int jabs = js[r];
+                    if (jabs > i)
+                    {
+                        break;
+                    }
+
+                    if (jabs < jPrev[i])
+                    {
+                        continue;
+                    }
+
+                    double s = CkmeansSsq(jabs, i, sumX, sumXSq);
+                    double sj = sPrev[jabs - 1] + s;
+                    if (sj <= sCur[i])
+                    {
+                        sCur[i] = sj;
+                        jCur[i] = js[r];
+                    }
+                    else if (sPrev[jabs - 1] + sjimin > sCur[i])
+                    {
+                        break;
+                    }
+                }
+
+                r--;
+                jl = jh;
             }
         }
 
-        int leftJmin = imin > q ? jCur[imin - 1] : q;
-        CkmeansFillRowLogLinear(imin, i - 1, q, leftJmin, jCur[i], sPrev, sCur, jPrev, jCur, sumX, sumXSq);
+        private void FindMinFromCandidates(int imin, int imax, int istep, int[] js)
+        {
+            int rminPrev = 0;
+            for (int i = imin; i <= imax; i += istep)
+            {
+                int rmin = rminPrev;
+                sCur[i] = sPrev[js[rmin] - 1] + CkmeansSsq(js[rmin], i, sumX, sumXSq);
+                jCur[i] = js[rmin];
 
-        int rightJmax = imax < n - 1 ? jCur[imax + 1] : imax;
-        CkmeansFillRowLogLinear(i + 1, imax, q, jCur[i], rightJmax, sPrev, sCur, jPrev, jCur, sumX, sumXSq);
+                for (int r = rmin + 1; r < js.Length; ++r)
+                {
+                    int jAbs = js[r];
+                    if (jAbs < jPrev[i])
+                    {
+                        continue;
+                    }
+
+                    if (jAbs > i)
+                    {
+                        break;
+                    }
+
+                    double sj = sPrev[jAbs - 1] + CkmeansSsq(jAbs, i, sumX, sumXSq);
+                    if (sj <= sCur[i])
+                    {
+                        sCur[i] = sj;
+                        jCur[i] = js[r];
+                        rminPrev = r;
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>Ckmeans.1d.dp <c>EWL2::ssq</c>: within-cluster sum of squares of sorted x[j..i] from prefix sums.</summary>
