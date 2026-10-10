@@ -5,7 +5,7 @@
 | Algorithm Group | Oncology |
 | Test Unit ID | ONCO-ASCAT-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
-| Implementation Status | Complete (ASCAT runASCAT / ascat.aspcf, Battenberg determine_copynumber ports; `SegmentAlleleSpecific` = ASPCF at penalty 70 since B24 F35) |
+| Implementation Status | Complete (ASCAT runASCAT / ascat.aspcf / ascat.asmultipcf, Battenberg determine_copynumber ports; `SegmentAlleleSpecific` = ASPCF at penalty 70 since B24 F35) |
 | Last Reviewed | 2026-09-28 |
 
 ## 1. Overview
@@ -168,7 +168,9 @@ then exact Potts filtering on the compacted array; windowed `runPcfSubset` above
 | loci | IEnumerable\<AlleleSpecificLocus\> | required | per-locus (chrom, pos, logR, BAF) measurements | non-null; chrom non-null; finite logR; BAF ∈ [0,1] |
 | logRChangeThreshold, bafChangeThreshold, minLociPerSegment | double, double, int | required, 0.1, 1 | `SegmentAlleleSpecific` legacy parameters — **ignored** since B24 F35 (the method runs ASPCF at γ = 70; no ASPCF equivalent), still range-checked for compatibility | > 0, > 0, ≥ 1 |
 | germlineHeterozygous | IReadOnlyList\<bool\> | — (overload) | germline genotype per locus for the germline-aware ASPCF (true = heterozygous; ASCAT `germlinegenotypes == FALSE`) (B24 F36) | non-null; one per locus; BAF ∈ [0,1] required at heterozygous loci only (homozygous BAF ignored, may be NaN) |
-| penalty (ASPCF γ) | double | 70.0 | per-breakpoint penalty on the standardised cost (`ascat.aspcf`) | > 0, finite |
+| penalty (ASPCF γ) | double | 70.0 | per-breakpoint penalty on the standardised cost (`ascat.aspcf`); for `SegmentAlleleSpecificAsMultiPcf` on the raw joint cost (`ascat.asmultipcf`, ladder 25/50/100/200/400/800) | > 0, finite |
+| samples (multi-sample) | IReadOnlyList\<IReadOnlyList\<AlleleSpecificLocus\>\> | — (`SegmentAlleleSpecificAsMultiPcf`) | ≥ 2 samples on one probe set (same chromosome/position per index), one germline (`germlineHeterozygous`, null = all heterozygous) (B24 F53) | finite logR; heterozygous BAF ∈ [0,1]; every chromosome part ≥ 2 probes (R fails on 1 sample / 1-probe part) |
+| options (multi-sample) | AsMultiPcfOptions | ASCAT defaults | `SampleWeights` (`wsample`, S or 2·S positive values, null = 1), `Algorithm` (`Exact` / `Fast` = `selectAlg`), `Refine` (true) | weights > 0, finite |
 | purity, ploidy (sub-clonal) | double | required | fitted ρ, ψ for the sub-clonal decomposition | ρ∈(0,1]; ψ>0 |
 | segments (t-test) | IReadOnlyList\<SubclonalSegmentSnpBafs\> | — (`FitSubclonalCopyNumberWithSnpTest`) | segment summary + its phased SNP BAFs (Battenberg `BAFphased`, used unmirrored) (B24 F39) | non-null; SNP BAFs ∈ [0,1] (list may be empty) |
 | significanceLevel, maxBafDistance | double | 0.05, 0.01 | Battenberg `siglevel`, `maxdist` | siglevel ∈ [0,1]; maxdist ≥ 0, finite |
@@ -189,6 +191,7 @@ then exact Potts filtering on the compacted array; windowed `runPcfSubset` above
 |-------|------|-------------|
 | AlleleSpecificSegmentSummary | record | per-segment mean logR, mirrored mean BAF, locus count |
 | AspcfSegmentation | class | germline-aware ASPCF (F36): per-locus `SegmentedLogR` (ASCAT `Tumor_LogR_segmented`, every locus), `SegmentedBaf` (mirrored, NaN at homozygous loci) and `Segments` (`AspcfSegment`: runASCAT logR runs within a chromosome, BAF of the first heterozygous locus or NaN, `LocusCount`, `HeterozygousLocusCount`) |
+| IReadOnlyList\<AspcfSegmentation\> | list | `SegmentAlleleSpecificAsMultiPcf` (F53): one germline-aware segmentation per sample (`Tumor_LogR_segmented[, s]`, mirrored `Tumor_BAF_segmented[[s]]`), breakpoints common to the samples except where `refine` removed them |
 | PurityPloidyFit | record | ρ, ASCAT output ploidy (probe-weighted mean integer total CN; over all probes from `FitPurityPloidyFromAspcf`, F37), GoF %, integer `AlleleSpecificSegment`s (one per summary / per `AspcfSegment`, ASCAT `seg_raw`), `Psi` (ψ), `IsNonAberrant` |
 | DeriveMultiplicity | int | integer multiplicity m ∈ [1, majorCopyNumber] |
 | SubclonalSegmentFit | record | per-segment primary/secondary `SubclonalCopyNumberState` (major, minor, cellFraction) + IsSubclonal flag |
@@ -252,6 +255,12 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
    sub-clonal segment the six `orderEdges` options (NA rows last), τ, SDfrac, and per option `noperms` bootstrap
    resamples (R RNG stream: segments in order, options A–F, NA options included) → SDfrac_BS and the 25th/975th order
    statistics [8].
+8. **Multi-sample segmentation (ASCAT `ascat.asmultipcf`, B24 F53, `SegmentAlleleSpecificAsMultiPcf`):** per chromosome
+   part, each sample's winsorised logR (every probe) and mirrored winsorised BAF (heterozygous probes; weight 0 at
+   homozygous probes) form 2·S tracks; `ASmultiPCFcompact` minimises Σ_segments Σ_tracks −(Σw·y)²/Σw + γ·#breaks on the
+   raw values (fewer than 6 probes ⇒ one segment); with `refine`, each sample is re-segmented on the compacted joint
+   segments with γ/S; BAF per run = 0.5 + |b − 0.5| (shrunk to 0.5 by the 2·sd rule), logR levels → mean raw logR;
+   ladder (penalty, 25 … 800) while any sample has ≥ 800 levels [2][7].
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -266,6 +275,7 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | ASPCF segmentation | O(L·W) per chromosome (W = 1000-locus window) | O(W) | windowed PCF DP [2][6] |
+| Multi-sample ASPCF (exact) | O(N²·2S) per chromosome part (N probes, S samples) | O(N·2S) | `ASmultiPCFcompact` DP; `Fast`: 5001-probe windows + compacted DP [2][7] |
 | Purity/ploidy fit | O(P·Q·S) | O(P·Q + S) | P,Q = grid sizes (≤ 4·10⁶ cells), S = segments |
 | Multiplicity | O(1) | O(1) | closed form |
 | Sub-clonal fit | O(S) | O(S) | closed-form decomposition per segment |
@@ -281,6 +291,7 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 - `OncologyAnalyzer.SegmentAlleleSpecific(...)`: `SegmentAlleleSpecificAspcf(loci, AspcfDefaultPenalty = 70)` (B24 F35). It formerly ran an unsourced greedy mean-shift heuristic; that heuristic was removed and its threshold parameters are now ignored (kept for source compatibility, still range-checked).
 - `OncologyAnalyzer.SegmentAlleleSpecificAspcf(...)`: ASCAT ASPCF (`ascat.aspcf` port) on heterozygous loci.
 - `OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, germlineHeterozygous, penalty)`: complete `ascat.aspcf` with germline genotypes (homozygous probes, homozygous-stretch resegmentation) → `AspcfSegmentation` (B24 F36).
+- `OncologyAnalyzer.SegmentAlleleSpecificAsMultiPcf(samples, germlineHeterozygous, penalty = 70, AsMultiPcfOptions?)`: joint multi-sample ASPCF (`ascat.asmultipcf` port: `ASmultiPCFcompact`, `compactASMulti`, `runFastASMultiPCF`, `expandMulti`, per-sample refinement) → one `AspcfSegmentation` per sample, each usable by `FitPurityPloidyFromAspcf` (B24 F53).
 - `OncologyAnalyzer.FitPurityPloidy(...)` / `TryFitPurityPloidy(...)`: ASCAT `runASCAT` fit → ρ, ψ, ploidy, GoF, integer segments.
 - `OncologyAnalyzer.EvaluatePurityPloidy(...)`: ASCAT rho_manual/psi_manual path.
 - `OncologyAnalyzer.FitPurityPloidyFromAspcf(...)` / `TryFitPurityPloidyFromAspcf(...)` / `EvaluatePurityPloidyFromAspcf(...)`: runASCAT on a germline-aware `AspcfSegmentation` (homozygous segments, all-probe ploidy; B24 F37).
@@ -320,6 +331,11 @@ suffix tree is **not used** (no occurrence enumeration).
 - ASCAT `ascat.aspcf` with germline genotypes (B24 F36): heterozygous-only BAF, logR from all probes averaged onto the
   heterozygous probes, gap breakpoint search, `predictGermlineHomozygousStretches` + `exactPcf` resegmentation,
   `fillNA`, genome-wide level re-estimation — R-verified on 3 genomes (26 segments, ≤ 5.6e-16 per locus) [2].
+- ASCAT `ascat.asmultipcf` (B24 F53): joint exact (`ASmultiPCFcompact`) or fast (`runFastASMultiPCF`) segmentation of
+  S logR + S mirrored-BAF tracks on the raw cost, `wsample` weights, per-sample `refine` (γ/S), BAF shrinkage, closest-probe
+  fill of 0 levels, genome-wide level re-estimation, penalty ladder — R-verified on 5 cohorts (2–4 samples, 800–6500
+  probes; private breakpoints, homozygous stretches) in 14 runs, every per-probe logR/BAF ≤ 7.8e-16, breakpoints
+  identical; R quirks kept (NaN `bestCost[1]` for a zero-weight first column, fast-path unweighted window sums) [2][7].
 - Battenberg `determine_copynumber`: nearest edge (`orderEdges` option 1), τ, maxdist clonality, negative-minor
   adjustment [8]; per-SNP t-test clonality (`t.test(BAFke, mu = test.level)`, siglevel) via
   `FitSubclonalCopyNumberWithSnpTest` — R-verified 180/180 segments on 4 genomes (B24 F39) [8].
@@ -350,9 +366,11 @@ suffix tree is **not used** (no occurrence enumeration).
 
 **Not implemented:**
 
-- Multi-sample (asmultipcf) segmentation and whole-genome-doubling refit search; **users should rely on:**
-  ASCAT/Battenberg/FACETS for those; this unit covers the single-sample ASPCF + two-state sub-clonal derivation
-  feeding the downstream `EstimatePurity`/`EstimatePloidy`/`EstimateCcf`/`ClassifyClonality`.
+- ~~Multi-sample (asmultipcf) segmentation~~ — **resolved by F53** (`SegmentAlleleSpecificAsMultiPcf`). Not ported from
+  it: the male-only `X_nonPAR` random re-genotyping and missing (NA) logR/BAF values (R gives them weight 0; the port
+  requires complete data). The former "whole-genome-doubling refit search" item was removed: ASCAT has no such
+  procedure (`grep -rniE "wgd|whole.?genome.?doubl|refit" ASCAT/R` finds only the `ascat.metrics` WGD status, ported in
+  F30), so it had no reference counterpart.
 
 ### 5.4 Deviations and Assumptions
 
@@ -380,6 +398,10 @@ suffix tree is **not used** (no occurrence enumeration).
 | ASPCF chromosome with < 6 loci | one segment, mean winsorised mirrored BAF | source [2] |
 | Germline-aware ASPCF: chromosome without heterozygous loci | one logR segment (mean raw logR), no BAF (`AspcfSegment.HasBaf` false) | source [2] (R run, F36) |
 | Germline-aware ASPCF: copy-number change inside a homozygous stretch | found by the `exactPcf` resegmentation when > 5 loci differ by > 0.3 | source [2] (R run, F36) |
+| Multi-sample ASPCF: one sample, or a 1-probe chromosome part | `ArgumentException` (R stops: "incorrect number of subscripts on matrix") | source [2] (R run, F53) |
+| Multi-sample ASPCF: breakpoint supported by one sample only | joint breakpoint kept in that sample, removed from the others by `refine` (γ/S) | source [2] (R run, F53) |
+| Multi-sample ASPCF with refine: chromosome part without heterozygous probes | its joint breakpoint is always merged away (R: `bestCost[1]` = NaN for the zero-BAF-weight first block) | source [2] (R run, F53) |
+| Last averaging window of a part of 2, 32, 128, 16384 … probes | `lr[n:(n−1)]` = probes n and n − 1 (R descending range; IEEE `floor(n + 0.01 − 0.01)`) | source [2] (R run, F53; also fixed in the F36 path) |
 | Male (`AscatSexModel` XY): X/Y segment | haploid: nB = 0, nA = round((ρ − 1 + (2(1−ρ)+ρψ)·2^(r/γ))/ρ), negative ⇒ 0:0 | source [2] (R run, F38) |
 | Male with X non-PAR: X segment overlapping non-PAR by exactly 50 % | diploid (rule is strictly > 0.5) | source [2] (`diploidprobes_fixnonPAR`) |
 | Sub-clonal: BAF within 0.01 of a corner | single clonal state, f=1 | INV-07 [8] |
@@ -389,9 +411,9 @@ suffix tree is **not used** (no occurrence enumeration).
 logR and BAF are observed measurements and are always a caller input — this is inherent, not a limitation of the
 derivation. The unit works on heterozygous-locus segment summaries (germline-homozygous probes: use the germline-aware
 ASPCF overload, F36); the haploid X/Y (male) model is available through `AscatSexModel` (F38). Battenberg's per-SNP t-test is available through
-`FitSubclonalCopyNumberWithSnpTest` (F39; phased SNP BAFs supplied by the caller). Multi-sample (asmultipcf)
-segmentation and Battenberg's built-in haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes reference panel —
-external executables and a multi-GB reference bundle) are out of scope; the downstream phased path is available
+`FitSubclonalCopyNumberWithSnpTest` (F39; phased SNP BAFs supplied by the caller). Multi-sample segmentation is available
+through `SegmentAlleleSpecificAsMultiPcf` (`ascat.asmultipcf`, F53; complete logR/BAF only). Battenberg's built-in haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes reference panel —
+external executables and a multi-GB reference bundle) is out of scope; the downstream phased path is available
 (`SegmentPhasedBaf` → `BuildBattenbergSegments` → `FitSubclonalCopyNumberWithSnpTest`, F40) on caller-phased BAFs; alternative
 solutions B–F and the seeded bootstrap CIs are available through `FitSubclonalCopyNumberWithBootstrap` (F41). Battenberg's
 `merge_segments` / `mask_high_cn_segments` post-processing in `callSubclones` is not ported. `FitPurityPloidy` fails (like ASCAT) when no local
@@ -427,6 +449,7 @@ var ccf = OncologyAnalyzer.EstimateCcf(0.40, fit.Purity,
 - Tests: [StatisticsHelper_StudentT_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_StudentT_Tests.cs) — Student t / incomplete beta / one-sample t-test vs R (F39); Battenberg t-test rows in `OncologyAnalyzer_AscatDerivation_Tests.cs` (F39), R-locked
 - Tests: [OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs) — `segment.baf.phased` on 6 tracks + end-to-end `determine_copynumber` (F40), R-locked; [StatisticsHelper_QuantileType7_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_QuantileType7_Tests.cs) (F40)
 - Tests: [OncologyAnalyzer_BattenbergBootstrap_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BattenbergBootstrap_Tests.cs) — solutions A–F, SDfrac, bootstrap CIs (F41), R-locked + Monte-Carlo agreement
+- Tests: [OncologyAnalyzer_AscatAsMultiPcf_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatAsMultiPcf_Tests.cs) — multi-sample `ascat.asmultipcf` (F53), R-locked on 5 cohorts / 14 runs
 - Tests: [OncologyAnalyzer_AscatSexChromosome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatSexChromosome_Tests.cs) — male haploid X/Y, X non-PAR, XX default (F38), R-locked
 - Evidence: [ONCO-ASCAT-001-Evidence.md](../../../docs/Evidence/ONCO-ASCAT-001-Evidence.md)
 - Related algorithms: [Tumor_Ploidy_Estimation](./Tumor_Ploidy_Estimation.md), [Cancer_Cell_Fraction_Estimation](./Cancer_Cell_Fraction_Estimation.md), [Tumor_Purity_Estimation](./Tumor_Purity_Estimation.md)

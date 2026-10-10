@@ -359,3 +359,17 @@ sourced verbatim (R 4.3.3), every column %.17g (Evidence § F41).
 | M-BOOT-3 | statistical agreement, seeds disjoint from R | s4, 100 C# seeds vs R 400 seeds | means of SD_BS / bounds within 5 MC standard errors; SDfrac seed-independent | R run |
 | S-BOOT-4 | reproducibility, clonal ⇒ empty, guards | s1 twice; within-maxdist segment; permutations 0, null, ρ 0 | identical; Solutions empty; ArgumentOutOfRange / ArgumentNull | contract |
 
+## 16. FIN-B24 F53 — multi-sample `ascat.asmultipcf` (2026-10-10)
+
+File `OncologyAnalyzer_AscatAsMultiPcf_Tests.cs` (+ S-ASPCF-G4 in `OncologyAnalyzer_AscatGermlineHomozygous_Tests.cs`).
+Expected values = `ascat.asmultipcf(...)` sourced verbatim (R 4.3.3) on the MINSTD cohorts C1–C5 (Evidence § F53).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-AMPCF-1..14 | `SegmentAlleleSpecificAsMultiPcf_MatchesAscatAsMultiPcf` | C1 (default, no refine, per-track wsample), C2, C3 (default, no refine, wsample, penalty 25, penalty 0.001 ⇒ ladder), C5 (default, wsample c(1, 4)), C4 6500 probes (exact, fast, fast + wsample) | per-sample segment extents / probe / het counts identical; logR and BAF ≤ 1e−12 (observed ≤ 7.8e−16) | R run |
+| S-AMPCF-1 | refinement removes unsupported breakpoints | C1 | joint: breaks 400, 900 in both; refined: S1 only 900, S2 only 400 | R run |
+| S-AMPCF-2 | R quirk: zero-BAF-weight first block | C1 chr4 (homozygous only) | refine ⇒ 1 level; no refine ⇒ 150 + 150, −1.4828774511765428 | R run |
+| S-AMPCF-3 | output shape, default genotypes | C2 | segments tile 1437 probes; BAF NaN exactly at homozygous probes; null genotypes ≡ all heterozygous | contract |
+| C-AMPCF-1 | guards | 1 sample, single-probe chromosome (R errors), differing probes, genotype / wsample count, wsample ≤ 0, penalty 0 / NaN, het BAF 1.5, NaN logR | `ArgumentException` / `ArgumentOutOfRangeException` / `ArgumentNullException` | R run / contract |
+| S-ASPCF-G4 | F36 last-window `x[n:(n−1)]` | single sample, chr2 of 32 probes | 200 / 100 / 16 / 16 segments, R levels ≤ 1e−14 | R run |
+

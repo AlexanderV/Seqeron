@@ -5320,7 +5320,7 @@ public static partial class OncologyAnalyzer
                 endIndex = (int)Math.Floor(upper - 0.01);
             }
 
-            logRAveraged[k] = Mean(lrWins, startIndex - 1, endIndex);
+            logRAveraged[k] = RColonMean(lrWins, startIndex, endIndex);
         }
 
         var levelPerHet = new double[h];
@@ -5388,6 +5388,14 @@ public static partial class OncologyAnalyzer
             bafPcfed[lo + indices[k] - 1] = bafPerHet[k];
         }
     }
+
+    /// <summary>
+    /// R <c>mean(x[start:end])</c> for 1-based <paramref name="start"/>, <paramref name="end"/>. When end &lt; start, R's
+    /// <c>:</c> counts down (<c>x[n:(n-1)]</c> = two elements) — this happens in ascat.aspcf / ascat.asmultipcf for the last
+    /// averaging window, because <c>floor(n + 0.01 − 0.01)</c> is n − 1 in IEEE doubles for n = 2, 32, 128, 16384, 65536, ….
+    /// </summary>
+    private static double RColonMean(double[] x, int start, int end) =>
+        end >= start ? Mean(x, start - 1, end) : Mean(x, end - 1, start);
 
     /// <summary>
     /// ascat.aspcf "find best breakpoint" between heterozygous loci at 1-based local positions <paramref name="at"/> and
@@ -5720,6 +5728,804 @@ public static partial class OncologyAnalyzer
         }
 
         return segments.ToArray();
+    }
+
+    // ---- ASCAT ascat.asmultipcf: joint multi-sample allele-specific PCF (B24 F53) ----
+
+    /// <summary>ascat.asmultipcf penalty ladder <c>unique(c(penalty, 25, 50, 100, 200, 400, 800))</c>, kept where ≥ penalty.</summary>
+    private static readonly double[] AsMultiPcfPenaltyLadder = { 25.0, 50.0, 100.0, 200.0, 400.0, 800.0 };
+
+    /// <summary>ascat.asmultipcf with <c>nrow(logRaveraged) &lt; 6</c>: one segment per chromosome part (no PCF).</summary>
+    private const int AsMultiPcfMinProbes = 6;
+
+    /// <summary><c>runFastASMultiPCF</c> window size <c>subsize = 5000</c> (windows hold subsize + 1 probes).</summary>
+    private const int AsMultiPcfFastSubsize = 5000;
+
+    /// <summary><c>runFastASMultiPCF</c> window step <c>4·subsize/5</c>.</summary>
+    private const int AsMultiPcfFastStep = 4 * AsMultiPcfFastSubsize / 5;
+
+    /// <summary>ascat.asmultipcf <c>selectAlg</c>: the joint segmentation algorithm.</summary>
+    public enum AsMultiPcfAlgorithm
+    {
+        /// <summary><c>"exact"</c> (ASCAT default): <c>ASmultiPCFcompact</c> on every probe of the chromosome part.</summary>
+        Exact,
+
+        /// <summary><c>"fast"</c>: <c>runFastASMultiPCF</c> — exact segmentation of overlapping 5001-probe windows (step 4000)
+        /// collects candidate breakpoints, then the exact algorithm runs on the compacted data. Identical to
+        /// <see cref="Exact"/> on parts of ≤ 5001 probes only in the absence of sample weights.</summary>
+        Fast,
+    }
+
+    /// <summary>Expert options of <see cref="SegmentAlleleSpecificAsMultiPcf"/> (ascat.asmultipcf arguments).</summary>
+    public sealed record AsMultiPcfOptions
+    {
+        /// <summary>The ASCAT defaults: no sample weights, exact algorithm, per-sample refinement on.</summary>
+        public static AsMultiPcfOptions Default { get; } = new();
+
+        /// <summary>ASCAT <c>wsample</c>: positive finite weights, either one per sample (applied to its logR and BAF
+        /// tracks) or one per track (2·S values: the S logR tracks, then the S BAF tracks). Null = all 1 (default).</summary>
+        public IReadOnlyList<double>? SampleWeights { get; init; }
+
+        /// <summary>ASCAT <c>selectAlg</c> (default <see cref="AsMultiPcfAlgorithm.Exact"/>).</summary>
+        public AsMultiPcfAlgorithm Algorithm { get; init; } = AsMultiPcfAlgorithm.Exact;
+
+        /// <summary>ASCAT <c>refine</c> (default true): re-segment each sample on the joint breakpoints with penalty γ/S, so a
+        /// breakpoint not supported by that sample is removed from it.</summary>
+        public bool Refine { get; init; } = true;
+    }
+
+    /// <summary>
+    /// ASCAT joint multi-sample allele-specific segmentation — a port of <c>ascat.asmultipcf</c> (VanLoo-lab/ascat
+    /// ASCAT/R/ascat.asmultipcf.R; Ross et al. 2021, <i>Bioinformatics</i> 37:1909), for samples that share part of their
+    /// breakpoints (common ancestry, e.g. multi-region sequencing of one tumour), on one probe set and one germline:
+    /// <list type="number">
+    /// <item>Per chromosome part and sample: logR of every probe is MAD-winsorised (<c>madWins(x, 2.5, 25)</c>); the BAF of
+    /// the germline-heterozygous probes is mirrored to ≥ 0.5, winsorised and mirrored again; homozygous probes have no BAF
+    /// (weight 0). Each probe keeps its own winsorised logR (the last probe averages <c>lr[n:floor(n + 0.01 − 0.01)]</c>,
+    /// i.e. probes n and n − 1 for n = 2, 32, 128, …, as R does).</item>
+    /// <item>Parts with fewer than 6 probes form one segment per sample (logR = mean, BAF = mean mirrored BAF).</item>
+    /// <item>Otherwise the 2·S tracks (S logR, S mirrored BAF) are segmented jointly by <c>ASmultiPCFcompact</c>: exact
+    /// dynamic programming minimising <c>Σ_segments Σ_tracks −(Σ w·y)²/Σ w + γ·(#segments − 1)</c> on the raw
+    /// (unstandardised) values, track weights = 0 for missing BAF times <see cref="AsMultiPcfOptions.SampleWeights"/>;
+    /// <see cref="AsMultiPcfAlgorithm.Fast"/> runs <c>runFastASMultiPCF</c> instead.</item>
+    /// <item>Refinement (<see cref="AsMultiPcfOptions.Refine"/>): each sample's two tracks are compacted on the joint
+    /// breakpoints and re-segmented exactly with penalty γ/S; if that removes segments, the sample takes the refined
+    /// segmentation.</item>
+    /// <item>BAF per segment (runs of equal value over the heterozygous probes): 0.5 + |b − 0.5|, shrunk to 0.5 when
+    /// <c>sqrt(sd² + μ²) &lt; 2·sd</c>, sd = <c>getMadwithNA</c> of the sample's winsorised heterozygous BAF.</item>
+    /// <item>LogR levels exactly 0 are replaced by the closest non-zero level of the part; then, genome-wide per sample,
+    /// every run of equal levels takes the mean raw logR; the ladder (penalty, 25, 50, 100, 200, 400, 800 — values ≥
+    /// penalty) is climbed while any sample has ≥ 800 distinct levels.</item>
+    /// </list>
+    /// Unlike <c>ascat.aspcf</c>, homozygous stretches are not re-segmented (they take part in the joint logR segmentation
+    /// from the start). The male-only <c>X_nonPAR</c> random re-genotyping is not ported (the caller's genotypes are used as
+    /// given), and missing logR/BAF values are not accepted (R gives them weight 0).
+    /// <para>R fails (<c>bafna[homo, ] &lt;- NA</c>: "incorrect number of subscripts on matrix") with a single sample or a
+    /// single-probe chromosome part, because <c>Tumor_LogR[chr[[k]], ]</c> drops to a vector; both are rejected here.
+    /// For one sample use <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/>.</para>
+    /// </summary>
+    /// <param name="samples">Per sample, the loci of the common probe set in genome order (same chromosome and position at
+    /// each index in every sample). LogR must be finite; BAF must be in [0, 1] at heterozygous probes and is ignored at
+    /// homozygous probes. At least two samples; each contiguous same-chromosome run needs ≥ 2 probes.</param>
+    /// <param name="germlineHeterozygous">Germline genotype per probe (true = heterozygous, ASCAT
+    /// <c>germlinegenotypes == FALSE</c>); one germline for all samples, as ascat.asmultipcf uses. Null = every probe
+    /// heterozygous.</param>
+    /// <param name="penalty">ascat.asmultipcf <c>penalty</c> (default 70 = <see cref="AspcfDefaultPenalty"/>), applied to the
+    /// raw joint cost.</param>
+    /// <param name="options">Sample weights, algorithm and refinement (null = <see cref="AsMultiPcfOptions.Default"/>).</param>
+    /// <returns>One <see cref="AspcfSegmentation"/> per sample (input order): ASCAT <c>Tumor_LogR_segmented[, s]</c>,
+    /// mirrored <c>Tumor_BAF_segmented[[s]]</c> (NaN at homozygous probes) and the runASCAT logR segments — ready for
+    /// <see cref="FitPurityPloidyFromAspcf(AspcfSegmentation, double)"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="samples"/> or one of its entries is null.</exception>
+    /// <exception cref="ArgumentException">Fewer than two samples, no probes, differing probe sets, a wrong genotype or
+    /// weight count, a null chromosome label, a non-finite logR, a heterozygous BAF outside [0, 1], or a single-probe
+    /// chromosome part.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0, NaN or infinite, or a weight that is
+    /// not positive and finite.</exception>
+    public static IReadOnlyList<AspcfSegmentation> SegmentAlleleSpecificAsMultiPcf(
+        IReadOnlyList<IReadOnlyList<AlleleSpecificLocus>> samples,
+        IReadOnlyList<bool>? germlineHeterozygous = null,
+        double penalty = AspcfDefaultPenalty,
+        AsMultiPcfOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        options ??= AsMultiPcfOptions.Default;
+        if (!double.IsFinite(penalty) || penalty <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(penalty), penalty, "The ASPCF penalty γ must be positive and finite.");
+        }
+
+        int sampleCount = samples.Count;
+        if (sampleCount < 2)
+        {
+            throw new ArgumentException(
+                "ascat.asmultipcf needs at least two samples (R fails on one); use SegmentAlleleSpecificAspcf for a single sample.",
+                nameof(samples));
+        }
+
+        AlleleSpecificLocus[][] probes = new AlleleSpecificLocus[sampleCount][];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            if (samples[s] is null)
+            {
+                throw new ArgumentNullException(nameof(samples), "A sample is null.");
+            }
+
+            probes[s] = samples[s].ToArray();
+        }
+
+        int n = probes[0].Length;
+        if (n == 0)
+        {
+            throw new ArgumentException("At least one probe is required.", nameof(samples));
+        }
+
+        var het = new bool[n];
+        if (germlineHeterozygous is null)
+        {
+            Array.Fill(het, true);
+        }
+        else if (germlineHeterozygous.Count != n)
+        {
+            throw new ArgumentException("Exactly one germline genotype is required per probe.", nameof(germlineHeterozygous));
+        }
+        else
+        {
+            for (int i = 0; i < n; i++)
+            {
+                het[i] = germlineHeterozygous[i];
+            }
+        }
+
+        ValidateAsMultiPcfProbes(probes, het);
+        double[] trackWeights = AsMultiPcfTrackWeights(options.SampleWeights, sampleCount);
+
+        List<(int Lo, int Hi)> runs = ContiguousChromosomeRuns(probes[0]);
+        foreach ((int lo, int hi) in runs)
+        {
+            if (hi == lo)
+            {
+                throw new ArgumentException(
+                    "Every chromosome part needs at least two probes (R's Tumor_LogR[chr[[k]], ] drops to a vector and ascat.asmultipcf fails).",
+                    nameof(samples));
+            }
+        }
+
+        var rawLogR = new double[sampleCount][];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            rawLogR[s] = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                rawLogR[s][i] = probes[s][i].LogR;
+            }
+        }
+
+        var ladder = new List<double> { penalty };
+        foreach (double p in AsMultiPcfPenaltyLadder)
+        {
+            if (p > penalty)
+            {
+                ladder.Add(p);
+            }
+        }
+
+        double[][] logRPcfed = Array.Empty<double[]>();
+        double[][] bafPcfed = Array.Empty<double[]>();
+        foreach (double segmentLength in ladder)
+        {
+            logRPcfed = new double[sampleCount][];
+            bafPcfed = new double[sampleCount][];
+            for (int s = 0; s < sampleCount; s++)
+            {
+                logRPcfed[s] = new double[n];
+                bafPcfed[s] = new double[n];
+                Array.Fill(bafPcfed[s], double.NaN);
+            }
+
+            foreach ((int lo, int hi) in runs)
+            {
+                SegmentPartAsMultiPcf(probes, rawLogR, het, lo, hi, segmentLength, trackWeights, options, logRPcfed, bafPcfed);
+            }
+
+            bool fewLevels = true;
+            for (int s = 0; s < sampleCount; s++)
+            {
+                ReadaptLevels(logRPcfed[s], rawLogR[s], 0, n);
+                if (logRPcfed[s].Distinct().Count() >= AspcfMaxSegmentLevels)
+                {
+                    fewLevels = false;
+                }
+            }
+
+            if (fewLevels)
+            {
+                break;
+            }
+        }
+
+        var result = new AspcfSegmentation[sampleCount];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            result[s] = new AspcfSegmentation(
+                probes[s], (bool[])het.Clone(), logRPcfed[s], bafPcfed[s],
+                BuildAspcfSegments(probes[s], het, runs, logRPcfed[s], bafPcfed[s]));
+        }
+
+        return result;
+    }
+
+    /// <summary>Same probe set in every sample; finite logR; heterozygous BAF in [0, 1].</summary>
+    private static void ValidateAsMultiPcfProbes(AlleleSpecificLocus[][] samples, bool[] het)
+    {
+        int n = samples[0].Length;
+        foreach (AlleleSpecificLocus[] sample in samples)
+        {
+            if (sample.Length != n)
+            {
+                throw new ArgumentException("Every sample must have the same probes.", nameof(samples));
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                if (sample[i].Chromosome is null)
+                {
+                    throw new ArgumentException("A locus has a null chromosome label.", nameof(samples));
+                }
+
+                if (!string.Equals(sample[i].Chromosome, samples[0][i].Chromosome, StringComparison.Ordinal)
+                    || sample[i].Position != samples[0][i].Position)
+                {
+                    throw new ArgumentException("Every sample must have the same probes (chromosome and position) in the same order.", nameof(samples));
+                }
+
+                if (!double.IsFinite(sample[i].LogR))
+                {
+                    throw new ArgumentException("Every locus needs a finite logR.", nameof(samples));
+                }
+
+                if (het[i] && !IsValidAlleleSignal(sample[i].LogR, sample[i].BAF))
+                {
+                    throw new ArgumentException("Every heterozygous locus needs a BAF in [0, 1].", nameof(samples));
+                }
+            }
+        }
+    }
+
+    /// <summary>ascat.asmultipcf <c>w * wsample</c>: per-track weights (S logR tracks, then S BAF tracks).</summary>
+    private static double[] AsMultiPcfTrackWeights(IReadOnlyList<double>? sampleWeights, int sampleCount)
+    {
+        var weights = new double[2 * sampleCount];
+        if (sampleWeights is null)
+        {
+            Array.Fill(weights, 1.0);
+            return weights;
+        }
+
+        if (sampleWeights.Count == sampleCount)
+        {
+            for (int s = 0; s < sampleCount; s++)
+            {
+                weights[s] = sampleWeights[s];
+                weights[s + sampleCount] = sampleWeights[s]; // wsample <- c(wsample, wsample)
+            }
+        }
+        else if (sampleWeights.Count == 2 * sampleCount)
+        {
+            for (int t = 0; t < weights.Length; t++)
+            {
+                weights[t] = sampleWeights[t];
+            }
+        }
+        else
+        {
+            throw new ArgumentException(
+                $"Length of the sample weights is {sampleWeights.Count} but should be {sampleCount} or {2 * sampleCount}.",
+                nameof(sampleWeights));
+        }
+
+        foreach (double w in weights)
+        {
+            if (!double.IsFinite(w) || w <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(sampleWeights), w, "Sample weights must be positive and finite.");
+            }
+        }
+
+        return weights;
+    }
+
+    /// <summary>
+    /// The per-chromosome-part body of <c>ascat.asmultipcf</c> on probes [lo, hi] (all probes have a finite logR, so R's
+    /// <c>Select_sites</c> is every probe and <c>Select_sites2</c> the heterozygous ones).
+    /// </summary>
+    private static void SegmentPartAsMultiPcf(
+        AlleleSpecificLocus[][] probes, double[][] rawLogR, bool[] het, int lo, int hi, double segmentLength,
+        double[] trackWeights, AsMultiPcfOptions options, double[][] logRPcfed, double[][] bafPcfed)
+    {
+        int sampleCount = probes.Length;
+        int tracks = 2 * sampleCount;
+        int len = hi - lo + 1;
+
+        var hetLocal = new List<int>();
+        for (int i = 0; i < len; i++)
+        {
+            if (het[lo + i])
+            {
+                hetLocal.Add(i);
+            }
+        }
+
+        // lrwins, logRaveraged (one window per probe), bafwins = mirror(madWins(mirror(baf))) on heterozygous probes.
+        var logRAveraged = new double[sampleCount][];
+        var bafWins = new double[sampleCount][]; // NaN at homozygous probes
+        var hetBafWins = new double[sampleCount][];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            var lr = new double[len];
+            Array.Copy(rawLogR[s], lo, lr, 0, len);
+            double[] lrWins = MadWinsorize(lr, AspcfWinsorTau, AspcfMedianHalfWindow);
+            logRAveraged[s] = new double[len];
+            for (int i = 0; i < len - 1; i++)
+            {
+                logRAveraged[s][i] = lrWins[i];
+            }
+
+            double upper = len + 0.01; // averageIndices[n + 1] = nrow(lr) + 0.01; end = floor(· − 0.01)
+            logRAveraged[s][len - 1] = RColonMean(lrWins, len, (int)Math.Floor(upper - 0.01));
+
+            var mirrored = new double[hetLocal.Count];
+            for (int k = 0; k < hetLocal.Count; k++)
+            {
+                mirrored[k] = MirrorBaf(probes[s][lo + hetLocal[k]].BAF);
+            }
+
+            double[] wins = MadWinsorize(mirrored, AspcfWinsorTau, AspcfMedianHalfWindow);
+            hetBafWins[s] = new double[hetLocal.Count];
+            bafWins[s] = new double[len];
+            Array.Fill(bafWins[s], double.NaN);
+            for (int k = 0; k < hetLocal.Count; k++)
+            {
+                hetBafWins[s][k] = MirrorBaf(wins[k]);
+                bafWins[s][hetLocal[k]] = hetBafWins[s][k];
+            }
+        }
+
+        // logRASPCF / bafASPCF: per sample, per probe of the part.
+        var logRAspcf = new double[sampleCount][];
+        var bafAspcf = new double[sampleCount][];
+        if (len < AsMultiPcfMinProbes)
+        {
+            for (int s = 0; s < sampleCount; s++)
+            {
+                double level = Mean(logRAveraged[s], 0, len);
+                double bafMean = hetBafWins[s].Length == 0 ? double.NaN : Mean(hetBafWins[s], 0, hetBafWins[s].Length);
+                double bafLevel = bafMean >= BalancedBaf ? bafMean : 1.0 - bafMean;
+                logRAspcf[s] = Filled(len, level);
+                bafAspcf[s] = Filled(len, bafLevel);
+            }
+        }
+        else
+        {
+            // lrANDbaf with NA → 0 and the weight matrix w (0 at NA, times wsample), tracks in rows.
+            var value = new double[tracks, len];
+            var weight = new double[tracks, len];
+            for (int s = 0; s < sampleCount; s++)
+            {
+                for (int i = 0; i < len; i++)
+                {
+                    value[s, i] = logRAveraged[s][i];
+                    weight[s, i] = trackWeights[s];
+                    double b = bafWins[s][i];
+                    value[s + sampleCount, i] = double.IsNaN(b) ? 0.0 : b;
+                    weight[s + sampleCount, i] = double.IsNaN(b) ? 0.0 : trackWeights[s + sampleCount];
+                }
+            }
+
+            AsMultiPcfFit joint = options.Algorithm == AsMultiPcfAlgorithm.Exact
+                ? AsMultiPcfCompact(weight, WeightedValues(value, weight), segmentLength, Ones(len))
+                : RunFastAsMultiPcf(value, weight, segmentLength);
+            double[,] yhat = ExpandMulti(len, tracks, joint.Lengths, joint.Means);
+            for (int s = 0; s < sampleCount; s++)
+            {
+                logRAspcf[s] = new double[len];
+                bafAspcf[s] = new double[len];
+                for (int i = 0; i < len; i++)
+                {
+                    logRAspcf[s][i] = yhat[s, i];
+                    bafAspcf[s][i] = yhat[s + sampleCount, i];
+                }
+            }
+
+            if (options.Refine && joint.Starts.Length > 1)
+            {
+                RefineAsMultiPcf(value, weight, joint, segmentLength, logRAspcf, bafAspcf);
+            }
+        }
+
+        for (int s = 0; s < sampleCount; s++)
+        {
+            CorrectAsMultiPcfBaf(hetLocal, bafAspcf[s], hetBafWins[s], lo, bafPcfed[s]);
+            FillZeroLevelsFromClosest(logRAspcf[s]);
+            Array.Copy(logRAspcf[s], 0, logRPcfed[s], lo, len);
+        }
+    }
+
+    /// <summary>
+    /// ascat.asmultipcf refinement: per sample, its logR and BAF tracks are compacted on the joint breakpoints
+    /// (<c>compactASMulti</c>) and re-segmented by <c>ASmultiPCFcompact</c> with γ/S; fewer segments ⇒ the sample takes them.
+    /// </summary>
+    private static void RefineAsMultiPcf(
+        double[,] value, double[,] weight, AsMultiPcfFit joint, double segmentLength, double[][] logRAspcf, double[][] bafAspcf)
+    {
+        int sampleCount = logRAspcf.Length;
+        int len = value.GetLength(1);
+        var mark = new bool[len];
+        for (int k = 1; k < joint.Starts.Length; k++)
+        {
+            mark[joint.Starts[k] - 2] = true; // start0[-1] - 1 (1-based) = last probe of the previous segment
+        }
+
+        mark[len - 1] = true;
+        for (int s = 0; s < sampleCount; s++)
+        {
+            int[] rows = { s, s + sampleCount };
+            var y = new double[2, len];
+            var w = new double[2, len];
+            for (int r = 0; r < 2; r++)
+            {
+                for (int i = 0; i < len; i++)
+                {
+                    y[r, i] = value[rows[r], i];
+                    w[r, i] = weight[rows[r], i];
+                }
+            }
+
+            (double[,] wSum, double[,] compWeight, int[] probesPerSeg) = CompactAsMulti(y, mark, w);
+            AsMultiPcfFit refined = AsMultiPcfCompact(compWeight, wSum, segmentLength / sampleCount, probesPerSeg);
+            if (refined.Starts.Length < joint.Starts.Length)
+            {
+                double[,] potts = ExpandMulti(len, 2, refined.Lengths, refined.Means);
+                for (int i = 0; i < len; i++)
+                {
+                    logRAspcf[s][i] = potts[0, i];
+                    bafAspcf[s][i] = potts[1, i];
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// ascat.asmultipcf BAF correction of one sample on the heterozygous probes of a part: each run of equal segmented
+    /// BAF gets 0.5 + μ, μ = |b − 0.5| (the mean of a constant run), shrunk to 0 when <c>sqrt(sd² + μ²) &lt; 2·sd</c> with
+    /// sd = <c>getMadwithNA</c> of the sample's winsorised mirrored heterozygous BAF.
+    /// </summary>
+    private static void CorrectAsMultiPcfBaf(List<int> hetLocal, double[] bafAspcf, double[] hetBafWins, int lo, double[] bafPcfed)
+    {
+        int h = hetLocal.Count;
+        if (h == 0)
+        {
+            return;
+        }
+
+        double sd = GetMad(hetBafWins, AspcfMedianHalfWindow);
+        int runStart = 0;
+        for (int k = 1; k <= h; k++)
+        {
+            if (k < h && bafAspcf[hetLocal[k]].Equals(bafAspcf[hetLocal[runStart]]))
+            {
+                continue;
+            }
+
+            double yi = bafAspcf[hetLocal[runStart]];
+            double level = double.NaN;
+            if (!double.IsNaN(yi))
+            {
+                double mu = Math.Abs(yi - BalancedBaf);
+                if (Math.Sqrt(sd * sd + mu * mu) < 2.0 * sd)
+                {
+                    mu = 0.0;
+                }
+
+                level = mu + BalancedBaf;
+            }
+
+            for (int q = runStart; q < k; q++)
+            {
+                bafPcfed[lo + hetLocal[q]] = level;
+            }
+
+            runStart = k;
+        }
+    }
+
+    /// <summary>
+    /// ascat.asmultipcf "fill in NAs in logR data": levels that are NaN or exactly 0 take the level of the closest other
+    /// probe of the part (<c>which.min</c>: the lower index on a tie); all 0 when none remains.
+    /// </summary>
+    private static void FillZeroLevelsFromClosest(double[] levels)
+    {
+        var keep = new List<int>();
+        for (int i = 0; i < levels.Length; i++)
+        {
+            if (!double.IsNaN(levels[i]) && levels[i] != 0.0)
+            {
+                keep.Add(i);
+            }
+        }
+
+        if (keep.Count == levels.Length)
+        {
+            return;
+        }
+
+        var original = (double[])levels.Clone();
+        for (int i = 0; i < levels.Length; i++)
+        {
+            if (!double.IsNaN(original[i]) && original[i] != 0.0)
+            {
+                continue;
+            }
+
+            if (keep.Count == 0)
+            {
+                levels[i] = 0.0;
+                continue;
+            }
+
+            int best = keep[0];
+            foreach (int k in keep)
+            {
+                if (Math.Abs(k - i) < Math.Abs(best - i))
+                {
+                    best = k;
+                }
+            }
+
+            levels[i] = original[best];
+        }
+    }
+
+    /// <summary>Result of <c>ASmultiPCFcompact</c>: segment lengths in probes (<c>Lengde</c>), 1-based starts (<c>sta</c>),
+    /// per-track segment means [track, segment] and the number of segments.</summary>
+    private sealed record AsMultiPcfFit(int[] Lengths, int[] Starts, double[,] Means);
+
+    /// <summary>
+    /// ASCAT <c>ASmultiPCFcompact(nr, wSum, gamma, wsample, nProbesPerSeg)</c>, verbatim: exact multi-track Potts DP on
+    /// (compacted) columns with weights <paramref name="nr"/> and weighted sums <paramref name="wSum"/> [track, column].
+    /// Cost[j] = Σ_tracks −Sum²/Nevner (Nevner 0 ⇒ 1) + bestCost[j − 1] + γ; <c>which.min</c> skips NaN (bestCost[1] is NaN
+    /// when the first column has a zero weight, exactly as in R). <c>wsample</c> is unused by R and not taken.
+    /// </summary>
+    private static AsMultiPcfFit AsMultiPcfCompact(double[,] nr, double[,] wSum, double gamma, int[] nProbesPerSeg)
+    {
+        int tracks = wSum.GetLength(0);
+        int bigN = nr.GetLength(1);
+        var bestCost = new double[bigN + 1];   // 1-based
+        var bestSplit = new int[bigN + 2];     // 1-based
+        var bestAver = new double[tracks, bigN + 1];
+        var sum = new double[tracks, bigN + 1];
+        var nevner = new double[tracks, bigN + 1];
+        var cost = new double[bigN + 1];
+
+        double first = 0.0;
+        for (int t = 0; t < tracks; t++)
+        {
+            sum[t, 1] = wSum[t, 0];
+            nevner[t, 1] = nr[t, 0];
+            bestAver[t, 1] = wSum[t, 0] / nr[t, 0];
+            first += -sum[t, 1] * bestAver[t, 1]; // helper %*% (-Sum[, 1] * bestAver[, 1])
+        }
+
+        bestCost[1] = first;
+        for (int m = 2; m <= bigN; m++)
+        {
+            for (int j = 1; j <= m; j++)
+            {
+                double c = 0.0;
+                for (int t = 0; t < tracks; t++)
+                {
+                    sum[t, j] += wSum[t, m - 1];
+                    nevner[t, j] += nr[t, m - 1];
+                    double denominator = nevner[t, j] == 0.0 ? 1.0 : nevner[t, j];
+                    c += -(sum[t, j] * sum[t, j]) / denominator;
+                }
+
+                cost[j] = j >= 2 ? c + bestCost[j - 1] + gamma : c;
+            }
+
+            int pos = -1;
+            for (int j = 1; j <= m; j++)
+            {
+                if (!double.IsNaN(cost[j]) && (pos < 0 || cost[j] < cost[pos]))
+                {
+                    pos = j; // which.min: first minimum, NA/NaN skipped
+                }
+            }
+
+            bestCost[m] = cost[pos];
+            for (int t = 0; t < tracks; t++)
+            {
+                bestAver[t, m] = sum[t, pos] / nevner[t, pos];
+            }
+
+            bestSplit[m] = pos - 1;
+        }
+
+        var lengths = new List<int>();
+        var means = new List<double[]>();
+        int cursor = bigN;
+        while (cursor > 0)
+        {
+            int probesInSegment = 0;
+            for (int k = bestSplit[cursor] + 1; k <= cursor; k++)
+            {
+                probesInSegment += nProbesPerSeg[k - 1];
+            }
+
+            lengths.Add(probesInSegment);
+            var mean = new double[tracks];
+            for (int t = 0; t < tracks; t++)
+            {
+                mean[t] = bestAver[t, cursor];
+            }
+
+            means.Add(mean);
+            cursor = bestSplit[cursor];
+        }
+
+        lengths.Reverse();
+        means.Reverse();
+        var starts = new int[lengths.Count];
+        starts[0] = 1;
+        for (int k = 1; k < starts.Length; k++)
+        {
+            starts[k] = starts[k - 1] + lengths[k - 1];
+        }
+
+        var meanMatrix = new double[tracks, lengths.Count];
+        for (int k = 0; k < lengths.Count; k++)
+        {
+            for (int t = 0; t < tracks; t++)
+            {
+                meanMatrix[t, k] = means[k][t];
+            }
+        }
+
+        return new AsMultiPcfFit(lengths.ToArray(), starts, meanMatrix);
+    }
+
+    /// <summary>
+    /// ASCAT <c>compactASMulti(y, mark, w)</c>: weighted sums, weights and probe counts of the blocks ending at each marked
+    /// column (the last column must be marked).
+    /// </summary>
+    private static (double[,] WSum, double[,] Weight, int[] ProbesPerSeg) CompactAsMulti(double[,] y, bool[] mark, double[,] w)
+    {
+        int tracks = y.GetLength(0);
+        int len = y.GetLength(1);
+        int blocks = mark.Count(m => m);
+        var wSum = new double[tracks, blocks];
+        var weight = new double[tracks, blocks];
+        var probesPerSeg = new int[blocks];
+        var delSum = new double[tracks];
+        var delWeight = new double[tracks];
+        int count = 0, oldPos = -1;
+        for (int pos = 0; pos < len; pos++)
+        {
+            for (int t = 0; t < tracks; t++)
+            {
+                double contribution = y[t, pos] * w[t, pos];
+                if (mark[pos])
+                {
+                    wSum[t, count] = delSum[t] + contribution;
+                    weight[t, count] = delWeight[t] + w[t, pos];
+                    delSum[t] = 0.0;
+                    delWeight[t] = 0.0;
+                }
+                else
+                {
+                    delSum[t] += contribution;
+                    delWeight[t] += w[t, pos];
+                }
+            }
+
+            if (mark[pos])
+            {
+                probesPerSeg[count] = pos - oldPos;
+                oldPos = pos;
+                count++;
+            }
+        }
+
+        return (wSum, weight, probesPerSeg);
+    }
+
+    /// <summary>
+    /// ASCAT <c>runFastASMultiPCF(x, w, gamma, yest = TRUE, subsize = 5000)</c>, verbatim: <c>ASmultiPCFcompact</c> on
+    /// windows of subsize + 1 probes (step 4·subsize/5) with the <b>unweighted</b> values as <c>wSum</c> (as R passes
+    /// <c>t(x[…])</c>), marking each segment start; all probes from the last window start on are marked; the exact
+    /// algorithm then runs on the compacted data.
+    /// </summary>
+    private static AsMultiPcfFit RunFastAsMultiPcf(double[,] value, double[,] weight, double gamma)
+    {
+        int tracks = value.GetLength(0);
+        int antGen = value.GetLength(1);
+        var mark = new bool[antGen];
+        int start0 = 1;
+        while (start0 + AsMultiPcfFastSubsize < antGen)
+        {
+            int width = AsMultiPcfFastSubsize + 1;
+            var nr = new double[tracks, width];
+            var x = new double[tracks, width];
+            for (int t = 0; t < tracks; t++)
+            {
+                for (int i = 0; i < width; i++)
+                {
+                    nr[t, i] = weight[t, start0 - 1 + i];
+                    x[t, i] = value[t, start0 - 1 + i];
+                }
+            }
+
+            AsMultiPcfFit res = AsMultiPcfCompact(nr, x, gamma, Ones(width));
+            foreach (int sta in res.Starts)
+            {
+                mark[start0 + sta - 2] = true; // mark[start0 + res$sta - 1] (1-based)
+            }
+
+            start0 += AsMultiPcfFastStep;
+        }
+
+        for (int i = start0 - 1; i < antGen; i++)
+        {
+            mark[i] = true;
+        }
+
+        (double[,] wSum, double[,] compWeight, int[] probesPerSeg) = CompactAsMulti(value, mark, weight);
+        return AsMultiPcfCompact(compWeight, wSum, gamma, probesPerSeg);
+    }
+
+    /// <summary>ASCAT <c>expandMulti(nProbes, nSamples, lengthInt, mean)</c>: [track, probe] piecewise-constant expansion.</summary>
+    private static double[,] ExpandMulti(int nProbes, int tracks, int[] lengths, double[,] means)
+    {
+        var potts = new double[tracks, nProbes];
+        int k = 0;
+        for (int seg = 0; seg < lengths.Length; seg++)
+        {
+            for (int j = 0; j < lengths[seg]; j++)
+            {
+                for (int t = 0; t < tracks; t++)
+                {
+                    potts[t, k] = means[t, seg];
+                }
+
+                k++;
+            }
+        }
+
+        return potts;
+    }
+
+    /// <summary><c>t(lrANDbaf) * w</c>.</summary>
+    private static double[,] WeightedValues(double[,] value, double[,] weight)
+    {
+        int tracks = value.GetLength(0), len = value.GetLength(1);
+        var result = new double[tracks, len];
+        for (int t = 0; t < tracks; t++)
+        {
+            for (int i = 0; i < len; i++)
+            {
+                result[t, i] = value[t, i] * weight[t, i];
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary><c>rep(1, n)</c> as probe counts.</summary>
+    private static int[] Ones(int n)
+    {
+        var ones = new int[n];
+        Array.Fill(ones, 1);
+        return ones;
     }
 
     /// <summary>

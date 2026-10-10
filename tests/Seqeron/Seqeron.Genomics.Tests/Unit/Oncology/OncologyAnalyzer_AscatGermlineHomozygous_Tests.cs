@@ -273,6 +273,37 @@ public class OncologyAnalyzer_AscatGermlineHomozygous_Tests
         });
     }
 
+    // S-ASPCF-G4 (B24 F53) — R's x[n:(n-1)]: for the last heterozygous probe the averaging window is
+    // lr[ceiling(n − 0.5):floor(n + 0.01 − 0.01)], and floor(32 + 0.01 − 0.01) = 31 in IEEE doubles, so R averages probes 32
+    // and 31 (a descending range). The port formerly averaged an empty range (NaN) and split the 32-probe chr2 into
+    // single-probe segments; ascat.aspcf (R 4.3.3) gives 16 + 16.
+    [Test]
+    public void SegmentAlleleSpecificAspcf_Germline_ChromosomeOf32Probes_LastWindowIsDescendingRange()
+    {
+        var genome = new Genome(7, 0.0, new Block[]
+        {
+            new("1", 200, -0.2, 0.5, false), new("1", 100, 0.4, 0.7, false),
+            new("2", 16, 0.3, 0.6, false), new("2", 16, -0.5, 0.8, false),
+        });
+        var expected = new (int N, double LogR, double Baf)[]
+        {
+            (200, -0.22801451477129689, 0.5), (100, 0.38581407161327735, 0.70045650485928002),
+            (16, 0.32626688956574856, 0.61705520200405972), (16, -0.51100735978619538, 0.814577442655958),
+        };
+
+        var seg = Segment(genome);
+
+        Assert.That(seg.Segments.Select(s => s.LocusCount), Is.EqualTo(expected.Select(e => e.N)), "ascat.aspcf segment sizes.");
+        Assert.Multiple(() =>
+        {
+            for (int i = 0; i < expected.Length; i++)
+            {
+                Assert.That(seg.Segments[i].MeanLogR, Is.EqualTo(expected[i].LogR).Within(1e-14), $"Segment {i + 1} logR.");
+                Assert.That(seg.Segments[i].MeanBAF, Is.EqualTo(expected[i].Baf).Within(1e-15), $"Segment {i + 1} BAF.");
+            }
+        });
+    }
+
     #endregion
 
     #region FitPurityPloidyFromAspcf — runASCAT with homozygous segments (F37)
