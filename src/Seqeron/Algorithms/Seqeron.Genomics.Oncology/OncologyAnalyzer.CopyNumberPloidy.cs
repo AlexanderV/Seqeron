@@ -2420,8 +2420,9 @@ public static partial class OncologyAnalyzer
     /// of the ASCAT ladder (35, 50, 70, 100, 140).</item>
     /// </list>
     /// Breakpoints never cross a contig boundary (loci are grouped into contiguous same-chromosome runs, input order).
-    /// Not ported (no inputs for them): germline-homozygous-stretch resegmentation and the averaging of homozygous
-    /// probes' logR (every supplied locus is treated as a germline-heterozygous SNP).
+    /// Every supplied locus is treated as a germline-heterozygous SNP; for mixed heterozygous / homozygous input (logR
+    /// averaging over homozygous probes, homozygous-stretch resegmentation) use the germline-aware overload
+    /// <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/> (B24 F36).
     /// </summary>
     /// <param name="loci">Per-locus measurements; processed in input order within each chromosome. LogR must be
     /// finite and BAF in [0, 1].</param>
@@ -2980,6 +2981,753 @@ public static partial class OncologyAnalyzer
         }
 
         return m;
+    }
+
+    // ---- ASCAT ascat.aspcf with germline-homozygous probes (B24 F36) ----
+
+    /// <summary>ASCAT <c>predictGermlineHomozygousStretches</c>: hard-coded p-value 0.001 of a homozygous run.</summary>
+    private const double AscatHomozygousStretchPValue = 0.001;
+
+    /// <summary>ascat.aspcf homozygous-stretch resegmentation: PCF context of ±100 probes around the stretch.</summary>
+    private const int AscatHomStretchContext = 100;
+
+    /// <summary>ascat.aspcf homozygous-stretch resegmentation: replacement margin of ±5 probes around the stretch.</summary>
+    private const int AscatHomStretchMargin = 5;
+
+    /// <summary>ascat.aspcf homozygous-stretch resegmentation: a probe is replaced when |Δ level| &gt; 0.3 …</summary>
+    private const double AscatHomStretchLevelDifference = 0.3;
+
+    /// <summary>… and only when more than 5 probes of the stretch differ (<c>sum(dif &gt; 0.3) &gt; 5</c>).</summary>
+    private const int AscatHomStretchMinDifferingProbes = 5;
+
+    /// <summary>
+    /// One ASCAT logR segment of a germline-aware ASPCF segmentation (<see cref="AspcfSegmentation"/>): a maximal run of
+    /// loci with the same segmented logR inside one chromosome — exactly the segments runASCAT builds from
+    /// <c>rle(lrrsegmented)</c> ∪ chromosome ends (ascat.runAscat.R, <c>tlrstart</c>/<c>tlrend</c>).
+    /// </summary>
+    /// <param name="Chromosome">Contig label.</param>
+    /// <param name="Start">Position of the first locus of the segment.</param>
+    /// <param name="End">Position of the last locus of the segment.</param>
+    /// <param name="MeanLogR">Segmented logR level (mean raw logR of the segment's loci, heterozygous and homozygous).</param>
+    /// <param name="MeanBAF">Mirrored (≥ 0.5) segmented BAF of the segment's <b>first</b> germline-heterozygous locus
+    /// (runASCAT <c>bafke = bafsegmented[bafpos][1]</c>); <see cref="double.NaN"/> when the segment has no heterozygous
+    /// locus (a germline-homozygous stretch: ASCAT then sets <c>bafke = 0</c> and only nA + nB is meaningful).</param>
+    /// <param name="LocusCount">Number of loci (all germline genotypes) in the segment.</param>
+    /// <param name="HeterozygousLocusCount">Number of germline-heterozygous loci in the segment.</param>
+    public readonly record struct AspcfSegment(
+        string Chromosome,
+        long Start,
+        long End,
+        double MeanLogR,
+        double MeanBAF,
+        int LocusCount,
+        int HeterozygousLocusCount)
+    {
+        /// <summary>True when the segment has a segmented BAF (at least one germline-heterozygous locus).</summary>
+        public bool HasBaf => !double.IsNaN(MeanBAF);
+    }
+
+    /// <summary>
+    /// Result of ASCAT allele-specific segmentation with germline genotypes
+    /// (<see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/>): the
+    /// per-locus ASCAT <c>Tumor_LogR_segmented</c> (every locus) and <c>Tumor_BAF_segmented</c> (heterozygous loci only),
+    /// plus the logR segments runASCAT builds from them.
+    /// </summary>
+    public sealed class AspcfSegmentation
+    {
+        internal AspcfSegmentation(
+            AlleleSpecificLocus[] loci, bool[] heterozygous, double[] segmentedLogR, double[] segmentedBaf,
+            AspcfSegment[] segments)
+        {
+            Loci = Array.AsReadOnly(loci);
+            GermlineHeterozygous = Array.AsReadOnly(heterozygous);
+            SegmentedLogR = Array.AsReadOnly(segmentedLogR);
+            SegmentedBaf = Array.AsReadOnly(segmentedBaf);
+            Segments = Array.AsReadOnly(segments);
+        }
+
+        /// <summary>The input loci, in input order.</summary>
+        public IReadOnlyList<AlleleSpecificLocus> Loci { get; }
+
+        /// <summary>The germline genotype of each locus (true = heterozygous), in input order.</summary>
+        public IReadOnlyList<bool> GermlineHeterozygous { get; }
+
+        /// <summary>ASCAT <c>Tumor_LogR_segmented</c>: the segmented logR level of every locus.</summary>
+        public IReadOnlyList<double> SegmentedLogR { get; }
+
+        /// <summary>Mirrored (≥ 0.5) segmented BAF of each heterozygous locus (ASCAT <c>Tumor_BAF_segmented = 1 − value</c>);
+        /// <see cref="double.NaN"/> at germline-homozygous loci (ASCAT segments BAF on heterozygous probes only).</summary>
+        public IReadOnlyList<double> SegmentedBaf { get; }
+
+        /// <summary>The logR segments (runs of equal segmented logR within a chromosome), in input order.</summary>
+        public IReadOnlyList<AspcfSegment> Segments { get; }
+    }
+
+    /// <summary>
+    /// ASCAT allele-specific segmentation with germline genotypes — a port of the complete <c>ascat.aspcf</c>
+    /// (VanLoo-lab/ascat ascat.aspcf.R; Ross et al. 2021, <i>Bioinformatics</i> 37:1909) for mixed heterozygous /
+    /// homozygous input, as ASCAT runs it with <c>ascat.gg$germlinegenotypes</c> (TRUE = homozygous):
+    /// <list type="number">
+    /// <item>Germline-homozygous stretches (<c>predictGermlineHomozygousStretches</c>): with h = the fraction of homozygous
+    /// loci, a run of ≥ <c>ceiling(log(0.001, h))</c> consecutive homozygous loci is a stretch.</item>
+    /// <item>Per chromosome: logR of <b>all</b> loci is MAD-winsorised; BAF of the heterozygous loci only. Each
+    /// heterozygous locus gets the mean winsorised logR of the loci between the midpoints to its heterozygous
+    /// neighbours; ASPCF (<c>fastAspcf</c>, kmin 6; &lt; 6 heterozygous loci ⇒ one segment) runs on these averages and
+    /// the heterozygous BAF. Between consecutive heterozygous loci of different levels the logR breakpoint is placed
+    /// in the homozygous gap at the minimum absolute deviation (ascat.aspcf "find best breakpoint", verbatim
+    /// including its <c>1:0</c> indexing at bp = 0); levels are re-estimated as the mean raw logR. A chromosome without
+    /// heterozygous loci becomes one logR segment (mean raw logR) with no BAF.</item>
+    /// <item>Each homozygous stretch is re-segmented: exact PCF (<c>exactPcf</c>, kmin 6, penalty floor(γ/4)) of the
+    /// winsorised raw logR over the stretch ± 100 loci; the stretch ± 5 loci takes the PCF level where it differs by
+    /// more than 0.3, if more than 5 loci differ.</item>
+    /// <item>Genome-wide: zero levels are filled from their neighbours (<c>fillNA(zeroIsNA = TRUE)</c>) and every run of
+    /// equal levels is re-estimated as its mean raw logR; the penalty ladder (35, 50, 70, 100, 140) is climbed while
+    /// ≥ 800 distinct levels remain.</item>
+    /// </list>
+    /// With every locus heterozygous the logR levels and BAF are those of
+    /// <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, double)"/> (which is unchanged), apart from
+    /// two R genome-wide steps that overload omits — a level exactly 0 is replaced by <c>fillNA</c>, and equal adjacent
+    /// levels on consecutive chromosomes are re-averaged together.
+    /// Loci of one chromosome must be contiguous in the input (each contiguous same-label run is one ASCAT <c>chr</c>
+    /// part); positions are not re-sorted.
+    /// </summary>
+    /// <param name="loci">Per-locus measurements in genome order. LogR must be finite; BAF must be in [0, 1] at
+    /// heterozygous loci and is ignored at homozygous loci (it may be NaN there, e.g. a copy-number-only probe).</param>
+    /// <param name="germlineHeterozygous">Germline genotype per locus: true = heterozygous (ASCAT
+    /// <c>germlinegenotypes == FALSE</c>), false = homozygous. Same length as <paramref name="loci"/>.</param>
+    /// <param name="penalty">ASPCF penalty (ASCAT <c>penalty</c>, default <see cref="AspcfDefaultPenalty"/> = 70).</param>
+    /// <returns>The per-locus segmented logR/BAF and the runASCAT logR segments.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">Lengths differ, a chromosome label is null, a logR is non-finite, or a
+    /// heterozygous locus has a BAF outside [0, 1].</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0, NaN or infinite.</exception>
+    public static AspcfSegmentation SegmentAlleleSpecificAspcf(
+        IEnumerable<AlleleSpecificLocus> loci,
+        IReadOnlyList<bool> germlineHeterozygous,
+        double penalty = AspcfDefaultPenalty)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+        ArgumentNullException.ThrowIfNull(germlineHeterozygous);
+        if (!double.IsFinite(penalty) || penalty <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(penalty), penalty, "The ASPCF penalty γ must be positive and finite.");
+        }
+
+        AlleleSpecificLocus[] probes = loci.ToArray();
+        if (probes.Length != germlineHeterozygous.Count)
+        {
+            throw new ArgumentException(
+                "Exactly one germline genotype is required per locus.", nameof(germlineHeterozygous));
+        }
+
+        var het = new bool[probes.Length];
+        for (int i = 0; i < probes.Length; i++)
+        {
+            het[i] = germlineHeterozygous[i];
+            if (probes[i].Chromosome is null)
+            {
+                throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
+            }
+
+            if (!double.IsFinite(probes[i].LogR))
+            {
+                throw new ArgumentException("Every locus needs a finite logR.", nameof(loci));
+            }
+
+            if (het[i] && !IsValidAlleleSignal(probes[i].LogR, probes[i].BAF))
+            {
+                throw new ArgumentException("Every heterozygous locus needs a BAF in [0, 1].", nameof(loci));
+            }
+        }
+
+        int n = probes.Length;
+        var logR = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            logR[i] = probes[i].LogR;
+        }
+
+        List<(int Lo, int Hi)> runs = ContiguousChromosomeRuns(probes);
+        List<(int Run, int Start, int End)> stretches = PredictGermlineHomozygousStretches(runs, het);
+
+        var ladder = new List<double> { penalty };
+        foreach (double p in AspcfPenaltyLadder)
+        {
+            if (p > penalty)
+            {
+                ladder.Add(p);
+            }
+        }
+
+        double[] logRPcfed = Array.Empty<double>();
+        double[] bafPcfed = new double[n];
+        foreach (double segmentPenalty in ladder)
+        {
+            logRPcfed = new double[n];
+            Array.Fill(bafPcfed, double.NaN);
+            for (int r = 0; r < runs.Count; r++)
+            {
+                SegmentChromosomeAspcfGermline(logR, probes, het, runs[r].Lo, runs[r].Hi, segmentPenalty, logRPcfed, bafPcfed);
+                ResegmentHomozygousStretches(logR, runs[r].Lo, runs[r].Hi, stretches, r, segmentPenalty, logRPcfed);
+            }
+
+            AscatFillNa(logRPcfed);
+            ReadaptLevels(logRPcfed, logR, 0, n);
+
+            if (logRPcfed.Distinct().Count() < AspcfMaxSegmentLevels)
+            {
+                break;
+            }
+        }
+
+        return new AspcfSegmentation(probes, het, logRPcfed, bafPcfed, BuildAspcfSegments(probes, het, runs, logRPcfed, bafPcfed));
+    }
+
+    /// <summary>Contiguous same-chromosome runs of the loci (ASCAT <c>chr</c> parts), in input order.</summary>
+    private static List<(int Lo, int Hi)> ContiguousChromosomeRuns(AlleleSpecificLocus[] loci)
+    {
+        var runs = new List<(int Lo, int Hi)>();
+        int start = 0;
+        while (start < loci.Length)
+        {
+            int end = start;
+            while (end + 1 < loci.Length && loci[end + 1].Chromosome == loci[start].Chromosome)
+            {
+                end++;
+            }
+
+            runs.Add((start, end));
+            start = end + 1;
+        }
+
+        return runs;
+    }
+
+    /// <summary>
+    /// ASCAT <c>predictGermlineHomozygousStretches</c>: runs of ≥ <c>ceiling(log(0.001, h))</c> consecutive homozygous loci
+    /// per chromosome, h = genome-wide homozygous fraction (R <c>log(x, base) = log(x)/log(base)</c>). Returns 0-based
+    /// global (first, last) indices.
+    /// </summary>
+    private static List<(int Run, int Start, int End)> PredictGermlineHomozygousStretches(
+        List<(int Lo, int Hi)> runs, bool[] het)
+    {
+        var stretches = new List<(int Run, int Start, int End)>();
+        if (het.Length == 0)
+        {
+            return stretches;
+        }
+
+        int homCount = 0;
+        foreach (bool h in het)
+        {
+            if (!h)
+            {
+                homCount++;
+            }
+        }
+
+        double fractionHom = (double)homCount / het.Length;
+        double threshold = Math.Ceiling(Math.Log(AscatHomozygousStretchPValue) / Math.Log(fractionHom));
+        for (int r = 0; r < runs.Count; r++)
+        {
+            int count = 0, first = -1;
+            for (int i = runs[r].Lo; i <= runs[r].Hi; i++)
+            {
+                if (!het[i])
+                {
+                    if (count == 0)
+                    {
+                        first = i;
+                    }
+
+                    count++;
+                }
+                else
+                {
+                    // An empty run gives R an NA row (min of an empty vector), which ascat.aspcf skips.
+                    if (count > 0 && count >= threshold)
+                    {
+                        stretches.Add((r, first, i - 1));
+                    }
+
+                    count = 0;
+                }
+            }
+
+            if (count > 0 && count >= threshold)
+            {
+                stretches.Add((r, first, runs[r].Hi));
+            }
+        }
+
+        return stretches;
+    }
+
+    /// <summary>
+    /// The per-chromosome body of <c>ascat.aspcf</c> with germline genotypes, on loci [lo, hi]: writes the segmented logR
+    /// of every locus to <paramref name="logRPcfed"/> and the mirrored segmented BAF of each heterozygous locus to
+    /// <paramref name="bafPcfed"/>.
+    /// </summary>
+    private static void SegmentChromosomeAspcfGermline(
+        double[] logR, AlleleSpecificLocus[] loci, bool[] het, int lo, int hi, double penalty,
+        double[] logRPcfed, double[] bafPcfed)
+    {
+        int len = hi - lo + 1;
+        var lr = new double[len];
+        Array.Copy(logR, lo, lr, 0, len);
+        double[] lrWins = MadWinsorize(lr, AspcfWinsorTau, AspcfMedianHalfWindow);
+
+        var indices = new List<int>(); // 1-based local indices of the heterozygous loci (R "indices")
+        for (int i = 0; i < len; i++)
+        {
+            if (het[lo + i])
+            {
+                indices.Add(i + 1);
+            }
+        }
+
+        int h = indices.Count;
+        if (h == 0)
+        {
+            // No heterozygous probe: a single logR segment, no BAF.
+            double level = Mean(lr, 0, len);
+            Array.Fill(logRPcfed, level, lo, len);
+            return;
+        }
+
+        var bafSel = new double[h];
+        var mirrored = new double[h];
+        for (int k = 0; k < h; k++)
+        {
+            bafSel[k] = loci[lo + indices[k] - 1].BAF;
+            mirrored[k] = MirrorBaf(bafSel[k]);
+        }
+
+        double[] bafWinsMirrored = MadWinsorize(mirrored, AspcfWinsorTau, AspcfMedianHalfWindow);
+        var bafWins = new double[h];
+        for (int k = 0; k < h; k++)
+        {
+            bafWins[k] = bafSel[k] > BalancedBaf ? bafWinsMirrored[k] : 1.0 - bafWinsMirrored[k];
+        }
+
+        // averageIndices = c(1, (indices[-h] + indices[-1])/2, length(lr) + 0.01); start = ceiling, end = floor(· − 0.01).
+        var logRAveraged = new double[h];
+        for (int k = 0; k < h; k++)
+        {
+            int startIndex, endIndex;
+            if (h == 1)
+            {
+                startIndex = 1;
+                endIndex = len;
+            }
+            else
+            {
+                double lower = k == 0 ? 1.0 : (indices[k - 1] + indices[k]) / 2.0;
+                double upper = k == h - 1 ? len + 0.01 : (indices[k] + indices[k + 1]) / 2.0;
+                startIndex = (int)Math.Ceiling(lower);
+                endIndex = (int)Math.Floor(upper - 0.01);
+            }
+
+            logRAveraged[k] = Mean(lrWins, startIndex - 1, endIndex);
+        }
+
+        var levelPerHet = new double[h];
+        var bafPerHet = new double[h];
+        if (h < AspcfMinSegmentLength)
+        {
+            Array.Fill(levelPerHet, Mean(logRAveraged, 0, h));
+            Array.Fill(bafPerHet, Mean(bafWinsMirrored, 0, h));
+        }
+        else
+        {
+            (int[] breakpoints, double[] segmentBaf) = FastAspcf(logRAveraged, bafWins, AspcfMinSegmentLength, penalty);
+            for (int s = 0; s + 1 < breakpoints.Length; s++)
+            {
+                double level = Mean(logRAveraged, breakpoints[s], breakpoints[s + 1]); // fastAspcf yhat1
+                for (int k = breakpoints[s]; k < breakpoints[s + 1]; k++)
+                {
+                    levelPerHet[k] = level;
+                    bafPerHet[k] = segmentBaf[s];
+                }
+            }
+        }
+
+        // logRc: extend the heterozygous levels over the homozygous gaps ("find best breakpoint").
+        var logRc = new double[len];
+        for (int p = 0; p < h; p++)
+        {
+            int at = indices[p]; // 1-based
+            if (p == 0)
+            {
+                Array.Fill(logRc, levelPerHet[0], 0, at);
+            }
+
+            if (p == h - 1)
+            {
+                Array.Fill(logRc, levelPerHet[p], at, len - at);
+            }
+            else if (levelPerHet[p] == levelPerHet[p + 1])
+            {
+                Array.Fill(logRc, levelPerHet[p], at, indices[p + 1] - at);
+            }
+            else
+            {
+                int total = indices[p + 1] - at;
+                int breakpoint = AscatBestGapBreakpoint(lr, at, total, levelPerHet[p], levelPerHet[p + 1]);
+                Array.Fill(logRc, levelPerHet[p], at, breakpoint);
+                Array.Fill(logRc, levelPerHet[p + 1], at + breakpoint, total - breakpoint);
+            }
+        }
+
+        // 2nd step: adapt levels (rle(logRc) runs → mean raw logR).
+        int runStart = 0;
+        for (int i = 1; i <= len; i++)
+        {
+            if (i == len || logRc[i] != logRc[runStart])
+            {
+                double level = Mean(lr, runStart, i);
+                Array.Fill(logRPcfed, level, lo + runStart, i - runStart);
+                runStart = i;
+            }
+        }
+
+        for (int k = 0; k < h; k++)
+        {
+            bafPcfed[lo + indices[k] - 1] = bafPerHet[k];
+        }
+    }
+
+    /// <summary>
+    /// ascat.aspcf "find best breakpoint" between heterozygous loci at 1-based local positions <paramref name="at"/> and
+    /// at + <paramref name="total"/>: for bp ∈ 0..total−1, d(bp) = Σ|lr[(1:bp) + at] − left| + Σ|lr[((bp+1):total) + at] −
+    /// right|; returns <c>which.min(d) − 1</c>. R's <c>1:0 = c(1, 0)</c> makes bp = 0 compare lr[at + 1] and lr[at] with
+    /// the left level — kept verbatim.
+    /// </summary>
+    private static int AscatBestGapBreakpoint(double[] lr, int at, int total, double left, double right)
+    {
+        int best = 0;
+        double bestDistance = double.NaN;
+        for (int bp = 0; bp < total; bp++)
+        {
+            double leftSum = 0.0;
+            if (bp == 0)
+            {
+                leftSum += Math.Abs(lr[at] - left);     // lr[1 + at] (R 1-based) = C# lr[at]
+                leftSum += Math.Abs(lr[at - 1] - left); // lr[0 + at]
+            }
+            else
+            {
+                for (int q = 1; q <= bp; q++)
+                {
+                    leftSum += Math.Abs(lr[q + at - 1] - left);
+                }
+            }
+
+            double rightSum = 0.0;
+            for (int q = bp + 1; q <= total; q++)
+            {
+                rightSum += Math.Abs(lr[q + at - 1] - right);
+            }
+
+            double distance = leftSum + rightSum;
+            if (bp == 0 || distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = bp;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// ascat.aspcf "correct wrong segments in germline homozygous stretches" for the stretches of chromosome run
+    /// <paramref name="run"/> [lo, hi]: exact PCF (kmin 6, penalty floor(γ/4)) of the winsorised raw logR over the stretch
+    /// ± 100 loci; the stretch ± 5 loci takes the PCF level where it differs by &gt; 0.3, if &gt; 5 loci differ.
+    /// </summary>
+    private static void ResegmentHomozygousStretches(
+        double[] logR, int lo, int hi, List<(int Run, int Start, int End)> stretches, int run, double penalty,
+        double[] logRPcfed)
+    {
+        double pcfPenalty = Math.Floor(penalty / 4.0);
+        foreach ((int stretchRun, int start, int end) in stretches)
+        {
+            if (stretchRun != run)
+            {
+                continue;
+            }
+
+            int start2 = Math.Max(start - AscatHomStretchContext, lo);
+            int end2 = Math.Min(end + AscatHomStretchContext, hi);
+            int start3 = Math.Max(start - AscatHomStretchMargin, lo);
+            int end3 = Math.Min(end + AscatHomStretchMargin, hi);
+
+            var window = new double[end2 - start2 + 1];
+            Array.Copy(logR, start2, window, 0, window.Length);
+            double[] pcfed = ExactPcf(MadWinsorize(window, AspcfWinsorTau, AspcfMedianHalfWindow), AspcfMinSegmentLength, pcfPenalty);
+
+            int count = end3 - start3 + 1;
+            var dif = new double[count];
+            int differing = 0;
+            for (int i = 0; i < count; i++)
+            {
+                dif[i] = Math.Abs(pcfed[start3 - start2 + i] - logRPcfed[start3 + i]);
+                if (dif[i] > AscatHomStretchLevelDifference)
+                {
+                    differing++;
+                }
+            }
+
+            if (differing > AscatHomStretchMinDifferingProbes)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    if (dif[i] > AscatHomStretchLevelDifference)
+                    {
+                        logRPcfed[start3 + i] = pcfed[start3 - start2 + i];
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// ASCAT <c>exactPcf(y, kmin, gamma)</c> (ascat.aspcf.R): exact univariate piecewise-constant fit by Potts filtering,
+    /// minimum segment length kmin, penalty γ per discontinuity on the raw (unstandardised) squared error.
+    /// </summary>
+    private static double[] ExactPcf(double[] y, int kmin, double gamma)
+    {
+        int n = y.Length;
+        var yhat = new double[n];
+        if (n < 2 * kmin)
+        {
+            Array.Fill(yhat, Mean(y, 0, n));
+            return yhat;
+        }
+
+        // 1-based arrays (index 0 unused), mirroring the R code.
+        double initSum = 0.0, initKvad = 0.0;
+        for (int i = 1; i <= kmin; i++)
+        {
+            initSum += y[i - 1];
+            initKvad += y[i - 1] * y[i - 1];
+        }
+
+        double initAve = initSum / kmin;
+        var bestCost = new double[n + 1];
+        var bestSplit = new int[n + 1];
+        var bestAver = new double[n + 1];
+        var sum = new double[n + 1];
+        var kvad = new double[n + 1];
+        var aver = new double[n + 1];
+        var cost = new double[n + 1];
+        bestCost[kmin] = initKvad - initSum * initAve;
+        bestAver[kmin] = initAve;
+        int kminP1 = kmin + 1;
+        for (int k = kminP1; k <= 2 * kmin - 1; k++)
+        {
+            double yk = y[k - 1];
+            for (int t = kminP1; t <= k; t++)
+            {
+                sum[t] += yk;
+                aver[t] = sum[t] / (k - t + 1);
+                kvad[t] += yk * yk;
+            }
+
+            bestAver[k] = (initSum + sum[kminP1]) / k;
+            bestCost[k] = (initKvad + kvad[kminP1]) - k * (bestAver[k] * bestAver[k]);
+        }
+
+        for (int m = 2 * kmin; m <= n; m++)
+        {
+            double yn = y[m - 1];
+            double yn2 = yn * yn;
+            for (int t = kminP1; t <= m; t++)
+            {
+                sum[t] += yn;
+                aver[t] = sum[t] / (m - t + 1);
+                kvad[t] += yn2;
+            }
+
+            int nMkminP1 = m - kmin + 1;
+            int pos = -1;
+            for (int t = kminP1; t <= nMkminP1; t++)
+            {
+                cost[t] = bestCost[t - 1] + kvad[t] - sum[t] * aver[t] + gamma;
+                if (pos < 0 || cost[t] < cost[pos])
+                {
+                    pos = t; // which.min: first minimum
+                }
+            }
+
+            double best = cost[pos];
+            double bestLevel = aver[pos];
+            double totAver = (sum[kminP1] + initSum) / m;
+            double totCost = (kvad[kminP1] + initKvad) - m * totAver * totAver;
+            if (totCost < best)
+            {
+                pos = 1;
+                best = totCost;
+                bestLevel = totAver;
+            }
+
+            bestCost[m] = best;
+            bestAver[m] = bestLevel;
+            bestSplit[m] = pos - 1;
+        }
+
+        int cursor = n;
+        while (cursor > 0)
+        {
+            for (int i = bestSplit[cursor]; i < cursor; i++)
+            {
+                yhat[i] = bestAver[cursor];
+            }
+
+            cursor = bestSplit[cursor];
+        }
+
+        return yhat;
+    }
+
+    /// <summary>
+    /// ASCAT <c>fillNA(vec, zeroIsNA = TRUE)</c> (ascat.aspcf.R), verbatim: levels exactly 0 become missing; a missing run
+    /// at the start/end takes the next/previous value; an interior run takes the previous value up to
+    /// <c>start + ceiling(N/2)</c> and the next value after it (for N = 2, 3 R's descending <c>(end+1):end</c> sets only
+    /// the last element to the next value).
+    /// </summary>
+    private static void AscatFillNa(double[] vec)
+    {
+        int n = vec.Length;
+        var missing = new List<int>();
+        for (int i = 0; i < n; i++)
+        {
+            if (vec[i] == 0.0 || double.IsNaN(vec[i]))
+            {
+                vec[i] = double.NaN;
+                missing.Add(i);
+            }
+        }
+
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        var starts = new List<int> { missing[0] };
+        var ends = new List<int>();
+        for (int k = 1; k < missing.Count; k++)
+        {
+            if (missing[k] - missing[k - 1] > 1)
+            {
+                ends.Add(missing[k - 1]);
+                starts.Add(missing[k]);
+            }
+        }
+
+        ends.Add(missing[^1]);
+        double At(int index) => index < n ? vec[index] : double.NaN; // R: out-of-range index → NA
+
+        int startAt = 0;
+        if (starts[0] == 0)
+        {
+            double fill = At(ends[0] + 1);
+            Array.Fill(vec, fill, 0, ends[0] + 1);
+            startAt = 1;
+        }
+
+        if (startAt >= starts.Count)
+        {
+            return;
+        }
+
+        int endAt = starts.Count - 1;
+        if (double.IsNaN(vec[n - 1]))
+        {
+            Array.Fill(vec, vec[starts[endAt] - 1], starts[endAt], ends[endAt] - starts[endAt] + 1);
+            endAt--;
+        }
+
+        for (int k = startAt; k <= endAt; k++)
+        {
+            int start = starts[k], end = ends[k];
+            int count = 1 + end - start;
+            if (count == 1)
+            {
+                vec[start] = vec[start - 1];
+                continue;
+            }
+
+            int midpoint = start + (count + 1) / 2; // start + ceiling(N/2)
+            double previous = vec[start - 1], next = vec[end + 1];
+            Array.Fill(vec, previous, start, midpoint - start + 1);
+            if (midpoint < end)
+            {
+                Array.Fill(vec, next, midpoint + 1, end - midpoint);
+            }
+            else
+            {
+                vec[end] = next; // vec[(end+1):end] = vec[end+1]
+            }
+        }
+    }
+
+    /// <summary>
+    /// ascat.aspcf "adapt levels again": every run of equal values of <paramref name="levels"/> in [from, to) — across
+    /// chromosome boundaries, as R's genome-wide <c>rle</c> — is set to the mean raw logR of the run.
+    /// </summary>
+    private static void ReadaptLevels(double[] levels, double[] rawLogR, int from, int to)
+    {
+        int runStart = from;
+        for (int i = from + 1; i <= to; i++)
+        {
+            if (i == to || !levels[i].Equals(levels[runStart]))
+            {
+                Array.Fill(levels, Mean(rawLogR, runStart, i), runStart, i - runStart);
+                runStart = i;
+            }
+        }
+    }
+
+    /// <summary>
+    /// runASCAT segments: runs of equal segmented logR split at chromosome ends (<c>union(tlrend, tlrend.chr)</c>),
+    /// each carrying the mirrored BAF of its first heterozygous locus (NaN if none).
+    /// </summary>
+    private static AspcfSegment[] BuildAspcfSegments(
+        AlleleSpecificLocus[] loci, bool[] het, List<(int Lo, int Hi)> runs, double[] logRPcfed, double[] bafPcfed)
+    {
+        var segments = new List<AspcfSegment>();
+        foreach ((int lo, int hi) in runs)
+        {
+            int start = lo;
+            for (int i = lo + 1; i <= hi + 1; i++)
+            {
+                if (i == hi + 1 || !logRPcfed[i].Equals(logRPcfed[start]))
+                {
+                    double baf = double.NaN;
+                    int hetCount = 0;
+                    for (int k = start; k < i; k++)
+                    {
+                        if (het[k])
+                        {
+                            if (hetCount == 0)
+                            {
+                                baf = bafPcfed[k];
+                            }
+
+                            hetCount++;
+                        }
+                    }
+
+                    segments.Add(new AspcfSegment(
+                        loci[start].Chromosome, loci[start].Position, loci[i - 1].Position, logRPcfed[start], baf,
+                        i - start, hetCount));
+                    start = i;
+                }
+            }
+        }
+
+        return segments.ToArray();
     }
 
     /// <summary>

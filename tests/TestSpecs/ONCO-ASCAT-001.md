@@ -255,3 +255,18 @@ Assumptions 1–2 affect only test-input synthesis (not production code) and are
   (out-of-domain BAF on every 5th seed ⇒ `ArgumentException`; in-domain ⇒ invariants + BAF ∈ [0.5, 1]);
   Metamorphic `Ascat_ConstantLogRShift_PreservesGreedyBreakpoints` → `…PreservesSegmentAlleleSpecificBreakpoints`
   (noisy track, R-verified shifts).
+
+## 10. FIN-B24 F36 — `ascat.aspcf` with germline genotypes (2026-10-10)
+
+Test file: `Unit/Oncology/OncologyAnalyzer_AscatGermlineHomozygous_Tests.cs`. Inputs: genomes G1–G3 from the shared
+MINSTD generator (Evidence § F36); expected values = output of the original R `ascat.aspcf` (R 4.3.3).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-ASPCF-G1 | homozygous deletion inside a homozygous stretch | G1 (1080 probes, 608 het) | 11 logR segments = R (extents, levels ≤ 1e-14, first-het BAF ≤ 1e-15); deletion 281000–330000 level −1.9130208073104829, no BAF; chr3 (no het) one segment, no BAF | source 2 (R run) |
+| M-ASPCF-G2 | CN breakpoint inside a homozygous gap | G2 (1002 probes) | 7 segments = R; chr1 split at probe 240; homozygous-only chr4 no BAF; 12-probe chr3 | source 2 (R run) |
+| M-ASPCF-G3 | focal gain inside a homozygous stretch | G3 (1100 probes) | 8 segments = R; 481000–540000 level 0.26558251092493651, no BAF | source 2 (R run) |
+| S-ASPCF-G1 | per-locus tracks | G1 | segments tile all 1080 loci; BAF NaN exactly at homozygous loci; every locus carries its segment level | ascat.aspcf output contract |
+| S-ASPCF-G2 | all heterozygous ⇒ het-only overload | het subsets of G1–G3 | segments bit-identical to `SegmentAlleleSpecificAspcf(loci, 70)` | F13 behaviour preserved |
+| S-ASPCF-G3 | homozygous probes carry CN information | G1 with homozygous probes dropped | het-only overload has no level < −1; germline overload finds the deletion at 281000 | source 2 (R run) |
+| C-ASPCF-G1 | invalid arguments | null loci / genotypes, length mismatch, het BAF NaN, +∞ logR, penalty 0; homozygous BAF NaN accepted | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
