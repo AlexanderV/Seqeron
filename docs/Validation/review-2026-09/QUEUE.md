@@ -19,7 +19,20 @@ and commits it after every change. Batch definitions (units, owned files) are in
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
 
-## State (2026-10-09 20:45 UTC) — FIN-B24 RUNNING (only it)
+## State (2026-10-10 23:40 UTC) — FIN-B24 DONE; EVERYTHING PAUSED
+- FIN-B24 done (session_01SLG1sxNgXVQkrwHr1EHya2, 10-09 20:44 – 10-10 23:01, archived, cost ≈ $204.6): audit rounds 1–3 +
+  final round, F24–F66 (43 fixes), dedup sweep, heavy tier once (39 new tests, B24 heavy classes 930/930 ×15), full
+  unfiltered `Seqeron.Genomics.Tests` 25159/0 (84cbf060). LIMITED ONCO-CNA-002 / ONCO-PURITY-001 → FIXED. Report tip
+  03a06ee5; WIP branch `-wip-B24` clean (= main).
+- B24.md `## Leftovers`: DOABLE none. BLOCKED with proof: built-in Battenberg IMPUTE2/Beagle5 imputation (binary-only +
+  multi-GB 1000G panel, proxy 403; phased path F40 ported), LICHeE post-`fixNetwork` identity-hash group order
+  (lichee.jar nondeterministic, 156/4000), MATLAB `unique` tie semantics (MATLAB proprietary; Octave-locked).
+  Open cross-batch requests → B17, B19, B21, B22, B23, B25, Phase 2 (none finished — no register entries).
+- FIN-B24 also fixed B04's `Bbduk_MonotoneInCutoff` generator (w > k) test-only under the FINISHED-batch rule (84cbf060,
+  R2 below).
+- Nothing running; B08 paused (not archived); check-in trigger disabled.
+
+### Earlier state (2026-10-09 20:45 UTC) — FIN-B24 RUNNING (only it)
 - User 10-09 ~20:40 "Давай доробимо B24": session_01SLG1sxNgXVQkrwHr1EHya2 = FIN-B24 (completeness-audit loop over the
   old-process B24 report → all DOABLE incl. LIMITED ONCO-CNA-002 / ONCO-PURITY-001 and the LIMITATIONS proposals →
   dedup sweep → final audit → heavy tier once → `## Leftovers`). WIP branch `claude/stoic-maxwell-0olr2z-wip-B24`.
@@ -102,16 +115,17 @@ and commits it after every change. Batch definitions (units, owned files) are in
   B06 (F1–F38, 43841d1, Leftovers none).
 
 ## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
-B01 (FIN-B01 2026-10-09), B04, B05, B06, B07. Add a batch here when its final report with `## Leftovers` is pushed.
+B01 (FIN-B01 2026-10-09), B04, B05, B06, B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with `## Leftovers` is pushed.
 
 ## Requests to finished batches (register — orchestrator checks it on every check-in)
 | # | Target | File:line / test | Evidence | From | Status |
 |---|---|---|---|---|---|
 | R1 | B07 | `B07PrimerDesignMetamorphicTests.LibraryMispriming_OrderInvariant_MonotoneInWeight` | FsCheck counterexample in the FIN-B01 full heavy run (passed on re-run) — root-cause in `PrimerDesigner` library mispriming or the generator | FIN-B01 | done (bd78006) |
+| R2 | B04 | `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` | generator drew w = k, violating BBTools `EntropyTracker` k < windowBases (FIN-B24 full heavy run) | FIN-B24 | done (84cbf060, test-only) |
 
 Pre-rule candidates (recorded before 2026-10-09 as "open" in reports; VERIFY each against current code before
 acting — several may already be resolved): B06.md → B04 `SequenceComplexity.ShannonEntropyBits` visibility (B01 F-entry
-may have resolved via `StatisticsHelper`), B04 `Bbduk_MonotoneInCutoff` generator (w = k = 5); B06.md → B05
+may have resolved via `StatisticsHelper`), ~~B04 `Bbduk_MonotoneInCutoff` generator (w = k = 5)~~ done R2; B06.md → B05
 `MotifFinder` Core `CountKmersSpan` callers → `KmerAnalyzer.CountKmers`, B05.md D3 stale rationale, `FindExactMotif`
 vs B09 `FindMotif`; B05.md → B04 `RepeatFinder.EnumerateForwardMaximalPairs` → `FindMaximalRepeatedPairs`; B05.md → B07
 `ProbeDesigner.FindApproximateMatches` → `ApproximateMatcher.FindWithMismatches`; B04.md → B06
@@ -119,7 +133,8 @@ vs B09 `FindMotif`; B05.md → B04 `RepeatFinder.EnumerateForwardMaximalPairs` �
 sentence, B05 D3 rationale.
 
 ## Known cross-batch items to carry into Phase 2
-- B04: `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` generator can draw w = k = 5 → draw w from [k+1, 60] (flaky ~1/30).
+- ~~B04: `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` generator can draw w = k = 5 → draw w from [k+1, 60] (flaky ~1/30).~~ Done R2 (84cbf060).
+- B24.md "## Leftovers" → open requests to B17/B19/B21/B22/B23/B25 + Phase 2 (Median, MAD, KMeans advisory); orchestrator notes for consolidation: ALGORITHMS_CHECKLIST_V2 rows (ONCO-ASCAT-001 method table, l.4784 ONCO-CCF-001 Ckmeans, l.4808 ONCO-HETERO-001 citation), stale Oncology wiki pages, non-B24 Oncology docs linking the pre-split `OncologyAnalyzer.cs`.
 - B06 report "Cross-batch requests" (B01, B04, B05, B07, B09, B10, B17, B18, MCP owner) — k-mer counting routed to canonical KmerAnalyzer.
 - Stray branch `claude/stoic-maxwell-0olr2z-wip-TEST` (proxy cannot delete it) — ignore or delete in the GitHub UI.
 
