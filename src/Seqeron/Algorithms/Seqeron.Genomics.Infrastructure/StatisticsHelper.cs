@@ -494,31 +494,12 @@ namespace Seqeron.Genomics.Infrastructure
             ArgumentNullException.ThrowIfNull(values);
             if (!double.IsFinite(mu))
                 throw new ArgumentException("mu must be finite.", nameof(mu));
+            (double mean, double variance) = RMeanAndVariance(values, nameof(values));
             int n = values.Count;
-            double sum = 0.0;
-            for (int i = 0; i < n; i++)
-            {
-                if (!double.IsFinite(values[i]))
-                    throw new ArgumentException("Every value must be finite.", nameof(values));
-                sum += values[i];
-            }
-
             if (n < 2)
                 return double.NaN; // R: "not enough 'x' observations"
 
-            // R mean.default: sum/n refined by the mean residual; var: two-pass Σ(x − x̄)²/(n − 1).
-            double mean = sum / n;
-            double residual = 0.0;
-            for (int i = 0; i < n; i++) residual += values[i] - mean;
-            mean += residual / n;
-            double sumSq = 0.0;
-            for (int i = 0; i < n; i++)
-            {
-                double d = values[i] - mean;
-                sumSq += d * d;
-            }
-
-            double stdErr = Math.Sqrt(sumSq / (n - 1) / n);
+            double stdErr = Math.Sqrt(variance / n);
             if (stdErr < 10.0 * MachineEpsilon * Math.Abs(mean))
                 return double.NaN; // R: "data are essentially constant"
 
@@ -561,26 +542,56 @@ namespace Seqeron.Genomics.Infrastructure
             return StudentTTwoSidedTail((mx - my) / stderr, df);
         }
 
-        // R mean.default (sum/n refined by the mean residual) and var (two-pass Σ(x − x̄)²/(n − 1)); NaN variance for n < 2.
+        // R mean.default and var (RMean / RSampleVariance) of finite values; NaN mean for n = 0, NaN variance for n < 2.
         private static (double Mean, double Variance) RMeanAndVariance(IReadOnlyList<double> values, string name)
         {
-            int n = values.Count;
-            double sum = 0.0;
-            for (int i = 0; i < n; i++)
+            for (int i = 0; i < values.Count; i++)
             {
                 if (!double.IsFinite(values[i]))
                     throw new ArgumentException("Every value must be finite.", name);
-                sum += values[i];
             }
 
-            if (n == 0)
-                return (double.NaN, double.NaN);
-            double mean = sum / n;
-            double residual = 0.0;
-            for (int i = 0; i < n; i++) residual += values[i] - mean;
-            mean += residual / n;
+            return (RMean(values), RSampleVariance(values));
+        }
+
+        /// <summary>
+        /// R <c>mean(x)</c> (<c>mean.default</c> → summary.c <c>real_mean</c>): s = Σx/n, then, when s is finite, refined by
+        /// the mean residual s + Σ(x − s)/n (R accumulates in 80-bit long double; here in double, left to right).
+        /// NaN for an empty list or any NaN value. E.g. {1, 2, 3, 4} → 2.5.
+        /// </summary>
+        /// <param name="values">The values.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        public static double RMean(IReadOnlyList<double> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            int n = values.Count;
+            double s = 0.0;
+            for (int i = 0; i < n; i++) s += values[i];
+            s /= n;
+            if (double.IsFinite(s))
+            {
+                double t = 0.0;
+                for (int i = 0; i < n; i++) t += values[i] - s;
+                s += t / n;
+            }
+
+            return s;
+        }
+
+        /// <summary>
+        /// R <c>var(x)</c> of a vector: the two-pass Σ(x − x̄)²/(n − 1) about the refined mean <see cref="RMean"/>.
+        /// NaN for fewer than two values or any NaN value. E.g. {1, 2, 3, 4} → 1.6666666666666667; R <c>sd(x)</c> is its
+        /// square root.
+        /// </summary>
+        /// <param name="values">The values.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+        public static double RSampleVariance(IReadOnlyList<double> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            int n = values.Count;
             if (n < 2)
-                return (mean, double.NaN);
+                return double.NaN;
+            double mean = RMean(values);
             double sumSq = 0.0;
             for (int i = 0; i < n; i++)
             {
@@ -588,7 +599,7 @@ namespace Seqeron.Genomics.Infrastructure
                 sumSq += d * d;
             }
 
-            return (mean, sumSq / (n - 1));
+            return sumSq / (n - 1);
         }
 
         private const double MachineEpsilon = 2.220446049250313e-16; // 2⁻⁵² (R .Machine$double.eps)
@@ -846,8 +857,15 @@ namespace Seqeron.Genomics.Infrastructure
             if (x == n)
                 return q < 0.1 ? -BinomialDeviance(n, np) - n * q : n * logP;
 
+            return LoaderInteriorLogPmf(x, n, p, q);
+        }
+
+        // Loader (2000) saddle-point ln P(X = x) for 0 < x < n (R nmath dbinom_raw interior branch):
+        // lc = stirlerr(n) − stirlerr(x) − stirlerr(n − x) − bd0(x, n·p) − bd0(n − x, n·q); result lc − ½·ln(2π·x·(1 − x/n)).
+        private static double LoaderInteriorLogPmf(long x, long n, double p, double q)
+        {
             double lc = StirlingError(n) - StirlingError(x) - StirlingError(n - x)
-                        - BinomialDeviance(x, np) - BinomialDeviance(n - x, n * q);
+                        - BinomialDeviance(x, n * p) - BinomialDeviance(n - x, n * q);
             double lf = Log2Pi + Math.Log(x) + Log1P(-(double)x / n);
             return lc - 0.5 * lf;
         }
@@ -1026,10 +1044,7 @@ namespace Seqeron.Genomics.Infrastructure
 
             if (k == n) return q < 0.1 ? -BinomialDeviance(n, n * p) - n * q : n * Math.Log(p);
             if (k < 0 || k > n) return double.NegativeInfinity;
-            double lc = StirlingError((long)n) - StirlingError((long)k) - StirlingError((long)(n - k))
-                        - BinomialDeviance(k, n * p) - BinomialDeviance(n - k, n * q);
-            double lf = Log2Pi + Math.Log(k) + Log1P(-k / n);
-            return lc - 0.5 * lf;
+            return LoaderInteriorLogPmf((long)k, (long)n, p, q);
         }
 
         /// <summary>
@@ -1074,6 +1089,7 @@ namespace Seqeron.Genomics.Infrastructure
             var sorted = new double[n];
             for (int i = 0; i < n; i++) sorted[i] = values[i];
             Array.Sort(sorted);
+            // R's 1-based index 1 + (n − 1)·p is exact for p = ¼, ¾, so this is the same arithmetic as the former 0-based form.
             double iqr = QuantileType7(sorted, 0.75) - QuantileType7(sorted, 0.25);
 
             double lo = Math.Min(hi, iqr / 1.34);
@@ -1116,33 +1132,24 @@ namespace Seqeron.Genomics.Infrastructure
             }
 
             Array.Sort(x);
+            return QuantileType7(x, probability);
+        }
+
+        // R stats::quantile type 7 on an ascending-sorted sample, R's 1-based arithmetic: index = 1 + (n − 1)·p,
+        // lo = floor(index), hi = ceiling(index); interpolate (1 − h)·x[lo] + h·x[hi] only when index > lo and
+        // x[hi] ≠ x[lo] (R quantile.default).
+        private static double QuantileType7(double[] sorted, double probability)
+        {
+            int n = sorted.Length;
             double index = 1.0 + (n - 1) * probability;
             double lo = Math.Floor(index);
             double hi = Math.Ceiling(index);
-            double qs = x[(int)lo - 1];
-            double xHi = x[(int)hi - 1];
+            double qs = sorted[(int)lo - 1];
+            double xHi = sorted[(int)hi - 1];
             if (index > lo && xHi != qs)
             {
                 double h = index - lo;
                 qs = ((1 - h) * qs) + (h * xHi);
-            }
-
-            return qs;
-        }
-
-        // R stats::quantile type 7 on an ascending-sorted sample: index = 1 + (n − 1)·p; interpolate
-        // (1 − h)·x[lo] + h·x[hi] only when index > lo and x[hi] ≠ x[lo] (R quantile.default).
-        private static double QuantileType7(double[] sorted, double probability)
-        {
-            int n = sorted.Length;
-            double index = (n - 1) * probability; // 0-based
-            int lo = (int)Math.Floor(index);
-            int hi = (int)Math.Ceiling(index);
-            double qs = sorted[lo];
-            if (index > lo && sorted[hi] != qs)
-            {
-                double h = index - lo;
-                qs = ((1 - h) * qs) + (h * sorted[hi]);
             }
 
             return qs;
