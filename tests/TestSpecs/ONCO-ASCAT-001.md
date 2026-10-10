@@ -285,3 +285,26 @@ Same file and genomes as §10; expected values = original R `ascat.runAscat(gamm
 | S-ASCAT-G3 | manual (ρ, ψ) at the optimum | G3 | `EvaluatePurityPloidyFromAspcf` = fit (GoF, segments, ploidy); `TryFit…` true | rho_manual path |
 | S-ASCAT-G4 | all heterozygous ⇒ summary fit | het subsets of G1–G3 | identical ρ, ψ, GoF, ploidy, segments to `FitPurityPloidy(SegmentAlleleSpecificAspcf(…))` | F12 behaviour preserved |
 | C-ASCAT-G1 | invalid arguments | null; homozygous-only; X-only; purityStep 0; ρ 1.5 | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
+
+## 12. FIN-B24 F38 — runASCAT sex-chromosome model: male haploid X/Y (2026-10-10)
+
+File `OncologyAnalyzer_AscatSexChromosome_Tests.cs`; genomes M1–M3 = G1–G3 autosomes + X (PAR / non-PAR) and Y blocks
+(generator of §10 plus per-block positions). Expected values = original R `runASCAT` (gamma = 1) with
+`ASCATobj$gender` / `ASCATobj$X_nonPAR` set after `ascat.aspcf(X_nonPAR = NULL)`. Models: M1 `Male` (X_nonPAR NULL),
+M2 XY with custom non-PAR [890000, 1090000], M3 `MaleWithXNonPar(GRCh37)` (hg19 constants).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-ASCAT-X1 | germline-aware fit, XY | M1 `Male` | ρ 0.7, ψ 2.45, ploidy 2.181159420289855, GoF 99.937918942624279; X 1:0 2:0 2:0, Y 1:0 1:0 0:0 | source 2 (R run) |
+| M-ASCAT-X2 | germline-aware fit, XY, custom non-PAR | M2 | ρ 0.53, ψ 2.35, ploidy 2.0981228668941978; X 3:0 3:0 1:0 2:0 2:1 (PAR1 segment 17001/34001 > ½ ⇒ haploid; PAR2 12001/45001 ⇒ diploid), Y 1:0 | source 2 (R run) |
+| M-ASCAT-X3 | germline-aware fit, XY, hg19 non-PAR | M3 | ρ 0.92, ψ 3.15, ploidy 2.9482758620689653; X 1:1 1:1 1:0 3:0 1:1, Y 2:0 0:0 | source 2 (R run) |
+| M-ASCAT-X4..X6 | same genomes, XX | M1–M3 `Female` | ploidy 2.1775362318840581 / 1.8805460750853242 / 2.9482758620689653; ρ, ψ, GoF as XY | source 2 (R run, gender "XX") |
+| M-ASCAT-X7..X8 | XY without X_nonPAR (whole X haploid) | M2, M3 `Male` | ploidy 2.1365187713310578 (PAR2 4:0) / 2.9482758620689653 (PAR 2:0) | source 2 (R run) |
+| M-ASCAT-X9..X14 | summary path (`FitPurityPloidy`), XY and XX | het-only M1–M3 | M1 2.4579831932773111 (XY = XX), M2 2.3914529914529914 / 2.3384615384615386, M3 ρ 0.91 ψ 3.2 3.4351687388987568 (X 100000–155135000 2:0 vs 1:1) | source 2 (R run) |
+| S-ASCAT-X1 | gender-less = `Female` | M1–M3, all six entry points | bit-identical fit and segments | default unchanged |
+| S-ASCAT-X2 | sex model does not change the fit | M1–M3 | ρ, ψ, GoF, non-aberrant and autosomal segments identical; X/Y nB = 0 | `autoprobes` |
+| S-ASCAT-X3 | manual (ρ, ψ) with a sex model | M2, het-only M3 | = fit; `TryFit…` overloads true | rho_manual path |
+| S-ASCAT-X4 | hand-computed equations + 50 % rule | ρ 0.5, ψ 2, r 0 | haploid 3:0, diploid 1:1; overlap 5/10 ⇒ diploid, 6/10 ⇒ haploid; Y always haploid; XX ignores X_nonPAR; ploidy 8/3 | `diploidprobes_fixnonPAR` |
+| S-ASCAT-X5 | haploid deletion | Y r = −5 | 0:0 (nAraw −0.875) | negative-value correction |
+| S-ASCAT-X6 | presets | — | hg19 (2699521, 154931043), hg38 (2781480, 155701382), CHM13 (2394411, 153925834) | ascat.loadData.R |
+| C-ASCAT-X1 | invalid arguments | Start > End; undefined gender / genome; null model on all six overloads | ArgumentOutOfRangeException / ArgumentNullException | contract |

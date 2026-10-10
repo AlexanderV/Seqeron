@@ -153,6 +153,7 @@ a segment summary has constant SNP BAF, for which Battenberg sets pval = 0) [8].
 | purityMin/Max/Step | double | 0.1 / 1.05 / 0.01 | purity grid (ASCAT min/max_purity) | min ∈ (0,1]; max ≥ min, finite; step > 0 |
 | ploidyMin/Max/Step | double | 1.5 / 5.5 / 0.05 | ASCAT min/max_ploidy filter; ψ grid spans ±0.5 beyond | > 0; max ≥ min; step > 0 |
 | gamma | double | 1.0 | platform γ | > 0 |
+| sexModel | AscatSexModel | — (overload; gender-less = `Female`) | runASCAT `gender` / `X_nonPAR` for the emitted X/Y segments (B24 F38): `Female` (XX, ASCAT default), `Male` (XY, whole X haploid = `genomeVersion = NULL`), `MaleWithXNonPar(GRCh37 \| GRCh38)` (ASCAT hg19/hg38 constants; `XNonParChm13` also exposed) or `new(gender, (start, end))` | non-null; Start ≤ End |
 | vaf, purity, totalCopyNumber, majorCopyNumber | double/int | required | multiplicity inputs | vaf∈[0,1]; ρ∈(0,1]; N_T≥1; major∈[1,N_T] |
 
 ### 3.2 Output / Return Value
@@ -184,7 +185,8 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
    logR but not its BAF.
 2. **Fit (`runASCAT`):** build the distance matrix over the autosomal segments, collect strict 7 × 7 local minima
    through the four-pass filter cascade, keep the smallest distance (ρ > 1 ⇒ 1), emit the `seg_raw` integer
-   segments for every summary (sex chromosomes with the diploid model), the ASCAT ploidy and GoF. No candidate ⇒
+   segments for every summary (sex chromosomes with the diploid model unless an `AscatSexModel` says XY, F38), the
+   ASCAT ploidy and GoF. No candidate ⇒
    rho = NA. `EvaluatePurityPloidy` is the rho_manual/psi_manual path.
    **With homozygous probes (B24 F37, `FitPurityPloidyFromAspcf` / `TryFitPurityPloidyFromAspcf` /
    `EvaluatePurityPloidyFromAspcf` on an `AspcfSegmentation`):** the fit uses the heterozygous autosomal probes only
@@ -192,6 +194,12 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
    `seg_raw` has one row per logR segment with `bafke` = BAF of its first heterozygous probe, and `bafke = 0` when the
    segment has none (NA), which after the negative-value correction puts the whole total on nA (only nA + nB matters);
    ploidy = `mean(nA + nB)` over all probes (heterozygous and homozygous, ascat.runAscat l. 98).
+   **Sex chromosomes (B24 F38, `AscatSexModel` overloads of all six fit entry points):** the fit always excludes X/Y
+   (`autoprobes = !(chr %in% sexchromosomes)`, any gender). For XX (default) `haploidchrs` is empty and X/Y use the
+   diploid equations. For XY, X and Y are haploid: `nAraw = (ρ − 1 + (2(1 − ρ) + ρψ)·2^(r/γ))/ρ`, `nBraw = 0` (ψ = the
+   selected grid ψ / `psi_manual`), then the usual negative-value correction and R rounding. With an X non-PAR interval
+   (`diploidprobes_fixnonPAR`) an X segment is haploid only if its closed overlap with the interval exceeds 50 % of
+   its closed [first probe, last probe] span (IRanges widths); otherwise it is diploid (PAR). Y stays haploid.
 3. **Multiplicity:** m = clamp(round_half_even(VAF·[ρ·N_T + 2(1−ρ)]/ρ), 1, major). Feed (VAF, ρ, N_T, m) into `EstimateCcf`.
 4. **ASPCF (`ascat.aspcf`, alternative to step 1):** per chromosome, MAD-winsorise logR and mirrored BAF; < 6 loci ⇒
    one segment; else `fastAspcf`: 1000-locus windows (overlap 100), per window MAD sd of both tracks (a window with
@@ -238,6 +246,7 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 - `OncologyAnalyzer.FitPurityPloidy(...)` / `TryFitPurityPloidy(...)`: ASCAT `runASCAT` fit → ρ, ψ, ploidy, GoF, integer segments.
 - `OncologyAnalyzer.EvaluatePurityPloidy(...)`: ASCAT rho_manual/psi_manual path.
 - `OncologyAnalyzer.FitPurityPloidyFromAspcf(...)` / `TryFitPurityPloidyFromAspcf(...)` / `EvaluatePurityPloidyFromAspcf(...)`: runASCAT on a germline-aware `AspcfSegmentation` (homozygous segments, all-probe ploidy; B24 F37).
+- `AscatSexModel` / `AscatGender` + an `AscatSexModel` overload of each of the six fit entry points above: runASCAT `gender` / `X_nonPAR` (B24 F38).
 - `OncologyAnalyzer.DeriveMultiplicity(...)`: McGranahan multiplicity (rounded, clamped).
 - `OncologyAnalyzer.FitSubclonalCopyNumber(...)`: Battenberg `determine_copynumber` (nearest edge, τ, maxdist).
 
@@ -254,6 +263,8 @@ suffix tree is **not used** (no occurrence enumeration).
 
 - ASCAT `runASCAT`: nA/nB equations, distance matrix (probe-count weights, autosomes, genome-wide minor allele),
   local-minimum scan, filter cascade, ρ clamp, `seg_raw` rounding, GoF, non-aberrant flag, manual (ρ, ψ) path [2].
+- runASCAT `gender` / `X_nonPAR` (B24 F38): haploid male X/Y `seg_raw` equations, `diploidprobes_fixnonPAR`, XX
+  default — R-verified on 3 male genomes (germline-aware and het-only paths, XY / XY without non-PAR / XX) [2].
 - runASCAT with germline-homozygous probes (B24 F37): het-only `make_segments` fit, `bafke` NA ⇒ 0 for homozygous
   segments, `ploidy = mean(nA + nB)` over all probes — R-verified end to end (ascat.aspcf → runASCAT) on 3 genomes [2].
 - McGranahan observed mutation copy number n_mut and the [1, major] multiplicity clamp [3][4].
@@ -268,8 +279,12 @@ suffix tree is **not used** (no occurrence enumeration).
 
 - ~~ASCAT inputs are segment summaries: germline-homozygous probes (their logR averaging and the homozygous-stretch
   resegmentation of `ascat.aspcf`) … are not available~~ — **resolved by F36** (germline-aware
-  `SegmentAlleleSpecificAspcf` overload). The gender-specific haploid X/Y model is not available; sex-chromosome
-  segments are excluded from the fit and emitted with the diploid (gender "XX") model.
+  `SegmentAlleleSpecificAspcf` overload). ~~The gender-specific haploid X/Y model is not available; sex-chromosome
+  segments are … emitted with the diploid (gender "XX") model~~ — **resolved by F38** (`AscatSexModel` overloads:
+  runASCAT `gender = "XY"` haploid X/Y, `X_nonPAR` > 50 % overlap rule, ASCAT hg19/hg38/CHM13 constants; R-verified on
+  3 male genomes, 14 runs). Sex-chromosome segments are still excluded from the fit, exactly as in ASCAT. Not ported:
+  the male-only `X_nonPAR` germline re-genotyping inside `ascat.aspcf` (random draw) — the caller's genotype flags are
+  used as given.
 - Sub-clonal fit: a summary carries no per-SNP BAF spread, so Battenberg's t-test cannot be run (pval = 0 as for a
   constant-BAF segment; only maxdist decides clonality); bootstrap CIs and alternative solutions B–F are not produced.
 
@@ -284,7 +299,7 @@ suffix tree is **not used** (no occurrence enumeration).
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | ~~Greedy mean-shift segmentation retained alongside ASPCF~~ | Deviation | — | **resolved (B24 F35)** | `SegmentAlleleSpecific` now delegates to ASPCF (`ascat.aspcf`, penalty 70) [2]; legacy thresholds ignored |
-| 2 | Segment summaries instead of probes | Assumption | ~~no homozygous-probe logR~~ (resolved F36), no haploid X/Y model | partly resolved | see §5.3 |
+| 2 | Segment summaries instead of probes | Assumption | ~~no homozygous-probe logR~~ (resolved F36), ~~no haploid X/Y model~~ (resolved F38) | **resolved (B24 F36/F38)** | see §5.3; only the aspcf-side random male non-PAR re-genotyping is not ported |
 | 3 | No per-SNP t-test in the sub-clonal fit | Assumption | clonality by maxdist only | accepted | constant-BAF branch of Battenberg [8] |
 | 4 | ~~`PurityPloidyFit.Ploidy` = probe-weighted mean integer CN over heterozygous probes~~ | Assumption | ASCAT averages over all probes | **resolved (B24 F37)** | `FitPurityPloidyFromAspcf` averages over all probes; summary-based `FitPurityPloidy` has only heterozygous loci, where both coincide |
 
@@ -305,14 +320,15 @@ suffix tree is **not used** (no occurrence enumeration).
 | ASPCF chromosome with < 6 loci | one segment, mean winsorised mirrored BAF | source [2] |
 | Germline-aware ASPCF: chromosome without heterozygous loci | one logR segment (mean raw logR), no BAF (`AspcfSegment.HasBaf` false) | source [2] (R run, F36) |
 | Germline-aware ASPCF: copy-number change inside a homozygous stretch | found by the `exactPcf` resegmentation when > 5 loci differ by > 0.3 | source [2] (R run, F36) |
+| Male (`AscatSexModel` XY): X/Y segment | haploid: nB = 0, nA = round((ρ − 1 + (2(1−ρ)+ρψ)·2^(r/γ))/ρ), negative ⇒ 0:0 | source [2] (R run, F38) |
+| Male with X non-PAR: X segment overlapping non-PAR by exactly 50 % | diploid (rule is strictly > 0.5) | source [2] (`diploidprobes_fixnonPAR`) |
 | Sub-clonal: BAF within 0.01 of a corner | single clonal state, f=1 | INV-07 [8] |
 
 ### 6.2 Limitations
 
 logR and BAF are observed measurements and are always a caller input — this is inherent, not a limitation of the
 derivation. The unit works on heterozygous-locus segment summaries (germline-homozygous probes: use the germline-aware
-ASPCF overload, F36); the haploid X/Y
-(male) model, multi-sample (asmultipcf) segmentation and Battenberg's haplotype phasing / per-SNP t-test / bootstrap
+ASPCF overload, F36); the haploid X/Y (male) model is available through `AscatSexModel` (F38). Multi-sample (asmultipcf) segmentation and Battenberg's haplotype phasing / per-SNP t-test / bootstrap
 are out of scope (phased BAFs need an imputation reference panel). `FitPurityPloidy` fails (like ASCAT) when no local
 minimum passes the filters — use `TryFitPurityPloidy`, or `EvaluatePurityPloidy` with externally chosen (ρ, ψ).
 
@@ -343,13 +359,14 @@ var ccf = OncologyAnalyzer.EstimateCcf(0.40, fit.Purity,
 
 - Tests: [OncologyAnalyzer_AscatDerivation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatDerivation_Tests.cs) — covers `INV-01`–`INV-07`
 - Tests: [OncologyAnalyzer_AscatGermlineHomozygous_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatGermlineHomozygous_Tests.cs) — germline-homozygous probes (F36/F37), R-locked
+- Tests: [OncologyAnalyzer_AscatSexChromosome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatSexChromosome_Tests.cs) — male haploid X/Y, X non-PAR, XX default (F38), R-locked
 - Evidence: [ONCO-ASCAT-001-Evidence.md](../../../docs/Evidence/ONCO-ASCAT-001-Evidence.md)
 - Related algorithms: [Tumor_Ploidy_Estimation](./Tumor_Ploidy_Estimation.md), [Cancer_Cell_Fraction_Estimation](./Cancer_Cell_Fraction_Estimation.md), [Tumor_Purity_Estimation](./Tumor_Purity_Estimation.md)
 
 ## 8. References
 
 1. Van Loo P, Nordgard SH, Lingjærde OC, et al. 2010. Allele-specific copy number analysis of tumors. PNAS 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
-2. VanLoo-lab/ascat reference implementation, `ASCAT/R/ascat.runAscat.R`, `ASCAT/R/ascat.aspcf.R` (master, read 2026-09-28). https://github.com/VanLoo-lab/ascat
+2. VanLoo-lab/ascat reference implementation, `ASCAT/R/ascat.runAscat.R`, `ASCAT/R/ascat.aspcf.R` (master, read 2026-09-28), `ASCAT/R/ascat.loadData.R` (`gender`, `X_nonPAR` constants; read 2026-10-10). https://github.com/VanLoo-lab/ascat
 3. McGranahan N, Furness AJS, Rosenthal R, et al. 2016. Clonal neoantigens elicit T cell immunoreactivity and sensitivity to immune checkpoint blockade. Science 351(6280):1463–1469. https://doi.org/10.1126/science.aaf1490
 4. Zheng L, et al. 2022. Estimation of cancer cell fractions and clone trees from multi-region sequencing of tumors. Bioinformatics 38(15):3677–3683. https://doi.org/10.1093/bioinformatics/btac440
 5. Satas G, Zaccaria S, El-Kebir M, Raphael BJ. 2021. DeCiFering the elusive cancer cell fraction. PMC8542635. https://pmc.ncbi.nlm.nih.gov/articles/PMC8542635/

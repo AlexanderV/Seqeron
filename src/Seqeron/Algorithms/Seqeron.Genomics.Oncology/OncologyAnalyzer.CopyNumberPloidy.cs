@@ -1575,6 +1575,123 @@ public static partial class OncologyAnalyzer
         public bool IsNonAberrant { get; init; }
     }
 
+    /// <summary>ASCAT sample sex (<c>gender</c> argument of <c>ascat.loadData</c> / <c>runASCAT</c>).</summary>
+    public enum AscatGender
+    {
+        /// <summary><c>"XX"</c> (ASCAT default when <c>gender = NULL</c>): X and Y are emitted with the diploid model.</summary>
+        XX,
+
+        /// <summary><c>"XY"</c>: X (non-PAR) and Y are haploid — <c>nA = (ρ − 1 + (2(1 − ρ) + ρψ)·2^(r/γ))/ρ</c>, <c>nB = 0</c>.</summary>
+        XY,
+    }
+
+    /// <summary>
+    /// Sex-chromosome model of the ASCAT copy-number output (runASCAT, ascat.runAscat.R, VanLoo-lab/ascat). It does
+    /// <b>not</b> change the purity/ploidy fit — ASCAT always fits on autosomes only
+    /// (<c>autoprobes = !(SNPposhet[,1] %in% sexchromosomes)</c>) — only the integer segments emitted on X and Y and
+    /// hence the reported ploidy:
+    /// <list type="bullet">
+    /// <item><see cref="AscatGender.XX"/> (<see cref="Female"/>, the default): <c>haploidchrs</c> is empty, so X and Y
+    /// use the diploid equations (Y is not special-cased: the <c>nullprobes</c> branch is reached only for non-diploid
+    /// probes). <see cref="XNonPar"/> is ignored, as in ASCAT (<c>!is.null(X_nonPAR) &amp;&amp; gender == "XY"</c>).</item>
+    /// <item><see cref="AscatGender.XY"/>: <c>haploidchrs = c("X", "Y")</c>; a haploid segment gets
+    /// <c>nAraw = (rho − 1 + ((1 − rho)·2 + rho·psi)·2^(logR/gamma))/rho</c>, <c>nBraw = 0</c> (normal cells carry one
+    /// copy), followed by the usual negative-value correction and R rounding. Without <see cref="XNonPar"/>
+    /// (ASCAT <c>genomeVersion = NULL</c>) the whole of X is haploid. With it, ASCAT's
+    /// <c>diploidprobes_fixnonPAR</c> applies: an X segment is haploid only when its overlap with the closed interval
+    /// [Start, End] exceeds 50 % of the segment's closed span [first probe position, last probe position]
+    /// (IRanges widths), otherwise it is diploid (pseudo-autosomal). Y is always haploid.</item>
+    /// </list>
+    /// Chromosome labels are matched case-insensitively with an optional "chr" prefix (as for the autosomal filter).
+    /// The interval is compared with the segment coordinates exactly as given (ASCAT compares it with <c>SNPpos</c>,
+    /// which is 1-based; the presets are ASCAT's 1-based constants).
+    /// </summary>
+    public sealed record AscatSexModel
+    {
+        /// <summary>ASCAT <c>X_nonPAR</c> for <c>genomeVersion = "hg19"</c> (GRCh37): <c>c(2699521, 154931043)</c>.</summary>
+        public static (long Start, long End) XNonParHg19 { get; } = (2_699_521, 154_931_043);
+
+        /// <summary>ASCAT <c>X_nonPAR</c> for <c>genomeVersion = "hg38"</c> (GRCh38): <c>c(2781480, 155701382)</c>.</summary>
+        public static (long Start, long End) XNonParHg38 { get; } = (2_781_480, 155_701_382);
+
+        /// <summary>ASCAT <c>X_nonPAR</c> for <c>genomeVersion = "CHM13"</c> (T2T-CHM13): <c>c(2394411, 153925834)</c>.</summary>
+        public static (long Start, long End) XNonParChm13 { get; } = (2_394_411, 153_925_834);
+
+        /// <summary>ASCAT default (<c>gender = "XX"</c>): X and Y diploid. Bit-identical to the gender-less entry points.</summary>
+        public static AscatSexModel Female { get; } = new(AscatGender.XX, null);
+
+        /// <summary><c>gender = "XY"</c>, <c>X_nonPAR = NULL</c> (ASCAT <c>genomeVersion = NULL</c>): all of X and Y haploid.</summary>
+        public static AscatSexModel Male { get; } = new(AscatGender.XY, null);
+
+        /// <summary>The sample sex.</summary>
+        public AscatGender Gender { get; }
+
+        /// <summary>Closed X non-PAR interval (ASCAT <c>X_nonPAR</c>); <c>null</c> = whole X haploid in a male.</summary>
+        public (long Start, long End)? XNonPar { get; }
+
+        /// <summary>Creates a sex model.</summary>
+        /// <param name="gender">The sample sex.</param>
+        /// <param name="xNonPar">Optional closed X non-PAR interval (Start ≤ End); used only for <see cref="AscatGender.XY"/>.</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="gender"/> is undefined or the interval has Start &gt; End.</exception>
+        public AscatSexModel(AscatGender gender, (long Start, long End)? xNonPar = null)
+        {
+            if (gender is not (AscatGender.XX or AscatGender.XY))
+            {
+                throw new ArgumentOutOfRangeException(nameof(gender), gender, "Gender must be XX or XY.");
+            }
+
+            if (xNonPar is { } interval && interval.Start > interval.End)
+            {
+                throw new ArgumentOutOfRangeException(nameof(xNonPar), xNonPar, "The X non-PAR interval needs Start ≤ End.");
+            }
+
+            Gender = gender;
+            XNonPar = xNonPar;
+        }
+
+        /// <summary>A male (<c>"XY"</c>) model with ASCAT's X non-PAR interval of <paramref name="genome"/>
+        /// (<c>ascat.loadData(genomeVersion = "hg19" | "hg38")</c>).</summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is undefined.</exception>
+        public static AscatSexModel MaleWithXNonPar(ReferenceGenome genome) => genome switch
+        {
+            ReferenceGenome.GRCh37 => new AscatSexModel(AscatGender.XY, XNonParHg19),
+            ReferenceGenome.GRCh38 => new AscatSexModel(AscatGender.XY, XNonParHg38),
+            _ => throw new ArgumentOutOfRangeException(nameof(genome), genome, "Unknown reference genome."),
+        };
+
+        /// <summary>
+        /// True when a segment is haploid under this model (runASCAT <c>!diploidprobes</c> at the segment start; ASCAT's
+        /// <c>nullprobes</c> branch is unreachable with the default <c>sexchromosomes = c("X", "Y")</c>).
+        /// </summary>
+        internal bool IsHaploid(string chromosome, long start, long end)
+        {
+            if (Gender != AscatGender.XY)
+            {
+                return false;
+            }
+
+            ReadOnlySpan<char> name = StripChrPrefix(chromosome.AsSpan().Trim());
+            if (name.Equals("Y", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!name.Equals("X", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (XNonPar is not { } nonPar)
+            {
+                return true;
+            }
+
+            // diploidprobes_fixnonPAR: findOverlaps(nonPAR, SEGMENTS) and width(pintersect)/width(segment) > 0.5.
+            double overlap = (double)Math.Min(end, nonPar.End) - Math.Max(start, nonPar.Start) + 1.0;
+            return overlap > 0.0 && overlap / ((double)end - start + 1.0) > 0.5;
+        }
+    }
+
     /// <summary>
     /// Segments per-locus allele-specific signal (logR, BAF) into contiguous regions, producing one
     /// (mean logR, mirrored BAF) summary per segment, by running the published ASCAT allele-specific segmentation
@@ -1646,6 +1763,13 @@ public static partial class OncologyAnalyzer
         double nB = (rho - 1.0 + b * scaledTotal) / rho;
         return (nA, nB);
     }
+
+    /// <summary>
+    /// Raw ASCAT copy number of a haploid (male X non-PAR / Y) segment, ascat.runAscat.R <c>seg_raw</c>, verbatim:
+    /// <c>nAraw = (rho-1 + ((1-rho)*2+rho*psi)*2^(logR/gamma))/rho</c> (the normal cells contribute one copy).
+    /// </summary>
+    private static double AscatRawHaploidCopyNumber(double r, double rho, double psi, double gamma) =>
+        (rho - 1.0 + Math.Pow(2.0, r / gamma) * MixtureCopiesPerCell(rho, psi)) / rho;
 
     /// <summary>
     /// Average number of copies of a locus per cell in a tumour sample of purity ρ whose tumour cells carry
@@ -1844,9 +1968,19 @@ public static partial class OncologyAnalyzer
     /// balanced-segment odd-total rule (<c>limitround = 0.5</c>: for BAF = 0.5, if nA+nB exceeds the rounded total by
     /// more than 0.5 nA is raised by one; if it falls short by more than 0.5 nB is lowered by one).
     /// </summary>
-    private static (double Major, double Minor) AscatRoundSegment(double r, double bAscat, double rho, double psi, double gamma)
+    /// <param name="r">Segmented logR.</param>
+    /// <param name="bAscat">Segmented BAF in ASCAT's ≤ 0.5 orientation (0 when the segment has no heterozygous probe).</param>
+    /// <param name="rho">Purity ρ.</param>
+    /// <param name="psi">Ploidy parameter ψ.</param>
+    /// <param name="gamma">Platform parameter γ.</param>
+    /// <param name="haploid">Male X (non-PAR) / Y segment (<see cref="AscatSexModel"/>): runASCAT's non-diploid branch
+    /// <c>nAraw = (rho − 1 + ((1 − rho)·2 + rho·psi)·2^(logR/gamma))/rho</c>, <c>nBraw = 0</c>.</param>
+    private static (double Major, double Minor) AscatRoundSegment(
+        double r, double bAscat, double rho, double psi, double gamma, bool haploid = false)
     {
-        (double nAraw, double nBraw) = AscatRawCopyNumbers(r, bAscat, rho, psi, gamma);
+        (double nAraw, double nBraw) = haploid
+            ? (AscatRawHaploidCopyNumber(r, rho, psi, gamma), 0.0)
+            : AscatRawCopyNumbers(r, bAscat, rho, psi, gamma);
         if (nAraw + nBraw < 0.0)
         {
             nAraw = 0.0;
@@ -1898,14 +2032,15 @@ public static partial class OncologyAnalyzer
     /// </summary>
     private static PurityPloidyFit BuildAscatFit(
         IReadOnlyList<AlleleSpecificSegmentSummary> segments, double rho, double psi, double gamma, double goodnessOfFit,
-        bool nonAberrant)
+        bool nonAberrant, AscatSexModel sexModel)
     {
         var result = new List<AlleleSpecificSegment>(segments.Count);
         var probeCounts = new int[segments.Count];
         for (int i = 0; i < segments.Count; i++)
         {
             AlleleSpecificSegmentSummary s = segments[i];
-            (double major, double minor) = AscatRoundSegment(s.MeanLogR, ToAscatBaf(s.MeanBAF), rho, psi, gamma);
+            (double major, double minor) = AscatRoundSegment(s.MeanLogR, ToAscatBaf(s.MeanBAF), rho, psi, gamma,
+                sexModel.IsHaploid(s.Chromosome, s.Start, s.End));
             int majorInt = AscatCopyNumberToInt(major);
             int minorInt = AscatCopyNumberToInt(minor);
             // Segments with End == Start (single-position) get a 1 bp span so AlleleSpecificSegment.Length > 0.
@@ -1987,7 +2122,8 @@ public static partial class OncologyAnalyzer
     /// <item><b>Integer segments</b> (ASCAT <c>seg_raw</c>): negative-value correction, R half-to-even rounding and the
     /// balanced odd-total rule, see <see cref="AscatRoundSegment"/>.</item>
     /// </list>
-    /// Sex-chromosome (X/Y) segments are excluded from the fit and emitted with the diploid model (ASCAT gender "XX").
+    /// Sex-chromosome (X/Y) segments are excluded from the fit (as in ASCAT, for either sex) and emitted with the diploid
+    /// model (ASCAT gender "XX"); pass an <see cref="AscatSexModel"/> (overload, B24 F38) for a male sample.
     /// </summary>
     /// <param name="segments">Segment summaries (from <see cref="SegmentAlleleSpecificAspcf"/> or a caller's segmenter). Non-empty;
     /// each needs a finite mean logR, a mean BAF in [0, 1] and LocusCount ≥ 1; at least one autosomal segment.</param>
@@ -2015,8 +2151,40 @@ public static partial class OncologyAnalyzer
         double ploidyMax = 5.5,
         double ploidyStep = 0.05,
         double gamma = AscatSequencingGamma)
+        => FitPurityPloidy(segments, AscatSexModel.Female, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+
+    /// <summary>
+    /// ASCAT purity/ploidy fit (see <see cref="FitPurityPloidy(IReadOnlyList{AlleleSpecificSegmentSummary}, double, double, double, double, double, double, double)"/>)
+    /// with an explicit sex-chromosome model (runASCAT <c>gender</c> / <c>X_nonPAR</c>, B24 F38). The fit (ρ, ψ, GoF,
+    /// non-aberrant flag) is unchanged — sex chromosomes never enter it; only the X/Y integer segments and therefore the
+    /// reported ploidy depend on <paramref name="sexModel"/> (see <see cref="AscatSexModel"/>). Each summary is one
+    /// runASCAT segment; its [Start, End] is the span tested against the X non-PAR interval.
+    /// </summary>
+    /// <param name="segments">Segment summaries (as the gender-less overload).</param>
+    /// <param name="sexModel">Sex-chromosome model; <see cref="AscatSexModel.Female"/> reproduces the gender-less overload.</param>
+    /// <param name="purityMin">See the gender-less overload.</param>
+    /// <param name="purityMax">See the gender-less overload.</param>
+    /// <param name="purityStep">See the gender-less overload.</param>
+    /// <param name="ploidyMin">See the gender-less overload.</param>
+    /// <param name="ploidyMax">See the gender-less overload.</param>
+    /// <param name="ploidyStep">See the gender-less overload.</param>
+    /// <param name="gamma">See the gender-less overload.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> or <paramref name="sexModel"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="segments"/> is empty, malformed, or has no autosomal segment.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">a grid bound or step is out of range.</exception>
+    /// <exception cref="InvalidOperationException">ASCAT finds no acceptable optimum.</exception>
+    public static PurityPloidyFit FitPurityPloidy(
+        IReadOnlyList<AlleleSpecificSegmentSummary> segments,
+        AscatSexModel sexModel,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
     {
-        if (!TryFitPurityPloidy(segments, out PurityPloidyFit fit, purityMin, purityMax, purityStep,
+        if (!TryFitPurityPloidy(segments, sexModel, out PurityPloidyFit fit, purityMin, purityMax, purityStep,
                 ploidyMin, ploidyMax, ploidyStep, gamma))
         {
             throw new InvalidOperationException(
@@ -2042,8 +2210,26 @@ public static partial class OncologyAnalyzer
         double ploidyMax = 5.5,
         double ploidyStep = 0.05,
         double gamma = AscatSequencingGamma)
+        => TryFitPurityPloidy(segments, AscatSexModel.Female, out fit, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+
+    /// <summary>
+    /// <see cref="FitPurityPloidy(IReadOnlyList{AlleleSpecificSegmentSummary}, AscatSexModel, double, double, double, double, double, double, double)"/>
+    /// reporting ASCAT's <c>rho = NA</c> outcome as <c>false</c> instead of throwing (B24 F38).
+    /// </summary>
+    public static bool TryFitPurityPloidy(
+        IReadOnlyList<AlleleSpecificSegmentSummary> segments,
+        AscatSexModel sexModel,
+        out PurityPloidyFit fit,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
     {
         AscatFitSegment[] s = PrepareAscatSegments(segments);
+        ArgumentNullException.ThrowIfNull(sexModel);
         ValidateGrid(purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
         if (!TryFindAscatOptimum(s, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma,
                 out double rhoOpt, out double psiOpt, out double goodnessOfFit, out bool nonAberrant))
@@ -2052,7 +2238,7 @@ public static partial class OncologyAnalyzer
             return false;
         }
 
-        fit = BuildAscatFit(segments, rhoOpt, psiOpt, gamma, goodnessOfFit, nonAberrant);
+        fit = BuildAscatFit(segments, rhoOpt, psiOpt, gamma, goodnessOfFit, nonAberrant, sexModel);
         return true;
     }
 
@@ -2259,14 +2445,35 @@ public static partial class OncologyAnalyzer
         double purity,
         double ploidy,
         double gamma = AscatSequencingGamma)
+        => EvaluatePurityPloidy(segments, AscatSexModel.Female, purity, ploidy, gamma);
+
+    /// <summary>
+    /// ASCAT with a user-supplied purity and ploidy (as the gender-less overload) and an explicit sex-chromosome model
+    /// for the emitted X/Y segments (<see cref="AscatSexModel"/>, B24 F38).
+    /// </summary>
+    /// <param name="segments">Segment summaries.</param>
+    /// <param name="sexModel">Sex-chromosome model.</param>
+    /// <param name="purity">Purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Ploidy parameter ψ (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (&gt; 0).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> or <paramref name="sexModel"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="segments"/> is empty, malformed, or has no autosomal segment.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">ρ ∉ (0, 1], ψ ≤ 0 or γ ≤ 0 (or any is non-finite).</exception>
+    public static PurityPloidyFit EvaluatePurityPloidy(
+        IReadOnlyList<AlleleSpecificSegmentSummary> segments,
+        AscatSexModel sexModel,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma)
     {
         AscatFitSegment[] s = PrepareAscatSegments(segments);
+        ArgumentNullException.ThrowIfNull(sexModel);
         ValidateAscatModelParameters(purity, ploidy, gamma);
 
         (double theoreticalMaxDistance, bool nonAberrant) = AscatSampleSummary(s);
         double m = AscatDistance(s, purity, ploidy, gamma);
         double goodnessOfFit = (1.0 - m / theoreticalMaxDistance) * 100.0;
-        return BuildAscatFit(segments, purity, ploidy, gamma, goodnessOfFit, nonAberrant);
+        return BuildAscatFit(segments, purity, ploidy, gamma, goodnessOfFit, nonAberrant, sexModel);
     }
 
     /// <summary>
@@ -2311,8 +2518,44 @@ public static partial class OncologyAnalyzer
         double ploidyMax = 5.5,
         double ploidyStep = 0.05,
         double gamma = AscatSequencingGamma)
+        => FitPurityPloidyFromAspcf(segmentation, AscatSexModel.Female, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+
+    /// <summary>
+    /// <see cref="FitPurityPloidyFromAspcf(AspcfSegmentation, double, double, double, double, double, double, double)"/>
+    /// with an explicit sex-chromosome model (runASCAT <c>gender</c> / <c>X_nonPAR</c>, B24 F38): the fit is unchanged
+    /// (sex chromosomes never enter it); the X/Y <c>seg_raw</c> segments — and so the all-probe ploidy — follow
+    /// <paramref name="sexModel"/> (see <see cref="AscatSexModel"/>). For the X non-PAR rule a segment's span is its
+    /// first/last probe position (<see cref="AspcfSegment.Start"/>/<see cref="AspcfSegment.End"/>, i.e. the run of
+    /// equal segmented logR that <c>diploidprobes_fixnonPAR</c> builds with <c>rle</c>).
+    /// <para>Not ported: for a male with <c>X_nonPAR</c>, <c>ascat.aspcf</c> additionally re-labels the germline
+    /// genotypes of non-PAR X probes (all homozygous, then a random autosome-matched fraction heterozygous); here the
+    /// caller's <see cref="AspcfSegmentation.GermlineHeterozygous"/> flags are used as given.</para>
+    /// </summary>
+    /// <param name="segmentation">The germline-aware ASPCF segmentation.</param>
+    /// <param name="sexModel">Sex-chromosome model; <see cref="AscatSexModel.Female"/> reproduces the gender-less overload.</param>
+    /// <param name="purityMin">See the gender-less overload.</param>
+    /// <param name="purityMax">See the gender-less overload.</param>
+    /// <param name="purityStep">See the gender-less overload.</param>
+    /// <param name="ploidyMin">See the gender-less overload.</param>
+    /// <param name="ploidyMax">See the gender-less overload.</param>
+    /// <param name="ploidyStep">See the gender-less overload.</param>
+    /// <param name="gamma">See the gender-less overload.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segmentation"/> or <paramref name="sexModel"/> is null.</exception>
+    /// <exception cref="ArgumentException">The segmentation has no heterozygous autosomal probe.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A grid bound or step is out of range.</exception>
+    /// <exception cref="InvalidOperationException">ASCAT finds no acceptable optimum.</exception>
+    public static PurityPloidyFit FitPurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        AscatSexModel sexModel,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
     {
-        if (!TryFitPurityPloidyFromAspcf(segmentation, out PurityPloidyFit fit, purityMin, purityMax, purityStep,
+        if (!TryFitPurityPloidyFromAspcf(segmentation, sexModel, out PurityPloidyFit fit, purityMin, purityMax, purityStep,
                 ploidyMin, ploidyMax, ploidyStep, gamma))
         {
             throw new InvalidOperationException(
@@ -2336,8 +2579,26 @@ public static partial class OncologyAnalyzer
         double ploidyMax = 5.5,
         double ploidyStep = 0.05,
         double gamma = AscatSequencingGamma)
+        => TryFitPurityPloidyFromAspcf(segmentation, AscatSexModel.Female, out fit, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+
+    /// <summary>
+    /// <see cref="FitPurityPloidyFromAspcf(AspcfSegmentation, AscatSexModel, double, double, double, double, double, double, double)"/>
+    /// reporting ASCAT's <c>rho = NA</c> outcome as <c>false</c> instead of throwing (B24 F38).
+    /// </summary>
+    public static bool TryFitPurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        AscatSexModel sexModel,
+        out PurityPloidyFit fit,
+        double purityMin = 0.1,
+        double purityMax = 1.05,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.5,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
     {
         AscatFitSegment[] s = AscatMakeSegments(segmentation);
+        ArgumentNullException.ThrowIfNull(sexModel);
         ValidateGrid(purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
         if (!TryFindAscatOptimum(s, purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma,
                 out double rhoOpt, out double psiOpt, out double goodnessOfFit, out bool nonAberrant))
@@ -2346,7 +2607,7 @@ public static partial class OncologyAnalyzer
             return false;
         }
 
-        fit = BuildAscatFitFromAspcf(segmentation, rhoOpt, psiOpt, gamma, goodnessOfFit, nonAberrant);
+        fit = BuildAscatFitFromAspcf(segmentation, rhoOpt, psiOpt, gamma, goodnessOfFit, nonAberrant, sexModel);
         return true;
     }
 
@@ -2367,14 +2628,35 @@ public static partial class OncologyAnalyzer
         double purity,
         double ploidy,
         double gamma = AscatSequencingGamma)
+        => EvaluatePurityPloidyFromAspcf(segmentation, AscatSexModel.Female, purity, ploidy, gamma);
+
+    /// <summary>
+    /// ASCAT with a user-supplied purity and ploidy on a germline-aware ASPCF segmentation (as the gender-less overload)
+    /// with an explicit sex-chromosome model for the X/Y <c>seg_raw</c> segments (<see cref="AscatSexModel"/>, B24 F38).
+    /// </summary>
+    /// <param name="segmentation">The germline-aware ASPCF segmentation.</param>
+    /// <param name="sexModel">Sex-chromosome model.</param>
+    /// <param name="purity">Purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Ploidy parameter ψ (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (&gt; 0).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="segmentation"/> or <paramref name="sexModel"/> is null.</exception>
+    /// <exception cref="ArgumentException">The segmentation has no heterozygous autosomal probe.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">ρ ∉ (0, 1], ψ ≤ 0 or γ ≤ 0 (or any is non-finite).</exception>
+    public static PurityPloidyFit EvaluatePurityPloidyFromAspcf(
+        AspcfSegmentation segmentation,
+        AscatSexModel sexModel,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma)
     {
         AscatFitSegment[] s = AscatMakeSegments(segmentation);
+        ArgumentNullException.ThrowIfNull(sexModel);
         ValidateAscatModelParameters(purity, ploidy, gamma);
 
         (double theoreticalMaxDistance, bool nonAberrant) = AscatSampleSummary(s);
         double m = AscatDistance(s, purity, ploidy, gamma);
         double goodnessOfFit = (1.0 - m / theoreticalMaxDistance) * 100.0;
-        return BuildAscatFitFromAspcf(segmentation, purity, ploidy, gamma, goodnessOfFit, nonAberrant);
+        return BuildAscatFitFromAspcf(segmentation, purity, ploidy, gamma, goodnessOfFit, nonAberrant, sexModel);
     }
 
     /// <summary>
@@ -2428,7 +2710,8 @@ public static partial class OncologyAnalyzer
     /// logR segment; <c>bafke</c> = first heterozygous BAF, 0 when none) and <c>ploidy = mean(nA + nB)</c> over all probes.
     /// </summary>
     private static PurityPloidyFit BuildAscatFitFromAspcf(
-        AspcfSegmentation segmentation, double rho, double psi, double gamma, double goodnessOfFit, bool nonAberrant)
+        AspcfSegmentation segmentation, double rho, double psi, double gamma, double goodnessOfFit, bool nonAberrant,
+        AscatSexModel sexModel)
     {
         var result = new List<AlleleSpecificSegment>(segmentation.Segments.Count);
         var probeCounts = new int[segmentation.Segments.Count];
@@ -2436,7 +2719,8 @@ public static partial class OncologyAnalyzer
         {
             AspcfSegment s = segmentation.Segments[i];
             double bafke = s.HasBaf ? 1.0 - s.MeanBAF : 0.0; // "if (is.na(bafke)) bafke = 0"
-            (double major, double minor) = AscatRoundSegment(s.MeanLogR, bafke, rho, psi, gamma);
+            (double major, double minor) = AscatRoundSegment(s.MeanLogR, bafke, rho, psi, gamma,
+                sexModel.IsHaploid(s.Chromosome, s.Start, s.End));
             long end = s.End > s.Start ? s.End : s.Start + 1;
             result.Add(new AlleleSpecificSegment(
                 s.Chromosome, s.Start, end, AscatCopyNumberToInt(major), AscatCopyNumberToInt(minor)));

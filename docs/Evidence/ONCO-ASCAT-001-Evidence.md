@@ -374,12 +374,49 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 - Gap shown (pre-F37): the summary fit on heterozygous loci reports ploidy over heterozygous probes only
   (G1 2.6134868421052633 vs ASCAT 2.4722222222222223) and cannot emit homozygous segments.
 
+## 2026-10 FIN-B24 F38 — Sex-chromosome model (runASCAT `gender` / `X_nonPAR`)
+
+- Sources opened: `raw.githubusercontent.com/VanLoo-lab/ascat/master/ASCAT/R/ascat.runAscat.R` — `runASCAT`:
+  `autoprobes = !(SNPposhet[,1] %in% sexchromosomes)` (the fit excludes X/Y for **every** gender);
+  `haploidchrs = unique(c(substring(gender,1,1), substring(gender,2,2)))`, minus the letter when both are equal
+  (XX ⇒ none; XY ⇒ X, Y); `nullchrs = setdiff(sexchromosomes, …)` (XX ⇒ Y) but `nullprobes` is consulted only for
+  non-diploid probes, so in XX Y uses the diploid equations; `seg_raw` for a non-diploid segment:
+  `nAraw = (rho-1 + ((1-rho)*2+rho*psi)*2^(logR/gamma))/rho`, `nBraw = 0`, ψ = `psi_opt1` (grid value) or `psi_manual`,
+  then the negative-value correction and rounding (`limitround` cannot fire with nBraw = 0);
+  `diploidprobes_fixnonPAR` (only when `!is.null(X_nonPAR) && gender == "XY"`): X probes reset to diploid, X segments =
+  `rle` runs of the segmentation, a segment is non-diploid when `width(pintersect(nonPAR, segment))/width(segment) > 0.5`.
+  `ascat.loadData.R`: `gender = NULL ⇒ "XX"`; `X_nonPAR` = hg19 `c(2699521, 154931043)`, hg38 `c(2781480, 155701382)`,
+  CHM13 `c(2394411, 153925834)`, `genomeVersion = NULL ⇒ X_nonPAR = NULL` (whole X haploid in a male).
+  `ascat.aspcf.R`: for a male with `X_nonPAR` the non-PAR germline genotypes are re-drawn (all homozygous, then a random
+  autosome-matched fraction heterozygous) — **not ported** (caller's genotypes are used).
+- R cross-check (executed; R 4.3.3, sourced ascat.aspcf.R + ascat.runAscat.R, GenomicRanges 1.54.1; harness of F36 with
+  per-block positions; `ascat.aspcf(X_nonPAR = NULL)`, then `gender` / `X_nonPAR` set, `ascat.runAscat(gamma = 1)`):
+
+  | Genome / model | purity | psi | ploidy | goodnessOfFit | X / Y seg_raw (nMajor:nMinor, nAraw) |
+  |---|---|---|---|---|---|
+  | M1 XY (X_nonPAR NULL) | 0.7 | 2.45 | 2.181159420289855 | 99.937918942624279 | X 1:0 (1.03218649423988) 2:0 (1.8962760923968001) 2:0 (2.0480422819682); Y 1:0 1:0 0:0 (0.017976122283112) |
+  | M1 XX | 0.7 | 2.45 | 2.1775362318840581 | 99.937918942624279 | X 1:0 1:0 1:1; Y 1:0 1:0 0:0 |
+  | M2 XY non-PAR [890000, 1090000] | 0.53 | 2.35 | 2.0981228668941978 | 99.634551649302338 | X 873000–907000 3:0 (overlap 17001/34001), 908000–912000 3:0, 1:0, 2:0, 1078000–1122000 2:1 (12001/45001 ⇒ diploid); Y 1:0 |
+  | M2 XX | 0.53 | 2.35 | 1.8805460750853242 | 99.634551649302338 | X 1:1 1:1 0:0 1:0 2:1; Y 0:0 |
+  | M2 XY (X_nonPAR NULL) | 0.53 | 2.35 | 2.1365187713310578 | 99.634551649302338 | X 3:0 3:0 1:0 2:0 4:0 (4.0928384899644898); Y 1:0 |
+  | M3 XY hg19 | 0.92 | 3.15 | 2.9482758620689653 | 98.658353206884712 | X PAR1 1:1 1:1, 3–152 Mb 1:0, 153–155.02 Mb 3:0 (2.75988943219894), PAR2 1:1; Y 2:0 0:0 |
+  | M3 XX | 0.92 | 3.15 | 2.9482758620689653 | 98.658353206884712 | X 1:1 1:1 1:0 2:1 1:1; Y 2:0 0:0 |
+  | M3 XY (X_nonPAR NULL) | 0.92 | 3.15 | 2.9482758620689653 | 98.658353206884712 | X 2:0 2:0 1:0 3:0 2:0; Y 2:0 0:0 |
+  | het-only M1 XY / XX | 0.7 | 2.45 | 2.4579831932773111 (both) | 99.950135206703436 | X 2:0 vs 1:1; Y 1:0 vs 1:0 |
+  | het-only M2 XY / XX | 0.53 | 2.35 | 2.3914529914529914 / 2.3384615384615386 | 99.661294751227899 | X 3:0 vs 1:1, PAR2 2:1 (both) |
+  | het-only M3 XY / XX | 0.91 | 3.2 | 3.4351687388987568 (both) | 98.662279834887002 | one X segment 100000–155135000: 2:0 vs 1:1 |
+
+  C# (`AscatSexModel` overloads of `FitPurityPloidyFromAspcf` / `FitPurityPloidy`): ρ, ψ, ploidy (≤ 1e-14), GoF and
+  every seg_raw row identical in all 14 runs; ρ/ψ/GoF never depend on the sex model (fit excludes X/Y).
+- Gap shown (pre-F38): X/Y were always emitted with the diploid model — e.g. M1 male X segment of 2 tumour copies came
+  out 1:1 instead of ASCAT's 2:0 and the ploidy 2.1775362318840581 instead of 2.181159420289855.
+
 ---
 
 ## References
 
 1. Van Loo P, Nordgard SH, Lingjærde OC, et al. (2010). Allele-specific copy number analysis of tumors. PNAS 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
-2. VanLoo-lab/ascat reference implementation, `ASCAT/R/ascat.runAscat.R` (master). https://github.com/VanLoo-lab/ascat
+2. VanLoo-lab/ascat reference implementation, `ASCAT/R/ascat.runAscat.R`, `ascat.aspcf.R`, `ascat.loadData.R` (master). https://github.com/VanLoo-lab/ascat
 3. McGranahan N, Furness AJS, Rosenthal R, et al. (2016). Clonal neoantigens elicit T cell immunoreactivity and sensitivity to immune checkpoint blockade. Science 351(6280):1463–1469. https://doi.org/10.1126/science.aaf1490
 4. Zheng L, et al. (2022). PICTograph: estimation of cancer cell fractions and clone trees. Bioinformatics 38(15):3677–3683. https://doi.org/10.1093/bioinformatics/btac440
 5. Satas G, Zaccaria S, El-Kebir M, Raphael BJ (2021). DeCiFering the elusive cancer cell fraction. Cell Systems / PMC8542635. https://pmc.ncbi.nlm.nih.gov/articles/PMC8542635/
@@ -391,6 +428,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 ## Change History
 
+- **2026-10-10**: FIN-B24 F38 — runASCAT sex-chromosome model (male haploid X/Y, `X_nonPAR` rule, XX default) R cross-check section added.
 - **2026-10-10**: FIN-B24 F37 — runASCAT with homozygous segments (`bafke` NA ⇒ 0, all-probe ploidy) R cross-check section added.
 - **2026-10-10**: FIN-B24 F36 — germline-aware `ascat.aspcf` (homozygous probes, homozygous-stretch resegmentation) R cross-check section added.
 - **2026-10-09**: FIN-B24 F35 — the unsourced greedy `SegmentAlleleSpecific` heuristic was removed; the public name now delegates to `SegmentAlleleSpecificAspcf(loci, AspcfDefaultPenalty = 70)` (ascat.aspcf port, R-verified 60/60), with the ASPCF finite-logR / BAF ∈ [0, 1] validation; legacy thresholds ignored (range-checked for compatibility). Test point 14 added; point 9 reworded.
