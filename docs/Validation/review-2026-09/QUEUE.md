@@ -26,6 +26,8 @@ and commits it after every change. Batch definitions (units, owned files) are in
 - Orchestrator permission: FIN-B24 may edit ONLY the ONCO-PURITY-001 methods (`EstimatePurity*`) in B22-owned
   `OncologyAnalyzer.SomaticCalling.cs` (B24 F7/F8 patches), logged in B22.md "## Changes made by FIN-B24 in this file";
   every other B22 item stays a request. B25's ONCO-CHIP-001 methods in Clonality.cs are excluded.
+  **User approved this exception 2026-10-10 ~13:20 UTC** ("цього разу можеш правити. Це критична функціональність").
+  Done so far: WP1 4f6fd71c (F7/F8 → FIN-B24 F24/F25), logged in B22.md "## Changes made by FIN-B24 in this file".
 - Everything else paused; B08 paused (not archived); check-in trigger re-armed (FIN-B24 check-in).
 
 ### Earlier state (2026-10-09 20:25 UTC) — R1 DONE; EVERYTHING PAUSED by user
