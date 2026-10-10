@@ -189,6 +189,8 @@
 | C8 | ✅ Covered | IsHomozygousDeletion_Log2BeyondInt32CopyNumber_IsFalse_WhileCallCopyNumberSaturates |
 | C9 | ✅ Covered | DetectHomozygousDeletions_StreamWithExtremeAmplifications_ReportsOnlyCn0 |
 | C10 | ✅ Covered | DetectHomozygousDeletions_EmptyInputWithInvalidParameters_Throws |
+| C11 (F49, B24 WP21) | ✅ Covered | IdentifyDeletedTumorSuppressors_LocusOverlap_MatchesGistic2GenesAt — GISTIC2 `genes_at` (partial_hits 1) closed-interval overlap; Octave gene lists (17:7e6-5e7 → TP53,BRCA1; 13:32315474 → BRCA2; 9:1-21967752 → none; 9:1-21967753 → CDKN2A) |
+| C12 (F49) | ✅ Covered | DefaultTumorSuppressorLoci_Gistic2Gencode22Coordinates — GRCh38 loci from GISTIC2 refgenes GENCODE v22 (see ONCO-CNA-002 Evidence) |
 
 ---
 

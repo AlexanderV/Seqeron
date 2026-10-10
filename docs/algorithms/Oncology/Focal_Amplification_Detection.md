@@ -58,6 +58,9 @@ amplitude test admits any genuine gain while rejecting low-level artifactual seg
 | segments | `IEnumerable<CopyNumberArmSegment>` | required | Arm-anchored copy-number segments | not null; each ArmLength > 0, End > Start |
 | thresholds | `FocalAmplificationThresholds?` | GISTIC2 defaults | Amplitude + length cutoffs | null ⇒ t_amp 0.1, broad_len_cutoff 0.98 |
 | amplifications | `IEnumerable<CopyNumberArmSegment>` | required | Focal amplifications to map to oncogenes | not null |
+| segment.MarkerCount / ArmMarkerCount | `int?` (init) | null | Optional marker counts: arm fraction in marker units (GISTIC2 default) | both or neither; 1 ≤ MarkerCount ≤ ArmMarkerCount |
+| amplifiedRegions | `IEnumerable<CopyNumberRegion>` | required | Locus-overlap overload: amplified regions, 1-based closed | not null; End ≥ Start; non-empty chromosome |
+| genePanel | `IReadOnlyList<GeneLocus>?` | `DefaultOncogeneLoci` (GRCh38) | Gene loci for the locus-overlap overload | Start ≤ End; non-empty symbol/chromosome |
 
 ### 3.2 Output / Return Value
 
@@ -65,6 +68,7 @@ amplitude test admits any genuine gain while rejecting low-level artifactual seg
 |-------|------|-------------|
 | (DetectFocalAmplifications) | `IReadOnlyList<CopyNumberArmSegment>` | Input segments that are focal amplifications, in input order |
 | (IdentifyAmplifiedOncogenes) | `IReadOnlyList<string>` | Distinct panel oncogene symbols on amplified arms, in panel order |
+| (IdentifyAmplifiedOncogenes, `CopyNumberRegion` overload) | `IReadOnlyList<string>` | Distinct panel genes whose locus overlaps an amplified region (GISTIC2 `genes_at`), in panel order |
 
 ### 3.3 Preconditions and Validation
 
@@ -113,7 +117,8 @@ the cutoff (0.98) is arm-level (the focal test is strictly less-than).
 **Implementation location:** [OncologyAnalyzer.CopyNumberPloidy.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.CopyNumberPloidy.cs)
 
 - `OncologyAnalyzer.DetectFocalAmplifications(segments, thresholds?)`: filters segments to focal amplifications.
-- `OncologyAnalyzer.IdentifyAmplifiedOncogenes(amplifications)`: maps focal amplifications to panel oncogenes.
+- `OncologyAnalyzer.IdentifyAmplifiedOncogenes(amplifications)`: maps focal amplifications to panel oncogenes (arm-level).
+- `OncologyAnalyzer.IdentifyAmplifiedOncogenes(IEnumerable<CopyNumberRegion>, IReadOnlyList<GeneLocus>? genePanel = null)`: GISTIC2 locus-overlap mapping (F49); default panel `DefaultOncogeneLoci`.
 - `OncologyAnalyzer.IsFocalAmplification(segment, thresholds)`: single-segment predicate (internal helper, public for reuse).
 
 ### 5.2 Current Behavior
@@ -136,9 +141,29 @@ case-insensitive ordinal comparison; arms outside the six-gene panel map to no o
 - Arm boundaries / arm length are supplied by the caller rather than derived from a bundled cytoband
   file; **consequence:** the caller must provide each arm's length (GISTIC2 reads this from the genome
   assembly). The 0.98 rule and amplitude test are unchanged.
-- Oncogene mapping is arm-level (any focal amplification on the arm flags the gene) rather than
-  coordinate-overlap of the gene locus; **consequence:** a focal amplification elsewhere on the same arm
-  also flags the gene. This matches the registry panel's arm-level intent.
+- Oncogene mapping of the `CopyNumberArmSegment` overload is arm-level (any focal amplification on the arm flags the
+  gene); **consequence:** a focal amplification elsewhere on the same arm also flags the gene. The GISTIC2 rule —
+  locus overlap — is available as the `CopyNumberRegion` overload (below, F49).
+
+**Arm-fraction units (F48).** GISTIC2 measures the arm fraction in **markers** by default: `make_sample_B.m` calls
+`normalize_by_arm_length(D,B,cyto,1,2,…)` with `norm_type = 1` ("by number of snps"), i.e.
+`fract = (en − st + 1) ./ armlengths_by_snp`, where `armlengths_by_snp` = number of markers whose position lies in the
+arm's cytoband span (`find_snps(D, chrn, band.start, band.end)`, `band.start = cyto.start + 1`); the event fraction is
+the sum of its segments' fractions (`perform_deconstruction.m` `sum(Bt(:,6))`). A `CopyNumberArmSegment` that carries
+`MarkerCount` and `ArmMarkerCount` uses `ArmFraction = MarkerCount / ArmMarkerCount`; without them the fraction stays in
+bp (`Length / ArmLength`, GISTIC2 `norm_type = 2`). Octave running the original `normalize_by_arm_length.m`: 3/10 →
+0.29999999999999999, 39/40 → 0.97499999999999998 (focal under 0.98), 40/40 → 1. Centromere-spanning segments
+(GISTIC2 `ref_length = 2`: p-fraction + q-fraction, e.g. 6/10 + 20/40 = 1.1) are outside the arm-anchored model.
+
+**Locus-overlap gene mapping (F49).** GISTIC2 maps genes to peaks in `genetables.m` via
+`genes_at(rg, chr, start, end, 1, partial_hits)` with default `partial_hits = 1`: gene `idx` is reported iff
+`rg.chrn == chr ∧ rg.start ≤ pos_end ∧ rg.end ≥ pos_start` (closed intervals; touching at one base counts), in
+reference-gene order, deduplicated (`filt_uniq_gene`). `IdentifyAmplifiedOncogenes(IEnumerable<CopyNumberRegion>, …)`
+implements this rule (panel order, each gene once; chromosome names match ignoring a leading "chr" and case). The
+default panel `DefaultOncogeneLoci` holds GRCh38 loci from GISTIC2's own hg38 reference-gene source
+(`refgenes/Gencode.v22.170324/gencode_genes.tsv`, GENCODE v22). Not applied: the "[closest gene]" fallback for
+gene-less peaks and widening of peak boundaries to the flanking markers (`genomic_location(…,1)`) — regions are used
+as given.
 
 **Reference-implementation cross-check (2026-09 review):** the predicate equals the GISTIC2 focal-event filter in
 `snputil/reconstruct_genomes.m` (`broad_or_focal='focal'`: `Q(:,8) < broad_len_cutoff` and amplitude vs `t_amp`)
@@ -165,6 +190,8 @@ uses `>=` — the two differ only at exact floating-point equality.
 |---|------|------|--------|--------|-------|
 | 1 | Amplitude test combined with length rule | Assumption | Defines which gains count as amplifications | accepted | t_amp from GISTIC2 docs (0.1); length rule from paper |
 | 2 | Caller-supplied arm length | Assumption | Caller must provide cytoband-derived arm length | accepted | No bundled cytoband table |
+| 3 | Arm fraction units | Option | bp unless marker counts supplied | resolved (F48) | GISTIC2 default = markers (`norm_type = 1`) |
+| 4 | Gene mapping | Option | arm-level overload kept; locus overlap via `CopyNumberRegion` overload | resolved (F49) | GISTIC2 `genes_at` `partial_hits = 1` |
 
 ## 6. Edge Cases and Limitations
 
@@ -180,12 +207,17 @@ uses `>=` — the two differ only at exact floating-point equality.
 | log2 = NaN | Not reported (no-call) | NaN is not above t_amp |
 | Empty input | Empty result | Guard |
 | ArmLength ≤ 0 or End ≤ Start | ArgumentException | Validation |
+| Only one of MarkerCount/ArmMarkerCount, MarkerCount < 1, or MarkerCount > ArmMarkerCount | ArgumentException | Validation (F48) |
+| 39/40 markers covering 99% of arm bp | Focal (0.975 < 0.98) | GISTIC2 marker units (F48) |
+| Region touching a gene end at one base | Gene reported | `genes_at` closed overlap (F49) |
+| Region End < Start, empty chromosome | ArgumentException | `genes_at` errors on End < Start |
 
 ### 6.2 Limitations
 
 No ziggurat deconstruction, no significance testing, no background-rate modeling, and no sub-arm peak localization (these are
-GISTIC2's probabilistic stages). Oncogene mapping is restricted to the six-gene registry panel and is
-arm-level, not gene-locus-overlap. Deletions are out of scope (ONCO-CNA-003).
+GISTIC2's probabilistic stages). The arm-level overload maps the six-gene registry panel by arm; the
+`CopyNumberRegion` overload applies GISTIC2 locus overlap (F49) to the default or a caller panel. Arm fraction is in
+markers when marker counts are supplied (F48), else bp. Deletions are out of scope (ONCO-CNA-003).
 
 ## 7. Examples and Related Material
 
@@ -215,3 +247,4 @@ var genes = OncologyAnalyzer.IdentifyAmplifiedOncogenes(focal);   // ["ERBB2"]
 2. Broad Institute. GISTIC2 documentation (`broad_len_cutoff`, `t_amp`, `t_del`). https://broadinstitute.github.io/gistic2/ ; GISTIC2 MATLAB source https://github.com/broadinstitute/gistic2 (`source/gp_gistic2_from_seg.m`, `source/score_genome.m`, `source/gene_calls.m`, `snputil/reconstruct_genomes.m`).
 3. Talevich E, Shain AH, Botton T, Bastian BC. CNVkit — Calling copy number gains and losses. https://cnvkit.readthedocs.io/en/stable/calling.html
 4. NCBI Gene: ERBB2 (2064), MYC (4609), EGFR (1956), CCND1 (595), MDM2 (4193), CDK4 (1019). https://www.ncbi.nlm.nih.gov/gene/
+5. GISTIC2 source (broadinstitute/gistic2 master 26c590bd): `source/normalize_by_arm_length.m`, `source/make_sample_B.m`, `source/find_snps.m`, `source/genes_at.m`, `source/genetables.m`; `refgenes/Gencode.v22.170324/gencode_genes.tsv` (GRCh38 gene loci).

@@ -75,6 +75,44 @@
 4. `source/gp_gistic2_from_seg.m`: `t_amp = numeric_arg(a,'ta',0.1,[0,Inf])`, `broad_len_cutoff = numeric_arg(a,'brlen',0.98,[0 2])`; `numeric_arg` throws on NaN and on `val < lo || val > hi` ⇒ valid ranges t_amp ∈ [0, ∞), broad_len_cutoff ∈ [0, 2] (inclusive).
 5. `source/perform_deconstruction.m`, `atomic_zigg_deconstruction.m`, `normalize_by_arm_length.m`: the filter is applied to ziggurat-deconstructed events (amplitude relative to the underlying level, cohort-learned broad levels), arm fraction measured in markers by default — not implemented here (see algorithm doc §5.3).
 
+### GISTIC2 MATLAB source — arm-fraction units and gene mapping (FIN-B24 WP21, F48/F49)
+
+**Source:** `git clone --depth 1 https://github.com/broadinstitute/gistic2` (master `26c590bd3330aafa27618ef3eb4b8d9b301f06b7`), accessed 2026-10-10.
+**Authority rank:** 3 (reference implementation source)
+
+1. **Arm fraction in markers (F48).** `source/make_sample_B.m`: `[B(:,6) chrarms] = normalize_by_arm_length(D,B,cyto,1,2,chrarms)`. `source/normalize_by_arm_length.m`: "norm_type: 1 = by number of snps (default); 2 = by length in bp"; case 1 → `lengths = Q(:,3) - Q(:,2)+1; fract = lengths./norms'` with `norms = armlengths_by_snp` = `band.snp_length = length(find_snps(D,band.chrn,band.start,band.end,0))`, `band.start = cyto(idx(1)).start+1`, `band.end = cyto(idx(end)).end`; `find_snps.m` counts markers with `cpos>=st & cpos<=en`. `ref_length = 2`: a centromere-spanning segment gets p-fraction + q-fraction. Event fraction = `sum(Bt(:,6))` (`perform_deconstruction.m`).
+2. **Gene mapping by locus overlap (F49).** `source/genetables.m` calls `genes_at(rg, chr, start, end, 1, partial_hits(k))`, `partial_hits` default `ones(...)`. `source/genes_at.m` (partial_hits = 1): `in_reg = find((rg(in_chr).start <= pos_end) & (rg(in_chr).end >= pos_start))` — closed-interval overlap, reference-gene order; `pos_end < pos_start` → `error`. (`partial_hits = 0` = containment; closest-gene fallback printed as `[GENE]` only when no gene overlaps.)
+3. **GRCh38 gene loci.** NCBI eutils / Ensembl REST / ncbi.nlm.nih.gov were unreachable from the sandbox (proxy 403 / DNS) on 2026-10-10, so the default panel uses GISTIC2's own hg38 gene source `refgenes/Gencode.v22.170324/gencode_genes.tsv` (GENCODE v22, 1-based closed): ERBB2 chr17:39687914-39730426; MYC chr8:127735434-127741434; EGFR chr7:55019021-55256620; CCND1 chr11:69641087-69654474; MDM2 chr12:68808172-68850686; CDK4 chr12:57747727-57756013; TP53 chr17:7661779-7687550; RB1 chr13:48303751-48481986; CDKN2A chr9:21967753-21995301; PTEN chr10:87863113-87971930; BRCA1 chr17:43044295-43125483; BRCA2 chr13:32315474-32400266. Cross-check vs GISTIC2's older `refgenes/hg38.UCSC.add_mir.160920/refGene.txt` (RefSeq 2016, union of transcripts, txStart+1..txEnd): same chromosomes and overlapping spans (e.g. BRCA1 identical 43044295-43125483; TP53 7668402-7687550; ERBB2 39688084-39728662) — RefSeq spans are equal or narrower.
+
+**Reference runs (GNU Octave 8, original .m files unmodified, `addpath source`):**
+
+| Case (`normalize_by_arm_length(D,Q,cyto,1,2)`; chr1 p = 10, q = 40 markers) | GISTIC2 fract (markers) | bp (norm_type 2) |
+|---|---|---|
+| 1p markers 1..3 | 0.29999999999999999 | 0.20000001 |
+| whole 1p (10/10) | 1 | 0.90000001 |
+| 1q 39/40 | 0.97499999999999998 | 0.950000005 |
+| 1q 40/40 | 1 | 0.975000005 |
+| spans centromere (6/10 p + 20/40 q) | 1.1 | — |
+
+| Region (`genes_at(rg,chr,st,en)` on the 12-gene panel) | Genes |
+|---|---|
+| 17:39730426-39800000 | ERBB2 |
+| 17:39730427-39800000 | (none) |
+| 17:39600000-39687914 | ERBB2 |
+| 17:39600000-39687913 | (none) |
+| 12:57756013-68808172 | MDM2 CDK4 |
+| 12:57756014-68808171 | (none) |
+| 17:7000000-50000000 | ERBB2 TP53 BRCA1 |
+| 13:32315474-32315474 | BRCA2 |
+| 8:127736000-127740000 | MYC |
+| 9:1-21967752 | (none) |
+| 9:1-21967753 | CDKN2A |
+| 17:60000000-61000000 | (none) |
+
+All values are locked in `OncologyAnalyzer_DetectFocalAmplifications_Tests` / `OncologyAnalyzer_DetectHomozygousDeletions_Tests` (F48/F49 regions).
+
+---
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Mermel et al. (2011) / GISTIC2 docs
@@ -134,3 +172,4 @@
 
 - **2026-06-14**: Initial documentation.
 - **2026-09-28**: Review B24 — GISTIC2 MATLAB source cross-check; threshold range validation (t_amp ∈ [0,∞), broad_len_cutoff ∈ [0,2], NaN rejected); ziggurat-deconstruction limitation documented.
+- **2026-10-10**: FIN-B24 WP21 — F48 marker-unit arm fraction (GISTIC2 `normalize_by_arm_length` norm_type 1), F49 locus-overlap gene mapping (GISTIC2 `genes_at` partial_hits 1) with GRCh38 default panels; Octave reference runs recorded.

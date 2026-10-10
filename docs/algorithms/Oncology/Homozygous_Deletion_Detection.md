@@ -54,6 +54,7 @@ A segment is therefore a homozygous deletion **iff** its integer copy number equ
 | (DetectHomozygousDeletions) | `IReadOnlyList<CopyNumberArmSegment>` | The CN-0 segments, in input order |
 | (IsHomozygousDeletion) | `bool` | true iff the segment's integer CN is 0 |
 | (IdentifyDeletedTumorSuppressors) | `IReadOnlyList<string>` | Distinct tumour-suppressor symbols on deleted arms, in panel order |
+| (IdentifyDeletedTumorSuppressors, `CopyNumberRegion` overload) | `IReadOnlyList<string>` | Distinct panel genes whose GRCh38 locus overlaps a deleted region (GISTIC2 `genes_at`, closed intervals), in panel order |
 
 ### 3.3 Preconditions and Validation
 
@@ -96,6 +97,7 @@ Tumour-suppressor panel and arms (NCBI Gene cytogenetic locations) [5]:
 - `OncologyAnalyzer.DetectHomozygousDeletions(segments, thresholds?, ploidy?)`: order-preserving filter of CN-0 segments.
 - `OncologyAnalyzer.IsHomozygousDeletion(segment, thresholds?, ploidy?)`: predicate, integer CN == 0.
 - `OncologyAnalyzer.IdentifyDeletedTumorSuppressors(deletions)`: arm → tumour-suppressor panel mapping.
+- `OncologyAnalyzer.IdentifyDeletedTumorSuppressors(IEnumerable<CopyNumberRegion> deletedRegions, IReadOnlyList<GeneLocus>? genePanel = null)`: GISTIC2 locus-overlap mapping (B24 F49): gene reported iff same chromosome ∧ `gene.start ≤ region.end` ∧ `gene.end ≥ region.start` (`genes_at.m`, `partial_hits = 1`); default panel `DefaultTumorSuppressorLoci` (GRCh38, GENCODE v22 from GISTIC2 `refgenes`). See [Focal_Amplification_Detection](./Focal_Amplification_Detection.md) §5.3 and ONCO-CNA-002 Evidence for the source and Octave runs.
 
 ### 5.2 Current Behavior
 

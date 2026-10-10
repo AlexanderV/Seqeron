@@ -394,4 +394,138 @@ public class OncologyAnalyzer_DetectFocalAmplifications_Tests
     }
 
     #endregion
+
+    #region Marker-unit arm fraction (F48, GISTIC2 normalize_by_arm_length norm_type = 1)
+
+    // Values locked from GNU Octave running the original GISTIC2 normalize_by_arm_length.m (broadinstitute/gistic2
+    // master 26c590bd) on a toy marker map (chr1 p = 10 markers, q = 40 markers; norm_type = 1, ref_length = 2):
+    // 3/10 → 0.29999999999999999, 39/40 → 0.97499999999999998, 40/40 → 1, 10/10 → 1.
+    private static Segment MSeg(string arm, long start, long end, double log2, int markers, int armMarkers) =>
+        new(arm, start, end, Arm, log2) { MarkerCount = markers, ArmMarkerCount = armMarkers };
+
+    [TestCase(3, 10, 0.29999999999999999)]
+    [TestCase(39, 40, 0.97499999999999998)]
+    [TestCase(40, 40, 1.0)]
+    [TestCase(10, 10, 1.0)]
+    public void ArmFraction_MarkerCounts_MatchesGistic2Octave(int markers, int armMarkers, double expected)
+    {
+        var seg = MSeg("1q", 0, 500_000, 1.0, markers, armMarkers);
+        Assert.That(seg.ArmFraction, Is.EqualTo(expected),
+            "With marker counts the arm fraction is markers ÷ arm markers (GISTIC2 default norm_type = 1).");
+    }
+
+    // 0.99 of the arm in bp (broad) but 39/40 = 0.975 markers (< 0.98 ⇒ focal under GISTIC2's default units).
+    [Test]
+    public void DetectFocalAmplifications_MarkerUnits_FocalWhereBpIsBroad()
+    {
+        var bp = Seg("17q", 0, 990_000, 1.0);
+        var markers = MSeg("17q", 0, 990_000, 1.0, 39, 40);
+
+        Assert.That(OncologyAnalyzer.DetectFocalAmplifications(new[] { bp }), Is.Empty,
+            "Without marker counts the bp fraction 0.99 ≥ 0.98 is broad.");
+        Assert.That(OncologyAnalyzer.DetectFocalAmplifications(new[] { markers }), Has.Count.EqualTo(1),
+            "With marker counts 39/40 = 0.975 < 0.98 is focal (GISTIC2 marker units).");
+    }
+
+    // 0.5 of the arm in bp (focal) but all 40/40 arm markers (fraction 1 ≥ 0.98 ⇒ broad).
+    [Test]
+    public void DetectFocalAmplifications_MarkerUnits_BroadWhereBpIsFocal()
+    {
+        var markers = MSeg("8q", 0, 500_000, 1.0, 40, 40);
+        Assert.That(OncologyAnalyzer.IsFocalAmplification(markers, Thresholds.Default), Is.False,
+            "40/40 markers = whole arm in GISTIC2 units ⇒ arm-level, not focal.");
+    }
+
+    [Test]
+    public void ArmFraction_NoMarkerCounts_StaysBp()
+    {
+        Assert.That(Seg("8q", 0, 250_000, 1.0).ArmFraction, Is.EqualTo(0.25),
+            "Absent marker counts the bp fraction is unchanged.");
+    }
+
+    [TestCase(5, null)]
+    [TestCase(null, 5)]
+    [TestCase(0, 5)]
+    [TestCase(6, 5)]
+    public void IsFocalAmplification_InvalidMarkerCounts_Throws(int? markers, int? armMarkers)
+    {
+        var seg = new Segment("8q", 0, 500_000, Arm, 1.0) { MarkerCount = markers, ArmMarkerCount = armMarkers };
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.IsFocalAmplification(seg, Thresholds.Default),
+            "Marker counts must be both-or-neither with 1 ≤ MarkerCount ≤ ArmMarkerCount.");
+    }
+
+    #endregion
+
+    #region IdentifyAmplifiedOncogenes — locus overlap (F49, GISTIC2 genes_at partial_hits = 1)
+
+    // Expected gene lists locked from GNU Octave running the original GISTIC2 genes_at.m (partial_hits default)
+    // on the 12-gene GRCh38 panel (GENCODE v22 coordinates from GISTIC2 refgenes/Gencode.v22.170324).
+    [TestCase("17", 39_730_426, 39_800_000, new[] { "ERBB2" })]          // touches ERBB2 end
+    [TestCase("17", 39_730_427, 39_800_000, new string[0])]             // one base past ERBB2 end
+    [TestCase("chr17", 39_600_000, 39_687_914, new[] { "ERBB2" })]      // touches ERBB2 start
+    [TestCase("17", 39_600_000, 39_687_913, new string[0])]
+    [TestCase("12", 57_756_013, 68_808_172, new[] { "MDM2", "CDK4" })]  // panel order
+    [TestCase("12", 57_756_014, 68_808_171, new string[0])]
+    [TestCase("8", 127_736_000, 127_740_000, new[] { "MYC" })]          // inside the gene
+    public void IdentifyAmplifiedOncogenes_LocusOverlap_MatchesGistic2GenesAt(
+        string chromosome, long start, long end, string[] expected)
+    {
+        var result = OncologyAnalyzer.IdentifyAmplifiedOncogenes(
+            new[] { new OncologyAnalyzer.CopyNumberRegion(chromosome, start, end) });
+        Assert.That(result, Is.EqualTo(expected),
+            "Genes are reported iff gene.start ≤ region.end ∧ gene.end ≥ region.start (closed intervals).");
+    }
+
+    // Arm-level would report ERBB2 for any 17q amplification; locus overlap does not.
+    [Test]
+    public void IdentifyAmplifiedOncogenes_LocusOverlap_FocalElsewhereOnArm_NotErbb2()
+    {
+        var region = new OncologyAnalyzer.CopyNumberRegion("17", 60_000_000, 61_000_000);
+        Assert.That(OncologyAnalyzer.IdentifyAmplifiedOncogenes(new[] { region }), Is.Empty,
+            "A 17q amplification away from the ERBB2 locus must not report ERBB2.");
+    }
+
+    [Test]
+    public void IdentifyAmplifiedOncogenes_LocusOverlap_CustomPanelAndDistinct()
+    {
+        var panel = new[]
+        {
+            new OncologyAnalyzer.GeneLocus("G2", "X", 200, 300),
+            new OncologyAnalyzer.GeneLocus("G1", "X", 100, 150),
+        };
+        var regions = new[]
+        {
+            new OncologyAnalyzer.CopyNumberRegion("chrX", 150, 150),
+            new OncologyAnalyzer.CopyNumberRegion("x", 120, 250),
+        };
+        Assert.That(OncologyAnalyzer.IdentifyAmplifiedOncogenes(regions, panel), Is.EqualTo(new[] { "G2", "G1" }),
+            "Each gene once, in panel order; 'chrX'/'x' match 'X'.");
+    }
+
+    [Test]
+    public void IdentifyAmplifiedOncogenes_LocusOverlap_InvalidInput_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            OncologyAnalyzer.IdentifyAmplifiedOncogenes((IEnumerable<OncologyAnalyzer.CopyNumberRegion>)null!));
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.IdentifyAmplifiedOncogenes(
+            new[] { new OncologyAnalyzer.CopyNumberRegion("17", 200, 199) }));
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.IdentifyAmplifiedOncogenes(
+            new[] { new OncologyAnalyzer.CopyNumberRegion("", 1, 2) }));
+    }
+
+    [Test]
+    public void DefaultOncogeneLoci_Gistic2Gencode22Coordinates()
+    {
+        Assert.That(OncologyAnalyzer.DefaultOncogeneLoci, Is.EqualTo(new[]
+        {
+            new OncologyAnalyzer.GeneLocus("ERBB2", "17", 39_687_914, 39_730_426),
+            new OncologyAnalyzer.GeneLocus("MYC", "8", 127_735_434, 127_741_434),
+            new OncologyAnalyzer.GeneLocus("EGFR", "7", 55_019_021, 55_256_620),
+            new OncologyAnalyzer.GeneLocus("CCND1", "11", 69_641_087, 69_654_474),
+            new OncologyAnalyzer.GeneLocus("MDM2", "12", 68_808_172, 68_850_686),
+            new OncologyAnalyzer.GeneLocus("CDK4", "12", 57_747_727, 57_756_013),
+        }));
+    }
+
+    #endregion
 }

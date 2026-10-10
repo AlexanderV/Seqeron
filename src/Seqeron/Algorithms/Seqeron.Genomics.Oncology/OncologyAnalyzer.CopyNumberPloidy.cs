@@ -475,8 +475,28 @@ public static partial class OncologyAnalyzer
         /// <summary>Segment length in base pairs (End − Start).</summary>
         public long Length => End - Start;
 
-        /// <summary>Segment length as a fraction of the chromosome arm (Length ÷ ArmLength).</summary>
-        public double ArmFraction => (double)Length / ArmLength;
+        /// <summary>
+        /// Optional number of markers (probes / SNPs) in the segment. Supply it together with
+        /// <see cref="ArmMarkerCount"/> to measure the arm fraction in marker units, as GISTIC2 does by default.
+        /// <c>null</c> (default) = absent; the arm fraction is then measured in bp.
+        /// </summary>
+        public int? MarkerCount { get; init; }
+
+        /// <summary>
+        /// Optional total number of markers on the segment's chromosome arm (GISTIC2 <c>band.snp_length</c>: markers
+        /// whose position lies in the arm's cytoband span). Supply it together with <see cref="MarkerCount"/>.
+        /// </summary>
+        public int? ArmMarkerCount { get; init; }
+
+        /// <summary>
+        /// Segment length as a fraction of the chromosome arm. In marker units
+        /// (<see cref="MarkerCount"/> ÷ <see cref="ArmMarkerCount"/>) when both marker counts are supplied — the GISTIC2
+        /// default (<c>make_sample_B.m</c> → <c>normalize_by_arm_length(D,B,cyto,1,…)</c>, <c>norm_type = 1</c> "by number
+        /// of snps": <c>(en − st + 1) ./ armlengths_by_snp</c>); otherwise in bp (Length ÷ ArmLength).
+        /// </summary>
+        public double ArmFraction => MarkerCount is int markers && ArmMarkerCount is int armMarkers
+            ? (double)markers / armMarkers
+            : (double)Length / ArmLength;
     }
 
     /// <summary>
@@ -521,7 +541,13 @@ public static partial class OncologyAnalyzer
     /// interrupted by a focal peak (e.g. 0.5 | 1.5 | 0.5) yields flank segments that are individually &lt; 98% of the arm
     /// and are reported as focal, whereas GISTIC2 would call one broad event (0.5) plus one focal event (+1.0).
     /// Supply deconstructed events (or whole-arm-merged segments) to match GISTIC2.</para>
-    /// Segment coordinates are half-open (<c>Length = End − Start</c>).
+    /// Segment coordinates are half-open (<c>Length = End − Start</c>). <para><b>Arm-fraction units.</b> GISTIC2 measures
+    /// the arm fraction in markers by default (<c>make_sample_B.m</c> → <c>normalize_by_arm_length(D,B,cyto,1,2)</c>,
+    /// <c>norm_type = 1</c>: segment markers ÷ markers in the arm's cytoband span). When a segment carries
+    /// <see cref="CopyNumberArmSegment.MarkerCount"/> and <see cref="CopyNumberArmSegment.ArmMarkerCount"/>, its
+    /// <see cref="CopyNumberArmSegment.ArmFraction"/> is in marker units (e.g. 39/40 = 0.975 &lt; 0.98 is focal even if the
+    /// segment covers 99% of the arm in bp); without marker counts it is in bp (Length ÷ ArmLength). Centromere-spanning
+    /// events (GISTIC2 <c>ref_length = 2</c>: p-fraction + q-fraction) are outside the arm-anchored model.</para>
     /// </remarks>
     /// <param name="segments">Arm-anchored copy-number segments. Must not be null.</param>
     /// <param name="thresholds">Amplitude and length cutoffs; null uses <see cref="FocalAmplificationThresholds.Default"/> (GISTIC2 defaults).</param>
@@ -551,6 +577,7 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Arm-level mapping (see the <see cref="CopyNumberRegion"/> overload for GISTIC2 locus-overlap mapping).
     /// Maps focal-amplification segments to the recurrently amplified oncogenes resident on their
     /// chromosome arms. Each oncogene is reported once if any focal amplification falls on its arm. The
     /// panel and arms are: ERBB2 (17q), MYC (8q), EGFR (7p), CCND1 (11q), MDM2 (12q), CDK4 (12q). Source:
@@ -568,8 +595,8 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Shared arm → gene-panel mapping of <see cref="IdentifyAmplifiedOncogenes"/> (ONCO-CNA-002) and
-    /// <see cref="IdentifyDeletedTumorSuppressors"/> (ONCO-CNA-003): collects the distinct (case-insensitive,
+    /// Shared arm → gene-panel mapping of <see cref="IdentifyAmplifiedOncogenes(IEnumerable{CopyNumberArmSegment})"/> (ONCO-CNA-002) and
+    /// <see cref="IdentifyDeletedTumorSuppressors(IEnumerable{CopyNumberArmSegment})"/> (ONCO-CNA-003): collects the distinct (case-insensitive,
     /// non-empty) arm labels of the affected segments and returns, in panel order, every panel gene resident on one
     /// of them (each gene at most once).
     /// </summary>
@@ -614,6 +641,137 @@ public static partial class OncologyAnalyzer
     };
 
     /// <summary>
+    /// A copy-number region (e.g. an amplified or deleted segment, or a GISTIC2 peak) in chromosome coordinates,
+    /// 1-based and closed (<c>Start..End</c> inclusive, as in GISTIC2 seg files and <c>genes_at</c>).
+    /// </summary>
+    /// <param name="Chromosome">Chromosome name ("17", "chr17", "X"); a leading "chr" and letter case are ignored.</param>
+    /// <param name="Start">First base of the region (1-based, inclusive).</param>
+    /// <param name="End">Last base of the region (inclusive); must satisfy <see cref="End"/> ≥ <see cref="Start"/>.</param>
+    public readonly record struct CopyNumberRegion(string Chromosome, long Start, long End);
+
+    /// <summary>
+    /// A gene locus in chromosome coordinates, 1-based and closed (<c>Start..End</c> inclusive), as in a GISTIC2
+    /// reference-gene table (<c>rg.symb</c>, <c>rg.chrn</c>, <c>rg.start</c>, <c>rg.end</c>).
+    /// </summary>
+    /// <param name="Symbol">Gene symbol (non-empty).</param>
+    /// <param name="Chromosome">Chromosome name ("17", "chr17", "X"); a leading "chr" and letter case are ignored.</param>
+    /// <param name="Start">First base of the gene (1-based, inclusive).</param>
+    /// <param name="End">Last base of the gene (inclusive); must satisfy <see cref="End"/> ≥ <see cref="Start"/>.</param>
+    public readonly record struct GeneLocus(string Symbol, string Chromosome, long Start, long End);
+
+    /// <summary>
+    /// GRCh38 loci of the default oncogene panel (same genes and order as the arm-level panel of
+    /// <see cref="IdentifyAmplifiedOncogenes(IEnumerable{CopyNumberArmSegment})"/>). Source: the GISTIC2 hg38 reference
+    /// gene table (broadinstitute/gistic2 <c>refgenes/Gencode.v22.170324/gencode_genes.tsv</c>, GENCODE v22 gene records,
+    /// 1-based closed): ERBB2 chr17:39,687,914–39,730,426; MYC chr8:127,735,434–127,741,434; EGFR
+    /// chr7:55,019,021–55,256,620; CCND1 chr11:69,641,087–69,654,474; MDM2 chr12:68,808,172–68,850,686; CDK4
+    /// chr12:57,747,727–57,756,013.
+    /// </summary>
+    public static IReadOnlyList<GeneLocus> DefaultOncogeneLoci { get; } = new GeneLocus[]
+    {
+        new("ERBB2", "17", 39_687_914, 39_730_426),
+        new("MYC", "8", 127_735_434, 127_741_434),
+        new("EGFR", "7", 55_019_021, 55_256_620),
+        new("CCND1", "11", 69_641_087, 69_654_474),
+        new("MDM2", "12", 68_808_172, 68_850_686),
+        new("CDK4", "12", 57_747_727, 57_756_013),
+    };
+
+    /// <summary>
+    /// Locus-overlap gene mapping (GISTIC2 rule): reports, in panel order and each at most once, every panel gene whose
+    /// locus overlaps an amplified region. Overlap is GISTIC2 <c>genes_at.m</c> with <c>partial_hits = 1</c> (the
+    /// <c>genetables.m</c> default): same chromosome AND <c>gene.start ≤ region.end</c> AND <c>gene.end ≥ region.start</c>
+    /// (closed intervals — touching at one base is an overlap). Unlike the arm-level
+    /// <see cref="IdentifyAmplifiedOncogenes(IEnumerable{CopyNumberArmSegment})"/>, a focal amplification elsewhere on
+    /// 17q does NOT report ERBB2. GISTIC2's "[closest gene]" fallback for gene-less peaks and its widening of peak
+    /// boundaries to the flanking markers (<c>genomic_location(…,1)</c>) are not applied: regions are used as given.
+    /// </summary>
+    /// <param name="amplifiedRegions">Amplified regions (1-based closed coordinates). Must not be null.</param>
+    /// <param name="genePanel">Gene loci to test; null uses <see cref="DefaultOncogeneLoci"/> (GRCh38).</param>
+    /// <returns>Distinct symbols of panel genes overlapping any region, in panel order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="amplifiedRegions"/> is null.</exception>
+    /// <exception cref="ArgumentException">A region or locus has an empty chromosome / symbol or End &lt; Start.</exception>
+    public static IReadOnlyList<string> IdentifyAmplifiedOncogenes(
+        IEnumerable<CopyNumberRegion> amplifiedRegions,
+        IReadOnlyList<GeneLocus>? genePanel = null)
+    {
+        ArgumentNullException.ThrowIfNull(amplifiedRegions);
+        return GenesOverlappingRegions(amplifiedRegions, genePanel ?? DefaultOncogeneLoci);
+    }
+
+    /// <summary>
+    /// Shared locus-overlap mapping of the <see cref="CopyNumberRegion"/> overloads of
+    /// <see cref="IdentifyAmplifiedOncogenes(IEnumerable{CopyNumberRegion}, IReadOnlyList{GeneLocus}?)"/> and
+    /// <see cref="IdentifyDeletedTumorSuppressors(IEnumerable{CopyNumberRegion}, IReadOnlyList{GeneLocus}?)"/>: GISTIC2
+    /// <c>genes_at.m</c> (<c>partial_hits = 1</c>) closed-interval overlap, panel order, each gene at most once.
+    /// </summary>
+    private static List<string> GenesOverlappingRegions(
+        IEnumerable<CopyNumberRegion> regions,
+        IReadOnlyList<GeneLocus> panel)
+    {
+        foreach (GeneLocus locus in panel)
+        {
+            if (string.IsNullOrEmpty(locus.Symbol))
+            {
+                throw new ArgumentException("Gene locus symbols must be non-empty.", nameof(panel));
+            }
+
+            ValidateClosedInterval(locus.Chromosome, locus.Start, locus.End, nameof(panel));
+        }
+
+        var regionList = new List<(string Chromosome, long Start, long End)>();
+        foreach (CopyNumberRegion region in regions)
+        {
+            ValidateClosedInterval(region.Chromosome, region.Start, region.End, nameof(regions));
+            regionList.Add((NormalizeChromosomeName(region.Chromosome), region.Start, region.End));
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var genes = new List<string>();
+        foreach (GeneLocus locus in panel)
+        {
+            string chromosome = NormalizeChromosomeName(locus.Chromosome);
+            foreach ((string regionChromosome, long start, long end) in regionList)
+            {
+                if (string.Equals(chromosome, regionChromosome, StringComparison.OrdinalIgnoreCase)
+                    && locus.Start <= end && locus.End >= start)
+                {
+                    if (seen.Add(locus.Symbol))
+                    {
+                        genes.Add(locus.Symbol);
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        return genes;
+    }
+
+    /// <summary>Validates a 1-based closed interval: non-empty chromosome and End ≥ Start (GISTIC2 <c>genes_at</c> errors on End &lt; Start).</summary>
+    private static void ValidateClosedInterval(string chromosome, long start, long end, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(chromosome))
+        {
+            throw new ArgumentException("Chromosome names must be non-empty.", paramName);
+        }
+
+        if (end < start)
+        {
+            throw new ArgumentException(
+                $"Interval on '{chromosome}' must have End ≥ Start (got Start={start}, End={end}).", paramName);
+        }
+    }
+
+    /// <summary>Chromosome key for matching: trims whitespace and a leading "chr" (any case), so "chr17" ≡ "17".</summary>
+    private static string NormalizeChromosomeName(string chromosome)
+    {
+        string name = chromosome.Trim();
+        return name.StartsWith("chr", StringComparison.OrdinalIgnoreCase) ? name[3..] : name;
+    }
+
+    /// <summary>
     /// Validates focal-amplification thresholds against the ranges enforced by the GISTIC2 reference
     /// implementation (<c>gp_gistic2_from_seg.m</c>: <c>-ta</c> ∈ [0, Inf], <c>-brlen</c> ∈ [0, 2], non-numeric
     /// values rejected). A NaN threshold would otherwise make every comparison false and silently report nothing;
@@ -652,6 +810,24 @@ public static partial class OncologyAnalyzer
         {
             throw new ArgumentException(
                 $"Segment on '{segment.Arm}' must have End > Start (got Start={segment.Start}, End={segment.End}).",
+                nameof(segment));
+        }
+
+        // Marker-unit arm fraction (GISTIC2 norm_type = 1): both counts or neither; a GISTIC2 segment spans ≥ 1 marker
+        // and an arm-anchored segment cannot hold more markers than its arm.
+        if (segment.MarkerCount.HasValue != segment.ArmMarkerCount.HasValue)
+        {
+            throw new ArgumentException(
+                $"Segment on '{segment.Arm}' must supply both MarkerCount and ArmMarkerCount, or neither.",
+                nameof(segment));
+        }
+
+        if (segment.MarkerCount is int markers && segment.ArmMarkerCount is int armMarkers
+            && (markers < 1 || armMarkers < markers))
+        {
+            throw new ArgumentException(
+                $"Segment on '{segment.Arm}' must have 1 ≤ MarkerCount ≤ ArmMarkerCount " +
+                $"(got MarkerCount={markers}, ArmMarkerCount={armMarkers}).",
                 nameof(segment));
         }
     }
@@ -810,6 +986,7 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Arm-level mapping (see the <see cref="CopyNumberRegion"/> overload for GISTIC2 locus-overlap mapping).
     /// Maps homozygous-deletion segments to the recurrently deleted tumour suppressors resident on their
     /// chromosome arms. Each gene is reported once if any homozygous deletion falls on its arm. The panel and
     /// arms are: TP53 (17p), RB1 (13q), CDKN2A (9p), PTEN (10q), BRCA1 (17q), BRCA2 (13q). Source: NCBI Gene
@@ -841,6 +1018,43 @@ public static partial class OncologyAnalyzer
         ("BRCA1", "17q"),
         ("BRCA2", "13q"),
     };
+
+    /// <summary>
+    /// GRCh38 loci of the default tumour-suppressor panel (same genes and order as the arm-level panel of
+    /// <see cref="IdentifyDeletedTumorSuppressors(IEnumerable{CopyNumberArmSegment})"/>). Source: the GISTIC2 hg38
+    /// reference gene table (broadinstitute/gistic2 <c>refgenes/Gencode.v22.170324/gencode_genes.tsv</c>, GENCODE v22,
+    /// 1-based closed): TP53 chr17:7,661,779–7,687,550; RB1 chr13:48,303,751–48,481,986; CDKN2A chr9:21,967,753–21,995,301;
+    /// PTEN chr10:87,863,113–87,971,930; BRCA1 chr17:43,044,295–43,125,483; BRCA2 chr13:32,315,474–32,400,266.
+    /// </summary>
+    public static IReadOnlyList<GeneLocus> DefaultTumorSuppressorLoci { get; } = new GeneLocus[]
+    {
+        new("TP53", "17", 7_661_779, 7_687_550),
+        new("RB1", "13", 48_303_751, 48_481_986),
+        new("CDKN2A", "9", 21_967_753, 21_995_301),
+        new("PTEN", "10", 87_863_113, 87_971_930),
+        new("BRCA1", "17", 43_044_295, 43_125_483),
+        new("BRCA2", "13", 32_315_474, 32_400_266),
+    };
+
+    /// <summary>
+    /// Locus-overlap tumour-suppressor mapping (GISTIC2 rule): reports, in panel order and each at most once, every
+    /// panel gene whose locus overlaps a deleted region — GISTIC2 <c>genes_at.m</c> with <c>partial_hits = 1</c>: same
+    /// chromosome AND <c>gene.start ≤ region.end</c> AND <c>gene.end ≥ region.start</c> (closed intervals). Unlike the
+    /// arm-level <see cref="IdentifyDeletedTumorSuppressors(IEnumerable{CopyNumberArmSegment})"/>, a deletion elsewhere on
+    /// 17p does NOT report TP53. Regions are used as given (no closest-gene fallback, no marker widening).
+    /// </summary>
+    /// <param name="deletedRegions">Deleted regions (1-based closed coordinates). Must not be null.</param>
+    /// <param name="genePanel">Gene loci to test; null uses <see cref="DefaultTumorSuppressorLoci"/> (GRCh38).</param>
+    /// <returns>Distinct symbols of panel genes overlapping any region, in panel order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="deletedRegions"/> is null.</exception>
+    /// <exception cref="ArgumentException">A region or locus has an empty chromosome / symbol or End &lt; Start.</exception>
+    public static IReadOnlyList<string> IdentifyDeletedTumorSuppressors(
+        IEnumerable<CopyNumberRegion> deletedRegions,
+        IReadOnlyList<GeneLocus>? genePanel = null)
+    {
+        ArgumentNullException.ThrowIfNull(deletedRegions);
+        return GenesOverlappingRegions(deletedRegions, genePanel ?? DefaultTumorSuppressorLoci);
+    }
 
     #endregion
 

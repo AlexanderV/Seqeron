@@ -100,6 +100,14 @@
 | C5b | Range endpoints | t_amp 0, cutoff 2; seg 0.99, log2 0.05 | Reported | Inclusive GISTIC2 ranges |
 | C6 | NaN log2 | log2 NaN | Not reported (no-call) | NaN not above t_amp |
 | C7 | Duplicate/mixed-case arms | 11q, 17Q, 17q | ["ERBB2","CCND1"] (distinct, panel order) | INV-4 |
+| C8 | Marker-unit arm fraction (F48) | MarkerCount/ArmMarkerCount 3/10, 39/40, 40/40, 10/10 | ArmFraction 0.29999999999999999, 0.97499999999999998, 1, 1 (Octave `normalize_by_arm_length` norm_type 1) | ArmFraction_MarkerCounts_MatchesGistic2Octave |
+| C9 | Markers flip bp verdict (F48) | 0.99 bp + 39/40 markers ⇒ focal; 0.5 bp + 40/40 ⇒ not focal; no counts ⇒ bp | as stated | DetectFocalAmplifications_MarkerUnits_*, ArmFraction_NoMarkerCounts_StaysBp |
+| C10 | Invalid marker counts (F48) | (5,null), (null,5), (0,5), (6,5) | ArgumentException | IsFocalAmplification_InvalidMarkerCounts_Throws |
+| C11 | Locus overlap (F49) | 7 regions vs GRCh38 panel (touch start/end, ±1 base, inside, two genes) | Octave `genes_at` gene lists | IdentifyAmplifiedOncogenes_LocusOverlap_MatchesGistic2GenesAt |
+| C12 | Locus overlap, focal elsewhere on 17q (F49) | 17:60,000,000-61,000,000 | [] (arm-level overload would give ERBB2) | IdentifyAmplifiedOncogenes_LocusOverlap_FocalElsewhereOnArm_NotErbb2 |
+| C13 | Custom panel, chr-prefix/case, distinct (F49) | panel G2,G1 on X; regions chrX:150, x:120-250 | ["G2","G1"] | IdentifyAmplifiedOncogenes_LocusOverlap_CustomPanelAndDistinct |
+| C14 | Locus-overlap guards (F49) | null regions; End < Start; empty chromosome | ArgumentNullException / ArgumentException | IdentifyAmplifiedOncogenes_LocusOverlap_InvalidInput_Throws |
+| C15 | Default GRCh38 panel (F49) | DefaultOncogeneLoci | GISTIC2 GENCODE v22 coordinates | DefaultOncogeneLoci_Gistic2Gencode22Coordinates |
 
 ---
 
