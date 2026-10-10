@@ -130,6 +130,47 @@ namespace Seqeron.Genomics.Infrastructure
 
             return h;
         }
+
+        /// <summary>
+        /// Shannon diversity index H′ = −Σ pᵢ·ln pᵢ (natural logarithm) over non-negative real weights, pᵢ = wᵢ / Σw;
+        /// zero weights contribute nothing (0·ln 0 = 0). The real-valued counterpart of
+        /// <see cref="ShannonIndex(IReadOnlyList{int})"/> (same accumulation), equal to <c>scipy.stats.entropy(weights)</c>
+        /// (which normalises its input the same way); e.g. {0.6, 0.3, 0.1} → 0.8979457248567798, {0.5, 0.5} → ln 2.
+        /// </summary>
+        /// <param name="weights">Non-negative finite weights (proportions, fractions or abundances) with a positive total.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="weights"/> is null.</exception>
+        /// <exception cref="ArgumentException">a weight is negative, NaN or infinite, or the total is 0.</exception>
+        public static double ShannonIndexOfWeights(IReadOnlyList<double> weights)
+        {
+            ArgumentNullException.ThrowIfNull(weights);
+            double total = 0.0;
+            for (int i = 0; i < weights.Count; i++)
+            {
+                double w = weights[i];
+                if (!double.IsFinite(w) || w < 0.0)
+                {
+                    throw new ArgumentException($"Weights must be finite and non-negative; got {w} at index {i}.", nameof(weights));
+                }
+
+                total += w;
+            }
+
+            if (total <= 0.0 || !double.IsFinite(total))
+            {
+                throw new ArgumentException("The total weight must be positive and finite.", nameof(weights));
+            }
+
+            double h = 0.0;
+            for (int i = 0; i < weights.Count; i++)
+            {
+                if (weights[i] == 0.0) continue;
+                double p = weights[i] / total;
+                h -= p * Math.Log(p);
+            }
+
+            return h;
+        }
+
         /// <summary>
         /// Binomial upper tail P(X ≥ <paramref name="successes"/>) for X ~ Binomial(<paramref name="trials"/>, <paramref name="p"/>)
         /// — the "sum of binomials" of RSAT <c>RSAT::stats::binomial_boe</c> / <c>sum_of_binomials</c> (van Helden et al. 1998)

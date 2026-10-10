@@ -1949,7 +1949,9 @@ public static partial class OncologyAnalyzer
     /// <param name="MathScore">Mutant-Allele Tumour Heterogeneity (MATH) score = 100·1.4826·MAD(VAF)/median(VAF),
     /// computed over the mutant-allele (variant) fractions (Mroz &amp; Rocco 2013).</param>
     /// <param name="ShannonDiversity">Shannon diversity index H = −Σ pᵢ·ln(pᵢ) over the clone fractions pᵢ
-    /// (fraction of mutations assigned to each CCF cluster), using the natural logarithm (Shannon 1948).</param>
+    /// (fraction of mutations assigned to each CCF cluster), using the natural logarithm (Shannon 1948). This is the
+    /// mutation-count-weighted form; for the cellular-frequency-weighted index of Martinez et al. (2017) use
+    /// <see cref="CalculateCloneShannonDiversity"/>.</param>
     /// <param name="SubcloneCount">Number of distinct clones/subclones = number of non-empty CCF clusters.</param>
     /// <param name="SubclonalFraction">Fraction of mutations whose CCF does not exceed the clonal threshold (CCF ≤ 0.95, i.e. not clonal under
     /// Landau et al. 2013) and are therefore subclonal.</param>
@@ -2014,10 +2016,115 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// maftools <c>math.score</c> default minimum VAF: a variant is used only if its VAF is not below this cutoff
+    /// (<c>dat = dat[!t_vaf &lt; vafCutOff]</c>, so a VAF exactly equal to 0.075 is kept). Source: maftools
+    /// <c>R/mathScore.R</c>, <c>math.score(maf, vafCol = NULL, sampleName = NULL, vafCutOff = 0.075)</c>.
+    /// </summary>
+    public const double MaftoolsMathVafCutOff = 0.075;
+
+    /// <summary>
+    /// maftools <c>math.score</c> minimum number of (cutoff-passing, non-NA) VAFs per sample: with fewer
+    /// (<c>length(vaf) &lt; 5</c>) the sample is skipped ("Not enough mutations in … Skipping..") and gets no MATH row.
+    /// The 5 is hard-coded in maftools <c>R/mathScore.R</c> (not a function argument).
+    /// </summary>
+    public const int MaftoolsMathMinMutations = 5;
+
+    /// <summary>
+    /// Computes the MATH score with maftools <c>math.score</c>'s per-sample pre-filters: VAFs below
+    /// <paramref name="vafCutOff"/> are dropped (a VAF equal to the cutoff is kept — <c>!t_vaf &lt; vafCutOff</c>), and
+    /// if fewer than <paramref name="minMutations"/> VAFs remain the sample is skipped (<see langword="null"/>, the
+    /// counterpart of maftools emitting no row); otherwise the result is <see cref="CalculateITH(IReadOnlyList{double})"/>
+    /// over the retained VAFs, bit-identical to maftools. Pass <see cref="MaftoolsMathVafCutOff"/> and
+    /// <see cref="MaftoolsMathMinMutations"/> for maftools' defaults. The single-argument overload applies no filter
+    /// (the MATH definition of Mroz &amp; Rocco 2013 on the supplied VAFs). maftools derives a missing <c>t_vaf</c> as
+    /// <c>t_alt_count / (t_ref_count + t_alt_count)</c> and divides all VAFs by 100 when their maximum exceeds 1;
+    /// here VAFs must already be fractions in [0, 1]. Source: maftools <c>R/mathScore.R</c>.
+    /// </summary>
+    /// <param name="variantAlleleFractions">The sample's VAFs, each finite in [0, 1].</param>
+    /// <param name="vafCutOff">Minimum VAF kept, finite in [0, 1] (maftools default 0.075; 0 disables the filter).</param>
+    /// <param name="minMutations">Minimum number of retained VAFs, ≥ 1 (maftools: 5).</param>
+    /// <returns>The MATH score of the retained VAFs, or <see langword="null"/> when fewer than
+    /// <paramref name="minMutations"/> VAFs pass the cutoff.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variantAlleleFractions"/> is null.</exception>
+    /// <exception cref="ArgumentException">a VAF is non-finite or outside [0, 1], or the retained VAFs have median 0
+    /// (only possible with <paramref name="vafCutOff"/> = 0).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="vafCutOff"/> is not finite in [0, 1], or
+    /// <paramref name="minMutations"/> &lt; 1.</exception>
+    public static double? CalculateITH(
+        IReadOnlyList<double> variantAlleleFractions,
+        double vafCutOff,
+        int minMutations = MaftoolsMathMinMutations)
+    {
+        ArgumentNullException.ThrowIfNull(variantAlleleFractions);
+        if (!double.IsFinite(vafCutOff) || vafCutOff < 0.0 || vafCutOff > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(vafCutOff), vafCutOff, "The VAF cutoff must be a finite value in [0, 1].");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(minMutations, 1);
+
+        var retained = new List<double>(variantAlleleFractions.Count);
+        for (int i = 0; i < variantAlleleFractions.Count; i++)
+        {
+            double v = variantAlleleFractions[i];
+            if (double.IsNaN(v) || double.IsInfinity(v) || v < 0.0 || v > 1.0)
+            {
+                throw new ArgumentException(
+                    $"Allele fraction must be a finite value in [0, 1]; got {v} at index {i}.", nameof(variantAlleleFractions));
+            }
+
+            // maftools: dat[!t_vaf < vafCutOff] — keep VAF >= cutoff.
+            if (!(v < vafCutOff))
+            {
+                retained.Add(v);
+            }
+        }
+
+        // maftools: if (length(vaf) < 5) "Not enough mutations … Skipping.." (no MATH row).
+        return retained.Count < minMutations ? null : CalculateITH(retained);
+    }
+
+    /// <summary>
+    /// Shannon clonal-diversity index H = −Σ pᵢ·ln pᵢ (natural logarithm) over the clones' cellular frequencies
+    /// (the fraction of tumour cells in each clone), pᵢ = fᵢ / Σf. This is the prevalence-weighted form used by
+    /// Martinez et al. (2017), <i>Sci Rep</i> 7:3248 (PMC5468233), whose reference diversity of each clone mixture is
+    /// the Shannon index "calculated using the clonal frequencies of each mixture", with richness = number of clones
+    /// present. <see cref="AnalyzeHeterogeneity"/> instead weights clusters by their mutation counts. Supply clone
+    /// (not cumulative) fractions: for nested subclones the parent's own fraction is its CCF minus its children's.
+    /// Equal to <c>scipy.stats.entropy(cloneFractions)</c> (canonical <see cref="StatisticsHelper.ShannonIndexOfWeights"/>);
+    /// zero-frequency clones contribute 0.
+    /// </summary>
+    /// <param name="cloneFractions">Cellular frequency of each clone, each finite in [0, 1], with a positive total
+    /// (normalised to sum 1, as scipy does).</param>
+    /// <returns>H ≥ 0; 0 for a single clone, ln k for k equally frequent clones.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="cloneFractions"/> is null.</exception>
+    /// <exception cref="ArgumentException">no fractions, a fraction non-finite or outside [0, 1], or all zero.</exception>
+    public static double CalculateCloneShannonDiversity(IReadOnlyList<double> cloneFractions)
+    {
+        ArgumentNullException.ThrowIfNull(cloneFractions);
+        if (cloneFractions.Count == 0)
+        {
+            throw new ArgumentException("At least one clone fraction is required.", nameof(cloneFractions));
+        }
+
+        for (int i = 0; i < cloneFractions.Count; i++)
+        {
+            double f = cloneFractions[i];
+            if (!double.IsFinite(f) || f < 0.0 || f > 1.0)
+            {
+                throw new ArgumentException(
+                    $"Clone fraction must be a finite value in [0, 1]; got {f} at index {i}.", nameof(cloneFractions));
+            }
+        }
+
+        return StatisticsHelper.ShannonIndexOfWeights(cloneFractions);
+    }
+
+    /// <summary>
     /// Counts the number of distinct clones/subclones in a tumour as the number of non-empty CCF clusters produced
     /// by <see cref="ClusterCcfValues"/> (ONCO-CCF-001). Each cluster centroid is a clonal population; the count is
     /// the tumour's clonal richness. Source: Mroz et al. (2015) treat genetic heterogeneity as the number/spread of
-    /// subpopulations; Liu et al. (2017), <i>BMC Genomics</i> 18:457 (PMC5468233) define richness as "the number of
+    /// subpopulations; Martinez et al. (2017), <i>Sci Rep</i> 7:3248 (PMC5468233) define richness as "the number of
     /// clones present" when computing Shannon-based ITH scores.
     /// </summary>
     /// <param name="ccfClusters">A CCF clustering (its <see cref="CcfClustering.Assignments"/> determine which

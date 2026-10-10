@@ -4,7 +4,7 @@
 // Source: Mroz EA, Rocco JW (2013). Oral Oncology 49(3):211-215. https://pubmed.ncbi.nlm.nih.gov/23079694/
 //         Mroz EA et al. (2015). PLOS Medicine 12(2):e1001786. https://doi.org/10.1371/journal.pmed.1001786
 //         maftools mathScore.R: pat.math = (median(abs(vaf-median(vaf)))*100)*1.4826/median(vaf)
-//         Liu Z, Zhang S (2017). BMC Genomics 18:457 (PMC5468233) — Shannon H = -sum p_i ln(p_i)
+//         Martinez P et al. (2017). Sci Rep 7:3248 (PMC5468233) — Shannon H = -sum p_i ln(p_i) over clonal frequencies
 //         Landau DA et al. (2013). Cell 152(4):714-726 — clonal iff CCF > 0.95, "subclonal otherwise" (CCF <= 0.95)
 //
 // Expected MATH values are derived independently from MATH = 100*1.4826*median(|f-median(f)|)/median(f),
@@ -356,6 +356,139 @@ public class OncologyAnalyzer_AnalyzeHeterogeneity_Tests
             Assert.That(StatisticsHelper.ShannonIndex(new[] { 5 }), Is.EqualTo(0.0));
             Assert.Throws<ArgumentException>(() => StatisticsHelper.ShannonIndex(new[] { 0, 0 }));
             Assert.Throws<ArgumentException>(() => StatisticsHelper.ShannonIndex(new[] { 1, -1 }));
+        });
+    }
+
+    #endregion
+
+    #region F56 — maftools math.score pre-filters, F57 — prevalence-weighted Shannon
+
+    // F56: expected values are maftools R/mathScore.R math.score (unmodified source, R 4.3.3) printed with %.17g.
+    // R: dat = dat[!t_vaf < vafCutOff]; if (length(vaf) < 5) skip; pat.math = median(|vaf-median|)*100*1.4826/median(vaf).
+
+    // P1 — no VAF below 0.075: filter is a no-op; R MATH = 49.420000000000016 (= unfiltered overload)
+    [Test]
+    public void CalculateITH_MaftoolsFilters_NothingFiltered_MatchesR()
+    {
+        double[] vafs = { 0.10, 0.20, 0.30, 0.40, 0.50 };
+        double? math = OncologyAnalyzer.CalculateITH(vafs, OncologyAnalyzer.MaftoolsMathVafCutOff, OncologyAnalyzer.MaftoolsMathMinMutations);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(math, Is.EqualTo(49.420000000000016));
+            Assert.That(math, Is.EqualTo(OncologyAnalyzer.CalculateITH(vafs)));
+        });
+    }
+
+    // P2 — VAF exactly 0.075 kept (!t_vaf < 0.075), 0.074 dropped; 6 retained; R MATH = 74.129999999999967
+    [Test]
+    public void CalculateITH_MaftoolsFilters_VafExactlyAtCutoffKept_MatchesR()
+    {
+        double? math = OncologyAnalyzer.CalculateITH(
+            new[] { 0.075, 0.074, 0.12, 0.25, 0.33, 0.41, 0.48 }, OncologyAnalyzer.MaftoolsMathVafCutOff);
+
+        Assert.That(math, Is.EqualTo(74.129999999999967),
+            "maftools keeps VAF = cutoff: {0.075,0.12,0.25,0.33,0.41,0.48} median 0.29, raw MAD 0.145 -> 74.13.");
+    }
+
+    // P3 — S3a: 6 VAFs, 2 below cutoff -> 4 < 5 -> maftools skips (no row); S3b: exactly 5 retained -> 60.651818181818179
+    [Test]
+    public void CalculateITH_MaftoolsFilters_TooFewAfterCutoff_SkippedLikeR()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CalculateITH(new[] { 0.05, 0.06, 0.20, 0.30, 0.40, 0.45 }, 0.075), Is.Null);
+            Assert.That(OncologyAnalyzer.CalculateITH(new[] { 0.08, 0.15, 0.22, 0.31, 0.44 }, 0.075),
+                Is.EqualTo(60.651818181818179));
+        });
+    }
+
+    // P4 — 0.01 and 0.0749999 dropped, 6 retained (even count); R MATH = 85.614929577464792
+    [Test]
+    public void CalculateITH_MaftoolsFilters_EvenCountAfterCutoff_MatchesR()
+    {
+        double? math = OncologyAnalyzer.CalculateITH(
+            new[] { 0.01, 0.0749999, 0.09, 0.11, 0.35, 0.36, 0.52, 0.61 }, OncologyAnalyzer.MaftoolsMathVafCutOff);
+
+        Assert.That(math, Is.EqualTo(85.614929577464792));
+    }
+
+    // P5 — 4 VAFs, none filtered -> maftools skips (< 5)
+    [Test]
+    public void CalculateITH_MaftoolsFilters_FourMutations_Skipped()
+    {
+        Assert.That(OncologyAnalyzer.CalculateITH(new[] { 0.2, 0.3, 0.4, 0.5 }, 0.075), Is.Null);
+    }
+
+    // P6 — maftools VAF from counts t_alt/(t_ref+t_alt): ref {90,95,70,60,45,30}, alt {10,5,30,40,55,20},
+    //      vafCutOff = 0.1 (10/100 exactly at cutoff kept, 5/100 dropped); R MATH = 37.065000000000005
+    [Test]
+    public void CalculateITH_MaftoolsFilters_VafFromCountsCustomCutoff_MatchesR()
+    {
+        double[] refCounts = { 90, 95, 70, 60, 45, 30 };
+        double[] altCounts = { 10, 5, 30, 40, 55, 20 };
+        double[] vafs = refCounts.Select((r, i) => altCounts[i] / (r + altCounts[i])).ToArray();
+
+        Assert.That(OncologyAnalyzer.CalculateITH(vafs, 0.1), Is.EqualTo(37.065000000000005));
+    }
+
+    [Test]
+    public void CalculateITH_MaftoolsFilters_InvalidArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CalculateITH(null!, 0.075));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateITH(new[] { 0.2 }, -0.01));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateITH(new[] { 0.2 }, double.NaN));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateITH(new[] { 0.2 }, 0.075, 0));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateITH(new[] { 0.2, 1.5 }, 0.075, 1));
+            // vafCutOff = 0 keeps zeros: median 0 -> MATH undefined, as in the unfiltered overload.
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateITH(new[] { 0.0, 0.0, 0.3 }, 0.0, 1));
+        });
+    }
+
+    // F57 — Martinez et al. (2017) Shannon over clonal (cellular) frequencies; expected = scipy.stats.entropy 1.18.1.
+    [TestCase(new[] { 0.6, 0.3, 0.1 }, 0.8979457248567798)]
+    [TestCase(new[] { 0.45, 0.35, 0.15, 0.05 }, 1.161120818283116)]
+    [TestCase(new[] { 0.7, 0.0, 0.3 }, 0.6108643020548935)]
+    [TestCase(new[] { 0.2, 0.1, 0.05 }, 0.9556998911125343)] // unnormalised (sum 0.35): scipy normalises
+    [TestCase(new[] { 0.25, 0.25, 0.25, 0.25 }, 1.3862943611198906)]
+    [TestCase(new[] { 1.0 }, 0.0)]
+    public void CalculateCloneShannonDiversity_MatchesScipyEntropy(double[] fractions, double expected)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CalculateCloneShannonDiversity(fractions), Is.EqualTo(expected).Within(1e-15));
+            Assert.That(StatisticsHelper.ShannonIndexOfWeights(fractions), Is.EqualTo(expected).Within(1e-15));
+        });
+    }
+
+    // Prevalence- vs count-weighting differ: 2 clones with 8 and 2 mutations but cellular frequencies 0.3 / 0.7.
+    [Test]
+    public void CalculateCloneShannonDiversity_DiffersFromCountWeighting()
+    {
+        double prevalence = OncologyAnalyzer.CalculateCloneShannonDiversity(new[] { 0.3, 0.7 });
+        double counts = StatisticsHelper.ShannonIndex(new[] { 8, 2 });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prevalence, Is.EqualTo(0.6108643020548935).Within(1e-15)); // scipy entropy([0.3,0.7])
+            Assert.That(counts, Is.EqualTo(0.5004024235381879).Within(1e-15));     // scipy entropy([8,2])
+        });
+    }
+
+    [Test]
+    public void CalculateCloneShannonDiversity_InvalidInput_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CalculateCloneShannonDiversity(null!));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateCloneShannonDiversity(Array.Empty<double>()));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateCloneShannonDiversity(new[] { 0.0, 0.0 }));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateCloneShannonDiversity(new[] { 0.5, 1.2 }));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateCloneShannonDiversity(new[] { 0.5, double.NaN }));
+            Assert.Throws<ArgumentException>(() => StatisticsHelper.ShannonIndexOfWeights(new[] { 0.5, -0.1 }));
+            Assert.Throws<ArgumentException>(() => StatisticsHelper.ShannonIndexOfWeights(new[] { double.PositiveInfinity }));
         });
     }
 

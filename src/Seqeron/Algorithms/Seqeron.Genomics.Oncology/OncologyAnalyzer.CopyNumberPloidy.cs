@@ -5084,7 +5084,7 @@ public static partial class OncologyAnalyzer
     /// <summary>
     /// Unscaled median absolute deviation about <paramref name="center"/>: median(|xᵢ − center|) (canonical
     /// <see cref="StatisticsHelper.Median"/>). Shared by R <c>mad</c> (<see cref="RMad"/>, ASCAT ASPCF) and the maftools
-    /// MATH score (<see cref="CalculateITH"/>), which apply the 1.4826 factor in different operation orders.
+    /// MATH score (<see cref="CalculateITH(IReadOnlyList{double})"/>), which apply the 1.4826 factor in different operation orders.
     /// </summary>
     private static double RawMedianAbsoluteDeviation(double[] x, double center)
     {

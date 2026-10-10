@@ -5,7 +5,7 @@
 **Algorithm:** Tumor Heterogeneity Analysis (MATH score, Shannon clonal diversity, subclone count, subclonal fraction)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-09-28
+**Last Updated:** 2026-10-10
 
 ---
 
@@ -18,7 +18,7 @@
 | 1 | Mroz & Rocco (2013), Oral Oncology 49(3):211–215 (MATH) | 1 | https://pubmed.ncbi.nlm.nih.gov/23079694/ | 2026-06-15 |
 | 2 | Mroz et al. (2015), PLOS Medicine 12(2):e1001786 (MAD 1.4826) | 1 | https://doi.org/10.1371/journal.pmed.1001786 | 2026-06-15 |
 | 3 | maftools `mathScore.R` (reference impl.) | 3 | https://github.com/PoisonAlien/maftools/blob/master/R/mathScore.R | 2026-06-15 |
-| 4 | Liu & Zhang (2017), BMC Genomics 18:457 (Shannon ITH) | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC5468233/ | 2026-06-15 |
+| 4 | Martinez et al. (2017), Sci Rep 7:3248 (Shannon ITH; formerly mis-cited as Liu & Zhang, BMC Genomics) | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC5468233/ | 2026-06-15 |
 | 5 | Shannon (1948), Bell Syst. Tech. J. 27:379–423 | 4 | https://en.wikipedia.org/wiki/Diversity_index#Shannon_index | 2026-06-15 |
 | 6 | Landau et al. (2013), Cell 152(4):714–726 (CCF 0.95 threshold) | 1 | https://doi.org/10.1016/j.cell.2013.01.019 | 2026-06-15 |
 
@@ -26,8 +26,8 @@
 
 1. MATH = 100 × MAD/median over mutant-allele fractions — Mroz & Rocco (2013).
 2. MAD = 1.4826 × median(|f − median(f)|) (normal consistency) — Mroz et al. (2015); maftools `pat.math = pat.mad * 1.4826 / median(vaf)`.
-3. Shannon diversity H = −Σ pᵢ ln(pᵢ), natural log, over clone fractions — Liu & Zhang (2017); Shannon (1948).
-4. Richness = number of clones/clusters present — Liu & Zhang (2017).
+3. Shannon diversity H = −Σ pᵢ ln(pᵢ), natural log, over clone fractions — Martinez et al. (2017); Shannon (1948).
+4. Richness = number of clones/clusters present — Martinez et al. (2017).
 5. Subclonal mutation ⇔ not clonal; clonal ⇔ CCF > 0.95 ("subclonal otherwise") — Landau et al. (2013). CCF = 0.95 is subclonal.
 
 ### 1.3 Documented Corner Cases
@@ -48,6 +48,8 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `CalculateITH(ccfDistribution)` | OncologyAnalyzer | Canonical | MATH score = 100·1.4826·MAD/median |
+| `CalculateITH(vafs, vafCutOff, minMutations = 5)` | OncologyAnalyzer | Canonical (additive overload) | maftools `math.score` pre-filters then MATH; null = skipped |
+| `CalculateCloneShannonDiversity(cloneFractions)` | OncologyAnalyzer | Canonical | Shannon over clone cellular frequencies (Martinez et al. 2017) |
 | `InferSubclones(ccfClusters)` | OncologyAnalyzer | Canonical | count of occupied CCF clusters |
 | `AnalyzeHeterogeneity(vafs, ccfValues, k)` | OncologyAnalyzer | Canonical | aggregate: MATH + Shannon + subclones + subclonal fraction |
 
@@ -59,9 +61,9 @@
 |----|-----------|------------|----------|
 | INV-1 | MATH (ITH_score) ≥ 0 | Yes | MAD ≥ 0 and median > 0 — Mroz & Rocco (2013) |
 | INV-2 | MATH = 0 ⇔ MAD = 0 (all values equal the median) | Yes | formula |
-| INV-3 | Shannon H ≥ 0; H = 0 ⇔ single occupied clone | Yes | Shannon (1948); Liu & Zhang (2017) |
+| INV-3 | Shannon H ≥ 0; H = 0 ⇔ single occupied clone | Yes | Shannon (1948); Martinez et al. (2017) |
 | INV-4 | Shannon H ≤ ln(richness), equality for equal clones | Yes | Shannon (1948) |
-| INV-5 | 1 ≤ subclone count ≤ k; 0 ≤ subclonal fraction ≤ 1 | Yes | Liu & Zhang (2017); Landau (2013) |
+| INV-5 | 1 ≤ subclone count ≤ k; 0 ≤ subclonal fraction ≤ 1 | Yes | Martinez et al. (2017); Landau (2013) |
 
 ---
 
@@ -75,14 +77,16 @@
 | M2 | MATH even count | VAFs {0.2,0.4,0.6,0.8} | 59.304 (=100·1.4826·0.20/0.50) | Mroz et al. (2015) |
 | M3 | MATH all identical | VAFs {0.3,0.3,0.3} | 0.0 (MAD = 0) | formula / INV-2 |
 | M4 | MATH single value | VAFs {0.4} | 0.0 | formula |
-| M5 | Shannon two equal clones | 4 CCFs → 2 clusters of size 2 | H = −ln 0.5 = 0.6931471805599453 | Liu & Zhang (2017); Shannon (1948) |
+| M5 | Shannon two equal clones | 4 CCFs → 2 clusters of size 2 | H = −ln 0.5 = 0.6931471805599453 | Martinez et al. (2017); Shannon (1948) |
 | M6 | Shannon four equal clones | 4 CCFs → 4 clusters size 1 | H = ln 4 = 1.3862943611198906 | Shannon (1948) |
 | M7 | Shannon single clone | k = 1 | H = 0.0 | INV-3 |
-| M8 | Subclone count | clustering with 3 occupied clusters | 3 | Liu & Zhang (2017) richness |
+| M8 | Subclone count | clustering with 3 occupied clusters | 3 | Martinez et al. (2017) richness |
 | M9 | Subclonal fraction | CCFs {0.4,0.5,0.98,1.0}, threshold 0.95 | 0.5 (2 of 4 not > 0.95) | Landau et al. (2013) |
 | M9b | Subclonal boundary | CCFs {0.94,0.95,0.96,0.97}; single CCF 0.95 | 0.5; 1.0 (0.95 is subclonal, = IdentifyClonalMutations) | Landau et al. (2013) (B24 F20) |
 | M11 | MATH bit-exact vs maftools/R | {0.16,0.87}; {0.12,0.31,0.07,0.45,0.26,0.39} | 102.19864077669901; 70.22842105263156 | maftools mathScore.R run in R (B24 F21) |
 | M12 | Shannon unequal clones | CCFs {0.20,0.21,0.22,0.90}, k=2 | 0.5623351446188083 | scipy.stats.entropy([3,1]) |
+| M13 | maftools `math.score` filters (B24 F56) | `CalculateITH(vafs, vafCutOff, minMutations=5)`: P1 no-op 0.075; P2 VAF = 0.075 kept; P3 4 retained → null / exactly 5 → value; P4 even count; P5 4 mutations → null; P6 VAF from t_alt/(t_ref+t_alt), cutoff 0.1 | 49.420000000000016; 74.129999999999967; null / 60.651818181818179; 85.614929577464792; null; 37.065000000000005 (bit-exact) | maftools mathScore.R run in R 4.3.3 |
+| M14 | Clone-frequency Shannon (B24 F57) | `CalculateCloneShannonDiversity` on [0.6,0.3,0.1], [0.45,0.35,0.15,0.05], [0.7,0,0.3], [0.2,0.1,0.05] (unnormalised), [0.25]×4, [1.0]; contrast [0.3,0.7] vs counts [8,2] | 0.8979457248567798; 1.161120818283116; 0.6108643020548935; 0.9556998911125343; 1.3862943611198906; 0; 0.6108643020548935 vs 0.5004024235381879 | Martinez et al. (2017); scipy.stats.entropy |
 | M10 | AnalyzeHeterogeneity aggregate | VAFs+CCFs example, k=2 | MATH, H, subclones, subclonal fraction all match component derivations | sources 1–6 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -95,6 +99,8 @@
 | S4 | Out-of-range VAF throws | VAF 1.5 | ArgumentException | [0,1] domain |
 | S5 | Mismatched lengths throw | vafs.Count ≠ ccf.Count | ArgumentException | alignment |
 | S6 | InferSubclones empty throws | empty clustering | ArgumentException | guard |
+| S8 | Filtered CalculateITH invalid arguments | null VAFs; cutoff −0.01 / NaN; minMutations 0; VAF 1.5; cutoff 0 with median 0 | ArgumentNull / ArgumentOutOfRange / ArgumentException | B24 F56 |
+| S9 | CalculateCloneShannonDiversity invalid | null, empty, all zero, 1.2, NaN; ShannonIndexOfWeights −0.1 / +∞ | ArgumentNull / ArgumentException | B24 F57 |
 | S7 | InferSubclones label outside centroids | labels {0,1} or {0,−1} with 1 centroid | ArgumentException | INV-5 count ≤ k (B24 F22) |
 
 ### 4.3 COULD Tests (Nice to have)
@@ -173,7 +179,7 @@ Total in-scope cases: 17; ✅ = 17.
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Shannon clone fractions = per-cluster mutation proportions | AnalyzeHeterogeneity (Shannon), M5–M7, M10 |
+| 1 | Shannon clone fractions = per-cluster mutation proportions (AnalyzeHeterogeneity only; the source's cellular-frequency form is `CalculateCloneShannonDiversity`, M14) | AnalyzeHeterogeneity (Shannon), M5–M7, M10 |
 | 2 | Even-count median = mean of two central order statistics (R/maftools) | CalculateITH median, M2 |
 
 ---
