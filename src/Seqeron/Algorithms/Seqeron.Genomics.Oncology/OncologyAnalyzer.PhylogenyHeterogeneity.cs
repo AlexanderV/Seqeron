@@ -78,6 +78,13 @@ public static partial class OncologyAnalyzer
         /// </summary>
         public bool UsedCompleteNetwork { get; init; }
 
+        /// <summary>
+        /// Ids of the non-robust clusters LICHeE's <c>fixNetwork</c> dropped (in removal order) before a valid tree was
+        /// found; they are absent from <see cref="Clusters"/> and <see cref="Edges"/>. Empty when nothing was removed
+        /// (always for <see cref="ReconstructPhylogeny"/>).
+        /// </summary>
+        public IReadOnlyList<int> RemovedClusterIds { get; init; } = Array.Empty<int>();
+
         /// <summary>Returns the parent id of <paramref name="clusterId"/>, or null if it is the root or absent.</summary>
         public int? ParentOf(int clusterId)
         {
@@ -176,26 +183,58 @@ public static partial class OncologyAnalyzer
         }
 
         int sampleCount = ValidateAndGetSampleCount(clusters);
-        return TryReconstructLichee(clusters, sampleCount, tolerance, standardErrors: null, out phylogeny);
+        return TryReconstructLichee(clusters, sampleCount, tolerance, standardErrors: null, memberCounts: null, robust: null, out phylogeny);
     }
 
     /// <summary>
     /// LICHeE <c>LineageEngine.buildLineage</c> steps 4–6 on validated clusters: constraint network, tree search,
-    /// complete-network (<c>ALL_EDGES</c>) fallback, ranking. <paramref name="standardErrors"/> = per-cluster
-    /// <c>1.96·sd/√n</c> (null = static ε).
+    /// network adjustment, ranking. <paramref name="standardErrors"/> = per-cluster <c>1.96·sd/√n</c> (null = static ε).
+    /// When no tree exists: with <paramref name="memberCounts"/>/<paramref name="robust"/> supplied, LICHeE's
+    /// <c>fixNetwork</c> loop drops the smallest non-robust cluster (first in node-id order on ties) and searches again
+    /// until a tree is found or no non-robust cluster is left; then the complete network (<c>ALL_EDGES</c>) is
+    /// searched on the remaining clusters.
     /// </summary>
     private static bool TryReconstructLichee(
         IReadOnlyList<CcfCluster> clusters,
         int sampleCount,
         double tolerance,
         double[][]? standardErrors,
+        int[]? memberCounts,
+        bool[]? robust,
         out ClonalPhylogeny phylogeny)
     {
         int rootId = RootIdFor(clusters);
-        int[] nodeOrder = LicheeNodeOrder(clusters, sampleCount);
+        var nodeOrder = new List<int>(LicheeNodeOrder(clusters, sampleCount));
+        var removed = new List<int>();
         bool usedComplete = false;
         LicheeSearchResult result = new LicheeNetwork(
             clusters, sampleCount, tolerance, completeNetwork: false, nodeOrder, standardErrors).Search();
+        if (result.TreeCount == 0 && memberCounts is not null && robust is not null)
+        {
+            // fixNetwork: iterate nodes in id order, keep the first non-robust cluster of strictly smallest size.
+            while (result.TreeCount == 0)
+            {
+                int toRemove = -1;
+                foreach (int c in nodeOrder)
+                {
+                    if (!robust[c] && (toRemove < 0 || memberCounts[c] < memberCounts[toRemove]))
+                    {
+                        toRemove = c;
+                    }
+                }
+
+                if (toRemove < 0)
+                {
+                    break; // no node removed (delta = 0): the rebuilt network is unchanged.
+                }
+
+                nodeOrder.Remove(toRemove);
+                removed.Add(clusters[toRemove].Id);
+                result = new LicheeNetwork(
+                    clusters, sampleCount, tolerance, completeNetwork: false, nodeOrder, standardErrors).Search();
+            }
+        }
+
         if (result.TreeCount == 0)
         {
             usedComplete = true;
@@ -209,19 +248,27 @@ public static partial class OncologyAnalyzer
             return false;
         }
 
-        var edges = new ClonalEdge[clusters.Count];
+        var kept = new List<CcfCluster>(clusters.Count - removed.Count);
+        var edges = new List<ClonalEdge>(clusters.Count - removed.Count);
         for (int c = 0; c < clusters.Count; c++)
         {
             int parentCluster = result.ParentClusterIndex[c];
-            edges[c] = new ClonalEdge(parentCluster < 0 ? rootId : clusters[parentCluster].Id, clusters[c].Id);
+            if (parentCluster == int.MinValue)
+            {
+                continue; // removed by fixNetwork
+            }
+
+            kept.Add(clusters[c]);
+            edges.Add(new ClonalEdge(parentCluster < 0 ? rootId : clusters[parentCluster].Id, clusters[c].Id));
         }
 
-        phylogeny = new ClonalPhylogeny(rootId, clusters.ToArray(), edges, sampleCount)
+        phylogeny = new ClonalPhylogeny(rootId, kept, edges, sampleCount)
         {
             Tolerance = tolerance,
             ErrorScore = result.ErrorScore,
             ValidTreeCount = result.TreeCount,
             UsedCompleteNetwork = usedComplete,
+            RemovedClusterIds = removed,
         };
         return true;
     }
@@ -231,6 +278,12 @@ public static partial class OncologyAnalyzer
     /// (<c>PHYNetwork.getAAFErrorMargin</c>, github.com/viq854/lichee) — the two-sided 95 % normal quantile.
     /// </summary>
     public const double LicheeStandardErrorZ = 1.96;
+
+    /// <summary>
+    /// LICHeE <c>Parameters.MIN_ROBUST_CLUSTER_SUPPORT</c> = 2: a cluster is robust iff at least this many of its member
+    /// mutations are robust (<c>SNVGroup.setSubPopulations</c>); <c>PHYNetwork.fixNetwork</c> drops non-robust clusters.
+    /// </summary>
+    public const int LicheeMinRobustClusterSupport = 2;
 
     /// <summary>
     /// A CCF cluster with the dispersion summary LICHeE keeps per cluster (<c>AAFClusterer.Cluster</c>): centroid
@@ -249,6 +302,15 @@ public static partial class OncologyAnalyzer
         IReadOnlyList<double> StdDevPerSample,
         int MemberCount)
     {
+        /// <summary>
+        /// Number of robust member mutations (LICHeE <c>SNVEntry.isRobust</c>: no sample VAF in the ambiguous band
+        /// [<c>MAX_VAF_ABSENT</c>, <c>MIN_VAF_PRESENT</c>), empty at the defaults 0.005/0.005). Null (default) = every
+        /// member is robust (= <see cref="MemberCount"/>). The cluster is robust iff this is ≥
+        /// <see cref="LicheeMinRobustClusterSupport"/>; 0 reproduces LICHeE's <c>--clustersFile</c> input, whose clusters
+        /// are never marked robust.
+        /// </summary>
+        public int? RobustMemberCount { get; init; }
+
         /// <summary>
         /// Builds the summary from member-level CCFs exactly as LICHeE does
         /// (<c>Cluster.recomputeCentroidAndStdDev</c>): centroid = Σ member / n, SD = √(Σ (member − centroid)² / n)
@@ -315,21 +377,33 @@ public static partial class OncologyAnalyzer
     /// (<c>PHYNetwork.getAAFErrorMargin</c>): the lineage-precedence test (Eq. 2) of an edge u→v in sample i uses
     /// <c>max(ε, se_u,i + se_v,i)</c> with <c>se = 1.96·sd/√n</c> for a cluster (<see cref="LicheeStandardErrorZ"/>)
     /// and <c>se = ε</c> for the root, instead of the static ε. The sum rule (Eq. 5, <c>PHYTree.checkConstraint</c>)
-    /// keeps the static ε, as in LICHeE. With every SD = 0 the result is identical to <see cref="ReconstructPhylogeny"/>.
+    /// keeps the static ε, as in LICHeE. With every SD = 0 and every cluster robust the result is identical to
+    /// <see cref="ReconstructPhylogeny"/>.
+    /// <para>
+    /// Network adjustment (LICHeE <c>LineageEngine.buildLineage</c> step 5, <c>PHYNetwork.fixNetwork</c>): when no tree
+    /// exists, the smallest non-robust cluster (fewer than <see cref="LicheeMinRobustClusterSupport"/> robust members,
+    /// see <see cref="CcfClusterSummary.RobustMemberCount"/>; ties → first in network node order) is dropped and the
+    /// search repeated until a tree is found or no non-robust cluster is left; then the complete network
+    /// (<c>ALL_EDGES</c>) is searched on the remaining clusters. Dropped ids are reported in
+    /// <see cref="ClonalPhylogeny.RemovedClusterIds"/>. LICHeE always runs this step; pass
+    /// <paramref name="removeNonRobustClusters"/> = false to keep every cluster.
+    /// </para>
     /// </summary>
     /// <param name="clusters">Cluster summaries (centroid, SD, member count), e.g. from <see cref="CcfClusterSummary.FromMembers"/>.</param>
     /// <param name="tolerance">Static margin ε (LICHeE <c>-e</c>); default <see cref="DefaultPhylogenyTolerance"/>.</param>
-    /// <returns>The top-ranking phylogeny; <see cref="ClonalPhylogeny.Clusters"/> holds the centroids.</returns>
+    /// <param name="removeNonRobustClusters">Run LICHeE's <c>fixNetwork</c> cluster removal (default true, as LICHeE).</param>
+    /// <returns>The top-ranking phylogeny; <see cref="ClonalPhylogeny.Clusters"/> holds the centroids of the kept clusters.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="clusters"/>, a CCF or an SD list is null.</exception>
     /// <exception cref="ArgumentException">As <see cref="ReconstructPhylogeny"/>; SD lists of the wrong length or with
-    /// negative / non-finite values; member count &lt; 1.</exception>
+    /// negative / non-finite values; member count &lt; 1; robust member count outside [0, member count].</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> is negative or NaN.</exception>
     /// <exception cref="InvalidOperationException">No valid lineage tree exists.</exception>
     public static ClonalPhylogeny ReconstructPhylogenyFromClusterSummaries(
         IReadOnlyList<CcfClusterSummary> clusters,
-        double tolerance = DefaultPhylogenyTolerance)
+        double tolerance = DefaultPhylogenyTolerance,
+        bool removeNonRobustClusters = true)
     {
-        if (!TryReconstructPhylogenyFromClusterSummaries(clusters, out ClonalPhylogeny phylogeny, tolerance))
+        if (!TryReconstructPhylogenyFromClusterSummaries(clusters, out ClonalPhylogeny phylogeny, tolerance, removeNonRobustClusters))
         {
             throw new InvalidOperationException(
                 "No lineage tree satisfies the sum rule (LICHeE Eq. 5) for these CCF clusters at the given tolerance; "
@@ -341,12 +415,14 @@ public static partial class OncologyAnalyzer
 
     /// <summary>
     /// Non-throwing variant of <see cref="ReconstructPhylogenyFromClusterSummaries"/>: false (and a default phylogeny)
-    /// when no valid lineage tree exists. Argument validation still throws.
+    /// when no valid lineage tree exists, also after <c>fixNetwork</c> and the complete-network fallback. Argument
+    /// validation still throws.
     /// </summary>
     public static bool TryReconstructPhylogenyFromClusterSummaries(
         IReadOnlyList<CcfClusterSummary> clusters,
         out ClonalPhylogeny phylogeny,
-        double tolerance = DefaultPhylogenyTolerance)
+        double tolerance = DefaultPhylogenyTolerance,
+        bool removeNonRobustClusters = true)
     {
         ArgumentNullException.ThrowIfNull(clusters);
         ValidatePhylogenyTolerance(tolerance);
@@ -363,6 +439,8 @@ public static partial class OncologyAnalyzer
 
         int sampleCount = ValidateAndGetSampleCount(centroids);
         var standardErrors = new double[clusters.Count][];
+        var memberCounts = new int[clusters.Count];
+        var robust = new bool[clusters.Count];
         for (int c = 0; c < clusters.Count; c++)
         {
             CcfClusterSummary summary = clusters[c];
@@ -382,6 +460,15 @@ public static partial class OncologyAnalyzer
                 throw new ArgumentException($"Cluster {summary.Id} must have at least one member.", nameof(clusters));
             }
 
+            int robustMembers = summary.RobustMemberCount ?? summary.MemberCount;
+            if (robustMembers < 0 || robustMembers > summary.MemberCount)
+            {
+                throw new ArgumentException(
+                    $"Cluster {summary.Id}: robust member count {robustMembers} must be in [0, {summary.MemberCount}].", nameof(clusters));
+            }
+
+            memberCounts[c] = summary.MemberCount;
+            robust[c] = robustMembers >= LicheeMinRobustClusterSupport;
             double rootN = Math.Sqrt((double)summary.MemberCount);
             standardErrors[c] = new double[sampleCount];
             for (int s = 0; s < sampleCount; s++)
@@ -399,7 +486,9 @@ public static partial class OncologyAnalyzer
             }
         }
 
-        return TryReconstructLichee(centroids, sampleCount, tolerance, standardErrors, out phylogeny);
+        return removeNonRobustClusters
+            ? TryReconstructLichee(centroids, sampleCount, tolerance, standardErrors, memberCounts, robust, out phylogeny)
+            : TryReconstructLichee(centroids, sampleCount, tolerance, standardErrors, memberCounts: null, robust: null, out phylogeny);
     }
 
     /// <summary>

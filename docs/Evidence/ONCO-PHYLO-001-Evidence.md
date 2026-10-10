@@ -45,7 +45,7 @@
 1. Constraint network (`PHYNetwork` constructor): nodes levelled by number of samples present; within-profile pairs, level → next non-empty lower level, orphan nodes → closest higher level (from level+2) else root; `checkAndAddEdge` keeps one direction (smaller one-sided VAF excess; ties → n2→n1). Complete network (`-c`, `ALL_EDGES`) is the fallback when no tree is found.
 2. Tree search: Gabow & Myers (1978) enumeration (`grow`) with `PHYTree.checkConstraint` = sum rule `Σ_children > u + VAF_ERROR_MARGIN ⇒ reject`; caps `MAX_NUM_TREES = 100000`, `MAX_NUM_GROW_CALLS = 1e8`.
 3. Ranking: `PHYTree.computeErrorScore` = √(Σ_nodes Σ_samples max(0, Σ_children − u)²); `Collections.sort` (stable); top tree = index 0. QP consistency check off by default (`NUM_TREES_FOR_CONSISTENCY_CHECK = 0`).
-4. No valid tree ⇒ LICHeE reports none (after `fixNetwork` removal of non-robust clusters and the `ALL_EDGES` retry) — it never returns a sum-rule-violating tree.
+4. No valid tree ⇒ LICHeE reports none (after `fixNetwork` removal of non-robust clusters and the `ALL_EDGES` retry) — it never returns a sum-rule-violating tree. (`fixNetwork` ported in F43, see below.)
 
 ### LICHeE per-cluster error margins — opened 2026-10-10 (B24 F42)
 
@@ -65,6 +65,26 @@
 | t00298 (6 clusters, 2 samples) | 0 | complete network, 28 trees, root→{1,3,4,5}, 4→2, 1→6, error 0 | 5 trees, root→{1,4}, 4→2, 2→3, 1→6, 6→5 |
 
 (Member rows in `OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests.cs`.) A margin-admitted edge u→v with `v.CCF[i] − u.CCF[i] > ε` can never pass the static-ε sum rule, so the margins act through orientation (both directions pass → the smaller one-sided excess wins) and orphan attachment.
+
+### LICHeE fixNetwork — opened 2026-10-10 (B24 F43)
+
+**Source:** same commit: `LineageEngine.buildLineage` l. 110–124, `PHYNetwork.fixNetwork`, `SNVGroup.setSubPopulations` (cluster robustness), `SNVGroup.removeCluster`, `SNVGroup.equals` (no `hashCode`), `SNVDataStore` (`SNVEntry.isRobust`, clusters-file loader), `Parameters` (`MIN_ROBUST_CLUSTER_SUPPORT = 2`, `MIN_VAF_PRESENT = MAX_VAF_ABSENT = 0.005`).
+
+1. Loop: if no tree, `do { numNodes = net.numNodes; net = net.fixNetwork(); trees = net.getLineageTrees(); delta = numNodes − net.numNodes; } while (delta ≠ 0 && no trees)`; if still none: `ALL_EDGES = true; net = new PHYNetwork(groups, …)` — built from the same `SNVGroup` objects, which `removeCluster` mutated, so dropped clusters stay dropped.
+2. `fixNetwork`: iterates `nodesById.values()` (Integer keys ⇒ ascending node id), picks the first non-robust cluster, replacing it only when `members.size()` is strictly smaller ⇒ smallest non-robust cluster, ties → lowest node id. Removes one cluster per call and rebuilds from `new ArrayList<>(HashSet<SNVGroup>)`.
+3. Robustness: cluster robust ⇔ ≥ 2 robust member SNVs (`setSubPopulations`); SNV robust unless some sample VAF ∈ [`MAX_VAF_ABSENT`, `MIN_VAF_PRESENT`) — an empty band at the defaults, so with SNV input every member is robust and robust ⇔ n ≥ 2. Clusters read from `--clustersFile` are never `setRobust()` ⇒ all removable.
+4. Group order after a rebuild = `HashSet<SNVGroup>` iteration (identity hash codes); the port keeps first-appearance order = LICHeE with a constant identity hash (`-XX:+UnlockExperimentalVMOptions -XX:hashCode=2`).
+5. Cross-check (harness as in F42; `MIN_ROBUST_CLUSTER_SUPPORT` rule applied to per-member robust flags): 4 000 random inputs (1–3 samples, 2–6 clusters × 1–3 members, ~10 % non-robust members, seed 3; 1 958 with a removal): 4 000 / 4 000 identical with `hashCode=2`; 3 844 / 4 000 with the default identity hash (the 156 differ between LICHeE's own two runs).
+
+| Fixture (ε) | Clusters (member rows; robust members) | lichee.jar (both hash settings) |
+|-------------|----------------------------------------|---------------------------------|
+| f1 (0) | A [0.5,0.5]×1; B [0.55,0]×1 | removed [1]; 1 tree root→B, error 0 |
+| f2 (0) | A [0.5,0.5]×3 (1 robust); B [0.55,0]×1 | removed [2]; root→A |
+| f3 (0.02) | F18 complete-network clusters ×2 each; D [0.01,0.01,0.01]×1 | removed [4]; complete network; root→{1,2}, 2→3; error 0.003292532308117998 |
+| f4 (0) | A [0.5,0.5]×2, B [0.55,0]×3, no robust member (clusters file) | removed [1]; root→B |
+| f4r (0) | same, all members robust | no tree |
+| f6 (0) | A [0.5,0.5]×2; B [0.55,0]×1; C [0,0.55]×1 | removed [2, 3]; root→A |
+| f7 (0) | A [0.5,0.5]×2; B [0.55,0]×1; C [0,0.55]×2; D [0,0.3]×1 | removed [2, 4]; complete network; no tree |
 
 ### Werner B et al. (2017), *Sci Rep* 7:44991 — trunk definition (WebSearch snippet)
 
@@ -173,3 +193,4 @@ Expected: with B and C both 0.6 they cannot both be children of the same parent 
 - **2026-06-15**: Initial documentation.
 - **2026-09-28**: B24 F18/F19 — LICHeE reference code + jar cross-check; datasets corrected to LICHeE output; no-valid-tree case; CCF-based trunk (Werner 2017).
 - **2026-10-10**: B24 F42 — LICHeE per-cluster `1.96·sd/√n` edge margins (`getAAFErrorMargin`), jar-locked.
+- **2026-10-10**: B24 F43 — LICHeE `fixNetwork` (non-robust cluster removal, then `ALL_EDGES` on the reduced set), jar-locked.

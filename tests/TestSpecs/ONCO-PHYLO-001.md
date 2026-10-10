@@ -84,6 +84,12 @@
 | M15 | Per-cluster margins → complete network | t02150 (ε 0) | margins: complete network, 2 trees, root→{1,2,3}; static: 1 tree, 2→1 | lichee.jar (F42) |
 | M16 | Per-cluster margins → none | t01061 (ε 0.1) | margins: no tree; static: root→2→3→4→1, error 0.10016236818286589 | lichee.jar (F42) |
 | M17 | Per-cluster margins top tree | t00298 (ε 0) | margins: complete network, 28 trees, root→{1,3,4,5}, 4→2, 1→6; static: 5 trees | lichee.jar (F42) |
+| M19 | fixNetwork size tie | f1: A=[0.5,0.5], B=[0.55,0], 1 member each, ε 0 | A dropped (first node on tie), root→B; keep-all: no tree | lichee.jar (F43) |
+| M20 | fixNetwork smallest | f2: A 3 members/1 robust, B 1 member | B dropped, root→A | lichee.jar (F43) |
+| M21 | clusters-file robustness | f4: RobustMemberCount 0, A 2 / B 3 members | A dropped, root→B; robust variant: no tree | lichee.jar (F43) |
+| M22 | repeated removal | f6: A robust, B=[0.55,0], C=[0,0.55] singletons | removed [2,3], root→A | lichee.jar (F43) |
+| M23 | removal then ALL_EDGES | f3: F18 complete-network fixture + singleton D | removed [4], complete network, error 0.003292532308117998 | lichee.jar (F43) |
+| M24 | removal then none | f7 | Try false | lichee.jar (F43) |
 | M18 | Zero SD ≡ static | F18 complete-network fixture with SD 0 | identical edges / error / tree count | `getAAFErrorMargin` with sd 0 = ε (F42) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -100,6 +106,7 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Determinism | M2 input run twice | identical edge set | INV-5 |
 | C2 | SD at absent sample ignored | t02150 with SD 0.9 where centroid 0 | same tree | `PHYNode.getStdDev` (F42) |
+| C4 | RobustMemberCount out of [0, n] | 3 of 2 / −1 | ArgumentException | F43 |
 | C3 | Summary validation | null/short/negative/NaN SD, n = 0, ragged/empty members, ε < 0 | exceptions | F42 |
 
 ---
@@ -128,7 +135,7 @@
 | File | Role | Test Count |
 |------|------|------------|
 | OncologyAnalyzer_ReconstructPhylogeny_Tests.cs | canonical | 14 |
-| OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests.cs | LICHeE per-cluster margins (F42) | M13–M18, C2, C3 |
+| OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests.cs | LICHeE per-cluster margins (F42), fixNetwork (F43) | M13–M24, C2–C4 |
 
 ### 5.5 Phase 7 Work Queue
 

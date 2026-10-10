@@ -63,6 +63,7 @@ These constraints define a *set* of valid spanning trees; they do not uniquely d
 |------|------|---------|-------------|-------------|
 | `clusters` | `IReadOnlyList<CcfCluster>` | required | CCF clusters to place | each `CcfPerSample` same non-zero length; values in [0,1]; unique ids |
 | `tolerance` | `double` | `0.0` | Noise margin ε for Eq. 2 and Eq. 5 | ≥ 0, not NaN |
+| `removeNonRobustClusters` (summary overloads, F43) | `bool` | `true` | Run LICHeE `fixNetwork` (drop the smallest non-robust cluster while no tree exists) | robust ⇔ `RobustMemberCount ?? MemberCount` ≥ 2 |
 | `clusters` (summary overloads, F42) | `IReadOnlyList<CcfClusterSummary>` | required | Centroid CCF + per-sample SD (population, divisor n) + member count n, e.g. `CcfClusterSummary.FromMembers(id, memberCcfs)` (LICHeE `Cluster.recomputeCentroidAndStdDev`) | centroids as above; SD finite ≥ 0, same length; n ≥ 1 |
 
 ### 3.2 Output / Return Value
@@ -77,6 +78,7 @@ These constraints define a *set* of valid spanning trees; they do not uniquely d
 | `ErrorScore` | `double` | LICHeE error score of the returned tree |
 | `ValidTreeCount` | `int` | Valid trees enumerated (capped at 100 000) |
 | `UsedCompleteNetwork` | `bool` | The complete-network fallback was needed |
+| `RemovedClusterIds` | `IReadOnlyList<int>` | Clusters dropped by `fixNetwork` (removal order; absent from `Clusters`/`Edges`); empty for `ReconstructPhylogeny` (F43) |
 
 `IdentifyTrunkMutations` returns trunk cluster ids (root downward); `IdentifyBranchMutations` returns the remaining (subclonal) ids in input order.
 
@@ -92,7 +94,8 @@ No valid tree → `InvalidOperationException` (`TryReconstructPhylogeny` returns
 2. Constraint network (`PHYNetwork` constructor): level = number of samples with CCF > 0; root level = k+1. `checkAndAddEdge(u,v)` over samples: stop at the first sample with `u = 0 ≠ v`; count samples with `u ≥ v − ε`; if both directions pass, keep u→v iff `Σ max(0, v−u) < Σ max(0, u−v)` (otherwise v→u). Edges: all pairs within a presence profile; each level to the next non-empty lower level; then every node without a parent is tried against levels `level+2 … k+1`, else linked to the root.
 3. Enumerate spanning trees from the root (Gabow–Myers `grow`), rejecting a partial tree as soon as a parent violates Eq. 5 with margin ε; stop at 100 000 trees (`MAX_NUM_TREES`) or 10⁸ grow calls.
 4. Rank by the error score (stable); return the first minimum.
-5. If no tree was found, rebuild with the complete network (`ALL_EDGES`: every higher level to every lower level ≥ 1) and search again; if still none, report failure.
+5. If no tree was found and cluster sizes/robustness are known (summary overloads, F43): `fixNetwork` — scan nodes in id order and drop the first non-robust cluster with the strictly smallest member count (robust = ≥ `MIN_ROBUST_CLUSTER_SUPPORT` = 2 robust members), rebuild the default network, search; repeat until a tree is found or no non-robust cluster is left.
+6. If still no tree, rebuild with the complete network (`ALL_EDGES`: every higher level to every lower level ≥ 1) on the remaining clusters (LICHeE rebuilds from the groups mutated by `fixNetwork`) and search again; if still none, report failure.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -115,13 +118,13 @@ No valid tree → `InvalidOperationException` (`TryReconstructPhylogeny` returns
 
 - `OncologyAnalyzer.ReconstructPhylogeny(IReadOnlyList<CcfCluster>, double)`: top-ranked LICHeE tree; throws `InvalidOperationException` when none is valid.
 - `OncologyAnalyzer.TryReconstructPhylogeny(IReadOnlyList<CcfCluster>, out ClonalPhylogeny, double)`: non-throwing variant.
-- `OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(IReadOnlyList<CcfClusterSummary>, double)` / `TryReconstructPhylogenyFromClusterSummaries(...)` (F42): LICHeE with per-cluster `1.96·sd/√n` edge margins; `CcfClusterSummary.FromMembers` builds centroid/SD/n from member CCFs.
+- `OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(IReadOnlyList<CcfClusterSummary>, double, bool removeNonRobustClusters = true)` / `TryReconstructPhylogenyFromClusterSummaries(...)` (F42/F43): LICHeE with per-cluster `1.96·sd/√n` edge margins and `fixNetwork`; `CcfClusterSummary.FromMembers` builds centroid/SD/n from member CCFs; `RobustMemberCount` (null = all members robust; 0 = LICHeE `--clustersFile` input, never robust).
 - `OncologyAnalyzer.IdentifyTrunkMutations(ClonalPhylogeny)`: truncal clusters (root path, CCF ≥ 1 − ε in every sample).
 - `OncologyAnalyzer.IdentifyBranchMutations(ClonalPhylogeny)`: subclonal/branch clusters (the rest).
 
 ### 5.2 Current Behavior
 
-Cross-checked against the original `lichee.jar` (PHYNetwork + getLineageTrees + evaluateLineageTrees driven through a harness, clusters marked robust, profiles in first-appearance order): 4 503 / 4 503 random inputs (1–4 samples, 1–11 clusters, ε ∈ {0, 0.02, 0.05, 0.1, 0.2}) give identical feasibility, network mode, tree count, top tree and bit-identical error score (incl. 83 capped at 10⁵ trees, 81 complete-network fallbacks, 1 623 infeasible). The former greedy "deepest valid ancestor" build returned a sum-rule-violating tree (root fallback / FP budget debit) on 939 / 2 280 random inputs. **Per-cluster margins (F42):** the same harness, with SNVGroups built from member CCF rows and `Cluster.recomputeCentroidAndStdDev`, on 9 000 random member-level inputs (1–3 samples, 2–6 clusters of 2–5 members, ε ∈ {0, 0.02, 0.05, 0.1}): 9 000 / 9 000 identical (feasibility, network mode, tree count, top tree, error score) and 57 594 / 57 594 per-sample centroids and SDs bit-identical; the margins changed the result vs the static ε on 16 of them (locked: p1, t02150, t01061, t00298). Because a margin edge u→v with `v − u > ε` in some sample can never satisfy the static-ε sum rule, the margins act through edge orientation (`checkAndAddEdge` keeps the smaller one-sided excess once both directions pass) and orphan attachment, often ending in the complete network or no tree. **Search reuse:** the repository suffix tree was evaluated and is **not** applicable — this unit performs no substring/pattern search; it is a numeric constraint-satisfaction tree build over CCF vectors.
+Cross-checked against the original `lichee.jar` (PHYNetwork + getLineageTrees + evaluateLineageTrees driven through a harness, clusters marked robust, profiles in first-appearance order): 4 503 / 4 503 random inputs (1–4 samples, 1–11 clusters, ε ∈ {0, 0.02, 0.05, 0.1, 0.2}) give identical feasibility, network mode, tree count, top tree and bit-identical error score (incl. 83 capped at 10⁵ trees, 81 complete-network fallbacks, 1 623 infeasible). The former greedy "deepest valid ancestor" build returned a sum-rule-violating tree (root fallback / FP budget debit) on 939 / 2 280 random inputs. **Per-cluster margins (F42):** the same harness, with SNVGroups built from member CCF rows and `Cluster.recomputeCentroidAndStdDev`, on 9 000 random member-level inputs (1–3 samples, 2–6 clusters of 2–5 members, ε ∈ {0, 0.02, 0.05, 0.1}): 9 000 / 9 000 identical (feasibility, network mode, tree count, top tree, error score) and 57 594 / 57 594 per-sample centroids and SDs bit-identical; the margins changed the result vs the static ε on 16 of them (locked: p1, t02150, t01061, t00298). Because a margin edge u→v with `v − u > ε` in some sample can never satisfy the static-ε sum rule, the margins act through edge orientation (`checkAndAddEdge` keeps the smaller one-sided excess once both directions pass) and orphan attachment, often ending in the complete network or no tree. **fixNetwork (F43):** 4 000 random member-level inputs with 1–3-member clusters and ~10 % non-robust members (seed 3; 1 958 with at least one cluster dropped): 4 000 / 4 000 identical (removed set, network mode, tree count, top tree, error score) against lichee.jar run with `-XX:hashCode=2` (constant identity hash ⇒ `fixNetwork`'s `HashSet<SNVGroup>` iterates in insertion order = node order); with the default JVM identity hash 3 844 / 4 000 — the 156 others differ between the two JVM settings of LICHeE itself (the rebuilt network's group order follows identity hash codes, so orphan attachment / enumeration order there is not reproducible). Locked fixtures f1–f4, f6, f7 give the same jar output under both settings. **Search reuse:** the repository suffix tree was evaluated and is **not** applicable — this unit performs no substring/pattern search; it is a numeric constraint-satisfaction tree build over CCF vectors.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -134,7 +137,8 @@ Cross-checked against the original `lichee.jar` (PHYNetwork + getLineageTrees + 
 **Deviations from LICHeE:**
 
 - `ReconstructPhylogeny(CcfCluster…)` carries point CCFs only, so it uses the static margin ε (= LICHeE with zero-variance clusters); the per-cluster `1.96·sd/√n` margins are available through `ReconstructPhylogenyFromClusterSummaries` (F42).
-- LICHeE's `fixNetwork` step (dropping non-robust clusters when no tree exists) is not applied — every cluster is kept (clusters treated as robust); the caller receives a failure instead of a silently reduced tree.
+- `ReconstructPhylogeny(CcfCluster…)` has no member counts, so every cluster is treated as robust — for robust clusters LICHeE's `fixNetwork` removes nothing, so this is LICHeE's own behaviour; the summary overloads run `fixNetwork` by default (F43) and report dropped clusters in `RemovedClusterIds` (`removeNonRobustClusters: false` keeps them).
+- After a `fixNetwork` rebuild LICHeE orders groups by a `HashSet<SNVGroup>` (identity hash codes, `SNVGroup` overrides `equals` but not `hashCode`); the port keeps the original first-appearance order (= LICHeE with a constant identity hash). Size filtering / centroid collapsing of `SNVGroup.setSubPopulations` are clustering steps (ONCO-CCF-001), not ported.
 - Hitting the 10⁸ grow-call cap stops the search (LICHeE continues from a partially unwound state).
 - Default `ε = 0` (LICHeE default 0.1); pass `tolerance` to reproduce it.
 
@@ -149,7 +153,8 @@ Cross-checked against the original `lichee.jar` (PHYNetwork + getLineageTrees + 
 |---|------|------|--------|--------|-------|
 | 1 | Profile order = first appearance (LICHeE: HashMap order) | Assumption | Tie-break among equal-score trees | accepted | ASM-03 |
 | 2 | Default ε = 0 | Assumption | Stricter admissibility than LICHeE's 0.1 | accepted | configurable via `tolerance` |
-| 3 | No `fixNetwork` cluster removal | Deviation | Infeasible inputs fail instead of dropping clusters | accepted | needs SNV-level robustness data |
+| 3 | ~~No `fixNetwork` cluster removal~~ | ~~Deviation~~ | Resolved by F43 (summary overloads; `ReconstructPhylogeny` = all clusters robust, where `fixNetwork` is a no-op) | resolved | — |
+| 4 | Group order after `fixNetwork` = first appearance (LICHeE: identity-hash `HashSet`) | Assumption | equal to LICHeE with a constant identity hash; differs from a default JVM run on ~4 % of random inputs with removals | accepted | F43 |
 
 ## 6. Edge Cases and Limitations
 

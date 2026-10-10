@@ -270,4 +270,157 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
     }
 
     #endregion
+
+    #region F43 — fixNetwork (LineageEngine.buildLineage step 5) vs lichee.jar
+
+    private static OncologyAnalyzer.CcfClusterSummary MR(int id, int robustMembers, params double[][] members) =>
+        OncologyAnalyzer.CcfClusterSummary.FromMembers(id, members) with { RobustMemberCount = robustMembers };
+
+    // f1 (= F18 S3 repro, ε 0): A=[0.5,0.5], B=[0.55,0], one member each (non-robust, size 1). No tree; fixNetwork
+    // scans nodes in id order with a strict '<' on size, so the tie keeps A (node 1) -> A dropped; root->B.
+    // lichee.jar: "removed [1]", 1 tree, error 0, edge -1 -> 2. Without fixNetwork: no tree (F18).
+    [Test]
+    public void FixNetwork_SizeTie_DropsFirstNodeLikeLichee()
+    {
+        var clusters = new[] { M(1, R(0.5, 0.5)), M(2, R(0.55, 0)) };
+
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters);
+        bool keepAll = OncologyAnalyzer.TryReconstructPhylogenyFromClusterSummaries(
+            clusters, out _, removeNonRobustClusters: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.RemovedClusterIds, Is.EqualTo(new[] { 1 }));
+            Assert.That(p.Clusters.Select(c => c.Id), Is.EqualTo(new[] { 2 }));
+            Assert.That(p.Edges, Is.EqualTo(new[] { new OncologyAnalyzer.ClonalEdge(p.RootId, 2) }));
+            Assert.That(p.ValidTreeCount, Is.EqualTo(1));
+            Assert.That(p.ErrorScore, Is.EqualTo(0.0));
+            Assert.That(p.UsedCompleteNetwork, Is.False);
+            Assert.That(keepAll, Is.False, "LICHeE without fixNetwork: no valid tree");
+        });
+    }
+
+    // f2: A = 3 members, 1 robust (non-robust, size 3); B = 1 member (non-robust, size 1) -> the smallest (B) is
+    // dropped. lichee.jar: "removed [2]", edge -1 -> 1.
+    [Test]
+    public void FixNetwork_DropsSmallestNonRobustCluster()
+    {
+        var clusters = new[]
+        {
+            MR(1, 1, R(0.5, 0.5), R(0.5, 0.5), R(0.5, 0.5)),
+            M(2, R(0.55, 0)),
+        };
+
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.RemovedClusterIds, Is.EqualTo(new[] { 2 }));
+            Assert.That(p.ParentOf(1), Is.EqualTo(p.RootId));
+            Assert.That(p.ValidTreeCount, Is.EqualTo(1));
+        });
+    }
+
+    // f4 / f4r: LICHeE's --clustersFile input never marks a cluster robust (RobustMemberCount = 0): A (2 members) is
+    // dropped before B (3) -> root->B (jar "removed [1]"). The same clusters with robust members (default) are both
+    // robust: nothing to drop, complete network also infeasible -> jar "trees 0".
+    [Test]
+    public void FixNetwork_ClustersFileInputWithoutRobustMembers_MatchesLichee()
+    {
+        var nonRobust = new[]
+        {
+            MR(1, 0, R(0.5, 0.5), R(0.5, 0.5)),
+            MR(2, 0, R(0.55, 0), R(0.55, 0), R(0.55, 0)),
+        };
+        var robust = nonRobust.Select(c => c with { RobustMemberCount = null }).ToArray();
+
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(nonRobust);
+        bool robustFound = OncologyAnalyzer.TryReconstructPhylogenyFromClusterSummaries(robust, out _);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.RemovedClusterIds, Is.EqualTo(new[] { 1 }));
+            Assert.That(p.ParentOf(2), Is.EqualTo(p.RootId));
+            Assert.That(robustFound, Is.False);
+        });
+    }
+
+    // f6: A robust (2 members) [0.5,0.5]; B=[0.55,0], C=[0,0.55] single members. Removing B (first size-1 node) still
+    // leaves root children 0.5 + 0.55 > 1 in sample 2 -> C removed next -> root->A (jar "removed [2, 3]").
+    [Test]
+    public void FixNetwork_RemovesRepeatedlyUntilTreeFound()
+    {
+        var clusters = new[] { M(1, R(0.5, 0.5), R(0.5, 0.5)), M(2, R(0.55, 0)), M(3, R(0, 0.55)) };
+
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.RemovedClusterIds, Is.EqualTo(new[] { 2, 3 }));
+            Assert.That(p.Edges, Is.EqualTo(new[] { new OncologyAnalyzer.ClonalEdge(p.RootId, 1) }));
+            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(p), Is.EqualTo(new[] { 1 }),
+                "removed clusters are neither trunk nor branch");
+        });
+    }
+
+    // f3: the F18 complete-network fixture (each cluster 2 robust members) plus a non-robust single-member D =
+    // [0.01,0.01,0.01]. fixNetwork drops D, the default network is still infeasible, so ALL_EDGES runs on the
+    // reduced set (LICHeE rebuilds from the mutated groups): jar "removed [4]", complete network, root->{1,2}, 2->3,
+    // error 0.003292532308117998.
+    [Test]
+    public void FixNetwork_ThenCompleteNetworkOnRemainingClusters()
+    {
+        var clusters = new[]
+        {
+            M(1, R(0.482, 0, 0.443137), R(0.482, 0, 0.443137)),
+            M(2, R(0.519, 0.796779, 0.56), R(0.519, 0.796779, 0.56)),
+            M(3, R(0.19, 0.418589, 0.24), R(0.19, 0.418589, 0.24)),
+            M(4, R(0.01, 0.01, 0.01)),
+        };
+
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters, 0.02);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.RemovedClusterIds, Is.EqualTo(new[] { 4 }));
+            Assert.That(p.UsedCompleteNetwork, Is.True);
+            Assert.That(p.ParentOf(1), Is.EqualTo(p.RootId));
+            Assert.That(p.ParentOf(2), Is.EqualTo(p.RootId));
+            Assert.That(p.ParentOf(3), Is.EqualTo(2));
+            Assert.That(p.ValidTreeCount, Is.EqualTo(1));
+            Assert.That(p.ErrorScore, Is.EqualTo(0.003292532308117998));
+        });
+    }
+
+    // f7: removals [2, 4] leave robust A and C conflicting; complete network infeasible too -> jar "trees 0".
+    [Test]
+    public void FixNetwork_NoTreeAfterRemovals_TryReturnsFalse()
+    {
+        var clusters = new[]
+        {
+            M(1, R(0.5, 0.5), R(0.5, 0.5)),
+            M(2, R(0.55, 0)),
+            M(3, R(0, 0.55), R(0, 0.55)),
+            M(4, R(0, 0.3)),
+        };
+
+        bool found = OncologyAnalyzer.TryReconstructPhylogenyFromClusterSummaries(clusters, out _);
+
+        Assert.That(found, Is.False);
+    }
+
+    [Test]
+    public void FixNetwork_RobustMemberCountOutOfRange_Throws()
+    {
+        var bad = new[] { MR(1, 3, R(0.5), R(0.4)) };
+        var negative = new[] { MR(1, -1, R(0.5), R(0.4)) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(bad), NUnit.Framework.Throws.ArgumentException);
+            Assert.That(() => OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(negative), NUnit.Framework.Throws.ArgumentException);
+        });
+    }
+
+    #endregion
 }
