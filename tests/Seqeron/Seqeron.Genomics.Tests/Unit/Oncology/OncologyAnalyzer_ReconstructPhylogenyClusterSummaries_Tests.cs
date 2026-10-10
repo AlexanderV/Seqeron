@@ -8,7 +8,9 @@
 // Every expected topology / tree count / error score / centroid / SD below is the output of the original LICHeE
 // classes (LICHeE/release/lichee.jar, OpenJDK 21) driven by a harness that builds SNVGroups from the member CCF rows,
 // computes each cluster with Cluster.recomputeCentroidAndStdDev and runs LineageEngine.buildLineage steps 4–6
-// verbatim (VAF_MAX = 1, VAF_ERROR_MARGIN = e). Not copied from the implementation.
+// verbatim (VAF_MAX = 1, VAF_ERROR_MARGIN = e). Not copied from the implementation. Fixtures derived at e = 0 pass
+// tolerance 0 explicitly since the library default became LICHeE's 0.1 (B24 F44); DefaultTolerance_* locks the
+// lichee.jar -e 0.1 results.
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
@@ -121,8 +123,8 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
     {
         OncologyAnalyzer.CcfClusterSummary[] clusters = T02150();
 
-        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters);
-        OncologyAnalyzer.ClonalPhylogeny s = OncologyAnalyzer.ReconstructPhylogeny(clusters.Select(Centroid).ToArray());
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters, 0.0);
+        OncologyAnalyzer.ClonalPhylogeny s = OncologyAnalyzer.ReconstructPhylogeny(clusters.Select(Centroid).ToArray(), 0.0);
 
         Assert.Multiple(() =>
         {
@@ -167,8 +169,8 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
     {
         OncologyAnalyzer.CcfClusterSummary[] clusters = T00298();
 
-        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters);
-        OncologyAnalyzer.ClonalPhylogeny s = OncologyAnalyzer.ReconstructPhylogeny(clusters.Select(Centroid).ToArray());
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters, 0.0);
+        OncologyAnalyzer.ClonalPhylogeny s = OncologyAnalyzer.ReconstructPhylogeny(clusters.Select(Centroid).ToArray(), 0.0);
 
         Assert.Multiple(() =>
         {
@@ -185,6 +187,41 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
     }
 
     #endregion
+
+    // F44 — the same fixtures at the default e = 0.1 (lichee.jar -e 0.1): t02150 margins -> default network, 1 tree,
+    // root->2, 2->{1,3}, error 0.016000000000000014 (static, the Java centroids as 2 identical members: same tree and
+    // error); t00298
+    // margins -> complete network, 44 trees, same top tree as at e = 0; f1 -> nothing removed, root->1->2, error
+    // 0.050000000000000044.
+    [Test]
+    public void DefaultTolerance_ReDerivedFixtures_MatchLichee()
+    {
+        OncologyAnalyzer.ClonalPhylogeny t02150 = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(T02150());
+        OncologyAnalyzer.ClonalPhylogeny t02150s = OncologyAnalyzer.ReconstructPhylogeny(T02150().Select(Centroid).ToArray());
+        OncologyAnalyzer.ClonalPhylogeny t00298 = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(T00298());
+        OncologyAnalyzer.ClonalPhylogeny f1 = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(
+            new[] { M(1, R(0.5, 0.5)), M(2, R(0.55, 0)) });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(t02150.UsedCompleteNetwork, Is.False);
+            Assert.That(t02150.ValidTreeCount, Is.EqualTo(1));
+            Assert.That(t02150.ErrorScore, Is.EqualTo(0.016000000000000014));
+            Assert.That(new[] { 1, 2, 3 }.Select(t02150.ParentOf), Is.EqualTo(new int?[] { 2, t02150.RootId, 2 }));
+            Assert.That(t02150s.ErrorScore, Is.EqualTo(0.016000000000000014));
+            Assert.That(new[] { 1, 2, 3 }.Select(t02150s.ParentOf), Is.EqualTo(new int?[] { 2, t02150s.RootId, 2 }));
+            Assert.That(t00298.UsedCompleteNetwork, Is.True);
+            Assert.That(t00298.ValidTreeCount, Is.EqualTo(44));
+            Assert.That(t00298.ErrorScore, Is.EqualTo(0.0));
+            Assert.That(new[] { 1, 3, 4, 5 }.Select(t00298.ParentOf), Is.All.EqualTo(t00298.RootId));
+            Assert.That(t00298.ParentOf(2), Is.EqualTo(4));
+            Assert.That(t00298.ParentOf(6), Is.EqualTo(1));
+            Assert.That(f1.RemovedClusterIds, Is.Empty);
+            Assert.That(f1.ParentOf(1), Is.EqualTo(f1.RootId));
+            Assert.That(f1.ParentOf(2), Is.EqualTo(1));
+            Assert.That(f1.ErrorScore, Is.EqualTo(0.050000000000000044));
+        });
+    }
 
     #region F42 — static behaviour preserved
 
@@ -284,9 +321,9 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
     {
         var clusters = new[] { M(1, R(0.5, 0.5)), M(2, R(0.55, 0)) };
 
-        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters);
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters, 0.0);
         bool keepAll = OncologyAnalyzer.TryReconstructPhylogenyFromClusterSummaries(
-            clusters, out _, removeNonRobustClusters: false);
+            clusters, out _, 0.0, removeNonRobustClusters: false);
 
         Assert.Multiple(() =>
         {
@@ -311,7 +348,7 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
             M(2, R(0.55, 0)),
         };
 
-        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters);
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters, 0.0);
 
         Assert.Multiple(() =>
         {
@@ -334,8 +371,8 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
         };
         var robust = nonRobust.Select(c => c with { RobustMemberCount = null }).ToArray();
 
-        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(nonRobust);
-        bool robustFound = OncologyAnalyzer.TryReconstructPhylogenyFromClusterSummaries(robust, out _);
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(nonRobust, 0.0);
+        bool robustFound = OncologyAnalyzer.TryReconstructPhylogenyFromClusterSummaries(robust, out _, 0.0);
 
         Assert.Multiple(() =>
         {
@@ -352,7 +389,7 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
     {
         var clusters = new[] { M(1, R(0.5, 0.5), R(0.5, 0.5)), M(2, R(0.55, 0)), M(3, R(0, 0.55)) };
 
-        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters);
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogenyFromClusterSummaries(clusters, 0.0);
 
         Assert.Multiple(() =>
         {
@@ -404,7 +441,7 @@ public class OncologyAnalyzer_ReconstructPhylogenyClusterSummaries_Tests
             M(4, R(0, 0.3)),
         };
 
-        bool found = OncologyAnalyzer.TryReconstructPhylogenyFromClusterSummaries(clusters, out _);
+        bool found = OncologyAnalyzer.TryReconstructPhylogenyFromClusterSummaries(clusters, out _, 0.0);
 
         Assert.That(found, Is.False);
     }

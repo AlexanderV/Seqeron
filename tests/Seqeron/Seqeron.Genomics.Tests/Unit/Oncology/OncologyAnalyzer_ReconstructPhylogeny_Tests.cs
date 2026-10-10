@@ -140,18 +140,25 @@ public class OncologyAnalyzer_ReconstructPhylogeny_Tests
     // S3 — Strict (e=0) rejects the noisy edge. Same input; A.s1 (0.50) < B.s1 (0.55) violates Eq.2 under A, so the
     // root is B's only admissible parent — but then the root's children sum to 0.50+0.55 = 1.05 > 1.0 in sample 1
     // (Eq.5). No valid tree exists; LICHeE (lichee.jar, also with the complete network) reports none. The former greedy
-    // returned root->B anyway, violating Eq.5 (B24 F18).
+    // returned root->B anyway, violating Eq.5 (B24 F18). ε = 0 is explicit since the default became LICHeE's 0.1
+    // (B24 F44); at the default lichee.jar (-e 0.1) admits A->B (0.55 <= 0.5 + 0.1): 1 tree, error 0.050000000000000044.
     [Test]
     public void ReconstructPhylogeny_StrictRejectsNoisyEdge_NoValidTree()
     {
         var clusters = new[] { C(1, 0.50, 0.50), C(2, 0.55, 0.0) };
 
+        OncologyAnalyzer.ClonalPhylogeny atDefault = OncologyAnalyzer.ReconstructPhylogeny(clusters);
+
         Assert.Multiple(() =>
         {
-            Assert.That(OncologyAnalyzer.TryReconstructPhylogeny(clusters, out _), Is.False,
+            Assert.That(OncologyAnalyzer.TryReconstructPhylogeny(clusters, out _, tolerance: 0.0), Is.False,
                 "no spanning tree satisfies Eq.5 at e=0");
-            Assert.Throws<InvalidOperationException>(() => OncologyAnalyzer.ReconstructPhylogeny(clusters),
+            Assert.Throws<InvalidOperationException>(() => OncologyAnalyzer.ReconstructPhylogeny(clusters, tolerance: 0.0),
                 "ReconstructPhylogeny reports the absence of a valid tree instead of returning an invalid one");
+            Assert.That(atDefault.ParentOf(1), Is.EqualTo(atDefault.RootId), "default e = 0.1 (lichee.jar -e 0.1)");
+            Assert.That(atDefault.ParentOf(2), Is.EqualTo(1));
+            Assert.That(atDefault.ValidTreeCount, Is.EqualTo(1));
+            Assert.That(atDefault.ErrorScore, Is.EqualTo(0.050000000000000044));
         });
     }
 
@@ -202,22 +209,79 @@ public class OncologyAnalyzer_ReconstructPhylogeny_Tests
         });
     }
 
-    // Enumeration — 4 private single-sample clusters 0.05..0.053: 15 valid trees; LICHeE top tree is the chain
-    // root->D->C->B->A (lichee.jar "default 15 0.0 0:1 1:2 2:3 3:-1").
+    // Enumeration — 4 private single-sample clusters 0.05..0.053: at the default e = 0.1 lichee.jar (-e 0.1) finds 24
+    // valid trees (15 at e = 0) and ranks the chain root->D->C->B->A first in both cases (error 0; B24 F44 re-derivation).
     [Test]
     public void ReconstructPhylogeny_ManyValidTrees_CountAndTopTreeMatchLichee()
     {
         var clusters = new[] { C(1, 0.05), C(2, 0.051), C(3, 0.052), C(4, 0.053) };
 
         OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogeny(clusters);
+        OncologyAnalyzer.ClonalPhylogeny strict = OncologyAnalyzer.ReconstructPhylogeny(clusters, tolerance: 0.0);
 
         Assert.Multiple(() =>
         {
-            Assert.That(p.ValidTreeCount, Is.EqualTo(15));
+            Assert.That(p.ValidTreeCount, Is.EqualTo(24));
+            Assert.That(strict.ValidTreeCount, Is.EqualTo(15));
+            Assert.That(EdgeTuples(strict), Is.EqualTo(EdgeTuples(p)));
+            Assert.That(p.ErrorScore, Is.EqualTo(0.0));
             Assert.That(p.ParentOf(4), Is.EqualTo(p.RootId));
             Assert.That(p.ParentOf(3), Is.EqualTo(4));
             Assert.That(p.ParentOf(2), Is.EqualTo(3));
             Assert.That(p.ParentOf(1), Is.EqualTo(2));
+        });
+    }
+
+    // F44 (A21) — the default ε is LICHeE's -e default 0.1, also in cell-prevalence mode (-cp only sets VAF_MAX =
+    // MAX_ALLOWED_VAF = 1; LineageEngine option parsing, Parameters.VAF_ERROR_MARGIN = 0.1).
+    [Test]
+    public void DefaultPhylogenyTolerance_IsLicheeDefault()
+    {
+        OncologyAnalyzer.ClonalPhylogeny p = OncologyAnalyzer.ReconstructPhylogeny(new[] { C(1, 0.5, 0.5), C(2, 0.55, 0.0) });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.DefaultPhylogenyTolerance, Is.EqualTo(0.1));
+            Assert.That(p.Tolerance, Is.EqualTo(0.1));
+        });
+    }
+
+    // F44 (A22) — grow-call cap (LICHeE Parameters.MAX_NUM_GROW_CALLS, here reduced through the internal test hook).
+    // 7 clusters with presence profile 11, e = 0.05. lichee.jar driven by the harness with MAX_NUM_GROW_CALLS patched:
+    //   cap 40  -> 0 trees (default and ALL_EDGES networks both capped, fixNetwork removes nothing) -> no tree;
+    //   cap 80  -> 7 trees, error 0.07071067811865477, root->{1,7}, 1->{2,4}, 2->3, 4->5, 7->6;
+    //   cap 320 -> 17 trees, error 0.050000000000000044, root->{1,7}, 1->{2,4}, 2->3, 4->5, 5->6;
+    //   10^8    -> 176 trees, error 0, root->{1,6}, 1->{2,4}, 2->3, 4->5, 5->7.
+    // LICHeE's frame returns at the cap while its callers keep looping, but no further recursion (hence no tree) can
+    // happen, so the result is the best of the trees completed within the budget — as the port's immediate stop.
+    [TestCase(40, 0, double.NaN, new int[0])]
+    [TestCase(80, 7, 0.07071067811865477, new[] { -1, 1, 2, 1, 4, 7, -1 })]
+    [TestCase(320, 17, 0.050000000000000044, new[] { -1, 1, 2, 1, 4, 5, -1 })]
+    [TestCase(OncologyAnalyzer.MaxPhylogenyGrowCalls, 176, 0.0, new[] { -1, 1, 2, 1, 4, -1, 5 })]
+    public void GrowCallCap_ReturnsBestTreeWithinBudgetLikeLichee(int cap, int trees, double error, int[] parents)
+    {
+        var clusters = new[]
+        {
+            C(1, 0.9, 0.8), C(2, 0.5, 0.45), C(3, 0.4, 0.3), C(4, 0.3, 0.35),
+            C(5, 0.2, 0.25), C(6, 0.1, 0.15), C(7, 0.15, 0.1),
+        };
+
+        bool found = OncologyAnalyzer.TryReconstructPhylogeny(clusters, out OncologyAnalyzer.ClonalPhylogeny p, 0.05, cap);
+
+        if (trees == 0)
+        {
+            Assert.That(found, Is.False, "lichee.jar: no tree within the budget (default and complete network)");
+            return;
+        }
+
+        // parents[k] = parent of cluster k + 1 (-1 = root), from the jar's edge list.
+        Assert.Multiple(() =>
+        {
+            Assert.That(found, Is.True);
+            Assert.That(p.ValidTreeCount, Is.EqualTo(trees));
+            Assert.That(p.ErrorScore, Is.EqualTo(error));
+            Assert.That(Enumerable.Range(1, 7).Select(id => p.ParentOf(id) == p.RootId ? -1 : p.ParentOf(id)!.Value),
+                Is.EqualTo(parents));
         });
     }
 
@@ -380,7 +444,7 @@ public class OncologyAnalyzer_ReconstructPhylogeny_Tests
     public void IdentifyTrunkMutations_ClonalChainAndTolerance_FollowCcfCriterion()
     {
         var clonal = OncologyAnalyzer.ReconstructPhylogeny(new[] { C(1, 1.0, 1.0), C(2, 1.0, 1.0), C(3, 0.4, 0.0) });
-        var nearClonalStrict = OncologyAnalyzer.ReconstructPhylogeny(new[] { C(1, 0.97), C(2, 0.5) });
+        var nearClonalStrict = OncologyAnalyzer.ReconstructPhylogeny(new[] { C(1, 0.97), C(2, 0.5) }, tolerance: 0.0);
         var nearClonalNoisy = OncologyAnalyzer.ReconstructPhylogeny(new[] { C(1, 0.97), C(2, 0.5) }, tolerance: 0.05);
 
         Assert.Multiple(() =>

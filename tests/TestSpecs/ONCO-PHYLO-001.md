@@ -77,7 +77,7 @@
 | M8 | Single cluster | one cluster A=1.0 | Normal→A; trunk={A}; branches={} | Popic 2015 |
 | M9 | FP-exact sum rule | ε=0, A=[0.3,1.0], B=[0.2,0.2], C=[0,0.8] | A→{B,C} (former greedy: root→B violating Eq.5) | lichee.jar (B24 F18) |
 | M10 | Complete-network fallback | ε=0.02, 3-sample case (Evidence) | root→{A,B}, B→C; error 0.003292532308117998 | lichee.jar |
-| M11 | Tree count / top tree | 0.05..0.053 single sample | 15 trees; chain from 0.053 | lichee.jar |
+| M11 | Tree count / top tree | 0.05..0.053 single sample | default ε 0.1: 24 trees, ε 0: 15; chain from 0.053, error 0 | lichee.jar (re-derived at `-e 0.1`, F44) |
 | M12 | Trunk = CCF 1 | chain 1.0/0.5/0.25; two CCF-1 clusters; 0.97 with ε 0/0.05 | trunk {A}; both CCF-1; {} / {A} | Werner 2017 (B24 F19) |
 | M13 | `FromMembers` = LICHeE `recomputeCentroidAndStdDev` | t02150 / p1 member rows | centroid Σ/n, population SD bit-identical to the Java doubles (e.g. 0.5379999999999999 / 0.02654555832275271) | lichee.jar harness (B24 F42) |
 | M14 | Per-cluster margins flip orientation | p1 (ε 0.05, 4 samples) | margins: no valid tree; static: root→B→A, error 0.06928203230275505 | lichee.jar (F42) |
@@ -90,6 +90,9 @@
 | M22 | repeated removal | f6: A robust, B=[0.55,0], C=[0,0.55] singletons | removed [2,3], root→A | lichee.jar (F43) |
 | M23 | removal then ALL_EDGES | f3: F18 complete-network fixture + singleton D | removed [4], complete network, error 0.003292532308117998 | lichee.jar (F43) |
 | M24 | removal then none | f7 | Try false | lichee.jar (F43) |
+| M25 | Default ε = LICHeE 0.1 | `DefaultPhylogenyTolerance`; S3 input at the default | 0.1; root→A→B, 1 tree, error 0.050000000000000044 | `Parameters.VAF_ERROR_MARGIN`, `-cp` parsing (F44) |
+| M26 | Grow-call cap | c1 (7 clusters, ε 0.05) via the internal `maxGrowCalls` hook, caps 40/80/320/10⁸ | none / 7 trees err 0.07071067811865477 / 17 trees err 0.050000000000000044 / 176 trees err 0 + parents | lichee.jar with patched `MAX_NUM_GROW_CALLS` (F44) |
+| M27 | Fixtures at the default ε | t02150 / static t02150 / t00298 / f1 at 0.1 | see Evidence § F44 item 4 | lichee.jar `-e 0.1` (F44) |
 | M18 | Zero SD ≡ static | F18 complete-network fixture with SD 0 | identical edges / error / tree count | `getAAFErrorMargin` with sd 0 = ε (F42) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -98,7 +101,7 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | Empty input | no clusters | tree = root only; trunk={}, branches={} | boundary |
 | S2 | Tolerance admits near-violation | A=1.0, B=1.05 with ε=0.1 | B is child of A (1.0 ≥ 1.05−0.1) | Popic 2015 ϵ |
-| S3 | Tolerance ε=0 rejects | A=[0.5,0.5], B=[0.55,0] | no valid tree → `InvalidOperationException`, Try = false | LICHeE: none |
+| S3 | Tolerance ε=0 rejects | A=[0.5,0.5], B=[0.55,0], explicit ε 0 | no valid tree → `InvalidOperationException`, Try = false; at the default 0.1: root→A→B | LICHeE: none / 1 tree (F44) |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -185,7 +188,7 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Deepest-valid-ancestor + id tie-break for under-constrained placement | INV-5, M1–M3, determinism |
-| 2 | Default noise margin ε = 0 (configurable) | S2, S3 |
+| 2 | ~~Default noise margin ε = 0~~ — resolved by F44: default = LICHeE 0.1 | S2, S3, M25 |
 
 ---
 

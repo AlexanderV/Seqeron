@@ -86,6 +86,23 @@
 | f6 (0) | A [0.5,0.5]×2; B [0.55,0]×1; C [0,0.55]×1 | removed [2, 3]; root→A |
 | f7 (0) | A [0.5,0.5]×2; B [0.55,0]×1; C [0,0.55]×2; D [0,0.3]×1 | removed [2, 4]; complete network; no tree |
 
+### LICHeE default ε in `-cp` mode and the grow-call cap — opened 2026-10-10 (B24 F44)
+
+**Source:** same commit: `Parameters.java` (`VAF_ERROR_MARGIN = 0.1`, `VAF_MAX = 0.5`, `MAX_NUM_GROW_CALLS = 100000000`), `LineageEngine.java` option parsing l. 369–376 (`-cp`: `CP = true; VAF_MAX = 1.0; MAX_ALLOWED_VAF = 1.0`; `-e` only when given: `VAF_ERROR_MARGIN = parse(-e)`; option help "VAF error margin (default: 0.1)"), `PHYNetwork.grow` l. 443–530.
+
+1. **Default ε:** `-cp` does not touch `VAF_ERROR_MARGIN`, so LICHeE's CCF-input default is ε = 0.1. The library default `DefaultPhylogenyTolerance` is now 0.1 (was 0).
+2. **Cap:** `grow` increments `numGrowCalls` on entry; after a constraint-passing edge it returns when `numGrowCalls ≥ MAX_NUM_GROW_CALLS`, *without* undoing that edge or re-adding its `ff` edges, and its caller resumes after its own `grow(t)` (pop/restore, remove edge, bridge test, next stack edge). Every later recursion is behind the same check and the counter never decreases, so no further `grow` call is entered and no tree is added: `spanningTrees` = the trees completed in calls 1..cap (a tree completed *at* call cap is kept). The corrupted `t`/`edges` state is never read afterwards (`evaluateLineageTrees` scores the cloned trees; `fixNetwork`/`ALL_EDGES` build new networks with a fresh counter). The port's immediate stop is therefore result-equivalent.
+3. Harness `F4445Harness.java` (= F4243 + `MAX_NUM_GROW_CALLS` from `-Dcap`, a `ties` count and optional `HashMap` group order): input c1 (ε 0.05, 7 clusters × 2 identical robust members, profile 11: [0.9,0.8], [0.5,0.45], [0.4,0.3], [0.3,0.35], [0.2,0.25], [0.1,0.15], [0.15,0.1]):
+
+| cap | lichee.jar | parents of 1..7 (−1 = root) |
+|-----|------------|------------------------------|
+| 40 | 0 trees (default and `ALL_EDGES` searches both capped) | — |
+| 80 | 7 trees, error 0.07071067811865477 | −1, 1, 2, 1, 4, 7, −1 |
+| 320 | 17 trees, error 0.050000000000000044 | −1, 1, 2, 1, 4, 5, −1 |
+| 10⁸ | 176 trees (30 at the minimum), error 0 | −1, 1, 2, 1, 4, −1, 5 |
+
+4. Re-derived unit fixtures at the new default (jar `-e 0.1`): S3 [0.5,0.5]/[0.55,0] → 1 tree root→A→B, error 0.050000000000000044 (ε 0: none); 4 private 0.05…0.053 → 24 trees (15 at ε 0), same top chain; t02150 margins → default network, 1 tree, root→2, 2→{1,3}, error 0.016000000000000014 (static with the Java centroids: same); t00298 margins → complete network, 44 trees (28 at ε 0), same top tree; static t00298 → 6 trees (5), same top tree; f1 → nothing removed, root→1→2, error 0.050000000000000044; f2/f4/f4r → root→1→2, error 0.050000000000000044; f6 → root→1→{2,3}, f7 → root→1→{2,3}, 3→4, both error 0.07071067811865482; trunk fixtures unchanged ([1,1],[1,1],[0.4,0] → 2→1→3; [0.97],[0.5] → root→1→2). Fixtures whose purpose is ε = 0 (S3, F42 t02150/t00298, F43 f1–f7, the strict trunk case) now pass `tolerance: 0` explicitly — their ε = 0 jar values are unchanged.
+
 ### Werner B et al. (2017), *Sci Rep* 7:44991 — trunk definition (WebSearch snippet)
 
 "alterations that are in the trunk of the tree must be present in all cells of the tumour" ⇒ truncal ⇔ CCF = 1 in every sample.
@@ -162,7 +179,7 @@ Expected: with B and C both 0.6 they cannot both be children of the same parent 
 ## Assumptions
 
 1. **ASSUMPTION: Tie-break among equal-score trees** — LICHeE returns the first tree of its Gabow–Myers enumeration among those with the minimal error score; the enumeration order depends on node order, which LICHeE takes from a Java `HashMap` of presence profiles. This implementation visits profiles in order of first appearance in the input (within a profile: input order). (Superseded 2026-09-28: the former "deepest valid ancestor" greedy, which could return sum-rule-violating trees — B24 F18.)
-2. **ASSUMPTION: Noise margin ε = 0** — the cited sources relax the inequalities by a configurable ε (LICHeE ϵ; PICTograph ε₁=0.1, ε₂=0.2). Because the unit consumes already-clustered CCF point estimates (clustering, with its noise model, is ONCO-CCF-001), the default comparison uses ε = 0 (strict inequalities), exposed as an optional tolerance parameter so callers can supply the source defaults. Setting ε > 0 only widens admissibility; it never changes a strictly-satisfied relationship.
+2. ~~**ASSUMPTION: Noise margin ε = 0**~~ — superseded 2026-10-10 (B24 F44): the default is LICHeE's `-e` default 0.1 (also in `-cp` mode); `tolerance: 0` gives the strict inequalities.
 
 ---
 
@@ -194,3 +211,4 @@ Expected: with B and C both 0.6 they cannot both be children of the same parent 
 - **2026-09-28**: B24 F18/F19 — LICHeE reference code + jar cross-check; datasets corrected to LICHeE output; no-valid-tree case; CCF-based trunk (Werner 2017).
 - **2026-10-10**: B24 F42 — LICHeE per-cluster `1.96·sd/√n` edge margins (`getAAFErrorMargin`), jar-locked.
 - **2026-10-10**: B24 F43 — LICHeE `fixNetwork` (non-robust cluster removal, then `ALL_EDGES` on the reduced set), jar-locked.
+- **2026-10-10**: B24 F44 — default ε = LICHeE 0.1 (`-cp` keeps `VAF_ERROR_MARGIN`); post-10⁸-cap equivalence proof + reduced-cap jar locks; fixtures re-derived at `-e 0.1`.

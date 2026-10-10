@@ -12,12 +12,12 @@ public static partial class OncologyAnalyzer
     private const double RootCcf = 1.0;
 
     /// <summary>
-    /// Default noise margin ε for the lineage-precedence (Eq. 2) and sum-rule (Eq. 5) inequalities. LICHeE's default
-    /// (<c>-e</c>, <c>Parameters.VAF_ERROR_MARGIN</c>) is 0.1 and PICTograph uses ε₁=0.1, ε₂=0.2; this unit consumes
-    /// already-clustered CCF point estimates, so the library default is the strict ε = 0 and callers pass a positive
-    /// tolerance to reproduce the source defaults.
+    /// Default noise margin ε for the lineage-precedence (Eq. 2) and sum-rule (Eq. 5) inequalities — LICHeE's default
+    /// <c>-e</c> = <c>Parameters.VAF_ERROR_MARGIN</c> = 0.1, which also applies in cell-prevalence mode (<c>-cp</c> only
+    /// sets <c>VAF_MAX</c> = <c>MAX_ALLOWED_VAF</c> = 1; <c>LineageEngine</c> option parsing, github.com/viq854/lichee).
+    /// Pass 0 for the strict inequalities.
     /// </summary>
-    public const double DefaultPhylogenyTolerance = 0.0;
+    public const double DefaultPhylogenyTolerance = 0.1;
 
     /// <summary>
     /// Maximum number of valid spanning trees enumerated before the search stops — LICHeE
@@ -28,7 +28,9 @@ public static partial class OncologyAnalyzer
     /// <summary>
     /// Maximum number of recursive <c>grow</c> calls of the Gabow–Myers spanning-tree enumeration — LICHeE
     /// <c>Parameters.MAX_NUM_GROW_CALLS</c> = 10⁸. When the budget is exhausted the enumeration stops and the best tree
-    /// found so far is returned.
+    /// found so far is returned. LICHeE's <c>grow</c> returns from the frame that hit the cap and its callers keep looping
+    /// over their remaining stack edges, but a recursion is only entered below the cap, so no tree is added after it:
+    /// the tree list — and hence the ranking — equals the trees completed within the first 10⁸ calls, as here.
     /// </summary>
     public const int MaxPhylogenyGrowCalls = 100_000_000;
 
@@ -137,7 +139,7 @@ public static partial class OncologyAnalyzer
     /// <c>HashMap</c>), which fixes the enumeration order and therefore the tie-break among equal-score trees.
     /// </summary>
     /// <param name="clusters">CCF clusters to place; each cluster's <see cref="CcfCluster.CcfPerSample"/> must have the same length.</param>
-    /// <param name="tolerance">Noise margin ε for both inequalities; default <see cref="DefaultPhylogenyTolerance"/> (0).</param>
+    /// <param name="tolerance">Noise margin ε for both inequalities; default <see cref="DefaultPhylogenyTolerance"/> (0.1, LICHeE <c>-e</c>).</param>
     /// <returns>The top-ranking <see cref="ClonalPhylogeny"/> rooted at a synthetic normal node.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="clusters"/> or any cluster's CCF list is null.</exception>
     /// <exception cref="ArgumentException">CCF lists differ in length, are empty, or contain NaN / out-of-[0,1] values; or two clusters share an id.</exception>
@@ -187,6 +189,29 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Test hook: <see cref="TryReconstructPhylogeny"/> with the grow-call budget <paramref name="maxGrowCalls"/> instead of
+    /// <see cref="MaxPhylogenyGrowCalls"/> (LICHeE <c>Parameters.MAX_NUM_GROW_CALLS</c>), to lock the post-cap result.
+    /// </summary>
+    internal static bool TryReconstructPhylogeny(
+        IReadOnlyList<CcfCluster> clusters,
+        out ClonalPhylogeny phylogeny,
+        double tolerance,
+        int maxGrowCalls)
+    {
+        ArgumentNullException.ThrowIfNull(clusters);
+        ValidatePhylogenyTolerance(tolerance);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxGrowCalls, 1);
+        if (clusters.Count == 0)
+        {
+            return TryReconstructPhylogeny(clusters, out phylogeny, tolerance);
+        }
+
+        int sampleCount = ValidateAndGetSampleCount(clusters);
+        return TryReconstructLichee(
+            clusters, sampleCount, tolerance, standardErrors: null, memberCounts: null, robust: null, out phylogeny, maxGrowCalls);
+    }
+
+    /// <summary>
     /// LICHeE <c>LineageEngine.buildLineage</c> steps 4–6 on validated clusters: constraint network, tree search,
     /// network adjustment, ranking. <paramref name="standardErrors"/> = per-cluster <c>1.96·sd/√n</c> (null = static ε).
     /// When no tree exists: with <paramref name="memberCounts"/>/<paramref name="robust"/> supplied, LICHeE's
@@ -201,14 +226,15 @@ public static partial class OncologyAnalyzer
         double[][]? standardErrors,
         int[]? memberCounts,
         bool[]? robust,
-        out ClonalPhylogeny phylogeny)
+        out ClonalPhylogeny phylogeny,
+        int maxGrowCalls = MaxPhylogenyGrowCalls)
     {
         int rootId = RootIdFor(clusters);
         var nodeOrder = new List<int>(LicheeNodeOrder(clusters, sampleCount));
         var removed = new List<int>();
         bool usedComplete = false;
         LicheeSearchResult result = new LicheeNetwork(
-            clusters, sampleCount, tolerance, completeNetwork: false, nodeOrder, standardErrors).Search();
+            clusters, sampleCount, tolerance, completeNetwork: false, nodeOrder, standardErrors, maxGrowCalls).Search();
         if (result.TreeCount == 0 && memberCounts is not null && robust is not null)
         {
             // fixNetwork: iterate nodes in id order, keep the first non-robust cluster of strictly smallest size.
@@ -231,7 +257,7 @@ public static partial class OncologyAnalyzer
                 nodeOrder.Remove(toRemove);
                 removed.Add(clusters[toRemove].Id);
                 result = new LicheeNetwork(
-                    clusters, sampleCount, tolerance, completeNetwork: false, nodeOrder, standardErrors).Search();
+                    clusters, sampleCount, tolerance, completeNetwork: false, nodeOrder, standardErrors, maxGrowCalls).Search();
             }
         }
 
@@ -239,7 +265,7 @@ public static partial class OncologyAnalyzer
         {
             usedComplete = true;
             result = new LicheeNetwork(
-                clusters, sampleCount, tolerance, completeNetwork: true, nodeOrder, standardErrors).Search();
+                clusters, sampleCount, tolerance, completeNetwork: true, nodeOrder, standardErrors, maxGrowCalls).Search();
         }
 
         if (result.TreeCount == 0)
@@ -602,6 +628,7 @@ public static partial class OncologyAnalyzer
         private readonly int[] _clusterIndex;
         private readonly SortedDictionary<int, List<int>> _levels = new();
         private readonly List<int>[] _net;
+        private readonly int _maxGrowCalls;
 
         // Search state (LICHeE grow): f stack, working tree t (= L after the first complete tree).
         private readonly List<(int From, int To)> _f = new();
@@ -622,14 +649,17 @@ public static partial class OncologyAnalyzer
         /// presence profile, see <see cref="LicheeNodeOrder"/>); clusters not listed are absent (removed by fixNetwork).</param>
         /// <param name="standardErrors">Per input cluster and sample, LICHeE's <c>1.96·sd/√n</c> (null = static ε,
         /// i.e. every cluster's standard error is 0).</param>
+        /// <param name="maxGrowCalls">Grow-call budget (<see cref="MaxPhylogenyGrowCalls"/>; smaller only from the test hook).</param>
         public LicheeNetwork(
             IReadOnlyList<CcfCluster> clusters,
             int samples,
             double eps,
             bool completeNetwork,
             IReadOnlyList<int> nodeOrder,
-            double[][]? standardErrors)
+            double[][]? standardErrors,
+            int maxGrowCalls)
         {
+            _maxGrowCalls = maxGrowCalls;
             _samples = samples;
             _eps = eps;
             _nodeCount = nodeOrder.Count + 1;
@@ -973,7 +1003,9 @@ public static partial class OncologyAnalyzer
 
                     _f.RemoveAll(edgesRemoved.Contains);
 
-                    if (_growCalls >= MaxPhylogenyGrowCalls)
+                    // LICHeE returns from this frame only; its callers keep looping but can never recurse again
+                    // (the counter stays ≥ the cap), so no further tree is found — stopping here is equivalent.
+                    if (_growCalls >= _maxGrowCalls)
                     {
                         _stop = true;
                         return;
