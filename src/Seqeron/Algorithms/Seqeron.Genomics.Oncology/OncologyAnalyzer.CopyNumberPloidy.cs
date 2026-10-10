@@ -3425,6 +3425,176 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Male X non-PAR germline re-genotyping of <c>ascat.aspcf</c> / <c>ascat.asmultipcf</c> (VanLoo-lab/ascat
+    /// ascat.aspcf.R, ascat.asmultipcf.R, B24 F58). It applies only when <see cref="SexModel"/> is
+    /// <see cref="AscatGender.XY"/> with an <see cref="AscatSexModel.XNonPar"/> interval
+    /// (<c>!is.null(X_nonPAR) &amp;&amp; gender == "XY"</c>); otherwise the caller's genotypes are used unchanged. ASCAT then
+    /// takes the X probes (label "X", optional "chr" prefix, case-insensitive as in <see cref="AscatSexModel"/>) whose
+    /// position lies in the closed non-PAR interval and whose genotype is known; if there are more than 5, it marks all of
+    /// them homozygous and re-marks k = <c>round(m · h_auto)</c> of the m probes heterozygous, h_auto = the heterozygous
+    /// fraction of the autosomal probes (every label other than X and Y; R <c>table(gg[autosomes])</c>), R half-even
+    /// rounding:
+    /// <list type="bullet">
+    /// <item>with <see cref="GermlineBaf"/> (ASCAT <c>Germline_BAF</c>): the k probes of smallest
+    /// <c>DIST = 1 − max(b, 1 − b)</c> (distance of the germline BAF to 0/1), ties broken at random —
+    /// <c>rank(DIST, ties.method = "random") ≤ k</c>, which R computes as <c>sort.list(order(DIST, runif(m)))</c>;</item>
+    /// <item>without it (ASCAT <c>Germline_BAF = NULL</c>, genotypes from <c>ascat.gg</c>): <c>sample(nonPAR_index, k)</c>.</item>
+    /// </list>
+    /// Draws come from R's default generator seeded by <c>set.seed(<see cref="Seed"/>)</c> (Mersenne-Twister, R ≥ 3.6
+    /// "Rejection" sampling — the same port as the Battenberg bootstrap). ASCAT's default seed is
+    /// <c>as.integer(Sys.time())</c> (the Unix time in whole seconds), so an R run is reproducible only with an explicit
+    /// seed; a null seed here mirrors that default. One call consumes the stream of one ASCAT call on one male sample (for
+    /// <c>ascat.aspcf</c> over several male samples R continues the same stream from sample to sample).
+    /// </summary>
+    public sealed record AscatMaleXGenotyping
+    {
+        /// <summary>Creates the re-genotyping settings.</summary>
+        /// <param name="sexModel">Sex model; re-genotyping runs only for <see cref="AscatGender.XY"/> with an X non-PAR interval.</param>
+        /// <param name="seed">R <c>set.seed</c> value (ASCAT <c>seed</c>); null = <see cref="DefaultSeed"/> (ASCAT's
+        /// <c>as.integer(Sys.time())</c>).</param>
+        /// <param name="germlineBaf">Optional germline BAF per locus (ASCAT <c>Germline_BAF</c>, first column), each in
+        /// [0, 1] or NaN (NaN = genotype unknown, as ASCAT's <c>gg = Germline_BAF &lt; 0.3 | Germline_BAF &gt; 0.7</c> is NA
+        /// there: the locus is left out of the non-PAR selection and of the autosomal fraction). Null selects ASCAT's
+        /// <c>sample()</c> branch.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="sexModel"/> is null.</exception>
+        /// <exception cref="ArgumentException">A germline BAF is outside [0, 1] (and not NaN).</exception>
+        public AscatMaleXGenotyping(AscatSexModel sexModel, int? seed = null, IReadOnlyList<double>? germlineBaf = null)
+        {
+            ArgumentNullException.ThrowIfNull(sexModel);
+            if (germlineBaf is not null)
+            {
+                foreach (double b in germlineBaf)
+                {
+                    if (!double.IsNaN(b) && b is not (>= 0.0 and <= 1.0))
+                    {
+                        throw new ArgumentException("Every germline BAF must be in [0, 1] or NaN.", nameof(germlineBaf));
+                    }
+                }
+            }
+
+            SexModel = sexModel;
+            Seed = seed ?? DefaultSeed();
+            GermlineBaf = germlineBaf;
+        }
+
+        /// <summary>The sex model (gender and X non-PAR interval).</summary>
+        public AscatSexModel SexModel { get; }
+
+        /// <summary>The R <c>set.seed</c> value.</summary>
+        public int Seed { get; }
+
+        /// <summary>The germline BAF per locus, or null (ASCAT's <c>sample()</c> branch).</summary>
+        public IReadOnlyList<double>? GermlineBaf { get; }
+
+        /// <summary>ASCAT's default <c>seed = as.integer(Sys.time())</c>: the current Unix time in whole seconds.</summary>
+        public static int DefaultSeed() => unchecked((int)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+        /// <summary>True when ASCAT re-genotypes (<c>!is.null(X_nonPAR) &amp;&amp; gender == "XY"</c>).</summary>
+        internal bool IsActive => SexModel.Gender == AscatGender.XY && SexModel.XNonPar is not null;
+    }
+
+    /// <summary>
+    /// Applies <see cref="AscatMaleXGenotyping"/> to <paramref name="het"/> in place (ascat.aspcf.R ll. 51–70,
+    /// ascat.asmultipcf.R ll. 44–63, verbatim order of random draws). No-op when <paramref name="spec"/> is null or inactive.
+    /// </summary>
+    private static void RegenotypeMaleXNonPar(AlleleSpecificLocus[] loci, bool[] het, AscatMaleXGenotyping? spec, string paramName)
+    {
+        if (spec is null || !spec.IsActive)
+        {
+            return;
+        }
+
+        IReadOnlyList<double>? gbaf = spec.GermlineBaf;
+        if (gbaf is not null && gbaf.Count != loci.Length)
+        {
+            throw new ArgumentException("Exactly one germline BAF is required per locus.", paramName);
+        }
+
+        (long start, long end) = spec.SexModel.XNonPar!.Value;
+        var nonPar = new List<int>();
+        int autosomal = 0;
+        int autosomalHet = 0;
+        for (int i = 0; i < loci.Length; i++)
+        {
+            bool known = gbaf is null || !double.IsNaN(gbaf[i]);
+            ReadOnlySpan<char> name = StripChrPrefix(loci[i].Chromosome.AsSpan().Trim());
+            bool isX = name.Equals("X", StringComparison.OrdinalIgnoreCase);
+            if (isX)
+            {
+                if (known && loci[i].Position >= start && loci[i].Position <= end)
+                {
+                    nonPar.Add(i);
+                }
+            }
+            else if (known && !name.Equals("Y", StringComparison.OrdinalIgnoreCase))
+            {
+                autosomal++;
+                if (het[i])
+                {
+                    autosomalHet++;
+                }
+            }
+        }
+
+        int m = nonPar.Count;
+        if (m <= 5)
+        {
+            return;
+        }
+
+        foreach (int i in nonPar)
+        {
+            het[i] = false;
+        }
+
+        var rng = new RMersenneTwister(spec.Seed);
+        if (gbaf is not null)
+        {
+            // DIST = 1 - max(x, 1 - x); rank(DIST, ties.method = "random") = sort.list(order(DIST, runif(m))).
+            var dist = new double[m];
+            var tieBreak = new double[m];
+            for (int t = 0; t < m; t++)
+            {
+                double x = gbaf[nonPar[t]];
+                dist[t] = 1.0 - (x > 0.5 ? x : 1.0 - x);
+            }
+
+            for (int t = 0; t < m; t++)
+            {
+                tieBreak[t] = rng.UnifRand();
+            }
+
+            if (autosomalHet == 0)
+            {
+                return; // autosomes_info["FALSE"] is NA: rank(...) <= NA selects nothing.
+            }
+
+            int k = (int)Math.Round(m * ((double)autosomalHet / autosomal), MidpointRounding.ToEven);
+            int[] order = Enumerable.Range(0, m)
+                .OrderBy(t => dist[t]).ThenBy(t => tieBreak[t]).ThenBy(t => t)
+                .ToArray();
+            for (int r = 0; r < k; r++)
+            {
+                het[nonPar[order[r]]] = true;
+            }
+        }
+        else
+        {
+            if (autosomalHet == 0)
+            {
+                throw new ArgumentException(
+                    "No heterozygous autosomal locus: ASCAT's sample(nonPAR_index, NA) fails (invalid 'size' argument).", paramName);
+            }
+
+            int k = (int)Math.Round(m * ((double)autosomalHet / autosomal), MidpointRounding.ToEven);
+            foreach (int t in rng.SampleWithoutReplacement(m, k))
+            {
+                het[nonPar[t]] = true;
+            }
+        }
+    }
+
+    /// <summary>
     /// Segments per-locus allele-specific signal (logR, BAF) into contiguous regions, producing one
     /// (mean logR, mirrored BAF) summary per segment, by running the published ASCAT allele-specific segmentation
     /// (<c>ascat.aspcf</c>, VanLoo-lab/ascat ascat.aspcf.R; Nilsen et al. 2012, <i>BMC Genomics</i> 13:591; Ross et al.
@@ -4259,9 +4429,10 @@ public static partial class OncologyAnalyzer
     /// <paramref name="sexModel"/> (see <see cref="AscatSexModel"/>). For the X non-PAR rule a segment's span is its
     /// first/last probe position (<see cref="AspcfSegment.Start"/>/<see cref="AspcfSegment.End"/>, i.e. the run of
     /// equal segmented logR that <c>diploidprobes_fixnonPAR</c> builds with <c>rle</c>).
-    /// <para>Not ported: for a male with <c>X_nonPAR</c>, <c>ascat.aspcf</c> additionally re-labels the germline
-    /// genotypes of non-PAR X probes (all homozygous, then a random autosome-matched fraction heterozygous); here the
-    /// caller's <see cref="AspcfSegmentation.GermlineHeterozygous"/> flags are used as given.</para>
+    /// <para>For a male with <c>X_nonPAR</c>, <c>ascat.aspcf</c> additionally re-labels the germline genotypes of non-PAR X
+    /// probes (all homozygous, then a random autosome-matched fraction heterozygous); that step belongs to the
+    /// segmentation — run <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, AscatMaleXGenotyping, double)"/>
+    /// (B24 F58). The fit uses <see cref="AspcfSegmentation.GermlineHeterozygous"/> as given.</para>
     /// </summary>
     /// <param name="segmentation">The germline-aware ASPCF segmentation.</param>
     /// <param name="sexModel">Sex-chromosome model; <see cref="AscatSexModel.Female"/> reproduces the gender-less overload.</param>
@@ -5325,6 +5496,41 @@ public static partial class OncologyAnalyzer
         IEnumerable<AlleleSpecificLocus> loci,
         IReadOnlyList<bool> germlineHeterozygous,
         double penalty = AspcfDefaultPenalty)
+        => SegmentAlleleSpecificAspcfCore(loci, germlineHeterozygous, null, penalty);
+
+    /// <summary>
+    /// <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/> with ASCAT's
+    /// male X non-PAR germline re-genotyping (<c>ascat.aspcf(…, seed)</c> with <c>gender = "XY"</c> and <c>X_nonPAR</c>,
+    /// B24 F58; see <see cref="AscatMaleXGenotyping"/>). As in ascat.aspcf, the germline-homozygous stretches are predicted
+    /// from the caller's genotypes <i>before</i> the re-genotyping, and the segmentation then uses the re-genotyped flags
+    /// (returned in <see cref="AspcfSegmentation.GermlineHeterozygous"/>; a re-genotyped heterozygous locus needs a BAF in
+    /// [0, 1]). With an inactive <paramref name="maleX"/> (female, or no X non-PAR interval) the result equals the
+    /// three-argument overload.
+    /// </summary>
+    /// <param name="loci">See the three-argument overload.</param>
+    /// <param name="germlineHeterozygous">The caller's germline genotypes (true = heterozygous), before re-genotyping.</param>
+    /// <param name="maleX">Sex model, seed and optional germline BAF.</param>
+    /// <param name="penalty">ASPCF penalty (default <see cref="AspcfDefaultPenalty"/> = 70).</param>
+    /// <returns>The per-locus segmented logR/BAF (with the re-genotyped genotypes) and the runASCAT logR segments.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">As the three-argument overload; also a germline-BAF count other than one per
+    /// locus, or (without germline BAF) no heterozygous autosomal locus while re-genotyping (R's <c>sample()</c> fails).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0, NaN or infinite.</exception>
+    public static AspcfSegmentation SegmentAlleleSpecificAspcf(
+        IEnumerable<AlleleSpecificLocus> loci,
+        IReadOnlyList<bool> germlineHeterozygous,
+        AscatMaleXGenotyping maleX,
+        double penalty = AspcfDefaultPenalty)
+    {
+        ArgumentNullException.ThrowIfNull(maleX);
+        return SegmentAlleleSpecificAspcfCore(loci, germlineHeterozygous, maleX, penalty);
+    }
+
+    private static AspcfSegmentation SegmentAlleleSpecificAspcfCore(
+        IEnumerable<AlleleSpecificLocus> loci,
+        IReadOnlyList<bool> germlineHeterozygous,
+        AscatMaleXGenotyping? maleX,
+        double penalty)
     {
         ArgumentNullException.ThrowIfNull(loci);
         ArgumentNullException.ThrowIfNull(germlineHeterozygous);
@@ -5353,11 +5559,6 @@ public static partial class OncologyAnalyzer
             {
                 throw new ArgumentException("Every locus needs a finite logR.", nameof(loci));
             }
-
-            if (het[i] && !IsValidAlleleSignal(probes[i].LogR, probes[i].BAF))
-            {
-                throw new ArgumentException("Every heterozygous locus needs a BAF in [0, 1].", nameof(loci));
-            }
         }
 
         int n = probes.Length;
@@ -5368,7 +5569,17 @@ public static partial class OncologyAnalyzer
         }
 
         List<(int Lo, int Hi)> runs = ContiguousChromosomeRuns(probes);
+
+        // ascat.aspcf: ghs = predictGermlineHomozygousStretches(chr, gg) precedes the male X non-PAR re-genotyping.
         List<(int Run, int Start, int End)> stretches = PredictGermlineHomozygousStretches(runs, het);
+        RegenotypeMaleXNonPar(probes, het, maleX, nameof(maleX));
+        for (int i = 0; i < n; i++)
+        {
+            if (het[i] && !IsValidAlleleSignal(probes[i].LogR, probes[i].BAF))
+            {
+                throw new ArgumentException("Every heterozygous locus needs a BAF in [0, 1].", nameof(loci));
+            }
+        }
 
         var ladder = new List<double> { penalty };
         foreach (double p in AspcfPenaltyLadder)
@@ -6000,6 +6211,11 @@ public static partial class OncologyAnalyzer
         /// <summary>ASCAT <c>refine</c> (default true): re-segment each sample on the joint breakpoints with penalty γ/S, so a
         /// breakpoint not supported by that sample is removed from it.</summary>
         public bool Refine { get; init; } = true;
+
+        /// <summary>ASCAT's male X non-PAR germline re-genotyping (<c>gender[1] == "XY"</c> with <c>X_nonPAR</c>, <c>seed</c>,
+        /// <c>Germline_BAF[, 1]</c>; B24 F58, see <see cref="AscatMaleXGenotyping"/>), applied to the one germline before
+        /// segmentation. Null (default) = the caller's genotypes are used as given.</summary>
+        public AscatMaleXGenotyping? MaleXGenotyping { get; init; }
     }
 
     /// <summary>
@@ -6026,8 +6242,9 @@ public static partial class OncologyAnalyzer
     /// penalty) is climbed while any sample has ≥ 800 distinct levels.</item>
     /// </list>
     /// Unlike <c>ascat.aspcf</c>, homozygous stretches are not re-segmented (they take part in the joint logR segmentation
-    /// from the start). The male-only <c>X_nonPAR</c> random re-genotyping is not ported (the caller's genotypes are used as
-    /// given), and missing logR/BAF values are not accepted (R gives them weight 0).
+    /// from the start). The male-only <c>X_nonPAR</c> random re-genotyping runs when
+    /// <see cref="AsMultiPcfOptions.MaleXGenotyping"/> is set (B24 F58; otherwise the caller's genotypes are used as given),
+    /// and missing logR/BAF values are not accepted (R gives them weight 0).
     /// <para>R fails (<c>bafna[homo, ] &lt;- NA</c>: "incorrect number of subscripts on matrix") with a single sample or a
     /// single-probe chromosome part, because <c>Tumor_LogR[chr[[k]], ]</c> drops to a vector; both are rejected here.
     /// For one sample use <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/>.</para>
@@ -6103,6 +6320,19 @@ public static partial class OncologyAnalyzer
             {
                 het[i] = germlineHeterozygous[i];
             }
+        }
+
+        if (options.MaleXGenotyping is not null)
+        {
+            foreach (AlleleSpecificLocus locus in probes[0])
+            {
+                if (locus.Chromosome is null)
+                {
+                    throw new ArgumentException("A locus has a null chromosome label.", nameof(samples));
+                }
+            }
+
+            RegenotypeMaleXNonPar(probes[0], het, options.MaleXGenotyping, nameof(options));
         }
 
         ValidateAsMultiPcfProbes(probes, het);
@@ -7442,6 +7672,28 @@ public static partial class OncologyAnalyzer
             while (n <= dv);
 
             return (int)dv;
+        }
+
+        /// <summary>R <c>sample.int(n, k)</c> without replacement (random.c <c>do_sample</c>, equal probabilities,
+        /// n ≤ 1e7): <c>x = 0..n−1</c>; k times <c>j = R_unif_index(n); y[i] = x[j]; x[j] = x[--n]</c>. 0-based indices in
+        /// draw order.</summary>
+        public int[] SampleWithoutReplacement(int n, int k)
+        {
+            var x = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                x[i] = i;
+            }
+
+            var y = new int[k];
+            for (int i = 0; i < k; i++)
+            {
+                int j = UnifIndex(n);
+                y[i] = x[j];
+                x[j] = x[--n];
+            }
+
+            return y;
         }
 
         private double Genrand()

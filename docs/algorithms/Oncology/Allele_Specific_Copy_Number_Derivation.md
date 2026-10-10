@@ -296,6 +296,7 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 - `OncologyAnalyzer.EvaluatePurityPloidy(...)`: ASCAT rho_manual/psi_manual path.
 - `OncologyAnalyzer.FitPurityPloidyFromAspcf(...)` / `TryFitPurityPloidyFromAspcf(...)` / `EvaluatePurityPloidyFromAspcf(...)`: runASCAT on a germline-aware `AspcfSegmentation` (homozygous segments, all-probe ploidy; B24 F37).
 - `AscatSexModel` / `AscatGender` + an `AscatSexModel` overload of each of the six fit entry points above: runASCAT `gender` / `X_nonPAR` (B24 F38).
+- `AscatMaleXGenotyping(sexModel, seed?, germlineBaf?)` with `SegmentAlleleSpecificAspcf(loci, germlineHeterozygous, maleX, penalty)` and `AsMultiPcfOptions.MaleXGenotyping`: the male `X_nonPAR` germline re-genotyping of `ascat.aspcf` / `ascat.asmultipcf` (`set.seed(seed)`; `rank(DIST, ties.method = "random")` with germline BAF, `sample()` without), reusing the private `RMersenneTwister` (B24 F58).
 - `OncologyAnalyzer.DeriveMultiplicity(...)`: McGranahan multiplicity (rounded, clamped).
 - `OncologyAnalyzer.FitSubclonalCopyNumber(...)`: Battenberg `determine_copynumber` (nearest edge, τ, maxdist).
 - `OncologyAnalyzer.FitSubclonalCopyNumberWithSnpTest(SubclonalSegmentSnpBafs[], ρ, ψ, γ, siglevel = 0.05, maxdist = 0.01)` →
@@ -347,9 +348,12 @@ suffix tree is **not used** (no occurrence enumeration).
   `SegmentAlleleSpecificAspcf` overload). ~~The gender-specific haploid X/Y model is not available; sex-chromosome
   segments are … emitted with the diploid (gender "XX") model~~ — **resolved by F38** (`AscatSexModel` overloads:
   runASCAT `gender = "XY"` haploid X/Y, `X_nonPAR` > 50 % overlap rule, ASCAT hg19/hg38/CHM13 constants; R-verified on
-  3 male genomes, 14 runs). Sex-chromosome segments are still excluded from the fit, exactly as in ASCAT. Not ported:
-  the male-only `X_nonPAR` germline re-genotyping inside `ascat.aspcf` (random draw) — the caller's genotype flags are
-  used as given.
+  3 male genomes, 14 runs). Sex-chromosome segments are still excluded from the fit, exactly as in ASCAT. ~~Not ported:
+  the male-only `X_nonPAR` germline re-genotyping inside `ascat.aspcf` (random draw)~~ — **resolved by F58**
+  (`AscatMaleXGenotyping`: all non-PAR X probes homozygous, then `round(m · h_auto)` re-marked heterozygous — the
+  smallest germline-BAF distance to 0/1 with R's runif tie-break, or `sample()` without germline BAF — from R's seeded
+  Mersenne-Twister; R-verified on 4 aspcf tracks and 3 asmultipcf cohorts: selected probes identical, segments identical,
+  levels ≤ 1e−12).
 - Sub-clonal fit: ~~a summary carries no per-SNP BAF spread, so Battenberg's t-test cannot be run~~ — **resolved by
   F39** (`FitSubclonalCopyNumberWithSnpTest` takes the phased SNP BAFs; the summary overload still decides by maxdist,
   exactly Battenberg's result for constant BAF). Where R's `t.test` would stop ("data are essentially constant") and
@@ -367,7 +371,8 @@ suffix tree is **not used** (no occurrence enumeration).
 **Not implemented:**
 
 - ~~Multi-sample (asmultipcf) segmentation~~ — **resolved by F53** (`SegmentAlleleSpecificAsMultiPcf`). Not ported from
-  it: the male-only `X_nonPAR` random re-genotyping and missing (NA) logR/BAF values (R gives them weight 0; the port
+  it: missing (NA) logR/BAF values (the male-only `X_nonPAR` random re-genotyping is available since F58,
+  `AsMultiPcfOptions.MaleXGenotyping`) (R gives them weight 0; the port
   requires complete data). The former "whole-genome-doubling refit search" item was removed: ASCAT has no such
   procedure (`grep -rniE "wgd|whole.?genome.?doubl|refit" ASCAT/R` finds only the `ascat.metrics` WGD status, ported in
   F30), so it had no reference counterpart.
@@ -377,7 +382,7 @@ suffix tree is **not used** (no occurrence enumeration).
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | ~~Greedy mean-shift segmentation retained alongside ASPCF~~ | Deviation | — | **resolved (B24 F35)** | `SegmentAlleleSpecific` now delegates to ASPCF (`ascat.aspcf`, penalty 70) [2]; legacy thresholds ignored |
-| 2 | Segment summaries instead of probes | Assumption | ~~no homozygous-probe logR~~ (resolved F36), ~~no haploid X/Y model~~ (resolved F38) | **resolved (B24 F36/F38)** | see §5.3; only the aspcf-side random male non-PAR re-genotyping is not ported |
+| 2 | Segment summaries instead of probes | Assumption | ~~no homozygous-probe logR~~ (resolved F36), ~~no haploid X/Y model~~ (resolved F38) | **resolved (B24 F36/F38)** | see §5.3; the male non-PAR re-genotyping is ported too (F58) |
 | 3 | ~~No per-SNP t-test in the sub-clonal fit~~ | Assumption | ~~clonality by maxdist only~~ | **resolved (B24 F39)** | `FitSubclonalCopyNumberWithSnpTest` runs Battenberg's `t.test(BAFke, mu = test.level)`; the summary overload is Battenberg's constant-BAF branch [8] |
 | 4 | ~~`PurityPloidyFit.Ploidy` = probe-weighted mean integer CN over heterozygous probes~~ | Assumption | ASCAT averages over all probes | **resolved (B24 F37)** | `FitPurityPloidyFromAspcf` averages over all probes; summary-based `FitPurityPloidy` has only heterozygous loci, where both coincide |
 
@@ -412,7 +417,9 @@ logR and BAF are observed measurements and are always a caller input — this is
 derivation. The unit works on heterozygous-locus segment summaries (germline-homozygous probes: use the germline-aware
 ASPCF overload, F36); the haploid X/Y (male) model is available through `AscatSexModel` (F38). Battenberg's per-SNP t-test is available through
 `FitSubclonalCopyNumberWithSnpTest` (F39; phased SNP BAFs supplied by the caller). Multi-sample segmentation is available
-through `SegmentAlleleSpecificAsMultiPcf` (`ascat.asmultipcf`, F53; complete logR/BAF only). Battenberg's built-in haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes reference panel —
+through `SegmentAlleleSpecificAsMultiPcf` (`ascat.asmultipcf`, F53; complete logR/BAF only). ASCAT's male `X_nonPAR`
+germline re-genotyping is available through `AscatMaleXGenotyping` (F58); it is random, so it reproduces R only for an
+explicit seed (ASCAT's default seed is `as.integer(Sys.time())`). Battenberg's built-in haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes reference panel —
 external executables and a multi-GB reference bundle) is out of scope; the downstream phased path is available
 (`SegmentPhasedBaf` → `BuildBattenbergSegments` → `FitSubclonalCopyNumberWithSnpTest`, F40) on caller-phased BAFs; alternative
 solutions B–F and the seeded bootstrap CIs are available through `FitSubclonalCopyNumberWithBootstrap` (F41). Battenberg's
@@ -450,6 +457,7 @@ var ccf = OncologyAnalyzer.EstimateCcf(0.40, fit.Purity,
 - Tests: [OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BattenbergPhasedSegmentation_Tests.cs) — `segment.baf.phased` on 6 tracks + end-to-end `determine_copynumber` (F40), R-locked; [StatisticsHelper_QuantileType7_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/StatisticsHelper_QuantileType7_Tests.cs) (F40)
 - Tests: [OncologyAnalyzer_BattenbergBootstrap_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BattenbergBootstrap_Tests.cs) — solutions A–F, SDfrac, bootstrap CIs (F41), R-locked + Monte-Carlo agreement
 - Tests: [OncologyAnalyzer_AscatAsMultiPcf_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatAsMultiPcf_Tests.cs) — multi-sample `ascat.asmultipcf` (F53), R-locked on 5 cohorts / 14 runs
+- Tests: [OncologyAnalyzer_AscatMaleXNonPar_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatMaleXNonPar_Tests.cs) — male X non-PAR re-genotyping in aspcf / asmultipcf (F58), R-locked on 7 tracks
 - Tests: [OncologyAnalyzer_AscatSexChromosome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatSexChromosome_Tests.cs) — male haploid X/Y, X non-PAR, XX default (F38), R-locked
 - Evidence: [ONCO-ASCAT-001-Evidence.md](../../../docs/Evidence/ONCO-ASCAT-001-Evidence.md)
 - Related algorithms: [Tumor_Ploidy_Estimation](./Tumor_Ploidy_Estimation.md), [Cancer_Cell_Fraction_Estimation](./Cancer_Cell_Fraction_Estimation.md), [Tumor_Purity_Estimation](./Tumor_Purity_Estimation.md)

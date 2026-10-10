@@ -373,3 +373,17 @@ Expected values = `ascat.asmultipcf(...)` sourced verbatim (R 4.3.3) on the MINS
 | C-AMPCF-1 | guards | 1 sample, single-probe chromosome (R errors), differing probes, genotype / wsample count, wsample ≤ 0, penalty 0 / NaN, het BAF 1.5, NaN logR | `ArgumentException` / `ArgumentOutOfRangeException` / `ArgumentNullException` | R run / contract |
 | S-ASPCF-G4 | F36 last-window `x[n:(n−1)]` | single sample, chr2 of 32 probes | 200 / 100 / 16 / 16 segments, R levels ≤ 1e−14 | R run |
 
+## 17. FIN-B24 F58 — male X non-PAR germline re-genotyping (2026-10-10)
+
+File `OncologyAnalyzer_AscatMaleXNonPar_Tests.cs`. Expected values = `ascat.aspcf` / `ascat.asmultipcf(…, seed)` sourced
+verbatim (R 4.3.3) with `gender = "XY"`, `X_nonPAR` = hg19, on the MINSTD male tracks M1–M4 / K1–K3 (Evidence § F58).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-MALEX-1..7 | `MaleXNonParRegenotyping_MatchesAscat` | M1 (rank, seed 1), M2 (rank, k inside the 167 DIST = 0 ties), M3 (`sample()`, seed 42), M4 (time-type seed 1760090000), K1/K2/K3 (asmultipcf 2/3/2 samples, rank/rank/sample, penalty 10) | re-genotyped X non-PAR probe set identical (bit string); segment extents / probe / het counts identical; logR, BAF ≤ 1e−12 (observed ≤ 5.6e−16) | R run |
+| M-MALEX-8 | `…_SelectedCount_IsAutosomeMatchedFraction` | M1 | round(400 · 422/600) = 281 | R run |
+| S-MALEX-1 | inactive model ≡ default overload | M1, Female / Male without X_nonPAR | genotypes, levels, segments identical | source (`!is.null(X_nonPAR) && gender == "XY"`) |
+| S-MALEX-2 | ≤ 5 non-PAR probes | 20 autosomal + 5 X probes | genotypes unchanged | source (`length(nonPAR_index) > 5`) |
+| S-MALEX-3 | seed | M3; null seed | same seed ⇒ same draw, seed 43 differs; null ⇒ current Unix second (`as.integer(Sys.time())`) | source |
+| S-MALEX-4 | no heterozygous autosome, germline BAF | M1 all homozygous | `rank(DIST) <= NA` selects none ⇒ all non-PAR homozygous | source |
+| C-MALEX-1 | guards | null model / spec, germline BAF 1.2, wrong count, `sample()` branch without autosomal het (R: `sample(x, NA)` fails) | `ArgumentNullException` / `ArgumentException` | source / contract |

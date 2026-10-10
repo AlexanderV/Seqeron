@@ -388,7 +388,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
   `ascat.loadData.R`: `gender = NULL ⇒ "XX"`; `X_nonPAR` = hg19 `c(2699521, 154931043)`, hg38 `c(2781480, 155701382)`,
   CHM13 `c(2394411, 153925834)`, `genomeVersion = NULL ⇒ X_nonPAR = NULL` (whole X haploid in a male).
   `ascat.aspcf.R`: for a male with `X_nonPAR` the non-PAR germline genotypes are re-drawn (all homozygous, then a random
-  autosome-matched fraction heterozygous) — **not ported** (caller's genotypes are used).
+  autosome-matched fraction heterozygous) — ~~not ported~~ ported by F58 (see § F58).
 - R cross-check (executed; R 4.3.3, sourced ascat.aspcf.R + ascat.runAscat.R, GenomicRanges 1.54.1; harness of F36 with
   per-block positions; `ascat.aspcf(X_nonPAR = NULL)`, then `gender` / `X_nonPAR` set, `ascat.runAscat(gamma = 1)`):
 
@@ -593,6 +593,48 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 ---
 
+## 2026-10 FIN-B24 F58 — Male X non-PAR germline re-genotyping (`ascat.aspcf` / `ascat.asmultipcf`, seeded)
+
+- Sources opened: `ASCAT/R/ascat.aspcf.R` (master 61ddf3b) — `ascat.aspcf(…, seed = as.integer(Sys.time()))`:
+  `set.seed(seed)`; `gg` from `ascat.gg` or `Germline_BAF < 0.3 | > 0.7`; `ghs = predictGermlineHomozygousStretches(chr,
+  gg)` is computed **before** the per-sample block `if (!is.null(X_nonPAR) && gender[sample] == "XY")`:
+  `nonPAR_index = which(SNPpos[, 1] %in% c("chrX", "X") & pos in [X_nonPAR[1], X_nonPAR[2]] & !is.na(gg[, sample]))`,
+  `autosomes_info = table(gg[autosomes, sample])` (autosomes = `setdiff(chrs, sexchromosomes)`); if `length > 5`: all
+  `TRUE` (homozygous), then with `Germline_BAF`: `DIST = 1 − max(x, 1 − x)`,
+  `gg[nonPAR_index[which(rank(DIST, ties.method = "random") <= round(length(DIST) · (autosomes_info["FALSE"] /
+  sum(autosomes_info))))]] = FALSE`; without it `gg[sample(nonPAR_index, round(…))] = FALSE`.
+  `ASCAT/R/ascat.asmultipcf.R` ll. 30–63: identical block on the first germline column (`gender[1]`,
+  `Germline_BAF[nonPAR_index, 1]`), no homozygous stretches. R 4.3.3 `base::rank`: `random =
+  sort.list(order(x, stats::runif(sum(!nas))))` (printed from the R session; `set.seed(1); rank(c(3,1,3,2,3), "random")`
+  = `sort.list(order(x, runif(5)))` = 4 1 5 2 3). `src/main/random.c` (R-4-3-branch, `do_sample`): without replacement
+  `x[i] = i; for i < k: j = R_unif_index(n); y[i] = x[j] + 1; x[j] = x[--n]` (k < 2: `R_unif_index(n) + 1`, same first
+  draw). R `round` is half-even (`nearbyint`). Reused: the F41 `RMersenneTwister` (set.seed scrambling, MT19937,
+  `unif_rand` fixup, `R_unif_index` rejection sampling) + new `SampleWithoutReplacement`.
+- Semantics noted: the probes ASCAT marks **heterozygous** are those *closest* to germline BAF 0/1 (smallest DIST), with
+  exact 0/1 BAFs tied at DIST = 0 and ordered by the `runif` draw; the stretches use the caller's genotypes. ASCAT's default
+  seed is the wall-clock second, so R itself is reproducible only with an explicit seed.
+- R cross-check (executed; R 4.3.3, sourced ascat.aspcf.R + ascat.asmultipcf.R; harness: MINSTD tracks — per probe 3
+  germline draws + 9 per sample — autosomes 1/2 plus X PAR1 (30 probes, 100 000–2 420 000), non-PAR (300 + 100 probes,
+  3 000 000–152 700 000, logR step) and PAR2 (20 probes from 155 000 000), `X_nonPAR = c(2699521, 154931043)` (hg19),
+  `gender = "XY"`, `Germline_BAF` (ascat.gg NULL) or `ascat.gg` (Germline_BAF NULL); `asmultipcf` with `penalty = 10`):
+
+  | Track | Call | Branch | seed | m | h_auto | k (selected) | exact 0/1 ties | segments |
+  |-------|------|--------|------|---|--------|--------------|----------------|----------|
+  | M1 | aspcf | Germline_BAF / rank | 1 | 400 | 0.7033 | 281 | 159 | 9 |
+  | M2 | aspcf | Germline_BAF / rank | 7777 | 400 | 0.3672 | 147 | 167 (tie-break decides) | 7 |
+  | M3 | aspcf | ascat.gg / sample | 42 | 400 | 0.594 | 238 | — | 7 |
+  | M4 | aspcf | Germline_BAF / rank | 1760090000 (time-type, as `as.integer(Sys.time())`) | 400 | 0.692 | 277 | 153 | 7 |
+  | K1 | asmultipcf, 2 samples | rank | 1 | 400 | 0.7067 | 283 | 158 | 7 / 5 |
+  | K2 | asmultipcf, 3 samples | rank | 2024 | 400 | 0.3073 | 123 | 146 (tie-break decides) | 5 / 6 / 4 |
+  | K3 | asmultipcf, 2 samples | sample | 99 | 400 | 0.718 | 287 | — | 6 / 5 |
+
+  C# (`SegmentAlleleSpecificAspcf(loci, het, AscatMaleXGenotyping)` / `AsMultiPcfOptions.MaleXGenotyping`): the
+  re-genotyped probe set is identical to R's (`rownames(Tumor_BAF_segmented)`) on all 7 tracks; every segment extent,
+  probe and heterozygous count identical; segment logR and BAF ≤ 1e−12 (observed max 5.6e−16 — R's long-double `mean`).
+  A female model, a male without `X_nonPAR`, or ≤ 5 non-PAR probes leave the output identical to the default overload.
+  Harness and generated data: scratchpad `wp28/harness.R`, `run.R`, `gen.py` (same MINSTD generator as `Simulate()` in
+  `OncologyAnalyzer_AscatMaleXNonPar_Tests.cs`).
+
 ## References
 
 1. Van Loo P, Nordgard SH, Lingjærde OC, et al. (2010). Allele-specific copy number analysis of tumors. PNAS 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
@@ -608,6 +650,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 ## Change History
 
+- **2026-10-10**: FIN-B24 F58 — male X non-PAR seeded germline re-genotyping (`AscatMaleXGenotyping`) in aspcf / asmultipcf R cross-check (7 tracks); the F38 "not ported" note is superseded.
 - **2026-10-10**: FIN-B24 F53 — multi-sample `ascat.asmultipcf` port (`SegmentAlleleSpecificAsMultiPcf`) R cross-check (5 cohorts, 14 runs); "WGD refit search" phrase removed (no ASCAT counterpart); F36 last-window descending-range fix.
 - **2026-10-10**: FIN-B24 F41 — Battenberg solutions A–F, SDfrac and seeded bootstrap CIs (`FitSubclonalCopyNumberWithBootstrap`, R RNG port) R cross-check + Monte-Carlo agreement section added.
 - **2026-10-10**: FIN-B24 F40 — Battenberg `segment.baf.phased` port (`SegmentPhasedBaf`, `BuildBattenbergSegments`) R cross-check; built-in IMPUTE2/Beagle5 haplotype imputation BLOCKED (proof recorded).
