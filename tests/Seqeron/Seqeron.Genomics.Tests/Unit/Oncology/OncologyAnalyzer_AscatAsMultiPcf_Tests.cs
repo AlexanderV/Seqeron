@@ -83,7 +83,7 @@ public class OncologyAnalyzer_AscatAsMultiPcf_Tests
     /// draws (4 × logR noise, BAF orientation, 4 × BAF noise): logR = r + 0.2·(Σ4u − 2); heterozygous BAF = b (or 1 − b) +
     /// 0.1·(Σ4u − 2) clamped to [0, 1]; homozygous BAF = 0 or 1. Position = 1000·index (1-based).
     /// </summary>
-    private static (List<IReadOnlyList<OncologyAnalyzer.AlleleSpecificLocus>> Samples, List<bool> Het) Simulate(Cohort c)
+    internal static (List<IReadOnlyList<OncologyAnalyzer.AlleleSpecificLocus>> Samples, List<bool> Het) Simulate(Cohort c)
     {
         double s = c.Seed;
         double U()
@@ -497,8 +497,9 @@ public class OncologyAnalyzer_AscatAsMultiPcf_Tests
             var badBaf = samples[1].Select((l, i) => i == 0 ? l with { BAF = 1.5 } : l).ToList();
             var allHet = het.Select(_ => true).ToList();
             Assert.Throws<ArgumentException>(() => OncologyAnalyzer.SegmentAlleleSpecificAsMultiPcf(new[] { samples[0], badBaf }, allHet));
-            var badLogR = samples[1].Select((l, i) => i == 0 ? l with { LogR = double.NaN } : l).ToList();
-            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.SegmentAlleleSpecificAsMultiPcf(new[] { samples[0], badLogR }, het));
+            var badLogR = samples[1].Select((l, i) => i == 0 ? l with { LogR = double.PositiveInfinity } : l).ToList();
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.SegmentAlleleSpecificAsMultiPcf(new[] { samples[0], badLogR }, het),
+                "Infinite logR (NaN = R NA is accepted since B24 F59).");
         });
     }
 }

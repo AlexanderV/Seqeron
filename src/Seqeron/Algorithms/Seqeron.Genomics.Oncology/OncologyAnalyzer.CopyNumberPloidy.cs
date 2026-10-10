@@ -3746,6 +3746,9 @@ public static partial class OncologyAnalyzer
     private static bool IsValidAlleleSignal(double logR, double baf) =>
         double.IsFinite(logR) && !double.IsNaN(baf) && baf >= 0.0 && baf <= 1.0;
 
+    /// <summary>ascat.aspcf / ascat.asmultipcf input contract for one BAF: in [0, 1] or NaN = R <c>NA</c> (B24 F59).</summary>
+    private static bool IsAscatBafOrMissing(double baf) => double.IsNaN(baf) || (baf >= 0.0 && baf <= 1.0);
+
     /// <summary>Mirrored BAF max(b, 1 − b) ∈ [0.5, 1] (ascat.aspcf <c>ifelse(b &gt; 0.5, b, 1 − b)</c>; Battenberg <c>l</c>).</summary>
     private static double MirrorBaf(double baf) => baf > BalancedBaf ? baf : 1.0 - baf;
 
@@ -4575,7 +4578,10 @@ public static partial class OncologyAnalyzer
         int count = 0;
         for (int i = 0; i < segmentation.Loci.Count; i++)
         {
-            if (!segmentation.GermlineHeterozygous[i] || IsAscatSexChromosome(segmentation.Loci[i].Chromosome))
+            // SNPposhet = SNPpos[names(bafsegmented), ]: heterozygous probes WITH a segmented BAF (a missing tumour
+            // BAF/logR drops a heterozygous probe from Tumor_BAF_segmented, B24 F59).
+            if (!segmentation.GermlineHeterozygous[i] || double.IsNaN(segmentation.SegmentedBaf[i])
+                || IsAscatSexChromosome(segmentation.Loci[i].Chromosome))
             {
                 continue;
             }
@@ -4610,27 +4616,50 @@ public static partial class OncologyAnalyzer
 
     /// <summary>
     /// runASCAT output at the selected (ρ, ψ) for a germline-aware segmentation: <c>seg_raw</c> integer segments (one per
-    /// logR segment; <c>bafke</c> = first heterozygous BAF, 0 when none) and <c>ploidy = mean(nA + nB)</c> over all probes.
+    /// logR segment; <c>bafke</c> = first heterozygous BAF, 0 when none) and <c>ploidy = mean(nA + nB, na.rm = TRUE)</c> over
+    /// all probes, i.e. without those whose raw logR is missing or that have a segmented BAF but a missing raw BAF.
     /// </summary>
     private static PurityPloidyFit BuildAscatFitFromAspcf(
         AspcfSegmentation segmentation, double rho, double psi, double gamma, double goodnessOfFit, bool nonAberrant,
         AscatSexModel sexModel)
     {
         var result = new List<AlleleSpecificSegment>(segmentation.Segments.Count);
-        var probeCounts = new int[segmentation.Segments.Count];
+        var counted = new List<AlleleSpecificSegment>(segmentation.Segments.Count);
+        var probeCounts = new List<int>(segmentation.Segments.Count);
+        int locus = 0;
         for (int i = 0; i < segmentation.Segments.Count; i++)
         {
             AspcfSegment s = segmentation.Segments[i];
+
+            // ploidy = mean(nA + nB, na.rm = TRUE) over the probes (B24 F59): n1all/n2all are NA where the raw logR is NA, and
+            // at a probe with a segmented BAF whose raw BAF is NA (ifelse(baf <= 0.5, …) on NA — ascat.asmultipcf gives
+            // such a probe a BAF from the other samples).
+            int observed = 0;
+            for (int k = 0; k < s.LocusCount; k++, locus++)
+            {
+                AlleleSpecificLocus l = segmentation.Loci[locus];
+                bool bafless = !double.IsNaN(segmentation.SegmentedBaf[locus]) && double.IsNaN(l.BAF);
+                if (!double.IsNaN(l.LogR) && !bafless)
+                {
+                    observed++;
+                }
+            }
+
             double bafke = s.HasBaf ? 1.0 - s.MeanBAF : 0.0; // "if (is.na(bafke)) bafke = 0"
             (double major, double minor) = AscatRoundSegment(s.MeanLogR, bafke, rho, psi, gamma,
                 sexModel.IsHaploid(s.Chromosome, s.Start, s.End));
             long end = s.End > s.Start ? s.End : s.Start + 1;
-            result.Add(new AlleleSpecificSegment(
-                s.Chromosome, s.Start, end, AscatCopyNumberToInt(major), AscatCopyNumberToInt(minor)));
-            probeCounts[i] = s.LocusCount;
+            var segment = new AlleleSpecificSegment(
+                s.Chromosome, s.Start, end, AscatCopyNumberToInt(major), AscatCopyNumberToInt(minor));
+            result.Add(segment);
+            if (observed > 0)
+            {
+                counted.Add(segment);
+                probeCounts.Add(observed);
+            }
         }
 
-        return new PurityPloidyFit(rho, EstimatePloidy(result, probeCounts), goodnessOfFit, result)
+        return new PurityPloidyFit(rho, EstimatePloidy(counted, probeCounts), goodnessOfFit, result)
         {
             Psi = psi,
             IsNonAberrant = nonAberrant,
@@ -4963,6 +4992,24 @@ public static partial class OncologyAnalyzer
         return sum / (to - from);
     }
 
+    /// <summary>R <c>mean(x[from..to), na.rm = TRUE)</c>: NaN entries (R NA) are skipped; NaN when none remains. Equals
+    /// <see cref="Mean"/> on complete data (same summation order).</summary>
+    private static double MeanNaRm(double[] x, int from, int to)
+    {
+        double sum = 0.0;
+        int count = 0;
+        for (int i = from; i < to; i++)
+        {
+            if (!double.IsNaN(x[i]))
+            {
+                sum += x[i];
+                count++;
+            }
+        }
+
+        return count == 0 ? double.NaN : sum / count;
+    }
+
     /// <summary>
     /// ASCAT <c>fastAspcf(logR, allB, kmin, gamma)</c>: windowed exact bivariate PCF. Returns the segment boundaries
     /// (0-based, <c>[b₀ = 0, …, b_S = N]</c>) and each segment's BAF level <c>0.5 + μ</c> (μ shrunk to 0 when
@@ -5246,6 +5293,46 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
+    /// ASCAT's NA-aware winsorisation (ascat.aspcf <c>lrwins[!is.na(lr)] = madWins(lr[!is.na(lr)], 2.5, 25)$ywin</c>;
+    /// ascat.asmultipcf <c>madWinsMatrixWithNA</c> per column): <see cref="MadWinsorize"/> of the non-NaN values in order,
+    /// NaN kept at the missing positions. Equals <see cref="MadWinsorize"/> on complete data.
+    /// </summary>
+    private static double[] MadWinsorizeWithNa(double[] x, double tau, int k)
+    {
+        int present = 0;
+        foreach (double v in x)
+        {
+            if (!double.IsNaN(v))
+            {
+                present++;
+            }
+        }
+
+        if (present == x.Length)
+        {
+            return MadWinsorize(x, tau, k);
+        }
+
+        var values = new double[present];
+        for (int i = 0, j = 0; i < x.Length; i++)
+        {
+            if (!double.IsNaN(x[i]))
+            {
+                values[j++] = x[i];
+            }
+        }
+
+        double[] wins = MadWinsorize(values, tau, k);
+        var result = new double[x.Length];
+        for (int i = 0, j = 0; i < x.Length; i++)
+        {
+            result[i] = double.IsNaN(x[i]) ? double.NaN : wins[j++];
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// R <c>mad(x)</c> = 1.4826 · median(|x − median(x)|) (constant <see cref="MadConsistencyConstant"/>, raw MAD from
     /// <see cref="RawMedianAbsoluteDeviation"/>, both shared with the MATH score).
     /// </summary>
@@ -5447,7 +5534,8 @@ public static partial class OncologyAnalyzer
         public IReadOnlyList<double> SegmentedLogR { get; }
 
         /// <summary>Mirrored (≥ 0.5) segmented BAF of each heterozygous locus (ASCAT <c>Tumor_BAF_segmented = 1 − value</c>);
-        /// <see cref="double.NaN"/> at germline-homozygous loci (ASCAT segments BAF on heterozygous probes only).</summary>
+        /// <see cref="double.NaN"/> at germline-homozygous loci (ASCAT segments BAF on heterozygous probes only) and at
+        /// heterozygous loci that ASCAT leaves out of <c>Tumor_BAF_segmented</c> because of missing data (B24 F59).</summary>
         public IReadOnlyList<double> SegmentedBaf { get; }
 
         /// <summary>The logR segments (runs of equal segmented logR within a chromosome), in input order.</summary>
@@ -5482,15 +5570,18 @@ public static partial class OncologyAnalyzer
     /// Loci of one chromosome must be contiguous in the input (each contiguous same-label run is one ASCAT <c>chr</c>
     /// part); positions are not re-sorted.
     /// </summary>
-    /// <param name="loci">Per-locus measurements in genome order. LogR must be finite; BAF must be in [0, 1] at
-    /// heterozygous loci and is ignored at homozygous loci (it may be NaN there, e.g. a copy-number-only probe).</param>
+    /// <param name="loci">Per-locus measurements in genome order. LogR must be finite or NaN; BAF must be in [0, 1] or NaN
+    /// at heterozygous loci and is ignored at homozygous loci (it may be NaN there, e.g. a copy-number-only probe). NaN is
+    /// R's <c>NA</c> and follows ascat.aspcf's NA path (B24 F59): a heterozygous locus with a missing BAF or logR is left
+    /// out of the ASPCF (<c>Select_het</c>) and gets no segmented BAF; missing logR is skipped in winsorisation, averages,
+    /// the gap breakpoint and level means; all-missing levels are filled by <c>fillNA</c> / the previous level.</param>
     /// <param name="germlineHeterozygous">Germline genotype per locus: true = heterozygous (ASCAT
     /// <c>germlinegenotypes == FALSE</c>), false = homozygous. Same length as <paramref name="loci"/>.</param>
     /// <param name="penalty">ASPCF penalty (ASCAT <c>penalty</c>, default <see cref="AspcfDefaultPenalty"/> = 70).</param>
     /// <returns>The per-locus segmented logR/BAF and the runASCAT logR segments.</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    /// <exception cref="ArgumentException">Lengths differ, a chromosome label is null, a logR is non-finite, or a
-    /// heterozygous locus has a BAF outside [0, 1].</exception>
+    /// <exception cref="ArgumentException">Lengths differ, a chromosome label is null, a logR is infinite, or a
+    /// heterozygous locus has a BAF outside [0, 1] (and not NaN).</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0, NaN or infinite.</exception>
     public static AspcfSegmentation SegmentAlleleSpecificAspcf(
         IEnumerable<AlleleSpecificLocus> loci,
@@ -5555,9 +5646,9 @@ public static partial class OncologyAnalyzer
                 throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
             }
 
-            if (!double.IsFinite(probes[i].LogR))
+            if (double.IsInfinity(probes[i].LogR))
             {
-                throw new ArgumentException("Every locus needs a finite logR.", nameof(loci));
+                throw new ArgumentException("A logR must be finite or NaN (missing).", nameof(loci));
             }
         }
 
@@ -5575,9 +5666,9 @@ public static partial class OncologyAnalyzer
         RegenotypeMaleXNonPar(probes, het, maleX, nameof(maleX));
         for (int i = 0; i < n; i++)
         {
-            if (het[i] && !IsValidAlleleSignal(probes[i].LogR, probes[i].BAF))
+            if (het[i] && !IsAscatBafOrMissing(probes[i].BAF))
             {
-                throw new ArgumentException("Every heterozygous locus needs a BAF in [0, 1].", nameof(loci));
+                throw new ArgumentException("Every heterozygous locus needs a BAF in [0, 1] or NaN (missing).", nameof(loci));
             }
         }
 
@@ -5706,12 +5797,13 @@ public static partial class OncologyAnalyzer
         int len = hi - lo + 1;
         var lr = new double[len];
         Array.Copy(logR, lo, lr, 0, len);
-        double[] lrWins = MadWinsorize(lr, AspcfWinsorTau, AspcfMedianHalfWindow);
+        double[] lrWins = MadWinsorizeWithNa(lr, AspcfWinsorTau, AspcfMedianHalfWindow);
 
-        var indices = new List<int>(); // 1-based local indices of the heterozygous loci (R "indices")
+        // R "indices" = which(Select_het), Select_het = !homo & !is.na(baf) & !is.na(lr) (1-based local indices).
+        var indices = new List<int>();
         for (int i = 0; i < len; i++)
         {
-            if (het[lo + i])
+            if (het[lo + i] && !double.IsNaN(loci[lo + i].BAF) && !double.IsNaN(lr[i]))
             {
                 indices.Add(i + 1);
             }
@@ -5720,8 +5812,8 @@ public static partial class OncologyAnalyzer
         int h = indices.Count;
         if (h == 0)
         {
-            // No heterozygous probe: a single logR segment, no BAF.
-            double level = Mean(lr, 0, len);
+            // No usable heterozygous probe: a single logR segment (mean(lr, na.rm = TRUE)), no BAF.
+            double level = MeanNaRm(lr, 0, len);
             Array.Fill(logRPcfed, level, lo, len);
             return;
         }
@@ -5742,24 +5834,12 @@ public static partial class OncologyAnalyzer
         }
 
         // averageIndices = c(1, (indices[-h] + indices[-1])/2, length(lr) + 0.01); start = ceiling, end = floor(· − 0.01).
+        var localIndices = indices.ConvertAll(i => i - 1);
         var logRAveraged = new double[h];
         for (int k = 0; k < h; k++)
         {
-            int startIndex, endIndex;
-            if (h == 1)
-            {
-                startIndex = 1;
-                endIndex = len;
-            }
-            else
-            {
-                double lower = k == 0 ? 1.0 : (indices[k - 1] + indices[k]) / 2.0;
-                double upper = k == h - 1 ? len + 0.01 : (indices[k] + indices[k + 1]) / 2.0;
-                startIndex = (int)Math.Ceiling(lower);
-                endIndex = (int)Math.Floor(upper - 0.01);
-            }
-
-            logRAveraged[k] = RColonMean(lrWins, startIndex, endIndex);
+            (int startIndex, int endIndex) = AscatAveragingWindow(localIndices, k, len);
+            logRAveraged[k] = RColonMeanNaRm(lrWins, startIndex, endIndex);
         }
 
         var levelPerHet = new double[h];
@@ -5816,7 +5896,7 @@ public static partial class OncologyAnalyzer
         {
             if (i == len || logRc[i] != logRc[runStart])
             {
-                double level = Mean(lr, runStart, i);
+                double level = MeanNaRm(lr, runStart, i);
                 Array.Fill(logRPcfed, level, lo + runStart, i - runStart);
                 runStart = i;
             }
@@ -5832,9 +5912,10 @@ public static partial class OncologyAnalyzer
     /// R <c>mean(x[start:end])</c> for 1-based <paramref name="start"/>, <paramref name="end"/>. When end &lt; start, R's
     /// <c>:</c> counts down (<c>x[n:(n-1)]</c> = two elements) — this happens in ascat.aspcf / ascat.asmultipcf for the last
     /// averaging window, because <c>floor(n + 0.01 − 0.01)</c> is n − 1 in IEEE doubles for n = 2, 32, 128, 16384, 65536, ….
+    /// Missing (NaN) values are skipped (<c>na.rm = TRUE</c>, as both R functions average <c>logRaveraged</c>).
     /// </summary>
-    private static double RColonMean(double[] x, int start, int end) =>
-        end >= start ? Mean(x, start - 1, end) : Mean(x, end - 1, start);
+    private static double RColonMeanNaRm(double[] x, int start, int end) =>
+        end >= start ? MeanNaRm(x, start - 1, end) : MeanNaRm(x, end - 1, start);
 
     /// <summary>
     /// ascat.aspcf "find best breakpoint" between heterozygous loci at 1-based local positions <paramref name="at"/> and
@@ -5844,6 +5925,9 @@ public static partial class OncologyAnalyzer
     /// </summary>
     private static int AscatBestGapBreakpoint(double[] lr, int at, int total, double left, double right)
     {
+        // sum(abs(lr[...] − level), na.rm = TRUE): a missing logR contributes nothing.
+        static double AbsDeviationNaRm(double x, double level) => double.IsNaN(x) ? 0.0 : Math.Abs(x - level);
+
         int best = 0;
         double bestDistance = double.NaN;
         for (int bp = 0; bp < total; bp++)
@@ -5851,21 +5935,21 @@ public static partial class OncologyAnalyzer
             double leftSum = 0.0;
             if (bp == 0)
             {
-                leftSum += Math.Abs(lr[at] - left);     // lr[1 + at] (R 1-based) = C# lr[at]
-                leftSum += Math.Abs(lr[at - 1] - left); // lr[0 + at]
+                leftSum += AbsDeviationNaRm(lr[at], left);     // lr[1 + at] (R 1-based) = C# lr[at]
+                leftSum += AbsDeviationNaRm(lr[at - 1], left); // lr[0 + at]
             }
             else
             {
                 for (int q = 1; q <= bp; q++)
                 {
-                    leftSum += Math.Abs(lr[q + at - 1] - left);
+                    leftSum += AbsDeviationNaRm(lr[q + at - 1], left);
                 }
             }
 
             double rightSum = 0.0;
             for (int q = bp + 1; q <= total; q++)
             {
-                rightSum += Math.Abs(lr[q + at - 1] - right);
+                rightSum += AbsDeviationNaRm(lr[q + at - 1], right);
             }
 
             double distance = leftSum + rightSum;
@@ -5901,23 +5985,54 @@ public static partial class OncologyAnalyzer
             int start3 = Math.Max(start - AscatHomStretchMargin, lo);
             int end3 = Math.Min(end + AscatHomStretchMargin, hi);
 
+            // towins; winsed = madWins(towins[!is.na(towins)]); pcfed[!is.na(towins)] = exactPcf(winsed), 0 elsewhere.
             var window = new double[end2 - start2 + 1];
             Array.Copy(logR, start2, window, 0, window.Length);
-            double[] pcfed = ExactPcf(MadWinsorize(window, AspcfWinsorTau, AspcfMedianHalfWindow), AspcfMinSegmentLength, pcfPenalty);
+            var present = new List<int>(window.Length);
+            for (int i = 0; i < window.Length; i++)
+            {
+                if (!double.IsNaN(window[i]))
+                {
+                    present.Add(i);
+                }
+            }
+
+            double[] pcfed;
+            if (present.Count == window.Length)
+            {
+                pcfed = ExactPcf(MadWinsorize(window, AspcfWinsorTau, AspcfMedianHalfWindow), AspcfMinSegmentLength, pcfPenalty);
+            }
+            else
+            {
+                var towins = new double[present.Count];
+                for (int j = 0; j < towins.Length; j++)
+                {
+                    towins[j] = window[present[j]];
+                }
+
+                double[] fitted = ExactPcf(MadWinsorize(towins, AspcfWinsorTau, AspcfMedianHalfWindow), AspcfMinSegmentLength, pcfPenalty);
+                pcfed = new double[window.Length];
+                for (int j = 0; j < towins.Length; j++)
+                {
+                    pcfed[present[j]] = fitted[j];
+                }
+            }
 
             int count = end3 - start3 + 1;
             var dif = new double[count];
             int differing = 0;
+            bool anyMissing = false;
             for (int i = 0; i < count; i++)
             {
                 dif[i] = Math.Abs(pcfed[start3 - start2 + i] - logRPcfed[start3 + i]);
+                anyMissing |= double.IsNaN(dif[i]);
                 if (dif[i] > AscatHomStretchLevelDifference)
                 {
                     differing++;
                 }
             }
 
-            if (differing > AscatHomStretchMinDifferingProbes)
+            if (!anyMissing && differing > AscatHomStretchMinDifferingProbes) // !anyNA(dif) && sum(dif > 0.3) > 5
             {
                 for (int i = 0; i < count; i++)
                 {
@@ -6112,17 +6227,31 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// ascat.aspcf "adapt levels again": every run of equal values of <paramref name="levels"/> in [from, to) — across
-    /// chromosome boundaries, as R's genome-wide <c>rle</c> — is set to the mean raw logR of the run.
+    /// ascat.aspcf / ascat.asmultipcf "adapt levels again": every run of equal values of <paramref name="levels"/> in
+    /// [from, to) — across chromosome boundaries, as R's genome-wide <c>rle</c> — is set to the mean raw logR of the run
+    /// (<c>na.rm = TRUE</c>); a run without any non-missing raw logR takes the previous run's level ("making sure no NA's
+    /// get filled in", <c>prevlevel</c> starting at 0). R's <c>rle</c> splits every NaN into its own run where this merges
+    /// adjacent NaN levels; both give each such probe the mean of its (all-missing) raw logR, i.e. <c>prevlevel</c>.
     /// </summary>
     private static void ReadaptLevels(double[] levels, double[] rawLogR, int from, int to)
     {
         int runStart = from;
+        double previousLevel = 0.0;
         for (int i = from + 1; i <= to; i++)
         {
             if (i == to || !levels[i].Equals(levels[runStart]))
             {
-                Array.Fill(levels, Mean(rawLogR, runStart, i), runStart, i - runStart);
+                double level = MeanNaRm(rawLogR, runStart, i);
+                if (double.IsNaN(level))
+                {
+                    level = previousLevel;
+                }
+                else
+                {
+                    previousLevel = level;
+                }
+
+                Array.Fill(levels, level, runStart, i - runStart);
                 runStart = i;
             }
         }
@@ -6130,7 +6259,7 @@ public static partial class OncologyAnalyzer
 
     /// <summary>
     /// runASCAT segments: runs of equal segmented logR split at chromosome ends (<c>union(tlrend, tlrend.chr)</c>),
-    /// each carrying the mirrored BAF of its first heterozygous locus (NaN if none).
+    /// each carrying the mirrored BAF of its first heterozygous locus with a segmented BAF (NaN if none).
     /// </summary>
     private static AspcfSegment[] BuildAspcfSegments(
         AlleleSpecificLocus[] loci, bool[] het, List<(int Lo, int Hi)> runs, double[] logRPcfed, double[] bafPcfed)
@@ -6149,7 +6278,9 @@ public static partial class OncologyAnalyzer
                     {
                         if (het[k])
                         {
-                            if (hetCount == 0)
+                            // runASCAT bafke = bafsegmented[bafpos][1]: the first locus that HAS a segmented BAF (a missing
+                            // tumour BAF/logR leaves a heterozygous locus out of Tumor_BAF_segmented, B24 F59).
+                            if (double.IsNaN(baf))
                             {
                                 baf = bafPcfed[k];
                             }
@@ -6243,15 +6374,19 @@ public static partial class OncologyAnalyzer
     /// </list>
     /// Unlike <c>ascat.aspcf</c>, homozygous stretches are not re-segmented (they take part in the joint logR segmentation
     /// from the start). The male-only <c>X_nonPAR</c> random re-genotyping runs when
-    /// <see cref="AsMultiPcfOptions.MaleXGenotyping"/> is set (B24 F58; otherwise the caller's genotypes are used as given),
-    /// and missing logR/BAF values are not accepted (R gives them weight 0).
+    /// <see cref="AsMultiPcfOptions.MaleXGenotyping"/> is set (B24 F58; otherwise the caller's genotypes are used as given).
+    /// Missing values (NaN = R <c>NA</c>, B24 F59) follow R's NA path: only probes with a heterozygous BAF or a logR in at
+    /// least one sample enter the segmentation (<c>Select_sites</c>), each missing value with weight 0; winsorisation and
+    /// the logR averages skip NA; probes with both in at least one sample get a segmented BAF (<c>Select_sites2</c>); a part
+    /// without such probes gets <c>mean(logR, na.rm = TRUE)</c>, and an all-missing level run takes the previous level.
     /// <para>R fails (<c>bafna[homo, ] &lt;- NA</c>: "incorrect number of subscripts on matrix") with a single sample or a
     /// single-probe chromosome part, because <c>Tumor_LogR[chr[[k]], ]</c> drops to a vector; both are rejected here.
     /// For one sample use <see cref="SegmentAlleleSpecificAspcf(IEnumerable{AlleleSpecificLocus}, IReadOnlyList{bool}, double)"/>.</para>
     /// </summary>
     /// <param name="samples">Per sample, the loci of the common probe set in genome order (same chromosome and position at
-    /// each index in every sample). LogR must be finite; BAF must be in [0, 1] at heterozygous probes and is ignored at
-    /// homozygous probes. At least two samples; each contiguous same-chromosome run needs ≥ 2 probes.</param>
+    /// each index in every sample). LogR must be finite or NaN (missing); BAF must be in [0, 1] or NaN at heterozygous
+    /// probes and is ignored at homozygous probes. At least two samples; each contiguous same-chromosome run needs ≥ 2
+    /// probes.</param>
     /// <param name="germlineHeterozygous">Germline genotype per probe (true = heterozygous, ASCAT
     /// <c>germlinegenotypes == FALSE</c>); one germline for all samples, as ascat.asmultipcf uses. Null = every probe
     /// heterozygous.</param>
@@ -6259,12 +6394,13 @@ public static partial class OncologyAnalyzer
     /// raw joint cost.</param>
     /// <param name="options">Sample weights, algorithm and refinement (null = <see cref="AsMultiPcfOptions.Default"/>).</param>
     /// <returns>One <see cref="AspcfSegmentation"/> per sample (input order): ASCAT <c>Tumor_LogR_segmented[, s]</c>,
-    /// mirrored <c>Tumor_BAF_segmented[[s]]</c> (NaN at homozygous probes) and the runASCAT logR segments — ready for
+    /// mirrored <c>Tumor_BAF_segmented[[s]]</c> (NaN at homozygous probes and where no BAF is segmented) and the runASCAT
+    /// logR segments — ready for
     /// <see cref="FitPurityPloidyFromAspcf(AspcfSegmentation, double)"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="samples"/> or one of its entries is null.</exception>
     /// <exception cref="ArgumentException">Fewer than two samples, no probes, differing probe sets, a wrong genotype or
-    /// weight count, a null chromosome label, a non-finite logR, a heterozygous BAF outside [0, 1], or a single-probe
-    /// chromosome part.</exception>
+    /// weight count, a null chromosome label, an infinite logR, a heterozygous BAF outside [0, 1] (and not NaN), or a
+    /// single-probe chromosome part.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0, NaN or infinite, or a weight that is
     /// not positive and finite.</exception>
     public static IReadOnlyList<AspcfSegmentation> SegmentAlleleSpecificAsMultiPcf(
@@ -6413,7 +6549,7 @@ public static partial class OncologyAnalyzer
         return result;
     }
 
-    /// <summary>Same probe set in every sample; finite logR; heterozygous BAF in [0, 1].</summary>
+    /// <summary>Same probe set in every sample; logR finite or NaN (R NA); heterozygous BAF in [0, 1] or NaN (B24 F59).</summary>
     private static void ValidateAsMultiPcfProbes(AlleleSpecificLocus[][] samples, bool[] het)
     {
         int n = samples[0].Length;
@@ -6437,14 +6573,14 @@ public static partial class OncologyAnalyzer
                     throw new ArgumentException("Every sample must have the same probes (chromosome and position) in the same order.", nameof(samples));
                 }
 
-                if (!double.IsFinite(sample[i].LogR))
+                if (double.IsInfinity(sample[i].LogR))
                 {
-                    throw new ArgumentException("Every locus needs a finite logR.", nameof(samples));
+                    throw new ArgumentException("A logR must be finite or NaN (missing).", nameof(samples));
                 }
 
-                if (het[i] && !IsValidAlleleSignal(sample[i].LogR, sample[i].BAF))
+                if (het[i] && !IsAscatBafOrMissing(sample[i].BAF))
                 {
-                    throw new ArgumentException("Every heterozygous locus needs a BAF in [0, 1].", nameof(samples));
+                    throw new ArgumentException("Every heterozygous locus needs a BAF in [0, 1] or NaN (missing).", nameof(samples));
                 }
             }
         }
@@ -6494,8 +6630,12 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// The per-chromosome-part body of <c>ascat.asmultipcf</c> on probes [lo, hi] (all probes have a finite logR, so R's
-    /// <c>Select_sites</c> is every probe and <c>Select_sites2</c> the heterozygous ones).
+    /// The per-chromosome-part body of <c>ascat.asmultipcf</c> on probes [lo, hi], including R's NA path (B24 F59; NaN =
+    /// R <c>NA</c>): <c>Select_sites</c> = probes with a BAF (heterozygous, non-missing) or a logR in at least one sample;
+    /// <c>Select_sites2</c> = probes with both in at least one sample (they get a segmented BAF). The joint segmentation runs
+    /// on the selected sites with weight 0 at every missing value; missing logR is skipped in the winsorisation and the
+    /// per-site logR averages (<c>na.rm = TRUE</c>). With complete data every probe is selected and the heterozygous ones
+    /// get a BAF.
     /// </summary>
     private static void SegmentPartAsMultiPcf(
         AlleleSpecificLocus[][] probes, double[][] rawLogR, bool[] het, int lo, int hi, double segmentLength,
@@ -6505,93 +6645,134 @@ public static partial class OncologyAnalyzer
         int tracks = 2 * sampleCount;
         int len = hi - lo + 1;
 
-        var hetLocal = new List<int>();
+        // bafna (NA at homozygous probes), Select_sites ("indices", 0-based local) and Select_sites2.
+        var indices = new List<int>();
+        var outputBaf = new List<bool>(); // Select_sites2 per selected site
         for (int i = 0; i < len; i++)
         {
-            if (het[lo + i])
+            bool anyBaf = false, anyLogR = false;
+            for (int s = 0; s < sampleCount; s++)
             {
-                hetLocal.Add(i);
+                anyBaf |= het[lo + i] && !double.IsNaN(probes[s][lo + i].BAF);
+                anyLogR |= !double.IsNaN(rawLogR[s][lo + i]);
+            }
+
+            if (anyBaf || anyLogR)
+            {
+                indices.Add(i);
+                outputBaf.Add(anyBaf && anyLogR);
             }
         }
 
-        // lrwins, logRaveraged (one window per probe), bafwins = mirror(madWins(mirror(baf))) on heterozygous probes.
+        int m = indices.Count;
+        if (m == 0)
+        {
+            // "if there are no probes in the segment, don't do anything, except add a LogR segment" (mean, na.rm = TRUE).
+            for (int s = 0; s < sampleCount; s++)
+            {
+                Array.Fill(logRPcfed[s], MeanNaRm(rawLogR[s], lo, hi + 1), lo, len);
+            }
+
+            return;
+        }
+
+        // bafwins = mirror(madWinsMatrixWithNA(mirror(bafsel))): per sample over its non-missing values; with a single
+        // selected site R's madWinsMatrixWithNA winsorises that row ACROSS the samples (nrow(x) == 1 branch).
+        var bafWins = new double[sampleCount][];
+        for (int s = 0; s < sampleCount; s++)
+        {
+            bafWins[s] = new double[m];
+            for (int k = 0; k < m; k++)
+            {
+                int i = lo + indices[k];
+                bafWins[s][k] = het[i] ? MirrorBaf(probes[s][i].BAF) : double.NaN; // MirrorBaf(NaN) = NaN
+            }
+        }
+
+        if (m == 1)
+        {
+            var row = new double[sampleCount];
+            for (int s = 0; s < sampleCount; s++)
+            {
+                row[s] = bafWins[s][0];
+            }
+
+            double[] rowWins = MadWinsorizeWithNa(row, AspcfWinsorTau, AspcfMedianHalfWindow);
+            for (int s = 0; s < sampleCount; s++)
+            {
+                bafWins[s][0] = MirrorBaf(rowWins[s]);
+            }
+        }
+        else
+        {
+            for (int s = 0; s < sampleCount; s++)
+            {
+                double[] wins = MadWinsorizeWithNa(bafWins[s], AspcfWinsorTau, AspcfMedianHalfWindow);
+                for (int k = 0; k < m; k++)
+                {
+                    bafWins[s][k] = MirrorBaf(wins[k]);
+                }
+            }
+        }
+
+        // lrwins (all probes of the part) and logRaveraged: mean(lrwins[start:end], na.rm = TRUE) around each selected site.
         var logRAveraged = new double[sampleCount][];
-        var bafWins = new double[sampleCount][]; // NaN at homozygous probes
-        var hetBafWins = new double[sampleCount][];
         for (int s = 0; s < sampleCount; s++)
         {
             var lr = new double[len];
             Array.Copy(rawLogR[s], lo, lr, 0, len);
-            double[] lrWins = MadWinsorize(lr, AspcfWinsorTau, AspcfMedianHalfWindow);
-            logRAveraged[s] = new double[len];
-            for (int i = 0; i < len - 1; i++)
+            double[] lrWins = MadWinsorizeWithNa(lr, AspcfWinsorTau, AspcfMedianHalfWindow);
+            logRAveraged[s] = new double[m];
+            for (int k = 0; k < m; k++)
             {
-                logRAveraged[s][i] = lrWins[i];
-            }
-
-            double upper = len + 0.01; // averageIndices[n + 1] = nrow(lr) + 0.01; end = floor(· − 0.01)
-            logRAveraged[s][len - 1] = RColonMean(lrWins, len, (int)Math.Floor(upper - 0.01));
-
-            var mirrored = new double[hetLocal.Count];
-            for (int k = 0; k < hetLocal.Count; k++)
-            {
-                mirrored[k] = MirrorBaf(probes[s][lo + hetLocal[k]].BAF);
-            }
-
-            double[] wins = MadWinsorize(mirrored, AspcfWinsorTau, AspcfMedianHalfWindow);
-            hetBafWins[s] = new double[hetLocal.Count];
-            bafWins[s] = new double[len];
-            Array.Fill(bafWins[s], double.NaN);
-            for (int k = 0; k < hetLocal.Count; k++)
-            {
-                hetBafWins[s][k] = MirrorBaf(wins[k]);
-                bafWins[s][hetLocal[k]] = hetBafWins[s][k];
+                (int start, int end) = AscatAveragingWindow(indices, k, len);
+                logRAveraged[s][k] = RColonMeanNaRm(lrWins, start, end);
             }
         }
 
-        // logRASPCF / bafASPCF: per sample, per probe of the part.
+        // logRASPCF / bafASPCF: per sample, per selected site.
         var logRAspcf = new double[sampleCount][];
         var bafAspcf = new double[sampleCount][];
-        if (len < AsMultiPcfMinProbes)
+        if (m < AsMultiPcfMinProbes)
         {
+            // (nrow == 1 keeps the site's own values, which the means below reproduce.)
             for (int s = 0; s < sampleCount; s++)
             {
-                double level = Mean(logRAveraged[s], 0, len);
-                double bafMean = hetBafWins[s].Length == 0 ? double.NaN : Mean(hetBafWins[s], 0, hetBafWins[s].Length);
-                double bafLevel = bafMean >= BalancedBaf ? bafMean : 1.0 - bafMean;
-                logRAspcf[s] = Filled(len, level);
-                bafAspcf[s] = Filled(len, bafLevel);
+                double bafMean = MeanNaRm(bafWins[s], 0, m);
+                logRAspcf[s] = Filled(m, MeanNaRm(logRAveraged[s], 0, m));
+                bafAspcf[s] = Filled(m, bafMean >= BalancedBaf ? bafMean : 1.0 - bafMean); // NaN stays NaN
             }
         }
         else
         {
             // lrANDbaf with NA → 0 and the weight matrix w (0 at NA, times wsample), tracks in rows.
-            var value = new double[tracks, len];
-            var weight = new double[tracks, len];
+            var value = new double[tracks, m];
+            var weight = new double[tracks, m];
             for (int s = 0; s < sampleCount; s++)
             {
-                for (int i = 0; i < len; i++)
+                for (int k = 0; k < m; k++)
                 {
-                    value[s, i] = logRAveraged[s][i];
-                    weight[s, i] = trackWeights[s];
-                    double b = bafWins[s][i];
-                    value[s + sampleCount, i] = double.IsNaN(b) ? 0.0 : b;
-                    weight[s + sampleCount, i] = double.IsNaN(b) ? 0.0 : trackWeights[s + sampleCount];
+                    double r = logRAveraged[s][k];
+                    value[s, k] = double.IsNaN(r) ? 0.0 : r;
+                    weight[s, k] = double.IsNaN(r) ? 0.0 : trackWeights[s];
+                    double b = bafWins[s][k];
+                    value[s + sampleCount, k] = double.IsNaN(b) ? 0.0 : b;
+                    weight[s + sampleCount, k] = double.IsNaN(b) ? 0.0 : trackWeights[s + sampleCount];
                 }
             }
 
             AsMultiPcfFit joint = options.Algorithm == AsMultiPcfAlgorithm.Exact
-                ? AsMultiPcfCompact(weight, WeightedValues(value, weight), segmentLength, Ones(len))
+                ? AsMultiPcfCompact(weight, WeightedValues(value, weight), segmentLength, Ones(m))
                 : RunFastAsMultiPcf(value, weight, segmentLength);
-            double[,] yhat = ExpandMulti(len, tracks, joint.Lengths, joint.Means);
+            double[,] yhat = ExpandMulti(m, tracks, joint.Lengths, joint.Means);
             for (int s = 0; s < sampleCount; s++)
             {
-                logRAspcf[s] = new double[len];
-                bafAspcf[s] = new double[len];
-                for (int i = 0; i < len; i++)
+                logRAspcf[s] = new double[m];
+                bafAspcf[s] = new double[m];
+                for (int k = 0; k < m; k++)
                 {
-                    logRAspcf[s][i] = yhat[s, i];
-                    bafAspcf[s][i] = yhat[s + sampleCount, i];
+                    logRAspcf[s][k] = yhat[s, k];
+                    bafAspcf[s][k] = yhat[s + sampleCount, k];
                 }
             }
 
@@ -6601,13 +6782,73 @@ public static partial class OncologyAnalyzer
             }
         }
 
+        // BAF output rows (Select_sites2) and the getMadwithNA input bafwins[het selected sites, s].
+        var outRows = new List<int>();
+        var hetRows = new List<int>();
+        for (int k = 0; k < m; k++)
+        {
+            if (outputBaf[k])
+            {
+                outRows.Add(k);
+            }
+
+            if (het[lo + indices[k]])
+            {
+                hetRows.Add(k);
+            }
+        }
+
+        var logRC = new double[len];
         for (int s = 0; s < sampleCount; s++)
         {
-            CorrectAsMultiPcfBaf(hetLocal, bafAspcf[s], hetBafWins[s], lo, bafPcfed[s]);
-            FillZeroLevelsFromClosest(logRAspcf[s]);
-            Array.Copy(logRAspcf[s], 0, logRPcfed[s], lo, len);
+            var sdInput = new double[hetRows.Count];
+            for (int q = 0; q < sdInput.Length; q++)
+            {
+                sdInput[q] = bafWins[s][hetRows[q]];
+            }
+
+            CorrectAsMultiPcfBaf(outRows, indices, bafAspcf[s], GetMadWithNa(sdInput, AspcfMedianHalfWindow), lo, bafPcfed[s]);
+
+            // Expand to every probe: site k covers (indices[k−1], indices[k]]; the first from the part start, the last to
+            // its end.
+            int from = 0;
+            for (int k = 0; k < m; k++)
+            {
+                int to = k == m - 1 ? len - 1 : indices[k];
+                for (int i = from; i <= to; i++)
+                {
+                    logRC[i] = logRAspcf[s][k];
+                }
+
+                from = to + 1;
+            }
+
+            FillZeroLevelsFromClosest(logRC);
+            Array.Copy(logRC, 0, logRPcfed[s], lo, len);
         }
     }
+
+    /// <summary>
+    /// ascat.aspcf / ascat.asmultipcf logR averaging window of selected site <paramref name="k"/> (1-based [start, end]
+    /// into the part of <paramref name="len"/> probes): <c>averageIndices = c(1, (indices[-n] + indices[-1])/2, len + 0.01)</c>,
+    /// start = ceiling, end = floor(· − 0.01); one site ⇒ the whole part. <paramref name="indices"/> are 0-based local.
+    /// </summary>
+    private static (int Start, int End) AscatAveragingWindow(List<int> indices, int k, int len)
+    {
+        int h = indices.Count;
+        if (h == 1)
+        {
+            return (1, len);
+        }
+
+        double lower = k == 0 ? 1.0 : ((indices[k - 1] + 1) + (indices[k] + 1)) / 2.0;
+        double upper = k == h - 1 ? len + 0.01 : ((indices[k] + 1) + (indices[k + 1] + 1)) / 2.0;
+        return ((int)Math.Ceiling(lower), (int)Math.Floor(upper - 0.01));
+    }
+
+    /// <summary>ASCAT <c>getMadwithNA(x, k)</c>: <see cref="GetMad"/> after dropping missing (NaN) values.</summary>
+    private static double GetMadWithNa(double[] x, int k) =>
+        GetMad(Array.FindAll(x, v => !double.IsNaN(v)), k);
 
     /// <summary>
     /// ascat.asmultipcf refinement: per sample, its logR and BAF tracks are compacted on the joint breakpoints
@@ -6654,28 +6895,24 @@ public static partial class OncologyAnalyzer
     }
 
     /// <summary>
-    /// ascat.asmultipcf BAF correction of one sample on the heterozygous probes of a part: each run of equal segmented
-    /// BAF gets 0.5 + μ, μ = |b − 0.5| (the mean of a constant run), shrunk to 0 when <c>sqrt(sd² + μ²) &lt; 2·sd</c> with
-    /// sd = <c>getMadwithNA</c> of the sample's winsorised mirrored heterozygous BAF.
+    /// ascat.asmultipcf BAF correction of one sample on the BAF output sites of a part (<c>Select_sites2</c>,
+    /// <paramref name="outRows"/> = positions among the selected sites): each <c>rle</c> run of equal segmented BAF gets
+    /// 0.5 + μ, μ = |b − 0.5| (the mean of a constant run), shrunk to 0 when <c>sqrt(sd² + μ²) &lt; 2·sd</c>; a missing run
+    /// stays missing. <paramref name="sd"/> = <c>getMadwithNA</c> of the sample's winsorised mirrored heterozygous BAF.
     /// </summary>
-    private static void CorrectAsMultiPcfBaf(List<int> hetLocal, double[] bafAspcf, double[] hetBafWins, int lo, double[] bafPcfed)
+    private static void CorrectAsMultiPcfBaf(
+        List<int> outRows, List<int> indices, double[] bafAspcf, double sd, int lo, double[] bafPcfed)
     {
-        int h = hetLocal.Count;
-        if (h == 0)
-        {
-            return;
-        }
-
-        double sd = GetMad(hetBafWins, AspcfMedianHalfWindow);
+        int h = outRows.Count;
         int runStart = 0;
         for (int k = 1; k <= h; k++)
         {
-            if (k < h && bafAspcf[hetLocal[k]].Equals(bafAspcf[hetLocal[runStart]]))
+            if (k < h && bafAspcf[outRows[k]].Equals(bafAspcf[outRows[runStart]]))
             {
                 continue;
             }
 
-            double yi = bafAspcf[hetLocal[runStart]];
+            double yi = bafAspcf[outRows[runStart]];
             double level = double.NaN;
             if (!double.IsNaN(yi))
             {
@@ -6690,7 +6927,7 @@ public static partial class OncologyAnalyzer
 
             for (int q = runStart; q < k; q++)
             {
-                bafPcfed[lo + hetLocal[q]] = level;
+                bafPcfed[lo + indices[outRows[q]]] = level;
             }
 
             runStart = k;

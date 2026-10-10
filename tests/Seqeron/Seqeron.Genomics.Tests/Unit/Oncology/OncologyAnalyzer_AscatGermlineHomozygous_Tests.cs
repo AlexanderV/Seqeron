@@ -264,8 +264,11 @@ public class OncologyAnalyzer_AscatGermlineHomozygous_Tests
             Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, (IReadOnlyList<bool>)null!));
             Assert.Throws<ArgumentException>(() => OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, new List<bool> { true }),
                 "One genotype per locus.");
-            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, new List<bool> { true, true }),
-                "A heterozygous locus needs a BAF in [0, 1].");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.SegmentAlleleSpecificAspcf(
+                    new[] { loci[0], loci[1] with { BAF = 1.5 } }, new List<bool> { true, true }),
+                "A heterozygous locus needs a BAF in [0, 1] (or NaN = R NA, B24 F59).");
+            Assert.DoesNotThrow(() => OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, new List<bool> { true, true }),
+                "A missing (NaN) heterozygous BAF is R's NA: the locus is left out of Select_het (B24 F59).");
             Assert.Throws<ArgumentException>(() => OncologyAnalyzer.SegmentAlleleSpecificAspcf(
                 new[] { new OncologyAnalyzer.AlleleSpecificLocus("1", 1, double.PositiveInfinity, 0.0) }, new List<bool> { false }),
                 "LogR must be finite at every locus.");

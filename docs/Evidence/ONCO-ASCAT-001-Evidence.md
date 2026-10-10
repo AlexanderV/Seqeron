@@ -635,6 +635,52 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
   Harness and generated data: scratchpad `wp28/harness.R`, `run.R`, `gen.py` (same MINSTD generator as `Simulate()` in
   `OncologyAnalyzer_AscatMaleXNonPar_Tests.cs`).
 
+## 2026-10 FIN-B24 F59 — Missing data: the NA path of `ascat.asmultipcf` / `ascat.aspcf` (+ runASCAT)
+
+- Sources opened (VanLoo-lab/ascat master 61ddf3b): `ASCAT/R/ascat.asmultipcf.R` ll. 79–129 (`bafna[homo | is.na(homo), ]
+  <- NA`; `useLogRonlySites = TRUE`: `Select_sites = !(all-NA BAF row & all-NA logR row)`, `Select_sites2 = any BAF & any
+  logR`, subset to the selected sites; `madWinsMatrixWithNA` — per column on `!is.na(x)`, **across the samples when
+  `nrow(x) == 1`**; `logRaveraged[i, ] = mean(lrwins[start:end], na.rm = TRUE)` around each selected site), ll. 131–166
+  (`length(indices) == 0` ⇒ `mean(lr, na.rm = TRUE)`; `< 6` sites ⇒ per-sample `mean(…, na.rm = TRUE)`; else `w = 0` at
+  `is.na(t(lrANDbaf))`, `lrANDbaf[is.na] = 0`), ll. 206–253 (`bafASPCF[Select_sites2, ]`; `getMadwithNA` drops 0 and NA;
+  `rle` per sample; `if (!all(is.na(yi)))`), ll. 274–291 (NA / 0 levels ← closest non-NA non-zero level of the part, `which.min`),
+  ll. 304–324 (genome-wide `mean(Tumor_LogR[run], na.rm = TRUE)`, NaN ⇒ `prevlevel`, starting at 0), l. 342 (`Tumor_BAF_segmented`
+  keeps the non-NA rows only). `ASCAT/R/ascat.aspcf.R` ll. 81–96 (`lrwins[!is.na(lr)] = madWins(lr[!is.na(lr)])`,
+  `Select_het = !homo & !is.na(homo) & !is.na(baf) & !is.na(lr)`), ll. 131–158 (gap breakpoint `sum(…, na.rm = TRUE)`,
+  `mean(lr[run], na.rm = TRUE)`), ll. 160–163 (no het ⇒ `mean(lr, na.rm = TRUE)`), ll. 190–203 (`pcfed[!is.na(towins)] =
+  exactPcf(madWins(towins[!is.na(towins)]))`, 0 elsewhere; replace only if `!anyNA(dif)`), ll. 206–229 (`fillNA(zeroIsNA =
+  TRUE)`, `prevlevel`). So the single-sample `ascat.aspcf` **also** accepts NA by default (its own path, not the
+  multi-sample weights) — ported too (decision: R's default accepts NA, so the `ascat.aspcf` driver follows it; the
+  all-heterozygous `SegmentAlleleSpecificAspcf(loci, penalty)` / `SegmentAlleleSpecific` fastAspcf path is not the
+  `ascat.aspcf` driver — no `Select_het`, no NA handling in `fastAspcf` itself — and keeps rejecting NaN).
+  `ASCAT/R/ascat.runAscat.R` ll. 227–231 (`r = lrrsegmented[names(bafsegmented)]`, `SNPposhet = SNPpos[names(bafsegmented), ]`),
+  ll. 545–567 (`bafke = bafsegmented[bafpos][1]`, first probe of the segment WITH a segmented BAF), ll. 658–669 + l. 98
+  (`n1all/n2all` NA at `is.na(lrr)`; `ifelse(baf[heteroprobes] <= 0.5, …)` is NA where the raw BAF is NA;
+  `ploidy = mean(nA + nB, na.rm = TRUE)`).
+- R behaviour checked in the session: `madWins(numeric(0), 2.5, 25)$ywin` = `numeric(0)`; `madWinsMatrixWithNA` of an all-NA
+  column = all NA; `getMadwithNA(c(NA, NA))` = NA; `exactPcf(numeric(0), 6, 10)` = `numeric(0)`.
+- R cross-check (executed; R 4.3.3, sourced ascat.aspcf.R + ascat.asmultipcf.R + ascat.runAscat.R; harness: the MINSTD
+  `simulateMulti` of F53, then NA written by deterministic rules — `mod`: 1-based probe i with i·a ≡ 0 (mod b); `range`;
+  `chr`; `hetevery`: every a-th heterozygous probe), `ascat.asmultipcf(obj, ascat.gg, penalty = 70)` and
+  `ascat.aspcf(obj, ascat.gg, penalty = 70)` on the same object, `ascat.runAscat(gamma = 1)` on each:
+
+  | Cohort | S | probes | NA rules (sample: track) | NA logR / NA het BAF per sample |
+  |--------|---|--------|--------------------------|----------------------------------|
+  | N1 (seed 611) | 2 | 1032 | S1 logR i·37 ≡ 0 (11); S1 BAF i·29 ≡ 0 (23); S2 BAF i·53 ≡ 0 (17) — scattered | 93 / 27; 0 / 33 |
+  | N2 (seed 622) | 3 | 1505 | S2 logR + BAF all of chr2; S1 logR all of chr3 (5 probes); S3 logR 1340–1350 (in a forced homozygous stretch) — whole-chromosome runs | 5 / 0; 200 / 159; 11 / 0 |
+  | N3 (seed 633) | 2 | 1021 | S1 BAF 301–450; S2 BAF every 3rd het probe; both: all of chr5, chr6 probes 1011–1012 (one selected site), logR 860–865; S1 logR all of chr7 — NA BAF at het probes | 26 / 114; 18 / 245 |
+
+  Result: for all 6 segmentations (14 sample tracks) the per-probe `Tumor_LogR_segmented` and mirrored
+  `Tumor_BAF_segmented` agree within 1e-12 (asserted per probe), the breakpoints (runs of equal level) are identical and
+  the NA positions are identical (e.g. N1 asmultipcf: only probe 782 — BAF missing in both samples — has no segmented
+  BAF, while ascat.aspcf drops 83 / 33 heterozygous probes; N2 asmultipcf S2 takes chr1's last level on chr2 by
+  `prevlevel`). runASCAT on the 14 tracks: N1 S2 has no solution in R (both segmenters; not locked); the other 12 —
+  purity, ψ, ploidy (1e-12), goodnessOfFit (1e-9) and seg_raw — are identical, e.g. N1 asmultipcf S1 ρ = 0.84,
+  ψ = 2.35, ploidy 2.0164113785557989, GoF 98.219103302540461; N3 asmultipcf S1 ρ = 0.24, ψ = 2.15, ploidy
+  4.7448648648648648. Before the runASCAT fixes the ploidy differed (e.g. N2 asmultipcf S2 2.2658 vs R 2.4598: probes with
+  NA logR, and asmultipcf probes with a segmented BAF but a missing raw BAF, are NA in `n1all + n2all`).
+- Harness: scratchpad `wp29/harness.R`, `cohorts.R`, `run.R` (segmentations → `expected.cs`), `fit.R` (runASCAT → `fits.cs`).
+
 ## References
 
 1. Van Loo P, Nordgard SH, Lingjærde OC, et al. (2010). Allele-specific copy number analysis of tumors. PNAS 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
@@ -650,6 +696,7 @@ BAF 0.774; Battenberg (1,1)@0.70000000000000051 + (2,1)@0.29999999999999949; (2,
 
 ## Change History
 
+- **2026-10-10**: FIN-B24 F59 — NA path of `ascat.asmultipcf` / `ascat.aspcf` and runASCAT on NA segmentations R cross-check (3 NA cohorts, 14 tracks, 12 fits).
 - **2026-10-10**: FIN-B24 F58 — male X non-PAR seeded germline re-genotyping (`AscatMaleXGenotyping`) in aspcf / asmultipcf R cross-check (7 tracks); the F38 "not ported" note is superseded.
 - **2026-10-10**: FIN-B24 F53 — multi-sample `ascat.asmultipcf` port (`SegmentAlleleSpecificAsMultiPcf`) R cross-check (5 cohorts, 14 runs); "WGD refit search" phrase removed (no ASCAT counterpart); F36 last-window descending-range fix.
 - **2026-10-10**: FIN-B24 F41 — Battenberg solutions A–F, SDfrac and seeded bootstrap CIs (`FitSubclonalCopyNumberWithBootstrap`, R RNG port) R cross-check + Monte-Carlo agreement section added.

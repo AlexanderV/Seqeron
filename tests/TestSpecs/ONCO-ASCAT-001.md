@@ -269,7 +269,7 @@ MINSTD generator (Evidence § F36); expected values = output of the original R `
 | S-ASPCF-G1 | per-locus tracks | G1 | segments tile all 1080 loci; BAF NaN exactly at homozygous loci; every locus carries its segment level | ascat.aspcf output contract |
 | S-ASPCF-G2 | all heterozygous ⇒ het-only overload | het subsets of G1–G3 | segments bit-identical to `SegmentAlleleSpecificAspcf(loci, 70)` | F13 behaviour preserved |
 | S-ASPCF-G3 | homozygous probes carry CN information | G1 with homozygous probes dropped | het-only overload has no level < −1; germline overload finds the deletion at 281000 | source 2 (R run) |
-| C-ASPCF-G1 | invalid arguments | null loci / genotypes, length mismatch, het BAF NaN, +∞ logR, penalty 0; homozygous BAF NaN accepted | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
+| C-ASPCF-G1 | invalid arguments | null loci / genotypes, length mismatch, het BAF 1.5 (het BAF NaN accepted since F59), +∞ logR, penalty 0; homozygous BAF NaN accepted | ArgumentNullException / ArgumentException / ArgumentOutOfRangeException | contract |
 
 ## 11. FIN-B24 F37 — runASCAT with homozygous segments (2026-10-10)
 
@@ -370,7 +370,7 @@ Expected values = `ascat.asmultipcf(...)` sourced verbatim (R 4.3.3) on the MINS
 | S-AMPCF-1 | refinement removes unsupported breakpoints | C1 | joint: breaks 400, 900 in both; refined: S1 only 900, S2 only 400 | R run |
 | S-AMPCF-2 | R quirk: zero-BAF-weight first block | C1 chr4 (homozygous only) | refine ⇒ 1 level; no refine ⇒ 150 + 150, −1.4828774511765428 | R run |
 | S-AMPCF-3 | output shape, default genotypes | C2 | segments tile 1437 probes; BAF NaN exactly at homozygous probes; null genotypes ≡ all heterozygous | contract |
-| C-AMPCF-1 | guards | 1 sample, single-probe chromosome (R errors), differing probes, genotype / wsample count, wsample ≤ 0, penalty 0 / NaN, het BAF 1.5, NaN logR | `ArgumentException` / `ArgumentOutOfRangeException` / `ArgumentNullException` | R run / contract |
+| C-AMPCF-1 | guards | 1 sample, single-probe chromosome (R errors), differing probes, genotype / wsample count, wsample ≤ 0, penalty 0 / NaN, het BAF 1.5, +∞ logR (NaN accepted since F59) | `ArgumentException` / `ArgumentOutOfRangeException` / `ArgumentNullException` | R run / contract |
 | S-ASPCF-G4 | F36 last-window `x[n:(n−1)]` | single sample, chr2 of 32 probes | 200 / 100 / 16 / 16 segments, R levels ≤ 1e−14 | R run |
 
 ## 17. FIN-B24 F58 — male X non-PAR germline re-genotyping (2026-10-10)
@@ -387,3 +387,17 @@ verbatim (R 4.3.3) with `gender = "XY"`, `X_nonPAR` = hg19, on the MINSTD male t
 | S-MALEX-3 | seed | M3; null seed | same seed ⇒ same draw, seed 43 differs; null ⇒ current Unix second (`as.integer(Sys.time())`) | source |
 | S-MALEX-4 | no heterozygous autosome, germline BAF | M1 all homozygous | `rank(DIST) <= NA` selects none ⇒ all non-PAR homozygous | source |
 | C-MALEX-1 | guards | null model / spec, germline BAF 1.2, wrong count, `sample()` branch without autosomal het (R: `sample(x, NA)` fails) | `ArgumentNullException` / `ArgumentException` | source / contract |
+
+## 18. FIN-B24 F59 — missing data (R NA) in `ascat.asmultipcf` / `ascat.aspcf` (2026-10-10)
+
+File `OncologyAnalyzer_AscatMissingData_Tests.cs` (+ C-AMPCF-1 / C-ASPCF-G1 updated: NaN is accepted, +∞ still throws).
+Expected values = R 4.3.3 `ascat.asmultipcf` / `ascat.aspcf` / `ascat.runAscat(gamma = 1)` on the MINSTD cohorts of F53 with
+deterministic NA rules (Evidence § F59).
+
+| ID | Test | Input | Expected | Evidence |
+|----|------|-------|----------|----------|
+| M-ANA-1..6 | `Segmentation_WithMissingData_MatchesAscat` | N1 (scattered NA), N2 (whole-chromosome NA runs), N3 (NA BAF at het probes, all-NA part, single selected site, all-NA logR chromosome); asmultipcf and per-sample aspcf | per probe: logR and mirrored BAF ≤ 1e−12, identical breakpoints, identical NA (no segmented BAF) positions | R run |
+| M-ANA-7..18 | `FitPurityPloidyFromAspcf_WithMissingData_MatchesRunAscat` | the 12 NA tracks with an R solution | purity, ψ, ploidy ≤ 1e−12; goodnessOfFit ≤ 1e−9; seg_raw identical | R run |
+| S-ANA-1 | complete data unchanged | N1 without NA | BAF exactly at heterozygous probes (F53 / F36 / F37 R-locked suites unchanged) | source |
+| S-ANA-2 | whole part missing | N3 chr5 | no NaN level anywhere; asmultipcf: chr5 = previous level (`prevlevel`), no BAF | R run / source |
+| C-ANA-1 | non-finite input | NaN logR / BAF; ±∞ logR / BAF | NaN accepted by both drivers; ±∞ `ArgumentException`; the fastAspcf overload still rejects NaN | source / contract |
