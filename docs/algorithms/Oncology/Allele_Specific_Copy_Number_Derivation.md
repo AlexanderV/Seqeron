@@ -5,8 +5,8 @@
 | Algorithm Group | Oncology |
 | Test Unit ID | ONCO-ASCAT-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
-| Implementation Status | Complete (ASCAT runASCAT / ascat.aspcf / ascat.asmultipcf, Battenberg determine_copynumber ports; `SegmentAlleleSpecific` = ASPCF at penalty 70 since B24 F35) |
-| Last Reviewed | 2026-09-28 |
+| Implementation Status | Complete (ASCAT runASCAT / ascat.aspcf / ascat.asmultipcf, Battenberg determine_copynumber / segment.baf.phased / merge_segments / mask_high_cn_segments / callSubclones ports, R-locked; `SegmentAlleleSpecific` = ASPCF at penalty 70 since B24 F35; only Battenberg's external haplotype imputation is not built in) |
+| Last Reviewed | 2026-10-10 |
 
 ## 1. Overview
 
@@ -16,12 +16,16 @@ multiplicity. From per-locus log-R ratio (logR) and B-allele frequency (BAF) at 
 (observed measurements), it (1) **segments** the genome into (logR, BAF) summaries, (2) **jointly fits** tumour
 purity ρ and ploidy ψ by grid search using the ASCAT equations and goodness-of-fit objective, emitting
 allele-specific **integer** copy-number segments, and (3) **derives** somatic mutation multiplicity from VAF,
-purity and copy number. It is a faithful but simplified single-sample realisation of ASCAT (Van Loo et al. 2010)
-[1][2] plus the McGranahan multiplicity convention [3][4]. In addition it provides the **ASPCF** penalised
+purity and copy number. It is a port of ASCAT (Van Loo et al. 2010) [1][2] — `runASCAT` (incl. the germline-aware,
+homozygous-segment and haploid X/Y male paths), `ascat.aspcf` and multi-sample `ascat.asmultipcf`, R-locked (§5.2) — plus
+the McGranahan multiplicity convention [3][4]. In addition it provides the **ASPCF** penalised
 least-squares segmentation (Nilsen et al. 2012 [6]; Ross et al. 2021 [7]) — the global-optimum joint logR/BAF
 changepoint method ASCAT uses — and **sub-clonal copy number** modelling (Battenberg two-population model,
 Nik-Zainal et al. 2012 [8]), which expresses a segment that does not fit a single integer state as a mixture of
-two adjacent integer states with a sub-clonal cellular fraction.
+two adjacent integer states with a sub-clonal cellular fraction; the Battenberg chain (per-SNP t-test, phased-BAF
+segmentation, bootstrap CIs, `merge_segments`, `mask_high_cn_segments`, `callSubclones`) is ported and R-locked. The
+only Battenberg stage not built in is haplotype imputation (IMPUTE2/Beagle5 against the 1000 Genomes panel; callers
+supply phased BAFs, §5.3).
 
 ## 2. Scientific / Formal Basis
 
@@ -359,8 +363,10 @@ mirrored about 0.5 (ascat.aspcf `ifelse(b > 0.5, b, 1 − b)`) during segmentati
 
 ### 5.2 Current Behavior
 
-Single-sample ASCAT fit (runASCAT port, R-verified 150/150); ASPCF = `ascat.aspcf` port (R-verified 60/60);
-sub-clonal = Battenberg `determine_copynumber` port (R-verified 402/402). `SegmentAlleleSpecific` runs the same ASPCF
+ASCAT fit (runASCAT port, R-verified 150/150; germline-aware / homozygous-segment, male X/Y and NA paths, F36–F38/F58/F59);
+ASPCF = `ascat.aspcf` port (R-verified 60/60), multi-sample `ascat.asmultipcf` (F53); sub-clonal = Battenberg
+`determine_copynumber` port (R-verified 402/402) plus the per-SNP t-test, phased-BAF segmentation, bootstrap,
+`merge_segments` / `mask_high_cn_segments` and `callSubclones` driver (F39–F41, F60, F61). `SegmentAlleleSpecific` runs the same ASPCF
 at ASCAT's default penalty 70 (the former greedy heuristic was removed, B24 F35). Not a search/matching task, so the repository
 suffix tree is **not used** (no occurrence enumeration).
 

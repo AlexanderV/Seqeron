@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-PHYLO-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Complete (LICHeE port) |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-10-10 |
 
 ## 1. Overview
 
@@ -139,7 +139,7 @@ Cross-checked against the original `lichee.jar` (PHYNetwork + getLineageTrees + 
 
 - `ReconstructPhylogeny(CcfCluster…)` carries point CCFs only, so it uses the static margin ε (= LICHeE with zero-variance clusters); the per-cluster `1.96·sd/√n` margins are available through `ReconstructPhylogenyFromClusterSummaries` (F42).
 - `ReconstructPhylogeny(CcfCluster…)` has no member counts, so every cluster is treated as robust — for robust clusters LICHeE's `fixNetwork` removes nothing, so this is LICHeE's own behaviour; the summary overloads run `fixNetwork` by default (F43) and report dropped clusters in `RemovedClusterIds` (`removeNonRobustClusters: false` keeps them).
-- After a `fixNetwork` rebuild LICHeE orders groups by a `HashSet<SNVGroup>` (identity hash codes, `SNVGroup` overrides `equals` but not `hashCode`); the port keeps the pre-removal node order (= LICHeE with a constant identity hash). This is the only identity-hash dependence; it is not reproducible run to run in LICHeE itself (F43). Size filtering / centroid collapsing of `SNVGroup.setSubPopulations` are clustering steps (ONCO-CCF-001), not ported.
+- After a `fixNetwork` rebuild LICHeE orders groups by a `HashSet<SNVGroup>` (identity hash codes, `SNVGroup` overrides `equals` but not `hashCode`); the port keeps the pre-removal node order (= LICHeE with a constant identity hash). This is the only identity-hash dependence; it is not reproducible run to run in LICHeE itself (F43). LICHeE's SNV-level front end (SNV filtering, grouping SNVs by presence profile and clustering each group into sub-populations — `SNVGroup.setSubPopulations` size filtering / centroid collapsing) is outside ONCO-PHYLO-001, whose input is clusters (ALGORITHMS_CHECKLIST_V2 ONCO-PHYLO-001: "CCF clustering itself is ONCO-CCF-001"); since F42/F43 per-cluster summaries (member count, mean, sd) can be built from member CCFs with `CcfClusterSummary.FromMembers` and passed to `ReconstructPhylogenyFromClusterSummaries`.
 - The group order emulates LICHeE's clusters-file path (profiles `put` in first-appearance order, never removed). On LICHeE's SNV-file path `tag2SNVs` also loses small groups and gains re-assigned ambiguous ones before `keySet()` is read, so its table capacity/order depends on that SNV-level history, which this cluster-level API does not have.
 
 **Not implemented:**

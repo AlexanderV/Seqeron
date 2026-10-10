@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-CCF-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-10-10 |
 
 ## 1. Overview
 
@@ -250,7 +250,9 @@ involved, so the repository suffix tree is not applicable.
 
 ### 6.2 Limitations
 
-Point CCF carries no uncertainty; clustering assumes clones are 1D-separable and that k is known. Aneuploid
+Point CCF carries no uncertainty; clustering assumes clones are 1D-separable, and k is either supplied or chosen in
+[k_min, k_max] by the Ckmeans.1d.dp Gaussian-mixture BIC (`ClusterCcfValues(ccf, minClusters, maxClusters)`, B24 F47),
+which can still over-/under-split non-Gaussian populations (ASM-CL-01). Aneuploid
 matched normals violate the CN_n = 2 assumption. Not a replacement for full probabilistic subclone callers.
 
 ## 7. Examples and Related Material
