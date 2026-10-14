@@ -240,16 +240,14 @@ public static class SequenceStatistics
 
     // Residue codes are ASCII letters, folded ASCII-only (as ProteinPhysicochemistry):
     // non-ASCII letters such as U+017F 'ſ' are not residues (EMBOSS pepstats skips them).
+    // Canonical Core 1-mer counter (ASCII-only fold, first-occurrence key order), filtered to ASCII letters.
     private static Dictionary<char, int> CountAsciiResidues(string sequence)
     {
         var counts = new Dictionary<char, int>();
-        foreach (char raw in sequence)
+        foreach (var (symbol, count) in sequence.AsSpan().CountKmersSpan(1))
         {
-            if (char.IsAsciiLetter(raw))
-            {
-                char ch = ToUpperAscii(raw);
-                counts[ch] = counts.GetValueOrDefault(ch) + 1;
-            }
+            if (char.IsAsciiLetter(symbol[0]))
+                counts.Add(symbol[0], count);
         }
 
         return counts;
