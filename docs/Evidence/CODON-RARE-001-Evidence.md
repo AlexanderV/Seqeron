@@ -335,3 +335,50 @@ averaging / alignment / per-thousand scale differences are recorded as a kept si
   28.796581754809075 / 23.264123403923747 / 16.195449171123403 (28.8/23.26/16.2); human `UUACGU` w2
   −96.40404591634571 (−96.4); human fractions (CodonFrequencies basis) 19.650655021834133 /
   13.878080415045439 / 13.803548247511891, `UUACGU` −94.54545454545456.
+
+# Review 2026-10 (FIN-B02 WP8) — Sherlocc alignment analysis (A1-2)
+
+## Source re-read in full
+`sherlocc.pl` (commit b3b4d15, 1223 lines) read end to end. Stage 1 (l. 95–445) retrieves, per Pfam
+row, UniProt/ENA records over HTTP and writes `u_id/org_id/pfam_ori/pfam_aa/transl_tbl/coding_seq`
+(l. 369–374). Stage 2 (l. 447–537) gives every aligned residue the per-thousand usage of its codon in
+its OWN organism's CUTG row (`$cu_hash{$org_id}`, l. 497), non-residue/unknown → `x`. Stage 3:
+- Averaging + filter (l. 772–819): `$tresh=($row*(7))*(0.75)`; for column `i`, cells of columns
+  `i−3…i+3` of all rows are summed (`$freq_count`), out-of-range / `x` cells skipped;
+  `if($freq_count >= $tresh)` → `$avrg=$freq_sum/$freq_count`, pause `if($avrg <= $avrg_lim)`; else
+  the column is "NA" (not representative). This is the whole "conservation" filter — no separate
+  per-sequence or identity filter exists.
+- Clusters (l. 838–854): windows `i…i+6`, `$win_pause_count >= 4` → `first pause – last pause`.
+- Merge (l. 894–961): next cluster extends the current one when `this_start` ∈ [start, stop]; when
+  `this_start > stop` a new cluster starts (abutting clusters stay separate).
+- Cluster mean (l. 875–879): `$freq_sum+=$col_freq[$k]` over the span — an NA column inside a span
+  is an undefined value (0). Middle point (l. 1137–1140) `stop − (len/2)`, decimals stripped;
+  fraction (l. 1154) `total_cluster_length / alignment_length`; `clusters_freq_avrg` = mean of cluster
+  means.
+- FoldIndex block (l. 683–744, 997–1103): Uversky/Prilusky unstructured-region prediction — a separate
+  output, not ported.
+- P-values: none (no `rand`, shuffle, P-value or significance code; `grep -n -i
+  "p-val|pval|random|shuffl|signific|rand("` → only the comment "significant windows (clusters)" l. 837/848).
+
+## Oracle run
+perl 5.38 + libwww-perl (apt) in an isolated copy; stages 2+3 on hand-written stage-1 records (the
+only change to the script: l. 15 `cleanup("stage1")` and l. 17 `mkdir "stage1"` removed so the records
+survive; stage 1 needs live UniProt/ENA). `files/cut`: `org_id=4932` / `org_id=9606` rows with the
+Yeast / Human preset per-thousand values. Results (`results/out/results`, HTML "Average" row):
+- A (yeast, 3×20, threshold 15): pauses 9–12 (1-based); `clusters=9-12|9.83928571428571`,
+  `total_nb_of_pauses=4`.
+- B (yeast, 2×18, threshold 15, two fully gapped columns): column 10 (1-based) "NA";
+  `clusters=6-13|5.265625` (the NA column counted as 0), `total_nb_of_pauses=7`.
+- C (yeast/human/yeast, 3×34, threshold 16): `clusters=4-10|9.20962052101093,21-27|9.30926559372343`,
+  `clusters_freq_avrg=9.25944305736718`, `total_nb_of_pauses=14`.
+An independent Python port of l. 772–961 reproduces every 2-dp column average and every cluster
+value (unrounded values used in the tests at 1e-12).
+
+## Cluster P-values — BLOCKED
+The paper (Chartier, Gaudreault & Najmanovich 2012, doi:10.1093/bioinformatics/bts149, PMID 22467916)
+reports P-values (WebSearch snippet: P22 tailspike cluster "P-value of 1.72×10^−8 at a threshold of
+15"), but the model is not in `sherlocc.pl` and the full text could not be opened: academic.oup.com
+(…/article/28/11/1438/265476 and /266932), pmc.ncbi.nlm.nih.gov, pubmed.ncbi.nlm.nih.gov,
+eutils.ncbi.nlm.nih.gov, www.ebi.ac.uk/europepmc, api.semanticscholar.org, web.archive.org,
+ui.adsabs.harvard.edu, journals.plos.org, arxiv.org — proxy `CONNECT tunnel failed, response 403` /
+WebFetch `ENOTFOUND`; WebSearch snippets give no null model. No P-value is reported.

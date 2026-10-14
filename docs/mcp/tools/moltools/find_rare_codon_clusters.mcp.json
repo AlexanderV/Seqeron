@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.FindRareCodonClusters",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1171",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1244",
   "description": "Rare-codon clusters by the Sherlocc rule (Chartier et al. 2012): >= min_rare_codons rare codons (frequency <= threshold, Sherlocc) in a window_size-codon window, merged into maximal regions.",
   "inputSchema": {
     "type": "object",

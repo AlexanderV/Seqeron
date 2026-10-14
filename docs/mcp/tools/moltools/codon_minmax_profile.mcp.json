@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.CalculateMinMaxProfile",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1043",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1116",
   "description": "%MinMax codon-usage profile (Clarke & Clark 2008) over a sliding codon window.",
   "inputSchema": {
     "type": "object",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.FindRareCodons",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L950",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1023",
   "description": "Report codons whose frequency in the target organism table is below a threshold.",
   "inputSchema": {
     "type": "object",

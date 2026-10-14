@@ -92,6 +92,79 @@ public static class CodonOptimizer
     public readonly record struct RareCodonCluster(int StartCodon, int EndCodon, int RareCount);
 
     /// <summary>
+    /// Parameters of the Sherlocc 1.0 stage-3 analysis
+    /// (<see cref="FindConservedRareCodonClusters(IReadOnlyList{string}, CodonUsageTable, double, SherloccOptions?)"/>).
+    /// Defaults are the constants of <c>sherlocc.pl</c> (github.com/mtthchrtr/sherlocc, commit b3b4d15).
+    /// </summary>
+    public sealed record SherloccOptions
+    {
+        /// <summary>Width (odd, in alignment columns) of the centred averaging window: columns i−3 … i+3 (l. 785, default 7).</summary>
+        public int AveragingWindow { get; init; } = 7;
+
+        /// <summary>Width (in alignment columns) of the cluster window i … i+6 (l. 838–842, default 7).</summary>
+        public int ClusterWindow { get; init; } = 7;
+
+        /// <summary>Minimum pause columns inside a cluster window (l. 848 <c>$win_pause_count &gt;= 4</c>, default 4).</summary>
+        public int MinPauses { get; init; } = 4;
+
+        /// <summary>
+        /// Representativeness ("conservation") filter: a column is averaged only when at least
+        /// <c>MinCoverage × sequences × AveragingWindow</c> window cells carry a usage value
+        /// (l. 772 <c>$tresh=($row*(7))*(0.75)</c>, l. 799 <c>$freq_count &gt;= $tresh</c>; default 0.75 —
+        /// README "windows occupied by alignment gaps … by 25% or more are excluded").
+        /// </summary>
+        public double MinCoverage { get; init; } = 0.75;
+
+        /// <summary>
+        /// <see langword="false"/> (default): usage values are <see cref="CodonUsageTable.PerThousand"/>
+        /// (Sherlocc's CUTG per-thousand column, <c>files/cut</c>); a table without it is rejected.
+        /// <see langword="true"/>: use <see cref="CodonUsageTable.CodonFrequencies"/> instead (the
+        /// threshold must then be on that scale).
+        /// </summary>
+        public bool UseCodonFrequencies { get; init; }
+    }
+
+    /// <summary>
+    /// One conserved rare-codon cluster of a codon alignment (Sherlocc 1.0 stage 3).
+    /// </summary>
+    /// <param name="StartColumn">0-based alignment column of the first pause of the cluster (Sherlocc prints it 1-based).</param>
+    /// <param name="EndColumn">0-based alignment column of the last pause of the cluster (inclusive).</param>
+    /// <param name="PauseCount">Number of pause columns in StartColumn…EndColumn.</param>
+    /// <param name="MeanUsage">
+    /// Sherlocc "Usage Frequency Average" (<c>$cluster_avrg</c>, l. 875–879): mean of the column
+    /// averages over the span; a non-representative column inside the span has no average and
+    /// contributes 0 (Perl undefined value), exactly as in the script.
+    /// </param>
+    /// <param name="MiddlePoint">
+    /// Sherlocc "Middle Point" (l. 1137–1140), 1-based: <c>stop − (length / 2)</c> with the decimals dropped.
+    /// </param>
+    public readonly record struct ConservedRareCodonCluster(
+        int StartColumn, int EndColumn, int PauseCount, double MeanUsage, int MiddlePoint);
+
+    /// <summary>
+    /// Result of <see cref="FindConservedRareCodonClusters(IReadOnlyList{string}, CodonUsageTable, double, SherloccOptions?)"/>.
+    /// </summary>
+    /// <param name="SequenceCount">Number of aligned sequences (rows).</param>
+    /// <param name="AlignmentLength">Number of codon columns.</param>
+    /// <param name="ColumnAverages">Per column: window-and-family average usage (<c>$avrg</c>), or <see langword="null"/> when the column is not representative ("NA").</param>
+    /// <param name="ColumnUsageCounts">Per column: number of window cells with a usage value (<c>$freq_count</c>).</param>
+    /// <param name="PauseColumns">0-based pause ("slow") columns: average ≤ threshold.</param>
+    /// <param name="Clusters">Merged conserved rare-codon clusters in column order.</param>
+    /// <param name="TotalClusterLength">Σ (EndColumn − StartColumn + 1) over the clusters.</param>
+    /// <param name="ClusterFraction">TotalClusterLength / AlignmentLength (Sherlocc "Fraction of the pfam occupied by rare codon clusters").</param>
+    /// <param name="MeanClusterUsage">Mean of the clusters' <see cref="ConservedRareCodonCluster.MeanUsage"/> (<c>clusters_freq_avrg</c>), or <see langword="null"/> without clusters.</param>
+    public sealed record SherloccResult(
+        int SequenceCount,
+        int AlignmentLength,
+        IReadOnlyList<double?> ColumnAverages,
+        IReadOnlyList<int> ColumnUsageCounts,
+        IReadOnlyList<int> PauseColumns,
+        IReadOnlyList<ConservedRareCodonCluster> Clusters,
+        int TotalClusterLength,
+        double ClusterFraction,
+        double? MeanClusterUsage);
+
+    /// <summary>
     /// Optimization strategy options.
     /// </summary>
     public enum OptimizationStrategy
@@ -1259,6 +1332,209 @@ public static class CodonOptimizer
         for (int k = start; k <= end; k++)
             if (isRare[k]) count++;
         return new RareCodonCluster(start, end, count);
+    }
+
+    /// <summary>
+    /// Sherlocc 1.0 conserved rare-codon cluster analysis (Chartier, Gaudreault &amp; Najmanovich 2012;
+    /// <c>sherlocc.pl</c> stage 3, github.com/mtthchrtr/sherlocc commit b3b4d15) of a codon alignment of
+    /// homologous coding sequences, every sequence scored with the same usage table.
+    /// </summary>
+    /// <remarks>
+    /// <para>Input convention: equal-length aligned nucleotide CDS (DNA or RNA, any case), one codon per
+    /// 3 alignment characters; a codon column made only of <c>-</c>/<c>.</c> is a gap (Sherlocc <c>x</c>).
+    /// A triplet with no usage value (partially gapped, ambiguous, or absent from the table) is also
+    /// an <c>x</c> cell.</para>
+    /// <para>Algorithm (verbatim from the script): (1) every cell gets its codon's per-thousand usage
+    /// (stage 2, l. 494–522); (2) for every column i the values of columns i−3 … i+3 of ALL sequences
+    /// are summed, skipping out-of-range and <c>x</c> cells (l. 780–798); (3) the column is
+    /// representative only when the number of valued cells ≥ 0.75 × sequences × 7 (l. 772, 799) — the
+    /// conservation/gap filter; (4) a representative column with average ≤ threshold is a pause
+    /// (l. 803); (5) every window of columns i … i+6 holding ≥ 4 pauses yields a cluster from its first
+    /// to its last pause (l. 838–854); (6) successive clusters are merged when the next one starts
+    /// inside the current one, otherwise a new cluster starts — abutting clusters are NOT merged
+    /// (l. 894–961); (7) each cluster's mean usage, middle point, the total length and the fraction of
+    /// the alignment are those of the result table (l. 875–879, 1131–1155).</para>
+    /// <para>Not ported: the FoldIndex/Uversky unstructured-region prediction (a separate output of the
+    /// script) and stages 1–2 retrieval (UniProt/ENA web queries). The cluster P-values of the paper are
+    /// not computed by <c>sherlocc.pl</c> and their model is not available (see the CODON-RARE-001
+    /// Evidence), so no P-value is reported.</para>
+    /// </remarks>
+    /// <param name="alignedCodingSequences">Aligned in-frame coding sequences (gaps <c>-</c> or <c>.</c>).</param>
+    /// <param name="table">Codon-usage table applied to every sequence (needs <see cref="CodonUsageTable.PerThousand"/> unless <see cref="SherloccOptions.UseCodonFrequencies"/>).</param>
+    /// <param name="threshold">Sherlocc threshold (per thousand by default; README examples 14, 15, 16); pause = average ≤ threshold.</param>
+    /// <param name="options">Window/filter parameters; <see langword="null"/> = Sherlocc defaults.</param>
+    /// <exception cref="ArgumentNullException">A list, sequence or table is null.</exception>
+    /// <exception cref="ArgumentException">Empty alignment, unequal lengths, length not a multiple of 3, or a table without per-thousand usage.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Threshold is NaN, or an option is out of range.</exception>
+    public static SherloccResult FindConservedRareCodonClusters(
+        IReadOnlyList<string> alignedCodingSequences,
+        CodonUsageTable table,
+        double threshold,
+        SherloccOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(alignedCodingSequences);
+        var tables = new CodonUsageTable[alignedCodingSequences.Count];
+        Array.Fill(tables, table);
+        return FindConservedRareCodonClusters(alignedCodingSequences, tables, threshold, options);
+    }
+
+    /// <summary>
+    /// <see cref="FindConservedRareCodonClusters(IReadOnlyList{string}, CodonUsageTable, double, SherloccOptions?)"/>
+    /// with one usage table per sequence — Sherlocc scores each family member with the codon usage of
+    /// its own organism (stage 2 looks up <c>$cu_hash{$org_id}</c> per protein, l. 497).
+    /// </summary>
+    /// <param name="alignedCodingSequences">Aligned in-frame coding sequences (gaps <c>-</c> or <c>.</c>).</param>
+    /// <param name="tablesPerSequence">One table per sequence, same order.</param>
+    /// <param name="threshold">Sherlocc threshold; pause = average ≤ threshold.</param>
+    /// <param name="options">Window/filter parameters; <see langword="null"/> = Sherlocc defaults.</param>
+    public static SherloccResult FindConservedRareCodonClusters(
+        IReadOnlyList<string> alignedCodingSequences,
+        IReadOnlyList<CodonUsageTable> tablesPerSequence,
+        double threshold,
+        SherloccOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(alignedCodingSequences);
+        ArgumentNullException.ThrowIfNull(tablesPerSequence);
+        options ??= new SherloccOptions();
+        if (double.IsNaN(threshold))
+            throw new ArgumentOutOfRangeException(nameof(threshold), threshold, "Threshold must be a number.");
+        if (options.AveragingWindow < 1 || options.AveragingWindow % 2 == 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.AveragingWindow, "AveragingWindow must be a positive odd number of columns.");
+        if (options.ClusterWindow < 1)
+            throw new ArgumentOutOfRangeException(nameof(options), options.ClusterWindow, "ClusterWindow must be at least 1 column.");
+        if (options.MinPauses < 1)
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinPauses, "MinPauses must be at least 1.");
+        if (!(options.MinCoverage >= 0 && options.MinCoverage <= 1))
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinCoverage, "MinCoverage must be in [0, 1].");
+
+        int rows = alignedCodingSequences.Count;
+        if (rows == 0)
+            throw new ArgumentException("The alignment must contain at least one sequence.", nameof(alignedCodingSequences));
+        if (tablesPerSequence.Count != rows)
+            throw new ArgumentException("One codon-usage table per sequence is required.", nameof(tablesPerSequence));
+
+        int length = -1;
+        for (int r = 0; r < rows; r++)
+        {
+            string? s = alignedCodingSequences[r];
+            if (s is null)
+                throw new ArgumentNullException(nameof(alignedCodingSequences), $"Sequence {r} is null.");
+            if (s.Length % 3 != 0)
+                throw new ArgumentException($"Sequence {r} length {s.Length} is not a multiple of 3.", nameof(alignedCodingSequences));
+            if (length >= 0 && s.Length != length)
+                throw new ArgumentException("All aligned sequences must have the same length.", nameof(alignedCodingSequences));
+            length = s.Length;
+            var t = tablesPerSequence[r];
+            if (t.CodonFrequencies is null)
+                throw new ArgumentNullException(nameof(tablesPerSequence), $"Table {r} has no codon frequencies.");
+            if (!options.UseCodonFrequencies && t.PerThousand is null)
+                throw new ArgumentException(
+                    $"Table {r} ('{t.OrganismName}') has no per-thousand usage; Sherlocc uses CUTG per-thousand values " +
+                    "(set SherloccOptions.UseCodonFrequencies to score CodonFrequencies instead).", nameof(tablesPerSequence));
+        }
+
+        int columns = length / 3;
+
+        // Stage 2: one usage value per cell, NaN for an 'x' cell.
+        var matrix = new double[rows, columns];
+        for (int r = 0; r < rows; r++)
+        {
+            var usage = options.UseCodonFrequencies ? tablesPerSequence[r].CodonFrequencies : tablesPerSequence[r].PerThousand!;
+            string s = alignedCodingSequences[r];
+            for (int c = 0; c < columns; c++)
+            {
+                string codon = s.Substring(c * 3, 3).ToUpperInvariant().Replace('T', 'U');
+                matrix[r, c] = usage.TryGetValue(codon, out double v) ? v : double.NaN;
+            }
+        }
+
+        // Stage 3: window-and-family averages, representativeness filter, pauses.
+        int half = options.AveragingWindow / 2;
+        double minCells = rows * options.AveragingWindow * options.MinCoverage;
+        var averages = new double?[columns];
+        var counts = new int[columns];
+        var pauses = new List<int>();
+        var isPause = new bool[columns];
+        for (int i = 0; i < columns; i++)
+        {
+            double sum = 0;
+            int count = 0;
+            for (int r = 0; r < rows; r++)
+            {
+                for (int c = i - half; c <= i + half; c++)
+                {
+                    if (c < 0 || c >= columns || double.IsNaN(matrix[r, c]))
+                        continue;
+                    sum += matrix[r, c];
+                    count++;
+                }
+            }
+
+            counts[i] = count;
+            if (count > 0 && count >= minCells)
+            {
+                double avg = sum / count;
+                averages[i] = avg;
+                if (avg <= threshold)
+                {
+                    isPause[i] = true;
+                    pauses.Add(i);
+                }
+            }
+        }
+
+        // Cluster windows i … i+W−1 with ≥ MinPauses pauses → (first pause, last pause).
+        var merged = new List<(int Start, int Stop)>();
+        for (int i = 0; i + options.ClusterWindow <= columns; i++)
+        {
+            int first = -1, last = -1, n = 0;
+            for (int j = i; j < i + options.ClusterWindow; j++)
+            {
+                if (!isPause[j]) continue;
+                if (first < 0) first = j;
+                last = j;
+                n++;
+            }
+
+            if (n < options.MinPauses)
+                continue;
+            if (merged.Count > 0 && first >= merged[^1].Start && first <= merged[^1].Stop)
+                merged[^1] = (merged[^1].Start, last);
+            else if (merged.Count == 0 || first > merged[^1].Stop)
+                merged.Add((first, last));
+        }
+
+        var clusters = new List<ConservedRareCodonCluster>(merged.Count);
+        int totalLength = 0;
+        double meanSum = 0;
+        foreach (var (start, stop) in merged)
+        {
+            double sum = 0;
+            int pauseCount = 0;
+            for (int k = start; k <= stop; k++)
+            {
+                sum += averages[k] ?? 0.0;
+                if (isPause[k]) pauseCount++;
+            }
+
+            int spanLength = stop - start + 1;
+            double mean = sum / spanLength;
+            int middle = (int)((stop + 1) - spanLength / 2.0);
+            clusters.Add(new ConservedRareCodonCluster(start, stop, pauseCount, mean, middle));
+            totalLength += spanLength;
+            meanSum += mean;
+        }
+
+        return new SherloccResult(
+            rows,
+            columns,
+            averages,
+            counts,
+            pauses,
+            clusters,
+            totalLength,
+            columns > 0 ? (double)totalLength / columns : 0.0,
+            clusters.Count > 0 ? meanSum / clusters.Count : null);
     }
 
     /// <summary>

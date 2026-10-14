@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.CreateCodonTableFromSequence",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1427",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1703",
   "description": "Derive a per-organism codon-usage table (per-amino-acid relative codon frequencies, RNA alphabet) from a reference coding sequence.",
   "inputSchema": {
     "type": "object",

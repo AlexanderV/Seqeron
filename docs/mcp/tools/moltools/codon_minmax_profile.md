@@ -20,7 +20,7 @@ Splits the coding sequence into frame-0 codons (T→U) and, for every window of 
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L1043](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1043)
+- Source: [CodonOptimizer.cs#L1116](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1116)
 - Algorithm: [CODON-RARE-001](../../../../tests/TestSpecs/CODON-RARE-001.md), Evidence: [CODON-RARE-001-Evidence](../../../Evidence/CODON-RARE-001-Evidence.md)
 
 ## Input Schema

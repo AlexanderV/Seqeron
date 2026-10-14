@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.ReduceSecondaryStructure",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L857",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L930",
   "description": "Greedy synonymous-codon swap that lowers local self-complementarity (canonical pairing incl. G·U wobble) to reduce mRNA secondary structure; RNA-normalised output.",
   "inputSchema": {
     "type": "object",

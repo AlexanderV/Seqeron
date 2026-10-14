@@ -252,3 +252,38 @@ R6 (yeast fraction value 58.620689655172406) is now requested with `MinMaxUsageB
 (value unchanged). MCP: `find_rare_codons` `inclusive_threshold` (default false),
 `find_rare_codon_clusters` `inclusive_threshold` (default true), `codon_minmax_profile` `usage_basis`
 (default `PerThousandWhenAvailable`) — `SherloccThresholdPerThousandToolsTests.cs`.
+
+---
+
+# Review 2026-10 (FIN-B02 WP8) — Sherlocc conserved rare-codon clusters over an alignment (A1-2)
+
+```csharp
+public static SherloccResult FindConservedRareCodonClusters(
+    IReadOnlyList<string> alignedCodingSequences, CodonUsageTable table,
+    double threshold, SherloccOptions? options = null);
+public static SherloccResult FindConservedRareCodonClusters(
+    IReadOnlyList<string> alignedCodingSequences, IReadOnlyList<CodonUsageTable> tablesPerSequence,
+    double threshold, SherloccOptions? options = null);
+```
+
+Source / oracle: Sherlocc 1.0 `sherlocc.pl` (commit b3b4d15) stages 2+3 run with perl 5.38 on the
+alignments below (stage-1 records hand-written in the l. 369–374 format; l. 15/17 stage-1 reset removed
+because stage 1 queries UniProt/ENA live); `files/cut` rows = Yeast (4932) / Human (9606) preset
+per-thousand values. Unrounded column averages: independent Python port (equal to every Perl value).
+Alignments are listed in `CodonOptimizer_SherloccConservedClusters_Tests.cs`.
+
+| ID | Case | Expected (sherlocc.pl) | Test |
+|----|------|------------------------|------|
+| S1 | A: yeast, 3×20 columns, threshold 15 — column averages / usage counts | NA,NA,38.71176470588236 … 4.79047619047619 (col 10) … 41.32352941176471,NA,NA; counts 11,14,17,20,…,21,…,11 | `AlignmentA_ColumnAverages_MatchSherlocc` |
+| S2 | A: pauses / clusters | pauses 8–11 (0-based); `clusters=9-12\|9.83928571428571` (4 windows merged), middle point 10, fraction 0.2 | `AlignmentA_OneMergedCluster_MatchesSherloccResults` |
+| S3 | B: yeast 2×18, columns 6 & 12 gapped → column 9 has 10 < 10.5 valued cells | col 9 NA; pauses 5–8,10–12; `clusters=6-13\|5.265625` (NA column counted as 0), middle 9 | `AlignmentB_NonRepresentativeColumnInsideCluster_CountsAsZero` |
+| S4 | C: per-sequence tables yeast/human/yeast, 3×34, threshold 16 | 14 pauses; `clusters=4-10\|9.20962052101093,21-27\|9.30926559372343`; `clusters_freq_avrg=9.25944305736718`; middle 6, 23 | `AlignmentC_PerSequenceTables_TwoClusters_MatchSherlocc` |
+| S5 | Threshold at / just below column-8 average of A | `≤` (l. 803): pause, 1 cluster; below: 3 pauses, no cluster | `Threshold_IsInclusive_PerSherlocc` |
+| S6 | Single-table vs per-sequence overload; RNA/lower case; `.` gaps | identical results | `SingleTableOverload_EqualsPerSequenceOverload_AndAcceptsRnaLowerCase` |
+| S7 | Defaults | AveragingWindow 7, ClusterWindow 7, MinPauses 4, MinCoverage 0.75 (l. 772, 785, 838–848) | `Defaults_AreSherloccConstants` |
+| S8 | E. coli preset (no per-thousand) | `ArgumentException`; `UseCodonFrequencies` → col 3 avg 0.03, pauses 2–4, no cluster | `TableWithoutPerThousand_Rejected_UnlessCodonFrequenciesRequested` |
+| S9 | Invalid input (null, empty, length %3, unequal rows, table count, NaN, even window, coverage, MinPauses) | exceptions | `InvalidInput_Throws` |
+| S10 | 4-column alignment | no representative column, no cluster window | `ShortAlignment_NoClusterWindow_NoClusters` |
+
+Cluster P-values: `sherlocc.pl` has no P-value code; the paper's model could not be retrieved
+(BLOCKED, see Evidence) — not implemented, no test.

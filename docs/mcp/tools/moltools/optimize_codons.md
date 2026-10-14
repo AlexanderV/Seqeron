@@ -24,7 +24,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L389](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L389)
+- Source: [CodonOptimizer.cs#L462](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L462)
 
 ## Input Schema
 

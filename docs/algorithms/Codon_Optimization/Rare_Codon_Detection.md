@@ -127,6 +127,7 @@ The original document recorded the following threshold-selection guidance:
 - `CodonOptimizer.CalculateMinMaxProfile(string, CodonUsageTable, int)`: %MinMax sliding-window profile (Clarke & Clark 2008).[6] Returns `IReadOnlyList<MinMaxWindow>` (`WindowStartCodon`, signed `PercentMinMax`). Uses `CodonUsageTable.PerThousand` when present; `CalculateMinMaxProfile(string, CodonUsageTable, int, MinMaxUsageBasis)` forces `CodonFrequencies`.
 - `CodonUsageTable.PerThousand` (optional, `init`): usage per thousand codons of the same table entry; set on `Yeast` (Kazusa 4932, one-decimal column from CHARMING `ScerCUB.txt`) and `Human` (Kazusa 9606, 1000·count/40 662 582 from the Kazusa counts shipped in PyPI codon-optimizer 0.2.0); `null` on `EColiK12` (Kazusa 316407 per-thousand not obtainable).
 - `CodonOptimizer.FindRareCodonClusters(string, CodonUsageTable, double, int, int)`: Sherlocc rare-codon clusters (Chartier et al. 2012),[8] pause = frequency ≤ threshold; the 6-argument overload with `inclusiveThreshold: false` uses `<`. Returns `IReadOnlyList<RareCodonCluster>` (`StartCodon`, `EndCodon`, `RareCount`), maximal non-overlapping regions in codon-index order.
+- `CodonOptimizer.FindConservedRareCodonClusters(IReadOnlyList<string>, CodonUsageTable | IReadOnlyList<CodonUsageTable>, double threshold, SherloccOptions?)`: the Sherlocc 1.0 stage-3 analysis of a codon alignment of homologous CDS (gaps `-`/`.`), ported from `sherlocc.pl`:[10] per-cell per-thousand usage (one table per sequence = Sherlocc's per-organism usage), centred 7-column average over ALL sequences, representativeness/conservation filter (≥ 0.75 × sequences × 7 valued cells), pause = average ≤ threshold, cluster = first…last pause of each 7-column window with ≥ 4 pauses, overlap-only merging. Returns `SherloccResult` (column averages / usage counts, pause columns, `ConservedRareCodonCluster(StartColumn, EndColumn, PauseCount, MeanUsage, MiddlePoint)`, total length, fraction, mean cluster usage). Options `SherloccOptions` (AveragingWindow 7, ClusterWindow 7, MinPauses 4, MinCoverage 0.75, UseCodonFrequencies false).
 
 ### 5.2 Current Behavior
 
@@ -140,18 +141,19 @@ The method converts `T` to `U`, ignores trailing incomplete codons, skips ambigu
 - The result includes position, codon, amino acid, and frequency, matching the repository test specification.[5]
 - The %MinMax window formula (per-amino-acid `Xij`, `Xmax,i`, `Xmin,i`, `Xavg,i`; `%Max`/`%Min` selection by summed-window comparison; 18-codon default) is reproduced exactly.[6][7]
 - The Sherlocc rare-codon-cluster rule (7-codon window, ≥ 4 pause positions; pause = value ≤ threshold, `sherlocc.pl`) is reproduced, with tunable window/threshold parameters.[8][10]
+- The Sherlocc 1.0 alignment analysis — family/window averaging of per-thousand usage, the 75 % representativeness (conservation/gap) filter, cluster spans, overlap merging, cluster mean usage, middle point and fraction — is reproduced by `FindConservedRareCodonClusters` and locked against `sherlocc.pl` output on three alignments (e.g. yeast alignment A, threshold 15: cluster 9–12, mean 9.83928571428571).[10]
 
 **Intentionally simplified:**
 
 - Per-codon detection is table-threshold-based and does not model ribosome dynamics or local codon context; **consequence:** the per-codon output is a screening list rather than a direct translation-efficiency prediction. (Cluster context is now available via the opt-in methods.)
 - The %MinMax reference implementation takes codon usage per thousand codons. The `Yeast` and `Human` presets carry the per-thousand usage of their Kazusa entries and reproduce the reference by default (yeast CUG·AGA, window 2: 33.99 = CHARMING); the `EColiK12` preset has per-amino-acid fractions only (Kazusa 316407 per-thousand not obtainable; EMBOSS CUTG146 `Eecoli.cut` and CHARMING `EcolCUB.txt` are different E. coli entries); **consequence:** with `EColiK12` (or `MinMaxUsageBasis.CodonFrequencies`) mixed-residue windows weight every amino acid equally and differ from the reference (yeast fractions: 58.62 vs 33.99). Supplying a table with per-thousand values reproduces the reference exactly.
-- Sherlocc's pause value is the average per-thousand codon usage over a centred 7-codon window, averaged over all sequences of a Pfam alignment (columns with ≥ 25 % gaps/edges excluded), compared with a per-thousand threshold (README: "14,15,16"); `FindRareCodonClusters` compares each codon's own table value (default per-amino-acid fraction, threshold 0.15); **consequence:** pause positions are per-codon, single-sequence; results equal Sherlocc's only for a table and threshold on the same scale and without the window averaging.[10]
-- Sherlocc reports a cluster from the first to the last pause inside each qualifying window and merges only overlapping clusters; `FindRareCodonClusters` reports the full window span and also merges adjacent windows; **consequence:** region boundaries can differ from Sherlocc's by up to window − 1 codons.[10]
-- `FindRareCodonClusters` merges overlapping qualifying windows into maximal cluster regions and does not compute the simulation-based cluster P-values of the full Sherlocc pipeline; **consequence:** clusters are reported by the window/count rule only, without per-cluster statistical significance.
+- `FindRareCodonClusters` (single sequence) compares each codon's own table value (default per-amino-acid fraction, threshold 0.15) instead of Sherlocc's window-and-family average; **consequence:** its pause positions are per-codon, single-sequence. The full Sherlocc analysis (family averaging, 75 % filter, per-thousand threshold) is `FindConservedRareCodonClusters`, which reproduces `sherlocc.pl` (verified by running the script, Evidence "Review 2026-10 (FIN-B02 WP8)").[10]
+- `FindConservedRareCodonClusters` keeps two script behaviours verbatim: a non-representative column inside a cluster span contributes 0 to the cluster's mean usage (Perl undefined value), and abutting clusters are not merged; the FoldIndex/Uversky unstructured-region output and the stage-1/2 UniProt/ENA retrieval of the script are not ported (the caller supplies the codon alignment and tables).
+- Sherlocc (and `FindConservedRareCodonClusters`) reports a cluster from the first to the last pause inside each qualifying window and merges only overlapping clusters; `FindRareCodonClusters` reports the full window span and also merges adjacent windows; **consequence:** region boundaries can differ from Sherlocc's by up to window − 1 codons.[10]
 
 **Not implemented:**
 
-- Evolutionary-conservation filtering and per-cluster simulation P-values of the full Sherlocc pipeline;[8] **users should rely on:** the Sherlocc web service for conservation-aware significance.
+- Per-cluster P-values of Chartier et al. (2012): `sherlocc.pl` contains no P-value / randomisation code and the paper's statistical model could not be obtained (full text unreachable; Evidence "Review 2026-10 (FIN-B02 WP8)"), so no P-value is reported;[8] **users should rely on:** the published Sherlocc results for significance.
 - Automatic integration with codon optimization inside these methods; **users should rely on:** [Sequence_Optimization.md](Sequence_Optimization.md).
 
 ## 6. Edge Cases and Limitations
@@ -166,11 +168,13 @@ The method converts `T` to `U`, ignores trailing incomplete codons, skips ambigu
 | Ambiguous triplet (`NNN`, `RYU`, …) | Skipped (not reported, not a cluster pause position, no %MinMax contribution); later positions keep their frame. | No codon-usage frequency exists for it (EMBOSS `ajCodSetTripletsS`). |
 | Valid codon absent from the table | Reported with frequency `0` when `threshold > 0`. | Never observed in the reference genes. |
 | Stop codon | Screened like any table row; amino acid `*`. | Stops are rows of the Kazusa/cusp table. |
+| Alignment column with too many gaps (`FindConservedRareCodonClusters`) | Column average `null` ("NA"), never a pause; inside a cluster span it contributes 0 to the mean. | `sherlocc.pl` l. 772/799 (`$freq_count >= $tresh`), l. 875–879. |
+| Alignment rows of unequal length / length not a multiple of 3 / table without `PerThousand` | `ArgumentException` (`SherloccOptions.UseCodonFrequencies = true` scores fractions instead). | Codon alignment contract; Sherlocc uses CUTG per-thousand. |
 | Incomplete trailing codon | Ignored. | Codon splitting only emits complete triplets. |
 
 ### 6.2 Limitations
 
-Per-codon `FindRareCodons` is a simple table lookup over codon triplets and does not consider local sequence context or initiation effects. Rare-codon **clustering / runs** are now covered by the opt-in `CalculateMinMaxProfile` (%MinMax) and `FindRareCodonClusters` (Sherlocc) methods, but these still operate purely on the supplied frequency table: they do not model ribosome dynamics, do not weight 5'-vs-internal position, and `FindRareCodonClusters` does not compute the evolutionary-conservation-aware P-values of the full Sherlocc pipeline.
+Per-codon `FindRareCodons` is a simple table lookup over codon triplets and does not consider local sequence context or initiation effects. Rare-codon **clustering / runs** are now covered by the opt-in `CalculateMinMaxProfile` (%MinMax) and `FindRareCodonClusters` (Sherlocc) methods, but these still operate purely on the supplied frequency table: they do not model ribosome dynamics, do not weight 5'-vs-internal position, and no cluster P-value is computed (see §5.3 Not implemented). Family-level (alignment) conservation is available through `FindConservedRareCodonClusters`.
 
 ## 7. Examples and Related Material
 
@@ -194,6 +198,7 @@ var profile = CodonOptimizer.CalculateMinMaxProfile("AGAAGAAGA", CodonOptimizer.
 
 - Tests (per-codon): [CodonOptimizer_FindRareCodons_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_FindRareCodons_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Tests (clusters / runs): [CodonOptimizer_RareCodonClusters_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_RareCodonClusters_Tests.cs) — covers `INV-05`, `INV-06`, `INV-07`, `INV-08`
+- Tests (Sherlocc conserved clusters over an alignment): [CodonOptimizer_SherloccConservedClusters_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_SherloccConservedClusters_Tests.cs)
 - Tests (Sherlocc threshold, per-thousand presets): [CodonOptimizer_SherloccThreshold_PerThousandPresets_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_SherloccThreshold_PerThousandPresets_Tests.cs)
 - Test specification: [CODON-RARE-001.md](../../../tests/TestSpecs/CODON-RARE-001.md)
 - Related algorithms: [Sequence_Optimization.md](Sequence_Optimization.md), [CAI_Calculation.md](CAI_Calculation.md)
