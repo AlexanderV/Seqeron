@@ -25,14 +25,15 @@ and commits it after every change. Batch definitions (units, owned files) are in
   user may be restarting themselves — ask who does it. Waste this rule exists to prevent: the 10:53 B08 relaunch
   ($10, the fallback was account-wide and the new session fell back too), ~$199 spent on resume-2 without first asking
   whether an off-model B08 was worth full price, and the duplicate FIN-B03 at 14:03 ($0.22).
-- **Scope of a model re-verification pass (user 2026-10-14; SUPERSEDED 23:15 — no such pass is run any more, see the 5-5-debt rule below; kept because its second half still governs how any review reads evidence):** off-model work does NOT have to be redone. What is
+- **Scope of a model re-verification pass (user 2026-10-14) — this is the SPEC of the pass that is now DEFERRED, not cancelled (see the 5-5-debt rule below): when the debt is eventually paid, this is what the pass does.** Off-model work does NOT have to be redone. What is
   model-independent stays valid — oracle numbers recorded in Evidence (CRISPOR, Biopython Restriction, matrices read
   from the papers), the tests that lock them bit-exactly, and the cited source line or formula. What needs a pass on
   claude-opus-5-5 is the judgement: which convention is canonical where sources disagree, whether a divergence is a
   defect or a documented deviation, whether a BLOCKED proof really proves it, whether an unsourced heuristic may stay.
-  The B08 pass this bullet once scheduled is **cancelled**. What survives and applies to every review: each test
-  expectation must be checked against the oracle number in Evidence — green tests can lock in a wrong expectation —
-  and every F-entry must carry its oracle number in Evidence.
+  So the owed B08 pass — and now B02's as well — is a REVIEW of those decisions against the recorded evidence, not a
+  re-run of the batch, and it must check each test expectation against the oracle number in Evidence: green tests
+  written off-model can lock in a wrong expectation. Every off-model F-entry must therefore carry its oracle number in
+  Evidence. This pass is **owed, not scheduled** — nothing is launched for it now, and it does not block any batch.
 - **Model — claude-opus-5-5 for EVERY session (user 2026-10-14):** these are algorithms; output from another model
   does real damage, so the model is checked, never assumed. `create_session`'s `model` is not always honoured.
   Verify right after launch AND at every check-in with `get_session`: BOTH `session_context.model` and
@@ -44,11 +45,15 @@ and commits it after every change. Batch definitions (units, owned files) are in
   запуститься. Що ти хочеш від нього? На 5-му перевірив? Ок? Помітив, що борг 5.5 і все." Subagents are served
   `claude-opus-5` and will keep being served it, so withholding completion over the model blocks the campaign on
   something no session can fix. From now on: work verified on claude-opus-5 **counts as verified**; the batch is
-  finished when its `## Leftovers` has zero DOABLE items; the off-model entries are listed under "5-5 debt" so that a
-  future 5-5 pass knows exactly what to look at, and **no session is launched for the sole purpose of clearing that
-  debt**. The rule above still stands for what it is good for: always check and record which model served a session,
-  and never silently pretend a session ran on 5-5. (VER-B02, launched at 23:09 to clear B02's debt, was stopped under
-  this rule after ~6 minutes.)
+  finished when its `## Leftovers` has zero DOABLE items, and **no session is launched for the sole purpose of clearing
+  the debt**. But the debt is **not written off** (user 23:30: "Не треба прибирати всі згадки про відкладену перевірку
+  на 5-5. Вони потім, наступного разу, не скоро будуть валідуватись. Ми повинні помітити і залишити до наступного
+  разу"): every off-model entry stays listed under "5-5 debt" as an **owed, deferred pass**, with the F-entries named,
+  so that whenever a model that is actually served can do it, the pass knows exactly what to re-read. The campaign's
+  final consolidation carries that register forward instead of closing it. The rule above still stands for what it is
+  good for: always check and record which model served a session, and never silently pretend a session ran on 5-5.
+  (VER-B02, launched at 23:09 to clear B02's debt, was stopped under this rule after ~6 minutes — the pass it was to
+  run is deferred, not cancelled.)
 
 **Subagents fall back off-model even when the lead does not (2026-10-14).** FIN-B02's lead was served claude-opus-5-5
 for its whole run while its subagents were served `claude-opus-5` — including both of its own re-verification reviewers.
@@ -200,19 +205,24 @@ is simply recorded instead of chased.
 ## 5-5 debt (work served by `claude-opus-5` instead of `claude-opus-5-5` — a recorded note, NOT a blocker)
 **Campaign-wide (user 2026-10-14 23:15, "І так для всіх взагалі").** This applies to EVERY batch — past, present and
 future, B08 included — not to B02 alone. A batch is finished when its `## Leftovers` holds zero DOABLE items; the model
-that served the work is **recorded, never required**. Rows below are pointers for a future claude-opus-5-5 pass if one
-ever becomes possible; **no session is launched to clear a row here**, and no report may withhold completion over the
-model. What remains mandatory is the recording: check `session_context.model` and `external_metadata.last_served_model`
-at launch and at every check-in, and never state that a session ran on 5-5 when it did not.
+that served the work is **recorded, never required**, and **no session is launched to clear a row here**.
 
-| Batch | What was produced off-model | Session | Model actually served | Note |
+**Every row is an OWED, DEFERRED pass — not a closed one (user 23:30).** The validation will happen later, not soon, so
+each row names the F-entries the pass must re-read and the spec it follows ("Scope of a model re-verification pass" in
+Standing user rules): a REVIEW of the judgement calls against the oracle numbers already in Evidence, including a check
+that every test expectation matches its oracle number. Nothing here is deleted when a batch is marked finished, and the
+final consolidation carries this register forward rather than closing it. What remains mandatory meanwhile: check
+`session_context.model` and `external_metadata.last_served_model` at launch and at every check-in, and never state that
+a session ran on 5-5 when it did not.
+
+| Batch | What was produced off-model | Session | Model actually served | Owed pass (deferred) |
 |---|---|---|---|---|
-| B08 | CRISPR-PAM-001 F1–F2 (`73fe1972`) + the B08.md skeleton | session_01YRNyThk8LUUghgQswiDmsF (first pass, archived, ≈ $19.6) | claude-opus-5 (session model AND last served) | note only |
-| B08 | CRISPR-GUIDE-001 F3–F8 (`2fc133c2`, `e8e6c72`) | session_01NvVQb3FM1E4YGuhxEtXqjH (2026-10-01, archived) | claude-opus-5 (configured + session model 5-5, served 5) | note only |
-| B08 | CRISPR-OFF-001 WIP that was never merged (`-wip-B08` a80bdfa7, cda5b4c8) | session_01E7mHtXGjdaPccegYRGjrba (≈ $10) and session_01JEZHM6XkDpcN8pugzHb9ns (resume-2, ≈ $199.3; both archived) | claude-opus-5 (resume-2 passed the 5-5 check at launch, then fell back mid-session) | superseded — resume-3 re-did this work from scratch |
-| B08 | F9–F39: CRISPR-OFF-001 (re-verified claim-by-claim, 5 claims overturned), RESTR-FIND/DIGEST/FILTER-001, audit round 1, WP1/WP2/WP-SRC | session_01WLgw5gNJSSJdHmg5UKDkPY (resume-3, ≈ $206.5, archived) | claude-opus-5 from its first turn, the fourth B08 session in a row | note only — Biopython oracle runs behind it (144→0 of 34 906; 313→0 of 1452; 1521/1521 + 75 466/75 466) |
-| B08 | whatever resume-4 produces | session_01Gei6HyCuq5texhxCCGEvji (RUNNING; 5-5 on its first turn — the first B08 session to get it) | record at each check-in | note only; B08 finishes on its leftovers |
-| B02 | F41, F42, F43, F48, F49, F54, F55, F60, F63, F64 + the WP27a/b review verdicts (B02.md "## Model provenance") | FIN-B02 `session_016tDCWJHjR3NXKjhHLFynHz` — lead 5-5 throughout, its **subagents** served opus-5 for WP9/WP10/WP14/WP15/WP18/WP22 and for BOTH re-verification reviewers (WP27a 114 of 124 turns, WP27b 86 of 106) | claude-opus-5 (runtime fallback; per-turn model fields in the subagent transcripts) | **accepted as verified** — that pass re-ran every oracle (ViennaRNA 2.7.2, dnachisel 3.2.16, Biopython 1.88 across all 27 supported tables, an independent `sherlocc.pl` port) and found two real defects, F63 and F64. B02 is in "Finished batches" |
+| B08 | CRISPR-PAM-001 F1–F2 (`73fe1972`) + the B08.md skeleton | session_01YRNyThk8LUUghgQswiDmsF (first pass, archived, ≈ $19.6) | claude-opus-5 (session model AND last served) | **OWED** — 5-5 review of F1–F2 against CRISPOR/Doench/Hsu numbers in Evidence |
+| B08 | CRISPR-GUIDE-001 F3–F8 (`2fc133c2`, `e8e6c72`) | session_01NvVQb3FM1E4YGuhxEtXqjH (2026-10-01, archived) | claude-opus-5 (configured + session model 5-5, served 5) | **OWED** — 5-5 review of F3–F8 (CRISPR-GUIDE-001 judgement calls + test expectations vs Evidence) |
+| B08 | CRISPR-OFF-001 WIP that was never merged (`-wip-B08` a80bdfa7, cda5b4c8) | session_01E7mHtXGjdaPccegYRGjrba (≈ $10) and session_01JEZHM6XkDpcN8pugzHb9ns (resume-2, ≈ $199.3; both archived) | claude-opus-5 (resume-2 passed the 5-5 check at launch, then fell back mid-session) | nothing owed — never merged; resume-3 re-did this work from scratch (its own row carries the debt) |
+| B08 | F9–F39: CRISPR-OFF-001 (re-verified claim-by-claim, 5 claims overturned), RESTR-FIND/DIGEST/FILTER-001, audit round 1, WP1/WP2/WP-SRC | session_01WLgw5gNJSSJdHmg5UKDkPY (resume-3, ≈ $206.5, archived) | claude-opus-5 from its first turn, the fourth B08 session in a row | **OWED** — 5-5 review of F9–F39: the overturned CRISPR-OFF claims, the four RESTR units' convention calls and the audit-round-1 BLOCKED proofs. Its oracle runs are on the record (144→0 of 34 906; 313→0 of 1452; 1521/1521 + 75 466/75 466), so the pass reads decisions, not numbers |
+| B08 | whatever resume-4 produces | session_01Gei6HyCuq5texhxCCGEvji (RUNNING; 5-5 on its first turn — the first B08 session to get it) | record at each check-in | **OWED only for whatever turns out off-model** — 5-5 on its first turn, so re-check at each check-in; B08 finishes on its leftovers either way |
+| B02 | F41, F42, F43, F48, F49, F54, F55, F60, F63, F64 + the WP27a/b review verdicts (B02.md "## Model provenance") | FIN-B02 `session_016tDCWJHjR3NXKjhHLFynHz` — lead 5-5 throughout, its **subagents** served opus-5 for WP9/WP10/WP14/WP15/WP18/WP22 and for BOTH re-verification reviewers (WP27a 114 of 124 turns, WP27b 86 of 106) | claude-opus-5 (runtime fallback; per-turn model fields in the subagent transcripts) | **OWED** — 5-5 review of those ten F-entries and the WP27a/b verdicts. Accepted as verified for completion (B02 is in "Finished batches"): the off-model pass re-ran every oracle (ViennaRNA 2.7.2, dnachisel 3.2.16, Biopython 1.88 across all 27 supported tables, an independent `sherlocc.pl` port) and found two real defects, F63 and F64 — which is also why the deferred pass is worth running |
 
 **Provenance audit done 2026-10-14** (all 36 campaign sessions queried; table in `scratchpad/model-provenance.md`):
 every session was *configured* claude-opus-5-5, and every batch except B08 was also *served* 5-5 — B01–B07, B09–B26,
@@ -225,7 +235,8 @@ recorded the decisive evidence itself: it verified 5-5 on its first turn and the
 mid-session, in **both** `session_context.model` and `last_served_model`. So "launch it again and check at launch" does
 not hold a session on 5-5 — resume-2 showed the same thing in the morning. It stopped with nothing verified and no code
 touched (its one durable product: the oracle environment is pinned and reproducible, B02.md "## Model provenance" →
-VER-B02), was archived, and the policy above replaced it.
+VER-B02), and was archived. The policy above stops the chasing; it does not retire the pass, which stays owed in the
+rows above.
 
 ## Consolidation task — re-anchor citations to reachable sources (user 2026-10-14)
 The agent proxy answers **403 to CONNECT** for `en.wikipedia.org:443`, `www.addgene.org:443` and
@@ -331,6 +342,9 @@ vs B09 `FindMotif`; B05.md → B04 `RepeatFinder.EnumerateForwardMaximalPairs` �
 sentence, B05 D3 rationale.
 
 ## Known cross-batch items to carry into Phase 2
+- **The 5-5 debt register must be carried into the final consolidation, not closed.** Every row in "5-5 debt" is an
+  owed review pass (spec: Standing user rules → "Scope of a model re-verification pass"). Validation will come later,
+  not soon; the final summary lists what is still owed, per batch and per F-entry.
 - B02 (FIN-B02 final report `b36eecb3`) → requests to batches not yet reviewed, each to be honoured when that batch runs:
   B11 `GenomeAnnotator.GetCodonUsage` (:1175, :1232) → `Translator.CountCodons` + `CodonUsageAnalyzer.CalculateRscu`;
   B11/B09 ORF-engine unification on `Translator.FindOrfs`; B20 `GenBankParser` private translate (:686-697) →
