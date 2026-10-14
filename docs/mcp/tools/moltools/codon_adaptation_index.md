@@ -28,6 +28,7 @@ This differs from [cai_from_organism_table](cai_from_organism_table.md), which t
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Coding DNA sequence (frame 0), non-empty. |
 | `reference_rscu` | object | Yes | Reference RSCU table: DNA codon → RSCU value. |
+| `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the synonymous families and stops (CodonW `-code`). One of 1–6, 9–16, 21–33. |
 
 ## Output Schema
 
@@ -41,6 +42,7 @@ This differs from [cai_from_organism_table](cai_from_organism_table.md), which t
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1002 | Reference RSCU table cannot be null |
+| 1003 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
 
 ## Examples
 
@@ -51,6 +53,10 @@ RSCU `{TTT:1.0, TTC:0.5}` → w[TTC] = 0.5. Sequence `TTC` → CAI = 0.5.
 ### Example 2: Two codons
 
 Sequence `TTTTTC` → w = {1.0, 0.5}; CAI = √0.5 ≈ 0.7071.
+
+### Example 3: Non-standard genetic code (`genetic_code = 2`)
+
+Reference `{ATG: 1.0, ATA: 0.5}`, sequence `ATAATG`. Under NCBI table 2 Met = {ATA, ATG}, so w[ATA] = 0.5, w[ATG] = 1 and CAI = √0.5 ≈ 0.7071; under the default table 1 ATG (Met) is a single-codon family and is excluded, ATA is Ile with family maximum 0.5, so CAI = 1.0. With the Sharp & Li E. coli reference (`CodonUsageAnalyzer.EColiOptimalCodons`) CodonW 1.4.4 gives `ATAATG` 0.055 (`-code 1`, NCBI 2) vs 0.003 (NCBI 1).
 
 ## Performance
 

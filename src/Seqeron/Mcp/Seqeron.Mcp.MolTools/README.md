@@ -27,7 +27,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `codon_usage_statistics` | Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC), total codons, GC% at codon… |
 | `compare_codon_usage` | Codon-frequency similarity between two coding sequences: 1 − ½·Σ|f1−f2| ∈ [0,1] (1 = identical codon distribution, 0 = disjoint). |
 | `compatible_enzymes` | Enumerates all pairs of built-in restriction enzymes whose ends can be ligated to each other — either both produce blunt ends, or both pr… |
-| `count_codons` | Counts occurrences of each ACGT codon in a coding DNA sequence (frame 0, non-overlapping triplets). |
+| `count_codons` | Counts occurrences of each codon in a coding sequence (frame 0, non-overlapping triplets). |
 | `crispr_specificity_score` | Aggregates off-target hits (≤4 mismatches) for a guide RNA against a genome into a single specificity score in 0..100 (100 = no off-targets; |
 | `crispr_system_info` | Returns the metadata record (name, PAM sequence, guide length, PAM placement relative to target, description) for a known CRISPR nuclease… |
 | `design_antisense_probes` | Reverse-complements the supplied mRNA-sense sequence and runs the probe designer on it; |

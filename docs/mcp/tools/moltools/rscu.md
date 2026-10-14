@@ -25,6 +25,7 @@ Computes RSCU (Sharp, Tuohy & Mosurski 1986) for each codon: `RSCU = observed / 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Coding DNA sequence (frame 0), non-empty. |
+| `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the synonymous families and stops (CodonW `-code`). One of 1–6, 9–16, 21–33. |
 
 ## Output Schema
 
@@ -37,6 +38,7 @@ Computes RSCU (Sharp, Tuohy & Mosurski 1986) for each codon: `RSCU = observed / 
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1002 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
 
 ## Examples
 
@@ -47,6 +49,10 @@ Computes RSCU (Sharp, Tuohy & Mosurski 1986) for each codon: `RSCU = observed / 
 ### Example 2: Unbiased usage
 
 `TTTTTC` → TTT×1, TTC×1 → `RSCU = 1.0` for each.
+
+### Example 3: Non-standard genetic code (`genetic_code = 2`)
+
+`ATAATGATGTGATGGTGGAGATAA` (ATA×1, ATG×2, TGA×1, TGG×2, AGA×1, TAA×1). Under NCBI table 2 (vertebrate mitochondrial) Met = {ATA, ATG}, Trp = {TGA, TGG}, stops = {TAA, TAG, AGA, AGG}: `RSCU[ATA] = 0.667`, `RSCU[ATG] = 1.333`, `RSCU[TGA] = 0.667`, `RSCU[TGG] = 1.333`, `RSCU[AGA] = RSCU[TAA] = 2.0`. With the default table 1 the same gene gives `RSCU[ATA] = 3.0` (Ile), `RSCU[ATG] = 1.0`, `RSCU[TGA] = 1.5` (stop), `RSCU[AGA] = 6.0` (Arg). Families from Biopython `CodonTable.unambiguous_dna_by_id[2]`.
 
 ## See Also
 

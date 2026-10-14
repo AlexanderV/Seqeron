@@ -25,6 +25,7 @@ Produces a one-shot codon-usage report: per-codon counts, RSCU (Relative Synonym
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Coding DNA sequence (frame 0), non-empty. |
+| `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the synonymous families and stops (CodonW `-code`). One of 1–6, 9–16, 21–33. |
 
 ## Output Schema
 
@@ -43,12 +44,17 @@ Produces a one-shot codon-usage report: per-codon counts, RSCU (Relative Synonym
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1002 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
 
 ## Examples
 
 ### Example 1: Three-codon gene `ATGTTTAAA`
 
 Codons ATG, TTT, AAA. GC1=0, GC2=0, GC3=33.33% (only the G in ATG), overall GC=11.11%. GC3s=0 (synonymous codons TTT, AAA have T/A at position 3). RSCU[TTT]=2.0 (Phe family, only TTT used).
+
+### Example 2: Non-standard genetic code (`genetic_code = 2`)
+
+`ATAATG`: under the default table 1 ATA (Ile, T at position 3) is the only synonymous codon, so GC3s = 0; under NCBI table 2 Met = {ATA, ATG} is a two-codon family, so both codons are synonymous and GC3s = 50% (CodonW 1.4.4 `-gc3s`: 0.000 / 0.500). Counts and GC1/GC2/GC3 are unchanged.
 
 ## Performance
 

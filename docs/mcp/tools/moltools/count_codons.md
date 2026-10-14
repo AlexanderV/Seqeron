@@ -1,6 +1,6 @@
 # count_codons
 
-Count ACGT codons in a coding DNA sequence (frame 0).
+Count codons in a coding DNA or RNA sequence (frame 0).
 
 ## Overview
 
@@ -14,7 +14,7 @@ Count ACGT codons in a coding DNA sequence (frame 0).
 
 ## Description
 
-Splits the input into non-overlapping frame-0 triplets and tallies how many times each codon occurs. A trailing partial codon (length < 3) and any codon containing a non-ACGT character are skipped silently. Matching is case-insensitive.
+Splits the input into non-overlapping frame-0 triplets and tallies how many times each codon occurs. Input may be DNA or RNA: U is read as T and the keys are uppercase DNA codons; matching is case-insensitive. A trailing partial codon (length < 3) is ignored, and a triplet containing any other character (e.g. N) is skipped without shifting the reading frame. Counting is independent of the genetic code.
 
 ## Core Documentation Reference
 
@@ -24,7 +24,7 @@ Splits the input into non-overlapping frame-0 triplets and tallies how many time
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | Coding DNA sequence (frame 0), non-empty. |
+| `sequence` | string | Yes | Coding sequence (frame 0), DNA or RNA, case-insensitive (U read as T; keys are uppercase DNA codons), non-empty. |
 
 ## Output Schema
 
@@ -45,6 +45,10 @@ Splits the input into non-overlapping frame-0 triplets and tallies how many time
 ### Example 2: Skipping invalid/partial codons
 
 `ATGANGTTTC` → `ANG` (contains N) is skipped and trailing `C` is ignored → `{ ATG: 1, TTT: 1 }`.
+
+### Example 3: RNA input
+
+`augaugUUU` → `{ ATG: 2, TTT: 1 }` (U read as T, case-insensitive). The count does not depend on the genetic code.
 
 ## Performance
 

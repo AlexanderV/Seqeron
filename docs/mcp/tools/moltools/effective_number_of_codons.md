@@ -25,6 +25,7 @@ Computes Wright's Effective Number of Codons (Nc), a single measure of how far a
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Coding DNA sequence (frame 0), non-empty. |
+| `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the synonymous families and stops (CodonW `-code`). One of 1–6, 9–16, 21–33. |
 
 ## Output Schema
 
@@ -37,12 +38,17 @@ Computes Wright's Effective Number of Codons (Nc), a single measure of how far a
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1002 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
 
 ## Examples
 
 ### Example 1: Fully-populated biased gene
 
 With `F̂₂=0.6, F̂₃=0.2667, F̂₄=0.4333, F̂₆=0.3333`, `Nc = 2 + 9/0.6 + 1/0.2667 + 5/0.4333 + 3/0.3333 = 41.288461538461526` (value verified against an independent Wright/codonW reference).
+
+### Example 2: Non-standard genetic code (`genetic_code = 2`)
+
+The same gene under NCBI table 2 (vertebrate mitochondrial): Nc = 45.0 (CodonW 1.4.4 `-enc -code 1` → 45.00); table 3 → 43.185, table 9 → 43.833 (CodonW 43.19 / 43.83).
 
 ## See Also
 
