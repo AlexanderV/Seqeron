@@ -1008,7 +1008,9 @@ public static class CodonOptimizer
     /// output is deterministic. When no replacement improves the total breach, that window is left
     /// alone (its bounds are unreachable with synonymous codons) and the search moves on to the
     /// next breaching window. Stop codons and triplets without a usable synonymous family are never
-    /// changed, so the encoded protein is preserved.
+    /// changed, so the encoded protein is preserved. The pass returns the lowest-total-breach sequence
+    /// it reached (DNA Chisel keeps a mutated sequence only when the constraint score improves), so
+    /// its output never breaches the windows more than its input.
     /// </remarks>
     private static void BalanceGcContentWindowed(
         List<string> codons,
@@ -1063,13 +1065,27 @@ public static class CodonOptimizer
 
         // Rounds of a left-to-right pass: a repair can re-break an already visited window, so the
         // pass is repeated while the total breach strictly decreases (at most MaxRounds rounds).
+        // A round targets the left-most breaching window first, so it can end with a larger total
+        // breach than it started from; as in DNA Chisel's constraint solver, which keeps a mutated
+        // sequence only when its constraint score improves and otherwise restores the previous one
+        // (ConstraintsSolverMixin.resolve_constraints_by_random_mutations: "If this score is superior
+        // to the score of the previous sequence, the new sequence becomes the problem's new
+        // sequence"), the pass returns the lowest-breach sequence it reached — never one worse than
+        // its input (review 2026-09 F62).
         const int MaxRounds = 8;
         double previousTotal = double.PositiveInfinity;
+        string[] lowestBreachCodons = codons.ToArray();
+        double lowestBreach = TotalBreach();
         for (int round = 0; round < MaxRounds; round++)
         {
             double totalBefore = TotalBreach();
+            if (totalBefore < lowestBreach - 1e-12)
+            {
+                lowestBreach = totalBefore;
+                lowestBreachCodons = codons.ToArray();
+            }
             if (totalBefore <= 0 || totalBefore >= previousTotal - 1e-12)
-                return;
+                break;
             previousTotal = totalBefore;
 
             int frozen = 0;
@@ -1151,6 +1167,12 @@ public static class CodonOptimizer
 
                 WriteCodon(bestCodonIndex, bestCodon);
             }
+        }
+
+        if (TotalBreach() > lowestBreach + 1e-12)
+        {
+            for (int i = 0; i < codons.Count; i++)
+                WriteCodon(i, lowestBreachCodons[i]);
         }
     }
 

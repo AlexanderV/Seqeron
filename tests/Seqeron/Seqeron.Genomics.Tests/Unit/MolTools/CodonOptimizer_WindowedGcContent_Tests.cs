@@ -322,4 +322,31 @@ public class CodonOptimizer_WindowedGcContent_Tests
     }
 
     #endregion
+
+    // F62 (heavy tier, B02 WP26): a round of the left-most-window repair could end with a larger total
+    // breach than its input, and that worse sequence was returned (pre-fix: score −3.6333 from the
+    // MaximizeCAI selection's −3.4833). DNA Chisel keeps a mutated sequence only when the constraint
+    // score improves (ConstraintsSolverMixin.resolve_constraints_by_random_mutations), so the pass now
+    // returns the lowest-breach sequence it reached.
+    private const string BreachRegressionGene = "CTGGGTTGGCATTCCAATTGGGATATTGTATCAGCGTCGGTTGGCCGG";
+
+    [Test]
+    public void OptimizeSequence_WithGcWindow_NeverIncreasesBreachOverCodonSelection()
+    {
+        var selected = CodonOptimizer.OptimizeSequence(BreachRegressionGene, CodonOptimizer.EColiK12,
+            CodonOptimizer.OptimizationStrategy.MaximizeCAI).OptimizedSequence;
+        var repaired = CodonOptimizer.OptimizeSequence(BreachRegressionGene, CodonOptimizer.EColiK12,
+            CodonOptimizer.OptimizationStrategy.BalancedOptimization, gcTargetMin: 0.45, gcTargetMax: 0.55,
+            gcWindow: 12).OptimizedSequence;
+
+        double before = CodonOptimizer.EvaluateGcContent(selected, 0.45, 0.55, 12).Score;
+        double after = CodonOptimizer.EvaluateGcContent(repaired, 0.45, 0.55, 12).Score;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(before, Is.EqualTo(-3.4833333333333334).Within(1e-12));
+            Assert.That(after, Is.GreaterThanOrEqualTo(before));
+            Assert.That(Translator.Translate(repaired).Sequence, Is.EqualTo(Translator.Translate(BreachRegressionGene).Sequence));
+        });
+    }
 }
