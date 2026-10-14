@@ -14,11 +14,11 @@ Wright's Effective Number of Codons (ENC / Nc).
 
 ## Description
 
-Computes Wright's Effective Number of Codons (Nc), a single measure of how far a gene departs from uniform synonymous-codon usage. It uses per-amino-acid homozygosity `F̂` grouped by degeneracy class (Wright Eq. 1), class averaging (Eq. 4), the isoleucine Eq. 5a fallback, and `Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆` (Eq. 3). The result is clamped to `[20, 61]` (20 = extreme bias, 61 = no bias).
+Computes Wright's Effective Number of Codons (Nc), a single measure of how far a gene departs from uniform synonymous-codon usage. It uses per-amino-acid homozygosity `F̂` grouped by degeneracy class (Wright Eq. 1), class averaging (Eq. 4), the isoleucine Eq. 5a fallback, and `Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆` (Eq. 3). The result lies in `[20, 61]` under the standard code (20 = extreme bias, 61 = no bias; overshoot re-adjusted to the code's sense-codon count). When Nc cannot be calculated (a synonymous class other than the single 3-fold Ile class has no estimable amino acid — CodonW prints `*****`) the tool returns `enc = 0` and `calculable = false` (`CodonUsageAnalyzer.TryCalculateEnc`).
 
 ## Core Documentation Reference
 
-- Source: [CodonUsageAnalyzer.cs#L283](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L283)
+- Source: [CodonUsageAnalyzer.cs#L485](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L485) (`TryCalculateEnc(string, GeneticCode, out double)`; `CalculateEnc` delegates to it)
 
 ## Input Schema
 
@@ -31,7 +31,8 @@ Computes Wright's Effective Number of Codons (Nc), a single measure of how far a
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `enc` | number | Effective Number of Codons, 20..61. |
+| `enc` | number | Effective Number of Codons, 20..61; 0 when not calculable. |
+| `calculable` | boolean | `false` when Nc cannot be calculated (CodonW `*****`), otherwise `true`. |
 
 ## Errors
 
@@ -49,6 +50,10 @@ With `F̂₂=0.6, F̂₃=0.2667, F̂₄=0.4333, F̂₆=0.3333`, `Nc = 2 + 9/0.6 
 ### Example 2: Non-standard genetic code (`genetic_code = 2`)
 
 The same gene under NCBI table 2 (vertebrate mitochondrial): Nc = 45.0 (CodonW 1.4.4 `-enc -code 1` → 45.00); table 3 → 43.185, table 9 → 43.833 (CodonW 43.19 / 43.83).
+
+### Example 3: Nc not calculable
+
+`ATGAAAGAGCTGTTCGCCAAA`: the 3-, 4- and 6-fold classes have no estimable amino acid; CodonW 1.4.4 `-enc` prints `*****`. Output: `{ "enc": 0, "calculable": false }`.
 
 ## See Also
 

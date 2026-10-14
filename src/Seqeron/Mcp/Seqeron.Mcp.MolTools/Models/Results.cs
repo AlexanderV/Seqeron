@@ -48,7 +48,11 @@ public sealed record EnzymeCompatibilityResult(bool Compatible);
 public sealed record CodonCountsResult(Dictionary<string, int> Counts);
 public sealed record RscuResult(Dictionary<string, double> Rscu);
 public sealed record CaiResult(double Cai);
-public sealed record EncResult(double Enc);
+public sealed record EncResult(double Enc, bool Calculable)
+{
+    /// <summary>Back-compatible constructor: a calculated Nc is never 0 (0 = not calculable).</summary>
+    public EncResult(double Enc) : this(Enc, Enc > 0) { }
+}
 
 // CodonOptimizer input/output wrappers
 /// <summary>

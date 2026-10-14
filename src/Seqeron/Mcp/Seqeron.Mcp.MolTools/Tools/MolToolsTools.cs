@@ -652,7 +652,7 @@ public class MolToolsTools
         return new CaiResult(CodonUsageAnalyzer.CalculateCai(sequence, reference_rscu, code));
     }
 
-    [McpServerTool(Name = "effective_number_of_codons", Title = "MolTools — Effective Number of Codons (ENC)", ReadOnly = true), Description("Effective Number of Codons (Wright 1990 Nc; CodonW enc_out conventions), measuring how far a gene departs from uniform synonymous-codon usage under the NCBI genetic code genetic_code (default 1 = Standard; CodonW -code). Range 20..61 under the standard code (20 = extreme bias, 61 = no bias; overshoot re-adjusted to the code's sense-codon count, e.g. 60 for table 2). Amino acids seen once, or with every observed codon used once, are not estimable; a missing isoleucine class is replaced by the mean of the 2- and 4-fold classes. Returns 0 when Nc cannot be calculated (some other synonymous class has no estimable amino acid - gene too short or amino-acid usage too skewed; CodonW prints *****). DNA or RNA, case-insensitive; non-ACGT(U) triplets are skipped. Call to summarise a gene's overall codon bias with a single number.")]
+    [McpServerTool(Name = "effective_number_of_codons", Title = "MolTools — Effective Number of Codons (ENC)", ReadOnly = true), Description("Effective Number of Codons (Wright 1990 Nc; CodonW enc_out conventions), measuring how far a gene departs from uniform synonymous-codon usage under the NCBI genetic code genetic_code (default 1 = Standard; CodonW -code). Range 20..61 under the standard code (20 = extreme bias, 61 = no bias; overshoot re-adjusted to the code's sense-codon count, e.g. 60 for table 2). Amino acids seen once, or with every observed codon used once, are not estimable; a missing isoleucine class is replaced by the mean of the 2- and 4-fold classes. When Nc cannot be calculated (some other synonymous class has no estimable amino acid - gene too short or amino-acid usage too skewed; CodonW prints *****) returns enc = 0 and calculable = false; otherwise calculable = true. DNA or RNA, case-insensitive; non-ACGT(U) triplets are skipped. Call to summarise a gene's overall codon bias with a single number.")]
     public static EncResult effective_number_of_codons(
         [Description("Coding DNA sequence (frame 0).")] string sequence,
         [Description("NCBI translation table number defining the synonymous codon families and stop codons (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int genetic_code = 1)
@@ -661,19 +661,24 @@ public class MolToolsTools
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
         var code = ResolveGeneticCode(genetic_code);
 
-        return new EncResult(CodonUsageAnalyzer.CalculateEnc(sequence, code));
+        bool calculable = CodonUsageAnalyzer.TryCalculateEnc(sequence, code, out double enc);
+        return new EncResult(enc, calculable);
     }
 
-    [McpServerTool(Name = "codon_usage_statistics", Title = "MolTools — Codon-Usage Statistics", ReadOnly = true), Description("Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC; 0 when not calculable, see effective_number_of_codons), total codons, GC% at codon positions 1/2/3, GC3s (synonymous third-position GC), and overall GC. RSCU, ENC and GC3s use the NCBI genetic code genetic_code (default 1 = Standard; CodonW -code); counts and GC1/2/3/overall GC do not depend on it. Call for a one-shot codon-usage summary of a gene.")]
+    [McpServerTool(Name = "codon_usage_statistics", Title = "MolTools — Codon-Usage Statistics", ReadOnly = true), Description("Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC; 0 with isEncCalculable = false when not calculable, see effective_number_of_codons), total codons, GC% at codon positions 1/2/3, GC3s (synonymous third-position GC), and overall GC. RSCU, ENC and GC3s use the NCBI genetic code genetic_code (default 1 = Standard; CodonW -code). gc_convention selects GC1/2/3 and overall GC: EmbossCusp (default) counts every codon including stop codons (EMBOSS cusp) and does not depend on the genetic code; CodonW excludes the stop codons of genetic_code (CodonW gc_out; overall GC = CodonW GC index). Call for a one-shot codon-usage summary of a gene.")]
     public static CodonUsageStatistics codon_usage_statistics(
         [Description("Coding DNA sequence (frame 0).")] string sequence,
-        [Description("NCBI translation table number defining the synonymous codon families and stop codons (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int genetic_code = 1)
+        [Description("NCBI translation table number defining the synonymous codon families and stop codons (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int genetic_code = 1,
+        [Description("Convention for GC1/GC2/GC3 and overall GC: EmbossCusp (default; all codons, stop codons included, EMBOSS cusp) or CodonW (stop codons of genetic_code excluded, CodonW 1.4.4 gc_out).")] CodonGcConvention gc_convention = CodonGcConvention.EmbossCusp)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
         var code = ResolveGeneticCode(genetic_code);
+        if (gc_convention is not (CodonGcConvention.EmbossCusp or CodonGcConvention.CodonW))
+            throw new System.ArgumentException(
+                $"Unknown GC convention: {gc_convention}. Supported: EmbossCusp, CodonW.", nameof(gc_convention));
 
-        return CodonUsageAnalyzer.GetStatistics(sequence, code);
+        return CodonUsageAnalyzer.GetStatistics(sequence, code, gc_convention);
     }
 
     // Maps an NCBI translation table number to a GeneticCode; an unknown number is reported

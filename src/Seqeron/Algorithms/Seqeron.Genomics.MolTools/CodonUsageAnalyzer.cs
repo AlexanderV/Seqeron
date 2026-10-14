@@ -428,19 +428,81 @@ public static class CodonUsageAnalyzer
     /// </remarks>
     /// <param name="sequence">Coding sequence (frame 0); null/empty returns 0.</param>
     /// <param name="code">Genetic code defining the synonymous classes.</param>
-    /// <returns>Nc, or 0 when Nc cannot be calculated.</returns>
+    /// <returns>Nc, or 0 when Nc cannot be calculated (use
+    /// <see cref="TryCalculateEnc(string, GeneticCode, out double)"/> to get an explicit
+    /// not-calculable result).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="code"/> is null.</exception>
     public static double CalculateEnc(string sequence, GeneticCode code)
     {
+        TryCalculateEnc(sequence, code, out double enc);
+        return enc;
+    }
+
+    /// <summary>
+    /// Tries to calculate the Effective Number of Codons under the Standard genetic code
+    /// (NCBI table 1). See <see cref="TryCalculateEnc(string, GeneticCode, out double)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static bool TryCalculateEnc(DnaSequence sequence, out double enc) =>
+        TryCalculateEnc(sequence, GeneticCode.Standard, out enc);
+
+    /// <summary>
+    /// Tries to calculate the Effective Number of Codons under the given genetic code.
+    /// See <see cref="TryCalculateEnc(string, GeneticCode, out double)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static bool TryCalculateEnc(DnaSequence sequence, GeneticCode code, out double enc)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(code);
+        return TryCalculateEncCore(CountCodonsCore(sequence.Sequence), code, out enc);
+    }
+
+    /// <summary>
+    /// Tries to calculate ENC from a raw sequence string under the Standard genetic code
+    /// (NCBI table 1). See <see cref="TryCalculateEnc(string, GeneticCode, out double)"/>.
+    /// </summary>
+    public static bool TryCalculateEnc(string sequence, out double enc) =>
+        TryCalculateEnc(sequence, GeneticCode.Standard, out enc);
+
+    /// <summary>
+    /// Tries to calculate the Effective Number of Codons (Wright 1990; CodonW 1.4.4
+    /// <c>enc_out</c>) with an explicit not-calculable result instead of the 0 sentinel of
+    /// <see cref="CalculateEnc(string, GeneticCode)"/>. Same definition and conventions as
+    /// <see cref="CalculateEnc(string, GeneticCode)"/>.
+    /// </summary>
+    /// <remarks>
+    /// Returns <c>false</c> exactly where CodonW prints <c>*****</c> ("Nc was not calculated":
+    /// a synonymous class other than the single-member Ile class has no estimable amino acid —
+    /// the gene is too short or its amino-acid usage too skewed, Wright 1990) and for
+    /// null/empty input or input without any valid codon.
+    /// </remarks>
+    /// <param name="sequence">Coding sequence (frame 0).</param>
+    /// <param name="code">Genetic code defining the synonymous classes.</param>
+    /// <param name="enc">Nc when calculable; otherwise 0.</param>
+    /// <returns><c>true</c> when Nc could be calculated.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is null.</exception>
+    public static bool TryCalculateEnc(string sequence, GeneticCode code, out double enc)
+    {
         ArgumentNullException.ThrowIfNull(code);
         if (string.IsNullOrEmpty(sequence))
-            return 0;
+        {
+            enc = 0;
+            return false;
+        }
 
-        return CalculateEncCore(CountCodonsCore(sequence), code);
+        return TryCalculateEncCore(CountCodonsCore(sequence), code, out enc);
     }
 
     private static double CalculateEncCore(IReadOnlyDictionary<string, int> counts, GeneticCode code)
     {
+        TryCalculateEncCore(counts, code, out double enc);
+        return enc;
+    }
+
+    private static bool TryCalculateEncCore(IReadOnlyDictionary<string, int> counts, GeneticCode code, out double enc)
+    {
+        enc = 0;
         // Per degeneracy class z: K_z (amino acids in the class) and Σ F̂ / number of estimable
         // amino acids (CodonW fold[z], totb[z], numaa[z]).
         var aminoAcidsInClass = new SortedDictionary<int, int>();
@@ -477,7 +539,7 @@ public static class CodonUsageAnalyzer
 
         double ClassMean(int z) => sumF[z] / estimable[z];
 
-        double enc = aminoAcidsInClass.GetValueOrDefault(1); // single-codon amino acids (F = 1)
+        double nc = aminoAcidsInClass.GetValueOrDefault(1); // single-codon amino acids (F = 1)
         foreach (var (z, aminoAcids) in aminoAcidsInClass)
         {
             if (z == 1) continue;
@@ -488,14 +550,15 @@ public static class CodonUsageAnalyzer
             else if (z == 3 && aminoAcids == 1 && estimable.ContainsKey(2) && estimable.ContainsKey(4))
                 meanF = (ClassMean(2) + ClassMean(4)) / 2.0; // Ile absent: F̄₃ = (F̄₂ + F̄₄)/2
             else
-                return 0; // empty synonymous class: Nc not calculated (CodonW "*****")
+                return false; // empty synonymous class: Nc not calculated (CodonW "*****")
 
-            enc += aminoAcids / meanF;
+            nc += aminoAcids / meanF;
         }
 
         // F̂ ≤ 1 bounds Nc below by the number of amino acids; clamp only guards rounding.
         int aminoAcidCount = aminoAcidsInClass.Values.Sum();
-        return Math.Min(senseCodons, Math.Max(aminoAcidCount, enc));
+        enc = Math.Min(senseCodons, Math.Max(aminoAcidCount, nc));
+        return true;
     }
 
     #endregion
@@ -519,7 +582,7 @@ public static class CodonUsageAnalyzer
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(code);
-        return GetStatisticsCore(CountCodonsCore(sequence.Sequence), code);
+        return GetStatisticsCore(CountCodonsCore(sequence.Sequence), code, CodonGcConvention.EmbossCusp);
     }
 
     /// <summary>
@@ -540,13 +603,15 @@ public static class CodonUsageAnalyzer
     /// (ajcod.c <c>ajCodWrite</c>: "1st/2nd/3rd letter GC" over all 64 codons / CodonCount);
     /// <c>OverallGc</c> = (GC1+GC2+GC3)/3 is cusp's "Coding GC". (CodonW <c>-gc</c>/GC1-3
     /// exclude stop codons, so they differ from these values exactly when the gene contains
-    /// stop codons.)</item>
+    /// stop codons; use <see cref="GetStatistics(string, GeneticCode, CodonGcConvention)"/> with
+    /// <see cref="CodonGcConvention.CodonW"/> for CodonW's values.)</item>
     /// <item><c>Gc3s</c> (percent) = G+C at the third position of synonymous codons, i.e. codons
     /// whose amino acid has more than one codon in <paramref name="code"/>, termination codons
     /// excluded ("excluding Met, Trp and termination codons" in the Standard code; Peden 1999
     /// §1.8.2.1.3; CodonW 1.4.4 <c>gc_out</c>, genetic-code dependent via <c>how_synon</c>).
     /// CodonW reports the same quantity as a fraction. 0 when there is no synonymous codon.</item>
-    /// <item><c>Rscu</c> and <c>Enc</c> use <paramref name="code"/>; see
+    /// <item><c>Rscu</c> and <c>Enc</c> use <paramref name="code"/> (<c>Enc</c> = 0 and
+    /// <c>IsEncCalculable</c> = false when Nc is not calculable); see
     /// <see cref="CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode)"/> and
     /// <see cref="CalculateEnc(string, GeneticCode)"/>.</item>
     /// <item>Input is case-insensitive DNA or RNA (U read as T); triplets containing any other
@@ -555,19 +620,66 @@ public static class CodonUsageAnalyzer
     /// </list>
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="code"/> is null.</exception>
-    public static CodonUsageStatistics GetStatistics(string sequence, GeneticCode code)
+    public static CodonUsageStatistics GetStatistics(string sequence, GeneticCode code) =>
+        GetStatistics(sequence, code, CodonGcConvention.EmbossCusp);
+
+    /// <summary>
+    /// Gets codon usage statistics under the given genetic code with the chosen convention for
+    /// the per-position GC values. See <see cref="GetStatistics(string, GeneticCode, CodonGcConvention)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="gcConvention"/> is not defined.</exception>
+    public static CodonUsageStatistics GetStatistics(DnaSequence sequence, GeneticCode code, CodonGcConvention gcConvention)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(code);
+        ValidateGcConvention(gcConvention);
+        return GetStatisticsCore(CountCodonsCore(sequence.Sequence), code, gcConvention);
+    }
+
+    /// <summary>
+    /// Gets codon usage statistics with the chosen convention for <c>Gc1</c>/<c>Gc2</c>/<c>Gc3</c>
+    /// (and hence <c>OverallGc</c>). Everything else is as in
+    /// <see cref="GetStatistics(string, GeneticCode)"/>.
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item><see cref="CodonGcConvention.EmbossCusp"/> (default of the other overloads):
+    /// GC1/GC2/GC3 over every valid in-frame codon, termination codons included (EMBOSS
+    /// <c>cusp</c>).</item>
+    /// <item><see cref="CodonGcConvention.CodonW"/>: GC1/GC2/GC3 over the sense codons only —
+    /// codons that are stops in <paramref name="code"/> are left out of numerator and
+    /// denominator (CodonW 1.4.4 <c>codon_us.c gc_out</c>: <c>if (pcu-&gt;ca[id] == 11) continue;</c>,
+    /// denominator <c>Len_aa</c>). <c>OverallGc</c> = (GC1+GC2+GC3)/3 then equals CodonW's
+    /// <c>GC</c> index (<c>-gc</c>). CodonW reports fractions; the values here are percent.
+    /// A gene without sense codons gives 0 (CodonW writes no value).</item>
+    /// <item><c>TotalCodons</c>, <c>Gc3s</c> (already stop-free, CodonW <c>-gc3s</c>), counts,
+    /// RSCU and ENC do not depend on the convention.</item>
+    /// </list>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="gcConvention"/> is not defined.</exception>
+    public static CodonUsageStatistics GetStatistics(string sequence, GeneticCode code, CodonGcConvention gcConvention)
     {
         ArgumentNullException.ThrowIfNull(code);
+        ValidateGcConvention(gcConvention);
         if (string.IsNullOrEmpty(sequence))
             return new CodonUsageStatistics(
                 new Dictionary<string, int>(),
                 new Dictionary<string, double>(),
                 0, 0, 0, 0, 0, 0);
 
-        return GetStatisticsCore(CountCodonsCore(sequence), code);
+        return GetStatisticsCore(CountCodonsCore(sequence), code, gcConvention);
     }
 
-    private static CodonUsageStatistics GetStatisticsCore(Dictionary<string, int> counts, GeneticCode code)
+    private static void ValidateGcConvention(CodonGcConvention gcConvention)
+    {
+        if (gcConvention is not (CodonGcConvention.EmbossCusp or CodonGcConvention.CodonW))
+            throw new ArgumentOutOfRangeException(nameof(gcConvention), gcConvention, "Unknown GC convention.");
+    }
+
+    private static CodonUsageStatistics GetStatisticsCore(
+        Dictionary<string, int> counts, GeneticCode code, CodonGcConvention gcConvention)
     {
         var rscu = CalculateRscu(counts, code);
         double enc = CalculateEncCore(counts, code);
@@ -579,19 +691,27 @@ public static class CodonUsageAnalyzer
                 .Where(family => family.Key != '*' && family.Count() > 1)
                 .SelectMany(family => family));
 
-        long totalCodons = 0, gc1 = 0, gc2 = 0, gc3 = 0, synonymousCodons = 0, gc3s = 0;
+        // CodonW gc_out skips termination codons of the selected code for GC1-3 (ca == 11).
+        var stops = gcConvention == CodonGcConvention.CodonW
+            ? new HashSet<string>(SynonymousFamilies(code).Where(f => f.Key == '*').SelectMany(f => f))
+            : null;
+
+        long totalCodons = 0, gcCodons = 0, gc1 = 0, gc2 = 0, gc3 = 0, synonymousCodons = 0, gc3s = 0;
         foreach (var (codon, n) in counts)
         {
             totalCodons += n;
-            if (IsGC(codon[0])) gc1 += n;
-            if (IsGC(codon[1])) gc2 += n;
-            if (IsGC(codon[2])) gc3 += n;
 
             if (synonymous.Contains(codon))
             {
                 synonymousCodons += n;
                 if (IsGC(codon[2])) gc3s += n;
             }
+
+            if (stops is not null && stops.Contains(codon)) continue;
+            gcCodons += n;
+            if (IsGC(codon[0])) gc1 += n;
+            if (IsGC(codon[1])) gc2 += n;
+            if (IsGC(codon[2])) gc3 += n;
         }
 
         static double Percent(long part, long whole) => whole > 0 ? 100.0 * part / whole : 0;
@@ -601,9 +721,9 @@ public static class CodonUsageAnalyzer
             Rscu: rscu,
             Enc: enc,
             TotalCodons: (int)totalCodons,
-            Gc1: Percent(gc1, totalCodons),
-            Gc2: Percent(gc2, totalCodons),
-            Gc3: Percent(gc3, totalCodons),
+            Gc1: Percent(gc1, gcCodons),
+            Gc2: Percent(gc2, gcCodons),
+            Gc3: Percent(gc3, gcCodons),
             Gc3s: Percent(gc3s, synonymousCodons));
     }
 
@@ -629,4 +749,24 @@ public readonly record struct CodonUsageStatistics(
     /// Gets the overall GC content of the coding sequence.
     /// </summary>
     public double OverallGc => (Gc1 + Gc2 + Gc3) / 3;
+
+    /// <summary>
+    /// Whether <see cref="Enc"/> is a calculated Nc. <c>false</c> when Nc could not be
+    /// calculated (CodonW prints <c>*****</c>) — <see cref="Enc"/> is then 0; a calculated Nc is
+    /// never below the number of amino acids of the code. See
+    /// <see cref="CodonUsageAnalyzer.TryCalculateEnc(string, GeneticCode, out double)"/>.
+    /// </summary>
+    public bool IsEncCalculable => Enc > 0;
+}
+
+/// <summary>
+/// Convention for the per-codon-position GC values of <see cref="CodonUsageStatistics"/>.
+/// </summary>
+public enum CodonGcConvention
+{
+    /// <summary>EMBOSS <c>cusp</c>: GC1/GC2/GC3 over all valid codons, termination codons included (default).</summary>
+    EmbossCusp = 0,
+
+    /// <summary>CodonW 1.4.4 <c>gc_out</c>: GC1/GC2/GC3 (and GC) over sense codons only, termination codons of the genetic code excluded.</summary>
+    CodonW = 1,
 }

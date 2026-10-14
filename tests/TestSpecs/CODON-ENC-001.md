@@ -30,14 +30,14 @@
 5. If N̂c > 61, re-adjust down to 61 — Fuglsang 2004.
 6. Isoleucine fallback `F̂₃ = (F̂₂ + F̂₄)/2` when isoleucine unestimable — Fuglsang 2004 Eq. 5a.
 7. Range 20 (extreme bias) ≤ Nc ≤ 61 (no bias) — Fuglsang 2004; NCBI standard code degeneracy partition (9/1/5/3 + 2 singlets).
-8. Empty synonymous class (other than a lone Ile class) ⇒ "Nc is not calculated" — CodonW README (citing Wright 1990), `enc_out` prints `*****`. Library returns 0.
+8. Empty synonymous class (other than a lone Ile class) ⇒ "Nc is not calculated" — CodonW README (citing Wright 1990), `enc_out` prints `*****`. `TryCalculateEnc` returns `false` (explicit not-calculable result; review 2026-09 F36); `CalculateEnc` keeps returning 0 for backward compatibility.
 9. F̂ = 0 (every observed codon once) is not an estimate: `enc_out` keeps an amino acid only `if (bb > 0.0000001)`.
 10. Classes derive from the genetic code (`-enc -code`); for codes with ≠ 61 sense codons the cap is the sense-codon count (codonbias; CodonW hard-codes 61).
 
 ### 1.3 Documented Corner Cases
 
 - Amino acid with n ≤ 1: F undefined (Fuglsang 2004 — "at least two codons for each amino acid").
-- Empty degeneracy class: class average undefined; isoleucine has explicit fallback Eq. 5a; any other empty class ⇒ Nc not calculated (return 0) — CodonW.
+- Empty degeneracy class: class average undefined; isoleucine has explicit fallback Eq. 5a; any other empty class ⇒ Nc not calculated (`TryCalculateEnc` → false; `CalculateEnc` → 0) — CodonW.
 - Overshoot N̂c > 61 → cap at 61.
 
 ### 1.4 Known Failure Modes / Pitfalls
@@ -55,6 +55,8 @@
 | `CalculateEnc(DnaSequence)` | CodonUsageAnalyzer | Delegate | Thin wrapper → `.Sequence`; smoke + null check only. |
 | `CalculateEnc(string, GeneticCode)` | CodonUsageAnalyzer | Canonical (code-aware) | Classes from `GeneticCode.CodonTable`; the string overload uses `GeneticCode.Standard`. |
 | `CalculateEnc(DnaSequence, GeneticCode)` | CodonUsageAnalyzer | Delegate | Same core. |
+| `TryCalculateEnc(string|DnaSequence[, GeneticCode], out double)` | CodonUsageAnalyzer | Canonical (explicit not-calculable) | `false` + 0 exactly where CodonW prints `*****` (and for input without valid codons); the `CalculateEnc` overloads delegate to it (F36). |
+| `CodonUsageStatistics.IsEncCalculable` | CodonUsageStatistics | Derived | `Enc > 0` (a calculated Nc is ≥ the number of amino acids). |
 
 ---
 
@@ -62,7 +64,7 @@
 
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
-| INV-1 | Nc = 0 (not calculable) or 20 ≤ Nc ≤ 61 (table 1; ≤ sense-codon count for other codes) | Yes | Fuglsang 2004 range + Eq. 3 cap; CodonW enc_out |
+| INV-1 | `TryCalculateEnc` false ⇔ Nc not calculable (then `CalculateEnc` = 0); otherwise 20 ≤ Nc ≤ 61 (table 1; ≤ sense-codon count for other codes) | Yes | Fuglsang 2004 range + Eq. 3 cap; CodonW enc_out |
 | INV-2 | Maximally biased gene (one codon per amino acid) → Nc = 20 | Yes | Fuglsang 2004 range; Eqs. 1–3 (F=1 ⇒ Nc(aa)=1) |
 | INV-3 | Near-uniform gene → Nc re-adjusted to exactly 61 | Yes | Fuglsang 2004 cap rule |
 | INV-4 | Single two-fold amino acid with counts (3,1) → F=0.5, Nc(aa)=2 | Yes | Fuglsang 2004 Eq. 1, Eq. 2 (hand derivation) |
@@ -90,6 +92,11 @@
 | M13 | GeneticCode overload contracts | null code / null DnaSequence; DnaSequence+code equals string+code | ArgumentNullException; equal | Contract |
 | M6 | Null_Throws | `CalculateEnc((DnaSequence)null!)` | ArgumentNullException | Contract |
 | M7 | Empty_ReturnsZero | empty string | 0 | Contract |
+| M30 | TryCalculateEnc_CodonWNotCalculated | Phe-only, short gene (± terminal stop), Met/Trp only, random gene r155 (tables 1, 2) | `false`, enc 0; `CalculateEnc` 0; `IsEncCalculable` false | CodonW 1.4.4 binary `*****` (F36) |
+| M31 | TryCalculateEnc_Calculable | M3 gene tables 1/2; random gene r53 (N triplet, in-frame stops) tables 1/2 | `true`; 41.288461538461526 / 45.0; 42.85340746733685 / 40.37735849056604 | CodonW `-enc` 41.29 / 45.00 / 42.85 / 40.38 |
+| M32 | TryCalculateEnc_NoCodons | null, "", "A", "NNNRYK" | `false`, 0 | Contract |
+| M33 | TryCalculateEnc overload contracts | default-code overloads = table 1; DnaSequence overloads; null code / null DnaSequence | equal; ArgumentNullException | Contract |
+| M34 | MCP `effective_number_of_codons.calculable`, `codon_usage_statistics.isEncCalculable` | `*****` gene / M3 gene | false / true | CodonW (F36) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -175,6 +182,7 @@
 | S2 | ✅ Covered | invalid codons skipped |
 | S3 | ✅ Covered | delegate equality |
 | C1 | ✅ Covered | 40.5 profile within tolerance |
+| M30–M34 | ✅ Covered | `CodonUsageAnalyzer_NotCalculableEnc_CodonWGc_Tests.cs`, MCP `CodonEncCalculableGcConventionTests.cs` (F36) |
 
 ---
 
@@ -192,3 +200,4 @@
 
 1. The Eq. 5a isoleucine fallback and Eq. 4 within-class averaging are implemented per Fuglsang 2004; the lower clamp at 20 is documented as a defensive bound consistent with the published range.
 2. **Resolved 2026-09 (review B02, F15–F17).** Whole-class-absent handling now follows CodonW `enc_out` / Wright 1990 ("Nc is not calculated" ⇒ return 0) instead of the former full-count convention (M5b 29.0 and several fuzz/property/combinatorial tests asserting 20 or [20,61] for such genes were corrected); F̂ = 0 amino acids are excluded from class averages (CodonW); classes derive from `GeneticCode` with new `CalculateEnc(..., GeneticCode)` overloads. Cross-checked against the CodonW 1.4.4 binary (6456 cases), a Python port of `enc_out` (27 tables, 21789 cases) and codonbias 0.5.0 (27 tables, 4050 genes).
+3. **Resolved 2026-09 (review B02, F36, audit A1-11).** The 0 sentinel is no longer the only way to see "not calculated": additive `TryCalculateEnc(…, out double)` overloads (repo `Try*` convention, e.g. `OncologyAnalyzer.TryFitPurityPloidy`) return `false` where CodonW prints `*****`; `CalculateEnc` delegates and still returns 0; `CodonUsageStatistics.IsEncCalculable`; MCP `effective_number_of_codons` adds `calculable`, `codon_usage_statistics` adds `isEncCalculable`. Re-verified on the CodonW 1.4.4 binary (codes 0–7 × 304 genes with in-frame stops, N/R/Y, lower-case, RNA, trailing bases): all 273 `*****` cases → `false`; all 2159 calculated cases `true` and equal at 2 dp, except the documented sense-codon cap (CodonW 61 vs 60/62/63).

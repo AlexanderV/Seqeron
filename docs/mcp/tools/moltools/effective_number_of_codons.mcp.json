@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonUsageAnalyzer.CalculateEnc",
-  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L420",
-  "description": "Effective Number of Codons (Wright 1990 Nc, CodonW enc_out conventions) for a coding sequence under an NCBI genetic code (genetic_code, default 1 = Standard): 20..61 under the standard code, or 0 when Nc cannot be calculated (a synonymous class other than the single 3-fold Ile class has no estimable amino acid).",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L485",
+  "description": "Effective Number of Codons (Wright 1990 Nc, CodonW enc_out conventions) for a coding sequence under an NCBI genetic code (genetic_code, default 1 = Standard): 20..61 under the standard code; when Nc cannot be calculated (a synonymous class other than the single 3-fold Ile class has no estimable amino acid; CodonW *****) enc = 0 and calculable = false.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -18,9 +18,10 @@
   "outputSchema": {
     "type": "object",
     "properties": {
-      "enc": { "type": "number", "description": "Effective Number of Codons, 20..61 (20 = extreme bias, 61 = no bias); 0 = not calculable (CodonW *****)." }
+      "enc": { "type": "number", "description": "Effective Number of Codons, 20..61 (20 = extreme bias, 61 = no bias); 0 when not calculable (CodonW *****)." },
+      "calculable": { "type": "boolean", "description": "false when Nc cannot be calculated (CodonW *****); then enc = 0." }
     },
-    "required": ["enc"]
+    "required": ["enc", "calculable"]
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
@@ -30,13 +31,13 @@
     {
       "name": "Fully populated biased gene",
       "input": { "sequence": "TTTx4 TTC CTGx3 CTCx2 TTA ATTx3 ATCx2 ATA GTGx4 GTC AGCx3 TCTx2 TCA CGCx4 CGTx2 GGCx3 GGTx2 GGA (concatenated codons)" },
-      "output": { "enc": 41.288461538461526 }
+      "output": { "enc": 41.288461538461526, "calculable": true }
     },
     {
       "name": "Short gene with empty synonymous classes (CodonW: *****)",
       "input": { "sequence": "ATGAAAGAGCTGTTCGCCAAA" },
-      "output": { "enc": 0 }
+      "output": { "enc": 0, "calculable": false }
     },
-    {"name": "Same gene, vertebrate mitochondrial code (table 2)", "input": {"sequence": "(gene of the previous example)", "genetic_code": 2}, "output": {"enc": 45.0}}
+    {"name": "Same gene, vertebrate mitochondrial code (table 2)", "input": {"sequence": "(gene of the previous example)", "genetic_code": 2}, "output": {"enc": 45.0, "calculable": true}}
   ]
 }

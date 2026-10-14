@@ -71,11 +71,13 @@ The constant `2` is the contribution of the two single-codon amino acids Met (AT
 
 | Field | Type | Description |
 |-------|------|-------------|
-| (return) | `double` | Effective number of codons, in [20, 61] (table 1); **0 when Nc cannot be calculated** (null/empty input, or a synonymous class with no estimable amino acid — CodonW prints `*****`) |
+| (return) `CalculateEnc` | `double` | Effective number of codons, in [20, 61] (table 1); 0 when Nc cannot be calculated (kept for backward compatibility) |
+| (return) `TryCalculateEnc` | `bool` + `out double enc` | `true` and Nc when calculable; **`false` (enc = 0) when Nc cannot be calculated** — null/empty input, no valid codon, or a synonymous class with no estimable amino acid (CodonW prints `*****`) |
+| `CodonUsageStatistics.IsEncCalculable` | `bool` | same flag for `GetStatistics(...).Enc` |
 
 ### 3.3 Preconditions and Validation
 
-`CalculateEnc(DnaSequence[, GeneticCode])` throws `ArgumentNullException` for a null sequence; every overload throws it for a null code. `CalculateEnc(string[, GeneticCode])` returns 0 for null/empty. Input is upper-cased and U is read as T; codons are read 0-based in non-overlapping triplets; a trailing partial codon (length < 3) is ignored; codons containing any other character are skipped (consistent with `CountCodons`). Amino acids with total count ≤ 1 or F̂ = 0 are not estimable.
+`CalculateEnc(DnaSequence[, GeneticCode])` throws `ArgumentNullException` for a null sequence; every overload throws it for a null code. `CalculateEnc(string[, GeneticCode])` returns 0 and `TryCalculateEnc(string[, GeneticCode], out _)` returns `false` for null/empty; `TryCalculateEnc(DnaSequence[, GeneticCode], out _)` throws for a null sequence. Input is upper-cased and U is read as T; codons are read 0-based in non-overlapping triplets; a trailing partial codon (length < 3) is ignored; codons containing any other character are skipped (consistent with `CountCodons`). Amino acids with total count ≤ 1 or F̂ = 0 are not estimable.
 
 ## 4. Algorithm
 
@@ -86,7 +88,7 @@ The constant `2` is the contribution of the two single-codon amino acids Met (AT
 3. For each amino acid with z > 1 and n ≥ 2, compute F̂ by Wright Eq. (1); keep it only if F̂ > 0.0000001 (CodonW).
 4. Average F̂ within each degeneracy class z — Eq. (4).
 5. If the class z = 3 has a single amino acid (Ile) and it is unestimable, use `F̂₃ = (F̂₂ + F̂₄)/2` — Eq. (5a).
-6. If any other class z > 1 has no estimable amino acid, return 0 (Nc not calculated; CodonW `*****`).
+6. If any other class z > 1 has no estimable amino acid, Nc is not calculated (CodonW `*****`): `TryCalculateEnc` returns `false`, `CalculateEnc` returns 0.
 7. Aggregate `Nc = K₁ + Σ_z K_z / F̂_z` (table 1: `2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆`).
 8. Re-adjust values above the number of sense codons of the code (61 for table 1) down to it; the lower bound 20 (= number of amino acids) only guards floating-point rounding.
 
@@ -106,13 +108,14 @@ Degeneracy-class numerators are derived from `GeneticCode.CodonTable` (standard 
 
 **Implementation location:** [CodonUsageAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs)
 
-- `CodonUsageAnalyzer.CalculateEnc(string, GeneticCode)`: canonical Wright 1990 / CodonW computation on a raw sequence.
+- `CodonUsageAnalyzer.TryCalculateEnc(string, GeneticCode, out double)`: canonical Wright 1990 / CodonW computation on a raw sequence with an explicit not-calculable result (review 2026-09 F36); `TryCalculateEnc(string, out double)`, `TryCalculateEnc(DnaSequence[, GeneticCode], out double)` share the core.
+- `CodonUsageAnalyzer.CalculateEnc(string, GeneticCode)`: delegates to `TryCalculateEnc`, returning 0 when not calculable.
 - `CodonUsageAnalyzer.CalculateEnc(string)`, `CalculateEnc(DnaSequence)`, `CalculateEnc(DnaSequence, GeneticCode)`: same core (standard code by default).
-- `CodonUsageAnalyzer.GetStatistics(...)`.`Enc` and MCP `effective_number_of_codons` / `codon_usage_statistics` delegate to this core (standard code).
+- `CodonUsageAnalyzer.GetStatistics(...)`.`Enc` / `.IsEncCalculable` and MCP `effective_number_of_codons` (`enc`, `calculable`) / `codon_usage_statistics` (`enc`, `isEncCalculable`) delegate to this core (`genetic_code` default 1).
 
 ### 5.2 Current Behavior
 
-F̂ is computed from frequencies `p_i = n_i/n` (Eq. 1), not from raw counts. Class averages substitute for absent amino acids (Eq. 4); F̂ = 0 is not an estimate (CodonW). The isoleucine 3-fold fallback (Eq. 5a) applies when the single 3-fold amino acid is unestimable but the 2- and 4-fold classes are estimable. Any other empty class ⇒ 0 (not calculated). The result is re-adjusted to ≤ the code's sense-codon count (61 for table 1). Cross-checked against the compiled CodonW 1.4.4 binary on 6456 gene × code cases (codes 1,2,3,4,5,6,9,10; 3136 "not calculated" cases all 0; all others equal to 2 dp) and against a Python port of `enc_out` on all 27 tables (21789 cases, exact). This unit does not perform substring search, so the repository suffix tree is **not** applicable.
+F̂ is computed from frequencies `p_i = n_i/n` (Eq. 1), not from raw counts. Class averages substitute for absent amino acids (Eq. 4); F̂ = 0 is not an estimate (CodonW). The isoleucine 3-fold fallback (Eq. 5a) applies when the single 3-fold amino acid is unestimable but the 2- and 4-fold classes are estimable. Any other empty class ⇒ not calculated (`TryCalculateEnc` false; `CalculateEnc` 0). The result is re-adjusted to ≤ the code's sense-codon count (61 for table 1). Cross-checked against the compiled CodonW 1.4.4 binary on 6456 gene × code cases (codes 1,2,3,4,5,6,9,10; 3136 "not calculated" cases all 0; all others equal to 2 dp) and against a Python port of `enc_out` on all 27 tables (21789 cases, exact). This unit does not perform substring search, so the repository suffix tree is **not** applicable.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -139,9 +142,9 @@ F̂ is computed from frequencies `p_i = n_i/n` (Eq. 1), not from raw counts. Cla
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
 | null `DnaSequence` | `ArgumentNullException` | Contract |
-| empty / null string | 0 | Nc not calculated |
+| empty / null string | `TryCalculateEnc` false; `CalculateEnc` 0 | Nc not calculated |
 | amino acid with n ≤ 1, or F̂ = 0 | left out; class uses Eq. 4 average | F̂ undefined (n−1) [2]; CodonW `bb > 0.0000001` [4] |
-| a synonymous class (other than a lone Ile) with no estimable amino acid | 0 | Nc not calculated (CodonW `*****`, Wright 1990) [4] |
+| a synonymous class (other than a lone Ile) with no estimable amino acid | `TryCalculateEnc` false; `CalculateEnc` 0 | Nc not calculated (CodonW `*****`, Wright 1990) [4] |
 | isoleucine absent | F̂₃ = (F̂₂ + F̂₄)/2 | Eq. 5a [2] |
 | near-uniform short gene | re-adjusted to 61 | Eq. 3 overshoot rule [2] |
 | non-ACGT(U) codon | skipped, frame kept | consistent with `CountCodons` |
@@ -149,7 +152,7 @@ F̂ is computed from frequencies `p_i = n_i/n` (Eq. 1), not from raw counts. Cla
 
 ### 6.2 Limitations
 
-Nc overestimates for very short genes [2]; the Novembre (2002) background-corrected Nc′ and the Sun, Yang & Xia (2013) variant are not implemented (not claimed). A return value of 0 means "not calculated" and must not be averaged with real Nc values.
+Nc overestimates for very short genes [2]; the Novembre (2002) background-corrected Nc′ and the Sun, Yang & Xia (2013) variant are not implemented (not claimed). Use `TryCalculateEnc` (or `IsEncCalculable`) to exclude not-calculated genes before averaging; the legacy `CalculateEnc` encodes "not calculated" as 0, which must not be averaged with real Nc values.
 
 ## 7. Examples and Related Material (Optional)
 
@@ -158,7 +161,8 @@ Nc overestimates for very short genes [2]; the Novembre (2002) background-correc
 **API usage example:**
 
 ```csharp
-double nc = CodonUsageAnalyzer.CalculateEnc(gene);                               // 20..61, or 0 if not calculable
+if (CodonUsageAnalyzer.TryCalculateEnc(gene, out double nc)) { /* 20..61 */ } // false where CodonW prints *****
+double legacy = CodonUsageAnalyzer.CalculateEnc(gene);                           // 20..61, or 0 if not calculable
 double mt = CodonUsageAnalyzer.CalculateEnc(gene, GeneticCode.GetByTableNumber(2)); // vertebrate mitochondrial classes
 ```
 

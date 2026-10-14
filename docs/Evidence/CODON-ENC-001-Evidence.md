@@ -67,6 +67,7 @@
 
 - C# vs CodonW 1.4.4 binary (`-enc -nomenu -silent -machine -code c`, c = 0..7): 807 genes (random composition, codon-sampled with skewed weights, missing-family/short genes, RNA, lower case, N) × 8 codes = 6456 cases: 3136 "*****" ⇔ C# 0 (all), all others equal at CodonW's 2-dp precision; the only 5 differences are CodonW's fixed 61 cap under codes with 62/63 sense codons.
 - C# vs Python port of `enc_out` over all 27 NCBI tables: 21789 cases, max |Δ| < 1e-9.
+- Review 2026-10-14 (F36, `TryCalculateEnc`): CodonW 1.4.4 rebuilt from the Ubuntu `codonw_1.4.4.orig.tar.gz` and run as `codonw genes.fa -base -enc -gc -gc3s -L_aa -code c -silent -nomenu -nowarn -machine` (c = 0..7) on 304 genes (seed 20261014: 4 hand-made — terminal stop, Phe-only, internal stops + NNN, stops only — and 300 random 1–400-codon genes with N/R/Y, lower-case, RNA spelling, trailing partial codons) = 2432 cases: all 273 `*****` ⇔ `TryCalculateEnc` false / `IsEncCalculable` false / `CalculateEnc` 0; all 2159 calculated ⇔ true and equal at 2 dp, except the documented cap (CodonW prints values up to 61 where table 2 caps at 60, or 61 where tables with 62/63 sense codons do not). Locked: gene M3 41.288461538461526 / 45.0 (tables 1/2), random gene r53 42.85340746733685 / 40.37735849056604 (CodonW 42.85 / 40.38), r155 `*****` (tables 1/2).
 - C# vs codonbias 0.5.0 (Wright mode) over all 27 tables, 4050 fully-populated genes (1237 at/above 61): 0 mismatches (> 1e-6).
 
 ---
@@ -121,7 +122,7 @@ Perfectly even Phe, TTT × 2 and TTC × 2 (n = 4): Σp² = 0.5, F̂ = (4·0.5 �
 
 ## Assumptions
 
-0. **SUPERSEDED (2026-09):** an empty synonymous class no longer contributes its full codon count; per CodonW / Wright 1990 Nc is not calculated (return 0).
+0. **SUPERSEDED (2026-09):** an empty synonymous class no longer contributes its full codon count; per CodonW / Wright 1990 Nc is not calculated (`TryCalculateEnc` returns `false`; the legacy `CalculateEnc` returns 0 — F36 replaced the 0-only signal with the explicit API).
 1. **ASSUMPTION: Lower clamp at 20.** Wright/Fuglsang state Nc *approaches* 20 in extreme bias and explicitly prescribe re-adjusting **down to 61** at the top. They do not prescribe a hard clamp at 20; 20 is the structural minimum (every degeneracy class collapses to one codon ⇒ Nc(aa)=1). Retaining `Math.Max(20, …)` is consistent with the stated range and cannot raise a legitimately-computed value, but it is not an explicit Wright instruction. Treated as a defensive bound, not an algorithmic parameter.
 
 ---
@@ -151,3 +152,4 @@ Perfectly even Phe, TTT × 2 and TTC × 2 (n = 4): Σp² = 0.5, F̂ = (4·0.5 �
 
 - **2026-06-13**: Initial documentation.
 - **2026-09-28**: Review 2026-09 (B02 F15–F17): CodonW 1.4.4 source/binary and codonbias 0.5.0 added; not-calculated rule, F̂ = 0 exclusion, genetic-code-aware classes.
+- **2026-10-14**: Review 2026-09 (B02 F36, audit A1-11): explicit not-calculable API `TryCalculateEnc`, `CodonUsageStatistics.IsEncCalculable`, MCP `calculable` / `isEncCalculable`; re-verified on the CodonW 1.4.4 binary (2432 cases).

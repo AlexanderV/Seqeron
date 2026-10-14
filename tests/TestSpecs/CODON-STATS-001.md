@@ -52,6 +52,8 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `GetStatistics(string / DnaSequence [, GeneticCode])` | CodonUsageAnalyzer | Canonical | Aggregates counts, RSCU, ENC, GC1/2/3, GC3s, total codons; code default NCBI 1 |
+| `GetStatistics(string / DnaSequence, GeneticCode, CodonGcConvention)` | CodonUsageAnalyzer | Canonical (GC convention) | `EmbossCusp` (= the overloads above) or `CodonW` (GC1/2/3 over sense codons, stops of the code excluded — CodonW `gc_out`); review 2026-09 F37 |
+| `CodonUsageStatistics.IsEncCalculable` | record | Derived | `Enc > 0`; false where CodonW prints Nc `*****` (F36) |
 | `CalculateCai(string, refRscu)` / `CalculateCai(DnaSequence, refRscu)` | CodonUsageAnalyzer | Canonical | Sharp & Li 1987 CAI |
 | `EColiOptimalCodons` (property) | CodonUsageAnalyzer | Reference | Sharp & Li 1987 w table |
 | `HumanOptimalCodons` (property) | CodonUsageAnalyzer | Reference | Kazusa-derived human RSCU |
@@ -69,6 +71,7 @@
 | INV-4 | `0 ≤ GC1, GC2, GC3, GC3s ≤ 100` | Yes | counts/positions ratio ×100 |
 | INV-5 | `TotalCodons` = number of valid (ACGT-only) codons in frame | Yes | EMBOSS cusp "Number" |
 | INV-6 | `OverallGc` = (GC1+GC2+GC3)/3 | Yes | record definition |
+| INV-7 | `CodonW` convention: GC1/2/3 denominators = sense codons (CodonW `Len_aa`); `OverallGc` = CodonW `GC`; equal to `EmbossCusp` for stop-free genes | Yes | CodonW 1.4.4 `gc_out` (`ca == 11` skipped) |
 
 ---
 
@@ -112,6 +115,12 @@
 | R2 | RSCU/ENC in stats use the same code | NCBI 2 | = `CalculateRscu/CalculateEnc(…, code)` | consistency |
 | R3 | Stops + ambiguous triplet | `ATGGCAGCCTAAtggNNNgcg` | Total 6, GC1 50, GC2/GC3 66.67 (cusp, stops included), GC3s 66.67 (CodonW 0.667) | EMBOSS ajcod.c; CodonW |
 | R4 | DnaSequence overload / null code | NCBI 2 | same as string; `ArgumentNullException` | input contract |
+| R11 | CodonW convention, terminal stop (F37) | `ATGAAACTGTTCGCCAAATAA`, NCBI 1 | GC1/2/3 = 2/6, 1/6, 4/6 (×100), OverallGc 7/18 (CodonW GC 0.389), GC3s 60; cusp OverallGc 7/21, TotalCodons 7 both | CodonW 1.4.4 binary `-base -gc -gc3s` |
+| R12 | CodonW convention, random gene r53 (N triplet, in-frame stops, trailing base) | NCBI 1 / 2 | Len_aa 48/46; GC1/2/3 = 27,25,23 / 27,23,23 over Len_aa; CodonW GC 0.521/0.529, GC3s 0.479/0.500 | CodonW `-code 0/1` |
+| R13 | CodonW convention, internal stops + NNN | `ATGGCTTAAGCCNNNGCGTGAGGCCTGCTTTAGAAAAAGTGGTAA`, NCBI 1 / 2 | Len_aa 10/11; GC 0.600/0.576; GC1 0.600/0.545; GC2 0.500/0.545; GC3 0.700/0.636; GC3s 0.625/0.636; TotalCodons 14 | CodonW `-code 0/1` |
+| R14 | Default = EMBOSS cusp (re-verified on the binary) | `ATGGCTTAAGCCGCGTGAGGCCTGCTTTAGAAAAAGTGGTAA` | Total 14; Coding GC 47.62, GC1 42.86, GC2 42.86, GC3 57.14 | EMBOSS 6.6.0.0 `cusp` |
+| R15 | Conventions agree on a stop-free gene; stops-only gene → CodonW-mode GC 0 (CodonW writes no value) | M3 gene; `TAATAGTGA` | equal; 0 | CodonW `gc_out` "too short" |
+| R16 | Contracts: DnaSequence overload; undefined enum → `ArgumentOutOfRangeException`; null code/sequence; MCP `gc_convention` (default EmbossCusp), unknown value → `ArgumentException` | — | — | input contract |
 
 ---
 
@@ -229,4 +238,6 @@ All in-scope cases ✅. Count of ✅ = 20 = total in-scope cases.
 
 1. **Decision:** `EColiOptimalCodons` replaced with Sharp & Li 1987 w-values (Biopython SharpEcoliIndex) and `HumanOptimalCodons` with Kazusa-derived RSCU; prior values were untraceable (defect). CAI rescales by family max, so passing w (max 1.0) reproduces w.
 2. **Decision:** Fixed two implementation defects — GC3s now restricted to synonymous third positions (Peden), and CAI now excludes Met/Trp/stop (seqinr/CodonW).
-3. None open.
+3. **Decision (review 2026-09, F37, audit A1-14):** the default GC1/GC2/GC3/OverallGc stay EMBOSS cusp (stops included); an additive `CodonGcConvention.CodonW` option gives CodonW's numbers (stop codons of the genetic code excluded, CodonW `gc_out`). Differential vs the CodonW 1.4.4 binary: 304 genes (in-frame stops, N/R/Y, lower-case, RNA, trailing bases) × CodonW codes 0–7 — GC, GC1, GC2, GC3, GC3s all equal at 3 dp on every gene with output (2220 of the 2432 gene×code cases differ from the cusp values).
+4. **Note (2026-09, F37):** the EMBOSS 6.6 `cusp` *binary* counts an ambiguous triplet as a codon (`NNN` appears as `AAA`; `ajCodBase` maps N to its lowest constituent) and so includes it in the GC denominators (R3 gene: GC1 42.86 % on 7 codons); this artefact contradicts the documented `ajCodSetTripletsS` contract and is not reproduced (same decision as CODON-USAGE-001 F9). On ACGT genes the default equals the binary (R14).
+5. None open.

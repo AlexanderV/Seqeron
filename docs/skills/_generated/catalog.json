@@ -2279,7 +2279,7 @@
     "server": "MolTools",
     "methodId": "CodonUsageAnalyzer.GetStatistics",
     "docPath": "docs/mcp/tools/moltools/codon_usage_statistics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L378"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L662"
   },
   {
     "tool": "compare_codon_usage",
@@ -2377,7 +2377,7 @@
     "server": "MolTools",
     "methodId": "CodonUsageAnalyzer.CalculateEnc",
     "docPath": "docs/mcp/tools/moltools/effective_number_of_codons.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L283"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L485"
   },
   {
     "tool": "enzymes_by_cut_length",
