@@ -2,7 +2,7 @@
 
 MCP server — **Primer/probe/CRISPR design, codon optimization, restriction analysis, thermodynamics.**
 
-Exposes **50 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **51 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/moltools/`](../../../../docs/mcp/tools/moltools). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.MolTools
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.MolTools"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (50)
+## Tools (51)
 
 | Tool | Description |
 |------|-------------|
@@ -46,6 +46,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `evaluate_primer` | Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm, longest homopolymer, hairpin… |
 | `find_all_restriction_sites` | Finds sites for EVERY built-in restriction enzyme on both strands of a DNA sequence. |
 | `find_off_targets` | Naïve genome scan: enumerates all PAM sites in the genome and reports those whose target differs from the guide by 1..max_mismatches (the… |
+| `find_conserved_rare_codon_clusters` | Sherlocc 1.0 conserved rare-codon clusters of a protein-family codon alignment (Chartier et al. 2012): per-column window averages of per-thousand usa… |
 | `find_pam_sites` | Finds all PAM matches (forward + reverse strand) for the chosen CRISPR system. |
 | `find_rare_codon_clusters` | Rare-codon clusters by the Sherlocc rule (Chartier et al. 2012, Bioinformatics 28:1438): a window of window_size codons (default 7) is a cl… |
 | `find_rare_codons` | Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15)… |

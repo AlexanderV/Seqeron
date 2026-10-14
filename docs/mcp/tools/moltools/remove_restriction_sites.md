@@ -27,6 +27,7 @@ Rewrites codons to remove the listed restriction recognition sequences while pre
 | `coding_sequence` | string | Yes | Coding sequence (DNA or RNA), non-empty. |
 | `restriction_sites` | string[] | Yes | Recognition sequences to remove (≥1). |
 | `target_organism` | object | Yes | Preset id or inline custom table. |
+| `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard, identical to omitting it; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Synonymous codons are taken from this code's families, so the protein is preserved under it. One of 1–6, 9–16, 21–33. |
 
 ## Output Schema
 
@@ -40,6 +41,7 @@ Rewrites codons to remove the listed restriction recognition sequences while pre
 |------|---------|
 | 1001 | Coding sequence cannot be null or empty |
 | 1002 | At least one restriction site is required |
+| 1003 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
 
 ## Examples
 

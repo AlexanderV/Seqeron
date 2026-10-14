@@ -2415,6 +2415,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L221"
   },
   {
+    "tool": "find_conserved_rare_codon_clusters",
+    "server": "MolTools",
+    "methodId": "CodonOptimizer.FindConservedRareCodonClusters",
+    "docPath": "docs/mcp/tools/moltools/find_conserved_rare_codon_clusters.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1891"
+  },
+  {
     "tool": "find_off_targets",
     "server": "MolTools",
     "methodId": "CrisprDesigner.FindOffTargets",

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_conserved_rare_codon_clusters",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonOptimizer.FindConservedRareCodonClusters",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1891",
+  "description": "Sherlocc 1.0 conserved rare-codon clusters of a codon alignment (Chartier et al. 2012): family window averages of per-thousand usage, 75% representativeness filter, pauses (average <= threshold), >= 4 pauses per 7-column window, merged clusters with mean usage and middle point.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "aligned_coding_sequences": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Aligned in-frame coding sequences (equal length, multiple of 3; gaps '-' or '.')." },
+      "threshold": { "type": "number", "description": "Pause cutoff: column average <= threshold (per thousand by default)." },
+      "target_organism": { "type": ["object", "null"], "description": "One table for every sequence: preset id (Yeast | Human; EColiK12 only with use_codon_frequencies) or inline table whose codonFrequencies are per-thousand usage.", "default": null },
+      "target_organisms_per_sequence": { "type": ["array", "null"], "items": { "type": "object" }, "description": "One table per aligned sequence, same order (instead of target_organism).", "default": null },
+      "use_codon_frequencies": { "type": "boolean", "description": "false: per-thousand usage (Sherlocc); true: the tables' codonFrequencies (SherloccOptions.UseCodonFrequencies).", "default": false },
+      "averaging_window": { "type": "integer", "description": "Centred averaging window in columns (positive, odd).", "default": 7, "minimum": 1 },
+      "cluster_window": { "type": "integer", "description": "Cluster window width in columns.", "default": 7, "minimum": 1 },
+      "min_pauses": { "type": "integer", "description": "Minimum pause columns in a cluster window.", "default": 4, "minimum": 1 },
+      "min_coverage": { "type": "number", "description": "Representativeness filter: minimum fraction of valued cells per averaging window.", "default": 0.75, "minimum": 0, "maximum": 1 }
+    },
+    "required": ["aligned_coding_sequences", "threshold"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequenceCount": { "type": "integer" },
+      "alignmentLength": { "type": "integer" },
+      "columnAverages": { "type": "array", "items": { "type": ["number", "null"] } },
+      "columnUsageCounts": { "type": "array", "items": { "type": "integer" } },
+      "pauseColumns": { "type": "array", "items": { "type": "integer" } },
+      "clusters": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "startColumn": { "type": "integer" },
+            "endColumn": { "type": "integer" },
+            "pauseCount": { "type": "integer" },
+            "meanUsage": { "type": "number" },
+            "middlePoint": { "type": "integer" }
+          },
+          "required": ["startColumn", "endColumn", "pauseCount", "meanUsage", "middlePoint"]
+        }
+      },
+      "totalClusterLength": { "type": "integer" },
+      "clusterFraction": { "type": "number" },
+      "meanClusterUsage": { "type": ["number", "null"] }
+    },
+    "required": ["sequenceCount", "alignmentLength", "columnAverages", "columnUsageCounts", "pauseColumns", "clusters", "totalClusterLength", "clusterFraction", "meanClusterUsage"]
+  },
+  "errors": [
+    { "code": 1001, "message": "At least one aligned coding sequence is required" },
+    { "code": 1002, "message": "Supply exactly one of target_organism or target_organisms_per_sequence" },
+    { "code": 1003, "message": "Sequence length is not a multiple of 3 / all aligned sequences must have the same length" },
+    { "code": 1004, "message": "One codon-usage table per sequence is required" },
+    { "code": 1005, "message": "Table has no per-thousand usage (set use_codon_frequencies)" },
+    { "code": 1006, "message": "Threshold must be a number; AveragingWindow must be a positive odd number; ClusterWindow/MinPauses must be at least 1; MinCoverage must be in [0, 1]" },
+    { "code": 1007, "message": "Unknown codon-usage preset" }
+  ],
+  "examples": [
+    {
+      "name": "Yeast family alignment, one merged cluster (sherlocc.pl clusters=9-12|9.83928571428571)",
+      "input": {
+        "aligned_coding_sequences": [
+          "GAAAAAGATGAAAAAGATGAACGGCGCCGACCGCTCGGGGCGGAAAAAGATGAAAAAGAT",
+          "GAAAAA---GAAAAGGATGAACGCCGGCCGCGAGGGCTCGCAGAAAAAGATGAA---GAT",
+          "GAGAAAGATGAAAAAGACGAACGACGGCGCCTCCCGGCGGGGGAAAATGATGAAAAAGAT"
+        ],
+        "threshold": 15,
+        "target_organism": { "preset": "Yeast" }
+      },
+      "output": {
+        "sequenceCount": 3,
+        "alignmentLength": 20,
+        "pauseColumns": [8, 9, 10, 11],
+        "clusters": [ { "startColumn": 8, "endColumn": 11, "pauseCount": 4, "meanUsage": 9.839285714285714, "middlePoint": 10 } ],
+        "totalClusterLength": 4,
+        "clusterFraction": 0.2,
+        "meanClusterUsage": 9.839285714285714
+      }
+    }
+  ]
+}

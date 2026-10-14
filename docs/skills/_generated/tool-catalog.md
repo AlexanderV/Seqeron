@@ -353,7 +353,7 @@
 | `select_phylogenetic_markers` | `PanGenomeAnalyzer.SelectPhylogeneticMarkers` | [doc](../../mcp/tools/metagenomics/select_phylogenetic_markers.md) |
 | `taxonomic_profile` | `MetagenomicsAnalyzer.GenerateTaxonomicProfile` | [doc](../../mcp/tools/metagenomics/taxonomic_profile.md) |
 
-## MolTools (50 tools)
+## MolTools (51 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -383,6 +383,7 @@
 | `evaluate_guide_rna` | `CrisprDesigner.EvaluateGuideRna` | [doc](../../mcp/tools/moltools/evaluate_guide_rna.md) |
 | `evaluate_primer` | `PrimerDesigner.EvaluatePrimer` | [doc](../../mcp/tools/moltools/evaluate_primer.md) |
 | `find_all_restriction_sites` | `RestrictionAnalyzer.FindAllSites` | [doc](../../mcp/tools/moltools/find_all_restriction_sites.md) |
+| `find_conserved_rare_codon_clusters` | `CodonOptimizer.FindConservedRareCodonClusters` | [doc](../../mcp/tools/moltools/find_conserved_rare_codon_clusters.md) |
 | `find_off_targets` | `CrisprDesigner.FindOffTargets` | [doc](../../mcp/tools/moltools/find_off_targets.md) |
 | `find_pam_sites` | `CrisprDesigner.FindPamSites` | [doc](../../mcp/tools/moltools/find_pam_sites.md) |
 | `find_rare_codon_clusters` | `CodonOptimizer.FindRareCodonClusters` | [doc](../../mcp/tools/moltools/find_rare_codon_clusters.md) |

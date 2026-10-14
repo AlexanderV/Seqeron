@@ -14,7 +14,7 @@
 
 ## Description
 
-Splits the coding sequence into frame-0 codons (T→U) and, for every window of `window_size` consecutive codons (default 18, Clarke & Clark 2008), computes the signed %MinMax value: with `Xij` the usage frequency of the codon used, and `Xavg`/`Xmax`/`Xmin` the mean/max/min frequency of its synonymous family, a window with Σ`Xij` > Σ`Xavg` yields %Max = Σ(`Xij`−`Xavg`)/Σ(`Xmax`−`Xavg`)×100 (positive); Σ`Xij` < Σ`Xavg` yields %Min = Σ(`Xavg`−`Xij`)/Σ(`Xavg`−`Xmin`)×100, returned negative; equality gives 0. +100 = window of the most common synonymous codons, −100 = rarest. Reproduced term-for-term from the Clark lab reference code (`calculateMinMax`, CHARMING.py). Synonymous families (including the stop family UAA/UAG/UGA) are those of the NCBI Standard code; Met/Trp contribute 0 to numerator and denominator; an ambiguous triplet occupies its window position but contributes nothing.
+Splits the coding sequence into frame-0 codons (T→U) and, for every window of `window_size` consecutive codons (default 18, Clarke & Clark 2008), computes the signed %MinMax value: with `Xij` the usage frequency of the codon used, and `Xavg`/`Xmax`/`Xmin` the mean/max/min frequency of its synonymous family, a window with Σ`Xij` > Σ`Xavg` yields %Max = Σ(`Xij`−`Xavg`)/Σ(`Xmax`−`Xavg`)×100 (positive); Σ`Xij` < Σ`Xavg` yields %Min = Σ(`Xavg`−`Xij`)/Σ(`Xavg`−`Xmin`)×100, returned negative; equality gives 0. +100 = window of the most common synonymous codons, −100 = rarest. Reproduced term-for-term from the Clark lab reference code (`calculateMinMax`, CHARMING.py). Synonymous families (including the stop family) are those of the NCBI genetic code `genetic_code` (default 1 = Standard: stop family UAA/UAG/UGA; table 2: AUA joins Met, UGA joins Trp, AGA/AGG join the stops); single-codon families (Met/Trp under table 1) contribute 0 to numerator and denominator; an ambiguous triplet occupies its window position but contributes nothing.
 
 **Frequency scale.** The reference implementation takes per-thousand usage (Kazusa "/1000" column). With `usage_basis` = `PerThousandWhenAvailable` (default) the `Yeast` and `Human` presets use the per-thousand usage of their Kazusa entries (4932: one-decimal column from the Clark-lab CHARMING `ScerCUB.txt`; 9606: 1000 × count / 40 662 582 from the Kazusa counts) and reproduce the reference; an inline table is used as given (per-thousand values reproduce the reference exactly). `EColiK12` has per-amino-acid relative fractions only (Kazusa 316407 per-thousand not obtainable), which weight every residue equally (equal to the reference only for windows of a single amino acid); `usage_basis` = `CodonFrequencies` forces the fractions for every preset (the behaviour before 2026-10 for `Yeast`/`Human`).
 
@@ -31,6 +31,7 @@ Splits the coding sequence into frame-0 codons (T→U) and, for every window of 
 | `target_organism` | object | Yes | Preset id (`EColiK12` \| `Yeast` \| `Human`) or inline custom table. |
 | `window_size` | integer | No | Sliding-window width in codons (default 18); must be ≥ 1. |
 | `usage_basis` | string | No | `PerThousandWhenAvailable` (default) \| `CodonFrequencies` — see Frequency scale. |
+| `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard, identical to omitting it; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the synonymous families (stop family included) of the %MinMax sums. One of 1–6, 9–16, 21–33. |
 
 ## Output Schema
 
@@ -45,6 +46,7 @@ Splits the coding sequence into frame-0 codons (T→U) and, for every window of 
 | 1001 | Coding sequence cannot be null or empty |
 | 1002 | Window size must be at least 1 codon |
 | 1003 | Unknown usage basis |
+| 1004 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
 
 ## Examples
 

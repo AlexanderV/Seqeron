@@ -38,6 +38,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 | `rare_codon_threshold` | number | No | Rare-codon frequency threshold (default 0.15). |
 | `secondary_scoring` | enum | No | Scoring of the MinimizeSecondary structure pass: `PairCount` (default) or `Turner2004Mfe`. |
 | `gc_window` | integer \| null | No | `null` (default): global GC constraint only. A positive window size in nucleotides constrains every sliding window of that size to `[gc_target_min, gc_target_max]`. |
+| `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard, identical to omitting it; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the encoded protein and the synonymous-codon families (DNA Chisel `EnforceTranslation(genetic_table=…)`); under table 2 AGA/AGG are stops and never used for Arg, UGA is Trp, AUA is Met. One of 1–6, 9–16, 21–33. |
 
 ## Output Schema
 
@@ -59,6 +60,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 | 1003 | GC target minimum must not exceed the maximum |
 | 1004 | Unknown codon-usage preset |
 | 1005 | GC window must be a positive number of nucleotides |
+| 1006 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
 
 ## Examples
 
@@ -88,7 +90,11 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 
 `optimize_codons("ATGAAATTTAAATTTAAATTTAAATTTAAATTTAAATTTAAATTTAAATTTTAA", { preset: "EColiK12" }, gc_window: 20)` keeps every 20-nt window inside `[0.40, 0.60]` — DNA Chisel `EnforceGCContent(0.40, 0.60, window=20).evaluate(...)` scores the result 0 (the globally balanced default output still scores below 0 on 20-nt windows).
 
-### Example 3: Empty input
+### Example 3: Vertebrate mitochondrial gene (`genetic_code` 2)
+
+`AUG CGU AGA CGC AGG UGA AUA UAA` with `strategy` MaximizeCAI and the E. coli K12 preset: under the default Standard code the result is `AUGCGCCGCCGCCGCUGAAUUUAA` (AGA/AGG recoded as Arg CGC, AUA → AUU Ile); with `genetic_code: 2` it is `AUGCGCAGACGCAGGUGGAUGUAA` — AGA/AGG are table-2 stops and kept, UGA is Trp (→ UGG), AUA is Met (→ AUG); `proteinSequence` = `MR*R*WM*`, the table-2 protein of the input (DNA Chisel `EnforceTranslation(genetic_table="Vertebrate Mitochondrial")` families; locked in `CodonOptimizer_GeneticCode_Tests`).
+
+### Example 4: Empty input
 
 `optimize_codons("", { preset: "EColiK12" })` throws `ArgumentException`.
 

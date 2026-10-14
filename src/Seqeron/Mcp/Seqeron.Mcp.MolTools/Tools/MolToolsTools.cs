@@ -681,6 +681,10 @@ public class MolToolsTools
         return CodonUsageAnalyzer.GetStatistics(sequence, code, gc_convention);
     }
 
+    // Shared description of the optional genetic_code parameter of the CodonOptimizer tools (F34 pattern).
+    private const string GeneticCodeParameterDescription =
+        "NCBI translation table number defining the encoded amino acids, synonymous codon families and stop codons (default 1 = Standard, identical to omitting it; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).";
+
     // Maps an NCBI translation table number to a GeneticCode; an unknown number is reported
     // with the list of supported tables (GeneticCode.SupportedTableNumbers).
     private static GeneticCode ResolveGeneticCode(int genetic_code)
@@ -697,7 +701,7 @@ public class MolToolsTools
 
     #region CodonOptimizer
 
-    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. HarmonizeExpression matches the target codon-usage profile as closely as integer codon counts allow (DNA Chisel match_codon_usage) and is deterministic. The GC pass constrains the global GC fraction by default; set gc_window to constrain every sliding window of that many nucleotides instead (DNA Chisel EnforceGCContent(mini, maxi, window=...)). MinimizeSecondary = BalancedOptimization (codon selection + GC pass) followed by the sliding-window structure pass of reduce_secondary_structure, scored by secondary_scoring (PairCount heuristic by default; Turner2004Mfe for the Turner 2004 free-energy model, ~9 s per kilobase).")]
+    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. HarmonizeExpression matches the target codon-usage profile as closely as integer codon counts allow (DNA Chisel match_codon_usage) and is deterministic. The GC pass constrains the global GC fraction by default; set gc_window to constrain every sliding window of that many nucleotides instead (DNA Chisel EnforceGCContent(mini, maxi, window=...)). MinimizeSecondary = BalancedOptimization (codon selection + GC pass) followed by the sliding-window structure pass of reduce_secondary_structure, scored by secondary_scoring (PairCount heuristic by default; Turner2004Mfe for the Turner 2004 free-energy model, ~9 s per kilobase). The encoded protein and the synonymous-codon families follow the NCBI genetic code genetic_code (default 1 = Standard; DNA Chisel EnforceTranslation(genetic_table=...)), e.g. under table 2 AGA/AGG are stops and never used for Arg, UGA is Trp and AUA is Met.")]
     public static OptimizationResultDto optimize_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: a preset id (EColiK12 | Yeast | Human) or an inline custom table (organismName + codonFrequencies in RNA alphabet).")] CodonUsageTableInput target_organism,
@@ -706,7 +710,8 @@ public class MolToolsTools
         [Description("Upper bound for target GC fraction (default 0.60).")] double gc_target_max = 0.60,
         [Description("Frequency threshold below which a codon is considered rare (default 0.15).")] double rare_codon_threshold = 0.15,
         [Description("Window scoring model of the MinimizeSecondary structure pass: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower). Ignored by the other strategies.")] CodonOptimizer.SecondaryStructureScoring secondary_scoring = CodonOptimizer.SecondaryStructureScoring.PairCount,
-        [Description("Omitted/null (default): the GC pass constrains the GLOBAL GC fraction only (DNA Chisel EnforceGCContent(mini, maxi)). A positive window size in nucleotides instead constrains EVERY sliding window of that size to [gc_target_min, gc_target_max] (DNA Chisel EnforceGCContent(mini, maxi, window=...)), resolved by a deterministic greedy synonymous-codon repair. Used by BalancedOptimization and MinimizeSecondary.")] int? gc_window = null)
+        [Description("Omitted/null (default): the GC pass constrains the GLOBAL GC fraction only (DNA Chisel EnforceGCContent(mini, maxi)). A positive window size in nucleotides instead constrains EVERY sliding window of that size to [gc_target_min, gc_target_max] (DNA Chisel EnforceGCContent(mini, maxi, window=...)), resolved by a deterministic greedy synonymous-codon repair. Used by BalancedOptimization and MinimizeSecondary.")] int? gc_window = null,
+        [Description(GeneticCodeParameterDescription)] int genetic_code = 1)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
@@ -721,9 +726,10 @@ public class MolToolsTools
                 $"Unknown secondary-structure scoring: {secondary_scoring}. Supported: PairCount, Turner2004Mfe.", nameof(secondary_scoring));
         if (gc_window is <= 0)
             throw new System.ArgumentException("GC window must be a positive number of nucleotides.", nameof(gc_window));
+        var code = ResolveGeneticCode(genetic_code);
 
-        var table = ResolveCodonUsageTable(target_organism);
-        var result = CodonOptimizer.OptimizeSequence(coding_sequence, table, strategy, gc_target_min, gc_target_max, rare_codon_threshold, secondary_scoring, gc_window);
+        var table = ResolveCodonUsageTable(target_organism, code);
+        var result = CodonOptimizer.OptimizeSequence(coding_sequence, table, strategy, gc_target_min, gc_target_max, rare_codon_threshold, secondary_scoring, gc_window, code);
         return new OptimizationResultDto(
             result.OriginalSequence,
             result.OptimizedSequence,
@@ -736,39 +742,44 @@ public class MolToolsTools
             result.Changes.Select(c => new CodonChange(c.Position, c.Original, c.Optimized)).ToList());
     }
 
-    [McpServerTool(Name = "cai_from_organism_table", Title = "MolTools — CAI from Codon-Usage Table", ReadOnly = true), Description("Computes the Codon Adaptation Index (Sharp & Li 1987) for a coding sequence against an organism codon-usage FREQUENCY table (distinct from codon_adaptation_index, which takes a reference RSCU dictionary). CAI is the geometric mean of per-codon relative adaptiveness w = f(codon)/max f(synonymous). Stop codons and single-codon amino acids (Met/Trp) are excluded (Sharp & Li; CodonW); a codon with w < 0.0001 (absent from the table while a synonym is present) is scored with w = 0.01 (CodonW); amino acids without frequency data are skipped. Same core as codon_adaptation_index. Call when scoring how well a gene matches an organism's preferred codons.")]
+    [McpServerTool(Name = "cai_from_organism_table", Title = "MolTools — CAI from Codon-Usage Table", ReadOnly = true), Description("Computes the Codon Adaptation Index (Sharp & Li 1987) for a coding sequence against an organism codon-usage FREQUENCY table (distinct from codon_adaptation_index, which takes a reference RSCU dictionary). CAI is the geometric mean of per-codon relative adaptiveness w = f(codon)/max f(synonymous). Stop codons and single-codon amino acids (Met/Trp) are excluded (Sharp & Li; CodonW); a codon with w < 0.0001 (absent from the table while a synonym is present) is scored with w = 0.01 (CodonW); amino acids without frequency data are skipped. Stops, single-codon families and synonymous families follow the NCBI genetic code genetic_code (default 1 = Standard; CodonW -code). Same core as codon_adaptation_index. Call when scoring how well a gene matches an organism's preferred codons.")]
     public static CaiResult cai_from_organism_table(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
-        [Description("Target organism: preset id (EColiK12 | Yeast | Human) or inline custom table.")] CodonUsageTableInput target_organism)
+        [Description("Target organism: preset id (EColiK12 | Yeast | Human) or inline custom table.")] CodonUsageTableInput target_organism,
+        [Description(GeneticCodeParameterDescription)] int genetic_code = 1)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+        var code = ResolveGeneticCode(genetic_code);
 
-        var table = ResolveCodonUsageTable(target_organism);
-        return new CaiResult(CodonOptimizer.CalculateCAI(coding_sequence, table));
+        var table = ResolveCodonUsageTable(target_organism, code);
+        return new CaiResult(CodonOptimizer.CalculateCAI(coding_sequence, table, geneticCode: code));
     }
 
-    [McpServerTool(Name = "remove_restriction_sites", Title = "MolTools — Remove Restriction Sites", ReadOnly = true), Description("Synonymously rewrites codons to eliminate the listed restriction recognition sequences from a coding sequence while preserving the encoded protein (RNA-alphabet output). Site strings may be DNA or RNA and may contain IUPAC ambiguity codes; both strands are cleared (a non-palindromic site such as BsaI GGTCTC is also removed where its reverse complement occurs); each removal changes exactly one codon, choosing the highest-frequency synonymous codon in the supplied table; sites with no synonymous alternative are left in place. Call to make a gene compatible with a cloning strategy.")]
+    [McpServerTool(Name = "remove_restriction_sites", Title = "MolTools — Remove Restriction Sites", ReadOnly = true), Description("Synonymously rewrites codons to eliminate the listed restriction recognition sequences from a coding sequence while preserving the encoded protein (RNA-alphabet output). Site strings may be DNA or RNA and may contain IUPAC ambiguity codes; both strands are cleared (a non-palindromic site such as BsaI GGTCTC is also removed where its reverse complement occurs); each removal changes exactly one codon, choosing the highest-frequency synonymous codon in the supplied table; sites with no synonymous alternative are left in place. Synonymous codons are those of the NCBI genetic code genetic_code (default 1 = Standard), so the protein is preserved under that code. Call to make a gene compatible with a cloning strategy.")]
     public static OptimizedSequenceResult remove_restriction_sites(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Restriction recognition sequences to eliminate.")] string[] restriction_sites,
-        [Description("Target organism: preset id or inline custom table (used for synonymous-codon lookup).")] CodonUsageTableInput target_organism)
+        [Description("Target organism: preset id or inline custom table (used for synonymous-codon lookup).")] CodonUsageTableInput target_organism,
+        [Description(GeneticCodeParameterDescription)] int genetic_code = 1)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
         if (restriction_sites is null || restriction_sites.Length == 0)
             throw new System.ArgumentException("At least one restriction site is required.", nameof(restriction_sites));
+        var code = ResolveGeneticCode(genetic_code);
 
-        var table = ResolveCodonUsageTable(target_organism);
-        return new OptimizedSequenceResult(CodonOptimizer.RemoveRestrictionSites(coding_sequence, restriction_sites, table));
+        var table = ResolveCodonUsageTable(target_organism, code);
+        return new OptimizedSequenceResult(CodonOptimizer.RemoveRestrictionSites(coding_sequence, restriction_sites, table, code));
     }
 
-    [McpServerTool(Name = "reduce_secondary_structure", Title = "MolTools — Reduce mRNA Secondary Structure", ReadOnly = true), Description("Greedy synonymous-codon swap inside a sliding window that lowers the window structure score, reducing mRNA secondary structure while preserving the protein. Two scoring models: PairCount (default) is a heuristic local self-complementarity score (fraction of canonical pairs incl. G\u00b7U wobble; no stacking, loop penalty or nesting); Turner2004Mfe scores every window with the Turner 2004 nearest-neighbour minimum free energy (the energy model of the analysis-server minimum_free_energy tool / ViennaRNA RNAfold) and maximises it, i.e. makes it less negative \u2014 thermodynamic but ~150x slower (~9 s per kilobase vs ~0.06 s; window folds are memoised and the fold count is capped). Output is upper-case RNA trimmed to whole codons; sequences shorter than window_size are returned unchanged apart from that normalisation. Call to relax strong secondary structure in a coding sequence.")]
+    [McpServerTool(Name = "reduce_secondary_structure", Title = "MolTools — Reduce mRNA Secondary Structure", ReadOnly = true), Description("Greedy synonymous-codon swap inside a sliding window that lowers the window structure score, reducing mRNA secondary structure while preserving the protein. Two scoring models: PairCount (default) is a heuristic local self-complementarity score (fraction of canonical pairs incl. G\u00b7U wobble; no stacking, loop penalty or nesting); Turner2004Mfe scores every window with the Turner 2004 nearest-neighbour minimum free energy (the energy model of the analysis-server minimum_free_energy tool / ViennaRNA RNAfold) and maximises it, i.e. makes it less negative \u2014 thermodynamic but ~150x slower (~9 s per kilobase vs ~0.06 s; window folds are memoised and the fold count is capped). Output is upper-case RNA trimmed to whole codons; sequences shorter than window_size are returned unchanged apart from that normalisation. Synonymous swaps use the families of the NCBI genetic code genetic_code (default 1 = Standard). Call to relax strong secondary structure in a coding sequence.")]
     public static OptimizedSequenceResult reduce_secondary_structure(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
         [Description("Sliding-window size in nucleotides (default 40).")] int window_size = 40,
-        [Description("Window scoring model: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower).")] CodonOptimizer.SecondaryStructureScoring scoring = CodonOptimizer.SecondaryStructureScoring.PairCount)
+        [Description("Window scoring model: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower).")] CodonOptimizer.SecondaryStructureScoring scoring = CodonOptimizer.SecondaryStructureScoring.PairCount,
+        [Description(GeneticCodeParameterDescription)] int genetic_code = 1)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
@@ -777,44 +788,49 @@ public class MolToolsTools
         if (scoring is not (CodonOptimizer.SecondaryStructureScoring.PairCount or CodonOptimizer.SecondaryStructureScoring.Turner2004Mfe))
             throw new System.ArgumentException(
                 $"Unknown secondary-structure scoring: {scoring}. Supported: PairCount, Turner2004Mfe.", nameof(scoring));
+        var code = ResolveGeneticCode(genetic_code);
 
-        var table = ResolveCodonUsageTable(target_organism);
+        var table = ResolveCodonUsageTable(target_organism, code);
         return new OptimizedSequenceResult(
-            CodonOptimizer.ReduceSecondaryStructure(coding_sequence, table, window_size, scoring: scoring));
+            CodonOptimizer.ReduceSecondaryStructure(coding_sequence, table, window_size, scoring: scoring, geneticCode: code));
     }
 
-    [McpServerTool(Name = "find_rare_codons", Title = "MolTools — Find Rare Codons", ReadOnly = true), Description("Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15; strict <, or <= with inclusive_threshold = true as in Sherlocc), with its 0-based position, codon (RNA), amino acid (Standard code, * for stop) and frequency. Frame-0 complete triplets only; ambiguous triplets (N, R, Y, …) are skipped without shifting the frame. Call to locate translation-slowing rare codons before optimization.")]
+    [McpServerTool(Name = "find_rare_codons", Title = "MolTools — Find Rare Codons", ReadOnly = true), Description("Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15; strict <, or <= with inclusive_threshold = true as in Sherlocc), with its 0-based position, codon (RNA), amino acid (translated with the NCBI genetic code genetic_code, default 1 = Standard; * for stop - e.g. UGA is * under table 1 and W under table 2; the rare-codon selection itself is a per-codon table lookup and does not depend on the code) and frequency. Frame-0 complete triplets only; ambiguous triplets (N, R, Y, …) are skipped without shifting the frame. Call to locate translation-slowing rare codons before optimization.")]
     public static RareCodonsResult find_rare_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
         [Description("Frequency threshold (default 0.15).")] double threshold = 0.15,
-        [Description("false (default): frequency < threshold; true: frequency <= threshold (Sherlocc 'equal or lower than the threshold', Chartier et al. 2012).")] bool inclusive_threshold = false)
+        [Description("false (default): frequency < threshold; true: frequency <= threshold (Sherlocc 'equal or lower than the threshold', Chartier et al. 2012).")] bool inclusive_threshold = false,
+        [Description(GeneticCodeParameterDescription)] int genetic_code = 1)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+        var code = ResolveGeneticCode(genetic_code);
 
-        var table = ResolveCodonUsageTable(target_organism);
-        var rare = CodonOptimizer.FindRareCodons(coding_sequence, table, threshold, inclusive_threshold)
+        var table = ResolveCodonUsageTable(target_organism, code);
+        var rare = CodonOptimizer.FindRareCodons(coding_sequence, table, threshold, inclusive_threshold, code)
             .Select(t => new RareCodon(t.Position, t.Codon, t.AminoAcid, t.Frequency))
             .ToList();
         return new RareCodonsResult(rare);
     }
 
-    [McpServerTool(Name = "codon_minmax_profile", Title = "MolTools — %MinMax Codon-Usage Profile", ReadOnly = true), Description("%MinMax codon-usage profile (Clarke & Clark 2008, PLoS ONE 3:e3412; term-for-term as the Clark lab calculateMinMax reference code) over a sliding window of window_size codons (default 18). One value per window start (0-based codon index 0 .. codonCount - window_size): positive = %Max (run of predominantly common synonymous codons, +100 = all most-common), negative = %Min (run of rare codons, -100 = all rarest), 0 = average usage. Synonymous families (including the stop family) are those of the Standard code; Met/Trp contribute 0; an ambiguous triplet occupies its window position but contributes nothing. The reference takes per-thousand usage (Kazusa /1000 column): with usage_basis PerThousandWhenAvailable (default) the Yeast and Human presets use their Kazusa 4932 / 9606 per-thousand usage and reproduce the reference; an inline table is used as given (supply per-thousand values for reference-equal results); the EColiK12 preset has per-amino-acid fractions only, which weight every residue equally (as does usage_basis CodonFrequencies on any preset). Empty when the sequence has fewer than window_size complete codons. Call to locate slowly-translated (rare-codon) regions along a gene.")]
+    [McpServerTool(Name = "codon_minmax_profile", Title = "MolTools — %MinMax Codon-Usage Profile", ReadOnly = true), Description("%MinMax codon-usage profile (Clarke & Clark 2008, PLoS ONE 3:e3412; term-for-term as the Clark lab calculateMinMax reference code) over a sliding window of window_size codons (default 18). One value per window start (0-based codon index 0 .. codonCount - window_size): positive = %Max (run of predominantly common synonymous codons, +100 = all most-common), negative = %Min (run of rare codons, -100 = all rarest), 0 = average usage. Synonymous families (including the stop family) are those of the NCBI genetic code genetic_code (default 1 = Standard); single-codon families (Met/Trp under table 1) contribute 0; an ambiguous triplet occupies its window position but contributes nothing. The reference takes per-thousand usage (Kazusa /1000 column): with usage_basis PerThousandWhenAvailable (default) the Yeast and Human presets use their Kazusa 4932 / 9606 per-thousand usage and reproduce the reference; an inline table is used as given (supply per-thousand values for reference-equal results); the EColiK12 preset has per-amino-acid fractions only, which weight every residue equally (as does usage_basis CodonFrequencies on any preset). Empty when the sequence has fewer than window_size complete codons. Call to locate slowly-translated (rare-codon) regions along a gene.")]
     public static MinMaxProfileResult codon_minmax_profile(
         [Description("Coding sequence (DNA or RNA, frame 0).")] string coding_sequence,
         [Description("Reference organism: preset id or inline custom table (per-thousand frequencies reproduce the reference values exactly).")] CodonUsageTableInput target_organism,
         [Description("Sliding-window width in codons (default 18, Clarke & Clark 2008); must be >= 1.")] int window_size = 18,
-        [Description("Usage values: PerThousandWhenAvailable (default; preset per-thousand usage when present, as the reference) or CodonFrequencies (always the per-amino-acid fractions / inline values).")] CodonOptimizer.MinMaxUsageBasis usage_basis = CodonOptimizer.MinMaxUsageBasis.PerThousandWhenAvailable)
+        [Description("Usage values: PerThousandWhenAvailable (default; preset per-thousand usage when present, as the reference) or CodonFrequencies (always the per-amino-acid fractions / inline values).")] CodonOptimizer.MinMaxUsageBasis usage_basis = CodonOptimizer.MinMaxUsageBasis.PerThousandWhenAvailable,
+        [Description(GeneticCodeParameterDescription)] int genetic_code = 1)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
         if (usage_basis is not (CodonOptimizer.MinMaxUsageBasis.PerThousandWhenAvailable or CodonOptimizer.MinMaxUsageBasis.CodonFrequencies))
             throw new System.ArgumentException(
                 $"Unknown usage basis: {usage_basis}. Supported: PerThousandWhenAvailable, CodonFrequencies.", nameof(usage_basis));
+        var code = ResolveGeneticCode(genetic_code);
 
-        var table = ResolveCodonUsageTable(target_organism);
-        var windows = CodonOptimizer.CalculateMinMaxProfile(coding_sequence, table, window_size, usage_basis)
+        var table = ResolveCodonUsageTable(target_organism, code);
+        var windows = CodonOptimizer.CalculateMinMaxProfile(coding_sequence, table, window_size, usage_basis, code)
             .Select(w => new MinMaxWindowDto(w.WindowStartCodon, w.PercentMinMax))
             .ToList();
         return new MinMaxProfileResult(windows);
@@ -839,6 +855,59 @@ public class MolToolsTools
         return new RareCodonClustersResult(clusters);
     }
 
+    [McpServerTool(Name = "find_conserved_rare_codon_clusters", Title = "MolTools — Conserved Rare-Codon Clusters (Sherlocc)", ReadOnly = true), Description("Sherlocc 1.0 conserved rare-codon cluster analysis of a protein-family CODON ALIGNMENT (Chartier, Gaudreault & Najmanovich 2012, Bioinformatics 28:1438; sherlocc.pl stage 3, github.com/mtthchrtr/sherlocc commit b3b4d15). Input: equal-length aligned in-frame coding sequences (DNA or RNA, any case; length a multiple of 3; a codon of only '-'/'.' is a gap; a partially gapped, ambiguous or unlisted triplet has no usage value). Every cell gets its codon's usage from the organism table - by default the per-thousand usage (Sherlocc's CUTG /1000 column: the Yeast and Human presets carry it, an inline table's codonFrequencies values are taken AS per-thousand values; the EColiK12 preset has none and is rejected unless use_codon_frequencies = true, which scores the per-amino-acid fractions / inline values instead, threshold then on that scale). For each column the valued cells of columns i-3..i+3 of ALL sequences are averaged; the column is representative only when it has >= min_coverage x sequences x averaging_window valued cells (default 0.75, Sherlocc's gap/conservation filter), and a representative column with average <= threshold is a pause. Every cluster_window-column window (default 7) holding >= min_pauses pauses (default 4) yields a cluster from its first to its last pause; a cluster starting inside the previous one is merged (abutting ones are not). Returns column averages (null = not representative), valued-cell counts, pause columns, clusters (0-based inclusive start/end columns, pause count, Sherlocc mean usage with non-representative columns counted as 0, 1-based middle point), total cluster length, the fraction of the alignment in clusters and the mean cluster usage. Give either target_organism (one table for all rows) or target_organisms_per_sequence (one table per row, Sherlocc scores each member with its own organism's usage). Independent of the genetic code (per-codon table lookup). No P-values (not computed by sherlocc.pl). Call to find rare-codon clusters conserved across a family of homologous genes.")]
+    public static ConservedRareCodonClustersResult find_conserved_rare_codon_clusters(
+        [Description("Aligned in-frame coding sequences of the family (equal length, multiple of 3; gaps '-' or '.').")] string[] aligned_coding_sequences,
+        [Description("Sherlocc threshold: a column is a pause when its window average is <= threshold (per thousand by default; Sherlocc README examples 14-16).")] double threshold,
+        [Description("One codon-usage table for every sequence: preset id (Yeast | Human carry per-thousand usage; EColiK12 needs use_codon_frequencies) or inline custom table whose codonFrequencies values are used as per-thousand usage. Omit when target_organisms_per_sequence is given.")] CodonUsageTableInput? target_organism = null,
+        [Description("Optional: one codon-usage table per aligned sequence, same order (instead of target_organism).")] CodonUsageTableInput[]? target_organisms_per_sequence = null,
+        [Description("false (default): score per-thousand usage (Sherlocc); true: score the tables' codonFrequencies (per-amino-acid fractions for presets) - SherloccOptions.UseCodonFrequencies.")] bool use_codon_frequencies = false,
+        [Description("Centred averaging window in columns (default 7 = columns i-3..i+3, Sherlocc); positive odd number.")] int averaging_window = 7,
+        [Description("Cluster window width in columns (default 7, Sherlocc); must be >= 1.")] int cluster_window = 7,
+        [Description("Minimum pause columns in a cluster window (default 4, Sherlocc); must be >= 1.")] int min_pauses = 4,
+        [Description("Representativeness filter: minimum fraction of valued cells per averaging window (default 0.75, Sherlocc); in [0, 1].")] double min_coverage = 0.75)
+    {
+        if (aligned_coding_sequences is null || aligned_coding_sequences.Length == 0)
+            throw new System.ArgumentException("At least one aligned coding sequence is required.", nameof(aligned_coding_sequences));
+        if ((target_organism is null) == (target_organisms_per_sequence is null))
+            throw new System.ArgumentException(
+                "Supply exactly one of target_organism or target_organisms_per_sequence.", nameof(target_organism));
+
+        var options = new CodonOptimizer.SherloccOptions
+        {
+            AveragingWindow = averaging_window,
+            ClusterWindow = cluster_window,
+            MinPauses = min_pauses,
+            MinCoverage = min_coverage,
+            UseCodonFrequencies = use_codon_frequencies,
+        };
+
+        var result = target_organism is not null
+            ? CodonOptimizer.FindConservedRareCodonClusters(aligned_coding_sequences, ResolveSherloccTable(target_organism), threshold, options)
+            : CodonOptimizer.FindConservedRareCodonClusters(
+                aligned_coding_sequences, target_organisms_per_sequence!.Select(ResolveSherloccTable).ToArray(), threshold, options);
+
+        return new ConservedRareCodonClustersResult(
+            result.SequenceCount,
+            result.AlignmentLength,
+            result.ColumnAverages,
+            result.ColumnUsageCounts,
+            result.PauseColumns,
+            result.Clusters.Select(c => new ConservedRareCodonClusterDto(c.StartColumn, c.EndColumn, c.PauseCount, c.MeanUsage, c.MiddlePoint)).ToList(),
+            result.TotalClusterLength,
+            result.ClusterFraction,
+            result.MeanClusterUsage);
+    }
+
+    // Sherlocc tables: presets as-is (Yeast/Human carry PerThousand); an inline table's values are
+    // the caller's per-thousand usage (Sherlocc files/cut), so they also populate PerThousand
+    // (RNA-normalised keys of CreateCodonUsageTable).
+    private static CodonOptimizer.CodonUsageTable ResolveSherloccTable(CodonUsageTableInput input)
+    {
+        var table = ResolveCodonUsageTable(input);
+        return string.IsNullOrEmpty(input.Preset) ? table with { PerThousand = table.CodonFrequencies } : table;
+    }
+
     [McpServerTool(Name = "compare_codon_usage", Title = "MolTools — Compare Codon Usage", ReadOnly = true), Description("Codon-frequency similarity between two coding sequences: 1 − ½·Σ|f1−f2| ∈ [0,1] (1 = identical codon distribution, 0 = disjoint). An input that is empty or contains no complete codons contributes 0 similarity. Call to compare the codon usage of two genes/organisms.")]
     public static SimilarityResult compare_codon_usage(
         [Description("First coding sequence.")] string sequence1,
@@ -852,17 +921,19 @@ public class MolToolsTools
         return new SimilarityResult(CodonOptimizer.CompareCodonUsage(sequence1, sequence2));
     }
 
-    [McpServerTool(Name = "build_codon_table", Title = "MolTools — Build Codon-Usage Table", ReadOnly = true), Description("Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alphabet, U not T). All 64 codons are returned: a codon absent from the reference set is counted as 0.5 (Sharp & Li 1987, as in Biopython CodonAdaptationIndex), so the relative adaptiveness derived from the table matches Biopython exactly. Call when the user wants a custom codon-usage table built from their own reference gene(s).")]
+    [McpServerTool(Name = "build_codon_table", Title = "MolTools — Build Codon-Usage Table", ReadOnly = true), Description("Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alphabet, U not T). All 64 codons are returned: a codon absent from the reference set is counted as 0.5 (Sharp & Li 1987, as in Biopython CodonAdaptationIndex), so the relative adaptiveness derived from the table matches Biopython exactly. Frequencies are normalised within the synonymous families (stop family included) of the NCBI genetic code genetic_code (default 1 = Standard), which also gives the returned codon-to-amino-acid mapping. Call when the user wants a custom codon-usage table built from their own reference gene(s).")]
     public static CodonUsageTableDto build_codon_table(
         [Description("Reference coding sequence (DNA or RNA).")] string reference_sequence,
-        [Description("Organism name to attach to the resulting table.")] string organism_name)
+        [Description("Organism name to attach to the resulting table.")] string organism_name,
+        [Description(GeneticCodeParameterDescription)] int genetic_code = 1)
     {
         if (string.IsNullOrEmpty(reference_sequence))
             throw new System.ArgumentException("Reference sequence cannot be null or empty.", nameof(reference_sequence));
         if (string.IsNullOrWhiteSpace(organism_name))
             throw new System.ArgumentException("Organism name cannot be null or blank.", nameof(organism_name));
+        var code = ResolveGeneticCode(genetic_code);
 
-        var table = CodonOptimizer.CreateCodonTableFromSequence(reference_sequence, organism_name);
+        var table = CodonOptimizer.CreateCodonTableFromSequence(reference_sequence, organism_name, code);
         return new CodonUsageTableDto(
             table.OrganismName,
             new Dictionary<string, double>(table.CodonFrequencies),
@@ -875,7 +946,7 @@ public class MolToolsTools
     /// <see cref="CodonOptimizer.CreateCodonUsageTable"/>, so they carry the canonical Standard
     /// genetic-code mapping in <c>CodonToAminoAcid</c> just like the presets.
     /// </summary>
-    private static CodonOptimizer.CodonUsageTable ResolveCodonUsageTable(CodonUsageTableInput input)
+    private static CodonOptimizer.CodonUsageTable ResolveCodonUsageTable(CodonUsageTableInput input, GeneticCode? code = null)
     {
         ArgumentNullException.ThrowIfNull(input);
 
@@ -899,7 +970,8 @@ public class MolToolsTools
 
         return CodonOptimizer.CreateCodonUsageTable(
             input.OrganismName ?? "Custom",
-            input.CodonFrequencies);
+            input.CodonFrequencies,
+            code);
     }
 
     #endregion

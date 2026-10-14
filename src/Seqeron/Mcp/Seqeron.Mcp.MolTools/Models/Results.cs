@@ -89,6 +89,21 @@ public sealed record MinMaxProfileResult(IReadOnlyList<MinMaxWindowDto> Windows)
 public sealed record RareCodonClusterDto(int StartCodon, int EndCodon, int RareCount);
 public sealed record RareCodonClustersResult(IReadOnlyList<RareCodonClusterDto> Clusters);
 
+/// <summary>One conserved rare-codon cluster of a codon alignment (Sherlocc 1.0 stage 3; 0-based inclusive columns).</summary>
+public sealed record ConservedRareCodonClusterDto(int StartColumn, int EndColumn, int PauseCount, double MeanUsage, int MiddlePoint);
+
+/// <summary>find_conserved_rare_codon_clusters output (mirrors <see cref="CodonOptimizer.SherloccResult"/>).</summary>
+public sealed record ConservedRareCodonClustersResult(
+    int SequenceCount,
+    int AlignmentLength,
+    IReadOnlyList<double?> ColumnAverages,
+    IReadOnlyList<int> ColumnUsageCounts,
+    IReadOnlyList<int> PauseColumns,
+    IReadOnlyList<ConservedRareCodonClusterDto> Clusters,
+    int TotalClusterLength,
+    double ClusterFraction,
+    double? MeanClusterUsage);
+
 public sealed record SimilarityResult(double Similarity);
 
 public sealed record CodonUsageTableDto(

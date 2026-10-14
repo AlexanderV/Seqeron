@@ -170,6 +170,7 @@
 | find_off_targets | MolTools | CrisprDesigner.FindOffTargets | CrisprDesigner.cs#L331 | 0/0 | – | – | Build-Ready |
 | find_pam_sites | MolTools | CrisprDesigner.FindPamSites | CrisprDesigner.cs#L51 | 0/0 | – | – | Build-Ready |
 | find_rare_codon_clusters | MolTools | CodonOptimizer.FindRareCodonClusters | CodonOptimizer.cs#L1335 | 2/2 | ✓ | ✓ | Ready |
+| find_conserved_rare_codon_clusters | MolTools | CodonOptimizer.FindConservedRareCodonClusters | CodonOptimizer.cs#L1891 | 7/7 | ✓ | ✓ | Ready |
 | find_rare_codons | MolTools | CodonOptimizer.FindRareCodons | CodonOptimizer.cs#L1114 | 0/0 | – | – | Build-Ready |
 | find_restriction_sites | MolTools | RestrictionAnalyzer.FindSites | RestrictionAnalyzer.cs#L187 | 0/0 | – | – | Build-Ready |
 | generate_primer_candidates | MolTools | PrimerDesigner.GeneratePrimerCandidates | PrimerDesigner.cs#L480 | 0/0 | – | – | Build-Ready |

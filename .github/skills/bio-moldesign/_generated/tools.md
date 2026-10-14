@@ -32,6 +32,7 @@
 | `evaluate_guide_rna` | MolTools | `CrisprDesigner.EvaluateGuideRna` | [doc](../../../../docs/mcp/tools/moltools/evaluate_guide_rna.md) |
 | `evaluate_primer` | MolTools | `PrimerDesigner.EvaluatePrimer` | [doc](../../../../docs/mcp/tools/moltools/evaluate_primer.md) |
 | `find_all_restriction_sites` | MolTools | `RestrictionAnalyzer.FindAllSites` | [doc](../../../../docs/mcp/tools/moltools/find_all_restriction_sites.md) |
+| `find_conserved_rare_codon_clusters` | MolTools | `CodonOptimizer.FindConservedRareCodonClusters` | [doc](../../../../docs/mcp/tools/moltools/find_conserved_rare_codon_clusters.md) |
 | `find_off_targets` | MolTools | `CrisprDesigner.FindOffTargets` | [doc](../../../../docs/mcp/tools/moltools/find_off_targets.md) |
 | `find_pam_sites` | MolTools | `CrisprDesigner.FindPamSites` | [doc](../../../../docs/mcp/tools/moltools/find_pam_sites.md) |
 | `find_rare_codon_clusters` | MolTools | `CodonOptimizer.FindRareCodonClusters` | [doc](../../../../docs/mcp/tools/moltools/find_rare_codon_clusters.md) |

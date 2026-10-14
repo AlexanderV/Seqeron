@@ -28,6 +28,7 @@ This is distinct from [codon_adaptation_index](codon_adaptation_index.md), which
 |-----------|------|----------|-------------|
 | `coding_sequence` | string | Yes | Coding sequence (DNA or RNA), non-empty. |
 | `target_organism` | object | Yes | Preset id (`EColiK12` \| `Yeast` \| `Human`) or an inline custom table with `codonFrequencies` (RNA alphabet). |
+| `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard, identical to omitting it; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the stops, single-codon families and synonymous families of w (CodonW `-code`). One of 1–6, 9–16, 21–33. |
 
 ## Output Schema
 
@@ -41,6 +42,7 @@ This is distinct from [codon_adaptation_index](codon_adaptation_index.md), which
 |------|---------|
 | 1001 | Coding sequence cannot be null or empty |
 | 1002 | Unknown codon-usage preset (expected EColiK12 \| Yeast \| Human) |
+| 1003 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
 
 ## Examples
 

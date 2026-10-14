@@ -13,7 +13,8 @@
       "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA).", "minLength": 1 },
       "target_organism": { "type": "object", "description": "Preset id or inline custom table." },
       "window_size": { "type": "integer", "description": "Sliding-window size (nt).", "minimum": 1, "default": 40 },
-      "scoring": { "type": "string", "description": "Window scoring model: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower).", "enum": ["PairCount", "Turner2004Mfe"], "default": "PairCount" }
+      "scoring": { "type": "string", "description": "Window scoring model: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower).", "enum": ["PairCount", "Turner2004Mfe"], "default": "PairCount" },
+      "genetic_code": { "type": "integer", "description": "NCBI translation table number (default 1 = Standard). Synonymous swaps stay inside this code's families.", "enum": [1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33], "default": 1 }
     },
     "required": ["coding_sequence", "target_organism"]
   },
@@ -27,7 +28,8 @@
   "errors": [
     { "code": 1001, "message": "Coding sequence cannot be null or empty" },
     { "code": 1002, "message": "Window size must be positive" },
-    { "code": 1003, "message": "Unknown secondary-structure scoring" }
+    { "code": 1003, "message": "Unknown secondary-structure scoring" },
+    { "code": 1004, "message": "Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33." }
   ],
   "examples": [
     {

@@ -44,6 +44,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "evaluate_guide_rna",
         "evaluate_primer",
         "find_all_restriction_sites",
+        "find_conserved_rare_codon_clusters",
         "find_off_targets",
         "find_pam_sites",
         "find_rare_codon_clusters",

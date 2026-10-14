@@ -11,7 +11,8 @@
     "type": "object",
     "properties": {
       "reference_sequence": { "type": "string", "description": "Reference coding sequence (DNA or RNA).", "minLength": 1 },
-      "organism_name": { "type": "string", "description": "Organism name to attach to the table.", "minLength": 1 }
+      "organism_name": { "type": "string", "description": "Organism name to attach to the table.", "minLength": 1 },
+      "genetic_code": { "type": "integer", "description": "NCBI translation table number (default 1 = Standard). Defines the synonymous families the frequencies are normalised within and the returned codon → amino-acid map.", "enum": [1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33], "default": 1 }
     },
     "required": ["reference_sequence", "organism_name"]
   },
@@ -26,7 +27,8 @@
   },
   "errors": [
     { "code": 1001, "message": "Reference sequence cannot be null or empty" },
-    { "code": 1002, "message": "Organism name cannot be null or blank" }
+    { "code": 1002, "message": "Organism name cannot be null or blank" },
+    { "code": 1003, "message": "Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33." }
   ],
   "examples": [
     {

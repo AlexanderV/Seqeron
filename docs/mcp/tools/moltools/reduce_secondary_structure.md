@@ -33,6 +33,7 @@ Output is upper-case RNA trimmed to whole codons; a sequence shorter than `windo
 | `target_organism` | object | Yes | Preset id or inline custom table. |
 | `window_size` | integer | No | Sliding-window size in nt (default 40, positive). |
 | `scoring` | string | No | `PairCount` (default) or `Turner2004Mfe`. |
+| `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard, identical to omitting it; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Synonymous swaps stay inside this code's families. One of 1–6, 9–16, 21–33. |
 
 ## Output Schema
 
@@ -47,6 +48,7 @@ Output is upper-case RNA trimmed to whole codons; a sequence shorter than `windo
 | 1001 | Coding sequence cannot be null or empty |
 | 1002 | Window size must be positive |
 | 1003 | Unknown secondary-structure scoring |
+| 1004 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
 
 ## Examples
 
