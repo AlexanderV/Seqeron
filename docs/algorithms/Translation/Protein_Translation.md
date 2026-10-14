@@ -157,6 +157,7 @@ ORF detection starts on any `geneticCode.IsStartCodon(codon)` result, not only o
 | `toFirstStop = true` | Translation stops before appending the stop codon. | The loop breaks on `*`. |
 | `toFirstStop = true` with table 27, 28 or 31 | `ArgumentException`. | These tables have stop codons that are also translated as an amino acid (e.g. table 27 UGA = W or STOP), so "first stop" is undefined; Biopython 1.88 `_translate_str` raises `ValueError`.[7] |
 | Ambiguous codon resolving to Asx/Glx/Xle (RAY, SAR, MTH in table 1) | Protein contains `B`, `Z`, `J`. | Biopython 1.88 translates these as B/Z/J; `ProteinSequence` accepts the IUPAC ambiguity codes B, Z, J.[7] |
+| Selenocysteine `U` / pyrrolysine `O` in a protein | Accepted by `ProteinSequence` (three-letter Sec/Pyl). Never produced by translation (UGA/UAG → `*`; recoding is not modelled). | Biopython 1.88 `IUPACData.extended_protein_letters` ("ACDEFGHIKLMNPQRSTVWYBXZJUO") / `protein_letters_1to3_extended`; `ProteinSequence.ValidCharacters` = these 26 letters + `*`.[7] |
 | Non-IUPAC nucleotide symbol (e.g. `-`, `X`) | `ArgumentException`. | Biopython raises `TranslationError` (it additionally treats the non-IUPAC `X` as `N`; Seqeron rejects it). |
 | No start codon in `FindOrfs` | Returns no ORFs. | ORF accumulation begins only at a start codon. |
 

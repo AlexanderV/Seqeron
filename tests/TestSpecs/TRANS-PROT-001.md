@@ -172,6 +172,9 @@ Yeast Mitochondrial (Table 3):
 | R05 | Translate_ToFirstStop_AllTablesWithoutDualCodingStops_DoNotThrow | Only 27/28/31 are dual-coding | Biopython 1.88 CodonTable |
 | R06 | Translate_EmptyOrNullString_InvalidFrame_ThrowsLikeTypedOverloads | String overload validates `frame` like the typed overloads | Contract consistency |
 | R07 | ProteinSequenceTests.Constructor_IupacAmbiguousAminoAcids_Accepted_ThreeLetterCodesAsBiopython | B/Z/J accepted; Asx/Glx/Xle three-letter codes | Biopython `protein_letters_1to3_extended` |
+| R08 | ProteinSequence_SecPyl_Tests (B02 F32) | U (Sec) / O (Pyl) accepted (previously rejected); `ToThreeLetterCode` Sec/Pyl; MW with Sec/Pyl masses; pI/charge treat U/O as neutral; GRAVY skips U/O like X/B/Z/J; translation never emits U/O | Biopython 1.88 `IUPACData.extended_protein_letters` / `protein_letters_1to3_extended` / `protein_weights`, `molecular_weight`, `IsoelectricPoint`, `ProteinAnalysis.gravy` (KeyError on U/O); EMBOSS 6.6 `iep`/`pepstats` |
+| R09 | ProteinSequenceTests.ValidCharacters_Contains27Characters | `ValidCharacters` = `extended_protein_letters` (26) + `*` = 27 (was …Contains25Characters) | Biopython 1.88 `IUPACData.extended_protein_letters` |
+| R10 | MCP ProteinSecPylTests (Seqeron.Mcp.Sequence.Tests) | `protein_validate` / `molecular_weight_protein` / `isoelectric_point` / `hydrophobicity` / `amino_acid_composition` accept U/O with Biopython/EMBOSS-locked values (B03 request R4) | as R08 |
 
 Corrected tests (were asserting that IUPAC codes Z/J are invalid amino acids): `ProteinSequenceTests.Constructor_InvalidAminoAcid_ThrowsArgumentException`, `TryCreate_InvalidSequence_ReturnsFalse`, `ValidCharacters_Contains22Characters` → `…Contains25Characters`, `CompositionCombinatorialTests.ForeignSymbol(Protein, non-strict)`, MCP `ProteinValidate/AminoAcidComposition/Hydrophobicity/IsoelectricPoint/MolecularWeightProtein` tests — the invalid symbol is now `1`.
 

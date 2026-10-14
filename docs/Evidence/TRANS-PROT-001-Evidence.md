@@ -110,6 +110,7 @@
 6. **Alternative genetic codes** - Different amino acid mappings
 7. **Case insensitivity** - Input should handle mixed case
 8. **DNA vs RNA input** - T→U conversion handled automatically
+9. **Selenocysteine (U) / pyrrolysine (O)** (review 2026-09, B02 F32) - Biopython 1.88 `IUPACData.extended_protein_letters` = "ACDEFGHIKLMNPQRSTVWYBXZJUO" includes U and O (three-letter Sec/Pyl, `protein_letters_1to3_extended`); `ProteinSequence` accepts them (`ValidCharacters` = these 26 + `*` = 27). Reference values: Biopython `molecular_weight(s, "protein")` MKUAO 735.7975, MSKU 514.4988, MSKO 601.759, ACDUEFGOHK 1293.3102 (EMBOSS 6.6 pepstats 735.80 / 514.50 / 601.76 / 1293.32); EMBOSS 6.6 `iep` pI MSKU = MSKO = MSK = 9.1500, ACDUEFGOHK = ACDEFGHK = 5.4305 (U/O neutral); Biopython `IsoelectricPoint("MKUAO")` = `IsoelectricPoint("MKA")` (pi 8.500108…, charge_at_pH(7) 0.49935568654234397); Biopython `ProteinAnalysis("MKUAO").gravy()` raises `KeyError: 'U'` — Seqeron skips U/O like X/B/Z/J (= gravy("MKA") = −0.0667). Standard-table translation never produces U/O (UGA/UAG → `*`).
 
 ---
 

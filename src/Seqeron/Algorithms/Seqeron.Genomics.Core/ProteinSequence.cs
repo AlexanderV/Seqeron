@@ -7,9 +7,11 @@ namespace Seqeron.Genomics.Core
     /// <summary>
     /// Represents a protein (amino acid) sequence with validation and common operations.
     /// Valid amino acids: A, C, D, E, F, G, H, I, K, L, M, N, P, Q, R, S, T, V, W, Y (20 standard amino acids).
-    /// Also supports: * (stop codon), X (unknown amino acid) and the IUPAC-IUBMB ambiguity codes
+    /// Also supports: * (stop codon), X (unknown amino acid), the IUPAC-IUBMB ambiguity codes
     /// B (Asx = D/N), Z (Glx = E/Q) and J (Xle = I/L), which <see cref="GeneticCode.Translate(string)"/>
-    /// emits for ambiguous codons (Biopython <c>Bio.Seq._translate_str</c> / <c>IUPACData.extended_protein_letters</c>).
+    /// emits for ambiguous codons (Biopython <c>Bio.Seq._translate_str</c> / <c>IUPACData.extended_protein_letters</c>),
+    /// and the 21st/22nd proteinogenic amino acids U (Sec, selenocysteine) and O (Pyl, pyrrolysine)
+    /// (Biopython <c>IUPACData.extended_protein_letters</c> = "ACDEFGHIKLMNPQRSTVWYBXZJUO").
     /// </summary>
     public sealed class ProteinSequence
     {
@@ -54,10 +56,26 @@ namespace Seqeron.Genomics.Core
         };
 
         /// <summary>
-        /// All valid characters (standard amino acids + stop + unknown + ambiguous B/Z/J).
+        /// Non-standard (genetically encoded by stop-codon recoding) amino acids with their
+        /// three-letter symbols (Biopython <c>IUPACData.protein_letters_1to3_extended</c>):
+        /// U = Sec (selenocysteine, UGA recoding), O = Pyl (pyrrolysine, UAG recoding).
+        /// Their average masses are in <see cref="ProteinPhysicochemistry.AverageAminoAcidMasses"/>
+        /// (Biopython <c>IUPACData.protein_weights</c>). <see cref="Translator"/> never emits them
+        /// (standard-table translation yields '*' for UGA/UAG).
+        /// </summary>
+        public static readonly IReadOnlyDictionary<char, string> NonStandardAminoAcids = new Dictionary<char, string>
+        {
+            ['U'] = "Sec",
+            ['O'] = "Pyl",
+        };
+
+        /// <summary>
+        /// All valid characters: Biopython <c>IUPACData.extended_protein_letters</c>
+        /// ("ACDEFGHIKLMNPQRSTVWYBXZJUO": 20 standard + ambiguous B/Z/J + unknown X + Sec U / Pyl O)
+        /// plus the stop symbol '*' — 27 characters.
         /// </summary>
         public static readonly IReadOnlySet<char> ValidCharacters = new HashSet<char>(
-            StandardAminoAcids.Concat(new[] { '*', 'X' }).Concat(AmbiguousAminoAcids.Keys)
+            StandardAminoAcids.Concat(new[] { '*', 'X' }).Concat(AmbiguousAminoAcids.Keys).Concat(NonStandardAminoAcids.Keys)
         );
 
         /// <summary>
@@ -147,7 +165,8 @@ namespace Seqeron.Genomics.Core
         /// free amino-acid masses minus one water per peptide bond (Biopython
         /// <c>molecular_weight(seq, "protein")</c>; Expasy Compute pI/Mw), unrounded. Delegates to the
         /// canonical <see cref="ProteinPhysicochemistry.MolecularWeight"/> (the implementation shared with
-        /// <c>SequenceStatistics.CalculateMolecularWeight</c>). Ambiguous residues (B, Z, J, X) and '*'
+        /// <c>SequenceStatistics.CalculateMolecularWeight</c>). U (Sec, 168.0532 Da) and O (Pyl,
+        /// 255.3134 Da) are weighed as in Biopython; ambiguous residues (B, Z, J, X) and '*'
         /// carry no mass and are skipped. Returns 0 for an empty sequence.
         /// </summary>
         public double MolecularWeight() => ProteinPhysicochemistry.MolecularWeight(_sequence);
@@ -157,7 +176,9 @@ namespace Seqeron.Genomics.Core
         /// (Epk.dat: N-terminus 7.5, C-terminus 3.6, C 8.5, D 3.9, E 4.1, H 6.5, K 10.8, R 12.5, Y 10.1),
         /// located by bisection to 1e-9 pH and rounded to two decimals. Delegates to the canonical
         /// <see cref="ProteinPhysicochemistry.IsoelectricPoint"/> (shared with
-        /// <c>SequenceStatistics.CalculateIsoelectricPoint</c>). Returns 0 for an empty sequence.
+        /// <c>SequenceStatistics.CalculateIsoelectricPoint</c>). U (Sec) and O (Pyl) have no pK in
+        /// Epk.dat and are treated as neutral, exactly as EMBOSS 6.6 <c>iep</c> and Biopython
+        /// <c>IsoelectricPoint</c> do. Returns 0 for an empty sequence.
         /// </summary>
         public double IsoelectricPoint() =>
             _sequence.Length == 0 ? 0 : ProteinPhysicochemistry.IsoelectricPoint(_sequence);
@@ -181,7 +202,8 @@ namespace Seqeron.Genomics.Core
         /// over the standard residues, unrounded (Biopython <c>ProteinAnalysis.gravy()</c>).
         /// Positive = hydrophobic, negative = hydrophilic. Delegates to the canonical
         /// <see cref="ProteinPhysicochemistry.Gravy"/> (shared with
-        /// <c>SequenceStatistics.CalculateHydrophobicity</c>); B, Z, J, X and '*' are skipped.
+        /// <c>SequenceStatistics.CalculateHydrophobicity</c>); B, Z, J, X, U, O and '*' have no
+        /// Kyte–Doolittle value and are skipped (Biopython raises <c>KeyError</c> on them).
         /// </summary>
         public double Gravy() => ProteinPhysicochemistry.Gravy(_sequence);
 
@@ -226,6 +248,11 @@ namespace Seqeron.Genomics.Core
                     if (sb.Length > 0) sb.Append('-');
                     sb.Append(ambiguous);
                 }
+                else if (NonStandardAminoAcids.TryGetValue(aa, out var nonStandard))
+                {
+                    if (sb.Length > 0) sb.Append('-');
+                    sb.Append(nonStandard);
+                }
             }
             return sb.ToString();
         }
@@ -258,7 +285,7 @@ namespace Seqeron.Genomics.Core
                 if (!ValidCharacters.Contains(c))
                 {
                     throw new ArgumentException(
-                        $"Invalid amino acid '{c}' at position {i}. Valid amino acids: A, C, D, E, F, G, H, I, K, L, M, N, P, Q, R, S, T, V, W, Y (and *, X, B, Z, J).",
+                        $"Invalid amino acid '{c}' at position {i}. Valid amino acids: A, C, D, E, F, G, H, I, K, L, M, N, P, Q, R, S, T, V, W, Y (and *, X, B, Z, J, U, O).",
                         nameof(sequence));
                 }
             }

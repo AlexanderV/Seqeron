@@ -14,7 +14,7 @@ Calculate molecular weight of a protein sequence.
 
 ## Description
 
-Calculates the molecular weight of a protein sequence in Daltons (Da). Uses average isotopic masses for amino acids and accounts for water loss during peptide bond formation.
+Calculates the molecular weight of a protein sequence in Daltons (Da). Uses average isotopic masses for amino acids and accounts for water loss during peptide bond formation. Accepts the alphabet of [protein_validate](protein_validate.md); selenocysteine (U, 168.0532 Da) and pyrrolysine (O, 255.3134 Da) are weighed with the Biopython `IUPACData.protein_weights` masses (e.g. `MKUAO` → 735.7975 Da, as Biopython `molecular_weight("MKUAO", "protein")`), while B/Z/J/X/`*` carry no mass and are skipped.
 
 ## Core Documentation Reference
 

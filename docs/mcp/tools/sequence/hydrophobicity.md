@@ -14,7 +14,7 @@ Calculate hydrophobicity (GRAVY index) of a protein sequence.
 
 ## Description
 
-Calculates the grand average of hydropathy (GRAVY) index for a protein sequence using the Kyte-Doolittle hydrophobicity scale. Positive values indicate hydrophobic proteins, while negative values indicate hydrophilic proteins.
+Calculates the grand average of hydropathy (GRAVY) index for a protein sequence using the Kyte-Doolittle hydrophobicity scale. Positive values indicate hydrophobic proteins, while negative values indicate hydrophilic proteins. Residues without a Kyte-Doolittle value — B, Z, J, X, `*`, selenocysteine (U) and pyrrolysine (O) — are skipped (Biopython `ProteinAnalysis.gravy()` raises `KeyError` on them), so `MKUAO` → −0.0667, the GRAVY of `MKA`.
 
 ## Core Documentation Reference
 

@@ -101,7 +101,7 @@ public class SequenceTools
     /// Validate a protein (amino acid) sequence.
     /// </summary>
     [McpServerTool(Name = "protein_validate", Title = "Protein — Validate Sequence", ReadOnly = true)]
-    [Description("Validate a protein sequence. Returns whether the sequence contains only valid amino acids.")]
+    [Description("Validate a protein sequence. Returns whether the sequence contains only valid amino acids: the 20 standard residues, B/Z/J (Asx/Glx/Xle), X (unknown), U (selenocysteine), O (pyrrolysine) and * (stop) — Biopython extended_protein_letters plus *. Case-insensitive.")]
     public static ProteinValidateResult ProteinValidate(
         [Description("The protein sequence to validate")] string sequence)
     {

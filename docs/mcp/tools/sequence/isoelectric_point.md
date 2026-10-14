@@ -14,7 +14,7 @@ Calculate isoelectric point (pI) of a protein sequence.
 
 ## Description
 
-Calculates the isoelectric point (pI) of a protein sequence. The pI is the pH at which the protein has no net electrical charge. Uses binary search to find the pH where net charge equals zero, considering ionizable side chains (D, E, C, Y, H, K, R) and terminal amino/carboxyl groups.
+Calculates the isoelectric point (pI) of a protein sequence. The pI is the pH at which the protein has no net electrical charge. Uses binary search to find the pH where net charge equals zero, considering ionizable side chains (D, E, C, Y, H, K, R) and terminal amino/carboxyl groups. Selenocysteine (U) and pyrrolysine (O) are accepted and treated as neutral (no pK), as EMBOSS 6.6 `iep` does (e.g. `MSKU` → 9.15, identical to `MSK`).
 
 ## Core Documentation Reference
 

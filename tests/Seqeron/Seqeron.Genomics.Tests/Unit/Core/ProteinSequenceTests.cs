@@ -353,12 +353,16 @@ public class ProteinSequenceTests
     }
 
     [Test]
-    public void ValidCharacters_Contains25Characters()
+    public void ValidCharacters_Contains27Characters()
     {
-        // 20 standard + * + X + IUPAC ambiguity codes B (Asx), Z (Glx), J (Xle)
-        // (Biopython IUPACData.extended_protein_letters; GeneticCode emits B/Z/J for RAY/SAR/MTH).
-        Assert.That(ProteinSequence.ValidCharacters.Count, Is.EqualTo(25));
+        // Biopython 1.88 IUPACData.extended_protein_letters = "ACDEFGHIKLMNPQRSTVWYBXZJUO" (26):
+        // 20 standard + X + IUPAC ambiguity codes B (Asx), Z (Glx), J (Xle) + Sec U / Pyl O; plus '*' = 27
+        // (GeneticCode emits B/Z/J for RAY/SAR/MTH; B02 F32 added U/O).
+        Assert.That(ProteinSequence.ValidCharacters.Count, Is.EqualTo(27));
         Assert.That(ProteinSequence.ValidCharacters, Does.Contain('B').And.Contain('Z').And.Contain('J'));
+        Assert.That(ProteinSequence.ValidCharacters, Does.Contain('U').And.Contain('O'));
+        Assert.That(ProteinSequence.ValidCharacters,
+            Is.EquivalentTo("ACDEFGHIKLMNPQRSTVWYBXZJUO*".ToCharArray()));
     }
 
     [Test]
