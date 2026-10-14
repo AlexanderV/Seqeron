@@ -1,4 +1,4 @@
-// CODON-ENC-001 (audit A2-7, A2-8) — opt-in Nc estimators and the CodonW cap option:
+// CODON-ENC-001 (audit A2-7, A2-8, A3-2) — opt-in Nc estimators and the CodonW cap option:
 //   EncMethod.Novembre2002 (background-corrected Nc′), EncMethod.SunYangXia2013, EncOptions.CodonWCap.
 // Evidence: docs/Evidence/CODON-ENC-001-Evidence.md; TestSpec: tests/TestSpecs/CODON-ENC-001.md (M40–M47)
 // References:
@@ -345,6 +345,212 @@ public class CodonUsageAnalyzer_EncVariants_Tests
             Assert.That(CodonUsageAnalyzer.CalculateEnc(M3, GeneticCode.Standard, capped), Is.EqualTo(41.288461538461526).Within(Tol));
             Assert.That(CodonUsageAnalyzer.TryCalculateEnc(PheOnly, GeneticCode.Standard, capped, out double enc), Is.False, "CodonW *****");
             Assert.That(enc, Is.EqualTo(0.0));
+        });
+    }
+
+    #endregion
+
+    #region ENCprime (A3-2)
+
+    // ENCprime (Novembre 2002 reference program; github.com/jnovembre/ENCprime @ 709ace50, src/ENCprime.c with
+    // the JN 2/28/06 3-fold fix) compiled locally and run as `ENCprime <codcnt> <acgtfreq> <code> out 0 -q`.
+    // It prints Nc / Ncp with %.4f, so values are locked to ±5e-5 of the printed number.
+    private const double EncPrimeTol = 5e-5;
+
+    // example/ExSeqs.fasta and example/ExBackgroundSeqs.fasta of the ENCprime repository (shipped results:
+    // example/ExResults, Nc/Ncp computed with the background file as the SeqCount -n input).
+    private const string ExHmaif =
+        "ATGAACTGTGTTTGCCGCCTGGTCCTGGTCGTGCTGAGCCTGTGGCCAGATACAGCTGTCGCCCCTGGGCCACCACCTGGCCCCCCTCGAGTTTCCCCAGACCCTCGGGC" +
+        "CGAGCTGGACAGCACCGTGCTCCTGACCCGCTCTCTCCTGGCGGACACGCGGCAGCTGGCTGCACAGCTGAGGGACAAATTCCCAGCTGACGGGGACCACAACCTGGATT" +
+        "CCCTGCCCACCCTGGCCATGAGTGCGGGGGCACTGGGAGCTCTACAGCTCCCAGGTGTGCTGACAAGGCTGCGAGCGGACCTACTGTCCTACCTGCGGCACGTGCAGTGG" +
+        "CTGCGCCGGGCAGGTGGCTCTTCCCTGAAGACCCTGGAGCCCGAGCTGGGCACCCTGCAGGCCCGACTGGACCGGCTGCTGCGCCGGCTGCAGCTCCTGATGTCCCGCCT" +
+        "GGCCCTGCCCCAGCCACCCCCGGACCCGCCGGCGCCCCCGCTGGCGCCCCCCTCCTCAGCCTGGGGGGGCATCAGGGCCGCCCACGCCATCCTGGGGGGGCTGCACCTGA" +
+        "CACTTGACTGGGCCGTGAGGGGACTGCTGCTGCTGAAGACTCGGCTGTGA";
+    private const string ExHmaifBackground =
+        "AGTAGAGACGGGGTTTCACCATTCAAGACCGGCCAGGCTGGTCTTGAACTCCTGACCTCCTGAGCCACCCACCTTGGCCTCTCAAAGTGTTGGGATTACAGGCATGAGCC" +
+        "ACTGCGCCCAGCCTACCTGTTTATTTTTATGTGTTCTTTAGTACAATGTAAATTTCCATGAGGATAAGGACCTTACATGTCTTCCTCATGATCACTACATTGATATGTGT" +
+        "GTTGTGTGTGTGTGCAAAAGGGGAGCTGGAAAAACAGTTGAGTCCAAAATACAGGTAAAATATTGCACTAAAGAAAAACGAGGCTGGGTGTAGTGGCTCACAACTGTAAT" +
+        "CCCAGCATTTTGGGAGGCTGAGGCAGGCAGATCACGAGGTCAGGAGTTCAAGACCAGCCTGGCCAACATGGTGAAACCGTGTCTCTACTAAAAATACAAAAATTAGCTGG" +
+        "GCACGGTGGCACACGCCTGTAATTCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCACCTGAACCCAGGAGGTGGAGGTTGCAATAAGCGGAGATCAAGCCACTGCACTC" +
+        "TGGCCCGGGCGACAGAGCAAGACTCTGTCTCGGAAAAAAAAAAAAAAAAAAAAAAAGAAAAGAAAAAAGAAAGCCCCATCACTGAAAACAGGTTTGAAATATAAAAGAAA" +
+        "TAAGGTGATTGGTAAATGGGGTAAAGTTGAAGCTTCTTCCATAGCTTATGCTACGATCTTTATTCCCAACCAGGTTGTAGGCCTTTGCTCCACAAGTCTGGGTGCCTTGG" +
+        "AGGAAGGTTTCACAAACAACACAAAAATGTCTCCTTTCTCTTACCACATGGGCTGTGGCCGGCCCTGATGGTGTCCCCTGCCTTCCTTACCTGTGAACTGTGTTTCTTCC" +
+        "CTCAAAATCATCCAGGGCTCTTTTCCTCGCTCCAGTAAATCAACCACAACTGGTTTAGAAATGGAATGTCCTCCTTATAAGAAAAGAAATGCCACATGGTATAAAAATAA" +
+        "AAACAAAAGT";
+    private const string ExHs14kdapt =
+        "ATGTCGTCCTTGATCAGAAGGGTGATCAGCACCGCGAAAGCCCCAGGGGCCATTGGACCCTACAGTCAAGCTGTATTAGTCGACAGGACCATTTACATTTCAGGACAGAT" +
+        "AGGCATGGACCCTTCAAGTGGACAGCTTGTGTCAGGAGGGGTAGCAGAAGAAGCTAAACAAGCTCTTAAAAACATGGGTGAAATTCTGAAAGCTGCAGGCTGTGACTTCA" +
+        "CTAACGTGGTGAAAACAACTGTTCTTCTGGCTGACATAAATGACTTCAATACTGTCAATGAAATCTACAAACAGTATTTCAAGAGTAATTTTCCTGCTAGAGCTGCTTAC" +
+        "CAAGTTGCTGCTTTACCCAAAGGCAGCCGAATTGAAATTGAAGCAGTAGCTATCCAAGGACCACTGACAACGGCATCACTATAA";
+    private const string ExHs14kdaptBackground =
+        "TCCCAACCTCTGCCCTCTGACACACCCCAGTGTGTGTTGTTCCCCTCTATGTGTCCATGAGTCCTCATCATTTACCTTCCACTTATAAGTAAGAACATGTGGTATTTGGT" +
+        "TTTCTGTTCCTGCATTAGTTTGCTAAGGATAGTGGCCTCCAGCTCCATCCACATCCCTGAAAAGAACATAATCTCATTCTTTTTTGTGGCTGCATAATATTCCATGGTAT" +
+        "ATATGTACCACATTTTCTTTATCCAGTCTATCATTGGTGGACATTTGGGTTGATTTCATGTGTTTGCTATTGTGAATAGTTGAAATGGCATATCTTTCATTGTTCATTAA" +
+        "CTAAATTTATGATTTTTATTTTTAAAACACAAGTATTTTCACTTGTGTAAAAAACATTTTTGTCCTTATTTTTTTGGAAAAAACTTTCCAAATGAAATAAATCAAATGAA" +
+        "TGCAGATTTCTTAAATAATCTGTGTTTTTTTGTAAAACAGAAATCTATTTTAATGTGTTGAAGCAGAACTTTATCAAACTAGTGCTTCCAGTAAGATAATTTCACAACTG" +
+        "ACAGGTTAAATGAAGAGGAATTCTGACTGATGGCAAGTCAGAAAACTTTGGTCATTTATCTTTCCTTTCACACAGATGGCTCTAATTCCAGGATAAAATGACTGCTGGCA" +
+        "GTAGGAAGAGGAAGACAAAAAGAGACAAGAAATTGAGATACTTCAAATGTCAATGGGACTGGAAAGGATTTGATAAAGGTGGGTGGCCGCTGTTCCCCTACCTTTGGGCT" +
+        "ACGATATTTCCTTTGGAAAGGAGGATTTGGCTGAAAGGTGGTGAAGTAAAATTCCTCAATACCTCAGTTAATGAGCACAGTGCCTTTCCTGGAGGGTCTCTGTGGTATTC" +
+        "TTCCTATTCTTTCTTATACTTCTGTATTACATGTTGCCTCACCATCAGTTTCCTCATCAGAACATTTCCCCATCTCAACTCATACTTCTGTACTAGCTCTCATCCTATTC" +
+        "TCACTTTCTA";
+
+    private static double EncPrime(string gene, int table, EncMethod method, string? background = null)
+    {
+        var options = new EncOptions { Method = method, Background = background };
+        bool ok = CodonUsageAnalyzer.TryCalculateEnc(gene, GeneticCode.GetByTableNumber(table), options, out double enc);
+        Assert.That(ok, Is.True, "ENCprime reports a value for every non-empty gene");
+        return enc;
+    }
+
+    // example/ExResults (shipped with ENCprime): "HMAIF.PE1: 40.0709 36.2391 …", "HS14KDAPT.PE1: 56.3938 57.2395 …".
+    [TestCase("HMAIF", 40.0709, 36.2391)]
+    [TestCase("HS14KDAPT", 56.3938, 57.2395)]
+    public void EncPrime_ShippedExample_MatchesExResults(string gene, double nc, double ncPrime)
+    {
+        (string seq, string bg) = gene == "HMAIF" ? (ExHmaif, ExHmaifBackground) : (ExHs14kdapt, ExHs14kdaptBackground);
+        Assert.Multiple(() =>
+        {
+            Assert.That(EncPrime(seq, 1, EncMethod.EncPrimeNc), Is.EqualTo(nc).Within(EncPrimeTol));
+            Assert.That(EncPrime(seq, 1, EncMethod.EncPrimeNcPrime, bg), Is.EqualTo(ncPrime).Within(EncPrimeTol));
+        });
+    }
+
+    // ENCprime with the gene itself as the nucleotide-composition input (SeqCount -n on the same FASTA).
+    [TestCase("HMAIF", 1, 40.0709, 51.1290)]
+    [TestCase("HMAIF", 2, 39.4889, 50.9255)]
+    [TestCase("HS14KDAPT", 1, 56.3938, 58.0541)]
+    [TestCase("HS14KDAPT", 2, 55.1371, 57.4080)]
+    [TestCase("M3", 1, 50.7500, 48.9509)]
+    [TestCase("M3", 2, 47.8636, 45.5472)]
+    [TestCase("Det", 1, 58.5287, 58.3944)]
+    [TestCase("Det", 2, 56.6344, 56.5795)]
+    [TestCase("Over", 1, 60.5455, 60.5030)]
+    [TestCase("Over", 2, 60.0000, 60.0000)]
+    [TestCase("R53", 1, 61.0000, 61.0000)] // every amino acid n ≤ 5: all classes imputed with 1/k
+    [TestCase("R203", 1, 56.7452, 57.5932)]
+    [TestCase("R203", 2, 56.4075, 56.7819)]
+    [TestCase("R203", 11, 56.7452, 57.5932)]
+    [TestCase("R15", 1, 55.4554, 56.4604)]
+    [TestCase("R15", 2, 55.3108, 56.5900)]
+    [TestCase("Phe", 1, 61.0000, 61.0000)]
+    public void EncPrime_GeneAsBackground_MatchesProgram(string gene, int table, double nc, double ncPrime)
+    {
+        string seq = gene switch { "HMAIF" => ExHmaif, "HS14KDAPT" => ExHs14kdapt, _ => Gene(gene) };
+        Assert.Multiple(() =>
+        {
+            Assert.That(EncPrime(seq, table, EncMethod.EncPrimeNc), Is.EqualTo(nc).Within(EncPrimeTol));
+            Assert.That(EncPrime(seq, table, EncMethod.EncPrimeNcPrime), Is.EqualTo(ncPrime).Within(EncPrimeTol));
+        });
+    }
+
+    // Separate background (nucleotide-composition file from the BG sequence); Nc is unaffected.
+    [TestCase("M3", 1, 46.5174)]
+    [TestCase("M3", 2, 46.2959)]
+    [TestCase("Det", 1, 42.4160)]
+    [TestCase("Over", 1, 48.2205)]
+    [TestCase("Over", 2, 47.7853)]
+    [TestCase("R203", 1, 53.5760)]
+    [TestCase("R15", 1, 50.3005)]
+    [TestCase("R15", 2, 48.6160)]
+    public void EncPrime_ExplicitBackground_MatchesProgram(string gene, int table, double ncPrime)
+    {
+        Assert.That(EncPrime(Gene(gene), table, EncMethod.EncPrimeNcPrime, Background), Is.EqualTo(ncPrime).Within(EncPrimeTol));
+    }
+
+    // Rule probes (ENCprime values; first column Nc, second Ncp; table 1 / table 2).
+    [TestCase("TTTTTTTTTTTTTTTTTC", 1, 56.5000, 59.6304)]  // Phe n = 6 > 5: F = 2/3 enters; F̄₃ = 1/3 (no 2+4 imputation)
+    [TestCase("TTTTTTTTTTTTTTTTTC", 2, 54.0000, 58.1739)]
+    [TestCase("TTTTTTTTTTTTTTC", 1, 61.0000, 61.0000)]     // Phe n = 5: not estimated (threshold n > 5)
+    [TestCase("TTTTTTTTTTTTTTTTTCGCTGCTGCTGCTGCTGCTGCCGCC", 1, 43.8654, 61.0000)] // no Ile: F̄₃ = (F̄₂ + F̄₄)/2
+    [TestCase("TTTTTTTTTTTTTTTTTCGCTGCTGCTGCTGCTGCTGCCGCC", 2, 40.5000, 60.0000)]
+    [TestCase("TTTTTTTTTTTCTTCTTCTATTATTATTACTACTAC", 1, 61.0000, 55.2034)] // F = 0.4 < 1/2: class mean floored at 1/2
+    [TestCase("ATGATGATGATGATGATGATGATGTGGTGGTGGTGGTGGTGGTGGTGG", 2, 48.0000, 55.3846)] // table 2: Met/Trp 2-fold
+    [TestCase("TAATAGTGA", 1, 61.0000, 61.0000)] // no sense codon: uninformative Σ K_z·z
+    public void EncPrime_RuleProbes_MatchProgram(string gene, int table, double nc, double ncPrime)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(EncPrime(gene, table, EncMethod.EncPrimeNc), Is.EqualTo(nc).Within(EncPrimeTol));
+            Assert.That(EncPrime(gene, table, EncMethod.EncPrimeNcPrime), Is.EqualTo(ncPrime).Within(EncPrimeTol));
+        });
+    }
+
+    [Test]
+    public void EncPrime_RuleProbe_HandDerivations()
+    {
+        // Phe TTT×5 TTC×1 (n = 6): F = (6·26/36 − 1)/5 = 2/3; Nc = 2 + 9·3/2 + 3 + 5·4 + 3·6 = 56.5.
+        Assert.That(EncPrime("TTTTTTTTTTTTTTTTTC", 1, EncMethod.EncPrimeNc), Is.EqualTo(56.5).Within(1e-12));
+        // Floor: Phe 3/3 and Tyr 3/3 (n = 6): F = (6·½ − 1)/5 = 0.4 < ½ → F̄₂ = ½ → Nc = 61.
+        Assert.That(EncPrime("TTTTTTTTTTTCTTCTTCTATTATTATTACTACTAC", 1, EncMethod.EncPrimeNc), Is.EqualTo(61.0));
+    }
+
+    [Test]
+    public void EncPrime_ExpectedBelowEps_UsesProgramSentinel()
+    {
+        // Background without T: e(GCT) = 0 < 1e-6, so test_null resets χ² to −1 and keeps accumulating
+        // GCC, GCA, GCG (e = 1/3 each): χ² = −1 + 6·(4/3 + 1/3 + 1/3) = 11; F′ = (11 + 6 − 4)/(4·5) = 0.65;
+        // Nc′ = 2 + 18 + 3 + 5/0.65 + 18 = 48.6923 (ENCprime prints 48.6923; Nc 46.0000).
+        const string gene = "GCCGCCGCCGCCGCCGCC";
+        Assert.Multiple(() =>
+        {
+            Assert.That(EncPrime(gene, 1, EncMethod.EncPrimeNcPrime, "CCCAAAGGG"), Is.EqualTo(41.0 + 5.0 / 0.65).Within(1e-12));
+            Assert.That(EncPrime(gene, 1, EncMethod.EncPrimeNcPrime, "CCCAAAGGG"), Is.EqualTo(48.6923).Within(EncPrimeTol));
+            Assert.That(EncPrime(gene, 1, EncMethod.EncPrimeNc), Is.EqualTo(46.0).Within(1e-12));
+            Assert.That(EncPrime(gene + "TTTTTTTTTTTTTTTTTTGGGGGGGGGGGGGGGGGGGGG", 1, EncMethod.EncPrimeNcPrime, "CCCAAAGGG"),
+                Is.EqualTo(38.8784).Within(EncPrimeTol));
+        });
+    }
+
+    [Test]
+    public void EncPrime_Table13_DeviatesFromProgramParsingBug()
+    {
+        // ENCprime get_code sets n_aa to the index of the last codon's amino acid (GGG → G); in NCBI table 13
+        // G is first met at AGA, so V, A, D, E fall outside n_aa and are dropped from Nc (M3: 37.6786 / 35.1829).
+        // The library keeps all 21 amino acids: values equal ENCprime with n_aa = number of distinct letters.
+        Assert.Multiple(() =>
+        {
+            Assert.That(EncPrime(M3, 13, EncMethod.EncPrimeNc), Is.EqualTo(45.9643).Within(EncPrimeTol));
+            Assert.That(EncPrime(M3, 13, EncMethod.EncPrimeNcPrime), Is.EqualTo(43.8972).Within(EncPrimeTol));
+        });
+    }
+
+    [Test]
+    public void EncPrime_RnaLowerCaseAndDnaSequence_Agree()
+    {
+        foreach (var method in new[] { EncMethod.EncPrimeNc, EncMethod.EncPrimeNcPrime })
+        {
+            double expected = EncPrime(M3, 1, method);
+            Assert.Multiple(() =>
+            {
+                Assert.That(EncPrime(M3.Replace('T', 'U').ToLowerInvariant(), 1, method), Is.EqualTo(expected).Within(1e-12));
+                Assert.That(CodonUsageAnalyzer.CalculateEnc(new DnaSequence(M3), GeneticCode.Standard, new EncOptions { Method = method }),
+                    Is.EqualTo(expected));
+            });
+        }
+    }
+
+    [Test]
+    public void EncPrime_EmptyInput_NotCalculable_AndInvalidOptionsThrow()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var method in new[] { EncMethod.EncPrimeNc, EncMethod.EncPrimeNcPrime })
+            {
+                Assert.That(CodonUsageAnalyzer.TryCalculateEnc("", GeneticCode.Standard, new EncOptions { Method = method }, out double enc), Is.False);
+                Assert.That(enc, Is.EqualTo(0.0));
+                foreach (var bad in new[]
+                {
+                    new EncOptions { Method = method, CodonWCap = true },
+                    new EncOptions { Method = method, Pseudocount = 0 },
+                    new EncOptions { Method = method, BackgroundCorrection = true },
+                    new EncOptions { Method = method, WeightedAverage = false },
+                })
+                    Assert.That(() => CodonUsageAnalyzer.TryCalculateEnc(M3, GeneticCode.Standard, bad, out _),
+                        NUnit.Framework.Throws.ArgumentException.With.Property("ParamName").EqualTo("options"), bad.ToString());
+            }
+            Assert.That(() => CodonUsageAnalyzer.TryCalculateEnc(M3, GeneticCode.Standard,
+                new EncOptions { Method = EncMethod.EncPrimeNc, Background = Background }, out _),
+                NUnit.Framework.Throws.ArgumentException.With.Property("ParamName").EqualTo("options"));
         });
     }
 

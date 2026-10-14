@@ -75,9 +75,31 @@ Wheel `codon_bias-0.5.0-py3-none-any.whl` (PyPI `codon-bias`), read in full: `sc
 7. Nc = Σ_z K_z/F̄_z, `min(len(P), Nc)` (sense-codon cap; no lower clamp).
 Novembre 2002 preset = `bg_correction=True, robust=False, pseudocount=0, mean='unweighted'`; Sun–Yang–Xia 2013 preset = codonbias defaults `robust=True, pseudocount=1, mean='weighted', bg_correction=False`.
 
-### ENCprime (Novembre's own program) — consulted, not followed
+### ENCprime (Novembre's own program) — reproduced opt-in (`EncPrimeNc` / `EncPrimeNcPrime`, review 2026-10-14, A3-2)
 
-github.com/jnovembre/ENCprime `src/ENCprime.c` (`test_null`, `calc_F`, `calc_Nc`): χ² = N·Σ(p − e)²/e and F′ = (χ² + N − k)/(k(N − 1)) — the same formula as codonbias item 4; expected frequencies from per-gene A/C/G/T frequencies over the variable codon sites (invariant sites cancel on renormalisation, so equal to codonbias item 2 for the same base frequencies). Differences from codonbias: an amino acid needs N > 5 ("enough observations that chi-sq is legit"), class means are floored at 1/k, base frequencies come from a SeqCount file (no +1), no cap. The papers (Novembre 2002 MBE 19:1390; Sun, Yang & Xia 2013 MBE 30:191) are not reachable from the sandbox (academic.oup.com / NCBI blocked), so codonbias 0.5.0 — the reference named by the audit — is the locked implementation.
+**Source:** github.com/jnovembre/ENCprime (`git clone`, HEAD 709ace50b12fe30ce8d17a3c5d47c83e7f0ccd23, 2021-12-10), `src/ENCprime.c` (header "Date: July 17th, 2002"; 3-fold fix "JN 2/28/06"), `src/SeqCount.c`, `README`, `example/`. Compiled locally with gcc and run as `ENCprime <codcnt> <acgtfreq> <code> <out> 0 -q`.
+
+**Rules read from the source (all reproduced):**
+
+1. `get_code`: synonymous families = amino-acid letters of the built-in GenBank table (1–6, 9–16, 21–23); `redun` = family size; stops (`*`) excluded from Nc (`aa[j].abbrev != '*'`).
+2. `calc_cod_data`: `ex_num` = Π f(base) over the codon's **variable sites** (positions where some synonymous codon differs), `ex = ex_num / Σ ex_num` within the amino acid (`ex_denom == 0` → 1). f_A, f_C, f_G, f_T are read from the nucleotide-composition file written by `SeqCount -n` = base counts / sequence length (no pseudocount) of **any** FASTA — the shipped example uses a separate `ExBackgroundSeqs.fasta`; the README workflow applies it to the genes themselves. Only ratios matter (scale cancels on renormalisation).
+3. `test_null`: χ² = Σ n·(p − ex)²/ex per amino acid; χ² = −2 for `redun ≤ 1`; an `ex < eps² = 1e-6` sets χ² = −1 and the loop continues accumulating.
+4. `calc_F`: "if enough observations that chi-sq is legit (i.e. >5)": for n > 5, `F_p = (χ² + n − redun)/(redun·(n − 1))`, `F = (n·Σp² − 1)/(n − 1)`; otherwise both −1 (not used).
+5. `calc_Nc`: class mean over amino acids with F ≠ −1; missing class → `(F̄₂ + F̄₄)/2` for 3-fold when both exist (arithmetic mean, the 2006 fix of Fuglsang's harmonic-mean bug report), else `1/i`; then "Force F_bar to be bounded (1/k,1)": `if (F_bar < 1/k) F_bar = 1/k`; `Nc += n_fold_o/F_bar` (n_fold_o = all non-stop amino acids of the class). No cap.
+6. Output `%.4f` (`Nc`, `Ncp` columns).
+
+**Program defects not reproduced:** `get_code` sets `n_aa = i + 1` for every codon, i.e. the index of the last codon's (GGG) amino acid — under table 13 G first appears at AGA, so V, A, D, E (indices beyond G) are silently dropped (M3: 37.6786 instead of 45.9643). Verified by rebuilding with `if (i+1 > n_aa) n_aa = i+1`: the library then agrees on all 397 genes. `SeqCount` allocates `calloc(seqlength)` without the terminator (heap overflow, aborts on large inputs — README: "unresolved bug in SeqCount") and indexes non-ACGT codons out of bounds; the library counts codons with its canonical counter (U = T, ambiguous triplets skipped). `GammaP` aborts when a p-value χ² is negative (p-values only); the oracle runs used a copy returning NaN there.
+
+**Oracle runs (2026-10-14):**
+
+- Shipped example: `SeqCount -c ExSeqs.fasta` + `SeqCount -n ExBackgroundSeqs.fasta` → ENCprime reproduces `example/ExResults` (Nc identical; Ncp ±1e-4 from the 6-decimal composition file); C# (`Background` = each gene's background sequence) equals all 9 Nc and 9 Ncp at 4 dp (18/18).
+- 397 genes (9 ENCprime example genes, with and without their backgrounds; the 7 ENC test genes M3/Det/Over/R53/R203/R15/Phe, with and without background `GGGCCCGCGATATGCGCGGCCGCAAT`; 306 CodonW-run genes of WP16; 60 random skewed-composition genes, 15–900 codons, seed 20261014) × 17 built-in codes (1–6, 9–16, 21–23), composition file written at full precision: **6352/6352 Nc and 6352/6352 Ncp identical at 4 dp** for the 16 codes other than 13; code 13: 397/397 identical to the `n_aa`-fixed program.
+- Rule probes (n = 5 vs 6, missing Ile imputation, 1/k floor, e < 1e-6 sentinel, no sense codon, Met/Trp under table 2, RNA) × tables 1/2/11: 30/30 Nc and 30/30 Ncp identical at 4 dp.
+- Faithful pipeline (`SeqCount -c` / `SeqCount -n` on the same FASTA, buffer-fixed SeqCount, table 1, 287 clean genes): Nc 287/287 identical; Ncp 271/287 identical, the rest within 8e-4 — from SeqCount's 6-decimal `%f` composition output (the full-precision file gives 287/287).
+
+### Fuglsang (2006) — re-checked for A3-14 (2026-10-14)
+
+**Opened:** WebSearch results for the title (PubMed 16299393 abstract snippet; Semantic Scholar record de3ea6bf9683c59430d63434c97929d7d625bf2f); PMC1456227 / academic.oup.com unreachable from the sandbox (DNS blocked). The abstract: five new Nc estimators derived and tested with the two published ones by resampling; F can be estimated in two closely related ways corresponding to sampling **with or without replacement**, the latter used by Wright; the methods based on sampling without replacement were much more accurate at short gene lengths ("the Wright way … leads to superior estimates"), while those with replacement correlated better with E. coli mRNA levels. Nothing in it describes a "rounding" variant: the previous algorithm-doc bullet ("Fuglsang (2006) N̂c sampling-without-replacement rounding variant — not implemented") was wrong — Wright's without-replacement F̂ is exactly what `Wright1990` (and `EncPrimeNc`) compute. Bullet corrected to list the with-replacement alternatives as the unimplemented ones.
 
 ### Numerical cross-check (2026-09-28)
 
@@ -172,3 +194,4 @@ Perfectly even Phe, TTT × 2 and TTC × 2 (n = 4): Σp² = 0.5, F̂ = (4·0.5 �
 - **2026-09-28**: Review 2026-09 (B02 F15–F17): CodonW 1.4.4 source/binary and codonbias 0.5.0 added; not-calculated rule, F̂ = 0 exclusion, genetic-code-aware classes.
 - **2026-10-14**: Review 2026-09 (B02 F50/F51, audit A2-7/A2-8): opt-in `EncMethod.Novembre2002` / `SunYangXia2013` (codonbias 0.5.0, 57351 cases ≤ 2.2e-15 rel.) and `EncOptions.CodonWCap` (CodonW 1.4.4, 2448 cases).
 - **2026-10-14**: Review 2026-09 (B02 F36, audit A1-11): explicit not-calculable API `TryCalculateEnc`, `CodonUsageStatistics.IsEncCalculable`, MCP `calculable` / `isEncCalculable`; re-verified on the CodonW 1.4.4 binary (2432 cases).
+- **2026-10-14**: Review 2026-09 (B02 FIN WP20, audit A3-2/A3-14): opt-in `EncMethod.EncPrimeNc` / `EncPrimeNcPrime` reproducing the ENCprime program (6352/6352 + 30/30 cases identical at its 4-dp output; table 13 `n_aa` bug not reproduced); Fuglsang (2006) re-checked — the "rounding variant" doc bullet corrected.

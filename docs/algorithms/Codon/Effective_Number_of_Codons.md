@@ -10,7 +10,7 @@
 
 ## 1. Overview
 
-The effective number of codons (Nc, also ENC) measures synonymous codon-usage bias in a single coding sequence. It answers: "how many codons are effectively in use in this gene?" Nc ranges from 20 (extreme bias — exactly one codon used per amino acid) to 61 (no bias — every synonymous codon used equally) [1][2]. It is a deterministic, count-based statistic computed from one gene, requiring no reference set (unlike CAI). The implementation follows Wright's original 1990 estimator as reproduced in Fuglsang (2004) [2] and as implemented by the de-facto reference tool CodonW 1.4.4 (`enc_out`) [4], including its "Nc not calculated" rule, and is genetic-code aware. Two later estimators are available opt-in through `EncOptions.Method`: Novembre's (2002) background-corrected Nc′ [5] and the Sun, Yang & Xia (2013) Nc [6], both as implemented by codonbias 0.5.0 [7]; `EncOptions.CodonWCap` reproduces CodonW's fixed 61 cap for codes with ≠ 61 sense codons.
+The effective number of codons (Nc, also ENC) measures synonymous codon-usage bias in a single coding sequence. It answers: "how many codons are effectively in use in this gene?" Nc ranges from 20 (extreme bias — exactly one codon used per amino acid) to 61 (no bias — every synonymous codon used equally) [1][2]. It is a deterministic, count-based statistic computed from one gene, requiring no reference set (unlike CAI). The implementation follows Wright's original 1990 estimator as reproduced in Fuglsang (2004) [2] and as implemented by the de-facto reference tool CodonW 1.4.4 (`enc_out`) [4], including its "Nc not calculated" rule, and is genetic-code aware. Two later estimators are available opt-in through `EncOptions.Method`: Novembre's (2002) background-corrected Nc′ [5] and the Sun, Yang & Xia (2013) Nc [6], both as implemented by codonbias 0.5.0 [7], and the exact `Nc` / `Ncp` columns of Novembre's own program ENCprime [5] (`EncPrimeNc` / `EncPrimeNcPrime`); `EncOptions.CodonWCap` reproduces CodonW's fixed 61 cap for codes with ≠ 61 sense codons.
 
 ## 2. Scientific / Formal Basis
 
@@ -46,6 +46,16 @@ Sun, Yang & Xia 2013:    F = (χ² + 1) / k            (= Σ p_i² when e_i = 1/
 
 `e_i` is `1/k` without background correction; with it, the product of the three base frequencies of the codon (A/C/G/T counts over the whole gene — or `EncOptions.Background` — each + 1) renormalised within the amino acid. Defaults: Novembre — background correction on, no pseudocount, unweighted class means; Sun–Yang–Xia — pseudocount 1 on every sense codon, no background correction, class means weighted by the amino-acid count N. An amino acid enters its class mean if N > 1 and 1e-6 < F < ∞; an empty class is imputed with F̄ = 1/z, an empty 3-fold class then with (F̄₂ + F̄₄)/2; Nc = Σ K_z/F̄_z is re-adjusted down to the sense-codon count with no lower clamp (with background correction F can exceed 1). Without background correction Novembre's F equals Wright's F̂. `Pseudocount`, `BackgroundCorrection`, `WeightedAverage` override the defaults.
 
+### 2.2.2 ENCprime-exact estimators (`EncPrimeNc`, `EncPrimeNcPrime`)
+
+Reproduce ENCprime (github.com/jnovembre/ENCprime @ 709ace50, `src/ENCprime.c` `calc_cod_data` / `test_null` / `calc_F` / `calc_Nc`, JN 2/28/06 version) for one gene [5]:
+
+- Synonymous families are the amino-acid letters of the genetic code (six-fold families not split; stops excluded). Per amino acid with **n > 5** observed codons: Nc uses Wright's `F = (n·Σp² − 1)/(n − 1)`; Nc′ uses `F′ = (χ² + n − k)/(k(n − 1))` with `χ² = Σ n·(p_i − e_i)²/e_i`. Amino acids with n ≤ 5 are not estimated (no F̂ ≤ 0 exclusion otherwise).
+- `e_i` = product of the background base frequencies over the amino acid's **variable** codon positions, renormalised within the amino acid; background = A/C/G/T counts of the gene itself (as `SeqCount -n` on the same FASTA) or of `EncOptions.Background` (the separate nucleotide-composition file of the program; Nc′ only) — **no pseudocount**. A single-codon amino acid has χ² = −2 and an `e_i < 1e-6` resets χ² to −1 (accumulation continues), as in `test_null`.
+- Class means are unweighted; a class without an estimated amino acid is imputed with `1/k`, a missing 3-fold class with `(F̄₂ + F̄₄)/2` when both exist; **every class mean is floored at `1/k`**; `Nc = Σ K_z/F̄_z` with **no cap** (the floor already bounds it by Σ K_z·z) and no lower clamp.
+- Always calculable for a non-empty sequence: a gene without any amino acid seen more than 5 times reports Σ K_z·z (61 for table 1), as the program prints.
+- Deviation: for NCBI table 13 ENCprime's `get_code` sets `n_aa` to the index of the *last* codon's amino acid (GGG → G, first met at AGA), dropping V, A, D, E from Nc; the library keeps all amino acids (equal to the program with `n_aa` = number of distinct letters). U is read as T and non-ACGT triplets are skipped (SeqCount mis-indexes them).
+
 ### 2.3 Modeling Assumptions (Optional)
 
 | ID | Assumption | Consequence if Violated |
@@ -78,7 +88,7 @@ Sun, Yang & Xia 2013:    F = (χ² + 1) / k            (= Σ p_i² when e_i = 1/
 |------|------|---------|-------------|-------------|
 | sequence | `string` or `DnaSequence` | required | Coding DNA or RNA sequence | Read in frame as consecutive non-overlapping triplets from index 0; U read as T; triplets with other symbols skipped without shifting the frame; case-insensitive |
 | code | `GeneticCode` | `GeneticCode.Standard` | Genetic code defining the synonymous classes | non-null; any of the 27 NCBI tables |
-| options | `EncOptions` | `EncOptions.Default` (Wright 1990) | `Method` (`Wright1990` / `Novembre2002` / `SunYangXia2013`), `Pseudocount`, `BackgroundCorrection`, `WeightedAverage`, `Background` (χ² estimators only), `CodonWCap` (Wright only) | non-null; options that do not apply to `Method`, a negative/non-finite pseudocount or `Background` without background correction throw `ArgumentException` |
+| options | `EncOptions` | `EncOptions.Default` (Wright 1990) | `Method` (`Wright1990` / `Novembre2002` / `SunYangXia2013` / `EncPrimeNc` / `EncPrimeNcPrime`), `Pseudocount`, `BackgroundCorrection`, `WeightedAverage` (codonbias estimators only), `Background` (codonbias estimators with background correction, `EncPrimeNcPrime`), `CodonWCap` (Wright only) | non-null; options that do not apply to `Method`, a negative/non-finite pseudocount or `Background` without background correction throw `ArgumentException` |
 
 ### 3.2 Output / Return Value
 
@@ -87,7 +97,7 @@ Sun, Yang & Xia 2013:    F = (χ² + 1) / k            (= Σ p_i² when e_i = 1/
 | (return) `CalculateEnc` | `double` | Effective number of codons, in [20, 61] (table 1); 0 when Nc cannot be calculated (kept for backward compatibility) |
 | (return) `TryCalculateEnc` | `bool` + `out double enc` | `true` and Nc when calculable; **`false` (enc = 0) when Nc cannot be calculated** — null/empty input, no valid codon, or a synonymous class with no estimable amino acid (CodonW prints `*****`) |
 | `CodonUsageStatistics.IsEncCalculable` | `bool` | same flag for `GetStatistics(...).Enc` |
-| (return) `TryCalculateEnc(…, EncOptions, out double)` | `bool` + `out double` | Wright: as above (`CodonWCap` caps at 61). Novembre / Sun–Yang–Xia: always `true` when the gene has at least one sense codon of `code`; `false` (0) for null/empty input or no sense codon |
+| (return) `TryCalculateEnc(…, EncOptions, out double)` | `bool` + `out double` | Wright: as above (`CodonWCap` caps at 61). Novembre / Sun–Yang–Xia: always `true` when the gene has at least one sense codon of `code`; `false` (0) for null/empty input or no sense codon. ENCprime: `true` for every non-empty input; `false` (0) for null/empty |
 
 ### 3.3 Preconditions and Validation
 
@@ -145,11 +155,11 @@ F̂ is computed from frequencies `p_i = n_i/n` (Eq. 1), not from raw counts. Cla
 **Documented divergence:**
 
 - For genetic codes whose sense-codon count is not 61, the upper re-adjustment uses that count by default (uniform usage gives Nc = Σ K_z·z), as codonbias 0.5.0 does (`min(len(P), ENC)`); CodonW hard-codes 61 for every code — available as `EncOptions { CodonWCap = true }` (verified on the CodonW 1.4.4 binary, 2448 cases). Identical for tables 1 and 11.
-- Novembre 2002 / Sun–Yang–Xia 2013 follow codonbias 0.5.0 (57351 cases, ≤ 2.2e-15 relative); Novembre's own ENCprime differs (N > 5 per amino acid, F̄ floored at 1/k, base frequencies from a SeqCount file, no cap) and is not reproduced. For a gene without any sense codon these return `false` where codonbias reports the imputed maximum.
+- Novembre 2002 / Sun–Yang–Xia 2013 follow codonbias 0.5.0 (57351 cases, ≤ 2.2e-15 relative); Novembre's own program ENCprime differs (N > 5 per amino acid, F̄ floored at 1/k, base frequencies without +1, no cap) and is reproduced separately by `EncPrimeNc` / `EncPrimeNcPrime` (§2.2.2; agreement with the compiled program at its printed 4 decimals: 6352/6352 gene × table cases, 397 genes × 16 NCBI tables, composition file written at full precision — SeqCount's 6-decimal `%f` file shifts Nc′ by ≤ 8e-4; plus the shipped `example/ExResults` 18/18; table 13 deviates by design). For a gene without any sense codon the codonbias estimators return `false` where codonbias reports the imputed maximum.
 
 **Not implemented:**
 
-- The Fuglsang (2006) N̂c "sampling-without-replacement rounding" variant; **users should rely on:** the standard Wright Nc returned here (the most widely used estimator [2]).
+- The alternative estimators compared by Fuglsang (2006) [3] — homozygosity by sampling *with* replacement (F = Σp²) and the other derived N̂c variants — are not implemented. Fuglsang (2006) concludes that the Nc methods based on sampling **without** replacement, i.e. Wright's F̂ = (nΣp² − 1)/(n − 1) used by `Wright1990` and `EncPrimeNc`, are much more accurate at short gene lengths (PubMed 16299393 abstract); **users should rely on:** the standard Wright Nc returned here.
 
 ## 6. Edge Cases and Limitations
 
@@ -191,7 +201,7 @@ Gene M3 (TTT×4 TTC; CTG×3 CTC×2 TTA; ATT×3 ATC×2 ATA; GTG×4 GTC; AGC×3 TC
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [CodonUsageAnalyzer_CalculateEnc_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_CalculateEnc_Tests.cs) — covers `INV-01`–`INV-04`; [CodonUsageAnalyzer_EncVariants_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_EncVariants_Tests.cs) — Novembre / Sun–Yang–Xia / CodonW cap
+- Tests: [CodonUsageAnalyzer_CalculateEnc_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_CalculateEnc_Tests.cs) — covers `INV-01`–`INV-04`; [CodonUsageAnalyzer_EncVariants_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_EncVariants_Tests.cs) — Novembre / Sun–Yang–Xia / ENCprime / CodonW cap
 - Evidence: [CODON-ENC-001-Evidence.md](../../../docs/Evidence/CODON-ENC-001-Evidence.md)
 
 ## 8. References

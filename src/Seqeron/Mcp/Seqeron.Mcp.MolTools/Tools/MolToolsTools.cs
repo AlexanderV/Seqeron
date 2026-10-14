@@ -655,22 +655,29 @@ public class MolToolsTools
         return new CaiResult(CodonUsageAnalyzer.CalculateCai(sequence, reference_rscu, code));
     }
 
-    [McpServerTool(Name = "effective_number_of_codons", Title = "MolTools — Effective Number of Codons (ENC)", ReadOnly = true), Description("Effective Number of Codons (Wright 1990 Nc; CodonW enc_out conventions), measuring how far a gene departs from uniform synonymous-codon usage under the NCBI genetic code genetic_code (default 1 = Standard; CodonW -code). Range 20..61 under the standard code (20 = extreme bias, 61 = no bias; overshoot re-adjusted to the code's sense-codon count, e.g. 60 for table 2). Amino acids seen once, or with every observed codon used once, are not estimable; a missing isoleucine class is replaced by the mean of the 2- and 4-fold classes. When Nc cannot be calculated (some other synonymous class has no estimable amino acid - gene too short or amino-acid usage too skewed; CodonW prints *****) returns enc = 0 and calculable = false; otherwise calculable = true. DNA or RNA, case-insensitive; non-ACGT(U) triplets are skipped. Optional method selects another estimator: Novembre2002 (background-corrected Nc', chi-square of the codon frequencies against those expected from the base composition, unweighted class means, no pseudocount) or SunYangXia2013 (pseudocount 1, F = (chi-square + 1)/k, count-weighted class means), both as in codonbias 0.5.0, where a class with no estimable amino acid is imputed with F = 1/k so the value is always calculable (calculable = false only without any sense codon); pseudocount / background_correction / background tune them. codonw_cap re-adjusts Wright Nc to CodonW's fixed 61 instead of the code's sense-codon count. Call to summarise a gene's overall codon bias with a single number.")]
+    [McpServerTool(Name = "effective_number_of_codons", Title = "MolTools — Effective Number of Codons (ENC)", ReadOnly = true), Description("Effective Number of Codons (Wright 1990 Nc; CodonW enc_out conventions), measuring how far a gene departs from uniform synonymous-codon usage under the NCBI genetic code genetic_code (default 1 = Standard; CodonW -code). Range 20..61 under the standard code (20 = extreme bias, 61 = no bias; overshoot re-adjusted to the code's sense-codon count, e.g. 60 for table 2). Amino acids seen once, or with every observed codon used once, are not estimable; a missing isoleucine class is replaced by the mean of the 2- and 4-fold classes. When Nc cannot be calculated (some other synonymous class has no estimable amino acid - gene too short or amino-acid usage too skewed; CodonW prints *****) returns enc = 0 and calculable = false; otherwise calculable = true. DNA or RNA, case-insensitive; non-ACGT(U) triplets are skipped. Optional method selects another estimator: Novembre2002 (background-corrected Nc', chi-square of the codon frequencies against those expected from the base composition, unweighted class means, no pseudocount) or SunYangXia2013 (pseudocount 1, F = (chi-square + 1)/k, count-weighted class means), both as in codonbias 0.5.0, where a class with no estimable amino acid is imputed with F = 1/k so the value is always calculable (calculable = false only without any sense codon); pseudocount / background_correction / background tune them. EncPrimeNc / EncPrimeNcPrime reproduce the Nc / Ncp columns of ENCprime (Novembre's reference program): only amino acids observed more than 5 times are estimated, a missing class is imputed with F = 1/k (3-fold: mean of the 2- and 4-fold classes), class means are floored at 1/k, no pseudocount and no cap; Nc' uses the gene's own A/C/G/T composition or background (calculable = false only for an empty sequence). codonw_cap re-adjusts Wright Nc to CodonW's fixed 61 instead of the code's sense-codon count. Call to summarise a gene's overall codon bias with a single number.")]
     public static EncResult effective_number_of_codons(
         [Description("Coding DNA sequence (frame 0).")] string sequence,
         [Description("NCBI translation table number defining the synonymous codon families and stop codons (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int genetic_code = 1,
-        [Description("Estimator: Wright1990 (default; CodonW enc_out), Novembre2002 (background-corrected Nc', codonbias bg_correction=True, robust=False, pseudocount=0, unweighted) or SunYangXia2013 (codonbias defaults: robust, pseudocount 1, weighted).")] EncMethod method = EncMethod.Wright1990,
+        [Description("Estimator: Wright1990 (default; CodonW enc_out), Novembre2002 (background-corrected Nc', codonbias bg_correction=True, robust=False, pseudocount=0, unweighted) , SunYangXia2013 (codonbias defaults: robust, pseudocount 1, weighted), EncPrimeNc or EncPrimeNcPrime (ENCprime program Nc / Ncp).")] EncMethod method = EncMethod.Wright1990,
         [Description("Novembre2002/SunYangXia2013 only: pseudocount added to every sense-codon count (>= 0; omitted = 0 for Novembre2002, 1 for SunYangXia2013).")] double? pseudocount = null,
         [Description("Novembre2002/SunYangXia2013 only: correct the expected codon frequencies for the background base composition (omitted = true for Novembre2002, false for SunYangXia2013).")] bool? background_correction = null,
-        [Description("Novembre2002/SunYangXia2013 with background correction only: sequence whose A/C/G/T composition is the background (omitted = the gene itself).")] string? background = null,
+        [Description("Novembre2002/SunYangXia2013 with background correction, or EncPrimeNcPrime: sequence whose A/C/G/T composition is the background (omitted = the gene itself; ENCprime: the SeqCount -n nucleotide-composition input).")] string? background = null,
         [Description("Wright1990 only: re-adjust Nc to CodonW's fixed 61 (codon_us.c enc_out) instead of the genetic code's sense-codon count (differs for codes with other than 61 sense codons, e.g. table 2 caps at 60, tables 3/9 at 62). Default false.")] bool codonw_cap = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
         var code = ResolveGeneticCode(genetic_code);
-        if (method is not (EncMethod.Wright1990 or EncMethod.Novembre2002 or EncMethod.SunYangXia2013))
+        if (method is not (EncMethod.Wright1990 or EncMethod.Novembre2002 or EncMethod.SunYangXia2013
+            or EncMethod.EncPrimeNc or EncMethod.EncPrimeNcPrime))
             throw new System.ArgumentException(
-                $"Unknown ENC method: {method}. Supported: Wright1990, Novembre2002, SunYangXia2013.", nameof(method));
+                $"Unknown ENC method: {method}. Supported: Wright1990, Novembre2002, SunYangXia2013, EncPrimeNc, EncPrimeNcPrime.", nameof(method));
+        bool encPrime = method is EncMethod.EncPrimeNc or EncMethod.EncPrimeNcPrime;
+        if (encPrime && (pseudocount is not null || background_correction is not null))
+            throw new System.ArgumentException(
+                "pseudocount and background_correction do not apply to the ENCprime methods (fixed program rules).", nameof(method));
+        if (method == EncMethod.EncPrimeNc && background is not null)
+            throw new System.ArgumentException("background applies to EncPrimeNcPrime only (ENCprime's Nc ignores the base composition).", nameof(background));
         if (method == EncMethod.Wright1990 && (pseudocount is not null || background_correction is not null || background is not null))
             throw new System.ArgumentException(
                 "pseudocount, background_correction and background apply to the Novembre2002 and SunYangXia2013 methods only.", nameof(method));
@@ -679,7 +686,7 @@ public class MolToolsTools
         if (pseudocount is double pc && (!double.IsFinite(pc) || pc < 0))
             throw new System.ArgumentException($"pseudocount must be a finite non-negative number (got {pc}).", nameof(pseudocount));
         if (background is not null && (background.Length == 0
-            || !(background_correction ?? method == EncMethod.Novembre2002)))
+            || !(method == EncMethod.EncPrimeNcPrime || (background_correction ?? method == EncMethod.Novembre2002))))
             throw new System.ArgumentException(
                 "background must be a non-empty sequence and requires background correction.", nameof(background));
 

@@ -635,6 +635,16 @@ public static class CodonUsageAnalyzer
     /// <item><see cref="EncMethod.SunYangXia2013"/>: Sun, Yang &amp; Xia (2013, Mol Biol Evol
     /// 30:191) — codon counts with a pseudocount (default 1), <c>F = (χ² + 1)/k</c> (= Σ p_i²
     /// without background correction) and class means weighted by the amino-acid counts.</item>
+    /// <item><see cref="EncMethod.EncPrimeNc"/> / <see cref="EncMethod.EncPrimeNcPrime"/>: the
+    /// <c>Nc</c> / <c>Ncp</c> columns of ENCprime (Novembre's reference program,
+    /// github.com/jnovembre/ENCprime, <c>src/ENCprime.c</c>, 2006 version) — F (Wright Eq. 1) or
+    /// F′ = (χ² + n − k)/(k(n − 1)) only for amino acids observed n &gt; 5 times; e_i from the
+    /// background base frequencies over the amino acid's variable codon positions, renormalised within
+    /// the amino acid, no pseudocount (background = the gene, as <c>SeqCount -n</c> on the same FASTA,
+    /// or <see cref="EncOptions.Background"/>); an amino acid with an e_i &lt; 1e-6 uses χ² = −1 as the
+    /// program does; unweighted class means; a missing class is imputed with 1/k, a missing 3-fold
+    /// class with (F̄₂ + F̄₄)/2 when both exist; every class mean is floored at 1/k; Nc = Σ K_z/F̄_z
+    /// without any cap (so Nc′ may exceed the sense-codon count).</item>
     /// </list>
     /// </summary>
     /// <remarks>
@@ -678,8 +688,170 @@ public static class CodonUsageAnalyzer
         var counts = CountCodonsCore(sequence);
         if (options.Method == EncMethod.Wright1990)
             return TryCalculateEncCore(counts, code, out enc, options.CodonWCap ? CodonWEncCap : null);
+        if (options.Method is EncMethod.EncPrimeNc or EncMethod.EncPrimeNcPrime)
+            return TryCalculateEncPrimeCore(sequence, counts, code, options, out enc);
 
         return TryCalculateChiSquareEncCore(sequence, counts, code, options, out enc);
+    }
+
+    // ENCprime (Novembre 2002 reference program, github.com/jnovembre/ENCprime, src/ENCprime.c,
+    // JN 2/28/06 version): calc_F estimates F and F′ only for amino acids observed more than 5 times.
+    private const int EncPrimeMinAminoAcidCount = 5;
+
+    // ENCprime test_null: an expected codon frequency below eps² = 1e-6 marks the amino acid's χ² as -1.
+    private const double EncPrimeMinExpected = 1e-6;
+
+    // ENCprime test_null: χ² sentinel of a single-codon amino acid (redun ≤ 1).
+    private const double EncPrimeSingleCodonChiSquare = -2.0;
+
+    // ENCprime test_null: χ² sentinel set when an expected codon frequency is below 1e-6.
+    private const double EncPrimeBadExpectedChiSquare = -1.0;
+
+    // ENCprime / SeqCount codon order (T, C, A, G at each position: TTT, TTC, TTA, TTG, TCT, …).
+    private static int EncPrimeCodonOrder(string codon)
+    {
+        static int Rank(char b) => b switch { 'T' => 0, 'C' => 1, 'A' => 2, _ => 3 };
+        return Rank(codon[0]) * 16 + Rank(codon[1]) * 4 + Rank(codon[2]);
+    }
+
+    // ENCprime Nc (Wright 1990) and Nc′ (Novembre 2002), reproducing src/ENCprime.c
+    // calc_cod_data / test_null / calc_F / calc_Nc for one sequence (see EncMethod.EncPrimeNc).
+    private static bool TryCalculateEncPrimeCore(
+        string sequence, IReadOnlyDictionary<string, int> counts, GeneticCode code, EncOptions options, out double enc)
+    {
+        enc = 0;
+        bool prime = options.Method == EncMethod.EncPrimeNcPrime;
+        var families = SynonymousFamilies(code)
+            .Where(f => f.Key != '*')
+            .Select(f => f.OrderBy(EncPrimeCodonOrder).ToArray())
+            .ToList();
+
+        // No sense-codon guard: like the program, a gene without an amino acid observed more
+        // than 5 times reports the uninformative Σ K_z·z (every class imputed with 1/z).
+        // Background base frequencies f_A, f_C, f_G, f_T (SeqCount -n: base counts / length, no
+        // pseudocount). Only their ratios matter: e_i is renormalised within the amino acid.
+        double[]? baseFrequencies = prime ? EncPrimeBaseFrequencies(options.Background ?? sequence) : null;
+
+        var aminoAcidsInClass = new SortedDictionary<int, int>(); // n_fold_o
+        var sumF = new Dictionary<int, double>();                 // F_tot / F_tot_p
+        var estimable = new Dictionary<int, int>();               // n_fold / n_fold_p
+
+        foreach (var codons in families)
+        {
+            int k = codons.Length;
+            aminoAcidsInClass[k] = aminoAcidsInClass.GetValueOrDefault(k) + 1;
+
+            long n = 0;
+            foreach (var codon in codons)
+                n += counts.GetValueOrDefault(codon, 0);
+            if (n <= EncPrimeMinAminoAcidCount)
+                continue; // calc_F: F = F′ = -1 (not estimated)
+
+            double f;
+            if (!prime)
+            {
+                // Wright (1990) Eq. 1: F = (n·Σp² − 1)/(n − 1).
+                double sumPSquared = 0;
+                foreach (var codon in codons)
+                {
+                    double p = (double)counts.GetValueOrDefault(codon, 0) / n;
+                    sumPSquared += p * p;
+                }
+                f = (n * sumPSquared - 1.0) / (n - 1.0);
+            }
+            else
+            {
+                double chiSquare = EncPrimeChiSquare(codons, counts, n, baseFrequencies!);
+                f = (chiSquare + n - k) / (k * (n - 1.0)); // Novembre (2002) Eq. 6
+            }
+
+            sumF[k] = sumF.GetValueOrDefault(k) + f;
+            estimable[k] = estimable.GetValueOrDefault(k) + 1;
+        }
+
+        // calc_Nc: class mean over estimable amino acids; a missing 3-fold class takes the
+        // arithmetic mean of the 2- and 4-fold means (JN 2/28/06 fix), any other missing class 1/k;
+        // the mean is then floored at 1/k. No cap and no lower clamp.
+        double ClassMean(int z) => sumF[z] / estimable[z];
+        double nc = 0;
+        foreach (var (z, aminoAcids) in aminoAcidsInClass)
+        {
+            double meanF;
+            if (estimable.ContainsKey(z))
+                meanF = ClassMean(z);
+            else if (z == 3 && estimable.ContainsKey(2) && estimable.ContainsKey(4))
+                meanF = (ClassMean(2) + ClassMean(4)) * 0.5;
+            else
+                meanF = 1.0 / z;
+
+            if (meanF < 1.0 / z)
+                meanF = 1.0 / z;
+            nc += aminoAcids / meanF;
+        }
+
+        enc = nc;
+        return true;
+    }
+
+    // ENCprime test_null χ² = Σ n·(p_i − e_i)²/e_i over the codons of one amino acid in ENCprime's
+    // codon order, with e_i = Π f(base) over the amino acid's variable codon positions,
+    // renormalised within the amino acid (calc_cod_data). Sentinels as in the program: -2 for a
+    // single-codon amino acid; an e_i < 1e-6 resets χ² to -1 and accumulation continues.
+    private static double EncPrimeChiSquare(
+        string[] codons, IReadOnlyDictionary<string, int> counts, long n, double[] baseFrequencies)
+    {
+        int k = codons.Length;
+        if (k <= 1)
+            return EncPrimeSingleCodonChiSquare;
+
+        var variable = new bool[3];
+        for (int pos = 0; pos < 3; pos++)
+            variable[pos] = codons.Any(c => c[pos] != codons[0][pos]);
+
+        var numerator = new double[k];
+        double denominator = 0;
+        for (int i = 0; i < k; i++)
+        {
+            double e = 1;
+            for (int pos = 0; pos < 3; pos++)
+                if (variable[pos])
+                    e *= baseFrequencies[BaseIndex(codons[i][pos])];
+            numerator[i] = e;
+            denominator += e;
+        }
+        if (denominator == 0.0)
+            denominator = 1; // calc_cod_data: "if (ex_denom == 0.0) ex_denom = 1"
+
+        double chiSquare = 0;
+        for (int i = 0; i < k; i++)
+        {
+            double expected = numerator[i] / denominator;
+            if (expected < EncPrimeMinExpected)
+            {
+                chiSquare = EncPrimeBadExpectedChiSquare;
+                continue;
+            }
+            double bias = (double)counts.GetValueOrDefault(codons[i], 0) / n - expected;
+            chiSquare += bias * bias / expected * n;
+        }
+        return chiSquare;
+    }
+
+    // SeqCount -n: A/C/G/T counts over the whole sequence (case-insensitive; U read as T, the
+    // library's RNA convention), divided by the total; other symbols ignored. All zero when the
+    // sequence has no A/C/G/T (every e_i is then 0 and χ² = -1, as in ENCprime).
+    private static double[] EncPrimeBaseFrequencies(string sequence)
+    {
+        var counts = new double[4];
+        foreach (char ch in sequence)
+        {
+            int i = BaseIndex(char.ToUpperInvariant(ch));
+            if (i >= 0) counts[i]++;
+        }
+        double total = counts[0] + counts[1] + counts[2] + counts[3];
+        if (total > 0)
+            for (int i = 0; i < 4; i++) counts[i] /= total;
+        return counts;
     }
 
     // CodonW 1.4.4 enc_out prints every Nc above 61 as "61.00", whatever the genetic code
@@ -830,6 +1002,15 @@ public static class CodonUsageAnalyzer
                     throw new ArgumentException($"Pseudocount must be a finite non-negative number (got {pc}).", nameof(options));
                 if (options.Background is not null && !options.EffectiveBackgroundCorrection)
                     throw new ArgumentException("Background requires background correction.", nameof(options));
+                break;
+            case EncMethod.EncPrimeNc:
+            case EncMethod.EncPrimeNcPrime:
+                if (options.CodonWCap || options.Pseudocount is not null || options.BackgroundCorrection is not null || options.WeightedAverage is not null)
+                    throw new ArgumentException(
+                        "CodonWCap, Pseudocount, BackgroundCorrection and WeightedAverage do not apply to the ENCprime estimators (the program has fixed rules).",
+                        nameof(options));
+                if (options.Background is not null && options.Method == EncMethod.EncPrimeNc)
+                    throw new ArgumentException("Background applies to EncPrimeNcPrime only (ENCprime's Nc does not use the nucleotide composition).", nameof(options));
                 break;
             default:
                 throw new ArgumentException($"Unknown ENC method: {options.Method}.", nameof(options));
@@ -1128,6 +1309,20 @@ public enum EncMethod
 
     /// <summary>Sun, Yang &amp; Xia (2013) Nc: pseudocount, F = (χ² + 1)/k, count-weighted class means (codonbias 0.5.0 defaults <c>robust=True, pseudocount=1, mean='weighted'</c>).</summary>
     SunYangXia2013 = 2,
+
+    /// <summary>
+    /// Wright's Nc exactly as printed by ENCprime (Novembre 2002 reference program, column <c>Nc</c>):
+    /// F = (nΣp² − 1)/(n − 1) only for amino acids with n &gt; 5; a missing class is imputed with 1/k
+    /// (3-fold: (F̄₂ + F̄₄)/2); class means floored at 1/k; no cap.
+    /// </summary>
+    EncPrimeNc = 3,
+
+    /// <summary>
+    /// Novembre's Nc′ exactly as printed by ENCprime (column <c>Ncp</c>): F′ = (χ² + n − k)/(k(n − 1)) with
+    /// χ² = Σ n(p_i − e_i)²/e_i against the background base composition (no pseudocount; the gene itself or
+    /// <see cref="EncOptions.Background"/>); same n &gt; 5 rule, imputation, 1/k floor and no cap as <see cref="EncPrimeNc"/>.
+    /// </summary>
+    EncPrimeNcPrime = 4,
 }
 
 /// <summary>
@@ -1139,7 +1334,8 @@ public enum EncMethod
 /// <see cref="Pseudocount"/>, <see cref="BackgroundCorrection"/>, <see cref="WeightedAverage"/>
 /// and <see cref="Background"/> apply to <see cref="EncMethod.Novembre2002"/> and
 /// <see cref="EncMethod.SunYangXia2013"/> only (null = the method's published default);
-/// <see cref="CodonWCap"/> applies to <see cref="EncMethod.Wright1990"/> only. Setting an option
+/// <see cref="CodonWCap"/> applies to <see cref="EncMethod.Wright1990"/> only; the ENCprime
+/// estimators take only <see cref="Background"/> (Nc′ only). Setting an option
 /// that does not apply, a negative or non-finite pseudocount, or a <see cref="Background"/>
 /// without background correction throws <see cref="ArgumentException"/>.
 /// </remarks>
@@ -1160,7 +1356,7 @@ public sealed record EncOptions
     /// <summary>Class means weighted by amino-acid counts (codonbias <c>mean='weighted'</c>); null = false for Novembre 2002, true for Sun–Yang–Xia 2013.</summary>
     public bool? WeightedAverage { get; init; }
 
-    /// <summary>Sequence whose base composition defines the background (codonbias <c>get_score(background=…)</c>); null = the gene itself. Requires background correction.</summary>
+    /// <summary>Sequence whose base composition defines the background (codonbias <c>get_score(background=…)</c>; ENCprime: the <c>SeqCount -n</c> nucleotide-composition file); null = the gene itself. Requires background correction (Novembre2002 / SunYangXia2013) or <see cref="EncMethod.EncPrimeNcPrime"/>.</summary>
     public string? Background { get; init; }
 
     /// <summary>Wright 1990 only: re-adjust Nc to CodonW's fixed 61 (codon_us.c <c>enc_out</c>) instead of the genetic code's sense-codon count (differs for codes with ≠ 61 sense codons, e.g. 60 for table 2, 62 for tables 3 and 9).</summary>

@@ -121,4 +121,44 @@ public class EncMethodCodonWCapToolTests
             Rejected(() => MolToolsTools.effective_number_of_codons(M3, 1, EncMethod.Novembre2002, background: ""), "background");
         });
     }
+
+    // ENCprime (github.com/jnovembre/ENCprime, compiled locally) prints Nc 50.7500 / Ncp 48.9509 for M3 under
+    // code 1 with the gene as the nucleotide-composition input, and Ncp 46.5174 with background
+    // GGGCCCGCGATATGCGCGGCCGCAAT (Nc unchanged).
+    [Test]
+    public void EncPrime_MatchesProgramAndLibrary()
+    {
+        const string bg = "GGGCCCGCGATATGCGCGGCCGCAAT";
+        var nc = MolToolsTools.effective_number_of_codons(M3, 1, EncMethod.EncPrimeNc);
+        var ncp = MolToolsTools.effective_number_of_codons(M3, 1, EncMethod.EncPrimeNcPrime);
+        var ncpBg = MolToolsTools.effective_number_of_codons(M3, 1, EncMethod.EncPrimeNcPrime, background: bg);
+        Assert.Multiple(() =>
+        {
+            Assert.That(nc.Enc, Is.EqualTo(50.75).Within(5e-5));
+            Assert.That(ncp.Enc, Is.EqualTo(48.9509).Within(5e-5));
+            Assert.That(ncpBg.Enc, Is.EqualTo(46.5174).Within(5e-5));
+            Assert.That(nc.Calculable && ncp.Calculable && ncpBg.Calculable, Is.True);
+            Assert.That(ncpBg.Enc, Is.EqualTo(CodonUsageAnalyzer.CalculateEnc(M3, GeneticCode.Standard,
+                new EncOptions { Method = EncMethod.EncPrimeNcPrime, Background = bg })));
+            // No sense codon: ENCprime reports the uninformative 61 (every class imputed with 1/k).
+            Assert.That(MolToolsTools.effective_number_of_codons("TAATAG", 1, EncMethod.EncPrimeNc),
+                Is.EqualTo(new Seqeron.Mcp.MolTools.Models.EncResult(61.0, true)));
+        });
+    }
+
+    [Test]
+    public void EncPrime_InvalidCombinations_Rejected()
+    {
+        void Rejected(TestDelegate call, string param) =>
+            Assert.That(call, Throws.ArgumentException.With.Property("ParamName").EqualTo(param));
+
+        Assert.Multiple(() =>
+        {
+            Rejected(() => MolToolsTools.effective_number_of_codons(M3, 1, EncMethod.EncPrimeNc, pseudocount: 0), "method");
+            Rejected(() => MolToolsTools.effective_number_of_codons(M3, 1, EncMethod.EncPrimeNcPrime, background_correction: true), "method");
+            Rejected(() => MolToolsTools.effective_number_of_codons(M3, 1, EncMethod.EncPrimeNc, background: "ACGT"), "background");
+            Rejected(() => MolToolsTools.effective_number_of_codons(M3, 1, EncMethod.EncPrimeNcPrime, background: ""), "background");
+            Rejected(() => MolToolsTools.effective_number_of_codons(M3, 1, EncMethod.EncPrimeNcPrime, codonw_cap: true), "codonw_cap");
+        });
+    }
 }

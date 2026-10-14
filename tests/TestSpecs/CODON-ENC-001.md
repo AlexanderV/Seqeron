@@ -20,7 +20,7 @@
 | 3 | Fuglsang A. (2006). Estimating the 'effective number of codons'… Genetics 172(2):1301–1307. | 1 | https://academic.oup.com/genetics/article/172/2/1301/5923091 | 2026-06-13 |
 | 4 | Peden J.F. (1999) CodonW 1.4.4 — `codon_us.c` `enc_out`, `README_indices.txt` (source compiled and run) | 1 | https://codonw.sourceforge.net/ | 2026-09-28 |
 | 5 | codonbias 0.5.0 (PyPI) `EffectiveNumberOfCodons` (Wright mode: robust=False, pseudocount=0, unweighted; reference for the Novembre / Sun–Yang–Xia estimators) | 2 | https://pypi.org/project/codon-bias/ | 2026-10-14 |
-| 6 | Novembre J.A. (2002) MBE 19:1390 (Nc′); ENCprime `src/ENCprime.c` (consulted) | 1 | https://github.com/jnovembre/ENCprime | 2026-10-14 (program; paper via refs 5/6 — journal blocked) |
+| 6 | Novembre J.A. (2002) MBE 19:1390 (Nc′); ENCprime `src/ENCprime.c` + `SeqCount.c` (@709ace50; compiled and run as oracle for `EncPrimeNc` / `EncPrimeNcPrime`) | 1 | https://github.com/jnovembre/ENCprime | 2026-10-14 (program; paper via refs 5/6 — journal blocked) |
 | 7 | Sun X., Yang Q., Xia X. (2013) MBE 30:191 (improved Nc) | 1 | https://doi.org/10.1093/molbev/mss201 | via ref 5 (journal blocked) |
 
 ### 1.2 Key Evidence Points
@@ -108,6 +108,11 @@
 | M45 | CodonWCap on M12 under NCBI 1/2/3/4/5/6/9/10 | default 61/60/62/62/62/63/62/62 | 61 for all | CodonW 1.4.4 `-enc -code 0..7` 61.00 (F51) |
 | M46 | CodonWCap r203 table 2 / r15 table 3 | 60 → 60.71285921278657; 61.89427123695478 → 61 | CodonW 60.71 / 61.00 | CodonW 1.4.4 (F51) |
 | M47 | MCP `method` / `pseudocount` / `background_correction` / `background` / `codonw_cap` forwarding, defaults, rejections | M3, M12 | as M40–M46 | `EncMethodCodonWCapToolTests.cs` |
+| M48 | EncPrime_ShippedExample_MatchesExResults | ENCprime `example/` HMAIF.PE1, HS14KDAPT.PE1 with their background sequences | Nc 40.0709 / 56.3938; Ncp 36.2391 / 57.2395 (±5e-5) | ENCprime `example/ExResults` (A3-2) |
+| M49 | EncPrime_GeneAsBackground / ExplicitBackground_MatchesProgram | example genes, M3, Det, Over, R53, R203, R15, Phe; tables 1/2/11 | e.g. M3 50.7500 / 48.9509, background 46.5174 (±5e-5) | ENCprime binary, `%.4f` output (A3-2) |
+| M50 | EncPrime rule probes: n = 5 vs 6, missing-Ile (F̄₂+F̄₄)/2, 1/k floor, e < 1e-6 χ² = −1 sentinel, no sense codon = 61, Met/Trp 2-fold (table 2) | hand genes | e.g. Phe×6 56.5000 / 59.6304; floor 61; sentinel 48.6923 = 41 + 5/0.65 | ENCprime binary + hand derivation (A3-2) |
+| M51 | EncPrime table 13: all amino acids kept (program's `n_aa` bug not reproduced) | M3, table 13 | 45.9643 / 43.8972 (program prints 37.6786 / 35.1829) | ENCprime with `n_aa` fix (A3-2) |
+| M52 | EncPrime contracts: empty ⇒ false; RNA/lower-case/DnaSequence; codonbias-only options and `Background` with Nc throw; MCP `EncPrimeNc` / `EncPrimeNcPrime` | M3 | — | Contract (A3-2) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -195,6 +200,7 @@
 | C1 | ✅ Covered | 40.5 profile within tolerance |
 | M30–M34 | ✅ Covered | `CodonUsageAnalyzer_NotCalculableEnc_CodonWGc_Tests.cs`, MCP `CodonEncCalculableGcConventionTests.cs` (F36) |
 | M40–M47 | ✅ Covered | `CodonUsageAnalyzer_EncVariants_Tests.cs`, MCP `EncMethodCodonWCapToolTests.cs` (F50/F51) |
+| M48–M52 | ✅ Covered | `CodonUsageAnalyzer_EncVariants_Tests.cs` (ENCprime region), MCP `EncMethodCodonWCapToolTests.cs` (A3-2) |
 
 ---
 
@@ -214,3 +220,4 @@
 2. **Resolved 2026-09 (review B02, F15–F17).** Whole-class-absent handling now follows CodonW `enc_out` / Wright 1990 ("Nc is not calculated" ⇒ return 0) instead of the former full-count convention (M5b 29.0 and several fuzz/property/combinatorial tests asserting 20 or [20,61] for such genes were corrected); F̂ = 0 amino acids are excluded from class averages (CodonW); classes derive from `GeneticCode` with new `CalculateEnc(..., GeneticCode)` overloads. Cross-checked against the CodonW 1.4.4 binary (6456 cases), a Python port of `enc_out` (27 tables, 21789 cases) and codonbias 0.5.0 (27 tables, 4050 genes).
 3. **Resolved 2026-09 (review B02, F36, audit A1-11).** The 0 sentinel is no longer the only way to see "not calculated": additive `TryCalculateEnc(…, out double)` overloads (repo `Try*` convention, e.g. `OncologyAnalyzer.TryFitPurityPloidy`) return `false` where CodonW prints `*****`; `CalculateEnc` delegates and still returns 0; `CodonUsageStatistics.IsEncCalculable`; MCP `effective_number_of_codons` adds `calculable`, `codon_usage_statistics` adds `isEncCalculable`. Re-verified on the CodonW 1.4.4 binary (codes 0–7 × 304 genes with in-frame stops, N/R/Y, lower-case, RNA, trailing bases): all 273 `*****` cases → `false`; all 2159 calculated cases `true` and equal at 2 dp, except the documented sense-codon cap (CodonW 61 vs 60/62/63).
 4. **Resolved 2026-10-14 (review B02, F50/F51, audit A2-7/A2-8).** Novembre (2002) Nc′ and Sun, Yang & Xia (2013) Nc are opt-in via `EncOptions.Method` (additive `CalculateEnc`/`TryCalculateEnc(…, GeneticCode, EncOptions[, out double])`), following codonbias 0.5.0 exactly (57351 gene × table × option cases, ≤ 2.2e-15 relative); `EncOptions.CodonWCap` reproduces CodonW's fixed 61 cap (2448 CodonW 1.4.4 cases). Wright default unchanged (bit-identical).
+5. **Resolved 2026-10-14 (review B02 FIN WP20, audit A3-2/A3-14).** Novembre's own program ENCprime is reproduced exactly by `EncMethod.EncPrimeNc` / `EncPrimeNcPrime` (n > 5 rule, no-pseudocount background from the gene or `EncOptions.Background`, 1/k imputation and floor, χ² sentinels, no cap): 6352/6352 gene × table cases and 30/30 rule probes identical at the program's 4 dp; table 13 keeps V/A/D/E (program `n_aa` bug). Fuglsang (2006) re-checked: it endorses Wright's without-replacement F̂ (used here) — the algorithm doc's "rounding variant" bullet was corrected.
