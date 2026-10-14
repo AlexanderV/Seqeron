@@ -109,7 +109,7 @@ Table keys may be RNA or DNA spelling. A negative or non-finite frequency/RSCU v
 ### 4.1 High-Level Steps
 
 1. Return `0` for `null` or empty input.
-2. Build `w` per synonymous family of the genetic code (Standard for `CodonOptimizer`): skip the stop family and (by default) single-codon families; `w = value / family max`; a family whose maximum is 0 has no reference data and is not scored; `w < 0.0001 → 0.01`.
+2. Build `w` per synonymous family of the genetic code (`CodonOptimizer.CalculateCAI(..., geneticCode)`, `null` = Standard): skip the stop family and (by default) single-codon families; `w = value / family max`; a family whose maximum is 0 has no reference data and is not scored; `w < 0.0001 → 0.01`.
 3. Normalize the sequence (upper case, `U→T`) and read frame-0 triplets.
 4. For each triplet that has a `w`, accumulate `ln w` and count it (`L`).
 5. Return `exp(Σ ln w / L)` when `L > 0`, otherwise `0`.
@@ -117,7 +117,10 @@ Table keys may be RNA or DNA spelling. A negative or non-finite frequency/RSCU v
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 `CodonOptimizer.CalculateCAI` converts the table keys to DNA spelling and calls the internal overload
-of `CodonUsageAnalyzer.CalculateCai` with `GeneticCode.Standard`. Codons that are context-dependent
+of `CodonUsageAnalyzer.CalculateCai` with `geneticCode ?? GeneticCode.Standard`, so the value under
+table *N* equals `CodonUsageAnalyzer.CalculateCai(sequence, table, code)` — the CodonW-locked core —
+for every NCBI table (review 2026-09, F48): under table 2, AGA/AGG are stops and are not scored,
+while Met {AUA, AUG} and Trp {UGA, UGG} are two-codon families and are therefore scored. Codons that are context-dependent
 stops in NCBI tables 27/28/31 are scored in the family of the amino acid they encode (as for RSCU).
 
 ### 4.3 Complexity
@@ -130,7 +133,7 @@ stops in NCBI tables 27/28/31 are scored in the family of the amino acid they en
 
 ### 5.1 Location and Entry Points
 
-- `CodonOptimizer.CalculateCAI(string, CodonUsageTable, bool excludeSingleCodonAminoAcids = true)` — [CodonOptimizer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs)
+- `CodonOptimizer.CalculateCAI(string, CodonUsageTable, bool excludeSingleCodonAminoAcids = true, GeneticCode? geneticCode = null)` — [CodonOptimizer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs)
 - Canonical core: `CodonUsageAnalyzer.CalculateCai(string | DnaSequence, IReadOnlyDictionary<string,double>, GeneticCode)` and the Standard-code overloads `CalculateCai(string | DnaSequence, Dictionary<string,double>)` — [CodonUsageAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs)
 - MCP: `cai_from_organism_table` → `CodonOptimizer.CalculateCAI`; `codon_adaptation_index` → `CodonUsageAnalyzer.CalculateCai`.
 

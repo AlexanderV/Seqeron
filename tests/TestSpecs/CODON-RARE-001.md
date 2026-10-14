@@ -287,3 +287,20 @@ Alignments are listed in `CodonOptimizer_SherloccConservedClusters_Tests.cs`.
 
 Cluster P-values: `sherlocc.pl` has no P-value code; the paper's model could not be retrieved
 (BLOCKED, see Evidence) — not implemented, no test.
+
+### Review 2026-09 (F48 — genetic-code-aware API, audit A2-1)
+
+`FindRareCodons` (both overloads) and `CalculateMinMaxProfile` (both overloads) gained an additive
+optional `GeneticCode? geneticCode = null` (`null` = `GeneticCode.Standard`, outputs unchanged;
+DNA Chisel `EnforceTranslation(genetic_table=…)` / `get_backtranslation_table`).
+
+| # | Scenario | Expectation | Test |
+|---|----------|-------------|------|
+| G1 | `FindRareCodons`, default vs explicit Standard | identical tuples | `FindRareCodons_GeneticCode_ChangesOnlyTheAminoAcid` |
+| G2 | `FindRareCodons`, table 2 | same positions/codons/frequencies (rarity is a per-codon table lookup); `UGA` reported as `W`, `AGA` as `*` | same test |
+| G3 | `CalculateMinMaxProfile`, default vs explicit Standard; 4- vs 5-argument overload | identical profiles | `CalculateMinMaxProfile_GeneticCode_UsesThatCodesFamilies` |
+| G4 | `CalculateMinMaxProfile`, table 2 | same window count, different values (Arg loses AGA/AGG; Met {AUA, AUG} and Trp {UGA, UGG} become two-codon families) | same test |
+
+`FindRareCodonClusters` and `FindConservedRareCodonClusters` are genetic-code independent (a pause
+is a per-codon usage lookup; no codon is translated and no family is formed) and therefore take no
+`geneticCode` parameter — documented in the XML docs and in `Rare_Codon_Detection.md`.

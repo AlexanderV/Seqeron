@@ -178,30 +178,59 @@ public static class CodonOptimizer
 
     #endregion
 
-    #region Standard Genetic Code
+    #region Genetic-code families
 
-    // Codon → amino acid and the synonymous-codon families of the NCBI Standard code (table 1),
-    // RNA spelling, in NCBI codon order (UUU, UUC, UUA, … GGG) — derived from the canonical
-    // GeneticCode.Standard, never from a private copy (DUP_MAP §2). The NCBI order fixes the
+    // Codon → amino acid and the synonymous-codon families of an NCBI genetic code, RNA
+    // spelling, in NCBI codon order (UUU, UUC, UUA, … GGG) — derived from the canonical
+    // GeneticCode tables, never from a private copy (DUP_MAP §2). The NCBI order fixes the
     // tie-break of every "most frequent synonymous codon" choice below: when two synonymous
     // codons share the maximal table frequency, the one that comes first in NCBI order wins, so
     // optimisation is deterministic (Biopython CodonAdaptationIndex.optimize only warns on such
     // ties and picks one arbitrarily).
-    private static readonly IReadOnlyDictionary<string, string> StandardCodonToAminoAcid =
-        GeneticCode.Standard.CodonTable.ToDictionary(kv => kv.Key, kv => kv.Value.ToString());
+    //
+    // A family is the set of codons GeneticCode.CodonTable assigns to one residue — DNA Chisel's
+    // get_backtranslation_table(genetic_table) (Biopython CodonTable.forward_table grouped by
+    // amino acid) and the grouping of the canonical CodonUsageAnalyzer core (RSCU/CAI/ENC). The
+    // context-dependent ("dual-coding") stops of NCBI tables 27/28/31 therefore sit in the family
+    // of the amino acid they encode, exactly as in Biopython/DNA Chisel and CodonUsageAnalyzer.
+    private sealed class CodeFamilies
+    {
+        public CodeFamilies(GeneticCode code)
+        {
+            Code = code;
+            CodonToAminoAcid = code.CodonTable.ToDictionary(kv => kv.Key, kv => kv.Value.ToString());
+            Synonyms = code.CodonTable
+                .GroupBy(kv => kv.Value)
+                .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToArray());
+        }
 
-    private static readonly IReadOnlyDictionary<char, string[]> SynonymousCodons =
-        GeneticCode.Standard.CodonTable
-            .GroupBy(kv => kv.Value)
-            .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToArray());
+        public GeneticCode Code { get; }
+
+        public IReadOnlyDictionary<string, string> CodonToAminoAcid { get; }
+
+        public IReadOnlyDictionary<char, string[]> Synonyms { get; }
+    }
+
+    // One immutable family set per NCBI table (GeneticCode instances are per-table singletons).
+    private static readonly IReadOnlyDictionary<int, CodeFamilies> FamiliesByTable =
+        GeneticCode.SupportedTableNumbers.ToDictionary(n => n, n => new CodeFamilies(GeneticCode.GetByTableNumber(n)));
+
+    private static readonly CodeFamilies StandardFamilies = FamiliesByTable[GeneticCode.Standard.TableNumber];
+
+    private static readonly IReadOnlyDictionary<string, string> StandardCodonToAminoAcid =
+        StandardFamilies.CodonToAminoAcid;
+
+    // null → the NCBI Standard code (table 1), the historical behaviour of every API here.
+    private static CodeFamilies FamiliesFor(GeneticCode? geneticCode) =>
+        geneticCode is null ? StandardFamilies : FamiliesByTable[geneticCode.TableNumber];
 
     /// <summary>
-    /// Translates one RNA triplet with the canonical <see cref="GeneticCode.Standard"/> table.
+    /// Translates one RNA triplet with the canonical genetic-code table of <paramref name="families"/>.
     /// Returns <see langword="false"/> (with <paramref name="aminoAcid"/> = 'X') for a triplet
     /// that is not a valid IUPAC codon, so callers can leave such a triplet untouched instead of
     /// throwing. IUPAC-ambiguous triplets translate per Biopython (GCN → A, UAR → *, NNN → X).
     /// </summary>
-    private static bool TryTranslateCodon(string codon, out char aminoAcid)
+    private static bool TryTranslateCodon(string codon, CodeFamilies families, out char aminoAcid)
     {
         aminoAcid = 'X';
         if (codon.Length != 3)
@@ -215,18 +244,18 @@ public static class CodonOptimizer
                 return false;
         }
 
-        aminoAcid = GeneticCode.Standard.Translate(codon);
+        aminoAcid = families.Code.Translate(codon);
         return true;
     }
 
-    // Synonymous codons of the amino acid encoded by <paramref name="codon"/>, or an empty span
-    // when the triplet is unusable (non-IUPAC symbols) or its amino acid is itself ambiguous
-    // (B, Z, J, X — no unique synonymous family).
-    private static string[] SynonymsFor(string codon)
+    // Synonymous codons of the amino acid encoded by <paramref name="codon"/> under the code of
+    // <paramref name="families"/>, or an empty span when the triplet is unusable (non-IUPAC
+    // symbols) or its amino acid is itself ambiguous (B, Z, J, X — no unique synonymous family).
+    private static string[] SynonymsFor(string codon, CodeFamilies families)
     {
-        if (!TryTranslateCodon(codon, out char aa))
+        if (!TryTranslateCodon(codon, families, out char aa))
             return Array.Empty<string>();
-        return SynonymousCodons.TryGetValue(aa, out var syn) ? syn : Array.Empty<string>();
+        return families.Synonyms.TryGetValue(aa, out var syn) ? syn : Array.Empty<string>();
     }
 
     #endregion
@@ -428,8 +457,10 @@ public static class CodonOptimizer
     /// are kept as they are; codons of single-codon amino acids (Met AUG, Trp UGG) have no
     /// synonym and never change; a triplet that is not a valid IUPAC codon, or whose amino acid
     /// is itself ambiguous (B, Z, J, X), is left untouched and contributes 'X' to
-    /// <see cref="OptimizationResult.ProteinSequence"/>. Amino acids are taken from the canonical
-    /// <see cref="GeneticCode.Standard"/> table.
+    /// <see cref="OptimizationResult.ProteinSequence"/>. Amino acids and synonymous families are
+    /// taken from the canonical <see cref="GeneticCode"/> table selected by
+    /// <paramref name="geneticCode"/> (default <see cref="GeneticCode.Standard"/>), so the
+    /// protein is preserved under that code (<c>Translator.Translate(…, geneticCode)</c>).
     /// <para>Strategies:</para>
     /// <list type="bullet">
     /// <item><description><b>MaximizeCAI</b> — every codon becomes the most frequent synonymous
@@ -474,6 +505,14 @@ public static class CodonOptimizer
     /// <c>EnforceGCContent(mini, maxi, window=gcWindow)</c>; see
     /// <see cref="BalanceGcContentWindowed"/> and <see cref="EvaluateGcContent"/>.
     /// </param>
+    /// <param name="geneticCode">
+    /// NCBI genetic code that defines the encoded protein and the synonymous-codon families
+    /// (<see langword="null"/>, the default: <see cref="GeneticCode.Standard"/>, identical to the
+    /// historical output). DNA Chisel <c>EnforceTranslation(genetic_table=…)</c>: under table 2
+    /// (vertebrate mitochondrial) AGA/AGG are stops and are never used for Arg, UGA is Trp and AUA
+    /// is Met; dual-coding codons of tables 27/28/31 belong to the family of the amino acid they
+    /// encode (Biopython <c>forward_table</c>, DNA Chisel back-translation table).
+    /// </param>
     public static OptimizationResult OptimizeSequence(
         string codingSequence,
         CodonUsageTable targetOrganism,
@@ -482,7 +521,8 @@ public static class CodonOptimizer
         double gcTargetMax = 0.60,
         double rareCodonThreshold = 0.15,
         SecondaryStructureScoring secondaryScoring = SecondaryStructureScoring.PairCount,
-        int? gcWindow = null)
+        int? gcWindow = null,
+        GeneticCode? geneticCode = null)
     {
         if (gcWindow is <= 0)
             throw new ArgumentOutOfRangeException(nameof(gcWindow), gcWindow, "The GC window must be a positive number of nucleotides.");
@@ -501,25 +541,26 @@ public static class CodonOptimizer
         }
 
         var originalCodons = SplitIntoCodons(rna);
+        var families = FamiliesFor(geneticCode);
 
-        double originalCAI = CalculateCAI(rna, targetOrganism);
+        double originalCAI = CalculateCAI(rna, targetOrganism, geneticCode: geneticCode);
         var proteinBuilder = new StringBuilder();
         foreach (string codon in originalCodons)
-            proteinBuilder.Append(TryTranslateCodon(codon, out char aa) ? aa : 'X');
+            proteinBuilder.Append(TryTranslateCodon(codon, families, out char aa) ? aa : 'X');
 
         List<string> optimizedCodons = strategy == OptimizationStrategy.HarmonizeExpression
-            ? MatchTargetCodonUsage(originalCodons, targetOrganism)
+            ? MatchTargetCodonUsage(originalCodons, targetOrganism, families)
             : originalCodons
-                .Select(c => SelectOptimalCodon(c, targetOrganism, strategy, rareCodonThreshold))
+                .Select(c => SelectOptimalCodon(c, targetOrganism, strategy, rareCodonThreshold, families))
                 .ToList();
 
         // GC balancing for the strategies that declare a GC target.
         if (strategy is OptimizationStrategy.BalancedOptimization or OptimizationStrategy.MinimizeSecondary)
         {
             if (gcWindow is int windowSize)
-                BalanceGcContentWindowed(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, windowSize, rareCodonThreshold);
+                BalanceGcContentWindowed(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, windowSize, rareCodonThreshold, families);
             else
-                BalanceGcContent(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, rareCodonThreshold);
+                BalanceGcContent(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, rareCodonThreshold, families);
         }
 
         string optimizedSequence = string.Concat(optimizedCodons);
@@ -529,7 +570,7 @@ public static class CodonOptimizer
         if (strategy == OptimizationStrategy.MinimizeSecondary)
         {
             optimizedSequence = ReduceSecondaryStructure(
-                optimizedSequence, targetOrganism, scoring: secondaryScoring);
+                optimizedSequence, targetOrganism, scoring: secondaryScoring, geneticCode: geneticCode);
             optimizedCodons = SplitIntoCodons(optimizedSequence);
         }
 
@@ -540,7 +581,7 @@ public static class CodonOptimizer
                 changes.Add((i * 3, originalCodons[i], optimizedCodons[i]));
         }
 
-        double optimizedCAI = CalculateCAI(optimizedSequence, targetOrganism);
+        double optimizedCAI = CalculateCAI(optimizedSequence, targetOrganism, geneticCode: geneticCode);
 
         return new OptimizationResult(
             OriginalSequence: rna,
@@ -556,9 +597,9 @@ public static class CodonOptimizer
 
     // Most frequent synonymous codon of <paramref name="codon"/> in <paramref name="table"/>;
     // ties (and codons without usable synonyms) resolve to the first codon in NCBI order.
-    private static string BestSynonymousCodon(string codon, CodonUsageTable table)
+    private static string BestSynonymousCodon(string codon, CodonUsageTable table, CodeFamilies families)
     {
-        var synonyms = SynonymsFor(codon);
+        var synonyms = SynonymsFor(codon, families);
         if (synonyms.Length == 0)
             return codon;
 
@@ -577,9 +618,10 @@ public static class CodonOptimizer
         return best;
     }
 
-    private static string SelectOptimalCodon(string currentCodon, CodonUsageTable table, OptimizationStrategy strategy, double rareCodonThreshold)
+    private static string SelectOptimalCodon(
+        string currentCodon, CodonUsageTable table, OptimizationStrategy strategy, double rareCodonThreshold, CodeFamilies families)
     {
-        if (!TryTranslateCodon(currentCodon, out char aminoAcid) || aminoAcid == '*')
+        if (!TryTranslateCodon(currentCodon, families, out char aminoAcid) || aminoAcid == '*')
             return currentCodon; // stop codons and unusable triplets are preserved
 
         if (strategy == OptimizationStrategy.AvoidRareCodeons &&
@@ -588,7 +630,7 @@ public static class CodonOptimizer
             return currentCodon; // not rare → untouched
         }
 
-        return BestSynonymousCodon(currentCodon, table);
+        return BestSynonymousCodon(currentCodon, table, families);
     }
 
     /// <summary>
@@ -599,7 +641,7 @@ public static class CodonOptimizer
     /// allotted codon keep it, so only the surplus positions are edited. Stop codons and triplets
     /// without a usable synonymous family are left unchanged.
     /// </summary>
-    private static List<string> MatchTargetCodonUsage(List<string> codons, CodonUsageTable table)
+    private static List<string> MatchTargetCodonUsage(List<string> codons, CodonUsageTable table, CodeFamilies families)
     {
         var result = new List<string>(codons);
 
@@ -607,7 +649,7 @@ public static class CodonOptimizer
         var positionsByAminoAcid = new Dictionary<char, List<int>>();
         for (int i = 0; i < codons.Count; i++)
         {
-            if (!TryTranslateCodon(codons[i], out char aa) || aa == '*' || !SynonymousCodons.ContainsKey(aa))
+            if (!TryTranslateCodon(codons[i], families, out char aa) || aa == '*' || !families.Synonyms.ContainsKey(aa))
                 continue;
             if (!positionsByAminoAcid.TryGetValue(aa, out var positions))
                 positionsByAminoAcid[aa] = positions = new List<int>();
@@ -616,7 +658,7 @@ public static class CodonOptimizer
 
         foreach (var (aminoAcid, positions) in positionsByAminoAcid)
         {
-            var family = SynonymousCodons[aminoAcid];
+            var family = families.Synonyms[aminoAcid];
             int n = positions.Count;
 
             double total = family.Sum(c => table.CodonFrequencies.GetValueOrDefault(c, 0));
@@ -683,7 +725,8 @@ public static class CodonOptimizer
         CodonUsageTable table,
         double minGc,
         double maxGc,
-        double minCodonFrequency)
+        double minCodonFrequency,
+        CodeFamilies families)
     {
         int length = codons.Count * 3;
         if (length == 0)
@@ -696,7 +739,7 @@ public static class CodonOptimizer
         {
             bool needMoreGc = gc < minGc * length;
             string current = codons[i];
-            if (!TryTranslateCodon(current, out char aa) || aa == '*')
+            if (!TryTranslateCodon(current, families, out char aa) || aa == '*')
                 continue;
 
             int currentGc = CountGc(current);
@@ -705,7 +748,7 @@ public static class CodonOptimizer
             double bestFrequency = double.NegativeInfinity;
             bool bestInRange = false;
 
-            foreach (string alternative in SynonymsFor(current))
+            foreach (string alternative in SynonymsFor(current, families))
             {
                 if (alternative == current)
                     continue;
@@ -908,7 +951,8 @@ public static class CodonOptimizer
         double minGc,
         double maxGc,
         int window,
-        double minCodonFrequency)
+        double minCodonFrequency,
+        CodeFamilies families)
     {
         int length = codons.Count * 3;
         if (length == 0 || window <= 0 || window > length)
@@ -996,10 +1040,10 @@ public static class CodonOptimizer
                 for (int index = firstCodon; index <= lastCodon; index++)
                 {
                     string current = codons[index];
-                    if (!TryTranslateCodon(current, out char aa) || aa == '*')
+                    if (!TryTranslateCodon(current, families, out char aa) || aa == '*')
                         continue;
 
-                    foreach (string alternative in SynonymsFor(current))
+                    foreach (string alternative in SynonymsFor(current, families))
                     {
                         if (alternative == current)
                             continue;
@@ -1059,7 +1103,11 @@ public static class CodonOptimizer
     /// frequency table: <c>CAI = exp((1/L) Σ ln w_k)</c> with <c>w_ij = f_ij / max_j f_ij</c> over the
     /// synonymous codons of amino acid i. Delegates to the canonical
     /// <see cref="CodonUsageAnalyzer.CalculateCai(string, IReadOnlyDictionary{string, double}, GeneticCode)"/>
-    /// core (CodonW <c>cai_out</c> conventions), under the Standard genetic code.
+    /// core (CodonW <c>cai_out</c> conventions), under the genetic code <paramref name="geneticCode"/>
+    /// (default Standard): the value equals
+    /// <c>CodonUsageAnalyzer.CalculateCai(codingSequence, table, geneticCode)</c>, so stops and
+    /// single-codon families are those of that code (under table 2, for instance, AGA/AGG are
+    /// stops, the Met family is {AUA, AUG} and the Trp family {UGA, UGG}, so neither is excluded).
     /// </summary>
     /// <remarks>
     /// Stop codons are never scored. A relative adaptiveness below 0.0001 (codon absent from the
@@ -1077,9 +1125,18 @@ public static class CodonOptimizer
     /// implement. <see langword="false"/>: they are scored with w = 1 (EMBOSS <c>cai</c> convention),
     /// which inflates CAI of Met/Trp-rich genes.
     /// </param>
+    /// <param name="geneticCode">
+    /// NCBI genetic code defining the stop codons and the synonymous families
+    /// (<see langword="null"/>, the default: <see cref="GeneticCode.Standard"/>, identical to the
+    /// historical value).
+    /// </param>
     /// <exception cref="ArgumentException"><paramref name="table"/> has no frequency dictionary.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A frequency is negative or not finite.</exception>
-    public static double CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = true)
+    public static double CalculateCAI(
+        string codingSequence,
+        CodonUsageTable table,
+        bool excludeSingleCodonAminoAcids = true,
+        GeneticCode? geneticCode = null)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return 0;
@@ -1092,7 +1149,8 @@ public static class CodonOptimizer
             reference[ToUpperAscii(codon).Replace('U', 'T')] = frequency;
 
         return CodonUsageAnalyzer.CalculateCai(
-            codingSequence, reference, GeneticCode.Standard, excludeSingleCodonFamilies: excludeSingleCodonAminoAcids);
+            codingSequence, reference, geneticCode ?? GeneticCode.Standard,
+            excludeSingleCodonFamilies: excludeSingleCodonAminoAcids);
     }
 
     #endregion
@@ -1121,7 +1179,16 @@ public static class CodonOptimizer
     /// <param name="codingSequence">Coding sequence (DNA or RNA); empty → empty result.</param>
     /// <param name="restrictionSites">Recognition sequences (DNA or RNA, IUPAC codes allowed).</param>
     /// <param name="table">Codon-usage table of the expression host, used to pick replacements.</param>
-    public static string RemoveRestrictionSites(string codingSequence, IEnumerable<string> restrictionSites, CodonUsageTable table)
+    /// <param name="geneticCode">
+    /// NCBI genetic code whose synonymous families the substitutions come from, so the protein is
+    /// preserved under that code (<see langword="null"/>, the default:
+    /// <see cref="GeneticCode.Standard"/>, identical to the historical output).
+    /// </param>
+    public static string RemoveRestrictionSites(
+        string codingSequence,
+        IEnumerable<string> restrictionSites,
+        CodonUsageTable table,
+        GeneticCode? geneticCode = null)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return "";
@@ -1130,6 +1197,7 @@ public static class CodonOptimizer
 
         string rna = ToUpperRna(codingSequence);
         var codons = SplitIntoCodons(rna);
+        var families = FamiliesFor(geneticCode);
 
         // Match on DNA spelling: 'U' is not an IUPAC DNA code.
         var patterns = new List<string>();
@@ -1161,7 +1229,7 @@ public static class CodonOptimizer
                 if (position < 0)
                     break;
 
-                if (TryRemoveOccurrence(codons, position, pattern, table))
+                if (TryRemoveOccurrence(codons, position, pattern, table, families))
                     continue; // re-scan from the same offset: the edit may expose/shift matches
 
                 from = position + 1; // unremovable occurrence — keep it and look further along
@@ -1194,7 +1262,8 @@ public static class CodonOptimizer
 
     // Replaces the single synonymous codon that removes the occurrence at <paramref name="position"/>
     // with the smallest loss of codon usage; returns false when no synonymous substitution works.
-    private static bool TryRemoveOccurrence(List<string> codons, int position, string pattern, CodonUsageTable table)
+    private static bool TryRemoveOccurrence(
+        List<string> codons, int position, string pattern, CodonUsageTable table, CodeFamilies families)
     {
         int firstCodon = position / 3;
         int lastCodon = Math.Min((position + pattern.Length - 1) / 3, codons.Count - 1);
@@ -1206,10 +1275,10 @@ public static class CodonOptimizer
         for (int i = firstCodon; i <= lastCodon; i++)
         {
             string original = codons[i];
-            if (!TryTranslateCodon(original, out char aa) || aa == '*')
+            if (!TryTranslateCodon(original, families, out char aa) || aa == '*')
                 continue;
 
-            foreach (string alternative in SynonymsFor(original))
+            foreach (string alternative in SynonymsFor(original, families))
             {
                 if (alternative == original)
                     continue;
@@ -1271,8 +1340,9 @@ public static class CodonOptimizer
     /// <paramref name="minCodonFrequency"/>. The sequence is upper-cased, read as RNA and trimmed
     /// to complete codons; a sequence shorter than <paramref name="windowSize"/> is returned
     /// normalised but otherwise unchanged. The translated protein is preserved in every mode:
-    /// only synonymous codons of the NCBI Standard code are used (a stop codon can only become
-    /// another stop codon).
+    /// only synonymous codons of the genetic code <paramref name="geneticCode"/> (default
+    /// <see cref="GeneticCode.Standard"/>) are used (a stop codon can only become another stop
+    /// codon).
     /// <para><b>Scoring modes</b> (<paramref name="scoring"/>):</para>
     /// <list type="bullet">
     /// <item><description><see cref="SecondaryStructureScoring.PairCount"/> (default, unchanged
@@ -1306,6 +1376,10 @@ public static class CodonOptimizer
     /// <param name="scoring">Window scoring model (default <see cref="SecondaryStructureScoring.PairCount"/>).</param>
     /// <param name="mfeThreshold">MFE in kcal/mol below which a window is rewritten (default 0, i.e. every window with a thermodynamically favourable structure; <see cref="SecondaryStructureScoring.Turner2004Mfe"/> only).</param>
     /// <param name="maxFoldEvaluations">Budget of distinct window folds in <see cref="SecondaryStructureScoring.Turner2004Mfe"/> mode (default 20000); the pass stops when it is exhausted.</param>
+    /// <param name="geneticCode">
+    /// NCBI genetic code whose synonymous families the rewrites use (<see langword="null"/>, the
+    /// default: <see cref="GeneticCode.Standard"/>, identical to the historical output).
+    /// </param>
     public static string ReduceSecondaryStructure(
         string codingSequence,
         CodonUsageTable table,
@@ -1314,7 +1388,8 @@ public static class CodonOptimizer
         double minCodonFrequency = 0.1,
         SecondaryStructureScoring scoring = SecondaryStructureScoring.PairCount,
         double mfeThreshold = 0.0,
-        int maxFoldEvaluations = 20_000)
+        int maxFoldEvaluations = 20_000,
+        GeneticCode? geneticCode = null)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return codingSequence;
@@ -1324,6 +1399,7 @@ public static class CodonOptimizer
             return rna;
 
         var codons = SplitIntoCodons(rna);
+        var families = FamiliesFor(geneticCode);
         int windowCodons = windowSize / 3 + 1;
 
         bool turner = scoring == SecondaryStructureScoring.Turner2004Mfe;
@@ -1365,7 +1441,7 @@ public static class CodonOptimizer
                 double bestScore = Score(ConcatCodons(codons, i, windowCodons, -1, current));
                 string bestAlternative = current;
 
-                foreach (string alternative in SynonymsFor(current))
+                foreach (string alternative in SynonymsFor(current, families))
                 {
                     if (alternative == current ||
                         table.CodonFrequencies.GetValueOrDefault(alternative, 0) < minCodonFrequency)
@@ -1423,18 +1499,26 @@ public static class CodonOptimizer
     /// <see cref="CodonUsageAnalyzer.CountCodons(string)"/> (EMBOSS <c>ajCodSetTripletsS</c>).
     /// A valid codon that is absent from <paramref name="table"/> (never observed in the reference
     /// genes) has frequency 0 and is reported whenever <paramref name="threshold"/> &gt; 0.
-    /// Stop codons are screened like any other row of the table. The amino acid is the NCBI
-    /// Standard-code translation (<see cref="GeneticCode.Standard"/>).
+    /// Stop codons are screened like any other row of the table. The amino acid is the
+    /// translation under <paramref name="geneticCode"/> (default <see cref="GeneticCode.Standard"/>).
     /// </remarks>
     /// <returns>
     /// (0-based nucleotide position of the codon, RNA codon, one-letter amino acid or <c>*</c>,
     /// table frequency) in sequence order.
     /// </returns>
+    /// <param name="geneticCode">
+    /// NCBI genetic code used to translate each reported codon (<see langword="null"/>, the
+    /// default: <see cref="GeneticCode.Standard"/>, identical to the historical output). The
+    /// selection of rare codons itself is code-independent (it is a per-codon table lookup); the
+    /// code only names the amino acid, so e.g. UGA is reported as <c>*</c> under table 1 and as
+    /// <c>W</c> under table 2.
+    /// </param>
     public static IEnumerable<(int Position, string Codon, string AminoAcid, double Frequency)> FindRareCodons(
         string codingSequence,
         CodonUsageTable table,
-        double threshold = 0.15)
-        => FindRareCodons(codingSequence, table, threshold, inclusiveThreshold: false);
+        double threshold = 0.15,
+        GeneticCode? geneticCode = null)
+        => FindRareCodons(codingSequence, table, threshold, inclusiveThreshold: false, geneticCode: geneticCode);
 
     /// <summary>
     /// <see cref="FindRareCodons(string, CodonUsageTable, double)"/> with a selectable threshold
@@ -1444,13 +1528,22 @@ public static class CodonOptimizer
     /// lower than the specified threshold"; Chartier et&#160;al. 2012); <see langword="false"/> is
     /// the default strict &lt; contract of the 3-argument overload.
     /// </summary>
+    /// <param name="geneticCode">
+    /// NCBI genetic code used to translate each reported codon (<see langword="null"/>, the
+    /// default: <see cref="GeneticCode.Standard"/>, identical to the historical output). The
+    /// selection of rare codons itself is code-independent (it is a per-codon table lookup); the
+    /// code only names the amino acid, so e.g. UGA is reported as <c>*</c> under table 1 and as
+    /// <c>W</c> under table 2.
+    /// </param>
     public static IEnumerable<(int Position, string Codon, string AminoAcid, double Frequency)> FindRareCodons(
         string codingSequence,
         CodonUsageTable table,
         double threshold,
-        bool inclusiveThreshold)
+        bool inclusiveThreshold,
+        GeneticCode? geneticCode = null)
     {
         var codons = SplitIntoScreenedCodons(codingSequence);
+        var code = geneticCode ?? GeneticCode.Standard;
 
         for (int i = 0; i < codons.Length; i++)
         {
@@ -1460,7 +1553,7 @@ public static class CodonOptimizer
 
             double freq = table.CodonFrequencies.GetValueOrDefault(codon, 0);
             if (IsBelowThreshold(freq, threshold, inclusiveThreshold))
-                yield return (i * 3, codon, GeneticCode.Standard.Translate(codon).ToString(), freq);
+                yield return (i * 3, codon, code.Translate(codon).ToString(), freq);
         }
     }
 
@@ -1495,7 +1588,8 @@ public static class CodonOptimizer
     /// Clarke &amp; Clark (2008), PLoS ONE 3(10):e3412; reproduced term-for-term from the Clark
     /// lab reference code (<c>calculateMinMax</c> in CHARMING.py, Wright et&#160;al. 2022), whose
     /// synonymous families are those of the Standard code including the stop family
-    /// {UAA, UAG, UGA}. Families here come from <see cref="GeneticCode.Standard"/>; codons of
+    /// {UAA, UAG, UGA}. Families here come from <paramref name="geneticCode"/> (default
+    /// <see cref="GeneticCode.Standard"/>, the reference behaviour); codons of
     /// single-codon amino acids (Met, Trp) contribute 0 to both numerator and denominator, and an
     /// ambiguous triplet (non-ACGU symbol) occupies its window position but contributes nothing.
     /// <para>
@@ -1523,11 +1617,18 @@ public static class CodonOptimizer
     /// <paramref name="windowSize"/> complete codons.
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException">windowSize &lt; 1.</exception>
+    /// <param name="geneticCode">
+    /// NCBI genetic code defining the synonymous families of the %MinMax sums
+    /// (<see langword="null"/>, the default: <see cref="GeneticCode.Standard"/>, identical to the
+    /// historical profile).
+    /// </param>
     public static IReadOnlyList<MinMaxWindow> CalculateMinMaxProfile(
         string codingSequence,
         CodonUsageTable table,
-        int windowSize = DefaultMinMaxWindowCodons)
-        => CalculateMinMaxProfile(codingSequence, table, windowSize, MinMaxUsageBasis.PerThousandWhenAvailable);
+        int windowSize = DefaultMinMaxWindowCodons,
+        GeneticCode? geneticCode = null)
+        => CalculateMinMaxProfile(
+            codingSequence, table, windowSize, MinMaxUsageBasis.PerThousandWhenAvailable, geneticCode);
 
     /// <summary>
     /// <see cref="CalculateMinMaxProfile(string, CodonUsageTable, int)"/> with an explicit choice of
@@ -1536,11 +1637,17 @@ public static class CodonOptimizer
     /// per-amino-acid fractions / caller values in <c>CodonFrequencies</c>).
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">windowSize &lt; 1, or <paramref name="basis"/> undefined.</exception>
+    /// <param name="geneticCode">
+    /// NCBI genetic code defining the synonymous families of the %MinMax sums
+    /// (<see langword="null"/>, the default: <see cref="GeneticCode.Standard"/>, identical to the
+    /// historical profile).
+    /// </param>
     public static IReadOnlyList<MinMaxWindow> CalculateMinMaxProfile(
         string codingSequence,
         CodonUsageTable table,
         int windowSize,
-        MinMaxUsageBasis basis)
+        MinMaxUsageBasis basis,
+        GeneticCode? geneticCode = null)
     {
         if (windowSize < 1)
             throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1 codon.");
@@ -1551,6 +1658,7 @@ public static class CodonOptimizer
             _ => throw new ArgumentOutOfRangeException(nameof(basis), basis, "Unknown %MinMax usage basis."),
         };
 
+        var families = FamiliesFor(geneticCode);
         var profile = new List<MinMaxWindow>();
         var codons = SplitIntoScreenedCodons(codingSequence);
         if (codons.Length < windowSize)
@@ -1569,12 +1677,12 @@ public static class CodonOptimizer
                 continue; // ambiguous triplet: all four terms stay 0 (no contribution).
 
             xij[i] = usage.GetValueOrDefault(codon, 0);
-            char aa = GeneticCode.Standard.Translate(codon);
+            char aa = families.Code.Translate(codon);
             if (!familyStats.TryGetValue(aa, out var stats))
             {
                 double sum = 0, max = double.MinValue, min = double.MaxValue;
                 int n = 0;
-                foreach (string syn in GeneticCode.Standard.GetCodonsForAminoAcid(aa))
+                foreach (string syn in families.Synonyms.GetValueOrDefault(aa, Array.Empty<string>()))
                 {
                     double f = usage.GetValueOrDefault(syn, 0);
                     sum += f;
@@ -1582,7 +1690,7 @@ public static class CodonOptimizer
                     if (f > max) max = f;
                     if (f < min) min = f;
                 }
-                stats = (sum / n, max, min);
+                stats = n > 0 ? (sum / n, max, min) : (0.0, 0.0, 0.0);
                 familyStats[aa] = stats;
             }
 
@@ -1640,7 +1748,11 @@ public static class CodonOptimizer
     /// usage (averaged over every sequence of a protein-family alignment) with the threshold, whereas
     /// this method compares each codon's own table value. Overlapping windows are merged into maximal clusters so a long
     /// rare run is reported once. This is opt-in; <see cref="FindRareCodons"/> (per-codon) is
-    /// unchanged. Defaults reproduce the published Sherlocc rule "a seven position-wide window …
+    /// unchanged. The rule is <b>genetic-code independent</b>: a pause is a per-codon usage-table
+    /// lookup, no codon is translated and no synonymous family is formed, so no
+    /// <see cref="GeneticCode"/> parameter is offered (the same holds for
+    /// <see cref="FindConservedRareCodonClusters(IReadOnlyList{string}, CodonUsageTable, double, SherloccOptions?)"/>,
+    /// <see cref="CalculateCodonUsage(string)"/> and <see cref="CompareCodonUsage(string, string)"/>). Defaults reproduce the published Sherlocc rule "a seven position-wide window …
     /// containing at least four pause positions out of seven" (Chartier et&#160;al. 2012,
     /// doi:10.1093/bioinformatics/bts149).
     /// </remarks>
@@ -2071,15 +2183,21 @@ public static class CodonOptimizer
     /// <summary>
     /// Creates a <see cref="CodonUsageTable"/> from codon frequencies, filling
     /// <see cref="CodonUsageTable.CodonToAminoAcid"/> with the canonical
-    /// <see cref="GeneticCode.Standard"/> mapping (RNA spelling) that the optimizer uses, so a
+    /// <see cref="GeneticCode"/> mapping (RNA spelling) of <paramref name="geneticCode"/>, so a
     /// caller-supplied table carries the same codon → amino-acid assignment as the built-in
     /// presets. Frequency keys are normalised to upper-case RNA spelling.
     /// </summary>
     /// <param name="organismName">Name stored in the table.</param>
     /// <param name="codonFrequencies">Per-amino-acid relative codon frequencies (DNA or RNA keys).</param>
+    /// <param name="geneticCode">
+    /// NCBI genetic code of the <see cref="CodonUsageTable.CodonToAminoAcid"/> mapping
+    /// (<see langword="null"/>, the default: <see cref="GeneticCode.Standard"/>, identical to the
+    /// historical table).
+    /// </param>
     public static CodonUsageTable CreateCodonUsageTable(
         string organismName,
-        IReadOnlyDictionary<string, double> codonFrequencies)
+        IReadOnlyDictionary<string, double> codonFrequencies,
+        GeneticCode? geneticCode = null)
     {
         ArgumentNullException.ThrowIfNull(codonFrequencies);
 
@@ -2087,13 +2205,13 @@ public static class CodonOptimizer
         foreach (var (codon, frequency) in codonFrequencies)
             frequencies[ToUpperRna(codon)] = frequency;
 
-        return new CodonUsageTable(organismName, frequencies, StandardCodonToAminoAcid);
+        return new CodonUsageTable(organismName, frequencies, FamiliesFor(geneticCode).CodonToAminoAcid);
     }
 
     /// <summary>
     /// Builds a codon-usage table from a reference gene set (one concatenated in-frame coding
     /// sequence, or a single gene), as the relative frequency of each codon within its
-    /// synonymous family of the Standard genetic code.
+    /// synonymous family of the genetic code <paramref name="geneticCode"/> (default Standard).
     /// </summary>
     /// <remarks>
     /// Codons are counted by the canonical counter (frame 0, complete unambiguous triplets only;
@@ -2106,16 +2224,27 @@ public static class CodonOptimizer
     /// simply carries no information. All 64 codons are therefore present in the result, and the
     /// relative adaptiveness w = f / max f derived from it equals Biopython's index exactly.
     /// Stop codons form their own family (as in Biopython). The frequencies of each family sum
-    /// to 1.
+    /// to 1. Stop codons of the chosen code form their own family; in tables 27/28/31 a
+    /// dual-coding codon counts in the family of the amino acid it encodes (Biopython
+    /// <c>forward_table</c>, DNA Chisel back-translation table).
     /// </remarks>
     /// <param name="referenceSequence">Reference coding sequence(s), in frame 0 (DNA or RNA).</param>
     /// <param name="organismName">Name stored in the resulting table.</param>
-    public static CodonUsageTable CreateCodonTableFromSequence(string referenceSequence, string organismName)
+    /// <param name="geneticCode">
+    /// NCBI genetic code defining the synonymous families the frequencies are normalised within,
+    /// and the resulting table's codon → amino-acid mapping (<see langword="null"/>, the default:
+    /// <see cref="GeneticCode.Standard"/>, identical to the historical table). DNA Chisel builds
+    /// its families the same way from a Biopython codon table
+    /// (<c>get_backtranslation_table(genetic_table)</c>).
+    /// </param>
+    public static CodonUsageTable CreateCodonTableFromSequence(
+        string referenceSequence, string organismName, GeneticCode? geneticCode = null)
     {
+        var families = FamiliesFor(geneticCode);
         var usage = CalculateCodonUsage(referenceSequence);
         var frequencies = new Dictionary<string, double>(64);
 
-        foreach (var family in SynonymousCodons.Values)
+        foreach (var family in families.Synonyms.Values)
         {
             // Sharp & Li (1987) / Biopython: codons absent from the reference set count as 0.5.
             double total = 0;
@@ -2131,7 +2260,7 @@ public static class CodonOptimizer
                 frequencies[family[k]] = counts[k] / total;
         }
 
-        return new CodonUsageTable(organismName, frequencies, StandardCodonToAminoAcid);
+        return new CodonUsageTable(organismName, frequencies, families.CodonToAminoAcid);
     }
 
     #endregion

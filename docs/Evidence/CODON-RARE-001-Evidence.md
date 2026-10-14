@@ -382,3 +382,23 @@ reports P-values (WebSearch snippet: P22 tailspike cluster "P-value of 1.72×10^
 eutils.ncbi.nlm.nih.gov, www.ebi.ac.uk/europepmc, api.semanticscholar.org, web.archive.org,
 ui.adsabs.harvard.edu, journals.plos.org, arxiv.org — proxy `CONNECT tunnel failed, response 403` /
 WebFetch `ENOTFOUND`; WebSearch snippets give no null model. No P-value is reported.
+
+## F48 — genetic-code awareness of the rare-codon APIs (review 2026-09, audit A2-1)
+
+Sources opened: dnachisel 3.2.16 `biotools/biotables.get_backtranslation_table` and
+`builtin_specifications/EnforceTranslation.py` (`genetic_table`), Biopython 1.88
+`Bio.Data.CodonTable` tables 2 / 4 / 11 / 27 / 28 / 31.
+
+- `FindRareCodons`: rarity is a per-codon usage-table lookup, so the *selection* is code-independent;
+  the genetic code only names the amino acid. Added optional `geneticCode` (default Standard):
+  on `AUGCGUAGACGCAGGUGAAUAUAA` at threshold 0.30 the reported positions are identical under tables 1
+  and 2, while `UGA` is reported as `*` under table 1 and `W` under table 2, and `AGA` as `*` under
+  table 2.
+- `CalculateMinMaxProfile`: the %MinMax sums are per-family (Xavg, Xmax, Xmin), so the profile is
+  code-dependent. Added optional `geneticCode` (default Standard, the Clark-lab reference
+  behaviour); under table 2 the Arg family is CGU/CGC/CGA/CGG (AGA/AGG are stops) and Met/Trp become
+  two-codon families, which changes the profile while the window count is unchanged.
+- `FindRareCodonClusters` / `FindConservedRareCodonClusters` (Sherlocc): no translation and no
+  synonymous family is involved — pause marking compares a per-codon (or per-column average) usage
+  value with the threshold — so these methods are genetic-code independent and no parameter was
+  added. Documented in the XML docs and `Rare_Codon_Detection.md`.

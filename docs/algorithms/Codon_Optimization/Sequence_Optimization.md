@@ -68,6 +68,7 @@ CAI is used as one of the optimization metrics and is defined as in [CAI_Calcula
 | `gcTargetMin` | `double` | `0.40` | Lower bound for GC balancing. | Used only during `BalancedOptimization`. |
 | `gcTargetMax` | `double` | `0.60` | Upper bound for GC balancing. | Used only during `BalancedOptimization`. |
 | `rareCodonThreshold` | `double` | `0.15` | Threshold used by rare-codon-aware branches. | Compared against table frequencies. |
+| `geneticCode` | `GeneticCode?` | `null` | NCBI genetic code defining the encoded protein and the synonymous families (`null` = `GeneticCode.Standard`, bit-identical to the historical output). DNA Chisel `EnforceTranslation(genetic_table=…)` / `CodonOptimize(…)`, whose families are `get_backtranslation_table(genetic_table)` (Biopython `forward_table` grouped by amino acid, the table's `stop_codons` as `*`). Same parameter on `CalculateCAI`, `RemoveRestrictionSites`, `ReduceSecondaryStructure`, `FindRareCodons`, `CalculateMinMaxProfile`, `CreateCodonUsageTable`, `CreateCodonTableFromSequence` (review 2026-09, F48). | Any NCBI table of `GeneticCode.SupportedTableNumbers`. |
 | `gcWindow` | `int?` | `null` | `null`: the GC pass constrains the global GC fraction (historical behaviour). A positive value: every sliding window of that many nucleotides is constrained to `[gcTargetMin, gcTargetMax]`. | Must be positive; `ArgumentOutOfRangeException` otherwise. Used only during `BalancedOptimization` / `MinimizeSecondary`. |
 
 ### 3.2 Output / Return Value
@@ -115,7 +116,9 @@ The repository strategy behaviors are:
 
 GC pass (`BalanceGcContent`): while the overall GC fraction is outside `[gcTargetMin, gcTargetMax]`, walk the codons and apply only swaps that move GC in the required direction, preferring a swap that lands the sequence inside the window over one that overshoots and, among equals, the most frequent codon; codons below `rareCodonThreshold` are not used; the pass stops as soon as the sequence is inside the window (DNA Chisel `EnforceGCContent(mini, maxi)` resolved by synonymous mutations).[8]
 
-Ambiguity: amino acids come from `GeneticCode.Standard`, so an IUPAC-ambiguous triplet that still encodes one amino acid (e.g. `GCN` → Ala) is optimised like any other codon, while `NNN`, `B`/`Z`/`J` cases and triplets containing non-IUPAC symbols are carried through unchanged and translate to `X`.
+Genetic code: amino acids and synonymous families come from the `geneticCode` argument (`null` = `GeneticCode.Standard`), so a non-standard table changes the rewrite exactly as the code dictates — under NCBI table 2 (vertebrate mitochondrial) `AGA`/`AGG` are stops and are never used for Arg, `UGA` is Trp (family {UGA, UGG}) and `AUA` is Met (family {AUA, AUG}); under table 11 the codon table equals table 1's, so the output is identical to the Standard one. In the dual-coding tables 27/28/31 a context-dependent stop belongs to the family of the amino acid it encodes (`UAA`/`UAG` → Gln in table 27), exactly as in Biopython's `forward_table` and DNA Chisel's back-translation table; a caller that must keep a terminator in those tables has to exclude it itself, and a usage table built for the Standard code is not meaningful there (use `CreateCodonTableFromSequence(reference, name, code)`).
+
+Ambiguity: amino acids come from that table, so an IUPAC-ambiguous triplet that still encodes one amino acid (e.g. `GCN` → Ala) is optimised like any other codon, while `NNN`, `B`/`Z`/`J` cases and triplets containing non-IUPAC symbols are carried through unchanged and translate to `X`.
 
 ### 4.3 Complexity
 
@@ -134,11 +137,11 @@ Ambiguity: amino acids come from `GeneticCode.Standard`, so an IUPAC-ambiguous t
 - `CodonOptimizer.BalanceGcContent(...)` (private helper)
 - `CodonOptimizer.ReduceSecondaryStructure(...)` (separate public helper not called from `OptimizeSequence`)
 - `CodonOptimizer.RemoveRestrictionSites(...)` (separate public helper: IUPAC site matching on both strands, one synonymous codon change per removed occurrence, replacement chosen by host codon usage)
-- `CodonOptimizer.CreateCodonTableFromSequence(...)` / `CodonOptimizer.CreateCodonUsageTable(...)` (reference table from a gene set, Sharp & Li 0.5 pseudo-count; table factory carrying the Standard-code codon→amino-acid map)
+- `CodonOptimizer.CreateCodonTableFromSequence(...)` / `CodonOptimizer.CreateCodonUsageTable(...)` (reference table from a gene set, Sharp & Li 0.5 pseudo-count; table factory carrying the selected code's codon→amino-acid map, Standard by default)
 
 ### 5.2 Current Behavior
 
-The result stores the normalized RNA input rather than the caller's original string. Stop codons are preserved unchanged. `Changes` and `ChangedCodons` are always rebuilt from the original vs. final codons, so they include the GC-balancing pass. `BalancedOptimization` and `MinimizeSecondary` share the same codon selection and the same GC pass; `MinimizeSecondary` then runs `ReduceSecondaryStructure` on the GC-balanced sequence, and the reported CAI, GC and `Changes` describe that final sequence (review 2026-09, F42).[7] Codon families and translation come from `GeneticCode.Standard` (no private genetic-code copy), in NCBI codon order, which is also the tie-break for equal-frequency codons.
+The result stores the normalized RNA input rather than the caller's original string. Stop codons are preserved unchanged. `Changes` and `ChangedCodons` are always rebuilt from the original vs. final codons, so they include the GC-balancing pass. `BalancedOptimization` and `MinimizeSecondary` share the same codon selection and the same GC pass; `MinimizeSecondary` then runs `ReduceSecondaryStructure` on the GC-balanced sequence, and the reported CAI, GC and `Changes` describe that final sequence (review 2026-09, F42).[7] Codon families and translation come from the canonical `GeneticCode` tables (no private genetic-code copy; `null` = Standard), in NCBI codon order, which is also the tie-break for equal-frequency codons.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -184,6 +187,7 @@ The result stores the normalized RNA input rather than the caller's original str
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [CodonOptimizer_OptimizeSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_OptimizeSequence_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [CodonOptimizer_GeneticCode_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_GeneticCode_Tests.cs) — optional `geneticCode` on every code-dependent API: default == explicit Standard, table 2 / 11 / 27 behaviour, DNA Chisel `match_codon_usage` cross-check under table 2
 - Tests: [CodonOptimizer_SecondaryStructureScoring_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_SecondaryStructureScoring_Tests.cs) — Turner 2004 window energies vs ViennaRNA 2.7.2, window-MFE improvement, protein preservation, `MinimizeSecondary` structure pass
 - Test specification: [CODON-OPT-001.md](../../../tests/TestSpecs/CODON-OPT-001.md)
 - Related algorithms: [CAI_Calculation.md](CAI_Calculation.md), [Rare_Codon_Detection.md](Rare_Codon_Detection.md), [Codon_Usage_Analysis.md](Codon_Usage_Analysis.md)

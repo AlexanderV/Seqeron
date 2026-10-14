@@ -44,7 +44,7 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
   if Σ Xij < Σ Xavg,i :  %Min = Σ(Xavg,i − Xij) / Σ(Xavg,i − Xmin,i) × 100   (negative)
   ```
 
-  A window of predominantly rare codons appears as a negative %Min value; −100 is encoded with only the rarest synonymous codons, +100 with only the most common.[6] The default window is 18 codons.[6] The formula is reproduced term-for-term from the Clark-lab reference code (`calculateMinMax` in CHARMING.py[9]), whose synonymous families are those of the Standard code including the stop family {UAA, UAG, UGA}; families here come from `GeneticCode.Standard`. The reference takes codon usage **per thousand codons** (Kazusa "/1000" column), so window sums weight each residue by its overall usage; `CalculateMinMaxProfile` therefore uses `CodonUsageTable.PerThousand` when the table carries it — the `Yeast` (Kazusa 4932) and `Human` (Kazusa 9606) presets do (review 2026-10) — and otherwise `CodonFrequencies`; a table whose `CodonFrequencies` hold per-thousand values also reproduces it exactly, while per-amino-acid relative fractions (the `EColiK12` preset, or `MinMaxUsageBasis.CodonFrequencies`) weight residues equally (identical only for single-residue windows).
+  A window of predominantly rare codons appears as a negative %Min value; −100 is encoded with only the rarest synonymous codons, +100 with only the most common.[6] The default window is 18 codons.[6] The formula is reproduced term-for-term from the Clark-lab reference code (`calculateMinMax` in CHARMING.py[9]), whose synonymous families are those of the Standard code including the stop family {UAA, UAG, UGA}; families here come from `geneticCode` (default `GeneticCode.Standard`, the reference behaviour; under NCBI table 2 the Arg family loses AGA/AGG — they are stops — while Met becomes {AUA, AUG} and Trp {UGA, UGG}, so the profile changes as the code dictates). The reference takes codon usage **per thousand codons** (Kazusa "/1000" column), so window sums weight each residue by its overall usage; `CalculateMinMaxProfile` therefore uses `CodonUsageTable.PerThousand` when the table carries it — the `Yeast` (Kazusa 4932) and `Human` (Kazusa 9606) presets do (review 2026-10) — and otherwise `CodonFrequencies`; a table whose `CodonFrequencies` hold per-thousand values also reproduces it exactly, while per-amino-acid relative fractions (the `EColiK12` preset, or `MinMaxUsageBasis.CodonFrequencies`) weight residues equally (identical only for single-residue windows).
 
 - **Sherlocc rare-codon cluster (RCC) rule (Chartier et al. 2012).**[8] A "seven position-wide window … containing at least four pause positions out of seven" is a rare-codon cluster, where a "pause"/"slow" position has a codon usage frequency "equal or lower than the specified threshold" (Sherlocc README; `sherlocc.pl`: `if($avrg <= $avrg_lim){ #We have a pause`).[8][10] `FindRareCodonClusters` therefore marks a codon as a pause when its table frequency is ≤ the threshold (since review 2026-10; `inclusiveThreshold: false` restores the strict `<`). Defaults: window 7 codons, ≥ 4 rare codons, threshold 0.15 (the cutoff of `FindRareCodons`).
 
@@ -77,6 +77,7 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
 | `codingSequence` | `string` | required | DNA or RNA coding sequence to inspect. | Empty or `null` input yields no results. |
 | `table` | `CodonUsageTable` | required | Reference codon-usage table used for frequency lookups. | A valid codon absent from the table has frequency `0`. |
 | `threshold` | `double` | `0.15` | Frequency cutoff for reporting a codon as rare. | Default comparison is strict (`< threshold`); the 4-argument overload's `inclusiveThreshold: true` reports `≤ threshold` (Sherlocc). |
+| `geneticCode` | `GeneticCode?` | `null` | NCBI genetic code used to translate each reported codon (`FindRareCodons`) and to form the synonymous families (`CalculateMinMaxProfile`); `null` = `GeneticCode.Standard`, identical to the historical output (review 2026-09, F48). | Any NCBI table of `GeneticCode.SupportedTableNumbers`. Rare-codon *selection* is code-independent (a per-codon table lookup), so only the reported amino acid changes: `UGA` is `*` under table 1 and `W` under table 2. `FindRareCodonClusters` / `FindConservedRareCodonClusters` are fully code-independent and take no such parameter. |
 
 ### 3.2 Output / Return Value
 
@@ -84,7 +85,7 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
 |------|------|-------------|
 | `Position` | `int` | Nucleotide index of the codon start. |
 | `Codon` | `string` | Normalized RNA codon. |
-| `AminoAcid` | `string` | Single-letter NCBI Standard-code (table 1) translation; `*` for a stop codon. |
+| `AminoAcid` | `string` | Single-letter translation under `geneticCode` (default NCBI table 1); `*` for a stop codon of that code. |
 | `Frequency` | `double` | Frequency retrieved from the supplied codon-usage table. |
 
 ### 3.3 Preconditions and Validation
@@ -99,7 +100,7 @@ The sequence is read in frame 0, case-insensitively, with DNA `T` normalized to 
 2. Normalize the sequence to uppercase RNA notation.
 3. Split the sequence into complete frame-0 codons (shared core `CodonUsageAnalyzer.SplitInFrameCodons`); skip ambiguous triplets without shifting the frame.
 4. For each codon, read its table frequency.
-5. If the frequency is strictly less than `threshold`, translate the codon with `GeneticCode.Standard` and yield `(position, codon, aminoAcid, frequency)`.
+5. If the frequency is strictly less than `threshold`, translate the codon with `geneticCode` (default `GeneticCode.Standard`) and yield `(position, codon, aminoAcid, frequency)`.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 

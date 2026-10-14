@@ -232,5 +232,74 @@ Protein preserved in every row (`MKEKEKEKEKEKEKE*`, `MGSGSGSGSGSGSGS*`, `MKFKFKF
 
 Deterministic greedy, not DNA Chisel's randomised constraint solver: rounds of a left-to-right pass (at most 8, each round only runs while the total breach strictly decreased) in which the left-most breaching window is repaired by the synonymous replacement — frequency ≥ `rareCodonThreshold` — of an overlapping codon that minimises, lexicographically, (breach of that window, total breach of the sequence, −codon frequency, codon position, NCBI codon order). A window that no synonymous replacement improves is left alone and the scan continues after it, so an unreachable band cannot loop or throw. Only the *evaluation* is claimed to equal DNA Chisel; the repaired sequences may differ from that library's (equally valid) random-search output.
 
+## F48 — genetic-code-aware `CodonOptimizer` API (review 2026-09, audit A2-1)
+
+### Sources opened
+
+- dnachisel 3.2.16: `builtin_specifications/EnforceTranslation.py` (`genetic_table="default"` →
+  `"Standard"`; `self.backtranslation_table = get_backtranslation_table(genetic_table)`),
+  `biotools/biotables.py::get_backtranslation_table` (Biopython
+  `CodonTable.unambiguous_dna_by_name[name].forward_table` grouped by amino acid, with
+  `table.stop_codons` as the `*` family and `X`/`B`/`J`/`Z` unions), `biotools/sequences_operations.py::translate`
+  (`table` is an NCBI table name/number resolved through Biopython), and
+  `builtin_specifications/codon_optimization/BaseCodonOptimizationClass.py::get_codons_synonyms`
+  (families are the entries of the codon-usage table, which `CodonOptimize` takes per species or
+  verbatim — so a non-standard table is expressed through `EnforceTranslation(genetic_table=…)`
+  plus a usage table built for that code).
+- Biopython 1.88 `Bio.Data.CodonTable.unambiguous_dna_by_id` for tables 2, 4, 11, 27, 28, 31.
+
+### Reference family sets (dnachisel `get_backtranslation_table`, verified by running it)
+
+| Table | R | M | W | * | Q |
+|-------|---|---|---|---|---|
+| 2 Vertebrate Mitochondrial | CGT CGC CGA CGG | ATA ATG | TGA TGG | TAA TAG AGA AGG | CAA CAG |
+| 11 Bacterial | CGT CGC CGA CGG AGA AGG | ATG | TGG | TAA TAG TGA | CAA CAG |
+| 27 Karyorelict Nuclear (dual-coding) | CGT CGC CGA CGG AGA AGG | ATG | TGA TGG | TGA | TAA TAG CAA CAG |
+
+Biopython table 11 has the same `forward_table` and `stop_codons` as table 1 (only `start_codons`
+differ), so every optimizer output under table 11 equals the Standard one — asserted as a test.
+
+### Fix
+
+One `CodeFamilies` instance per NCBI table, built from the canonical `GeneticCode.CodonTable`
+(codon → amino acid, and the amino-acid grouping in NCBI codon order) — the same grouping the
+canonical `CodonUsageAnalyzer` core uses for RSCU/CAI/ENC, and the same one DNA Chisel builds from
+Biopython. Every code-dependent public method gained an additive optional
+`GeneticCode? geneticCode = null` (`null` = Standard): `OptimizeSequence`, `CalculateCAI`,
+`RemoveRestrictionSites`, `ReduceSecondaryStructure`, `FindRareCodons` ×2,
+`CalculateMinMaxProfile` ×2, `CreateCodonUsageTable`, `CreateCodonTableFromSequence`. No private
+codon table remains in the class (the former `StandardCodonToAminoAcid` / `SynonymousCodons` static
+copies are now views of the table-1 `CodeFamilies`).
+
+### Reference numbers / locked outputs
+
+| Input | Code | Output | Note |
+|-------|------|--------|------|
+| `AUGCGUAGACGCAGGUGAAUAUAA`, `MaximizeCAI`, E. coli K12 | 1 | `AUGCGCCGCCGCCGCUGAAUUUAA` | protein `MRRRR*I*` |
+| same | 2 | `AUGCGCAGACGCAGGUGGAUGUAA` | protein `MR*R*WM*`: AGA/AGG kept (stops), UGA → UGG (Trp), AUA → AUG (Met) |
+| `AUGCGUCGUCGUCGUUAA`, AGA-dominant table | 1 | `AUGAGAAGAAGAAGAUAA` | AGA is the best Arg codon of that table |
+| same | 2 | `AUGCGCCGCCGCCGCUAA` | AGA/AGG are stops → best Arg codon is CGC |
+| `CGU`×10, `HarmonizeExpression`, E. coli K12 | 2 | `CGUCGUCGUCGUCGCCGCCGCCGCCGACGG` | dnachisel `match_codon_usage` score −0.6 = its own optimizer's score (input −11.8) |
+| `AUGCAACAGUGA`, `MaximizeCAI` | 27 | `AUGUAAUAAUGG` | protein `MQQW`: UAA/UAG are Gln codons of table 27 (Biopython / DNA Chisel family) |
+
+DNA Chisel cross-check command (table 2): `DnaOptimizationProblem(sequence=…,
+constraints=[EnforceTranslation(genetic_table="Vertebrate Mitochondrial")],
+objectives=[CodonOptimize(codon_usage_table={'R': {'CGT':0.38,'CGC':0.40,'CGA':0.06,'CGG':0.10}},
+method="match_codon_usage")])` — `objective_scores_sum()` −11.8 for `CGT`×10, −0.6 for both our
+allocation and the sequence its own `optimize()` returns (`CGTCGTCGGCGCCGCCGCCGTCGCCGACGT`).
+
+### Decisions
+
+- **Dual-coding tables 27/28/31** are accepted, not rejected: following Biopython's `forward_table`
+  and DNA Chisel's back-translation table, a context-dependent stop belongs to the family of the
+  amino acid it encodes (table 27: `UAA`/`UAG` ∈ Gln, `UGA` ∈ Trp). Consequence, documented in the
+  algorithm doc and the XML docs: no codon unambiguously terminates under those tables, so a
+  terminator must be excluded by the caller (the same reason `Translator.FindOrfs` rejects them).
+  Also note that the built-in presets' fractions are Standard-code fractions and are not meaningful
+  under another code — `CreateCodonTableFromSequence(reference, name, code)` builds a table for it.
+- **Code-independent methods** keep their signatures: `FindRareCodonClusters`,
+  `FindConservedRareCodonClusters`, `CalculateCodonUsage`, `CompareCodonUsage` perform per-codon
+  usage lookups / codon counting only.
+
 ## Date
 2026-03-10 (reviewed 2026-09-28; F43 windowed GC 2026-10-14)
