@@ -1369,6 +1369,68 @@ public static class SequenceStatistics
     }
 
     /// <summary>
+    /// Karlin's representation class of a dinucleotide relative abundance (odds ratio) ρ / ρ*.
+    /// </summary>
+    public enum DinucleotideRepresentation
+    {
+        /// <summary>0.78 &lt; ρ &lt; 1.23 — within the normal range.</summary>
+        Normal = 0,
+
+        /// <summary>ρ ≤ 0.78 — under-represented (Karlin &amp; Burge 1995).</summary>
+        UnderRepresented = 1,
+
+        /// <summary>ρ ≥ 1.23 — over-represented (Karlin &amp; Burge 1995).</summary>
+        OverRepresented = 2,
+    }
+
+    /// <summary>Karlin under-representation threshold: ρ ≤ 0.78 (Karlin &amp; Burge 1995).</summary>
+    public const double KarlinUnderRepresentedThreshold = 0.78;
+
+    /// <summary>Karlin over-representation threshold: ρ ≥ 1.23 (Karlin &amp; Burge 1995).</summary>
+    public const double KarlinOverRepresentedThreshold = 1.23;
+
+    /// <summary>
+    /// Classifies a dinucleotide relative abundance with Karlin's criterion: under-represented when
+    /// ρ ≤ 0.78, over-represented when ρ ≥ 1.23, normal otherwise (both bounds inclusive).
+    /// </summary>
+    /// <remarks>
+    /// Criterion of Karlin &amp; Burge (1995), Trends Genet 11(7):283–290, as quoted verbatim in
+    /// MBE 19(6):964: "the XY dinucleotide was considered to be underrepresented if ρ*XY ≤ 0.78 and
+    /// overrepresented if ρ*XY ≥ 1.23" (also Karlin, Mrázek &amp; Campbell 1997; Karlin 1998). Karlin
+    /// states it for the strand-symmetrized ρ*; it applies equally to single-strand ρ.
+    /// </remarks>
+    /// <param name="ratio">Odds ratio ρ (finite or +∞, ≥ 0).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ratio"/> is NaN or negative.</exception>
+    public static DinucleotideRepresentation ClassifyDinucleotideRatio(double ratio)
+    {
+        if (double.IsNaN(ratio) || ratio < 0)
+            throw new ArgumentOutOfRangeException(nameof(ratio), ratio, "Relative abundance must be a non-negative number.");
+
+        if (ratio <= KarlinUnderRepresentedThreshold) return DinucleotideRepresentation.UnderRepresented;
+        if (ratio >= KarlinOverRepresentedThreshold) return DinucleotideRepresentation.OverRepresented;
+        return DinucleotideRepresentation.Normal;
+    }
+
+    /// <summary>
+    /// Karlin representation class of every dinucleotide returned by
+    /// <see cref="CalculateDinucleotideRatios(string, bool)"/> (same keys; see
+    /// <see cref="ClassifyDinucleotideRatio(double)"/>). A dinucleotide absent from the ratio map but
+    /// whose two bases occur has ρ = 0 and is under-represented; it is not a key here, as in the ratio map.
+    /// </summary>
+    /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
+    /// <param name="strandSymmetric">true for Karlin's strand-symmetrized ρ* (default); false for single-strand ρ.</param>
+    public static IReadOnlyDictionary<string, DinucleotideRepresentation> ClassifyDinucleotideRatios(
+        string sequence,
+        bool strandSymmetric = true)
+    {
+        var classes = new Dictionary<string, DinucleotideRepresentation>();
+        foreach (var (dinucleotide, ratio) in CalculateDinucleotideRatios(sequence, strandSymmetric))
+            classes[dinucleotide] = ClassifyDinucleotideRatio(ratio);
+
+        return classes;
+    }
+
+    /// <summary>
     /// Calculates codon usage frequencies by reading consecutive, non-overlapping triplets from the
     /// given reading frame: frequency = count(codon) / total counted codons. Input is case-insensitive
     /// and may be DNA (T) or RNA (U): U is read as T and codons are reported in DNA spelling (EMBOSS
@@ -2237,6 +2299,91 @@ public static class SequenceStatistics
     {
         for (int i = 0; i <= sequence.Length - windowSize; i += stepSize)
             yield return CalculateShannonEntropy(sequence.Substring(i, windowSize));
+    }
+
+    /// <summary>
+    /// Entropy profile with optional Biopython-style trailing partial windows (letter-symbol entropy as
+    /// <see cref="CalculateEntropyProfile(string, int, int)"/>).
+    /// </summary>
+    /// <remarks>
+    /// With <paramref name="includePartialWindow"/> = true the window starts are
+    /// <c>range(0, len(seq), stepSize)</c> as in Biopython 1.88 <c>GC_skew</c> slicing: after the complete
+    /// windows, every start with start + W &gt; length yields the entropy of the truncated window
+    /// <c>seq[start:]</c> — the same convention as
+    /// <see cref="CalculateGcContentProfile(string, int, int, bool, bool)"/> (B03 F24). false equals the
+    /// three-argument overload. Oracle: <c>scipy.stats.entropy(letter counts of seq[i:i+W], base=2)</c>.
+    /// A window with no letter yields 0 (scipy: nan).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (validated eagerly).</exception>
+    public static IEnumerable<double> CalculateEntropyProfile(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool includePartialWindow)
+    {
+        if (!includePartialWindow)
+            return CalculateEntropyProfile(sequence, windowSize, stepSize);
+
+        ValidateWindowAndStep(windowSize, stepSize);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<double>();
+
+        return CalculateEntropyProfile(sequence, windowSize, stepSize)
+            .Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize)
+                .Select(i => CalculateShannonEntropy(sequence.Substring(i))));
+    }
+
+    /// <summary>
+    /// Higher-order (k-mer, block) entropy profile: the Shannon entropy in bits of the overlapping k-mer
+    /// distribution of each window, delegated per window to the canonical
+    /// <see cref="SequenceComplexity.CalculateKmerEntropy(string, int)"/> (no new kernel).
+    /// </summary>
+    /// <remarks>
+    /// <para>Order-k block entropy H_k (Herzel, Ebeling &amp; Schmitt 1994; Schmitt &amp; Herzel 1997) per
+    /// window of length W (W − k + 1 overlapping k-mers), plug-in estimate, maximum
+    /// min(2k, log₂(W − k + 1)) bits for DNA. Kernel conventions apply: the window is upper-cased and every
+    /// length-k substring is a symbol (N, IUPAC codes, gaps and non-letters are symbols, unlike the
+    /// letter-only <see cref="CalculateEntropyProfile(string, int, int)"/>; for k = 1 the two coincide on
+    /// letter-only input). A window shorter than k yields 0.</para>
+    /// <para>Windows: offsets 0, step, 2·step, … ≤ length − W; with <paramref name="includePartialWindow"/>
+    /// also the Biopython-style trailing truncated windows <c>seq[start:]</c> (as
+    /// <see cref="CalculateEntropyProfile(string, int, int, bool)"/>). Oracle:
+    /// <c>scipy.stats.entropy(Counter(w[j:j+k] for j in range(len(w)-k+1)).values(), base=2)</c>.</para>
+    /// </remarks>
+    /// <param name="sequence">Input sequence.</param>
+    /// <param name="windowSize">Window width W (≥ 1).</param>
+    /// <param name="stepSize">Window advance (≥ 1).</param>
+    /// <param name="k">K-mer length (≥ 1).</param>
+    /// <param name="includePartialWindow">Also emit trailing partial windows (default false).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/>, <paramref name="stepSize"/>
+    /// or <paramref name="k"/> is less than 1 (validated eagerly).</exception>
+    public static IEnumerable<double> CalculateEntropyProfile(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        int k,
+        bool includePartialWindow = false)
+    {
+        ValidateWindowAndStep(windowSize, stepSize);
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
+
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<double>();
+
+        var starts = CompleteWindowStarts(sequence.Length, windowSize, stepSize);
+        if (includePartialWindow)
+            starts = starts.Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize));
+
+        return starts.Select(i => SequenceComplexity.CalculateKmerEntropy(
+            sequence.Substring(i, Math.Min(windowSize, sequence.Length - i)), k));
+    }
+
+    // Offsets 0, step, 2·step, … ≤ length − windowSize of the complete windows (none when W > length).
+    private static IEnumerable<int> CompleteWindowStarts(int length, int windowSize, int stepSize)
+    {
+        for (long i = 0; i <= (long)length - windowSize; i += stepSize)
+            yield return (int)i;
     }
 
     #endregion

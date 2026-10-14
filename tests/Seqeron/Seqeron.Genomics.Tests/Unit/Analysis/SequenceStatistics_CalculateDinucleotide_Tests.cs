@@ -353,4 +353,77 @@ public class SequenceStatistics_CalculateDinucleotide_Tests
     }
 
     #endregion
+    #region Karlin representation classes (FIN-B03 WP11, audit row A19, F37)
+
+    // Criterion (Karlin & Burge 1995, quoted verbatim in MBE 19(6):964 — SEQ-DINUC-001 Evidence):
+    // "underrepresented if ρ*XY ≤ 0.78 and overrepresented if ρ*XY ≥ 1.23" (bounds inclusive).
+    [TestCase(0.0, SequenceStatistics.DinucleotideRepresentation.UnderRepresented)]
+    [TestCase(0.78, SequenceStatistics.DinucleotideRepresentation.UnderRepresented)]
+    [TestCase(0.78000000000000014, SequenceStatistics.DinucleotideRepresentation.Normal)]
+    [TestCase(1.0, SequenceStatistics.DinucleotideRepresentation.Normal)]
+    [TestCase(1.2299999999999998, SequenceStatistics.DinucleotideRepresentation.Normal)]
+    [TestCase(1.23, SequenceStatistics.DinucleotideRepresentation.OverRepresented)]
+    [TestCase(double.PositiveInfinity, SequenceStatistics.DinucleotideRepresentation.OverRepresented)]
+    public void ClassifyDinucleotideRatio_KarlinThresholds(double rho, SequenceStatistics.DinucleotideRepresentation expected)
+    {
+        Assert.That(SequenceStatistics.ClassifyDinucleotideRatio(rho), Is.EqualTo(expected));
+    }
+
+    [TestCase(double.NaN)]
+    [TestCase(-0.1)]
+    public void ClassifyDinucleotideRatio_InvalidRatio_Throws(double rho)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.ClassifyDinucleotideRatio(rho));
+    }
+
+    // ρ* of ATGCATGCAATTGGCCATGCAAACGTTTAAGG computed independently in Python (seqinr rho of
+    // seq + separator + reverse complement): AA 1.4273197929111907, AC 0.5243215565796211,
+    // AG 0.26216077828981055, AT 1.6312226204699323, CA 2.0972862263184844, CC 1.011191573403555,
+    // CG 0.67412771560237, CT 0.26216077828981055, GC 2.69651086240948, GG 1.011191573403555,
+    // GT 0.5243215565796211, TA 0.40780565511748307, TG 2.0972862263184844, TT 1.4273197929111907.
+    [Test]
+    public void ClassifyDinucleotideRatios_StrandSymmetric_MatchesKarlinClassesOfIndependentRhoStar()
+    {
+        const string seq = "ATGCATGCAATTGGCCATGCAAACGTTTAAGG";
+        var under = SequenceStatistics.DinucleotideRepresentation.UnderRepresented;
+        var over = SequenceStatistics.DinucleotideRepresentation.OverRepresented;
+        var normal = SequenceStatistics.DinucleotideRepresentation.Normal;
+        var expected = new Dictionary<string, SequenceStatistics.DinucleotideRepresentation>
+        {
+            ["AA"] = over, ["AC"] = under, ["AG"] = under, ["AT"] = over, ["CA"] = over, ["CC"] = normal,
+            ["CG"] = under, ["CT"] = under, ["GC"] = over, ["GG"] = normal, ["GT"] = under, ["TA"] = under,
+            ["TG"] = over, ["TT"] = over,
+        };
+
+        var classes = SequenceStatistics.ClassifyDinucleotideRatios(seq);
+        var ratios = SequenceStatistics.CalculateDinucleotideRatios(seq, strandSymmetric: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(classes, Is.EquivalentTo(expected));
+            Assert.That(ratios["CG"], Is.EqualTo(0.67412771560237).Within(1e-12));
+            Assert.That(ratios["TA"], Is.EqualTo(0.40780565511748307).Within(1e-12));
+        });
+    }
+
+    // Single-strand ρ (Python): AAAATTTTCCCCGGGGACGT -> AA/CC/GG/TT 2.526315789473684 (over),
+    // CG 1.6842105263157894 (over), AC/AT/GA/GT/TC 0.8421052631578947 (normal).
+    [Test]
+    public void ClassifyDinucleotideRatios_SingleStrand_KeysAndClassesFollowRatioMap()
+    {
+        var classes = SequenceStatistics.ClassifyDinucleotideRatios("AAAATTTTCCCCGGGGACGT", strandSymmetric: false);
+        var over = SequenceStatistics.DinucleotideRepresentation.OverRepresented;
+        var normal = SequenceStatistics.DinucleotideRepresentation.Normal;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(classes.Keys, Is.EquivalentTo(new[] { "AA", "AC", "AT", "CC", "CG", "GA", "GG", "GT", "TC", "TT" }));
+            foreach (var d in new[] { "AA", "CC", "GG", "TT", "CG" }) Assert.That(classes[d], Is.EqualTo(over), d);
+            foreach (var d in new[] { "AC", "AT", "GA", "GT", "TC" }) Assert.That(classes[d], Is.EqualTo(normal), d);
+            Assert.That(SequenceStatistics.ClassifyDinucleotideRatios(""), Is.Empty);
+            Assert.That(SequenceStatistics.ClassifyDinucleotideRatios("A"), Is.Empty);
+        });
+    }
+
+    #endregion
 }

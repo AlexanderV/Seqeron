@@ -104,9 +104,9 @@ Input is normalized to upper case (`ToUpperInvariant`; `CalculateCodonFrequencie
 
 **Intentionally simplified:** none.
 
-**Not implemented:**
+- Karlin over-/under-representation classes [2]: `ClassifyDinucleotideRatio(ρ)` (ρ ≤ 0.78 under, ρ ≥ 1.23 over, bounds inclusive; constants `KarlinUnderRepresentedThreshold` / `KarlinOverRepresentedThreshold`) and `ClassifyDinucleotideRatios(seq, strandSymmetric = true)` over the keys of `CalculateDinucleotideRatios` (review 2026-09 B03 F37). Absent dinucleotides (ρ = 0 when both bases occur) are not keys, as in the ratio map.
 
-- Over-/under-representation classification (0.78 / 1.23 thresholds) [2]; **users should rely on:** comparing the returned ρ against those thresholds themselves.
+**Not implemented:** none.
 
 ### 5.4 Deviations and Assumptions
 

@@ -93,13 +93,12 @@ The profile is a lazy `IEnumerable<double>` (deferred, streaming). Each window i
 - Maximum of log₂ k at the uniform distribution; 2-bit ceiling for the DNA alphabet [2][3].
 - Per-window sliding computation of the entropy [3].
 
-**Intentionally simplified:**
+- Higher-order (block / k-mer) entropy profile: `CalculateEntropyProfile(seq, W, step, k, includePartialWindow = false)` delegates each window to the canonical `SequenceComplexity.CalculateKmerEntropy(window, k)` (B04; no new kernel). Kernel conventions: window upper-cased, every length-k substring is a symbol (N/gaps included), window shorter than k → 0 (review 2026-09 B03 F38; oracle scipy `entropy(k-mer counts, base=2)`).
+- Trailing partial windows (Biopython `range(0, len, step)` slicing, as the GC profile's F24 option): `CalculateEntropyProfile(seq, W, step, includePartialWindow: true)` and the k-mer overload's flag (B03 F38).
 
-- Mono-symbol (k=1) alphabet for pᵢ: entropy is taken over single-symbol frequencies, not k-mer / block entropy. **Consequence:** the profile reflects single-symbol composition only; higher-order correlations between adjacent symbols are not captured.
+**Intentionally simplified:** none. The default three-argument profile stays order-0 (single-letter) entropy over complete windows.
 
-**Not implemented:**
-
-- Higher-order (block / n-mer) entropy; **users should rely on:** k-mer based complexity measures such as `SequenceComplexity.CalculateKmerEntropy` for correlation-aware analysis.
+**Not implemented:** none.
 
 ## 6. Edge Cases and Limitations
 
