@@ -129,7 +129,9 @@ Key findings:
 ## Open Questions / Decisions
 
 1. **Q**: Should threshold comparison be `<` or `<=`?  
-   **A**: Implementation uses `<` (strict less than). Documented.
+   **A**: `FindRareCodons` uses `<` (strict less than) by default; since 2026-10 an overload with
+   `inclusiveThreshold: true` uses `<=`. `FindRareCodonClusters` follows its source, Sherlocc
+   (`sherlocc.pl` `if($avrg <= $avrg_lim)`), and uses `<=` by default (`inclusiveThreshold: false` → `<`).
 
 2. **Q**: What happens with non-standard codons?  
    **A** (revised 2026-09): an ambiguous / non-ACGU triplet has no usage frequency and is skipped without shifting the frame; a valid codon absent from the table has frequency 0 and is flagged whenever threshold > 0.
@@ -224,3 +226,29 @@ WebSearch snippet (AGG, AGA, CUA, AUA, CGA, CCC).
 Randomised cross-check (400 sequences incl. lower case, RNA/DNA, IUPAC N/R/Y, partial codons;
 4 tables incl. per-thousand yeast; thresholds 0–1; windows 1–12): 830 rare hits, 3989 %MinMax
 windows, 101 clusters — all identical to the Python reference (1e-9).
+
+---
+
+# Review 2026-10 (FIN-B02 WP7) — Sherlocc threshold (A1-1), per-thousand presets (A1-3)
+
+Sources opened: Sherlocc 1.0 (`git clone github.com/mtthchrtr/sherlocc`, commit b3b4d15; `sherlocc.pl`
+l. 803 `if($avrg <= $avrg_lim){ #We have a pause`, README "equal or lower than the specified
+threshold"); Kazusa 4932 per thousand (CHARMING `ScerCUB.txt`); Kazusa 9606 counts (PyPI
+codon-optimizer 0.2.0 `Homo_sapiens_codon_frequency.csv`, Σ = 40 662 582); CHARMING
+`calculateMinMax` + Python port as %MinMax oracle. Kazusa 316407 per thousand: not obtainable.
+
+| ID | Case | Expected (reference) | Test |
+|----|------|----------------------|------|
+| R9 | Clusters, E. coli, `UCU UCC UCG AGU GUA GGG CGC` (six at 0.15) | default (≤, Sherlocc): (0,6,6); `inclusiveThreshold:false`: none | `FindRareCodonClusters_DefaultIsSherloccInclusive_…`, `…_StrictOption_ReproducesPreviousBehaviour` |
+| R10 | `FindRareCodons("UCUAGA")`, E. coli, 0.15 | default: (3,AGA,R,0.04); inclusive: + (0,UCU,S,0.15) | `FindRareCodons_DefaultStaysStrict_InclusiveOptionAddsCodonsAtThreshold` |
+| R11 | Preset per-thousand columns | EColiK12 null; Yeast 64 values (UUU 26.1, Σ 1000.5); Human UUU 17.56646934028931 (Σ 1000) | `Presets_PerThousand_SourcedEntries` |
+| R12 | Per-thousand ratios vs stored fractions | Human all 64 within 0.005; Yeast non-stop within 0.005, stops within 0.013 | `Presets_PerThousandRatios_MatchStoredFractions` |
+| R13 | %MinMax Yeast preset (default) `CUGAGA` w2 / 20-codon gene w18 | 33.99209486166008 / 12.68791340950089, 17.028571428571425, 15.991062879029688 (CHARMING 33.99 / 12.69, 17.03, 15.99) | `CalculateMinMaxProfile_YeastPreset_DefaultMatchesClarkLabReference` |
+| R14 | %MinMax Human preset gene w18 / `UUACGU` w2 | 28.796581754809075, 23.264123403923747, 16.195449171123403 / −96.40404591634571 (CHARMING 28.8, 23.26, 16.2 / −96.4); `CodonFrequencies` basis 19.650655021834133, 13.878080415045439, 13.803548247511891 / −94.54545454545456 | `CalculateMinMaxProfile_HumanPreset_…` |
+| R15 | %MinMax E. coli preset `CUGAGA` w2 | 36.470588235294116 under both bases (no per-thousand) | `CalculateMinMaxProfile_EColiPreset_Unchanged` |
+| R16 | Custom table with `PerThousand` init; undefined basis | 33.99209486166008; `ArgumentOutOfRangeException` | `…_CustomTableWithPerThousand_UsesIt`, `…_UndefinedBasis_Throws` |
+
+R6 (yeast fraction value 58.620689655172406) is now requested with `MinMaxUsageBasis.CodonFrequencies`
+(value unchanged). MCP: `find_rare_codons` `inclusive_threshold` (default false),
+`find_rare_codon_clusters` `inclusive_threshold` (default true), `codon_minmax_profile` `usage_basis`
+(default `PerThousandWhenAvailable`) — `SherloccThresholdPerThousandToolsTests.cs`.

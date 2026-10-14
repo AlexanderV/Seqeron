@@ -18,7 +18,7 @@ Greedily swaps codons for synonymous alternatives that lower a heuristic local s
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L584](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L584)
+- Source: [CodonOptimizer.cs#L857](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L857)
 
 ## Input Schema
 

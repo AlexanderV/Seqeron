@@ -18,7 +18,7 @@ Splits the reference into frame-0 codons, converts `T`→`U`, groups codons by t
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L986](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L986)
+- Source: [CodonOptimizer.cs#L1427](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1427)
 
 ## Input Schema
 

@@ -5,14 +5,15 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.CalculateMinMaxProfile",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L919",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1043",
   "description": "%MinMax codon-usage profile (Clarke & Clark 2008) over a sliding codon window.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA, frame 0).", "minLength": 1 },
-      "target_organism": { "type": "object", "description": "Preset id or inline custom table (per-thousand frequencies reproduce the reference exactly)." },
-      "window_size": { "type": "integer", "description": "Sliding-window width in codons.", "default": 18, "minimum": 1 }
+      "target_organism": { "type": "object", "description": "Preset id or inline custom table (Yeast/Human presets carry Kazusa per-thousand usage; inline per-thousand values reproduce the reference exactly)." },
+      "window_size": { "type": "integer", "description": "Sliding-window width in codons.", "default": 18, "minimum": 1 },
+      "usage_basis": { "type": "string", "enum": ["PerThousandWhenAvailable", "CodonFrequencies"], "description": "Preset per-thousand usage when available (default, as the reference) or always the per-amino-acid fractions / inline values.", "default": "PerThousandWhenAvailable" }
     },
     "required": ["coding_sequence", "target_organism"]
   },
@@ -35,9 +36,15 @@
   },
   "errors": [
     { "code": 1001, "message": "Coding sequence cannot be null or empty" },
-    { "code": 1002, "message": "Window size must be at least 1 codon" }
+    { "code": 1002, "message": "Window size must be at least 1 codon" },
+    { "code": 1003, "message": "Unknown usage basis" }
   ],
   "examples": [
+    {
+      "name": "Yeast preset, Kazusa 4932 per thousand",
+      "input": { "coding_sequence": "CUGAGA", "target_organism": { "preset": "Yeast" }, "window_size": 2 },
+      "output": { "windows": [ { "windowStartCodon": 0, "percentMinMax": 33.99209486166008 } ] }
+    },
     {
       "name": "Sliding %MinMax, E. coli K12",
       "input": { "coding_sequence": "CGCCGCAGAAGAAGA", "target_organism": { "preset": "EColiK12" }, "window_size": 3 },

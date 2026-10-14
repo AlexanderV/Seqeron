@@ -14,11 +14,11 @@ Report codons rarer than a threshold in the target organism.
 
 ## Description
 
-Splits the coding sequence into frame-0 codons (T→U), and reports each codon whose frequency in the target organism's codon-usage table is below `threshold` (default 0.15). Only the 64 unambiguous codons are screened: a triplet containing an ambiguity code (N, R, Y, …) is skipped without shifting the frame, and a trailing partial triplet is ignored; a valid codon absent from an inline table has frequency 0. Each result carries the codon's 0-based nucleotide position, RNA codon, amino acid (NCBI Standard code, `*` for stop), and frequency. Rare codons slow translation and are candidates for optimization.
+Splits the coding sequence into frame-0 codons (T→U), and reports each codon whose frequency in the target organism's codon-usage table is below `threshold` (default 0.15; strict <, or ≤ with `inclusive_threshold` = true — the Sherlocc "equal or lower than the threshold" comparison, `sherlocc.pl` `$avrg <= $avrg_lim`). Only the 64 unambiguous codons are screened: a triplet containing an ambiguity code (N, R, Y, …) is skipped without shifting the frame, and a trailing partial triplet is ignored; a valid codon absent from an inline table has frequency 0. Each result carries the codon's 0-based nucleotide position, RNA codon, amino acid (NCBI Standard code, `*` for stop), and frequency. Rare codons slow translation and are candidates for optimization.
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L663](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L663)
+- Source: [CodonOptimizer.cs#L950](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L950)
 
 ## Input Schema
 
@@ -27,6 +27,7 @@ Splits the coding sequence into frame-0 codons (T→U), and reports each codon w
 | `coding_sequence` | string | Yes | Coding sequence (DNA or RNA), non-empty. |
 | `target_organism` | object | Yes | Preset id (`EColiK12` \| `Yeast` \| `Human`) or inline custom table. |
 | `threshold` | number | No | Frequency threshold (default 0.15). |
+| `inclusive_threshold` | boolean | No | `false` (default): frequency < threshold; `true`: frequency ≤ threshold (Sherlocc). |
 
 ## Output Schema
 

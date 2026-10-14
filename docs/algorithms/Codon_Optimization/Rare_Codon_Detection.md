@@ -6,11 +6,11 @@
 | Test Unit ID | CODON-RARE-001 |
 | Related Projects | N/A |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-10-14 |
 
 ## 1. Overview
 
-Rare codon detection identifies codons whose reference frequency in a target organism falls below a chosen threshold.[1][2][3] In this repository, `CodonOptimizer.FindRareCodons` streams the positions, codons, amino-acid translations, and table frequencies for codons whose frequency is strictly less than the threshold (per-codon detection, default behaviour). Two opt-in companions detect rare-codon **clusters / runs**: `CodonOptimizer.CalculateMinMaxProfile` computes the Clarke & Clark (2008) %MinMax sliding-window profile,[6] and `CodonOptimizer.FindRareCodonClusters` reports rare-codon clusters using the Sherlocc rule of Chartier et al. (2012) — a 7-codon window containing at least 4 rare ("pause") codons.[8] The methods are designed for sequence inspection and optimization workflows, especially when expressing genes in a heterologous host. They are deterministic, linear in the number of complete codons, and rely entirely on the supplied `CodonUsageTable`.[5]
+Rare codon detection identifies codons whose reference frequency in a target organism falls below a chosen threshold.[1][2][3] In this repository, `CodonOptimizer.FindRareCodons` streams the positions, codons, amino-acid translations, and table frequencies for codons whose frequency is strictly less than the threshold (per-codon detection, default behaviour; an overload with `inclusiveThreshold: true` uses ≤). Two opt-in companions detect rare-codon **clusters / runs**: `CodonOptimizer.CalculateMinMaxProfile` computes the Clarke & Clark (2008) %MinMax sliding-window profile,[6] and `CodonOptimizer.FindRareCodonClusters` reports rare-codon clusters using the Sherlocc rule of Chartier et al. (2012) — a 7-codon window containing at least 4 rare ("pause") codons.[8] The methods are designed for sequence inspection and optimization workflows, especially when expressing genes in a heterologous host. They are deterministic, linear in the number of complete codons, and rely entirely on the supplied `CodonUsageTable`.[5]
 
 ## 2. Scientific / Formal Basis
 
@@ -44,9 +44,9 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
   if Σ Xij < Σ Xavg,i :  %Min = Σ(Xavg,i − Xij) / Σ(Xavg,i − Xmin,i) × 100   (negative)
   ```
 
-  A window of predominantly rare codons appears as a negative %Min value; −100 is encoded with only the rarest synonymous codons, +100 with only the most common.[6] The default window is 18 codons.[6] The formula is reproduced term-for-term from the Clark-lab reference code (`calculateMinMax` in CHARMING.py[9]), whose synonymous families are those of the Standard code including the stop family {UAA, UAG, UGA}; families here come from `GeneticCode.Standard`. The reference takes codon usage **per thousand codons** (Kazusa "/1000" column), so window sums weight each residue by its overall usage; a `CodonUsageTable` with per-thousand values reproduces it exactly, while the per-amino-acid relative fractions of the built-in presets weight residues equally (identical only for single-residue windows).
+  A window of predominantly rare codons appears as a negative %Min value; −100 is encoded with only the rarest synonymous codons, +100 with only the most common.[6] The default window is 18 codons.[6] The formula is reproduced term-for-term from the Clark-lab reference code (`calculateMinMax` in CHARMING.py[9]), whose synonymous families are those of the Standard code including the stop family {UAA, UAG, UGA}; families here come from `GeneticCode.Standard`. The reference takes codon usage **per thousand codons** (Kazusa "/1000" column), so window sums weight each residue by its overall usage; `CalculateMinMaxProfile` therefore uses `CodonUsageTable.PerThousand` when the table carries it — the `Yeast` (Kazusa 4932) and `Human` (Kazusa 9606) presets do (review 2026-10) — and otherwise `CodonFrequencies`; a table whose `CodonFrequencies` hold per-thousand values also reproduces it exactly, while per-amino-acid relative fractions (the `EColiK12` preset, or `MinMaxUsageBasis.CodonFrequencies`) weight residues equally (identical only for single-residue windows).
 
-- **Sherlocc rare-codon cluster (RCC) rule (Chartier et al. 2012).**[8] A "seven position-wide window … containing at least four pause positions out of seven" is a rare-codon cluster, where a "pause"/"slow" position is a codon whose usage frequency is below the rare threshold.[8] Defaults: window 7 codons, ≥ 4 rare codons, threshold 0.15 (the same per-codon cutoff as `FindRareCodons`).
+- **Sherlocc rare-codon cluster (RCC) rule (Chartier et al. 2012).**[8] A "seven position-wide window … containing at least four pause positions out of seven" is a rare-codon cluster, where a "pause"/"slow" position has a codon usage frequency "equal or lower than the specified threshold" (Sherlocc README; `sherlocc.pl`: `if($avrg <= $avrg_lim){ #We have a pause`).[8][10] `FindRareCodonClusters` therefore marks a codon as a pause when its table frequency is ≤ the threshold (since review 2026-10; `inclusiveThreshold: false` restores the strict `<`). Defaults: window 7 codons, ≥ 4 rare codons, threshold 0.15 (the cutoff of `FindRareCodons`).
 
 ### 2.3 Modeling Assumptions
 
@@ -60,7 +60,7 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | Every reported position is a multiple of `3`. | Positions are emitted as `codonIndex * 3`. |
-| INV-02 | Every reported frequency is strictly less than `threshold`. | The implementation uses `<`, not `<=`. |
+| INV-02 | Every frequency reported by the default `FindRareCodons` is strictly less than `threshold` (≤ with `inclusiveThreshold: true`). | The default comparison is `<`. |
 | INV-03 | Every reported codon has length `3`. | Only complete triplets are split into codons. |
 | INV-04 | Re-running the method with the same inputs yields the same output. | The method is a deterministic single pass over normalized codons. |
 | INV-05 | Every `CalculateMinMaxProfile` value lies in `[-100, 100]`. | The %MinMax numerator never exceeds the denominator (actual deviation ≤ max/min deviation).[6] |
@@ -76,7 +76,7 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
 |------|------|---------|-------------|-------------|
 | `codingSequence` | `string` | required | DNA or RNA coding sequence to inspect. | Empty or `null` input yields no results. |
 | `table` | `CodonUsageTable` | required | Reference codon-usage table used for frequency lookups. | A valid codon absent from the table has frequency `0`. |
-| `threshold` | `double` | `0.15` | Frequency cutoff for reporting a codon as rare. | Comparison is strict: only frequencies `< threshold` are reported. |
+| `threshold` | `double` | `0.15` | Frequency cutoff for reporting a codon as rare. | Default comparison is strict (`< threshold`); the 4-argument overload's `inclusiveThreshold: true` reports `≤ threshold` (Sherlocc). |
 
 ### 3.2 Output / Return Value
 
@@ -123,13 +123,14 @@ The original document recorded the following threshold-selection guidance:
 
 **Implementation location:** [CodonOptimizer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs)
 
-- `CodonOptimizer.FindRareCodons(string, CodonUsageTable, double)`: per-codon detection (default).
-- `CodonOptimizer.CalculateMinMaxProfile(string, CodonUsageTable, int)`: %MinMax sliding-window profile (Clarke & Clark 2008).[6] Returns `IReadOnlyList<MinMaxWindow>` (`WindowStartCodon`, signed `PercentMinMax`).
-- `CodonOptimizer.FindRareCodonClusters(string, CodonUsageTable, double, int, int)`: Sherlocc rare-codon clusters (Chartier et al. 2012).[8] Returns `IReadOnlyList<RareCodonCluster>` (`StartCodon`, `EndCodon`, `RareCount`), maximal non-overlapping regions in codon-index order.
+- `CodonOptimizer.FindRareCodons(string, CodonUsageTable, double)`: per-codon detection (default, strict `<`); `FindRareCodons(string, CodonUsageTable, double, bool inclusiveThreshold)` selects `≤`.
+- `CodonOptimizer.CalculateMinMaxProfile(string, CodonUsageTable, int)`: %MinMax sliding-window profile (Clarke & Clark 2008).[6] Returns `IReadOnlyList<MinMaxWindow>` (`WindowStartCodon`, signed `PercentMinMax`). Uses `CodonUsageTable.PerThousand` when present; `CalculateMinMaxProfile(string, CodonUsageTable, int, MinMaxUsageBasis)` forces `CodonFrequencies`.
+- `CodonUsageTable.PerThousand` (optional, `init`): usage per thousand codons of the same table entry; set on `Yeast` (Kazusa 4932, one-decimal column from CHARMING `ScerCUB.txt`) and `Human` (Kazusa 9606, 1000·count/40 662 582 from the Kazusa counts shipped in PyPI codon-optimizer 0.2.0); `null` on `EColiK12` (Kazusa 316407 per-thousand not obtainable).
+- `CodonOptimizer.FindRareCodonClusters(string, CodonUsageTable, double, int, int)`: Sherlocc rare-codon clusters (Chartier et al. 2012),[8] pause = frequency ≤ threshold; the 6-argument overload with `inclusiveThreshold: false` uses `<`. Returns `IReadOnlyList<RareCodonCluster>` (`StartCodon`, `EndCodon`, `RareCount`), maximal non-overlapping regions in codon-index order.
 
 ### 5.2 Current Behavior
 
-The method converts `T` to `U`, ignores trailing incomplete codons, skips ambiguous triplets (frame preserved), and reports nucleotide positions as `i * 3`. A valid codon absent from the table is treated as frequency `0`. Stop codons are screened like any other table row (E. coli `UAG` 0.07 is rare at 0.10). The threshold comparison is strict `<`, which means a codon exactly at the threshold is not reported.[5]
+The method converts `T` to `U`, ignores trailing incomplete codons, skips ambiguous triplets (frame preserved), and reports nucleotide positions as `i * 3`. A valid codon absent from the table is treated as frequency `0`. Stop codons are screened like any other table row (E. coli `UAG` 0.07 is rare at 0.10). The default threshold comparison of `FindRareCodons` is strict `<`, which means a codon exactly at the threshold is not reported;[5] `FindRareCodonClusters` uses Sherlocc's `≤` by default.[10]
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -138,12 +139,14 @@ The method converts `T` to `U`, ignores trailing incomplete codons, skips ambigu
 - Codons are flagged as rare when their reference frequency is below the chosen threshold.[2][5]
 - The result includes position, codon, amino acid, and frequency, matching the repository test specification.[5]
 - The %MinMax window formula (per-amino-acid `Xij`, `Xmax,i`, `Xmin,i`, `Xavg,i`; `%Max`/`%Min` selection by summed-window comparison; 18-codon default) is reproduced exactly.[6][7]
-- The Sherlocc rare-codon-cluster rule (7-codon window, ≥ 4 rare/pause positions) is reproduced exactly, with the tunable window/threshold parameters of the reference implementation.[8]
+- The Sherlocc rare-codon-cluster rule (7-codon window, ≥ 4 pause positions; pause = value ≤ threshold, `sherlocc.pl`) is reproduced, with tunable window/threshold parameters.[8][10]
 
 **Intentionally simplified:**
 
 - Per-codon detection is table-threshold-based and does not model ribosome dynamics or local codon context; **consequence:** the per-codon output is a screening list rather than a direct translation-efficiency prediction. (Cluster context is now available via the opt-in methods.)
-- The %MinMax reference implementation takes codon usage per thousand codons, whereas the built-in presets store per-amino-acid relative fractions; **consequence:** with a preset, mixed-residue windows weight every amino acid equally and differ from the reference (e.g. yeast CUG·AGA, window 2: 58.62 with the preset vs 33.99 with the Kazusa per-thousand table). Supplying a table whose `CodonFrequencies` are per-thousand values reproduces the reference exactly.
+- The %MinMax reference implementation takes codon usage per thousand codons. The `Yeast` and `Human` presets carry the per-thousand usage of their Kazusa entries and reproduce the reference by default (yeast CUG·AGA, window 2: 33.99 = CHARMING); the `EColiK12` preset has per-amino-acid fractions only (Kazusa 316407 per-thousand not obtainable; EMBOSS CUTG146 `Eecoli.cut` and CHARMING `EcolCUB.txt` are different E. coli entries); **consequence:** with `EColiK12` (or `MinMaxUsageBasis.CodonFrequencies`) mixed-residue windows weight every amino acid equally and differ from the reference (yeast fractions: 58.62 vs 33.99). Supplying a table with per-thousand values reproduces the reference exactly.
+- Sherlocc's pause value is the average per-thousand codon usage over a centred 7-codon window, averaged over all sequences of a Pfam alignment (columns with ≥ 25 % gaps/edges excluded), compared with a per-thousand threshold (README: "14,15,16"); `FindRareCodonClusters` compares each codon's own table value (default per-amino-acid fraction, threshold 0.15); **consequence:** pause positions are per-codon, single-sequence; results equal Sherlocc's only for a table and threshold on the same scale and without the window averaging.[10]
+- Sherlocc reports a cluster from the first to the last pause inside each qualifying window and merges only overlapping clusters; `FindRareCodonClusters` reports the full window span and also merges adjacent windows; **consequence:** region boundaries can differ from Sherlocc's by up to window − 1 codons.[10]
 - `FindRareCodonClusters` merges overlapping qualifying windows into maximal cluster regions and does not compute the simulation-based cluster P-values of the full Sherlocc pipeline; **consequence:** clusters are reported by the window/count rule only, without per-cluster statistical significance.
 
 **Not implemented:**
@@ -159,7 +162,7 @@ The method converts `T` to `U`, ignores trailing incomplete codons, skips ambigu
 |------|-------------------|-----------|
 | Empty sequence | Returns no results. | Explicit early exit. |
 | Default-threshold call | Uses `0.15`. | Default parameter value in the public API. |
-| Frequency exactly equal to threshold | Not reported. | The comparison is `<`, not `<=`. |
+| Frequency exactly equal to threshold | `FindRareCodons`: not reported by default (`<`), reported with `inclusiveThreshold: true`; `FindRareCodonClusters`: a pause by default (Sherlocc `≤`). | Default contracts; Sherlocc `$avrg <= $avrg_lim`. |
 | Ambiguous triplet (`NNN`, `RYU`, …) | Skipped (not reported, not a cluster pause position, no %MinMax contribution); later positions keep their frame. | No codon-usage frequency exists for it (EMBOSS `ajCodSetTripletsS`). |
 | Valid codon absent from the table | Reported with frequency `0` when `threshold > 0`. | Never observed in the reference genes. |
 | Stop codon | Screened like any table row; amino acid `*`. | Stops are rows of the Kazusa/cusp table. |
@@ -191,6 +194,7 @@ var profile = CodonOptimizer.CalculateMinMaxProfile("AGAAGAAGA", CodonOptimizer.
 
 - Tests (per-codon): [CodonOptimizer_FindRareCodons_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_FindRareCodons_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Tests (clusters / runs): [CodonOptimizer_RareCodonClusters_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_RareCodonClusters_Tests.cs) — covers `INV-05`, `INV-06`, `INV-07`, `INV-08`
+- Tests (Sherlocc threshold, per-thousand presets): [CodonOptimizer_SherloccThreshold_PerThousandPresets_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_SherloccThreshold_PerThousandPresets_Tests.cs)
 - Test specification: [CODON-RARE-001.md](../../../tests/TestSpecs/CODON-RARE-001.md)
 - Related algorithms: [Sequence_Optimization.md](Sequence_Optimization.md), [CAI_Calculation.md](CAI_Calculation.md)
 
@@ -205,3 +209,4 @@ var profile = CodonOptimizer.CalculateMinMaxProfile("AGAAGAAGA", CodonOptimizer.
 7. Rodriguez A, Wright G, Emrich S, Clark PL. 2018. %MinMax: A versatile tool for calculating and comparing synonymous codon usage and its impact on protein folding. Protein Science. https://pmc.ncbi.nlm.nih.gov/articles/PMC5734269/
 8. Chartier M, Gaudreault F, Najmanovich R. 2012. Large-scale analysis of conserved rare codon clusters suggests an involvement in co-translational molecular recognition events. Bioinformatics 28(11):1438–1445. https://doi.org/10.1093/bioinformatics/bts149
 9. Wright G, Rodriguez A, Li J, Milenković T, Emrich SJ, Clark PL. 2022. CHARMING: Harmonizing synonymous codon usage to replicate a desired codon usage pattern. Protein Science 31(1), doi:10.1002/pro.4223 (PMID 34738275). Reference code https://github.com/wrightgs/CHARMING (`CHARMING.py` `calculateMinMax`, `ScerCUB.txt`).
+10. Chartier M, Najmanovich R. SHERLOCC 1.0 reference implementation, `sherlocc.pl` and README. https://github.com/mtthchrtr/sherlocc (commit b3b4d15987c5f8205d1957db3a757dbd390d5049, 2020-06-25; opened 2026-10-14).

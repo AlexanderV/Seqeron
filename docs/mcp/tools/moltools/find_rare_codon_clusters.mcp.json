@@ -5,16 +5,17 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.FindRareCodonClusters",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1020",
-  "description": "Rare-codon clusters by the Sherlocc rule (Chartier et al. 2012): >= min_rare_codons rare codons in a window_size-codon window, merged into maximal regions.",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1171",
+  "description": "Rare-codon clusters by the Sherlocc rule (Chartier et al. 2012): >= min_rare_codons rare codons (frequency <= threshold, Sherlocc) in a window_size-codon window, merged into maximal regions.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA, frame 0).", "minLength": 1 },
       "target_organism": { "type": "object", "description": "Preset id or inline custom table." },
-      "threshold": { "type": "number", "description": "Per-codon rare-frequency cutoff (strict <).", "default": 0.15 },
+      "threshold": { "type": "number", "description": "Per-codon rare-frequency cutoff (<= by default, Sherlocc).", "default": 0.15 },
       "window_size": { "type": "integer", "description": "Cluster window width in codons.", "default": 7, "minimum": 1 },
-      "min_rare_codons": { "type": "integer", "description": "Minimum rare codons in a window to call a cluster.", "default": 4, "minimum": 1 }
+      "min_rare_codons": { "type": "integer", "description": "Minimum rare codons in a window to call a cluster.", "default": 4, "minimum": 1 },
+      "inclusive_threshold": { "type": "boolean", "description": "true: frequency <= threshold is a pause (Sherlocc); false: frequency < threshold.", "default": true }
     },
     "required": ["coding_sequence", "target_organism"]
   },
@@ -42,6 +43,11 @@
     { "code": 1003, "message": "Minimum rare codons must be at least 1" }
   ],
   "examples": [
+    {
+      "name": "Codons exactly at the threshold (Sherlocc <=)",
+      "input": { "coding_sequence": "UCUUCCUCGAGUGUAGGGCGC", "target_organism": { "preset": "EColiK12" } },
+      "output": { "clusters": [ { "startCodon": 0, "endCodon": 6, "rareCount": 6 } ] }
+    },
     {
       "name": "Two separated rare runs",
       "input": { "coding_sequence": "AGAAGAAGAAGAAGAAGAAGACGCCGCCGCCGCCGCCGCCGCCGCAGAAGAAGAAGAAGAAGAAGA", "target_organism": { "preset": "EColiK12" } },

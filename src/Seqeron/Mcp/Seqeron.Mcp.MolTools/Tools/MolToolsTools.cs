@@ -771,51 +771,57 @@ public class MolToolsTools
         return new OptimizedSequenceResult(CodonOptimizer.ReduceSecondaryStructure(coding_sequence, table, window_size));
     }
 
-    [McpServerTool(Name = "find_rare_codons", Title = "MolTools — Find Rare Codons", ReadOnly = true), Description("Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15), with its 0-based position, codon (RNA), amino acid (Standard code, * for stop) and frequency. Frame-0 complete triplets only; ambiguous triplets (N, R, Y, …) are skipped without shifting the frame. Call to locate translation-slowing rare codons before optimization.")]
+    [McpServerTool(Name = "find_rare_codons", Title = "MolTools — Find Rare Codons", ReadOnly = true), Description("Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15; strict <, or <= with inclusive_threshold = true as in Sherlocc), with its 0-based position, codon (RNA), amino acid (Standard code, * for stop) and frequency. Frame-0 complete triplets only; ambiguous triplets (N, R, Y, …) are skipped without shifting the frame. Call to locate translation-slowing rare codons before optimization.")]
     public static RareCodonsResult find_rare_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
-        [Description("Frequency threshold (default 0.15).")] double threshold = 0.15)
+        [Description("Frequency threshold (default 0.15).")] double threshold = 0.15,
+        [Description("false (default): frequency < threshold; true: frequency <= threshold (Sherlocc 'equal or lower than the threshold', Chartier et al. 2012).")] bool inclusive_threshold = false)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
 
         var table = ResolveCodonUsageTable(target_organism);
-        var rare = CodonOptimizer.FindRareCodons(coding_sequence, table, threshold)
+        var rare = CodonOptimizer.FindRareCodons(coding_sequence, table, threshold, inclusive_threshold)
             .Select(t => new RareCodon(t.Position, t.Codon, t.AminoAcid, t.Frequency))
             .ToList();
         return new RareCodonsResult(rare);
     }
 
-    [McpServerTool(Name = "codon_minmax_profile", Title = "MolTools — %MinMax Codon-Usage Profile", ReadOnly = true), Description("%MinMax codon-usage profile (Clarke & Clark 2008, PLoS ONE 3:e3412; term-for-term as the Clark lab calculateMinMax reference code) over a sliding window of window_size codons (default 18). One value per window start (0-based codon index 0 .. codonCount - window_size): positive = %Max (run of predominantly common synonymous codons, +100 = all most-common), negative = %Min (run of rare codons, -100 = all rarest), 0 = average usage. Synonymous families (including the stop family) are those of the Standard code; Met/Trp contribute 0; an ambiguous triplet occupies its window position but contributes nothing. A per-thousand usage table (Kazusa /1000 column, supplied inline) reproduces the reference exactly; the presets hold per-amino-acid fractions, which weight every residue equally. Empty when the sequence has fewer than window_size complete codons. Call to locate slowly-translated (rare-codon) regions along a gene.")]
+    [McpServerTool(Name = "codon_minmax_profile", Title = "MolTools — %MinMax Codon-Usage Profile", ReadOnly = true), Description("%MinMax codon-usage profile (Clarke & Clark 2008, PLoS ONE 3:e3412; term-for-term as the Clark lab calculateMinMax reference code) over a sliding window of window_size codons (default 18). One value per window start (0-based codon index 0 .. codonCount - window_size): positive = %Max (run of predominantly common synonymous codons, +100 = all most-common), negative = %Min (run of rare codons, -100 = all rarest), 0 = average usage. Synonymous families (including the stop family) are those of the Standard code; Met/Trp contribute 0; an ambiguous triplet occupies its window position but contributes nothing. The reference takes per-thousand usage (Kazusa /1000 column): with usage_basis PerThousandWhenAvailable (default) the Yeast and Human presets use their Kazusa 4932 / 9606 per-thousand usage and reproduce the reference; an inline table is used as given (supply per-thousand values for reference-equal results); the EColiK12 preset has per-amino-acid fractions only, which weight every residue equally (as does usage_basis CodonFrequencies on any preset). Empty when the sequence has fewer than window_size complete codons. Call to locate slowly-translated (rare-codon) regions along a gene.")]
     public static MinMaxProfileResult codon_minmax_profile(
         [Description("Coding sequence (DNA or RNA, frame 0).")] string coding_sequence,
         [Description("Reference organism: preset id or inline custom table (per-thousand frequencies reproduce the reference values exactly).")] CodonUsageTableInput target_organism,
-        [Description("Sliding-window width in codons (default 18, Clarke & Clark 2008); must be >= 1.")] int window_size = 18)
+        [Description("Sliding-window width in codons (default 18, Clarke & Clark 2008); must be >= 1.")] int window_size = 18,
+        [Description("Usage values: PerThousandWhenAvailable (default; preset per-thousand usage when present, as the reference) or CodonFrequencies (always the per-amino-acid fractions / inline values).")] CodonOptimizer.MinMaxUsageBasis usage_basis = CodonOptimizer.MinMaxUsageBasis.PerThousandWhenAvailable)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+        if (usage_basis is not (CodonOptimizer.MinMaxUsageBasis.PerThousandWhenAvailable or CodonOptimizer.MinMaxUsageBasis.CodonFrequencies))
+            throw new System.ArgumentException(
+                $"Unknown usage basis: {usage_basis}. Supported: PerThousandWhenAvailable, CodonFrequencies.", nameof(usage_basis));
 
         var table = ResolveCodonUsageTable(target_organism);
-        var windows = CodonOptimizer.CalculateMinMaxProfile(coding_sequence, table, window_size)
+        var windows = CodonOptimizer.CalculateMinMaxProfile(coding_sequence, table, window_size, usage_basis)
             .Select(w => new MinMaxWindowDto(w.WindowStartCodon, w.PercentMinMax))
             .ToList();
         return new MinMaxProfileResult(windows);
     }
 
-    [McpServerTool(Name = "find_rare_codon_clusters", Title = "MolTools — Find Rare-Codon Clusters", ReadOnly = true), Description("Rare-codon clusters by the Sherlocc rule (Chartier et al. 2012, Bioinformatics 28:1438): a window of window_size codons (default 7) is a cluster when it holds at least min_rare_codons (default 4) rare codons; overlapping cluster windows are merged into maximal regions reported once. A codon is rare when its frequency in the organism table is strictly below threshold (default 0.15) - the same per-codon criterion as find_rare_codons; ambiguous triplets are never rare. Returns 0-based inclusive codon indices (start_codon, end_codon) and the rare-codon count per region. Call to find runs of rare codons (translational pause sites) rather than isolated rare codons.")]
+    [McpServerTool(Name = "find_rare_codon_clusters", Title = "MolTools — Find Rare-Codon Clusters", ReadOnly = true), Description("Rare-codon clusters by the Sherlocc rule (Chartier et al. 2012, Bioinformatics 28:1438): a window of window_size codons (default 7) is a cluster when it holds at least min_rare_codons (default 4) rare codons; overlapping cluster windows are merged into maximal regions reported once. A codon is rare when its frequency in the organism table is equal to or lower than threshold (default 0.15; Sherlocc sherlocc.pl `$avrg <= $avrg_lim`); inclusive_threshold = false gives the strict < comparison of find_rare_codons' default; ambiguous triplets are never rare. Returns 0-based inclusive codon indices (start_codon, end_codon) and the rare-codon count per region. Call to find runs of rare codons (translational pause sites) rather than isolated rare codons.")]
     public static RareCodonClustersResult find_rare_codon_clusters(
         [Description("Coding sequence (DNA or RNA, frame 0).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
-        [Description("Per-codon rare-frequency cutoff, strict < (default 0.15).")] double threshold = 0.15,
+        [Description("Per-codon rare-frequency cutoff (default 0.15).")] double threshold = 0.15,
         [Description("Cluster window width in codons (default 7, Sherlocc); must be >= 1.")] int window_size = 7,
-        [Description("Minimum rare codons in a window to call a cluster (default 4, Sherlocc); must be >= 1.")] int min_rare_codons = 4)
+        [Description("Minimum rare codons in a window to call a cluster (default 4, Sherlocc); must be >= 1.")] int min_rare_codons = 4,
+        [Description("true (default, Sherlocc): frequency <= threshold is a pause; false: frequency < threshold.")] bool inclusive_threshold = true)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
 
         var table = ResolveCodonUsageTable(target_organism);
-        var clusters = CodonOptimizer.FindRareCodonClusters(coding_sequence, table, threshold, window_size, min_rare_codons)
+        var clusters = CodonOptimizer.FindRareCodonClusters(coding_sequence, table, threshold, window_size, min_rare_codons, inclusive_threshold)
             .Select(c => new RareCodonClusterDto(c.StartCodon, c.EndCodon, c.RareCount))
             .ToList();
         return new RareCodonClustersResult(clusters);

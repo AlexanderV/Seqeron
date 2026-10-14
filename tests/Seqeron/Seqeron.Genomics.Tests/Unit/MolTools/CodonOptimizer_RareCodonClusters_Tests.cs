@@ -470,10 +470,14 @@ public class CodonOptimizer_RareCodonClusters_Tests
     // The same CUG·AGA window with the built-in per-amino-acid relative fractions gives a
     // different value (58.62 vs 33.99): relative fractions weight every residue equally, so
     // they reproduce the reference only for single-amino-acid windows (documented contract).
+    // Since review 2026-10 (A1-3) the Yeast preset carries Kazusa per-thousand usage and the
+    // default overload uses it (= 33.99, see CodonOptimizer_SherloccThreshold_PerThousandPresets_Tests);
+    // the fraction-based value is requested explicitly.
     [Test]
     public void CalculateMinMaxProfile_RelativeFractionPreset_WeightsResiduesEqually()
     {
-        var rel = CodonOptimizer.CalculateMinMaxProfile("CUGAGA", CodonOptimizer.Yeast, windowSize: 2);
+        var rel = CodonOptimizer.CalculateMinMaxProfile("CUGAGA", CodonOptimizer.Yeast, windowSize: 2,
+            CodonOptimizer.MinMaxUsageBasis.CodonFrequencies);
         Assert.That(rel[0].PercentMinMax, Is.EqualTo(58.620689655172406).Within(1e-9));
     }
 

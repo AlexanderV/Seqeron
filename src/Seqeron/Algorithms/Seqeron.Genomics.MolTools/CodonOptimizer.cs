@@ -12,10 +12,49 @@ public static class CodonOptimizer
     /// <summary>
     /// Represents an organism's codon usage table.
     /// </summary>
+    /// <param name="OrganismName">Organism name.</param>
+    /// <param name="CodonFrequencies">
+    /// Codon usage (RNA keys). For the built-in presets: relative frequency of each codon within
+    /// its synonymous family (Kazusa "fraction" column).
+    /// </param>
+    /// <param name="CodonToAminoAcid">Codon → one-letter amino acid mapping.</param>
     public readonly record struct CodonUsageTable(
         string OrganismName,
         IReadOnlyDictionary<string, double> CodonFrequencies,
-        IReadOnlyDictionary<string, string> CodonToAminoAcid);
+        IReadOnlyDictionary<string, string> CodonToAminoAcid)
+    {
+        /// <summary>
+        /// Optional usage of each codon per thousand codons of the SAME table entry (Kazusa / CUTG
+        /// "/1000" column, RNA keys), or <see langword="null"/> when the table carries only
+        /// <see cref="CodonFrequencies"/>. Unlike the per-amino-acid fractions, these values weight
+        /// each residue by its overall usage — the input the %MinMax reference implementation takes
+        /// (Clarke &amp; Clark 2008; Clark-lab <c>calculateMinMax</c>), so
+        /// <see cref="CalculateMinMaxProfile(string, CodonUsageTable, int)"/> uses them when present.
+        /// Set for <see cref="Yeast"/> (Kazusa species=4932) and <see cref="Human"/> (Kazusa
+        /// species=9606); <see cref="EColiK12"/> has none (see its remarks).
+        /// </summary>
+        public IReadOnlyDictionary<string, double>? PerThousand { get; init; }
+    }
+
+    /// <summary>
+    /// Which codon-usage values <see cref="CalculateMinMaxProfile(string, CodonUsageTable, int, MinMaxUsageBasis)"/>
+    /// feeds into the %MinMax sums.
+    /// </summary>
+    public enum MinMaxUsageBasis
+    {
+        /// <summary>
+        /// <see cref="CodonUsageTable.PerThousand"/> when the table carries it, otherwise
+        /// <see cref="CodonUsageTable.CodonFrequencies"/> (default; per-thousand usage is the input of
+        /// the Clark-lab reference implementation).
+        /// </summary>
+        PerThousandWhenAvailable = 0,
+
+        /// <summary>
+        /// Always <see cref="CodonUsageTable.CodonFrequencies"/> (for the presets: per-amino-acid
+        /// fractions, every residue weighted equally — the pre-2026-10 behaviour for Yeast/Human).
+        /// </summary>
+        CodonFrequencies = 1,
+    }
 
     /// <summary>
     /// Result of codon optimization.
@@ -126,6 +165,13 @@ public static class CodonOptimizer
     /// Source: Kazusa Codon Usage Database, species=316407 (E. coli K-12 substr. W3110, 4332 CDS).
     /// URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407
     /// </summary>
+    /// <remarks>
+    /// <see cref="CodonUsageTable.PerThousand"/> is <see langword="null"/>: the per-thousand column
+    /// of this Kazusa entry could not be obtained from a primary source (review 2026-10), and the
+    /// EMBOSS CUTG146 <c>Eecoli.cut</c> / Clark-lab <c>EcolCUB.txt</c> tables are different E. coli
+    /// entries whose fractions disagree with these at 9 / 43 codons. %MinMax on this preset therefore
+    /// uses the per-amino-acid fractions (equal residue weighting).
+    /// </remarks>
     public static readonly CodonUsageTable EColiK12 = new(
         "Escherichia coli K12",
         new Dictionary<string, double>
@@ -180,6 +226,13 @@ public static class CodonOptimizer
     /// Source: Kazusa Codon Usage Database, species=4932.
     /// URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=4932
     /// </summary>
+    /// <remarks>
+    /// <see cref="CodonUsageTable.PerThousand"/>: the same Kazusa species=4932 entry, frequency per
+    /// thousand codons as published (one decimal), verbatim from the Clark-lab CHARMING repository
+    /// file <c>ScerCUB.txt</c> (github.com/wrightgs/CHARMING, commit 2c75d1b). Its per-amino-acid
+    /// ratios round to these fractions at 62/64 codons; the stop family (UAA 1.1, UAG 0.5, UGA 0.7)
+    /// differs by ≤ 0.013 only because its per-thousand values are rounded to 0.1.
+    /// </remarks>
     public static readonly CodonUsageTable Yeast = new(
         "Saccharomyces cerevisiae",
         new Dictionary<string, double>
@@ -206,13 +259,23 @@ public static class CodonOptimizer
             { "CGU", 0.14 }, { "CGC", 0.06 }, { "CGA", 0.07 }, { "CGG", 0.04 }, { "AGA", 0.48 }, { "AGG", 0.21 },
             { "GGU", 0.47 }, { "GGC", 0.19 }, { "GGA", 0.22 }, { "GGG", 0.12 }
         },
-        StandardCodonToAminoAcid);
+        StandardCodonToAminoAcid)
+    {
+        PerThousand = YeastKazusaPerThousand(),
+    };
 
     /// <summary>
     /// Human codon usage frequencies (relative fraction per amino acid).
     /// Source: Kazusa Codon Usage Database, species=9606.
     /// URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=9606
     /// </summary>
+    /// <remarks>
+    /// <see cref="CodonUsageTable.PerThousand"/>: 1000 × count / 40 662 582 from the codon counts
+    /// ("Number" column) of the same Kazusa species=9606 entry (93 487 CDS, 40 662 582 codons), as
+    /// shipped in the PyPI package codon-optimizer 0.2.0
+    /// (<c>reference_seq/Homo_sapiens_codon_frequency.csv</c>, citing kazusa.or.jp/codon). The
+    /// per-amino-acid ratios of these counts round to the fractions below at all 64 codons.
+    /// </remarks>
     public static readonly CodonUsageTable Human = new(
         "Homo sapiens",
         new Dictionary<string, double>
@@ -239,7 +302,45 @@ public static class CodonOptimizer
             { "CGU", 0.08 }, { "CGC", 0.18 }, { "CGA", 0.11 }, { "CGG", 0.20 }, { "AGA", 0.21 }, { "AGG", 0.21 },
             { "GGU", 0.16 }, { "GGC", 0.34 }, { "GGA", 0.25 }, { "GGG", 0.25 }
         },
-        StandardCodonToAminoAcid);
+        StandardCodonToAminoAcid)
+    {
+        PerThousand = HumanKazusaPerThousand(),
+    };
+
+    // Kazusa species=4932 frequency per thousand codons (one decimal, as published), verbatim from
+    // CHARMING ScerCUB.txt (Clark lab; github.com/wrightgs/CHARMING). A method, not a static field,
+    // so the preset initialiser above does not depend on static field order.
+    private static IReadOnlyDictionary<string, double> YeastKazusaPerThousand() => new Dictionary<string, double>
+    {
+            { "UUU", 26.1 }, { "UUC", 18.4 }, { "UUA", 26.2 }, { "UUG", 27.2 }, { "UCU", 23.5 }, { "UCC", 14.2 }, { "UCA", 18.7 }, { "UCG", 8.6 },
+            { "UAU", 18.8 }, { "UAC", 14.8 }, { "UAA", 1.1 }, { "UAG", 0.5 }, { "UGU", 8.1 }, { "UGC", 4.8 }, { "UGA", 0.7 }, { "UGG", 10.4 },
+            { "CUU", 12.3 }, { "CUC", 5.4 }, { "CUA", 13.4 }, { "CUG", 10.5 }, { "CCU", 13.5 }, { "CCC", 6.8 }, { "CCA", 18.3 }, { "CCG", 5.3 },
+            { "CAU", 13.6 }, { "CAC", 7.8 }, { "CAA", 27.3 }, { "CAG", 12.1 }, { "CGU", 6.4 }, { "CGC", 2.6 }, { "CGA", 3.0 }, { "CGG", 1.7 },
+            { "AUU", 30.1 }, { "AUC", 17.2 }, { "AUA", 17.8 }, { "AUG", 20.9 }, { "ACU", 20.3 }, { "ACC", 12.7 }, { "ACA", 17.8 }, { "ACG", 8.0 },
+            { "AAU", 35.7 }, { "AAC", 24.8 }, { "AAA", 41.9 }, { "AAG", 30.8 }, { "AGU", 14.2 }, { "AGC", 9.8 }, { "AGA", 21.3 }, { "AGG", 9.2 },
+            { "GUU", 22.1 }, { "GUC", 11.8 }, { "GUA", 11.8 }, { "GUG", 10.8 }, { "GCU", 21.2 }, { "GCC", 12.6 }, { "GCA", 16.2 }, { "GCG", 6.2 },
+            { "GAU", 37.6 }, { "GAC", 20.2 }, { "GAA", 45.6 }, { "GAG", 19.2 }, { "GGU", 23.9 }, { "GGC", 9.8 }, { "GGA", 10.9 }, { "GGG", 6.0 },
+    };
+
+    // Kazusa species=9606 codon counts ("Number" column; 40 662 582 codons), as shipped in PyPI
+    // codon-optimizer 0.2.0 reference_seq/Homo_sapiens_codon_frequency.csv; per thousand =
+    // 1000 * count / total.
+    private static IReadOnlyDictionary<string, double> HumanKazusaPerThousand()
+    {
+        var counts = new Dictionary<string, long>
+        {
+                { "UUU", 714298 }, { "UUC", 824692 }, { "UUA", 311881 }, { "UUG", 525688 }, { "UCU", 618711 }, { "UCC", 718892 }, { "UCA", 496448 }, { "UCG", 179419 },
+                { "UAU", 495699 }, { "UAC", 622407 }, { "UAA", 40285 }, { "UAG", 32109 }, { "UGU", 430311 }, { "UGC", 513028 }, { "UGA", 63237 }, { "UGG", 535595 },
+                { "CUU", 536515 }, { "CUC", 796638 }, { "CUA", 290751 }, { "CUG", 1611801 }, { "CCU", 713233 }, { "CCC", 804620 }, { "CCA", 688038 }, { "CCG", 281570 },
+                { "CAU", 441711 }, { "CAC", 613713 }, { "CAA", 501911 }, { "CAG", 1391973 }, { "CGU", 184609 }, { "CGC", 423516 }, { "CGA", 250760 }, { "CGG", 464485 },
+                { "AUU", 650473 }, { "AUC", 846466 }, { "AUA", 304565 }, { "AUG", 896005 }, { "ACU", 533609 }, { "ACC", 768147 }, { "ACA", 614523 }, { "ACG", 246105 },
+                { "AAU", 689701 }, { "AAC", 776603 }, { "AAA", 993621 }, { "AAG", 1295568 }, { "AGU", 493429 }, { "AGC", 791383 }, { "AGA", 494682 }, { "AGG", 486463 },
+                { "GUU", 448607 }, { "GUC", 588138 }, { "GUA", 287712 }, { "GUG", 1143534 }, { "GCU", 750096 }, { "GCC", 1127679 }, { "GCA", 643471 }, { "GCG", 299495 },
+                { "GAU", 885429 }, { "GAC", 1020595 }, { "GAA", 1177632 }, { "GAG", 1609975 }, { "GGU", 437126 }, { "GGC", 903565 }, { "GGA", 669873 }, { "GGG", 669768 },
+        };
+        long total = counts.Values.Sum();
+        return counts.ToDictionary(kv => kv.Key, kv => 1000.0 * kv.Value / total);
+    }
 
     #endregion
 
@@ -850,6 +951,21 @@ public static class CodonOptimizer
         string codingSequence,
         CodonUsageTable table,
         double threshold = 0.15)
+        => FindRareCodons(codingSequence, table, threshold, inclusiveThreshold: false);
+
+    /// <summary>
+    /// <see cref="FindRareCodons(string, CodonUsageTable, double)"/> with a selectable threshold
+    /// comparison: <paramref name="inclusiveThreshold"/> = <see langword="true"/> also reports codons
+    /// whose frequency EQUALS <paramref name="threshold"/> (frequency ≤ threshold — the Sherlocc
+    /// "slow position" comparison, <c>if($avrg &lt;= $avrg_lim)</c> in sherlocc.pl, README "equal or
+    /// lower than the specified threshold"; Chartier et&#160;al. 2012); <see langword="false"/> is
+    /// the default strict &lt; contract of the 3-argument overload.
+    /// </summary>
+    public static IEnumerable<(int Position, string Codon, string AminoAcid, double Frequency)> FindRareCodons(
+        string codingSequence,
+        CodonUsageTable table,
+        double threshold,
+        bool inclusiveThreshold)
     {
         var codons = SplitIntoScreenedCodons(codingSequence);
 
@@ -860,10 +976,15 @@ public static class CodonOptimizer
                 continue;
 
             double freq = table.CodonFrequencies.GetValueOrDefault(codon, 0);
-            if (freq < threshold)
+            if (IsBelowThreshold(freq, threshold, inclusiveThreshold))
                 yield return (i * 3, codon, GeneticCode.Standard.Translate(codon).ToString(), freq);
         }
     }
+
+    // Rare-codon comparison: strict (freq < threshold) or Sherlocc-inclusive (freq <= threshold;
+    // sherlocc.pl: if($avrg <= $avrg_lim){ #We have a pause).
+    private static bool IsBelowThreshold(double frequency, double threshold, bool inclusive) =>
+        inclusive ? frequency <= threshold : frequency < threshold;
 
     // Default sliding-window width (in codons) for the %MinMax profile.
     // "%MinMax results are typically averaged over an 18-codon sliding window."
@@ -897,10 +1018,13 @@ public static class CodonOptimizer
     /// <para>
     /// <b>Frequency scale.</b> The reference implementation takes a codon usage table in
     /// frequency per thousand codons (Kazusa "/1000" column), so the window sums weight each
-    /// residue by its overall usage. Passing a <see cref="CodonUsageTable"/> whose
-    /// <c>CodonFrequencies</c> hold per-thousand values reproduces the reference exactly. The
-    /// built-in presets (<see cref="EColiK12"/>, <see cref="Yeast"/>, <see cref="Human"/>) hold
-    /// per-amino-acid relative fractions; with them every residue has equal weight, which gives
+    /// residue by its overall usage. This overload therefore uses
+    /// <see cref="CodonUsageTable.PerThousand"/> when the table carries it (the <see cref="Yeast"/>
+    /// and <see cref="Human"/> presets: Kazusa 4932 / 9606 per-thousand usage, so the presets
+    /// reproduce the reference), and otherwise <c>CodonFrequencies</c> — a caller table whose
+    /// <c>CodonFrequencies</c> hold per-thousand values also reproduces the reference exactly. With
+    /// per-amino-acid relative fractions (<see cref="EColiK12"/>, or
+    /// <see cref="MinMaxUsageBasis.CodonFrequencies"/>) every residue has equal weight, which gives
     /// the reference value only for windows of a single amino acid.
     /// </para>
     /// </remarks>
@@ -920,9 +1044,29 @@ public static class CodonOptimizer
         string codingSequence,
         CodonUsageTable table,
         int windowSize = DefaultMinMaxWindowCodons)
+        => CalculateMinMaxProfile(codingSequence, table, windowSize, MinMaxUsageBasis.PerThousandWhenAvailable);
+
+    /// <summary>
+    /// <see cref="CalculateMinMaxProfile(string, CodonUsageTable, int)"/> with an explicit choice of
+    /// the usage values: <see cref="MinMaxUsageBasis.PerThousandWhenAvailable"/> (default of the
+    /// 3-argument overload) or <see cref="MinMaxUsageBasis.CodonFrequencies"/> (always the
+    /// per-amino-acid fractions / caller values in <c>CodonFrequencies</c>).
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">windowSize &lt; 1, or <paramref name="basis"/> undefined.</exception>
+    public static IReadOnlyList<MinMaxWindow> CalculateMinMaxProfile(
+        string codingSequence,
+        CodonUsageTable table,
+        int windowSize,
+        MinMaxUsageBasis basis)
     {
         if (windowSize < 1)
             throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1 codon.");
+        IReadOnlyDictionary<string, double> usage = basis switch
+        {
+            MinMaxUsageBasis.PerThousandWhenAvailable => table.PerThousand ?? table.CodonFrequencies,
+            MinMaxUsageBasis.CodonFrequencies => table.CodonFrequencies,
+            _ => throw new ArgumentOutOfRangeException(nameof(basis), basis, "Unknown %MinMax usage basis."),
+        };
 
         var profile = new List<MinMaxWindow>();
         var codons = SplitIntoScreenedCodons(codingSequence);
@@ -941,7 +1085,7 @@ public static class CodonOptimizer
             if (codon is null)
                 continue; // ambiguous triplet: all four terms stay 0 (no contribution).
 
-            xij[i] = table.CodonFrequencies.GetValueOrDefault(codon, 0);
+            xij[i] = usage.GetValueOrDefault(codon, 0);
             char aa = GeneticCode.Standard.Translate(codon);
             if (!familyStats.TryGetValue(aa, out var stats))
             {
@@ -949,7 +1093,7 @@ public static class CodonOptimizer
                 int n = 0;
                 foreach (string syn in GeneticCode.Standard.GetCodonsForAminoAcid(aa))
                 {
-                    double f = table.CodonFrequencies.GetValueOrDefault(syn, 0);
+                    double f = usage.GetValueOrDefault(syn, 0);
                     sum += f;
                     n++;
                     if (f > max) max = f;
@@ -1001,10 +1145,17 @@ public static class CodonOptimizer
     /// <paramref name="minRareCodons"/> rare ("pause") codons.
     /// </summary>
     /// <remarks>
-    /// A codon is "rare"/"pause" when its usage frequency in <paramref name="table"/> is strictly
-    /// below <paramref name="rareThreshold"/> — the same per-codon criterion (and the same
-    /// unambiguous-codon screen: an ambiguous triplet is never a pause) as
-    /// <see cref="FindRareCodons"/>. Overlapping windows are merged into maximal clusters so a long
+    /// A codon is "rare"/"pause" when its usage frequency in <paramref name="table"/> is equal to
+    /// or lower than <paramref name="rareThreshold"/> — the Sherlocc comparison: sherlocc.pl
+    /// <c>if($avrg &lt;= $avrg_lim){ #We have a pause</c>, README "positions with a codon usage
+    /// frequency average equal or lower than the specified threshold … considered as 'slow'
+    /// positions" (github.com/mtthchrtr/sherlocc, commit b3b4d15). Until review 2026-10 the
+    /// comparison was strict &lt;; that behaviour is available through the overload with
+    /// <c>inclusiveThreshold: false</c>. The unambiguous-codon screen is the one of
+    /// <see cref="FindRareCodons(string, CodonUsageTable, double)"/> (an ambiguous triplet is never
+    /// a pause). Simplification kept: Sherlocc compares a centred 7-codon window AVERAGE of per-thousand
+    /// usage (averaged over every sequence of a protein-family alignment) with the threshold, whereas
+    /// this method compares each codon's own table value. Overlapping windows are merged into maximal clusters so a long
     /// rare run is reported once. This is opt-in; <see cref="FindRareCodons"/> (per-codon) is
     /// unchanged. Defaults reproduce the published Sherlocc rule "a seven position-wide window …
     /// containing at least four pause positions out of seven" (Chartier et&#160;al. 2012,
@@ -1012,7 +1163,7 @@ public static class CodonOptimizer
     /// </remarks>
     /// <param name="codingSequence">DNA or RNA coding sequence (T is normalised to U).</param>
     /// <param name="table">Reference codon-usage table (per-amino-acid relative fractions).</param>
-    /// <param name="rareThreshold">Per-codon rare-frequency cutoff (default 0.15, strict &lt;).</param>
+    /// <param name="rareThreshold">Per-codon rare-frequency cutoff (default 0.15, frequency ≤ cutoff, per Sherlocc).</param>
     /// <param name="windowSize">Cluster window width in codons (default 7, per Sherlocc).</param>
     /// <param name="minRareCodons">Minimum rare codons in a window to call a cluster (default 4, per Sherlocc).</param>
     /// <returns>Maximal, non-overlapping <see cref="RareCodonCluster"/> regions in codon-index order.</returns>
@@ -1023,6 +1174,23 @@ public static class CodonOptimizer
         double rareThreshold = 0.15,
         int windowSize = DefaultClusterWindowCodons,
         int minRareCodons = DefaultClusterMinRareCodons)
+        => FindRareCodonClusters(codingSequence, table, rareThreshold, windowSize, minRareCodons, inclusiveThreshold: true);
+
+    /// <summary>
+    /// <see cref="FindRareCodonClusters(string, CodonUsageTable, double, int, int)"/> with a selectable
+    /// pause comparison: <paramref name="inclusiveThreshold"/> = <see langword="true"/> (the default of
+    /// the 5-argument overload, Sherlocc) marks frequency ≤ threshold as a pause;
+    /// <see langword="false"/> marks only frequency &lt; threshold (the pre-2026-10 behaviour, the
+    /// same comparison as <see cref="FindRareCodons(string, CodonUsageTable, double)"/>).
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">windowSize &lt; 1 or minRareCodons &lt; 1.</exception>
+    public static IReadOnlyList<RareCodonCluster> FindRareCodonClusters(
+        string codingSequence,
+        CodonUsageTable table,
+        double rareThreshold,
+        int windowSize,
+        int minRareCodons,
+        bool inclusiveThreshold)
     {
         if (windowSize < 1)
             throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1 codon.");
@@ -1034,12 +1202,12 @@ public static class CodonOptimizer
         if (codons.Length < windowSize)
             return clusters;
 
-        // Mark each codon as rare (pause) when its table frequency is strictly below the threshold.
-        // An ambiguous triplet has no usage frequency and is never a pause position.
+        // Mark each codon as rare (pause) when its table frequency is at or below (Sherlocc) / strictly
+        // below the threshold. An ambiguous triplet has no usage frequency and is never a pause position.
         var isRare = new bool[codons.Length];
         for (int i = 0; i < codons.Length; i++)
             isRare[i] = codons[i] is { } codon
-                && table.CodonFrequencies.GetValueOrDefault(codon, 0) < rareThreshold;
+                && IsBelowThreshold(table.CodonFrequencies.GetValueOrDefault(codon, 0), rareThreshold, inclusiveThreshold);
 
         int? mergedStart = null;
         int mergedEnd = -1;

@@ -5,14 +5,15 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.FindRareCodons",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L663",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L950",
   "description": "Report codons whose frequency in the target organism table is below a threshold.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA).", "minLength": 1 },
       "target_organism": { "type": "object", "description": "Preset id or inline custom table." },
-      "threshold": { "type": "number", "description": "Frequency threshold.", "default": 0.15 }
+      "threshold": { "type": "number", "description": "Frequency threshold.", "default": 0.15 },
+      "inclusive_threshold": { "type": "boolean", "description": "false: frequency < threshold; true: frequency <= threshold (Sherlocc).", "default": false }
     },
     "required": ["coding_sequence", "target_organism"]
   },
