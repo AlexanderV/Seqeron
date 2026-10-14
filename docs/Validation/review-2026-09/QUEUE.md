@@ -202,6 +202,25 @@ CRISPR-OFF work in flight, is off-model, as the rows above record. The one recor
 with no data is the FIN-B01 launch that was aborted over the literal `$(cat …)` prompt
 (session_01ESJRAKGAm3Af18dZknYwM9) — it produced no commits, so nothing depends on it.
 
+## Consolidation task — re-anchor citations to reachable sources (user 2026-10-14)
+The agent proxy answers **403 to CONNECT** for `en.wikipedia.org:443`, `www.addgene.org:443` and
+`rebase.neb.com:443`; earlier batches also recorded `rosalind.info`, Kazusa (`www.kazusa.or.jp`), ExPASy
+(`web.expasy.org`) and the 1000 Genomes panel as unreachable. No number in the review rests on them — the method is
+oracle-first (install the reference tool, compare numbers), and e.g. RESTR-DIGEST's circular `k` / linear `k+1` and
+fragment-sum rules were re-confirmed against Biopython `catalyse` on 1452 cases — but two things need work:
+1. **275 files** under `docs/Validation/reports/` and `tests/TestSpecs/` cite Wikipedia or Addgene, mostly inherited
+   from the pre-campaign pass and no longer re-fetchable here. Where such a citation backs an actual NUMBER
+   (e.g. `PRIMER-DESIGN-001`: primer length 18–24, GC 40–60 %, pair Tm ≤ 5 °C partly from Addgene), re-anchor it to a
+   reachable source (Primer3 source, EMBOSS, the paper) or mark it "inherited, not re-verified in this environment".
+   Batch reports that cite them: B01, B04, B05, B06, B07, B08, README.
+2. **REBASE is only available as the snapshot bundled in Biopython** (`Bio.Restriction`), i.e. enzyme definitions as of
+   that Biopython release, not live REBASE. Record this as an explicit environment limitation wherever enzyme data is
+   cited, and re-check after the hosts below are allowed.
+Hosts to allow in the environment's network settings so later sessions do not hit this: `en.wikipedia.org`,
+`www.addgene.org`, `rebase.neb.com`, `rosalind.info`, `www.kazusa.or.jp`, `web.expasy.org`. Kazusa and ExPASy would
+also unblock two items currently BLOCKED with proof (B02 E. coli per-thousand table; B03 ProtScale exponential
+weighting), so those should be re-opened once access exists.
+
 ## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
 B01 (FIN-B01 2026-10-09), B03 (FIN-B03 2026-10-14), B04, B05, B06, B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with
 `## Leftovers` is pushed **and** every session that produced its work was served claude-opus-5-5 (see the model rule
