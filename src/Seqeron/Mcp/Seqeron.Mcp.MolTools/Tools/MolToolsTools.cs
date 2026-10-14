@@ -697,7 +697,7 @@ public class MolToolsTools
 
     #region CodonOptimizer
 
-    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. HarmonizeExpression matches the target codon-usage profile as closely as integer codon counts allow (DNA Chisel match_codon_usage) and is deterministic. MinimizeSecondary = BalancedOptimization (codon selection + GC pass) followed by the sliding-window structure pass of reduce_secondary_structure, scored by secondary_scoring (PairCount heuristic by default; Turner2004Mfe for the Turner 2004 free-energy model, ~9 s per kilobase).")]
+    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. HarmonizeExpression matches the target codon-usage profile as closely as integer codon counts allow (DNA Chisel match_codon_usage) and is deterministic. The GC pass constrains the global GC fraction by default; set gc_window to constrain every sliding window of that many nucleotides instead (DNA Chisel EnforceGCContent(mini, maxi, window=...)). MinimizeSecondary = BalancedOptimization (codon selection + GC pass) followed by the sliding-window structure pass of reduce_secondary_structure, scored by secondary_scoring (PairCount heuristic by default; Turner2004Mfe for the Turner 2004 free-energy model, ~9 s per kilobase).")]
     public static OptimizationResultDto optimize_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: a preset id (EColiK12 | Yeast | Human) or an inline custom table (organismName + codonFrequencies in RNA alphabet).")] CodonUsageTableInput target_organism,
@@ -705,7 +705,8 @@ public class MolToolsTools
         [Description("Lower bound for target GC fraction (default 0.40).")] double gc_target_min = 0.40,
         [Description("Upper bound for target GC fraction (default 0.60).")] double gc_target_max = 0.60,
         [Description("Frequency threshold below which a codon is considered rare (default 0.15).")] double rare_codon_threshold = 0.15,
-        [Description("Window scoring model of the MinimizeSecondary structure pass: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower). Ignored by the other strategies.")] CodonOptimizer.SecondaryStructureScoring secondary_scoring = CodonOptimizer.SecondaryStructureScoring.PairCount)
+        [Description("Window scoring model of the MinimizeSecondary structure pass: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower). Ignored by the other strategies.")] CodonOptimizer.SecondaryStructureScoring secondary_scoring = CodonOptimizer.SecondaryStructureScoring.PairCount,
+        [Description("Omitted/null (default): the GC pass constrains the GLOBAL GC fraction only (DNA Chisel EnforceGCContent(mini, maxi)). A positive window size in nucleotides instead constrains EVERY sliding window of that size to [gc_target_min, gc_target_max] (DNA Chisel EnforceGCContent(mini, maxi, window=...)), resolved by a deterministic greedy synonymous-codon repair. Used by BalancedOptimization and MinimizeSecondary.")] int? gc_window = null)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
@@ -718,9 +719,11 @@ public class MolToolsTools
         if (secondary_scoring is not (CodonOptimizer.SecondaryStructureScoring.PairCount or CodonOptimizer.SecondaryStructureScoring.Turner2004Mfe))
             throw new System.ArgumentException(
                 $"Unknown secondary-structure scoring: {secondary_scoring}. Supported: PairCount, Turner2004Mfe.", nameof(secondary_scoring));
+        if (gc_window is <= 0)
+            throw new System.ArgumentException("GC window must be a positive number of nucleotides.", nameof(gc_window));
 
         var table = ResolveCodonUsageTable(target_organism);
-        var result = CodonOptimizer.OptimizeSequence(coding_sequence, table, strategy, gc_target_min, gc_target_max, rare_codon_threshold, secondary_scoring);
+        var result = CodonOptimizer.OptimizeSequence(coding_sequence, table, strategy, gc_target_min, gc_target_max, rare_codon_threshold, secondary_scoring, gc_window);
         return new OptimizationResultDto(
             result.OriginalSequence,
             result.OptimizedSequence,

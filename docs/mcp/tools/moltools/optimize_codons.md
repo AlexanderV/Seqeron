@@ -17,7 +17,7 @@ Optimize a coding sequence's codons for expression in a target organism.
 Rewrites the synonymous codons of a coding sequence for a target organism (an `EColiK12`/`Yeast`/`Human` preset or an inline custom RNA-alphabet table) under one of five strategies. The input is upper-cased, converted T→U, and trimmed to whole codons; stop codons and single-codon amino acids (Met, Trp) are never changed. Returns the original and optimized RNA, the translated protein, original/optimized CAI (Sharp & Li 1987), original/optimized GC fraction, the number of changed codons, and each `(position, original, optimized)` change.
 
 - **MaximizeCAI** — pick the most frequent synonymous codon; ties break by NCBI codon order (identical to DNA Chisel `use_best_codon`).
-- **BalancedOptimization** (default) — as MaximizeCAI, then GC-balance into `[gc_target_min, gc_target_max]` with further synonymous swaps.
+- **BalancedOptimization** (default) — as MaximizeCAI, then GC-balance into `[gc_target_min, gc_target_max]` with further synonymous swaps. The GC pass constrains the **global** GC fraction by default (DNA Chisel `EnforceGCContent(mini, maxi)`); with `gc_window = w` it instead constrains **every sliding window** of `w` nucleotides (DNA Chisel `EnforceGCContent(mini, maxi, window=w)`), resolved by a deterministic greedy synonymous-codon repair (review 2026-09, F43).
 - **AvoidRareCodeons** — only replace codons below the rare-codon threshold (with the most frequent synonym).
 - **MinimizeSecondary** — balanced selection and GC pass, **followed by** the sliding-window structure pass of `reduce_secondary_structure`, scored by `secondary_scoring`: `PairCount` (default, the canonical-pair fraction heuristic, ~0.06 s per kilobase) or `Turner2004Mfe` (Turner 2004 nearest-neighbour free energy, the ViennaRNA RNAfold energy model, ~9 s per kilobase).
 - **HarmonizeExpression** — match the target codon-usage profile as closely as integer codon counts allow (DNA Chisel `match_codon_usage`); **deterministic** since review 2026-09.
@@ -37,6 +37,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 | `gc_target_max` | number | No | Upper GC fraction bound in [0,1] (default 0.60). |
 | `rare_codon_threshold` | number | No | Rare-codon frequency threshold (default 0.15). |
 | `secondary_scoring` | enum | No | Scoring of the MinimizeSecondary structure pass: `PairCount` (default) or `Turner2004Mfe`. |
+| `gc_window` | integer \| null | No | `null` (default): global GC constraint only. A positive window size in nucleotides constrains every sliding window of that size to `[gc_target_min, gc_target_max]`. |
 
 ## Output Schema
 
@@ -57,6 +58,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 | 1002 | GC target minimum/maximum must be a fraction in [0, 1] |
 | 1003 | GC target minimum must not exceed the maximum |
 | 1004 | Unknown codon-usage preset |
+| 1005 | GC window must be a positive number of nucleotides |
 
 ## Examples
 
@@ -82,7 +84,11 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 }
 ```
 
-### Example 2: Empty input
+### Example 2: Windowed GC constraint
+
+`optimize_codons("ATGAAATTTAAATTTAAATTTAAATTTAAATTTAAATTTAAATTTAAATTTTAA", { preset: "EColiK12" }, gc_window: 20)` keeps every 20-nt window inside `[0.40, 0.60]` — DNA Chisel `EnforceGCContent(0.40, 0.60, window=20).evaluate(...)` scores the result 0 (the globally balanced default output still scores below 0 on 20-nt windows).
+
+### Example 3: Empty input
 
 `optimize_codons("", { preset: "EColiK12" })` throws `ArgumentException`.
 

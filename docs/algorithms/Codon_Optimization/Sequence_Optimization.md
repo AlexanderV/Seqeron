@@ -68,6 +68,7 @@ CAI is used as one of the optimization metrics and is defined as in [CAI_Calcula
 | `gcTargetMin` | `double` | `0.40` | Lower bound for GC balancing. | Used only during `BalancedOptimization`. |
 | `gcTargetMax` | `double` | `0.60` | Upper bound for GC balancing. | Used only during `BalancedOptimization`. |
 | `rareCodonThreshold` | `double` | `0.15` | Threshold used by rare-codon-aware branches. | Compared against table frequencies. |
+| `gcWindow` | `int?` | `null` | `null`: the GC pass constrains the global GC fraction (historical behaviour). A positive value: every sliding window of that many nucleotides is constrained to `[gcTargetMin, gcTargetMax]`. | Must be positive; `ArgumentOutOfRangeException` otherwise. Used only during `BalancedOptimization` / `MinimizeSecondary`. |
 
 ### 3.2 Output / Return Value
 
@@ -148,7 +149,7 @@ The result stores the normalized RNA input rather than the caller's original str
 
 **Intentionally simplified:**
 
-- GC balancing works on the global GC fraction rather than on sliding GC windows (DNA Chisel supports both); **consequence:** a sequence inside the global window may still contain GC-extreme stretches.
+- GC balancing constrains the global GC fraction by default and, with `gcWindow = w`, every sliding window of `w` nucleotides — both modes of DNA Chisel's `EnforceGCContent(mini, maxi[, window])` (review 2026-09, F43). The windowed breach set, breach score and breach segments of `CodonOptimizer.EvaluateGcContent(...)` equal DNA Chisel 3.2.16's `EnforceGCContent(mini, maxi, window).evaluate(problem)`; the repair is a deterministic greedy synonymous-codon search rather than DNA Chisel's randomised constraint solver; **consequence:** the two libraries agree on which windows breach and by how much, but may land on different (equally valid) repaired sequences.
 - `ReduceSecondaryStructure` defaults to the pair-count window score (Watson-Crick plus G·U wobble, via `RnaSecondaryStructure.CanPair`), a pairing-potential heuristic that ignores stacking, loop penalties and nesting; **consequence:** with the default scoring it relaxes obvious self-complementarity only. The thermodynamic alternative is opt-in: `scoring = Turner2004Mfe` scores every window with `RnaSecondaryStructure.CalculateMinimumFreeEnergy` (NNDB Turner 2004, the ViennaRNA RNAfold energy model) and maximises it. It is practical because window energies are memoised by window content and the fold count is capped by `maxFoldEvaluations` (default 20000), but it costs ~9.0 s per kilobase against ~0.06 s for the pair count (999-nt CDS, Release; 4.42 ms per 43-nt fold), which is why the heuristic remains the default of both the method and the `MinimizeSecondary` strategy.
 
 **Not implemented:**

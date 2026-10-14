@@ -29,7 +29,8 @@
       "gc_target_min": { "type": "number", "description": "Lower GC fraction bound.", "minimum": 0, "maximum": 1, "default": 0.40 },
       "gc_target_max": { "type": "number", "description": "Upper GC fraction bound.", "minimum": 0, "maximum": 1, "default": 0.60 },
       "rare_codon_threshold": { "type": "number", "description": "Rare-codon frequency threshold.", "default": 0.15 },
-      "secondary_scoring": { "type": "string", "description": "Window scoring model of the MinimizeSecondary structure pass: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower). Ignored by the other strategies.", "enum": ["PairCount", "Turner2004Mfe"], "default": "PairCount" }
+      "secondary_scoring": { "type": "string", "description": "Window scoring model of the MinimizeSecondary structure pass: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower). Ignored by the other strategies.", "enum": ["PairCount", "Turner2004Mfe"], "default": "PairCount" },
+      "gc_window": { "type": ["integer", "null"], "description": "Omitted/null (default): the GC pass constrains the GLOBAL GC fraction only (DNA Chisel EnforceGCContent(mini, maxi)). A positive window size in nucleotides instead constrains EVERY sliding window of that size to [gc_target_min, gc_target_max] (DNA Chisel EnforceGCContent(mini, maxi, window=...)), resolved by a deterministic greedy synonymous-codon repair.", "minimum": 1, "default": null }
     },
     "required": ["coding_sequence", "target_organism"]
   },

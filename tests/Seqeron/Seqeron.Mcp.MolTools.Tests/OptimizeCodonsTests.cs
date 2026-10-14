@@ -86,4 +86,38 @@ public class OptimizeCodonsTests
             CodonOptimizer.OptimizationStrategy.MinimizeSecondary,
             secondary_scoring: (CodonOptimizer.SecondaryStructureScoring)42));
     }
+
+    [Test]
+    [Description("F43: gc_window constrains every sliding window (DNA Chisel EnforceGCContent(mini, maxi, window)); default stays global")]
+    public void OptimizeCodons_GcWindow_ConstrainsEverySlidingWindow()
+    {
+        // M-(GS)x7-stop: starts above 60 % GC; every 20-nt window is reachable inside [0.40, 0.60].
+        const string gene = "ATGGGCAGCGGCAGCGGCAGCGGCAGCGGCAGCGGCAGCGGCAGCTAA";
+
+        var global = MolToolsTools.optimize_codons(gene, EColi,
+            CodonOptimizer.OptimizationStrategy.BalancedOptimization);
+        var windowed = MolToolsTools.optimize_codons(gene, EColi,
+            CodonOptimizer.OptimizationStrategy.BalancedOptimization, gc_window: 20);
+
+        Assert.Multiple(() =>
+        {
+            // dnachisel EnforceGCContent(0.40, 0.60, window=20).evaluate: -1.5 for the global
+            // default output, 0 for the windowed one (input -6.4).
+            Assert.That(CodonOptimizer.EvaluateGcContent(global.OptimizedSequence, 0.40, 0.60, window: 20).Score,
+                Is.EqualTo(-1.5).Within(1e-12));
+            Assert.That(CodonOptimizer.EvaluateGcContent(windowed.OptimizedSequence, 0.40, 0.60, window: 20).Score,
+                Is.EqualTo(0).Within(1e-12));
+            Assert.That(windowed.OptimizedSequence,
+                Is.EqualTo("AUGGGCUCUGGUUCUGGUUCUGGCUCUGGUUCUGGUUCUGGCAGCUAA"));
+            Assert.That(windowed.ProteinSequence, Is.EqualTo("MGSGSGSGSGSGSGS*"));
+        });
+    }
+
+    [Test]
+    [Description("F43: gc_window must be positive")]
+    public void OptimizeCodons_GcWindow_MustBePositive()
+    {
+        Assert.Throws<ArgumentException>(() => MolToolsTools.optimize_codons(
+            "ATGGGCAGCTAA", EColi, CodonOptimizer.OptimizationStrategy.BalancedOptimization, gc_window: 0));
+    }
 }

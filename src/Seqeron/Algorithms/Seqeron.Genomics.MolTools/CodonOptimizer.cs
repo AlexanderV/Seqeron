@@ -466,6 +466,14 @@ public static class CodonOptimizer
     /// <param name="gcTargetMax">Upper bound of the target GC fraction (BalancedOptimization / MinimizeSecondary).</param>
     /// <param name="rareCodonThreshold">Frequency below which a codon counts as rare (strict &lt;).</param>
     /// <param name="secondaryScoring">Window scoring model of the MinimizeSecondary structure pass (default <see cref="SecondaryStructureScoring.PairCount"/>); ignored by the other strategies.</param>
+    /// <param name="gcWindow">
+    /// <see langword="null"/> (default): the GC pass constrains the <i>global</i> GC fraction only
+    /// (DNA Chisel <c>EnforceGCContent(mini, maxi)</c>). A positive value: the GC pass constrains
+    /// every sliding window of that many nucleotides to
+    /// [<paramref name="gcTargetMin"/>, <paramref name="gcTargetMax"/>], i.e. DNA Chisel
+    /// <c>EnforceGCContent(mini, maxi, window=gcWindow)</c>; see
+    /// <see cref="BalanceGcContentWindowed"/> and <see cref="EvaluateGcContent"/>.
+    /// </param>
     public static OptimizationResult OptimizeSequence(
         string codingSequence,
         CodonUsageTable targetOrganism,
@@ -473,8 +481,12 @@ public static class CodonOptimizer
         double gcTargetMin = 0.40,
         double gcTargetMax = 0.60,
         double rareCodonThreshold = 0.15,
-        SecondaryStructureScoring secondaryScoring = SecondaryStructureScoring.PairCount)
+        SecondaryStructureScoring secondaryScoring = SecondaryStructureScoring.PairCount,
+        int? gcWindow = null)
     {
+        if (gcWindow is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(gcWindow), gcWindow, "The GC window must be a positive number of nucleotides.");
+
         if (string.IsNullOrEmpty(codingSequence))
         {
             return new OptimizationResult("", "", "", 0, 0, 0, 0, 0, new List<(int, string, string)>());
@@ -503,7 +515,12 @@ public static class CodonOptimizer
 
         // GC balancing for the strategies that declare a GC target.
         if (strategy is OptimizationStrategy.BalancedOptimization or OptimizationStrategy.MinimizeSecondary)
-            BalanceGcContent(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, rareCodonThreshold);
+        {
+            if (gcWindow is int windowSize)
+                BalanceGcContentWindowed(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, windowSize, rareCodonThreshold);
+            else
+                BalanceGcContent(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, rareCodonThreshold);
+        }
 
         string optimizedSequence = string.Concat(optimizedCodons);
 
@@ -726,6 +743,308 @@ public static class CodonOptimizer
         }
 
         bool IsWithin(int gcCount) => gcCount >= minGc * length && gcCount <= maxGc * length;
+    }
+
+    /// <summary>
+    /// A breach segment of a GC-content constraint, as DNA Chisel's
+    /// <c>EnforceGCContent.evaluate</c> reports it: a half-open nucleotide interval
+    /// [<paramref name="Start"/>, <paramref name="End"/>).
+    /// </summary>
+    /// <param name="Start">0-based start of the breach segment.</param>
+    /// <param name="End">Exclusive end of the breach segment.</param>
+    public sealed record GcBreachLocation(int Start, int End);
+
+    /// <summary>
+    /// Result of evaluating a GC-content constraint on a sequence
+    /// (DNA Chisel <c>EnforceGCContent(mini, maxi, window).evaluate(problem)</c>).
+    /// </summary>
+    /// <param name="Score">
+    /// Negated sum of the out-of-bound deviations over all evaluated windows
+    /// (0 when every window satisfies the bounds), i.e. DNA Chisel's
+    /// <c>SpecEvaluation.score</c>.
+    /// </param>
+    /// <param name="BreachWindowStarts">0-based start positions of the windows that breach the bounds.</param>
+    /// <param name="BreachLocations">
+    /// Breach segments after grouping neighbouring breaching windows, as DNA Chisel reports
+    /// <c>SpecEvaluation.locations</c>.
+    /// </param>
+    public sealed record GcContentEvaluation(
+        double Score,
+        IReadOnlyList<int> BreachWindowStarts,
+        IReadOnlyList<GcBreachLocation> BreachLocations);
+
+    /// <summary>
+    /// Evaluates a GC-content constraint on <paramref name="sequence"/> exactly as DNA Chisel's
+    /// <c>EnforceGCContent(mini, maxi, window).evaluate(problem)</c> does (DNA Chisel 3.2.16,
+    /// <c>builtin_specifications/EnforceGCContent.py</c> + <c>biotools/gc_content.py</c>).
+    /// </summary>
+    /// <remarks>
+    /// With <paramref name="window"/> = <see langword="null"/> the global GC fraction
+    /// (G+C over sequence length) is compared with the bounds and a breach is reported as the whole
+    /// sequence. With a window size <c>w</c> the GC fraction of every sliding window
+    /// <c>[i, i+w)</c>, <c>i = 0 … len-w</c>, is compared with the bounds (so there are
+    /// <c>len - w + 1</c> windows; a window longer than the sequence yields no windows, score 0).
+    /// Per window the breach extent is <c>max(0, mini - gc) + max(0, gc - maxi)</c>; both bounds are
+    /// inclusive (a window exactly at a bound does not breach) and
+    /// <see cref="GcContentEvaluation.Score"/> is the negated sum of those extents. Breaching
+    /// windows are grouped the way DNA Chisel groups them (<c>group_nearby_segments</c> with
+    /// <c>max_start_spread = max(1, locationsSpan)</c>: a window joins the current group while its
+    /// start is less than <paramref name="locationsSpan"/> nucleotides after the group's first
+    /// start), and each group is reported as [first start, last start + w).
+    /// G and C are counted by the canonical counting primitive, so lower case and RNA (U) input is
+    /// handled; any other symbol simply does not count as G/C, as in DNA Chisel.
+    /// </remarks>
+    /// <param name="sequence">Sequence to evaluate (DNA or RNA, any case).</param>
+    /// <param name="mini">Lower bound of the GC fraction (inclusive).</param>
+    /// <param name="maxi">Upper bound of the GC fraction (inclusive).</param>
+    /// <param name="window">Sliding-window size in nucleotides, or <see langword="null"/> for global GC.</param>
+    /// <param name="locationsSpan">
+    /// Grouping resolution of the reported breach segments (DNA Chisel
+    /// <c>EnforceGCContent.locations_span</c>, 50).
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="window"/> is not positive.</exception>
+    public static GcContentEvaluation EvaluateGcContent(
+        string sequence,
+        double mini = 0.0,
+        double maxi = 1.0,
+        int? window = null,
+        int locationsSpan = 50)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        if (window is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(window), window, "The GC window must be a positive number of nucleotides.");
+
+        var noBreaches = new GcContentEvaluation(0, Array.Empty<int>(), Array.Empty<GcBreachLocation>());
+        if (sequence.Length == 0)
+            return noBreaches;
+
+        if (window is not int w)
+        {
+            double globalGc = (double)sequence.AsSpan().CountGcAndValidNucleotides().GcCount / sequence.Length;
+            double globalBreach = Math.Max(0, mini - globalGc) + Math.Max(0, globalGc - maxi);
+            return globalBreach <= 0
+                ? noBreaches
+                : new GcContentEvaluation(-globalBreach, new[] { 0 }, new[] { new GcBreachLocation(0, sequence.Length) });
+        }
+
+        if (w > sequence.Length)
+            return noBreaches; // no window fits: DNA Chisel evaluates an empty window array
+
+        // Prefix sums of G/C indicators, as dnachisel's cumulative-sum window GC.
+        var prefix = new int[sequence.Length + 1];
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            char c = char.ToUpperInvariant(sequence[i]);
+            prefix[i + 1] = prefix[i] + (c is 'G' or 'C' ? 1 : 0);
+        }
+
+        double totalBreach = 0;
+        var starts = new List<int>();
+        for (int start = 0; start + w <= sequence.Length; start++)
+        {
+            double gc = (double)(prefix[start + w] - prefix[start]) / w;
+            double breach = Math.Max(0, mini - gc) + Math.Max(0, gc - maxi);
+            if (breach > 0)
+            {
+                totalBreach += breach;
+                starts.Add(start);
+            }
+        }
+
+        if (starts.Count == 0)
+            return noBreaches;
+
+        var locations = new List<GcBreachLocation>();
+        if (starts.Count == 1)
+        {
+            locations.Add(new GcBreachLocation(starts[0], starts[0] + w));
+        }
+        else
+        {
+            int spread = Math.Max(1, locationsSpan);
+            int groupStart = starts[0];
+            int lastStart = starts[0];
+            for (int k = 1; k < starts.Count; k++)
+            {
+                if (starts[k] - groupStart < spread)
+                {
+                    lastStart = starts[k];
+                    continue;
+                }
+
+                locations.Add(new GcBreachLocation(groupStart, lastStart + w));
+                groupStart = lastStart = starts[k];
+            }
+
+            locations.Add(new GcBreachLocation(groupStart, lastStart + w));
+        }
+
+        return new GcContentEvaluation(-totalBreach, starts, locations);
+    }
+
+    /// <summary>
+    /// Brings every sliding window of <paramref name="window"/> nucleotides of
+    /// <paramref name="codons"/> into [<paramref name="minGc"/>, <paramref name="maxGc"/>] with
+    /// synonymous codon swaps — DNA Chisel's <c>EnforceGCContent(mini, maxi, window=…)</c>
+    /// constraint resolved by synonymous mutations, with a deterministic greedy search instead of
+    /// DNA Chisel's randomised constraint solver.
+    /// </summary>
+    /// <remarks>
+    /// Search: repeatedly take the left-most window that breaches the bounds (breach extent and
+    /// window geometry exactly as in <see cref="EvaluateGcContent"/>) and try every synonymous
+    /// replacement of every codon overlapping that window whose frequency in
+    /// <paramref name="table"/> is at least <paramref name="minCodonFrequency"/>. The replacement
+    /// that lowers the total breach of the whole sequence the most is applied; ties are broken by
+    /// the higher codon frequency, then the left-most codon position, then NCBI codon order, so the
+    /// output is deterministic. When no replacement improves the total breach, that window is left
+    /// alone (its bounds are unreachable with synonymous codons) and the search moves on to the
+    /// next breaching window. Stop codons and triplets without a usable synonymous family are never
+    /// changed, so the encoded protein is preserved.
+    /// </remarks>
+    private static void BalanceGcContentWindowed(
+        List<string> codons,
+        CodonUsageTable table,
+        double minGc,
+        double maxGc,
+        int window,
+        double minCodonFrequency)
+    {
+        int length = codons.Count * 3;
+        if (length == 0 || window <= 0 || window > length)
+            return;
+
+        var gcFlags = new int[length];
+        for (int i = 0; i < codons.Count; i++)
+        {
+            string codon = codons[i];
+            for (int k = 0; k < 3 && k < codon.Length; k++)
+            {
+                char c = char.ToUpperInvariant(codon[k]);
+                gcFlags[i * 3 + k] = c is 'G' or 'C' ? 1 : 0;
+            }
+        }
+
+        int windowCount = length - window + 1;
+
+        double WindowBreach(int start)
+        {
+            int gc = 0;
+            for (int p = start; p < start + window; p++)
+                gc += gcFlags[p];
+            double fraction = (double)gc / window;
+            return Math.Max(0, minGc - fraction) + Math.Max(0, fraction - maxGc);
+        }
+
+        double TotalBreach()
+        {
+            double total = 0;
+            for (int start = 0; start < windowCount; start++)
+                total += WindowBreach(start);
+            return total;
+        }
+
+        void WriteCodon(int index, string codon)
+        {
+            codons[index] = codon;
+            for (int k = 0; k < 3; k++)
+            {
+                char c = char.ToUpperInvariant(codon[k]);
+                gcFlags[index * 3 + k] = c is 'G' or 'C' ? 1 : 0;
+            }
+        }
+
+        // Rounds of a left-to-right pass: a repair can re-break an already visited window, so the
+        // pass is repeated while the total breach strictly decreases (at most MaxRounds rounds).
+        const int MaxRounds = 8;
+        double previousTotal = double.PositiveInfinity;
+        for (int round = 0; round < MaxRounds; round++)
+        {
+            double totalBefore = TotalBreach();
+            if (totalBefore <= 0 || totalBefore >= previousTotal - 1e-12)
+                return;
+            previousTotal = totalBefore;
+
+            int frozen = 0;
+            int guard = Math.Max(16, codons.Count * 16);
+            while (frozen < windowCount && guard-- > 0)
+            {
+                int breaching = -1;
+                for (int start = frozen; start < windowCount; start++)
+                {
+                    if (WindowBreach(start) > 0)
+                    {
+                        breaching = start;
+                        break;
+                    }
+                }
+
+                if (breaching < 0)
+                    break;
+
+                double windowBefore = WindowBreach(breaching);
+                double totalCurrent = TotalBreach();
+                int firstCodon = breaching / 3;
+                int lastCodon = Math.Min(codons.Count - 1, (breaching + window - 1) / 3);
+
+                int bestCodonIndex = -1;
+                string? bestCodon = null;
+                double bestWindow = windowBefore;
+                double bestTotal = totalCurrent;
+                double bestFrequency = double.NegativeInfinity;
+
+                for (int index = firstCodon; index <= lastCodon; index++)
+                {
+                    string current = codons[index];
+                    if (!TryTranslateCodon(current, out char aa) || aa == '*')
+                        continue;
+
+                    foreach (string alternative in SynonymsFor(current))
+                    {
+                        if (alternative == current)
+                            continue;
+                        double frequency = table.CodonFrequencies.GetValueOrDefault(alternative, 0);
+                        if (frequency < minCodonFrequency)
+                            continue;
+
+                        WriteCodon(index, alternative);
+                        double windowAfter = WindowBreach(breaching);
+                        double totalAfter = TotalBreach();
+                        WriteCodon(index, current);
+
+                        // Only moves that improve the targeted window, or keep it and lower the
+                        // total breach, are candidates (lexicographic objective).
+                        bool improves = windowAfter < windowBefore - 1e-12 ||
+                            (Math.Abs(windowAfter - windowBefore) <= 1e-12 && totalAfter < totalCurrent - 1e-12);
+                        if (!improves)
+                            continue;
+
+                        bool better = bestCodon is null ||
+                            windowAfter < bestWindow - 1e-12 ||
+                            (Math.Abs(windowAfter - bestWindow) <= 1e-12 &&
+                                (totalAfter < bestTotal - 1e-12 ||
+                                    (Math.Abs(totalAfter - bestTotal) <= 1e-12 && frequency > bestFrequency)));
+                        if (!better)
+                            continue;
+
+                        bestCodonIndex = index;
+                        bestCodon = alternative;
+                        bestWindow = windowAfter;
+                        bestTotal = totalAfter;
+                        bestFrequency = frequency;
+                    }
+                }
+
+                if (bestCodon is null)
+                {
+                    // This window's bounds are unreachable with synonymous codons: leave it.
+                    frozen = breaching + 1;
+                    continue;
+                }
+
+                WriteCodon(bestCodonIndex, bestCodon);
+            }
+        }
     }
 
     // G+C count of a codon via the canonical counting primitive (SequenceExtensions).

@@ -123,7 +123,7 @@
 - Implementation uses RNA notation (U not T)
 - Automatically converts T → U
 - Trims to complete codons
-- GC content balancing in BalancedOptimization strategy (40-60% target)
+- GC content balancing in BalancedOptimization strategy (40-60% target); global by default, per sliding window with `gcWindow` / MCP `gc_window` (review 2026-09 F43)
 - BalancedOptimization rebuilds Changes list after GC balancing to reflect all modifications
 - CAI via the canonical CodonUsageAnalyzer core: Met/Trp and stops not scored, w < 0.0001 → 0.01 (CodonW `cai_out`) — review 2026-09, CODON-CAI-001 F12/F13
 - MinimizeSecondary strategy uses the BalancedOptimization codon selection and GC pass and then runs the `ReduceSecondaryStructure` structure pass (review 2026-09 F42; it previously stopped after the GC pass)
@@ -184,7 +184,53 @@ Default: `PairCount` stays the default of `ReduceSecondaryStructure` and of the 
 - `ReduceSecondaryStructure`: canonical `RnaSecondaryStructure.CanPair` (G·U wobble), re-evaluated baseline, normalised RNA output.
 - `ReduceSecondaryStructure`: opt-in `Turner2004Mfe` scoring (Turner 2004 window MFE, maximised), memoised window folds, `maxFoldEvaluations` budget; default `PairCount` behaviour unchanged (F41).
 - `MinimizeSecondary`: runs the structure pass after the GC pass; output differs from BalancedOptimization on structured sequences (F42).
+- Windowed GC constraint (F43): `EvaluateGcContent` equals dnachisel's `EnforceGCContent(...).evaluate(problem)` (score, breaching window starts, grouped breach segments) and `OptimizeSequence(..., gcWindow: w)` repairs every window where that is achievable; default (`gcWindow = null`) global behaviour unchanged.
 - `CreateCodonTableFromSequence`: Sharp & Li / Biopython 0.5 pseudo-count, all 64 codons, Standard-code `CodonToAminoAcid`.
 
+### Review 2026-09 — F43: windowed GC constraint (audit A1-7)
+
+#### Sources actually opened
+
+| Source | What was opened | What it establishes |
+|---|---|---|
+| DNA Chisel 3.2.16 (installed, executed) | `dnachisel/builtin_specifications/EnforceGCContent.py` | `evaluate` = "sum of breaches extent for all windowed breaches": per window `max(0, mini-gc) + max(0, gc-maxi)`, `score = -breaches.sum()`, breach starts = `(breaches > 0).nonzero()`, one breach → `[start, start+window]`, several → `group_nearby_segments(segments, max_start_spread=max(1, locations_span=50))` → `(group[0][0], group[-1][-1])`; windowless mode reports the whole location |
+| DNA Chisel 3.2.16 | `dnachisel/biotools/gc_content.py` | Sliding GC via cumulative sums: window `i` = `sequence[i : i+window_size]`, `len(sequence) - window_size + 1` values, fraction = GC/window (so both bounds are inclusive; a window longer than the sequence yields no values) |
+| DNA Chisel 3.2.16 | `dnachisel/biotools/indices_operations.py` (`group_nearby_segments`) | Grouping rule used for the breach locations (`seg[0] - current_group[0][0] < max_start_spread`) |
+| DNA Chisel 3.2.16 (executed) | `DnaOptimizationProblem(constraints=[EnforceTranslation, EnforceGCContent(window=20)]).resolve_constraints()` | Feasibility reference: solvable for the mixed gene only by also mutating the stop codon (TAA→TAG); `NoSolutionError` for the AT-rich, GC-rich and two-segment genes |
+
+#### Numeric cross-checks (2026-10-14) — bounds 0.40/0.60
+
+| Sequence (DNA) | window | dnachisel score | Seqeron `EvaluateGcContent` | breach segments (both) |
+|---|---|---|---|---|
+| `ATGAAAGAAAAAATTCTTAAAGGCGGCGGCGCGGCGGCCATGAAAAAATTTTAA` (mixed, 54 nt) | 20 | −4.25 | −4.25 | 0-54 (starts 0–7, 13–27, 33, 34) |
+| same | none | −0.0 | 0 | — ("Passed !") |
+| same | 9 (bounds 0.30/0.70) | −7.655555555556 | identical | 0-54 |
+| `ATGGCCGCCGCCGCGGCGGCCCTGCTGCTGCGCCGCGGCGGCGCCGCCTGA` (GC-rich, 51 nt) | 20 | −9.45 | −9.45 | 0-51 |
+| same | none | −0.262745098039 | identical | 0-51 |
+| `ATGAAATTTAAA…TTTTAA` (AT-rich, 54 nt) | 20 | −13.85 | −13.85 | 0-54 |
+| same | none | −0.381481481481 | identical | 0-54 |
+| AT-rich flanks + balanced middle (two-segment, 177 nt) | 20 | −20.1 | −20.1 | 0-51, 125-177 (two groups) |
+| `ATG(AAAGAA)×7TAA` (M-(KE)₇-*, 48 nt) | 20 / 30 | −6.7 / −4.366667 | identical | 0-48 |
+| `ATG(GGCAGC)×7TAA` (M-(GS)₇-*, 48 nt) | 20 / 30 | −6.4 / −4.166667 | identical | 0-48 |
+
+#### Repair results (dnachisel `EnforceGCContent(0.40, 0.60, window=w).evaluate` applied to **our** output)
+
+| Input | mode | output | dnachisel score of output |
+|---|---|---|---|
+| M-(KE)₇-* | `gcWindow: 20` | `AUGAAAGAGAAGGAGAAGGAGAAAGAGAAGGAGAAGGAGAAAGAGUAA` (11 codons changed) | **0** (input −6.7) |
+| M-(KE)₇-* | `gcWindow: 30` | `AUGAAAGAAAAGGAGAAGGAGAAGGAGAAGGAGAAAGAGAAAGAGUAA` | **0** at w=30 (input −4.366667) |
+| M-(GS)₇-* | `gcWindow: 20` | `AUGGGCUCUGGUUCUGGUUCUGGCUCUGGUUCUGGUUCUGGCAGCUAA` (10 codons changed) | **0** (input −6.4) |
+| M-(GS)₇-* | default (global) | `AUGGGUUCUGGUUCUGGUUCUGGUUCUGGCAGCGGCAGCGGCAGCUAA` | −1.5 at w=20 (global GC pass satisfies the global bounds only) |
+| AT-rich (Lys/Phe only) | `gcWindow: 20` | `AUGAAGUUCAAG…UUCUAA` | −2.4 (input −13.85); unreachable — dnachisel's own solver: `NoSolutionError` |
+| GC-rich | `gcWindow: 20` | `AUGGCAGCAGCA…GCAUGA` | −2.0 (input −9.45); unreachable (`NoSolutionError`) |
+| two-segment (177 nt) | `gcWindow: 20` | see tests | −2.6 (input −20.1; global-only default: −32.45); unreachable (`NoSolutionError`) |
+| mixed | `gcWindow: 20` | `AUGAAGGAGAAGAUCCUGAAAGGUGGUGGUGCAGCAGCGAUGAAGAAGUUCUAA` | −0.2 (input −4.25); dnachisel reaches 0 only by mutating the stop codon TAA→TAG and using codons below our `rareCodonThreshold` floor, both of which `OptimizeSequence` never does |
+
+Protein preserved in every row (`MKEKEKEKEKEKEKE*`, `MGSGSGSGSGSGSGS*`, `MKFKFKFKFKFKFKFKF*`, `MAAAAAALLLRRGGAA*`, `MKEKILKGGGAAAMKKF*`), sequence length unchanged, outputs deterministic (repeated calls identical).
+
+#### Search
+
+Deterministic greedy, not DNA Chisel's randomised constraint solver: rounds of a left-to-right pass (at most 8, each round only runs while the total breach strictly decreased) in which the left-most breaching window is repaired by the synonymous replacement — frequency ≥ `rareCodonThreshold` — of an overlapping codon that minimises, lexicographically, (breach of that window, total breach of the sequence, −codon frequency, codon position, NCBI codon order). A window that no synonymous replacement improves is left alone and the scan continues after it, so an unreachable band cannot loop or throw. Only the *evaluation* is claimed to equal DNA Chisel; the repaired sequences may differ from that library's (equally valid) random-search output.
+
 ## Date
-2026-03-10 (reviewed 2026-09-28)
+2026-03-10 (reviewed 2026-09-28; F43 windowed GC 2026-10-14)
