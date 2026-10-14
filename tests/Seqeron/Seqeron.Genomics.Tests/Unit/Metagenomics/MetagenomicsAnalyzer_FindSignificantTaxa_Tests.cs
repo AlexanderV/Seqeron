@@ -69,7 +69,8 @@ public class MetagenomicsAnalyzer_FindSignificantTaxa_Tests
         });
     }
 
-    // M5 — Mann & Whitney tortoise/hare worked example: U_T=11, U_H=25 (ranks 12,6,5,4,3,2 vs rest).
+    // M5 — Wikipedia's tortoise/hare worked example (Mann–Whitney U test article; not from Mann & Whitney 1947):
+    // U_T=11, U_H=25 (ranks 12,6,5,4,3,2 vs rest).
     [Test]
     public void MannWhitneyU_TortoiseHare_ReturnsU11And25()
     {

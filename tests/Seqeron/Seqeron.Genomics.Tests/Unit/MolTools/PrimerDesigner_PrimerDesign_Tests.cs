@@ -7,9 +7,12 @@ namespace Seqeron.Genomics.Tests.Unit.MolTools;
 /// Covers DesignPrimers, EvaluatePrimer, and GeneratePrimerCandidates methods.
 /// 
 /// Evidence sources:
-/// - Wikipedia: Primer (molecular biology) - standard primer length 18-24 bp
-/// - Addgene: How to Design a Primer - 40-60% GC, 50-60°C Tm, pairs within 5°C
-/// - Primer3 Manual (v2.6.1) - PRIMER_MIN_TM=57, PRIMER_OPT_TM=60, PRIMER_MAX_TM=63, PRIMER_MAX_POLY_X=5
+/// - Wikipedia: Primer (molecular biology) - "typically between 18 and 24 bases in length" (length only;
+///   fetched 2026-10-14 — the page states no GC, Tm or pair-Tm window)
+/// - Addgene: How to Design a Primer (fetched 2026-10-14) - 18-24 bases, 40-60% G/C, Tm 50-60°C, pairs within 5°C
+/// - Primer3 Manual (v2.6.1) / libprimer3.c pr_set_default_global_args_1 - PRIMER_MIN_TM=57, PRIMER_OPT_TM=60,
+///   PRIMER_MAX_TM=63, PRIMER_MAX_POLY_X=5 (same defaults in EMBOSS 6.6.0 eprimer3.acd)
+/// - MaxLength 25 is a library convention between Primer3 (27) and Addgene (24), not from either source
 /// </summary>
 [TestFixture]
 public class PrimerDesigner_PrimerDesign_Tests
@@ -266,7 +269,7 @@ public class PrimerDesigner_PrimerDesign_Tests
         Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
         double tmDiff = Math.Abs(result.Forward!.MeltingTemperature - result.Reverse!.MeltingTemperature);
         Assert.That(tmDiff, Is.LessThanOrEqualTo(maxTmDiff),
-            $"Primer pair Tm difference should be ≤{maxTmDiff}°C (Addgene/Wikipedia standard)");
+            $"Primer pair Tm difference should be ≤{maxTmDiff}°C (Addgene)");
     }
 
     #endregion

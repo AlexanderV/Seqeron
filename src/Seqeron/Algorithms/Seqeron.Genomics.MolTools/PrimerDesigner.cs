@@ -225,7 +225,8 @@ public static partial class PrimerDesigner
     public const int PrimerSearchFlank = 200;
 
     /// <summary>
-    /// Library default maximum |Tm_forward − Tm_reverse| (°C) for a primer pair (Addgene "within 5 °C";
+    /// Library default maximum |Tm_forward − Tm_reverse| (°C) for a primer pair (Addgene "within 5°C",
+    /// https://www.addgene.org/protocols/primer-design/, re-verified 2026-10-14;
     /// stricter than Primer3's PRIMER_PAIR_MAX_DIFF_TM default of 100) — the default of
     /// <see cref="PrimerPairOptions.MaxTmDifference"/>.
     /// </summary>

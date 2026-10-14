@@ -16,26 +16,28 @@
 
 | Source | Type | Key Information |
 |--------|------|-----------------|
-| [Wikipedia: Primer (molecular biology)](https://en.wikipedia.org/wiki/Primer_(molecular_biology)) | Encyclopedia | 18-24 bp length, 40-60% GC, Tm 50-60°C, primer pairs within 5°C |
-| [Addgene: How to Design a Primer](https://www.addgene.org/protocols/primer-design/) | Protocol Guide | Length 18-24, GC 40-60%, Tm 50-60°C, pairs within 5°C, avoid complementary regions |
+| [Wikipedia: Primer (molecular biology)](https://en.wikipedia.org/wiki/Primer_(molecular_biology)) | Encyclopedia | Length only: "typically between 18 and 24 bases in length" (fetched 2026-10-14; the page does NOT state 40–60 % GC, Tm 50–60 °C or a 5 °C pair window — those are Addgene's) |
+| [Addgene: How to Design a Primer](https://www.addgene.org/protocols/primer-design/) | Protocol Guide | Verbatim (fetched 2026-10-14): "Length of 18-24 bases; 40-60% G/C content; Start and end with 1-2 G/C pairs; Melting temperature (Tm) of 50-60°C; Primer pairs should have a Tm within 5°C of each other; Primer pairs should not have complementary regions" |
 | [Primer3 Manual (v2.6.1)](https://primer3.org/manual.html) | Software Documentation | PRIMER_MIN_SIZE=18, PRIMER_MAX_SIZE=27, PRIMER_OPT_SIZE=20, PRIMER_MIN_TM=57, PRIMER_OPT_TM=60, PRIMER_MAX_TM=63, PRIMER_MIN_GC=20, PRIMER_MAX_GC=80, PRIMER_MAX_POLY_X=5, PRIMER_PAIR_MAX_DIFF_TM=100.0 |
 | SantaLucia (1998) PNAS 95:1460-65 | Research Paper | Table 2 NN + terminal-initiation parameters — the Primer3-default primer Tm used by EvaluatePrimer/DesignPrimers (the scale of the Primer3 57–63 °C window) |
 | Primer3 source `oligotm.c`, `libprimer3.cc` (primer3-org/primer3 main) | Reference implementation | `seqtm`/`oligotm` (SantaLucia Tm + salt correction, `divalent_to_monovalent` 120·√(Mg−dNTP), `long_seq_tm` > 36 nt); `p_obj_fn` penalty; `choose_pair_or_triple` pair search; `primer_rec_comp` / `compare_primer_pair` ordering |
 | primer3-py 2.3.1 (`calc_tm`, `design_primers`) | Reference implementation | Numeric oracle for Tm, penalties and selected pairs (values locked in the tests below) |
+| Primer3 `libprimer3.c` `pr_set_default_global_args_1` (vendored in primer3-py 2.0.3 sdist, `primer3/src/libprimer3/libprimer3.c`) | Reference implementation (defaults) | opt_size 20, min_size 18, max_size 27, opt_tm 60.0, min_tm 57.0, max_tm 63.0, min_gc 20.0, max_gc 80.0, max_poly_x 5, gc_clamp 0, max_end_gc 5, max_diff_tm 100.0 (checked 2026-10-14) |
+| EMBOSS 6.6.0 `eprimer3.acd` (emboss-data 6.6.0+dfsg-12ubuntu2) | Reference implementation (defaults) | minsize 18, optsize 20, maxsize 27, mintm 57.0, opttm 60.0, maxtm 63.0, mingc 20.0, ogcpercent 50.0, maxgc 80.0, maxdifftm 100.0, gcclamp 0, maxpolyx 5 (checked 2026-10-14) — independent confirmation of the Primer3 defaults |
 
 ### Implementation Parameters vs Sources
 
 | Parameter | Implementation | Authoritative Source | Justification |
 |-----------|---------------|---------------------|---------------|
 | Length (Min) | 18 bp | Primer3: 18 | Exact match |
-| Length (Max) | 25 bp | Primer3: 27, Addgene: 24 | Practical middle ground; within both ranges |
+| Length (Max) | 25 bp | Primer3: 27, Addgene: 24 | Library convention between Primer3 (27) and Addgene (24) — not taken from either source |
 | Length (Optimal) | 20 bp | Primer3: 20 | Exact match |
 | GC Content (Min) | 40% | Addgene: 40% | Exact match (Addgene) |
 | GC Content (Max) | 60% | Addgene: 60% | Exact match (Addgene) |
 | Tm (Min) | 57°C | Primer3: 57°C | Exact match |
 | Tm (Max) | 63°C | Primer3: 63°C | Exact match |
 | Tm (Optimal) | 60°C | Primer3: 60°C | Exact match |
-| Pair Tm Difference | ≤ 5°C (unrounded Tm) | Wikipedia, Addgene | Exact match (Primer3 default PRIMER_PAIR_MAX_DIFF_TM=100.0 is unlimited; 5°C is the standard lab guideline) |
+| Pair Tm Difference | ≤ 5°C (unrounded Tm) | Addgene | Exact match (Primer3 default PRIMER_PAIR_MAX_DIFF_TM=100.0 is unlimited; 5°C is the standard lab guideline) |
 | Tm model | Primer3 default (SantaLucia 1998 NN, SantaLucia salt, 50 mM Na⁺, 1.5 mM Mg²⁺, 0.6 mM dNTP, 50 nM) | Primer3 PRIMER_TM_FORMULA=1, PRIMER_SALT_CORRECTIONS=1 | Bit-identical to primer3.calc_tm(max_nn_length=36) (calc_tm's own default is 60 → `maxNearestNeighborLength` overload) |
 | Reaction conditions | `PrimerParameters.MonovalentMillimolar` / `DivalentMillimolar` / `DntpMillimolar` / `DnaConcentrationNanomolar` (null = 50 mM / 1.5 mM / 0.6 mM / 50 nM) for primer Tm, ntthal structure, pair compl and product Tm; internal oligo `Primer3ProbeSettings` conditions | Primer3 PRIMER_SALT_MONOVALENT / _SALT_DIVALENT / PRIMER_DNTP_CONC / PRIMER_DNA_CONC (`p_args`, `create_thal_arg_holder`, `long_seq_tm`), PRIMER_INTERNAL_* (`o_args`) | 2500/2500 random-condition templates identical to primer3-py design_primers (audit round 3, A3-1) |
 | GC optimum | `PrimerParameters.OptimalGcPercent`, `Primer3ProbeSettings.OptGcPercent`, `Primer3Optima.OptGcPercent` (+ `WeightGcPercentGt/Lt`); null = undefined (GC weights then throw Primer3's `_pr_data_control` error; A3-25) | Primer3 PRIMER_OPT_GC_PERCENT / PRIMER_INTERNAL_OPT_GC_PERCENT (code: undefined, GC weights require it; the manual's 50 is not applied) | Exact match whenever Primer3 accepts the settings |
@@ -77,7 +79,7 @@
 | M3 | DesignPrimers throws on out-of-bounds target | Input validation | Implementation |
 | M4 | Forward primer position is upstream of target | Algorithm invariant | Primer3 |
 | M5 | Reverse primer position is downstream of target | Algorithm invariant | Primer3 |
-| M6 | Primer pair Tm difference ≤ 5°C when valid | Standard requirement | Wikipedia, Addgene |
+| M6 | Primer pair Tm difference ≤ 5°C when valid | Standard requirement | Addgene |
 | M14 | Primer3-default Tm equals primer3.calc_tm(max_nn_length=36) (default + non-default conditions, symmetric, > 36 nt); a 39-mer locks both calc_tm(max_nn_length=36) = 73.0492 and the calc_tm default (60, via the `maxNearestNeighborLength` overload) = 70.4249 (A5-4) | Tm scale of the Primer3 window | Primer3 oligotm.c, primer3-py |
 | M15 | DesignPrimers returns the lowest-penalty compatible pair (primer3-py design_primers), incl. when the individually best primers are Tm-incompatible | Pair selection | Primer3 libprimer3.cc |
 | M16 | DesignPrimerPairs with Primer3 defaults returns primer3-py's PRIMER_LEFT/RIGHT_k, PRIMER_PAIR_k_PENALTY / _PRODUCT_TM / _COMPL_ANY_TH / _COMPL_END_TH / _PRODUCT_SIZE for k = 0..4 | PRIMER_NUM_RETURN, product Tm | Primer3 choose_pair_or_triple, long_seq_tm |
@@ -216,10 +218,10 @@ Applied systematic coverage classification (2026-03-04):
 
 **Intentional deviations from defaults (documented in Parameters table above):**
 
-- **Max Length**: 25 bp — between Primer3 (27) and Addgene (24); practical middle ground.
+- **Max Length**: 25 bp — a library convention between Primer3 (27) and Addgene (24); not from either source.
 - **Homopolymer Max**: 4 — stricter than Primer3 default (5); conservative choice.
 - **GC Content**: 40-60% — follows Addgene guideline; stricter than Primer3 (20-80%).
-- **Pair Tm Difference**: ≤ 5°C — follows Addgene/Wikipedia; Primer3 default (100.0°C) is unlimited.
+- **Pair Tm Difference**: ≤ 5°C — follows Addgene (Wikipedia does not state it; re-fetched 2026-10-14); Primer3 default (100.0°C) is unlimited.
 - **Dinucleotide-repeat limit**: 4 — unsourced library screen (`FindLongestDinucleotideRepeat`; Primer3 has no dinucleotide limit, `Primer3DefaultParameters` disables it — audit round 3, A3-8).
 - **Structure screens**: Primer3's ntthal Tm limits by default (`PrimerStructureScreen.Primer3Thermodynamic`); the sequence-only library screens `HasHairpinPotential` / `HasPrimerDimer` only with `PrimerStructureScreen.Heuristic` (PRIMER-STRUCT-001).
 - **Target coordinates**: `targetEnd` is exclusive (target = `[targetStart, targetEnd)`, Primer3 SEQUENCE_TARGET start,length).
