@@ -67,9 +67,13 @@ Standalone CAI: `codon_adaptation_index` (`CodonUsageAnalyzer.CalculateCai`) or 
 - `target_organism`: preset `EColiK12` / `Yeast` / `Human`, or an inline **RNA-alphabet** custom table.
 - Input is upper-cased, T→U, trimmed to whole codons; **stop codons and Met/Trp are never changed**.
 - Strategies: `MaximizeCAI` (deterministic, most-frequent codon), `BalancedOptimization` (default:
-  most-frequent above rare threshold, then GC-balance), `AvoidRareCodeons`, `MinimizeSecondary`,
+  most-frequent above rare threshold, then GC-balance), `AvoidRareCodons` (the historical
+  misspelling `AvoidRareCodeons` is the same value), `MinimizeSecondary`,
   `HarmonizeExpression` (**non-deterministic** weighted-random — repeat / fix a seed and report it).
 - GC band default 0.40–0.60 (fractions in [0,1], min ≤ max); `rare_codon_threshold` default 0.15.
+- `avoid_sites`: optional recognition sequences cleared from the result **after** the GC/structure
+  passes (DNA Chisel `AvoidPattern` + `CodonOptimize` in one problem) — use it instead of a separate
+  `remove_restriction_sites` call so the reported CAI/GC describe the sequence you keep.
 - Always report **CAI before→after** and **GC before→after** so the improvement is auditable.
 
 **Provenance example.** `optimize_codons(preset=EColiK12, strategy=MaximizeCAI, GC=[0.40,0.60])`

@@ -18,7 +18,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 
 - **MaximizeCAI** — pick the most frequent synonymous codon; ties break by NCBI codon order (identical to DNA Chisel `use_best_codon`).
 - **BalancedOptimization** (default) — as MaximizeCAI, then GC-balance into `[gc_target_min, gc_target_max]` with further synonymous swaps. The GC pass constrains the **global** GC fraction by default (DNA Chisel `EnforceGCContent(mini, maxi)`); with `gc_window = w` it instead constrains **every sliding window** of `w` nucleotides (DNA Chisel `EnforceGCContent(mini, maxi, window=w)`), resolved by a deterministic greedy synonymous-codon repair (review 2026-09, F43).
-- **AvoidRareCodeons** — only replace codons below the rare-codon threshold (with the most frequent synonym).
+- **AvoidRareCodons** — only replace codons below the rare-codon threshold (with the most frequent synonym). The historical misspelling **AvoidRareCodeons** is the same value and stays accepted; strategy names are matched case-insensitively (review 2026-09, F55).
 - **MinimizeSecondary** — balanced selection and GC pass, **followed by** the sliding-window structure pass of `reduce_secondary_structure`, scored by `secondary_scoring`: `PairCount` (default, the canonical-pair fraction heuristic, ~0.06 s per kilobase) or `Turner2004Mfe` (Turner 2004 nearest-neighbour free energy, the ViennaRNA RNAfold energy model, ~9 s per kilobase).
 - **HarmonizeExpression** — match the target codon-usage profile as closely as integer codon counts allow (DNA Chisel `match_codon_usage`); **deterministic** since review 2026-09.
 
@@ -39,6 +39,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 | `secondary_scoring` | enum | No | Scoring of the MinimizeSecondary structure pass: `PairCount` (default) or `Turner2004Mfe`. |
 | `gc_window` | integer \| null | No | `null` (default): global GC constraint only. A positive window size in nucleotides constrains every sliding window of that size to `[gc_target_min, gc_target_max]`. |
 | `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard, identical to omitting it; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the encoded protein and the synonymous-codon families (DNA Chisel `EnforceTranslation(genetic_table=…)`); under table 2 AGA/AGG are stops and never used for Arg, UGA is Trp, AUA is Met. One of 1–6, 9–16, 21–33. |
+| `avoid_sites` | array \| null | No | `null`/omitted (default): no site avoidance. A list of restriction recognition sequences (DNA or RNA, IUPAC codes allowed — same form as [remove_restriction_sites](remove_restriction_sites.md), which also takes sequences rather than enzyme names) runs the site-removal pass **after** codon selection, the GC pass and the structure pass, so no later pass can re-introduce a site (DNA Chisel resolves the hard `AvoidPattern` constraints last). Both strands are cleared; each removal changes one codon; an occurrence no single synonymous substitution can remove is left in place, and because the pass runs last it may perturb GC slightly. The reported CAI, GC fractions and codon changes always describe the final sequence (review 2026-09, F54). |
 
 ## Output Schema
 
@@ -61,6 +62,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 | 1004 | Unknown codon-usage preset |
 | 1005 | GC window must be a positive number of nucleotides |
 | 1006 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
+| 1007 | Restriction site '…' contains a character that is not an IUPAC nucleotide code (from `avoid_sites`) |
 
 ## Examples
 
@@ -94,7 +96,11 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 
 `AUG CGU AGA CGC AGG UGA AUA UAA` with `strategy` MaximizeCAI and the E. coli K12 preset: under the default Standard code the result is `AUGCGCCGCCGCCGCUGAAUUUAA` (AGA/AGG recoded as Arg CGC, AUA → AUU Ile); with `genetic_code: 2` it is `AUGCGCAGACGCAGGUGGAUGUAA` — AGA/AGG are table-2 stops and kept, UGA is Trp (→ UGG), AUA is Met (→ AUG); `proteinSequence` = `MR*R*WM*`, the table-2 protein of the input (DNA Chisel `EnforceTranslation(genetic_table="Vertebrate Mitochondrial")` families; locked in `CodonOptimizer_GeneticCode_Tests`).
 
-### Example 4: Empty input
+### Example 4: Chained restriction-site avoidance (`avoid_sites`)
+
+`optimize_codons("ATGCTACAACACATGACAATGGCAAAGTAA", { preset: "EColiK12" }, strategy: "MaximizeCAI", avoid_sites: ["CTGCAG", "CATATG", "CCATGG"])` — MaximizeCAI alone would *create* all three sites (Leu CUG + Gln CAG = PstI, His CAU + Met AUG = NdeI, Thr ACC + Met AUG = NcoI). With `avoid_sites` the result is `AUGCUGCAACACAUGACGAUGGCGAAAUAA` (protein `MLQHMTMAK*`, `optimizedCAI` 0.793311 instead of 1.0, 4 changed codons) — byte-identical to the sequence dnachisel 3.2.16 returns for `DnaOptimizationProblem(constraints=[AvoidPattern(...)×3, EnforceTranslation()], objectives=[CodonOptimize(species='e_coli', method='use_best_codon')])`, whose `AvoidPattern(...).evaluate` scores our output 0 (pass) for every site.
+
+### Example 5: Empty input
 
 `optimize_codons("", { preset: "EColiK12" })` throws `ArgumentException`.
 

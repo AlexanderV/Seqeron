@@ -173,7 +173,21 @@ public static class CodonOptimizer
         BalancedOptimization,  // Balance CAI with other factors
         HarmonizeExpression,   // Match host codon usage distribution
         MinimizeSecondary,     // Avoid mRNA secondary structures
-        AvoidRareCodeons       // Only replace rare codons
+
+        /// <summary>
+        /// Only replace rare codons. Misspelling of <see cref="AvoidRareCodons"/>, kept for
+        /// backward compatibility: both members have the same underlying value, so they are
+        /// interchangeable in every API and comparison. New code should use
+        /// <see cref="AvoidRareCodons"/>.
+        /// </summary>
+        AvoidRareCodeons,
+
+        /// <summary>
+        /// Only replace codons whose table frequency is strictly below the rare-codon threshold
+        /// (correctly spelled alias of the historical <see cref="AvoidRareCodeons"/> member; same
+        /// underlying value).
+        /// </summary>
+        AvoidRareCodons = AvoidRareCodeons
     }
 
     #endregion
@@ -513,6 +527,20 @@ public static class CodonOptimizer
     /// is Met; dual-coding codons of tables 27/28/31 belong to the family of the amino acid they
     /// encode (Biopython <c>forward_table</c>, DNA Chisel back-translation table).
     /// </param>
+    /// <param name="avoidSites">
+    /// <see langword="null"/> or empty (default): no site avoidance, the historical behaviour. A
+    /// list of restriction recognition sequences (DNA or RNA, IUPAC codes allowed) instead runs
+    /// <see cref="RemoveRestrictionSites(string, IEnumerable{string}, CodonUsageTable, GeneticCode?)"/>
+    /// on the selected/GC-balanced/structure-relaxed sequence with the same table and genetic
+    /// code — DNA Chisel composes the objective <c>CodonOptimize(...)</c> with the constraints
+    /// <c>AvoidPattern(EnzymeSitePattern(...))</c> and <c>EnforceTranslation()</c> in one problem
+    /// and resolves the hard constraints last, so no later pass can re-introduce a site. Sites
+    /// are cleared on both strands with IUPAC semantics; an occurrence that no single synonymous
+    /// substitution can remove is left in place. Because the site pass runs after the GC and
+    /// structure passes, it may perturb the GC fraction and the window structure slightly; the
+    /// reported CAI, GC fractions, <see cref="OptimizationResult.Changes"/> and
+    /// <see cref="OptimizationResult.ChangedCodons"/> always describe the final sequence.
+    /// </param>
     public static OptimizationResult OptimizeSequence(
         string codingSequence,
         CodonUsageTable targetOrganism,
@@ -522,7 +550,8 @@ public static class CodonOptimizer
         double rareCodonThreshold = 0.15,
         SecondaryStructureScoring secondaryScoring = SecondaryStructureScoring.PairCount,
         int? gcWindow = null,
-        GeneticCode? geneticCode = null)
+        GeneticCode? geneticCode = null,
+        IReadOnlyList<string>? avoidSites = null)
     {
         if (gcWindow is <= 0)
             throw new ArgumentOutOfRangeException(nameof(gcWindow), gcWindow, "The GC window must be a positive number of nucleotides.");
@@ -571,6 +600,15 @@ public static class CodonOptimizer
         {
             optimizedSequence = ReduceSecondaryStructure(
                 optimizedSequence, targetOrganism, scoring: secondaryScoring, geneticCode: geneticCode);
+            optimizedCodons = SplitIntoCodons(optimizedSequence);
+        }
+
+        // Restriction-site avoidance is a hard constraint (DNA Chisel AvoidPattern), so it runs
+        // last: no later pass can re-introduce a site. It may perturb the GC fraction and the
+        // window structure of the preceding passes by the one codon it changes per occurrence.
+        if (avoidSites is { Count: > 0 })
+        {
+            optimizedSequence = RemoveRestrictionSites(optimizedSequence, avoidSites, targetOrganism, geneticCode);
             optimizedCodons = SplitIntoCodons(optimizedSequence);
         }
 

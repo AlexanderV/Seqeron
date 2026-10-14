@@ -114,6 +114,61 @@ public class OptimizeCodonsTests
     }
 
     [Test]
+    [Description("F54 (A2-13): avoid_sites clears restriction sites created by codon selection; null/empty = historical output")]
+    public void OptimizeCodons_AvoidSites_ClearsSitesAfterTheOtherPasses()
+    {
+        // MLQHMTMAK*: MaximizeCAI creates PstI (CUG+CAG), NdeI (CAU+AUG) and NcoI (ACC+AUG).
+        const string gene = "ATGCTACAACACATGACAATGGCAAAGTAA";
+        string[] sites = { "CTGCAG", "CATATG", "CCATGG" };
+
+        var plain = MolToolsTools.optimize_codons(gene, EColi, CodonOptimizer.OptimizationStrategy.MaximizeCAI);
+        var avoided = MolToolsTools.optimize_codons(gene, EColi, CodonOptimizer.OptimizationStrategy.MaximizeCAI,
+            avoid_sites: sites);
+        var empty = MolToolsTools.optimize_codons(gene, EColi, CodonOptimizer.OptimizationStrategy.MaximizeCAI,
+            avoid_sites: Array.Empty<string>());
+
+        Assert.Multiple(() =>
+        {
+            foreach (string site in sites)
+                Assert.That(plain.OptimizedSequence.Replace('U', 'T'), Does.Contain(site), site);
+            // dnachisel 3.2.16: AvoidPattern(site).evaluate scores 0 (passes) on this output for all
+            // three sites, EnforceTranslation passes, and dnachisel's own solver returns exactly
+            // this sequence (CodonOptimize objective -1.3892) - review 2026-09 F54.
+            Assert.That(avoided.OptimizedSequence, Is.EqualTo("AUGCUGCAACACAUGACGAUGGCGAAAUAA"));
+            Assert.That(avoided.ProteinSequence, Is.EqualTo("MLQHMTMAK*"));
+            Assert.That(avoided.OptimizedCAI, Is.EqualTo(0.793311).Within(1e-6));
+            Assert.That(avoided.ChangedCodons, Is.EqualTo(4));
+            Assert.That(empty.OptimizedSequence, Is.EqualTo(plain.OptimizedSequence));
+            // Site strings are validated like remove_restriction_sites.
+            Assert.Throws<ArgumentException>(() => MolToolsTools.optimize_codons(
+                gene, EColi, avoid_sites: new[] { "GAATTZ" }));
+        });
+    }
+
+    [Test]
+    [Description("F55 (A2-14): the strategy parses under both spellings, case-insensitively")]
+    public void OptimizeCodons_AvoidRareCodons_BothSpellingsAccepted()
+    {
+        const string gene = "ATGCTGCTAAGAGAGTTTTAA";
+        var legacy = MolToolsTools.optimize_codons(gene, EColi, CodonOptimizer.OptimizationStrategy.AvoidRareCodeons);
+        var fixedSpelling = MolToolsTools.optimize_codons(gene, EColi, CodonOptimizer.OptimizationStrategy.AvoidRareCodons);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fixedSpelling.OptimizedSequence, Is.EqualTo(legacy.OptimizedSequence));
+            foreach (string name in new[] { "AvoidRareCodons", "avoidrarecodons", "AvoidRareCodeons", "avoidRareCodeons" })
+                Assert.That(
+                    System.Text.Json.JsonSerializer.Deserialize<CodonOptimizer.OptimizationStrategy>(
+                        $"\"{name}\"",
+                        new System.Text.Json.JsonSerializerOptions
+                        {
+                            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+                        }),
+                    Is.EqualTo(CodonOptimizer.OptimizationStrategy.AvoidRareCodeons), name);
+        });
+    }
+
+    [Test]
     [Description("F43: gc_window must be positive")]
     public void OptimizeCodons_GcWindow_MustBePositive()
     {

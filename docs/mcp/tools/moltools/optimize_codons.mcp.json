@@ -22,8 +22,8 @@
       },
       "strategy": {
         "type": "string",
-        "description": "Optimization strategy.",
-        "enum": ["MaximizeCAI", "BalancedOptimization", "HarmonizeExpression", "MinimizeSecondary", "AvoidRareCodeons"],
+        "description": "Optimization strategy. AvoidRareCodons and its historical misspelling AvoidRareCodeons are the same value; names are matched case-insensitively.",
+        "enum": ["MaximizeCAI", "BalancedOptimization", "HarmonizeExpression", "MinimizeSecondary", "AvoidRareCodons", "AvoidRareCodeons"],
         "default": "BalancedOptimization"
       },
       "gc_target_min": { "type": "number", "description": "Lower GC fraction bound.", "minimum": 0, "maximum": 1, "default": 0.40 },
@@ -31,6 +31,7 @@
       "rare_codon_threshold": { "type": "number", "description": "Rare-codon frequency threshold.", "default": 0.15 },
       "secondary_scoring": { "type": "string", "description": "Window scoring model of the MinimizeSecondary structure pass: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower). Ignored by the other strategies.", "enum": ["PairCount", "Turner2004Mfe"], "default": "PairCount" },
       "gc_window": { "type": ["integer", "null"], "description": "Omitted/null (default): the GC pass constrains the GLOBAL GC fraction only (DNA Chisel EnforceGCContent(mini, maxi)). A positive window size in nucleotides instead constrains EVERY sliding window of that size to [gc_target_min, gc_target_max] (DNA Chisel EnforceGCContent(mini, maxi, window=...)), resolved by a deterministic greedy synonymous-codon repair.", "minimum": 1, "default": null },
+      "avoid_sites": { "type": ["array", "null"], "items": { "type": "string" }, "description": "Omitted/null (default): no restriction-site avoidance. Recognition sequences (DNA or RNA, IUPAC codes allowed, same form as remove_restriction_sites) are cleared from the optimized sequence AFTER codon selection, the GC pass and the structure pass, so no later pass can re-introduce a site (DNA Chisel resolves the hard AvoidPattern constraints last). Both strands are cleared; each removal changes one codon; an unremovable occurrence is left in place, so the pass may perturb GC slightly. Reported CAI, GC and codon changes describe the final sequence.", "default": null },
       "genetic_code": { "type": "integer", "description": "NCBI translation table number (default 1 = Standard). Defines the encoded protein and the synonymous-codon families (DNA Chisel EnforceTranslation(genetic_table=…)); under table 2 AGA/AGG are stops and never used for Arg, UGA is Trp, AUA is Met.", "enum": [1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33], "default": 1 }
     },
     "required": ["coding_sequence", "target_organism"]

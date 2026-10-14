@@ -301,5 +301,78 @@ allocation and the sequence its own `optimize()` returns (`CGTCGTCGGCGCCGCCGCCGT
   `FindConservedRareCodonClusters`, `CalculateCodonUsage`, `CompareCodonUsage` perform per-codon
   usage lookups / codon counting only.
 
+## F54 — restriction-site avoidance chained in `OptimizeSequence` (review 2026-09, audit A2-13)
+
+### Sources opened
+
+- dnachisel 3.2.16 (installed): `builtin_specifications/AvoidPattern.py`, `biotools/enzymes_operations.py`
+  (`EnzymeSitePattern`), `builtin_specifications/codon_optimization/*`, `DnaOptimizationProblem`
+  (`resolve_constraints()` runs the **hard constraints**, `optimize()` then maximises the objectives
+  without breaking them) — i.e. site avoidance is a constraint composed with the `CodonOptimize`
+  objective in ONE problem, resolved last.
+- Our existing `RemoveRestrictionSites` (F22: both strands, IUPAC matching, table-aware, one codon
+  per removed occurrence) and `OptimizeSequence` (F42/F43 pass order).
+
+### Defect
+
+`OptimizeSequence` had no way to express the site constraint: the caller had to run
+`RemoveRestrictionSites` afterwards by hand, and then the reported CAI/GC/`Changes` no longer
+described the sequence actually used. Worse, codon selection itself **creates** sites: with the
+E. coli K12 table, Leu `CUG` + Gln `CAG` = `CTGCAG` (PstI), His `CAU` + Met `AUG` = `CATATG` (NdeI),
+Thr `ACC` + Met `AUG` = `CCATGG` (NcoI).
+
+### Fix
+
+Additive optional `IReadOnlyList<string>? avoidSites = null` (MCP: `avoid_sites`), applied after
+selection → GC pass → structure pass, i.e. the hard constraint last, so no later pass can
+re-introduce a site; the metrics and `Changes` are then rebuilt from the final sequence (as F42).
+
+### Verification genes and reference numbers (dnachisel 3.2.16)
+
+Problem per gene: `DnaOptimizationProblem(sequence, constraints=[AvoidPattern("CTGCAG"),
+AvoidPattern("CATATG"), AvoidPattern("CCATGG"), EnforceTranslation()],
+objectives=[CodonOptimize(species='e_coli', method='use_best_codon')])`.
+
+| Gene | Input (len) | Our `MaximizeCAI` + `avoidSites` output (RNA) | our CAI | dnachisel `AvoidPattern.evaluate` | `CodonOptimize` score |
+|------|-------------|-----------------------------------------------|---------|-----------------------------------|-----------------------|
+| A `MKLQALHMTMAEF*` | `ATGAAGCTACAAGCATTACACATGACAATGGCTGAGTTTTAA` (42) | `AUGAAACUGCAAGCGCUGCACAUGACGAUGGCGGAAUUUUAA` | 0.870294 (plain 1.0) | 0 / 0 / 0, all pass; `EnforceTranslation` passes | −1.3892 |
+| B GFP N-term + `LQHMTMA` | 150 nt | `AUGAGCAAAGGCGAAGAAUUUCUGUUUACCGGCGUGGUGCCGAUUCUGGUGGAACUGGAUGGCGAUGUGAACGGCCAUAAAUUUAGCGUGAGCGGCGAAGGCGAAGGCGAUGCGACCUAUGGCAAACUGCAACACAUGACGAUGGCGUAA` | 0.970251 (plain 1.0) | 0 / 0 / 0, all pass | −1.3892 |
+| C `MLQHMTMAK*` | `ATGCTACAACACATGACAATGGCAAAGTAA` (30) | `AUGCUGCAACACAUGACGAUGGCGAAAUAA` | 0.793311 (plain 1.0) | 0 / 0 / 0, all pass | −1.3892 |
+
+Without `avoidSites` the same three outputs score **−1 (fail) on each of the three
+`AvoidPattern`s** (sites present), while `EnforceTranslation` passes — the defect reproduced
+through the reference library.
+
+For all three genes dnachisel's own `resolve_constraints() + optimize()` returns the
+**byte-identical** sequence to ours (`ATGAAACTGCAAGCGCTGCACATGACGATGGCGGAATTTTAA`,
+`…AAACTGCAACACATGACGATGGCGTAA`, `ATGCTGCAACACATGACGATGGCGAAATAA`) with the same objective score
+−1.3892; exact equality with its stochastic solver is not required, but here the deterministic
+greedy repair reaches the same optimum. Protein identical in all cases (`MKLQALHMTMAEF*`,
+`MSKGEEFLFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLQHMTMA*`, `MLQHMTMAK*`).
+
+Property (F22) re-checked through the new path: every occurrence removable by one synonymous change
+is gone on **both strands**, for `MaximizeCAI`, `BalancedOptimization`, `MinimizeSecondary` and
+`HarmonizeExpression`, and the pass is idempotent (re-running `OptimizeSequence(..., avoidSites)` on
+its own output changes nothing). GC note: on these genes the replacements are GC-neutral
+(0.452381 / 0.526667 / 0.433333 before and after), but in general the site pass runs after the GC
+pass and may perturb GC by the one codon it changes per occurrence — documented in the algorithm doc
+and the XML docs.
+
+## F55 — `AvoidRareCodons` spelling (review 2026-09, audit A2-14)
+
+`OptimizationStrategy.AvoidRareCodeons` was misspelled. A correctly spelled member
+`AvoidRareCodons = AvoidRareCodeons` (same underlying value 4) was added; the old name stays, kept
+**un-attributed** because `Directory.Build.props` sets `TreatWarningsAsErrors=true`, so an
+`[Obsolete]` attribute would break the build at the existing call sites (verified: the property is
+set at line 20 and is unconditional for Debug). `ToString()` still returns `AvoidRareCodeons`
+(the field declared first), so no serialized value changes meaning. MCP parsing accepts both
+spellings case-insensitively — `System.Text.Json`'s `JsonStringEnumConverter` (the converter the
+MCP SDK uses for enum parameters) resolves `"AvoidRareCodons"`, `"avoidrarecodons"`,
+`"AVOIDRARECODONS"`, `"AvoidRareCodeons"` and `"avoidrarecodeons"` all to that value (asserted in
+the tests). `Enum.GetValues<OptimizationStrategy>()` now returns 6 entries with 5 distinct values;
+the two consumers that iterate it (`Properties/CodonProperties`,
+`Metamorphic/CodonMetamorphicTests`) run the rare-codon strategy twice and are unaffected — no
+counting or indexing of strategies anywhere in the tests.
+
 ## Date
-2026-03-10 (reviewed 2026-09-28; F43 windowed GC 2026-10-14)
+2026-03-10 (reviewed 2026-09-28; F43 windowed GC, F54 avoidSites, F55 AvoidRareCodons 2026-10-14)
