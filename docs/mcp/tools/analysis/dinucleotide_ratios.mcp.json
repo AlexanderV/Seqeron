@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateDinucleotideRatios",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1612",
-  "description": "Dinucleotide relative abundance (Karlin odds ratio) rho_XY = f_XY / (f_X * f_Y): single-strand rho (default; = seqinr rho / EMBOSS compseq Obs/Exp) or Karlin's strand-symmetrized rho* (sequence + reverse complement). rho > 1 over-, < 1 under-represented; only occurring dinucleotides are keys. Optional Karlin classes (rho <= 0.78 under, >= 1.23 over). Not the Gardiner-Garden & Frommer CpG O/E used for CpG-island calling.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1614",
+  "description": "Dinucleotide relative abundance (Karlin odds ratio) rho_XY = f_XY / (f_X * f_Y): single-strand rho (default; = seqinr rho / EMBOSS compseq Obs/Exp) or Karlin's strand-symmetrized rho* (sequence + reverse complement). rho > 1 over-, < 1 under-represented; only occurring dinucleotides are keys unless includeAbsent adds rho = 0 for unobserved dinucleotides whose bases occur (seqinr rho; class UnderRepresented); undefined ratios (absent base, seqinr NaN) are omitted. Optional Karlin classes (rho <= 0.78 under, >= 1.23 over). Not the Gardiner-Garden & Frommer CpG O/E used for CpG-island calling.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -23,6 +23,11 @@
       "includeRepresentation": {
         "type": "boolean",
         "description": "true: also return Karlin's representation class per returned dinucleotide",
+        "default": false
+      },
+      "includeAbsent": {
+        "type": "boolean",
+        "description": "true: also return rho = 0 for every unobserved dinucleotide whose two bases occur (seqinr rho)",
         "default": false
       }
     },
@@ -112,6 +117,33 @@
           "GC": "OverRepresented",
           "GT": "Normal",
           "TG": "Normal"
+        }
+      }
+    },
+    {
+      "name": "CpG-free sequence with absent dinucleotides",
+      "input": {
+        "sequence": "AACCTTGGAACCTTGG",
+        "includeAbsent": true
+      },
+      "output": {
+        "ratios": {
+          "AA": 2.1333333333333333,
+          "AC": 2.1333333333333333,
+          "CC": 2.1333333333333333,
+          "CT": 2.1333333333333333,
+          "GG": 2.1333333333333333,
+          "TG": 2.1333333333333333,
+          "TT": 2.1333333333333333,
+          "GA": 1.0666666666666667,
+          "AG": 0,
+          "AT": 0,
+          "CA": 0,
+          "CG": 0,
+          "GC": 0,
+          "GT": 0,
+          "TA": 0,
+          "TC": 0
         }
       }
     }

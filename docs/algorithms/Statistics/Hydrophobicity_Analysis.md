@@ -118,12 +118,12 @@ The scale is a static `Dictionary<char,double>` matching Biopython `kd` exactly 
 - `Convention = HydropathyWindowConvention.Biopython`: line-for-line Biopython 1.88 `protein_scale(param_dict, window, edge)` — pairs (j, W−1−j) with half-list weight `edge + j·2(1−edge)/(W−1)`, then residue ⌊W/2⌋ with weight 1, divided by 2·Σhalf + 1. For even W the residue W/2 is counted twice (divisor W + 1 at edge 1); even weighted windows are accepted; a pair containing an unknown residue is dropped as a whole; W = 1 is rejected (Biopython ZeroDivisionError).
 - `Strict = true`: any symbol absent from the scale throws `ArgumentException` (Biopython `gravy()` KeyError).
 - `NormalizeScale = true`: ExPASy ProtScale "normalize the scale from 0 to 1" — v' = (v − min)/(max − min) over the scale's entries, applied to the scale before profiling.
-- `Scale` (or the overload `CalculateHydrophobicityProfile(seq, IReadOnlyDictionary<char,double> scale, W, edge)`): any caller-supplied residue scale, e.g. Biopython `ProtParamData.hw` (Hopp-Woods), `em` (Eisenberg), `ja` (Janin), `Flex` (Vihinen); locked against executed Biopython for these four.
+- `Scale` (or the overload `CalculateHydrophobicityProfile(seq, IReadOnlyDictionary<char,double> scale, W, edge)`): any caller-supplied residue scale, e.g. Biopython `ProtParamData.hw` (Hopp-Woods), `em` (Emini surface fractional probability — Biopython's own comment; F31 had mislabelled it "Eisenberg"), `ja` (Janin), `Flex` (Vihinen); locked against executed Biopython for these four.
+- Shipped scales (2026-10, B03 F52): `Seqeron.Genomics.Infrastructure.ProteinScales.HoppWoods / Emini / Janin / Flexibility` — read-only, Biopython 1.88 `ProtParamData` verbatim (test-locked); `ProteinScales.KyteDoolittle` forwards to the canonical `ProteinPhysicochemistry.KyteDoolittle`. MCP `hydrophobicity_profile` selects them with `scale` (KyteDoolittle default | HoppWoods | Emini | Janin | Flexibility, or the Biopython keys kd | hw | em | ja | flex).
 
 **Not implemented:**
 
 - ProtScale's "exponential" weight-variation model — **BLOCKED (no source for the formula)**: the ProtScale doc / Gasteiger 2005 chapter only name the option; web.expasy.org is unreachable from the review environment and no open reimplementation was found (B03.md F30 lists every source tried). Only the linear model (as in Biopython) is implemented.
-- Bundled alternative scale tables: there is no canonical home for them, so callers pass the table (see `Scale`).
 
 ### 5.4 Deviations and Assumptions (Optional)
 

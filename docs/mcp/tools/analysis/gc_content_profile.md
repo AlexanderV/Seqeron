@@ -33,7 +33,7 @@ The windows are produced by the canonical `GcSkewCalculator.CalculateWindowedGcC
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L2433](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2433) (default), [#L2151](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2460) (ambiguity mode), [#L2191](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2500) / [#L2220](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2529) (partial windows)
+- Source: [SequenceStatistics.cs#L2506](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2506) (default), [#L2151](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2533) (ambiguity mode), [#L2191](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2573) / [#L2220](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2602) (partial windows)
 - Algorithm: `docs/algorithms/Statistics/GC_Content_Profile.md`
 
 ## Input Schema

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateEntropyProfile",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2594",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2667",
   "description": "Shannon-entropy profile: per sliding window H = -sum p*log2(p) in bits over letter frequencies (every case-folded letter is its own symbol: N/IUPAC codes distinct, T and U not merged, non-letters ignored) or, with k, over the overlapping k-mers of the window. Optional includePartialWindow scores trailing windows shorter than windowSize. Max is log2(m) for m distinct symbols.",
   "inputSchema": {
     "type": "object",

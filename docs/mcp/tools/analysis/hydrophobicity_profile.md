@@ -28,12 +28,18 @@ membrane-spanning or buried regions), negative values hydrophilic ones. The prof
   window residue W/2 is counted twice (divisor W + 1 at edge 1), a symmetric pair containing an unknown
   residue is dropped as a whole; window ≥ 2.
 - **`strict`**: reject any symbol without a scale value (Biopython `gravy()` KeyError behaviour).
-- **`normalizeScale`**: min–max normalise the Kyte-Doolittle scale to 0..1 before profiling (ProtScale
+- **`normalizeScale`**: min–max normalise the selected scale to 0..1 before profiling (ProtScale
   "normalize the scale from 0 to 1").
+- **`scale`** (default `KyteDoolittle`): residue scale, one of the shipped Biopython 1.88
+  `Bio.SeqUtils.ProtParamData` tables (`Seqeron.Genomics.Infrastructure.ProteinScales`): `KyteDoolittle` (`kd`),
+  `HoppWoods` (`hw`, Hopp & Woods 1981 hydrophilicity — positive = hydrophilic), `Emini` (`em`, Emini surface
+  fractional probability), `Janin` (`ja`, Janin 1979 transfer energy) or `Flexibility` (`Flex`, Vihinen 1994
+  normalized B-values). Case-insensitive; the Biopython keys are accepted as aliases. Combines with every
+  other option (the window machinery is the same).
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L973](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L973) (defaults / `edgeWeight`), [#L753](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1050) (`convention` / `strict` / `normalizeScale`)
+- Source: [SequenceStatistics.cs#L973](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L973) (defaults / `edgeWeight`), [#L1050](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1050) (`convention` / `strict` / `normalizeScale` / `scale`); scales: [ProteinScales.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/ProteinScales.cs)
 - Algorithm: `docs/algorithms/Statistics/Hydrophobicity_Analysis.md`
 
 ## Input Schema
@@ -46,12 +52,13 @@ membrane-spanning or buried regions), negative values hydrophilic ones. The prof
 | `convention` | string | No | `Standard` (default) or `Biopython` (case-insensitive) |
 | `strict` | boolean | No | Reject symbols without a scale value (default `false`) |
 | `normalizeScale` | boolean | No | Normalise the scale to 0..1 first (default `false`) |
+| `scale` | string | No | `KyteDoolittle` (default), `HoppWoods`, `Emini`, `Janin`, `Flexibility` (or `kd`/`hw`/`em`/`ja`/`flex`) |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `values` | array of number | Weighted mean hydropathy per window (length `N − windowSize + 1`) |
+| `values` | array of number | Weighted mean scale value per window (length `N − windowSize + 1`) |
 
 ## Errors
 
@@ -63,6 +70,7 @@ membrane-spanning or buried regions), negative values hydrophilic ones. The prof
 | 1003 | An edge-weighted window must have an odd size (a central residue). |
 | 1003 | Unknown window convention '…'. Expected one of: Standard, Biopython. |
 | 1003 | Symbol '…' has no value in the scale (strict mode). |
+| 1001 | Unknown scale '…'. Expected one of: KyteDoolittle (kd), HoppWoods (hw), Emini (em), Janin (ja), Flexibility (flex). |
 
 ## Examples
 
@@ -116,6 +124,15 @@ equal up to floating-point summation order; weights 0.4, 0.7, 1, 0.7, 0.4.)
 
 **Input:** `{ "proteinSequence": "AXCDE", "windowSize": 5, "convention": "Biopython" }` → `{ "values": [0.16] }`
 (Biopython drops the pair X/D; the Standard convention gives −0.54.)
+
+### Example 5: Hopp-Woods hydrophilicity (Biopython `ProtParamData.hw`)
+
+**Input:** `{ "proteinSequence": "MKTAYIAKQRQISFVKSHFSRQ", "windowSize": 9, "scale": "HoppWoods" }`
+→ 14 values starting −0.06666666666666665, 0.41111111111111115, 0.10000000000000002 (live tool output) —
+Biopython 1.88 `ProteinAnalysis(seq).protein_scale(ProtParamData.hw, 9)` (executed) gives −0.06666666666666662,
+0.4111111111111112, 0.10000000000000002: equal up to floating-point summation order. Same sequence: `"scale": "em"` → first
+value 1.0731111111111111; `"scale": "ja"` → −0.31222222222222223; `"scale": "flex", "windowSize": 5,
+"edgeWeight": 0.4` → 1.003.
 
 ## Performance
 

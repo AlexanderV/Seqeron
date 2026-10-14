@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateShannonEntropy",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1884",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1957",
   "description": "Shannon entropy H = -sum p_i log2 p_i (bits per symbol) of the per-letter composition. Alphabet: every letter (case-folded) is its own symbol, so DNA, RNA and protein all work; N and IUPAC codes count as distinct symbols, T and U are not merged, and non-letters (gaps, digits, '*', whitespace) are ignored. Max log2(m) for m distinct letters (2 bits for A/C/G/T); 0 for a homopolymer.",
   "inputSchema": {
     "type": "object",

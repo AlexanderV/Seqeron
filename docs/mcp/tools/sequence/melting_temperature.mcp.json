@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateMeltingTemperature",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1419",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1421",
   "description": "Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula. weightAmbiguousBases = true weights IUPAC codes as Biopython non-strict Tm_Wallace/Tm_GC (e.g. acgtNNSWacgt-ry → 42.0).",
   "inputSchema": {
     "type": "object",

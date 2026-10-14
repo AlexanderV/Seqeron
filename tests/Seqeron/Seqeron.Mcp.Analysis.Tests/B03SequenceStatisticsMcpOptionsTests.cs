@@ -492,4 +492,100 @@ public class B03SequenceStatisticsMcpOptionsTests
     }
 
     #endregion
+
+    #region dinucleotide_ratios includeAbsent (round 2 B7, F51)
+
+    // seqinr 4.2.36 rho() executed 2026-10-14: unobserved words over occurring bases are 0.
+    [Test]
+    public void DinucleotideRatios_IncludeAbsent_MatchesSeqinrZeros_AndClassifiesUnder()
+    {
+        var r = AnalysisTools.DinucleotideRatios("AACCTTGGAACCTTGG", includeRepresentation: true, includeAbsent: true);
+        Assert.That(r.Ratios, Has.Count.EqualTo(16));
+        Assert.Multiple(() =>
+        {
+            foreach (var d in new[] { "AG", "AT", "CA", "CG", "GC", "GT", "TA", "TC" })
+            {
+                Assert.That(r.Ratios[d], Is.EqualTo(0.0), d);
+                Assert.That(r.Representation![d], Is.EqualTo("UnderRepresented"), d);
+            }
+
+            Assert.That(r.Ratios["GA"], Is.EqualTo(16.0 / 15).Within(1e-12));
+            Assert.That(r.Ratios["AA"], Is.EqualTo(32.0 / 15).Within(1e-12));
+        });
+
+        var star = AnalysisTools.DinucleotideRatios("AACCTTGGAACCTTGG", strandSymmetric: true, includeAbsent: true);
+        Assert.That(star.Ratios["CG"], Is.EqualTo(0.0));
+        Assert.That(star.Ratios["GA"], Is.EqualTo(8.0 / 15).Within(1e-12));
+
+        // seqinr NaN (C/G absent) stays omitted.
+        Assert.That(AnalysisTools.DinucleotideRatios("AAAATTTT", includeAbsent: true).Ratios.Keys,
+            Is.EquivalentTo(new[] { "AA", "AT", "TA", "TT" }));
+    }
+
+    [Test]
+    public void DinucleotideRatios_IncludeAbsent_EqualsLibrary_DefaultUnchanged()
+    {
+        var rng = new Random(51);
+        for (int n = 0; n < 200; n++)
+        {
+            string seq = RandomSequence(rng, "ACGTUNacg-", rng.Next(1, 40));
+            foreach (bool symmetric in new[] { false, true })
+            {
+                var r = AnalysisTools.DinucleotideRatios(seq, symmetric, includeRepresentation: true, includeAbsent: true);
+                Assert.That(r.Ratios, Is.EquivalentTo(SequenceStatistics.CalculateDinucleotideRatios(seq, symmetric, true)), seq);
+                Assert.That(r.Representation, Is.EquivalentTo(SequenceStatistics.ClassifyDinucleotideRatios(seq, symmetric, true)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value.ToString())), seq);
+                Assert.That(AnalysisTools.DinucleotideRatios(seq, symmetric).Ratios,
+                    Is.EquivalentTo(SequenceStatistics.CalculateDinucleotideRatios(seq, symmetric)), seq);
+            }
+        }
+    }
+
+    #endregion
+
+    #region hydrophobicity_profile scale (round 2 B8, F52)
+
+    private const string ScaleSeq = "MKTAYIAKQRQISFVKSHFSRQ";
+
+    // Biopython 1.88 ProteinAnalysis(ScaleSeq).protein_scale(ProtParamData.X, window, edge) (F31, executed 2026-10-14).
+    [Test]
+    public void HydrophobicityProfile_Scale_MatchesBiopythonProteinScale()
+    {
+        AssertValues(AnalysisTools.HydrophobicityProfile(ScaleSeq, 9, scale: "HoppWoods").Values,
+            new[] { -0.06666666666666662, 0.4111111111111112, 0.10000000000000002, -0.055555555555555455, 0.033333333333333395, 0.01111111111111112, 0.04444444444444444, 0.43333333333333335, 0.1333333333333334, 0.05555555555555555, -0.5555555555555556, -0.5444444444444445, -0.011111111111111151, -0.02222222222222224 }, "hw W9");
+        AssertValues(AnalysisTools.HydrophobicityProfile(ScaleSeq, 9, scale: "em").Values,
+            new[] { 1.0731111111111111, 1.1576666666666666, 1.1357777777777778, 1.0712222222222223, 1.1045555555555557, 1.0607777777777776, 1.0611111111111111, 1.1422222222222222, 1.0944444444444446, 1.0757777777777777, 0.989111111111111, 0.9632222222222223, 1.0601111111111112, 1.086 }, "em W9");
+        AssertValues(AnalysisTools.HydrophobicityProfile(ScaleSeq, 9, scale: "janin").Values,
+            new[] { -0.31222222222222223, -0.48666666666666664, -0.38333333333333336, -0.2811111111111111, -0.33333333333333326, -0.26555555555555554, -0.26555555555555554, -0.4766666666666667, -0.3177777777777777, -0.27555555555555555, -0.09777777777777778, -0.04222222222222224, -0.23555555555555557, -0.2911111111111111 }, "ja W9");
+        AssertValues(AnalysisTools.HydrophobicityProfile(ScaleSeq, 5, 0.4, scale: "Flex").Values,
+            new[] { 1.003, 0.9824374999999999, 0.9559687499999999, 0.9689062499999999, 0.99709375, 1.02834375, 1.03825, 1.0223125, 1.00771875, 0.98571875, 0.9758125000000001, 0.97203125, 0.9936562499999999, 1.00996875, 1.0065000000000002, 0.9943437500000002, 0.9793124999999999, 0.9959062499999999 }, "Flex W5 e0.4");
+        AssertValues(AnalysisTools.HydrophobicityProfile(ScaleSeq, 5, 0.4, scale: "hw").Values,
+            new[] { -0.02812500000000013, -0.5968749999999998, -1.3343749999999999, -0.8624999999999999, -0.15625000000000006, 1.0218749999999999, 1.3374999999999997, 1.1749999999999998, 0.38749999999999984, -0.390625, -1.009375, -0.8937499999999999, -0.2843750000000001, 0.3, 0.14062499999999983, -0.22499999999999992, -0.41249999999999987, 0.16562499999999986 }, "hw W5 e0.4");
+    }
+
+    [Test]
+    public void HydrophobicityProfile_Scale_DefaultAndKdEqualLibrary_OptionsCombine()
+    {
+        var lib = SequenceStatistics.CalculateHydrophobicityProfile(ScaleSeq, 9, 1.0).ToArray();
+        Assert.That(AnalysisTools.HydrophobicityProfile(ScaleSeq).Values, Is.EqualTo(lib));
+        Assert.That(AnalysisTools.HydrophobicityProfile(ScaleSeq, scale: "kd").Values, Is.EqualTo(lib));
+        Assert.That(AnalysisTools.HydrophobicityProfile(ScaleSeq, scale: "KYTEDOOLITTLE").Values, Is.EqualTo(lib));
+
+        var options = new SequenceStatistics.HydrophobicityProfileOptions
+        {
+            Convention = SequenceStatistics.HydropathyWindowConvention.Biopython,
+            NormalizeScale = true,
+            Scale = Seqeron.Genomics.Infrastructure.ProteinScales.Janin,
+        };
+        Assert.That(AnalysisTools.HydrophobicityProfile(ScaleSeq, 6, 0.5, "Biopython", normalizeScale: true, scale: "Janin").Values,
+            Is.EqualTo(SequenceStatistics.CalculateHydrophobicityProfile(ScaleSeq, 6, 0.5, options).ToArray()));
+    }
+
+    [TestCase("Eisenberg")]
+    [TestCase("0")]
+    [TestCase("")]
+    public void HydrophobicityProfile_UnknownScale_Throws(string scale) =>
+        Assert.Throws<ArgumentException>(() => AnalysisTools.HydrophobicityProfile(ScaleSeq, scale: scale));
+
+    #endregion
 }

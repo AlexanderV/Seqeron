@@ -27,8 +27,12 @@ means no bias; `ρ > 1` over-representation, `ρ < 1` under-representation (Karl
 - **Representation classes** (`includeRepresentation = true`): adds Karlin's class per returned dinucleotide —
   `UnderRepresented` (ρ ≤ 0.78), `Normal`, `OverRepresented` (ρ ≥ 1.23) (Karlin & Burge 1995; Karlin 1998).
 
-Only dinucleotides that occur (on either strand for ρ*) are keys; an absent key means ρ = 0 when both
-bases occur and undefined otherwise. Sequences with fewer than two counted bases yield an empty map.
+By default only dinucleotides that occur (on either strand for ρ*) are keys; an absent key means ρ = 0
+when both bases occur and undefined otherwise. With `includeAbsent = true` every unobserved dinucleotide
+whose two bases occur (ρ*: A/T when A+T > 0, C/G when C+G > 0) is added with ρ = 0 — as seqinr 4.2.36
+`rho()` reports it — and is classified `UnderRepresented` (e.g. CG of a CpG-free sequence). A dinucleotide
+containing an absent base is undefined (seqinr `NaN`, expected frequency 0) and stays omitted, so every
+returned value is finite. Sequences with fewer than two counted bases yield an empty map.
 
 This odds ratio normalises by the counted dinucleotides (≈ N − 1). It is **not** the Gardiner-Garden &
 Frommer CpG observed/expected ratio used for CpG-island calling (normalised by the window length N,
@@ -36,7 +40,7 @@ threshold 0.6) — that lives in `EpigeneticsAnalyzer` (annotation server CpG-is
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L1612](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1612)
+- Source: [SequenceStatistics.cs#L1614](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1614)
 - Classes: `SequenceStatistics.ClassifyDinucleotideRatios` (Karlin thresholds 0.78 / 1.23)
 - Evidence: `docs/Evidence/SEQ-DINUC-001-Evidence.md`
 
@@ -47,6 +51,7 @@ threshold 0.6) — that lives in `EpigeneticsAnalyzer` (annotation server CpG-is
 | `sequence` | string | Yes | Nucleotide sequence (min length 1, case-insensitive) |
 | `strandSymmetric` | boolean | No | `true`: Karlin ρ* over the sequence and its reverse complement; `false` (default): single-strand ρ |
 | `includeRepresentation` | boolean | No | `true`: also return the Karlin class per dinucleotide (default `false`, field omitted) |
+| `includeAbsent` | boolean | No | `true`: also return ρ = 0 for unobserved dinucleotides whose bases occur (seqinr `rho`); default `false` |
 
 ## Output Schema
 
@@ -92,6 +97,14 @@ CG = GC = 512/175, AC = CA = GT = TG = 128/105.
   "representation": { "AC": "Normal", "AT": "OverRepresented", "CA": "Normal", "CG": "OverRepresented", "GC": "OverRepresented", "GT": "Normal", "TG": "Normal" }
 }
 ```
+
+### Example 4: CpG-free sequence, absent dinucleotides included
+
+**Input:** `{ "sequence": "AACCTTGGAACCTTGG", "includeRepresentation": true, "includeAbsent": true }`
+→ all 16 dinucleotides, equal to seqinr `rho(s2c("aacc…"))` (executed): AA = AC = CC = CT = GG = TG = TT = 32/15
+(OverRepresented), GA = 16/15 (Normal), AG = AT = CA = CG = GC = GT = TA = TC = 0 (UnderRepresented).
+Without `includeAbsent` the eight zero rows are omitted. `"AAAATTTT"` returns only AA, AT, TA (0), TT: every
+C/G word is undefined (seqinr `NaN`).
 
 ## Performance
 

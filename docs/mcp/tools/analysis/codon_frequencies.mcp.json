@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateCodonFrequencies",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1757",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1830",
   "description": "Codon usage frequencies over non-overlapping in-frame triplets in the specified reading frame. Input is DNA or RNA, case-insensitive: U is read as T and codons are reported in DNA spelling; triplets containing any other symbol (N, IUPAC codes, gaps) are skipped without shifting the frame; a trailing partial triplet is ignored. Optional normalization (EMBOSS cusp columns): Total (default; count/total, Kazusa CUTG), PerThousand (count/total x 1000, cusp 'Frequency') or PerAminoAcid (count / count of its synonymous family, stops one '*' family, cusp 'Fraction'); the families follow the NCBI genetic code genetic_code (default 1 = Standard, as cusp). Only observed codons are returned.",
   "inputSchema": {
     "type": "object",

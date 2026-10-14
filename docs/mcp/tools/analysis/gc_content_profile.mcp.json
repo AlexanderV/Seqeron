@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateGcContentProfile",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2433",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2506",
   "description": "GC content in sliding windows along a nucleotide sequence, as a percentage (default) or a fraction (fraction=true). Default counting (G+C)/(A+C+G+T+U) with other symbols excluded; optional Biopython gc_fraction ambiguityMode (remove|ignore|weighted); optional includePartialWindow scores trailing windows shorter than windowSize (range(0, len, step) slicing).",
   "inputSchema": {
     "type": "object",

@@ -256,14 +256,14 @@
     "server": "Analysis",
     "methodId": "SequenceStatistics.PredictSecondaryStructureChouFasman",
     "docPath": "docs/mcp/tools/analysis/chou_fasman_assign.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2117"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2190"
   },
   {
     "tool": "codon_frequencies",
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateCodonFrequencies",
     "docPath": "docs/mcp/tools/analysis/codon_frequencies.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1757"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1830"
   },
   {
     "tool": "compare_genomes",
@@ -340,14 +340,14 @@
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateDinucleotideFrequencies",
     "docPath": "docs/mcp/tools/analysis/dinucleotide_frequencies.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1535"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1537"
   },
   {
     "tool": "dinucleotide_ratios",
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateDinucleotideRatios",
     "docPath": "docs/mcp/tools/analysis/dinucleotide_ratios.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1612"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1614"
   },
   {
     "tool": "discover_motifs",
@@ -382,7 +382,7 @@
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateEntropyProfile",
     "docPath": "docs/mcp/tools/analysis/entropy_profile.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2594"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2667"
   },
   {
     "tool": "find_approximate_direct_repeats",
@@ -669,7 +669,7 @@
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateGcContentProfile",
     "docPath": "docs/mcp/tools/analysis/gc_content_profile.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2433"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2506"
   },
   {
     "tool": "gc_skew",
@@ -879,7 +879,7 @@
     "server": "Analysis",
     "methodId": "SequenceStatistics.PredictSecondaryStructure",
     "docPath": "docs/mcp/tools/analysis/predict_chou_fasman.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1991"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2064"
   },
   {
     "tool": "predict_coiled_coils",
@@ -3273,14 +3273,14 @@
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateLinguisticComplexity",
     "docPath": "docs/mcp/tools/sequence/linguistic_complexity.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1920"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1993"
   },
   {
     "tool": "melting_temperature",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateMeltingTemperature",
     "docPath": "docs/mcp/tools/sequence/melting_temperature.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1419"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1421"
   },
   {
     "tool": "molecular_weight_nucleotide",
@@ -3329,21 +3329,21 @@
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateShannonEntropy",
     "docPath": "docs/mcp/tools/sequence/shannon_entropy.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1884"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1957"
   },
   {
     "tool": "summarize_sequence",
     "server": "Sequence",
     "methodId": "SequenceStatistics.SummarizeNucleotideSequence",
     "docPath": "docs/mcp/tools/sequence/summarize_sequence.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2745"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2818"
   },
   {
     "tool": "thermodynamics",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateThermodynamics",
     "docPath": "docs/mcp/tools/sequence/thermodynamics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1341"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1343"
   },
   {
     "tool": "translate_dna",

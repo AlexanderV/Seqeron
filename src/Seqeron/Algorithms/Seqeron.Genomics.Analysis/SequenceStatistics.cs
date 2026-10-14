@@ -1090,8 +1090,10 @@ public static class SequenceStatistics
     }
 
     /// <summary>
-    /// Sliding-window profile of a caller-supplied amino-acid scale (e.g. Biopython <c>ProtParamData.hw</c>
-    /// Hopp-Woods, <c>em</c> Eisenberg, <c>ja</c> Janin, <c>Flex</c> Vihinen flexibility) with the standard
+    /// Sliding-window profile of a caller-supplied amino-acid scale (e.g. the shipped Biopython
+    /// <c>ProtParamData</c> tables <see cref="ProteinScales.HoppWoods"/> (<c>hw</c>), <see cref="ProteinScales.Emini"/>
+    /// (<c>em</c>, Emini surface probability), <see cref="ProteinScales.Janin"/> (<c>ja</c>),
+    /// <see cref="ProteinScales.Flexibility"/> (<c>Flex</c>, Vihinen)) with the standard
     /// window convention; shorthand for the options overload with <see cref="HydrophobicityProfileOptions.Scale"/>.
     /// </summary>
     public static IEnumerable<double> CalculateHydrophobicityProfile(
@@ -1673,6 +1675,59 @@ public static class SequenceStatistics
     }
 
     /// <summary>
+    /// Dinucleotide relative abundances as <see cref="CalculateDinucleotideRatios(string, bool)"/>, optionally
+    /// completed with the absent dinucleotides whose ratio is defined and equal to 0.
+    /// </summary>
+    /// <remarks>
+    /// <para>With <paramref name="includeAbsent"/> = true, every dinucleotide XY over the bases that occur
+    /// (single strand: A/C/G/T/U with count &gt; 0; ρ*: A and T when A+T &gt; 0, C and G when C+G &gt; 0) is a
+    /// key; an XY that is not observed gets ρ = 0 (observed 0 over a positive expected frequency). This is
+    /// seqinr 4.2.36 <c>rho()</c>, which reports all 16 words with 0 for such an XY (executed: "AACCTTGGAACCTTGG"
+    /// → AG = AT = CA = CG = GC = GT = TA = TC = 0; "aacng" → ag = ca = … = 0).</para>
+    /// <para>An XY containing a base that does not occur is <b>undefined</b> (expected frequency 0 ⇒ 0/0;
+    /// seqinr returns <c>NaN</c>, e.g. CG of "AAAATTTT") and is excluded, so every value stays finite and
+    /// classifiable; likewise nothing is added when no dinucleotide is counted (seqinr: all NaN).
+    /// false (default) is exactly <see cref="CalculateDinucleotideRatios(string, bool)"/>.</para>
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
+    /// <param name="strandSymmetric">true for Karlin's strand-symmetrized ρ*; false for single-strand ρ.</param>
+    /// <param name="includeAbsent">true: add ρ = 0 for unobserved dinucleotides whose two bases occur.</param>
+    public static IReadOnlyDictionary<string, double> CalculateDinucleotideRatios(
+        string sequence,
+        bool strandSymmetric,
+        bool includeAbsent)
+    {
+        var observed = CalculateDinucleotideRatios(sequence, strandSymmetric);
+        if (!includeAbsent || observed.Count == 0)
+            return observed;
+
+        var comp = CalculateNucleotideComposition(sequence);
+        var bases = new List<char>(5);
+        if (strandSymmetric)
+        {
+            if (comp.CountA + comp.CountT > 0) { bases.Add('A'); bases.Add('T'); }
+            if (comp.CountC + comp.CountG > 0) { bases.Add('C'); bases.Add('G'); }
+        }
+        else
+        {
+            if (comp.CountA > 0) bases.Add('A');
+            if (comp.CountC > 0) bases.Add('C');
+            if (comp.CountG > 0) bases.Add('G');
+            if (comp.CountT > 0) bases.Add('T');
+            if (comp.CountU > 0) bases.Add('U');
+        }
+
+        var complete = new Dictionary<string, double>(observed);
+        foreach (char x in bases)
+        {
+            foreach (char y in bases)
+                complete.TryAdd(new string(new[] { x, y }), 0.0);
+        }
+
+        return complete;
+    }
+
+    /// <summary>
     /// Karlin's representation class of a dinucleotide relative abundance (odds ratio) ρ / ρ*.
     /// </summary>
     public enum DinucleotideRepresentation
@@ -1719,16 +1774,34 @@ public static class SequenceStatistics
     /// Karlin representation class of every dinucleotide returned by
     /// <see cref="CalculateDinucleotideRatios(string, bool)"/> (same keys; see
     /// <see cref="ClassifyDinucleotideRatio(double)"/>). A dinucleotide absent from the ratio map but
-    /// whose two bases occur has ρ = 0 and is under-represented; it is not a key here, as in the ratio map.
+    /// whose two bases occur has ρ = 0 and is under-represented; it is not a key here, as in the ratio
+    /// map — use <see cref="ClassifyDinucleotideRatios(string, bool, bool)"/> with <c>includeAbsent</c> to
+    /// include it.
     /// </summary>
     /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
     /// <param name="strandSymmetric">true for Karlin's strand-symmetrized ρ* (default); false for single-strand ρ.</param>
     public static IReadOnlyDictionary<string, DinucleotideRepresentation> ClassifyDinucleotideRatios(
         string sequence,
-        bool strandSymmetric = true)
+        bool strandSymmetric = true) =>
+        ClassifyDinucleotideRatios(sequence, strandSymmetric, includeAbsent: false);
+
+    /// <summary>
+    /// Karlin representation class of every dinucleotide returned by
+    /// <see cref="CalculateDinucleotideRatios(string, bool, bool)"/>. With <paramref name="includeAbsent"/>
+    /// an unobserved dinucleotide whose two bases occur (ρ = 0, seqinr <c>rho</c> 0) is
+    /// <see cref="DinucleotideRepresentation.UnderRepresented"/> (e.g. CG of a CpG-free sequence);
+    /// undefined ratios (a base absent, seqinr NaN) are not keys.
+    /// </summary>
+    /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
+    /// <param name="strandSymmetric">true for Karlin's strand-symmetrized ρ*; false for single-strand ρ.</param>
+    /// <param name="includeAbsent">true: also classify unobserved dinucleotides with ρ = 0.</param>
+    public static IReadOnlyDictionary<string, DinucleotideRepresentation> ClassifyDinucleotideRatios(
+        string sequence,
+        bool strandSymmetric,
+        bool includeAbsent)
     {
         var classes = new Dictionary<string, DinucleotideRepresentation>();
-        foreach (var (dinucleotide, ratio) in CalculateDinucleotideRatios(sequence, strandSymmetric))
+        foreach (var (dinucleotide, ratio) in CalculateDinucleotideRatios(sequence, strandSymmetric, includeAbsent))
             classes[dinucleotide] = ClassifyDinucleotideRatio(ratio);
 
         return classes;

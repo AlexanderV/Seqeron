@@ -18,7 +18,7 @@ Calculates the melting temperature (Tm) of a DNA sequence using either the Walla
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L1419](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1419)
+- Source: [SequenceStatistics.cs#L1421](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1421)
 
 ## Input Schema
 
@@ -26,7 +26,7 @@ Calculates the melting temperature (Tm) of a DNA sequence using either the Walla
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The DNA sequence (min length: 1) |
 | `useWallaceRule` | boolean | No | Use Wallace rule for short oligos (default: true) |
-| `weightAmbiguousBases` | boolean | No | Weight IUPAC ambiguity codes as Biopython `Tm_Wallace`/`Tm_GC(strict=False)` (default false: only A/C/G/T/U count). Same option as `summarize_sequence.weightAmbiguousBasesInTm`, so both tools agree on IUPAC input. Delegates to `CalculateMeltingTemperature(seq, useWallaceRule, weightAmbiguousBases)` ([SequenceStatistics.cs#L1459](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1459)). |
+| `weightAmbiguousBases` | boolean | No | Weight IUPAC ambiguity codes as Biopython `Tm_Wallace`/`Tm_GC(strict=False)` (default false: only A/C/G/T/U count). Same option as `summarize_sequence.weightAmbiguousBasesInTm`, so both tools agree on IUPAC input. Delegates to `CalculateMeltingTemperature(seq, useWallaceRule, weightAmbiguousBases)` ([SequenceStatistics.cs#L1461](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1461)). |
 
 ## Output Schema
 

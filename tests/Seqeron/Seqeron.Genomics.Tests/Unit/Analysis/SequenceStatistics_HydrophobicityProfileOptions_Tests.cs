@@ -15,26 +15,12 @@ public class SequenceStatistics_HydrophobicityProfileOptions_Tests
     private static readonly SequenceStatistics.HydrophobicityProfileOptions Bio =
         new() { Convention = SequenceStatistics.HydropathyWindowConvention.Biopython };
 
-    // Biopython 1.88 Bio.SeqUtils.ProtParamData tables (copied verbatim).
-    private static readonly IReadOnlyDictionary<char, double> HoppWoods = new Dictionary<char, double>
-    {
-        ['A'] = -0.5, ['C'] = -1.0, ['D'] = 3.0, ['E'] = 3.0, ['F'] = -2.5, ['G'] = 0.0, ['H'] = -0.5, ['I'] = -1.8, ['K'] = 3.0, ['L'] = -1.8, ['M'] = -1.3, ['N'] = 0.2, ['P'] = 0.0, ['Q'] = 0.2, ['R'] = 3.0, ['S'] = 0.3, ['T'] = -0.4, ['V'] = -1.5, ['W'] = -3.4, ['Y'] = -2.3,
-    };
-
-    private static readonly IReadOnlyDictionary<char, double> Eisenberg = new Dictionary<char, double>
-    {
-        ['A'] = 0.815, ['C'] = 0.394, ['D'] = 1.283, ['E'] = 1.445, ['F'] = 0.695, ['G'] = 0.714, ['H'] = 1.18, ['I'] = 0.603, ['K'] = 1.545, ['L'] = 0.603, ['M'] = 0.714, ['N'] = 1.296, ['P'] = 1.236, ['Q'] = 1.348, ['R'] = 1.475, ['S'] = 1.115, ['T'] = 1.184, ['V'] = 0.606, ['W'] = 0.808, ['Y'] = 1.089,
-    };
-
-    private static readonly IReadOnlyDictionary<char, double> Janin = new Dictionary<char, double>
-    {
-        ['A'] = 0.28, ['C'] = 0.97, ['D'] = -0.52, ['E'] = -1.01, ['F'] = 0.46, ['G'] = 0.43, ['H'] = -0.31, ['I'] = 0.6, ['K'] = -1.62, ['L'] = 0.6, ['M'] = 0.43, ['N'] = -0.55, ['P'] = -0.42, ['Q'] = -0.69, ['R'] = -1.14, ['S'] = -0.19, ['T'] = -0.32, ['V'] = 0.6, ['W'] = 0.29, ['Y'] = -0.15,
-    };
-
-    private static readonly IReadOnlyDictionary<char, double> Flexibility = new Dictionary<char, double>
-    {
-        ['A'] = 0.984, ['C'] = 0.906, ['D'] = 1.068, ['E'] = 1.094, ['F'] = 0.915, ['G'] = 1.031, ['H'] = 0.95, ['I'] = 0.927, ['K'] = 1.102, ['L'] = 0.935, ['M'] = 0.952, ['N'] = 1.048, ['P'] = 1.049, ['Q'] = 1.037, ['R'] = 1.008, ['S'] = 1.046, ['T'] = 0.997, ['V'] = 0.931, ['W'] = 0.904, ['Y'] = 0.929,
-    };
+    // Shipped Biopython 1.88 ProtParamData scales (F52); the literal oracle copy lives in
+    // ProteinScales_EqualBiopythonProtParamData below.
+    private static readonly IReadOnlyDictionary<char, double> HoppWoods = ProteinScales.HoppWoods;
+    private static readonly IReadOnlyDictionary<char, double> Emini = ProteinScales.Emini;
+    private static readonly IReadOnlyDictionary<char, double> Janin = ProteinScales.Janin;
+    private static readonly IReadOnlyDictionary<char, double> Flexibility = ProteinScales.Flexibility;
 
     private static void AssertProfile(IEnumerable<double> actual, double[] expected)
     {
@@ -249,19 +235,19 @@ public class SequenceStatistics_HydrophobicityProfileOptions_Tests
             new[] { -0.02812500000000013, -0.5968749999999998, -1.3343749999999999, -0.8624999999999999, -0.15625000000000006, 1.0218749999999999, 1.3374999999999997, 1.1749999999999998, 0.38749999999999984, -0.390625, -1.009375, -0.8937499999999999, -0.2843750000000001, 0.3, 0.14062499999999983, -0.22499999999999992, -0.41249999999999987, 0.16562499999999986 });
     }
 
-    // protein_scale(ProtParamData.em, 9, 1.0)
+    // protein_scale(ProtParamData.em (Emini surface probability), 9, 1.0)
     [Test]
-    public void Scale_EisenbergWindow9_MatchesProteinScale()
+    public void Scale_EminiWindow9_MatchesProteinScale()
     {
-        AssertProfile(SequenceStatistics.CalculateHydrophobicityProfile(Seq, Eisenberg, 9),
+        AssertProfile(SequenceStatistics.CalculateHydrophobicityProfile(Seq, Emini, 9),
             new[] { 1.0731111111111111, 1.1576666666666666, 1.1357777777777778, 1.0712222222222223, 1.1045555555555557, 1.0607777777777776, 1.0611111111111111, 1.1422222222222222, 1.0944444444444446, 1.0757777777777777, 0.989111111111111, 0.9632222222222223, 1.0601111111111112, 1.086 });
     }
 
-    // protein_scale(ProtParamData.em, 5, 0.4)
+    // protein_scale(ProtParamData.em (Emini surface probability), 5, 0.4)
     [Test]
-    public void Scale_EisenbergWindow5Edge04_MatchesProteinScale()
+    public void Scale_EminiWindow5Edge04_MatchesProteinScale()
     {
-        AssertProfile(SequenceStatistics.CalculateHydrophobicityProfile(Seq, Eisenberg, 5, 0.4),
+        AssertProfile(SequenceStatistics.CalculateHydrophobicityProfile(Seq, Emini, 5, 0.4),
             new[] { 1.1116249999999999, 1.02040625, 0.9003749999999999, 0.8999374999999998, 1.0291875, 1.21571875, 1.3522499999999997, 1.3191875, 1.1836874999999998, 0.99846875, 0.876625, 0.8621562499999998, 0.9581249999999999, 1.0936562499999998, 1.1071562499999998, 1.0971875, 1.04296875, 1.139125 });
     }
 
@@ -295,6 +281,44 @@ public class SequenceStatistics_HydrophobicityProfileOptions_Tests
     {
         AssertProfile(SequenceStatistics.CalculateHydrophobicityProfile(Seq, Flexibility, 5, 0.4),
             new[] { 1.003, 0.9824374999999999, 0.9559687499999999, 0.9689062499999999, 0.99709375, 1.02834375, 1.03825, 1.0223125, 1.00771875, 0.98571875, 0.9758125000000001, 0.97203125, 0.9936562499999999, 1.00996875, 1.0065000000000002, 0.9943437500000002, 0.9793124999999999, 0.9959062499999999 });
+    }
+
+    // F52: the shipped tables equal Biopython 1.88 Bio.SeqUtils.ProtParamData hw / em / ja / Flex
+    // (literal copy printed from the installed module 2026-10-14) and are read-only.
+    [Test]
+    public void ProteinScales_EqualBiopythonProtParamData()
+    {
+        var hw = new Dictionary<char, double>
+        {
+            ['A'] = -0.5, ['C'] = -1.0, ['D'] = 3.0, ['E'] = 3.0, ['F'] = -2.5, ['G'] = 0.0, ['H'] = -0.5, ['I'] = -1.8, ['K'] = 3.0, ['L'] = -1.8, ['M'] = -1.3, ['N'] = 0.2, ['P'] = 0.0, ['Q'] = 0.2, ['R'] = 3.0, ['S'] = 0.3, ['T'] = -0.4, ['V'] = -1.5, ['W'] = -3.4, ['Y'] = -2.3,
+        };
+
+        var em = new Dictionary<char, double>
+        {
+            ['A'] = 0.815, ['C'] = 0.394, ['D'] = 1.283, ['E'] = 1.445, ['F'] = 0.695, ['G'] = 0.714, ['H'] = 1.18, ['I'] = 0.603, ['K'] = 1.545, ['L'] = 0.603, ['M'] = 0.714, ['N'] = 1.296, ['P'] = 1.236, ['Q'] = 1.348, ['R'] = 1.475, ['S'] = 1.115, ['T'] = 1.184, ['V'] = 0.606, ['W'] = 0.808, ['Y'] = 1.089,
+        };
+
+        var ja = new Dictionary<char, double>
+        {
+            ['A'] = 0.28, ['C'] = 0.97, ['D'] = -0.52, ['E'] = -1.01, ['F'] = 0.46, ['G'] = 0.43, ['H'] = -0.31, ['I'] = 0.6, ['K'] = -1.62, ['L'] = 0.6, ['M'] = 0.43, ['N'] = -0.55, ['P'] = -0.42, ['Q'] = -0.69, ['R'] = -1.14, ['S'] = -0.19, ['T'] = -0.32, ['V'] = 0.6, ['W'] = 0.29, ['Y'] = -0.15,
+        };
+
+        var flex = new Dictionary<char, double>
+        {
+            ['A'] = 0.984, ['C'] = 0.906, ['D'] = 1.068, ['E'] = 1.094, ['F'] = 0.915, ['G'] = 1.031, ['H'] = 0.95, ['I'] = 0.927, ['K'] = 1.102, ['L'] = 0.935, ['M'] = 0.952, ['N'] = 1.048, ['P'] = 1.049, ['Q'] = 1.037, ['R'] = 1.008, ['S'] = 1.046, ['T'] = 0.997, ['V'] = 0.931, ['W'] = 0.904, ['Y'] = 0.929,
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ProteinScales.HoppWoods, Is.EquivalentTo(hw), "hw");
+            Assert.That(ProteinScales.Emini, Is.EquivalentTo(em), "em");
+            Assert.That(ProteinScales.Janin, Is.EquivalentTo(ja), "ja");
+            Assert.That(ProteinScales.Flexibility, Is.EquivalentTo(flex), "Flex");
+            Assert.That(ProteinScales.KyteDoolittle, Is.SameAs(ProteinPhysicochemistry.KyteDoolittle), "kd is canonical in PPC");
+        });
+
+        foreach (var scale in new[] { ProteinScales.HoppWoods, ProteinScales.Emini, ProteinScales.Janin, ProteinScales.Flexibility })
+            Assert.Throws<NotSupportedException>(() => ((IDictionary<char, double>)scale)['A'] = 0, "read-only");
     }
 
     [Test]

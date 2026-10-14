@@ -18,7 +18,7 @@ Generates comprehensive summary statistics for a DNA/RNA sequence in a single ca
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L2745](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2745)
+- Source: [SequenceStatistics.cs#L2818](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2818)
 
 ## Input Schema
 

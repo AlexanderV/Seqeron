@@ -421,14 +421,15 @@ public class AnalysisTools
     #region SequenceStatistics
 
     [McpServerTool(Name = "hydrophobicity_profile", Title = "Protein — Hydrophobicity Profile", ReadOnly = true)]
-    [Description("Sliding-window Kyte-Doolittle hydropathy values for a protein sequence (ExPASy ProtScale / Biopython protein_scale). Optional edgeWeight (linear weight of the window edges, ProtScale 'relative weight of the window edges'), convention (Standard | Biopython line-for-line protein_scale), strict (reject symbols without a scale value) and normalizeScale (ProtScale 0..1 scale normalisation). Defaults reproduce the unweighted Kyte-Doolittle mean.")]
+    [Description("Sliding-window amino-acid scale profile for a protein sequence (ExPASy ProtScale / Biopython protein_scale), Kyte-Doolittle hydropathy by default. Optional scale selects a Biopython 1.88 ProtParamData table: KyteDoolittle (kd, default), HoppWoods (hw, hydrophilicity), Emini (em, surface fractional probability), Janin (ja, transfer energy) or Flexibility (Flex, Vihinen B-values). Optional edgeWeight (linear weight of the window edges, ProtScale 'relative weight of the window edges'), convention (Standard | Biopython line-for-line protein_scale), strict (reject symbols without a scale value) and normalizeScale (ProtScale 0..1 scale normalisation). Defaults reproduce the unweighted Kyte-Doolittle mean.")]
     public static DoubleProfileResult HydrophobicityProfile(
         [Description("Protein sequence.")] string proteinSequence,
         [Description("Sliding window size (default 9).")] int windowSize = 9,
         [Description("Relative weight of the window edges in [0, 1], linear in between with the centre weighted 1 (Biopython protein_scale edge). Default 1 = unweighted; < 1 needs an odd window in the Standard convention.")] double edgeWeight = 1.0,
         [Description("Window convention (case-insensitive): 'Standard' (default; per-position weights, unknown residue contributes 0 and keeps its weight) or 'Biopython' (line-for-line Biopython 1.88 protein_scale: even windows count residue W/2 twice, a pair with an unknown residue is dropped; window >= 2).")] string convention = "Standard",
         [Description("true: throw when the sequence contains a symbol without a scale value (Biopython gravy KeyError). Default false.")] bool strict = false,
-        [Description("true: min-max normalise the Kyte-Doolittle scale to 0..1 before profiling (ExPASy ProtScale 'normalize the scale from 0 to 1'). Default false.")] bool normalizeScale = false)
+        [Description("true: min-max normalise the selected scale to 0..1 before profiling (ExPASy ProtScale 'normalize the scale from 0 to 1'). Default false.")] bool normalizeScale = false,
+        [Description("Residue scale (case-insensitive): 'KyteDoolittle' (default, kd), 'HoppWoods' (hw), 'Emini' (em), 'Janin' (ja) or 'Flexibility' (flex) — Biopython 1.88 Bio.SeqUtils.ProtParamData tables; the Biopython keys are accepted as aliases.")] string scale = "KyteDoolittle")
     {
         if (string.IsNullOrEmpty(proteinSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
@@ -436,7 +437,11 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
 
         var windowConvention = ParseHydropathyWindowConvention(convention);
-        var values = windowConvention == SequenceStatistics.HydropathyWindowConvention.Standard && !strict && !normalizeScale
+        var residueScale = ResolveProteinScale(scale);
+        // Kyte-Doolittle is the options' default scale (Scale = null), so the default path is unchanged.
+        IReadOnlyDictionary<char, double>? customScale =
+            ReferenceEquals(residueScale, ProteinScales.KyteDoolittle) ? null : residueScale;
+        var values = windowConvention == SequenceStatistics.HydropathyWindowConvention.Standard && !strict && !normalizeScale && customScale is null
             ? SequenceStatistics.CalculateHydrophobicityProfile(proteinSequence, windowSize, edgeWeight)
             : SequenceStatistics.CalculateHydrophobicityProfile(proteinSequence, windowSize, edgeWeight,
                 new SequenceStatistics.HydrophobicityProfileOptions
@@ -444,9 +449,24 @@ public class AnalysisTools
                     Convention = windowConvention,
                     Strict = strict,
                     NormalizeScale = normalizeScale,
+                    Scale = customScale,
                 });
         return new DoubleProfileResult(values.ToArray());
     }
+
+    // Scale name (or Biopython ProtParamData key) → shipped read-only table (B03 F52).
+    private static IReadOnlyDictionary<char, double> ResolveProteinScale(string? scale) =>
+        scale?.ToUpperInvariant() switch
+        {
+            "KYTEDOOLITTLE" or "KD" => ProteinScales.KyteDoolittle,
+            "HOPPWOODS" or "HW" => ProteinScales.HoppWoods,
+            "EMINI" or "EM" => ProteinScales.Emini,
+            "JANIN" or "JA" => ProteinScales.Janin,
+            "FLEXIBILITY" or "FLEX" => ProteinScales.Flexibility,
+            _ => throw new ArgumentException(
+                $"Unknown scale '{scale}'. Expected one of: KyteDoolittle (kd), HoppWoods (hw), Emini (em), Janin (ja), Flexibility (flex).",
+                nameof(scale)),
+        };
 
     // Exact (case-insensitive) HydropathyWindowConvention name; Enum.TryParse alone would also accept numeric strings.
     private static SequenceStatistics.HydropathyWindowConvention ParseHydropathyWindowConvention(string? convention)
@@ -474,22 +494,22 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "dinucleotide_ratios", Title = "Sequence — Dinucleotide Obs/Exp Ratios", ReadOnly = true)]
-    [Description("Dinucleotide relative abundance (Karlin odds ratio) rho_XY = f_XY / (f_X * f_Y) for each occurring dinucleotide: single-strand rho (default, = seqinr rho / EMBOSS compseq Obs/Exp) or Karlin's strand-symmetrized genomic-signature rho* (strandSymmetric=true; sequence + its reverse complement). rho > 1 over-, < 1 under-represented. This is not the Gardiner-Garden & Frommer CpG O/E used for CpG-island calling (that normalizes by window length; see the annotation server's CpG-island tools). Optional includeRepresentation adds Karlin's class per dinucleotide (rho <= 0.78 under, >= 1.23 over).")]
+    [Description("Dinucleotide relative abundance (Karlin odds ratio) rho_XY = f_XY / (f_X * f_Y) for each occurring dinucleotide: single-strand rho (default, = seqinr rho / EMBOSS compseq Obs/Exp) or Karlin's strand-symmetrized genomic-signature rho* (strandSymmetric=true; sequence + its reverse complement). rho > 1 over-, < 1 under-represented. This is not the Gardiner-Garden & Frommer CpG O/E used for CpG-island calling (that normalizes by window length; see the annotation server's CpG-island tools). Optional includeRepresentation adds Karlin's class per dinucleotide (rho <= 0.78 under, >= 1.23 over). Only observed dinucleotides are returned unless includeAbsent is set: then every unobserved dinucleotide whose two bases occur is added with rho = 0 (seqinr rho reports 0; class UnderRepresented, e.g. CG of a CpG-free sequence); a dinucleotide containing an absent base has an undefined ratio (seqinr NaN) and is still omitted.")]
     public static DinucleotideRatiosResult DinucleotideRatios(
         [Description("Nucleotide sequence (case-insensitive; symbols outside A/C/G/T/U are excluded, U too when strandSymmetric).")] string sequence,
         [Description("true: Karlin strand-symmetrized rho* over the sequence and its reverse complement (alphabet A/C/G/T); false (default): single-strand rho over A/C/G/T/U.")] bool strandSymmetric = false,
-        [Description("true: also return Karlin's representation class (UnderRepresented rho <= 0.78, Normal, OverRepresented rho >= 1.23) for every returned dinucleotide. Default false (field omitted).")] bool includeRepresentation = false)
+        [Description("true: also return Karlin's representation class (UnderRepresented rho <= 0.78, Normal, OverRepresented rho >= 1.23) for every returned dinucleotide. Default false (field omitted).")] bool includeRepresentation = false,
+        [Description("true: also return rho = 0 for every unobserved dinucleotide whose two bases occur in the sequence (rho*: A/T when A+T > 0, C/G when C+G > 0), as seqinr rho does; dinucleotides with an absent base (undefined 0/0) stay omitted. Default false (observed dinucleotides only).")] bool includeAbsent = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var ratios = strandSymmetric
-            ? SequenceStatistics.CalculateDinucleotideRatios(sequence, strandSymmetric: true)
-            : SequenceStatistics.CalculateDinucleotideRatios(sequence);
+        // includeAbsent = false is exactly the 2-argument overload (unchanged default path).
+        var ratios = SequenceStatistics.CalculateDinucleotideRatios(sequence, strandSymmetric, includeAbsent);
         return new DinucleotideRatiosResult(new Dictionary<string, double>(ratios))
         {
             Representation = includeRepresentation
-                ? SequenceStatistics.ClassifyDinucleotideRatios(sequence, strandSymmetric)
+                ? SequenceStatistics.ClassifyDinucleotideRatios(sequence, strandSymmetric, includeAbsent)
                     .ToDictionary(kv => kv.Key, kv => kv.Value.ToString())
                 : null,
         };

@@ -104,7 +104,7 @@ Input is normalized to upper case (`ToUpperInvariant`; `CalculateCodonFrequencie
 
 **Intentionally simplified:** none.
 
-- Karlin over-/under-representation classes [2]: `ClassifyDinucleotideRatio(ρ)` (ρ ≤ 0.78 under, ρ ≥ 1.23 over, bounds inclusive; constants `KarlinUnderRepresentedThreshold` / `KarlinOverRepresentedThreshold`) and `ClassifyDinucleotideRatios(seq, strandSymmetric = true)` over the keys of `CalculateDinucleotideRatios` (review 2026-09 B03 F37). Absent dinucleotides (ρ = 0 when both bases occur) are not keys, as in the ratio map.
+- Karlin over-/under-representation classes [2]: `ClassifyDinucleotideRatio(ρ)` (ρ ≤ 0.78 under, ρ ≥ 1.23 over, bounds inclusive; constants `KarlinUnderRepresentedThreshold` / `KarlinOverRepresentedThreshold`) and `ClassifyDinucleotideRatios(seq, strandSymmetric = true)` over the keys of `CalculateDinucleotideRatios` (review 2026-09 B03 F37). Absent dinucleotides (ρ = 0 when both bases occur) are not keys, as in the ratio map. Opt-in `includeAbsent` (`CalculateDinucleotideRatios(seq, strandSymmetric, includeAbsent)` / `ClassifyDinucleotideRatios(seq, strandSymmetric, includeAbsent)`, MCP `dinucleotide_ratios` `includeAbsent`; review 2026-09 B03 F51) adds every unobserved XY whose two bases occur (ρ*: A/T if A+T > 0, C/G if C+G > 0) with ρ = 0 → UnderRepresented — seqinr 4.2.36 `rho()` executed ("AACCTTGGAACCTTGG": 8 zero words); an XY with an absent base is undefined (seqinr NaN) and stays excluded.
 
 **Not implemented:** none.
 

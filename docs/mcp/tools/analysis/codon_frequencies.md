@@ -28,7 +28,7 @@ the MolTools codon tools). Library overload: `CalculateCodonFrequencies(seq, fra
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L1757](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1757)
+- Source: [SequenceStatistics.cs#L1830](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1830)
 - Evidence: `docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md`
 
 ## Input Schema
