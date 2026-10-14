@@ -18,7 +18,7 @@ Calculates the molecular weight of a DNA or RNA sequence in Daltons (Da). Uses a
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L491](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L491)
+- Source: [SequenceStatistics.cs#L493](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L493)
 
 ## Input Schema
 

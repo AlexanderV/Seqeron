@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.PredictSecondaryStructure",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1976",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1991",
   "description": "Propensity profile (not an assignment): per-window mean Chou-Fasman conformational parameters (helix Pa, sheet Pb, turn Pt) along a protein; windowSize 1 = per-residue propensities. A window mean > 1.0 favours that conformation; residues without parameters are skipped. For the discrete H/E/T/C assignment use chou_fasman_assign.",
   "inputSchema": {
     "type": "object",

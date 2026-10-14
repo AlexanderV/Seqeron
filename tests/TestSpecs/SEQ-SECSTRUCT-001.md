@@ -96,6 +96,7 @@
 |----|-----------|-------------|------------------|-------|
 | C1 | Helix-favouring peptide | "AEMLK" window len | mean Helix > mean Sheet | Exact means from table |
 | C2 | Sheet-favouring peptide | "VIY" window len | mean Sheet > mean Helix | Exact means from table |
+| C3 | ASCII-only fold (2026-10-14, B03 F45) | "AAſAAAA"/"AAıAAAA" ≡ "AAXAAAA" (profile, window 7 → A's 1.42/0.83/0.66); "EEEEſEEE" ≡ "EEEEXEEE", "VVıVVIVV" ≡ "VVXVVIVV" (assignment, Standard + Graded1978); 200 random BMP strings ≡ ASCII-folded reference | identical | EMBOSS convention (F22) |
 
 ---
 

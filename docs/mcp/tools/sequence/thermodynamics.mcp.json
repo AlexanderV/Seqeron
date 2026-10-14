@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateThermodynamics",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1329",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1341",
   "description": "Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method (Allawi & SantaLucia 1997; Biopython Tm_NN with DNA_NN3). Optional self-complementary duplex, Biopython salt-correction method 0-7 with K+/Tris/Mg2+/dNTPs (mol/L), and unrounded output.",
   "inputSchema": {
     "type": "object",

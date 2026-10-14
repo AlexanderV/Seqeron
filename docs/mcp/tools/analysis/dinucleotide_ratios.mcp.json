@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateDinucleotideRatios",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1600",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1612",
   "description": "Dinucleotide relative abundance (Karlin odds ratio) rho_XY = f_XY / (f_X * f_Y): single-strand rho (default; = seqinr rho / EMBOSS compseq Obs/Exp) or Karlin's strand-symmetrized rho* (sequence + reverse complement). rho > 1 over-, < 1 under-represented; only occurring dinucleotides are keys. Optional Karlin classes (rho <= 0.78 under, >= 1.23 over). Not the Gardiner-Garden & Frommer CpG O/E used for CpG-island calling.",
   "inputSchema": {
     "type": "object",

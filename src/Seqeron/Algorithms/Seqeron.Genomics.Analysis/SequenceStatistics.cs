@@ -55,7 +55,9 @@ public static class SequenceStatistics
     /// and <see cref="GcSkewCalculator.CalculateAtSkew(string)"/>; each is 0 when its denominator is 0.
     /// AT skew is the DNA definition: U is not paired with A (an all-RNA sequence therefore has
     /// AtSkew = +1 whenever it contains A).</para>
-    /// <para>Null or empty input returns an all-zero composition.</para>
+    /// <para>Null or empty input returns an all-zero composition. Case folding uses
+    /// <see cref="string.ToUpperInvariant()"/>; no non-ASCII character folds to A/C/G/T/U/N, so this
+    /// equals an ASCII-only fold.</para>
     /// </remarks>
     public static NucleotideComposition CalculateNucleotideComposition(string sequence)
     {
@@ -776,10 +778,18 @@ public static class SequenceStatistics
             return true;
         }
 
+        if (options.Window == IsoelectricPointWindow.Default && options.Termini)
+        {
+            // Termini kept: only the residue counts change, so the canonical pI applies as is.
+            isoelectricPoint = ProteinPhysicochemistry.IsoelectricPoint(AdjustResidueCounts(proteinSequence, options), ToProteinPkaScale(options.Scale));
+            return true;
+        }
+
         Func<double, double> charge = BuildOptionsCharge(proteinSequence, options);
         switch (options.Window)
         {
             case IsoelectricPointWindow.Default:
+                // -notermini only (no termini parameter in ProteinPhysicochemistry yet, request R27).
                 isoelectricPoint = BisectDefaultWindow(charge);
                 return true;
             case IsoelectricPointWindow.Emboss:
@@ -808,8 +818,7 @@ public static class SequenceStatistics
     private static Func<double, double> BuildOptionsCharge(string proteinSequence, IsoelectricPointOptions options)
     {
         var scale = ToProteinPkaScale(options.Scale);
-        string adjusted = NeutraliseResidues(proteinSequence, 'K', options.LysinesModified);
-        adjusted = NeutraliseResidues(adjusted, 'C', 2L * options.Disulphides);
+        string adjusted = AdjustResidueCounts(proteinSequence, options);
 
         if (options.Termini)
             return pH => ProteinPhysicochemistry.NetCharge(adjusted, pH, scale);
@@ -819,6 +828,10 @@ public static class SequenceStatistics
         return pH => ProteinPhysicochemistry.NetCharge(flanked, pH, scale)
                      - ProteinPhysicochemistry.NetCharge(terminiOnly, pH, scale);
     }
+
+    // embIepCompC count adjustment: LysinesModified K and 2·Disulphides C neutralised.
+    private static string AdjustResidueCounts(string proteinSequence, IsoelectricPointOptions options) =>
+        NeutraliseResidues(NeutraliseResidues(proteinSequence, 'K', options.LysinesModified), 'C', 2L * options.Disulphides);
 
     // embIepCompC: remove `count` residues of `residue` from the charged-group count, or all of them
     // when fewer are present. Case folding is ASCII-only (as ProteinPhysicochemistry).
@@ -842,65 +855,57 @@ public static class SequenceStatistics
         return new string(chars);
     }
 
-    // Same bracket as ProteinPhysicochemistry.IsoelectricPoint (net charge is non-increasing in pH).
-    private static double BisectDefaultWindow(Func<double, double> charge)
+    // The single bisection kernel of the three pI search conventions. The net charge is
+    // non-increasing in pH, so a positive charge at the probe raises the lower bound, otherwise the
+    // probe becomes the upper bound (with stopAtZero, as embIepPhConverge, a probe whose charge is
+    // neither > 0 nor < 0 ends the search). Iterates while the bracket is wider than `bracket`;
+    // returns the final bounds and the last probe (the next midpoint, or the zero-charge pH).
+    private static (double Low, double High, double Probe, bool HitZero) BisectNonIncreasingCharge(
+        Func<double, double> charge, double low, double high, double bracket, double firstProbe,
+        bool embossMidpoint, bool stopAtZero)
     {
-        double low = DefaultPiLowPh, high = DefaultPiHighPh;
-        while (high - low > DefaultPiPrecision)
+        double probe = firstProbe;
+        while (high - low > bracket)
         {
-            double mid = (low + high) / 2.0;
-            if (charge(mid) > 0)
-                low = mid;
+            double c = charge(probe);
+            if (c > 0.0)
+                low = probe;
+            else if (stopAtZero && !(c < 0.0))
+                return (low, high, probe, true);
             else
-                high = mid;
+                high = probe;
+            probe = embossMidpoint ? ((high - low) / 2.0) + low : (low + high) / 2.0;
         }
 
-        return Math.Round((low + high) / 2.0, DefaultPiDecimalPlaces);
+        return (low, high, probe, false);
     }
 
-    // EMBOSS 6.6.0 nucleus/embiep.c embIepPhConverge (and embIepIepC's "!*iep → none").
+    // -notermini with the library's own window: same bracket, precision and rounding as
+    // ProteinPhysicochemistry.IsoelectricPoint (removable once PPC takes termini counts, R27).
+    private static double BisectDefaultWindow(Func<double, double> charge) =>
+        Math.Round(BisectNonIncreasingCharge(charge, DefaultPiLowPh, DefaultPiHighPh, DefaultPiPrecision,
+            (DefaultPiLowPh + DefaultPiHighPh) / 2.0, embossMidpoint: false, stopAtZero: false).Probe, DefaultPiDecimalPlaces);
+
+    // EMBOSS 6.6.0 nucleus/embiep.c embIepPhConverge (and embIepIepC's "!*iep → none"):
+    // mid = ((bph − tph) / 2) + tph, exact zero returns mid, otherwise returns tph.
     private static bool TryBisectEmbossWindow(Func<double, double> charge, out double isoelectricPoint)
     {
         isoelectricPoint = double.NaN;
-        double tph = EmbossPiLowPh, bph = EmbossPiHighPh;
-        double top = charge(tph), bot = charge(bph);
+        double top = charge(EmbossPiLowPh), bot = charge(EmbossPiHighPh);
         if ((top > 0.0 && bot > 0.0) || (top < 0.0 && bot < 0.0))
             return false;
 
-        while (bph - tph > EmbossPiBracket)
-        {
-            double mid = ((bph - tph) / 2.0) + tph;
-            double c = charge(mid);
-            if (c > 0.0)
-                tph = mid;
-            else if (c < 0.0)
-                bph = mid;
-            else
-            {
-                isoelectricPoint = mid;
-                return true;
-            }
-        }
-
-        isoelectricPoint = tph;
+        var r = BisectNonIncreasingCharge(charge, EmbossPiLowPh, EmbossPiHighPh, EmbossPiBracket,
+            ((EmbossPiHighPh - EmbossPiLowPh) / 2.0) + EmbossPiLowPh, embossMidpoint: true, stopAtZero: true);
+        isoelectricPoint = r.HitZero ? r.Probe : r.Low;
         return true;
     }
 
-    // Biopython 1.88 Bio/SeqUtils/IsoelectricPoint.py IsoelectricPoint.pi (recursion unrolled).
-    private static double BisectBiopythonWindow(Func<double, double> charge)
-    {
-        double pH = BiopythonPiStartPh, min = BiopythonPiLowPh, max = BiopythonPiHighPh;
-        while (max - min > BiopythonPiBracket)
-        {
-            if (charge(pH) > 0.0)
-                min = pH;
-            else
-                max = pH;
-            pH = (min + max) / 2;
-        }
-
-        return pH;
-    }
+    // Biopython 1.88 Bio/SeqUtils/IsoelectricPoint.py IsoelectricPoint.pi (recursion unrolled):
+    // first probe 7.775 (not the bracket midpoint), returns the last midpoint.
+    private static double BisectBiopythonWindow(Func<double, double> charge) =>
+        BisectNonIncreasingCharge(charge, BiopythonPiLowPh, BiopythonPiHighPh, BiopythonPiBracket,
+            BiopythonPiStartPh, embossMidpoint: false, stopAtZero: false).Probe;
 
     // Maps the (backward-compatible) public SequenceStatistics.PkaScale onto the canonical scale.
     private static ProteinPkaScale ToProteinPkaScale(PkaScale scale) => scale switch
@@ -1177,6 +1182,13 @@ public static class SequenceStatistics
     // TRANS-PROT-001): char.ToUpperInvariant folds U+017F 'ſ' → 'S' and U+0131 'ı' → 'I', which
     // EMBOSS treats as non-residues (pepstats "MSKſ" → 3 residues, MW 364.46 = MW("MSK")).
     private static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
+
+    private static string ToUpperAscii(string s) =>
+        string.Create(s.Length, s, static (span, source) =>
+        {
+            for (int i = 0; i < span.Length; i++)
+                span[i] = ToUpperAscii(source[i]);
+        });
 
     #endregion
 
@@ -1866,6 +1878,8 @@ public static class SequenceStatistics
     /// The kernel is the canonical <see cref="StatisticsHelper.ShannonIndex"/> (natural log) converted to
     /// bits by dividing by ln 2 — the same computation as <c>scipy.stats.entropy(counts, base=2)</c>
     /// and scikit-bio <c>shannon(counts, base=2)</c>. Null, empty or letter-free input returns 0.
+    /// Case folding is <see cref="string.ToUpperInvariant()"/> on purpose (general letter alphabet,
+    /// = Python <c>str.upper</c> + scipy), unlike the ASCII-only fold of the protein methods.
     /// </remarks>
     public static double CalculateShannonEntropy(string sequence)
     {
@@ -1967,7 +1981,8 @@ public static class SequenceStatistics
     /// the corresponding conformation. Unknown residues (e.g. X, B, Z, gaps) are skipped and
     /// excluded from the per-window average.
     /// </summary>
-    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive.</param>
+    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive with an
+    /// ASCII-only fold (U+017F 'ſ' and U+0131 'ı' are non-residues, like 'X' — EMBOSS convention).</param>
     /// <param name="windowSize">Sliding-window length (residues). Must be positive and
     /// not exceed the sequence length.</param>
     /// <returns>One (Helix, Sheet, Turn) mean-propensity tuple per window position, in
@@ -1980,7 +1995,7 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(proteinSequence) || windowSize < 1 || windowSize > proteinSequence.Length)
             yield break;
 
-        string upper = proteinSequence.ToUpperInvariant();
+        string upper = ToUpperAscii(proteinSequence);
 
         for (int i = 0; i <= upper.Length - windowSize; i++)
         {
@@ -2076,7 +2091,8 @@ public static class SequenceStatistics
     /// Unlike <see cref="PredictSecondaryStructure(string, int)"/> (a windowed mean-propensity
     /// profile), this is the discrete Chou-Fasman assignment. Q3 accuracy is ~50-60%.
     /// </summary>
-    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive.</param>
+    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive with an
+    /// ASCII-only fold (U+017F 'ſ' and U+0131 'ı' are non-residues, like 'X' — EMBOSS convention).</param>
     /// <returns>A string of the same length as the input with one state code per residue:
     /// <see cref="ChouFasmanHelix"/> ('H'), <see cref="ChouFasmanSheet"/> ('E'),
     /// <see cref="ChouFasmanTurn"/> ('T') or <see cref="ChouFasmanCoil"/> ('C').
@@ -2093,7 +2109,8 @@ public static class SequenceStatistics
     /// the breaker limit, the proline rule and the helix/sheet boundary reassignments — see
     /// <see cref="ChouFasmanRuleSet.Graded1978"/>. Extension, acceptance, overlap and β-turn steps are shared.
     /// </summary>
-    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive.</param>
+    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive with an
+    /// ASCII-only fold (U+017F 'ſ' and U+0131 'ı' are non-residues, like 'X' — EMBOSS convention).</param>
     /// <param name="ruleSet">Nucleation rule set (default behaviour = <see cref="ChouFasmanRuleSet.Standard"/>).</param>
     /// <returns>One state code (H/E/T/C) per residue; empty for null/empty input.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="ruleSet"/> is not a defined value.</exception>
@@ -2111,14 +2128,14 @@ public static class SequenceStatistics
         var parameters = new ChouFasmanParameters?[n];
         for (int i = 0; i < n; i++)
         {
-            if (ChouFasmanTable.TryGetValue(char.ToUpperInvariant(proteinSequence[i]), out var p))
+            if (ChouFasmanTable.TryGetValue(ToUpperAscii(proteinSequence[i]), out var p))
                 parameters[i] = p;
         }
 
         bool[] helix, sheet;
         if (graded)
         {
-            string upper = proteinSequence.ToUpperInvariant();
+            string upper = ToUpperAscii(proteinSequence);
             helix = FindChouFasmanSegments(parameters, static p => p.Pa, static p => p.Pb,
                 HelixNucleationWindow, HelixNucleationFormers, HelixAcceptThreshold,
                 (start, window) => IsGradedHelixNucleus(upper, start, window), upper);

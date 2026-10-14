@@ -41,7 +41,7 @@ profile instead of an assignment use [predict_chou_fasman](predict_chou_fasman.m
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L2100](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2100)
+- Source: [SequenceStatistics.cs#L2117](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2117)
 - Algorithm: `docs/algorithms/Statistics/Secondary_Structure_Prediction.md`
 - Evidence: `docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md`
 

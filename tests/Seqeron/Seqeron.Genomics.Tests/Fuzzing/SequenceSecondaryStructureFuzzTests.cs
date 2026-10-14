@@ -41,7 +41,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     only:  mean_c(w) = Σ_{r∈w, known} P_c(r) / (#known in w).
 ///   • §2.4 INV-01: a window of ONE residue returns that residue's (Pα, Pβ, Pt) tuple.
 ///   • §2.4 INV-03: for an all-known length-n sequence, #emitted windows = max(0, n − w + 1).
-///   • §2.4 INV-04: case-insensitive (input ToUpperInvariant'd before lookup).
+///   • §2.4 INV-04: case-insensitive (ASCII-only upper-casing before lookup).
 ///   • §2.4 INV-05 / §6.1: UNKNOWN residues (anything outside the 20 standard AAs) are
 ///     EXCLUDED from a window's count and mean — no KeyNotFound (source uses TryGetValue).
 ///     A window of ONLY unknown residues emits NOTHING for that position (count = 0,
@@ -100,7 +100,8 @@ public class SequenceSecondaryStructureFuzzTests
         if (string.IsNullOrEmpty(seq) || windowSize < 1 || windowSize > seq.Length)
             return result;
 
-        string upper = seq.ToUpperInvariant();
+        // ASCII-only fold (EMBOSS convention, B03 F45): 'ſ'/'ı' are non-residues, not S/I.
+        string upper = new(seq.Select(c => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c).ToArray());
         for (int i = 0; i <= upper.Length - windowSize; i++)
         {
             double h = 0, s = 0, t = 0;

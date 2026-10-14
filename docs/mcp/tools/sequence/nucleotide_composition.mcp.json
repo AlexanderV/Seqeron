@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateNucleotideComposition",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L60",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L62",
   "description": "Calculate nucleotide composition (A, T, G, C, U, N counts; every other character in 'other') and GC content of a DNA/RNA sequence.",
   "inputSchema": {
     "type": "object",

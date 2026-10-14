@@ -118,7 +118,7 @@ are unchanged. Class assignments for the 1978 parameters (Prevelige & Fasman Tab
 | INV-01 | A window of one residue returns that residue's (Pα, Pβ, Pt) tuple. | Mean of one value is that value [1]. |
 | INV-02 | Each emitted tuple is the per-component arithmetic mean of its window's residues. | Definition in §2.2. |
 | INV-03 | For a length-n all-known sequence, the number of emitted windows is max(0, n − w + 1). | Step-1 sliding scan [4]. |
-| INV-04 | Output is case-insensitive. | Input is upper-cased before lookup. |
+| INV-04 | Output is case-insensitive. | Input is upper-cased before lookup (ASCII-only fold: U+017F 'ſ' and U+0131 'ı' are non-residues like 'X', EMBOSS convention — 2026-10-14, B03 F45). |
 | INV-05 | Unknown residues are excluded from a window's count and mean; an all-unknown window emits nothing. | Table defines only the 20 standard residues [5][7]. |
 | INV-06 | Null/empty input, w > n, or w < 1 → empty result, no exception. | Validated precondition (§3.3). |
 
@@ -264,6 +264,7 @@ the higher local p(t)); they are explicitly left to the user by the authors and 
 | Unknown residue inside window | Excluded from mean | Table covers 20 residues only (INV-05) |
 | Window of only unknown residues | No tuple emitted | count = 0 (INV-05) |
 | Lower-case input | Same as upper-case | Input upper-cased (INV-04) |
+| Non-ASCII letters that `ToUpperInvariant` folds to a residue ('ſ' → S, 'ı' → I) | Treated as 'X' (no parameters; coil in the assignment) | ASCII-only fold, as every other protein path of `SequenceStatistics` (F22) and EMBOSS |
 
 ### 6.2 Limitations
 

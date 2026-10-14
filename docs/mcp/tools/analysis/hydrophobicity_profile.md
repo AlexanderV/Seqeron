@@ -33,7 +33,7 @@ membrane-spanning or buried regions), negative values hydrophilic ones. The prof
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L968](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L968) (defaults / `edgeWeight`), [#L753](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1045) (`convention` / `strict` / `normalizeScale`)
+- Source: [SequenceStatistics.cs#L973](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L973) (defaults / `edgeWeight`), [#L753](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1050) (`convention` / `strict` / `normalizeScale`)
 - Algorithm: `docs/algorithms/Statistics/Hydrophobicity_Analysis.md`
 
 ## Input Schema

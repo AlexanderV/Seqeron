@@ -503,4 +503,64 @@ public class SequenceStatistics_PredictSecondaryStructure_Tests
     }
 
     #endregion
+    #region ASCII-only case fold (B03 round 2, B1 / F45)
+
+    // EMBOSS convention (F22): only ASCII letters fold; U+017F 'ſ' (ToUpperInvariant → 'S') and
+    // U+0131 'ı' (→ 'I') are non-residues exactly like 'X' — pepstats "MSKſ" = 3 residues.
+    [TestCase("AAſAAAA", "AAXAAAA")]
+    [TestCase("AAıAAAA", "AAXAAAA")]
+    [TestCase("aaſaaaa", "AAXAAAA")]
+    public void PredictSecondaryStructure_NonAsciiFoldingLetter_IsNonResidue(string sequence, string asciiEquivalent)
+    {
+        var actual = SequenceStatistics.PredictSecondaryStructure(sequence, 7).ToList();
+        var expected = SequenceStatistics.PredictSecondaryStructure(asciiEquivalent, 7).ToList();
+
+        actual.Should().Equal(expected);
+        // Mean over the 6 A residues only (1.42, 0.83, 0.66), not over A×6 + S.
+        actual.Single().Helix.Should().BeApproximately(1.42, Tolerance);
+        actual.Single().Sheet.Should().BeApproximately(0.83, Tolerance);
+        actual.Single().Turn.Should().BeApproximately(0.66, Tolerance);
+    }
+
+    [TestCase("EEEEſEEE", "EEEEXEEE", SequenceStatistics.ChouFasmanRuleSet.Standard)]
+    [TestCase("EEEEſEEE", "EEEEXEEE", SequenceStatistics.ChouFasmanRuleSet.Graded1978)]
+    [TestCase("AAſAAAA", "AAXAAAA", SequenceStatistics.ChouFasmanRuleSet.Standard)]
+    [TestCase("AAſAAAA", "AAXAAAA", SequenceStatistics.ChouFasmanRuleSet.Graded1978)]
+    [TestCase("VVıVVIVV", "VVXVVIVV", SequenceStatistics.ChouFasmanRuleSet.Standard)]
+    [TestCase("VVıVVIVV", "VVXVVIVV", SequenceStatistics.ChouFasmanRuleSet.Graded1978)]
+    public void ChouFasman_NonAsciiFoldingLetter_EqualsX(string sequence, string asciiEquivalent, SequenceStatistics.ChouFasmanRuleSet ruleSet)
+    {
+        string states = SequenceStatistics.PredictSecondaryStructureChouFasman(sequence, ruleSet);
+
+        states.Should().Be(SequenceStatistics.PredictSecondaryStructureChouFasman(asciiEquivalent, ruleSet));
+        states[sequence.IndexOfAny(new[] { 'ſ', 'ı' })].Should().Be(SequenceStatistics.ChouFasmanCoil);
+    }
+
+    // Differential over random BMP text: the result equals that of the ASCII-folded reference
+    // in which every non-ASCII-letter code point is replaced by 'X' (no parameters).
+    [Test]
+    public void SecondaryStructure_RandomBmp_EqualsAsciiFoldedReference()
+    {
+        var rng = new Random(20261014);
+        const string residues = "ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwy";
+        for (int trial = 0; trial < 200; trial++)
+        {
+            var chars = new char[rng.Next(1, 40)];
+            for (int i = 0; i < chars.Length; i++)
+                chars[i] = rng.NextDouble() < 0.7 ? residues[rng.Next(residues.Length)]
+                    : rng.NextDouble() < 0.3 ? (rng.Next(2) == 0 ? 'ſ' : 'ı')
+                    : (char)rng.Next(0x0080, 0x10000);
+            string seq = new(chars);
+            string reference = new(chars.Select(c => char.IsAsciiLetter(c) ? char.ToUpperInvariant(c) : 'X').ToArray());
+
+            foreach (var ruleSet in new[] { SequenceStatistics.ChouFasmanRuleSet.Standard, SequenceStatistics.ChouFasmanRuleSet.Graded1978 })
+                SequenceStatistics.PredictSecondaryStructureChouFasman(seq, ruleSet)
+                    .Should().Be(SequenceStatistics.PredictSecondaryStructureChouFasman(reference, ruleSet), $"'{seq}'");
+            int window = Math.Min(7, seq.Length);
+            SequenceStatistics.PredictSecondaryStructure(seq, window)
+                .Should().Equal(SequenceStatistics.PredictSecondaryStructure(reference, window));
+        }
+    }
+
+    #endregion
 }

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.PredictSecondaryStructureChouFasman",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2100",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2117",
   "description": "Discrete Chou & Fasman (1978) secondary-structure assignment: one state per residue, H (alpha-helix), E (beta-strand), T (beta-turn) or C (coil). Nucleation 4/6 (helix) and 3/5 (sheet), tetrapeptide extension, acceptance <Pa> > 1.03 / <Pb> > 1.05, overlap by mean propensity, beta-turns override. ruleSet Standard (former = P > 1.00) or Graded1978 (graded former/breaker classes). Non-standard residues stay C.",
   "inputSchema": {
     "type": "object",

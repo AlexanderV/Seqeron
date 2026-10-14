@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateMolecularWeight",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L410",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L412",
   "description": "Calculate the molecular weight of a protein sequence in Daltons (Da) (Biopython molecular_weight(seq, 'protein')). Optional monoisotopic masses, head-to-tail cyclic peptide (circular) and strict mode (reject B/Z/J/X/'*' instead of skipping them).",
   "inputSchema": {
     "type": "object",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateHydrophobicity",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L932",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L937",
   "description": "Calculate the grand average of hydropathy (GRAVY) index of a protein sequence. Positive values indicate hydrophobic, negative indicate hydrophilic.",
   "inputSchema": {
     "type": "object",

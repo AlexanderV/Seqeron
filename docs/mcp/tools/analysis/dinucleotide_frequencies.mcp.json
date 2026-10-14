@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateDinucleotideFrequencies",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1523",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1535",
   "description": "Normalized adjacent-dinucleotide frequencies f_XY = count(XY) / (number of overlapping dinucleotides whose two symbols are both in A,T,G,C,U), case-insensitive (seqinr count(seq, 2, freq = TRUE)). Pairs containing N, IUPAC codes or gaps are excluded from count and denominator, so the denominator is N-1 only when every base is in the alphabet. Frequencies sum to 1.",
   "inputSchema": {
     "type": "object",

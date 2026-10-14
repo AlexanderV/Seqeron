@@ -18,7 +18,7 @@ Calculates the isoelectric point (pI) of a protein sequence. The pI is the pH at
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L600](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L600)
+- Source: [SequenceStatistics.cs#L602](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L602)
 
 ## Input Schema
 
