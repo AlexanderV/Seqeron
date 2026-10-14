@@ -53,12 +53,34 @@ internal static class AzimuthRuleSet2
 
     private const uint Magic = 0x32535241; // 'A','R','S','2'
 
-    private static readonly Lazy<Model> NoPosModel =
-        new(() => Load("azimuth_rs2_nopos.bin"), LazyThreadSafetyMode.ExecutionAndPublication);
-    private static readonly Lazy<Model> FullModel =
-        new(() => Load("azimuth_rs2_full.bin"), LazyThreadSafetyMode.ExecutionAndPublication);
+    // Declared feature counts of the two Azimuth models. The featurizer below writes fixed column
+    // offsets that are only valid for these shapes (see the column-order comment), so a blob whose
+    // header declares anything else is malformed and is rejected by the loader rather than scored.
+    private const int NoPosFeatureCount = 627;
+    private const int FullFeatureCount = 630;
 
-    private static Model Load(string fileName)
+    // Gene-position column offsets within the full model's 630-column vector.
+    private const int AaCutColumn = 1;
+    private const int PercentPeptideBelow50Column = 607;
+    private const int PercentPeptideColumn = 629;
+
+    /// <summary>
+    /// Azimuth's "no gene position" sentinel for <c>percent_peptide</c>. The reference answers a
+    /// request carrying it with the sequence-only model: <c>azimuth/model_comparison.py</c> L539
+    /// (<c>if np.any(percent_peptide == -1) ... model_name = 'V3_model_nopos.pickle'</c>) and L563
+    /// (<c>if np.all(percent_peptide != -1) and (...)</c>, else the gene-position frame is filled
+    /// with -1 and therefore unused).
+    /// </summary>
+    internal const double NoGenePositionSentinel = -1.0;
+
+    private static readonly Lazy<Model> NoPosModel =
+        new(() => Load("azimuth_rs2_nopos.bin", expectGenePosition: false),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+    private static readonly Lazy<Model> FullModel =
+        new(() => Load("azimuth_rs2_full.bin", expectGenePosition: true),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private static Model Load(string fileName, bool expectGenePosition)
     {
         var resourceName = $"Seqeron.Genomics.MolTools.Resources.{fileName}";
         var assembly = typeof(AzimuthRuleSet2).Assembly;
@@ -80,7 +102,25 @@ internal static class AzimuthRuleSet2
         double init = BinaryPrimitives.ReadDoubleLittleEndian(span[20..]);
         // double learningRate @28 (informational; leaf values are already pre-scaled by it)
 
+        // A malformed blob must fail as an InvalidOperationException (like the magic check above),
+        // not as an IndexOutOfRange/ArgumentOutOfRange from the featurizer or the node slice.
+        bool hasGenePosition = (flags & 1) != 0;
+        if (hasGenePosition != expectGenePosition)
+            throw new InvalidOperationException(
+                $"Azimuth model '{fileName}' declares gene-position flag {hasGenePosition}, expected {expectGenePosition}.");
+        int expectedFeatureCount = expectGenePosition ? FullFeatureCount : NoPosFeatureCount;
+        if (featureCount != expectedFeatureCount)
+            throw new InvalidOperationException(
+                $"Azimuth model '{fileName}' declares {featureCount} features, expected {expectedFeatureCount}.");
+        if (treeCount <= 0 || nodeCount <= 0)
+            throw new InvalidOperationException(
+                $"Azimuth model '{fileName}' declares {treeCount} trees / {nodeCount} nodes.");
+
         int offset = 36;
+        if (span.Length < offset + treeCount * 4 + nodeCount * 24)
+            throw new InvalidOperationException(
+                $"Azimuth model '{fileName}' is truncated: {span.Length} bytes for {treeCount} trees / {nodeCount} nodes.");
+
         var treeStart = new int[treeCount];
         for (int i = 0; i < treeCount; i++)
             treeStart[i] = BinaryPrimitives.ReadInt32LittleEndian(span[(offset + i * 4)..]);
@@ -95,7 +135,7 @@ internal static class AzimuthRuleSet2
             TreeStart = treeStart,
             InitScore = init,
             FeatureCount = featureCount,
-            HasGenePosition = (flags & 1) != 0,
+            HasGenePosition = hasGenePosition,
         };
     }
 
@@ -119,30 +159,57 @@ internal static class AzimuthRuleSet2
     // ----------------------------------------------------------------------------------- public
 
     /// <summary>Sequence-only Rule Set 2 score for a 30-mer (validated A/C/G/T, N<c>GG</c> PAM).</summary>
-    public static double Score(string context30Mer)
-    {
-        var seq = Validate(context30Mer);
-        var model = NoPosModel.Value;
-        Span<double> f = new double[model.FeatureCount];
-        FeaturizeNoPos(seq, f);
-        return Predict(model, f);
-    }
+    public static double Score(string context30Mer) => ScoreNoPos(Validate(context30Mer));
 
-    /// <summary>Rule Set 2 score using the gene-context (full) model.</summary>
+    /// <summary>
+    /// Rule Set 2 score using the gene-context (full) model -- except for Azimuth's
+    /// <see cref="NoGenePositionSentinel"/>, which the reference answers with the sequence-only model
+    /// (<c>model_comparison.py</c> L539/L563); see <see cref="NoGenePositionSentinel"/>.
+    /// </summary>
     public static double Score(string context30Mer, int aminoAcidCutPosition, double percentPeptide)
     {
+        // The reference validates the sequence first (model_comparison.py L522-L524), then the
+        // gene-position arguments (L531-L534).
         var seq = Validate(context30Mer);
+
+        // The reference only asserts percent_peptide is a real number (L534); the documented domain
+        // of the feature is a percentage, and -1 is its own "no gene position" sentinel. Anything
+        // else (including NaN) is a caller error rather than a silently-extrapolated tree walk.
+        if (percentPeptide != NoGenePositionSentinel && !(percentPeptide >= 0.0 && percentPeptide <= 100.0))
+            throw new ArgumentOutOfRangeException(
+                nameof(percentPeptide), percentPeptide,
+                "Rule Set 2 percent-peptide must be in [0, 100], or -1 for Azimuth's "
+                + "\"no gene position\" sentinel (which selects the sequence-only model).");
+
+        if (percentPeptide == NoGenePositionSentinel)
+            return ScoreNoPos(seq);
+
         var model = FullModel.Value;
+        if (!model.HasGenePosition || model.FeatureCount != FullFeatureCount)
+            throw new InvalidOperationException(
+                $"Azimuth full model has {model.FeatureCount} features / gene-position flag "
+                + $"{model.HasGenePosition}; the gene-position columns are undefined for that shape.");
         Span<double> f = new double[model.FeatureCount];
         FeaturizeNoPos(seq, f, fullModel: true);
         FillGenePosition(f, aminoAcidCutPosition, percentPeptide);
         return Predict(model, f);
     }
 
+    private static double ScoreNoPos(string seq)
+    {
+        var model = NoPosModel.Value;
+        Span<double> f = new double[model.FeatureCount];
+        FeaturizeNoPos(seq, f);
+        return Predict(model, f);
+    }
+
     private static string Validate(string context30Mer)
     {
-        if (string.IsNullOrEmpty(context30Mer))
-            throw new ArgumentNullException(nameof(context30Mer));
+        // A null reference is a missing argument; an empty string is a wrong value, and the length
+        // check below reports it the same way as every other malformed context (the reference also
+        // separates these: `assert isinstance(seq[0], basestring)` vs `assert len(seq[0]) > 0`,
+        // model_comparison.py L523-L524).
+        ArgumentNullException.ThrowIfNull(context30Mer);
         var seq = context30Mer.ToUpperInvariant();
         if (seq.Length != 30)
             throw new ArgumentException(
@@ -222,19 +289,31 @@ internal static class AzimuthRuleSet2
         f[oTm + 3] = MeltingTemp(seq, 6, 11);
     }
 
+    /// <summary>Writes the three gene-position columns of the full model. The loader has already
+    /// rejected any blob whose declared shape differs from <see cref="FullFeatureCount"/>, so these
+    /// offsets are in range.</summary>
     private static void FillGenePosition(Span<double> f, int aminoAcidCutPosition, double percentPeptide)
     {
-        f[1] = aminoAcidCutPosition;             // Amino Acid Cut position
-        f[607] = percentPeptide < 50 ? 1.0 : 0.0; // Percent Peptide <50%
-        f[629] = percentPeptide;                 // Percent Peptide
+        f[AaCutColumn] = aminoAcidCutPosition;
+        // "Percent Peptide <50%" is `feature_sets["Percent Peptide"] < 50`
+        // (azimuth/features/featurization.py L48).
+        f[PercentPeptideBelow50Column] = percentPeptide < 50 ? 1.0 : 0.0;
+        f[PercentPeptideColumn] = percentPeptide;
     }
 
     // ------------------------------------------------------------------- Tm (Biopython Tm_NN)
     //
     // Nearest-neighbor melting temperature, DNA_NN3 (Allawi & SantaLucia 1997), salt-correction
-    // method 5, dnac1=dnac2=25 nM, Na=50 mM -- the exact parameters azimuth passes to Biopython's
-    // MeltingTemp.Tm_NN (azimuth/featurization.py: Tm_NN(seq, nn_table=mt.DNA_NN3)), which are also
-    // the defaults of the canonical ThermoConstants.CalculateNearestNeighborTm. The previously
+    // method 5, dnac1=dnac2=25 nM, Na=50 mM -- the exact parameters behind the Biopython call azimuth
+    // makes. Upstream calls the OBSOLETE MeltingTemp.Tm_staluc (azimuth/features/featurization.py
+    // L381-L384, Tm_feature), which Biopython implements as
+    //   Tm_staluc(s, dnac=50, saltc=50) -> Tm_NN(s, dnac1=dnac/2.0, dnac2=dnac/2.0, Na=saltc)
+    // (Bio/SeqUtils/MeltingTemp.py L1087/L1127 at tag biopython-176, where the function was last
+    // shipped; it is gone in 1.88), i.e. Tm_NN's own defaults nn_table=DNA_NN3, saltcorr=5,
+    // dnac1=dnac2=25 nM, Na=50 mM -- bit-equal on execution (1.76 Tm_staluc vs 1.88 Tm_NN, verified
+    // for the five segments locked in the tests plus the 30-mer AAAAAAAAAAAAAAAAAAATGCAGCGGGAG
+    // = 55.39603328329298) and the defaults of the canonical
+    // ThermoConstants.CalculateNearestNeighborTm. The previously
     // inlined DNA_NN3 table + salt/concentration arithmetic was verified BIT-IDENTICAL to that
     // canonical implementation over 821,840 comparisons (200,000 random 30-mers x the four azimuth
     // windows [0,30) [19,24) [11,19) [6,11), plus every 2..7-mer exhaustively; 0 bitwise

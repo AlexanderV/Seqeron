@@ -836,13 +836,26 @@ public static class CrisprDesigner
     /// (full) model, which additionally incorporates where the cut falls within the target protein.
     /// </summary>
     /// <param name="context30Mer">The 30-nt context (see <see cref="CalculateOnTargetRuleSet2(string)"/>).</param>
-    /// <param name="aminoAcidCutPosition">The amino-acid position of the cut site within the target protein.</param>
+    /// <param name="aminoAcidCutPosition">
+    /// The amino-acid position of the cut site within the target protein. Passed to the model as-is
+    /// (the reference does not treat any value of it specially).
+    /// </param>
     /// <param name="percentPeptide">
-    /// The cut position as a percentage [0, 100] along the coding sequence (how far into the protein).
+    /// The cut position as a percentage [0, 100] along the coding sequence (how far into the protein),
+    /// or <c>-1</c> for Azimuth's "no gene position" sentinel.
     /// </param>
     /// <returns>The predicted on-target activity, conventionally in the range [0, 1].</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="percentPeptide"/> is neither in [0, 100] nor the <c>-1</c> sentinel.
+    /// </exception>
     /// <remarks>
-    /// Uses Azimuth's <c>V3_model_full</c>. When gene context is unavailable, prefer the sequence-only
+    /// Uses Azimuth's <c>V3_model_full</c>, except for <paramref name="percentPeptide"/> == <c>-1</c>:
+    /// the reference answers a request carrying that sentinel with the sequence-only
+    /// <c>V3_model_nopos</c> model (<c>azimuth/model_comparison.py</c> L539 selects
+    /// <c>V3_model_nopos.pickle</c> when <c>np.any(percent_peptide == -1)</c>, and L563 fills the
+    /// gene-position frame with -1 rather than the caller's values), so this method returns exactly
+    /// <see cref="CalculateOnTargetRuleSet2(string)"/> in that case.
+    /// When gene context is unavailable, prefer the sequence-only
     /// <see cref="CalculateOnTargetRuleSet2(string)"/> overload. See the remarks there for provenance.
     /// </remarks>
     public static double CalculateOnTargetRuleSet2(string context30Mer, int aminoAcidCutPosition, double percentPeptide)

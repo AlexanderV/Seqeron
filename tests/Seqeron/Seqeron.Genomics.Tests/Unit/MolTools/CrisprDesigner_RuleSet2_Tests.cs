@@ -181,11 +181,26 @@ public class CrisprDesigner_RuleSet2_Tests
     // Input validation.
     // -------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// A null reference is a missing argument (<see cref="ArgumentNullException"/>); an empty string
+    /// is a wrong VALUE and is reported like every other malformed context, i.e. as a plain
+    /// <see cref="ArgumentException"/> carrying the length message. The reference separates the two
+    /// the same way (<c>model_comparison.py</c> L523 <c>assert len(seq[0]) > 0</c> vs L524
+    /// <c>assert isinstance(seq[0], basestring)</c>). This test previously locked
+    /// <see cref="ArgumentNullException"/> for <c>""</c>, which was the wart, not the contract.
+    /// </summary>
     [Test]
     public void RuleSet2_NullOrEmpty_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateOnTargetRuleSet2(null!));
-        Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateOnTargetRuleSet2(""));
+        Assert.Throws<ArgumentNullException>(
+            () => CrisprDesigner.CalculateOnTargetRuleSet2(null!, 10, 25.0));
+
+        var empty = Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateOnTargetRuleSet2(""));
+        empty.Should().NotBeOfType<ArgumentNullException>();
+        empty!.Message.Should().Contain("got 0");
+        Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateOnTargetRuleSet2("", 10, 25.0))
+            .Should().NotBeOfType<ArgumentNullException>();
     }
 
     [TestCase("ACGTACGT")]                          // too short
@@ -214,9 +229,13 @@ public class CrisprDesigner_RuleSet2_Tests
     // -------------------------------------------------------------------------------------------
     // Tm featurization: AzimuthRuleSet2 delegates its four melting-temperature features to the
     // canonical ThermoConstants.CalculateNearestNeighborTm instead of carrying its own DNA_NN3 table.
-    // Azimuth's featurization.py calls Biopython MeltingTemp.Tm_NN(seq, nn_table=mt.DNA_NN3) with the
-    // library defaults (dnac1 = dnac2 = 25 nM, Na = 50 mM, saltcorr = 5), which are exactly the
-    // defaults of the canonical method. The values below were produced by REAL Biopython 1.88
+    // Azimuth's featurization.py calls the obsolete Biopython MeltingTemp.Tm_staluc (Tm_feature,
+    // L381-L384), which Biopython defines as Tm_NN(s, dnac1=dnac/2.0, dnac2=dnac/2.0, Na=saltc) with
+    // dnac=50 / saltc=50 (Bio/SeqUtils/MeltingTemp.py L1087/L1127 at tag biopython-176; the function
+    // is gone in 1.88) -- i.e. Tm_NN's own defaults nn_table=DNA_NN3, dnac1 = dnac2 = 25 nM,
+    // Na = 50 mM, saltcorr = 5, which are exactly the defaults of the canonical method. 1.76's
+    // Tm_staluc and 1.88's Tm_NN were executed side by side on every segment below and agree
+    // bitwise. The values below were produced by REAL Biopython 1.88
     // (python3 -c "from Bio.SeqUtils import MeltingTemp as mt; mt.Tm_NN(s, nn_table=mt.DNA_NN3,
     // dnac1=25, dnac2=25, Na=50, saltcorr=5)") and are asserted BIT-EXACTLY, so a drift in either
     // implementation breaks this test and would change the Rule Set 2 score.
@@ -243,5 +262,126 @@ public class CrisprDesigner_RuleSet2_Tests
         rows.Should().HaveCount(25);
         foreach (var r in rows)
             CrisprDesigner.CalculateOnTargetRuleSet2(r.Guide).Should().BeApproximately(r.Ref, RefTol);
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // Azimuth's "no gene position" sentinel (percent_peptide == -1).
+    //
+    // The reference does NOT feed -1 into the gene-context model. azimuth/model_comparison.py:
+    //   L539  if np.any(percent_peptide == -1) or (percent_peptide is None and aa_cut is None):
+    //             model_name = 'V3_model_nopos.pickle'
+    //   L563  if np.all(percent_peptide != -1) and (percent_peptide is not None and aa_cut is not None):
+    //             gene_position = DataFrame(... percent_peptide, aa_cut ...)
+    //         else: gene_position = DataFrame(... -1, -1 ...)
+    // i.e. the sentinel selects V3_model_nopos AND discards the caller's gene position, so the
+    // answer is exactly the sequence-only score. The library used to answer with V3_model_full and
+    // percent_peptide = -1 / "Percent Peptide <50%" = 1, which is a score the reference never
+    // returns for any input (e.g. 0.608099450578 instead of 0.510655 for the guide below).
+    // -------------------------------------------------------------------------------------------
+
+    [Test]
+    public void RuleSet2_PercentPeptideSentinel_SelectsTheNoPosModel_ForEveryOracleGuide()
+    {
+        var rows = LoadNoPos();
+        rows.Should().HaveCount(ExpectedRows);
+        foreach (var r in rows)
+        {
+            // Any amino-acid cut position must be irrelevant once the sentinel is passed, because
+            // the nopos model has no gene-position columns at all.
+            CrisprDesigner.CalculateOnTargetRuleSet2(r.Guide, 181, -1.0)
+                .Should().Be(CrisprDesigner.CalculateOnTargetRuleSet2(r.Guide));
+            CrisprDesigner.CalculateOnTargetRuleSet2(r.Guide, 0, -1.0)
+                .Should().Be(CrisprDesigner.CalculateOnTargetRuleSet2(r.Guide));
+            CrisprDesigner.CalculateOnTargetRuleSet2(r.Guide, 181, -1.0)
+                .Should().BeApproximately(r.Ref, RefTol);
+        }
+    }
+
+    /// <summary>
+    /// The one guide where the two models are furthest apart in the oracle: the sentinel must give
+    /// the verified nopos reference score (nopos_oracle.csv row 1, ref_score 0.510655), not the
+    /// full-model value the implementation used to return for percent_peptide = -1.
+    /// </summary>
+    [Test]
+    public void RuleSet2_PercentPeptideSentinel_ReturnsTheVerifiedNoPosScore_NotTheFullModelOne()
+    {
+        const string guide = "AAAAAAAAAAAAAAAAAAATGCAGCGGGAG"; // full_oracle/nopos_oracle row 1
+        double sentinel = CrisprDesigner.CalculateOnTargetRuleSet2(guide, 181, -1.0);
+
+        sentinel.Should().BeApproximately(0.510655, RefTol);          // verified nopos reference
+        sentinel.Should().NotBeApproximately(0.608099, 1e-4);          // pre-fix full-model answer
+        CrisprDesigner.CalculateOnTargetRuleSet2(guide, 181, 50.0)
+            .Should().BeApproximately(0.570371, RefTol);               // full model still unchanged
+    }
+
+    /// <summary>
+    /// percent_peptide outside the documented [0, 100] percentage domain is a caller error. The
+    /// reference only asserts it is a real number (model_comparison.py L534) and has no range check,
+    /// so this is a Seqeron-side contract (the XML doc already promised [0, 100]); -1 stays accepted
+    /// because the reference uses it as its own sentinel (L539/L563).
+    /// </summary>
+    [TestCase(-2.0)]
+    [TestCase(-1.0001)]
+    [TestCase(-0.5)]
+    [TestCase(100.0001)]
+    [TestCase(101.0)]
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    public void RuleSet2_PercentPeptideOutOfRange_Throws(double percentPeptide)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => CrisprDesigner.CalculateOnTargetRuleSet2(
+                "AAAAAAAAAAAAAAAAAAATGCAGCGGGAG", 181, percentPeptide));
+    }
+
+    [TestCase(0.0)]
+    [TestCase(0.18)]   // the fractional value used in Azimuth's own README example
+    [TestCase(50.0)]
+    [TestCase(100.0)]
+    [TestCase(-1.0)]   // the sentinel
+    public void RuleSet2_PercentPeptideInRange_IsAccepted(double percentPeptide)
+    {
+        CrisprDesigner.CalculateOnTargetRuleSet2("AAAAAAAAAAAAAAAAAAATGCAGCGGGAG", 181, percentPeptide)
+            .Should().BeInRange(0.0, 1.0);
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // Model-blob shape. The featurizer writes fixed column offsets (gene position at 1 / 607 / 629
+    // of 630 for the full model; 627 columns for nopos), so a blob whose header declares a different
+    // shape must be rejected by the LOADER as an InvalidOperationException -- the same failure mode
+    // as the magic-number check -- instead of reaching the featurizer and throwing
+    // IndexOutOfRangeException from FillGenePosition.
+    // -------------------------------------------------------------------------------------------
+
+    private static (Type Type, MethodInfo Load) AzimuthInternals()
+    {
+        var type = typeof(CrisprDesigner).Assembly
+            .GetType("Seqeron.Genomics.MolTools.AzimuthRuleSet2", throwOnError: true)!;
+        var load = type.GetMethod("Load", BindingFlags.NonPublic | BindingFlags.Static)!;
+        return (type, load);
+    }
+
+    [TestCase("azimuth_rs2_nopos.bin", false, 627, false)]
+    [TestCase("azimuth_rs2_full.bin", true, 630, true)]
+    public void RuleSet2_ModelBlob_DeclaresTheShapeTheFeaturizerAssumes(
+        string fileName, bool expectGenePosition, int expectedFeatureCount, bool expectedFlag)
+    {
+        var (type, load) = AzimuthInternals();
+        object model = load.Invoke(null, [fileName, expectGenePosition])!;
+        var modelType = model.GetType();
+        modelType.GetField("FeatureCount")!.GetValue(model).Should().Be(expectedFeatureCount);
+        modelType.GetField("HasGenePosition")!.GetValue(model).Should().Be(expectedFlag);
+        type.Should().NotBeNull();
+    }
+
+    [TestCase("azimuth_rs2_nopos.bin", true)]   // nopos blob offered as the gene-context model
+    [TestCase("azimuth_rs2_full.bin", false)]   // full blob offered as the sequence-only model
+    public void RuleSet2_ModelBlob_WrongDeclaredShape_ThrowsInvalidOperation(
+        string fileName, bool expectGenePosition)
+    {
+        var (_, load) = AzimuthInternals();
+        var thrown = Assert.Throws<TargetInvocationException>(
+            () => load.Invoke(null, [fileName, expectGenePosition]));
+        thrown!.InnerException.Should().BeOfType<InvalidOperationException>();
     }
 }
