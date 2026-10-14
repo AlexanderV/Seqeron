@@ -497,7 +497,15 @@ public static class CodonOptimizer
     /// with its default window settings, scored by <paramref name="secondaryScoring"/>. The
     /// default is the pair-count heuristic, which costs ~0.06 s per kilobase; pass
     /// <see cref="SecondaryStructureScoring.Turner2004Mfe"/> for the sourced Turner 2004
-    /// free-energy model (~9 s per kilobase).</description></item>
+    /// free-energy model (~9 s per kilobase). That structure pass is <b>GC-constraint-aware</b>
+    /// (review 2026-09 F63): a rewrite is accepted only when it does not increase the GC breach of
+    /// the band [<paramref name="gcTargetMin"/>, <paramref name="gcTargetMax"/>] (every sliding
+    /// window when <paramref name="gcWindow"/> is set), so the strategy cannot undo the GC target
+    /// it was asked to hold — DNA Chisel resolves <c>EnforceGCContent</c> as a hard constraint and
+    /// optimises the remaining objectives only with mutations that keep the constraints satisfied.
+    /// A direct call of
+    /// <see cref="ReduceSecondaryStructure(string, CodonUsageTable, int, double, double, SecondaryStructureScoring, double, int, GeneticCode?)"/>
+    /// declares no GC target and is unaffected.</description></item>
     /// <item><description><b>HarmonizeExpression</b> — the codon usage of the output matches the
     /// target table as closely as integer codon counts allow (DNA Chisel
     /// <c>match_codon_usage</c> / <c>MatchTargetCodonUsage</c>), deterministically: per amino
@@ -619,7 +627,10 @@ public static class CodonOptimizer
         if (strategy == OptimizationStrategy.MinimizeSecondary)
         {
             optimizedSequence = ReduceSecondaryStructure(
-                optimizedSequence, targetOrganism, scoring: secondaryScoring, geneticCode: geneticCode);
+                optimizedSequence, targetOrganism, windowSize: 40, structureThreshold: 0.5,
+                minCodonFrequency: 0.1, scoring: secondaryScoring, mfeThreshold: 0.0,
+                maxFoldEvaluations: 20_000, geneticCode: geneticCode,
+                gcConstraint: new GcConstraint(gcTargetMin, gcTargetMax, gcWindow));
             optimizedCodons = SplitIntoCodons(optimizedSequence);
         }
 
@@ -1534,6 +1545,29 @@ public static class CodonOptimizer
         double mfeThreshold = 0.0,
         int maxFoldEvaluations = 20_000,
         GeneticCode? geneticCode = null)
+        => ReduceSecondaryStructure(
+            codingSequence, table, windowSize, structureThreshold, minCodonFrequency, scoring,
+            mfeThreshold, maxFoldEvaluations, geneticCode, gcConstraint: null);
+
+    // Structure pass that additionally respects a GC-content constraint when one is given
+    // (CODON-OPT-001 / review 2026-09 F63): DNA Chisel resolves EnforceGCContent as a hard
+    // constraint of the problem and optimises the remaining objectives only with mutations that
+    // keep the constraints satisfied (DnaOptimizationProblem.optimize →
+    // "the mutations that do not break the constraints"), so the structure pass of
+    // OptimizationStrategy.MinimizeSecondary must not undo the GC bounds / windows the GC pass of
+    // the same call established. gcConstraint = null (every direct call of the public method) keeps
+    // the historical behaviour bit-for-bit.
+    private static string ReduceSecondaryStructure(
+        string codingSequence,
+        CodonUsageTable table,
+        int windowSize,
+        double structureThreshold,
+        double minCodonFrequency,
+        SecondaryStructureScoring scoring,
+        double mfeThreshold,
+        int maxFoldEvaluations,
+        GeneticCode? geneticCode,
+        GcConstraint? gcConstraint)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return codingSequence;
@@ -1571,6 +1605,13 @@ public static class CodonOptimizer
 
         double threshold = turner ? -mfeThreshold : structureThreshold;
 
+        // GC constraint of the surrounding optimisation, when one was declared: a rewrite is
+        // accepted only when the whole sequence's GC breach does not grow (an input that already
+        // breaches the band can only be asked not to get worse — the F60 rule of the site pass).
+        double toleratedGcBreach = gcConstraint is null
+            ? 0
+            : Math.Max(0, GcBreach(string.Concat(codons), gcConstraint));
+
         for (int i = 0; i + windowCodons <= codons.Count; i++)
         {
             if (turner && folds >= maxFoldEvaluations)
@@ -1594,6 +1635,14 @@ public static class CodonOptimizer
                     }
 
                     double score = Score(ConcatCodons(codons, i, windowCodons, j, alternative));
+
+                    if (score < bestScore &&
+                        gcConstraint is not null &&
+                        GcBreach(ConcatCodons(codons, 0, codons.Count, j, alternative), gcConstraint)
+                            > toleratedGcBreach + 1e-12)
+                    {
+                        continue; // would break the GC constraint of this optimisation
+                    }
 
                     if (score < bestScore)
                     {

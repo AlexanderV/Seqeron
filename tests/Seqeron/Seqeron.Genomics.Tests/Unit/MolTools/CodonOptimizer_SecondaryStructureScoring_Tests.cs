@@ -216,8 +216,16 @@ public class CodonOptimizer_SecondaryStructureScoring_Tests
                 Is.EqualTo("GAGGAGGAGGAGGAGGAGGAGGAGUUCUUCUUCUUCUUUUUUUUUUUU"),
                 "BalancedOptimization: codon selection + GC pass only");
             Assert.That(minimizeSecondary.OptimizedSequence,
-                Is.EqualTo("GAGGAAGAAGAAGAAGAAGAAGAAUUCUUCUUCUUCUUCUUCUUCUUU"),
+                Is.EqualTo("GAGGAGGAGGAGGAGGAGGAGGAGUUCUUCUUCUUCUUCUUCUUCUUU"),
                 "MinimizeSecondary additionally runs ReduceSecondaryStructure");
+            // Review 2026-09 F63: the structure pass keeps the GC band the GC pass of the same
+            // call established (dnachisel resolves EnforceGCContent as a hard constraint and only
+            // accepts objective mutations that keep it satisfied). Before F63 this output was
+            // GAGGAAGAAGAAGAAGAAGAAGAAUUCUUCUUCUUCUUCUUCUUCUUU, GC 0.3333 — dnachisel
+            // EnforceGCContent(0.40, 0.60).evaluate = −0.0666667, i.e. the strategy broke its own
+            // GC target. The GC fraction of the output above is 0.479167 (breach 0).
+            Assert.That(CodonOptimizer.EvaluateGcContent(minimizeSecondary.OptimizedSequence, 0.40, 0.60).Score,
+                Is.EqualTo(0).Within(1e-12), "F63: the GC band of the strategy is still satisfied");
             Assert.That(minimizeSecondary.OptimizedSequence, Is.Not.EqualTo(balanced.OptimizedSequence),
                 "review 2026-09 F42: the strategy used to be an alias of BalancedOptimization");
             Assert.That(minimizeSecondary.ProteinSequence, Is.EqualTo("EEEEEEEEFFFFFFFF"),
@@ -255,6 +263,10 @@ public class CodonOptimizer_SecondaryStructureScoring_Tests
                 "UUUAUGGCACAAUUGGACAAGGCUCUGGCAGAAUAA"),
                 "deterministic Turner-scored MinimizeSecondary output");
             Assert.That(turner.ProteinSequence, Is.EqualTo(GeneBProtein));
+            // F63: the Turner-scored structure pass keeps the GC band of the strategy satisfied
+            // (dnachisel EnforceGCContent(0.40, 0.60).evaluate of this output = -0.0; GC 0.424242).
+            Assert.That(CodonOptimizer.EvaluateGcContent(turner.OptimizedSequence, 0.40, 0.60).Score,
+                Is.EqualTo(0).Within(1e-12));
             Assert.That(Translate(turner.OptimizedSequence), Is.EqualTo(GeneBProtein));
             Assert.That(SumWindowMfe(balanced.OptimizedSequence), Is.EqualTo(-329.72).Within(0.01));
             Assert.That(SumWindowMfe(turner.OptimizedSequence), Is.EqualTo(-99.86).Within(0.01));

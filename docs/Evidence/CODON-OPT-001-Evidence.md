@@ -232,6 +232,51 @@ Protein preserved in every row (`MKEKEKEKEKEKEKE*`, `MGSGSGSGSGSGSGS*`, `MKFKFKF
 
 Deterministic greedy, not DNA Chisel's randomised constraint solver: rounds of a left-to-right pass (at most 8, each round only runs while the total breach strictly decreased) in which the left-most breaching window is repaired by the synonymous replacement — frequency ≥ `rareCodonThreshold` — of an overlapping codon that minimises, lexicographically, (breach of that window, total breach of the sequence, −codon frequency, codon position, NCBI codon order). A window that no synonymous replacement improves is left alone and the scan continues after it, so an unreachable band cannot loop or throw. The pass returns the lowest-total-breach sequence it reached (review 2026-09 F62): a round that fixes the left-most window first can raise the total breach, and DNA Chisel's solver keeps a mutated sequence only when the constraint score improves (`ConstraintsSolverMixin.resolve_constraints_by_random_mutations`: `if new_score > score: score = new_score else: self.sequence = previous_sequence`), so the repaired output never breaches more than the codon selection it starts from (pre-fix repro `CTGGGTTGGCATTCCAATTGGGATATTGTATCAGCGTCGGTTGGCCGG`, E. coli K-12, window 12, [0.45, 0.55]: selection −3.48333, old output −3.63333; now −3.483333333333332 = dnachisel 3.2.16 `evaluate` of our output). Only the *evaluation* is claimed to equal DNA Chisel; the repaired sequences may differ from that library's (equally valid) random-search output.
 
+## F63 — the `MinimizeSecondary` structure pass keeps the GC constraint (review 2026-09, WP27a re-verification)
+
+### Defect
+
+`OptimizeSequence` ran the GC pass and then `ReduceSecondaryStructure` (F42) without passing the GC
+constraint on, so the structure pass could undo the very GC band / windows the same call had just
+enforced. Reproductions (E. coli K-12, `[0.40, 0.60]`):
+
+| Call | GC breach after the GC pass | after the structure pass (pre-F63) |
+|---|---|---|
+| `OptimizeSequence("GAAGAAGAAGAAGAAGAAGAAGAAUUUUUUUUUUUUUUUUUUUUUUUU", MinimizeSecondary)` (global band, F42 locked case) | 0 (`GAGGAGGAGGAGGAGGAGGAGGAGUUCUUCUUCUUCUUUUUUUUUUUU`, GC 0.4167) | **−0.0666667** (`GAGGAAGAAGAAGAAGAAGAAGAAUUCUUCUUCUUCUUCUUCUUCUUU`, GC 0.3333; dnachisel `EnforceGCContent(0.40, 0.60).evaluate` = −0.06666666666666671) |
+| `OptimizeSequence(<150-nt gene below>, MinimizeSecondary, secondaryScoring: Turner2004Mfe, gcWindow: 20)` | 0 | **−12.6** |
+| 50 random 31–50-codon genes × windows 20/30, `Turner2004Mfe` | 0 (GC pass reaches 0) | worse in **49 / 50** cases, worst −12.6 |
+
+150-nt gene: `ATGCCGGGTATTTTTCATCGTAAAGATTTTTTTTTTAAACCGGGTTACGATCTGAACCTGTCTCAAGAAGGTCGTGCTGAATACTTTGGTCCGCTGCTGCCGAAAATTAACCAAGATCAAATTCCGCAATACTGTCTGCCGGTTACTTAA`.
+
+### Source
+
+dnachisel 3.2.16 `DnaOptimizationProblem`: `EnforceGCContent` is a **constraint**, resolved by
+`resolve_constraints()`, and the objective optimisation that follows
+(`mixins/ObjectivesMaximizationMixin.optimize*`) evaluates candidate mutations with the constraints
+in place and keeps only mutations under which the constraints remain satisfied — the same rule the
+site pass already carries (F60, `ConstraintsSolverMixin`). A pass that lowers folding propensity is
+an objective and may not break the GC constraint of the same problem.
+
+### Fix
+
+The structure pass of `MinimizeSecondary` now carries the GC constraint
+(`gcTargetMin`/`gcTargetMax`, every sliding window when `gcWindow` is set, `EvaluateGcContent`
+semantics): a synonymous rewrite is accepted only when the whole sequence's GC breach does not
+increase over the breach of the sequence entering the pass (an already-breaching input can only be
+asked not to get worse — the F60 tolerance rule). The public
+`ReduceSecondaryStructure(...)` declares no GC target and is unchanged bit-for-bit.
+
+### Reference numbers after the fix (dnachisel 3.2.16 `evaluate` of our outputs)
+
+| Output | dnachisel score |
+|---|---|
+| `GAGGAGGAGGAGGAGGAGGAGGAGUUCUUCUUCUUCUUCUUCUUCUUU` (F42 case, global `[0.40, 0.60]`) | −0.0 (GC 0.479167) |
+| `AUGAAACUUGCCGACUUAGCUCAAUUAGCAUUUCGUGAAGAUUUGCGUCAAGCACUCGAUCGUUUUAUGGCACAAUUGGACAAGGCUCUGGCAGAAUAA` (gene B, Turner-scored `MinimizeSecondary`) | −0.0 (GC 0.424242) |
+| `AUGCCAGGAAUUUUCCAUCGCAAGGACUUCUUCUUCAAACCUGGCUAUGACUUGAACCUCUCACAAGAAGGUCGUGCGGAAUACUUCGGACCACUUCUGCCAAAAAUCAACCAGGACCAGAUUCCCCAGUAUUGUCUCCCCGUCACCUAA` (150-nt gene, `gcWindow: 20`) | −0.0 (was −12.6) |
+
+100 random cases (25 genes × windows 20/30 × both scorings) after the fix: GC breach never worse
+than the GC pass's, protein preserved in all 100.
+
 ## F48 — genetic-code-aware `CodonOptimizer` API (review 2026-09, audit A2-1)
 
 ### Sources opened

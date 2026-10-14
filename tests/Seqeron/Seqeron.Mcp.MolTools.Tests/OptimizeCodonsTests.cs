@@ -71,9 +71,15 @@ public class OptimizeCodonsTests
         {
             Assert.That(balanced.OptimizedSequence,
                 Is.EqualTo("GAGGAGGAGGAGGAGGAGGAGGAGUUCUUCUUCUUCUUUUUUUUUUUU"));
+            // F63: the structure pass carries the GC constraint of the same call, so the output
+            // stays inside [0.40, 0.60] (GC 0.479167). Before F63 it was
+            // GAGGAAGAAGAAGAAGAAGAAGAAUUCUUCUUCUUCUUCUUCUUCUUU (GC 0.3333, dnachisel
+            // EnforceGCContent(0.40, 0.60).evaluate = -0.0666667).
             Assert.That(minimizeSecondary.OptimizedSequence,
-                Is.EqualTo("GAGGAAGAAGAAGAAGAAGAAGAAUUCUUCUUCUUCUUCUUCUUCUUU"));
+                Is.EqualTo("GAGGAGGAGGAGGAGGAGGAGGAGUUCUUCUUCUUCUUCUUCUUCUUU"));
             Assert.That(minimizeSecondary.ProteinSequence, Is.EqualTo("EEEEEEEEFFFFFFFF"));
+            Assert.That(CodonOptimizer.EvaluateGcContent(minimizeSecondary.OptimizedSequence, 0.40, 0.60).Score,
+                Is.EqualTo(0).Within(1e-12));
         });
 
         // The Turner 2004 energy model is reachable through the tool's secondary_scoring parameter.

@@ -349,4 +349,48 @@ public class CodonOptimizer_WindowedGcContent_Tests
             Assert.That(Translator.Translate(repaired).Sequence, Is.EqualTo(Translator.Translate(BreachRegressionGene).Sequence));
         });
     }
+
+    // F63 (WP27a re-verification): the MinimizeSecondary structure pass used to run after the GC
+    // pass without carrying its constraint, so it undid the GC bounds/windows of the very same
+    // call — on this 150-nt gene the windowed GC pass reached score 0 and the Turner-scored
+    // structure pass left it at −12.6 (dnachisel EnforceGCContent(0.40, 0.60, window=20).evaluate).
+    // DNA Chisel resolves EnforceGCContent as a hard constraint and accepts an objective mutation
+    // only when the constraints stay satisfied, so a rewrite that grows the GC breach is rejected.
+    private const string StructurePassGcGene =
+        "ATGCCGGGTATTTTTCATCGTAAAGATTTTTTTTTTAAACCGGGTTACGATCTGAACCTGTCTCAAGAAGGTCGTGCT" +
+        "GAATACTTTGGTCCGCTGCTGCCGAAAATTAACCAAGATCAAATTCCGCAATACTGTCTGCCGGTTACTTAA";
+
+    [Test]
+    [Description("F63: the MinimizeSecondary structure pass keeps the windowed GC constraint the GC "
+        + "pass of the same call established (dnachisel scores the locked output 0 on 20-nt windows)")]
+    public void OptimizeSequence_MinimizeSecondary_StructurePass_KeepsWindowedGcConstraint()
+    {
+        var balanced = CodonOptimizer.OptimizeSequence(
+            StructurePassGcGene, CodonOptimizer.EColiK12,
+            CodonOptimizer.OptimizationStrategy.BalancedOptimization, gcWindow: 20);
+        var turner = CodonOptimizer.OptimizeSequence(
+            StructurePassGcGene, CodonOptimizer.EColiK12,
+            CodonOptimizer.OptimizationStrategy.MinimizeSecondary,
+            secondaryScoring: CodonOptimizer.SecondaryStructureScoring.Turner2004Mfe, gcWindow: 20);
+        var pairCount = CodonOptimizer.OptimizeSequence(
+            StructurePassGcGene, CodonOptimizer.EColiK12,
+            CodonOptimizer.OptimizationStrategy.MinimizeSecondary, gcWindow: 20);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CodonOptimizer.EvaluateGcContent(balanced.OptimizedSequence, 0.40, 0.60, window: 20).Score,
+                Is.EqualTo(0).Within(1e-12), "the GC pass reaches 0 on this gene");
+            // dnachisel on this output: -0.0 (pre-F63 output: -12.6).
+            Assert.That(CodonOptimizer.EvaluateGcContent(turner.OptimizedSequence, 0.40, 0.60, window: 20).Score,
+                Is.EqualTo(0).Within(1e-12), "F63: the structure pass must not break the GC windows");
+            Assert.That(turner.OptimizedSequence, Is.EqualTo(
+                "AUGCCAGGAAUUUUCCAUCGCAAGGACUUCUUCUUCAAACCUGGCUAUGACUUGAACCUCUCACAAGAAGGUCGUGCG" +
+                "GAAUACUUCGGACCACUUCUGCCAAAAAUCAACCAGGACCAGAUUCCCCAGUAUUGUCUCCCCGUCACCUAA"),
+                "deterministic Turner-scored MinimizeSecondary output under a GC window");
+            Assert.That(turner.ProteinSequence, Is.EqualTo(balanced.ProteinSequence), "protein preserved");
+            Assert.That(CodonOptimizer.EvaluateGcContent(pairCount.OptimizedSequence, 0.40, 0.60, window: 20).Score,
+                Is.EqualTo(0).Within(1e-12), "same for the default pair-count scoring");
+            Assert.That(pairCount.ProteinSequence, Is.EqualTo(balanced.ProteinSequence));
+        });
+    }
 }
