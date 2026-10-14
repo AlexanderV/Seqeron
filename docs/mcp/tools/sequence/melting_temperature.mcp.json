@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateMeltingTemperature",
   "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1419",
-  "description": "Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula.",
+  "description": "Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula. weightAmbiguousBases = true weights IUPAC codes as Biopython non-strict Tm_Wallace/Tm_GC (e.g. acgtNNSWacgt-ry → 42.0).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -19,31 +19,72 @@
         "type": "boolean",
         "description": "Use Wallace rule for short oligos (default: true)",
         "default": true
+      },
+      "weightAmbiguousBases": {
+        "type": "boolean",
+        "description": "Weight IUPAC ambiguity codes as Biopython Tm_Wallace/Tm_GC(strict=False) (default false: A/C/G/T/U only)",
+        "default": false
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "tm": { "type": "number", "description": "Melting temperature" },
-      "unit": { "type": "string", "description": "Temperature unit (°C)" }
+      "tm": {
+        "type": "number",
+        "description": "Melting temperature"
+      },
+      "unit": {
+        "type": "string",
+        "description": "Temperature unit (°C)"
+      }
     },
-    "required": ["tm", "unit"]
+    "required": [
+      "tm",
+      "unit"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    }
   ],
   "examples": [
     {
       "name": "Short primer Tm (Wallace rule)",
-      "input": { "sequence": "ATGCGATCGATCG" },
-      "output": { "tm": 38, "unit": "°C" }
+      "input": {
+        "sequence": "ATGCGATCGATCG"
+      },
+      "output": {
+        "tm": 40,
+        "unit": "°C"
+      }
     },
     {
-      "name": "GC formula",
-      "input": { "sequence": "ATGCGATCGATCG", "useWallaceRule": false },
-      "output": { "tm": 60.5, "unit": "°C" }
+      "name": "GC formula (64.9 + 41(GC-16.4)/N)",
+      "input": {
+        "sequence": "ATGCGATCGATCG",
+        "useWallaceRule": false
+      },
+      "output": {
+        "tm": 35.25384615384617,
+        "unit": "°C"
+      }
+    },
+    {
+      "name": "IUPAC codes weighted as Biopython Tm_Wallace(strict=False)",
+      "input": {
+        "sequence": "acgtNNSWacgt-ry",
+        "weightAmbiguousBases": true
+      },
+      "output": {
+        "tm": 42.0,
+        "unit": "°C"
+      }
     }
   ]
 }

@@ -1,3 +1,5 @@
+using System.Text.Json;
+using ModelContextProtocol;
 using NUnit.Framework;
 using Seqeron.Genomics.Analysis;
 using Seqeron.Mcp.Sequence.Tools;
@@ -223,6 +225,122 @@ public class B03SequenceStatisticsMcpOptionsTests
             Assert.That(SequenceTools.MolecularWeightProtein(p).MolecularWeight,
                 Is.EqualTo(SequenceStatistics.CalculateMolecularWeight(p)), p);
         }
+    }
+
+    // ---------------- Round 2 B3 (F47): isoelectric_point window / termini / modifications ----------------
+    // EMBOSS 6.6.0 iep and Biopython 1.88 numbers re-executed 2026-10-14 (F43/F44).
+
+    private const string Ifna2Human =
+        "MALTFALLVALLVLSCKSSCSVGCDLPQTHSLGSRRTLMLLAQMRKISLFSCLKDRHDFGFPQEEFGNQFQKAETIPVLHEMIQQIFNLFSTK" +
+        "DSSAAWDETLLDKFYTELYQQLNDLEACVIQGVGVTETPLMKEDSILAVRKYFQRITLYLKEKKYSPCAWEVVRAEIMRSFSLSTNLQESLRSKE";
+
+    [Test]
+    public void IsoelectricPoint_EmbossWindow_Ifna2Modified_MatchesIepDocumentation()
+    {
+        // iep -disulphides 2 -lysinemodified 2 → 5.7240 (iep documentation example).
+        var r = SequenceTools.IsoelectricPoint(Ifna2Human, window: "Emboss", lysinesModified: 2, disulphides: 2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.PI, Is.EqualTo(5.7240).Within(5e-5));
+            Assert.That(r.Found, Is.True);
+        });
+    }
+
+    [Test]
+    public void IsoelectricPoint_EmbossWindow_Poly40R_IsIepNone()
+    {
+        var r = SequenceTools.IsoelectricPoint(new string('R', 40), window: "emboss");
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.PI, Is.Null);
+            Assert.That(r.Found, Is.False);
+        });
+        string json = JsonSerializer.Serialize(r, McpJsonUtilities.DefaultOptions);
+        Assert.That(json, Is.EqualTo("{\"found\":false}"));
+    }
+
+    [TestCase("DDDD", "Bjellqvist", 4.0500284194946286)]
+    [TestCase(Ifna2Human, "Bjellqvist", 6.32307643890381)]
+    public void IsoelectricPoint_BiopythonWindow_MatchesBiopythonPi(string sequence, string scale, double expected)
+    {
+        var r = SequenceTools.IsoelectricPoint(sequence, scale, window: "BIOPYTHON");
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.PI, Is.EqualTo(expected).Within(1e-12));
+            Assert.That(r.Found, Is.Null);
+        });
+    }
+
+    [Test]
+    public void IsoelectricPoint_NoTermini_MatchesIep()
+    {
+        // iep -notermini PETER → 4.0999.
+        var r = SequenceTools.IsoelectricPoint("PETER", window: "Emboss", termini: false);
+        Assert.That(r.PI, Is.EqualTo(4.0999).Within(5e-5));
+    }
+
+    [TestCase("PETER", "Default", true, 0, 0)]
+    [TestCase("ACCKCKKA", "Default", false, 1, 1)]
+    [TestCase("FLPVLAGLTPSIVPKLVCLLTKKC", "Emboss", true, 2, 1)]
+    [TestCase("KDDK", "Biopython", false, 1, 0)]
+    public void IsoelectricPoint_Options_EqualLibraryTryCalculate(string sequence, string window, bool termini, int lysines, int disulphides)
+    {
+        foreach (var scale in new[] { SequenceStatistics.PkaScale.Emboss, SequenceStatistics.PkaScale.Bjellqvist })
+        {
+            bool found = SequenceStatistics.TryCalculateIsoelectricPoint(sequence,
+                new SequenceStatistics.IsoelectricPointOptions
+                {
+                    Scale = scale,
+                    Window = Enum.Parse<SequenceStatistics.IsoelectricPointWindow>(window),
+                    Termini = termini,
+                    LysinesModified = lysines,
+                    Disulphides = disulphides,
+                },
+                out double expected);
+            var r = SequenceTools.IsoelectricPoint(sequence, scale.ToString(), window, termini, lysines, disulphides);
+            Assert.That(r.PI, Is.EqualTo(found ? expected : (double?)null), $"{sequence} {scale}");
+        }
+    }
+
+    [Test]
+    public void IsoelectricPoint_DefaultOptions_JsonUnchanged()
+    {
+        string json = JsonSerializer.Serialize(SequenceTools.IsoelectricPoint("FLPVLAGLTPSIVPKLVCLLTKKC"), McpJsonUtilities.DefaultOptions);
+        using var doc = JsonDocument.Parse(json);
+        var props = doc.RootElement.EnumerateObject().ToArray();
+        Assert.That(props, Has.Length.EqualTo(1));
+        Assert.That(props[0].Value.GetDouble(), Is.EqualTo(9.57));
+    }
+
+    [Test]
+    public void IsoelectricPoint_InvalidOptions_Throw()
+    {
+        Assert.Throws<ArgumentException>(() => SequenceTools.IsoelectricPoint("PETER", window: "None"));
+        Assert.Throws<ArgumentException>(() => SequenceTools.IsoelectricPoint("PETER", window: "1"));
+        Assert.Throws<ArgumentException>(() => SequenceTools.IsoelectricPoint("PETER", lysinesModified: -1));
+        Assert.Throws<ArgumentException>(() => SequenceTools.IsoelectricPoint("PETER", disulphides: -1));
+    }
+
+    // ---------------- Round 2 B4 (F48): melting_temperature weightAmbiguousBases ----------------
+    // Biopython 1.88 Tm_Wallace(strict=False) executed 2026-10-14: 42.0, 39.0; the ≥ 14-base GC formula
+    // with Biopython's non-strict GC weights (F33): 57.38333333333334.
+
+    [TestCase("acgtNNSWacgt-ry", 42.0)]
+    [TestCase("ACGTRYKMBDHVN", 39.0)]
+    [TestCase("ACGTACGTACGTACGTRYKMBDHV", 57.38333333333334)]
+    public void MeltingTemperature_WeightAmbiguousBases_MatchesBiopythonNonStrict(string sequence, double expected)
+    {
+        Assert.That(SequenceTools.MeltingTemperature(sequence, weightAmbiguousBases: true).Tm, Is.EqualTo(expected).Within(1e-9));
+        Assert.That(SequenceTools.MeltingTemperature(sequence, weightAmbiguousBases: true).Tm,
+            Is.EqualTo(SequenceTools.SummarizeSequence(sequence, weightAmbiguousBasesInTm: true).MeltingTemperature).Within(1e-12));
+    }
+
+    [TestCase("acgtNNSWacgt-ry")]
+    [TestCase("ATGCGATCGATCGTAGCTAGCTAG")]
+    public void MeltingTemperature_Default_BitIdenticalToLibrary(string sequence)
+    {
+        Assert.That(SequenceTools.MeltingTemperature(sequence).Tm, Is.EqualTo(SequenceStatistics.CalculateMeltingTemperature(sequence)));
+        Assert.That(SequenceTools.MeltingTemperature(sequence, false).Tm, Is.EqualTo(SequenceStatistics.CalculateMeltingTemperature(sequence, false)));
     }
 
     private static string RandomString(Random rng, string alphabet, int length)

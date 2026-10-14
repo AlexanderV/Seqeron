@@ -26,6 +26,7 @@ Calculates the melting temperature (Tm) of a DNA sequence using either the Walla
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The DNA sequence (min length: 1) |
 | `useWallaceRule` | boolean | No | Use Wallace rule for short oligos (default: true) |
+| `weightAmbiguousBases` | boolean | No | Weight IUPAC ambiguity codes as Biopython `Tm_Wallace`/`Tm_GC(strict=False)` (default false: only A/C/G/T/U count). Same option as `summarize_sequence.weightAmbiguousBasesInTm`, so both tools agree on IUPAC input. Delegates to `CalculateMeltingTemperature(seq, useWallaceRule, weightAmbiguousBases)` ([SequenceStatistics.cs#L1459](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1459)). |
 
 ## Output Schema
 
@@ -60,7 +61,7 @@ Calculates the melting temperature (Tm) of a DNA sequence using either the Walla
 **Response:**
 ```json
 {
-  "tm": 38,
+  "tm": 40,
   "unit": "°C"
 }
 ```
@@ -84,7 +85,28 @@ Calculates the melting temperature (Tm) of a DNA sequence using either the Walla
 **Response:**
 ```json
 {
-  "tm": 60.5,
+  "tm": 35.25384615384617,
+  "unit": "°C"
+}
+```
+
+### Example 3: IUPAC codes weighted (Biopython non-strict)
+
+**Expected Tool Call:**
+```json
+{
+  "tool": "melting_temperature",
+  "arguments": {
+    "sequence": "acgtNNSWacgt-ry",
+    "weightAmbiguousBases": true
+  }
+}
+```
+
+**Response** (Biopython 1.88 `Tm_Wallace(s, strict=False)` = 42.0; default `weightAmbiguousBases = false` gives 24):
+```json
+{
+  "tm": 42,
   "unit": "°C"
 }
 ```

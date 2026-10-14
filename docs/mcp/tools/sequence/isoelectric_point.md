@@ -26,12 +26,19 @@ Calculates the isoelectric point (pI) of a protein sequence. The pI is the pH at
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The protein sequence (min length: 1) |
 | `scale` | string | No | pK scale: `Emboss` (default; EMBOSS 6.6.0 `iep`) or `Bjellqvist` (ExPASy Compute pI/Mw, Biopython `IsoelectricPoint`); case-insensitive. E.g. INGAR: Bjellqvist 9.75 (Biopython 9.750021). |
+| `window` | string | No | pH search convention (case-insensitive): `Default` (library [0,14] bisection, 2 dp), `Emboss` (`iep` `embIepPhConverge` over [1,14], unrounded; no pI → `found: false`), `Biopython` (`IsoelectricPoint.pi()` [4.05,12] starting at 7.775, unrounded). |
+| `termini` | boolean | No | Count the N-/C-terminal charges (default true); `false` = `iep -notermini`. |
+| `lysinesModified` | integer | No | Modified (uncharged) lysines, `iep -lysinemodified` (default 0; all K removed when fewer present). Must be ≥ 0. |
+| `disulphides` | integer | No | Disulphide bridges, each removing 2 cysteine charges, `iep -disulphides` (default 0). Must be ≥ 0. |
+
+Any non-default option delegates to `SequenceStatistics.TryCalculateIsoelectricPoint(sequence, IsoelectricPointOptions, out pI)` ([SequenceStatistics.cs#L760](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L760)); with all defaults the result is exactly `CalculateIsoelectricPoint(sequence, scale)`.
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `pI` | number | Isoelectric point (pH value 0-14) |
+| `pi` | number | Isoelectric point (pH). Omitted only when `window = "Emboss"` finds no pI. |
+| `found` | boolean | Only for `window = "Emboss"`: `false` = `iep` "Isoelectric Point = None" (same strict charge sign at pH 1 and 14). Omitted otherwise, so the default output is unchanged. |
 
 ## Errors
 
@@ -40,6 +47,8 @@ Calculates the isoelectric point (pI) of a protein sequence. The pI is the pH at
 | 1001 | Sequence cannot be null or empty |
 | 2002 | Invalid protein sequence |
 | 1001 | Unknown pK scale '<scale>'. Expected one of: Emboss, Bjellqvist. |
+| 1001 | Unknown pI window '<window>'. Expected one of: Default, Emboss, Biopython. |
+| 1001 | lysinesModified must be non-negative / disulphides must be non-negative |
 
 ## Examples
 
@@ -61,7 +70,7 @@ Calculates the isoelectric point (pI) of a protein sequence. The pI is the pH at
 **Response:**
 ```json
 {
-  "pI": 4.21
+  "pi": 3.61
 }
 ```
 
@@ -83,9 +92,18 @@ Calculates the isoelectric point (pI) of a protein sequence. The pI is the pH at
 **Response:**
 ```json
 {
-  "pI": 11.5
+  "pi": 12.53
 }
 ```
+
+### Example 3: EMBOSS `iep` conventions
+
+`iep -disulphides 2 -lysinemodified 2` on IFNA2_HUMAN (the `iep` documentation example, 5.7240):
+`{"sequence": "<IFNA2_HUMAN>", "window": "Emboss", "lysinesModified": 2, "disulphides": 2}` →
+`{"pi": 5.7240447998046875, "found": true}`. Poly-R (R×40) under `window: "Emboss"` → `{"found": false}`
+(`iep`: "Isoelectric Point = None"). `{"sequence": "PETER", "window": "Emboss", "termini": false}` →
+`{"pi": 4.099937438964844, "found": true}` (`iep -notermini` 4.0999). `{"sequence": "DDDD", "scale": "Bjellqvist",
+"window": "Biopython"}` → `{"pi": 4.0500284194946286}` (Biopython 1.88 `IsoelectricPoint("DDDD").pi()`).
 
 ## Performance
 

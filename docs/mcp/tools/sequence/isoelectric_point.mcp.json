@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateIsoelectricPoint",
   "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L602",
-  "description": "Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge. pK scale: 'Emboss' (EMBOSS iep, default) or 'Bjellqvist' (ExPASy Compute pI/Mw, Biopython IsoelectricPoint).",
+  "description": "Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge. pK scale: 'Emboss' (EMBOSS iep, default) or 'Bjellqvist' (ExPASy Compute pI/Mw, Biopython IsoelectricPoint). Optional reference conventions: window 'Default' (library [0,14] search, 2 dp), 'Emboss' (iep [1,14]; found=false and no pI when the charge does not change sign = iep 'None'), 'Biopython' (IsoelectricPoint.pi() [4.05,12] window, unrounded); termini=false (iep -notermini), lysinesModified (iep -lysinemodified), disulphides (iep -disulphides).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -23,6 +23,33 @@
         ],
         "description": "pK scale: 'Emboss' (default, EMBOSS iep) or 'Bjellqvist' (ExPASy Compute pI/Mw, Biopython IsoelectricPoint); case-insensitive",
         "default": "Emboss"
+      },
+      "window": {
+        "type": "string",
+        "enum": [
+          "Default",
+          "Emboss",
+          "Biopython"
+        ],
+        "description": "pH search window: 'Default' (library [0,14], rounded to 2 dp), 'Emboss' (iep [1,14], unrounded; 'None' → found=false) or 'Biopython' (pi() [4.05,12], unrounded); case-insensitive",
+        "default": "Default"
+      },
+      "termini": {
+        "type": "boolean",
+        "description": "Count the N-/C-terminal charges (default true); false = EMBOSS iep -notermini",
+        "default": true
+      },
+      "lysinesModified": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Number of lysines whose side chain is modified (uncharged), as iep -lysinemodified (default 0; all K when fewer present)",
+        "default": 0
+      },
+      "disulphides": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Number of disulphide bridges (each removes 2 cysteine charges), as iep -disulphides (default 0)",
+        "default": 0
       }
     },
     "required": [
@@ -32,14 +59,16 @@
   "outputSchema": {
     "type": "object",
     "properties": {
-      "pI": {
+      "pi": {
         "type": "number",
-        "description": "Isoelectric point (pH value 0-14)"
+        "description": "Isoelectric point (pH; wire name 'pi'). Omitted only when window = 'Emboss' finds none (found = false)."
+      },
+      "found": {
+        "type": "boolean",
+        "description": "Only for window = 'Emboss': false = EMBOSS iep 'Isoelectric Point = None' (same strict charge sign at pH 1 and 14). Omitted otherwise."
       }
     },
-    "required": [
-      "pI"
-    ]
+    "required": []
   },
   "errors": [
     {
@@ -53,6 +82,18 @@
     {
       "code": 1001,
       "message": "Unknown pK scale '<scale>'. Expected one of: Emboss, Bjellqvist."
+    },
+    {
+      "code": 1001,
+      "message": "Unknown pI window '<window>'. Expected one of: Default, Emboss, Biopython."
+    },
+    {
+      "code": 1001,
+      "message": "lysinesModified must be non-negative"
+    },
+    {
+      "code": 1001,
+      "message": "disulphides must be non-negative"
     }
   ],
   "examples": [
@@ -62,7 +103,7 @@
         "sequence": "MAEGEITTFT"
       },
       "output": {
-        "pI": 4.21
+        "pi": 3.61
       }
     },
     {
@@ -71,7 +112,7 @@
         "sequence": "MKRLLKR"
       },
       "output": {
-        "pI": 11.5
+        "pi": 12.53
       }
     },
     {
@@ -81,7 +122,53 @@
         "scale": "Bjellqvist"
       },
       "output": {
-        "pI": 9.75
+        "pi": 9.75
+      }
+    },
+    {
+      "name": "EMBOSS iep documentation example: IFNA2_HUMAN -disulphides 2 -lysinemodified 2 (iep 5.7240) — unrounded tph",
+      "input": {
+        "sequence": "MALTFALLVALLVLSCKSSCSVGCDLPQTHSLGSRRTLMLLAQMRKISLFSCLKDRHDFGFPQEEFGNQFQKAETIPVLHEMIQQIFNLFSTKDSSAAWDETLLDKFYTELYQQLNDLEACVIQGVGVTETPLMKEDSILAVRKYFQRITLYLKEKKYSPCAWEVVRAEIMRSFSLSTNLQESLRSKE",
+        "window": "Emboss",
+        "lysinesModified": 2,
+        "disulphides": 2
+      },
+      "output": {
+        "pi": 5.7240447998046875,
+        "found": true
+      }
+    },
+    {
+      "name": "EMBOSS iep 'None' (R x 40)",
+      "input": {
+        "sequence": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+        "window": "Emboss"
+      },
+      "output": {
+        "found": false
+      }
+    },
+    {
+      "name": "Biopython IsoelectricPoint.pi() window (DDDD, Bjellqvist)",
+      "input": {
+        "sequence": "DDDD",
+        "scale": "Bjellqvist",
+        "window": "Biopython"
+      },
+      "output": {
+        "pi": 4.0500284194946286
+      }
+    },
+    {
+      "name": "EMBOSS iep -notermini PETER (iep 4.0999)",
+      "input": {
+        "sequence": "PETER",
+        "window": "Emboss",
+        "termini": false
+      },
+      "output": {
+        "pi": 4.099937438964844,
+        "found": true
       }
     }
   ]

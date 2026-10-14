@@ -121,7 +121,7 @@ EMBOSS 6.6.0 Epk.dat pKa table (origin: EMBOSS source [6]):
 - `SequenceStatistics.TryCalculateIsoelectricPoint(string, IsoelectricPointOptions?, out double)`: pI with a selectable search convention (`IsoelectricPointWindow.Default` [0,14] 2 dp / `Emboss` = `iep` [1,14] with "None" → false / `Biopython` = `IsoelectricPoint.pi()` [4.05,12] from 7.775) and the `iep` qualifiers `Termini` (`-notermini`), `LysinesModified` (`-lysinemodified N`), `Disulphides` (`-disulphides N`).
 - `SequenceStatistics.CalculateNetCharge(string, double, IsoelectricPointOptions?)`: net charge with the same qualifiers.
 - All of them evaluate the canonical `ProteinPhysicochemistry.NetCharge` (Infrastructure); the options only adjust the counts handed to it (modified K / bonded C replaced by the neutral, non-terminal-specific G) or cancel the default termini (`NetCharge("G"+s+"G") − NetCharge("GG")`).
-- MCP `isoelectric_point` (Seqeron.Mcp.Sequence) delegates to the EMBOSS-scale overload.
+- MCP `isoelectric_point` (Seqeron.Mcp.Sequence) delegates to `CalculateIsoelectricPoint(string, PkaScale)` with default options, and to `TryCalculateIsoelectricPoint` for its optional `window` / `termini` / `lysinesModified` / `disulphides` (2026-10-14, B03 F47; `iep` "None" → `found: false`, `pi` omitted).
 
 ### 5.2 Current Behavior
 

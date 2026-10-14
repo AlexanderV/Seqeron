@@ -41,7 +41,16 @@ public record AminoAcidCompositionResult(
 public record MolecularWeightProteinResult(double MolecularWeight, string Unit);
 
 /// <summary>Result of isoelectric_point operation.</summary>
-public record IsoelectricPointResult(double PI);
+public record IsoelectricPointResult(
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    double? PI)
+{
+    /// <summary>Whether a pI was found; set only for <c>window = "Emboss"</c> (false = EMBOSS <c>iep</c>
+    /// "Isoelectric Point = None": same strict charge sign at pH 1 and 14, and <c>pI</c> is then omitted).
+    /// Null (omitted from the JSON) for the other windows, which always return a pI.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Found { get; init; }
+}
 
 /// <summary>Result of hydrophobicity operation.</summary>
 public record HydrophobicityResult(double Gravy);

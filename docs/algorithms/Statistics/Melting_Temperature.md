@@ -79,7 +79,7 @@ derivation is documented in [DNA_Thermodynamics.md](DNA_Thermodynamics.md).)
 |------|------|---------|-------------|-------------|
 | dnaSequence | string | required | DNA sequence (5'→3') | case-insensitive; A/C/G/T |
 | useWallaceRule | bool | true | Wallace if A+C+G+T count < 14, else Marmur-Doty | — (CalculateMeltingTemperature) |
-| weightAmbiguousBases | bool | false (overload) | IUPAC codes weighted as Biopython non-strict `Tm_Wallace` / `Tm_GC` (branch still chosen by the A+C+G+T+U count) | — (CalculateMeltingTemperature(seq, useWallaceRule, weightAmbiguousBases), B03 F33) |
+| weightAmbiguousBases | bool | false (overload) | IUPAC codes weighted as Biopython non-strict `Tm_Wallace` / `Tm_GC` (branch still chosen by the A+C+G+T+U count) | — (CalculateMeltingTemperature(seq, useWallaceRule, weightAmbiguousBases), B03 F33; MCP `melting_temperature.weightAmbiguousBases`, B03 F48) |
 | naConcentration | double | 0.05 | Na+ concentration, mol/L | > 0 (CalculateThermodynamics) |
 | primerConcentration | double | 2.5e-7 | Total strand conc. C_T, mol/L (divided by F = 4) | > 0 (CalculateThermodynamics) |
 

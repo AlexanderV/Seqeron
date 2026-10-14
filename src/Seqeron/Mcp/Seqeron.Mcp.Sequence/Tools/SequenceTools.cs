@@ -230,10 +230,14 @@ public class SequenceTools
     /// Calculate isoelectric point (pI) of a protein sequence.
     /// </summary>
     [McpServerTool(Name = "isoelectric_point", Title = "Protein — Isoelectric Point", ReadOnly = true)]
-    [Description("Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge. pK scale: 'Emboss' (EMBOSS iep, default) or 'Bjellqvist' (ExPASy Compute pI/Mw, Biopython IsoelectricPoint).")]
+    [Description("Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge. pK scale: 'Emboss' (EMBOSS iep, default) or 'Bjellqvist' (ExPASy Compute pI/Mw, Biopython IsoelectricPoint). Optional reference conventions: window 'Default' (library [0,14] search, 2 dp), 'Emboss' (iep [1,14]; found=false and no pI when the charge does not change sign = iep 'None'), 'Biopython' (IsoelectricPoint.pi() [4.05,12] window, unrounded); termini=false (iep -notermini), lysinesModified (iep -lysinemodified), disulphides (iep -disulphides).")]
     public static IsoelectricPointResult IsoelectricPoint(
         [Description("The protein sequence")] string sequence,
-        [Description("pK scale: 'Emboss' (default, EMBOSS iep) or 'Bjellqvist' (ExPASy / Biopython); case-insensitive")] string scale = "Emboss")
+        [Description("pK scale: 'Emboss' (default, EMBOSS iep) or 'Bjellqvist' (ExPASy / Biopython); case-insensitive")] string scale = "Emboss",
+        [Description("pH search window: 'Default' (library [0,14], rounded to 2 dp), 'Emboss' (iep [1,14], unrounded; 'None' → found=false) or 'Biopython' (pi() [4.05,12], unrounded); case-insensitive")] string window = "Default",
+        [Description("Count the N-/C-terminal charges (default true); false = EMBOSS iep -notermini")] bool termini = true,
+        [Description("Number of lysines whose side chain is modified (uncharged), as iep -lysinemodified (default 0; all K when fewer present)")] int lysinesModified = 0,
+        [Description("Number of disulphide bridges (each removes 2 cysteine charges), as iep -disulphides (default 0)")] int disulphides = 0)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -241,8 +245,42 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var pI = SequenceStatistics.CalculateIsoelectricPoint(sequence, ParsePkaScale(scale));
-        return new IsoelectricPointResult(pI);
+        if (lysinesModified < 0)
+            throw new ArgumentException("lysinesModified must be non-negative", nameof(lysinesModified));
+        if (disulphides < 0)
+            throw new ArgumentException("disulphides must be non-negative", nameof(disulphides));
+
+        var pkaScale = ParsePkaScale(scale);
+        var pIWindow = ParsePiWindow(window);
+        if (pIWindow == SequenceStatistics.IsoelectricPointWindow.Default && termini && lysinesModified == 0 && disulphides == 0)
+            return new IsoelectricPointResult(SequenceStatistics.CalculateIsoelectricPoint(sequence, pkaScale));
+
+        bool found = SequenceStatistics.TryCalculateIsoelectricPoint(sequence,
+            new SequenceStatistics.IsoelectricPointOptions
+            {
+                Scale = pkaScale,
+                Window = pIWindow,
+                Termini = termini,
+                LysinesModified = lysinesModified,
+                Disulphides = disulphides,
+            },
+            out double pI);
+        return new IsoelectricPointResult(found ? pI : null)
+        {
+            Found = pIWindow == SequenceStatistics.IsoelectricPointWindow.Emboss ? found : null,
+        };
+    }
+
+    // Exact (case-insensitive) IsoelectricPointWindow name (numeric strings rejected).
+    private static SequenceStatistics.IsoelectricPointWindow ParsePiWindow(string window)
+    {
+        foreach (var value in Enum.GetValues<SequenceStatistics.IsoelectricPointWindow>())
+        {
+            if (string.Equals(value.ToString(), window, StringComparison.OrdinalIgnoreCase))
+                return value;
+        }
+
+        throw new ArgumentException($"Unknown pI window '{window}'. Expected one of: Default, Emboss, Biopython.", nameof(window));
     }
 
     // Exact (case-insensitive) PkaScale name; Enum.TryParse alone would also accept numeric strings.
@@ -319,15 +357,18 @@ public class SequenceTools
     /// Calculate simple melting temperature of a DNA sequence.
     /// </summary>
     [McpServerTool(Name = "melting_temperature", Title = "DNA — Melting Temperature", ReadOnly = true)]
-    [Description("Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula.")]
+    [Description("Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula. weightAmbiguousBases = true weights IUPAC codes as Biopython non-strict Tm_Wallace/Tm_GC (e.g. acgtNNSWacgt-ry → 42.0).")]
     public static MeltingTemperatureResult MeltingTemperature(
         [Description("The DNA sequence")] string sequence,
-        [Description("Use Wallace rule for short oligos (default: true)")] bool useWallaceRule = true)
+        [Description("Use Wallace rule for short oligos (default: true)")] bool useWallaceRule = true,
+        [Description("Weight IUPAC ambiguity codes as Biopython Tm_Wallace/Tm_GC(strict=False) (default false: A/C/G/T/U only)")] bool weightAmbiguousBases = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var tm = SequenceStatistics.CalculateMeltingTemperature(sequence, useWallaceRule);
+        var tm = weightAmbiguousBases
+            ? SequenceStatistics.CalculateMeltingTemperature(sequence, useWallaceRule, weightAmbiguousBases: true)
+            : SequenceStatistics.CalculateMeltingTemperature(sequence, useWallaceRule);
         return new MeltingTemperatureResult(tm, "°C");
     }
 
