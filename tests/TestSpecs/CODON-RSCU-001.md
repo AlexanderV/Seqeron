@@ -101,6 +101,12 @@
 | M19 | Pseudocount, table 2 families | `ATAATGATGTGATGGTGGAGATAA`, table 2, c = 0.5 | ATA 0.75, ATG 1.25, TAA = AGA 1.5, TAG = AGG 0.5 | Sources 5, 9 formula |
 | M20 | Pseudocount 0 bit-identical | 4 inputs × tables 1/2/11 | equal to the overloads without pseudocount; absent family 0 | Source 7 (CodonW) |
 | M21 | Pseudocount overloads agree; family sum n | 17-codon gene, c = 1 | string = DnaSequence = counts; Σ family = n | INV-4 |
+| M22 | Sub-family level vs cubar | 7 genes × tables 1/2 × c = 0/0.5/1 (`TestData/Codon/cubar_rscu_subfam.tsv`) | 2 688 values to 1e-12 (cubar NaN → 0) | Source 5 (cubar `get_codon_table`, `est_rscu(level = "subfam")`) |
+| M23 | Sub-family hand derivation | `CTGCTGCTGCTATTA`, table 1, c = 0 | Leu_CT: CTG 3, CTA 1, CTT 0; Leu_TT: TTA 2, TTG 0; absent Ser_AG 0; amino-acid level CTG 3.6, TTA 1.2 | Source 5 formula |
+| M24 | Sub-family sizes | table 1, c = 1; table 2, c = 0 | Σ Ser_TC = 4, Ser_AG = 2, Arg_CG = 4, Arg_AG = 2, \*_TA = 2, \*_TG = 1, Ile_AT = 3, Met = 1; table 2 \*_AG {AGA, AGG}, \*_TA {TAA, TAG} | Source 5 (`subfam` key) |
+| M25 | Amino-acid level = existing overloads | 3 genes, tables 1/2/11, c = 0/1/0.5 | equal to `CalculateRscu(…, c)` (and to the CodonW overload at c = 0) | contract |
+| M26 | Sub-family overloads agree | 8-codon gene, RNA lower case / DnaSequence / counts | identical dictionaries | contract |
+| S9 | Sub-family invalid arguments | undefined level, c < 0, null code / sequence / counts | `ArgumentOutOfRangeException` / `ArgumentNullException`; empty → empty | input guard |
 | S7 | Null code / null counts | — | ArgumentNullException | input guard |
 | S8 | Invalid pseudocount / null arguments | c < 0, NaN, ∞; null sequence/code/counts | ArgumentOutOfRangeException / ArgumentNullException; empty → empty | input guard |
 
@@ -234,3 +240,4 @@ Total in-scope cases: 16. ✅ count: 16.
 - F11: RSCU families were taken from a private copy of table 1 only; now from the canonical `GeneticCode` with overloads for any NCBI table (CodonW `-code`, Biopython tables). Tests M12–M15, S7.
 - Cross-check: CodonW 1.4.4 binary, 155 genes × 8 codes = 79,360 values, max |Δ| 5e-4 (3-decimal output); Python port of CodonW with Biopython tables, 472 inputs over all 27 NCBI tables, max |Δ| 9e-16.
 - FIN-B02 WP17 (2026-10-14, audit A2-9): optional `pseudocount` on `CalculateRscu(DnaSequence | string | counts, GeneticCode, double)` and the MCP `rscu` tool; RSCU = n(x + c)/(Σx + n c) as codonbias 0.5.0 `RelativeSynonymousCodonUsage(pseudocount)` and cubar `est_rscu(pseudo_cnt, level = "amino_acid", incl_stop = TRUE)`; 1 036 800 values vs codonbias (27 tables) max |Δ| 4.4e-16. Tests M17–M21, S8 (`CodonUsageAnalyzer_RscuPseudocount_Tests.cs`); MCP `RscuPseudocountToolTests.cs`.
+- FIN-B02 WP21 (2026-10-14, audit A3-4): `RscuFamilyLevel { AminoAcid (default), Subfamily }` on `CalculateRscu(DnaSequence | string | counts, GeneticCode, double pseudocount, RscuFamilyLevel)` and MCP `rscu` `family_level`; `Subfamily` = cubar `est_rscu(level = "subfam")` (key = amino acid + first two codon bases; stops reported as `incl_stop = TRUE`; c = 0 absent sub-family → 0, cubar NaN). Locked against an independent Python port of cubar @350b295 (R/Biostrings unavailable): 2 688 values (M22). Tests M22–M26, S9 (`CodonUsageAnalyzer_RscuSubfamily_Tests.cs`); MCP `RscuFamilyLevelToolTests.cs`. A3-5: algorithm doc §5.3 no longer lists the absent-family 0 as a "simplification" (default c = 0 per CodonW; pseudocount option available).

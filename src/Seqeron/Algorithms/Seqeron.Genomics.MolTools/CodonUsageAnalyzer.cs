@@ -203,30 +203,119 @@ public static class CodonUsageAnalyzer
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="pseudocount"/> is negative, NaN or infinite.</exception>
     public static Dictionary<string, double> CalculateRscu(
-        IReadOnlyDictionary<string, int> codonCounts, GeneticCode code, double pseudocount)
+        IReadOnlyDictionary<string, int> codonCounts, GeneticCode code, double pseudocount) =>
+        CalculateRscu(codonCounts, code, pseudocount, RscuFamilyLevel.AminoAcid);
+
+    /// <summary>
+    /// Calculates RSCU of a coding sequence with a pseudocount, grouping synonymous codons at the
+    /// chosen <paramref name="level"/>. See
+    /// <see cref="CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode, double, RscuFamilyLevel)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="code"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="pseudocount"/> is negative, NaN or infinite,
+    /// or <paramref name="level"/> is undefined.</exception>
+    public static Dictionary<string, double> CalculateRscu(DnaSequence sequence, GeneticCode code, double pseudocount,
+        RscuFamilyLevel level)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(code);
+        ValidatePseudocount(pseudocount);
+        ValidateFamilyLevel(level);
+        return CalculateRscu(CountCodonsCore(sequence.Sequence), code, pseudocount, level);
+    }
+
+    /// <summary>
+    /// Calculates RSCU from a raw sequence string (DNA or RNA, case-insensitive; counted as by
+    /// <see cref="CountCodons(string)"/>) with a pseudocount, grouping synonymous codons at the chosen
+    /// <paramref name="level"/>. Null/empty returns an empty dictionary. See
+    /// <see cref="CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode, double, RscuFamilyLevel)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="pseudocount"/> is negative, NaN or infinite,
+    /// or <paramref name="level"/> is undefined.</exception>
+    public static Dictionary<string, double> CalculateRscu(string sequence, GeneticCode code, double pseudocount,
+        RscuFamilyLevel level)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        ValidatePseudocount(pseudocount);
+        ValidateFamilyLevel(level);
+        if (string.IsNullOrEmpty(sequence))
+            return new Dictionary<string, double>();
+
+        return CalculateRscu(CountCodonsCore(sequence), code, pseudocount, level);
+    }
+
+    /// <summary>
+    /// Calculates RSCU from codon counts with a pseudocount <c>c</c>, grouping synonymous codons either by
+    /// amino acid (<see cref="RscuFamilyLevel.AminoAcid"/>, the CodonW / Sharp &amp; Li family, as
+    /// <see cref="CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode, double)"/>) or by codon
+    /// sub-family (<see cref="RscuFamilyLevel.Subfamily"/>): RSCU_j = n·(x_j + c) / Σ_k (x_k + c) over the
+    /// n codons of j's group.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="RscuFamilyLevel.Subfamily"/> reproduces the R package cubar (Liu et al.,
+    /// <c>est_rscu(level = "subfam")</c>, its default): <c>get_codon_table()</c> labels every codon
+    /// <c>subfam = paste(amino_acid, substr(codon, 1, 2), sep = "_")</c>, so an amino acid whose codons
+    /// differ in the first two bases splits into sub-families (table 1: Leu → Leu_TT {TTA, TTG} and
+    /// Leu_CT {CTN}; Ser → Ser_TC {TCN} and Ser_AG {AGT, AGC}; Arg → Arg_CG {CGN} and Arg_AG {AGA, AGG};
+    /// the termination codons → *_TA {TAA, TAG} and *_TG {TGA}); within each group
+    /// <c>prop = (cts + c)/sum(cts + c)</c> and <c>rscu = prop/mean(prop)</c>. Every amino acid of every
+    /// genetic code is split by the same rule (e.g. table 2: Ser_TC, Ser_AG; Arg_CG; *_TA, *_AG). The
+    /// termination sub-families are reported, as cubar <c>incl_stop = TRUE</c> (all 64 codons, matching
+    /// the amino-acid level). With <c>c = 0</c> a group absent from the gene is reported as 0 for every
+    /// member (the CodonW convention of this class; cubar returns NaN = 0/0).
+    /// </remarks>
+    /// <param name="codonCounts">Codon counts keyed by uppercase DNA codon; other keys are ignored.</param>
+    /// <param name="code">Genetic code defining the synonymous families.</param>
+    /// <param name="pseudocount">Non-negative pseudocount added to every codon count (0 = none).</param>
+    /// <param name="level">Synonymous grouping (amino acid or cubar sub-family).</param>
+    /// <returns>RSCU for each of the 64 codons (uppercase DNA spelling).</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="pseudocount"/> is negative, NaN or infinite,
+    /// or <paramref name="level"/> is undefined.</exception>
+    public static Dictionary<string, double> CalculateRscu(
+        IReadOnlyDictionary<string, int> codonCounts, GeneticCode code, double pseudocount, RscuFamilyLevel level)
     {
         ArgumentNullException.ThrowIfNull(codonCounts);
         ArgumentNullException.ThrowIfNull(code);
         ValidatePseudocount(pseudocount);
-        if (pseudocount == 0)
+        ValidateFamilyLevel(level);
+        if (pseudocount == 0 && level == RscuFamilyLevel.AminoAcid)
             return CalculateRscu(codonCounts, code);
 
+        var families = level == RscuFamilyLevel.AminoAcid
+            ? SynonymousFamilies(code).Select(g => g.ToList())
+            : SynonymousSubfamilies(code);
         var rscu = new Dictionary<string, double>(64);
 
-        foreach (var family in SynonymousFamilies(code))
+        foreach (var family in families)
         {
-            int familySize = family.Count();
+            int familySize = family.Count;
             long familyTotal = 0;
             foreach (var codon in family)
                 familyTotal += codonCounts.GetValueOrDefault(codon, 0);
 
-            // Σ(x + c) = Σx + n·c > 0 for c > 0.
+            // Σ(x + c) = Σx + n·c; with c = 0 an absent group is 0 for every member (CodonW).
             double denominator = familyTotal + familySize * pseudocount;
             foreach (var codon in family)
-                rscu[codon] = familySize * (codonCounts.GetValueOrDefault(codon, 0) + pseudocount) / denominator;
+                rscu[codon] = denominator > 0
+                    ? familySize * (codonCounts.GetValueOrDefault(codon, 0) + pseudocount) / denominator
+                    : 0.0;
         }
 
         return rscu;
+    }
+
+    // cubar get_codon_table(): subfam = amino acid + first two codon bases (DNA spelling), NCBI codon order.
+    private static IEnumerable<List<string>> SynonymousSubfamilies(GeneticCode code) =>
+        code.CodonTable
+            .GroupBy(kv => (kv.Value, kv.Key.Substring(0, 2)), kv => kv.Key.Replace('U', 'T'))
+            .Select(g => g.ToList());
+
+    private static void ValidateFamilyLevel(RscuFamilyLevel level)
+    {
+        if (level is not (RscuFamilyLevel.AminoAcid or RscuFamilyLevel.Subfamily))
+            throw new ArgumentOutOfRangeException(nameof(level), level, "Unknown RSCU family level.");
     }
 
     private static void ValidatePseudocount(double pseudocount)
@@ -1368,4 +1457,21 @@ public sealed record EncOptions
 
     internal bool EffectiveWeightedAverage => WeightedAverage ?? Method == EncMethod.SunYangXia2013;
 
+}
+
+/// <summary>
+/// Synonymous-codon grouping of
+/// <see cref="CodonUsageAnalyzer.CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode, double, RscuFamilyLevel)"/>.
+/// </summary>
+public enum RscuFamilyLevel
+{
+    /// <summary>One family per amino acid (and one termination family) — Sharp &amp; Li 1987, CodonW, cubar <c>level = "amino_acid"</c> (default).</summary>
+    AminoAcid = 0,
+
+    /// <summary>
+    /// cubar <c>level = "subfam"</c> (cubar's default): codons grouped by amino acid and their first two bases
+    /// (<c>subfam = paste(amino_acid, substr(codon, 1, 2), sep = "_")</c>), so Leu, Ser and Arg (table 1) split into a
+    /// four-fold and a two-fold sub-family.
+    /// </summary>
+    Subfamily = 1,
 }

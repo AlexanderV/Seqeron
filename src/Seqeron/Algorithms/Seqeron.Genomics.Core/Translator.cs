@@ -744,6 +744,145 @@ namespace Seqeron.Genomics.Core
                 geneticCode ?? GeneticCode.Standard, convention);
         }
 
+        /// <summary>
+        /// Translates all six reading frames of a DNA sequence as EMBOSS 6.6.0 <c>transeq</c> does with its
+        /// post-processing qualifiers <c>-regions</c>, <c>-methionine</c>, <c>-trim</c> and <c>-clean</c>.
+        /// See <see cref="TranslateSixFrames(string, GeneticCode?, SixFrameConvention, TranseqOptions)"/>.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="dna"/> or <paramref name="options"/> is null.</exception>
+        /// <exception cref="ArgumentException"><paramref name="convention"/> is <see cref="SixFrameConvention.Biopython"/>.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">A region is invalid, or <paramref name="convention"/> is undefined.</exception>
+        public static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFrames(DnaSequence dna,
+            GeneticCode? geneticCode, SixFrameConvention convention, TranseqOptions options)
+        {
+            ArgumentNullException.ThrowIfNull(dna);
+            return TranslateSixFrames(dna.Sequence, geneticCode, convention, options);
+        }
+
+        /// <summary>
+        /// Translates all six reading frames of an IUPAC nucleotide string as EMBOSS 6.6.0 <c>transeq</c>
+        /// does with its post-processing qualifiers <c>-regions</c>, <c>-methionine</c>, <c>-trim</c> and
+        /// <c>-clean</c> (emboss/transeq.c, acd/transeq.acd).
+        /// </summary>
+        /// <remarks>
+        /// Steps, in transeq's order:
+        /// <list type="number">
+        /// <item><see cref="TranseqOptions.Regions"/> (<c>-regions</c>): the 1-based inclusive regions are
+        /// cut out and concatenated in the given order (<c>ajRangeSeqExtract</c>); the concatenation is
+        /// then translated as one sequence in all six frames (its reverse complement for the reverse
+        /// frames). An end past the sequence end is clamped to it, as transeq does.</item>
+        /// <item><see cref="TranseqOptions.Methionine"/> (<c>-methionine</c>, default on): only when
+        /// regions are given (transeq: <c>methionine &amp;&amp; !wholeseq</c>), the first codon of each frame
+        /// is read as M when the genetic code lists it as a START codon (<c>ajTrnSeqInit</c>, Starts
+        /// table: unambiguous codons only). transeq's phase-locked reverse frames
+        /// (<c>ajTrnSeqRevinitC</c>, <c>iend &gt; 2</c>) need at least two whole codons for this;
+        /// forward and <c>-alternative</c> reverse frames need one.</item>
+        /// <item><see cref="TranseqOptions.Trim"/> (<c>-trim</c>): trailing 'X' and '*' are removed
+        /// (<c>transeq_Trim</c>).</item>
+        /// <item><see cref="TranseqOptions.Clean"/> (<c>-clean</c>, after trimming): every '*' becomes 'X'
+        /// (<c>transeq_Clean</c>).</item>
+        /// </list>
+        /// With <see cref="TranseqOptions.Default"/> the result equals
+        /// <see cref="TranslateSixFrames(string, GeneticCode?, SixFrameConvention)"/>. Only the EMBOSS
+        /// conventions are accepted. Codon resolution of ambiguous bases is this library's (see the
+        /// convention overload).
+        /// </remarks>
+        /// <param name="sequence">IUPAC nucleotide sequence (DNA or RNA, case-insensitive).</param>
+        /// <param name="geneticCode">The genetic code to use (null = Standard).</param>
+        /// <param name="convention"><see cref="SixFrameConvention.EmbossTranseq"/> or
+        /// <see cref="SixFrameConvention.EmbossTranseqAlternative"/>.</param>
+        /// <param name="options">transeq post-processing qualifiers.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="options"/> is null.</exception>
+        /// <exception cref="ArgumentException"><paramref name="sequence"/> contains a non-IUPAC symbol, or
+        /// <paramref name="convention"/> is <see cref="SixFrameConvention.Biopython"/>.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">A region has Start &lt; 1, End &lt; Start or Start past the
+        /// sequence end, or <paramref name="convention"/> is undefined.</exception>
+        public static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFrames(string sequence,
+            GeneticCode? geneticCode, SixFrameConvention convention, TranseqOptions options)
+        {
+            ArgumentNullException.ThrowIfNull(options);
+            if (convention == SixFrameConvention.Biopython)
+                throw new ArgumentException("transeq options require an EMBOSS six-frame convention.",
+                    nameof(convention));
+
+            string forward = NormalizeIupacNucleotides(sequence);
+            bool wholeSequence = options.Regions is null || options.Regions.Count == 0;
+            if (!wholeSequence)
+                forward = ExtractTranseqRegions(forward, options.Regions!);
+
+            var code = geneticCode ?? GeneticCode.Standard;
+            var frames = TranslateSixFramesCore(forward, DnaSequence.GetReverseComplementString(forward), code,
+                convention);
+
+            var result = new Dictionary<int, ProteinSequence>(frames.Count);
+            foreach (var (frame, protein) in frames)
+            {
+                var residues = protein.Sequence.ToCharArray();
+                int length = residues.Length;
+                if (options.Methionine && !wholeSequence && length > 0
+                    && FirstTranseqCodonIsStart(forward, frame, convention, code))
+                    residues[0] = 'M';
+                if (options.Trim)
+                    while (length > 0 && (residues[length - 1] == 'X' || residues[length - 1] == '*'))
+                        length--;
+                if (options.Clean)
+                    for (int i = 0; i < length; i++)
+                        if (residues[i] == '*') residues[i] = 'X';
+                result[frame] = new ProteinSequence(new string(residues, 0, length));
+            }
+
+            return result;
+        }
+
+        // transeq -regions (ajRangeSeqExtract): concatenation of seq[start-1 .. end-1] in the given order;
+        // ajStrAppendSubS clamps an end past the sequence end.
+        private static string ExtractTranseqRegions(string forward, IReadOnlyList<(int Start, int End)> regions)
+        {
+            var sb = new StringBuilder();
+            foreach (var (start, end) in regions)
+            {
+                if (start < 1 || end < start || start > forward.Length)
+                    throw new ArgumentOutOfRangeException(nameof(regions), $"{start}-{end}",
+                        $"Region must satisfy 1 <= Start <= End and Start <= sequence length ({forward.Length}).");
+                sb.Append(forward, start - 1, Math.Min(end, forward.Length) - start + 1);
+            }
+            return sb.ToString();
+        }
+
+        // ajTrnSeqInit: the first codon read in the frame becomes M when the Starts table marks it.
+        //  forward k (ajTrnSeqInitC): forward[k-1 .. k+1], needs one whole codon (lenmod3 > 2);
+        //  -alternative −k (ajTrnSeqAltRevinitC): revcomp[k-1 .. k+1], needs one whole codon (iend > 1);
+        //  phase-locked −k (ajTrnSeqRevinitC): the last whole frame-k codon, reverse-complemented, which is
+        //  revcomp[(len−k+1) mod 3 ..]; needs two whole codons (iend = 3·⌊(len−k+1)/3⌋ − 1 > 2).
+        private static bool FirstTranseqCodonIsStart(string forward, int frame, SixFrameConvention convention,
+            GeneticCode code)
+        {
+            int offset = Math.Abs(frame) - 1;
+            int available = forward.Length - offset;
+            string strand;
+            int start;
+            if (frame > 0)
+            {
+                if (available < CodonLength) return false;
+                strand = forward;
+                start = offset;
+            }
+            else if (convention == SixFrameConvention.EmbossTranseqAlternative)
+            {
+                if (available < CodonLength) return false;
+                strand = DnaSequence.GetReverseComplementString(forward);
+                start = offset;
+            }
+            else
+            {
+                if (available < 2 * CodonLength) return false;
+                strand = DnaSequence.GetReverseComplementString(forward);
+                start = available % CodonLength;
+            }
+
+            return IsOrfStartCodon(code, strand.Substring(start, CodonLength));
+        }
+
         private static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFramesCore(string forward,
             string reverseComplement, GeneticCode code, SixFrameConvention convention)
         {
@@ -1093,6 +1232,42 @@ namespace Seqeron.Genomics.Core
         /// <see cref="EmbossTranseq"/>.
         /// </summary>
         EmbossTranseqAlternative = 2,
+    }
+
+    /// <summary>
+    /// EMBOSS 6.6.0 <c>transeq</c> post-processing qualifiers (emboss/acd/transeq.acd) for
+    /// <see cref="Translator.TranslateSixFrames(string, GeneticCode?, SixFrameConvention, TranseqOptions)"/>.
+    /// Defaults equal transeq's: no regions, no trimming, no cleaning, <c>-methionine Y</c>.
+    /// </summary>
+    public sealed record TranseqOptions
+    {
+        /// <summary>transeq defaults (whole sequence; the output equals the plain convention overload).</summary>
+        public static TranseqOptions Default { get; } = new();
+
+        /// <summary>
+        /// <c>-trim</c>: "This removes all 'X' and '*' characters from the right end of the translation"
+        /// (default false).
+        /// </summary>
+        public bool Trim { get; init; }
+
+        /// <summary>
+        /// <c>-clean</c>: "This changes all STOP codon positions from the '*' character to 'X'" — applied
+        /// after <see cref="Trim"/> (default false).
+        /// </summary>
+        public bool Clean { get; init; }
+
+        /// <summary>
+        /// <c>-regions</c>: 1-based inclusive (Start, End) regions, concatenated in the given order and
+        /// translated as one sequence (null or empty = whole sequence). An End past the sequence end is
+        /// clamped to it, as transeq does.
+        /// </summary>
+        public IReadOnlyList<(int Start, int End)>? Regions { get; init; }
+
+        /// <summary>
+        /// <c>-methionine</c> (transeq default true): "Change initial START codons to Methionine". transeq
+        /// applies it only when <see cref="Regions"/> are given (<c>methionine &amp;&amp; !wholeseq</c>).
+        /// </summary>
+        public bool Methionine { get; init; } = true;
     }
 
     /// <summary>

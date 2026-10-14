@@ -193,6 +193,14 @@
 - **Lock:** `CalculateRscu(string, GeneticCode, c)` vs codonbias `RelativeSynonymousCodonUsage(genetic_code=t, ignore_stop=False, pseudocount=c).get_weights(gene)`: 200 random genes (1–300 codons, seed 17) × all 27 NCBI tables × c = 0.25 / 1 / 3 = 1 036 800 values, 0 differences > 1e-12, max |Δ| = 4.4e-16. Locked subset: `TestData/Codon/codonbias_rscu_pseudocount.tsv` (7 genes × tables 1/2 × c = 0.5/1/2.5 × 64 codons = 2 688 values, tolerance 1e-12). Hand values: `TTTTTTTTC`, c = 1 → TTT 2·3/5 = 1.2, TTC 0.8, absent Met / Leu / stop 1; table 2 `ATAATGATGTGATGGTGGAGATAA`, c = 0.5 → ATA 0.75, ATG 1.25, TAA = AGA 1.5, TAG = AGG 0.5.
 - Generator (codonbias run in isolation with stub `psutil` / `pandarallel` modules, as for CODON-ENC-001): `from codonbias.scores import RelativeSynonymousCodonUsage as R; R(genetic_code=t, ignore_stop=False, pseudocount=c).get_weights(gene)`.
 
+## cubar sub-family RSCU (review 2026-10-14, FIN-B02 WP21, audit A3-4)
+
+- **cubar** (github.com/mt1022/cubar @ 350b29549e, DESCRIPTION 1.2.0.9000, cloned and read): `R/codon_info.R` `get_codon_table(gcid = '1')`: `Biostrings::getGeneticCode(gcid, as.data.frame = TRUE)` (NCBI table), `amino_acid := Biostrings::AMINO_ACID_CODE[aa_code]`, `amino_acid := '*'` for stops, `subfam := paste(amino_acid, substr(codon, 1, 2), sep = '_')`. `R/codon_weight.R` `est_rscu(cf, weight = 1, pseudo_cnt = 1, codon_table = get_codon_table(), level = 'subfam', incl_stop = FALSE)`: `codon_freq <- colSums(cf * weight)`; stops dropped unless `incl_stop`; `prop = (cts + pseudo_cnt) / sum(cts + pseudo_cnt)` and `rscu := prop / mean(prop)`, both `by = level`. `R/sequences.R` `count_codons`: `Biostrings::trinucleotideFrequency(seqs, step = 3)` (all 64 codons).
+- **Consequences:** the sub-family key is (amino acid, first two bases); every amino acid of the code is split by it — table 1: Leu_TT/Leu_CT, Ser_TC/Ser_AG, Arg_CG/Arg_AG, \*_TA/\*_TG, and Ile_AT ≠ Met_AT; table 2: Ser_TC/Ser_AG, \*_TA {TAA, TAG}/\*_AG {AGA, AGG}, Met_AT {ATA, ATG}, Trp_TG {TGA, TGG}. With `pseudo_cnt = 0` an absent sub-family gives `0/0` = NaN.
+- **Implementation:** `RscuFamilyLevel.Subfamily` on `CalculateRscu(…, GeneticCode, double pseudocount, RscuFamilyLevel)`; groups `CodonTable` by (amino acid, codon[0..2]); stops reported (= `incl_stop = TRUE`, all 64 codons as the amino-acid level); NaN → 0 (CodonW convention of the class).
+- **R oracle:** R is not installed and cubar depends on Bioconductor Biostrings, so an independent Python port of `get_codon_table` + `est_rscu` (Biopython `CodonTable.unambiguous_dna_by_id[gcid]` = NCBI tables, Biostrings `GENETIC_CODE` order TCAG) was used. Lock: `TestData/Codon/cubar_rscu_subfam.tsv` — 7 genes (as the codonbias lock) × tables 1/2 × `pseudo_cnt` 0 / 0.5 / 1 × 64 codons = 2 688 values, `subfam` labels included (e.g. `leu6`, table 1, c = 0: Leu_CT CTT/CTC/CTA 0.5714285714285714, CTG 2.2857142857142856; Leu_TT TTA = TTG = 1.0).
+- Generator (summary; `python3 -I`): `subfam = f"{seq3(aa) if aa != '*' else '*'}_{codon[:2]}"`; per group `vals = [cts + c]`, `prop = vals/sum(vals)`, `rscu = prop/mean(prop)` (NaN when `sum = 0`); counts = non-overlapping frame-0 triplets of the upper-case gene.
+
 ---
 
 ## References
@@ -211,3 +219,4 @@
 - **2026-06-13**: Initial documentation.
 - **2026-09-28**: Campaign review B02 — CodonW source/binary evidence; RNA (U) input; genetic-code-aware families.
 - **2026-10-14**: FIN-B02 WP17 (audit A2-9) — optional pseudocount; codonbias 0.5.0 / cubar source evidence and codonbias lock.
+- **2026-10-14**: FIN-B02 WP21 (audit A3-4) — cubar `level = "subfam"` source evidence (`get_codon_table`, `est_rscu`) and sub-family lock.

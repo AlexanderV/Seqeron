@@ -57,6 +57,7 @@ The denominator `(1/n_i)·Σx` is the expected count under uniform synonymous us
 | code | `GeneticCode` | `GeneticCode.Standard` | Genetic code defining the synonymous families | any NCBI table (`GeneticCode.GetByTableNumber`) |
 | codonCounts | `IReadOnlyDictionary<string,int>` | — | Alternative input: codon counts keyed by uppercase DNA codon | other keys ignored |
 | pseudocount | `double` | 0 (overloads without it) | Added to every codon count before the per-family normalisation: RSCU = n·(x + c)/(Σx + n·c) | finite, ≥ 0 (`ArgumentOutOfRangeException`); 0 = CodonW, bit-identical to the overloads without it |
+| level | `RscuFamilyLevel` | `AminoAcid` (overloads without it) | Synonymous grouping: `AminoAcid` (Sharp & Li / CodonW families) or `Subfamily` (cubar `level = "subfam"`: amino acid + first two codon bases) | defined enum value (`ArgumentOutOfRangeException`) |
 
 ### 3.2 Output / Return Value
 
@@ -99,6 +100,7 @@ The genetic code (codon → amino acid) is the only reference table; it determin
 - `CodonUsageAnalyzer.CalculateRscu(DnaSequence, GeneticCode)` / `CalculateRscu(string, GeneticCode)`: RSCU under any NCBI table.
 - `CodonUsageAnalyzer.CalculateRscu(IReadOnlyDictionary<string,int>, GeneticCode)`: RSCU from a codon-count table (canonical core; e.g. pooled counts over many genes).
 - `CodonUsageAnalyzer.CalculateRscu(DnaSequence | string | IReadOnlyDictionary<string,int>, GeneticCode, double pseudocount)`: RSCU with a pseudocount (codonbias / cubar smoothing).
+- `CodonUsageAnalyzer.CalculateRscu(DnaSequence | string | IReadOnlyDictionary<string,int>, GeneticCode, double pseudocount, RscuFamilyLevel level)`: RSCU with a pseudocount at the amino-acid or cubar sub-family level.
 - `CodonUsageAnalyzer.CountCodons(DnaSequence)` / `CountCodons(string)`: counts non-overlapping codon occurrences.
 
 ### 5.2 Current Behavior
@@ -113,18 +115,20 @@ Counting uses a simple linear scan over non-overlapping triplets (`CountCodonsCo
 - No-bias value 1, range [0, n_i], family-sum n_i, single-codon ⇒ 1 (INV-01..INV-05) [2][3][4][5].
 - CodonW conventions [6]: all 64 codons reported, stop codons as one family, absent family → 0, families per genetic code, U ≡ T. Cross-checked against the CodonW 1.4.4 binary (built from source) on 155 genes × 8 codes (79,360 values, max |Δ| = 5e-4 = its 3-decimal rounding) and against a Python port with Biopython tables for all 27 NCBI tables (472 inputs, max |Δ| 9e-16).
 
-**Intentionally simplified:**
+**Conventions and options:**
 
-- Absent-family 0/0 case: returns 0 (CodonW `rscu_usage_out` prints 0.000) instead of applying a pseudocount; **consequence:** users see 0 (not NA and not a smoothed value) for every codon of an amino acid that never occurs in the input. Only affects absent families, never the RSCU of an observed codon. Reference tools differ: cubar applies a pseudocount (default 1) [5].
+- Absent-family 0/0 case: the default pseudocount is c = 0, as CodonW (`rscu_usage_out` prints 0.000 for every codon of an absent amino acid), and such a family is reported as 0 (codonbias / cubar give NaN at c = 0); a pseudocount option is available (below), with which an absent family is uniform (1). Only absent families are affected, never the RSCU of an observed codon.
 
 - Optional pseudocount `c` (overloads with `double pseudocount`): RSCU_j = n·(x_j + c)/Σ_k(x_k + c), applied per codon before the family normalisation, exactly as codonbias 0.5.0 `RelativeSynonymousCodonUsage(pseudocount=c)` (`counts + pseudocount`, normalised per amino acid, divided by the uniform 1/n) and cubar `est_rscu(pseudo_cnt = c, level = "amino_acid")` (`prop = (cts + c)/sum(cts + c)`, `rscu = prop/mean(prop)`) [5][7]. Families are whole amino acids plus the stop family (codonbias `ignore_stop=False`, cubar `incl_stop = TRUE`); with c > 0 an absent family is uniform (1). 0 mismatches > 1e-12 against codonbias over 200 random genes × all 27 NCBI tables × c = 0.25/1/3 (1 036 800 values, max |Δ| 4.4e-16). cubar's defaults differ: `level = "subfam"` splits 6-fold amino acids by the first two bases (Leu CT*/TT*, Ser TC*/AG*, Arg CG*/AG*), stops are excluded, `pseudo_cnt = 1`; codonbias defaults to `pseudocount = 1` and excludes stops. With c = 0 both tools give NaN (0/0) for absent families, where this library keeps CodonW's 0.
+
+- Optional cubar sub-family level (`RscuFamilyLevel.Subfamily`): cubar `get_codon_table()` labels each codon `subfam = paste(amino_acid, substr(codon, 1, 2), sep = "_")` and `est_rscu(level = "subfam")` (cubar's default) normalises within each sub-family [5]. Every amino acid of the chosen genetic code is split by that rule — table 1: Leu_TT {TTA, TTG} / Leu_CT {CTN}, Ser_TC {TCN} / Ser_AG {AGT, AGC}, Arg_CG {CGN} / Arg_AG {AGA, AGG}, stops \*_TA {TAA, TAG} / \*_TG {TGA}; Ile_AT and Met_AT stay separate (different amino acids); table 2: stops \*_TA and \*_AG {AGA, AGG}. Stops are reported (cubar `incl_stop = TRUE`, all 64 codons). Verified against an independent Python port of cubar @350b295 (`R/codon_info.R`, `R/codon_weight.R`): 7 genes × tables 1/2 × c = 0/0.5/1 × 64 codons locked (`TestData/Codon/cubar_rscu_subfam.tsv`, 1e-12); cubar's NaN for an absent sub-family at c = 0 is 0 here.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Absent family returns 0 by default (pseudocount 0) | Assumption | Only affects amino acids absent from input; no canonical value exists there | accepted | Documented in Evidence; pass `pseudocount` > 0 for codonbias / cubar smoothing [5][7] |
-| 2 | Stop codons grouped as one family (3-fold in table 1) | Convention | Does not affect any amino-acid RSCU | accepted | CodonW does the same [6]; CodonU / codon-bias / cubar report the 61 sense codons only [5] |
+| 2 | Stop codons grouped as one family (3-fold in table 1; at the sub-family level split by their first two bases) | Convention | Does not affect any amino-acid RSCU | accepted | CodonW does the same [6]; CodonU / codon-bias / cubar report the 61 sense codons only [5] |
 
 ## 6. Edge Cases and Limitations
 
@@ -143,7 +147,7 @@ Counting uses a simple linear scan over non-overlapping triplets (`CountCodonsCo
 
 ### 6.2 Limitations
 
-The MCP `rscu` tool takes `genetic_code` and `pseudocount`. Families are whole amino acids (no cubar-style `subfam` split). RSCU is a within-family bias measure and does not by itself indicate expression level or adaptation (use CAI for that).
+The MCP `rscu` tool takes `genetic_code`, `pseudocount` and `family_level` (`AminoAcid` default, `Subfamily` = cubar `subfam`). RSCU is a within-family bias measure and does not by itself indicate expression level or adaptation (use CAI for that).
 
 ## 7. Examples and Related Material
 
@@ -163,6 +167,7 @@ var rscu = CodonUsageAnalyzer.CalculateRscu("CTGCTGCTGCTA");
 
 - Tests: [CodonUsageAnalyzer_CalculateRscu_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_CalculateRscu_Tests.cs) — covers INV-01..INV-05
 - Tests: [CodonUsageAnalyzer_RscuPseudocount_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_RscuPseudocount_Tests.cs) — pseudocount, locked to codonbias 0.5.0 (`TestData/Codon/codonbias_rscu_pseudocount.tsv`)
+- Tests: [CodonUsageAnalyzer_RscuSubfamily_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_RscuSubfamily_Tests.cs) — cubar sub-family level (`TestData/Codon/cubar_rscu_subfam.tsv`)
 - Evidence: [CODON-RSCU-001-Evidence.md](../../../docs/Evidence/CODON-RSCU-001-Evidence.md)
 
 ## 8. References
@@ -171,7 +176,7 @@ var rscu = CodonUsageAnalyzer.CalculateRscu("CTGCTGCTGCTA");
 2. Suzuki H. et al. / LIRMM. RSCU RS — Measuring the bias in codon usage. https://www.lirmm.fr/~rivals/rscu/
 3. GenomicSig (CRAN). RSCU: Relative Synonymous Codon Usage. https://rdrr.io/cran/GenomicSig/man/RSCU.html
 4. Charif D., Lobry J.R. seqinr — `uco`: Codon usage indices. https://search.r-project.org/CRAN/refmans/seqinr/html/uco.html
-5. cubar (CRAN). `est_rscu`: Estimate Relative Synonymous Codon Usage. https://rdrr.io/cran/cubar/man/est_rscu.html
+5. cubar (CRAN). `est_rscu`: Estimate Relative Synonymous Codon Usage. https://rdrr.io/cran/cubar/man/est_rscu.html; source R/codon_info.R (`get_codon_table`: `subfam`), R/codon_weight.R (`est_rscu`), https://github.com/mt1022/cubar (commit 350b295).
 6. Peden J.F. 1999. CodonW 1.4.4 source, `codon_us.c` (`rscu_usage_out`, `cutab_out`, `ident_codon`). http://archive.ubuntu.com/ubuntu/pool/universe/c/codonw/codonw_1.4.4.orig.tar.gz
 7. codonbias 0.5.0 (PyPI `codon-bias`), `codonbias/scores.py` `RelativeSynonymousCodonUsage` (`_weights_and_counts`), `codonbias/stats.py` `CodonCounter.get_aa_table`; cubar source `R/codon_weight.R` `est_rscu` (github.com/mt1022/cubar @ 350b295).
 
