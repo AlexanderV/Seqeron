@@ -248,6 +248,53 @@ public class SequenceStatisticsTests
         Assert.That(SequenceStatistics.CalculateMeltingTemperature(seq, wallace), Is.EqualTo(expected).Within(1e-12));
     }
 
+    // F32 (FIN-B03 A14) — useWallaceRule:false below 14 nt is Biopython 1.88
+    // Tm_GC(s, userset=(64.9, 0.41, 672.4, 0), saltcorr=0) (executed; no length clamp there either).
+    [TestCase("AAAA", -103.19999999999999)]
+    [TestCase("GC", -230.29999999999998)]
+    [TestCase("A", -607.5)]
+    [TestCase("ACGTACGTACGTA", 32.1)]
+    public void CalculateMeltingTemperature_GcFormulaBelow14_MatchesBiopythonTmGc(string seq, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature(seq, useWallaceRule: false), Is.EqualTo(expected).Within(1e-9));
+    }
+
+    // F33 (FIN-B03 A15) — IUPAC-weighted basic Tm. Biopython 1.88 executed:
+    // Tm_Wallace(s, strict=False) for < 14 A/C/G/T/U bases, else
+    // Tm_GC(s, userset=(64.9, 0.41, 672.4, 0), saltcorr=0, strict=False).
+    [TestCase("acgtNNSWacgt-ry", true, 42.0)]
+    [TestCase("ACGTRYKMBDHVN", true, 39.0)]
+    [TestCase("acguSWnn", true, 24.0)]
+    [TestCase("NNNN", true, 12.0)]
+    [TestCase("ACGTACGTACGTACNNSW", true, 48.04444444444445)]
+    [TestCase("ACGTACGTACGTACGTRYKMBDHV", true, 57.38333333333334)]
+    [TestCase("acgtacgtacgtacgtXI-nn", true, 49.73000000000001)]
+    [TestCase("ACGUACGUACGUACGUNS", true, 49.18333333333334)]
+    [TestCase("ACGT-NNacg", false, 12.966666666666669)]
+    public void CalculateMeltingTemperature_WeightAmbiguousBases_MatchesBiopythonNonStrict(string seq, bool wallace, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature(seq, wallace, weightAmbiguousBases: true),
+            Is.EqualTo(expected).Within(1e-9));
+    }
+
+    [Test]
+    public void CalculateMeltingTemperature_WeightAmbiguousBasesFalse_EqualsDefault_AndEmptyIsZero()
+    {
+        var rng = new Random(733);
+        const string alphabet = "ACGTUacgtuNRYSWKMBDHVXI-n ";
+        for (int i = 0; i < 500; i++)
+        {
+            var chars = new char[rng.Next(0, 30)];
+            for (int j = 0; j < chars.Length; j++) chars[j] = alphabet[rng.Next(alphabet.Length)];
+            string s = new(chars);
+            foreach (bool w in new[] { true, false })
+                Assert.That(SequenceStatistics.CalculateMeltingTemperature(s, w, weightAmbiguousBases: false),
+                    Is.EqualTo(SequenceStatistics.CalculateMeltingTemperature(s, w)), s);
+        }
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature("", true, true), Is.EqualTo(0));
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature("--", false, true), Is.EqualTo(0));
+    }
+
     // F25 — bit-identical to the canonical ThermoConstants basic Tm (and to the pre-routing
     // composition-based count, including non-ASCII ſ/ı that ToUpperInvariant maps to S/I) on random input.
     [Test]

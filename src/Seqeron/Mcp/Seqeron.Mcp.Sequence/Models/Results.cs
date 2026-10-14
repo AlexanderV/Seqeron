@@ -75,7 +75,11 @@ public record SummarizeSequenceResult(
     double Entropy,
     double Complexity,
     double MeltingTemperature,
-    Dictionary<string, int> Composition);
+    Dictionary<string, int> Composition)
+{
+    /// <summary>Single-stranded average molecular weight (Da), Biopython <c>molecular_weight</c>.</summary>
+    public double MolecularWeight { get; init; }
+}
 
 /// <summary>Result of gc_content operation.</summary>
 public record GcContentResult(double GcContent, int GcCount, int TotalCount);

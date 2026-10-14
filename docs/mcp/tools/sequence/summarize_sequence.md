@@ -14,7 +14,7 @@ Generate comprehensive summary statistics for a DNA/RNA sequence.
 
 ## Description
 
-Generates comprehensive summary statistics for a DNA/RNA sequence in a single call. Includes length, nucleotide composition, GC content, Shannon entropy, linguistic complexity, and melting temperature.
+Generates comprehensive summary statistics for a DNA/RNA sequence in a single call. Includes length, nucleotide composition, GC content (fraction 0–1 over A/C/G/T/U), Shannon entropy (bits), linguistic complexity, basic melting temperature (Wallace rule below 14 A/C/G/T/U bases, else 64.9 + 41·(GC − 16.4)/N; U read as T) and the single-stranded linear average molecular weight (Biopython `molecular_weight`; RNA table when the sequence has U and no T, DNA otherwise; unknown symbols skipped). With `weightAmbiguousBasesInTm` = true the Tm weights IUPAC ambiguity codes as Biopython non-strict `Tm_Wallace` / `Tm_GC` (e.g. `acgtNNSWacgt-ry` → 42.0 instead of 24.0).
 
 ## Core Documentation Reference
 
@@ -25,17 +25,19 @@ Generates comprehensive summary statistics for a DNA/RNA sequence in a single ca
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The DNA or RNA sequence to analyze (min length: 1) |
+| `weightAmbiguousBasesInTm` | boolean | No | Weight IUPAC codes in the Tm as Biopython `Tm_Wallace`/`Tm_GC(strict=False)` (default `false`: A/C/G/T/U only) |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `length` | integer | Sequence length |
-| `gcContent` | number | GC content percentage |
-| `entropy` | number | Shannon entropy |
+| `gcContent` | number | GC content fraction (0–1) |
+| `entropy` | number | Shannon entropy (bits) |
 | `complexity` | number | Linguistic complexity |
 | `meltingTemperature` | number | Melting temperature (°C) |
 | `composition` | object | Nucleotide counts (A, T, G, C, U, N) |
+| `molecularWeight` | number | Single-stranded linear average molecular weight (Da) |
 
 ## Errors
 
@@ -64,11 +66,12 @@ Generates comprehensive summary statistics for a DNA/RNA sequence in a single ca
 ```json
 {
   "length": 13,
-  "gcContent": 46.15,
-  "entropy": 1.98,
-  "complexity": 0.85,
-  "meltingTemperature": 38,
-  "composition": { "A": 3, "T": 3, "G": 4, "C": 3, "U": 0, "N": 0 }
+  "gcContent": 0.46153846153846156,
+  "entropy": 1.9877733714879842,
+  "complexity": 0.7037037037037037,
+  "meltingTemperature": 40,
+  "composition": { "A": 3, "T": 3, "G": 4, "C": 3, "U": 0, "N": 0 },
+  "molecularWeight": 4054.5834
 }
 ```
 

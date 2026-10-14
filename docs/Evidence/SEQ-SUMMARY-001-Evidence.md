@@ -154,3 +154,8 @@
 
 - `SequenceStatistics.CalculateLinguisticComplexity` now delegates to `SequenceComplexity.CalculateLinguisticComplexity` (Σ V_k / Σ min(4^k, N−k+1); Orlov & Potapov 2004, Troyanskaya 2002; validated in B04 SEQ-COMPLEX-001 incl. universalmotif V_i). The mean-of-U_k values above are superseded.
 - Executed Python reference (exact fractions, m = 6 unless stated): ATTTGGATT 29/34 (m = 9 or ∞: 7/8 = 0.875, Rosalind LING sample); ATGCATGC 23/29; AUGCAUGC 23/29; ACGTACGGTACCAGTTAGCA 38/43; GGGAAAUUUCCCAAAUGC 23/26; AAAAAAAAAA 2/13; ATGCATGCATGC 24/49; ATATATAT 12/29; GGGAAAUUUCCC 45/49; ACGTN 15/14; ATGCGATCGATCGATCGATCGATC 19/51.
+
+## 2026-10 FIN-B03 F33 — opt-in IUPAC-weighted Tm and MolecularWeight field
+
+- Biopython 1.88 executed 2026-10-14. `Tm_Wallace(s, strict=False)`: `acgtNNSWacgt-ry` 42.0, `ACGTRYKMBDHVN` 39.0, `acguSWnn` 24.0, `NNNN` 12.0. `Tm_GC(s, userset=(64.9,0.41,672.4,0), saltcorr=0, strict=False)`: `ACGTACGTACGTACNNSW` 48.04444444444445, `ACGTACGTACGTACGTRYKMBDHV` 57.38333333333334, `acgtacgtacgtacgtXI-nn` 49.73000000000001, `ACGUACGUACGUACGUNS` 49.18333333333334, `ACGT-NNacg` 12.966666666666669. Default (A/C/G/T only) spellings: `ACGTACGTACGTAC` 37.37142857142858, `ACGTACGTACGTACGT` 43.37500000000001.
+- `molecular_weight(s, seq_type)`: `ATGCATGC` DNA 2489.5901, `AUGCAUGC` RNA 2589.5321, `ACGTACGTACGTACGTAC` DNA 5563.553199999999, `GGGAAAUUUCCCAAAUGC` RNA 5819.4607, `ATGCGATCGATCG` DNA 4054.5834.

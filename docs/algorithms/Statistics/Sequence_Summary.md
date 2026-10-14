@@ -38,6 +38,8 @@ For an input sequence `S`, the summary fields are defined as:
 - **Complexity** = `CalculateLinguisticComplexity(S)` (maxK = 6), which delegates to the canonical `SequenceComplexity.CalculateLinguisticComplexity`: LC = Σ_{k=1..m} V_k / Σ_{k=1..m} min(4^k, N−k+1), m = min(6, N) (Orlov & Potapov 2004 summation form; = Troyanskaya 2002 / Rosalind LING when m ≥ N) [3]. Before 2026-09 (B03 F21) it was the unsourced mean of U_k. Every character is a symbol, so > 4 distinct symbols can push it above 1 (`ACGTN` = 15/14; cross-batch R23).
 - **MeltingTemperature** = Wallace rule `2(A+T) + 4(G+C)` for short oligos, otherwise the GC/Marmur-Doty formula `64.9 + 41·(GC − 16.4)/N` [4][5]; U is read as T (Biopython `_check` back-transcription, B03 F20).
 - **Composition** = the counts of A, T, G, C, U, N [1].
+- **MolecularWeight** (non-positional `init` property, B03 F33) = `CalculateNucleotideMolecularWeight(S, isDna)` — Biopython `molecular_weight` single-stranded linear average mass; RNA table when S has U and no T, DNA table otherwise; unknown symbols skipped (Biopython raises).
+- Optional `weightAmbiguousBasesInTm` (overload, default false): Tm from `CalculateMeltingTemperature(S, true, weightAmbiguousBases: true)` = Biopython non-strict `Tm_Wallace` / `Tm_GC` (`acgtNNSWacgt-ry` → 42.0 instead of 24.0).
 
 The Wallace branch is selected when the number of A/C/G/T/U bases is < 14 (not `|S|`; B03 F12/F20), the GC branch otherwise [4].
 
@@ -60,6 +62,7 @@ The Wallace branch is selected when the number of A/C/G/T/U bases is < 14 (not `
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequence` | `string` | required | DNA/RNA sequence | case-insensitive; null/empty allowed (degenerate result) |
+| `weightAmbiguousBasesInTm` | `bool` | false (overload) | weight IUPAC codes in Tm as Biopython `strict=False` | — |
 
 ### 3.2 Output / Return Value
 
@@ -71,6 +74,7 @@ The Wallace branch is selected when the number of A/C/G/T/U bases is < 14 (not `
 | `Complexity` | `double` | linguistic complexity in (0,1) |
 | `MeltingTemperature` | `double` | Tm in °C |
 | `Composition` | `IReadOnlyDictionary<char,int>` | counts for A,T,G,C,U,N |
+| `MolecularWeight` | `double` | ss linear average MW (Da), non-positional `init` property (not in the deconstruction) |
 
 ### 3.3 Preconditions and Validation
 
@@ -106,6 +110,7 @@ parity); other characters count only towards Length.
 **Implementation location:** [SequenceStatistics.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs)
 
 - `SequenceStatistics.SummarizeNucleotideSequence(string)`: aggregates the metrics into a `SequenceSummary`.
+- `SequenceStatistics.SummarizeNucleotideSequence(string, bool weightAmbiguousBasesInTm)`: same, with the opt-in IUPAC-weighted Tm (B03 F33).
 - `SequenceStatistics.SequenceSummary`: the returned `readonly record struct`.
 
 ### 5.2 Current Behavior
@@ -139,7 +144,8 @@ m ≤ 12 (the summary uses m = 6) and switches to suffix-tree counting only for 
 |---|------|------|--------|--------|-------|
 | 1 | Tm threshold A+C+G+T+U < 14 (B03 F12/F20) | Assumption | selects Wallace vs GC formula | accepted | sibling SEQ-TM-001 convention (`ThermoConstants.WallaceMaxLength`); summary tested for equality with `CalculateMeltingTemperature` |
 | 2 | Complexity was the unsourced mean of U_k | Deviation (fixed) | ATTTGGATT, m = 6: 293/336 → 29/34 | fixed 2026-09 (B03 F21): delegates to canonical `SequenceComplexity` Σ-form | Rosalind LING sample 0.875 at m = N |
-| 3 | No MW / Biopython `molecular_weight` field | Scope | summary exposes Length, GC, entropy, complexity, Tm, composition only | accepted | use `CalculateNucleotideMolecularWeight` |
+| 3 | No MW / Biopython `molecular_weight` field | Scope | summary had no MW | fixed 2026-10 (B03 F33) | `MolecularWeight` init property, locked to Biopython 1.88 (`ATGCATGC` 2489.5901, `AUGCAUGC` RNA 2589.5321) |
+| 4 | Tm ignores IUPAC ambiguity codes | Convention / option | `acgtNNSWacgt-ry` 24 vs Biopython non-strict 42 | opt-in (B03 F33) | `SummarizeNucleotideSequence(S, weightAmbiguousBasesInTm: true)`; default unchanged (documented reference = OligoCalc basic Tm, N = A+T+G+C; Biopython's own default `strict=True` raises on ambiguity) |
 
 ## 6. Edge Cases and Limitations
 

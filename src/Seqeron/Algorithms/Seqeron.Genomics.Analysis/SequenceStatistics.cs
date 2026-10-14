@@ -1037,6 +1037,92 @@ public static class SequenceStatistics
         return ThermoConstants.CalculateMarmurDotyTm(gc, at + gc);
     }
 
+    /// <summary>
+    /// Basic melting temperature with optional IUPAC-ambiguity weighting as Biopython 1.88 non-strict
+    /// <c>Bio.SeqUtils.MeltingTemp.Tm_Wallace(seq, strict=False)</c> /
+    /// <c>Tm_GC(seq, userset=(64.9, 0.41, 672.4, 0), saltcorr=0, strict=False)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="weightAmbiguousBases"/> = false is exactly
+    /// <see cref="CalculateMeltingTemperature(string, bool)"/>. When true:
+    /// <list type="bullet">
+    /// <item>The formula is selected as in the default: Wallace when <paramref name="useWallaceRule"/> is
+    /// true and fewer than 14 A/C/G/T/U bases are present (OligoCalc's N = wA+xT+yG+zC), the GC formula
+    /// otherwise — so weighting never changes which formula applies.</item>
+    /// <item>Wallace = Biopython <c>Tm_Wallace(strict=False)</c>: 2·(A+T+W) + 4·(C+G+S) + 3·(K+M+N+R+Y)
+    /// + 10/3·(B+V) + 8/3·(D+H) (U read as T; other characters ignored).</item>
+    /// <item>GC formula = Biopython <c>Tm_GC(strict=False, mismatch=True)</c> with the OligoCalc userset:
+    /// the sequence is reduced to the <c>Tm_GC</c> alphabet A B C D G H I K M N R S T V W X Y (U read as T),
+    /// N is its length, %GC = 100·<c>gc_fraction(seq, "weighted")</c> − 50·X/N (canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(string, SequenceExtensions.GcAmbiguityMode)"/>,
+    /// Weighted mode), Tm = 64.9 + 0.41·%GC − 672.4/N. X and I therefore count in N but add no GC.</item>
+    /// </list>
+    /// Case folding is ASCII-only (Python <c>str.upper</c> also maps U+0131 'ı' to I). Returns 0 for
+    /// null/empty input and when the selected formula has no base to score.
+    /// </remarks>
+    /// <param name="dnaSequence">Oligonucleotide (DNA or RNA), case-insensitive.</param>
+    /// <param name="useWallaceRule">True: Wallace below 14 A/C/G/T/U bases, GC formula otherwise; false: GC formula.</param>
+    /// <param name="weightAmbiguousBases">True to weight IUPAC ambiguity codes as Biopython non-strict.</param>
+    /// <returns>Tm in °C.</returns>
+    public static double CalculateMeltingTemperature(string dnaSequence, bool useWallaceRule, bool weightAmbiguousBases)
+    {
+        if (!weightAmbiguousBases)
+            return CalculateMeltingTemperature(dnaSequence, useWallaceRule);
+        if (string.IsNullOrEmpty(dnaSequence))
+            return 0;
+
+        var (at, gc) = ThermoConstants.CountBasicTmBases(dnaSequence);
+        return useWallaceRule && at + gc < ThermoConstants.WallaceMaxLength
+            ? AmbiguityWeightedWallaceTm(dnaSequence)
+            : AmbiguityWeightedGcTm(dnaSequence);
+    }
+
+    // Biopython 1.88 MeltingTemp.Tm_Wallace(seq, check=True, strict=False), term for term.
+    private static double AmbiguityWeightedWallaceTm(string sequence)
+    {
+        int weak = 0, strong = 0, half = 0, twoThirds = 0, oneThird = 0;
+        foreach (char raw in sequence)
+        {
+            switch (ToUpperAscii(raw))
+            {
+                case 'A': case 'T': case 'U': case 'W': weak++; break;
+                case 'C': case 'G': case 'S': strong++; break;
+                case 'K': case 'M': case 'N': case 'R': case 'Y': half++; break;
+                case 'B': case 'V': twoThirds++; break;
+                case 'D': case 'H': oneThird++; break;
+            }
+        }
+        double meltingTemp = ThermoConstants.WallaceAtContribution * weak + ThermoConstants.WallaceGcContribution * strong;
+        double ambiguous = 3 * half + 10 / 3.0 * twoThirds + 8 / 3.0 * oneThird;
+        return meltingTemp + ambiguous;
+    }
+
+    // Biopython 1.88 MeltingTemp.Tm_GC(seq, userset=(64.9, 0.41, 672.4, 0), saltcorr=0, strict=False):
+    // _check keeps the Tm_GC alphabet (RNA back-transcribed), %GC = gc_fraction(weighted)·100 − X·50/N.
+    private static double AmbiguityWeightedGcTm(string sequence)
+    {
+        var kept = new System.Text.StringBuilder(sequence.Length);
+        int countX = 0;
+        foreach (char raw in sequence)
+        {
+            char c = ToUpperAscii(raw);
+            if (c == 'U') c = 'T';
+            if ("ABCDGHIKMNRSTVWXY".IndexOf(c) < 0)
+                continue;
+            if (c == 'X') countX++;
+            kept.Append(c);
+        }
+        int length = kept.Length;
+        if (length == 0)
+            return 0;
+
+        double percentGc = kept.ToString().CalculateGcFraction(SequenceExtensions.GcAmbiguityMode.Weighted) * 100;
+        percentGc -= countX * 50.0 / length;
+        return ThermoConstants.MarmurDotyBase
+            + ThermoConstants.MarmurDotyGcCoefficient / 100 * percentGc
+            - ThermoConstants.MarmurDotyGcCoefficient * ThermoConstants.MarmurDotyGcOffset / length;
+    }
+
     #endregion
 
     #region Sequence Patterns
@@ -1824,7 +1910,16 @@ public static class SequenceStatistics
         double Entropy,
         double Complexity,
         double MeltingTemperature,
-        IReadOnlyDictionary<char, int> Composition);
+        IReadOnlyDictionary<char, int> Composition)
+    {
+        /// <summary>
+        /// Average-isotopic single-stranded linear molecular weight (Da) from
+        /// <see cref="CalculateNucleotideMolecularWeight(string, bool)"/> (Biopython <c>molecular_weight</c>);
+        /// RNA table when the sequence has U and no T, DNA table otherwise; unknown symbols skipped.
+        /// Non-positional (2026-10 FIN-B03 F33) so the positional record shape is unchanged.
+        /// </summary>
+        public double MolecularWeight { get; init; }
+    }
 
     /// <summary>
     /// Generates comprehensive summary statistics for a DNA/RNA sequence.
@@ -1840,6 +1935,16 @@ public static class SequenceStatistics
     /// in <c>Length</c> but not listed. Null is treated as empty (all-zero summary).
     /// </remarks>
     public static SequenceSummary SummarizeNucleotideSequence(string? sequence)
+        => SummarizeNucleotideSequence(sequence, weightAmbiguousBasesInTm: false);
+
+    /// <summary>
+    /// Generates the summary of <see cref="SummarizeNucleotideSequence(string?)"/>, optionally with the
+    /// melting temperature weighted for IUPAC ambiguity codes as Biopython non-strict
+    /// <c>Tm_Wallace</c>/<c>Tm_GC</c> (<see cref="CalculateMeltingTemperature(string, bool, bool)"/>).
+    /// </summary>
+    /// <param name="sequence">DNA/RNA sequence; null is treated as empty.</param>
+    /// <param name="weightAmbiguousBasesInTm">False (default behaviour): Tm counts A/C/G/T/U only.</param>
+    public static SequenceSummary SummarizeNucleotideSequence(string? sequence, bool weightAmbiguousBasesInTm)
     {
         // Treat null and empty identically (each per-metric method guards IsNullOrEmpty);
         // normalizing null to empty avoids dereferencing a null length when selecting the
@@ -1852,7 +1957,11 @@ public static class SequenceStatistics
         // formula applies otherwise (SEQ-TM-001).
         // CalculateMeltingTemperature(useWallaceRule: true) itself selects the formula from the
         // number of A/C/G/T/U bases (OligoCalc), so N/gaps cannot push a short oligo into the GC formula.
-        double tm = CalculateMeltingTemperature(seq, useWallaceRule: true);
+        double tm = CalculateMeltingTemperature(seq, useWallaceRule: true, weightAmbiguousBases: weightAmbiguousBasesInTm);
+        // Canonical nucleotide MW (Biopython molecular_weight, average masses, ss linear); RNA table for
+        // U-only spellings so an RNA summary is not reduced to its non-U residues.
+        bool isRna = comp.CountU > 0 && comp.CountT == 0;
+        double molecularWeight = CalculateNucleotideMolecularWeight(seq, isDna: !isRna);
 
         var composition = new Dictionary<char, int>
         {
@@ -1870,7 +1979,10 @@ public static class SequenceStatistics
             Entropy: entropy,
             Complexity: complexity,
             MeltingTemperature: tm,
-            Composition: composition);
+            Composition: composition)
+        {
+            MolecularWeight = molecularWeight
+        };
     }
 
     #endregion

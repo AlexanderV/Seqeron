@@ -323,21 +323,25 @@ public class SequenceTools
     /// Generate comprehensive summary statistics for a DNA/RNA sequence.
     /// </summary>
     [McpServerTool(Name = "summarize_sequence", Title = "Sequence — Comprehensive Summary", ReadOnly = true)]
-    [Description("Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content, entropy, complexity, and Tm.")]
+    [Description("Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content (fraction 0-1), entropy, complexity, basic Tm (Wallace below 14 A/C/G/T/U bases, else 64.9 + 41(GC-16.4)/N) and single-stranded average molecular weight (Biopython molecular_weight; RNA table when U and no T). weightAmbiguousBasesInTm = true weights IUPAC codes in the Tm as Biopython non-strict Tm_Wallace/Tm_GC.")]
     public static SummarizeSequenceResult SummarizeSequence(
-        [Description("The DNA or RNA sequence to analyze")] string sequence)
+        [Description("The DNA or RNA sequence to analyze")] string sequence,
+        [Description("Weight IUPAC ambiguity codes in the Tm as Biopython Tm_Wallace/Tm_GC(strict=False) (default false: A/C/G/T/U only)")] bool weightAmbiguousBasesInTm = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var summary = SequenceStatistics.SummarizeNucleotideSequence(sequence);
+        var summary = SequenceStatistics.SummarizeNucleotideSequence(sequence, weightAmbiguousBasesInTm);
         return new SummarizeSequenceResult(
             summary.Length,
             summary.GcContent,
             summary.Entropy,
             summary.Complexity,
             summary.MeltingTemperature,
-            summary.Composition.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value));
+            summary.Composition.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value))
+        {
+            MolecularWeight = summary.MolecularWeight
+        };
     }
 
     /// <summary>

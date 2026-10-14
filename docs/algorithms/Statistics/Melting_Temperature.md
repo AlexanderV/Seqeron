@@ -79,6 +79,7 @@ derivation is documented in [DNA_Thermodynamics.md](DNA_Thermodynamics.md).)
 |------|------|---------|-------------|-------------|
 | dnaSequence | string | required | DNA sequence (5'→3') | case-insensitive; A/C/G/T |
 | useWallaceRule | bool | true | Wallace if A+C+G+T count < 14, else Marmur-Doty | — (CalculateMeltingTemperature) |
+| weightAmbiguousBases | bool | false (overload) | IUPAC codes weighted as Biopython non-strict `Tm_Wallace` / `Tm_GC` (branch still chosen by the A+C+G+T+U count) | — (CalculateMeltingTemperature(seq, useWallaceRule, weightAmbiguousBases), B03 F33) |
 | naConcentration | double | 0.05 | Na+ concentration, mol/L | > 0 (CalculateThermodynamics) |
 | primerConcentration | double | 2.5e-7 | Total strand conc. C_T, mol/L (divided by F = 4) | > 0 (CalculateThermodynamics) |
 
@@ -103,8 +104,15 @@ for these guarded inputs.
 
 1. Count A/T/G/C/U (case-insensitive; U read as T — Biopython `_check` back-transcription, 2026-09 B03 F20; N, IUPAC codes, gaps ignored); N = A+T+G+C+U (0 → Tm 0).
 2. **CalculateMeltingTemperature:** if `useWallaceRule` and N < 14, apply the Wallace
-   rule; otherwise apply Marmur-Doty (with `useWallaceRule: false` also below 14, outside
-   its published domain — may be negative; no clamp).
+   rule; otherwise apply Marmur-Doty (with `useWallaceRule: false` also below 14: this
+   matches the reference — Biopython `Tm_GC(userset=(64.9, 0.41, 672.4, 0), saltcorr=0)` has no
+   length clamp either: `AAAA` −103.2, `GC` −230.3, `A` −607.5, `ACGTACGTACGTA` 32.1, B03 F32;
+   formula-domain note per OligoCalc: the GC formula is published for ≥ 14 nt, so short-oligo values
+   are formal, not physical).
+   With `weightAmbiguousBases: true` (B03 F33) the same branch is scored as Biopython 1.88
+   non-strict: Wallace = 2(A+T+W) + 4(C+G+S) + 3(K+M+N+R+Y) + 10/3(B+V) + 8/3(D+H)
+   (`Tm_Wallace(strict=False)`); GC = 64.9 + 0.41·%GC − 672.4/N over the `Tm_GC` alphabet
+   (ABCDGHIKMNRSTVWXY, U→T), %GC = 100·`gc_fraction(weighted)` − 50·X/N (`Tm_GC(strict=False)`).
 3. **CalculateThermodynamics:** add helix-initiation terms at both termini, sum NN
    ΔH°/ΔS° over each dinucleotide, apply the salt correction to ΔS°, then evaluate the
    NN Tm equation and ΔG°37.
@@ -169,6 +177,8 @@ matching is involved, so the repository suffix tree is **not applicable** to thi
 | 1 | Default C_T = 250 nM vs Biopython 50 nM | Assumption | NN Tm offset under defaults | accepted | Explicit `primerConcentration` parameter; formula identical (ASM-02) |
 | 2 | SEQ-TM-001 ↔ SEQ-THERMO-001 same methods | Deviation (duplicate Registry entry) | Avoid duplicate code/tests | accepted | Consolidated; see §7.3 and TestSpec §7 |
 | 3 | Wallace/GC switch used raw string length (N/gaps counted) | Deviation | `ACGTNNNNNNNNNNNN` → −82.7 instead of 12 | fixed | 2026-09 B03 F12 (OligoCalc N = A+T+G+C) |
+| 5 | `useWallaceRule: false` below 14 nt not clamped | Convention (reference) | negative/formal Tm for very short oligos | accepted | equals Biopython `Tm_GC` userset (no clamp), B03 F32; OligoCalc publishes the formula for ≥ 14 nt |
+| 6 | IUPAC ambiguity ignored in basic Tm (Biopython non-strict weights it) | Convention / option | `acgtNNSWacgt-ry` 24 (default) vs 42 | opt-in | `weightAmbiguousBases: true` = Biopython `Tm_Wallace`/`Tm_GC(strict=False)` (B03 F33); default kept (OligoCalc N = A+T+G+C; Biopython default strict=True raises) |
 | 4 | Basic-Tm counting duplicated in `PrimerDesigner` (MolTools) | Duplication | none (identical results, locked by a differential test) | fixed | Both now call `ThermoConstants.CalculateBasicTm` / `CountBasicTmBases` (B07 R10; B03 F25) |
 
 ## 6. Edge Cases and Limitations

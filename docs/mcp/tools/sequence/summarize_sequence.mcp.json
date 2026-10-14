@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceStatistics.SummarizeNucleotideSequence",
   "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L775",
-  "description": "Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content, entropy, complexity, and Tm.",
+  "description": "Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content (fraction 0-1), entropy, complexity, basic Tm (Wallace below 14 A/C/G/T/U bases, else 64.9 + 41(GC-16.4)/N) and single-stranded average molecular weight (Biopython molecular_weight; RNA table when U and no T). weightAmbiguousBasesInTm = true weights IUPAC codes in the Tm as Biopython non-strict Tm_Wallace/Tm_GC.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -14,6 +14,11 @@
         "type": "string",
         "description": "The DNA or RNA sequence to analyze",
         "minLength": 1
+      },
+      "weightAmbiguousBasesInTm": {
+        "type": "boolean",
+        "description": "Weight IUPAC ambiguity codes in the Tm as Biopython Tm_Wallace/Tm_GC(strict=False) (default false: A/C/G/T/U only)",
+        "default": false
       }
     },
     "required": ["sequence"]
@@ -22,13 +27,14 @@
     "type": "object",
     "properties": {
       "length": { "type": "integer", "description": "Sequence length" },
-      "gcContent": { "type": "number", "description": "GC content percentage" },
+      "gcContent": { "type": "number", "description": "GC content fraction (0-1)" },
       "entropy": { "type": "number", "description": "Shannon entropy" },
       "complexity": { "type": "number", "description": "Linguistic complexity" },
       "meltingTemperature": { "type": "number", "description": "Melting temperature (°C)" },
-      "composition": { "type": "object", "description": "Nucleotide counts" }
+      "composition": { "type": "object", "description": "Nucleotide counts" },
+      "molecularWeight": { "type": "number", "description": "Single-stranded linear average molecular weight (Da)" }
     },
-    "required": ["length", "gcContent", "entropy", "complexity", "meltingTemperature", "composition"]
+    "required": ["length", "gcContent", "entropy", "complexity", "meltingTemperature", "composition", "molecularWeight"]
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" }
@@ -39,11 +45,12 @@
       "input": { "sequence": "ATGCGATCGATCG" },
       "output": {
         "length": 13,
-        "gcContent": 46.15,
-        "entropy": 1.98,
-        "complexity": 0.85,
-        "meltingTemperature": 38,
-        "composition": { "A": 3, "T": 3, "G": 4, "C": 3, "U": 0, "N": 0 }
+        "gcContent": 0.46153846153846156,
+        "entropy": 1.9877733714879842,
+        "complexity": 0.7037037037037037,
+        "meltingTemperature": 40,
+        "composition": { "A": 3, "T": 3, "G": 4, "C": 3, "U": 0, "N": 0 },
+        "molecularWeight": 4054.5834
       }
     }
   ]
