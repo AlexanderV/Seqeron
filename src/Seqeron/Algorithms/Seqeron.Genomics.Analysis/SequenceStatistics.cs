@@ -482,60 +482,14 @@ public static class SequenceStatistics
 
     #region DNA Thermodynamics
 
-    // Unified nearest-neighbor thermodynamic parameters for Watson-Crick base pairs
-    // in 1 M NaCl, ΔH in kcal/mol and ΔS in cal/(mol·K).
-    // Source: Allawi HT, SantaLucia J (1997), Biochemistry 36(34):10581-10594,
-    //         Table 1 (also tabulated as DNA_NN3 in Biopython Bio.SeqUtils.MeltingTemp).
-    // Each entry and its Watson-Crick complement share the same values
-    // (e.g. AA/TT, CA/TG), so all 16 dinucleotides are listed explicitly.
-    private static readonly Dictionary<string, (double dH, double dS)> NearestNeighborParams = new()
-    {
-        { "AA", (-7.9, -22.2) }, { "TT", (-7.9, -22.2) },
-        { "AT", (-7.2, -20.4) },
-        { "TA", (-7.2, -21.3) },
-        { "CA", (-8.5, -22.7) }, { "TG", (-8.5, -22.7) },
-        { "GT", (-8.4, -22.4) }, { "AC", (-8.4, -22.4) },
-        { "CT", (-7.8, -21.0) }, { "AG", (-7.8, -21.0) },
-        { "GA", (-8.2, -22.2) }, { "TC", (-8.2, -22.2) },
-        { "CG", (-10.6, -27.2) },
-        { "GC", (-9.8, -24.4) },
-        { "GG", (-8.0, -19.9) }, { "CC", (-8.0, -19.9) }
-    };
-
-    // Helix-initiation parameters applied once at EACH duplex terminus,
-    // selected by whether that terminal base pair is G·C or A·T.
-    // Source: Allawi & SantaLucia (1997), Table 1; "init. w/ term. G·C" and
-    // "init. w/ term. A·T" (Biopython DNA_NN3 keys init_G/C, init_A/T).
-    private const double InitTerminalGcDeltaH = 0.1;   // kcal/mol
-    private const double InitTerminalGcDeltaS = -2.8;  // cal/(mol·K)
-    private const double InitTerminalAtDeltaH = 2.3;   // kcal/mol
-    private const double InitTerminalAtDeltaS = 4.1;   // cal/(mol·K)
-
-    // Salt (Na+) entropy correction per SantaLucia (1998) "method 5":
-    // ΔS(salt) = 0.368 * (N-1) * ln[Na+], [Na+] in mol/L.
-    // Source: SantaLucia J (1998), PNAS 95(4):1460-1465; Biopython salt_correction method 5.
-    private const double SaltEntropyCoefficient = 0.368;
-
-    // Gas constant R in cal/(mol·K) used in the Tm equation.
-    // Source: Allawi & SantaLucia (1997); Biopython Tm_NN uses R = 1.987.
-    private const double GasConstantCalPerMolK = 1.987;
+    // The nearest-neighbour model is the canonical Infrastructure core
+    // ThermoConstants.CalculateNearestNeighborDuplex (a line-by-line port of Biopython 1.88
+    // Bio.SeqUtils.MeltingTemp.Tm_NN; 2026-10 FIN-B03 F26). SequenceStatistics only maps its
+    // mol/L inputs onto Tm_NN's nM / mM arguments, keeps its "< 2 bases → zeros" sentinel and
+    // derives ΔG°₃₇ = ΔH° − 310.15·ΔS°/1000.
 
     // Reference temperature for ΔG° calculation: 37 °C = 310.15 K.
     private const double ReferenceTemperatureKelvin = 310.15;
-
-    // Kelvin-to-Celsius offset.
-    private const double KelvinToCelsiusOffset = 273.15;
-
-    // Total-strand-concentration divisor F (x) for the Tm equation Tm = ΔH°/(ΔS° + R·ln(C_T/x)).
-    // x = 4 for two non-self-complementary strands in equal amount, x = 1 for a
-    // self-complementary (homo)duplex. Source: SantaLucia (1998) PNAS 95:1460 Eq. 3;
-    // Biopython Tm_NN: k = dnac1 − dnac2/2 (non-self-complementary), k = dnac1 (selfcomp).
-    private const double NonSelfComplementaryFactor = 4.0;
-    private const double SelfComplementaryFactor = 1.0;
-
-    // Symmetry correction for a self-complementary duplex (ΔH° = 0, ΔS° = −1.4 cal/(mol·K)).
-    // Source: SantaLucia (1998) Table 2 "symmetry correction"; Biopython DNA_NN3 key "sym" (0, −1.4).
-    private const double SymmetryCorrectionDeltaS = -1.4;
 
     /// <summary>
     /// DNA thermodynamic properties.
@@ -545,6 +499,39 @@ public static class SequenceStatistics
         double DeltaS,
         double DeltaG,
         double MeltingTemperature);
+
+    /// <summary>
+    /// Reaction conditions beyond [Na⁺] / C_T for
+    /// <see cref="CalculateThermodynamics(string, double, double, bool, ThermodynamicsOptions)"/>:
+    /// the Biopython <c>MeltingTemp.salt_correction</c> method (0–7) with its K⁺ / Tris / Mg²⁺ / dNTP
+    /// inputs, and whether the result is rounded. The defaults (method 5, no other ions, rounded) give
+    /// exactly <see cref="CalculateThermodynamics(string, double, double, bool)"/>.
+    /// </summary>
+    public sealed record ThermodynamicsOptions
+    {
+        /// <summary>Default conditions: SantaLucia (1998) method-5 entropy correction, Na⁺ only, rounded output.</summary>
+        public static ThermodynamicsOptions Default { get; } = new();
+
+        /// <summary>Biopython <c>saltcorr</c> method (default 5, SantaLucia 1998 entropy). 1–4 add to Tm,
+        /// 5 adds to ΔS°, 6 (Owczarzy 2004) and 7 (Owczarzy 2008, Mg²⁺/dNTPs) add to 1/Tm; 0 = none.</summary>
+        public NnSaltCorrection SaltCorrection { get; init; } = NnSaltCorrection.SantaLucia1998Entropy;
+
+        /// <summary>[K⁺] in mol/L (default 0); ≥ 0.</summary>
+        public double PotassiumConcentration { get; init; }
+
+        /// <summary>[Tris] in mol/L (default 0); ≥ 0. Counts as [Tris]/2 monovalent ions (Biopython).</summary>
+        public double TrisConcentration { get; init; }
+
+        /// <summary>[Mg²⁺] in mol/L (default 0); ≥ 0.</summary>
+        public double MagnesiumConcentration { get; init; }
+
+        /// <summary>[dNTPs] in mol/L (default 0); ≥ 0.</summary>
+        public double DntpConcentration { get; init; }
+
+        /// <summary>Round ΔH°/ΔS°/ΔG° to 2 decimals and Tm to 1 decimal (default true); false returns
+        /// the unrounded values (Biopython <c>Tm_NN</c> returns an unrounded Tm).</summary>
+        public bool RoundResults { get; init; } = true;
+    }
 
     /// <summary>
     /// Calculates thermodynamic properties (ΔH°, ΔS°, ΔG°₃₇ and Tm) of a DNA duplex formed by
@@ -557,7 +544,9 @@ public static class SequenceStatistics
     /// </summary>
     /// <param name="dnaSequence">DNA sequence (5'→3'). Normalised like Biopython <c>Tm_NN</c>
     /// (<c>_check</c>): case-insensitive, whitespace removed, RNA U read as T, and every character
-    /// other than A/C/G/T removed before the model is applied. Fewer than 2 remaining bases → all zero.</param>
+    /// other than A/C/G/T and inosine I removed before the model is applied. Inosine is scored with
+    /// Biopython's <c>DNA_IMM1</c> parameters (SantaLucia 2005); a neighbour pair without parameters
+    /// (e.g. "II") throws, as Biopython's default strict mode does. Fewer than 2 remaining bases → all zero.</param>
     /// <param name="naConcentration">Na+ concentration in mol/L (default 0.05 = 50 mM); must be &gt; 0.</param>
     /// <param name="primerConcentration">
     /// Total strand concentration C_T in mol/L (default 2.5e-7 = 250 nM; must be &gt; 0); the Tm
@@ -565,10 +554,12 @@ public static class SequenceStatistics
     /// </param>
     /// <returns>
     /// ΔH° (kcal/mol), ΔS° (cal/(mol·K), salt-corrected), ΔG°₃₇ (kcal/mol) rounded to 2 decimals
-    /// and Tm (°C) rounded to 1 decimal. For null input or fewer than 2 A/C/G/T(U) bases all four
+    /// and Tm (°C) rounded to 1 decimal. For null input or fewer than 2 A/C/G/T/I (U) bases all four
     /// fields are 0.
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException">A concentration is not a positive finite number.</exception>
+    /// <exception cref="ArgumentException">A neighbour pair has no nearest-neighbour parameter (only possible
+    /// with inosine, e.g. "II"; Biopython <c>Tm_NN</c> raises <c>ValueError</c>).</exception>
     public static ThermodynamicProperties CalculateThermodynamics(
         string dnaSequence,
         double naConcentration = 0.05, // 50 mM
@@ -593,6 +584,7 @@ public static class SequenceStatistics
     /// caller's statement of the experiment and is not inferred from the sequence.
     /// </param>
     /// <exception cref="ArgumentOutOfRangeException">A concentration is not a positive finite number.</exception>
+    /// <exception cref="ArgumentException">A neighbour pair has no nearest-neighbour parameter (inosine only).</exception>
     public static ThermodynamicProperties CalculateThermodynamics(
         string dnaSequence,
         double naConcentration,
@@ -605,88 +597,91 @@ public static class SequenceStatistics
         if (!(naConcentration > 0) || double.IsInfinity(naConcentration))
             throw new ArgumentOutOfRangeException(nameof(naConcentration), naConcentration,
                 "Na+ concentration must be a positive finite value in mol/L.");
+        return CalculateThermodynamics(dnaSequence, naConcentration, primerConcentration, selfComplementary,
+            ThermodynamicsOptions.Default);
+    }
+
+    /// <summary>
+    /// Calculates ΔH°, ΔS°, ΔG°₃₇ and Tm of a DNA duplex (Allawi &amp; SantaLucia 1997, Biopython
+    /// <c>DNA_NN3</c>) under any Biopython <c>MeltingTemp.salt_correction</c> method (0–7) with
+    /// Na⁺ / K⁺ / Tris / Mg²⁺ / dNTPs, optionally unrounded. Reproduces Biopython 1.88
+    /// <c>Tm_NN(seq, Na=1000·[Na⁺], K=, Tris=, Mg=, dNTPs= (mM), dnac1=dnac2=C_T/2 (nM; self-complementary:
+    /// dnac1=C_T, dnac2=0), selfcomp=, saltcorr=method)</c> through the canonical
+    /// <see cref="ThermoConstants.CalculateNearestNeighborDuplex"/>.
+    /// </summary>
+    /// <param name="dnaSequence">DNA sequence (5'→3'); normalised as in
+    /// <see cref="CalculateThermodynamics(string, double, double)"/>.</param>
+    /// <param name="naConcentration">Na⁺ concentration in mol/L; ≥ 0 and finite (a zero total ion
+    /// concentration is rejected by methods 1–6, as in Biopython).</param>
+    /// <param name="primerConcentration">Strand concentration C_T in mol/L; must be &gt; 0 (see the 4-argument overload).</param>
+    /// <param name="selfComplementary">Self-complementary (homo)duplex (see the 4-argument overload).</param>
+    /// <param name="options">Salt-correction method, other ions and rounding; <c>null</c> = <see cref="ThermodynamicsOptions.Default"/>.</param>
+    /// <returns>
+    /// ΔH° (kcal/mol, 1 M NaCl); ΔS° (cal/(mol·K)) — salt-corrected for method 5, the 1 M NaCl value for every
+    /// other method (methods 1–4 / 6–7 correct Tm or 1/Tm, not ΔS°); ΔG°₃₇ = ΔH° − 310.15·ΔS°/1000 from those two;
+    /// Tm (°C) with the chosen correction. Rounded to 2 / 1 decimals unless
+    /// <see cref="ThermodynamicsOptions.RoundResults"/> is false. All zero for fewer than 2 A/C/G/T/I (U) bases.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">C_T not positive finite, an ion concentration negative or
+    /// not finite, or a method outside 0–7.</exception>
+    /// <exception cref="ArgumentException">A neighbour pair without parameters (inosine) or a salt input Biopython
+    /// rejects (zero total ion concentration for methods 1–6, ln of a non-positive concentration).</exception>
+    public static ThermodynamicProperties CalculateThermodynamics(
+        string dnaSequence,
+        double naConcentration,
+        double primerConcentration,
+        bool selfComplementary,
+        ThermodynamicsOptions? options)
+    {
+        options ??= ThermodynamicsOptions.Default;
         if (!(primerConcentration > 0) || double.IsInfinity(primerConcentration))
             throw new ArgumentOutOfRangeException(nameof(primerConcentration), primerConcentration,
                 "Strand concentration must be a positive finite value in mol/L.");
+        RequireNonNegativeFinite(naConcentration, nameof(naConcentration));
+        RequireNonNegativeFinite(options.PotassiumConcentration, nameof(options.PotassiumConcentration));
+        RequireNonNegativeFinite(options.TrisConcentration, nameof(options.TrisConcentration));
+        RequireNonNegativeFinite(options.MagnesiumConcentration, nameof(options.MagnesiumConcentration));
+        RequireNonNegativeFinite(options.DntpConcentration, nameof(options.DntpConcentration));
+        if (options.SaltCorrection is < NnSaltCorrection.None or > NnSaltCorrection.Owczarzy2008)
+            throw new ArgumentOutOfRangeException(nameof(options), options.SaltCorrection,
+                "Allowed salt-correction methods are 0–7.");
 
-        string seq = NormalizeForNearestNeighbor(dnaSequence);
-        if (seq.Length < 2)
+        // Sentinel kept from the original API: fewer than two scorable bases → zeros (Biopython has no
+        // duplex either: a 1-nt Tm_NN has no neighbour pair).
+        if (ThermoConstants.NormalizeForNearestNeighbor(dnaSequence).Length < 2)
             return new ThermodynamicProperties(0, 0, 0, 0);
 
-        // Calculate ΔH and ΔS using the nearest-neighbor method.
-        double dH = 0;
-        double dS = 0;
+        // mol/L → Tm_NN units: strands in nM, ions in mM. Equimolar strands dnac1 = dnac2 = C_T/2
+        // give k = dnac1 − dnac2/2 = C_T/4; self-complementary k = dnac1 = C_T.
+        double ctNanomolar = primerConcentration * 1e9;
+        var r = ThermoConstants.CalculateNearestNeighborDuplex(
+            dnaSequence,
+            parameterSet: NnParameterSet.AllawiSantaLucia1997,
+            dnac1: selfComplementary ? ctNanomolar : ctNanomolar / 2,
+            dnac2: selfComplementary ? 0 : ctNanomolar / 2,
+            selfComplementary: selfComplementary,
+            sodium: naConcentration * 1000,
+            potassium: options.PotassiumConcentration * 1000,
+            tris: options.TrisConcentration * 1000,
+            magnesium: options.MagnesiumConcentration * 1000,
+            dntps: options.DntpConcentration * 1000,
+            saltCorrection: options.SaltCorrection);
 
-        // Helix-initiation parameters are applied at BOTH duplex termini
-        // (first and last base pair) per Allawi & SantaLucia (1997), Table 1.
-        AddTerminalInitiation(seq[0], ref dH, ref dS);
-        AddTerminalInitiation(seq[^1], ref dH, ref dS);
+        // ΔG°₃₇ = ΔH° − T·ΔS° (ΔS° converted from cal to kcal).
+        double dG = r.DeltaH - (ReferenceTemperatureKelvin * r.SaltCorrectedDeltaS / 1000.0);
+        return options.RoundResults
+            ? new ThermodynamicProperties(
+                DeltaH: Math.Round(r.DeltaH, 2),
+                DeltaS: Math.Round(r.SaltCorrectedDeltaS, 2),
+                DeltaG: Math.Round(dG, 2),
+                MeltingTemperature: Math.Round(r.MeltingTemperature, 1))
+            : new ThermodynamicProperties(r.DeltaH, r.SaltCorrectedDeltaS, dG, r.MeltingTemperature);
 
-        // Sum nearest-neighbor contributions over each overlapping dinucleotide
-        // (the normalised sequence is pure A/C/G/T, so every step is in the table).
-        for (int i = 0; i < seq.Length - 1; i++)
+        static void RequireNonNegativeFinite(double value, string name)
         {
-            var param = NearestNeighborParams[seq.Substring(i, 2)];
-            dH += param.dH;
-            dS += param.dS;
-        }
-
-        double strandFactor = NonSelfComplementaryFactor;
-        if (selfComplementary)
-        {
-            dS += SymmetryCorrectionDeltaS;
-            strandFactor = SelfComplementaryFactor;
-        }
-
-        // Salt correction for ΔS (SantaLucia 1998, method 5); N = number of bases.
-        dS += SaltEntropyCoefficient * (seq.Length - 1) * Math.Log(naConcentration);
-
-        // ΔG° at 37 °C: ΔG° = ΔH° - T·ΔS° (ΔS° converted from cal to kcal).
-        double dG = dH - (ReferenceTemperatureKelvin * dS / 1000.0);
-
-        // Tm = ΔH° / (ΔS° + R · ln(C_T / x)) - 273.15, with ΔH° converted to cal.
-        double tm = (dH * 1000) /
-                    (dS + GasConstantCalPerMolK * Math.Log(primerConcentration / strandFactor))
-                    - KelvinToCelsiusOffset;
-
-        return new ThermodynamicProperties(
-            DeltaH: Math.Round(dH, 2),
-            DeltaS: Math.Round(dS, 2),
-            DeltaG: Math.Round(dG, 2),
-            MeltingTemperature: Math.Round(tm, 1));
-    }
-
-    // Biopython MeltingTemp._check(seq, "Tm_NN"): upper-case, drop whitespace, back-transcribe
-    // (U → T), keep only bases the NN table can score. DNA_NN3 has no inosine (I) parameters
-    // (Biopython raises on I), so only A/C/G/T are kept.
-    private static string NormalizeForNearestNeighbor(string? sequence)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return string.Empty;
-
-        var sb = new System.Text.StringBuilder(sequence.Length);
-        foreach (char ch in sequence)
-        {
-            char b = char.ToUpperInvariant(ch);
-            if (b == 'U') b = 'T';
-            if (b is 'A' or 'C' or 'G' or 'T')
-                sb.Append(b);
-        }
-        return sb.ToString();
-    }
-
-    // Adds the helix-initiation contribution for one terminal base (A/C/G/T).
-    private static void AddTerminalInitiation(char terminalBase, ref double dH, ref double dS)
-    {
-        if (terminalBase is 'G' or 'C')
-        {
-            dH += InitTerminalGcDeltaH;
-            dS += InitTerminalGcDeltaS;
-        }
-        else
-        {
-            dH += InitTerminalAtDeltaH;
-            dS += InitTerminalAtDeltaS;
+            if (!(value >= 0) || double.IsInfinity(value))
+                throw new ArgumentOutOfRangeException(name, value,
+                    "Ion concentration must be a non-negative finite value in mol/L.");
         }
     }
 

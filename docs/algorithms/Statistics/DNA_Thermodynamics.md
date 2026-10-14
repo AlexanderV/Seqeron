@@ -6,7 +6,7 @@
 | Test Unit ID | SEQ-THERMO-001 |
 | Related Projects | Seqeron.Genomics.Analysis, Seqeron.Genomics.Infrastructure |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-10-14 |
 
 ## 1. Overview
 
@@ -78,25 +78,30 @@ F = 1 for self-complementary duplexes, which also receive the symmetry correctio
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `dnaSequence` | `string` | required | DNA sequence 5′→3′. | ≥ 2 A/C/G/T(U) bases for a non-zero result; case-insensitive; U read as T; every other character removed before scoring (INV-07). |
+| `dnaSequence` | `string` | required | DNA sequence 5′→3′. | ≥ 2 A/C/G/T/I (U) bases for a non-zero result; case-insensitive; U read as T; inosine scored (DNA_IMM1); every other character removed before scoring (INV-07). |
 | `naConcentration` | `double` | 0.05 | Na⁺ concentration. | mol/L (0.05 = 50 mM); positive finite, else `ArgumentOutOfRangeException`. |
 | `primerConcentration` | `double` | 2.5e-7 | Strand concentration C_T. | mol/L (2.5e-7 = 250 nM); positive finite; divided by F = 4 (total of two strands) or F = 1 (self-complementary strand). |
 | `selfComplementary` | `bool` | false (4-arg overload) | Self-complementary homoduplex. | adds sym ΔS −1.4, F = 1. |
+| `options` | `ThermodynamicsOptions?` | null = defaults (5-arg overload) | Biopython `salt_correction` method 0–7 (`NnSaltCorrection`), [K⁺], [Tris], [Mg²⁺], [dNTPs] (mol/L) and `RoundResults` (default true). | ions ≥ 0 finite (then [Na⁺] ≥ 0 too); zero total ions rejected by methods 1–6 (`ArgumentException`, as Biopython). Defaults reproduce the 4-arg overload exactly. |
 
 ### 3.2 Output / Return Value
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `DeltaH` | `double` | ΔH° in kcal/mol, rounded to 2 decimals. |
-| `DeltaS` | `double` | ΔS° in cal/(mol·K) including salt correction, rounded to 2 decimals. |
+| `DeltaS` | `double` | ΔS° in cal/(mol·K) including the method-5 salt correction (other `options` methods: the 1 M NaCl ΔS°, their correction acts on Tm or 1/Tm), rounded to 2 decimals. |
 | `DeltaG` | `double` | ΔG°₃₇ in kcal/mol, rounded to 2 decimals. |
 | `MeltingTemperature` | `double` | Tm in °C, rounded to 1 decimal. |
+
+With `options.RoundResults = false` all four fields are returned unrounded (Biopython `Tm_NN` returns an unrounded Tm).
 
 ### 3.3 Preconditions and Validation
 
 Input is normalised as Biopython `Tm_NN` does (`_check`): upper-cased, U→T, and every
-character other than A/C/G/T removed (N, IUPAC codes, gaps, whitespace, junk). Fewer than two
-remaining bases returns `(0,0,0,0)`. Dinucleotides are overlapping windows of the cleaned
+character other than A/C/G/T and inosine I removed (N, IUPAC codes, gaps, whitespace, junk).
+Inosine is scored with Biopython's `DNA_IMM1` parameters; a neighbour pair with no parameter
+(e.g. `II`) throws `ArgumentException`, as Biopython's default `strict=True` raises `ValueError`
+(FIN-B03 F26). Fewer than two remaining bases returns `(0,0,0,0)`. Dinucleotides are overlapping windows of the cleaned
 sequence; N in the salt term is the cleaned length. A non-positive / NaN / infinite
 concentration throws `ArgumentOutOfRangeException` (Biopython raises `ValueError` for [Na⁺] = 0).
 
@@ -104,12 +109,18 @@ concentration throws `ArgumentOutOfRangeException` (Biopython raises `ValueError
 
 ### 4.1 High-Level Steps
 
+Since FIN-B03 F26 steps 3–8 are executed by the canonical Infrastructure core
+`ThermoConstants.CalculateNearestNeighborDuplex` (line-by-line port of Biopython 1.88 `Tm_NN`) with
+`parameterSet: AllawiSantaLucia1997`, `dnac1 = dnac2 = C_T·10⁹/2` nM (self-complementary: `C_T·10⁹`, 0),
+ions × 1000 (mM) and the chosen salt method; SequenceStatistics computes ΔG°₃₇ and rounds.
+
 1. Validate concentrations (> 0, finite).
-2. Normalise (upper-case, U→T, keep A/C/G/T); return `(0,0,0,0)` if fewer than 2 bases remain.
+2. Normalise (upper-case, U→T, keep A/C/G/T/I); return `(0,0,0,0)` if fewer than 2 bases remain.
 3. Add initiation (ΔH, ΔS) for the first base and for the last base by G·C vs A·T.
 4. For each overlapping dinucleotide, add its NN (ΔH, ΔS) from the parameter table.
 5. If self-complementary, add the symmetry ΔS −1.4 and use F = 1.
-6. Apply the Na⁺ salt entropy correction: ΔS += 0.368·(N−1)·ln[Na⁺].
+6. Apply the Na⁺ salt entropy correction: ΔS += 0.368·(N−1)·ln[Na⁺] (default method 5; with `options`
+   methods 1–4 add to Tm, 6–7 to 1/Tm, see `ThermoConstants.CalculateNnSaltCorrection`).
 7. Compute ΔG°₃₇ = ΔH° − 310.15·ΔS°/1000.
 8. Compute Tm = (1000·ΔH°)/(ΔS° + R·ln(C_T/F)) − 273.15.
 
@@ -133,6 +144,9 @@ NN parameter table (1 M NaCl; ΔH kcal/mol, ΔS cal/(mol·K)) [1][3]:
 | init. w/ term. A·T | +2.3 | +4.1 |
 | symmetry (self-complementary only) | 0 | −1.4 |
 
+The table lives once, in `ThermoConstants` (Biopython `DNA_NN3`); steps containing inosine come from
+Biopython `DNA_IMM1` (SantaLucia 2005 inosine pairs), looked up before the Watson–Crick table.
+
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
@@ -147,14 +161,15 @@ NN parameter table (1 M NaCl; ΔH kcal/mol, ΔS cal/(mol·K)) [1][3]:
 
 - `SequenceStatistics.CalculateThermodynamics(string, double, double)`: NN ΔH°/ΔS°/ΔG°/Tm (non-self-complementary).
 - `SequenceStatistics.CalculateThermodynamics(string, double, double, bool selfComplementary)`: same, with explicit stoichiometry.
+- `SequenceStatistics.CalculateThermodynamics(string, double, double, bool, ThermodynamicsOptions?)`: salt method 0–7, K⁺/Tris/Mg²⁺/dNTPs, unrounded output (FIN-B03 F27).
 - `SequenceStatistics.CalculateMeltingTemperature(string, bool)`: simple Wallace / Marmur-Doty Tm (delegates to [ThermoConstants](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Infrastructure/ThermoConstants.cs)).
 
 ### 5.2 Current Behavior
 
-NN parameters live in a static dictionary; both Watson-Crick complements are listed so any
-input dinucleotide resolves directly without computing the complement. Initiation is applied
-to both termini via a private `AddTerminalInitiation` helper. Salt correction, R, the reference
-temperature, the Kelvin offset, and F are named constants. No string search/matching is
+All overloads delegate to `ThermoConstants.CalculateNearestNeighborDuplex` (Infrastructure); the
+former private NN table, initiation constants and normaliser were deleted (FIN-B03 F26 — B07's
+`Core_NN3_SaltMethod5_ReproducesSequenceStatisticsCalculateThermodynamics` showed drop-in equality on
+A/C/G/T/U/N input). Only the 310.15 K reference temperature for ΔG°₃₇ is local. No string search/matching is
 performed (single linear pass over dinucleotides), so the repository suffix tree is **not
 applicable** to this unit.
 
@@ -171,11 +186,14 @@ applicable** to this unit.
 - Self-complementary duplexes: symmetry ΔS −1.4 and F = 1 via `selfComplementary: true` [2][3] (added 2026-09 review, B03 F10).
 - Biopython `_check` input normalisation (B03 F9).
 
-**Relation to other NN implementations:** `PrimerDesigner.CalculateMeltingTemperatureNN` (MolTools) is a different published model (SantaLucia & Hicks 2004 / DNA_NN4: single initiation + terminal A·T penalty, Owczarzy salt); it cannot be called from this assembly (MolTools references Analysis). Sharing one NN core with a parameter-set switch is a cross-batch request (B03 R9).
+- Biopython `salt_correction` methods 0–7 incl. K⁺/Tris/Mg²⁺/dNTPs (Owczarzy 2004/2008) and unrounded output via `ThermodynamicsOptions` (FIN-B03 F27).
+- Inosine (Biopython `DNA_IMM1`), strict on missing neighbours (FIN-B03 F26).
+
+**Relation to other NN implementations:** the NN core is shared with `PrimerDesigner` (MolTools) through `ThermoConstants` (`NnParameterSet` switch; B03 R9 resolved by FIN-B03 F26). Mismatched or dangling-end duplexes are available from the same core: `ThermoConstants.CalculateNearestNeighborDuplex(sequence, complement, shift, …)` (Biopython `c_seq` / `shift`, DNA_IMM1 / DNA_TMM1 / DNA_DE1).
 
 **Not implemented:**
 
-- Mismatch, dangling-end, and Mg²⁺/mixed-cation corrections; **users should rely on:** dedicated tools (e.g. MELTING 5, IDT OligoAnalyzer) for those conditions.
+- Mismatch / dangling-end duplexes are not taken by `SequenceStatistics` (perfect complement only); **users should rely on:** `ThermoConstants.CalculateNearestNeighborDuplex(sequence, complement, shift, …)`.
 
 ### 5.4 Deviations and Assumptions
 
@@ -186,7 +204,9 @@ applicable** to this unit.
 | 3 | Non-ACGT characters counted in salt N / terminal init; U not read as T | Deviation | Tm differed from Biopython (e.g. `ACGUACGUACGU` 9.0 vs 38.2) | fixed | 2026-09 B03 F9 |
 | 4 | Self-complementary model missing | Simplification | Tm off by R·ln4 + sym term | fixed | 2026-09 B03 F10 |
 | 5 | Non-positive concentrations returned NaN/−273.2 °C | Deviation | silent non-physical output | fixed (throws) | 2026-09 B03 F11 |
-| 6 | Rounded output (ΔH/ΔS/ΔG 2 dp, Tm 1 dp) | Convention | Biopython returns unrounded Tm | accepted | |
+| 6 | Rounded output (ΔH/ΔS/ΔG 2 dp, Tm 1 dp) | Convention | Biopython returns unrounded Tm | default kept; unrounded via `ThermodynamicsOptions.RoundResults = false` | FIN-B03 F27 |
+| 7 | Inosine silently removed (comment claimed "Biopython raises on I") | Deviation | `ACGTIACGT` scored as `ACGTACGT`; Biopython keeps I (DNA_IMM1): Tm_NN = −3.43074752292074 | fixed (routed to the canonical core; `II` throws like Biopython strict) | FIN-B03 F26 |
+| 8 | Only salt method 5 / Na⁺ | Limitation | no K⁺/Tris/Mg²⁺/dNTP conditions | fixed (`ThermodynamicsOptions`, methods 0–7) | FIN-B03 F27 |
 
 ## 6. Edge Cases and Limitations
 
@@ -196,15 +216,16 @@ applicable** to this unit.
 |------|-------------------|-----------|
 | Empty / length-1 | (0,0,0,0) | No dinucleotide; NN undefined [3]. |
 | Lowercase / mixed case | Same as upper-case | Input upper-cased [3]. |
-| Non-ACGT characters | Removed before scoring (U read as T) | Biopython `_check` [3]. |
+| Non-ACGT characters | Removed before scoring (U read as T); inosine I kept (DNA_IMM1) | Biopython `_check` [3]. |
+| Inosine pair without parameters (`II`) | `ArgumentException` | Biopython `Tm_NN(strict=True)` raises `ValueError` [3]. |
 | Concentration ≤ 0 / NaN / ∞ | `ArgumentOutOfRangeException` | Biopython raises [3]. |
 
 ### 6.2 Limitations
 
 Two-state model only; not valid for sequences dominated by hairpins or partial duplexes.
-No Mg²⁺/mixed-cation correction (method 5 is monovalent-only). Self-complementarity is not
-inferred from the sequence; pass `selfComplementary: true`. Inosine (not in DNA_NN3) is removed
-rather than rejected. Predictions are most accurate for short oligonucleotides under standard buffer.
+The default (method 5) is monovalent-only; Mg²⁺/K⁺/Tris/dNTP conditions need `ThermodynamicsOptions`
+(e.g. method 7, Owczarzy 2008). Self-complementarity is not inferred from the sequence; pass
+`selfComplementary: true`. Predictions are most accurate for short oligonucleotides under standard buffer.
 
 ## 7. Examples and Related Material
 

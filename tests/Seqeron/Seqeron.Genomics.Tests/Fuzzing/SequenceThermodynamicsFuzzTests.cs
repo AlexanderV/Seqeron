@@ -103,6 +103,7 @@ public class SequenceThermodynamicsFuzzTests
     {
         // Biopython MeltingTemp._check(seq, "Tm_NN") normalisation (SEQ-THERMO-001 F9): upper-case,
         // U → T (back-transcribe), keep only A/C/G/T (whitespace, gaps, N, IUPAC, junk removed).
+        // _check also keeps inosine I (DNA_IMM1, FIN-B03 F26); the generators here never produce I.
         string s = new string((seq ?? string.Empty).ToUpperInvariant()
             .Select(c => c == 'U' ? 'T' : c).Where(c => c is 'A' or 'C' or 'G' or 'T').ToArray());
         if (s.Length < 2)
@@ -161,11 +162,19 @@ public class SequenceThermodynamicsFuzzTests
     }
 
     /// <summary>Random arbitrary BMP code points (control chars, null byte, lone surrogate
-    /// halves, unicode) — fuzz fodder whose dinucleotides are absent from the NN table.</summary>
+    /// halves, unicode) — fuzz fodder whose dinucleotides are absent from the NN table.
+    /// Inosine (I/i) is excluded: Biopython <c>_check</c> keeps it and scores it with DNA_IMM1, raising on a
+    /// pair without parameters such as "II" (FIN-B03 F26), which this A/C/G/T oracle does not model; inosine
+    /// is locked against Biopython in the unit tests.</summary>
     private static string RandomBmpChars(Random rng, int length)
     {
         var c = new char[length];
-        for (int i = 0; i < length; i++) c[i] = (char)rng.Next(0x0000, 0x10000);
+        for (int i = 0; i < length; i++)
+        {
+            char ch;
+            do ch = (char)rng.Next(0x0000, 0x10000); while (ch is 'I' or 'i');
+            c[i] = ch;
+        }
         return new string(c);
     }
 

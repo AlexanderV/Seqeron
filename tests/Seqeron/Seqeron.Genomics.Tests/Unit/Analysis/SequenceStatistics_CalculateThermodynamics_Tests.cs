@@ -379,4 +379,171 @@ public class SequenceStatistics_CalculateThermodynamics_Tests
     }
 
     #endregion
+
+    #region Review 2026-10 (FIN-B03 F26–F27) — canonical NN core, inosine, salt methods 0–7, unrounded output
+
+    // All expected values: Biopython 1.88 Bio.SeqUtils.MeltingTemp.Tm_NN (executed 2026-10-14), DNA_NN3,
+    // dnac1 = dnac2 = C_T/2 nM (self-complementary: dnac1 = C_T, dnac2 = 0), Na/K/Tris/Mg/dNTPs in mM.
+    private static readonly SequenceStatistics.ThermodynamicsOptions Unrounded = new() { RoundResults = false };
+
+    // F26 — inosine is kept and scored with DNA_IMM1 (Biopython _check keeps I; the old normaliser dropped it).
+    [TestCase("ACGTIACGT", 0.05, 2.5e-7, 1.3038533109176456)]
+    [TestCase("ACGTIACGT", 0.05, 5e-8, -3.43074752292074)]    // Tm_NN("ACGTIACGT") at Biopython defaults
+    [TestCase("ACGTTIGCA", 0.05, 2.5e-7, 0.13053153848863985)]
+    [TestCase("GGIACCTTGA", 0.05, 2.5e-7, 7.1821158175807795)]
+    [TestCase("CGTTCCAAIGATGTGG", 0.05, 2.5e-7, 38.66233889885234)]
+    [TestCase("acgtiacgt", 0.05, 5e-8, -3.43074752292074)]    // _check upper-cases
+    [TestCase("AI", 0.05, 2.5e-7, -249.26254778339464)]
+    [TestCase("IA", 0.05, 2.5e-7, -347.53865832283657)]
+    public void CalculateThermodynamics_Inosine_MatchesBiopythonTmNnImm1(string seq, double na, double ct, double bioTm)
+    {
+        var rounded = SequenceStatistics.CalculateThermodynamics(seq, na, ct);
+        var exact = SequenceStatistics.CalculateThermodynamics(seq, na, ct, false, Unrounded);
+        Assert.Multiple(() =>
+        {
+            Assert.That(rounded.MeltingTemperature, Is.EqualTo(Math.Round(bioTm, 1)));
+            Assert.That(exact.MeltingTemperature, Is.EqualTo(bioTm).Within(1e-9));
+        });
+    }
+
+    // ΔH°/ΔS° (1 M NaCl) backed out of two Biopython Tm_NN(saltcorr=0) runs at k = 1 µM and 1 mM
+    // (1000·ΔH/T = ΔS + R·ln k); salt-corrected ΔS° = ΔS° + 0.368·(N−1)·ln 0.05 with N counting I.
+    [TestCase("ACGTIACGT", -50.0, -149.21943581334293, -3.7195919824917, 1.3038533109176456)]
+    [TestCase("CGTTCCAAIGATGTGG", -110.1, -320.1364421500187, -10.809682467171967, 38.66233889885234)]
+    public void CalculateThermodynamics_Inosine_EnthalpyEntropyMatchBiopython(
+        string seq, double dH, double dS, double dG, double tm)
+    {
+        var exact = SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, false, Unrounded);
+        var rounded = SequenceStatistics.CalculateThermodynamics(seq);
+        Assert.Multiple(() =>
+        {
+            Assert.That(exact.DeltaH, Is.EqualTo(dH).Within(1e-9));
+            Assert.That(exact.DeltaS, Is.EqualTo(dS).Within(1e-9));
+            Assert.That(exact.DeltaG, Is.EqualTo(dG).Within(1e-9));
+            Assert.That(exact.MeltingTemperature, Is.EqualTo(tm).Within(1e-9));
+            Assert.That(rounded, Is.EqualTo(new SequenceStatistics.ThermodynamicProperties(
+                Math.Round(dH, 2), Math.Round(dS, 2), Math.Round(dG, 2), Math.Round(tm, 1))));
+        });
+    }
+
+    // Biopython 1.88 Tm_NN (strict=True default): ValueError "no thermodynamic data for neighbors 'II/II' available".
+    [TestCase("II")]
+    [TestCase("ACIIGT")]
+    public void CalculateThermodynamics_InosinePairWithoutParameters_ThrowsLikeBiopythonStrict(string seq)
+    {
+        Assert.That(() => SequenceStatistics.CalculateThermodynamics(seq),
+            NUnit.Framework.Throws.ArgumentException.With.Message.Contains("II/II"));
+    }
+
+    [Test]
+    public void CalculateThermodynamics_InosineSelfComplementary_MatchesBiopython()
+    {
+        // Tm_NN("ACGTIACGT", dnac1=250, dnac2=0, selfcomp=True, Na=50) = 3.359792678028157
+        var exact = SequenceStatistics.CalculateThermodynamics("ACGTIACGT", 0.05, 2.5e-7, true, Unrounded);
+        Assert.That(exact.MeltingTemperature, Is.EqualTo(3.359792678028157).Within(1e-9));
+        Assert.That(SequenceStatistics.CalculateThermodynamics("ACGTIACGT", 0.05, 2.5e-7, true).MeltingTemperature,
+            Is.EqualTo(3.4));
+    }
+
+    // F27 — salt_correction methods 0–7 with K⁺/Tris/Mg²⁺/dNTPs on Biopython's worked example, C_T = 250 nM.
+    [TestCase(NnSaltCorrection.None, 50.0, 0.0, 0.0, 0.0, 0.0, 77.61921589084807)]
+    [TestCase(NnSaltCorrection.SchildkrautLifson1965, 50.0, 0.0, 0.0, 0.0, 0.0, 56.02211796282597)]
+    [TestCase(NnSaltCorrection.Wetmur1991, 50.0, 0.0, 0.0, 0.0, 0.0, 55.77410815626324)]
+    [TestCase(NnSaltCorrection.SantaLucia1996, 50.0, 0.0, 0.0, 0.0, 0.0, 61.3563409450483)]
+    [TestCase(NnSaltCorrection.SantaLucia1998Tm, 50.0, 0.0, 0.0, 0.0, 0.0, 62.39716494157949)]
+    [TestCase(NnSaltCorrection.SantaLucia1998Entropy, 50.0, 0.0, 0.0, 0.0, 0.0, 61.9240199979082)]
+    [TestCase(NnSaltCorrection.Owczarzy2004, 50.0, 0.0, 0.0, 0.0, 0.0, 61.375386349394205)]
+    [TestCase(NnSaltCorrection.Owczarzy2008, 50.0, 0.0, 0.0, 0.0, 0.0, 61.375386349394205)]
+    [TestCase(NnSaltCorrection.SchildkrautLifson1965, 50.0, 20.0, 10.0, 1.5, 0.8, 65.07007431795537)]
+    [TestCase(NnSaltCorrection.Wetmur1991, 50.0, 20.0, 10.0, 1.5, 0.8, 64.23518641098408)]
+    [TestCase(NnSaltCorrection.SantaLucia1996, 50.0, 20.0, 10.0, 1.5, 0.8, 68.16956109198308)]
+    [TestCase(NnSaltCorrection.SantaLucia1998Tm, 50.0, 20.0, 10.0, 1.5, 0.8, 68.77433899911044)]
+    [TestCase(NnSaltCorrection.SantaLucia1998Entropy, 50.0, 20.0, 10.0, 1.5, 0.8, 68.32519243488775)]
+    [TestCase(NnSaltCorrection.Owczarzy2004, 50.0, 20.0, 10.0, 1.5, 0.8, 70.40066503149728)]
+    [TestCase(NnSaltCorrection.Owczarzy2008, 50.0, 20.0, 10.0, 1.5, 0.8, 67.73409261682195)]
+    [TestCase(NnSaltCorrection.Owczarzy2008, 0.0, 0.0, 0.0, 3.0, 0.0, 69.36483747600732)]
+    [TestCase(NnSaltCorrection.Owczarzy2008, 10.0, 0.0, 0.0, 10.0, 1.0, 70.46114270478546)]
+    public void CalculateThermodynamics_SaltMethods_MatchBiopythonTmNn(
+        NnSaltCorrection method, double naMm, double kMm, double trisMm, double mgMm, double dntpMm, double bioTm)
+    {
+        var options = new SequenceStatistics.ThermodynamicsOptions
+        {
+            SaltCorrection = method,
+            PotassiumConcentration = kMm / 1000,
+            TrisConcentration = trisMm / 1000,
+            MagnesiumConcentration = mgMm / 1000,
+            DntpConcentration = dntpMm / 1000,
+        };
+        const string seq = "CGTTCCAAAGATGTGGGCATGAGCTTAC";
+        var rounded = SequenceStatistics.CalculateThermodynamics(seq, naMm / 1000, 2.5e-7, false, options);
+        var exact = SequenceStatistics.CalculateThermodynamics(seq, naMm / 1000, 2.5e-7, false,
+            options with { RoundResults = false });
+        Assert.Multiple(() =>
+        {
+            Assert.That(exact.MeltingTemperature, Is.EqualTo(bioTm).Within(1e-9));
+            Assert.That(rounded.MeltingTemperature, Is.EqualTo(Math.Round(bioTm, 1)));
+            // ΔH° / ΔS° (1 M NaCl: −222.9 / −602.5, backed out of Tm_NN) are salt-independent except method 5.
+            Assert.That(exact.DeltaH, Is.EqualTo(-222.9).Within(1e-9));
+            if (method != NnSaltCorrection.SantaLucia1998Entropy)
+                Assert.That(exact.DeltaS, Is.EqualTo(-602.5).Within(1e-9));
+            Assert.That(exact.DeltaG, Is.EqualTo(exact.DeltaH - 310.15 * exact.DeltaS / 1000).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void CalculateThermodynamics_SelfComplementaryOwczarzy2008Mg_MatchesBiopython()
+    {
+        // Tm_NN("GCGCATGCGC", dnac1=250, dnac2=0, selfcomp=True, saltcorr=7, Na=50, Mg=2) = 51.99165540136477
+        var options = new SequenceStatistics.ThermodynamicsOptions
+        {
+            SaltCorrection = NnSaltCorrection.Owczarzy2008, MagnesiumConcentration = 0.002, RoundResults = false
+        };
+        var exact = SequenceStatistics.CalculateThermodynamics("GCGCATGCGC", 0.05, 2.5e-7, true, options);
+        Assert.That(exact.MeltingTemperature, Is.EqualTo(51.99165540136477).Within(1e-9));
+    }
+
+    [Test]
+    public void CalculateThermodynamics_DefaultOptions_EqualFourArgumentOverload()
+    {
+        var rng = new Random(2610);
+        const string alphabet = "ACGTacgtUN";
+        for (int i = 0; i < 500; i++)
+        {
+            var chars = new char[rng.Next(0, 40)];
+            for (int j = 0; j < chars.Length; j++) chars[j] = alphabet[rng.Next(alphabet.Length)];
+            string seq = new(chars);
+            bool self = rng.Next(2) == 0;
+            Assert.That(SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, self, null),
+                Is.EqualTo(SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, self)), seq);
+            var exact = SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, self, Unrounded);
+            var rounded = SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, self);
+            Assert.That(Math.Round(exact.MeltingTemperature, 1), Is.EqualTo(rounded.MeltingTemperature), seq);
+            Assert.That(Math.Round(exact.DeltaS, 2), Is.EqualTo(rounded.DeltaS), seq);
+        }
+    }
+
+    [Test]
+    public void CalculateThermodynamics_Options_InvalidInputs_Throw()
+    {
+        const string seq = "ACGTACGTACGT";
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, false,
+                new SequenceStatistics.ThermodynamicsOptions { PotassiumConcentration = -0.01 }),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(() => SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, false,
+                new SequenceStatistics.ThermodynamicsOptions { MagnesiumConcentration = double.NaN }),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(() => SequenceStatistics.CalculateThermodynamics(seq, 0.05, 2.5e-7, false,
+                new SequenceStatistics.ThermodynamicsOptions { SaltCorrection = (NnSaltCorrection)8 }),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.That(() => SequenceStatistics.CalculateThermodynamics(seq, 0.05, 0, false, null),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>());
+            // Biopython salt_correction: "Total ion concentration of zero is not allowed in this method."
+            Assert.That(() => SequenceStatistics.CalculateThermodynamics(seq, 0, 2.5e-7, false, null),
+                NUnit.Framework.Throws.ArgumentException);
+        });
+    }
+
+    #endregion
 }
