@@ -6,7 +6,7 @@
 | Test Unit ID | CODON-STATS-001 |
 | Related Projects | Seqeron.Genomics.MolTools |
 | Implementation Status | Production |
-| Last Reviewed | 2026-09-28 |
+| Last Reviewed | 2026-10-14 |
 
 ## 1. Overview
 
@@ -26,6 +26,8 @@ The genetic code is degenerate: most amino acids are encoded by several synonymo
 - **GC1/GC2/GC3:** the fraction (here ×100) of in-frame codons with G or C at codon position 1, 2, 3 respectively ("1st/2nd/3rd letter GC"), over all valid codons including termination codons, as EMBOSS `cusp` (`ajcod.c`) [5] — the default. CodonW's GC/GC1-3 exclude stop codons (`codon_us.c gc_out`: `if (pcu->ca[id] == 11) continue;`, denominator `Len_aa`), so the two differ only for genes containing stops; `CodonGcConvention.CodonW` selects CodonW's convention (stops of the selected genetic code excluded; `OverallGc` then equals CodonW's `GC` index) [2].
 - **GC3s:** "the frequency of G or C nucleotides present at the third position of synonymous codons (i.e. excluding Met, Trp and termination codons)" — it counts only codons whose amino acid has more than one codon **in the selected genetic code** (CodonW 1.4.4 `gc_out`/`how_synon`, `-code`) [2].
 - **CAI** (Sharp & Li 1987): relative adaptiveness `w_i = f_i / max(f_j)` over a codon's synonymous family in a reference set; `CAI = (∏_{i=1}^{L} w_i)^{1/L} = exp[(1/L) Σ ln w_i]`. Non-synonymous (single-codon Met, Trp) and termination codons are excluded [1][3][4].
+- **Fop** (Ikemura 1981; opt-in): `Fop = N_opt / N_tot`, the fraction of optimal codons among the codons of the amino acids that have > 1 codon in the genetic code (stops excluded) and at least one optimal codon. CodonW's modified index `(N_opt − N_rare)/N_tot` additionally scores amino acids with a rare codon and is not clamped [3][10].
+- **CBI** (Bennetzen & Hall 1982; opt-in): `CBI = (N_opt − N_ran)/(N_tot − N_ran)`, `N_ran = Σ_aa n_aa·k_aa/d_aa` (k_aa of the d_aa codons of the amino acid optimal) over the same amino acids; 1 = only optimal codons, ≈ 0 = random, < 0 = optimal codons avoided [3][11]. Both follow CodonW 1.4.4 `fop_out`/`cbi_out`; optimal-codon sets are CodonW's built-in `-f_type` sets (default *E. coli*) or user-supplied.
 
 ### 2.3 Modeling Assumptions
 
@@ -106,6 +108,9 @@ No substring search / pattern matching is involved, so the repository suffix tre
 **Implementation location:** [CodonUsageAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs)
 
 - `CodonUsageAnalyzer.GetStatistics(string|DnaSequence[, GeneticCode])`: returns the `CodonUsageStatistics` record (default code: NCBI table 1; EMBOSS cusp GC convention).
+- `CodonUsageAnalyzer.CalculateFop` / `TryCalculateFop(string|DnaSequence[, out double], IReadOnlySet<string>? optimalCodons = null, GeneticCode? code = null, IReadOnlySet<string>? rareCodons = null)` and `CalculateCbi` / `TryCalculateCbi(…, optimalCodons, code)`: CodonW 1.4.4 Fop and CBI (null optimal set = CodonW default E. coli; non-null `rareCodons` = modified Fop).
+- `CodonUsageAnalyzer.GetStatistics(string, GeneticCode, CodonGcConvention, IReadOnlySet<string>? fopCbiOptimalCodons)`: statistics with `Fop`/`Cbi` filled (null when not calculable); other overloads leave them null.
+- `CodonWOptimalCodonSets` (`EscherichiaColi` … `NeurosporaCrassa`, `All`, `TryGetByName`): CodonW's built-in sets (codonW.h `fop[]`, `-f_type 0..7`) with their literature references.
 - `CodonUsageAnalyzer.GetStatistics(string|DnaSequence, GeneticCode, CodonGcConvention)`: same, with the GC1/GC2/GC3 convention selectable (review 2026-09 F37); MCP `codon_usage_statistics` parameter `gc_convention` (`EmbossCusp` default | `CodonW`).
 - `CodonUsageAnalyzer.CalculateCai(string|DnaSequence, Dictionary<string,double>)`: returns CAI in [0,1].
 - `CodonUsageAnalyzer.EColiOptimalCodons` / `HumanOptimalCodons`: reference tables.
@@ -123,6 +128,7 @@ GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codon
 - GC3s over synonymous third positions excluding Met/Trp/stop [2].
 - GC1/GC2/GC3 as per-position G/C content [5]; RSCU per Sharp et al. 1986 [8]; ENC per Wright 1990 [9].
 - E. coli reference w values transcribed from Sharp & Li 1987 / Biopython [1][6].
+- Fop = N_opt/N_tot [10] and CBI = (N_opt − N_ran)/(N_tot − N_ran), N_ran = Σ_aa n_aa·k_aa/d_aa [11], exactly as CodonW 1.4.4 `fop_out`/`cbi_out` [3]: scored amino acids are those with > 1 codon in the genetic code, not stop, with ≥ 1 optimal codon; CodonW's 8 built-in optimal-codon sets (`-f_type`, `CodonWOptimalCodonSets`) and the modified Fop (N_opt − N_rare)/N_tot (review 2026-09 B02 F61, A3-13).
 
 **Intentionally simplified:**
 
@@ -130,7 +136,7 @@ GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codon
 
 **Not implemented:**
 
-- Per-amino-acid "optimal codon" lists, Fop, CBI, GC skew; **users should rely on:** dedicated CodonW/EMBOSS tools or future units.
+- GC skew; **users should rely on:** `GcSkewCalculator` (Analysis module; not a codon-usage index).
 
 ### 5.4 Deviations and Assumptions
 
@@ -142,6 +148,9 @@ GC1/GC2/GC3 and GC3s are reported as percentages (0–100). GC3s uses only codon
 | 1b | GC3s ignored `GeneticCode` (table 1 only) | Defect | wrong GC3s/RSCU/ENC for non-standard codes | fixed 2026-09 | `GetStatistics(…, GeneticCode)`, CODON-STATS-001 F18 |
 | 2 | zero-w codon skipped | Deviation | edge-case CAI on absent codons | resolved 2026-09 | now w < 0.0001 → 0.01 (CodonW/seqinr/Bulmer 1988), CODON-CAI-001 F13 |
 | 3 | reference tables replaced | Deviation (fix) | prior values untraceable | fixed | now Sharp&Li 1987 / Kazusa |
+| 4 | Fop/CBI not calculable (no scored codon; CBI also N_tot = N_ran) | Convention | Met/Trp/stop-only genes, all-optimal families | resolved 2026-09 (A3-13) | CodonW prints 0.000; `TryCalculateFop/TryCalculateCbi` return false, `Calculate*` 0, `GetStatistics(…, optimalCodons)` null |
+| 5 | modified Fop not clamped | Reference behaviour | genes rich in rare codons | reproduced | CodonW's comment says negative values are set to 0 but `fop_out` does not clamp; the binary prints negative values (locked) |
+| 6 | CodonW float arithmetic, 3 dp output | Precision | last printed digit | accepted | C# computes in double; locked to ±0.0005 on 7 280 binary values (0 mismatches) |
 
 ## 6. Edge Cases and Limitations
 
@@ -171,13 +180,17 @@ var stats = CodonUsageAnalyzer.GetStatistics("CTGGTTAAA");
 // stats.TotalCodons == 3; stats.Gc1 ≈ 66.6667; stats.Gc2 == 0; stats.Gc3 ≈ 33.3333
 double cai = CodonUsageAnalyzer.CalculateCai("GCTGCC", CodonUsageAnalyzer.EColiOptimalCodons);
 // cai == sqrt(1 * 0.122) == 0.34928498393146 (Ala GCT w=1, GCC w=0.122)
+double fop = CodonUsageAnalyzer.CalculateFop("ATGCTGCTGCTGCTGAAAAAGTTTTTCGGCGGTGGATAA");
+// fop == 8/11 (CodonW 0.727): CTG×4, AAA, TTC, GGC, GGT optimal of 11 Leu/Lys/Phe/Gly codons
+double cbi = CodonUsageAnalyzer.CalculateCbi("ATGCTGCTGCTGCTGAAAAAGTTTTTCGGCGGTGGATAA");
+// N_ran = 4/6 + 2/2 + 2/2 + 3·2/4 = 25/6 ⇒ cbi == (8 − 25/6)/(11 − 25/6) == 23/41 (CodonW 0.561)
 ```
 
 **Numerical walk-through:** `ATGGCA` → Met (ATG) excluded from GC3s; Ala (GCA) third base = A (not G/C) ⇒ GC3s = 0/1 = 0%, whereas GC3 over all positions = (G of ATG, A of GCA) = 1/2 = 50%. This is exactly the Met/Trp/stop exclusion of Peden §1.8.2.1.3 [2].
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [CodonUsageAnalyzer_GetStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_GetStatistics_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [CodonUsageAnalyzer_GetStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_GetStatistics_Tests.cs) — covers `INV-01`..`INV-06`; [CodonUsageAnalyzer_FopCbi_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_FopCbi_Tests.cs) — Fop/CBI vs the CodonW 1.4.4 binary
 - Evidence: [CODON-STATS-001-Evidence.md](../../../docs/Evidence/CODON-STATS-001-Evidence.md)
 - Related algorithms: [Relative_Synonymous_Codon_Usage](Relative_Synonymous_Codon_Usage.md), [Effective_Number_of_Codons](Effective_Number_of_Codons.md)
 
@@ -192,3 +205,5 @@ double cai = CodonUsageAnalyzer.CalculateCai("GCTGCC", CodonUsageAnalyzer.EColiO
 7. Nakamura Y, Gojobori T, Ikemura T. 2000. Codon usage tabulated from international DNA sequence databases. Nucleic Acids Research 28(1):292. Kazusa, Homo sapiens [gbpri]. https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=9606
 8. Sharp PM, Tuohy TMF, Mosurski KR. 1986. Codon usage in yeast. Nucleic Acids Research 14(13):5125–5143. https://doi.org/10.1093/nar/14.13.5125
 9. Wright F. 1990. The 'effective number of codons' used in a gene. Gene 87(1):23–29. https://doi.org/10.1016/0378-1119(90)90491-9
+10. Ikemura T. 1981. Correlation between the abundance of Escherichia coli transfer RNAs and the occurrence of the respective codons in its protein genes: a proposal for a synonymous codon choice that is optimal for the E. coli translational system. Journal of Molecular Biology 151(3):389–409. https://doi.org/10.1016/0022-2836(81)90003-6
+11. Bennetzen JL, Hall BD. 1982. Codon selection in yeast. Journal of Biological Chemistry 257(6):3026–3031. https://doi.org/10.1016/S0021-9258(19)81068-2

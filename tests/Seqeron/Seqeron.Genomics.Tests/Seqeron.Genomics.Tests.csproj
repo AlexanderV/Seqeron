@@ -38,6 +38,9 @@
     <!-- CODON-RSCU-001 (FIN-B02 WP21, A3-4): cubar est_rscu(level = "subfam", incl_stop = TRUE, pseudo_cnt = 0/0.5/1)
          for the same 7 genes × NCBI tables 1/2 (all 64 codons, independent port of cubar @350b295); see the file header. -->
     <EmbeddedResource Include="TestData\Codon\cubar_rscu_subfam.tsv" />
+    <!-- CODON-STATS-001 (FIN-B02 WP23, A3-13): CodonW 1.4.4 binary -fop/-cbi printed values for 70 genes × the 8 built-in
+         -f_type sets + 3 user -fop_file/-cbi_file sets × -code 0..7 (NCBI 1,2,3,4,5,6,10,9), incl. the modified Fop; see the file header. -->
+    <EmbeddedResource Include="TestData\Codon\codonw_fop_cbi.tsv" />
     <!-- TRANS-SIXFRAME-001 (FIN-B02 WP17, A2-10): EMBOSS 6.6.0 transeq binary output, -frame 6, tables 1/2/11,
          -alternative N (phase-locked default) and Y, over 80 unambiguous sequences; see the file header. -->
     <EmbeddedResource Include="TestData\Transeq\transeq_six_frames.tsv" />

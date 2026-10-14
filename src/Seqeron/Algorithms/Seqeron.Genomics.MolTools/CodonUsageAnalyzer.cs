@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace Seqeron.Genomics.MolTools;
 
 /// <summary>
@@ -1176,6 +1178,261 @@ public static class CodonUsageAnalyzer
 
     #endregion
 
+    #region Fop and CBI (CodonW 1.4.4)
+
+    /// <summary>
+    /// Frequency of optimal codons (Fop, Ikemura 1981) of a coding sequence. See
+    /// <see cref="TryCalculateFop(string, out double, IReadOnlySet{string}?, GeneticCode?, IReadOnlySet{string}?)"/>.
+    /// </summary>
+    /// <returns>Fop, or 0 when it cannot be calculated (CodonW prints 0.000).</returns>
+    public static double CalculateFop(
+        string sequence,
+        IReadOnlySet<string>? optimalCodons = null,
+        GeneticCode? code = null,
+        IReadOnlySet<string>? rareCodons = null)
+    {
+        TryCalculateFop(sequence, out double fop, optimalCodons, code, rareCodons);
+        return fop;
+    }
+
+    /// <summary>
+    /// Frequency of optimal codons of a coding sequence. See
+    /// <see cref="TryCalculateFop(string, out double, IReadOnlySet{string}?, GeneticCode?, IReadOnlySet{string}?)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static double CalculateFop(
+        DnaSequence sequence,
+        IReadOnlySet<string>? optimalCodons = null,
+        GeneticCode? code = null,
+        IReadOnlySet<string>? rareCodons = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return CalculateFop(sequence.Sequence, optimalCodons, code, rareCodons);
+    }
+
+    /// <summary>
+    /// Tries to calculate the frequency of optimal codons (Fop, Ikemura 1981) exactly as CodonW
+    /// 1.4.4 <c>-fop</c> (Peden 1999, codon_us.c <c>fop_out</c>):
+    /// <c>Fop = N_opt / N_tot</c> over the synonymous codons of the amino acids that have at least
+    /// one optimal codon.
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item>Only amino acids with more than one codon in <paramref name="code"/> are scored;
+    /// termination codons and single-codon amino acids (Met, Trp in the Standard code) are
+    /// excluded, as are amino acids none of whose codons is optimal (CodonW <c>has_opt_info</c>:
+    /// <c>if (pcu-&gt;ca[x] == 11 || ds[x] == 1) continue;</c>). Optimal codons listed for a stop
+    /// or single-codon family are ignored. Families follow <paramref name="code"/> (CodonW
+    /// <c>-code</c>; CodonW codes 0–7 = NCBI tables 1, 2, 3, 4, 5, 6, 10, 9).</item>
+    /// <item><paramref name="optimalCodons"/> null = CodonW's default set,
+    /// <see cref="CodonWOptimalCodonSets.EscherichiaColi"/> (Ikemura 1985); see
+    /// <see cref="CodonWOptimalCodonSets"/> for CodonW's other built-in sets (<c>-f_type</c>). A
+    /// user set corresponds to CodonW <c>-fop_file</c>. Codons may be DNA or RNA, any case.</item>
+    /// <item><paramref name="rareCodons"/> non-null selects CodonW's modified index
+    /// <c>Fop = (N_opt − N_rare) / N_tot</c> (offered interactively by CodonW when the codon set
+    /// contains non-optimal "rare" codons, e.g. <see cref="CodonWOptimalCodonSets.BacillusSubtilis"/>);
+    /// amino acids with a rare but no optimal codon are then scored too. As in CodonW's code the
+    /// modified value is not clamped and can be negative. Null (default) = the original index,
+    /// which is always in [0, 1].</item>
+    /// <item>Returns <c>false</c> (and 0, the value CodonW prints) when no codon of a scored
+    /// amino acid occurs (N_tot = 0), e.g. a Met/Trp-only gene, and for null/empty input.</item>
+    /// <item>Input is read like <see cref="CountCodons(string)"/> (frame 0, case-insensitive DNA or
+    /// RNA, ambiguous triplets skipped, trailing partial triplet ignored).</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="sequence">Coding sequence (frame 0).</param>
+    /// <param name="fop">Fop when calculable; otherwise 0.</param>
+    /// <param name="optimalCodons">Optimal codons; null = CodonW's default E. coli set.</param>
+    /// <param name="code">Genetic code; null = Standard (NCBI table 1).</param>
+    /// <param name="rareCodons">Rare (non-optimal) codons for the modified Fop; null = original Fop.</param>
+    /// <returns><c>true</c> when Fop could be calculated.</returns>
+    /// <exception cref="ArgumentException">A codon is not a 3-letter A/C/G/T(U) codon, or a codon is
+    /// both optimal and rare.</exception>
+    public static bool TryCalculateFop(
+        string sequence,
+        out double fop,
+        IReadOnlySet<string>? optimalCodons = null,
+        GeneticCode? code = null,
+        IReadOnlySet<string>? rareCodons = null)
+    {
+        var optimal = NormalizeCodonSet(optimalCodons, nameof(optimalCodons))
+            ?? CodonWOptimalCodonSets.EscherichiaColi.OptimalCodons;
+        var rare = NormalizeCodonSet(rareCodons, nameof(rareCodons));
+        if (rare is not null && optimal.Any(rare.Contains))
+            throw new ArgumentException("A codon cannot be both optimal and rare.", nameof(rareCodons));
+
+        fop = 0;
+        if (string.IsNullOrEmpty(sequence)) return false;
+        var counts = CountCodonsCore(sequence);
+
+        long opt = 0, nonOpt = 0, total = 0;
+        foreach (var family in ScoredFamilies(code ?? GeneticCode.Standard))
+        {
+            // CodonW has_opt_info: an optimal codon (or, for the modified index, a rare one).
+            if (!family.Any(c => optimal.Contains(c) || (rare is not null && rare.Contains(c))))
+                continue;
+            foreach (var codon in family)
+            {
+                int n = counts.GetValueOrDefault(codon);
+                total += n;
+                if (optimal.Contains(codon)) opt += n;
+                else if (rare is not null && rare.Contains(codon)) nonOpt += n;
+            }
+        }
+
+        if (total == 0) return false;
+        fop = (double)(rare is null ? opt : opt - nonOpt) / total;
+        return true;
+    }
+
+    /// <summary>
+    /// Tries to calculate Fop of a coding sequence. See
+    /// <see cref="TryCalculateFop(string, out double, IReadOnlySet{string}?, GeneticCode?, IReadOnlySet{string}?)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static bool TryCalculateFop(
+        DnaSequence sequence,
+        out double fop,
+        IReadOnlySet<string>? optimalCodons = null,
+        GeneticCode? code = null,
+        IReadOnlySet<string>? rareCodons = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return TryCalculateFop(sequence.Sequence, out fop, optimalCodons, code, rareCodons);
+    }
+
+    /// <summary>
+    /// Codon bias index (CBI, Bennetzen &amp; Hall 1982) of a coding sequence. See
+    /// <see cref="TryCalculateCbi(string, out double, IReadOnlySet{string}?, GeneticCode?)"/>.
+    /// </summary>
+    /// <returns>CBI, or 0 when it cannot be calculated (CodonW prints 0.000).</returns>
+    public static double CalculateCbi(
+        string sequence,
+        IReadOnlySet<string>? optimalCodons = null,
+        GeneticCode? code = null)
+    {
+        TryCalculateCbi(sequence, out double cbi, optimalCodons, code);
+        return cbi;
+    }
+
+    /// <summary>
+    /// Codon bias index of a coding sequence. See
+    /// <see cref="TryCalculateCbi(string, out double, IReadOnlySet{string}?, GeneticCode?)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static double CalculateCbi(
+        DnaSequence sequence,
+        IReadOnlySet<string>? optimalCodons = null,
+        GeneticCode? code = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return CalculateCbi(sequence.Sequence, optimalCodons, code);
+    }
+
+    /// <summary>
+    /// Tries to calculate the codon bias index (CBI, Bennetzen &amp; Hall 1982) exactly as CodonW
+    /// 1.4.4 <c>-cbi</c> (Peden 1999, codon_us.c <c>cbi_out</c>):
+    /// <c>CBI = (N_opt − N_ran) / (N_tot − N_ran)</c>, with N_ran = Σ_aa n_aa·k_aa/d_aa the
+    /// expected number of optimal codons under random synonymous usage (n_aa codons of the amino
+    /// acid, k_aa of its d_aa synonymous codons optimal).
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item>N_opt, N_tot and N_ran are taken over the same amino acids as Fop: more than one
+    /// codon in <paramref name="code"/>, not a stop, at least one optimal codon (see
+    /// <see cref="TryCalculateFop(string, out double, IReadOnlySet{string}?, GeneticCode?, IReadOnlySet{string}?)"/>).
+    /// Rare codons play no part in CBI (CodonW treats them as common).</item>
+    /// <item>CBI = 1 for exclusive use of optimal codons, ≈ 0 for random usage and is negative
+    /// when optimal codons are used less than expected by chance.</item>
+    /// <item><paramref name="optimalCodons"/> null = CodonW's default
+    /// <see cref="CodonWOptimalCodonSets.EscherichiaColi"/> (CodonW uses the same set for Fop and
+    /// CBI, <c>-f_type</c>; a user set corresponds to <c>-cbi_file</c>).</item>
+    /// <item>Returns <c>false</c> (and 0, the value CodonW prints) when N_tot = N_ran — no codon of
+    /// a scored amino acid occurs, or every scored amino acid has only optimal codons — and for
+    /// null/empty input.</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="sequence">Coding sequence (frame 0).</param>
+    /// <param name="cbi">CBI when calculable; otherwise 0.</param>
+    /// <param name="optimalCodons">Optimal codons; null = CodonW's default E. coli set.</param>
+    /// <param name="code">Genetic code; null = Standard (NCBI table 1).</param>
+    /// <returns><c>true</c> when CBI could be calculated.</returns>
+    /// <exception cref="ArgumentException">A codon is not a 3-letter A/C/G/T(U) codon.</exception>
+    public static bool TryCalculateCbi(
+        string sequence,
+        out double cbi,
+        IReadOnlySet<string>? optimalCodons = null,
+        GeneticCode? code = null)
+    {
+        var optimal = NormalizeCodonSet(optimalCodons, nameof(optimalCodons))
+            ?? CodonWOptimalCodonSets.EscherichiaColi.OptimalCodons;
+
+        cbi = 0;
+        if (string.IsNullOrEmpty(sequence)) return false;
+        var counts = CountCodonsCore(sequence);
+
+        long opt = 0, total = 0;
+        double expected = 0;
+        foreach (var family in ScoredFamilies(code ?? GeneticCode.Standard))
+        {
+            int k = family.Count(optimal.Contains);
+            if (k == 0) continue;
+            long n = 0;
+            foreach (var codon in family)
+            {
+                int c = counts.GetValueOrDefault(codon);
+                n += c;
+                if (optimal.Contains(codon)) opt += c;
+            }
+            total += n;
+            expected += (double)n * k / family.Count; // CodonW: Σ over optimal codons of naa/da
+        }
+
+        double denominator = total - expected;
+        if (Math.Abs(denominator) < 1e-9) return false;
+        cbi = (opt - expected) / denominator;
+        return true;
+    }
+
+    /// <summary>
+    /// Tries to calculate CBI of a coding sequence. See
+    /// <see cref="TryCalculateCbi(string, out double, IReadOnlySet{string}?, GeneticCode?)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static bool TryCalculateCbi(
+        DnaSequence sequence,
+        out double cbi,
+        IReadOnlySet<string>? optimalCodons = null,
+        GeneticCode? code = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return TryCalculateCbi(sequence.Sequence, out cbi, optimalCodons, code);
+    }
+
+    // Synonymous families scored by CodonW Fop/CBI: sense amino acids with more than one codon.
+    private static IEnumerable<List<string>> ScoredFamilies(GeneticCode code) =>
+        SynonymousFamilies(code)
+            .Where(family => family.Key != '*')
+            .Select(family => family.ToList())
+            .Where(family => family.Count > 1);
+
+    // Upper-case DNA spelling of a user codon set; null stays null.
+    private static IReadOnlySet<string>? NormalizeCodonSet(IReadOnlySet<string>? codons, string paramName)
+    {
+        if (codons is null) return null;
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var raw in codons)
+        {
+            string c = (raw ?? string.Empty).Trim().ToUpperInvariant().Replace('U', 'T');
+            if (c.Length != 3 || c.Any(b => b is not ('A' or 'C' or 'G' or 'T')))
+                throw new ArgumentException($"Invalid codon '{raw}': expected three of A, C, G, T/U.", paramName);
+            result.Add(c);
+        }
+        return result;
+    }
+
+    #endregion
+
     #region Codon Usage Statistics
 
     /// <summary>
@@ -1285,6 +1542,33 @@ public static class CodonUsageAnalyzer
         return GetStatisticsCore(CountCodonsCore(sequence), code, gcConvention);
     }
 
+    /// <summary>
+    /// Gets codon usage statistics (as <see cref="GetStatistics(string, GeneticCode, CodonGcConvention)"/>)
+    /// together with CodonW's Fop and CBI indices (opt-in): <see cref="CodonUsageStatistics.Fop"/> =
+    /// <see cref="TryCalculateFop(string, out double, IReadOnlySet{string}?, GeneticCode?, IReadOnlySet{string}?)"/>,
+    /// <see cref="CodonUsageStatistics.Cbi"/> =
+    /// <see cref="TryCalculateCbi(string, out double, IReadOnlySet{string}?, GeneticCode?)"/>, each
+    /// <c>null</c> when not calculable.
+    /// </summary>
+    /// <param name="sequence">Coding sequence (frame 0).</param>
+    /// <param name="code">Genetic code.</param>
+    /// <param name="gcConvention">Convention for GC1/GC2/GC3.</param>
+    /// <param name="fopCbiOptimalCodons">Optimal codons for Fop/CBI; null = CodonW's default
+    /// <see cref="CodonWOptimalCodonSets.EscherichiaColi"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="gcConvention"/> is not defined.</exception>
+    /// <exception cref="ArgumentException">An optimal codon is not a 3-letter A/C/G/T(U) codon.</exception>
+    public static CodonUsageStatistics GetStatistics(
+        string sequence, GeneticCode code, CodonGcConvention gcConvention, IReadOnlySet<string>? fopCbiOptimalCodons)
+    {
+        var statistics = GetStatistics(sequence, code, gcConvention);
+        return statistics with
+        {
+            Fop = TryCalculateFop(sequence, out double fop, fopCbiOptimalCodons, code) ? fop : null,
+            Cbi = TryCalculateCbi(sequence, out double cbi, fopCbiOptimalCodons, code) ? cbi : null,
+        };
+    }
+
     private static void ValidateGcConvention(CodonGcConvention gcConvention)
     {
         if (gcConvention is not (CodonGcConvention.EmbossCusp or CodonGcConvention.CodonW))
@@ -1370,6 +1654,124 @@ public readonly record struct CodonUsageStatistics(
     /// <see cref="CodonUsageAnalyzer.TryCalculateEnc(string, GeneticCode, out double)"/>.
     /// </summary>
     public bool IsEncCalculable => Enc > 0;
+
+    /// <summary>
+    /// Frequency of optimal codons (CodonW <c>-fop</c>); <c>null</c> unless requested via
+    /// <see cref="CodonUsageAnalyzer.GetStatistics(string, GeneticCode, CodonGcConvention, IReadOnlySet{string}?)"/>
+    /// and calculable. See <see cref="CodonUsageAnalyzer.TryCalculateFop(string, out double, IReadOnlySet{string}?, GeneticCode?, IReadOnlySet{string}?)"/>.
+    /// </summary>
+    public double? Fop { get; init; }
+
+    /// <summary>
+    /// Codon bias index (CodonW <c>-cbi</c>); <c>null</c> unless requested via
+    /// <see cref="CodonUsageAnalyzer.GetStatistics(string, GeneticCode, CodonGcConvention, IReadOnlySet{string}?)"/>
+    /// and calculable. See <see cref="CodonUsageAnalyzer.TryCalculateCbi(string, out double, IReadOnlySet{string}?, GeneticCode?)"/>.
+    /// </summary>
+    public double? Cbi { get; init; }
+}
+
+/// <summary>
+/// One of CodonW 1.4.4's built-in optimal-codon sets for Fop and CBI (codonW.h <c>fop[]</c>,
+/// selected with <c>-f_type</c>): codons marked 3 (optimal) and 1 (rare / non-optimal) in
+/// CodonW's table; every other codon is "common" (2).
+/// </summary>
+/// <param name="Organism">Organism name as given by CodonW.</param>
+/// <param name="Reference">Literature source cited by CodonW for the set.</param>
+/// <param name="CodonWFType">CodonW <c>-f_type</c> index (0 = default).</param>
+/// <param name="OptimalCodons">Optimal codons (DNA spelling, upper case).</param>
+/// <param name="RareCodons">Rare codons (empty for every set except B. subtilis).</param>
+public sealed record CodonWOptimalCodonSet(
+    string Organism,
+    string Reference,
+    int CodonWFType,
+    IReadOnlySet<string> OptimalCodons,
+    IReadOnlySet<string> RareCodons);
+
+/// <summary>
+/// CodonW 1.4.4's built-in optimal-codon sets (Peden 1999; codonW.h <c>FOP_STRUCT fop[]</c>,
+/// transcribed codon by codon from CodonW's 64-value tables; <c>-f_type 0..7</c>). Used by
+/// <see cref="CodonUsageAnalyzer.TryCalculateFop(string, out double, IReadOnlySet{string}?, GeneticCode?, IReadOnlySet{string}?)"/>
+/// and <see cref="CodonUsageAnalyzer.TryCalculateCbi(string, out double, IReadOnlySet{string}?, GeneticCode?)"/>.
+/// </summary>
+public static class CodonWOptimalCodonSets
+{
+    private static CodonWOptimalCodonSet Create(string organism, string reference, int fType, string optimal, string rare = "") =>
+        new(organism, reference, fType,
+            optimal.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToFrozenSet(StringComparer.Ordinal),
+            rare.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToFrozenSet(StringComparer.Ordinal));
+
+    /// <summary><i>Escherichia coli</i> — Ikemura (1985) Mol. Biol. Evol. 2:13-34 (updated by INCBI 1991); CodonW's default (<c>-f_type 0</c>).</summary>
+    public static CodonWOptimalCodonSet EscherichiaColi { get; } = Create(
+        "Escherichia coli", "Ikemura (1985) Mol. Biol. Evol. 2:13-34 (updated by INCBI 1991)", 0,
+        "AAA AAC ACC ACT AGC ATC CAC CAG CCG CGC CGT CTG GAA GAC GCG GCT GGC GGT GTT TAC TCC TCT TGC TTC");
+
+    /// <summary><i>Bacillus subtilis</i> — Sharp et al. (1990) Genetics &amp; Biotech of Bacilli vol 3 pp 89-98 (<c>-f_type 1</c>; the only set with rare codons).</summary>
+    public static CodonWOptimalCodonSet BacillusSubtilis { get; } = Create(
+        "Bacillus subtilis", "Sharp et al (1990) Genetics & Biotech of Bacilli vol3 pp89-98", 1,
+        "AAA AAC ACT ATC CAA CCA CCT CGC CGT CTT GAA GAC GCT GGT GTA GTT TAC TCT TTC",
+        "ACC AGG ATA CCC CGA CGG GCC GGG TCC TCG");
+
+    /// <summary><i>Dictyostelium discoideum</i> — Sharp &amp; Devine (1989) Nucl. Acids Res. 17:5029-5039 (<c>-f_type 2</c>).</summary>
+    public static CodonWOptimalCodonSet DictyosteliumDiscoideum { get; } = Create(
+        "Dictyostelium discoideum", "Sharp and Devine (1989) Nucl. Acids Res 17:5029-5039", 2,
+        "AAC AAG ACC ATC CAA CAC CCA CGT CTC GAA GCC GGT GTC TAC TTC");
+
+    /// <summary><i>Aspergillus nidulans</i> — Lloyd &amp; Sharp (1991) Mol. Gen. Genet. 230:288-294 (<c>-f_type 3</c>).</summary>
+    public static CodonWOptimalCodonSet AspergillusNidulans { get; } = Create(
+        "Aspergillus nidulans", "Lloyd and Sharp (1991) Mol. Gen. Genet 230: 288-294", 3,
+        "AAC AAG ACC ATC CAC CAG CCC CGC CGT CTC GAC GAG GCC GCT GGT GTC TAC TCC TTC");
+
+    /// <summary><i>Saccharomyces cerevisiae</i> — Sharp &amp; Cowe (1991) Yeast 7:657-678 (<c>-f_type 4</c>).</summary>
+    public static CodonWOptimalCodonSet SaccharomycesCerevisiae { get; } = Create(
+        "Saccharomyces cerevisiae", "Sharp and Cowe (1991) Yeast 7:657-678", 4,
+        "AAC AAG ACC ACT AGA ATC ATT CAA CAC CCA GAA GAC GCT GGT GTC GTT TAC TCC TCT TGT TTC TTG");
+
+    /// <summary><i>Drosophila melanogaster</i> — Shields et al. (1988) Mol. Biol. Evol. 5:704-716 (<c>-f_type 5</c>).</summary>
+    public static CodonWOptimalCodonSet DrosophilaMelanogaster { get; } = Create(
+        "Drosophila melanogaster", "Shields et al. (1988) Mol Biol Evol 5: 704-716", 5,
+        "AAC AAG ACC ATC CAC CAG CCC CGC CGT CTG GAC GAG GCC GGC GTC GTG TAC TCC TGC TTC");
+
+    /// <summary><i>Caenorhabditis elegans</i> — Stenico, Lloyd &amp; Sharp (1994) Nucl. Acids Res. 22:2437-2446 (<c>-f_type 6</c>).</summary>
+    public static CodonWOptimalCodonSet CaenorhabditisElegans { get; } = Create(
+        "Caenorhabditis elegans", "Stenico, Lloyd and Sharp Nuc. Acids Res. 22: 2437-2446(1994)", 6,
+        "AAC AAG ACC ATC CAC CCA CGC CGT CTC CTT GAC GAG GCC GCT GGA GTC TAC TCC TGC TTC");
+
+    /// <summary><i>Neurospora crassa</i> — Lloyd &amp; Sharp (1993) (<c>-f_type 7</c>).</summary>
+    public static CodonWOptimalCodonSet NeurosporaCrassa { get; } = Create(
+        "Neurospora crassa", "Lloyd and Sharp (1993)", 7,
+        "AAC AAG ACC ACT ATC CAC CAG CCC CGC CGT CTC GAC GAG GCC GGC GGT GTC TAC TCC TCT TGC TTC");
+
+    /// <summary>All built-in sets in CodonW <c>-f_type</c> order (0..7).</summary>
+    public static IReadOnlyList<CodonWOptimalCodonSet> All { get; } =
+    [
+        EscherichiaColi, BacillusSubtilis, DictyosteliumDiscoideum, AspergillusNidulans,
+        SaccharomycesCerevisiae, DrosophilaMelanogaster, CaenorhabditisElegans, NeurosporaCrassa,
+    ];
+
+    /// <summary>
+    /// Finds a built-in set by name, ignoring case, spaces, dots and underscores: the property
+    /// name (e.g. <c>EscherichiaColi</c>), the organism (<c>Escherichia coli</c>) or the
+    /// abbreviated binomial (<c>E. coli</c>).
+    /// </summary>
+    public static bool TryGetByName(string? name, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CodonWOptimalCodonSet? set)
+    {
+        static string Key(string s) => new(s.Where(char.IsLetter).Select(char.ToLowerInvariant).ToArray());
+        set = null;
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        string key = Key(name);
+        foreach (var candidate in All)
+        {
+            string organism = Key(candidate.Organism);
+            string[] words = candidate.Organism.Split(' ');
+            string abbreviated = Key(words[0][..1] + words[1]);
+            if (key == organism || key == abbreviated)
+            {
+                set = candidate;
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 /// <summary>

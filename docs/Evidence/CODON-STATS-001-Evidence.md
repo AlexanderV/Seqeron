@@ -121,6 +121,107 @@
 
 ---
 
+### CodonW 1.4.4 Fop and CBI — source + binary (review 2026-10, audit A3-13)
+
+**Source:** Ubuntu `codonw_1.4.4.orig.tar.gz` (http://archive.ubuntu.com/ubuntu/pool/universe/c/codonw/), compiled locally; `codon_us.c` `fop_out`, `cbi_out`, `how_synon`, `how_synon_aa`, `initilize_point`; `codonW.h` `FOP_STRUCT fop[]`; `commline.c`.
+**Accessed:** 2026-10-14
+
+**Key extracted points:**
+
+1. `has_opt_info`: for codons x = 1..64, `if (pcu->ca[x] == 11 || *(ds + x) == 1) continue;` (stop or single-codon amino acid), `if (fop_cod[x] == 3) has_opt_info[ca[x]]++` — only amino acids with an optimal codon are scored; for the modified Fop a rare codon (value 1) also marks its amino acid.
+2. Fop: over codons of scored amino acids `case 3: opt += n; case 2: std += n; case 1: nonopt += n;` → `ffop = opt / (opt + nonopt + std)`; modified (`factor_in_rare`, asked interactively only when not `-silent`): `(opt - nonopt) / (opt + nonopt + std)` — no clamp in the code although the header comment says negative values are adjusted to zero; total 0 → `ffop = 0.0`. Printed `%5.3f`.
+3. CBI: `case 3: opt += n; tot_cod += n; exp_cod += naa[ca[x]] / da[ca[x]]; case 2: case 1: tot_cod += n;` → `fcbi = (opt - exp_cod) / (tot_cod - exp_cod)`, `if (tot_cod - exp_cod)` else 0.0 (rare codons count as common). `da` = codons per amino acid of the selected code (`how_synon_aa`).
+4. `initilize_point`: `pfop = &fop[fop_species]; pcbi = &fop[fop_species];` — the same `-f_type` set feeds Fop and CBI. User sets: `-fop_file` / `-cbi_file`, 64 digits 1/2/3 in CodonW codon order (UUU, UCU, UAU, UGU, UUC, …).
+5. Built-in sets (`fop[]`, `-f_type 0..7`): E. coli (Ikemura 1985, default), B. subtilis (Sharp et al. 1990; the only set with rare codons), D. discoideum (Sharp & Devine 1989), A. nidulans (Lloyd & Sharp 1991), S. cerevisiae (Sharp & Cowe 1991), D. melanogaster (Shields et al. 1988), C. elegans (Stenico, Lloyd & Sharp 1994), N. crassa (Lloyd & Sharp 1993); 24/19/15/19/22/20/20/22 optimal codons.
+6. CodonW `-code 0..7` = NCBI tables 1, 2, 3, 4, 5, 6, 10, 9 (codonW.h `cu[]`).
+
+**Binary lock (TestData/Codon/codonw_fop_cbi.tsv):** 70 genes (20 uniform random, 10 E. coli-optimal-biased, 8 non-optimal-biased, 6 GC-rich, 6 AT-rich, 4 with all 64 codons incl. in-frame stops, 16 edge cases: Met/Trp only, stops only, single codon, N/R triplets, lower case, RNA, trailing bases) × (8 built-in sets + 3 user `-fop_file`/`-cbi_file` sets, one with rare codons and one listing only stop/single-codon and alt-code codons) × `-code 0..7`, plus modified Fop (stdin answer `y`) for B. subtilis and user1: 7 280 Fop and 6 160 CBI printed values. C# `TryCalculateFop` / `TryCalculateCbi`: all within ±0.0005 of the printed value; every not-calculable result corresponds to a printed 0.000; 190 modified-Fop values are negative.
+
+<details><summary>Generator (python3 -I gen.py SCRATCH codonw OUT.tsv)</summary>
+
+```python
+# WP23 generator: genes + CodonW 1.4.4 -fop/-cbi runs -> TSV fixture
+import random, subprocess, os, sys, itertools
+SCR=sys.argv[1]; CW=sys.argv[2]; OUT=sys.argv[3]
+os.makedirs(SCR,exist_ok=True)
+rnd=random.Random(20261014)
+B="TCAG"
+codons=[a+b+c for a in B for b in B for c in B]
+ecoli_opt=set("AAA AAC ACC ACT AGC ATC CAC CAG CCG CGC CGT CTG GAA GAC GCG GCT GGC GGT GTT TAC TCC TCT TGC TTC".split())
+genes=[]
+def rgene(n, weights=None, stop=True):
+    cs=[c for c in codons if c not in ("TAA","TAG","TGA")]
+    w=[weights(c) for c in cs] if weights else None
+    s="ATG"+"".join(rnd.choices(cs,weights=w,k=n-1))
+    return s+("TAA" if stop else "")
+for i in range(20): genes.append((f"unif{i}", rgene(rnd.randint(20,400))))
+for i in range(10): genes.append((f"ecopt{i}", rgene(rnd.randint(30,400), lambda c: 6 if c in ecoli_opt else 1)))
+for i in range(8): genes.append((f"econon{i}", rgene(rnd.randint(30,300), lambda c: 1 if c in ecoli_opt else 5)))
+for i in range(6): genes.append((f"gcrich{i}", rgene(rnd.randint(40,300), lambda c: 1+4*sum(x in "GC" for x in c))))
+for i in range(6): genes.append((f"atrich{i}", rgene(rnd.randint(40,300), lambda c: 1+4*sum(x in "AT" for x in c))))
+# all 64 codons incl. internal stops (alt codes read TGA/AGA etc.)
+for i in range(4): genes.append((f"all64_{i}", "".join(rnd.choices(codons,k=rnd.randint(60,250)))))
+# edge cases
+genes += [("short1","ATGAAATAA"),("mettrp","ATGTGGATGTGGTAA"),("stoponly","TAATAGTGA"),
+  ("one_opt","CTG"),("one_nonopt","CTA"),("phe_opt_only","TTCTTCTTC"),("lys_mixed","AAAAAGAAG"),
+  ("amb","ATGNNNCTGCTRAAACTGNAGTTCTAA"),("lower","atgctgctaaaagggggcggttaa"),("rna","AUGCUGCUAAAAGGGGGCGGUUAA"),
+  ("partial","ATGCTGAAAGG"),("atarich","ATAATAATGTGATGAAGAAGAAGATAATG"),("ctn","CTTCTCCTACTGACTACC"),
+  ("leu6","CTTCTCCTACTGTTATTG"),("ile3","ATTATCATAATAATT"),("gly4","GGTGGCGGAGGGGGG")]
+with open(f"{SCR}/genes.fa","w") as f:
+    for n,s in genes: f.write(f">{n}\n{s}\n")
+NAMES=["EscherichiaColi","BacillusSubtilis","DictyosteliumDiscoideum","AspergillusNidulans","SaccharomycesCerevisiae","DrosophilaMelanogaster","CaenorhabditisElegans","NeurosporaCrassa"]
+NCBI=[1,2,3,4,5,6,10,9]
+def idx(c):  # CodonW codon order (1-based)
+    return B.index(c[0])*16+B.index(c[2])*4+B.index(c[1])+1
+def run(args, tag, stdin=None):
+    out=f"{SCR}/{tag}.out"; blk=f"{SCR}/{tag}.blk"
+    for p in (out,blk):
+        if os.path.exists(p): os.remove(p)
+    subprocess.run([CW,f"{SCR}/genes.fa",out,blk]+args,input=stdin,capture_output=True,text=True,check=False,cwd=SCR)
+    lines=open(out).read().split("\n")
+    hdr=lines[0].split(); res={}
+    for l in lines[1:]:
+        if not l.strip(): continue
+        p=l.split(); res[p[0]]=dict(zip(hdr[1:],p[1:]))
+    return res
+rows=[]
+for ft in range(8):
+    for cc in range(8):
+        r=run(["-fop","-cbi","-f_type",str(ft),"-code",str(cc),"-nomenu","-silent","-nowarn","-machine"],f"r{ft}_{cc}")
+        for n,_ in genes: rows.append((NAMES[ft],NCBI[cc],n,r[n]["Fop"],r[n]["CBI"],"0"))
+# modified Fop (interactive 'y' answer): B. subtilis, all codes
+for cc in range(8):
+    r=run(["-fop","-f_type","1","-code",str(cc),"-nomenu","-nowarn","-machine"],f"m1_{cc}",stdin="y\n"*20)
+    for n,_ in genes: rows.append((NAMES[1],NCBI[cc],n,r[n]["Fop"],"NA","1"))
+# user-supplied sets via -fop_file/-cbi_file
+users={"user1":(sorted("TTT CTA ATA GTA TCG CCC ACA GCA TAT CAT CAA AAT AAG GAT GAG TGT AGA GGG TGA ATG TGG".split()),sorted("TTC CTG GCC GGC CGC AGG AAA".split())),
+       "user2":(["CTG","GGC"],[]),"user3":(["TGA","AGA","ATA","ATG","TGG"],[])}
+U=[]
+for un,(opt,rare) in users.items():
+    v=[2]*65
+    for c in opt: v[idx(c)]=3
+    for c in rare: v[idx(c)]=1
+    fn=f"{SCR}/{un}.fop"; open(fn,"w").write("\n".join(str(v[x]) for x in range(1,65))+"\n")
+    U.append((un,opt,rare))
+    for cc in range(8):
+        r=run(["-fop","-cbi","-fop_file",fn,"-cbi_file",fn,"-code",str(cc),"-nomenu","-silent","-nowarn","-machine"],f"{un}_{cc}")
+        for n,_ in genes: rows.append((un,NCBI[cc],n,r[n]["Fop"],r[n]["CBI"],"0"))
+        if rare:
+            r=run(["-fop","-fop_file",fn,"-code",str(cc),"-nomenu","-nowarn","-machine"],f"{un}m_{cc}",stdin="y\n"*20)
+            for n,_ in genes: rows.append((un,NCBI[cc],n,r[n]["Fop"],"NA","1"))
+with open(OUT,"w") as f:
+    f.write("# CODON-STATS-001 (FIN-B02 WP23, audit A3-13): CodonW 1.4.4 (Ubuntu codonw_1.4.4.orig.tar.gz, compiled locally) Fop/CBI printed values (%5.3f).\n")
+    f.write("# `codonw genes.fa out blk -fop -cbi -f_type F -code C -nomenu -silent -nowarn -machine`; user sets via -fop_file/-cbi_file (64 values 1/2/3 in CodonW codon order);\n")
+    f.write("# modified Fop (opt-rare)/total = same run without -silent answering 'y' to CodonW's prompt (MOD=1, CBI=NA). CodonW -code 0..7 = NCBI 1,2,3,4,5,6,10,9.\n")
+    f.write("# G<TAB>name<TAB>gene | U<TAB>set<TAB>optimal codons<TAB>rare codons | R<TAB>set<TAB>NCBI table<TAB>gene<TAB>Fop<TAB>CBI<TAB>MOD. Generator: docs/Evidence/CODON-STATS-001-Evidence.md.\n")
+    for n,s in genes: f.write(f"G\t{n}\t{s}\n")
+    for un,opt,rare in U: f.write(f"U\t{un}\t{','.join(opt)}\t{','.join(rare)}\n")
+    for r in rows: f.write("R\t"+"\t".join(map(str,r))+"\n")
+print(len(genes),"genes",len(rows),"rows")
+```
+
+</details>
+
 ## Documented Corner Cases and Failure Modes
 
 ### From seqinr / CodonW
@@ -211,6 +312,8 @@
 7. Nakamura Y, Gojobori T, Ikemura T. (2000). Codon usage tabulated from international DNA sequence databases. Nucleic Acids Research 28(1):292. Kazusa Codon Usage Database, Homo sapiens [gbpri]. https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=9606
 8. Sharp PM, Tuohy TMF, Mosurski KR. (1986). Codon usage in yeast: cluster analysis clearly differentiates highly and lowly expressed genes. Nucleic Acids Research 14(13):5125–5143. https://doi.org/10.1093/nar/14.13.5125
 9. Wright F. (1990). The 'effective number of codons' used in a gene. Gene 87(1):23–29. https://doi.org/10.1016/0378-1119(90)90491-9
+10. Ikemura T. (1981). Correlation between the abundance of Escherichia coli transfer RNAs and the occurrence of the respective codons in its protein genes. J. Mol. Biol. 151(3):389–409. https://doi.org/10.1016/0022-2836(81)90003-6
+11. Bennetzen JL, Hall BD. (1982). Codon selection in yeast. J. Biol. Chem. 257(6):3026–3031. https://doi.org/10.1016/S0021-9258(19)81068-2
 
 ---
 
@@ -219,3 +322,4 @@
 - **2026-06-13**: Initial documentation (CODON-STATS-001).
 - **2026-09-28**: Review 2026-09 (CODON-STATS-001 F18): CodonW/EMBOSS source opened; GC3s is genetic-code dependent (`GetStatistics(…, GeneticCode)`); cusp stop-inclusion recorded; CodonW/Biopython cross-check added.
 - **2026-10-14**: Review 2026-09 (B02 F36/F37, audit A1-11/A1-14): `CodonGcConvention.CodonW` option (stops excluded, CodonW `gc_out`) verified on the CodonW 1.4.4 binary; cusp default re-verified on the EMBOSS 6.6 binary; `IsEncCalculable`.
+- **2026-10-14**: Review 2026-10 (B02 FIN WP23, audit A3-13): CodonW 1.4.4 Fop and CBI (`fop_out`/`cbi_out`) implemented and locked on the binary (7 280 Fop + 6 160 CBI values, 8 built-in + 3 user sets × codes 0–7, incl. modified Fop).

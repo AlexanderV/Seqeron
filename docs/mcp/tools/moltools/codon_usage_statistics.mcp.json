@@ -6,13 +6,16 @@
   "stability": "stable",
   "methodId": "CodonUsageAnalyzer.GetStatistics",
   "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L662",
-  "description": "Aggregate codon-usage statistics for a coding sequence (counts, RSCU, ENC + isEncCalculable, GC1/GC2/GC3, GC3s, overall GC); gc_convention EmbossCusp (default, stops included) or CodonW (stops excluded).",
+  "description": "Aggregate codon-usage statistics for a coding sequence (counts, RSCU, ENC + isEncCalculable, GC1/GC2/GC3, GC3s, overall GC); gc_convention EmbossCusp (default, stops included) or CodonW (stops excluded); opt-in CodonW Fop and CBI (include_fop_cbi, fop_cbi_organism, optimal_codons).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "Coding DNA sequence (frame 0).", "minLength": 1 },
       "genetic_code": { "type": "integer", "description": "NCBI translation table number defining synonymous families and stops (default 1 = Standard).", "enum": [1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33], "default": 1 },
-      "gc_convention": { "type": "string", "description": "Convention for GC1/GC2/GC3 and overall GC: EmbossCusp (all codons, stops included; EMBOSS cusp) or CodonW (stop codons of genetic_code excluded; CodonW gc_out).", "enum": ["EmbossCusp", "CodonW"], "default": "EmbossCusp" }
+      "gc_convention": { "type": "string", "description": "Convention for GC1/GC2/GC3 and overall GC: EmbossCusp (all codons, stops included; EMBOSS cusp) or CodonW (stop codons of genetic_code excluded; CodonW gc_out).", "enum": ["EmbossCusp", "CodonW"], "default": "EmbossCusp" },
+      "include_fop_cbi": { "type": "boolean", "description": "Also compute CodonW 1.4.4 Fop (Ikemura 1981) and CBI (Bennetzen & Hall 1982); false = fop/cbi null.", "default": false },
+      "fop_cbi_organism": { "type": "string", "description": "CodonW built-in optimal-codon set (-f_type); case/spaces ignored, 'E. coli' style accepted.", "enum": ["EscherichiaColi", "BacillusSubtilis", "DictyosteliumDiscoideum", "AspergillusNidulans", "SaccharomycesCerevisiae", "DrosophilaMelanogaster", "CaenorhabditisElegans", "NeurosporaCrassa"], "default": "EscherichiaColi" },
+      "optimal_codons": { "type": ["array", "null"], "items": { "type": "string" }, "description": "User optimal codons (DNA/RNA, any case; CodonW -fop_file/-cbi_file); overrides fop_cbi_organism.", "default": null }
     },
     "required": ["sequence"]
   },
@@ -28,13 +31,17 @@
       "gc2": { "type": "number", "description": "GC% at codon position 2." },
       "gc3": { "type": "number", "description": "GC% at codon position 3." },
       "gc3s": { "type": "number", "description": "GC% at third position of synonymous codons." },
-      "overallGc": { "type": "number", "description": "(GC1+GC2+GC3)/3." }
+      "overallGc": { "type": "number", "description": "(GC1+GC2+GC3)/3." },
+      "fop": { "type": ["number", "null"], "description": "CodonW Fop = optimal/total over amino acids with >1 codon and an optimal codon; null unless include_fop_cbi and calculable." },
+      "cbi": { "type": ["number", "null"], "description": "CodonW CBI = (optimal - expected)/(total - expected); null unless include_fop_cbi and calculable." }
     },
     "required": ["codonCounts", "rscu", "enc", "isEncCalculable", "totalCodons", "gc1", "gc2", "gc3", "gc3s", "overallGc"]
   },
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
     { "code": 1003, "message": "Unknown GC convention: X. Supported: EmbossCusp, CodonW." },
+    { "code": 1004, "message": "Unknown Fop/CBI organism: X. Supported: EscherichiaColi, BacillusSubtilis, DictyosteliumDiscoideum, AspergillusNidulans, SaccharomycesCerevisiae, DrosophilaMelanogaster, CaenorhabditisElegans, NeurosporaCrassa." },
+    { "code": 1005, "message": "Invalid codon 'X': expected three of A, C, G, T/U." },
     { "code": 1002, "message": "Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33." }
   ],
   "examples": [
@@ -49,6 +56,7 @@
       "output": { "totalCodons": 2, "gc1": 100, "gc2": 100, "gc3": 100, "gc3s": 100, "overallGc": 100 }
     },
     {"name": "Vertebrate mitochondrial code (table 2)", "input": {"sequence": "ATAATG", "genetic_code": 2}, "output": {"totalCodons": 2, "gc1": 0, "gc2": 0, "gc3": 50, "gc3s": 50, "overallGc": 16.667}},
-    {"name": "CodonW GC convention (stop codons excluded)", "input": {"sequence": "ATGAAACTGTTCGCCAAATAA", "gc_convention": "CodonW"}, "output": {"totalCodons": 7, "gc1": 33.333, "gc2": 16.667, "gc3": 66.667, "gc3s": 60, "overallGc": 38.889, "isEncCalculable": false}}
+    {"name": "CodonW GC convention (stop codons excluded)", "input": {"sequence": "ATGAAACTGTTCGCCAAATAA", "gc_convention": "CodonW"}, "output": {"totalCodons": 7, "gc1": 33.333, "gc2": 16.667, "gc3": 66.667, "gc3s": 60, "overallGc": 38.889, "isEncCalculable": false}},
+    {"name": "CodonW Fop and CBI (default E. coli optimal codons)", "input": {"sequence": "ATGCTGCTGCTGCTGAAAAAGTTTTTCGGCGGTGGATAA", "include_fop_cbi": true}, "output": {"totalCodons": 13, "fop": 0.727, "cbi": 0.561}}
   ]
 }

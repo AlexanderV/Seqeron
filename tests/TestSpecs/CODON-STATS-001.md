@@ -24,6 +24,9 @@
 | 7 | Kazusa H. sapiens [gbpri] codon usage | 5 | https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=9606 | 2026-06-13 |
 | 8 | CodonW 1.4.4 source (`codon_us.c` `gc_out`, `how_synon`) + compiled binary | 3 | https://codonw.sourceforge.net | 2026-09-28 |
 | 9 | EMBOSS 6.6 `ajcod.c` (`ajCodSetTripletsS`, `ajCodWrite`) | 3 | EMBOSS source | 2026-09-28 |
+| 10 | CodonW 1.4.4 `codon_us.c` `fop_out` / `cbi_out`, `codonW.h` `fop[]` (8 built-in optimal-codon sets), `commline.c` (`-fop -cbi -f_type -fop_file -cbi_file -code`) + compiled binary | 3 | Ubuntu `codonw_1.4.4.orig.tar.gz` | 2026-10-14 |
+| 11 | Ikemura (1981) J. Mol. Biol. 151:389–409 (Fop) | 1 | https://doi.org/10.1016/0022-2836(81)90003-6 | 2026-10-14 |
+| 12 | Bennetzen & Hall (1982) J. Biol. Chem. 257:3026–3031 (CBI) | 1 | https://doi.org/10.1016/S0021-9258(19)81068-2 | 2026-10-14 |
 
 ### 1.2 Key Evidence Points
 
@@ -33,6 +36,7 @@
 4. GC1/GC2/GC3 = GC content at codon positions 1/2/3 ("1st/2nd/3rd letter GC") — EMBOSS cusp.
 5. E. coli reference w values (CTG=1, GCC=0.122, CGT=1, AGG=0.002 …) — Biopython SharpEcoliIndex.
 6. Human RSCU derived from Kazusa per-thousand frequencies (CTG≈2.3713, GCC≈1.5988, Met/Trp=1.0).
+7. CodonW Fop = opt/(opt+common+rare) and CBI = (opt − Σ naa/da)/(tot − Σ naa/da) (Σ over optimal codons) over amino acids with > 1 codon in the code, not stop, with ≥ 1 optimal codon (`has_opt_info`); denominator 0 → prints 0.000; modified Fop (opt − rare)/total offered interactively, not clamped — CodonW 1.4.4 source [10].
 
 ### 1.3 Documented Corner Cases
 
@@ -58,6 +62,10 @@
 | `EColiOptimalCodons` (property) | CodonUsageAnalyzer | Reference | Sharp & Li 1987 w table |
 | `HumanOptimalCodons` (property) | CodonUsageAnalyzer | Reference | Kazusa-derived human RSCU |
 | `CodonUsageStatistics.OverallGc` | record | Internal | (GC1+GC2+GC3)/3 |
+| `CalculateFop` / `TryCalculateFop(string / DnaSequence, …, optimalCodons, code, rareCodons)` | CodonUsageAnalyzer | Canonical (A3-13) | CodonW 1.4.4 `-fop` (null set = E. coli; `rareCodons` = modified Fop) |
+| `CalculateCbi` / `TryCalculateCbi(string / DnaSequence, …, optimalCodons, code)` | CodonUsageAnalyzer | Canonical (A3-13) | CodonW 1.4.4 `-cbi` |
+| `GetStatistics(string, GeneticCode, CodonGcConvention, optimalCodons)` → `Fop` / `Cbi` | CodonUsageAnalyzer | Opt-in (A3-13) | null when not calculable / not requested |
+| `CodonWOptimalCodonSets` (`All`, 8 sets, `TryGetByName`) | static class | Reference (A3-13) | CodonW `fop[]`, `-f_type 0..7` |
 
 ---
 
@@ -121,6 +129,14 @@
 | R14 | Default = EMBOSS cusp (re-verified on the binary) | `ATGGCTTAAGCCGCGTGAGGCCTGCTTTAGAAAAAGTGGTAA` | Total 14; Coding GC 47.62, GC1 42.86, GC2 42.86, GC3 57.14 | EMBOSS 6.6.0.0 `cusp` |
 | R15 | Conventions agree on a stop-free gene; stops-only gene → CodonW-mode GC 0 (CodonW writes no value) | M3 gene; `TAATAGTGA` | equal; 0 | CodonW `gc_out` "too short" |
 | R16 | Contracts: DnaSequence overload; undefined enum → `ArgumentOutOfRangeException`; null code/sequence; MCP `gc_convention` (default EmbossCusp), unknown value → `ArgumentException` | — | — | input contract |
+| R17 | Fop/CBI vs CodonW binary (A3-13) | 70 genes × 8 built-in `-f_type` sets + 3 user `-fop_file` sets × `-code 0..7` (NCBI 1,2,3,4,5,6,10,9), incl. modified Fop (B. subtilis + user1) — `TestData/Codon/codonw_fop_cbi.tsv` | 7 280 Fop + 6 160 CBI values within ±0.0005 (CodonW %5.3f); 0 mismatches | CodonW 1.4.4 binary [10] |
+| R18 | Hand-derived Fop/CBI | `ATGCTGCTGCTGCTGAAAAAGTTTTTCGGCGGTGGATAA`, default E. coli | Fop 8/11, CBI 23/41 (N_ran 25/6); CodonW 0.727 / 0.561 | [10][11][12] |
+| R19 | Families follow the code; other set | same gene, NCBI 2, B. subtilis | Fop 3/11, CBI −0.055 (CodonW `-f_type 1 -code 1`) | CodonW binary |
+| R20 | Not calculable | Met/Trp/stop only, stops only, `ATGNNN`, empty | Try false, value 0 (CodonW 0.000) | `fop_out`/`cbi_out` |
+| R21 | CBI with only-optimal families | Phe {TTT,TTC} both optimal, `TTTTTCTTT` | CBI Try false (0/0, CodonW 0.000), Fop 1 | `cbi_out` |
+| R22 | Modified Fop negative (not clamped) | oracle B. subtilis rows | value < 0 equals CodonW; original Fop ≥ 0 | CodonW binary |
+| R23 | Built-in sets + lookup + validation | 8 sets (24/19/15/19/22/20/20/22 optimal; B. subtilis 10 rare); name lookup; RNA/lower-case codons; invalid codon or optimal∩rare → `ArgumentException` | — | codonW.h `fop[]` |
+| R24 | Opt-in in statistics + MCP | `GetStatistics(…, optimalCodons)` Fop/Cbi; other overloads null; MCP `include_fop_cbi`, `fop_cbi_organism`, `optimal_codons` | — | additive API |
 
 ---
 
@@ -240,4 +256,5 @@ All in-scope cases ✅. Count of ✅ = 20 = total in-scope cases.
 2. **Decision:** Fixed two implementation defects — GC3s now restricted to synonymous third positions (Peden), and CAI now excludes Met/Trp/stop (seqinr/CodonW).
 3. **Decision (review 2026-09, F37, audit A1-14):** the default GC1/GC2/GC3/OverallGc stay EMBOSS cusp (stops included); an additive `CodonGcConvention.CodonW` option gives CodonW's numbers (stop codons of the genetic code excluded, CodonW `gc_out`). Differential vs the CodonW 1.4.4 binary: 304 genes (in-frame stops, N/R/Y, lower-case, RNA, trailing bases) × CodonW codes 0–7 — GC, GC1, GC2, GC3, GC3s all equal at 3 dp on every gene with output (2220 of the 2432 gene×code cases differ from the cusp values).
 4. **Note (2026-09, F37):** the EMBOSS 6.6 `cusp` *binary* counts an ambiguous triplet as a codon (`NNN` appears as `AAA`; `ajCodBase` maps N to its lowest constituent) and so includes it in the GC denominators (R3 gene: GC1 42.86 % on 7 codons); this artefact contradicts the documented `ajCodSetTripletsS` contract and is not reproduced (same decision as CODON-USAGE-001 F9). On ACGT genes the default equals the binary (R14).
-5. None open.
+5. **Decision (review 2026-10, A3-13):** Fop and CBI are implemented as opt-in APIs exactly as CodonW 1.4.4 (Ikemura 1981 / Bennetzen & Hall 1982 as implemented by Peden); CodonW's 8 built-in optimal-codon sets are exposed as `CodonWOptimalCodonSets`. CodonW computes in single precision and prints 3 dp; values are locked to ±0.0005. CodonW prints 0.000 for a zero denominator; the Try APIs report it as not calculable. The modified Fop is reproduced unclamped (CodonW's comment says negatives are adjusted to 0, the code and binary do not).
+6. None open.

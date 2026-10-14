@@ -713,11 +713,14 @@ public class MolToolsTools
         return new EncResult(enc, calculable);
     }
 
-    [McpServerTool(Name = "codon_usage_statistics", Title = "MolTools — Codon-Usage Statistics", ReadOnly = true), Description("Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC; 0 with isEncCalculable = false when not calculable, see effective_number_of_codons), total codons, GC% at codon positions 1/2/3, GC3s (synonymous third-position GC), and overall GC. RSCU, ENC and GC3s use the NCBI genetic code genetic_code (default 1 = Standard; CodonW -code). gc_convention selects GC1/2/3 and overall GC: EmbossCusp (default) counts every codon including stop codons (EMBOSS cusp) and does not depend on the genetic code; CodonW excludes the stop codons of genetic_code (CodonW gc_out; overall GC = CodonW GC index). Call for a one-shot codon-usage summary of a gene.")]
+    [McpServerTool(Name = "codon_usage_statistics", Title = "MolTools — Codon-Usage Statistics", ReadOnly = true), Description("Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC; 0 with isEncCalculable = false when not calculable, see effective_number_of_codons), total codons, GC% at codon positions 1/2/3, GC3s (synonymous third-position GC), and overall GC. RSCU, ENC and GC3s use the NCBI genetic code genetic_code (default 1 = Standard; CodonW -code). gc_convention selects GC1/2/3 and overall GC: EmbossCusp (default) counts every codon including stop codons (EMBOSS cusp) and does not depend on the genetic code; CodonW excludes the stop codons of genetic_code (CodonW gc_out; overall GC = CodonW GC index). Set include_fop_cbi = true to also report CodonW 1.4.4's Fop (frequency of optimal codons, Ikemura 1981) and CBI (codon bias index, Bennetzen & Hall 1982) against a CodonW built-in optimal-codon set (fop_cbi_organism, default Escherichia coli = CodonW default) or a user list optimal_codons; fop/cbi are null when not requested or not calculable. Call for a one-shot codon-usage summary of a gene.")]
     public static CodonUsageStatistics codon_usage_statistics(
         [Description("Coding DNA sequence (frame 0).")] string sequence,
         [Description("NCBI translation table number defining the synonymous codon families and stop codons (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int genetic_code = 1,
-        [Description("Convention for GC1/GC2/GC3 and overall GC: EmbossCusp (default; all codons, stop codons included, EMBOSS cusp) or CodonW (stop codons of genetic_code excluded, CodonW 1.4.4 gc_out).")] CodonGcConvention gc_convention = CodonGcConvention.EmbossCusp)
+        [Description("Convention for GC1/GC2/GC3 and overall GC: EmbossCusp (default; all codons, stop codons included, EMBOSS cusp) or CodonW (stop codons of genetic_code excluded, CodonW 1.4.4 gc_out).")] CodonGcConvention gc_convention = CodonGcConvention.EmbossCusp,
+        [Description("false (default): fop and cbi are null (output otherwise unchanged). true: also compute CodonW 1.4.4 Fop = optimal/total and CBI = (optimal - expected)/(total - expected), expected = sum over amino acids of n_aa * (optimal codons of the aa)/(codons of the aa), over the amino acids with more than one codon in genetic_code that have at least one optimal codon (stops, Met/Trp excluded); null when not calculable (CodonW prints 0.000).")] bool include_fop_cbi = false,
+        [Description("CodonW built-in optimal-codon set for Fop/CBI (CodonW -f_type): EscherichiaColi (default, Ikemura 1985), BacillusSubtilis, DictyosteliumDiscoideum, AspergillusNidulans, SaccharomycesCerevisiae, DrosophilaMelanogaster, CaenorhabditisElegans, NeurosporaCrassa (case/spaces ignored; 'E. coli' style accepted). Ignored when optimal_codons is given or include_fop_cbi is false.")] string fop_cbi_organism = "EscherichiaColi",
+        [Description("Omitted/null (default): use fop_cbi_organism. A list of optimal codons (DNA or RNA, any case) instead, like a CodonW -fop_file/-cbi_file; codons of stops or single-codon amino acids are ignored.")] string[]? optimal_codons = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
@@ -726,7 +729,33 @@ public class MolToolsTools
             throw new System.ArgumentException(
                 $"Unknown GC convention: {gc_convention}. Supported: EmbossCusp, CodonW.", nameof(gc_convention));
 
-        return CodonUsageAnalyzer.GetStatistics(sequence, code, gc_convention);
+        if (!include_fop_cbi)
+            return CodonUsageAnalyzer.GetStatistics(sequence, code, gc_convention);
+
+        IReadOnlySet<string> optimal;
+        if (optimal_codons is not null)
+        {
+            optimal = optimal_codons.ToHashSet();
+        }
+        else if (CodonWOptimalCodonSets.TryGetByName(fop_cbi_organism, out var set))
+        {
+            optimal = set.OptimalCodons;
+        }
+        else
+        {
+            throw new System.ArgumentException(
+                $"Unknown Fop/CBI organism: {fop_cbi_organism}. Supported: EscherichiaColi, BacillusSubtilis, DictyosteliumDiscoideum, AspergillusNidulans, SaccharomycesCerevisiae, DrosophilaMelanogaster, CaenorhabditisElegans, NeurosporaCrassa.",
+                nameof(fop_cbi_organism));
+        }
+
+        try
+        {
+            return CodonUsageAnalyzer.GetStatistics(sequence, code, gc_convention, optimal);
+        }
+        catch (System.ArgumentException ex) when (ex.ParamName == "optimalCodons")
+        {
+            throw new System.ArgumentException(ex.Message.Split(" (Parameter")[0], nameof(optimal_codons));
+        }
     }
 
     // Shared description of the optional genetic_code parameter of the CodonOptimizer tools (F34 pattern).
