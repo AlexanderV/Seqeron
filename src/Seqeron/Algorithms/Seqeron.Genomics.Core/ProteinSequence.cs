@@ -208,16 +208,103 @@ namespace Seqeron.Genomics.Core
         public double Gravy() => ProteinPhysicochemistry.Gravy(_sequence);
 
         /// <summary>
-        /// Calculates the percentage of a specific amino acid type.
+        /// Residue-class membership of EMBOSS <c>pepstats</c> (EMBOSS 6.6.0 <c>emboss/pepstats.c</c>,
+        /// <c>pepstats_issize</c>), read from the property columns of the EMBOSS data file
+        /// <c>Eamino.dat</c> (Tiny, Small, Aliphatic, Aromatic, Non-polar, Polar, Charge≠0, +ve, −ve).
+        /// <c>Eamino.dat</c> copies U (Sec) from C, O (Pyl) from K and J (Xle) from I/L, so those letters
+        /// are members although pepstats' printed labels (e.g. "Basic (H+K+R)") omit them. X and '*' belong
+        /// to no class. B and Z are listed, but pepstats never counts them as such: they are first
+        /// re-assigned to D/N and E/Q (see <see cref="TypeCount"/>).
         /// </summary>
+        private static readonly IReadOnlyDictionary<AminoAcidType, string> PepstatsClassMembers =
+            new Dictionary<AminoAcidType, string>
+            {
+                [AminoAcidType.Tiny] = "ACGSTU",
+                [AminoAcidType.Small] = "ABCDGNPSTUV",
+                [AminoAcidType.Aliphatic] = "AIJLV",
+                [AminoAcidType.Aromatic] = "FHWY",
+                [AminoAcidType.Nonpolar] = "ACFGIJLMPUVWY",
+                [AminoAcidType.Polar] = "DEHKNOQRSTZ",
+                [AminoAcidType.Charged] = "BDEHKORZ",
+                [AminoAcidType.Basic] = "HKOR",
+                [AminoAcidType.Acidic] = "BDEZ",
+            };
+
+        /// <summary>
+        /// Number of residues in residue class <paramref name="type"/>, exactly as the "Number" column of the
+        /// EMBOSS <c>pepstats</c> "Property / Residues / Number / Mole%" table.
+        /// <para>
+        /// Residue letters are tallied as in EMBOSS <c>embIepCompC</c> (<c>nucleus/embiep.c</c>): the B count
+        /// is split by Dayhoff frequency, <c>j = (int)(0.5 + nB·5.5/9.8)</c> to D and <c>nB − j</c> to N; the Z
+        /// count likewise, <c>j = (int)(0.5 + nZ·6.0/9.9)</c> to E and <c>nZ − j</c> to Q. The class sum then runs
+        /// over the <c>Eamino.dat</c> members (U counts as C, O as K, J as I/L; X and '*' in no class).
+        /// </para>
+        /// </summary>
+        /// <param name="type">Residue class (any <see cref="AminoAcidType"/> member is a pepstats class).</param>
+        public int TypeCount(AminoAcidType type)
+        {
+            if (!PepstatsClassMembers.TryGetValue(type, out var members))
+                throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown residue class.");
+
+            var counts = new int[26];
+            foreach (char aa in _sequence)
+                if (aa is >= 'A' and <= 'Z')
+                    counts[aa - 'A']++;
+
+            int nB = counts['B' - 'A'];
+            if (nB > 0)
+            {
+                int toD = (int)(0.5 + nB * 5.5 / 9.8);
+                counts['D' - 'A'] += toD;
+                counts['N' - 'A'] += nB - toD;
+                counts['B' - 'A'] = 0;
+            }
+
+            int nZ = counts['Z' - 'A'];
+            if (nZ > 0)
+            {
+                int toE = (int)(0.5 + nZ * 6.0 / 9.9);
+                counts['E' - 'A'] += toE;
+                counts['Q' - 'A'] += nZ - toE;
+                counts['Z' - 'A'] = 0;
+            }
+
+            int sum = 0;
+            foreach (char m in members)
+                sum += counts[m - 'A'];
+            return sum;
+        }
+
+        /// <summary>
+        /// Mole percent of residue class <paramref name="type"/> per EMBOSS <c>pepstats</c>
+        /// ("Property / Residues / Number / Mole%" table): <c>100 · <see cref="TypeCount"/> / len</c>,
+        /// unrounded (pepstats prints it with 3 decimals).
+        /// <para>
+        /// The denominator <c>len</c> is the pepstats "Residues" value: the sequence length, where a single
+        /// terminal '*' is not counted (the EMBOSS sequence reader drops it), while X, B, Z, J, U, O and any
+        /// other '*' are counted (pepstats: "MKRHDE*" → 6 residues; "AK**" → 3; "AAXXHK" → 6).
+        /// </para>
+        /// <para>
+        /// Behaviour change (review 2026-09, B02 F47): this method previously used an unsourced textbook
+        /// 4-class polarity grouping (C and Y "polar"; charged residues not "polar"; U/O in no class), divided
+        /// by the full length including a terminal '*', and rounded to 2 decimals. It is superseded by the
+        /// pepstats definition for all classes: <see cref="AminoAcidType.Acidic"/> (D+E) and
+        /// <see cref="AminoAcidType.Basic"/> (H+K+R, now +O) keep their membership;
+        /// <see cref="AminoAcidType.Nonpolar"/> is pepstats "Non-polar" (adds C, Y, U, J);
+        /// <see cref="AminoAcidType.Polar"/> is pepstats "Polar" (adds D, E, H, K, R, O; drops C, Y).
+        /// The per-residue <see cref="AminoAcidProperties.Type"/> label in <see cref="Properties"/> is unchanged
+        /// and is not used here.
+        /// </para>
+        /// </summary>
+        /// <param name="type">Residue class (Tiny, Small, Aliphatic, Aromatic, Nonpolar, Polar, Charged, Basic, Acidic).</param>
+        /// <returns>Mole% in [0, 100]; 0 for an empty sequence.</returns>
         public double TypePercentage(AminoAcidType type)
         {
-            if (_sequence.Length == 0) return 0;
-
-            int count = _sequence.Count(aa =>
-                Properties.TryGetValue(aa, out var props) && props.Type == type);
-
-            return Math.Round((double)count / _sequence.Length * 100, 2);
+            int count = TypeCount(type);
+            int len = _sequence.Length;
+            if (len > 0 && _sequence[len - 1] == '*') len--;
+            if (len == 0) return 0;
+            return 100.0 * count / len;
         }
 
         /// <summary>
@@ -310,14 +397,33 @@ namespace Seqeron.Genomics.Core
     }
 
     /// <summary>
-    /// Type of amino acid based on side chain properties.
+    /// Amino-acid residue class. As an argument to <see cref="ProteinSequence.TypePercentage"/> /
+    /// <see cref="ProteinSequence.TypeCount"/> every member is one of the nine (overlapping) EMBOSS
+    /// <c>pepstats</c> residue classes, with membership from <c>Eamino.dat</c>.
+    /// The first four members are also used as the single per-residue label
+    /// <see cref="AminoAcidProperties.Type"/> in <see cref="ProteinSequence.Properties"/>
+    /// (textbook grouping: Nonpolar A F G I L M P V W; Polar C N Q S T Y; Acidic D E; Basic H K R).
     /// </summary>
     public enum AminoAcidType
     {
-        Nonpolar,  // A, F, G, I, L, M, P, V, W
-        Polar,     // C, N, Q, S, T, Y
-        Acidic,    // D, E
-        Basic      // H, K, R
+        /// <summary>pepstats "Non-polar" (A+C+F+G+I+L+M+P+V+W+Y, plus U, J).</summary>
+        Nonpolar,
+        /// <summary>pepstats "Polar" (D+E+H+K+N+Q+R+S+T+Z, plus O).</summary>
+        Polar,
+        /// <summary>pepstats "Acidic" (B+D+E+Z).</summary>
+        Acidic,
+        /// <summary>pepstats "Basic" (H+K+R, plus O).</summary>
+        Basic,
+        /// <summary>pepstats "Tiny" (A+C+G+S+T, plus U).</summary>
+        Tiny,
+        /// <summary>pepstats "Small" (A+B+C+D+G+N+P+S+T+V, plus U).</summary>
+        Small,
+        /// <summary>pepstats "Aliphatic" (A+I+L+V, plus J).</summary>
+        Aliphatic,
+        /// <summary>pepstats "Aromatic" (F+H+W+Y).</summary>
+        Aromatic,
+        /// <summary>pepstats "Charged" (B+D+E+H+K+R+Z, plus O): Eamino.dat charge ≠ 0.</summary>
+        Charged
     }
 
     /// <summary>

@@ -96,7 +96,7 @@ public class ProteinSequence_SecPyl_Tests
     }
 
     [Test]
-    [Description("F32: composition counts U/O; TypePercentage does not crash (U/O have no class)")]
+    [Description("F32: composition counts U/O; F47: TypePercentage per EMBOSS pepstats, where O (Pyl) is Basic (Eamino.dat)")]
     public void CompositionAndTypePercentage_SecPyl()
     {
         var protein = new ProteinSequence("MKUAOU");
@@ -106,7 +106,9 @@ public class ProteinSequence_SecPyl_Tests
             Assert.That(composition['U'], Is.EqualTo(2));
             Assert.That(composition['O'], Is.EqualTo(1));
             Assert.That(composition.Values.Sum(), Is.EqualTo(6));
-            Assert.That(protein.TypePercentage(AminoAcidType.Basic), Is.EqualTo(Math.Round(100.0 / 6, 2)));
+            // EMBOSS 6.6.0 pepstats "MKUAOU": Basic 2 / 33.333 (K + O); Tiny 3 / 50.000 (A + U×2).
+            Assert.That(protein.TypePercentage(AminoAcidType.Basic), Is.EqualTo(33.333).Within(5e-4));
+            Assert.That(protein.TypePercentage(AminoAcidType.Tiny), Is.EqualTo(50.000).Within(5e-4));
         });
     }
 
