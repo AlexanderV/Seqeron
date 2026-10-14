@@ -63,7 +63,7 @@
 
 **URL:** https://en.wikipedia.org/wiki/Fisher's_exact_test
 **Retrieved by:** WebFetch of the Wikipedia article, after a WebSearch for "Fisher's exact test two-sided p-value 2x2 contingency table hypergeometric distribution formula".
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary literature) — the hypergeometric formula is the primary mathematical definition.
 
 **Key Extracted Points:**

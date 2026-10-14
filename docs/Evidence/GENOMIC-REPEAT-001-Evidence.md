@@ -24,7 +24,7 @@
 ### Wikipedia — Longest repeated substring problem
 
 **URL:** https://en.wikipedia.org/wiki/Longest_repeated_substring_problem
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (encyclopedic; used for the worked example and to corroborate CMU)
 **Retrieval:** WebSearch (same query as above) → WebFetch of the article URL.
 

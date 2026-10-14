@@ -25,7 +25,7 @@
 ### Wikipedia — "Open reading frame" (using its cited statements)
 
 **URL:** https://en.wikipedia.org/wiki/Open_reading_frame
-**Accessed:** 2026-06-14 (retrieved with WebFetch)
+**Accessed:** 2026-06-14 (retrieved with WebFetch) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4
 
 **Key Extracted Points:**

@@ -29,7 +29,7 @@
 ### Wikipedia — Intrinsically disordered proteins (cites Dunker et al. 2001 primary)
 
 **URL:** https://en.wikipedia.org/wiki/Intrinsically_disordered_proteins
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia article; used only for the Dunker et al. 2001 primary classification it cites)
 
 **Retrieval:** WebSearch query `Dunker 2001 "Intrinsically disordered protein" disorder-promoting order-promoting amino acids ...` → opened the Wikipedia article with WebFetch, prompted for the amino-acid classification with the cited primary (Dunker et al.).

@@ -57,7 +57,7 @@
 ### H3K4me3 — Wikipedia (citing primary literature)
 
 **URL:** https://en.wikipedia.org/wiki/H3K4me3
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary: Liang et al. 2004, PNAS)
 **Retrieved how:** WebFetch of the Wikipedia H3K4me3 article.
 
@@ -69,7 +69,7 @@
 ### H3K4me1 — Wikipedia (citing primary literature)
 
 **URL:** https://en.wikipedia.org/wiki/H3K4me1
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary: Rada-Iglesias 2018, Nature Genetics)
 **Retrieved how:** WebFetch of the Wikipedia H3K4me1 article.
 
@@ -81,7 +81,7 @@
 ### H3K27ac — Wikipedia (citing primary literature)
 
 **URL:** https://en.wikipedia.org/wiki/H3K27ac
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary: Creyghton et al. 2010, PNAS)
 **Retrieved how:** WebFetch of the Wikipedia H3K27ac article.
 
@@ -93,7 +93,7 @@
 ### H3K27me3 — Wikipedia (citing primary literature)
 
 **URL:** https://en.wikipedia.org/wiki/H3K27me3
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary: Ferrari et al. 2014, Molecular Cell)
 **Retrieved how:** WebFetch of the Wikipedia H3K27me3 article.
 
@@ -105,7 +105,7 @@
 ### H3K9me3 — Wikipedia (citing primary literature)
 
 **URL:** https://en.wikipedia.org/wiki/H3K9me3
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary: Nicetto et al. 2019, Science)
 **Retrieved how:** WebFetch of the Wikipedia H3K9me3 article.
 
