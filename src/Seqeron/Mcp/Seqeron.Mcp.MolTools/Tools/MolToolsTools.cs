@@ -702,8 +702,7 @@ public class MolToolsTools
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
         var code = ResolveGeneticCode(genetic_code);
-        if (method is not (EncMethod.Wright1990 or EncMethod.Novembre2002 or EncMethod.SunYangXia2013
-            or EncMethod.EncPrimeNc or EncMethod.EncPrimeNcPrime))
+        if (!System.Enum.IsDefined(method))
             throw new System.ArgumentException(
                 $"Unknown ENC method: {method}. Supported: Wright1990, Novembre2002, SunYangXia2013, EncPrimeNc, EncPrimeNcPrime.", nameof(method));
         bool encPrime = method is EncMethod.EncPrimeNc or EncMethod.EncPrimeNcPrime;
@@ -748,7 +747,7 @@ public class MolToolsTools
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
         var code = ResolveGeneticCode(genetic_code);
-        if (gc_convention is not (CodonGcConvention.EmbossCusp or CodonGcConvention.CodonW))
+        if (!System.Enum.IsDefined(gc_convention))
             throw new System.ArgumentException(
                 $"Unknown GC convention: {gc_convention}. Supported: EmbossCusp, CodonW.", nameof(gc_convention));
 
@@ -787,15 +786,8 @@ public class MolToolsTools
 
     // Maps an NCBI translation table number to a GeneticCode; an unknown number is reported
     // with the list of supported tables (GeneticCode.SupportedTableNumbers).
-    private static GeneticCode ResolveGeneticCode(int genetic_code)
-    {
-        if (!GeneticCode.SupportedTableNumbers.Contains(genetic_code))
-            throw new System.ArgumentException(
-                $"Unknown genetic code table: {genetic_code}. Supported NCBI tables: {string.Join(", ", GeneticCode.SupportedTableNumbers)}.",
-                nameof(genetic_code));
-
-        return GeneticCode.GetByTableNumber(genetic_code);
-    }
+    private static GeneticCode ResolveGeneticCode(int genetic_code) =>
+        GeneticCode.GetByTableNumberOrThrow(genetic_code, nameof(genetic_code));
 
     #endregion
 
@@ -822,7 +814,7 @@ public class MolToolsTools
             throw new System.ArgumentException("GC target maximum must be a fraction in [0, 1].", nameof(gc_target_max));
         if (gc_target_min > gc_target_max)
             throw new System.ArgumentException("GC target minimum must not exceed the maximum.", nameof(gc_target_min));
-        if (secondary_scoring is not (CodonOptimizer.SecondaryStructureScoring.PairCount or CodonOptimizer.SecondaryStructureScoring.Turner2004Mfe))
+        if (!System.Enum.IsDefined(secondary_scoring))
             throw new System.ArgumentException(
                 $"Unknown secondary-structure scoring: {secondary_scoring}. Supported: PairCount, Turner2004Mfe.", nameof(secondary_scoring));
         if (gc_window is <= 0)
@@ -888,7 +880,7 @@ public class MolToolsTools
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
         if (window_size <= 0)
             throw new System.ArgumentException("Window size must be positive.", nameof(window_size));
-        if (scoring is not (CodonOptimizer.SecondaryStructureScoring.PairCount or CodonOptimizer.SecondaryStructureScoring.Turner2004Mfe))
+        if (!System.Enum.IsDefined(scoring))
             throw new System.ArgumentException(
                 $"Unknown secondary-structure scoring: {scoring}. Supported: PairCount, Turner2004Mfe.", nameof(scoring));
         var code = ResolveGeneticCode(genetic_code);
@@ -927,7 +919,7 @@ public class MolToolsTools
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
-        if (usage_basis is not (CodonOptimizer.MinMaxUsageBasis.PerThousandWhenAvailable or CodonOptimizer.MinMaxUsageBasis.CodonFrequencies))
+        if (!System.Enum.IsDefined(usage_basis))
             throw new System.ArgumentException(
                 $"Unknown usage basis: {usage_basis}. Supported: PerThousandWhenAvailable, CodonFrequencies.", nameof(usage_basis));
         var code = ResolveGeneticCode(genetic_code);

@@ -122,9 +122,7 @@ public class SequenceTools
             var validChars = global::Seqeron.Genomics.Core.ProteinSequence.ValidCharacters;
             for (int i = 0; i < sequence.Length; i++)
             {
-                char c = sequence[i];
-                if (char.IsAsciiLetterLower(c))
-                    c = (char)(c - 32);
+                char c = SequenceCase.ToUpperAscii(sequence[i]);
                 if (!validChars.Contains(c))
                 {
                     return new ProteinValidateResult(false, sequence.Length, $"Invalid amino acid '{sequence[i]}' at position {i}");
@@ -843,17 +841,12 @@ public class SequenceTools
         if (frame < 0 || frame > 2)
             throw new ArgumentException("Frame must be 0, 1, or 2", nameof(frame));
 
-        if (!global::Seqeron.Genomics.Core.GeneticCode.SupportedTableNumbers.Contains(geneticCode))
-            throw new ArgumentException(
-                $"Unknown genetic code table: {geneticCode}. Supported NCBI tables: {string.Join(", ", global::Seqeron.Genomics.Core.GeneticCode.SupportedTableNumbers)}.",
-                nameof(geneticCode));
+        var code = global::Seqeron.Genomics.Core.GeneticCode.GetByTableNumberOrThrow(geneticCode, nameof(geneticCode));
 
         const string Iupac = "RYSWKMBDHVN";
         for (int i = 0; i < sequence.Length; i++)
         {
-            char c = sequence[i];
-            if (char.IsAsciiLetterLower(c))
-                c = (char)(c - 32);
+            char c = SequenceCase.ToUpperAscii(sequence[i]);
             bool ok = c is 'A' or 'C' or 'G'
                 || c == (isRna ? 'U' : 'T')
                 || Iupac.Contains(c)
@@ -864,7 +857,6 @@ public class SequenceTools
                     nameof(sequence));
         }
 
-        var code = global::Seqeron.Genomics.Core.GeneticCode.GetByTableNumber(geneticCode);
         return global::Seqeron.Genomics.Core.Translator.Translate(sequence, code, frame, toFirstStop, allowNucleotideX).Sequence;
     }
 }

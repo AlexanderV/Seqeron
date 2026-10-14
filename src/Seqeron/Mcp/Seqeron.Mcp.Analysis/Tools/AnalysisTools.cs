@@ -541,15 +541,8 @@ public class AnalysisTools
 
     // NCBI translation table number → GeneticCode; same contract and error as the MolTools
     // codon tools' genetic_code parameter (FIN-B02 WP15).
-    private static GeneticCode ResolveGeneticCode(int genetic_code)
-    {
-        if (!GeneticCode.SupportedTableNumbers.Contains(genetic_code))
-            throw new ArgumentException(
-                $"Unknown genetic code table: {genetic_code}. Supported NCBI tables: {string.Join(", ", GeneticCode.SupportedTableNumbers)}.",
-                nameof(genetic_code));
-
-        return GeneticCode.GetByTableNumber(genetic_code);
-    }
+    private static GeneticCode ResolveGeneticCode(int genetic_code) =>
+        GeneticCode.GetByTableNumberOrThrow(genetic_code, nameof(genetic_code));
 
     [McpServerTool(Name = "predict_chou_fasman", Title = "Protein — Chou-Fasman Propensities", ReadOnly = true)]
     [Description("Propensity profile, not an assignment: mean Chou-Fasman (1978) helix Pa / sheet Pb / turn Pt parameters over each sliding window (windowSize 1 = per-residue propensities). Residues without parameters are skipped; a window with none emits no item. For the discrete per-residue H/E/T/C Chou-Fasman prediction use chou_fasman_assign.")]
