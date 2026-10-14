@@ -157,14 +157,16 @@ Per the model rule above. A batch listed here stays out of "Finished batches" ev
 |---|---|---|---|---|
 | B08 | CRISPR-OFF-001 start: F9 MIT silent-100 aggregate fix + CFD aggregate + dedup, WIP only (`-wip-B08` a80bdfa7) | session_01E7mHtXGjdaPccegYRGjrba (interrupted 10:53, ≈ $10, archived) | claude-opus-5 (session model 5-5, served 5) | being re-verified against CRISPOR/Hsu/Doench by B08 resume-2 session_01JEZHM6XkDpcN8pugzHb9ns on verified 5-5 — clears if it holds |
 | B08 | CRISPR-OFF-001 work, still WIP-only (`-wip-B08` cda5b4c8) | session_01JEZHM6XkDpcN8pugzHb9ns (resume-2; verified 5-5 at launch 10:54, fell back mid-session; stopped by the five-hour limit ≈ 12:05 after ≈ $199.3; archived) | claude-opus-5 | OPEN — re-verified from scratch by resume-3 session_01WLgw5gNJSSJdHmg5UKDkPY |
+| B08 | CRISPR-OFF-001 as re-verified and committed by resume-3, and everything it does next | session_01WLgw5gNJSSJdHmg5UKDkPY (resume-3, RUNNING) | claude-opus-5 — off-model from its first turn, the fourth B08 session in a row | OPEN — left running per the model rule; B08 cannot be marked finished |
 | B08 | CRISPR-PAM-001 F1–F2 (commit 73fe1972) + the B08.md skeleton | session_01YRNyThk8LUUghgQswiDmsF (first pass, archived, ≈ $19.6) | claude-opus-5 (session model AND last served) | OPEN — needs a re-verification pass on 5-5 |
 | B08 | CRISPR-GUIDE-001 F3–F8 (commits 2fc133c2, e8e6c72) | session_01NvVQb3FM1E4YGuhxEtXqjH (2026-10-01, archived) | claude-opus-5 (configured + session model 5-5, served 5) | OPEN — needs a re-verification pass on 5-5 before B08 may be called finished |
 
 **Provenance audit done 2026-10-14** (all 36 campaign sessions queried; table in `scratchpad/model-provenance.md`):
 every session was *configured* claude-opus-5-5, and every batch except B08 was also *served* 5-5 — B01–B07, B09–B26,
 B24, the B07 resumes, FIN-B01, FIN-B24 and R1 all clean, so the six entries in "Finished batches" stand. Only B08 is
-affected — and it keeps being affected: all four B08 sessions (first pass, 10-01 resume, today's interrupted resume and
-resume-2) were served claude-opus-5, resume-2 after passing the 5-5 check at launch. So every B08 fix, F1–F8 and the
+affected — and it keeps being affected: all five B08 sessions (first pass, 10-01 resume, today's interrupted resume,
+resume-2 and resume-3) were served claude-opus-5 — resume-2 after passing the 5-5 check at launch, resume-3 from its
+first turn. Relaunching does not fix it, so B08 is simply run as is and flagged. So every B08 fix, F1–F8 and the
 CRISPR-OFF work in flight, is off-model, as the rows above record. The one record
 with no data is the FIN-B01 launch that was aborted over the literal `$(cat …)` prompt
 (session_01ESJRAKGAm3Af18dZknYwM9) — it produced no commits, so nothing depends on it.
