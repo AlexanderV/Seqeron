@@ -61,7 +61,7 @@
 **Key Extracted Points:**
 
 1. **ORF definitions:** getorf recognises an ORF as either "a region that is free of STOP codons" or "a region that begins with a START codon and ends with a STOP codon."
-2. **`-find` option values:** 0 = translation between STOP codons; 1 = translation between START and STOP codons; 2/3 = corresponding nucleic sequences; 4/5 = flanking nucleotides. Option **1 (START→STOP)** is the model implemented here.
+2. **`-find` option values:** 0 = translation between STOP codons; 1 = translation between START and STOP codons; 2/3 = corresponding nucleic sequences; 4/5/6 = nucleotides flanking START / initial STOP / ending STOP codons. Option **1 (START→STOP)** is the legacy `FindOrfs` model; all seven modes are available through `FindOrfs(DnaSequence, OrfFindMode, …)` (2026-10-14, A1-12).
 3. **Minimum size:** default `-minsize` is 30 bases (= 10 amino acids); it measures nucleotide length.
 4. **Both strands & reverse numbering:** by default both forward and reverse strands are searched; reverse-strand ORFs are labelled `(REVERSE SENSE)`.
 
@@ -87,6 +87,30 @@
 4. At the end without a STOP (`pos >= seqlen-5`): the last codon is appended and `WriteORF(..., pos+2)` — the ORF ends at the last base of the last complete codon.
 5. `minsize` (default 30 nt) is divided by 3 and compared to the protein length.
 6. EMBOSS ships genetic codes EGC.1 … but not EGC.25–33 (HTTP 404 for 25, 26, 27, 28, 31, 33), so getorf defines nothing for the dual-coding tables 27/28/31.
+
+### EMBOSS getorf — `-find` 0–6 (getorf.c / getorf.acd, opened 2026-10-14, FIN-B02 WP11)
+
+**URL:** https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/getorf.c and `emboss/acd/getorf.acd`
+**Authority rank:** 3 (reference implementation source)
+
+1. acd `-find` values: "0:Translation of regions between STOP codons; 1:Translation of regions between START and STOP codons; 2:Nucleic sequences between STOP codons; 3:Nucleic sequences between START and STOP codons; 4:Nucleotides flanking START codons; 5:Nucleotides flanking initial STOP codons; 6:Nucleotides flanking ending STOP codons". Defaults: `-minsize 30`, `-maxsize 1000000` ("Minimum/Maximum nucleotide size of ORF to report"), `-flanking 100`, `-reverse Y`, `-methionine Y`, `-circular N`.
+2. `main`: `if(find == P_STOP2STOP || find == P_START2STOP || find == AROUND_START) { minsize /= 3; maxsize /= 3; }` — size bounds compared with the residue count for modes 0, 1, 4, with the nucleotide count for 2, 3, 5, 6.
+3. `getorf_FindORFs` (non-circular): STOP→STOP modes start with `ORF[f] = ajTrue; start[f] = f` ("assume already in a ORF so we get ORFs at the start of the sequence"); `if(codon == STOP || pos >= seqlen-5)`: the last codon (if not a STOP) is appended, the region is written (`WriteORF(start, pos-1)` on a STOP, `pos+2` at the end), and `start[frame] = pos+3`. START modes: see `-find 1` above.
+4. `getorf_AppORF`: modes 2, 3, 5, 6 store the codon's nucleotides; 0, 1, 4 the residue.
+5. `getorf_WriteORF`: AROUND_START `codonpos = s` (the START); AROUND_INIT_STOP `codonpos = s-3` (the STOP before the region); AROUND_END_STOP `codonpos = e+1` (the terminating STOP); window `[codonpos − around, codonpos + around + 2]`, `return` (no output, no ORF number consumed) if `s < 1` or `e > seqlen`. Reverse sense: `s = len-s+1; e = len-e+1`, then shifted into range; header `[s - e] (REVERSE SENSE)`, "Around codon at <codonpos>" (codonpos in reverse-complement coordinates).
+6. acd `-flanking` help: "If the region of flanking nucleotides crosses the start or end of the sequence, no output is given for this codon."
+
+### EMBOSS 6.6.0 getorf binary — reference output (2026-10-14)
+
+`getorf -sequence in.fa -outseq stdout -find N -table T -minsize M -maxsize X -flanking F -reverse R -methionine Y|N -auto`. EMBOSS EGC files equal the NCBI/Biopython tables for 1, 2, 4, 5, 6, 9, 10, 11, 12, 14, 15, 16, 21, 22, 23; EGC.3 lacks start GTG and EGC.13 lacks starts ATA/GTG/TTG (older NCBI start sets), so tables 3/13 were compared only in the START-independent modes 0/2/5/6. EMBOSS also writes empty regions when `-minsize 0` (adjacent STOPs).
+
+Worked example `GGGATGAAACCCTAAGGG`, `-minsize 9 -flanking 2 -table 1`:
+- `-find 0`: `[1 - 12] GMKP`, `[8 - 16] NPK`, `[3 - 17] DETLR`, `[11 - 3] (REVERSE SENSE) GFI`, `[16 - 2] (REVERSE SENSE) LRVSS`, `[18 - 1] (REVERSE SENSE) PLGFHP`.
+- `-find 2`: same ranges, `GGGATGAAACCC`, `AACCCTAAG`, `GATGAAACCCTAAGG`, `GGTTTCATC`, `CTTAGGGTTTCATCC`, `CCCTTAGGGTTTCATCCC`.
+- `-find 3`: `[4 - 12] ATGAAACCC`. `-find 4`: `[2 - 8] Around codon at 4. GGATGAA`. `-find 5`: `[3 - 9] Around codon at 5. GATGAAA`, `[16 - 10] (REVERSE SENSE) Around codon at 5. CTTAGGG`. `-find 6`: `[11 - 17] Around codon at 13. CCTAAGG`.
+- `TAATAA -find 0 -minsize 0 -reverse N`: `[1 - 0]` (empty), `[2 - 4] N`, `[3 - 5] I`, `[4 - 3]` (empty).
+
+Bulk comparison (C# `FindOrfs(dna, OrfFindMode, …)` mapped by `OrfFeature.ToGetOrfRange` vs the binary): 2 500 random sequences × 290 runs, 0 mismatching (sequence, run) pairs over 3 474 722 reference records; 25 084 records excluded as the documented one-codon open-ORF divergence (modes 1/3/4). Locked subset: `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Getorf/getorf_find_modes.tsv`.
 
 ### INSDC Feature Table Definition — CDS (WebSearch snippet; insdc.org / ddbj blocked for fetch)
 
@@ -167,7 +191,7 @@ Input DNA: `GGGATGAAACCCTAAGGG`. ATG begins at index 3; stop `TAA` occupies indi
 
 1. **ASSUMPTION: Reverse-frame numbering convention.** Two documented conventions exist (EMBOSS phase-locked vs. Biopython independent-offset). The repository follows the **Biopython** convention (frame -k = reverse-complement offset k−1), which is the dominant reference-implementation behaviour and is explicitly listed as an accepted alternative in the EMBOSS transeq documentation. This is a convention choice, not an invented value; both produce correct biology, only the −1/−2/−3 labels differ.
 2. **ASSUMPTION: Stop codons rendered as `*`; ambiguous IUPAC codons resolved as in Biopython (all-same → that residue, all-stop → `*`, D/N → `B`, E/Q → `Z`, I/L → `J`, otherwise `X`; TRANS-CODON-001 review 2026-09).** The `*` for stop is universal (NCBI). The ambiguity resolution is Biopython's `Bio.Data.CodonTable` ambiguous-table rule, implemented and oracle-tested in `GeneticCode.Translate` (TRANS-CODON-001); it is not exercised as a six-frame-specific MUST.
-3. **ASSUMPTION: ORF length filter is in amino acids.** getorf's `-minsize` is in nucleotides; the repository's `FindOrfs(minLength)` parameter counts amino acids (protein length). This is an API-shape choice documented in the contract; behaviour is well-defined for any value.
+3. **ASSUMPTION: ORF length filter is in amino acids.** getorf's `-minsize` is in nucleotides; the repository's `FindOrfs(minLength)` parameter counts amino acids (protein length). This is an API-shape choice documented in the contract; behaviour is well-defined for any value. The getorf-modes overload (`FindOrfs(DnaSequence, OrfFindMode, …)`) takes getorf's nucleotide `minSize`/`maxSize` unchanged.
 
 ---
 
@@ -198,3 +222,4 @@ Input DNA: `GGGATGAAACCCTAAGGG`. ATG begins at index 3; stop `TAA` occupies indi
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-10-14**: getorf `-find` 0–6 sources and EMBOSS 6.6.0 binary reference output (FIN-B02 WP11, audit A1-12).

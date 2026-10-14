@@ -174,6 +174,245 @@ namespace Seqeron.Genomics.Core
             }
         }
 
+        // EMBOSS getorf.acd defaults: -minsize 30, -maxsize 1000000, -flanking 100.
+        private const int GetOrfDefaultMinSize = 30;
+        private const int GetOrfDefaultMaxSize = 1_000_000;
+        private const int GetOrfDefaultFlanking = 100;
+
+        /// <summary>
+        /// Finds ORFs (or the nucleotides flanking their START / STOP codons) with any of the seven
+        /// EMBOSS getorf <c>-find</c> modes.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Port of EMBOSS getorf <c>getorf_FindORFs</c> / <c>getorf_WriteORF</c> / <c>getorf_AppORF</c>
+        /// (emboss/getorf.c, linear sequences; <c>-circular</c> is not supported). Two ORF
+        /// definitions (getorf.acd <c>-find</c> help): a region free of STOP codons (modes 0, 2, 5, 6;
+        /// every frame is treated as already open at the sequence start, so the leading region
+        /// before the first STOP and the trailing region after the last STOP are reported too),
+        /// or a region that begins with a START codon and ends with a STOP codon (modes 1, 3, 4;
+        /// nested in-frame STARTs do not open a new ORF). An ORF that reaches the strand end
+        /// without a STOP ends at the last base of the last complete codon (getorf
+        /// <c>WriteORF(start, pos+2)</c>).
+        /// </para>
+        /// <para>
+        /// Size filter (getorf <c>-minsize</c> / <c>-maxsize</c>, in nucleotides): for the
+        /// protein-storing modes 0, 1 and 4 getorf divides both bounds by 3 (integer division) and
+        /// compares them with the translated length in residues; for modes 2, 3, 5 and 6 they are
+        /// compared with the ORF's nucleotide length (STOP excluded). For the flanking modes the
+        /// filter applies to the underlying ORF, and a window that would cross either sequence end
+        /// is not reported (getorf.acd <c>-flanking</c>: "no output is given for this codon").
+        /// </para>
+        /// <para>
+        /// Coordinates are 0-based and inclusive, in the scanned strand's coordinates (reverse-strand
+        /// results: coordinates of the reverse complement, frames −1..−3), as in
+        /// <see cref="FindOrfs(DnaSequence, GeneticCode?, int, bool)"/>: for modes 0–3 the region is
+        /// the ORF with a stop-inclusive end (see <see cref="OrfFeature.IsTerminated"/>); for modes
+        /// 4–6 it is the flank window <c>[codon − flanking, codon + 2 + flanking]</c>.
+        /// <see cref="OrfFeature.ToGetOrfRange(int)"/> gives getorf's 1-based <c>[s - e]</c> header.
+        /// Results are yielded in getorf output order (forward strand, then reverse strand; within a
+        /// strand in the order the ORFs close), so the k-th result is getorf's <c>name_k</c>.
+        /// </para>
+        /// <para>
+        /// Documented divergence (shared with the START→STOP overload): in modes 1, 3, 4 a START
+        /// that is the last complete codon of its frame forms a one-codon open ORF that is reported
+        /// when it passes the size filter; getorf never writes it (its START branch precedes the
+        /// end-of-sequence branch, so the ORF is left open when the loop ends).
+        /// </para>
+        /// </remarks>
+        /// <param name="dna">The DNA sequence to search.</param>
+        /// <param name="mode">The getorf <c>-find</c> mode.</param>
+        /// <param name="geneticCode">The genetic code (default: Standard, NCBI table 1).</param>
+        /// <param name="minSize">getorf <c>-minsize</c>: minimum ORF size in nucleotides (default 30).</param>
+        /// <param name="maxSize">getorf <c>-maxsize</c>: maximum ORF size in nucleotides (default 1 000 000).</param>
+        /// <param name="flanking">getorf <c>-flanking</c>: bases reported on each side of the codon in modes 4–6 (default 100).</param>
+        /// <param name="searchBothStrands">getorf <c>-reverse</c>: also search the reverse complement (default true).</param>
+        /// <param name="methionine">getorf <c>-methionine</c>: report the initiator residue as Met in mode 1 (default true).</param>
+        /// <returns>The reported ORFs / flank windows in getorf output order.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="dna"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="mode"/> is undefined, or a size / flanking value is negative.</exception>
+        /// <exception cref="ArgumentException">The genetic code has dual-coding stop codons (tables 27, 28, 31).</exception>
+        public static IEnumerable<OrfFeature> FindOrfs(DnaSequence dna, OrfFindMode mode, GeneticCode? geneticCode = null,
+            int minSize = GetOrfDefaultMinSize, int maxSize = GetOrfDefaultMaxSize, int flanking = GetOrfDefaultFlanking,
+            bool searchBothStrands = true, bool methionine = true)
+        {
+            ArgumentNullException.ThrowIfNull(dna);
+            if (!Enum.IsDefined(mode))
+                throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown getorf -find mode (0–6).");
+            ArgumentOutOfRangeException.ThrowIfNegative(minSize);
+            ArgumentOutOfRangeException.ThrowIfNegative(maxSize);
+            ArgumentOutOfRangeException.ThrowIfNegative(flanking);
+            var code = geneticCode ?? GeneticCode.Standard;
+            if (HasDualCodingStopCodons(code))
+                throw new ArgumentException(
+                    $"ORF finding cannot be used with genetic code table {code.TableNumber} " +
+                    "because its stop codons also code for an amino acid (context-dependent termination).",
+                    nameof(geneticCode));
+            var settings = new GetOrfSettings(mode, code, minSize, maxSize, flanking, methionine);
+            return FindOrfsGetOrfCore(dna, settings, searchBothStrands);
+        }
+
+        private readonly record struct GetOrfSettings(OrfFindMode Mode, GeneticCode Code,
+            int MinSize, int MaxSize, int Flanking, bool Methionine);
+
+        private static IEnumerable<OrfFeature> FindOrfsGetOrfCore(DnaSequence dna, GetOrfSettings settings, bool searchBothStrands)
+        {
+            foreach (var feature in ScanGetOrf(dna.Sequence, settings, isReverseComplement: false))
+                yield return feature;
+
+            if (searchBothStrands)
+            {
+                foreach (var feature in ScanGetOrf(dna.ReverseComplement().Sequence, settings, isReverseComplement: true))
+                    yield return feature;
+            }
+        }
+
+        // getorf_FindORFs (non-circular): one pass over every codon position; frame = pos % 3.
+        private static IEnumerable<OrfFeature> ScanGetOrf(string sequence, GetOrfSettings s, bool isReverseComplement)
+        {
+            var mode = s.Mode;
+            // getorf main(): "get the minimum size converted to protein length if storing protein sequences".
+            bool storesProtein = mode is OrfFindMode.TranslationStopToStop or OrfFindMode.TranslationStartToStop
+                or OrfFindMode.FlankingStart;
+            int min = storesProtein ? s.MinSize / CodonLength : s.MinSize;
+            int max = storesProtein ? s.MaxSize / CodonLength : s.MaxSize;
+            bool startToStop = mode is OrfFindMode.TranslationStartToStop or OrfFindMode.NucleotidesStartToStop
+                or OrfFindMode.FlankingStart;
+
+            int n = sequence.Length;
+            var open = new bool[ReadingFramesPerStrand];
+            var start = new int[ReadingFramesPerStrand];
+            var buffer = new StringBuilder[ReadingFramesPerStrand];
+            for (int f = 0; f < ReadingFramesPerStrand; f++)
+            {
+                buffer[f] = new StringBuilder();
+                // STOP→STOP modes: "assume already in a ORF so we get ORFs at the start of the sequence".
+                open[f] = !startToStop;
+                start[f] = f;
+            }
+
+            for (int pos = 0; pos + CodonLength <= n; pos++)
+            {
+                int frame = pos % ReadingFramesPerStrand;
+                string codon = sequence.Substring(pos, CodonLength);
+                char aa = s.Code.Translate(codon);
+                bool isStop = aa == '*';
+                // getorf: pos >= seqlen-5 is the last complete codon of this frame.
+                bool isLastCodon = pos + 2 * CodonLength > n;
+
+                if (!startToStop)
+                {
+                    if (isStop || isLastCodon)
+                    {
+                        if (!isStop)
+                            AppendGetOrf(buffer[frame], sequence, pos, aa, storesProtein);
+                        if (open[frame] && SizeOk(buffer[frame].Length, min, max)
+                            && TryBuildGetOrfFeature(sequence, s, isReverseComplement, frame, start[frame],
+                                pos + CodonLength - 1, isStop, buffer[frame], out var feature))
+                            yield return feature;
+                        buffer[frame].Clear();
+                        open[frame] = true;
+                        start[frame] = pos + CodonLength;
+                    }
+                    else if (open[frame])
+                    {
+                        AppendGetOrf(buffer[frame], sequence, pos, aa, storesProtein);
+                    }
+                }
+                else if (!open[frame] && s.Code.IsStartCodon(codon))
+                {
+                    buffer[frame].Clear();
+                    open[frame] = true;
+                    start[frame] = pos;
+                    AppendGetOrf(buffer[frame], sequence, pos, s.Methionine ? InitiatorMethionine : aa, storesProtein);
+                }
+                else if (isStop || isLastCodon)
+                {
+                    if (open[frame])
+                    {
+                        open[frame] = false;
+                        if (!isStop)
+                            AppendGetOrf(buffer[frame], sequence, pos, aa, storesProtein);
+                        if (SizeOk(buffer[frame].Length, min, max)
+                            && TryBuildGetOrfFeature(sequence, s, isReverseComplement, frame, start[frame],
+                                pos + CodonLength - 1, isStop, buffer[frame], out var feature))
+                            yield return feature;
+                    }
+                    buffer[frame].Clear();
+                }
+                else if (open[frame])
+                {
+                    AppendGetOrf(buffer[frame], sequence, pos, aa, storesProtein);
+                }
+            }
+
+            // Documented divergence from getorf: a START that is the last complete codon of its
+            // frame is still open here (getorf drops it); report it as a one-codon open ORF.
+            if (startToStop)
+            {
+                for (int f = 0; f < ReadingFramesPerStrand; f++)
+                {
+                    if (open[f] && SizeOk(buffer[f].Length, min, max)
+                        && TryBuildGetOrfFeature(sequence, s, isReverseComplement, f, start[f],
+                            start[f] + CodonLength - 1, false, buffer[f], out var feature))
+                        yield return feature;
+                }
+            }
+        }
+
+        private static bool SizeOk(int length, int min, int max) => length >= min && length <= max;
+
+        // getorf_AppORF: protein modes store the residue, nucleotide modes the codon.
+        private static void AppendGetOrf(StringBuilder buffer, string sequence, int pos, char aa, bool storesProtein)
+        {
+            if (storesProtein)
+                buffer.Append(aa);
+            else
+                buffer.Append(sequence, pos, CodonLength);
+        }
+
+        // getorf_WriteORF: ORF modes report the stored sequence; flanking modes the window
+        // [codon − flanking, codon + 2 + flanking], skipped when it crosses a sequence end.
+        private static bool TryBuildGetOrfFeature(string sequence, GetOrfSettings s, bool isReverseComplement,
+            int frame, int orfStart, int orfEnd, bool isTerminated, StringBuilder stored, out OrfFeature feature)
+        {
+            int frameLabel = isReverseComplement ? -(frame + 1) : frame + 1;
+            int codon;
+            switch (s.Mode)
+            {
+                case OrfFindMode.FlankingStart:
+                    codon = orfStart;
+                    break;
+                case OrfFindMode.FlankingInitialStop:
+                    codon = orfStart - CodonLength; // < 0 for the leading region: no initial STOP
+                    break;
+                case OrfFindMode.FlankingEndingStop:
+                    // getorf: codonpos = e + 1; for an open ORF the window always passes the end.
+                    if (!isTerminated)
+                    {
+                        feature = default;
+                        return false;
+                    }
+                    codon = orfEnd - (CodonLength - 1);
+                    break;
+                default:
+                    feature = new OrfFeature(s.Mode, orfStart, orfEnd, frameLabel, isTerminated, -1, stored.ToString());
+                    return true;
+            }
+
+            int windowStart = codon - s.Flanking;
+            int windowEnd = codon + (CodonLength - 1) + s.Flanking;
+            if (windowStart < 0 || windowEnd >= sequence.Length)
+            {
+                feature = default;
+                return false;
+            }
+
+            feature = new OrfFeature(s.Mode, windowStart, windowEnd, frameLabel, isTerminated, codon,
+                sequence.Substring(windowStart, windowEnd - windowStart + 1));
+            return true;
+        }
+
         /// <summary>
         /// Translates all six reading frames of a DNA sequence.
         /// </summary>
@@ -417,5 +656,94 @@ namespace Seqeron.Genomics.Core
         /// Gets the length of the ORF in amino acids.
         /// </summary>
         public int AminoAcidLength => Protein.Length;
+    }
+
+    /// <summary>
+    /// EMBOSS getorf <c>-find</c> modes (emboss/acd/getorf.acd; numeric values equal getorf's codes).
+    /// </summary>
+    public enum OrfFindMode
+    {
+        /// <summary>0: translation of regions between STOP codons.</summary>
+        TranslationStopToStop = 0,
+
+        /// <summary>1: translation of regions between START and STOP codons.</summary>
+        TranslationStartToStop = 1,
+
+        /// <summary>2: nucleic sequences between STOP codons.</summary>
+        NucleotidesStopToStop = 2,
+
+        /// <summary>3: nucleic sequences between START and STOP codons.</summary>
+        NucleotidesStartToStop = 3,
+
+        /// <summary>4: nucleotides flanking START codons (of START→STOP ORFs).</summary>
+        FlankingStart = 4,
+
+        /// <summary>5: nucleotides flanking initial STOP codons (of STOP→STOP ORFs).</summary>
+        FlankingInitialStop = 5,
+
+        /// <summary>6: nucleotides flanking ending STOP codons (of STOP→STOP ORFs).</summary>
+        FlankingEndingStop = 6,
+    }
+
+    /// <summary>
+    /// One record reported by
+    /// <see cref="Translator.FindOrfs(DnaSequence, OrfFindMode, GeneticCode?, int, int, int, bool, bool)"/>
+    /// (one getorf output entry).
+    /// </summary>
+    /// <param name="Mode">The getorf <c>-find</c> mode that produced the record.</param>
+    /// <param name="StartPosition">0-based first base of the region, in the scanned strand's coordinates
+    /// (reverse-complement coordinates when <see cref="Frame"/> is negative).</param>
+    /// <param name="EndPosition">0-based inclusive last base of the region. Modes 0–3: the last base of
+    /// the terminating STOP codon when <see cref="IsTerminated"/> (INSDC CDS convention), otherwise of
+    /// the last complete codon. Modes 4–6: the last base of the flank window.</param>
+    /// <param name="Frame">Frame label: +1..+3 forward (offset 0..2), −1..−3 reverse complement (offset 0..2).</param>
+    /// <param name="IsTerminated">Whether the underlying ORF ends with a STOP codon (false: it runs to the strand end).</param>
+    /// <param name="CodonPosition">Modes 4–6: 0-based first base of the flanked START / STOP codon; −1 otherwise.</param>
+    /// <param name="Sequence">The getorf output sequence: protein (modes 0, 1; STOP excluded), the ORF's
+    /// nucleotides (modes 2, 3; STOP excluded) or the flank window's nucleotides (modes 4–6).</param>
+    public readonly record struct OrfFeature(
+        OrfFindMode Mode,
+        int StartPosition,
+        int EndPosition,
+        int Frame,
+        bool IsTerminated,
+        int CodonPosition,
+        string Sequence)
+    {
+        /// <summary>Gets whether the record lies on the reverse-complement strand.</summary>
+        public bool IsReverseStrand => Frame < 0;
+
+        /// <summary>
+        /// Gets getorf's 1-based <c>[s - e]</c> header range for this record, in forward-strand
+        /// coordinates (getorf_WriteORF). ORF modes exclude the terminating STOP; a reverse-strand
+        /// record is mapped with <c>s = L − s + 1</c>, <c>e = L − e + 1</c> (so s &gt; e), including
+        /// getorf's shift of out-of-range values for empty ORFs.
+        /// </summary>
+        /// <param name="sequenceLength">Length L of the searched sequence.</param>
+        /// <returns>The (start, end) pair getorf prints.</returns>
+        public (int Start, int End) ToGetOrfRange(int sequenceLength)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sequenceLength);
+            bool orfMode = Mode is OrfFindMode.TranslationStopToStop or OrfFindMode.TranslationStartToStop
+                or OrfFindMode.NucleotidesStopToStop or OrfFindMode.NucleotidesStartToStop;
+            int s = StartPosition + 1;
+            int e = (orfMode && IsTerminated ? EndPosition - 3 : EndPosition) + 1;
+            if (!IsReverseStrand)
+                return (s, e);
+
+            s = sequenceLength - s + 1;
+            e = sequenceLength - e + 1;
+            while (e > sequenceLength)
+            {
+                s -= sequenceLength;
+                e -= sequenceLength;
+            }
+            while (e < 0 || s < 0)
+            {
+                s += sequenceLength;
+                e += sequenceLength;
+            }
+            return (s, e);
+        }
     }
 }
