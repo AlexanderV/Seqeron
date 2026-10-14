@@ -42,7 +42,7 @@ and commits it after every change. Batch definitions (units, owned files) are in
   it can be re-verified when 5-5 becomes available again. This applies to every session of the campaign, including
   the orchestrator's own and any future resume/finisher, not only to the session where it was first noticed.
 
-## State (2026-10-14 23:00 UTC) — FIN-B02 finishing; SRC + B08 resume-4 launched
+## State (2026-10-14 23:15 UTC) — FIN-B02 LANDED (model-flagged); SRC + B08 resume-4 running
 - **FIN-B03 DONE** (session_019yqGyk8v1PunaUYAP83i7B archived, 10:35 – 17:57, ≈ $75.1, served claude-opus-5-5
   throughout, as was the B03 first pass — so B03 goes into "Finished batches"): audit rounds 1–3 + final round,
   F22 onwards, dedup sweep, heavy tier once (da6bd804), final report 5bcceeca. 73 changed docs listed for wiki
@@ -203,6 +203,8 @@ CRISPR-OFF work in flight, is off-model, as the rows above record. The one recor
 with no data is the FIN-B01 launch that was aborted over the literal `$(cat …)` prompt
 (session_01ESJRAKGAm3Af18dZknYwM9) — it produced no commits, so nothing depends on it.
 
+| B02 | FIN-B02 `session_016tDCWJHjR3NXKjhHLFynHz` | lead claude-opus-5-5 throughout; **subagents** served `claude-opus-5` for WP9/WP10/WP14/WP15/WP18/WP22 **and for both re-verification reviewers** (WP27a 114 of 124 turns, WP27b 86 of 106) | Off-model: **F41, F42, F43, F48, F49, F54, F55, F60, F63, F64** + the WP27a/b review verdicts. 0 DOABLE leftovers; what is missing is one claude-opus-5-5 pass over those entries against the oracle numbers already recorded in Evidence/TestSpecs. Note the WP27a/b pass, though itself off-model, found two real defects (F63 GC constraint broken by the structure pass, F64 window over-rounding), so the pass is not a formality |
+
 ## Consolidation task — re-anchor citations to reachable sources (user 2026-10-14)
 The agent proxy answers **403 to CONNECT** for `en.wikipedia.org:443`, `www.addgene.org:443` and
 `rebase.neb.com:443`; earlier batches also recorded `rosalind.info`, Kazusa (`www.kazusa.or.jp`), ExPASy
@@ -253,7 +255,7 @@ that is recorded as an environment limitation, not worked around.
 **Re-opened items** (were BLOCKED-with-proof solely because the host answered 403; the proof no longer holds):
 | # | Batch | Item | Where it is recorded | Owner of the fix |
 |---|---|---|---|---|
-| RO1 | B02 | CODON-USAGE-001 organism presets hold per-AA fractions only — add the per-thousand columns from the Kazusa Codon Usage Database (`MolTools/CodonUsageAnalyzer.cs`) | B02.md leftovers / FIN-B02 worklist | FIN-B02 (its own file) — if FIN-B02 has already pushed its final report, this becomes a request to a FINISHED batch |
+| RO1 | B02 | CODON-USAGE-001 organism presets hold per-AA fractions only — add the per-thousand columns from the Kazusa Codon Usage Database (`MolTools/CodonUsageAnalyzer.cs`). **Supersedes B02.md leftover (b)** ("E. coli 316407 per-thousand usage — kazusa.or.jp blocked"), whose proof was the 403 | B02.md `## Leftovers` (b) | **SRC** — FIN-B02 landed at 23:04, so SRC's task C condition is met; commit "(SRC for B02)" |
 | RO2 | B03 | PROT-SCALE / ProtScale **exponential** weight-variation model — the equation was unobtainable (mirrors 403/ENOTFOUND; one sample fitted a ∈ [0.81, 0.94]) | B03.md `## Leftovers` (BLOCKED) | SRC session, commit "(SRC for B03)" — B03 is FINISHED |
 
 Both are now DOABLE unless the fetched page still fails to define the quantity; if so, the new proof must quote the
@@ -266,7 +268,7 @@ citation at `src/.../MolTools/CrisprDesigner.cs:258`, which B08 WP-SRC had to le
 ## Running sessions (2026-10-14 23:00 UTC)
 | Task | Session | Configured / served | Scope |
 |---|---|---|---|
-| FIN-B02 | `session_016tDCWJHjR3NXKjhHLFynHz` | 5-5 / **5-5** | heavy tier done, writing the final report (WP27b 5-5 re-verification landed as `f278de8f`) |
+| ~~FIN-B02~~ | `session_016tDCWJHjR3NXKjhHLFynHz` (archived, $188.14) | lead 5-5 / **subagents mostly opus-5** | **DONE 2026-10-14 23:04**, final report `b36eecb3`: 4 audit rounds to 0 DOABLE, F31–F64, dedup sweep, heavy tier, full unfiltered **26280/0**. NOT finished — see the B02 row in "Model-flagged batches" |
 | SRC (sources & citations) | `session_01Wa9VJs4Gp5H1yEXuySyxf8` | 5-5 / verify at check-in | A: RO2 ProtScale exponential (SRC for B03); B: the citation audit — 428 files, 790 occurrences, **206 distinct URLs** (5 Addgene), classify NUMBER / DEFINITION / BIBLIOGRAPHY, fetch and verify every NUMBER, re-anchor code- and test-driving numbers to primary sources, mark the rest "inherited, not re-verified"; C: RO1 Kazusa per-thousand **only if FIN-B02 has landed**, else fetch + register. Report `SRC.md`, WIP branch `…-wip-SRC` |
 | B08 resume-4 | `session_01Gei6HyCuq5texhxCCGEvji` | 5-5 / verify at check-in | the `## Resume state` list in B08.md: D3 → D5+D12 → D14+D17 → D15+D16 → D9 → D10 → D7 → D8 → D11 → D6 → D4 → D18 → D19, then round-1 fast tier → round 2 → dedup → final audit → heavy tier → report. Also the now-reachable Addgene citation at `CrisprDesigner.cs:258` |
 
@@ -300,6 +302,14 @@ vs B09 `FindMotif`; B05.md → B04 `RepeatFinder.EnumerateForwardMaximalPairs` �
 sentence, B05 D3 rationale.
 
 ## Known cross-batch items to carry into Phase 2
+- B02 (FIN-B02 final report `b36eecb3`) → requests to batches not yet reviewed, each to be honoured when that batch runs:
+  B11 `GenomeAnnotator.GetCodonUsage` (:1175, :1232) → `Translator.CountCodons` + `CodonUsageAnalyzer.CalculateRscu`;
+  B11/B09 ORF-engine unification on `Translator.FindOrfs`; B20 `GenBankParser` private translate (:686-697) →
+  `Translator.Translate`; B09 `GenomicAnalyzer` hard-coded stops (:413, :506) → `GeneticCode.Standard.IsStopCodon`;
+  B23 `OncologyAnalyzer.Fusions` to-first-stop loop (:546-557) → `Translator.Translate(…, toFirstStop: true)`;
+  B12 MFE vs ViennaRNA int21/int22 residual (max |Δ| 2.24 kcal/mol, RNA-STRUCT-001 D3/D4).
+  Its three requests to B08 are already covered by B08's own worklist (raw-pattern search done as B08 F22
+  `FindPatternOccurrences`; `CrisprDesigner.cs:662` ToUpperAscii = D12; the two MCP doc pairs = D14+D17).
 - ~~B04: `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` generator can draw w = k = 5 → draw w from [k+1, 60] (flaky ~1/30).~~ Done R2 (84cbf060).
 - B24.md "## Leftovers" → open requests to B17/B19/B21/B22/B23/B25 + Phase 2 (Median, MAD, KMeans advisory); orchestrator notes for consolidation: ALGORITHMS_CHECKLIST_V2 rows (ONCO-ASCAT-001 method table, l.4784 ONCO-CCF-001 Ckmeans, l.4808 ONCO-HETERO-001 citation), stale Oncology wiki pages, non-B24 Oncology docs linking the pre-split `OncologyAnalyzer.cs`.
 - B06 report "Cross-batch requests" (B01, B04, B05, B07, B09, B10, B17, B18, MCP owner) — k-mer counting routed to canonical KmerAnalyzer.
