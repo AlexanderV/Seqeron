@@ -46,7 +46,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `disorder_propensity` | Returns the TOP-IDP propensity value for a single amino acid (Campen 2008). |
 | `dust_score` | DUST low-complexity score (BLAST-style, triplet-based) for a DNA sequence. |
 | `dyad_analysis` | RSAT dyad-analysis: over-represented spaced dyads M1 n{s} M2 (any / dr / ir / rep) with monad-based expected frequencies, z-scores and binomial occ_P / occ_E / occ_sig… |
-| `entropy_profile` | Shannon entropy in sliding windows along the sequence. |
+| `entropy_profile` | Shannon entropy in sliding windows along the sequence; optional k-mer (block) entropy (`k`) and trailing partial windows (`includePartialWindow`). |
 | `find_approximate_direct_repeats` | Finds **all maximal k-mismatch (Hamming) direct repeats** (Kurtz et al. 2000 REPuter; Vmatch -h k): two copies of equal length length at 0-… |
 | `find_approximate_tandem_repeats` | Finds approximate (imperfect / interrupted) tandem repeats with the **Tandem Repeats Finder** model (Benson 1999; TRF 4.10.0 trf File Match… |
 | `find_clump_windows` | (L, t)-clump k-mers with the maximal runs of window starts in which they form clumps (same k-mer set as `find_clumps`). |
@@ -87,7 +87,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_syntenic_blocks` | Collinear runs of orthologous genes between two genomes. |
 | `find_tandem_repeats` | Consecutive repeating units (e.g., ATGATGATG) of unit-length >= minUnitLength repeated >= minRepetitions times. |
 | `flush_coaxial_stacking` | Coaxial stacking energy for two RNA helices with no intervening unpaired bases. |
-| `gc_content_profile` | GC content in sliding windows along the sequence. |
+| `gc_content_profile` | GC content in sliding windows along the sequence (`fraction=true` for [0,1]; `ambiguityMode=remove\|ignore\|weighted` for Biopython gc_fraction; `includePartialWindow`). |
 | `gc_skew` | Whole-sequence GC skew = (G - C) / (G + C). |
 | `generate_all_kmers` | Enumerate the entire k-mer space for an alphabet (default "ACGT"); result size alphabet.Length^k, at most 1,048,576 (4^10) k-mers per call. |
 | `generate_cavener_consensus` | Degenerate IUPAC consensus of aligned equal-length DNA sequences by the Cavener (1987) rules (TRANSFAC / Biopython degenerate_consensus): s… |
@@ -97,7 +97,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `generate_dumb_consensus` | Majority-threshold consensus with Biopython SummaryInfo.dumb_consensus semantics: per column the most frequent non-gap residue is emitted i… |
 | `generate_emboss_consensus` | Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; N/X where no residue reaches the plurality; residueType 'auto', padRaggedRows)… |
 | `hairpin_loop_energy` | Free energy of an RNA hairpin loop (Turner 2004 with special tri/tetra/hexaloops, terminal mismatch, all-C and special-GU adjustments). |
-| `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy values for a protein sequence. |
+| `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy (ProtScale / Biopython protein_scale): optional `edgeWeight`, `convention` (Standard\|Biopython), `strict`, `normalizeScale`. |
 | `internal_loop_energy` | Free energy of a generic RNA internal loop (Turner 2004; |
 | `is_disorder_promoting` | Whether an amino acid is in Dunker's disorder-promoting set {A, R, G, Q, S, P, E, K} (Dunker 2001). |
 | `kmer_d2_statistics` | Background-adjusted D2* / D2S statistics, d2* / d2S dissimilarities, Markov orders used and per-sequence BIC values; optional `markovOrder`, `bothStrands` (CAFE -R). |

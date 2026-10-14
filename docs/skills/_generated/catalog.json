@@ -382,7 +382,7 @@
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateEntropyProfile",
     "docPath": "docs/mcp/tools/analysis/entropy_profile.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L963"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2285"
   },
   {
     "tool": "find_approximate_direct_repeats",
@@ -669,7 +669,7 @@
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateGcContentProfile",
     "docPath": "docs/mcp/tools/analysis/gc_content_profile.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L905"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2124"
   },
   {
     "tool": "gc_skew",
@@ -739,7 +739,7 @@
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateHydrophobicityProfile",
     "docPath": "docs/mcp/tools/analysis/hydrophobicity_profile.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L404"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L676"
   },
   {
     "tool": "internal_loop_energy",

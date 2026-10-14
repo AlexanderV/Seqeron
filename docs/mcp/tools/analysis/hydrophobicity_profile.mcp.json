@@ -5,41 +5,147 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateHydrophobicityProfile",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L404",
-  "description": "Sliding-window Kyte-Doolittle hydropathy profile of a protein: the unweighted mean hydropathy over each window. Positive = hydrophobic, negative = hydrophilic.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L676",
+  "description": "Sliding-window Kyte-Doolittle hydropathy profile of a protein (ExPASy ProtScale / Biopython protein_scale): weighted mean hydropathy per window, linear edge weighting (edgeWeight, default 1 = unweighted), Standard or Biopython window convention, optional strict mode and 0..1 scale normalisation. Positive = hydrophobic.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
-      "windowSize": { "type": "integer", "description": "Sliding window size (default 9)", "minimum": 1, "default": 9 }
+      "proteinSequence": {
+        "type": "string",
+        "description": "Protein sequence",
+        "minLength": 1
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "Sliding window size (default 9)",
+        "minimum": 1,
+        "default": 9
+      },
+      "edgeWeight": {
+        "type": "number",
+        "description": "Relative weight of the window edges (linear to 1 at the centre)",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 1.0
+      },
+      "convention": {
+        "type": "string",
+        "description": "Window convention (case-insensitive)",
+        "enum": [
+          "Standard",
+          "Biopython"
+        ],
+        "default": "Standard"
+      },
+      "strict": {
+        "type": "boolean",
+        "description": "Reject symbols without a scale value",
+        "default": false
+      },
+      "normalizeScale": {
+        "type": "boolean",
+        "description": "Min-max normalise the Kyte-Doolittle scale to 0..1 first",
+        "default": false
+      }
     },
-    "required": ["proteinSequence"]
+    "required": [
+      "proteinSequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
       "values": {
         "type": "array",
-        "description": "Mean Kyte-Doolittle hydropathy per window; length = N - windowSize + 1",
-        "items": { "type": "number" }
+        "description": "Weighted mean Kyte-Doolittle hydropathy per window; length = N - windowSize + 1",
+        "items": {
+          "type": "number"
+        }
       }
     },
-    "required": ["values"]
+    "required": [
+      "values"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1002, "message": "Window size must be at least 1" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Window size must be at least 1"
+    },
+    {
+      "code": 1002,
+      "message": "Edge weight must be in [0, 1]."
+    },
+    {
+      "code": 1003,
+      "message": "An edge-weighted window must have an odd size (a central residue)."
+    },
+    {
+      "code": 1003,
+      "message": "Unknown window convention. Expected one of: Standard, Biopython."
+    },
+    {
+      "code": 1003,
+      "message": "Symbol has no value in the scale (strict mode)."
+    }
   ],
   "examples": [
     {
       "name": "Hydrophobic poly-isoleucine (window 3)",
-      "input": { "proteinSequence": "IIIII", "windowSize": 3 },
-      "output": { "values": [4.5, 4.5, 4.5] }
+      "input": {
+        "proteinSequence": "IIIII",
+        "windowSize": 3
+      },
+      "output": {
+        "values": [
+          4.5,
+          4.5,
+          4.5
+        ]
+      }
     },
     {
       "name": "Mixed residues AV (window 2)",
-      "input": { "proteinSequence": "AV", "windowSize": 2 },
-      "output": { "values": [3.0] }
+      "input": {
+        "proteinSequence": "AV",
+        "windowSize": 2
+      },
+      "output": {
+        "values": [
+          3.0
+        ]
+      }
+    },
+    {
+      "name": "Edge-weighted window FLIVAG (w5, edge 0.4)",
+      "input": {
+        "proteinSequence": "FLIVAG",
+        "windowSize": 5,
+        "edgeWeight": 0.4
+      },
+      "output": {
+        "values": [
+          3.73125,
+          3.1156250000000005
+        ]
+      }
+    },
+    {
+      "name": "Biopython convention with unknown residue",
+      "input": {
+        "proteinSequence": "AXCDE",
+        "windowSize": 5,
+        "convention": "Biopython"
+      },
+      "output": {
+        "values": [
+          0.16
+        ]
+      }
     }
   ]
 }

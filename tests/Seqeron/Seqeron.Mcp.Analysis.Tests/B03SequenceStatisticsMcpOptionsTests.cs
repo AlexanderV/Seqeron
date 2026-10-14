@@ -196,4 +196,197 @@ public class B03SequenceStatisticsMcpOptionsTests
     }
 
     #endregion
+    #region gc_content_profile (A27, F19/F24)
+
+    // Biopython 1.88 [gc_fraction(s[i:i+6], mode) for i in range(0, len(s) - 5, 3)] (re-executed 2026-10-14).
+    [TestCase("remove", new[] { 0.6666666666666666, 0.4, 0.0, 0.6666666666666666, 0.5 })]
+    [TestCase("ignore", new[] { 0.6666666666666666, 0.3333333333333333, 0.0, 0.3333333333333333, 0.5 })]
+    [TestCase("Weighted", new[] { 0.6666666666666666, 0.4166666666666667, 0.3333333333333333, 0.5833333333333334, 0.5 })]
+    public void GcContentProfile_AmbiguityMode_MatchesBiopythonGcFraction(string mode, double[] expected)
+    {
+        const string seq = "ACGTSSWWNNRYacgusw";
+        AssertValues(AnalysisTools.GcContentProfile(seq, 6, 3, fraction: true, ambiguityMode: mode).Values, expected, mode);
+        AssertValues(AnalysisTools.GcContentProfile(seq, 6, 3, ambiguityMode: mode).Values,
+            expected.Select(v => v * 100).ToArray(), mode + " percent");
+    }
+
+    // Biopython [gc_fraction(s[i:i+w]) for i in range(0, len(s), step)] — trailing partial windows (F24).
+    [Test]
+    public void GcContentProfile_IncludePartialWindow_MatchesBiopythonRangeSlicing()
+    {
+        AssertValues(AnalysisTools.GcContentProfile("GGGCCCAAATTTGCGCA", 6, 4, fraction: true, includePartialWindow: true).Values,
+            new[] { 1.0, 1.0 / 3, 1.0 / 3, 0.8, 0.0 }, "w6 s4");
+        AssertValues(AnalysisTools.GcContentProfile("GGGCCCAAATTTGCGCA", 6, 4, fraction: true).Values,
+            new[] { 1.0, 1.0 / 3, 1.0 / 3 }, "w6 s4 complete only");
+        AssertValues(AnalysisTools.GcContentProfile("ACGTNSWACGN", 4, 4, fraction: true, ambiguityMode: "remove", includePartialWindow: true).Values,
+            new[] { 0.5, 0.3333333333333333, 1.0 }, "remove");
+        AssertValues(AnalysisTools.GcContentProfile("ACGTNSWACGN", 4, 4, fraction: true, ambiguityMode: "ignore", includePartialWindow: true).Values,
+            new[] { 0.5, 0.25, 0.6666666666666666 }, "ignore");
+        AssertValues(AnalysisTools.GcContentProfile("ACGTNSWACGN", 4, 4, fraction: true, ambiguityMode: "weighted", includePartialWindow: true).Values,
+            new[] { 0.5, 0.375, 0.8333333333333334 }, "weighted");
+        AssertValues(AnalysisTools.GcContentProfile("GCA", 10, 1, fraction: true, includePartialWindow: true).Values,
+            new[] { 2.0 / 3, 0.5, 0.0 }, "window longer than sequence");
+    }
+
+    [Test]
+    public void GcContentProfile_Defaults_EqualLibrary_Random()
+    {
+        var rng = new Random(19);
+        for (int n = 0; n < 300; n++)
+        {
+            string seq = RandomSequence(rng, "ACGTUNSWRYacgt-", rng.Next(1, 80));
+            int w = rng.Next(1, 20), st = rng.Next(1, 6);
+            Assert.That(AnalysisTools.GcContentProfile(seq, w, st).Values,
+                Is.EqualTo(SequenceStatistics.CalculateGcContentProfile(seq, w, st).ToArray()), seq);
+            Assert.That(AnalysisTools.GcContentProfile(seq, w, st, fraction: true, includePartialWindow: true).Values,
+                Is.EqualTo(SequenceStatistics.CalculateGcContentProfile(seq, w, st, true, includePartialWindow: true).ToArray()), seq);
+            Assert.That(AnalysisTools.GcContentProfile(seq, w, st, ambiguityMode: "weighted", includePartialWindow: true).Values,
+                Is.EqualTo(SequenceStatistics.CalculateGcContentProfile(seq, w, st, false,
+                    Seqeron.Genomics.Core.SequenceExtensions.GcAmbiguityMode.Weighted, true).ToArray()), seq);
+        }
+    }
+
+    [Test]
+    public void GcContentProfile_InvalidAmbiguityMode_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => AnalysisTools.GcContentProfile("ACGT", 2, 1, ambiguityMode: "1"));
+        Assert.That(ex!.ParamName, Is.EqualTo("ambiguityMode"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.GcContentProfile("ACGT", 2, 1, ambiguityMode: "strict"));
+    }
+
+    #endregion
+
+    #region hydrophobicity_profile (A28, F8/F29/F30)
+
+    private const string Ubiquitin = "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG";
+    private const string S22 = "MKTAYIAKQRQISFVKSHFSRQ";
+
+    // Biopython 1.88 ProteinAnalysis(seq).protein_scale(ProtParamData.kd, window, edge) (re-executed 2026-10-14).
+    [Test]
+    public void HydrophobicityProfile_EdgeWeight_MatchesBiopythonProteinScale()
+    {
+        var ub = AnalysisTools.HydrophobicityProfile(Ubiquitin, 5, edgeWeight: 0.4).Values;
+        Assert.That(ub, Has.Length.EqualTo(72));
+        AssertValues(ub.Take(6).ToArray(),
+            new[] { 2.015625, 1.853125, 1.546875, 0.37187499999999996, 0.19687499999999997, 0.3437499999999999 }, "ubiquitin w5 e0.4");
+        AssertValues(AnalysisTools.HydrophobicityProfile("FLIVAG", 5, edgeWeight: 0.4).Values,
+            new[] { 3.7312499999999997, 3.1156249999999996 }, "FLIVAG w5 e0.4");
+        AssertValues(AnalysisTools.HydrophobicityProfile("FLIVAG", 3, edgeWeight: 0.0).Values,
+            new[] { 3.8, 4.5, 4.2, 1.8 }, "FLIVAG w3 e0");
+    }
+
+    [Test]
+    public void HydrophobicityProfile_BiopythonConvention_MatchesProteinScale()
+    {
+        AssertValues(AnalysisTools.HydrophobicityProfile("ACDXEFGHIK", 5, convention: "Biopython").Values,
+            new[] { -1.04, -0.34, -1.48, -0.22000000000000003, 0.039999999999999925, -0.040000000000000126 }, "unknown X");
+        AssertValues(AnalysisTools.HydrophobicityProfile(S22, 4, convention: "biopython").Values.Take(4).ToArray(),
+            new[] { -0.3199999999999999, -0.45999999999999996, 0.6, 2.2600000000000002 }, "even window");
+        // Standard convention differs off-centre: AXCDE (X at offset 1) Biopython 0.16 vs standard -0.54 (F29).
+        AssertValues(AnalysisTools.HydrophobicityProfile("AXCDE", 5, convention: "Biopython").Values, new[] { 0.16 }, "AXCDE bio");
+        AssertValues(AnalysisTools.HydrophobicityProfile("AXCDE", 5).Values, new[] { -0.54 }, "AXCDE standard");
+    }
+
+    // Biopython protein_scale on the min-max normalised ProtParamData.kd table (ProtScale 0..1, F30).
+    [Test]
+    public void HydrophobicityProfile_NormalizeScale_MatchesBiopythonOnNormalisedKd()
+    {
+        AssertValues(AnalysisTools.HydrophobicityProfile(S22, 9, normalizeScale: true).Values,
+            new[]
+            {
+                0.4592592592592592, 0.3802469135802469, 0.3851851851851852, 0.4493827160493827, 0.41728395061728396,
+                0.4679012345679012, 0.46419753086419746, 0.39382716049382716, 0.43209876543209874, 0.4358024691358025,
+                0.5259259259259259, 0.5592592592592592, 0.44814814814814824, 0.4148148148148148,
+            }, "kd W9 normalised");
+    }
+
+    [Test]
+    public void HydrophobicityProfile_Strict_RejectsUnknownSymbols()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => AnalysisTools.HydrophobicityProfile("ACDX", 1, strict: true));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.HydrophobicityProfile("ACDXEFGHIK", 5, convention: "Biopython", strict: true));
+            Assert.That(AnalysisTools.HydrophobicityProfile("FLIVAG", 5, strict: true).Values,
+                Is.EqualTo(AnalysisTools.HydrophobicityProfile("FLIVAG", 5).Values));
+        });
+    }
+
+    [Test]
+    public void HydrophobicityProfile_Defaults_EqualLibrary_Random()
+    {
+        var rng = new Random(1982);
+        for (int n = 0; n < 300; n++)
+        {
+            string seq = RandomSequence(rng, "ACDEFGHIKLMNPQRSTVWYXBZ*-acdk", rng.Next(1, 60));
+            int w = rng.Next(1, 15);
+            Assert.That(AnalysisTools.HydrophobicityProfile(seq, w).Values,
+                Is.EqualTo(SequenceStatistics.CalculateHydrophobicityProfile(seq, w).ToArray()), seq);
+            if (w % 2 == 1)
+            {
+                Assert.That(AnalysisTools.HydrophobicityProfile(seq, w, edgeWeight: 0.3).Values,
+                    Is.EqualTo(SequenceStatistics.CalculateHydrophobicityProfile(seq, w, 0.3).ToArray()), seq);
+            }
+        }
+    }
+
+    [Test]
+    public void HydrophobicityProfile_InvalidOptions_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.HydrophobicityProfile("FLIVAG", 5, edgeWeight: 1.5));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.HydrophobicityProfile("FLIVAG", 5, edgeWeight: -0.1));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.HydrophobicityProfile("FLIVAG", 4, edgeWeight: 0.4));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.HydrophobicityProfile("FLIVAG", 1, convention: "Biopython"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.HydrophobicityProfile("FLIVAG", 5, convention: "1"));
+            Assert.Throws<ArgumentException>(() => AnalysisTools.HydrophobicityProfile("FLIVAG", 5, convention: "ProtScale"));
+        });
+    }
+
+    #endregion
+
+    #region entropy_profile (A28 tail, F38)
+
+    // scipy.stats.entropy(counts, base=2) over s[i:i+W], i in range(0, len(s), step) (re-executed 2026-10-14).
+    [Test]
+    public void EntropyProfile_IncludePartialWindow_MatchesScipy()
+    {
+        AssertValues(AnalysisTools.EntropyProfile("ACGTACGTAAAACCCGGT", 8, 3, includePartialWindow: true).Values,
+            new[] { 2.0, 1.75, 1.75, 1.561278124459133, 1.4591479170272446, 0.9182958340544894 }, "letters partial");
+        AssertValues(AnalysisTools.EntropyProfile("AAAAAAAAACGT", 5, 4, includePartialWindow: true).Values,
+            new[] { 0.0, 0.0, 2.0 }, "AAAAAAAAACGT");
+    }
+
+    [Test]
+    public void EntropyProfile_Kmer_MatchesScipy()
+    {
+        AssertValues(AnalysisTools.EntropyProfile("ACGTACGTAAAACCCGGT", 8, 3, k: 2).Values,
+            new[] { 1.950212064914747, 2.2359263506290326, 2.128085278891394, 2.2359263506290326 }, "k2");
+        AssertValues(AnalysisTools.EntropyProfile("ACGTACGTAAAACCCGGT", 8, 3, k: 2, includePartialWindow: true).Values,
+            new[] { 1.950212064914747, 2.2359263506290326, 2.128085278891394, 2.2359263506290326, 1.9219280948873625, 1.0 }, "k2 partial");
+        AssertValues(AnalysisTools.EntropyProfile("AAAAAAAAACGT", 6, 2, k: 1, includePartialWindow: true).Values,
+            new[] { 0.0, 0.0, 0.6500224216483541, 1.7924812503605778, 2.0, 1.0 }, "k1 partial");
+        AssertValues(AnalysisTools.EntropyProfile("GATTACA", 5, 2, k: 2, includePartialWindow: true).Values,
+            new[] { 2.0, 2.0, 1.0, 0.0 }, "GATTACA k2 partial");
+    }
+
+    [Test]
+    public void EntropyProfile_Defaults_EqualLibrary_AndKGuard()
+    {
+        var rng = new Random(38);
+        for (int n = 0; n < 300; n++)
+        {
+            string seq = RandomSequence(rng, "ACGTNacgt-", rng.Next(1, 60));
+            int w = rng.Next(1, 15), st = rng.Next(1, 5);
+            Assert.That(AnalysisTools.EntropyProfile(seq, w, st).Values,
+                Is.EqualTo(SequenceStatistics.CalculateEntropyProfile(seq, w, st).ToArray()), seq);
+            Assert.That(AnalysisTools.EntropyProfile(seq, w, st, k: 3, includePartialWindow: true).Values,
+                Is.EqualTo(SequenceStatistics.CalculateEntropyProfile(seq, w, st, 3, true).ToArray()), seq);
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisTools.EntropyProfile("ACGT", 2, 1, k: 0));
+    }
+
+    #endregion
 }

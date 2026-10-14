@@ -219,7 +219,7 @@
 | disorder_propensity | Analysis | DisorderPredictor.GetDisorderPropensity | DisorderPredictor.cs#L645 | 0/0 | – | – | Build-Ready |
 | dust_score | Analysis | SequenceComplexity.CalculateDustScore | SequenceComplexity.cs#L864 | 0/0 | – | – | Build-Ready |
 | dyad_analysis | Analysis | MotifFinder.AnalyzeDyads | MotifFinder.DyadAnalysis.cs#L56 | 2/2 | ✓ | ✓ | Ready |
-| entropy_profile | Analysis | SequenceStatistics.CalculateEntropyProfile | SequenceStatistics.cs#L730 | 0/0 | – | – | Build-Ready |
+| entropy_profile | Analysis | SequenceStatistics.CalculateEntropyProfile | SequenceStatistics.cs#L2285 | 0/0 | – | – | Build-Ready |
 | find_approximate_direct_repeats | Analysis | RepeatFinder.FindApproximateDirectRepeats | RepeatFinder.cs#L4847 | 2/2 | ✓ | ✓ | Ready |
 | find_approximate_tandem_repeats | Analysis | RepeatFinder.FindApproximateTandemRepeats | RepeatFinder.cs#L1002 | 2/2 | ✓ | ✓ | Ready |
 | find_clump_windows | Analysis | KmerAnalyzer.FindClumpWindows | KmerAnalyzer.cs#L2832 | 2/2 | ✓ | ✓ | Ready |
@@ -260,7 +260,7 @@
 | find_syntenic_blocks | Analysis | ComparativeGenomics.FindSyntenicBlocks | ComparativeGenomics.cs#L80 | 0/0 | – | – | Build-Ready |
 | find_tandem_repeats | Analysis | GenomicAnalyzer.FindTandemRepeats | GenomicAnalyzer.cs#L75 | 0/0 | – | – | Build-Ready |
 | flush_coaxial_stacking | Analysis | RnaSecondaryStructure.CalculateFlushCoaxialStacking | RnaSecondaryStructure.cs#L955 | 0/0 | – | – | Build-Ready |
-| gc_content_profile | Analysis | SequenceStatistics.CalculateGcContentProfile | SequenceStatistics.cs#L700 | 0/0 | – | – | Build-Ready |
+| gc_content_profile | Analysis | SequenceStatistics.CalculateGcContentProfile | SequenceStatistics.cs#L2124 | 0/0 | – | – | Build-Ready |
 | gc_skew | Analysis | GcSkewCalculator.CalculateGcSkew | GcSkewCalculator.cs#L26 | 0/0 | – | – | Build-Ready |
 | generate_all_kmers | Analysis | KmerAnalyzer.GenerateAllKmers | KmerAnalyzer.cs#L2685 | 0/0 | – | – | Build-Ready |
 | generate_cavener_consensus | Analysis | MotifFinder.GenerateCavenerConsensus | MotifFinder.cs#L492 | 2/2 | ✓ | ✓ | Ready |
@@ -270,7 +270,7 @@
 | generate_dumb_consensus | Analysis | MotifFinder.GenerateDumbConsensus | MotifFinder.AlignmentConsensus.cs#L454 | 2/2 | ✓ | ✓ | Ready |
 | generate_emboss_consensus | Analysis | MotifFinder.GenerateEmbossConsensus | MotifFinder.AlignmentConsensus.cs#L152 | 2/2 | ✓ | ✓ | Ready |
 | hairpin_loop_energy | Analysis | RnaSecondaryStructure.CalculateHairpinLoopEnergy | RnaSecondaryStructure.cs#L755 | 0/0 | – | – | Build-Ready |
-| hydrophobicity_profile | Analysis | SequenceStatistics.CalculateHydrophobicityProfile | SequenceStatistics.cs#L324 | 0/0 | – | – | Build-Ready |
+| hydrophobicity_profile | Analysis | SequenceStatistics.CalculateHydrophobicityProfile | SequenceStatistics.cs#L676 | 0/0 | – | – | Build-Ready |
 | internal_loop_energy | Analysis | RnaSecondaryStructure.CalculateInternalLoopEnergy | RnaSecondaryStructure.cs#L825 | 0/0 | – | – | Build-Ready |
 | is_disorder_promoting | Analysis | DisorderPredictor.IsDisorderPromoting | DisorderPredictor.cs#L658 | 0/0 | – | – | Build-Ready |
 | kmer_d2_statistics | Analysis | KmerAnalyzer.BackgroundAdjustedD2 | KmerAnalyzer.cs#L898 | 2/2 | ✓ | ✓ | Ready |

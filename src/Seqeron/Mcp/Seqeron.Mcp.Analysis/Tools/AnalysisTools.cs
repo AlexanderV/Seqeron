@@ -421,20 +421,44 @@ public class AnalysisTools
     #region SequenceStatistics
 
     [McpServerTool(Name = "hydrophobicity_profile", Title = "Protein — Hydrophobicity Profile", ReadOnly = true)]
-    [Description("Sliding-window Kyte-Doolittle hydropathy values for a protein sequence.")]
+    [Description("Sliding-window Kyte-Doolittle hydropathy values for a protein sequence (ExPASy ProtScale / Biopython protein_scale). Optional edgeWeight (linear weight of the window edges, ProtScale 'relative weight of the window edges'), convention (Standard | Biopython line-for-line protein_scale), strict (reject symbols without a scale value) and normalizeScale (ProtScale 0..1 scale normalisation). Defaults reproduce the unweighted Kyte-Doolittle mean.")]
     public static DoubleProfileResult HydrophobicityProfile(
         [Description("Protein sequence.")] string proteinSequence,
-        [Description("Sliding window size (default 9).")] int windowSize = 9)
+        [Description("Sliding window size (default 9).")] int windowSize = 9,
+        [Description("Relative weight of the window edges in [0, 1], linear in between with the centre weighted 1 (Biopython protein_scale edge). Default 1 = unweighted; < 1 needs an odd window in the Standard convention.")] double edgeWeight = 1.0,
+        [Description("Window convention (case-insensitive): 'Standard' (default; per-position weights, unknown residue contributes 0 and keeps its weight) or 'Biopython' (line-for-line Biopython 1.88 protein_scale: even windows count residue W/2 twice, a pair with an unknown residue is dropped; window >= 2).")] string convention = "Standard",
+        [Description("true: throw when the sequence contains a symbol without a scale value (Biopython gravy KeyError). Default false.")] bool strict = false,
+        [Description("true: min-max normalise the Kyte-Doolittle scale to 0..1 before profiling (ExPASy ProtScale 'normalize the scale from 0 to 1'). Default false.")] bool normalizeScale = false)
     {
         if (string.IsNullOrEmpty(proteinSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
         if (windowSize < 1)
             throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
 
-        var values = SequenceStatistics
-            .CalculateHydrophobicityProfile(proteinSequence, windowSize)
-            .ToArray();
-        return new DoubleProfileResult(values);
+        var windowConvention = ParseHydropathyWindowConvention(convention);
+        var values = windowConvention == SequenceStatistics.HydropathyWindowConvention.Standard && !strict && !normalizeScale
+            ? SequenceStatistics.CalculateHydrophobicityProfile(proteinSequence, windowSize, edgeWeight)
+            : SequenceStatistics.CalculateHydrophobicityProfile(proteinSequence, windowSize, edgeWeight,
+                new SequenceStatistics.HydrophobicityProfileOptions
+                {
+                    Convention = windowConvention,
+                    Strict = strict,
+                    NormalizeScale = normalizeScale,
+                });
+        return new DoubleProfileResult(values.ToArray());
+    }
+
+    // Exact (case-insensitive) HydropathyWindowConvention name; Enum.TryParse alone would also accept numeric strings.
+    private static SequenceStatistics.HydropathyWindowConvention ParseHydropathyWindowConvention(string? convention)
+    {
+        foreach (var value in Enum.GetValues<SequenceStatistics.HydropathyWindowConvention>())
+        {
+            if (string.Equals(value.ToString(), convention, StringComparison.OrdinalIgnoreCase))
+                return value;
+        }
+
+        throw new ArgumentException(
+            $"Unknown window convention '{convention}'. Expected one of: Standard, Biopython.", nameof(convention));
     }
 
     [McpServerTool(Name = "dinucleotide_frequencies", Title = "Sequence — Dinucleotide Frequencies", ReadOnly = true)]
@@ -532,11 +556,14 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "gc_content_profile", Title = "Sequence — GC Content Profile", ReadOnly = true)]
-    [Description("GC content in sliding windows along the sequence.")]
+    [Description("GC content in sliding windows along the sequence: percentage [0,100] by default or a fraction [0,1] with fraction=true. Optional ambiguityMode (remove|ignore|weighted) applies Biopython gc_fraction IUPAC handling per window; optional includePartialWindow also scores the trailing windows shorter than windowSize (Biopython GC_skew-style range(0, len, step) slicing).")]
     public static DoubleProfileResult GcContentProfile(
         [Description("Nucleotide sequence.")] string sequence,
         [Description("Window size (default 100).")] int windowSize = 100,
-        [Description("Step size (default 1).")] int stepSize = 1)
+        [Description("Step size (default 1).")] int stepSize = 1,
+        [Description("Report each window as a fraction in [0,1] (Biopython gc_fraction) instead of a percentage. Default false.")] bool fraction = false,
+        [Description("Optional Biopython gc_fraction ambiguous mode per window (case-insensitive): remove (S counts as GC, S/W in the denominator, other codes dropped), ignore (denominator = window length), weighted (codes add their mean GC, N = 0.5). Omit for the default counting: (G+C)/(A+C+G+T+U), every other symbol excluded.")] string? ambiguityMode = null,
+        [Description("true: after the complete windows, also score every further start k*stepSize < length on the truncated trailing slice. Default false (complete windows only).")] bool includePartialWindow = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -545,18 +572,31 @@ public class AnalysisTools
         if (stepSize < 1)
             throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be at least 1");
 
-        var values = SequenceStatistics
-            .CalculateGcContentProfile(sequence, windowSize, stepSize)
-            .ToArray();
-        return new DoubleProfileResult(values);
+        IEnumerable<double> values;
+        if (ambiguityMode is null)
+        {
+            values = includePartialWindow
+                ? SequenceStatistics.CalculateGcContentProfile(sequence, windowSize, stepSize, fraction, includePartialWindow: true)
+                : SequenceStatistics.CalculateGcContentProfile(sequence, windowSize, stepSize, fraction);
+        }
+        else
+        {
+            var mode = ParseGcAmbiguityMode(ambiguityMode, nameof(ambiguityMode));
+            values = SequenceStatistics.CalculateGcContentProfile(
+                sequence, windowSize, stepSize, fraction, mode, includePartialWindow);
+        }
+
+        return new DoubleProfileResult(values.ToArray());
     }
 
     [McpServerTool(Name = "entropy_profile", Title = "Sequence — Shannon Entropy Profile", ReadOnly = true)]
-    [Description("Shannon entropy in sliding windows along the sequence.")]
+    [Description("Shannon entropy (bits) in sliding windows along the sequence: letter entropy by default, or k-mer (block) entropy of the overlapping k-mers of each window with k. Optional includePartialWindow also scores the trailing windows shorter than windowSize (Biopython-style range(0, len, step) slicing).")]
     public static DoubleProfileResult EntropyProfile(
         [Description("Sequence to analyze.")] string sequence,
         [Description("Window size (default 50).")] int windowSize = 50,
-        [Description("Step size (default 1).")] int stepSize = 1)
+        [Description("Step size (default 1).")] int stepSize = 1,
+        [Description("Optional k-mer length (>= 1): entropy of the overlapping k-mers of each (upper-cased) window, every k-substring a symbol; a window shorter than k scores 0. Omit for letter (Shannon) entropy.")] int? k = null,
+        [Description("true: after the complete windows, also score every further start k*stepSize < length on the truncated trailing slice. Default false.")] bool includePartialWindow = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -564,11 +604,18 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
         if (stepSize < 1)
             throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be at least 1");
+        if (k is < 1)
+            throw new ArgumentOutOfRangeException(nameof(k), "k must be at least 1");
 
-        var values = SequenceStatistics
-            .CalculateEntropyProfile(sequence, windowSize, stepSize)
-            .ToArray();
-        return new DoubleProfileResult(values);
+        IEnumerable<double> values;
+        if (k is int kmer)
+            values = SequenceStatistics.CalculateEntropyProfile(sequence, windowSize, stepSize, kmer, includePartialWindow);
+        else if (includePartialWindow)
+            values = SequenceStatistics.CalculateEntropyProfile(sequence, windowSize, stepSize, includePartialWindow: true);
+        else
+            values = SequenceStatistics.CalculateEntropyProfile(sequence, windowSize, stepSize);
+
+        return new DoubleProfileResult(values.ToArray());
     }
 
     #endregion
@@ -2899,7 +2946,7 @@ public class AnalysisTools
 
     // Exact (case-insensitive) GcAmbiguityMode name; Enum.TryParse alone would also accept
     // numeric strings ("1") and comma lists.
-    private static SequenceExtensions.GcAmbiguityMode ParseGcAmbiguityMode(string ambiguity)
+    private static SequenceExtensions.GcAmbiguityMode ParseGcAmbiguityMode(string ambiguity, string paramName = "ambiguity")
     {
         foreach (var mode in Enum.GetValues<SequenceExtensions.GcAmbiguityMode>())
         {
@@ -2908,7 +2955,7 @@ public class AnalysisTools
         }
 
         throw new ArgumentException(
-            $"Unknown ambiguity mode '{ambiguity}'. Expected one of: remove, ignore, weighted.", nameof(ambiguity));
+            $"Unknown ambiguity mode '{ambiguity}'. Expected one of: remove, ignore, weighted.", paramName);
     }
 
     #endregion
