@@ -875,6 +875,32 @@ public class CrisprDesigner_OffTarget_Tests
         });
     }
 
+    /// <summary>
+    /// F39-001 (B08 WP2 / D13): the unsourced heuristic's primary name is
+    /// <c>CalculateHeuristicSpecificityScore</c> — the word "heuristic" is in the signature, so the
+    /// declaration is structural and not doc-only — and the historical
+    /// <c>CalculateSpecificityScore</c> is a pure forwarding alias kept for backward compatibility.
+    /// This test is what keeps the alias from drifting away from the method it forwards to; it is
+    /// also why the alias is NOT <c>[Obsolete]</c> (the repo builds warnings-as-errors and the MCP
+    /// tool name <c>crispr_specificity_score</c> stays unchanged, a published catalog name).
+    /// Values are the same ones F9-006 locks (heuristic: one PAM-distal mismatch → 100 − 2 = 98).
+    /// </summary>
+    [Test]
+    public void CalculateHeuristicSpecificityScore_LegacyAlias_ForwardsIdentically()
+    {
+        const string guide = "GACGCATAAAGATGAGACGC";
+        var genome = new DnaSequence("TACGCATAAAGATGAGACGC" + "AGG");
+
+        double primary = CrisprDesigner.CalculateHeuristicSpecificityScore(guide, genome, CrisprSystemType.SpCas9);
+        double alias = CrisprDesigner.CalculateSpecificityScore(guide, genome, CrisprSystemType.SpCas9);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(primary, Is.EqualTo(98.0).Within(1e-12));
+            Assert.That(alias, Is.EqualTo(primary), "the alias must forward with no behaviour of its own");
+        });
+    }
+
     #endregion
 
     #region F14 — SaCas9 off-target model (Tycko et al. 2018)

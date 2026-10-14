@@ -8,7 +8,7 @@ This library's own heuristic aggregate of a guide RNA's off-targets (NOT a publi
 |----------|-------|
 | **Server** | MolTools |
 | **Tool Name** | `crispr_specificity_score` |
-| **Method ID** | `CrisprDesigner.CalculateSpecificityScore` |
+| **Method ID** | `CrisprDesigner.CalculateHeuristicSpecificityScore` |
 | **Version** | 1.0.0 |
 | **Stability** | Stable |
 
@@ -20,9 +20,11 @@ Runs the naïve off-target scan ([find_off_targets](find_off_targets.md)) with `
 
 Known consequences of the heuristic: it is **linear** in the mismatch count where the published models are multiplicative, it ignores which bases are involved and the off-target's own PAM, and it **saturates at 0**, so two guides with very different real off-target profiles can share a score of 0. Treat it as coarse triage only.
 
+The C# method is named `CalculateHeuristicSpecificityScore` so that the declaration is structural and not doc-only; the shorter historical `CalculateSpecificityScore` is kept as a backward-compatible alias that forwards to it. The **tool name `crispr_specificity_score` is unchanged** (renaming it would be a breaking catalog change).
+
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L608](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L608)
+- Source: [CrisprDesigner.cs#L614](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L614)
 
 ## Input Schema
 

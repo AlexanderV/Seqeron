@@ -33,6 +33,47 @@ Guide candidates are extracted from PAM sites in a target region and scored from
 
 The seed region is defined as the last 10 nucleotides for PAM-after-target systems and the first 10 nucleotides for PAM-before-target systems. The final score is clamped to `>= 0`.
 
+### 2.3 Published on-target efficacy models (Doench 2014 Rule Set 1, Doench 2016 Rule Set 2)
+
+The composition heuristic above is **not** the on-target activity model. Two published models are
+implemented separately and are the ones to use for predicted cutting efficiency.
+
+**Doench 2014 "Rule Set 1"** — `CrisprDesigner.CalculateOnTargetDoench2014(string context30Mer)`.
+
+- **Source.** Doench, Hartenian, Graham, et al., *Nat Biotechnol* **32**:1262–1267 (2014), PMID
+  25184501, doi:10.1038/nbt.3026. Coefficients are taken verbatim from the reference implementation
+  `doenchScore.py` shipped at the root of the CRISPOR repository (Haeussler et al. 2016, *Genome
+  Biol* **17**:148); the same table appears in CRISPOR's `crisporEffScores.py` as `doenchParams`.
+- **Input convention — 30 nt, exactly.** `[4 nt upstream] + [20 nt protospacer] + [3 nt PAM] +
+  [3 nt downstream]`, read on the protospacer strand, A/C/G/T only, case-insensitive. This is the
+  window the reference itself cuts (`trimSeqs(seqs, -24, 6)` around the PAM start). The PAM must be
+  **NGG**: offsets 25 and 26 of the 30-mer must both be `G`.
+- **The model.** `score = 0.59763615` (intercept) `+ abs(10 − gcCount) × gcWeight` over the 20-nt
+  protospacer `seq[4:24)`, with the paper's **two** GC coefficients — `gcWeight = −0.2026259` when
+  `gcCount <= 10` and `−0.1665878` when `gcCount > 10` — `+` the 70 position-specific
+  single-nucleotide and dinucleotide weights whose positions are 0-based offsets **into the 30-mer**
+  (`seq[pos : pos+len(modelSeq)] == modelSeq`), all passed through the logistic sigmoid
+  `1 / (1 + e^−score)`.
+- **Output scale.** The sigmoid gives `(0, 1)`; this method returns it **× 100** and **unrounded**.
+  CRISPOR's own table reports `int(100 × sigmoid)`, i.e. `Math.Floor` of what this returns.
+- **The NGG guard is this library's explicit contract.** The bare reference function performs no PAM
+  check (CRISPOR only ever calls it for SpCas9/NGG guides), but the published table itself presumes
+  NGG: every dinucleotide feature at offset 24 ends in `G` (`(24,"AG"/"CG"/"TG")`) and the offset-26
+  feature begins with `G` (`(26,"GT")`), so a non-NGG context would leave the model's domain.
+- **Verification.** Coefficient table re-parsed out of the downloaded reference text and diffed
+  entry by entry: 70/70 identical in order, intercept and both GC coefficients identical. Numerically
+  cross-checked over 477 contexts (400 pseudo-random NGG 30-mers, fixed seed, plus the 77
+  `Context30Mer` values `DesignGuideRnas` produces on three targets) — **0 mismatches, bit-equal**.
+  Both GC branches and the `gcCount == 10` boundary are covered.
+
+**Doench 2016 "Rule Set 2" / Azimuth** — `CalculateOnTargetRuleSet2`, same 30-nt context convention,
+returned conventionally in `[0, 1]`. It is a trained gradient-boosted-tree model, not a coefficient
+table, reproduced sklearn-free from Microsoft Research's Azimuth `V3_model_nopos` / `V3_model_full`;
+`percentPeptide == -1` is Azimuth's "no gene position" sentinel and is answered with the
+sequence-only model, as the reference does. `DesignGuideRnas` reports this score (and the 30-nt
+context it was computed from) on every qualifying candidate and can rank by it
+(`GuideRnaRanking.OnTargetRuleSet2`).
+
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
@@ -114,10 +155,14 @@ Guide-design defaults confirmed in source:
 - `CrisprDesigner.DesignGuideRnas(DnaSequence, int, int, CrisprSystemType, GuideRnaParameters?)`: Generates and filters guide candidates from PAM sites in a target region.
 - `CrisprDesigner.EvaluateGuideRna(string, CrisprSystemType, GuideRnaParameters?)`: Scores a guide sequence with composition-based heuristics.
 - `GuideRnaParameters.Default`: Provides the default GC and score thresholds.
+- `CrisprDesigner.CalculateOnTargetDoench2014(string)`: the published Doench 2014 Rule Set 1 on-target
+  score over the 30-nt context (see §2.3), returned on a 0–100 scale.
+- `CrisprDesigner.CalculateOnTargetRuleSet2(string)` / `(string, int, double)`: the published Doench
+  2016 Rule Set 2 / Azimuth on-target score (see §2.3).
 
 ### 5.2 Current Behavior
 
-The current implementation matches the documented `40-70%` GC window, penalizes `TTTT` poly-T sequences, uses a 10-base seed region, and reports issues when the seed GC falls outside `30-80%`. `DesignGuideRnas(...)` first filters PAM sites by a cut-site-in-region check and then evaluates the extracted guide. Standalone evaluation accepts non-standard guide lengths and scores them naturally from their composition, while designed guides follow the guide length of the selected CRISPR system for PAM-adjacent extraction. The internal `EvaluateGuideRna(PamSite, ...)` helper remaps only `SpCas9`, `SaCas9`, and `Cas12a/Cpf1` by name, so designed guides for systems such as `SpCas9NAG`, `AsCas12a`, `LbCas12a`, and `CasX` currently reuse `SpCas9` scoring metadata in the returned candidate. The reported `Position` is copied from `pamSite.TargetStart`, which is a forward-strand coordinate on both strands (see `PAM_Site_Detection.md`). The `AvoidPolyT` and `CheckSelfComplementarity` parameter flags are currently passive record fields: the scoring path still applies poly-T and self-complementarity penalties even when those booleans are set to `false`. The derived `FullGuideRna` appends a fixed scaffold sequence to the spacer.
+The current implementation matches the documented `40-70%` GC window, penalizes `TTTT` poly-T sequences, uses a 10-base seed region, and reports issues when the seed GC falls outside `30-80%`. `DesignGuideRnas(...)` first filters PAM sites by a cut-site-in-region check and then evaluates the extracted guide. Standalone evaluation accepts non-standard guide lengths and scores them naturally from their composition, while designed guides follow the guide length of the selected CRISPR system for PAM-adjacent extraction. The guide-design pipeline passes `pamSite.System` straight into the shared evaluation core, so each designed candidate is scored with its own system's guide length and seed orientation (the earlier name-based remap to `SpCas9` is gone — B08 F4). The reported `Position` is copied from `pamSite.TargetStart`, which is a forward-strand coordinate on both strands (see `PAM_Site_Detection.md`). The `AvoidPolyT` and `CheckSelfComplementarity` parameter flags are honoured: each penalty is applied only when its flag is set (B08 F8). The derived `FullGuideRna` appends a fixed scaffold sequence to the spacer.
 
 ### 5.3 Conformance to Theory / Spec
 

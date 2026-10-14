@@ -2326,9 +2326,9 @@
   {
     "tool": "crispr_specificity_score",
     "server": "MolTools",
-    "methodId": "CrisprDesigner.CalculateSpecificityScore",
+    "methodId": "CrisprDesigner.CalculateHeuristicSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L608"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L614"
   },
   {
     "tool": "crispr_system_info",

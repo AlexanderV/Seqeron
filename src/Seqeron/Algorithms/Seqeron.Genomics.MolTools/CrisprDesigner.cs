@@ -500,7 +500,7 @@ public static class CrisprDesigner
     /// </returns>
     /// <remarks>
     /// <see cref="OffTargetSite.OffTargetScore"/> is this library's own seed-weighted penalty (see
-    /// <see cref="CalculateSpecificityScore"/>), NOT a published per-hit model. For published per-hit
+    /// <see cref="CalculateHeuristicSpecificityScore"/>), NOT a published per-hit model. For published per-hit
     /// scores use <see cref="CalculateMitHitScore"/> (MIT/Hsu 2013) or
     /// <see cref="CalculateCfdScore"/> (Doench 2016 CFD).
     /// <para>
@@ -575,9 +575,15 @@ public static class CrisprDesigner
     }
 
     /// <summary>
-    /// Calculates a convenience specificity score for a guide RNA (higher = more specific):
+    /// Calculates THIS LIBRARY'S OWN HEURISTIC specificity score for a guide RNA
+    /// (higher = more specific):
     /// <c>max(0, 100 − Σ over off-targets of (5 per seed-region mismatch + 2 per distal mismatch))</c>,
     /// over the off-targets found by <see cref="FindOffTargets"/> with a fixed cap of 4 mismatches.
+    /// The method name carries the word "heuristic" deliberately: no publication defines this score
+    /// (see the remarks), while the two sibling aggregates in this class —
+    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)"/> and
+    /// <see cref="CalculateCfdSpecificityScore(string, DnaSequence, int, CrisprSystemType, CfdAggregation)"/>
+    /// — are reference-verified published models.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -605,7 +611,7 @@ public static class CrisprDesigner
     /// <param name="genome">The genome/sequence to scan for off-targets.</param>
     /// <param name="systemType">CRISPR system (SpCas9 by default).</param>
     /// <returns>The heuristic specificity in [0, 100]; 100 when no off-targets are found.</returns>
-    public static double CalculateSpecificityScore(
+    public static double CalculateHeuristicSpecificityScore(
         string guideSequence,
         DnaSequence genome,
         CrisprSystemType systemType = CrisprSystemType.SpCas9)
@@ -619,6 +625,26 @@ public static class CrisprDesigner
         double totalPenalty = offTargets.Sum(ot => ot.OffTargetScore);
         return Math.Max(0, 100 - totalPenalty);
     }
+
+    /// <summary>
+    /// Backward-compatible alias for
+    /// <see cref="CalculateHeuristicSpecificityScore(string, DnaSequence, CrisprSystemType)"/>, which
+    /// is the name to prefer: it says in the signature that this score is this library's own
+    /// heuristic and not a published model. Kept so that existing callers (and the
+    /// <c>crispr_specificity_score</c> MCP tool name, which is part of the published catalog) keep
+    /// working unchanged; it forwards with no behaviour of its own and returns the identical value.
+    /// Not marked <c>[Obsolete]</c> on purpose — the heuristic is a legitimate triage number when
+    /// its contract is understood, and the repository builds with warnings as errors.
+    /// </summary>
+    /// <param name="guideSequence">See the primary overload.</param>
+    /// <param name="genome">See the primary overload.</param>
+    /// <param name="systemType">See the primary overload.</param>
+    /// <returns>Exactly <see cref="CalculateHeuristicSpecificityScore(string, DnaSequence, CrisprSystemType)"/>.</returns>
+    public static double CalculateSpecificityScore(
+        string guideSequence,
+        DnaSequence genome,
+        CrisprSystemType systemType = CrisprSystemType.SpCas9)
+        => CalculateHeuristicSpecificityScore(guideSequence, genome, systemType);
 
     /// <summary>
     /// Counts guide-to-target mismatches. Equal-length inputs are delegated to the canonical
@@ -708,8 +734,25 @@ public static class CrisprDesigner
     // is computed over the 20-nt protospacer = seq[4:24].
     //
     // Cross-checks reproduced this session (independent Python run of the reference coefficients):
-    //   "TATAGCTGCGATCTGAGGTAGGGAGGGACC" -> 0.7130893 (reference example value 0.713089368437)
-    //   "TCCGCACCTGTCACGGTCGGGGCTTGGCGC" -> 0.0189838 (reference example value 0.0189838463593)
+    //   "TATAGCTGCGATCTGAGGTAGGGAGGGACC" -> 0.7130893469547245 (the literal the reference *prints* as
+    //       its own "expected result", 0.713089368437, is stale by ~2e-8 relative to the table it
+    //       ships; the table is authoritative and is what both sides compute)
+    //   "TCCGCACCTGTCACGGTCGGGGCTTGGCGC" -> 0.018983843193336125 (reference printed 0.0189838463593)
+    //   Bulk: 477 contexts (400 pseudo-random NGG 30-mers, seed 20261014, + 77 `Context30Mer`
+    //       values from DesignGuideRnas) scored by the reference loaded straight out of the
+    //       downloaded `doenchScore.py` text -> 0 mismatches, max |delta| exactly 0 (bit-equal).
+    //       Both GC branches and the gcCount == 10 boundary are covered (265 <= 10, 212 > 10).
+    //
+    // The reference's own CRISPOR pipeline reports this score as `int(100 * sigmoid)`
+    //   (`crisporEffScores.py`, calcDoenchScores), i.e. truncated to a whole percent. This method
+    //   returns the UNROUNDED sigmoid x 100, so it is the same model at full precision; a CRISPOR
+    //   column value is `Math.Floor` of what this returns.
+    //
+    // NGG guard: the bare reference function does not check the PAM (CRISPOR only ever calls it for
+    //   SpCas9/NGG guides), but the published feature table itself presumes NGG - every dinucleotide
+    //   feature at offset 24 ends in G ((24,"AG"/"CG"/"TG")) and the offset-26 feature starts with G
+    //   ((26,"GT")) - so scoring a non-NGG context would silently leave the model's domain. The
+    //   guard is this library's explicit contract, matching AzimuthRuleSet2.Validate.
     // ---------------------------------------------------------------------------------------------
 
     private const double DoenchIntercept = 0.59763615;
@@ -753,17 +796,35 @@ public static class CrisprDesigner
     /// Case-insensitive; must contain only A/C/G/T.
     /// </param>
     /// <returns>The predicted on-target activity in the range [0, 100].</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="context30Mer"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="context30Mer"/> is not 30 characters long (the empty string included), contains
+    /// a character other than A/C/G/T, or does not carry an NGG PAM at offsets 25-26.
+    /// </exception>
     /// <remarks>
-    /// This is the published, exactly-reproducible linear model (logistic regression).
+    /// This is the published, exactly-reproducible linear model (logistic regression):
+    /// intercept + a GC-count term over the 20-nt protospacer (two published coefficients, one for
+    /// GC &lt;= 10 and one for GC &gt; 10) + 70 position-specific single- and di-nucleotide weights,
+    /// through a logistic sigmoid.
     /// It is NOT Doench "Rule Set 2" / Azimuth, which is a gradient-boosted-tree model that cannot
     /// be reproduced from published coefficients without the trained model file.
     /// Source: Doench et al. 2014, Nat Biotechnol 32:1262 (PMID 25184501); coefficients per the
-    /// reference implementation in CRISPOR's <c>doenchScore.py</c>.
+    /// reference implementation in CRISPOR's <c>doenchScore.py</c>
+    /// (https://github.com/maximilianh/crisporWebsite/blob/master/doenchScore.py, repository root),
+    /// re-verified byte-for-byte and numerically against that file (see the region comment above).
+    /// The reference's own CRISPOR pipeline reports the same score truncated to a whole percent
+    /// (<c>int(100 * sigmoid)</c>, <c>crisporEffScores.py</c>); this method returns it unrounded.
     /// </remarks>
     public static double CalculateOnTargetDoench2014(string context30Mer)
     {
-        if (string.IsNullOrEmpty(context30Mer))
-            throw new ArgumentNullException(nameof(context30Mer));
+        // A null reference is a missing argument; an empty string is a wrong *value*, and the length
+        // check below reports it the same way as every other malformed context. The reference draws
+        // the same line (`assert isinstance(seq[0], basestring)` vs `assert len(seq[0]) > 0`,
+        // azimuth/model_comparison.py L523-L524). Identical fix and rationale as WP1's
+        // AzimuthRuleSet2.Validate("") (B08 F36); the test that locked ArgumentNullException for ""
+        // was updated with the reason. The MCP tool is unaffected: it rejects null/empty itself,
+        // as ArgumentException, before the library is reached.
+        ArgumentNullException.ThrowIfNull(context30Mer);
 
         var seq = context30Mer.ToUpperInvariant();
 

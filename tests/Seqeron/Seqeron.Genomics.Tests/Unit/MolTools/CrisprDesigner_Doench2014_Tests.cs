@@ -54,7 +54,9 @@ public class CrisprDesigner_Doench2014_Tests
     /// on "AAAA AAAAAAAAAAAAAAAAAAAA AGG AAA"-style all-A-with-PAM gives a specific value.
     /// Hand value: protospacer offsets [4,24) all A → gcCount 0 → +abs(10-0)*gcLow = 10*(-0.2026259).
     /// Plus single feature hits where modelSeq is 'A' at the relevant offsets, plus 'AA' dinucs.
-    /// The independent Python reference yields 0.034970446... ×100. We lock the Python value.
+    /// The independent Python reference yields 0.044338168085440034 → ×100 = 4.4338168085440034,
+    /// re-executed in WP2 against the coefficients read out of the downloaded `doenchScore.py`.
+    /// We lock the reference value.
     /// </summary>
     [Test]
     public void Doench2014_AllAdenineWithPam_MatchesIndependentComputation()
@@ -69,6 +71,63 @@ public class CrisprDesigner_Doench2014_Tests
         //   through the sigmoid → 0.044338168085440035 → ×100 = 4.4338168085.
         double score = CrisprDesigner.CalculateOnTargetDoench2014(seq);
         Assert.That(score, Is.EqualTo(4.4338168085).Within(1e-3));
+    }
+
+    /// <summary>
+    /// M-002b (B08 WP2): reference-locked rows from the bulk numeric cross-check.
+    ///
+    /// The reference model was loaded straight out of the TEXT of the downloaded CRISPOR
+    /// `doenchScore.py` (its `params` table and the three constants parsed with a regex — no
+    /// hand-typed coefficient) and executed in Python over 477 contexts: 400 pseudo-random
+    /// A/C/G/T 30-mers with a forced NGG at offsets 25-26 (Python `random`, seed 20261014) plus
+    /// the 77 `GuideRnaCandidate.Context30Mer` values that `DesignGuideRnas` produces on three
+    /// designed targets. C# and the reference agreed on all 477, max |delta| exactly 0.
+    /// The rows below are a representative slice of that run, chosen to cover both published GC
+    /// coefficients and the `gcCount == 10` boundary (the whole run: 265 rows with gcCount &lt;= 10,
+    /// 212 with gcCount &gt; 10, 90 exactly at 10). Every expected value is REFERENCE-EXECUTED
+    /// (Python reference x 100), never read off the C#.
+    /// </summary>
+    [TestCase("GTACTCGATTTATAAAGAACAAGATGGGAA", 8.9009900853122)]    // gcCount  5 (gcLow branch)
+    [TestCase("CGGATAACTATAAAGCTGCTGTCTAGGCAT", 0.1877342348367)]    // gcCount  7, lowest score in the run
+    [TestCase("TTGGCGATTGGCTTTGTTTCTTGGTGGTCC", 45.9107148757746)]   // gcCount  9
+    [TestCase("GGTATTACCGGAGCACAGAAGAGTAGGGAA", 10.8954314424884)]   // gcCount 10 — the <=10 boundary
+    [TestCase("ATTGCATAGTCGGCCCAAACGGTTGGGATA", 6.0430223333030)]    // gcCount 11 — first gcHigh row
+    [TestCase("CTCTGGGGTCCCGTCCAGAAATCCTGGTAC", 2.9297223516504)]    // gcCount 13
+    [TestCase("GACAGTACCCCCACGCAGATAGCGAGGCCG", 87.5894495698859)]   // gcCount 13, highest score in the run
+    [TestCase("ATTCCCGCCCGGGGCCGTATGGCCCGGCCG", 1.0602834215605)]    // gcCount 17
+    [TestCase("ACGTAAAAAAAAAATTTTTTTTTTGGGGGG", 0.2637789285781)]    // designed context, gcCount 0
+    [TestCase("GTAAAAAAAAAATTTTTTTTTTGGGGGGGG", 1.3456002035926)]    // designed context, gcCount 2
+    [TestCase("CAATTGGCCAAACGTACGTACGTCAGGCCA", 5.2307204967364)]    // designed context, gcCount 11
+    public void Doench2014_ReferenceCrossCheckRows_MatchTheReferenceExactly(string context30Mer, double expected)
+    {
+        double score = CrisprDesigner.CalculateOnTargetDoench2014(context30Mer);
+        Assert.That(score, Is.EqualTo(expected).Within(1e-9));
+    }
+
+    /// <summary>
+    /// M-002c (B08 WP2): the two published GC coefficients are BOTH in use and switch at
+    /// gcCount == 10 (`gcCount &lt;= 10 → gcLow = -0.2026259`, `&gt; 10 → gcHigh = -0.1665878`).
+    ///
+    /// Built as a sourced structural check rather than a tautology: two contexts differing only in
+    /// the protospacer composition, with gcCount 10 and 11, are scored, and the implied GC
+    /// contribution is recovered from the pair. The reference applies `abs(10 - gcCount) * gcWeight`,
+    /// so the gcCount == 10 row carries NO GC contribution at all (`abs(10-10) == 0`) — which is why
+    /// the boundary row cannot distinguish the two coefficients and the 11 row must be checked.
+    /// Reference-executed values (same Python run as M-002b).
+    /// </summary>
+    [Test]
+    public void Doench2014_GcTerm_UsesBothPublishedCoefficientsAtTheTenBoundary()
+    {
+        // gcCount == 10 → abs(10-10)*gcLow = 0 contribution.
+        double atBoundary = CrisprDesigner.CalculateOnTargetDoench2014("GGTATTACCGGAGCACAGAAGAGTAGGGAA");
+        // gcCount == 11 → abs(10-11)*gcHigh = -0.1665878 (the gcHigh branch is reachable at all).
+        double aboveBoundary = CrisprDesigner.CalculateOnTargetDoench2014("ATTGCATAGTCGGCCCAAACGGTTGGGATA");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(atBoundary, Is.EqualTo(10.8954314424884).Within(1e-9));
+            Assert.That(aboveBoundary, Is.EqualTo(6.0430223333030).Within(1e-9));
+        });
     }
 
     /// <summary>
@@ -112,13 +171,32 @@ public class CrisprDesigner_Doench2014_Tests
     }
 
     /// <summary>
-    /// M-007: Null / empty throws ArgumentNullException.
+    /// M-007: <c>null</c> throws <see cref="ArgumentNullException"/>; the EMPTY STRING throws
+    /// <see cref="ArgumentException"/> with the 30-nt length message.
+    ///
+    /// This assertion was CHANGED in B08 WP2 (it previously locked <see cref="ArgumentNullException"/>
+    /// for <c>""</c>). Reason, recorded here so the rationale lives next to the assertion: a null
+    /// reference is a MISSING argument, while an empty string is a WRONG VALUE — a 0-nt context — and
+    /// must be reported like every other malformed context (29 nt, 31 nt, non-ACGT). The reference
+    /// draws the same line (`assert isinstance(seq[0], basestring)` vs `assert len(seq[0]) > 0`,
+    /// azimuth/model_comparison.py L523-L524). This is the identical fix, for the identical reason,
+    /// that WP1 applied to <c>AzimuthRuleSet2.Validate("")</c> (B08 F36), so the two on-target
+    /// entry points now have one contract. Nothing in the repo depended on the old type: the MCP tool
+    /// <c>calculate_on_target_doench2014</c> rejects null/empty itself, as
+    /// <see cref="ArgumentException"/>, before the library is reached.
     /// </summary>
     [Test]
     public void Doench2014_NullOrEmpty_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateOnTargetDoench2014(null!));
-        Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateOnTargetDoench2014(""));
+
+        var ex = Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateOnTargetDoench2014(""));
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex, Is.Not.InstanceOf<ArgumentNullException>());
+            Assert.That(ex!.Message, Does.Contain("30-nt context"));
+            Assert.That(ex.ParamName, Is.EqualTo("context30Mer"));
+        });
     }
 
     /// <summary>

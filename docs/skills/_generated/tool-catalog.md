@@ -370,7 +370,7 @@
 | `count_codons` | `CodonUsageAnalyzer.CountCodons` | [doc](../../mcp/tools/moltools/count_codons.md) |
 | `crispr_cfd_specificity_score` | `CrisprDesigner.CalculateCfdSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_cfd_specificity_score.md) |
 | `crispr_mit_specificity_score` | `CrisprDesigner.CalculateMitSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_mit_specificity_score.md) |
-| `crispr_specificity_score` | `CrisprDesigner.CalculateSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_specificity_score.md) |
+| `crispr_specificity_score` | `CrisprDesigner.CalculateHeuristicSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_specificity_score.md) |
 | `crispr_system_info` | `CrisprDesigner.GetSystem` | [doc](../../mcp/tools/moltools/crispr_system_info.md) |
 | `design_antisense_probes` | `ProbeDesigner.DesignAntisenseProbes` | [doc](../../mcp/tools/moltools/design_antisense_probes.md) |
 | `design_guide_rnas` | `CrisprDesigner.DesignGuideRnas` | [doc](../../mcp/tools/moltools/design_guide_rnas.md) |

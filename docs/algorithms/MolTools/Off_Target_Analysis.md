@@ -33,7 +33,7 @@ The off-target score is computed by summing mismatch penalties by position:
 | Seed region mismatch | `5` |
 | Non-seed mismatch | `2` |
 
-The seed region is the last 12 bp for PAM-after-target systems such as Cas9 and the first 12 bp for PAM-before-target systems such as Cas12a. `CalculateSpecificityScore(...)` finds off-targets with up to 4 mismatches, sums their penalties, and returns `max(0, 100 - totalPenalty)`.
+The seed region is the last 12 bp for PAM-after-target systems such as Cas9 and the first 12 bp for PAM-before-target systems such as Cas12a. `CalculateHeuristicSpecificityScore(...)` finds off-targets with up to 4 mismatches, sums their penalties, and returns `max(0, 100 - totalPenalty)`. The word "heuristic" is in the method name on purpose: the weights `5`/`2`, the 12-nt seed width, the linear sum and the subtraction from 100 are unsourced (Hsu 2013 motivates only the direction of the seed weighting). The historical shorter name `CalculateSpecificityScore` is kept as a backward-compatible alias that forwards to it, and the MCP tool name `crispr_specificity_score` is unchanged.
 
 > **`CalculateSpecificityScore` is this library's own heuristic, not a published model.** Hsu et al. (2013) motivates only the *direction* of the seed weighting; the weights `5`/`2`, the 12-nt seed width, the linear sum and the subtraction from 100 are unsourced. It is kept as a coarse triage number and declared as such in its XML doc and in the `crispr_specificity_score` MCP tool description.
 
