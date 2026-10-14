@@ -1434,4 +1434,552 @@ public class SequenceStatisticsProperties
     }
 
     #endregion
+    #region FIN-B03 heavy tier — finisher options F27–F51 (MW, pI, hydropathy, NN, profiles, Chou–Fasman, codon, ρ, summary, Tm)
+
+    // -------------------------------------------------------------------------
+    // Invariants of the opt-in behaviour added by the B03 finisher (review 2026-09 B03.md F27–F51).
+    // Oracles are the definitions quoted in the API docs (Biopython 1.88 molecular_weight / ProtParam /
+    // MeltingTemp, EMBOSS 6.6.0 iep / cusp, Karlin ρ, Chou & Fasman 1978), recomputed here.
+    // -------------------------------------------------------------------------
+
+    private const string KnownProteinMassAlphabet = "ARNDCEQGHILKMFPSTWYVUO"; // Biopython protein_weights keys
+    private const double MonoisotopicWaterOracle = 18.010565;                 // Biopython molecular_weight(monoisotopic=True)
+
+    private static char UpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
+
+    private static readonly IReadOnlyDictionary<char, double>[] ShippedScales =
+    {
+        ProteinScales.KyteDoolittle, ProteinScales.HoppWoods, ProteinScales.Emini, ProteinScales.Janin, ProteinScales.Flexibility,
+    };
+
+    /// <summary>
+    /// F28 (P + INV): protein MW options. Default / null options equal the 1-argument overload; a circular
+    /// (head-to-tail) peptide is the linear one minus exactly one water (average 18.0153 or monoisotopic
+    /// 18.010565 Da) whenever a residue has a mass; strict mode throws iff a non-whitespace symbol has no mass
+    /// and otherwise equals the lenient value.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MolecularWeightOptions_Protein_DefaultsCircularStrict()
+    {
+        return Prop.ForAll(AlphabetArbitrary("ARNDCEQGHILKMFPSTWYVUOacdu BZX*-", 0, 50), seq =>
+        {
+            double legacy = SequenceStatistics.CalculateMolecularWeight(seq);
+            bool defaultsOk = SequenceStatistics.CalculateMolecularWeight(seq, null) == legacy
+                              && SequenceStatistics.CalculateMolecularWeight(seq, SequenceStatistics.MolecularWeightOptions.Default) == legacy;
+
+            int residues = seq.Count(c => KnownProteinMassAlphabet.Contains(UpperAscii(c)));
+            bool hasUnknown = seq.Any(c => !char.IsWhiteSpace(c) && !KnownProteinMassAlphabet.Contains(UpperAscii(c)));
+            var sb = new System.Text.StringBuilder();
+            bool ok = defaultsOk;
+            foreach (bool mono in new[] { false, true })
+            {
+                double water = mono ? MonoisotopicWaterOracle : WaterMassOracle;
+                double linear = SequenceStatistics.CalculateMolecularWeight(seq, new() { Monoisotopic = mono });
+                double circular = SequenceStatistics.CalculateMolecularWeight(seq, new() { Monoisotopic = mono, Circular = true });
+                double expected = residues == 0 ? 0 : linear - water;
+                if (Math.Abs(circular - expected) > 1e-9) { ok = false; sb.Append($" mono={mono}: circular {circular} ≠ {expected};"); }
+
+                double strict = double.NaN;
+                bool threw = false;
+                try { strict = SequenceStatistics.CalculateMolecularWeight(seq, new() { Monoisotopic = mono, Strict = true }); }
+                catch (ArgumentException) { threw = true; }
+                if (threw != hasUnknown) { ok = false; sb.Append($" mono={mono}: strict threw={threw}, unknown={hasUnknown};"); }
+                if (!threw && Math.Abs(strict - linear) > 1e-9) { ok = false; sb.Append($" mono={mono}: strict {strict} ≠ lenient {linear};"); }
+            }
+            return ok.Label($"'{seq}': defaults {defaultsOk};{sb}");
+        });
+    }
+
+    /// <summary>
+    /// F28 (P): for any non-empty peptide over the 20 standard residues and pyrrolysine the monoisotopic MW is
+    /// below the average MW (each monoisotopic residue mass is the lightest-isotope mass, below the abundance-
+    /// weighted average; the 0.0047 Da per bond water difference is far smaller). Selenocysteine is excluded on
+    /// purpose: its monoisotopic mass uses ⁸⁰Se (79.9165), heavier than Se's average 78.971, so Biopython
+    /// <c>monoisotopic_protein_weights</c> U = 168.964203 &gt; <c>protein_weights</c> U = 168.0532.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MolecularWeightOptions_Protein_MonoisotopicBelowAverage()
+    {
+        return Prop.ForAll(AlphabetArbitrary("ARNDCEQGHILKMFPSTWYVO", 1, 60), seq =>
+        {
+            double avg = SequenceStatistics.CalculateMolecularWeight(seq, null);
+            double mono = SequenceStatistics.CalculateMolecularWeight(seq, new() { Monoisotopic = true });
+            double avgCirc = SequenceStatistics.CalculateMolecularWeight(seq, new() { Circular = true });
+            double monoCirc = SequenceStatistics.CalculateMolecularWeight(seq, new() { Monoisotopic = true, Circular = true });
+            return (mono < avg && monoCirc < avgCirc && mono > 0).Label($"'{seq}': mono {mono} vs avg {avg}; circular {monoCirc} vs {avgCirc}");
+        });
+    }
+
+    /// <summary>
+    /// F28 (P): nucleotide MW options. Circular = linear − one water per strand (2 for double-stranded) with the
+    /// mass set's water; monoisotopic &lt; average; default options = the 3-argument overload; strict throws iff a
+    /// non-whitespace symbol is outside the DNA (ACGT) / RNA (ACGU) table.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MolecularWeightOptions_Nucleotide_CircularMonoisotopicStrict()
+    {
+        var gen = from isDna in Gen.Elements(true, false)
+                  from seq in AlphabetArbitrary("ACGTUacgtuN -", 0, 50).Generator
+                  from ds in Gen.Elements(true, false)
+                  select (isDna, seq, ds);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            string table = t.isDna ? "ACGT" : "ACGU";
+            int monomers = t.seq.Count(c => table.Contains(UpperAscii(c)));
+            bool hasUnknown = t.seq.Any(c => !char.IsWhiteSpace(c) && !table.Contains(UpperAscii(c)));
+            bool ok = SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, t.ds, (SequenceStatistics.MolecularWeightOptions?)null)
+                      == SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, t.ds);
+            var sb = new System.Text.StringBuilder(ok ? "" : " default ≠ legacy;");
+            foreach (bool mono in new[] { false, true })
+            {
+                double water = mono ? MonoisotopicWaterOracle : WaterMassOracle;
+                double linear = SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, t.ds, new SequenceStatistics.MolecularWeightOptions { Monoisotopic = mono });
+                double circ = SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, t.ds, new SequenceStatistics.MolecularWeightOptions { Monoisotopic = mono, Circular = true });
+                double expected = monomers == 0 ? 0 : linear - (t.ds ? 2 : 1) * water;
+                if (Math.Abs(circ - expected) > 1e-8) { ok = false; sb.Append($" mono={mono}: circular {circ} ≠ {expected};"); }
+                bool threw = false;
+                try { SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, t.ds, new SequenceStatistics.MolecularWeightOptions { Monoisotopic = mono, Strict = true }); }
+                catch (ArgumentException) { threw = true; }
+                if (threw != hasUnknown) { ok = false; sb.Append($" mono={mono}: strict threw={threw}, unknown={hasUnknown};"); }
+            }
+            if (monomers > 0)
+            {
+                double avg = SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, t.ds, SequenceStatistics.MolecularWeightOptions.Default);
+                double mono = SequenceStatistics.CalculateNucleotideMolecularWeight(t.seq, t.isDna, t.ds, new SequenceStatistics.MolecularWeightOptions { Monoisotopic = true });
+                if (!(mono < avg)) { ok = false; sb.Append($" mono {mono} ≥ avg {avg};"); }
+            }
+            return ok.Label($"{(t.isDna ? "DNA" : "RNA")} ds={t.ds} '{t.seq}':{sb}");
+        });
+    }
+
+    private static Gen<SequenceStatistics.IsoelectricPointOptions> PiOptionsGen(SequenceStatistics.IsoelectricPointWindow window) =>
+        from scale in Gen.Elements(AllPkaScales)
+        from termini in Gen.Elements(true, false)
+        from lys in Gen.Choose(0, 3)
+        from dis in Gen.Choose(0, 2)
+        select new SequenceStatistics.IsoelectricPointOptions
+        {
+            Scale = scale, Window = window, Termini = termini, LysinesModified = lys, Disulphides = dis,
+        };
+
+    /// <summary>
+    /// F43/F44 (P): EMBOSS <c>iep</c> window (<c>embIepIepC</c> / <c>embIepPhConverge</c>). For any options the Try
+    /// method returns false iff the net charge has the same strict sign at pH 1 and pH 14 ("Isoelectric Point =
+    /// None"; also for empty input); otherwise the pI lies in [1, 14], the charge there is ≥ 0 (lower bracket
+    /// bound or exact zero) and ≤ 0 one bracket width (1e-4) above it.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsoelectricPointOptions_EmbossWindow_NoneIffSameSignAtWindowEnds()
+    {
+        var gen = from seq in BoundedProteinArbitrary(30).Generator
+                  from opts in PiOptionsGen(SequenceStatistics.IsoelectricPointWindow.Emboss)
+                  select (seq, opts);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            bool found = SequenceStatistics.TryCalculateIsoelectricPoint(t.seq, t.opts, out double pi);
+            if (t.seq.Length == 0)
+                return (!found && double.IsNaN(pi)).Label("empty input must report no pI");
+            double q1 = SequenceStatistics.CalculateNetCharge(t.seq, 1.0, t.opts);
+            double q14 = SequenceStatistics.CalculateNetCharge(t.seq, 14.0, t.opts);
+            bool sameSign = (q1 > 0 && q14 > 0) || (q1 < 0 && q14 < 0);
+            if (found == sameSign)
+                return false.Label($"'{t.seq}' {t.opts}: found={found} but q(1)={q1}, q(14)={q14}");
+            if (!found)
+                return double.IsNaN(pi).Label("no pI ⇒ NaN");
+            double atPi = SequenceStatistics.CalculateNetCharge(t.seq, pi, t.opts);
+            double above = SequenceStatistics.CalculateNetCharge(t.seq, pi + 1.0001e-4, t.opts);
+            return (pi is >= 1.0 and <= 14.0 && atPi >= -1e-12 && above <= 1e-12)
+                .Label($"'{t.seq}' {t.opts}: pI {pi}, q(pI)={atPi}, q(pI+1e-4)={above}");
+        });
+    }
+
+    /// <summary>
+    /// F44 (MON): EMBOSS <c>-lysinemodified N</c> removes positive groups, so charge and pI are non-increasing in
+    /// N and saturate at N = #K; <c>-disulphides N</c> removes acidic cysteines, so they are non-decreasing in N and
+    /// saturate at 2N ≥ #C (<c>embIepCompC</c>). Library window, both scales, termini on or off.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsoelectricPointOptions_Modifications_MonotoneAndSaturating()
+    {
+        var gen = from seq in AlphabetArbitrary("KKCCDEHRYAGLS", 1, 30).Generator
+                  from opts in PiOptionsGen(SequenceStatistics.IsoelectricPointWindow.Default)
+                  select (seq, baseOpts: opts with { LysinesModified = 0, Disulphides = 0 });
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            double Pi(SequenceStatistics.IsoelectricPointOptions o)
+            {
+                SequenceStatistics.TryCalculateIsoelectricPoint(t.seq, o, out double v);
+                return v;
+            }
+            int nK = t.seq.Count(c => c == 'K'), nC = t.seq.Count(c => c == 'C');
+            var sb = new System.Text.StringBuilder();
+            for (int n = 0; n <= nK + 1; n++)
+            {
+                var a = t.baseOpts with { LysinesModified = n };
+                var b = t.baseOpts with { LysinesModified = n + 1 };
+                if (Pi(b) > Pi(a)) sb.Append($" pI rose with lysinesModified {n}→{n + 1};");
+                if (SequenceStatistics.CalculateNetCharge(t.seq, 7.0, b) > SequenceStatistics.CalculateNetCharge(t.seq, 7.0, a) + 1e-12)
+                    sb.Append($" charge rose with lysinesModified {n}→{n + 1};");
+                if (n >= nK && Pi(b) != Pi(a)) sb.Append($" lysinesModified {n + 1} ≥ #K={nK} must saturate;");
+            }
+            for (int n = 0; 2 * n <= nC + 2; n++)
+            {
+                var a = t.baseOpts with { Disulphides = n };
+                var b = t.baseOpts with { Disulphides = n + 1 };
+                if (Pi(b) < Pi(a)) sb.Append($" pI fell with disulphides {n}→{n + 1};");
+                if (SequenceStatistics.CalculateNetCharge(t.seq, 7.0, b) < SequenceStatistics.CalculateNetCharge(t.seq, 7.0, a) - 1e-12)
+                    sb.Append($" charge fell with disulphides {n}→{n + 1};");
+                if (2 * n >= nC && Pi(b) != Pi(a)) sb.Append($" disulphides {n + 1} (2N ≥ #C={nC}) must saturate;");
+            }
+            return (sb.Length == 0).Label($"'{t.seq}' {t.baseOpts}:{sb}");
+        });
+    }
+
+    /// <summary>
+    /// F44 (P): EMBOSS <c>-notermini</c> on a sequence without ionizable side chains (no D/E/C/Y/H/K/R/B/Z) has net
+    /// charge 0 at every pH, so <c>embIepPhConverge</c>'s first probe ((14 − 1)/2 + 1 = 7.5) is an exact zero and the
+    /// EMBOSS-window pI is 7.5.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsoelectricPointOptions_NoTermini_ChargeFreeSequence_EmbossPiIsSevenPointFive()
+    {
+        var gen = from seq in AlphabetArbitrary("AGILMFPSTVWNQXagil", 1, 30).Generator
+                  from scale in Gen.Elements(AllPkaScales)
+                  select (seq, scale);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var opts = new SequenceStatistics.IsoelectricPointOptions
+            {
+                Scale = t.scale, Termini = false, Window = SequenceStatistics.IsoelectricPointWindow.Emboss,
+            };
+            bool zero = Enumerable.Range(0, 29).All(k => SequenceStatistics.CalculateNetCharge(t.seq, k * 0.5, opts) == 0.0);
+            bool found = SequenceStatistics.TryCalculateIsoelectricPoint(t.seq, opts, out double pi);
+            return (zero && found && pi == 7.5).Label($"'{t.seq}' {t.scale}: zero charge {zero}, found {found}, pI {pi}");
+        });
+    }
+
+    /// <summary>
+    /// F29 (P): for an odd window W ≥ 3, any edge weight and residues that all have a scale value, the Biopython
+    /// <c>protein_scale</c> convention (paired positions j and W−1−j with the half-list weight, middle weight 1,
+    /// divisor 2·Σ half-weights + 1) equals the standard weighted mean (same weights, Σ w = the same divisor).
+    /// Checked for every shipped <c>ProtParamData</c> scale.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HydrophobicityOptions_BiopythonConvention_EqualsStandard_OddWindowKnownResidues()
+    {
+        var gen = from seq in AlphabetArbitrary("ARNDCEQGHILKMFPSTWYVarndc", 0, 40).Generator
+                  from half in Gen.Choose(1, 6)
+                  from edgeTenths in Gen.Choose(0, 10)
+                  from scale in Gen.Elements(ShippedScales)
+                  select (seq, w: 2 * half + 1, edge: edgeTenths / 10.0, scale);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var std = SequenceStatistics.CalculateHydrophobicityProfile(t.seq, t.w, t.edge,
+                new SequenceStatistics.HydrophobicityProfileOptions { Scale = t.scale }).ToList();
+            var bio = SequenceStatistics.CalculateHydrophobicityProfile(t.seq, t.w, t.edge,
+                new SequenceStatistics.HydrophobicityProfileOptions { Scale = t.scale, Convention = SequenceStatistics.HydropathyWindowConvention.Biopython }).ToList();
+            bool ok = std.Count == bio.Count && std.Count == Math.Max(0, t.seq.Length - t.w + 1)
+                      && std.Zip(bio).All(p => Math.Abs(p.First - p.Second) <= 1e-12);
+            return ok.Label($"'{t.seq}' W={t.w} edge={t.edge}: std [{string.Join(", ", std)}] vs biopython [{string.Join(", ", bio)}]");
+        });
+    }
+
+    /// <summary>
+    /// F30 (R + P): ExPASy ProtScale 0..1 normalisation v' = (v − min)/(max − min). Every profile value lies in
+    /// [0, 1] in both conventions (unknown residues add 0); on known-residue input the standard profile is the
+    /// affine image (raw − min)/(max − min) of the raw profile (the weighted mean is affine-equivariant).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HydrophobicityOptions_NormalizedScale_InUnitInterval_AndAffine()
+    {
+        var gen = from seq in AlphabetArbitrary("ARNDCEQGHILKMFPSTWYVXBZ*", 0, 40).Generator
+                  from w in Gen.Choose(2, 11)
+                  from edgeTenths in Gen.Choose(0, 10)
+                  from scale in Gen.Elements(ShippedScales)
+                  select (seq, w, edge: edgeTenths / 10.0, scale);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            double edge = t.w % 2 == 0 ? 1.0 : t.edge; // the standard convention needs an odd W for edge < 1
+            var sb = new System.Text.StringBuilder();
+            foreach (var conv in new[] { SequenceStatistics.HydropathyWindowConvention.Standard, SequenceStatistics.HydropathyWindowConvention.Biopython })
+            {
+                var norm = SequenceStatistics.CalculateHydrophobicityProfile(t.seq, t.w, edge,
+                    new SequenceStatistics.HydrophobicityProfileOptions { Scale = t.scale, Convention = conv, NormalizeScale = true });
+                if (!norm.All(v => v is >= -1e-12 and <= 1.0 + 1e-12)) sb.Append($" {conv}: value outside [0,1];");
+            }
+            string known = new(t.seq.Where(c => t.scale.ContainsKey(c)).ToArray());
+            double min = t.scale.Values.Min(), max = t.scale.Values.Max();
+            var raw = SequenceStatistics.CalculateHydrophobicityProfile(known, t.w, edge, new SequenceStatistics.HydrophobicityProfileOptions { Scale = t.scale }).ToList();
+            var nrm = SequenceStatistics.CalculateHydrophobicityProfile(known, t.w, edge, new SequenceStatistics.HydrophobicityProfileOptions { Scale = t.scale, NormalizeScale = true }).ToList();
+            if (raw.Count != nrm.Count || raw.Zip(nrm).Any(p => Math.Abs((p.First - min) / (max - min) - p.Second) > 1e-12))
+                sb.Append(" normalised ≠ affine image of the raw profile;");
+            return (sb.Length == 0).Label($"'{t.seq}' W={t.w} edge={edge}:{sb}");
+        });
+    }
+
+    /// <summary>
+    /// F29/F31/F52 (P): the caller-scale overload with the shipped Kyte–Doolittle table, and the options overload
+    /// with <c>Scale = KD</c> or default options, reproduce the default profile exactly; strict mode throws iff a
+    /// symbol has no value in the scale and otherwise equals the lenient profile.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HydrophobicityOptions_KdCallerScale_ReproducesDefault_StrictIffUnknown()
+    {
+        var gen = from seq in AlphabetArbitrary("ARNDCEQGHILKMFPSTWYVarnXB-", 0, 40).Generator
+                  from half in Gen.Choose(0, 6)
+                  from edgeTenths in Gen.Choose(0, 10)
+                  select (seq, w: 2 * half + 1, edge: edgeTenths / 10.0);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var def = SequenceStatistics.CalculateHydrophobicityProfile(t.seq, t.w, t.edge).ToList();
+            bool sameOk = SequenceStatistics.CalculateHydrophobicityProfile(t.seq, ProteinScales.KyteDoolittle, t.w, t.edge).SequenceEqual(def)
+                          && SequenceStatistics.CalculateHydrophobicityProfile(t.seq, t.w, t.edge, new SequenceStatistics.HydrophobicityProfileOptions { Scale = ProteinScales.KyteDoolittle }).SequenceEqual(def)
+                          && SequenceStatistics.CalculateHydrophobicityProfile(t.seq, t.w, t.edge, null).SequenceEqual(def);
+            bool hasUnknown = t.seq.Any(c => !ProteinScales.KyteDoolittle.ContainsKey(UpperAscii(c)));
+            bool threw = false;
+            List<double>? strict = null;
+            try { strict = SequenceStatistics.CalculateHydrophobicityProfile(t.seq, t.w, t.edge, new SequenceStatistics.HydrophobicityProfileOptions { Strict = true }).ToList(); }
+            catch (ArgumentException) { threw = true; }
+            bool strictOk = threw == hasUnknown && (threw || strict!.SequenceEqual(def));
+            return (sameOk && strictOk).Label($"'{t.seq}' W={t.w} edge={t.edge}: KD scale identity {sameOk}, strict threw {threw} (unknown {hasUnknown})");
+        });
+    }
+
+    /// <summary>
+    /// F27 (P): default / null <c>ThermodynamicsOptions</c> equal the 4-argument overload; for any salt method 0–7 and
+    /// ion mix, the unrounded result rounded (ΔH/ΔS/ΔG to 2 dp, Tm to 1 dp) is exactly the rounded result, and both
+    /// calls agree on rejecting a salt input Biopython rejects.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ThermodynamicsOptions_DefaultsEqualOverload_UnroundedRoundsToRounded()
+    {
+        var gen = from seq in AlphabetArbitrary("ACGT", 2, 40).Generator
+                  from self in Gen.Elements(true, false)
+                  from naMm in Gen.Choose(0, 1000)
+                  from method in Gen.Choose(0, 7)
+                  from kMm in Gen.Choose(0, 100)
+                  from trisMm in Gen.Choose(0, 50)
+                  from mgTenthMm in Gen.Choose(0, 100)
+                  from dntpTenthMm in Gen.Choose(0, 20)
+                  select (seq, self, na: naMm / 1000.0,
+                          opts: new SequenceStatistics.ThermodynamicsOptions
+                          {
+                              SaltCorrection = (NnSaltCorrection)method, PotassiumConcentration = kMm / 1000.0,
+                              TrisConcentration = trisMm / 1000.0, MagnesiumConcentration = mgTenthMm / 10000.0,
+                              DntpConcentration = dntpTenthMm / 10000.0,
+                          });
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            const double ct = 2.5e-7;
+            bool defaultsOk = t.na <= 0 || (
+                SequenceStatistics.CalculateThermodynamics(t.seq, t.na, ct, t.self, null) == SequenceStatistics.CalculateThermodynamics(t.seq, t.na, ct, t.self)
+                && SequenceStatistics.CalculateThermodynamics(t.seq, t.na, ct, t.self, SequenceStatistics.ThermodynamicsOptions.Default) == SequenceStatistics.CalculateThermodynamics(t.seq, t.na, ct, t.self));
+
+            SequenceStatistics.ThermodynamicProperties r = default, u = default;
+            Type? rErr = null, uErr = null;
+            try { r = SequenceStatistics.CalculateThermodynamics(t.seq, t.na, ct, t.self, t.opts); } catch (ArgumentException e) { rErr = e.GetType(); }
+            try { u = SequenceStatistics.CalculateThermodynamics(t.seq, t.na, ct, t.self, t.opts with { RoundResults = false }); } catch (ArgumentException e) { uErr = e.GetType(); }
+            bool roundOk = rErr == uErr && (rErr != null || (
+                Math.Round(u.DeltaH, 2) == r.DeltaH && Math.Round(u.DeltaS, 2) == r.DeltaS
+                && Math.Round(u.DeltaG, 2) == r.DeltaG && Math.Round(u.MeltingTemperature, 1) == r.MeltingTemperature
+                && double.IsFinite(u.MeltingTemperature)));
+            return (defaultsOk && roundOk).Label($"'{t.seq}' self={t.self} Na={t.na} {t.opts}: defaults {defaultsOk}, rounding {roundOk} (errors {rErr?.Name}/{uErr?.Name}; {u} vs {r})");
+        });
+    }
+
+    private static Gen<(string seq, int w, int step)> ProfileGen(string alphabet) =>
+        from seq in AlphabetArbitrary(alphabet, 0, 60).Generator
+        from w in Gen.Choose(1, 15)
+        from step in Gen.Choose(1, 6)
+        select (seq, w, step);
+
+    private static int PartialStartCount(int len, int step) => len == 0 ? 0 : (len + step - 1) / step;
+
+    /// <summary>
+    /// F24/F38 (P): Biopython <c>GC_skew</c>-style windowing (<c>range(0, len, step)</c>). With trailing partial windows
+    /// the GC and entropy profiles start with exactly the complete-window profile, have ⌈len/step⌉ values (one per
+    /// start &lt; len), and every partial value is the statistic of the suffix <c>seq[start:]</c>. Checked for every GC
+    /// ambiguity mode and the letter / k = 1 entropy profiles.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GcAndEntropyProfiles_PartialWindows_PrefixCountAndSuffixValues()
+    {
+        return Prop.ForAll(ProfileGen("ACGTNacgt-RS").ToArbitrary(), t =>
+        {
+            int expectedCount = PartialStartCount(t.seq.Length, t.step);
+            var sb = new System.Text.StringBuilder();
+            void Check(string name, List<double> complete, List<double> partial, Func<string, double> stat)
+            {
+                if (partial.Count != expectedCount) sb.Append($" {name}: count {partial.Count} ≠ ⌈{t.seq.Length}/{t.step}⌉;");
+                if (!partial.Take(complete.Count).SequenceEqual(complete)) sb.Append($" {name}: prefix ≠ complete profile;");
+                for (int k = complete.Count; k < partial.Count; k++)
+                {
+                    int start = k * t.step;
+                    if (start >= t.seq.Length || start + t.w <= t.seq.Length) { sb.Append($" {name}: start {start} is not a partial window;"); break; }
+                    if (Math.Abs(partial[k] - stat(t.seq[start..])) > 1e-12) { sb.Append($" {name}: partial {k} ≠ statistic of suffix;"); break; }
+                }
+            }
+            Check("gc", SequenceStatistics.CalculateGcContentProfile(t.seq, t.w, t.step, false).ToList(),
+                SequenceStatistics.CalculateGcContentProfile(t.seq, t.w, t.step, false, includePartialWindow: true).ToList(),
+                s => s.AsSpan().CalculateGcFraction() * 100.0);
+            foreach (var mode in Enum.GetValues<SequenceExtensions.GcAmbiguityMode>())
+                Check($"gc-{mode}", SequenceStatistics.CalculateGcContentProfile(t.seq, t.w, t.step, true, mode).ToList(),
+                    SequenceStatistics.CalculateGcContentProfile(t.seq, t.w, t.step, true, mode, includePartialWindow: true).ToList(),
+                    s => s.AsSpan().CalculateGcFraction(mode));
+            Check("entropy", SequenceStatistics.CalculateEntropyProfile(t.seq, t.w, t.step).ToList(),
+                SequenceStatistics.CalculateEntropyProfile(t.seq, t.w, t.step, includePartialWindow: true).ToList(),
+                SequenceStatistics.CalculateShannonEntropy);
+            Check("kmer-entropy", SequenceStatistics.CalculateEntropyProfile(t.seq, t.w, t.step, 2, false).ToList(),
+                SequenceStatistics.CalculateEntropyProfile(t.seq, t.w, t.step, 2, true).ToList(),
+                s => SequenceComplexity.CalculateKmerEntropy(s, 2));
+            return (sb.Length == 0).Label($"'{t.seq}' W={t.w} step={t.step}:{sb}");
+        });
+    }
+
+    /// <summary>
+    /// F38 (R + P): the order-k block-entropy profile of a DNA window of length L holds L − k + 1 overlapping k-mers
+    /// over at most 4^k words, so each value lies in [0, log₂ min(4^k, L − k + 1)] (0 when L &lt; k); for k = 1 it
+    /// equals the letter entropy profile on A/C/G/T input.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerEntropyProfile_BoundedByLog2DistinctWords_K1EqualsLetterProfile()
+    {
+        var gen = from t in ProfileGen("ACGT")
+                  from k in Gen.Choose(1, 5)
+                  from partial in Gen.Elements(true, false)
+                  select (t.seq, t.w, t.step, k, partial);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var profile = SequenceStatistics.CalculateEntropyProfile(t.seq, t.w, t.step, t.k, t.partial).ToList();
+            var starts = new List<int>();
+            for (int i = 0; i < t.seq.Length; i += t.step)
+                if (i + t.w <= t.seq.Length || t.partial) starts.Add(i);
+            if (profile.Count != starts.Count)
+                return false.Label($"count {profile.Count} ≠ {starts.Count}");
+            for (int j = 0; j < starts.Count; j++)
+            {
+                int len = Math.Min(t.w, t.seq.Length - starts[j]);
+                int words = len - t.k + 1;
+                double bound = words <= 1 ? 0.0 : Math.Log2(Math.Min(Math.Pow(4, t.k), words));
+                if (profile[j] < -1e-12 || profile[j] > bound + 1e-9)
+                    return false.Label($"'{t.seq}' W={t.w} k={t.k}: window {j} (L={len}) entropy {profile[j]} ∉ [0, {bound}]");
+            }
+            if (t.k == 1)
+            {
+                var letters = SequenceStatistics.CalculateEntropyProfile(t.seq, t.w, t.step, t.partial).ToList();
+                if (!letters.Zip(profile).All(p => Math.Abs(p.First - p.Second) <= 1e-12) || letters.Count != profile.Count)
+                    return false.Label($"'{t.seq}' W={t.w}: k=1 block entropy ≠ letter entropy profile");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// F34/F45 (R + INV): the Chou–Fasman 1978 graded assignment returns one state per input character from
+    /// {H, E, T, C}; characters without parameters (non-standard, gaps, non-ASCII letters) stay coil; the ASCII
+    /// case fold makes lower-case input equivalent.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ChouFasmanGraded1978_LengthAlphabetCoilForNonResidues_CaseFold()
+    {
+        return Prop.ForAll(AlphabetArbitrary("ARNDCEQGHILKMFPSTWYVAEMLKVIYXBZ-*ſı", 0, 80), seq =>
+        {
+            string states = SequenceStatistics.PredictSecondaryStructureChouFasman(seq, SequenceStatistics.ChouFasmanRuleSet.Graded1978);
+            bool lengthOk = states.Length == seq.Length;
+            bool alphabetOk = states.All(c => c is 'H' or 'E' or 'T' or 'C');
+            bool coilOk = lengthOk && seq.Select((c, i) => (c, i)).All(p => StandardResidueSet.Contains(p.c) || states[p.i] == 'C');
+            string lower = new(seq.Select(c => char.IsAsciiLetterUpper(c) ? (char)(c + 32) : c).ToArray());
+            bool caseOk = SequenceStatistics.PredictSecondaryStructureChouFasman(lower, SequenceStatistics.ChouFasmanRuleSet.Graded1978) == states;
+            return (lengthOk && alphabetOk && coilOk && caseOk)
+                .Label($"'{seq}' → '{states}': length {lengthOk}, alphabet {alphabetOk}, non-residues coil {coilOk}, case {caseOk}");
+        });
+    }
+
+    private const string StandardResidueSet = "ARNDCEQGHILKMFPSTWYV";
+
+    /// <summary>
+    /// F36/F49 (P): EMBOSS <c>cusp</c> normalisations. PerThousand = 1000 × Total on the same keys; PerAminoAcid
+    /// ("Fraction") sums to 1 over the observed codons of every synonymous family (amino acid, or '*' for stops)
+    /// under the chosen genetic code, each value in (0, 1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonFrequencyNormalizations_PerThousandAndPerAminoAcidFamilies()
+    {
+        var codes = new[] { GeneticCode.Standard, GeneticCode.VertebrateMitochondrial, GeneticCode.YeastMitochondrial, GeneticCode.BacterialPlastid };
+        var gen = from seq in AlphabetArbitrary("ACGTUacgtN", 0, 90).Generator
+                  from frame in Gen.Choose(0, 3)
+                  from code in Gen.Elements(codes)
+                  select (seq, frame, code);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var total = SequenceStatistics.CalculateCodonFrequencies(t.seq, t.frame);
+            var totalExplicit = SequenceStatistics.CalculateCodonFrequencies(t.seq, t.frame, SequenceStatistics.CodonFrequencyNormalization.Total, t.code);
+            var perK = SequenceStatistics.CalculateCodonFrequencies(t.seq, t.frame, SequenceStatistics.CodonFrequencyNormalization.PerThousand, t.code);
+            var perAa = SequenceStatistics.CalculateCodonFrequencies(t.seq, t.frame, SequenceStatistics.CodonFrequencyNormalization.PerAminoAcid, t.code);
+            bool totalOk = totalExplicit.Count == total.Count && total.All(kv => totalExplicit[kv.Key] == kv.Value);
+            bool perKOk = perK.Count == total.Count && total.All(kv => perK.TryGetValue(kv.Key, out double v) && Math.Abs(v - 1000.0 * kv.Value) <= 1e-9);
+            bool keysOk = perAa.Count == total.Count && total.Keys.All(perAa.ContainsKey);
+            bool familiesOk = perAa.All(kv => kv.Value is > 0.0 and <= 1.0)
+                              && perAa.GroupBy(kv => t.code.Translate(kv.Key)).All(g => Math.Abs(g.Sum(kv => kv.Value) - 1.0) <= 1e-12);
+            return (totalOk && perKOk && keysOk && familiesOk)
+                .Label($"'{t.seq}' frame {t.frame}: Total {totalOk}, PerThousand {perKOk}, keys {keysOk}, families sum to 1 {familiesOk}");
+        });
+    }
+
+    /// <summary>
+    /// F51 (P): <c>includeAbsent</c> is a superset of the default ratio map with identical values for observed
+    /// dinucleotides, every added key has ρ = 0, and the key set is exactly B × B for the set B of counted bases (the
+    /// sequence's A/C/G/T, plus their complements for Karlin's strand-symmetric ρ*).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DinucleotideRatios_IncludeAbsent_SupersetWithZerosOverBasePairs()
+    {
+        var gen = from seq in AlphabetArbitrary("ACGTNacgt-", 0, 60).Generator
+                  from sym in Gen.Elements(true, false)
+                  select (seq, sym);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var observed = SequenceStatistics.CalculateDinucleotideRatios(t.seq, t.sym);
+            var all = SequenceStatistics.CalculateDinucleotideRatios(t.seq, t.sym, includeAbsent: true);
+            if (observed.Count == 0)
+                return (all.Count == 0).Label($"'{t.seq}': no observed dinucleotide ⇒ empty, got {all.Count}");
+            var bases = t.seq.Select(UpperAscii).Where(c => "ACGT".Contains(c)).ToHashSet();
+            if (t.sym)
+                bases.UnionWith(bases.Select(c => c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', _ => 'C' }).ToList());
+            var expectedKeys = bases.SelectMany(x => bases.Select(y => $"{x}{y}")).ToHashSet();
+            bool superset = observed.All(kv => all.TryGetValue(kv.Key, out double v) && v == kv.Value);
+            bool zeros = all.Where(kv => !observed.ContainsKey(kv.Key)).All(kv => kv.Value == 0.0);
+            bool keys = all.Keys.ToHashSet().SetEquals(expectedKeys);
+            return (superset && zeros && keys).Label($"'{t.seq}' ρ*={t.sym}: superset {superset}, zeros {zeros}, keys B×B {keys} ({string.Join(",", all.Keys)})");
+        });
+    }
+
+    /// <summary>
+    /// F33 (P): <c>SequenceSummary.MolecularWeight</c> is the canonical single-stranded linear average MW — RNA table
+    /// when the sequence has U and no T, DNA table otherwise — for both Tm weighting flags; and on input without IUPAC
+    /// ambiguity codes (only A/C/G/T/U, any case) the IUPAC-weighted Tm (Biopython non-strict) equals the default Tm.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Summary_MolecularWeightCanonical_WeightedTmEqualsDefaultOnPureBases()
+    {
+        var gen = from seq in AlphabetArbitrary("ACGTUacgtu", 0, 40).Generator
+                  from junk in Gen.Elements("", "N", "-", "NN-")
+                  select (seq, junk);
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            string withJunk = t.seq + t.junk;
+            bool hasU = withJunk.Any(c => c is 'U' or 'u'), hasT = withJunk.Any(c => c is 'T' or 't');
+            double expectedMw = SequenceStatistics.CalculateNucleotideMolecularWeight(withJunk, isDna: !(hasU && !hasT));
+            bool mwOk = SequenceStatistics.SummarizeNucleotideSequence(withJunk).MolecularWeight == expectedMw
+                        && SequenceStatistics.SummarizeNucleotideSequence(withJunk, weightAmbiguousBasesInTm: true).MolecularWeight == expectedMw;
+            bool tmOk = new[] { true, false }.All(wallace =>
+                Math.Abs(SequenceStatistics.CalculateMeltingTemperature(t.seq, wallace, weightAmbiguousBases: true)
+                         - SequenceStatistics.CalculateMeltingTemperature(t.seq, wallace)) <= 1e-9);
+            bool summaryTmOk = Math.Abs(SequenceStatistics.SummarizeNucleotideSequence(t.seq, true).MeltingTemperature
+                                        - SequenceStatistics.SummarizeNucleotideSequence(t.seq).MeltingTemperature) <= 1e-9;
+            return (mwOk && tmOk && summaryTmOk).Label($"'{withJunk}': MW {mwOk}, weighted Tm = default {tmOk}, summary Tm {summaryTmOk}");
+        });
+    }
+
+    #endregion
 }

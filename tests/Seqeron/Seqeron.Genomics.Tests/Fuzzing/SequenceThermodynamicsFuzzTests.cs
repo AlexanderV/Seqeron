@@ -165,14 +165,16 @@ public class SequenceThermodynamicsFuzzTests
     /// halves, unicode) — fuzz fodder whose dinucleotides are absent from the NN table.
     /// Inosine (I/i) is excluded: Biopython <c>_check</c> keeps it and scores it with DNA_IMM1, raising on a
     /// pair without parameters such as "II" (FIN-B03 F26), which this A/C/G/T oracle does not model; inosine
-    /// is locked against Biopython in the unit tests.</summary>
+    /// is covered by the dedicated inosine region below (FIN-B03 heavy tier).</summary>
     private static string RandomBmpChars(Random rng, int length)
     {
         var c = new char[length];
         for (int i = 0; i < length; i++)
         {
             char ch;
-            do ch = (char)rng.Next(0x0000, 0x10000); while (ch is 'I' or 'i');
+            // Exclude every code point whose invariant upper case is 'I' (I, i and dotless ı U+0131, which
+            // _check / NormalizeForNearestNeighbor also read as inosine).
+            do ch = (char)rng.Next(0x0000, 0x10000); while (char.ToUpperInvariant(ch) == 'I');
             c[i] = ch;
         }
         return new string(c);
@@ -544,6 +546,118 @@ public class SequenceThermodynamicsFuzzTests
 
             t.DeltaH.Should().BeLessThan(0, "every recognized DNA duplex has exothermic (negative) ΔH");
             t.DeltaS.Should().BeLessThan(0, "every recognized DNA duplex loses entropy on duplex formation (negative ΔS)");
+        }
+    }
+
+    #endregion
+    #region MC — inosine (DNA_IMM1, FIN-B03 F26): isolated I scored by the canonical core; I·I neighbours rejected
+
+    // Biopython 1.88 MeltingTemp._check keeps inosine and Tm_NN scores it with DNA_IMM1, which has parameters for
+    // every X·I and I·X stack with X ∈ {A,C,G,T} but none for I·I ("no thermodynamic data for neighbors 'II/II'",
+    // ValueError — executed: Tm_NN("ACIIGT")). SequenceStatistics delegates to ThermoConstants.CalculateNearestNeighborDuplex
+    // with C_T/2 nM per strand and [Na⁺] in mM, rounding ΔH/ΔS/ΔG to 2 dp and Tm to 1 dp.
+
+    private static SequenceStatistics.ThermodynamicProperties CoreRounded(string seq)
+    {
+        var r = ThermoConstants.CalculateNearestNeighborDuplex(seq, dnac1: DefaultPrimer * 1e9 / 2, dnac2: DefaultPrimer * 1e9 / 2,
+            sodium: DefaultNa * 1000);
+        double dG = r.DeltaH - RefTempK * r.SaltCorrectedDeltaS / 1000.0;
+        return new(Math.Round(r.DeltaH, 2), Math.Round(r.SaltCorrectedDeltaS, 2), Math.Round(dG, 2), Math.Round(r.MeltingTemperature, 1));
+    }
+
+    /// <summary>A/C/G/T duplex in which some bases are replaced by I/i so that no two inosines are neighbours
+    /// (termini included), optionally with junk (N, gaps, spaces) between bases that _check removes.</summary>
+    private static string RandomDnaWithIsolatedInosine(Random rng, int length, bool junk)
+    {
+        var sb = new System.Text.StringBuilder();
+        bool previousI = false;
+        int inosines = 0;
+        for (int i = 0; i < length; i++)
+        {
+            bool inosine = !previousI && rng.NextDouble() < 0.3;
+            sb.Append(inosine ? (rng.Next(2) == 0 ? 'I' : 'i') : "ACGTacgt"[rng.Next(8)]);
+            previousI = inosine;
+            if (inosine) inosines++;
+            if (junk && rng.Next(4) == 0) sb.Append("N- "[rng.Next(3)]);
+        }
+        if (inosines == 0) sb[0] = 'I';
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// MC: duplexes with isolated inosines (anywhere, including both termini, mixed case, with removable junk) never
+    /// throw and give finite ΔH/ΔS/ΔG/Tm equal to the rounded canonical ThermoConstants NN core — inosine coverage the
+    /// A/C/G/T garbage generator above deliberately excludes.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void Thermo_IsolatedInosine_FiniteAndEqualsCanonicalCore()
+    {
+        var rng = new Random(129_003);
+        for (int iteration = 0; iteration < 2000; iteration++)
+        {
+            string seq = RandomDnaWithIsolatedInosine(rng, rng.Next(2, 60), junk: iteration % 2 == 1);
+            SequenceStatistics.ThermodynamicProperties t = default;
+            var act = () => t = SequenceStatistics.CalculateThermodynamics(seq);
+            act.Should().NotThrow($"'{seq}' has no I·I neighbour, every stack has DNA_IMM1/DNA_NN3 parameters");
+            AssertFinite(t);
+            t.Should().Be(CoreRounded(seq), $"'{seq}' must equal the canonical NN core (F26)");
+        }
+    }
+
+    /// <summary>
+    /// MC: any duplex whose normalised form contains an I·I neighbour pair — also when the two inosines are separated
+    /// only by characters _check removes (gap, N, space) or spelled i/I — is rejected with ArgumentException, as
+    /// Biopython Tm_NN raises ValueError (strict default).
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void Thermo_InosineNeighbourPair_ThrowsArgumentException()
+    {
+        var rng = new Random(129_004);
+        string[] pairs = { "II", "ii", "Ii", "I-I", "INi", "I I", "i--I" };
+        for (int iteration = 0; iteration < 1000; iteration++)
+        {
+            string left = RandomDna(rng, rng.Next(0, 20)), right = RandomDna(rng, rng.Next(0, 20));
+            string seq = left + pairs[rng.Next(pairs.Length)] + right;
+            var act = () => SequenceStatistics.CalculateThermodynamics(seq);
+            act.Should().Throw<ArgumentException>($"'{seq}' contains the I·I stack, which has no NN parameter");
+        }
+    }
+
+    /// <summary>
+    /// MC/BE: arbitrary BMP strings with inosine mixed in (I, i, dotless ı) either throw ArgumentException exactly
+    /// when the _check-normalised sequence has an I·I neighbour pair, or return finite values equal to the canonical
+    /// core — the garbage-fuzz guarantee of the A/C/G/T test above, extended to the full _check alphabet.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void Thermo_RandomGarbageWithInosine_FiniteOrDocumentedThrow()
+    {
+        var rng = new Random(129_005);
+        const string seeded = "ACGTIiuı";
+        for (int iteration = 0; iteration < 3000; iteration++)
+        {
+            int len = rng.Next(0, 120);
+            var c = new char[len];
+            for (int i = 0; i < len; i++)
+                c[i] = rng.Next(3) == 0 ? seeded[rng.Next(seeded.Length)] : (char)rng.Next(0x0000, 0x10000);
+            string input = new(c);
+            bool inosinePair = ThermoConstants.NormalizeForNearestNeighbor(input).Contains("II", StringComparison.Ordinal);
+
+            SequenceStatistics.ThermodynamicProperties t = default;
+            var act = () => t = SequenceStatistics.CalculateThermodynamics(input);
+            if (inosinePair)
+            {
+                act.Should().Throw<ArgumentException>("an I·I neighbour has no NN parameter");
+                continue;
+            }
+            act.Should().NotThrow($"garbage (len {len}) without an I·I neighbour must not crash");
+            AssertFinite(t);
+            if (ThermoConstants.NormalizeForNearestNeighbor(input).Length >= 2)
+                t.Should().Be(CoreRounded(input));
+            else
+                t.Should().Be(new SequenceStatistics.ThermodynamicProperties(0, 0, 0, 0));
         }
     }
 
