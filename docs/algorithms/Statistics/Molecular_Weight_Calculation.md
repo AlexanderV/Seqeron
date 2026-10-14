@@ -71,7 +71,7 @@ Numeric tables (average masses, Da):
 | Water constant | 18.0153 Da [4] | 18.010565 Da [4] |
 | Typical use | Bulk biochemistry, gel/size estimates | High-resolution mass spectrometry |
 
-Only the average-isotopic variant is implemented; monoisotopic is not in scope (§5.3).
+Average isotopic is the default; monoisotopic masses are opt-in via `MolecularWeightOptions.Monoisotopic` (Biopython `monoisotopic_*_weights` tables, water 18.010565; review 2026-10, FIN-B03 F28).
 
 ## 3. Contract
 
@@ -84,6 +84,7 @@ Only the average-isotopic variant is implemented; monoisotopic is not in scope (
 | isDna | bool | true | Selects DNA vs RNA mass table | — |
 | doubleStranded | bool | false (4-arg overload) | Add the Watson–Crick complementary strand | Nucleic acids only |
 | circular | bool | false (4-arg overload) | Circular molecule: one extra water lost per strand | Nucleic acids only |
+| options | `MolecularWeightOptions?` | null = Default | `Monoisotopic` (mono tables, water 18.010565), `Circular` (one more water per strand; for proteins a head-to-tail cyclic peptide), `Strict` (reject symbols without a mass with `ArgumentException`, as Biopython `ValueError`; whitespace ignored as Biopython strips it) | Protein: `CalculateMolecularWeight(string, MolecularWeightOptions?)`; nucleic acids: `CalculateNucleotideMolecularWeight(string, bool, bool, MolecularWeightOptions?)` |
 
 ### 3.2 Output / Return Value
 
@@ -96,10 +97,10 @@ Only the average-isotopic variant is implemented; monoisotopic is not in scope (
 Null or empty input returns 0 (no exception). Protein input is upper-cased ASCII-only
 (`CalculateMolecularWeight` delegates to the canonical `ProteinPhysicochemistry.MolecularWeight`;
 non-ASCII letters such as `ſ` U+017F are unknown symbols, as in EMBOSS pepstats — Python's Unicode
-`str.upper()` in Biopython would read `ſ` as S); nucleotide input is upper-cased with
-`ToUpperInvariant` (no non-ASCII character folds to a nucleotide letter). Only recognized monomers contribute mass and bonds; unknown symbols are
+`str.upper()` in Biopython would read `ſ` as S); nucleotide input is upper-cased ASCII-only
+(no non-ASCII character folds to a nucleotide letter, so this equals the former `ToUpperInvariant`). Only recognized monomers contribute mass and bonds; unknown symbols are
 skipped (no mass, no bond) — this deviates from Biopython, which rejects unknown letters
-(§5.4). A sequence containing no recognized monomers returns 0. No coordinate system applies.
+(§5.4), unless `MolecularWeightOptions.Strict` is set, which throws `ArgumentException` like Biopython's `ValueError`. A sequence containing no recognized monomers returns 0. No coordinate system applies.
 
 ## 4. Algorithm
 
@@ -138,6 +139,7 @@ enumeration or pattern lookup is performed).
 - `SequenceStatistics.CalculateMolecularWeight(string)`: average-isotopic protein Mw (Da).
 - `SequenceStatistics.CalculateNucleotideMolecularWeight(string, bool)`: average-isotopic DNA/RNA Mw (Da), single-stranded linear.
 - `SequenceStatistics.CalculateNucleotideMolecularWeight(string, bool isDna, bool doubleStranded, bool circular = false)`: double-stranded and/or circular DNA/RNA Mw (added in review 2026-09).
+- `SequenceStatistics.CalculateMolecularWeight(string, MolecularWeightOptions?)` and `CalculateNucleotideMolecularWeight(string, bool isDna, bool doubleStranded, MolecularWeightOptions?)`: monoisotopic masses, circular peptides / nucleic acids, strict mode (review 2026-10, FIN-B03 F28). Defaults equal the overloads above. The protein monoisotopic table lives here until B02 hosts it in `ProteinPhysicochemistry` (B03 R26).
 
 ### 5.2 Current Behavior
 
@@ -161,16 +163,15 @@ reported mass derives only from cited monomer masses.
 
 **Not implemented:**
 
-- Monoisotopic masses (Biopython `monoisotopic=True`); circular peptides. **Users should rely on:**
-  Biopython `Bio.SeqUtils.molecular_weight(..., monoisotopic=True)` for monoisotopic mass.
-  (Double-stranded and circular nucleic-acid corrections ARE implemented — 4-arg overload.)
+- Nothing of Biopython `molecular_weight` is missing: double-stranded/circular nucleic acids (4-arg overload), monoisotopic
+  masses, circular peptides and strict rejection (`MolecularWeightOptions`, FIN-B03 F28) are implemented.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Unknown symbols skipped | Deviation | Differs from Biopython reject-on-unknown; no invented mass | accepted | Reported mass uses only cited monomers |
-| 2 | Average-only mass set | Assumption | Result is average, not monoisotopic | accepted | Matches Expasy/ProtParam default |
+| 1 | Unknown symbols skipped (default) | Deviation | Differs from Biopython reject-on-unknown; no invented mass | accepted | Reported mass uses only cited monomers; `Strict = true` gives Biopython's rejection |
+| 2 | Average mass set by default | Assumption | Default result is average; monoisotopic opt-in | accepted | Matches Expasy/ProtParam default; `Monoisotopic = true` = Biopython `monoisotopic=True` |
 
 ## 6. Edge Cases and Limitations
 
@@ -185,8 +186,8 @@ reported mass derives only from cited monomer masses.
 
 ### 6.2 Limitations
 
-Average masses only (not monoisotopic); ambiguous (B/Z/X/J) and modified residues and
-non-standard nucleotides are ignored, not modeled. Selenocysteine (U) and pyrrolysine (O) are
+Average masses by default (monoisotopic opt-in); ambiguous (B/Z/X/J) and modified residues and
+non-standard nucleotides are ignored (or rejected in strict mode), not modeled. Selenocysteine (U) and pyrrolysine (O) are
 weighed (Biopython `protein_weights`). Double-stranded/circular nucleic acids: 4-arg overload.
 
 ## 7. Examples and Related Material

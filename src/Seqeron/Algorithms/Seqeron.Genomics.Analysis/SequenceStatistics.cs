@@ -122,7 +122,7 @@ public static class SequenceStatistics
     /// "Aromatic" class additionally includes H). <c>ChargedResidueRatio</c> = (D+E+H+K+R)/Length —
     /// the EMBOSS pepstats "Charged" class (B+D+E+H+K+R+Z) restricted to unambiguous residues.</para>
     /// <para><c>MolecularWeight</c>, <c>IsoelectricPoint</c> and <c>Hydrophobicity</c> delegate to
-    /// <see cref="CalculateMolecularWeight"/>, <see cref="CalculateIsoelectricPoint"/> and
+    /// <see cref="CalculateMolecularWeight(string)"/>, <see cref="CalculateIsoelectricPoint"/> and
     /// <see cref="CalculateHydrophobicity"/>. Null/empty input returns Length 0, empty counts,
     /// ratios 0 and the neutral-pH pI default of those methods.</para>
     /// </remarks>
@@ -193,6 +193,97 @@ public static class SequenceStatistics
         { 'A', 347.2212 }, { 'C', 323.1965 }, { 'G', 363.2206 }, { 'U', 324.1813 }
     };
 
+    // Monoisotopic mass of one water molecule (Da): Biopython 1.88 Bio.SeqUtils.molecular_weight
+    // (monoisotopic=True) water = 18.010565.
+    private const double MonoisotopicWaterMass = 18.010565;
+
+    // Monoisotopic masses of the free amino acids (20 standard + U Sec + O Pyl, Da).
+    // Source: Biopython 1.88 Bio/Data/IUPACData.py `monoisotopic_protein_weights`.
+    // (Proposed home: Infrastructure/ProteinPhysicochemistry next to AverageAminoAcidMasses —
+    // B03 cross-batch request R26 to B02.)
+    private static readonly Dictionary<char, double> MonoisotopicAminoAcidWeights = new()
+    {
+        { 'A', 89.047678 },  { 'C', 121.019749 }, { 'D', 133.037508 }, { 'E', 147.053158 },
+        { 'F', 165.078979 }, { 'G', 75.032028 },  { 'H', 155.069477 }, { 'I', 131.094629 },
+        { 'K', 146.105528 }, { 'L', 131.094629 }, { 'M', 149.051049 }, { 'N', 132.053492 },
+        { 'O', 255.158292 }, { 'P', 115.063329 }, { 'Q', 146.069142 }, { 'R', 174.111676 },
+        { 'S', 105.042593 }, { 'T', 119.058243 }, { 'U', 168.964203 }, { 'V', 117.078979 },
+        { 'W', 204.089878 }, { 'Y', 181.073893 }
+    };
+
+    // Monoisotopic masses of DNA mononucleotides (5'-monophosphate, Da).
+    // Source: Biopython 1.88 Bio/Data/IUPACData.py `monoisotopic_unambiguous_dna_weights`.
+    private static readonly Dictionary<char, double> MonoisotopicDnaNucleotideWeights = new()
+    {
+        { 'A', 331.06817 }, { 'C', 307.056936 }, { 'G', 347.063084 }, { 'T', 322.056602 }
+    };
+
+    // Monoisotopic masses of RNA mononucleotides (5'-monophosphate, Da).
+    // Source: Biopython 1.88 Bio/Data/IUPACData.py `monoisotopic_unambiguous_rna_weights`.
+    private static readonly Dictionary<char, double> MonoisotopicRnaNucleotideWeights = new()
+    {
+        { 'A', 347.063084 }, { 'C', 323.051851 }, { 'G', 363.057999 }, { 'U', 324.035867 }
+    };
+
+    /// <summary>
+    /// Options of the molecular-weight calculations
+    /// (<see cref="CalculateMolecularWeight(string, MolecularWeightOptions)"/>,
+    /// <see cref="CalculateNucleotideMolecularWeight(string, bool, bool, MolecularWeightOptions)"/>),
+    /// mirroring the keyword arguments of Biopython 1.88 <c>Bio.SeqUtils.molecular_weight</c>.
+    /// The defaults reproduce the existing overloads (average masses, linear, lenient).
+    /// </summary>
+    public sealed record MolecularWeightOptions
+    {
+        /// <summary>Default options: average masses, linear molecule, unknown symbols skipped.</summary>
+        public static MolecularWeightOptions Default { get; } = new();
+
+        /// <summary>
+        /// True to use monoisotopic monomer masses and water = 18.010565 Da (Biopython
+        /// <c>monoisotopic=True</c>); false (default) for average masses and water = 18.0153 Da.
+        /// </summary>
+        public bool Monoisotopic { get; init; }
+
+        /// <summary>
+        /// True for a circular molecule: one further water is lost per strand for the ring-closing
+        /// bond (Biopython <c>circular=True</c>; for a protein, a head-to-tail cyclic peptide).
+        /// </summary>
+        public bool Circular { get; init; }
+
+        /// <summary>
+        /// True to reject any symbol that has no mass in the selected table (ambiguity codes
+        /// B/Z/J/X, '*', gaps, N, U in DNA, T in RNA, …) with <see cref="ArgumentException"/>, as
+        /// Biopython raises <c>ValueError</c>; whitespace is ignored (Biopython strips it).
+        /// False (default) skips such symbols (no mass, no bond).
+        /// </summary>
+        public bool Strict { get; init; }
+    }
+
+    // Shared accumulation of the MW of one strand: sum of monomer masses − bonds × water, where a
+    // linear strand of n monomers has n − 1 bonds and a circular one n bonds (Biopython
+    // molecular_weight). Case folding is ASCII-only. In strict mode a non-whitespace symbol without
+    // a mass throws; otherwise it is skipped. Returns (sum of masses, monomer count).
+    private static (double Sum, int Monomers) SumMonomerMasses(
+        string sequence, IReadOnlyDictionary<char, double> table, bool strict, string paramName, string kind)
+    {
+        double sum = 0;
+        int monomers = 0;
+        foreach (char raw in sequence)
+        {
+            char ch = ToUpperAscii(raw);
+            if (table.TryGetValue(ch, out double mass))
+            {
+                sum += mass;
+                monomers++;
+            }
+            else if (strict && !char.IsWhiteSpace(raw))
+            {
+                throw new ArgumentException(
+                    $"'{raw}' is not a valid unambiguous letter for {kind} (strict mode).", paramName);
+            }
+        }
+        return (sum, monomers);
+    }
+
     /// <summary>
     /// Calculates the average-isotopic molecular weight of a protein sequence (Da).
     /// </summary>
@@ -212,6 +303,42 @@ public static class SequenceStatistics
     /// <returns>Molecular weight in daltons; 0 for null/empty input.</returns>
     public static double CalculateMolecularWeight(string proteinSequence) =>
         ProteinPhysicochemistry.MolecularWeight(proteinSequence);
+
+    /// <summary>
+    /// Calculates the molecular weight of a protein (Da) with Biopython 1.88
+    /// <c>molecular_weight(seq, "protein", circular, monoisotopic)</c> options and an optional strict mode.
+    /// </summary>
+    /// <remarks>
+    /// Σ free amino-acid masses − bonds × water, bonds = n − 1 (linear) or n (circular, head-to-tail
+    /// cyclic peptide: one more water lost). Masses: average (<see cref="ProteinPhysicochemistry.AverageAminoAcidMasses"/>,
+    /// water 18.0153) or monoisotopic (Biopython <c>IUPACData.monoisotopic_protein_weights</c>,
+    /// water 18.010565). With <see cref="MolecularWeightOptions.Default"/> this is exactly
+    /// <see cref="CalculateMolecularWeight(string)"/>. Alphabet: 20 standard residues + U + O.
+    /// </remarks>
+    /// <param name="proteinSequence">Protein sequence (case-insensitive, one-letter codes).</param>
+    /// <param name="options">Mass set, topology and strictness; null = <see cref="MolecularWeightOptions.Default"/>.</param>
+    /// <returns>Molecular weight in daltons; 0 for null/empty input or when no residue has a mass.</returns>
+    /// <exception cref="ArgumentException">Strict mode and a symbol without a mass (e.g. B, Z, X, '*').</exception>
+    public static double CalculateMolecularWeight(string proteinSequence, MolecularWeightOptions? options)
+    {
+        options ??= MolecularWeightOptions.Default;
+        if (string.IsNullOrEmpty(proteinSequence))
+            return 0;
+        if (!options.Monoisotopic && !options.Circular && !options.Strict)
+            return ProteinPhysicochemistry.MolecularWeight(proteinSequence);
+
+        IReadOnlyDictionary<char, double> table = options.Monoisotopic
+            ? MonoisotopicAminoAcidWeights
+            : ProteinPhysicochemistry.AverageAminoAcidMasses;
+        double water = options.Monoisotopic ? MonoisotopicWaterMass : AverageWaterMass;
+
+        var (sum, residues) = SumMonomerMasses(proteinSequence, table, options.Strict, nameof(proteinSequence), "protein");
+        if (residues == 0)
+            return 0;
+
+        int bonds = options.Circular ? residues : residues - 1;
+        return sum - bonds * water;
+    }
 
     /// <summary>
     /// Calculates the average-isotopic molecular weight of a DNA or RNA sequence (Da).
@@ -249,42 +376,68 @@ public static class SequenceStatistics
     /// <returns>Molecular weight in daltons; 0 when no recognized nucleotide is present.</returns>
     public static double CalculateNucleotideMolecularWeight(
         string sequence, bool isDna, bool doubleStranded, bool circular = false)
+        => CalculateNucleotideMolecularWeight(sequence, isDna, doubleStranded,
+            circular ? CircularAverageOptions : MolecularWeightOptions.Default);
+
+    private static readonly MolecularWeightOptions CircularAverageOptions = new() { Circular = true };
+
+    /// <summary>
+    /// Calculates the molecular weight of a DNA or RNA molecule (Da) with Biopython 1.88
+    /// <c>molecular_weight(seq, seq_type, double_stranded, circular, monoisotopic)</c> options and an
+    /// optional strict mode.
+    /// </summary>
+    /// <remarks>
+    /// Each strand weighs Σ monophosphate masses − bonds × water (bonds = n − 1 linear, n circular);
+    /// when <paramref name="doubleStranded"/> is true the complementary strand (canonical
+    /// <see cref="Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase"/> /
+    /// <see cref="Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase"/>) is added by the same
+    /// rule. Masses: average (Biopython <c>unambiguous_dna/rna_weights</c>, water 18.0153) or
+    /// monoisotopic (<c>monoisotopic_unambiguous_dna/rna_weights</c>, water 18.010565).
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence of one strand (case-insensitive).</param>
+    /// <param name="isDna">True for DNA (A/C/G/T table); false for RNA (A/C/G/U table).</param>
+    /// <param name="doubleStranded">True to add the Watson–Crick complementary strand.</param>
+    /// <param name="options">Mass set, topology and strictness; null = <see cref="MolecularWeightOptions.Default"/>.</param>
+    /// <returns>Molecular weight in daltons; 0 when no recognized nucleotide is present.</returns>
+    /// <exception cref="ArgumentException">Strict mode and a symbol without a mass (e.g. N; U in DNA; T in RNA).</exception>
+    public static double CalculateNucleotideMolecularWeight(
+        string sequence, bool isDna, bool doubleStranded, MolecularWeightOptions? options)
     {
+        options ??= MolecularWeightOptions.Default;
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        Dictionary<char, double> table = isDna ? DnaNucleotideWeights : RnaNucleotideWeights;
+        Dictionary<char, double> table;
+        if (options.Monoisotopic)
+            table = isDna ? MonoisotopicDnaNucleotideWeights : MonoisotopicRnaNucleotideWeights;
+        else
+            table = isDna ? DnaNucleotideWeights : RnaNucleotideWeights;
+        double water = options.Monoisotopic ? MonoisotopicWaterMass : AverageWaterMass;
 
-        double weight = 0;
-        double complementWeight = 0;
-        int monomers = 0;
-
-        foreach (char ch in sequence.ToUpperInvariant())
-        {
-            if (table.TryGetValue(ch, out double ntWeight))
-            {
-                weight += ntWeight;
-                monomers++;
-                if (doubleStranded)
-                {
-                    char complement = isDna
-                        ? Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(ch)
-                        : Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase(ch);
-                    complementWeight += table[complement];
-                }
-            }
-        }
-
+        var (weight, monomers) = SumMonomerMasses(sequence, table, options.Strict, nameof(sequence), isDna ? "DNA" : "RNA");
         if (monomers == 0)
             return 0;
 
         // One water is lost per phosphodiester bond: n monomers form (n − 1) bonds in a linear
         // strand and n bonds in a circular one.
-        int bondsPerStrand = circular ? monomers : monomers - 1;
-        double result = weight - bondsPerStrand * AverageWaterMass;
+        int bondsPerStrand = options.Circular ? monomers : monomers - 1;
+        double result = weight - bondsPerStrand * water;
 
         if (doubleStranded)
-            result += complementWeight - bondsPerStrand * AverageWaterMass;
+        {
+            double complementWeight = 0;
+            foreach (char raw in sequence)
+            {
+                char ch = ToUpperAscii(raw);
+                if (!table.ContainsKey(ch))
+                    continue;
+                char complement = isDna
+                    ? Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(ch)
+                    : Seqeron.Genomics.Core.SequenceExtensions.GetRnaComplementBase(ch);
+                complementWeight += table[complement];
+            }
+            result += complementWeight - bondsPerStrand * water;
+        }
 
         return result;
     }

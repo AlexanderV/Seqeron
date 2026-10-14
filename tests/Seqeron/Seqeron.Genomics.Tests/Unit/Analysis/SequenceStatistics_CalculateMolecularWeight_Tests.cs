@@ -286,4 +286,96 @@ public class SequenceStatistics_CalculateMolecularWeight_Tests
     }
 
     #endregion
+
+    #region Review 2026-09 (FIN-B03 F28) — monoisotopic masses, circular peptides, strict mode
+
+    private static SequenceStatistics.MolecularWeightOptions Opt(bool mono = false, bool circ = false, bool strict = false)
+        => new() { Monoisotopic = mono, Circular = circ, Strict = strict };
+
+    // Executed Biopython 1.88: molecular_weight(seq, "protein", circular=c, monoisotopic=m).
+    // Monoisotopic table IUPACData.monoisotopic_protein_weights, water 18.010565; circular removes one more water.
+    [TestCase("ACDEFGHIKLMNPQRSTVWYUO", false, false, 2783.0494)]
+    [TestCase("ACDEFGHIKLMNPQRSTVWYUO", false, true, 2765.0341)]
+    [TestCase("ACDEFGHIKLMNPQRSTVWYUO", true, false, 2782.226267)]
+    [TestCase("ACDEFGHIKLMNPQRSTVWYUO", true, true, 2764.215702)]
+    [TestCase("GAGA", false, false, 274.2737)]
+    [TestCase("GAGA", false, true, 256.2584)]
+    [TestCase("GAGA", true, false, 274.127717)]
+    [TestCase("GAGA", true, true, 256.117152)]
+    public void CalculateMolecularWeight_Options_MatchBiopython(string seq, bool mono, bool circ, double expected)
+    {
+        double mw = SequenceStatistics.CalculateMolecularWeight(seq, Opt(mono, circ));
+        Assert.That(mw, Is.EqualTo(expected).Within(1e-6));
+    }
+
+    // Executed Biopython 1.88: molecular_weight(seq, t, double_stranded=ds, circular=c, monoisotopic=m).
+    [TestCase("ATGCGTAC", true, false, false, false, 2489.5901)]
+    [TestCase("ATGCGTAC", true, false, false, true, 2488.415629)]
+    [TestCase("ATGCGTAC", true, false, true, true, 2470.405064)]
+    [TestCase("ATGCGTAC", true, true, false, true, 4976.831258)]
+    [TestCase("ATGCGTAC", true, true, true, false, 4943.1496)]
+    [TestCase("ATGCGTAC", true, true, true, true, 4940.810128)]
+    [TestCase("AUGCGUAC", false, false, false, true, 2588.343647)]
+    [TestCase("AUGCGUAC", false, false, true, true, 2570.333082)]
+    [TestCase("AUGCGUAC", false, true, false, true, 5176.687294)]
+    [TestCase("AUGCGUAC", false, true, true, true, 5140.666164)]
+    [TestCase("acgt", true, false, false, true, 1253.213097)]
+    [TestCase("A", true, false, true, true, 313.057605)]
+    public void CalculateNucleotideMolecularWeight_Options_MatchBiopython(
+        string seq, bool isDna, bool ds, bool circ, bool mono, double expected)
+    {
+        double mw = SequenceStatistics.CalculateNucleotideMolecularWeight(seq, isDna, ds, Opt(mono, circ));
+        Assert.That(mw, Is.EqualTo(expected).Within(1e-6));
+    }
+
+    // Default options reproduce the existing overloads bit-for-bit (null = Default).
+    [Test]
+    public void MolecularWeight_DefaultOptions_EqualExistingOverloads()
+    {
+        const string prot = "MAXKB*GUO";
+        Assert.That(SequenceStatistics.CalculateMolecularWeight(prot, SequenceStatistics.MolecularWeightOptions.Default),
+            Is.EqualTo(SequenceStatistics.CalculateMolecularWeight(prot)));
+        Assert.That(SequenceStatistics.CalculateMolecularWeight(prot, null),
+            Is.EqualTo(SequenceStatistics.CalculateMolecularWeight(prot)));
+        foreach (bool ds in new[] { false, true })
+            foreach (bool circ in new[] { false, true })
+                Assert.That(SequenceStatistics.CalculateNucleotideMolecularWeight("ACGNTTU", true, ds, Opt(circ: circ)),
+                    Is.EqualTo(SequenceStatistics.CalculateNucleotideMolecularWeight("ACGNTTU", true, ds, circ)));
+    }
+
+    // Biopython raises ValueError ("'X' is not a valid unambiguous letter for protein") for X, B, Z, '*';
+    // for DNA on N and U; for RNA on T. Strict mode throws ArgumentException for the same inputs.
+    [TestCase("MAXK")]
+    [TestCase("MABK")]
+    [TestCase("MAZK")]
+    [TestCase("M*K")]
+    public void CalculateMolecularWeight_Strict_RejectsAmbiguousResidues(string seq)
+    {
+        Assert.Throws<ArgumentException>(() => SequenceStatistics.CalculateMolecularWeight(seq, Opt(strict: true)));
+        Assert.Throws<ArgumentException>(() => SequenceStatistics.CalculateMolecularWeight(seq, Opt(mono: true, strict: true)));
+        Assert.That(SequenceStatistics.CalculateMolecularWeight(seq, Opt()), Is.GreaterThan(0), "lenient default skips");
+    }
+
+    [TestCase("ACGN", true)]
+    [TestCase("ACGU", true)]
+    [TestCase("ACGT", false)]
+    public void CalculateNucleotideMolecularWeight_Strict_RejectsInvalidNucleotides(string seq, bool isDna)
+    {
+        Assert.Throws<ArgumentException>(() =>
+            SequenceStatistics.CalculateNucleotideMolecularWeight(seq, isDna, false, Opt(strict: true)));
+        Assert.Throws<ArgumentException>(() =>
+            SequenceStatistics.CalculateNucleotideMolecularWeight(seq, isDna, true, Opt(mono: true, circ: true, strict: true)));
+    }
+
+    // Biopython strips whitespace before lookup: molecular_weight("ma k", "protein") = 348.4615.
+    [Test]
+    public void CalculateMolecularWeight_Strict_IgnoresWhitespaceLikeBiopython()
+    {
+        Assert.That(SequenceStatistics.CalculateMolecularWeight("ma k", Opt(strict: true)),
+            Is.EqualTo(348.4615).Within(Tolerance));
+        Assert.That(SequenceStatistics.CalculateNucleotideMolecularWeight("AC GT", true, false, Opt(strict: true)),
+            Is.EqualTo(SequenceStatistics.CalculateNucleotideMolecularWeight("ACGT", isDna: true)));
+    }
+
+    #endregion
 }
