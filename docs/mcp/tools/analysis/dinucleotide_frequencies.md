@@ -23,7 +23,7 @@ case-insensitive; sequences shorter than 2 bp yield an empty map.
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L1231](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1231)
+- Source: [SequenceStatistics.cs#L1523](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1523)
 
 ## Input Schema
 

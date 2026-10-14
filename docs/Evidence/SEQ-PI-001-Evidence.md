@@ -109,6 +109,39 @@ pKs: Nterm 7.5, K 10.0, R 12.0, H 5.98; Cterm 3.55, D 4.05, E 4.45, C 9.0, Y 10.
 
 `charge_at_pH`: FLPV… 3.030883 / 2.737303 / 0.757930 (pH 5/7/9); INGAR 0.760092 (pH 7); PETER −1.035860 (pH 7).
 
+### 2026-10-14 FIN-B03 WP5 — search windows and `iep` qualifiers (executed)
+
+**Opened:** EMBOSS `nucleus/embiep.c` and `emboss/iep.c` (https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/…); Biopython 1.88 installed `Bio/SeqUtils/IsoelectricPoint.py`; EMBOSS test database `test/swiss/seq.dat` (IFNA2_HUMAN).
+
+- `embIepCompC`: `-disulphides N` removes 2N cysteines and `-lysinemodified N` removes N lysines from the charged-group counts; when fewer are present, all are removed (with a warning). `-notermini` sets both terminus counts to 0.
+- `embIepPhConverge`: charge at pH 1 and pH 14; when both have the same strict sign → no pI ("Isoelectric Point = None"). Otherwise bisection while `bph − tph > 0.0001`; returns `tph` (lower bound), or the midpoint at an exact zero (e.g. no charged group → 7.5).
+- Biopython `pi(pH=7.775, min_=4.05, max_=12)`: recursive bisection starting at 7.775 (not the window midpoint 8.025), stops when `max_ − min_ ≤ 1e-4`, returns the last midpoint; no range extension. Empty sequence → `IndexError`.
+
+`iep -auto` (EMBOSS 6.6.0) "Isoelectric Point":
+
+| Sequence | default | `-notermini` | `-lysinemodified 2` | `-disulphides 1` | `-lys 1 -ss 1 -notermini` |
+|---|---|---|---|---|---|
+| A / GGG | 5.5500 | 7.5000 | 5.5500 | 5.5500 | 7.5000 |
+| DDDD | 3.2279 | None | 3.2279 | 3.2279 | None |
+| DDDDDDDD | 2.9549 | None | 2.9549 | 2.9549 | None |
+| KKKK | 11.2772 | None | 10.8004 | 11.2772 | None |
+| KKKKKRRRR | 12.9956 | None | 12.9883 | 12.9956 | None |
+| RRRRRRRR | 13.3450 | None | 13.3450 | 13.3450 | None |
+| R×40 | None | None | None | None | None |
+| PETER | 4.2577 | 4.0999 | 4.2577 | 4.2577 | 4.0999 |
+| INGAR | 10.0000 | None | 10.0000 | 10.0000 | None |
+| CCKK | 8.5598 | 9.6500 | 5.5096 | 10.8004 | None |
+| ACCKCKKA | 8.8115 | 9.6500 | 7.6820 | 10.5059 | 10.8043 |
+| KDDK | 5.9023 | 7.3499 | 3.4918 | 5.9023 | 3.9000 |
+| ACDEFGHIKLMNPQRSTVWY | 6.9681 | 7.4939 | 5.4304 | 7.0017 | 5.4144 |
+| FLPVLAGLTPSIVPKLVCLLTKKC | 9.5678 | 10.5115 | 7.8001 | 11.1011 | None |
+
+IFNA2_HUMAN: default 6.6891; `-disulphides 2 -lysinemodified 2` 5.7240 (= iep documentation example); `-notermini` 6.7573; `-disulphides 2 -lysinemodified 2 -notermini` 5.7289.
+
+Biopython 1.88 `IsoelectricPoint(seq).pi()` (repr): A/AG 5.57001667022705; GGG 5.525000190734862; D 4.299381065368652; E 4.599263572692871; DE 4.0851549148559565; DDDD/DDDDDDDD/EEEE/MAEGEITTFT 4.0500284194946286; KKKK 10.477740287780762; KKKKKRRRR/RRRRRRRR/R×40 11.999967765808105; PETER (and `peter`) 4.532079887390137; INGAR 9.750021171569824; AKD 6.13152904510498; CCKK 8.9037446975708; ACCKCKKA 9.109205436706542; KDDK 5.959761619567872; all-20 6.784552192687988; FLPV… 9.390158653259277; IFNA2_HUMAN 6.32307643890381; "" → IndexError.
+
+Not reproducible through the public `ProteinPhysicochemistry` API: custom `-pkdata` tables and `-amino N` / `-carboxyl N` multiplicities (separate N- and C-terminus charges are not obtainable) → request R27 to B02.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -203,3 +236,4 @@ pKs: Nterm 7.5, K 10.0, R 12.0, H 5.98; Cterm 3.55, D 4.05, E 4.45, C 9.0, Y 10.
 
 - **2026-06-13**: Initial documentation (SEQ-PI-001).
 - **2026-09-28**: Review 2026-09 — EMBOSS source/binary evidence (Amino 7.5; the 8.6 listing and the "Derived pI" table above are superseded), Biopython Bjellqvist evidence.
+- **2026-10-14**: FIN-B03 WP5 — `embIepPhConverge`/`embIepCompC` semantics, `iep` qualifier outputs and Biopython `pi()` window outputs (F43/F44).

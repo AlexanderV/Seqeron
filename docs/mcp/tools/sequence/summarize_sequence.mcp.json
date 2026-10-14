@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.SummarizeNucleotideSequence",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2436",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2728",
   "description": "Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content (fraction 0-1), entropy, complexity, basic Tm (Wallace below 14 A/C/G/T/U bases, else 64.9 + 41(GC-16.4)/N) and single-stranded average molecular weight (Biopython molecular_weight; RNA table when U and no T). weightAmbiguousBasesInTm = true weights IUPAC codes in the Tm as Biopython non-strict Tm_Wallace/Tm_GC.",
   "inputSchema": {
     "type": "object",

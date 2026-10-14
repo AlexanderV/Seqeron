@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateLinguisticComplexity",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1614",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1906",
   "description": "Linguistic complexity in the Orlov-Potapov (2004) summation form LC = sum_{k=1..m} V_k / sum_{k=1..m} min(a^k, N-k+1), where V_k = number of distinct k-words, m = min(maxK, N) and a = alphabetSize or, by default, |{A,C,G,T (U for RNA)} union observed symbols| (so LC <= 1). Equals Troyanskaya et al. (2002) / Rosalind LING when maxK >= N. 1 = every possible word present; repeats lower it. Same measure as complexity_linguistic (which defaults to maxWordLength 10; this tool defaults to maxK 6).",
   "inputSchema": {
     "type": "object",

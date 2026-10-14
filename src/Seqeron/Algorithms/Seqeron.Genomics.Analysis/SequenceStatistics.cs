@@ -589,10 +589,13 @@ public static class SequenceStatistics
     /// <remarks>
     /// <para>EMBOSS: reproduces EMBOSS 6.6.0 <c>iep</c> (nucleus/embiep.c, data/Epk.dat) with default
     /// options (both termini charged, no disulphides, no modified lysines). EMBOSS searches pH [1, 14]
-    /// and reports "none" when the charge does not change sign there; this method searches [0, 14].</para>
+    /// and reports "none" when the charge does not change sign there; this method searches [0, 14]
+    /// (the EMBOSS window, "none" and the <c>iep</c> qualifiers are available through
+    /// <see cref="TryCalculateIsoelectricPoint"/>).</para>
     /// <para>Bjellqvist: reproduces Biopython <c>IsoelectricPoint.pi()</c> / ExPASy Compute pI; Biopython
     /// clamps its bisection to [4.05, 12], so for extremely acidic/basic peptides whose true root lies
-    /// outside that window Biopython returns the window edge while this method returns the true root.</para>
+    /// outside that window Biopython returns the window edge while this method returns the true root
+    /// (<see cref="IsoelectricPointWindow.Biopython"/> reproduces Biopython's window).</para>
     /// </remarks>
     public static double CalculateIsoelectricPoint(string proteinSequence, PkaScale scale) =>
         ProteinPhysicochemistry.IsoelectricPoint(proteinSequence, ToProteinPkaScale(scale));
@@ -609,6 +612,295 @@ public static class SequenceStatistics
     /// <returns>Net charge (elementary charges); 0 for null/empty input.</returns>
     public static double CalculateNetCharge(string proteinSequence, double pH, PkaScale scale = PkaScale.Emboss) =>
         ProteinPhysicochemistry.NetCharge(proteinSequence, pH, ToProteinPkaScale(scale));
+
+    /// <summary>
+    /// pH search convention used by <see cref="TryCalculateIsoelectricPoint"/>.
+    /// </summary>
+    public enum IsoelectricPointWindow
+    {
+        /// <summary>
+        /// Library convention (= <see cref="CalculateIsoelectricPoint(string, PkaScale)"/>): bisection
+        /// over [0, 14] to 1e-9 pH, result rounded to 2 decimals; a root is always reported (the window
+        /// edge when the charge does not change sign); null/empty → 7.0.
+        /// </summary>
+        Default,
+
+        /// <summary>
+        /// EMBOSS 6.6.0 <c>iep</c> (<c>embIepPhConverge</c>): bisection over [1, 14] while the bracket
+        /// is wider than 1e-4, returning its lower bound (or the midpoint where the charge is exactly
+        /// 0), unrounded (<c>iep</c> prints it with 4 decimals). When the net charge has the same strict
+        /// sign at pH 1 and pH 14 there is no pI ("Isoelectric Point = None"): the Try method returns
+        /// false. Null/empty → false.
+        /// </summary>
+        Emboss,
+
+        /// <summary>
+        /// Biopython 1.88 <c>IsoelectricPoint.pi(pH=7.775, min_=4.05, max_=12)</c>: bisection that
+        /// starts at pH 7.775 inside [4.05, 12] and stops once the bracket is ≤ 1e-4, returning the
+        /// last midpoint, unrounded. There is no range extension: a root outside the window is reported
+        /// at the window edge (4.0500284… for very acidic, 11.9999677… for very basic peptides).
+        /// Null/empty → false (Biopython raises <c>IndexError</c>).
+        /// </summary>
+        Biopython
+    }
+
+    /// <summary>
+    /// Options for <see cref="TryCalculateIsoelectricPoint"/> and
+    /// <see cref="CalculateNetCharge(string, double, IsoelectricPointOptions)"/>, mirroring the
+    /// EMBOSS 6.6.0 <c>iep</c> qualifiers <c>-[no]termini</c>, <c>-lysinemodified</c> and
+    /// <c>-disulphides</c> and the EMBOSS / Biopython pI search windows. The defaults reproduce
+    /// <see cref="CalculateIsoelectricPoint(string)"/> and <see cref="CalculateNetCharge(string, double, PkaScale)"/>.
+    /// </summary>
+    /// <remarks>
+    /// The charge model is always the canonical <see cref="ProteinPhysicochemistry.NetCharge"/>;
+    /// options only adjust the residue counts handed to it (EMBOSS <c>embIepCompC</c>) or drop the
+    /// termini. Custom pK tables (<c>-pkdata</c>) and N-/C-terminus multiplicities
+    /// (<c>-amino</c>/<c>-carboxyl</c>) need a parameterised charge model in
+    /// <c>ProteinPhysicochemistry</c> and are not offered here (review 2026-09 request R27 to B02).
+    /// </remarks>
+    public sealed record IsoelectricPointOptions
+    {
+        /// <summary>Default options: EMBOSS pK scale, library window, both termini charged, no modifications.</summary>
+        public static IsoelectricPointOptions Default { get; } = new();
+
+        /// <summary>pK set (default <see cref="PkaScale.Emboss"/>).</summary>
+        public PkaScale Scale { get; init; } = PkaScale.Emboss;
+
+        /// <summary>pH search convention (default <see cref="IsoelectricPointWindow.Default"/>).</summary>
+        public IsoelectricPointWindow Window { get; init; } = IsoelectricPointWindow.Default;
+
+        /// <summary>
+        /// True (default) to include the charged N- and C-terminus; false = EMBOSS <c>-notermini</c>
+        /// (side chains only).
+        /// </summary>
+        public bool Termini { get; init; } = true;
+
+        /// <summary>
+        /// Number of chemically modified (uncharged) lysines, EMBOSS <c>-lysinemodified N</c>: N lysines
+        /// are removed from the charged-group count; if the sequence has fewer than N lysines, all are
+        /// removed (<c>embIepCompC</c>). Must be ≥ 0.
+        /// </summary>
+        public int LysinesModified { get; init; }
+
+        /// <summary>
+        /// Number of disulphide bonds, EMBOSS <c>-disulphides N</c>: 2N cysteines are removed from the
+        /// charged-group count; if the sequence has fewer than 2N cysteines, all are removed
+        /// (<c>embIepCompC</c>). Must be ≥ 0.
+        /// </summary>
+        public int Disulphides { get; init; }
+    }
+
+    // Residue used to neutralise a modified K / bonded C in the string handed to
+    // ProteinPhysicochemistry: G has no ionizable side chain in either scale and, like K and C, has
+    // no residue-specific Bjellqvist terminal pK (N-term A/M/S/P/T/V/E, C-term D/E), so substituting
+    // it changes the side-chain counts only and leaves both terminal pKs untouched.
+    private const char NeutralResidue = 'G';
+
+    // EMBOSS embIepPhConverge window and bracket width; Biopython IsoelectricPoint.pi defaults.
+    private const double EmbossPiLowPh = 1.0;
+    private const double EmbossPiHighPh = 14.0;
+    private const double EmbossPiBracket = 0.0001;
+    private const double BiopythonPiStartPh = 7.775;
+    private const double BiopythonPiLowPh = 4.05;
+    private const double BiopythonPiHighPh = 12.0;
+    private const double BiopythonPiBracket = 0.0001;
+
+    // Library window (= ProteinPhysicochemistry.IsoelectricPoint): [0, 14], 1e-9 pH, 2 dp.
+    private const double DefaultPiLowPh = 0.0;
+    private const double DefaultPiHighPh = 14.0;
+    private const double DefaultPiPrecision = 1e-9;
+    private const int DefaultPiDecimalPlaces = 2;
+
+    /// <summary>
+    /// Net charge at a given pH with EMBOSS <c>iep</c> options (termini on/off, modified lysines,
+    /// disulphide-bonded cysteines). With <see cref="IsoelectricPointOptions.Default"/> (or any
+    /// options that keep the termini and modify nothing) this is exactly
+    /// <see cref="CalculateNetCharge(string, double, PkaScale)"/>. <see cref="IsoelectricPointOptions.Window"/> is ignored.
+    /// </summary>
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive, ASCII fold).</param>
+    /// <param name="pH">pH at which to evaluate the charge.</param>
+    /// <param name="options">Options; null = <see cref="IsoelectricPointOptions.Default"/>.</param>
+    /// <returns>Net charge (elementary charges); 0 for null/empty input.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Negative <c>LysinesModified</c>/<c>Disulphides</c> or an unknown scale.</exception>
+    public static double CalculateNetCharge(string proteinSequence, double pH, IsoelectricPointOptions? options)
+    {
+        options ??= IsoelectricPointOptions.Default;
+        ValidateIsoelectricPointOptions(options);
+        if (string.IsNullOrEmpty(proteinSequence))
+            return 0.0;
+
+        return BuildOptionsCharge(proteinSequence, options)(pH);
+    }
+
+    /// <summary>
+    /// Isoelectric point with EMBOSS <c>iep</c> / Biopython conventions selected by
+    /// <paramref name="options"/>: pK scale, search window (<see cref="IsoelectricPointWindow"/>),
+    /// <c>-notermini</c>, <c>-lysinemodified N</c> and <c>-disulphides N</c>.
+    /// </summary>
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive, ASCII fold).</param>
+    /// <param name="options">Options; null = <see cref="IsoelectricPointOptions.Default"/>.</param>
+    /// <param name="isoelectricPoint">The pI, or <see cref="double.NaN"/> when there is none.</param>
+    /// <returns>
+    /// False when the selected convention reports no pI: <see cref="IsoelectricPointWindow.Emboss"/>
+    /// when the net charge has the same strict sign at pH 1 and 14 (<c>iep</c> "None"), or a
+    /// null/empty sequence under the EMBOSS / Biopython windows. Always true for the default window.
+    /// </returns>
+    /// <remarks>
+    /// <para>Default window + default options returns exactly <see cref="CalculateIsoelectricPoint(string, PkaScale)"/>.</para>
+    /// <para>EMBOSS window: <c>embIepPhConverge</c> over the <c>embIepCompC</c>-adjusted counts; the
+    /// result is unrounded (compare with <c>iep</c>'s 4-dp output). Biopython window:
+    /// <c>IsoelectricPoint.pi()</c> with its defaults, unrounded (Bjellqvist scale reproduces
+    /// <c>ProteinAnalysis.isoelectric_point()</c>).</para>
+    /// <para>The modifications and <c>-notermini</c> are EMBOSS features; combined with the Bjellqvist
+    /// scale they apply the same count adjustment (terminal-residue pKs are unaffected).</para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">Negative <c>LysinesModified</c>/<c>Disulphides</c>, unknown scale or window.</exception>
+    public static bool TryCalculateIsoelectricPoint(string proteinSequence, IsoelectricPointOptions? options, out double isoelectricPoint)
+    {
+        options ??= IsoelectricPointOptions.Default;
+        ValidateIsoelectricPointOptions(options);
+        isoelectricPoint = double.NaN;
+
+        if (string.IsNullOrEmpty(proteinSequence))
+        {
+            if (options.Window != IsoelectricPointWindow.Default)
+                return false;
+            isoelectricPoint = NeutralPhDefault;
+            return true;
+        }
+
+        bool unmodified = options.Termini && options.LysinesModified == 0 && options.Disulphides == 0;
+        if (options.Window == IsoelectricPointWindow.Default && unmodified)
+        {
+            isoelectricPoint = CalculateIsoelectricPoint(proteinSequence, options.Scale);
+            return true;
+        }
+
+        Func<double, double> charge = BuildOptionsCharge(proteinSequence, options);
+        switch (options.Window)
+        {
+            case IsoelectricPointWindow.Default:
+                isoelectricPoint = BisectDefaultWindow(charge);
+                return true;
+            case IsoelectricPointWindow.Emboss:
+                return TryBisectEmbossWindow(charge, out isoelectricPoint);
+            default: // Biopython (validated above)
+                isoelectricPoint = BisectBiopythonWindow(charge);
+                return true;
+        }
+    }
+
+    private static void ValidateIsoelectricPointOptions(IsoelectricPointOptions options)
+    {
+        if (options.LysinesModified < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.LysinesModified, "LysinesModified must be non-negative.");
+        if (options.Disulphides < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.Disulphides, "Disulphides must be non-negative.");
+        if (!Enum.IsDefined(options.Window))
+            throw new ArgumentOutOfRangeException(nameof(options), options.Window, "Unknown pI window.");
+        _ = ToProteinPkaScale(options.Scale);
+    }
+
+    // Charge function composed over the canonical ProteinPhysicochemistry.NetCharge: modified
+    // lysines / bonded cysteines are neutralised in the string (embIepCompC count adjustment); with
+    // Termini = false the side-chain charge is NetCharge("G"+s+"G") − NetCharge("GG"), whose default
+    // termini cancel (G is not ionizable and not a terminal-specific residue in either scale).
+    private static Func<double, double> BuildOptionsCharge(string proteinSequence, IsoelectricPointOptions options)
+    {
+        var scale = ToProteinPkaScale(options.Scale);
+        string adjusted = NeutraliseResidues(proteinSequence, 'K', options.LysinesModified);
+        adjusted = NeutraliseResidues(adjusted, 'C', 2L * options.Disulphides);
+
+        if (options.Termini)
+            return pH => ProteinPhysicochemistry.NetCharge(adjusted, pH, scale);
+
+        string flanked = NeutralResidue + adjusted + NeutralResidue;
+        string terminiOnly = new(NeutralResidue, 2);
+        return pH => ProteinPhysicochemistry.NetCharge(flanked, pH, scale)
+                     - ProteinPhysicochemistry.NetCharge(terminiOnly, pH, scale);
+    }
+
+    // embIepCompC: remove `count` residues of `residue` from the charged-group count, or all of them
+    // when fewer are present. Case folding is ASCII-only (as ProteinPhysicochemistry).
+    private static string NeutraliseResidues(string sequence, char residue, long count)
+    {
+        if (count == 0)
+            return sequence;
+
+        char lower = (char)(residue | 0x20);
+        var chars = sequence.ToCharArray();
+        long remaining = count;
+        for (int i = 0; i < chars.Length && remaining > 0; i++)
+        {
+            if (chars[i] == residue || chars[i] == lower)
+            {
+                chars[i] = NeutralResidue;
+                remaining--;
+            }
+        }
+
+        return new string(chars);
+    }
+
+    // Same bracket as ProteinPhysicochemistry.IsoelectricPoint (net charge is non-increasing in pH).
+    private static double BisectDefaultWindow(Func<double, double> charge)
+    {
+        double low = DefaultPiLowPh, high = DefaultPiHighPh;
+        while (high - low > DefaultPiPrecision)
+        {
+            double mid = (low + high) / 2.0;
+            if (charge(mid) > 0)
+                low = mid;
+            else
+                high = mid;
+        }
+
+        return Math.Round((low + high) / 2.0, DefaultPiDecimalPlaces);
+    }
+
+    // EMBOSS 6.6.0 nucleus/embiep.c embIepPhConverge (and embIepIepC's "!*iep → none").
+    private static bool TryBisectEmbossWindow(Func<double, double> charge, out double isoelectricPoint)
+    {
+        isoelectricPoint = double.NaN;
+        double tph = EmbossPiLowPh, bph = EmbossPiHighPh;
+        double top = charge(tph), bot = charge(bph);
+        if ((top > 0.0 && bot > 0.0) || (top < 0.0 && bot < 0.0))
+            return false;
+
+        while (bph - tph > EmbossPiBracket)
+        {
+            double mid = ((bph - tph) / 2.0) + tph;
+            double c = charge(mid);
+            if (c > 0.0)
+                tph = mid;
+            else if (c < 0.0)
+                bph = mid;
+            else
+            {
+                isoelectricPoint = mid;
+                return true;
+            }
+        }
+
+        isoelectricPoint = tph;
+        return true;
+    }
+
+    // Biopython 1.88 Bio/SeqUtils/IsoelectricPoint.py IsoelectricPoint.pi (recursion unrolled).
+    private static double BisectBiopythonWindow(Func<double, double> charge)
+    {
+        double pH = BiopythonPiStartPh, min = BiopythonPiLowPh, max = BiopythonPiHighPh;
+        while (max - min > BiopythonPiBracket)
+        {
+            if (charge(pH) > 0.0)
+                min = pH;
+            else
+                max = pH;
+            pH = (min + max) / 2;
+        }
+
+        return pH;
+    }
 
     // Maps the (backward-compatible) public SequenceStatistics.PkaScale onto the canonical scale.
     private static ProteinPkaScale ToProteinPkaScale(PkaScale scale) => scale switch

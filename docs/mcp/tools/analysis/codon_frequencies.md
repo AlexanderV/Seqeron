@@ -22,7 +22,7 @@ non-ACGT base are excluded from the count. Only observed codons appear as keys.
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L1453](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1453)
+- Source: [SequenceStatistics.cs#L1745](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1745)
 - Evidence: `docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md`
 
 ## Input Schema

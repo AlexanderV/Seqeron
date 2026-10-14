@@ -26,7 +26,7 @@ Examples (exact fractions, Python reference): `ATGCATGCATGC` → V = 4+4+4+4+4+4
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L1614](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1614)
+- Source: [SequenceStatistics.cs#L1906](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1906)
 
 ## Input Schema
 

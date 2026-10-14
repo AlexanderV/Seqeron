@@ -27,7 +27,7 @@ overlap and β-turn rules) use [chou_fasman_assign](chou_fasman_assign.md).
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L1684](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1684)
+- Source: [SequenceStatistics.cs#L1976](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1976)
 - Evidence: `docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md`
 
 ## Input Schema

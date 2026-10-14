@@ -189,3 +189,14 @@
 - New: `CalculateNetCharge` vs `iep` charge table (±0.005) and Biopython `charge_at_pH` (±5e-7).
 - Assertions are exact (1e-9) on the correctly rounded 2-dp pI (bisection to 1e-9).
 - INV-2 (composition-only) holds for the EMBOSS scale only; Bjellqvist depends on the terminal residues.
+
+## 9. FIN-B03 WP5 (2026-10-14): window conventions and `iep` qualifiers
+
+Test file: `Unit/Analysis/SequenceStatistics_IsoelectricPointOptions_Tests.cs` (94 cases).
+
+- **EMBOSS window** (`IsoelectricPointWindow.Emboss`, unrounded, ±5e-5 = iep's 4-dp print): defaults on 15 sequences + LACI_ECOLI 6.8385 + IFNA2_HUMAN 6.6891; R×40 → false ("None"); `-notermini` (A/GGG 7.5000, PETER 4.0999, CCKK 9.6500, KDDK 7.3499, all-20 7.4939, FLPV… 10.5115; DDDD/DDDDDDDD/KKKK/KKKKKRRRR/RRRRRRRR/INGAR → None); `-lysinemodified 2` (KKKK 10.8004, CCKK 5.5096, KDDK 3.4918, all-20 5.4304 with 1 K → all removed, …); `-disulphides 1` (CCKK 10.8004, ACCKCKKA 10.5059, all-20 7.0017 with 1 C → all removed, …); combined `-lysinemodified 1 -disulphides 1 -notermini` (ACCKCKKA 10.8043, KDDK 3.9000, CCKK/FLPV… None); IFNA2_HUMAN `-disulphides 2 -lysinemodified 2` 5.7240 (iep doc example), with `-notermini` 5.7289, `-notermini` alone 6.7573.
+- **Biopython window** (`IsoelectricPointWindow.Biopython` + Bjellqvist, ±1e-12): `IsoelectricPoint(seq).pi()` on 22 sequences + R×40 + IFNA2_HUMAN 6.32307643890381; acidic/basic clamps DDDD/EEEE/MAEGEITTFT 4.0500284194946286, KKKKKRRRR/RRRRRRRR/R×40 11.999967765808105.
+- **Defaults:** default options equal `CalculateIsoelectricPoint(seq, scale)` / `CalculateNetCharge(seq, pH, scale)` bit-for-bit (both scales); library window with qualifiers = iep rounded to 2 dp; empty → 7.0 (default window) / false (EMBOSS, Biopython — Biopython raises `IndexError`).
+- **Invariant:** a modified N-terminal K under Bjellqvist keeps the default N-terminal pK (neutralised in place → charge of `GAD`, not `AD`).
+- Guards: negative `LysinesModified`/`Disulphides`, unknown window/scale → `ArgumentOutOfRangeException`.
+- Not covered (not implemented): custom `-pkdata`, `-amino N`/`-carboxyl N` (request R27 to B02).

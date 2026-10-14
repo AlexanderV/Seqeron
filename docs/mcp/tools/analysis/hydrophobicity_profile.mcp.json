@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateHydrophobicityProfile",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L676",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L968",
   "description": "Sliding-window Kyte-Doolittle hydropathy profile of a protein (ExPASy ProtScale / Biopython protein_scale): weighted mean hydropathy per window, linear edge weighting (edgeWeight, default 1 = unweighted), Standard or Biopython window convention, optional strict mode and 0..1 scale normalisation. Positive = hydrophobic.",
   "inputSchema": {
     "type": "object",

@@ -36,7 +36,7 @@ threshold 0.6) — that lives in `EpigeneticsAnalyzer` (annotation server CpG-is
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L1308](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1308)
+- Source: [SequenceStatistics.cs#L1600](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1600)
 - Classes: `SequenceStatistics.ClassifyDinucleotideRatios` (Karlin thresholds 0.78 / 1.23)
 - Evidence: `docs/Evidence/SEQ-DINUC-001-Evidence.md`
 

@@ -29,7 +29,7 @@ distinct symbols (2 bits for the 4-letter DNA alphabet).
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L2285](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2285) (letters), [#L2319](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2319) (partial windows), [#L2361](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2361) (k-mers)
+- Source: [SequenceStatistics.cs#L2577](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2577) (letters), [#L2319](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2611) (partial windows), [#L2361](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L2653) (k-mers)
 - Algorithm: `docs/algorithms/Statistics/Entropy_Profile.md`
 
 ## Input Schema

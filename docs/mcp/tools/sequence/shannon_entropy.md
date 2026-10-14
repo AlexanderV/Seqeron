@@ -22,7 +22,7 @@ Example: `ATGCATGCAT` has A = 3, T = 3, G = 2, C = 2 → H = 1.9709505944546686 
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L1578](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1578)
+- Source: [SequenceStatistics.cs#L1870](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1870)
 
 ## Input Schema
 

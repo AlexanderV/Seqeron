@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateMeltingTemperature",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1115",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1407",
   "description": "Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula.",
   "inputSchema": {
     "type": "object",
