@@ -65,11 +65,14 @@ Standalone CAI: `codon_adaptation_index` (`CodonUsageAnalyzer.CalculateCai`) or 
 
 **Parameters / gotchas.**
 - `target_organism`: preset `EColiK12` / `Yeast` / `Human`, or an inline **RNA-alphabet** custom table.
-- Input is upper-cased, T→U, trimmed to whole codons; **stop codons and Met/Trp are never changed**.
+- Input is upper-cased, T→U, trimmed to whole codons; **stop codons and single-codon amino acids are never changed**
+  (Met/Trp under the Standard code; `genetic_code`, default 1, defines the protein and synonym families —
+  under table 2 AUA is Met, UGA is Trp and AGA/AGG are stops).
 - Strategies: `MaximizeCAI` (deterministic, most-frequent codon), `BalancedOptimization` (default:
   most-frequent above rare threshold, then GC-balance), `AvoidRareCodons` (the historical
   misspelling `AvoidRareCodeons` is the same value), `MinimizeSecondary`,
-  `HarmonizeExpression` (**non-deterministic** weighted-random — repeat / fix a seed and report it).
+  `HarmonizeExpression` (deterministic largest-remainder allocation of each amino acid's positions to the
+  target codon frequencies — DNA Chisel `match_codon_usage`-equivalent; same input → same output).
 - GC band default 0.40–0.60 (fractions in [0,1], min ≤ max); `rare_codon_threshold` default 0.15.
 - `avoid_sites`: optional recognition sequences cleared from the result **after** the GC/structure
   passes (DNA Chisel `AvoidPattern` + `CodonOptimize` in one problem) — use it instead of a separate

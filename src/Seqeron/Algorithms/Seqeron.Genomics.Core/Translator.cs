@@ -1041,6 +1041,25 @@ namespace Seqeron.Genomics.Core
         /// Gets the length of the ORF in amino acids.
         /// </summary>
         public int AminoAcidLength => Protein.Length;
+
+        /// <summary>
+        /// Gets whether the ORF ends with a STOP codon (its stop-inclusive range is one codon longer
+        /// than the protein); false for an open ORF that runs to the end of the strand.
+        /// </summary>
+        public bool IsTerminated => NucleotideLength > Protein.Length * 3;
+
+        /// <summary>
+        /// Gets EMBOSS getorf's 1-based <c>[s - e]</c> header range for this ORF, in forward-strand
+        /// coordinates (getorf_WriteORF) — the same mapping as <see cref="OrfFeature.ToGetOrfRange(int)"/>
+        /// for a <see cref="OrfFindMode.TranslationStartToStop"/> record: the terminating STOP is excluded
+        /// and a reverse-strand ORF is mapped with <c>s = L − s + 1</c>, <c>e = L − e + 1</c> (so s &gt; e).
+        /// </summary>
+        /// <param name="sequenceLength">Length L of the searched sequence.</param>
+        /// <returns>The (start, end) pair getorf prints.</returns>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="sequenceLength"/> ≤ 0.</exception>
+        public (int Start, int End) ToGetOrfRange(int sequenceLength) =>
+            OrfFeature.MapToGetOrfRange(StartPosition, IsTerminated ? EndPosition - 3 : EndPosition,
+                Frame < 0, sequenceLength);
     }
 
     /// <summary>
@@ -1141,12 +1160,22 @@ namespace Seqeron.Genomics.Core
         /// <returns>The (start, end) pair getorf prints.</returns>
         public (int Start, int End) ToGetOrfRange(int sequenceLength)
         {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sequenceLength);
             bool orfMode = Mode is OrfFindMode.TranslationStopToStop or OrfFindMode.TranslationStartToStop
                 or OrfFindMode.NucleotidesStopToStop or OrfFindMode.NucleotidesStartToStop;
-            int s = StartPosition + 1;
-            int e = (orfMode && IsTerminated ? EndPosition - 3 : EndPosition) + 1;
-            if (!IsReverseStrand)
+            return MapToGetOrfRange(StartPosition, orfMode && IsTerminated ? EndPosition - 3 : EndPosition,
+                IsReverseStrand, sequenceLength);
+        }
+
+        // getorf_WriteORF header mapping, shared with OrfResult.ToGetOrfRange: 0-based inclusive
+        // [startPosition, lastBase] (STOP already excluded) in the scanned strand's coordinates →
+        // getorf's 1-based forward-strand (s, e), including its range shifts for empty ORFs.
+        internal static (int Start, int End) MapToGetOrfRange(int startPosition, int lastBase,
+            bool reverseStrand, int sequenceLength)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sequenceLength);
+            int s = startPosition + 1;
+            int e = lastBase + 1;
+            if (!reverseStrand)
                 return (s, e);
 
             s = sequenceLength - s + 1;

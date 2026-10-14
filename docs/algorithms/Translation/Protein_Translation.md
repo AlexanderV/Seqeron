@@ -5,12 +5,12 @@
 | Algorithm Group | Translation |
 | Test Unit ID | TRANS-PROT-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-09-28 |
+| Implementation Status | Production |
+| Last Reviewed | 2026-10-14 |
 
 ## 1. Overview
 
-Protein translation converts DNA or RNA sequences into amino-acid sequences using a selected genetic code. In this repository, the `Translator` class provides single-sequence translation, six-frame translation, and ORF discovery on one or both strands. The implementation supports frame offsets `0`, `1`, and `2`, uses the `GeneticCode` abstraction for codon mapping, and can optionally stop translation at the first stop codon. ORF finding is heuristic and sequence-based rather than a full annotation engine, but it is sufficient for start/stop scanning within the provided DNA sequence.[1][2][3]
+Protein translation converts DNA or RNA sequences into amino-acid sequences using a selected genetic code. In this repository, the `Translator` class provides single-sequence translation, six-frame translation, and ORF discovery on one or both strands. The implementation supports frame offsets `0`, `1`, and `2`, all 27 NCBI translation tables through the `GeneticCode` abstraction, IUPAC-ambiguous codons resolved as Biopython 1.88 does, and can optionally stop translation at the first stop codon. ORF finding is a port of EMBOSS getorf (`-find 1` for the legacy overload; all seven `-find` modes and `-circular` in the getorf-modes overload documented in [Six_Frame_Translation.md](Six_Frame_Translation.md)); it is a sequence scanner, not a gene-annotation engine.[1][2][3]
 
 ## 2. Scientific / Formal Basis
 
@@ -28,7 +28,7 @@ An ORF is used here in the practical repository sense of a start-codon-initiated
 
 ### 2.2 Core Model
 
-Translation proceeds by normalizing DNA to RNA, skipping the configured frame offset, reading complete codons in order, and translating each codon with the chosen `GeneticCode`. `TranslateSixFrames` applies this process to the forward strand and to the reverse complement. `FindOrfs` scans each requested strand and frame, starting a new ORF when it encounters a start codon and emitting a result when a stop codon is reached or the sequence ends with an ORF still open.
+Translation proceeds by normalizing the sequence (ASCII upper case, T/U equivalent), skipping the configured frame offset, reading complete codons in order, and translating each codon with the chosen `GeneticCode`. `TranslateSixFrames` applies this process to the forward strand and to the reverse complement. `FindOrfs` (EMBOSS getorf `-find 1` model) scans each requested strand and frame, opening an ORF at a start codon when none is open (nested in-frame starts do not open a new ORF), and emitting a result when a stop codon is reached or the strand ends with an ORF still open (getorf reports such 3'-open ORFs too).
 
 ### 2.3 Modeling Assumptions
 
@@ -44,7 +44,8 @@ Translation proceeds by normalizing DNA to RNA, skipping the configured frame of
 | INV-01 | `Translate(seq, frame: 0)` matches `TranslateSixFrames(seq)[1]`. | `TranslateSixFrames` calls the same translation helper with frame `0` on the forward strand. |
 | INV-02 | Translated protein length is at most `floor((sequenceLength - frame) / 3)`. | Translation consumes only complete codons from the selected frame. |
 | INV-03 | `TranslateSixFrames` returns exactly six frame keys: `1`, `2`, `3`, `-1`, `-2`, `-3`. | The method populates each key explicitly. |
-| INV-04 | `OrfResult.NucleotideLength == EndPosition - StartPosition + 1`. | `OrfResult` computes the property directly from stored coordinates. |
+| INV-04 | `OrfResult.NucleotideLength == EndPosition - StartPosition + 1`, a multiple of 3; `== 3·(AminoAcidLength + 1)` when `IsTerminated`, else `3·AminoAcidLength`. | `OrfResult` computes the property directly from stored coordinates; the end is stop-inclusive for terminated ORFs and the last complete codon otherwise (B02 F7). |
+| INV-05 | `OrfResult.ToGetOrfRange(L)` equals EMBOSS getorf's `[s - e]` header (`-find 1`, `-table` = the code, `-minsize 3·minLength`), and equals `OrfFeature.ToGetOrfRange(L)` of the same ORF from the getorf-modes overload. | Both call one shared mapping (getorf_WriteORF: STOP excluded, reverse strand `s = L − s + 1`, `e = L − e + 1`). |
 
 ## 3. Contract
 
@@ -61,6 +62,9 @@ Translation proceeds by normalizing DNA to RNA, skipping the configured frame of
 | `[Translate string] allowNucleotideX` | `bool` | `false` (5-argument overload `Translate(string, GeneticCode?, int, bool, bool)`) | Opt-in Biopython-compatible nucleotide `X` (= any base; possible-stop X-codons throw). Only the string overload: `DnaSequence`/`RnaSequence` never contain `X`, so `FindOrfs` / `TranslateSixFrames` are unaffected. | `false` = the 4-argument behaviour. See [Codon_Translation.md](Codon_Translation.md) §3.3. |
 | `[FindOrfs] minLength` | `int` | `100` | Minimum ORF length in amino acids. | ORFs shorter than this are filtered out. |
 | `[FindOrfs] searchBothStrands` | `bool` | `true` | Whether to scan the reverse complement in addition to the forward strand. | Reverse-strand ORFs are reported with negative frame values. |
+| `[FindOrfs] geneticCode` | `GeneticCode` | `GeneticCode.Standard` | Start/stop codon sets (NCBI). | Tables 27, 28, 31 (dual-coding stops) → `ArgumentException` (B02 F8). |
+| `[FindOrfs string] sequence` | `string` | required | IUPAC DNA/RNA string overload (e.g. genomes with N runs). | Non-IUPAC symbol → `ArgumentException`; an ambiguous codon is never a START (getorf); STOP iff all expansions are stops (B02 F45). |
+| `[OrfResult.ToGetOrfRange] sequenceLength` | `int` | required | Length L of the searched sequence. | ≤ 0 → `ArgumentOutOfRangeException`. |
 
 ### 3.2 Output / Return Value
 
@@ -68,11 +72,12 @@ Translation proceeds by normalizing DNA to RNA, skipping the configured frame of
 |------|------|-------------|
 | `Translate` result | `ProteinSequence` | Protein produced from the selected frame and genetic code. |
 | `TranslateSixFrames` result | `IReadOnlyDictionary<int, ProteinSequence>` | Six translated proteins keyed by `1`, `2`, `3`, `-1`, `-2`, `-3`. |
-| `FindOrfs` result | `IEnumerable<OrfResult>` | ORFs with start position, end position, frame, and translated protein. |
+| `FindOrfs` result | `IEnumerable<OrfResult>` | ORFs with 0-based inclusive start/end (stop-inclusive end for terminated ORFs, INSDC CDS convention; reverse-strand ORFs in reverse-complement coordinates), signed frame, and translated protein (initiator always `M`, getorf `-methionine Y`). `IsTerminated` tells stop-terminated from 3'-open ORFs. |
+| `OrfResult.ToGetOrfRange(L)` | `(int Start, int End)` | getorf's 1-based forward-strand `[s - e]` header (STOP excluded; reverse strand `s > e`). |
 
 ### 3.3 Preconditions and Validation
 
-All translation paths normalize DNA to RNA by replacing `T` with `U`. The string overload uppercases the input before translation; the wrapper overloads delegate their `Sequence` values to the same core helper. Translation ignores incomplete trailing bases because codons are consumed only while three bases remain. `FindOrfs` requires a non-null `DnaSequence` and uses the selected `GeneticCode`'s start-codon set rather than hard-coding `AUG` only.
+All translation paths treat `T` and `U` alike. The string overload folds ASCII lower case to upper case before translation (non-ASCII letters are rejected, not folded; B02 F31); the wrapper overloads delegate their `Sequence` values to the same core helper. Translation ignores incomplete trailing bases because codons are consumed only while three bases remain. `FindOrfs` requires a non-null `DnaSequence` (or an IUPAC string) and uses the selected `GeneticCode`'s start-codon set rather than hard-coding `AUG` only.
 
 ## 4. Algorithm
 
@@ -95,7 +100,7 @@ The repository uses two frame-numbering conventions simultaneously:
 | `Translate(..., frame: ...)` | Zero-based offsets `0`, `1`, `2` |
 | `TranslateSixFrames(...)` and `OrfResult.Frame` | Signed frame labels `+1`, `+2`, `+3`, `-1`, `-2`, `-3` |
 
-ORF detection starts on any `geneticCode.IsStartCodon(codon)` result, not only on `AUG`.
+ORF detection starts on any unambiguous `geneticCode.IsStartCodon(codon)` result, not only on `AUG`, and reports the initiator as `M` whatever the start codon (getorf `-methionine Y`; Biopython `translate(cds=True)`; B02 F6).
 
 ### 4.3 Complexity
 
@@ -114,12 +119,14 @@ ORF detection starts on any `geneticCode.IsStartCodon(codon)` result, not only o
 - `Translator.Translate(DnaSequence, GeneticCode?, int, bool)`
 - `Translator.Translate(RnaSequence, GeneticCode?, int, bool)`
 - `Translator.Translate(string, GeneticCode?, int, bool)`
-- `Translator.TranslateSixFrames(DnaSequence, GeneticCode?)`
-- `Translator.FindOrfs(DnaSequence, GeneticCode?, int, bool)`
+- `Translator.Translate(string, GeneticCode?, int, bool, bool allowNucleotideX)` (opt-in Biopython nucleotide `X`)
+- `Translator.TranslateSixFrames(DnaSequence | string, GeneticCode?[, SixFrameConvention])`
+- `Translator.FindOrfs(DnaSequence | string, GeneticCode?, int, bool)` → `OrfResult`; `OrfResult.ToGetOrfRange(int)`
+- getorf-modes overload `Translator.FindOrfs(DnaSequence | string, OrfFindMode, …)` → `OrfFeature` (see [Six_Frame_Translation.md](Six_Frame_Translation.md))
 
 ### 5.2 Current Behavior
 
-`Translate(string, ...)` returns an empty `ProteinSequence` for `null` or empty input, while the `DnaSequence` and `RnaSequence` overloads throw on `null`. `toFirstStop` stops translation before appending the stop codon. `TranslateSixFrames` always returns all six frame keys, even for an empty sequence. `FindOrfs` starts an ORF on any codon accepted by `geneticCode.IsStartCodon`, reports reverse-strand ORFs with negative frames, and emits terminal ORFs that reach the end of the scanned sequence without encountering a stop codon if they meet `minLength`.
+`Translate(string, ...)` returns an empty `ProteinSequence` for `null` or empty input, while the `DnaSequence` and `RnaSequence` overloads throw on `null`. `toFirstStop` stops translation before appending the stop codon. `TranslateSixFrames` always returns all six frame keys, even for an empty sequence. `FindOrfs` starts an ORF on any unambiguous codon accepted by `geneticCode.IsStartCodon`, reports reverse-strand ORFs with negative frames (in reverse-complement coordinates; `OrfResult.ToGetOrfRange(L)` gives getorf's forward-strand header), and emits 3'-open ORFs that reach the end of the scanned strand without a stop codon if they meet `minLength`, as getorf does. Results equal getorf `-find 1` (B02 F6/F44: 0 mismatches over 491 658 reference ORFs).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -127,24 +134,25 @@ ORF detection starts on any `geneticCode.IsStartCodon(codon)` result, not only o
 
 - Translation reads complete codons in the requested frame and maps them through the selected genetic code.[1][2] Output is identical to Biopython 1.88 `translate(seq[frame:], table, to_stop)` for all 27 NCBI tables, DNA/RNA, lower case and IUPAC-ambiguous input (review 2026-09: 5,200+ randomized cases).[7]
 - Six-frame translation covers the three forward and three reverse-complement frames.[2]
-- ORF detection uses start codons, stop codons, and a minimum length threshold.[3]
+- ORF detection is the EMBOSS getorf `-find 1` model: start codons of the selected table, stop codons, initiator read as Met, 3'-open ORFs reported, a minimum length threshold; reverse-strand coordinates map to getorf's forward-strand header with `OrfResult.ToGetOrfRange` (B02 F6–F8, F44, F45, this review F56).[3]
+- All 27 NCBI tables, IUPAC ambiguity (B/Z/J), dual-coding-stop tables rejected for `toFirstStop`/ORFs, ASCII-only case folding, opt-in nucleotide `X` (B02 F1–F5, F31, F33); `ProteinSequence` accepts U/O and reports EMBOSS pepstats residue classes (F32, F47); EMBOSS transeq six-frame conventions (F53).
 
 **Intentionally simplified:**
 
-- ORF scanning is a direct start-to-stop sequence scan without higher-level gene-model features; **consequence:** results are candidate ORFs rather than full gene annotations.
-- Reverse-strand ORF coordinates are reported in the coordinate system of the reverse-complement sequence that is scanned; **consequence:** callers needing original-strand genomic coordinates must remap them externally.
-- When an ORF runs off the end of the sequence, it is still emitted if long enough; **consequence:** ORF results are not limited to stop-terminated regions only.
+- ORF scanning has no gene-model features (scoring, splicing, regulatory context); **consequence:** results are candidate ORFs rather than full gene annotations.
 
 **Not implemented:**
 
-- Genomic-coordinate remapping for reverse-strand ORFs; **users should rely on:** caller-side remapping.
-- Nested ORF reporting that opens a new ORF before the current one closes in the same frame; **users should rely on:** no current alternative.
+- Nested ORF reporting (a new ORF opened at an in-frame START before the current one closes) — getorf `-find 1` does not report them either; **users should rely on:** the getorf-modes overload with `OrfFindMode.TranslationStopToStop` (STOP→STOP regions) and caller-side START search.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | ORFs that reach the end of the sequence without a stop codon can still be emitted. | Deviation | Results are broader than a strict stop-terminated ORF definition. | accepted | Confirmed in [Translator.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/Translator.cs). |
+| 1 | `minLength` in amino acids (initiator included), not nucleotides | Convention | getorf `-minsize` is in nucleotides (÷3 for `-find 1`): `minLength = k` ≡ `-minsize 3k` | accepted | [Six_Frame_Translation.md](Six_Frame_Translation.md) §5.4 #2 |
+| 2 | End coordinate includes the STOP for terminated ORFs (INSDC CDS convention); reverse-strand ORFs in reverse-complement coordinates | Convention | getorf prints the range without the STOP in forward-strand coordinates; `OrfResult.ToGetOrfRange(L)` converts | accepted | B02 F8, F56; Six_Frame §5.4 #3–#4 |
+| 3 | A START in the last complete codon of a frame is reported as a 1-aa open ORF when `minLength ≤ 1` | Divergence | getorf never writes it (branch-order artefact) | accepted | unobservable for `minLength ≥ 2`; Six_Frame §5.4 #5 |
+| 4 | Ambiguous codons (string overload) resolved by the all-expansions rule | Divergence | EMBOSS's `trnComplete` table differs for a few codons (e.g. table 1 `TRR`, `TRA`) | accepted | Six_Frame §5.4 #7 |
 
 ## 6. Edge Cases and Limitations
 
@@ -166,15 +174,15 @@ ORF detection starts on any `geneticCode.IsStartCodon(codon)` result, not only o
 
 ### 6.2 Limitations
 
-The repository translation utilities are sequence scanners. They do not include gene-model scoring, splice awareness, coordinate remapping for reverse-strand ORFs, or regulatory-context handling. ORF output should therefore be treated as a practical translation aid rather than a full annotation result.
+The repository translation utilities are sequence scanners. They do not include gene-model scoring, splice awareness, or regulatory-context handling (reverse-strand coordinates are remapped to getorf's forward-strand header with `OrfResult.ToGetOrfRange` / `OrfFeature.ToGetOrfRange`). ORF output should therefore be treated as a practical translation aid rather than a full annotation result.
 
 ## 7. Examples and Related Material
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [TranslatorTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/TranslatorTests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [TranslatorTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/TranslatorTests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`; [Translator_OrfResultGetOrfRange_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_OrfResultGetOrfRange_Tests.cs) — covers `INV-05` (getorf 6.6.0 binary output)
 - Test specification: [TRANS-PROT-001.md](../../../tests/TestSpecs/TRANS-PROT-001.md)
-- Related algorithms: [Codon_Translation.md](Codon_Translation.md)
+- Related algorithms: [Codon_Translation.md](Codon_Translation.md), [Six_Frame_Translation.md](Six_Frame_Translation.md)
 
 ## 8. References
 
@@ -186,3 +194,4 @@ The repository translation utilities are sequence scanners. They do not include 
 6. Test specification: [TRANS-PROT-001.md](../../../tests/TestSpecs/TRANS-PROT-001.md)
 7. Biopython 1.88 `Bio/Seq.py` `_translate_str` and `Bio/Data/IUPACData.py` (`extended_protein_letters`, `protein_letters_1to3_extended`). https://raw.githubusercontent.com/biopython/biopython/master/Bio/Seq.py
 8. EMBOSS 6.6.0 `emboss/pepstats.c` (`pepstats_issize`), `nucleus/embiep.c` (`embIepCompC`, B/Z split) and `data/Eamino.dat`. https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/pepstats.c
+9. EMBOSS 6.6.0 `emboss/getorf.c` (`getorf_FindORFs`, `getorf_WriteORF`) and the `getorf` binary. https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/getorf.c

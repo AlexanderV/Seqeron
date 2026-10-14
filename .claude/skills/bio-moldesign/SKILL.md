@@ -84,7 +84,8 @@ Goal: raise CAI for the host while staying in a GC band; report CAI/GC before→
 - **[C# API]** `CodonOptimizer.OptimizeSequence`; standalone CAI via `CodonUsageAnalyzer.CalculateCai`
   or `CodonOptimizer.CalculateCAI` (organism table).
 - Key params: presets `EColiK12`/`Yeast`/`Human` (or custom RNA table); strategy default `BalancedOptimization`
-  (`MaximizeCAI` deterministic; `HarmonizeExpression` **non-deterministic** — set seed/repeat); GC band default 0.40–0.60.
+  (all strategies deterministic; `HarmonizeExpression` = DNA Chisel match-codon-usage allocation); GC band default 0.40–0.60;
+  `genetic_code` (NCBI table, default 1) for non-standard-code genes (e.g. 2 = vertebrate mitochondrial).
 - **Provenance:** optimize_codons(preset, strategy, GC band) → report ΔCAI, ΔGC, changedCodons.
 
 ### (d) Restriction analysis: find sites / simulate digest
