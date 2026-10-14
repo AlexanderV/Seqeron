@@ -289,6 +289,18 @@ public class B03SequenceStatisticsMcpOptionsTests
 
     // Biopython protein_scale on the min-max normalised ProtParamData.kd table (ProtScale 0..1, F30).
     [Test]
+    public void HydrophobicityProfile_ExponentialWeightModel_MatchesProtScaleWebTool()
+    {
+        // ExPASy ProtScale web tool 2026-10-14 (3 decimals): KD, window 7, edge 10 %, exponential (SRC RO2).
+        var values = AnalysisTools.HydrophobicityProfile("MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVK", 7, edgeWeight: 0.1, weightModel: "exponential").Values;
+        Assert.That(values, Has.Length.EqualTo(54));
+        var expected = new[] { 0.814, -0.048, 1.922, 0.515, -2.376, -2.57, -3.098, -2.042 };
+        for (int i = 0; i < expected.Length; i++)
+            Assert.That(values[i], Is.EqualTo(expected[i]).Within(0.0005 + 1e-9), $"window {i}");
+        Assert.Throws<ArgumentException>(() => AnalysisTools.HydrophobicityProfile("FLIVAG", 3, edgeWeight: 0.5, weightModel: "gaussian"));
+    }
+
+    [Test]
     public void HydrophobicityProfile_NormalizeScale_MatchesBiopythonOnNormalisedKd()
     {
         AssertValues(AnalysisTools.HydrophobicityProfile(S22, 9, normalizeScale: true).Values,

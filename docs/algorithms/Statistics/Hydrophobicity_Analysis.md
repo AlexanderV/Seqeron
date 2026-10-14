@@ -121,9 +121,7 @@ The scale is a static `Dictionary<char,double>` matching Biopython `kd` exactly 
 - `Scale` (or the overload `CalculateHydrophobicityProfile(seq, IReadOnlyDictionary<char,double> scale, W, edge)`): any caller-supplied residue scale, e.g. Biopython `ProtParamData.hw` (Hopp-Woods), `em` (Emini surface fractional probability — Biopython's own comment; F31 had mislabelled it "Eisenberg"), `ja` (Janin), `Flex` (Vihinen); locked against executed Biopython for these four.
 - Shipped scales (2026-10, B03 F52): `Seqeron.Genomics.Infrastructure.ProteinScales.HoppWoods / Emini / Janin / Flexibility` — read-only, Biopython 1.88 `ProtParamData` verbatim (test-locked); `ProteinScales.KyteDoolittle` forwards to the canonical `ProteinPhysicochemistry.KyteDoolittle`. MCP `hydrophobicity_profile` selects them with `scale` (KyteDoolittle default | HoppWoods | Emini | Janin | Flexibility, or the Biopython keys kd | hw | em | ja | flex).
 
-**Not implemented:**
-
-- ProtScale's "exponential" weight-variation model — **BLOCKED (no source for the formula)**: the ProtScale doc / Gasteiger 2005 chapter only name the option; web.expasy.org is unreachable from the review environment and no open reimplementation was found (B03.md F30 lists every source tried). Only the linear model (as in Biopython) is implemented.
+- `WeightModel = HydropathyWeightModel.Exponential` (2026-10-14, SRC RO2 for B03): ProtScale's "exponential" weight-variation model, w(0) = 1 and w(d) = (e − 0.01) + (1 − e)·(0.01/(1 − e))^(d/R) for 1 ≤ d ≤ R = (W − 1)/2 (all 1 at e = 1). The ProtScale doc defines it only in words and its worked example (W 7, edge 10 %: 10 %, 12 %, 39 %, 100 %) is stale — the live tool prints and uses 0.10, 0.13, 0.29, 1.00 — so the equation was derived from the tool's own weight tables and profile output (34 runs) and locked against it within its 3-decimal rounding (`docs/Evidence/SEQ-HYDRO-001-Evidence.md` "SRC RO2"). Standard convention only (Biopython has no exponential model); default stays `Linear`.
 
 ### 5.4 Deviations and Assumptions (Optional)
 
@@ -146,7 +144,7 @@ The scale is a static `Dictionary<char,double>` matching Biopython `kd` exactly 
 
 ### 6.2 Limitations
 
-Kyte-Doolittle is the default scale; Hopp-Woods, Emini, Janin and Flexibility are shipped in `ProteinScales` (B03 F52) and any caller-supplied scale is accepted (F31). The profile supports the linear edge-weight model only (ProtScale's exponential model is BLOCKED — formula not sourced, B03 F30). Biological interpretation thresholds (e.g. transmembrane peaks > 1.6 at W=19) are the caller's responsibility — the method returns raw averages, not classifications.
+Kyte-Doolittle is the default scale; Hopp-Woods, Emini, Janin and Flexibility are shipped in `ProteinScales` (B03 F52) and any caller-supplied scale is accepted (F31). Both ProtScale weight-variation models are supported (linear default; exponential via `HydrophobicityProfileOptions.WeightModel`, SRC RO2). Biological interpretation thresholds (e.g. transmembrane peaks > 1.6 at W=19) are the caller's responsibility — the method returns raw averages, not classifications.
 
 ## 7. Examples and Related Material (Optional)
 

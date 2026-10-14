@@ -36,6 +36,9 @@ membrane-spanning or buried regions), negative values hydrophilic ones. The prof
   fractional probability), `Janin` (`ja`, Janin 1979 transfer energy) or `Flexibility` (`Flex`, Vihinen 1994
   normalized B-values). Case-insensitive; the Biopython keys are accepted as aliases. Combines with every
   other option (the window machinery is the same).
+- **`weightModel`** (default `Linear`): ProtScale weight variation model for `edgeWeight` < 1 — `Linear` or
+  `Exponential` (w(d) = (e − 0.01) + (1 − e)·(0.01/(1 − e))^(d/R), centre 1; derived from and locked against the
+  ProtScale web tool). `Exponential` needs the `Standard` convention.
 
 ## Core Documentation Reference
 
@@ -53,6 +56,7 @@ membrane-spanning or buried regions), negative values hydrophilic ones. The prof
 | `strict` | boolean | No | Reject symbols without a scale value (default `false`) |
 | `normalizeScale` | boolean | No | Normalise the scale to 0..1 first (default `false`) |
 | `scale` | string | No | `KyteDoolittle` (default), `HoppWoods`, `Emini`, `Janin`, `Flexibility` (or `kd`/`hw`/`em`/`ja`/`flex`) |
+| `weightModel` | string | No | `Linear` (default) or `Exponential` (ProtScale weight variation model, case-insensitive) |
 
 ## Output Schema
 

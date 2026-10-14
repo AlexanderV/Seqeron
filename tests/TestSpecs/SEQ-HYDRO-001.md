@@ -187,3 +187,8 @@ Total in-scope cases: 12; ✅ = 12.
 
 - F52: `ProteinScales.HoppWoods/Emini/Janin/Flexibility` = Biopython 1.88 `ProtParamData` (literal oracle copy in `ProteinScales_EqualBiopythonProtParamData`); KD forwards to PPC; F31 profile tests use the shipped tables (hw W9 −0.06666666666666662, em W9 1.0731111111111111, ja W9 −0.31222222222222223, Flex W5 e0.4 1.003).
 - F41/F52 MCP `hydrophobicity_profile(edgeWeight, convention, strict, normalizeScale, scale)`: ubiquitin W5 e0.4 2.015625, 1.853125 …; FLIVAG W5 e0.4 3.7312499999999997, 3.1156249999999996; unknown scale (incl. "Eisenberg") rejected. Tests: `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests`.
+
+## 9. Addendum 2026-10-14 (SRC RO2 for B03): ProtScale exponential weight-variation model
+
+- Oracle: the ExPASy ProtScale web tool (`web.expasy.org/cgi-bin/protscale/protscale.pl`), executed 2026-10-14; 3-decimal output, so tolerance 0.0005. Data: `docs/Evidence/SEQ-HYDRO-001-Evidence.md` "SRC RO2".
+- Tests (`SequenceStatistics_HydrophobicityProfileOptions_Tests`, region "ProtScale exponential weight variation model"): KD profiles W7 e10 %, W9 e25 %, W21 e0 %, W5 e50 % exponential and W9 e25 % linear on one 60-aa sequence; weight tables via a poly-G/W spike (W7 e10, W21 e1, W21 e50, W9 e90, W11 e10, W5 e50); edge 1 = unweighted mean; Biopython convention + exponential, undefined model, even window throw. MCP: `HydrophobicityProfile_ExponentialWeightModel_MatchesProtScaleWebTool`.

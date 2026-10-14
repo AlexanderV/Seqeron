@@ -97,7 +97,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `generate_dumb_consensus` | Majority-threshold consensus with Biopython SummaryInfo.dumb_consensus semantics: per column the most frequent non-gap residue is emitted i… |
 | `generate_emboss_consensus` | Scoring-matrix plurality consensus of an alignment, identical to EMBOSS 6.6.0 'cons' (EDNAFULL for nucleotides, EBLOSUM62 for proteins; N/X where no residue reaches the plurality; residueType 'auto', padRaggedRows)… |
 | `hairpin_loop_energy` | Free energy of an RNA hairpin loop (Turner 2004 with special tri/tetra/hexaloops, terminal mismatch, all-C and special-GU adjustments). |
-| `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy (ProtScale / Biopython protein_scale): optional `edgeWeight`, `convention` (Standard\|Biopython), `strict`, `normalizeScale`. |
+| `hydrophobicity_profile` | Sliding-window Kyte-Doolittle hydropathy (ProtScale / Biopython protein_scale): optional `edgeWeight`, `convention` (Standard\|Biopython), `strict`, `normalizeScale`, `scale`, `weightModel` (Linear\|Exponential). |
 | `internal_loop_energy` | Free energy of a generic RNA internal loop (Turner 2004; |
 | `is_disorder_promoting` | Whether an amino acid is in Dunker's disorder-promoting set {A, R, G, Q, S, P, E, K} (Dunker 2001). |
 | `kmer_d2_statistics` | Background-adjusted D2* / D2S statistics, d2* / d2S dissimilarities, Markov orders used and per-sequence BIC values; optional `markovOrder`, `bothStrands` (CAFE -R). |

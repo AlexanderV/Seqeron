@@ -421,7 +421,7 @@ public class AnalysisTools
     #region SequenceStatistics
 
     [McpServerTool(Name = "hydrophobicity_profile", Title = "Protein — Hydrophobicity Profile", ReadOnly = true)]
-    [Description("Sliding-window amino-acid scale profile for a protein sequence (ExPASy ProtScale / Biopython protein_scale), Kyte-Doolittle hydropathy by default. Optional scale selects a Biopython 1.88 ProtParamData table: KyteDoolittle (kd, default), HoppWoods (hw, hydrophilicity), Emini (em, surface fractional probability), Janin (ja, transfer energy) or Flexibility (Flex, Vihinen B-values). Optional edgeWeight (linear weight of the window edges, ProtScale 'relative weight of the window edges'), convention (Standard | Biopython line-for-line protein_scale), strict (reject symbols without a scale value) and normalizeScale (ProtScale 0..1 scale normalisation). Defaults reproduce the unweighted Kyte-Doolittle mean.")]
+    [Description("Sliding-window amino-acid scale profile for a protein sequence (ExPASy ProtScale / Biopython protein_scale), Kyte-Doolittle hydropathy by default. Optional scale selects a Biopython 1.88 ProtParamData table: KyteDoolittle (kd, default), HoppWoods (hw, hydrophilicity), Emini (em, surface fractional probability), Janin (ja, transfer energy) or Flexibility (Flex, Vihinen B-values). Optional edgeWeight (linear weight of the window edges, ProtScale 'relative weight of the window edges'), convention (Standard | Biopython line-for-line protein_scale), strict (reject symbols without a scale value), normalizeScale (ProtScale 0..1 scale normalisation) and weightModel (ProtScale Linear | Exponential weight variation). Defaults reproduce the unweighted Kyte-Doolittle mean.")]
     public static DoubleProfileResult HydrophobicityProfile(
         [Description("Protein sequence.")] string proteinSequence,
         [Description("Sliding window size (default 9).")] int windowSize = 9,
@@ -429,7 +429,8 @@ public class AnalysisTools
         [Description("Window convention (case-insensitive): 'Standard' (default; per-position weights, unknown residue contributes 0 and keeps its weight) or 'Biopython' (line-for-line Biopython 1.88 protein_scale: even windows count residue W/2 twice, a pair with an unknown residue is dropped; window >= 2).")] string convention = "Standard",
         [Description("true: throw when the sequence contains a symbol without a scale value (Biopython gravy KeyError). Default false.")] bool strict = false,
         [Description("true: min-max normalise the selected scale to 0..1 before profiling (ExPASy ProtScale 'normalize the scale from 0 to 1'). Default false.")] bool normalizeScale = false,
-        [Description("Residue scale (case-insensitive): 'KyteDoolittle' (default, kd), 'HoppWoods' (hw), 'Emini' (em), 'Janin' (ja) or 'Flexibility' (flex) — Biopython 1.88 Bio.SeqUtils.ProtParamData tables; the Biopython keys are accepted as aliases.")] string scale = "KyteDoolittle")
+        [Description("Residue scale (case-insensitive): 'KyteDoolittle' (default, kd), 'HoppWoods' (hw), 'Emini' (em), 'Janin' (ja) or 'Flexibility' (flex) — Biopython 1.88 Bio.SeqUtils.ProtParamData tables; the Biopython keys are accepted as aliases.")] string scale = "KyteDoolittle",
+        [Description("ExPASy ProtScale weight variation model for edgeWeight < 1 (case-insensitive): 'Linear' (default) or 'Exponential' (ProtScale exponential model; Standard convention only).")] string weightModel = "Linear")
     {
         if (string.IsNullOrEmpty(proteinSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
@@ -437,11 +438,13 @@ public class AnalysisTools
             throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
 
         var windowConvention = ParseExactEnumName<SequenceStatistics.HydropathyWindowConvention>(convention, nameof(convention), "window convention");
+        var weightVariation = ParseExactEnumName<SequenceStatistics.HydropathyWeightModel>(weightModel, nameof(weightModel), "weight variation model");
         var residueScale = ResolveProteinScale(scale);
         // Kyte-Doolittle is the options' default scale (Scale = null), so the default path is unchanged.
         IReadOnlyDictionary<char, double>? customScale =
             ReferenceEquals(residueScale, ProteinScales.KyteDoolittle) ? null : residueScale;
         var values = windowConvention == SequenceStatistics.HydropathyWindowConvention.Standard && !strict && !normalizeScale && customScale is null
+            && weightVariation == SequenceStatistics.HydropathyWeightModel.Linear
             ? SequenceStatistics.CalculateHydrophobicityProfile(proteinSequence, windowSize, edgeWeight)
             : SequenceStatistics.CalculateHydrophobicityProfile(proteinSequence, windowSize, edgeWeight,
                 new SequenceStatistics.HydrophobicityProfileOptions
@@ -450,6 +453,7 @@ public class AnalysisTools
                     Strict = strict,
                     NormalizeScale = normalizeScale,
                     Scale = customScale,
+                    WeightModel = weightVariation,
                 });
         return new DoubleProfileResult(values.ToArray());
     }

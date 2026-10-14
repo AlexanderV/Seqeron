@@ -1030,6 +1030,28 @@ public static class SequenceStatistics
         /// <summary>True: normalise the scale to 0..1 before profiling, v' = (v − min)/(max − min) over the scale's
         /// entries (ExPASy ProtScale "normalize the scale from 0 to 1", Gasteiger et al. 2005). Default false.</summary>
         public bool NormalizeScale { get; init; }
+
+        /// <summary>ExPASy ProtScale "weight variation model" for edge weights &lt; 1 (default
+        /// <see cref="HydropathyWeightModel.Linear"/>). <see cref="HydropathyWeightModel.Exponential"/> needs the
+        /// <see cref="HydropathyWindowConvention.Standard"/> convention (Biopython has no exponential model).</summary>
+        public HydropathyWeightModel WeightModel { get; init; } = HydropathyWeightModel.Linear;
+    }
+
+    /// <summary>
+    /// ExPASy ProtScale weight-variation model: how the window weights fall from 1 at the centre to the
+    /// edge weight e at the two window ends (d = distance from the centre, R = (W − 1)/2).
+    /// </summary>
+    public enum HydropathyWeightModel
+    {
+        /// <summary>w(d) = e + (R − d)(1 − e)/R (ProtScale "linear"; Biopython <c>_weight_list</c>).</summary>
+        Linear = 0,
+
+        /// <summary>ProtScale "exponential": w(0) = 1 and, for 1 ≤ d ≤ R,
+        /// w(d) = (e − 0.01) + (1 − e)·(0.01/(1 − e))^(d/R), i.e. an exponential that falls from 1 − e to 0.01 above
+        /// the floor e − 0.01 (all weights 1 when e = 1). Derived from and verified against the ProtScale web tool
+        /// (web.expasy.org/cgi-bin/protscale/protscale.pl, 2026-10-14): the weight table it prints and the profile
+        /// values agree to its 3-decimal output for W = 3…21 and e = 0…99.5 % (docs/Evidence/SEQ-HYDRO-001-Evidence.md).</summary>
+        Exponential = 1,
     }
 
     /// <summary>
@@ -1062,6 +1084,11 @@ public static class SequenceStatistics
             throw new ArgumentOutOfRangeException(nameof(edgeWeight), edgeWeight, "Edge weight must be in [0, 1].");
         if (!biopython && edgeWeight < 1.0 && windowSize % 2 == 0)
             throw new ArgumentException("An edge-weighted window must have an odd size (a central residue).", nameof(windowSize));
+        if (!Enum.IsDefined(options.WeightModel))
+            throw new ArgumentOutOfRangeException(nameof(options), options.WeightModel, "Unknown weight variation model.");
+        bool exponential = options.WeightModel == HydropathyWeightModel.Exponential;
+        if (biopython && exponential)
+            throw new ArgumentException("The exponential weight model is a ProtScale model; the Biopython convention is linear only.", nameof(options));
 
         IReadOnlyDictionary<char, double> scale = options.Scale ?? HydrophobicityScale;
         if (options.NormalizeScale)
@@ -1084,7 +1111,7 @@ public static class SequenceStatistics
 
         return biopython
             ? BiopythonScaleProfileIterator(proteinSequence, windowSize, edgeWeight, scale)
-            : HydrophobicityProfileIterator(proteinSequence, windowSize, edgeWeight, scale);
+            : HydrophobicityProfileIterator(proteinSequence, windowSize, edgeWeight, scale, exponential);
     }
 
     /// <summary>
@@ -1120,7 +1147,8 @@ public static class SequenceStatistics
     }
 
     private static IEnumerable<double> HydrophobicityProfileIterator(
-        string sequence, int windowSize, double edgeWeight, IReadOnlyDictionary<char, double>? scale = null)
+        string sequence, int windowSize, double edgeWeight, IReadOnlyDictionary<char, double>? scale = null,
+        bool exponential = false)
     {
         scale ??= HydrophobicityScale;
         // Position weights (all 1 for the unweighted Kyte-Doolittle mean).
@@ -1130,9 +1158,12 @@ public static class SequenceStatistics
         for (int j = 0; j < windowSize; j++)
         {
             int fromEdge = Math.Min(j, windowSize - 1 - j);
-            weights[j] = edgeWeight >= 1.0 || fromEdge >= half
-                ? 1.0
-                : edgeWeight + fromEdge * 2.0 * (1.0 - edgeWeight) / (windowSize - 1);
+            if (edgeWeight >= 1.0 || fromEdge >= half)
+                weights[j] = 1.0;
+            else if (exponential)
+                weights[j] = ProtScaleExponentialWeight(half - fromEdge, half, edgeWeight);
+            else
+                weights[j] = edgeWeight + fromEdge * 2.0 * (1.0 - edgeWeight) / (windowSize - 1);
             weightSum += weights[j];
         }
 
@@ -1147,6 +1178,10 @@ public static class SequenceStatistics
             yield return sum / weightSum;
         }
     }
+
+    // ProtScale exponential model, distance d (1..R) from the centre, edge weight e < 1 (see HydropathyWeightModel).
+    private static double ProtScaleExponentialWeight(int distance, int radius, double edgeWeight) =>
+        edgeWeight - 0.01 + (1.0 - edgeWeight) * Math.Pow(0.01 / (1.0 - edgeWeight), (double)distance / radius);
 
     // Line-for-line port of Biopython 1.88 ProteinAnalysis.protein_scale / _weight_list (W ≥ 2).
     private static IEnumerable<double> BiopythonScaleProfileIterator(

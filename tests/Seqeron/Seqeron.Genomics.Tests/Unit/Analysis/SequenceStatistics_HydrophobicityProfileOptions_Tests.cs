@@ -329,4 +329,121 @@ public class SequenceStatistics_HydrophobicityProfileOptions_Tests
     }
 
     #endregion
+
+    #region ProtScale exponential weight variation model (RO2, SRC for B03)
+
+    // Oracle: the ExPASy ProtScale web tool (web.expasy.org/cgi-bin/protscale/protscale.pl) run 2026-10-14; it prints
+    // 3 decimals, so every value is compared within half a unit of the last printed digit.
+    // Raw outputs + derivation: docs/Evidence/SEQ-HYDRO-001-Evidence.md, "SRC RO2".
+    private const double ProtScaleTolerance = 0.0005 + 1e-9;
+    private const string ProtScaleSeq = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVK";
+    private static readonly SequenceStatistics.HydrophobicityProfileOptions Exponential =
+        new() { WeightModel = SequenceStatistics.HydropathyWeightModel.Exponential };
+
+    private static void AssertProtScale(IEnumerable<double> actual, double[] expected)
+    {
+        var profile = actual.ToList();
+        Assert.That(profile, Has.Count.EqualTo(expected.Length));
+        Assert.Multiple(() =>
+        {
+            for (int i = 0; i < expected.Length; i++)
+                Assert.That(profile[i], Is.EqualTo(expected[i]).Within(ProtScaleTolerance), $"window {i}");
+        });
+    }
+
+    // ProtScale: Kyte & Doolittle, window 7, edge 10 %, exponential, not normalised.
+    [Test]
+    public void ProtScale_Exponential_KyteDoolittle_W7_Edge10_MatchesWebTool()
+    {
+        AssertProtScale(SequenceStatistics.CalculateHydrophobicityProfile(ProtScaleSeq, 7, 0.1, Exponential),
+            new[] { 0.814, -0.048, 1.922, 0.515, -2.376, -2.57, -3.098, -2.042, 1.506, 0.281, 1.677, 1.85, -1.348, -0.839, -1.6, 0.089, -0.925, -2.696, -2.122, 0.076, -2.224, -2.531, -2.037, 1.226, 0.541, 2.439, 2.501, -0.385, 1.576, -0.752, 0.741, 0.299, 2.181, 2.269, -0.015, -1.439, 1.236, -0.491, -1.98, -1.013, -1.544, -2.543, -2.553, -2.0, 0.904, -0.361, -0.394, 0.289, -1.746, -1.938, 0.752, 1.465, -0.639, 1.448 });
+    }
+
+    // ProtScale: Kyte & Doolittle, window 9, edge 25 %, exponential, not normalised.
+    [Test]
+    public void ProtScale_Exponential_KyteDoolittle_W9_Edge25_MatchesWebTool()
+    {
+        AssertProtScale(SequenceStatistics.CalculateHydrophobicityProfile(ProtScaleSeq, 9, 0.25, Exponential),
+            new[] { -0.088, 0.225, -0.339, -1.211, -1.714, -1.541, -1.005, 0.015, -0.081, 0.433, 0.899, -0.24, -0.764, -1.087, -0.246, -1.323, -1.997, -2.0, -0.558, -1.753, -1.685, -0.904, 0.494, 0.448, 1.113, 1.438, 0.497, 1.198, 0.578, 0.848, 0.144, 1.592, 1.163, 0.199, -0.526, 0.608, -0.539, -1.625, -1.511, -1.077, -1.921, -1.969, -1.277, -0.301, -0.926, -0.605, 0.005, -0.84, -0.81, 0.055, 0.805, -0.488 });
+    }
+
+    // ProtScale: Kyte & Doolittle, window 21, edge 0 %, exponential, not normalised.
+    [Test]
+    public void ProtScale_Exponential_KyteDoolittle_W21_Edge0_MatchesWebTool()
+    {
+        AssertProtScale(SequenceStatistics.CalculateHydrophobicityProfile(ProtScaleSeq, 21, 0.0, Exponential),
+            new[] { -1.108, 0.088, 0.229, 0.621, 0.495, -0.518, -0.737, -0.951, -0.634, -1.124, -1.678, -1.565, -0.967, -1.487, -1.509, -1.061, 0.204, 0.617, 1.272, 1.323, 0.613, 0.868, 0.309, 0.652, 0.7, 1.281, 1.087, 0.251, -0.343, 0.05, -0.535, -1.147, -1.194, -1.429, -1.821, -1.801, -1.374, -0.424, -0.474, -0.439 });
+    }
+
+    // ProtScale: Kyte & Doolittle, window 5, edge 50 %, exponential, not normalised.
+    [Test]
+    public void ProtScale_Exponential_KyteDoolittle_W5_Edge50_MatchesWebTool()
+    {
+        AssertProtScale(SequenceStatistics.CalculateHydrophobicityProfile(ProtScaleSeq, 5, 0.5, Exponential),
+            new[] { -0.505, 0.314, 0.891, 1.195, -0.084, -1.555, -2.903, -2.603, -1.81, 0.397, 1.167, 1.604, 0.892, -0.703, -0.41, -1.419, -0.67, -1.635, -1.157, -1.936, -1.322, -2.349, -1.341, -2.012, 0.385, 1.237, 2.002, 2.104, 0.49, 1.097, -0.86, 1.054, 0.667, 1.997, 0.905, 1.012, -0.286, -0.223, -0.787, -0.704, -1.507, -2.046, -2.5, -1.882, -1.756, -0.18, 0.082, 0.1, -0.877, -1.274, -0.594, -0.491, 1.088, 0.051, 1.362, -0.926 });
+    }
+
+    // ProtScale: Kyte & Doolittle, window 9, edge 25 %, linear, not normalised.
+    [Test]
+    public void ProtScale_Linear_KyteDoolittle_W9_Edge25_MatchesWebTool()
+    {
+        AssertProtScale(SequenceStatistics.CalculateHydrophobicityProfile(ProtScaleSeq, 9, 0.25, SequenceStatistics.HydrophobicityProfileOptions.Default),
+            new[] { 0.132, -0.065, -0.561, -1.106, -1.519, -1.438, -0.985, -0.324, 0.156, 0.406, 0.514, 0.079, -0.504, -0.918, -0.952, -1.315, -1.5, -1.712, -1.439, -1.688, -1.358, -0.594, 0.099, 0.55, 1.036, 1.252, 0.937, 0.845, 0.767, 0.79, 0.608, 1.05, 0.885, 0.527, 0.062, -0.006, -0.662, -1.245, -1.513, -1.514, -1.813, -1.667, -1.157, -0.748, -0.764, -0.583, -0.32, -0.527, -0.455, -0.149, 0.242, 0.056 });
+    }
+
+    // Single-W spike in poly-G on ProtScale's "Molecular weight" scale (G 75, W 204): the profile around the spike
+    // is 75 + 129·w(d)/Σw, i.e. it exposes the weight table itself (centre, d = 1 … R).
+    private static readonly IReadOnlyDictionary<char, double> GlyTrp = new Dictionary<char, double> { ['G'] = 75.0, ['W'] = 204.0 };
+    private static readonly string Spike = new string('G', 30) + "W" + new string('G', 30);
+
+    [TestCase(7, 10, new[] { 137.887, 93.29, 83.478, 81.289 })]
+    [TestCase(21, 1, new[] { 104.586, 93.499, 86.684, 82.38, 79.661, 77.944, 76.859, 76.174, 75.742, 75.468, 75.296 })]
+    [TestCase(21, 50, new[] { 85.041, 83.315, 82.216, 81.473, 80.97, 80.63, 80.4, 80.245, 80.14, 80.069, 80.021 })]
+    [TestCase(9, 90, new[] { 90.447, 89.616, 89.236, 89.022, 88.902 })]
+    [TestCase(11, 10, new[] { 116.352, 93.853, 84.874, 81.223, 79.739, 79.135 })]
+    [TestCase(5, 50, new[] { 116.327, 98.173, 95.664 })]
+    public void ProtScale_Exponential_SpikeExposesWeightTable(int window, int edgePercent, double[] centreToEdge)
+    {
+        var profile = SequenceStatistics.CalculateHydrophobicityProfile(Spike, window, edgePercent / 100.0,
+            Exponential with { Scale = GlyTrp }).ToList();
+        int centre = 30 - window / 2; // value k scores residue k + (W - 1)/2
+        Assert.Multiple(() =>
+        {
+            for (int dist = 0; dist < centreToEdge.Length; dist++)
+            {
+                Assert.That(profile[centre + dist], Is.EqualTo(centreToEdge[dist]).Within(ProtScaleTolerance), $"d = {dist}");
+                Assert.That(profile[centre - dist], Is.EqualTo(centreToEdge[dist]).Within(ProtScaleTolerance), $"d = -{dist}");
+            }
+        });
+    }
+
+    // ProtScale doc: the model "has an effect only if you set the window edge relative weight to a value other than 100%".
+    [Test]
+    public void Exponential_Edge1_EqualsUnweightedMean()
+    {
+        AssertProfile(SequenceStatistics.CalculateHydrophobicityProfile(ProtScaleSeq, 9, 1.0, Exponential),
+            SequenceStatistics.CalculateHydrophobicityProfile(ProtScaleSeq, 9, 1.0).ToArray());
+    }
+
+    [Test]
+    public void Exponential_BiopythonConvention_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => SequenceStatistics.CalculateHydrophobicityProfile(ProtScaleSeq, 9, 0.5,
+            Exponential with { Convention = SequenceStatistics.HydropathyWindowConvention.Biopython }));
+    }
+
+    [Test]
+    public void UndefinedWeightModel_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => SequenceStatistics.CalculateHydrophobicityProfile(ProtScaleSeq, 9, 0.5,
+            new SequenceStatistics.HydrophobicityProfileOptions { WeightModel = (SequenceStatistics.HydropathyWeightModel)7 }));
+    }
+
+    [Test]
+    public void Exponential_EvenWindowWithEdgeBelow1_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => SequenceStatistics.CalculateHydrophobicityProfile(ProtScaleSeq, 8, 0.5, Exponential));
+    }
+
+    #endregion
 }
