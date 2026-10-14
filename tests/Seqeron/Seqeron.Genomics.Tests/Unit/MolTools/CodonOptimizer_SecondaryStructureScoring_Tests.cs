@@ -193,6 +193,32 @@ public class CodonOptimizer_SecondaryStructureScoring_Tests
         });
     }
 
+    // ── F64 (WP27b re-verification): the window is ceil(windowSize / 3) codons ──
+
+    [Test]
+    [Description("F64: the structure-pass window is the smallest whole-codon window at least "
+        + "windowSize nucleotides wide (the documented contract). windowSize / 3 + 1 over-rounded "
+        + "by one codon for every windowSize that is a multiple of 3, so windowSize 42 was scored "
+        + "with a 45-nt window; the default 40 (14 codons = 42 nt) is unchanged.")]
+    public void ReduceSecondaryStructure_WindowSize_IsRoundedUpToWholeCodons()
+    {
+        string Reduce(int windowSize) => CodonOptimizer.ReduceSecondaryStructure(
+            GeneA, CodonOptimizer.EColiK12, windowSize,
+            scoring: CodonOptimizer.SecondaryStructureScoring.Turner2004Mfe);
+
+        // 40, 41 and 42 nt all round up to 14 codons (42 nt); 43, 44 and 45 nt to 15 codons (45 nt).
+        string w40 = Reduce(40), w42 = Reduce(42), w43 = Reduce(43), w45 = Reduce(45);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(w42, Is.EqualTo(w40), "windowSize 42 is a 14-codon window, as 40 and 41 are");
+            Assert.That(w45, Is.EqualTo(w43), "windowSize 45 is a 15-codon window, as 43 and 44 are");
+            Assert.That(w43, Is.Not.EqualTo(w40), "14- and 15-codon windows do differ on this gene");
+            Assert.That(Translate(w42), Is.EqualTo(GeneAProtein));
+            Assert.That(Translate(w45), Is.EqualTo(GeneAProtein));
+        });
+    }
+
     // ── A1-8: MinimizeSecondary actually runs the structure pass ──
 
     [Test]

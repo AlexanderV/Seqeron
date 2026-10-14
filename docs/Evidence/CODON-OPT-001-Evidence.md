@@ -277,6 +277,44 @@ asked not to get worse — the F60 tolerance rule). The public
 100 random cases (25 genes × windows 20/30 × both scorings) after the fix: GC breach never worse
 than the GC pass's, protein preserved in all 100.
 
+## F64 — `ReduceSecondaryStructure` window width: ceil(windowSize / 3) codons (review 2026-09, WP27b re-verification)
+
+### Defect
+
+The structure pass used `windowCodons = windowSize / 3 + 1`, i.e. floor(windowSize / 3) + 1, which
+equals ceil(windowSize / 3) only when `windowSize` is **not** a multiple of 3. For a multiple of 3
+the window was one codon (3 nt) wider than requested, contradicting the method's own contract
+("windows of `windowSize` nucleotides, rounded up to whole codons"; MCP `window_size`
+"sliding-window size in nt") — no external reference prescribes this arithmetic (DNA Chisel has no
+folding-propensity pass), so the documented contract is the source.
+
+Repro (gene A of `CodonOptimizer_SecondaryStructureScoring_Tests`, E. coli K-12, `Turner2004Mfe`):
+pre-fix `windowSize` 42 produced the same output as 43 and 44 (15-codon = 45-nt window) and a
+different output from 41 (14 codons):
+
+| windowSize | pre-fix codons | post-fix codons | post-fix output equals |
+|---|---|---|---|
+| 40 (default) | 14 | 14 | unchanged |
+| 41 | 14 | 14 | 40 |
+| 42 | 15 | **14** | 40, 41 |
+| 43 | 15 | 15 | 44, 45 |
+| 45 | 16 | **15** | 43, 44 |
+
+### Fix
+
+`windowCodons = (windowSize + 2) / 3` (integer ceiling). Defaults are bit-identical (40 → 14 codons
+= 42 nt); only an explicit `windowSize` that is a multiple of 3 changes, and only to the width the
+contract specifies. Public API unchanged. XML docs, MCP tool doc + schema, TestSpec updated.
+
+### Decision — the short-input early return is deliberate, not a defect
+
+`ReduceSecondaryStructure` returns `rna` unchanged (not trimmed to whole codons) when
+`rna.Length < windowSize`, while the normal path returns the codon-trimmed sequence. Both the XML
+doc ("a sequence shorter than `windowSize` is returned normalised but otherwise unchanged") and the
+MCP tool doc state this, no source prescribes trimming a sequence the pass does not touch, and
+changing it would alter the output of short inputs with a dangling partial codon for no sourced
+reason. Kept, with the MCP doc wording tightened to say the trailing partial codon is kept.
+
 ## F48 — genetic-code-aware `CodonOptimizer` API (review 2026-09, audit A2-1)
 
 ### Sources opened

@@ -1487,7 +1487,10 @@ public static class CodonOptimizer
     /// with synonymous codons that lower the window's structure score.
     /// </summary>
     /// <remarks>
-    /// Windows of <paramref name="windowSize"/> nucleotides (rounded up to whole codons) are
+    /// Windows of <paramref name="windowSize"/> nucleotides (rounded up to whole codons —
+    /// ceil(<paramref name="windowSize"/> / 3) codons, so the default 40 is scored over 14 codons
+    /// = 42 nt; review 2026-09 F64 corrected an off-by-one codon for a
+    /// <paramref name="windowSize"/> that is a multiple of 3) are
     /// walked left to right; a window whose score exceeds the mode's threshold is rewritten codon
     /// by codon, each codon taking the synonymous codon that minimises the score of the
     /// <b>current</b> window content (the baseline is re-evaluated after every accepted change),
@@ -1525,7 +1528,7 @@ public static class CodonOptimizer
     /// </remarks>
     /// <param name="codingSequence">Coding sequence (DNA or RNA).</param>
     /// <param name="table">Codon-usage table of the expression host.</param>
-    /// <param name="windowSize">Window width in nucleotides (default 40).</param>
+    /// <param name="windowSize">Window width in nucleotides, rounded up to whole codons (default 40 → 14 codons).</param>
     /// <param name="structureThreshold">Pair-count score above which a window is rewritten (default 0.5; <see cref="SecondaryStructureScoring.PairCount"/> only).</param>
     /// <param name="minCodonFrequency">Minimum usage frequency of a replacement codon (default 0.1).</param>
     /// <param name="scoring">Window scoring model (default <see cref="SecondaryStructureScoring.PairCount"/>).</param>
@@ -1578,7 +1581,12 @@ public static class CodonOptimizer
 
         var codons = SplitIntoCodons(rna);
         var families = FamiliesFor(geneticCode);
-        int windowCodons = windowSize / 3 + 1;
+        // Whole-codon window: ceil(windowSize / 3) codons, i.e. the smallest codon-aligned window
+        // that is at least windowSize nucleotides wide (the documented contract "windows of
+        // windowSize nucleotides, rounded up to whole codons"). windowSize / 3 + 1 over-rounded by
+        // one codon whenever windowSize was a multiple of 3 (review 2026-09, F64); the default 40
+        // is unchanged (14 codons = 42 nt).
+        int windowCodons = (windowSize + 2) / 3;
 
         bool turner = scoring == SecondaryStructureScoring.Turner2004Mfe;
         // Window energies are memoised by window content: the candidate windows of overlapping
