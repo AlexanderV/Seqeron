@@ -18,6 +18,14 @@ and commits it after every change. Batch definitions (units, owned files) are in
   (re-audit their reports first — later batches may have resolved items), THEN Phase 2 (cross-batch dedup),
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
+- **Model — claude-opus-5-5 for EVERY session (user 2026-10-14):** these are algorithms; output from another model
+  does real damage, so the model is checked, never assumed. `create_session`'s `model` is not always honoured.
+  Verify right after launch AND at every check-in with `get_session`: BOTH `session_context.model` and
+  `external_metadata.last_served_model` must read `claude-opus-5-5` (a turn-level fallback shows up only in the
+  latter). If 5-5 cannot be served: **let the session run as it is, but its batch is NOT finished** — do not add it
+  to "Finished batches", and record it under "Model-flagged batches" below with what was produced on which model, so
+  it can be re-verified when 5-5 becomes available again. This applies to every session of the campaign, including
+  the orchestrator's own and any future resume/finisher, not only to the session where it was first noticed.
 
 ## State (2026-10-14 10:37 UTC) — FIN-B02 + FIN-B03 + B08 RUNNING (3 in parallel, user's word)
 - User 10-14 ~10:30 "Запусти ще B03" + "І резумни b08" (explicitly above the usual max-2 rule):
@@ -142,8 +150,22 @@ and commits it after every change. Batch definitions (units, owned files) are in
 - **Done:** B01, B02, B03, B24 (finishers pending, see leftovers notes in their reports), B04 (F1–F65), B05 (F1–F35),
   B06 (F1–F38, 43841d1, Leftovers none).
 
+## Model-flagged batches (work produced on a model other than claude-opus-5-5 — NOT finished; re-verify when 5-5 is back)
+Per the model rule above. A batch listed here stays out of "Finished batches" even when its report ends with a clean
+`## Leftovers`; what it needs is a re-verification pass on claude-opus-5-5, not more work.
+| Batch | What was produced off-model | Session | Model actually served | Status |
+|---|---|---|---|---|
+| B08 | CRISPR-OFF-001 start: F9 MIT silent-100 aggregate fix + CFD aggregate + dedup, WIP only (`-wip-B08` a80bdfa7) | session_01E7mHtXGjdaPccegYRGjrba (interrupted 10:53, ≈ $10, archived) | claude-opus-5 (session model 5-5, served 5) | being re-verified against CRISPOR/Hsu/Doench by B08 resume-2 session_01JEZHM6XkDpcN8pugzHb9ns on verified 5-5 — clears if it holds |
+| B08 | CRISPR-GUIDE-001 F3–F8 (commits 2fc133c2, e8e6c72) | session_01NvVQb3FM1E4YGuhxEtXqjH (2026-10-01, archived) | claude-opus-5 (configured + session model 5-5, served 5) | OPEN — needs a re-verification pass on 5-5 before B08 may be called finished |
+
+A provenance audit of every earlier campaign session (model actually served per batch) is being collected into
+`scratchpad/model-provenance.md`; batches it finds off-model get a row here.
+
 ## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
-B01 (FIN-B01 2026-10-09), B04, B05, B06, B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with `## Leftovers` is pushed.
+B01 (FIN-B01 2026-10-09), B04, B05, B06, B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with
+`## Leftovers` is pushed **and** every session that produced its work was served claude-opus-5-5 (see the model rule
+and "Model-flagged batches" above); the batches already listed predate that check and the provenance audit may yet
+move one of them.
 
 ## Requests to finished batches (register — orchestrator checks it on every check-in)
 | # | Target | File:line / test | Evidence | From | Status |
