@@ -16,9 +16,11 @@ Wright's Effective Number of Codons (ENC / Nc).
 
 Computes Wright's Effective Number of Codons (Nc), a single measure of how far a gene departs from uniform synonymous-codon usage. It uses per-amino-acid homozygosity `F̂` grouped by degeneracy class (Wright Eq. 1), class averaging (Eq. 4), the isoleucine Eq. 5a fallback, and `Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆` (Eq. 3). The result lies in `[20, 61]` under the standard code (20 = extreme bias, 61 = no bias; overshoot re-adjusted to the code's sense-codon count). When Nc cannot be calculated (a synonymous class other than the single 3-fold Ile class has no estimable amino acid — CodonW prints `*****`) the tool returns `enc = 0` and `calculable = false` (`CodonUsageAnalyzer.TryCalculateEnc`).
 
+Optional `method` selects another estimator (`TryCalculateEnc(string, GeneticCode, EncOptions, out double)`), both as implemented by codonbias 0.5.0 `EffectiveNumberOfCodons`: `Novembre2002` — Novembre's background-corrected Nc′ (per amino acid χ² of the codon frequencies against those expected from the gene's A/C/G/T composition, or that of `background`; `F = (N·χ² + N − k)/(k(N − 1))`; unweighted class means; no pseudocount) — and `SunYangXia2013` (pseudocount 1; `F = (χ² + 1)/k`, i.e. `Σp²` without background correction; class means weighted by amino-acid counts). For these, a class with no estimable amino acid is imputed with `F̄ = 1/z` (a missing 3-fold class with `(F̄₂ + F̄₄)/2`), so the value is always calculable when the gene has a sense codon; the result is re-adjusted down to the code's sense-codon count, with no lower clamp. `codonw_cap = true` (Wright only) re-adjusts to CodonW's fixed 61 (`enc_out` prints any larger value as `61.00`, whatever `-code`) instead of the code's sense-codon count (60 for table 2, 62 for tables 3/4/5/9/10, 63 for table 6).
+
 ## Core Documentation Reference
 
-- Source: [CodonUsageAnalyzer.cs#L485](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L485) (`TryCalculateEnc(string, GeneticCode, out double)`; `CalculateEnc` delegates to it)
+- Source: [CodonUsageAnalyzer.cs#L485](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L485) (`TryCalculateEnc(string, GeneticCode, out double)`; `CalculateEnc` delegates to it); [CodonUsageAnalyzer.cs#L580](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L580) (`TryCalculateEnc(string, GeneticCode, EncOptions, out double)`, used when `method`/`codonw_cap` are given)
 
 ## Input Schema
 
@@ -26,12 +28,17 @@ Computes Wright's Effective Number of Codons (Nc), a single measure of how far a
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Coding DNA sequence (frame 0), non-empty. |
 | `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the synonymous families and stops (CodonW `-code`). One of 1–6, 9–16, 21–33. |
+| `method` | string | No | `Wright1990` (default; CodonW `enc_out`), `Novembre2002` or `SunYangXia2013` (codonbias 0.5.0). |
+| `pseudocount` | number | No | Novembre2002/SunYangXia2013 only: pseudocount added to every sense-codon count, ≥ 0 (omitted = 0 for Novembre2002, 1 for SunYangXia2013). |
+| `background_correction` | boolean | No | Novembre2002/SunYangXia2013 only: expected codon frequencies from the background base composition (omitted = true for Novembre2002, false for SunYangXia2013). |
+| `background` | string | No | With background correction only: sequence whose A/C/G/T composition is the background (omitted = the gene itself). |
+| `codonw_cap` | boolean | No | Wright1990 only: cap at CodonW's fixed 61 instead of the code's sense-codon count (default `false`). |
 
 ## Output Schema
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `enc` | number | Effective Number of Codons, 20..61; 0 when not calculable. |
+| `enc` | number | Effective Number of Codons, 20..61 (Wright, table 1); 0 when not calculable. |
 | `calculable` | boolean | `false` when Nc cannot be calculated (CodonW `*****`), otherwise `true`. |
 
 ## Errors
@@ -40,6 +47,10 @@ Computes Wright's Effective Number of Codons (Nc), a single measure of how far a
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1002 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
+| 1003 | Unknown ENC method: X. Supported: Wright1990, Novembre2002, SunYangXia2013. / pseudocount, background_correction and background apply to the Novembre2002 and SunYangXia2013 methods only. |
+| 1004 | codonw_cap applies to the Wright1990 method only. |
+| 1005 | pseudocount must be a finite non-negative number (got X). |
+| 1006 | background must be a non-empty sequence and requires background correction. |
 
 ## Examples
 
@@ -54,6 +65,14 @@ The same gene under NCBI table 2 (vertebrate mitochondrial): Nc = 45.0 (CodonW 1
 ### Example 3: Nc not calculable
 
 `ATGAAAGAGCTGTTCGCCAAA`: the 3-, 4- and 6-fold classes have no estimable amino acid; CodonW 1.4.4 `-enc` prints `*****`. Output: `{ "enc": 0, "calculable": false }`.
+
+### Example 4: Novembre 2002 / Sun–Yang–Xia 2013
+
+Gene of Example 1: `method = Novembre2002` → 45.49951134064658; `method = SunYangXia2013` → 50.957809330628805; `SunYangXia2013` + `background_correction = true` → 47.56338039024118 (codonbias 0.5.0 values, equal to ≤ 1e-14).
+
+### Example 5: CodonW cap
+
+Gene codon_i × ((7i mod 5) + 1) (all 64 codons, ACGT order) under `genetic_code = 2`: default `enc = 60` (60 sense codons); `codonw_cap = true` → 61 (CodonW 1.4.4 `-enc -code 1` prints 61.00).
 
 ## See Also
 

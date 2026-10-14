@@ -61,7 +61,23 @@
 
 ### codonbias 0.5.0 (PyPI `codon-bias`) — secondary reference
 
-`codonbias/scores.py` `EffectiveNumberOfCodons(robust=False, pseudocount=0, mean='unweighted', genetic_code=t)` reduces to Wright's F̂ (Novembre's F with uniform expectation), drops F ≤ 1e-6 and n ≤ 1, averages per degeneracy class of NCBI table t and caps at `len(P)` = number of sense codons. It imputes F = 1/deg for an empty class (differs from CodonW; not followed). Defaults are the Sun, Yang & Xia (2013) variant, which Seqeron does not claim.
+`codonbias/scores.py` `EffectiveNumberOfCodons(robust=False, pseudocount=0, mean='unweighted', genetic_code=t)` reduces to Wright's F̂ (Novembre's F with uniform expectation), drops F ≤ 1e-6 and n ≤ 1, averages per degeneracy class of NCBI table t and caps at `len(P)` = number of sense codons. It imputes F = 1/deg for an empty class (differs from CodonW; not followed for Wright). Its defaults are the Sun, Yang & Xia (2013) variant.
+
+### codonbias 0.5.0 — reference for the opt-in Novembre 2002 / Sun–Yang–Xia 2013 estimators (review 2026-10-14, F50)
+
+Wheel `codon_bias-0.5.0-py3-none-any.whl` (PyPI `codon-bias`), read in full: `scores.py` `EffectiveNumberOfCodons.__init__/_calc_score/_calc_F/_calc_BNC/_calc_BCC` (lines 482–660) and `stats.py` `CodonCounter.count_array`, `BaseCounter.count_array`. With `k_mer = 1`:
+1. Counts of the sense codons of NCBI table t (`ignore_stop=True`; upper-case, U→T, triplets with non-ACGT dropped) **+ pseudocount** on every sense codon; per amino acid N = Σn_i, P_i = n_i/N. Families are whole amino acids (a 6-fold family is **not** split into 2 + 4).
+2. Background (`bg_correction=True`): base frequencies = (A, C, G, T counts over the **whole** sequence — every position, stop codons and trailing bases included — each + 1) / total (`_calc_BNC`); or of `get_score(…, background=seq)`. Expected codon frequency e_i = product of its three base frequencies renormalised within the amino acid (`_calc_BCC`); uniform 1/k otherwise.
+3. χ²_aa = Σ_i (P_i − e_i)²/e_i (NaN entries — N = 0 — skipped ⇒ 0).
+4. `robust=True` (Sun, Yang & Xia 2013): F = (χ² + 1)/k (= Σp² for uniform e). `robust=False` (Novembre 2002): F = (N·χ² + N − k)/((N − 1)·k) (= Wright's F̂ for uniform e).
+5. Class mean over amino acids with N > 1, F > 1e-6, finite F: weighted by N (`mean='weighted'`, default) or unweighted.
+6. Empty class ⇒ F̄ = 1/z; then if the 3-fold class is empty F̄₃ = (F̄₂ + F̄₄)/2 (using imputed values if needed).
+7. Nc = Σ_z K_z/F̄_z, `min(len(P), Nc)` (sense-codon cap; no lower clamp).
+Novembre 2002 preset = `bg_correction=True, robust=False, pseudocount=0, mean='unweighted'`; Sun–Yang–Xia 2013 preset = codonbias defaults `robust=True, pseudocount=1, mean='weighted', bg_correction=False`.
+
+### ENCprime (Novembre's own program) — consulted, not followed
+
+github.com/jnovembre/ENCprime `src/ENCprime.c` (`test_null`, `calc_F`, `calc_Nc`): χ² = N·Σ(p − e)²/e and F′ = (χ² + N − k)/(k(N − 1)) — the same formula as codonbias item 4; expected frequencies from per-gene A/C/G/T frequencies over the variable codon sites (invariant sites cancel on renormalisation, so equal to codonbias item 2 for the same base frequencies). Differences from codonbias: an amino acid needs N > 5 ("enough observations that chi-sq is legit"), class means are floored at 1/k, base frequencies come from a SeqCount file (no +1), no cap. The papers (Novembre 2002 MBE 19:1390; Sun, Yang & Xia 2013 MBE 30:191) are not reachable from the sandbox (academic.oup.com / NCBI blocked), so codonbias 0.5.0 — the reference named by the audit — is the locked implementation.
 
 ### Numerical cross-check (2026-09-28)
 
@@ -69,6 +85,8 @@
 - C# vs Python port of `enc_out` over all 27 NCBI tables: 21789 cases, max |Δ| < 1e-9.
 - Review 2026-10-14 (F36, `TryCalculateEnc`): CodonW 1.4.4 rebuilt from the Ubuntu `codonw_1.4.4.orig.tar.gz` and run as `codonw genes.fa -base -enc -gc -gc3s -L_aa -code c -silent -nomenu -nowarn -machine` (c = 0..7) on 304 genes (seed 20261014: 4 hand-made — terminal stop, Phe-only, internal stops + NNN, stops only — and 300 random 1–400-codon genes with N/R/Y, lower-case, RNA spelling, trailing partial codons) = 2432 cases: all 273 `*****` ⇔ `TryCalculateEnc` false / `IsEncCalculable` false / `CalculateEnc` 0; all 2159 calculated ⇔ true and equal at 2 dp, except the documented cap (CodonW prints values up to 61 where table 2 caps at 60, or 61 where tables with 62/63 sense codons do not). Locked: gene M3 41.288461538461526 / 45.0 (tables 1/2), random gene r53 42.85340746733685 / 40.37735849056604 (CodonW 42.85 / 40.38), r155 `*****` (tables 1/2).
 - C# vs codonbias 0.5.0 (Wright mode) over all 27 tables, 4050 fully-populated genes (1237 at/above 61): 0 mismatches (> 1e-6).
+- Review 2026-10-14 (F50, Novembre / Sun–Yang–Xia): 306 genes (M3, M10, M12, Phe-only, short, Met/Trp-only, 300 random 1–400-codon genes, seed 20261014, with N, lower case, RNA, trailing bases) × 27 NCBI tables × 7 option sets (Novembre preset; Sun–Yang–Xia preset; SYX + bg_correction; Novembre pseudocount 0.5 weighted; SYX pseudocount 0 unweighted; Novembre without bg; Novembre with `background="GGGCCCGCGATATGCGCGGCCGCAAT"`) = 57834 cases: 57351 equal to codonbias with max relative difference 2.2e-15; the 483 others are genes with no sense codon under that table (e.g. `TAG`, `AGG` under table 2), where Seqeron returns `false` (contract, as F36) and codonbias the imputed maximum. Locked to 1e-9 in `CodonUsageAnalyzer_EncVariants_Tests.cs` (6 genes × tables 1/2 × the option sets) plus the hand derivation SYX(Phe TTT×3 TTC×1) = 1028/17 = 60.470588235294116.
+- Review 2026-10-14 (F51, CodonW cap): the same 306 genes through CodonW 1.4.4 (`-enc -code c -silent -nomenu -nowarn -machine`, c = 0..7 = NCBI 1, 2, 3, 4, 5, 6, 10, 9) = 2448 cases: `EncOptions { CodonWCap = true }` equals CodonW at 2 dp in 2447 (incl. all 1289 `*****` and all 167 cases where the CodonW cap differs from the sense-codon cap: table 2 values in (60, 61], tables 3/4/5/9/10 values in (61, 62], table 6 in (61, 63]); the single difference is r191 under NCBI 3, 54.814998869… vs CodonW 54.82 — a 2-dp rounding boundary of CodonW's single-precision `float enc_tot`, independent of the cap. Locked: M12 gene 61/60/62/62/62/63/62/62 → 61 under NCBI 1/2/3/4/5/6/9/10; r203 table 2 60 → 60.71285921278657 (CodonW 60.71); r15 table 3 61.89427123695478 → 61 (CodonW 61.00).
 
 ---
 
@@ -152,4 +170,5 @@ Perfectly even Phe, TTT × 2 and TTC × 2 (n = 4): Σp² = 0.5, F̂ = (4·0.5 �
 
 - **2026-06-13**: Initial documentation.
 - **2026-09-28**: Review 2026-09 (B02 F15–F17): CodonW 1.4.4 source/binary and codonbias 0.5.0 added; not-calculated rule, F̂ = 0 exclusion, genetic-code-aware classes.
+- **2026-10-14**: Review 2026-09 (B02 F50/F51, audit A2-7/A2-8): opt-in `EncMethod.Novembre2002` / `SunYangXia2013` (codonbias 0.5.0, 57351 cases ≤ 2.2e-15 rel.) and `EncOptions.CodonWCap` (CodonW 1.4.4, 2448 cases).
 - **2026-10-14**: Review 2026-09 (B02 F36, audit A1-11): explicit not-calculable API `TryCalculateEnc`, `CodonUsageStatistics.IsEncCalculable`, MCP `calculable` / `isEncCalculable`; re-verified on the CodonW 1.4.4 binary (2432 cases).
