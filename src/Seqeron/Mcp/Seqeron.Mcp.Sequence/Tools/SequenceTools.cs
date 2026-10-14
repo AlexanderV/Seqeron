@@ -138,7 +138,7 @@ public class SequenceTools
     /// Calculate nucleotide composition of a DNA/RNA sequence.
     /// </summary>
     [McpServerTool(Name = "nucleotide_composition", Title = "Sequence — Nucleotide Composition", ReadOnly = true)]
-    [Description("Calculate nucleotide composition (A, T, G, C, U counts) and GC content of a DNA/RNA sequence.")]
+    [Description("Calculate nucleotide composition (A, T, G, C, U, N counts; every other character in 'other') and GC content of a DNA/RNA sequence.")]
     public static NucleotideCompositionResult NucleotideComposition(
         [Description("The DNA or RNA sequence to analyze")] string sequence)
     {
@@ -154,7 +154,8 @@ public class SequenceTools
             comp.CountC,
             comp.CountU,
             comp.CountOther,
-            comp.GcContent);
+            comp.GcContent,
+            comp.CountN);
     }
 
     /// <summary>
@@ -186,9 +187,12 @@ public class SequenceTools
     /// Calculate molecular weight of a protein sequence.
     /// </summary>
     [McpServerTool(Name = "molecular_weight_protein", Title = "Protein — Molecular Weight", ReadOnly = true)]
-    [Description("Calculate the molecular weight of a protein sequence in Daltons (Da).")]
+    [Description("Calculate the molecular weight of a protein sequence in Daltons (Da) (Biopython molecular_weight(seq, 'protein')). Optional monoisotopic masses, head-to-tail cyclic peptide (circular) and strict mode (reject B/Z/J/X/'*' instead of skipping them).")]
     public static MolecularWeightProteinResult MolecularWeightProtein(
-        [Description("The protein sequence")] string sequence)
+        [Description("The protein sequence")] string sequence,
+        [Description("Use monoisotopic residue masses and water 18.010565 Da (Biopython monoisotopic=True). Default false = average masses.")] bool monoisotopic = false,
+        [Description("Head-to-tail cyclic peptide: one more water lost (Biopython circular=True). Default false = linear.")] bool circular = false,
+        [Description("Reject residues without a mass (B, Z, J, X, '*') like Biopython's ValueError. Default false = skip them.")] bool strict = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -196,7 +200,8 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var mw = SequenceStatistics.CalculateMolecularWeight(sequence);
+        var mw = SequenceStatistics.CalculateMolecularWeight(sequence,
+            new SequenceStatistics.MolecularWeightOptions { Monoisotopic = monoisotopic, Circular = circular, Strict = strict });
         return new MolecularWeightProteinResult(mw, "Da");
     }
 
@@ -204,15 +209,20 @@ public class SequenceTools
     /// Calculate molecular weight of a DNA or RNA sequence.
     /// </summary>
     [McpServerTool(Name = "molecular_weight_nucleotide", Title = "Sequence — Nucleotide Molecular Weight", ReadOnly = true)]
-    [Description("Calculate the molecular weight of a DNA or RNA sequence in Daltons (Da).")]
+    [Description("Calculate the molecular weight of a DNA or RNA sequence in Daltons (Da) (Biopython molecular_weight). Optional double-stranded (adds the complementary strand), circular, monoisotopic masses and strict mode (reject symbols without a mass instead of skipping them).")]
     public static MolecularWeightNucleotideResult MolecularWeightNucleotide(
         [Description("The DNA or RNA sequence")] string sequence,
-        [Description("True for DNA, false for RNA (default: true)")] bool isDna = true)
+        [Description("True for DNA, false for RNA (default: true)")] bool isDna = true,
+        [Description("Add the Watson-Crick complementary strand (Biopython double_stranded=True). Default false = single strand.")] bool doubleStranded = false,
+        [Description("Circular molecule: one more water lost per strand (Biopython circular=True). Default false = linear.")] bool circular = false,
+        [Description("Use monoisotopic nucleotide masses and water 18.010565 Da (Biopython monoisotopic=True). Default false = average masses.")] bool monoisotopic = false,
+        [Description("Reject symbols without a mass (e.g. N; U in DNA; T in RNA) like Biopython's ValueError. Default false = skip them.")] bool strict = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var mw = SequenceStatistics.CalculateNucleotideMolecularWeight(sequence, isDna);
+        var mw = SequenceStatistics.CalculateNucleotideMolecularWeight(sequence, isDna, doubleStranded,
+            new SequenceStatistics.MolecularWeightOptions { Monoisotopic = monoisotopic, Circular = circular, Strict = strict });
         return new MolecularWeightNucleotideResult(mw, "Da", isDna ? "DNA" : "RNA");
     }
 
@@ -220,9 +230,10 @@ public class SequenceTools
     /// Calculate isoelectric point (pI) of a protein sequence.
     /// </summary>
     [McpServerTool(Name = "isoelectric_point", Title = "Protein — Isoelectric Point", ReadOnly = true)]
-    [Description("Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge.")]
+    [Description("Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge. pK scale: 'Emboss' (EMBOSS iep, default) or 'Bjellqvist' (ExPASy Compute pI/Mw, Biopython IsoelectricPoint).")]
     public static IsoelectricPointResult IsoelectricPoint(
-        [Description("The protein sequence")] string sequence)
+        [Description("The protein sequence")] string sequence,
+        [Description("pK scale: 'Emboss' (default, EMBOSS iep) or 'Bjellqvist' (ExPASy / Biopython); case-insensitive")] string scale = "Emboss")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -230,8 +241,20 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var pI = SequenceStatistics.CalculateIsoelectricPoint(sequence);
+        var pI = SequenceStatistics.CalculateIsoelectricPoint(sequence, ParsePkaScale(scale));
         return new IsoelectricPointResult(pI);
+    }
+
+    // Exact (case-insensitive) PkaScale name; Enum.TryParse alone would also accept numeric strings.
+    private static SequenceStatistics.PkaScale ParsePkaScale(string scale)
+    {
+        foreach (var value in Enum.GetValues<SequenceStatistics.PkaScale>())
+        {
+            if (string.Equals(value.ToString(), scale, StringComparison.OrdinalIgnoreCase))
+                return value;
+        }
+
+        throw new ArgumentException($"Unknown pK scale '{scale}'. Expected one of: Emboss, Bjellqvist.", nameof(scale));
     }
 
     /// <summary>
@@ -256,16 +279,39 @@ public class SequenceTools
     /// Calculate thermodynamic properties of a DNA duplex.
     /// </summary>
     [McpServerTool(Name = "thermodynamics", Title = "DNA — Thermodynamic Properties", ReadOnly = true)]
-    [Description("Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method.")]
+    [Description("Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method (Allawi & SantaLucia 1997; Biopython Tm_NN with DNA_NN3). Optional self-complementary duplex, Biopython salt-correction method 0-7 with K+/Tris/Mg2+/dNTPs (mol/L), and unrounded output.")]
     public static ThermodynamicsResult Thermodynamics(
         [Description("The DNA sequence")] string sequence,
         [Description("Na+ concentration in M (default: 0.05 = 50mM)")] double naConcentration = 0.05,
-        [Description("Primer concentration in M (default: 0.00000025 = 250nM)")] double primerConcentration = 0.00000025)
+        [Description("Primer concentration in M (default: 0.00000025 = 250nM)")] double primerConcentration = 0.00000025,
+        [Description("Self-complementary (homo)duplex: symmetry correction and Tm uses C_T/1 instead of C_T/4 (Biopython selfcomp=True). Default false.")] bool selfComplementary = false,
+        [Description("Biopython salt-correction method 0-7: 0 none, 1-4 add to Tm, 5 SantaLucia 1998 entropy (default), 6 Owczarzy 2004, 7 Owczarzy 2008 (Mg2+/dNTPs)")] int saltMethod = 5,
+        [Description("K+ concentration in M (default 0)")] double kConcentration = 0,
+        [Description("Tris concentration in M (default 0)")] double trisConcentration = 0,
+        [Description("Mg2+ concentration in M (default 0)")] double mgConcentration = 0,
+        [Description("dNTPs concentration in M (default 0)")] double dntpsConcentration = 0,
+        [Description("Round ΔH/ΔS/ΔG to 2 decimals and Tm to 1 decimal (default true); false returns unrounded values")] bool roundResults = true)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var props = SequenceStatistics.CalculateThermodynamics(sequence, naConcentration, primerConcentration);
+        // Default conditions go through the 4-argument overload (identical results and Na+ > 0 guard);
+        // any salt option selects the ThermodynamicsOptions overload (FIN-B03 A23).
+        bool defaultConditions = saltMethod == (int)NnSaltCorrection.SantaLucia1998Entropy
+            && kConcentration == 0 && trisConcentration == 0 && mgConcentration == 0
+            && dntpsConcentration == 0 && roundResults;
+        var props = defaultConditions
+            ? SequenceStatistics.CalculateThermodynamics(sequence, naConcentration, primerConcentration, selfComplementary)
+            : SequenceStatistics.CalculateThermodynamics(sequence, naConcentration, primerConcentration, selfComplementary,
+                new SequenceStatistics.ThermodynamicsOptions
+                {
+                    SaltCorrection = (NnSaltCorrection)saltMethod,
+                    PotassiumConcentration = kConcentration,
+                    TrisConcentration = trisConcentration,
+                    MagnesiumConcentration = mgConcentration,
+                    DntpConcentration = dntpsConcentration,
+                    RoundResults = roundResults,
+                });
         return new ThermodynamicsResult(props.DeltaH, props.DeltaS, props.DeltaG, props.MeltingTemperature);
     }
 

@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateNucleotideComposition",
-  "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L48",
-  "description": "Calculate nucleotide composition (A, T, G, C, U counts) and GC content of a DNA/RNA sequence.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L60",
+  "description": "Calculate nucleotide composition (A, T, G, C, U, N counts; every other character in 'other') and GC content of a DNA/RNA sequence.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -16,30 +16,102 @@
         "minLength": 1
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "length": { "type": "integer", "description": "Total sequence length" },
-      "A": { "type": "integer", "description": "Count of adenine" },
-      "T": { "type": "integer", "description": "Count of thymine" },
-      "G": { "type": "integer", "description": "Count of guanine" },
-      "C": { "type": "integer", "description": "Count of cytosine" },
-      "U": { "type": "integer", "description": "Count of uracil (RNA)" },
-      "other": { "type": "integer", "description": "Count of other characters" },
-      "gcContent": { "type": "number", "description": "GC content ratio (0-1)" }
+      "length": {
+        "type": "integer",
+        "description": "Total sequence length"
+      },
+      "A": {
+        "type": "integer",
+        "description": "Count of adenine"
+      },
+      "T": {
+        "type": "integer",
+        "description": "Count of thymine"
+      },
+      "G": {
+        "type": "integer",
+        "description": "Count of guanine"
+      },
+      "C": {
+        "type": "integer",
+        "description": "Count of cytosine"
+      },
+      "U": {
+        "type": "integer",
+        "description": "Count of uracil (RNA)"
+      },
+      "other": {
+        "type": "integer",
+        "description": "Count of other characters"
+      },
+      "gcContent": {
+        "type": "number",
+        "description": "GC content ratio (0-1)"
+      },
+      "N": {
+        "type": "integer",
+        "description": "Count of N (any base); not included in other"
+      }
     },
-    "required": ["length", "A", "T", "G", "C", "U", "other", "gcContent"]
+    "required": [
+      "length",
+      "A",
+      "T",
+      "G",
+      "C",
+      "U",
+      "other",
+      "gcContent",
+      "N"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    }
   ],
   "examples": [
     {
       "name": "DNA composition",
-      "input": { "sequence": "ATGCATGC" },
-      "output": { "length": 8, "A": 2, "T": 2, "G": 2, "C": 2, "U": 0, "other": 0, "gcContent": 0.5 }
+      "input": {
+        "sequence": "ATGCATGC"
+      },
+      "output": {
+        "length": 8,
+        "A": 2,
+        "T": 2,
+        "G": 2,
+        "C": 2,
+        "U": 0,
+        "other": 0,
+        "gcContent": 0.5,
+        "N": 0
+      }
+    },
+    {
+      "name": "Sequence with N",
+      "input": {
+        "sequence": "ATGCNN"
+      },
+      "output": {
+        "length": 6,
+        "A": 1,
+        "T": 1,
+        "G": 1,
+        "C": 1,
+        "U": 0,
+        "other": 0,
+        "gcContent": 0.5,
+        "N": 2
+      }
     }
   ]
 }

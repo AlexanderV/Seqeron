@@ -18,7 +18,7 @@ Calculates the molecular weight of a DNA or RNA sequence in Daltons (Da). Uses a
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L180](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L180)
+- Source: [SequenceStatistics.cs#L491](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L491)
 
 ## Input Schema
 
@@ -26,6 +26,10 @@ Calculates the molecular weight of a DNA or RNA sequence in Daltons (Da). Uses a
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The DNA or RNA sequence (min length: 1) |
 | `isDna` | boolean | No | True for DNA, false for RNA (default: true) |
+| `doubleStranded` | boolean | No | Add the complementary strand (Biopython `double_stranded=True`; default false). AGC DNA → 1890.2057 |
+| `circular` | boolean | No | Circular molecule, one more water lost per strand (default false). AGC DNA → 931.5942; ds+circular 1854.1751 |
+| `monoisotopic` | boolean | No | Monoisotopic masses, water 18.010565 (default false). ATGCGTAC ds+circular → 4940.810128 |
+| `strict` | boolean | No | Reject symbols without a mass (N; U in DNA; T in RNA) instead of skipping them (default false) |
 
 ## Output Schema
 
@@ -40,6 +44,7 @@ Calculates the molecular weight of a DNA or RNA sequence in Daltons (Da). Uses a
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1001 | strict: '<c>' is not a valid unambiguous letter for DNA/RNA (strict mode). |
 
 ## Examples
 

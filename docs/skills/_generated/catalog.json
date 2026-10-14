@@ -3196,7 +3196,7 @@
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateIsoelectricPoint",
     "docPath": "docs/mcp/tools/sequence/isoelectric_point.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L228"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L597"
   },
   {
     "tool": "iupac_code",
@@ -3266,21 +3266,21 @@
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateNucleotideMolecularWeight",
     "docPath": "docs/mcp/tools/sequence/molecular_weight_nucleotide.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L180"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L491"
   },
   {
     "tool": "molecular_weight_protein",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateMolecularWeight",
     "docPath": "docs/mcp/tools/sequence/molecular_weight_protein.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L159"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L410"
   },
   {
     "tool": "nucleotide_composition",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateNucleotideComposition",
     "docPath": "docs/mcp/tools/sequence/nucleotide_composition.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L48"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L60"
   },
   {
     "tool": "protein_validate",
@@ -3322,7 +3322,7 @@
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateThermodynamics",
     "docPath": "docs/mcp/tools/sequence/thermodynamics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L381"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1037"
   },
   {
     "tool": "translate_dna",

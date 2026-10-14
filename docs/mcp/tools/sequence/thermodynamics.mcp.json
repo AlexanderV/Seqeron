@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateThermodynamics",
-  "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L381",
-  "description": "Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1037",
+  "description": "Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method (Allawi & SantaLucia 1997; Biopython Tm_NN with DNA_NN3). Optional self-complementary duplex, Biopython salt-correction method 0-7 with K+/Tris/Mg2+/dNTPs (mol/L), and unrounded output.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -23,29 +23,133 @@
       "primerConcentration": {
         "type": "number",
         "description": "Primer concentration in M (default: 0.00000025 = 250nM)",
-        "default": 0.00000025
+        "default": 2.5e-07
+      },
+      "selfComplementary": {
+        "type": "boolean",
+        "description": "Self-complementary (homo)duplex: ΔS° symmetry correction −1.4 and Tm uses C_T/1 instead of C_T/4 (Biopython selfcomp=True)",
+        "default": false
+      },
+      "saltMethod": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 7,
+        "description": "Biopython salt-correction method: 0 none, 1-4 add to Tm, 5 SantaLucia 1998 entropy (default), 6 Owczarzy 2004, 7 Owczarzy 2008 (Mg2+/dNTPs)",
+        "default": 5
+      },
+      "kConcentration": {
+        "type": "number",
+        "description": "K+ concentration in M (default 0)",
+        "default": 0
+      },
+      "trisConcentration": {
+        "type": "number",
+        "description": "Tris concentration in M (default 0)",
+        "default": 0
+      },
+      "mgConcentration": {
+        "type": "number",
+        "description": "Mg2+ concentration in M (default 0)",
+        "default": 0
+      },
+      "dntpsConcentration": {
+        "type": "number",
+        "description": "dNTPs concentration in M (default 0)",
+        "default": 0
+      },
+      "roundResults": {
+        "type": "boolean",
+        "description": "Round ΔH/ΔS/ΔG to 2 decimals and Tm to 1 decimal (default true); false returns unrounded values",
+        "default": true
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "deltaH": { "type": "number", "description": "Enthalpy change (kcal/mol)" },
-      "deltaS": { "type": "number", "description": "Entropy change (cal/mol·K)" },
-      "deltaG": { "type": "number", "description": "Gibbs free energy change at 37°C (kcal/mol)" },
-      "meltingTemperature": { "type": "number", "description": "Melting temperature (°C)" }
+      "deltaH": {
+        "type": "number",
+        "description": "Enthalpy change (kcal/mol)"
+      },
+      "deltaS": {
+        "type": "number",
+        "description": "Entropy change (cal/mol·K)"
+      },
+      "deltaG": {
+        "type": "number",
+        "description": "Gibbs free energy change at 37°C (kcal/mol)"
+      },
+      "meltingTemperature": {
+        "type": "number",
+        "description": "Melting temperature (°C)"
+      }
     },
-    "required": ["deltaH", "deltaS", "deltaG", "meltingTemperature"]
+    "required": [
+      "deltaH",
+      "deltaS",
+      "deltaG",
+      "meltingTemperature"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "Neighbour pair without nearest-neighbour parameters (inosine, e.g. 'II'; Biopython Tm_NN ValueError)"
+    },
+    {
+      "code": 1001,
+      "message": "Concentration not positive/non-negative finite, saltMethod outside 0-7, or zero total ion concentration for methods 1-6"
+    }
   ],
   "examples": [
     {
       "name": "DNA duplex thermodynamics",
-      "input": { "sequence": "ATGCGATCGATCG" },
-      "output": { "deltaH": -98.5, "deltaS": -267.2, "deltaG": -15.6, "meltingTemperature": 42.3 }
+      "input": {
+        "sequence": "ATGCGATCGATCG"
+      },
+      "output": {
+        "deltaH": -102.1,
+        "deltaS": -290.63,
+        "deltaG": -11.96,
+        "meltingTemperature": 42.4
+      }
+    },
+    {
+      "name": "Owczarzy 2008 Mg2+/dNTPs (Biopython Tm_NN saltcorr=7: 67.73409261682195)",
+      "input": {
+        "sequence": "CGTTCCAAAGATGTGGGCATGAGCTTAC",
+        "saltMethod": 7,
+        "kConcentration": 0.02,
+        "trisConcentration": 0.01,
+        "mgConcentration": 0.0015,
+        "dntpsConcentration": 0.0008
+      },
+      "output": {
+        "deltaH": -222.9,
+        "deltaS": -602.5,
+        "deltaG": -36.03,
+        "meltingTemperature": 67.7
+      }
+    },
+    {
+      "name": "Self-complementary (Biopython selfcomp=True: 46.96872419752236)",
+      "input": {
+        "sequence": "CGCGAATTCGCG",
+        "selfComplementary": true
+      },
+      "output": {
+        "deltaH": -101.2,
+        "deltaS": -285.93,
+        "deltaG": -12.52,
+        "meltingTemperature": 47.0
+      }
     }
   ]
 }

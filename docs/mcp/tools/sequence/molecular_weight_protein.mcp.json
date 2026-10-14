@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateMolecularWeight",
-  "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L159",
-  "description": "Calculate the molecular weight of a protein sequence in Daltons (Da).",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L410",
+  "description": "Calculate the molecular weight of a protein sequence in Daltons (Da) (Biopython molecular_weight(seq, 'protein')). Optional monoisotopic masses, head-to-tail cyclic peptide (circular) and strict mode (reject B/Z/J/X/'*' instead of skipping them).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -14,27 +14,80 @@
         "type": "string",
         "description": "The protein sequence",
         "minLength": 1
+      },
+      "monoisotopic": {
+        "type": "boolean",
+        "description": "Monoisotopic residue masses and water 18.010565 Da (Biopython monoisotopic=True)",
+        "default": false
+      },
+      "circular": {
+        "type": "boolean",
+        "description": "Head-to-tail cyclic peptide: one more water lost (Biopython circular=True)",
+        "default": false
+      },
+      "strict": {
+        "type": "boolean",
+        "description": "Reject residues without a mass (B, Z, J, X, '*') like Biopython ValueError instead of skipping them",
+        "default": false
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "molecularWeight": { "type": "number", "description": "Molecular weight in Daltons" },
-      "unit": { "type": "string", "description": "Unit of measurement (Da)" }
+      "molecularWeight": {
+        "type": "number",
+        "description": "Molecular weight in Daltons"
+      },
+      "unit": {
+        "type": "string",
+        "description": "Unit of measurement (Da)"
+      }
     },
-    "required": ["molecularWeight", "unit"]
+    "required": [
+      "molecularWeight",
+      "unit"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 2002, "message": "Invalid protein sequence" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 2002,
+      "message": "Invalid protein sequence"
+    },
+    {
+      "code": 1001,
+      "message": "strict: '<c>' is not a valid unambiguous letter for protein (strict mode)."
+    }
   ],
   "examples": [
     {
       "name": "Protein molecular weight",
-      "input": { "sequence": "MAEGEITTFT" },
-      "output": { "molecularWeight": 1140.25, "unit": "Da" }
+      "input": {
+        "sequence": "MAEGEITTFT"
+      },
+      "output": {
+        "molecularWeight": 1140.25,
+        "unit": "Da"
+      }
+    },
+    {
+      "name": "Monoisotopic cyclic peptide (Biopython 256.117152)",
+      "input": {
+        "sequence": "GAGA",
+        "monoisotopic": true,
+        "circular": true
+      },
+      "output": {
+        "molecularWeight": 256.117152,
+        "unit": "Da"
+      }
     }
   ]
 }

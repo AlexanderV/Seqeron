@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateNucleotideMolecularWeight",
-  "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L180",
-  "description": "Calculate the molecular weight of a DNA or RNA sequence in Daltons (Da).",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L491",
+  "description": "Calculate the molecular weight of a DNA or RNA sequence in Daltons (Da) (Biopython molecular_weight). Optional double-stranded (adds the complementary strand), circular, monoisotopic masses and strict mode (reject symbols without a mass instead of skipping them).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -19,32 +19,100 @@
         "type": "boolean",
         "description": "True for DNA, false for RNA (default: true)",
         "default": true
+      },
+      "doubleStranded": {
+        "type": "boolean",
+        "description": "Add the Watson-Crick complementary strand (Biopython double_stranded=True)",
+        "default": false
+      },
+      "circular": {
+        "type": "boolean",
+        "description": "Circular molecule: one more water lost per strand (Biopython circular=True)",
+        "default": false
+      },
+      "monoisotopic": {
+        "type": "boolean",
+        "description": "Monoisotopic nucleotide masses and water 18.010565 Da (Biopython monoisotopic=True)",
+        "default": false
+      },
+      "strict": {
+        "type": "boolean",
+        "description": "Reject symbols without a mass (N; U in DNA; T in RNA) like Biopython ValueError instead of skipping them",
+        "default": false
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "molecularWeight": { "type": "number", "description": "Molecular weight in Daltons" },
-      "unit": { "type": "string", "description": "Unit of measurement (Da)" },
-      "sequenceType": { "type": "string", "description": "DNA or RNA" }
+      "molecularWeight": {
+        "type": "number",
+        "description": "Molecular weight in Daltons"
+      },
+      "unit": {
+        "type": "string",
+        "description": "Unit of measurement (Da)"
+      },
+      "sequenceType": {
+        "type": "string",
+        "description": "DNA or RNA"
+      }
     },
-    "required": ["molecularWeight", "unit", "sequenceType"]
+    "required": [
+      "molecularWeight",
+      "unit",
+      "sequenceType"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1001,
+      "message": "strict: '<c>' is not a valid unambiguous letter for DNA/RNA (strict mode)."
+    }
   ],
   "examples": [
     {
       "name": "DNA molecular weight",
-      "input": { "sequence": "ATGC", "isDna": true },
-      "output": { "molecularWeight": 1307.8, "unit": "Da", "sequenceType": "DNA" }
+      "input": {
+        "sequence": "ATGC",
+        "isDna": true
+      },
+      "output": {
+        "molecularWeight": 1307.8,
+        "unit": "Da",
+        "sequenceType": "DNA"
+      }
     },
     {
       "name": "RNA molecular weight",
-      "input": { "sequence": "AUGC", "isDna": false },
-      "output": { "molecularWeight": 1357.2, "unit": "Da", "sequenceType": "RNA" }
+      "input": {
+        "sequence": "AUGC",
+        "isDna": false
+      },
+      "output": {
+        "molecularWeight": 1357.2,
+        "unit": "Da",
+        "sequenceType": "RNA"
+      }
+    },
+    {
+      "name": "Double-stranded DNA (Biopython 1890.2057)",
+      "input": {
+        "sequence": "AGC",
+        "doubleStranded": true
+      },
+      "output": {
+        "molecularWeight": 1890.2057,
+        "unit": "Da",
+        "sequenceType": "DNA"
+      }
     }
   ]
 }

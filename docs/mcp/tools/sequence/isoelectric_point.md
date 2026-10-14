@@ -18,13 +18,14 @@ Calculates the isoelectric point (pI) of a protein sequence. The pI is the pH at
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L228](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L228)
+- Source: [SequenceStatistics.cs#L597](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L597)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The protein sequence (min length: 1) |
+| `scale` | string | No | pK scale: `Emboss` (default; EMBOSS 6.6.0 `iep`) or `Bjellqvist` (ExPASy Compute pI/Mw, Biopython `IsoelectricPoint`); case-insensitive. E.g. INGAR: Bjellqvist 9.75 (Biopython 9.750021). |
 
 ## Output Schema
 
@@ -38,6 +39,7 @@ Calculates the isoelectric point (pI) of a protein sequence. The pI is the pH at
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 2002 | Invalid protein sequence |
+| 1001 | Unknown pK scale '<scale>'. Expected one of: Emboss, Bjellqvist. |
 
 ## Examples
 

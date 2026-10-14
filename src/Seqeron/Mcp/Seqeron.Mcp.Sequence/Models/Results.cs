@@ -51,7 +51,7 @@ public record HydrophobicityResult(double Gravy);
 // ================================
 
 /// <summary>Result of nucleotide_composition operation.</summary>
-public record NucleotideCompositionResult(int Length, int A, int T, int G, int C, int U, int Other, double GcContent);
+public record NucleotideCompositionResult(int Length, int A, int T, int G, int C, int U, int Other, double GcContent, int N);
 
 /// <summary>Result of molecular_weight_nucleotide operation.</summary>
 public record MolecularWeightNucleotideResult(double MolecularWeight, string Unit, string SequenceType);
