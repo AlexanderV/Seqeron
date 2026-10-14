@@ -42,7 +42,7 @@ and commits it after every change. Batch definitions (units, owned files) are in
   it can be re-verified when 5-5 becomes available again. This applies to every session of the campaign, including
   the orchestrator's own and any future resume/finisher, not only to the session where it was first noticed.
 
-## State (2026-10-14 18:40 UTC) — FIN-B03 DONE; FIN-B02 + B08 still running
+## State (2026-10-14 23:00 UTC) — FIN-B02 finishing; SRC + B08 resume-4 launched
 - **FIN-B03 DONE** (session_019yqGyk8v1PunaUYAP83i7B archived, 10:35 – 17:57, ≈ $75.1, served claude-opus-5-5
   throughout, as was the B03 first pass — so B03 goes into "Finished batches"): audit rounds 1–3 + final round,
   F22 onwards, dedup sweep, heavy tier once (da6bd804), final report 5bcceeca. 73 changed docs listed for wiki
@@ -261,6 +261,18 @@ fetched page (not a 403).
 Also newly verifiable, but **B08-owned** (handled by the B08 session, not by SRC): the Addgene 8–10 nt seed-range
 citation at `src/.../MolTools/CrisprDesigner.cs:258`, which B08 WP-SRC had to leave unverifiable
 (nothing depends on it numerically; the comment states its own derivation).
+
+## Running sessions (2026-10-14 23:00 UTC)
+| Task | Session | Configured / served | Scope |
+|---|---|---|---|
+| FIN-B02 | `session_016tDCWJHjR3NXKjhHLFynHz` | 5-5 / **5-5** | heavy tier done, writing the final report (WP27b 5-5 re-verification landed as `f278de8f`) |
+| SRC (sources & citations) | `session_01Wa9VJs4Gp5H1yEXuySyxf8` | 5-5 / verify at check-in | A: RO2 ProtScale exponential (SRC for B03); B: the citation audit — 428 files, 790 occurrences, **206 distinct URLs** (5 Addgene), classify NUMBER / DEFINITION / BIBLIOGRAPHY, fetch and verify every NUMBER, re-anchor code- and test-driving numbers to primary sources, mark the rest "inherited, not re-verified"; C: RO1 Kazusa per-thousand **only if FIN-B02 has landed**, else fetch + register. Report `SRC.md`, WIP branch `…-wip-SRC` |
+| B08 resume-4 | `session_01Gei6HyCuq5texhxCCGEvji` | 5-5 / verify at check-in | the `## Resume state` list in B08.md: D3 → D5+D12 → D14+D17 → D15+D16 → D9 → D10 → D7 → D8 → D11 → D6 → D4 → D18 → D19, then round-1 fast tier → round 2 → dedup → final audit → heavy tier → report. Also the now-reachable Addgene citation at `CrisprDesigner.cs:258` |
+
+Ownership while these three run: SRC must not touch B02-owned or B08-owned files (its prompt names them); B08 keeps its own
+`CRISPR-*`/`RESTR-*` citations; nobody force-pushes the shared branch. Two sessions launched at 22:56 without a repo
+source (`config:no-git-repo`, my omission) were interrupted after ~20 s and archived — $0.36 total, no commits; the
+replacements above carry `source_url` + `source_revision`.
 
 ## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
 B01 (FIN-B01 2026-10-09), B03 (FIN-B03 2026-10-14), B04, B05, B06, B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with
