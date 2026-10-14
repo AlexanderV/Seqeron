@@ -415,7 +415,7 @@ public class TranslationSixFrameFuzzTests
     [Test]
     public void SixFrames_NullDna_ThrowsArgumentNullException_NotNullReference()
     {
-        Action act = () => Translator.TranslateSixFrames(null!);
+        Action act = () => Translator.TranslateSixFrames((DnaSequence)null!);
         act.Should().Throw<ArgumentNullException>("null dna is rejected intentionally")
             .And.ParamName.Should().Be("dna");
     }

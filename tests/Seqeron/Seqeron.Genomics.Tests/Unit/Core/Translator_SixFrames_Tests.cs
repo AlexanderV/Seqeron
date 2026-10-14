@@ -128,7 +128,7 @@ public class Translator_SixFrames_Tests
     public void TranslateSixFrames_NullInput_ThrowsArgumentNullException()
     {
         Assert.Throws<System.ArgumentNullException>(
-            () => Translator.TranslateSixFrames(null!),
+            () => Translator.TranslateSixFrames((DnaSequence)null!),
             "Null sequence is invalid input.");
     }
 
@@ -241,7 +241,7 @@ public class Translator_SixFrames_Tests
     public void FindOrfs_NullInput_ThrowsArgumentNullException()
     {
         Assert.Throws<System.ArgumentNullException>(
-            () => Translator.FindOrfs(null!).ToList(),
+            () => Translator.FindOrfs((DnaSequence)null!).ToList(),
             "Null sequence is invalid input.");
     }
 

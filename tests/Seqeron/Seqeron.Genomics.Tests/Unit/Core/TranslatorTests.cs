@@ -222,7 +222,7 @@ public class TranslatorTests
     public void TranslateSixFrames_NullInput_ThrowsException()
     {
         // Source: Implementation spec - null input handling
-        Assert.Throws<ArgumentNullException>(() => Translator.TranslateSixFrames(null!));
+        Assert.Throws<ArgumentNullException>(() => Translator.TranslateSixFrames((DnaSequence)null!));
     }
 
     [Test]
@@ -332,7 +332,7 @@ public class TranslatorTests
     [Test]
     public void FindOrfs_NullDna_ThrowsException()
     {
-        Assert.Throws<ArgumentNullException>(() => Translator.FindOrfs(null!).ToList());
+        Assert.Throws<ArgumentNullException>(() => Translator.FindOrfs((DnaSequence)null!).ToList());
     }
 
     [Test]

@@ -149,30 +149,95 @@ namespace Seqeron.Genomics.Core
             int minLength = 100, bool searchBothStrands = true)
         {
             ArgumentNullException.ThrowIfNull(dna);
+            var code = RequireOrfGeneticCode(geneticCode);
+            return FindOrfsCore(dna.Sequence, code, minLength, searchBothStrands);
+        }
+
+        /// <summary>
+        /// Finds START→STOP ORFs (getorf <c>-find 1</c> model) in a nucleotide string that may contain
+        /// IUPAC ambiguity codes — e.g. a genome with N runs — exactly like
+        /// <see cref="FindOrfs(DnaSequence, GeneticCode?, int, bool)"/> on an A/C/G/T sequence.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Input: case-insensitive IUPAC DNA or RNA (A, C, G, T, U, R, Y, S, W, K, M, B, D, H, V, N; U is
+        /// read as T); coordinates and the reverse strand are those of the upper-case DNA spelling
+        /// (reverse complement by the canonical IUPAC complement,
+        /// <see cref="DnaSequence.GetReverseComplementString(string)"/>).
+        /// </para>
+        /// <para>
+        /// Ambiguous codons follow the getorf port rules (see
+        /// <see cref="FindOrfs(string, OrfFindMode, GeneticCode?, int, int, int, bool, bool, bool)"/>): a
+        /// codon is a STOP only when every concrete codon it stands for is a stop (e.g. TAR, TRA in table 1);
+        /// it is a START only when it is an unambiguous start codon (EMBOSS <c>ajTrnCodonstrTypeC</c>: the
+        /// Starts table holds only A/C/G/T codons, so YTG never opens an ORF); residues are resolved by
+        /// <see cref="GeneticCode.Translate(string)"/> (Biopython ambiguous tables: GCN → A, RAY → B,
+        /// NNN → X).
+        /// </para>
+        /// </remarks>
+        /// <param name="sequence">IUPAC nucleotide sequence (DNA or RNA, case-insensitive).</param>
+        /// <param name="geneticCode">The genetic code to use (default: Standard).</param>
+        /// <param name="minLength">Minimum ORF length in amino acids (default: 100).</param>
+        /// <param name="searchBothStrands">Search both forward and reverse complement strands.</param>
+        /// <returns>Enumerable of ORF results.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+        /// <exception cref="ArgumentException"><paramref name="sequence"/> contains a non-IUPAC symbol, or the
+        /// genetic code has dual-coding stop codons (tables 27, 28, 31).</exception>
+        public static IEnumerable<OrfResult> FindOrfs(string sequence, GeneticCode? geneticCode = null,
+            int minLength = 100, bool searchBothStrands = true)
+        {
+            string normalized = NormalizeIupacNucleotides(sequence);
+            var code = RequireOrfGeneticCode(geneticCode);
+            return FindOrfsCore(normalized, code, minLength, searchBothStrands);
+        }
+
+        private static IEnumerable<OrfResult> FindOrfsCore(string sequence, GeneticCode code, int minLength, bool searchBothStrands)
+        {
+            // Search forward strand in all three frames
+            foreach (var orf in FindOrfsInSequence(sequence, code, minLength, false))
+                yield return orf;
+
+            // Search reverse complement strand
+            if (searchBothStrands)
+            {
+                foreach (var orf in FindOrfsInSequence(DnaSequence.GetReverseComplementString(sequence), code, minLength, true))
+                    yield return orf;
+            }
+        }
+
+        // ORF finding needs codons that unambiguously terminate: tables with dual-coding stops are rejected.
+        private static GeneticCode RequireOrfGeneticCode(GeneticCode? geneticCode)
+        {
             var code = geneticCode ?? GeneticCode.Standard;
             if (HasDualCodingStopCodons(code))
                 throw new ArgumentException(
                     $"ORF finding cannot be used with genetic code table {code.TableNumber} " +
                     "because its stop codons also code for an amino acid (context-dependent termination).",
                     nameof(geneticCode));
-            return FindOrfsCore(dna, code, minLength, searchBothStrands);
+            return code;
         }
 
-        private static IEnumerable<OrfResult> FindOrfsCore(DnaSequence dna, GeneticCode code, int minLength, bool searchBothStrands)
+        // Validates an IUPAC nucleotide string (A C G T U R Y S W K M B D H V N, any case) and returns
+        // its upper-case DNA spelling (U → T), the alphabet of the IUPAC-aware string overloads.
+        private static string NormalizeIupacNucleotides(string sequence)
         {
-
-            // Search forward strand in all three frames
-            foreach (var orf in FindOrfsInSequence(dna.Sequence, code, minLength, false))
-                yield return orf;
-
-            // Search reverse complement strand
-            if (searchBothStrands)
+            ArgumentNullException.ThrowIfNull(sequence);
+            string upper = SequenceExtensions.ToUpperAscii(sequence).Replace('U', 'T');
+            for (int i = 0; i < upper.Length; i++)
             {
-                var revComp = dna.ReverseComplement();
-                foreach (var orf in FindOrfsInSequence(revComp.Sequence, code, minLength, true))
-                    yield return orf;
+                if (!IupacHelper.IsNucleotideCode(upper[i]))
+                    throw new ArgumentException(
+                        $"Invalid nucleotide '{sequence[i]}' at position {i}: expected an IUPAC nucleotide code " +
+                        "(A, C, G, T, U, R, Y, S, W, K, M, B, D, H, V, N).", nameof(sequence));
             }
+            return upper;
         }
+
+        // getorf codon classification (EMBOSS ajTrnCodonstrTypeC): START only when the Starts table marks
+        // the codon 'M' — EMBOSS fills it for the 64 A/C/G/T codons only, so an ambiguous codon is never a
+        // START (verified with the getorf 6.6.0 binary: YTG does not open an ORF in table 1).
+        private static bool IsOrfStartCodon(GeneticCode code, string codon) =>
+            IsUnambiguousDnaCodon(codon) && code.IsStartCodon(codon);
 
         // EMBOSS getorf.acd defaults: -minsize 30, -maxsize 1000000, -flanking 100.
         private const int GetOrfDefaultMinSize = 30;
@@ -181,19 +246,18 @@ namespace Seqeron.Genomics.Core
 
         /// <summary>
         /// Finds ORFs (or the nucleotides flanking their START / STOP codons) with any of the seven
-        /// EMBOSS getorf <c>-find</c> modes.
+        /// EMBOSS getorf <c>-find</c> modes, on a linear or (getorf <c>-circular</c>) circular sequence.
         /// </summary>
         /// <remarks>
         /// <para>
         /// Port of EMBOSS getorf <c>getorf_FindORFs</c> / <c>getorf_WriteORF</c> / <c>getorf_AppORF</c>
-        /// (emboss/getorf.c, linear sequences; <c>-circular</c> is not supported). Two ORF
-        /// definitions (getorf.acd <c>-find</c> help): a region free of STOP codons (modes 0, 2, 5, 6;
-        /// every frame is treated as already open at the sequence start, so the leading region
-        /// before the first STOP and the trailing region after the last STOP are reported too),
-        /// or a region that begins with a START codon and ends with a STOP codon (modes 1, 3, 4;
-        /// nested in-frame STARTs do not open a new ORF). An ORF that reaches the strand end
-        /// without a STOP ends at the last base of the last complete codon (getorf
-        /// <c>WriteORF(start, pos+2)</c>).
+        /// (emboss/getorf.c). Two ORF definitions (getorf.acd <c>-find</c> help): a region free of
+        /// STOP codons (modes 0, 2, 5, 6; on a linear sequence every frame is treated as already open
+        /// at the sequence start, so the leading region before the first STOP and the trailing region
+        /// after the last STOP are reported too), or a region that begins with a START codon and ends
+        /// with a STOP codon (modes 1, 3, 4; nested in-frame STARTs do not open a new ORF). An ORF
+        /// that reaches the strand end without a STOP ends at the last base of the last complete
+        /// codon (getorf <c>WriteORF(start, pos+2)</c>).
         /// </para>
         /// <para>
         /// Size filter (getorf <c>-minsize</c> / <c>-maxsize</c>, in nucleotides): for the
@@ -209,15 +273,37 @@ namespace Seqeron.Genomics.Core
         /// <see cref="FindOrfs(DnaSequence, GeneticCode?, int, bool)"/>: for modes 0–3 the region is
         /// the ORF with a stop-inclusive end (see <see cref="OrfFeature.IsTerminated"/>); for modes
         /// 4–6 it is the flank window <c>[codon − flanking, codon + 2 + flanking]</c>.
+        /// <see cref="OrfFeature.Frame"/> is ±(offset of the ORF's first base mod 3, plus 1).
         /// <see cref="OrfFeature.ToGetOrfRange(int)"/> gives getorf's 1-based <c>[s - e]</c> header.
         /// Results are yielded in getorf output order (forward strand, then reverse strand; within a
         /// strand in the order the ORFs close), so the k-th result is getorf's <c>name_k</c>.
         /// </para>
         /// <para>
-        /// Documented divergence (shared with the START→STOP overload): in modes 1, 3, 4 a START
-        /// that is the last complete codon of its frame forms a one-codon open ORF that is reported
-        /// when it passes the size filter; getorf never writes it (its START branch precedes the
-        /// end-of-sequence branch, so the ORF is left open when the loop ends).
+        /// <paramref name="circular"/> (getorf <c>-circular</c>): as getorf, the sequence of length L is
+        /// scanned three times end to end ("append it to itself to triple its length so can deal easily
+        /// with wrapped ORFs") and its reverse complement likewise; every frame starts closed (no
+        /// leading region), a START at or past position L is ignored, and a frame stops at its first
+        /// STOP / end codon at or past L. A reported region that starts at or past L is shifted back by
+        /// L (getorf <c>while(s &gt; len)</c>), so <see cref="OrfFeature.StartPosition"/> lies in
+        /// [0, L) while <see cref="OrfFeature.EndPosition"/> may reach past L − 1: such an ORF crosses
+        /// the origin (getorf "(ORF crosses the breakpoint)"; base i ≥ L is base i mod L), and its
+        /// <see cref="OrfFeature.Sequence"/> runs across the origin. Flank windows (modes 4–6) are
+        /// taken from the tripled sequence and dropped only when they leave [0, 3L). In modes 0 and 2,
+        /// a frame of the tripled sequence that contains no STOP at all is reported, after the
+        /// scan, as one open record from offset f to the last base (getorf "full length of a circular
+        /// genome" block: start f, end 3L − 1); in mode 0 its 1–2 trailing bases that do not form a
+        /// codon are translated as EMBOSS <c>ajTrnSeqOrig</c> does (two bases b1 b2 as b1 b2 N, one base
+        /// as X), in mode 2 they are kept.
+        /// </para>
+        /// <para>
+        /// Documented divergences from the getorf 6.6.0 binary: (1) in modes 1, 3, 4 on a linear
+        /// sequence, a START that is the last complete codon of its frame forms a one-codon open ORF
+        /// that is reported when it passes the size filter; getorf never writes it (its START branch
+        /// precedes the end-of-sequence branch, so the ORF is left open when the loop ends). (2) The
+        /// circular full-length record of mode 2 holds the frame's nucleotides and is size-filtered by
+        /// nucleotide length (getorf writes the protein and compares its residue count with the
+        /// nucleotide bounds), and the frame-3 full-length record uses the same <c>≤ maxsize</c> test
+        /// as frames 1–2 (getorf.c tests <c>&gt;= maxsize</c> for frame 3, a typo).
         /// </para>
         /// </remarks>
         /// <param name="dna">The DNA sequence to search.</param>
@@ -228,47 +314,115 @@ namespace Seqeron.Genomics.Core
         /// <param name="flanking">getorf <c>-flanking</c>: bases reported on each side of the codon in modes 4–6 (default 100).</param>
         /// <param name="searchBothStrands">getorf <c>-reverse</c>: also search the reverse complement (default true).</param>
         /// <param name="methionine">getorf <c>-methionine</c>: report the initiator residue as Met in mode 1 (default true).</param>
+        /// <param name="circular">getorf <c>-circular</c>: treat the sequence as circular (default false; see remarks).</param>
         /// <returns>The reported ORFs / flank windows in getorf output order.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="dna"/> is null.</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="mode"/> is undefined, or a size / flanking value is negative.</exception>
         /// <exception cref="ArgumentException">The genetic code has dual-coding stop codons (tables 27, 28, 31).</exception>
         public static IEnumerable<OrfFeature> FindOrfs(DnaSequence dna, OrfFindMode mode, GeneticCode? geneticCode = null,
             int minSize = GetOrfDefaultMinSize, int maxSize = GetOrfDefaultMaxSize, int flanking = GetOrfDefaultFlanking,
-            bool searchBothStrands = true, bool methionine = true)
+            bool searchBothStrands = true, bool methionine = true, bool circular = false)
         {
             ArgumentNullException.ThrowIfNull(dna);
+            var settings = CreateGetOrfSettings(mode, geneticCode, minSize, maxSize, flanking, methionine);
+            return FindOrfsGetOrfCore(dna.Sequence, settings, searchBothStrands, circular);
+        }
+
+        /// <summary>
+        /// Finds ORFs / flank windows with the EMBOSS getorf <c>-find</c> modes in a nucleotide string
+        /// that may contain IUPAC ambiguity codes (e.g. a genome with N runs), as getorf scans it.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Same algorithm, defaults, coordinates and output order as
+        /// <see cref="FindOrfs(DnaSequence, OrfFindMode, GeneticCode?, int, int, int, bool, bool, bool)"/>.
+        /// Input: case-insensitive IUPAC DNA or RNA (A, C, G, T, U, R, Y, S, W, K, M, B, D, H, V, N; U is
+        /// read as T, as getorf does); nucleotide output (modes 2–6) is the upper-case DNA spelling, and
+        /// the reverse strand is the canonical IUPAC reverse complement
+        /// (<see cref="DnaSequence.GetReverseComplementString(string)"/>; R↔Y, K↔M, B↔V, D↔H).
+        /// </para>
+        /// <para>
+        /// Ambiguous codons. START: only an unambiguous start codon opens an ORF — EMBOSS
+        /// <c>ajTrnCodonstrTypeC</c> reads the Starts table, which EMBOSS fills for the 64 A/C/G/T codons
+        /// only (an ambiguous codon such as YTG in table 1 is never a START). STOP: a codon ends an ORF
+        /// only when every concrete codon it stands for is a stop (<see cref="GeneticCode.Translate(string)"/>
+        /// returns '*': TAR, TRA in table 1); a possible stop such as TAN or NNN reads through as 'X'.
+        /// Residues (modes 0, 1): <see cref="GeneticCode.Translate(string)"/> (Biopython ambiguous tables).
+        /// EMBOSS instead resolves an ambiguous codon from a precomputed table (<c>trnComplete</c>: third-base
+        /// wobble, plus one "most ambiguous codon" per amino acid built by OR-ing the codons' bases); that
+        /// table is right for the wobble codons and translates every other ambiguous codon as 'X', but its
+        /// OR-ed entries can be wrong — table 1: TRR → '*' although TGG is Trp, TRA (TAA/TGA, all stops) → X,
+        /// YTN → L although TTT/TTC are Phe. Those codons are the documented differences from the getorf
+        /// binary (see the TRANS-SIXFRAME-001 Evidence); every other ambiguous codon gives getorf's ORFs,
+        /// and the residue differs from getorf only where getorf prints 'X' and the genetic code still
+        /// determines the residue (e.g. RAY → B in table 1).
+        /// </para>
+        /// </remarks>
+        /// <param name="sequence">IUPAC nucleotide sequence (DNA or RNA, case-insensitive).</param>
+        /// <param name="mode">The getorf <c>-find</c> mode.</param>
+        /// <param name="geneticCode">The genetic code (default: Standard, NCBI table 1).</param>
+        /// <param name="minSize">getorf <c>-minsize</c>: minimum ORF size in nucleotides (default 30).</param>
+        /// <param name="maxSize">getorf <c>-maxsize</c>: maximum ORF size in nucleotides (default 1 000 000).</param>
+        /// <param name="flanking">getorf <c>-flanking</c>: bases reported on each side of the codon in modes 4–6 (default 100).</param>
+        /// <param name="searchBothStrands">getorf <c>-reverse</c>: also search the reverse complement (default true).</param>
+        /// <param name="methionine">getorf <c>-methionine</c>: report the initiator residue as Met in mode 1 (default true).</param>
+        /// <param name="circular">getorf <c>-circular</c>: treat the sequence as circular (default false).</param>
+        /// <returns>The reported ORFs / flank windows in getorf output order.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="mode"/> is undefined, or a size / flanking value is negative.</exception>
+        /// <exception cref="ArgumentException"><paramref name="sequence"/> contains a non-IUPAC symbol, or the
+        /// genetic code has dual-coding stop codons (tables 27, 28, 31).</exception>
+        public static IEnumerable<OrfFeature> FindOrfs(string sequence, OrfFindMode mode, GeneticCode? geneticCode = null,
+            int minSize = GetOrfDefaultMinSize, int maxSize = GetOrfDefaultMaxSize, int flanking = GetOrfDefaultFlanking,
+            bool searchBothStrands = true, bool methionine = true, bool circular = false)
+        {
+            string normalized = NormalizeIupacNucleotides(sequence);
+            var settings = CreateGetOrfSettings(mode, geneticCode, minSize, maxSize, flanking, methionine);
+            return FindOrfsGetOrfCore(normalized, settings, searchBothStrands, circular);
+        }
+
+        private static GetOrfSettings CreateGetOrfSettings(OrfFindMode mode, GeneticCode? geneticCode,
+            int minSize, int maxSize, int flanking, bool methionine)
+        {
             if (!Enum.IsDefined(mode))
                 throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown getorf -find mode (0–6).");
             ArgumentOutOfRangeException.ThrowIfNegative(minSize);
             ArgumentOutOfRangeException.ThrowIfNegative(maxSize);
             ArgumentOutOfRangeException.ThrowIfNegative(flanking);
-            var code = geneticCode ?? GeneticCode.Standard;
-            if (HasDualCodingStopCodons(code))
-                throw new ArgumentException(
-                    $"ORF finding cannot be used with genetic code table {code.TableNumber} " +
-                    "because its stop codons also code for an amino acid (context-dependent termination).",
-                    nameof(geneticCode));
-            var settings = new GetOrfSettings(mode, code, minSize, maxSize, flanking, methionine);
-            return FindOrfsGetOrfCore(dna, settings, searchBothStrands);
+            var code = RequireOrfGeneticCode(geneticCode);
+            return new GetOrfSettings(mode, code, minSize, maxSize, flanking, methionine);
         }
 
         private readonly record struct GetOrfSettings(OrfFindMode Mode, GeneticCode Code,
             int MinSize, int MaxSize, int Flanking, bool Methionine);
 
-        private static IEnumerable<OrfFeature> FindOrfsGetOrfCore(DnaSequence dna, GetOrfSettings settings, bool searchBothStrands)
+        private static IEnumerable<OrfFeature> FindOrfsGetOrfCore(string sequence, GetOrfSettings settings,
+            bool searchBothStrands, bool circular)
         {
-            foreach (var feature in ScanGetOrf(dna.Sequence, settings, isReverseComplement: false))
+            int length = sequence.Length;
+            if (length == 0)
+                yield break;
+
+            // getorf main(): "if the sequence is circular, append it to itself to triple its length so can
+            // deal easily with wrapped ORFs, but don't update len"; the reverse pass reverse-complements
+            // the tripled sequence (ajSeqReverseForce).
+            string scanned = circular ? string.Concat(sequence, sequence, sequence) : sequence;
+
+            foreach (var feature in ScanGetOrf(scanned, length, settings, isReverseComplement: false, circular))
                 yield return feature;
 
             if (searchBothStrands)
             {
-                foreach (var feature in ScanGetOrf(dna.ReverseComplement().Sequence, settings, isReverseComplement: true))
+                foreach (var feature in ScanGetOrf(DnaSequence.GetReverseComplementString(scanned), length, settings,
+                    isReverseComplement: true, circular))
                     yield return feature;
             }
         }
 
-        // getorf_FindORFs (non-circular): one pass over every codon position; frame = pos % 3.
-        private static IEnumerable<OrfFeature> ScanGetOrf(string sequence, GetOrfSettings s, bool isReverseComplement)
+        // getorf_FindORFs: one pass over every codon position of the (possibly tripled) sequence;
+        // frame = pos % 3; len = length of the original sequence.
+        private static IEnumerable<OrfFeature> ScanGetOrf(string sequence, int len, GetOrfSettings s,
+            bool isReverseComplement, bool circular)
         {
             var mode = s.Mode;
             // getorf main(): "get the minimum size converted to protein length if storing protein sequences".
@@ -283,48 +437,73 @@ namespace Seqeron.Genomics.Core
             var open = new bool[ReadingFramesPerStrand];
             var start = new int[ReadingFramesPerStrand];
             var buffer = new StringBuilder[ReadingFramesPerStrand];
+            // LASTORF: the frame hit its last STOP / end codon past the end of a circular genome.
+            var finished = new bool[ReadingFramesPerStrand];
+            // GOTSTOP: the frame contains at least one STOP (circular STOP→STOP modes).
+            var gotStop = new bool[ReadingFramesPerStrand];
             for (int f = 0; f < ReadingFramesPerStrand; f++)
             {
                 buffer[f] = new StringBuilder();
-                // STOP→STOP modes: "assume already in a ORF so we get ORFs at the start of the sequence".
-                open[f] = !startToStop;
+                // Linear STOP→STOP modes: "assume already in a ORF so we get ORFs at the start of the sequence".
+                open[f] = !circular && !startToStop;
                 start[f] = f;
             }
 
             for (int pos = 0; pos + CodonLength <= n; pos++)
             {
                 int frame = pos % ReadingFramesPerStrand;
+                // "don't want to find extra ORFs when already been round circ"
+                if (finished[frame])
+                    continue;
+
                 string codon = sequence.Substring(pos, CodonLength);
                 char aa = s.Code.Translate(codon);
                 bool isStop = aa == '*';
                 // getorf: pos >= seqlen-5 is the last complete codon of this frame.
                 bool isLastCodon = pos + 2 * CodonLength > n;
+                bool pastGenomeEnd = circular && pos >= len;
 
                 if (!startToStop)
                 {
+                    if (isStop)
+                        gotStop[frame] = true;
                     if (isStop || isLastCodon)
                     {
                         if (!isStop)
                             AppendGetOrf(buffer[frame], sequence, pos, aa, storesProtein);
                         if (open[frame] && SizeOk(buffer[frame].Length, min, max)
-                            && TryBuildGetOrfFeature(sequence, s, isReverseComplement, frame, start[frame],
+                            && TryBuildGetOrfFeature(sequence, len, s, isReverseComplement, start[frame],
                                 pos + CodonLength - 1, isStop, buffer[frame], out var feature))
                             yield return feature;
                         buffer[frame].Clear();
-                        open[frame] = true;
-                        start[frame] = pos + CodonLength;
+                        if (pastGenomeEnd)
+                        {
+                            open[frame] = false;
+                            finished[frame] = true;
+                            if (finished[0] && finished[1] && finished[2])
+                                break;
+                        }
+                        else
+                        {
+                            open[frame] = true;
+                            start[frame] = pos + CodonLength;
+                        }
                     }
                     else if (open[frame])
                     {
                         AppendGetOrf(buffer[frame], sequence, pos, aa, storesProtein);
                     }
                 }
-                else if (!open[frame] && s.Code.IsStartCodon(codon))
+                else if (!open[frame] && IsOrfStartCodon(s.Code, codon))
                 {
-                    buffer[frame].Clear();
-                    open[frame] = true;
-                    start[frame] = pos;
-                    AppendGetOrf(buffer[frame], sequence, pos, s.Methionine ? InitiatorMethionine : aa, storesProtein);
+                    // A START past the end of a circular genome opens nothing (getorf: if(pos < len)).
+                    if (pos < len)
+                    {
+                        buffer[frame].Clear();
+                        open[frame] = true;
+                        start[frame] = pos;
+                        AppendGetOrf(buffer[frame], sequence, pos, s.Methionine ? InitiatorMethionine : aa, storesProtein);
+                    }
                 }
                 else if (isStop || isLastCodon)
                 {
@@ -334,9 +513,15 @@ namespace Seqeron.Genomics.Core
                         if (!isStop)
                             AppendGetOrf(buffer[frame], sequence, pos, aa, storesProtein);
                         if (SizeOk(buffer[frame].Length, min, max)
-                            && TryBuildGetOrfFeature(sequence, s, isReverseComplement, frame, start[frame],
+                            && TryBuildGetOrfFeature(sequence, len, s, isReverseComplement, start[frame],
                                 pos + CodonLength - 1, isStop, buffer[frame], out var feature))
                             yield return feature;
+                    }
+                    if (pastGenomeEnd)
+                    {
+                        finished[frame] = true;
+                        if (finished[0] && finished[1] && finished[2])
+                            break;
                     }
                     buffer[frame].Clear();
                 }
@@ -346,21 +531,59 @@ namespace Seqeron.Genomics.Core
                 }
             }
 
-            // Documented divergence from getorf: a START that is the last complete codon of its
-            // frame is still open here (getorf drops it); report it as a one-codon open ORF.
-            if (startToStop)
+            // Documented divergence from getorf: on a linear sequence a START that is the last complete
+            // codon of its frame is still open here (getorf drops it); report it as a one-codon open ORF.
+            if (startToStop && !circular)
             {
                 for (int f = 0; f < ReadingFramesPerStrand; f++)
                 {
                     if (open[f] && SizeOk(buffer[f].Length, min, max)
-                        && TryBuildGetOrfFeature(sequence, s, isReverseComplement, f, start[f],
+                        && TryBuildGetOrfFeature(sequence, len, s, isReverseComplement, start[f],
                             start[f] + CodonLength - 1, false, buffer[f], out var feature))
+                        yield return feature;
+                }
+            }
+
+            // getorf: "Currently miss reporting a STOP-to-STOP ORF that is the full length of a circular
+            // genome when there are no STOP codons in that frame" — such a frame is reported here as one
+            // open record over its complete codons from offset f (getorf WriteORF(f, seqlen-1)).
+            if (circular && mode is OrfFindMode.TranslationStopToStop or OrfFindMode.NucleotidesStopToStop)
+            {
+                for (int f = 0; f < ReadingFramesPerStrand; f++)
+                {
+                    if (gotStop[f])
+                        continue;
+                    var whole = new StringBuilder();
+                    int pos = f;
+                    for (; pos + CodonLength <= n; pos += CodonLength)
+                        AppendGetOrf(whole, sequence, pos, s.Code.Translate(sequence.Substring(pos, CodonLength)), storesProtein);
+                    AppendDanglingBases(whole, sequence, pos, s.Code, storesProtein);
+                    if (SizeOk(whole.Length, min, max)
+                        && TryBuildGetOrfFeature(sequence, len, s, isReverseComplement, f, n - 1, false, whole, out var feature))
                         yield return feature;
                 }
             }
         }
 
         private static bool SizeOk(int length, int min, int max) => length >= min && length <= max;
+
+        // The circular full-length record covers the frame up to the last base (getorf WriteORF(f, seqlen-1)).
+        // Its translation is EMBOSS ajTrnSeqOrig, which translates dangling bases (ajTrnSeqDangleC): two
+        // bases b1 b2 as the codon b1 b2 N (an amino acid when the third base does not matter, else X), one
+        // base as X. The nucleotide form keeps the dangling bases.
+        private static void AppendDanglingBases(StringBuilder buffer, string sequence, int pos, GeneticCode code,
+            bool storesProtein)
+        {
+            int dangle = sequence.Length - pos;
+            if (dangle <= 0)
+                return;
+            if (!storesProtein)
+                buffer.Append(sequence, pos, dangle);
+            else if (dangle == 2)
+                buffer.Append(code.Translate(string.Concat(sequence.AsSpan(pos, 2), "N")));
+            else
+                buffer.Append('X');
+        }
 
         // getorf_AppORF: protein modes store the residue, nucleotide modes the codon.
         private static void AppendGetOrf(StringBuilder buffer, string sequence, int pos, char aa, bool storesProtein)
@@ -371,12 +594,21 @@ namespace Seqeron.Genomics.Core
                 buffer.Append(sequence, pos, CodonLength);
         }
 
-        // getorf_WriteORF: ORF modes report the stored sequence; flanking modes the window
-        // [codon − flanking, codon + 2 + flanking], skipped when it crosses a sequence end.
-        private static bool TryBuildGetOrfFeature(string sequence, GetOrfSettings s, bool isReverseComplement,
-            int frame, int orfStart, int orfEnd, bool isTerminated, StringBuilder stored, out OrfFeature feature)
+        // getorf_WriteORF: a region that starts past the end of a circular genome is shifted back by len;
+        // ORF modes report the stored sequence; flanking modes the window [codon − flanking,
+        // codon + 2 + flanking] of the scanned sequence, skipped when it crosses a sequence end.
+        private static bool TryBuildGetOrfFeature(string sequence, int len, GetOrfSettings s, bool isReverseComplement,
+            int orfStart, int orfEnd, bool isTerminated, StringBuilder stored, out OrfFeature feature)
         {
-            int frameLabel = isReverseComplement ? -(frame + 1) : frame + 1;
+            // "Move the reported positions back to start in the range 1..len for readability."
+            while (orfStart >= len)
+            {
+                orfStart -= len;
+                orfEnd -= len;
+            }
+
+            int frameOffset = orfStart % ReadingFramesPerStrand;
+            int frameLabel = isReverseComplement ? -(frameOffset + 1) : frameOffset + 1;
             int codon;
             switch (s.Mode)
             {
@@ -387,13 +619,9 @@ namespace Seqeron.Genomics.Core
                     codon = orfStart - CodonLength; // < 0 for the leading region: no initial STOP
                     break;
                 case OrfFindMode.FlankingEndingStop:
-                    // getorf: codonpos = e + 1; for an open ORF the window always passes the end.
-                    if (!isTerminated)
-                    {
-                        feature = default;
-                        return false;
-                    }
-                    codon = orfEnd - (CodonLength - 1);
+                    // getorf: codonpos = e + 1 (the STOP after the ORF; for an open ORF the codon after
+                    // its last codon, whose window passes the end of a linear sequence).
+                    codon = isTerminated ? orfEnd - (CodonLength - 1) : orfEnd + 1;
                     break;
                 default:
                     feature = new OrfFeature(s.Mode, orfStart, orfEnd, frameLabel, isTerminated, -1, stored.ToString());
@@ -434,18 +662,50 @@ namespace Seqeron.Genomics.Core
         {
             ArgumentNullException.ThrowIfNull(dna);
 
-            var code = geneticCode ?? GeneticCode.Standard;
-            var result = new Dictionary<int, ProteinSequence>();
+            return TranslateSixFramesCore(dna.Sequence, dna.ReverseComplement().Sequence,
+                geneticCode ?? GeneticCode.Standard);
+        }
 
-            // Forward strand: frames +1, +2, +3 at offsets 0, 1, 2.
-            var revComp = dna.ReverseComplement();
+        /// <summary>
+        /// Translates all six reading frames of a nucleotide string that may contain IUPAC ambiguity
+        /// codes (e.g. a genome with N runs).
+        /// </summary>
+        /// <remarks>
+        /// Biopython semantics: frame +k is <c>Seq(s)[k-1:].translate(table)</c> and frame −k is
+        /// <c>Seq(s).reverse_complement()[k-1:].translate(table)</c> (the
+        /// <see cref="TranslateSixFrames(DnaSequence, GeneticCode?)"/> numbering; trailing bases that do not
+        /// form a codon are dropped). Input is case-insensitive IUPAC DNA or RNA (A, C, G, T, U, R, Y, S,
+        /// W, K, M, B, D, H, V, N; U is read as T); the reverse strand is the canonical IUPAC reverse
+        /// complement (<see cref="DnaSequence.GetReverseComplementString(string)"/>). Each codon is
+        /// resolved by <see cref="GeneticCode.Translate(string)"/> — Biopython's ambiguous codon tables:
+        /// GCN → A, RAY → B, TAR → '*', a possible stop such as TAN → X, NNN → X; dual-coding codons of
+        /// tables 27, 28, 31 read as their amino acid, as in Biopython <c>translate()</c>. Internal stops
+        /// are rendered as '*'.
+        /// </remarks>
+        /// <param name="sequence">IUPAC nucleotide sequence (DNA or RNA, case-insensitive).</param>
+        /// <param name="geneticCode">The genetic code to use (default: Standard).</param>
+        /// <returns>Dictionary with frame keys (-3 to +3, excluding 0) and protein values.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+        /// <exception cref="ArgumentException"><paramref name="sequence"/> contains a non-IUPAC symbol.</exception>
+        public static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFrames(string sequence,
+            GeneticCode? geneticCode = null)
+        {
+            string forward = NormalizeIupacNucleotides(sequence);
+            return TranslateSixFramesCore(forward, DnaSequence.GetReverseComplementString(forward),
+                geneticCode ?? GeneticCode.Standard);
+        }
+
+        private static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFramesCore(string forward,
+            string reverseComplement, GeneticCode code)
+        {
+            var result = new Dictionary<int, ProteinSequence>();
             for (int offset = 0; offset < ReadingFramesPerStrand; offset++)
             {
                 // Forward frame numbers are 1-based: offset 0 -> +1, etc.
-                result[offset + 1] = TranslateSequence(dna.Sequence, code, offset, false);
+                result[offset + 1] = TranslateSequence(forward, code, offset, false);
 
                 // Reverse complement: frame -k = reverse complement at offset (k-1).
-                result[-(offset + 1)] = TranslateSequence(revComp.Sequence, code, offset, false);
+                result[-(offset + 1)] = TranslateSequence(reverseComplement, code, offset, false);
             }
 
             return result;
@@ -586,7 +846,7 @@ namespace Seqeron.Genomics.Core
                     if (currentOrfStart == null)
                     {
                         // Looking for start codon
-                        if (geneticCode.IsStartCodon(codon))
+                        if (IsOrfStartCodon(geneticCode, codon))
                         {
                             currentOrfStart = i;
                             currentProtein.Clear();
@@ -687,7 +947,7 @@ namespace Seqeron.Genomics.Core
 
     /// <summary>
     /// One record reported by
-    /// <see cref="Translator.FindOrfs(DnaSequence, OrfFindMode, GeneticCode?, int, int, int, bool, bool)"/>
+    /// <see cref="Translator.FindOrfs(DnaSequence, OrfFindMode, GeneticCode?, int, int, int, bool, bool, bool)"/>
     /// (one getorf output entry).
     /// </summary>
     /// <param name="Mode">The getorf <c>-find</c> mode that produced the record.</param>

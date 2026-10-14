@@ -214,7 +214,7 @@ public class Translator_GetOrfModes_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => Translator.FindOrfs(null!, OrfFindMode.TranslationStopToStop));
+            Assert.Throws<ArgumentNullException>(() => Translator.FindOrfs((DnaSequence)null!, OrfFindMode.TranslationStopToStop));
             Assert.Throws<ArgumentOutOfRangeException>(() => Translator.FindOrfs(dna, (OrfFindMode)7));
             Assert.Throws<ArgumentOutOfRangeException>(() => Translator.FindOrfs(dna, OrfFindMode.TranslationStopToStop, minSize: -1));
             Assert.Throws<ArgumentOutOfRangeException>(() => Translator.FindOrfs(dna, OrfFindMode.TranslationStopToStop, maxSize: -1));

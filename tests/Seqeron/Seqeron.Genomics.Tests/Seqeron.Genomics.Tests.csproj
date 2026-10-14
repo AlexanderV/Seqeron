@@ -29,6 +29,9 @@
     <!-- TRANS-SIXFRAME-001 (A1-12): EMBOSS 6.6.0 getorf binary output for -find 0..6 over 30 sequences × 65
          parameter sets (tables 1/2/11/3, minsize/maxsize/flanking/reverse/methionine); see the file header. -->
     <EmbeddedResource Include="TestData\Getorf\getorf_find_modes.tsv" />
+    <!-- TRANS-SIXFRAME-001 (A1-13, A1-20): EMBOSS 6.6.0 getorf binary output for -find 0..6, linear and -circular Y,
+         over 24 IUPAC sequences (ambiguity codes, N runs, lower case, U) × 86 parameter sets; see the file header. -->
+    <EmbeddedResource Include="TestData\Getorf\getorf_iupac_circular.tsv" />
     <!-- ONCO-SIG-002: COSMIC v3.4 SBS96 reference signatures (86 × 96), verbatim from SigProfilerAssignment
          (SigProfilerAssignment/data/Reference_Signatures/GRCh37/COSMIC_v3.4_SBS_GRCh37.txt). Used to cross-check
          FitSignatures (NNLS refit to the full COSMIC set) against scipy.optimize.nnls. -->

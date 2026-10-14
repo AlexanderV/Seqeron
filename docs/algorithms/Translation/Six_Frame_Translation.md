@@ -6,7 +6,7 @@
 | Test Unit ID | TRANS-SIXFRAME-001 |
 | Related Projects | Seqeron.Genomics.Core |
 | Implementation Status | Production |
-| Last Reviewed | 2026-10-14 |
+| Last Reviewed | 2026-10-14 (WP12) |
 
 ## 1. Overview
 
@@ -69,7 +69,9 @@ stop codons TAA, TAG, TGA [3].
 | minLength | int | 100 | Minimum ORF length, in **amino acids** | ≥ 0 |
 | searchBothStrands | bool | true | Also scan the reverse complement for ORFs | — |
 
-getorf-modes overload `FindOrfs(DnaSequence, OrfFindMode mode, GeneticCode?, int minSize = 30, int maxSize = 1000000, int flanking = 100, bool searchBothStrands = true, bool methionine = true)` — parameters mirror getorf.acd [6]:
+IUPAC string overloads (A1-13): `TranslateSixFrames(string, GeneticCode?)`, `FindOrfs(string, GeneticCode?, int minLength, bool)` and `FindOrfs(string, OrfFindMode, …)` take the same parameters with `sequence` = case-insensitive IUPAC DNA or RNA (A C G T U R Y S W K M B D H V N; U read as T); null → `ArgumentNullException`, any other symbol → `ArgumentException`.
+
+getorf-modes overload `FindOrfs(DnaSequence | string, OrfFindMode mode, GeneticCode?, int minSize = 30, int maxSize = 1000000, int flanking = 100, bool searchBothStrands = true, bool methionine = true, bool circular = false)` — parameters mirror getorf.acd [6]:
 
 | Name | getorf | Default | Description |
 |------|--------|---------|-------------|
@@ -78,6 +80,7 @@ getorf-modes overload `FindOrfs(DnaSequence, OrfFindMode mode, GeneticCode?, int
 | flanking | `-flanking` | 100 | Bases reported each side of the codon (modes 4–6), ≥ 0; a window crossing a sequence end is not reported |
 | searchBothStrands | `-reverse` | true | Also scan the reverse complement |
 | methionine | `-methionine` | true | Mode 1: initiator residue reported as `M` |
+| circular | `-circular` | false | Circular sequence: ORFs may cross the origin (§4.1 step 7) |
 
 ### 3.2 Output / Return Value
 
@@ -89,8 +92,8 @@ getorf-modes overload `FindOrfs(DnaSequence, OrfFindMode mode, GeneticCode?, int
 | OrfResult.Frame | int | +1..+3 forward, −1..−3 reverse |
 | OrfResult.Protein | ProteinSequence | Translated residues; initiator reported as `M` (getorf `-methionine` [6]); STOP excluded |
 | OrfFeature.Mode | OrfFindMode | getorf `-find` mode that produced the record |
-| OrfFeature.StartPosition / EndPosition | int | 0-based inclusive, scanned-strand coordinates. Modes 0–3: the ORF, End = last base of the terminating STOP (as `OrfResult`) or of the last complete codon when open. Modes 4–6: the flank window `[codon − flanking, codon + 2 + flanking]` |
-| OrfFeature.Frame / IsReverseStrand | int / bool | +1..+3 / −1..−3 (reverse complement offsets 0..2) |
+| OrfFeature.StartPosition / EndPosition | int | 0-based inclusive, scanned-strand coordinates. Modes 0–3: the ORF, End = last base of the terminating STOP (as `OrfResult`) or of the last complete codon when open. Modes 4–6: the flank window `[codon − flanking, codon + 2 + flanking]`. Circular: Start ∈ [0, L); End ≥ L when the region crosses the origin (base i is base i mod L) |
+| OrfFeature.Frame / IsReverseStrand | int / bool | +1..+3 / −1..−3: (offset of the ORF's first base mod 3) + 1, reverse complement negative |
 | OrfFeature.IsTerminated | bool | Underlying ORF ends with a STOP codon |
 | OrfFeature.CodonPosition | int | Modes 4–6: 0-based first base of the flanked START / STOP codon; −1 otherwise |
 | OrfFeature.Sequence | string | getorf output sequence: protein (0, 1), ORF nucleotides (2, 3), window nucleotides (4–6); STOP never included in 0–3 |
@@ -105,6 +108,9 @@ Null `dna` throws `ArgumentNullException`. Input is upper-cased and T→U normal
 before codon lookup; indexing is 0-based; ORF EndPosition is inclusive. An empty
 sequence yields six empty frames and no ORFs. IUPAC-ambiguous codons are resolved as in
 Biopython (inherited from `GeneticCode.Translate`: e.g. `GCN`→`A`, `TAR`→`*`, `RAY`→`B`, `NNN`/`TAN`→`X`).
+`DnaSequence` input is A/C/G/T only; ambiguous genomes go through the string overloads. In ORF finding an
+ambiguous codon is a STOP only when every expansion is a stop (`GeneticCode.Translate` = `*`) and is never
+a START (EMBOSS `ajTrnCodonstrTypeC` reads a Starts table filled for the 64 A/C/G/T codons only [8]).
 
 ## 4. Algorithm
 
@@ -129,6 +135,13 @@ Biopython (inherited from `GeneticCode.Translate`: e.g. `GCN`→`A`, `TAR`→`*`
    output as protein / nucleotides (`getorf_AppORF`) or as the flank window around the START
    (4), the STOP before the region (5; the leading region has none) or the terminating STOP
    (6; open regions have none) — `getorf_WriteORF`.
+7. `circular` (getorf `-circular` [6]): scan the sequence tripled (and its reverse complement
+   tripled) with every frame closed at the start; a START at position ≥ L is ignored; the
+   first STOP / end codon at ≥ L closes the frame for good (`LASTORF`); a region starting at
+   ≥ L is shifted back by L (`while(s > len)`), flank windows are cut from the tripled
+   sequence. In modes 0/2 a frame with no STOP at all is written after the scan as one open
+   record from offset f to 3L − 1 (mode 0: translated with EMBOSS's dangling-base rule —
+   2 bases b1 b2 as b1 b2 N, 1 base as X [8]).
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -150,7 +163,8 @@ Standard genetic code (NCBI table 1): start codons {TTG, CTG, ATG}; stop codons
 
 - `Translator.TranslateSixFrames(DnaSequence, GeneticCode?)`: six-frame translation.
 - `Translator.FindOrfs(DnaSequence, GeneticCode?, int minLength, bool searchBothStrands)`: ORF finding (getorf `-find 1`).
-- `Translator.FindOrfs(DnaSequence, OrfFindMode, GeneticCode?, int minSize, int maxSize, int flanking, bool searchBothStrands, bool methionine)`: all getorf `-find` modes 0–6 → `OrfFeature`.
+- `Translator.FindOrfs(DnaSequence, OrfFindMode, GeneticCode?, int minSize, int maxSize, int flanking, bool searchBothStrands, bool methionine, bool circular = false)`: all getorf `-find` modes 0–6, linear or `-circular` → `OrfFeature`.
+- `Translator.TranslateSixFrames(string, GeneticCode?)`, `Translator.FindOrfs(string, …)` (both signatures): IUPAC DNA/RNA strings; reverse complement via the canonical `DnaSequence.GetReverseComplementString`.
 - `OrfResult` (record struct): ORF coordinates, frame, protein, derived lengths.
 
 ### 5.2 Current Behavior
@@ -171,6 +185,8 @@ toFirstStop: true)`.
 - ORF = START→STOP region (EMBOSS getorf `-find 1`, `getorf_FindORFs`) [4][6]; initiator → `M` (`-methionine` default Y) [6]; open ORF ends at last complete codon (`WriteORF(start, pos+2)`) [6].
 - End coordinate includes the STOP codon (INSDC feature table CDS: "location includes stop codon") [7]; getorf's printed end excludes it (`WriteORF(start, pos-1)`) — a coordinate-convention difference of exactly 3.
 - getorf `-find` 0–6 with `-minsize`/`-maxsize` (nucleotides; ÷3 for modes 0/1/4), `-flanking`, `-reverse`, `-methionine` (getorf.c / getorf.acd) [6]: 0 mismatches against the EMBOSS 6.6.0 getorf binary over 2 500 random sequences × 290 parameter sets (3.47 M reference records), apart from divergence #5.
+- IUPAC strings: six frames = Biopython `Seq(s)[f:].translate(t)` / `reverse_complement()` [2]: 0 mismatching frames over 20 000 random IUPAC strings × all 27 tables. ORFs on IUPAC strings vs the EMBOSS 6.6.0 getorf binary: 0 unexplained mismatches over 1 000 sequences × 93 runs, linear (384 927 reference records) and circular (344 889) — differences limited to #7.
+- getorf `-circular` [6]: 0 mismatches against the binary over 1 000 random A/C/G/T sequences × 93 runs (447 526 reference records), apart from #8.
 - Tables 27/28/31: every stop codon is dual-coding (Biopython `CodonTable`: `stop_codons ⊂ forward_table`), so `FindOrfs` throws `ArgumentException` — as Biopython refuses `to_stop=True` for these tables [2].
 
 **Intentionally simplified:**
@@ -180,7 +196,6 @@ toFirstStop: true)`.
 **Not implemented:**
 
 - EMBOSS phase-locked reverse-frame numbering; **users should rely on:** the Biopython convention used here (the EMBOSS-documented alternative) — no separate phase-locked mode is provided.
-- getorf `-circular` (the sequence is tripled and wrapped ORFs are reported); **users should rely on:** linear scanning; for a circular sequence, scan a rotated or concatenated copy and map coordinates back.
 
 ### 5.4 Deviations and Assumptions
 
@@ -191,7 +206,9 @@ toFirstStop: true)`.
 | 3 | End coordinate includes the STOP (INSDC) | Convention | getorf's printed end = EndPosition − 3 | accepted | [7] |
 | 4 | Reverse-strand ORF coordinates in reverse-complement coordinates | Convention | getorf prints forward-strand coordinates (`len−s+1`) | accepted | §6.2 |
 | 5 | A START in the very last complete codon of a frame (no STOP) is reported as a 1-aa open ORF when `minLength ≤ 1` (getorf-modes overload, modes 1/3/4: when it passes `minSize` and, mode 4, the window fits) | Divergence | getorf never writes it (branch-order artefact of `getorf_FindORFs`: the START branch opens the ORF and the loop ends) | accepted | unobservable for `minLength ≥ 2` / `minSize ≥ 6` (mode 3: ≥ 4) (getorf default minsize 30 nt = 10 aa) |
-| 6 | `-circular` not supported | Not implemented | circular genomes are scanned as linear | accepted | §5.3 |
+| 6 | Nucleotide output of the string overloads is upper-case DNA | Convention | getorf keeps the input case (and writes U as T) | accepted | §3.1 |
+| 7 | Ambiguous codons in ORF finding resolved per codon by the all-expansions rule (STOP iff all expansions stop; residue = Biopython) | Divergence | EMBOSS's precomputed ambiguous table (`trnComplete`) gives X for most ambiguous codons and is inconsistent for a few: table 1/11 `TRR` → STOP (TGG = W), `TRA` (all stops) not a STOP, `YTN` → L, `MGN` → R, `ATS` → I, `WSN` → S; table 2 `WRR` → STOP. ORFs differ from getorf only around such codons; residues differ where getorf prints X | accepted | [8]; Evidence |
+| 8 | Circular full-length record (STOP-free frame, modes 0/2): mode 2 reports the frame's nucleotides and filters on nucleotide length; frame 3 uses `≤ maxSize` | Divergence | getorf.c prints the protein in mode 2 (comparing its residue count with nucleotide bounds) and tests frame 3 with `>= maxsize` (typo), so it normally omits that record | accepted | [6] |
 
 ## 6. Edge Cases and Limitations
 
@@ -211,7 +228,7 @@ toFirstStop: true)`.
 
 Reverse-frame labels follow the Biopython convention and will not match EMBOSS transeq's
 phase-locked default. ORF finding provides all seven getorf `-find` modes (legacy overload:
-`-find 1` only) on linear sequences; getorf `-circular` is not supported. ORF coordinates for
+`-find 1` only), on linear or circular (`-circular`) sequences, A/C/G/T or IUPAC strings. ORF coordinates for
 reverse-strand hits are expressed in the reverse complement's coordinate frame
 (`OrfFeature.ToGetOrfRange` gives getorf's forward-strand header).
 
@@ -236,12 +253,22 @@ var regions = Translator.FindOrfs(new DnaSequence("GGGATGAAACCCTAAGGG"),
                                   OrfFindMode.TranslationStopToStop, minSize: 9).ToList();
 // regions[0]: Start=0, End=14, Frame=1, IsTerminated=true, Sequence="GMKP"; ToGetOrfRange(18) == (1, 12)
 // FlankingInitialStop, flanking: 2 → [3 - 9] "GATGAAA" and [16 - 10] (REVERSE SENSE) "CTTAGGG"
+
+// IUPAC genome (string overload): N codon read through as X, as getorf prints it
+var amb = Translator.FindOrfs("ATGNNNCCCTAA", OrfFindMode.TranslationStartToStop, minSize: 3,
+                              searchBothStrands: false).Single();   // [1 - 9] "MXP"
+
+// getorf -circular: the ORF crosses the origin (EndPosition 20 ≥ L = 15)
+var wrapped = Translator.FindOrfs("CCCTAAGGGATGAAA", OrfFindMode.TranslationStartToStop, minSize: 3,
+                                  searchBothStrands: false, circular: true).Single();
+// Start=9, End=20, Sequence="MKP"; ToGetOrfRange(15) == (10, 18) "(ORF crosses the breakpoint)"
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [Translator_SixFrames_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_SixFrames_Tests.cs) — covers `INV-01`..`INV-06`
 - Tests: [Translator_GetOrfModes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_GetOrfModes_Tests.cs) — getorf `-find` 0–6 against the EMBOSS 6.6.0 binary oracle `TestData/Getorf/getorf_find_modes.tsv`
+- Tests: [Translator_IupacCircular_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_IupacCircular_Tests.cs) — IUPAC string overloads (Biopython six frames; getorf ambiguity rules) and `-circular`, oracle `TestData/Getorf/getorf_iupac_circular.tsv`
 - Evidence: [TRANS-SIXFRAME-001-Evidence.md](../../../docs/Evidence/TRANS-SIXFRAME-001-Evidence.md)
 
 ## 8. References
@@ -253,3 +280,4 @@ var regions = Translator.FindOrfs(new DnaSequence("GGGATGAAACCCTAAGGG"),
 5. Wikipedia contributors. Reading frame (cites Lodish 2007; Pierce 2012). https://en.wikipedia.org/wiki/Reading_frame
 6. EMBOSS getorf source: `emboss/getorf.c` (`getorf_FindORFs`, `getorf_WriteORF`, `getorf_AppORF`) and `emboss/acd/getorf.acd` (`-find` 0–6, `-minsize` 30, `-maxsize` 1000000, `-flanking` 100, `-methionine` Y, `-reverse` Y). https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/getorf.c
 7. INSDC. The DDBJ/ENA/GenBank Feature Table Definition — CDS: "sequence of nucleotides that corresponds with the sequence of amino acids in a protein (location includes stop codon)". https://www.insdc.org/submitting-standards/feature-table/
+8. EMBOSS translation library: `ajax/core/ajtranslate.c` (`ajTrnCodonstrTypeC`, `ajTrnReadFile`, `trnComplete`, `ajTrnSeqOrig`, `ajTrnSeqDangleC`). https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/ajax/core/ajtranslate.c

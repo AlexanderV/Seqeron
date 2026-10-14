@@ -5,7 +5,7 @@
 **Algorithm:** Six-Frame Translation and ORF finding
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-10-14 (FIN-B02 WP11: getorf `-find` 0–6)
+**Last Updated:** 2026-10-14 (FIN-B02 WP12: IUPAC string overloads; getorf `-circular`)
 
 ---
 
@@ -24,6 +24,7 @@
 | 7 | INSDC Feature Table Definition — CDS "location includes stop codon" (WebSearch snippet; site blocked) | 2 | https://www.insdc.org/submitting-standards/feature-table/ | 2026-09-28 |
 | 9 | EMBOSS 6.6.0 `getorf` binary (`/usr/bin/getorf`, EGC.1–23 genetic-code files) — reference output for `-find` 0–6 | 3 | EMBOSS 6.6.0 | 2026-10-14 |
 | 8 | Biopython 1.88 `Bio.Seq._translate_str` (`cds=True` → initiator M; `to_stop` refused for dual-coding tables) | 3 | installed package | 2026-09-28 |
+| 10 | EMBOSS `ajax/core/ajtranslate.c` (`ajTrnCodonstrTypeC`, `trnComplete`, `ajTrnSeqOrig`/`ajTrnSeqDangleC`) and `getorf.c` circular branch | 3 | https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/ajax/core/ajtranslate.c | 2026-10-14 |
 
 ### 1.2 Key Evidence Points
 
@@ -34,13 +35,16 @@
 5. ORF under getorf `-find 1` = region from a START codon to a STOP codon; both strands searched by default — EMBOSS getorf.
 7. getorf `-find` 0–6 (getorf.acd / getorf.c): 0/2 translation / nucleotides of STOP-free regions (every frame open at the sequence start; a STOP or the last complete codon writes the region); 1/3 translation / nucleotides START→STOP; 4/5/6 `-flanking` nucleotides each side of the START / initial STOP / ending STOP, no output when the window crosses a sequence end. `-minsize`/`-maxsize` are nucleotides, divided by 3 (integer) for the protein-storing modes 0, 1, 4 — Sources 6, 9.
 6. Incomplete trailing codon is dropped (`fragment_length = 3*((len-i)//3)`) — Biopython.
+8. IUPAC input (A1-13): Biopython translates any IUPAC string per frame (`Seq(s)[f:].translate(table)`, `reverse_complement()` with R↔Y, K↔M, B↔V, D↔H) using its ambiguous codon tables. getorf classifies a codon with `ajTrnCodonstrTypeC`: START iff the Starts table entry is `M` — filled for the 64 A/C/G/T codons only, so an ambiguous codon is never a START; STOP iff its precomputed residue is `*`. EMBOSS precomputes ambiguous residues in `trnComplete` (third-base wobble + one "most ambiguous" codon per residue built by OR-ing bases), which is inconsistent for a few codons: table 1/11 TRR → `*` (TGG = W), TRA → X (all expansions stops), YTN → L, MGN → R, ATS → I, WSN → S; table 2 WRR → `*` — Sources 8, 9, 10.
+9. getorf `-circular` (A1-20): the sequence (length L) is tripled and its reverse complement likewise; every frame starts closed; a START at pos ≥ L is ignored; the first STOP / end codon at pos ≥ L ends the frame (`LASTORF`); a region starting past L is shifted back by L (`while(s > len)`); a frame with no STOP at all is written after the scan as the full-length record `WriteORF(f, seqlen-1)` translated by `ajTrnSeqOrig` (dangling bases: 2 → codon b1 b2 N, 1 → X; frame 3 tested with `>= maxsize`, a typo) — Sources 9, 10.
 
 ### 1.3 Documented Corner Cases
 
 - Trailing 1–2 nt that cannot form a codon are ignored (Biopython truncation).
 - No START codon ⇒ no ORF emitted under START→STOP model (EMBOSS getorf).
 - ORF may run to the end of the sequence without a STOP (incomplete ORF) (EMBOSS getorf).
-- IUPAC-ambiguous codons are outside the 64-codon table (NCBI).
+- IUPAC-ambiguous codons are outside the 64-codon table (NCBI); the string overloads resolve them per Biopython (residue) and getorf (START / STOP role), see 1.2 #8.
+- Circular ORFs crossing the origin end past L − 1 (getorf "(ORF crosses the breakpoint)").
 
 ### 1.4 Known Failure Modes / Pitfalls
 
@@ -57,7 +61,10 @@
 |--------|-------|------|-------|
 | `TranslateSixFrames(DnaSequence, GeneticCode?)` | Translator | Canonical | Six-frame translation; deep evidence-based testing |
 | `FindOrfs(DnaSequence, GeneticCode?, int minLength, bool searchBothStrands)` | Translator | Canonical | ORF finding (START→STOP model) |
-| `FindOrfs(DnaSequence, OrfFindMode, GeneticCode?, int minSize, int maxSize, int flanking, bool searchBothStrands, bool methionine)` → `OrfFeature` | Translator | Canonical | getorf `-find` 0–6 (A1-12); `OrfFeature.ToGetOrfRange` = getorf `[s - e]` header |
+| `FindOrfs(DnaSequence, OrfFindMode, GeneticCode?, int minSize, int maxSize, int flanking, bool searchBothStrands, bool methionine, bool circular = false)` → `OrfFeature` | Translator | Canonical | getorf `-find` 0–6 (A1-12) and `-circular` (A1-20); `OrfFeature.ToGetOrfRange` = getorf `[s - e]` header |
+| `TranslateSixFrames(string, GeneticCode?)` | Translator | Canonical | IUPAC DNA/RNA string, Biopython semantics (A1-13) |
+| `FindOrfs(string, GeneticCode?, int minLength, bool searchBothStrands)` | Translator | Canonical | IUPAC string, START→STOP (A1-13) |
+| `FindOrfs(string, OrfFindMode, GeneticCode?, int, int, int, bool, bool, bool circular = false)` → `OrfFeature` | Translator | Canonical | IUPAC string, getorf modes 0–6 / `-circular` (A1-13, A1-20) |
 
 ---
 
@@ -110,6 +117,18 @@
 | M24 | FindOrfs_FlankingWindowCrossingSequenceEnd_IsNotReported | worked example, flanking 4 / 6 | no record | getorf.acd `-flanking` help (Source 6) |
 | M25 | FindOrfs_Find1_MethionineOff_InitiatorKeepsItsResidue | `TTGAAAGGGTAA`, `-methionine N` | `LKG` (Y: `MKG`) | Sources 6, 9 |
 | M26 | FindOrfs_GetOrfModes_InvalidArguments_Throw | null, mode 7, negative sizes/flanking, table 27 | `ArgumentNullException` / `ArgumentOutOfRangeException` / `ArgumentException` | contract |
+| M27 | TranslateSixFrames_IupacString_MatchesBiopython | `ATGNNNTARGCNRAYTAAYTG` (t1), `TTGTANSARGAYMGR` (t11) | t1: `MX*AB*L`, `XXXXXN`, `XXXXLX`, `QLXXLXH`, `X*XAXX`, `XXXXXX` | Source 8 (Biopython 1.88 output) |
+| M28 | TranslateSixFrames_StringOverload_CaseAndRnaInsensitive_EqualsDnaOverload | lower-case RNA spelling; A/C/G/T string, tables 1/2/11 | same frames as upper-case DNA / `DnaSequence` overload | 1.2 #8 |
+| M29 | FindOrfs_IupacString_Find1_MatchesGetorf | `ATGNNNCCCTAA`, `atgaaacccrtaa`, `AUGAAACCCUAAGG`, `-find 1 -minsize 3 -reverse N` | [1 - 9] `MXP`; open [1 - 12] `MKPX`; [1 - 9] `MKP` | Source 9 |
+| M30 | FindOrfs_IupacString_AmbiguousStartCodon_DoesNotOpenOrf | `YTGAAACCCTAA` | no ORF (getorf writes nothing); `TTG…` gives `MKP` | Sources 9, 10 |
+| M31 | FindOrfs_IupacString_AllStopAmbiguousCodon_TerminatesOrf | `ATGAAACCCTRA` | (0,11,terminated,`MKP`) = [1 - 9]; getorf `[1 - 12] MKPX` (EMBOSS TRA → X; documented difference) | 1.2 #8 |
+| M32 | FindOrfs_LegacyStringOverload_EqualsDnaOverload_AndReadsIupac | A/C/G/T string (lower case), tables 1/2/11; `ATGNNNCCCTAA` | equal to the `DnaSequence` overload; (0,11,+1,`MXP`) | 1.2 #8 |
+| M33 | FindOrfs_Circular_Find1_OrfCrossesOrigin | `CCCTAAGGGATGAAA`, `-find 1/3 -minsize 3 -circular Y -reverse N` | (9,20,+1,`MKP`) = [10 - 18]; `-find 3` `ATGAAACCC`; linear [10 - 15] `MK` | Source 9 |
+| M34 | FindOrfs_Circular_StopModes_MatchGetorf | same, `-find 0`, `-find 6 -flanking 2` | [7 - 18] `GMKP`, [14 - 25] `NPKG` (+ frame-3 full-length record [3 - 45], getorf omits it: typo); [17 - 23] `CCTAAGG`, [24 - 30] `GATGAAA` | Sources 9, 10 |
+| M35 | FindOrfs_Circular_StopFreeFrame_FullLengthRecord | `GCGCGCCCGGG`, `-find 0/2 -minsize 3 -circular Y` | [1 - 33] `ARPGRARGAPG`, [2 - 33] `RARGAPGARPG`, [3 - 33] `APGARPGRARX`; mode 2: the frames' nucleotides | Sources 9, 10 |
+| M36 | FindOrfs_Circular_DnaAndStringOverloadsAgree | A/C/G/T sequence, modes 0–6 | string = `DnaSequence` overload, circular and linear | contract |
+| M37 | FindOrfs_IupacAndCircular_MatchGetorfBinaryOracle (86 cases) | 24 IUPAC sequences × 86 getorf runs (modes 0–6 × tables 1/2/11 × {defaults + flanking 20; minsize 9, maxsize 90, flanking 5, reverse N} × linear / `-circular Y`, + `-methionine N`) | equal to `TestData/Getorf/getorf_iupac_circular.tsv` (residues: equal or getorf X) | Sources 9, 10 |
+| M38 | IupacCircularOracle_CoversAmbiguityAndOriginCrossing | the oracle | ≥ 20 ambiguous sequences, lower case, U, 43 circular runs, > 100 origin-crossing records | — |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -199,6 +218,7 @@
 | C1 | ✅ Covered | `FindOrfs_AlternativeStartCodonTtg_InitiatesOrfWithMethionine` |
 | C1b, M11c, M11d, M14, M15 | ✅ Covered | added in the 2026-09 review (see §7) |
 | M16–M26 | ✅ Covered | `Translator_GetOrfModes_Tests.cs` (FIN-B02 WP11, A1-12) |
+| M27–M38 | ✅ Covered | `Translator_IupacCircular_Tests.cs` (FIN-B02 WP12, A1-13, A1-20) |
 | C2 | ✅ Covered | `TranslateSixFrames_InternalStop_IsRenderedNotTerminated` |
 
 ---
@@ -220,3 +240,4 @@
 1. Decision: the repository's reverse-frame numbering follows Biopython (the EMBOSS-documented "alternative"); EMBOSS's phase-locked default would relabel −1/−2/−3 differently. Documented in Evidence and algorithm doc §5.4 as an accepted convention, not a defect.
 2. Review 2026-09 (B02): cross-checked against a Python port of EMBOSS `getorf_FindORFs` (`-find 1`, `-methionine` Y) and Biopython six-frame translation on 30 000 random sequences (0–300 nt, 26 NCBI tables): six-frame 0 mismatches; ORFs 0 mismatches over 153 483 reference ORFs after the fixes (initiator → M; open-ORF end at last complete codon; dual-coding tables rejected). The only remaining divergence is getorf never reporting a 1-codon open ORF whose START is the frame's last complete codon (getorf branch-order artefact; only visible with `minLength ≤ 1`) — accepted, algorithm doc §5.4 #5.
 3. FIN-B02 WP11 (2026-10-14, audit A1-12): getorf `-find` 0, 2, 3, 4, 5, 6 added as `FindOrfs(DnaSequence, OrfFindMode, …)` (port of `getorf_FindORFs`/`getorf_WriteORF`/`getorf_AppORF`, linear only — `-circular` not supported). Verified against the EMBOSS 6.6.0 `getorf` binary on 2 500 random sequences (1–400 nt; uniform / GC-rich / AT-rich) × 290 parameter sets (modes 0–6 × tables 1, 2, 4, 11, 12 [+ 3, 13 for the START-independent modes 0/2/5/6, whose EMBOSS start sets predate NCBI's] × 5 minsize/maxsize/flanking/reverse sets, + `-methionine N` for 1/3/4): 0 mismatching (sequence, run) pairs over 3 474 722 reference records (modes 0/2/3/4/5/6: 723 069 / 681 150 / 469 100 / 409 574 / 348 228 / 351 943); 25 084 one-codon open-ORF records excluded as the documented divergence (§5.4 #5 of the algorithm doc). A 30-sequence × 65-run subset is locked in `TestData/Getorf/getorf_find_modes.tsv` (M20).
+4. FIN-B02 WP12 (2026-10-14, audits A1-13, A1-20): IUPAC string overloads `TranslateSixFrames(string, …)`, `FindOrfs(string, …)` (legacy and getorf-modes) and getorf `-circular` (`circular: true` on the getorf-modes overloads). Six frames vs Biopython 1.88 (`Seq(s)[f:].translate(t)` / `reverse_complement()`): 20 000 random IUPAC strings (0–200 nt, 0–100 % ambiguity codes, lower case / U) over all 27 Biopython tables, 0 mismatching frames. getorf string overload vs the EMBOSS 6.6.0 binary, 1 000 random IUPAC sequences × 93 runs (modes 0–6 × tables 1/2/11 × 4 parameter sets, + `-methionine N`): linear 384 927 reference records, circular 344 889 — 0 unexplained mismatches; (sequence, run) pairs that differ only in residues where getorf prints X (or one of EMBOSS's inconsistent wobble/OR entries): 4 653 linear / 6 516 circular of 93 000; pairs whose sequence contains a codon with a different STOP status in EMBOSS's table (TRA/TRR, WRR): 2 295 / 2 694. `-circular` on A/C/G/T: 1 000 random sequences × 93 runs, 447 526 reference records, 0 mismatches once getorf's full-length records (STOP-free frame) are taken literally; the two documented divergences there are the frame-3 `>= maxsize` typo and mode 2's protein output (algorithm doc §5.4 #7). A 24-sequence × 86-run subset is locked in `TestData/Getorf/getorf_iupac_circular.tsv` (M37).

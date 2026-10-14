@@ -112,6 +112,39 @@ Worked example `GGGATGAAACCCTAAGGG`, `-minsize 9 -flanking 2 -table 1`:
 
 Bulk comparison (C# `FindOrfs(dna, OrfFindMode, …)` mapped by `OrfFeature.ToGetOrfRange` vs the binary): 2 500 random sequences × 290 runs, 0 mismatching (sequence, run) pairs over 3 474 722 reference records; 25 084 records excluded as the documented one-codon open-ORF divergence (modes 1/3/4). Locked subset: `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Getorf/getorf_find_modes.tsv`.
 
+### EMBOSS — ambiguous codons and `-circular` (ajtranslate.c, getorf.c; opened 2026-10-14, FIN-B02 WP12)
+
+**URL:** https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/ajax/core/ajtranslate.c and `emboss/getorf.c`
+**Authority rank:** 3 (reference implementation source)
+
+1. `ajTrnCodonstrTypeC`: `*aa = trnObj->GC[tc1][tc2][tc3]; if(trnObj->Starts[tc1][tc2][tc3] == 'M') return 1; if(*aa == '*') return -1; return 0;` — `trnconv` maps A C G T/U R Y S W K M B D H V (and N / any other symbol to index 14).
+2. `ajTrnReadFile` fills `Starts` only from the 64 Base1/Base2/Base3 codons (all other entries `'-'`), so an ambiguous codon is never a START.
+3. `trnComplete`: ambiguous `GC` entries = third-base wobble ("Calculate wobble in base3 and populate") plus, per residue, one "most ambiguous" codon built by OR-ing the bases of its codons; everything else stays `'X'`. Dumped with `transeq` over all 3 375 IUPAC codons, the OR-ed entries disagree with the all-expansions rule for a few codons: table 1/11 `TRR` → `*` (TGG = W), `TRA` (TAA/TGA) → `X`, `YTN` → L (TTT/TTC = F), `MGN` → R, `ATS` → I, `WSN` → S; table 2 `WRR` → `*`, `YTN` → L, `WSN` → S.
+4. `getorf.c main`: "if the sequence is circular, append it to itself to triple its length so can deal easily with wrapped ORFs, but don't update len"; the reverse pass is `ajSeqReverseForce` of the tripled sequence.
+5. `getorf_FindORFs` circular branch: `ORF[f] = ajFalse` for every mode; frames with `LASTORF[frame]` are skipped ("don't want to find extra ORFs when already been round circ"); a START opens an ORF only `if(pos < len)`; a STOP / end codon at `pos >= len` sets `LASTORF` (STOP→STOP: `ORF[frame] = ajFalse`, no reopening); after the loop, for `-find 0/2`, a frame without any STOP (`!GOTSTOP[f]`) is written as `WriteORF(seq, …, f, seqlen-1, ajTrnSeqOrig(trnTable, seq, f+1))` — frame 3 tested with `ajSeqGetLen(pep) >= maxsize` (frames 1, 2: `<= maxsize`).
+6. `getorf_WriteORF`: `while(s > len) { s -= len; e -= len; }` ("Move the reported positions back to start in the range 1..len"); flank windows checked against `seqlen` (3L); "(ORF crosses the breakpoint)" when `s > len || e > len`.
+7. `ajTrnSeqOrig` → `ajTrnSeqDangleC`: two dangling bases translated as `GC[b1][b2][N]`, one as `X`.
+
+### EMBOSS 6.6.0 getorf binary — IUPAC and `-circular` reference output (2026-10-14, FIN-B02 WP12)
+
+- `-find 1 -table 1 -minsize 3 -reverse N`: `ATGNNNCCCTAA` → `[1 - 9] MXP`; `atgaaacccrtaa` → `[1 - 12] MKPX`; `AUGAAACCCUAAGG` → `[1 - 9] MKP` (U written as T; input case kept in nucleotide output); `YTGAAACCCTAA` → no ORF; `ATGAAACCCTRR` → `[1 - 9] MKP` (TRR treated as STOP); `ATGAAACCCTRA` → `[1 - 12] MKPX` (TRA read through).
+- `CCCTAAGGGATGAAA -circular Y -reverse N -minsize 3`: `-find 1` `[10 - 18] (ORF crosses the breakpoint) MKP` (linear: `[10 - 15] MK`); `-find 3` `ATGAAACCC`; `-find 0` `[7 - 18] GMKP`, `[14 - 25] NPKG`; `-find 6 -flanking 2` `[17 - 23] Around codon at 19. CCTAAGG`, `[24 - 30] Around codon at 26. GATGAAA`.
+- `GCGCGCCCGGG -find 0 -minsize 3 -circular Y -reverse N`: `[1 - 33] ARPGRARGAPG`, `[2 - 33] RARGAPGARPG`; `-find 2` prints the same two proteins; with `-maxsize 30`: only `[3 - 33] APGARPGRARX` (frame-3 `>= maxsize` test).
+
+Bulk comparison (C# string overload vs the binary; 1 000 random sequences per suite, 1–400 nt, × 93 runs: modes 0–6 × tables 1/2/11 × 4 minsize/maxsize/flanking/reverse sets + `-methionine N`):
+
+| Suite | Reference records | (sequence, run) pairs | exact | residue-only (getorf X / inconsistent EMBOSS residue) | EMBOSS STOP-table codon present | unexplained |
+|---|---|---|---|---|---|---|
+| IUPAC, linear | 384 927 | 93 000 | 86 052 | 4 653 | 2 295 | 0 |
+| IUPAC, `-circular Y` | 344 889 | 93 000 | 83 790 | 6 516 | 2 694 | 0 |
+| A/C/G/T, `-circular Y` | 447 526 | 93 000 | 93 000 | 0 | 0 | 0 |
+
+In the circular suites the full-length records of STOP-free frames are compared with getorf's literal block (frame-3 `>= maxsize`, protein in mode 2), which is where this API diverges by design. Locked subset: `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Getorf/getorf_iupac_circular.tsv` (24 sequences × 86 runs, 6 143 records; sequences free of the inconsistent codons of item 3 and of STOP-free circular frames).
+
+### Biopython 1.88 — six frames of IUPAC strings (2026-10-14, FIN-B02 WP12)
+
+`Seq(s)[f:].translate(table=t)` and `Seq(s).reverse_complement()[f:].translate(table=t)` (complete codons) vs `Translator.TranslateSixFrames(string, GeneticCode)`: 20 000 random strings (0–200 nt, 0 / 5 / 20 / 50 / 100 % ambiguity codes, 30 % lower case, 30 % U for T; U → T before Biopython) over all 27 Biopython tables — 0 mismatching frames. Worked values: `ATGNNNTARGCNRAYTAAYTG` table 1 → `MX*AB*L`, `XXXXXN`, `XXXXLX` / reverse `QLXXLXH`, `X*XAXX`, `XXXXXX`; `TTGTANSARGAYMGR` table 11 → `LXZDR`, `CXXX`, `VXXX` / `XXXXQ`, `XSXY`, `XXXT`.
+
 ### INSDC Feature Table Definition — CDS (WebSearch snippet; insdc.org / ddbj blocked for fetch)
 
 "CDS: sequence of nucleotides that corresponds with the sequence of amino acids in a protein (location includes stop codon)". This is the stop-inclusive end-coordinate convention used by `OrfResult.EndPosition`.
@@ -223,3 +256,4 @@ Input DNA: `GGGATGAAACCCTAAGGG`. ATG begins at index 3; stop `TAA` occupies indi
 
 - **2026-06-13**: Initial documentation.
 - **2026-10-14**: getorf `-find` 0–6 sources and EMBOSS 6.6.0 binary reference output (FIN-B02 WP11, audit A1-12).
+- **2026-10-14**: EMBOSS ambiguous-codon (`ajtranslate.c`) and `-circular` (`getorf.c`) sources; getorf 6.6.0 IUPAC / circular reference output; Biopython IUPAC six-frame comparison (FIN-B02 WP12, audits A1-13, A1-20).
