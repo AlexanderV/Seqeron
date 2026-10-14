@@ -191,6 +191,7 @@ Per the model rule above. A batch listed here stays out of "Finished batches" ev
 | B08 | CRISPR-OFF-001 as re-verified and committed by resume-3, and everything it does next | session_01WLgw5gNJSSJdHmg5UKDkPY (resume-3, RUNNING) | claude-opus-5 — off-model from its first turn, the fourth B08 session in a row | OPEN — left running per the model rule; B08 cannot be marked finished |
 | B08 | CRISPR-PAM-001 F1–F2 (commit 73fe1972) + the B08.md skeleton | session_01YRNyThk8LUUghgQswiDmsF (first pass, archived, ≈ $19.6) | claude-opus-5 (session model AND last served) | OPEN — needs a re-verification pass on 5-5 |
 | B08 | CRISPR-GUIDE-001 F3–F8 (commits 2fc133c2, e8e6c72) | session_01NvVQb3FM1E4YGuhxEtXqjH (2026-10-01, archived) | claude-opus-5 (configured + session model 5-5, served 5) | OPEN — needs a re-verification pass on 5-5 before B08 may be called finished |
+| B02 | FIN-B02 entries F41, F42, F43, F48, F49, F54, F55, F60, F63, F64 and the WP27a/b re-verification verdicts (B02.md "## Model provenance") | FIN-B02 lead session (claude-opus-5-5 throughout); its subagents for WP9, WP10, WP14, WP15, WP18, WP22, WP27a, WP27b | claude-opus-5 (runtime fallback; per-turn model fields in the subagent transcripts) | OPEN — DOABLE none; needs one claude-opus-5-5 review of those F-entries against Evidence oracle numbers |
 
 **Provenance audit done 2026-10-14** (all 36 campaign sessions queried; table in `scratchpad/model-provenance.md`):
 every session was *configured* claude-opus-5-5, and every batch except B08 was also *served* 5-5 — B01–B07, B09–B26,
