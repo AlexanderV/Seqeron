@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateSpecificityScore",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L378",
-  "description": "Aggregate off-target hits (<=4 mismatches) of a guide RNA against a genome into a 0..100 specificity score.",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L608",
+  "description": "THIS LIBRARY'S OWN HEURISTIC, NOT A PUBLISHED MODEL: aggregates off-target hits (<=4 mismatches) as max(0, 100 - sum(5 per seed mismatch + 2 per distal mismatch)). For the published models use crispr_mit_specificity_score or crispr_cfd_specificity_score.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -19,7 +19,7 @@
   "outputSchema": {
     "type": "object",
     "properties": {
-      "specificity": { "type": "number", "description": "Specificity score 0..100 (100 = no off-targets)." }
+      "specificity": { "type": "number", "description": "Heuristic specificity score 0..100 (100 = no off-targets)." }
     },
     "required": ["specificity"]
   },

@@ -2,9 +2,11 @@
 
 MCP server — **Primer/probe/CRISPR design, codon optimization, restriction analysis, thermodynamics.**
 
-Exposes **51 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
-MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
-per-tool doc under [`docs/mcp/tools/moltools/`](../../../../docs/mcp/tools/moltools). Rollout status:
+Exposes **55 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test. Per-tool docs
+live under [`docs/mcp/tools/moltools/`](../../../../docs/mcp/tools/moltools) (53 of the 55 today —
+`calculate_on_target_doench2014` and `calculate_on_target_rule_set2` are registered and tested but
+still undocumented there). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
 
 ## Run
@@ -15,13 +17,15 @@ dotnet run --project Seqeron.Mcp.MolTools
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.MolTools"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (51)
+## Tools (55)
 
 | Tool | Description |
 |------|-------------|
 | `analyze_oligo` | Returns Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide. |
 | `blunt_cutters` | Lists all built-in restriction enzymes that produce blunt ends (both strands cut at the same position). |
 | `build_codon_table` | Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alpha… |
+| `calculate_on_target_doench2014` | Doench et al. 2014 "Rule Set 1" on-target efficacy score for an SpCas9 guide on a 0..100 scale, from the model's 30-nt context. |
+| `calculate_on_target_rule_set2` | Doench et al. 2016 "Rule Set 2" / Azimuth on-target efficacy score (the "Doench '16" score reported by CRISPOR), from the model's 30-nt context. |
 | `cai_from_organism_table` | Computes the Codon Adaptation Index (Sharp & Li 1987) for a coding sequence against an organism codon-usage FREQUENCY table (distinct fro… |
 | `codon_adaptation_index` | Codon Adaptation Index (Sharp & Li 1987) using a caller-supplied reference RSCU table (typically derived from highly expressed genes), co… |
 | `codon_minmax_profile` | %MinMax codon-usage profile (Clarke & Clark 2008, PLoS ONE 3:e3412; term-for-term as the Clark lab calculateMinMax reference code) over a sliding window of window_s… |
@@ -29,7 +33,9 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `compare_codon_usage` | Codon-frequency similarity between two coding sequences: 1 − ½·Σ|f1−f2| ∈ [0,1] (1 = identical codon distribution, 0 = disjoint). |
 | `compatible_enzymes` | Enumerates all pairs of built-in restriction enzymes whose ends can be ligated to each other — either both produce blunt ends, or both pr… |
 | `count_codons` | Counts occurrences of each codon in a coding sequence (frame 0, non-overlapping triplets). |
-| `crispr_specificity_score` | Aggregates off-target hits (≤4 mismatches) for a guide RNA against a genome into a single specificity score in 0..100 (100 = no off-targets; |
+| `crispr_cfd_specificity_score` | PUBLISHED Doench 2016 CFD aggregate guide specificity, as CRISPOR annotateOfftargets computes it: 100/(100 + Σ raw per-hit CFD) × 100 (MitStyle) or 100/Σ (Parkinso… |
+| `crispr_mit_specificity_score` | PUBLISHED MIT / Hsu 2013 aggregate guide specificity (crispr.mit.edu "Guide score", CRISPOR calcMitGuideScore): 100/(100 + Σ per-hit Hsu scores) × 100. Guides … |
+| `crispr_specificity_score` | THIS LIBRARY'S OWN HEURISTIC, NOT A PUBLISHED MODEL: aggregates off-target hits (≤4 mismatches) as max(0, 100 − Σ(5 per seed mismatch + 2 per distal mismatch))… |
 | `crispr_system_info` | Returns the metadata record (name, PAM sequence, guide length, PAM placement relative to target, description) for a known CRISPR nuclease… |
 | `design_antisense_probes` | Reverse-complements the supplied mRNA-sense sequence and runs the probe designer on it; |
 | `design_guide_rnas` | Generates and scores guide-RNA candidates whose Cas9/Cas12a cut site falls inside the requested region. |

@@ -354,7 +354,7 @@
 | `select_phylogenetic_markers` | `PanGenomeAnalyzer.SelectPhylogeneticMarkers` | [doc](../../mcp/tools/metagenomics/select_phylogenetic_markers.md) |
 | `taxonomic_profile` | `MetagenomicsAnalyzer.GenerateTaxonomicProfile` | [doc](../../mcp/tools/metagenomics/taxonomic_profile.md) |
 
-## MolTools (51 tools)
+## MolTools (53 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -368,6 +368,8 @@
 | `compare_codon_usage` | `CodonOptimizer.CompareCodonUsage` | [doc](../../mcp/tools/moltools/compare_codon_usage.md) |
 | `compatible_enzymes` | `RestrictionAnalyzer.FindCompatibleEnzymes` | [doc](../../mcp/tools/moltools/compatible_enzymes.md) |
 | `count_codons` | `CodonUsageAnalyzer.CountCodons` | [doc](../../mcp/tools/moltools/count_codons.md) |
+| `crispr_cfd_specificity_score` | `CrisprDesigner.CalculateCfdSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_cfd_specificity_score.md) |
+| `crispr_mit_specificity_score` | `CrisprDesigner.CalculateMitSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_mit_specificity_score.md) |
 | `crispr_specificity_score` | `CrisprDesigner.CalculateSpecificityScore` | [doc](../../mcp/tools/moltools/crispr_specificity_score.md) |
 | `crispr_system_info` | `CrisprDesigner.GetSystem` | [doc](../../mcp/tools/moltools/crispr_system_info.md) |
 | `design_antisense_probes` | `ProbeDesigner.DesignAntisenseProbes` | [doc](../../mcp/tools/moltools/design_antisense_probes.md) |

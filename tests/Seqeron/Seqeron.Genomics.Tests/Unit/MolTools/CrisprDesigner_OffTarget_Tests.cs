@@ -705,4 +705,433 @@ public class CrisprDesigner_OffTarget_Tests
     }
 
     #endregion
+
+    #region F9 — MIT aggregate on non-20-nt systems (the reference's own length fudge)
+
+    // Defect F9: CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType) filtered its
+    // hits with `.Where(ot => ot.Sequence.Length == 20 && guide.Length == 20)`, so for EVERY system
+    // whose guide is not 20 nt (SaCas9 21, Cas12a/AsCas12a 23, LbCas12a 24) all hits were dropped and
+    // the aggregate returned a perfect 100 despite real off-targets.
+    //
+    // The reference handles the lengths itself and picks the model per system (annotateOfftargets,
+    // crispor.py L1934-1946):
+    //   SaCas9 PAM  -> calcSaHitScore = 100 x SaCas9Scorer.calcScore (Tycko 2018 trained model)
+    //   otherwise   -> calcHitScore, whose own length fudge is len > 20 -> last 20 nt ("S. aureus
+    //                  requires 21bp long guides. We fudge by using only last 20bp") and len == 19 ->
+    //                  left-pad both with "A" (crispor.py L2047-2068)
+    // F14 routes SaCas9 through the Tycko model, as the reference does, so the SaCas9 expectations
+    // below are its values (independent Python run of predictSingle.py's semantics against the
+    // downloaded rstan_mult_21_coeffs.txt):
+    //   calcSaHitScore("ACGTACGTACGTACGTACGTA", "ACGTACGTACGTACGTACGTC") = 4.2613097364785695
+    //       -> calcMitGuideScore 95.91285612347565
+    //   calcSaHitScore("ACGTACGTACGTACGTACGTA", "ACGTCCGTACGTACGTACGTC") = 2.5134348817970387
+    //       -> calcMitGuideScore 97.54818977171612
+    //   calcSaHitScore("ACGTACGTACGTACGTACGTA", "TCGTACGTACGTACGTACGTA") = 100.0 (the 5'-most position
+    //       contributes nothing in either model) -> calcMitGuideScore 50.0
+
+    private const string SaGuide21 = "ACGTACGTACGTACGTACGTA";     // SaCas9: 21-nt guide, NNGRRT PAM
+    private const string SaPam = "AAGAAT";                        // NNGRRT
+
+    /// <summary>
+    /// F9-001 (regression): a 21-nt SaCas9 guide with ONE real off-target must NOT score 100.
+    /// The single off-target protospacer differs at index 20 (the PAM-proximal base), so the
+    /// reference single-hit score is calcSaHitScore = 4.2613097364785695 and the aggregate is
+    /// 100/(100+4.2613097364785695)*100 = 95.91285612347565. Before the fix this returned exactly
+    /// 100.0 for EVERY SaCas9 guide, however many off-targets the genome held.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_SaCas9_21ntGuide_RealOffTarget_IsNot100()
+    {
+        var genome = new DnaSequence("ACGTACGTACGTACGTACGTC" + SaPam);
+
+        var offTargets = CrisprDesigner.FindOffTargets(SaGuide21, genome, 3, CrisprSystemType.SaCas9).ToList();
+        double score = CrisprDesigner.CalculateMitSpecificityScore(
+            SaGuide21, genome, 3, CrisprSystemType.SaCas9);
+
+        Assert.Multiple(() =>
+        {
+            // The hit set is asserted independently of the score, so the expected aggregate below
+            // belongs to exactly this one off-target.
+            Assert.That(offTargets, Has.Count.EqualTo(1));
+            Assert.That(offTargets[0].Sequence, Is.EqualTo("ACGTACGTACGTACGTACGTC"));
+            Assert.That(offTargets[0].Mismatches, Is.EqualTo(1));
+            Assert.That(offTargets[0].MismatchPositions, Is.EqualTo(new[] { 20 }));
+
+            Assert.That(score, Is.Not.EqualTo(100.0), "F9: a real off-target must lower the aggregate");
+            Assert.That(score, Is.EqualTo(95.91285612347565).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// F9-002: the same 21-nt SaCas9 path with TWO mismatches — the Tycko model multiplies the two
+    /// positions' coefficients. Reference single-hit score 2.5134348817970387
+    /// → aggregate 97.54818977171612.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_SaCas9_21ntGuide_TwoMismatches_MatchesReference()
+    {
+        var genome = new DnaSequence("ACGTCCGTACGTACGTACGTC" + SaPam);
+
+        var offTargets = CrisprDesigner.FindOffTargets(SaGuide21, genome, 3, CrisprSystemType.SaCas9).ToList();
+        double score = CrisprDesigner.CalculateMitSpecificityScore(
+            SaGuide21, genome, 3, CrisprSystemType.SaCas9);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offTargets, Has.Count.EqualTo(1));
+            Assert.That(offTargets[0].MismatchPositions, Is.EqualTo(new[] { 4, 20 }));
+            Assert.That(score, Is.EqualTo(97.54818977171612).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// F9-003 (locked from the reference): a mismatch at the 5'-most position contributes nothing —
+    /// the Tycko model skips index 0 outright ("Mismatches at the 5' position are not truly determined
+    /// by the model") and calcHitScore's last-20 window does not even see it. The hit therefore scores
+    /// a perfect 100 and the aggregate is 100/(100+100)*100 = 50, not 100. This distinguishes
+    /// "scored, and it is a strong hit" from F9's "never scored at all".
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_SaCas9_MismatchAtFivePrimeEnd_ScoredAsPerfectHit()
+    {
+        var genome = new DnaSequence("TCGTACGTACGTACGTACGTA" + SaPam);
+
+        var offTargets = CrisprDesigner.FindOffTargets(SaGuide21, genome, 3, CrisprSystemType.SaCas9).ToList();
+        double score = CrisprDesigner.CalculateMitSpecificityScore(
+            SaGuide21, genome, 3, CrisprSystemType.SaCas9);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offTargets, Has.Count.EqualTo(1));
+            Assert.That(offTargets[0].MismatchPositions, Is.EqualTo(new[] { 0 }));
+            Assert.That(score, Is.EqualTo(50.0).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// F9-004: Cas12a-class (PAM-before-target) systems must THROW rather than report a specificity.
+    /// The reference reports no MIT/CFD off-target score for Cpf1 PAMs at all: in annotateOfftargets
+    /// (crispor.py L1939-1942) every hit gets mitScore = cfdScore = 0.0 when pamIsCpf1(pam), and the
+    /// guide aggregates are the sentinels guideScore = guideCfdScore = -1 (L1986-1988). The test first
+    /// proves there ARE real off-targets, so the throw cannot be mistaken for "nothing to score".
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_Cas12aClass_WithRealOffTargets_Throws()
+    {
+        const string guide23 = "ACGTACGTACGTACGTACGTACG";
+        var genome = new DnaSequence("TTTA" + "ACGTACGTACGTACGTACGTACC"); // TTTV PAM, 1 mismatch at index 22
+
+        var offTargets = CrisprDesigner.FindOffTargets(guide23, genome, 3, CrisprSystemType.Cas12a).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offTargets, Is.Not.Empty, "the genome must contain a real Cas12a off-target");
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateMitSpecificityScore(
+                guide23, genome, 3, CrisprSystemType.Cas12a));
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateCfdSpecificityScore(
+                guide23, genome, 3, CrisprSystemType.Cas12a));
+        });
+    }
+
+    /// <summary>
+    /// F9-005: every PAM-before-target system is refused, including CasX (TTCN), which the
+    /// reference's pamIsCpf1 list (crispor.py L889-891) does NOT contain — CRISPOR would route it
+    /// through calcHitScore, but its own PAM stripping there takes the 3' end, the wrong end for a
+    /// PAM-before system, and the Hsu weight vector is indexed PAM-proximal-last. Refusing is the
+    /// deliberate divergence (recorded in docs/Evidence/CRISPR-OFF-001-Evidence.md).
+    /// </summary>
+    [TestCase(CrisprSystemType.Cas12a, 23)]
+    [TestCase(CrisprSystemType.AsCas12a, 23)]
+    [TestCase(CrisprSystemType.LbCas12a, 24)]
+    [TestCase(CrisprSystemType.CasX, 20)]
+    public void CalculateMitSpecificityScore_PamBeforeTargetSystems_AlwaysThrow(
+        CrisprSystemType system, int guideLength)
+    {
+        string guide = new string('A', guideLength);
+        var genome = new DnaSequence("TTTAACGTACGTACGTACGTACGTACGT");
+
+        Assert.Throws<ArgumentException>(() =>
+            CrisprDesigner.CalculateMitSpecificityScore(guide, genome, 3, system));
+    }
+
+    /// <summary>
+    /// F9-006 (honesty guard): the unsourced heuristic and the published MIT aggregate must be
+    /// visibly different numbers on the same input, so neither can be mistaken for the other.
+    /// Heuristic: one PAM-distal mismatch → 100 − 2 = 98. MIT: single-hit 100 → 50.
+    /// </summary>
+    [Test]
+    public void CalculateSpecificityScore_HeuristicAndMitAggregate_AreDistinct()
+    {
+        const string guide = "GACGCATAAAGATGAGACGC";
+        var genome = new DnaSequence("TACGCATAAAGATGAGACGC" + "AGG");
+
+        double heuristic = CrisprDesigner.CalculateSpecificityScore(guide, genome, CrisprSystemType.SpCas9);
+        double mit = CrisprDesigner.CalculateMitSpecificityScore(guide, genome, 4, CrisprSystemType.SpCas9);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(heuristic, Is.EqualTo(98.0).Within(1e-12));
+            Assert.That(mit, Is.EqualTo(50.0).Within(1e-9));
+        });
+    }
+
+    #endregion
+
+    #region F14 — SaCas9 off-target model (Tycko et al. 2018)
+
+    // Source: Tycko J, Wainberg M, Marinov GK, et al., "Pairwise library screen systematically
+    // interrogates Staphylococcus aureus Cas9 specificity in human cells", Nat Commun 9:2962 (2018),
+    // doi:10.1038/s41467-018-05391-2.
+    // Reference implementation: CRISPOR calcSaHitScore (crispor.py L2025-2043) -> SaCas9Scorer in
+    // bin/src/pairwise-library-screen/predictSingle.py + models/rstan_mult_21_coeffs.txt, both
+    // downloaded this session from raw.githubusercontent.com/maximilianh/crisporWebsite/master/.
+    // The three expected values below are the reference script's OWN asserted values (its __main__
+    // block), reproduced by an independent Python run against the downloaded coefficient table:
+    //   calcScore(identical)                                                      = 1.0
+    //   calcScore("GCAACCACAAACCCACGAGGG", "ACAAACACATACCCACAAGGA") = 0.041293256150042444
+    //   calcScore("GGGTGAGTGAGTGTGTGCGTG", "GAGCGAGTGGGTGTGTGCGTG") = 0.13441983202750601
+    // calcSaHitScore returns 100 x calcScore ("to be compatible with the MIT score, has to be in the
+    // range 0-100 for the MIT aggregate guide specificity score").
+
+    /// <summary>SA-001: a perfect match scores exactly 100 (the reference's own first assert).</summary>
+    [Test]
+    public void CalculateSaCas9HitScore_PerfectMatch_Returns100()
+    {
+        Assert.That(
+            CrisprDesigner.CalculateSaCas9HitScore("GCAACCACAAACCCACGAGGG", "GCAACCACAAACCCACGAGGG"),
+            Is.EqualTo(100.0).Within(1e-9));
+    }
+
+    /// <summary>SA-002 / SA-003: the reference script's two published multi-mismatch oracles.</summary>
+    [TestCase("GCAACCACAAACCCACGAGGG", "ACAAACACATACCCACAAGGA", 4.1293256150042446)]
+    [TestCase("GGGTGAGTGAGTGTGTGCGTG", "GAGCGAGTGGGTGTGTGCGTG", 13.4419832027506)]
+    public void CalculateSaCas9HitScore_ReferenceOracles_Match(string guide, string offTarget, double expected)
+    {
+        Assert.That(CrisprDesigner.CalculateSaCas9HitScore(guide, offTarget),
+            Is.EqualTo(expected).Within(1e-9));
+    }
+
+    /// <summary>
+    /// SA-004 (coefficient ORIENTATION guard): the shipped table indexes Position from the 3'/
+    /// PAM-proximal end and SaCas9Scorer remaps it to a 1-based index from the 5' end
+    /// (guideLenDict[guide_len - Position + 1]). The SAME mismatch type "dT:rC" (guide C, off-target A)
+    /// therefore carries 0.546734106002513 at 5'-adjacent index 1 and 0.105693733152788 at
+    /// PAM-proximal index 20 → 54.6734106002513 vs 10.569373315278801. A table transcribed without the
+    /// remap would swap these two values, so asserting both pins the orientation.
+    /// </summary>
+    [Test]
+    public void CalculateSaCas9HitScore_CoefficientOrientation_NotReversed()
+    {
+        const string guide = "ACGTACGTACGTACGTACGTC";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateSaCas9HitScore(guide, "AAGTACGTACGTACGTACGTC"),
+                Is.EqualTo(54.6734106002513).Within(1e-9), "dT:rC at 5'-adjacent index 1");
+            Assert.That(CrisprDesigner.CalculateSaCas9HitScore(guide, "ACGTACGTACGTACGTACGTA"),
+                Is.EqualTo(10.569373315278801).Within(1e-9), "dT:rC at PAM-proximal index 20");
+        });
+    }
+
+    /// <summary>
+    /// SA-005: "Mismatches at the 5' position are not truly determined by the model" — index 0 is
+    /// skipped outright, so a guide differing only there scores a perfect 100.
+    /// </summary>
+    [Test]
+    public void CalculateSaCas9HitScore_MismatchAtFivePrimeMostPosition_Ignored()
+    {
+        Assert.That(
+            CrisprDesigner.CalculateSaCas9HitScore("ACGTACGTACGTACGTACGTC", "CCGTACGTACGTACGTACGTC"),
+            Is.EqualTo(100.0).Within(1e-9));
+    }
+
+    /// <summary>
+    /// SA-006: only the 21-nt coefficient table is transcribed (21 nt is this library's SaCas9 guide
+    /// length), and the model supports neither gaps/bulges nor non-A/C/G/T bases — all refused rather
+    /// than approximated.
+    /// </summary>
+    [Test]
+    public void CalculateSaCas9HitScore_InvalidInputs_Throw()
+    {
+        const string guide = "ACGTACGTACGTACGTACGTC";
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateSaCas9HitScore(null!, guide));
+            Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateSaCas9HitScore(guide, null!));
+            Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateSaCas9HitScore("", guide));
+            // 20 nt and 22 nt tables exist in the reference but are not transcribed here.
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateSaCas9HitScore(
+                "ACGTACGTACGTACGTACGT", "ACGTACGTACGTACGTACGT"));
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateSaCas9HitScore(guide, "ACGTACGTACGTACGTACGT"));
+            // Gaps/bulges: "This model does not support gaps/bulges."
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateSaCas9HitScore(
+                guide, "A-GTACGTACGTACGTACGTC"));
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateSaCas9HitScore(
+                guide, "ANGTACGTACGTACGTACGTC"));
+        });
+    }
+
+    /// <summary>SA-007: lower-case input is folded, like every other scoring entry point here.</summary>
+    [Test]
+    public void CalculateSaCas9HitScore_LowerCaseInput_TreatedAsUpperCase()
+    {
+        Assert.That(
+            CrisprDesigner.CalculateSaCas9HitScore("gcaaccacaaacccacgaggg", "acaaacacatacccacaagga"),
+            Is.EqualTo(4.1293256150042446).Within(1e-9));
+    }
+
+    #endregion
+
+    #region Mismatch-count / position / penalty consistency and enumeration order
+
+    /// <summary>
+    /// Locks INV-03 plus the penalty's agreement with it for a mixed-case input: Mismatches,
+    /// MismatchPositions.Count and OffTargetScore are all derived from ONE case-folding rule, so they
+    /// cannot disagree. (DnaSequence itself upper-cases and validates its input, so the genome side is
+    /// already normalised — see DnaSequence.cs ValidateSequence; the guide side is folded in the scan.)
+    /// </summary>
+    [Test]
+    public void FindOffTargets_MixedCaseInput_CountPositionsAndPenaltyAgree()
+    {
+        var offTargets = CrisprDesigner.FindOffTargets(
+            "gacgcataaagatgagacgc",                               // lower-case guide
+            new DnaSequence("tacgcataaagatgagacgcagg"),            // lower-case genome
+            3, CrisprSystemType.SpCas9).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offTargets, Has.Count.EqualTo(1));
+            Assert.That(offTargets[0].Mismatches, Is.EqualTo(1));
+            Assert.That(offTargets[0].MismatchPositions.Count, Is.EqualTo(offTargets[0].Mismatches));
+            Assert.That(offTargets[0].MismatchPositions, Is.EqualTo(new[] { 0 }));
+            // index 0 is PAM-distal for a 20-nt Cas9 guide (seed = last 12 nt) → penalty 2, not 5.
+            Assert.That(offTargets[0].OffTargetScore, Is.EqualTo(2.0).Within(1e-12));
+        });
+    }
+
+    /// <summary>
+    /// A DnaSequence can never carry a non-A/C/G/T base (DnaSequence.ValidateSequence →
+    /// SequenceExtensions.IndexOfInvalidDna), which is why the reference's "[^ATCG] → cfdScore = -1"
+    /// exclusion inside the CFD genome overload is defensive and unreachable. Locked here so the
+    /// Evidence doc's reachability claim stays true if DnaSequence's alphabet ever widens.
+    /// </summary>
+    [Test]
+    public void DnaSequence_RejectsAmbiguityCodes_SoNonAcgtOffTargetsCannotReachTheScan()
+    {
+        Assert.Throws<ArgumentException>(() => new DnaSequence("ACGTACGTNCGTACGTACGTAGG"));
+    }
+
+    /// <summary>
+    /// Determinism has a documented shape: all forward-strand hits in ascending position order, then
+    /// all reverse-strand hits. Locked with a genome carrying one off-target per strand.
+    /// </summary>
+    [Test]
+    public void FindOffTargets_EnumerationOrder_ForwardSitesThenReverseSites()
+    {
+        const string guide = "GACGCATAAAGATGAGACGC";
+        // forward off-target (1 mm at index 0) + NGG, then the reverse-complement of another
+        // off-target + NGG, so one hit comes from each strand.
+        var genome = new DnaSequence("TACGCATAAAGATGAGACGCAGG" + "CCTGCGTCACATCTTTATGCGTA");
+
+        var offTargets = CrisprDesigner.FindOffTargets(guide, genome, 4, CrisprSystemType.SpCas9).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offTargets.Select(ot => ot.IsForwardStrand),
+                Is.Ordered.Descending, "forward-strand hits must precede reverse-strand hits");
+            Assert.That(offTargets.Where(ot => ot.IsForwardStrand).Select(ot => ot.Position),
+                Is.Ordered.Ascending);
+            Assert.That(offTargets.Any(ot => ot.IsForwardStrand), Is.True);
+            Assert.That(offTargets.Any(ot => !ot.IsForwardStrand), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// Dedup lock: <c>CountMismatches</c> delegates equal-length inputs to the canonical
+    /// <see cref="SequenceExtensions.HammingDistance(ReadOnlySpan{char}, ReadOnlySpan{char})"/>, so the
+    /// reported <c>Mismatches</c> must equal that primitive on the very same pair — including for
+    /// mixed-case input, since the canonical folds ASCII case and the replaced private loop did not.
+    /// </summary>
+    [Test]
+    public void FindOffTargets_Mismatches_EqualCanonicalHammingDistance()
+    {
+        const string guide = "gacgcataaagatgagacgc";
+        var genome = new DnaSequence("tacgcataaagatgagacgcagg" + "CCTGCGTCACATCTTTATGCGTA");
+
+        var offTargets = CrisprDesigner.FindOffTargets(guide, genome, 4, CrisprSystemType.SpCas9).ToList();
+
+        Assert.That(offTargets, Is.Not.Empty);
+        Assert.Multiple(() =>
+        {
+            foreach (var ot in offTargets)
+            {
+                Assert.That(
+                    ot.Mismatches,
+                    Is.EqualTo(guide.AsSpan().HammingDistance(ot.Sequence.AsSpan())),
+                    $"reported Mismatches must equal the canonical HammingDistance for {ot.Sequence}");
+                Assert.That(ot.MismatchPositions.Count, Is.EqualTo(ot.Mismatches));
+            }
+        });
+    }
+
+    /// <summary>
+    /// Dedup lock, the other direction: <c>CfdComplement</c> is deliberately NOT the canonical
+    /// <see cref="SequenceExtensions.GetComplementBase(char)"/>. The canonical is IUPAC-complete and
+    /// maps <c>U → A</c>, whereas CFD must refuse anything outside A/C/G/T — the reference
+    /// <c>calcCfdScore</c> screens both sequences with <c>re.search('[^ATCG]')</c> and returns the
+    /// sentinel <c>-1</c> (crispor.py L2175-2185). This pins both halves of that argument, so the
+    /// non-delegation cannot be "cleaned up" into a silently wrong score.
+    /// </summary>
+    [Test]
+    public void CalculateCfdScore_NonAcgtBases_RefusedAlthoughCanonicalComplementAcceptsThem()
+    {
+        const string guide = "GACGCATAAAGATGAGACGC";
+
+        Assert.Multiple(() =>
+        {
+            // The canonical complement would happily map these — which is exactly why CFD cannot use it.
+            Assert.That(SequenceExtensions.GetComplementBase('U'), Is.EqualTo('A'));
+            Assert.That(SequenceExtensions.GetComplementBase('N'), Is.EqualTo('N'));
+            Assert.That(SequenceExtensions.GetComplementBase('R'), Is.EqualTo('Y'));
+
+            // CFD refuses them instead of scoring them.
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateCfdScore(
+                guide, "UACGCATAAAGATGAGACGC", "AGG"));
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateCfdScore(
+                guide, "NACGCATAAAGATGAGACGC", "AGG"));
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateCfdScore(
+                "RACGCATAAAGATGAGACGC", "TACGCATAAAGATGAGACGC", "AGG"));
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateCfdScore(
+                guide, "TACGCATAAAGATGAGACGC", "ANG"));
+        });
+    }
+
+    /// <summary>
+    /// Recorded divergence (Evidence 10): every exact match is dropped genome-wide, because this API is
+    /// given a bare reference sequence and no on-target locus. CRISPOR's skip
+    /// (<c>annotateOfftargets</c>, crispor.py L1920-1929) is scoped to the caller-supplied on-target
+    /// interval — or, with none, to the first 0-mismatch hit it meets — and scores any FURTHER perfect
+    /// match as a full <c>calcHitScore = 100</c> off-target, which would give an aggregate of 50 here.
+    /// This pins the documented behaviour so the divergence stays visible rather than drifting.
+    /// </summary>
+    [Test]
+    public void FindOffTargets_TwoPerfectMatches_BothDroppedGenomeWide()
+    {
+        const string guide = "GACGCATAAAGATGAGACGC";
+        // The guide's own protospacer + NGG, twice: two 0-mismatch hits and nothing else.
+        var genome = new DnaSequence(guide + "AGG" + "TTTT" + guide + "AGG");
+
+        var offTargets = CrisprDesigner.FindOffTargets(guide, genome, 4, CrisprSystemType.SpCas9).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offTargets, Is.Empty, "both exact matches are treated as on-targets");
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScore(guide, genome, 4), Is.EqualTo(100.0));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(guide, genome, 4), Is.EqualTo(100.0));
+            // CRISPOR would keep the second perfect match and report 100/(100+100)*100 = 50.
+        });
+    }
+
+    #endregion
 }

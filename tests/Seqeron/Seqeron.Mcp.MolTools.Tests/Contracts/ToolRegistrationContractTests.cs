@@ -28,6 +28,8 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "compare_codon_usage",
         "compatible_enzymes",
         "count_codons",
+        "crispr_cfd_specificity_score",
+        "crispr_mit_specificity_score",
         "crispr_specificity_score",
         "crispr_system_info",
         "design_antisense_probes",

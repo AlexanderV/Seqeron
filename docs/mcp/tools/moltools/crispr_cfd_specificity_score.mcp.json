@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "crispr_cfd_specificity_score",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CrisprDesigner.CalculateCfdSpecificityScore",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1539",
+  "description": "Published Doench 2016 CFD aggregate guide specificity score as CRISPOR annotateOfftargets computes it: 100/(100 + sum of raw per-hit CFD) * 100 (MitStyle), or the doCfdFix variant 100 / sum (ParkinsonNormalized).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "guide_sequence": { "type": "string", "description": "Guide RNA sequence (must be 20 nt for the supported systems).", "minLength": 1 },
+      "genome": { "type": "string", "description": "Genome / reference sequence to scan.", "minLength": 1 },
+      "max_mismatches": { "type": "integer", "description": "Maximum allowed mismatches (range 0..5; default 4, the reference's default).", "minimum": 0, "maximum": 5, "default": 4 },
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
+      "aggregation": { "type": "string", "enum": ["MitStyle", "ParkinsonNormalized"], "default": "MitStyle" }
+    },
+    "required": ["guide_sequence", "genome"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "specificity": { "type": "number", "description": "Aggregate CFD specificity (0..100 for MitStyle; unbounded for ParkinsonNormalized)." }
+    },
+    "required": ["specificity"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Guide sequence cannot be null or empty" },
+    { "code": 1002, "message": "Genome cannot be null or empty" },
+    { "code": 1003, "message": "Maximum mismatches must be in the range 0..5" },
+    { "code": 4001, "message": "Guide length does not match the system's guide length" },
+    { "code": 4002, "message": "The CFD model is defined only for a 20-nt protospacer (SaCas9 / Cas12a-class / CasX are refused)" },
+    { "code": 4003, "message": "The ParkinsonNormalized CFD aggregate is undefined for a CFD sum of 0" }
+  ],
+  "examples": [
+    {
+      "name": "Reverse-strand off-target with a NAG PAM",
+      "input": { "guide_sequence": "GACGCATAAAGATGAGACGC", "genome": "CTTGCGTCTCATCTTTATGCGTA", "max_mismatches": 3, "system_type": "SpCas9_NAG" },
+      "output": { "specificity": 99.74141115651946 }
+    },
+    {
+      "name": "doCfdFix aggregation of the same hit",
+      "input": { "guide_sequence": "GACGCATAAAGATGAGACGC", "genome": "CTTGCGTCTCATCTTTATGCGTA", "max_mismatches": 3, "system_type": "SpCas9_NAG", "aggregation": "ParkinsonNormalized" },
+      "output": { "specificity": 385.71428610000004 }
+    },
+    {
+      "name": "On-target only -> 100",
+      "input": { "guide_sequence": "GACGCATAAAGATGAGACGC", "genome": "GACGCATAAAGATGAGACGCAGG", "max_mismatches": 3 },
+      "output": { "specificity": 100.0 }
+    }
+  ]
+}

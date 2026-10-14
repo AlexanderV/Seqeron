@@ -1080,7 +1080,7 @@ public class MolToolsTools
         return new OffTargetsResult(hits);
     }
 
-    [McpServerTool(Name = "crispr_specificity_score", Title = "MolTools — CRISPR Guide Specificity Score", ReadOnly = true), Description("Aggregates off-target hits (≤4 mismatches) for a guide RNA against a genome into a single specificity score in 0..100 (100 = no off-targets; the score drops as more/seed-region off-targets are found). Call to judge how genome-specific a candidate guide is. Guide length must match the system's guide length.")]
+    [McpServerTool(Name = "crispr_specificity_score", Title = "MolTools — CRISPR Guide Specificity Score (library heuristic)", ReadOnly = true), Description("THIS LIBRARY'S OWN HEURISTIC, NOT A PUBLISHED MODEL: aggregates off-target hits (≤4 mismatches) for a guide RNA against a genome as max(0, 100 − Σ(5 per seed-region mismatch + 2 per PAM-distal mismatch)), giving 0..100 (100 = no off-targets). Hsu 2013 motivates only the seed weighting's direction; the weights 5/2, the 12-nt seed width, the linear sum and the subtraction from 100 are unsourced, and the score saturates at 0. For the published models call crispr_mit_specificity_score (MIT/Hsu 2013 guide score) or crispr_cfd_specificity_score (Doench 2016 CFD) instead — both reproduce CRISPOR numerically. Call this one only as a coarse triage number. Guide length must match the system's guide length.")]
     public static SpecificityResult crispr_specificity_score(
         [Description("Guide RNA sequence (length must match the system's guide length).")] string guide_sequence,
         [Description("Genome / reference sequence to scan.")] string genome,
@@ -1093,6 +1093,43 @@ public class MolToolsTools
 
         return new SpecificityResult(
             CrisprDesigner.CalculateSpecificityScore(guide_sequence, new DnaSequence(genome), system_type));
+    }
+
+    [McpServerTool(Name = "crispr_mit_specificity_score", Title = "MolTools — CRISPR Guide Specificity (MIT/Hsu 2013)", ReadOnly = true), Description("The PUBLISHED MIT / Hsu 2013 aggregate guide specificity score ('Guide score' of crispr.mit.edu, CRISPOR's calcMitGuideScore): scans the genome for off-targets with 1..max_mismatches mismatches, scores each with the Hsu position-weight model, and returns 100/(100 + Σ hitScores) × 100 in 0..100 (100 = no off-targets). Unrounded (the reference rounds to an integer). The per-hit model is picked by system exactly as the reference's annotateOfftargets does: a SaCas9 PAM (NNGRRT/NNNRRT) with its 21-nt guide is scored with the SaCas9-specific trained model of Tycko et al. 2018 (the reference's calcSaHitScore), every other PAM-after-target system with the Hsu model. Cas12a/Cpf1-class and CasX (PAM-before-target) systems are REFUSED: the reference reports no MIT off-target score for them. Call for a publication-grade specificity number instead of crispr_specificity_score.")]
+    public static SpecificityResult crispr_mit_specificity_score(
+        [Description("Guide RNA sequence (length must match the system's guide length).")] string guide_sequence,
+        [Description("Genome / reference sequence to scan.")] string genome,
+        [Description("Maximum allowed mismatches (range 0..5; default 4, the reference's default).")] int max_mismatches = 4,
+        [Description("CRISPR system (default SpCas9); must be PAM-after-target (Cas9-class).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
+    {
+        if (string.IsNullOrEmpty(guide_sequence))
+            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
+        if (string.IsNullOrEmpty(genome))
+            throw new System.ArgumentException("Genome cannot be null or empty.", nameof(genome));
+        if (max_mismatches < 0 || max_mismatches > 5)
+            throw new System.ArgumentException("Maximum mismatches must be in the range 0..5.", nameof(max_mismatches));
+
+        return new SpecificityResult(CrisprDesigner.CalculateMitSpecificityScore(
+            guide_sequence, new DnaSequence(genome), max_mismatches, system_type));
+    }
+
+    [McpServerTool(Name = "crispr_cfd_specificity_score", Title = "MolTools — CRISPR Guide Specificity (Doench 2016 CFD)", ReadOnly = true), Description("The PUBLISHED aggregate CFD (Cutting Frequency Determination, Doench 2016) guide specificity score as CRISPOR's annotateOfftargets computes it: scans the genome for off-targets with 1..max_mismatches mismatches, scores each with the CFD mismatch/PAM matrices using that site's own PAM, and aggregates the raw per-hit CFD values. aggregation=MitStyle (CRISPOR's default) returns 100/(100 + Σ CFD) × 100, so 100 = no off-targets; aggregation=ParkinsonNormalized returns the doCfdFix variant 100 / Σ CFD, which is not bounded by 100 and errors when the CFD sum is 0. CFD is defined only for a 20-nt protospacer, so SaCas9 (21 nt), Cas12a-class and CasX are REFUSED: the reference does not score them either (per-hit cfdScore = -1 for a SaCas9 PAM, 0.0 for a Cpf1 PAM). Call for a publication-grade specificity number instead of crispr_specificity_score.")]
+    public static SpecificityResult crispr_cfd_specificity_score(
+        [Description("Guide RNA sequence (must be 20 nt for the supported systems).")] string guide_sequence,
+        [Description("Genome / reference sequence to scan.")] string genome,
+        [Description("Maximum allowed mismatches (range 0..5; default 4, the reference's default).")] int max_mismatches = 4,
+        [Description("CRISPR system (default SpCas9); must be a 20-nt PAM-after-target system.")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
+        [Description("Which published aggregation to use (default MitStyle, the reference's default).")] CfdAggregation aggregation = CfdAggregation.MitStyle)
+    {
+        if (string.IsNullOrEmpty(guide_sequence))
+            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
+        if (string.IsNullOrEmpty(genome))
+            throw new System.ArgumentException("Genome cannot be null or empty.", nameof(genome));
+        if (max_mismatches < 0 || max_mismatches > 5)
+            throw new System.ArgumentException("Maximum mismatches must be in the range 0..5.", nameof(max_mismatches));
+
+        return new SpecificityResult(CrisprDesigner.CalculateCfdSpecificityScore(
+            guide_sequence, new DnaSequence(genome), max_mismatches, system_type, aggregation));
     }
 
     [McpServerTool(Name = "calculate_on_target_doench2014", Title = "MolTools — On-Target Score (Doench 2014 Rule Set 1)", ReadOnly = true), Description("Doench et al. 2014 \"Rule Set 1\" on-target efficacy score for an SpCas9 guide, returned on a 0..100 scale (higher = predicted more active). This is the published logistic linear model (intercept + GC term over the protospacer + position-specific single/di-nucleotide weights, through a sigmoid). Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be NGG) + 3 nt downstream, A/C/G/T only. Call to rank guides by predicted cutting efficiency when the 30-nt context is known.")]

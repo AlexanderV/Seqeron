@@ -1,6 +1,6 @@
 # crispr_specificity_score
 
-Aggregate a guide RNA's off-targets into a single specificity score.
+This library's own heuristic aggregate of a guide RNA's off-targets (NOT a published model).
 
 ## Overview
 
@@ -14,11 +14,15 @@ Aggregate a guide RNA's off-targets into a single specificity score.
 
 ## Description
 
+> **This is this library's own heuristic, not a published model.** Hsu et al. 2013 motivates only the *direction* of the seed weighting (PAM-proximal mismatches are less tolerated). The weights `5` / `2`, the 12-nt seed width, the linear sum and the subtraction from 100 are **unsourced** — no source was found for them and none is claimed. For a publication-grade number use [crispr_mit_specificity_score](crispr_mit_specificity_score.md) (MIT/Hsu 2013) or [crispr_cfd_specificity_score](crispr_cfd_specificity_score.md) (Doench 2016 CFD); both reproduce CRISPOR numerically.
+
 Runs the naïve off-target scan ([find_off_targets](find_off_targets.md)) with `maxMismatches = 4`, then reduces it to a single number: `100` if there are no off-targets, otherwise `max(0, 100 − Σ off-target penalty)`. Each off-target's penalty weights seed-region (PAM-proximal 12 bp) mismatches more heavily (5 vs 2 per mismatch). The on-target (0 mismatches) is not counted. The guide length must equal the system's guide length.
+
+Known consequences of the heuristic: it is **linear** in the mismatch count where the published models are multiplicative, it ignores which bases are involved and the off-target's own PAM, and it **saturates at 0**, so two guides with very different real off-target profiles can share a score of 0. Treat it as coarse triage only.
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L378](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L378)
+- Source: [CrisprDesigner.cs#L608](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L608)
 
 ## Input Schema
 
@@ -32,7 +36,7 @@ Runs the naïve off-target scan ([find_off_targets](find_off_targets.md)) with `
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `specificity` | number | Specificity score 0..100 (100 = no off-targets). |
+| `specificity` | number | Heuristic specificity score 0..100 (100 = no off-targets). |
 
 ## Errors
 
@@ -55,4 +59,4 @@ A 20-nt guide whose only genomic occurrence is its exact on-target has no off-ta
 
 ## See Also
 
-- [find_off_targets](find_off_targets.md), [design_guide_rnas](design_guide_rnas.md)
+- [crispr_mit_specificity_score](crispr_mit_specificity_score.md), [crispr_cfd_specificity_score](crispr_cfd_specificity_score.md), [find_off_targets](find_off_targets.md), [design_guide_rnas](design_guide_rnas.md)

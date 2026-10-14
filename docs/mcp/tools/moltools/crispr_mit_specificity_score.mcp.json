@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "crispr_mit_specificity_score",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CrisprDesigner.CalculateMitSpecificityScore",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1005",
+  "description": "Published MIT / Hsu 2013 aggregate guide specificity score (crispr.mit.edu 'Guide score', CRISPOR calcMitGuideScore): 100/(100 + sum of per-hit scores) * 100, with per-hit scores from the Hsu model, or from the Tycko 2018 SaCas9 model for SaCas9 PAMs as the reference does.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "guide_sequence": { "type": "string", "description": "Guide RNA sequence (length must match the system's guide length).", "minLength": 1 },
+      "genome": { "type": "string", "description": "Genome / reference sequence to scan.", "minLength": 1 },
+      "max_mismatches": { "type": "integer", "description": "Maximum allowed mismatches (range 0..5; default 4, the reference's default).", "minimum": 0, "maximum": 5, "default": 4 },
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" }
+    },
+    "required": ["guide_sequence", "genome"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "specificity": { "type": "number", "description": "MIT/Hsu aggregate specificity 0..100 (100 = no off-targets)." }
+    },
+    "required": ["specificity"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Guide sequence cannot be null or empty" },
+    { "code": 1002, "message": "Genome cannot be null or empty" },
+    { "code": 1003, "message": "Maximum mismatches must be in the range 0..5" },
+    { "code": 4001, "message": "Guide length does not match the system's guide length" },
+    { "code": 4002, "message": "The MIT/Hsu 2013 off-target model is not defined for PAM-before-target (Cas12a-class / CasX) systems" }
+  ],
+  "examples": [
+    {
+      "name": "One PAM-distal off-target -> 50",
+      "input": { "guide_sequence": "GACGCATAAAGATGAGACGC", "genome": "TACGCATAAAGATGAGACGCAGG" },
+      "output": { "specificity": 50.0 }
+    },
+    {
+      "name": "SaCas9 21-nt guide, one off-target",
+      "input": { "guide_sequence": "ACGTACGTACGTACGTACGTA", "genome": "ACGTACGTACGTACGTACGTCAAGAAT", "max_mismatches": 3, "system_type": "SaCas9" },
+      "output": { "specificity": 95.91285612347565 }
+    },
+    {
+      "name": "Cas12a-class is refused",
+      "input": { "guide_sequence": "ACGTACGTACGTACGTACGTACG", "genome": "TTTAACGTACGTACGTACGTACGTACC", "max_mismatches": 3, "system_type": "Cas12a" },
+      "output": { "error": "The MIT/Hsu 2013 off-target model is SpCas9-specific and is not defined for Cas12a/Cpf1 (PAM-before-target / Cas12a-class)." }
+    }
+  ]
+}

@@ -485,13 +485,35 @@ public static class CrisprDesigner
     #region Off-Target Analysis
 
     /// <summary>
-    /// Predicts potential off-target sites for a guide RNA.
+    /// Predicts potential off-target sites for a guide RNA: enumerates every PAM site of
+    /// <paramref name="systemType"/> on both strands of <paramref name="genome"/> and returns those
+    /// whose guide-length protospacer differs from the guide by 1..<paramref name="maxMismatches"/>
+    /// bases. Exact (0-mismatch) matches are treated as on-targets and are never returned.
     /// </summary>
-    /// <param name="guideSequence">The guide RNA sequence.</param>
+    /// <param name="guideSequence">The guide RNA sequence; its length must match the system's guide length.</param>
     /// <param name="genome">The genome/sequence to search for off-targets.</param>
-    /// <param name="maxMismatches">Maximum number of mismatches allowed.</param>
+    /// <param name="maxMismatches">Maximum number of mismatches allowed, 0-5 (0 yields nothing).</param>
     /// <param name="systemType">Type of CRISPR system.</param>
-    /// <returns>Collection of potential off-target sites.</returns>
+    /// <returns>
+    /// Potential off-target sites in a deterministic order: all forward-strand PAM sites by ascending
+    /// position, then all reverse-strand sites. Substitutions only — bulges/indels are out of scope.
+    /// </returns>
+    /// <remarks>
+    /// <see cref="OffTargetSite.OffTargetScore"/> is this library's own seed-weighted penalty (see
+    /// <see cref="CalculateSpecificityScore"/>), NOT a published per-hit model. For published per-hit
+    /// scores use <see cref="CalculateMitHitScore"/> (MIT/Hsu 2013) or
+    /// <see cref="CalculateCfdScore"/> (Doench 2016 CFD).
+    /// <para>
+    /// Recorded deviation on the on-target skip: the reference drops only the 0-mismatch hits that
+    /// fall inside the caller-supplied on-target locus (<c>annotateOfftargets</c>, crispor.py
+    /// L1920-1929: <c>chrom==inChrom and start &gt;= inStart and end &lt;= inEnd</c>; in its
+    /// "auto-ontarget" mode, where no locus is given, just the first 0-mismatch hit it meets). Any
+    /// further perfect match elsewhere in the genome IS scored there, as an off-target worth
+    /// <c>calcHitScore = 100</c>. This library takes no on-target locus, so it drops every exact match
+    /// genome-wide instead; a guide with a second perfect match therefore looks more specific here than
+    /// in the reference.
+    /// </para>
+    /// </remarks>
     public static IEnumerable<OffTargetSite> FindOffTargets(
         string guideSequence,
         DnaSequence genome,
@@ -512,6 +534,17 @@ public static class CrisprDesigner
     }
 
     private static IEnumerable<OffTargetSite> FindOffTargetsCore(
+        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType) =>
+        FindOffTargetsWithPamCore(guideSequence, genome, maxMismatches, systemType)
+            .Select(static hit => hit.Site);
+
+    /// <summary>
+    /// The off-target scan of <see cref="FindOffTargetsCore"/>, additionally yielding each site's own
+    /// PAM as read on the protospacer strand (<see cref="PamSite.PamSequence"/>). Scores that need the
+    /// off-target PAM (CFD) use this so that neither the PAM window nor its strand handling is
+    /// re-derived from coordinates.
+    /// </summary>
+    private static IEnumerable<(OffTargetSite Site, string Pam)> FindOffTargetsWithPamCore(
         string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType)
     {
         var system = GetSystem(systemType);
@@ -530,20 +563,48 @@ public static class CrisprDesigner
                 // Calculate off-target score based on mismatch positions
                 double score = CalculateOffTargetScore(guide, pamSite.TargetSequence, system);
 
-                yield return new OffTargetSite(
+                yield return (new OffTargetSite(
                     Position: pamSite.Position,
                     Sequence: pamSite.TargetSequence,
                     Mismatches: mismatches,
                     MismatchPositions: GetMismatchPositions(guide, pamSite.TargetSequence),
                     IsForwardStrand: pamSite.IsForwardStrand,
-                    OffTargetScore: score);
+                    OffTargetScore: score), pamSite.PamSequence);
             }
         }
     }
 
     /// <summary>
-    /// Calculates specificity score for a guide RNA (higher = more specific).
+    /// Calculates a convenience specificity score for a guide RNA (higher = more specific):
+    /// <c>max(0, 100 − Σ over off-targets of (5 per seed-region mismatch + 2 per distal mismatch))</c>,
+    /// over the off-targets found by <see cref="FindOffTargets"/> with a fixed cap of 4 mismatches.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THIS IS THIS LIBRARY'S OWN HEURISTIC, NOT A PUBLISHED MODEL.</b> Hsu et al. 2013
+    /// (Nat Biotechnol 31:827) motivates only the *shape* of the weighting — that mismatches in the
+    /// PAM-proximal seed region are less tolerated than PAM-distal ones. The numbers 5, 2, the 12-nt
+    /// seed width, the linear sum and the subtraction from 100 are not from Hsu 2013 or from any other
+    /// publication; no source was found for them, and none is claimed. Consequences: the score is
+    /// linear in the mismatch count (the published models are multiplicative), it ignores which bases
+    /// are involved and the off-target's own PAM, and it saturates at 0 after ~20 seed mismatches'
+    /// worth of off-target burden, so two guides with very different real off-target profiles can
+    /// share a score of 0. Treat it as a coarse triage number only.
+    /// </para>
+    /// <para>
+    /// For a published, reference-verified model use one of the aggregates in this same class:
+    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)"/> (MIT/Hsu
+    /// 2013 guide score, <c>100 / (100 + Σ hitScores) × 100</c> over per-hit
+    /// <see cref="CalculateMitHitScore"/> values) or
+    /// <see cref="CalculateCfdSpecificityScore(string, DnaSequence, int, CrisprSystemType, CfdAggregation)"/>
+    /// (Doench 2016 CFD, aggregated as CRISPOR's <c>annotateOfftargets</c> does). Both reproduce the
+    /// reference tool numerically; this method does not.
+    /// </para>
+    /// </remarks>
+    /// <param name="guideSequence">The guide sequence; its length must match the system's guide length.</param>
+    /// <param name="genome">The genome/sequence to scan for off-targets.</param>
+    /// <param name="systemType">CRISPR system (SpCas9 by default).</param>
+    /// <returns>The heuristic specificity in [0, 100]; 100 when no off-targets are found.</returns>
     public static double CalculateSpecificityScore(
         string guideSequence,
         DnaSequence genome,
@@ -559,33 +620,46 @@ public static class CrisprDesigner
         return Math.Max(0, 100 - totalPenalty);
     }
 
-    private static int CountMismatches(string seq1, string seq2)
-    {
-        if (seq1.Length != seq2.Length)
-            return int.MaxValue;
+    /// <summary>
+    /// Counts guide-to-target mismatches. Equal-length inputs are delegated to the canonical
+    /// case-insensitive <see cref="SequenceExtensions.HammingDistance(ReadOnlySpan{char}, ReadOnlySpan{char})"/>;
+    /// unequal lengths keep this type's historical <see cref="int.MaxValue"/> "not comparable"
+    /// sentinel (the canonical throws), so callers that pre-validate the length are unaffected.
+    /// </summary>
+    private static int CountMismatches(string seq1, string seq2) =>
+        seq1.Length != seq2.Length
+            ? int.MaxValue
+            : seq1.AsSpan().HammingDistance(seq2.AsSpan());
 
-        int mismatches = 0;
-        for (int i = 0; i < seq1.Length; i++)
-        {
-            if (seq1[i] != seq2[i])
-                mismatches++;
-        }
-        return mismatches;
-    }
-
+    /// <summary>
+    /// Lists the 0-based positions at which <paramref name="guide"/> and <paramref name="target"/>
+    /// differ, using the same case-insensitive ASCII comparison as the canonical
+    /// <see cref="SequenceExtensions.HammingDistance(ReadOnlySpan{char}, ReadOnlySpan{char})"/>
+    /// so that <c>MismatchPositions.Count == Mismatches</c> holds for every equal-length input
+    /// (TestSpec INV-03). Unequal lengths are not comparable and yield an empty list, matching the
+    /// <see cref="int.MaxValue"/> sentinel of <see cref="CountMismatches"/>; the off-target scan never
+    /// produces them, as guide and protospacer are both of the system's guide length.
+    /// </summary>
     private static IReadOnlyList<int> GetMismatchPositions(string guide, string target)
     {
-        var positions = new List<int>();
-        int len = Math.Min(guide.Length, target.Length);
+        if (guide.Length != target.Length)
+            return Array.Empty<int>();
 
-        for (int i = 0; i < len; i++)
+        var positions = new List<int>();
+        for (int i = 0; i < guide.Length; i++)
         {
-            if (guide[i] != target[i])
+            if (ToUpperAscii(guide[i]) != ToUpperAscii(target[i]))
                 positions.Add(i);
         }
 
         return positions;
     }
+
+    /// <summary>
+    /// Mirrors the canonical <c>SequenceExtensions.ToUpperAscii(char)</c> (internal to Core): ASCII
+    /// lower-case letters only, so a non-ASCII character is never folded onto a sequence symbol.
+    /// </summary>
+    private static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
 
     private static double CalculateOffTargetScore(string guide, string target, CrisprSystem system)
     {
@@ -594,15 +668,14 @@ public static class CrisprDesigner
         int seedStart = system.PamAfterTarget ? guide.Length - 12 : 0;
         int seedEnd = system.PamAfterTarget ? guide.Length : 12;
 
-        for (int i = 0; i < Math.Min(guide.Length, target.Length); i++)
+        // Uses the same mismatch set as the reported Mismatches / MismatchPositions (one case-folding
+        // rule for all three), so the penalty can never disagree with the reported mismatch count.
+        foreach (int i in GetMismatchPositions(guide, target))
         {
-            if (guide[i] != target[i])
-            {
-                // Seed-region (PAM-proximal) mismatches are LESS tolerated by Cas9
-                // (Hsu et al. 2013), so they receive a higher penalty here.
-                bool inSeed = i >= seedStart && i < seedEnd;
-                score += inSeed ? 5 : 2;
-            }
+            // Seed-region (PAM-proximal) mismatches are LESS tolerated by Cas9
+            // (Hsu et al. 2013), so they receive a higher penalty here.
+            bool inSeed = i >= seedStart && i < seedEnd;
+            score += inSeed ? 5 : 2;
         }
 
         return score;
@@ -905,27 +978,289 @@ public static class CrisprDesigner
     /// enumerating off-target sites (via <see cref="FindOffTargets"/>) and combining their MIT/Hsu
     /// single-hit scores. Exact on-target matches are excluded (they are not off-targets).
     /// </summary>
-    /// <param name="guideSequence">The 20-nt SpCas9 guide sequence.</param>
+    /// <param name="guideSequence">The guide sequence (20 nt for SpCas9; see the length note below).</param>
     /// <param name="genome">The genome/sequence to scan for off-targets.</param>
-    /// <param name="maxMismatches">Maximum mismatches to consider (1-5).</param>
-    /// <param name="systemType">CRISPR system (SpCas9 by default).</param>
+    /// <param name="maxMismatches">Maximum mismatches to consider (0-5, as in <see cref="FindOffTargets"/>).</param>
+    /// <param name="systemType">CRISPR system (SpCas9 by default). Must be a PAM-after-target (Cas9-class) system.</param>
     /// <returns>The aggregate MIT/Hsu specificity in [0, 100]; 100 when no off-targets are found.</returns>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="systemType"/> is a Cas12a/Cpf1-class (PAM-before-target) system, for
+    /// which the reference provides no off-target model, or when the guide is shorter than 19 nt.
+    /// </exception>
+    /// <remarks>
+    /// The per-hit model is chosen by system, exactly as the reference's <c>annotateOfftargets</c> does:
+    /// a SaCas9 PAM (<c>NNGRRT</c>/<c>NNNRRT</c>) with a 21-nt guide is scored with the SaCas9-specific
+    /// model of Tycko et al. 2018 (<see cref="CalculateSaCas9HitScore"/>, the reference's
+    /// <c>calcSaHitScore</c>); every other PAM-after-target system uses the Hsu
+    /// <see cref="CalculateMitHitScore"/>. A non-SaCas9 guide longer than 20 nt falls back to
+    /// <c>calcHitScore</c>'s own last-20 fudge, and a 19-nt guide to its 'A'-pad.
+    /// <para>
+    /// Recorded deviation: this aggregate sums only off-targets of the one scanned system's PAM, whereas
+    /// CRISPOR runs a single wider scan and additionally folds in alternative-PAM hits (an NGG scan that
+    /// turns up a non-GG site) with a 0.2 weight. That weight is unreachable here — an SpCas9 scan yields
+    /// only NGG sites and an SpCas9-NAG scan only NAG sites, so the reference's own condition
+    /// (<c>pam == "NGG" and otSeq[-2:] != "GG"</c>) is never true for a single-system scan.
+    /// </para>
+    /// </remarks>
     public static double CalculateMitSpecificityScore(
         string guideSequence,
         DnaSequence genome,
         int maxMismatches = 4,
         CrisprSystemType systemType = CrisprSystemType.SpCas9)
     {
+        EnsureMitModelApplies(systemType, nameof(systemType));
+
         var offTargets = FindOffTargets(guideSequence, genome, maxMismatches, systemType).ToList();
         if (offTargets.Count == 0)
             return 100.0;
 
         var guide = guideSequence.ToUpperInvariant();
+
+        // The reference picks the per-hit model by system, not one model for everything
+        // (annotateOfftargets): a SaCas9 PAM uses the Tycko 2018 model, everything else calcHitScore.
+        bool useSaModel = IsSaCas9Pam(GetSystem(systemType).PamSequence) && guide.Length == SaCas9GuideLength;
         var hitScores = offTargets
-            .Where(ot => ot.Sequence.Length == 20 && guide.Length == 20)
-            .Select(ot => CalculateMitHitScore(guide, ot.Sequence.ToUpperInvariant()));
+            .Select(ot => useSaModel
+                ? CalculateSaCas9HitScore(guide, ot.Sequence.ToUpperInvariant())
+                : CalculateMitHitScoreFudged(guide, ot.Sequence.ToUpperInvariant()));
 
         return CalculateMitSpecificityScore(hitScores);
+    }
+
+    /// <summary>
+    /// Throws when the MIT/Hsu off-target model does not apply to <paramref name="systemType"/>.
+    /// The published model is SpCas9-specific, and the reference's CODE reports no MIT (or CFD)
+    /// off-target score at all for Cpf1/Cas12a-class systems: in <c>annotateOfftargets</c> every hit
+    /// gets <c>mitScore = 0.0</c> and <c>cfdScore = 0.0</c> when <c>pamIsCpf1(pam)</c>, and the
+    /// guide-level aggregates are the sentinels <c>guideScore = -1</c> / <c>guideCfdScore = -1</c>.
+    /// Refusing loudly is the honest translation of those sentinels: silently returning a perfect
+    /// specificity of 100 for a guide whose off-targets were never scored would be unsafe, and
+    /// returning the sentinel −1 would break this method's documented [0, 100] range.
+    /// <para>
+    /// Note on the reference's own prose: its Cpf1 banner (<c>showPamWarning</c>) says "there is no
+    /// off-target ranking algorithm available in the literature, to our knowledge. We use Hsu and CFD
+    /// scores below for off-target ranking, but they were developed for spCas9." That second sentence
+    /// is not what the code does — the scoring path zeroes both scores for Cpf1 PAMs — so the code,
+    /// not the banner, is taken as the reference behaviour here.
+    /// </para>
+    /// <para>
+    /// Divergence, recorded deliberately: the reference's <c>pamIsCpf1</c> list (crispor.py L889-891)
+    /// does not contain CasX's <c>TTCN</c> — that has its own <c>pamIsCasX</c> (L897-899) — so CRISPOR
+    /// routes a CasX guide into the <c>else</c> branch and scores it with <c>calcHitScore</c>. That path
+    /// is demonstrably mis-oriented for a PAM-before system. <c>pamIsCasX</c> sets
+    /// <c>pamIsFirst = True</c> (L483-487), so <c>concatGuideAndPam</c> builds the scored string as
+    /// <c>pamSeq + guideSeq</c> (L5543-5548) with the PAM at the 5' end, yet
+    /// <c>annotateOfftargets</c> strips the PAM with <c>guideSeq[:len(guideSeq)-len(pam)]</c>
+    /// (L1932-1933), which removes bases from the 3' end. The string that reaches <c>calcHitScore</c>
+    /// therefore still carries the 4-nt PAM at its 5' end and has lost the 3'-most 4 protospacer bases
+    /// — and <c>hitScoreM</c> is indexed PAM-proximal-last, so every position weight lands on the wrong
+    /// base. This library refuses all PAM-before systems rather than reproduce that.
+    /// </para>
+    /// </summary>
+    private static void EnsureMitModelApplies(CrisprSystemType systemType, string paramName)
+    {
+        var system = GetSystem(systemType);
+        if (!system.PamAfterTarget)
+            throw new ArgumentException(
+                $"The MIT/Hsu 2013 off-target model is SpCas9-specific and is not defined for " +
+                $"{system.Name} (PAM-before-target / Cas12a-class). CRISPOR reports no MIT or CFD " +
+                $"off-target score for these systems. Score such sites with a system-specific model instead.",
+                paramName);
+    }
+
+    /// <summary>
+    /// Applies the reference <c>calcHitScore</c>'s own guide-length handling before scoring: longer
+    /// than 20 nt uses the last 20 ("S. aureus requires 21bp long guides. We fudge by using only last
+    /// 20bp", crispor.py L2056-2059), exactly 19 nt is left-padded with 'A' ("for 19bp guides, we fudge
+    /// a little, but first pos has no weight anyways", L2060-2063). Guides shorter than 19 nt are
+    /// refused: the reference does have a branch for them (<c>matrixStart = 20 - len</c>,
+    /// <c>maxDist = len - 1</c>, L2064-2067) but its own comment reads "for shorter guides, I'm not sure
+    /// if this score makes sense anymore, we force things".
+    /// <para>
+    /// Reachability, stated so the branches are not mistaken for live parity: with this library's
+    /// current <see cref="CrisprSystem"/> set only the <c>== 20</c> branch runs. The three
+    /// PAM-after-target systems are SpCas9 (20 nt), SpCas9-NAG (20 nt) and SaCas9 (21 nt), and SaCas9 is
+    /// routed to the Tycko 2018 model (<see cref="CalculateSaCas9HitScore"/>) by the caller, exactly as
+    /// <c>annotateOfftargets</c> routes it, so the <c>&gt; 20</c> fudge is never taken; no system has a
+    /// 19-nt guide and <see cref="FindOffTargets"/> rejects a guide that does not match its system's
+    /// length, so the <c>== 19</c> pad is never taken either. Both are kept because the reference
+    /// applies them (the 19-nt pad in <c>annotateOfftargets</c> itself, L1934-1936), so a future
+    /// non-20-nt Cas9-class system is scored rather than silently dropped.
+    /// </para>
+    /// </summary>
+    private static double CalculateMitHitScoreFudged(string guide, string offTarget)
+    {
+        if (guide.Length != offTarget.Length)
+            throw new ArgumentException("MIT/Hsu scoring requires equal-length sequences.", nameof(offTarget));
+
+        if (guide.Length > 20)
+            return CalculateMitHitScore(guide[^20..], offTarget[^20..]);
+        if (guide.Length == 20)
+            return CalculateMitHitScore(guide, offTarget);
+        if (guide.Length == 19)
+            return CalculateMitHitScore("A" + guide, "A" + offTarget);
+
+        throw new ArgumentException(
+            $"The MIT/Hsu off-target model is not defined for guides shorter than 19 nt (got {guide.Length}).",
+            nameof(guide));
+    }
+
+    #endregion
+
+    #region SaCas9 Off-Target Score — Tycko et al. 2018
+
+    // ---------------------------------------------------------------------------------------------
+    // SaCas9-specific off-target activity model (PUBLISHED, fully reproducible).
+    //
+    // Source: Tycko J, Wainberg M, Marinov GK, et al. "Pairwise library screen systematically
+    //   interrogates Staphylococcus aureus Cas9 specificity in human cells."
+    //   Nat Commun 9, 2962 (2018). doi:10.1038/s41467-018-05391-2.
+    //   (the paper CRISPOR's calcSaHitScore cites: "saCas9 offtarget scoring from Tycko et al,
+    //    https://www.nature.com/articles/s41467-018-05391-2")
+    //
+    // Reference implementation: CRISPOR's `calcSaHitScore` (crispor.py L2025-2043) delegates to
+    //   `bin/src/pairwise-library-screen/predictSingle.py` (`SaCas9Scorer`), whose trained
+    //   coefficients ship as `models/rstan_mult_<guideLen>_coeffs.txt`. Both were downloaded this
+    //   session from raw.githubusercontent.com/maximilianh/crisporWebsite/master/ and the table below
+    //   is a verbatim transcription of the `Median` column of `rstan_mult_21_coeffs.txt`
+    //   (252 rows = 21 positions x 12 mismatch types).
+    //
+    // ALGORITHM (verbatim from `SaCas9Scorer.calcScore`):
+    //   predActivity = 1
+    //   for i, (dna, rna) in enumerate(zip(targetSeq, guideSeq)):
+    //       if i == 0: continue          # "Mismatches at the 5' position are not truly determined
+    //                                   #  by the model"
+    //       if dna != rna: predActivity *= coeff[ 'd'+complement(dna) + ':r' + rnaBase(rna) ][i]
+    //   calcSaHitScore = 100 * predActivity   # "to be compatible with the MIT score, has to be in
+    //                                         #  the range 0-100 for the MIT aggregate guide score"
+    //
+    // KEY CONVENTION (pinned from the source): `mm_dict` maps the raw pair (targetBase, guideBase) to
+    //   the coefficient id, e.g. ('A','C') -> "dT:rC" and ('A','T') -> "dT:rU". So 'd' is the
+    //   COMPLEMENT of the off-target (DNA) base — the base on the non-target strand that pairs against
+    //   the guide — and 'r' is the GUIDE (RNA) base with T written as U. Same convention as CFD, only
+    //   written in the opposite order ("dX:rY" vs CFD's "rY:dX").
+    //
+    // POSITION CONVENTION (pinned from the source): the shipped tables index `Position` from the
+    //   3' / PAM-proximal end, and `SaCas9Scorer.__init__` remaps it with
+    //   `guideLenDict[guide_len - Position + 1]`, i.e. to a 1-based index from the 5' end. The arrays
+    //   below are already in that remapped order: index 0 = 5'-most base (never read, see above),
+    //   index 20 = PAM-proximal base. Mis-ordering is caught by the orientation guard test.
+    //
+    // Cross-checks reproduced this session (independent Python run of predictSingle.py's own
+    // semantics against the downloaded coefficient table, i.e. the reference's OWN asserted values):
+    //   calcScore("GCAACCACAAACCCACGAGGG", "GCAACCACAAACCCACGAGGG") = 1.0
+    //   calcScore("GCAACCACAAACCCACGAGGG", "ACAAACACATACCCACAAGGA") = 0.041293256150042444
+    //   calcScore("GGGTGAGTGAGTGTGTGCGTG", "GAGCGAGTGGGTGTGTGCGTG") = 0.13441983202750601
+    //   => calcSaHitScore (x100) = 100.0, 4.1293256150042446, 13.4419832027506
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>The guide length of the SaCas9 system, and the only length this model is shipped for here.</summary>
+    private const int SaCas9GuideLength = 21;
+
+    /// <summary>
+    /// Trained SaCas9 mismatch coefficients (Tycko et al. 2018), keyed by mismatch type
+    /// <c>"dX:rY"</c> (X = complement of the off-target base; Y = guide base with T as U), each value
+    /// an array indexed 0..20 by 0-based protospacer position (index 0 = 5' end, index 20 =
+    /// 3'/PAM-proximal). Verbatim <c>Median</c> column of the reference's <c>rstan_mult_21_coeffs.txt</c>.
+    /// </summary>
+    private static readonly Dictionary<string, double[]> SaCas9MismatchCoefficients = new()
+    {
+        ["dT:rC"] = new[] { 0.500182335832017, 0.546734106002513, 0.547691877828188, 0.552964194291369, 0.538528380008684, 0.325610215099261, 0.576468070360727, 0.127378670053041, 0.633439692869058, 0.615658340132625, 0.487865019225753, 0.42689462494337, 0.102397715418986, 0.200257694187704, 0.136499862475113, 0.0493188093803229, 0.136539686900136, 0.0927354706350068, 0.130261909041357, 0.0773508496492739, 0.105693733152788 },
+        ["dT:rG"] = new[] { 0.889800314629899, 0.992970435672823, 0.732601715905163, 0.980427129883399, 0.685646931401168, 0.844922889454443, 0.667118034664953, 0.683173864400938, 0.555513095453494, 0.520509986734207, 0.457991759790709, 0.612354705406714, 0.37824405562458, 0.395337246155066, 0.27104610293669, 0.451540654839527, 0.443502321156338, 0.584714691584839, 0.436629040331668, 0.22354371179448, 0.445155052527266 },
+        ["dT:rU"] = new[] { 0.507135821278318, 0.657829492961583, 0.636416873002814, 0.363267257971301, 0.576799741012485, 0.642009817365257, 0.567712358758302, 0.599538413152022, 0.506919342187349, 0.646750045500538, 0.455951859040721, 0.456786357841618, 0.267574282087781, 0.12373852758353, 0.0789972001603137, 0.10911606478632, 0.199571974143948, 0.16959064954525, 0.296554470273688, 0.0601305506668423, 0.0862142526234551 },
+        ["dG:rA"] = new[] { 0.507585860878205, 0.522967414281177, 0.64726672914593, 0.178476371392183, 0.589826846023653, 0.445331765504143, 0.685794931847784, 0.325409595348562, 0.64243781038661, 0.224012343553474, 0.217821657175021, 0.0642029910217309, 0.0615709293577342, 0.0162972303713068, 0.0226050940568139, 0.0597797023253567, 0.050358810530371, 0.0775368431850832, 0.0152863394236489, 0.1432549909342, 0.0426130973647857 },
+        ["dG:rG"] = new[] { 0.482584240469274, 0.643567704594203, 0.681666229047031, 0.416784632985585, 0.495035619290045, 0.531756470458885, 0.676004709924651, 0.458277575190559, 0.575785506970191, 0.444440796592595, 0.387918368049248, 0.216680572369354, 0.228139311830686, 0.0287977020564966, 0.128405660784272, 0.191384782904834, 0.0357634305414073, 0.0367789926238243, 0.070695309584881, 0.158363763886502, 0.104525045604611 },
+        ["dG:rU"] = new[] { 0.49520183259973, 0.618178833577651, 0.581015956193127, 0.48725485300852, 0.942657171400989, 0.540642115587474, 0.873378872726365, 0.678015697554753, 0.58682811500121, 0.686634819793447, 0.431002446808513, 0.261650340816763, 0.317651503071752, 0.254249722211379, 0.187839704652641, 0.0979027817488908, 0.236699959495542, 0.113816114093481, 0.0573652386585105, 0.157638078782083, 0.179929057922201 },
+        ["dC:rA"] = new[] { 0.497493947658051, 0.46259280684568, 0.643038591122457, 0.372212865767711, 0.680737138305581, 0.552943486205603, 0.584975615068689, 0.582110823409603, 0.495378197462189, 0.27782470178935, 0.307880431933795, 0.299394927832334, 0.141962480894423, 0.0292199017744031, 0.0195124051391844, 0.140212678240853, 0.107550670622112, 0.0533316085854886, 0.075377597399379, 0.0460670515595503, 0.109313834975141 },
+        ["dC:rC"] = new[] { 0.502985937567947, 0.15914318618166, 0.274409757488698, 0.289442475421799, 0.300672177947638, 0.368351594652677, 0.349878390379607, 0.103481082335252, 0.529851864152853, 0.43201684115079, 0.155692052708749, 0.189216008110395, 0.0529315895573772, 0.039536033512892, 0.0232766388217564, 0.0191474738800195, 0.025852157724115, 0.0148089478006535, 0.0356756456096336, 0.0154733404301811, 0.0449961433951072 },
+        ["dC:rU"] = new[] { 0.503187216328694, 0.490930802795924, 0.366150894868735, 0.518288493112618, 0.796643503923613, 0.530248054175443, 0.645199638303918, 0.51997749852277, 0.326200207604272, 0.406797059100196, 0.189198509598849, 0.23819640621691, 0.0970060141425968, 0.0302548103084032, 0.0307495242144697, 0.0522509311690574, 0.0575108872220017, 0.0400655724089505, 0.0554196638437215, 0.0535733539298569, 0.0805457311950328 },
+        ["dA:rA"] = new[] { 0.497855206412811, 0.624360922159452, 0.698428615250848, 0.277678942354815, 0.38993398748401, 0.422521983677337, 0.557841348776102, 0.104010305290341, 0.441491391101617, 0.388385789116283, 0.507615988748957, 0.0630783302069826, 0.0388099660522349, 0.0460124390086707, 0.0961446136331311, 0.111029408600699, 0.056782864029314, 0.093036719073791, 0.059627368313025, 0.218904216245295, 0.0638608590837734 },
+        ["dA:rC"] = new[] { 0.499950169216313, 0.640457481900362, 0.60640601604755, 0.629270731339457, 0.390709495232679, 0.280235604556182, 0.717284514586225, 0.41657664122309, 0.576259924027269, 0.646131400505293, 0.555381735098051, 0.251895624458276, 0.101076231082529, 0.346568359640956, 0.178707425151124, 0.117130325394167, 0.117154009003686, 0.0979767483566834, 0.136926154119441, 0.191997864741009, 0.043097315653776 },
+        ["dA:rG"] = new[] { 0.763319435742999, 0.703936911913447, 0.475908917669472, 0.168587534931865, 0.515932076149009, 0.503183576570521, 0.565247609715247, 0.48471892642459, 0.56059950527931, 0.46065379532187, 0.374430944727598, 0.23572096660813, 0.0794278765493476, 0.0553640525834663, 0.0409451753782538, 0.222056916803022, 0.0586170001847033, 0.0832194891199737, 0.0372902912891327, 0.122380573189007, 0.177723354855625 },
+    };
+
+    /// <summary>
+    /// Returns true for the PAM motifs the reference treats as SaCas9 (<c>pamIsSaCas9</c>:
+    /// <c>NNGRRT</c> / <c>NNNRRT</c>, matched on the part before any <c>-</c> suffix).
+    /// </summary>
+    private static bool IsSaCas9Pam(string pam)
+    {
+        int dash = pam.IndexOf('-', StringComparison.Ordinal);
+        string head = dash < 0 ? pam : pam[..dash];
+        return head is "NNGRRT" or "NNNRRT";
+    }
+
+    /// <summary>
+    /// Calculates the SaCas9-specific single-hit off-target activity score of Tycko et al. 2018
+    /// (Nat Commun 9:2962) for a 21-nt SaCas9 guide against a 21-nt off-target protospacer, on the
+    /// 0-100 scale the reference uses so the value can enter the MIT aggregate
+    /// (<see cref="CalculateMitSpecificityScore(IEnumerable{double})"/>). A perfect match scores
+    /// exactly 100; each mismatch multiplies the activity by that position's trained coefficient.
+    /// </summary>
+    /// <param name="saGuide21">The 21-nt SaCas9 guide (PAM excluded), 5' first. A/C/G/T, case-insensitive.</param>
+    /// <param name="offTarget21">The 21-nt off-target protospacer (PAM excluded), same orientation.</param>
+    /// <returns>The single-hit score in [0, 100]; higher = more likely an active off-target.</returns>
+    /// <remarks>
+    /// Source: the trained model distributed with CRISPOR as
+    /// <c>bin/src/pairwise-library-screen/predictSingle.py</c> + <c>models/rstan_mult_21_coeffs.txt</c>,
+    /// applied by <c>crispor.py</c>'s <c>calcSaHitScore</c> as <c>100 × calcScore(...)</c>.
+    /// Two faithful details of the reference are reproduced here: a mismatch at the 5'-most position
+    /// contributes nothing ("Mismatches at the 5' position are not truly determined by the model"), and
+    /// the model does not support gaps/bulges (they are refused).
+    /// <para>
+    /// Scope: the reference ships coefficient tables for guide lengths 20-24; only the 21-nt table is
+    /// transcribed here, because 21 nt is the guide length of this library's only SaCas9 system
+    /// (<see cref="CrisprSystemType.SaCas9"/>). Other lengths are refused rather than approximated.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">Either sequence is null or empty.</exception>
+    /// <exception cref="ArgumentException">
+    /// Either sequence is not 21 nt, or contains a character outside A/C/G/T (including the gap
+    /// character the reference explicitly refuses).
+    /// </exception>
+    public static double CalculateSaCas9HitScore(string saGuide21, string offTarget21)
+    {
+        if (string.IsNullOrEmpty(saGuide21))
+            throw new ArgumentNullException(nameof(saGuide21));
+        if (string.IsNullOrEmpty(offTarget21))
+            throw new ArgumentNullException(nameof(offTarget21));
+        if (saGuide21.Length != SaCas9GuideLength)
+            throw new ArgumentException(
+                $"The Tycko 2018 SaCas9 model is transcribed here for a {SaCas9GuideLength}-nt guide; got {saGuide21.Length}.",
+                nameof(saGuide21));
+        if (offTarget21.Length != SaCas9GuideLength)
+            throw new ArgumentException(
+                $"The Tycko 2018 SaCas9 model requires a {SaCas9GuideLength}-nt off-target protospacer; got {offTarget21.Length}.",
+                nameof(offTarget21));
+
+        string guide = saGuide21.ToUpperInvariant();
+        string off = offTarget21.ToUpperInvariant();
+
+        double predictedActivity = 1.0;
+
+        // The reference skips index 0 but still validates every base, so invalid input is refused
+        // rather than silently scored.
+        for (int i = 0; i < SaCas9GuideLength; i++)
+        {
+            char rna = guide[i];
+            char dna = off[i];
+
+            if (rna is not ('A' or 'C' or 'G' or 'T'))
+                throw new ArgumentException($"The SaCas9 model requires A/C/G/T sequences; found '{rna}'.", nameof(saGuide21));
+            if (dna is not ('A' or 'C' or 'G' or 'T'))
+                throw new ArgumentException($"The SaCas9 model requires A/C/G/T sequences; found '{dna}'.", nameof(offTarget21));
+
+            // "Mismatches at the 5' position are not truly determined by the model" (predictSingle.py).
+            if (i == 0 || rna == dna)
+                continue;
+
+            // 'd' = complement of the off-target DNA base; 'r' = guide base with T written as U.
+            string key = $"d{CfdComplement(dna)}:r{(rna == 'T' ? 'U' : rna)}";
+            predictedActivity *= SaCas9MismatchCoefficients[key][i];
+        }
+
+        // "to be compatible with the MIT score, has to be in the range 0-100" (calcSaHitScore).
+        return 100.0 * predictedActivity;
     }
 
     #endregion
@@ -1034,6 +1369,15 @@ public static class CrisprDesigner
         ["TT"] = 0.0
     };
 
+    /// <summary>
+    /// Strict A/C/G/T complement for the CFD key construction. Deliberately NOT the canonical
+    /// <see cref="SequenceExtensions.GetComplementBase(char)"/>: that one is IUPAC-complete, passes
+    /// non-IUPAC characters through unchanged and maps U→A, whereas CFD must REFUSE anything outside
+    /// A/C/G/T — the reference <c>calcCfdScore</c> screens its inputs with <c>re.search('[^ATCG]')</c>
+    /// and returns the sentinel -1 rather than scoring them. Delegating would turn an ambiguity code
+    /// into either an opaque missing-key failure or (for U) a silently wrong score, so this strict
+    /// validator is kept by design.
+    /// </summary>
     private static char CfdComplement(char b) => b switch
     {
         'A' => 'T',
@@ -1119,6 +1463,136 @@ public static class CrisprDesigner
 
         return score * pamScore;
     }
+
+    /// <summary>
+    /// Aggregates per-off-target CFD scores into a single guide-level CFD specificity score, using the
+    /// same <c>100 / (100 + Σ hits) × 100</c> form as the MIT aggregate — which is exactly what the
+    /// reference does by default (<c>calcMitGuideScore(sum(cfdScores))</c>) — over the RAW CFD values
+    /// in [0, 1], i.e. the CFD scores are NOT rescaled to 0-100 first.
+    /// </summary>
+    /// <param name="cfdScores">The per-off-target CFD scores (each in [0, 1], as returned by <see cref="CalculateCfdScore"/>).</param>
+    /// <param name="aggregation">Which published aggregation to use; see <see cref="CfdAggregation"/>.</param>
+    /// <returns>The aggregate CFD specificity; 100 for an empty off-target set under the default aggregation.</returns>
+    /// <remarks>
+    /// Source: CRISPOR <c>crispor.py</c> <c>annotateOfftargets</c>, which computes the guide's CFD
+    /// specificity as <c>calcMitGuideScore(sum(cfdScores))</c> unless the <c>doCfdFix</c> flag (URL
+    /// argument <c>fixCfd=1</c>) is set. Under that flag the reference applies TWO changes together:
+    /// <c>calcCfdScore</c> rescales every per-hit CFD by ×100, and the aggregate becomes
+    /// <c>calcCfdGuideScore(sum) = 100 × 100 / sum</c>. Over a sum of RAW per-hit CFD values the two
+    /// factors therefore partly cancel: <c>100 × 100 / (100 × Σ raw) = 100 / Σ raw</c>, which is what
+    /// <see cref="CfdAggregation.ParkinsonNormalized"/> computes here (this method always takes raw
+    /// per-hit CFD values in [0, 1], for both aggregations). The reference rounds the default aggregate
+    /// to an integer (<c>int(round(score × 100))</c>); this method returns the unrounded value so
+    /// callers may round as they wish.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown for <see cref="CfdAggregation.ParkinsonNormalized"/> when the CFD sum is 0: that formula
+    /// divides by the sum and the reference is undefined there (it would raise <c>ZeroDivisionError</c>).
+    /// </exception>
+    public static double CalculateCfdSpecificityScore(
+        IEnumerable<double> cfdScores,
+        CfdAggregation aggregation = CfdAggregation.MitStyle)
+    {
+        ArgumentNullException.ThrowIfNull(cfdScores);
+        double sum = cfdScores.Sum();
+
+        return aggregation switch
+        {
+            CfdAggregation.MitStyle => 100.0 / (100.0 + sum) * 100.0,
+            // The reference's doCfdFix path is 100 x 100 / Σ(100 x rawCfd) = 100 / Σ rawCfd: its per-hit
+            // x100 rescaling cancels one of the two factors of 100. Inputs here are always raw CFD.
+            CfdAggregation.ParkinsonNormalized when sum > 0 => 100.0 / sum,
+            CfdAggregation.ParkinsonNormalized => throw new ArgumentOutOfRangeException(
+                nameof(cfdScores),
+                "The ParkinsonNormalized CFD aggregate (100 / sum of the raw CFD scores) is undefined for a CFD sum of 0."),
+            _ => throw new ArgumentOutOfRangeException(nameof(aggregation))
+        };
+    }
+
+    /// <summary>
+    /// Calculates the aggregate CFD specificity score for a guide against a genome by enumerating
+    /// off-target sites (via <see cref="FindOffTargets"/>) and combining their CFD scores. Exact
+    /// on-target matches are excluded (they are not off-targets).
+    /// </summary>
+    /// <param name="guideSequence">The 20-nt guide sequence.</param>
+    /// <param name="genome">The genome/sequence to scan for off-targets.</param>
+    /// <param name="maxMismatches">Maximum mismatches to consider (0-5, as in <see cref="FindOffTargets"/>).</param>
+    /// <param name="systemType">CRISPR system; must be a 20-nt PAM-after-target (Cas9-class) system.</param>
+    /// <param name="aggregation">Which published aggregation to use.</param>
+    /// <returns>The aggregate CFD specificity; 100 when no off-targets are found (default aggregation).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="maxMismatches"/> is outside 0-5 (the same bound
+    /// <see cref="FindOffTargets"/> enforces), or when <paramref name="aggregation"/> is
+    /// <see cref="CfdAggregation.ParkinsonNormalized"/> and the CFD sum is 0.
+    /// </exception>
+    /// <remarks>
+    /// Each off-target's CFD score needs that site's own PAM, which the scan reports on the protospacer
+    /// strand. CFD is defined only for a 20-nt protospacer, so systems with a different guide length are
+    /// refused rather than fudged (unlike the MIT model, the reference provides no length fallback for
+    /// CFD); that refusal also covers SaCas9, for which the reference itself emits the per-hit CFD
+    /// sentinel (<c>cfdScore = -1</c>, crispor.py L1943-1945). Note what the reference's guide-level
+    /// value then is for SaCas9: every hit is dropped by its own <c>if cfdScore != -1</c> filter, so
+    /// <c>guideCfdScore = calcMitGuideScore(sum([])) = 100</c> — a vacuous perfect score rather than a
+    /// sentinel (unlike Cpf1, which does get <c>guideCfdScore = -1</c>). Refusing is the honest
+    /// translation of that: a 100 for a guide whose off-targets were never CFD-scored would be unsafe.
+    /// <para>
+    /// Off-targets whose protospacer is not pure A/C/G/T are skipped rather than scored, mirroring the
+    /// reference (<c>calcCfdScore</c> screens both sequences with <c>re.search('[^ATCG]')</c> and
+    /// returns the sentinel -1; <c>annotateOfftargets</c> appends the hit only <c>if cfdScore != -1</c>).
+    /// That guard is <b>defensive only and currently unreachable</b> from this overload: a
+    /// <see cref="DnaSequence"/> is validated A/C/G/T at construction, so no ambiguous base can ever
+    /// reach the scan. It is kept so the reference's exclusion rule is encoded rather than implied, and
+    /// so the method stays correct if the genome type ever admits ambiguity codes.
+    /// </para>
+    /// </remarks>
+    public static double CalculateCfdSpecificityScore(
+        string guideSequence,
+        DnaSequence genome,
+        int maxMismatches = 4,
+        CrisprSystemType systemType = CrisprSystemType.SpCas9,
+        CfdAggregation aggregation = CfdAggregation.MitStyle)
+    {
+        // Validate in the same order and with the same exception types as FindOffTargets, which this
+        // overload cannot delegate to (it needs each hit's PAM, so it drives FindOffTargetsWithPamCore
+        // directly and must therefore repeat FindOffTargets' own guards).
+        if (string.IsNullOrEmpty(guideSequence))
+            throw new ArgumentNullException(nameof(guideSequence));
+        ArgumentNullException.ThrowIfNull(genome);
+        if (maxMismatches < 0 || maxMismatches > 5)
+            throw new ArgumentOutOfRangeException(nameof(maxMismatches));
+
+        EnsureMitModelApplies(systemType, nameof(systemType));
+        var system = GetSystem(systemType);
+        if (system.GuideLength != 20)
+            throw new ArgumentException(
+                $"The CFD model is defined only for a 20-nt protospacer; {system.Name} uses {system.GuideLength} nt.",
+                nameof(systemType));
+
+        if (guideSequence.Length != system.GuideLength)
+            throw new ArgumentException(
+                $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
+                nameof(guideSequence));
+        var guide = guideSequence.ToUpperInvariant();
+        if (!guide.AsSpan().IsValidDna())
+            throw new ArgumentException("CFD requires an A/C/G/T guide sequence.", nameof(guideSequence));
+
+        var cfdScores = new List<double>();
+        foreach (var (site, pam) in FindOffTargetsWithPamCore(guide, genome, maxMismatches, systemType))
+        {
+            string offTarget = site.Sequence.ToUpperInvariant();
+
+            // The reference screens both sequences for [^ATCG] and returns -1, which annotateOfftargets
+            // then leaves out of the CFD sum. Defensive only: DnaSequence validates A/C/G/T at
+            // construction (SequenceExtensions.IndexOfInvalidDna), so this never fires today.
+            if (!offTarget.AsSpan().IsValidDna())
+                continue;
+
+            cfdScores.Add(CalculateCfdScore(guide, offTarget, pam));
+        }
+
+        return CalculateCfdSpecificityScore(cfdScores, aggregation);
+    }
+
 
     #endregion
 
@@ -1339,6 +1813,34 @@ public enum GuideRnaRanking
     /// candidates with no 30-nt context rank last.
     /// </summary>
     OnTargetRuleSet2 = 1
+}
+
+/// <summary>
+/// Selects how per-off-target CFD scores are aggregated into a guide-level CFD specificity score.
+/// </summary>
+/// <remarks>
+/// Source: CRISPOR <c>crispor.py</c>. Both forms are present in the reference; the default there is
+/// <see cref="MitStyle"/>, with <see cref="ParkinsonNormalized"/> selected by the <c>doCfdFix</c> flag
+/// (URL argument <c>fixCfd=1</c>).
+/// </remarks>
+public enum CfdAggregation
+{
+    /// <summary>
+    /// The reference default: <c>100 / (100 + Σ CFD) × 100</c> over the raw CFD values in [0, 1]
+    /// (<c>calcMitGuideScore(sum(cfdScores))</c>). Yields 100 for an empty off-target set.
+    /// </summary>
+    MitStyle = 0,
+
+    /// <summary>
+    /// The <c>doCfdFix</c> variant, which makes CFD more comparable to the MIT score's magnitude:
+    /// <c>100 / Σ CFD</c> over the raw CFD values in [0, 1] that this API always takes. The reference
+    /// writes it as <c>calcCfdGuideScore(sum) = 100 × 100 / sum</c> ("suggested by Nicholas
+    /// Parkinson") but under the same <c>doCfdFix</c> flag it also rescales every per-hit CFD by ×100
+    /// inside <c>calcCfdScore</c>, so <c>100 × 100 / Σ(100 × raw) = 100 / Σ raw</c> — writing
+    /// <c>100 × 100 / Σ raw</c> here would be a factor-100 error. Undefined for a CFD sum of 0 and not
+    /// bounded by 100.
+    /// </summary>
+    ParkinsonNormalized = 1
 }
 
 /// <summary>

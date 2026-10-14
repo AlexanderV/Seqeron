@@ -329,4 +329,187 @@ public class CrisprDesigner_Cfd_Tests
     {
         Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateCfdScore(Guide, Guide, "NG"));
     }
+
+    // -------------------------------------------------------------------------------------------
+    // Guide-level CFD aggregation (CRISPOR annotateOfftargets, crispor.py L1994-L1999)
+    //
+    //   default              guideCfdScore = calcMitGuideScore(sum(cfdScores))  = 100/(100+Σ)*100
+    //   doCfdFix (fixCfd=1)  guideCfdScore = calcCfdGuideScore(sum(cfdScores))  = 100*100/Σ
+    //
+    // Under doCfdFix the reference ALSO rescales every per-hit CFD by x100 inside calcCfdScore
+    // (crispor.py L2180-2182), so over a sum of RAW per-hit CFD values the two factors partly cancel:
+    //   100*100 / (100 * Σ raw) = 100 / Σ raw.
+    // This API always takes RAW CFD values in [0, 1], so ParkinsonNormalized must be 100/Σ raw —
+    // writing 100*100/Σ raw here would be a factor-100 error.
+    //
+    // Expected values from an INDEPENDENT Python run of the reference formulas:
+    //   raw {0.5, 0.25} (Σ=0.75): MitStyle 99.25558312655087 ; ParkinsonNormalized 133.33333333333334
+    //   raw {1.0}       (Σ=1.0) : MitStyle 99.00990099009901 ; ParkinsonNormalized 100.0
+    // -------------------------------------------------------------------------------------------
+
+    [Test]
+    public void CfdSpecificity_MitStyle_TwoHits_MatchesReference()
+    {
+        Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(new[] { 0.5, 0.25 }),
+            Is.EqualTo(99.25558312655087).Within(Tol));
+    }
+
+    [Test]
+    public void CfdSpecificity_ParkinsonNormalized_TwoHits_MatchesReference()
+    {
+        Assert.That(
+            CrisprDesigner.CalculateCfdSpecificityScore(new[] { 0.5, 0.25 }, CfdAggregation.ParkinsonNormalized),
+            Is.EqualTo(133.33333333333334).Within(Tol));
+    }
+
+    [Test]
+    public void CfdSpecificity_SingleUnitHit_BothAggregationsMatchReference()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(new[] { 1.0 }),
+                Is.EqualTo(99.00990099009901).Within(Tol));
+            Assert.That(
+                CrisprDesigner.CalculateCfdSpecificityScore(new[] { 1.0 }, CfdAggregation.ParkinsonNormalized),
+                Is.EqualTo(100.0).Within(Tol));
+        });
+    }
+
+    /// <summary>MitStyle is defined at Σ = 0 and yields the maximum, 100 (no off-targets).</summary>
+    [Test]
+    public void CfdSpecificity_MitStyle_EmptyAndZeroSum_Returns100()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(Array.Empty<double>()),
+                Is.EqualTo(100.0).Within(1e-12));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(new[] { 0.0, 0.0 }),
+                Is.EqualTo(100.0).Within(1e-12));
+        });
+    }
+
+    /// <summary>
+    /// ParkinsonNormalized divides by Σ, so Σ = 0 is undefined (the reference would raise
+    /// ZeroDivisionError). It must throw rather than return a misleading 100 or infinity.
+    /// </summary>
+    [Test]
+    public void CfdSpecificity_ParkinsonNormalized_ZeroSum_ThrowsArgumentOutOfRange()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => CrisprDesigner.CalculateCfdSpecificityScore(
+                Array.Empty<double>(), CfdAggregation.ParkinsonNormalized));
+            Assert.Throws<ArgumentOutOfRangeException>(() => CrisprDesigner.CalculateCfdSpecificityScore(
+                new[] { 0.0 }, CfdAggregation.ParkinsonNormalized));
+        });
+    }
+
+    [Test]
+    public void CfdSpecificity_NullScores_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            CrisprDesigner.CalculateCfdSpecificityScore((IEnumerable<double>)null!));
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // Genome overload: each hit's CFD needs that hit's OWN PAM, read on the protospacer strand.
+    // -------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The off-target lies on the REVERSE strand and its PAM must be read on the protospacer strand.
+    /// Genome = revComp("TACGCATAAAGATGAGACGC" + "AAG"), scanned with SpCas9-NAG, so the one hit is
+    /// the reverse-strand protospacer "TACGCATAAAGATGAGACGC" with PAM "AAG".
+    /// Per-hit CFD = mismatch rG:dA at position 1 (1.0) x PAM score for "AG" (0.25925925899999996)
+    /// = 0.25925925899999996 → MitStyle aggregate 100/(100+0.2592592590)*100 = 99.74141115651946.
+    /// If the PAM were reported reverse-complemented ("CTT" → key "TT", score 0.0) the per-hit CFD
+    /// would collapse to 0 and the aggregate would be exactly 100, so this value pins the convention.
+    /// </summary>
+    [Test]
+    public void CfdSpecificity_Genome_ReverseStrandHit_UsesProtospacerStrandPam()
+    {
+        var genome = new DnaSequence("CTTGCGTCTCATCTTTATGCGTA");
+
+        var offTargets = CrisprDesigner
+            .FindOffTargets(Guide, genome, 3, CrisprSystemType.SpCas9_NAG).ToList();
+        double mitStyle = CrisprDesigner.CalculateCfdSpecificityScore(
+            Guide, genome, 3, CrisprSystemType.SpCas9_NAG);
+        double parkinson = CrisprDesigner.CalculateCfdSpecificityScore(
+            Guide, genome, 3, CrisprSystemType.SpCas9_NAG, CfdAggregation.ParkinsonNormalized);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offTargets, Has.Count.EqualTo(1));
+            Assert.That(offTargets[0].IsForwardStrand, Is.False);
+            Assert.That(offTargets[0].Sequence, Is.EqualTo("TACGCATAAAGATGAGACGC"));
+            Assert.That(offTargets[0].MismatchPositions, Is.EqualTo(new[] { 0 }));
+
+            Assert.That(mitStyle, Is.EqualTo(99.74141115651946).Within(Tol));
+            Assert.That(mitStyle, Is.Not.EqualTo(100.0));
+            Assert.That(parkinson, Is.EqualTo(385.71428610000004).Within(1e-6));
+        });
+    }
+
+    /// <summary>No off-targets → the MitStyle aggregate is the maximum, 100.</summary>
+    [Test]
+    public void CfdSpecificity_Genome_NoOffTargets_Returns100()
+    {
+        var genome = new DnaSequence(Guide + "AGG"); // only the exact on-target
+        Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(Guide, genome, 3),
+            Is.EqualTo(100.0).Within(1e-12));
+    }
+
+    /// <summary>
+    /// F10 (regression): the genome overload drives the PAM-aware scan directly instead of
+    /// FindOffTargets, and used to skip FindOffTargets' own maxMismatches guard entirely. A negative
+    /// cap then silently returned a PERFECT 100 (no hit can satisfy mismatches &lt;= -1) and a cap
+    /// above 5 scanned unbounded. Both must now throw, exactly as FindOffTargets does.
+    /// </summary>
+    [TestCase(-1)]
+    [TestCase(6)]
+    [TestCase(99)]
+    public void CfdSpecificity_Genome_MaxMismatchesOutOfRange_ThrowsArgumentOutOfRange(int maxMismatches)
+    {
+        var genome = new DnaSequence("CTTGCGTCTCATCTTTATGCGTA");
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => CrisprDesigner.CalculateCfdSpecificityScore(
+                Guide, genome, maxMismatches, CrisprSystemType.SpCas9_NAG));
+            // The MIT overload delegates to FindOffTargets and already enforced the same bound.
+            Assert.Throws<ArgumentOutOfRangeException>(() => CrisprDesigner.CalculateMitSpecificityScore(
+                Guide, genome, maxMismatches, CrisprSystemType.SpCas9_NAG));
+        });
+    }
+
+    /// <summary>
+    /// CFD is defined only for a 20-nt protospacer, so SaCas9 (21 nt) is refused rather than fudged —
+    /// the reference emits the CFD sentinel (cfdScore = -1) for SaCas9 hits too, and provides no
+    /// length fallback for CFD (unlike calcHitScore's last-20 fudge for the MIT score).
+    /// </summary>
+    [Test]
+    public void CfdSpecificity_Genome_SaCas9_Refused()
+    {
+        var genome = new DnaSequence("ACGTACGTACGTACGTACGTCAAGAAT");
+
+        Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateCfdSpecificityScore(
+            "ACGTACGTACGTACGTACGTA", genome, 3, CrisprSystemType.SaCas9));
+    }
+
+    [Test]
+    public void CfdSpecificity_Genome_InvalidArguments_Throw()
+    {
+        var genome = new DnaSequence("CTTGCGTCTCATCTTTATGCGTA");
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScore(null!, genome));
+            Assert.Throws<ArgumentNullException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScore("", genome));
+            Assert.Throws<ArgumentNullException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScore(Guide, null!));
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScore("ACGT", genome));
+        });
+    }
 }

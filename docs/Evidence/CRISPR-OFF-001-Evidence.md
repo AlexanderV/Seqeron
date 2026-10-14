@@ -1,0 +1,293 @@
+# Evidence Artifact: CRISPR-OFF-001
+
+**Test Unit ID:** CRISPR-OFF-001
+**Algorithm:** Off-target analysis (`CrisprDesigner.FindOffTargets`, `CalculateSpecificityScore`,
+`CalculateMitHitScore`, `CalculateMitSpecificityScore` (both overloads), `CalculateSaCas9HitScore`,
+`CalculateCfdScore`, `CalculateCfdSpecificityScore` (both overloads), `CfdAggregation`)
+**Date Collected:** 2026-10-14 (campaign `docs/Validation/review-2026-09`, batch B08)
+
+---
+
+## Every URL opened (2026-10-14, re-verification pass)
+
+All of these were fetched with `curl` through this container in this session; byte counts are the
+downloaded files' own sizes. Nothing below was taken from memory, and no value in this document was
+read off the C# implementation.
+
+| URL | Status | Size | Used for |
+|---|---|---|---|
+| `https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/crispor.py` | 200 | 375 382 B | every line citation below |
+| `https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/crisporEffScores.py` | 200 | — | checked; contains no off-target scoring, not cited |
+| `https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/bin/src/pairwise-library-screen/predictSingle.py` | 200 | 2 567 B | `SaCas9Scorer`, `mm_dict`, the position remap |
+| `…/bin/src/pairwise-library-screen/models/rstan_mult_21_coeffs.txt` | 200 | 25 771 B | the 252 transcribed coefficients + the 21-nt oracles |
+| `…/models/rstan_mult_20_coeffs.txt` | 200 | 25 053 B | the reference script's 20-nt assert |
+| `…/models/rstan_mult_22_coeffs.txt` | 200 | 27 119 B | confirming tables ship for lengths 20-24 |
+| `…/models/rstan_mult_23_coeffs.txt` | 200 | 28 586 B | same |
+| `…/models/rstan_mult_24_coeffs.txt` | 200 | 29 738 B | same |
+| `https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/CFD_Scoring/mismatch_score.pkl` | 200 | 6 965 B | `mm_scores["rG:dA,1"] = 1.0` for the end-to-end CFD rows |
+| `https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/CFD_Scoring/pam_scores.pkl` | 200 | 344 B | `pam_scores["GG"]=1.0`, `["AG"]=0.25925925899999996`, `["TT"]=0.0` |
+| `https://api.github.com/repos/maximilianh/crisporWebsite/contents/bin/src` | **403** | — | negative result: the directory cannot be listed from here |
+| `…/bin/src/pairwise-library-screen/README` | **404** | — | negative result (see the SaCas9 section) |
+
+Hsu et al. 2013 and Doench et al. 2016 are cited for the *origin* of the models only; their numeric
+content is taken from the reference implementation's own code and shipped tables, listed above.
+
+---
+
+## Online Sources
+
+### CRISPOR — reference implementation source (`crispor.py`, master)
+
+**URL:** https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/crispor.py
+**Accessed:** 2026-10-14 (`curl`, 375 382 bytes; read verbatim, line numbers below are of that file)
+**Authority rank:** 3 (reference implementation — Concordet & Haeussler, NAR 46:W242 (2018))
+
+**Key extracted points (file:line):**
+
+| Lines | What |
+|---|---|
+| **L889-891** | `pamIsCpf1(pam)` — the Cpf1/Cas12a PAM list (`TNN TTN TTTN TYCV TATV TTTV TTTR ATTN TTTA TCTA TCCA CCCA YTTV TTYN`). It does **not** contain CasX's `TTCN`, which has its own `pamIsCasX` at **L897-899**. |
+| **L901-903** | `pamIsSaCas9(pam)` — `pam.split("-")[0] in ["NNGRRT", "NNNRRT"]`. |
+| **L1872-1880** | `annotateOfftargets` docstring: "All 0MM matches in this range are ignored from scoring ('ontargets')". |
+| **L1920-1929** | The on-target skip, and it is **narrower than the docstring suggests**: `if editDist==0 and repCount==0 and ((chrom==inChrom and start >= inStart and end <= inEnd) or (inChrom=='' and foundOneOntarget==False)): … continue`. Only 0MM hits inside the caller-supplied locus are dropped (or, in "auto-ontarget" mode with no locus, just the first 0MM hit met — `foundOneOntarget` then blocks the branch). A second perfect match elsewhere in the genome is scored as an off-target worth `calcHitScore = 100`. See *Divergences* 10. |
+| **L1931-1936** | `guideNoPam = guideSeq[:len(guideSeq)-len(pam)]` (PAM stripped before MIT scoring); `if len(otSeqNoPam) == 19: otSeqNoPam = "A" + otSeqNoPam` (the 19-nt pad is applied here too). |
+| **L1939-1942** | `if isCpf1: mitScore = 0.0 ; cfdScore = 0.0` — "Cpf1 has no off-target scores yet". |
+| **L1943-1945** | `elif isSaCas9: mitScore = calcSaHitScore(guideNoPam, otSeqNoPam) ; cfdScore = -1` — SaCas9 uses its own model and is excluded from CFD. |
+| **L1947-1958** | `else: mitScore = calcHitScore(...)`; then `if pam == "NGG" and otSeq[-2:] != "GG": mitScore *= 0.2` (the alternative-PAM downweight). |
+| **L1960-1962** | `mitOtScores.append(mitScore)`; `if cfdScore != -1: cfdScores.append(cfdScore)` — the CFD sentinel exclusion. |
+| **L1986-1988** | `if pamIsCpf1(pam): guideScore = -1 ; guideCfdScore = -1`. |
+| **L1994-1999** | `guideScore = calcMitGuideScore(sum(mitOtScores))`; `guideCfdScore = calcCfdGuideScore(sum(cfdScores))` under `doCfdFix`, else `calcMitGuideScore(sum(cfdScores))`. |
+| **L2025-2040** | `calcSaHitScore` — delegates to `predictSingle.SaCas9Scorer` and returns `100.0 * saScorer.calcScore(...)`, "to be compatible with the MIT score, has to be in the range 0-100 for the MIT aggregate guide specificity score". |
+| **L2045** | `hitScoreM` — the published Hsu weight vector, `[0,0,0.014,0,0,0.395,0.317,0,0.389,0.079,0.445,0.508,0.613,0.851,0.732,0.828,0.615,0.804,0.685,0.583]`, indexed 5'→3' (index 19 = PAM-proximal). |
+| **L2047-2067** | `calcHitScore`'s own length handling: `len > 20` → last 20 nt of both ("S. aureus requires 21bp long guides. We fudge by using only last 20bp"); `len == 19` → left-pad both with `"A"` ("first pos has no weight anyways"); `len < 19` → `matrixStart = 20 - len`, `maxDist = len - 1` with the comment "for shorter guides, I'm not sure if this score makes sense anymore, we force things". |
+| **L2098-2104** | `calcMitGuideScore(hitSum) = int(round(100/(100+hitSum) * 100))`. Seqeron returns the **unrounded** value. |
+| **L2106-2109** | `calcCfdGuideScore(hitSum) = 100. * 100.0 / hitSum`, "suggested by Nicholas Parkinson". |
+| **L2149-2185** | `calcCfdScore` — `re.search('[^ATCG]')` screen on both sequences → sentinel `-1`; `pam = off[-2:]`, `sg = off[:20]`; `if doCfdFix: cfd_score = cfd_score * 100.0` (**L2181-2182**). |
+| **L340, L7045-7047** | `doCfdFix = False` by default; set to `True` only by the URL argument `fixCfd`. |
+| **L4724-4729** | `showPamWarning` — the user-facing Cpf1 banner. See *Divergences* below: its prose contradicts the code. |
+
+### CRISPOR — SaCas9 model (`predictSingle.py` + trained coefficients)
+
+**URLs (both HTTP 200, downloaded 2026-10-14):**
+- https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/bin/src/pairwise-library-screen/predictSingle.py (2 567 bytes)
+- https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/bin/src/pairwise-library-screen/models/rstan_mult_21_coeffs.txt (25 771 bytes; also fetched `rstan_mult_20_coeffs.txt` 25 053 B and `rstan_mult_22_coeffs.txt` 27 119 B)
+
+**Authority rank:** 3 (the trained model distributed with the reference tool).
+**Primary source:** Tycko J, Wainberg M, Marinov GK, et al., "Pairwise library screen systematically
+interrogates *Staphylococcus aureus* Cas9 specificity in human cells", *Nat Commun* **9**, 2962 (2018),
+doi:10.1038/s41467-018-05391-2 — the paper CRISPOR's `calcSaHitScore` cites.
+
+**Key extracted points:**
+
+1. `SaCas9Scorer.__init__` reads `models/rstan_mult_<guideLen>_coeffs.txt` (tables shipped for guide
+   lengths 20-24) and keys the `Median` column by
+   `guideLenDict[guide_len - Position + 1][Mismatch]` — i.e. the shipped `Position` counts from the
+   **3'/PAM-proximal** end and is remapped to a 1-based index from the **5'** end.
+2. `calcScore` multiplies the coefficients of all mismatched positions, skipping `mm_pos == 1`
+   ("Mismatches at the 5' position are not truly determined by the model"), and refuses `-`
+   ("This model does not support gaps/bulges").
+3. `mm_dict` maps the raw `(targetBase, guideBase)` pair to the coefficient id: `('A','C') → "dT:rC"`,
+   `('A','T') → "dT:rU"`. So `d` is the **complement of the off-target DNA base** and `r` is the
+   **guide base with T written as U** — the same convention as CFD, written in the opposite order.
+
+**What was tried before concluding this model is obtainable** (the previous review had recorded it as
+"a trained model not obtainable as published parameters"): the GitHub contents API
+(`api.github.com/repos/maximilianh/crisporWebsite/contents/bin/src`) returns **403** from this
+container, and `bin/src/pairwise-library-screen/README` **404**s, so the directory cannot be listed.
+The files themselves are nonetheless served directly by `raw.githubusercontent.com` once the exact
+paths from `predictSingle.py` (`models/rstan_mult_%s_coeffs.txt`) are used. They are plain TSV, so
+`pandas` is not required to read them. **Conclusion: the model is fully obtainable and was
+implemented** (finding F14) — campaign rule 2 applies, and the earlier "not obtainable" note is
+withdrawn.
+
+### Doench 2016 CFD matrices
+
+The matrices themselves were transcribed and cross-checked in an earlier unit (recorded in
+`docs/Evidence/CRISPR-GUIDE-001-Evidence.md` / the CFD block of `CrisprDesigner.cs`:
+`mismatch_score.pkl` 240 entries and `pam_scores.pkl` 16 entries, decoded and cross-checked
+element-by-element across `maximilianh/crisporWebsite` and `bm2-lab/iGWOS`, 240/240 + 16/16
+identical) and are **unchanged by this unit**, which only adds the guide-level aggregation on top.
+
+**URLs re-opened this session** (to source the per-hit CFD values used in the end-to-end rows below,
+rather than reading them off the C# tables; both HTTP 200, `pickle.load`-decoded):
+
+- https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/CFD_Scoring/mismatch_score.pkl (6 965 bytes, 240 entries) — `mm_scores["rG:dA,1"] = 1.0`
+- https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/CFD_Scoring/pam_scores.pkl (344 bytes, 16 entries) — `pam_scores["GG"] = 1.0`, `pam_scores["AG"] = 0.25925925899999996`, `pam_scores["TT"] = 0.0`
+
+Primary source: Doench, Fusi, Sullender, Hegde, et al., *Nat Biotechnol* **34**, 184-191 (2016),
+PMID 26780180.
+
+### Primary literature for the heuristic's motivation
+
+- Hsu, Scott, Weinstein, et al., *Nat Biotechnol* **31**, 827-832 (2013), PMID 23873081 — PAM-proximal
+  8-12 bp defines specificity; the position-weight model aggregated by crispr.mit.edu.
+- Fu, Foden, Khayter, et al., *Nat Biotechnol* **31**, 822-826 (2013), PMID 23792628 — off-target
+  frequency and truncated gRNAs.
+
+These motivate the *direction* of `CalculateSpecificityScore`'s seed weighting only. **No source was
+found for its numbers** (5 / 2, the 12-nt seed width, the linear sum, the subtraction from 100); it is
+declared in the XML doc and in the `crispr_specificity_score` tool description as this library's own
+heuristic, with the published aggregates offered alongside.
+
+---
+
+## Reference Cross-Checks (numbers)
+
+All values below come from independent Python runs of verbatim transcriptions of the reference
+functions, driven against the downloaded coefficient tables and pickles — never read off the C# code.
+The harness was a throwaway script run under `python3 -I` from this session's scratchpad; it is not
+checked in, because it is a literal copy-paste of the reference bodies listed above and reproducing it
+needs nothing but the URLs in *Online Sources*:
+
+- `calcHitScore`, `calcMitGuideScore` (with the `int(round(...))` dropped, see *Divergences* 6) and
+  `calcCfdGuideScore` copied verbatim from `crispor.py` L2045-2109;
+- `SaCas9Scorer.__init__` / `calcScore` copied from `predictSingle.py`, with `pandas.read_table`
+  replaced by a plain tab-split read of the same `Position` / `Mismatch` / `Median` columns and the
+  same `guideLenDict[guide_len - Position + 1]` remap;
+- the CFD mismatch / PAM tables read straight out of the reference's own
+  `CFD_Scoring/mismatch_score.pkl` (240 entries) and `pam_scores.pkl` (16 entries) with `pickle.load`.
+
+The 12 × 21 SaCas9 coefficient table in `CrisprDesigner.cs` was additionally diffed **mechanically**
+against `rstan_mult_21_coeffs.txt` (parse the `Median` column, apply the same position remap, extract
+the C# arrays by regex, compare cell by cell): **252 values compared, 0 mismatching cells, maximum
+absolute difference 0.0.**
+
+### `calcHitScore` with the >20-nt fudge (21-nt pairs)
+
+| guide | off-target | reference | note |
+|---|---|---|---|
+| `ACGTACGTACGTACGTACGTA` | `ACGTACGTACGTACGTACGTA` | `100.0` | identical |
+| `ACGTACGTACGTACGTACGTA` | `TCGTACGTACGTACGTACGTA` | `100.0` | mismatch at index 0 falls outside the last-20 window |
+| `ACGTACGTACGTACGTACGTA` | `ACGTACGTACGTACGTACGTC` | `41.7` | window index 19, W = 0.583 |
+| `ACGTACGTACGTACGTACGTA` | `ACGTCCGTACGTACGTACGTC` | `6.389516129032259` | two mismatches; all three score terms active |
+
+### `calcSaHitScore` (Tycko 2018, 21-nt table) — the reference script's own asserted values
+
+| guide | off-target | `calcScore` | `calcSaHitScore` (×100) |
+|---|---|---|---|
+| `GCAACCACAAACCCACGAGGG` | `GCAACCACAAACCCACGAGGG` | `1.0` | `100.0` |
+| `GCAACCACAAACCCACGAGGG` | `ACAAACACATACCCACAAGGA` | `0.041293256150042444` | `4.1293256150042446` |
+| `GGGTGAGTGAGTGTGTGCGTG` | `GAGCGAGTGGGTGTGTGCGTG` | `0.13441983202750601` | `13.4419832027506` |
+
+(The 20-nt table's own assert, `calcScore("TGTGGGTGAGTGTGTGCGTG","TGTGAGTGAGTGTGTGCGTG") =
+0.314432049304524`, also reproduced exactly; that table is not transcribed into C# — see
+*Divergences*.)
+
+Coefficient-orientation guard (same mismatch type `dT:rC`, guide `C` vs off-target `A`):
+index 1 → `54.6734106002513`, index 20 → `10.569373315278801`. A table transcribed without the
+`guide_len - Position + 1` remap swaps these.
+
+### `calcMitGuideScore` (unrounded)
+
+| Σ hit scores | reference |
+|---|---|
+| `0` | `100.0` |
+| `{2.5, 10.0}` → 12.5 | `88.88888888888889` |
+| `60.5` | `62.30529595015576` |
+| `{60.5, 41.7}` → 102.2 | `49.45598417408507` |
+
+### CFD aggregation (over RAW per-hit CFD values in [0, 1])
+
+| raw CFD scores | `MitStyle` | `ParkinsonNormalized` |
+|---|---|---|
+| `{0.5, 0.25}` | `99.25558312655087` | `133.33333333333334` |
+| `{1.0}` | `99.00990099009901` | `100.0` |
+| `{}` / `{0.0}` | `100.0` | **undefined** — division by zero (the reference raises `ZeroDivisionError`) |
+
+`ParkinsonNormalized` is `100 / Σ raw`, **not** `100 × 100 / Σ raw`: the reference's `doCfdFix` flag
+applies *two* changes together — `calcCfdScore` rescales every per-hit CFD by ×100 (L2181-2182) **and**
+the aggregate becomes `100 × 100 / Σ` (L2106-2109) — so over raw inputs one factor of 100 cancels:
+`100 × 100 / (100 × Σ raw) = 100 / Σ raw`.
+
+### End-to-end genome-level cross-checks (locked in tests)
+
+| Input | Result | Model |
+|---|---|---|
+| guide `GACGCATAAAGATGAGACGC`, genome `TACGCATAAAGATGAGACGCAGG` | MIT `50.0`, heuristic `98.0`, CFD(MitStyle) `99.00990099009901` | one PAM-distal off-target |
+| guide `ACGTACGTACGTACGTACGTA`, genome `ACGTACGTACGTACGTACGTCAAGAAT`, SaCas9 | MIT `95.91285612347565` (per-hit `4.2613097364785695`) | Tycko 2018 |
+| guide `ACGTACGTACGTACGTACGTA`, genome `ACGTCCGTACGTACGTACGTCAAGAAT`, SaCas9 | MIT `97.54818977171612` (per-hit `2.5134348817970387`) | Tycko 2018, two mismatches |
+| guide `GACGCATAAAGATGAGACGC`, genome `CTTGCGTCTCATCTTTATGCGTA`, SpCas9-NAG | CFD(MitStyle) `99.74141115651946`, CFD(Parkinson) `385.71428610000004` | reverse-strand hit, PAM `AAG` → CFD `mm_scores["rG:dA,1"] (1.0) × pam_scores["AG"] (0.25925925899999996)`, both read from the reference pickles this session |
+
+The last row doubles as the reverse-strand-PAM convention guard: if the PAM were reported
+reverse-complemented (`CTT` → key `TT`, score `0.0`) the per-hit CFD would collapse to 0 and the
+aggregate would be exactly `100`.
+
+---
+
+## Divergences recorded (not defects)
+
+1. **SaCas9 coefficient tables for guide lengths 20, 22, 23, 24 are not transcribed.** The reference
+   ships all five. Only the 21-nt table is in `CrisprDesigner.cs`, because 21 nt is the guide length of
+   this library's only SaCas9 system (`CrisprSystemType.SaCas9`), and `FindOffTargets` rejects a guide
+   that does not match its system's length — so no other length is reachable. Other lengths are
+   **refused** by `CalculateSaCas9HitScore` rather than approximated. Adding a table is a pure
+   data change if a 20/22/23/24-nt SaCas9 variant is ever added.
+2. **The alternative-PAM ×0.2 MIT downweight (L1955) is unreachable here, by construction.** CRISPOR
+   runs one wider BWA scan whose NGG query also returns non-GG (NAG/NGA) sites and downweights those.
+   Seqeron scans one system's PAM at a time, so an `SpCas9` scan yields only `NGG` hits
+   (`otSeq[-2:] == "GG"`, condition false) and an `SpCas9_NAG` scan has `pam != "NGG"` (condition also
+   false). The weight would therefore never fire even if it were implemented; combining the two scans
+   into one multi-PAM aggregate is a different feature, not this unit's.
+3. **PAM-before-target systems are refused outright**, including CasX. For Cpf1/Cas12a this follows the
+   reference's code exactly (`mitScore = cfdScore = 0.0`, `guideScore = guideCfdScore = -1`).
+   CasX (`TTCN`) is **not** in the reference's `pamIsCpf1` list (L889-891) — it has its own
+   `pamIsCasX` (L897-899) — so CRISPOR routes a CasX guide into the `else` branch and scores it with
+   `calcHitScore`. **That path is demonstrably mis-oriented**, traced through the code this session:
+   `pamIsCasX` sets `pamIsFirst = True` (**L483-487**); `concatGuideAndPam` therefore builds the scored
+   string as `pamPlusSeq + pamSeq + guideSeq` — PAM at the **5'** end (**L5543-5548**); but
+   `annotateOfftargets` strips the PAM with `guideSeq[:len(guideSeq)-len(pam)]` (**L1932-1933**), which
+   removes bases from the **3'** end. What reaches `calcHitScore` thus still carries the 4-nt `TTCN`
+   PAM at its 5' end and has lost the 3'-most 4 protospacer bases, while `hitScoreM` is indexed
+   PAM-proximal-last — so every one of the 20 position weights lands on the wrong base. Reproducing
+   that would be reproducing a reference bug, so this library refuses instead. Returning the reference's own sentinel `-1` was rejected because it would break
+   the documented `[0, 100]` range; returning `100` would be unsafe (a guide whose off-targets were
+   never scored would look perfectly specific — exactly defect F9).
+4. **CRISPOR's own Cpf1 prose contradicts its code.** `showPamWarning` (L4724-4729) says "there is no
+   off-target ranking algorithm available in the literature, to our knowledge. **We use Hsu and CFD
+   scores below for off-target ranking**, but they were developed for spCas9." The scoring path
+   (L1939-1942, L1986-1988) zeroes both scores for Cpf1 PAMs. The **code** is taken as the reference
+   behaviour; the banner is recorded here so the discrepancy is not re-litigated.
+5. **The `calcHitScore` branch for guides shorter than 19 nt is not implemented.** The reference's own
+   comment is "for shorter guides, I'm not sure if this score makes sense anymore, we force things",
+   and the branch is unreachable here: every `CrisprSystem.GuideLength` is ≥ 20 and `FindOffTargets`
+   rejects a mismatched guide. The 19-nt `A`-pad **is** implemented, because `annotateOfftargets`
+   applies it as well (L1934-1936).
+6. **The aggregate is returned unrounded**; `calcMitGuideScore` rounds to an integer
+   (`int(round(score*100))`). Callers may round as they wish.
+7. **Ambiguity codes cannot reach the off-target scan.** `DnaSequence` validates A/C/G/T at
+   construction (`DnaSequence.ValidateSequence` → `SequenceExtensions.IndexOfInvalidDna`), so the
+   reference's `[^ATCG] → cfdScore = -1` exclusion inside `CalculateCfdSpecificityScore` is a
+   **defensive mirror**, not a live parity fix. It is kept so the reference's exclusion rule is
+   encoded rather than implied, and a test pins the `DnaSequence` rejection that makes it unreachable.
+8. **Bulges / indels are out of scope** for every model here; the reference's SaCas9 model refuses them
+   explicitly and CFD is defined only for a substitution-only 20-nt:20-nt comparison.
+9. **`CalculateCfdSpecificityScore` refuses SaCas9; the reference returns a vacuous 100 for it.**
+   The per-hit side is identical — the reference sets `cfdScore = -1` for every SaCas9 hit
+   (L1943-1945). But its guide level then does *not* emit a sentinel: those hits are all dropped by
+   `if cfdScore != -1` (L1961-1962), so `guideCfdScore = calcMitGuideScore(sum([])) = 100`. Only Cpf1
+   gets `guideCfdScore = -1` (L1986-1988). Reporting a perfect 100 for a guide whose off-targets were
+   never CFD-scored is exactly the silent-perfect-score failure mode this unit fixed elsewhere
+   (defect F9), so this library throws instead. CFD is in any case defined only for a 20-nt
+   protospacer and the reference provides no length fallback for it.
+10. **Every exact match is dropped genome-wide, not just the on-target one.** The reference's skip
+   (L1920-1929) is scoped to the caller-supplied on-target locus — or, with no locus, to the single
+   first 0MM hit — so a *second* perfect match elsewhere in the genome is scored there as a full
+   `calcHitScore = 100` off-target. `FindOffTargets` takes no on-target locus (it is given a bare
+   sequence, not a genome build plus coordinates), so it cannot tell the on-target from a second
+   perfect match and drops all of them. Consequence, recorded rather than hidden: a guide with a
+   duplicated perfect site scores *more* specific here than in CRISPOR. Supplying an on-target
+   interval is a different feature, not this unit's.
+
+---
+
+## Unsourced element declared (not fixed, cannot be)
+
+`CalculateSpecificityScore` — `max(0, 100 − Σ(5 per seed mismatch + 2 per distal mismatch))`. No
+source was found for the weights, the 12-nt seed width, the linear sum or the subtraction from 100.
+Per the campaign's rule for unsourced convenience metrics it is **kept and declared honestly** (XML
+doc, algorithm doc, `crispr_specificity_score` MCP description, this file) and the two published
+alternatives in the same class are offered in each of those places and exposed over MCP as
+`crispr_mit_specificity_score` / `crispr_cfd_specificity_score`. A test
+(`CalculateSpecificityScore_HeuristicAndMitAggregate_AreDistinct`) pins that the heuristic and the
+published aggregate are visibly different numbers on the same input, so one cannot be mistaken for
+the other.

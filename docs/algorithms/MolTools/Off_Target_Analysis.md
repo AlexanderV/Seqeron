@@ -5,8 +5,8 @@
 | Algorithm Group | MolTools |
 | Test Unit ID | CRISPR-OFF-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-06-18 |
+| Implementation Status | Implemented (published models) + one declared heuristic |
+| Last Reviewed | 2026-10-14 |
 
 ## 1. Overview
 
@@ -35,13 +35,46 @@ The off-target score is computed by summing mismatch penalties by position:
 
 The seed region is the last 12 bp for PAM-after-target systems such as Cas9 and the first 12 bp for PAM-before-target systems such as Cas12a. `CalculateSpecificityScore(...)` finds off-targets with up to 4 mismatches, sums their penalties, and returns `max(0, 100 - totalPenalty)`.
 
+> **`CalculateSpecificityScore` is this library's own heuristic, not a published model.** Hsu et al. (2013) motivates only the *direction* of the seed weighting; the weights `5`/`2`, the 12-nt seed width, the linear sum and the subtraction from 100 are unsourced. It is kept as a coarse triage number and declared as such in its XML doc and in the `crispr_specificity_score` MCP tool description.
+
+### 2.3 Published models (reference-verified)
+
+Three published off-target models live in the same class and are the ones to use for any
+publication-grade number. All are verified numerically against CRISPOR
+(`raw.githubusercontent.com/maximilianh/crisporWebsite/master/crispor.py`); see
+[CRISPR-OFF-001-Evidence.md](../../Evidence/CRISPR-OFF-001-Evidence.md) for the opened line numbers
+and every reference value.
+
+| Model | Method | Form |
+|---|---|---|
+| MIT / Hsu 2013 single hit | `CalculateMitHitScore(guide20, offTarget20)` | the published position-weight product, ×100 |
+| SaCas9, Tycko et al. 2018 | `CalculateSaCas9HitScore(guide21, offTarget21)` | product of trained per-position mismatch coefficients, ×100 |
+| Doench 2016 CFD single hit | `CalculateCfdScore(guide20, offTarget20, offTargetPam)` | mismatch-matrix product × PAM-activity score |
+
+Both guide-level aggregates follow `annotateOfftargets`:
+
+| Aggregate | Method | Form |
+|---|---|---|
+| MIT / Hsu guide score | `CalculateMitSpecificityScore(...)` | `100 / (100 + Σ hits) × 100`, unrounded |
+| CFD guide score | `CalculateCfdSpecificityScore(..., CfdAggregation.MitStyle)` | `100 / (100 + Σ raw CFD) × 100` (the reference default) |
+| CFD guide score, `doCfdFix` | `CalculateCfdSpecificityScore(..., CfdAggregation.ParkinsonNormalized)` | `100 / Σ raw CFD`; undefined at Σ = 0 |
+
+The genome-scanning MIT aggregate picks the per-hit model by system exactly as the reference does: a
+SaCas9 PAM with a 21-nt guide uses the Tycko 2018 model, any other PAM-after-target system uses the
+Hsu model. PAM-before-target systems (Cas12a-class, CasX) are **refused** by both aggregates, because
+the reference reports no MIT or CFD off-target score for them (`mitScore = cfdScore = 0.0`,
+`guideScore = guideCfdScore = -1`). CFD additionally requires a 20-nt protospacer, so SaCas9 is
+refused there too — the reference emits its CFD sentinel (`cfdScore = -1`) for SaCas9 hits.
+
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | Exact matches are not returned as off-targets | `FindOffTargets(...)` yields only when `mismatches > 0` |
 | INV-02 | Returned mismatch counts are bounded by the requested `maxMismatches` | The source filters on `mismatches <= maxMismatches` |
-| INV-03 | Specificity scores are clamped to the range `[0, 100]` | `CalculateSpecificityScore(...)` applies `Math.Max(0, 100 - totalPenalty)` |
+| INV-03 | Specificity scores are clamped to the range `[0, 100]` | `CalculateSpecificityScore(...)` applies `Math.Max(0, 100 - totalPenalty)`; the MIT and `MitStyle` CFD aggregates are `100/(100+Σ)×100` with `Σ ≥ 0`. `CfdAggregation.ParkinsonNormalized` is deliberately **not** bounded by 100 (the reference's `calcCfdGuideScore` is not either) |
+| INV-04 | `MismatchPositions.Count == Mismatches` for every returned site | both are derived from one case-folding comparison (`GetMismatchPositions`), which also drives the off-target penalty, so the three cannot disagree |
+| INV-05 | Enumeration order is deterministic | forward-strand PAM sites in ascending position, then reverse-strand sites |
 
 ## 3. Contract
 
@@ -68,7 +101,7 @@ The seed region is the last 12 bp for PAM-after-target systems such as Cas9 and 
 
 ### 3.3 Preconditions and Validation
 
-`FindOffTargets(...)` throws `ArgumentNullException` for null guide or genome input and `ArgumentOutOfRangeException` when `maxMismatches` is outside `0-5`. It also throws `ArgumentException` when the guide length does not match the expected guide length for the selected CRISPR system. `CalculateSpecificityScore(...)` always evaluates off-targets using a fixed mismatch cap of 4.
+`FindOffTargets(...)` throws `ArgumentNullException` for null guide or genome input and `ArgumentOutOfRangeException` when `maxMismatches` is outside `0-5`. It also throws `ArgumentException` when the guide length does not match the expected guide length for the selected CRISPR system. `CalculateSpecificityScore(...)` always evaluates off-targets using a fixed mismatch cap of 4. Both genome-scanning published aggregates enforce the same `0-5` bound on their own `maxMismatches` parameter, and both throw `ArgumentException` for a PAM-before-target system; `CalculateCfdSpecificityScore(...)` additionally throws `ArgumentException` for any system whose guide length is not 20, and `ArgumentOutOfRangeException` for `CfdAggregation.ParkinsonNormalized` when the CFD sum is 0.
 
 ## 4. Algorithm
 
@@ -105,7 +138,9 @@ CRISPR system variations documented for off-target analysis:
 **Implementation location:** [CrisprDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs)
 
 - `CrisprDesigner.FindOffTargets(string, DnaSequence, int, CrisprSystemType)`: Finds PAM-constrained near matches for a guide sequence.
-- `CrisprDesigner.CalculateSpecificityScore(string, DnaSequence, CrisprSystemType)`: Converts off-target penalties into a `0-100` specificity score.
+- `CrisprDesigner.CalculateSpecificityScore(string, DnaSequence, CrisprSystemType)`: Converts the heuristic off-target penalties into a `0-100` score (declared heuristic — see §2.2).
+- `CrisprDesigner.CalculateMitHitScore(string, string)` / `CalculateSaCas9HitScore(string, string)` / `CalculateCfdScore(string, string, string)`: published single-hit models.
+- `CrisprDesigner.CalculateMitSpecificityScore(...)` / `CalculateCfdSpecificityScore(...)` (an aggregate-only overload and a genome-scanning overload each): published guide-level aggregates.
 
 ### 5.2 Current Behavior
 
@@ -121,13 +156,15 @@ The current implementation enumerates PAM sites first and then compares the guid
 
 **Intentionally simplified:**
 
-- The `FindOffTargets` / `CalculateSpecificityScore` heuristic uses only two positional weights (`5` in the seed region and `2` outside it); **consequence:** this heuristic does not itself represent base-specific or context-specific models — for those call the dedicated `CalculateCfdScore` (Doench 2016 CFD) or `CalculateMitHitScore` / `CalculateMitSpecificityScore` (MIT/Hsu 2013) methods.
-- The implementation uses strict PAM matching for the chosen system; **consequence:** off-targets at other PAMs are ignored unless that PAM is modeled as its own system (for example `SpCas9_NAG`).
-- Only base mismatches are considered; **consequence:** bulges and gap-containing alignments are out of scope.
+- The `FindOffTargets` / `CalculateSpecificityScore` heuristic uses only two positional weights (`5` in the seed region and `2` outside it) and is **unsourced**; **consequence:** it does not represent base-specific or context-specific activity — for a published number call `CalculateMitSpecificityScore` (MIT/Hsu 2013, with Tycko 2018 for SaCas9) or `CalculateCfdSpecificityScore` (Doench 2016 CFD).
+- The implementation uses strict PAM matching for the chosen system; **consequence:** off-targets at other PAMs are ignored unless that PAM is modeled as its own system (for example `SpCas9_NAG`), and CRISPOR's alternative-PAM ×0.2 MIT downweight is therefore unreachable by construction (see Evidence, divergence 2).
+- Only base mismatches are considered; **consequence:** bulges and gap-containing alignments are out of scope — the reference's own SaCas9 model refuses them explicitly, and CFD is defined only for a substitution-only 20-nt:20-nt comparison.
+- Only the 21-nt SaCas9 coefficient table is transcribed (the reference ships 20-24); **consequence:** `CalculateSaCas9HitScore` refuses other lengths, which no CRISPR system in this library can produce.
+- Every exact (0-mismatch) match is dropped genome-wide, because this API is given a bare reference sequence and no on-target locus; **consequence:** CRISPOR drops only the 0-mismatch hits inside the caller-supplied on-target interval (crispor.py L1920-1929) and scores any further perfect match as a full `calcHitScore = 100` off-target, so a guide with a duplicated perfect site scores more specific here than in the reference (see Evidence, divergence 10).
 
 **Not implemented:**
 
-- Chromatin accessibility and bulge-aware (gap-containing) alignment; **users should rely on:** the dedicated `CalculateCfdScore` / `CalculateMitHitScore` methods for published off-target scoring (both now implemented), and external/experimental tools for accessibility and bulge-aware search.
+- Chromatin accessibility and bulge-aware (gap-containing) alignment; **users should rely on:** external/experimental tools. All three published sequence-level off-target models the reference uses (MIT/Hsu, Tycko 2018 SaCas9, Doench 2016 CFD) and both of its guide-level aggregates are implemented here.
 
 ## 6. Edge Cases and Limitations
 
@@ -142,7 +179,7 @@ The current implementation enumerates PAM sites first and then compares the guid
 
 ### 6.2 Limitations
 
-The current implementation is a simplified position-weighted sequence model. It does not include chromatin state, indel/bulge alignments, or richer empirical scoring functions, and it relies on the CRISPR system's explicit PAM definition for site discovery.
+`CalculateSpecificityScore` is a simplified, unsourced position-weighted sequence model. The published models (`CalculateMitSpecificityScore`, `CalculateCfdSpecificityScore`) are reference-verified but still sequence-only: none of them includes chromatin state or indel/bulge alignments, and all rely on the CRISPR system's explicit PAM definition for site discovery. The genome scan is also a naïve sweep over every PAM site, not CRISPOR's BWA-based search, so it is meant for a supplied reference sequence rather than a whole genome; no size envelope has been measured for it.
 
 ## 7. Examples and Related Material
 
@@ -160,8 +197,15 @@ var offTargets = CrisprDesigner.FindOffTargets(
     maxMismatches: 3,
     CrisprSystemType.SpCas9);
 
-double specificity = CrisprDesigner.CalculateSpecificityScore(
+// This library's own heuristic (coarse triage only).
+double heuristic = CrisprDesigner.CalculateSpecificityScore(
     guide, genome, CrisprSystemType.SpCas9);
+
+// The published aggregates — prefer these.
+double mit = CrisprDesigner.CalculateMitSpecificityScore(
+    guide, genome, maxMismatches: 4, CrisprSystemType.SpCas9);
+double cfd = CrisprDesigner.CalculateCfdSpecificityScore(
+    guide, genome, maxMismatches: 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle);
 ```
 
 ## 8. References
@@ -169,3 +213,6 @@ double specificity = CrisprDesigner.CalculateSpecificityScore(
 1. Hsu PD, Scott DA, Weinstein JA, et al. (2013). DNA targeting specificity of RNA-guided Cas9 nucleases. *Nature Biotechnology*, 31(9):827-832. doi:10.1038/nbt.2647
 2. Fu Y, Foden JA, Khayter C, et al. (2013). High-frequency off-target mutagenesis induced by CRISPR-Cas nucleases in human cells. *Nature Biotechnology*, 31(9):822-826. doi:10.1038/nbt.2623
 3. Wikipedia. Off-target genome editing. https://en.wikipedia.org/wiki/Off-target_genome_editing
+4. Doench JG, Fusi N, Sullender M, et al. (2016). Optimized sgRNA design to maximize activity and minimize off-target effects of CRISPR-Cas9. *Nature Biotechnology*, 34(2):184-191. doi:10.1038/nbt.3437 (CFD)
+5. Tycko J, Wainberg M, Marinov GK, et al. (2018). Pairwise library screen systematically interrogates *Staphylococcus aureus* Cas9 specificity in human cells. *Nature Communications*, 9:2962. doi:10.1038/s41467-018-05391-2 (SaCas9 model)
+6. Concordet J-P, Haeussler M (2018). CRISPOR: intuitive guide selection for CRISPR/Cas9 genome editing experiments and screens. *Nucleic Acids Research*, 46(W1):W242-W245. doi:10.1093/nar/gky354 (reference implementation)

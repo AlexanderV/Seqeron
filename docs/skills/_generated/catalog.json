@@ -2310,11 +2310,25 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L29"
   },
   {
+    "tool": "crispr_cfd_specificity_score",
+    "server": "MolTools",
+    "methodId": "CrisprDesigner.CalculateCfdSpecificityScore",
+    "docPath": "docs/mcp/tools/moltools/crispr_cfd_specificity_score.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1539"
+  },
+  {
+    "tool": "crispr_mit_specificity_score",
+    "server": "MolTools",
+    "methodId": "CrisprDesigner.CalculateMitSpecificityScore",
+    "docPath": "docs/mcp/tools/moltools/crispr_mit_specificity_score.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1005"
+  },
+  {
     "tool": "crispr_specificity_score",
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L378"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L608"
   },
   {
     "tool": "crispr_system_info",

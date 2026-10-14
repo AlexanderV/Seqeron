@@ -127,6 +127,7 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(OffTargetsResult))]
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.GuideRnaRanking))]
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.GrafMotifType))]
+[JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.CfdAggregation))]
 [JsonSerializable(typeof(SpecificityResult))]
 [JsonSerializable(typeof(OnTargetScoreResult))]
 

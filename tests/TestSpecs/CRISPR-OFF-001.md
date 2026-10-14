@@ -7,7 +7,16 @@
 - **Canonical Methods**:
   - `CrisprDesigner.FindOffTargets(string, DnaSequence, int, CrisprSystemType)`
   - `CrisprDesigner.CalculateSpecificityScore(string, DnaSequence, CrisprSystemType)`
-- **Related Documentation**: [Off_Target_Analysis.md](../docs/algorithms/MolTools/Off_Target_Analysis.md)
+- **Also owned by this unit** (published off-target models in the same class):
+  - `CrisprDesigner.CalculateMitHitScore(string, string)` — MIT/Hsu 2013 single hit
+  - `CrisprDesigner.CalculateSaCas9HitScore(string, string)` — Tycko et al. 2018 single hit
+  - `CrisprDesigner.CalculateCfdScore(string, string, string)` — Doench 2016 CFD single hit
+  - `CrisprDesigner.CalculateMitSpecificityScore(IEnumerable<double>)` and `(string, DnaSequence, int, CrisprSystemType)`
+  - `CrisprDesigner.CalculateCfdSpecificityScore(IEnumerable<double>, CfdAggregation)` and `(string, DnaSequence, int, CrisprSystemType, CfdAggregation)`
+  - `CfdAggregation`
+- **Related Documentation**: [Off_Target_Analysis.md](../docs/algorithms/MolTools/Off_Target_Analysis.md),
+  [CRISPR-OFF-001-Evidence.md](../../docs/Evidence/CRISPR-OFF-001-Evidence.md)
+- **Last reviewed**: 2026-10-14 (campaign `docs/Validation/review-2026-09`, batch B08)
 
 ---
 
@@ -19,6 +28,9 @@
 | Wikipedia: Off-target genome editing | Off-target mutations occur with 3-5 mismatches; seed sequence (10-12nt adjacent to PAM) critical for specificity; PAM-distal mismatches more tolerated | https://en.wikipedia.org/wiki/Off-target_genome_editing |
 | Hsu et al. (2013), Nature Biotechnology | PAM-proximal 8-12bp defines specificity; single-base specificity ranges 8-14bp; 2+ mismatches in PAM-proximal region reduce activity; 3+ interspaced or 5+ concatenated mismatches eliminate cleavage | PMC3969858 |
 | Fu et al. (2013), Nature Biotechnology | >50% of CRISPR mutations can occur off-target; truncated gRNAs (17-18bp) increase specificity | PMID 23792628 |
+| Doench et al. (2016), Nature Biotechnology | CFD (Cutting Frequency Determination): per-position mismatch percent-activity matrix × PAM-activity table | PMID 26780180 |
+| Tycko J, Wainberg M, Marinov GK, et al. (2018), Nature Communications 9:2962 | SaCas9-specific trained per-position mismatch coefficients (pairwise library screen) | doi:10.1038/s41467-018-05391-2 |
+| CRISPOR `crispor.py` (master) | Reference implementation of every model and both guide-level aggregates (`calcHitScore`, `calcSaHitScore`, `calcCfdScore`, `calcMitGuideScore`, `calcCfdGuideScore`, `annotateOfftargets`) | https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/crispor.py |
 
 ### Evidence-Backed Parameters
 | Parameter | Evidence Value | Implementation Value | Status |
@@ -27,6 +39,17 @@
 | Seed region length (Cas9) | 8-12bp PAM-proximal (Hsu 2013) | 12bp | ✅ Conservative upper bound |
 | Off-target activity threshold | Mismatches >0 | Mismatches >0 | ✅ Aligned |
 | PAM requirement | NGG or NAG for off-targets | PAM required | ✅ Aligned |
+
+### Unsourced element (declared, not fixed)
+
+`CalculateSpecificityScore` = `max(0, 100 − Σ(5 per seed mismatch + 2 per distal mismatch))`.
+Hsu 2013 motivates only the *direction* of the seed weighting; **no source was found for the weights
+`5`/`2`, the 12-nt seed width, the linear sum or the subtraction from 100**. Per the campaign's rule
+for unsourced convenience metrics it is kept and declared honestly (XML doc, algorithm doc,
+`crispr_specificity_score` MCP description, Evidence file), and the published aggregates in the same
+class are offered alongside it everywhere, including over MCP as `crispr_mit_specificity_score` and
+`crispr_cfd_specificity_score`. Test `CalculateSpecificityScore_HeuristicAndMitAggregate_AreDistinct`
+pins that the two produce visibly different numbers on the same input.
 
 ### Key Insights from Evidence
 1. **Off-targets require mismatches**: By definition, off-target sites have sequence differences from the guide (Hsu 2013)
@@ -208,6 +231,90 @@
 
 ---
 
+
+### Published-model tests added 2026-10-14 (B08, CRISPR-OFF-001)
+
+Every expected value below comes from an independent Python run of a verbatim transcription of the
+reference function, never from the C# code. Full tables of opened sources and reference values:
+[CRISPR-OFF-001-Evidence.md](../../docs/Evidence/CRISPR-OFF-001-Evidence.md).
+
+#### F9 regression — the MIT aggregate silently returned 100 for non-20-nt systems
+
+| Test | Locks |
+|---|---|
+| `CalculateMitSpecificityScore_SaCas9_21ntGuide_RealOffTarget_IsNot100` | SaCas9 21-nt guide, one off-target → `95.91285612347565` (not 100) |
+| `CalculateMitSpecificityScore_SaCas9_21ntGuide_TwoMismatches_MatchesReference` | two mismatches → `97.54818977171612` |
+| `CalculateMitSpecificityScore_SaCas9_MismatchAtFivePrimeEnd_ScoredAsPerfectHit` | 5'-most mismatch contributes nothing → hit 100, aggregate `50.0` |
+| `CalculateMitSpecificityScore_Cas12aClass_WithRealOffTargets_Throws` | real off-targets exist **and** both published aggregates throw |
+| `CalculateMitSpecificityScore_PamBeforeTargetSystems_AlwaysThrow` | Cas12a, AsCas12a, LbCas12a, CasX all refused |
+| `CalculateSpecificityScore_HeuristicAndMitAggregate_AreDistinct` | heuristic `98.0` vs MIT `50.0` on one input |
+
+#### F14 — SaCas9 model (Tycko et al. 2018)
+
+| Test | Locks |
+|---|---|
+| `CalculateSaCas9HitScore_PerfectMatch_Returns100` | the reference script's first assert |
+| `CalculateSaCas9HitScore_ReferenceOracles_Match` | `4.1293256150042446`, `13.4419832027506` (the reference's own asserted values) |
+| `CalculateSaCas9HitScore_CoefficientOrientation_NotReversed` | `dT:rC` at index 1 = `54.6734106002513` vs index 20 = `10.569373315278801` |
+| `CalculateSaCas9HitScore_MismatchAtFivePrimeMostPosition_Ignored` | index 0 skipped |
+| `CalculateSaCas9HitScore_InvalidInputs_Throw` | non-21-nt, gap `-`, non-ACGT, null/empty all refused |
+| `CalculateSaCas9HitScore_LowerCaseInput_TreatedAsUpperCase` | case folding |
+
+#### CFD aggregation (both published forms)
+
+| Test | Locks |
+|---|---|
+| `CfdSpecificity_MitStyle_TwoHits_MatchesReference` | raw `{0.5, 0.25}` → `99.25558312655087` |
+| `CfdSpecificity_ParkinsonNormalized_TwoHits_MatchesReference` | raw `{0.5, 0.25}` → `133.33333333333334` (i.e. `100/Σ`, not `100×100/Σ`) |
+| `CfdSpecificity_SingleUnitHit_BothAggregationsMatchReference` | raw `{1.0}` → `99.00990099009901` / `100.0` |
+| `CfdSpecificity_MitStyle_EmptyAndZeroSum_Returns100` | Σ = 0 is defined for `MitStyle` |
+| `CfdSpecificity_ParkinsonNormalized_ZeroSum_ThrowsArgumentOutOfRange` | Σ = 0 is undefined for `ParkinsonNormalized` |
+| `CfdSpecificity_Genome_ReverseStrandHit_UsesProtospacerStrandPam` | reverse-strand hit with PAM `AAG` → `99.74141115651946` / `385.71428610000004` |
+| `CfdSpecificity_Genome_SaCas9_Refused` | CFD needs a 20-nt protospacer |
+| `CfdSpecificity_Genome_MaxMismatchesOutOfRange_ThrowsArgumentOutOfRange` | F10 regression: `-1`, `6`, `99` all throw in both genome aggregates |
+| `CfdSpecificity_Genome_NoOffTargets_Returns100`, `CfdSpecificity_NullScores_ThrowsArgumentNullException`, `CfdSpecificity_Genome_InvalidArguments_Throw` | boundaries and validation |
+
+#### `FindOffTargets` consistency and ordering
+
+| Test | Locks |
+|---|---|
+| `FindOffTargets_MixedCaseInput_CountPositionsAndPenaltyAgree` | INV-04 for a lower-case guide + genome (`Mismatches` = `MismatchPositions.Count` = 1, penalty `2.0`) |
+| `FindOffTargets_EnumerationOrder_ForwardSitesThenReverseSites` | INV-05 with one hit on each strand |
+| `DnaSequence_RejectsAmbiguityCodes_SoNonAcgtOffTargetsCannotReachTheScan` | why the reference's `[^ATCG]` exclusion is a defensive mirror here |
+| `FindOffTargets_Mismatches_EqualCanonicalHammingDistance` | dedup lock: the reported `Mismatches` equals canonical `SequenceExtensions.HammingDistance` on the same pair, for mixed-case input |
+| `CalculateCfdScore_NonAcgtBases_RefusedAlthoughCanonicalComplementAcceptsThem` | dedup lock, other direction: `U`/`N`/`R` are refused by CFD although canonical `GetComplementBase` maps them (`U`→`A`, `N`→`N`, `R`→`Y`), so the strict `CfdComplement` cannot be "cleaned up" into a silently wrong score |
+| `FindOffTargets_TwoPerfectMatches_BothDroppedGenomeWide` | the recorded on-target divergence: two perfect matches → no off-targets and both published aggregates return 100, where CRISPOR would keep the second and report 50 |
+
+#### Updated invariants
+
+4. **Mismatch-position consistency** — `MismatchPositions.Count == Mismatches`, and the off-target
+   penalty is computed from the same mismatch set, so the three can never disagree.
+6. **Determinism** — forward-strand hits in ascending position, then reverse-strand hits.
+7. **Published aggregates refuse what the reference does not score** — PAM-before-target systems
+   (MIT and CFD) and non-20-nt protospacers (CFD) throw rather than returning a value.
+
+#### Recorded divergences pinned by tests (full list in the Evidence file)
+
+- **On-target skip is wider here.** CRISPOR's skip (`crispor.py` L1920-1929) drops only the 0-mismatch
+  hits inside a caller-supplied on-target interval — or, with none, the first 0MM hit it meets — and
+  scores any further perfect match as a full `calcHitScore = 100` off-target. This API takes a bare
+  reference sequence and no locus, so it drops every exact match genome-wide; a guide with a duplicated
+  perfect site therefore scores *more* specific here. Pinned by
+  `FindOffTargets_TwoPerfectMatches_BothDroppedGenomeWide`.
+- **CFD refuses SaCas9 where the reference returns a vacuous 100.** The reference's per-hit
+  `cfdScore = -1` for SaCas9 (L1943-1945) means every hit is dropped by its own `if cfdScore != -1`
+  filter (L1961-1962), so its `guideCfdScore` is `calcMitGuideScore(sum([])) = 100` — not a sentinel
+  (only Cpf1 gets `guideCfdScore = -1`, L1986-1988). Returning 100 for a guide whose off-targets were
+  never CFD-scored is the F9 failure mode, so this library throws. Pinned by
+  `CfdSpecificity_Genome_SaCas9_Refused`.
+
+### MCP surface
+
+`crispr_specificity_score` (heuristic, description now says so), plus the two tools added in this
+unit: `crispr_mit_specificity_score`, `crispr_cfd_specificity_score`. Tests:
+`tests/Seqeron/Seqeron.Mcp.MolTools.Tests/CrisprPublishedSpecificityScoreTests.cs`.
+
+---
 
 ## Definition of Done
 
