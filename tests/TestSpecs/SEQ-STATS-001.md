@@ -192,3 +192,15 @@
 ## 7. Open Questions / Decisions
 
 1. Decision: AT content denominator includes U (A+T+U) but AT skew uses (A−T)/(A+T) — AT skew is DNA-specific per the Lobry/Wikipedia formula; resolved, no open question.
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): composition denominator (F35) and MCP (F39, F50)
+
+| ID | Case | Oracle |
+|----|------|--------|
+| AD1 | `AminoAcidCompositionDenominator.SequenceLength`: aromaticity "MKW" 0.33333333333333337, "MKW*" 0.25, "MKW-A" 0.2, "mkwfy**" 0.4285714285714286, "FWY12K" 0.5, all-20+X 0.14285714285714285 | Biopython 1.88 `ProteinAnalysis` |
+| AD2 | `CalculateAminoAcidFractions` percent: "MKW*" 25.0, "mkwfy**" 14.285714285714286 … | Biopython `amino_acids_percent` |
+| AD3 | default (Residues) Mole%: "MKW*" K 33.333, "MKW-A" 25.000, "MKWX" 25.000 | EMBOSS 6.6.0 pepstats |
+| AD4 | only the two ratios change; 500-input default equality / fraction differential; undefined enum throws | invariant |
+| AD5 | MCP `amino_acid_composition(denominator, includeFractions)` (default JSON unchanged), `nucleotide_composition` `n` | F50 / F39 |
+
+Tests: `SequenceStatistics_AminoAcidCompositionDenominator_Tests` (18); `Seqeron.Mcp.Sequence.Tests/B03SequenceStatisticsMcpOptionsTests`.

@@ -146,7 +146,7 @@ The scale is a static `Dictionary<char,double>` matching Biopython `kd` exactly 
 
 ### 6.2 Limitations
 
-Only the Kyte-Doolittle scale is supported. The profile supports the linear edge-weight model only. Biological interpretation thresholds (e.g. transmembrane peaks > 1.6 at W=19) are the caller's responsibility — the method returns raw averages, not classifications.
+Kyte-Doolittle is the default scale; Hopp-Woods, Emini, Janin and Flexibility are shipped in `ProteinScales` (B03 F52) and any caller-supplied scale is accepted (F31). The profile supports the linear edge-weight model only (ProtScale's exponential model is BLOCKED — formula not sourced, B03 F30). Biological interpretation thresholds (e.g. transmembrane peaks > 1.6 at W=19) are the caller's responsibility — the method returns raw averages, not classifications.
 
 ## 7. Examples and Related Material (Optional)
 

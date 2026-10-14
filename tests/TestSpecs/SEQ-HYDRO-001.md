@@ -182,3 +182,8 @@ Total in-scope cases: 12; ✅ = 12.
 ## 7. Open Questions / Decisions
 
 1. None. All GRAVY/profile values over the 20 standard residues are source-conformant; the only undefined-input behavior (non-standard residues) is documented as a deviation and does not affect canonical values.
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): shipped scales (F52), MCP options (F41)
+
+- F52: `ProteinScales.HoppWoods/Emini/Janin/Flexibility` = Biopython 1.88 `ProtParamData` (literal oracle copy in `ProteinScales_EqualBiopythonProtParamData`); KD forwards to PPC; F31 profile tests use the shipped tables (hw W9 −0.06666666666666662, em W9 1.0731111111111111, ja W9 −0.31222222222222223, Flex W5 e0.4 1.003).
+- F41/F52 MCP `hydrophobicity_profile(edgeWeight, convention, strict, normalizeScale, scale)`: ubiquitin W5 e0.4 2.015625, 1.853125 …; FLIVAG W5 e0.4 3.7312499999999997, 3.1156249999999996; unknown scale (incl. "Eisenberg") rejected. Tests: `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests`.

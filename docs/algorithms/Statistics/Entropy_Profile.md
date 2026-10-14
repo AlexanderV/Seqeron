@@ -114,7 +114,7 @@ The profile is a lazy `IEnumerable<double>` (deferred, streaming). Each window i
 
 ### 6.2 Limitations
 
-Single-symbol entropy does not distinguish sequences with identical composition but different order (e.g., `AATT` and `ATAT` both yield 1 bit). It is alphabet-sensitive: protein windows can exceed 2 bits since k > 4. No statistical significance / background-model correction is applied.
+The default single-symbol entropy does not distinguish sequences with identical composition but different order (e.g., `AATT` and `ATAT` both yield 1 bit); the opt-in k-mer (block) entropy profile `CalculateEntropyProfile(seq, W, step, k)` does (B03 F38). It is alphabet-sensitive: protein windows can exceed 2 bits since k > 4. No statistical significance / background-model correction is applied.
 
 ## 7. Examples and Related Material
 

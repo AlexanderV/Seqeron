@@ -166,10 +166,12 @@ matching is involved, so the repository suffix tree is **not applicable** to thi
   **consequence:** NN Tm differs by the fixed concentration term unless `primerConcentration`
   is set (passing 5e-8 reproduces Biopython's 60.32).
 
-**Not implemented:**
+**Available via the canonical core (no `SequenceStatistics` wrapper, to avoid a second API):**
 
-- Mismatch / dangling-end NN terms in `CalculateThermodynamics` (perfect complement only);
-  **users should rely on:** `ThermoConstants.CalculateNearestNeighborDuplex(sequence, complement, shift, …)`.
+- Mismatch / dangling-end NN terms: `CalculateThermodynamics` takes the perfect complement only; the
+  canonical B07 NN core `ThermoConstants.CalculateNearestNeighborDuplex(sequence, complement, shift, …)`
+  (also `CalculateNearestNeighborThermodynamics` / `CalculateNearestNeighborTm`) scores them with
+  Biopython's DNA_IMM1 / DNA_TMM1 / DNA_DE1 tables.
   (K⁺ / Tris / Mg²⁺ / dNTP salt corrections — Biopython methods 0–7, Owczarzy 2008 — are implemented via
   `ThermodynamicsOptions`, B03 F27.)
 
@@ -199,9 +201,10 @@ matching is involved, so the repository suffix tree is **not applicable** to thi
 
 ### 6.2 Limitations
 
-Wallace/GC formulas are rules of thumb; the NN model assumes two-state melting, fixed
-buffer, and monovalent (Na⁺) salt only. Mismatches, dangling ends, divalent ions, and
-secondary structure are not modeled.
+Wallace/GC formulas are rules of thumb; the NN model assumes two-state melting and a buffer
+stated by the caller (default Na⁺ only, method 5; K⁺/Tris/Mg²⁺/dNTPs via `ThermodynamicsOptions`,
+B03 F27). Mismatches and dangling ends are scored only by the canonical
+`ThermoConstants.CalculateNearestNeighborDuplex` (complement / shift); secondary structure is not modeled.
 
 ## 7. Examples and Related Material
 

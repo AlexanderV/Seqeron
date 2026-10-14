@@ -208,3 +208,7 @@ Total in-scope cases: 16. ✅ count: 16.
 
 1. Decision: nucleotide MW corrected to the Biopython average-mass tables and `(len−1)·water` phosphodiester correction (previous code summed raw monophosphate masses with no water removal — a defect vs. the reference). Confirmed by re-deriving the published AGC examples.
 2. Decision: protein MW already followed the Expasy definition; constants upgraded to the 4-decimal Biopython/Expasy values for exactness.
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): MCP options (F39)
+
+- MCP `molecular_weight_nucleotide(doubleStranded, circular, monoisotopic, strict)` / `molecular_weight_protein(monoisotopic, circular, strict)`: AGC DNA ss 949.6095 / ds 1890.2057 / circ 931.5942 / ds+circ 1854.1751; GAGA mono circ 256.117152; strict ValueError cases (Biopython 1.88). Tests: `Seqeron.Mcp.Sequence.Tests/B03SequenceStatisticsMcpOptionsTests`.

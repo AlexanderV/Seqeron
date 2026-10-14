@@ -101,9 +101,9 @@ This is not a search/matching operation, so the repository suffix tree is not ap
 - AT skew = (A−T)/(A+T) with 0 returned when A+T = 0 [3].
 - Case-insensitive counting [2].
 
-**Intentionally simplified:**
+**Repository convention (not a simplification):**
 
-- Degenerate IUPAC symbols (S, W, R, Y, …): counted as `Other` rather than partially toward GC/AT as Biopython's `gc_fraction` does for S/W; **consequence:** for sequences containing degenerate codes the GC content differs slightly from Biopython. For the standard {A,T,G,C,U} alphabet the results are identical.
+- Degenerate IUPAC symbols (S, W, R, Y, …): counted as `Other` rather than partially toward GC/AT as Biopython's `gc_fraction` does for S/W; **consequence:** for sequences containing degenerate codes the GC content differs slightly from Biopython. For the standard {A,T,G,C,U} alphabet the results are identical. Biopython parity (remove / ignore / weighted) is available from the canonical `CalculateGcFraction(GcAmbiguityMode)`.
 
 **Not implemented:**
 
@@ -123,7 +123,7 @@ This is not a search/matching operation, so the repository suffix tree is not ap
 
 ### 6.2 Limitations
 
-Does not model degenerate IUPAC ambiguity codes in GC/AT totals. Windowed skew and replication-boundary heuristics are out of scope (separate unit).
+Degenerate IUPAC ambiguity codes are not counted in the composition's GC/AT totals (use `CalculateGcFraction(GcAmbiguityMode)` for Biopython parity). Windowed skew and replication-boundary heuristics are out of scope (separate unit).
 
 ## 7. Examples and Related Material
 

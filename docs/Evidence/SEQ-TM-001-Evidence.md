@@ -122,7 +122,16 @@
 
 ---
 
+## Addendum 2026-10-14 (FIN-B03 F25, F32, F33, F48) — canonical basic Tm, GC formula below 14 nt, IUPAC weighting
+
+Biopython 1.88 executed (copied from B03.md):
+- F25 (routed to `ThermoConstants.CalculateBasicTm`): `Tm_Wallace("ATGCATGC")` 24.0; `Tm_GC(s, userset=(64.9,0.41,672.4,0), saltcorr=0)`: `ATGCATGC`/`ACGUACGU` 1.3500000000000085, `ACGTACGTACGTACGTAC` 48.04444444444445.
+- F32 (`useWallaceRule:false` below 14 nt = reference, no clamp): `AAAA` −103.19999999999999, `GC` −230.29999999999998, `A` −607.5, `ACGTACGTACGTA` 32.1. OligoCalc publishes the formula for ≥ 14 nt (domain note, not a deviation).
+- F33/F48 (opt-in `weightAmbiguousBases`): `Tm_Wallace(strict=False)` `acgtNNSWacgt-ry` 42.0, `ACGTRYKMBDHVN` 39.0, `acguSWnn` 24.0, `NNNN` 12.0; `Tm_GC(userset, saltcorr=0, strict=False)` `ACGTACGTACGTACNNSW` 48.04444444444445, `ACGTACGTACGTACGTRYKMBDHV` 57.38333333333334, `acgtacgtacgtacgtXI-nn` 49.73000000000001, `ACGUACGUACGUACGUNS` 49.18333333333334, forced GC `ACGT-NNacg` 12.966666666666669. MCP `melting_temperature(weightAmbiguousBases)` (F48).
+- Tests: `CalculateMeltingTemperature_MatchesBiopythonBasicTm` (5), `CalculateMeltingTemperature_EqualsCanonicalThermoConstants_Random` (2000), `CalculateMeltingTemperature_GcFormulaBelow14_MatchesBiopythonTmGc` (4), `CalculateMeltingTemperature_WeightAmbiguousBases_MatchesBiopythonNonStrict` (9), `CalculateMeltingTemperature_WeightAmbiguousBasesFalse_EqualsDefault_AndEmptyIsZero` (500); MCP `Seqeron.Mcp.Sequence.Tests/B03SequenceStatisticsMcpOptionsTests` (+5, F48).
+
 ## Change History
 
 - **2026-09-28**: Review B03 F12: the Wallace/GC switch now uses N = A+T+G+C, the OligoCalc GC-formula denominator (Kibbe 2007, OligoCalc page text via WebSearch snippet: "For sequences less than 14 nucleotides … Tm = (wA+xT)*2 + (yG+zC)*4 … longer than 13 … 64.9 + 41*(yG+zC−16.4)/(wA+xT+yG+zC)"); Biopython 1.88 `Tm_Wallace('ACGT ACGT ACGT A')` = 38.0 (whitespace stripped). Now identical to `PrimerDesigner.CalculateMeltingTemperature`.
 - **2026-06-14**: Initial documentation. Records that SEQ-TM-001 is a duplicate Registry entry for the two melting-temperature methods already delivered under SEQ-THERMO-001 (`CalculateMeltingTemperature`, `CalculateThermodynamics`); evidence independently re-retrieved this session, the implementation verified conformant, and the unit consolidated rather than re-implemented (see TestSpec §7).
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F25/F32/F33/F48.

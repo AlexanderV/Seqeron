@@ -29,7 +29,7 @@
 **Key Extracted Points:**
 
 1. **Formula restated:** ρ*_XY = f*_XY / (f*_X f*_Y), with f*_XY the dinucleotide frequency and f*_X, f*_Y the individual base frequencies.
-2. **Classification thresholds (verbatim):** "the XY dinucleotide was considered to be underrepresented if ρ*XY ≤ 0.78 and overrepresented if ρ*XY ≥ 1.23", attributed to Karlin and Burge (1995). (Used only for interpretation/documentation; the methods under test return the raw ratio, not a classification.)
+2. **Classification thresholds (verbatim):** "the XY dinucleotide was considered to be underrepresented if ρ*XY ≤ 0.78 and overrepresented if ρ*XY ≥ 1.23", attributed to Karlin and Burge (1995). (Applied in code since 2026-10-14, B03 F37: `ClassifyDinucleotideRatio(s)` with `KarlinUnderRepresentedThreshold = 0.78` / `KarlinOverRepresentedThreshold = 1.23`, bounds inclusive; the ratio methods still return the raw ratio.)
 
 ### Gardiner-Garden M, Frommer M (1987) CpG O/E formula (search-derived; confirmed by retrieved restatements)
 
@@ -144,7 +144,15 @@
 
 ---
 
+## Addendum 2026-10-14 (FIN-B03 F37, F40, F51) — Karlin classes, absent dinucleotides, MCP
+
+- Karlin classes (F37; threshold quote above): independent Python ρ* (seqinr form seq + separator + reverse complement) for `ATGCATGCAATTGGCCATGCAAACGTTTAAGG`: AA 1.4273197929111907, AC 0.5243215565796211, AG = CT 0.26216077828981055, AT 1.6312226204699323, CA = TG 2.0972862263184844, CC = GG 1.011191573403555, CG 0.67412771560237, GC 2.69651086240948, GT 0.5243215565796211, TA 0.40780565511748307, TT 1.4273197929111907 → over {AA, AT, CA, GC, TG, TT}, under {AC, AG, CG, CT, GT, TA}, normal {CC, GG}. Single-strand ρ of `AAAATTTTCCCCGGGGACGT`: AA/CC/GG/TT 2.526315789473684, CG 1.6842105263157894 (over), AC/AT/GA/GT/TC 0.8421052631578947 (normal).
+- Absent dinucleotides (F51), R 4 + seqinr 4.2.36 `rho()` executed: "AACCTTGGAACCTTGG" single strand AA = AC = CC = CT = GG = TG = TT 2.1333333333333333, GA 1.0666666666666667, AG/AT/CA/CG/GC/GT/TA/TC 0; ρ* AA/CC/GG/TT 2.1333333333333333, AC/AG/CA/CT/GT/TG 1.06666666666666665, GA/TC 0.53333333333333333, AT/CG/GC/TA 0; F37 sequence ρ* GA = TC = 0; "AAAATTTT" → c/g words NaN, TA 0; "aacng" → aa 2, ac 4, ag/ca/cc/cg/ga/gc/gg 0; "an" → all NaN. Decision: ρ = 0 (both bases occur) included as `UnderRepresented`; undefined 0/0 excluded.
+- MCP `dinucleotide_ratios(strandSymmetric, includeRepresentation, includeAbsent)` (F40/F51).
+- Tests (`SequenceStatistics_CalculateDinucleotide_Tests`): `ClassifyDinucleotideRatio_KarlinThresholds` (7 boundaries), `ClassifyDinucleotideRatio_InvalidRatio_Throws`, `ClassifyDinucleotideRatios_StrandSymmetric_MatchesKarlinClassesOfIndependentRhoStar`, `ClassifyDinucleotideRatios_SingleStrand_KeysAndClassesFollowRatioMap`, `DinucleotideRatios_IncludeAbsent_SingleStrand_MatchesSeqinrRhoAll16`, `DinucleotideRatios_IncludeAbsent_StrandSymmetric_MatchesSeqinrRhoOfSeqPlusReverseComplement`, `DinucleotideRatios_IncludeAbsent_UndefinedRatiosExcluded_AsSeqinrNaN`, `ClassifyDinucleotideRatios_IncludeAbsent_CpGFree_CGUnderRepresented`, `DinucleotideRatios_IncludeAbsent_DefaultUnchanged_AndAddsOnlyZerosOverOccurringBases`; MCP `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests` (F40, F51).
+
 ## Change History
 
 - **2026-06-13**: Initial documentation.
 - **2026-09-28**: Review 2026-09 (B03): seqinr/compseq reference values, Karlin ρ* implemented (`strandSymmetric`), denominator wording corrected.
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F37/F40/F51; Karlin-threshold note corrected (thresholds applied by F37).

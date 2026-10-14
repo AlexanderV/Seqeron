@@ -184,3 +184,7 @@
 ## 7. Open Questions / Decisions
 
 1. **Decision (resolved):** the implementation previously returned a fraction (0–1). It is corrected to return a percentage (×100) to conform to the Wikipedia GC-content definition and the repository's locked SEQ-GC-ANALYSIS-001 convention; checklist behavioral note ("(G+C)/window×100") agrees.
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): MCP options (F41)
+
+- MCP `gc_content_profile(fraction, ambiguityMode, includePartialWindow)` → S11/S12 overloads; `ACGTSSWWNNRYacgusw` W6 s3 remove [0.6666666666666666, 0.4, 0, 0.6666666666666666, 0.5], weighted […, 0.4166666666666667, 0.3333333333333333, 0.5833333333333334, 0.5] (Biopython 1.88 `gc_fraction`); 300-input library equality; invalid mode error names `ambiguityMode`. Tests: `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests` (F41).

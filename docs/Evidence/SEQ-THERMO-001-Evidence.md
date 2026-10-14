@@ -161,8 +161,15 @@
 
 ---
 
+## Addendum 2026-10-14 (FIN-B03 F39) — MCP `thermodynamics` options
+
+- MCP `thermodynamics(selfComplementary, saltMethod, kConcentration, trisConcentration, mgConcentration, dntpsConcentration, roundResults)`. Re-executed Biopython 1.88 `Tm_NN(CGTTCCAAAGATGTGGGCATGAGCTTAC, DNA_NN3, Na=50, dnac1=dnac2=125)`: saltcorr 0/1/5/6 = 77.61921589084807 / 56.02211796282597 / 61.9240199979082 / 61.375386349394205; with K 20 Tris 10 Mg 1.5 dNTPs 0.8 mM methods 1/5/6/7 = 65.07007431795537 / 68.32519243488775 / 70.40066503149728 / 67.73409261682195; method 7 Mg 3 only 69.36483747600732; selfcomp `CGCGAATTCGCG` (dnac1 250) 46.96872419752236, `GCGCATGCGC` m7 Mg 2 51.99165540136477; `Tm_NN("ACIIGT")` ValueError.
+- Mismatch / dangling ends: not exposed via SequenceStatistics; available from the canonical `ThermoConstants.CalculateNearestNeighborDuplex(sequence, complement, shift, …)` (DNA_IMM1 / DNA_TMM1 / DNA_DE1).
+- Tests: `Seqeron.Mcp.Sequence.Tests/B03SequenceStatisticsMcpOptionsTests` (F39 part).
+
 ## Change History
 
 - **2026-06-13**: Initial documentation.
 - **2026-09-28**: Review B03 (F9–F11): Biopython `_check` normalisation, self-complementary overload, concentration validation; Biopython 1.88 `Tm_NN(DNA_NN3)` executed on 14 cases (Tm identical before rounding).
 - **2026-10-14**: FIN-B03 F26–F27 — routed to the canonical `ThermoConstants.CalculateNearestNeighborDuplex` (Biopython 1.88 `Tm_NN` port). Biopython 1.88 executed: inosine is kept by `_check` and scored with DNA_IMM1 — `Tm_NN("ACGTIACGT")` = −3.43074752292074 (defaults), 1.3038533109176456 at Na 50 mM / dnac1 = dnac2 = 125 nM (ΔH° −50.0, ΔS° −140.4 → −149.2194 after method 5); `Tm_NN("CGTTCCAAIGATGTGG", dnac1=dnac2=125)` = 38.66233889885234; `Tm_NN("II")` raises ValueError "no thermodynamic data for neighbors 'II/II' available". Salt methods on `CGTTCCAAAGATGTGGGCATGAGCTTAC` (dnac1 = dnac2 = 125 nM, Na 50): 0 → 77.61921589084807, 1 → 56.02211796282597, 2 → 55.77410815626324, 3 → 61.3563409450483, 4 → 62.39716494157949, 5 → 61.9240199979082, 6/7 → 61.375386349394205; with K 20, Tris 10, Mg 1.5, dNTPs 0.8 mM: 1 → 65.07007431795537, 2 → 64.23518641098408, 3 → 68.16956109198308, 4 → 68.77433899911044, 5 → 68.32519243488775, 6 → 70.40066503149728, 7 → 67.73409261682195; method 7 Mg 3 mM only → 69.36483747600732; Na 10, Mg 10, dNTPs 1 → 70.46114270478546.
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F39 (MCP options).

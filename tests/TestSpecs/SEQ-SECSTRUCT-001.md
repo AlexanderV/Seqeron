@@ -231,4 +231,8 @@ All 16 in-scope cases ✅.
 
 ## 7. Open Questions / Decisions
 
-1. The method is a sliding-window propensity *profile*, not the full Chou-Fasman nucleation/extension/turn state machine. The full classifier (helix/sheet/turn segment assignment, 4-of-6 nucleation, p-value turn product) is **Not implemented** here and is documented as out-of-scope in the algorithm doc §5.3.
+1. The method is a sliding-window propensity *profile*, not the full Chou-Fasman nucleation/extension/turn state machine. The full classifier (helix/sheet/turn segment assignment, 4-of-6 nucleation, p-value turn product) is not part of this method; it is implemented separately as `PredictSecondaryStructureChouFasman` (B03 F14, graded 1978 rule set F34; §5.7/§5.8; MCP `chou_fasman_assign`, F40).
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): MCP `chou_fasman_assign` (F40)
+
+- `chou_fasman_assign(proteinSequence, ruleSet)`: Standard `EEEEEEVVVVVV` → HHHHEEEEEEEE, `PPPP` CCCC, `NPDG` TTTT; Graded1978 pairs of §5.8 (`AAAHHS` HHHHHH, `EEEEEEP` HHHHHHC …); 300-input library equality for both rule sets; unknown / numeric rule set rejected. Tests: `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests`.

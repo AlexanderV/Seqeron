@@ -144,7 +144,7 @@ pKa values are stored as named constants and a dictionary keyed by residue, each
 
 **Not implemented:**
 
-- Phosphorylation / PTM charges and non-standard residue pKa; **users should rely on:** specialized tools (e.g., IPC, pIChemiSt) for modified peptides.
+- Phosphorylation / PTM charges and non-standard residue pKa — BLOCKED (B03 A37: one-letter sequence API, none of the references models PTMs); coupled electrostatics / structure-based pKa shifts — BLOCKED (A38: needs 3-D coordinates); **users should rely on:** specialized tools (e.g., IPC, pIChemiSt) for modified peptides.
 
 ### 5.4 Deviations and Assumptions
 

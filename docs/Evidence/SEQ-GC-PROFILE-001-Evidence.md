@@ -159,6 +159,14 @@ as denominator (N = non-GC). Biopython `GC_skew` appends a trailing partial wind
 
 ---
 
+## Addendum 2026-10-14 (FIN-B03 F24, F41) — canonical window driver, partial windows, MCP
+
+- Source: Biopython 1.88 `Bio.SeqUtils.GC_skew` (`for i in range(0, len(seq), window): s = seq[i : i + window]` — partial last window emitted). Biopython 1.88 has no windowed GC-content function, so the lock is that slicing applied to `gc_fraction`, generalised to step ≠ W.
+- Executed `[gc_fraction(s[i:i+w]) for i in range(0,len(s),step)]`: `GGGCCCAAATTTGCGCA` w6 s4 → [1.0, 0.333…, 0.333…, 0.8, 0.0]; w5 s5 → [1.0, 0.2, 0.6, 0.5]; `GCA` w10 s1 → [0.666…, 0.5, 0.0]; `ACGNN` w3 s3 → [0.666…, 0]; `acgu` w3 s2 → [0.666…, 0.5]; `ACGTNSWACGN` w4 s4 remove [0.5, 0.333…, 1.0], ignore [0.5, 0.25, 0.666…], weighted [0.5, 0.375, 0.8333333333333334]. MCP (F41) `ACGTSSWWNNRYacgusw` W6 s3 remove 0.6666666666666666, 0.4, 0, 0.6666666666666666, 0.5; weighted …, 0.4166666666666667, 0.3333333333333333, 0.5833333333333334, 0.5.
+- API: both overloads route to `GcSkewCalculator.CalculateWindowedGcContent` (B01, bit-identical); opt-in `includePartialWindow` overloads; MCP `gc_content_profile(fraction, ambiguityMode, includePartialWindow)`.
+- Tests: `CalculateGcContentProfile_IncludePartialWindow_MatchesBiopythonRangeSlicing` (5), `CalculateGcContentProfile_IncludePartialWindow_AmbiguityMode_MatchesBiopython` (3), `CalculateGcContentProfile_IncludePartialWindowFalse_EqualsDefault_AndGuardsAreEager`, `CalculateGcContentProfile_EqualsCanonicalWindowedGcContent_Random` (300 × 4); MCP `B03SequenceStatisticsMcpOptionsTests` (F41).
+
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F24/F41.

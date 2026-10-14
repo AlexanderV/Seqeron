@@ -291,8 +291,15 @@ sequences (lengths 1-60, P/R/W/E/A/V/D/H/N/Y-enriched): 3000/3000 identical; 130
 
 ---
 
+## Addendum 2026-10-14 (FIN-B03 F40, F45) — MCP `chou_fasman_assign`, ASCII fold
+
+- F40: new MCP tool `chou_fasman_assign(proteinSequence, ruleSet = Standard | Graded1978)` → `PredictSecondaryStructureChouFasman`. Locked: Standard `EEEEEEVVVVVV` → HHHHEEEEEEEE, `PPPP` CCCC, `NPDG` TTTT, `SGIAKQ`/`PTIQGQ` coil; Graded1978/Standard `AAAHHS` HHHHHH/CCCCCC, `EEEENY` CCCCCC/HHHHHH, `EEESRR` HHHHHH/CCCCCC, `VVVSW` CCCCC/EEEEE, `EEEEEEP` HHHHHHC/HHHHHHH, `AEEPEEEEE` CHHHHHHHH/HHHHHHHHH, `EEEEGG` CCTTTT/HHTTTT.
+- F45: ASCII-only fold (EMBOSS convention, F22): 'ſ'/'ı' ≡ 'X' in the profile and both rule sets.
+- Tests: `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests` (WP14 part, 19); `SequenceStatistics_PredictSecondaryStructure_Tests` (+10, F45).
+
 ## Change History
 
 - **2026-06-13**: Initial documentation (SEQ-SECSTRUCT-001).
 - **2026-09-28**: Review 2026-09 (B03): full Chou-Fasman assignment sources, 1978 bend frequencies, ravihansa3000 N/D symbol swap noted, Stage B cross-checks.
 - **2026-10-14**: B03 F34: graded 1978 rule set (Prevelige & Fasman 1989 Table II classes, Table I footnotes, rules 1-4; CFSSP/MIT ½-count and breaker limit; UCI domain theory), hand traces, Python cross-check 3000/3000.
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F40/F45.

@@ -58,7 +58,7 @@ F = 1 for self-complementary duplexes, which also receive the symmetry correctio
 |----|------------|--------------------------|
 | ASM-01 | Two-state (all-or-none) helix-coil transition. | Tm prediction degrades for sequences forming partial/hairpin structures. |
 | ASM-02 | Stoichiometry is stated by the caller: non-self-complementary equimolar strands (F = 4, default) or `selfComplementary: true` (F = 1 + symmetry ΔS −1.4). Not inferred from the sequence (Biopython convention). | A self-complementary duplex computed with the default is off by R·ln(4) and the −1.4 symmetry term. |
-| ASM-03 | Fixed monovalent-cation buffer; only [Na⁺] entropy correction applied. | Mg²⁺ and other ions are not modeled; Tm under PCR-like Mg²⁺ conditions is approximate. |
+| ASM-03 | Buffer ions as stated by the caller: default SantaLucia (1998) [Na⁺] entropy correction (method 5); K⁺ / Tris / Mg²⁺ / dNTPs via `ThermodynamicsOptions` (Biopython salt methods 0–7, Owczarzy 2004/2008; FIN-B03 F27). | With the default (method 5, Na⁺ only) Tm under PCR-like Mg²⁺ conditions is approximate; pass the ion concentrations and e.g. method 7. |
 
 ### 2.4 Properties and Invariants
 
@@ -191,9 +191,9 @@ applicable** to this unit.
 
 **Relation to other NN implementations:** the NN core is shared with `PrimerDesigner` (MolTools) through `ThermoConstants` (`NnParameterSet` switch; B03 R9 resolved by FIN-B03 F26). Mismatched or dangling-end duplexes are available from the same core: `ThermoConstants.CalculateNearestNeighborDuplex(sequence, complement, shift, …)` (Biopython `c_seq` / `shift`, DNA_IMM1 / DNA_TMM1 / DNA_DE1).
 
-**Not implemented:**
+**Available via the canonical core (no `SequenceStatistics` wrapper, to avoid a second API):**
 
-- Mismatch / dangling-end duplexes are not taken by `SequenceStatistics` (perfect complement only); **users should rely on:** `ThermoConstants.CalculateNearestNeighborDuplex(sequence, complement, shift, …)`.
+- Mismatch / dangling-end duplexes: `SequenceStatistics.CalculateThermodynamics` takes the perfect complement only; the canonical B07 NN core `ThermoConstants.CalculateNearestNeighborDuplex(sequence, complement, shift, …)` (also `CalculateNearestNeighborThermodynamics` / `CalculateNearestNeighborTm`, same `complement` / `shift` parameters) scores internal mismatches and inosine (DNA_IMM1), terminal mismatches (DNA_TMM1) and single dangling ends (DNA_DE1) exactly as Biopython `Tm_NN(c_seq, shift)`.
 
 ### 5.4 Deviations and Assumptions
 

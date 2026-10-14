@@ -200,3 +200,8 @@ Test file: `Unit/Analysis/SequenceStatistics_IsoelectricPointOptions_Tests.cs` (
 - **Invariant:** a modified N-terminal K under Bjellqvist keeps the default N-terminal pK (neutralised in place → charge of `GAD`, not `AD`).
 - Guards: negative `LysinesModified`/`Disulphides`, unknown window/scale → `ArgumentOutOfRangeException`.
 - Not covered (not implemented): custom `-pkdata`, `-amino N`/`-carboxyl N` (request R27 to B02).
+
+## 10. Addendum 2026-10-14 (FIN-B03 R2-WP5): single kernel (F46), MCP options (F47)
+
+- F46: default window + `Termini` ≡ canonical `ProteinPhysicochemistry.IsoelectricPoint` (bit-identity locks of §9 unchanged).
+- F47 MCP `isoelectric_point(window, termini, lysinesModified, disulphides)`: IFNA2_HUMAN `-disulphides 2 -lysinemodified 2` 5.7240; R×40 Emboss window → `{"found":false}`; `-notermini` PETER 4.0999; Biopython window DDDD 4.0500284194946286, IFNA2_HUMAN 6.32307643890381; default JSON one property; invalid window / negative counts → error. Tests: `Seqeron.Mcp.Sequence.Tests/B03SequenceStatisticsMcpOptionsTests` (+11).

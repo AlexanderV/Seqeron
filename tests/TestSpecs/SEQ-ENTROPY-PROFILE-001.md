@@ -190,4 +190,15 @@
 
 ## 7. Open Questions / Decisions
 
-1. None. The formula, base (2/bits), maximum (log₂k), and zero-probability convention are all source-confirmed; the only modelling choice (mono-symbol alphabet) is recorded as an assumption and matches the 4-letter / 2-bit DNA application in Source 3.
+1. None. The formula, base (2/bits), maximum (log₂k), and zero-probability convention are all source-confirmed; the only modelling choice (mono-symbol alphabet, default overload; k-mer entropy opt-in since B03 F38, §8) is recorded as an assumption and matches the 4-letter / 2-bit DNA application in Source 3.
+
+## 8. Addendum 2026-10-14 (FIN-B03 R2-WP5): partial windows and k-mer entropy (F38), MCP (F41)
+
+| ID | Case | Oracle |
+|----|------|--------|
+| EP1 | letters + partial: `ACGTACGTAAAACCCGGT` W8 s3 → [2.0, 1.75, 1.75, 1.561278124459133, 1.4591479170272446, 0.9182958340544894]; `AAAAAAAAACGT` W5 s4 → [0, 0, 2.0]; `GATTACA` W5 s5 → [1.5219280948873626, 1.0]; `AC-GTnn` W3 s2 → [1, 1, 0.9182958340544894, 0] | scipy `entropy(base=2)` over `s[i:i+W]` |
+| EP2 | k = 2 / 3 on `ACGTACGTAAAACCCGGT` W8 s3 (+ partial), `AAAAAAAAACGT` W6 s2 k1, `GATTACA` W5 s2 k2 (values in Evidence addendum) | scipy over Counter of k-mers |
+| EP3 | 300-input differential vs per-window `SequenceComplexity.CalculateKmerEntropy` / `CalculateShannonEntropy`; eager guards (W, step, k ≥ 1); `includePartialWindow: false` ≡ default | canonical kernel |
+| EP4 | MCP `entropy_profile(k, includePartialWindow)` | F41 |
+
+Tests: `CalculateEntropyProfile_IncludePartialWindow_MatchesScipyOverBiopythonSlicing`, `CalculateEntropyProfile_Kmer_MatchesScipyEntropyOfKmerCounts`, `CalculateEntropyProfile_Kmer_EqualsCanonicalKmerEntropyPerWindow_Random` (12 cases total); MCP `B03SequenceStatisticsMcpOptionsTests`.

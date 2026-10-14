@@ -86,7 +86,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: Degenerate IUPAC codes (S, W, R, Y, …) are not counted toward composition totals.** Biopython's `gc_fraction` counts `S` toward GC and `W` toward the denominator. The repository implementation counts only A/T/G/C/U toward GC/AT totals and routes other letters to `CountN`/`CountOther`. For sequences over the standard {A,T,G,C,U} alphabet (this unit's scope) the two agree exactly; the difference manifests only on degenerate symbols. Documented as an intentional simplification, not an invented constant.
+1. **ASSUMPTION: Degenerate IUPAC codes (S, W, R, Y, …) are not counted toward composition totals.** Biopython's `gc_fraction` counts `S` toward GC and `W` toward the denominator. The repository implementation counts only A/T/G/C/U toward GC/AT totals and routes other letters to `CountN`/`CountOther`. For sequences over the standard {A,T,G,C,U} alphabet (this unit's scope) the two agree exactly; the difference manifests only on degenerate symbols. Documented repository convention (not a simplification): Biopython `gc_fraction` parity, including S/W, is available from the canonical `CalculateGcFraction(GcAmbiguityMode)` (B03 R2-WP5 wording fix, 2026-10-14).
 
 ---
 

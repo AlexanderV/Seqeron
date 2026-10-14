@@ -134,7 +134,7 @@ Single linear pass over the sequence. The method is a frequency tabulation, not 
 
 ### 6.2 Limitations
 
-Computes raw codon usage only; does not derive codon-usage indices (CAI, Fop, Nc) [4], and does not interpret reading frames biologically (no ORF detection).
+Computes raw codon usage only; does not derive codon-usage indices (CAI, Fop, Nc) [4] — CAI, Nc (ENC) and RSCU are provided by `CodonUsageAnalyzer.CalculateCai` / `CalculateEnc` / `CalculateRscu` (MolTools, B02) — and does not interpret reading frames biologically (no ORF detection).
 
 ## 7. Examples and Related Material
 

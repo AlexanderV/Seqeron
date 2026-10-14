@@ -114,7 +114,7 @@ Input is normalized to upper case (`ToUpperInvariant`; `CalculateCodonFrequencie
 |---|------|------|--------|--------|-------|
 | 1 | (N−1) vs N dinucleotide normalization | Assumption | numeric ratio differs by N/(N−1) from the Gardiner-Garden CpG form | accepted | Karlin convention [1]; both authoritative. The Gardiner-Garden & Frommer CpG O/E (N·CpG/(C·G)) is `EpigeneticsAnalyzer.CalculateCpGObservedExpected` |
 | 2 | Non-alphabet symbols excluded from denominators | Convention | differs from EMBOSS compseq, which keeps "Other" words/bases in the totals | accepted | seqinr `rho`/`count` convention [5] |
-| 3 | Only observed dinucleotides are keys | Convention | absent key ⇒ ρ = 0 when both bases occur (seqinr/compseq print 0), undefined (0/0) otherwise | accepted | every returned ratio is finite and > 0; the expected = 0 case cannot occur for an observed pair |
+| 3 | Only observed dinucleotides are keys (default) | Convention / option | absent key ⇒ ρ = 0 when both bases occur (seqinr/compseq print 0), undefined (0/0) otherwise | opt-in (B03 F51) | default: every returned ratio is finite and > 0; `includeAbsent: true` adds ρ = 0 (→ `UnderRepresented`) for absent words whose bases occur, as seqinr `rho`; undefined 0/0 words stay excluded |
 
 ## 6. Edge Cases and Limitations
 
@@ -130,7 +130,7 @@ Input is normalized to upper case (`ToUpperInvariant`; `CalculateCodonFrequencie
 
 ### 6.2 Limitations
 
-No classification output; ρ\* is defined for double-stranded DNA only (U excluded); codon analysis assumes the caller supplies the correct frame and treats the input as a single contiguous coding region.
+Karlin over/under-representation classes are available via `ClassifyDinucleotideRatio(s)` (B03 F37; thresholds 0.78 / 1.23). ρ\* is defined for double-stranded DNA only (U excluded); codon analysis assumes the caller supplies the correct frame and treats the input as a single contiguous coding region.
 
 ## 7. Examples and Related Material
 

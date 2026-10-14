@@ -75,7 +75,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: Degenerate IUPAC codes (S, W, R, Y, …) are not counted toward composition totals.** Biopython's `gc_fraction` counts `S` toward GC and `W` toward the denominator. The repository implementation counts only A/T/G/C/U toward GC/AT totals and routes other letters to `CountN`/`CountOther`. For sequences over the standard {A,T,G,C,U} alphabet (the unit's scope) the two agree exactly; the difference only manifests on degenerate symbols. This is documented as an intentional simplification in the algorithm doc, not an invented constant.
+1. **ASSUMPTION: Degenerate IUPAC codes (S, W, R, Y, …) are not counted toward composition totals.** Biopython's `gc_fraction` counts `S` toward GC and `W` toward the denominator. The repository implementation counts only A/T/G/C/U toward GC/AT totals and routes other letters to `CountN`/`CountOther`. For sequences over the standard {A,T,G,C,U} alphabet (the unit's scope) the two agree exactly; the difference only manifests on degenerate symbols. This is a documented repository convention (not a simplification): Biopython `gc_fraction` parity, including S/W, is available from the canonical `CalculateGcFraction(GcAmbiguityMode)`; the amino-acid composition's Biopython `len(seq)` denominator is opt-in since 2026-10-14 (B03 F35, `AminoAcidCompositionDenominator.SequenceLength`).
 
 ---
 
@@ -101,6 +101,14 @@
 
 ---
 
+## Addendum 2026-10-14 (FIN-B03 F35, F39, F50) — composition denominator, MCP options
+
+Executed references (copied from B03.md F35/F50):
+- Biopython 1.88 `ProteinAnalysis` (aromaticity / `amino_acids_percent`, denominator `len(seq)`): "MKW" 0.33333333333333337 / 33.333333333333336; "MKW*" 0.25 / 25.0; "MKW-A" 0.2 / 20.0; "mkwfy**" 0.4285714285714286 / 14.285714285714286; "FWY12K" 0.5 / 16.666666666666668; "ACDEFGHIKLMNPQRSTVWYX" 0.14285714285714285 / 4.761904761904762.
+- EMBOSS 6.6.0 `pepstats` Mole% (denominator = residues): "MKW*" Residues 3, K 33.333; "MKW-A" Residues 4, K 25.000; "MKWX" Residues 4, K 25.000. The library default is the pepstats convention; the earlier wording "unlike Biopython/EMBOSS `len(seq)`" was wrong for EMBOSS.
+- API: `CalculateAminoAcidComposition(seq, AminoAcidCompositionDenominator)`, `CalculateAminoAcidFractions(seq, denominator)`; MCP `amino_acid_composition(denominator, includeFractions)` (F50); MCP `nucleotide_composition` reports `n` (F39).
+- Tests: `SequenceStatistics_AminoAcidCompositionDenominator_Tests` (18 cases); `Seqeron.Mcp.Sequence.Tests/B03SequenceStatisticsMcpOptionsTests` (F39 N counting, F50 +7).
+
 ## Change History
 
 - **2026-06-13**: Initial documentation.
@@ -108,3 +116,4 @@
   `ProteinAnalysis.aromaticity`/`count_amino_acids`) and EMBOSS pepstats/Eamino.dat class definitions
   (Aromatic F+H+W+Y, Charged B+D+E+H+K+R+Z) for the amino-acid composition ratios; see
   docs/Validation/reports/SEQ-STATS-001.md "Review 2026-09".
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F35/F39/F50; Assumption 1 reworded (convention, not simplification).

@@ -183,6 +183,11 @@ raises `ValueError("'X' is not a valid unambiguous letter for protein")`; whites
 | ma k | protein avg (whitespace stripped) | 348.4615 |
 | MAXK, MABK, MAZK, M*K / ACGN, ACGU (DNA) / ACGT (RNA) | default | `ValueError` |
 
+### Addendum 2026-10-14 (FIN-B03 F39) — MCP MW options
+
+- MCP `molecular_weight_nucleotide(doubleStranded, circular, monoisotopic, strict)` and `molecular_weight_protein(monoisotopic, circular, strict)`. Re-executed Biopython 1.88 `molecular_weight`: AGC DNA ss 949.6095 / ds 1890.2057 / circ 931.5942 / ds+circ 1854.1751, AGC RNA ds 1972.1755, ATGCGTAC mono ds+circ 4940.810128, AUGCGUAC RNA mono 2588.343647, GAGA 274.2737 / circ 256.2584 / mono 274.127717 / mono circ 256.117152; ValueError for ACGN/ACGU (DNA), ACGT (RNA), MAXK/MABK/MAZK/M*K.
+- Tests: `Seqeron.Mcp.Sequence.Tests/B03SequenceStatisticsMcpOptionsTests` (nucleotide 7 + strict 3, protein 4 + strict 4, 300-input default equality). Open: monoisotopic protein table → request R26 to B02.
+
 ## Change History
 
 - **2026-10-14**: FIN-B03 F28 — `MolecularWeightOptions` (monoisotopic, circular peptides, strict) with Biopython 1.88 numbers.
@@ -190,3 +195,4 @@ raises `ValueError("'X' is not a valid unambiguous letter for protein")`; whites
 - **2026-09-28**: Review 2026-09 — U/O masses added; ds/circular overload; RNA AGC typo 997.6177→997.6077 fixed in Recommendations.
 
 - **2026-06-13**: Initial documentation (SEQ-MW-001).
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F39 (MCP options).

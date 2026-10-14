@@ -142,6 +142,14 @@ Random cross-checks (Python port of the contract): cusp 150/150 (DNA/RNA, mixed 
 
 ---
 
+## Addendum 2026-10-14 (FIN-B03 F23, F36, F49) — canonical counter, cusp normalisations, MCP
+
+- F23: counting delegates to Core `Translator.CountCodons(seq, frame)` / total (semantics unchanged).
+- F36, EMBOSS 6.6.0 `cusp` executed (standard code) on `ATGGCTGCCGCAGCGGCTAAAAAGAAACTGCTTCTCTTATTGCTGCGTCGCAGAAGGTGGTGTTGCTAATAGTGAATG` (26 codons), Fraction / Frequency per 1000: GCA/GCC/GCG 0.200 38.462, GCT 0.400 76.923; TGC/TGT 0.500; AAA 0.667 76.923, AAG 0.333; CTC/CTT/TTA/TTG 0.167, CTG 0.333 76.923; ATG 1.000 76.923; AGA/AGG/CGC/CGT 0.250; TGG 1.000; TAA/TAG/TGA 0.333 38.462 (stops one '*' family). Lower-case input gives an identical table. cusp counts an ambiguous triplet as its lowest constituent (NNN → AAA); not adopted (B02 F9). Table 2 (hand-derived): AGA/AGG/TAA/TAG 0.25, TGA/TGG 0.5, CGC/CGT 0.5.
+- API: `CalculateCodonFrequencies(seq, frame, CodonFrequencyNormalization {Total, PerThousand, PerAminoAcid}, GeneticCode?)`; MCP `codon_frequencies(normalization, genetic_code)` (F49, live output identical to cusp).
+- Tests: `CodonFrequencies_RandomInputs_EqualTranslatorCountCodonsOverTotal` (500 random); `CalculateCodonFrequencies_PerAminoAcid_MatchesEmbossCuspFraction`, `CalculateCodonFrequencies_PerThousand_MatchesEmbossCuspFrequency`, `CalculateCodonFrequencies_PerAminoAcid_VertebrateMitochondrialCode_RegroupsFamilies` + 300-input differential; MCP `B03SequenceStatisticsMcpOptionsTests` (+10, F49).
+
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F23/F36/F49 (cusp Fraction / per-thousand datasets).

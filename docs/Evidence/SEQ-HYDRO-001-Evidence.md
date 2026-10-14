@@ -179,8 +179,17 @@ ProtScale "exponential" weight-variation model: formula not obtainable (see B03.
 
 ---
 
+## Addendum 2026-10-14 (FIN-B03 F41, F52) — shipped scales, MCP options
+
+- F52: Biopython 1.88 `Bio/SeqUtils/ProtParamData.py` tables shipped as `ProteinScales.HoppWoods / Emini / Janin / Flexibility` (verbatim; KD forwards to `ProteinPhysicochemistry.KyteDoolittle`). Label correction: `em` is "Emini Surface fractional probability" (Biopython comment), not Eisenberg.
+- Reference arrays (Biopython `protein_scale` on MKTAYIAKQRQISFVKSHFSRQ, from F31): hw W9 −0.06666666666666662 …, em W9 1.0731111111111111 …, ja W9 −0.31222222222222223 …, Flex W5 e0.4 1.003 …, hw W5 e0.4 −0.028125 ….
+- F41 MCP `hydrophobicity_profile(edgeWeight, convention, strict, normalizeScale)`, `scale` (F52): `protein_scale(kd)` ubiquitin W5 e0.4 2.015625, 1.853125, 1.546875, 0.371875, 0.196875, 0.34375 …; FLIVAG W5 e0.4 3.7312499999999997, 3.1156249999999996, W3 e0 3.8, 4.5, 4.2, 1.8.
+- Tests: `ProteinScales_EqualBiopythonProtParamData`; F31 profile tests now use the shipped tables; MCP `Seqeron.Mcp.Analysis.Tests/B03SequenceStatisticsMcpOptionsTests` (F41, +5 F52).
+- Exponential weight model: still BLOCKED (B03 F30, round-2 B11).
+
 ## Change History
 
 - **2026-06-13**: Initial documentation (SEQ-HYDRO-001).
 - **2026-09-28**: Review 2026-09 — added Biopython 1.88 reference dataset incl. edge-weighted profiles (linear ProtScale model now implemented), window < 1 rejection.
 - **2026-10-14**: FIN-B03 WP6/WP7 — Biopython window convention, strict mode, ProtScale 0..1 normalisation, caller-supplied scales (hw/em/ja/Flex) datasets; exponential model BLOCKED.
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F41/F52.

@@ -160,8 +160,8 @@ m ≤ 12 (the summary uses m = 6) and switches to suffix-tree counting only for 
 
 ### 6.2 Limitations
 
-The summary inherits every limitation of its component metrics (e.g., the mean-based
-linguistic complexity, the simple Tm formulas without salt/nearest-neighbor correction).
+The summary inherits every limitation of its component metrics (e.g., the simple Tm formulas without salt/nearest-neighbor correction; the
+linguistic complexity is the sourced Orlov–Potapov sum form since B03 F21).
 It is descriptive only and does not validate that the input is biologically meaningful.
 
 ## 7. Examples and Related Material (Optional)

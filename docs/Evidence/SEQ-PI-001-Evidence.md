@@ -232,8 +232,16 @@ Not reproducible through the public `ProteinPhysicochemistry` API: custom `-pkda
 
 ---
 
+## Addendum 2026-10-14 (FIN-B03 F46, F47) — single bisection kernel, MCP options
+
+- F46: default window + `Termini` → canonical `ProteinPhysicochemistry.IsoelectricPoint` on the count-adjusted string; the three reference search procedures share one kernel. Oracle = the F43/F44 numbers above (unchanged, green).
+- F47 (MCP `isoelectric_point(window, termini, lysinesModified, disulphides)`), re-executed: IFNA2_HUMAN `iep -disulphides 2 -lysinemodified 2` 5.7240 (tool 5.7240447998046875); R×40 None (`{"found": false}`); `-notermini` PETER 4.0999 (tool 4.099937438964844); MAEGEITTFT 3.6135; Biopython `pi()` DDDD 4.0500284194946286, IFNA2_HUMAN 6.32307643890381.
+- Tests: `SequenceStatistics_IsoelectricPointOptions_Tests` (F43/F44 locks); `Seqeron.Mcp.Sequence.Tests/B03SequenceStatisticsMcpOptionsTests` (+11, F47).
+- Still open: custom `-pkdata`, `-amino N` / `-carboxyl N` → request R27 to B02; PTM charges / coupled electrostatics BLOCKED (B03 A37/A38).
+
 ## Change History
 
 - **2026-06-13**: Initial documentation (SEQ-PI-001).
 - **2026-09-28**: Review 2026-09 — EMBOSS source/binary evidence (Amino 7.5; the 8.6 listing and the "Derived pI" table above are superseded), Biopython Bjellqvist evidence.
 - **2026-10-14**: FIN-B03 WP5 — `embIepPhConverge`/`embIepCompC` semantics, `iep` qualifier outputs and Biopython `pi()` window outputs (F43/F44).
+- **2026-10-14**: FIN-B03 R2-WP5 — addendum F46/F47.
