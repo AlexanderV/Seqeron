@@ -43,6 +43,9 @@
 | M22 | IsStartStopCodon_AllIupacCodons_AllTables_MatchBiopython | Start/stop incl. ambiguous | Biopython 1.88 oracle |
 | M23 | Translate_AmbiguousCodons_ResolvedAsBiopython | GCN→A, TAR→*, RAY→B, SAR→Z, MTH→J, TAN→X | Biopython 1.88 |
 | M24 | DualCodingStops_Tables27_28_31_TranslateToAminoAcidAndAreStops | Dual-coding stops | gc.prt v4.6, Biopython |
+| M25 | Translator_NucleotideX_Tests.Translate_AllXCodons_AllTables_MatchBiopython (B02 F33) | Opt-in `Translate(codon, allowNucleotideX: true)`: all 721 X-containing codons over ACGTRYSWKMBDHVNX × 27 tables (19 467), DNA/RNA/lower-case: 12 407 resolve = N-spelled result, 7 060 possible-stop → ArgumentException | Biopython 1.88 oracle `biopython_nucleotide_x.tsv` |
+| M26 | Translator_NucleotideX_Tests.IsStartStopCodon_AllXCodons_AllTables_MatchBiopython | `IsStartCodon/IsStopCodon(codon, true)` = Biopython ambiguous start/stop lists (ATX: tables 2/4/5/11/32; XTG: 4/11/24/32/33; no X stops); default overloads still false | Biopython 1.88 `ambiguous_dna_by_id` |
+| M27 | Translator_NucleotideX_Tests.Translate_NucleotideX_SpotValues_MatchBiopython / _RejectedByDefault | GCX→A, GGX→G, YTX→X, ATX→X, TAX/XXX throw; default rejects X | Biopython 1.88 |
 | M13 | VertebrateMito_UGA_IsTryptophan | Table 2 difference | NCBI Table 2 |
 | M14 | VertebrateMito_AGA_IsStop | Table 2 difference | NCBI Table 2 |
 | M15 | YeastMito_CUU_IsThreonine | Table 3 difference | NCBI Table 3 |
@@ -166,7 +169,10 @@ Key differences documented in Evidence file.
 Implementation and tests match NCBI translation tables exactly; all 27 tables are built from
 the NCBI gc.prt v4.6 `ncbieaa`/`sncbieaa` strings. Ambiguous IUPAC codons follow Biopython
 (review 2026-09; the former blanket 'X' for ambiguous codons was a defect).
-'X' as a nucleotide symbol is rejected (Biopython inconsistently accepts it in some codons).
+'X' as a nucleotide symbol is rejected by default (not an IUPAC nucleotide code); the opt-in
+`allowNucleotideX` overloads (B02 F33) reproduce Biopython 1.88 exactly: X = any base
+(`ambiguous_dna_values['X'] == 'GATC'`), resolved like N except that possible-stop X-codons raise
+(Biopython `TranslationError`, X not in `GATCRYWSMKHBVDN`) — M25–M27.
 
 ---
 
@@ -176,4 +182,4 @@ the NCBI gc.prt v4.6 `ncbieaa`/`sncbieaa` strings. Ambiguous IUPAC codons follow
    **A**: Group test for coverage, individual tests for specific behaviors
 
 2. **Q**: Should invalid nucleotides (X, N) be tested?
-   **A**: Yes — non-IUPAC symbols (X, Z, digits) throw (M19); N and other IUPAC codes are resolved per Biopython (M21, M23)
+   **A**: Yes — non-IUPAC symbols (X, Z, digits) throw by default (M19; X accepted only via the opt-in Biopython overloads, M25–M27); N and other IUPAC codes are resolved per Biopython (M21, M23)

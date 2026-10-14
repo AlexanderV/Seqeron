@@ -29,6 +29,11 @@ namespace Seqeron.Genomics.Core
     /// ambiguous amino-acid code covering the set is returned (B = D/N, Z = E/Q,
     /// J = I/L), falling back to 'X'. Example: GCN → A, TAR → *, RAY → B, TAN → X.
     /// </para>
+    /// <para>
+    /// The nucleotide symbol <c>X</c> is not an IUPAC code and is rejected by default; the opt-in
+    /// overloads <see cref="Translate(string, bool)"/>, <see cref="IsStartCodon(string, bool)"/> and
+    /// <see cref="IsStopCodon(string, bool)"/> accept it with Biopython 1.88 semantics (X = any base).
+    /// </para>
     /// </remarks>
     public sealed class GeneticCode
     {
@@ -136,6 +141,66 @@ namespace Seqeron.Genomics.Core
             return _ambiguousCache.GetOrAdd(normalized, TranslateAmbiguous);
         }
 
+        /// <summary>
+        /// Translates a codon to an amino acid, optionally accepting the nucleotide symbol <c>X</c>
+        /// the way Biopython does.
+        /// </summary>
+        /// <remarks>
+        /// With <paramref name="allowNucleotideX"/> = <see langword="false"/> this is exactly
+        /// <see cref="Translate(string)"/> (<c>X</c> is not an IUPAC nucleotide code and is rejected).
+        /// With <see langword="true"/>, <c>X</c> / <c>x</c> stands for any base, as in Biopython 1.88
+        /// (<c>Bio.Data.IUPACData.ambiguous_dna_values['X'] == 'GATC'</c>,
+        /// <c>ambiguous_rna_values['X'] == 'GAUC'</c>): the codon is resolved as the same codon with
+        /// <c>X</c> replaced by <c>N</c> (e.g. GCX → A, GGX → G, YTX → X in table 1),
+        /// <b>except</b> when that codon could be either a stop or an amino acid ("possible stop",
+        /// e.g. TAX, XXX): Biopython's <c>Seq.translate</c> returns 'X' for such codons only when every
+        /// symbol is in its ambiguous nucleotide alphabet (<c>GATCRYWSMKHBVDN</c>, which has no X)
+        /// and otherwise raises <c>TranslationError</c>; this method throws
+        /// <see cref="ArgumentException"/> there. Verified against Biopython 1.88 for all 721
+        /// X-containing codons over <c>ACGTRYSWKMBDHVNX</c> × 27 NCBI tables (19 467 codons:
+        /// 12 407 = the N result, 7 060 possible-stop = TranslationError).
+        /// </remarks>
+        /// <param name="codon">Three-letter codon (RNA or DNA, IUPAC ambiguity codes and, when allowed, X).</param>
+        /// <param name="allowNucleotideX">Accept nucleotide <c>X</c> with Biopython semantics (see remarks).</param>
+        /// <exception cref="ArgumentException">The codon is not 3 characters, contains a non-IUPAC symbol
+        /// (other than an allowed X), or contains X and is a possible stop codon.</exception>
+        public char Translate(string codon, bool allowNucleotideX)
+        {
+            if (!allowNucleotideX || string.IsNullOrEmpty(codon) || codon.Length != 3)
+                return Translate(codon);
+
+            var normalized = Normalize(codon);
+            if (!normalized.Contains('X'))
+                return Translate(codon);
+
+            var asN = normalized.Replace('X', 'N');
+            if (!IsIupacCodon(asN))
+                throw new ArgumentException($"Unknown codon: {codon}", nameof(codon));
+
+            char aa = _ambiguousCache.GetOrAdd(asN, TranslateAmbiguous);
+            if (aa == 'X' && IsPossibleStop(asN))
+                throw new ArgumentException(
+                    $"Codon '{codon}' is invalid: it may be a stop or an amino acid, and X is not an " +
+                    "ambiguous nucleotide letter for the possible-stop 'X' (Biopython TranslationError).",
+                    nameof(codon));
+            return aa;
+        }
+
+        // Some, but not all, concrete expansions are stops (Biopython list_possible_proteins:
+        // "ambiguous codon codes for both proteins and stop codons").
+        private bool IsPossibleStop(string codon)
+        {
+            bool anyStop = false, anyAminoAcid = false;
+            foreach (var concrete in Expand(codon))
+            {
+                if (_codonTable[concrete] == '*')
+                    anyStop = true;
+                else
+                    anyAminoAcid = true;
+            }
+            return anyStop && anyAminoAcid;
+        }
+
         // Biopython Bio.Data.CodonTable.AmbiguousForwardTable + Seq._translate_str semantics.
         private char TranslateAmbiguous(string codon)
         {
@@ -214,6 +279,25 @@ namespace Seqeron.Genomics.Core
         /// if every concrete codon it stands for is a stop codon (e.g. TAR, TRA in table 1).
         /// </summary>
         public bool IsStopCodon(string codon) => AllExpansionsIn(codon, _stopCodons);
+
+        /// <summary>
+        /// <see cref="IsStartCodon(string)"/>, optionally accepting nucleotide <c>X</c> as any base:
+        /// Biopython 1.88 ambiguous codon tables list X-containing start codons exactly where the
+        /// N-spelled codon is a start (e.g. ATX in table 2, XTG in table 11).
+        /// </summary>
+        public bool IsStartCodon(string codon, bool allowNucleotideX) =>
+            AllExpansionsIn(allowNucleotideX ? XAsN(codon) : codon, _startCodons);
+
+        /// <summary>
+        /// <see cref="IsStopCodon(string)"/>, optionally accepting nucleotide <c>X</c> as any base
+        /// (Biopython 1.88 ambiguous codon tables; X-containing stop codons follow the N spelling —
+        /// none exists in the 27 NCBI tables, since X stands for all four bases).
+        /// </summary>
+        public bool IsStopCodon(string codon, bool allowNucleotideX) =>
+            AllExpansionsIn(allowNucleotideX ? XAsN(codon) : codon, _stopCodons);
+
+        private static string XAsN(string codon) =>
+            string.IsNullOrEmpty(codon) ? codon : SequenceExtensions.ToUpperAscii(codon).Replace('X', 'N');
 
         /// <summary>
         /// Gets all (unambiguous, RNA) codons that encode a specific amino acid, in NCBI codon order.

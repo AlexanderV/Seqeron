@@ -149,7 +149,8 @@ NCBI: GUG/UUG documented in Archaea/Bacteria; CUG for RepA in E. coli;
 | Codon too short (2 chars) | Invalid format | ArgumentException |
 | Codon too long (4+ chars) | Invalid format | ArgumentException |
 | Null codon | Invalid input | ArgumentNullException |
-| Invalid nucleotide (X, Z) | Unknown codon | ArgumentException |
+| Invalid nucleotide (X, Z) | Unknown codon | ArgumentException (X: unless `allowNucleotideX: true`) |
+| X-containing possible-stop codon with `allowNucleotideX: true` (TAX, XXX) | Biopython `TranslationError` | ArgumentException |
 | Invalid table number | Unsupported code | ArgumentException |
 
 ---
@@ -184,7 +185,7 @@ NCBI: GUG/UUG documented in Archaea/Bacteria; CUG for RepA in E. coli;
 
 Implementation matches NCBI translation tables exactly (all 27 tables × 15³ IUPAC codons cross-checked against Biopython 1.88, see `TestData/GeneticCode/biopython_ambiguous_codons.tsv`).
 
-- 'X' as a nucleotide symbol is rejected (not IUPAC); Biopython accepts it inside some codons.
+- 'X' as a nucleotide symbol is rejected by default (not an NC-IUB 1984 code). Opt-in (review 2026-09, B02 F33): `Translate(codon, allowNucleotideX: true)`, `IsStartCodon/IsStopCodon(codon, true)` reproduce Biopython 1.88, which defines X = any base (`Bio.Data.IUPACData.ambiguous_dna_values['X'] == 'GATC'`, `ambiguous_rna_values['X'] == 'GAUC'`). Biopython resolves an X-codon through `AmbiguousForwardTable` exactly as the N-spelled codon, but for a possible-stop codon (stop + amino-acid expansions) `_translate_str` emits 'X' only if every letter is in `valid_letters` = `GATCRYWSMKHBVDN` (+RNA) — X is not — so it raises `TranslationError`. Reference numbers (`TestData/GeneticCode/biopython_nucleotide_x.tsv`, generator `gen_biopython_nucleotide_x.py`): 721 X-codons over `ACGTRYSWKMBDHVNX` × 27 tables = 19 467; 12 407 resolve (all equal to the N result, incl. 'X' for unrelated residues, e.g. YTX), 7 060 `TranslationError` (all possible-stop; e.g. TAX, XXX); RNA spelling identical; e.g. GCX→A, GGX→G, ATX→X (table 1). Ambiguous start lists contain X exactly where N would (ATX: tables 2/4/5/11/32; XTG: 4/11/24/32/33); no X-containing stop codon in any table.
 - Dual-coding stops (tables 27/28/31) translate to their amino acid (as Biopython); `IsStopCodon` reports them as stops.
 
 All codon→amino acid mappings and start/stop codon sets are derived directly

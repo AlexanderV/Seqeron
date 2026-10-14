@@ -73,6 +73,35 @@ namespace Seqeron.Genomics.Core
         }
 
         /// <summary>
+        /// Translates a sequence string to protein, optionally accepting the nucleotide symbol
+        /// <c>X</c> with Biopython 1.88 semantics.
+        /// </summary>
+        /// <remarks>
+        /// With <paramref name="allowNucleotideX"/> = <see langword="false"/> this is identical to
+        /// <see cref="Translate(string, GeneticCode?, int, bool)"/>. With <see langword="true"/>, every
+        /// codon is resolved by <see cref="GeneticCode.Translate(string, bool)"/>: <c>X</c>/<c>x</c>
+        /// stands for any base (Biopython <c>ambiguous_dna_values['X'] == 'GATC'</c>), so e.g.
+        /// "GCXATG" → "AM", while a possible-stop codon containing X (e.g. TAX, XXX) throws
+        /// <see cref="ArgumentException"/> like Biopython's <c>TranslationError</c> — unless translation
+        /// already ended at an earlier stop with <paramref name="toFirstStop"/>.
+        /// </remarks>
+        /// <param name="sequence">The DNA or RNA sequence string.</param>
+        /// <param name="geneticCode">The genetic code to use (null: Standard).</param>
+        /// <param name="frame">Reading frame (0, 1, or 2).</param>
+        /// <param name="toFirstStop">Stop translation at first stop codon.</param>
+        /// <param name="allowNucleotideX">Accept nucleotide X as in Biopython (opt-in; see remarks).</param>
+        /// <returns>The translated protein sequence.</returns>
+        /// <exception cref="ArgumentException"><paramref name="toFirstStop"/> is true and the genetic code has
+        /// dual-coding stop codons (tables 27, 28, 31), the sequence contains a non-IUPAC codon (other than
+        /// X when allowed), or an X-containing possible-stop codon is reached.</exception>
+        public static ProteinSequence Translate(string sequence, GeneticCode? geneticCode, int frame,
+            bool toFirstStop, bool allowNucleotideX)
+        {
+            return TranslateSequence(SequenceExtensions.ToUpperAscii(sequence ?? string.Empty),
+                geneticCode ?? GeneticCode.Standard, frame, toFirstStop, allowNucleotideX);
+        }
+
+        /// <summary>
         /// Finds all Open Reading Frames (ORFs) in a DNA sequence.
         /// An ORF starts with a start codon and ends with a stop codon.
         /// </summary>
@@ -252,7 +281,7 @@ namespace Seqeron.Genomics.Core
         }
 
         private static ProteinSequence TranslateSequence(string sequence, GeneticCode geneticCode,
-            int frame, bool toFirstStop)
+            int frame, bool toFirstStop, bool allowNucleotideX = false)
         {
             if (frame < 0 || frame > 2)
                 throw new ArgumentOutOfRangeException(nameof(frame), "Frame must be 0, 1, or 2.");
@@ -275,7 +304,7 @@ namespace Seqeron.Genomics.Core
             for (int i = frame; i + CodonLength <= sequence.Length; i += CodonLength)
             {
                 string codon = sequence.Substring(i, CodonLength);
-                char aa = geneticCode.Translate(codon);
+                char aa = geneticCode.Translate(codon, allowNucleotideX);
 
                 if (toFirstStop && aa == '*')
                     break;

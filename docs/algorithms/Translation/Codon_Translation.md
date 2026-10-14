@@ -72,6 +72,7 @@ Codon translation is a constant-time dictionary lookup after normalization of th
 | `[Translate] codon` | `string` | required | Single DNA or RNA codon. | Must be exactly 3 characters or `Translate` throws `ArgumentException`. |
 | `[IsStartCodon] codon` | `string` | required | Codon to classify as a start codon. | Invalid length or `null` returns `false`. |
 | `[IsStopCodon] codon` | `string` | required | Codon to classify as a stop codon. | Invalid length or `null` returns `false`. |
+| `[Translate / IsStartCodon / IsStopCodon] allowNucleotideX` | `bool` | `false` (overloads `Translate(string, bool)`, `IsStartCodon(string, bool)`, `IsStopCodon(string, bool)`) | Opt-in Biopython-compatible nucleotide `X` (Section 3.3). | `false` = the one-argument behaviour. |
 | `[GetCodonsForAminoAcid] aminoAcid` | `char` | required | Amino-acid code for reverse lookup. | Lookup is case-insensitive. |
 | `[GetByTableNumber] tableNumber` | `int` | required | NCBI table number. | One of `SupportedTableNumbers` (1–6, 9–16, 21–33); otherwise `ArgumentException`. |
 
@@ -88,6 +89,8 @@ Codon translation is a constant-time dictionary lookup after normalization of th
 ### 3.3 Preconditions and Validation
 
 `Translate` throws `ArgumentException` when the input is `null`, empty, or not exactly three characters long. After normalization, a codon found in the table is translated directly. If the codon is not present in the table but consists only of valid IUPAC nucleotide symbols, it is resolved by the ambiguity rule of Section 2.2. Non-IUPAC codons (including `X`) throw `ArgumentException`.[5]
+
+**Opt-in nucleotide `X` (Biopython-compatible, review 2026-09 B02 F33).** `X` is not an NC-IUB nucleotide code, but Biopython defines it as any base (`Bio.Data.IUPACData.ambiguous_dna_values['X'] == 'GATC'`, `ambiguous_rna_values['X'] == 'GAUC'`). With `allowNucleotideX: true`, `Translate(codon, true)` resolves an `X`-containing codon exactly as Biopython 1.88 `Seq.translate`: like the codon with `X`→`N` (`GCX`→`A`, `GGX`→`G`, `YTX`→`X`), except that a *possible-stop* codon (expansions mix stops and amino acids, e.g. `TAX`, `XXX`) throws `ArgumentException` — Biopython raises `TranslationError` there because its possible-stop `X` fallback requires every letter to be in `GATCRYWSMKHBVDN`. `IsStartCodon(codon, true)` / `IsStopCodon(codon, true)` read `X` as `N` (Biopython ambiguous tables list `ATX` as a start in tables 2/4/5/11/32 and `XTG` in 4/11/24/32/33; no `X`-containing stop exists). Verified on all 721 `X`-containing codons over `ACGTRYSWKMBDHVNX` × 27 tables (19 467: 12 407 resolve = the `N` result, 7 060 `TranslationError`), DNA/RNA/lower-case spelling, oracle `TestData/GeneticCode/biopython_nucleotide_x.tsv`.[8]
 
 ## 4. Algorithm
 
@@ -146,7 +149,7 @@ Cross-check: every one of the 15³ IUPAC codons × 27 tables (translation, start
 
 **Documented divergences:**
 
-- `X` as a *nucleotide* symbol is rejected (it is not an IUPAC nucleotide code); Biopython inconsistently treats it as `N` inside some codons (`GCX`→`A`) but rejects `XXX`.
+- `X` as a *nucleotide* symbol is rejected by default (it is not an IUPAC nucleotide code); the opt-in `allowNucleotideX` overloads reproduce Biopython exactly (`GCX`→`A`; possible-stop `TAX`/`XXX` → error), Section 3.3.
 - Dual-coding stop codons (tables 27, 28, 31) translate to their amino acid; context-dependent termination is not modelled (same as Biopython).
 
 ## 6. Edge Cases and Limitations
@@ -162,6 +165,7 @@ Cross-check: every one of the 15³ IUPAC codons × 27 tables (translation, start
 | `ANN`, `NNN`, `TAN` | Return `X`. | Expansions mix stops and/or unrelated amino acids (Biopython). |
 | `GCN`, `TAR`, `RAY`, `SAR`, `MTH` | Return `A`, `*`, `B`, `Z`, `J`. | Biopython ambiguous codon tables. |
 | `XYZ`, `12G` | Throw `ArgumentException`. | They contain invalid non-IUPAC symbols. |
+| `GCX` / `TAX` with `allowNucleotideX: true` | `A` / `ArgumentException`. | Biopython 1.88: X = any base; possible-stop X-codon → `TranslationError`. |
 
 ### 6.2 Limitations
 
