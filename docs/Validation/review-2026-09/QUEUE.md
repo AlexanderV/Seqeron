@@ -42,7 +42,14 @@ and commits it after every change. Batch definitions (units, owned files) are in
   it can be re-verified when 5-5 becomes available again. This applies to every session of the campaign, including
   the orchestrator's own and any future resume/finisher, not only to the session where it was first noticed.
 
-## State (2026-10-14 23:15 UTC) — FIN-B02 LANDED (model-flagged); SRC + B08 resume-4 running
+**Subagents fall back off-model even when the lead does not (2026-10-14).** FIN-B02's lead was served claude-opus-5-5
+for its whole run while its subagents were served `claude-opus-5` — including both of its own re-verification reviewers.
+So the launch-time model check on the lead is NOT sufficient: for any pass whose deliverable *is* the model (a 5-5
+re-verification), every judgement must be made in the lead's own context and subagents used only for verdict-free
+retrieval (install a tool, run a command, grep, list file:line). And such a pass that is itself served off-model
+produces nothing — it must record that and stop, which is the one exception to the user's "run as is" rule.
+
+## State (2026-10-14 23:10 UTC) — FIN-B02 LANDED (model-flagged); SRC + B08 resume-4 + VER-B02 running
 - **FIN-B03 DONE** (session_019yqGyk8v1PunaUYAP83i7B archived, 10:35 – 17:57, ≈ $75.1, served claude-opus-5-5
   throughout, as was the B03 first pass — so B03 goes into "Finished batches"): audit rounds 1–3 + final round,
   F22 onwards, dedup sweep, heavy tier once (da6bd804), final report 5bcceeca. 73 changed docs listed for wiki
@@ -270,6 +277,7 @@ citation at `src/.../MolTools/CrisprDesigner.cs:258`, which B08 WP-SRC had to le
 |---|---|---|---|
 | ~~FIN-B02~~ | `session_016tDCWJHjR3NXKjhHLFynHz` (archived, $188.14) | lead 5-5 / **subagents mostly opus-5** | **DONE 2026-10-14 23:04**, final report `b36eecb3`: 4 audit rounds to 0 DOABLE, F31–F64, dedup sweep, heavy tier, full unfiltered **26280/0**. NOT finished — see the B02 row in "Model-flagged batches" |
 | SRC (sources & citations) | `session_01Wa9VJs4Gp5H1yEXuySyxf8` | 5-5 / verify at check-in | A: RO2 ProtScale exponential (SRC for B03); B: the citation audit — 428 files, 790 occurrences, **206 distinct URLs** (5 Addgene), classify NUMBER / DEFINITION / BIBLIOGRAPHY, fetch and verify every NUMBER, re-anchor code- and test-driving numbers to primary sources, mark the rest "inherited, not re-verified"; C: RO1 Kazusa per-thousand **only if FIN-B02 has landed**, else fetch + register. Report `SRC.md`, WIP branch `…-wip-SRC` |
+| VER-B02 | `session_015916Bdb7VvK2GSYCTiNjbG` | 5-5 / verify at check-in | the 5-5 re-verification of B02's ten off-model entries (F41–F43, F48, F49, F54, F55, F60, F63, F64) and nothing else. **Design lesson from FIN-B02 WP27a/b: leads get 5-5, subagents fall back to opus-5, so every judgement stays in the lead's own context** — subagents only for verdict-free retrieval. If it is not served 5-5 it must record that and stop rather than produce another off-model "verification". It owns the verdict on whether B02 moves to "Finished batches" |
 | B08 resume-4 | `session_01Gei6HyCuq5texhxCCGEvji` | 5-5 / verify at check-in | the `## Resume state` list in B08.md: D3 → D5+D12 → D14+D17 → D15+D16 → D9 → D10 → D7 → D8 → D11 → D6 → D4 → D18 → D19, then round-1 fast tier → round 2 → dedup → final audit → heavy tier → report. Also the now-reachable Addgene citation at `CrisprDesigner.cs:258` |
 
 Ownership while these three run: SRC must not touch B02-owned or B08-owned files (its prompt names them); B08 keeps its own
