@@ -211,9 +211,54 @@ Locked numbers:
 | `HincII.search(Seq("AAGTCAACAA"))` | `[6]` | fwd (2, 5) `GTCAAC`, rev (2, 5) `GTTGAC` (blunt, so both cuts coincide); **before the fix the reverse record read `GTCAAC`** |
 | `ClaI.search(Seq("GATC"), linear=False)` | `[4]` | **no sites** (divergence, §3) |
 
+### 2.5 Ambiguity codes in the searched sequence (B08 WP3 / audit item D3, F40)
+
+**Reference rule** (Biopython 1.88, installed locally 2026-10-14): `FormattedSeq` keeps every letter of
+the sequence (upper-cased; only whitespace and digits are removed — `_table`, `_remove_chars`), and each
+enzyme's `compsite` compiles a site `N` to `.` and any other code to the class of its A/C/G/T expansion:
+`SfiI` `(?=(?P<SfiI>GGCC.....GGCC))`, `HincII` `(?=(?P<HincII>GT[CT][AG]AC))`, `AccI`
+`(?=(?P<AccI>GT[AC][GT]AC))`. So a sequence `N` (or `R`, `Y`, …) is matched by a site `N` and by
+nothing else. The pre-fix code let a sequence ambiguity code match **nothing**, so `SfiI` on
+`GGCCNNNNNGGCC` reported no site where `SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]`.
+
+**Harness** (scratchpad, not checked in; same comparisons 1-4 as §2.1): 816 sequences — 16 designed
+(`GGCCNNNNNGGCC`, flanked/lower-case/origin-spanning variants, `GAANTC`, `GTYRAC`/`GTNNAC`,
+`GGCNNNNNNGGCC`, all-`N`), 300 random A/C/G/T with `N` at p = 0.15, 300 random over all 15 IUPAC codes
+(ambiguity p = 0.3), 200 `SfiI`-enriched `GGCC`+5+`GGCC` with random 15-code spacers and flanks;
+lengths 4-60, Python `random.Random(20261014)` — × 39 built-ins × linear and circular, through the
+raw-string `FindSites(string, string, MoleculeTopology)`. Separately, `FindPatternOccurrences` against
+each Biopython `compsite`'s forward group for **all 513** single-site REBASE 404 enzymes carrying an
+ambiguity code (the one `|`-joined multi-site entry excluded), over 120 random sequences plus the
+all-`N` sequence and the site itself.
+
+| Pass | Comparisons | Mismatches before (@c36e74fa) | Mismatches after |
+|---|---|---|---|
+| `FindSites`, 39 built-ins × 816 sequences × 2 topologies (cells with Length < site excluded, §2.2) | 62,112 | **409** (all `SfiI` — the only built-in with an `N`; all of kind `watson`: a cut Biopython reports that Seqeron missed) | **0** |
+| `FindPatternOccurrences`, 513 ambiguous REBASE sites | 62,586 | **475** (top: `CNNR` 76, `CNNG` 47, `CCNNNNNNNGG` 35, `GGNCC` 24, `CCNGG` 18) | **0** |
+
+No mismatch in either "before" pass was in the other direction (Seqeron reporting a site Biopython
+does not) — the old rule was strictly narrower; degenerate site codes other than `N` already behaved
+like Biopython, which the "after" figures confirm across all 513 ambiguous sites.
+
+**Fix.** One private predicate, `SequenceBaseMatchesSiteCode(sequenceBase, siteCode)` =
+`siteCode == 'N' ? IupacHelper.IsNucleotideCode(sequenceBase) : IupacHelper.MatchesIupac(sequenceBase, siteCode)`,
+composed from the canonical Core helpers — no new Core API and no second ambiguity table. Note the
+rule is **not** "codes intersect" (as `CodesIntersect` in the overhang-compatibility code is): under
+intersection `GAANTC` would match `EcoRI` and `GTYRAC` would match `HincII`, and Biopython reports
+neither (`EcoRI.search(Seq("AGAANTCA")) == []`, `HincII.search(Seq("AGTYRACA")) == []`).
+
+Reachability: only the raw-string `FindSites` overloads and `FindPatternOccurrences` — `DnaSequence`
+rejects non-ACGT, so `Digest`, `CreateMap`, `FindAllSites` and every MCP tool (all of which build a
+`DnaSequence`) are unchanged.
+
+Locked values (Biopython 1.88, 1-based → Seqeron 0-based top-strand cut): `SfiI` `GGCCNNNNNGGCC`
+`[9]` → fwd (0, 8), rev (0, 5), linear and circular; `AGGCCNNNNNGGCCA` `[10]` → 9;
+`ggccnnnnnggcc` `[9]` → 8; `NNNNNGGCCAGGCC` circular `[5]` → 4; `GGCCRYSWKGGCC` `[9]` → 8;
+`EcoRI` `AGAANTCA`, `HincII` `AGTYRACA` / `AGTNNACA`, `SfiI` `GGCNNNNNNGGCC`, `EcoRI` `N`×16 → `[]`.
+
 ---
 
-## 3. Deliberate divergence from the oracle
+## 3. Deliberate divergences from the oracle
 
 **Circular molecule shorter than the recognition site.** `FormattedSeq.finditer` (L215-228) builds the
 circular search string as `data + data[1:size]` unconditionally, so when `len(seq) < len(site)` the
@@ -221,6 +266,12 @@ molecule is wrapped more than once and a site is reported that cannot physically
 `ClaI.search(Seq("GATC"), linear=False) == [4]` for the 6-bp site `ATCGAT` on a 4-bp circle. This
 library returns no sites when `Length < RecognitionLength`, on either topology. Locked by
 `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing`.
+
+**Non-IUPAC character under a site `N` (D3).** Biopython's `.` matches any letter `FormattedSeq`
+keeps, so `SfiI.search(Seq("GGCCXXXXXGGCC")) == [9]`. This library lets a site `N` match only the 15
+IUPAC nucleotide codes (`IupacHelper.IsNucleotideCode`), keeping the raw-string overloads' documented
+contract that a non-IUPAC character never matches. The §2.5 differential is over the 15-code alphabet,
+where the two agree exactly. Locked by `FindSites_NonIupacCharacterInSpacer_MatchesNothing`.
 
 One reference quirk checked and found **not** to be a divergence: `_drop` computes
 `cut_on_crick = cut_on_watson - ovhg` for minus-strand results too, using the plus-orientation `ovhg`.

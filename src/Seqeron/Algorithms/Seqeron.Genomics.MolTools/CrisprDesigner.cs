@@ -255,7 +255,10 @@ public static class CrisprDesigner
         int selfCompStems = CountSelfComplementaryStems(seq, 4, effectiveParams.SelfComplementarityBackboneRegions);
 
         // Check seed region (last 10 bp for Cas9)
-        // Evidence: Addgene - seed sequence is 8-10 bases at 3' end; using upper bound (10bp)
+        // Evidence: Addgene CRISPR Guide, "Basic Mechanisms of CRISPR"
+        // (https://www.addgene.org/guides/crispr/, fetched 2026-10-14): "the seed sequence (8–10 bases
+        // at the 3′ end of the gRNA targeting sequence)"; using the upper bound (10 bp). The quote is
+        // about Cas9; the PAM-before-target (Cas12a) branch mirrors it at the PAM-proximal 5' end.
         string seedRegion = system.PamAfterTarget
             ? seq.Substring(Math.Max(0, seq.Length - 10))
             : seq.Substring(0, Math.Min(10, seq.Length));

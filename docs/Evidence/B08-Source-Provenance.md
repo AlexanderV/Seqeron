@@ -325,13 +325,13 @@ not read them as checked. Annotated here rather than deleted.
 |---|---|---|
 | `tests/TestSpecs/RESTR-FILTER-001.md` rows 1-3 | `en.wikipedia.org` — *Sticky and blunt ends*, *Restriction enzyme*, *List of restriction enzyme cutting sites* (dated 2026-06-13, pre-campaign) | **Unverifiable here** (host denied). The *substance* is re-sourced: the blunt / 5' / 3' definitions are executed against Biopython `is_blunt()` / `is_5overhang()` / `is_3overhang()` (39/39), and the cutting-site table is superseded by REBASE 404 (§2) and `allenz.104` (§3a) |
 | `tests/TestSpecs/RESTR-FILTER-001.md` rows 4-5 | `www.neb.com` product pages R0142 (KpnI), R3101 (EcoRI-HF) | **Unverifiable here** (host denied). The site / cut / overhang data for KpnI and EcoRI is re-sourced from REBASE 404 and `allenz.104`; the product-specific content (HF variant, buffers) is **not** re-sourced and nothing in B08 depends on it |
-| `tests/TestSpecs/CRISPR-GUIDE-001.md` row "Addgene CRISPR Guide" | `www.addgene.org/guides/crispr/` | **Unverifiable here** (host denied) |
+| `tests/TestSpecs/CRISPR-GUIDE-001.md` row "Addgene CRISPR Guide" | `www.addgene.org/guides/crispr/` | ~~**Unverifiable here** (host denied)~~ → **VERIFIED 2026-10-14 (WP3)** — seed range, spacer/scaffold, NGG/NNGRRT/TTTV PAMs confirmed; the Pol III `TTTT` claim is **not on the page**. See §8 |
 | `tests/TestSpecs/CRISPR-GUIDE-001.md` rows "Wikipedia: Guide RNA", "Wikipedia: PAM" | `en.wikipedia.org` | **Unverifiable here** (host denied). PAM definitions were separately re-confirmed against CRISPOR's tables (`CRISPR-PAM-001-Evidence.md`) |
 | `tests/TestSpecs/CRISPR-OFF-001.md` row "Wikipedia: Off-target genome editing" | `en.wikipedia.org` | **Unverifiable here** (host denied) |
 | `RestrictionAnalyzer.cs:85`, `:105` | Wikipedia *Restriction enzyme* — "Type II sites are 4-8 nt" | **Unverifiable here.** Descriptive range only; no behaviour depends on it. The same remarks block already notes the interrupted-palindrome exception (`SfiI`, `size == 13`) measured against Biopython `.size` |
 | `RestrictionAnalyzer.cs:115`, `:126`, `:1329` | Wikipedia *Sticky and blunt ends* | **Unverifiable here**, but each is paired in the same comment with an executed Biopython backing (`is_blunt()`, `Blunt._mod1`) |
 | `RestrictionAnalyzer.cs:765`, `:983`, `:1497`, `:1559` | Addgene *Plasmids 101* / *Restriction Digest Protocol*, Univ. of Illinois MolBio | **Unverifiable here.** Both claims they support (a circle with *k* cuts gives *k* fragments; fragment lengths sum to the molecule length) are arithmetic identities that the digest tests assert directly, and `:765` additionally cites Biopython `catalyse(..., linear=False)` |
-| `CrisprDesigner.cs:258` | "Evidence: Addgene — seed sequence is 8-10 bases at 3' end; using upper bound (10bp)" | **Unverifiable here** (host denied): the 8-10 nt range cannot be checked. Not changed and not a misattribution — the comment states its own derivation (upper bound of the cited range), and that is the same convention `CRISPR-OFF-001.md:38` applies to the *off-target* seed (12 bp = upper bound of Hsu 2013's 8-12 bp, a reachable primary source). The guide-design seed (10) and the off-target seed (12) are different parameters resting on different sources; only the former's source is denied |
+| ~~`CrisprDesigner.cs:258`~~ | ~~"Evidence: Addgene — seed sequence is 8-10 bases at 3' end; using upper bound (10bp)"~~ | **Superseded — VERIFIED 2026-10-14 (WP3, §8).** Original annotation: **Unverifiable here** (host denied): the 8-10 nt range cannot be checked. Not changed and not a misattribution — the comment states its own derivation (upper bound of the cited range), and that is the same convention `CRISPR-OFF-001.md:38` applies to the *off-target* seed (12 bp = upper bound of Hsu 2013's 8-12 bp, a reachable primary source). The guide-design seed (10) and the off-target seed (12) are different parameters resting on different sources; only the former's source is denied |
 | `CRISPR-GUIDE-001-Evidence.md:43` | `bitbucket.org/valenlab/chopchop/raw/HEAD/chopchop.py` — **404** | Still 404; this is a *missing path*, not a policy denial. CHOPCHOP's self-complementarity measure was sourced from the reachable copy recorded in that Evidence file |
 | `CRISPR-OFF-001-Evidence.md:29`, `:95` | `api.github.com/repos/maximilianh/crisporWebsite/contents/bin/src` — **403** | Still unavailable, and now explained: this is the **session repository allowlist** (§1), not egress policy. The directory cannot be listed from here; `raw.githubusercontent.com` serves individual files but cannot enumerate a directory |
 
@@ -342,3 +342,28 @@ not read them as checked. Annotated here rather than deleted.
 | `B08.md:145`, `RESTR-FIND-001-Evidence.md:110` and its §4 table: *"each entry's `Organism` string — the two sources that carry it are the blocked hosts and Biopython's snapshot has no organism field… Unverified."* | **Verified 39/39** against REBASE `allenz.104` on an allowed host, corroborated by a second mirror (§4c). The premise was correct that Biopython has no organism field; what was missed is that `allenz` is vendored by third-party packages on allowed hosts |
 | D7: *"Methylation data claimed unobtainable"* | REBASE field `<6>` **is** obtainable here, and the two mirrors agree 622/622 (39/39 for the built-ins) |
 | *"REBASE release newer than 404 — same blocked hosts"* | **Still true.** 404 (April 2024) remains the newest release reachable from here; `allenz.104` (April 2021) is *older*, and is used only for the two columns the 404 snapshot omits |
+
+## 8. Addgene seed-range citation — verified (B08 WP3, 2026-10-14)
+
+`www.addgene.org` now answers 200 through the agent proxy (the §1 denials are superseded for this
+host). Fetched with `curl -sS -L` (TLS verified, proxy unchanged) on **2026-10-14**:
+
+| Field | Value |
+|---|---|
+| URL | https://www.addgene.org/guides/crispr/ (HTTP 200, no redirect, 392 036 bytes) |
+| SHA-256 of the HTML as fetched | `23226099b62de0567dd0a842e61743dc7db622b338e5c402fd3e3d85670fe7f0` |
+| Section | *CRISPR Basics* → *Basic Mechanisms of CRISPR* |
+| Exact sentence | "Once the Cas9-gRNA complex binds a putative DNA target, the seed sequence (8–10 bases at the 3′ end of the gRNA targeting sequence) will begin to anneal to the target DNA." |
+| Following sentences | "If the seed and target DNA sequences match, the gRNA will continue to anneal to the target DNA in a 3′ to 5′ direction. … Mismatches between the target sequence in the 3′ seed sequence inhibit target cleavage, while mismatches toward the 5′ end distal to the PAM often permit target cleavage." |
+
+**Verdict: the citation is CONFIRMED as written** — 8-10 bases, at the 3' end of the targeting
+sequence; `CrisprDesigner.EvaluateGuideRna` uses the upper bound, 10. No value changed; the code
+comment (`CrisprDesigner.cs`, seed-region block) now carries the quote, URL and fetch date. Scope
+caveat recorded in the comment: the sentence is about **Cas9**; the PAM-before-target (Cas12a)
+branch's "first 10 nt" mirrors it at the PAM-proximal end and is not itself stated on this page.
+
+Other `CRISPR-GUIDE-001.md` claims attributed to this page, checked on the same fetch: the ~20-nt
+spacer + Cas-binding scaffold ("a user-defined ∼20-nucleotide spacer that defines the genomic
+target"), SpCas9 `NGG`, SaCas9 `NNGRRT` and Cas12a `TTTV` (PAM table and Cas12a section) — **present**.
+The Pol III `TTTT` terminator — **absent** (no "TTTT", "Pol III", "U6" or "terminat" on the page):
+that attribution remains unverified, and is the only Addgene-Guide row not closed here.

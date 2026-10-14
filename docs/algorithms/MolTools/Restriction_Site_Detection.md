@@ -193,7 +193,8 @@ The implementation ships with an in-memory catalog of 39 entries (37 distinct en
 | Unknown enzyme name | Throws `ArgumentException` | Name lookup must succeed before scanning |
 | Palindromic recognition site | May appear on both strands at the same position | Both strands are searched independently |
 | Degenerate recognition sequence | Matched with IUPAC ambiguity rules | `IupacHelper.MatchesIupac(...)` handles the pattern |
-| IUPAC code in the *sequence* | Matches nothing, so it blocks a site | Ambiguity is interpreted in the pattern only (`MatchesIupac`); `DnaSequence` rejects such input anyway, so this is reachable only via the raw-string and `FindPatternOccurrences` entry points |
+| IUPAC code in the *sequence* | Matched by a site `N` only; blocks every other site code | Biopython 1.88's rule (site `N` → regex `.`, other codes → their A/C/G/T class): `SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]`, `EcoRI.search(Seq("AGAANTCA")) == []`. Composed from `IupacHelper.IsNucleotideCode` / `MatchesIupac`. `DnaSequence` rejects such input, so this is reachable only via the raw-string and `FindPatternOccurrences` entry points (B08 F40) |
+| Non-IUPAC character in the *sequence* | Matches nothing, not even a site `N` | Deliberate narrowing: Biopython lets `.` match any letter (`SfiI.search(Seq("GGCCXXXXXGGCC")) == [9]`) |
 | `Sau3AI`/`MboI` site at the extreme 5' or 3' end of a linear molecule | Not reported | One of its two cuts would fall outside the molecule (§2.3) |
 | Recognition site spanning the origin of a circular molecule | Reported, with cut positions modulo the length | `topology = Circular` (§2.3) |
 | Molecule shorter than the recognition site | Returns no sites | The window cannot occur |

@@ -31,7 +31,7 @@ Guide candidates are extracted from PAM sites in a target region and scored from
 | Seed-region GC outside `30-80%` | `5` |
 | Common restriction site detected | `5` |
 
-The seed region is defined as the last 10 nucleotides for PAM-after-target systems and the first 10 nucleotides for PAM-before-target systems. The final score is clamped to `>= 0`.
+The seed region is defined as the last 10 nucleotides for PAM-after-target systems and the first 10 nucleotides for PAM-before-target systems. The 10-nt length is the upper bound of the Addgene CRISPR Guide's seed range, verified 2026-10-14 (https://www.addgene.org/guides/crispr/, "Basic Mechanisms of CRISPR"): *"the seed sequence (8–10 bases at the 3′ end of the gRNA targeting sequence)"*. That sentence describes Cas9; the PAM-before-target branch applies the same length at the PAM-proximal 5' end. The final score is clamped to `>= 0`.
 
 ### 2.3 Published on-target efficacy models (Doench 2014 Rule Set 1, Doench 2016 Rule Set 2)
 

@@ -1430,9 +1430,10 @@ public class RestrictionAnalyzer_FindSites_Tests
     }
 
     /// <summary>
-    /// An ambiguity code in the <b>sequence</b> blocks a match rather than widening it — the
-    /// one-directional semantics of <see cref="IupacHelper.MatchesIupac"/>, which the existing
-    /// private scan in <c>CodonOptimizer</c> already relies on.
+    /// An ambiguity code in the <b>sequence</b> blocks a concrete pattern base rather than
+    /// widening it — Biopython 1.88 compiles a site's A/C/G/T to a literal, so
+    /// <c>EcoRI.search(Seq("AGAANTCA")) == []</c> and <c>EcoRI.search(Seq("AGAARTCA")) == []</c>.
+    /// Only a <b>pattern</b> <c>N</c> accepts a sequence ambiguity code (see the D3 tests below).
     /// </summary>
     [Test]
     [TestCase("AAAGAANTCAAA", TestName = "FindPatternOccurrences_SequenceN_BlocksMatch")]
@@ -1442,6 +1443,104 @@ public class RestrictionAnalyzer_FindSites_Tests
         RestrictionAnalyzer.FindPatternOccurrences(sequence, "GAATTC")
             .Should().BeEmpty("a sequence position that is not A, C, G or T matches no pattern code");
     }
+
+    #region D3 — a site N matches a sequence N (Biopython 1.88 Bio.Restriction)
+
+    // Oracle: Biopython 1.88, run 2026-10-14. Bio.Restriction compiles a site's N to the regex "."
+    // and every other code to the class of its A/C/G/T expansion (SfiI.compsite ==
+    // "(?=(?P<SfiI>GGCC.....GGCC))", HincII.compsite == "(?=(?P<HincII>GT[CT][AG]AC))"), and the
+    // searched sequence keeps its IUPAC letters. Search results below are Biopython's 1-based
+    // top-strand cuts; Seqeron's CutPosition is the same bond 0-based.
+
+    /// <summary>
+    /// <c>SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]</c>: the five site N's accept the five sequence
+    /// N's. Before D3 every sequence N blocked the site and this returned nothing.
+    /// </summary>
+    [TestCase(MoleculeTopology.Linear)]
+    [TestCase(MoleculeTopology.Circular)]
+    public void FindSites_SfiI_SequenceNInsideSpacer_MatchesBiopython(MoleculeTopology topology)
+    {
+        var sites = RestrictionAnalyzer.FindSites("GGCCNNNNNGGCC", "SfiI", topology).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.Where(s => s.IsForwardStrand).Select(s => (s.Position, s.CutPosition)),
+                Is.EqualTo(new[] { (0, 8) }), "Biopython SfiI.search == [9] (1-based)");
+            Assert.That(sites.Where(s => !s.IsForwardStrand).Select(s => (s.Position, s.CutPosition)),
+                Is.EqualTo(new[] { (0, 5) }), "bottom-strand cut GGCCN_NNN^NGGCC = 13 - 8");
+            Assert.That(sites.Select(s => s.RecognizedSequence), Is.All.EqualTo("GGCCNNNNNGGCC"));
+        });
+    }
+
+    /// <summary>
+    /// Flanked, lower-case and origin-spanning variants, each locked to Biopython 1.88:
+    /// <c>SfiI.search(Seq("AGGCCNNNNNGGCCA")) == [10]</c>,
+    /// <c>SfiI.search(Seq("ggccnnnnnggcc")) == [9]</c>,
+    /// <c>SfiI.search(Seq("NNNNNGGCCAGGCC"), linear=False) == [5]</c>.
+    /// </summary>
+    [TestCase("AGGCCNNNNNGGCCA", MoleculeTopology.Linear, 9)]
+    [TestCase("ggccnnnnnggcc", MoleculeTopology.Linear, 8)]
+    [TestCase("NNNNNGGCCAGGCC", MoleculeTopology.Circular, 4)]
+    public void FindSites_SfiI_SequenceN_TopStrandCutsMatchBiopython(
+        string sequence, MoleculeTopology topology, int expectedCut)
+    {
+        RestrictionAnalyzer.FindSites(sequence, "SfiI", topology)
+            .Where(s => s.IsForwardStrand).Select(s => s.CutPosition)
+            .Should().Equal(expectedCut);
+    }
+
+    /// <summary>
+    /// A sequence ambiguity code still blocks a concrete or degenerate site code:
+    /// <c>EcoRI.search(Seq("AGAANTCA")) == []</c>, <c>HincII.search(Seq("AGTYRACA")) == []</c>
+    /// (Y and R are not in the regex classes [CT] and [AG]), <c>HincII.search(Seq("AGTNNACA")) == []</c>,
+    /// and an N in a fixed SfiI half: <c>SfiI.search(Seq("GGCNNNNNNGGCC")) == []</c>.
+    /// </summary>
+    [TestCase("AGAANTCA", "EcoRI")]
+    [TestCase("AGTYRACA", "HincII")]
+    [TestCase("AGTNNACA", "HincII")]
+    [TestCase("GGCNNNNNNGGCC", "SfiI")]
+    [TestCase("NNNNNNNNNNNNNNNN", "EcoRI")]
+    public void FindSites_SequenceAmbiguityAtConcreteSiteCode_StillBlocks(string sequence, string enzyme)
+    {
+        foreach (var topology in new[] { MoleculeTopology.Linear, MoleculeTopology.Circular })
+            RestrictionAnalyzer.FindSites(sequence, enzyme, topology).Should().BeEmpty(
+                $"Biopython {enzyme}.search reports no site ({topology})");
+    }
+
+    /// <summary>
+    /// Any of the 15 IUPAC codes in the spacer is accepted by the site N's
+    /// (<c>SfiI.search(Seq("GGCCRYSWKGGCC")) == [9]</c>), and the raw scan follows the same rule.
+    /// </summary>
+    [Test]
+    public void SiteN_AcceptsEveryIupacCode_InFindSitesAndFindPatternOccurrences()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.FindSites("GGCCRYSWKGGCC", "SfiI")
+                .Where(s => s.IsForwardStrand).Select(s => s.CutPosition), Is.EqualTo(new[] { 8 }));
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences("GGCCNNNNNGGCC", "GGCCNNNNNGGCC"),
+                Is.EqualTo(new[] { 0 }));
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences("AATCNGAA", "TCNGA"),
+                Is.EqualTo(new[] { 2 }), "Hpy188I compsite TC.GA matches TCNGA");
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences("AAGTNNACAA", "GTNNAC"),
+                Is.EqualTo(new[] { 2 }), "Hpy8I compsite GT..AC matches GTNNAC");
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences("AAGTNNACAA", "GTMKAC"),
+                Is.Empty, "AccI compsite GT[AC][GT]AC does not match GTNNAC");
+        });
+    }
+
+    /// <summary>
+    /// Deliberate narrowing (Evidence §3): a character outside the 15 IUPAC codes matches nothing,
+    /// not even a site N. Biopython lets "." match any letter, so
+    /// <c>SfiI.search(Seq("GGCCXXXXXGGCC")) == [9]</c>; this library reports no site.
+    /// </summary>
+    [Test]
+    public void FindSites_NonIupacCharacterInSpacer_MatchesNothing()
+    {
+        RestrictionAnalyzer.FindSites("GGCCXXXXXGGCC", "SfiI").Should().BeEmpty();
+    }
+
+    #endregion
 
     /// <summary>
     /// The sequence that <see cref="DnaSequence"/> would reject is exactly the case this overload

@@ -52,6 +52,7 @@
 14. **Short molecule**: no site is reported when Length < recognitionLength (Source: biology; deliberate divergence from the reference's unconditional circular padding)
 15. **Pattern validation**: an empty or non-IUPAC recognition pattern raises ArgumentException eagerly (Source: API contract)
 16. **CreateMap partition**: SitesByEnzyme.Keys ∪ NonCutters covers the considered enzyme set exactly, both keyed by canonical table name (Source: RESTR-DIGEST-001 invariant #11)
+17. **Sequence ambiguity (D3)**: per position, a site `N` matches any of the 15 IUPAC codes in the sequence (an `N` included); every other site code matches only a concrete A/C/G/T base it expands to, so a sequence ambiguity code blocks it; a non-IUPAC sequence character matches nothing (Source: Biopython 1.88 `compsite` — site `N` → regex `.`, other codes → their A/C/G/T class; `SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]`, `EcoRI.search(Seq("AGAANTCA")) == []`)
 
 ---
 
@@ -139,6 +140,7 @@
 | M27-M30 | `FindPatternOccurrences` | `FindPatternOccurrences_ReportsZeroBasedStartIndices`, `…_ReportsOverlappingOccurrences`, `…_DegeneratePattern_MatchesEveryExpansion` (×4), `…_DegeneratePattern_RejectsNonMatchingBases`, `…_AmbiguousSequenceBase_NeverMatches` (×2), `…_AcceptsSequenceThatDnaSequenceRejects`, `…_IsCaseInsensitive`, `…_StartIndex_SkipsEarlierOccurrences` (×5), `…_SequenceTooShort_ReturnsEmpty` (×2), `…_InvalidArguments_Throw`, `…_ValidatesEagerly`, `…_AgreesWithFindSitesForwardPositions` |
 | M31-M32 | CreateMap site reporting | `CreateMap_LowerCaseEnzymeNames_DoesNotListACutterAsNonCutter`, `CreateMap_NoEnzymesSpecified_NonCuttersCoverTheRestOfTheTable`, `CreateMap_RepeatedEnzymeName_IsConsideredOnce`, `CreateMap_UnknownEnzymeName_ThrowsArgumentException` |
 | INV-14 | Short molecule | `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing` |
+| INV-17 / M33 | Sequence ambiguity (D3) | `FindSites_SfiI_SequenceNInsideSpacer_MatchesBiopython` (×2), `FindSites_SfiI_SequenceN_TopStrandCutsMatchBiopython` (×3), `FindSites_SequenceAmbiguityAtConcreteSiteCode_StillBlocks` (×5), `SiteN_AcceptsEveryIupacCode_InFindSitesAndFindPatternOccurrences`, `FindSites_NonIupacCharacterInSpacer_MatchesNothing`, plus `FindPatternOccurrences_AmbiguousSequenceBase_NeverMatches` (×2, unchanged) |
 
 ### External Source Verification Tests
 
@@ -165,6 +167,11 @@
 | FindSites_CustomNonPalindromicEnzyme_SimI_ReverseStrandCutMatchesReference | SimI GGGTC 2/5, `elucidate() == "GG^GTC_N"`, `ovhg == -3`, `search(Seq("AAAGGGTCAAAGACCCAAA")) == [6, 12]` | REBASE 404 / Biopython 1.88 |
 | FindSites_HincII_ReverseRecognizedSequenceIsReadOnItsOwnStrand | `HincII.search(Seq("AAGTCAACAA")) == [6]` | Biopython 1.88 |
 | FindPatternOccurrences_ReportsOverlappingOccurrences | `PacI.search(Seq("TTAATTAATTAA")) == [6, 10]` (sites at 0 and 4) | Biopython 1.88 |
+| FindSites_SfiI_SequenceNInsideSpacer_MatchesBiopython | `SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]`, linear and circular | Biopython 1.88 |
+| FindSites_SfiI_SequenceN_TopStrandCutsMatchBiopython | `SfiI.search(Seq("AGGCCNNNNNGGCCA")) == [10]`, `SfiI.search(Seq("ggccnnnnnggcc")) == [9]`, `SfiI.search(Seq("NNNNNGGCCAGGCC"), linear=False) == [5]` | Biopython 1.88 |
+| FindSites_SequenceAmbiguityAtConcreteSiteCode_StillBlocks | `EcoRI` on `AGAANTCA`, `HincII` on `AGTYRACA`/`AGTNNACA`, `SfiI` on `GGCNNNNNNGGCC`, `EcoRI` on `N`×16 — all `[]`, both topologies | Biopython 1.88 |
+| SiteN_AcceptsEveryIupacCode_InFindSitesAndFindPatternOccurrences | `SfiI.search(Seq("GGCCRYSWKGGCC")) == [9]`; `Hpy188I.compsite` `TC.GA`, `Hpy8I` `GT..AC`, `AccI` `GT[AC][GT]AC` | Biopython 1.88 |
+| FindSites_NonIupacCharacterInSpacer_MatchesNothing | `SfiI.search(Seq("GGCCXXXXXGGCC")) == [9]` — deliberate divergence | Biopython 1.88 |
 
 ### Actions Taken
 
@@ -177,6 +184,7 @@
 | 🔁 Removed | `RestrictionEnzyme_NotI_IsEightCutter` | Fully covered by `EnzymeDatabase_CutPositions_MatchWikipedia("NotI", "GCGGCCGC", 2, 6)` |
 | ❌ Implemented (2026-10-14 review) | the whole `Reference-Locked Site Search`, `CreateMap Site Reporting`, `FindPatternOccurrences` and `Enzyme Table Audit against REBASE 404` regions | M17-M32 and invariants #8-#16 were all missing; they lock the fixes F16-F21 |
 | ⚠ Corrected (2026-10-14 review) | `CreateMap_NoEnzymesSpecified_SearchesAll` (RESTR-DIGEST-001 test file) | It asserted `NonCutters` is empty when no enzyme names are given, which restated an implementation artefact and contradicted RESTR-DIGEST-001 invariant #11; it now asserts the cutter/non-cutter partition |
+| ❌ Implemented (B08 WP3 / D3, F40) | the `D3 — a site N matches a sequence N` region (12 cases) | a sequence `N` used to block every site, so `SfiI` on `GGCCNNNNNGGCC` reported nothing where Biopython reports `[9]`; the old `FindPatternOccurrences` doc comment saying ambiguity is read in the pattern only was corrected |
 
 ---
 
@@ -188,13 +196,19 @@ None — all behavior verified against external sources.
 
 ## Deviations and Assumptions
 
-One deliberate divergence from the oracle, with its reason:
+Two deliberate divergences from the oracle, with their reasons:
 
 - **Molecule shorter than the recognition site, circular.** Biopython pads a circular sequence with
   `data[1:size]` unconditionally, so a molecule shorter than the site is wrapped more than once and a
   site is reported anyway (`ClaI.search(Seq("GATC"), linear=False) == [4]` for the 6-bp site `ATCGAT`
   on a 4-bp circle). This library reports nothing, because a 6-bp recognition window cannot be present
   on a 4-bp circle. Locked by `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing`.
+- **Non-IUPAC character under a site `N` (D3).** Biopython compiles a site `N` to the regex `.`,
+  so it matches any letter its `FormattedSeq` keeps (`A`-`Z`), e.g. `SfiI.search(Seq("GGCCXXXXXGGCC"))
+  == [9]`. This library lets a site `N` match only the 15 IUPAC nucleotide codes: the raw-string
+  overloads keep their documented contract that a non-IUPAC character never matches. Locked by
+  `FindSites_NonIupacCharacterInSpacer_MatchesNothing`. Over the 15-code alphabet the two agree
+  exactly (Evidence §2.5).
 
 Two scope limits, not assumptions:
 

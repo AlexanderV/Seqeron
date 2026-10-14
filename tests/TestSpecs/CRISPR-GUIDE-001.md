@@ -20,21 +20,30 @@
 
 > **Provenance note (WP-SRC, 2026-10-14).** All three sources above are on hosts denied by the
 > organization's egress policy (`www.addgene.org`, `en.wikipedia.org` — agent proxy answers 403 to
-> CONNECT). **No unit of this campaign has opened them**; they are **unverifiable in this
+> CONNECT). **No unit of this campaign has opened them** (superseded for the Addgene row — see the
+> update below); they are **unverifiable in this
 > environment** and must not be read as checked. They are retained, not deleted: the PAM definitions
 > were separately re-confirmed against CRISPOR's own tables (see
 > [`CRISPR-PAM-001-Evidence.md`](../../docs/Evidence/CRISPR-PAM-001-Evidence.md)), and the 20 bp
-> spacer default is pinned by the executed Doench/Azimuth and CRISPOR references. The 8-10 nt seed
-> range behind `CrisprDesigner.cs:258` is **not** re-sourced. See
+> spacer default is pinned by the executed Doench/Azimuth and CRISPOR references. See
 > [`docs/Evidence/B08-Source-Provenance.md`](../../docs/Evidence/B08-Source-Provenance.md) §1, §7c.
+>
+> **Update (B08 WP3, 2026-10-14) — the Addgene CRISPR Guide is now VERIFIED.** `www.addgene.org`
+> answers 200; https://www.addgene.org/guides/crispr/ was fetched 2026-10-14 and, in "Basic Mechanisms
+> of CRISPR", reads: *"the seed sequence (8–10 bases at the 3′ end of the gRNA targeting sequence)"* —
+> the 8-10 nt range behind `CrisprDesigner.cs` (seed comment in `EvaluateGuideRna`) is confirmed as
+> cited. The same page also confirms the ~20-nt spacer + scaffold structure, the SpCas9 `NGG`, SaCas9
+> `NNGRRT` and Cas12a `TTTV` PAMs. It does **not** mention a Pol III `TTTT` terminator: that row's
+> Addgene attribution remains unverified. The two Wikipedia rows remain unverifiable here.
+> Details: [`B08-Source-Provenance.md`](../../docs/Evidence/B08-Source-Provenance.md) §8.
 
 ### Evidence-Backed Parameters
 | Parameter | Evidence Value | Source | Implementation Value | Status |
 |-----------|----------------|--------|---------------------|--------|
 | Guide length | 20bp standard (17-24bp range) | Wikipedia Guide RNA | 20bp | ✅ Aligned |
 | Optimal GC | >50% | Wikipedia Guide RNA | 40-70% range | ✅ Broader range acceptable per common tools |
-| Seed region | 8-10bp at 3' end | Addgene CRISPR Guide | 10bp (upper bound) | ✅ Aligned |
-| Poly-T termination | TTTT (Pol III terminator) | Addgene CRISPR Guide | TTTT detection | ✅ Aligned |
+| Seed region | 8-10bp at 3' end — verbatim "the seed sequence (8–10 bases at the 3′ end of the gRNA targeting sequence)" (fetched 2026-10-14) | Addgene CRISPR Guide | 10bp (upper bound) | ✅ Aligned (verified) |
+| Poly-T termination | TTTT (Pol III terminator) | Addgene CRISPR Guide — **not on the page** (fetched 2026-10-14; unverified) | TTTT detection | ✅ Aligned |
 | SpCas9 PAM | 5'-NGG-3' | Addgene, Wikipedia PAM | NGG | ✅ Aligned |
 | SaCas9 PAM | NNGRRT | Addgene PAM table | NNGRRT | ✅ Aligned |
 | Cas12a PAM | 5'-TTTV-3' | Addgene PAM table | TTTV | ✅ Aligned |

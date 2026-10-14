@@ -241,7 +241,9 @@ public static class RestrictionAnalyzer
     /// </summary>
     /// <remarks>
     /// The sequence is upper-cased before matching; characters that are not IUPAC nucleotide
-    /// codes simply never match. A null or empty sequence yields no sites — but an unknown
+    /// codes simply never match; an IUPAC ambiguity code in the sequence (e.g. <c>N</c>) is
+    /// matched by a site <c>N</c> only, exactly as in Biopython (see
+    /// <see cref="FindPatternOccurrences"/>). A null or empty sequence yields no sites — but an unknown
     /// enzyme name is still rejected, eagerly, before the sequence is looked at.
     /// </remarks>
     public static IEnumerable<RestrictionSite> FindSites(string sequence, string enzymeName)
@@ -253,7 +255,10 @@ public static class RestrictionAnalyzer
     /// </summary>
     /// <remarks>
     /// The sequence is upper-cased before matching; characters that are not IUPAC nucleotide
-    /// codes simply never match. A null or empty sequence yields no sites — but an unknown
+    /// codes simply never match; an IUPAC ambiguity code in the sequence (e.g. <c>N</c>) is
+    /// matched by a site <c>N</c> only, exactly as in Biopython —
+    /// <c>FindSites("GGCCNNNNNGGCC", "SfiI")</c> reports the site at 0 (top-strand cut 8) where
+    /// <c>SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]</c>. A null or empty sequence yields no sites — but an unknown
     /// enzyme name is still rejected, eagerly, before the sequence is looked at. See
     /// <see cref="FindSites(DnaSequence, string, MoleculeTopology)"/> for the coordinate and
     /// feasibility conventions.
@@ -384,10 +389,15 @@ public static class RestrictionAnalyzer
     /// second time with <see cref="DnaSequence.GetReverseComplementString"/> of the pattern.
     /// </para>
     /// <para>
-    /// Matching is per position via the canonical <see cref="IupacHelper.MatchesIupac"/>:
-    /// ambiguity is interpreted in the <b>pattern</b> only. A sequence position holding anything
-    /// other than A, C, G or T — an ambiguity code such as <c>N</c> or <c>R</c> included — matches
-    /// no pattern code at all, so it blocks a match rather than widening it.
+    /// Matching is per position with Biopython 1.88 <c>Bio.Restriction</c>'s site-regex rule,
+    /// composed from the canonical <see cref="IupacHelper"/>: a pattern <c>N</c> matches any of
+    /// the 15 IUPAC codes in the sequence — an <c>N</c> included, so
+    /// <c>FindPatternOccurrences("GGCCNNNNNGGCC", "GGCCNNNNNGGCC")</c> yields 0 exactly as
+    /// <c>SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]</c>; every other pattern code matches only a
+    /// concrete A/C/G/T base it expands to, so an ambiguity code in the sequence (<c>N</c>,
+    /// <c>R</c>, ...) blocks it rather than widening it (<c>"GAANTC"</c> does not match
+    /// <c>GAATTC</c>, nor <c>"GTYRAC"</c> match <c>GTYRAC</c>). A character outside the 15 IUPAC
+    /// codes matches nothing.
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
@@ -580,11 +590,32 @@ public static class RestrictionAnalyzer
     {
         for (int i = 0; i < pattern.Length; i++)
         {
-            if (!IupacHelper.MatchesIupac(seq[position + i], pattern[i]))
+            if (!SequenceBaseMatchesSiteCode(seq[position + i], pattern[i]))
                 return false;
         }
         return true;
     }
+
+    /// <summary>
+    /// The per-position site-match rule of Biopython 1.88 <c>Bio.Restriction</c>, composed from
+    /// the canonical <see cref="IupacHelper"/> predicates (no second ambiguity table here).
+    /// </summary>
+    /// <remarks>
+    /// Biopython compiles a site's <c>N</c> to the regex <c>.</c> and every other code to the
+    /// class of its A/C/G/T expansion (<c>SfiI.compsite</c> is <c>GGCC.....GGCC</c>,
+    /// <c>HincII.compsite</c> is <c>GT[CT][AG]AC</c>), and the sequence keeps its own IUPAC
+    /// letters. So a site <c>N</c> accepts <b>any</b> sequence code — an <c>N</c> included:
+    /// <c>SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]</c> — while a site A/C/G/T or a degenerate
+    /// site code accepts only a concrete base it expands to: an ambiguity code in the sequence
+    /// still blocks it (<c>EcoRI.search(Seq("AGAANTCA")) == []</c>,
+    /// <c>HincII.search(Seq("AGTYRACA")) == []</c>). A sequence character outside the 15 IUPAC
+    /// nucleotide codes matches nothing, not even a site <c>N</c> (Biopython would let a site
+    /// <c>N</c> match any letter, <c>X</c> included — a deliberate narrowing).
+    /// </remarks>
+    private static bool SequenceBaseMatchesSiteCode(char sequenceBase, char siteCode) =>
+        siteCode == 'N'
+            ? IupacHelper.IsNucleotideCode(sequenceBase)
+            : IupacHelper.MatchesIupac(sequenceBase, siteCode);
 
     #endregion
 
