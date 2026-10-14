@@ -172,7 +172,7 @@ with no data is the FIN-B01 launch that was aborted over the literal `$(cat …)
 (session_01ESJRAKGAm3Af18dZknYwM9) — it produced no commits, so nothing depends on it.
 
 ## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
-B01 (FIN-B01 2026-10-09), B04, B05, B06, B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with
+B01 (FIN-B01 2026-10-09), B03 (FIN-B03 2026-10-14), B04, B05, B06, B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with
 `## Leftovers` is pushed **and** every session that produced its work was served claude-opus-5-5 (see the model rule
 and "Model-flagged batches" above); the batches already listed predate that check and the provenance audit may yet
 move one of them.
