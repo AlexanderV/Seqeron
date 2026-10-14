@@ -156,7 +156,7 @@ Per the model rule above. A batch listed here stays out of "Finished batches" ev
 | Batch | What was produced off-model | Session | Model actually served | Status |
 |---|---|---|---|---|
 | B08 | CRISPR-OFF-001 start: F9 MIT silent-100 aggregate fix + CFD aggregate + dedup, WIP only (`-wip-B08` a80bdfa7) | session_01E7mHtXGjdaPccegYRGjrba (interrupted 10:53, ≈ $10, archived) | claude-opus-5 (session model 5-5, served 5) | being re-verified against CRISPOR/Hsu/Doench by B08 resume-2 session_01JEZHM6XkDpcN8pugzHb9ns on verified 5-5 — clears if it holds |
-| B08 | CRISPR-OFF-001 proper (re-verification of a80bdfa7 + its new tests, WIP `-wip-B08` 2f9cedd3 at 11:22 onwards) | session_01JEZHM6XkDpcN8pugzHb9ns (resume-2, RUNNING) | claude-opus-5 — verified 5-5 at launch 10:54, fell back mid-session by 11:35 | OPEN — left running per the model rule; B08 stays unfinished, re-verify on 5-5 |
+| B08 | CRISPR-OFF-001 work, still WIP-only (`-wip-B08` cda5b4c8) | session_01JEZHM6XkDpcN8pugzHb9ns (resume-2; verified 5-5 at launch 10:54, fell back mid-session; stopped by the five-hour limit ≈ 12:05 after ≈ $199.3; archived) | claude-opus-5 | OPEN — re-verified from scratch by resume-3 session_01WLgw5gNJSSJdHmg5UKDkPY |
 | B08 | CRISPR-PAM-001 F1–F2 (commit 73fe1972) + the B08.md skeleton | session_01YRNyThk8LUUghgQswiDmsF (first pass, archived, ≈ $19.6) | claude-opus-5 (session model AND last served) | OPEN — needs a re-verification pass on 5-5 |
 | B08 | CRISPR-GUIDE-001 F3–F8 (commits 2fc133c2, e8e6c72) | session_01NvVQb3FM1E4YGuhxEtXqjH (2026-10-01, archived) | claude-opus-5 (configured + session model 5-5, served 5) | OPEN — needs a re-verification pass on 5-5 before B08 may be called finished |
 
