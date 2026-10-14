@@ -37,19 +37,28 @@ and commits it after every change. Batch definitions (units, owned files) are in
   does real damage, so the model is checked, never assumed. `create_session`'s `model` is not always honoured.
   Verify right after launch AND at every check-in with `get_session`: BOTH `session_context.model` and
   `external_metadata.last_served_model` must read `claude-opus-5-5` (a turn-level fallback shows up only in the
-  latter). If 5-5 cannot be served: **let the session run as it is, but its batch is NOT finished** — do not add it
-  to "Finished batches", and record it under "Model-flagged batches" below with what was produced on which model, so
-  it can be re-verified when 5-5 becomes available again. This applies to every session of the campaign, including
-  the orchestrator's own and any future resume/finisher, not only to the session where it was first noticed.
+  latter). If 5-5 cannot be served: **let the session run as it is** and record what was produced on which model
+  under "5-5 debt" below. This applies to every session of the campaign, including the orchestrator's own and any
+  future resume/finisher, not only to the session where it was first noticed.
+- **SUPERSEDED — the 5-5 debt is a note, not a blocker (user 2026-10-14 23:15):** "На 5.5 не запускається — так і не
+  запуститься. Що ти хочеш від нього? На 5-му перевірив? Ок? Помітив, що борг 5.5 і все." Subagents are served
+  `claude-opus-5` and will keep being served it, so withholding completion over the model blocks the campaign on
+  something no session can fix. From now on: work verified on claude-opus-5 **counts as verified**; the batch is
+  finished when its `## Leftovers` has zero DOABLE items; the off-model entries are listed under "5-5 debt" so that a
+  future 5-5 pass knows exactly what to look at, and **no session is launched for the sole purpose of clearing that
+  debt**. The rule above still stands for what it is good for: always check and record which model served a session,
+  and never silently pretend a session ran on 5-5. (VER-B02, launched at 23:09 to clear B02's debt, was stopped under
+  this rule after ~6 minutes.)
 
 **Subagents fall back off-model even when the lead does not (2026-10-14).** FIN-B02's lead was served claude-opus-5-5
 for its whole run while its subagents were served `claude-opus-5` — including both of its own re-verification reviewers.
 So the launch-time model check on the lead is NOT sufficient: for any pass whose deliverable *is* the model (a 5-5
 re-verification), every judgement must be made in the lead's own context and subagents used only for verdict-free
 retrieval (install a tool, run a command, grep, list file:line). And such a pass that is itself served off-model
-produces nothing — it must record that and stop, which is the one exception to the user's "run as is" rule.
+produces nothing. Under the superseding rule above this no longer blocks anything: it is the reason the 5-5 debt
+is simply recorded instead of chased.
 
-## State (2026-10-14 23:10 UTC) — FIN-B02 LANDED (model-flagged); SRC + B08 resume-4 + VER-B02 running
+## State (2026-10-14 23:20 UTC) — B02 FINISHED (5-5 debt noted); SRC + B08 resume-4 running
 - **FIN-B03 DONE** (session_019yqGyk8v1PunaUYAP83i7B archived, 10:35 – 17:57, ≈ $75.1, served claude-opus-5-5
   throughout, as was the B03 first pass — so B03 goes into "Finished batches"): audit rounds 1–3 + final round,
   F22 onwards, dedup sweep, heavy tier once (da6bd804), final report 5bcceeca. 73 changed docs listed for wiki
@@ -188,7 +197,10 @@ produces nothing — it must record that and stop, which is the one exception to
 - **Done:** B01, B02, B03, B24 (finishers pending, see leftovers notes in their reports), B04 (F1–F65), B05 (F1–F35),
   B06 (F1–F38, 43841d1, Leftovers none).
 
-## Model-flagged batches (work produced on a model other than claude-opus-5-5 — NOT finished; re-verify when 5-5 is back)
+## 5-5 debt (work produced on a model other than claude-opus-5-5 — a recorded note, NOT a blocker)
+Per the superseding rule above: these batches are finished on their own merits; this register exists so that a future
+claude-opus-5-5 pass — if subagents ever stop falling back — knows exactly which entries to re-read. Nothing here is
+to be re-run on its own, and no session is launched to clear it.
 Per the model rule above. A batch listed here stays out of "Finished batches" even when its report ends with a clean
 `## Leftovers`; what it needs is a re-verification pass on claude-opus-5-5, not more work.
 | Batch | What was produced off-model | Session | Model actually served | Status |
@@ -210,7 +222,7 @@ CRISPR-OFF work in flight, is off-model, as the rows above record. The one recor
 with no data is the FIN-B01 launch that was aborted over the literal `$(cat …)` prompt
 (session_01ESJRAKGAm3Af18dZknYwM9) — it produced no commits, so nothing depends on it.
 
-| B02 | FIN-B02 `session_016tDCWJHjR3NXKjhHLFynHz` | lead claude-opus-5-5 throughout; **subagents** served `claude-opus-5` for WP9/WP10/WP14/WP15/WP18/WP22 **and for both re-verification reviewers** (WP27a 114 of 124 turns, WP27b 86 of 106) | Off-model: **F41, F42, F43, F48, F49, F54, F55, F60, F63, F64** + the WP27a/b review verdicts. 0 DOABLE leftovers; what is missing is one claude-opus-5-5 pass over those entries against the oracle numbers already recorded in Evidence/TestSpecs. Note the WP27a/b pass, though itself off-model, found two real defects (F63 GC constraint broken by the structure pass, F64 window over-rounding), so the pass is not a formality |
+| B02 | FIN-B02 `session_016tDCWJHjR3NXKjhHLFynHz` | lead claude-opus-5-5 throughout; **subagents** served `claude-opus-5` for WP9/WP10/WP14/WP15/WP18/WP22 **and for both re-verification reviewers** (WP27a 114 of 124 turns, WP27b 86 of 106) | Off-model: **F41, F42, F43, F48, F49, F54, F55, F60, F63, F64** + the WP27a/b review verdicts. 0 DOABLE leftovers; what is missing is one claude-opus-5-5 pass over those entries against the oracle numbers already recorded in Evidence/TestSpecs. Verified on claude-opus-5 and **accepted as verified** (user 2026-10-14 23:15): the WP27a/b pass re-ran every oracle (ViennaRNA 2.7.2, dnachisel 3.2.16, Biopython 1.88 across all 27 tables, an independent `sherlocc.pl` port) and found two real defects, F63 and F64. B02 is in "Finished batches"; this row is the note, not a task |
 
 ## Consolidation task — re-anchor citations to reachable sources (user 2026-10-14)
 The agent proxy answers **403 to CONNECT** for `en.wikipedia.org:443`, `www.addgene.org:443` and
@@ -277,19 +289,24 @@ citation at `src/.../MolTools/CrisprDesigner.cs:258`, which B08 WP-SRC had to le
 |---|---|---|---|
 | ~~FIN-B02~~ | `session_016tDCWJHjR3NXKjhHLFynHz` (archived, $188.14) | lead 5-5 / **subagents mostly opus-5** | **DONE 2026-10-14 23:04**, final report `b36eecb3`: 4 audit rounds to 0 DOABLE, F31–F64, dedup sweep, heavy tier, full unfiltered **26280/0**. NOT finished — see the B02 row in "Model-flagged batches" |
 | SRC (sources & citations) | `session_01Wa9VJs4Gp5H1yEXuySyxf8` | 5-5 / verify at check-in | A: RO2 ProtScale exponential (SRC for B03); B: the citation audit — 428 files, 790 occurrences, **206 distinct URLs** (5 Addgene), classify NUMBER / DEFINITION / BIBLIOGRAPHY, fetch and verify every NUMBER, re-anchor code- and test-driving numbers to primary sources, mark the rest "inherited, not re-verified"; C: RO1 Kazusa per-thousand **only if FIN-B02 has landed**, else fetch + register. Report `SRC.md`, WIP branch `…-wip-SRC` |
-| VER-B02 | `session_015916Bdb7VvK2GSYCTiNjbG` | 5-5 / verify at check-in | the 5-5 re-verification of B02's ten off-model entries (F41–F43, F48, F49, F54, F55, F60, F63, F64) and nothing else. **Design lesson from FIN-B02 WP27a/b: leads get 5-5, subagents fall back to opus-5, so every judgement stays in the lead's own context** — subagents only for verdict-free retrieval. If it is not served 5-5 it must record that and stop rather than produce another off-model "verification". It owns the verdict on whether B02 moves to "Finished batches" |
+| ~~VER-B02~~ | `session_015916Bdb7VvK2GSYCTiNjbG` (stopped 23:15, archived) | 5-5 | Launched to clear B02's 5-5 debt; **stopped by the user's ruling** that the debt is a note and not a blocker. Its design lesson is kept above: subagents fall back off-model even when the lead does not |
 | B08 resume-4 | `session_01Gei6HyCuq5texhxCCGEvji` | 5-5 / verify at check-in | the `## Resume state` list in B08.md: D3 → D5+D12 → D14+D17 → D15+D16 → D9 → D10 → D7 → D8 → D11 → D6 → D4 → D18 → D19, then round-1 fast tier → round 2 → dedup → final audit → heavy tier → report. Also the now-reachable Addgene citation at `CrisprDesigner.cs:258` |
 
-Ownership while these three run: SRC must not touch B02-owned or B08-owned files (its prompt names them); B08 keeps its own
+**B08's launch prompt predates the 23:15 ruling** — it was told its report must keep B08 out of "Finished batches"
+over the model. When it lands, the orchestrator corrects that: B08 goes into "Finished batches" if its `## Leftovers`
+has zero DOABLE items, with its off-model entries moved to the "5-5 debt" register. Cloud sessions cannot be messaged,
+so this is a check-in task, not a relaunch.
+
+Ownership while these run: SRC must not touch B02-owned or B08-owned files (its prompt names them); B08 keeps its own
 `CRISPR-*`/`RESTR-*` citations; nobody force-pushes the shared branch. Two sessions launched at 22:56 without a repo
 source (`config:no-git-repo`, my omission) were interrupted after ~20 s and archived — $0.36 total, no commits; the
 replacements above carry `source_url` + `source_revision`.
 
 ## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
-B01 (FIN-B01 2026-10-09), B03 (FIN-B03 2026-10-14), B04, B05, B06, B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with
-`## Leftovers` is pushed **and** every session that produced its work was served claude-opus-5-5 (see the model rule
-and "Model-flagged batches" above); the batches already listed predate that check and the provenance audit may yet
-move one of them.
+B01 (FIN-B01 2026-10-09), **B02 (FIN-B02 2026-10-14, 5-5 debt recorded)**, B03 (FIN-B03 2026-10-14), B04, B05, B06,
+B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with `## Leftovers` is pushed and has zero
+DOABLE items. The model is recorded, not required: off-model entries go to the "5-5 debt" register above and do not
+hold the batch back (user 2026-10-14 23:15).
 
 ## Requests to finished batches (register — orchestrator checks it on every check-in)
 | # | Target | File:line / test | Evidence | From | Status |
