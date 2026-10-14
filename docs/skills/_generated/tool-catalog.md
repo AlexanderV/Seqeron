@@ -36,7 +36,7 @@
 | `semi_global_align` | `SequenceAligner.SemiGlobalAlign` | [doc](../../mcp/tools/alignment/semi_global_align.md) |
 | `sequence_identity` | `SequenceAssembler.CalculateIdentity` | [doc](../../mcp/tools/alignment/sequence_identity.md) |
 
-## Analysis (126 tools)
+## Analysis (127 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -49,6 +49,7 @@
 | `bulge_loop_energy` | `RnaSecondaryStructure.CalculateBulgeLoopEnergy` | [doc](../../mcp/tools/analysis/bulge_loop_energy.md) |
 | `calculate_ani` | `ComparativeGenomics.CalculateANI` | [doc](../../mcp/tools/analysis/calculate_ani.md) |
 | `can_pair` | `RnaSecondaryStructure.CanPair` | [doc](../../mcp/tools/analysis/can_pair.md) |
+| `chou_fasman_assign` | `SequenceStatistics.PredictSecondaryStructureChouFasman` | [doc](../../mcp/tools/analysis/chou_fasman_assign.md) |
 | `codon_frequencies` | `SequenceStatistics.CalculateCodonFrequencies` | [doc](../../mcp/tools/analysis/codon_frequencies.md) |
 | `compare_genomes` | `ComparativeGenomics.CompareGenomes` | [doc](../../mcp/tools/analysis/compare_genomes.md) |
 | `compression_ratio` | `SequenceComplexity.EstimateCompressionRatio` | [doc](../../mcp/tools/analysis/compression_ratio.md) |

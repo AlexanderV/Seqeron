@@ -2,7 +2,7 @@
 
 MCP server — **K-mer, motif, repeat, complexity, RNA-structure and comparative-genomics analysis.**
 
-Exposes **126 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **127 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/analysis/`](../../../../docs/mcp/tools/analysis). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.Analysis
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.Analysis"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (126)
+## Tools (127)
 
 | Tool | Description |
 |------|-------------|
@@ -28,6 +28,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `bulge_loop_energy` | Free energy of an RNA bulge loop (special-C bonus, n=1 stacking, degeneracy entropy from numStates). |
 | `calculate_ani` | Average Nucleotide Identity (ANI) between two genome sequences (fragment-and-match). |
 | `can_pair` | Whether two RNA bases form a Watson-Crick (A-U, G-C) or wobble (G-U) pair. |
+| `chou_fasman_assign` | Discrete Chou-Fasman (1978) per-residue H/E/T/C secondary-structure assignment; `ruleSet` Standard (default) or Graded1978. |
 | `codon_frequencies` | Codon usage frequencies in the specified reading frame (0..2). |
 | `compare_genomes` | End-to-end comparative pipeline: RBH orthologs + synteny + rearrangements + summary stats. |
 | `compression_ratio` | Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). |
@@ -40,7 +41,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `detect_pseudoknots` | Identifies pseudoknots as crossing base pairs: i < i' < j < j' for pairs (i,j) and (i',j'). |
 | `detect_rearrangements` | Inversions, deletions, insertions inferred from gene-order disagreements between two genomes. |
 | `dinucleotide_frequencies` | Frequency of each adjacent dinucleotide over the alphabet A/T/G/C/U. |
-| `dinucleotide_ratios` | Observed/expected ratios for each dinucleotide (e.g., CpG ratio for CpG-island detection). |
+| `dinucleotide_ratios` | Karlin dinucleotide odds ratio ρ (single strand) or strand-symmetrized ρ* (`strandSymmetric=true`), optional Karlin over/under-representation classes (`includeRepresentation`). Not the CpG-island O/E. |
 | `discover_motifs` | Overrepresented k-mers (de novo motif discovery) in a DNA sequence. |
 | `disorder_propensity` | Returns the TOP-IDP propensity value for a single amino acid (Campen 2008). |
 | `dust_score` | DUST low-complexity score (BLAST-style, triplet-based) for a DNA sequence. |
@@ -116,7 +117,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `multibranch_loop_energy` | Free energy of an RNA multibranch loop (Turner 2004 affine model: offset + asymmetry + helix term + stacking + strain). |
 | `oligo_analysis` | RSAT oligo-analysis over-representation of the k-mers of one DNA sequence (or a set with extraSequences): occurrences, expected frequency under a background model (equipr… |
 | `parse_dot_bracket` | Parses dot-bracket notation into a list of base-pair coordinates. |
-| `predict_chou_fasman` | Per-window helix/sheet/turn propensities for a protein sequence (Chou-Fasman parameters). |
+| `predict_chou_fasman` | Propensity profile: per-window mean Chou-Fasman helix/sheet/turn parameters (window 1 = per residue); not an assignment (see `chou_fasman_assign`). |
 | `predict_coiled_coils` | Heptad-repeat-based coiled-coil prediction. |
 | `predict_disorder` | TOP-IDP disorder prediction (Campen 2008): per-residue scores plus contiguous IDR regions with confidence and subtype classification. |
 | `predict_low_complexity_seg` | SEG algorithm (Wootton & Federhen 1993/1996) for low-complexity protein regions: trigger window K1 + extension K2. |

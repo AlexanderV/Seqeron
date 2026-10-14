@@ -25,6 +25,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "bulge_loop_energy",
         "calculate_ani",
         "can_pair",
+        "chou_fasman_assign",
         "codon_frequencies",
         "compare_genomes",
         "compression_ratio",

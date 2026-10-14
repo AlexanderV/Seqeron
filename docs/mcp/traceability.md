@@ -201,6 +201,7 @@
 | bulge_loop_energy | Analysis | RnaSecondaryStructure.CalculateBulgeLoopEnergy | RnaSecondaryStructure.cs#L890 | 0/0 | – | – | Build-Ready |
 | calculate_ani | Analysis | ComparativeGenomics.CalculateANI | ComparativeGenomics.cs#L513 | 0/0 | – | – | Build-Ready |
 | can_pair | Analysis | RnaSecondaryStructure.CanPair | RnaSecondaryStructure.cs#L555 | 0/0 | – | – | Build-Ready |
+| chou_fasman_assign | Analysis | SequenceStatistics.PredictSecondaryStructureChouFasman | SequenceStatistics.cs#L1808 | 2/2 | ✓ | ✓ | Ready |
 | codon_frequencies | Analysis | SequenceStatistics.CalculateCodonFrequencies | SequenceStatistics.cs#L565 | 0/0 | – | – | Build-Ready |
 | compare_genomes | Analysis | ComparativeGenomics.CompareGenomes | ComparativeGenomics.cs#L390 | 0/0 | – | – | Build-Ready |
 | compression_ratio | Analysis | SequenceComplexity.EstimateCompressionRatio | SequenceComplexity.cs#L1772 | 0/0 | – | – | Build-Ready |
@@ -213,7 +214,7 @@
 | detect_pseudoknots | Analysis | RnaSecondaryStructure.DetectPseudoknots | RnaSecondaryStructure.cs#L1320 | 0/0 | – | – | Build-Ready |
 | detect_rearrangements | Analysis | ComparativeGenomics.DetectRearrangements | ComparativeGenomics.cs#L320 | 0/0 | – | – | Build-Ready |
 | dinucleotide_frequencies | Analysis | SequenceStatistics.CalculateDinucleotideFrequencies | SequenceStatistics.cs#L500 | 0/0 | – | – | Build-Ready |
-| dinucleotide_ratios | Analysis | SequenceStatistics.CalculateDinucleotideRatios | SequenceStatistics.cs#L530 | 0/0 | – | – | Build-Ready |
+| dinucleotide_ratios | Analysis | SequenceStatistics.CalculateDinucleotideRatios | SequenceStatistics.cs#L1308 | 0/0 | – | – | Build-Ready |
 | discover_motifs | Analysis | MotifFinder.DiscoverMotifs | MotifFinder.cs#L385 | 0/0 | – | – | Build-Ready |
 | disorder_propensity | Analysis | DisorderPredictor.GetDisorderPropensity | DisorderPredictor.cs#L645 | 0/0 | – | – | Build-Ready |
 | dust_score | Analysis | SequenceComplexity.CalculateDustScore | SequenceComplexity.cs#L864 | 0/0 | – | – | Build-Ready |
@@ -289,7 +290,7 @@
 | multibranch_loop_energy | Analysis | RnaSecondaryStructure.CalculateMultibranchLoopEnergy | RnaSecondaryStructure.cs#L940 | 0/0 | – | – | Build-Ready |
 | oligo_analysis | Analysis | MotifFinder.DiscoverMotifs | MotifFinder.OligoAnalysis.cs#L58 | 2/2 | ✓ | ✓ | Ready |
 | parse_dot_bracket | Analysis | RnaSecondaryStructure.ParseDotBracket | RnaSecondaryStructure.cs#L1395 | 0/0 | – | – | Build-Ready |
-| predict_chou_fasman | Analysis | SequenceStatistics.PredictSecondaryStructure | SequenceStatistics.cs#L660 | 0/0 | – | – | Build-Ready |
+| predict_chou_fasman | Analysis | SequenceStatistics.PredictSecondaryStructure | SequenceStatistics.cs#L1684 | 0/0 | – | – | Build-Ready |
 | predict_coiled_coils | Analysis | ProteinMotifFinder.PredictCoiledCoils | ProteinMotifFinder.cs#L703 | 0/0 | – | – | Build-Ready |
 | predict_disorder | Analysis | DisorderPredictor.PredictDisorder | DisorderPredictor.cs#L185 | 0/0 | – | – | Build-Ready |
 | predict_low_complexity_seg | Analysis | DisorderPredictor.PredictLowComplexityRegions | DisorderPredictor.cs#L425 | 0/0 | – | – | Build-Ready |

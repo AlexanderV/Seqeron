@@ -273,7 +273,8 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `predict_signal_peptide` | X | von Heijne cleavage-site | `ProteinMotifFinder.PredictSignalPeptide` |
 | `predict_transmembrane_helices` | X | Hydropathy TM-helix prediction | `ProteinMotifFinder.PredictTransmembraneHelices` |
 | `predict_coiled_coils` | X | Heptad-repeat coiled coils | `ProteinMotifFinder.PredictCoiledCoils` |
-| `predict_chou_fasman` | X | Chou-Fasman helix/sheet/turn | `SequenceStatistics.PredictSecondaryStructure` |
+| `predict_chou_fasman` | X | Chou-Fasman windowed helix/sheet/turn propensity profile | `SequenceStatistics.PredictSecondaryStructure` |
+| `chou_fasman_assign` | X | Chou-Fasman per-residue H/E/T/C assignment (Standard / Graded1978) | `SequenceStatistics.PredictSecondaryStructureChouFasman` |
 | `hydrophobicity_profile` | X | Kyte-Doolittle hydropathy — owned by **seqeron-protein-features** | `SequenceStatistics.CalculateHydrophobicityProfile` |
 
 ## 14. Comparative genomics — owned by **seqeron-comparative-genomics** (see [../../seqeron-comparative-genomics/SKILL.md](../../seqeron-comparative-genomics/SKILL.md))

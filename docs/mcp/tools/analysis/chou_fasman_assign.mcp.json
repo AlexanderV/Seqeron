@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "chou_fasman_assign",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.PredictSecondaryStructureChouFasman",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1808",
+  "description": "Discrete Chou & Fasman (1978) secondary-structure assignment: one state per residue, H (alpha-helix), E (beta-strand), T (beta-turn) or C (coil). Nucleation 4/6 (helix) and 3/5 (sheet), tetrapeptide extension, acceptance <Pa> > 1.03 / <Pb> > 1.05, overlap by mean propensity, beta-turns override. ruleSet Standard (former = P > 1.00) or Graded1978 (graded former/breaker classes). Non-standard residues stay C.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence (one-letter code, case-insensitive)", "minLength": 1 },
+      "ruleSet": { "type": "string", "description": "Nucleation rule set (case-insensitive)", "enum": ["Standard", "Graded1978"], "default": "Standard" }
+    },
+    "required": ["proteinSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "assignment": { "type": "string", "description": "One state code per residue: H, E, T or C", "pattern": "^[HETC]*$" }
+    },
+    "required": ["assignment"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Unknown Chou-Fasman rule set. Expected one of: Standard, Graded1978." }
+  ],
+  "examples": [
+    {
+      "name": "Helix followed by a strand",
+      "input": { "proteinSequence": "EEEEEEVVVVVV" },
+      "output": { "assignment": "HHHHEEEEEEEE" }
+    },
+    {
+      "name": "Graded 1978 classes",
+      "input": { "proteinSequence": "AAAHHS", "ruleSet": "Graded1978" },
+      "output": { "assignment": "HHHHHH" }
+    },
+    {
+      "name": "Beta-turn",
+      "input": { "proteinSequence": "NPDG" },
+      "output": { "assignment": "TTTT" }
+    }
+  ]
+}

@@ -15,6 +15,7 @@
 | `bulge_loop_energy` | Analysis | `RnaSecondaryStructure.CalculateBulgeLoopEnergy` | [doc](../../../../docs/mcp/tools/analysis/bulge_loop_energy.md) |
 | `calculate_ani` | Analysis | `ComparativeGenomics.CalculateANI` | [doc](../../../../docs/mcp/tools/analysis/calculate_ani.md) |
 | `can_pair` | Analysis | `RnaSecondaryStructure.CanPair` | [doc](../../../../docs/mcp/tools/analysis/can_pair.md) |
+| `chou_fasman_assign` | Analysis | `SequenceStatistics.PredictSecondaryStructureChouFasman` | [doc](../../../../docs/mcp/tools/analysis/chou_fasman_assign.md) |
 | `codon_frequencies` | Analysis | `SequenceStatistics.CalculateCodonFrequencies` | [doc](../../../../docs/mcp/tools/analysis/codon_frequencies.md) |
 | `compare_genomes` | Analysis | `ComparativeGenomics.CompareGenomes` | [doc](../../../../docs/mcp/tools/analysis/compare_genomes.md) |
 | `compression_ratio` | Analysis | `SequenceComplexity.EstimateCompressionRatio` | [doc](../../../../docs/mcp/tools/analysis/compression_ratio.md) |

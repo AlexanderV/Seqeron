@@ -450,15 +450,25 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "dinucleotide_ratios", Title = "Sequence — Dinucleotide Obs/Exp Ratios", ReadOnly = true)]
-    [Description("Observed/expected ratios for each dinucleotide (e.g., CpG ratio for CpG-island detection).")]
+    [Description("Dinucleotide relative abundance (Karlin odds ratio) rho_XY = f_XY / (f_X * f_Y) for each occurring dinucleotide: single-strand rho (default, = seqinr rho / EMBOSS compseq Obs/Exp) or Karlin's strand-symmetrized genomic-signature rho* (strandSymmetric=true; sequence + its reverse complement). rho > 1 over-, < 1 under-represented. This is not the Gardiner-Garden & Frommer CpG O/E used for CpG-island calling (that normalizes by window length; see the annotation server's CpG-island tools). Optional includeRepresentation adds Karlin's class per dinucleotide (rho <= 0.78 under, >= 1.23 over).")]
     public static DinucleotideRatiosResult DinucleotideRatios(
-        [Description("Nucleotide sequence.")] string sequence)
+        [Description("Nucleotide sequence (case-insensitive; symbols outside A/C/G/T/U are excluded, U too when strandSymmetric).")] string sequence,
+        [Description("true: Karlin strand-symmetrized rho* over the sequence and its reverse complement (alphabet A/C/G/T); false (default): single-strand rho over A/C/G/T/U.")] bool strandSymmetric = false,
+        [Description("true: also return Karlin's representation class (UnderRepresented rho <= 0.78, Normal, OverRepresented rho >= 1.23) for every returned dinucleotide. Default false (field omitted).")] bool includeRepresentation = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var ratios = SequenceStatistics.CalculateDinucleotideRatios(sequence);
-        return new DinucleotideRatiosResult(new Dictionary<string, double>(ratios));
+        var ratios = strandSymmetric
+            ? SequenceStatistics.CalculateDinucleotideRatios(sequence, strandSymmetric: true)
+            : SequenceStatistics.CalculateDinucleotideRatios(sequence);
+        return new DinucleotideRatiosResult(new Dictionary<string, double>(ratios))
+        {
+            Representation = includeRepresentation
+                ? SequenceStatistics.ClassifyDinucleotideRatios(sequence, strandSymmetric)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value.ToString())
+                : null,
+        };
     }
 
     [McpServerTool(Name = "codon_frequencies", Title = "DNA — Codon Frequencies", ReadOnly = true)]
@@ -477,7 +487,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "predict_chou_fasman", Title = "Protein — Chou-Fasman Propensities", ReadOnly = true)]
-    [Description("Per-window helix/sheet/turn propensities for a protein sequence (Chou-Fasman parameters).")]
+    [Description("Propensity profile, not an assignment: mean Chou-Fasman (1978) helix Pa / sheet Pb / turn Pt parameters over each sliding window (windowSize 1 = per-residue propensities). Residues without parameters are skipped; a window with none emits no item. For the discrete per-residue H/E/T/C Chou-Fasman prediction use chou_fasman_assign.")]
     public static PredictChouFasmanResult PredictChouFasman(
         [Description("Protein sequence.")] string proteinSequence,
         [Description("Sliding window size (default 7).")] int windowSize = 7)
@@ -492,6 +502,33 @@ public class AnalysisTools
             .Select(t => new ChouFasmanItem(t.Helix, t.Sheet, t.Turn))
             .ToArray();
         return new PredictChouFasmanResult(items);
+    }
+
+    [McpServerTool(Name = "chou_fasman_assign", Title = "Protein — Chou-Fasman Secondary Structure", ReadOnly = true)]
+    [Description("Discrete Chou & Fasman (1978) secondary-structure assignment: one state per residue, H (alpha-helix), E (beta-strand), T (beta-turn) or C (coil). Helix nucleation >= 4 formers in 6, sheet >= 3 in 5, tetrapeptide extension while mean >= 1.00, acceptance <Pa> > 1.03 / <Pb> > 1.05, overlap by mean propensity, beta-turn p(t) > 7.5e-5 overrides H/E. ruleSet 'Standard' (default; former = P > 1.00) or 'Graded1978' (Chou & Fasman 1978 graded former/breaker classes with half-counted weak formers, breaker limit and Pro/Arg/Trp boundary rules). Non-standard residues stay C. Q3 accuracy ~50-60%.")]
+    public static ChouFasmanAssignResult ChouFasmanAssign(
+        [Description("Protein sequence, one-letter code (case-insensitive).")] string proteinSequence,
+        [Description("Nucleation rule set (case-insensitive): 'Standard' (default) or 'Graded1978'.")] string ruleSet = "Standard")
+    {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+
+        var rules = ParseChouFasmanRuleSet(ruleSet);
+        return new ChouFasmanAssignResult(
+            SequenceStatistics.PredictSecondaryStructureChouFasman(proteinSequence, rules));
+    }
+
+    // Exact (case-insensitive) ChouFasmanRuleSet name; Enum.TryParse alone would also accept numeric strings.
+    private static SequenceStatistics.ChouFasmanRuleSet ParseChouFasmanRuleSet(string? ruleSet)
+    {
+        foreach (var value in Enum.GetValues<SequenceStatistics.ChouFasmanRuleSet>())
+        {
+            if (string.Equals(value.ToString(), ruleSet, StringComparison.OrdinalIgnoreCase))
+                return value;
+        }
+
+        throw new ArgumentException(
+            $"Unknown Chou-Fasman rule set '{ruleSet}'. Expected one of: Standard, Graded1978.", nameof(ruleSet));
     }
 
     [McpServerTool(Name = "gc_content_profile", Title = "Sequence — GC Content Profile", ReadOnly = true)]

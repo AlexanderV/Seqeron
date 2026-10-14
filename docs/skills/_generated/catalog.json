@@ -252,6 +252,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L423"
   },
   {
+    "tool": "chou_fasman_assign",
+    "server": "Analysis",
+    "methodId": "SequenceStatistics.PredictSecondaryStructureChouFasman",
+    "docPath": "docs/mcp/tools/analysis/chou_fasman_assign.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1808"
+  },
+  {
     "tool": "codon_frequencies",
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateCodonFrequencies",
@@ -340,7 +347,7 @@
     "server": "Analysis",
     "methodId": "SequenceStatistics.CalculateDinucleotideRatios",
     "docPath": "docs/mcp/tools/analysis/dinucleotide_ratios.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L641"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1308"
   },
   {
     "tool": "discover_motifs",
@@ -872,7 +879,7 @@
     "server": "Analysis",
     "methodId": "SequenceStatistics.PredictSecondaryStructure",
     "docPath": "docs/mcp/tools/analysis/predict_chou_fasman.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L840"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1684"
   },
   {
     "tool": "predict_coiled_coils",

@@ -1,6 +1,6 @@
 # predict_chou_fasman
 
-Per-window Chou-Fasman helix/sheet/turn propensities for a protein.
+Windowed Chou-Fasman helix/sheet/turn propensity profile for a protein (not a structure assignment).
 
 ## Overview
 
@@ -14,16 +14,20 @@ Per-window Chou-Fasman helix/sheet/turn propensities for a protein.
 
 ## Description
 
-Computes the mean **Chou-Fasman conformational propensities** — helix (Pa), sheet
-(Pb), and turn (Pt) — over each sliding window of `windowSize` residues (Chou &
-Fasman, 1978). A window mean above 1.0 indicates a residue stretch that favours the
-corresponding conformation. Unknown residues (X, B, Z, gaps) are skipped and excluded
-from the window average. When the window exceeds the sequence length the result is
-empty.
+A **propensity profile**, not a prediction: computes the mean **Chou-Fasman (1978) conformational
+parameters** — helix (Pα), sheet (Pβ) and turn (Pt) — over each sliding window of `windowSize`
+residues, stepping one residue. With `windowSize = 1` it is the per-residue propensity profile. A
+window mean above 1.0 indicates a stretch that favours the corresponding conformation. Residues
+without parameters (X, B, Z, gaps, …) are skipped and excluded from the window average; a window
+containing none of the 20 standard residues emits no item. When the window exceeds the sequence
+length the result is empty.
+
+For the discrete per-residue **H/E/T/C** Chou-Fasman assignment (nucleation, extension, acceptance,
+overlap and β-turn rules) use [chou_fasman_assign](chou_fasman_assign.md).
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L840](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L840)
+- Source: [SequenceStatistics.cs#L1684](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1684)
 - Evidence: `docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md`
 
 ## Input Schema
@@ -93,5 +97,6 @@ Glutamate (E) is a strong helix former (Pa = 1.51).
 
 ## See Also
 
+- [chou_fasman_assign](chou_fasman_assign.md) — discrete per-residue H/E/T/C Chou-Fasman assignment
 - [hydrophobicity_profile](hydrophobicity_profile.md) — Kyte-Doolittle hydropathy
 - [predict_disorder](predict_disorder.md) — intrinsic disorder prediction
