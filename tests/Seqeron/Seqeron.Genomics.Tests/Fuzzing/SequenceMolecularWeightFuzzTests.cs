@@ -47,7 +47,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   • §2.4 INV-03 / §6.1: a single recognized monomer ⇒ its FREE monomer mass with
 ///     ZERO bonds ((n−1) = 0), NOT mass − W — the n=1 boundary must not subtract water.
 ///   • §2.4 INV-02: MW > 0 for any non-empty recognized sequence (each monomer mass > W).
-///   • §2.4 INV-04 / §6.1: case-insensitive (input ToUpperInvariant'd).
+///   • §2.4 INV-04 / §6.1: case-insensitive (ASCII-only case fold).
 ///
 /// Average-mass tables pinned below are independent oracle copies of the documented
 /// constants (Molecular_Weight_Calculation.md §2.2, Biopython IUPACData [5]).
@@ -102,7 +102,8 @@ public class SequenceMolecularWeightFuzzTests
         if (string.IsNullOrEmpty(seq)) return 0.0;
         double sum = 0;
         int n = 0;
-        foreach (char c in seq.ToUpperInvariant())
+        // ASCII-only case fold (FIN-B03 A1 / B02 TRANS-PROT-001: 'ſ'/'ı' are not residues).
+        foreach (char c in string.Concat(seq.Select(ch => char.IsAsciiLetterLower(ch) ? (char)(ch - 32) : ch)))
             if (table.TryGetValue(c, out double m)) { sum += m; n++; }
         return n == 0 ? 0.0 : sum - (n - 1) * Water;
     }

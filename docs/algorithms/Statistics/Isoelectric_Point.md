@@ -76,7 +76,7 @@ Bjellqvist pK values [4][7]: side chains Cys 9.0, Asp 4.05, Glu 4.45, His 5.98, 
 
 ### 3.3 Preconditions and Validation
 
-Input is uppercased (case-insensitive). Null or empty returns the neutral sentinel 7.0 (pI is undefined for a zero-length protein; see ASM-03). Only the nine ionizable groups (7 side chains + 2 termini) contribute (plus B/Z via the Dayhoff split on the EMBOSS scale); any other character is ignored, so non-standard residues, gaps, or whitespace do not throw. No exceptions are raised for valid string input.
+Input is uppercased ASCII-only (case-insensitive; `CalculateIsoelectricPoint`/`CalculateNetCharge` delegate to the canonical `ProteinPhysicochemistry.IsoelectricPoint`/`NetCharge`, `PkaScale` mapped to `ProteinPkaScale`, FIN-B03 A1; non-ASCII letters such as `ſ` are ignored, as EMBOSS iep does). Null or empty returns the neutral sentinel 7.0 (pI is undefined for a zero-length protein; see ASM-03). Only the nine ionizable groups (7 side chains + 2 termini) contribute (plus B/Z via the Dayhoff split on the EMBOSS scale); any other character is ignored, so non-standard residues, gaps, or whitespace do not throw. No exceptions are raised for valid string input.
 
 ## 4. Algorithm
 

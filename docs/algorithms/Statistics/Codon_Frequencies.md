@@ -67,7 +67,7 @@ For unambiguous DNA the values equal compseq `-frame f` exactly (executed, 300 r
 
 ### 3.3 Preconditions and Validation
 
-A negative `readingFrame` throws `ArgumentOutOfRangeException`. `null`, empty, or length &lt; 3 returns an empty dictionary. Input is upper-cased and RNA `U` is read as `T`; keys are reported in DNA spelling (EMBOSS cusp, CodonW; same normalisation as the canonical `CodonUsageAnalyzer.CountCodons`). Counting is 0-based starting at `readingFrame`; only complete non-overlapping triplets are read, so trailing 1–2 bases are ignored. If no triplet is composed solely of ACGT (`total = 0`), the result is empty — there is no division by zero.
+A negative `readingFrame` throws `ArgumentOutOfRangeException`. `null`, empty, or length &lt; 3 returns an empty dictionary. Input is upper-cased and RNA `U` is read as `T`; keys are reported in DNA spelling (EMBOSS cusp, CodonW; delegated to the canonical Core `Translator.CountCodons(seq, frame)`, ASCII case fold). Counting is 0-based starting at `readingFrame`; only complete non-overlapping triplets are read, so trailing 1–2 bases are ignored. If no triplet is composed solely of ACGT (`total = 0`), the result is empty — there is no division by zero.
 
 ## 4. Algorithm
 
@@ -116,7 +116,7 @@ Single linear pass over the sequence. The method is a frequency tabulation, not 
 
 **Not implemented:** none. (RNA `U` handling, previously listed here, is implemented — review 2026-09 B03 F15.)
 
-**Duplication note:** Analysis cannot reference MolTools (MolTools references Analysis), so the loop cannot call `CodonUsageAnalyzer.CountCodons`; semantics are kept identical and a move of the codon-splitting core to Core is requested (B03 R16).
+**Duplication note:** resolved (B03 R16, FIN-B03 A2): the codon-splitting core now lives in Core (`Translator.SplitInFrameCodons` / `Translator.CountCodons(seq, frame)`), and `CalculateCodonFrequencies` returns `Translator.CountCodons(seq, frame)` divided by its total — no own splitter.
 
 ## 6. Edge Cases and Limitations
 

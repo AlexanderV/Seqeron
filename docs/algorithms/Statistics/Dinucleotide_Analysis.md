@@ -56,7 +56,7 @@ The same odds-ratio shape underlies the CpG O/E ratio of Gardiner-Garden & Fromm
 
 ### 3.3 Preconditions and Validation
 
-Input is normalized to upper case (`ToUpperInvariant`). `CalculateDinucleotideFrequencies`/`CalculateDinucleotideRatios` return an empty dictionary for null/empty input or length < 2; `CalculateCodonFrequencies` returns empty for null/empty or length < 3. Dinucleotides outside {A,T,G,C,U} and triplets outside {A,T,G,C} are excluded from counts. When a constituent base of a dinucleotide is absent (expected = 0), its ρ is reported as 0 to avoid division by zero.
+Input is normalized to upper case (`ToUpperInvariant`; `CalculateCodonFrequencies` delegates to the canonical `Translator.CountCodons(seq, frame)` — ASCII fold, U read as T — and divides by the total). `CalculateDinucleotideFrequencies`/`CalculateDinucleotideRatios` return an empty dictionary for null/empty input or length < 2; `CalculateCodonFrequencies` returns empty for null/empty or length < 3. Dinucleotides outside {A,T,G,C,U} and triplets outside {A,T,G,C} are excluded from counts. When a constituent base of a dinucleotide is absent (expected = 0), its ρ is reported as 0 to avoid division by zero.
 
 ## 4. Algorithm
 

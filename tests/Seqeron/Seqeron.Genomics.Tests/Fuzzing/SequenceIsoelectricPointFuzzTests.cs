@@ -110,7 +110,8 @@ public class SequenceIsoelectricPointFuzzTests
         charge -= 1.0 / (1.0 + Math.Pow(10, CTermPka - pH));
 
         // EMBOSS embIepCompC: B → D and Z → E by Dayhoff frequency, (int)(0.5 + n·f).
-        string upper = seq.ToUpperInvariant();
+        // ASCII-only case fold (FIN-B03 A1 / B02 TRANS-PROT-001).
+        string upper = string.Concat(seq.Select(ch => char.IsAsciiLetterLower(ch) ? (char)(ch - 32) : ch));
         int b = upper.Count(ch => ch == 'B'), z = upper.Count(ch => ch == 'Z');
         charge -= (int)(0.5 + b * 5.5 / 9.8) / (1.0 + Math.Pow(10, 3.9 - pH));
         charge -= (int)(0.5 + z * 6.0 / 9.9) / (1.0 + Math.Pow(10, 4.1 - pH));

@@ -61,7 +61,7 @@ Let `kd(r)` be the Kyte-Doolittle index of residue `r` [1][2]. For a sequence `S
 
 ### 3.3 Preconditions and Validation
 
-Input is case-insensitive (uppercased before lookup). Only the 20 standard residues are defined in the scale [1]; any other character (ambiguity codes B/Z/X, gaps, stop) is skipped by GRAVY (not added to the count) and contributes 0 to a profile window. Null or empty input returns GRAVY 0 and an empty profile without throwing. No exceptions are raised for any character input.
+Input is case-insensitive (ASCII-only upper-casing before lookup; GRAVY delegates to the canonical `ProteinPhysicochemistry.Gravy` and the profile reads `ProteinPhysicochemistry.KyteDoolittle`, FIN-B03 A1 — non-ASCII letters such as `ı` U+0131 are not residues, as in EMBOSS). Only the 20 standard residues are defined in the scale [1]; any other character (ambiguity codes B/Z/X, gaps, stop) is skipped by GRAVY (not added to the count) and contributes 0 to a profile window. Null or empty input returns GRAVY 0 and an empty profile without throwing. No exceptions are raised for any character input.
 
 ## 4. Algorithm
 

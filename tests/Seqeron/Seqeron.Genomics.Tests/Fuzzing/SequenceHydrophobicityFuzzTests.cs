@@ -45,7 +45,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     0, so the documented result is GRAVY 0 — there is NO DivideByZero (the source
 ///     guards `count > 0 ? sum/count : 0`).
 ///   • §2.4 INV-01: GRAVY of a single recognized residue equals that residue's kd.
-///   • §2.4 INV-04: GRAVY is case-insensitive (input is ToUpperInvariant'd).
+///   • §2.4 INV-04: GRAVY is case-insensitive (ASCII-only case fold).
 ///
 /// Kyte-Doolittle scale pinned in this fixture (Hydrophobicity_Analysis.md §4.2,
 /// Biopython kd) — the materially behaviour-defining lookup table:
@@ -81,7 +81,8 @@ public class SequenceHydrophobicityFuzzTests
         if (string.IsNullOrEmpty(seq)) return 0.0;
         double sum = 0;
         int count = 0;
-        foreach (char c in seq.ToUpperInvariant())
+        // ASCII-only case fold (FIN-B03 A1 / B02 TRANS-PROT-001: 'ſ'/'ı' are not residues).
+        foreach (char c in string.Concat(seq.Select(ch => char.IsAsciiLetterLower(ch) ? (char)(ch - 32) : ch)))
             if (Kd.TryGetValue(c, out double v)) { sum += v; count++; }
         return count > 0 ? sum / count : 0.0;
     }

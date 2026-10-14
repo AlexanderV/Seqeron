@@ -61,11 +61,12 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///     for a zero-length protein; SequenceStatistics.cs lines 277–278, 103),
 ///     Hydrophobicity 0, ChargedResidueRatio 0, AromaticResidueRatio 0. No throw,
 ///     no DivideByZero.
-///   • Counting is case-insensitive: input is upper-cased (ToUpperInvariant,
-///     line 107) before classification.
-///   • Counts holds every LETTER (char.IsLetter, line 109) keyed by its upper-case
+///   • Counting is case-insensitive: ASCII letters are upper-cased ASCII-only
+///     (FIN-B03 A1, as ProteinPhysicochemistry) before classification.
+///   • Counts holds every ASCII LETTER (char.IsAsciiLetter) keyed by its upper-case
 ///     form — including non-standard codes (B, J, O, U, X, Z, N, …). Non-letters
-///     (digits, whitespace, punctuation, control chars) are NOT counted.
+///     (digits, whitespace, punctuation, control chars) and non-ASCII letters
+///     (e.g. 'ſ', 'ı'; EMBOSS pepstats skips them) are NOT counted.
 ///   • Length = Σ Counts.Values (line 115) — the recognized-LETTER count, which can
 ///     be SMALLER than the input string length when junk is present.
 ///   • MolecularWeight / Hydrophobicity are computed over only the 20 STANDARD

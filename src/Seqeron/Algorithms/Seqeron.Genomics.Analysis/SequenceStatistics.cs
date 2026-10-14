@@ -109,8 +109,10 @@ public static class SequenceStatistics
     /// Calculates amino acid composition of a protein sequence.
     /// </summary>
     /// <remarks>
-    /// <para><c>Counts</c> holds the case-insensitive count of every letter (the 20 standard residues
-    /// plus any ambiguity/extended codes such as B, Z, X, U, O, J). <c>Length</c> is the number of
+    /// <para><c>Counts</c> holds the case-insensitive count of every ASCII letter (the 20 standard residues
+    /// plus any ambiguity/extended codes such as B, Z, X, U, O, J), folded ASCII-only as in
+    /// <see cref="ProteinPhysicochemistry"/>; non-ASCII letters (e.g. U+017F 'ſ', U+0131 'ı') are not
+    /// residue codes (EMBOSS pepstats skips them). <c>Length</c> is the number of
     /// letters; non-letter symbols (stop <c>*</c>, gap <c>-</c>, digits, whitespace) are not residues
     /// and are excluded from <c>Counts</c>, <c>Length</c> and the ratio denominators. This differs from
     /// Biopython <c>ProteinAnalysis</c>, whose denominator is <c>len(seq)</c> including such symbols;
@@ -132,10 +134,13 @@ public static class SequenceStatistics
         }
 
         var counts = new Dictionary<char, int>();
-        foreach (char ch in sequence.ToUpperInvariant())
+        foreach (char raw in sequence)
         {
-            if (char.IsLetter(ch))
+            // Residue codes are ASCII letters, folded ASCII-only (as ProteinPhysicochemistry):
+            // non-ASCII letters such as U+017F 'ſ' are not residues (EMBOSS pepstats skips them).
+            if (char.IsAsciiLetter(raw))
             {
+                char ch = ToUpperAscii(raw);
                 counts[ch] = counts.GetValueOrDefault(ch) + 1;
             }
         }
@@ -170,26 +175,9 @@ public static class SequenceStatistics
 
     #region Molecular Weight
 
-    // Average isotopic mass of one water molecule (Da).
-    // Expasy FindMod "Other mass values": H2O = 18.01524; Biopython SeqUtils uses water = 18.0153.
-    // Source: https://web.expasy.org/findmod/findmod_masses.html ;
-    //         Biopython Bio/SeqUtils/__init__.py (molecular_weight).
-    private const double AverageWaterMass = 18.0153;
-
-    // Average molecular masses of the 20 standard free amino acids plus the two
-    // genetically encoded non-standard ones, selenocysteine (U) and pyrrolysine (O) (Da).
-    // Source: Biopython Bio/Data/IUPACData.py `protein_weights` (master, 22 entries incl. O/U),
-    // "Mass data taken from PubChem"; consistent with Expasy FindMod average residue masses +
-    // AverageWaterMass. Expasy ProtParam / Compute pI/Mw likewise accept U and O.
-    private static readonly Dictionary<char, double> AminoAcidWeights = new()
-    {
-        { 'A', 89.0932 },  { 'C', 121.1582 }, { 'D', 133.1027 }, { 'E', 147.1293 },
-        { 'F', 165.1891 }, { 'G', 75.0666 },  { 'H', 155.1546 }, { 'I', 131.1729 },
-        { 'K', 146.1876 }, { 'L', 131.1729 }, { 'M', 149.2113 }, { 'N', 132.1179 },
-        { 'O', 255.3134 }, { 'P', 115.1305 }, { 'Q', 146.1445 }, { 'R', 174.201 },
-        { 'S', 105.0926 }, { 'T', 119.1192 }, { 'U', 168.0532 }, { 'V', 117.1463 },
-        { 'W', 204.2252 }, { 'Y', 181.1885 }
-    };
+    // Average isotopic mass of one water molecule (Da): Biopython SeqUtils water = 18.0153
+    // (Expasy FindMod H2O = 18.01524). Single source: ProteinPhysicochemistry.AverageWaterMass.
+    private const double AverageWaterMass = ProteinPhysicochemistry.AverageWaterMass;
 
     // Average molecular masses of DNA mononucleotides (5'-monophosphate, Da).
     // Source: Biopython Bio/Data/IUPACData.py `unambiguous_dna_weights`.
@@ -216,32 +204,14 @@ public static class SequenceStatistics
     /// selenocysteine (U) and pyrrolysine (O), as in Biopython <c>protein_weights</c>.
     /// Unknown/ambiguous symbols (B, Z, X, J, '*', gaps, …) are skipped (contribute no mass and
     /// no bond) — Biopython instead raises <c>ValueError</c>. Linear chain, average masses only.
+    /// Delegates to the canonical <see cref="ProteinPhysicochemistry.MolecularWeight"/>; case folding
+    /// is ASCII-only, so a non-ASCII letter such as 'ſ' is skipped like any unknown symbol (EMBOSS
+    /// pepstats; Python's Unicode <c>str.upper()</c> in Biopython would read it as S).
     /// </remarks>
     /// <param name="proteinSequence">Protein sequence (case-insensitive, one-letter codes).</param>
     /// <returns>Molecular weight in daltons; 0 for null/empty input.</returns>
-    public static double CalculateMolecularWeight(string proteinSequence)
-    {
-        if (string.IsNullOrEmpty(proteinSequence))
-            return 0;
-
-        double weight = 0;
-        int residues = 0;
-
-        foreach (char aa in proteinSequence.ToUpperInvariant())
-        {
-            if (AminoAcidWeights.TryGetValue(aa, out double aaWeight))
-            {
-                weight += aaWeight;
-                residues++;
-            }
-        }
-
-        if (residues == 0)
-            return 0;
-
-        // One water is lost per peptide bond; n residues form (n − 1) bonds.
-        return weight - (residues - 1) * AverageWaterMass;
-    }
+    public static double CalculateMolecularWeight(string proteinSequence) =>
+        ProteinPhysicochemistry.MolecularWeight(proteinSequence);
 
     /// <summary>
     /// Calculates the average-isotopic molecular weight of a DNA or RNA sequence (Da).
@@ -346,54 +316,13 @@ public static class SequenceStatistics
         Bjellqvist
     }
 
-    // EMBOSS 6.6.0 emboss/data/Epk.dat (the file shipped with and read by `iep`; embiep.c
-    // embIepPkReadFile also defaults amino = 7.50 when the file has no "Amino" line).
-    // NOTE: the Epk.dat listing printed on the EMBOSS iep web page (Amino 8.6) is stale — the
-    // page's own worked outputs (LACI_ECOLI pI 6.8385, IFNA2_HUMAN pI 5.7240) are only reproduced
-    // with Amino 7.5 (verified against the EMBOSS 6.6.0 `iep` binary).
-    private const double EmbossNTerminusPka = 7.5;
-    private const double EmbossCTerminusPka = 3.6;
-
-    // Ionizable side chains: pKa and sign (+1 basic, -1 acidic).
-    private static readonly Dictionary<char, (double pKa, int charge)> EmbossSideChains = new()
-    {
-        { 'C', (8.5, -1) }, { 'D', (3.9, -1) }, { 'E', (4.1, -1) }, { 'Y', (10.1, -1) },
-        { 'H', (6.5, 1) },  { 'K', (10.8, 1) }, { 'R', (12.5, 1) }
-    };
-
-    // Bjellqvist et al. 1993 (Electrophoresis 14:1023) / 1994 (Electrophoresis 15:529) pK set,
-    // as implemented by Biopython Bio/SeqUtils/IsoelectricPoint.py (positive_pKs, negative_pKs,
-    // pKnterminal, pKcterminal) and ExPASy Compute pI/Mw.
-    private static readonly Dictionary<char, (double pKa, int charge)> BjellqvistSideChains = new()
-    {
-        { 'C', (9.0, -1) }, { 'D', (4.05, -1) }, { 'E', (4.45, -1) }, { 'Y', (10.0, -1) },
-        { 'H', (5.98, 1) }, { 'K', (10.0, 1) },  { 'R', (12.0, 1) }
-    };
-
-    private const double BjellqvistNTerminusPka = 7.5;
-    private const double BjellqvistCTerminusPka = 3.55;
-
-    private static readonly Dictionary<char, double> BjellqvistNTerminalResiduePka = new()
-    {
-        { 'A', 7.59 }, { 'M', 7.0 }, { 'S', 6.93 }, { 'P', 8.36 }, { 'T', 6.82 }, { 'V', 7.44 }, { 'E', 7.7 }
-    };
-
-    private static readonly Dictionary<char, double> BjellqvistCTerminalResiduePka = new()
-    {
-        { 'D', 4.55 }, { 'E', 4.75 }
-    };
-
-    // Bisection window and convergence. The root is located to 1e-9 pH and then rounded, so the
-    // returned value is the correctly rounded pI (a 0.01-wide final bracket could round wrongly).
-    private const double MinPh = 0.0;
-    private const double MaxPh = 14.0;
-    private const double PiBisectionPrecision = 1e-9;
+    // The pK tables (EMBOSS 6.6.0 Epk.dat; Bjellqvist 1993/1994 incl. terminal-residue pKs), the
+    // EMBOSS B/Z Dayhoff split, the [0, 14] bisection to 1e-9 pH and the 2-dp rounding live in the
+    // canonical ProteinPhysicochemistry (review 2026-09, B02 request; FIN-B03 A1).
 
     // pI returned for empty/null input: pI is undefined for a zero-length protein (a real
     // protein always has both termini); neutral 7.0 is used as a documented input-guard sentinel.
     private const double NeutralPhDefault = 7.0;
-
-    private const int PiDecimalPlaces = 2;
 
     /// <summary>
     /// Calculates the theoretical isoelectric point (pI) of a protein on the EMBOSS <c>iep</c>
@@ -424,29 +353,8 @@ public static class SequenceStatistics
     /// clamps its bisection to [4.05, 12], so for extremely acidic/basic peptides whose true root lies
     /// outside that window Biopython returns the window edge while this method returns the true root.</para>
     /// </remarks>
-    public static double CalculateIsoelectricPoint(string proteinSequence, PkaScale scale)
-    {
-        if (string.IsNullOrEmpty(proteinSequence))
-            return NeutralPhDefault;
-
-        var model = BuildChargeModel(proteinSequence, scale);
-
-        double pHLow = MinPh;
-        double pHHigh = MaxPh;
-
-        while (pHHigh - pHLow > PiBisectionPrecision)
-        {
-            double pH = (pHLow + pHHigh) / 2.0;
-
-            // Net charge is monotonically non-increasing in pH: positive ⇒ pI is higher.
-            if (model.NetCharge(pH) > 0)
-                pHLow = pH;
-            else
-                pHHigh = pH;
-        }
-
-        return Math.Round((pHLow + pHHigh) / 2.0, PiDecimalPlaces);
-    }
+    public static double CalculateIsoelectricPoint(string proteinSequence, PkaScale scale) =>
+        ProteinPhysicochemistry.IsoelectricPoint(proteinSequence, ToProteinPkaScale(scale));
 
     /// <summary>
     /// Net charge of a protein at a given pH (Henderson–Hasselbalch): basic groups (N-terminus,
@@ -454,98 +362,28 @@ public static class SequenceStatistics
     /// −1/(1+10^(pKa−pH)); each terminus is counted once.
     /// Equivalent to EMBOSS <c>embIepGetCharge</c> and Biopython <c>IsoelectricPoint.charge_at_pH</c>.
     /// </summary>
-    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive).</param>
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive, ASCII fold).</param>
     /// <param name="pH">pH at which to evaluate the charge.</param>
     /// <param name="scale">pK set (default EMBOSS).</param>
     /// <returns>Net charge (elementary charges); 0 for null/empty input.</returns>
-    public static double CalculateNetCharge(string proteinSequence, double pH, PkaScale scale = PkaScale.Emboss)
+    public static double CalculateNetCharge(string proteinSequence, double pH, PkaScale scale = PkaScale.Emboss) =>
+        ProteinPhysicochemistry.NetCharge(proteinSequence, pH, ToProteinPkaScale(scale));
+
+    // Maps the (backward-compatible) public SequenceStatistics.PkaScale onto the canonical scale.
+    private static ProteinPkaScale ToProteinPkaScale(PkaScale scale) => scale switch
     {
-        if (string.IsNullOrEmpty(proteinSequence))
-            return 0.0;
-
-        return BuildChargeModel(proteinSequence, scale).NetCharge(pH);
-    }
-
-    private readonly record struct ChargeModel(
-        double NTerminusPka,
-        double CTerminusPka,
-        Dictionary<char, (double pKa, int charge)> SideChains,
-        Dictionary<char, int> Counts)
-    {
-        public double NetCharge(double pH)
-        {
-            double charge = 1.0 / (1.0 + Math.Pow(10, pH - NTerminusPka));
-            charge -= 1.0 / (1.0 + Math.Pow(10, CTerminusPka - pH));
-
-            foreach (var (aa, count) in Counts)
-            {
-                var (pKa, sign) = SideChains[aa];
-                if (sign > 0)
-                    charge += count / (1.0 + Math.Pow(10, pH - pKa));   // basic group
-                else
-                    charge -= count / (1.0 + Math.Pow(10, pKa - pH));   // acidic group
-            }
-
-            return charge;
-        }
-    }
-
-    private static ChargeModel BuildChargeModel(string proteinSequence, PkaScale scale)
-    {
-        string upper = proteinSequence.ToUpperInvariant();
-        var sideChains = scale == PkaScale.Bjellqvist ? BjellqvistSideChains : EmbossSideChains;
-
-        var counts = new Dictionary<char, int>();
-        int countB = 0, countZ = 0;
-        foreach (char aa in upper)
-        {
-            if (sideChains.ContainsKey(aa))
-                counts[aa] = counts.GetValueOrDefault(aa) + 1;
-            else if (aa == 'B')
-                countB++;
-            else if (aa == 'Z')
-                countZ++;
-        }
-
-        if (scale == PkaScale.Bjellqvist)
-        {
-            // Terminal-residue-specific pKs (Bjellqvist 1994; Biopython _update_pKs_tables).
-            double nPka = BjellqvistNTerminalResiduePka.GetValueOrDefault(upper[0], BjellqvistNTerminusPka);
-            double cPka = BjellqvistCTerminalResiduePka.GetValueOrDefault(upper[^1], BjellqvistCTerminusPka);
-            return new ChargeModel(nPka, cPka, sideChains, counts);
-        }
-
-        // EMBOSS embIepCompC: B = D or N, Z = E or Q, split by Dayhoff frequencies
-        // (D 5.5 / N 4.3; E 6.0 / Q 3.9), rounding half up via (int)(0.5 + x).
-        if (countB > 0)
-        {
-            int asp = (int)(0.5 + countB * 5.5 / 9.8);
-            if (asp > 0) counts['D'] = counts.GetValueOrDefault('D') + asp;
-        }
-        if (countZ > 0)
-        {
-            int glu = (int)(0.5 + countZ * 6.0 / 9.9);
-            if (glu > 0) counts['E'] = counts.GetValueOrDefault('E') + glu;
-        }
-
-        return new ChargeModel(EmbossNTerminusPka, EmbossCTerminusPka, sideChains, counts);
-    }
+        PkaScale.Emboss => ProteinPkaScale.Emboss,
+        PkaScale.Bjellqvist => ProteinPkaScale.Bjellqvist,
+        _ => throw new ArgumentOutOfRangeException(nameof(scale), scale, "Unknown pK scale."),
+    };
 
     #endregion
 
     #region Hydrophobicity
 
-    // Kyte-Doolittle hydropathy scale (kcal-derived index, the 20 standard residues).
-    // Values per Kyte J, Doolittle RF (1982) J Mol Biol 157:105-132; identical to
-    // Biopython Bio.SeqUtils.ProtParamData.kd.
-    private static readonly Dictionary<char, double> HydrophobicityScale = new()
-    {
-        { 'A', 1.8 },  { 'R', -4.5 }, { 'N', -3.5 }, { 'D', -3.5 },
-        { 'C', 2.5 },  { 'E', -3.5 }, { 'Q', -3.5 }, { 'G', -0.4 },
-        { 'H', -3.2 }, { 'I', 4.5 },  { 'L', 3.8 },  { 'K', -3.9 },
-        { 'M', 1.9 },  { 'F', 2.8 },  { 'P', -1.6 }, { 'S', -0.8 },
-        { 'T', -0.7 }, { 'W', -0.9 }, { 'Y', -1.3 }, { 'V', 4.2 }
-    };
+    // Kyte-Doolittle (1982) hydropathy index of the 20 standard residues (= Biopython
+    // ProtParamData.kd); single source: ProteinPhysicochemistry.KyteDoolittle.
+    private static readonly IReadOnlyDictionary<char, double> HydrophobicityScale = ProteinPhysicochemistry.KyteDoolittle;
 
     // Default sliding-window size; Kyte & Doolittle (1982) report window 9 gives the
     // best results for surface regions of globular proteins (per GCAT/Davidson summary).
@@ -556,26 +394,10 @@ public static class SequenceStatistics
     /// hydropathy values of all recognized residues divided by the residue count.
     /// Positive values indicate hydrophobic, negative hydrophilic. Non-standard residues
     /// are skipped (not counted). Returns 0 for null/empty input or no recognized residues.
+    /// Delegates to the canonical <see cref="ProteinPhysicochemistry.Gravy"/> (ASCII-only case fold).
     /// </summary>
-    public static double CalculateHydrophobicity(string proteinSequence)
-    {
-        if (string.IsNullOrEmpty(proteinSequence))
-            return 0;
-
-        double sum = 0;
-        int count = 0;
-
-        foreach (char aa in proteinSequence.ToUpperInvariant())
-        {
-            if (HydrophobicityScale.TryGetValue(aa, out double value))
-            {
-                sum += value;
-                count++;
-            }
-        }
-
-        return count > 0 ? sum / count : 0;
-    }
+    public static double CalculateHydrophobicity(string proteinSequence) =>
+        ProteinPhysicochemistry.Gravy(proteinSequence);
 
     /// <summary>
     /// Calculates the sliding-window Kyte-Doolittle hydropathy profile (Kyte &amp; Doolittle 1982;
@@ -600,7 +422,8 @@ public static class SequenceStatistics
     /// residue at the window centre (Biopython also drops the symmetric partner of an off-centre
     /// unknown residue; this library does not).</para>
     /// </remarks>
-    /// <param name="proteinSequence">One-letter amino-acid sequence (case-insensitive).</param>
+    /// <param name="proteinSequence">One-letter amino-acid sequence (case-insensitive, ASCII-only fold:
+    /// non-ASCII characters such as 'ſ' are non-residues).</param>
     /// <param name="windowSize">Window length W (≥ 1; default 9).</param>
     /// <param name="edgeWeight">Relative weight of the window edges, in [0, 1] (default 1 = unweighted).</param>
     /// <exception cref="ArgumentOutOfRangeException">W &lt; 1, or <paramref name="edgeWeight"/> outside [0, 1].</exception>
@@ -620,10 +443,10 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(proteinSequence) || windowSize > proteinSequence.Length)
             return Array.Empty<double>();
 
-        return HydrophobicityProfileIterator(proteinSequence.ToUpperInvariant(), windowSize, edgeWeight);
+        return HydrophobicityProfileIterator(proteinSequence, windowSize, edgeWeight);
     }
 
-    private static IEnumerable<double> HydrophobicityProfileIterator(string upper, int windowSize, double edgeWeight)
+    private static IEnumerable<double> HydrophobicityProfileIterator(string sequence, int windowSize, double edgeWeight)
     {
         // Position weights (all 1 for the unweighted Kyte-Doolittle mean).
         var weights = new double[windowSize];
@@ -638,17 +461,22 @@ public static class SequenceStatistics
             weightSum += weights[j];
         }
 
-        for (int i = 0; i <= upper.Length - windowSize; i++)
+        for (int i = 0; i <= sequence.Length - windowSize; i++)
         {
             double sum = 0;
             for (int j = 0; j < windowSize; j++)
             {
-                if (HydrophobicityScale.TryGetValue(upper[i + j], out double value))
+                if (HydrophobicityScale.TryGetValue(ToUpperAscii(sequence[i + j]), out double value))
                     sum += weights[j] * value;
             }
             yield return sum / weightSum;
         }
     }
+
+    // ASCII-only case folding, the convention of the canonical ProteinPhysicochemistry (B02
+    // TRANS-PROT-001): char.ToUpperInvariant folds U+017F 'ſ' → 'S' and U+0131 'ı' → 'I', which
+    // EMBOSS treats as non-residues (pepstats "MSKſ" → 3 residues, MW 364.46 = MW("MSK")).
+    private static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
 
     #endregion
 
@@ -1085,37 +913,15 @@ public static class SequenceStatistics
         string dnaSequence,
         int readingFrame = 0)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(readingFrame);
+        // Canonical in-frame splitter (Core Translator.CountCodons, review 2026-09 R16): U read as T,
+        // ASCII case fold, triplets with any non-ACGT symbol skipped without shifting the frame,
+        // trailing partial triplet dropped, negative frame throws ArgumentOutOfRangeException.
+        var counts = Translator.CountCodons(dnaSequence, readingFrame);
+        int total = counts.Values.Sum();
 
-        // Codon length is fixed by the genetic code (non-overlapping triplets), per Kazusa CUTG.
-        const int CodonLength = 3;
-
-        var counts = new Dictionary<string, int>();
-        var freq = new Dictionary<string, double>();
-
-        if (string.IsNullOrEmpty(dnaSequence) || dnaSequence.Length < CodonLength)
-            return freq;
-
-        // Case-fold and read RNA U as T (EMBOSS ajBaseAlphaToBin maps U to the T bit; CodonW
-        // ident_codon treats T/t/U/u identically) — the normalisation of the canonical
-        // CodonUsageAnalyzer.CountCodons, which Analysis cannot call (MolTools references Analysis).
-        string normalized = dnaSequence.ToUpperInvariant().Replace('U', 'T');
-        int total = 0;
-
-        for (int i = readingFrame; i <= normalized.Length - CodonLength; i += CodonLength)
-        {
-            string codon = normalized.Substring(i, CodonLength);
-            // Codons containing an ambiguous / non-nucleotide symbol are skipped (Kazusa CUTG;
-            // EMBOSS ajCodSetTripletsS "Skips triplets with ambiguity codes"); the frame is kept.
-            if (codon.All(c => c is 'A' or 'C' or 'G' or 'T'))
-            {
-                counts[codon] = counts.GetValueOrDefault(codon) + 1;
-                total++;
-            }
-        }
-
-        // total == 0 (no valid codon) leaves counts empty, so this loop yields an empty table
-        // and avoids any division by zero.
+        // total == 0 (no valid codon) leaves counts empty, so this yields an empty table and
+        // avoids any division by zero.
+        var freq = new Dictionary<string, double>(counts.Count);
         foreach (var (codon, count) in counts)
         {
             freq[codon] = (double)count / total;

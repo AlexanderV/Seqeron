@@ -93,8 +93,11 @@ Only the average-isotopic variant is implemented; monoisotopic is not in scope (
 
 ### 3.3 Preconditions and Validation
 
-Null or empty input returns 0 (no exception). Input is upper-cased
-(`ToUpperInvariant`). Only recognized monomers contribute mass and bonds; unknown symbols are
+Null or empty input returns 0 (no exception). Protein input is upper-cased ASCII-only
+(`CalculateMolecularWeight` delegates to the canonical `ProteinPhysicochemistry.MolecularWeight`;
+non-ASCII letters such as `ſ` U+017F are unknown symbols, as in EMBOSS pepstats — Python's Unicode
+`str.upper()` in Biopython would read `ſ` as S); nucleotide input is upper-cased with
+`ToUpperInvariant` (no non-ASCII character folds to a nucleotide letter). Only recognized monomers contribute mass and bonds; unknown symbols are
 skipped (no mass, no bond) — this deviates from Biopython, which rejects unknown letters
 (§5.4). A sequence containing no recognized monomers returns 0. No coordinate system applies.
 
