@@ -213,13 +213,54 @@ fragment-sum rules were re-confirmed against Biopython `catalyse` on 1452 cases 
    (e.g. `PRIMER-DESIGN-001`: primer length 18–24, GC 40–60 %, pair Tm ≤ 5 °C partly from Addgene), re-anchor it to a
    reachable source (Primer3 source, EMBOSS, the paper) or mark it "inherited, not re-verified in this environment".
    Batch reports that cite them: B01, B04, B05, B06, B07, B08, README.
-2. **REBASE is only available as the snapshot bundled in Biopython** (`Bio.Restriction`), i.e. enzyme definitions as of
-   that Biopython release, not live REBASE. Record this as an explicit environment limitation wherever enzyme data is
-   cited, and re-check after the hosts below are allowed.
+2. ~~**REBASE is only available as the snapshot bundled in Biopython** (`Bio.Restriction`), i.e. enzyme definitions as
+   of that Biopython release, not live REBASE.~~ **Premise corrected by B08 WP-SRC (resume-3):** REBASE `allenz.104`
+   **with its verbatim header** (`REBASE version 104`, `Copyright (c) Dr. Richard J. Roberts, 2021`,
+   `Rich Roberts Mar 31 2021`) is served from the allowed host `raw.githubusercontent.com`, vendored in
+   `crisprVerse/crisprBase`, and B08 already uses it. What stands as a limitation: **no REBASE release newer than 404
+   (Apr 2024) is reachable**, and recognition sites / cut positions still come from the Biopython snapshot (version
+   stated in Evidence). Record that, not the old claim.
 Hosts to allow in the environment's network settings so later sessions do not hit this: `en.wikipedia.org`,
 `www.addgene.org`, `rebase.neb.com`, `rosalind.info`, `www.kazusa.or.jp`, `web.expasy.org`. Kazusa and ExPASy would
 also unblock two items currently BLOCKED with proof (B02 E. coli per-thousand table; B03 ProtScale exponential
-weighting), so those should be re-opened once access exists.
+weighting), so those should be re-opened once access exists. **→ access opened 2026-10-14, see the next section.**
+
+## Network access opened (user 2026-10-14 ~22:00 UTC) — two BLOCKED items re-opened
+The user opened the environment's network settings. Verified from the orchestrator container with
+`curl -sS -o /dev/null -w '%{http_code}'` **plus** a payload check (not just a status code):
+| Host | Result | Payload seen |
+|---|---|---|
+| `www.kazusa.or.jp` | 200 | Codon Usage Database page for *E. coli* W3110 incl. the per-thousand (`/1000`) columns |
+| `web.expasy.org` | 200 | ProtScale page listing "Weight variation" with the **exponential** and **linear** models |
+| `en.wikipedia.org` | 200 | article HTML |
+| `www.addgene.org` | 200 | protocol HTML |
+| `rosalind.info` | 200 | problem HTML |
+| `raw.githubusercontent.com`, PyPI | 200 | unchanged, still fine |
+| `rebase.neb.com` | **curl exit 60** (TLS certificate verification fails; `--cacert /root/.ccr/ca-bundle.crt` does not help although the proxy reports `bundleCoversEveryHost: true`) | — |
+
+**REBASE decision (user: "брати дані REBASE з дзеркала allenz або ігнорити помилки сертифікату").** We take the
+mirror, never the certificate shortcut: **disabling TLS verification and unsetting `HTTPS_PROXY` are forbidden in this
+environment** (container rules), so `curl -k` is not an option for any session. The mirror is already in use — B08
+sourced the REBASE organism and methylation columns from **REBASE `allenz.104` as vendored in the Bioconductor package
+`crisprBase` (`crisprVerse/crisprBase`, reachable over `raw.githubusercontent.com`)**: see
+`docs/Evidence/B08-Source-Provenance.md` §3/§3a and `RESTR-FIND-001-Evidence.md:62,122,236`,
+`RESTR-FILTER-001-Evidence.md:168`, `RESTR-DIGEST-001-Evidence.md:258`. Rule for every session: enzyme recognition
+sites and cut positions come from the Biopython `Bio.Restriction` snapshot (version stated in Evidence); organism /
+methylation / prototype columns come from `allenz.104` via `crisprBase`; live `rebase.neb.com` stays unavailable and
+that is recorded as an environment limitation, not worked around.
+
+**Re-opened items** (were BLOCKED-with-proof solely because the host answered 403; the proof no longer holds):
+| # | Batch | Item | Where it is recorded | Owner of the fix |
+|---|---|---|---|---|
+| RO1 | B02 | CODON-USAGE-001 organism presets hold per-AA fractions only — add the per-thousand columns from the Kazusa Codon Usage Database (`MolTools/CodonUsageAnalyzer.cs`) | B02.md leftovers / FIN-B02 worklist | FIN-B02 (its own file) — if FIN-B02 has already pushed its final report, this becomes a request to a FINISHED batch |
+| RO2 | B03 | PROT-SCALE / ProtScale **exponential** weight-variation model — the equation was unobtainable (mirrors 403/ENOTFOUND; one sample fitted a ∈ [0.81, 0.94]) | B03.md `## Leftovers` (BLOCKED) | SRC session, commit "(SRC for B03)" — B03 is FINISHED |
+
+Both are now DOABLE unless the fetched page still fails to define the quantity; if so, the new proof must quote the
+fetched page (not a 403).
+
+Also newly verifiable, but **B08-owned** (handled by the B08 session, not by SRC): the Addgene 8–10 nt seed-range
+citation at `src/.../MolTools/CrisprDesigner.cs:258`, which B08 WP-SRC had to leave unverifiable
+(nothing depends on it numerically; the comment states its own derivation).
 
 ## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
 B01 (FIN-B01 2026-10-09), B03 (FIN-B03 2026-10-14), B04, B05, B06, B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with
