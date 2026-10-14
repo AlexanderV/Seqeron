@@ -202,7 +202,7 @@ is simply recorded instead of chased.
 - **Done:** B01, B02, B03, B24 (finishers pending, see leftovers notes in their reports), B04 (F1–F65), B05 (F1–F35),
   B06 (F1–F38, 43841d1, Leftovers none).
 
-## 5-5 debt (work served by `claude-opus-5` instead of `claude-opus-5-5` — a recorded note, NOT a blocker)
+## 5-5 debt (work served by `claude-opus-5` instead of `claude-opus-5-5` — an OWED, DEFERRED review; not a blocker, not written off)
 **Campaign-wide (user 2026-10-14 23:15, "І так для всіх взагалі").** This applies to EVERY batch — past, present and
 future, B08 included — not to B02 alone. A batch is finished when its `## Leftovers` holds zero DOABLE items; the model
 that served the work is **recorded, never required**, and **no session is launched to clear a row here**.
