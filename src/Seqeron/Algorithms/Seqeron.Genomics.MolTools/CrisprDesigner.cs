@@ -677,18 +677,12 @@ public static class CrisprDesigner
         var positions = new List<int>();
         for (int i = 0; i < guide.Length; i++)
         {
-            if (ToUpperAscii(guide[i]) != ToUpperAscii(target[i]))
+            if (SequenceExtensions.ToUpperAscii(guide[i]) != SequenceExtensions.ToUpperAscii(target[i]))
                 positions.Add(i);
         }
 
         return positions;
     }
-
-    /// <summary>
-    /// Mirrors the canonical <c>SequenceExtensions.ToUpperAscii(char)</c> (internal to Core): ASCII
-    /// lower-case letters only, so a non-ASCII character is never folded onto a sequence symbol.
-    /// </summary>
-    private static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
 
     private static double CalculateOffTargetScore(string guide, string target, CrisprSystem system)
     {

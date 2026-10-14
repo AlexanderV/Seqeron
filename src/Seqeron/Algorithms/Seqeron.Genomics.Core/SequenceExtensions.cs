@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -569,19 +570,39 @@ public static class SequenceExtensions
     }
 
     /// <summary>
-    /// Upper-cases ASCII letters only. Unlike <see cref="char.ToUpperInvariant(char)"/> this never maps a
-    /// non-ASCII character onto an ASCII sequence symbol (e.g. U+017F 'ſ' → 'S').
+    /// Upper-cases an ASCII letter (<c>a</c>–<c>z</c> → <c>A</c>–<c>Z</c>); every other character,
+    /// including every non-ASCII one, is returned unchanged.
     /// </summary>
-    /// <remarks>Delegates to the canonical <see cref="Infrastructure.SequenceCase.ToUpperAscii(char)"/>.</remarks>
+    /// <param name="c">The character to fold.</param>
+    /// <returns>The ASCII upper-case form of <paramref name="c"/>, or <paramref name="c"/> itself.</returns>
+    /// <remarks>
+    /// This is the case folding every Seqeron sequence type and comparison uses. Unlike
+    /// <see cref="char.ToUpperInvariant(char)"/> it never maps a non-ASCII character onto an ASCII
+    /// sequence symbol (.NET's invariant culture folds U+017F 'ſ' onto 'S', an IUPAC code), so such a
+    /// character stays invalid instead of silently reading as a nucleotide or amino-acid symbol.
+    /// Delegates to the canonical <see cref="Infrastructure.SequenceCase.ToUpperAscii(char)"/>.
+    /// Public since review 2026-09 (B08 for B01) so other assemblies fold exactly as Core does
+    /// instead of keeping private copies.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static char ToUpperAscii(char c) => Infrastructure.SequenceCase.ToUpperAscii(c);
+    public static char ToUpperAscii(char c) => Infrastructure.SequenceCase.ToUpperAscii(c);
 
     /// <summary>
-    /// String form of <see cref="ToUpperAscii(char)"/>: upper-cases ASCII letters only and returns
-    /// <paramref name="s"/> itself when it has no ASCII lower-case letter (or is null). Length-preserving.
-    /// Delegates to the canonical <see cref="Infrastructure.SequenceCase.ToUpperAscii(string)"/>.
+    /// String form of <see cref="ToUpperAscii(char)"/>: upper-cases ASCII letters only. Length-preserving.
     /// </summary>
-    internal static string ToUpperAscii(string s) => s is null ? s! : Infrastructure.SequenceCase.ToUpperAscii(s);
+    /// <param name="s">The text to fold; may be <see langword="null"/>.</param>
+    /// <returns>
+    /// <paramref name="s"/> itself when it is <see langword="null"/> or contains no ASCII lower-case
+    /// letter (no allocation); otherwise a new string with every <c>a</c>–<c>z</c> upper-cased and every
+    /// other character unchanged.
+    /// </returns>
+    /// <remarks>
+    /// Unlike the canonical <see cref="Infrastructure.SequenceCase.ToUpperAscii(string)"/>, which throws on
+    /// <see langword="null"/>, this overload passes <see langword="null"/> through (its long-standing Core
+    /// contract). Public since review 2026-09 (B08 for B01).
+    /// </remarks>
+    [return: NotNullIfNotNull(nameof(s))]
+    public static string? ToUpperAscii(string? s) => s is null ? null : Infrastructure.SequenceCase.ToUpperAscii(s);
 
     #endregion
 }

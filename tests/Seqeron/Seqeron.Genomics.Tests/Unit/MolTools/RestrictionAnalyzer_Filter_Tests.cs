@@ -377,7 +377,7 @@ public class RestrictionAnalyzer_Filter_Tests
     }
 
     // F29 — EcoRI's AATT is unique in this table, so EcoRI is compatible with itself and nothing
-    //       else. (REBASE MfeI, CAATTG, is EcoRI's AATT partner but is not a built-in here.)
+    //       else among the built-ins. Its textbook partner MfeI is asserted separately below.
     [Test]
     public void AreCompatible_UniqueOverhang_OnlyCompatibleWithItself()
     {
@@ -385,6 +385,33 @@ public class RestrictionAnalyzer_Filter_Tests
 
         Assert.That(partners, Is.EquivalentTo(new[] { "EcoRI" }),
             "no other built-in leaves a 5' AATT overhang");
+    }
+
+    // F42 (B08 WP4/D5) — EcoRI <-> MfeI, the textbook compatible pair. MfeI is not a built-in, so it is
+    //       synthesised from its REBASE record, the same route the BsmI/BsrI test below uses. Every value
+    //       is Biopython 1.88 `Bio.Restriction`: MfeI.site == "CAATTG", elucidate() == "C^AATT_G",
+    //       charac == (1, -1, None, None, "CAATTG") — the same fst5/fst3 as EcoRI's (1, -1, …, "GAATTC"),
+    //       hence the same (1, 5) cut pair as the built-in EcoRI — ovhg == -4 (5'), ovhgseq == "AATT";
+    //       EcoRI % MfeI == True, MfeI % EcoRI == True, MfeI % BamHI == False, BamHI % MfeI == False.
+    [Test]
+    public void AreCompatible_EcoRIAndMfeI_ShareTheFivePrimeAattEnd()
+    {
+        var mfeI = new RestrictionEnzyme("MfeI", "CAATTG", 1, 5, "REBASE MfeI (synthesised)");
+        var ecoRI = RestrictionAnalyzer.GetEnzyme("EcoRI")!;
+        var bamHI = RestrictionAnalyzer.GetEnzyme("BamHI")!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mfeI.OverhangType, Is.EqualTo(OverhangType.FivePrime), "Biopython ovhg == -4 (5')");
+            Assert.That(RestrictionAnalyzer.GetOverhangSequence(mfeI), Is.EqualTo("AATT"), "Biopython MfeI.ovhgseq");
+            Assert.That(RestrictionAnalyzer.GetOverhangSequence(ecoRI), Is.EqualTo("AATT"), "Biopython EcoRI.ovhgseq");
+
+            Assert.That(RestrictionAnalyzer.AreCompatible(ecoRI, mfeI), Is.True, "Biopython EcoRI % MfeI == True");
+            Assert.That(RestrictionAnalyzer.AreCompatible(mfeI, ecoRI), Is.True, "Biopython MfeI % EcoRI == True");
+            Assert.That(RestrictionAnalyzer.AreCompatible(mfeI, mfeI), Is.True, "Biopython MfeI % MfeI == True");
+            Assert.That(RestrictionAnalyzer.AreCompatible(mfeI, bamHI), Is.False, "Biopython MfeI % BamHI == False (AATT vs GATC)");
+            Assert.That(RestrictionAnalyzer.AreCompatible(bamHI, mfeI), Is.False, "Biopython BamHI % MfeI == False");
+        });
     }
 
     // F29 — THE POLARITY RULE: identical overhang letters with opposite polarity do NOT ligate —

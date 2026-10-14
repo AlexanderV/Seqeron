@@ -268,6 +268,8 @@ public static class RestrictionAnalyzer
     {
         var enzyme = RequireEnzyme(enzymeName);
 
+        // ToUpperInvariant, not SequenceExtensions.ToUpperAscii, on purpose (review 2026-09 B08 F43): they differ
+        // only on U+017F 'ſ' (invariant folds it onto the IUPAC code 'S'), which is observable here — keep.
         return string.IsNullOrEmpty(sequence)
             ? []
             : FindSitesCore(sequence.ToUpperInvariant(), enzyme, topology);
@@ -411,6 +413,8 @@ public static class RestrictionAnalyzer
         ArgumentOutOfRangeException.ThrowIfNegative(startIndex);
         string pattern = ValidatedPattern(recognitionPattern, nameof(recognitionPattern));
 
+        // ToUpperInvariant, not SequenceExtensions.ToUpperAscii, on purpose (review 2026-09 B08 F43): they differ
+        // only on U+017F 'ſ' (invariant folds it onto the IUPAC code 'S'), which is observable here — keep.
         return sequence.Length == 0
             ? []
             : EnumeratePatternOccurrences(sequence.ToUpperInvariant(), pattern, startIndex);
@@ -453,6 +457,8 @@ public static class RestrictionAnalyzer
         if (string.IsNullOrEmpty(pattern))
             throw new ArgumentException($"{what} cannot be null or empty.", paramName);
 
+        // ToUpperInvariant, not SequenceExtensions.ToUpperAscii, on purpose (review 2026-09 B08 F43): they differ
+        // only on U+017F 'ſ' (invariant folds it onto the IUPAC code 'S'), which is observable here — keep.
         string upper = pattern.ToUpperInvariant();
         for (int i = 0; i < upper.Length; i++)
         {

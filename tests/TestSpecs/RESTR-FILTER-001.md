@@ -153,6 +153,7 @@ reverse-complement branch that plain `ovhgseq` equality cannot see (`BsmI` `"CN"
 | M20 | FindIsoschizomers_MatchesBiopythonWithinTheBuiltInTable | MspI↔HpaII equi; MboI↔Sau3AI equi; DpnI neo of both; EcoRI/HincII/SfiI none | exact sets | Source 7 (`batch=` the 39) |
 | M21 | FindIsoschizomers_WholeTable_PartitionAndEndConsistency | iso = equi ⊎ neo over all 39; equischizomers share the end and are compatible | holds | INV-9, INV-10 |
 | M22 | AreCompatible_UnknownEnzyme_Throws | `AreCompatible("EcoRI","UnknownEnzyme")` → `ArgumentException(enzyme2Name)`; `TryAreCompatible` reports `false` instead | throws / `false` | API contract (F31) |
+| M23 | AreCompatible_EcoRIAndMfeI_ShareTheFivePrimeAattEnd | The textbook compatible pair. MfeI (`CAATTG`, `C^AATT_G`) is not a built-in, so it is synthesised from its REBASE record as `(1, 5)` — Biopython `charac` `(1, -1, …)` equals EcoRI's. 5' overhang `AATT` for both; EcoRI↔MfeI and MfeI↔MfeI `true` both directions; MfeI↔BamHI `false` both directions | as stated | Source 7 (`MfeI.ovhgseq == "AATT"`, `EcoRI % MfeI`, `MfeI % EcoRI` `True`; `MfeI % BamHI`, `BamHI % MfeI` `False`) — B08 WP4/D5, F42 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -164,7 +165,7 @@ reverse-complement branch that plain `ovhgseq` equality cannot see (`BsmI` `"CN"
 | S4 | GetOverhangSequence_DistalCutter_IsNotDerivableFromThePattern | `BsaI`-shaped custom enzyme (`GGTCTC`, cuts 7/11) → `null`; `AreCompatible(it, it)` → `false` | as stated | Biopython `NotDefined` ("compatible with nobody") |
 | S5 | AreCompatible_NullEnzymeDefinition_Throws | `null` enzyme / `null` name → `ArgumentNullException` | throws | API contract |
 | S6 | FindCompatibleEnzymes_PerEnzyme_UnknownName_Throws, FindIsoschizomers_UnknownName_Throws | unknown name → `ArgumentException` | throws | API contract |
-| S7 | AreCompatible_UniqueOverhang_OnlyCompatibleWithItself | `FindCompatibleEnzymes("EcoRI")` → `{EcoRI}` | exact set | Source 7 |
+| S7 | AreCompatible_UniqueOverhang_OnlyCompatibleWithItself | `FindCompatibleEnzymes("EcoRI")` → `{EcoRI}` | exact set | Source 7. Built-ins only; the off-table partner MfeI is M23 |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -206,7 +207,7 @@ reverse-complement branch that plain `ovhgseq` equality cannot see (`BsmI` `"CN"
 
 | File | Role | Test Count |
 |------|------|------------|
-| RestrictionAnalyzer_Filter_Tests.cs | Canonical for RESTR-FILTER-001 | 32 test methods (12 original + 20 added in review-2026-09 for M8–M22, S3–S7) |
+| RestrictionAnalyzer_Filter_Tests.cs | Canonical for RESTR-FILTER-001 | 33 test methods (12 original + 20 added in review-2026-09 for M8–M22, S3–S7, + 1 for M23 by B08 WP4/D5) |
 | RestrictionAnalyzer_Digest_Tests.cs | Holds the pre-existing `AreCompatible`/`FindCompatibleEnzymes` cases from RESTR-DIGEST-001's spec; `AreCompatible_UnknownEnzyme_ReturnsFalse` was renamed to `…_Throws` for F31 | — |
 
 ### 5.5 Phase 7 Work Queue
