@@ -178,7 +178,9 @@ public static class CodonOptimizer
         /// Only replace rare codons. Misspelling of <see cref="AvoidRareCodons"/>, kept for
         /// backward compatibility: both members have the same underlying value, so they are
         /// interchangeable in every API and comparison. New code should use
-        /// <see cref="AvoidRareCodons"/>.
+        /// <see cref="AvoidRareCodons"/>. The member carries no <c>[Obsolete]</c> attribute by
+        /// policy: additive alias only — the misspelt member stays supported, no deprecation
+        /// (campaign backward-compatibility rule).
         /// </summary>
         AvoidRareCodeons,
 
@@ -536,9 +538,27 @@ public static class CodonOptimizer
     /// <c>AvoidPattern(EnzymeSitePattern(...))</c> and <c>EnforceTranslation()</c> in one problem
     /// and resolves the hard constraints last, so no later pass can re-introduce a site. Sites
     /// are cleared on both strands with IUPAC semantics; an occurrence that no single synonymous
-    /// substitution can remove is left in place. Because the site pass runs after the GC and
-    /// structure passes, it may perturb the GC fraction and the window structure slightly; the
-    /// reported CAI, GC fractions, <see cref="OptimizationResult.Changes"/> and
+    /// substitution can remove is left in place.
+    /// <para>
+    /// For <see cref="OptimizationStrategy.BalancedOptimization"/> and
+    /// <see cref="OptimizationStrategy.MinimizeSecondary"/> — the strategies that declare a GC
+    /// target — the site pass is <b>GC-constraint-aware</b>: it carries the same constraint the GC
+    /// pass enforced (<paramref name="gcTargetMin"/>/<paramref name="gcTargetMax"/>, and every
+    /// sliding window when <paramref name="gcWindow"/> is set, with
+    /// <see cref="EvaluateGcContent"/> semantics), because DNA Chisel resolves
+    /// <c>AvoidPattern</c> and <c>EnforceGCContent</c> as hard constraints of one problem. Among
+    /// the synonymous codons that remove an occurrence it prefers, lexicographically, (a) those
+    /// whose resulting sequence satisfies the GC constraint — or, when the input already breaches
+    /// it, those that do not increase the breach score — then (b) the higher usage frequency, then
+    /// (c) the left-most codon, then (d) NCBI codon order. If <i>no</i> site-removing candidate
+    /// satisfies the GC constraint, the least-breach candidate is applied and the site is still
+    /// removed: <c>AvoidPattern</c> stays the hard constraint and this method never throws (DNA
+    /// Chisel would raise <c>NoSolutionError</c> for such a problem instead). The structure pass of
+    /// <see cref="OptimizationStrategy.MinimizeSecondary"/> runs <i>before</i> the site pass and is
+    /// not re-run afterwards, so the site pass is GC-aware only and the one codon it changes per
+    /// occurrence can still alter the secondary-structure score slightly.
+    /// </para>
+    /// The reported CAI, GC fractions, <see cref="OptimizationResult.Changes"/> and
     /// <see cref="OptimizationResult.ChangedCodons"/> always describe the final sequence.
     /// </param>
     public static OptimizationResult OptimizeSequence(
@@ -604,11 +624,19 @@ public static class CodonOptimizer
         }
 
         // Restriction-site avoidance is a hard constraint (DNA Chisel AvoidPattern), so it runs
-        // last: no later pass can re-introduce a site. It may perturb the GC fraction and the
-        // window structure of the preceding passes by the one codon it changes per occurrence.
+        // last: no later pass can re-introduce a site. For the strategies that declare a GC
+        // target the pass is GC-aware — it carries the same constraint the GC pass enforced
+        // (DNA Chisel resolves AvoidPattern and EnforceGCContent as hard constraints of one
+        // problem), so the site removal keeps the GC bounds / windows satisfied whenever a
+        // site-removing synonymous codon can.
         if (avoidSites is { Count: > 0 })
         {
-            optimizedSequence = RemoveRestrictionSites(optimizedSequence, avoidSites, targetOrganism, geneticCode);
+            var gcConstraint = strategy is OptimizationStrategy.BalancedOptimization or OptimizationStrategy.MinimizeSecondary
+                ? new GcConstraint(gcTargetMin, gcTargetMax, gcWindow)
+                : null;
+
+            optimizedSequence = RemoveRestrictionSites(
+                optimizedSequence, avoidSites, targetOrganism, geneticCode, gcConstraint);
             optimizedCodons = SplitIntoCodons(optimizedSequence);
         }
 
@@ -1227,6 +1255,23 @@ public static class CodonOptimizer
         IEnumerable<string> restrictionSites,
         CodonUsageTable table,
         GeneticCode? geneticCode = null)
+        => RemoveRestrictionSites(codingSequence, restrictionSites, table, geneticCode, gcConstraint: null);
+
+    // A GC-content constraint the site-removal pass has to keep satisfied, with exactly the
+    // semantics of EvaluateGcContent (DNA Chisel EnforceGCContent(mini, maxi, window)):
+    // Window = null constrains the global GC fraction, a positive value every sliding window.
+    private sealed record GcConstraint(double Mini, double Maxi, int? Window);
+
+    // Site removal that additionally respects a GC-content constraint when one is given
+    // (CODON-OPT-001 / review 2026-09 F60): DNA Chisel treats AvoidPattern and EnforceGCContent
+    // as hard constraints of ONE problem, so the pass that clears the sites must not break the
+    // GC bounds the GC pass established.
+    private static string RemoveRestrictionSites(
+        string codingSequence,
+        IEnumerable<string> restrictionSites,
+        CodonUsageTable table,
+        GeneticCode? geneticCode,
+        GcConstraint? gcConstraint)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return "";
@@ -1267,7 +1312,7 @@ public static class CodonOptimizer
                 if (position < 0)
                     break;
 
-                if (TryRemoveOccurrence(codons, position, pattern, table, families))
+                if (TryRemoveOccurrence(codons, position, pattern, table, families, gcConstraint))
                     continue; // re-scan from the same offset: the edit may expose/shift matches
 
                 from = position + 1; // unremovable occurrence — keep it and look further along
@@ -1300,14 +1345,32 @@ public static class CodonOptimizer
 
     // Replaces the single synonymous codon that removes the occurrence at <paramref name="position"/>
     // with the smallest loss of codon usage; returns false when no synonymous substitution works.
+    // With a GC constraint the ranking is lexicographic: (a) candidates whose resulting sequence
+    // keeps the GC constraint satisfied — or, when the input already breaches it, candidates that
+    // do not increase the breach score; then (b) usage frequency; then (c) the left-most codon;
+    // then (d) NCBI codon order (the iteration order supplies (c) and (d)). When no candidate is
+    // acceptable, the least-breach candidate wins and the site is still removed: AvoidPattern
+    // stays the hard constraint (dnachisel would raise NoSolutionError instead).
     private static bool TryRemoveOccurrence(
-        List<string> codons, int position, string pattern, CodonUsageTable table, CodeFamilies families)
+        List<string> codons,
+        int position,
+        string pattern,
+        CodonUsageTable table,
+        CodeFamilies families,
+        GcConstraint? gcConstraint)
     {
         int firstCodon = position / 3;
         int lastCodon = Math.Min((position + pattern.Length - 1) / 3, codons.Count - 1);
 
+        // Breach of the sequence as it stands: when it is already > 0 the pass can only be asked
+        // not to make it worse.
+        double breachBefore = gcConstraint is null ? 0 : GcBreach(string.Concat(codons), gcConstraint);
+        double tolerated = Math.Max(0, breachBefore);
+
         int bestIndex = -1;
         string? bestCodon = null;
+        bool bestAcceptable = false;
+        double bestBreach = double.PositiveInfinity;
         double bestFrequency = double.NegativeInfinity;
 
         for (int i = firstCodon; i <= lastCodon; i++)
@@ -1321,14 +1384,30 @@ public static class CodonOptimizer
                 if (alternative == original)
                     continue;
 
-                string dna = ConcatCodons(codons, 0, codons.Count, i, alternative).Replace('U', 'T');
-                if (FindPattern(dna, pattern, position) == position)
+                string candidate = ConcatCodons(codons, 0, codons.Count, i, alternative);
+                if (FindPattern(candidate.Replace('U', 'T'), pattern, position) == position)
                     continue;
 
                 double frequency = table.CodonFrequencies.GetValueOrDefault(alternative, 0);
-                if (frequency > bestFrequency)
+                double breach = gcConstraint is null ? 0 : GcBreach(candidate, gcConstraint);
+                bool acceptable = breach <= tolerated + 1e-12;
+
+                // Lexicographic: acceptable first; among the unacceptable ones the least breach;
+                // then the higher frequency. Strict improvement keeps the left-most codon and
+                // NCBI codon order as the final tie-breakers.
+                bool better = bestCodon is null ||
+                    (acceptable && !bestAcceptable) ||
+                    (acceptable == bestAcceptable &&
+                        (acceptable
+                            ? frequency > bestFrequency
+                            : breach < bestBreach - 1e-12 ||
+                                (Math.Abs(breach - bestBreach) <= 1e-12 && frequency > bestFrequency)));
+
+                if (better)
                 {
                     bestFrequency = frequency;
+                    bestBreach = breach;
+                    bestAcceptable = acceptable;
                     bestIndex = i;
                     bestCodon = alternative;
                 }
@@ -1340,6 +1419,14 @@ public static class CodonOptimizer
 
         codons[bestIndex] = bestCodon;
         return true;
+    }
+
+    // Total out-of-bound GC deviation of <paramref name="sequence"/> under <paramref name="constraint"/>
+    // (0 when satisfied) — the negated EvaluateGcContent score, i.e. dnachisel's breach extent.
+    private static double GcBreach(string sequence, GcConstraint constraint)
+    {
+        var evaluation = EvaluateGcContent(sequence, constraint.Mini, constraint.Maxi, constraint.Window);
+        return -evaluation.Score;
     }
 
     /// <summary>

@@ -297,4 +297,193 @@ public class CodonOptimizer_AvoidSites_Tests
     }
 
     #endregion
+
+    #region GC-constraint-aware site removal (A3-6 / F60)
+
+    // Three constructed genes whose BalancedOptimization output carries exactly one of the three
+    // sites, and whose *best-frequency* site-removing synonym flips the GC fraction of a 24-nt
+    // window across the 0.60 bound — the chaining defect: the GC pass satisfied
+    // EnforceGCContent(0.40, 0.60, window=24), the old site pass broke it again.
+    // dnachisel 3.2.16 numbers (docs/Evidence/CODON-OPT-001-Evidence.md, review 2026-09 F60):
+    // for each gene the GC-aware output is byte-identical to the sequence dnachisel's own
+    // resolve_constraints() + optimize() returns from the same GC-balanced start, and all of
+    // AvoidPattern x3 / EnforceGCContent(0.40, 0.60, window=24) / EnforceTranslation pass.
+    private const double GcMin = 0.40;
+    private const double GcMax = 0.60;
+    private const int GcWindow = 24;
+
+    private static readonly (string Gene, string Balanced, string OldChain, double OldBreach, string Expected, string Protein)[] GcCases =
+    {
+        ("ATGATTAGACTTTGCACGCCAGCCTATGGACGAAGACGCTAA",
+         "AUGAUUCGCCUGUGCACUCCAGCAUAUGGUCGUCGUCGCUAA",
+         "AUGAUUCGCCUGUGCACUCCAGCAUACGGUCGUCGUCGCUAA", 0.225,
+         "AUGAUUCGCCUGUGCACUCCAGCUUAUGGUCGUCGUCGCUAA", "MIRLCTPAYGRRR*"),
+        ("ATGCGTATGGCCCTCCGTTCGGCTGTGGGCTGGCTAGTGTAA",
+         "AUGCGUAUGGCACUGCGUUCUGCAGUUGGUUGGCUGGUGUAA",
+         "AUGCGUAUGGCACUGCGUUCUGCGGUUGGUUGGCUGGUGUAA", 0.225,
+         "AUGCGUAUGGCACUGCGUUCUGCUGUUGGUUGGCUGGUGUAA", "MRMALRSAVGWLV*"),
+        ("ATGGGTTCCGAAACGTCTGCTTACGGTGCAGCGTTGTGGTAA",
+         "AUGGGCAGCGAAACCUCUGCAUAUGGUGCAGCGCUGUGGUAA",
+         "AUGGGCAGCGAAACCUCUGCAUACGGUGCAGCGCUGUGGUAA", 0.150,
+         "AUGGGCAGCGAAACCUCUGCUUAUGGUGCAGCGCUGUGGUAA", "MGSETSAYGAALW*"),
+    };
+
+    [Test]
+    [Description("A3-6: the old chain (GC pass, then GC-blind site removal) breaks EnforceGCContent — the defect")]
+    public void RemoveRestrictionSites_WithoutGcConstraint_CanBreakTheGcWindows()
+    {
+        foreach (var (gene, balanced, oldChain, oldBreach, _, _) in GcCases)
+        {
+            var gcOnly = CodonOptimizer.OptimizeSequence(
+                gene, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.BalancedOptimization,
+                GcMin, GcMax, gcWindow: GcWindow);
+
+            // The public 4-argument RemoveRestrictionSites overload is unchanged: it stays GC-blind.
+            string chained = CodonOptimizer.RemoveRestrictionSites(
+                gcOnly.OptimizedSequence, Sites, CodonOptimizer.EColiK12);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(gcOnly.OptimizedSequence, Is.EqualTo(balanced), "GC-balanced start");
+                Assert.That(
+                    CodonOptimizer.EvaluateGcContent(balanced, GcMin, GcMax, GcWindow).Score,
+                    Is.EqualTo(0).Within(1e-12), "the GC pass satisfied the constraint");
+                Assert.That(chained, Is.EqualTo(oldChain), "GC-blind site removal (historical behaviour)");
+                Assert.That(
+                    -CodonOptimizer.EvaluateGcContent(chained, GcMin, GcMax, GcWindow).Score,
+                    Is.EqualTo(oldBreach).Within(1e-6),
+                    "dnachisel EnforceGCContent(0.40, 0.60, window=24) breach of the old chain");
+            });
+        }
+    }
+
+    [Test]
+    [Description("A3-6: the avoidSites pass keeps the GC windows satisfied — dnachisel's own solution")]
+    public void OptimizeSequence_AvoidSites_KeepsTheWindowedGcConstraint()
+    {
+        foreach (var (gene, _, _, _, expected, protein) in GcCases)
+        {
+            var result = CodonOptimizer.OptimizeSequence(
+                gene, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.BalancedOptimization,
+                GcMin, GcMax, gcWindow: GcWindow, avoidSites: Sites);
+
+            string dna = result.OptimizedSequence.Replace('U', 'T');
+            string reverseComplement = DnaSequence.GetReverseComplementString(dna);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.OptimizedSequence, Is.EqualTo(expected), "dnachisel-identical output");
+                Assert.That(
+                    CodonOptimizer.EvaluateGcContent(result.OptimizedSequence, GcMin, GcMax, GcWindow).Score,
+                    Is.EqualTo(0).Within(1e-12), "every 24-nt window inside [0.40, 0.60]");
+                foreach (string site in Sites)
+                {
+                    Assert.That(dna, Does.Not.Contain(site), $"forward strand keeps {site}");
+                    Assert.That(reverseComplement, Does.Not.Contain(site), $"reverse strand keeps {site}");
+                }
+
+                Assert.That(result.ProteinSequence, Is.EqualTo(protein), "protein");
+                Assert.That(
+                    Translator.Translate(result.OptimizedSequence).ToString(), Is.EqualTo(protein),
+                    "re-translated output");
+            });
+        }
+    }
+
+    [Test]
+    [Description("A3-6: the global gcTargetMin/Max bounds are kept too (window = null)")]
+    public void OptimizeSequence_AvoidSites_KeepsTheGlobalGcBounds()
+    {
+        // dnachisel: EnforceGCContent(mini=0.40, maxi=0.60) scores −0.019048 on the old chain
+        // (GC 0.619048) and 0 on the GC-aware output, which is byte-identical to dnachisel's own
+        // resolve_constraints() + optimize() result.
+        const string gene = "ATGGTAACTGCGGTACCCATGAGGGGGATGGGCAGACGCTAA";
+        const string balanced = "AUGGUUACUGCAGUUCCAAUGCGCGGCAUGGGCCGCCGCUAA";
+        const string oldChain = "AUGGUUACCGCAGUUCCAAUGCGCGGCAUGGGCCGCCGCUAA";
+        const string expected = "AUGGUUACUGCUGUUCCAAUGCGCGGCAUGGGCCGCCGCUAA";
+
+        var gcOnly = CodonOptimizer.OptimizeSequence(
+            gene, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.BalancedOptimization,
+            GcMin, GcMax);
+        string chained = CodonOptimizer.RemoveRestrictionSites(
+            gcOnly.OptimizedSequence, Sites, CodonOptimizer.EColiK12);
+        var result = CodonOptimizer.OptimizeSequence(
+            gene, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.BalancedOptimization,
+            GcMin, GcMax, avoidSites: Sites);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(gcOnly.OptimizedSequence, Is.EqualTo(balanced));
+            Assert.That(chained, Is.EqualTo(oldChain), "GC-blind chain");
+            Assert.That(
+                -CodonOptimizer.EvaluateGcContent(chained, GcMin, GcMax).Score,
+                Is.EqualTo(0.019048).Within(1e-6), "dnachisel breach of the old chain");
+            Assert.That(result.OptimizedSequence, Is.EqualTo(expected));
+            Assert.That(result.GcContentOptimized, Is.InRange(GcMin, GcMax));
+            Assert.That(
+                CodonOptimizer.EvaluateGcContent(result.OptimizedSequence, GcMin, GcMax).Score,
+                Is.EqualTo(0).Within(1e-12));
+            Assert.That(result.OptimizedSequence.Replace('U', 'T'), Does.Not.Contain("CTGCAG"));
+            Assert.That(Translator.Translate(result.OptimizedSequence).ToString(), Is.EqualTo("MVTAVPMRGMGRR*"));
+        });
+    }
+
+    [Test]
+    [Description("A3-6: unreachable GC bounds — the site is still removed with the least-breach candidate")]
+    public void OptimizeSequence_AvoidSites_UnreachableGcBounds_RemovesTheSiteWithLeastBreach()
+    {
+        // Bounds [0.30, 0.45] over 24-nt windows are unreachable for this protein: dnachisel's
+        // resolve_constraints() raises NoSolutionError for the same problem. Our documented
+        // deterministic fallback removes the site anyway (AvoidPattern stays the hard constraint)
+        // with the candidate that does not increase the pre-existing breach: dnachisel scores the
+        // GC-balanced start −0.483333, the GC-blind chain −1.066667 and our output −0.483333.
+        const string gene = "ATGGGTTCCGAAACGTCTGCTTACGGTGCAGCGTTGTGGTAA";
+        const double tightMin = 0.30;
+        const double tightMax = 0.45;
+
+        var gcOnly = CodonOptimizer.OptimizeSequence(
+            gene, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.BalancedOptimization,
+            tightMin, tightMax, gcWindow: GcWindow);
+        string chained = CodonOptimizer.RemoveRestrictionSites(
+            gcOnly.OptimizedSequence, Sites, CodonOptimizer.EColiK12);
+        var result = CodonOptimizer.OptimizeSequence(
+            gene, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.BalancedOptimization,
+            tightMin, tightMax, gcWindow: GcWindow, avoidSites: Sites);
+
+        double Breach(string sequence) =>
+            -CodonOptimizer.EvaluateGcContent(sequence, tightMin, tightMax, GcWindow).Score;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.OptimizedSequence, Is.EqualTo("AUGGGUUCUGAAACUUCUGCUUAUGGUGCAGCACUGUGGUAA"));
+            Assert.That(Breach(gcOnly.OptimizedSequence), Is.EqualTo(0.483333).Within(1e-6), "start already breaches");
+            Assert.That(Breach(chained), Is.EqualTo(1.066667).Within(1e-6), "GC-blind chain makes it worse");
+            Assert.That(Breach(result.OptimizedSequence), Is.EqualTo(0.483333).Within(1e-6), "GC-aware pass does not");
+            Assert.That(Breach(result.OptimizedSequence), Is.LessThan(Breach(chained)));
+            // The site is gone either way: AvoidPattern is the hard constraint, nothing throws.
+            Assert.That(result.OptimizedSequence.Replace('U', 'T'), Does.Not.Contain("CATATG"));
+            Assert.That(Translator.Translate(result.OptimizedSequence).ToString(), Is.EqualTo("MGSETSAYGAALW*"));
+        });
+    }
+
+    [Test]
+    [Description("A3-6: strategies without a GC target keep the historical GC-blind site pass")]
+    public void OptimizeSequence_AvoidSites_StrategiesWithoutGcTarget_AreUnchanged()
+    {
+        // MaximizeCAI / HarmonizeExpression declare no GC target, so no GC constraint is threaded
+        // and the F54 locked outputs stay byte-identical.
+        foreach (var (gene, expected) in new[]
+                 {
+                     (GeneA, "AUGAAACUGCAAGCGCUGCACAUGACGAUGGCGGAAUUUUAA"),
+                     (GeneC, "AUGCUGCAACACAUGACGAUGGCGAAAUAA"),
+                 })
+        {
+            var result = CodonOptimizer.OptimizeSequence(
+                gene, CodonOptimizer.EColiK12, CodonOptimizer.OptimizationStrategy.MaximizeCAI,
+                gcTargetMin: 0.49, gcTargetMax: 0.51, gcWindow: 24, avoidSites: Sites);
+            Assert.That(result.OptimizedSequence, Is.EqualTo(expected), gene);
+        }
+    }
+
+    #endregion
 }

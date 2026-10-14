@@ -354,17 +354,16 @@ Property (F22) re-checked through the new path: every occurrence removable by on
 is gone on **both strands**, for `MaximizeCAI`, `BalancedOptimization`, `MinimizeSecondary` and
 `HarmonizeExpression`, and the pass is idempotent (re-running `OptimizeSequence(..., avoidSites)` on
 its own output changes nothing). GC note: on these genes the replacements are GC-neutral
-(0.452381 / 0.526667 / 0.433333 before and after), but in general the site pass runs after the GC
-pass and may perturb GC by the one codon it changes per occurrence — documented in the algorithm doc
-and the XML docs.
+(0.452381 / 0.526667 / 0.433333 before and after). On other genes the one codon changed per
+occurrence can move GC across a bound the GC pass had satisfied; since F60 the pass carries the GC
+constraint and prefers GC-feasible candidates (see below).
 
 ## F55 — `AvoidRareCodons` spelling (review 2026-09, audit A2-14)
 
 `OptimizationStrategy.AvoidRareCodeons` was misspelled. A correctly spelled member
 `AvoidRareCodons = AvoidRareCodeons` (same underlying value 4) was added; the old name stays, kept
-**un-attributed** because `Directory.Build.props` sets `TreatWarningsAsErrors=true`, so an
-`[Obsolete]` attribute would break the build at the existing call sites (verified: the property is
-set at line 20 and is unconditional for Debug). `ToString()` still returns `AvoidRareCodeons`
+**un-attributed** by **policy: additive alias only — the misspelt member stays supported, no
+deprecation (campaign backward-compatibility rule)**. `ToString()` still returns `AvoidRareCodeons`
 (the field declared first), so no serialized value changes meaning. MCP parsing accepts both
 spellings case-insensitively — `System.Text.Json`'s `JsonStringEnumConverter` (the converter the
 MCP SDK uses for enum parameters) resolves `"AvoidRareCodons"`, `"avoidrarecodons"`,
@@ -374,5 +373,56 @@ the two consumers that iterate it (`Properties/CodonProperties`,
 `Metamorphic/CodonMetamorphicTests`) run the rare-codon strategy twice and are unaffected — no
 counting or indexing of strategies anywhere in the tests.
 
+## F60 — GC-constraint-aware `avoidSites` pass (review 2026-09, audit A3-6)
+
+**Defect.** `OptimizeSequence(..., avoidSites)` runs the site-removal pass *after* the GC pass, and
+the pass ranked site-removing synonymous candidates by codon-usage frequency alone
+(`if (frequency > bestFrequency)`), so the best-frequency candidate could move the GC fraction of a
+window (or the global GC fraction) back outside the `gcTargetMin`/`gcTargetMax` bounds that the GC
+pass had just satisfied. DNA Chisel 3.2.16 composes `AvoidPattern` **and** `EnforceGCContent` as
+hard constraints of ONE `DnaOptimizationProblem` and resolves both, so breaking the GC constraint to
+clear a site is not reference behaviour.
+
+**Reference runs (dnachisel 3.2.16).** Four constructed E. coli genes. For each, "balanced" is our
+`BalancedOptimization` output *without* `avoidSites` (GC constraint satisfied, one site present),
+"old" the historical GC-blind chain (`RemoveRestrictionSites` on that sequence), "new" the
+GC-constraint-aware output. Problem:
+`DnaOptimizationProblem(sequence=<seq>, constraints=[AvoidPattern("CTGCAG"), AvoidPattern("CATATG"),
+AvoidPattern("CCATGG"), EnforceGCContent(mini, maxi, window=w), EnforceTranslation()])`.
+
+| Gene (protein) | bounds / window | old chain | new (ours) |
+|---|---|---|---|
+| `ATGATTAGACTTTGCACGCCAGCCTATGGACGAAGACGCTAA` (`MIRLCTPAYGRRR*`) | 0.40–0.60, w=24 | `AvoidPattern` ×3 pass, `EnforceGCContent` **−0.225 FAIL** ("Out of bound on segments 5-40") | all constraints **pass** |
+| `ATGCGTATGGCCCTCCGTTCGGCTGTGGGCTGGCTAGTGTAA` (`MRMALRSAVGWLV*`) | 0.40–0.60, w=24 | `EnforceGCContent` **−0.225 FAIL** (segments 1-39) | all **pass** |
+| `ATGGGTTCCGAAACGTCTGCTTACGGTGCAGCGTTGTGGTAA` (`MGSETSAYGAALW*`) | 0.40–0.60, w=24 | `EnforceGCContent` **−0.150 FAIL** (segments 2-40) | all **pass** |
+| `ATGGTAACTGCGGTACCCATGAGGGGGATGGGCAGACGCTAA` (`MVTAVPMRGMGRR*`) | 0.40–0.60, global | `EnforceGCContent` **−0.019048 FAIL** (GC 0.619048) | all **pass** |
+
+For all four genes our GC-aware output is **byte-identical** to the sequence dnachisel's own
+`resolve_constraints() + optimize()` (objective `CodonOptimize(species='e_coli',
+method='use_best_codon')`) returns from the same GC-balanced start:
+`ATGATTCGCCTGTGCACTCCAGCTTATGGTCGTCGTCGCTAA` (objective −3.14),
+`ATGCGTATGGCACTGCGTTCTGCTGTTGGTTGGCTGGTGTAA` (−2.62),
+`ATGGGCAGCGAAACCTCTGCTTATGGTGCAGCGCTGTGGTAA` (−2.16),
+`ATGGTTACTGCTGTTCCAATGCGCGGCATGGGCCGCCGCTAA`. Proteins unchanged in every case. Our
+`EvaluateGcContent` breach numbers equal dnachisel's `EnforceGCContent` scores exactly
+(0.225 / 0.225 / 0.150 / 0.019048, and 0.483333 / 1.066667 below).
+
+**Fallback (decided, documented).** With unreachable bounds — gene 3 under
+`EnforceGCContent(0.30, 0.45, window=24)` — dnachisel's `resolve_constraints()` raises
+`NoSolutionError`. Our pass never throws: `AvoidPattern` stays the hard constraint, the site is
+removed, and the least-breach candidate is chosen, i.e. the pre-existing breach is not increased
+(dnachisel scores: GC-balanced start −0.483333, GC-blind chain −1.066667, ours −0.483333).
+
+**Fix.** An internal constraint descriptor (`GcConstraint(mini, maxi, window)`, the
+`EvaluateGcContent` semantics) is threaded `OptimizeSequence` → internal `RemoveRestrictionSites`
+overload → `TryRemoveOccurrence`, for the strategies that declare a GC target
+(`BalancedOptimization`, `MinimizeSecondary`) only. Candidate ranking is lexicographic:
+(a) GC-constraint-satisfying candidates — or, when the input already breaches, candidates that do
+not increase the breach score — then (b) codon frequency, then (c) the left-most codon, then
+(d) NCBI codon order. The public `RemoveRestrictionSites` overloads are unchanged (GC-blind), and
+`MaximizeCAI`/`AvoidRareCodons`/`HarmonizeExpression` thread no constraint, so the F54 locked
+outputs are byte-identical. The structure pass (`MinimizeSecondary`) runs *before* the site pass and
+is not re-run: the site pass is GC-aware only, documented as such.
+
 ## Date
-2026-03-10 (reviewed 2026-09-28; F43 windowed GC, F54 avoidSites, F55 AvoidRareCodons 2026-10-14)
+2026-03-10 (reviewed 2026-09-28; F43 windowed GC, F54 avoidSites, F55 AvoidRareCodons, F60 GC-aware avoidSites 2026-10-14)
