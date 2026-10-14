@@ -27,13 +27,22 @@ public class CodonOptimizer_RareCodonClusters_Tests
     // Window of 3 AGA codons (Xij=0.04 < Xavg=0.16667): %Min =
     //   (Xavg-Xij)/(Xavg-Xmin) * 100 = (0.16667-0.04)/(0.16667-0.02)*100 = 86.363636..%,
     // returned negative (rare side).
+    // SRC RO1 (2026-10-14): EColiK12 now carries the Kazusa 316407 per-thousand column, which the
+    // default overload uses (F39); this hand derivation is on the fractions, so it passes
+    // MinMaxUsageBasis.CodonFrequencies explicitly (value unchanged). Default (per-thousand) value:
+    // CHARMING calculateMinMax on the Kazusa 316407 /1000 column + independent Python port.
+    //   Per thousand: Arg CGU 21.0 CGC 22.3 CGA 3.5 CGG 5.4 AGA 2.0 AGG 1.1 -> avg 55.3/6,
+    //   %Min = (9.21667-2.0)/(9.21667-1.1)*100 = 88.9117.. (CHARMING -88.91).
     [Test]
     public void CalculateMinMaxProfile_AllRareArginineWindow_ReturnsExactNegativeMin()
     {
         // 3 codons, window 3 -> exactly one window.
         string sequence = "AGAAGAAGA";
 
-        var profile = CodonOptimizer.CalculateMinMaxProfile(sequence, CodonOptimizer.EColiK12, windowSize: 3);
+        var profile = CodonOptimizer.CalculateMinMaxProfile(sequence, CodonOptimizer.EColiK12, 3,
+            CodonOptimizer.MinMaxUsageBasis.CodonFrequencies);
+        Assert.That(CodonOptimizer.CalculateMinMaxProfile(sequence, CodonOptimizer.EColiK12, windowSize: 3)[0].PercentMinMax,
+            Is.EqualTo(-88.91170431211498).Within(1e-9), "default basis = Kazusa 316407 per thousand");
 
         Assert.Multiple(() =>
         {
@@ -65,12 +74,20 @@ public class CodonOptimizer_RareCodonClusters_Tests
     // Leu family sum=1.00, avg=0.16667, max=0.50. Arg avg=0.16667, max=0.40.
     // sumXij=0.54 > sumXavg=0.33333 -> %Max = (0.54-0.33333)/((0.50-0.16667)+(0.40-0.16667))*100
     //   = 0.206667/0.566667*100 = 36.470588235..%.
+    // SRC RO1 (2026-10-14): EColiK12 now carries the Kazusa 316407 per-thousand column, which the
+    // default overload uses (F39); this hand derivation is on the fractions, so it passes
+    // MinMaxUsageBasis.CodonFrequencies explicitly (value unchanged). Default (per-thousand) value:
+    // CHARMING calculateMinMax on the Kazusa 316407 /1000 column + independent Python port.
+    //   Per thousand: CHARMING 58.1 (port 58.10113519091846).
     [Test]
     public void CalculateMinMaxProfile_MixedCommonRareWindow_ReturnsExactMax()
     {
         string sequence = "CUGAGA"; // Leu(CUG) + Arg(AGA)
 
-        var profile = CodonOptimizer.CalculateMinMaxProfile(sequence, CodonOptimizer.EColiK12, windowSize: 2);
+        var profile = CodonOptimizer.CalculateMinMaxProfile(sequence, CodonOptimizer.EColiK12, 2,
+            CodonOptimizer.MinMaxUsageBasis.CodonFrequencies);
+        Assert.That(CodonOptimizer.CalculateMinMaxProfile(sequence, CodonOptimizer.EColiK12, windowSize: 2)[0].PercentMinMax,
+            Is.EqualTo(58.10113519091846).Within(1e-9), "default basis = Kazusa 316407 per thousand");
 
         Assert.Multiple(() =>
         {
@@ -81,13 +98,22 @@ public class CodonOptimizer_RareCodonClusters_Tests
     }
 
     // MM4 — Window slides one codon at a time: codonCount - windowSize + 1 windows, in order.
+    // SRC RO1 (2026-10-14): EColiK12 now carries the Kazusa 316407 per-thousand column, which the
+    // default overload uses (F39); this hand derivation is on the fractions, so it passes
+    // MinMaxUsageBasis.CodonFrequencies explicitly (value unchanged). Default (per-thousand) value:
+    // CHARMING calculateMinMax on the Kazusa 316407 /1000 column + independent Python port.
+    //   Per thousand: CHARMING 48.28, -5.54, -88.91.
     [Test]
     public void CalculateMinMaxProfile_SlidingWindow_ProducesOneWindowPerStart()
     {
         // 5 codons, window 3 -> 3 windows at starts 0,1,2.
         string sequence = "CGCCGCAGAAGAAGA";
 
-        var profile = CodonOptimizer.CalculateMinMaxProfile(sequence, CodonOptimizer.EColiK12, windowSize: 3);
+        var profile = CodonOptimizer.CalculateMinMaxProfile(sequence, CodonOptimizer.EColiK12, 3,
+            CodonOptimizer.MinMaxUsageBasis.CodonFrequencies);
+        Assert.That(CodonOptimizer.CalculateMinMaxProfile(sequence, CodonOptimizer.EColiK12, windowSize: 3).Select(w => w.PercentMinMax),
+            Is.EqualTo(new[] { 48.280254777070056, -5.544147843942496, -88.91170431211498 }).Within(1e-9),
+            "default basis = Kazusa 316407 per thousand");
 
         Assert.Multiple(() =>
         {

@@ -329,6 +329,8 @@ averaging / alignment / per-thousand scale differences are recorded as a kept si
   (`kuma_core/kuro/resources/codon_tables/ecoli.json`, fractions only) carry fractions only.
   EMBOSS 6.6 `Eecoli.cut` (CUTG146, 5045 CDS) differs from the 316407 fractions at 9 codons,
   CHARMING `EcolCUB.txt` at 43 — different entries, not used. `EColiK12.PerThousand` = null.
+  **Resolved post-completion 2026-10-14 (SRC RO1):** kazusa.or.jp became reachable; the 316407
+  /1000 column is now on `EColiK12.PerThousand` — see "SRC RO1 (2026-10-14)" below.
 - Independent check: Python port of the formula and CHARMING's own `calculateMinMax` (isolated)
   over the same tables — yeast `CUGAGA` w2 33.99209486166008 (CHARMING 33.99); 20-codon gene w18
   12.68791340950089 / 17.028571428571425 / 15.991062879029688 (12.69/17.03/15.99); human gene w18
@@ -402,3 +404,118 @@ Sources opened: dnachisel 3.2.16 `biotools/biotables.get_backtranslation_table` 
   synonymous family is involved — pause marking compares a per-codon (or per-column average) usage
   value with the threshold — so these methods are genetic-code independent and no parameter was
   added. Documented in the XML docs and `Rare_Codon_Detection.md`.
+
+---
+
+# SRC RO1 (2026-10-14) — Kazusa 316407 per-thousand column on `EColiK12`
+
+## Source (opened)
+
+- URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407 (fetched 2026-10-14;
+  the `aa=1&style=N` layout and the compact default layout were both saved and agree at all 64 codons).
+- Header: "Escherichia coli W3110 [gbbct]: 4332 CDS's (1372057 codons)"; fields
+  [triplet] [amino acid] [fraction] [frequency: per thousand] ([number]).
+- Checks: Σ number = 1 372 057; Σ /1000 = 1000.0; every /1000 value = round(1000 × number /
+  1 372 057, 1) (64/64); the fraction column equals the `EColiK12.CodonFrequencies` preset at 64/64
+  codons (same entry as the 2026-06 python-codon-tables `e_coli_316407` fractions); per-amino-acid
+  ratios of the one-decimal /1000 values are within 0.0055 of the fractions (max 0.00548 UAG,
+  0.00538 AAA/AAG — the 0.1 rounding); ratios of the raw numbers within 0.0049.
+- Stored verbatim (one decimal, as published) in `CodonOptimizer.EColiKazusaPerThousand()` →
+  `EColiK12.PerThousand`.
+
+| Codon | AA | Fraction | /1000 | Number |
+|---|---|---|---|---|
+| UUU | F | 0.57 | 22.2 | 30462 |
+| UUC | F | 0.43 | 16.5 | 22705 |
+| UUA | L | 0.13 | 13.8 | 18894 |
+| UUG | L | 0.13 | 13.6 | 18664 |
+| UCU | S | 0.15 | 8.4 | 11512 |
+| UCC | S | 0.15 | 8.6 | 11802 |
+| UCA | S | 0.12 | 7.0 | 9620 |
+| UCG | S | 0.15 | 8.9 | 12210 |
+| UAU | Y | 0.57 | 16.1 | 22037 |
+| UAC | Y | 0.43 | 12.2 | 16795 |
+| UAA | * | 0.64 | 2.0 | 2765 |
+| UAG | * | 0.07 | 0.2 | 321 |
+| UGU | C | 0.44 | 5.1 | 7016 |
+| UGC | C | 0.56 | 6.4 | 8797 |
+| UGA | * | 0.29 | 0.9 | 1249 |
+| UGG | W | 1.00 | 15.2 | 20889 |
+| CUU | L | 0.10 | 11.0 | 15082 |
+| CUC | L | 0.10 | 11.1 | 15272 |
+| CUA | L | 0.04 | 3.8 | 5266 |
+| CUG | L | 0.50 | 53.1 | 72898 |
+| CCU | P | 0.16 | 7.0 | 9540 |
+| CCC | P | 0.12 | 5.5 | 7490 |
+| CCA | P | 0.19 | 8.4 | 11569 |
+| CCG | P | 0.53 | 23.4 | 32080 |
+| CAU | H | 0.57 | 13.0 | 17791 |
+| CAC | H | 0.43 | 9.8 | 13399 |
+| CAA | Q | 0.35 | 15.4 | 21121 |
+| CAG | Q | 0.65 | 29.0 | 39835 |
+| CGU | R | 0.38 | 21.0 | 28866 |
+| CGC | R | 0.40 | 22.3 | 30530 |
+| CGA | R | 0.06 | 3.5 | 4810 |
+| CGG | R | 0.10 | 5.4 | 7401 |
+| AUU | I | 0.51 | 30.4 | 41644 |
+| AUC | I | 0.42 | 25.2 | 34568 |
+| AUA | I | 0.07 | 4.2 | 5733 |
+| AUG | M | 1.00 | 27.8 | 38167 |
+| ACU | T | 0.16 | 8.8 | 12119 |
+| ACC | T | 0.44 | 23.5 | 32265 |
+| ACA | T | 0.13 | 6.9 | 9452 |
+| ACG | T | 0.27 | 14.4 | 19820 |
+| AAU | N | 0.45 | 17.6 | 24106 |
+| AAC | N | 0.55 | 21.6 | 29581 |
+| AAA | K | 0.76 | 33.6 | 46116 |
+| AAG | K | 0.24 | 10.3 | 14174 |
+| AGU | S | 0.15 | 8.7 | 11924 |
+| AGC | S | 0.28 | 16.1 | 22067 |
+| AGA | R | 0.04 | 2.0 | 2771 |
+| AGG | R | 0.02 | 1.1 | 1496 |
+| GUU | V | 0.26 | 18.2 | 24991 |
+| GUC | V | 0.22 | 15.3 | 21050 |
+| GUA | V | 0.15 | 10.9 | 14901 |
+| GUG | V | 0.37 | 26.3 | 36108 |
+| GCU | A | 0.16 | 15.2 | 20813 |
+| GCC | A | 0.27 | 25.7 | 35252 |
+| GCA | A | 0.21 | 20.1 | 27567 |
+| GCG | A | 0.36 | 33.9 | 46524 |
+| GAU | D | 0.63 | 32.2 | 44217 |
+| GAC | D | 0.37 | 19.1 | 26270 |
+| GAA | E | 0.69 | 39.7 | 54431 |
+| GAG | E | 0.31 | 18.0 | 24629 |
+| GGU | G | 0.34 | 24.7 | 33875 |
+| GGC | G | 0.41 | 29.8 | 40849 |
+| GGA | G | 0.11 | 7.9 | 10774 |
+| GGG | G | 0.15 | 11.0 | 15115 |
+
+## Oracle (%MinMax, Clark-lab CHARMING `calculateMinMax`)
+
+`calculateMinMax` and `generateAAFreqDict` from CHARMING.py (github.com/wrightgs/CHARMING, commit
+2c75d1b; SHA-256 of the file 27e17062…ed37a78) extracted with `ast` and run isolated on the
+Kazusa 316407 table (families = Standard code incl. the stop family), plus an independent Python
+port of the Clarke & Clark (2008) formula (unrounded values). CHARMING prints 2 dp; the port equals
+it at every window.
+
+| Input | Window | Per thousand (default): CHARMING / port | Fractions (`CodonFrequencies`): CHARMING / port |
+|---|---|---|---|
+| `CUGAGA` | 2 | 58.1 / 58.10113519091846 | 36.47 / 36.47058823529413 (C# 36.470588235294116, unchanged) |
+| 20-codon gene `AUGCUGAGAAAAGAAGCUCUGAGGUUUCCCGGAAUAUCUCGAUGGAAGACCCUAGUUCAG` | 18 | 7.42, 7.37, −6.57 / 7.417300184918832, 7.371763071733311, −6.565186442534101 | −1.36, −0.9, −8.18 / −1.358411703239252, −0.9027081243731403, −8.181517058628705 |
+| `UUACGU` | 2 | 16.2 / 16.202270381836932 | 31.18 / 31.1764705882353 |
+| `AGAAGAAGA` | 3 | −88.91 / −88.91170431211498 | −86.36 / −86.36363636363636 |
+| `CGCCGCAGAAGAAGA` | 3 | 48.28, −5.54, −88.91 / 48.280254777070056, −5.544147843942496, −88.91170431211498 | 48.57, −4.55, −86.36 |
+
+Hand check `AGAAGAAGA` w3: Arg /1000 = 21.0, 22.3, 3.5, 5.4, 2.0, 1.1 → mean 9.21667, min 1.1;
+%Min = (9.21667 − 2.0)/(9.21667 − 1.1) × 100 = 88.9117.
+
+## Consequences (F39 design kept)
+
+- `CalculateMinMaxProfile(string, table, int)` (default `PerThousandWhenAvailable`) now gives the
+  reference value on `EColiK12`; `MinMaxUsageBasis.CodonFrequencies` keeps the fraction values.
+- Sherlocc (`FindConservedRareCodonClusters`, default `UseCodonFrequencies = false`) now accepts
+  `EColiK12`. Hand check: AGA×10 / AGG×10, threshold 15 → representative columns 2–7 average
+  (2.0 + 1.1)/2 = 1.55, pauses 2–7, one cluster 2–7 (6 pauses, mean 1.55). The rejection of a table
+  without per-thousand usage is unchanged (tested with `EColiK12 with { PerThousand = null }`).
+- Fractions (`CodonFrequencies`) and every other API (CAI, optimisation, `FindRareCodons`,
+  `FindRareCodonClusters`) unchanged.

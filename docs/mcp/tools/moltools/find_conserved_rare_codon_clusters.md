@@ -16,7 +16,7 @@ Find rare-codon clusters conserved across a codon alignment of homologous genes 
 
 Sherlocc 1.0 stage-3 analysis (Chartier, Gaudreault & Najmanovich 2012, Bioinformatics 28:1438, doi:10.1093/bioinformatics/bts149; `sherlocc.pl`, github.com/mtthchrtr/sherlocc commit b3b4d15) of a protein-family **codon alignment**. Delegates to `CodonOptimizer.FindConservedRareCodonClusters` (single-table or per-sequence-table overload).
 
-1. Every cell (sequence × codon column) gets its codon's usage from the organism table (stage 2, l. 494–522). By default this is the **per-thousand** usage (Sherlocc's CUTG `/1000` column, `files/cut`): the `Yeast` and `Human` presets carry it (Kazusa 4932 / 9606); an inline table's `codonFrequencies` values are taken **as** per-thousand usage; the `EColiK12` preset has per-amino-acid fractions only and is rejected unless `use_codon_frequencies` = true (`SherloccOptions.UseCodonFrequencies`: score the per-amino-acid fractions / inline values; the threshold is then on that scale). A codon of only `-`/`.` (gap), a partially gapped or ambiguous triplet, or a codon absent from the table has no value (Sherlocc `x`).
+1. Every cell (sequence × codon column) gets its codon's usage from the organism table (stage 2, l. 494–522). By default this is the **per-thousand** usage (Sherlocc's CUTG `/1000` column, `files/cut`): the `EColiK12`, `Yeast` and `Human` presets carry it (Kazusa 316407 / 4932 / 9606; E. coli since 2026-10-14); an inline table's `codonFrequencies` values are taken **as** per-thousand usage; `use_codon_frequencies` = true (`SherloccOptions.UseCodonFrequencies`) scores the per-amino-acid fractions / inline values instead (the threshold is then on that scale). A table without per-thousand usage is rejected by the C# API unless `UseCodonFrequencies` is set; no MCP input lacks it. A codon of only `-`/`.` (gap), a partially gapped or ambiguous triplet, or a codon absent from the table has no value (Sherlocc `x`).
 2. For every column *i* the valued cells of columns *i*−3 … *i*+3 (`averaging_window`, default 7) of **all** sequences are averaged (l. 780–798).
 3. The column is representative only when it has ≥ `min_coverage` × sequences × `averaging_window` valued cells (default 0.75, l. 772/799 — the gap/conservation filter); otherwise its average is `null` (Sherlocc "NA").
 4. A representative column with average ≤ `threshold` is a pause (l. 803, inclusive).
@@ -36,7 +36,7 @@ Give either `target_organism` (one table for all rows) or `target_organisms_per_
 |-----------|------|----------|-------------|
 | `aligned_coding_sequences` | string[] | Yes | Aligned in-frame coding sequences (DNA or RNA, any case), equal length, a multiple of 3; gaps `-` or `.`. |
 | `threshold` | number | Yes | Pause cutoff: column average ≤ threshold (per thousand by default; Sherlocc README examples 14–16). |
-| `target_organism` | object | One of | One table for every sequence: preset id (`Yeast` \| `Human`; `EColiK12` only with `use_codon_frequencies`) or inline custom table whose `codonFrequencies` are per-thousand usage. |
+| `target_organism` | object | One of | One table for every sequence: preset id (`EColiK12` \| `Yeast` \| `Human`, all with Kazusa per-thousand usage) or inline custom table whose `codonFrequencies` are per-thousand usage. |
 | `target_organisms_per_sequence` | object[] | One of | One table per aligned sequence, same order (instead of `target_organism`). |
 | `use_codon_frequencies` | boolean | No | `false` (default): per-thousand usage (Sherlocc); `true`: the tables' `codonFrequencies`. |
 | `averaging_window` | integer | No | Centred averaging window in columns (default 7); positive and odd. |
@@ -66,7 +66,7 @@ Give either `target_organism` (one table for all rows) or `target_organisms_per_
 | 1002 | Supply exactly one of target_organism or target_organisms_per_sequence |
 | 1003 | Sequence length is not a multiple of 3 / all aligned sequences must have the same length |
 | 1004 | One codon-usage table per sequence is required |
-| 1005 | Table has no per-thousand usage (set use_codon_frequencies) |
+| 1005 | Table has no per-thousand usage (set use_codon_frequencies; C# API only since 2026-10-14 - every preset and inline table carries per-thousand usage) |
 | 1006 | Threshold must be a number; AveragingWindow must be a positive odd number; ClusterWindow/MinPauses must be at least 1; MinCoverage must be in [0, 1] |
 | 1007 | Unknown codon-usage preset |
 
@@ -80,9 +80,9 @@ Three yeast sequences × 20 codon columns (two gaps) with a rare Arg/Pro/Leu/Gly
 
 Three rows scored with Yeast / Human / Yeast (`target_organisms_per_sequence`), `threshold` 16 → two clusters, columns 3–9 and 20–26 (Perl `4-10|9.20962052101093,21-27|9.30926559372343`), `meanClusterUsage` 9.25944305736718.
 
-### Example 3: E. coli fractions
+### Example 3: E. coli per thousand and fractions
 
-`["AGAAGAAGAAGAAGAAGAAGA", "AGGAGGAGGAGGAGGAGGAGG"]`, `threshold` 0.15, `{ "preset": "EColiK12" }`, `use_codon_frequencies` true → column 3 average 0.03 (AGA 0.04, AGG 0.02), pauses 2–4, no cluster; without `use_codon_frequencies` the call is rejected (the preset has no per-thousand usage).
+`["AGAAGAAGAAGAAGAAGAAGA", "AGGAGGAGGAGGAGGAGGAGG"]`, `threshold` 0.15, `{ "preset": "EColiK12" }`, `use_codon_frequencies` true → column 3 average 0.03 (AGA 0.04, AGG 0.02), pauses 2–4, no cluster; without `use_codon_frequencies` (Kazusa 316407 per thousand: AGA 2.0, AGG 1.1), `threshold` 15 → column 3 average 1.55, pauses 2–4, no cluster (before 2026-10-14 this call was rejected: the preset had no per-thousand usage).
 
 ## See Also
 

@@ -125,7 +125,9 @@ public class B02FinisherMetamorphicTests
     #region F39 — %MinMax usage basis
 
     /// <summary>
-    /// F39: without per-thousand usage (E. coli K-12 preset) both bases give the same profile; every %MinMax
+    /// F39: without per-thousand usage (a table with PerThousand = null; since SRC RO1 2026-10-14 the
+    /// E. coli K-12 preset carries the Kazusa 316407 column, so the invariant uses that preset with the
+    /// column removed) both bases give the same profile; every %MinMax
     /// value lies in [−100, 100] for every preset and basis; the default overload is PerThousandWhenAvailable.
     /// </summary>
     [Test]
@@ -138,8 +140,9 @@ public class B02FinisherMetamorphicTests
             {
                 string cds = RandomDna(rng, rng.Next(5, 60));
                 int window = rng.Next(1, 20);
-                Assert.That(CalculateMinMaxProfile(cds, EColiK12, window, MinMaxUsageBasis.PerThousandWhenAvailable),
-                    Is.EqualTo(CalculateMinMaxProfile(cds, EColiK12, window, MinMaxUsageBasis.CodonFrequencies)), $"trial {trial}");
+                var noPerThousand = EColiK12 with { PerThousand = null };
+                Assert.That(CalculateMinMaxProfile(cds, noPerThousand, window, MinMaxUsageBasis.PerThousandWhenAvailable),
+                    Is.EqualTo(CalculateMinMaxProfile(cds, noPerThousand, window, MinMaxUsageBasis.CodonFrequencies)), $"trial {trial}");
                 foreach (var table in new[] { EColiK12, Yeast, Human })
                 {
                     var dflt = CalculateMinMaxProfile(cds, table, window);

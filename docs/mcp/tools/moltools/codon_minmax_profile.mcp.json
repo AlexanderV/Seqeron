@@ -11,7 +11,7 @@
     "type": "object",
     "properties": {
       "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA, frame 0).", "minLength": 1 },
-      "target_organism": { "type": "object", "description": "Preset id or inline custom table (Yeast/Human presets carry Kazusa per-thousand usage; inline per-thousand values reproduce the reference exactly)." },
+      "target_organism": { "type": "object", "description": "Preset id or inline custom table (EColiK12/Yeast/Human presets carry Kazusa 316407/4932/9606 per-thousand usage; inline per-thousand values reproduce the reference exactly)." },
       "window_size": { "type": "integer", "description": "Sliding-window width in codons.", "default": 18, "minimum": 1 },
       "usage_basis": { "type": "string", "enum": ["PerThousandWhenAvailable", "CodonFrequencies"], "description": "Preset per-thousand usage when available (default, as the reference) or always the per-amino-acid fractions / inline values.", "default": "PerThousandWhenAvailable" },
       "genetic_code": { "type": "integer", "description": "NCBI translation table number (default 1 = Standard). Defines the synonymous families (stop family included) of the %MinMax sums.", "enum": [1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33], "default": 1 }
@@ -50,7 +50,7 @@
     {
       "name": "Sliding %MinMax, E. coli K12",
       "input": { "coding_sequence": "CGCCGCAGAAGAAGA", "target_organism": { "preset": "EColiK12" }, "window_size": 3 },
-      "output": { "windows": "3 windows (starts 0, 1, 2); window 2 (3x AGA) = -86.36363636363637" }
+      "output": { "windows": "3 windows (starts 0, 1, 2): 48.280254777070056, -5.544147843942496, -88.91170431211498 (Kazusa 316407 per thousand; CHARMING 48.28, -5.54, -88.91); usage_basis CodonFrequencies: window 2 = -86.36363636363637" }
     },
     {
       "name": "All most-common codons",

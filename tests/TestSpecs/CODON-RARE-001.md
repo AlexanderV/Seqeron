@@ -241,11 +241,11 @@ codon-optimizer 0.2.0 `Homo_sapiens_codon_frequency.csv`, Σ = 40 662 582); CHAR
 |----|------|----------------------|------|
 | R9 | Clusters, E. coli, `UCU UCC UCG AGU GUA GGG CGC` (six at 0.15) | default (≤, Sherlocc): (0,6,6); `inclusiveThreshold:false`: none | `FindRareCodonClusters_DefaultIsSherloccInclusive_…`, `…_StrictOption_ReproducesPreviousBehaviour` |
 | R10 | `FindRareCodons("UCUAGA")`, E. coli, 0.15 | default: (3,AGA,R,0.04); inclusive: + (0,UCU,S,0.15) | `FindRareCodons_DefaultStaysStrict_InclusiveOptionAddsCodonsAtThreshold` |
-| R11 | Preset per-thousand columns | EColiK12 null; Yeast 64 values (UUU 26.1, Σ 1000.5); Human UUU 17.56646934028931 (Σ 1000) | `Presets_PerThousand_SourcedEntries` |
+| R11 | Preset per-thousand columns | EColiK12 null (superseded 2026-10-14 by SRC RO1, R17); Yeast 64 values (UUU 26.1, Σ 1000.5); Human UUU 17.56646934028931 (Σ 1000) | `Presets_PerThousand_SourcedEntries` |
 | R12 | Per-thousand ratios vs stored fractions | Human all 64 within 0.005; Yeast non-stop within 0.005, stops within 0.013 | `Presets_PerThousandRatios_MatchStoredFractions` |
 | R13 | %MinMax Yeast preset (default) `CUGAGA` w2 / 20-codon gene w18 | 33.99209486166008 / 12.68791340950089, 17.028571428571425, 15.991062879029688 (CHARMING 33.99 / 12.69, 17.03, 15.99) | `CalculateMinMaxProfile_YeastPreset_DefaultMatchesClarkLabReference` |
 | R14 | %MinMax Human preset gene w18 / `UUACGU` w2 | 28.796581754809075, 23.264123403923747, 16.195449171123403 / −96.40404591634571 (CHARMING 28.8, 23.26, 16.2 / −96.4); `CodonFrequencies` basis 19.650655021834133, 13.878080415045439, 13.803548247511891 / −94.54545454545456 | `CalculateMinMaxProfile_HumanPreset_…` |
-| R15 | %MinMax E. coli preset `CUGAGA` w2 | 36.470588235294116 under both bases (no per-thousand) | `CalculateMinMaxProfile_EColiPreset_Unchanged` |
+| R15 | %MinMax E. coli preset `CUGAGA` w2 | 36.470588235294116 under both bases (no per-thousand) — superseded 2026-10-14 by SRC RO1 (R19): default 58.10113519091846, `CodonFrequencies` 36.470588235294116 | `CalculateMinMaxProfile_EColiPreset_DefaultPerThousand_FractionBasisUnchanged` |
 | R16 | Custom table with `PerThousand` init; undefined basis | 33.99209486166008; `ArgumentOutOfRangeException` | `…_CustomTableWithPerThousand_UsesIt`, `…_UndefinedBasis_Throws` |
 
 R6 (yeast fraction value 58.620689655172406) is now requested with `MinMaxUsageBasis.CodonFrequencies`
@@ -281,7 +281,7 @@ Alignments are listed in `CodonOptimizer_SherloccConservedClusters_Tests.cs`.
 | S5 | Threshold at / just below column-8 average of A | `≤` (l. 803): pause, 1 cluster; below: 3 pauses, no cluster | `Threshold_IsInclusive_PerSherlocc` |
 | S6 | Single-table vs per-sequence overload; RNA/lower case; `.` gaps | identical results | `SingleTableOverload_EqualsPerSequenceOverload_AndAcceptsRnaLowerCase` |
 | S7 | Defaults | AveragingWindow 7, ClusterWindow 7, MinPauses 4, MinCoverage 0.75 (l. 772, 785, 838–848) | `Defaults_AreSherloccConstants` |
-| S8 | E. coli preset (no per-thousand) | `ArgumentException`; `UseCodonFrequencies` → col 3 avg 0.03, pauses 2–4, no cluster | `TableWithoutPerThousand_Rejected_UnlessCodonFrequenciesRequested` |
+| S8 | E. coli preset (no per-thousand; since SRC RO1 2026-10-14: `EColiK12 with { PerThousand = null }`) | `ArgumentException`; `UseCodonFrequencies` → col 3 avg 0.03, pauses 2–4, no cluster | `TableWithoutPerThousand_Rejected_UnlessCodonFrequenciesRequested` |
 | S9 | Invalid input (null, empty, length %3, unequal rows, table count, NaN, even window, coverage, MinPauses) | exceptions | `InvalidInput_Throws` |
 | S10 | 4-column alignment | no representative column, no cluster window | `ShortAlignment_NoClusterWindow_NoClusters` |
 
@@ -304,3 +304,20 @@ DNA Chisel `EnforceTranslation(genetic_table=…)` / `get_backtranslation_table`
 `FindRareCodonClusters` and `FindConservedRareCodonClusters` are genetic-code independent (a pause
 is a per-codon usage lookup; no codon is translated and no family is formed) and therefore take no
 `geneticCode` parameter — documented in the XML docs and in `Rare_Codon_Detection.md`.
+
+# SRC RO1 (2026-10-14) — Kazusa 316407 per-thousand column on `EColiK12`
+
+Source: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407 ("Escherichia coli W3110
+[gbbct]: 4332 CDS's (1372057 codons)", fetched 2026-10-14); oracle: CHARMING `calculateMinMax` run
+isolated + independent Python port (Evidence "SRC RO1"). F39 design kept: default %MinMax basis =
+per thousand when present; Sherlocc default requires per thousand.
+
+| ID | Case | Expected | Test |
+|---|---|---|---|
+| R17 | `EColiK12.PerThousand` | 64 values = Kazusa 316407 /1000 column verbatim (UUU 22.2 … GGG 11.0), Σ 1000.0 | `EColiPerThousand_EqualsKazusa316407Verbatim`, `Presets_PerThousand_SourcedEntries` |
+| R18 | Per-thousand ratios vs stored fractions | all 64 within 0.0055 (one-decimal rounding) | `EColiPerThousandRatios_MatchStoredFractions` |
+| R19 | %MinMax E. coli `CUGAGA` w2 | default 58.10113519091846 (CHARMING 58.1; was 36.470588235294116); `CodonFrequencies` 36.470588235294116 (unchanged) | `CalculateMinMaxProfile_EColiPreset_DefaultPerThousand_FractionBasisUnchanged`; MCP `CodonMinMaxProfile_PresetsUsePerThousandByDefault` |
+| R20 | %MinMax E. coli 20-codon gene w18; `UUACGU` w2 | 7.417300184918832, 7.371763071733311, −6.565186442534101 (CHARMING 7.42, 7.37, −6.57); fractions −1.358411703239252, −0.9027081243731403, −8.181517058628705; `UUACGU` 16.202270381836932 (16.2) | `CalculateMinMaxProfile_EColiPreset_Gene20_MatchesClarkLabReference` |
+| R21 | MM1/MM3/MM4 default basis (`AGAAGAAGA` w3, `CUGAGA` w2, `CGCCGCAGAAGAAGA` w3) | −88.91170431211498; 58.10113519091846; 48.280254777070056, −5.544147843942496, −88.91170431211498 (CHARMING −88.91; 58.1; 48.28, −5.54, −88.91). Hand-derived fraction values (−86.3636…, 36.4706…) kept under explicit `CodonFrequencies` | `CodonOptimizer_RareCodonClusters_Tests` MM1/MM3/MM4; MCP `CodonMinMaxProfile_MatchesLockedApiValues` |
+| R22 | Sherlocc accepts `EColiK12` by default | AGA×10/AGG×10, threshold 15: columns 2–7 average 1.55, pauses 2–7, one cluster 2–7 (6 pauses, mean 1.55); 7-column alignment: col 3 1.55, pauses 2–4, no cluster | `EColiPreset_AcceptedByDefault_PerThousandUsage`; MCP `UseCodonFrequencies_ScoresFractions_EColiDefaultScoresPerThousand` |
+| R23 | Metamorphic: no per-thousand ⇒ both bases equal | uses `EColiK12 with { PerThousand = null }` (invariant unchanged) | `MinMax_Basis_EqualWithoutPerThousand_AndBounded` |

@@ -195,7 +195,10 @@ public class CodonOptimizer_SherloccConservedClusters_Tests
     public void TableWithoutPerThousand_Rejected_UnlessCodonFrequenciesRequested()
     {
         string[] aln = { string.Concat(Enumerable.Repeat("AGA", 7)), string.Concat(Enumerable.Repeat("AGG", 7)) };
-        Assert.Throws<ArgumentException>(() => CodonOptimizer.FindConservedRareCodonClusters(aln, CodonOptimizer.EColiK12, 15));
+        // SRC RO1 (2026-10-14): EColiK12 now carries the Kazusa 316407 per-thousand column, so the
+        // rejection is exercised on the same preset with that column removed.
+        var noPerThousand = CodonOptimizer.EColiK12 with { PerThousand = null };
+        Assert.Throws<ArgumentException>(() => CodonOptimizer.FindConservedRareCodonClusters(aln, noPerThousand, 15));
 
         // E. coli fractions: AGA 0.04, AGG 0.02 → column 3 (the only full window) averages 0.03.
         var r = CodonOptimizer.FindConservedRareCodonClusters(
@@ -205,6 +208,35 @@ public class CodonOptimizer_SherloccConservedClusters_Tests
             Assert.That(r.ColumnAverages[3]!.Value, Is.EqualTo(0.03).Within(Tol));
             Assert.That(r.PauseColumns, Is.EqualTo(new[] { 2, 3, 4 }));
             Assert.That(r.Clusters, Is.Empty); // only 3 representative pauses in the single 7-column window
+        });
+        Assert.That(CodonOptimizer.FindConservedRareCodonClusters(aln, noPerThousand, 0.15,
+                new CodonOptimizer.SherloccOptions { UseCodonFrequencies = true }).ColumnAverages,
+            Is.EqualTo(r.ColumnAverages));
+    }
+
+    // SRC RO1 (2026-10-14): EColiK12 carries the Kazusa 316407 per-thousand column (AGA 2.0,
+    // AGG 1.1), so the default (per-thousand) analysis accepts it. Hand check, 10-column alignment
+    // AGA×10 / AGG×10: every valued cell is 2.0 or 1.1 in equal numbers → each representative column
+    // averages (2.0 + 1.1) / 2 = 1.55; representative = ≥ 0.75 × 2 × 7 = 10.5 valued cells → columns
+    // 2..7 (columns 0, 1, 8, 9 have 8 or 10); all ≤ 15 → pauses 2..7; window 0..6 holds 5 pauses
+    // (cluster 2–6), window 1..7 starts inside it → merged cluster 2–7, 6 pauses, mean 1.55.
+    [Test]
+    public void EColiPreset_AcceptedByDefault_PerThousandUsage()
+    {
+        string[] aln = { string.Concat(Enumerable.Repeat("AGA", 10)), string.Concat(Enumerable.Repeat("AGG", 10)) };
+        var r = CodonOptimizer.FindConservedRareCodonClusters(aln, CodonOptimizer.EColiK12, 15);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.ColumnAverages[0], Is.Null);
+            Assert.That(r.ColumnAverages[1], Is.Null);
+            Assert.That(r.ColumnAverages[3]!.Value, Is.EqualTo(1.55).Within(Tol));
+            Assert.That(r.ColumnAverages[8], Is.Null);
+            Assert.That(r.PauseColumns, Is.EqualTo(new[] { 2, 3, 4, 5, 6, 7 }));
+            Assert.That(r.Clusters, Has.Count.EqualTo(1));
+            Assert.That(r.Clusters[0].StartColumn, Is.EqualTo(2));
+            Assert.That(r.Clusters[0].EndColumn, Is.EqualTo(7));
+            Assert.That(r.Clusters[0].PauseCount, Is.EqualTo(6));
+            Assert.That(r.Clusters[0].MeanUsage, Is.EqualTo(1.55).Within(Tol));
         });
     }
 

@@ -12,7 +12,7 @@
     "properties": {
       "aligned_coding_sequences": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Aligned in-frame coding sequences (equal length, multiple of 3; gaps '-' or '.')." },
       "threshold": { "type": "number", "description": "Pause cutoff: column average <= threshold (per thousand by default)." },
-      "target_organism": { "type": ["object", "null"], "description": "One table for every sequence: preset id (Yeast | Human; EColiK12 only with use_codon_frequencies) or inline table whose codonFrequencies are per-thousand usage.", "default": null },
+      "target_organism": { "type": ["object", "null"], "description": "One table for every sequence: preset id (EColiK12 | Yeast | Human, all with Kazusa per-thousand usage) or inline table whose codonFrequencies are per-thousand usage.", "default": null },
       "target_organisms_per_sequence": { "type": ["array", "null"], "items": { "type": "object" }, "description": "One table per aligned sequence, same order (instead of target_organism).", "default": null },
       "use_codon_frequencies": { "type": "boolean", "description": "false: per-thousand usage (Sherlocc); true: the tables' codonFrequencies (SherloccOptions.UseCodonFrequencies).", "default": false },
       "averaging_window": { "type": "integer", "description": "Centred averaging window in columns (positive, odd).", "default": 7, "minimum": 1 },
@@ -55,7 +55,7 @@
     { "code": 1002, "message": "Supply exactly one of target_organism or target_organisms_per_sequence" },
     { "code": 1003, "message": "Sequence length is not a multiple of 3 / all aligned sequences must have the same length" },
     { "code": 1004, "message": "One codon-usage table per sequence is required" },
-    { "code": 1005, "message": "Table has no per-thousand usage (set use_codon_frequencies)" },
+    { "code": 1005, "message": "Table has no per-thousand usage (set use_codon_frequencies; C# API only since 2026-10-14 - every preset and inline table carries per-thousand usage)" },
     { "code": 1006, "message": "Threshold must be a number; AveragingWindow must be a positive odd number; ClusterWindow/MinPauses must be at least 1; MinCoverage must be in [0, 1]" },
     { "code": 1007, "message": "Unknown codon-usage preset" }
   ],

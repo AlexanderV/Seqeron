@@ -25,24 +25,36 @@ public class RareCodonClusterToolsTests
         Assert.Throws<ArgumentOutOfRangeException>(() => MolToolsTools.codon_minmax_profile("AGAAGAAGA", EColi(), 0));
     }
 
-    // MM4 of the unit tests: 5 codons, window 3 -> starts 0,1,2; window 2 (3x AGA) = -86.3636..%.
+    // MM4 of the unit tests: 5 codons, window 3 -> starts 0,1,2; window 2 (3x AGA).
+    // SRC RO1 (2026-10-14): EColiK12 now carries the Kazusa 316407 per-thousand column, used by the
+    // default usage_basis (F39) → CHARMING calculateMinMax values 48.28 / -5.54 / -88.91 (port below);
+    // the hand-derived fraction values (-86.3636.., 36.4705..) were locked before and are kept under
+    // usage_basis CodonFrequencies.
     [Test]
     public void CodonMinMaxProfile_MatchesLockedApiValues()
     {
         var windows = MolToolsTools.codon_minmax_profile("CGCCGCAGAAGAAGA", EColi(), window_size: 3).Windows;
         var api = CodonOptimizer.CalculateMinMaxProfile("CGCCGCAGAAGAAGA", CodonOptimizer.EColiK12, 3);
+        var fractions = MolToolsTools.codon_minmax_profile("CGCCGCAGAAGAAGA", EColi(), 3,
+            CodonOptimizer.MinMaxUsageBasis.CodonFrequencies).Windows;
 
         Assert.Multiple(() =>
         {
             Assert.That(windows.Select(w => w.WindowStartCodon), Is.EqualTo(new[] { 0, 1, 2 }));
-            Assert.That(windows[2].PercentMinMax, Is.EqualTo(-86.36363636363637).Within(1e-10));
+            Assert.That(windows.Select(w => w.PercentMinMax),
+                Is.EqualTo(new[] { 48.280254777070056, -5.544147843942496, -88.91170431211498 }).Within(1e-9));
             Assert.That(windows.Select(w => w.PercentMinMax), Is.EqualTo(api.Select(w => w.PercentMinMax)));
+            Assert.That(fractions[2].PercentMinMax, Is.EqualTo(-86.36363636363637).Within(1e-10));
         });
 
-        // MM2 (+100 for an all-most-common window) and MM3 (mixed CUG+AGA = 36.4705..%).
+        // MM2 (+100 for an all-most-common window, both bases) and MM3 (mixed CUG+AGA: per thousand
+        // 58.10113519091846 = CHARMING 58.1; fractions 36.4705..%).
         Assert.That(MolToolsTools.codon_minmax_profile("CGCCGCCGC", EColi(), 3).Windows[0].PercentMinMax,
             Is.EqualTo(100.0).Within(1e-10));
         Assert.That(MolToolsTools.codon_minmax_profile("CUGAGA", EColi(), 2).Windows[0].PercentMinMax,
+            Is.EqualTo(58.10113519091846).Within(1e-9));
+        Assert.That(MolToolsTools.codon_minmax_profile("CUGAGA", EColi(), 2,
+                CodonOptimizer.MinMaxUsageBasis.CodonFrequencies).Windows[0].PercentMinMax,
             Is.EqualTo(36.470588235294116).Within(1e-10));
     }
 

@@ -30,8 +30,8 @@ public static class CodonOptimizer
         /// each residue by its overall usage — the input the %MinMax reference implementation takes
         /// (Clarke &amp; Clark 2008; Clark-lab <c>calculateMinMax</c>), so
         /// <see cref="CalculateMinMaxProfile(string, CodonUsageTable, int)"/> uses them when present.
-        /// Set for <see cref="Yeast"/> (Kazusa species=4932) and <see cref="Human"/> (Kazusa
-        /// species=9606); <see cref="EColiK12"/> has none (see its remarks).
+        /// Set for all three presets: <see cref="EColiK12"/> (Kazusa species=316407),
+        /// <see cref="Yeast"/> (Kazusa species=4932) and <see cref="Human"/> (Kazusa species=9606).
         /// </summary>
         public IReadOnlyDictionary<string, double>? PerThousand { get; init; }
     }
@@ -284,11 +284,14 @@ public static class CodonOptimizer
     /// URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407
     /// </summary>
     /// <remarks>
-    /// <see cref="CodonUsageTable.PerThousand"/> is <see langword="null"/>: the per-thousand column
-    /// of this Kazusa entry could not be obtained from a primary source (review 2026-10), and the
-    /// EMBOSS CUTG146 <c>Eecoli.cut</c> / Clark-lab <c>EcolCUB.txt</c> tables are different E. coli
-    /// entries whose fractions disagree with these at 9 / 43 codons. %MinMax on this preset therefore
-    /// uses the per-amino-acid fractions (equal residue weighting).
+    /// <see cref="CodonUsageTable.PerThousand"/>: the same Kazusa species=316407 entry
+    /// ("Escherichia coli W3110 [gbbct]: 4332 CDS's (1372057 codons)"), frequency per thousand codons
+    /// as published (one decimal), verbatim from
+    /// https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407 (fetched 2026-10-14; each
+    /// value = 1000 × count / 1 372 057 rounded to 0.1, Σ = 1000.0). The fraction column of that page
+    /// equals the fractions below at all 64 codons; the per-amino-acid ratios of the one-decimal
+    /// values are within 0.0055 of them (the one-decimal rounding). Before 2026-10-14 (review
+    /// 2026-10, kazusa.or.jp unreachable) this column was <see langword="null"/>.
     /// </remarks>
     public static readonly CodonUsageTable EColiK12 = new(
         "Escherichia coli K12",
@@ -337,7 +340,10 @@ public static class CodonOptimizer
             // Glycine (G)
             { "GGU", 0.34 }, { "GGC", 0.41 }, { "GGA", 0.11 }, { "GGG", 0.15 }
         },
-        StandardCodonToAminoAcid);
+        StandardCodonToAminoAcid)
+    {
+        PerThousand = EColiKazusaPerThousand(),
+    };
 
     /// <summary>
     /// Saccharomyces cerevisiae (yeast) codon usage frequencies (relative fraction per amino acid).
@@ -423,6 +429,23 @@ public static class CodonOptimizer
         StandardCodonToAminoAcid)
     {
         PerThousand = HumanKazusaPerThousand(),
+    };
+
+    // Kazusa species=316407 ("Escherichia coli W3110 [gbbct]: 4332 CDS's (1372057 codons)") frequency
+    // per thousand codons (one decimal, as published), verbatim from
+    // https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407, fetched 2026-10-14
+    // (SRC RO1). A method, not a static field, so the preset initialiser does not depend on static
+    // field order.
+    private static IReadOnlyDictionary<string, double> EColiKazusaPerThousand() => new Dictionary<string, double>
+    {
+            { "UUU", 22.2 }, { "UUC", 16.5 }, { "UUA", 13.8 }, { "UUG", 13.6 }, { "UCU", 8.4 }, { "UCC", 8.6 }, { "UCA", 7.0 }, { "UCG", 8.9 },
+            { "UAU", 16.1 }, { "UAC", 12.2 }, { "UAA", 2.0 }, { "UAG", 0.2 }, { "UGU", 5.1 }, { "UGC", 6.4 }, { "UGA", 0.9 }, { "UGG", 15.2 },
+            { "CUU", 11.0 }, { "CUC", 11.1 }, { "CUA", 3.8 }, { "CUG", 53.1 }, { "CCU", 7.0 }, { "CCC", 5.5 }, { "CCA", 8.4 }, { "CCG", 23.4 },
+            { "CAU", 13.0 }, { "CAC", 9.8 }, { "CAA", 15.4 }, { "CAG", 29.0 }, { "CGU", 21.0 }, { "CGC", 22.3 }, { "CGA", 3.5 }, { "CGG", 5.4 },
+            { "AUU", 30.4 }, { "AUC", 25.2 }, { "AUA", 4.2 }, { "AUG", 27.8 }, { "ACU", 8.8 }, { "ACC", 23.5 }, { "ACA", 6.9 }, { "ACG", 14.4 },
+            { "AAU", 17.6 }, { "AAC", 21.6 }, { "AAA", 33.6 }, { "AAG", 10.3 }, { "AGU", 8.7 }, { "AGC", 16.1 }, { "AGA", 2.0 }, { "AGG", 1.1 },
+            { "GUU", 18.2 }, { "GUC", 15.3 }, { "GUA", 10.9 }, { "GUG", 26.3 }, { "GCU", 15.2 }, { "GCC", 25.7 }, { "GCA", 20.1 }, { "GCG", 33.9 },
+            { "GAU", 32.2 }, { "GAC", 19.1 }, { "GAA", 39.7 }, { "GAG", 18.0 }, { "GGU", 24.7 }, { "GGC", 29.8 }, { "GGA", 7.9 }, { "GGG", 11.0 },
     };
 
     // Kazusa species=4932 frequency per thousand codons (one decimal, as published), verbatim from
@@ -1797,13 +1820,14 @@ public static class CodonOptimizer
     /// <b>Frequency scale.</b> The reference implementation takes a codon usage table in
     /// frequency per thousand codons (Kazusa "/1000" column), so the window sums weight each
     /// residue by its overall usage. This overload therefore uses
-    /// <see cref="CodonUsageTable.PerThousand"/> when the table carries it (the <see cref="Yeast"/>
-    /// and <see cref="Human"/> presets: Kazusa 4932 / 9606 per-thousand usage, so the presets
-    /// reproduce the reference), and otherwise <c>CodonFrequencies</c> — a caller table whose
-    /// <c>CodonFrequencies</c> hold per-thousand values also reproduces the reference exactly. With
-    /// per-amino-acid relative fractions (<see cref="EColiK12"/>, or
-    /// <see cref="MinMaxUsageBasis.CodonFrequencies"/>) every residue has equal weight, which gives
-    /// the reference value only for windows of a single amino acid.
+    /// <see cref="CodonUsageTable.PerThousand"/> when the table carries it (the <see cref="EColiK12"/>,
+    /// <see cref="Yeast"/> and <see cref="Human"/> presets: Kazusa 316407 / 4932 / 9606 per-thousand
+    /// usage, so the presets reproduce the reference), and otherwise <c>CodonFrequencies</c> — a
+    /// caller table whose <c>CodonFrequencies</c> hold per-thousand values also reproduces the
+    /// reference exactly. With per-amino-acid relative fractions (a caller table without
+    /// <c>PerThousand</c>, or <see cref="MinMaxUsageBasis.CodonFrequencies"/>) every residue has
+    /// equal weight, which approximates the reference only for windows of a single amino acid (equal
+    /// when the fractions are exact ratios of the per-thousand values).
     /// </para>
     /// </remarks>
     /// <param name="codingSequence">DNA or RNA coding sequence (T is normalised to U).</param>

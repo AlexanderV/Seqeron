@@ -141,10 +141,19 @@ public class FindConservedRareCodonClustersToolTests
     }
 
     [Test]
-    public void UseCodonFrequencies_ScoresFractions_EColiOtherwiseRejected()
+    public void UseCodonFrequencies_ScoresFractions_EColiDefaultScoresPerThousand()
     {
         string[] aln = { string.Concat(Enumerable.Repeat("AGA", 7)), string.Concat(Enumerable.Repeat("AGG", 7)) };
-        Assert.Throws<ArgumentException>(() => MolToolsTools.find_conserved_rare_codon_clusters(aln, 15, Preset("EColiK12")));
+        // SRC RO1 (2026-10-14): was Assert.Throws (EColiK12 had no per-thousand column). The preset now
+        // carries the Kazusa 316407 /1000 column (AGA 2.0, AGG 1.1) → column 3 averages 1.55, pauses 2–4.
+        var perThousand = MolToolsTools.find_conserved_rare_codon_clusters(aln, 15, Preset("EColiK12"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(perThousand.ColumnAverages[3]!.Value, Is.EqualTo(1.55).Within(Tol));
+            Assert.That(perThousand.PauseColumns, Is.EqualTo(new[] { 2, 3, 4 }));
+            Assert.That(perThousand.Clusters, Is.Empty);
+        });
+        AssertEqualsApi(perThousand, CodonOptimizer.FindConservedRareCodonClusters(aln, CodonOptimizer.EColiK12, 15));
 
         // E. coli fractions: AGA 0.04, AGG 0.02 → column 3 averages 0.03 (C# lock).
         var r = MolToolsTools.find_conserved_rare_codon_clusters(aln, 0.15, Preset("EColiK12"), use_codon_frequencies: true);

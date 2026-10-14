@@ -48,7 +48,12 @@ public class SherloccThresholdPerThousandToolsTests
         Assert.That(MolToolsTools.codon_minmax_profile("CUGAGA", Preset("Yeast"), 2,
                 CodonOptimizer.MinMaxUsageBasis.CodonFrequencies).Windows[0].PercentMinMax,
             Is.EqualTo(58.620689655172406).Within(1e-9));
+        // SRC RO1 (2026-10-14): EColiK12 now carries the Kazusa 316407 per-thousand column → CHARMING
+        // value 58.1 (port 58.10113519091846); was 36.470588235294116, still the CodonFrequencies value.
         Assert.That(MolToolsTools.codon_minmax_profile("CUGAGA", Preset("EColiK12"), 2).Windows[0].PercentMinMax,
+            Is.EqualTo(58.10113519091846).Within(1e-9));
+        Assert.That(MolToolsTools.codon_minmax_profile("CUGAGA", Preset("EColiK12"), 2,
+                CodonOptimizer.MinMaxUsageBasis.CodonFrequencies).Windows[0].PercentMinMax,
             Is.EqualTo(36.470588235294116).Within(1e-10));
     }
 
