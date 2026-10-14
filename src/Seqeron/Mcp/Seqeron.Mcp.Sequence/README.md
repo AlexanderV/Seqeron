@@ -52,5 +52,5 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `shannon_entropy` | Calculate Shannon entropy of a sequence. |
 | `summarize_sequence` | Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content, entropy, complexity, and Tm. |
 | `thermodynamics` | Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method. |
-| `translate_dna` | Translate a DNA sequence to protein using the standard genetic code. |
-| `translate_rna` | Translate an RNA sequence to protein using the standard genetic code. |
+| `translate_dna` | Translate a DNA sequence to protein with an NCBI genetic code (geneticCode, default 1 = Standard), like Biopython Seq.translate(table, to_stop). |
+| `translate_rna` | Translate an RNA sequence to protein with an NCBI genetic code (geneticCode, default 1 = Standard), like Biopython Seq.translate(table, to_stop). |

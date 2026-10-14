@@ -353,7 +353,7 @@
 | `select_phylogenetic_markers` | `PanGenomeAnalyzer.SelectPhylogeneticMarkers` | [doc](../../mcp/tools/metagenomics/select_phylogenetic_markers.md) |
 | `taxonomic_profile` | `MetagenomicsAnalyzer.GenerateTaxonomicProfile` | [doc](../../mcp/tools/metagenomics/taxonomic_profile.md) |
 
-## MolTools (48 tools)
+## MolTools (50 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -362,6 +362,7 @@
 | `build_codon_table` | `CodonOptimizer.CreateCodonTableFromSequence` | [doc](../../mcp/tools/moltools/build_codon_table.md) |
 | `cai_from_organism_table` | `CodonOptimizer.CalculateCAI` | [doc](../../mcp/tools/moltools/cai_from_organism_table.md) |
 | `codon_adaptation_index` | `CodonUsageAnalyzer.CalculateCai` | [doc](../../mcp/tools/moltools/codon_adaptation_index.md) |
+| `codon_minmax_profile` | `CodonOptimizer.CalculateMinMaxProfile` | [doc](../../mcp/tools/moltools/codon_minmax_profile.md) |
 | `codon_usage_statistics` | `CodonUsageAnalyzer.GetStatistics` | [doc](../../mcp/tools/moltools/codon_usage_statistics.md) |
 | `compare_codon_usage` | `CodonOptimizer.CompareCodonUsage` | [doc](../../mcp/tools/moltools/compare_codon_usage.md) |
 | `compatible_enzymes` | `RestrictionAnalyzer.FindCompatibleEnzymes` | [doc](../../mcp/tools/moltools/compatible_enzymes.md) |
@@ -384,6 +385,7 @@
 | `find_all_restriction_sites` | `RestrictionAnalyzer.FindAllSites` | [doc](../../mcp/tools/moltools/find_all_restriction_sites.md) |
 | `find_off_targets` | `CrisprDesigner.FindOffTargets` | [doc](../../mcp/tools/moltools/find_off_targets.md) |
 | `find_pam_sites` | `CrisprDesigner.FindPamSites` | [doc](../../mcp/tools/moltools/find_pam_sites.md) |
+| `find_rare_codon_clusters` | `CodonOptimizer.FindRareCodonClusters` | [doc](../../mcp/tools/moltools/find_rare_codon_clusters.md) |
 | `find_rare_codons` | `CodonOptimizer.FindRareCodons` | [doc](../../mcp/tools/moltools/find_rare_codons.md) |
 | `find_restriction_sites` | `RestrictionAnalyzer.FindSites` | [doc](../../mcp/tools/moltools/find_restriction_sites.md) |
 | `generate_primer_candidates` | `PrimerDesigner.GeneratePrimerCandidates` | [doc](../../mcp/tools/moltools/generate_primer_candidates.md) |

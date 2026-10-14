@@ -2268,6 +2268,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs"
   },
   {
+    "tool": "codon_minmax_profile",
+    "server": "MolTools",
+    "methodId": "CodonOptimizer.CalculateMinMaxProfile",
+    "docPath": "docs/mcp/tools/moltools/codon_minmax_profile.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L919"
+  },
+  {
     "tool": "codon_usage_statistics",
     "server": "MolTools",
     "methodId": "CodonUsageAnalyzer.GetStatistics",
@@ -2420,6 +2427,13 @@
     "methodId": "CrisprDesigner.FindPamSites",
     "docPath": "docs/mcp/tools/moltools/find_pam_sites.md",
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L51"
+  },
+  {
+    "tool": "find_rare_codon_clusters",
+    "server": "MolTools",
+    "methodId": "CodonOptimizer.FindRareCodonClusters",
+    "docPath": "docs/mcp/tools/moltools/find_rare_codon_clusters.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1020"
   },
   {
     "tool": "find_rare_codons",
@@ -3308,13 +3322,13 @@
     "server": "Sequence",
     "methodId": "Translator.Translate(DnaSequence)",
     "docPath": "docs/mcp/tools/sequence/translate_dna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/Translator.cs#L26"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/Translator.cs#L97"
   },
   {
     "tool": "translate_rna",
     "server": "Sequence",
     "methodId": "Translator.Translate(RnaSequence)",
     "docPath": "docs/mcp/tools/sequence/translate_rna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/Translator.cs#L43"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/Translator.cs#L97"
   }
 ]

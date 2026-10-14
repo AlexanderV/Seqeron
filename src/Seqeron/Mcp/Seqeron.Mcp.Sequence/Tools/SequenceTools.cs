@@ -117,11 +117,15 @@ public class SequenceTools
         else
         {
             // Find the invalid character for error message
-            var upperSeq = sequence.ToUpperInvariant();
+            // ASCII-only folding (as ProteinSequence, F31): ToUpperInvariant would map a non-ASCII
+            // letter such as U+017F 'ſ' onto 'S' and hide the offending character.
             var validChars = global::Seqeron.Genomics.Core.ProteinSequence.ValidCharacters;
-            for (int i = 0; i < upperSeq.Length; i++)
+            for (int i = 0; i < sequence.Length; i++)
             {
-                if (!validChars.Contains(upperSeq[i]))
+                char c = sequence[i];
+                if (char.IsAsciiLetterLower(c))
+                    c = (char)(c - 32);
+                if (!validChars.Contains(c))
                 {
                     return new ProteinValidateResult(false, sequence.Length, $"Invalid amino acid '{sequence[i]}' at position {i}");
                 }
@@ -706,34 +710,39 @@ public class SequenceTools
     /// Translate DNA sequence to protein.
     /// </summary>
     [McpServerTool(Name = "translate_dna", Title = "DNA — Translate to Protein", ReadOnly = true)]
-    [Description("Translate a DNA sequence to protein using the standard genetic code.")]
+    [Description("Translate a DNA sequence to protein with an NCBI genetic code (geneticCode, default 1 = Standard), like Biopython Seq.translate(table, to_stop). Case-insensitive DNA letters A, C, G, T plus the IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (and X when allowNucleotideX=true); U is rejected (use translate_rna). An ambiguous codon resolves to the single amino acid all its expansions code for (e.g. GCN → A), to B/Z/J, or to X; trailing bases that do not form a full codon are ignored.")]
     public static TranslateDnaResult TranslateDna(
-        [Description("The DNA sequence to translate")] string sequence,
+        [Description("The DNA sequence to translate (A, C, G, T and IUPAC ambiguity codes)")] string sequence,
         [Description("Reading frame (0, 1, or 2, default: 0)")] int frame = 0,
-        [Description("Stop at first stop codon (default: false)")] bool toFirstStop = false)
+        [Description("Stop at first stop codon (default: false; not allowed for tables 27, 28, 31, which have dual-coding stop codons)")] bool toFirstStop = false,
+        [Description("NCBI translation table number (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int geneticCode = 1,
+        [Description("Accept nucleotide X as any base, as Biopython does (default: false); an X-containing codon that may be a stop is an error.")] bool allowNucleotideX = false)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
-
-        if (frame < 0 || frame > 2)
-            throw new ArgumentException("Frame must be 0, 1, or 2", nameof(frame));
-
-        if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
-            throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
-
-        var protein = global::Seqeron.Genomics.Core.Translator.Translate(dna!, null, frame, toFirstStop);
-        return new TranslateDnaResult(protein.Sequence, frame, sequence.Length);
+        var protein = TranslateNucleotides(sequence, frame, toFirstStop, geneticCode, allowNucleotideX, isRna: false);
+        return new TranslateDnaResult(protein, frame, sequence.Length);
     }
 
     /// <summary>
     /// Translate RNA sequence to protein.
     /// </summary>
     [McpServerTool(Name = "translate_rna", Title = "RNA — Translate to Protein", ReadOnly = true)]
-    [Description("Translate an RNA sequence to protein using the standard genetic code.")]
+    [Description("Translate an RNA sequence to protein with an NCBI genetic code (geneticCode, default 1 = Standard), like Biopython Seq.translate(table, to_stop). Case-insensitive RNA letters A, C, G, U plus the IUPAC ambiguity codes R, Y, S, W, K, M, B, D, H, V, N (and X when allowNucleotideX=true); T is rejected (use translate_dna). An ambiguous codon resolves to the single amino acid all its expansions code for (e.g. GCN → A), to B/Z/J, or to X; trailing bases that do not form a full codon are ignored.")]
     public static TranslateRnaResult TranslateRna(
-        [Description("The RNA sequence to translate")] string sequence,
+        [Description("The RNA sequence to translate (A, C, G, U and IUPAC ambiguity codes)")] string sequence,
         [Description("Reading frame (0, 1, or 2, default: 0)")] int frame = 0,
-        [Description("Stop at first stop codon (default: false)")] bool toFirstStop = false)
+        [Description("Stop at first stop codon (default: false; not allowed for tables 27, 28, 31, which have dual-coding stop codons)")] bool toFirstStop = false,
+        [Description("NCBI translation table number (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int geneticCode = 1,
+        [Description("Accept nucleotide X as any base, as Biopython does (default: false); an X-containing codon that may be a stop is an error.")] bool allowNucleotideX = false)
+    {
+        var protein = TranslateNucleotides(sequence, frame, toFirstStop, geneticCode, allowNucleotideX, isRna: true);
+        return new TranslateRnaResult(protein, frame, sequence.Length);
+    }
+
+    // Validates the whole input against the DNA (ACGT) or RNA (ACGU) alphabet plus the IUPAC
+    // ambiguity codes (and X when allowed) — the translator itself only inspects complete in-frame
+    // codons — then delegates to the IUPAC-aware Translator string overload.
+    private static string TranslateNucleotides(string sequence, int frame, bool toFirstStop,
+        int geneticCode, bool allowNucleotideX, bool isRna)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -741,10 +750,28 @@ public class SequenceTools
         if (frame < 0 || frame > 2)
             throw new ArgumentException("Frame must be 0, 1, or 2", nameof(frame));
 
-        if (!global::Seqeron.Genomics.Core.RnaSequence.TryCreate(sequence, out var rna))
-            throw new ArgumentException("Invalid RNA sequence", nameof(sequence));
+        if (!global::Seqeron.Genomics.Core.GeneticCode.SupportedTableNumbers.Contains(geneticCode))
+            throw new ArgumentException(
+                $"Unknown genetic code table: {geneticCode}. Supported NCBI tables: {string.Join(", ", global::Seqeron.Genomics.Core.GeneticCode.SupportedTableNumbers)}.",
+                nameof(geneticCode));
 
-        var protein = global::Seqeron.Genomics.Core.Translator.Translate(rna!, null, frame, toFirstStop);
-        return new TranslateRnaResult(protein.Sequence, frame, sequence.Length);
+        const string Iupac = "RYSWKMBDHVN";
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            char c = sequence[i];
+            if (char.IsAsciiLetterLower(c))
+                c = (char)(c - 32);
+            bool ok = c is 'A' or 'C' or 'G'
+                || c == (isRna ? 'U' : 'T')
+                || Iupac.Contains(c)
+                || (allowNucleotideX && c == 'X');
+            if (!ok)
+                throw new ArgumentException(
+                    $"Invalid {(isRna ? "RNA" : "DNA")} sequence: character '{sequence[i]}' at position {i}",
+                    nameof(sequence));
+        }
+
+        var code = global::Seqeron.Genomics.Core.GeneticCode.GetByTableNumber(geneticCode);
+        return global::Seqeron.Genomics.Core.Translator.Translate(sequence, code, frame, toFirstStop, allowNucleotideX).Sequence;
     }
 }

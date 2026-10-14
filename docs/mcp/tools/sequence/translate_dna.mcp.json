@@ -5,14 +5,16 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "Translator.Translate(DnaSequence)",
-  "docRef": "Seqeron.Genomics/Translator.cs#L20",
-  "description": "Translate a DNA sequence to protein using the standard genetic code.",
+  "docRef": "Seqeron.Genomics.Core/Translator.cs#L97",
+  "description": "Translate a DNA sequence (IUPAC ambiguity codes allowed) to protein with an NCBI genetic code (default: Standard).",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "The DNA sequence to translate", "minLength": 1 },
+      "sequence": { "type": "string", "description": "The DNA sequence to translate (A, C, G, T and IUPAC ambiguity codes; case-insensitive)", "minLength": 1 },
       "frame": { "type": "integer", "description": "Reading frame (0, 1, or 2)", "default": 0, "minimum": 0, "maximum": 2 },
-      "toFirstStop": { "type": "boolean", "description": "Stop at first stop codon", "default": false }
+      "toFirstStop": { "type": "boolean", "description": "Stop at first stop codon", "default": false },
+      "geneticCode": { "type": "integer", "description": "NCBI translation table number (1-6, 9-16, 21-33)", "default": 1 },
+      "allowNucleotideX": { "type": "boolean", "description": "Accept nucleotide X as any base (Biopython semantics)", "default": false }
     },
     "required": ["sequence"]
   },
@@ -28,13 +30,24 @@
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
     { "code": 1003, "message": "Frame must be 0, 1, or 2" },
-    { "code": 2001, "message": "Invalid DNA sequence" }
+    { "code": 2001, "message": "Invalid DNA sequence: character '<c>' at position <i>" },
+    { "code": 1004, "message": "Unknown genetic code table: <n>. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33." }
   ],
   "examples": [
     {
       "name": "Translate DNA to protein",
       "input": { "sequence": "ATGCGA", "frame": 0, "toFirstStop": false },
       "output": { "protein": "MR", "frame": 0, "dnaLength": 6 }
+    },
+    {
+      "name": "Vertebrate mitochondrial code (table 2; Biopython 1.88)",
+      "input": { "sequence": "ATGAGATGA", "geneticCode": 2 },
+      "output": { "protein": "M*W", "frame": 0, "dnaLength": 9 }
+    },
+    {
+      "name": "IUPAC ambiguity codes (Biopython 1.88)",
+      "input": { "sequence": "ATGGCNTAR" },
+      "output": { "protein": "MA*", "frame": 0, "dnaLength": 9 }
     }
   ]
 }

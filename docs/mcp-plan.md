@@ -1,6 +1,6 @@
 > ⚠️ **SUPERSEDED (2026-07-01).** This v4 plan describes a 12-server / 241-tool design
 > (`SuffixTree.Mcp.*`, with Variants/Assembly/Epigenetics/Structure servers) that was **never
-> built**. The repository actually ships **11 servers / ~474 tools** with a different decomposition.
+> built**. The repository actually ships **11 servers / ~476 tools** with a different decomposition.
 > The live source of truth and campaign ledger is **`docs/mcp/MCP_STATUS.md`**. Sections 6–8 below
 > (error catalog, schema rules, doc contract) remain valid as standards.
 
@@ -159,7 +159,7 @@ Legend:
 | 10 | `fastq_trim_adapter` | Trim adapter sequences | ✓ | FastqParser.cs:L297#xml | FastqParser.TrimAdapter | 1.0.0 | stable |
 | 11 | `fastq_statistics` | Calculate FASTQ statistics | ✓ | FastqParser.cs:L344#xml | FastqParser.CalculateStatistics | 1.0.0 | stable |
 | 12 | `fastq_write` | Write FASTQ file | ✓ | FastqParser.cs:L437#xml | FastqParser.WriteToFile | 1.0.0 | stable |
-| 13 | `fastq_format` | Format to FASTQ string | ✓ | FastqParser.cs:L474#xml | FastqParser.ToFastqString | 1.0.0 | stable |
+| 13 | `fastq_format` | Format to FASTQ string | ✓ | FastqParser.cs:L476#xml | FastqParser.ToFastqString | 1.0.0 | stable |
 | 14 | `genbank_parse` | Parse GenBank format | ✓ | GenBankParser.cs#xml | GenBankParser.Parse | 1.0.0 | stable |
 | 15 | `genbank_parse_location` | Parse feature location | ✓ | GenBankParser.cs:L471#xml | GenBankParser.ParseLocation | 1.0.0 | stable |
 | 16 | `genbank_extract_sequence` | Extract sequence by location | ✓ | GenBankParser.cs:L556#xml | GenBankParser.ExtractSequence | 1.0.0 | stable |

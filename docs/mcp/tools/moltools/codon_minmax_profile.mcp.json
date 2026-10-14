@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "codon_minmax_profile",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonOptimizer.CalculateMinMaxProfile",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L919",
+  "description": "%MinMax codon-usage profile (Clarke & Clark 2008) over a sliding codon window.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA, frame 0).", "minLength": 1 },
+      "target_organism": { "type": "object", "description": "Preset id or inline custom table (per-thousand frequencies reproduce the reference exactly)." },
+      "window_size": { "type": "integer", "description": "Sliding-window width in codons.", "default": 18, "minimum": 1 }
+    },
+    "required": ["coding_sequence", "target_organism"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "windows": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "windowStartCodon": { "type": "integer" },
+            "percentMinMax": { "type": "number" }
+          },
+          "required": ["windowStartCodon", "percentMinMax"]
+        }
+      }
+    },
+    "required": ["windows"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Coding sequence cannot be null or empty" },
+    { "code": 1002, "message": "Window size must be at least 1 codon" }
+  ],
+  "examples": [
+    {
+      "name": "Sliding %MinMax, E. coli K12",
+      "input": { "coding_sequence": "CGCCGCAGAAGAAGA", "target_organism": { "preset": "EColiK12" }, "window_size": 3 },
+      "output": { "windows": "3 windows (starts 0, 1, 2); window 2 (3x AGA) = -86.36363636363637" }
+    },
+    {
+      "name": "All most-common codons",
+      "input": { "coding_sequence": "CGCCGCCGC", "target_organism": { "preset": "EColiK12" }, "window_size": 3 },
+      "output": { "windows": [ { "windowStartCodon": 0, "percentMinMax": 100.0 } ] }
+    }
+  ]
+}

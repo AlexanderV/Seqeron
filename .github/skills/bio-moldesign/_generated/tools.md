@@ -11,6 +11,7 @@
 | `build_codon_table` | MolTools | `CodonOptimizer.CreateCodonTableFromSequence` | [doc](../../../../docs/mcp/tools/moltools/build_codon_table.md) |
 | `cai_from_organism_table` | MolTools | `CodonOptimizer.CalculateCAI` | [doc](../../../../docs/mcp/tools/moltools/cai_from_organism_table.md) |
 | `codon_adaptation_index` | MolTools | `CodonUsageAnalyzer.CalculateCai` | [doc](../../../../docs/mcp/tools/moltools/codon_adaptation_index.md) |
+| `codon_minmax_profile` | MolTools | `CodonOptimizer.CalculateMinMaxProfile` | [doc](../../../../docs/mcp/tools/moltools/codon_minmax_profile.md) |
 | `codon_usage_statistics` | MolTools | `CodonUsageAnalyzer.GetStatistics` | [doc](../../../../docs/mcp/tools/moltools/codon_usage_statistics.md) |
 | `compare_codon_usage` | MolTools | `CodonOptimizer.CompareCodonUsage` | [doc](../../../../docs/mcp/tools/moltools/compare_codon_usage.md) |
 | `compatible_enzymes` | MolTools | `RestrictionAnalyzer.FindCompatibleEnzymes` | [doc](../../../../docs/mcp/tools/moltools/compatible_enzymes.md) |
@@ -33,6 +34,7 @@
 | `find_all_restriction_sites` | MolTools | `RestrictionAnalyzer.FindAllSites` | [doc](../../../../docs/mcp/tools/moltools/find_all_restriction_sites.md) |
 | `find_off_targets` | MolTools | `CrisprDesigner.FindOffTargets` | [doc](../../../../docs/mcp/tools/moltools/find_off_targets.md) |
 | `find_pam_sites` | MolTools | `CrisprDesigner.FindPamSites` | [doc](../../../../docs/mcp/tools/moltools/find_pam_sites.md) |
+| `find_rare_codon_clusters` | MolTools | `CodonOptimizer.FindRareCodonClusters` | [doc](../../../../docs/mcp/tools/moltools/find_rare_codon_clusters.md) |
 | `find_rare_codons` | MolTools | `CodonOptimizer.FindRareCodons` | [doc](../../../../docs/mcp/tools/moltools/find_rare_codons.md) |
 | `find_restriction_sites` | MolTools | `RestrictionAnalyzer.FindSites` | [doc](../../../../docs/mcp/tools/moltools/find_restriction_sites.md) |
 | `generate_primer_candidates` | MolTools | `PrimerDesigner.GeneratePrimerCandidates` | [doc](../../../../docs/mcp/tools/moltools/generate_primer_candidates.md) |

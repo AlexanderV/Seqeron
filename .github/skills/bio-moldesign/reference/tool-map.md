@@ -1,4 +1,4 @@
-# MolTools tool map (48 tools)
+# MolTools tool map (50 tools)
 
 Grouped by sub-domain. All on the **MolTools** MCP server; C# in `Seqeron.Genomics.MolTools`.
 One line = tool · one-line purpose · `Method ID`. Open the per-tool doc under
@@ -39,6 +39,8 @@ guess. Source of truth for names/status: `docs/mcp/MCP_STATUS.md`.
 | `build_codon_table` | Codon usage table from a reference sequence | `CodonOptimizer.CreateCodonTableFromSequence` |
 | `compare_codon_usage` | Compare two codon-usage profiles | `CodonOptimizer.CompareCodonUsage` |
 | `find_rare_codons` | Locate rare codons below a threshold | `CodonOptimizer.FindRareCodons` |
+| `find_rare_codon_clusters` | Rare-codon clusters (Sherlocc: ≥4 rare in a 7-codon window) | `CodonOptimizer.FindRareCodonClusters` |
+| `codon_minmax_profile` | %MinMax sliding-window codon-usage profile (Clarke & Clark) | `CodonOptimizer.CalculateMinMaxProfile` |
 | `reduce_secondary_structure` | Rewrite codons to reduce mRNA structure | `CodonOptimizer.ReduceSecondaryStructure` |
 | `remove_restriction_sites` | Silently remove restriction sites from a CDS | `CodonOptimizer.RemoveRestrictionSites` |
 | `cai_from_organism_table` | CAI vs an organism table | `CodonOptimizer.CalculateCAI` |

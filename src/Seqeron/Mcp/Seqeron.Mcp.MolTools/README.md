@@ -2,7 +2,7 @@
 
 MCP server — **Primer/probe/CRISPR design, codon optimization, restriction analysis, thermodynamics.**
 
-Exposes **48 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **50 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test, with a
 per-tool doc under [`docs/mcp/tools/moltools/`](../../../../docs/mcp/tools/moltools). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.MolTools
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.MolTools"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (48)
+## Tools (50)
 
 | Tool | Description |
 |------|-------------|
@@ -24,6 +24,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `build_codon_table` | Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alpha… |
 | `cai_from_organism_table` | Computes the Codon Adaptation Index (Sharp & Li 1987) for a coding sequence against an organism codon-usage FREQUENCY table (distinct fro… |
 | `codon_adaptation_index` | Codon Adaptation Index (Sharp & Li 1987) using a caller-supplied reference RSCU table (typically derived from highly expressed genes), co… |
+| `codon_minmax_profile` | %MinMax codon-usage profile (Clarke & Clark 2008, PLoS ONE 3:e3412; term-for-term as the Clark lab calculateMinMax reference code) over a sliding window of window_s… |
 | `codon_usage_statistics` | Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC), total codons, GC% at codon… |
 | `compare_codon_usage` | Codon-frequency similarity between two coding sequences: 1 − ½·Σ|f1−f2| ∈ [0,1] (1 = identical codon distribution, 0 = disjoint). |
 | `compatible_enzymes` | Enumerates all pairs of built-in restriction enzymes whose ends can be ligated to each other — either both produce blunt ends, or both pr… |
@@ -46,6 +47,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `find_all_restriction_sites` | Finds sites for EVERY built-in restriction enzyme on both strands of a DNA sequence. |
 | `find_off_targets` | Naïve genome scan: enumerates all PAM sites in the genome and reports those whose target differs from the guide by 1..max_mismatches (the… |
 | `find_pam_sites` | Finds all PAM matches (forward + reverse strand) for the chosen CRISPR system. |
+| `find_rare_codon_clusters` | Rare-codon clusters by the Sherlocc rule (Chartier et al. 2012, Bioinformatics 28:1438): a window of window_size codons (default 7) is a cl… |
 | `find_rare_codons` | Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15)… |
 | `find_restriction_sites` | Finds restriction sites for one or more named built-in enzymes on both strands of a DNA sequence. |
 | `generate_primer_candidates` | Enumerates all primer candidates of admissible lengths (parameters.MinLength..MaxLength) at every start position within a region of the t… |

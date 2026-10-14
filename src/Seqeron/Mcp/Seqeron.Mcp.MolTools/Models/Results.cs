@@ -79,6 +79,12 @@ public sealed record OptimizedSequenceResult(string OptimizedSequence);
 public sealed record RareCodon(int Position, string Codon, string AminoAcid, double Frequency);
 public sealed record RareCodonsResult(IReadOnlyList<RareCodon> RareCodons);
 
+public sealed record MinMaxWindowDto(int WindowStartCodon, double PercentMinMax);
+public sealed record MinMaxProfileResult(IReadOnlyList<MinMaxWindowDto> Windows);
+
+public sealed record RareCodonClusterDto(int StartCodon, int EndCodon, int RareCount);
+public sealed record RareCodonClustersResult(IReadOnlyList<RareCodonClusterDto> Clusters);
+
 public sealed record SimilarityResult(double Similarity);
 
 public sealed record CodonUsageTableDto(

@@ -146,6 +146,7 @@
 | build_codon_table | MolTools | CodonOptimizer.CreateCodonTableFromSequence | CodonOptimizer.cs#L714 | 0/0 | – | – | Build-Ready |
 | cai_from_organism_table | MolTools | CodonOptimizer.CalculateCAI | CodonOptimizer.cs#L423 | 0/0 | – | – | Build-Ready |
 | codon_adaptation_index | MolTools | CodonUsageAnalyzer.CalculateCai | CodonUsageAnalyzer.cs#L131 | 0/0 | – | – | Build-Ready |
+| codon_minmax_profile | MolTools | CodonOptimizer.CalculateMinMaxProfile | CodonOptimizer.cs#L919 | 3/3 | ✓ | ✓ | Ready |
 | codon_usage_statistics | MolTools | CodonUsageAnalyzer.GetStatistics | CodonUsageAnalyzer.cs#L419 | 0/0 | – | – | Build-Ready |
 | compare_codon_usage | MolTools | CodonOptimizer.CompareCodonUsage | CodonOptimizer.cs#L657 | 0/0 | – | – | Build-Ready |
 | compatible_enzymes | MolTools | RestrictionAnalyzer.FindCompatibleEnzymes | RestrictionAnalyzer.cs#L361 | 0/0 | – | – | Build-Ready |
@@ -168,6 +169,7 @@
 | find_all_restriction_sites | MolTools | RestrictionAnalyzer.FindAllSites | RestrictionAnalyzer.cs#L201 | 0/0 | – | – | Build-Ready |
 | find_off_targets | MolTools | CrisprDesigner.FindOffTargets | CrisprDesigner.cs#L331 | 0/0 | – | – | Build-Ready |
 | find_pam_sites | MolTools | CrisprDesigner.FindPamSites | CrisprDesigner.cs#L51 | 0/0 | – | – | Build-Ready |
+| find_rare_codon_clusters | MolTools | CodonOptimizer.FindRareCodonClusters | CodonOptimizer.cs#L1020 | 2/2 | ✓ | ✓ | Ready |
 | find_rare_codons | MolTools | CodonOptimizer.FindRareCodons | CodonOptimizer.cs#L609 | 0/0 | – | – | Build-Ready |
 | find_restriction_sites | MolTools | RestrictionAnalyzer.FindSites | RestrictionAnalyzer.cs#L187 | 0/0 | – | – | Build-Ready |
 | generate_primer_candidates | MolTools | PrimerDesigner.GeneratePrimerCandidates | PrimerDesigner.cs#L480 | 0/0 | – | – | Build-Ready |
