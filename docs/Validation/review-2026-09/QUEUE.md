@@ -31,6 +31,10 @@ and commits it after every change. Batch definitions (units, owned files) are in
 - FIN-B24 also fixed B04's `Bbduk_MonotoneInCutoff` generator (w > k) test-only under the FINISHED-batch rule (84cbf060,
   R2 below).
 - Nothing running; B08 paused (not archived); check-in trigger disabled.
+- Billing note (user question 10-12): cloud sessions always bill the claude.ai subscription (an API key in the cloud env is
+  ignored). API (Console) money can pay only for a LOCAL run — LOCAL_RUN.md + `tools/review/run-batch.sh` with
+  `ANTHROPIC_API_KEY` set (or `/login` with a Console account). Reported session costs are API-rate equivalents.
+  Moving to a local run was offered; no decision yet.
 
 ### Earlier state (2026-10-09 20:45 UTC) — FIN-B24 RUNNING (only it)
 - User 10-09 ~20:40 "Давай доробимо B24": session_01SLG1sxNgXVQkrwHr1EHya2 = FIN-B24 (completeness-audit loop over the
