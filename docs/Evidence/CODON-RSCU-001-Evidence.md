@@ -186,6 +186,13 @@
   sense codons (pseudocount 0.5 / 1 for zeros); GenomeAnnotator (ANNOT-CODONUSAGE-001) also excludes stops. This unit keeps
   the CodonW convention (64 codons, stop family, 0 for absent families).
 
+## RSCU pseudocount (review 2026-10-14, FIN-B02 WP17, audit A2-9)
+
+- **codonbias 0.5.0** (wheel `codon_bias-0.5.0-py3-none-any.whl`, read): `scores.py` `RelativeSynonymousCodonUsage(ref_seq=None, …, genetic_code=1, ignore_stop=True, pseudocount=1)`; `_weights_and_counts`: `counts_pc = counts + self.pseudocount`, `aa_sums = bincount(aa_group, counts_pc)`, `P = counts_pc / aa_sums[aa_group]`, `D = P / reference` with `reference = CodonCounter("").get_aa_table(normed=True, pseudocount)` = 1/n per family. Hence RSCU = n·(x + c)/(Σx + n·c): the pseudocount is added to every codon **before** the whole-amino-acid normalisation; with `ignore_stop=False` the stops are one family ('*'); with c = 0 the uniform reference is 0/0 = NaN.
+- **cubar** (github.com/mt1022/cubar @ 350b29549e, `R/codon_weight.R`): `est_rscu(cf, weight = 1, pseudo_cnt = 1, codon_table, level = 'subfam', incl_stop = FALSE)`: `prop = (cts + pseudo_cnt) / sum(cts + pseudo_cnt)`, `rscu = prop / mean(prop)` `by = level` — the same formula. Differences in defaults only: `level = "subfam"` (`get_codon_table`: `subfam = paste(amino_acid, substr(codon, 1, 2))`, splitting Leu/Ser/Arg into 4 + 2 boxes), stops dropped unless `incl_stop = TRUE`. With `level = "amino_acid", incl_stop = TRUE` cubar equals codonbias `ignore_stop=False` and this library algebraically (R not installed in the sandbox; agreement by source reading).
+- **Lock:** `CalculateRscu(string, GeneticCode, c)` vs codonbias `RelativeSynonymousCodonUsage(genetic_code=t, ignore_stop=False, pseudocount=c).get_weights(gene)`: 200 random genes (1–300 codons, seed 17) × all 27 NCBI tables × c = 0.25 / 1 / 3 = 1 036 800 values, 0 differences > 1e-12, max |Δ| = 4.4e-16. Locked subset: `TestData/Codon/codonbias_rscu_pseudocount.tsv` (7 genes × tables 1/2 × c = 0.5/1/2.5 × 64 codons = 2 688 values, tolerance 1e-12). Hand values: `TTTTTTTTC`, c = 1 → TTT 2·3/5 = 1.2, TTC 0.8, absent Met / Leu / stop 1; table 2 `ATAATGATGTGATGGTGGAGATAA`, c = 0.5 → ATA 0.75, ATG 1.25, TAA = AGA 1.5, TAG = AGG 0.5.
+- Generator (codonbias run in isolation with stub `psutil` / `pandarallel` modules, as for CODON-ENC-001): `from codonbias.scores import RelativeSynonymousCodonUsage as R; R(genetic_code=t, ignore_stop=False, pseudocount=c).get_weights(gene)`.
+
 ---
 
 ## References
@@ -203,3 +210,4 @@
 
 - **2026-06-13**: Initial documentation.
 - **2026-09-28**: Campaign review B02 — CodonW source/binary evidence; RNA (U) input; genetic-code-aware families.
+- **2026-10-14**: FIN-B02 WP17 (audit A2-9) — optional pseudocount; codonbias 0.5.0 / cubar source evidence and codonbias lock.

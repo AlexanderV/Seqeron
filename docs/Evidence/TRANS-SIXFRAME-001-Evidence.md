@@ -145,6 +145,18 @@ In the circular suites the full-length records of STOP-free frames are compared 
 
 `Seq(s)[f:].translate(table=t)` and `Seq(s).reverse_complement()[f:].translate(table=t)` (complete codons) vs `Translator.TranslateSixFrames(string, GeneticCode)`: 20 000 random strings (0–200 nt, 0 / 5 / 20 / 50 / 100 % ambiguity codes, 30 % lower case, 30 % U for T; U → T before Biopython) over all 27 Biopython tables — 0 mismatching frames. Worked values: `ATGNNNTARGCNRAYTAAYTG` table 1 → `MX*AB*L`, `XXXXXN`, `XXXXLX` / reverse `QLXXLXH`, `X*XAXX`, `XXXXXX`; `TTGTANSARGAYMGR` table 11 → `LXZDR`, `CXXX`, `VXXX` / `XXXXQ`, `XSXY`, `XXXT`.
 
+### EMBOSS 6.6.0 transeq — frame conventions (2026-10-14, FIN-B02 WP17, audit A2-10)
+
+Sources read: `emboss/transeq.c`, `emboss/acd/transeq.acd`, `ajax/core/ajtranslate.c` (raw.githubusercontent.com/kimrutherford/EMBOSS/master); binary `/usr/bin/transeq` (EMBOSS:6.6.0.0).
+
+1. **Frame dispatch (transeq.c):** frame i < 3 → `ajTrnSeqOrig(seq, i+1)`; reverse frames → `ajTrnSeqOrig(seq, 2-i)` (frames −1..−3, comment "frame -1 uses frame 1 codons") by default, `ajTrnSeqOrig(seq, -i-1)` (frames −4..−6, "frame -1 uses codons starting at end") with `-alternative Y`. acd: "The default definition of frame '-1' is the reverse-complement of the set of codons used in frame 1 … a common standard, used by the Staden package … If you prefer to define frame '-1' as using the set of codons starting with the last codon of the sequence, then set this to be true."
+2. **Phasing (ajtranslate.c `ajTrnSeqFrameC`):** frame −k (k = 1..3) = `ajTrnSeqRevC(&seq[k-1], len-k+1)` — the full codons of forward frame k read backwards and complemented; frame −(k+3) = `ajTrnSeqAltRevC(seq, len-k+1)` — codons from base `len-k` downwards, i.e. `reverse_complement(seq)[k-1:]` (the Biopython phasing).
+3. **Dangling bases (`ajTrnSeqDangleS`, called by `ajTrnSeqOrig`):** forward frame k: `(len-k+1) mod 3` trailing bases; alternative −k: `(len-k+1) mod 3`; default −k: always `k-1` (the leading forward bases). Two bases are translated as `GC[b1][b2][N]` (reverse: `comp(seq[1]) comp(seq[0]) N`) — a residue when the third base does not matter, else X; one base → `X`. For `len = 1`, frame −3 reads past the base and prints X.
+4. **`-trim`** strips trailing X/`*`; **`-clean`** replaces `*` by X (both default N, post-processing only). Stops are printed `*`.
+5. **Ambiguity:** transeq's `trnComplete` table (item 3 of the getorf section above) never emits B/Z/J and differs from the all-expansions rule on 28 / 15 / 28 of the 3 375 IUPAC codons for tables 1 / 2 / 11 (e.g. table 1 `RAY` → X vs B, `ATS` → I vs X, `ATW` → X vs I, `TRA` → X vs `*`, `TRR` → `*` vs X).
+6. **Worked example** (`transeq -frame 6`, `ATGAAACCCGGGTT`): 1 `MKPGX`, 2 `*NPGX`, 3 `ETRV`, −1 `PGFH`, −2 `TRVSX`, −3 `NPGFX`; with `-alternative Y`: −1 `NPGFX`, −2 `TRVSX`, −3 `PGFH`. `A`: `X`, ``, ``, ``, `X`, `X` (default) / `X`, ``, ``, `X`, ``, `` (alternative).
+7. **Binary comparison:** `Translator.TranslateSixFrames(string, code, SixFrameConvention.EmbossTranseq | EmbossTranseqAlternative)` vs `transeq -frame 6 -table T -alternative N|Y` for 2 000 random A/C/G/T sequences (1–150 nt; 200 of 1–8 nt; 1/7 lower case, 1/11 with U; seed 20261014) × tables 1/2/11 × N/Y: 72 000 frames, **0 mismatches**. 600 random IUPAC sequences (1–120 nt, ~45 % ambiguity codes) × the same 6 runs: 21 600 frames, every residue of both tools equals its own per-codon table applied to the modelled codon list (forward, alternative-reverse and phase-locked-reverse codons plus dangling `b1 b2 N`), 5 442 residues differ, all at codons of item 5. Locked: `tests/Seqeron/Seqeron.Genomics.Tests/TestData/Transeq/transeq_six_frames.tsv` (80 A/C/G/T(U) sequences × tables 1/2/11 × N/Y = 480 rows).
+
 ### INSDC Feature Table Definition — CDS (WebSearch snippet; insdc.org / ddbj blocked for fetch)
 
 "CDS: sequence of nucleotides that corresponds with the sequence of amino acids in a protein (location includes stop codon)". This is the stop-inclusive end-coordinate convention used by `OrfResult.EndPosition`.
@@ -160,7 +172,7 @@ In the circular suites the full-length records of STOP-free frames are compared 
 ### From EMBOSS transeq / Biopython
 
 1. **Incomplete trailing codon:** translation stops at the last complete codon; trailing 1 or 2 nucleotides that cannot form a full codon are ignored (`fragment_length = 3 * ((length - i) // 3)` in Biopython).
-2. **Reverse-frame numbering ambiguity:** two conventions exist (phase-locked vs. independent offset). The repository follows the Biopython "independent offset" convention (frame -1 = reverse-complement offset 0). This is the documented "alternative" in EMBOSS transeq.
+2. **Reverse-frame numbering ambiguity:** two conventions exist (phase-locked vs. independent offset). The repository defaults to the Biopython "independent offset" convention (frame -1 = reverse-complement offset 0), the documented "alternative" in EMBOSS transeq; `SixFrameConvention.EmbossTranseq` gives transeq's phase-locked default and `EmbossTranseqAlternative` its `-alternative Y` (both with transeq's dangling-base translation).
 
 ### From EMBOSS getorf
 
@@ -222,7 +234,7 @@ Input DNA: `GGGATGAAACCCTAAGGG`. ATG begins at index 3; stop `TAA` occupies indi
 
 ## Assumptions
 
-1. **ASSUMPTION: Reverse-frame numbering convention.** Two documented conventions exist (EMBOSS phase-locked vs. Biopython independent-offset). The repository follows the **Biopython** convention (frame -k = reverse-complement offset k−1), which is the dominant reference-implementation behaviour and is explicitly listed as an accepted alternative in the EMBOSS transeq documentation. This is a convention choice, not an invented value; both produce correct biology, only the −1/−2/−3 labels differ.
+1. **ASSUMPTION: Reverse-frame numbering convention.** Two documented conventions exist (EMBOSS phase-locked vs. Biopython independent-offset). The repository defaults to the **Biopython** convention (frame -k = reverse-complement offset k−1; EMBOSS conventions selectable via `SixFrameConvention` since FIN-B02 WP17), which is the dominant reference-implementation behaviour and is explicitly listed as an accepted alternative in the EMBOSS transeq documentation. This is a convention choice, not an invented value; both produce correct biology, only the −1/−2/−3 labels differ.
 2. **ASSUMPTION: Stop codons rendered as `*`; ambiguous IUPAC codons resolved as in Biopython (all-same → that residue, all-stop → `*`, D/N → `B`, E/Q → `Z`, I/L → `J`, otherwise `X`; TRANS-CODON-001 review 2026-09).** The `*` for stop is universal (NCBI). The ambiguity resolution is Biopython's `Bio.Data.CodonTable` ambiguous-table rule, implemented and oracle-tested in `GeneticCode.Translate` (TRANS-CODON-001); it is not exercised as a six-frame-specific MUST.
 3. **ASSUMPTION: ORF length filter is in amino acids.** getorf's `-minsize` is in nucleotides; the repository's `FindOrfs(minLength)` parameter counts amino acids (protein length). This is an API-shape choice documented in the contract; behaviour is well-defined for any value. The getorf-modes overload (`FindOrfs(DnaSequence, OrfFindMode, …)`) takes getorf's nucleotide `minSize`/`maxSize` unchanged.
 
@@ -257,3 +269,4 @@ Input DNA: `GGGATGAAACCCTAAGGG`. ATG begins at index 3; stop `TAA` occupies indi
 - **2026-06-13**: Initial documentation.
 - **2026-10-14**: getorf `-find` 0–6 sources and EMBOSS 6.6.0 binary reference output (FIN-B02 WP11, audit A1-12).
 - **2026-10-14**: EMBOSS ambiguous-codon (`ajtranslate.c`) and `-circular` (`getorf.c`) sources; getorf 6.6.0 IUPAC / circular reference output; Biopython IUPAC six-frame comparison (FIN-B02 WP12, audits A1-13, A1-20).
+- **2026-10-14**: EMBOSS transeq frame conventions (`transeq.c`, `transeq.acd`, `ajTrnSeqFrameC`/`ajTrnSeqDangleS`) and transeq 6.6.0 reference output (FIN-B02 WP17, audit A2-10).

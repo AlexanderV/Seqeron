@@ -23,6 +23,7 @@
 | 6 | Begomovirus codon usage (PMC2528880) — definition restatement | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC2528880/ | 2026-06-13 |
 | 7 | CodonW 1.4.4 (Peden 1999) source — `codon_us.c` `rscu_usage_out` (64 codons, stop family, absent → 0.000, genetic-code dependent), `ident_codon` (U ≡ T); binary built from source and run (`-rscu -machine -code 0..7`) | 1 (reference implementation) | http://archive.ubuntu.com/ubuntu/pool/universe/c/codonw/codonw_1.4.4.orig.tar.gz | 2026-09-28 |
 | 8 | Biopython 1.88 `Bio.Data.CodonTable` (families per NCBI table); CodonU 1.1.2 `internal_comp.rscu`, codon-bias 0.5.0 `RelativeSynonymousCodonUsage` (genetic_code parameter, 61 sense codons) | 2 | PyPI | 2026-09-28 |
+| 9 | codonbias 0.5.0 `scores.py` `RelativeSynonymousCodonUsage._weights_and_counts` (pseudocount per codon before per-amino-acid normalisation); cubar `R/codon_weight.R` `est_rscu` (github mt1022/cubar @ 350b295) | 3 | https://pypi.org/project/codon-bias/ ; https://github.com/mt1022/cubar | 2026-10-14 |
 
 ### 1.2 Key Evidence Points
 
@@ -95,7 +96,13 @@
 | M14 | Table 27 dual-coding | `TAATAGTGA` | TAA=TAG=2 (Gln family), CAA=0, TGA=2 (Trp) | Source 8 (Biopython forward_table) |
 | M15 | Counts overload | {CTG:3, CTA:1, NNN:5} | CTG=4.5, CTA=1.5; equals sequence overload | Source 3 formula |
 | M16 | RNA spelling across string entry points | 15-codon gene, RNA lower-case vs DNA | ENC, CAI, GetStatistics (counts, RSCU, GC3s) identical | Source 7 |
+| M17 | Pseudocount vs codonbias 0.5.0 | 7 genes × tables 1/2 × c = 0.5/1/2.5 (`TestData/Codon/codonbias_rscu_pseudocount.tsv`) | 2 688 values to 1e-12 | Source 9 (codonbias) |
+| M18 | Pseudocount hand derivation | `TTTTTTTTC`, c = 1 | TTT 1.2, TTC 0.8; absent Met/Leu/stop 1 | Sources 5, 9 formula |
+| M19 | Pseudocount, table 2 families | `ATAATGATGTGATGGTGGAGATAA`, table 2, c = 0.5 | ATA 0.75, ATG 1.25, TAA = AGA 1.5, TAG = AGG 0.5 | Sources 5, 9 formula |
+| M20 | Pseudocount 0 bit-identical | 4 inputs × tables 1/2/11 | equal to the overloads without pseudocount; absent family 0 | Source 7 (CodonW) |
+| M21 | Pseudocount overloads agree; family sum n | 17-codon gene, c = 1 | string = DnaSequence = counts; Σ family = n | INV-4 |
 | S7 | Null code / null counts | — | ArgumentNullException | input guard |
+| S8 | Invalid pseudocount / null arguments | c < 0, NaN, ∞; null sequence/code/counts | ArgumentOutOfRangeException / ArgumentNullException; empty → empty | input guard |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -210,14 +217,14 @@ Total in-scope cases: 16. ✅ count: 16.
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Absent synonymous family (0/0) returns 0 (no pseudocount) | not exercised by MUST tests (only present families tested); documented |
+| 1 | Absent synonymous family (0/0) returns 0 (no pseudocount; c > 0 → uniform 1) | M20, M18 |
 | 2 | Stop codons grouped as one family (3-fold in table 1) | CodonW convention (source 7); does not affect any amino-acid RSCU; CodonU/codon-bias report sense codons only |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. Pseudocount smoothing (cubar default 1) is intentionally not applied; only affects absent families, which the repository returns as 0. Decision: keep the classic Sharp et al. ratio for present families; document the absent-family convention. No open correctness question for present families.
+1. Pseudocount smoothing (cubar / codonbias default 1) is opt-in (`pseudocount` overloads, FIN-B02 WP17) and not applied by default; only affects absent families, which the repository returns as 0. Decision: keep the classic Sharp et al. ratio for present families; document the absent-family convention. No open correctness question for present families.
 
 ---
 
@@ -226,4 +233,4 @@ Total in-scope cases: 16. ✅ count: 16.
 - F10: `CountCodons(string)`/`CalculateRscu(string)` (and the CAI/ENC/GetStatistics string overloads that share the counter) returned empty/all-zero results for RNA input; now U is read as T (CodonW `ident_codon`). Tests M10, M11, M16.
 - F11: RSCU families were taken from a private copy of table 1 only; now from the canonical `GeneticCode` with overloads for any NCBI table (CodonW `-code`, Biopython tables). Tests M12–M15, S7.
 - Cross-check: CodonW 1.4.4 binary, 155 genes × 8 codes = 79,360 values, max |Δ| 5e-4 (3-decimal output); Python port of CodonW with Biopython tables, 472 inputs over all 27 NCBI tables, max |Δ| 9e-16.
-
+- FIN-B02 WP17 (2026-10-14, audit A2-9): optional `pseudocount` on `CalculateRscu(DnaSequence | string | counts, GeneticCode, double)` and the MCP `rscu` tool; RSCU = n(x + c)/(Σx + n c) as codonbias 0.5.0 `RelativeSynonymousCodonUsage(pseudocount)` and cubar `est_rscu(pseudo_cnt, level = "amino_acid", incl_stop = TRUE)`; 1 036 800 values vs codonbias (27 tables) max |Δ| 4.4e-16. Tests M17–M21, S8 (`CodonUsageAnalyzer_RscuPseudocount_Tests.cs`); MCP `RscuPseudocountToolTests.cs`.

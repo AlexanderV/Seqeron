@@ -695,6 +695,131 @@ namespace Seqeron.Genomics.Core
                 geneticCode ?? GeneticCode.Standard);
         }
 
+        /// <summary>
+        /// Translates all six reading frames of a DNA sequence under the chosen frame convention.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="SixFrameConvention.Biopython"/> is identical to
+        /// <see cref="TranslateSixFrames(DnaSequence, GeneticCode?)"/>. The EMBOSS conventions follow
+        /// EMBOSS 6.6.0 <c>transeq</c> (<c>ajTrnSeqOrig</c>): see <see cref="SixFrameConvention"/>.
+        /// Frame keys are always −3..−1, +1..+3.
+        /// </remarks>
+        /// <param name="dna">The DNA sequence to translate.</param>
+        /// <param name="geneticCode">The genetic code to use (null = Standard).</param>
+        /// <param name="convention">Reverse-frame phasing and trailing-base convention.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="dna"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="convention"/> is not a defined value.</exception>
+        public static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFrames(DnaSequence dna,
+            GeneticCode? geneticCode, SixFrameConvention convention)
+        {
+            ArgumentNullException.ThrowIfNull(dna);
+            return TranslateSixFramesCore(dna.Sequence, dna.ReverseComplement().Sequence,
+                geneticCode ?? GeneticCode.Standard, convention);
+        }
+
+        /// <summary>
+        /// Translates all six reading frames of an IUPAC nucleotide string under the chosen frame
+        /// convention (input handling as <see cref="TranslateSixFrames(string, GeneticCode?)"/>).
+        /// </summary>
+        /// <remarks>
+        /// <see cref="SixFrameConvention.Biopython"/> is identical to
+        /// <see cref="TranslateSixFrames(string, GeneticCode?)"/>. The EMBOSS conventions follow EMBOSS
+        /// 6.6.0 <c>transeq</c>; see <see cref="SixFrameConvention"/>. Ambiguous codons keep this
+        /// library's IUPAC resolution (<see cref="GeneticCode.Translate(string)"/>, Biopython tables);
+        /// transeq's own ambiguity table differs for a few dozen IUPAC codons per table (it never
+        /// emits B/Z/J and resolves some S/W, R/Y codons differently), so only those residues can
+        /// differ from the transeq binary.
+        /// </remarks>
+        /// <param name="sequence">IUPAC nucleotide sequence (DNA or RNA, case-insensitive).</param>
+        /// <param name="geneticCode">The genetic code to use (null = Standard).</param>
+        /// <param name="convention">Reverse-frame phasing and trailing-base convention.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+        /// <exception cref="ArgumentException"><paramref name="sequence"/> contains a non-IUPAC symbol.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="convention"/> is not a defined value.</exception>
+        public static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFrames(string sequence,
+            GeneticCode? geneticCode, SixFrameConvention convention)
+        {
+            string forward = NormalizeIupacNucleotides(sequence);
+            return TranslateSixFramesCore(forward, DnaSequence.GetReverseComplementString(forward),
+                geneticCode ?? GeneticCode.Standard, convention);
+        }
+
+        private static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFramesCore(string forward,
+            string reverseComplement, GeneticCode code, SixFrameConvention convention)
+        {
+            switch (convention)
+            {
+                case SixFrameConvention.Biopython:
+                    return TranslateSixFramesCore(forward, reverseComplement, code);
+                case SixFrameConvention.EmbossTranseq:
+                case SixFrameConvention.EmbossTranseqAlternative:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(convention), convention,
+                        "Unknown six-frame convention.");
+            }
+
+            var result = new Dictionary<int, ProteinSequence>();
+            int len = forward.Length;
+            for (int offset = 0; offset < ReadingFramesPerStrand; offset++)
+            {
+                // transeq frame k = ajTrnSeqOrig(seq, k): codons from base k, then the dangling bases.
+                result[offset + 1] = TranslateEmbossStrand(forward, offset, code);
+
+                if (convention == SixFrameConvention.EmbossTranseqAlternative)
+                {
+                    // -alternative Y: ajTrnSeqOrig(seq, -4-offset) — frame -k starts at the k-th base of the
+                    // reverse complement (= Biopython), dangling bases translated as for forward frames.
+                    result[-(offset + 1)] = TranslateEmbossStrand(reverseComplement, offset, code);
+                }
+                else
+                {
+                    result[-(offset + 1)] = TranslateEmbossPhaseLocked(reverseComplement, len, offset, code);
+                }
+            }
+
+            return result;
+        }
+
+        // ajTrnSeqFrameC (frames 1..3, -4..-6) + ajTrnSeqDangleS: full codons of strand[offset..], then
+        // (strand.Length − offset) mod 3 dangling bases — two bases b1 b2 read as the codon b1 b2 N
+        // (an amino acid when the third base does not matter, else X), one base as X.
+        private static ProteinSequence TranslateEmbossStrand(string strand, int offset, GeneticCode code)
+        {
+            if (strand.Length <= offset)
+                return new ProteinSequence(string.Empty);
+
+            var sb = new StringBuilder(TranslateSequence(strand, code, offset, false).Sequence);
+            int remaining = (strand.Length - offset) % CodonLength;
+            AppendDanglingBases(sb, strand, strand.Length - remaining, code, storesProtein: true);
+            return new ProteinSequence(sb.ToString());
+        }
+
+        // transeq default ("frame -1 uses frame 1 codons", ajTrnSeqRevC on seq[offset..] + ajTrnSeqDangleS):
+        // the reverse complement of the forward frame-(offset+1) codons, then the offset leading forward
+        // bases as the dangling end (frame −2: X; frame −3: codon comp(b2) comp(b1) N). The forward bases
+        // after the last full frame codon are not translated. On the reverse complement the codons start
+        // at (len − offset) mod 3 and the last offset bases dangle.
+        private static ProteinSequence TranslateEmbossPhaseLocked(string reverseComplement, int len, int offset,
+            GeneticCode code)
+        {
+            if (len == 0)
+                return new ProteinSequence(string.Empty);
+            if (len < offset)
+            {
+                // Only len = 1, frame −3: transeq still emits its dangling-pair residue, and with one
+                // base the pair is never decidable (ajTrnSeqDangleS reads past the base) → X.
+                return new ProteinSequence("X");
+            }
+
+            int start = (len - offset) % CodonLength;
+            var sb = new StringBuilder();
+            if (len - start >= CodonLength)
+                sb.Append(TranslateSequence(reverseComplement, code, start, false).Sequence);
+            AppendDanglingBases(sb, reverseComplement, len - offset, code, storesProtein: true);
+            return new ProteinSequence(sb.ToString());
+        }
+
         private static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFramesCore(string forward,
             string reverseComplement, GeneticCode code)
         {
@@ -916,6 +1041,39 @@ namespace Seqeron.Genomics.Core
         /// Gets the length of the ORF in amino acids.
         /// </summary>
         public int AminoAcidLength => Protein.Length;
+    }
+
+    /// <summary>
+    /// Reverse-frame phasing and trailing-base convention of
+    /// <see cref="Translator.TranslateSixFrames(string, GeneticCode?, SixFrameConvention)"/>.
+    /// </summary>
+    public enum SixFrameConvention
+    {
+        /// <summary>
+        /// Biopython <c>SeqUtils.six_frame_translations</c> (default): frame +k translates
+        /// <c>seq[k-1:]</c>, frame −k translates <c>reverse_complement(seq)[k-1:]</c>; trailing bases
+        /// that do not form a codon are dropped.
+        /// </summary>
+        Biopython = 0,
+
+        /// <summary>
+        /// EMBOSS <c>transeq</c> default (<c>-alternative N</c>, "phase-locked"): frame −k is the reverse
+        /// complement of the codons of frame +k (the Staden convention: "frame -1 is the
+        /// reverse-complement of the set of codons used in frame 1"), so forward bases after the last
+        /// full frame +k codon are not translated, and the k − 1 leading forward bases form a dangling
+        /// end (frame −2: X; frame −3: the codon comp(b2) comp(b1) N). In every frame dangling bases
+        /// are translated as transeq does (ajTrnSeqDangleS): two bases b1 b2 as the codon b1 b2 N
+        /// (an amino acid when the third base does not matter, else X), one base as X.
+        /// </summary>
+        EmbossTranseq = 1,
+
+        /// <summary>
+        /// EMBOSS <c>transeq -alternative Y</c>: frame −k starts at the k-th base of the reverse
+        /// complement ("frame -1 as using the set of codons starting with the last codon of the
+        /// sequence") — the Biopython phasing — with dangling bases translated as in
+        /// <see cref="EmbossTranseq"/>.
+        /// </summary>
+        EmbossTranseqAlternative = 2,
     }
 
     /// <summary>

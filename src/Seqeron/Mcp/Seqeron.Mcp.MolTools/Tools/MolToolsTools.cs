@@ -625,16 +625,19 @@ public class MolToolsTools
         return new CodonCountsResult(CodonUsageAnalyzer.CountCodons(sequence));
     }
 
-    [McpServerTool(Name = "rscu", Title = "MolTools — Relative Synonymous Codon Usage", ReadOnly = true), Description("Relative Synonymous Codon Usage (RSCU) per codon: observed count / count-expected-if-uniform among its synonymous codons. RSCU = 1 means no bias, > 1 over-represented, < 1 under-represented. Synonymous families (and the stop family) come from the NCBI genetic code genetic_code (default 1 = Standard; RSCU is genetic-code dependent, CodonW -code). Call to quantify codon bias per codon in a coding sequence.")]
+    [McpServerTool(Name = "rscu", Title = "MolTools — Relative Synonymous Codon Usage", ReadOnly = true), Description("Relative Synonymous Codon Usage (RSCU) per codon: observed count / count-expected-if-uniform among its synonymous codons. RSCU = 1 means no bias, > 1 over-represented, < 1 under-represented. Synonymous families (and the stop family) come from the NCBI genetic code genetic_code (default 1 = Standard; RSCU is genetic-code dependent, CodonW -code). Optional pseudocount c (default 0 = CodonW, absent amino acids report 0) is added to every codon count before the per-family normalisation, RSCU = n(x + c)/(sum x + n c), as codonbias RelativeSynonymousCodonUsage(pseudocount) and cubar est_rscu(pseudo_cnt); with c > 0 an absent amino acid is uniform (1). Call to quantify codon bias per codon in a coding sequence.")]
     public static RscuResult rscu(
         [Description("Coding DNA sequence (frame 0).")] string sequence,
-        [Description("NCBI translation table number defining the synonymous codon families and stop codons (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int genetic_code = 1)
+        [Description("NCBI translation table number defining the synonymous codon families and stop codons (default 1 = Standard; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33).")] int genetic_code = 1,
+        [Description("Pseudocount added to every codon count before normalising within its synonymous family (finite, >= 0; default 0 = no pseudocount, CodonW; codonbias and cubar default to 1).")] double pseudocount = 0)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
         var code = ResolveGeneticCode(genetic_code);
+        if (!double.IsFinite(pseudocount) || pseudocount < 0)
+            throw new System.ArgumentException($"pseudocount must be a finite non-negative number (got {pseudocount}).", nameof(pseudocount));
 
-        return new RscuResult(CodonUsageAnalyzer.CalculateRscu(sequence, code));
+        return new RscuResult(CodonUsageAnalyzer.CalculateRscu(sequence, code, pseudocount));
     }
 
     [McpServerTool(Name = "codon_adaptation_index", Title = "MolTools — Codon Adaptation Index (RSCU)", ReadOnly = true), Description("Codon Adaptation Index (Sharp & Li 1987) using a caller-supplied reference RSCU table (typically derived from highly expressed genes), codons in the DNA alphabet. Output range 0..1; per-codon relative adaptiveness w = RSCU/max-synonymous-RSCU, and CAI is their geometric mean. Single-codon amino acids (Met/Trp) and stop codons are excluded; a codon with w < 0.0001 (absent from the reference) is scored with w = 0.01 (CodonW convention); non-ACGT(U) triplets are skipped. Stops, single-codon families and the synonymous families used to derive w follow the NCBI genetic code genetic_code (default 1 = Standard; CodonW -code), e.g. under table 2 ATA joins Met and TGA joins Trp while AGA/AGG are stops. Call to score how well a gene matches an organism's preferred codons given an RSCU reference (distinct from cai_from_organism_table, which takes a frequency table).")]

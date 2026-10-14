@@ -129,6 +129,13 @@
 | M36 | FindOrfs_Circular_DnaAndStringOverloadsAgree | A/C/G/T sequence, modes 0–6 | string = `DnaSequence` overload, circular and linear | contract |
 | M37 | FindOrfs_IupacAndCircular_MatchGetorfBinaryOracle (86 cases) | 24 IUPAC sequences × 86 getorf runs (modes 0–6 × tables 1/2/11 × {defaults + flanking 20; minsize 9, maxsize 90, flanking 5, reverse N} × linear / `-circular Y`, + `-methionine N`) | equal to `TestData/Getorf/getorf_iupac_circular.tsv` (residues: equal or getorf X) | Sources 9, 10 |
 | M38 | IupacCircularOracle_CoversAmbiguityAndOriginCrossing | the oracle | ≥ 20 ambiguous sequences, lower case, U, 43 circular runs, > 100 origin-crossing records | — |
+| M39 | TranslateSixFrames_EmbossConventions_MatchTranseqBinary (480 rows) | 80 A/C/G/T(U) sequences × tables 1/2/11 × `-alternative N`/`Y` | all six frames equal `TestData/Transeq/transeq_six_frames.tsv` (EMBOSS 6.6.0 transeq) | transeq.c, ajtranslate.c (Evidence §transeq) |
+| M40 | TranslateSixFrames_EmbossConventions_HandTracedExample | `ATGAAACCCGGGTT` | default: `MKPGX`, `*NPGX`, `ETRV`, −1 `PGFH`, −2 `TRVSX`, −3 `NPGFX`; alternative: −1 `NPGFX`, −2 `TRVSX`, −3 `PGFH` | transeq binary |
+| M41 | TranslateSixFrames_Emboss_DecidableDanglingPair_IsTranslated | `ATGGG` | +1 `MG` (GGN → G; Biopython `M`), −1 `H`, −3 `PX` | ajTrnSeqDangleS |
+| M42 | TranslateSixFrames_BiopythonConvention_EqualsDefault | 3 sequences, tables 1/2/11 | identical to the convention-less overloads | contract |
+| M43 | TranslateSixFrames_Alternative_EqualsBiopythonWithoutDanglingBases | 39-nt dataset | ±1 equal Biopython; −2 = Biopython + `X` | transeq.acd `-alternative` |
+| M44 | TranslateSixFrames_Emboss_KeepsIupacResolution | `RAYSARGCN` | `BZA` (transeq `XXA`, documented difference) | Evidence §transeq item 5 |
+| S9 | TranslateSixFrames_Emboss_ShortInputs_AndArguments | ``, `A`, null, undefined enum | six empty frames; `A` → `X`,``,``,``,`X`,`X` / alternative `X`,``,``,`X`,``,``; throws | transeq binary |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -219,6 +226,7 @@
 | C1b, M11c, M11d, M14, M15 | ✅ Covered | added in the 2026-09 review (see §7) |
 | M16–M26 | ✅ Covered | `Translator_GetOrfModes_Tests.cs` (FIN-B02 WP11, A1-12) |
 | M27–M38 | ✅ Covered | `Translator_IupacCircular_Tests.cs` (FIN-B02 WP12, A1-13, A1-20) |
+| M39–M44, S9 | ✅ Covered | `Translator_SixFrameConvention_Tests.cs` (FIN-B02 WP17, A2-10) |
 | C2 | ✅ Covered | `TranslateSixFrames_InternalStop_IsRenderedNotTerminated` |
 
 ---
@@ -229,7 +237,7 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Reverse-frame numbering follows the Biopython independent-offset convention (frame −k = revcomp offset k−1) | M3, M5, INV-3 |
+| 1 | Default reverse-frame numbering follows the Biopython independent-offset convention (frame −k = revcomp offset k−1); EMBOSS transeq conventions are opt-in (`SixFrameConvention`) | M3, M5, INV-3, M39–M44 |
 | 2 | Stop = `*`, ambiguous IUPAC codon resolved per Biopython (e.g. `GCN`→`A`, `NNN`→`X`; inherited from `GeneticCode.Translate`) | C2 |
 | 3 | `FindOrfs.minLength` counts amino acids (not nucleotides as in getorf); the getorf-modes overload's `minSize` is getorf's nucleotide value | M11, M20 |
 
@@ -241,3 +249,4 @@
 2. Review 2026-09 (B02): cross-checked against a Python port of EMBOSS `getorf_FindORFs` (`-find 1`, `-methionine` Y) and Biopython six-frame translation on 30 000 random sequences (0–300 nt, 26 NCBI tables): six-frame 0 mismatches; ORFs 0 mismatches over 153 483 reference ORFs after the fixes (initiator → M; open-ORF end at last complete codon; dual-coding tables rejected). The only remaining divergence is getorf never reporting a 1-codon open ORF whose START is the frame's last complete codon (getorf branch-order artefact; only visible with `minLength ≤ 1`) — accepted, algorithm doc §5.4 #5.
 3. FIN-B02 WP11 (2026-10-14, audit A1-12): getorf `-find` 0, 2, 3, 4, 5, 6 added as `FindOrfs(DnaSequence, OrfFindMode, …)` (port of `getorf_FindORFs`/`getorf_WriteORF`/`getorf_AppORF`, linear only — `-circular` not supported). Verified against the EMBOSS 6.6.0 `getorf` binary on 2 500 random sequences (1–400 nt; uniform / GC-rich / AT-rich) × 290 parameter sets (modes 0–6 × tables 1, 2, 4, 11, 12 [+ 3, 13 for the START-independent modes 0/2/5/6, whose EMBOSS start sets predate NCBI's] × 5 minsize/maxsize/flanking/reverse sets, + `-methionine N` for 1/3/4): 0 mismatching (sequence, run) pairs over 3 474 722 reference records (modes 0/2/3/4/5/6: 723 069 / 681 150 / 469 100 / 409 574 / 348 228 / 351 943); 25 084 one-codon open-ORF records excluded as the documented divergence (§5.4 #5 of the algorithm doc). A 30-sequence × 65-run subset is locked in `TestData/Getorf/getorf_find_modes.tsv` (M20).
 4. FIN-B02 WP12 (2026-10-14, audits A1-13, A1-20): IUPAC string overloads `TranslateSixFrames(string, …)`, `FindOrfs(string, …)` (legacy and getorf-modes) and getorf `-circular` (`circular: true` on the getorf-modes overloads). Six frames vs Biopython 1.88 (`Seq(s)[f:].translate(t)` / `reverse_complement()`): 20 000 random IUPAC strings (0–200 nt, 0–100 % ambiguity codes, lower case / U) over all 27 Biopython tables, 0 mismatching frames. getorf string overload vs the EMBOSS 6.6.0 binary, 1 000 random IUPAC sequences × 93 runs (modes 0–6 × tables 1/2/11 × 4 parameter sets, + `-methionine N`): linear 384 927 reference records, circular 344 889 — 0 unexplained mismatches; (sequence, run) pairs that differ only in residues where getorf prints X (or one of EMBOSS's inconsistent wobble/OR entries): 4 653 linear / 6 516 circular of 93 000; pairs whose sequence contains a codon with a different STOP status in EMBOSS's table (TRA/TRR, WRR): 2 295 / 2 694. `-circular` on A/C/G/T: 1 000 random sequences × 93 runs, 447 526 reference records, 0 mismatches once getorf's full-length records (STOP-free frame) are taken literally; the two documented divergences there are the frame-3 `>= maxsize` typo and mode 2's protein output (algorithm doc §5.4 #7). A 24-sequence × 86-run subset is locked in `TestData/Getorf/getorf_iupac_circular.tsv` (M37).
+5. FIN-B02 WP17 (2026-10-14, audit A2-10): `TranslateSixFrames(DnaSequence | string, GeneticCode?, SixFrameConvention)` with `Biopython` (default, unchanged), `EmbossTranseq` (transeq default: frame −k = reverse complement of the frame +k codons, k − 1 leading bases dangling) and `EmbossTranseqAlternative` (`-alternative Y`); dangling bases translated as transeq (`b1 b2 N`, one base → X). Verified against the EMBOSS 6.6.0 transeq binary: 2 000 A/C/G/T(U) sequences × tables 1/2/11 × both conventions = 72 000 frames, 0 mismatches; 600 IUPAC sequences (21 600 frames) differ only at codons where transeq's ambiguity table differs (5 442 residues). Locked subset `TestData/Transeq/transeq_six_frames.tsv` (M39).

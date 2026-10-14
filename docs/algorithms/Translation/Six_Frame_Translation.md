@@ -57,6 +57,8 @@ stop codons TAA, TAG, TGA [3].
 | Aspect | This module (Biopython convention) | EMBOSS transeq default |
 |--------|-----------------------------------|------------------------|
 | Reverse-frame label | frame −1 = reverse complement at offset 0 | frame −1 = phase-locked to forward frame 1 |
+| Trailing 1–2 bases | dropped | translated (`b1 b2 N` → residue or X; one base → X) |
+| Selectable here | `SixFrameConvention.Biopython` (default) | `SixFrameConvention.EmbossTranseq`; `-alternative Y` = `EmbossTranseqAlternative` |
 
 ## 3. Contract
 
@@ -68,6 +70,7 @@ stop codons TAA, TAG, TGA [3].
 | geneticCode | GeneticCode? | Standard (table 1) | Codon→amino-acid table | NCBI translation table; `FindOrfs` rejects the dual-coding-stop tables 27, 28, 31 (`ArgumentException`) |
 | minLength | int | 100 | Minimum ORF length, in **amino acids** | ≥ 0 |
 | searchBothStrands | bool | true | Also scan the reverse complement for ORFs | — |
+| convention | SixFrameConvention | `Biopython` (overloads without it) | `TranslateSixFrames(…, geneticCode, convention)`: `Biopython`, `EmbossTranseq` (transeq default, phase-locked reverse frames), `EmbossTranseqAlternative` (transeq `-alternative Y`) | defined enum value (`ArgumentOutOfRangeException`) |
 
 IUPAC string overloads (A1-13): `TranslateSixFrames(string, GeneticCode?)`, `FindOrfs(string, GeneticCode?, int minLength, bool)` and `FindOrfs(string, OrfFindMode, …)` take the same parameters with `sequence` = case-insensitive IUPAC DNA or RNA (A C G T U R Y S W K M B D H V N; U read as T); null → `ArgumentNullException`, any other symbol → `ArgumentException`.
 
@@ -193,21 +196,20 @@ toFirstStop: true)`.
 
 - Legacy-overload `minLength` is measured in amino acids; **consequence:** users converting from EMBOSS getorf `-minsize` (nucleotides) must divide by 3 — or use the getorf-modes overload, whose `minSize` is getorf's nucleotide value.
 
-**Not implemented:**
-
-- EMBOSS phase-locked reverse-frame numbering; **users should rely on:** the Biopython convention used here (the EMBOSS-documented alternative) — no separate phase-locked mode is provided.
+- EMBOSS transeq frame conventions (`SixFrameConvention.EmbossTranseq` / `EmbossTranseqAlternative`; transeq.c, transeq.acd `-alternative`, ajtranslate.c `ajTrnSeqFrameC`/`ajTrnSeqRevC`/`ajTrnSeqAltRevC`/`ajTrnSeqDangleS`) [1][8]: default frame −k = reverse complement of the frame +k codons ("frame -1 is the reverse-complement of the set of codons used in frame 1"), the k − 1 leading forward bases forming its dangling end; `-alternative Y` frame −k starts at the k-th base of the reverse complement (= Biopython phasing). Dangling bases are translated in every frame (two bases `b1 b2` as codon `b1 b2 N`, one base as X); stops print `*` (transeq `-clean` / `-trim` are post-processing: replace `*` by X / strip trailing X and `*`). 0 mismatching frames against the EMBOSS 6.6.0 transeq binary over 2 000 random A/C/G/T(U) sequences (1–150 nt, lower case / U) × tables 1/2/11 × both conventions (72 000 frames); on 600 IUPAC sequences (21 600 frames) every residue equals the per-codon table of its tool, so the frames differ only at codons where transeq's ambiguity table differs (#9).
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Reverse-frame numbering = Biopython independent-offset (not EMBOSS phase-locked) | Assumption | −1/−2/−3 labels differ from EMBOSS default | accepted | Documented alternative in EMBOSS transeq [1]; see INV-03 |
+| 1 | Default reverse-frame numbering = Biopython independent-offset (not EMBOSS phase-locked) | Assumption | −1/−2/−3 labels differ from EMBOSS default unless `SixFrameConvention.EmbossTranseq` is passed | accepted | Documented alternative in EMBOSS transeq [1]; see INV-03 |
 | 2 | `minLength` in amino acids, not nucleotides | Deviation | Different parameter unit than getorf | accepted | §3.1 |
 | 3 | End coordinate includes the STOP (INSDC) | Convention | getorf's printed end = EndPosition − 3 | accepted | [7] |
 | 4 | Reverse-strand ORF coordinates in reverse-complement coordinates | Convention | getorf prints forward-strand coordinates (`len−s+1`) | accepted | §6.2 |
 | 5 | A START in the very last complete codon of a frame (no STOP) is reported as a 1-aa open ORF when `minLength ≤ 1` (getorf-modes overload, modes 1/3/4: when it passes `minSize` and, mode 4, the window fits) | Divergence | getorf never writes it (branch-order artefact of `getorf_FindORFs`: the START branch opens the ORF and the loop ends) | accepted | unobservable for `minLength ≥ 2` / `minSize ≥ 6` (mode 3: ≥ 4) (getorf default minsize 30 nt = 10 aa) |
 | 6 | Nucleotide output of the string overloads is upper-case DNA | Convention | getorf keeps the input case (and writes U as T) | accepted | §3.1 |
 | 7 | Ambiguous codons in ORF finding resolved per codon by the all-expansions rule (STOP iff all expansions stop; residue = Biopython) | Divergence | EMBOSS's precomputed ambiguous table (`trnComplete`) gives X for most ambiguous codons and is inconsistent for a few: table 1/11 `TRR` → STOP (TGG = W), `TRA` (all stops) not a STOP, `YTN` → L, `MGN` → R, `ATS` → I, `WSN` → S; table 2 `WRR` → STOP. ORFs differ from getorf only around such codons; residues differ where getorf prints X | accepted | [8]; Evidence |
+| 9 | EMBOSS conventions keep this library's IUPAC codon resolution (Biopython tables) | Divergence | transeq's ambiguity table never emits B/Z/J (RAY → X, not B) and resolves a few codons differently (table 1: `ATS` → I, `ATW` → X, `TRA` → X, `TRR` → `*`, `YTN` → L, `MGN` → R; 28 of 3 375 IUPAC codons in table 1, 15 in table 2, 28 in table 11); residues differ only there | accepted | [8]; Evidence; as #7 |
 | 8 | Circular full-length record (STOP-free frame, modes 0/2): mode 2 reports the frame's nucleotides and filters on nucleotide length; frame 3 uses `≤ maxSize` | Divergence | getorf.c prints the protein in mode 2 (comparing its residue count with nucleotide bounds) and tests frame 3 with `>= maxsize` (typo), so it normally omits that record | accepted | [6] |
 
 ## 6. Edge Cases and Limitations
@@ -226,8 +228,9 @@ toFirstStop: true)`.
 
 ### 6.2 Limitations
 
-Reverse-frame labels follow the Biopython convention and will not match EMBOSS transeq's
-phase-locked default. ORF finding provides all seven getorf `-find` modes (legacy overload:
+Reverse-frame labels follow the Biopython convention by default; pass `SixFrameConvention.EmbossTranseq`
+to reproduce EMBOSS transeq's phase-locked default (or `EmbossTranseqAlternative` for `-alternative Y`).
+transeq's `-regions`, `-trim`, `-clean` and `-methionine` (regions only) are not exposed. ORF finding provides all seven getorf `-find` modes (legacy overload:
 `-find 1` only), on linear or circular (`-circular`) sequences, A/C/G/T or IUPAC strings. ORF coordinates for
 reverse-strand hits are expressed in the reverse complement's coordinate frame
 (`OrfFeature.ToGetOrfRange` gives getorf's forward-strand header).
@@ -269,6 +272,7 @@ var wrapped = Translator.FindOrfs("CCCTAAGGGATGAAA", OrfFindMode.TranslationStar
 - Tests: [Translator_SixFrames_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_SixFrames_Tests.cs) — covers `INV-01`..`INV-06`
 - Tests: [Translator_GetOrfModes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_GetOrfModes_Tests.cs) — getorf `-find` 0–6 against the EMBOSS 6.6.0 binary oracle `TestData/Getorf/getorf_find_modes.tsv`
 - Tests: [Translator_IupacCircular_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_IupacCircular_Tests.cs) — IUPAC string overloads (Biopython six frames; getorf ambiguity rules) and `-circular`, oracle `TestData/Getorf/getorf_iupac_circular.tsv`
+- Tests: [Translator_SixFrameConvention_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_SixFrameConvention_Tests.cs) — EMBOSS transeq conventions against the transeq 6.6.0 binary oracle `TestData/Transeq/transeq_six_frames.tsv`
 - Evidence: [TRANS-SIXFRAME-001-Evidence.md](../../../docs/Evidence/TRANS-SIXFRAME-001-Evidence.md)
 
 ## 8. References
@@ -280,4 +284,4 @@ var wrapped = Translator.FindOrfs("CCCTAAGGGATGAAA", OrfFindMode.TranslationStar
 5. Wikipedia contributors. Reading frame (cites Lodish 2007; Pierce 2012). https://en.wikipedia.org/wiki/Reading_frame
 6. EMBOSS getorf source: `emboss/getorf.c` (`getorf_FindORFs`, `getorf_WriteORF`, `getorf_AppORF`) and `emboss/acd/getorf.acd` (`-find` 0–6, `-minsize` 30, `-maxsize` 1000000, `-flanking` 100, `-methionine` Y, `-reverse` Y). https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/getorf.c
 7. INSDC. The DDBJ/ENA/GenBank Feature Table Definition — CDS: "sequence of nucleotides that corresponds with the sequence of amino acids in a protein (location includes stop codon)". https://www.insdc.org/submitting-standards/feature-table/
-8. EMBOSS translation library: `ajax/core/ajtranslate.c` (`ajTrnCodonstrTypeC`, `ajTrnReadFile`, `trnComplete`, `ajTrnSeqOrig`, `ajTrnSeqDangleC`). https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/ajax/core/ajtranslate.c
+8. EMBOSS translation library: `ajax/core/ajtranslate.c` (`ajTrnCodonstrTypeC`, `ajTrnReadFile`, `trnComplete`, `ajTrnSeqOrig`, `ajTrnSeqDangleC`). https://raw.githubusercontent.com/kimrutherford/EMBOSS/master/ajax/core/ajtranslate.c; transeq source `emboss/transeq.c`, `emboss/acd/transeq.acd` (`-alternative`, `-trim`, `-clean`)

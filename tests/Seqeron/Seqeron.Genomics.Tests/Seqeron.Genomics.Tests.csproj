@@ -32,6 +32,12 @@
     <!-- TRANS-SIXFRAME-001 (A1-13, A1-20): EMBOSS 6.6.0 getorf binary output for -find 0..6, linear and -circular Y,
          over 24 IUPAC sequences (ambiguity codes, N runs, lower case, U) × 86 parameter sets; see the file header. -->
     <EmbeddedResource Include="TestData\Getorf\getorf_iupac_circular.tsv" />
+    <!-- CODON-RSCU-001 (FIN-B02 WP17, A2-9): codonbias 0.5.0 RelativeSynonymousCodonUsage(pseudocount=c, ignore_stop=False)
+         weights for 7 genes × NCBI tables 1/2 × c = 0.5/1/2.5 (all 64 codons); see the file header. -->
+    <EmbeddedResource Include="TestData\Codon\codonbias_rscu_pseudocount.tsv" />
+    <!-- TRANS-SIXFRAME-001 (FIN-B02 WP17, A2-10): EMBOSS 6.6.0 transeq binary output, -frame 6, tables 1/2/11,
+         -alternative N (phase-locked default) and Y, over 80 unambiguous sequences; see the file header. -->
+    <EmbeddedResource Include="TestData\Transeq\transeq_six_frames.tsv" />
     <!-- ONCO-SIG-002: COSMIC v3.4 SBS96 reference signatures (86 × 96), verbatim from SigProfilerAssignment
          (SigProfilerAssignment/data/Reference_Signatures/GRCh37/COSMIC_v3.4_SBS_GRCh37.txt). Used to cross-check
          FitSignatures (NNLS refit to the full COSMIC set) against scipy.optimize.nnls. -->

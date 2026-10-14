@@ -14,7 +14,9 @@ Relative Synonymous Codon Usage per codon.
 
 ## Description
 
-Computes RSCU (Sharp, Tuohy & Mosurski 1986) for each codon: `RSCU = observed / (total_synonymous / n_synonymous)`, i.e. observed count divided by the count expected if all synonymous codons of that amino acid were used equally. `RSCU = 1` means no bias, `> 1` over-represented, `< 1` under-represented. Codons of amino acids not present in the sequence get RSCU 0.
+Computes RSCU (Sharp, Tuohy & Mosurski 1986) for each codon: `RSCU = observed / (total_synonymous / n_synonymous)`, i.e. observed count divided by the count expected if all synonymous codons of that amino acid were used equally. `RSCU = 1` means no bias, `> 1` over-represented, `< 1` under-represented. Codons of amino acids not present in the sequence get RSCU 0 (CodonW).
+
+Optional `pseudocount` `c` (default 0) is added to every codon count before the per-family normalisation: `RSCU = n·(x + c) / (Σx + n·c)` — the formula of codonbias 0.5.0 `RelativeSynonymousCodonUsage(pseudocount=c)` and cubar `est_rscu(pseudo_cnt = c, level = "amino_acid")` (both default to `c = 1`). With `c > 0` an absent amino acid is uniform (RSCU 1 for each codon).
 
 ## Core Documentation Reference
 
@@ -26,6 +28,7 @@ Computes RSCU (Sharp, Tuohy & Mosurski 1986) for each codon: `RSCU = observed / 
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | Coding DNA sequence (frame 0), non-empty. |
 | `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the synonymous families and stops (CodonW `-code`). One of 1–6, 9–16, 21–33. |
+| `pseudocount` | number | No | Pseudocount added to every codon count, finite and ≥ 0 (default `0` = none, CodonW). |
 
 ## Output Schema
 
@@ -39,6 +42,7 @@ Computes RSCU (Sharp, Tuohy & Mosurski 1986) for each codon: `RSCU = observed / 
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1002 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
+| 1003 | pseudocount must be a finite non-negative number (got X). |
 
 ## Examples
 
@@ -53,6 +57,10 @@ Computes RSCU (Sharp, Tuohy & Mosurski 1986) for each codon: `RSCU = observed / 
 ### Example 3: Non-standard genetic code (`genetic_code = 2`)
 
 `ATAATGATGTGATGGTGGAGATAA` (ATA×1, ATG×2, TGA×1, TGG×2, AGA×1, TAA×1). Under NCBI table 2 (vertebrate mitochondrial) Met = {ATA, ATG}, Trp = {TGA, TGG}, stops = {TAA, TAG, AGA, AGG}: `RSCU[ATA] = 0.667`, `RSCU[ATG] = 1.333`, `RSCU[TGA] = 0.667`, `RSCU[TGG] = 1.333`, `RSCU[AGA] = RSCU[TAA] = 2.0`. With the default table 1 the same gene gives `RSCU[ATA] = 3.0` (Ile), `RSCU[ATG] = 1.0`, `RSCU[TGA] = 1.5` (stop), `RSCU[AGA] = 6.0` (Arg). Families from Biopython `CodonTable.unambiguous_dna_by_id[2]`.
+
+### Example 4: Pseudocount (`pseudocount = 1`)
+
+`TTTTTTTTC` (TTT×2, TTC×1): `RSCU[TTT] = 2·(2+1)/(3+2) = 1.2`, `RSCU[TTC] = 2·(1+1)/(3+2) = 0.8`; Met (absent) `= 1·1/1 = 1.0`. Identical to codonbias 0.5.0 `RelativeSynonymousCodonUsage(pseudocount=1, ignore_stop=False)`.
 
 ## See Also
 

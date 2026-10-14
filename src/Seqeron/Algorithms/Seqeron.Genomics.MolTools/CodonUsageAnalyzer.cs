@@ -147,6 +147,95 @@ public static class CodonUsageAnalyzer
     private static IEnumerable<IGrouping<char, string>> SynonymousFamilies(GeneticCode code) =>
         code.CodonTable.GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T'));
 
+    /// <summary>
+    /// Calculates RSCU of a coding sequence under the given genetic code with a pseudocount
+    /// added to every codon count. See
+    /// <see cref="CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode, double)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="code"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="pseudocount"/> is negative, NaN or infinite.</exception>
+    public static Dictionary<string, double> CalculateRscu(DnaSequence sequence, GeneticCode code, double pseudocount)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(code);
+        ValidatePseudocount(pseudocount);
+        return CalculateRscu(CountCodonsCore(sequence.Sequence), code, pseudocount);
+    }
+
+    /// <summary>
+    /// Calculates RSCU from a raw sequence string (DNA or RNA, case-insensitive; counted as by
+    /// <see cref="CountCodons(string)"/>) under the given genetic code with a pseudocount added to
+    /// every codon count. Null/empty returns an empty dictionary. See
+    /// <see cref="CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode, double)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="pseudocount"/> is negative, NaN or infinite.</exception>
+    public static Dictionary<string, double> CalculateRscu(string sequence, GeneticCode code, double pseudocount)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        ValidatePseudocount(pseudocount);
+        if (string.IsNullOrEmpty(sequence))
+            return new Dictionary<string, double>();
+
+        return CalculateRscu(CountCodonsCore(sequence), code, pseudocount);
+    }
+
+    /// <summary>
+    /// Calculates RSCU from codon counts with a pseudocount <c>c</c> added to every codon count
+    /// before the within-family normalisation:
+    /// RSCU_j = n·(x_j + c) / Σ_k (x_k + c) = n·(x_j + c) / (Σ_k x_k + n·c).
+    /// </summary>
+    /// <remarks>
+    /// The pseudocount is applied exactly as in codonbias 0.5.0
+    /// (<c>scores.RelativeSynonymousCodonUsage(pseudocount=c)</c>: <c>counts + pseudocount</c>
+    /// normalised per amino acid, divided by the uniform 1/n) and in the R package cubar
+    /// (<c>est_rscu(pseudo_cnt = c, level = "amino_acid")</c>: <c>prop = (cts + c)/sum(cts + c)</c>,
+    /// <c>rscu = prop/mean(prop)</c>). Families are whole amino acids plus the termination family
+    /// ('*'), as in <see cref="CalculateRscu(IReadOnlyDictionary{string, int}, GeneticCode)"/>
+    /// (codonbias <c>ignore_stop=False</c>, cubar <c>incl_stop = TRUE</c>). With <c>c &gt; 0</c>
+    /// a family absent from the gene is uniform (every member 1) instead of CodonW's 0.
+    /// <c>c = 0</c> (the default overload) is the CodonW behaviour, bit for bit.
+    /// </remarks>
+    /// <param name="codonCounts">Codon counts keyed by uppercase DNA codon; other keys are ignored.</param>
+    /// <param name="code">Genetic code defining the synonymous families.</param>
+    /// <param name="pseudocount">Non-negative pseudocount added to every codon count (0 = none).</param>
+    /// <returns>RSCU for each of the 64 codons (uppercase DNA spelling).</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="pseudocount"/> is negative, NaN or infinite.</exception>
+    public static Dictionary<string, double> CalculateRscu(
+        IReadOnlyDictionary<string, int> codonCounts, GeneticCode code, double pseudocount)
+    {
+        ArgumentNullException.ThrowIfNull(codonCounts);
+        ArgumentNullException.ThrowIfNull(code);
+        ValidatePseudocount(pseudocount);
+        if (pseudocount == 0)
+            return CalculateRscu(codonCounts, code);
+
+        var rscu = new Dictionary<string, double>(64);
+
+        foreach (var family in SynonymousFamilies(code))
+        {
+            int familySize = family.Count();
+            long familyTotal = 0;
+            foreach (var codon in family)
+                familyTotal += codonCounts.GetValueOrDefault(codon, 0);
+
+            // Σ(x + c) = Σx + n·c > 0 for c > 0.
+            double denominator = familyTotal + familySize * pseudocount;
+            foreach (var codon in family)
+                rscu[codon] = familySize * (codonCounts.GetValueOrDefault(codon, 0) + pseudocount) / denominator;
+        }
+
+        return rscu;
+    }
+
+    private static void ValidatePseudocount(double pseudocount)
+    {
+        if (!double.IsFinite(pseudocount) || pseudocount < 0)
+            throw new ArgumentOutOfRangeException(nameof(pseudocount), pseudocount,
+                "Pseudocount must be a finite non-negative number.");
+    }
+
     #endregion
 
     #region CAI (Codon Adaptation Index)
