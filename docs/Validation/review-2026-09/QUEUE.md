@@ -156,10 +156,15 @@ Per the model rule above. A batch listed here stays out of "Finished batches" ev
 | Batch | What was produced off-model | Session | Model actually served | Status |
 |---|---|---|---|---|
 | B08 | CRISPR-OFF-001 start: F9 MIT silent-100 aggregate fix + CFD aggregate + dedup, WIP only (`-wip-B08` a80bdfa7) | session_01E7mHtXGjdaPccegYRGjrba (interrupted 10:53, ≈ $10, archived) | claude-opus-5 (session model 5-5, served 5) | being re-verified against CRISPOR/Hsu/Doench by B08 resume-2 session_01JEZHM6XkDpcN8pugzHb9ns on verified 5-5 — clears if it holds |
+| B08 | CRISPR-PAM-001 F1–F2 (commit 73fe1972) + the B08.md skeleton | session_01YRNyThk8LUUghgQswiDmsF (first pass, archived, ≈ $19.6) | claude-opus-5 (session model AND last served) | OPEN — needs a re-verification pass on 5-5 |
 | B08 | CRISPR-GUIDE-001 F3–F8 (commits 2fc133c2, e8e6c72) | session_01NvVQb3FM1E4YGuhxEtXqjH (2026-10-01, archived) | claude-opus-5 (configured + session model 5-5, served 5) | OPEN — needs a re-verification pass on 5-5 before B08 may be called finished |
 
-A provenance audit of every earlier campaign session (model actually served per batch) is being collected into
-`scratchpad/model-provenance.md`; batches it finds off-model get a row here.
+**Provenance audit done 2026-10-14** (all 36 campaign sessions queried; table in `scratchpad/model-provenance.md`):
+every session was *configured* claude-opus-5-5, and every batch except B08 was also *served* 5-5 — B01–B07, B09–B26,
+B24, the B07 resumes, FIN-B01, FIN-B24 and R1 all clean, so the six entries in "Finished batches" stand. Only B08 is
+affected, and all of its pre-2026-10-14 work (F1–F8) was produced off-model, as the rows above record. The one record
+with no data is the FIN-B01 launch that was aborted over the literal `$(cat …)` prompt
+(session_01ESJRAKGAm3Af18dZknYwM9) — it produced no commits, so nothing depends on it.
 
 ## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
 B01 (FIN-B01 2026-10-09), B04, B05, B06, B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with
