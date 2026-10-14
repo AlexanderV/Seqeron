@@ -254,7 +254,7 @@ public static class CodonOptimizer
 
         foreach (char c in codon)
         {
-            char dna = ToUpperAscii(c);
+            char dna = SequenceCase.ToUpperAscii(c);
             if (dna == 'U') dna = 'T';
             if (!IupacHelper.IsNucleotideCode(dna))
                 return false;
@@ -944,8 +944,7 @@ public static class CodonOptimizer
         var prefix = new int[sequence.Length + 1];
         for (int i = 0; i < sequence.Length; i++)
         {
-            char c = char.ToUpperInvariant(sequence[i]);
-            prefix[i + 1] = prefix[i] + (c is 'G' or 'C' ? 1 : 0);
+            prefix[i + 1] = prefix[i] + CodonUsageAnalyzer.GcIndicator(sequence[i]);
         }
 
         double totalBreach = 0;
@@ -1030,8 +1029,7 @@ public static class CodonOptimizer
             string codon = codons[i];
             for (int k = 0; k < 3 && k < codon.Length; k++)
             {
-                char c = char.ToUpperInvariant(codon[k]);
-                gcFlags[i * 3 + k] = c is 'G' or 'C' ? 1 : 0;
+                gcFlags[i * 3 + k] = CodonUsageAnalyzer.GcIndicator(codon[k]);
             }
         }
 
@@ -1059,8 +1057,7 @@ public static class CodonOptimizer
             codons[index] = codon;
             for (int k = 0; k < 3; k++)
             {
-                char c = char.ToUpperInvariant(codon[k]);
-                gcFlags[index * 3 + k] = c is 'G' or 'C' ? 1 : 0;
+                gcFlags[index * 3 + k] = CodonUsageAnalyzer.GcIndicator(codon[k]);
             }
         }
 
@@ -1212,7 +1209,7 @@ public static class CodonOptimizer
         // The canonical core keys codons in DNA spelling.
         var reference = new Dictionary<string, double>(table.CodonFrequencies.Count);
         foreach (var (codon, frequency) in table.CodonFrequencies)
-            reference[ToUpperAscii(codon).Replace('U', 'T')] = frequency;
+            reference[SequenceCase.ToUpperDna(codon)] = frequency;
 
         return CodonUsageAnalyzer.CalculateCai(
             codingSequence, reference, geneticCode ?? GeneticCode.Standard,
@@ -1288,7 +1285,7 @@ public static class CodonOptimizer
         {
             if (string.IsNullOrEmpty(site))
                 continue;
-            string pattern = ToUpperAscii(site).Replace('U', 'T');
+            string pattern = SequenceCase.ToUpperDna(site);
             if (!pattern.All(IupacHelper.IsNucleotideCode))
                 throw new ArgumentException(
                     $"Restriction site '{site}' contains a character that is not an IUPAC nucleotide code.",
@@ -1307,7 +1304,7 @@ public static class CodonOptimizer
             int budget = codons.Count + 8;
             while (budget-- > 0)
             {
-                string dna = string.Concat(codons).Replace('U', 'T');
+                string dna = ToDnaSpelling(string.Concat(codons));
                 int position = FindPattern(dna, pattern, from);
                 if (position < 0)
                     break;
@@ -1385,7 +1382,7 @@ public static class CodonOptimizer
                     continue;
 
                 string candidate = ConcatCodons(codons, 0, codons.Count, i, alternative);
-                if (FindPattern(candidate.Replace('U', 'T'), pattern, position) == position)
+                if (FindPattern(ToDnaSpelling(candidate), pattern, position) == position)
                     continue;
 
                 double frequency = table.CodonFrequencies.GetValueOrDefault(alternative, 0);
@@ -2087,12 +2084,9 @@ public static class CodonOptimizer
         for (int r = 0; r < rows; r++)
         {
             var usage = options.UseCodonFrequencies ? tablesPerSequence[r].CodonFrequencies : tablesPerSequence[r].PerThousand!;
-            string s = alignedCodingSequences[r];
+            var codons = SplitIntoCodons(ToUpperRna(alignedCodingSequences[r]));
             for (int c = 0; c < columns; c++)
-            {
-                string codon = s.Substring(c * 3, 3).ToUpperInvariant().Replace('T', 'U');
-                matrix[r, c] = usage.TryGetValue(codon, out double v) ? v : double.NaN;
-            }
+                matrix[r, c] = usage.TryGetValue(codons[c], out double v) ? v : double.NaN;
         }
 
         // Stage 3: window-and-family averages, representativeness filter, pauses.
@@ -2212,7 +2206,7 @@ public static class CodonOptimizer
         // The canonical counter normalises case and U/T itself and reports DNA spelling;
         // this API reports RNA spelling.
         foreach (var (codon, count) in CodonUsageAnalyzer.CountCodons(codingSequence))
-            usage[codon.Replace('T', 'U')] = count;
+            usage[ToRnaSpelling(codon)] = count;
 
         return usage;
     }
@@ -2261,22 +2255,19 @@ public static class CodonOptimizer
     {
         var codons = CodonUsageAnalyzer.SplitInFrameCodons(codingSequence);
         for (int k = 0; k < codons.Length; k++)
-            codons[k] = codons[k]?.Replace('T', 'U');
+            codons[k] = codons[k] is { } codon ? ToRnaSpelling(codon) : null;
         return codons;
     }
 
-    // Upper-case RNA spelling (T read as U) used by every rewriting API of this class.
-    private static string ToUpperRna(string sequence) => ToUpperAscii(sequence).Replace('T', 'U');
+    // Upper-case RNA spelling (T read as U) used by every rewriting API of this class; ASCII-only
+    // folding by the canonical SequenceCase (TRANS-PROT-001: 'ſ' must not read as the IUPAC code S).
+    private static string ToUpperRna(string sequence) => SequenceCase.ToUpperRna(sequence);
 
-    // ASCII-only case folding (TRANS-PROT-001), as Core's SequenceExtensions.ToUpperAscii (internal to
-    // Core): ToUpperInvariant folds U+017F 'ſ' → 'S', an IUPAC code, so "GGſ" would read as GGS → Gly.
-    private static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
+    // Re-spelling of already upper-case codon text between the RNA working alphabet of this class
+    // and the DNA spelling of the canonical CodonUsageAnalyzer / IUPAC matchers.
+    private static string ToDnaSpelling(string rna) => rna.Replace('U', 'T');
 
-    private static string ToUpperAscii(string s) => string.Create(s.Length, s, static (dest, src) =>
-    {
-        for (int i = 0; i < src.Length; i++)
-            dest[i] = ToUpperAscii(src[i]);
-    });
+    private static string ToRnaSpelling(string dna) => dna.Replace('T', 'U');
 
     // Every complete frame-0 triplet, including ambiguous ones (the rewriting APIs must keep
     // them in place to preserve the reading frame and the sequence length); a trailing partial

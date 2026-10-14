@@ -751,9 +751,9 @@ public class CodonOptimizer_OptimizeSequence_Tests
     #region Helper Methods
 
     // Canonical translation (no private genetic-code copy in the test either).
+    // Canonical translator (frame 0, every complete codon, '*' kept).
     private static string TranslateSequence(string rnaSequence) =>
-        string.Concat(Enumerable.Range(0, rnaSequence.Length / 3)
-            .Select(i => GeneticCode.Standard.Translate(rnaSequence.Substring(i * 3, 3))));
+        Translator.Translate(rnaSequence, GeneticCode.Standard, 0, false).Sequence;
 
     #endregion
 }

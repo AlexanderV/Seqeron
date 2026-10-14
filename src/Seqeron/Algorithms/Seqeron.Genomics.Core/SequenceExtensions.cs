@@ -578,19 +578,16 @@ public static class SequenceExtensions
     /// Upper-cases ASCII letters only. Unlike <see cref="char.ToUpperInvariant(char)"/> this never maps a
     /// non-ASCII character onto an ASCII sequence symbol (e.g. U+017F 'ſ' → 'S').
     /// </summary>
+    /// <remarks>Delegates to the canonical <see cref="Infrastructure.SequenceCase.ToUpperAscii(char)"/>.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
+    internal static char ToUpperAscii(char c) => Infrastructure.SequenceCase.ToUpperAscii(c);
 
     /// <summary>
     /// String form of <see cref="ToUpperAscii(char)"/>: upper-cases ASCII letters only and returns
-    /// <paramref name="s"/> itself when it has no ASCII lower-case letter. Length-preserving.
+    /// <paramref name="s"/> itself when it has no ASCII lower-case letter (or is null). Length-preserving.
+    /// Delegates to the canonical <see cref="Infrastructure.SequenceCase.ToUpperAscii(string)"/>.
     /// </summary>
-    internal static string ToUpperAscii(string s)
-    {
-        if (s.AsSpan().IndexOfAnyInRange('a', 'z') < 0)
-            return s;
-        return string.Create(s.Length, s, static (dest, src) => CopyToUpperAscii(src, dest));
-    }
+    internal static string ToUpperAscii(string s) => s is null ? s! : Infrastructure.SequenceCase.ToUpperAscii(s);
 
     #endregion
 }

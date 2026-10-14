@@ -122,25 +122,9 @@ public static class CodonUsageAnalyzer
         ArgumentNullException.ThrowIfNull(codonCounts);
         ArgumentNullException.ThrowIfNull(code);
 
-        var rscu = new Dictionary<string, double>(64);
-
-        foreach (var family in SynonymousFamilies(code))
-        {
-            int familySize = family.Count();
-            long familyTotal = 0;
-            foreach (var codon in family)
-                familyTotal += codonCounts.GetValueOrDefault(codon, 0);
-
-            foreach (var codon in family)
-            {
-                // RSCU = n·x / Σx; an absent family (Σx = 0) is 0 for every member (CodonW).
-                rscu[codon] = familyTotal > 0
-                    ? (double)familySize * codonCounts.GetValueOrDefault(codon, 0) / familyTotal
-                    : 0.0;
-            }
-        }
-
-        return rscu;
+        // RSCU = n·x / Σx; an absent family (Σx = 0) is 0 for every member (CodonW): the shared
+        // pseudocount core with c = 0 (n·(x + 0)/(Σx + n·0) is bit-identical to n·x/Σx).
+        return CalculateRscuCore(codonCounts, SynonymousFamilies(code).Select(g => g.ToList()), pseudocount: 0);
     }
 
     // Synonymous codon families (DNA spelling) of a genetic code, keyed by the encoded
@@ -282,20 +266,23 @@ public static class CodonUsageAnalyzer
         ArgumentNullException.ThrowIfNull(code);
         ValidatePseudocount(pseudocount);
         ValidateFamilyLevel(level);
-        if (pseudocount == 0 && level == RscuFamilyLevel.AminoAcid)
-            return CalculateRscu(codonCounts, code);
-
         var families = level == RscuFamilyLevel.AminoAcid
             ? SynonymousFamilies(code).Select(g => g.ToList())
             : SynonymousSubfamilies(code);
+        return CalculateRscuCore(codonCounts, families, pseudocount);
+    }
+
+    // Single RSCU core (amino-acid families or cubar sub-families, any pseudocount c):
+    // RSCU_j = n·(x_j + c) / Σ_k (x_k + c) over the n codons of j's group.
+    private static Dictionary<string, double> CalculateRscuCore(
+        IReadOnlyDictionary<string, int> codonCounts, IEnumerable<List<string>> families, double pseudocount)
+    {
         var rscu = new Dictionary<string, double>(64);
 
         foreach (var family in families)
         {
             int familySize = family.Count;
-            long familyTotal = 0;
-            foreach (var codon in family)
-                familyTotal += codonCounts.GetValueOrDefault(codon, 0);
+            long familyTotal = FamilyCount(family, codonCounts);
 
             // Σ(x + c) = Σx + n·c; with c = 0 an absent group is 0 for every member (CodonW).
             double denominator = familyTotal + familySize * pseudocount;
@@ -308,6 +295,15 @@ public static class CodonUsageAnalyzer
         return rscu;
     }
 
+    // Σ x over the codons of one synonymous family (RSCU, ENC).
+    private static long FamilyCount(IEnumerable<string> family, IReadOnlyDictionary<string, int> counts)
+    {
+        long n = 0;
+        foreach (var codon in family)
+            n += counts.GetValueOrDefault(codon, 0);
+        return n;
+    }
+
     // cubar get_codon_table(): subfam = amino acid + first two codon bases (DNA spelling), NCBI codon order.
     private static IEnumerable<List<string>> SynonymousSubfamilies(GeneticCode code) =>
         code.CodonTable
@@ -316,7 +312,7 @@ public static class CodonUsageAnalyzer
 
     private static void ValidateFamilyLevel(RscuFamilyLevel level)
     {
-        if (level is not (RscuFamilyLevel.AminoAcid or RscuFamilyLevel.Subfamily))
+        if (!Enum.IsDefined(level))
             throw new ArgumentOutOfRangeException(nameof(level), level, "Unknown RSCU family level.");
     }
 
@@ -832,23 +828,14 @@ public static class CodonUsageAnalyzer
             int k = codons.Length;
             aminoAcidsInClass[k] = aminoAcidsInClass.GetValueOrDefault(k) + 1;
 
-            long n = 0;
-            foreach (var codon in codons)
-                n += counts.GetValueOrDefault(codon, 0);
+            long n = FamilyCount(codons, counts);
             if (n <= EncPrimeMinAminoAcidCount)
                 continue; // calc_F: F = F′ = -1 (not estimated)
 
             double f;
             if (!prime)
             {
-                // Wright (1990) Eq. 1: F = (n·Σp² − 1)/(n − 1).
-                double sumPSquared = 0;
-                foreach (var codon in codons)
-                {
-                    double p = (double)counts.GetValueOrDefault(codon, 0) / n;
-                    sumPSquared += p * p;
-                }
-                f = (n * sumPSquared - 1.0) / (n - 1.0);
+                f = WrightHomozygosity(codons, counts, n);
             }
             else
             {
@@ -933,12 +920,7 @@ public static class CodonUsageAnalyzer
     // sequence has no A/C/G/T (every e_i is then 0 and χ² = -1, as in ENCprime).
     private static double[] EncPrimeBaseFrequencies(string sequence)
     {
-        var counts = new double[4];
-        foreach (char ch in sequence)
-        {
-            int i = BaseIndex(char.ToUpperInvariant(ch));
-            if (i >= 0) counts[i]++;
-        }
+        var counts = CountBases(sequence, pseudocount: 0);
         double total = counts[0] + counts[1] + counts[2] + counts[3];
         if (total > 0)
             for (int i = 0; i < 4; i++) counts[i] /= total;
@@ -969,8 +951,7 @@ public static class CodonUsageAnalyzer
         var families = SynonymousFamilies(code).Where(f => f.Key != '*').ToList();
         long observedSense = 0;
         foreach (var family in families)
-            foreach (var codon in family)
-                observedSense += counts.GetValueOrDefault(codon, 0);
+            observedSense += FamilyCount(family, counts);
         if (observedSense == 0)
             return false; // no sense codon: nothing to estimate
 
@@ -1055,15 +1036,26 @@ public static class CodonUsageAnalyzer
     // case-insensitive, other symbols ignored, each + 1, normalised (codonbias _calc_BNC).
     private static double[] BackgroundBaseFrequencies(string sequence)
     {
-        var counts = new double[] { 1, 1, 1, 1 };
-        foreach (char ch in sequence)
-        {
-            int i = BaseIndex(char.ToUpperInvariant(ch));
-            if (i >= 0) counts[i]++;
-        }
+        var counts = CountBases(sequence, pseudocount: 1);
         double total = counts[0] + counts[1] + counts[2] + counts[3];
         for (int i = 0; i < 4; i++) counts[i] /= total;
         return counts;
+    }
+
+    // A, C, G, T(+U) counts in BaseIndex order, each + pseudocount, from the canonical
+    // case-insensitive nucleotide counter (SequenceStatistics.CalculateNucleotideComposition; U is
+    // pooled with T, the library's RNA convention; other symbols ignored). Counts are exact
+    // integers in double, so the result equals per-character accumulation bit for bit.
+    private static double[] CountBases(string sequence, double pseudocount)
+    {
+        var composition = SequenceStatistics.CalculateNucleotideComposition(sequence);
+        return new[]
+        {
+            pseudocount + composition.CountA,
+            pseudocount + composition.CountC,
+            pseudocount + composition.CountG,
+            pseudocount + composition.CountT + composition.CountU,
+        };
     }
 
     private static int BaseIndex(char b) => b switch
@@ -1108,6 +1100,20 @@ public static class CodonUsageAnalyzer
         }
     }
 
+    // Wright (1990) Eq. 1 homozygosity of one amino acid observed n > 1 times:
+    // F̂ = (n·Σ p_i² − 1)/(n − 1), p_i = x_i/n (CodonW enc_out; ENCprime calc_F). Shared by the
+    // CodonW and ENCprime Nc cores.
+    private static double WrightHomozygosity(IEnumerable<string> family, IReadOnlyDictionary<string, int> counts, long n)
+    {
+        double sumPSquared = 0;
+        foreach (var codon in family)
+        {
+            double p = (double)counts.GetValueOrDefault(codon, 0) / n;
+            sumPSquared += p * p;
+        }
+        return (n * sumPSquared - 1.0) / (n - 1.0);
+    }
+
     private static double CalculateEncCore(IReadOnlyDictionary<string, int> counts, GeneticCode code)
     {
         TryCalculateEncCore(counts, code, out double enc);
@@ -1133,19 +1139,10 @@ public static class CodonUsageAnalyzer
             senseCodons += z;
             aminoAcidsInClass[z] = aminoAcidsInClass.GetValueOrDefault(z) + 1;
 
-            long n = 0;
-            foreach (var codon in family)
-                n += counts.GetValueOrDefault(codon, 0);
+            long n = FamilyCount(family, counts);
             if (n <= 1) continue; // F̂ undefined (denominator n − 1)
 
-            // Wright Eq. (1): F̂ = (n·Σ p_i² − 1)/(n − 1).
-            double sumPSquared = 0;
-            foreach (var codon in family)
-            {
-                double p = (double)counts.GetValueOrDefault(codon, 0) / n;
-                sumPSquared += p * p;
-            }
-            double f = (n * sumPSquared - 1) / (n - 1);
+            double f = WrightHomozygosity(family, counts, n);
             if (f <= MinEstimableHomozygosity) continue;
 
             sumF[z] = sumF.GetValueOrDefault(z) + f;
@@ -1423,7 +1420,7 @@ public static class CodonUsageAnalyzer
         var result = new HashSet<string>(StringComparer.Ordinal);
         foreach (var raw in codons)
         {
-            string c = (raw ?? string.Empty).Trim().ToUpperInvariant().Replace('U', 'T');
+            string c = SequenceCase.ToUpperDna((raw ?? string.Empty).Trim());
             if (c.Length != 3 || c.Any(b => b is not ('A' or 'C' or 'G' or 'T')))
                 throw new ArgumentException($"Invalid codon '{raw}': expected three of A, C, G, T/U.", paramName);
             result.Add(c);
@@ -1571,7 +1568,7 @@ public static class CodonUsageAnalyzer
 
     private static void ValidateGcConvention(CodonGcConvention gcConvention)
     {
-        if (gcConvention is not (CodonGcConvention.EmbossCusp or CodonGcConvention.CodonW))
+        if (!Enum.IsDefined(gcConvention))
             throw new ArgumentOutOfRangeException(nameof(gcConvention), gcConvention, "Unknown GC convention.");
     }
 
@@ -1624,7 +1621,12 @@ public static class CodonUsageAnalyzer
             Gc3s: Percent(gc3s, synonymousCodons));
     }
 
-    private static bool IsGC(char c) => c is 'G' or 'C';
+    private static bool IsGC(char c) => GcIndicator(c) != 0;
+
+    // 1 when <paramref name="c"/> is G or C (any case), else 0 — the canonical GC counting
+    // primitive (SequenceExtensions.CountGcAndValidNucleotides) applied to one character; shared
+    // with CodonOptimizer's sliding-window GC.
+    internal static int GcIndicator(char c) => new ReadOnlySpan<char>(in c).CountGcAndValidNucleotides().GcCount;
 
     #endregion
 }

@@ -14,6 +14,11 @@ namespace Seqeron.Genomics.Core
         // offsets 0, 1, 2 (Biopython six_frame_translations; EMBOSS transeq).
         private const int ReadingFramesPerStrand = 3;
 
+        // Signed 1-based frame label of a 0-based strand offset: +1..+3 on the forward strand,
+        // −1..−3 on the reverse complement (Biopython / EMBOSS getorf, transeq numbering).
+        private static int FrameLabel(int offset, bool isReverseComplement) =>
+            isReverseComplement ? -(offset + 1) : offset + 1;
+
         // The initiator residue of an ORF (NCBI The Genetic Codes: the initiator codon is by
         // default translated as methionine).
         private const char InitiatorMethionine = 'M';
@@ -222,7 +227,7 @@ namespace Seqeron.Genomics.Core
         private static string NormalizeIupacNucleotides(string sequence)
         {
             ArgumentNullException.ThrowIfNull(sequence);
-            string upper = SequenceExtensions.ToUpperAscii(sequence).Replace('U', 'T');
+            string upper = Infrastructure.SequenceCase.ToUpperDna(sequence);
             for (int i = 0; i < upper.Length; i++)
             {
                 if (!IupacHelper.IsNucleotideCode(upper[i]))
@@ -608,7 +613,7 @@ namespace Seqeron.Genomics.Core
             }
 
             int frameOffset = orfStart % ReadingFramesPerStrand;
-            int frameLabel = isReverseComplement ? -(frameOffset + 1) : frameOffset + 1;
+            int frameLabel = FrameLabel(frameOffset, isReverseComplement);
             int codon;
             switch (s.Mode)
             {
@@ -903,17 +908,17 @@ namespace Seqeron.Genomics.Core
             for (int offset = 0; offset < ReadingFramesPerStrand; offset++)
             {
                 // transeq frame k = ajTrnSeqOrig(seq, k): codons from base k, then the dangling bases.
-                result[offset + 1] = TranslateEmbossStrand(forward, offset, code);
+                result[FrameLabel(offset, isReverseComplement: false)] = TranslateEmbossStrand(forward, offset, code);
 
                 if (convention == SixFrameConvention.EmbossTranseqAlternative)
                 {
                     // -alternative Y: ajTrnSeqOrig(seq, -4-offset) — frame -k starts at the k-th base of the
                     // reverse complement (= Biopython), dangling bases translated as for forward frames.
-                    result[-(offset + 1)] = TranslateEmbossStrand(reverseComplement, offset, code);
+                    result[FrameLabel(offset, isReverseComplement: true)] = TranslateEmbossStrand(reverseComplement, offset, code);
                 }
                 else
                 {
-                    result[-(offset + 1)] = TranslateEmbossPhaseLocked(reverseComplement, len, offset, code);
+                    result[FrameLabel(offset, isReverseComplement: true)] = TranslateEmbossPhaseLocked(reverseComplement, len, offset, code);
                 }
             }
 
@@ -966,10 +971,10 @@ namespace Seqeron.Genomics.Core
             for (int offset = 0; offset < ReadingFramesPerStrand; offset++)
             {
                 // Forward frame numbers are 1-based: offset 0 -> +1, etc.
-                result[offset + 1] = TranslateSequence(forward, code, offset, false);
+                result[FrameLabel(offset, isReverseComplement: false)] = TranslateSequence(forward, code, offset, false);
 
                 // Reverse complement: frame -k = reverse complement at offset (k-1).
-                result[-(offset + 1)] = TranslateSequence(reverseComplement, code, offset, false);
+                result[FrameLabel(offset, isReverseComplement: true)] = TranslateSequence(reverseComplement, code, offset, false);
             }
 
             return result;
@@ -1000,7 +1005,7 @@ namespace Seqeron.Genomics.Core
             if (string.IsNullOrEmpty(sequence) || sequence.Length - frame < CodonLength)
                 return Array.Empty<string?>();
 
-            string normalized = SequenceExtensions.ToUpperAscii(sequence).Replace('U', 'T');
+            string normalized = Infrastructure.SequenceCase.ToUpperDna(sequence);
             var codons = new string?[(normalized.Length - frame) / CodonLength];
             for (int k = 0; k < codons.Length; k++)
             {
@@ -1133,7 +1138,7 @@ namespace Seqeron.Genomics.Core
                                     // feature table: CDS "location includes stop codon").
                                     // getorf prints the range without the STOP (WriteORF(start, pos-1)).
                                     i + (CodonLength - 1),
-                                    isReverseComplement ? -(frame + 1) : frame + 1,
+                                    FrameLabel(frame, isReverseComplement),
                                     new ProteinSequence(currentProtein.ToString())
                                 );
                             }
@@ -1154,7 +1159,7 @@ namespace Seqeron.Genomics.Core
                     yield return new OrfResult(
                         currentOrfStart.Value,
                         currentOrfStart.Value + currentProtein.Length * CodonLength - 1,
-                        isReverseComplement ? -(frame + 1) : frame + 1,
+                        FrameLabel(frame, isReverseComplement),
                         new ProteinSequence(currentProtein.ToString())
                     );
                 }

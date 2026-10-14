@@ -41,9 +41,9 @@ public class CodonOptimizer_SecondaryStructureScoring_Tests
     private const string GeneAProtein = "MGGGGGGGGGGGGGGGKKKKKAAAAAAAAAAAAAAA*";
     private const string GeneBProtein = "MKLADLAQLAFREDLRQALDRFMAQLDKALAE*";
 
+    // Canonical translator (frame 0, every complete codon, '*' kept).
     private static string Translate(string rna) =>
-        string.Concat(Enumerable.Range(0, rna.Length / 3)
-            .Select(i => GeneticCode.Standard.Translate(rna.Substring(i * 3, 3))));
+        Translator.Translate(rna, GeneticCode.Standard, 0, false).Sequence;
 
     private static double SumWindowMfe(string rna)
     {

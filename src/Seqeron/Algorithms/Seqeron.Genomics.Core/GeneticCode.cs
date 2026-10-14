@@ -232,7 +232,7 @@ namespace Seqeron.Genomics.Core
         }
 
         // ASCII-only case folding (TRANS-PROT-001): 'ſ' (U+017F) must not become the IUPAC code 'S'.
-        private static string Normalize(string codon) => SequenceExtensions.ToUpperAscii(codon).Replace('T', 'U');
+        private static string Normalize(string codon) => Infrastructure.SequenceCase.ToUpperRna(codon);
 
         private static bool IsIupacCodon(string codon)
         {
@@ -442,6 +442,21 @@ namespace Seqeron.Genomics.Core
             ByTableNumber.TryGetValue(tableNumber, out var code)
                 ? code
                 : throw new ArgumentException($"Unknown genetic code table: {tableNumber}", nameof(tableNumber));
+
+        /// <summary>
+        /// Gets a genetic code by NCBI table number for a caller-facing parameter (MCP tools): an unknown
+        /// number throws an <see cref="ArgumentException"/> that lists <see cref="SupportedTableNumbers"/>
+        /// and names <paramref name="paramName"/>.
+        /// </summary>
+        /// <param name="tableNumber">NCBI translation table number.</param>
+        /// <param name="paramName">Name of the caller's parameter reported in the exception.</param>
+        /// <exception cref="ArgumentException">The number is not an NCBI translation table.</exception>
+        public static GeneticCode GetByTableNumberOrThrow(int tableNumber, string paramName) =>
+            ByTableNumber.TryGetValue(tableNumber, out var code)
+                ? code
+                : throw new ArgumentException(
+                    $"Unknown genetic code table: {tableNumber}. Supported NCBI tables: {string.Join(", ", SupportedTableNumbers)}.",
+                    paramName);
 
         private static GeneticCode Build(NcbiTable t)
         {
