@@ -97,7 +97,7 @@ public static class CodonOptimizer
 
         foreach (char c in codon)
         {
-            char dna = char.ToUpperInvariant(c);
+            char dna = ToUpperAscii(c);
             if (dna == 'U') dna = 'T';
             if (!IupacHelper.IsNucleotideCode(dna))
                 return false;
@@ -579,7 +579,7 @@ public static class CodonOptimizer
         // The canonical core keys codons in DNA spelling.
         var reference = new Dictionary<string, double>(table.CodonFrequencies.Count);
         foreach (var (codon, frequency) in table.CodonFrequencies)
-            reference[codon.ToUpperInvariant().Replace('U', 'T')] = frequency;
+            reference[ToUpperAscii(codon).Replace('U', 'T')] = frequency;
 
         return CodonUsageAnalyzer.CalculateCai(
             codingSequence, reference, GeneticCode.Standard, excludeSingleCodonFamilies: excludeSingleCodonAminoAcids);
@@ -627,7 +627,7 @@ public static class CodonOptimizer
         {
             if (string.IsNullOrEmpty(site))
                 continue;
-            string pattern = site.ToUpperInvariant().Replace('U', 'T');
+            string pattern = ToUpperAscii(site).Replace('U', 'T');
             if (!pattern.All(IupacHelper.IsNucleotideCode))
                 throw new ArgumentException(
                     $"Restriction site '{site}' contains a character that is not an IUPAC nucleotide code.",
@@ -1175,7 +1175,17 @@ public static class CodonOptimizer
     }
 
     // Upper-case RNA spelling (T read as U) used by every rewriting API of this class.
-    private static string ToUpperRna(string sequence) => sequence.ToUpperInvariant().Replace('T', 'U');
+    private static string ToUpperRna(string sequence) => ToUpperAscii(sequence).Replace('T', 'U');
+
+    // ASCII-only case folding (TRANS-PROT-001), as Core's SequenceExtensions.ToUpperAscii (internal to
+    // Core): ToUpperInvariant folds U+017F 'ſ' → 'S', an IUPAC code, so "GGſ" would read as GGS → Gly.
+    private static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
+
+    private static string ToUpperAscii(string s) => string.Create(s.Length, s, static (dest, src) =>
+    {
+        for (int i = 0; i < src.Length; i++)
+            dest[i] = ToUpperAscii(src[i]);
+    });
 
     // Every complete frame-0 triplet, including ambiguous ones (the rewriting APIs must keep
     // them in place to preserve the reading frame and the sequence length); a trailing partial

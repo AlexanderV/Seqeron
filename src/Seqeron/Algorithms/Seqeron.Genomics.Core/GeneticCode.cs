@@ -166,7 +166,8 @@ namespace Seqeron.Genomics.Core
             return 'X';
         }
 
-        private static string Normalize(string codon) => codon.ToUpperInvariant().Replace('T', 'U');
+        // ASCII-only case folding (TRANS-PROT-001): 'ſ' (U+017F) must not become the IUPAC code 'S'.
+        private static string Normalize(string codon) => SequenceExtensions.ToUpperAscii(codon).Replace('T', 'U');
 
         private static bool IsIupacCodon(string codon)
         {
@@ -220,7 +221,7 @@ namespace Seqeron.Genomics.Core
         /// </summary>
         public IEnumerable<string> GetCodonsForAminoAcid(char aminoAcid)
         {
-            var upperAa = char.ToUpperInvariant(aminoAcid);
+            var upperAa = SequenceExtensions.ToUpperAscii(aminoAcid);
             foreach (var kvp in _codonTable)
             {
                 if (kvp.Value == upperAa || (upperAa == '*' && _stopCodons.Contains(kvp.Key)))

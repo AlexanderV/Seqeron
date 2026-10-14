@@ -107,7 +107,9 @@ namespace Seqeron.Genomics.Core
                 return;
             }
 
-            var normalized = sequence.ToUpperInvariant();
+            // ASCII-only case folding (TRANS-PROT-001): ToUpperInvariant folds U+017F 'ſ' → 'S',
+            // which would accept "Mſ" as "MS"; scikit-bio Protein rejects non-ASCII letters.
+            var normalized = SequenceExtensions.ToUpperAscii(sequence);
             ValidateSequence(normalized);
             _sequence = normalized;
         }
@@ -238,7 +240,7 @@ namespace Seqeron.Genomics.Core
             if (string.IsNullOrEmpty(pattern) || pattern.Length > _sequence.Length)
                 return Array.Empty<int>();
 
-            return SuffixTree.FindAllOccurrences(pattern.ToUpperInvariant()).OrderBy(p => p);
+            return SuffixTree.FindAllOccurrences(SequenceExtensions.ToUpperAscii(pattern)).OrderBy(p => p);
         }
 
         public override string ToString() => _sequence;

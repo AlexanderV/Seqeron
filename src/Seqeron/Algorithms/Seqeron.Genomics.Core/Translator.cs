@@ -68,7 +68,7 @@ namespace Seqeron.Genomics.Core
         {
             // null/empty yield an empty protein, but the frame / toFirstStop arguments are still
             // validated exactly as for the DnaSequence / RnaSequence overloads.
-            return TranslateSequence((sequence ?? string.Empty).ToUpperInvariant(),
+            return TranslateSequence(SequenceExtensions.ToUpperAscii(sequence ?? string.Empty),
                 geneticCode ?? GeneticCode.Standard, frame, toFirstStop);
         }
 
@@ -208,7 +208,7 @@ namespace Seqeron.Genomics.Core
             if (string.IsNullOrEmpty(sequence) || sequence.Length - frame < CodonLength)
                 return Array.Empty<string?>();
 
-            string normalized = sequence.ToUpperInvariant().Replace('U', 'T');
+            string normalized = SequenceExtensions.ToUpperAscii(sequence).Replace('U', 'T');
             var codons = new string?[(normalized.Length - frame) / CodonLength];
             for (int k = 0; k < codons.Length; k++)
             {

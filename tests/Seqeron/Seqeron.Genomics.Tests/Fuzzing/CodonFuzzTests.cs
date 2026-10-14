@@ -47,13 +47,13 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// The method is LENIENT by documented design — it does NOT validate the
 /// alphabet; instead it normalizes, trims, and translates whatever it is given:
 ///   • null OR empty input → an all-empty OptimizationResult with zero-valued
-///     metrics; NOT an exception (explicit early return, CodonOptimizer.cs
-///     lines 247–250). Sequence_Optimization.md §3.3, §6.1.
+///     metrics; NOT an exception (explicit early return in
+///     `CodonOptimizer.OptimizeSequence`). Sequence_Optimization.md §3.3, §6.1.
 ///   • input is upper-cased and `T` is replaced by `U` (RNA notation), so DNA
-///     and lowercase input round-trip identically (CodonOptimizer.cs line 252).
+///     and lowercase input round-trip identically (`CodonOptimizer.ToUpperRna`).
 ///   • input length NOT divisible by 3 → the trailing partial codon is TRIMMED
 ///     away before optimization (`rna = rna.Substring(0, (rna.Length/3)*3)`,
-///     CodonOptimizer.cs lines 254–258). This is the KEY no-crash boundary: a
+///     `CodonOptimizer.OptimizeSequence`). This is the KEY no-crash boundary: a
 ///     final partial codon must be ignored, NEVER an IndexOutOfRangeException.
 ///     Sequence_Optimization.md §6.1 ("Incomplete final codon → Trimmed away").
 ///   • a sequence shorter than one codon (length &lt; 3) → SplitIntoCodons yields
@@ -216,7 +216,7 @@ public class CodonFuzzTests
     /// <summary>
     /// BE: empty string and null are the "no input" boundary. The documented
     /// contract returns an all-empty OptimizationResult with zero-valued metrics
-    /// via an explicit early return (CodonOptimizer.cs lines 247–250) — NOT a
+    /// via an explicit early return in `CodonOptimizer.OptimizeSequence` — NOT a
     /// NullReferenceException, NOT a crash. Pins that "no sequence" is a defined
     /// no-op, not an error.
     /// </summary>
@@ -244,7 +244,7 @@ public class CodonFuzzTests
     /// BE/MC: a sequence shorter than a single codon has NO complete codon. The
     /// optimizer trims to the largest multiple-of-3 prefix — which is empty — so
     /// SplitIntoCodons yields zero codons (loop guard `i + 2 < length`,
-    /// CodonOptimizer.cs lines 687–695). The result is an empty optimized sequence
+    /// `CodonOptimizer.SplitIntoCodons`). The result is an empty optimized sequence
     /// and empty protein, with NO IndexOutOfRangeException from indexing a partial
     /// codon. Covers length 1 and length 2, valid bases and non-DNA, in both cases.
     /// </summary>
@@ -273,7 +273,7 @@ public class CodonFuzzTests
     /// <summary>
     /// BE (KEY no-crash boundary): when the input length is not a multiple of 3,
     /// the trailing partial codon is TRIMMED before optimization
-    /// (CodonOptimizer.cs lines 254–258) — it must NEVER trigger an
+    /// (`CodonOptimizer.OptimizeSequence`) — it must NEVER trigger an
     /// IndexOutOfRangeException on the final 1–2 leftover bases. The complete
     /// codons that remain are optimized and the protein over them is preserved
     /// (INV-01); the output length equals the trimmed input length and stays a
@@ -441,27 +441,27 @@ public class CodonFuzzTests
     ///
     /// API entry: CodonOptimizer.CalculateCAI(string codingSequence,
     ///   CodonUsageTable table)
-    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs lines
-    ///   423–450).
+    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs,
+    ///   `CodonOptimizer.CalculateCAI`, delegating to `CodonUsageAnalyzer.CalculateCai`).
     ///
     /// The method is LENIENT by documented design — it never throws on garbage; it
     /// normalises, trims, and scores whatever it is given:
     ///   • null OR empty input → returns 0 via an explicit early return
-    ///     (CodonOptimizer.cs lines 425–426). CAI_Calculation.md §3.3, §6.1.
+    ///     (`CodonOptimizer.CalculateCAI`). CAI_Calculation.md §3.3, §6.1.
     ///   • DNA input is upper-cased and `T` is replaced by `U` before splitting
-    ///     (line 428), so DNA / lowercase round-trip identically.
+    ///     (`CodonUsageAnalyzer.CalculateCai`), so DNA / lowercase round-trip identically.
     ///   • input length NOT divisible by 3 → SplitIntoCodons drops the trailing
-    ///     partial codon (loop guard `i + 2 &lt; length`, lines 687–695). This is the
+    ///     partial codon (`Translator.SplitInFrameCodons`). This is the
     ///     KEY no-crash boundary: a final 1–2 leftover bases must be IGNORED, never
     ///     cause an IndexOutOfRangeException. CAI_Calculation.md §6.1.
     ///   • a sequence of ONLY stop codons → every codon translates to `*` and is
-    ///     SKIPPED (line 440); the evaluated count L is 0, so the method returns 0
-    ///     from `count > 0 ? … : 0` (line 449) — it must NOT evaluate exp(logSum/0)
+    ///     SKIPPED (`CodonUsageAnalyzer.CalculateCai`); the evaluated count L is 0, so the
+    ///     method returns 0 from its empty-count guard — it must NOT evaluate exp(logSum/0)
     ///     (a 0/0 NaN) nor take ln(0). CAI_Calculation.md §2.4 INV-03, §6.1 (KEY).
     ///   • a codon that is not in the standard genetic code translates to the
     ///     sentinel `X`; CalculateRelativeAdaptiveness returns NaN for it
-    ///     (AminoAcidToCodons lookup miss, lines 454–455) and CalculateCAI skips it
-    ///     (line 443) — never a KeyNotFoundException, never a NaN result.
+    ///     (AminoAcidToCodons lookup miss) and `CodonUsageAnalyzer.CalculateCai` skips it
+    ///     — never a KeyNotFoundException, never a NaN result.
     ///
     /// KEY THEORY INVARIANTS this suite pins directly (CAI_Calculation.md §2.4):
     ///   • INV-01: 0 ≤ CAI ≤ 1 on every input that yields a score.
@@ -532,8 +532,8 @@ public class CodonFuzzTests
 
     /// <summary>
     /// BE: empty string and null are the "no input" boundary. The documented
-    /// contract returns 0 via an explicit early return (CodonOptimizer.cs lines
-    /// 425–426) — NOT a NullReferenceException, and critically NOT exp(logSum/0)
+    /// contract returns 0 via an explicit early return (`CodonOptimizer.CalculateCAI`)
+    /// — NOT a NullReferenceException, and critically NOT exp(logSum/0)
     /// (a 0/0 NaN) from a geometric mean over zero codons. Pins that "no sequence"
     /// is a defined 0, never NaN and never a crash. CAI_Calculation.md §6.1.
     /// </summary>
@@ -555,9 +555,9 @@ public class CodonFuzzTests
 
     /// <summary>
     /// BE (KEY no-crash boundary): a sequence made up entirely of stop codons has
-    /// NO evaluable codon — every codon translates to `*` and is skipped (line 440),
-    /// so the evaluated count L is 0 and the method returns 0 from the
-    /// `count > 0 ? … : 0` guard (line 449). It must NOT compute exp(logSum/0)
+    /// NO evaluable codon — every codon translates to `*` and is skipped
+    /// (`CodonUsageAnalyzer.CalculateCai`), so the evaluated count L is 0 and the
+    /// method returns 0 from its empty-count guard. It must NOT compute exp(logSum/0)
     /// (a 0/0 NaN), and must NOT take ln(0). This pins INV-03 (stop codons do not
     /// affect the result) at its extreme: a sequence of nothing but stops scores 0,
     /// not NaN, not a DivideByZero, not a crash. Covers each of the three stop
@@ -608,8 +608,8 @@ public class CodonFuzzTests
 
     /// <summary>
     /// BE (KEY no-crash boundary): when the input length is not a multiple of 3,
-    /// SplitIntoCodons drops the trailing partial codon (loop guard `i + 2 &lt; length`,
-    /// CodonOptimizer.cs lines 687–695) — the leftover 1–2 bases must NEVER trigger
+    /// the trailing partial codon is dropped (`Translator.SplitInFrameCodons`, used by
+    /// `CodonUsageAnalyzer.CalculateCai`) — the leftover 1–2 bases must NEVER trigger
     /// an IndexOutOfRangeException. The CAI scored over the complete codons that
     /// remain must EQUAL the CAI of the trimmed prefix alone, and stay in [0, 1].
     /// Here AUG·CUG (+ 1 or 2 trailing bases) must score identically to AUG·CUG,
@@ -687,14 +687,14 @@ public class CodonFuzzTests
     /// API entry: CodonOptimizer.FindRareCodons(string codingSequence,
     ///   CodonUsageTable table, double threshold = 0.15)
     ///   → IEnumerable&lt;(int Position, string Codon, string AminoAcid, double Frequency)&gt;
-    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs lines
-    ///   606–629).
+    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs,
+    ///   `CodonOptimizer.FindRareCodons`).
     ///
     /// THRESHOLD SEMANTICS (verified): `threshold` is a per-amino-acid relative
     /// FREQUENCY in [0, 1] — the same value stored in CodonUsageTable.CodonFrequencies
     /// — NOT a percentile and NOT an RSCU. A codon is flagged iff
     ///     frequency(codon) &lt; threshold     (STRICT `<`, never `<=`)
-    /// (CodonOptimizer.cs line 623; Rare_Codon_Detection.md §2.2, §2.4 INV-02). The
+    /// (`CodonOptimizer.FindRareCodons`; Rare_Codon_Detection.md §2.2, §2.4 INV-02). The
     /// frequency is read with GetValueOrDefault(codon, 0), so a codon absent from the
     /// table is treated as frequency 0 and is flagged whenever threshold &gt; 0
     /// (Rare_Codon_Detection.md §3.3, §6.1).
@@ -702,12 +702,13 @@ public class CodonFuzzTests
     /// The method is LENIENT by documented design — it never throws on garbage; it
     /// normalises, trims, and screens whatever it is given:
     ///   • null OR empty input → yields NO results via an explicit `yield break`
-    ///     (CodonOptimizer.cs lines 614–615); NOT a NullReferenceException.
+    ///     (`CodonOptimizer.FindRareCodons`); NOT a NullReferenceException.
     ///     Rare_Codon_Detection.md §6.1 (Empty sequence → no results).
     ///   • DNA input is upper-cased and `T` is replaced by `U` before splitting
-    ///     (line 617), so DNA / lowercase round-trip to RNA codons identically.
-    ///   • input length NOT divisible by 3 → SplitIntoCodons drops the trailing
-    ///     partial codon (loop guard `i + 2 &lt; length`, lines 687–695); a leftover
+    ///     (`CodonOptimizer.SplitIntoScreenedCodons`), so DNA / lowercase round-trip to
+    ///     RNA codons identically.
+    ///   • input length NOT divisible by 3 → the trailing partial codon is dropped
+    ///     (`Translator.SplitInFrameCodons`); a leftover
     ///     1–2 bases must be IGNORED, never cause an IndexOutOfRangeException.
     ///   • a triplet containing an ambiguity code or a non-nucleotide symbol is
     ///     SKIPPED without shifting the frame (review 2026-09, CODON-RARE-001 F19;
@@ -811,8 +812,7 @@ public class CodonFuzzTests
 
     /// <summary>
     /// BE: empty string and null are the "no input" boundary. The documented
-    /// contract yields NO results via an explicit `yield break` (CodonOptimizer.cs
-    /// lines 614–615) — NOT a NullReferenceException. Theory: no codons → no rare
+    /// contract yields NO results (`CodonOptimizer.FindRareCodons`) — NOT a NullReferenceException. Theory: no codons → no rare
     /// codons. Exercised across the default and both extreme thresholds so the empty
     /// boundary is a no-op regardless of cutoff. Rare_Codon_Detection.md §6.1.
     /// </summary>
@@ -1026,20 +1026,20 @@ public class CodonFuzzTests
     ///
     /// API entry: CodonOptimizer.CalculateCodonUsage(string codingSequence)
     ///   → Dictionary&lt;string,int&gt; of raw codon counts
-    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs lines
-    ///   634–652).
+    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs,
+    ///   `CodonOptimizer.CalculateCodonUsage`, delegating to `CodonUsageAnalyzer.CountCodons`).
     ///
     /// The method is LENIENT by documented design — it never throws on garbage; it
     /// normalises, splits, and counts whatever it is given:
     ///   • null OR empty input → returns an EMPTY dictionary via an explicit early
-    ///     return (CodonOptimizer.cs lines 638–639) — NOT a NullReferenceException,
+    ///     return (`CodonOptimizer.CalculateCodonUsage`) — NOT a NullReferenceException,
     ///     and critically NOT a DivideByZero: CalculateCodonUsage only COUNTS, it
     ///     never normalises to frequencies, so there is no division at all on the
     ///     count path. Codon_Usage_Analysis.md §6.1 (Empty → {}).
     ///   • DNA input is upper-cased and `T` is replaced by `U` before splitting
-    ///     (line 641), so DNA / lowercase round-trip to RNA codons identically.
+    ///     (`CodonUsageAnalyzer.CountCodons`), so DNA / lowercase round-trip to RNA codons identically.
     ///   • a sequence shorter than one codon (length 1 or 2) → SplitIntoCodons
-    ///     yields ZERO codons (loop guard `i + 2 &lt; length`, lines 690–693) → an
+    ///     yields ZERO codons (`Translator.SplitInFrameCodons`) → an
     ///     EMPTY dictionary, with NO IndexOutOfRangeException from indexing a partial
     ///     codon. This is the KEY partial-codon boundary. Codon_Usage_Analysis.md
     ///     §6.1 (Incomplete trailing bases → Ignored), ASM-01.
@@ -1100,8 +1100,8 @@ public class CodonFuzzTests
 
     /// <summary>
     /// BE: empty string and null are the "no input" boundary. The documented contract
-    /// returns an EMPTY dictionary via an explicit early return (CodonOptimizer.cs
-    /// lines 638–639) — NOT a NullReferenceException, and critically NOT a
+    /// returns an EMPTY dictionary via an explicit early return
+    /// (`CodonOptimizer.CalculateCodonUsage`) — NOT a NullReferenceException, and critically NOT a
     /// DivideByZeroException: the count path performs no normalisation, so there is no
     /// division over zero codons. Pins that "no sequence" is a defined empty table
     /// with total 0 (INV-01 at len 0), never a crash. Codon_Usage_Analysis.md §6.1.
@@ -1126,7 +1126,7 @@ public class CodonFuzzTests
     /// <summary>
     /// BE (KEY partial-codon boundary): a sequence of length 1 or length 2 has NO
     /// complete codon. SplitIntoCodons yields zero codons (loop guard
-    /// `i + 2 &lt; length`, CodonOptimizer.cs lines 690–693), so the usage table is
+    /// in `Translator.SplitInFrameCodons`), so the usage table is
     /// EMPTY — and the trailing 1–2 leftover bases must NEVER trigger an
     /// IndexOutOfRangeException from indexing a partial triplet. Covers length 1 and
     /// length 2, in valid DNA, lowercase, and non-DNA characters, so the trim holds
