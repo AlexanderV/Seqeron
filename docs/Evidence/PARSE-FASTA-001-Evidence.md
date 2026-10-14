@@ -11,7 +11,7 @@
 
 1. **Wikipedia - FASTA Format**
    - URL: https://en.wikipedia.org/wiki/FASTA_format
-   - Accessed: 2026-02-05
+   - Accessed: 2026-02-05 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
    
 2. **NCBI BLAST Help - Query Input**
    - URL: https://blast.ncbi.nlm.nih.gov/doc/blast-topics/

@@ -11,7 +11,7 @@
 
 ### 1. Wikipedia - Variant Call Format
 **URL:** https://en.wikipedia.org/wiki/Variant_Call_Format  
-**Accessed:** 2026-02-05
+**Accessed:** 2026-02-05 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 
 #### Key Information Extracted:
 

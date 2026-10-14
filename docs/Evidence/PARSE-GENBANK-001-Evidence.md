@@ -20,9 +20,9 @@
 
 2. **Wikipedia: GenBank**
    - URL: https://en.wikipedia.org/wiki/GenBank
-   - Accessed: 2026-02-05
+   - Accessed: 2026-02-05 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
    - Describes GenBank as NCBI's open access nucleotide sequence database
-   - Notes: Database started 1982, doubles every ~18 months, 34+ trillion base pairs (Oct 2024)
+   - Notes: Database started 1982, doubles every ~18 months, 53.9 trillion bases (release 271.0, April 2026)
 
 3. **INSDC Feature Table Definition**
    - URL: https://www.insdc.org/documents/feature_table.html
