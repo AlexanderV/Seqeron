@@ -1,4 +1,4 @@
-# MolTools tool map (51 tools)
+# MolTools tool map (55 tools)
 
 Grouped by sub-domain. All on the **MolTools** MCP server; C# in `Seqeron.Genomics.MolTools`.
 One line = tool · one-line purpose · `Method ID`. Open the per-tool doc under
@@ -28,7 +28,11 @@ guess. Source of truth for names/status: `docs/mcp/MCP_STATUS.md`.
 | `evaluate_guide_rna` | Score/QC one guide | `CrisprDesigner.EvaluateGuideRna` |
 | `find_pam_sites` | Enumerate PAM sites for a system | `CrisprDesigner.FindPamSites` |
 | `find_off_targets` | Naïve genome scan for off-targets | `CrisprDesigner.FindOffTargets` |
-| `crispr_specificity_score` | Aggregate off-targets → 0..100 specificity | `CrisprDesigner.CalculateSpecificityScore` |
+| `crispr_specificity_score` | Aggregate off-targets → 0..100 specificity (this library's own heuristic, not a published model) | `CrisprDesigner.CalculateHeuristicSpecificityScore` |
+| `crispr_mit_specificity_score` | Published MIT / Hsu 2013 aggregate guide specificity (CRISPOR `calcMitGuideScore`) | `CrisprDesigner.CalculateMitSpecificityScore` |
+| `crispr_cfd_specificity_score` | Published Doench 2016 CFD aggregate guide specificity (CRISPOR) | `CrisprDesigner.CalculateCfdSpecificityScore` |
+| `calculate_on_target_doench2014` | Doench 2014 Rule Set 1 on-target score (0..100) from the 30-nt context | `CrisprDesigner.CalculateOnTargetDoench2014` |
+| `calculate_on_target_rule_set2` | Doench 2016 Rule Set 2 / Azimuth on-target score (0..1) from the 30-nt context | `CrisprDesigner.CalculateOnTargetRuleSet2` |
 | `crispr_system_info` | System parameters (PAM, guide length…) | `CrisprDesigner.GetSystem` |
 
 ## Codon optimization & usage (`CodonOptimizer`, `CodonUsageAnalyzer`)

@@ -2268,6 +2268,20 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs"
   },
   {
+    "tool": "calculate_on_target_doench2014",
+    "server": "MolTools",
+    "methodId": "CrisprDesigner.CalculateOnTargetDoench2014",
+    "docPath": "docs/mcp/tools/moltools/calculate_on_target_doench2014.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L815"
+  },
+  {
+    "tool": "calculate_on_target_rule_set2",
+    "server": "MolTools",
+    "methodId": "CrisprDesigner.CalculateOnTargetRuleSet2",
+    "docPath": "docs/mcp/tools/moltools/calculate_on_target_rule_set2.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L889"
+  },
+  {
     "tool": "codon_adaptation_index",
     "server": "MolTools",
     "methodId": "CodonUsageAnalyzer.CalculateCai",

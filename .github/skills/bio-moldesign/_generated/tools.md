@@ -10,6 +10,8 @@
 | `blunt_cutters` | MolTools | `RestrictionAnalyzer.GetBluntCutters` | [doc](../../../../docs/mcp/tools/moltools/blunt_cutters.md) |
 | `build_codon_table` | MolTools | `CodonOptimizer.CreateCodonTableFromSequence` | [doc](../../../../docs/mcp/tools/moltools/build_codon_table.md) |
 | `cai_from_organism_table` | MolTools | `CodonOptimizer.CalculateCAI` | [doc](../../../../docs/mcp/tools/moltools/cai_from_organism_table.md) |
+| `calculate_on_target_doench2014` | MolTools | `CrisprDesigner.CalculateOnTargetDoench2014` | [doc](../../../../docs/mcp/tools/moltools/calculate_on_target_doench2014.md) |
+| `calculate_on_target_rule_set2` | MolTools | `CrisprDesigner.CalculateOnTargetRuleSet2` | [doc](../../../../docs/mcp/tools/moltools/calculate_on_target_rule_set2.md) |
 | `codon_adaptation_index` | MolTools | `CodonUsageAnalyzer.CalculateCai` | [doc](../../../../docs/mcp/tools/moltools/codon_adaptation_index.md) |
 | `codon_minmax_profile` | MolTools | `CodonOptimizer.CalculateMinMaxProfile` | [doc](../../../../docs/mcp/tools/moltools/codon_minmax_profile.md) |
 | `codon_usage_statistics` | MolTools | `CodonUsageAnalyzer.GetStatistics` | [doc](../../../../docs/mcp/tools/moltools/codon_usage_statistics.md) |
@@ -18,7 +20,7 @@
 | `count_codons` | MolTools | `CodonUsageAnalyzer.CountCodons` | [doc](../../../../docs/mcp/tools/moltools/count_codons.md) |
 | `crispr_cfd_specificity_score` | MolTools | `CrisprDesigner.CalculateCfdSpecificityScore` | [doc](../../../../docs/mcp/tools/moltools/crispr_cfd_specificity_score.md) |
 | `crispr_mit_specificity_score` | MolTools | `CrisprDesigner.CalculateMitSpecificityScore` | [doc](../../../../docs/mcp/tools/moltools/crispr_mit_specificity_score.md) |
-| `crispr_specificity_score` | MolTools | `CrisprDesigner.CalculateSpecificityScore` | [doc](../../../../docs/mcp/tools/moltools/crispr_specificity_score.md) |
+| `crispr_specificity_score` | MolTools | `CrisprDesigner.CalculateHeuristicSpecificityScore` | [doc](../../../../docs/mcp/tools/moltools/crispr_specificity_score.md) |
 | `crispr_system_info` | MolTools | `CrisprDesigner.GetSystem` | [doc](../../../../docs/mcp/tools/moltools/crispr_system_info.md) |
 | `design_antisense_probes` | MolTools | `ProbeDesigner.DesignAntisenseProbes` | [doc](../../../../docs/mcp/tools/moltools/design_antisense_probes.md) |
 | `design_guide_rnas` | MolTools | `CrisprDesigner.DesignGuideRnas` | [doc](../../../../docs/mcp/tools/moltools/design_guide_rnas.md) |

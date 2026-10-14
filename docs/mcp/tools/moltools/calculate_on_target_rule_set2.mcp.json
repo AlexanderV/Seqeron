@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "calculate_on_target_rule_set2",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CrisprDesigner.CalculateOnTargetRuleSet2",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L889",
+  "description": "Doench et al. 2016 \"Rule Set 2\" / Azimuth on-target efficacy score for an SpCas9 guide, conventionally in 0..1 (higher = predicted more active) — the \"Doench '16\" efficiency score reported by CRISPOR. Rule Set 2 is a trained gradient-boosted-tree model, reproduced here from Microsoft Research's Azimuth model. Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be NGG) + 3 nt downstream, A/C/G/T only. Pass amino_acid_cut_position and percent_peptide together to use Azimuth's gene-context (full) model instead of the sequence-only one; percent_peptide = -1 is Azimuth's \"no gene position\" sentinel and is answered with the sequence-only model, as in the reference. Call to rank guides by the published on-target activity model.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "context_30mer": {
+        "description": "30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt NGG PAM + 3 nt downstream.",
+        "type": "string"
+      },
+      "amino_acid_cut_position": {
+        "description": "Optional amino-acid position of the cut site in the target protein (requires percent_peptide); enables the gene-context model.",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "default": null
+      },
+      "percent_peptide": {
+        "description": "Optional cut position as a percentage 0..100 along the coding sequence, or -1 for Azimuth's \"no gene position\" sentinel (which falls back to the sequence-only model); requires amino_acid_cut_position.",
+        "type": [
+          "number",
+          "null"
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "context_30mer"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": {
+        "type": "number",
+        "description": "Predicted on-target activity, conventionally 0..1 (higher = more active)."
+      }
+    },
+    "required": [
+      "score"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Context 30-mer cannot be null or empty."
+    },
+    {
+      "code": 1002,
+      "message": "amino_acid_cut_position and percent_peptide must be supplied together (gene-context model) or both omitted."
+    },
+    {
+      "code": 1003,
+      "message": "Rule Set 2 requires a 30-nt context (4 upstream + 20 protospacer + 3 PAM + 3 downstream); got {length}."
+    },
+    {
+      "code": 1004,
+      "message": "Rule Set 2 context must contain only A/C/G/T; found '{char}'."
+    },
+    {
+      "code": 1005,
+      "message": "Rule Set 2 expects an SpCas9 NGG PAM at offsets 25-26 of the 30-nt context."
+    },
+    {
+      "code": 1006,
+      "message": "Rule Set 2 percent-peptide must be in [0, 100], or -1 for Azimuth's \"no gene position\" sentinel (which selects the sequence-only model)."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Sequence-only model (verified Azimuth oracle row, ref 0.529037)",
+      "input": {
+        "context_30mer": "AAAAAAAAAAAAAAAGCTAACAGCAGGAGT"
+      },
+      "output": {
+        "score": 0.5290374377090171
+      }
+    },
+    {
+      "name": "Gene-context (full) model",
+      "input": {
+        "context_30mer": "AAAAAAAAAAAAAAAGCTAACAGCAGGAGT",
+        "amino_acid_cut_position": 10,
+        "percent_peptide": 25.0
+      },
+      "output": {
+        "score": 0.5720089783500271
+      }
+    },
+    {
+      "name": "percent_peptide = -1 sentinel answers with the sequence-only model",
+      "input": {
+        "context_30mer": "AAAAAAAAAAAAAAAGCTAACAGCAGGAGT",
+        "amino_acid_cut_position": 10,
+        "percent_peptide": -1
+      },
+      "output": {
+        "score": 0.5290374377090171
+      }
+    },
+    {
+      "name": "Half of the gene context is refused",
+      "input": {
+        "context_30mer": "AAAAAAAAAAAAAAAGCTAACAGCAGGAGT",
+        "amino_acid_cut_position": 10
+      },
+      "output": {
+        "error": "amino_acid_cut_position and percent_peptide must be supplied together (gene-context model) or both omitted."
+      }
+    }
+  ]
+}

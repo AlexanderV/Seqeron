@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 478 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 482 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 478 | 478 |
-| Schema+Binding tests | 478 | 478 |
-| Docs (.md + .mcp.json) | 478 | 478 |
+| Gold-standard binding | 482 | 482 |
+| Schema+Binding tests | 482 | 482 |
+| Docs (.md + .mcp.json) | 482 | 482 |
 
 ## Per-server summary
 
@@ -25,7 +25,7 @@
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
-| MolTools | Seqeron.Mcp.MolTools | 51 | 51/51 | 51/51 | 51/51 | ✅ done |
+| MolTools | Seqeron.Mcp.MolTools | 55 | 55/55 | 55/55 | 55/55 | ✅ done |
 | Phylogenetics | Seqeron.Mcp.Phylogenetics | 13 | 13/13 | 13/13 | 13/13 | ✅ done |
 | Population | Seqeron.Mcp.Population | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 
@@ -466,7 +466,7 @@
 | 18 | `select_phylogenetic_markers` | ☑ | ☑ | ☑ |
 | 19 | `taxonomic_profile` | ☑ | ☑ | ☑ |
 
-### MolTools (Seqeron.Mcp.MolTools) — 51 tools
+### MolTools (Seqeron.Mcp.MolTools) — 55 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -474,53 +474,57 @@
 | 2 | `blunt_cutters` | ☑ | ☑ | ☑ |
 | 3 | `build_codon_table` | ☑ | ☑ | ☑ |
 | 4 | `cai_from_organism_table` | ☑ | ☑ | ☑ |
-| 5 | `codon_adaptation_index` | ☑ | ☑ | ☑ |
-| 6 | `codon_minmax_profile` | ☑ | ☑ | ☑ |
-| 7 | `codon_usage_statistics` | ☑ | ☑ | ☑ |
-| 8 | `compare_codon_usage` | ☑ | ☑ | ☑ |
-| 9 | `compatible_enzymes` | ☑ | ☑ | ☑ |
-| 10 | `count_codons` | ☑ | ☑ | ☑ |
-| 11 | `crispr_specificity_score` | ☑ | ☑ | ☑ |
-| 12 | `crispr_system_info` | ☑ | ☑ | ☑ |
-| 13 | `design_antisense_probes` | ☑ | ☑ | ☑ |
-| 14 | `design_guide_rnas` | ☑ | ☑ | ☑ |
-| 15 | `design_molecular_beacon` | ☑ | ☑ | ☑ |
-| 16 | `design_primers` | ☑ | ☑ | ☑ |
-| 17 | `design_probes` | ☑ | ☑ | ☑ |
-| 18 | `design_probes_primer3` | ☑ | ☑ | ☑ |
-| 19 | `design_tiling_probes` | ☑ | ☑ | ☑ |
-| 20 | `digest_summary` | ☑ | ☑ | ☑ |
-| 21 | `effective_number_of_codons` | ☑ | ☑ | ☑ |
-| 22 | `enzymes_by_cut_length` | ☑ | ☑ | ☑ |
-| 23 | `enzymes_compatible` | ☑ | ☑ | ☑ |
-| 24 | `evaluate_guide_rna` | ☑ | ☑ | ☑ |
-| 25 | `evaluate_primer` | ☑ | ☑ | ☑ |
-| 26 | `find_all_restriction_sites` | ☑ | ☑ | ☑ |
-| 27 | `find_conserved_rare_codon_clusters` | ☑ | ☑ | ☑ |
-| 28 | `find_off_targets` | ☑ | ☑ | ☑ |
-| 29 | `find_pam_sites` | ☑ | ☑ | ☑ |
-| 30 | `find_rare_codon_clusters` | ☑ | ☑ | ☑ |
-| 31 | `find_rare_codons` | ☑ | ☑ | ☑ |
-| 32 | `find_restriction_sites` | ☑ | ☑ | ☑ |
-| 33 | `generate_primer_candidates` | ☑ | ☑ | ☑ |
-| 34 | `get_enzyme` | ☑ | ☑ | ☑ |
-| 35 | `hairpin_potential` | ☑ | ☑ | ☑ |
-| 36 | `longest_dinucleotide_repeat` | ☑ | ☑ | ☑ |
-| 37 | `longest_homopolymer` | ☑ | ☑ | ☑ |
-| 38 | `oligo_concentration_from_absorbance` | ☑ | ☑ | ☑ |
-| 39 | `oligo_extinction_coefficient` | ☑ | ☑ | ☑ |
-| 40 | `optimize_codons` | ☑ | ☑ | ☑ |
-| 41 | `primer_dimer` | ☑ | ☑ | ☑ |
-| 42 | `primer_melting_temperature` | ☑ | ☑ | ☑ |
-| 43 | `primer_melting_temperature_salt` | ☑ | ☑ | ☑ |
-| 44 | `reduce_secondary_structure` | ☑ | ☑ | ☑ |
-| 45 | `remove_restriction_sites` | ☑ | ☑ | ☑ |
-| 46 | `restriction_digest` | ☑ | ☑ | ☑ |
-| 47 | `restriction_map` | ☑ | ☑ | ☑ |
-| 48 | `rscu` | ☑ | ☑ | ☑ |
-| 49 | `sticky_cutters` | ☑ | ☑ | ☑ |
-| 50 | `three_prime_stability` | ☑ | ☑ | ☑ |
-| 51 | `validate_probe` | ☑ | ☑ | ☑ |
+| 5 | `calculate_on_target_doench2014` | ☑ | ☑ | ☑ |
+| 6 | `calculate_on_target_rule_set2` | ☑ | ☑ | ☑ |
+| 7 | `codon_adaptation_index` | ☑ | ☑ | ☑ |
+| 8 | `codon_minmax_profile` | ☑ | ☑ | ☑ |
+| 9 | `codon_usage_statistics` | ☑ | ☑ | ☑ |
+| 10 | `compare_codon_usage` | ☑ | ☑ | ☑ |
+| 11 | `compatible_enzymes` | ☑ | ☑ | ☑ |
+| 12 | `count_codons` | ☑ | ☑ | ☑ |
+| 13 | `crispr_cfd_specificity_score` | ☑ | ☑ | ☑ |
+| 14 | `crispr_mit_specificity_score` | ☑ | ☑ | ☑ |
+| 15 | `crispr_specificity_score` | ☑ | ☑ | ☑ |
+| 16 | `crispr_system_info` | ☑ | ☑ | ☑ |
+| 17 | `design_antisense_probes` | ☑ | ☑ | ☑ |
+| 18 | `design_guide_rnas` | ☑ | ☑ | ☑ |
+| 19 | `design_molecular_beacon` | ☑ | ☑ | ☑ |
+| 20 | `design_primers` | ☑ | ☑ | ☑ |
+| 21 | `design_probes` | ☑ | ☑ | ☑ |
+| 22 | `design_probes_primer3` | ☑ | ☑ | ☑ |
+| 23 | `design_tiling_probes` | ☑ | ☑ | ☑ |
+| 24 | `digest_summary` | ☑ | ☑ | ☑ |
+| 25 | `effective_number_of_codons` | ☑ | ☑ | ☑ |
+| 26 | `enzymes_by_cut_length` | ☑ | ☑ | ☑ |
+| 27 | `enzymes_compatible` | ☑ | ☑ | ☑ |
+| 28 | `evaluate_guide_rna` | ☑ | ☑ | ☑ |
+| 29 | `evaluate_primer` | ☑ | ☑ | ☑ |
+| 30 | `find_all_restriction_sites` | ☑ | ☑ | ☑ |
+| 31 | `find_conserved_rare_codon_clusters` | ☑ | ☑ | ☑ |
+| 32 | `find_off_targets` | ☑ | ☑ | ☑ |
+| 33 | `find_pam_sites` | ☑ | ☑ | ☑ |
+| 34 | `find_rare_codon_clusters` | ☑ | ☑ | ☑ |
+| 35 | `find_rare_codons` | ☑ | ☑ | ☑ |
+| 36 | `find_restriction_sites` | ☑ | ☑ | ☑ |
+| 37 | `generate_primer_candidates` | ☑ | ☑ | ☑ |
+| 38 | `get_enzyme` | ☑ | ☑ | ☑ |
+| 39 | `hairpin_potential` | ☑ | ☑ | ☑ |
+| 40 | `longest_dinucleotide_repeat` | ☑ | ☑ | ☑ |
+| 41 | `longest_homopolymer` | ☑ | ☑ | ☑ |
+| 42 | `oligo_concentration_from_absorbance` | ☑ | ☑ | ☑ |
+| 43 | `oligo_extinction_coefficient` | ☑ | ☑ | ☑ |
+| 44 | `optimize_codons` | ☑ | ☑ | ☑ |
+| 45 | `primer_dimer` | ☑ | ☑ | ☑ |
+| 46 | `primer_melting_temperature` | ☑ | ☑ | ☑ |
+| 47 | `primer_melting_temperature_salt` | ☑ | ☑ | ☑ |
+| 48 | `reduce_secondary_structure` | ☑ | ☑ | ☑ |
+| 49 | `remove_restriction_sites` | ☑ | ☑ | ☑ |
+| 50 | `restriction_digest` | ☑ | ☑ | ☑ |
+| 51 | `restriction_map` | ☑ | ☑ | ☑ |
+| 52 | `rscu` | ☑ | ☑ | ☑ |
+| 53 | `sticky_cutters` | ☑ | ☑ | ☑ |
+| 54 | `three_prime_stability` | ☑ | ☑ | ☑ |
+| 55 | `validate_probe` | ☑ | ☑ | ☑ |
 
 ### Phylogenetics (Seqeron.Mcp.Phylogenetics) — 13 tools
 

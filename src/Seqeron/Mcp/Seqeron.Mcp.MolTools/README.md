@@ -4,9 +4,7 @@ MCP server — **Primer/probe/CRISPR design, codon optimization, restriction ana
 
 Exposes **55 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test. Per-tool docs
-live under [`docs/mcp/tools/moltools/`](../../../../docs/mcp/tools/moltools) (53 of the 55 today —
-`calculate_on_target_doench2014` and `calculate_on_target_rule_set2` are registered and tested but
-still undocumented there). Rollout status:
+live under [`docs/mcp/tools/moltools/`](../../../../docs/mcp/tools/moltools) (all 55). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
 
 ## Run

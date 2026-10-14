@@ -1,7 +1,7 @@
 ---
 name: bio-moldesign
 description: >-
-  Design and QC molecular-biology reagents with Seqeron's MolTools server (51
+  Design and QC molecular-biology reagents with Seqeron's MolTools server (55
   tools) — PCR primer pairs and hybridization probes, CRISPR guide RNAs with
   off-target and specificity scoring, codon optimization of a CDS for a target
   organism (CAI/GC before-after), restriction-site finding and digest
@@ -17,7 +17,7 @@ allowed-tools: Read, Grep, Glob, Bash
 
 # bio-moldesign — molecular design & QC (MolTools)
 
-Routing + orchestration layer over the **MolTools** MCP server (51 tools) and the
+Routing + orchestration layer over the **MolTools** MCP server (55 tools) and the
 `Seqeron.Genomics.MolTools` C# namespace. It gives dual-mode recipes; it does **not**
 restate schemas — read the per-tool doc for exact I/O, and delegate all rigor to `bio-rigor`.
 

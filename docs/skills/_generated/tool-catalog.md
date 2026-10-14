@@ -354,7 +354,7 @@
 | `select_phylogenetic_markers` | `PanGenomeAnalyzer.SelectPhylogeneticMarkers` | [doc](../../mcp/tools/metagenomics/select_phylogenetic_markers.md) |
 | `taxonomic_profile` | `MetagenomicsAnalyzer.GenerateTaxonomicProfile` | [doc](../../mcp/tools/metagenomics/taxonomic_profile.md) |
 
-## MolTools (53 tools)
+## MolTools (55 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -362,6 +362,8 @@
 | `blunt_cutters` | `RestrictionAnalyzer.GetBluntCutters` | [doc](../../mcp/tools/moltools/blunt_cutters.md) |
 | `build_codon_table` | `CodonOptimizer.CreateCodonTableFromSequence` | [doc](../../mcp/tools/moltools/build_codon_table.md) |
 | `cai_from_organism_table` | `CodonOptimizer.CalculateCAI` | [doc](../../mcp/tools/moltools/cai_from_organism_table.md) |
+| `calculate_on_target_doench2014` | `CrisprDesigner.CalculateOnTargetDoench2014` | [doc](../../mcp/tools/moltools/calculate_on_target_doench2014.md) |
+| `calculate_on_target_rule_set2` | `CrisprDesigner.CalculateOnTargetRuleSet2` | [doc](../../mcp/tools/moltools/calculate_on_target_rule_set2.md) |
 | `codon_adaptation_index` | `CodonUsageAnalyzer.CalculateCai` | [doc](../../mcp/tools/moltools/codon_adaptation_index.md) |
 | `codon_minmax_profile` | `CodonOptimizer.CalculateMinMaxProfile` | [doc](../../mcp/tools/moltools/codon_minmax_profile.md) |
 | `codon_usage_statistics` | `CodonUsageAnalyzer.GetStatistics` | [doc](../../mcp/tools/moltools/codon_usage_statistics.md) |
