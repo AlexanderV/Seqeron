@@ -8,10 +8,10 @@
 | **Area** | MolTools |
 | **Title** | Restriction Site Detection |
 | **Canonical Class** | `RestrictionAnalyzer` |
-| **Canonical Methods** | `FindSites`, `FindAllSites`, `GetEnzyme` |
+| **Canonical Methods** | `FindSites`, `FindAllSites`, `FindPatternOccurrences`, `GetEnzyme`, `CreateMap` (site reporting) |
 | **Complexity** | O(n × k × m) |
 | **Status** | ☑ Complete |
-| **Last Updated** | 2026-03-04 |
+| **Last Updated** | 2026-10-14 |
 
 ---
 
@@ -29,18 +29,29 @@
 | Wikipedia: List of restriction enzyme cutting sites | Academic | Cut positions for 21 enzymes cross-verified |
 | Roberts RJ (1976) | Research | Restriction endonuclease classification |
 | REBASE | Database | Comprehensive enzyme database, recognition sequences |
+| **Biopython 1.88 `Bio.Restriction`** | Reference implementation (oracle) | Site positions, cut positions (1-based top strand), linear cut-feasibility filter `AbstractCut._drop`, circular search `FormattedSeq.finditer` (`data + data[1:size]`), `Defined._modify` / `_rev_modify`, `Palindromic._search`, `NonPalindromic._search`, `elucidate()`, `is_blunt()`/`is_5overhang()`/`is_3overhang()` |
+| **REBASE EMBOSS files version 404 (2024)** | Database snapshot | The enzyme table audited field by field; shipped as `Bio/Restriction/Restriction_Dictionary.py` in Biopython 1.88, whose generated header states the REBASE version (rebase.neb.com is unreachable from the validation environment) |
 
 ---
 
 ## Invariants
 
-1. **Position Range**: 0 ≤ Position ≤ sequence.Length - recognitionLength (Source: Implementation)
-2. **Cut Position**: Position ≤ CutPosition ≤ Position + recognitionLength (Source: Implementation)
+1. **Position Range**: 0 ≤ Position ≤ sequence.Length - recognitionLength (linear); 0 ≤ Position < sequence.Length (circular) (Source: Implementation)
+2. **Cut Position**: Position ≤ CutPosition ≤ Position + recognitionLength (linear) (Source: Implementation)
 3. **Recognition Match**: RecognizedSequence.Length == Enzyme.RecognitionSequence.Length (Source: Implementation)
 4. **Case Insensitivity**: GetEnzyme("EcoRI") == GetEnzyme("ecori") (Source: Implementation)
 5. **Empty Returns Empty**: Empty sequence returns no sites (Source: Implementation)
 6. **Unknown Throws**: Unknown enzyme name throws ArgumentException (Source: Implementation)
 7. **Both Strands Searched**: Forward and reverse complement both searched (Source: Biological requirement)
+8. **Coordinate convention**: Position and CutPosition are 0-based forward-strand coordinates for BOTH strands; CutPosition is the number of forward-strand bases 5' of the cut made on the strand named by IsForwardStrand; `biopython search() == forward CutPosition + 1` (Source: Biopython `Bio.Restriction`, `Defined._modify`; REBASE)
+9. **Reverse-strand cut**: for a reverse-strand site, CutPosition = Position + recognitionLength − CutPositionForward (= Position + CutPositionReverse for every palindromic enzyme) (Source: Biopython `Defined._rev_modify` / `NonPalindromic._search`)
+10. **Reverse-strand window**: RecognizedSequence is the matched window as read on the strand named by IsForwardStrand (Source: strand semantics; consistent with CRISPR-PAM-001 F2)
+11. **Linear cut feasibility**: a site is reported only when both of its strand cuts lie in [1, Length − 1] (Source: Biopython `AbstractCut._drop`)
+12. **Circular search**: origin-spanning windows are found and cut positions are reduced modulo Length; nothing is dropped (Source: Biopython `FormattedSeq.finditer`, `AbstractCut._drop` circular branch)
+13. **Overlapping sites**: every occurrence of a self-overlapping recognition sequence is reported (Source: Biopython's lookahead site regexes, `compsite`)
+14. **Short molecule**: no site is reported when Length < recognitionLength (Source: biology; deliberate divergence from the reference's unconditional circular padding)
+15. **Pattern validation**: an empty or non-IUPAC recognition pattern raises ArgumentException eagerly (Source: API contract)
+16. **CreateMap partition**: SitesByEnzyme.Keys ∪ NonCutters covers the considered enzyme set exactly, both keyed by canonical table name (Source: RESTR-DIGEST-001 invariant #11)
 
 ---
 
@@ -115,6 +126,19 @@
 | S5 | GetStickyCutters | `GetStickyCutters_ReturnsOnlyStickyEndEnzymes` |
 | C1 | IUPAC degenerate recognition | `FindSites_HincII_MatchesAllDegenerateCombinations` (×4), `*_RejectsNonMatchingDegenerateBases` (×4), `*_DegenerateEnzymeProducesCorrectCutPosition` |
 | C2 | Palindromic both strands | `FindSites_PalindromicSite_FoundOnBothStrandsAtSamePosition` |
+| M17 | Table audited against REBASE 404 | `EnzymeDatabase_AllEntries_MatchRebase404` (×39), `EnzymeDatabase_AuditCoversEveryEntry`, `EnzymeDatabase_EveryEntry_HasSymmetricCutGeometry` |
+| M18 | Cut positions vs Biopython | `FindSites_EcoRI_SiteFillsWholeSequence_IsStillReported`, `FindSites_Sau3AI_EdgeSites_AreNotCuttable_MatchesBiopython`, `FindSites_HincII_ReverseRecognizedSequenceIsReadOnItsOwnStrand` (plus the 34,906-comparison sweep recorded in the Evidence file) |
+| M19 | Linear cut feasibility | `FindSites_Sau3AI_EdgeSites_AreNotCuttable_MatchesBiopython`, `FindSites_GatcEdgeCutter_WholeSequenceIsTheSite_ReportsNothing` (×2), `FindSites_Sau3AI_SiteAtThreePrimeEnd_ReportsNothing` |
+| M20 | Circular origin-spanning | `FindSites_EcoRI_Circular_FindsOriginSpanningSite`, `FindSites_BamHI_Circular_FindsOriginSpanningSite`, `FindSites_Sau3AI_Circular_ReportsEveryGatc`, `FindAllSites_Circular_FindsOriginSpanningSite`, `CreateMap_Circular_FindsOriginSpanningSite` |
+| M21 | Circular modulo cut | `FindSites_Circular_CutPositionIsReducedModuloLength` |
+| M22 | Non-palindromic reverse cut | `FindSites_CustomNonPalindromicEnzyme_CdiI_ReverseStrandCutMatchesReference`, `…_SimI_…` |
+| M23 | Reverse-strand window | `FindSites_HincII_ReverseRecognizedSequenceIsReadOnItsOwnStrand` |
+| M24 | Overlapping sites | `FindPatternOccurrences_ReportsOverlappingOccurrences` |
+| M25 | Pattern validation | `FindSites_CustomEnzyme_InvalidRecognitionSequence_ThrowsArgumentException` (×3), `FindSites_CustomEnzyme_LowerCaseRecognitionSequence_StillMatches` |
+| M26 | Eager enzyme-name validation | `FindSites_RawString_UnknownEnzyme_ThrowsAtCallTime` |
+| M27-M30 | `FindPatternOccurrences` | `FindPatternOccurrences_ReportsZeroBasedStartIndices`, `…_ReportsOverlappingOccurrences`, `…_DegeneratePattern_MatchesEveryExpansion` (×4), `…_DegeneratePattern_RejectsNonMatchingBases`, `…_AmbiguousSequenceBase_NeverMatches` (×2), `…_AcceptsSequenceThatDnaSequenceRejects`, `…_IsCaseInsensitive`, `…_StartIndex_SkipsEarlierOccurrences` (×5), `…_SequenceTooShort_ReturnsEmpty` (×2), `…_InvalidArguments_Throw`, `…_ValidatesEagerly`, `…_AgreesWithFindSitesForwardPositions` |
+| M31-M32 | CreateMap site reporting | `CreateMap_LowerCaseEnzymeNames_DoesNotListACutterAsNonCutter`, `CreateMap_NoEnzymesSpecified_NonCuttersCoverTheRestOfTheTable`, `CreateMap_RepeatedEnzymeName_IsConsideredOnce`, `CreateMap_UnknownEnzymeName_ThrowsArgumentException` |
+| INV-14 | Short molecule | `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing` |
 
 ### External Source Verification Tests
 
@@ -127,6 +151,20 @@
 | FindSites_EcoRV_ProducesBluntEndCuts | Blunt ends (fwd == rev cut) | Wikipedia: EcoRV |
 | FindSites_PalindromicSite_FoundOnBothStrandsAtSamePosition | Both strands recognized | Wikipedia: Restriction enzyme |
 | EnzymeDatabase_CutPositions_MatchWikipedia (×21) | Recognition sequences and cut positions | Wikipedia: Restriction enzyme (Examples table) |
+| EnzymeDatabase_AllEntries_MatchRebase404 (×39) | site, fst5, len(site)+fst3, blunt/5'/3' class for every table entry — 39/39 matched, 0 wrong entries | REBASE 404 via Biopython 1.88 |
+| FindSites_Sau3AI_EdgeSites_AreNotCuttable_MatchesBiopython | `Sau3AI.search(Seq("GATCGATCGATC")) == [5]` | Biopython 1.88 |
+| FindSites_GatcEdgeCutter_WholeSequenceIsTheSite_ReportsNothing | `Sau3AI.search(Seq("GATC")) == []`, `MboI.search(Seq("GATC")) == []` | Biopython 1.88 |
+| FindSites_Sau3AI_SiteAtThreePrimeEnd_ReportsNothing | `Sau3AI.search(Seq("AAAAAAAAGATC")) == []` | Biopython 1.88 |
+| FindSites_EcoRI_SiteFillsWholeSequence_IsStillReported | `EcoRI.search(Seq("GAATTC")) == [2]` | Biopython 1.88 |
+| FindSites_EcoRI_Circular_FindsOriginSpanningSite | `EcoRI.search(Seq("TTCAAAAAAAGAA"), linear=False) == [12]`, linear `== []` | Biopython 1.88 |
+| FindSites_BamHI_Circular_FindsOriginSpanningSite | `BamHI.search(Seq("CCAAAAAAAAGGAT"), linear=False) == [12]`, linear `== []` | Biopython 1.88 |
+| FindSites_Sau3AI_Circular_ReportsEveryGatc | `Sau3AI.search(Seq("GATCGATCGATC"), linear=False) == [1, 5, 9]` | Biopython 1.88 |
+| FindSites_Circular_CutPositionIsReducedModuloLength | `Sau3AI.search(Seq("AAAAAAAAGATC"), linear=False) == [9]` | Biopython 1.88 |
+| FindSites_Circular_MoleculeShorterThanSite_ReportsNothing | `ClaI.search(Seq("GATC"), linear=False) == [4]` — deliberate divergence | Biopython 1.88 |
+| FindSites_CustomNonPalindromicEnzyme_CdiI_ReverseStrandCutMatchesReference | CdiI CATCG 4/4, `elucidate() == "CATC^_G"`, `ovhg == 0`, `search(Seq("AAACATCGAAACGATGAAA")) == [8, 13]` | REBASE 404 / Biopython 1.88 |
+| FindSites_CustomNonPalindromicEnzyme_SimI_ReverseStrandCutMatchesReference | SimI GGGTC 2/5, `elucidate() == "GG^GTC_N"`, `ovhg == -3`, `search(Seq("AAAGGGTCAAAGACCCAAA")) == [6, 12]` | REBASE 404 / Biopython 1.88 |
+| FindSites_HincII_ReverseRecognizedSequenceIsReadOnItsOwnStrand | `HincII.search(Seq("AAGTCAACAA")) == [6]` | Biopython 1.88 |
+| FindPatternOccurrences_ReportsOverlappingOccurrences | `PacI.search(Seq("TTAATTAATTAA")) == [6, 10]` (sites at 0 and 4) | Biopython 1.88 |
 
 ### Actions Taken
 
@@ -137,6 +175,8 @@
 | ⚠ Strengthened | `FindSites_CustomEnzyme_FindsSiteCorrectly` | Hardcoded exact position (2) and cut position (4) instead of computing via IndexOf |
 | 🔁 Removed | `RestrictionEnzyme_EcoRI_HasFivePrimeOverhang` | Fully covered by `GetEnzyme_EcoRI_ReturnsEnzymeWithCorrectProperties` (OverhangType + IsBluntEnd already asserted) |
 | 🔁 Removed | `RestrictionEnzyme_NotI_IsEightCutter` | Fully covered by `EnzymeDatabase_CutPositions_MatchWikipedia("NotI", "GCGGCCGC", 2, 6)` |
+| ❌ Implemented (2026-10-14 review) | the whole `Reference-Locked Site Search`, `CreateMap Site Reporting`, `FindPatternOccurrences` and `Enzyme Table Audit against REBASE 404` regions | M17-M32 and invariants #8-#16 were all missing; they lock the fixes F16-F21 |
+| ⚠ Corrected (2026-10-14 review) | `CreateMap_NoEnzymesSpecified_SearchesAll` (RESTR-DIGEST-001 test file) | It asserted `NonCutters` is empty when no enzyme names are given, which restated an implementation artefact and contradicted RESTR-DIGEST-001 invariant #11; it now asserts the cutter/non-cutter partition |
 
 ---
 
@@ -148,7 +188,23 @@ None — all behavior verified against external sources.
 
 ## Deviations and Assumptions
 
-None.
+One deliberate divergence from the oracle, with its reason:
+
+- **Molecule shorter than the recognition site, circular.** Biopython pads a circular sequence with
+  `data[1:size]` unconditionally, so a molecule shorter than the site is wrapped more than once and a
+  site is reported anyway (`ClaI.search(Seq("GATC"), linear=False) == [4]` for the 6-bp site `ATCGAT`
+  on a 4-bp circle). This library reports nothing, because a 6-bp recognition window cannot be present
+  on a 4-bp circle. Locked by `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing`.
+
+Two scope limits, not assumptions:
+
+- A `RestrictionEnzyme` carries one cut offset per strand **inside** the recognition window, so Type IIS /
+  Type IIG enzymes that cut at a distance cannot be expressed. The 39 table entries all cut inside their
+  site, so this does not affect any built-in enzyme.
+- Sequence case folding on the raw-string entry points uses `string.ToUpperInvariant()` rather than the
+  canonical `SequenceExtensions.ToUpperAscii`, which is `internal` to `Seqeron.Genomics.Core`. The only
+  difference is that a few non-ASCII characters fold onto an ASCII letter (e.g. U+017F 'ſ' → 'S'); the
+  `DnaSequence` overloads are unaffected (that type rejects non-ACGT input outright).
 
 Previous items A1 ("Forward strand position is primary") and A2 ("Reverse complement sites reported
 with forward strand coordinates") were reclassified as **standard conventions** — not assumptions.

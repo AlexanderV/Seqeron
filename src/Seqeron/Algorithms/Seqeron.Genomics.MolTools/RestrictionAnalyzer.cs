@@ -114,139 +114,444 @@ public static class RestrictionAnalyzer
 
     #region Restriction Site Finding
 
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // Coordinate and feasibility conventions (reference: Biopython 1.88 Bio.Restriction,
+    // Restriction.py — FormattedSeq.finditer L215-228, AbstractCut._drop L542-568,
+    // Defined._modify L789-814 / Defined._rev_modify L817-825, Palindromic._search L967-978,
+    // NonPalindromic._search L996-1019).
+    //
+    // • Every coordinate this class reports is 0-based and in FORWARD-strand (top-strand)
+    //   space, for both strands. `Position` is the index of the 5'-most base of the
+    //   recognition window on the forward strand. `CutPosition` is the number of forward-strand
+    //   bases 5' of the cut, i.e. the cut lies between bases `CutPosition - 1` and
+    //   `CutPosition`, on the strand named by `IsForwardStrand`.
+    //   Biopython's `enzyme.search(seq)` returns the same cut as a 1-based top-strand position,
+    //   so Biopython = this class's forward-strand `CutPosition` + 1.
+    //
+    // • For a forward-strand site at p the two cuts are `p + CutPositionForward` (top strand)
+    //   and `p + CutPositionReverse` (bottom strand). For a site found on the reverse strand
+    //   the enzyme is bound the other way round, so — with L the recognition length — the cuts
+    //   are `p + L - CutPositionReverse` (top strand) and `p + L - CutPositionForward` (bottom
+    //   strand); the reverse-strand record carries the latter, the cut on the strand it was
+    //   read from. For a palindromic enzyme CutPositionForward + CutPositionReverse == L, so
+    //   both formulas coincide and the output is identical to the historical one; they differ
+    //   only for a custom NON-palindromic enzyme, where the historical `p + CutPositionReverse`
+    //   was wrong (REBASE has exactly two such in-site cutters, CdiI CATC^G and SimI GG^GTC_N).
+    //
+    // • Feasibility (linear molecules): a cut can only fall on a phosphodiester bond that
+    //   exists, so a site is reported only when BOTH its strand cuts lie in [1, length - 1].
+    //   This is Biopython's `_drop` filter (`1 < cut_on_watson <= length` and the same for
+    //   `cut_on_crick = cut_on_watson - ovhg`, with `ovhg = CutPositionForward -
+    //   CutPositionReverse`) expressed in 0-based coordinates. It only ever excludes an
+    //   enzyme that cuts at the very edge of its own recognition window — in the built-in
+    //   table, Sau3AI and MboI (^GATC / GATC^).
+    //
+    // • Circular molecules: the search runs over `seq + seq[0 .. L-2]` so sites spanning the
+    //   origin are found (Biopython appends `data[1:size]`), cut positions are taken modulo
+    //   the length, and no site is dropped — on a closed circle every bond exists.
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
     /// <summary>
-    /// Finds all restriction sites for a specific enzyme in a sequence.
+    /// Finds all restriction sites for a specific enzyme in a <b>linear</b> sequence.
     /// </summary>
     /// <param name="sequence">DNA sequence to analyze.</param>
-    /// <param name="enzymeName">Name of the restriction enzyme.</param>
-    /// <returns>Collection of restriction sites found.</returns>
+    /// <param name="enzymeName">Name of the restriction enzyme (case-insensitive).</param>
+    /// <returns>Collection of restriction sites found: forward-strand hits first, then
+    /// reverse-strand hits, each in ascending <see cref="RestrictionSite.Position"/> order.</returns>
+    /// <remarks>
+    /// Equivalent to <see cref="FindSites(DnaSequence, string, MoleculeTopology)"/> with
+    /// <see cref="MoleculeTopology.Linear"/>; see that overload for the coordinate convention.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null, or
+    /// <paramref name="enzymeName"/> is null or empty.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not in the built-in table.</exception>
     public static IEnumerable<RestrictionSite> FindSites(DnaSequence sequence, string enzymeName)
+        => FindSites(sequence, enzymeName, MoleculeTopology.Linear);
+
+    /// <summary>
+    /// Finds all restriction sites for a specific enzyme in a molecule of the given topology.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to analyze.</param>
+    /// <param name="enzymeName">Name of the restriction enzyme (case-insensitive).</param>
+    /// <param name="topology">Whether the molecule is linear or circular.</param>
+    /// <remarks>
+    /// <para>
+    /// <see cref="RestrictionSite.Position"/> and <see cref="RestrictionSite.CutPosition"/> are
+    /// 0-based forward-strand coordinates for <b>both</b> strands; <c>CutPosition</c> is the
+    /// number of forward-strand bases 5' of the cut made on the strand named by
+    /// <see cref="RestrictionSite.IsForwardStrand"/>. A palindromic enzyme therefore reports two
+    /// records per physical site — a forward one carrying the top-strand cut and a reverse one
+    /// carrying the bottom-strand cut — at the same <c>Position</c>. Overlapping sites are all
+    /// reported (Biopython's site regexes are lookaheads, so it reports them too).
+    /// </para>
+    /// <para>
+    /// <b>Linear</b> (the default): a site is reported only when both of its strand cuts fall on
+    /// a phosphodiester bond that exists, i.e. both lie in <c>[1, Length - 1]</c>. This matches
+    /// Biopython 1.88 <c>Bio.Restriction</c> (<c>AbstractCut._drop</c>), which drops a site when
+    /// either cut would fall outside the molecule. It affects only enzymes cutting at the edge of
+    /// their own recognition window: <c>Sau3AI</c>/<c>MboI</c> (<c>^GATC</c>) at the very 5' or
+    /// 3' end. Example: <c>FindSites(new DnaSequence("GATCGATCGATC"), "Sau3AI")</c> reports the
+    /// single site at position 4 (cut 4), exactly as
+    /// <c>Bio.Restriction.Sau3AI.search(Seq("GATCGATCGATC")) == [5]</c> (1-based).
+    /// </para>
+    /// <para>
+    /// <b>Circular</b>: the recognition window may wrap past the origin, so sites starting in the
+    /// last <c>L-1</c> bases are found as well, and cut positions are reduced modulo the sequence
+    /// length (a cut "after the last base" is the same bond as a cut at the origin). Nothing is
+    /// dropped. This is Biopython's <c>search(..., linear=False)</c>, which searches
+    /// <c>data + data[1:size]</c> and folds out-of-range cuts back by ±length. Example:
+    /// <c>Bio.Restriction.EcoRI.search(Seq("TTCAAAAAAAGAA"), linear=False) == [12]</c>, i.e. the
+    /// origin-spanning <c>GAATTC</c> at position 10 with a top-strand cut at 11.
+    /// </para>
+    /// </remarks>
+    public static IEnumerable<RestrictionSite> FindSites(
+        DnaSequence sequence, string enzymeName, MoleculeTopology topology)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (string.IsNullOrEmpty(enzymeName))
-            throw new ArgumentNullException(nameof(enzymeName));
-
-        var enzyme = GetEnzyme(enzymeName) ??
-            throw new ArgumentException($"Unknown enzyme: {enzymeName}", nameof(enzymeName));
-
-        return FindSitesCore(sequence.Sequence, enzyme);
+        var enzyme = RequireEnzyme(enzymeName);
+        return FindSitesCore(sequence.Sequence, enzyme, topology);
     }
 
     /// <summary>
-    /// Finds all restriction sites for a specific enzyme in a raw sequence string.
+    /// Finds all restriction sites for a specific enzyme in a raw <b>linear</b> sequence string.
     /// </summary>
+    /// <remarks>
+    /// The sequence is upper-cased before matching; characters that are not IUPAC nucleotide
+    /// codes simply never match. A null or empty sequence yields no sites — but an unknown
+    /// enzyme name is still rejected, eagerly, before the sequence is looked at.
+    /// </remarks>
     public static IEnumerable<RestrictionSite> FindSites(string sequence, string enzymeName)
+        => FindSites(sequence, enzymeName, MoleculeTopology.Linear);
+
+    /// <summary>
+    /// Finds all restriction sites for a specific enzyme in a raw sequence string, for a molecule
+    /// of the given topology.
+    /// </summary>
+    /// <remarks>
+    /// The sequence is upper-cased before matching; characters that are not IUPAC nucleotide
+    /// codes simply never match. A null or empty sequence yields no sites — but an unknown
+    /// enzyme name is still rejected, eagerly, before the sequence is looked at. See
+    /// <see cref="FindSites(DnaSequence, string, MoleculeTopology)"/> for the coordinate and
+    /// feasibility conventions.
+    /// </remarks>
+    public static IEnumerable<RestrictionSite> FindSites(
+        string sequence, string enzymeName, MoleculeTopology topology)
     {
-        if (string.IsNullOrEmpty(sequence))
-            yield break;
+        var enzyme = RequireEnzyme(enzymeName);
 
-        var enzyme = GetEnzyme(enzymeName) ??
-            throw new ArgumentException($"Unknown enzyme: {enzymeName}", nameof(enzymeName));
-
-        foreach (var site in FindSitesCore(sequence.ToUpperInvariant(), enzyme))
-            yield return site;
+        return string.IsNullOrEmpty(sequence)
+            ? []
+            : FindSitesCore(sequence.ToUpperInvariant(), enzyme, topology);
     }
 
     /// <summary>
-    /// Finds all restriction sites for a custom enzyme.
+    /// Finds all restriction sites for a custom enzyme in a <b>linear</b> sequence.
     /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="enzyme"/> has an empty recognition sequence, or one containing a character
+    /// that is not one of the 15 IUPAC nucleotide codes.
+    /// </exception>
     public static IEnumerable<RestrictionSite> FindSites(DnaSequence sequence, RestrictionEnzyme enzyme)
+        => FindSites(sequence, enzyme, MoleculeTopology.Linear);
+
+    /// <summary>
+    /// Finds all restriction sites for a custom enzyme in a molecule of the given topology.
+    /// </summary>
+    /// <remarks>
+    /// The recognition sequence is matched case-insensitively with IUPAC ambiguity semantics
+    /// (<see cref="IupacHelper.MatchesIupac"/>) and is validated up front. Unlike the built-in
+    /// table, a custom enzyme need not be palindromic: a non-palindromic enzyme yields distinct
+    /// forward- and reverse-strand sites, and the reverse-strand record reports the cut the enzyme
+    /// makes on the strand it read — see
+    /// <see cref="FindSites(DnaSequence, string, MoleculeTopology)"/> for the full convention.
+    /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="enzyme"/> has an empty recognition sequence, or one containing a character
+    /// that is not one of the 15 IUPAC nucleotide codes.
+    /// </exception>
+    public static IEnumerable<RestrictionSite> FindSites(
+        DnaSequence sequence, RestrictionEnzyme enzyme, MoleculeTopology topology)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(enzyme);
 
-        return FindSitesCore(sequence.Sequence, enzyme);
+        return FindSitesCore(sequence.Sequence, enzyme, topology);
     }
 
-    private static IEnumerable<RestrictionSite> FindSitesCore(string seq, RestrictionEnzyme enzyme)
+    /// <summary>
+    /// Finds all restriction sites for multiple enzymes in a <b>linear</b> sequence.
+    /// </summary>
+    /// <remarks>The result is the concatenation of the per-enzyme searches, in the order given;
+    /// a name repeated in <paramref name="enzymeNames"/> is searched (and reported) twice.</remarks>
+    public static IEnumerable<RestrictionSite> FindSites(DnaSequence sequence, params string[] enzymeNames)
     {
-        string pattern = enzyme.RecognitionSequence;
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(enzymeNames);
+        return FindSitesCore(sequence, enzymeNames, MoleculeTopology.Linear);
+    }
 
-        for (int i = 0; i <= seq.Length - pattern.Length; i++)
+    /// <summary>
+    /// Finds all restriction sites for multiple enzymes in a molecule of the given topology.
+    /// </summary>
+    /// <remarks>The result is the concatenation of the per-enzyme searches, in the order given;
+    /// a name repeated in <paramref name="enzymeNames"/> is searched (and reported) twice.</remarks>
+    public static IEnumerable<RestrictionSite> FindSites(
+        DnaSequence sequence, MoleculeTopology topology, params string[] enzymeNames)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(enzymeNames);
+        return FindSitesCore(sequence, enzymeNames, topology);
+    }
+
+    private static IEnumerable<RestrictionSite> FindSitesCore(
+        DnaSequence sequence, string[] enzymeNames, MoleculeTopology topology)
+    {
+        foreach (var name in enzymeNames)
         {
-            if (MatchesPattern(seq, i, pattern))
-            {
-                int cutPosition = i + enzyme.CutPositionForward;
+            foreach (var site in FindSites(sequence, name, topology))
+                yield return site;
+        }
+    }
 
+    /// <summary>
+    /// Finds all sites for all known enzymes in a <b>linear</b> sequence (comprehensive analysis).
+    /// </summary>
+    public static IEnumerable<RestrictionSite> FindAllSites(DnaSequence sequence)
+        => FindAllSites(sequence, MoleculeTopology.Linear);
+
+    /// <summary>
+    /// Finds all sites for all known enzymes in a molecule of the given topology
+    /// (comprehensive analysis).
+    /// </summary>
+    public static IEnumerable<RestrictionSite> FindAllSites(DnaSequence sequence, MoleculeTopology topology)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindAllSitesCore(sequence, topology);
+    }
+
+    private static IEnumerable<RestrictionSite> FindAllSitesCore(DnaSequence sequence, MoleculeTopology topology)
+    {
+        foreach (var enzyme in _enzymes.Values)
+        {
+            foreach (var site in FindSitesCore(sequence.Sequence, enzyme, topology))
+                yield return site;
+        }
+    }
+
+    /// <summary>
+    /// Enumerates every 0-based start index at which <paramref name="recognitionPattern"/> occurs
+    /// in <paramref name="sequence"/>, under IUPAC ambiguity semantics, on the given strand only.
+    /// </summary>
+    /// <param name="sequence">Sequence to scan. Upper-cased before matching, so the scan is
+    /// case-insensitive; a null or empty sequence yields no occurrences.</param>
+    /// <param name="recognitionPattern">Recognition pattern, 1 or more of the 15 IUPAC nucleotide
+    /// codes A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V (case-insensitive).</param>
+    /// <param name="startIndex">First index to consider; occurrences starting before it are
+    /// skipped. Defaults to 0.</param>
+    /// <returns>The start indices in ascending order, lazily. Indices are 0-based and point at
+    /// the 5'-most base of the match; <b>overlapping</b> occurrences are all reported.</returns>
+    /// <remarks>
+    /// <para>
+    /// This is the raw pattern scan underlying <see cref="FindSites(DnaSequence, string)"/>,
+    /// exposed for callers that hold a pattern rather than an enzyme and a sequence that
+    /// <see cref="DnaSequence"/> would reject (e.g. one still carrying IUPAC ambiguity codes).
+    /// It reports occurrences only — it applies no enzyme, no cut arithmetic, no reverse-strand
+    /// scan and no linear-molecule cut-feasibility filter. To cover both strands, call it a
+    /// second time with <see cref="DnaSequence.GetReverseComplementString"/> of the pattern.
+    /// </para>
+    /// <para>
+    /// Matching is per position via the canonical <see cref="IupacHelper.MatchesIupac"/>:
+    /// ambiguity is interpreted in the <b>pattern</b> only. A sequence position holding anything
+    /// other than A, C, G or T — an ambiguity code such as <c>N</c> or <c>R</c> included — matches
+    /// no pattern code at all, so it blocks a match rather than widening it.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="recognitionPattern"/> is null or empty,
+    /// or contains a character that is not an IUPAC nucleotide code.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="startIndex"/> is negative.</exception>
+    public static IEnumerable<int> FindPatternOccurrences(
+        string sequence, string recognitionPattern, int startIndex = 0)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentOutOfRangeException.ThrowIfNegative(startIndex);
+        string pattern = ValidatedPattern(recognitionPattern, nameof(recognitionPattern));
+
+        return sequence.Length == 0
+            ? []
+            : EnumeratePatternOccurrences(sequence.ToUpperInvariant(), pattern, startIndex);
+    }
+
+    private static IEnumerable<int> EnumeratePatternOccurrences(string seq, string pattern, int startIndex)
+    {
+        for (int i = startIndex; i + pattern.Length <= seq.Length; i++)
+        {
+            if (MatchesPatternAt(seq, i, pattern))
+                yield return i;
+        }
+    }
+
+    private static RestrictionEnzyme RequireEnzyme(string enzymeName)
+    {
+        if (string.IsNullOrEmpty(enzymeName))
+            throw new ArgumentNullException(nameof(enzymeName));
+
+        return GetEnzyme(enzymeName)
+            ?? throw new ArgumentException($"Unknown enzyme: {enzymeName}", nameof(enzymeName));
+    }
+
+    /// <summary>
+    /// Validates a recognition pattern and returns it upper-cased, ready for matching.
+    /// </summary>
+    private static string ValidatedPattern(string? pattern, string paramName, string? enzymeName = null)
+    {
+        string what = enzymeName is null ? "Recognition pattern" : $"Enzyme '{enzymeName}' recognition sequence";
+
+        if (string.IsNullOrEmpty(pattern))
+            throw new ArgumentException($"{what} cannot be null or empty.", paramName);
+
+        string upper = pattern.ToUpperInvariant();
+        for (int i = 0; i < upper.Length; i++)
+        {
+            if (!IupacHelper.IsNucleotideCode(upper[i]))
+            {
+                throw new ArgumentException(
+                    $"{what} '{pattern}' contains '{pattern[i]}' at index {i}, which is not one of the " +
+                    "15 IUPAC nucleotide codes (A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V).",
+                    paramName);
+            }
+        }
+
+        return upper;
+    }
+
+    /// <summary>
+    /// Dispatches a single-enzyme search; validates the recognition pattern eagerly so a malformed
+    /// custom enzyme is reported at the call, not on first enumeration.
+    /// </summary>
+    private static IEnumerable<RestrictionSite> FindSitesCore(
+        string seq, RestrictionEnzyme enzyme, MoleculeTopology topology)
+    {
+        string pattern = ValidatedPattern(enzyme.RecognitionSequence, nameof(enzyme), enzyme.Name);
+
+        if (seq.Length < pattern.Length)
+            return [];
+
+        return topology == MoleculeTopology.Circular
+            ? FindSitesCircular(seq, enzyme, pattern)
+            : FindSitesLinear(seq, enzyme, pattern);
+    }
+
+    private static IEnumerable<RestrictionSite> FindSitesLinear(
+        string seq, RestrictionEnzyme enzyme, string pattern)
+    {
+        int n = seq.Length;
+        int len = pattern.Length;
+        int fwd = enzyme.CutPositionForward;
+        int rev = enzyme.CutPositionReverse;
+
+        for (int i = 0; i + len <= n; i++)
+        {
+            // Forward-strand site: top-strand cut i+fwd, bottom-strand cut i+rev.
+            if (MatchesPatternAt(seq, i, pattern) && CutsAreInternal(i + fwd, i + rev, n))
+            {
                 yield return new RestrictionSite(
                     Position: i,
                     Enzyme: enzyme,
                     IsForwardStrand: true,
-                    CutPosition: cutPosition,
-                    RecognizedSequence: seq.Substring(i, pattern.Length));
+                    CutPosition: i + fwd,
+                    RecognizedSequence: seq.Substring(i, len));
             }
         }
 
         // Check reverse strand (complement sequence)
         string revComp = DnaSequence.GetReverseComplementString(seq);
-        for (int i = 0; i <= revComp.Length - pattern.Length; i++)
+        for (int i = 0; i + len <= n; i++)
         {
-            if (MatchesPattern(revComp, i, pattern))
-            {
-                // Convert back to forward strand coordinates
-                int forwardPos = seq.Length - i - pattern.Length;
-                int cutPosition = forwardPos + enzyme.CutPositionReverse;
+            if (!MatchesPatternAt(revComp, i, pattern))
+                continue;
 
+            // Convert back to forward strand coordinates
+            int forwardPos = n - i - len;
+
+            // The enzyme reads the reverse strand, so its own 5' end sits at forward
+            // coordinate forwardPos+len: top-strand cut forwardPos+len-rev, bottom-strand cut
+            // forwardPos+len-fwd. For a palindromic enzyme fwd+rev == len, so the bottom-strand
+            // cut equals the historical forwardPos+rev.
+            int watsonCut = forwardPos + len - rev;
+            int crickCut = forwardPos + len - fwd;
+
+            if (!CutsAreInternal(watsonCut, crickCut, n))
+                continue;
+
+            yield return new RestrictionSite(
+                Position: forwardPos,
+                Enzyme: enzyme,
+                IsForwardStrand: false,
+                CutPosition: crickCut,
+                RecognizedSequence: revComp.Substring(i, len));
+        }
+    }
+
+    private static IEnumerable<RestrictionSite> FindSitesCircular(
+        string seq, RestrictionEnzyme enzyme, string pattern)
+    {
+        int n = seq.Length;
+        int len = pattern.Length;
+        int fwd = enzyme.CutPositionForward;
+
+        // Biopython searches data + data[1:size] so a site may wrap past the origin; a start
+        // index is therefore considered exactly once, for 0 <= i < n.
+        string extended = seq + seq[..(len - 1)];
+        for (int i = 0; i < n; i++)
+        {
+            if (MatchesPatternAt(extended, i, pattern))
+            {
                 yield return new RestrictionSite(
-                    Position: forwardPos,
+                    Position: i,
                     Enzyme: enzyme,
-                    IsForwardStrand: false,
-                    CutPosition: cutPosition,
-                    RecognizedSequence: seq.Substring(forwardPos, pattern.Length));
+                    IsForwardStrand: true,
+                    CutPosition: (i + fwd) % n,
+                    RecognizedSequence: extended.Substring(i, len));
             }
         }
-    }
 
-    /// <summary>
-    /// Finds all restriction sites for multiple enzymes.
-    /// </summary>
-    public static IEnumerable<RestrictionSite> FindSites(DnaSequence sequence, params string[] enzymeNames)
-    {
-        ArgumentNullException.ThrowIfNull(sequence);
-        return FindSitesCore(sequence, enzymeNames);
-    }
-
-    private static IEnumerable<RestrictionSite> FindSitesCore(DnaSequence sequence, string[] enzymeNames)
-    {
-        foreach (var name in enzymeNames)
+        string revComp = DnaSequence.GetReverseComplementString(seq);
+        string revExtended = revComp + revComp[..(len - 1)];
+        for (int i = 0; i < n; i++)
         {
-            foreach (var site in FindSites(sequence, name))
-                yield return site;
+            if (!MatchesPatternAt(revExtended, i, pattern))
+                continue;
+
+            int forwardPos = ((n - i - len) % n + n) % n;
+
+            yield return new RestrictionSite(
+                Position: forwardPos,
+                Enzyme: enzyme,
+                IsForwardStrand: false,
+                CutPosition: (forwardPos + len - fwd) % n,
+                RecognizedSequence: revExtended.Substring(i, len));
         }
     }
 
     /// <summary>
-    /// Finds all sites for all known enzymes (comprehensive analysis).
+    /// True when both strand cuts of a site fall on a phosphodiester bond that exists in a linear
+    /// molecule of <paramref name="length"/> bases, i.e. both lie in <c>[1, length - 1]</c>
+    /// (Biopython <c>AbstractCut._drop</c>, expressed in 0-based coordinates).
     /// </summary>
-    public static IEnumerable<RestrictionSite> FindAllSites(DnaSequence sequence)
-    {
-        ArgumentNullException.ThrowIfNull(sequence);
-        return FindAllSitesCore(sequence);
-    }
+    private static bool CutsAreInternal(int watsonCut, int crickCut, int length) =>
+        watsonCut >= 1 && watsonCut <= length - 1 &&
+        crickCut >= 1 && crickCut <= length - 1;
 
-    private static IEnumerable<RestrictionSite> FindAllSitesCore(DnaSequence sequence)
-    {
-        foreach (var enzyme in _enzymes.Values)
-        {
-            foreach (var site in FindSitesCore(sequence.Sequence, enzyme))
-                yield return site;
-        }
-    }
-
-    private static bool MatchesPattern(string seq, int position, string pattern)
+    private static bool MatchesPatternAt(string seq, int position, string pattern)
     {
         for (int i = 0; i < pattern.Length; i++)
         {
-            char seqChar = seq[position + i];
-            char patChar = pattern[i];
-
-            if (!MatchesIupac(seqChar, patChar))
+            if (!IupacHelper.MatchesIupac(seq[position + i], pattern[i]))
                 return false;
         }
         return true;
     }
-
-    private static bool MatchesIupac(char nucleotide, char iupacCode) => IupacHelper.MatchesIupac(nucleotide, iupacCode);
 
     #endregion
 
@@ -466,19 +771,59 @@ public static class RestrictionAnalyzer
     #region Restriction Map
 
     /// <summary>
-    /// Creates a restriction map showing all enzyme sites.
+    /// Creates a restriction map of a <b>linear</b> molecule showing all enzyme sites.
     /// </summary>
     public static RestrictionMap CreateMap(DnaSequence sequence, params string[] enzymeNames)
+        => CreateMap(sequence, MoleculeTopology.Linear, enzymeNames);
+
+    /// <summary>
+    /// Creates a restriction map of a molecule with the given topology, showing all enzyme sites.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to map.</param>
+    /// <param name="topology">Whether the molecule is linear or circular; see
+    /// <see cref="FindSites(DnaSequence, string, MoleculeTopology)"/>.</param>
+    /// <param name="enzymeNames">Enzymes to consider. Names are resolved case-insensitively and
+    /// de-duplicated; an <b>empty</b> set means every built-in enzyme.</param>
+    /// <remarks>
+    /// <para>
+    /// The <i>considered set</i> is what <see cref="RestrictionMap.NonCutters"/> is taken from:
+    /// every considered enzyme with no site in <paramref name="sequence"/>, reported under its
+    /// canonical table name. With an empty <paramref name="enzymeNames"/> the considered set is
+    /// the whole built-in table, so <c>NonCutters</c> lists every built-in enzyme that does not
+    /// cut (<c>SitesByEnzyme</c> ∪ <c>NonCutters</c> always covers the considered set exactly).
+    /// </para>
+    /// <para>
+    /// <c>SitesByEnzyme</c> is keyed case-insensitively by canonical enzyme name and holds the
+    /// positions of both strands' records; <c>TotalSites</c> and <c>UniqueCutters</c> count
+    /// forward-strand records only, since a palindromic site yields one of each.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentException">A name in <paramref name="enzymeNames"/> is not in the
+    /// built-in table.</exception>
+    public static RestrictionMap CreateMap(
+        DnaSequence sequence, MoleculeTopology topology, params string[] enzymeNames)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(enzymeNames);
 
-        var sites = enzymeNames.Length > 0
-            ? FindSites(sequence, enzymeNames).ToList()
-            : FindAllSites(sequence).ToList();
+        // Resolve the request to canonical, de-duplicated enzyme names so that NonCutters can be
+        // compared against the keys of SitesByEnzyme (which carry the table's own spelling) and
+        // so a name repeated with different casing is not searched — and counted — twice.
+        var considered = (enzymeNames.Length > 0
+                ? enzymeNames.Select(RequireEnzyme)
+                : _enzymes.Values)
+            .Select(e => e.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var sites = FindSitesCore(sequence, considered.ToArray(), topology).ToList();
 
         var byEnzyme = sites
-            .GroupBy(s => s.Enzyme.Name)
-            .ToDictionary(g => g.Key, g => g.Select(s => s.Position).OrderBy(p => p).ToList());
+            .GroupBy(s => s.Enzyme.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(s => s.Position).OrderBy(p => p).ToList(),
+                StringComparer.OrdinalIgnoreCase);
 
         // UniqueCutters: enzymes with exactly one forward-strand site.
         // SitesByEnzyme includes both strands; for palindromic enzymes a single site
@@ -486,10 +831,13 @@ public static class RestrictionAnalyzer
         // Filter to forward-strand sites for unique cutter identification.
         var forwardByEnzyme = sites
             .Where(s => s.IsForwardStrand)
-            .GroupBy(s => s.Enzyme.Name)
-            .ToDictionary(g => g.Key, g => g.Select(s => s.Position).Distinct().ToList());
+            .GroupBy(s => s.Enzyme.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(s => s.Position).Distinct().ToList(),
+                StringComparer.OrdinalIgnoreCase);
         var uniqueCutters = forwardByEnzyme.Where(kv => kv.Value.Count == 1).Select(kv => kv.Key).ToList();
-        var nonCutters = enzymeNames.Where(e => !byEnzyme.ContainsKey(e)).ToList();
+        var nonCutters = considered.Where(e => !byEnzyme.ContainsKey(e)).ToList();
 
         return new RestrictionMap(
             SequenceLength: sequence.Length,
@@ -654,8 +1002,25 @@ public enum OverhangType
 }
 
 /// <summary>
-/// Represents a restriction site in a sequence.
+/// Represents a restriction site in a sequence. All coordinates are 0-based and in
+/// <b>forward-strand</b> space, for both strands.
 /// </summary>
+/// <param name="Position">Index of the 5'-most base of the recognition window on the forward
+/// strand.</param>
+/// <param name="Enzyme">The enzyme definition that matched, exactly as supplied.</param>
+/// <param name="IsForwardStrand"><see langword="true"/> when the recognition sequence was read on
+/// the forward strand, <see langword="false"/> when it was read on the reverse strand. A
+/// palindromic enzyme yields one record of each per physical site, at the same
+/// <paramref name="Position"/>.</param>
+/// <param name="CutPosition">Number of forward-strand bases 5' of the cut the enzyme makes on the
+/// strand named by <paramref name="IsForwardStrand"/>; the cut lies between forward-strand bases
+/// <c>CutPosition - 1</c> and <c>CutPosition</c>. Biopython
+/// <c>Bio.Restriction.&lt;enzyme&gt;.search()</c> reports the same top-strand cut as
+/// <c>CutPosition + 1</c> (1-based).</param>
+/// <param name="RecognizedSequence">The matched window as read on the strand named by
+/// <paramref name="IsForwardStrand"/> — so for a reverse-strand record it is the reverse
+/// complement of the forward-strand window. Always
+/// <c>Enzyme.RecognitionSequence.Length</c> characters long.</param>
 public sealed record RestrictionSite(
     int Position,
     RestrictionEnzyme Enzyme,

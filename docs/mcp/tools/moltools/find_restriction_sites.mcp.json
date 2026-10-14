@@ -5,13 +5,14 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindSites",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L207",
-  "description": "Find restriction sites for named built-in enzymes on both strands of a DNA sequence.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L237",
+  "description": "Find restriction sites for named built-in enzymes on both strands of a DNA sequence; 0-based forward-strand coordinates, per-strand cut positions, linear cut-feasibility filter or circular origin-spanning search.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 },
-      "enzyme_names": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Enzyme names to look for." }
+      "enzyme_names": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Enzyme names to look for." },
+      "topology": { "type": "string", "enum": ["Linear", "Circular"], "default": "Linear", "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)." }
     },
     "required": ["sequence", "enzyme_names"]
   },
@@ -49,6 +50,16 @@
       "name": "No site",
       "input": { "sequence": "AAAAAAAA", "enzyme_names": ["EcoRI"] },
       "output": { "sites": [] }
+    },
+    {
+      "name": "Circular plasmid, origin-spanning site",
+      "input": { "sequence": "TTCAAAAAAAGAA", "enzyme_names": ["EcoRI"], "topology": "Circular" },
+      "output": { "sites": [ { "position": 10, "isForwardStrand": true, "cutPosition": 11, "recognizedSequence": "GAATTC" }, { "position": 10, "isForwardStrand": false, "cutPosition": 2, "recognizedSequence": "GAATTC" } ] }
+    },
+    {
+      "name": "Linear cut feasibility — Sau3AI edge sites are not cuttable",
+      "input": { "sequence": "GATCGATCGATC", "enzyme_names": ["Sau3AI"] },
+      "output": { "sites": [ { "position": 4, "isForwardStrand": true, "cutPosition": 4, "recognizedSequence": "GATC" }, { "position": 4, "isForwardStrand": false, "cutPosition": 8, "recognizedSequence": "GATC" } ] }
     }
   ]
 }

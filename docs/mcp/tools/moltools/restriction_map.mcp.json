@@ -5,13 +5,14 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.CreateMap",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L463",
-  "description": "Build a restriction map: sites, sites-by-enzyme, unique cutters and non-cutters.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L803",
+  "description": "Build a restriction map: sites, sites-by-enzyme, unique cutters and non-cutters. sitesByEnzyme and nonCutters partition the considered enzyme set, keyed by canonical enzyme name.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence to map.", "minLength": 1 },
-      "enzyme_names": { "type": "array", "items": { "type": "string" }, "description": "Enzymes to consider; empty = all built-in enzymes." }
+      "enzyme_names": { "type": "array", "items": { "type": "string" }, "description": "Enzymes to consider (case-insensitive, de-duplicated); empty = all built-in enzymes." },
+      "topology": { "type": "string", "enum": ["Linear", "Circular"], "default": "Linear", "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)." }
     },
     "required": ["sequence", "enzyme_names"]
   },

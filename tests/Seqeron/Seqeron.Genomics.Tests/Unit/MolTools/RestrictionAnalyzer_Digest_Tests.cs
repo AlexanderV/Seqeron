@@ -657,7 +657,17 @@ public class RestrictionAnalyzer_Digest_Tests
                 "Should find Sau3AI (GATC within GGATCC)");
             Assert.That(map.TotalSites, Is.EqualTo(5),
                 "5 forward-strand sites: EcoRI, BamHI, Sau3AI, MboI, DpnI");
-            Assert.That(map.NonCutters, Is.Empty, "No enzyme names specified → no non-cutters");
+            // RESTR-FIND-001 review (2026-10, F19): with no enzyme names the considered set is
+            // the whole built-in table, so every built-in enzyme without a site IS a non-cutter
+            // (TestSpec invariant #11: "Enzymes with zero sites listed in NonCutters"). The
+            // previous assertion (NonCutters empty) locked an implementation artefact — the
+            // filter was `enzymeNames.Where(...)` over an empty array — that contradicted it.
+            Assert.That(map.NonCutters, Is.Not.Empty,
+                "every built-in enzyme with no site in this sequence is a non-cutter");
+            Assert.That(map.NonCutters, Does.Not.Contain("EcoRI"), "EcoRI cut the sequence");
+            Assert.That(map.SitesByEnzyme.Count + map.NonCutters.Count,
+                Is.EqualTo(RestrictionAnalyzer.Enzymes.Count),
+                "cutters and non-cutters partition the considered set (the whole table)");
         });
     }
 

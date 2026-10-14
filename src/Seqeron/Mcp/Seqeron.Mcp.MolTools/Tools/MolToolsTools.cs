@@ -526,28 +526,30 @@ public class MolToolsTools
         return new EnzymeListResult(RestrictionAnalyzer.GetStickyCutters().ToList());
     }
 
-    [McpServerTool(Name = "find_restriction_sites", Title = "MolTools — Find Restriction Sites", ReadOnly = true), Description("Finds restriction sites for one or more named built-in enzymes on both strands of a DNA sequence. IUPAC degenerate codes in recognition sequences are matched against ACGT input. Palindromic enzymes report a forward and a reverse site at the same position. Call to locate where specific enzymes cut a sequence.")]
+    [McpServerTool(Name = "find_restriction_sites", Title = "MolTools — Find Restriction Sites", ReadOnly = true), Description("Finds restriction sites for one or more named built-in enzymes on both strands of a DNA sequence. IUPAC degenerate codes in recognition sequences are matched against ACGT input. position and cutPosition are 0-based forward-strand coordinates for both strands; cutPosition is the number of forward-strand bases 5' of the cut made on that record's own strand, so a palindromic enzyme reports a forward record (top-strand cut) and a reverse record (bottom-strand cut) at the same position, and recognizedSequence is the window as read on that strand. Overlapping sites are all reported. On a Linear molecule a site is reported only when both of its cuts fall on a bond that exists (so an enzyme cutting at the edge of its own site, e.g. Sau3AI ^GATC, is not reported at the very ends); set topology=Circular for a plasmid, where the site may span the origin and cut positions wrap modulo the length. Call to locate where specific enzymes cut a sequence.")]
     public static RestrictionSiteListResult find_restriction_sites(
         [Description("DNA sequence to scan.")] string sequence,
-        [Description("Names of restriction enzymes to look for.")] string[] enzyme_names)
+        [Description("Names of restriction enzymes to look for.")] string[] enzyme_names,
+        [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
         if (enzyme_names is null || enzyme_names.Length == 0)
             throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
 
-        var sites = RestrictionAnalyzer.FindSites(new DnaSequence(sequence), enzyme_names).ToList();
+        var sites = RestrictionAnalyzer.FindSites(new DnaSequence(sequence), topology, enzyme_names).ToList();
         return new RestrictionSiteListResult(sites);
     }
 
-    [McpServerTool(Name = "find_all_restriction_sites", Title = "MolTools — Find All Restriction Sites", ReadOnly = true), Description("Finds sites for EVERY built-in restriction enzyme on both strands of a DNA sequence. Call for a comprehensive restriction-site scan when the enzyme set is not known in advance.")]
+    [McpServerTool(Name = "find_all_restriction_sites", Title = "MolTools — Find All Restriction Sites", ReadOnly = true), Description("Finds sites for EVERY built-in restriction enzyme on both strands of a DNA sequence. Coordinates, the two records per palindromic site and the linear cut-feasibility rule are the same as find_restriction_sites; set topology=Circular for a plasmid. Call for a comprehensive restriction-site scan when the enzyme set is not known in advance.")]
     public static RestrictionSiteListResult find_all_restriction_sites(
-        [Description("DNA sequence to scan.")] string sequence)
+        [Description("DNA sequence to scan.")] string sequence,
+        [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
 
-        var sites = RestrictionAnalyzer.FindAllSites(new DnaSequence(sequence)).ToList();
+        var sites = RestrictionAnalyzer.FindAllSites(new DnaSequence(sequence), topology).ToList();
         return new RestrictionSiteListResult(sites);
     }
 
@@ -578,15 +580,17 @@ public class MolToolsTools
         return RestrictionAnalyzer.GetDigestSummary(new DnaSequence(sequence), enzyme_names);
     }
 
-    [McpServerTool(Name = "restriction_map", Title = "MolTools — Restriction Map", ReadOnly = true), Description("Builds a restriction map of a DNA sequence: all forward+reverse sites, sites grouped by enzyme, the total forward-strand site count, unique cutters (enzymes with exactly one forward-strand site), and non-cutters from the queried enzyme set. An empty enzyme_names list considers every built-in enzyme. Call to plan cloning around single-cutter enzymes.")]
+    [McpServerTool(Name = "restriction_map", Title = "MolTools — Restriction Map", ReadOnly = true), Description("Builds a restriction map of a DNA sequence: all forward+reverse sites, sites grouped by enzyme, the total forward-strand site count, unique cutters (enzymes with exactly one forward-strand site), and non-cutters. Enzyme names are resolved case-insensitively and de-duplicated, and every result is keyed by the table's own spelling. An empty enzyme_names list considers every built-in enzyme, so nonCutters then lists every built-in enzyme without a site; sitesByEnzyme and nonCutters always partition the considered set. Set topology=Circular for a plasmid. Call to plan cloning around single-cutter enzymes.")]
     public static RestrictionMap restriction_map(
         [Description("DNA sequence to map.")] string sequence,
-        [Description("Names of restriction enzymes to consider; empty to use every built-in enzyme.")] string[] enzyme_names)
+        [Description("Names of restriction enzymes to consider; empty to use every built-in enzyme.")] string[] enzyme_names,
+        [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
 
-        return RestrictionAnalyzer.CreateMap(new DnaSequence(sequence), enzyme_names ?? System.Array.Empty<string>());
+        return RestrictionAnalyzer.CreateMap(
+            new DnaSequence(sequence), topology, enzyme_names ?? System.Array.Empty<string>());
     }
 
     [McpServerTool(Name = "compatible_enzymes", Title = "MolTools — Compatible Enzyme Pairs", ReadOnly = true), Description("Enumerates all pairs of built-in restriction enzymes whose ends can be ligated to each other — either both produce blunt ends, or both produce the same overhang type and overhang sequence. Call when the user needs enzyme pairs that yield compatible (ligatable) ends for cloning.")]

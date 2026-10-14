@@ -5,8 +5,10 @@
 | Algorithm Group | MolTools |
 | Test Unit ID | N/A |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Reference-verified |
+| Test Unit ID (actual) | RESTR-FIND-001 |
+| Last Reviewed | 2026-10-14 |
+| Reference Oracle | Biopython 1.88 `Bio.Restriction` (enzyme table = REBASE EMBOSS files version 404, 2024) |
 
 ## 1. Overview
 
@@ -20,19 +22,45 @@ Restriction enzymes cleave DNA at specific recognition sequences, and Type II en
 
 ### 2.2 Core Model
 
-For each enzyme, the algorithm slides a window of the recognition-sequence length across the input sequence and checks character-by-character matches under IUPAC ambiguity rules. A forward-strand match at position `i` yields a cut position of:
+For each enzyme, the algorithm slides a window of the recognition-sequence length across the input sequence and checks character-by-character matches under IUPAC ambiguity rules. All reported coordinates are 0-based and in **forward-strand** space, for both strands; `CutPosition` is the number of forward-strand bases 5' of the cut, i.e. the cut lies between bases `CutPosition - 1` and `CutPosition`, **on the strand named by `IsForwardStrand`**. Biopython `Bio.Restriction.<enzyme>.search(seq)` reports the same top-strand cut 1-based, so
 
 $$
-cutPosition = i + CutPositionForward
+biopython = CutPosition_{forward} + 1 .
 $$
 
-Reverse-strand matches are found by scanning the reverse complement, converting the recognition-site start back to forward coordinates, and using:
+A forward-strand match at position `i` has cuts
 
 $$
-forwardPos = sequenceLength - i - patternLength
+watson = i + CutPositionForward, \qquad crick = i + CutPositionReverse ,
 $$
 
-with a reverse-strand cut position of `forwardPos + CutPositionReverse`.
+and the forward-strand record reports `watson`.
+
+Reverse-strand matches are found by scanning the reverse complement and converting the recognition-site start back to forward coordinates,
+
+$$
+forwardPos = sequenceLength - i - patternLength .
+$$
+
+For such a site the enzyme is bound the other way round, so with `L` the recognition length its cuts are
+
+$$
+watson = forwardPos + L - CutPositionReverse, \qquad crick = forwardPos + L - CutPositionForward ,
+$$
+
+and the reverse-strand record reports `crick` — the cut on the strand it read — together with the matched window **as read on that strand** (the reverse complement of the forward-strand window). For a palindromic enzyme `CutPositionForward + CutPositionReverse = L`, so `crick = forwardPos + CutPositionReverse` and the two formulations coincide; every built-in enzyme is palindromic, so this distinction is visible only for a custom non-palindromic enzyme. (Reference: Biopython `Defined._modify` / `Defined._rev_modify`, `Palindromic._search`, `NonPalindromic._search`.)
+
+### 2.3 Cut Feasibility and Topology
+
+A cut can only fall on a phosphodiester bond that exists. On a **linear** molecule of length `n` a site is therefore reported only when
+
+$$
+1 \le watson \le n - 1 \quad\text{and}\quad 1 \le crick \le n - 1 ,
+$$
+
+which is Biopython's `AbstractCut._drop` filter (`1 < cut_on_watson <= length` together with the same test on `cut_on_crick = cut_on_watson - ovhg`, `ovhg = CutPositionForward - CutPositionReverse`) expressed in 0-based coordinates. It excludes only an enzyme that cuts at the very edge of its own recognition window — in the built-in table `Sau3AI` and `MboI` (`^GATC` / `GATC^`) — sitting at the extreme 5' or 3' end.
+
+On a **circular** molecule the recognition window may span the origin, so the search runs over `seq + seq[0 .. L-2]` (Biopython's `FormattedSeq.finditer` appends `data[1:size]`), cut positions are reduced modulo `n` (a cut after the last base is the bond at the origin), and nothing is dropped.
 
 ### 2.4 Properties and Invariants
 
@@ -42,6 +70,11 @@ with a reverse-strand cut position of `forwardPos + CutPositionReverse`.
 | INV-02 | `RecognizedSequence.Length == Enzyme.RecognitionSequence.Length` | The source slices exactly the pattern length |
 | INV-03 | Enzyme-name lookup is case-insensitive | The built-in enzyme dictionary uses `StringComparer.OrdinalIgnoreCase` |
 | INV-04 | Empty raw-string input yields no sites | The raw-string overload short-circuits on null or empty input |
+| INV-05 | `RecognizedSequence.Length == Enzyme.RecognitionLength` and the window matches the pattern under IUPAC rules on the strand named by `IsForwardStrand` | The source slices exactly the pattern length from the strand it matched |
+| INV-06 | Linear molecules: `1 <= CutPosition <= Length - 1` for every reported site, on both strands | The cut-feasibility filter (§2.3) |
+| INV-07 | Circular molecules: `0 <= CutPosition <= Length - 1` | Cut positions are reduced modulo the length |
+| INV-08 | No site is reported when `Length < RecognitionLength` | A recognition window longer than the molecule cannot occur |
+| INV-09 | `CreateMap`: `SitesByEnzyme.Keys` and `NonCutters` partition the considered enzyme set, both keyed by canonical table name | Both are derived from one case-insensitive, de-duplicated resolved set |
 
 ## 3. Contract
 
@@ -52,7 +85,10 @@ with a reverse-strand cut position of `forwardPos + CutPositionReverse`.
 | `sequence` | `DnaSequence` or `string` | required | DNA sequence to scan | Null `DnaSequence` input throws; empty raw-string input yields no results |
 | `enzymeName` | `string` | required | Name of the restriction enzyme to search | Unknown names throw `ArgumentException` |
 | `enzymeNames` | `string[]` | required for multi-enzyme overload | Set of enzyme names to scan | Multi-enzyme search yields the union of per-enzyme results |
-| `enzyme` | `RestrictionEnzyme` | required for custom-enzyme overload | Enzyme definition to apply directly | Null input throws `ArgumentNullException` |
+| `enzyme` | `RestrictionEnzyme` | required for custom-enzyme overload | Enzyme definition to apply directly | Null input throws `ArgumentNullException`; an empty or non-IUPAC `RecognitionSequence` throws `ArgumentException` eagerly |
+| `topology` | `MoleculeTopology` | `Linear` | Whether the molecule is a linear fragment or a closed circle | See §2.3 |
+| `recognitionPattern` | `string` | required for `FindPatternOccurrences` | Raw IUPAC pattern | Non-empty, IUPAC codes only (case-insensitive) |
+| `startIndex` | `int` | `0` | First index `FindPatternOccurrences` considers | Must be non-negative |
 
 ### 3.2 Output / Return Value
 
@@ -66,7 +102,7 @@ with a reverse-strand cut position of `forwardPos + CutPositionReverse`.
 
 ### 3.3 Preconditions and Validation
 
-The `DnaSequence` overloads require non-null sequence input. The raw-string overload returns no results for null or empty strings. Unknown enzyme names raise `ArgumentException`, while enzyme lookup itself is case-insensitive. Pattern matching uses IUPAC ambiguity codes through `IupacHelper.MatchesIupac(...)`.
+The `DnaSequence` overloads require non-null sequence input. The raw-string overload returns no results for null or empty strings but still validates the enzyme name **eagerly**, at the call. Unknown enzyme names raise `ArgumentException`, while enzyme lookup itself is case-insensitive. A custom enzyme's recognition sequence is validated eagerly too: empty, or containing a character outside the 15 IUPAC nucleotide codes, raises `ArgumentException` (previously such a pattern either threw `ArgumentOutOfRangeException` from inside the IUPAC matcher or, when empty, reported one "site" per position). Pattern matching uses IUPAC ambiguity codes through the canonical `IupacHelper.MatchesIupac(...)`; ambiguity is interpreted in the **pattern** only, so a sequence position holding anything other than A/C/G/T blocks a match rather than widening it.
 
 ## 4. Algorithm
 
@@ -114,27 +150,38 @@ Overhang types:
 - `RestrictionAnalyzer.FindSites(string, string)`: Raw-string overload that uppercases input and yields no results for empty input.
 - `RestrictionAnalyzer.FindAllSites(DnaSequence)`: Scans the full built-in enzyme set.
 - `RestrictionAnalyzer.GetEnzyme(string)`: Case-insensitive enzyme lookup.
+- `RestrictionAnalyzer.FindSites(DnaSequence, string, MoleculeTopology)` / `FindSites(DnaSequence, RestrictionEnzyme, MoleculeTopology)` / `FindSites(string, string, MoleculeTopology)` / `FindSites(DnaSequence, MoleculeTopology, params string[])` / `FindAllSites(DnaSequence, MoleculeTopology)` / `CreateMap(DnaSequence, MoleculeTopology, params string[])`: the same searches on a linear fragment or a closed circle (§2.3).
+- `RestrictionAnalyzer.FindPatternOccurrences(string sequence, string recognitionPattern, int startIndex = 0)`: the raw IUPAC pattern scan underlying the above — 0-based ascending start indices, overlapping occurrences included, one strand only, no enzyme/cut arithmetic and no feasibility filter. Exposed for callers that hold a pattern rather than an enzyme and a sequence `DnaSequence` would reject (e.g. one still carrying IUPAC ambiguity codes).
 
 ### 5.2 Current Behavior
 
-The implementation ships with an in-memory catalog of common enzymes, including 4-cutters, 6-cutters, 8-cutters, blunt cutters, and enzymes with degenerate recognition motifs such as `SfiI` and `HincII`. Both strands are reported, so palindromic sites can appear twice at the same genomic position with different `IsForwardStrand` values. Reverse-strand matches compute `Position` in forward coordinates and compute the cut site with `CutPositionReverse`.
+The implementation ships with an in-memory catalog of 39 entries (37 distinct enzymes; `MspI`/`HpaII` share `CCGG` and `DpnI`/`Sau3AI`/`MboI` share `GATC`), including 4-cutters, 6-cutters, 8-cutters, blunt cutters, and enzymes with degenerate recognition motifs such as `SfiI` and `HincII`. Every entry's recognition sequence, both cut offsets and blunt/sticky classification were audited against REBASE EMBOSS version 404 (2024) via Biopython 1.88 on 2026-10-14: **39/39 matched on all four fields, 0 wrong entries** (test `EnzymeDatabase_AllEntries_MatchRebase404`). Both strands are reported, so palindromic sites appear twice at the same genomic position with different `IsForwardStrand` values; each record carries the cut made on its own strand and the window as read on that strand (§2.2). Overlapping sites are all reported, matching the reference (whose site regexes are lookaheads).
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- Recognition-sequence scanning for a catalog of Type II-style enzymes.
-- IUPAC ambiguity handling in enzyme patterns.
-- Strand-aware reporting of recognition and cut positions.
+- Recognition-sequence scanning for a catalog of Type II-style enzymes, audited entry by entry against REBASE 404.
+- IUPAC ambiguity handling in enzyme patterns, through the canonical `IupacHelper`.
+- Strand-aware reporting of recognition and cut positions, including the correct reverse-strand cut for a non-palindromic custom enzyme.
+- Overlapping-site reporting.
+- Linear-molecule cut feasibility (Biopython `AbstractCut._drop`).
+- Circular-molecule (origin-spanning) search with modulo cut positions (Biopython `search(..., linear=False)`).
+- The raw IUPAC pattern scan as a public API (`FindPatternOccurrences`).
 
 **Intentionally simplified:**
 
-- The implementation relies on a built-in enzyme catalog; **consequence:** only enzymes present in that catalog are available through name-based lookup.
-- Site finding is purely sequence-based; **consequence:** methylation sensitivity and experimental context are not modeled.
+- The implementation relies on a built-in enzyme catalog; **consequence:** only enzymes present in that catalog are available through name-based lookup. Any other enzyme can still be supplied through the `RestrictionEnzyme` overloads.
+- A `RestrictionEnzyme` expresses one cut per strand **inside** the recognition window, so Type IIS / Type IIG enzymes that cut at a distance (e.g. `BsaI` GGTCTC(1/5), `FokI`) cannot be expressed; **consequence:** the catalog contains only enzymes whose cuts fall inside their site. Adding the reference's `fst5`/`fst3` sign convention (which allows cuts outside the site) would be an additive record change.
+- Site finding is purely sequence-based; **consequence:** methylation sensitivity and experimental context are not modeled (`DpnI` requires Dam methylation; `HpaII`/`MspI` differ only in methylation sensitivity).
 
 **Not implemented:**
 
 - Contextual enzyme activity effects such as methylation-state filtering; **users should rely on:** external enzymology references or downstream validation when those matter.
+
+**Documented divergence from the oracle:**
+
+- When the molecule is **shorter** than the recognition site and circular, Biopython still reports a site, because it pads a circular sequence with `data[1:size]` unconditionally and therefore wraps a short molecule more than once (`ClaI.search(Seq("GATC"), linear=False) == [4]` for the 6-bp site `ATCGAT` on a 4-bp circle). This library reports nothing: a 6-bp recognition site cannot be present on a 4-bp circle.
 
 ## 6. Edge Cases and Limitations
 
@@ -146,10 +193,16 @@ The implementation ships with an in-memory catalog of common enzymes, including 
 | Unknown enzyme name | Throws `ArgumentException` | Name lookup must succeed before scanning |
 | Palindromic recognition site | May appear on both strands at the same position | Both strands are searched independently |
 | Degenerate recognition sequence | Matched with IUPAC ambiguity rules | `IupacHelper.MatchesIupac(...)` handles the pattern |
+| IUPAC code in the *sequence* | Matches nothing, so it blocks a site | Ambiguity is interpreted in the pattern only (`MatchesIupac`); `DnaSequence` rejects such input anyway, so this is reachable only via the raw-string and `FindPatternOccurrences` entry points |
+| `Sau3AI`/`MboI` site at the extreme 5' or 3' end of a linear molecule | Not reported | One of its two cuts would fall outside the molecule (§2.3) |
+| Recognition site spanning the origin of a circular molecule | Reported, with cut positions modulo the length | `topology = Circular` (§2.3) |
+| Molecule shorter than the recognition site | Returns no sites | The window cannot occur |
+| Custom enzyme with an empty or non-IUPAC recognition sequence | Throws `ArgumentException` at the call | Eager validation |
+| Overlapping occurrences of a self-overlapping site (e.g. `PacI` TTAATTAA in TTAATTAATTAA) | All reported | The scan advances one base at a time, like the reference's lookahead regex |
 
 ### 6.2 Limitations
 
-The current implementation is limited to the built-in enzyme definitions and sequence-only matching. It does not model methylation dependence, assay conditions, or experimental digestion efficiency, and double reporting of palindromic sites must be interpreted downstream when unique cut counts are required.
+The current implementation is limited to enzymes whose cuts fall inside their recognition window (so Type IIS / Type IIG distal cutters cannot be expressed as a `RestrictionEnzyme`) and to sequence-only matching. It does not model methylation dependence, assay conditions, or experimental digestion efficiency, and the two records reported per palindromic site must be interpreted downstream when unique cut counts are required (`RestrictionMap.TotalSites` and `UniqueCutters` already count forward-strand records only).
 
 ## 8. References
 
@@ -157,5 +210,6 @@ The current implementation is limited to the built-in enzyme definitions and seq
 2. Wikipedia: Restriction site - https://en.wikipedia.org/wiki/Restriction_site
 3. Wikipedia: EcoRI - https://en.wikipedia.org/wiki/EcoRI
 4. Roberts RJ (1976) - Restriction endonucleases, CRC Critical Reviews in Biochemistry.
-5. REBASE (Restriction Enzyme Database) - http://rebase.neb.com/
+5. REBASE (Restriction Enzyme Database) - http://rebase.neb.com/ — used here as the **REBASE EMBOSS files version 404 (2024)** snapshot shipped in Biopython 1.88 `Bio/Restriction/Restriction_Dictionary.py` (that generated file states its own REBASE version); rebase.neb.com is not reachable from the validation environment.
 6. IUPAC-IUB (1970) - Nucleic acid notation.
+7. Biopython 1.88, `Bio.Restriction` (`Bio/Restriction/Restriction.py`) — the reference oracle for site positions, cut positions, cut feasibility on linear molecules and circular search. Relevant members: `FormattedSeq.finditer`, `AbstractCut._drop`, `Defined._modify`, `Defined._rev_modify`, `Palindromic._search`, `NonPalindromic._search`.

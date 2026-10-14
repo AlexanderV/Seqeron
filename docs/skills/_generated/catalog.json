@@ -2433,7 +2433,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindAllSites",
     "docPath": "docs/mcp/tools/moltools/find_all_restriction_sites.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L221"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L326"
   },
   {
     "tool": "find_conserved_rare_codon_clusters",
@@ -2475,7 +2475,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindSites",
     "docPath": "docs/mcp/tools/moltools/find_restriction_sites.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L207"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L237"
   },
   {
     "tool": "generate_primer_candidates",
@@ -2580,7 +2580,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.CreateMap",
     "docPath": "docs/mcp/tools/moltools/restriction_map.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L463"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L803"
   },
   {
     "tool": "rscu",

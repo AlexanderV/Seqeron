@@ -5,12 +5,13 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindAllSites",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L221",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L326",
   "description": "Find sites for every built-in restriction enzyme on both strands of a DNA sequence.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 }
+      "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 },
+      "topology": { "type": "string", "enum": ["Linear", "Circular"], "default": "Linear", "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)." }
     },
     "required": ["sequence"]
   },

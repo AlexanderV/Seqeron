@@ -861,10 +861,12 @@
 | Method | Class | Type |
 |-------|-------|-----|
 | `FindSites(seq, enzymeNames)` | RestrictionAnalyzer | Canonical |
-| `FindAllSites(seq)` | RestrictionAnalyzer | All 40+ enzymes |
+| `FindSites(seq, enzyme, topology)` | RestrictionAnalyzer | Linear or circular (plasmid) |
+| `FindAllSites(seq[, topology])` | RestrictionAnalyzer | Whole enzyme table |
+| `FindPatternOccurrences(seq, pattern[, from])` | RestrictionAnalyzer | Raw IUPAC pattern scan |
 | `GetEnzyme(name)` | RestrictionAnalyzer | Lookup |
 
-**Enzyme Database:** 40+ enzymes (EcoRI, BamHI, HindIII, NotI, etc.)
+**Enzyme Database:** 39 entries / 37 distinct enzymes (`MspI`/`HpaII` share `CCGG`; `DpnI`/`Sau3AI`/`MboI` share `GATC`), every entry audited against REBASE EMBOSS version 404 (2024) — see `docs/Evidence/RESTR-FIND-001-Evidence.md`.
 
 ---
 

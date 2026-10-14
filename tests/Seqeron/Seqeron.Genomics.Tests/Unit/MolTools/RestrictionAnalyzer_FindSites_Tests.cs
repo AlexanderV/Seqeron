@@ -910,4 +910,739 @@ public class RestrictionAnalyzer_FindSites_Tests
     }
 
     #endregion
+
+    #region Reference-Locked Site Search (RESTR-FIND-001 review, 2026-10)
+
+    // ─────────────────────────────────────────────────────────────────────────────────────
+    // Oracle for this region: Biopython 1.88 `Bio.Restriction`, whose enzyme table is the
+    // REBASE EMBOSS files **version 404 (2024)** (stated in the generated
+    // Bio/Restriction/Restriction_Dictionary.py header). Every expected number below was
+    // produced by running that package this session; `search()` returns 1-BASED top-strand
+    // cut positions, so the relation to this library is
+    //     biopython value == forward-strand RestrictionSite.CutPosition + 1.
+    // Relevant reference code: Restriction.py FormattedSeq.finditer L215-228 (circular search
+    // over `data + data[1:size]`), AbstractCut._drop L542-568 (linear cut-feasibility filter
+    // `1 < cut_on_watson <= length` and the same for `cut_on_crick = cut_on_watson - ovhg`;
+    // circular branch folds out-of-range cuts by ±length), Defined._modify L789-814 /
+    // Defined._rev_modify L817-825, Palindromic._search L967-978, NonPalindromic._search
+    // L996-1019.
+    // ─────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A cut can only fall on a phosphodiester bond that exists: Sau3AI (^GATC) cannot cut a
+    /// GATC sitting at the very 5' end of a linear molecule, and cannot cut one at the very
+    /// 3' end either (the bottom-strand cut would fall past the last base).
+    /// Reference: Bio.Restriction.Sau3AI.search(Seq("GATCGATCGATC")) == [5] — one cut only,
+    /// 1-based, i.e. CutPosition 4 here. (AbstractCut._drop, Restriction.py L542-568.)
+    /// </summary>
+    [Test]
+    public void FindSites_Sau3AI_EdgeSites_AreNotCuttable_MatchesBiopython()
+    {
+        var sites = RestrictionAnalyzer.FindSites(new DnaSequence("GATCGATCGATC"), "Sau3AI")
+            .Where(s => s.IsForwardStrand)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1),
+                "GATC occurs at 0, 4 and 8 but only the middle one has both cuts inside the molecule");
+            Assert.That(sites[0].Position, Is.EqualTo(4), "the cuttable GATC starts at 4");
+            Assert.That(sites[0].CutPosition, Is.EqualTo(4),
+                "Biopython Sau3AI.search(Seq(\"GATCGATCGATC\")) == [5] (1-based) == 4 here");
+        });
+    }
+
+    /// <summary>
+    /// Reference: Bio.Restriction.Sau3AI.search(Seq("GATC")) == [] and
+    /// Bio.Restriction.MboI.search(Seq("GATC")) == [] — a ^GATC enzyme cannot cut a molecule
+    /// that is nothing but its own recognition site.
+    /// </summary>
+    [Test]
+    [TestCase("Sau3AI")]
+    [TestCase("MboI")]
+    public void FindSites_GatcEdgeCutter_WholeSequenceIsTheSite_ReportsNothing(string enzymeName)
+    {
+        RestrictionAnalyzer.FindSites(new DnaSequence("GATC"), enzymeName)
+            .Should().BeEmpty("neither of this enzyme's two cuts lands on an existing bond");
+    }
+
+    /// <summary>
+    /// Reference: Bio.Restriction.Sau3AI.search(Seq("AAAAAAAAGATC")) == [] (linear) — the
+    /// bottom-strand cut GATC^ would fall past the last base.
+    /// </summary>
+    [Test]
+    public void FindSites_Sau3AI_SiteAtThreePrimeEnd_ReportsNothing()
+    {
+        RestrictionAnalyzer.FindSites(new DnaSequence("AAAAAAAAGATC"), "Sau3AI")
+            .Should().BeEmpty("the GATC^ bottom-strand cut would fall outside the molecule");
+    }
+
+    /// <summary>
+    /// The feasibility filter must not swallow ordinary sites: an enzyme that cuts strictly
+    /// inside its own window is still reported when its site fills the whole molecule.
+    /// Reference: Bio.Restriction.EcoRI.search(Seq("GAATTC")) == [2] (1-based) == 1 here.
+    /// </summary>
+    [Test]
+    public void FindSites_EcoRI_SiteFillsWholeSequence_IsStillReported()
+    {
+        var sites = RestrictionAnalyzer.FindSites(new DnaSequence("GAATTC"), "EcoRI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.Count(s => s.IsForwardStrand), Is.EqualTo(1));
+            Assert.That(sites.Single(s => s.IsForwardStrand).CutPosition, Is.EqualTo(1),
+                "G^AATTC — Biopython reports 2 (1-based)");
+            Assert.That(sites.Single(s => !s.IsForwardStrand).CutPosition, Is.EqualTo(5),
+                "GAATT^C on the bottom strand");
+        });
+    }
+
+    /// <summary>
+    /// Circular molecules: the recognition window may wrap past the origin.
+    /// Reference: Bio.Restriction.EcoRI.search(Seq("TTCAAAAAAAGAA"), linear=False) == [12]
+    /// while the linear search returns []. (FormattedSeq.finditer, Restriction.py L215-228.)
+    /// </summary>
+    [Test]
+    public void FindSites_EcoRI_Circular_FindsOriginSpanningSite()
+    {
+        const string plasmid = "TTCAAAAAAAGAA"; // GAATTC spans the origin starting at 10
+
+        var linear = RestrictionAnalyzer.FindSites(new DnaSequence(plasmid), "EcoRI").ToList();
+        var circular = RestrictionAnalyzer
+            .FindSites(new DnaSequence(plasmid), "EcoRI", MoleculeTopology.Circular)
+            .Where(s => s.IsForwardStrand)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(linear, Is.Empty, "no GAATTC lies wholly inside the linear molecule");
+            Assert.That(circular, Has.Count.EqualTo(1), "one origin-spanning GAATTC");
+            Assert.That(circular[0].Position, Is.EqualTo(10), "the site starts 3 bases before the origin");
+            Assert.That(circular[0].CutPosition, Is.EqualTo(11),
+                "Biopython EcoRI.search(..., linear=False) == [12] (1-based)");
+            Assert.That(circular[0].RecognizedSequence, Is.EqualTo("GAATTC"),
+                "the wrapped window reads GAATTC");
+        });
+    }
+
+    /// <summary>
+    /// Reference: Bio.Restriction.BamHI.search(Seq("CCAAAAAAAAGGAT"), linear=False) == [12],
+    /// linear == [].
+    /// </summary>
+    [Test]
+    public void FindSites_BamHI_Circular_FindsOriginSpanningSite()
+    {
+        var circular = RestrictionAnalyzer
+            .FindSites(new DnaSequence("CCAAAAAAAAGGAT"), "BamHI", MoleculeTopology.Circular)
+            .Where(s => s.IsForwardStrand)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(circular, Has.Count.EqualTo(1));
+            Assert.That(circular[0].Position, Is.EqualTo(10));
+            Assert.That(circular[0].CutPosition, Is.EqualTo(11),
+                "Biopython reports 12 (1-based) for the circular molecule");
+        });
+    }
+
+    /// <summary>
+    /// On a closed circle every bond exists, so the sites the linear filter rejects are real.
+    /// Reference: Bio.Restriction.Sau3AI.search(Seq("GATCGATCGATC"), linear=False)
+    /// == [1, 5, 9] (1-based) == cut positions 0, 4, 8 here.
+    /// </summary>
+    [Test]
+    public void FindSites_Sau3AI_Circular_ReportsEveryGatc()
+    {
+        var cuts = RestrictionAnalyzer
+            .FindSites(new DnaSequence("GATCGATCGATC"), "Sau3AI", MoleculeTopology.Circular)
+            .Where(s => s.IsForwardStrand)
+            .Select(s => s.CutPosition)
+            .OrderBy(c => c)
+            .ToList();
+
+        cuts.Should().Equal([0, 4, 8],
+            "Biopython's circular Sau3AI.search returns [1, 5, 9] (1-based)");
+    }
+
+    /// <summary>
+    /// A cut that would fall after the last base is, on a circle, the cut at the origin, so cut
+    /// positions are reduced modulo the length.
+    /// Reference: Bio.Restriction.Sau3AI.search(Seq("AAAAAAAAGATC"), linear=False) == [9]
+    /// (1-based) — top-strand cut 8 — while the bottom-strand cut GATC^ at 12 == 0 (mod 12).
+    /// </summary>
+    [Test]
+    public void FindSites_Circular_CutPositionIsReducedModuloLength()
+    {
+        var sites = RestrictionAnalyzer
+            .FindSites(new DnaSequence("AAAAAAAAGATC"), "Sau3AI", MoleculeTopology.Circular)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.Single(s => s.IsForwardStrand).CutPosition, Is.EqualTo(8),
+                "Biopython circular Sau3AI.search == [9] (1-based)");
+            Assert.That(sites.Single(s => !s.IsForwardStrand).CutPosition, Is.EqualTo(0),
+                "the bottom-strand cut at 12 is the bond at the origin on a 12-bp circle");
+        });
+    }
+
+    /// <summary>
+    /// Documented divergence from the oracle: a recognition site longer than the molecule cannot
+    /// be present, so no site is reported. Biopython pads a circular sequence with
+    /// `data[1:size]` unconditionally and therefore wraps a short molecule more than once —
+    /// Bio.Restriction.ClaI.search(Seq("GATC"), linear=False) == [4] for the 6-bp site ATCGAT
+    /// on a 4-bp circle. This library refuses that reading.
+    /// </summary>
+    [Test]
+    public void FindSites_Circular_MoleculeShorterThanSite_ReportsNothing()
+    {
+        RestrictionAnalyzer.FindSites(new DnaSequence("GATC"), "ClaI", MoleculeTopology.Circular)
+            .Should().BeEmpty("a 6-bp recognition site cannot occur on a 4-bp circle");
+    }
+
+    /// <summary>
+    /// FindAllSites and CreateMap carry the topology through.
+    /// </summary>
+    [Test]
+    public void FindAllSites_Circular_FindsOriginSpanningSite()
+    {
+        var circular = RestrictionAnalyzer
+            .FindAllSites(new DnaSequence("TTCAAAAAAAGAA"), MoleculeTopology.Circular)
+            .Where(s => s.IsForwardStrand && s.Enzyme.Name == "EcoRI")
+            .ToList();
+
+        circular.Should().HaveCount(1, "the origin-spanning EcoRI site is found by the all-enzyme scan");
+        circular[0].CutPosition.Should().Be(11);
+    }
+
+    /// <summary>
+    /// A reverse-strand record reports the window as read on the strand it was found on. For a
+    /// degenerate palindromic enzyme the two strands' windows differ: HincII (GTYRAC) matching
+    /// GTCAAC on the forward strand reads GTTGAC on the reverse strand.
+    /// Reference: Bio.Restriction.HincII.search(Seq("AAGTCAACAA")) == [6] (1-based) == cut 5.
+    /// </summary>
+    [Test]
+    public void FindSites_HincII_ReverseRecognizedSequenceIsReadOnItsOwnStrand()
+    {
+        var sites = RestrictionAnalyzer.FindSites(new DnaSequence("AAGTCAACAA"), "HincII").ToList();
+
+        Assert.Multiple(() =>
+        {
+            var fwd = sites.Single(s => s.IsForwardStrand);
+            var rev = sites.Single(s => !s.IsForwardStrand);
+            Assert.That(fwd.CutPosition, Is.EqualTo(5), "GTC^AAC — Biopython reports 6 (1-based)");
+            Assert.That(fwd.RecognizedSequence, Is.EqualTo("GTCAAC"), "forward-strand window");
+            Assert.That(rev.Position, Is.EqualTo(2), "same forward-strand position");
+            Assert.That(rev.RecognizedSequence, Is.EqualTo("GTTGAC"),
+                "the reverse strand of GTCAAC reads GTTGAC, which also matches GTYRAC");
+        });
+    }
+
+    /// <summary>
+    /// Custom non-palindromic enzyme, reverse strand. CdiI (CATC^G, blunt) is one of only two
+    /// REBASE enzymes whose two in-site cuts are asymmetric (fwd + rev != recognition length).
+    /// Reference: Bio.Restriction.CdiI — site CATCG, fst5 = 4, fst3 = -1 (so reverse cut 4),
+    /// elucidate() == "CATC^_G", ovhg == 0; CdiI.search(Seq("AAACATCGAAACGATGAAA")) == [8, 13]
+    /// (1-based) == top-strand cuts 7 and 12.
+    /// </summary>
+    [Test]
+    public void FindSites_CustomNonPalindromicEnzyme_CdiI_ReverseStrandCutMatchesReference()
+    {
+        var cdiI = new RestrictionEnzyme("CdiI", "CATCG", 4, 4, "REBASE 404");
+        var sites = RestrictionAnalyzer
+            .FindSites(new DnaSequence("AAACATCGAAACGATGAAA"), cdiI)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            var fwd = sites.Single(s => s.IsForwardStrand);
+            var rev = sites.Single(s => !s.IsForwardStrand);
+            Assert.That(fwd.Position, Is.EqualTo(3));
+            Assert.That(fwd.CutPosition, Is.EqualTo(7), "Biopython reports 8 (1-based)");
+            Assert.That(fwd.RecognizedSequence, Is.EqualTo("CATCG"));
+            Assert.That(rev.Position, Is.EqualTo(11), "CGATG on the forward strand is CATCG on the reverse");
+            Assert.That(rev.CutPosition, Is.EqualTo(12),
+                "CdiI is blunt (ovhg 0), so both cuts of the reverse-strand site are at 12 — "
+                + "Biopython reports 13 (1-based); the pre-fix formula Position + CutPositionReverse gave 15");
+            Assert.That(rev.RecognizedSequence, Is.EqualTo("CATCG"),
+                "the reverse-strand window reads the enzyme's own recognition sequence");
+        });
+    }
+
+    /// <summary>
+    /// Custom non-palindromic enzyme with a 3-base 5' overhang. Reference:
+    /// Bio.Restriction.SimI — site GGGTC, fst5 = 2, fst3 = 0 (reverse cut 5),
+    /// elucidate() == "GG^GTC_N", ovhg == -3; SimI.search(Seq("AAAGGGTCAAAGACCCAAA")) == [6, 12]
+    /// (1-based) == top-strand cuts 5 and 11. The reverse-strand record carries the cut on its
+    /// own (bottom) strand, which the reference relates to the top-strand cut by
+    /// crick = watson - ovhg = 11 + 3 = 14.
+    /// </summary>
+    [Test]
+    public void FindSites_CustomNonPalindromicEnzyme_SimI_ReverseStrandCutMatchesReference()
+    {
+        var simI = new RestrictionEnzyme("SimI", "GGGTC", 2, 5, "REBASE 404");
+        var sites = RestrictionAnalyzer
+            .FindSites(new DnaSequence("AAAGGGTCAAAGACCCAAA"), simI)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            var fwd = sites.Single(s => s.IsForwardStrand);
+            var rev = sites.Single(s => !s.IsForwardStrand);
+            Assert.That(fwd.Position, Is.EqualTo(3));
+            Assert.That(fwd.CutPosition, Is.EqualTo(5), "GG^GTC — Biopython reports 6 (1-based)");
+            Assert.That(rev.Position, Is.EqualTo(11));
+            Assert.That(rev.CutPosition, Is.EqualTo(14),
+                "bottom-strand cut of the reverse-strand site = watson 11 - ovhg (-3); "
+                + "the pre-fix formula Position + CutPositionReverse gave 16");
+            Assert.That(rev.RecognizedSequence, Is.EqualTo("GGGTC"));
+        });
+    }
+
+    /// <summary>
+    /// Regression guard for the built-in table: every entry is palindromic with
+    /// CutPositionForward + CutPositionReverse == RecognitionLength, which is exactly the
+    /// condition under which the corrected reverse-strand cut formula
+    /// (Position + length - CutPositionForward) equals the historical Position +
+    /// CutPositionReverse — so no built-in enzyme's output changed.
+    /// </summary>
+    [Test]
+    public void EnzymeDatabase_EveryEntry_HasSymmetricCutGeometry()
+    {
+        foreach (var enzyme in RestrictionAnalyzer.Enzymes.Values)
+        {
+            (enzyme.CutPositionForward + enzyme.CutPositionReverse).Should().Be(
+                enzyme.RecognitionLength,
+                $"{enzyme.Name} is palindromic, so its two cuts are symmetric about the site centre");
+            DnaSequence.GetReverseComplementString(enzyme.RecognitionSequence).Should().Be(
+                enzyme.RecognitionSequence,
+                $"{enzyme.Name}'s recognition sequence is its own reverse complement");
+        }
+    }
+
+    /// <summary>
+    /// A custom enzyme whose recognition sequence is not a usable IUPAC pattern is rejected at
+    /// the call with a clear <see cref="ArgumentException"/>, instead of either throwing
+    /// <see cref="ArgumentOutOfRangeException"/> from inside the IUPAC matcher (lower case,
+    /// non-IUPAC letters) or reporting one "site" per position (empty recognition sequence).
+    /// </summary>
+    [Test]
+    [TestCase("", TestName = "FindSites_CustomEnzyme_EmptyRecognition_Throws")]
+    [TestCase("GAXTTC", TestName = "FindSites_CustomEnzyme_NonIupacRecognition_Throws")]
+    [TestCase("GAATTC U", TestName = "FindSites_CustomEnzyme_SpaceInRecognition_Throws")]
+    public void FindSites_CustomEnzyme_InvalidRecognitionSequence_ThrowsArgumentException(string recognition)
+    {
+        var enzyme = new RestrictionEnzyme("Custom", recognition, 1, 5, "test");
+
+        Assert.Throws<ArgumentException>(
+            () => RestrictionAnalyzer.FindSites(new DnaSequence("AAAGAATTCAAA"), enzyme),
+            "an unusable recognition sequence is an argument error, reported eagerly");
+    }
+
+    /// <summary>
+    /// Recognition sequences are matched case-insensitively, like the sequence itself.
+    /// </summary>
+    [Test]
+    public void FindSites_CustomEnzyme_LowerCaseRecognitionSequence_StillMatches()
+    {
+        var enzyme = new RestrictionEnzyme("Custom", "gaattc", 1, 5, "test");
+
+        var sites = RestrictionAnalyzer.FindSites(new DnaSequence("AAAGAATTCAAA"), enzyme)
+            .Where(s => s.IsForwardStrand)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Position, Is.EqualTo(3));
+            Assert.That(sites[0].CutPosition, Is.EqualTo(4));
+            Assert.That(sites[0].RecognizedSequence, Is.EqualTo("GAATTC"),
+                "the matched window is reported as read, upper case");
+        });
+    }
+
+    /// <summary>
+    /// The raw-string overload validates the enzyme name eagerly, at the call, and does so even
+    /// when the sequence is empty — previously an unknown name surfaced only on enumeration and
+    /// an empty sequence suppressed the check entirely.
+    /// </summary>
+    [Test]
+    public void FindSites_RawString_UnknownEnzyme_ThrowsAtCallTime()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindSites("ACGTACGT", "NoSuchEnzyme"));
+            Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindSites("", "NoSuchEnzyme"));
+            Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.FindSites("ACGTACGT", ""));
+        });
+    }
+
+    #endregion
+
+    #region CreateMap Site Reporting (RESTR-FIND-001 review, 2026-10)
+
+    /// <summary>
+    /// NonCutters is taken from the considered enzyme set and compared case-insensitively against
+    /// the canonical table names, so an enzyme that cut can never also be listed as a non-cutter.
+    /// Before the fix, CreateMap(seq, "ecori") listed EcoRI under SitesByEnzyme *and* under
+    /// NonCutters.
+    /// </summary>
+    [Test]
+    public void CreateMap_LowerCaseEnzymeNames_DoesNotListACutterAsNonCutter()
+    {
+        var map = RestrictionAnalyzer.CreateMap(new DnaSequence("AAAGAATTCAAA"), "ecori", "bamhi");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(map.SitesByEnzyme.ContainsKey("EcoRI"), Is.True, "EcoRI cut the sequence");
+            Assert.That(map.NonCutters, Does.Not.Contain("EcoRI"), "a cutter is not a non-cutter");
+            Assert.That(map.NonCutters, Does.Not.Contain("ecori"), "nor under the caller's spelling");
+            Assert.That(map.NonCutters, Is.EquivalentTo(new[] { "BamHI" }),
+                "non-cutters are reported under their canonical table name");
+            Assert.That(map.UniqueCutters, Is.EquivalentTo(new[] { "EcoRI" }));
+        });
+    }
+
+    /// <summary>
+    /// With no enzyme names the considered set is the whole built-in table (the documented
+    /// behaviour of this overload), so NonCutters lists every built-in enzyme without a site —
+    /// previously it was always empty. Invariant: SitesByEnzyme ∪ NonCutters covers the
+    /// considered set exactly (TestSpec RESTR-DIGEST-001 invariant #11).
+    /// </summary>
+    [Test]
+    public void CreateMap_NoEnzymesSpecified_NonCuttersCoverTheRestOfTheTable()
+    {
+        var map = RestrictionAnalyzer.CreateMap(new DnaSequence("AAAGAATTCAAA"));
+        int tableSize = RestrictionAnalyzer.Enzymes.Values
+            .Select(e => e.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(map.SitesByEnzyme.Keys, Is.EquivalentTo(new[] { "EcoRI" }));
+            Assert.That(map.NonCutters, Does.Not.Contain("EcoRI"));
+            Assert.That(map.NonCutters, Has.Count.EqualTo(tableSize - 1),
+                "every built-in enzyme other than EcoRI is a non-cutter here");
+            Assert.That(map.SitesByEnzyme.Count + map.NonCutters.Count, Is.EqualTo(tableSize),
+                "the considered set is partitioned into cutters and non-cutters");
+        });
+    }
+
+    /// <summary>
+    /// A name repeated (in any casing) is considered once, so its sites are not double-counted.
+    /// </summary>
+    [Test]
+    public void CreateMap_RepeatedEnzymeName_IsConsideredOnce()
+    {
+        var map = RestrictionAnalyzer.CreateMap(new DnaSequence("AAAGAATTCAAA"), "EcoRI", "ecori", "EcoRI");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(map.TotalSites, Is.EqualTo(1), "one forward-strand site, counted once");
+            Assert.That(map.SitesByEnzyme["EcoRI"], Is.EquivalentTo(new[] { 3, 3 }),
+                "SitesByEnzyme holds both strands' records, so the one palindromic site appears twice");
+            Assert.That(map.UniqueCutters, Is.EquivalentTo(new[] { "EcoRI" }));
+        });
+    }
+
+    /// <summary>
+    /// An unknown enzyme name is rejected eagerly rather than surfacing from inside the site scan.
+    /// </summary>
+    [Test]
+    public void CreateMap_UnknownEnzymeName_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(
+            () => RestrictionAnalyzer.CreateMap(new DnaSequence("AAAGAATTCAAA"), "NoSuchEnzyme"));
+    }
+
+    /// <summary>
+    /// CreateMap carries the topology through to the site search.
+    /// Reference: Bio.Restriction.EcoRI.search(Seq("TTCAAAAAAAGAA"), linear=False) == [12].
+    /// </summary>
+    [Test]
+    public void CreateMap_Circular_FindsOriginSpanningSite()
+    {
+        var linear = RestrictionAnalyzer.CreateMap(new DnaSequence("TTCAAAAAAAGAA"), "EcoRI");
+        var circular = RestrictionAnalyzer.CreateMap(
+            new DnaSequence("TTCAAAAAAAGAA"), MoleculeTopology.Circular, "EcoRI");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(linear.TotalSites, Is.EqualTo(0));
+            Assert.That(linear.NonCutters, Is.EquivalentTo(new[] { "EcoRI" }));
+            Assert.That(circular.TotalSites, Is.EqualTo(1));
+            Assert.That(circular.NonCutters, Is.Empty);
+            Assert.That(circular.SitesByEnzyme["EcoRI"], Is.EquivalentTo(new[] { 10, 10 }),
+                "both strands' records of the one origin-spanning site");
+        });
+    }
+
+    #endregion
+
+    #region FindPatternOccurrences (raw IUPAC pattern scan)
+
+    /// <summary>
+    /// The raw scan reports 0-based start indices of the leftmost base of each match, ascending.
+    /// </summary>
+    [Test]
+    public void FindPatternOccurrences_ReportsZeroBasedStartIndices()
+    {
+        RestrictionAnalyzer.FindPatternOccurrences("AAAGAATTCAAAGAATTC", "GAATTC")
+            .Should().Equal(3, 12);
+    }
+
+    /// <summary>
+    /// Overlapping occurrences are all reported, matching the enzyme search (and Biopython,
+    /// whose site regexes are lookaheads: Bio.Restriction.PacI.search(Seq("TTAATTAATTAA"))
+    /// == [6, 10], i.e. sites starting at 0 and 4).
+    /// </summary>
+    [Test]
+    public void FindPatternOccurrences_ReportsOverlappingOccurrences()
+    {
+        RestrictionAnalyzer.FindPatternOccurrences("TTAATTAATTAA", "TTAATTAA")
+            .Should().Equal([0, 4], "the two TTAATTAA windows overlap by four bases");
+    }
+
+    /// <summary>
+    /// Ambiguity is interpreted in the pattern, through the canonical
+    /// <see cref="IupacHelper.MatchesIupac"/>.
+    /// </summary>
+    [Test]
+    [TestCase("AAGTCGACAA", 2, TestName = "FindPatternOccurrences_GtyracMatchesGtcgac")]
+    [TestCase("AAGTTAACAA", 2, TestName = "FindPatternOccurrences_GtyracMatchesGttaac")]
+    [TestCase("AAGTCAACAA", 2, TestName = "FindPatternOccurrences_GtyracMatchesGtcaac")]
+    [TestCase("AAGTTGACAA", 2, TestName = "FindPatternOccurrences_GtyracMatchesGttgac")]
+    public void FindPatternOccurrences_DegeneratePattern_MatchesEveryExpansion(string sequence, int expected)
+    {
+        RestrictionAnalyzer.FindPatternOccurrences(sequence, "GTYRAC").Should().Equal(expected);
+    }
+
+    /// <summary>
+    /// GTYRAC must not match an expansion outside its own code set.
+    /// </summary>
+    [Test]
+    public void FindPatternOccurrences_DegeneratePattern_RejectsNonMatchingBases()
+    {
+        RestrictionAnalyzer.FindPatternOccurrences("AAGTAGACAA", "GTYRAC")
+            .Should().BeEmpty("Y is C or T, so GTAGAC does not match");
+    }
+
+    /// <summary>
+    /// An ambiguity code in the <b>sequence</b> blocks a match rather than widening it — the
+    /// one-directional semantics of <see cref="IupacHelper.MatchesIupac"/>, which the existing
+    /// private scan in <c>CodonOptimizer</c> already relies on.
+    /// </summary>
+    [Test]
+    [TestCase("AAAGAANTCAAA", TestName = "FindPatternOccurrences_SequenceN_BlocksMatch")]
+    [TestCase("AAAGAARTCAAA", TestName = "FindPatternOccurrences_SequenceR_BlocksMatch")]
+    public void FindPatternOccurrences_AmbiguousSequenceBase_NeverMatches(string sequence)
+    {
+        RestrictionAnalyzer.FindPatternOccurrences(sequence, "GAATTC")
+            .Should().BeEmpty("a sequence position that is not A, C, G or T matches no pattern code");
+    }
+
+    /// <summary>
+    /// The sequence that <see cref="DnaSequence"/> would reject is exactly the case this overload
+    /// exists for: a pattern may be scanned against a string still carrying IUPAC codes.
+    /// </summary>
+    [Test]
+    public void FindPatternOccurrences_AcceptsSequenceThatDnaSequenceRejects()
+    {
+        const string ambiguous = "GAATTCNNNGAATTC";
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => _ = new DnaSequence(ambiguous));
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences(ambiguous, "GAATTC"),
+                Is.EqualTo(new[] { 0, 9 }));
+        });
+    }
+
+    /// <summary>
+    /// Both the sequence and the pattern are matched case-insensitively.
+    /// </summary>
+    [Test]
+    public void FindPatternOccurrences_IsCaseInsensitive()
+    {
+        RestrictionAnalyzer.FindPatternOccurrences("aaagaattcaaa", "gaattc").Should().Equal(3);
+    }
+
+    /// <summary>
+    /// startIndex skips occurrences that start before it (the semantics
+    /// <c>CodonOptimizer.FindPattern(dna, pattern, from)</c> needs).
+    /// </summary>
+    [Test]
+    [TestCase(0, new[] { 3, 12 })]
+    [TestCase(3, new[] { 3, 12 })]
+    [TestCase(4, new[] { 12 })]
+    [TestCase(13, new int[0])]
+    [TestCase(1000, new int[0])]
+    public void FindPatternOccurrences_StartIndex_SkipsEarlierOccurrences(int startIndex, int[] expected)
+    {
+        RestrictionAnalyzer.FindPatternOccurrences("AAAGAATTCAAAGAATTC", "GAATTC", startIndex)
+            .Should().Equal(expected);
+    }
+
+    /// <summary>
+    /// An empty sequence, and a sequence shorter than the pattern, yield no occurrences.
+    /// </summary>
+    [Test]
+    [TestCase("")]
+    [TestCase("GAATT")]
+    public void FindPatternOccurrences_SequenceTooShort_ReturnsEmpty(string sequence)
+    {
+        RestrictionAnalyzer.FindPatternOccurrences(sequence, "GAATTC").Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Argument validation. The pattern must be a non-empty IUPAC string; the sequence must not
+    /// be null; startIndex must not be negative.
+    /// </summary>
+    [Test]
+    public void FindPatternOccurrences_InvalidArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.FindPatternOccurrences(null!, "GAATTC"));
+            Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindPatternOccurrences("ACGT", null!));
+            Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindPatternOccurrences("ACGT", ""));
+            Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindPatternOccurrences("ACGT", "GAXTTC"),
+                "X is not an IUPAC nucleotide code");
+            Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindPatternOccurrences("ACGT", "GAAUUC"),
+                "U is not an IUPAC DNA code — callers map U to T themselves");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => RestrictionAnalyzer.FindPatternOccurrences("ACGT", "ACGT", -1));
+        });
+    }
+
+    /// <summary>
+    /// The validation happens at the call, not on first enumeration, so a caller that stores the
+    /// enumerable cannot be surprised later.
+    /// </summary>
+    [Test]
+    public void FindPatternOccurrences_ValidatesEagerly()
+    {
+        Assert.Throws<ArgumentException>(
+            () => RestrictionAnalyzer.FindPatternOccurrences("ACGTACGT", "GAXTTC"),
+            "the exception is thrown by the call itself, before any enumeration");
+    }
+
+    /// <summary>
+    /// No duplication: the raw scan is the same scan the enzyme search uses, so for every
+    /// built-in enzyme it reproduces the forward-strand positions FindSites reports (which, for a
+    /// linear molecule, are the feasible subset of the raw occurrences).
+    /// </summary>
+    [Test]
+    public void FindPatternOccurrences_AgreesWithFindSitesForwardPositions()
+    {
+        const string sequence =
+            "GGATCCAAAGAATTCCCCGGGAAGCTTGTCGACGATATCGGTACCAAAGGCCAAAAAGGCCAAATTAATTAAGATCAAA";
+
+        foreach (var enzyme in RestrictionAnalyzer.Enzymes.Values)
+        {
+            var raw = RestrictionAnalyzer.FindPatternOccurrences(sequence, enzyme.RecognitionSequence).ToList();
+            var found = RestrictionAnalyzer.FindSites(new DnaSequence(sequence), enzyme.Name)
+                .Where(s => s.IsForwardStrand)
+                .Select(s => s.Position)
+                .ToList();
+
+            found.Should().BeSubsetOf(raw,
+                $"{enzyme.Name}: every reported forward-strand site is a raw pattern occurrence");
+
+            var feasible = raw
+                .Where(p => p + enzyme.CutPositionForward >= 1
+                            && p + enzyme.CutPositionForward <= sequence.Length - 1
+                            && p + enzyme.CutPositionReverse >= 1
+                            && p + enzyme.CutPositionReverse <= sequence.Length - 1)
+                .ToList();
+            found.Should().Equal(feasible,
+                $"{enzyme.Name}: the reported sites are exactly the occurrences whose two cuts exist");
+        }
+    }
+
+    #endregion
+
+    #region Enzyme Table Audit against REBASE 404 (RESTR-FIND-001 review, 2026-10)
+
+    /// <summary>
+    /// Every entry of the built-in table, audited against REBASE EMBOSS files <b>version 404
+    /// (2024)</b> as shipped in Biopython 1.88 <c>Bio/Restriction/Restriction_Dictionary.py</c>
+    /// (the provenance is stated in that generated file's own header; rebase.neb.com itself is
+    /// not reachable from this environment). For each enzyme the expected values are
+    /// <c>site</c>, <c>fst5</c> (= CutPositionForward) and <c>len(site) + fst3</c>
+    /// (= CutPositionReverse), with the overhang class taken from the reference's own
+    /// <c>is_blunt()</c> / <c>is_5overhang()</c> / <c>is_3overhang()</c>. All 39 entries matched
+    /// on all four fields when this test was written; the Description carries the reference's
+    /// <c>elucidate()</c> rendering of the cut.
+    /// </summary>
+    [Test]
+    [TestCase("EcoRI", "GAATTC", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: G^AATT_C")]
+    [TestCase("BamHI", "GGATCC", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: G^GATC_C")]
+    [TestCase("HindIII", "AAGCTT", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: A^AGCT_T")]
+    [TestCase("XhoI", "CTCGAG", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: C^TCGA_G")]
+    [TestCase("SalI", "GTCGAC", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: G^TCGA_C")]
+    [TestCase("PstI", "CTGCAG", 5, 1, OverhangType.ThreePrime, Description = "REBASE 404: C_TGCA^G")]
+    [TestCase("SphI", "GCATGC", 5, 1, OverhangType.ThreePrime, Description = "REBASE 404: G_CATG^C")]
+    [TestCase("KpnI", "GGTACC", 5, 1, OverhangType.ThreePrime, Description = "REBASE 404: G_GTAC^C")]
+    [TestCase("SacI", "GAGCTC", 5, 1, OverhangType.ThreePrime, Description = "REBASE 404: G_AGCT^C")]
+    [TestCase("XbaI", "TCTAGA", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: T^CTAG_A")]
+    [TestCase("NcoI", "CCATGG", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: C^CATG_G")]
+    [TestCase("NdeI", "CATATG", 2, 4, OverhangType.FivePrime, Description = "REBASE 404: CA^TA_TG")]
+    [TestCase("NheI", "GCTAGC", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: G^CTAG_C")]
+    [TestCase("SpeI", "ACTAGT", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: A^CTAG_T")]
+    [TestCase("AvrII", "CCTAGG", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: C^CTAG_G")]
+    [TestCase("ClaI", "ATCGAT", 2, 4, OverhangType.FivePrime, Description = "REBASE 404: AT^CG_AT")]
+    [TestCase("AgeI", "ACCGGT", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: A^CCGG_T")]
+    [TestCase("NotI", "GCGGCCGC", 2, 6, OverhangType.FivePrime, Description = "REBASE 404: GC^GGCC_GC")]
+    [TestCase("SfiI", "GGCCNNNNNGGCC", 8, 5, OverhangType.ThreePrime, Description = "REBASE 404: GGCCN_NNN^NGGCC")]
+    [TestCase("PacI", "TTAATTAA", 5, 3, OverhangType.ThreePrime, Description = "REBASE 404: TTA_AT^TAA")]
+    [TestCase("AscI", "GGCGCGCC", 2, 6, OverhangType.FivePrime, Description = "REBASE 404: GG^CGCG_CC")]
+    [TestCase("FseI", "GGCCGGCC", 6, 2, OverhangType.ThreePrime, Description = "REBASE 404: GG_CCGG^CC")]
+    [TestCase("SwaI", "ATTTAAAT", 4, 4, OverhangType.Blunt, Description = "REBASE 404: ATTT^_AAAT")]
+    [TestCase("MspI", "CCGG", 1, 3, OverhangType.FivePrime, Description = "REBASE 404: C^CG_G")]
+    [TestCase("HpaII", "CCGG", 1, 3, OverhangType.FivePrime, Description = "REBASE 404: C^CG_G")]
+    [TestCase("TaqI", "TCGA", 1, 3, OverhangType.FivePrime, Description = "REBASE 404: T^CG_A")]
+    [TestCase("AluI", "AGCT", 2, 2, OverhangType.Blunt, Description = "REBASE 404: AG^_CT")]
+    [TestCase("RsaI", "GTAC", 2, 2, OverhangType.Blunt, Description = "REBASE 404: GT^_AC")]
+    [TestCase("HaeIII", "GGCC", 2, 2, OverhangType.Blunt, Description = "REBASE 404: GG^_CC")]
+    [TestCase("DpnI", "GATC", 2, 2, OverhangType.Blunt, Description = "REBASE 404: GA^_TC")]
+    [TestCase("Sau3AI", "GATC", 0, 4, OverhangType.FivePrime, Description = "REBASE 404: N^GATC_N")]
+    [TestCase("MboI", "GATC", 0, 4, OverhangType.FivePrime, Description = "REBASE 404: N^GATC_N")]
+    [TestCase("EcoRV", "GATATC", 3, 3, OverhangType.Blunt, Description = "REBASE 404: GAT^_ATC")]
+    [TestCase("SmaI", "CCCGGG", 3, 3, OverhangType.Blunt, Description = "REBASE 404: CCC^_GGG")]
+    [TestCase("HincII", "GTYRAC", 3, 3, OverhangType.Blunt, Description = "REBASE 404: GTY^_RAC")]
+    [TestCase("ScaI", "AGTACT", 3, 3, OverhangType.Blunt, Description = "REBASE 404: AGT^_ACT")]
+    [TestCase("StuI", "AGGCCT", 3, 3, OverhangType.Blunt, Description = "REBASE 404: AGG^_CCT")]
+    [TestCase("BglII", "AGATCT", 1, 5, OverhangType.FivePrime, Description = "REBASE 404: A^GATC_T")]
+    [TestCase("ApaI", "GGGCCC", 5, 1, OverhangType.ThreePrime, Description = "REBASE 404: G_GGCC^C")]
+    public void EnzymeDatabase_AllEntries_MatchRebase404(
+        string name, string site, int cutForward, int cutReverse, OverhangType overhang)
+    {
+        var enzyme = RestrictionAnalyzer.GetEnzyme(name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(enzyme, Is.Not.Null, $"{name} should be in the built-in table");
+            Assert.That(enzyme!.RecognitionSequence, Is.EqualTo(site), $"{name} recognition sequence (REBASE 404)");
+            Assert.That(enzyme.CutPositionForward, Is.EqualTo(cutForward), $"{name} fst5 (REBASE 404)");
+            Assert.That(enzyme.CutPositionReverse, Is.EqualTo(cutReverse), $"{name} len(site) + fst3 (REBASE 404)");
+            Assert.That(enzyme.OverhangType, Is.EqualTo(overhang), $"{name} overhang class (REBASE 404)");
+            Assert.That(enzyme.IsBluntEnd, Is.EqualTo(overhang == OverhangType.Blunt),
+                $"{name} blunt/sticky classification (REBASE 404)");
+        });
+    }
+
+    /// <summary>
+    /// The audit above covers the whole table — guard against an entry being added without one.
+    /// </summary>
+    [Test]
+    public void EnzymeDatabase_AuditCoversEveryEntry()
+    {
+        RestrictionAnalyzer.Enzymes.Should().HaveCount(39,
+            "the REBASE 404 audit in EnzymeDatabase_AllEntries_MatchRebase404 has one case per entry");
+    }
+
+    #endregion
 }
