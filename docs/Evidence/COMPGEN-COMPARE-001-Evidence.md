@@ -37,14 +37,14 @@
 ### Synteny — fraction of syntenic (collinear) genes as a conservation metric
 
 **URL:** https://www.sciencedirect.com/topics/biochemistry-genetics-and-molecular-biology/synteny (ScienceDirect "Synteny — an overview", citing primary studies) and https://en.wikipedia.org/wiki/Synteny
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (overview citing primaries) / 4 (Wikipedia citing primaries)
 **Retrieved how:** WebSearch "synteny conservation index fraction of genes in syntenic blocks proportion conserved gene order metric"; the returned ScienceDirect/Wikipedia summaries report the metric below.
 
 **Key Extracted Points:**
 
 1. **Syntenic blocks:** *"conservation of blocks of order within two sets of chromosomes … referred to as syntenic blocks"* (Wikipedia, Synteny). A syntenic block is a run of collinear orthologs.
-2. **Fraction of syntenic genes:** *"The fraction of syntenic genes is a metric used to measure synteny conservation"* (e.g. 50.2% for the coral genus *Acropora*). → an overall-synteny score is naturally the fraction of genes that fall in syntenic blocks; `CompareGenomes` reports `OverallSynteny = (genes in syntenic blocks) / min(|genome1|, |genome2|)`, clamped to ≤1.0.
+2. **Fraction of syntenic genes:** *"The fraction of syntenic genes is a metric used to measure synteny conservation"* (e.g. 50.2% for the coral genus *Acropora*) — ScienceDirect overview only; NOT in Wikipedia "Synteny" and not re-verifiable 2026-10-14. → an overall-synteny score is naturally the fraction of genes that fall in syntenic blocks; `CompareGenomes` reports `OverallSynteny = (genes in syntenic blocks) / min(|genome1|, |genome2|)`, clamped to ≤1.0.
 3. **Block construction (MCScanX):** the syntenic blocks themselves come from the MCScanX collinearity model (validated sub-unit COMPGEN-SYNTENY-001), which reports non-overlapping chains scoring ≥250 (≥5 collinear anchors at MatchScore 50). Wang et al. 2012, *NAR* 40(7):e49, https://doi.org/10.1093/nar/gkr1293.
 
 ---

@@ -36,7 +36,7 @@
    - Key concepts:
      - Aneuploidy = abnormal number of individual chromosomes (NOT whole-set changes)
      - Terminology is based on **absolute copy count**:
-       - Nullisomy: 0 copies
+       - Nullisomy: 0 copies (NOT on the Aneuploidy page — its copy-number table starts at 1 = Monosomy; standard cytogenetic term, primary not yet cited)
        - Monosomy: 1 copy (e.g., Turner syndrome 45,X)
        - Disomy: 2 copies (normal for diploid)
        - Trisomy: 3 copies (e.g., Down syndrome: Trisomy 21)

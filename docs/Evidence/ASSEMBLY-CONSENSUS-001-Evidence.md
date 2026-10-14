@@ -51,7 +51,7 @@
 ### Wikipedia "Consensus sequence" (definition + cited primaries)
 
 **URL:** https://en.wikipedia.org/wiki/Consensus_sequence
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (encyclopedic; used for definition and to surface primary sources)
 
 **Retrieval:** WebFetch of the article. Definition extracted; primaries surfaced (Schneider & Stephens 1990; Schneider 2002; Pierce 2002).

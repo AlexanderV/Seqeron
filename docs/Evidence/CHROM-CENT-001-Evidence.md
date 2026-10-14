@@ -11,18 +11,18 @@
 
 1. **Wikipedia - Centromere**
    - URL: https://en.wikipedia.org/wiki/Centromere
-   - Retrieved: 2026-01-31
+   - Retrieved: 2026-01-31 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
    - Key information:
      - Centromere links sister chromatids during cell division
      - Creates short arm (p) and long arm (q)
      - Position classifications: Metacentric, Submetacentric, Subtelocentric, Acrocentric, Telocentric
      - Regional centromeres contain large arrays of repetitive DNA (alpha-satellite)
-     - Human centromeric repeat unit is called α-satellite (alphoid), ~171 bp monomer
+     - Human centromeric repeat unit is called α-satellite (alphoid); the ~171 bp monomer length is NOT stated on this page — it rests on PMC6121732 (Willard 1985; Waye & Willard 1987), see below
      - "Telocentric chromosomes... are not present in humans but can form through cellular chromosomal errors"
 
 2. **Wikipedia - Karyotype**
    - URL: https://en.wikipedia.org/wiki/Karyotype
-   - Retrieved: 2026-01-31
+   - Retrieved: 2026-01-31 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
    - Key information:
      - Human chromosome groups based on centromere position
      - Group A (1-3): Large, metacentric or submetacentric
