@@ -27,6 +27,12 @@ and commits it after every change. Batch definitions (units, owned files) are in
     RESTR-DIGEST, RESTR-FILTER, then audit loop/dedup/heavy; F from F9; WIP `-wip-B08`; adds the RestrictionAnalyzer
     raw-pattern API requested by B02 — the CodonOptimizer caller switch stays with B02). Old paused B08 session
     session_01NvVQb3FM1E4YGuhxEtXqjH archived (superseded; it cost ≈ $28.9).
+  - **Model rule (user 10-14): every campaign session MUST run claude-opus-5-5** ("це алгоритми; шкода від кривих
+    значна"). The first resume session_01E7mHtXGjdaPccegYRGjrba was served claude-opus-5 (its stored session model
+    switched at creation although configured 5-5) → INTERRUPTED at 10:53 after ≈ $10, CRISPR-OFF-001 work kept only on
+    `-wip-B08` a80bdfa7. Relaunched as **B08 resume-2 session_01JEZHM6XkDpcN8pugzHb9ns** (verified: session model and
+    last served model = claude-opus-5-5), whose prompt cherry-picks a80bdfa7 and RE-VERIFIES it against CRISPOR/Hsu/
+    Doench before committing. Every check-in now also verifies each session's model and interrupts on a fallback.
   - All three share the branch: no cross-edits of each other's files, `pull --rebase` before every push.
 - FIN-B02 at 10:29: round 1 16/19 done (F31+), getorf modes in progress.
 - Check-in trigger covers all three (~45 min).
