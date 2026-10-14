@@ -25,14 +25,14 @@ and commits it after every change. Batch definitions (units, owned files) are in
   user may be restarting themselves — ask who does it. Waste this rule exists to prevent: the 10:53 B08 relaunch
   ($10, the fallback was account-wide and the new session fell back too), ~$199 spent on resume-2 without first asking
   whether an off-model B08 was worth full price, and the duplicate FIN-B03 at 14:03 ($0.22).
-- **Scope of a model re-verification pass (user 2026-10-14):** off-model work does NOT have to be redone. What is
+- **Scope of a model re-verification pass (user 2026-10-14; SUPERSEDED 23:15 — no such pass is run any more, see the 5-5-debt rule below; kept because its second half still governs how any review reads evidence):** off-model work does NOT have to be redone. What is
   model-independent stays valid — oracle numbers recorded in Evidence (CRISPOR, Biopython Restriction, matrices read
   from the papers), the tests that lock them bit-exactly, and the cited source line or formula. What needs a pass on
   claude-opus-5-5 is the judgement: which convention is canonical where sources disagree, whether a divergence is a
   defect or a documented deviation, whether a BLOCKED proof really proves it, whether an unsourced heuristic may stay.
-  So the pending B08 pass is a REVIEW of those decisions against the recorded evidence, not a re-run of the batch, and
-  it must check each test expectation against the oracle number in Evidence — green tests written off-model can lock in
-  a wrong expectation. Every B08 F-entry must therefore carry its oracle number in Evidence.
+  The B08 pass this bullet once scheduled is **cancelled**. What survives and applies to every review: each test
+  expectation must be checked against the oracle number in Evidence — green tests can lock in a wrong expectation —
+  and every F-entry must carry its oracle number in Evidence.
 - **Model — claude-opus-5-5 for EVERY session (user 2026-10-14):** these are algorithms; output from another model
   does real damage, so the model is checked, never assumed. `create_session`'s `model` is not always honoured.
   Verify right after launch AND at every check-in with `get_session`: BOTH `session_context.model` and
@@ -197,32 +197,35 @@ is simply recorded instead of chased.
 - **Done:** B01, B02, B03, B24 (finishers pending, see leftovers notes in their reports), B04 (F1–F65), B05 (F1–F35),
   B06 (F1–F38, 43841d1, Leftovers none).
 
-## 5-5 debt (work produced on a model other than claude-opus-5-5 — a recorded note, NOT a blocker)
-Per the superseding rule above: these batches are finished on their own merits; this register exists so that a future
-claude-opus-5-5 pass — if subagents ever stop falling back — knows exactly which entries to re-read. Nothing here is
-to be re-run on its own, and no session is launched to clear it.
-Per the model rule above. A batch listed here stays out of "Finished batches" even when its report ends with a clean
-`## Leftovers`; what it needs is a re-verification pass on claude-opus-5-5, not more work.
-| Batch | What was produced off-model | Session | Model actually served | Status |
+## 5-5 debt (work served by `claude-opus-5` instead of `claude-opus-5-5` — a recorded note, NOT a blocker)
+**Campaign-wide (user 2026-10-14 23:15, "І так для всіх взагалі").** This applies to EVERY batch — past, present and
+future, B08 included — not to B02 alone. A batch is finished when its `## Leftovers` holds zero DOABLE items; the model
+that served the work is **recorded, never required**. Rows below are pointers for a future claude-opus-5-5 pass if one
+ever becomes possible; **no session is launched to clear a row here**, and no report may withhold completion over the
+model. What remains mandatory is the recording: check `session_context.model` and `external_metadata.last_served_model`
+at launch and at every check-in, and never state that a session ran on 5-5 when it did not.
+
+| Batch | What was produced off-model | Session | Model actually served | Note |
 |---|---|---|---|---|
-| B08 | CRISPR-OFF-001 start: F9 MIT silent-100 aggregate fix + CFD aggregate + dedup, WIP only (`-wip-B08` a80bdfa7) | session_01E7mHtXGjdaPccegYRGjrba (interrupted 10:53, ≈ $10, archived) | claude-opus-5 (session model 5-5, served 5) | being re-verified against CRISPOR/Hsu/Doench by B08 resume-2 session_01JEZHM6XkDpcN8pugzHb9ns on verified 5-5 — clears if it holds |
-| B08 | CRISPR-OFF-001 work, still WIP-only (`-wip-B08` cda5b4c8) | session_01JEZHM6XkDpcN8pugzHb9ns (resume-2; verified 5-5 at launch 10:54, fell back mid-session; stopped by the five-hour limit ≈ 12:05 after ≈ $199.3; archived) | claude-opus-5 | OPEN — re-verified from scratch by resume-3 session_01WLgw5gNJSSJdHmg5UKDkPY |
-| B08 | CRISPR-OFF-001 as re-verified and committed by resume-3, and everything it does next | session_01WLgw5gNJSSJdHmg5UKDkPY (resume-3, RUNNING) | claude-opus-5 — off-model from its first turn, the fourth B08 session in a row | OPEN — left running per the model rule; B08 cannot be marked finished |
-| B08 | CRISPR-PAM-001 F1–F2 (commit 73fe1972) + the B08.md skeleton | session_01YRNyThk8LUUghgQswiDmsF (first pass, archived, ≈ $19.6) | claude-opus-5 (session model AND last served) | OPEN — needs a re-verification pass on 5-5 |
-| B08 | CRISPR-GUIDE-001 F3–F8 (commits 2fc133c2, e8e6c72) | session_01NvVQb3FM1E4YGuhxEtXqjH (2026-10-01, archived) | claude-opus-5 (configured + session model 5-5, served 5) | OPEN — needs a re-verification pass on 5-5 before B08 may be called finished |
-| B02 | FIN-B02 entries F41, F42, F43, F48, F49, F54, F55, F60, F63, F64 and the WP27a/b re-verification verdicts (B02.md "## Model provenance") | FIN-B02 lead session (claude-opus-5-5 throughout); its subagents for WP9, WP10, WP14, WP15, WP18, WP22, WP27a, WP27b | claude-opus-5 (runtime fallback; per-turn model fields in the subagent transcripts) | OPEN — DOABLE none; needs one claude-opus-5-5 review of those F-entries against Evidence oracle numbers| OPEN — DOABLE none; needs one claude-opus-5-5 review of those F-entries against Evidence oracle numbers. **VER-B02 attempt 2026-10-14 (session_015916Bdb7VvK2GSYCTiNjbG) could not run it**: 5-5 verified at its first turn, then a mid-session runtime fallback to `claude-opus-5` (both `session_context.model` and `last_served_model`); stopped per the model rule with nothing verified and no code touched — only the oracle environment is now pinned and reproducible (B02.md "## Model provenance" → VER-B02). The pass is still owed |
+| B08 | CRISPR-PAM-001 F1–F2 (`73fe1972`) + the B08.md skeleton | session_01YRNyThk8LUUghgQswiDmsF (first pass, archived, ≈ $19.6) | claude-opus-5 (session model AND last served) | note only |
+| B08 | CRISPR-GUIDE-001 F3–F8 (`2fc133c2`, `e8e6c72`) | session_01NvVQb3FM1E4YGuhxEtXqjH (2026-10-01, archived) | claude-opus-5 (configured + session model 5-5, served 5) | note only |
+| B08 | CRISPR-OFF-001 WIP that was never merged (`-wip-B08` a80bdfa7, cda5b4c8) | session_01E7mHtXGjdaPccegYRGjrba (≈ $10) and session_01JEZHM6XkDpcN8pugzHb9ns (resume-2, ≈ $199.3; both archived) | claude-opus-5 (resume-2 passed the 5-5 check at launch, then fell back mid-session) | superseded — resume-3 re-did this work from scratch |
+| B08 | F9–F39: CRISPR-OFF-001 (re-verified claim-by-claim, 5 claims overturned), RESTR-FIND/DIGEST/FILTER-001, audit round 1, WP1/WP2/WP-SRC | session_01WLgw5gNJSSJdHmg5UKDkPY (resume-3, ≈ $206.5, archived) | claude-opus-5 from its first turn, the fourth B08 session in a row | note only — Biopython oracle runs behind it (144→0 of 34 906; 313→0 of 1452; 1521/1521 + 75 466/75 466) |
+| B08 | whatever resume-4 produces | session_01Gei6HyCuq5texhxCCGEvji (RUNNING; 5-5 on its first turn — the first B08 session to get it) | record at each check-in | note only; B08 finishes on its leftovers |
+| B02 | F41, F42, F43, F48, F49, F54, F55, F60, F63, F64 + the WP27a/b review verdicts (B02.md "## Model provenance") | FIN-B02 `session_016tDCWJHjR3NXKjhHLFynHz` — lead 5-5 throughout, its **subagents** served opus-5 for WP9/WP10/WP14/WP15/WP18/WP22 and for BOTH re-verification reviewers (WP27a 114 of 124 turns, WP27b 86 of 106) | claude-opus-5 (runtime fallback; per-turn model fields in the subagent transcripts) | **accepted as verified** — that pass re-ran every oracle (ViennaRNA 2.7.2, dnachisel 3.2.16, Biopython 1.88 across all 27 supported tables, an independent `sherlocc.pl` port) and found two real defects, F63 and F64. B02 is in "Finished batches" |
 
 **Provenance audit done 2026-10-14** (all 36 campaign sessions queried; table in `scratchpad/model-provenance.md`):
 every session was *configured* claude-opus-5-5, and every batch except B08 was also *served* 5-5 — B01–B07, B09–B26,
-B24, the B07 resumes, FIN-B01, FIN-B24 and R1 all clean, so the six entries in "Finished batches" stand. Only B08 is
-affected — and it keeps being affected: all five B08 sessions (first pass, 10-01 resume, today's interrupted resume,
-resume-2 and resume-3) were served claude-opus-5 — resume-2 after passing the 5-5 check at launch, resume-3 from its
-first turn. Relaunching does not fix it, so B08 is simply run as is and flagged. So every B08 fix, F1–F8 and the
-CRISPR-OFF work in flight, is off-model, as the rows above record. The one record
-with no data is the FIN-B01 launch that was aborted over the literal `$(cat …)` prompt
-(session_01ESJRAKGAm3Af18dZknYwM9) — it produced no commits, so nothing depends on it.
+the B07 resumes, FIN-B01, FIN-B24 and R1 all clean. B08 kept being affected across all five of its sessions, and
+FIN-B02 showed the subtler form: a 5-5 lead with opus-5 subagents. The one record with no data is the FIN-B01 launch
+aborted over the literal `$(cat …)` prompt (session_01ESJRAKGAm3Af18dZknYwM9) — no commits, nothing depends on it.
 
-| B02 | FIN-B02 `session_016tDCWJHjR3NXKjhHLFynHz` | lead claude-opus-5-5 throughout; **subagents** served `claude-opus-5` for WP9/WP10/WP14/WP15/WP18/WP22 **and for both re-verification reviewers** (WP27a 114 of 124 turns, WP27b 86 of 106) | Off-model: **F41, F42, F43, F48, F49, F54, F55, F60, F63, F64** + the WP27a/b review verdicts. 0 DOABLE leftovers; what is missing is one claude-opus-5-5 pass over those entries against the oracle numbers already recorded in Evidence/TestSpecs. Verified on claude-opus-5 and **accepted as verified** (user 2026-10-14 23:15): the WP27a/b pass re-ran every oracle (ViennaRNA 2.7.2, dnachisel 3.2.16, Biopython 1.88 across all 27 tables, an independent `sherlocc.pl` port) and found two real defects, F63 and F64. B02 is in "Finished batches"; this row is the note, not a task |
+**Why chasing 5-5 was abandoned.** VER-B02 (session_015916Bdb7VvK2GSYCTiNjbG), launched 23:09 to clear B02's debt,
+recorded the decisive evidence itself: it verified 5-5 on its first turn and then fell back to `claude-opus-5`
+mid-session, in **both** `session_context.model` and `last_served_model`. So "launch it again and check at launch" does
+not hold a session on 5-5 — resume-2 showed the same thing in the morning. It stopped with nothing verified and no code
+touched (its one durable product: the oracle environment is pinned and reproducible, B02.md "## Model provenance" →
+VER-B02), was archived, and the policy above replaced it.
 
 ## Consolidation task — re-anchor citations to reachable sources (user 2026-10-14)
 The agent proxy answers **403 to CONNECT** for `en.wikipedia.org:443`, `www.addgene.org:443` and
@@ -287,7 +290,7 @@ citation at `src/.../MolTools/CrisprDesigner.cs:258`, which B08 WP-SRC had to le
 ## Running sessions (2026-10-14 23:00 UTC)
 | Task | Session | Configured / served | Scope |
 |---|---|---|---|
-| ~~FIN-B02~~ | `session_016tDCWJHjR3NXKjhHLFynHz` (archived, $188.14) | lead 5-5 / **subagents mostly opus-5** | **DONE 2026-10-14 23:04**, final report `b36eecb3`: 4 audit rounds to 0 DOABLE, F31–F64, dedup sweep, heavy tier, full unfiltered **26280/0**. NOT finished — see the B02 row in "Model-flagged batches" |
+| ~~FIN-B02~~ | `session_016tDCWJHjR3NXKjhHLFynHz` (archived, $188.14) | lead 5-5 / **subagents mostly opus-5** | **DONE 2026-10-14 23:04**, final report `b36eecb3`: 4 audit rounds to 0 DOABLE, F31–F64, dedup sweep, heavy tier, full unfiltered **26280/0**. **FINISHED** (0 DOABLE); its off-model entries are a note in "5-5 debt" |
 | SRC (sources & citations) | `session_01Wa9VJs4Gp5H1yEXuySyxf8` | 5-5 / verify at check-in | A: RO2 ProtScale exponential (SRC for B03); B: the citation audit — 428 files, 790 occurrences, **206 distinct URLs** (5 Addgene), classify NUMBER / DEFINITION / BIBLIOGRAPHY, fetch and verify every NUMBER, re-anchor code- and test-driving numbers to primary sources, mark the rest "inherited, not re-verified"; C: RO1 Kazusa per-thousand **only if FIN-B02 has landed**, else fetch + register. Report `SRC.md`, WIP branch `…-wip-SRC` |
 | ~~VER-B02~~ | `session_015916Bdb7VvK2GSYCTiNjbG` (stopped 23:15, archived) | 5-5 | Launched to clear B02's 5-5 debt; **stopped by the user's ruling** that the debt is a note and not a blocker. Its design lesson is kept above: subagents fall back off-model even when the lead does not |
 | B08 resume-4 | `session_01Gei6HyCuq5texhxCCGEvji` | 5-5 / verify at check-in | the `## Resume state` list in B08.md: D3 → D5+D12 → D14+D17 → D15+D16 → D9 → D10 → D7 → D8 → D11 → D6 → D4 → D18 → D19, then round-1 fast tier → round 2 → dedup → final audit → heavy tier → report. Also the now-reachable Addgene citation at `CrisprDesigner.cs:258` |
