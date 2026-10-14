@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.ReduceSecondaryStructure",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L990",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1527",
   "description": "Greedy synonymous-codon swap that lowers a window structure score to reduce mRNA secondary structure; scoring is either the local self-complementarity heuristic (canonical pairing incl. G·U wobble, default) or the Turner 2004 nearest-neighbour window MFE; RNA-normalised output.",
   "inputSchema": {
     "type": "object",

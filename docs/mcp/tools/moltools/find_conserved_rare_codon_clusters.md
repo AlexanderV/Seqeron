@@ -27,7 +27,7 @@ Give either `target_organism` (one table for all rows) or `target_organisms_per_
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L1891](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1891)
+- Source: [CodonOptimizer.cs#L2035](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L2035)
 - Algorithm: [CODON-RARE-001](../../../../tests/TestSpecs/CODON-RARE-001.md), Evidence: [CODON-RARE-001-Evidence](../../../Evidence/CODON-RARE-001-Evidence.md)
 
 ## Input Schema

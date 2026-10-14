@@ -18,7 +18,7 @@ Rewrites codons to remove the listed restriction recognition sequences while pre
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L805](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L805)
+- Source: [CodonOptimizer.cs#L1272](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1272)
 
 ## Input Schema
 

@@ -2258,7 +2258,7 @@
     "server": "MolTools",
     "methodId": "CodonOptimizer.CreateCodonTableFromSequence",
     "docPath": "docs/mcp/tools/moltools/build_codon_table.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1794"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L2378"
   },
   {
     "tool": "cai_from_organism_table",
@@ -2279,21 +2279,21 @@
     "server": "MolTools",
     "methodId": "CodonOptimizer.CalculateMinMaxProfile",
     "docPath": "docs/mcp/tools/moltools/codon_minmax_profile.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1207"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1789"
   },
   {
     "tool": "codon_usage_statistics",
     "server": "MolTools",
     "methodId": "CodonUsageAnalyzer.GetStatistics",
     "docPath": "docs/mcp/tools/moltools/codon_usage_statistics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L662"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L1529"
   },
   {
     "tool": "compare_codon_usage",
     "server": "MolTools",
     "methodId": "CodonOptimizer.CompareCodonUsage",
     "docPath": "docs/mcp/tools/moltools/compare_codon_usage.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1671"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L2243"
   },
   {
     "tool": "compatible_enzymes",
@@ -2307,7 +2307,7 @@
     "server": "MolTools",
     "methodId": "CodonUsageAnalyzer.CountCodons",
     "docPath": "docs/mcp/tools/moltools/count_codons.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L29"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L34"
   },
   {
     "tool": "crispr_cfd_specificity_score",
@@ -2398,7 +2398,7 @@
     "server": "MolTools",
     "methodId": "CodonUsageAnalyzer.CalculateEnc",
     "docPath": "docs/mcp/tools/moltools/effective_number_of_codons.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L485"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L661"
   },
   {
     "tool": "enzymes_by_cut_length",
@@ -2440,7 +2440,7 @@
     "server": "MolTools",
     "methodId": "CodonOptimizer.FindConservedRareCodonClusters",
     "docPath": "docs/mcp/tools/moltools/find_conserved_rare_codon_clusters.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1891"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L2035"
   },
   {
     "tool": "find_off_targets",
@@ -2461,14 +2461,14 @@
     "server": "MolTools",
     "methodId": "CodonOptimizer.FindRareCodonClusters",
     "docPath": "docs/mcp/tools/moltools/find_rare_codon_clusters.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1335"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1926"
   },
   {
     "tool": "find_rare_codons",
     "server": "MolTools",
     "methodId": "CodonOptimizer.FindRareCodons",
     "docPath": "docs/mcp/tools/moltools/find_rare_codons.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1114"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1682"
   },
   {
     "tool": "find_restriction_sites",
@@ -2531,7 +2531,7 @@
     "server": "MolTools",
     "methodId": "CodonOptimizer.OptimizeSequence",
     "docPath": "docs/mcp/tools/moltools/optimize_codons.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L469"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L564"
   },
   {
     "tool": "primer_dimer",
@@ -2559,14 +2559,14 @@
     "server": "MolTools",
     "methodId": "CodonOptimizer.ReduceSecondaryStructure",
     "docPath": "docs/mcp/tools/moltools/reduce_secondary_structure.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L990"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1527"
   },
   {
     "tool": "remove_restriction_sites",
     "server": "MolTools",
     "methodId": "CodonOptimizer.RemoveRestrictionSites",
     "docPath": "docs/mcp/tools/moltools/remove_restriction_sites.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L805"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1272"
   },
   {
     "tool": "restriction_digest",
@@ -2587,7 +2587,7 @@
     "server": "MolTools",
     "methodId": "CodonUsageAnalyzer.CalculateRscu",
     "docPath": "docs/mcp/tools/moltools/rscu.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L80"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L222"
   },
   {
     "tool": "sticky_cutters",

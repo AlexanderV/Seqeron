@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonUsageAnalyzer.CalculateEnc",
-  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L485",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L661",
   "description": "Effective Number of Codons (Wright 1990 Nc, CodonW enc_out conventions) for a coding sequence under an NCBI genetic code (genetic_code, default 1 = Standard): 20..61 under the standard code; when Nc cannot be calculated (a synonymous class other than the single 3-fold Ile class has no estimable amino acid; CodonW *****) enc = 0 and calculable = false. Optional method Novembre2002 (background-corrected Nc') or SunYangXia2013 (codonbias 0.5.0; always calculable with a sense codon) with pseudocount / background_correction / background; EncPrimeNc / EncPrimeNcPrime reproduce the ENCprime program (Novembre's reference: n > 5, 1/k imputation and floor, no cap; Nc' background = gene or background); codonw_cap caps Wright Nc at CodonW's fixed 61.",
   "inputSchema": {
     "type": "object",

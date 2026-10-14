@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.CalculateCAI",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L763",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1220",
   "description": "Compute the Codon Adaptation Index (Sharp & Li 1987) of a coding sequence against an organism codon-usage frequency table.",
   "inputSchema": {
     "type": "object",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.OptimizeSequence",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L469",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L564",
   "description": "Optimize a coding sequence's synonymous codons for expression in a target organism using one of five strategies.",
   "inputSchema": {
     "type": "object",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonUsageAnalyzer.GetStatistics",
-  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L662",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L1529",
   "description": "Aggregate codon-usage statistics for a coding sequence (counts, RSCU, ENC + isEncCalculable, GC1/GC2/GC3, GC3s, overall GC); gc_convention EmbossCusp (default, stops included) or CodonW (stops excluded); opt-in CodonW Fop and CBI (include_fop_cbi, fop_cbi_organism, optimal_codons).",
   "inputSchema": {
     "type": "object",

@@ -22,7 +22,7 @@ Optional `method` selects another estimator (`TryCalculateEnc(string, GeneticCod
 
 ## Core Documentation Reference
 
-- Source: [CodonUsageAnalyzer.cs#L485](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L485) (`TryCalculateEnc(string, GeneticCode, out double)`; `CalculateEnc` delegates to it); [CodonUsageAnalyzer.cs#L580](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L580) (`TryCalculateEnc(string, GeneticCode, EncOptions, out double)`, used when `method`/`codonw_cap` are given)
+- Source: [CodonUsageAnalyzer.cs#L661](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L661) (`TryCalculateEnc(string, GeneticCode, out double)`; `CalculateEnc` delegates to it); [CodonUsageAnalyzer.cs#L766](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L766) (`TryCalculateEnc(string, GeneticCode, EncOptions, out double)`, used when `method`/`codonw_cap` are given)
 
 ## Input Schema
 

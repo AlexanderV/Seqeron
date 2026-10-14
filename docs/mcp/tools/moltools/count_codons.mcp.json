@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonUsageAnalyzer.CountCodons",
-  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L29",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L34",
   "description": "Count occurrences of each codon in a coding DNA or RNA sequence (frame 0; U read as T, case-insensitive; triplets with other characters skipped frame-preservingly).",
   "inputSchema": {
     "type": "object",

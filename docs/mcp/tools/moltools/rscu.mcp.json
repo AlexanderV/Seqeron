@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonUsageAnalyzer.CalculateRscu",
-  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L80",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L222",
   "description": "Relative Synonymous Codon Usage (RSCU) per codon for a coding sequence.",
   "inputSchema": {
     "type": "object",

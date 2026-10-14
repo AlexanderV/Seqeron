@@ -22,7 +22,7 @@ Optional `family_level` (default `AminoAcid`) selects the synonymous grouping. `
 
 ## Core Documentation Reference
 
-- Source: [CodonUsageAnalyzer.cs#L80](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L80)
+- Source: [CodonUsageAnalyzer.cs#L222](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L222)
 
 ## Input Schema
 

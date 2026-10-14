@@ -18,7 +18,7 @@ Splits the coding sequence into frame-0 codons (T→U) and marks a codon as rare
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L1335](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1335)
+- Source: [CodonOptimizer.cs#L1926](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1926)
 - Algorithm: [CODON-RARE-001](../../../../tests/TestSpecs/CODON-RARE-001.md), Evidence: [CODON-RARE-001-Evidence](../../../Evidence/CODON-RARE-001-Evidence.md)
 
 ## Input Schema

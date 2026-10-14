@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonUsageAnalyzer.CalculateCai",
-  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L134",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L399",
   "description": "Codon Adaptation Index (Sharp & Li 1987) of a coding sequence given a reference RSCU table (DNA-alphabet codons).",
   "inputSchema": {
     "type": "object",

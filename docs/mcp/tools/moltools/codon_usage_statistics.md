@@ -20,7 +20,7 @@ With `include_fop_cbi = true` the tool also reports CodonW 1.4.4's **Fop** (freq
 
 ## Core Documentation Reference
 
-- Source: [CodonUsageAnalyzer.cs#L662](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L662) (`GetStatistics(string, GeneticCode, CodonGcConvention)`)
+- Source: [CodonUsageAnalyzer.cs#L1529](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L1529) (`GetStatistics(string, GeneticCode, CodonGcConvention)`)
 
 ## Input Schema
 

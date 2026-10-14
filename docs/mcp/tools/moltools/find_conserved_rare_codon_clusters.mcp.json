@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.FindConservedRareCodonClusters",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1891",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L2035",
   "description": "Sherlocc 1.0 conserved rare-codon clusters of a codon alignment (Chartier et al. 2012): family window averages of per-thousand usage, 75% representativeness filter, pauses (average <= threshold), >= 4 pauses per 7-column window, merged clusters with mean usage and middle point.",
   "inputSchema": {
     "type": "object",

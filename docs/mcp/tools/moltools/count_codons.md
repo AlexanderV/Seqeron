@@ -18,7 +18,7 @@ Splits the input into non-overlapping frame-0 triplets and tallies how many time
 
 ## Core Documentation Reference
 
-- Source: [CodonUsageAnalyzer.cs#L29](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L29)
+- Source: [CodonUsageAnalyzer.cs#L34](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L34)
 
 ## Input Schema
 
