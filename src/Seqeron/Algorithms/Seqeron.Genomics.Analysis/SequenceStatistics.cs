@@ -357,7 +357,7 @@ public static class SequenceStatistics
         int monomers = 0;
         foreach (char raw in sequence)
         {
-            char ch = ToUpperAscii(raw);
+            char ch = SequenceCase.ToUpperAscii(raw);
             if (table.TryGetValue(ch, out double mass))
             {
                 sum += mass;
@@ -516,7 +516,7 @@ public static class SequenceStatistics
             double complementWeight = 0;
             foreach (char raw in sequence)
             {
-                char ch = ToUpperAscii(raw);
+                char ch = SequenceCase.ToUpperAscii(raw);
                 if (!table.ContainsKey(ch))
                     continue;
                 char complement = isDna
@@ -1074,7 +1074,7 @@ public static class SequenceStatistics
         {
             foreach (char c in proteinSequence)
             {
-                if (!scale.ContainsKey(ToUpperAscii(c)))
+                if (!scale.ContainsKey(SequenceCase.ToUpperAscii(c)))
                     throw new ArgumentException($"Symbol '{c}' has no value in the scale (strict mode).", nameof(proteinSequence));
             }
         }
@@ -1141,7 +1141,7 @@ public static class SequenceStatistics
             double sum = 0;
             for (int j = 0; j < windowSize; j++)
             {
-                if (scale.TryGetValue(ToUpperAscii(sequence[i + j]), out double value))
+                if (scale.TryGetValue(SequenceCase.ToUpperAscii(sequence[i + j]), out double value))
                     sum += weights[j] * value;
             }
             yield return sum / weightSum;
@@ -1168,27 +1168,15 @@ public static class SequenceStatistics
             double score = 0.0;
             for (int j = 0; j < half; j++)
             {
-                if (scale.TryGetValue(ToUpperAscii(sequence[i + j]), out double front)
-                    && scale.TryGetValue(ToUpperAscii(sequence[i + windowSize - j - 1]), out double back))
+                if (scale.TryGetValue(SequenceCase.ToUpperAscii(sequence[i + j]), out double front)
+                    && scale.TryGetValue(SequenceCase.ToUpperAscii(sequence[i + windowSize - j - 1]), out double back))
                     score += weights[j] * front + weights[j] * back;
             }
-            if (scale.TryGetValue(ToUpperAscii(sequence[i + half]), out double middle))
+            if (scale.TryGetValue(SequenceCase.ToUpperAscii(sequence[i + half]), out double middle))
                 score += middle;
             yield return score / sumOfWeights;
         }
     }
-
-    // ASCII-only case folding, the convention of the canonical ProteinPhysicochemistry (B02
-    // TRANS-PROT-001): char.ToUpperInvariant folds U+017F 'ſ' → 'S' and U+0131 'ı' → 'I', which
-    // EMBOSS treats as non-residues (pepstats "MSKſ" → 3 residues, MW 364.46 = MW("MSK")).
-    private static char ToUpperAscii(char c) => char.IsAsciiLetterLower(c) ? (char)(c - 32) : c;
-
-    private static string ToUpperAscii(string s) =>
-        string.Create(s.Length, s, static (span, source) =>
-        {
-            for (int i = 0; i < span.Length; i++)
-                span[i] = ToUpperAscii(source[i]);
-        });
 
     #endregion
 
@@ -1475,7 +1463,7 @@ public static class SequenceStatistics
         int weak = 0, strong = 0, half = 0, twoThirds = 0, oneThird = 0;
         foreach (char raw in sequence)
         {
-            switch (ToUpperAscii(raw))
+            switch (SequenceCase.ToUpperAscii(raw))
             {
                 case 'A': case 'T': case 'U': case 'W': weak++; break;
                 case 'C': case 'G': case 'S': strong++; break;
@@ -1497,7 +1485,7 @@ public static class SequenceStatistics
         int countX = 0;
         foreach (char raw in sequence)
         {
-            char c = ToUpperAscii(raw);
+            char c = SequenceCase.ToUpperAscii(raw);
             if (c == 'U') c = 'T';
             if ("ABCDGHIKMNRSTVWXY".IndexOf(c) < 0)
                 continue;
@@ -2062,7 +2050,7 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(proteinSequence) || windowSize < 1 || windowSize > proteinSequence.Length)
             yield break;
 
-        string upper = ToUpperAscii(proteinSequence);
+        string upper = SequenceCase.ToUpperAscii(proteinSequence);
 
         for (int i = 0; i <= upper.Length - windowSize; i++)
         {
@@ -2195,14 +2183,14 @@ public static class SequenceStatistics
         var parameters = new ChouFasmanParameters?[n];
         for (int i = 0; i < n; i++)
         {
-            if (ChouFasmanTable.TryGetValue(ToUpperAscii(proteinSequence[i]), out var p))
+            if (ChouFasmanTable.TryGetValue(SequenceCase.ToUpperAscii(proteinSequence[i]), out var p))
                 parameters[i] = p;
         }
 
         bool[] helix, sheet;
         if (graded)
         {
-            string upper = ToUpperAscii(proteinSequence);
+            string upper = SequenceCase.ToUpperAscii(proteinSequence);
             helix = FindChouFasmanSegments(parameters, static p => p.Pa, static p => p.Pb,
                 HelixNucleationWindow, HelixNucleationFormers, HelixAcceptThreshold,
                 (start, window) => IsGradedHelixNucleus(upper, start, window), upper);
