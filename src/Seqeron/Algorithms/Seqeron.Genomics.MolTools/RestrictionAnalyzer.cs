@@ -557,6 +557,44 @@ public static class RestrictionAnalyzer
 
     #region Digest Simulation
 
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // Digest conventions (reference: Biopython 1.88 Bio.Restriction, Restriction.py —
+    // AbstractCut.catalyse/catalyze L571-610, RestrictionType.search L1180-1210,
+    // AbstractCut.ovhgseq / is_5overhang / is_3overhang / is_blunt L480-540).
+    //
+    // • Fragment boundaries are TOP-STRAND (watson) cut positions only. Biopython's
+    //   `enzyme.catalyse(seq)` slices the molecule at `enzyme.search(seq)`, which is the list of
+    //   top-strand cut sites, so a digest is a partition of the top strand even for a staggered
+    //   (sticky-end) cut. This class therefore keeps only `IsForwardStrand` site records — whose
+    //   `CutPosition` is the top-strand cut — and deliberately drops the reverse-strand record of
+    //   the same physical site, which carries the BOTTOM-strand cut. For the 39 built-in enzymes,
+    //   all palindromic, the two records are the two cuts of one site, so dropping the reverse one
+    //   loses no site; the bottom-strand cut is not lost either — it is reported as the fragment
+    //   end's overhang (below).
+    //
+    // • Fragment end chemistry. A cut by an enzyme with forward cut `f` and reverse cut `r` has
+    //   its top-strand cut at `watson` and its bottom-strand cut at `crick = watson + (r - f)`.
+    //   The single-stranded extension spans the top-strand window
+    //   `[min(watson, crick), max(watson, crick))`, of length `|r - f|`; `r > f` is a 5' overhang,
+    //   `r < f` a 3' overhang, `r == f` a blunt end. The overhang is reported per fragment end,
+    //   written 5'→3' on the strand that carries it: for a 5' overhang the downstream fragment's
+    //   left end carries it on the top strand (the window verbatim) and the upstream fragment's
+    //   right end carries the complementary extension on the bottom strand (the window's reverse
+    //   complement); for a 3' overhang the two swap. Enzyme-level cross-check: for every one of
+    //   the 39 built-in enzymes this window taken over the recognition sequence equals Biopython's
+    //   `enzyme.ovhgseq` and the type equals `is_5overhang()`/`is_3overhang()`/`is_blunt()`
+    //   (39/39, verified 2026-10-14 against Biopython 1.88) — e.g. EcoRI AATT 5', PstI TGCA 3',
+    //   EcoRV "" blunt. Taken over the actual molecule rather than the pattern, a degenerate
+    //   enzyme reports its real overhang (SfiI gives the three real bases, not Biopython's "NNN").
+    //
+    // • Fragment ORDER. Linear: 5'→3', the first fragment starting at position 0. Circular:
+    //   ascending cut position, so the origin-spanning fragment is reported LAST (its
+    //   `StartPosition` is the largest cut). Biopython emits the same multiset of fragments but
+    //   puts the origin-spanning one FIRST (`fragments.append(d[r[-1]:] + d[1:r[0]])` before the
+    //   rest); Seqeron's order is therefore Biopython's rotated by one, chosen so that
+    //   `StartPosition` increases monotonically over the returned fragments in both topologies.
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
     /// <summary>
     /// Simulates a restriction digest of a <b>linear</b> molecule and returns the resulting
     /// fragments. For circular-molecule (plasmid) support use the
@@ -564,7 +602,12 @@ public static class RestrictionAnalyzer
     /// </summary>
     /// <param name="sequence">DNA sequence to digest.</param>
     /// <param name="enzymeNames">Names of restriction enzymes to use.</param>
-    /// <returns>Collection of DNA fragments after digestion.</returns>
+    /// <returns>Collection of DNA fragments after digestion, 5'→3'.</returns>
+    /// <remarks>
+    /// Equivalent to <see cref="Digest(DnaSequence, MoleculeTopology, string[])"/> with
+    /// <see cref="MoleculeTopology.Linear"/>; see that overload for the full convention
+    /// (top-strand boundaries, fragment order, and end overhangs).
+    /// </remarks>
     public static IEnumerable<DigestFragment> Digest(DnaSequence sequence, params string[] enzymeNames)
     {
         ArgumentNullException.ThrowIfNull(sequence);
@@ -573,60 +616,98 @@ public static class RestrictionAnalyzer
         return DigestCore(sequence, enzymeNames);
     }
 
-    private static IEnumerable<DigestFragment> DigestCore(DnaSequence sequence, string[] enzymeNames)
+    /// <summary>
+    /// Collects the distinct top-strand (forward-strand) cut positions for the requested enzymes,
+    /// together with one representative site per position.
+    /// </summary>
+    /// <remarks>
+    /// Only <see cref="RestrictionSite.IsForwardStrand"/> records are kept: their
+    /// <see cref="RestrictionSite.CutPosition"/> is the top-strand cut, which is what Biopython's
+    /// <c>catalyse</c> slices at. The reverse-strand record of the same palindromic site carries
+    /// the bottom-strand cut and would double-count the site as a second boundary. When several
+    /// enzymes cut at the same coordinate only one representative is retained (the last seen), so
+    /// the fragment-boundary enzyme name and overhang are that enzyme's.
+    /// </remarks>
+    private static (List<int> Cuts, Dictionary<int, RestrictionSite> Sites) CollectForwardCuts(
+        DnaSequence sequence, string[] enzymeNames, MoleculeTopology topology)
     {
-        // Find all cut sites
         var cutPositions = new SortedSet<int>();
         var sitesByPosition = new Dictionary<int, RestrictionSite>();
 
         foreach (var name in enzymeNames)
         {
-            foreach (var site in FindSites(sequence, name))
+            foreach (var site in FindSites(sequence, name, topology))
             {
-                if (site.IsForwardStrand) // Only count forward strand to avoid double counting
-                {
-                    cutPositions.Add(site.CutPosition);
-                    sitesByPosition[site.CutPosition] = site;
-                }
+                if (!site.IsForwardStrand)
+                    continue;
+
+                // FindSites already reports a circular cut reduced modulo the sequence length
+                // (FindSitesCircular yields (i + fwd) % n) and a linear cut inside [1, Length-1]
+                // (CutsAreInternal), so no further normalisation is needed here.
+                cutPositions.Add(site.CutPosition);
+                sitesByPosition[site.CutPosition] = site;
             }
         }
 
-        if (cutPositions.Count == 0)
+        return (cutPositions.ToList(), sitesByPosition);
+    }
+
+    private static IEnumerable<DigestFragment> DigestCore(DnaSequence sequence, string[] enzymeNames)
+    {
+        var (cuts, sitesByPosition) = CollectForwardCuts(sequence, enzymeNames, MoleculeTopology.Linear);
+        string seq = sequence.Sequence;
+        int n = sequence.Length;
+
+        if (cuts.Count == 0)
         {
-            // No cuts - return entire sequence as one fragment
+            // No cuts - return entire sequence as one fragment; both ends are the original
+            // molecule's termini, so neither carries an enzyme-generated overhang.
             yield return new DigestFragment(
-                Sequence: sequence.Sequence,
+                Sequence: seq,
                 StartPosition: 0,
-                Length: sequence.Length,
+                Length: n,
                 LeftEnzyme: null,
                 RightEnzyme: null,
                 FragmentNumber: 1);
             yield break;
         }
 
-        // Generate fragments
-        var cuts = new List<int> { 0 };
-        cuts.AddRange(cutPositions);
-        cuts.Add(sequence.Length);
+        // Generate fragments. Every cut lies in [1, Length-1] (the linear cut-feasibility filter
+        // CutsAreInternal), and the cut positions are distinct, so every interval
+        // [boundary_i, boundary_i+1) is non-empty: k cuts always yield exactly k+1 fragments,
+        // numbered 1..k+1 without a gap. FragmentNumber counts emitted fragments rather than
+        // boundary indices so that the numbering stays contiguous even if a future cut source
+        // were to admit a zero-length piece.
+        var boundaries = new List<int>(cuts.Count + 2) { 0 };
+        boundaries.AddRange(cuts);
+        boundaries.Add(n);
 
-        for (int i = 0; i < cuts.Count - 1; i++)
+        int fragmentNumber = 0;
+        for (int i = 0; i < boundaries.Count - 1; i++)
         {
-            int start = cuts[i];
-            int end = cuts[i + 1];
+            int start = boundaries[i];
+            int end = boundaries[i + 1];
             int length = end - start;
 
-            if (length > 0)
-            {
-                string fragmentSeq = sequence.Sequence.Substring(start, length);
+            if (length <= 0)
+                continue;
 
-                yield return new DigestFragment(
-                    Sequence: fragmentSeq,
-                    StartPosition: start,
-                    Length: length,
-                    LeftEnzyme: i == 0 ? null : sitesByPosition.GetValueOrDefault(start)?.Enzyme.Name,
-                    RightEnzyme: i == cuts.Count - 2 ? null : sitesByPosition.GetValueOrDefault(end)?.Enzyme.Name,
-                    FragmentNumber: i + 1);
-            }
+            var leftSite = i == 0 ? null : sitesByPosition.GetValueOrDefault(start);
+            var rightSite = i == boundaries.Count - 2 ? null : sitesByPosition.GetValueOrDefault(end);
+            var leftEnd = DownstreamEnd(seq, leftSite, MoleculeTopology.Linear);
+            var rightEnd = UpstreamEnd(seq, rightSite, MoleculeTopology.Linear);
+
+            yield return new DigestFragment(
+                Sequence: seq.Substring(start, length),
+                StartPosition: start,
+                Length: length,
+                LeftEnzyme: leftSite?.Enzyme.Name,
+                RightEnzyme: rightSite?.Enzyme.Name,
+                FragmentNumber: ++fragmentNumber,
+                LeftOverhangType: leftEnd.Type,
+                LeftOverhang: leftEnd.Sequence,
+                RightOverhangType: rightEnd.Type,
+                RightOverhang: rightEnd.Sequence);
         }
     }
 
@@ -638,22 +719,39 @@ public static class RestrictionAnalyzer
     /// <para>
     /// <b>Linear</b> (<see cref="MoleculeTopology.Linear"/>) is the default behaviour and is
     /// identical to <see cref="Digest(DnaSequence, string[])"/>: with <c>k</c> distinct
-    /// forward-strand cut positions a linear molecule yields <c>k+1</c> fragments; with zero
+    /// top-strand cut positions a linear molecule yields <c>k+1</c> fragments; with zero
     /// cuts it yields the single whole linear molecule.
     /// </para>
     /// <para>
-    /// <b>Circular</b> (<see cref="MoleculeTopology.Circular"/>) models a closed plasmid. With
-    /// <c>k</c> distinct forward-strand cut positions a circular molecule yields exactly
-    /// <c>k</c> fragments — "cutting a circular DNA molecule at k sites produces k fragments"
-    /// (Quora summary of the standard rule; Univ. of Illinois MolBio "Restriction
+    /// <b>Circular</b> (<see cref="MoleculeTopology.Circular"/>) models a closed plasmid. The
+    /// site search itself is circular, so a recognition site that spans the origin is found and
+    /// cut (Biopython <c>search(..., linear=False)</c>). With <c>k</c> distinct top-strand cut
+    /// positions a circular molecule yields exactly <c>k</c> fragments — "cutting a circular DNA
+    /// molecule at k sites produces k fragments" (Univ. of Illinois MolBio "Restriction
     /// Digestion/Gel Electrophoresis": "If you cut a circle once, you get one linear
     /// fragment... cut it a second time to get 2 linear fragments"; Addgene Plasmids 101:
     /// a single cutter linearizes the plasmid into one fragment). Each fragment spans one cut
     /// to the next cut; the fragment that crosses the origin is the join of the
     /// last-cut→end piece and the start→first-cut piece, with length
     /// <c>(SequenceLength − lastCut) + firstCut</c>. A circular molecule with <b>zero</b> cut
-    /// sites yields a single full-length (uncut) circular fragment; a circular molecule with a
-    /// <b>single</b> cut site is linearized into one full-length fragment.
+    /// sites yields a single full-length (uncut) circular fragment — matching Biopython, whose
+    /// <c>catalyse(..., linear=False)</c> returns the whole sequence as one fragment when the
+    /// enzyme does not cut; a circular molecule with a <b>single</b> cut site is linearized into
+    /// one full-length fragment.
+    /// </para>
+    /// <para>
+    /// Fragments are ordered by ascending <see cref="DigestFragment.StartPosition"/>, so on a
+    /// circle the origin-spanning fragment comes <b>last</b>. Biopython returns the same multiset
+    /// with the origin-spanning fragment <b>first</b>; the two orders differ by a rotation of one.
+    /// </para>
+    /// <para>
+    /// Each fragment end created by a cut also reports the enzyme's single-stranded extension —
+    /// <see cref="DigestFragment.LeftOverhangType"/>/<see cref="DigestFragment.LeftOverhang"/> and
+    /// <see cref="DigestFragment.RightOverhangType"/>/<see cref="DigestFragment.RightOverhang"/> —
+    /// read 5'→3' on the strand that carries it, taken from the molecule itself. An end that is an
+    /// original terminus of a linear molecule (the first fragment's left end, the last fragment's
+    /// right end) reports <see langword="null"/>, as does the uncut circular fragment, which has
+    /// no ends at all.
     /// </para>
     /// </remarks>
     /// <param name="sequence">DNA sequence to digest.</param>
@@ -677,33 +775,24 @@ public static class RestrictionAnalyzer
 
     private static IEnumerable<DigestFragment> DigestCircular(DnaSequence sequence, string[] enzymeNames)
     {
-        // Collect distinct forward-strand cut positions (same convention as the linear path:
-        // forward strand only, to avoid double-counting palindromic sites).
-        var cutPositions = new SortedSet<int>();
-        var sitesByPosition = new Dictionary<int, RestrictionSite>();
+        // Circular site search: a recognition window may wrap past the origin, so the cut it makes
+        // must be seen too. Using the linear search here would silently leave an origin-spanning
+        // site uncut and additionally drop an edge cutter's cuts through the linear-only
+        // cut-feasibility filter, which does not apply to a closed circle.
+        var (cuts, sitesByPosition) = CollectForwardCuts(sequence, enzymeNames, MoleculeTopology.Circular);
 
-        foreach (var name in enzymeNames)
+        int n = sequence.Length;
+        string seq = sequence.Sequence;
+
+        if (cuts.Count == 0)
         {
-            foreach (var site in FindSites(sequence, name))
-            {
-                if (!site.IsForwardStrand)
-                    continue;
-
-                // On a circle, a cut at the very end is the same physical position as a cut
-                // at the origin; normalise so the count is not inflated.
-                int cut = site.CutPosition % sequence.Length;
-                cutPositions.Add(cut);
-                sitesByPosition[cut] = site;
-            }
-        }
-
-        if (cutPositions.Count == 0)
-        {
-            // No cuts on a closed circle: a single full-length, uncut circular fragment.
+            // No cuts on a closed circle: a single full-length, uncut circular fragment. It has no
+            // ends, so no overhangs. Biopython's catalyse(..., linear=False) likewise returns the
+            // whole sequence as one fragment for a non-cutter.
             yield return new DigestFragment(
-                Sequence: sequence.Sequence,
+                Sequence: seq,
                 StartPosition: 0,
-                Length: sequence.Length,
+                Length: n,
                 LeftEnzyme: null,
                 RightEnzyme: null,
                 FragmentNumber: 1);
@@ -713,10 +802,6 @@ public static class RestrictionAnalyzer
         // k cut sites on a circle → k fragments. Each fragment runs from one cut to the next
         // cut (cyclically). The fragment that wraps past the origin joins the last-cut→end
         // piece with the start→first-cut piece.
-        var cuts = cutPositions.ToList();
-        int n = sequence.Length;
-        string seq = sequence.Sequence;
-
         for (int i = 0; i < cuts.Count; i++)
         {
             int start = cuts[i];
@@ -731,30 +816,139 @@ public static class RestrictionAnalyzer
             }
             else
             {
-                // Origin-spanning fragment: last-cut → end, then start → first-cut.
-                string tail = seq.Substring(start, n - start);
-                string head = seq.Substring(0, nextCut);
-                fragmentSeq = tail + head;
+                // Origin-spanning fragment: last-cut → end, then start → first-cut. With a single
+                // cut (nextCut == start) this is the whole linearized circle.
                 length = (n - start) + nextCut;
+                fragmentSeq = string.Concat(seq.AsSpan(start, n - start), seq.AsSpan(0, nextCut));
             }
+
+            var leftSite = sitesByPosition.GetValueOrDefault(start);
+            var rightSite = sitesByPosition.GetValueOrDefault(nextCut);
+            var leftEnd = DownstreamEnd(seq, leftSite, MoleculeTopology.Circular);
+            var rightEnd = UpstreamEnd(seq, rightSite, MoleculeTopology.Circular);
 
             yield return new DigestFragment(
                 Sequence: fragmentSeq,
                 StartPosition: start,
                 Length: length,
                 // On a circle every fragment end is a cut: both flanks carry an enzyme.
-                LeftEnzyme: sitesByPosition.GetValueOrDefault(start)?.Enzyme.Name,
-                RightEnzyme: sitesByPosition.GetValueOrDefault(nextCut)?.Enzyme.Name,
-                FragmentNumber: i + 1);
+                LeftEnzyme: leftSite?.Enzyme.Name,
+                RightEnzyme: rightSite?.Enzyme.Name,
+                FragmentNumber: i + 1,
+                LeftOverhangType: leftEnd.Type,
+                LeftOverhang: leftEnd.Sequence,
+                RightOverhangType: rightEnd.Type,
+                RightOverhang: rightEnd.Sequence);
         }
     }
 
     /// <summary>
-    /// Gets a summary of digestion with fragment sizes sorted.
+    /// The single-stranded extension at the <b>left</b> (5'-side) end of the fragment that starts
+    /// at <paramref name="site"/>'s top-strand cut, written 5'→3' on the strand that carries it.
     /// </summary>
-    public static DigestSummary GetDigestSummary(DnaSequence sequence, params string[] enzymeNames)
+    private static (OverhangType? Type, string? Sequence) DownstreamEnd(
+        string seq, RestrictionSite? site, MoleculeTopology topology)
     {
-        var fragments = Digest(sequence, enzymeNames).ToList();
+        if (site is null)
+            return (null, null);
+
+        var (type, window) = CutOverhangWindow(seq, site, topology);
+
+        // 5' overhang: the extension is the top strand itself, so it reads as the window.
+        // 3' overhang: the extension sits on the bottom strand, whose 5'→3' reading of the same
+        // window is its reverse complement.
+        return type switch
+        {
+            OverhangType.FivePrime => (type, window),
+            OverhangType.ThreePrime => (type, DnaSequence.GetReverseComplementString(window)),
+            _ => (type, string.Empty)
+        };
+    }
+
+    /// <summary>
+    /// The single-stranded extension at the <b>right</b> (3'-side) end of the fragment that ends
+    /// at <paramref name="site"/>'s top-strand cut, written 5'→3' on the strand that carries it.
+    /// </summary>
+    private static (OverhangType? Type, string? Sequence) UpstreamEnd(
+        string seq, RestrictionSite? site, MoleculeTopology topology)
+    {
+        if (site is null)
+            return (null, null);
+
+        var (type, window) = CutOverhangWindow(seq, site, topology);
+
+        // Mirror image of DownstreamEnd: at the upstream side of the same cut a 5' overhang sits
+        // on the bottom strand and a 3' overhang on the top strand.
+        return type switch
+        {
+            OverhangType.FivePrime => (type, DnaSequence.GetReverseComplementString(window)),
+            OverhangType.ThreePrime => (type, window),
+            _ => (type, string.Empty)
+        };
+    }
+
+    /// <summary>
+    /// The overhang type of <paramref name="site"/>'s cut and the top-strand bases lying between
+    /// its two strand cuts (empty for a blunt cutter).
+    /// </summary>
+    private static (OverhangType Type, string Window) CutOverhangWindow(
+        string seq, RestrictionSite site, MoleculeTopology topology)
+    {
+        var enzyme = site.Enzyme;
+        var type = enzyme.OverhangType;
+        if (type == OverhangType.Blunt)
+            return (type, string.Empty);
+
+        int watson = site.CutPosition;
+        int crick = watson + (enzyme.CutPositionReverse - enzyme.CutPositionForward);
+        int lo = Math.Min(watson, crick);
+        int length = Math.Abs(crick - watson);
+        int n = seq.Length;
+
+        if (topology == MoleculeTopology.Linear)
+            return (type, seq.Substring(lo, length));
+
+        // On a circle the window may run past either edge; read it modulo the length.
+        var builder = new System.Text.StringBuilder(length);
+        for (int k = 0; k < length; k++)
+            builder.Append(seq[((lo + k) % n + n) % n]);
+
+        return (type, builder.ToString());
+    }
+
+    /// <summary>
+    /// Gets a summary of a <b>linear</b> digest with fragment sizes sorted descending.
+    /// </summary>
+    /// <remarks>
+    /// Equivalent to <see cref="GetDigestSummary(DnaSequence, MoleculeTopology, string[])"/> with
+    /// <see cref="MoleculeTopology.Linear"/>.
+    /// </remarks>
+    public static DigestSummary GetDigestSummary(DnaSequence sequence, params string[] enzymeNames)
+        => GetDigestSummary(sequence, MoleculeTopology.Linear, enzymeNames);
+
+    /// <summary>
+    /// Gets a summary of a digest of a molecule with the given topology, with fragment sizes
+    /// sorted descending.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to digest.</param>
+    /// <param name="topology">Whether the molecule is linear or circular; see
+    /// <see cref="Digest(DnaSequence, MoleculeTopology, string[])"/>. With <c>k</c> cut positions
+    /// a linear molecule gives <c>k+1</c> fragments and a circular one <c>k</c>, so the two
+    /// summaries differ.</param>
+    /// <param name="enzymeNames">Names of restriction enzymes to use.</param>
+    /// <remarks>
+    /// <see cref="DigestSummary.FragmentSizes"/> are the fragment lengths in descending order (the
+    /// gel-electrophoresis reading order); <see cref="DigestSummary.Topology"/> echoes
+    /// <paramref name="topology"/>. The fragment lengths always sum to
+    /// <paramref name="sequence"/>'s length in both topologies (Addgene Restriction Digest
+    /// Protocol: "the sum of the individual fragments should equal the size of the original").
+    /// </remarks>
+    public static DigestSummary GetDigestSummary(
+        DnaSequence sequence,
+        MoleculeTopology topology,
+        params string[] enzymeNames)
+    {
+        var fragments = Digest(sequence, topology, enzymeNames).ToList();
         var sizes = fragments.Select(f => f.Length).OrderByDescending(x => x).ToList();
 
         return new DigestSummary(
@@ -763,7 +957,8 @@ public static class RestrictionAnalyzer
             LargestFragment: sizes.FirstOrDefault(),
             SmallestFragment: sizes.LastOrDefault(),
             AverageFragmentSize: sizes.Count > 0 ? sizes.Average() : 0,
-            EnzymesUsed: enzymeNames.ToList());
+            EnzymesUsed: enzymeNames.ToList(),
+            Topology: topology);
     }
 
     #endregion
@@ -1031,24 +1226,73 @@ public sealed record RestrictionSite(
 /// <summary>
 /// Represents a DNA fragment after restriction digestion.
 /// </summary>
+/// <param name="Sequence">The fragment's <b>top-strand</b> bases, 5'→3'. A digest partitions the
+/// top strand at the enzymes' top-strand (watson) cuts, exactly as Biopython 1.88
+/// <c>Bio.Restriction</c> <c>enzyme.catalyse(seq)</c> slices at <c>enzyme.search(seq)</c>; the
+/// bases of a sticky end therefore belong to the fragment downstream of the top-strand cut, and
+/// the end's single-stranded extension is reported separately below.</param>
+/// <param name="StartPosition">0-based index, in the original molecule, of the fragment's first
+/// top-strand base. For the origin-spanning fragment of a circular digest this is the last cut
+/// position, and the fragment continues past the origin.</param>
+/// <param name="Length">Fragment length in bases. The lengths of all fragments of one digest sum
+/// to the molecule's length in both topologies (Addgene Restriction Digest Protocol).</param>
+/// <param name="LeftEnzyme">Name of the enzyme whose cut created the fragment's left (5'-side)
+/// end, or <see langword="null"/> when that end is an original terminus of a linear molecule or
+/// the fragment is an uncut circle. When several enzymes cut at the same coordinate only one
+/// representative name is reported.</param>
+/// <param name="RightEnzyme">Name of the enzyme whose cut created the fragment's right (3'-side)
+/// end, under the same convention as <paramref name="LeftEnzyme"/>.</param>
+/// <param name="FragmentNumber">1-based sequential number in the returned order (ascending
+/// <paramref name="StartPosition"/>), contiguous over the digest.</param>
+/// <param name="LeftOverhangType">End chemistry of the left end — <see cref="OverhangType.Blunt"/>
+/// for a blunt cutter, <see cref="OverhangType.FivePrime"/> or
+/// <see cref="OverhangType.ThreePrime"/> for a staggered cut — or <see langword="null"/> when the
+/// end was not created by a cut.</param>
+/// <param name="LeftOverhang">The left end's single-stranded extension, written 5'→3' on the
+/// strand that carries it and taken from the molecule itself: empty for a blunt end,
+/// <see langword="null"/> when the end was not created by a cut. The extension spans the
+/// <c>|CutPositionReverse − CutPositionForward|</c> bases between the cut's two strand cuts; over
+/// the recognition sequence this window equals Biopython's <c>enzyme.ovhgseq</c> for every one of
+/// the 39 built-in enzymes (e.g. EcoRI <c>AATT</c> 5', PstI <c>TGCA</c> 3').</param>
+/// <param name="RightOverhangType">End chemistry of the right end, as
+/// <paramref name="LeftOverhangType"/>.</param>
+/// <param name="RightOverhang">The right end's single-stranded extension, as
+/// <paramref name="LeftOverhang"/>. At one cut the upstream fragment's right overhang and the
+/// downstream fragment's left overhang are reverse complements of each other — which is why they
+/// re-ligate; for the palindromic built-in enzymes they are the same string.</param>
 public sealed record DigestFragment(
     string Sequence,
     int StartPosition,
     int Length,
     string? LeftEnzyme,
     string? RightEnzyme,
-    int FragmentNumber);
+    int FragmentNumber,
+    OverhangType? LeftOverhangType = null,
+    string? LeftOverhang = null,
+    OverhangType? RightOverhangType = null,
+    string? RightOverhang = null);
 
 /// <summary>
 /// Summary of a restriction digest.
 /// </summary>
+/// <param name="TotalFragments">Number of fragments: <c>k+1</c> for a linear molecule with
+/// <c>k</c> cut positions, <c>k</c> for a circular one.</param>
+/// <param name="FragmentSizes">Fragment lengths in <b>descending</b> order (the
+/// gel-electrophoresis reading order). They sum to the digested molecule's length.</param>
+/// <param name="LargestFragment">Largest fragment length, or 0 when there are no fragments.</param>
+/// <param name="SmallestFragment">Smallest fragment length, or 0 when there are no fragments.</param>
+/// <param name="AverageFragmentSize">Mean fragment length, or 0 when there are no fragments.</param>
+/// <param name="EnzymesUsed">The enzyme names as supplied by the caller, in order.</param>
+/// <param name="Topology">The topology the digest was run with; <see cref="MoleculeTopology.Linear"/>
+/// for the topology-free overload.</param>
 public sealed record DigestSummary(
     int TotalFragments,
     IReadOnlyList<int> FragmentSizes,
     int LargestFragment,
     int SmallestFragment,
     double AverageFragmentSize,
-    IReadOnlyList<string> EnzymesUsed);
+    IReadOnlyList<string> EnzymesUsed,
+    MoleculeTopology Topology = MoleculeTopology.Linear);
 
 /// <summary>
 /// A restriction map of a sequence.

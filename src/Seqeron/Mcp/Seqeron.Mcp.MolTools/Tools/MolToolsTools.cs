@@ -553,31 +553,33 @@ public class MolToolsTools
         return new RestrictionSiteListResult(sites);
     }
 
-    [McpServerTool(Name = "restriction_digest", Title = "MolTools — Restriction Digest", ReadOnly = true), Description("Simulates a restriction digest of a linear DNA molecule with one or more named enzymes and yields the resulting fragments in 5'→3' order (each with its sequence, start, length and flanking enzymes). With k distinct forward-strand cut positions a linear molecule yields k+1 fragments. Call to predict the fragment pattern of a digest.")]
+    [McpServerTool(Name = "restriction_digest", Title = "MolTools — Restriction Digest", ReadOnly = true), Description("Simulates a restriction digest with one or more named enzymes and yields the resulting fragments in ascending start position (each with its sequence, start, length, flanking enzymes and the blunt/5'/3' overhang of each cut end). Set topology=Circular for a plasmid: the site search then wraps past the origin, k cut positions give k fragments (vs k+1 linear), and the origin-spanning fragment is reported last; an enzyme that does not cut leaves the circle whole. Call to predict the fragment pattern of a digest.")]
     public static DigestResult restriction_digest(
         [Description("DNA sequence to digest.")] string sequence,
-        [Description("Names of restriction enzymes to use (must be non-empty).")] string[] enzyme_names)
+        [Description("Names of restriction enzymes to use (must be non-empty).")] string[] enzyme_names,
+        [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
         if (enzyme_names is null || enzyme_names.Length == 0)
             throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
 
-        var fragments = RestrictionAnalyzer.Digest(new DnaSequence(sequence), enzyme_names).ToList();
+        var fragments = RestrictionAnalyzer.Digest(new DnaSequence(sequence), topology, enzyme_names).ToList();
         return new DigestResult(fragments);
     }
 
-    [McpServerTool(Name = "digest_summary", Title = "MolTools — Restriction Digest Summary", ReadOnly = true), Description("Aggregate statistics over a simulated linear restriction digest: total fragment count, fragment sizes (descending), largest/smallest fragment, average fragment size, and enzymes used. Call for a gel-like summary of a digest without the full fragment sequences.")]
+    [McpServerTool(Name = "digest_summary", Title = "MolTools — Restriction Digest Summary", ReadOnly = true), Description("Aggregate statistics over a simulated restriction digest: total fragment count, fragment sizes (descending), largest/smallest fragment, average fragment size, enzymes used and the topology digested. Set topology=Circular for a plasmid, which yields k fragments for k cut positions instead of k+1. Call for a gel-like summary of a digest without the full fragment sequences.")]
     public static DigestSummary digest_summary(
         [Description("DNA sequence to digest.")] string sequence,
-        [Description("Names of restriction enzymes to use.")] string[] enzyme_names)
+        [Description("Names of restriction enzymes to use.")] string[] enzyme_names,
+        [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
         if (enzyme_names is null || enzyme_names.Length == 0)
             throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
 
-        return RestrictionAnalyzer.GetDigestSummary(new DnaSequence(sequence), enzyme_names);
+        return RestrictionAnalyzer.GetDigestSummary(new DnaSequence(sequence), topology, enzyme_names);
     }
 
     [McpServerTool(Name = "restriction_map", Title = "MolTools — Restriction Map", ReadOnly = true), Description("Builds a restriction map of a DNA sequence: all forward+reverse sites, sites grouped by enzyme, the total forward-strand site count, unique cutters (enzymes with exactly one forward-strand site), and non-cutters. Enzyme names are resolved case-insensitively and de-duplicated, and every result is keyed by the table's own spelling. An empty enzyme_names list considers every built-in enzyme, so nonCutters then lists every built-in enzyme without a site; sitesByEnzyme and nonCutters always partition the considered set. Set topology=Circular for a plasmid. Call to plan cloning around single-cutter enzymes.")]

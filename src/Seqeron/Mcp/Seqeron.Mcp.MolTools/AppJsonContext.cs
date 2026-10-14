@@ -45,6 +45,8 @@ namespace Seqeron.Mcp.MolTools;
 [JsonSerializable(typeof(List<global::Seqeron.Genomics.MolTools.RestrictionEnzyme>))]
 [JsonSerializable(typeof(IReadOnlyList<global::Seqeron.Genomics.MolTools.RestrictionEnzyme>))]
 [JsonSerializable(typeof(OverhangType))]
+[JsonSerializable(typeof(OverhangType?))]
+[JsonSerializable(typeof(MoleculeTopology))]
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.RestrictionSite))]
 [JsonSerializable(typeof(global::Seqeron.Genomics.MolTools.RestrictionSite[]))]
 [JsonSerializable(typeof(List<global::Seqeron.Genomics.MolTools.RestrictionSite>))]

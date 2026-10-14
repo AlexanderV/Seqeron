@@ -5,15 +5,37 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.Digest",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L259",
-  "description": "Simulate a linear restriction digest and return the ordered fragments.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L761",
+  "description": "Simulate a restriction digest of a linear or circular molecule and return the ordered fragments with their end overhangs.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence to digest.", "minLength": 1 },
-      "enzyme_names": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence to digest.",
+        "minLength": 1
+      },
+      "enzyme_names": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1
+      },
+      "topology": {
+        "type": "string",
+        "enum": [
+          "Linear",
+          "Circular"
+        ],
+        "default": "Linear",
+        "description": "Whether the molecule is a linear fragment or a closed circle (plasmid). Circular finds origin-spanning sites and yields k fragments for k cuts instead of k+1."
+      }
     },
-    "required": ["sequence", "enzyme_names"]
+    "required": [
+      "sequence",
+      "enzyme_names"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -23,33 +45,167 @@
         "items": {
           "type": "object",
           "properties": {
-            "sequence": { "type": "string" },
-            "startPosition": { "type": "integer" },
-            "length": { "type": "integer" },
-            "leftEnzyme": { "type": ["string", "null"] },
-            "rightEnzyme": { "type": ["string", "null"] },
-            "fragmentNumber": { "type": "integer" }
+            "sequence": {
+              "type": "string"
+            },
+            "startPosition": {
+              "type": "integer"
+            },
+            "length": {
+              "type": "integer"
+            },
+            "leftEnzyme": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "rightEnzyme": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fragmentNumber": {
+              "type": "integer"
+            },
+            "leftOverhangType": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "Blunt",
+                "FivePrime",
+                "ThreePrime",
+                null
+              ],
+              "description": "End chemistry of the left end, or null when that end was not created by a cut."
+            },
+            "leftOverhang": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Left end's single-stranded extension, 5'-3' on the strand carrying it; empty for a blunt end, null for an uncut end."
+            },
+            "rightOverhangType": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "Blunt",
+                "FivePrime",
+                "ThreePrime",
+                null
+              ],
+              "description": "End chemistry of the right end, or null when that end was not created by a cut."
+            },
+            "rightOverhang": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Right end's single-stranded extension, 5'-3' on the strand carrying it; empty for a blunt end, null for an uncut end."
+            }
           },
-          "required": ["sequence", "startPosition", "length", "fragmentNumber"]
+          "required": [
+            "sequence",
+            "startPosition",
+            "length",
+            "fragmentNumber"
+          ]
         }
       }
     },
-    "required": ["fragments"]
+    "required": [
+      "fragments"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1002, "message": "At least one enzyme name is required" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "At least one enzyme name is required"
+    }
   ],
   "examples": [
     {
-      "name": "EcoRI single cut",
-      "input": { "sequence": "AAAGAATTCAAA", "enzyme_names": ["EcoRI"] },
-      "output": { "fragments": [ { "sequence": "AAAG", "startPosition": 0, "length": 4, "rightEnzyme": "EcoRI" }, { "sequence": "AATTCAAA", "startPosition": 4, "length": 8, "leftEnzyme": "EcoRI" } ] }
+      "name": "EcoRI single cut (linear)",
+      "input": {
+        "sequence": "AAAGAATTCAAA",
+        "enzyme_names": [
+          "EcoRI"
+        ]
+      },
+      "output": {
+        "fragments": [
+          {
+            "sequence": "AAAG",
+            "startPosition": 0,
+            "length": 4,
+            "rightEnzyme": "EcoRI",
+            "rightOverhangType": "FivePrime",
+            "rightOverhang": "AATT"
+          },
+          {
+            "sequence": "AATTCAAA",
+            "startPosition": 4,
+            "length": 8,
+            "leftEnzyme": "EcoRI",
+            "leftOverhangType": "FivePrime",
+            "leftOverhang": "AATT"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EcoRI on a circular molecule with an origin-spanning site",
+      "input": {
+        "sequence": "TTCAAAAAAAGAA",
+        "enzyme_names": [
+          "EcoRI"
+        ],
+        "topology": "Circular"
+      },
+      "output": {
+        "fragments": [
+          {
+            "sequence": "AATTCAAAAAAAG",
+            "startPosition": 11,
+            "length": 13,
+            "leftEnzyme": "EcoRI",
+            "rightEnzyme": "EcoRI",
+            "fragmentNumber": 1,
+            "leftOverhangType": "FivePrime",
+            "leftOverhang": "AATT",
+            "rightOverhangType": "FivePrime",
+            "rightOverhang": "AATT"
+          }
+        ]
+      }
     },
     {
       "name": "No cut site",
-      "input": { "sequence": "AAAAAAAA", "enzyme_names": ["EcoRI"] },
-      "output": { "fragments": [ { "sequence": "AAAAAAAA", "startPosition": 0, "length": 8 } ] }
+      "input": {
+        "sequence": "AAAAAAAA",
+        "enzyme_names": [
+          "EcoRI"
+        ]
+      },
+      "output": {
+        "fragments": [
+          {
+            "sequence": "AAAAAAAA",
+            "startPosition": 0,
+            "length": 8
+          }
+        ]
+      }
     }
   ]
 }

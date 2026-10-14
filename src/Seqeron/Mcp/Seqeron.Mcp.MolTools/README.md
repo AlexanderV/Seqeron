@@ -44,7 +44,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `design_probes` | Designs hybridization probes by scanning the target for length-window candidates and ranking by GC%, Tm, homopolymers, self-complementari… |
 | `design_probes_primer3` | Picks hybridization probes exactly as Primer3 does for PRIMER_TASK=pick_hyb_probe_only (internal-oligo picker; verified against primer3-py design_primers). |
 | `design_tiling_probes` | Generates fixed-length probes covering the entire target with a configurable overlap (step = probe_length − overlap), plus a final probe anchored at the target end when the step grid stops short of it. |
-| `digest_summary` | Aggregate statistics over a simulated linear restriction digest: total fragment count, fragment sizes (descending), largest/smallest frag… |
+| `digest_summary` | Aggregate statistics over a simulated restriction digest: total fragment count, fragment sizes (descending), largest/smallest fragment, average fragment size, enzymes used and the topology digested (`topology=Circular` for a plasmid). |
 | `effective_number_of_codons` | Effective Number of Codons (Wright's Nc), measuring how far a gene departs from uniform synonymous-codon usage. |
 | `enzymes_by_cut_length` | Lists all built-in restriction enzymes whose recognition sequence has exactly the specified length in base pairs (e.g. |
 | `enzymes_compatible` | Returns whether two named built-in restriction enzymes produce ligatable (compatible) ends — both blunt, or the same overhang type and se… |
@@ -70,7 +70,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `primer_melting_temperature_salt` | Salt-adjusted primer Tm (OligoCalc): N<14: 2(A+T)+4(G+C)+16.6·log10([Na+]/0.050 M); N≥14: 100.5+41·(G+C)/N−820/N+16.6·log10([Na+] M); rounded to one decimal. |
 | `reduce_secondary_structure` | Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score within a sliding window, reducing mRNA secondary st… |
 | `remove_restriction_sites` | Synonymously rewrites codons to eliminate the listed restriction recognition sequences from a coding sequence while preserving the encode… |
-| `restriction_digest` | Simulates a restriction digest of a linear DNA molecule with one or more named enzymes and yields the resulting fragments in 5'→3' order… |
+| `restriction_digest` | Simulates a restriction digest with one or more named enzymes and yields the fragments in ascending start position, each with its sequence, start, length, flanking enzymes and the blunt/5'/3' overhang of each cut end (`topology=Circular` for a plasmid). |
 | `restriction_map` | Builds a restriction map of a DNA sequence: all forward+reverse sites, sites grouped by enzyme, the total forward-strand site count, uniq… |
 | `rscu` | Relative Synonymous Codon Usage (RSCU) per codon: observed count / count-expected-if-uniform among its synonymous codons. |
 | `sticky_cutters` | Lists all built-in restriction enzymes that produce sticky (cohesive) ends — a staggered cut leaving a 5' or 3' single-stranded overhang. |

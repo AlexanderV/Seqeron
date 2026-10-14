@@ -497,6 +497,506 @@ public class RestrictionAnalyzer_Digest_Tests
 
     #endregion
 
+    #region Circular / Overhang Re-validation (RESTR-DIGEST-001, 2026-10-14)
+
+    // Reference oracle for this region: Biopython 1.88 Bio.Restriction (Restriction.py).
+    // Every expected value below was produced in-session by running Biopython 1.88 and is quoted
+    // with the exact call. Biopython reports 1-based top-strand cut positions, so a Biopython cut
+    // at p corresponds to Seqeron CutPosition p-1.
+    //
+    // NOTE on the oracle: Biopython's own catalyse(..., linear=False) is unsafe as a fragment
+    // oracle because AbstractCut._drop (Restriction.py L542-568) folds an out-of-range circular
+    // cut back by +/-length in place WITHOUT re-sorting, and catalyse (L1146-1176) then indexes
+    // r[0]/r[-1] assuming ascending order. See
+    // Digest_Circular_BiopythonUnsortedCutCase_FragmentsStillPartitionMolecule below. Where that
+    // happens the oracle used is sorted(search(..., linear=False)).
+
+    /// <summary>
+    /// DEFECT REGRESSION (claim 1 of the RESTR-FIND-001 hand-off, reproduced 2026-10-14):
+    /// <c>DigestCircular</c> called the LINEAR site finder, so a circular digest could not see an
+    /// origin-spanning cut. Before the fix,
+    /// <c>Digest(new DnaSequence("TTCAAAAAAAGAA"), MoleculeTopology.Circular, "EcoRI")</c> returned
+    /// 1 fragment with StartPosition 0, Length 13 and both flanking enzymes null — an UNCUT circle
+    /// — although the plasmid carries an origin-spanning GAATTC at position 10.
+    ///
+    /// Reference (Biopython 1.88):
+    ///   Bio.Restriction.EcoRI.search(Seq("TTCAAAAAAAGAA"))                == []   (linear)
+    ///   Bio.Restriction.EcoRI.search(Seq("TTCAAAAAAAGAA"), linear=False)  == [12] (1-based)
+    ///   Bio.Restriction.EcoRI.catalyse(Seq("TTCAAAAAAAGAA"), linear=False)
+    ///       == (Seq("AATTCAAAAAAAG"),)
+    /// So the circular digest must linearize the plasmid into ONE 13 bp fragment starting at the
+    /// cut (0-based 11) and wrapping past the origin; the LINEAR digest of the same sequence is
+    /// correctly uncut.
+    /// </summary>
+    [Test]
+    public void Digest_Circular_OriginSpanningSite_IsCut_MatchesBiopython()
+    {
+        var sequence = new DnaSequence("TTCAAAAAAAGAA"); // 13 bp; GAATTC spans the origin at 10
+
+        var linear = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Linear, "EcoRI").ToList();
+        var circular = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Circular, "EcoRI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            // Linear control: Biopython EcoRI.search(...) == [] -> no cut -> whole molecule.
+            Assert.That(linear, Has.Count.EqualTo(1), "Linear: the site does not exist on a linear molecule");
+            Assert.That(linear[0].Sequence, Is.EqualTo("TTCAAAAAAAGAA"));
+            Assert.That(linear[0].LeftEnzyme, Is.Null);
+            Assert.That(linear[0].RightEnzyme, Is.Null);
+
+            // Circular: Biopython catalyse(..., linear=False) == ("AATTCAAAAAAAG",).
+            Assert.That(circular, Has.Count.EqualTo(1), "Circular: origin-spanning site linearizes the plasmid");
+            Assert.That(circular[0].Sequence, Is.EqualTo("AATTCAAAAAAAG"),
+                "Biopython EcoRI.catalyse(Seq(\"TTCAAAAAAAGAA\"), linear=False) == (Seq(\"AATTCAAAAAAAG\"),)");
+            Assert.That(circular[0].StartPosition, Is.EqualTo(11),
+                "Biopython search(..., linear=False) == [12] (1-based) -> 0-based cut 11");
+            Assert.That(circular[0].Length, Is.EqualTo(13));
+            Assert.That(circular[0].LeftEnzyme, Is.EqualTo("EcoRI"), "Regression: was null (uncut circle)");
+            Assert.That(circular[0].RightEnzyme, Is.EqualTo("EcoRI"), "Regression: was null (uncut circle)");
+        });
+    }
+
+    /// <summary>
+    /// Second consequence of claim 1: on a closed circle the linear-only cut-feasibility filter
+    /// must not apply, so an edge cutter cuts at every site. Sau3AI is ^GATC (CutPositionForward 0).
+    ///
+    /// Reference (Biopython 1.88):
+    ///   Sau3AI.search(Seq("GATCGATCGATC"))                == [5]
+    ///   Sau3AI.catalyse(Seq("GATCGATCGATC"))              == ("GATC", "GATCGATC")
+    ///   Sau3AI.search(Seq("GATCGATCGATC"), linear=False)   == [1, 5, 9]
+    ///   Sau3AI.catalyse(Seq("GATCGATCGATC"), linear=False) == ("GATC", "GATC", "GATC")
+    /// Before the fix the circular digest returned 1 uncut fragment of 12 bp.
+    /// </summary>
+    [Test]
+    public void Digest_Circular_EdgeCutter_CutsEverySite_MatchesBiopython()
+    {
+        var sequence = new DnaSequence("GATCGATCGATC"); // 12 bp
+
+        var linear = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Linear, "Sau3AI").ToList();
+        var circular = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Circular, "Sau3AI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            // Linear: Biopython drops the two edge cuts -> one internal cut at 0-based 4.
+            Assert.That(linear.Select(f => f.Sequence), Is.EqualTo(new[] { "GATC", "GATCGATC" }),
+                "Biopython Sau3AI.catalyse(Seq(\"GATCGATCGATC\")) == (\"GATC\", \"GATCGATC\")");
+
+            // Circular: 3 cuts {0, 4, 8} -> 3 fragments.
+            Assert.That(circular.Select(f => f.Sequence), Is.EqualTo(new[] { "GATC", "GATC", "GATC" }),
+                "Biopython Sau3AI.catalyse(..., linear=False) == (\"GATC\", \"GATC\", \"GATC\")");
+            Assert.That(circular.Select(f => f.StartPosition), Is.EqualTo(new[] { 0, 4, 8 }),
+                "Biopython search(..., linear=False) == [1, 5, 9] (1-based)");
+            Assert.That(circular.Sum(f => f.Length), Is.EqualTo(12));
+        });
+    }
+
+    /// <summary>
+    /// Circular DOUBLE digest with one origin-spanning site. Reference (Biopython 1.88):
+    ///   RestrictionBatch([EcoRI, BamHI]).search(Seq("TTCGGATCCAAAAAAAGAA"), linear=False)
+    ///       == {EcoRI: [18], BamHI: [5]}
+    /// i.e. 0-based top-strand cuts {4, 17}. Circular -> 2 fragments:
+    ///   [4,17)            = "GATCCAAAAAAAG"  (13, BamHI -> EcoRI)
+    ///   [17,19) + [0,4)   = "AA" + "TTCG" = "AATTCG" (6, EcoRI -> BamHI, origin-spanning, last)
+    /// Before the fix the circular digest saw only the BamHI cut and returned the single
+    /// 19 bp fragment "GATCCAAAAAAAGAATTCG".
+    /// </summary>
+    [Test]
+    public void Digest_Circular_DoubleDigest_OriginSpanningSite_MatchesBiopython()
+    {
+        var sequence = new DnaSequence("TTCGGATCCAAAAAAAGAA"); // 19 bp
+
+        var circular = RestrictionAnalyzer.Digest(
+            sequence, MoleculeTopology.Circular, "EcoRI", "BamHI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(circular, Has.Count.EqualTo(2), "2 cuts on a circle -> 2 fragments");
+            Assert.That(circular[0].StartPosition, Is.EqualTo(4), "BamHI cut: Biopython 5 (1-based)");
+            Assert.That(circular[0].Sequence, Is.EqualTo("GATCCAAAAAAAG"));
+            Assert.That(circular[0].LeftEnzyme, Is.EqualTo("BamHI"));
+            Assert.That(circular[0].RightEnzyme, Is.EqualTo("EcoRI"));
+
+            Assert.That(circular[1].StartPosition, Is.EqualTo(17), "EcoRI cut: Biopython 18 (1-based)");
+            Assert.That(circular[1].Sequence, Is.EqualTo("AATTCG"), "Origin-spanning join [17,19)+[0,4)");
+            Assert.That(circular[1].LeftEnzyme, Is.EqualTo("EcoRI"));
+            Assert.That(circular[1].RightEnzyme, Is.EqualTo("BamHI"));
+
+            Assert.That(circular.Sum(f => f.Length), Is.EqualTo(19));
+        });
+    }
+
+    /// <summary>
+    /// Circular multi-enzyme edge-cutter double digest. Reference (Biopython 1.88):
+    ///   RestrictionBatch([MboI, DpnI]).search(Seq("GATCGATCGATC"), linear=False)
+    ///       == {MboI: [1, 5, 9], DpnI: [3, 7, 11]}
+    /// i.e. 0-based cuts {0, 2, 4, 6, 8, 10} -> 6 fragments of 2 bp each:
+    /// GA, TC, GA, TC, GA and the origin-spanning TC. Before the fix the circular digest returned
+    /// 4 fragments ("TC", "GA", "TCGA", "TCGA"), because the linear filter dropped MboI's edge cuts.
+    /// </summary>
+    [Test]
+    public void Digest_Circular_MultiEnzymeEdgeCutters_MatchesBiopython()
+    {
+        var sequence = new DnaSequence("GATCGATCGATC"); // 12 bp
+
+        var circular = RestrictionAnalyzer.Digest(
+            sequence, MoleculeTopology.Circular, "MboI", "DpnI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(circular.Select(f => f.Sequence),
+                Is.EqualTo(new[] { "GA", "TC", "GA", "TC", "GA", "TC" }));
+            Assert.That(circular.Select(f => f.StartPosition),
+                Is.EqualTo(new[] { 0, 2, 4, 6, 8, 10 }));
+            Assert.That(circular.Sum(f => f.Length), Is.EqualTo(12));
+            Assert.That(circular.Select(f => f.FragmentNumber), Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6 }));
+        });
+    }
+
+    /// <summary>
+    /// The reference implementation's own circular bug, locked as a Seqeron guarantee.
+    /// Biopython 1.88 <c>AbstractCut._drop</c> (Restriction.py L542-568) folds an out-of-range
+    /// circular cut back by ±length in place WITHOUT re-sorting the list, and
+    /// <c>catalyse</c> (L1146-1176) then indexes <c>r[0]</c>/<c>r[-1]</c> as if it were ascending:
+    ///   AluI.search(Seq("GCTGTTATAGCTAAGAGCGAACCGGAGTATA"), linear=False)   == [11, 2]   (unsorted)
+    ///   AluI.catalyse(Seq("GCTGTTATAGCTAAGAGCGAACCGGAGTATA"), linear=False)
+    ///       == ("CTGTTATAGCTAAGAGCGAACCGGAGTATAGCTGTTATAG", "")   -> 40 bases for a 31 bp molecule
+    /// Measured in-session: 55 of 4000 wrap-planted circular cases (1.4%) trigger it.
+    /// Seqeron sorts its cut positions, so the correct answer is cuts {1, 10} (sorted Biopython
+    /// [2, 11] minus 1) -> 2 fragments that partition the 31 bp molecule exactly.
+    /// </summary>
+    [Test]
+    public void Digest_Circular_BiopythonUnsortedCutCase_FragmentsStillPartitionMolecule()
+    {
+        var sequence = new DnaSequence("GCTGTTATAGCTAAGAGCGAACCGGAGTATA"); // 31 bp; AluI = AG^CT
+
+        var circular = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Circular, "AluI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(circular, Has.Count.EqualTo(2), "2 cuts on a circle -> 2 fragments");
+            Assert.That(circular[0].StartPosition, Is.EqualTo(1));
+            Assert.That(circular[0].Sequence, Is.EqualTo("CTGTTATAG"));
+            Assert.That(circular[1].StartPosition, Is.EqualTo(10));
+            Assert.That(circular[1].Sequence, Is.EqualTo("CTAAGAGCGAACCGGAGTATAG"),
+                "Origin-spanning join [10,31)+[0,1)");
+            Assert.That(circular.Sum(f => f.Length), Is.EqualTo(31),
+                "Unlike Biopython's catalyse here, the fragments must partition the molecule exactly");
+            Assert.That(circular, Has.None.Matches<DigestFragment>(f => f.Length == 0),
+                "No empty fragment (Biopython emits one here)");
+        });
+    }
+
+    /// <summary>
+    /// Claim 2 of the hand-off: <c>FragmentNumber</c> used to be the boundary loop index, so a
+    /// skipped zero-length piece would have broken the contiguous numbering. Verified this session
+    /// that a zero-length piece is UNREACHABLE through the public API — the linear cut-feasibility
+    /// filter (<c>CutsAreInternal</c>) confines every reported forward-strand cut to
+    /// <c>[1, Length-1]</c>, and the positions are distinct — so the "k cuts -> k+1 fragments"
+    /// invariant holds. This test enforces both halves on the densest cut patterns available:
+    /// every fragment is non-empty, the numbering is 1..n contiguous, and the count is k+1
+    /// (linear) / k (circular) for the k distinct forward-strand cut positions actually reported.
+    /// </summary>
+    [Test]
+    public void Digest_FragmentNumbering_IsContiguous_AndNoZeroLengthFragments()
+    {
+        // Dense / adjacent-cut cases: 4-cutters on a 4-mer-repeat molecule, plus edge cutters.
+        (string Seq, string[] Enzymes)[] cases =
+        [
+            ("GATCGATCGATC", ["MboI", "DpnI"]),
+            ("GATCGATCGATC", ["Sau3AI"]),
+            ("AGCTAGCTAGCT", ["AluI"]),
+            ("CCGGCCGGCCGG", ["MspI", "HpaII"]),
+            ("GATCGATCGATC", ["MboI", "DpnI", "TaqI", "AluI"]),
+            ("GAATTCGAATTC", ["EcoRI"]),
+            ("CTGCAGCTGCAG", ["PstI"]),
+        ];
+
+        Assert.Multiple(() =>
+        {
+            foreach (var (seqText, enzymes) in cases)
+            {
+                var sequence = new DnaSequence(seqText);
+
+                foreach (var topology in new[] { MoleculeTopology.Linear, MoleculeTopology.Circular })
+                {
+                    var fragments = RestrictionAnalyzer.Digest(sequence, topology, enzymes).ToList();
+                    string label = $"{seqText} / {string.Join("+", enzymes)} / {topology}";
+
+                    int cuts = enzymes
+                        .SelectMany(e => RestrictionAnalyzer.FindSites(sequence, e, topology))
+                        .Where(s => s.IsForwardStrand)
+                        .Select(s => s.CutPosition)
+                        .Distinct()
+                        .Count();
+
+                    int expected = topology == MoleculeTopology.Linear
+                        ? cuts + 1
+                        : Math.Max(cuts, 1);
+
+                    Assert.That(fragments, Has.Count.EqualTo(expected), $"fragment count: {label}");
+                    Assert.That(fragments.Select(f => f.FragmentNumber),
+                        Is.EqualTo(Enumerable.Range(1, fragments.Count).ToList()),
+                        $"FragmentNumber must be 1..n contiguous: {label}");
+                    Assert.That(fragments.All(f => f.Length > 0), Is.True,
+                        $"no zero-length fragment: {label}");
+                    Assert.That(fragments.All(f => f.Length == f.Sequence.Length), Is.True,
+                        $"Length must equal Sequence.Length: {label}");
+                    Assert.That(fragments.Sum(f => f.Length), Is.EqualTo(sequence.Length),
+                        $"fragment lengths must sum to the molecule length: {label}");
+                    Assert.That(fragments.Select(f => f.StartPosition),
+                        Is.Ordered.Ascending, $"StartPosition ascending: {label}");
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Claim 3 of the hand-off: the digest dropped the reverse-strand site records, leaving every
+    /// fragment implicitly blunt with nothing recorded about its ends. Dropping the reverse-strand
+    /// record is CORRECT — it carries the bottom-strand cut of the same palindromic site, and
+    /// Biopython's <c>catalyse</c> likewise partitions the top strand at <c>search()</c>'s
+    /// top-strand cuts — but the bottom-strand cut is what makes the end sticky, so it is now
+    /// reported per fragment end.
+    ///
+    /// Reference (Biopython 1.88): EcoRI.ovhgseq == "AATT", is_5overhang() == True;
+    /// PstI.ovhgseq == "TGCA", is_3overhang() == True; EcoRV.ovhgseq == "", is_blunt() == True;
+    /// AluI.ovhgseq == "", is_blunt() == True; BamHI.ovhgseq == "GATC"; Sau3AI.ovhgseq == "GATC".
+    /// Verified in-session for all 39 built-in enzymes (39/39 agreement on both the overhang
+    /// sequence and the 5'/3'/blunt classification).
+    /// </summary>
+    [Test]
+    public void Digest_FragmentEnds_ReportSourcedOverhangTypeAndSequence()
+    {
+        // EcoRI G^AATT_C on "AAAGAATTCAAA": Biopython catalyse == ("AAAG", "AATTCAAA").
+        var ecoRI = RestrictionAnalyzer.Digest(new DnaSequence("AAAGAATTCAAA"), "EcoRI").ToList();
+
+        // PstI C_TGCA^G on "CTGCAGAAACTGCAG": Biopython catalyse == ("CTGCA", "GAAACTGCA", "G").
+        var pstI = RestrictionAnalyzer.Digest(new DnaSequence("CTGCAGAAACTGCAG"), "PstI").ToList();
+
+        // EcoRV GAT^ATC (blunt) on "AAAGATATCAAA": cut at 0-based 6.
+        var ecoRV = RestrictionAnalyzer.Digest(new DnaSequence("AAAGATATCAAA"), "EcoRV").ToList();
+
+        Assert.Multiple(() =>
+        {
+            // 5' overhang (EcoRI, AATT).
+            Assert.That(ecoRI.Select(f => f.Sequence), Is.EqualTo(new[] { "AAAG", "AATTCAAA" }));
+            Assert.That(ecoRI[0].RightOverhangType, Is.EqualTo(OverhangType.FivePrime));
+            Assert.That(ecoRI[0].RightOverhang, Is.EqualTo("AATT"), "Biopython EcoRI.ovhgseq == \"AATT\"");
+            Assert.That(ecoRI[1].LeftOverhangType, Is.EqualTo(OverhangType.FivePrime));
+            Assert.That(ecoRI[1].LeftOverhang, Is.EqualTo("AATT"));
+
+            // 3' overhang (PstI, TGCA).
+            Assert.That(pstI.Select(f => f.Sequence), Is.EqualTo(new[] { "CTGCA", "GAAACTGCA", "G" }),
+                "Biopython PstI.catalyse(Seq(\"CTGCAGAAACTGCAG\")) == (\"CTGCA\", \"GAAACTGCA\", \"G\")");
+            Assert.That(pstI[0].RightOverhangType, Is.EqualTo(OverhangType.ThreePrime));
+            Assert.That(pstI[0].RightOverhang, Is.EqualTo("TGCA"), "Biopython PstI.ovhgseq == \"TGCA\"");
+            Assert.That(pstI[1].LeftOverhangType, Is.EqualTo(OverhangType.ThreePrime));
+            Assert.That(pstI[1].LeftOverhang, Is.EqualTo("TGCA"));
+            Assert.That(pstI[1].RightOverhangType, Is.EqualTo(OverhangType.ThreePrime));
+            Assert.That(pstI[2].LeftOverhang, Is.EqualTo("TGCA"));
+
+            // Blunt (EcoRV): type Blunt, empty overhang - NOT null, which means "no cut here".
+            Assert.That(ecoRV, Has.Count.EqualTo(2));
+            Assert.That(ecoRV[0].RightOverhangType, Is.EqualTo(OverhangType.Blunt));
+            Assert.That(ecoRV[0].RightOverhang, Is.Empty, "Biopython EcoRV.ovhgseq == \"\"");
+            Assert.That(ecoRV[1].LeftOverhangType, Is.EqualTo(OverhangType.Blunt));
+            Assert.That(ecoRV[1].LeftOverhang, Is.Empty);
+
+            // An original terminus of a LINEAR molecule was not created by a cut -> null.
+            Assert.That(ecoRI[0].LeftOverhangType, Is.Null, "molecule 5' terminus is not a cut end");
+            Assert.That(ecoRI[0].LeftOverhang, Is.Null);
+            Assert.That(ecoRI[^1].RightOverhangType, Is.Null, "molecule 3' terminus is not a cut end");
+            Assert.That(ecoRI[^1].RightOverhang, Is.Null);
+        });
+    }
+
+    /// <summary>
+    /// On a circle every fragment end is a cut, so both ends carry an enzyme AND an overhang; an
+    /// uncut circle has no ends at all and therefore no overhangs. Also locks the ligation
+    /// invariant: at one cut, the upstream fragment's right overhang is the reverse complement of
+    /// the downstream fragment's left overhang (identical for a palindromic enzyme — which is why
+    /// the fragments of a single-enzyme digest re-ligate).
+    /// </summary>
+    [Test]
+    public void Digest_Circular_EveryEndIsACut_UncutCircleHasNoEnds()
+    {
+        // Two EcoRI cuts on an 18 bp circle (existing worked example).
+        var cut = RestrictionAnalyzer.Digest(
+            new DnaSequence("GAATTCAAAGAATTCAAA"), MoleculeTopology.Circular, "EcoRI").ToList();
+
+        // No EcoRI site at all.
+        var uncut = RestrictionAnalyzer.Digest(
+            new DnaSequence("AAAAAAAAAAAA"), MoleculeTopology.Circular, "EcoRI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut, Has.Count.EqualTo(2));
+            foreach (var f in cut)
+            {
+                Assert.That(f.LeftOverhangType, Is.EqualTo(OverhangType.FivePrime));
+                Assert.That(f.LeftOverhang, Is.EqualTo("AATT"));
+                Assert.That(f.RightOverhangType, Is.EqualTo(OverhangType.FivePrime));
+                Assert.That(f.RightOverhang, Is.EqualTo("AATT"));
+            }
+
+            // Ligation invariant across each cut (EcoRI's AATT is self-complementary).
+            Assert.That(cut[0].RightOverhang,
+                Is.EqualTo(DnaSequence.GetReverseComplementString(cut[1].LeftOverhang!)));
+
+            Assert.That(uncut, Has.Count.EqualTo(1), "0 cuts -> one uncut circular fragment");
+            Assert.That(uncut[0].LeftOverhangType, Is.Null, "an uncut circle has no ends");
+            Assert.That(uncut[0].LeftOverhang, Is.Null);
+            Assert.That(uncut[0].RightOverhangType, Is.Null);
+            Assert.That(uncut[0].RightOverhang, Is.Null);
+        });
+    }
+
+    /// <summary>
+    /// The overhang window is taken from the MOLECULE, so it wraps correctly when a cut sits close
+    /// enough to the origin that the enzyme's two strand cuts straddle it. On the 13 bp circle
+    /// "TTCAAAAAAAGAA" the origin-spanning EcoRI site at 10 has its top-strand cut at 11 and its
+    /// bottom-strand cut at 11+4 = 15 == 2 (mod 13), so the overhang window is
+    /// seq[11], seq[12], seq[0], seq[1] = "A","A","T","T" = "AATT" — Biopython EcoRI.ovhgseq.
+    /// </summary>
+    [Test]
+    public void Digest_Circular_OverhangWindow_WrapsPastTheOrigin()
+    {
+        var fragments = RestrictionAnalyzer.Digest(
+            new DnaSequence("TTCAAAAAAAGAA"), MoleculeTopology.Circular, "EcoRI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fragments, Has.Count.EqualTo(1));
+            Assert.That(fragments[0].LeftOverhangType, Is.EqualTo(OverhangType.FivePrime));
+            Assert.That(fragments[0].LeftOverhang, Is.EqualTo("AATT"),
+                "Window wraps: seq[11],seq[12],seq[0],seq[1]");
+            Assert.That(fragments[0].RightOverhang, Is.EqualTo("AATT"));
+        });
+    }
+
+    /// <summary>
+    /// Claim 4 of the hand-off: <c>GetDigestSummary</c> had no topology overload, so a circular
+    /// digest summary was unreachable. The additive overload must agree with the corresponding
+    /// <c>Digest</c> call, and the topology-free overload must stay exactly Linear.
+    ///
+    /// EcoRI on the 18 bp circle "GAATTCAAAGAATTCAAA": Biopython search(..., linear=False)
+    /// == [2, 11] -> cuts {1, 10}. Linear: 3 fragments, sizes [9, 8, 1]. Circular: 2 fragments,
+    /// sizes [9, 9].
+    /// </summary>
+    [Test]
+    public void GetDigestSummary_TopologyOverload_MatchesDigest_AndDefaultsToLinear()
+    {
+        var sequence = new DnaSequence("GAATTCAAAGAATTCAAA"); // 18 bp
+
+        var linear = RestrictionAnalyzer.GetDigestSummary(sequence, MoleculeTopology.Linear, "EcoRI");
+        var circular = RestrictionAnalyzer.GetDigestSummary(sequence, MoleculeTopology.Circular, "EcoRI");
+        var legacy = RestrictionAnalyzer.GetDigestSummary(sequence, "EcoRI");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(linear.TotalFragments, Is.EqualTo(3), "Linear: 2 cuts -> 3 fragments");
+            Assert.That(linear.FragmentSizes, Is.EqualTo(new[] { 9, 8, 1 }));
+            Assert.That(linear.Topology, Is.EqualTo(MoleculeTopology.Linear));
+
+            Assert.That(circular.TotalFragments, Is.EqualTo(2), "Circular: 2 cuts -> 2 fragments");
+            Assert.That(circular.FragmentSizes, Is.EqualTo(new[] { 9, 9 }));
+            Assert.That(circular.LargestFragment, Is.EqualTo(9));
+            Assert.That(circular.SmallestFragment, Is.EqualTo(9));
+            Assert.That(circular.AverageFragmentSize, Is.EqualTo(9.0).Within(1e-9));
+            Assert.That(circular.EnzymesUsed, Is.EqualTo(new[] { "EcoRI" }));
+            Assert.That(circular.Topology, Is.EqualTo(MoleculeTopology.Circular));
+
+            // Addgene: the fragment sizes sum to the original length in BOTH topologies.
+            Assert.That(linear.FragmentSizes.Sum(), Is.EqualTo(18));
+            Assert.That(circular.FragmentSizes.Sum(), Is.EqualTo(18));
+
+            // Backward compatibility: the topology-free overload is exactly Linear. (Compared
+            // field by field: DigestSummary's list members are List<T>, which the compiler-
+            // generated record equality compares by reference, not by content.)
+            Assert.That(legacy.TotalFragments, Is.EqualTo(linear.TotalFragments));
+            Assert.That(legacy.FragmentSizes, Is.EqualTo(linear.FragmentSizes),
+                "GetDigestSummary(seq, enzymes) == Linear overload");
+            Assert.That(legacy.LargestFragment, Is.EqualTo(linear.LargestFragment));
+            Assert.That(legacy.SmallestFragment, Is.EqualTo(linear.SmallestFragment));
+            Assert.That(legacy.AverageFragmentSize, Is.EqualTo(linear.AverageFragmentSize).Within(1e-9));
+            Assert.That(legacy.EnzymesUsed, Is.EqualTo(linear.EnzymesUsed));
+            Assert.That(legacy.Topology, Is.EqualTo(MoleculeTopology.Linear),
+                "the topology-free overload must default to Linear");
+        });
+    }
+
+    /// <summary>
+    /// A circular summary over an ORIGIN-SPANNING site is the case that was unreachable before:
+    /// EcoRI on the 13 bp circle "TTCAAAAAAAGAA" -> 1 fragment of 13 bp, whereas the linear
+    /// summary of the same molecule is also 1 fragment of 13 bp but for the opposite reason
+    /// (uncut). The discriminating molecule is the 19 bp circle "TTCGGATCCAAAAAAAGAA" digested
+    /// with EcoRI + BamHI: linear sees only BamHI (cut 4) -> sizes [15, 4]; circular also sees the
+    /// origin-spanning EcoRI (cut 17) -> sizes [13, 6].
+    /// </summary>
+    [Test]
+    public void GetDigestSummary_Circular_SeesOriginSpanningSite()
+    {
+        var sequence = new DnaSequence("TTCGGATCCAAAAAAAGAA"); // 19 bp
+
+        var linear = RestrictionAnalyzer.GetDigestSummary(
+            sequence, MoleculeTopology.Linear, "EcoRI", "BamHI");
+        var circular = RestrictionAnalyzer.GetDigestSummary(
+            sequence, MoleculeTopology.Circular, "EcoRI", "BamHI");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(linear.TotalFragments, Is.EqualTo(2));
+            Assert.That(linear.FragmentSizes, Is.EqualTo(new[] { 15, 4 }));
+
+            Assert.That(circular.TotalFragments, Is.EqualTo(2));
+            Assert.That(circular.FragmentSizes, Is.EqualTo(new[] { 13, 6 }),
+                "Biopython batch search(..., linear=False) == {EcoRI: [18], BamHI: [5]}");
+            Assert.That(circular.FragmentSizes.Sum(), Is.EqualTo(19));
+        });
+    }
+
+    /// <summary>
+    /// Several enzymes cutting at the SAME coordinate: the boundary is one cut, not two, and the
+    /// fragment keeps one representative enzyme name (the last seen) with that enzyme's overhang.
+    /// Reference (Biopython 1.88):
+    ///   RestrictionBatch([MspI, HpaII]).search(Seq("CCGGAAACCGG"))      == {MspI: [2,9], HpaII: [2,9]}
+    ///   RestrictionBatch([MboI, Sau3AI, DpnI]).search(Seq("GATCAAAGATC"), linear=False)
+    ///       == {MboI: [1,8], Sau3AI: [1,8], DpnI: [3,10]}
+    /// i.e. 0-based cuts {1, 8} and {0, 2, 7, 9} — the duplicate coordinate must be merged.
+    /// </summary>
+    [Test]
+    public void Digest_EnzymesSharingACutCoordinate_ProduceOneBoundary()
+    {
+        // MspI and HpaII are the same site (CCGG) with the same offsets, so every cut coincides.
+        var shared = RestrictionAnalyzer.Digest(
+            new DnaSequence("CCGGAAACCGG"), MoleculeTopology.Linear, "MspI", "HpaII").ToList();
+
+        // MboI/Sau3AI (^GATC) and DpnI (GA^TC) share the site but cut 2 bases apart.
+        var mixed = RestrictionAnalyzer.Digest(
+            new DnaSequence("GATCAAAGATC"), MoleculeTopology.Circular, "MboI", "Sau3AI", "DpnI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shared.Select(f => f.Sequence), Is.EqualTo(new[] { "C", "CGGAAAC", "CGG" }),
+                "2 merged cuts -> 3 linear fragments, not 5");
+            Assert.That(shared.Select(f => f.StartPosition), Is.EqualTo(new[] { 0, 1, 8 }));
+            Assert.That(shared.Sum(f => f.Length), Is.EqualTo(11));
+            Assert.That(shared[1].LeftOverhang, Is.EqualTo("CG"), "Biopython MspI/HpaII ovhgseq == \"CG\"");
+
+            Assert.That(mixed.Select(f => f.Sequence), Is.EqualTo(new[] { "GA", "TCAAA", "GA", "TC" }),
+                "4 distinct cuts on a circle -> 4 fragments");
+            Assert.That(mixed.Select(f => f.StartPosition), Is.EqualTo(new[] { 0, 2, 7, 9 }));
+            Assert.That(mixed.Sum(f => f.Length), Is.EqualTo(11));
+            // ^GATC leaves a 5' GATC overhang; GA^TC is blunt.
+            Assert.That(mixed[0].LeftOverhangType, Is.EqualTo(OverhangType.FivePrime));
+            Assert.That(mixed[0].LeftOverhang, Is.EqualTo("GATC"));
+            Assert.That(mixed[0].RightOverhangType, Is.EqualTo(OverhangType.Blunt));
+            Assert.That(mixed[0].RightOverhang, Is.Empty);
+        });
+    }
+
+    #endregion
+
     #region GetDigestSummary Tests
 
     /// <summary>
