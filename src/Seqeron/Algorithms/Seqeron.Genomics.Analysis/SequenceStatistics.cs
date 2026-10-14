@@ -569,11 +569,15 @@ public static class SequenceStatistics
     /// mean of the original Kyte-Doolittle method. A weighted window needs a central residue, so
     /// <paramref name="edgeWeight"/> &lt; 1 requires an odd window (ProtScale accepts odd windows only).
     /// For an even window with edge 1 the plain mean over the W residues is returned (Biopython instead
-    /// counts residue W/2 twice and divides by W + 1 — an artefact of its odd-window loop).</para>
+    /// counts residue W/2 twice and divides by W + 1 — an artefact of its odd-window loop; reproduce it with
+    /// <see cref="HydropathyWindowConvention.Biopython"/> in the options overload).</para>
     /// <para>Non-standard residues (B, Z, X, gaps, stop) have no scale value and contribute 0 to the
     /// weighted sum while keeping their weight in the divisor — identical to Biopython for such a
     /// residue at the window centre (Biopython also drops the symmetric partner of an off-centre
-    /// unknown residue; this library does not).</para>
+    /// unknown residue; this library does not — use <see cref="HydropathyWindowConvention.Biopython"/> for that, or
+    /// <see cref="HydrophobicityProfileOptions.Strict"/> to reject unknown residues).</para>
+    /// <para>Other scales, strict mode and ProtScale 0..1 scale normalisation:
+    /// <see cref="CalculateHydrophobicityProfile(string, int, double, HydrophobicityProfileOptions)"/>.</para>
     /// </remarks>
     /// <param name="proteinSequence">One-letter amino-acid sequence (case-insensitive, ASCII-only fold:
     /// non-ASCII characters such as 'ſ' are non-residues).</param>
@@ -599,8 +603,141 @@ public static class SequenceStatistics
         return HydrophobicityProfileIterator(proteinSequence, windowSize, edgeWeight);
     }
 
-    private static IEnumerable<double> HydrophobicityProfileIterator(string sequence, int windowSize, double edgeWeight)
+    /// <summary>
+    /// Window convention of <see cref="CalculateHydrophobicityProfile(string, int, double, HydrophobicityProfileOptions)"/>.
+    /// </summary>
+    public enum HydropathyWindowConvention
     {
+        /// <summary>Default: every window position j has its own weight w_j, the value is Σ w·v / Σ w over the W
+        /// residues; an unknown residue contributes 0 and keeps its weight; even windows need edge = 1.</summary>
+        Standard = 0,
+
+        /// <summary>Line-for-line Biopython 1.88 <c>ProteinAnalysis.protein_scale(param_dict, window, edge)</c>:
+        /// positions j and W−1−j (j &lt; ⌊W/2⌋) are scored as a pair with the half-list weight
+        /// <c>edge + j·2(1 − edge)/(W − 1)</c>, then residue ⌊W/2⌋ is added with weight 1, and the sum is divided by
+        /// 2·Σ half-weights + 1. Hence for an even W residue W/2 is counted twice (once in its pair, once as the
+        /// "middle") and the divisor is W + 1 at edge 1; even windows with edge &lt; 1 are accepted; a pair with an
+        /// unknown residue is dropped as a whole (its known partner too), an unknown middle is dropped; the
+        /// divisor never changes. W = 1 is rejected (Biopython raises ZeroDivisionError).</summary>
+        Biopython = 1,
+    }
+
+    /// <summary>
+    /// Options for <see cref="CalculateHydrophobicityProfile(string, int, double, HydrophobicityProfileOptions)"/>.
+    /// <see cref="Default"/> reproduces <see cref="CalculateHydrophobicityProfile(string, int, double)"/> exactly.
+    /// </summary>
+    public sealed record HydrophobicityProfileOptions
+    {
+        /// <summary>Kyte-Doolittle scale, standard window convention, lenient, unnormalised.</summary>
+        public static HydrophobicityProfileOptions Default { get; } = new();
+
+        /// <summary>Window convention (default <see cref="HydropathyWindowConvention.Standard"/>).</summary>
+        public HydropathyWindowConvention Convention { get; init; } = HydropathyWindowConvention.Standard;
+
+        /// <summary>Residue scale keyed by upper-case one-letter code (e.g. Biopython <c>ProtParamData.hw</c>,
+        /// <c>em</c>, <c>ja</c>, <c>Flex</c>); null (default) = Kyte-Doolittle
+        /// (<see cref="ProteinPhysicochemistry.KyteDoolittle"/>). Sequence letters are upper-cased (ASCII) before lookup.</summary>
+        public IReadOnlyDictionary<char, double>? Scale { get; init; }
+
+        /// <summary>True: throw <see cref="ArgumentException"/> when the sequence contains a symbol absent from the
+        /// scale (the Biopython <c>gravy()</c> KeyError behaviour). False (default): such symbols are handled by the
+        /// window convention (no score).</summary>
+        public bool Strict { get; init; }
+
+        /// <summary>True: normalise the scale to 0..1 before profiling, v' = (v − min)/(max − min) over the scale's
+        /// entries (ExPASy ProtScale "normalize the scale from 0 to 1", Gasteiger et al. 2005). Default false.</summary>
+        public bool NormalizeScale { get; init; }
+    }
+
+    /// <summary>
+    /// Sliding-window amino-acid-scale profile with an explicit scale, window convention, strictness and
+    /// ProtScale 0..1 scale normalisation (see <see cref="HydrophobicityProfileOptions"/>). With
+    /// <see cref="HydrophobicityProfileOptions.Default"/> it equals
+    /// <see cref="CalculateHydrophobicityProfile(string, int, double)"/>.
+    /// </summary>
+    /// <param name="proteinSequence">One-letter amino-acid sequence (ASCII case fold).</param>
+    /// <param name="windowSize">Window length W (≥ 1; ≥ 2 in the Biopython convention).</param>
+    /// <param name="edgeWeight">Relative weight of the window edges, in [0, 1].</param>
+    /// <param name="options">Scale / convention / strictness / normalisation; null = <see cref="HydrophobicityProfileOptions.Default"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Bad W or edge weight; W = 1 in the Biopython convention.</exception>
+    /// <exception cref="ArgumentException">Standard convention with edge &lt; 1 and even W; an empty or constant scale
+    /// to normalise; strict mode and a symbol absent from the scale.</exception>
+    public static IEnumerable<double> CalculateHydrophobicityProfile(
+        string proteinSequence,
+        int windowSize,
+        double edgeWeight,
+        HydrophobicityProfileOptions? options)
+    {
+        options ??= HydrophobicityProfileOptions.Default;
+        bool biopython = options.Convention == HydropathyWindowConvention.Biopython;
+        if (!Enum.IsDefined(options.Convention))
+            throw new ArgumentOutOfRangeException(nameof(options), options.Convention, "Unknown window convention.");
+        if (windowSize < (biopython ? 2 : 1))
+            throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize,
+                biopython ? "The Biopython convention needs a window of at least 2 (W = 1 divides by W − 1 = 0)." : "Window size must be at least 1.");
+        if (double.IsNaN(edgeWeight) || edgeWeight < 0.0 || edgeWeight > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(edgeWeight), edgeWeight, "Edge weight must be in [0, 1].");
+        if (!biopython && edgeWeight < 1.0 && windowSize % 2 == 0)
+            throw new ArgumentException("An edge-weighted window must have an odd size (a central residue).", nameof(windowSize));
+
+        IReadOnlyDictionary<char, double> scale = options.Scale ?? HydrophobicityScale;
+        if (options.NormalizeScale)
+            scale = NormalizeScaleZeroToOne(scale, nameof(options));
+
+        if (string.IsNullOrEmpty(proteinSequence))
+            return Array.Empty<double>();
+
+        if (options.Strict)
+        {
+            foreach (char c in proteinSequence)
+            {
+                if (!scale.ContainsKey(ToUpperAscii(c)))
+                    throw new ArgumentException($"Symbol '{c}' has no value in the scale (strict mode).", nameof(proteinSequence));
+            }
+        }
+
+        if (windowSize > proteinSequence.Length)
+            return Array.Empty<double>();
+
+        return biopython
+            ? BiopythonScaleProfileIterator(proteinSequence, windowSize, edgeWeight, scale)
+            : HydrophobicityProfileIterator(proteinSequence, windowSize, edgeWeight, scale);
+    }
+
+    /// <summary>
+    /// Sliding-window profile of a caller-supplied amino-acid scale (e.g. Biopython <c>ProtParamData.hw</c>
+    /// Hopp-Woods, <c>em</c> Eisenberg, <c>ja</c> Janin, <c>Flex</c> Vihinen flexibility) with the standard
+    /// window convention; shorthand for the options overload with <see cref="HydrophobicityProfileOptions.Scale"/>.
+    /// </summary>
+    public static IEnumerable<double> CalculateHydrophobicityProfile(
+        string proteinSequence,
+        IReadOnlyDictionary<char, double> scale,
+        int windowSize = DefaultHydropathyWindow,
+        double edgeWeight = 1.0)
+    {
+        ArgumentNullException.ThrowIfNull(scale);
+        return CalculateHydrophobicityProfile(proteinSequence, windowSize, edgeWeight,
+            new HydrophobicityProfileOptions { Scale = scale });
+    }
+
+    // ExPASy ProtScale "normalize the scale from 0 to 1": min–max over the scale's own entries.
+    private static IReadOnlyDictionary<char, double> NormalizeScaleZeroToOne(IReadOnlyDictionary<char, double> scale, string paramName)
+    {
+        if (scale.Count == 0)
+            throw new ArgumentException("Cannot normalise an empty scale.", paramName);
+        double min = scale.Values.Min(), max = scale.Values.Max();
+        if (!(max > min))
+            throw new ArgumentException("Cannot normalise a constant scale (max = min).", paramName);
+        var normalized = new Dictionary<char, double>(scale.Count);
+        foreach (var (key, value) in scale)
+            normalized[key] = (value - min) / (max - min);
+        return normalized;
+    }
+
+    private static IEnumerable<double> HydrophobicityProfileIterator(
+        string sequence, int windowSize, double edgeWeight, IReadOnlyDictionary<char, double>? scale = null)
+    {
+        scale ??= HydrophobicityScale;
         // Position weights (all 1 for the unweighted Kyte-Doolittle mean).
         var weights = new double[windowSize];
         double weightSum = 0;
@@ -619,10 +756,40 @@ public static class SequenceStatistics
             double sum = 0;
             for (int j = 0; j < windowSize; j++)
             {
-                if (HydrophobicityScale.TryGetValue(ToUpperAscii(sequence[i + j]), out double value))
+                if (scale.TryGetValue(ToUpperAscii(sequence[i + j]), out double value))
                     sum += weights[j] * value;
             }
             yield return sum / weightSum;
+        }
+    }
+
+    // Line-for-line port of Biopython 1.88 ProteinAnalysis.protein_scale / _weight_list (W ≥ 2).
+    private static IEnumerable<double> BiopythonScaleProfileIterator(
+        string sequence, int windowSize, double edgeWeight, IReadOnlyDictionary<char, double> scale)
+    {
+        int half = windowSize / 2;
+        double unit = 2.0 * (1.0 - edgeWeight) / (windowSize - 1);
+        var weights = new double[half];
+        double halfSum = 0;
+        for (int j = 0; j < half; j++)
+        {
+            weights[j] = edgeWeight + unit * j;
+            halfSum += weights[j];
+        }
+        double sumOfWeights = halfSum * 2 + 1;
+
+        for (int i = 0; i <= sequence.Length - windowSize; i++)
+        {
+            double score = 0.0;
+            for (int j = 0; j < half; j++)
+            {
+                if (scale.TryGetValue(ToUpperAscii(sequence[i + j]), out double front)
+                    && scale.TryGetValue(ToUpperAscii(sequence[i + windowSize - j - 1]), out double back))
+                    score += weights[j] * front + weights[j] * back;
+            }
+            if (scale.TryGetValue(ToUpperAscii(sequence[i + half]), out double middle))
+                score += middle;
+            yield return score / sumOfWeights;
         }
     }
 

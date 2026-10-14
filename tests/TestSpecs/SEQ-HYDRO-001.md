@@ -163,6 +163,12 @@ Total in-scope cases: 12; ✅ = 12.
 
 ---
 
+### 2026-10 options (FIN-B03 F29–F31)
+
+`SequenceStatistics_HydrophobicityProfileOptions_Tests` (Biopython 1.88 `protein_scale` executed oracle, ≤ 1e-12): Biopython window convention (even W = 2/4/6, edge 0.5, off-centre/centre unknowns, gaps/B, lower case, W = 1 rejected, odd-window equality with the standard convention, defaults = legacy overload); strict mode (X, '-', B, 'ſ' throw in both conventions); ProtScale 0..1 normalisation (kd W=9 / W=5 e0.4, unknown centre, hw; constant/empty scale throws); caller-supplied scales hw/em/ja/Flex at W=9 and W=5 e0.4; null scale throws.
+
+---
+
 ## 6. Assumption Register
 
 **Total assumptions:** 1

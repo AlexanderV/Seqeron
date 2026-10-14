@@ -113,17 +113,24 @@ The scale is a static `Dictionary<char,double>` matching Biopython `kd` exactly 
 
 - (none).
 
+**Options (2026-10, FIN-B03 F29–F31)** — `CalculateHydrophobicityProfile(seq, W, edge, HydrophobicityProfileOptions?)`, defaults = the 3-argument overload:
+
+- `Convention = HydropathyWindowConvention.Biopython`: line-for-line Biopython 1.88 `protein_scale(param_dict, window, edge)` — pairs (j, W−1−j) with half-list weight `edge + j·2(1−edge)/(W−1)`, then residue ⌊W/2⌋ with weight 1, divided by 2·Σhalf + 1. For even W the residue W/2 is counted twice (divisor W + 1 at edge 1); even weighted windows are accepted; a pair containing an unknown residue is dropped as a whole; W = 1 is rejected (Biopython ZeroDivisionError).
+- `Strict = true`: any symbol absent from the scale throws `ArgumentException` (Biopython `gravy()` KeyError).
+- `NormalizeScale = true`: ExPASy ProtScale "normalize the scale from 0 to 1" — v' = (v − min)/(max − min) over the scale's entries, applied to the scale before profiling.
+- `Scale` (or the overload `CalculateHydrophobicityProfile(seq, IReadOnlyDictionary<char,double> scale, W, edge)`): any caller-supplied residue scale, e.g. Biopython `ProtParamData.hw` (Hopp-Woods), `em` (Eisenberg), `ja` (Janin), `Flex` (Vihinen); locked against executed Biopython for these four.
+
 **Not implemented:**
 
-- ProtScale's "exponential" weight-variation model and scale normalisation (only the linear model, as in Biopython, is implemented).
-- Alternative scales (Hopp-Woods, Eisenberg); **users should rely on:** no current alternative in this class — only Kyte-Doolittle is provided.
+- ProtScale's "exponential" weight-variation model — **BLOCKED (no source for the formula)**: the ProtScale doc / Gasteiger 2005 chapter only name the option; web.expasy.org is unreachable from the review environment and no open reimplementation was found (B03.md F30 lists every source tried). Only the linear model (as in Biopython) is implemented.
+- Bundled alternative scale tables: there is no canonical home for them, so callers pass the table (see `Scale`).
 
 ### 5.4 Deviations and Assumptions (Optional)
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Non-standard residues skipped (GRAVY divides by recognized count; profile adds 0 and keeps the position's weight in the divisor) | Deviation | Biopython `gravy()` raises `KeyError`; `protein_scale` adds 0 for an unknown centre residue (same as here) but also drops the symmetric partner of an off-centre unknown (not done here) | accepted | Sources define only the 20 standard residues [1][4]; canonical values unchanged. Tracked in Evidence Assumptions. |
-| 2 | Even window with edge weight 1 → plain mean over W residues | Deviation | Biopython counts residue W/2 twice and divides by W+1 (e.g. "AV", W=2: 3.4 vs 3.0 here) | accepted | ProtScale accepts odd windows only; Biopython's value is an artefact of its odd-window loop. Weighted (edge < 1) even windows are rejected. |
+| 1 | Non-standard residues skipped (default; `Strict` rejects them, `Convention = Biopython` reproduces the pair drop) (GRAVY divides by recognized count; profile adds 0 and keeps the position's weight in the divisor) | Deviation | Biopython `gravy()` raises `KeyError`; `protein_scale` adds 0 for an unknown centre residue (same as here) but also drops the symmetric partner of an off-centre unknown (not done here) | accepted | Sources define only the 20 standard residues [1][4]; canonical values unchanged. Tracked in Evidence Assumptions. |
+| 2 | Even window with edge weight 1 → plain mean over W residues | Deviation | Biopython counts residue W/2 twice and divides by W+1 (e.g. "AV", W=2: 3.4 vs 3.0 here) | accepted | ProtScale accepts odd windows only; Biopython's value is an artefact of its odd-window loop. Weighted (edge < 1) even windows are rejected. The Biopython behaviour is available via `Convention = Biopython` (F29). |
 
 ## 6. Edge Cases and Limitations
 

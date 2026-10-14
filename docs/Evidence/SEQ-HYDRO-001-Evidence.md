@@ -128,6 +128,27 @@ Retrieved via WebFetch, prompting for default scale and citation.
 
 All reproduced by the library to ≤ 1e-10.
 
+### Dataset: FIN-B03 WP6/WP7 — Biopython 1.88 `protein_scale` options (executed 2026-10-14)
+
+Sequence `S = MKTAYIAKQRQISFVKSHFSRQ`; script: `ProteinAnalysis(seq).protein_scale(table, W, edge)`; normalised = the same call on `{k: (v − min)/(max − min)}` of the 20-entry table. Full arrays are locked in `SequenceStatistics_HydrophobicityProfileOptions_Tests` (tolerance 1e-12).
+
+| Case | Biopython 1.88 output (first values) |
+|------|--------------------------------------|
+| `S`, kd, W=4, edge 1 | −0.32, −0.46, 0.6, 2.26, … (19 values; residue W/2 twice, /5) |
+| `S`, kd, W=2, edge 1 | −1.96667, −1.76667, 0.96667, … (21 values) |
+| `S`, kd, W=6, edge 0.5 | 0.451923…, 0.146154…, 1.461538…, … (even weighted window accepted) |
+| `ACDXEFGHIK`, kd, W=5, edge 1 / 0.4 | −1.04, −0.34, −1.48, −0.22, 0.04, −0.04 / −1.30625, −0.86875, −1.58125, 0.021875, −0.0875, −0.240625 (lower-case input identical) |
+| `AXCDE` / `ACXDE`, kd, W=5 | 0.16 (pair X,D dropped) / −0.54 |
+| `AC-DEB`, kd, W=4 | −0.34, −0.9, −2.1 |
+| `ACDE`, kd, W=1 | ZeroDivisionError |
+| `ProteinAnalysis("ACDX").gravy()` | KeyError 'X' |
+| `S`, hw / em / ja / Flex, W=9 | −0.0666…/1.0731111…/−0.3122222…/1.0015555… (14 values each) |
+| `S`, hw / em / ja / Flex, W=5, edge 0.4 | −0.028125/1.111625/−0.358125/1.003 (18 values each) |
+| `S`, kd normalised, W=9 / W=5 edge 0.4 | 0.459259…, 0.380247… / 0.432986…, 0.522222… |
+| `S`, hw normalised, W=5 edge 0.4 | 0.526855…, 0.437988… |
+
+ProtScale "exponential" weight-variation model: formula not obtainable (see B03.md F30 for the sources tried); not implemented.
+
 ---
 
 ## Assumptions
@@ -162,3 +183,4 @@ All reproduced by the library to ≤ 1e-10.
 
 - **2026-06-13**: Initial documentation (SEQ-HYDRO-001).
 - **2026-09-28**: Review 2026-09 — added Biopython 1.88 reference dataset incl. edge-weighted profiles (linear ProtScale model now implemented), window < 1 rejection.
+- **2026-10-14**: FIN-B03 WP6/WP7 — Biopython window convention, strict mode, ProtScale 0..1 normalisation, caller-supplied scales (hw/em/ja/Flex) datasets; exponential model BLOCKED.
