@@ -19,7 +19,13 @@ and commits it after every change. Batch definitions (units, owned files) are in
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
 
-## State (2026-10-10 23:40 UTC) — FIN-B24 DONE; EVERYTHING PAUSED
+## State (2026-10-14 07:25 UTC) — FIN-B02 RUNNING (only it)
+- User 10-14 "давай допрацюємо B02": session_016tDCWJHjR3NXKjhHLFynHz = FIN-B02 (re-audit B02.md + cross-batch requests to
+  B02, completeness-audit loop over 14 known leftover items incl. CODON-RARE-001 Sherlocc `<` vs `≤`, dedup sweep, final
+  audit, heavy tier once, `## Leftovers`). F-entries from F31. WIP branch `claude/stoic-maxwell-0olr2z-wip-B02`.
+  Check-in trigger re-enabled (~45 min). B08 still paused (not archived); nothing else running.
+
+### Earlier state (2026-10-10 23:40 UTC) — FIN-B24 DONE; EVERYTHING PAUSED
 - FIN-B24 done (session_01SLG1sxNgXVQkrwHr1EHya2, 10-09 20:44 – 10-10 23:01, archived, cost ≈ $204.6): audit rounds 1–3 +
   final round, F24–F66 (43 fixes), dedup sweep, heavy tier once (39 new tests, B24 heavy classes 930/930 ×15), full
   unfiltered `Seqeron.Genomics.Tests` 25159/0 (84cbf060). LIMITED ONCO-CNA-002 / ONCO-PURITY-001 → FIXED. Report tip
