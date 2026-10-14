@@ -29,7 +29,7 @@
    - Relevance: Defines relative abundance in ecological/metagenomic contexts
    - Key excerpts:
      - "The SAD (Species Abundance Distribution) describes the relationship between the number of species observed as a function of their observed abundance"
-     - Abundance is typically normalized as fractions summing to 1.0
+     - (Not stated on this page.) Relative abundance = count / total, so per-rank fractions sum to 1.0 by definition (MetaPhlAn reports the same as percentages summing to 100)
 
 3. **MetaPhlAn Documentation**
    - URL: https://huttenhower.sph.harvard.edu/metaphlan/

@@ -15,23 +15,23 @@
 
 1. **Wikipedia — Diversity Index**
    - URL: https://en.wikipedia.org/wiki/Diversity_index
-   - Accessed: 2026-02-02
+   - Accessed: 2026-02-02 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
    - Content: Comprehensive coverage of Shannon, Simpson, and other diversity indices with formulas
 
 2. **Wikipedia — Alpha Diversity**
    - URL: https://en.wikipedia.org/wiki/Alpha_diversity
-   - Accessed: 2026-02-02
+   - Accessed: 2026-02-02 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
    - Content: Definition of alpha diversity as mean species diversity at local scale
 
 3. **Wikipedia — Species Richness**
    - URL: https://en.wikipedia.org/wiki/Species_richness
-   - Accessed: 2026-02-02
+   - Accessed: 2026-02-02 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
    - Content: Species richness definition and relationship to diversity
 
 4. **Wikipedia — Species Evenness**
    - URL: https://en.wikipedia.org/wiki/Species_evenness
-   - Accessed: 2026-02-02
-   - Content: Pielou evenness definition and Shannon formula
+   - Accessed: 2026-02-02 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
+   - Content: Species-evenness concept and Shannon formula (the page does not name Pielou or give J = H / ln S — that is from Pielou 1966, item 9)
 
 ### Foundational References (cited in Wikipedia)
 

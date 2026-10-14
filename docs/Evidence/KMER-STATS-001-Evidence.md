@@ -11,7 +11,7 @@
 ### Wikipedia — K-mer
 
 **URL:** https://en.wikipedia.org/wiki/K-mer
-**Accessed:** 2026-06-14 (retrieved via WebFetch of the article page)
+**Accessed:** 2026-06-14 (retrieved via WebFetch of the article page) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary sources; its formulas are corroborated below by ranks 1–3)
 
 **Key Extracted Points:**

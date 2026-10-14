@@ -11,13 +11,13 @@
 ### 1. Wikipedia — CIBERSORT
 
 **URL:** https://en.wikipedia.org/wiki/CIBERSORT
-**Accessed:** 2026-03-06
+**Accessed:** 2026-03-06 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia with primary source citations)
 
 **Key Extracted Points:**
 
 1. **Definition:** CIBERSORT and CIBERSORTx are bioinformatics tools used to deconvolute cell type proportions and gene expression profiles from bulk RNA sequencing datasets.
-2. **Method:** Uses ν-support vector regression (ν-SVR) with a signature matrix (LM22) containing 547 genes distinguishing 22 immune cell types.
+2. **Method:** (not stated on this Wikipedia stub — it only defines the tool and cites Newman 2015) ν-support vector regression (ν-SVR) with the LM22 signature matrix of 547 genes distinguishing 22 human hematopoietic cell types — per Newman et al. 2015 / Chen et al. 2018 (source 8, point 4).
 3. **Core model:** The deconvolution problem is formulated as: m = S × f, where m is the mixture expression vector, S is the signature matrix, and f is the fraction vector.
 4. **Constraint:** Cell type fractions must be non-negative and sum to ≤ 1.0.
 5. **Primary citation:** Newman AM et al. (2015). Nature Methods 12(5):453-457. DOI: 10.1038/nmeth.3337
@@ -72,7 +72,7 @@
 ### 4. Wikipedia — Tumor Microenvironment
 
 **URL:** https://en.wikipedia.org/wiki/Tumor_microenvironment
-**Accessed:** 2026-03-06
+**Accessed:** 2026-03-06 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia with primary source citations)
 
 **Key Extracted Points:**
@@ -84,13 +84,13 @@
 ### 5. Wikipedia — Gene Set Enrichment Analysis
 
 **URL:** https://en.wikipedia.org/wiki/Gene_set_enrichment_analysis
-**Accessed:** 2026-03-06
+**Accessed:** 2026-03-06 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia with primary source citations)
 
 **Key Extracted Points:**
 
 1. **GSEA method:** Ranks genes by expression, computes enrichment score as Kolmogorov-Smirnov-like statistic.
-2. **ssGSEA variant:** Single-sample extension for scoring individual samples.
+2. **ssGSEA variant:** Single-sample extension for scoring individual samples — NOT on this page (re-checked 2026-10-14, SRC citation audit); ssGSEA here rests on Yoshihara et al. (2013), source 3.
 3. **Enrichment score formula:** ES = max deviation of running sum = Phit(S,i) - Pmiss(S,i).
 4. **Primary citation:** Subramanian A et al. (2005). PNAS 102(43):15545-15550. DOI: 10.1073/pnas.0506580102
 

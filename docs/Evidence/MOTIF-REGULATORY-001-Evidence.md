@@ -11,19 +11,19 @@
 ### TATA box — Wikipedia (citing primaries) + Bucher (1990)
 
 **URL:** https://en.wikipedia.org/wiki/TATA_box (search: "TATA box consensus sequence TATAAA TATA-binding protein core promoter")
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia citing primaries) / 1 (Bucher 1990, J Mol Biol)
 
 **Key Extracted Points:**
 
-1. **Consensus:** "The TATA box has the consensus sequence of 5'-TATAAA-3'." A wider IUPAC consensus is `TATA(A/T)A(A/T)(A/G)`.
+1. **Consensus:** the current page gives "TATAWAW, where W is either A or T" and "5'-TATA(A/T)A(A/T)-3'"; the 8-mer `TATA(A/T)A(A/T)(A/G)` is given only for *Saccharomyces*. (The earlier quote "The TATA box has the consensus sequence of 5'-TATAAA-3'" is NOT on the current page — corrected 2026-10-14, SRC citation audit; the TATAAA core used by the code rests on Bucher 1990, point 3.)
 2. **Location:** Core promoter, ~25–35 bp upstream of the transcription start site (RNA Pol II).
 3. **Bucher weight-matrix:** Bucher (1990, J Mol Biol) derived weight-matrix descriptions of four eukaryotic Pol II promoter elements from 502 unrelated promoters; the TATA box is the most prominent.
 
 ### Pribnow box (-10) and -35 box — Wikipedia + Harley & Reynolds (1987)
 
 **URL:** https://en.wikipedia.org/wiki/Pribnow_box (search: "prokaryotic promoter consensus -10 TATAAT -35 TTGACA"); Google Scholar lookup for Harley & Reynolds 1987 (search: "-35 box consensus TTGACA sigma 70 promoter Harley Reynolds 1987")
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 1 (Harley & Reynolds 1987, Nucleic Acids Res) / 4 (Wikipedia)
 
 **Key Extracted Points:**
@@ -57,7 +57,7 @@
 ### Kozak consensus — Wikipedia (citing Kozak 1987)
 
 **URL:** https://en.wikipedia.org/wiki/Kozak_consensus_sequence (fetched)
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 1 (Kozak 1987, Nucleic Acids Res)
 
 **Key Extracted Points:**
@@ -69,7 +69,7 @@
 ### Shine-Dalgarno (RBS) — Wikipedia / ScienceDirect
 
 **URL:** https://en.wikipedia.org/wiki/Shine%E2%80%93Dalgarno_sequence (search: "Shine-Dalgarno consensus sequence AGGAGG 16S rRNA ribosome binding site")
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia) / 1 (Shine & Dalgarno 1974, PNAS)
 
 **Key Extracted Points:**
