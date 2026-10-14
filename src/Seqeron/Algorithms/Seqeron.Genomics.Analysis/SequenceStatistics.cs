@@ -115,8 +115,10 @@ public static class SequenceStatistics
     /// residue codes (EMBOSS pepstats skips them). <c>Length</c> is the number of
     /// letters; non-letter symbols (stop <c>*</c>, gap <c>-</c>, digits, whitespace) are not residues
     /// and are excluded from <c>Counts</c>, <c>Length</c> and the ratio denominators. This differs from
-    /// Biopython <c>ProteinAnalysis</c>, whose denominator is <c>len(seq)</c> including such symbols;
-    /// for letter-only input the two agree exactly.</para>
+    /// Biopython <c>ProteinAnalysis</c>, whose denominator is <c>len(seq)</c> including such symbols
+    /// (opt in with <see cref="CalculateAminoAcidComposition(string, AminoAcidCompositionDenominator)"/>,
+    /// <see cref="AminoAcidCompositionDenominator.SequenceLength"/>); for letter-only input the two agree
+    /// exactly. The residue denominator is the EMBOSS pepstats "Mole%" convention.</para>
     /// <para><c>AromaticResidueRatio</c> = (F+W+Y)/Length — the aromaticity of Lobry &amp; Gautier
     /// (1994) as implemented by Biopython <c>ProteinAnalysis.aromaticity()</c> (EMBOSS pepstats'
     /// "Aromatic" class additionally includes H). <c>ChargedResidueRatio</c> = (D+E+H+K+R)/Length —
@@ -126,26 +128,57 @@ public static class SequenceStatistics
     /// <see cref="CalculateHydrophobicity"/>. Null/empty input returns Length 0, empty counts,
     /// ratios 0 and the neutral-pH pI default of those methods.</para>
     /// </remarks>
-    public static AminoAcidComposition CalculateAminoAcidComposition(string sequence)
+    public static AminoAcidComposition CalculateAminoAcidComposition(string sequence) =>
+        CalculateAminoAcidComposition(sequence, AminoAcidCompositionDenominator.Residues);
+
+    /// <summary>
+    /// Denominator of the amino-acid composition ratios
+    /// (<see cref="CalculateAminoAcidComposition(string, AminoAcidCompositionDenominator)"/>,
+    /// <see cref="CalculateAminoAcidFractions"/>).
+    /// </summary>
+    public enum AminoAcidCompositionDenominator
     {
+        /// <summary>
+        /// Number of residues (ASCII letters) — EMBOSS 6.6.0 pepstats "Mole%" convention: stop <c>*</c>,
+        /// gaps, digits and whitespace are not residues (pepstats "MKW*" → Residues = 3, Mole% 33.333).
+        /// Default.
+        /// </summary>
+        Residues = 0,
+
+        /// <summary>
+        /// Full input length <c>sequence.Length</c>, every character included — Biopython 1.88
+        /// <c>ProteinAnalysis</c> convention (<c>self.length = len(self.sequence)</c>, used by
+        /// <c>amino_acids_percent</c> and <c>aromaticity()</c>): <c>ProteinAnalysis("MKW*")</c> →
+        /// percent 25.0 each, aromaticity 0.25. For letter-only input both denominators agree.
+        /// </summary>
+        SequenceLength = 1,
+    }
+
+    /// <summary>
+    /// Amino-acid composition with a selectable ratio denominator. With
+    /// <see cref="AminoAcidCompositionDenominator.Residues"/> this is exactly
+    /// <see cref="CalculateAminoAcidComposition(string)"/>; with
+    /// <see cref="AminoAcidCompositionDenominator.SequenceLength"/> <c>ChargedResidueRatio</c> and
+    /// <c>AromaticResidueRatio</c> divide by <c>sequence.Length</c> (Biopython 1.88
+    /// <c>ProteinAnalysis.aromaticity()</c>, e.g. "mkwfy**" → 3/7). <c>Length</c>, <c>Counts</c>,
+    /// molecular weight, pI and GRAVY are unaffected by the denominator.
+    /// </summary>
+    /// <param name="sequence">Protein sequence (case-insensitive).</param>
+    /// <param name="denominator">Ratio denominator (default convention: residues).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="denominator"/> is not a defined value.</exception>
+    public static AminoAcidComposition CalculateAminoAcidComposition(
+        string sequence,
+        AminoAcidCompositionDenominator denominator)
+    {
+        ValidateCompositionDenominator(denominator);
         if (string.IsNullOrEmpty(sequence))
         {
             return new AminoAcidComposition(0, new Dictionary<char, int>(), 0, NeutralPhDefault, 0, 0, 0);
         }
 
-        var counts = new Dictionary<char, int>();
-        foreach (char raw in sequence)
-        {
-            // Residue codes are ASCII letters, folded ASCII-only (as ProteinPhysicochemistry):
-            // non-ASCII letters such as U+017F 'ſ' are not residues (EMBOSS pepstats skips them).
-            if (char.IsAsciiLetter(raw))
-            {
-                char ch = ToUpperAscii(raw);
-                counts[ch] = counts.GetValueOrDefault(ch) + 1;
-            }
-        }
-
-        int length = counts.Values.Sum();
+        var counts = CountAsciiResidues(sequence);
+        int residues = counts.Values.Sum();
+        int ratioDenominator = denominator == AminoAcidCompositionDenominator.SequenceLength ? sequence.Length : residues;
         double mw = CalculateMolecularWeight(sequence);
         double pi = CalculateIsoelectricPoint(sequence);
         double hydro = CalculateHydrophobicity(sequence);
@@ -154,21 +187,76 @@ public static class SequenceStatistics
         int charged = counts.GetValueOrDefault('D') + counts.GetValueOrDefault('E') +
                      counts.GetValueOrDefault('K') + counts.GetValueOrDefault('R') +
                      counts.GetValueOrDefault('H');
-        double chargedRatio = length > 0 ? (double)charged / length : 0;
+        double chargedRatio = ratioDenominator > 0 ? (double)charged / ratioDenominator : 0;
 
         // Aromatic residues: F, Y, W
         int aromatic = counts.GetValueOrDefault('F') + counts.GetValueOrDefault('Y') +
                       counts.GetValueOrDefault('W');
-        double aromaticRatio = length > 0 ? (double)aromatic / length : 0;
+        double aromaticRatio = ratioDenominator > 0 ? (double)aromatic / ratioDenominator : 0;
 
         return new AminoAcidComposition(
-            Length: length,
+            Length: residues,
             Counts: counts,
             MolecularWeight: mw,
             IsoelectricPoint: pi,
             Hydrophobicity: hydro,
             ChargedResidueRatio: chargedRatio,
             AromaticResidueRatio: aromaticRatio);
+    }
+
+    /// <summary>
+    /// Per-residue composition fractions count(X) / denominator for every residue code (ASCII letter,
+    /// case-insensitive, ASCII-only fold) that occurs in <paramref name="sequence"/>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="AminoAcidCompositionDenominator.Residues"/> (default) reproduces EMBOSS 6.6.0 pepstats
+    /// "Mole%"/100 (denominator = residues; "MKW*" → 1/3 each); <see cref="AminoAcidCompositionDenominator.SequenceLength"/>
+    /// reproduces Biopython 1.88 <c>ProteinAnalysis.amino_acids_percent</c>/100 (denominator = len(seq);
+    /// "MKW*" → 0.25 each, "MKW-A" → 0.2 each). Absent residues are not keys (fraction 0). Unlike
+    /// Biopython, which reports only the 20 standard residues, ambiguity/extended codes (B, X, Z, U, O, J)
+    /// are keys too — as the per-letter rows of pepstats. Null/empty input returns an empty map.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="denominator"/> is not a defined value.</exception>
+    public static IReadOnlyDictionary<char, double> CalculateAminoAcidFractions(
+        string sequence,
+        AminoAcidCompositionDenominator denominator = AminoAcidCompositionDenominator.Residues)
+    {
+        ValidateCompositionDenominator(denominator);
+        var fractions = new Dictionary<char, double>();
+        if (string.IsNullOrEmpty(sequence))
+            return fractions;
+
+        var counts = CountAsciiResidues(sequence);
+        int total = denominator == AminoAcidCompositionDenominator.SequenceLength
+            ? sequence.Length
+            : counts.Values.Sum();
+        foreach (var (residue, count) in counts)
+            fractions[residue] = (double)count / total;
+
+        return fractions;
+    }
+
+    // Residue codes are ASCII letters, folded ASCII-only (as ProteinPhysicochemistry):
+    // non-ASCII letters such as U+017F 'ſ' are not residues (EMBOSS pepstats skips them).
+    private static Dictionary<char, int> CountAsciiResidues(string sequence)
+    {
+        var counts = new Dictionary<char, int>();
+        foreach (char raw in sequence)
+        {
+            if (char.IsAsciiLetter(raw))
+            {
+                char ch = ToUpperAscii(raw);
+                counts[ch] = counts.GetValueOrDefault(ch) + 1;
+            }
+        }
+
+        return counts;
+    }
+
+    private static void ValidateCompositionDenominator(AminoAcidCompositionDenominator denominator)
+    {
+        if (!Enum.IsDefined(denominator))
+            throw new ArgumentOutOfRangeException(nameof(denominator), denominator, "Undefined composition denominator.");
     }
 
     #endregion
@@ -1320,6 +1408,92 @@ public static class SequenceStatistics
 
         return freq;
     }
+
+    /// <summary>
+    /// Normalisation of <see cref="CalculateCodonFrequencies(string, int, CodonFrequencyNormalization, GeneticCode?)"/>,
+    /// matching the columns of EMBOSS 6.6.0 <c>cusp</c>.
+    /// </summary>
+    public enum CodonFrequencyNormalization
+    {
+        /// <summary>count / total counted codons (Kazusa CUTG; cusp "Frequency"/1000). Default.</summary>
+        Total = 0,
+
+        /// <summary>count / total counted codons × 1000 — cusp "Frequency" (per thousand) column.</summary>
+        PerThousand = 1,
+
+        /// <summary>
+        /// count / Σ counts of the codons that encode the same amino acid (stop codons form one
+        /// '*' class) under the genetic code — cusp "Fraction" column.
+        /// </summary>
+        PerAminoAcid = 2,
+    }
+
+    /// <summary>
+    /// Codon usage with a selectable normalisation — the "Frequency" (per thousand) and per-amino-acid
+    /// "Fraction" columns of EMBOSS 6.6.0 <c>cusp</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>Codons are counted exactly as by <see cref="CalculateCodonFrequencies(string, int)"/> (canonical
+    /// <c>Translator.CountCodons</c>: U read as T, case-insensitive, triplets with non-ACGT symbols skipped
+    /// without shifting the frame, trailing partial triplet dropped). <see cref="CodonFrequencyNormalization.Total"/>
+    /// equals that method; <see cref="CodonFrequencyNormalization.PerThousand"/> multiplies by 1000.</para>
+    /// <para><see cref="CodonFrequencyNormalization.PerAminoAcid"/> divides each count by the total count of
+    /// its synonymous family, the amino acid being <see cref="GeneticCode.Translate(string)"/> of the codon
+    /// (stop codons share the '*' family). cusp always uses the standard code (NCBI table 1); other tables
+    /// re-group the families (e.g. table 2: AGA/AGG join '*', TGA joins W). Example (cusp-executed):
+    /// <c>…AAAAAGAAA…</c> → AAA 0.667, AAG 0.333; TAA/TAG/TGA 0.333 each.</para>
+    /// <para>Only observed codons are keys (absent codon ⇒ 0, as cusp's zero rows). Difference from cusp:
+    /// cusp maps a triplet with an ambiguous base to the lowest constituent (NNN → AAA) and counts it;
+    /// here it is skipped (B02 F9 / <c>ajCodSetTripletsS</c> contract).</para>
+    /// </remarks>
+    /// <param name="dnaSequence">DNA or RNA coding sequence.</param>
+    /// <param name="readingFrame">0-based offset of the first codon (non-negative).</param>
+    /// <param name="normalization">Output normalisation.</param>
+    /// <param name="geneticCode">Genetic code for <see cref="CodonFrequencyNormalization.PerAminoAcid"/>
+    /// (default <see cref="GeneticCode.Standard"/>, as cusp); ignored by the other normalisations.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="readingFrame"/> is negative or
+    /// <paramref name="normalization"/> is undefined.</exception>
+    public static IReadOnlyDictionary<string, double> CalculateCodonFrequencies(
+        string dnaSequence,
+        int readingFrame,
+        CodonFrequencyNormalization normalization,
+        GeneticCode? geneticCode = null)
+    {
+        if (!Enum.IsDefined(normalization))
+            throw new ArgumentOutOfRangeException(nameof(normalization), normalization, "Undefined codon normalisation.");
+
+        if (normalization == CodonFrequencyNormalization.Total)
+            return CalculateCodonFrequencies(dnaSequence, readingFrame);
+
+        var counts = Translator.CountCodons(dnaSequence, readingFrame);
+        var result = new Dictionary<string, double>(counts.Count);
+
+        if (normalization == CodonFrequencyNormalization.PerThousand)
+        {
+            int total = counts.Values.Sum();
+            foreach (var (codon, count) in counts)
+                result[codon] = count * PerThousandScale / total;
+            return result;
+        }
+
+        var code = geneticCode ?? GeneticCode.Standard;
+        var familyTotals = new Dictionary<char, int>();
+        var familyOf = new Dictionary<string, char>(counts.Count);
+        foreach (var (codon, count) in counts)
+        {
+            char aminoAcid = code.Translate(codon);
+            familyOf[codon] = aminoAcid;
+            familyTotals[aminoAcid] = familyTotals.GetValueOrDefault(aminoAcid) + count;
+        }
+
+        foreach (var (codon, count) in counts)
+            result[codon] = (double)count / familyTotals[familyOf[codon]];
+
+        return result;
+    }
+
+    // cusp "Frequency" column scale: codons per thousand counted codons.
+    private const double PerThousandScale = 1000.0;
 
     #endregion
 

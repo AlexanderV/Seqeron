@@ -110,9 +110,9 @@ Single linear pass over the sequence. The method is a frequency tabulation, not 
 - exclusion of ambiguous (non-ACGT) codons from the count [2].
 - frequencies sum to 1 (INV-02), equal to CUTG per-thousand ÷ 1000 (INV-05) [2][3].
 
-**Intentionally simplified:**
+- Per-thousand scaling and the per-amino-acid "Fraction" column of EMBOSS cusp via the overload `CalculateCodonFrequencies(seq, frame, CodonFrequencyNormalization.PerThousand | .PerAminoAcid, GeneticCode? code = Standard)` (review 2026-09 B03 F36; cusp 6.6.0 executed, locked to its 3-dp columns; families from `GeneticCode.Translate`, stops one '*' family; other NCBI tables re-group families).
 
-- Per-thousand scaling and the per-amino-acid Fraction column reported by Kazusa/cusp are not produced here; **consequence:** callers needing per-thousand multiply by 1000, and per-amino-acid proportions are out of scope for this method.
+**Intentionally simplified:** none. (cusp counts an ambiguous triplet as its lowest constituent, e.g. NNN → AAA; here such triplets are skipped — B02 F9 contract.)
 
 **Not implemented:** none. (RNA `U` handling, previously listed here, is implemented — review 2026-09 B03 F15.)
 
