@@ -5,8 +5,8 @@
 | Algorithm Group | Statistics / Protein sequence analysis |
 | Test Unit ID | SEQ-SECSTRUCT-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
-| Implementation Status | Implemented (profile + full Chou-Fasman 1978 assignment) |
-| Last Reviewed | 2026-09-28 |
+| Implementation Status | Implemented (profile + full Chou-Fasman 1978 assignment; opt-in graded 1978 rule set) |
+| Last Reviewed | 2026-10-14 |
 
 ## 1. Overview
 
@@ -79,6 +79,37 @@ Bend frequencies f(i), f(i+1), f(i+2), f(i+3) (Chou & Fasman 1978 [1] via [9][10
 
 All comparisons are done on the integer parameters (×100), so thresholds such as ⟨Pα⟩ > 1.03
 are exact (Σ Pα > 103·L).
+
+### 2.3a Graded 1978 rule set (`ChouFasmanRuleSet.Graded1978`, opt-in)
+
+`PredictSecondaryStructureChouFasman(sequence, ChouFasmanRuleSet.Graded1978)` replaces step 1 (and
+constrains step 2 for helices) with the graded-class rules of Chou & Fasman [1][2] as summarised by
+Prevelige & Fasman [11] (abbreviated rules 1-4, Table I footnotes) and CFSSP / MIT 20.320 [12]; steps 3-5
+are unchanged. Class assignments for the 1978 parameters (Prevelige & Fasman Table II [11], agrees with [5]):
+
+| Class | Helix (Pα) | Sheet (Pβ) |
+|-------|------------|------------|
+| H strong former | E M A L | V I Y |
+| h former | K F Q W I V | F W L C T Q M |
+| I weak former | D H | — (no residue) |
+| i indifferent | R T S C | R N H A |
+| b breaker | Y N | S G K |
+| B strong breaker | P G | P D E |
+
+1. **Graded nucleation.** Helix: 6-residue window with H/h counted 1 and Iα counted ½ (≥ 4 formers;
+   "Iα count as 0.5 hα" [12]) and at most one bα/Bα breaker ("unfavourable if ⅓ or more breakers" [12];
+   "< 2 breakers" [13]). Sheet: 5-residue window, ≥ 3 Hβ/hβ formers (Iβ ½ — empty class for the 1978
+   table), at most one bβ/Bβ breaker.
+2. **Boundary residues.** "Iα assignments are also given to Pro and Asp (near the N-terminal helix) as well
+   as Arg (near the C-terminal helix); bβ assignment is also given to Trp (near the C-terminal β region)"
+   [11, Table I footnotes b, c] — the class form of "Pro, Asp⁻, Glu⁻ prefer the N-terminal helical end;
+   His⁺, Lys⁺, Arg⁺ the C-terminal end" [12] (Asp/His are already Iα, Glu Hα, Lys hα in 1978).
+   Convention: "near the N-/C-terminal end" = the first/last three residues of the helix window (the first
+   helical turn, where Pro is permitted) and the last two residues of the sheet window.
+3. **Proline rule.** "Proline cannot occur in the inner helix or at the C-terminal helical end but can occur
+   within the last three residues at the N-terminal end" [11]: a helix window with Pro at offset ≥ 3 cannot
+   nucleate, C-terminal extension never adds Pro, and N-terminal extension stops when it would move a Pro
+   beyond the third helix residue.
 
 ### 2.4 Properties and Invariants
 
@@ -176,6 +207,9 @@ repository suffix tree is not applicable (no substring search is performed).
   (Helix, Sheet, Turn) Chou-Fasman propensity tuples.
 - `SequenceStatistics.PredictSecondaryStructureChouFasman(string)`: discrete per-residue
   Chou-Fasman assignment (H/E/T/C), §2.3. Public constants `ChouFasmanHelix/Sheet/Turn/Coil`.
+- `SequenceStatistics.PredictSecondaryStructureChouFasman(string, ChouFasmanRuleSet)`:
+  `Standard` (= one-argument overload) or `Graded1978` (§2.3a). Undefined enum value →
+  `ArgumentOutOfRangeException`.
 
 ### 5.2 Current Behavior
 
@@ -196,10 +230,13 @@ repository suffix tree was evaluated and is not applicable.
   and 3/5, tetrapeptide extension, 1.03/1.05 acceptance with ⟨Pα⟩ vs ⟨Pβ⟩, overlap
   resolution, β-turn p(t) > 7.5e-5 rule with 1978 bend frequencies [1][8][9][10].
 
-**Not implemented:** the finer 1978 refinements that grade residues into strong/weak
-formers, indifferent and breakers (Hα/hα/Iα/bα/Bα) with fractional counting and the
-boundary-residue (N-/C-cap) preferences [1]; the rules above are the widely used
-formulation stated in [8].
+- Graded 1978 classes (Hα/hα/Iα/iα/bα/Bα, Hβ/hβ/iβ/bβ/Bβ) with fractional counting, the
+  breaker limit, the Pro rule and the boundary-residue reassignments, opt-in via
+  `ChouFasmanRuleSet.Graded1978` (§2.3a) [1][11][12][13]. The default stays the [8] formulation.
+
+**Not implemented:** the hand "data reduction" judgements of [11] §V (including terminal class-i
+residues by eye, preferring helix lengths that are multiples of four, resolving overlapping turns by
+the higher local p(t)); they are explicitly left to the user by the authors and have no algorithmic form.
 
 ### 5.4 Deviations and Assumptions
 
@@ -212,6 +249,8 @@ formulation stated in [8].
 | 5 | Overlap tie ⟨Pα⟩ = ⟨Pβ⟩ → strand | Convention | Ties only | accepted | Literal rule "helix if ⟨Pα⟩ > ⟨Pβ⟩" as in ravihansa3000 and kalliapap implementations |
 | 6 | Turn marks all four residues; turns override H/E | Convention | Turn span | accepted | A β-turn is a tetrapeptide [1]; kalliapap marks 4 residues and applies turns last |
 | 7 | Unknown residues in assignment are coil and block windows | Assumption | Sequences with X/B/Z | accepted | No parameters exist for them [1] |
+| 8 | Graded1978 boundary zones: first/last 3 residues of the helix window, last 2 of the sheet window | Convention | Pro/Arg/Trp reassignments | accepted | Sources say only "near the N-/C-terminal end" [11]; 3 = first helical turn where Pro is allowed [11] |
+| 9 | Graded1978 Pro rule applied per extended segment | Convention | Adjacent helices whose union contains an inner Pro | accepted | [11] rule 1 is stated for a single helix |
 
 ## 6. Edge Cases and Limitations
 
@@ -268,3 +307,6 @@ window [E,V] → ((1.51+1.06)/2, (0.37+1.70)/2, (0.74+0.50)/2) = (1.285, 1.035, 
 8. Chen H, Gu F, Huang Z. 2006. Improved Chou-Fasman method for protein secondary structure prediction. BMC Bioinformatics 7(Suppl 4):S14. https://pmc.ncbi.nlm.nih.gov/articles/PMC1780123/
 9. Grinnell ExBioPy Project 7.5 turn rule and prowl.rockefeller.edu Chou-Fasman table, as reproduced in ravihansa3000/ChouFasman (`ChouFasman.py`, by residue name) — https://raw.githubusercontent.com/ravihansa3000/ChouFasman/master/ChouFasman.py (accessed 2026-09-28)
 10. hassan11196/Chou-Fasman (`DS PROJECT Chou Fashman.cpp`, same table by one-letter code) — https://github.com/hassan11196/Chou-Fasman (git clone, 2026-09-28)
+11. Prevelige P Jr, Fasman GD. 1989. Chou-Fasman prediction of the secondary structure of proteins: the Chou-Fasman-Prevelige algorithm. In: Fasman GD (ed.) Prediction of Protein Structure and the Principles of Protein Conformation, Plenum, pp. 391-416 (Table I, Table II, rules 1-4). PDF: https://cfpred.sourceforge.net/preveligeandfasman1989.pdf (accessed 2026-10-14)
+12. Kumar TA. 2013. CFSSP: Chou and Fasman Secondary Structure Prediction server (rule statements "Iα count as 0.5 hα", "⅓ or more breakers"); MIT OCW 20.320 Problem Set 2 (2009), Criteria 1-3 — via search-engine extracts (sites not reachable from the sandbox), 2026-10-14
+13. Maclin R, Shavlik J. UCI "protein-secondary-structure.theory" (Chou-Fasman domain theory: ≥ 4 formers with two high-indifferent = one former, < 2 breakers; sheet ≥ 3 of 5, < 2 breakers) — https://raw.githubusercontent.com/graingert/PyPred/master/protein-secondary-structure/protein-secondary-structure.theory (accessed 2026-10-14)

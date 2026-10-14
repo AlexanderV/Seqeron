@@ -202,6 +202,20 @@ All 16 in-scope cases ✅.
 | CF10 | null / "" / "A" / "AAAAA" | "" / "" / "C" / "CCCCC" | contract |
 | CF-F | 500 random polluted inputs (fuzz) | length preserved, [HETC] only, case-insensitive, junk → C | contract |
 
+### 5.8 Completeness audit 2026-10 (B03 F34) — `ChouFasmanRuleSet.Graded1978`
+
+| ID | Test Case | Expected (Graded / Standard) | Evidence |
+|----|-----------|------------------------------|----------|
+| CG1 | "AAAHHS" | HHHHHH / CCCCCC (Iα counts ½) | CFSSP/MIT ½ rule; Table II |
+| CG2 | "EEEENY", "EEEESY" | CCCCCC / HHHHHH; HHHHHH / HHHHHH (≤ 1 breaker) | CFSSP ⅓ rule; UCI theory |
+| CG3 | "EEESRR", "RRSEEE" | HHHHHH; CCCCCC (Arg Iα near C-terminus) | Table I footnote b |
+| CG4 | "PNEEEE" | HHHHHH (Pro Iα in N-terminal turn) | Table I footnote b; rule 1 |
+| CG5 | "EEEEEEP", "AEEPEEEEE", "PAEEEEEE" | HHHHHHC / HHHHHHH; CHHHHHHHH / HHHHHHHHH; HHHHHHHH / same | rule 1 (Pro) |
+| CG6 | "VVVSW", "WVVVS" | CCCCC / EEEEE; EEEEE / EEEEE (Trp bβ near C-terminus) | Table I footnote c |
+| CG7 | "EEEEGG" | CCTTTT / HHTTTT (turn step shared) | rules 3-4 |
+| CG8 | haemoglobin α P69905 | Python-reference strings; lowercase identical | Evidence F34 cross-check |
+| CG9 | Standard ≡ one-arg overload; null/""/X; undefined enum → ArgumentOutOfRangeException | contract | contract |
+
 ## 6. Assumption Register
 
 **Total assumptions:** 3

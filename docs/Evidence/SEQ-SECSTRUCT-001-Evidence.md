@@ -124,6 +124,70 @@ sliding-window profile under test (only Pa/Pb/Pt are averaged).
 - Blocked this session: prowl.rockefeller.edu, crdd.osdd.net, cs.princeton.edu, arxiv.org,
   biogem.org (egress 403); WebSearch snippets only.
 
+### 2026-10 completeness audit (B03 F34) — graded 1978 rule set (opened 2026-10-14)
+
+- **Prevelige & Fasman (1989)**, book chapter PDF hosted by the cfPred project
+  (https://cfpred.sourceforge.net/preveligeandfasman1989.pdf, downloaded; scanned, pages rendered at
+  300 dpi and read visually because the OCR layer is garbled):
+  - **Table II** (29 proteins, "From Chou and Fasman (1977, 1978)") brackets the 1978 parameters into
+    classes: Pα — Hα Glu 1.51 Met 1.45 Ala 1.42 Leu 1.21; hα Lys 1.16 Phe 1.13 Gln 1.11 Trp 1.08 Ile 1.08
+    Val 1.06; Iα Asp 1.01 His 1.00; iα Arg 0.98 Thr 0.83 Ser 0.77 Cys 0.70; bα Tyr 0.69 Asn 0.67;
+    Bα Pro 0.57 Gly 0.57. Pβ — Hβ Val 1.70 Ile 1.60 Tyr 1.47; hβ Phe 1.38 Trp 1.37 Leu 1.30 Cys 1.19
+    Thr 1.19 Gln 1.10 Met 1.05; iβ Arg 0.93 Asn 0.89 His 0.87 Ala 0.83; bβ Ser 0.75 Gly 0.75 Lys 0.74;
+    Bβ Pro 0.55 Asp 0.54 Glu 0.37 (no Iβ residue in 1978). All Pα/Pβ values equal the code table.
+    Independent confirmation (WebSearch extract of the CSB|SJU table [5]): Glu H/B, Met H/h, Ala H/i,
+    Leu H/h, Asp I/B, Pro B/B, Gly B/b, Ser i/b, Lys h/b.
+  - **Table I** (1974b, 15 proteins) footnotes: "Hα strong α former; hα α former; Iα weak α former;
+    iα α indifferent; bα α breaker; Bα strong α breaker. Iα assignments are also given to Pro and Asp
+    (near the N-terminal helix) as well as Arg (near the C-terminal helix)." / "… bβ assignment is also
+    given to Trp (near the C-terminal β region)."
+  - **Rules 1-4 (Fasman 1985)**: "A cluster of four helical residues (Hα or hα) out of six … will initiate
+    a helix … extended in both directions until sets of tetrapeptide breakers (⟨Pα⟩ < 1.00) are reached.
+    Proline cannot occur in the inner helix or at the C-terminal helical end but can occur within the last
+    three residues at the N-terminal end … Any segment that is at least six residues long with
+    ⟨Pα⟩ > 1.03 and ⟨Pα⟩ > ⟨Pβ⟩ is predicted as helical." β: "three β formers out of five … terminated
+    by tetrapeptide breakers (⟨Pβ⟩ < 1.00) … ⟨Pβ⟩ > 1.05 as well as ⟨Pβ⟩ > ⟨Pα⟩". Turn and overlap rules
+    are the ones already implemented.
+  - §V "data reduction" is a by-hand procedure (judging terminal class-i residues, multiples of four,
+    overlapping turns) — explicitly not automated by the authors; not implemented.
+- **CFSSP (Kumar 2013) / MIT OCW 20.320 PS2 (2009) Criteria 1-3** (WebSearch extracts; core.ac.uk,
+  ocw.mit.edu, biogem.org, researchgate blocked by egress): "Weak helical residues (Iα) count as 0.5 hα
+  (i.e. three hα and two Iα residues out of six could also nucleate a helix)"; "Helix formation is
+  unfavorable if the segment contains ⅓ or more helix breakers (bα or Bα), or less than ½ helix formers";
+  β: three of five, "unfavorable if … ⅓ or more β-sheet breakers (bβ or Bβ)"; "Pro, Asp(−), Glu(−)
+  prefer the N-terminal helical end. His(+), Lys(+), Arg(+) prefer the C-terminal helical end."
+- **Maclin & Shavlik UCI domain theory** (raw.githubusercontent graingert/PyPred, fetched): helix nucleus
+  "at least four are helix formers and less than two are helix breakers (two helix high-indifferent amino
+  acids count as a helix former)"; sheet "at least three sheet formers and less than two sheet breakers" —
+  independent confirmation of the ½ count and the ≤ 1 breaker limit.
+- **Runnable reference attempt**: cfPred (sourceforge `cfPred.zip`, `cfPred_New.zip`, a C port of
+  Prevelige's PREDICT.c) ships Windows binaries only and prints the parameter/tetrapeptide table (the
+  assignment is done by hand, by design). 23 GitHub Chou-Fasman ports cloned (greg-gardner, seongminlab,
+  Alpha-Park, sau-arv-gul, moyankate, nipunlakshank, berserk-23115, vidushikapoor, 003733m, Oneyedeagle,
+  grpndr, Arnav1215, hamzafarooq009, jseidel5, alickgf/ICF, ZainFormatics, ardahuseyinoglu, 745talha,
+  kmn01, ahmedhesham47/PyAA, EishaMazhar, deepesh336, evanimenon): none implements graded classes
+  (grep for breaker/indifferent/weak former). **No runnable graded reference exists** → expected outputs
+  are hand-traced from the rules above (below) and cross-checked against an independent Python reference.
+
+#### Hand traces (Graded1978; integer parameters ×100)
+
+| Input | Trace | Graded | Standard |
+|-------|-------|--------|----------|
+| AAAHHS | A Hα×3 = 3, H Iα×2 = ½+½ → 4 formers, 0 breakers → nucleus; ΣPα 703 > 618, ΣPβ 498; sheet: no formers; turns ⟨Pt⟩ ≤ 0.9975 | HHHHHH | CCCCCC (His Pα = 1.00 is not > 1.00) |
+| EEEENY | 4 Hα, N + Y = 2 bα → rejected | CCCCCC | HHHHHH |
+| EEESRR | E×3 + Arg at offsets 4,5 (C-terminal zone) → Iα ½+½ = 4; ΣPα 726 > 618 | HHHHHH | CCCCCC |
+| RRSEEE | Arg at N-terminal side stays iα → 3 formers; turns p(t) 5.9e-5 / 4.8e-5 | CCCCCC | CCCCCC |
+| PNEEEE | Pro offset 0 → Iα; 4 Hα + ½, 1 breaker (N); ΣPα 728 > 618 | HHHHHH | HHHHHH |
+| VVVSW | sheet: 3 Hβ, S bβ + W (offset 4) bβ = 2 breakers → rejected; helix: ΣPα 503 < 618 | CCCCC | EEEEE |
+| WVVVS | W offset 0 = hβ → 4 formers, 1 breaker; ΣPβ 722 > 525 and > ΣPα 503 | EEEEE | EEEEE |
+| EEEEEEP | nucleus 0..5; C-extension to Pro forbidden; window 1..6 has Pro at offset 5 | HHHHHHC | HHHHHHH |
+| AEEPEEEEE | window 0 rejected (Pro offset 3); nuclei 1..6, 2..7, 3..8 extend to 1..8; N-extension to A would put Pro at helix position 4 | CHHHHHHHH | HHHHHHHHH |
+| EEEEGG | G,G = 2 Bα → no helix; EEGG turn (p(t) 9.70e-5) | CCTTTT | HHTTTT |
+
+Executed cross-check: independent Python reference (`cf_graded.py`, scratchpad) vs C# on 3000 random
+sequences (lengths 1-60, P/R/W/E/A/V/D/H/N/Y-enriched): 3000/3000 identical; 1302/3000 differ from
+`Standard`. Human haemoglobin α (P69905) locked (differs from Standard at residues 1-3 and 38).
+
 ### Stage B (2026-09-28) — executed cross-checks
 
 1. Independent Python reference of rules 1-5 (`cf_ref.py`, scratchpad) vs the ravihansa3000
@@ -231,3 +295,4 @@ sliding-window profile under test (only Pa/Pb/Pt are averaged).
 
 - **2026-06-13**: Initial documentation (SEQ-SECSTRUCT-001).
 - **2026-09-28**: Review 2026-09 (B03): full Chou-Fasman assignment sources, 1978 bend frequencies, ravihansa3000 N/D symbol swap noted, Stage B cross-checks.
+- **2026-10-14**: B03 F34: graded 1978 rule set (Prevelige & Fasman 1989 Table II classes, Table I footnotes, rules 1-4; CFSSP/MIT ½-count and breaker limit; UCI domain theory), hand traces, Python cross-check 3000/3000.

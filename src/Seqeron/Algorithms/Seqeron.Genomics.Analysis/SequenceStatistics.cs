@@ -1493,6 +1493,29 @@ public static class SequenceStatistics
     private const int TurnMinimumPtSum = 400;       // tetrapeptide <Pt> > 1.00
     private const double TurnBendProbabilityThreshold = 7.5e-5; // p(t) = f(i)f(i+1)f(i+2)f(i+3)
 
+    /// <summary>
+    /// Nucleation rule set of <see cref="PredictSecondaryStructureChouFasman(string, ChouFasmanRuleSet)"/>.
+    /// </summary>
+    public enum ChouFasmanRuleSet
+    {
+        /// <summary>Default: a residue is a former when its parameter exceeds 1.00 (Pα &gt; 1.00 /
+        /// Pβ &gt; 1.00); nucleus = ≥ 4 formers in 6 (helix) / ≥ 3 in 5 (sheet); breakers are not counted
+        /// (Chen, Gu &amp; Huang 2006 statement of the rules). Same output as the one-argument overload.</summary>
+        Standard = 0,
+
+        /// <summary>Chou &amp; Fasman (1978) graded classes for the 1978 parameters (Prevelige &amp; Fasman 1989
+        /// Table II): helix Hα = E M A L, hα = K F Q W I V, Iα = D H, iα = R T S C, bα = Y N, Bα = P G;
+        /// sheet Hβ = V I Y, hβ = F W L C T Q M, iβ = R N H A, bβ = S G K, Bβ = P D E (no Iβ residue).
+        /// Nucleus: Hα/hα (Hβ/hβ) count 1, Iα (Iβ) ½; helix ≥ 4 of 6, sheet ≥ 3 of 5, and at most one
+        /// breaker (b or B; ≥ ⅓ breakers is unfavourable). Boundary rules: Pro may occur only in the first three
+        /// helix residues (it is never added at the C-terminal end or inside the helix) and counts as Iα in the
+        /// N-terminal turn of a helix nucleus; Arg counts as Iα in the C-terminal three residues of a helix
+        /// nucleus; Trp counts as bβ in the C-terminal two residues of a sheet nucleus. Extension (until a
+        /// tetrapeptide mean &lt; 1.00), acceptance (⟨Pα⟩ &gt; 1.03 / ⟨Pβ⟩ &gt; 1.05 and greater than the
+        /// competitor), overlap and β-turn steps are those of <see cref="Standard"/>.</summary>
+        Graded1978 = 1,
+    }
+
     /// <summary>Per-residue state code: α-helix.</summary>
     public const char ChouFasmanHelix = 'H';
     /// <summary>Per-residue state code: β-strand (sheet).</summary>
@@ -1530,10 +1553,31 @@ public static class SequenceStatistics
     /// <see cref="ChouFasmanHelix"/> ('H'), <see cref="ChouFasmanSheet"/> ('E'),
     /// <see cref="ChouFasmanTurn"/> ('T') or <see cref="ChouFasmanCoil"/> ('C').
     /// Empty for null/empty input.</returns>
-    public static string PredictSecondaryStructureChouFasman(string proteinSequence)
+    public static string PredictSecondaryStructureChouFasman(string proteinSequence) =>
+        PredictSecondaryStructureChouFasman(proteinSequence, ChouFasmanRuleSet.Standard);
+
+    /// <summary>
+    /// Discrete Chou &amp; Fasman assignment with a selectable nucleation rule set.
+    /// <see cref="ChouFasmanRuleSet.Standard"/> is identical to
+    /// <see cref="PredictSecondaryStructureChouFasman(string)"/>;
+    /// <see cref="ChouFasmanRuleSet.Graded1978"/> applies the graded former/breaker classes
+    /// (Hα/hα/Iα/iα/bα/Bα, Hβ/hβ/Iβ/iβ/bβ/Bβ) of Chou &amp; Fasman (1978), fractional former counting,
+    /// the breaker limit, the proline rule and the helix/sheet boundary reassignments — see
+    /// <see cref="ChouFasmanRuleSet.Graded1978"/>. Extension, acceptance, overlap and β-turn steps are shared.
+    /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive.</param>
+    /// <param name="ruleSet">Nucleation rule set (default behaviour = <see cref="ChouFasmanRuleSet.Standard"/>).</param>
+    /// <returns>One state code (H/E/T/C) per residue; empty for null/empty input.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ruleSet"/> is not a defined value.</exception>
+    public static string PredictSecondaryStructureChouFasman(string proteinSequence, ChouFasmanRuleSet ruleSet)
     {
+        if (ruleSet is not (ChouFasmanRuleSet.Standard or ChouFasmanRuleSet.Graded1978))
+            throw new ArgumentOutOfRangeException(nameof(ruleSet), ruleSet, "Unknown Chou-Fasman rule set.");
+
         if (string.IsNullOrEmpty(proteinSequence))
             return string.Empty;
+
+        bool graded = ruleSet == ChouFasmanRuleSet.Graded1978;
 
         int n = proteinSequence.Length;
         var parameters = new ChouFasmanParameters?[n];
@@ -1543,10 +1587,24 @@ public static class SequenceStatistics
                 parameters[i] = p;
         }
 
-        bool[] helix = FindChouFasmanSegments(parameters, static p => p.Pa, static p => p.Pb,
-            HelixNucleationWindow, HelixNucleationFormers, HelixAcceptThreshold);
-        bool[] sheet = FindChouFasmanSegments(parameters, static p => p.Pb, static p => p.Pa,
-            SheetNucleationWindow, SheetNucleationFormers, SheetAcceptThreshold);
+        bool[] helix, sheet;
+        if (graded)
+        {
+            string upper = proteinSequence.ToUpperInvariant();
+            helix = FindChouFasmanSegments(parameters, static p => p.Pa, static p => p.Pb,
+                HelixNucleationWindow, HelixNucleationFormers, HelixAcceptThreshold,
+                (start, window) => IsGradedHelixNucleus(upper, start, window), upper);
+            sheet = FindChouFasmanSegments(parameters, static p => p.Pb, static p => p.Pa,
+                SheetNucleationWindow, SheetNucleationFormers, SheetAcceptThreshold,
+                (start, window) => IsGradedSheetNucleus(upper, start, window), null);
+        }
+        else
+        {
+            helix = FindChouFasmanSegments(parameters, static p => p.Pa, static p => p.Pb,
+                HelixNucleationWindow, HelixNucleationFormers, HelixAcceptThreshold, null, null);
+            sheet = FindChouFasmanSegments(parameters, static p => p.Pb, static p => p.Pa,
+                SheetNucleationWindow, SheetNucleationFormers, SheetAcceptThreshold, null, null);
+        }
 
         var states = new char[n];
         Array.Fill(states, ChouFasmanCoil);
@@ -1599,7 +1657,9 @@ public static class SequenceStatistics
         Func<ChouFasmanParameters, int> competitor,
         int window,
         int minimumFormers,
-        int acceptThreshold)
+        int acceptThreshold,
+        Func<int, int, bool>? gradedNucleus,
+        string? prolineRuleSequence)
     {
         int n = parameters.Length;
         var covered = new bool[n];
@@ -1613,16 +1673,22 @@ public static class SequenceStatistics
                 if (parameters[k] is not { } p) { allKnown = false; break; }
                 if (own(p) > FormerThreshold) formers++;
             }
-            if (!allKnown || formers < minimumFormers)
+            if (!allKnown)
+                continue;
+            if (gradedNucleus is null ? formers < minimumFormers : !gradedNucleus(start, window))
                 continue;
 
             int first = start, last = start + window - 1;
 
             // C-terminal extension: tetrapeptide = last three segment residues + the new residue.
-            while (last + 1 < n && TetrapeptideSum(parameters, last - 2, own) >= ExtensionMinimumSum)
+            // Proline rule (graded helix only): Pro is never added at the C-terminal end.
+            while (last + 1 < n && TetrapeptideSum(parameters, last - 2, own) >= ExtensionMinimumSum
+                   && !(prolineRuleSequence is not null && prolineRuleSequence[last + 1] == 'P'))
                 last++;
             // N-terminal extension: tetrapeptide = the new residue + first three segment residues.
-            while (first - 1 >= 0 && TetrapeptideSum(parameters, first - 1, own) >= ExtensionMinimumSum)
+            // Proline rule (graded helix only): every Pro must stay within the first three helix residues.
+            while (first - 1 >= 0 && TetrapeptideSum(parameters, first - 1, own) >= ExtensionMinimumSum
+                   && (prolineRuleSequence is null || ProlinesWithinNTerminalTurn(prolineRuleSequence, first - 1, last)))
                 first--;
 
             long sumOwn = 0, sumCompetitor = 0;
@@ -1656,6 +1722,108 @@ public static class SequenceStatistics
             sum += selector(p);
         }
         return sum;
+    }
+
+    // ---- Graded 1978 rule set (ChouFasmanRuleSet.Graded1978) ----
+    // Class assignments for the 1978 (29-protein) parameters: Chou & Fasman (1978) as reproduced in
+    // Prevelige & Fasman (1989) Table II (brackets Hα/hα/Iα/iα/bα/Bα and Hβ/hβ/iβ/bβ/Bβ; no residue is Iβ).
+    private enum ChouFasmanClass { StrongFormer, Former, WeakFormer, Indifferent, Breaker, StrongBreaker }
+
+    private const string HelixStrongFormers = "EMAL";     // Hα
+    private const string HelixFormers = "KFQWIV";         // hα
+    private const string HelixWeakFormers = "DH";         // Iα
+    private const string HelixBreakers = "YN";            // bα
+    private const string HelixStrongBreakers = "PG";      // Bα   (iα = R T S C)
+    private const string SheetStrongFormers = "VIY";      // Hβ
+    private const string SheetFormers = "FWLCTQM";        // hβ
+    private const string SheetBreakers = "SGK";           // bβ
+    private const string SheetStrongBreakers = "PDE";     // Bβ   (iβ = R N H A; Iβ empty)
+
+    // Fractional counting in half-former units: Hα/hα (Hβ/hβ) = 2, Iα (Iβ) = 1 ("Iα counts as ½ hα").
+    private const int HalfUnitsPerFormer = 2;
+    private const int MaximumNucleusBreakers = 1;         // ≥ 1/3 breakers (bα/Bα, bβ/Bβ) is unfavourable
+    // Boundary zone of a nucleation window: residues "near the N-terminal end" are window offsets
+    // 0..2 (the first helical turn, where Pro is allowed); "near the C-terminal end" are the last three
+    // offsets of the helix window and the last two of the β window.
+    private const int HelixBoundaryZone = 3;
+    private const int SheetBoundaryZone = 2;
+
+    private static ChouFasmanClass HelixClass(char residue) => residue switch
+    {
+        _ when HelixStrongFormers.Contains(residue) => ChouFasmanClass.StrongFormer,
+        _ when HelixFormers.Contains(residue) => ChouFasmanClass.Former,
+        _ when HelixWeakFormers.Contains(residue) => ChouFasmanClass.WeakFormer,
+        _ when HelixBreakers.Contains(residue) => ChouFasmanClass.Breaker,
+        _ when HelixStrongBreakers.Contains(residue) => ChouFasmanClass.StrongBreaker,
+        _ => ChouFasmanClass.Indifferent,
+    };
+
+    private static ChouFasmanClass SheetClass(char residue) => residue switch
+    {
+        _ when SheetStrongFormers.Contains(residue) => ChouFasmanClass.StrongFormer,
+        _ when SheetFormers.Contains(residue) => ChouFasmanClass.Former,
+        _ when SheetBreakers.Contains(residue) => ChouFasmanClass.Breaker,
+        _ when SheetStrongBreakers.Contains(residue) => ChouFasmanClass.StrongBreaker,
+        _ => ChouFasmanClass.Indifferent,
+    };
+
+    private static bool IsGradedNucleus(IEnumerable<ChouFasmanClass> classes, int requiredFormers)
+    {
+        int halfUnits = 0, breakers = 0;
+        foreach (var c in classes)
+        {
+            halfUnits += c switch
+            {
+                ChouFasmanClass.StrongFormer or ChouFasmanClass.Former => HalfUnitsPerFormer,
+                ChouFasmanClass.WeakFormer => 1,
+                _ => 0,
+            };
+            if (c is ChouFasmanClass.Breaker or ChouFasmanClass.StrongBreaker)
+                breakers++;
+        }
+        return halfUnits >= requiredFormers * HalfUnitsPerFormer && breakers <= MaximumNucleusBreakers;
+    }
+
+    // Helix nucleus: Pro may only occupy the N-terminal turn (offsets 0..2) and is then assigned Iα;
+    // Arg near the C-terminal end (last three offsets) is assigned Iα (Table I footnote b).
+    private static bool IsGradedHelixNucleus(string upper, int start, int window)
+    {
+        var classes = new ChouFasmanClass[window];
+        for (int k = 0; k < window; k++)
+        {
+            char r = upper[start + k];
+            bool nTerminal = k < HelixBoundaryZone;
+            bool cTerminal = k >= window - HelixBoundaryZone;
+            if (r == 'P' && !nTerminal)
+                return false;
+            classes[k] = (r == 'P' && nTerminal) || (r == 'R' && cTerminal)
+                ? ChouFasmanClass.WeakFormer
+                : HelixClass(r);
+        }
+        return IsGradedNucleus(classes, HelixNucleationFormers);
+    }
+
+    // Sheet nucleus: Trp near the C-terminal end (last two offsets) is assigned bβ (Table I footnote c).
+    private static bool IsGradedSheetNucleus(string upper, int start, int window)
+    {
+        var classes = new ChouFasmanClass[window];
+        for (int k = 0; k < window; k++)
+        {
+            char r = upper[start + k];
+            classes[k] = r == 'W' && k >= window - SheetBoundaryZone ? ChouFasmanClass.Breaker : SheetClass(r);
+        }
+        return IsGradedNucleus(classes, SheetNucleationFormers);
+    }
+
+    // True if every Pro in [first, last] lies within the first three residues of the segment.
+    private static bool ProlinesWithinNTerminalTurn(string upper, int first, int last)
+    {
+        for (int k = first + HelixBoundaryZone; k <= last; k++)
+        {
+            if (upper[k] == 'P')
+                return false;
+        }
+        return true;
     }
 
     private static bool IsChouFasmanTurn(ChouFasmanParameters?[] parameters, int i)
