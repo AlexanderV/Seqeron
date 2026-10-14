@@ -18,6 +18,21 @@ and commits it after every change. Batch definitions (units, owned files) are in
   (re-audit their reports first — later batches may have resolved items), THEN Phase 2 (cross-batch dedup),
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
+- **Decide before spending (user 2026-10-14, after the B08 restarts):** before any interrupt, relaunch or new session
+  that costs real money, say the cost and the expected gain first, and do not retry while the cause of the failure is
+  still true (e.g. the model fallback is account-wide at that minute — then report and wait, do not relaunch). A batch
+  already flagged unfinishable gets no further spend without the user's decision. Never create a session for work the
+  user may be restarting themselves — ask who does it. Waste this rule exists to prevent: the 10:53 B08 relaunch
+  ($10, the fallback was account-wide and the new session fell back too), ~$199 spent on resume-2 without first asking
+  whether an off-model B08 was worth full price, and the duplicate FIN-B03 at 14:03 ($0.22).
+- **Scope of a model re-verification pass (user 2026-10-14):** off-model work does NOT have to be redone. What is
+  model-independent stays valid — oracle numbers recorded in Evidence (CRISPOR, Biopython Restriction, matrices read
+  from the papers), the tests that lock them bit-exactly, and the cited source line or formula. What needs a pass on
+  claude-opus-5-5 is the judgement: which convention is canonical where sources disagree, whether a divergence is a
+  defect or a documented deviation, whether a BLOCKED proof really proves it, whether an unsourced heuristic may stay.
+  So the pending B08 pass is a REVIEW of those decisions against the recorded evidence, not a re-run of the batch, and
+  it must check each test expectation against the oracle number in Evidence — green tests written off-model can lock in
+  a wrong expectation. Every B08 F-entry must therefore carry its oracle number in Evidence.
 - **Model — claude-opus-5-5 for EVERY session (user 2026-10-14):** these are algorithms; output from another model
   does real damage, so the model is checked, never assumed. `create_session`'s `model` is not always honoured.
   Verify right after launch AND at every check-in with `get_session`: BOTH `session_context.model` and
