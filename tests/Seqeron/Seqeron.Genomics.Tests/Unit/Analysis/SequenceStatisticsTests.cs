@@ -236,6 +236,36 @@ public class SequenceStatisticsTests
         Assert.That(tm, Is.EqualTo(24.0).Within(0.1));
     }
 
+    // F25 (FIN-B03 A4) — basic Tm routed to ThermoConstants. Biopython 1.88 executed:
+    // Tm_Wallace(s) and Tm_GC(s, userset=(64.9, 0.41, 672.4, 0), saltcorr=0) (OligoCalc basic Tm).
+    [TestCase("ATGCATGC", true, 24.0)]
+    [TestCase("ATGCATGC", false, 1.3500000000000085)]
+    [TestCase("ACGUACGU", false, 1.3500000000000085)]
+    [TestCase("ACGTACGTACGTACGTAC", true, 48.04444444444445)]
+    [TestCase("ACGTACGTACGTACGTAC", false, 48.04444444444445)]
+    public void CalculateMeltingTemperature_MatchesBiopythonBasicTm(string seq, bool wallace, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateMeltingTemperature(seq, wallace), Is.EqualTo(expected).Within(1e-12));
+    }
+
+    // F25 — bit-identical to the canonical ThermoConstants basic Tm (and to the pre-routing
+    // composition-based count, including non-ASCII ſ/ı that ToUpperInvariant maps to S/I) on random input.
+    [Test]
+    public void CalculateMeltingTemperature_EqualsCanonicalThermoConstants_Random()
+    {
+        var rng = new Random(4862);
+        const string alphabet = "ACGTUacgtuNnSWRY-\u017F\u0131 ";
+        for (int iter = 0; iter < 2000; iter++)
+        {
+            var s = new string(Enumerable.Range(0, rng.Next(0, 40)).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray());
+            var comp = SequenceStatistics.CalculateNucleotideComposition(s);
+            int at = comp.CountA + comp.CountT + comp.CountU, gc = comp.CountG + comp.CountC;
+            Assert.That(SequenceStatistics.CalculateMeltingTemperature(s, true), Is.EqualTo(ThermoConstants.CalculateBasicTm(s)));
+            Assert.That(SequenceStatistics.CalculateMeltingTemperature(s, false),
+                Is.EqualTo(at + gc == 0 ? 0 : ThermoConstants.CalculateMarmurDotyTm(gc, at + gc)), s);
+        }
+    }
+
     [Test]
     public void CalculateMeltingTemperature_EmptyString_ReturnsZero()
     {

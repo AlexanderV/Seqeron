@@ -131,13 +131,14 @@ source-cited in code.
 
 - `SequenceStatistics.CalculateMeltingTemperature(string, bool)`: Wallace / Marmur-Doty estimate.
 - `SequenceStatistics.CalculateThermodynamics(string, double, double)`: NN ΔH°/ΔS°/ΔG°/Tm.
-- `ThermoConstants.CalculateWallaceTm`, `CalculateMarmurDotyTm`: shared formula constants.
+- `ThermoConstants.CalculateBasicTm` (canonical basic Tm; `useWallaceRule: true`) and
+  `ThermoConstants.CountBasicTmBases` + `CalculateMarmurDotyTm` (`useWallaceRule: false`) — B03 F25.
 
 ### 5.2 Current Behavior
 
-`CalculateMeltingTemperature` delegates the formula constants to `ThermoConstants`
-(the same constants used by `PrimerDesigner.CalculateMeltingTemperature` in the MolTools
-project — the formula is consolidated in one place). The repository default total strand
+`CalculateMeltingTemperature` delegates to the canonical `ThermoConstants.CalculateBasicTm`
+(the same method behind `PrimerDesigner.CalculateMeltingTemperature` in the MolTools project —
+counting and formula live in one place, B03 F25). The repository default total strand
 concentration for the NN model is C_T = 250 nM (vs Biopython's 50 nM); the formula is
 identical and the default is an explicit parameter (see §5.4). No substring search /
 matching is involved, so the repository suffix tree is **not applicable** to this unit.
@@ -168,7 +169,7 @@ matching is involved, so the repository suffix tree is **not applicable** to thi
 | 1 | Default C_T = 250 nM vs Biopython 50 nM | Assumption | NN Tm offset under defaults | accepted | Explicit `primerConcentration` parameter; formula identical (ASM-02) |
 | 2 | SEQ-TM-001 ↔ SEQ-THERMO-001 same methods | Deviation (duplicate Registry entry) | Avoid duplicate code/tests | accepted | Consolidated; see §7.3 and TestSpec §7 |
 | 3 | Wallace/GC switch used raw string length (N/gaps counted) | Deviation | `ACGTNNNNNNNNNNNN` → −82.7 instead of 12 | fixed | 2026-09 B03 F12 (OligoCalc N = A+T+G+C) |
-| 4 | Basic-Tm counting duplicated in `PrimerDesigner` (MolTools) | Duplication | none (identical results, locked by a differential test) | open | Analysis cannot reference MolTools; cross-batch request B03 R10 |
+| 4 | Basic-Tm counting duplicated in `PrimerDesigner` (MolTools) | Duplication | none (identical results, locked by a differential test) | fixed | Both now call `ThermoConstants.CalculateBasicTm` / `CountBasicTmBases` (B07 R10; B03 F25) |
 
 ## 6. Edge Cases and Limitations
 

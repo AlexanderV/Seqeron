@@ -702,34 +702,24 @@ public static class SequenceStatistics
     /// <see cref="CalculateThermodynamics(string, double, double)"/> does). Every other character
     /// (N, IUPAC codes, gaps, whitespace) is ignored. As in OligoCalc — whose GC formula divides by
     /// N = wA+xT+yG+zC — the length that selects the formula is the number of counted bases, so for
-    /// U-free input the result with <paramref name="useWallaceRule"/> = true equals the canonical
-    /// <c>PrimerDesigner.CalculateMeltingTemperature</c> (MolTools; not callable from this assembly;
-    /// that DNA-primer method ignores U).
+    /// <paramref name="useWallaceRule"/> = true delegates to the canonical
+    /// <see cref="ThermoConstants.CalculateBasicTm"/> (also behind <c>PrimerDesigner.CalculateMeltingTemperature</c>);
+    /// false uses <see cref="ThermoConstants.CountBasicTmBases"/> + <see cref="ThermoConstants.CalculateMarmurDotyTm"/>.
     /// With <paramref name="useWallaceRule"/> = false the GC formula is applied at any length; below
     /// 14 bases this is outside its published domain and can be negative. Returns 0 for null/empty
     /// input or when no A/C/G/T base is present.
     /// </remarks>
     public static double CalculateMeltingTemperature(string dnaSequence, bool useWallaceRule = true)
     {
-        if (string.IsNullOrEmpty(dnaSequence))
-            return 0;
+        // Canonical basic Tm (Infrastructure, B07): same A/C/G/T/U count with U read as T
+        // (Biopython MeltingTemp._check; 2026-09 B03 F20) and the same 14-base Wallace switch
+        // (2026-10 FIN-B03 F25).
+        if (useWallaceRule)
+            return ThermoConstants.CalculateBasicTm(dnaSequence);
 
-        var comp = CalculateNucleotideComposition(dnaSequence);
-        // U is read as T (Biopython MeltingTemp._check back-transcription; 2026-09 B03 F20).
-        int at = comp.CountA + comp.CountT + comp.CountU;
-        int gc = comp.CountG + comp.CountC;
-        int validLength = at + gc;
-        if (validLength == 0)
-            return 0;
-
-        if (useWallaceRule && validLength < ThermoConstants.WallaceMaxLength)
-        {
-            // Wallace rule for short oligos: Tm = 2(A+T) + 4(G+C)
-            return ThermoConstants.CalculateWallaceTm(at, gc);
-        }
-
-        // GC formula (Marmur-Doty / OligoCalc basic Tm)
-        return ThermoConstants.CalculateMarmurDotyTm(gc, validLength);
+        // GC formula (Marmur-Doty / OligoCalc basic Tm) at any length.
+        var (at, gc) = ThermoConstants.CountBasicTmBases(dnaSequence);
+        return ThermoConstants.CalculateMarmurDotyTm(gc, at + gc);
     }
 
     #endregion
@@ -1320,7 +1310,8 @@ public static class SequenceStatistics
     /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char})"/> (S/W excluded like
     /// other ambiguity codes). Only complete windows are reported (as EMBOSS <c>isochore</c> and
     /// <see cref="GcSkewCalculator.CalculateWindowedGcSkew(string,int,int)"/>; Biopython
-    /// <c>GC_skew</c> instead appends a trailing partial window). Values carry no positions: window
+    /// <c>GC_skew</c> instead appends a trailing partial window — opt in via
+    /// <see cref="CalculateGcContentProfile(string,int,int,bool,bool)"/>). Values carry no positions: window
     /// k starts at 0-based offset k·stepSize.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
@@ -1336,7 +1327,10 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
             return Array.Empty<double>();
 
-        return GcContentProfileIterator(sequence, windowSize, stepSize, fraction ? 1.0 : PercentScale);
+        // Canonical sliding-GC driver (B01): same complete-window loop and per-window
+        // SequenceExtensions.CalculateGcFraction, ×100 unless fraction (2026-10 FIN-B03 F24).
+        return GcSkewCalculator.CalculateWindowedGcContent(sequence, windowSize, stepSize, fraction)
+            .Select(p => p.GcContent);
     }
 
     /// <summary>
@@ -1361,23 +1355,94 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
             return Array.Empty<double>();
 
-        return GcContentProfileIterator(sequence, windowSize, stepSize, fraction ? 1.0 : PercentScale, ambiguityMode);
+        return GcSkewCalculator.CalculateWindowedGcContent(sequence, windowSize, stepSize, fraction, ambiguityMode)
+            .Select(p => p.GcContent);
     }
 
-    private static IEnumerable<double> GcContentProfileIterator(
-        string sequence, int windowSize, int stepSize, double scale, SequenceExtensions.GcAmbiguityMode mode)
+    /// <summary>
+    /// GC-content profile with an opt-in trailing partial window, Biopython <c>GC_skew</c> windowing:
+    /// window starts are <c>range(0, len(seq), stepSize)</c> and each window is the slice
+    /// <c>seq[i:i+windowSize]</c>, truncated at the sequence end.
+    /// </summary>
+    /// <param name="sequence">Input nucleotide sequence (DNA or RNA; case-insensitive).</param>
+    /// <param name="windowSize">Window width W in bases (≥ 1).</param>
+    /// <param name="stepSize">Window advance in bases (≥ 1).</param>
+    /// <param name="fraction">true → fraction in [0, 1]; false → percentage.</param>
+    /// <param name="includePartialWindow">false → identical to
+    /// <see cref="CalculateGcContentProfile(string,int,int,bool)"/> (complete windows only).
+    /// true → after the complete windows, every further start &lt; length is emitted with the
+    /// truncated window (so a sequence shorter than W yields its partial windows instead of nothing).</param>
+    /// <remarks>
+    /// Biopython 1.88 has no windowed GC-content function; its only windowed nucleotide statistic,
+    /// <c>Bio.SeqUtils.GC_skew(seq, window)</c>, iterates <c>for i in range(0, len(seq), window): s = seq[i:i+window]</c>
+    /// and so emits the trailing partial window. This option applies that convention (generalised to
+    /// step ≠ W) to <c>gc_fraction</c>: oracle <c>[gc_fraction(s[i:i+w]) for i in range(0, len(s), step)]</c>.
+    /// Complete windows come from the canonical <see cref="GcSkewCalculator.CalculateWindowedGcContent(string,int,int,bool)"/>;
+    /// each partial window is scored by the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char})"/> (0 for a window without A/C/G/T/U).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1 (validated eagerly).</exception>
+    public static IEnumerable<double> CalculateGcContentProfile(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool fraction,
+        bool includePartialWindow)
     {
-        for (int i = 0; i <= sequence.Length - windowSize; i += stepSize)
-            yield return sequence.AsSpan(i, windowSize).CalculateGcFraction(mode) * scale;
+        if (!includePartialWindow)
+            return CalculateGcContentProfile(sequence, windowSize, stepSize, fraction);
+
+        ValidateWindowAndStep(windowSize, stepSize);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<double>();
+
+        double scale = fraction ? 1.0 : PercentScale;
+        return CalculateGcContentProfile(sequence, windowSize, stepSize, fraction)
+            .Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize)
+                .Select(i => sequence.AsSpan(i).CalculateGcFraction() * scale));
     }
 
-    private static IEnumerable<double> GcContentProfileIterator(string sequence, int windowSize, int stepSize, double scale)
+    /// <summary>
+    /// <see cref="CalculateGcContentProfile(string,int,int,bool,bool)"/> with Biopython
+    /// <c>gc_fraction(window, ambiguous=…)</c> handling (see
+    /// <see cref="CalculateGcContentProfile(string,int,int,bool,SequenceExtensions.GcAmbiguityMode)"/>);
+    /// partial windows are scored by the canonical
+    /// <see cref="SequenceExtensions.CalculateGcFraction(ReadOnlySpan{char},SequenceExtensions.GcAmbiguityMode)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> or
+    /// <paramref name="stepSize"/> is less than 1.</exception>
+    public static IEnumerable<double> CalculateGcContentProfile(
+        string sequence,
+        int windowSize,
+        int stepSize,
+        bool fraction,
+        SequenceExtensions.GcAmbiguityMode ambiguityMode,
+        bool includePartialWindow)
     {
-        // Per-window GC delegates to the canonical SequenceExtensions.CalculateGcFraction
-        // (case-insensitive; G+C over A+C+G+T+U; every other symbol excluded; 0 when no valid base).
-        // Opt-in fraction == true reports [0,1] (Bio.SeqUtils.gc_fraction); default is GC% = fraction·100.
-        for (int i = 0; i <= sequence.Length - windowSize; i += stepSize)
-            yield return sequence.AsSpan(i, windowSize).CalculateGcFraction() * scale;
+        if (!includePartialWindow)
+            return CalculateGcContentProfile(sequence, windowSize, stepSize, fraction, ambiguityMode);
+
+        ValidateWindowAndStep(windowSize, stepSize);
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<double>();
+
+        double scale = fraction ? 1.0 : PercentScale;
+        return CalculateGcContentProfile(sequence, windowSize, stepSize, fraction, ambiguityMode)
+            .Concat(PartialWindowStarts(sequence.Length, windowSize, stepSize)
+                .Select(i => sequence.AsSpan(i).CalculateGcFraction(ambiguityMode) * scale));
+    }
+
+    // Starts k·step (k ≥ 0) with start < length but start + windowSize > length — the truncated
+    // windows that Biopython's range(0, len, step) slicing adds after the complete ones. long
+    // arithmetic avoids int overflow for huge steps/windows.
+    private static IEnumerable<int> PartialWindowStarts(int length, int windowSize, int stepSize)
+    {
+        long first = length >= windowSize
+            ? ((long)(length - windowSize) / stepSize + 1) * stepSize
+            : 0;
+        for (long i = first; i < length; i += stepSize)
+            yield return (int)i;
     }
 
     // Shared eager validation for the sliding-window profiles (as GcSkewCalculator.CalculateWindowedGcSkew):
