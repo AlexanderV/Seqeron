@@ -335,7 +335,7 @@ public class SequenceTools
     /// Calculate Shannon entropy of a sequence.
     /// </summary>
     [McpServerTool(Name = "shannon_entropy", Title = "Sequence — Shannon Entropy", ReadOnly = true)]
-    [Description("Calculate Shannon entropy of a sequence. Higher values indicate more complexity/randomness.")]
+    [Description("Shannon entropy H = -sum p_i log2 p_i (bits per symbol) of the per-letter composition. Alphabet: every letter (case-folded) is its own symbol, so DNA, RNA and protein all work; N and IUPAC codes count as distinct symbols, T and U are not merged, and non-letters (gaps, digits, '*', whitespace) are ignored. Max log2(m) for m distinct letters (2 bits for A/C/G/T); 0 for a homopolymer.")]
     public static ShannonEntropyResult ShannonEntropy(
         [Description("The sequence to analyze")] string sequence)
     {
@@ -350,7 +350,7 @@ public class SequenceTools
     /// Calculate linguistic complexity of a sequence.
     /// </summary>
     [McpServerTool(Name = "linguistic_complexity", Title = "Sequence — Linguistic Complexity", ReadOnly = true)]
-    [Description("Calculate linguistic complexity of a sequence based on k-mer diversity. Values range from 0 to 1.")]
+    [Description("Linguistic complexity in the Orlov-Potapov (2004) summation form LC = sum_{k=1..m} V_k / sum_{k=1..m} min(a^k, N-k+1), where V_k = number of distinct k-words, m = min(maxK, N) and a = alphabetSize or, by default, |{A,C,G,T (U for RNA)} union observed symbols| (so LC <= 1). Equals Troyanskaya et al. (2002) / Rosalind LING when maxK >= N. 1 = every possible word present; repeats lower it. Same measure as complexity_linguistic (which defaults to maxWordLength 10; this tool defaults to maxK 6).")]
     public static LinguisticComplexityResult LinguisticComplexity(
         [Description("The sequence to analyze")] string sequence,
         [Description("Maximum k-mer length to consider (default: 6)")] int maxK = 6,

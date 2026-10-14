@@ -397,6 +397,17 @@ public class SequenceStatisticsTests
         Assert.That(complexity, Is.EqualTo(12.0 / 29.0).Within(1e-12));
     }
 
+    // FIN-B03 WP16 (A29, F42): alphabet a = |{A,C,G,T/U} ∪ observed| (B04 F20) ⇒ LC ≤ 1. Exact-fraction Python
+    // reference (Σ V_k / Σ min(a^k, N−k+1), m = min(6, N)): ACGTN a = 5 → 15/15 (was 15/14 with a = 4);
+    // ATGCATGCATGC → 24/49; AAAAAAAAAA → 2/13 (the MCP linguistic_complexity doc examples).
+    [TestCase("ACGTN", 1.0)]
+    [TestCase("ATGCATGCATGC", 24.0 / 49.0)]
+    [TestCase("AAAAAAAAAA", 2.0 / 13.0)]
+    public void CalculateLinguisticComplexity_InferredAlphabet_MatchesPythonReference(string sequence, double expected)
+    {
+        Assert.That(SequenceStatistics.CalculateLinguisticComplexity(sequence), Is.EqualTo(expected).Within(1e-12));
+    }
+
     [Test]
     public void CalculateShannonEntropy_EmptyString_ReturnsZero()
     {

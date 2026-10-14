@@ -16,7 +16,8 @@ Shannon entropy in sliding windows along a sequence.
 
 Produces the Shannon-entropy profile of a sequence: for each sliding window of length
 `windowSize` (advanced by `stepSize`) it reports `H = −Σ pᵢ log₂ pᵢ` in bits over the window's
-letter frequencies (case-insensitive; non-letters ignored). Windows are emitted for offsets
+letter frequencies (case-insensitive; every letter is its own symbol — `N` and IUPAC codes are distinct
+symbols and `T`/`U` are not merged; non-letters such as gaps, digits and `*` are ignored). Windows are emitted for offsets
 `0, stepSize, 2·stepSize, …` up to `length − windowSize`. Maximum entropy is `log₂ m` for m
 distinct symbols (2 bits for the 4-letter DNA alphabet).
 

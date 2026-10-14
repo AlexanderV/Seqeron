@@ -14,11 +14,19 @@ Calculate linguistic complexity of a sequence.
 
 ## Description
 
-Calculates linguistic complexity of a sequence based on k-mer diversity. The measure compares observed k-mers to maximum possible k-mers for each k from 1 to maxK. Values range from 0 (minimal complexity, like homopolymers) to 1 (maximum complexity with diverse k-mers).
+Calculates linguistic complexity in the Orlov & Potapov (2004) summation form
+
+`LC = Σ_{k=1..m} V_k / Σ_{k=1..m} V_max,k`, `V_max,k = min(a^k, N − k + 1)`, `m = min(maxK, N)`,
+
+where `V_k` is the number of distinct k-words of the (upper-cased) sequence and `a` is the alphabet size — `alphabetSize` when given, otherwise `|{A, C, G, T (U for RNA)} ∪ observed symbols|` (canonical `SequenceComplexity`, B04 F20), so `LC ≤ 1` for any input (`ACGTN` → 1.0). With `maxK ≥ N` it equals Troyanskaya et al. (2002) / Rosalind LING. 1 means every possible word is present; repeats and low-complexity stretches lower it.
+
+Relation to [`complexity_linguistic`](complexity_linguistic.md): the same canonical measure (both call `SequenceComplexity.CalculateLinguisticComplexity`); only the word-length parameter differs — `maxK` here (default 6) vs `maxWordLength` there (default 10).
+
+Examples (exact fractions, Python reference): `ATGCATGCATGC` → V = 4+4+4+4+4+4 = 24 of V_max = 4+11+10+9+8+7 = 49 → 24/49; `AAAAAAAAAA` → 6 of 4+9+8+7+6+5 = 39 → 2/13.
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L615](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L615)
+- Source: [SequenceStatistics.cs#L1614](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1614)
 
 ## Input Schema
 
@@ -102,7 +110,7 @@ Calculates linguistic complexity of a sequence based on k-mer diversity. The mea
 ## Performance
 
 - **Time Complexity:** O(n × maxK) where n is sequence length
-- **Space Complexity:** O(4^maxK) for k-mer storage
+- **Space Complexity:** O(n × maxK) for the k-mer sets (at most N − k + 1 distinct words per k)
 
 ## See Also
 

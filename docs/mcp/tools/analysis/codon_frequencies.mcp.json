@@ -5,12 +5,12 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateCodonFrequencies",
-  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L688",
-  "description": "Codon usage frequencies over non-overlapping in-frame triplets (Kazusa CUTG count/total) in the specified reading frame.",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1453",
+  "description": "Codon usage frequencies over non-overlapping in-frame triplets (Kazusa CUTG count/total) in the specified reading frame. Input is DNA or RNA, case-insensitive: U is read as T and codons are reported in DNA spelling; triplets containing any other symbol (N, IUPAC codes, gaps) are skipped without shifting the frame; a trailing partial triplet is ignored.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "dnaSequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "dnaSequence": { "type": "string", "description": "DNA or RNA coding sequence (U read as T)", "minLength": 1 },
       "readingFrame": { "type": "integer", "description": "Reading frame 0, 1, or 2", "default": 0, "minimum": 0, "maximum": 2 }
     },
     "required": ["dnaSequence"]

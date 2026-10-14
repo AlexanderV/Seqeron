@@ -69,7 +69,7 @@ Input is normalized to upper case (`ToUpperInvariant`; `CalculateCodonFrequencie
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 - Dinucleotide alphabet filter: `{A,T,G,C,U}`; codon alphabet filter: `{A,T,G,C}`.
-- Karlin (N−1) normalization for dinucleotide frequency [1]; interpretive thresholds 0.78 / 1.23 are documentation-only and not applied in code [2].
+- Karlin (N−1) normalization for dinucleotide frequency [1] (denominator = counted in-alphabet dinucleotides, = N−1 for pure-alphabet input); Karlin's interpretive thresholds 0.78 / 1.23 are applied only by the opt-in `ClassifyDinucleotideRatio(s)` (B03 F37) — ρ / ρ* values themselves are unthresholded [2].
 
 ### 4.3 Complexity
 

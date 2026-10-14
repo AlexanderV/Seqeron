@@ -152,7 +152,7 @@
 
 ## 2026-09 B03 F21 — linguistic complexity delegated to the canonical sum form
 
-- `SequenceStatistics.CalculateLinguisticComplexity` now delegates to `SequenceComplexity.CalculateLinguisticComplexity` (Σ V_k / Σ min(4^k, N−k+1); Orlov & Potapov 2004, Troyanskaya 2002; validated in B04 SEQ-COMPLEX-001 incl. universalmotif V_i). The mean-of-U_k values above are superseded.
+- `SequenceStatistics.CalculateLinguisticComplexity` now delegates to `SequenceComplexity.CalculateLinguisticComplexity` (Σ V_k / Σ min(a^k, N−k+1), a = |{A,C,G,T/U} ∪ observed symbols| since B04 F20, so LC ≤ 1 and `ACGTN` = 15/15 = 1.0 — the 15/14 values below were computed with a = 4 and are superseded; Orlov & Potapov 2004, Troyanskaya 2002; validated in B04 SEQ-COMPLEX-001 incl. universalmotif V_i). The mean-of-U_k values above are superseded.
 - Executed Python reference (exact fractions, m = 6 unless stated): ATTTGGATT 29/34 (m = 9 or ∞: 7/8 = 0.875, Rosalind LING sample); ATGCATGC 23/29; AUGCAUGC 23/29; ACGTACGGTACCAGTTAGCA 38/43; GGGAAAUUUCCCAAAUGC 23/26; AAAAAAAAAA 2/13; ATGCATGCATGC 24/49; ATATATAT 12/29; GGGAAAUUUCCC 45/49; ACGTN 15/14; ATGCGATCGATCGATCGATCGATC 19/51.
 
 ## 2026-10 FIN-B03 F33 — opt-in IUPAC-weighted Tm and MolecularWeight field

@@ -1597,8 +1597,8 @@ public static class SequenceStatistics
     private static readonly double Ln2 = Math.Log(2.0);
 
     /// <summary>
-    /// Calculates linguistic complexity LC = Σ_{k=1..m} V_k / Σ_{k=1..m} min(4^k, N − k + 1)
-    /// (V_k = distinct k-words, m = min(maxK, N)) — Orlov &amp; Potapov (2004) summation form, equal to
+    /// Calculates linguistic complexity LC = Σ_{k=1..m} V_k / Σ_{k=1..m} min(a^k, N − k + 1)
+    /// (V_k = distinct k-words, m = min(maxK, N), a = alphabet size) — Orlov &amp; Potapov (2004) summation form, equal to
     /// Troyanskaya et al. (2002) / Rosalind LING when m ≥ N. Delegates to the canonical
     /// <see cref="SequenceComplexity.CalculateLinguisticComplexity(string, int)"/>.
     /// </summary>
@@ -1606,9 +1606,9 @@ public static class SequenceStatistics
     /// <paramref name="maxK"/> is the canonical maximum word length m (same meaning: word lengths
     /// 1..min(maxK, N)); only the default differs (6 here, 10 in <c>SequenceComplexity</c>).
     /// Before the 2026-09 review (B03 F21) this method returned the unsourced arithmetic mean of the
-    /// per-k usages U_k (e.g. ATTTGGATT, m = 6: 293/336 instead of 29/34). Input is upper-cased and
-    /// every character is a word symbol (N, IUPAC codes, gaps and U vs T are distinct), so with more
-    /// than four distinct symbols the result can exceed 1 (canonical behaviour, cross-batch R23).
+    /// per-k usages U_k (e.g. ATTTGGATT, m = 6: 293/336 instead of 29/34). Input is upper-cased; every character
+    /// is a word symbol and a = |{A, C, G, T (U for RNA)} ∪ observed symbols| (inferred as in <c>SequenceComplexity</c>,
+    /// B04 F20), so a ≥ 4 and LC ≤ 1 for any input (e.g. ACGTN: a = 5 → 15/15 = 1.0, formerly 15/14).
     /// Null/empty input or <paramref name="maxK"/> &lt; 1 returns 0.
     /// </remarks>
     public static double CalculateLinguisticComplexity(string sequence, int maxK = 6) =>

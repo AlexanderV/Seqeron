@@ -159,22 +159,25 @@ matching is involved, so the repository suffix tree is **not applicable** to thi
 - Marmur-Doty GC formula 64.9 + 41·(GC − 16.4)/N [2].
 - NN Tm equation with R = 1.987, x = 4, and the SantaLucia (1998) salt correction [3][4].
 
-**Intentionally simplified:**
+**Repository convention (not a simplification):**
 
-- Default C_T = 250 nM differs from Biopython's 50 nM; **consequence:** NN Tm differs by
-  the fixed concentration offset unless `primerConcentration` is set (passing 5e-8
-  reproduces Biopython's 60.32).
+- Default C_T = 250 nM is a library parameter default, not part of the model (Biopython's
+  `Tm_NN` defaults to dnac1 = dnac2 = 25 nM, i.e. 50 nM total); the formula is identical, so
+  **consequence:** NN Tm differs by the fixed concentration term unless `primerConcentration`
+  is set (passing 5e-8 reproduces Biopython's 60.32).
 
 **Not implemented:**
 
-- Mg²⁺ / dNTP / Tris salt corrections and mismatch/dangling-end NN terms;
-  **users should rely on:** dedicated tools (Biopython `Tm_NN`, MELTING 5) for those.
+- Mismatch / dangling-end NN terms in `CalculateThermodynamics` (perfect complement only);
+  **users should rely on:** `ThermoConstants.CalculateNearestNeighborDuplex(sequence, complement, shift, …)`.
+  (K⁺ / Tris / Mg²⁺ / dNTP salt corrections — Biopython methods 0–7, Owczarzy 2008 — are implemented via
+  `ThermodynamicsOptions`, B03 F27.)
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Default C_T = 250 nM vs Biopython 50 nM | Assumption | NN Tm offset under defaults | accepted | Explicit `primerConcentration` parameter; formula identical (ASM-02) |
+| 1 | Default C_T = 250 nM vs Biopython 50 nM | Convention | NN Tm offset under defaults | accepted (repository parameter default) | Explicit `primerConcentration` parameter; formula identical (ASM-02) |
 | 2 | SEQ-TM-001 ↔ SEQ-THERMO-001 same methods | Deviation (duplicate Registry entry) | Avoid duplicate code/tests | accepted | Consolidated; see §7.3 and TestSpec §7 |
 | 3 | Wallace/GC switch used raw string length (N/gaps counted) | Deviation | `ACGTNNNNNNNNNNNN` → −82.7 instead of 12 | fixed | 2026-09 B03 F12 (OligoCalc N = A+T+G+C) |
 | 5 | `useWallaceRule: false` below 14 nt not clamped | Convention (reference) | negative/formal Tm for very short oligos | accepted | equals Biopython `Tm_GC` userset (no clamp), B03 F32; OligoCalc publishes the formula for ≥ 14 nt |

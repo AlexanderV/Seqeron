@@ -14,14 +14,16 @@ Normalized adjacent-dinucleotide frequencies of a nucleotide sequence.
 
 ## Description
 
-Computes the normalized frequency of each adjacent dinucleotide, `f_XY = count(XY) / (N − 1)`,
-over the alphabet {A, T, G, C, U}. Dinucleotides containing a non-alphabet character are
-excluded. Frequencies sum to 1 (Karlin genomic-signature convention). Counting is
+Computes the normalized frequency of each adjacent dinucleotide, `f_XY = count(XY) / D`,
+over the alphabet {A, T, G, C, U}, where `D` is the number of overlapping dinucleotides whose two
+symbols are both in the alphabet (seqinr `count(seq, 2, freq = TRUE)`). Dinucleotides containing a
+non-alphabet character (N, IUPAC codes, gaps) are excluded from both count and denominator, so
+`D = N − 1` only when every base is in the alphabet (e.g. `ACNGT`: D = 2, AC = GT = 0.5). Frequencies sum to 1 (Karlin genomic-signature convention). Counting is
 case-insensitive; sequences shorter than 2 bp yield an empty map.
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L602](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L602)
+- Source: [SequenceStatistics.cs#L1231](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1231)
 
 ## Input Schema
 

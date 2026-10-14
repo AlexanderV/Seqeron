@@ -14,22 +14,22 @@ Codon usage frequencies in a reading frame.
 
 ## Description
 
-Computes codon usage frequencies over the non-overlapping in-frame triplets of a DNA
-sequence, following the Kazusa CUTG definition `frequency = count(codon) / total
+Computes codon usage frequencies over the non-overlapping in-frame triplets of a DNA or RNA
+sequence (case-insensitive; U is read as T and codons are reported in DNA spelling, as EMBOSS cusp), following the Kazusa CUTG definition `frequency = count(codon) / total
 counted codons` (Nakamura et al. 2000). Reading starts at `readingFrame` (0, 1, or 2);
 trailing bases that do not complete a triplet are ignored, and codons containing any
 non-ACGT base are excluded from the count. Only observed codons appear as keys.
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L688](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L688)
+- Source: [SequenceStatistics.cs#L1453](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1453)
 - Evidence: `docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md`
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `dnaSequence` | string | Yes | DNA sequence (min length 1) |
+| `dnaSequence` | string | Yes | DNA or RNA coding sequence, U read as T (min length 1) |
 | `readingFrame` | integer | No | Reading frame 0, 1, or 2 (default 0) |
 
 ## Output Schema

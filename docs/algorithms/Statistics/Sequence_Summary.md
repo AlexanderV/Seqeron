@@ -35,7 +35,7 @@ For an input sequence `S`, the summary fields are defined as:
 - **Length** = `|S|` (raw character count).
 - **GcContent** = GC fraction = (#G + #C) / (#counted bases), case-insensitive, 0 for empty input [1].
 - **Entropy** = Shannon entropy `H = − Σ p·log₂ p` over the per-symbol frequencies, in bits [2].
-- **Complexity** = `CalculateLinguisticComplexity(S)` (maxK = 6), which delegates to the canonical `SequenceComplexity.CalculateLinguisticComplexity`: LC = Σ_{k=1..m} V_k / Σ_{k=1..m} min(4^k, N−k+1), m = min(6, N) (Orlov & Potapov 2004 summation form; = Troyanskaya 2002 / Rosalind LING when m ≥ N) [3]. Before 2026-09 (B03 F21) it was the unsourced mean of U_k. Every character is a symbol, so > 4 distinct symbols can push it above 1 (`ACGTN` = 15/14; cross-batch R23).
+- **Complexity** = `CalculateLinguisticComplexity(S)` (maxK = 6), which delegates to the canonical `SequenceComplexity.CalculateLinguisticComplexity`: LC = Σ_{k=1..m} V_k / Σ_{k=1..m} V_max,k with V_max,k = min(a^k, N−k+1), m = min(6, N) (Orlov & Potapov 2004 summation form; = Troyanskaya 2002 / Rosalind LING when m ≥ N) [3]. Before 2026-09 (B03 F21) it was the unsourced mean of U_k. Every character is a symbol; the alphabet size a is inferred as in `SequenceComplexity` — a = |{A, C, G, T (U for RNA)} ∪ observed symbols| ≥ 4 (B04 F20) — so LC ≤ 1 for any input (`ACGTN`: a = 5 → 15/15 = 1.0; before B04 F20 it was 15/14).
 - **MeltingTemperature** = Wallace rule `2(A+T) + 4(G+C)` for short oligos, otherwise the GC/Marmur-Doty formula `64.9 + 41·(GC − 16.4)/N` [4][5]; U is read as T (Biopython `_check` back-transcription, B03 F20).
 - **Composition** = the counts of A, T, G, C, U, N [1].
 - **MolecularWeight** (non-positional `init` property, B03 F33) = `CalculateNucleotideMolecularWeight(S, isDna)` — Biopython `molecular_weight` single-stranded linear average mass; RNA table when S has U and no T, DNA table otherwise; unknown symbols skipped (Biopython raises).
@@ -53,7 +53,7 @@ The Wallace branch is selected when the number of A/C/G/T/U bases is < 14 (not `
 | INV-04 | `summary.Complexity == CalculateLinguisticComplexity(S)` | field is the return of that method [3] |
 | INV-05 | `summary.MeltingTemperature == CalculateMeltingTemperature(S, useWallaceRule: true)` (the method switches on the A+C+G+T count < 14; 2026-09 B03 F12) | field is the return of that method with that flag [4][5] |
 | INV-06 | Composition dict A,T,G,C,U,N counts equal `CalculateNucleotideComposition(S)` counts | dict is built directly from those counts [1] |
-| INV-07 | 0 ≤ GcContent ≤ 1; 0 < Complexity ≤ 1 for input over ≤ 4 distinct symbols (can exceed 1 otherwise, e.g. `ACGTN` = 15/14) | fraction and vocabulary-usage bounds [1][3] |
+| INV-07 | 0 ≤ GcContent ≤ 1; 0 < Complexity ≤ 1 for every non-empty input (a ≥ number of distinct symbols, e.g. `ACGTN` = 1.0) | fraction and vocabulary-usage bounds [1][3] |
 
 ## 3. Contract
 

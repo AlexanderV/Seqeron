@@ -27,23 +27,23 @@
         "type": "integer",
         "description": "Total sequence length"
       },
-      "A": {
+      "a": {
         "type": "integer",
         "description": "Count of adenine"
       },
-      "T": {
+      "t": {
         "type": "integer",
         "description": "Count of thymine"
       },
-      "G": {
+      "g": {
         "type": "integer",
         "description": "Count of guanine"
       },
-      "C": {
+      "c": {
         "type": "integer",
         "description": "Count of cytosine"
       },
-      "U": {
+      "u": {
         "type": "integer",
         "description": "Count of uracil (RNA)"
       },
@@ -55,21 +55,21 @@
         "type": "number",
         "description": "GC content ratio (0-1)"
       },
-      "N": {
+      "n": {
         "type": "integer",
         "description": "Count of N (any base); not included in other"
       }
     },
     "required": [
       "length",
-      "A",
-      "T",
-      "G",
-      "C",
-      "U",
+      "a",
+      "t",
+      "g",
+      "c",
+      "u",
       "other",
       "gcContent",
-      "N"
+      "n"
     ]
   },
   "errors": [
@@ -86,14 +86,14 @@
       },
       "output": {
         "length": 8,
-        "A": 2,
-        "T": 2,
-        "G": 2,
-        "C": 2,
-        "U": 0,
+        "a": 2,
+        "t": 2,
+        "g": 2,
+        "c": 2,
+        "u": 0,
         "other": 0,
         "gcContent": 0.5,
-        "N": 0
+        "n": 0
       }
     },
     {
@@ -103,14 +103,14 @@
       },
       "output": {
         "length": 6,
-        "A": 1,
-        "T": 1,
-        "G": 1,
-        "C": 1,
-        "U": 0,
+        "a": 1,
+        "t": 1,
+        "g": 1,
+        "c": 1,
+        "u": 0,
         "other": 0,
         "gcContent": 0.5,
-        "N": 2
+        "n": 2
       }
     }
   ]

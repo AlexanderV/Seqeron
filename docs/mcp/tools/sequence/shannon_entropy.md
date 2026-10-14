@@ -14,11 +14,15 @@ Calculate Shannon entropy of a sequence.
 
 ## Description
 
-Calculates Shannon entropy of a sequence, measuring the information content or randomness. Higher entropy values indicate more complexity. For DNA with equal base frequencies, maximum entropy is 2 bits per nucleotide. A homopolymer (e.g., AAAAAA) has entropy of 0.
+Calculates the Shannon entropy `H = −Σ pᵢ log₂ pᵢ` (Shannon 1948; bits per symbol) of the per-letter composition — the same value as `scipy.stats.entropy(counts, base=2)`.
+
+**Alphabet:** every letter (case-folded) is its own symbol, so DNA, RNA and protein input all work; `N` and IUPAC ambiguity codes are counted as distinct symbols, `T` and `U` are **not** merged, and non-letters (gaps `-`, digits, `*`, whitespace) are excluded from numerator and denominator. The maximum is `log₂ m` for m distinct letters (2 bits for A/C/G/T in equal proportion); a homopolymer (e.g. `AAAAAA`) scores 0. For the nucleotide-only {A, C, G, T/U} entropy use [`complexity_shannon`](complexity_shannon.md).
+
+Example: `ATGCATGCAT` has A = 3, T = 3, G = 2, C = 2 → H = 1.9709505944546686 bits (not 2: the four bases are not equiprobable).
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L580](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L580)
+- Source: [SequenceStatistics.cs#L1578](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1578)
 
 ## Input Schema
 
@@ -58,7 +62,7 @@ Calculates Shannon entropy of a sequence, measuring the information content or r
 **Response:**
 ```json
 {
-  "entropy": 2.0
+  "entropy": 1.9709505944546686
 }
 ```
 

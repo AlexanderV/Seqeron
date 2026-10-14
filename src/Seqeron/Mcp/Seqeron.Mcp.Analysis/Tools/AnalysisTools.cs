@@ -462,7 +462,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "dinucleotide_frequencies", Title = "Sequence — Dinucleotide Frequencies", ReadOnly = true)]
-    [Description("Frequency of each adjacent dinucleotide over the alphabet A/T/G/C/U.")]
+    [Description("Normalized adjacent-dinucleotide frequencies f_XY = count(XY) / (number of overlapping dinucleotides whose two symbols are both in A,T,G,C,U), case-insensitive (seqinr count(seq, 2, freq = TRUE)). Pairs containing N, IUPAC codes or gaps are excluded from count and denominator, so the denominator is N-1 only when every base is in the alphabet. Frequencies sum to 1.")]
     public static DinucleotideFrequenciesResult DinucleotideFrequencies(
         [Description("Nucleotide sequence.")] string sequence)
     {
@@ -496,9 +496,9 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "codon_frequencies", Title = "DNA — Codon Frequencies", ReadOnly = true)]
-    [Description("Codon usage frequencies in the specified reading frame (0..2).")]
+    [Description("Codon usage frequencies over non-overlapping in-frame triplets (Kazusa CUTG count/total) in the specified reading frame. Input is DNA or RNA, case-insensitive: U is read as T and codons are reported in DNA spelling; triplets containing any other symbol (N, IUPAC codes, gaps) are skipped without shifting the frame; a trailing partial triplet is ignored.")]
     public static CodonFrequenciesResult CodonFrequencies(
-        [Description("DNA sequence.")] string dnaSequence,
+        [Description("DNA or RNA coding sequence (case-insensitive; U read as T).")] string dnaSequence,
         [Description("Reading frame: 0, 1, or 2 (default 0).")] int readingFrame = 0)
     {
         if (string.IsNullOrEmpty(dnaSequence))
@@ -590,7 +590,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "entropy_profile", Title = "Sequence — Shannon Entropy Profile", ReadOnly = true)]
-    [Description("Shannon entropy (bits) in sliding windows along the sequence: letter entropy by default, or k-mer (block) entropy of the overlapping k-mers of each window with k. Optional includePartialWindow also scores the trailing windows shorter than windowSize (Biopython-style range(0, len, step) slicing).")]
+    [Description("Shannon entropy (bits) in sliding windows along the sequence: letter entropy by default (every case-folded letter is its own symbol: N/IUPAC codes distinct, T and U not merged, non-letters ignored), or k-mer (block) entropy of the overlapping k-mers of each window with k. Optional includePartialWindow also scores the trailing windows shorter than windowSize (Biopython-style range(0, len, step) slicing).")]
     public static DoubleProfileResult EntropyProfile(
         [Description("Sequence to analyze.")] string sequence,
         [Description("Window size (default 50).")] int windowSize = 50,

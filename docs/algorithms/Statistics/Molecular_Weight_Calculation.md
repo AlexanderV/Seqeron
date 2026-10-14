@@ -158,8 +158,9 @@ reported mass derives only from cited monomer masses.
 
 **Intentionally simplified:**
 
-- Non-standard / ambiguous symbols: skipped rather than rejected; **consequence:** an
-  ambiguous input yields the mass of its recognized monomers only, instead of an error.
+- Non-standard / ambiguous symbols: skipped rather than rejected **by default**; **consequence:** an
+  ambiguous input yields the mass of its recognized monomers only, instead of an error. Biopython's
+  rejection is available via `MolecularWeightOptions { Strict = true }` (B03 F28).
 
 **Not implemented:**
 

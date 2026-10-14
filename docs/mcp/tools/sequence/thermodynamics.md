@@ -26,7 +26,7 @@ Calculates thermodynamic properties of a DNA duplex using the nearest-neighbor m
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | The DNA sequence (min length: 1) |
 | `naConcentration` | number | No | Na+ concentration in M (default: 0.05 = 50mM) |
-| `primerConcentration` | number | No | Primer concentration in M (default: 0.00000025 = 250nM) |
+| `primerConcentration` | number | No | Total strand concentration C_T in M (default: 0.00000025 = 250 nM — a repository convention; Biopython `Tm_NN` defaults to 50 nM total) |
 | `selfComplementary` | boolean | No | Self-complementary (homo)duplex: ΔS° −1.4 symmetry correction, Tm uses C_T/1 (Biopython `selfcomp=True`; default false) |
 | `saltMethod` | integer | No | Biopython salt-correction method 0–7 (0 none, 1–4 on Tm, 5 SantaLucia 1998 entropy = default, 6 Owczarzy 2004, 7 Owczarzy 2008 Mg²⁺/dNTPs) |
 | `kConcentration` | number | No | K+ concentration in M (default 0) |
