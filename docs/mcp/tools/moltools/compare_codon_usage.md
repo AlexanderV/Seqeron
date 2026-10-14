@@ -18,7 +18,7 @@ Computes the codon-usage similarity between two coding sequences as `1 − ½·�
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L1580](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1580)
+- Source: [CodonOptimizer.cs#L1671](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1671)
 
 ## Input Schema
 

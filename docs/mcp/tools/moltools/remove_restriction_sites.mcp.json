@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.RemoveRestrictionSites",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L788",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L805",
   "description": "Synonymously rewrite codons to eliminate restriction recognition sequences while preserving the protein.",
   "inputSchema": {
     "type": "object",

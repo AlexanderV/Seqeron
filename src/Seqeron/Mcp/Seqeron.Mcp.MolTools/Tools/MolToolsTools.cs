@@ -697,14 +697,15 @@ public class MolToolsTools
 
     #region CodonOptimizer
 
-    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. HarmonizeExpression matches the target codon-usage profile as closely as integer codon counts allow (DNA Chisel match_codon_usage) and is deterministic.")]
+    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. HarmonizeExpression matches the target codon-usage profile as closely as integer codon counts allow (DNA Chisel match_codon_usage) and is deterministic. MinimizeSecondary = BalancedOptimization (codon selection + GC pass) followed by the sliding-window structure pass of reduce_secondary_structure, scored by secondary_scoring (PairCount heuristic by default; Turner2004Mfe for the Turner 2004 free-energy model, ~9 s per kilobase).")]
     public static OptimizationResultDto optimize_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: a preset id (EColiK12 | Yeast | Human) or an inline custom table (organismName + codonFrequencies in RNA alphabet).")] CodonUsageTableInput target_organism,
         [Description("Optimization strategy.")] CodonOptimizer.OptimizationStrategy strategy = CodonOptimizer.OptimizationStrategy.BalancedOptimization,
         [Description("Lower bound for target GC fraction (default 0.40).")] double gc_target_min = 0.40,
         [Description("Upper bound for target GC fraction (default 0.60).")] double gc_target_max = 0.60,
-        [Description("Frequency threshold below which a codon is considered rare (default 0.15).")] double rare_codon_threshold = 0.15)
+        [Description("Frequency threshold below which a codon is considered rare (default 0.15).")] double rare_codon_threshold = 0.15,
+        [Description("Window scoring model of the MinimizeSecondary structure pass: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower). Ignored by the other strategies.")] CodonOptimizer.SecondaryStructureScoring secondary_scoring = CodonOptimizer.SecondaryStructureScoring.PairCount)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
@@ -714,9 +715,12 @@ public class MolToolsTools
             throw new System.ArgumentException("GC target maximum must be a fraction in [0, 1].", nameof(gc_target_max));
         if (gc_target_min > gc_target_max)
             throw new System.ArgumentException("GC target minimum must not exceed the maximum.", nameof(gc_target_min));
+        if (secondary_scoring is not (CodonOptimizer.SecondaryStructureScoring.PairCount or CodonOptimizer.SecondaryStructureScoring.Turner2004Mfe))
+            throw new System.ArgumentException(
+                $"Unknown secondary-structure scoring: {secondary_scoring}. Supported: PairCount, Turner2004Mfe.", nameof(secondary_scoring));
 
         var table = ResolveCodonUsageTable(target_organism);
-        var result = CodonOptimizer.OptimizeSequence(coding_sequence, table, strategy, gc_target_min, gc_target_max, rare_codon_threshold);
+        var result = CodonOptimizer.OptimizeSequence(coding_sequence, table, strategy, gc_target_min, gc_target_max, rare_codon_threshold, secondary_scoring);
         return new OptimizationResultDto(
             result.OriginalSequence,
             result.OptimizedSequence,
@@ -756,19 +760,24 @@ public class MolToolsTools
         return new OptimizedSequenceResult(CodonOptimizer.RemoveRestrictionSites(coding_sequence, restriction_sites, table));
     }
 
-    [McpServerTool(Name = "reduce_secondary_structure", Title = "MolTools — Reduce mRNA Secondary Structure", ReadOnly = true), Description("Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score (canonical pairs incl. G\u00b7U wobble) within a sliding window, reducing mRNA secondary structure while preserving the protein. Output is upper-case RNA trimmed to whole codons; sequences shorter than window_size are returned unchanged apart from that normalisation. Heuristic only \u2014 not a thermodynamic folding model (see rna_minimum_free_energy for that). Call to relax strong secondary structure in a coding sequence.")]
+    [McpServerTool(Name = "reduce_secondary_structure", Title = "MolTools — Reduce mRNA Secondary Structure", ReadOnly = true), Description("Greedy synonymous-codon swap inside a sliding window that lowers the window structure score, reducing mRNA secondary structure while preserving the protein. Two scoring models: PairCount (default) is a heuristic local self-complementarity score (fraction of canonical pairs incl. G\u00b7U wobble; no stacking, loop penalty or nesting); Turner2004Mfe scores every window with the Turner 2004 nearest-neighbour minimum free energy (the energy model of the analysis-server minimum_free_energy tool / ViennaRNA RNAfold) and maximises it, i.e. makes it less negative \u2014 thermodynamic but ~150x slower (~9 s per kilobase vs ~0.06 s; window folds are memoised and the fold count is capped). Output is upper-case RNA trimmed to whole codons; sequences shorter than window_size are returned unchanged apart from that normalisation. Call to relax strong secondary structure in a coding sequence.")]
     public static OptimizedSequenceResult reduce_secondary_structure(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
-        [Description("Sliding-window size in nucleotides (default 40).")] int window_size = 40)
+        [Description("Sliding-window size in nucleotides (default 40).")] int window_size = 40,
+        [Description("Window scoring model: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower).")] CodonOptimizer.SecondaryStructureScoring scoring = CodonOptimizer.SecondaryStructureScoring.PairCount)
     {
         if (string.IsNullOrEmpty(coding_sequence))
             throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
         if (window_size <= 0)
             throw new System.ArgumentException("Window size must be positive.", nameof(window_size));
+        if (scoring is not (CodonOptimizer.SecondaryStructureScoring.PairCount or CodonOptimizer.SecondaryStructureScoring.Turner2004Mfe))
+            throw new System.ArgumentException(
+                $"Unknown secondary-structure scoring: {scoring}. Supported: PairCount, Turner2004Mfe.", nameof(scoring));
 
         var table = ResolveCodonUsageTable(target_organism);
-        return new OptimizedSequenceResult(CodonOptimizer.ReduceSecondaryStructure(coding_sequence, table, window_size));
+        return new OptimizedSequenceResult(
+            CodonOptimizer.ReduceSecondaryStructure(coding_sequence, table, window_size, scoring: scoring));
     }
 
     [McpServerTool(Name = "find_rare_codons", Title = "MolTools — Find Rare Codons", ReadOnly = true), Description("Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15; strict <, or <= with inclusive_threshold = true as in Sherlocc), with its 0-based position, codon (RNA), amino acid (Standard code, * for stop) and frequency. Frame-0 complete triplets only; ambiguous triplets (N, R, Y, …) are skipped without shifting the frame. Call to locate translation-slowing rare codons before optimization.")]

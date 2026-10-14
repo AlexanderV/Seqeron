@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Seqeron.Genomics.MolTools;
 using Seqeron.Mcp.MolTools.Models;
 using Seqeron.Mcp.MolTools.Tools;
 
@@ -16,6 +17,34 @@ public class ReduceSecondaryStructureTests
         Assert.Throws<ArgumentException>(() => MolToolsTools.reduce_secondary_structure("", EColi()));
         Assert.Throws<ArgumentException>(() => MolToolsTools.reduce_secondary_structure(null!, EColi()));
         Assert.Throws<ArgumentException>(() => MolToolsTools.reduce_secondary_structure("ATGATG", EColi(), 0));
+        Assert.Throws<ArgumentException>(() => MolToolsTools.reduce_secondary_structure(
+            "ATGATG", EColi(), 40, (CodonOptimizer.SecondaryStructureScoring)42));
+    }
+
+    [Test]
+    public void ReduceSecondaryStructure_Scoring_DefaultsToPairCount_AndExposesTurner2004Mfe()
+    {
+        // review 2026-09, CODON-OPT-001 F41 (B02 A1-6): the Turner 2004 window-MFE mode is
+        // opt-in; the default stays the canonical-pair-count heuristic.
+        const string gene = "AUGAAACUGGCAGAUCUGGCGCAGCUGGCAUUUCGUGAAGAUCUGCGUCAGGCGCUGGAUCGU"
+            + "UUCAUGGCGCAGCUGGAUAAAGCGCUGGCGGAAUAA";
+
+        var byDefault = MolToolsTools.reduce_secondary_structure(gene, EColi());
+        var pairCount = MolToolsTools.reduce_secondary_structure(
+            gene, EColi(), 40, CodonOptimizer.SecondaryStructureScoring.PairCount);
+        var turner = MolToolsTools.reduce_secondary_structure(
+            gene, EColi(), 40, CodonOptimizer.SecondaryStructureScoring.Turner2004Mfe);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(byDefault.OptimizedSequence, Is.EqualTo(pairCount.OptimizedSequence));
+            Assert.That(byDefault.OptimizedSequence, Is.EqualTo(gene), "no window exceeds the 0.5 pair fraction");
+            Assert.That(turner.OptimizedSequence, Is.EqualTo(
+                "AUGAAGCUGGCAGAUCUUGCUCAACUUGCAUUUCGUGAAGACCUUCGGCAAGCUUUAGAUCGU"
+                + "UUCAUGGCACAAUUAGAUAAAGCAUUAGCAGAAUAA"),
+                "Turner 2004 MFE scoring rewrites 19 codons (locked in CodonOptimizer_SecondaryStructureScoring_Tests)");
+            Assert.That(turner.OptimizedSequence.Length, Is.EqualTo(gene.Length));
+        });
     }
 
     [Test]

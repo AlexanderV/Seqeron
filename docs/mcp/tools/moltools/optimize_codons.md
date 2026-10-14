@@ -19,12 +19,12 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 - **MaximizeCAI** — pick the most frequent synonymous codon; ties break by NCBI codon order (identical to DNA Chisel `use_best_codon`).
 - **BalancedOptimization** (default) — as MaximizeCAI, then GC-balance into `[gc_target_min, gc_target_max]` with further synonymous swaps.
 - **AvoidRareCodeons** — only replace codons below the rare-codon threshold (with the most frequent synonym).
-- **MinimizeSecondary** — same selection and GC pass as balanced (the structure pass is `reduce_secondary_structure`).
+- **MinimizeSecondary** — balanced selection and GC pass, **followed by** the sliding-window structure pass of `reduce_secondary_structure`, scored by `secondary_scoring`: `PairCount` (default, the canonical-pair fraction heuristic, ~0.06 s per kilobase) or `Turner2004Mfe` (Turner 2004 nearest-neighbour free energy, the ViennaRNA RNAfold energy model, ~9 s per kilobase).
 - **HarmonizeExpression** — match the target codon-usage profile as closely as integer codon counts allow (DNA Chisel `match_codon_usage`); **deterministic** since review 2026-09.
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L462](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L462)
+- Source: [CodonOptimizer.cs#L469](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L469)
 
 ## Input Schema
 
@@ -36,6 +36,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 | `gc_target_min` | number | No | Lower GC fraction bound in [0,1] (default 0.40). |
 | `gc_target_max` | number | No | Upper GC fraction bound in [0,1] (default 0.60). |
 | `rare_codon_threshold` | number | No | Rare-codon frequency threshold (default 0.15). |
+| `secondary_scoring` | enum | No | Scoring of the MinimizeSecondary structure pass: `PairCount` (default) or `Turner2004Mfe`. |
 
 ## Output Schema
 

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.CompareCodonUsage",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1580",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1671",
   "description": "Codon-frequency similarity between two coding sequences (1 - 0.5*sum|f1-f2| in [0,1]).",
   "inputSchema": {
     "type": "object",

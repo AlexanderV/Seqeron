@@ -52,4 +52,38 @@ public class OptimizeCodonsTests
             Assert.That(changes.Select(c => c.Original), Is.EqualTo(new[] { "UUA", "CUU", "CUA" }));
         });
     }
+
+    [Test]
+    public void OptimizeCodons_MinimizeSecondary_RunsStructurePass_AndExposesSecondaryScoring()
+    {
+        // review 2026-09, CODON-OPT-001 F42 (B02 A1-8): MinimizeSecondary = balanced selection +
+        // GC pass + the structure pass; it used to be an alias of BalancedOptimization.
+        // 8 x GAA (Glu) + 8 x UUU (Phe): the balanced GAG/UUC blocks are complementary, so the
+        // pair-count structure pass engages and changes the result.
+        const string gene = "GAAGAAGAAGAAGAAGAAGAAGAAUUUUUUUUUUUUUUUUUUUUUUUU";
+
+        var balanced = MolToolsTools.optimize_codons(gene, EColi,
+            CodonOptimizer.OptimizationStrategy.BalancedOptimization);
+        var minimizeSecondary = MolToolsTools.optimize_codons(gene, EColi,
+            CodonOptimizer.OptimizationStrategy.MinimizeSecondary);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(balanced.OptimizedSequence,
+                Is.EqualTo("GAGGAGGAGGAGGAGGAGGAGGAGUUCUUCUUCUUCUUUUUUUUUUUU"));
+            Assert.That(minimizeSecondary.OptimizedSequence,
+                Is.EqualTo("GAGGAAGAAGAAGAAGAAGAAGAAUUCUUCUUCUUCUUCUUCUUCUUU"));
+            Assert.That(minimizeSecondary.ProteinSequence, Is.EqualTo("EEEEEEEEFFFFFFFF"));
+        });
+
+        // The Turner 2004 energy model is reachable through the tool's secondary_scoring parameter.
+        var turner = MolToolsTools.optimize_codons(gene, EColi,
+            CodonOptimizer.OptimizationStrategy.MinimizeSecondary,
+            secondary_scoring: CodonOptimizer.SecondaryStructureScoring.Turner2004Mfe);
+        Assert.That(turner.ProteinSequence, Is.EqualTo("EEEEEEEEFFFFFFFF"));
+        Assert.That(turner.OptimizedSequence.Length, Is.EqualTo(gene.Length));
+        Assert.Throws<ArgumentException>(() => MolToolsTools.optimize_codons(gene, EColi,
+            CodonOptimizer.OptimizationStrategy.MinimizeSecondary,
+            secondary_scoring: (CodonOptimizer.SecondaryStructureScoring)42));
+    }
 }

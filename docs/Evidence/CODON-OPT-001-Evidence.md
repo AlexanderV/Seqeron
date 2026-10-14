@@ -126,7 +126,7 @@
 - GC content balancing in BalancedOptimization strategy (40-60% target)
 - BalancedOptimization rebuilds Changes list after GC balancing to reflect all modifications
 - CAI via the canonical CodonUsageAnalyzer core: Met/Trp and stops not scored, w < 0.0001 → 0.01 (CodonW `cai_out`) — review 2026-09, CODON-CAI-001 F12/F13
-- MinimizeSecondary strategy delegates to BalancedOptimization in codon selection; dedicated `ReduceSecondaryStructure` method handles secondary structure reduction separately
+- MinimizeSecondary strategy uses the BalancedOptimization codon selection and GC pass and then runs the `ReduceSecondaryStructure` structure pass (review 2026-09 F42; it previously stopped after the GC pass)
 
 ## Review 2026-09 (campaign review-2026-09, batch B02)
 
@@ -148,6 +148,32 @@
 | reference set `ATGAAAGCGTTCAAGCGTACTGCGATGCCCAAAGGGTTTTAA` → relative adaptiveness | Biopython `CodonAdaptationIndex` | AAA 1.0, AAG 0.5, GCG 1.0, GCT 0.25, TTT 1.0, TTC 1.0, CGT 1.0, AGA 0.5, TAA 1.0, TAG 0.5 | identical (w = f / max f from the built table) |
 | 43-nt window MFE cost (why the structure pass stays a heuristic) | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` | ≈6.0 ms/window (Release) | — |
 
+### Numeric cross-checks (2026-10-14, F41/F42 — Turner 2004 window scoring)
+
+Reference implementation: ViennaRNA 2.7.2 (Python `RNA`), `md = RNA.md(); md.dangles = 2` (the RNAfold default), `RNA.fold_compound(window, md).mfe()`. Energy model: NNDB Turner 2004, evaluated here by the canonical engine `RnaSecondaryStructure.CalculateMinimumFreeEnergy` (owned by B12, locked against NNDB).
+
+| 45-nt window | ViennaRNA 2.7.2 (dangles=2) | Seqeron | Δ |
+|---|---|---|---|
+| gene A [0..45) `AUGGGCGGC…GGC` | −25.80 | −25.82 | 0.02 |
+| gene A [3..48) `GGCGGCGGC…GGC` | −29.00 | −29.34 | 0.34 |
+| gene A [6..51) `GGCGGC…GGCAAG` | −26.50 | −25.82 | 0.68 |
+| gene B [0..45) `AUGAAACUGGCA…CUG` | −9.20 | −9.22 | 0.02 |
+| gene B [3..48) `AAACUGGCA…CGU` | −14.00 | −13.44 | 0.56 |
+| gene B [6..51) `CUGGCAGAU…CAG` | −14.00 | −13.82 | 0.18 |
+
+Over 40 random windows (20–60 nt, seed 42): mean |Δ| 0.50 kcal/mol, max 2.24, identical MFE dot-bracket in 30/40. The residual is the engine's documented open deviation (RNA-STRUCT-001 Evidence D3/D4: NNDB int21/int22 lookup tables not inlined), not a model difference; the tests lock our values exactly and assert agreement with ViennaRNA within 1.0 kcal/mol on the six windows above.
+
+| Case | Reference | Reference value | Seqeron |
+|---|---|---|---|
+| DNA Chisel free-energy objective | dnachisel 3.2.16 (installed) | none — `AvoidHairpins` is the IDT reverse-complement stem rule; no module references ViennaRNA, `RNA.fold` or a free energy | energy model sourced from ViennaRNA RNAfold / NNDB instead |
+| Single fold, 43-nt window | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` (Release) | 4.42 ms | — |
+| `ReduceSecondaryStructure` on a 999-nt CDS, `PairCount` | this implementation (Release) | 0.06 s | — |
+| `ReduceSecondaryStructure` on a 999-nt CDS, `Turner2004Mfe` | this implementation (Release, memoised windows) | 9.02 s, 193 codons changed, summed 45-nt window MFE −2559.46 → −984.27 kcal/mol, worst window −22.79 → −11.56 | — |
+| Turner pass, gene A (111 nt) | this implementation | summed window MFE −477.92 → −144.26, worst −37.34 → −16.04 kcal/mol, protein unchanged | — |
+| Turner pass, gene B (99 nt) | this implementation | summed window MFE −252.88 → −96.45, worst −17.00 → −7.18 kcal/mol, protein unchanged | — |
+
+Default: `PairCount` stays the default of `ReduceSecondaryStructure` and of the MinimizeSecondary strategy — it is ~150× cheaper (0.06 s vs 9.02 s per kilobase) and is the historical behaviour; `Turner2004Mfe` is the sourced energy model and is selected per call (`scoring` / `secondaryScoring`, MCP `scoring` / `secondary_scoring`).
+
 ### Behaviour changes locked by tests
 
 - `MaximizeCAI` ties broken by NCBI codon order (deterministic; Biopython only warns on ties).
@@ -156,6 +182,8 @@
 - GC pass: no neutral swaps, no overshoot-without-alternative, stops on entering the window, frequency floor = `rareCodonThreshold`.
 - `RemoveRestrictionSites`: one codon per occurrence, highest-frequency substitution, IUPAC sites, both strands.
 - `ReduceSecondaryStructure`: canonical `RnaSecondaryStructure.CanPair` (G·U wobble), re-evaluated baseline, normalised RNA output.
+- `ReduceSecondaryStructure`: opt-in `Turner2004Mfe` scoring (Turner 2004 window MFE, maximised), memoised window folds, `maxFoldEvaluations` budget; default `PairCount` behaviour unchanged (F41).
+- `MinimizeSecondary`: runs the structure pass after the GC pass; output differs from BalancedOptimization on structured sequences (F42).
 - `CreateCodonTableFromSequence`: Sharp & Li / Biopython 0.5 pseudo-count, all 64 codons, Standard-code `CodonToAminoAcid`.
 
 ## Date

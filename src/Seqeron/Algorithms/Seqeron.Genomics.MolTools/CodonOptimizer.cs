@@ -439,12 +439,18 @@ public static class CodonOptimizer
     /// <item><description><b>AvoidRareCodeons</b> — only codons whose table frequency is strictly
     /// below <paramref name="rareCodonThreshold"/> are replaced, by the most frequent synonymous
     /// codon; codons at or above the threshold are kept.</description></item>
-    /// <item><description><b>BalancedOptimization</b> (default) and <b>MinimizeSecondary</b> —
-    /// as MaximizeCAI, then a GC-balancing pass moves the overall GC fraction into
+    /// <item><description><b>BalancedOptimization</b> (default) — as MaximizeCAI, then a
+    /// GC-balancing pass moves the overall GC fraction into
     /// [<paramref name="gcTargetMin"/>, <paramref name="gcTargetMax"/>] with further synonymous
-    /// swaps (DNA Chisel <c>EnforceGCContent(mini, maxi)</c> combined with codon optimisation).
-    /// <c>MinimizeSecondary</c> shares this codon selection; the dedicated structure pass is
-    /// <see cref="ReduceSecondaryStructure"/>.</description></item>
+    /// swaps (DNA Chisel <c>EnforceGCContent(mini, maxi)</c> combined with codon
+    /// optimisation).</description></item>
+    /// <item><description><b>MinimizeSecondary</b> — BalancedOptimization (codon selection + GC
+    /// pass) followed by the structure pass
+    /// <see cref="ReduceSecondaryStructure(string, CodonUsageTable, int, double, double, SecondaryStructureScoring, double, int)"/>
+    /// with its default window settings, scored by <paramref name="secondaryScoring"/>. The
+    /// default is the pair-count heuristic, which costs ~0.06 s per kilobase; pass
+    /// <see cref="SecondaryStructureScoring.Turner2004Mfe"/> for the sourced Turner 2004
+    /// free-energy model (~9 s per kilobase).</description></item>
     /// <item><description><b>HarmonizeExpression</b> — the codon usage of the output matches the
     /// target table as closely as integer codon counts allow (DNA Chisel
     /// <c>match_codon_usage</c> / <c>MatchTargetCodonUsage</c>), deterministically: per amino
@@ -459,13 +465,15 @@ public static class CodonOptimizer
     /// <param name="gcTargetMin">Lower bound of the target GC fraction (BalancedOptimization / MinimizeSecondary).</param>
     /// <param name="gcTargetMax">Upper bound of the target GC fraction (BalancedOptimization / MinimizeSecondary).</param>
     /// <param name="rareCodonThreshold">Frequency below which a codon counts as rare (strict &lt;).</param>
+    /// <param name="secondaryScoring">Window scoring model of the MinimizeSecondary structure pass (default <see cref="SecondaryStructureScoring.PairCount"/>); ignored by the other strategies.</param>
     public static OptimizationResult OptimizeSequence(
         string codingSequence,
         CodonUsageTable targetOrganism,
         OptimizationStrategy strategy = OptimizationStrategy.BalancedOptimization,
         double gcTargetMin = 0.40,
         double gcTargetMax = 0.60,
-        double rareCodonThreshold = 0.15)
+        double rareCodonThreshold = 0.15,
+        SecondaryStructureScoring secondaryScoring = SecondaryStructureScoring.PairCount)
     {
         if (string.IsNullOrEmpty(codingSequence))
         {
@@ -498,6 +506,15 @@ public static class CodonOptimizer
             BalanceGcContent(optimizedCodons, targetOrganism, gcTargetMin, gcTargetMax, rareCodonThreshold);
 
         string optimizedSequence = string.Concat(optimizedCodons);
+
+        // MinimizeSecondary additionally runs the dedicated structure pass on the GC-balanced
+        // sequence, so the strategy actually does what its name says.
+        if (strategy == OptimizationStrategy.MinimizeSecondary)
+        {
+            optimizedSequence = ReduceSecondaryStructure(
+                optimizedSequence, targetOrganism, scoring: secondaryScoring);
+            optimizedCodons = SplitIntoCodons(optimizedSequence);
+        }
 
         var changes = new List<(int Position, string Original, string Optimized)>();
         for (int i = 0; i < originalCodons.Count; i++)
@@ -900,39 +917,85 @@ public static class CodonOptimizer
     }
 
     /// <summary>
-    /// Reduces mRNA secondary structure by replacing codons inside self-complementary windows
-    /// with synonymous codons that lower the window's self-complementarity.
+    /// How <see cref="ReduceSecondaryStructure(string, CodonUsageTable, int, double, double, SecondaryStructureScoring, double, int)"/>
+    /// scores the structure of a window.
+    /// </summary>
+    public enum SecondaryStructureScoring
+    {
+        /// <summary>
+        /// Fraction of position pairs (i, j), j ≥ i + 4, that can form a canonical pair
+        /// (Watson-Crick or G·U wobble). A pairing-potential heuristic, not an energy model;
+        /// the historical default.
+        /// </summary>
+        PairCount,
+
+        /// <summary>
+        /// Minimum free energy of the window in kcal/mol, from the canonical Turner 2004
+        /// nearest-neighbour folding engine
+        /// <see cref="RnaSecondaryStructure.CalculateMinimumFreeEnergy(string, int)"/>
+        /// (Zuker-style DP, NNDB Turner 2004 parameters; the energy model of ViennaRNA RNAfold).
+        /// Minimising structure means maximising the MFE (making it less negative).
+        /// </summary>
+        Turner2004Mfe
+    }
+
+    /// <summary>
+    /// Reduces mRNA secondary structure by replacing codons inside structured windows
+    /// with synonymous codons that lower the window's structure score.
     /// </summary>
     /// <remarks>
-    /// The score of a window is the fraction of position pairs (i, j), j ≥ i + 4, whose bases can
-    /// form a canonical pair — Watson-Crick A·U / G·C <b>or the G·U wobble</b>, taken from the
+    /// Windows of <paramref name="windowSize"/> nucleotides (rounded up to whole codons) are
+    /// walked left to right; a window whose score exceeds the mode's threshold is rewritten codon
+    /// by codon, each codon taking the synonymous codon that minimises the score of the
+    /// <b>current</b> window content (the baseline is re-evaluated after every accepted change),
+    /// among codons whose usage frequency in <paramref name="table"/> is at least
+    /// <paramref name="minCodonFrequency"/>. The sequence is upper-cased, read as RNA and trimmed
+    /// to complete codons; a sequence shorter than <paramref name="windowSize"/> is returned
+    /// normalised but otherwise unchanged. The translated protein is preserved in every mode:
+    /// only synonymous codons of the NCBI Standard code are used (a stop codon can only become
+    /// another stop codon).
+    /// <para><b>Scoring modes</b> (<paramref name="scoring"/>):</para>
+    /// <list type="bullet">
+    /// <item><description><see cref="SecondaryStructureScoring.PairCount"/> (default, unchanged
+    /// behaviour) — the score is the fraction of position pairs (i, j), j ≥ i + 4, whose bases can
+    /// form a canonical pair, Watson-Crick A·U / G·C <b>or the G·U wobble</b>, taken from the
     /// canonical <see cref="RnaSecondaryStructure.CanPair"/> (ViennaRNA default pair set), not a
-    /// private Watson-Crick-only copy. Windows scoring above
-    /// <paramref name="structureThreshold"/> are rewritten codon by codon, each codon taking the
-    /// synonymous codon that minimises the score of the <b>current</b> window content (the
-    /// baseline is re-evaluated after every accepted change), among codons whose usage frequency
-    /// in <paramref name="table"/> is at least <paramref name="minCodonFrequency"/>.
-    /// The sequence is upper-cased, read as RNA and trimmed to complete codons; a sequence
-    /// shorter than <paramref name="windowSize"/> is returned normalised but otherwise unchanged.
-    /// <para>
-    /// <b>Limitation.</b> The window score is a base-pair-count heuristic, not a thermodynamic
-    /// folding model: it ignores stacking, loop penalties and pair nesting. A free-energy-guided
-    /// search would evaluate <see cref="RnaSecondaryStructure.CalculateMinimumFreeEnergy"/>
-    /// (Turner 2004) for every candidate codon, which is O(w³) per candidate (~6 ms per 43-nt
-    /// window here, i.e. minutes per kilobase) and is therefore left to the caller.
-    /// </para>
+    /// private Watson-Crick-only copy. A window is rewritten when that fraction is strictly above
+    /// <paramref name="structureThreshold"/>. This is a pairing-potential heuristic: it ignores
+    /// stacking, loop penalties and pair nesting.</description></item>
+    /// <item><description><see cref="SecondaryStructureScoring.Turner2004Mfe"/> (opt-in) — the
+    /// score is the window's minimum free energy from
+    /// <see cref="RnaSecondaryStructure.CalculateMinimumFreeEnergy(string, int)"/> (Turner 2004
+    /// nearest-neighbour parameters, the energy model of ViennaRNA RNAfold), and the search
+    /// maximises it: a window is rewritten when its MFE is strictly below
+    /// <paramref name="mfeThreshold"/> kcal/mol, and a synonymous codon is accepted only when it
+    /// raises (makes less negative) the window MFE. <paramref name="structureThreshold"/> is
+    /// ignored in this mode. Folding is O(w³) per evaluation, so window energies are memoised by
+    /// window content and the pass stops once <paramref name="maxFoldEvaluations"/> distinct folds
+    /// have been computed (deterministically, leaving the remaining windows as they are), which
+    /// bounds the runtime of a long CDS. Note that DNA Chisel has no free-energy objective (its
+    /// <c>AvoidHairpins</c> is the IDT reverse-complement stem rule), so the energy model is taken
+    /// from ViennaRNA RNAfold / NNDB Turner 2004 through this repository's own folding
+    /// engine.</description></item>
+    /// </list>
     /// </remarks>
     /// <param name="codingSequence">Coding sequence (DNA or RNA).</param>
     /// <param name="table">Codon-usage table of the expression host.</param>
     /// <param name="windowSize">Window width in nucleotides (default 40).</param>
-    /// <param name="structureThreshold">Score above which a window is rewritten (default 0.5).</param>
+    /// <param name="structureThreshold">Pair-count score above which a window is rewritten (default 0.5; <see cref="SecondaryStructureScoring.PairCount"/> only).</param>
     /// <param name="minCodonFrequency">Minimum usage frequency of a replacement codon (default 0.1).</param>
+    /// <param name="scoring">Window scoring model (default <see cref="SecondaryStructureScoring.PairCount"/>).</param>
+    /// <param name="mfeThreshold">MFE in kcal/mol below which a window is rewritten (default 0, i.e. every window with a thermodynamically favourable structure; <see cref="SecondaryStructureScoring.Turner2004Mfe"/> only).</param>
+    /// <param name="maxFoldEvaluations">Budget of distinct window folds in <see cref="SecondaryStructureScoring.Turner2004Mfe"/> mode (default 20000); the pass stops when it is exhausted.</param>
     public static string ReduceSecondaryStructure(
         string codingSequence,
         CodonUsageTable table,
         int windowSize = 40,
         double structureThreshold = 0.5,
-        double minCodonFrequency = 0.1)
+        double minCodonFrequency = 0.1,
+        SecondaryStructureScoring scoring = SecondaryStructureScoring.PairCount,
+        double mfeThreshold = 0.0,
+        int maxFoldEvaluations = 20_000)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return codingSequence;
@@ -944,15 +1007,43 @@ public static class CodonOptimizer
         var codons = SplitIntoCodons(rna);
         int windowCodons = windowSize / 3 + 1;
 
+        bool turner = scoring == SecondaryStructureScoring.Turner2004Mfe;
+        // Window energies are memoised by window content: the candidate windows of overlapping
+        // positions repeat heavily, and a fold is orders of magnitude costlier than a lookup.
+        var mfeCache = turner ? new Dictionary<string, double>(StringComparer.Ordinal) : null;
+        int folds = 0;
+
+        // Higher = more structured in both modes, so the same minimisation drives both:
+        // the pair-count fraction, or the negated MFE (maximising MFE = minimising −MFE).
+        double Score(string window)
+        {
+            if (!turner)
+                return CalculateLocalStructure(window);
+
+            if (!mfeCache!.TryGetValue(window, out double mfe))
+            {
+                mfe = RnaSecondaryStructure.CalculateMinimumFreeEnergy(window);
+                mfeCache[window] = mfe;
+                folds++;
+            }
+
+            return -mfe;
+        }
+
+        double threshold = turner ? -mfeThreshold : structureThreshold;
+
         for (int i = 0; i + windowCodons <= codons.Count; i++)
         {
-            if (CalculateLocalStructure(ConcatCodons(codons, i, windowCodons, -1, "")) <= structureThreshold)
+            if (turner && folds >= maxFoldEvaluations)
+                break; // fold budget exhausted — remaining windows are left unchanged
+
+            if (Score(ConcatCodons(codons, i, windowCodons, -1, "")) <= threshold)
                 continue;
 
             for (int j = i; j < i + windowCodons; j++)
             {
                 string current = codons[j];
-                double bestScore = CalculateLocalStructure(ConcatCodons(codons, i, windowCodons, -1, current));
+                double bestScore = Score(ConcatCodons(codons, i, windowCodons, -1, current));
                 string bestAlternative = current;
 
                 foreach (string alternative in SynonymsFor(current))
@@ -963,7 +1054,7 @@ public static class CodonOptimizer
                         continue;
                     }
 
-                    double score = CalculateLocalStructure(ConcatCodons(codons, i, windowCodons, j, alternative));
+                    double score = Score(ConcatCodons(codons, i, windowCodons, j, alternative));
 
                     if (score < bestScore)
                     {

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CodonOptimizer.OptimizeSequence",
-  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L462",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L469",
   "description": "Optimize a coding sequence's synonymous codons for expression in a target organism using one of five strategies.",
   "inputSchema": {
     "type": "object",
@@ -28,7 +28,8 @@
       },
       "gc_target_min": { "type": "number", "description": "Lower GC fraction bound.", "minimum": 0, "maximum": 1, "default": 0.40 },
       "gc_target_max": { "type": "number", "description": "Upper GC fraction bound.", "minimum": 0, "maximum": 1, "default": 0.60 },
-      "rare_codon_threshold": { "type": "number", "description": "Rare-codon frequency threshold.", "default": 0.15 }
+      "rare_codon_threshold": { "type": "number", "description": "Rare-codon frequency threshold.", "default": 0.15 },
+      "secondary_scoring": { "type": "string", "description": "Window scoring model of the MinimizeSecondary structure pass: PairCount (default, canonical-pair fraction heuristic) or Turner2004Mfe (Turner 2004 nearest-neighbour free energy; thermodynamic but much slower). Ignored by the other strategies.", "enum": ["PairCount", "Turner2004Mfe"], "default": "PairCount" }
     },
     "required": ["coding_sequence", "target_organism"]
   },
