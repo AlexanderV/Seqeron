@@ -35,6 +35,19 @@ public static class SequenceCase
         });
     }
 
+    /// <summary>
+    /// Span form of <see cref="ToUpperAscii(char)"/>: writes the ASCII-upper-cased
+    /// <paramref name="source"/> into <paramref name="destination"/> without allocating.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="destination"/> is shorter than <paramref name="source"/>.</exception>
+    public static void ToUpperAscii(ReadOnlySpan<char> source, Span<char> destination)
+    {
+        if (destination.Length < source.Length)
+            throw new ArgumentException("Destination is shorter than source.", nameof(destination));
+        for (int i = 0; i < source.Length; i++)
+            destination[i] = ToUpperAscii(source[i]);
+    }
+
     /// <summary>Upper-case DNA spelling: <see cref="ToUpperAscii(string)"/>, then U read as T.</summary>
     /// <exception cref="ArgumentNullException"><paramref name="s"/> is null.</exception>
     public static string ToUpperDna(string s) => ToUpperAscii(s).Replace('U', 'T');

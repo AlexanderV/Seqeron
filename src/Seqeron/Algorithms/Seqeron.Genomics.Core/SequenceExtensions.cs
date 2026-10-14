@@ -371,7 +371,7 @@ public static class SequenceExtensions
         else if (sequence.Length <= StackallocCharThreshold)
         {
             Span<char> buffer = stackalloc char[sequence.Length];
-            CopyToUpperAscii(sequence, buffer);
+            Infrastructure.SequenceCase.ToUpperAscii(sequence, buffer);
             CountUpperCaseWindows(buffer, k, counts);
         }
         else
@@ -380,7 +380,7 @@ public static class SequenceExtensions
             try
             {
                 Span<char> buffer = rented.AsSpan(0, sequence.Length);
-                CopyToUpperAscii(sequence, buffer);
+                Infrastructure.SequenceCase.ToUpperAscii(sequence, buffer);
                 CountUpperCaseWindows(buffer, k, counts);
             }
             finally
@@ -390,12 +390,6 @@ public static class SequenceExtensions
         }
 
         return counts;
-    }
-
-    private static void CopyToUpperAscii(ReadOnlySpan<char> source, Span<char> destination)
-    {
-        for (int i = 0; i < source.Length; i++)
-            destination[i] = ToUpperAscii(source[i]);
     }
 
     /// <summary>Adds every window of the already upper-cased <paramref name="upper"/> to <paramref name="counts"/>.</summary>
