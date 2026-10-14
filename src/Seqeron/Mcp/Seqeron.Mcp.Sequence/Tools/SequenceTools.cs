@@ -162,9 +162,11 @@ public class SequenceTools
     /// Calculate amino acid composition of a protein sequence.
     /// </summary>
     [McpServerTool(Name = "amino_acid_composition", Title = "Protein — Amino Acid Composition", ReadOnly = true)]
-    [Description("Calculate amino acid composition, molecular weight, and other properties of a protein sequence.")]
+    [Description("Calculate amino acid composition, molecular weight, and other properties of a protein sequence. chargedResidueRatio (D+E+H+K+R) and aromaticResidueRatio (F+W+Y) divide by the residue count (default denominator 'Residues' = EMBOSS pepstats Mole%) or by the full input length including '*' (denominator 'SequenceLength' = Biopython ProteinAnalysis aromaticity / amino_acids_percent). Optional includeFractions adds per-residue fractions count/denominator for every occurring residue letter (omitted by default).")]
     public static AminoAcidCompositionResult AminoAcidComposition(
-        [Description("The protein sequence to analyze")] string sequence)
+        [Description("The protein sequence to analyze")] string sequence,
+        [Description("Ratio denominator (case-insensitive): 'Residues' (default; residue letters only, EMBOSS pepstats: \"MKW*\" aromatic 1/3) or 'SequenceLength' (every character incl. '*', Biopython ProteinAnalysis: \"MKW*\" aromaticity 0.25). length, counts, MW, pI and GRAVY are unaffected.")] string denominator = "Residues",
+        [Description("true: also return 'fractions', count/denominator for every occurring residue letter (pepstats Mole%/100 or Biopython amino_acids_percent/100, per denominator). Default false (field omitted).")] bool includeFractions = false)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
@@ -172,7 +174,10 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var comp = SequenceStatistics.CalculateAminoAcidComposition(sequence);
+        var ratioDenominator = ParseCompositionDenominator(denominator);
+        var comp = ratioDenominator == SequenceStatistics.AminoAcidCompositionDenominator.Residues
+            ? SequenceStatistics.CalculateAminoAcidComposition(sequence)
+            : SequenceStatistics.CalculateAminoAcidComposition(sequence, ratioDenominator);
         return new AminoAcidCompositionResult(
             comp.Length,
             comp.Counts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
@@ -180,7 +185,26 @@ public class SequenceTools
             comp.IsoelectricPoint,
             comp.Hydrophobicity,
             comp.ChargedResidueRatio,
-            comp.AromaticResidueRatio);
+            comp.AromaticResidueRatio)
+        {
+            Fractions = includeFractions
+                ? SequenceStatistics.CalculateAminoAcidFractions(sequence, ratioDenominator)
+                    .ToDictionary(kv => kv.Key.ToString(), kv => kv.Value)
+                : null,
+        };
+    }
+
+    // Exact (case-insensitive) AminoAcidCompositionDenominator name (numeric strings rejected).
+    private static SequenceStatistics.AminoAcidCompositionDenominator ParseCompositionDenominator(string denominator)
+    {
+        foreach (var value in Enum.GetValues<SequenceStatistics.AminoAcidCompositionDenominator>())
+        {
+            if (string.Equals(value.ToString(), denominator, StringComparison.OrdinalIgnoreCase))
+                return value;
+        }
+
+        throw new ArgumentException(
+            $"Unknown composition denominator '{denominator}'. Expected one of: Residues, SequenceLength.", nameof(denominator));
     }
 
     /// <summary>

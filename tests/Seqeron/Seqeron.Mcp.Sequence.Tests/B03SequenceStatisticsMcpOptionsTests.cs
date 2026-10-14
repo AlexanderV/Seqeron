@@ -350,4 +350,73 @@ public class B03SequenceStatisticsMcpOptionsTests
             chars[i] = alphabet[rng.Next(alphabet.Length)];
         return new string(chars);
     }
+
+    // ---------------- round 2 B6 (F35 → F50): amino_acid_composition denominator / fractions ----------------
+
+    // Biopython 1.88 ProteinAnalysis executed 2026-10-14: aromaticity() and amino_acids_percent (len(seq) denominator).
+    [TestCase("MKW*", 0.25, 25.0)]
+    [TestCase("mkwfy**", 0.4285714285714286, 14.285714285714286)]
+    [TestCase("MKW", 0.33333333333333337, 33.333333333333336)]
+    public void AminoAcidComposition_SequenceLength_MatchesBiopython(string sequence, double aromaticity, double percentEach)
+    {
+        var r = SequenceTools.AminoAcidComposition(sequence, denominator: "SequenceLength", includeFractions: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.AromaticResidueRatio, Is.EqualTo(aromaticity).Within(1e-12));
+            Assert.That(r.Fractions, Is.Not.Null);
+            foreach (var (residue, fraction) in r.Fractions!)
+                Assert.That(fraction * 100, Is.EqualTo(percentEach).Within(1e-9), residue);
+            Assert.That(r.Fractions!.Keys, Is.EquivalentTo(sequence.ToUpperInvariant().Where(char.IsLetter).Distinct().Select(c => c.ToString())));
+        });
+    }
+
+    // EMBOSS 6.6.0 pepstats executed 2026-10-14: "MKW*" Residues = 3, K/M/W Mole% 33.333 (default denominator).
+    [Test]
+    public void AminoAcidComposition_DefaultDenominator_MatchesPepstatsMolePercent()
+    {
+        var r = SequenceTools.AminoAcidComposition("MKW*", includeFractions: true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Length, Is.EqualTo(3));
+            Assert.That(r.AromaticResidueRatio, Is.EqualTo(1.0 / 3).Within(1e-12));
+            Assert.That(r.ChargedResidueRatio, Is.EqualTo(1.0 / 3).Within(1e-12));
+            foreach (var residue in new[] { "M", "K", "W" })
+                Assert.That(Math.Round(r.Fractions![residue] * 100, 3), Is.EqualTo(33.333), residue);
+        });
+        var biopython = SequenceTools.AminoAcidComposition("MKW*", "sequencelength");
+        Assert.That(biopython.ChargedResidueRatio, Is.EqualTo(0.25).Within(1e-12), "K / len(seq)");
+        Assert.That(biopython.Length, Is.EqualTo(3), "length unaffected by the denominator");
+    }
+
+    [Test]
+    public void AminoAcidComposition_Default_JsonUnchanged_AndEqualsLibrary()
+    {
+        var rng = new Random(50);
+        for (int n = 0; n < 200; n++)
+        {
+            string seq = RandomString(rng, "ACDEFGHIKLMNPQRSTVWYacdefghik*", rng.Next(1, 40));
+            if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(seq, out _)) continue;
+            var lib = SequenceStatistics.CalculateAminoAcidComposition(seq);
+            var r = SequenceTools.AminoAcidComposition(seq);
+            Assert.That(r.Fractions, Is.Null, seq);
+            Assert.That((r.AromaticResidueRatio, r.ChargedResidueRatio, r.Length),
+                Is.EqualTo((lib.AromaticResidueRatio, lib.ChargedResidueRatio, lib.Length)), seq);
+            var bio = SequenceTools.AminoAcidComposition(seq, "SequenceLength", true);
+            var libBio = SequenceStatistics.CalculateAminoAcidComposition(seq, SequenceStatistics.AminoAcidCompositionDenominator.SequenceLength);
+            Assert.That(bio.AromaticResidueRatio, Is.EqualTo(libBio.AromaticResidueRatio), seq);
+            Assert.That(bio.Fractions, Is.EquivalentTo(SequenceStatistics
+                .CalculateAminoAcidFractions(seq, SequenceStatistics.AminoAcidCompositionDenominator.SequenceLength)
+                .ToDictionary(kv => kv.Key.ToString(), kv => kv.Value)), seq);
+        }
+
+        string json = JsonSerializer.Serialize(SequenceTools.AminoAcidComposition("MKW*"), McpJsonUtilities.DefaultOptions);
+        Assert.That(json, Does.Not.Contain("fractions"));
+        string withFractions = JsonSerializer.Serialize(SequenceTools.AminoAcidComposition("MKW*", includeFractions: true), McpJsonUtilities.DefaultOptions);
+        Assert.That(withFractions, Does.Contain("\"fractions\""));
+    }
+
+    [TestCase("Length")]
+    [TestCase("1")]
+    public void AminoAcidComposition_UnknownDenominator_Throws(string denominator) =>
+        Assert.Throws<ArgumentException>(() => SequenceTools.AminoAcidComposition("MKW", denominator));
 }

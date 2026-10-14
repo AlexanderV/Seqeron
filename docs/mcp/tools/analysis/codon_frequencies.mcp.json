@@ -6,40 +6,111 @@
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateCodonFrequencies",
   "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L1757",
-  "description": "Codon usage frequencies over non-overlapping in-frame triplets (Kazusa CUTG count/total) in the specified reading frame. Input is DNA or RNA, case-insensitive: U is read as T and codons are reported in DNA spelling; triplets containing any other symbol (N, IUPAC codes, gaps) are skipped without shifting the frame; a trailing partial triplet is ignored.",
+  "description": "Codon usage frequencies over non-overlapping in-frame triplets in the specified reading frame. Input is DNA or RNA, case-insensitive: U is read as T and codons are reported in DNA spelling; triplets containing any other symbol (N, IUPAC codes, gaps) are skipped without shifting the frame; a trailing partial triplet is ignored. Optional normalization (EMBOSS cusp columns): Total (default; count/total, Kazusa CUTG), PerThousand (count/total x 1000, cusp 'Frequency') or PerAminoAcid (count / count of its synonymous family, stops one '*' family, cusp 'Fraction'); the families follow the NCBI genetic code genetic_code (default 1 = Standard, as cusp). Only observed codons are returned.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "dnaSequence": { "type": "string", "description": "DNA or RNA coding sequence (U read as T)", "minLength": 1 },
-      "readingFrame": { "type": "integer", "description": "Reading frame 0, 1, or 2", "default": 0, "minimum": 0, "maximum": 2 }
+      "dnaSequence": {
+        "type": "string",
+        "description": "DNA or RNA coding sequence (U read as T)",
+        "minLength": 1
+      },
+      "readingFrame": {
+        "type": "integer",
+        "description": "Reading frame 0, 1, or 2",
+        "default": 0,
+        "minimum": 0,
+        "maximum": 2
+      },
+      "normalization": {
+        "type": "string",
+        "description": "Total (count/total), PerThousand (x 1000, cusp Frequency) or PerAminoAcid (cusp Fraction); case-insensitive",
+        "default": "Total",
+        "enum": [
+          "Total",
+          "PerThousand",
+          "PerAminoAcid"
+        ]
+      },
+      "genetic_code": {
+        "type": "integer",
+        "description": "NCBI translation table defining the PerAminoAcid synonymous families and stops (1-6, 9-16, 21-33)",
+        "default": 1
+      }
     },
-    "required": ["dnaSequence"]
+    "required": [
+      "dnaSequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
       "frequencies": {
         "type": "object",
-        "description": "Map of codon -> frequency (count/total)",
-        "additionalProperties": { "type": "number" }
+        "description": "Map of codon -> count/total, per-thousand, or per-amino-acid fraction (per normalization)",
+        "additionalProperties": {
+          "type": "number"
+        }
       }
     },
-    "required": ["frequencies"]
+    "required": [
+      "frequencies"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1003, "message": "Reading frame must be 0, 1, or 2" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1003,
+      "message": "Reading frame must be 0, 1, or 2"
+    },
+    {
+      "code": 1001,
+      "message": "Unknown normalization / Unknown genetic code table"
+    }
   ],
   "examples": [
     {
       "name": "Frame 0",
-      "input": { "dnaSequence": "ATGATGAAA", "readingFrame": 0 },
-      "output": { "frequencies": { "ATG": 0.6666666666666666, "AAA": 0.3333333333333333 } }
+      "input": {
+        "dnaSequence": "ATGATGAAA",
+        "readingFrame": 0
+      },
+      "output": {
+        "frequencies": {
+          "ATG": 0.6666666666666666,
+          "AAA": 0.3333333333333333
+        }
+      }
     },
     {
       "name": "Frame 1",
-      "input": { "dnaSequence": "ATGATGAAA", "readingFrame": 1 },
-      "output": { "frequencies": { "TGA": 1.0 } }
+      "input": {
+        "dnaSequence": "ATGATGAAA",
+        "readingFrame": 1
+      },
+      "output": {
+        "frequencies": {
+          "TGA": 1.0
+        }
+      }
+    },
+    {
+      "name": "cusp Fraction (per amino acid)",
+      "input": {
+        "dnaSequence": "ATGAAAAAGAAATAA",
+        "normalization": "PerAminoAcid"
+      },
+      "output": {
+        "frequencies": {
+          "ATG": 1.0,
+          "AAA": 0.6666666666666666,
+          "AAG": 0.3333333333333333,
+          "TAA": 1.0
+        }
+      }
     }
   ]
 }

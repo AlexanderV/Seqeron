@@ -389,4 +389,107 @@ public class B03SequenceStatisticsMcpOptionsTests
     }
 
     #endregion
+
+    #region codon_frequencies normalization / genetic_code (round 2 B5, F36 → F49)
+
+    // EMBOSS 6.6.0 cusp executed 2026-10-14 (F36; re-run for F49) on this 26-codon sequence, standard code.
+    private const string CuspSequence =
+        "ATGGCTGCCGCAGCGGCTAAAAAGAAACTGCTTCTCTTATTGCTGCGTCGCAGAAGGTGGTGTTGCTAATAGTGAATG";
+
+    // codon, cusp Fraction, cusp Frequency (/1000)
+    private static readonly (string Codon, double Fraction, double PerThousand)[] CuspRows =
+    {
+        ("GCA", 0.200, 38.462), ("GCC", 0.200, 38.462), ("GCG", 0.200, 38.462), ("GCT", 0.400, 76.923),
+        ("TGC", 0.500, 38.462), ("TGT", 0.500, 38.462), ("AAA", 0.667, 76.923), ("AAG", 0.333, 38.462),
+        ("CTC", 0.167, 38.462), ("CTG", 0.333, 76.923), ("CTT", 0.167, 38.462), ("TTA", 0.167, 38.462),
+        ("TTG", 0.167, 38.462), ("ATG", 1.000, 76.923), ("AGA", 0.250, 38.462), ("AGG", 0.250, 38.462),
+        ("CGC", 0.250, 38.462), ("CGT", 0.250, 38.462), ("TGG", 1.000, 38.462), ("TAA", 0.333, 38.462),
+        ("TAG", 0.333, 38.462), ("TGA", 0.333, 38.462),
+    };
+
+    [Test]
+    public void CodonFrequencies_PerAminoAcid_MatchesEmbossCuspFraction()
+    {
+        var f = AnalysisTools.CodonFrequencies(CuspSequence, normalization: "PerAminoAcid").Frequencies;
+        var lowerRna = AnalysisTools.CodonFrequencies(CuspSequence.ToLowerInvariant().Replace('t', 'u'), normalization: "peraminoacid").Frequencies;
+        Assert.That(f.Keys, Is.EquivalentTo(CuspRows.Select(r => r.Codon)));
+        Assert.Multiple(() =>
+        {
+            foreach (var row in CuspRows)
+            {
+                Assert.That(Math.Round(f[row.Codon], 3), Is.EqualTo(row.Fraction), row.Codon);
+                Assert.That(lowerRna[row.Codon], Is.EqualTo(f[row.Codon]), row.Codon + " lower-case RNA");
+            }
+
+            Assert.That(f["AAA"], Is.EqualTo(2.0 / 3).Within(1e-12));
+            Assert.That(f["TGA"], Is.EqualTo(1.0 / 3).Within(1e-12), "stops form one '*' family");
+        });
+    }
+
+    [Test]
+    public void CodonFrequencies_PerThousand_MatchesEmbossCuspFrequency()
+    {
+        var f = AnalysisTools.CodonFrequencies(CuspSequence, 0, "PerThousand").Frequencies;
+        Assert.Multiple(() =>
+        {
+            foreach (var row in CuspRows)
+                Assert.That(Math.Round(f[row.Codon], 3), Is.EqualTo(row.PerThousand), row.Codon);
+            Assert.That(f["GCT"], Is.EqualTo(2 * 1000.0 / 26).Within(1e-9));
+        });
+    }
+
+    // Hand-derived (F36): NCBI table 2 moves AGA/AGG into the stop family and TGA to Trp.
+    [Test]
+    public void CodonFrequencies_PerAminoAcid_GeneticCode2_RegroupsFamilies()
+    {
+        var f = AnalysisTools.CodonFrequencies(CuspSequence, normalization: "PerAminoAcid", genetic_code: 2).Frequencies;
+        Assert.Multiple(() =>
+        {
+            foreach (var stop in new[] { "TAA", "TAG", "AGA", "AGG" })
+                Assert.That(f[stop], Is.EqualTo(0.25).Within(1e-12), stop);
+            Assert.That(f["TGA"], Is.EqualTo(0.5).Within(1e-12));
+            Assert.That(f["TGG"], Is.EqualTo(0.5).Within(1e-12));
+            Assert.That(f["CGC"], Is.EqualTo(0.5).Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void CodonFrequencies_Defaults_EqualLibrary_AndOptionsEqualLibraryOverload()
+    {
+        var rng = new Random(49);
+        foreach (int table in new[] { 1, 2, 11 })
+        {
+            for (int n = 0; n < 100; n++)
+            {
+                string seq = RandomSequence(rng, "ACGTUacgtN-", rng.Next(1, 60));
+                int frame = rng.Next(0, 3);
+                var code = Seqeron.Genomics.Core.GeneticCode.GetByTableNumber(table);
+                Assert.That(AnalysisTools.CodonFrequencies(seq, frame).Frequencies,
+                    Is.EquivalentTo(SequenceStatistics.CalculateCodonFrequencies(seq, frame)), seq);
+                Assert.That(AnalysisTools.CodonFrequencies(seq, frame, "Total", table).Frequencies,
+                    Is.EquivalentTo(SequenceStatistics.CalculateCodonFrequencies(seq, frame)), seq);
+                foreach (var mode in new[] { SequenceStatistics.CodonFrequencyNormalization.PerThousand, SequenceStatistics.CodonFrequencyNormalization.PerAminoAcid })
+                    Assert.That(AnalysisTools.CodonFrequencies(seq, frame, mode.ToString(), table).Frequencies,
+                        Is.EquivalentTo(SequenceStatistics.CalculateCodonFrequencies(seq, frame, mode, code)), $"{seq} {mode} {table}");
+            }
+        }
+    }
+
+    [TestCase("Fraction")]
+    [TestCase("2")]
+    [TestCase("")]
+    public void CodonFrequencies_UnknownNormalization_Throws(string normalization) =>
+        Assert.Throws<ArgumentException>(() => AnalysisTools.CodonFrequencies(CuspSequence, 0, normalization));
+
+    [TestCase(0)]
+    [TestCase(7)]
+    [TestCase(34)]
+    public void CodonFrequencies_UnknownGeneticCode_Throws(int table)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => AnalysisTools.CodonFrequencies(CuspSequence, 0, "PerAminoAcid", table));
+        Assert.That(ex!.Message, Does.Contain("Unknown genetic code table"));
+        Assert.Throws<ArgumentException>(() => AnalysisTools.CodonFrequencies(CuspSequence, 0, "Total", table));
+    }
+
+    #endregion
 }

@@ -35,7 +35,13 @@ public record AminoAcidCompositionResult(
     double IsoelectricPoint,
     double Hydrophobicity,
     double ChargedResidueRatio,
-    double AromaticResidueRatio);
+    double AromaticResidueRatio)
+{
+    /// <summary>Per-residue fractions count / denominator for every occurring residue letter; null
+    /// (omitted from the JSON) unless <c>includeFractions</c> is set.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, double>? Fractions { get; init; }
+}
 
 /// <summary>Result of molecular_weight_protein operation.</summary>
 public record MolecularWeightProteinResult(double MolecularWeight, string Unit);

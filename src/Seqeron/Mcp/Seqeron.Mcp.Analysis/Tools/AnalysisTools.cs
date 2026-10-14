@@ -496,18 +496,50 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "codon_frequencies", Title = "DNA — Codon Frequencies", ReadOnly = true)]
-    [Description("Codon usage frequencies over non-overlapping in-frame triplets (Kazusa CUTG count/total) in the specified reading frame. Input is DNA or RNA, case-insensitive: U is read as T and codons are reported in DNA spelling; triplets containing any other symbol (N, IUPAC codes, gaps) are skipped without shifting the frame; a trailing partial triplet is ignored.")]
+    [Description("Codon usage frequencies over non-overlapping in-frame triplets in the specified reading frame. Input is DNA or RNA, case-insensitive: U is read as T and codons are reported in DNA spelling; triplets containing any other symbol (N, IUPAC codes, gaps) are skipped without shifting the frame; a trailing partial triplet is ignored. Optional normalization (EMBOSS cusp columns): Total (default; count/total, Kazusa CUTG), PerThousand (count/total x 1000, cusp 'Frequency') or PerAminoAcid (count / count of its synonymous family, stops one '*' family, cusp 'Fraction'); the families follow the NCBI genetic code genetic_code (default 1 = Standard, as cusp). Only observed codons are returned.")]
     public static CodonFrequenciesResult CodonFrequencies(
         [Description("DNA or RNA coding sequence (case-insensitive; U read as T).")] string dnaSequence,
-        [Description("Reading frame: 0, 1, or 2 (default 0).")] int readingFrame = 0)
+        [Description("Reading frame: 0, 1, or 2 (default 0).")] int readingFrame = 0,
+        [Description("Output normalisation (case-insensitive): 'Total' (default; count / total counted codons), 'PerThousand' (x 1000, EMBOSS cusp Frequency column) or 'PerAminoAcid' (count / total of the codons encoding the same amino acid under genetic_code, stop codons one family; EMBOSS cusp Fraction column).")] string normalization = "Total",
+        [Description("NCBI translation table number defining the synonymous codon families and stop codons used by normalization = PerAminoAcid (default 1 = Standard, identical to omitting it; e.g. 2 = vertebrate mitochondrial, 11 = bacterial/plastid). Must be one of the NCBI gc.prt tables (1-6, 9-16, 21-33); validated for every normalization.")] int genetic_code = 1)
     {
         if (string.IsNullOrEmpty(dnaSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(dnaSequence));
         if (readingFrame is < 0 or > 2)
             throw new ArgumentException("Reading frame must be 0, 1, or 2", nameof(readingFrame));
 
-        var freq = SequenceStatistics.CalculateCodonFrequencies(dnaSequence, readingFrame);
+        var mode = ParseExactEnumName<SequenceStatistics.CodonFrequencyNormalization>(normalization, nameof(normalization));
+        var code = ResolveGeneticCode(genetic_code);
+        var freq = mode == SequenceStatistics.CodonFrequencyNormalization.Total
+            ? SequenceStatistics.CalculateCodonFrequencies(dnaSequence, readingFrame)
+            : SequenceStatistics.CalculateCodonFrequencies(dnaSequence, readingFrame, mode, code);
         return new CodonFrequenciesResult(new Dictionary<string, double>(freq));
+    }
+
+    // Exact (case-insensitive) enum member name; Enum.TryParse alone would also accept numeric strings.
+    private static TEnum ParseExactEnumName<TEnum>(string? value, string paramName)
+        where TEnum : struct, Enum
+    {
+        foreach (var member in Enum.GetValues<TEnum>())
+        {
+            if (string.Equals(member.ToString(), value, StringComparison.OrdinalIgnoreCase))
+                return member;
+        }
+
+        throw new ArgumentException(
+            $"Unknown {paramName} '{value}'. Expected one of: {string.Join(", ", Enum.GetNames<TEnum>())}.", paramName);
+    }
+
+    // NCBI translation table number → GeneticCode; same contract and error as the MolTools
+    // codon tools' genetic_code parameter (FIN-B02 WP15).
+    private static GeneticCode ResolveGeneticCode(int genetic_code)
+    {
+        if (!GeneticCode.SupportedTableNumbers.Contains(genetic_code))
+            throw new ArgumentException(
+                $"Unknown genetic code table: {genetic_code}. Supported NCBI tables: {string.Join(", ", GeneticCode.SupportedTableNumbers)}.",
+                nameof(genetic_code));
+
+        return GeneticCode.GetByTableNumber(genetic_code);
     }
 
     [McpServerTool(Name = "predict_chou_fasman", Title = "Protein — Chou-Fasman Propensities", ReadOnly = true)]

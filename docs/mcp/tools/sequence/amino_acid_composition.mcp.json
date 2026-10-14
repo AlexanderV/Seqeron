@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateAminoAcidComposition",
   "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L133",
-  "description": "Calculate amino acid composition, molecular weight, and other properties of a protein sequence.",
+  "description": "Calculate amino acid composition, molecular weight, and other properties of a protein sequence. chargedResidueRatio (D+E+H+K+R) and aromaticResidueRatio (F+W+Y) divide by the residue count (default denominator 'Residues' = EMBOSS pepstats Mole%) or by the full input length including '*' (denominator 'SequenceLength' = Biopython ProteinAnalysis aromaticity / amino_acids_percent). Optional includeFractions adds per-residue fractions count/denominator for every occurring residue letter (omitted by default).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -14,32 +14,130 @@
         "type": "string",
         "description": "The protein sequence to analyze",
         "minLength": 1
+      },
+      "denominator": {
+        "type": "string",
+        "description": "Residues (EMBOSS pepstats) or SequenceLength (Biopython len(seq)); case-insensitive",
+        "default": "Residues",
+        "enum": [
+          "Residues",
+          "SequenceLength"
+        ]
+      },
+      "includeFractions": {
+        "type": "boolean",
+        "description": "Also return per-residue fractions",
+        "default": false
       }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
-      "length": { "type": "integer", "description": "Number of amino acids" },
-      "counts": { "type": "object", "description": "Count of each amino acid" },
-      "molecularWeight": { "type": "number", "description": "Molecular weight in Daltons" },
-      "isoelectricPoint": { "type": "number", "description": "Isoelectric point (pI)" },
-      "hydrophobicity": { "type": "number", "description": "Average hydrophobicity" },
-      "chargedResidueRatio": { "type": "number", "description": "Ratio of charged residues" },
-      "aromaticResidueRatio": { "type": "number", "description": "Ratio of aromatic residues" }
+      "length": {
+        "type": "integer",
+        "description": "Number of amino acids"
+      },
+      "counts": {
+        "type": "object",
+        "description": "Count of each amino acid"
+      },
+      "molecularWeight": {
+        "type": "number",
+        "description": "Molecular weight in Daltons"
+      },
+      "isoelectricPoint": {
+        "type": "number",
+        "description": "Isoelectric point (pI)"
+      },
+      "hydrophobicity": {
+        "type": "number",
+        "description": "Average hydrophobicity"
+      },
+      "chargedResidueRatio": {
+        "type": "number",
+        "description": "Ratio of charged residues"
+      },
+      "aromaticResidueRatio": {
+        "type": "number",
+        "description": "Ratio of aromatic residues"
+      },
+      "fractions": {
+        "type": "object",
+        "description": "Only with includeFractions: residue -> count/denominator",
+        "additionalProperties": {
+          "type": "number"
+        }
+      }
     },
-    "required": ["length", "counts", "molecularWeight", "isoelectricPoint"]
+    "required": [
+      "length",
+      "counts",
+      "molecularWeight",
+      "isoelectricPoint"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 2002, "message": "Invalid protein sequence" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 2002,
+      "message": "Invalid protein sequence"
+    },
+    {
+      "code": 1001,
+      "message": "Unknown composition denominator"
+    }
   ],
   "examples": [
     {
       "name": "Protein composition",
-      "input": { "sequence": "MAEGEITTFT" },
-      "output": { "length": 10, "counts": {"M": 1, "A": 1, "E": 2, "G": 1, "I": 1, "T": 3, "F": 1} }
+      "input": {
+        "sequence": "MAEGEITTFT"
+      },
+      "output": {
+        "length": 10,
+        "counts": {
+          "M": 1,
+          "A": 1,
+          "E": 2,
+          "G": 1,
+          "I": 1,
+          "T": 3,
+          "F": 1
+        }
+      }
+    },
+    {
+      "name": "Biopython denominator with fractions",
+      "input": {
+        "sequence": "MKW*",
+        "denominator": "SequenceLength",
+        "includeFractions": true
+      },
+      "output": {
+        "length": 3,
+        "counts": {
+          "M": 1,
+          "K": 1,
+          "W": 1
+        },
+        "molecularWeight": 463.5935,
+        "isoelectricPoint": 9.15,
+        "hydrophobicity": -0.9666666666666667,
+        "chargedResidueRatio": 0.25,
+        "aromaticResidueRatio": 0.25,
+        "fractions": {
+          "M": 0.25,
+          "K": 0.25,
+          "W": 0.25
+        }
+      }
     }
   ]
 }
