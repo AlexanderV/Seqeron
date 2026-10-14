@@ -289,7 +289,7 @@ that is recorded as an environment limitation, not worked around.
 | # | Batch | Item | Where it is recorded | Owner of the fix |
 |---|---|---|---|---|
 | RO1 | B02 | CODON-USAGE-001 organism presets hold per-AA fractions only — add the per-thousand columns from the Kazusa Codon Usage Database (`MolTools/CodonUsageAnalyzer.cs`). **Supersedes B02.md leftover (b)** ("E. coli 316407 per-thousand usage — kazusa.or.jp blocked"), whose proof was the 403 | B02.md `## Leftovers` (b) | **SRC** — FIN-B02 landed at 23:04, so SRC's task C condition is met; commit "(SRC for B02)" |
-| RO2 | B03 | PROT-SCALE / ProtScale **exponential** weight-variation model — the equation was unobtainable (mirrors 403/ENOTFOUND; one sample fitted a ∈ [0.81, 0.94]) | B03.md `## Leftovers` (BLOCKED) | SRC session, commit "(SRC for B03)" — B03 is FINISHED |
+| ~~RO2~~ | B03 | PROT-SCALE / ProtScale **exponential** weight-variation model | B03.md `## Leftovers` (BLOCKED) | **DONE 2026-10-14 `4bb88d80`** (SRC for B03, register row R6): derived from the live ExPASy tool — `w(0)=1`, `w(d)=(e-0.01)+(1-e)(0.01/(1-e))^(d/R)` for edge weight `e` and half-window `R` — implemented as `HydrophobicityProfileOptions.WeightModel` (Linear stays the default), locked to ProtScale's own output at 3 dp in 14 unit cases + an MCP test, Evidence SEQ-HYDRO-001 "SRC RO2". **First of the two re-opened items closed, and it was closed by the network access** |
 
 Both are now DOABLE unless the fetched page still fails to define the quantity; if so, the new proof must quote the
 fetched page (not a 403).
