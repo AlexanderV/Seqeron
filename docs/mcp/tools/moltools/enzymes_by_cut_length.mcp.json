@@ -5,14 +5,20 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetEnzymesByCutLength",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L84",
-  "description": "List built-in restriction enzymes whose recognition sequence has exactly the given length (bp).",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L94",
+  "description": "List built-in restriction enzymes whose FULL recognition string has exactly the given length in bp (Biopython size), so the interrupted palindrome SfiI counts 13 and not 8.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "length": { "type": "integer", "description": "Recognition-sequence length in bp.", "minimum": 1 }
+      "length": {
+        "type": "integer",
+        "description": "Recognition-sequence length in bp (full string, spacer included).",
+        "minimum": 1
+      }
     },
-    "required": ["length"]
+    "required": [
+      "length"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -22,31 +28,114 @@
         "items": {
           "type": "object",
           "properties": {
-            "name": { "type": "string" },
-            "recognitionSequence": { "type": "string" },
-            "cutPositionForward": { "type": "integer" },
-            "cutPositionReverse": { "type": "integer" },
-            "organism": { "type": "string" }
+            "name": {
+              "type": "string",
+              "description": "Enzyme name."
+            },
+            "recognitionSequence": {
+              "type": "string",
+              "description": "Recognition sequence (IUPAC)."
+            },
+            "cutPositionForward": {
+              "type": "integer",
+              "description": "Cut offset on the forward strand (Biopython fst5)."
+            },
+            "cutPositionReverse": {
+              "type": "integer",
+              "description": "Cut offset on the reverse strand (Biopython size + fst3)."
+            },
+            "organism": {
+              "type": "string",
+              "description": "Source organism."
+            },
+            "isBluntEnd": {
+              "type": "boolean",
+              "description": "True when both strands are cut at the same offset (Biopython is_blunt)."
+            },
+            "overhangType": {
+              "type": "string",
+              "enum": [
+                "Blunt",
+                "FivePrime",
+                "ThreePrime"
+              ],
+              "description": "End chemistry: the sign of Biopython ovhg."
+            },
+            "recognitionLength": {
+              "type": "integer",
+              "description": "Length of the full recognition string (Biopython size); SfiI is 13."
+            }
           },
-          "required": ["name", "recognitionSequence", "cutPositionForward", "cutPositionReverse", "organism"]
+          "required": [
+            "name",
+            "recognitionSequence",
+            "cutPositionForward",
+            "cutPositionReverse",
+            "organism",
+            "isBluntEnd",
+            "overhangType",
+            "recognitionLength"
+          ]
         }
       }
     },
-    "required": ["enzymes"]
+    "required": [
+      "enzymes"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Recognition-sequence length must be positive" }
+    {
+      "code": 1001,
+      "message": "Recognition-sequence length must be positive"
+    }
   ],
   "examples": [
     {
-      "name": "6-cutters",
-      "input": { "length": 6 },
-      "output": { "enzymes": "24 enzymes (e.g. EcoRI, BamHI, HindIII)" }
+      "name": "4-cutters",
+      "input": {
+        "length": 4
+      },
+      "output": {
+        "enzymes": "9 enzymes: MspI, HpaII, TaqI, AluI, RsaI, HaeIII, DpnI, Sau3AI, MboI"
+      }
     },
     {
-      "name": "8-cutters",
-      "input": { "length": 8 },
-      "output": { "enzymes": "5 enzymes (NotI, PacI, AscI, FseI, SwaI)" }
+      "name": "6-cutters",
+      "input": {
+        "length": 6
+      },
+      "output": {
+        "enzymes": "24 enzymes (e.g. EcoRI, BamHI, HindIII)"
+      }
+    },
+    {
+      "name": "8-cutters - SfiI is NOT among them",
+      "input": {
+        "length": 8
+      },
+      "output": {
+        "enzymes": "5 enzymes (NotI, PacI, AscI, FseI, SwaI)"
+      }
+    },
+    {
+      "name": "The one 13-bp interrupted palindrome",
+      "input": {
+        "length": 13
+      },
+      "output": {
+        "enzymes": [
+          {
+            "name": "SfiI",
+            "recognitionSequence": "GGCCNNNNNGGCC",
+            "cutPositionForward": 8,
+            "cutPositionReverse": 5,
+            "organism": "Streptomyces fimbriatus",
+            "isBluntEnd": false,
+            "overhangType": "ThreePrime",
+            "recognitionLength": 13
+          }
+        ]
+      }
     }
   ]
 }

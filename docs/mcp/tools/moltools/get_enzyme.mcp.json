@@ -5,44 +5,186 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetEnzyme",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L76",
-  "description": "Look up a built-in restriction enzyme by name (case-insensitive).",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L75",
+  "description": "Look up a built-in restriction enzyme by name (case-insensitive) and report its end chemistry, overhang sequence (REBASE/Biopython ovhgseq) and same-site enzymes.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "name": { "type": "string", "description": "Enzyme name (e.g. EcoRI, BamHI).", "minLength": 1 }
+      "name": {
+        "type": "string",
+        "description": "Enzyme name (e.g. EcoRI, BamHI).",
+        "minLength": 1
+      }
     },
-    "required": ["name"]
+    "required": [
+      "name"
+    ]
   },
   "outputSchema": {
     "type": "object",
     "properties": {
       "enzyme": {
-        "type": ["object", "null"],
+        "type": [
+          "object",
+          "null"
+        ],
         "properties": {
-          "name": { "type": "string" },
-          "recognitionSequence": { "type": "string" },
-          "cutPositionForward": { "type": "integer" },
-          "cutPositionReverse": { "type": "integer" },
-          "organism": { "type": "string" }
+          "name": {
+            "type": "string",
+            "description": "Enzyme name."
+          },
+          "recognitionSequence": {
+            "type": "string",
+            "description": "Recognition sequence (IUPAC)."
+          },
+          "cutPositionForward": {
+            "type": "integer",
+            "description": "Cut offset on the forward strand (Biopython fst5)."
+          },
+          "cutPositionReverse": {
+            "type": "integer",
+            "description": "Cut offset on the reverse strand (Biopython size + fst3)."
+          },
+          "organism": {
+            "type": "string",
+            "description": "Source organism."
+          },
+          "isBluntEnd": {
+            "type": "boolean",
+            "description": "True when both strands are cut at the same offset (Biopython is_blunt)."
+          },
+          "overhangType": {
+            "type": "string",
+            "enum": [
+              "Blunt",
+              "FivePrime",
+              "ThreePrime"
+            ],
+            "description": "End chemistry: the sign of Biopython ovhg."
+          },
+          "recognitionLength": {
+            "type": "integer",
+            "description": "Length of the full recognition string (Biopython size); SfiI is 13."
+          }
         }
+      },
+      "overhangSequence": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "The enzyme-level overhang, top strand 5'->3' (REBASE/Biopython ovhgseq). \"\" for a blunt cutter; an IUPAC code where the site is degenerate inside the window (SfiI -> \"NNN\"); null when enzyme is null."
+      },
+      "equischizomers": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "Other built-ins with the same recognition sequence AND the same cut positions (interchangeable in a digest). null when enzyme is null."
+      },
+      "neoschizomers": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "Other built-ins with the same recognition sequence but a different cut position (different ends). null when enzyme is null."
       }
     },
-    "required": ["enzyme"]
+    "required": [
+      "enzyme"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Enzyme name cannot be null or blank" }
+    {
+      "code": 1001,
+      "message": "Enzyme name cannot be null or blank"
+    }
   ],
   "examples": [
     {
       "name": "EcoRI",
-      "input": { "name": "EcoRI" },
-      "output": { "enzyme": { "name": "EcoRI", "recognitionSequence": "GAATTC", "cutPositionForward": 1, "cutPositionReverse": 5, "organism": "Escherichia coli" } }
+      "input": {
+        "name": "EcoRI"
+      },
+      "output": {
+        "enzyme": {
+          "name": "EcoRI",
+          "recognitionSequence": "GAATTC",
+          "cutPositionForward": 1,
+          "cutPositionReverse": 5,
+          "organism": "Escherichia coli",
+          "isBluntEnd": false,
+          "overhangType": "FivePrime",
+          "recognitionLength": 6
+        },
+        "overhangSequence": "AATT",
+        "equischizomers": [],
+        "neoschizomers": []
+      }
+    },
+    {
+      "name": "MboI - same site as two other built-ins",
+      "input": {
+        "name": "MboI"
+      },
+      "output": {
+        "enzyme": {
+          "name": "MboI",
+          "recognitionSequence": "GATC",
+          "cutPositionForward": 0,
+          "cutPositionReverse": 4,
+          "organism": "Moraxella bovis",
+          "isBluntEnd": false,
+          "overhangType": "FivePrime",
+          "recognitionLength": 4
+        },
+        "overhangSequence": "GATC",
+        "equischizomers": [
+          "Sau3AI"
+        ],
+        "neoschizomers": [
+          "DpnI"
+        ]
+      }
+    },
+    {
+      "name": "SfiI - divided palindrome",
+      "input": {
+        "name": "SfiI"
+      },
+      "output": {
+        "enzyme": {
+          "name": "SfiI",
+          "recognitionSequence": "GGCCNNNNNGGCC",
+          "cutPositionForward": 8,
+          "cutPositionReverse": 5,
+          "organism": "Streptomyces fimbriatus",
+          "isBluntEnd": false,
+          "overhangType": "ThreePrime",
+          "recognitionLength": 13
+        },
+        "overhangSequence": "NNN",
+        "equischizomers": [],
+        "neoschizomers": []
+      }
     },
     {
       "name": "Unknown enzyme",
-      "input": { "name": "NotAnEnzyme" },
-      "output": { "enzyme": null }
+      "input": {
+        "name": "NotAnEnzyme"
+      },
+      "output": {
+        "enzyme": null,
+        "overhangSequence": null,
+        "equischizomers": null,
+        "neoschizomers": null
+      }
     }
   ]
 }

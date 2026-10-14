@@ -2251,7 +2251,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetBluntCutters",
     "docPath": "docs/mcp/tools/moltools/blunt_cutters.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L107"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L121"
   },
   {
     "tool": "build_codon_table",
@@ -2300,7 +2300,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindCompatibleEnzymes",
     "docPath": "docs/mcp/tools/moltools/compatible_enzymes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L502"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1206"
   },
   {
     "tool": "count_codons",
@@ -2405,14 +2405,14 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetEnzymesByCutLength",
     "docPath": "docs/mcp/tools/moltools/enzymes_by_cut_length.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L84"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L94"
   },
   {
     "tool": "enzymes_compatible",
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.AreCompatible",
     "docPath": "docs/mcp/tools/moltools/enzymes_compatible.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L524"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1271"
   },
   {
     "tool": "evaluate_guide_rna",
@@ -2489,7 +2489,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetEnzyme",
     "docPath": "docs/mcp/tools/moltools/get_enzyme.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L76"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L75"
   },
   {
     "tool": "hairpin_potential",
@@ -2594,7 +2594,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetStickyCutters",
     "docPath": "docs/mcp/tools/moltools/sticky_cutters.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L114"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L134"
   },
   {
     "tool": "three_prime_stability",

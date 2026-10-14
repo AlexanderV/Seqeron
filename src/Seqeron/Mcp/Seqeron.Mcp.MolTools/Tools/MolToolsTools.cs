@@ -494,17 +494,25 @@ public class MolToolsTools
 
     #region RestrictionAnalyzer
 
-    [McpServerTool(Name = "get_enzyme", Title = "MolTools — Look Up Restriction Enzyme", ReadOnly = true), Description("Looks up a built-in restriction enzyme by name (case-insensitive) and returns its recognition sequence, cut positions and organism. Returns enzyme=null when the name is not in the built-in database. Call to fetch a single enzyme's properties by name.")]
+    [McpServerTool(Name = "get_enzyme", Title = "MolTools — Look Up Restriction Enzyme", ReadOnly = true), Description("Looks up a built-in restriction enzyme by name (case-insensitive) and returns its recognition sequence, cut positions, organism, end chemistry (blunt / 5' / 3') and the overhang sequence it leaves — the top-strand bases between its two strand cuts, 5'→3', which is REBASE/Biopython ovhgseq (EcoRI \"AATT\", PstI \"TGCA\", empty for a blunt cutter, and an IUPAC code where the enzyme's own site is degenerate, e.g. SfiI \"NNN\"). Also lists the other built-ins recognising the same sequence, split into equischizomers (same site AND same cut positions, so interchangeable in a digest — MspI/HpaII) and neoschizomers (same site, different cut, so different ends — MboI vs DpnI). recognitionLength is the full site string, so the interrupted palindrome SfiI (GGCCNNNNNGGCC) reports 13 although only 8 bases are specified. Returns enzyme=null when the name is not in the built-in database. Call to fetch a single enzyme's properties by name.")]
     public static EnzymeLookupResult get_enzyme(
         [Description("Enzyme name (e.g. EcoRI, BamHI).")] string name)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new System.ArgumentException("Enzyme name cannot be null or blank.", nameof(name));
 
-        return new EnzymeLookupResult(RestrictionAnalyzer.GetEnzyme(name));
+        var enzyme = RestrictionAnalyzer.GetEnzyme(name);
+        if (enzyme is null)
+            return new EnzymeLookupResult(null);
+
+        return new EnzymeLookupResult(
+            enzyme,
+            RestrictionAnalyzer.GetOverhangSequence(enzyme),
+            RestrictionAnalyzer.FindEquischizomers(enzyme.Name).Select(e => e.Name).ToList(),
+            RestrictionAnalyzer.FindNeoschizomers(enzyme.Name).Select(e => e.Name).ToList());
     }
 
-    [McpServerTool(Name = "enzymes_by_cut_length", Title = "MolTools — Enzymes by Recognition Length", ReadOnly = true), Description("Lists all built-in restriction enzymes whose recognition sequence has exactly the specified length in base pairs (e.g. 4 for frequent cutters, 6 for typical cloning enzymes, 8 for rare cutters). Call to pick enzymes by how often they cut.")]
+    [McpServerTool(Name = "enzymes_by_cut_length", Title = "MolTools — Enzymes by Recognition Length", ReadOnly = true), Description("Lists all built-in restriction enzymes whose recognition sequence has exactly the specified length in base pairs (e.g. 4 for frequent cutters, 6 for typical cloning enzymes, 8 for rare cutters). The length measured is the full recognition string (Biopython .size), so an interrupted palindrome counts its spacer: SfiI (GGCCNNNNNGGCC) is returned by length 13, not by length 8, although only 8 of its bases are specified. Call to pick enzymes by how often they cut.")]
     public static EnzymeListResult enzymes_by_cut_length(
         [Description("Recognition-sequence length in bp (must be positive).")] int length)
     {
@@ -514,13 +522,13 @@ public class MolToolsTools
         return new EnzymeListResult(RestrictionAnalyzer.GetEnzymesByCutLength(length).ToList());
     }
 
-    [McpServerTool(Name = "blunt_cutters", Title = "MolTools — Blunt-End Restriction Enzymes", ReadOnly = true), Description("Lists all built-in restriction enzymes that produce blunt ends (both strands cut at the same position). Call when the user wants blunt-cutting enzymes for blunt-end cloning.")]
+    [McpServerTool(Name = "blunt_cutters", Title = "MolTools — Blunt-End Restriction Enzymes", ReadOnly = true), Description("Lists all built-in restriction enzymes that produce blunt ends (both strands cut at the same position, Biopython is_blunt). Any blunt end ligates to any other blunt end. Call when the user wants blunt-cutting enzymes for blunt-end cloning.")]
     public static EnzymeListResult blunt_cutters()
     {
         return new EnzymeListResult(RestrictionAnalyzer.GetBluntCutters().ToList());
     }
 
-    [McpServerTool(Name = "sticky_cutters", Title = "MolTools — Sticky-End Restriction Enzymes", ReadOnly = true), Description("Lists all built-in restriction enzymes that produce sticky (cohesive) ends — a staggered cut leaving a 5' or 3' single-stranded overhang. Call when the user wants overhang-generating enzymes for directional / sticky-end cloning.")]
+    [McpServerTool(Name = "sticky_cutters", Title = "MolTools — Sticky-End Restriction Enzymes", ReadOnly = true), Description("Lists all built-in restriction enzymes that produce sticky (cohesive) ends — a staggered cut leaving a 5' or 3' single-stranded overhang (Biopython is_5overhang / is_3overhang); the complement of blunt_cutters. Use get_enzyme for the overhang sequence an individual enzyme leaves, and enzymes_compatible to test whether two of them can be ligated. Call when the user wants overhang-generating enzymes for directional / sticky-end cloning.")]
     public static EnzymeListResult sticky_cutters()
     {
         return new EnzymeListResult(RestrictionAnalyzer.GetStickyCutters().ToList());
@@ -595,16 +603,25 @@ public class MolToolsTools
             new DnaSequence(sequence), topology, enzyme_names ?? System.Array.Empty<string>());
     }
 
-    [McpServerTool(Name = "compatible_enzymes", Title = "MolTools — Compatible Enzyme Pairs", ReadOnly = true), Description("Enumerates all pairs of built-in restriction enzymes whose ends can be ligated to each other — either both produce blunt ends, or both produce the same overhang type and overhang sequence. Call when the user needs enzyme pairs that yield compatible (ligatable) ends for cloning.")]
-    public static CompatibleEnzymesResult compatible_enzymes()
+    [McpServerTool(Name = "compatible_enzymes", Title = "MolTools — Compatible Enzyme Pairs", ReadOnly = true), Description("Enumerates pairs of built-in restriction enzymes whose ends can be ligated to each other: either both produce blunt ends, or both produce the same polarity of overhang (both 5' or both 3') and overhangs that can anneal — same length, and one the reverse complement of the other. compatibleEnd is \"blunt\" or the shared overhang sequence. A 5' overhang is never compatible with a 3' overhang even when the letters match (SacI 3' AGCT vs HindIII 5' AGCT are NOT compatible). With enzyme_name set, lists what that one enzyme can be ligated to, itself included — use this for an enzyme with a unique overhang (EcoRI, PstI, SfiI), which appears in no pair at all. Call when the user needs enzymes that yield compatible (ligatable) ends for cloning.")]
+    public static CompatibleEnzymesResult compatible_enzymes(
+        [Description("Optional: restrict the result to pairs involving this enzyme (case-insensitive); omit or leave blank for every pair in the table.")] string? enzyme_name = null)
     {
-        var pairs = RestrictionAnalyzer.FindCompatibleEnzymes()
-            .Select(t => new EnzymeCompatibilityPair(t.Enzyme1, t.Enzyme2, t.CompatibleEnd))
+        if (string.IsNullOrWhiteSpace(enzyme_name))
+        {
+            var allPairs = RestrictionAnalyzer.FindCompatibleEnzymes()
+                .Select(t => new EnzymeCompatibilityPair(t.Enzyme1, t.Enzyme2, t.CompatibleEnd))
+                .ToList();
+            return new CompatibleEnzymesResult(allPairs);
+        }
+
+        var pairs = RestrictionAnalyzer.FindCompatibleEnzymes(enzyme_name)
+            .Select(t => new EnzymeCompatibilityPair(enzyme_name, t.Enzyme, t.CompatibleEnd))
             .ToList();
         return new CompatibleEnzymesResult(pairs);
     }
 
-    [McpServerTool(Name = "enzymes_compatible", Title = "MolTools — Enzyme End Compatibility", ReadOnly = true), Description("Returns whether two named built-in restriction enzymes produce ligatable (compatible) ends — both blunt, or the same overhang type and sequence. An unknown enzyme name yields false (no error). Call to check a specific pair for cloning compatibility.")]
+    [McpServerTool(Name = "enzymes_compatible", Title = "MolTools — Enzyme End Compatibility", ReadOnly = true), Description("Returns whether two named built-in restriction enzymes produce ligatable (compatible) ends: both blunt, or the same overhang polarity (both 5' or both 3') with overhangs that can anneal — same length, and one the reverse complement of the other. compatibleEnd echoes the shared end (\"blunt\" or the overhang sequence) and is null when they are incompatible. Same letters with opposite polarity are NOT compatible (SacI 3' AGCT vs HindIII 5' AGCT → false). An unknown enzyme name is an ERROR, as it is for find_restriction_sites, so a typo is never reported as \"not compatible\"; use get_enzyme first if the name may not exist. Call to check a specific pair for cloning compatibility.")]
     public static EnzymeCompatibilityResult enzymes_compatible(
         [Description("First enzyme name.")] string enzyme1_name,
         [Description("Second enzyme name.")] string enzyme2_name)
@@ -614,7 +631,13 @@ public class MolToolsTools
         if (string.IsNullOrWhiteSpace(enzyme2_name))
             throw new System.ArgumentException("Second enzyme name cannot be null or blank.", nameof(enzyme2_name));
 
-        return new EnzymeCompatibilityResult(RestrictionAnalyzer.AreCompatible(enzyme1_name, enzyme2_name));
+        bool compatible = RestrictionAnalyzer.AreCompatible(enzyme1_name, enzyme2_name);
+        string? compatibleEnd = compatible
+            ? RestrictionAnalyzer.FindCompatibleEnzymes(enzyme1_name)
+                .First(t => string.Equals(t.Enzyme, enzyme2_name, System.StringComparison.OrdinalIgnoreCase))
+                .CompatibleEnd
+            : null;
+        return new EnzymeCompatibilityResult(compatible, compatibleEnd);
     }
 
     #endregion

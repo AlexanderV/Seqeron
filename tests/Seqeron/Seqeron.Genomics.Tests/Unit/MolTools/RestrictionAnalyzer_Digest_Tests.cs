@@ -1298,14 +1298,34 @@ public class RestrictionAnalyzer_Digest_Tests
     }
 
     /// <summary>
-    /// Evidence: API contract — Unknown enzyme returns false (no exception).
+    /// CHANGED in RESTR-FILTER-001 (F31): an unknown enzyme name now <b>throws</b>
+    /// <see cref="ArgumentException"/> instead of returning <see langword="false"/>.
+    /// Reason: every other name-taking member of the class (<c>FindSites</c>, <c>CreateMap</c>,
+    /// <c>Digest</c>) already throws <c>"Unknown enzyme: …"</c>, so the lenient return made a
+    /// misspelled name indistinguishable from a genuinely incompatible pair — and "not compatible"
+    /// is the answer that loses a real cloning option. The lenient behaviour is still available,
+    /// explicitly, through <see cref="RestrictionAnalyzer.TryAreCompatible"/>.
     /// </summary>
     [Test]
-    public void AreCompatible_UnknownEnzyme_ReturnsFalse()
+    public void AreCompatible_UnknownEnzyme_Throws()
     {
-        bool compatible = RestrictionAnalyzer.AreCompatible("EcoRI", "UnknownEnzyme");
+        Assert.Multiple(() =>
+        {
+            var second = Assert.Throws<ArgumentException>(
+                () => RestrictionAnalyzer.AreCompatible("EcoRI", "UnknownEnzyme"));
+            Assert.That(second!.ParamName, Is.EqualTo("enzyme2Name"));
+            Assert.That(second.Message, Does.Contain("Unknown enzyme: UnknownEnzyme"));
 
-        Assert.That(compatible, Is.False, "Unknown enzyme should return false, not throw");
+            var first = Assert.Throws<ArgumentException>(
+                () => RestrictionAnalyzer.AreCompatible("UnknownEnzyme", "EcoRI"));
+            Assert.That(first!.ParamName, Is.EqualTo("enzyme1Name"));
+
+            // The lenient probe reports "could not resolve" instead of a verdict.
+            Assert.That(RestrictionAnalyzer.TryAreCompatible("EcoRI", "UnknownEnzyme", out bool unknown), Is.False);
+            Assert.That(unknown, Is.False);
+            Assert.That(RestrictionAnalyzer.TryAreCompatible("BamHI", "BglII", out bool known), Is.True);
+            Assert.That(known, Is.True);
+        });
     }
 
     /// <summary>

@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetBluntCutters",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L107",
-  "description": "List all built-in restriction enzymes that produce blunt ends (both strands cut at the same position).",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L121",
+  "description": "List all built-in restriction enzymes that produce blunt ends (both strands cut at the same position; Biopython is_blunt).",
   "inputSchema": {
     "type": "object",
     "properties": {},
@@ -21,17 +21,60 @@
         "items": {
           "type": "object",
           "properties": {
-            "name": { "type": "string", "description": "Enzyme name." },
-            "recognitionSequence": { "type": "string", "description": "Recognition sequence (IUPAC)." },
-            "cutPositionForward": { "type": "integer", "description": "Cut offset on the forward strand." },
-            "cutPositionReverse": { "type": "integer", "description": "Cut offset on the reverse strand." },
-            "organism": { "type": "string", "description": "Source organism." }
+            "name": {
+              "type": "string",
+              "description": "Enzyme name."
+            },
+            "recognitionSequence": {
+              "type": "string",
+              "description": "Recognition sequence (IUPAC)."
+            },
+            "cutPositionForward": {
+              "type": "integer",
+              "description": "Cut offset on the forward strand (Biopython fst5)."
+            },
+            "cutPositionReverse": {
+              "type": "integer",
+              "description": "Cut offset on the reverse strand (Biopython size + fst3)."
+            },
+            "organism": {
+              "type": "string",
+              "description": "Source organism."
+            },
+            "isBluntEnd": {
+              "type": "boolean",
+              "description": "True when both strands are cut at the same offset (Biopython is_blunt)."
+            },
+            "overhangType": {
+              "type": "string",
+              "enum": [
+                "Blunt",
+                "FivePrime",
+                "ThreePrime"
+              ],
+              "description": "End chemistry: the sign of Biopython ovhg."
+            },
+            "recognitionLength": {
+              "type": "integer",
+              "description": "Length of the full recognition string (Biopython size); SfiI is 13."
+            }
           },
-          "required": ["name", "recognitionSequence", "cutPositionForward", "cutPositionReverse", "organism"]
+          "required": [
+            "name",
+            "recognitionSequence",
+            "cutPositionForward",
+            "cutPositionReverse",
+            "organism",
+            "isBluntEnd",
+            "overhangType",
+            "recognitionLength"
+          ]
         }
       }
     },
-    "required": ["enzymes"]
+    "required": [
+      "enzymes"
+    ]
   },
   "errors": [],
   "examples": [
@@ -40,16 +83,45 @@
       "input": {},
       "output": {
         "enzymes": [
-          { "name": "AluI", "recognitionSequence": "AGCT", "cutPositionForward": 2, "cutPositionReverse": 2, "organism": "Arthrobacter luteus" },
-          { "name": "EcoRV", "recognitionSequence": "GATATC", "cutPositionForward": 3, "cutPositionReverse": 3, "organism": "Escherichia coli" },
-          { "name": "SmaI", "recognitionSequence": "CCCGGG", "cutPositionForward": 3, "cutPositionReverse": 3, "organism": "Serratia marcescens" }
+          {
+            "name": "AluI",
+            "recognitionSequence": "AGCT",
+            "cutPositionForward": 2,
+            "cutPositionReverse": 2,
+            "organism": "Arthrobacter luteus",
+            "isBluntEnd": true,
+            "overhangType": "Blunt",
+            "recognitionLength": 4
+          },
+          {
+            "name": "EcoRV",
+            "recognitionSequence": "GATATC",
+            "cutPositionForward": 3,
+            "cutPositionReverse": 3,
+            "organism": "Escherichia coli",
+            "isBluntEnd": true,
+            "overhangType": "Blunt",
+            "recognitionLength": 6
+          },
+          {
+            "name": "HincII",
+            "recognitionSequence": "GTYRAC",
+            "cutPositionForward": 3,
+            "cutPositionReverse": 3,
+            "organism": "Haemophilus influenzae",
+            "isBluntEnd": true,
+            "overhangType": "Blunt",
+            "recognitionLength": 6
+          }
         ]
       }
     },
     {
       "name": "Blunt cutter count",
       "input": {},
-      "output": { "enzymes": "10 enzymes: AluI, RsaI, HaeIII, DpnI, EcoRV, SmaI, HincII, ScaI, StuI, SwaI" }
+      "output": {
+        "enzymes": "10 enzymes: AluI, RsaI, HaeIII, DpnI, EcoRV, SmaI, HincII, ScaI, StuI, SwaI"
+      }
     }
   ]
 }

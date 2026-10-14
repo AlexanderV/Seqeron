@@ -5,9 +5,13 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetStickyCutters",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L114",
-  "description": "List all built-in restriction enzymes that produce sticky (cohesive) ends.",
-  "inputSchema": { "type": "object", "properties": {}, "required": [] },
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L134",
+  "description": "List all built-in restriction enzymes that produce sticky (cohesive) ends - 21 with a 5' and 8 with a 3' overhang (Biopython is_5overhang / is_3overhang).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
   "outputSchema": {
     "type": "object",
     "properties": {
@@ -16,29 +20,105 @@
         "items": {
           "type": "object",
           "properties": {
-            "name": { "type": "string" },
-            "recognitionSequence": { "type": "string" },
-            "cutPositionForward": { "type": "integer" },
-            "cutPositionReverse": { "type": "integer" },
-            "organism": { "type": "string" }
+            "name": {
+              "type": "string",
+              "description": "Enzyme name."
+            },
+            "recognitionSequence": {
+              "type": "string",
+              "description": "Recognition sequence (IUPAC)."
+            },
+            "cutPositionForward": {
+              "type": "integer",
+              "description": "Cut offset on the forward strand (Biopython fst5)."
+            },
+            "cutPositionReverse": {
+              "type": "integer",
+              "description": "Cut offset on the reverse strand (Biopython size + fst3)."
+            },
+            "organism": {
+              "type": "string",
+              "description": "Source organism."
+            },
+            "isBluntEnd": {
+              "type": "boolean",
+              "description": "True when both strands are cut at the same offset (Biopython is_blunt)."
+            },
+            "overhangType": {
+              "type": "string",
+              "enum": [
+                "Blunt",
+                "FivePrime",
+                "ThreePrime"
+              ],
+              "description": "End chemistry: the sign of Biopython ovhg."
+            },
+            "recognitionLength": {
+              "type": "integer",
+              "description": "Length of the full recognition string (Biopython size); SfiI is 13."
+            }
           },
-          "required": ["name", "recognitionSequence", "cutPositionForward", "cutPositionReverse", "organism"]
+          "required": [
+            "name",
+            "recognitionSequence",
+            "cutPositionForward",
+            "cutPositionReverse",
+            "organism",
+            "isBluntEnd",
+            "overhangType",
+            "recognitionLength"
+          ]
         }
       }
     },
-    "required": ["enzymes"]
+    "required": [
+      "enzymes"
+    ]
   },
   "errors": [],
   "examples": [
     {
       "name": "List sticky cutters",
       "input": {},
-      "output": { "enzymes": "29 enzymes (e.g. EcoRI, BamHI, HindIII, NotI)" }
+      "output": {
+        "enzymes": "29 enzymes: 21 with overhangType FivePrime, 8 with ThreePrime"
+      }
     },
     {
-      "name": "EcoRI is sticky",
+      "name": "EcoRI leaves a 5' overhang",
       "input": {},
-      "output": { "enzymes": [ { "name": "EcoRI", "recognitionSequence": "GAATTC", "cutPositionForward": 1, "cutPositionReverse": 5, "organism": "Escherichia coli" } ] }
+      "output": {
+        "enzymes": [
+          {
+            "name": "EcoRI",
+            "recognitionSequence": "GAATTC",
+            "cutPositionForward": 1,
+            "cutPositionReverse": 5,
+            "organism": "Escherichia coli",
+            "isBluntEnd": false,
+            "overhangType": "FivePrime",
+            "recognitionLength": 6
+          }
+        ]
+      }
+    },
+    {
+      "name": "PstI leaves a 3' overhang",
+      "input": {},
+      "output": {
+        "enzymes": [
+          {
+            "name": "PstI",
+            "recognitionSequence": "CTGCAG",
+            "cutPositionForward": 5,
+            "cutPositionReverse": 1,
+            "organism": "Providencia stuartii",
+            "isBluntEnd": false,
+            "overhangType": "ThreePrime",
+            "recognitionLength": 6
+          }
+        ]
+      }
     }
   ]
 }

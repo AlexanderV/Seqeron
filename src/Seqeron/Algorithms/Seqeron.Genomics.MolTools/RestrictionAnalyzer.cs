@@ -67,16 +67,30 @@ public static class RestrictionAnalyzer
     public static IReadOnlyDictionary<string, RestrictionEnzyme> Enzymes => _enzymes;
 
     /// <summary>
-    /// Gets a restriction enzyme by name.
+    /// Gets a restriction enzyme by name, resolved case-insensitively, or <see langword="null"/>
+    /// when the name is not in the built-in table.
     /// </summary>
-    public static RestrictionEnzyme? GetEnzyme(string name) =>
-        _enzymes.TryGetValue(name, out var enzyme) ? enzyme : null;
+    /// <param name="name">Enzyme name (case-insensitive).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    public static RestrictionEnzyme? GetEnzyme(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return _enzymes.TryGetValue(name, out var enzyme) ? enzyme : null;
+    }
 
     /// <summary>
     /// Gets all enzymes whose recognition sequence has exactly the given length (in base pairs).
     /// </summary>
     /// <param name="length">Recognition-sequence length to match (Type II sites are 4–8 nt;
     /// see Wikipedia "Restriction enzyme").</param>
+    /// <remarks>
+    /// The length measured is the full recognition <i>string</i>, i.e. Biopython
+    /// <c>Bio.Restriction.&lt;enzyme&gt;.size</c>. For an interrupted (divided) palindrome that is
+    /// longer than the number of specified bases: <c>SfiI</c> (<c>GGCCNNNNNGGCC</c>) has
+    /// <c>size == 13</c> although only 8 bases are specified, so it is returned by
+    /// <c>GetEnzymesByCutLength(13)</c> and not by <c>GetEnzymesByCutLength(8)</c>. All 39
+    /// built-in entries were audited against Biopython 1.88 <c>.size</c> (39/39 agreement).
+    /// </remarks>
     public static IEnumerable<RestrictionEnzyme> GetEnzymesByCutLength(int length) =>
         _enzymes.Values.Where(e => e.RecognitionSequence.Length == length);
 
@@ -100,6 +114,10 @@ public static class RestrictionAnalyzer
     /// Gets all enzymes that produce blunt ends — both strands are cut at the same position
     /// so each strand "terminates in a base pair" (Wikipedia, "Sticky and blunt ends").
     /// </summary>
+    /// <remarks>
+    /// Equivalent to Biopython <c>Bio.Restriction.&lt;enzyme&gt;.is_blunt()</c>; all 39 built-in
+    /// entries were audited against it (39/39 agreement, 10 blunt cutters).
+    /// </remarks>
     public static IEnumerable<RestrictionEnzyme> GetBluntCutters() =>
         _enzymes.Values.Where(e => e.IsBluntEnd);
 
@@ -107,6 +125,12 @@ public static class RestrictionAnalyzer
     /// Gets all enzymes that produce sticky (cohesive) ends — a staggered cut leaving a
     /// 5' or 3' single-stranded overhang (Wikipedia, "Sticky and blunt ends").
     /// </summary>
+    /// <remarks>
+    /// The complement of <see cref="GetBluntCutters"/>; the 5'/3' split is
+    /// <see cref="RestrictionEnzyme.OverhangType"/>, audited against Biopython
+    /// <c>is_5overhang()</c>/<c>is_3overhang()</c> for all 39 built-in entries (39/39 agreement,
+    /// 21 with a 5' and 8 with a 3' overhang).
+    /// </remarks>
     public static IEnumerable<RestrictionEnzyme> GetStickyCutters() =>
         _enzymes.Values.Where(e => !e.IsBluntEnd);
 
@@ -391,13 +415,22 @@ public static class RestrictionAnalyzer
         }
     }
 
-    private static RestrictionEnzyme RequireEnzyme(string enzymeName)
+    /// <summary>
+    /// Resolves a built-in enzyme name or throws — the single name-resolution contract of this
+    /// class, shared by the site finder, the digest, the map and the compatibility members.
+    /// </summary>
+    /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
+    /// <param name="paramName">Name of the caller's parameter to blame, when it is not
+    /// <c>enzymeName</c>.</param>
+    private static RestrictionEnzyme RequireEnzyme(string enzymeName, string? paramName = null)
     {
+        paramName ??= nameof(enzymeName);
+
         if (string.IsNullOrEmpty(enzymeName))
-            throw new ArgumentNullException(nameof(enzymeName));
+            throw new ArgumentNullException(paramName);
 
         return GetEnzyme(enzymeName)
-            ?? throw new ArgumentException($"Unknown enzyme: {enzymeName}", nameof(enzymeName));
+            ?? throw new ArgumentException($"Unknown enzyme: {enzymeName}", paramName);
     }
 
     /// <summary>
@@ -891,6 +924,15 @@ public static class RestrictionAnalyzer
     /// The overhang type of <paramref name="site"/>'s cut and the top-strand bases lying between
     /// its two strand cuts (empty for a blunt cutter).
     /// </summary>
+    /// <remarks>
+    /// Reads the enzyme's overhang window — the same <c>[min(cf, cr), max(cf, cr))</c> interval
+    /// that <see cref="GetOverhangSequence(RestrictionEnzyme)"/> reads off the recognition pattern,
+    /// via the shared <see cref="OverhangWindow"/> geometry — off the MOLECULE instead, translated
+    /// so that the enzyme's forward cut sits on this site's reported cut position. For a built-in
+    /// enzyme on a site that matches its pattern exactly the two therefore agree base for base;
+    /// they differ only where the pattern is degenerate (<c>SfiI</c>: <c>"NNN"</c> from the pattern,
+    /// the site's actual three bases from the molecule).
+    /// </remarks>
     private static (OverhangType Type, string Window) CutOverhangWindow(
         string seq, RestrictionSite site, MoleculeTopology topology)
     {
@@ -899,10 +941,8 @@ public static class RestrictionAnalyzer
         if (type == OverhangType.Blunt)
             return (type, string.Empty);
 
-        int watson = site.CutPosition;
-        int crick = watson + (enzyme.CutPositionReverse - enzyme.CutPositionForward);
-        int lo = Math.Min(watson, crick);
-        int length = Math.Abs(crick - watson);
+        var (patternStart, length) = OverhangWindow(enzyme);
+        int lo = site.CutPosition + (patternStart - enzyme.CutPositionForward);
         int n = seq.Length;
 
         if (topology == MoleculeTopology.Linear)
@@ -1005,7 +1045,7 @@ public static class RestrictionAnalyzer
         // compared against the keys of SitesByEnzyme (which carry the table's own spelling) and
         // so a name repeated with different casing is not searched — and counted — twice.
         var considered = (enzymeNames.Length > 0
-                ? enzymeNames.Select(RequireEnzyme)
+                ? enzymeNames.Select(n => RequireEnzyme(n))
                 : _enzymes.Values)
             .Select(e => e.Name)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1047,9 +1087,122 @@ public static class RestrictionAnalyzer
 
     #region Compatibility Analysis
 
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // Enzyme-level end chemistry and the ligation-compatibility rule.
+    //
+    // REFERENCE PRIMITIVES (Biopython 1.88 Bio.Restriction): per enzyme, `ovhg` is the signed
+    // stagger between the two strand cuts (negative = 5' overhang, positive = 3' overhang,
+    // 0 = blunt) and `ovhgseq` is the overhang sequence — the TOP-strand bases lying between the
+    // two cuts, written 5'→3'. For an enzyme whose site contains an ambiguity code inside that
+    // window, `ovhgseq` carries the code (SfiI `GGCCNNNNNGGCC` 8/5 → `ovhgseq == "NNN"`), i.e. the
+    // reference reports the overhang the enzyme is DEFINED to leave, not a particular site's bases.
+    //
+    // THIS CLASS: `GetOverhangSequence(enzyme)` is exactly that window, taken from the recognition
+    // pattern — `RecognitionSequence[min(cf, cr) .. max(cf, cr))`. All 39 built-in entries were
+    // compared base for base against `ovhgseq` this session: 39/39 identical.
+    //
+    // LIGATION RULE (derived from those primitives — see the Evidence file for why no published
+    // compatible-ends table could be opened from this container):
+    //   • One cut yields two ends whose single-stranded extensions are W (the downstream
+    //     fragment's end, read on the top strand) and revcomp(W) (the upstream fragment's end,
+    //     read on the bottom strand). They are complementary and antiparallel, which is exactly
+    //     what T4 ligase needs, so they re-ligate — and an enzyme therefore OFFERS both.
+    //   • Two ends anneal iff their extensions have the same length, the same polarity (both 5' or
+    //     both 3' — two extensions of opposite polarity sit on the same strand of the joint and
+    //     cannot base-pair) and one is the reverse complement of the other.
+    //   • So enzymes E1 and E2 have compatible ends iff they share a polarity and
+    //     W1 ∈ { W2, revcomp(W2) }. Blunt ends carry no extension and ligate to any blunt end.
+    //   • An ambiguity code in a window stands for the set of bases it expands to, independently
+    //     per position, so "W1 matches W2" means the two code strings INTERSECT position by
+    //     position (`IupacHelper.MatchesIupac` composed over A/C/G/T) — i.e. some real pair of
+    //     sites exists that ligates. A degenerate answer is therefore "possibly compatible".
+    //
+    // CROSS-CHECK against Biopython's own `%` operator (`RestrictionType.__mod__`, which tests
+    // same overhang class then `ovhgseq` equality, with a regex expansion when one side is
+    // `Ambiguous`):
+    //   • 39 built-ins, all 1521 ordered pairs: 0 disagreements.
+    //   • 389 REBASE enzymes whose `ovhgseq` is blunt or fully A/C/G/T, all 75 466 unordered
+    //     pairs: 0 disagreements.
+    //   • Beyond those, Biopython's `%` is not usable as an oracle and is NOT copied: it is
+    //     asymmetric for 2386 of 283 881 REBASE pairs (`_mod1` dispatches on the left operand and
+    //     only `Defined._mod2` falls back to the other side), and `Ambiguous._mod2` builds a broken
+    //     regex when a code repeats in the overhang — it splits its own character class on the
+    //     code, so `StyI % PscI` ("CWWG" vs "CATG") is False where the biology and this class say
+    //     compatible. The rule above is symmetric by construction.
+    //   • The reverse-complement branch is not reachable from the built-in table (every built-in
+    //     window is its own reverse complement, a consequence of a palindromic site cut
+    //     symmetrically), but it is real: 12 REBASE pairs are compatible only through it, e.g.
+    //     `BsmI` ("CN", 3') with `BsrI` ("GN", 3') — BsmI's bottom-strand end can read `GG` and
+    //     BsrI's `CC`. It is reachable here through the `RestrictionEnzyme` overloads.
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
     /// <summary>
-    /// Finds enzymes that produce compatible (ligatable) ends.
+    /// The single-stranded overhang a built-in enzyme leaves, written 5'→3' on the top strand —
+    /// REBASE/Biopython <c>ovhgseq</c>.
     /// </summary>
+    /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
+    /// <returns><see cref="string.Empty"/> for a blunt cutter; otherwise the recognition-pattern
+    /// bases between the two strand cuts, which may contain IUPAC ambiguity codes when the
+    /// enzyme's own site does (<c>SfiI</c> → <c>"NNN"</c>).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a built-in enzyme.</exception>
+    public static string GetOverhangSequence(string enzymeName)
+        => GetOverhangSequence(RequireEnzyme(enzymeName))
+           ?? throw new ArgumentException(
+               $"Enzyme '{enzymeName}' cuts outside its own recognition sequence, so its overhang " +
+               "is not determined by the recognition pattern.", nameof(enzymeName));
+
+    /// <summary>
+    /// The single-stranded overhang <paramref name="enzyme"/> leaves, written 5'→3' on the top
+    /// strand — REBASE/Biopython <c>ovhgseq</c>.
+    /// </summary>
+    /// <param name="enzyme">Enzyme definition; may be a caller-supplied (non-built-in) enzyme.</param>
+    /// <returns><see cref="string.Empty"/> for a blunt cutter; the recognition-pattern bases
+    /// between the two strand cuts for a staggered cutter; or <see langword="null"/> when the
+    /// overhang window is not contained in the recognition sequence, which happens only for a
+    /// cutter that cuts outside its own site (a Type IIS-style distal cut). In that case the
+    /// overhang depends on the flanking molecule and no enzyme-level answer exists.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="enzyme"/> is <see langword="null"/>.</exception>
+    public static string? GetOverhangSequence(RestrictionEnzyme enzyme)
+    {
+        ArgumentNullException.ThrowIfNull(enzyme);
+
+        var (start, length) = OverhangWindow(enzyme);
+        if (length == 0)
+            return string.Empty;
+        if (start < 0 || start + length > enzyme.RecognitionSequence.Length)
+            return null;
+
+        return enzyme.RecognitionSequence.Substring(start, length);
+    }
+
+    /// <summary>
+    /// The overhang window of <paramref name="enzyme"/> as an offset/length pair relative to the
+    /// 5' end of its recognition sequence — the single definition of the window's geometry, shared
+    /// by <see cref="GetOverhangSequence(RestrictionEnzyme)"/> (which reads it off the recognition
+    /// pattern) and by <c>CutOverhangWindow</c> (which reads the same window off the molecule).
+    /// </summary>
+    /// <remarks>
+    /// The window is <c>[min(cf, cr), max(cf, cr))</c>: the bases lying between the top-strand and
+    /// bottom-strand cuts. Its length is <c>|ovhg|</c> and it is empty for a blunt cutter.
+    /// </remarks>
+    private static (int Start, int Length) OverhangWindow(RestrictionEnzyme enzyme) =>
+        (Math.Min(enzyme.CutPositionForward, enzyme.CutPositionReverse),
+         Math.Abs(enzyme.CutPositionForward - enzyme.CutPositionReverse));
+
+    /// <summary>
+    /// Enumerates every unordered pair of distinct built-in enzymes whose ends can be ligated to
+    /// each other.
+    /// </summary>
+    /// <returns>Tuples of the two enzyme names and the shared end: <c>"blunt"</c> for a blunt pair,
+    /// otherwise the first enzyme's overhang sequence (see
+    /// <see cref="GetOverhangSequence(string)"/>).</returns>
+    /// <remarks>
+    /// Only pairs of <i>different</i> enzymes are returned. Every enzyme is trivially compatible
+    /// with itself, and 15 of the 39 built-ins (e.g. <c>EcoRI</c>, <c>PstI</c>, <c>SfiI</c>) have a
+    /// unique overhang and so appear in no pair at all; use
+    /// <see cref="FindCompatibleEnzymes(string)"/> to ask what a single enzyme can be ligated to.
+    /// </remarks>
     public static IEnumerable<(string Enzyme1, string Enzyme2, string CompatibleEnd)> FindCompatibleEnzymes()
     {
         var enzymes = _enzymes.Values.ToList();
@@ -1070,67 +1223,235 @@ public static class RestrictionAnalyzer
     }
 
     /// <summary>
-    /// Checks if two enzymes produce compatible sticky ends.
+    /// Lists the built-in enzymes whose ends can be ligated to an end left by
+    /// <paramref name="enzymeName"/>, the enzyme itself included.
     /// </summary>
+    /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
+    /// <returns>Tuples of the compatible enzyme's name (as spelled in the table) and the shared
+    /// end — <c>"blunt"</c> or the overhang sequence.</returns>
+    /// <remarks>
+    /// This is the per-enzyme form of Biopython's <c>compatible_end()</c>. The reference's own
+    /// implementation filters its candidates with <c>x.is_5overhang()</c>, so it answers the empty
+    /// list for every blunt and every 3'-overhang enzyme; this overload has no such restriction and
+    /// is simply <see cref="AreCompatible(RestrictionEnzyme, RestrictionEnzyme)"/> over the table.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a built-in enzyme.</exception>
+    public static IEnumerable<(string Enzyme, string CompatibleEnd)> FindCompatibleEnzymes(string enzymeName)
+    {
+        var query = RequireEnzyme(enzymeName);
+        return Enumerate();
+
+        IEnumerable<(string, string)> Enumerate()
+        {
+            foreach (var candidate in _enzymes.Values)
+            {
+                if (AreCompatible(query, candidate, out string? compatibleEnd))
+                    yield return (candidate.Name, compatibleEnd!);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Checks whether two named built-in enzymes produce ligatable (compatible) ends.
+    /// </summary>
+    /// <param name="enzyme1Name">First enzyme name (case-insensitive).</param>
+    /// <param name="enzyme2Name">Second enzyme name (case-insensitive).</param>
+    /// <returns><see langword="true"/> when both are blunt cutters, or when both leave the same
+    /// polarity of overhang and the overhang sequences can anneal (see the rule documented on this
+    /// region).</returns>
+    /// <remarks>
+    /// An unknown enzyme name <b>throws</b>, as it does in <see cref="FindSites(DnaSequence, string)"/>
+    /// and <see cref="CreateMap(DnaSequence, string[])"/>: a misspelled name is not an answer about
+    /// compatibility, and returning <see langword="false"/> made the two indistinguishable. Use
+    /// <see cref="TryAreCompatible"/> to probe a name that may not exist.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">Either name is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">Either name is not a built-in enzyme.</exception>
     public static bool AreCompatible(string enzyme1Name, string enzyme2Name)
     {
-        var e1 = GetEnzyme(enzyme1Name);
-        var e2 = GetEnzyme(enzyme2Name);
-
-        if (e1 == null || e2 == null) return false;
+        var e1 = RequireEnzyme(enzyme1Name, nameof(enzyme1Name));
+        var e2 = RequireEnzyme(enzyme2Name, nameof(enzyme2Name));
 
         return AreCompatible(e1, e2, out _);
+    }
+
+    /// <summary>
+    /// Lenient form of <see cref="AreCompatible(string, string)"/> for callers that cannot
+    /// guarantee both names are in the built-in table.
+    /// </summary>
+    /// <param name="enzyme1Name">First enzyme name (case-insensitive).</param>
+    /// <param name="enzyme2Name">Second enzyme name (case-insensitive).</param>
+    /// <param name="compatible">The compatibility verdict when both names resolved; otherwise
+    /// <see langword="false"/>.</param>
+    /// <returns><see langword="true"/> when both names were resolved, so
+    /// <paramref name="compatible"/> is meaningful; <see langword="false"/> when either name is
+    /// unknown.</returns>
+    /// <exception cref="ArgumentNullException">Either name is <see langword="null"/>.</exception>
+    public static bool TryAreCompatible(string enzyme1Name, string enzyme2Name, out bool compatible)
+    {
+        compatible = false;
+
+        var e1 = GetEnzyme(enzyme1Name);
+        var e2 = GetEnzyme(enzyme2Name);
+        if (e1 is null || e2 is null)
+            return false;
+
+        compatible = AreCompatible(e1, e2, out _);
+        return true;
+    }
+
+    /// <summary>
+    /// Checks whether two enzyme definitions produce ligatable (compatible) ends. Accepts
+    /// caller-supplied enzymes, not only built-ins.
+    /// </summary>
+    /// <param name="enzyme1">First enzyme definition.</param>
+    /// <param name="enzyme2">Second enzyme definition.</param>
+    /// <returns><see langword="true"/> when both are blunt cutters, or when both leave the same
+    /// polarity of overhang and the overhang sequences can anneal (see the rule documented on this
+    /// region). <see langword="false"/> when either enzyme cuts outside its own recognition
+    /// sequence, since there is then no enzyme-level overhang to compare — Biopython's
+    /// <c>NotDefined</c> ends are likewise "compatible with nobody".</returns>
+    /// <exception cref="ArgumentNullException">Either enzyme is <see langword="null"/>.</exception>
+    public static bool AreCompatible(RestrictionEnzyme enzyme1, RestrictionEnzyme enzyme2)
+    {
+        ArgumentNullException.ThrowIfNull(enzyme1);
+        ArgumentNullException.ThrowIfNull(enzyme2);
+
+        return AreCompatible(enzyme1, enzyme2, out _);
     }
 
     private static bool AreCompatible(RestrictionEnzyme e1, RestrictionEnzyme e2, out string? compatibleEnd)
     {
         compatibleEnd = null;
 
-        // Blunt ends are always compatible with other blunt ends
-        // Source: Wikipedia (Sticky and blunt ends) — "blunt ends are always compatible with each other"
+        // Blunt ends carry no single-stranded extension, so any blunt end ligates to any other.
+        // Source: Wikipedia (Sticky and blunt ends) — "blunt ends are always compatible with each
+        // other"; Biopython `Blunt._mod1` = `issubclass(other, Blunt)`.
         if (e1.IsBluntEnd && e2.IsBluntEnd)
         {
             compatibleEnd = "blunt";
             return true;
         }
 
-        // For sticky ends, both overhang type AND sequence must match.
-        // Source: Wikipedia (Sticky and blunt ends) — "overhangs have to be complementary
-        // in order for the ligase to work". A 5' overhang cannot pair with a 3' overhang,
-        // even if the overhang sequence is palindromic (same string), because both
-        // single-stranded extensions would be on the same strand and cannot base-pair.
+        // Opposite polarity (one 5', one 3') cannot anneal even when the overhang strings are the
+        // same letters: both extensions would end up on the same strand of the joint. Blunt against
+        // sticky falls out here too. Biopython: `Ov5._mod1`/`Ov3._mod1` require the same class.
         if (e1.OverhangType != e2.OverhangType)
             return false;
 
-        string overhang1 = GetOverhang(e1);
-        string overhang2 = GetOverhang(e2);
+        string? overhang1 = GetOverhangSequence(e1);
+        string? overhang2 = GetOverhangSequence(e2);
+        if (string.IsNullOrEmpty(overhang1) || string.IsNullOrEmpty(overhang2))
+            return false;
 
-        if (overhang1 == overhang2 && !string.IsNullOrEmpty(overhang1))
+        // Same polarity: the ends anneal iff one enzyme's overhang window can read as the other's
+        // window or as its reverse complement (the other end of the same cut).
+        if (!OverhangsAnneal(overhang1, overhang2))
+            return false;
+
+        compatibleEnd = overhang1;
+        return true;
+    }
+
+    /// <summary>
+    /// Whether two same-polarity overhang windows, each possibly carrying IUPAC ambiguity codes,
+    /// describe at least one pair of ends that can anneal.
+    /// </summary>
+    private static bool OverhangsAnneal(string overhang1, string overhang2)
+    {
+        if (overhang1.Length != overhang2.Length)
+            return false;
+
+        return CodesIntersect(overhang1, overhang2)
+            || CodesIntersect(overhang1, DnaSequence.GetReverseComplementString(overhang2));
+    }
+
+    /// <summary>
+    /// Whether two equal-length IUPAC code strings have a common expansion — i.e. at every
+    /// position the two codes admit a common base. Composed from the canonical
+    /// <see cref="IupacHelper.MatchesIupac"/> so there is no second ambiguity table in this class.
+    /// </summary>
+    private static bool CodesIntersect(string codes1, string codes2)
+    {
+        for (int i = 0; i < codes1.Length; i++)
         {
-            compatibleEnd = overhang1;
-            return true;
+            if (!CodesIntersect(codes1[i], codes2[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool CodesIntersect(char code1, char code2)
+    {
+        foreach (char nucleotide in "ACGT")
+        {
+            if (IupacHelper.MatchesIupac(nucleotide, code1) && IupacHelper.MatchesIupac(nucleotide, code2))
+                return true;
         }
 
         return false;
     }
 
-    private static string GetOverhang(RestrictionEnzyme enzyme)
+    #endregion
+
+    #region Isoschizomers
+
+    /// <summary>
+    /// Built-in enzymes that recognise the same sequence as <paramref name="enzymeName"/> but are
+    /// not that enzyme — its isoschizomers (Biopython <c>isoschizomers()</c>; the union of
+    /// <see cref="FindEquischizomers"/> and <see cref="FindNeoschizomers"/>).
+    /// </summary>
+    /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a built-in enzyme.</exception>
+    public static IEnumerable<RestrictionEnzyme> FindIsoschizomers(string enzymeName)
+        => SameSiteEnzymes(RequireEnzyme(enzymeName));
+
+    /// <summary>
+    /// Built-in isoschizomers of <paramref name="enzymeName"/> that also cut at the same positions,
+    /// so they are interchangeable in a digest — equischizomers (Biopython
+    /// <c>equischizomers()</c>: "same site, same position of restriction").
+    /// </summary>
+    /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a built-in enzyme.</exception>
+    public static IEnumerable<RestrictionEnzyme> FindEquischizomers(string enzymeName)
     {
-        if (enzyme.IsBluntEnd) return "";
+        var query = RequireEnzyme(enzymeName);
+        return SameSiteEnzymes(query).Where(e =>
+            e.CutPositionForward == query.CutPositionForward &&
+            e.CutPositionReverse == query.CutPositionReverse);
+    }
 
-        int cutDiff = enzyme.CutPositionForward - enzyme.CutPositionReverse;
+    /// <summary>
+    /// Built-in isoschizomers of <paramref name="enzymeName"/> that cut the same site at a
+    /// different position, so they leave different ends — neoschizomers (Biopython
+    /// <c>neoschizomers()</c>: "same site, different position of restriction").
+    /// </summary>
+    /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a built-in enzyme.</exception>
+    public static IEnumerable<RestrictionEnzyme> FindNeoschizomers(string enzymeName)
+    {
+        var query = RequireEnzyme(enzymeName);
+        return SameSiteEnzymes(query).Where(e =>
+            e.CutPositionForward != query.CutPositionForward ||
+            e.CutPositionReverse != query.CutPositionReverse);
+    }
 
-        // This is a simplified calculation - in reality would need actual sequence
-        return enzyme.OverhangType switch
-        {
-            OverhangType.FivePrime => enzyme.RecognitionSequence.Substring(
-                enzyme.CutPositionForward,
-                Math.Abs(cutDiff)),
-            OverhangType.ThreePrime => enzyme.RecognitionSequence.Substring(
-                enzyme.CutPositionReverse,
-                Math.Abs(cutDiff)),
-            _ => ""
-        };
+    /// <summary>
+    /// The one same-recognition-sequence query the three isoschizomer accessors share. Comparison
+    /// is on the recognition string as stored (both are upper-case in the table), and the queried
+    /// enzyme itself is excluded, exactly as the reference's <c>del r[i]</c> does.
+    /// </summary>
+    private static IEnumerable<RestrictionEnzyme> SameSiteEnzymes(RestrictionEnzyme query)
+    {
+        return _enzymes.Values.Where(e =>
+            !ReferenceEquals(e, query) &&
+            !string.Equals(e.Name, query.Name, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(e.RecognitionSequence, query.RecognitionSequence, StringComparison.OrdinalIgnoreCase));
     }
 
     #endregion

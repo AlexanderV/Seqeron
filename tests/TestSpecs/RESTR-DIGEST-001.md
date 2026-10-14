@@ -101,7 +101,7 @@
 | M19 | Blunt enzymes compatible with each other | Invariant #14 | Wikipedia |
 | M20 | Same-type same-overhang enzymes compatible (BamHI/BglII) | Invariant #15 | Wikipedia |
 | M21 | Different-overhang enzymes not compatible | Invariant #15 | Wikipedia |
-| M22 | Unknown enzyme in AreCompatible returns false | API contract | Implementation |
+| M22 | Unknown enzyme in AreCompatible **throws** `ArgumentException` (was: returns false — changed by RESTR-FILTER-001 / F31, 2026-10-14) | API contract | Implementation |
 | M23 | FindCompatibleEnzymes includes known pairs | Invariant #15 | Wikipedia |
 | M24 | Cross-type overhangs NOT compatible (HindIII/SacI) | Invariant #15b | Wikipedia |
 | M25 | Cross-type overhangs NOT compatible (SphI/NcoI) | Invariant #15b | Wikipedia |
@@ -189,7 +189,7 @@
 | AreCompatible_CrossTypeOverhang_NotCompatible_HindIII_SacI | ✓ | M24 |
 | AreCompatible_CrossTypeOverhang_NotCompatible_SphI_NcoI | ✓ | M25 |
 | AreCompatible_DifferentOverhangs_NotCompatible | ✓ | M21 |
-| AreCompatible_UnknownEnzyme_ReturnsFalse | ✓ | M22 |
+| AreCompatible_UnknownEnzyme_Throws (renamed from `…_ReturnsFalse` by RESTR-FILTER-001 / F31) | ✓ | M22 |
 | AreCompatible_IsSymmetric (5 cases) | ✓ | S4 |
 | EnzymeDatabase_MatchesWikipediaData (20 cases) | ✓ | M29 |
 | FindCompatibleEnzymes_FindsKnownPairs | ✓ | M23, M32 |
@@ -221,9 +221,16 @@ their expected values come from Biopython 1.88 runs recorded in
 
 ## Open Questions
 
-None for digestion. Note for `RESTR-FILTER-001`: `GetOverhang(RestrictionEnzyme)` (used only by
+None for digestion.
+
+~~Note for `RESTR-FILTER-001`: `GetOverhang(RestrictionEnzyme)` (used only by
 `AreCompatible`/`FindCompatibleEnzymes`, out of scope here) derives the overhang from the recognition
 **pattern** with `Substring(CutPositionForward, |cutDiff|)` for 5' and
 `Substring(CutPositionReverse, |cutDiff|)` for 3' — for the 39 built-in enzymes this coincides with
 the window `[min(fwd, rev), max(fwd, rev))` validated here, but it is a second, independent
-derivation of the same quantity and is a duplication candidate for that unit.
+derivation of the same quantity and is a duplication candidate for that unit.~~
+**HANDLED in RESTR-FILTER-001 (F28, 2026-10-14).** The duplication is gone: one private
+`OverhangWindow(RestrictionEnzyme)` now returns the `[min(cf, cr), max(cf, cr))` geometry, the public
+`GetOverhangSequence` reads it off the recognition pattern and `CutOverhangWindow` reads the same
+window off the molecule. `GetOverhang` no longer exists. The pattern-derived values were also
+confirmed identical to Biopython `ovhgseq` for all 39 built-ins.

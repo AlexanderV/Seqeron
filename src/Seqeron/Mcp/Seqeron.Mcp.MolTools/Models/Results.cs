@@ -36,13 +36,17 @@ public sealed record DesignPrimersResult(
     double? TemplateMispriming = null);
 
 // RestrictionAnalyzer result wrappers
-public sealed record EnzymeLookupResult(RestrictionEnzyme? Enzyme);
+public sealed record EnzymeLookupResult(
+    RestrictionEnzyme? Enzyme,
+    string? OverhangSequence = null,
+    IReadOnlyList<string>? Equischizomers = null,
+    IReadOnlyList<string>? Neoschizomers = null);
 public sealed record EnzymeListResult(IReadOnlyList<RestrictionEnzyme> Enzymes);
 public sealed record RestrictionSiteListResult(IReadOnlyList<RestrictionSite> Sites);
 public sealed record DigestResult(IReadOnlyList<DigestFragment> Fragments);
 public sealed record EnzymeCompatibilityPair(string Enzyme1, string Enzyme2, string CompatibleEnd);
 public sealed record CompatibleEnzymesResult(IReadOnlyList<EnzymeCompatibilityPair> Pairs);
-public sealed record EnzymeCompatibilityResult(bool Compatible);
+public sealed record EnzymeCompatibilityResult(bool Compatible, string? CompatibleEnd = null);
 
 // CodonUsageAnalyzer result wrappers
 public sealed record CodonCountsResult(Dictionary<string, int> Counts);

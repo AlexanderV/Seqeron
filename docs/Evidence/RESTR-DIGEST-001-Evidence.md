@@ -7,8 +7,10 @@
 **Reviewer note:** every number in this file was computed in the 2026-10-14 review session by running
 the code and the reference implementation. Nothing is carried over from an earlier pass. Out of
 scope and therefore not re-measured here: site finding (RESTR-FIND-001) and enzyme
-filtering/compatibility (`FindCompatibleEnzymes` / `AreCompatible` / `GetOverhang`,
-RESTR-FILTER-001).
+filtering/compatibility (`FindCompatibleEnzymes` / `AreCompatible` / the enzyme-level overhang,
+RESTR-FILTER-001 — re-validated separately on the same day; `GetOverhang` was folded into the shared
+`OverhangWindow` geometry by that unit, so `CutOverhangWindow` is now the only molecule-side reader
+of it).
 
 ---
 
