@@ -23,6 +23,18 @@
 | 6 | SfiI interrupted palindrome (PMC548270 / REBASE) | 1 | https://www.ncbi.nlm.nih.gov/pmc/articles/PMC548270/ | 2026-06-13 |
 | 7 | Biopython 1.88 `Bio.Restriction` (reference implementation, installed locally) — per enzyme `.site`, `.size`, `.fst5`, `.fst3`, `.ovhg`, `.ovhgseq`, `.elucidate()`, `.is_blunt()`, `.is_5overhang()`, `.is_3overhang()`, `.isoschizomers(batch)`, `.equischizomers(batch)`, `.neoschizomers(batch)`, and the `%` compatible-ends operator (`RestrictionType.__mod__` → `Blunt/Ov5/Ov3._mod1` → `Defined/Ambiguous._mod2`) | 2 | `python3 -c "import Bio.Restriction"` (local package; `rebase.neb.com`, `en.wikipedia.org` and `addgene.org` are BLOCKED from this container — the agent proxy answers 403 to CONNECT) | 2026-10-14 |
 
+> **Provenance note (WP-SRC, 2026-10-14).** Sources **1-5** are on hosts denied by the
+> organization's egress policy (`en.wikipedia.org`, `www.neb.com` — agent proxy answers 403 to
+> CONNECT), and were accessed 2026-06-13, before this campaign. **No unit of this campaign has
+> opened them**, so they are **unverifiable in this environment** and must not be read as checked.
+> They are retained, not deleted, because the substance of each is independently re-sourced:
+> the blunt / 5' / 3' definitions behind sources 1-2 are *executed* against source 7
+> (`is_blunt()` / `is_5overhang()` / `is_3overhang()`, 39/39), and the cutting-site data behind
+> sources 3-5 is re-sourced from the pinned REBASE **404 (2024)** snapshot and REBASE
+> **`allenz.104`**. The NEB product-specific content of sources 4-5 (HF variant, buffers) is **not**
+> re-sourced, and nothing in this spec depends on it. See
+> [`docs/Evidence/B08-Source-Provenance.md`](../../docs/Evidence/B08-Source-Provenance.md) §1, §7c.
+
 ### 1.2 Key Evidence Points
 
 1. A blunt end means "both strands terminate in a base pair"; a sticky/cohesive end is "a stretch of unpaired nucleotides" (a 5' or 3' overhang). Every end is one or the other. — Source 1.

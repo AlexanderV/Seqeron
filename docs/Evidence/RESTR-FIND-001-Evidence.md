@@ -51,7 +51,18 @@ Wikipedia enzyme tables the pre-existing TestSpec cites could not be re-fetched 
 `Bio/Restriction/Restriction_Dictionary.py` states its own provenance in its module docstring,
 verbatim: *"Used REBASE emboss files version 404 (2024)."* It carries 1088 enzymes with
 `site`, `fst5`, `fst3`, `ovhg`, `ovhgseq`, `suppl` and a REBASE id/URI per enzyme
-(e.g. EcoRI id 993, `https://identifiers.org/rebase:993`).
+(e.g. EcoRI id 993, `https://identifiers.org/rebase:993`). It carries **no organism and no
+methylation field**, which is why those two columns needed the separate `allenz` source below.
+
+**Pinned and corroborated (WP-SRC, 2026-10-14):** the installed file is
+sha256 `2a79099295dbad6061ea67a11e053787c591fcb2eb10fc8c0f89ead908dfa02b` (562 312 B, 1088 enzymes)
+and is **byte-identical** to the same path at the pinned tag
+`https://raw.githubusercontent.com/biopython/biopython/biopython-188/Bio/Restriction/Restriction_Dictionary.py`
+(200, 562 312 B, same sha256) — so the snapshot is reproducible without reaching REBASE.
+The organism and methylation columns come from REBASE **`allenz.104`** (REBASE version 104,
+Copyright Dr. Richard J. Roberts 2021, released Mar 31 2021) vendored in `crisprVerse/crisprBase`.
+Full dataset list, hashes, mirror cross-check numbers and the reachability record are in
+[`B08-Source-Provenance.md`](B08-Source-Provenance.md).
 
 ---
 
@@ -107,10 +118,13 @@ four fields against `Bio.Restriction`: recognition sequence, `CutPositionForward
 | BglII | AGATCT / 1 / 5 | AGATCT / 1 / 5 | A^GATC_T | 5' / 5' | ✅ |
 | ApaI | GGGCCC / 5 / 1 | GGGCCC / 5 / 1 | G_GGCC^C | 3' / 3' | ✅ |
 
-Not verified: the `Organism` string of each entry. It is descriptive metadata that no algorithm reads,
-and the two sources that carry it (REBASE's `link_allenz` and the Wikipedia cutting-site list) are both
-blocked by the proxy; Biopython's snapshot does not include an organism field. Recorded rather than
-guessed.
+Verified since (WP-SRC, 2026-10-14): the `Organism` string of each entry — **39/39 agree at genus +
+species** against REBASE `allenz` field `<3>`, which Biopython's snapshot does not carry but which is
+vendored on an allowed host. REBASE's string is consistently Seqeron's plus a strain suffix (e.g.
+`EcoRI` *Escherichia coli* vs REBASE *Escherichia coli RY13*). Checked against two independent
+copies, which agree with each other on all 39. Source-derived, not executed; no algorithm reads it.
+Datasets, hashes and the mirror cross-check are in
+[`B08-Source-Provenance.md`](B08-Source-Provenance.md) §3-§4.
 
 ---
 
@@ -219,6 +233,6 @@ so the filter is sound on both strands and this library uses the same rule.
 
 | Item | Sources tried | Status |
 |---|---|---|
-| Each entry's `Organism` string | `rebase.neb.com` (HTTP: no DNS; HTTPS: proxy 403 to CONNECT), `en.wikipedia.org` (proxy 403, and `WebFetch` → ENOTFOUND), Biopython's snapshot (no organism field) | **Unverified.** Descriptive metadata only; no algorithm reads it |
+| Each entry's `Organism` string | ~~`rebase.neb.com`, `en.wikipedia.org` (both proxy 403 to CONNECT), Biopython's snapshot (no organism field)~~ → **resolved** via REBASE `allenz.104` vendored in `crisprVerse/crisprBase` on `raw.githubusercontent.com` | **Verified 39/39** (genus+species) by WP-SRC, corroborated on a second mirror — see [`B08-Source-Provenance.md`](B08-Source-Provenance.md) §4c |
 | REBASE release newer than 404 | same blocked hosts | Not attempted further; 404 (2024) is the newest snapshot available offline |
 | `RestrictionEnzyme`'s overhang **sequence** (`GetOverhang`) against REBASE `ovhgseq` | Biopython exposes `ovhgseq` per enzyme (e.g. EcoRI `AATT`, `ovhg` −4) | Out of this unit — belongs to RESTR-FILTER-001; recorded in `docs/Validation/review-2026-09/B08.md` |

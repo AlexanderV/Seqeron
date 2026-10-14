@@ -161,7 +161,17 @@ denials verbatim —
 
 So **no published compatible-ends table (REBASE, NEB, Addgene) and no Wikipedia page was opened in
 this session.** The quotations in the 2026-06 sections above are left exactly as they were
-recorded then and are **not** re-asserted here. What this session *could* read is the locally
+recorded then and are **not** re-asserted here.
+
+**Update (WP-SRC, 2026-10-14).** The denials above still stand and were not re-attempted. What has
+changed is that REBASE itself is partly obtainable *without* `rebase.neb.com`: besides the EMBOSS
+**404 (2024)** snapshot in Biopython, REBASE **`allenz.104`** (version 104, Copyright Dr. Richard J.
+Roberts 2021, released Mar 31 2021) is vendored in the Bioconductor package `crisprVerse/crisprBase`
+and served from the allowed host `raw.githubusercontent.com` — which supplies the organism and
+methylation columns the Biopython snapshot omits. That does **not** yield a compatible-ends table
+(REBASE publishes none), so B1 stays blocked. Datasets, sha256 hashes, mirror cross-check numbers
+and a per-citation reachability verdict for this file's sources 1-5 are in
+[`B08-Source-Provenance.md`](B08-Source-Provenance.md). What this session *could* read is the locally
 installed reference implementation:
 
 **Oracle: Biopython 1.88 `Bio.Restriction`** (`python3 -c "import Bio; print(Bio.__version__)"` →

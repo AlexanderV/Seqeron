@@ -32,6 +32,14 @@
 | Tycko J, Wainberg M, Marinov GK, et al. (2018), Nature Communications 9:2962 | SaCas9-specific trained per-position mismatch coefficients (pairwise library screen) | doi:10.1038/s41467-018-05391-2 |
 | CRISPOR `crispor.py` (master) | Reference implementation of every model and both guide-level aggregates (`calcHitScore`, `calcSaHitScore`, `calcCfdScore`, `calcMitGuideScore`, `calcCfdGuideScore`, `annotateOfftargets`) | https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/crispor.py |
 
+> **Provenance note (WP-SRC, 2026-10-14).** The **Wikipedia: Off-target genome editing** row is on a
+> host denied by the organization's egress policy (`en.wikipedia.org` — agent proxy answers 403 to
+> CONNECT); **no unit of this campaign has opened it**, so it is **unverifiable in this environment**
+> and must not be read as checked. It is retained, not deleted: every parameter it is cited for is
+> also carried by a reachable source in the same table — the seed-region and mismatch-tolerance
+> claims by Hsu et al. 2013, and all scoring models by the executed CRISPOR reference. See
+> [`docs/Evidence/B08-Source-Provenance.md`](../../docs/Evidence/B08-Source-Provenance.md) §1, §7c.
+
 ### Evidence-Backed Parameters
 | Parameter | Evidence Value | Implementation Value | Status |
 |-----------|----------------|---------------------|--------|

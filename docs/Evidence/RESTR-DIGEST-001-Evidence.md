@@ -250,3 +250,10 @@ are **not** the basis of any number in this file, every one of which comes from 
 them — the circular fragment-count rule and the fragment-sum rule — are independently confirmed here
 by Biopython's `catalyse` behaviour, which produces exactly k fragments for k circular cuts and
 exactly k+1 for k linear cuts in all 1452 comparison cases.
+
+**Update (WP-SRC, 2026-10-14).** Those denials were re-read from the proxy's status endpoint, not
+re-attempted, and still stand. The inherited Wikipedia/REBASE/Addgene citations are now
+**explicitly annotated as unverifiable in this environment** in the TestSpecs that carry them, so a
+reader cannot mistake them for checked; and REBASE's organism and methylation columns turn out to be
+obtainable from an allowed host after all (REBASE `allenz.104`, vendored in `crisprVerse/crisprBase`).
+See [`B08-Source-Provenance.md`](B08-Source-Provenance.md).

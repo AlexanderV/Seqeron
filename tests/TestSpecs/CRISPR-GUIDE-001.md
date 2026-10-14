@@ -18,6 +18,16 @@
 | Wikipedia: Guide RNA | GC >50% optimal, length 17-24bp standard 20bp | https://en.wikipedia.org/wiki/Guide_RNA |
 | Wikipedia: PAM | SpCas9 PAM is 5'-NGG-3', PAM required for cleavage | https://en.wikipedia.org/wiki/Protospacer_adjacent_motif |
 
+> **Provenance note (WP-SRC, 2026-10-14).** All three sources above are on hosts denied by the
+> organization's egress policy (`www.addgene.org`, `en.wikipedia.org` — agent proxy answers 403 to
+> CONNECT). **No unit of this campaign has opened them**; they are **unverifiable in this
+> environment** and must not be read as checked. They are retained, not deleted: the PAM definitions
+> were separately re-confirmed against CRISPOR's own tables (see
+> [`CRISPR-PAM-001-Evidence.md`](../../docs/Evidence/CRISPR-PAM-001-Evidence.md)), and the 20 bp
+> spacer default is pinned by the executed Doench/Azimuth and CRISPOR references. The 8-10 nt seed
+> range behind `CrisprDesigner.cs:258` is **not** re-sourced. See
+> [`docs/Evidence/B08-Source-Provenance.md`](../../docs/Evidence/B08-Source-Provenance.md) §1, §7c.
+
 ### Evidence-Backed Parameters
 | Parameter | Evidence Value | Source | Implementation Value | Status |
 |-----------|----------------|--------|---------------------|--------|
