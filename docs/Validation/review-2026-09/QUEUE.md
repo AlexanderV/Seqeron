@@ -27,7 +27,23 @@ and commits it after every change. Batch definitions (units, owned files) are in
   it can be re-verified when 5-5 becomes available again. This applies to every session of the campaign, including
   the orchestrator's own and any future resume/finisher, not only to the session where it was first noticed.
 
-## State (2026-10-14 10:37 UTC) — FIN-B02 + FIN-B03 + B08 RUNNING (3 in parallel, user's word)
+## State (2026-10-14 18:40 UTC) — FIN-B03 DONE; FIN-B02 + B08 still running
+- **FIN-B03 DONE** (session_019yqGyk8v1PunaUYAP83i7B archived, 10:35 – 17:57, ≈ $75.1, served claude-opus-5-5
+  throughout, as was the B03 first pass — so B03 goes into "Finished batches"): audit rounds 1–3 + final round,
+  F22 onwards, dedup sweep, heavy tier once (da6bd804), final report 5bcceeca. 73 changed docs listed for wiki
+  re-ingest (orchestrator task).
+- B03.md `## Leftovers`: DOABLE none. BLOCKED with proof: ProtScale exponential weight-variation model (no source
+  gives the equation; mirrors 403/ENOTFOUND; the one sample fits a ∈ [0.81, 0.94] with no natural constant),
+  pI with PTM charges (one-letter API, no reference models PTMs), pI with coupled electrostatics (needs 3-D
+  coordinates). Open cross-batch requests: **R26, R27, C3 → B02 (RELAY, B02 is in flight, not the register)** —
+  monoisotopic amino-acid table + water 18.010565 and a parameterised pK table into
+  `Infrastructure/ProteinPhysicochemistry.cs`, and `SequenceExtensions.ToUpperAscii` made public; A33 → B14,
+  A34 → B15, A35 → B11 (targets not finished); QUEUE R3 → B01 and R4 → B07 already in the register below.
+- Still running: FIN-B02 (round 3, WP22 landed b2148fa3, WP23 CodonW Fop/CBI next) and B08 resume-3
+  (RESTR-DIGEST-001, Biopython cross-check 0 mismatches; 4/6 units on main; off-model, see below).
+- **Cost watch:** B08 resume-3 passed the $120 threshold (≈ $125.5 at 18:32, context 257k) without closing its unit.
+
+### Earlier state (2026-10-14 10:37 UTC) — FIN-B02 + FIN-B03 + B08 RUNNING (3 in parallel, user's word)
 - User 10-14 ~10:30 "Запусти ще B03" + "І резумни b08" (explicitly above the usual max-2 rule):
   - FIN-B03 session_019yqGyk8v1PunaUYAP83i7B (re-audit B03.md + requests to B03, ~22 known leftover items incl. B02
     ProteinPhysicochemistry routing and R16 codon splitter, MCP R-items; F from F22; WIP `-wip-B03`).
