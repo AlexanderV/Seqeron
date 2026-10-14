@@ -182,6 +182,7 @@ move one of them.
 |---|---|---|---|---|---|
 | R1 | B07 | `B07PrimerDesignMetamorphicTests.LibraryMispriming_OrderInvariant_MonotoneInWeight` | FsCheck counterexample in the FIN-B01 full heavy run (passed on re-run) — root-cause in `PrimerDesigner` library mispriming or the generator | FIN-B01 | done (bd78006) |
 | R2 | B04 | `B04AuditProperties.Bbduk_MonotoneInCutoff_InvariantUnderCaseAndU` | generator drew w = k, violating BBTools `EntropyTracker` k < windowBases (FIN-B24 full heavy run) | FIN-B24 | done (84cbf060, test-only) |
+| R3 | B01 | `GcSkewCalculator.CalculateWindowedGcContent` (both overloads, GcSkewCalculator.cs:1136/1162) | additive `includePartialWindow` (private `EnumerateWindows` :199 already has it); then SS `CalculateGcContentProfile(…, includePartialWindow)` projects it instead of its own `PartialWindowStarts` copy of the placement (B03.md "Duplication sweep (finisher)") | FIN-B03 | open |
 
 Pre-rule candidates (recorded before 2026-10-09 as "open" in reports; VERIFY each against current code before
 acting — several may already be resolved): B06.md → B04 `SequenceComplexity.ShannonEntropyBits` visibility (B01 F-entry

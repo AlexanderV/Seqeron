@@ -174,7 +174,7 @@ public class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var ratioDenominator = ParseCompositionDenominator(denominator);
+        var ratioDenominator = ParseExactEnumName<SequenceStatistics.AminoAcidCompositionDenominator>(denominator, nameof(denominator), "composition denominator");
         var comp = ratioDenominator == SequenceStatistics.AminoAcidCompositionDenominator.Residues
             ? SequenceStatistics.CalculateAminoAcidComposition(sequence)
             : SequenceStatistics.CalculateAminoAcidComposition(sequence, ratioDenominator);
@@ -192,19 +192,6 @@ public class SequenceTools
                     .ToDictionary(kv => kv.Key.ToString(), kv => kv.Value)
                 : null,
         };
-    }
-
-    // Exact (case-insensitive) AminoAcidCompositionDenominator name (numeric strings rejected).
-    private static SequenceStatistics.AminoAcidCompositionDenominator ParseCompositionDenominator(string denominator)
-    {
-        foreach (var value in Enum.GetValues<SequenceStatistics.AminoAcidCompositionDenominator>())
-        {
-            if (string.Equals(value.ToString(), denominator, StringComparison.OrdinalIgnoreCase))
-                return value;
-        }
-
-        throw new ArgumentException(
-            $"Unknown composition denominator '{denominator}'. Expected one of: Residues, SequenceLength.", nameof(denominator));
     }
 
     /// <summary>
@@ -274,8 +261,8 @@ public class SequenceTools
         if (disulphides < 0)
             throw new ArgumentException("disulphides must be non-negative", nameof(disulphides));
 
-        var pkaScale = ParsePkaScale(scale);
-        var pIWindow = ParsePiWindow(window);
+        var pkaScale = ParseExactEnumName<SequenceStatistics.PkaScale>(scale, nameof(scale), "pK scale");
+        var pIWindow = ParseExactEnumName<SequenceStatistics.IsoelectricPointWindow>(window, nameof(window), "pI window");
         if (pIWindow == SequenceStatistics.IsoelectricPointWindow.Default && termini && lysinesModified == 0 && disulphides == 0)
             return new IsoelectricPointResult(SequenceStatistics.CalculateIsoelectricPoint(sequence, pkaScale));
 
@@ -295,28 +282,19 @@ public class SequenceTools
         };
     }
 
-    // Exact (case-insensitive) IsoelectricPointWindow name (numeric strings rejected).
-    private static SequenceStatistics.IsoelectricPointWindow ParsePiWindow(string window)
+    // Exact (case-insensitive) enum member name; Enum.TryParse alone would also accept numeric strings.
+    // The error names the parameter by `label` (default: paramName) and lists Enum.GetNames<TEnum>() in declaration order.
+    private static TEnum ParseExactEnumName<TEnum>(string? value, string paramName, string? label = null)
+        where TEnum : struct, Enum
     {
-        foreach (var value in Enum.GetValues<SequenceStatistics.IsoelectricPointWindow>())
+        foreach (var member in Enum.GetValues<TEnum>())
         {
-            if (string.Equals(value.ToString(), window, StringComparison.OrdinalIgnoreCase))
-                return value;
+            if (string.Equals(member.ToString(), value, StringComparison.OrdinalIgnoreCase))
+                return member;
         }
 
-        throw new ArgumentException($"Unknown pI window '{window}'. Expected one of: Default, Emboss, Biopython.", nameof(window));
-    }
-
-    // Exact (case-insensitive) PkaScale name; Enum.TryParse alone would also accept numeric strings.
-    private static SequenceStatistics.PkaScale ParsePkaScale(string scale)
-    {
-        foreach (var value in Enum.GetValues<SequenceStatistics.PkaScale>())
-        {
-            if (string.Equals(value.ToString(), scale, StringComparison.OrdinalIgnoreCase))
-                return value;
-        }
-
-        throw new ArgumentException($"Unknown pK scale '{scale}'. Expected one of: Emboss, Bjellqvist.", nameof(scale));
+        throw new ArgumentException(
+            $"Unknown {label ?? paramName} '{value}'. Expected one of: {string.Join(", ", Enum.GetNames<TEnum>())}.", paramName);
     }
 
     /// <summary>

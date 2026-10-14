@@ -419,4 +419,25 @@ public class B03SequenceStatisticsMcpOptionsTests
     [TestCase("1")]
     public void AminoAcidComposition_UnknownDenominator_Throws(string denominator) =>
         Assert.Throws<ArgumentException>(() => SequenceTools.AminoAcidComposition("MKW", denominator));
+
+    // FIN-B03 C1: the three enum parsers share one generic helper; the error text is locked byte-for-byte
+    // (it is the pre-refactor wording documented for isoelectric_point / amino_acid_composition).
+    [Test]
+    public void EnumParameters_UnknownName_ExactErrorMessages()
+    {
+        Assert.Multiple(() =>
+        {
+            var ex = Assert.Throws<ArgumentException>(() => SequenceTools.IsoelectricPoint("PETER", "Lehninger"))!;
+            Assert.That(ex.Message, Is.EqualTo("Unknown pK scale 'Lehninger'. Expected one of: Emboss, Bjellqvist. (Parameter 'scale')"));
+            Assert.That(ex.ParamName, Is.EqualTo("scale"));
+
+            ex = Assert.Throws<ArgumentException>(() => SequenceTools.IsoelectricPoint("PETER", window: "1"))!;
+            Assert.That(ex.Message, Is.EqualTo("Unknown pI window '1'. Expected one of: Default, Emboss, Biopython. (Parameter 'window')"));
+            Assert.That(ex.ParamName, Is.EqualTo("window"));
+
+            ex = Assert.Throws<ArgumentException>(() => SequenceTools.AminoAcidComposition("MKW", "Length"))!;
+            Assert.That(ex.Message, Is.EqualTo("Unknown composition denominator 'Length'. Expected one of: Residues, SequenceLength. (Parameter 'denominator')"));
+            Assert.That(ex.ParamName, Is.EqualTo("denominator"));
+        });
+    }
 }

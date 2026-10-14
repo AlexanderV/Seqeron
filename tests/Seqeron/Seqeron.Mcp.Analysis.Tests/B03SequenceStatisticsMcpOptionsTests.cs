@@ -587,5 +587,31 @@ public class B03SequenceStatisticsMcpOptionsTests
     public void HydrophobicityProfile_UnknownScale_Throws(string scale) =>
         Assert.Throws<ArgumentException>(() => AnalysisTools.HydrophobicityProfile(ScaleSeq, scale: scale));
 
+    // FIN-B03 C1: the enum parsers share one generic helper; the error text is locked byte-for-byte
+    // (pre-refactor wording documented for hydrophobicity_profile / chou_fasman_assign / codon_frequencies /
+    // gc_content_profile).
+    [Test]
+    public void EnumParameters_UnknownName_ExactErrorMessages()
+    {
+        Assert.Multiple(() =>
+        {
+            var ex = Assert.Throws<ArgumentException>(() => AnalysisTools.HydrophobicityProfile("FLIVAG", 5, convention: "ProtScale"))!;
+            Assert.That(ex.Message, Is.EqualTo("Unknown window convention 'ProtScale'. Expected one of: Standard, Biopython. (Parameter 'convention')"));
+            Assert.That(ex.ParamName, Is.EqualTo("convention"));
+
+            ex = Assert.Throws<ArgumentException>(() => AnalysisTools.ChouFasmanAssign("EEEE", "1"))!;
+            Assert.That(ex.Message, Is.EqualTo("Unknown Chou-Fasman rule set '1'. Expected one of: Standard, Graded1978. (Parameter 'ruleSet')"));
+            Assert.That(ex.ParamName, Is.EqualTo("ruleSet"));
+
+            ex = Assert.Throws<ArgumentException>(() => AnalysisTools.CodonFrequencies(CuspSequence, 0, "Cusp"))!;
+            Assert.That(ex.Message, Is.EqualTo("Unknown normalization 'Cusp'. Expected one of: Total, PerThousand, PerAminoAcid. (Parameter 'normalization')"));
+            Assert.That(ex.ParamName, Is.EqualTo("normalization"));
+
+            ex = Assert.Throws<ArgumentException>(() => AnalysisTools.GcContentProfile("ACGT", 2, 1, ambiguityMode: "strict"))!;
+            Assert.That(ex.Message, Is.EqualTo("Unknown ambiguity mode 'strict'. Expected one of: remove, ignore, weighted. (Parameter 'ambiguityMode')"));
+            Assert.That(ex.ParamName, Is.EqualTo("ambiguityMode"));
+        });
+    }
+
     #endregion
 }

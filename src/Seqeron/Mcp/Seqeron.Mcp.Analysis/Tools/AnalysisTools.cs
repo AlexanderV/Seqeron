@@ -436,7 +436,7 @@ public class AnalysisTools
         if (windowSize < 1)
             throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
 
-        var windowConvention = ParseHydropathyWindowConvention(convention);
+        var windowConvention = ParseExactEnumName<SequenceStatistics.HydropathyWindowConvention>(convention, nameof(convention), "window convention");
         var residueScale = ResolveProteinScale(scale);
         // Kyte-Doolittle is the options' default scale (Scale = null), so the default path is unchanged.
         IReadOnlyDictionary<char, double>? customScale =
@@ -467,19 +467,6 @@ public class AnalysisTools
                 $"Unknown scale '{scale}'. Expected one of: KyteDoolittle (kd), HoppWoods (hw), Emini (em), Janin (ja), Flexibility (flex).",
                 nameof(scale)),
         };
-
-    // Exact (case-insensitive) HydropathyWindowConvention name; Enum.TryParse alone would also accept numeric strings.
-    private static SequenceStatistics.HydropathyWindowConvention ParseHydropathyWindowConvention(string? convention)
-    {
-        foreach (var value in Enum.GetValues<SequenceStatistics.HydropathyWindowConvention>())
-        {
-            if (string.Equals(value.ToString(), convention, StringComparison.OrdinalIgnoreCase))
-                return value;
-        }
-
-        throw new ArgumentException(
-            $"Unknown window convention '{convention}'. Expected one of: Standard, Biopython.", nameof(convention));
-    }
 
     [McpServerTool(Name = "dinucleotide_frequencies", Title = "Sequence — Dinucleotide Frequencies", ReadOnly = true)]
     [Description("Normalized adjacent-dinucleotide frequencies f_XY = count(XY) / (number of overlapping dinucleotides whose two symbols are both in A,T,G,C,U), case-insensitive (seqinr count(seq, 2, freq = TRUE)). Pairs containing N, IUPAC codes or gaps are excluded from count and denominator, so the denominator is N-1 only when every base is in the alphabet. Frequencies sum to 1.")]
@@ -537,7 +524,9 @@ public class AnalysisTools
     }
 
     // Exact (case-insensitive) enum member name; Enum.TryParse alone would also accept numeric strings.
-    private static TEnum ParseExactEnumName<TEnum>(string? value, string paramName)
+    // The error names the parameter by `label` (default: paramName) and lists `expected` (default:
+    // Enum.GetNames<TEnum>() in declaration order).
+    private static TEnum ParseExactEnumName<TEnum>(string? value, string paramName, string? label = null, string? expected = null)
         where TEnum : struct, Enum
     {
         foreach (var member in Enum.GetValues<TEnum>())
@@ -547,7 +536,7 @@ public class AnalysisTools
         }
 
         throw new ArgumentException(
-            $"Unknown {paramName} '{value}'. Expected one of: {string.Join(", ", Enum.GetNames<TEnum>())}.", paramName);
+            $"Unknown {label ?? paramName} '{value}'. Expected one of: {expected ?? string.Join(", ", Enum.GetNames<TEnum>())}.", paramName);
     }
 
     // NCBI translation table number → GeneticCode; same contract and error as the MolTools
@@ -589,22 +578,9 @@ public class AnalysisTools
         if (string.IsNullOrEmpty(proteinSequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
 
-        var rules = ParseChouFasmanRuleSet(ruleSet);
+        var rules = ParseExactEnumName<SequenceStatistics.ChouFasmanRuleSet>(ruleSet, nameof(ruleSet), "Chou-Fasman rule set");
         return new ChouFasmanAssignResult(
             SequenceStatistics.PredictSecondaryStructureChouFasman(proteinSequence, rules));
-    }
-
-    // Exact (case-insensitive) ChouFasmanRuleSet name; Enum.TryParse alone would also accept numeric strings.
-    private static SequenceStatistics.ChouFasmanRuleSet ParseChouFasmanRuleSet(string? ruleSet)
-    {
-        foreach (var value in Enum.GetValues<SequenceStatistics.ChouFasmanRuleSet>())
-        {
-            if (string.Equals(value.ToString(), ruleSet, StringComparison.OrdinalIgnoreCase))
-                return value;
-        }
-
-        throw new ArgumentException(
-            $"Unknown Chou-Fasman rule set '{ruleSet}'. Expected one of: Standard, Graded1978.", nameof(ruleSet));
     }
 
     [McpServerTool(Name = "gc_content_profile", Title = "Sequence — GC Content Profile", ReadOnly = true)]
@@ -2996,19 +2972,10 @@ public class AnalysisTools
             skewPoints, contentPoints, r.SequenceLength);
     }
 
-    // Exact (case-insensitive) GcAmbiguityMode name; Enum.TryParse alone would also accept
-    // numeric strings ("1") and comma lists.
-    private static SequenceExtensions.GcAmbiguityMode ParseGcAmbiguityMode(string ambiguity, string paramName = "ambiguity")
-    {
-        foreach (var mode in Enum.GetValues<SequenceExtensions.GcAmbiguityMode>())
-        {
-            if (string.Equals(mode.ToString(), ambiguity, StringComparison.OrdinalIgnoreCase))
-                return mode;
-        }
-
-        throw new ArgumentException(
-            $"Unknown ambiguity mode '{ambiguity}'. Expected one of: remove, ignore, weighted.", paramName);
-    }
+    // Exact (case-insensitive) GcAmbiguityMode name (numeric strings and comma lists rejected);
+    // the documented error lists the modes in lower case (analyze_gc_content / gc_content_profile).
+    private static SequenceExtensions.GcAmbiguityMode ParseGcAmbiguityMode(string ambiguity, string paramName = "ambiguity") =>
+        ParseExactEnumName<SequenceExtensions.GcAmbiguityMode>(ambiguity, paramName, "ambiguity mode", "remove, ignore, weighted");
 
     #endregion
 

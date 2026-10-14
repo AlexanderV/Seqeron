@@ -1486,7 +1486,7 @@ public static class SequenceStatistics
                 case 'D': case 'H': oneThird++; break;
             }
         }
-        double meltingTemp = ThermoConstants.WallaceAtContribution * weak + ThermoConstants.WallaceGcContribution * strong;
+        double meltingTemp = ThermoConstants.CalculateWallaceTm(weak, strong);
         double ambiguous = 3 * half + 10 / 3.0 * twoThirds + 8 / 3.0 * oneThird;
         return meltingTemp + ambiguous;
     }
@@ -1656,11 +1656,7 @@ public static class SequenceStatistics
         var symmetricCounts = new Dictionary<string, int>();
         foreach (var (dinuc, count) in counts)
         {
-            string reverseComplement = new(new[]
-            {
-                Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(dinuc[1]),
-                Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(dinuc[0])
-            });
+            string reverseComplement = DnaSequence.GetReverseComplementString(dinuc);
             symmetricCounts[dinuc] = symmetricCounts.GetValueOrDefault(dinuc) + count;
             symmetricCounts[reverseComplement] = symmetricCounts.GetValueOrDefault(reverseComplement) + count;
         }
@@ -2674,13 +2670,8 @@ public static class SequenceStatistics
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
             return Array.Empty<double>();
 
-        return EntropyProfileIterator(sequence, windowSize, stepSize);
-    }
-
-    private static IEnumerable<double> EntropyProfileIterator(string sequence, int windowSize, int stepSize)
-    {
-        for (int i = 0; i <= sequence.Length - windowSize; i += stepSize)
-            yield return CalculateShannonEntropy(sequence.Substring(i, windowSize));
+        return CompleteWindowStarts(sequence.Length, windowSize, stepSize)
+            .Select(i => CalculateShannonEntropy(sequence.Substring(i, windowSize)));
     }
 
     /// <summary>
