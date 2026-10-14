@@ -19,7 +19,19 @@ and commits it after every change. Batch definitions (units, owned files) are in
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
 
-## State (2026-10-14 07:25 UTC) — FIN-B02 RUNNING (only it)
+## State (2026-10-14 10:37 UTC) — FIN-B02 + FIN-B03 + B08 RUNNING (3 in parallel, user's word)
+- User 10-14 ~10:30 "Запусти ще B03" + "І резумни b08" (explicitly above the usual max-2 rule):
+  - FIN-B03 session_019yqGyk8v1PunaUYAP83i7B (re-audit B03.md + requests to B03, ~22 known leftover items incl. B02
+    ProteinPhysicochemistry routing and R16 codon splitter, MCP R-items; F from F22; WIP `-wip-B03`).
+  - B08 resume session_01E7mHtXGjdaPccegYRGjrba (CRISPR-PAM/GUIDE done F1–F8; remaining CRISPR-OFF, RESTR-FIND,
+    RESTR-DIGEST, RESTR-FILTER, then audit loop/dedup/heavy; F from F9; WIP `-wip-B08`; adds the RestrictionAnalyzer
+    raw-pattern API requested by B02 — the CodonOptimizer caller switch stays with B02). Old paused B08 session
+    session_01NvVQb3FM1E4YGuhxEtXqjH archived (superseded; it cost ≈ $28.9).
+  - All three share the branch: no cross-edits of each other's files, `pull --rebase` before every push.
+- FIN-B02 at 10:29: round 1 16/19 done (F31+), getorf modes in progress.
+- Check-in trigger covers all three (~45 min).
+
+### Earlier state (2026-10-14 07:25 UTC) — FIN-B02 RUNNING (only it)
 - User 10-14 "давай допрацюємо B02": session_016tDCWJHjR3NXKjhHLFynHz = FIN-B02 (re-audit B02.md + cross-batch requests to
   B02, completeness-audit loop over 14 known leftover items incl. CODON-RARE-001 Sherlocc `<` vs `≤`, dedup sweep, final
   audit, heavy tier once, `## Leftovers`). F-entries from F31. WIP branch `claude/stoic-maxwell-0olr2z-wip-B02`.
