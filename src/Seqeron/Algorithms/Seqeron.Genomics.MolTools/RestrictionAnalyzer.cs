@@ -268,11 +268,11 @@ public static class RestrictionAnalyzer
     {
         var enzyme = RequireEnzyme(enzymeName);
 
-        // ToUpperInvariant, not SequenceExtensions.ToUpperAscii, on purpose (review 2026-09 B08 F43): they differ
-        // only on U+017F 'ſ' (invariant folds it onto the IUPAC code 'S'), which is observable here — keep.
+        // ASCII-only fold (review 2026-09 B08 F49, superseding F43): ToUpperInvariant would map U+017F 'ſ'
+        // onto the IUPAC code 'S', so a non-IUPAC character would match.
         return string.IsNullOrEmpty(sequence)
             ? []
-            : FindSitesCore(sequence.ToUpperInvariant(), enzyme, topology);
+            : FindSitesCore(SequenceExtensions.ToUpperAscii(sequence), enzyme, topology);
     }
 
     /// <summary>
@@ -413,11 +413,11 @@ public static class RestrictionAnalyzer
         ArgumentOutOfRangeException.ThrowIfNegative(startIndex);
         string pattern = ValidatedPattern(recognitionPattern, nameof(recognitionPattern));
 
-        // ToUpperInvariant, not SequenceExtensions.ToUpperAscii, on purpose (review 2026-09 B08 F43): they differ
-        // only on U+017F 'ſ' (invariant folds it onto the IUPAC code 'S'), which is observable here — keep.
+        // ASCII-only fold (review 2026-09 B08 F49, superseding F43): ToUpperInvariant would map U+017F 'ſ'
+        // onto the IUPAC code 'S', so a non-IUPAC character would match.
         return sequence.Length == 0
             ? []
-            : EnumeratePatternOccurrences(sequence.ToUpperInvariant(), pattern, startIndex);
+            : EnumeratePatternOccurrences(SequenceExtensions.ToUpperAscii(sequence), pattern, startIndex);
     }
 
     private static IEnumerable<int> EnumeratePatternOccurrences(string seq, string pattern, int startIndex)
@@ -457,9 +457,9 @@ public static class RestrictionAnalyzer
         if (string.IsNullOrEmpty(pattern))
             throw new ArgumentException($"{what} cannot be null or empty.", paramName);
 
-        // ToUpperInvariant, not SequenceExtensions.ToUpperAscii, on purpose (review 2026-09 B08 F43): they differ
-        // only on U+017F 'ſ' (invariant folds it onto the IUPAC code 'S'), which is observable here — keep.
-        string upper = pattern.ToUpperInvariant();
+        // ASCII-only fold (review 2026-09 B08 F49, superseding F43): ToUpperInvariant would map U+017F 'ſ'
+        // onto the IUPAC code 'S', so a non-IUPAC character would match.
+        string upper = SequenceExtensions.ToUpperAscii(pattern);
         for (int i = 0; i < upper.Length; i++)
         {
             if (!IupacHelper.IsNucleotideCode(upper[i]))
@@ -688,21 +688,27 @@ public static class RestrictionAnalyzer
 
     /// <summary>
     /// Collects the distinct top-strand (forward-strand) cut positions for the requested enzymes,
-    /// together with one representative site per position.
+    /// together with every enzyme's site at each position.
     /// </summary>
     /// <remarks>
     /// Only <see cref="RestrictionSite.IsForwardStrand"/> records are kept: their
     /// <see cref="RestrictionSite.CutPosition"/> is the top-strand cut, which is what Biopython's
     /// <c>catalyse</c> slices at. The reverse-strand record of the same palindromic site carries
-    /// the bottom-strand cut and would double-count the site as a second boundary. When several
-    /// enzymes cut at the same coordinate only one representative is retained (the last seen), so
-    /// the fragment-boundary enzyme name and overhang are that enzyme's.
+    /// the bottom-strand cut and would double-count the site as a second boundary. Several
+    /// enzymes can cut at the same top-strand coordinate — isoschizomers (MspI/HpaII,
+    /// MboI/Sau3AI) and nested sites (BamHI/BglII with MboI/Sau3AI, ClaI/TaqI, StuI/HaeIII,
+    /// ScaI/RsaI, FseI/HaeIII; Biopython 1.88 <c>search</c> reports the same position for each
+    /// pair; review 2026-09 B08 F48). All of them are kept, one site per enzyme (a name listed
+    /// twice, in any casing, counts once), ordered by <see cref="StringComparer.Ordinal"/> on the
+    /// table's enzyme name, so the result does not depend on the order of
+    /// <paramref name="enzymeNames"/>. The first site of each list is the boundary's
+    /// representative (see <see cref="DigestFragment.LeftEnzyme"/>).
     /// </remarks>
-    private static (List<int> Cuts, Dictionary<int, RestrictionSite> Sites) CollectForwardCuts(
+    private static (List<int> Cuts, Dictionary<int, List<RestrictionSite>> Sites) CollectForwardCuts(
         DnaSequence sequence, string[] enzymeNames, MoleculeTopology topology)
     {
         var cutPositions = new SortedSet<int>();
-        var sitesByPosition = new Dictionary<int, RestrictionSite>();
+        var sitesByPosition = new Dictionary<int, List<RestrictionSite>>();
 
         foreach (var name in enzymeNames)
         {
@@ -715,9 +721,15 @@ public static class RestrictionAnalyzer
                 // (FindSitesCircular yields (i + fwd) % n) and a linear cut inside [1, Length-1]
                 // (CutsAreInternal), so no further normalisation is needed here.
                 cutPositions.Add(site.CutPosition);
-                sitesByPosition[site.CutPosition] = site;
+                if (!sitesByPosition.TryGetValue(site.CutPosition, out var atCut))
+                    sitesByPosition[site.CutPosition] = atCut = [];
+                if (!atCut.Exists(s => s.Enzyme.Name == site.Enzyme.Name))
+                    atCut.Add(site);
             }
         }
+
+        foreach (var atCut in sitesByPosition.Values)
+            atCut.Sort((a, b) => string.CompareOrdinal(a.Enzyme.Name, b.Enzyme.Name));
 
         return (cutPositions.ToList(), sitesByPosition);
     }
@@ -762,8 +774,10 @@ public static class RestrictionAnalyzer
             if (length <= 0)
                 continue;
 
-            var leftSite = i == 0 ? null : sitesByPosition.GetValueOrDefault(start);
-            var rightSite = i == boundaries.Count - 2 ? null : sitesByPosition.GetValueOrDefault(end);
+            var leftSites = i == 0 ? null : sitesByPosition.GetValueOrDefault(start);
+            var rightSites = i == boundaries.Count - 2 ? null : sitesByPosition.GetValueOrDefault(end);
+            var leftSite = leftSites?[0];
+            var rightSite = rightSites?[0];
             var leftEnd = DownstreamEnd(seq, leftSite, MoleculeTopology.Linear);
             var rightEnd = UpstreamEnd(seq, rightSite, MoleculeTopology.Linear);
 
@@ -777,7 +791,11 @@ public static class RestrictionAnalyzer
                 LeftOverhangType: leftEnd.Type,
                 LeftOverhang: leftEnd.Sequence,
                 RightOverhangType: rightEnd.Type,
-                RightOverhang: rightEnd.Sequence);
+                RightOverhang: rightEnd.Sequence)
+            {
+                LeftEnzymes = EnzymeNames(leftSites),
+                RightEnzymes = EnzymeNames(rightSites)
+            };
         }
     }
 
@@ -892,8 +910,10 @@ public static class RestrictionAnalyzer
                 fragmentSeq = string.Concat(seq.AsSpan(start, n - start), seq.AsSpan(0, nextCut));
             }
 
-            var leftSite = sitesByPosition.GetValueOrDefault(start);
-            var rightSite = sitesByPosition.GetValueOrDefault(nextCut);
+            var leftSites = sitesByPosition.GetValueOrDefault(start);
+            var rightSites = sitesByPosition.GetValueOrDefault(nextCut);
+            var leftSite = leftSites?[0];
+            var rightSite = rightSites?[0];
             var leftEnd = DownstreamEnd(seq, leftSite, MoleculeTopology.Circular);
             var rightEnd = UpstreamEnd(seq, rightSite, MoleculeTopology.Circular);
 
@@ -908,9 +928,20 @@ public static class RestrictionAnalyzer
                 LeftOverhangType: leftEnd.Type,
                 LeftOverhang: leftEnd.Sequence,
                 RightOverhangType: rightEnd.Type,
-                RightOverhang: rightEnd.Sequence);
+                RightOverhang: rightEnd.Sequence)
+            {
+                LeftEnzymes = EnzymeNames(leftSites),
+                RightEnzymes = EnzymeNames(rightSites)
+            };
         }
     }
+
+    /// <summary>
+    /// The names of the enzymes cutting at one boundary, in the boundary's (ordinal) order; empty
+    /// when the end is not a cut.
+    /// </summary>
+    private static IReadOnlyList<string> EnzymeNames(List<RestrictionSite>? sites)
+        => sites is null ? [] : sites.ConvertAll(s => s.Enzyme.Name).AsReadOnly();
 
     /// <summary>
     /// The single-stranded extension at the <b>left</b> (5'-side) end of the fragment that starts
@@ -1596,13 +1627,16 @@ public sealed record RestrictionSite(
 /// to the molecule's length in both topologies (Addgene Restriction Digest Protocol).</param>
 /// <param name="LeftEnzyme">Name of the enzyme whose cut created the fragment's left (5'-side)
 /// end, or <see langword="null"/> when that end is an original terminus of a linear molecule or
-/// the fragment is an uncut circle. When several enzymes cut at the same coordinate only one
-/// representative name is reported.</param>
+/// the fragment is an uncut circle. When several enzymes cut at the same top-strand coordinate
+/// (e.g. the isoschizomers MspI/HpaII, or BamHI with MboI/Sau3AI) this is the <b>first</b> name of
+/// <see cref="LeftEnzymes"/> — a deterministic, documented choice (ordinal order of the table
+/// names), not the only enzyme; read <see cref="LeftEnzymes"/> for the complete set.</param>
 /// <param name="RightEnzyme">Name of the enzyme whose cut created the fragment's right (3'-side)
 /// end, under the same convention as <paramref name="LeftEnzyme"/>.</param>
 /// <param name="FragmentNumber">1-based sequential number in the returned order (ascending
 /// <paramref name="StartPosition"/>), contiguous over the digest.</param>
-/// <param name="LeftOverhangType">End chemistry of the left end — <see cref="OverhangType.Blunt"/>
+/// <param name="LeftOverhangType">End chemistry of the left end, as made by the
+/// <paramref name="LeftEnzyme"/> cut alone — <see cref="OverhangType.Blunt"/>
 /// for a blunt cutter, <see cref="OverhangType.FivePrime"/> or
 /// <see cref="OverhangType.ThreePrime"/> for a staggered cut — or <see langword="null"/> when the
 /// end was not created by a cut.</param>
@@ -1618,6 +1652,19 @@ public sealed record RestrictionSite(
 /// <paramref name="LeftOverhang"/>. At one cut the upstream fragment's right overhang and the
 /// downstream fragment's left overhang are reverse complements of each other — which is why they
 /// re-ligate; for the palindromic built-in enzymes they are the same string.</param>
+/// <remarks>
+/// <b>Coinciding cuts (review 2026-09 B08 F48).</b> Every built-in collision but one joins enzymes
+/// with identical ends (MspI/HpaII <c>CG</c> 5', MboI/Sau3AI/BamHI/BglII <c>GATC</c> 5',
+/// ClaI/TaqI <c>CG</c> 5', StuI/HaeIII and ScaI/RsaI blunt — Biopython 1.88 <c>ovhgseq</c>), so the
+/// reported end is the end of each of them. The exception is <b>FseI/HaeIII</b>: inside
+/// <c>GGCCGGCC</c> both cut the top strand after base 6, but FseI leaves a 4-nt 3' overhang
+/// (<c>CCGG</c>, Biopython <c>ovhg = 4</c>) while HaeIII cuts blunt. The overhang fields then report
+/// the representative's end (FseI, ordinally first), i.e. the end of a digest by that enzyme
+/// alone. The physical end of the combined digest also depends on bottom-strand nicks made at
+/// other boundaries (here HaeIII's other cut, which coincides with FseI's bottom-strand cut) and is
+/// not modelled; when <see cref="LeftEnzymes"/>/<see cref="RightEnzymes"/> name more than one
+/// enzyme, check their individual ends via <see cref="RestrictionAnalyzer.GetEnzyme"/>(name).<see cref="RestrictionEnzyme.OverhangType"/> and <see cref="RestrictionAnalyzer.GetOverhangSequence(string)"/>.
+/// </remarks>
 public sealed record DigestFragment(
     string Sequence,
     int StartPosition,
@@ -1628,7 +1675,50 @@ public sealed record DigestFragment(
     OverhangType? LeftOverhangType = null,
     string? LeftOverhang = null,
     OverhangType? RightOverhangType = null,
-    string? RightOverhang = null);
+    string? RightOverhang = null)
+{
+    /// <summary>
+    /// Every enzyme whose top-strand cut created the fragment's left end, ordered by
+    /// <see cref="StringComparer.Ordinal"/> on the enzyme-table name and listed once each; empty
+    /// when that end is not a cut. Its first element is <see cref="LeftEnzyme"/>. When not set
+    /// explicitly it is <see cref="LeftEnzyme"/> alone (or empty when that is null).
+    /// </summary>
+    public IReadOnlyList<string> LeftEnzymes { get; init; } = LeftEnzyme is null ? [] : [LeftEnzyme];
+
+    /// <summary>
+    /// Every enzyme whose top-strand cut created the fragment's right end, under the convention
+    /// of <see cref="LeftEnzymes"/>. Its first element is <see cref="RightEnzyme"/>.
+    /// </summary>
+    public IReadOnlyList<string> RightEnzymes { get; init; } = RightEnzyme is null ? [] : [RightEnzyme];
+
+    /// <summary>
+    /// Value equality over every member, comparing <see cref="LeftEnzymes"/> and
+    /// <see cref="RightEnzymes"/> element-wise (a record would otherwise compare the lists by
+    /// reference, so two identical digests would stop being equal).
+    /// </summary>
+    public bool Equals(DigestFragment? other)
+        => other is not null
+           && Sequence == other.Sequence
+           && StartPosition == other.StartPosition
+           && Length == other.Length
+           && LeftEnzyme == other.LeftEnzyme
+           && RightEnzyme == other.RightEnzyme
+           && FragmentNumber == other.FragmentNumber
+           && LeftOverhangType == other.LeftOverhangType
+           && LeftOverhang == other.LeftOverhang
+           && RightOverhangType == other.RightOverhangType
+           && RightOverhang == other.RightOverhang
+           && LeftEnzymes.SequenceEqual(other.LeftEnzymes)
+           && RightEnzymes.SequenceEqual(other.RightEnzymes);
+
+    /// <inheritdoc/>
+    public override int GetHashCode()
+        => HashCode.Combine(
+            HashCode.Combine(Sequence, StartPosition, Length, LeftEnzyme, RightEnzyme, FragmentNumber),
+            HashCode.Combine(LeftOverhangType, LeftOverhang, RightOverhangType, RightOverhang),
+            LeftEnzymes.Count,
+            RightEnzymes.Count);
+}
 
 /// <summary>
 /// Summary of a restriction digest.

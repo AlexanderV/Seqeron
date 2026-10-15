@@ -141,6 +141,7 @@
 | M31-M32 | CreateMap site reporting | `CreateMap_LowerCaseEnzymeNames_DoesNotListACutterAsNonCutter`, `CreateMap_NoEnzymesSpecified_NonCuttersCoverTheRestOfTheTable`, `CreateMap_RepeatedEnzymeName_IsConsideredOnce`, `CreateMap_UnknownEnzymeName_ThrowsArgumentException` |
 | INV-14 | Short molecule | `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing` |
 | INV-17 / M33 | Sequence ambiguity (D3) | `FindSites_SfiI_SequenceNInsideSpacer_MatchesBiopython` (×2), `FindSites_SfiI_SequenceN_TopStrandCutsMatchBiopython` (×3), `FindSites_SequenceAmbiguityAtConcreteSiteCode_StillBlocks` (×5), `SiteN_AcceptsEveryIupacCode_InFindSitesAndFindPatternOccurrences`, `FindSites_NonIupacCharacterInSpacer_MatchesNothing`, plus `FindPatternOccurrences_AmbiguousSequenceBase_NeverMatches` (×2, unchanged) |
+| INV-17 / M34 | ASCII-only fold (F49): 'ſ' (U+017F) never matches and a pattern containing it is rejected | `RawStringEntryPoints_LongS_IsNotFoldedOntoIupacS`, `Pattern_WithLongS_IsRejectedLikeAnyNonIupacCharacter` |
 
 ### External Source Verification Tests
 
@@ -215,10 +216,11 @@ Two scope limits, not assumptions:
 - A `RestrictionEnzyme` carries one cut offset per strand **inside** the recognition window, so Type IIS /
   Type IIG enzymes that cut at a distance cannot be expressed. The 39 table entries all cut inside their
   site, so this does not affect any built-in enzyme.
-- Sequence case folding on the raw-string entry points uses `string.ToUpperInvariant()` rather than the
-  canonical `SequenceExtensions.ToUpperAscii`, which is `internal` to `Seqeron.Genomics.Core`. The only
-  difference is that a few non-ASCII characters fold onto an ASCII letter (e.g. U+017F 'ſ' → 'S'); the
-  `DnaSequence` overloads are unaffected (that type rejects non-ACGT input outright).
+- Sequence and pattern case folding on the raw-string entry points (`FindSites(string, …)`,
+  `FindPatternOccurrences`, the pattern validator) is ASCII-only (`SequenceExtensions.ToUpperAscii`,
+  review 2026-09 B08 F49, superseding F43's `ToUpperInvariant`): U+017F 'ſ' is NOT folded onto the IUPAC
+  code 'S', so it matches nothing in a sequence and is rejected in a pattern, like any other non-IUPAC
+  character. The `DnaSequence` overloads are unaffected (that type rejects non-ACGT input outright).
 
 Previous items A1 ("Forward strand position is primary") and A2 ("Reverse complement sites reported
 with forward strand coordinates") were reclassified as **standard conventions** — not assumptions.

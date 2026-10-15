@@ -1540,6 +1540,56 @@ public class RestrictionAnalyzer_FindSites_Tests
         RestrictionAnalyzer.FindSites("GGCCXXXXXGGCC", "SfiI").Should().BeEmpty();
     }
 
+    /// <summary>
+    /// Review 2026-09 B08 F49 (D20): U+017F 'ſ' (LATIN SMALL LETTER LONG S) is not an IUPAC code
+    /// either, so it matches nothing — even though <see cref="string.ToUpperInvariant"/> folds it
+    /// onto <c>'S'</c>, which a site <c>N</c> or <c>S</c> would accept. All three raw-string entry
+    /// points fold ASCII-only (<c>SequenceExtensions.ToUpperAscii</c>): the sequence scans see 'ſ'
+    /// as a non-IUPAC character (F40 contract), and a pattern containing it is rejected like any
+    /// other non-IUPAC pattern. Before F49 each of these three reported a match / accepted the
+    /// pattern (measured in F43). Biopython 1.88 cannot even build the input
+    /// (<c>Seq("GGCCſſſſſGGCC")</c> raises <c>UnicodeEncodeError</c>).
+    /// </summary>
+    [Test]
+    public void RawStringEntryPoints_LongS_IsNotFoldedOntoIupacS()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That("ſ".ToUpperInvariant(), Is.EqualTo("S"),
+                "precondition: the invariant fold this test guards against really maps U+017F onto 'S'");
+            Assert.That(RestrictionAnalyzer.FindSites("GGCCſſſſſGGCC", "SfiI"), Is.Empty,
+                "a non-IUPAC spacer matches nothing, exactly like GGCCXXXXXGGCC");
+            Assert.That(RestrictionAnalyzer.FindSites("GGCCSSSSSGGCC", "SfiI"), Is.Not.Empty,
+                "control: the ASCII IUPAC code S in the spacer is matched by site N");
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences("AſC", "ANC"), Is.Empty);
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences("AſC", "ASC"), Is.Empty);
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences("ASC", "ANC"), Is.EqualTo(new[] { 0 }),
+                "control: the ASCII S is still matched");
+        });
+    }
+
+    /// <summary>
+    /// F49: a recognition pattern containing U+017F 'ſ' is rejected with the same
+    /// <see cref="ArgumentException"/> as any other non-IUPAC pattern ('X', F40), on both the raw
+    /// pattern scan and a custom enzyme; before F49 it was silently read as <c>ASC</c>.
+    /// </summary>
+    [Test]
+    public void Pattern_WithLongS_IsRejectedLikeAnyNonIupacCharacter()
+    {
+        Assert.Multiple(() =>
+        {
+            var ex = Assert.Throws<ArgumentException>(
+                () => RestrictionAnalyzer.FindPatternOccurrences("AAASCAAA", "AſC"));
+            Assert.That(ex!.Message, Does.Contain("'ſ' at index 1"));
+            Assert.Throws<ArgumentException>(
+                () => RestrictionAnalyzer.FindPatternOccurrences("AAAXCAAA", "AXC"),
+                "control: the same rejection as an ASCII non-IUPAC letter");
+            Assert.Throws<ArgumentException>(
+                () => RestrictionAnalyzer.FindSites(new DnaSequence("AAAGCCAAA"),
+                    new RestrictionEnzyme("Custom", "GſC", 1, 2, "test")));
+        });
+    }
+
     #endregion
 
     /// <summary>

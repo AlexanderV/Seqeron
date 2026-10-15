@@ -2587,7 +2587,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.Digest",
     "docPath": "docs/mcp/tools/moltools/restriction_digest.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L761"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L849"
   },
   {
     "tool": "restriction_map",

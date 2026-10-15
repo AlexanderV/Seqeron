@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.Digest",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L761",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L849",
   "description": "Simulate a restriction digest of a linear or circular molecule and return the ordered fragments with their end overhangs.",
   "inputSchema": {
     "type": "object",
@@ -58,13 +58,15 @@
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "description": "First name of leftEnzymes (ordinal order), or null when the left end is not a cut."
             },
             "rightEnzyme": {
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "description": "First name of rightEnzymes (ordinal order), or null when the right end is not a cut."
             },
             "fragmentNumber": {
               "type": "integer"
@@ -108,6 +110,20 @@
                 "null"
               ],
               "description": "Right end's single-stranded extension, 5'-3' on the strand carrying it; empty for a blunt end, null for an uncut end."
+            },
+            "leftEnzymes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Every enzyme whose top-strand cut made the left end (isoschizomers / nested sites cutting at the same position), once each, ordinal order of the table names; empty for an uncut end."
+            },
+            "rightEnzymes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Every enzyme whose top-strand cut made the right end, as leftEnzymes."
             }
           },
           "required": [
@@ -150,7 +166,11 @@
             "length": 4,
             "rightEnzyme": "EcoRI",
             "rightOverhangType": "FivePrime",
-            "rightOverhang": "AATT"
+            "rightOverhang": "AATT",
+            "leftEnzymes": [],
+            "rightEnzymes": [
+              "EcoRI"
+            ]
           },
           {
             "sequence": "AATTCAAA",
@@ -158,7 +178,11 @@
             "length": 8,
             "leftEnzyme": "EcoRI",
             "leftOverhangType": "FivePrime",
-            "leftOverhang": "AATT"
+            "leftOverhang": "AATT",
+            "leftEnzymes": [
+              "EcoRI"
+            ],
+            "rightEnzymes": []
           }
         ]
       }
@@ -184,7 +208,13 @@
             "leftOverhangType": "FivePrime",
             "leftOverhang": "AATT",
             "rightOverhangType": "FivePrime",
-            "rightOverhang": "AATT"
+            "rightOverhang": "AATT",
+            "leftEnzymes": [
+              "EcoRI"
+            ],
+            "rightEnzymes": [
+              "EcoRI"
+            ]
           }
         ]
       }
@@ -203,6 +233,68 @@
             "sequence": "AAAAAAAA",
             "startPosition": 0,
             "length": 8
+          }
+        ]
+      }
+    },
+    {
+      "name": "Isoschizomers cutting at the same position (MspI + HpaII)",
+      "input": {
+        "sequence": "CCGGAAACCGG",
+        "enzyme_names": [
+          "MspI",
+          "HpaII"
+        ]
+      },
+      "output": {
+        "fragments": [
+          {
+            "sequence": "C",
+            "startPosition": 0,
+            "length": 1,
+            "rightEnzyme": "HpaII",
+            "fragmentNumber": 1,
+            "rightOverhangType": "FivePrime",
+            "rightOverhang": "CG",
+            "leftEnzymes": [],
+            "rightEnzymes": [
+              "HpaII",
+              "MspI"
+            ]
+          },
+          {
+            "sequence": "CGGAAAC",
+            "startPosition": 1,
+            "length": 7,
+            "leftEnzyme": "HpaII",
+            "rightEnzyme": "HpaII",
+            "fragmentNumber": 2,
+            "leftOverhangType": "FivePrime",
+            "leftOverhang": "CG",
+            "rightOverhangType": "FivePrime",
+            "rightOverhang": "CG",
+            "leftEnzymes": [
+              "HpaII",
+              "MspI"
+            ],
+            "rightEnzymes": [
+              "HpaII",
+              "MspI"
+            ]
+          },
+          {
+            "sequence": "CGG",
+            "startPosition": 8,
+            "length": 3,
+            "leftEnzyme": "HpaII",
+            "fragmentNumber": 3,
+            "leftOverhangType": "FivePrime",
+            "leftOverhang": "CG",
+            "leftEnzymes": [
+              "HpaII",
+              "MspI"
+            ],
+            "rightEnzymes": []
           }
         ]
       }

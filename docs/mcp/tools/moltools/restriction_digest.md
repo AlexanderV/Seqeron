@@ -14,7 +14,7 @@ Simulate a restriction digest of a linear or circular molecule.
 
 ## Description
 
-Cuts the molecule at the top-strand (forward-strand) cut positions of the named enzymes and returns the resulting fragments in ascending `startPosition`. Each fragment carries its sequence, start position, length, flanking enzymes (`leftEnzyme`/`rightEnzyme`), fragment number, and the chemistry of each end created by a cut (`leftOverhangType`/`leftOverhang`, `rightOverhangType`/`rightOverhang`).
+Cuts the molecule at the top-strand (forward-strand) cut positions of the named enzymes and returns the resulting fragments in ascending `startPosition`. Each fragment carries its sequence, start position, length, flanking enzymes (`leftEnzyme`/`rightEnzyme`, and the complete lists `leftEnzymes`/`rightEnzymes`), fragment number, and the chemistry of each end created by a cut (`leftOverhangType`/`leftOverhang`, `rightOverhangType`/`rightOverhang`).
 
 **Topology.** With `topology=Linear` (the default) `k` distinct cut positions yield `k+1` fragments; with zero cuts the whole molecule is returned as one fragment, and its two ends are the original termini (overhang fields `null`). With `topology=Circular` the site search wraps past the origin — so an origin-spanning recognition site is found and cut — and `k` cut positions yield exactly `k` fragments. The origin-spanning fragment is reported **last** (its `startPosition` is the largest cut), and every circular fragment end is a cut, so both flanks carry an enzyme and an overhang. A circular molecule with zero cuts stays whole (one full-length uncut fragment, no ends); a single cutter linearizes it into one full-length fragment.
 
@@ -22,7 +22,7 @@ Cuts the molecule at the top-strand (forward-strand) cut positions of the named 
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L761](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L761)
+- Source: [RestrictionAnalyzer.cs#L849](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L849)
 
 ## Input Schema
 
@@ -36,7 +36,9 @@ Cuts the molecule at the top-strand (forward-strand) cut positions of the named 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `fragments` | array | Fragments, each `{sequence, startPosition, length, leftEnzyme, rightEnzyme, fragmentNumber, leftOverhangType, leftOverhang, rightOverhangType, rightOverhang}`. |
+| `fragments` | array | Fragments, each `{sequence, startPosition, length, leftEnzyme, rightEnzyme, fragmentNumber, leftOverhangType, leftOverhang, rightOverhangType, rightOverhang, leftEnzymes, rightEnzymes}`. |
+
+**Coinciding cuts.** Several enzymes can cut the top strand at the same position — isoschizomers (MspI/HpaII, MboI/Sau3AI) and nested sites (BamHI or BglII with MboI/Sau3AI, ClaI/TaqI, StuI/HaeIII, ScaI/RsaI, FseI/HaeIII; Biopython 1.88 `search` reports the same position for each). Such a cut is one boundary. `leftEnzymes`/`rightEnzymes` list every enzyme cutting at that end, once each, in ordinal order of the enzyme-table names (empty for an uncut end); `leftEnzyme`/`rightEnzyme` keep their meaning as the first name of that list, so the result no longer depends on the order of `enzyme_names`. The overhang fields give that first enzyme's end. All built-in collisions but one join identical ends; for FseI/HaeIII (FseI 3′ `CCGG`, HaeIII blunt) the reported end is FseI's alone, and the combined digest's physical end is not modelled.
 
 `leftOverhangType`/`rightOverhangType` are `Blunt`, `FivePrime` or `ThreePrime`, or `null` when that end was not created by a cut. `leftOverhang`/`rightOverhang` give the extension's bases (empty string for a blunt end, `null` for an uncut end).
 
@@ -58,6 +60,10 @@ Cut at position 4 → `AAAG` (0–4) and `AATTCAAA` (4–12); the cut ends are 5
 The `GAATTC` site spans the origin (starting at position 10), so the plasmid is linearized into one 13 bp fragment `AATTCAAAAAAAG` starting at the cut, position 11 — matching `Bio.Restriction.EcoRI.catalyse(Seq("TTCAAAAAAAGAA"), linear=False) == (Seq("AATTCAAAAAAAG"),)`. With `topology=Linear` the same sequence is uncut.
 
 ### Example 3: No cut site → single whole-sequence fragment (linear or circular).
+
+### Example 4: MspI + HpaII on linear `CCGGAAACCGG`
+
+The isoschizomers cut at the same two positions (Biopython 1.88 `MspI.search == HpaII.search == [2, 9]`), so there are two boundaries and three fragments `C`, `CGGAAAC`, `CGG`. Each cut end lists `["HpaII", "MspI"]` in `leftEnzymes`/`rightEnzymes`, reports `HpaII` (ordinally first) as `leftEnzyme`/`rightEnzyme`, and carries the shared 5′ overhang `CG` — the same output whichever order the two names are given in.
 
 ## See Also
 

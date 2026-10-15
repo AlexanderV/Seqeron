@@ -76,7 +76,7 @@ Each fragment end created by a cut reports this extension, written 5'→3' on th
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `DigestFragment` | record | Top-strand sequence, start position, length, one representative left/right enzyme name per fragment boundary, fragment number, and the overhang type + overhang sequence of each end created by a cut (`null` for an original terminus or an uncut circle) |
+| `DigestFragment` | record | Top-strand sequence, start position, length, the left/right enzyme name per fragment boundary (the ordinally first one when several enzymes cut there) plus the complete ordinal-ordered lists `LeftEnzymes`/`RightEnzymes`, fragment number, and the overhang type + overhang sequence of each end created by a cut (`null` for an original terminus or an uncut circle) |
 | `DigestSummary` | record | Total fragment count, sorted sizes, largest/smallest fragment, average size, enzyme list, and the topology digested |
 | `RestrictionMap` | record | Sequence length, sites, grouped positions, forward-strand total site count, unique cutters, and non-cutters |
 | `compatible` | `bool` | Whether two enzymes generate compatible ends |
@@ -140,7 +140,7 @@ Examples called out in the original document:
 
 ### 5.2 Current Behavior
 
-The current implementation records forward-strand cut positions only when digesting so that palindromic sites are not double-counted. If no cut positions are found, the digest yields a single fragment equal to the original sequence. When multiple enzymes cut at the same coordinate, the cut position is preserved but the digest stores only one representative enzyme name for that fragment boundary. `GetDigestSummary(...)` sorts fragment sizes descending before constructing the record. `CreateMap(...)` counts `TotalSites` on the forward strand only and defines `UniqueCutters` from distinct forward-strand positions, while `NonCutters` are requested enzymes that do not appear in the grouped map.
+The current implementation records forward-strand cut positions only when digesting so that palindromic sites are not double-counted. If no cut positions are found, the digest yields a single fragment equal to the original sequence. When multiple enzymes cut at the same coordinate, the cut position is one boundary and the digest lists every such enzyme once in `LeftEnzymes`/`RightEnzymes` (ordinal order of the table names, so the result is independent of the argument order); `LeftEnzyme`/`RightEnzyme` are the first of that list (review 2026-09 B08 F48). `GetDigestSummary(...)` sorts fragment sizes descending before constructing the record. `CreateMap(...)` counts `TotalSites` on the forward strand only and defines `UniqueCutters` from distinct forward-strand positions, while `NonCutters` are requested enzymes that do not appear in the grouped map.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -177,7 +177,7 @@ The current implementation records forward-strand cut positions only when digest
 
 ### 6.2 Limitations
 
-The digest model is a sequence-partitioning simulation. It does not simulate gel electrophoresis, incomplete (partial) digestion or methylation-dependent blocking, and it relies on the enzyme definitions available in the built-in restriction catalog (all 39 of which match Biopython 1.88's recognition sequence and both cut offsets exactly, verified 2026-10-14). Circular-DNA behaviour **is** modelled — see §2.2 and §6.1. When different enzymes cut at the same coordinate, fragment-boundary provenance is reduced to a single representative enzyme name, and the overhang reported for that boundary is that enzyme's.
+The digest model is a sequence-partitioning simulation. It does not simulate gel electrophoresis, incomplete (partial) digestion or methylation-dependent blocking, and it relies on the enzyme definitions available in the built-in restriction catalog (all 39 of which match Biopython 1.88's recognition sequence and both cut offsets exactly, verified 2026-10-14). Circular-DNA behaviour **is** modelled — see §2.2 and §6.1. When different enzymes cut at the same coordinate, all of them are listed, but the overhang reported for that boundary is the first-listed enzyme's own end. Among the built-ins this matters only for FseI/HaeIII (FseI 3' `CCGG`, HaeIII blunt, both cutting after base 6 of `GGCCGGCC`): the physical end of such a combined digest is not modelled.
 
 **Reference-implementation caveat.** Biopython 1.88's `catalyse(..., linear=False)` is not safe to use as a fragment oracle on a circle: `AbstractCut._drop` (Restriction.py L542-568) folds an out-of-range circular cut back by ±length *in place without re-sorting*, so `search(..., linear=False)` can return an unsorted list (e.g. `AluI.search(Seq("GCTGTTATAGCTAAGAGCGAACCGGAGTATA"), linear=False) == [11, 2]`), and `catalyse` (L1146-1176) indexes `r[0]`/`r[-1]` assuming ascending order. The result is an empty fragment plus an over-long one whose lengths sum to more than the molecule (40 vs 31 bases in that example). Measured on 4000 circular sequences with a planted origin-spanning site, 55 (1.4%) trigger it. Seqeron sorts its cut positions, so its fragment lengths always sum to the molecule length; the Seqeron↔Biopython comparisons in `docs/Evidence/RESTR-DIGEST-001-Evidence.md` therefore use `sorted(search(...))` as the oracle for circular cases.
 

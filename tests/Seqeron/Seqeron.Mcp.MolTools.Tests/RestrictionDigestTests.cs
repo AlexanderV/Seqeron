@@ -16,6 +16,34 @@ public class RestrictionDigestTests
         Assert.Throws<ArgumentException>(() => MolToolsTools.restriction_digest("AAAGAATTCAAA", null!));
     }
 
+    /// <summary>
+    /// Review 2026-09 B08 F48: isoschizomers cutting at the same positions (Biopython 1.88
+    /// <c>MspI.search(Seq("CCGGAAACCGG")) == HpaII.search(...) == [2, 9]</c>) are all listed in
+    /// <c>leftEnzymes</c>/<c>rightEnzymes</c> (ordinal order); the single-name fields are the first of
+    /// the list, independent of the order of <c>enzyme_names</c>; both fields reach the JSON output.
+    /// </summary>
+    [Test]
+    public void RestrictionDigest_CoincidingCuts_ListAllEnzymes()
+    {
+        var a = MolToolsTools.restriction_digest("CCGGAAACCGG", new[] { "MspI", "HpaII" }).Fragments;
+        var b = MolToolsTools.restriction_digest("CCGGAAACCGG", new[] { "HpaII", "MspI" }).Fragments;
+        string json = System.Text.Json.JsonSerializer.Serialize(
+            a[1], new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.Select(f => f.Sequence), Is.EqualTo(new[] { "C", "CGGAAAC", "CGG" }));
+            Assert.That(a[0].LeftEnzymes, Is.Empty);
+            Assert.That(a[0].RightEnzymes, Is.EqualTo(new[] { "HpaII", "MspI" }));
+            Assert.That(a[1].LeftEnzymes, Is.EqualTo(new[] { "HpaII", "MspI" }));
+            Assert.That(a[1].LeftEnzyme, Is.EqualTo("HpaII"));
+            Assert.That(a[1].LeftOverhang, Is.EqualTo("CG"), "Biopython MspI/HpaII ovhgseq");
+            Assert.That(b, Is.EqualTo(a));
+            Assert.That(json, Does.Contain("\"leftEnzymes\":[\"HpaII\",\"MspI\"]"));
+            Assert.That(json, Does.Contain("\"leftEnzyme\":\"HpaII\""));
+        });
+    }
+
     [Test]
     public void RestrictionDigest_Binding_InvokesSuccessfully()
     {

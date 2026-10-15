@@ -956,8 +956,8 @@ public class RestrictionAnalyzer_Digest_Tests
     }
 
     /// <summary>
-    /// Several enzymes cutting at the SAME coordinate: the boundary is one cut, not two, and the
-    /// fragment keeps one representative enzyme name (the last seen) with that enzyme's overhang.
+    /// Several enzymes cutting at the SAME coordinate: the boundary is one cut, not two. (Which
+    /// enzymes are reported for it is locked by the F48 tests below.)
     /// Reference (Biopython 1.88):
     ///   RestrictionBatch([MspI, HpaII]).search(Seq("CCGGAAACCGG"))      == {MspI: [2,9], HpaII: [2,9]}
     ///   RestrictionBatch([MboI, Sau3AI, DpnI]).search(Seq("GATCAAAGATC"), linear=False)
@@ -992,6 +992,130 @@ public class RestrictionAnalyzer_Digest_Tests
             Assert.That(mixed[0].LeftOverhang, Is.EqualTo("GATC"));
             Assert.That(mixed[0].RightOverhangType, Is.EqualTo(OverhangType.Blunt));
             Assert.That(mixed[0].RightOverhang, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// Review 2026-09 B08 F48 (D9): a boundary cut by several enzymes lists ALL of them in
+    /// <see cref="DigestFragment.LeftEnzymes"/>/<see cref="DigestFragment.RightEnzymes"/>, once each,
+    /// in ordinal order of the table names; <see cref="DigestFragment.LeftEnzyme"/>/
+    /// <see cref="DigestFragment.RightEnzyme"/> is the first of that list — no longer the
+    /// argument-order-dependent "last seen" name. Positions from Biopython 1.88 (1-based search):
+    ///   MspI.search(Seq("CCGGAAACCGG")) == HpaII.search(...) == [2, 9]
+    ///   MboI/Sau3AI.search(Seq("GATCAAAGATC"), linear=False) == [1, 8]; DpnI ... == [3, 10]
+    /// </summary>
+    [Test]
+    public void Digest_CoincidingCuts_ListEveryEnzymeInOrdinalOrder()
+    {
+        var dna = new DnaSequence("CCGGAAACCGG");
+        var shared = RestrictionAnalyzer.Digest(dna, "MspI", "HpaII").ToList();
+        var swapped = RestrictionAnalyzer.Digest(dna, "HpaII", "MspI").ToList();
+        var repeated = RestrictionAnalyzer.Digest(dna, "MspI", "mspi", "HpaII", "MSPI").ToList();
+        var mixed = RestrictionAnalyzer.Digest(
+            new DnaSequence("GATCAAAGATC"), MoleculeTopology.Circular, "Sau3AI", "DpnI", "MboI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shared[0].LeftEnzymes, Is.Empty, "an original terminus has no enzyme");
+            Assert.That(shared[0].RightEnzymes, Is.EqualTo(new[] { "HpaII", "MspI" }));
+            Assert.That(shared[1].LeftEnzymes, Is.EqualTo(new[] { "HpaII", "MspI" }));
+            Assert.That(shared[1].RightEnzymes, Is.EqualTo(new[] { "HpaII", "MspI" }));
+            Assert.That(shared[2].RightEnzymes, Is.Empty);
+            Assert.That(shared.Select(f => f.LeftEnzyme), Is.EqualTo(new[] { null, "HpaII", "HpaII" }),
+                "the single name is the first of the list");
+            Assert.That(swapped, Is.EqualTo(shared), "argument order does not change any fragment");
+            Assert.That(repeated, Is.EqualTo(shared), "a name repeated in any casing counts once");
+
+            // Circular cuts {0, 7} by MboI+Sau3AI and {2, 9} by DpnI.
+            Assert.That(mixed.Select(f => f.StartPosition), Is.EqualTo(new[] { 0, 2, 7, 9 }));
+            Assert.That(mixed[0].LeftEnzymes, Is.EqualTo(new[] { "MboI", "Sau3AI" }));
+            Assert.That(mixed[0].RightEnzymes, Is.EqualTo(new[] { "DpnI" }));
+            Assert.That(mixed[3].RightEnzymes, Is.EqualTo(new[] { "MboI", "Sau3AI" }),
+                "the origin-spanning fragment ends at the first cut");
+            Assert.That(mixed[0].LeftEnzyme, Is.EqualTo("MboI"));
+        });
+    }
+
+    /// <summary>
+    /// F48: nested built-in sites that share the top-strand cut with identical ends (Biopython 1.88:
+    /// BamHI/MboI/Sau3AI on AAAGGATCCAAA all <c>search == [5]</c>, <c>ovhgseq == "GATC"</c>, ovhg −4;
+    /// ClaI/TaqI on AAAATCGATAAA both <c>[6]</c>, <c>"CG"</c>, ovhg −2). The boundary lists all of
+    /// them and the reported end is the end of each.
+    /// </summary>
+    [Test]
+    public void Digest_NestedSitesSharingACut_ListAllAndReportTheirCommonEnd()
+    {
+        var bam = RestrictionAnalyzer.Digest(
+            new DnaSequence("AAAGGATCCAAA"), "Sau3AI", "BamHI", "MboI").ToList();
+        var cla = RestrictionAnalyzer.Digest(new DnaSequence("AAAATCGATAAA"), "TaqI", "ClaI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bam.Select(f => f.Sequence), Is.EqualTo(new[] { "AAAG", "GATCCAAA" }));
+            Assert.That(bam[1].LeftEnzymes, Is.EqualTo(new[] { "BamHI", "MboI", "Sau3AI" }));
+            Assert.That(bam[1].LeftOverhangType, Is.EqualTo(OverhangType.FivePrime));
+            Assert.That(bam[1].LeftOverhang, Is.EqualTo("GATC"));
+            Assert.That(bam[0].RightOverhang, Is.EqualTo("GATC"));
+
+            Assert.That(cla.Select(f => f.Sequence), Is.EqualTo(new[] { "AAAAT", "CGATAAA" }));
+            Assert.That(cla[0].RightEnzymes, Is.EqualTo(new[] { "ClaI", "TaqI" }));
+            Assert.That(cla[1].LeftOverhangType, Is.EqualTo(OverhangType.FivePrime));
+            Assert.That(cla[1].LeftOverhang, Is.EqualTo("CG"));
+        });
+    }
+
+    /// <summary>
+    /// F48, the one built-in collision with DIFFERENT ends: inside GGCCGGCC, FseI (GGCCGG^CC,
+    /// Biopython <c>ovhg = 4</c>, <c>ovhgseq = "CCGG"</c>, a 3' overhang) and HaeIII (GG^CC, blunt)
+    /// both cut the top strand after base 6 (Biopython 1.88 on AAAAGGCCGGCCAAAA:
+    /// <c>FseI.search == [11]</c>, <c>HaeIII.search == [7, 11]</c>;
+    /// <c>HaeIII.catalyse == ("AAAAGG", "CCGG", "CCAAAA")</c>). Locked, documented behaviour: both
+    /// names are listed, and the overhang fields carry the end of the representative (FseI,
+    /// ordinally first) as if it had cut alone — the combined digest's physical end is not
+    /// modelled (DigestFragment remarks). The test pins that the overhang is NOT taken from
+    /// whichever enzyme happens to be listed last.
+    /// </summary>
+    [Test]
+    public void Digest_CoincidingCutsWithDifferentEnds_ReportRepresentativesEnd()
+    {
+        var dna = new DnaSequence("AAAAGGCCGGCCAAAA");
+        var a = RestrictionAnalyzer.Digest(dna, "FseI", "HaeIII").ToList();
+        var b = RestrictionAnalyzer.Digest(dna, "HaeIII", "FseI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.Select(f => f.Sequence), Is.EqualTo(new[] { "AAAAGG", "CCGG", "CCAAAA" }),
+                "HaeIII.catalyse == (\"AAAAGG\", \"CCGG\", \"CCAAAA\"); FseI's cut adds no boundary");
+            Assert.That(a[0].RightEnzymes, Is.EqualTo(new[] { "HaeIII" }));
+            Assert.That(a[0].RightOverhangType, Is.EqualTo(OverhangType.Blunt));
+            Assert.That(a[1].RightEnzymes, Is.EqualTo(new[] { "FseI", "HaeIII" }));
+            Assert.That(a[1].RightEnzyme, Is.EqualTo("FseI"));
+            Assert.That(a[1].RightOverhangType, Is.EqualTo(OverhangType.ThreePrime));
+            Assert.That(a[1].RightOverhang, Is.EqualTo("CCGG"), "FseI ovhgseq");
+            Assert.That(a[2].LeftEnzymes, Is.EqualTo(new[] { "FseI", "HaeIII" }));
+            Assert.That(a[2].LeftOverhangType, Is.EqualTo(OverhangType.ThreePrime));
+            Assert.That(a[2].LeftOverhang, Is.EqualTo("CCGG"));
+            Assert.That(b, Is.EqualTo(a), "the order the enzymes are named in does not matter");
+        });
+    }
+
+    /// <summary>
+    /// F48: a hand-built <see cref="DigestFragment"/> derives the lists from the single names, and
+    /// value equality still holds although the lists are reference types.
+    /// </summary>
+    [Test]
+    public void DigestFragment_EnzymeLists_DefaultFromSingleNames_AndCompareByValue()
+    {
+        var f = new DigestFragment("AATTC", 1, 5, "EcoRI", null, 2);
+        var g = new DigestFragment("AATTC", 1, 5, "EcoRI", null, 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(f.LeftEnzymes, Is.EqualTo(new[] { "EcoRI" }));
+            Assert.That(f.RightEnzymes, Is.Empty);
+            Assert.That(g, Is.EqualTo(f));
+            Assert.That(g.GetHashCode(), Is.EqualTo(f.GetHashCode()));
+            Assert.That(f with { LeftEnzymes = ["EcoRI", "X"] }, Is.Not.EqualTo(f));
         });
     }
 

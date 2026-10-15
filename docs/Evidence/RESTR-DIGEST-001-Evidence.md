@@ -178,8 +178,17 @@ geometry.
 
 Same-coordinate enzymes (`MspI`/`HpaII`, and `MboI`/`Sau3AI` vs `DpnI`) are checked explicitly in
 the last two rows: the duplicate coordinate is merged into one boundary (`SortedSet<int>`) and the
-fragments are identical to the reference; only the reported representative enzyme name — the last
-enzyme seen for that coordinate — is a choice the reference does not make at all.
+fragments are identical to the reference. Which enzyme names are reported for such a boundary is a
+choice the reference does not make at all; since review 2026-09 B08 F48 the fragment lists ALL of
+them (`LeftEnzymes`/`RightEnzymes`, ordinal order of the table names) and the single-name fields are
+the first of that list — previously the last enzyme seen, i.e. argument-order dependent. Built-in
+collisions confirmed with Biopython 1.88 `search` (same 1-based position): MspI/HpaII `[5]` on
+`AAACCGGAAA`; MboI/Sau3AI/BamHI `[5]` on `AAAGGATCCAAA`; ClaI/TaqI `[6]` on `AAAATCGATAAA`;
+StuI/HaeIII `[7]` on `AAAAGGCCTAAA`; ScaI/RsaI `[7]` on `AAAAGTACTAAA`; FseI `[11]` / HaeIII `[7, 11]` on
+`AAAAGGCCGGCCAAAA` (BglII/MboI·Sau3AI by the same nesting). All share `ovhgseq`/`ovhg` except
+FseI (`ovhg = 4`, `CCGG`, 3') vs HaeIII (`ovhg = 0`, blunt); for that pair the reported end is the
+representative's (FseI's) alone — the combined digest's physical end is not modelled (it also
+depends on HaeIII's second cut, which falls on FseI's bottom-strand cut).
 
 The circular fragment-count rule itself (k cuts → k fragments) is sourced to Univ. of Illinois MolBio
 "Restriction Digestion/Gel Electrophoresis" and Addgene Plasmids 101 (a single cutter linearizes a
