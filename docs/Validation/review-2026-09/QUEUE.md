@@ -306,6 +306,24 @@ citation at `src/.../MolTools/CrisprDesigner.cs:258`, which B08 WP-SRC had to le
 | ~~VER-B02~~ | `session_015916Bdb7VvK2GSYCTiNjbG` (stopped 23:15, archived) | 5-5 | Launched to clear B02's 5-5 debt; **stopped by the user's ruling** that the debt is a note and not a blocker. Its design lesson is kept above: subagents fall back off-model even when the lead does not |
 | B08 resume-4 | `session_01Gei6HyCuq5texhxCCGEvji` | 5-5 / verify at check-in | the `## Resume state` list in B08.md: D3 → D5+D12 → D14+D17 → D15+D16 → D9 → D10 → D7 → D8 → D11 → D6 → D4 → D18 → D19, then round-1 fast tier → round 2 → dedup → final audit → heavy tier → report. Also the now-reachable Addgene citation at `CrisprDesigner.cs:258` |
 
+**STOP B08 AFTER AUDIT ROUND 1 (user 2026-10-15 00:05): "Після фіксу першої черги аудиту для B08 — збережи по ньому
+все і зупини так, щоб не жрав, але наступного разу можна було б продовжити."** B08 resume-4 was launched to run to a
+final report; it must instead stop at the end of round 1. The boundary: every item of "## Audit worklist (round 1)"
+(D1–D21) ticked **plus** the round-1 full fast tier run and recorded — then stop, BEFORE audit round 2. Procedure for
+the orchestrator (cloud sessions cannot be messaged, so this is a check-in task):
+1. At each check-in count the `☐`/`☑` ticks in the round-1 worklist. At 00:05 it stood at **9 ticked / 12 open of 21**.
+2. When the last item is ticked and the fast tier is in, `interrupt_session` — preferably right after a WP commit, so
+   the tree is clean. Never interrupt in the middle of a WP if it can be avoided; the WIP branch
+   `claude/stoic-maxwell-0olr2z-wip-B08` is the recovery point if it happens anyway.
+3. Make sure B08.md carries an up-to-date `## Resume state`: what landed in round 1, what the next session does in
+   order (audit round 2 until zero DOABLE → duplication sweep → final audit → the single heavy tier with its 14-item
+   update/add list → final report), and what it must NOT re-do. If the session was cut before writing it, the
+   orchestrator writes it from the worklist ticks and the commit log, commit "(ORCH for B08)".
+4. Push, mark the WIP branch clean per README, then `archive_session` — an archived session releases its container and
+   costs nothing, and the next B08 session resumes from the `## Resume state` exactly as resume-4 did from resume-3.
+5. B08 is NOT finished at that point (round 2, dedup, heavy tier and the report remain) — it stays out of "Finished
+   batches" for that reason, not over the model.
+
 **B08's launch prompt predates the 23:15 ruling** — it was told its report must keep B08 out of "Finished batches"
 over the model. When it lands, the orchestrator corrects that: B08 goes into "Finished batches" if its `## Leftovers`
 has zero DOABLE items, with its off-model entries moved to the "5-5 debt" register. Cloud sessions cannot be messaged,
