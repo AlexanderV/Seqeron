@@ -68,21 +68,21 @@ section (Naereen values, "set-based contract", homopolymer 5, ASSUMPTION 1), thi
 ### Wikipedia — "Lempel–Ziv complexity" (cites the 1976 primary)
 
 **URL:** https://en.wikipedia.org/wiki/Lempel%E2%80%93Ziv_complexity
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia citing the primary Lempel & Ziv 1976)
 
 **Key Extracted Points:**
 
 1. **Definition (verbatim):** the complexity is "the number of different sub-strings (or sub-words) encountered as the binary sequence is viewed as a stream (from left to right)." "The Lempel–Ziv complexity corresponds to the number of iterations needed to finish this procedure."
 2. **Parsing rule (verbatim):** "We have to move the delimiter (starting in position 1) the furthest possible to the right, so that the sub-word between position 1 and the delimiter position be a word of the sequence that starts before the position 1 of the delimiter. As soon as the delimiter is set on a position where this condition is not met, we stop, move the delimiter to this position, and start again by marking this position as a new initial position." (= shortest new substring not already encountered in the scanned history → start a new component.)
-3. **Algorithm (verbatim pseudocode):** an O(n) left-to-right scan returning component count `C`:
+3. **Algorithm (page pseudocode, condensed layout; two inverted conditions corrected to the page 2026-10-14, SRC citation audit):** an O(n) left-to-right scan returning component count `C`:
    ```
    i := 0; C := 1; u := 1; v := 1; vmax := v
    while u + v <= n do
-      if S[i + v] ≠ S[u + v] then v := v + 1
+      if S[i + v] = S[u + v] then v := v + 1
       else
          vmax := max(v, vmax); i := i + 1
-         if i ≠ u then C := C + 1; u := u + vmax; v := 1; i := 0; vmax := v
+         if i = u then C := C + 1; u := u + vmax; v := 1; i := 0; vmax := v
          else v := 1
       end if
    end while

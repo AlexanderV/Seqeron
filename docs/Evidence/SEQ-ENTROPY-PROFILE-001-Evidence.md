@@ -11,7 +11,7 @@
 ### Shannon (1948) — A Mathematical Theory of Communication (primary source)
 
 **URL:** https://en.wikipedia.org/wiki/A_Mathematical_Theory_of_Communication (bibliographic confirmation) ; DOI https://doi.org/10.1002/j.1538-7305.1948.tb01338.x
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 1 (peer-reviewed primary paper)
 
 **Retrieval:** Web search `Shannon 1948 "A Mathematical Theory of Communication" entropy H = - sum p log p Theorem 2 choice uncertainty`, then WebFetch of the Wikipedia article on the paper to confirm full bibliographic details.
@@ -24,7 +24,7 @@
 ### Entropy (information theory) — Wikipedia (citing Shannon 1948)
 
 **URL:** https://en.wikipedia.org/wiki/Entropy_(information_theory)
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing the primary Shannon 1948)
 
 **Retrieval:** WebFetch of the URL with a prompt requesting the formal H definition, log base, units, and the maximum-entropy property.

@@ -37,7 +37,7 @@
 ### Wikipedia — Codon usage bias (for cited primaries only)
 
 **URL:** https://en.wikipedia.org/wiki/Codon_usage_bias
-**Accessed:** 2026-06-14 (fetched via WebFetch)
+**Accessed:** 2026-06-14 (fetched via WebFetch) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4
 
 **Key Extracted Points:**

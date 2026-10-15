@@ -40,7 +40,7 @@
 ### Wikipedia — "Entropy (information theory)" (citing the primary Shannon 1948)
 
 **URL:** https://en.wikipedia.org/wiki/Entropy_(information_theory)
-**Accessed:** 2026-06-14 (WebFetch in this session)
+**Accessed:** 2026-06-14 (WebFetch in this session) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing the primary Shannon 1948)
 
 **Key Extracted Points:**
@@ -53,7 +53,7 @@
 ### Wikipedia — "Linguistic sequence complexity" (citing the primary Trifonov 1990)
 
 **URL:** https://en.wikipedia.org/wiki/Linguistic_sequence_complexity
-**Accessed:** 2026-06-14 (WebFetch in this session)
+**Accessed:** 2026-06-14 (WebFetch in this session) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing the primary Trifonov 1990)
 
 **Key Extracted Points:**

@@ -47,7 +47,7 @@
 ### Wikipedia — GC skew (used for its cited primaries)
 
 **URL:** https://en.wikipedia.org/wiki/GC_skew
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia; relied on for the formula statement and its cited primaries Lobry 1996, Grigoriev 1998)
 
 **Retrieved via:** WebSearch ("Lobry 1996 ... GC skew origin replication") then WebFetch of the article.

@@ -11,7 +11,7 @@
 ### Wikipedia: GC-content (citing Madigan & Martinko, Brock Biology of Microorganisms)
 
 **URL:** https://en.wikipedia.org/wiki/GC-content
-**Accessed:** 2026-06-14 (fetched via WebFetch)
+**Accessed:** 2026-06-14 (fetched via WebFetch) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia article; the numeric formula cites a primary textbook, ref [7] Madigan & Martinko 2003)
 
 **Key Extracted Points:**
@@ -22,7 +22,7 @@
 ### Wikipedia: GC skew (citing Lobry 1996 and Grigoriev 1998)
 
 **URL:** https://en.wikipedia.org/wiki/GC_skew
-**Accessed:** 2026-06-14 (fetched via WebFetch)
+**Accessed:** 2026-06-14 (fetched via WebFetch) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia article citing primaries Lobry 1996 and Grigoriev 1998)
 
 **Key Extracted Points:**

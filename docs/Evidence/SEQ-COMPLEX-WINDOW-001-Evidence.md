@@ -11,7 +11,7 @@
 ### Linguistic sequence complexity (Wikipedia, citing Trifonov 1990; Gabrielian & Bolshoy 1999; Troyanskaya et al. 2002)
 
 **URL:** https://en.wikipedia.org/wiki/Linguistic_sequence_complexity
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Retrieved by:** WebSearch query "linguistic complexity sequence Gabrielian Bolshoy sliding window vocabulary usage"; then WebFetch of the article URL above.
 **Authority rank:** 4 (Wikipedia citing primaries; the primaries Trifonov 1990 / Troyanskaya 2002 are ranked 1).
 
@@ -37,7 +37,7 @@
 ### Entropy (information theory) — Shannon entropy (Wikipedia, citing Shannon 1948)
 
 **URL:** https://en.wikipedia.org/wiki/Entropy_(information_theory)
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Retrieved by:** WebSearch query "Shannon entropy formula H = -sum p log2 p information content bits"; then WebFetch of the article URL.
 **Authority rank:** 4 (Wikipedia citing the primary Shannon 1948, ranked 1).
 
