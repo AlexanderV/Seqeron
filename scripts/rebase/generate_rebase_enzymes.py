@@ -25,6 +25,7 @@ Inputs (pinned; the script refuses to run on any other bytes):
     and the permission notice appear in supporting documentation).
   * REBASE `allenz.104` (Copyright (c) Dr. Richard J. Roberts, 2021) as vendored in the Bioconductor
     package crisprBase (`crisprVerse/crisprBase` `inst/enzymes/allenz.txt`, package licence MIT).
+    Redistribution of these two fields is tracked in docs/Validation/review-2026-09/REBASE-permission-request.md.
     sha256 43b12432ed3c1a19e961d019e3a131336e8ee690a4568a68ddf55ed0e3869388
     (B08-Source-Provenance.md section 3a).
 
@@ -155,7 +156,8 @@ def cmd_table(args):
         out.write(f"# Sites and cuts: Biopython 1.88 Bio/Restriction/Restriction_Dictionary.py (REBASE emboss 404, 2024),"
                   f" sha256 {BIOPYTHON_DICT_SHA256}; Biopython License Agreement.\n")
         out.write(f"# Organism (<3>) and cognate methylation site (<6>): REBASE allenz.104, Copyright (c) Dr. Richard J. Roberts, 2021,"
-                  f" as redistributed in crisprBase (MIT); sha256 {ALLENZ_SHA256}.\n")
+                  f" as redistributed in crisprBase (MIT); sha256 {ALLENZ_SHA256}."
+                  f" Redistribution permission: see docs/Validation/review-2026-09/REBASE-permission-request.md.\n")
         out.write(f"# Census: {len(bio)} Biopython enzymes = {one_cut} one-cut + {two_cut} two-cut (vendored, {len(rows)})"
                   f" + {undefined} with no defined cut (excluded). Not in allenz.104 (organism/methylation empty): {missing}.\n")
         out.write("# Columns: Name, Site, Forward (fst5), Reverse (size+fst3), SecondForward (scd5), SecondReverse (size+scd3), Organism, MethylationField\n")

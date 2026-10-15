@@ -339,6 +339,12 @@ Ownership while these run: SRC must not touch B02-owned or B08-owned files (its 
 source (`config:no-git-repo`, my omission) were interrupted after ~20 s and archived — $0.36 total, no commits; the
 replacements above carry `source_url` + `source_revision`.
 
+## Owner decisions (answered 2026-10-15)
+| # | Question | Owner's answer | What follows |
+|---|---|---|---|
+| OD1 | The vendored REBASE `allenz.104` columns in `Resources/rebase_enzymes.tsv` — `Organism` (746 values) and `MethylationField` (282) — carry "Copyright (c) Dr. Richard J. Roberts, 2021. All rights reserved." and reach an **MIT-licensed** repo via `crisprBase` (MIT). Keep as is / keep + ask REBASE / drop the two columns / fetch at build time? | **B — keep them and ask REBASE for written permission.** | Letter drafted at `docs/Validation/review-2026-09/REBASE-permission-request.md` (status, the draft itself, and the contained removal recipe if the answer is no). **The owner sends it** — this container cannot reach `rebase.neb.com` (TLS verification fails) and no address is to be guessed; take it from <http://rebase.neb.com>. The data stays in place meanwhile; `generate_rebase_enzymes.py` and the TSV header now point at that tracker. Nothing in the site/cut path depends on those columns, so a later removal costs one regeneration + reverting F52 and the D11 `Organism` check |
+| OD2 | Wiki re-ingest backlog: B02 73 changed docs, B03 73, B08 20 stale pages + 35 docs with no page (R10). Do it now in a dedicated session / leave it to the final consolidation / per-batch from now on? | **Leave it to the final consolidation.** | R10 and the B02/B03 re-ingest lists stay queued for the consolidation phase and are NOT scheduled before it. Rationale recorded: B09–B26 will churn the same docs, so ingesting now would be paid twice; the campaign's own sessions read batch reports and Evidence, not `wiki/**`, so staleness does not mislead them. Keep appending to the backlog as batches land |
+
 ## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
 B01 (FIN-B01 2026-10-09), **B02 (FIN-B02 2026-10-14, 5-5 debt recorded)**, B03 (FIN-B03 2026-10-14), B04, B05, B06,
 B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with `## Leftovers` is pushed and has zero
