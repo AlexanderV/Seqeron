@@ -307,7 +307,7 @@ dropped: `TspRI.search(Seq("AAACAGTGAAAAAA")) == []`, where this library reports
 bottom cut 1). In the N = 60 run this is the only class of difference (5 cases), all of exactly that
 shape. Locked by `FindSites_TspRI_BottomCutAfterBaseZero_IsKept_DocumentedDivergence`.
 
-**Not in this unit:** two-sided Type IIB cutters (two cut pairs per site; Biopython `TwoCuts` stores the
+*(Both items below were closed by WP11b — §2.7 and RESTR-FILTER-001 A8.)* **Not in this unit:** two-sided Type IIB cutters (two cut pairs per site; Biopython `TwoCuts` stores the
 second pair as `charac[2:4]` = `scd5`/`scd3` and `search` yields both — `BaeI.search` on
 `A×20 ACAAAAGTACC T×20` = `[11, 44]`, `catalyse` 10/33/8 — only its `elucidate` answers "cut twice, not
 yet implemented sorry"); enzyme-level overhang/compatibility of distal ends
@@ -315,6 +315,35 @@ yet implemented sorry"); enzyme-level overhang/compatibility of distal ends
 `ovhgseq` `NNNN`) — both handed to WP11b.
 
 ---
+
+### 2.7 Two-sided (Type IIB) cutters (B08 WP11b / D6 part 2, F56, 2026-10-15)
+
+**Reference read** (Biopython 1.88, installed locally, `Restriction.py`): `TwoCuts._modify` yields
+`location + fst5` and `location + scd5`; `TwoCuts._rev_modify` yields `location − fst3` and
+`location − scd3`; `_drop` filters the cut list element by element with one `ovhg`. Census: **25**
+`TwoCuts` enzymes (AjuI, AlfI, AloI, ArsI, BaeI, BarI, BceSIV, BcgI, BdaI, BplI, BsaXI, Bsp24I, CjeI,
+CjePI, CspCI, FalI, Hin4I, NgoAVIII, NmeDI, PpiI, PsrI, RdeGBIII, SdeOSI, TstI, UcoMSI; 7 palindromic);
+for every one `fst5 − (size + fst3) == scd5 − (size + scd3) == ovhg`, so one stagger describes both cuts.
+
+**Mapping:** `SecondCut = (scd5, size + scd3)`, e.g. BaeI `("ACNNNNGTAYC", −10, −15) { SecondCut = (23, 18) }`.
+
+**Differential** (harness `wp11b/diff2.py` + `dumper` in the session scratchpad; all 25 enzymes × 60
+planted random sequences × linear and circular = 3 000 cases; 7 227 Biopython cuts, 8 859 fragments,
+17 718 end overhangs, 11 332 partial-digest fragments compared):
+
+| | before (HEAD `3bb17a2d`, first pair only — no way to express the second) | after |
+|---|---|---|
+| `FindSites` top-strand cut multiset ≠ `search` | 2 029 cases | **0** |
+| `Digest` fragments ≠ fragments of the sorted distinct cuts | 1 988 | **0** |
+| end overhangs ≠ window between `cut_on_watson` and `cut_on_watson − ovhg` | — | **0** |
+| `PartialDigest` multiset | 680 | **0** |
+
+**Biopython-side defects, documented, not reproduced:** (1) `Palindromic._search` does not sort a
+two-cut result list (`[p1+fst5, p1+scd5, p2+fst5, …]`), so `catalyse` slices it out of order: UcoMSI
+on `A×20 GAGCTC AAA GAGCTC A×30` (65 nt) gives `search == [14, 32, 23, 41]` and fragments
+`[13, 18, 0, 18, 25]` (an empty fragment; lengths sum to 74). 111 of the 3 000 cases; this library cuts
+at the sorted distinct positions. (2) The circular one-pass fold leaves cuts outside `[1, n]` / unsorted
+(66 cases; e.g. BaeI on a 41-nt circle `[26, 18]`); compared modulo `n`, they agree.
 
 ## 3. Deliberate divergences from the oracle
 

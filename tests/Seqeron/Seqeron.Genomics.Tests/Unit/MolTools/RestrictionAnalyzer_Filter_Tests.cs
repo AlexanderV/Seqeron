@@ -329,11 +329,13 @@ public class RestrictionAnalyzer_Filter_Tests
         Assert.That(ex!.Message, Does.Contain("Unknown enzyme: Nope"));
     }
 
-    // F28 — A cutter that cuts OUTSIDE its own recognition sequence (Type IIS-style distal cut)
-    //       has no enzyme-level overhang: it depends on the flanking molecule, so the record
-    //       overload reports null rather than slicing out of range.
+    // F28, superseded by F57 (review 2026-09 B08 WP11b) — a cutter that cuts OUTSIDE its own
+    //       recognition sequence (Type IIS distal cut). Biopython 1.88 does NOT class it NotDefined
+    //       (the old comment here was wrong): BsaI is `Ambiguous`, `ovhgseq == "NNNN"` — the window
+    //       read off the site padded with N — and its `%` matches N against any base, so
+    //       `BsaI % BsaI`, `BsaI % BsmBI` and `BsaI % EcoRI` are all True (Biopython 1.88, this session).
     [Test]
-    public void GetOverhangSequence_DistalCutter_IsNotDerivableFromThePattern()
+    public void GetOverhangSequence_DistalCutter_IsThePatternWindowPaddedWithN()
     {
         // BsaI is GGTCTC(1/5): the cut is 1 nt past the site on the top strand and 5 nt past it on
         // the bottom strand, i.e. offsets 7 and 11 into a 6-nt recognition string.
@@ -341,10 +343,9 @@ public class RestrictionAnalyzer_Filter_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(RestrictionAnalyzer.GetOverhangSequence(distal), Is.Null,
-                "the overhang window lies outside the recognition sequence");
-            Assert.That(RestrictionAnalyzer.AreCompatible(distal, distal), Is.False,
-                "an undetermined overhang is compatible with nothing (Biopython NotDefined)");
+            Assert.That(RestrictionAnalyzer.GetOverhangSequence(distal), Is.EqualTo("NNNN"),
+                "Biopython BsaI.ovhgseq");
+            Assert.That(RestrictionAnalyzer.AreCompatible(distal, distal), Is.True, "BsaI % BsaI");
         });
     }
 

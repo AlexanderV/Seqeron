@@ -394,6 +394,23 @@ the origin of `TCAAATGCCCCCCCCATGGTC` → `[4]`, one 21-nt fragment; FokI circul
 (3' `AA`), FokI 16/8; partial digest of the BsaI molecule = intervals over {0, 9, 28, 41} (linear) and
 {19, 22, 41, 41, 41} (circular).
 
-**Not in this unit (→ WP11b):** two-sided Type IIB cutters (BaeI/BcgI; 25 in the snapshot);
+**Not in this unit (→ WP11b — all closed there, see §10):** two-sided Type IIB cutters (BaeI/BcgI; 25 in the snapshot);
 enzyme-level overhang / compatibility of distal ends (`GetOverhangSequence` → `null`,
 `AreCompatible` → `false`); custom enzymes in `GetDigestSummary` / `CreateMap`; MCP exposure.
+
+## 10. Two-sided (Type IIB) cutters and custom enzymes in summary / map (B08 WP11b / D6 part 2, F56, F58, 2026-10-15)
+
+- `RestrictionEnzyme.SecondCut` (F56): each site of a two-cut enzyme contributes two top-strand
+  boundaries, so the site is excised as its own fragment; every end's overhang is read with that cut's
+  own pair. Differential vs Biopython 1.88 over all 25 `TwoCuts` enzymes (RESTR-FIND-001 Evidence §2.7):
+  fragments 1 988 → **0** mismatching cases, partial-digest multisets 680 → **0**, 17 718 end overhangs
+  0 mismatches. Biopython's `catalyse` on palindromic two-cutters with ≥ 2 sites mis-slices its unsorted
+  cut list (empty fragment, lengths not summing to the molecule) — 111 cases, not reproduced.
+- Locked values: BaeI `A×20 ACAAAAGTACC T×20` → 10/33/8 with 3' ends `AAAAA` / `TTTTT`; its reverse
+  complement → 13/33/5; site at 0 → only the downstream cut (`[24]`, 23/8); circular origin-spanning
+  site → cuts 17/25; UcoMSI (palindromic) → 13/18/25; partial-digest lengths {8, 10, 33, 41, 43, 51}.
+- F58: `GetDigestSummary(DnaSequence, MoleculeTopology, IEnumerable<RestrictionEnzyme>)` and
+  `CreateMap(DnaSequence, MoleculeTopology, IEnumerable<RestrictionEnzyme>)` (and multi-enzyme
+  `FindSites`) take custom records; `CreateMap` counts physical sites (forward windows + reverse windows
+  that do not also read forward), identical to the old forward-record count on the palindromic
+  built-ins (locked by `EnzymeCollectionOverloads_BuiltInRecords_EqualTheNameOverloads`).

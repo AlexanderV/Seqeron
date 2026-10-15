@@ -349,6 +349,22 @@ Identical on both sides for all 39 enzymes and all three queries (117/117).
 
 ---
 
+## A8. Distal and two-cut ends (B08 WP11b / D6 part 2, F57, 2026-10-15)
+
+- **Reference read:** Biopython 1.88 `Restriction.py` — `RestrictionType.__mod__` → `_mod1`; `Ov5._mod1`
+  / `Ov3._mod1` (same class, then `_mod2`); `Defined._mod2` (equality, else `other._mod2(cls)` when
+  `other` is `Ambiguous`); `Ambiguous._mod2` (length, then regex with `N` → `.`); `NotDefined._mod2`
+  raises. A distal cutter is **`Ambiguous`**, not `NotDefined` (BsaI `ovhgseq` `NNNN`); the earlier
+  F28 statement "NotDefined" was wrong.
+- **`ovhgseq` rule:** the overhang window over the recognition pattern padded with `N` on both sides
+  equals Biopython's stored `ovhgseq` for **178 / 178** distal or two-cut enzymes (both cut pairs of all
+  25 two-cutters). `GetOverhangSequence(RestrictionEnzyme)` now returns it (before: `null` for 174).
+- **`AreCompatible` differential** (scratchpad `wp11b/compat.py`): every ordered pair with at least one
+  of the 178 among the 754 expressible enzymes — 236 740 pairs — against `a % b or b % a`: before
+  **28 072** disagreements (every distal end incompatible); after **24**, all the reverse-complement-only
+  pairs of A3/F30 (3' `GN` × 3' `CN`, both orders), which the rule here keeps deliberately. No other
+  difference.
+
 ## Change History
 
 - **2026-06-13**: Initial documentation.

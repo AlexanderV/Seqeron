@@ -278,4 +278,313 @@ public class RestrictionAnalyzer_DistalCutter_Tests
     }
 
     #endregion
+
+    #region Two-sided (Type IIB) cutters — review 2026-09 B08 WP11b F56
+
+    // Biopython 1.88 TwoCuts (fst5, size + fst3) and (scd5, size + scd3).
+    private static readonly RestrictionEnzyme BaeI =
+        new("BaeI", "ACNNNNGTAYC", -10, -15, "test") { SecondCut = (23, 18) };   // fst5 -10 fst3 -26 scd5 23 scd3 7
+    private static readonly RestrictionEnzyme UcoMSI =
+        new("UcoMSI", "GAGCTC", -7, -5, "test") { SecondCut = (11, 13) };        // palindromic; fst5 -7 fst3 -11 scd5 11 scd3 7
+    private static readonly RestrictionEnzyme BcgI =
+        new("BcgI", "CGANNNNNNTGC", -10, -12, "test") { SecondCut = (24, 22) };  // fst5 -10 fst3 -24 scd5 24 scd3 10
+
+    private const string BaeIForward = "AAAAAAAAAAAAAAAAAAAAACAAAAGTACCTTTTTTTTTTTTTTTTTTTT"; // A20 + ACAAAAGTACC + T20
+
+    [Test]
+    public void TwoCut_FindSites_ForwardSite_ReportsBothCuts()
+    {
+        var sites = RestrictionAnalyzer.FindSites(new DnaSequence(BaeIForward), BaeI, MoleculeTopology.Linear).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.Select(x => (x.Position, x.IsForwardStrand, x.IsSecondCut, x.CutPosition)),
+                Is.EqualTo(new[] { (20, true, false, 10), (20, true, true, 43) }));
+            // Biopython BaeI.search(seq) == [11, 44]
+            Assert.That(sites.Select(x => TopCutPair(x, BaeIForward.Length) + 1), Is.EqualTo(new[] { 11, 44 }));
+            Assert.That(sites[1].CutOffsets, Is.EqualTo((23, 18)));
+        });
+    }
+
+    [Test]
+    public void TwoCut_Digest_Linear_BothSidesExcisesTheSite_EndsMatchBiopython()
+    {
+        var f = Digest(BaeIForward, MoleculeTopology.Linear, BaeI);
+
+        Assert.Multiple(() =>
+        {
+            // BaeI.catalyse(seq) fragment lengths [10, 33, 8]
+            Assert.That(f.Select(x => (x.StartPosition, x.Length)), Is.EqualTo(new[] { (0, 10), (10, 33), (43, 8) }));
+            // ovhg 5 (3'): window between cut_on_watson and cut_on_watson - ovhg is AAAAA at 11, TTTTT at 44.
+            Assert.That((f[0].RightOverhangType, f[0].RightOverhang), Is.EqualTo(((OverhangType?)OverhangType.ThreePrime, "AAAAA")));
+            Assert.That((f[1].LeftOverhang, f[1].RightOverhang), Is.EqualTo(("TTTTT", "TTTTT")));
+            Assert.That(f[2].LeftOverhang, Is.EqualTo("AAAAA"));
+            Assert.That(f[1].Sequence, Does.Contain("ACAAAAGTACC"), "the excised middle fragment carries the site");
+        });
+    }
+
+    [Test]
+    public void TwoCut_Digest_ReverseStrandSite_CutsOnBothSides()
+    {
+        // Reverse complement of BaeIForward: BaeI.search == [14, 47], catalyse lengths [13, 33, 5].
+        string s = DnaSequence.GetReverseComplementString(BaeIForward);
+        var f = Digest(s, MoleculeTopology.Linear, BaeI);
+        var sites = RestrictionAnalyzer.FindSites(new DnaSequence(s), BaeI).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.All(x => !x.IsForwardStrand), Is.True);
+            Assert.That(sites.Select(x => TopCutPair(x, s.Length) + 1).Order(), Is.EqualTo(new[] { 14, 47 }));
+            Assert.That(f.Select(x => x.Length), Is.EqualTo(new[] { 13, 33, 5 }));
+            Assert.That((f[0].RightOverhang, f[1].RightOverhang), Is.EqualTo(("AAAAA", "TTTTT")));
+        });
+    }
+
+    [Test]
+    public void TwoCut_Linear_CutBeyondTheEnd_IsDroppedAlone()
+    {
+        // Site at 0: the upstream cut (-10) is off the molecule and dropped, the downstream one kept.
+        // BaeI.search(Seq("ACAAAAGTACC" + "T"*20)) == [24]; catalyse lengths [23, 8].
+        const string s = "ACAAAAGTACCTTTTTTTTTTTTTTTTTTTT";
+        var sites = RestrictionAnalyzer.FindSites(new DnaSequence(s), BaeI).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.Select(x => (x.IsSecondCut, x.CutPosition)), Is.EqualTo(new[] { (true, 23) }));
+            Assert.That(Digest(s, MoleculeTopology.Linear, BaeI).Select(x => x.Length), Is.EqualTo(new[] { 23, 8 }));
+        });
+    }
+
+    [Test]
+    public void TwoCut_Circular_SiteSpanningTheOrigin()
+    {
+        // 41-nt circle, ACAAAA|GTACC across the origin. Biopython search(linear=False) == [26, 18]
+        // (its one-pass fold leaves the list unsorted); cuts 17 and 25 (0-based), ends TTTTT both.
+        const string c = "GTACCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTACAAAA";
+        var f = Digest(c, MoleculeTopology.Circular, BaeI);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(f.Select(x => (x.StartPosition, x.Length)), Is.EqualTo(new[] { (17, 8), (25, 33) }));
+            Assert.That(f.Select(x => x.LeftOverhang), Is.EqualTo(new[] { "AAAAA", "AAAAA" }));
+            Assert.That(f.Select(x => x.RightOverhang), Is.EqualTo(new[] { "TTTTT", "TTTTT" }));
+        });
+    }
+
+    [Test]
+    public void TwoCut_Palindromic_OneCutPairPerWindow_NotFour()
+    {
+        // UcoMSI GAGCTC, palindromic: Biopython searches one strand, search == [14, 32]; fragments
+        // 13, 18, 25 (its own catalyse agrees here; with two sites its unsorted list yields an empty
+        // fragment — a Biopython defect not reproduced).
+        const string s = "AAAAAAAAAAAAAAAAAAAAGAGCTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        var f = Digest(s, MoleculeTopology.Linear, UcoMSI);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(f.Select(x => x.Length), Is.EqualTo(new[] { 13, 18, 25 }));
+            Assert.That(f[1].LeftOverhangType, Is.EqualTo(OverhangType.FivePrime));
+            Assert.That((f[1].LeftOverhang, f[1].RightOverhang), Is.EqualTo(("AA", "TT")));
+        });
+    }
+
+    [Test]
+    public void TwoCut_PartialDigest_LinearIntervals()
+    {
+        var p = RestrictionAnalyzer.PartialDigest(new DnaSequence(BaeIForward), MoleculeTopology.Linear, null, new[] { BaeI }).ToList();
+        // all intervals over {0, 10, 43, 51}
+        Assert.That(p.Select(x => x.Fragment.Length).Order(), Is.EqualTo(new[] { 8, 10, 33, 41, 43, 51 }));
+    }
+
+    [Test]
+    public void TwoCut_SecondPairWithDifferentStagger_Throws()
+    {
+        var bad = BaeI with { SecondCut = (23, 20) };
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => RestrictionAnalyzer.FindSites(new DnaSequence(BaeIForward), bad).ToList(),
+                NUnit.Framework.Throws.ArgumentException.With.Message.Contains("stagger"));
+            Assert.That(() => RestrictionAnalyzer.Digest(new DnaSequence(BaeIForward), MoleculeTopology.Linear, new[] { bad }),
+                NUnit.Framework.Throws.ArgumentException);
+        });
+    }
+
+    [Test]
+    public void OneCut_Enzyme_HasNoSecondCut_AndRecordsAreNeverSecond()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.Enzymes.Values.All(e => e.SecondCut is null), Is.True);
+            Assert.That(RestrictionAnalyzer.FindSites(new DnaSequence("GGTCTCAAAAAAAAAA"), BsaI).All(x => !x.IsSecondCut), Is.True);
+        });
+    }
+
+    /// <summary>Top-strand cut of a record, with that record's own cut pair.</summary>
+    private static int TopCutPair(RestrictionSite s, int n)
+    {
+        var (fwd, rev) = s.CutOffsets;
+        return s.IsForwardStrand ? s.CutPosition : ((s.CutPosition + fwd - rev) % n + n) % n;
+    }
+
+    #endregion
+
+    #region Enzyme-level overhang and compatibility of distal ends — F57
+
+    // Biopython 1.88 ovhgseq: the pattern window padded with N outside the site.
+    [TestCase("GGTCTC", 7, 11, "NNNN")]        // BsaI
+    [TestCase("GCTCTTC", 8, 11, "NNN")]        // SapI
+    [TestCase("CTGAAG", 22, 20, "NN")]         // AcuI (3')
+    [TestCase("CASTG", 7, -2, "NNCASTGNN")]    // TspRI
+    [TestCase("GAATGC", 7, 5, "CN")]           // BsmI: half inside, half outside
+    [TestCase("GAGTC", 10, 10, "")]            // MlyI blunt
+    public void GetOverhangSequence_DistalEnzyme_MatchesBiopythonOvhgseq(string site, int f, int r, string expected)
+    {
+        Assert.That(RestrictionAnalyzer.GetOverhangSequence(new RestrictionEnzyme("x", site, f, r, "test")),
+            Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void GetOverhangSequence_TwoCutEnzyme_IsTheFirstPairsWindow()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.GetOverhangSequence(BaeI), Is.EqualTo("NNNNN"));   // BaeI.ovhgseq
+            Assert.That(RestrictionAnalyzer.GetOverhangSequence(BcgI), Is.EqualTo("NN"));      // BcgI.ovhgseq
+            Assert.That(RestrictionAnalyzer.GetOverhangSequence(UcoMSI), Is.EqualTo("NN"));    // UcoMSI.ovhgseq
+        });
+    }
+
+    // Every verdict is Biopython 1.88 `a % b` (equal to `b % a` for each of these pairs).
+    [TestCase("BsaI", "EcoRI", true)]
+    [TestCase("BsaI", "BamHI", true)]
+    [TestCase("BsaI", "BsaI", true)]
+    [TestCase("BsaI", "BsmBI", true)]
+    [TestCase("BsaI", "PstI", false)]   // 3' TGCA
+    [TestCase("BsaI", "SapI", false)]   // 3-nt
+    [TestCase("BsaI", "EcoRV", false)]  // blunt
+    [TestCase("MlyI", "EcoRV", true)]   // blunt distal with blunt
+    [TestCase("FokI", "BamHI", true)]
+    [TestCase("AcuI", "PstI", false)]   // 3' NN vs 3' TGCA: length
+    [TestCase("AcuI", "BcgI", true)]    // 3' NN with a two-cut 3' NN
+    [TestCase("BaeI", "BcgI", false)]   // 3' NNNNN vs NN
+    [TestCase("TspRI", "TspRI", true)]
+    public void AreCompatible_DistalAndTwoCutEnds_MatchBiopythonMod(string a, string b, bool expected)
+    {
+        var table = new Dictionary<string, RestrictionEnzyme>
+        {
+            ["BsaI"] = BsaI, ["BsmBI"] = BsmBI, ["SapI"] = SapI, ["MlyI"] = MlyI, ["FokI"] = FokI,
+            ["AcuI"] = AcuI, ["TspRI"] = TspRI, ["BaeI"] = BaeI, ["BcgI"] = BcgI,
+        };
+        RestrictionEnzyme E(string n) => table.TryGetValue(n, out var e) ? e : RestrictionAnalyzer.GetEnzyme(n)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.AreCompatible(E(a), E(b)), Is.EqualTo(expected), $"{a} % {b}");
+            Assert.That(RestrictionAnalyzer.AreCompatible(E(b), E(a)), Is.EqualTo(expected), $"{b} % {a}");
+        });
+    }
+
+    #endregion
+
+    #region Custom enzymes in FindSites (multi), GetDigestSummary, CreateMap — WP11b part 3
+
+    private const string BsaISeq = "ATGGTCTCAAATGCCCCCCCCCCCCCCGCATTTGAGACCAT"; // Biopython BsaI.search == [10, 29]
+
+    [Test]
+    public void FindSites_EnzymeCollection_IsTheConcatenationOfSingleSearches()
+    {
+        var dna = new DnaSequence(BsaISeq);
+        var both = RestrictionAnalyzer.FindSites(dna, MoleculeTopology.Linear, new[] { BsaI, FokI }).ToList();
+
+        Assert.That(both, Is.EqualTo(RestrictionAnalyzer.FindSites(dna, BsaI, MoleculeTopology.Linear)
+            .Concat(RestrictionAnalyzer.FindSites(dna, FokI, MoleculeTopology.Linear)).ToList()));
+    }
+
+    [TestCase(MoleculeTopology.Linear, new[] { 19, 13, 9 })]
+    [TestCase(MoleculeTopology.Circular, new[] { 22, 19 })]
+    public void GetDigestSummary_EnzymeCollection_BsaI(MoleculeTopology t, int[] sizes)
+    {
+        // Cuts {9, 28} (0-based) on 41 nt: linear 9/19/13, circular 19/22.
+        var summary = RestrictionAnalyzer.GetDigestSummary(new DnaSequence(BsaISeq), t, new[] { BsaI });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(summary.FragmentSizes, Is.EqualTo(sizes));
+            Assert.That(summary.EnzymesUsed, Is.EqualTo(new[] { "BsaI" }));
+            Assert.That(summary.Topology, Is.EqualTo(t));
+        });
+    }
+
+    [Test]
+    public void CreateMap_EnzymeCollection_CountsNonPalindromicReverseSites()
+    {
+        // BsaI: GGTCTC at 2 (forward) and GAGACC at 33 (reverse) — two physical sites;
+        // FokI (GGATG/CATCC) absent.
+        var map = RestrictionAnalyzer.CreateMap(new DnaSequence(BsaISeq), MoleculeTopology.Linear, new[] { BsaI, FokI });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(map.TotalSites, Is.EqualTo(2));
+            Assert.That(map.SitesByEnzyme["BsaI"], Is.EqualTo(new[] { 2, 33 }));
+            Assert.That(map.UniqueCutters, Is.Empty);
+            Assert.That(map.NonCutters, Is.EqualTo(new[] { "FokI" }));
+        });
+    }
+
+    [Test]
+    public void CreateMap_EnzymeCollection_TwoCutSiteCountsOnce()
+    {
+        var map = RestrictionAnalyzer.CreateMap(new DnaSequence(BaeIForward), MoleculeTopology.Linear, new[] { BaeI });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(map.TotalSites, Is.EqualTo(1));
+            Assert.That(map.UniqueCutters, Is.EqualTo(new[] { "BaeI" }));
+            Assert.That(map.Sites, Has.Count.EqualTo(2), "one record per cut");
+        });
+    }
+
+    [Test]
+    public void EnzymeCollectionOverloads_BuiltInRecords_EqualTheNameOverloads()
+    {
+        var dna = new DnaSequence("GAATTCAAAGGATCCAAAGAATTCAAACTGCAGAAAGCGGCCGCAAA");
+        var names = new[] { "EcoRI", "BamHI", "PstI", "NotI", "SmaI" };
+        var records = names.Select(n => RestrictionAnalyzer.GetEnzyme(n)!).ToArray();
+
+        foreach (var t in new[] { MoleculeTopology.Linear, MoleculeTopology.Circular })
+        {
+            var byName = RestrictionAnalyzer.CreateMap(dna, t, names);
+            var byRecord = RestrictionAnalyzer.CreateMap(dna, t, records);
+            Assert.Multiple(() =>
+            {
+                Assert.That(byRecord.TotalSites, Is.EqualTo(byName.TotalSites), t.ToString());
+                Assert.That(byRecord.UniqueCutters, Is.EqualTo(byName.UniqueCutters), t.ToString());
+                Assert.That(byRecord.NonCutters, Is.EqualTo(byName.NonCutters), t.ToString());
+                Assert.That(byRecord.Sites, Is.EqualTo(byName.Sites), t.ToString());
+                Assert.That(RestrictionAnalyzer.GetDigestSummary(dna, t, records).FragmentSizes,
+                    Is.EqualTo(RestrictionAnalyzer.GetDigestSummary(dna, t, names).FragmentSizes), t.ToString());
+                Assert.That(RestrictionAnalyzer.FindSites(dna, t, records).ToList(),
+                    Is.EqualTo(RestrictionAnalyzer.FindSites(dna, t, names).ToList()), t.ToString());
+            });
+        }
+    }
+
+    [Test]
+    public void EnzymeCollectionOverloads_InvalidArguments_Throw()
+    {
+        var dna = new DnaSequence("ACGTACGT");
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => RestrictionAnalyzer.FindSites(dna, MoleculeTopology.Linear, Array.Empty<RestrictionEnzyme>()),
+                NUnit.Framework.Throws.ArgumentException);
+            Assert.That(() => RestrictionAnalyzer.CreateMap(dna, MoleculeTopology.Linear, Array.Empty<RestrictionEnzyme>()),
+                NUnit.Framework.Throws.ArgumentException);
+            Assert.That(() => RestrictionAnalyzer.GetDigestSummary(dna, MoleculeTopology.Linear, (IEnumerable<RestrictionEnzyme>)null!),
+                NUnit.Framework.Throws.ArgumentNullException);
+            Assert.That(() => RestrictionAnalyzer.CreateMap(null!, MoleculeTopology.Linear, new[] { BsaI }),
+                NUnit.Framework.Throws.ArgumentNullException);
+        });
+    }
+
+    #endregion
 }

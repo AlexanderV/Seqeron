@@ -162,7 +162,7 @@ reverse-complement branch that plain `ovhgseq` equality cannot see (`BsmI` `"CN"
 | S1 | EnzymesByCutLength_MinGreaterThanMax_ReturnsEmpty | min=8, max=4 (inverted) → empty | empty | INV-5 |
 | S2 | EnzymesByCutLength_RangeMatchesSingleLengthOverload | Range [L,L] equals single-length overload for L=4,6,8 | set equality | INV-4 |
 | S3 | GetOverhangSequence_UnknownEnzyme_Throws | unknown name → `ArgumentException("Unknown enzyme: Nope")` | throws | API contract |
-| S4 | GetOverhangSequence_DistalCutter_IsNotDerivableFromThePattern | `BsaI`-shaped custom enzyme (`GGTCTC`, cuts 7/11) → `null`; `AreCompatible(it, it)` → `false` | as stated | Biopython `NotDefined` ("compatible with nobody") |
+| S4 | GetOverhangSequence_DistalCutter_IsThePatternWindowPaddedWithN; `GetOverhangSequence_DistalEnzyme_MatchesBiopythonOvhgseq` (6), `GetOverhangSequence_TwoCutEnzyme_IsTheFirstPairsWindow`, `AreCompatible_DistalAndTwoCutEnds_MatchBiopythonMod` (13 × 2 orders) | `BsaI`-shaped custom enzyme (`GGTCTC`, cuts 7/11) → `"NNNN"`, `AreCompatible(it, it)` → `true`; BsmI → `CN`, TspRI → `NNCASTGNN`, BaeI → `NNNNN`; BsaI % EcoRI true, BsaI % PstI / SapI / EcoRV false | as stated | Biopython 1.88 `ovhgseq` + `%` (BsaI is `Ambiguous`, not `NotDefined` — superseded F28 by F57) |
 | S5 | AreCompatible_NullEnzymeDefinition_Throws | `null` enzyme / `null` name → `ArgumentNullException` | throws | API contract |
 | S6 | FindCompatibleEnzymes_PerEnzyme_UnknownName_Throws, FindIsoschizomers_UnknownName_Throws | unknown name → `ArgumentException` | throws | API contract |
 | S7 | AreCompatible_UniqueOverhang_OnlyCompatibleWithItself | `FindCompatibleEnzymes("EcoRI")` → `{EcoRI}` | exact set | Source 7. Built-ins only; the off-table partner MfeI is M23 |

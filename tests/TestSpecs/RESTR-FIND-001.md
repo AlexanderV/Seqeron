@@ -228,9 +228,13 @@ Two scope limits, not assumptions:
   the circular reverse-strand cut, which could be negative; F55 made `Digest`/`PartialDigest` accept
   custom enzymes and cut at the reverse-strand sites of a non-palindromic enzyme. Differential vs
   Biopython 1.88 over all 153 single-sided distal REBASE enzymes (+ 576 in-site, as control):
-  0 mismatches (Evidence RESTR-FIND-001 §2.6). Still out of scope: **two-sided** Type IIB cutters
-  (BaeI, BcgI — Biopython `TwoCuts`, `charac` carries a second pair `scd5`/`scd3` and `search`
-  yields two cuts per site), which need two cut pairs per site — handed to WP11b. The 39 table entries all cut inside their site.
+  0 mismatches (Evidence RESTR-FIND-001 §2.6). **Two-sided** Type IIB cutters (BaeI, BcgI — Biopython
+  `TwoCuts`, second pair `scd5`/`scd3`) are expressible since WP11b/F56 through the additive
+  `RestrictionEnzyme.SecondCut = (scd5, size + scd3)`: `FindSites` reports one record per cut
+  (`RestrictionSite.IsSecondCut`, `CutOffsets`), each cut kept or dropped on its own on a linear
+  molecule; 0 mismatches vs Biopython over all 25 two-cut enzymes × both topologies (Evidence
+  RESTR-FIND-001 §2.7; `TwoCut_*` tests in `RestrictionAnalyzer_DistalCutter_Tests`). The multi-enzyme
+  `FindSites(DnaSequence, MoleculeTopology, IEnumerable<RestrictionEnzyme>)` takes custom records. The 39 table entries all cut inside their site.
 - Cases: `RestrictionAnalyzer_DistalCutter_Tests` lock Biopython's `search` /
   `catalyse` values for BsaI, BsmBI, BbsI, SapI, FokI, MlyI, AcuI and the TspRI divergence (Biopython
   stores `ovhg = 10` for TscAI/TspRI against its own `fst5`/`fst3`/`ovhgseq` = 9, so it drops a site

@@ -118,10 +118,16 @@ the names exist: it returns `false` when either name is unknown and leaves the v
 
 `AreCompatible(RestrictionEnzyme, RestrictionEnzyme)` and
 `GetOverhangSequence(RestrictionEnzyme)` accept caller-supplied enzymes. If an enzyme cuts **outside**
-its own recognition sequence (a Type IIS-style distal cut, which this record can express as cut
-offsets beyond the pattern), the enzyme-level overhang is undefined: the record overload returns
-`null` and `AreCompatible` reports `false` — the reference's `NotDefined` ends are likewise
-"compatible with nobody" [7].
+its own recognition sequence (a Type IIS distal cut, or a two-sided Type IIB cutter), its overhang
+window is read off the recognition pattern **padded with `N`** — the bases outside the site belong to
+the flanking molecule: BsaI GGTCTC(1/5) → `NNNN`, BsmI → `CN`, TspRI → `NNCASTGNN`, BaeI → `NNNNN`.
+That is Biopython 1.88's own `ovhgseq` for all 178 distal / two-cut enzymes of its snapshot, which it
+classes `Ambiguous` (not `NotDefined`), and the ligation rule above then applies unchanged: an `N`
+intersects every base, so BsaI is "possibly compatible" with every 4-nt 5'-overhang end
+(`BsaI % EcoRI` is True) and with nothing 3' or blunt. Differential over all 236 740 ordered pairs that
+involve one of the 178 (× all 754 expressible enzymes) against the symmetrised `%`: 0 disagreements
+apart from the 24 reverse-complement-only pairs of F30 (review 2026-09 B08 F57; before: 28 072
+disagreements, every distal end judged incompatible and `GetOverhangSequence` `null`).
 
 ## 4. Algorithm
 
