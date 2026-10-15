@@ -109,6 +109,8 @@ Goal: locate cut sites for chosen enzymes and produce fragment list.
   → `digest_summary`; choose enzymes with `compatible_enzymes` / `get_enzyme`.
 - **[C# API]** `RestrictionAnalyzer.FindSites` → `RestrictionAnalyzer.Digest` → `RestrictionAnalyzer.GetDigestSummary`.
 - Key params: linear molecule; `k` distinct forward cuts → `k+1` fragments. Site positions are 0-based.
+- Enzyme names resolve against all 754 REBASE enzymes with a defined cut (BsaI, BaeI, …); listing tools
+  default to the 39 common enzymes — pass `enzyme_set: "rebase"` for the full set.
 - **Provenance:** find_restriction_sites(enzymes) → restriction_digest(enzymes) → fragment table.
 
 ### (e) Probe design + salt-corrected Tm

@@ -5,13 +5,14 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindAllSites",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L330",
-  "description": "Find sites for every built-in restriction enzyme on both strands of a DNA sequence.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L427",
+  "description": "Find sites for every restriction enzyme of enzyme_set (\"common\" = the 39 common enzymes by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) on both strands of a DNA sequence.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 },
-      "topology": { "type": "string", "enum": ["Linear", "Circular"], "default": "Linear", "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)." }
+      "topology": { "type": "string", "enum": ["Linear", "Circular"], "default": "Linear", "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)." },
+      "enzyme_set": { "type": ["string", "null"], "enum": ["common", "rebase", null], "default": "common", "description": "Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive." }
     },
     "required": ["sequence"]
   },
@@ -35,7 +36,8 @@
     "required": ["sites"]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" }
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1010, "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\"" }
   ],
   "examples": [
     {
@@ -47,6 +49,16 @@
       "name": "No recognition sites",
       "input": { "sequence": "AAAAAAAA" },
       "output": { "sites": [] }
+    },
+    {
+      "name": "Type IIS sites found only with the REBASE set",
+      "input": { "sequence": "AAGGTCTCAAAAAAAAAAAAAAAGAGACCAAAAAAAAAAA", "enzyme_set": "rebase" },
+      "output": { "sites": "42 records from 14 enzymes: AbaSI, Alw26I, BcoDI, BmeDI, BsaI, BsmAI, Bso31I, BspTNI, BstMAI, Eco31I, EcoO157SI, MspJI, SetI, YkrI. BsaI: forward record position 2, cutPosition 9; reverse record position 23, cutPosition 22. The default (common) set finds 0 sites in this sequence." }
+    },
+    {
+      "name": "Unknown enzyme set",
+      "input": { "sequence": "GAATTC", "enzyme_set": "all" },
+      "output": { "error": "Unknown enzyme set 'all'; expected \"common\" or \"rebase\"." }
     }
   ]
 }

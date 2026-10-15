@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetEnzymesByCutLength",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L98",
-  "description": "List built-in restriction enzymes whose FULL recognition string has exactly the given length in bp (Biopython size), so the interrupted palindrome SfiI counts 13 and not 8.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L115",
+  "description": "List the restriction enzymes of enzyme_set (\"common\" = 39 by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) whose FULL recognition string has exactly the given length in bp (Biopython size), so the interrupted palindrome SfiI counts 13 and not 8.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -14,6 +14,19 @@
         "type": "integer",
         "description": "Recognition-sequence length in bp (full string, spacer included).",
         "minimum": 1
+      },
+      "enzyme_set": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "common",
+          "rebase",
+          null
+        ],
+        "default": "common",
+        "description": "Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive."
       }
     },
     "required": [
@@ -47,6 +60,20 @@
             "organism": {
               "type": "string",
               "description": "Source organism."
+            },
+            "secondCutForward": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "Two-sided (Type IIB) cutters only: top-strand offset of the second cut pair (Biopython scd5; BaeI 23). Omitted/null for a one-cut enzyme."
+            },
+            "secondCutReverse": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "Two-sided (Type IIB) cutters only: bottom-strand offset of the second cut pair (Biopython size + scd3; BaeI 18). Omitted/null for a one-cut enzyme."
             },
             "isBluntEnd": {
               "type": "boolean",
@@ -120,6 +147,10 @@
     {
       "code": 1001,
       "message": "Recognition-sequence length must be positive"
+    },
+    {
+      "code": 1010,
+      "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\""
     }
   ],
   "examples": [
@@ -168,6 +199,36 @@
             "recognitionLength": 13
           }
         ]
+      }
+    },
+    {
+      "name": "8-cutters in the REBASE set",
+      "input": {
+        "length": 8,
+        "enzyme_set": "rebase"
+      },
+      "output": {
+        "enzymes": "28 enzymes: AbsI, AscI, AsiSI, CciNI, FseI, FspAI, MauBI, MreI, MssI, NotI, PacI, PalAI, PmeI, PspXI, RgaI, RigI, SbfI, SdaI, SfaAI, SgfI, SgrAI, SgrDI, SgsI, SmiI, SrfI, Sse232I, Sse8387I, SwaI"
+      }
+    },
+    {
+      "name": "13-bp sites in the REBASE set",
+      "input": {
+        "length": 13,
+        "enzyme_set": "rebase"
+      },
+      "output": {
+        "enzymes": "6 enzymes: AloI, ArsI, BarI, PcsI, PsrI, SfiI"
+      }
+    },
+    {
+      "name": "Unknown enzyme set",
+      "input": {
+        "length": 6,
+        "enzyme_set": "all"
+      },
+      "output": {
+        "error": "Unknown enzyme set 'all'; expected \"common\" or \"rebase\"."
       }
     }
   ]

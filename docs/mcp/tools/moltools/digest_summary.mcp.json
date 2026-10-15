@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetDigestSummary",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L950",
-  "description": "Aggregate statistics over a simulated restriction digest of a linear or circular molecule.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1268",
+  "description": "Aggregate statistics over a simulated restriction digest of a linear or circular molecule with named enzymes (any of the 754 REBASE enzymes with a defined cut).",
   "inputSchema": {
     "type": "object",
     "properties": {

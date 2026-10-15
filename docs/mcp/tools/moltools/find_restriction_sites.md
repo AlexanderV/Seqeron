@@ -14,7 +14,7 @@ Find restriction sites for named enzymes on both strands.
 
 ## Description
 
-Scans a DNA sequence on both strands for the recognition sites of the named built-in enzymes. IUPAC degenerate codes in recognition sequences are matched against ACGT input.
+Scans a DNA sequence on both strands for the recognition sites of the named enzymes — any of the 754 REBASE enzymes with a defined cut (Biopython 1.88 REBASE 404 snapshot; the 39 common enzymes, Type IIS such as `BsaI` and two-sided Type IIB such as `BaeI` included; an unknown name is an error). IUPAC degenerate codes in recognition sequences are matched against ACGT input.
 
 `position` and `cutPosition` are 0-based **forward-strand** coordinates for both strands. `cutPosition` is the number of forward-strand bases 5' of the cut the enzyme makes on that record's own strand, so a palindromic enzyme reports a forward record (top-strand cut) and a reverse record (bottom-strand cut) at the same `position`, and `recognizedSequence` is the matched window as read on that record's strand. Biopython `Bio.Restriction.<enzyme>.search()` reports the same top-strand cut 1-based, i.e. as `cutPosition + 1`. Overlapping sites are all reported.
 
@@ -22,7 +22,7 @@ With `topology = Linear` (the default) a site is reported only when **both** of 
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L241](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L241)
+- Source: [RestrictionAnalyzer.cs#L247](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L247)
 
 ## Input Schema
 

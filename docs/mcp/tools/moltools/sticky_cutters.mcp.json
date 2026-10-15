@@ -5,11 +5,25 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetStickyCutters",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L138",
-  "description": "List all built-in restriction enzymes that produce sticky (cohesive) ends - 21 with a 5' and 8 with a 3' overhang (Biopython is_5overhang / is_3overhang).",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L153",
+  "description": "List the restriction enzymes of enzyme_set (\"common\" = 39 by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) that produce sticky (cohesive) ends - in the common set 21 with a 5' and 8 with a 3' overhang (Biopython is_5overhang / is_3overhang).",
   "inputSchema": {
     "type": "object",
-    "properties": {},
+    "properties": {
+      "enzyme_set": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "common",
+          "rebase",
+          null
+        ],
+        "default": "common",
+        "description": "Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive."
+      }
+    },
     "required": []
   },
   "outputSchema": {
@@ -39,6 +53,20 @@
             "organism": {
               "type": "string",
               "description": "Source organism."
+            },
+            "secondCutForward": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "Two-sided (Type IIB) cutters only: top-strand offset of the second cut pair (Biopython scd5; BaeI 23). Omitted/null for a one-cut enzyme."
+            },
+            "secondCutReverse": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "Two-sided (Type IIB) cutters only: bottom-strand offset of the second cut pair (Biopython size + scd3; BaeI 18). Omitted/null for a one-cut enzyme."
             },
             "isBluntEnd": {
               "type": "boolean",
@@ -108,7 +136,12 @@
       "enzymes"
     ]
   },
-  "errors": [],
+  "errors": [
+    {
+      "code": 1010,
+      "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\""
+    }
+  ],
   "examples": [
     {
       "name": "List sticky cutters",
@@ -151,6 +184,24 @@
             "recognitionLength": 6
           }
         ]
+      }
+    },
+    {
+      "name": "Sticky cutters of the REBASE set",
+      "input": {
+        "enzyme_set": "rebase"
+      },
+      "output": {
+        "enzymes": "617 enzymes (388 FivePrime, 229 ThreePrime; Biopython is_5overhang / is_3overhang over the 754): AarI, AasI, AatII, AbaSI, AbsI, Acc36I, Acc65I, AccB1I, ..."
+      }
+    },
+    {
+      "name": "Unknown enzyme set",
+      "input": {
+        "enzyme_set": "all"
+      },
+      "output": {
+        "error": "Unknown enzyme set 'all'; expected \"common\" or \"rebase\"."
       }
     }
   ]

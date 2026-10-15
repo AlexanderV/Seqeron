@@ -1958,8 +1958,28 @@ public sealed record RestrictionEnzyme(
     /// enzyme, and all 25 two-cut enzymes of its REBASE snapshot satisfy this, so
     /// <see cref="OverhangType"/> describes both cuts. A pair violating it is rejected with
     /// <see cref="ArgumentException"/> when the enzyme is used.
+    /// <para>
+    /// Excluded from JSON: System.Text.Json serialises properties only, and a value tuple's
+    /// <c>Item1</c>/<c>Item2</c> are fields, so it would be written as <c>{}</c> (seen in the MCP
+    /// <c>get_enzyme</c> output for BaeI before B08 WP12b). The pair is serialised through
+    /// <see cref="SecondCutForward"/> and <see cref="SecondCutReverse"/> instead.
+    /// </para>
     /// </remarks>
+    [System.Text.Json.Serialization.JsonIgnore]
     public (int Forward, int Reverse)? SecondCut { get; init; }
+
+    /// <summary>
+    /// <see cref="SecondCut"/>'s top-strand offset (Biopython <c>scd5</c>), or <see langword="null"/>
+    /// for a one-cut enzyme. Read-only view that carries the pair in JSON output (BaeI: 23).
+    /// </summary>
+    public int? SecondCutForward => SecondCut?.Forward;
+
+    /// <summary>
+    /// <see cref="SecondCut"/>'s bottom-strand offset (Biopython <c>size + scd3</c>), or
+    /// <see langword="null"/> for a one-cut enzyme. Read-only view that carries the pair in JSON
+    /// output (BaeI: 18).
+    /// </summary>
+    public int? SecondCutReverse => SecondCut?.Reverse;
 
     /// <summary>
     /// Gets whether this enzyme produces blunt ends.
@@ -2087,6 +2107,14 @@ public sealed record RestrictionSite(
     /// <see cref="RestrictionEnzyme.CutPositionForward"/>/<see cref="RestrictionEnzyme.CutPositionReverse"/>,
     /// or its <see cref="RestrictionEnzyme.SecondCut"/> pair when <see cref="IsSecondCut"/>.
     /// </summary>
+    /// <remarks>
+    /// Excluded from JSON (B08 WP12b): a value tuple's <c>Item1</c>/<c>Item2</c> are fields, which
+    /// System.Text.Json does not write, so every MCP site record carried an empty
+    /// <c>"cutOffsets":{}</c>. The value is derived — <see cref="Enzyme"/>'s offsets, or its
+    /// <see cref="RestrictionEnzyme.SecondCutForward"/>/<see cref="RestrictionEnzyme.SecondCutReverse"/>
+    /// when <see cref="IsSecondCut"/> — so nothing is lost.
+    /// </remarks>
+    [System.Text.Json.Serialization.JsonIgnore]
     public (int Forward, int Reverse) CutOffsets =>
         IsSecondCut && Enzyme.SecondCut is { } second
             ? second

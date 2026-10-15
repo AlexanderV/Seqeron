@@ -20,7 +20,7 @@ Runs a digest and reports summary statistics instead of the full fragment sequen
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L950](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L950)
+- Source: [RestrictionAnalyzer.cs#L1268](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1268)
 
 ## Input Schema
 

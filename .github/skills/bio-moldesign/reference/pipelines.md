@@ -101,11 +101,20 @@ Standalone CAI: `codon_adaptation_index` (`CodonUsageAnalyzer.CalculateCai`) or 
 
 **Steps.** Pick enzymes: `get_enzyme`, `compatible_enzymes`, `enzymes_compatible`, `blunt_cutters`,
 `sticky_cutters`, `enzymes_by_cut_length`. Then `find_restriction_sites`(sequence, enzyme_names) →
-`RestrictionAnalyzer.FindSites` (or `find_all_restriction_sites` for all known enzymes).
+`RestrictionAnalyzer.FindSites` (or `find_all_restriction_sites` to scan a whole enzyme set).
 Simulate: `restriction_digest`(sequence, enzyme_names) → `RestrictionAnalyzer.Digest`;
 summarize with `digest_summary`; overview map with `restriction_map`.
 
 **Parameters / gotchas.**
+- **Enzyme set.** Every tool that takes an enzyme NAME resolves it against all **754 REBASE enzymes
+  with a defined cut** (Biopython 1.88 REBASE snapshot: the 39 common lab enzymes plus Type IIS such
+  as BsaI/BsmBI and two-sided Type IIB such as BaeI); an unknown name, or one of the 334 REBASE
+  enzymes with no defined cut, is an error (`get_enzyme` returns `enzyme: null`). Tools that LIST
+  enzymes (`blunt_cutters`, `sticky_cutters`, `enzymes_by_cut_length`, `find_all_restriction_sites`,
+  `restriction_map` with empty names, `compatible_enzymes(enzyme_name)`, `get_enzyme`'s schizomer
+  lists) default to the 39 common enzymes; pass `enzyme_set: "rebase"` for all 754. Two-cut enzymes
+  report `secondCutForward`/`secondCutReverse`. C#: `RestrictionAnalyzer.GetEnzymes(EnzymeSet.Rebase)`
+  and the `EnzymeSet` overloads.
 - `enzyme_names` is a non-empty array. Digest is on a **linear** molecule; `k` distinct forward-strand
   cut positions → `k + 1` fragments; zero cuts → one whole-molecule fragment.
 - Each fragment: `{sequence, startPosition, length, leftEnzyme, rightEnzyme, fragmentNumber}`;

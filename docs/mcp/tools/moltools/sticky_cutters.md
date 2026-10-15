@@ -1,6 +1,6 @@
 # sticky_cutters
 
-List all built-in restriction enzymes that produce sticky (cohesive) ends.
+List the restriction enzymes that produce sticky (cohesive) ends (common set by default, or all 754 REBASE enzymes).
 
 ## Overview
 
@@ -14,9 +14,9 @@ List all built-in restriction enzymes that produce sticky (cohesive) ends.
 
 ## Description
 
-Returns every enzyme in the built-in database whose cut is staggered (`CutPositionForward != CutPositionReverse`), leaving a 5′ or 3′ single-stranded overhang. These cohesive ends anneal to complementary overhangs and are used for directional / sticky-end cloning. The complement of `blunt_cutters`.
+Returns every enzyme of `enzyme_set` — `"common"` (default, the 39 common laboratory enzymes) or `"rebase"` (all 754 REBASE enzymes with a defined cut) — whose cut is staggered (`CutPositionForward != CutPositionReverse`), leaving a 5′ or 3′ single-stranded overhang. These cohesive ends anneal to complementary overhangs and are used for directional / sticky-end cloning. The complement of `blunt_cutters`.
 
-The database has **29** sticky cutters (all 39 enzymes minus the 10 blunt cutters): **21** leave a
+The common set has **29** sticky cutters (all 39 enzymes minus the 10 blunt cutters): **21** leave a
 5′ overhang and **8** a 3′ overhang. Each returned record carries `overhangType`
 (`FivePrime` / `ThreePrime`); for the overhang *sequence* use `get_enzyme`, and to test whether two
 of them can be ligated use `enzymes_compatible`. All 39 entries were checked against Biopython
@@ -24,11 +24,13 @@ of them can be ligated use `enzymes_compatible`. All 39 entries were checked aga
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L138](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L138)
+- Source: [RestrictionAnalyzer.cs#L153](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L153)
 
 ## Input Schema
 
-_No parameters._
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `enzyme_set` | string | No | `"common"` (default, the 39 common laboratory enzymes) or `"rebase"` (all 754 REBASE enzymes with a defined cut). Case-insensitive. |
 
 ## Output Schema
 
@@ -38,7 +40,9 @@ _No parameters._
 
 ## Errors
 
-_None._
+| Code | Message |
+|------|---------|
+| 1010 | Unknown enzyme set '&lt;value&gt;'; expected "common" or "rebase" (`enzyme_set`) |
 
 ## Examples
 
@@ -47,6 +51,17 @@ _None._
 ### Example 2: PstI (`CTGCAG`, cut 5/1) leaves a 3′ `TGCA` overhang (`overhangType: "ThreePrime"`).
 
 ### Example 3: The list contains 29 enzymes; blunt cutters (EcoRV, SmaI, HincII, …) are excluded.
+
+### Example: the REBASE set
+
+`sticky_cutters(enzyme_set: "rebase")` → **617** enzymes — **388** `FivePrime`, **229** `ThreePrime`
+(Biopython 1.88 `is_5overhang()` / `is_3overhang()` over the 754) — starting `AarI` (`CACCTGC`,
+11/15, Type IIS), `AasI` (`GACNNNNNNGTC`, 7/5), `AatII`, … The default call still returns the 29
+common sticky cutters.
+
+### Example: unknown enzyme set
+
+`sticky_cutters(enzyme_set: "all")` → error 1010.
 
 ## See Also
 

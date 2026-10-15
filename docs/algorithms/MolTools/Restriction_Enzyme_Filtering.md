@@ -190,7 +190,12 @@ The library is a fixed `Dictionary<string, RestrictionEnzyme>` of Type II enzyme
 `equischizomers`, `neoschizomers`), `enzymes_by_cut_length`, `blunt_cutters`, `sticky_cutters`,
 `compatible_enzymes` (now takes an optional `enzyme_name` for the per-enzyme query),
 `enzymes_compatible` (now also reports `compatibleEnd`, and an unknown name is an error). No tool
-was added or removed by this unit.
+was added or removed by this unit. Since review B08 WP12b (F61) the listing tools take an optional
+`enzyme_set` (`"common"` default = the 39, byte-identical to before; `"rebase"` = all 754 through
+the `EnzymeSet` overloads): `enzymes_by_cut_length`, `blunt_cutters`, `sticky_cutters`,
+`get_enzyme`'s schizomer lists and `compatible_enzymes(enzyme_name)` (its all-pairs form stays on the
+common set; `"rebase"` without a name is an error); an unknown value is an `ArgumentException` on
+`enzyme_set`. Names are always resolved against all 754.
 
 ### 5.2 Current Behavior
 

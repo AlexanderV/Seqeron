@@ -1,6 +1,6 @@
 # blunt_cutters
 
-List all built-in restriction enzymes that produce blunt ends.
+List the restriction enzymes that produce blunt ends (common set by default, or all 754 REBASE enzymes).
 
 ## Overview
 
@@ -14,7 +14,7 @@ List all built-in restriction enzymes that produce blunt ends.
 
 ## Description
 
-Returns every enzyme in the built-in Type II restriction-enzyme database that cuts both strands at the same position, leaving a blunt end (no single-stranded overhang). Blunt cutters are used for blunt-end cloning where any two blunt fragments can be ligated.
+Returns every enzyme of `enzyme_set` — `"common"` (default, the 39 common laboratory enzymes) or `"rebase"` (all 754 REBASE enzymes with a defined cut) — that cuts both strands at the same position, leaving a blunt end (no single-stranded overhang). Blunt cutters are used for blunt-end cloning where any two blunt fragments can be ligated.
 
 An enzyme is blunt when `CutPositionForward == CutPositionReverse` — equivalently, when REBASE /
 Biopython `ovhg` is 0 and `is_blunt()` is true. Any blunt end ligates to any other blunt end. All
@@ -23,11 +23,13 @@ cutters.
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L125](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L125)
+- Source: [RestrictionAnalyzer.cs#L140](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L140)
 
 ## Input Schema
 
-_No parameters._
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `enzyme_set` | string | No | `"common"` (default, the 39 common laboratory enzymes) or `"rebase"` (all 754 REBASE enzymes with a defined cut). Case-insensitive. |
 
 ## Output Schema
 
@@ -37,7 +39,9 @@ _No parameters._
 
 ## Errors
 
-_None._
+| Code | Message |
+|------|---------|
+| 1010 | Unknown enzyme set '&lt;value&gt;'; expected "common" or "rebase" (`enzyme_set`) |
 
 ## Examples
 
@@ -61,11 +65,22 @@ _None._
 }
 ```
 
-The built-in database contains exactly **10** blunt cutters: AluI, RsaI, HaeIII, DpnI, EcoRV, SmaI,
+The common set contains exactly **10** blunt cutters: AluI, RsaI, HaeIII, DpnI, EcoRV, SmaI,
 HincII, ScaI, StuI, SwaI. Note `HincII` (`GTYRAC`, cut 3/3): its recognition site is degenerate but
 the cut is central, so it is blunt and its overhang is empty (Biopython
 `HincII.elucidate() == "GTY^_RAC"`, `ovhg == 0`). `DpnI` is blunt and methylation-dependent
 (`GA^_TC`).
+
+### Example 3: the REBASE set
+
+`blunt_cutters(enzyme_set: "rebase")` → **137** enzymes (Biopython 1.88 `is_blunt()` over the 754),
+first `{ "name": "AanI", "recognitionSequence": "TTATAA", "cutPositionForward": 3, "cutPositionReverse": 3,
+"organism": "Arthrobacter aurescens RFL2", … }`, then `Acc16I`, `AccBSI`, `AccII`, `AcvI`, … The
+default call still returns the 10 common blunt cutters.
+
+### Example 4: unknown enzyme set
+
+`blunt_cutters(enzyme_set: "all")` → error 1010.
 
 ## Performance
 

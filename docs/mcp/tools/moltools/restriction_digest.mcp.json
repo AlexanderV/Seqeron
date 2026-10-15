@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.Digest",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L853",
-  "description": "Simulate a restriction digest of a linear or circular molecule and return the ordered fragments with their end overhangs.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L802",
+  "description": "Simulate a restriction digest of a linear or circular molecule with named enzymes (any of the 754 REBASE enzymes with a defined cut) and return the ordered fragments with their end overhangs.",
   "inputSchema": {
     "type": "object",
     "properties": {

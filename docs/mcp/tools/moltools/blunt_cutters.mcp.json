@@ -5,11 +5,25 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetBluntCutters",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L125",
-  "description": "List all built-in restriction enzymes that produce blunt ends (both strands cut at the same position; Biopython is_blunt).",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L140",
+  "description": "List the restriction enzymes of enzyme_set (\"common\" = 39 by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) that produce blunt ends (both strands cut at the same position; Biopython is_blunt).",
   "inputSchema": {
     "type": "object",
-    "properties": {},
+    "properties": {
+      "enzyme_set": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "common",
+          "rebase",
+          null
+        ],
+        "default": "common",
+        "description": "Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive."
+      }
+    },
     "required": []
   },
   "outputSchema": {
@@ -40,6 +54,20 @@
             "organism": {
               "type": "string",
               "description": "Source organism."
+            },
+            "secondCutForward": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "Two-sided (Type IIB) cutters only: top-strand offset of the second cut pair (Biopython scd5; BaeI 23). Omitted/null for a one-cut enzyme."
+            },
+            "secondCutReverse": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "Two-sided (Type IIB) cutters only: bottom-strand offset of the second cut pair (Biopython size + scd3; BaeI 18). Omitted/null for a one-cut enzyme."
             },
             "isBluntEnd": {
               "type": "boolean",
@@ -109,7 +137,12 @@
       "enzymes"
     ]
   },
-  "errors": [],
+  "errors": [
+    {
+      "code": 1010,
+      "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\""
+    }
+  ],
   "examples": [
     {
       "name": "List blunt cutters",
@@ -154,6 +187,24 @@
       "input": {},
       "output": {
         "enzymes": "10 enzymes: AluI, RsaI, HaeIII, DpnI, EcoRV, SmaI, HincII, ScaI, StuI, SwaI"
+      }
+    },
+    {
+      "name": "Blunt cutters of the REBASE set",
+      "input": {
+        "enzyme_set": "rebase"
+      },
+      "output": {
+        "enzymes": "137 enzymes (Biopython is_blunt over the 754): AanI, Acc16I, AccBSI, AccII, AcvI, AfaI, AfeI, AhaIII, ..."
+      }
+    },
+    {
+      "name": "Unknown enzyme set",
+      "input": {
+        "enzyme_set": "all"
+      },
+      "output": {
+        "error": "Unknown enzyme set 'all'; expected \"common\" or \"rebase\"."
       }
     }
   ]

@@ -206,6 +206,28 @@ public class RestrictionAnalyzer_RebaseSet_Tests
     }
 
     [Test]
+    public void SecondCut_IsSerialisedThroughItsNamedProperties()
+    {
+        // B08 WP12b (F62): System.Text.Json writes a value tuple's Item1/Item2 fields as {} — the pair is
+        // carried by SecondCutForward/SecondCutReverse. Biopython BaeI: scd5 = 23, size + scd3 = 18.
+        var baeI = RestrictionAnalyzer.GetEnzyme("BaeI")!;
+        var ecoRI = RestrictionAnalyzer.GetEnzyme("EcoRI")!;
+        string baeJson = System.Text.Json.JsonSerializer.Serialize(baeI);
+        string ecoJson = System.Text.Json.JsonSerializer.Serialize(ecoRI);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((baeI.SecondCutForward, baeI.SecondCutReverse), Is.EqualTo(((int?)23, (int?)18)));
+            Assert.That((ecoRI.SecondCutForward, ecoRI.SecondCutReverse), Is.EqualTo(((int?)null, (int?)null)));
+            Assert.That(baeJson, Does.Contain("\"SecondCutForward\":23").And.Contain("\"SecondCutReverse\":18"));
+            Assert.That(baeJson, Does.Not.Contain("\"SecondCut\":"));
+            Assert.That(ecoJson, Does.Contain("\"SecondCutForward\":null"));
+            // The views are derived, so record equality still rests on SecondCut alone.
+            Assert.That(baeI with { SecondCut = (23, 18) }, Is.EqualTo(baeI));
+        });
+    }
+
+    [Test]
     public void GetEnzyme_EnzymeWithoutDefinedCut_IsNotResolvable()
     {
         // Dpi3084I (CGRAG) is in the REBASE 404 snapshot with fst5 = None (NotDefined): it cannot be digested.

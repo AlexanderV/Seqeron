@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindCompatibleEnzymes",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1206",
-  "description": "Enumerate pairs of built-in restriction enzymes that produce ligatable (compatible) ends, or - with enzyme_name - the enzymes one enzyme's end can be ligated to, itself included.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1596",
+  "description": "Enumerate pairs of the 39 common restriction enzymes that produce ligatable (compatible) ends, or - with enzyme_name (any of the 754 REBASE enzymes with a defined cut) - the enzymes of enzyme_set (\"common\" by default, \"rebase\" = 754) that one enzyme's end can be ligated to, itself included.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -15,7 +15,20 @@
           "string",
           "null"
         ],
-        "description": "Restrict the result to pairs involving this enzyme (case-insensitive, itself included). Omit or leave blank for every pair in the table."
+        "description": "Optional: restrict the result to pairs involving this enzyme (case-insensitive); omit or leave blank for every pair of the common table."
+      },
+      "enzyme_set": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "common",
+          "rebase",
+          null
+        ],
+        "default": "common",
+        "description": "Partner table for the enzyme_name form: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive; \"rebase\" requires enzyme_name."
       }
     },
     "required": []
@@ -55,6 +68,14 @@
     {
       "code": 1003,
       "message": "Unknown enzyme: <name> (only when enzyme_name is given)"
+    },
+    {
+      "code": 1010,
+      "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\""
+    },
+    {
+      "code": 1011,
+      "message": "enzyme_set \"rebase\" requires enzyme_name: the all-pairs listing covers the common set only."
     }
   ],
   "examples": [
@@ -121,6 +142,35 @@
             "compatibleEnd": "NNN"
           }
         ]
+      }
+    },
+    {
+      "name": "BamHI partners over the REBASE set",
+      "input": {
+        "enzyme_name": "BamHI",
+        "enzyme_set": "rebase"
+      },
+      "output": {
+        "pairs": "59 rows = Biopython 1.88 BamHI.compatible_end(RestrictionBatch(754)), e.g. {enzyme1: BamHI, enzyme2: BclI, compatibleEnd: GATC}, BglII GATC, BsaI GATC (distal Type IIS: Ambiguous end), MboI, Sau3AI, ..."
+      }
+    },
+    {
+      "name": "REBASE set without enzyme_name",
+      "input": {
+        "enzyme_set": "rebase"
+      },
+      "output": {
+        "error": "enzyme_set \"rebase\" requires enzyme_name: the all-pairs listing covers the common set only."
+      }
+    },
+    {
+      "name": "Unknown enzyme set",
+      "input": {
+        "enzyme_name": "EcoRI",
+        "enzyme_set": "all"
+      },
+      "output": {
+        "error": "Unknown enzyme set 'all'; expected \"common\" or \"rebase\"."
       }
     }
   ]

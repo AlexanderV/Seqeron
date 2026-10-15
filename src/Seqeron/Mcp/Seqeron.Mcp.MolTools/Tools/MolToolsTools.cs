@@ -494,12 +494,14 @@ public class MolToolsTools
 
     #region RestrictionAnalyzer
 
-    [McpServerTool(Name = "get_enzyme", Title = "MolTools — Look Up Restriction Enzyme", ReadOnly = true), Description("Looks up a built-in restriction enzyme by name (case-insensitive) and returns its recognition sequence, cut positions, organism, end chemistry (blunt / 5' / 3') and the overhang sequence it leaves — the top-strand bases between its two strand cuts, 5'→3', which is REBASE/Biopython ovhgseq (EcoRI \"AATT\", PstI \"TGCA\", empty for a blunt cutter, and an IUPAC code where the enzyme's own site is degenerate, e.g. SfiI \"NNN\"). Also lists the other built-ins recognising the same sequence, split into equischizomers (same site AND same cut positions, so interchangeable in a digest — MspI/HpaII) and neoschizomers (same site, different cut, so different ends — MboI vs DpnI). recognitionLength is the full site string, so the interrupted palindrome SfiI (GGCCNNNNNGGCC) reports 13 although only 8 bases are specified. rebaseMethylationField is REBASE allenz.104 field <6> verbatim (EcoRI \"3(6)\") and cognateMethylationSites its typed parse (1-based position in the site or null for \"?\", complementary-strand flag, m4C/m5C/m6A): the base the enzyme's own cognate methyltransferase modifies — NOT whether Dam/Dcm/CpG methylation blocks the enzyme, which is not modelled. Returns enzyme=null when the name is not in the built-in database. Call to fetch a single enzyme's properties by name.")]
+    [McpServerTool(Name = "get_enzyme", Title = "MolTools — Look Up Restriction Enzyme", ReadOnly = true), Description("Looks up a restriction enzyme by name (case-insensitive) among the 754 REBASE enzymes with a defined cut (Biopython 1.88 REBASE snapshot; the 39 common laboratory enzymes included, Type IIS such as BsaI and two-sided Type IIB such as BaeI too) and returns its recognition sequence, cut positions, organism, end chemistry (blunt / 5' / 3') and the overhang sequence it leaves — the top-strand bases between its two strand cuts, 5'→3', which is REBASE/Biopython ovhgseq (EcoRI \"AATT\", PstI \"TGCA\", empty for a blunt cutter, and an IUPAC code where the enzyme's own site is degenerate, e.g. SfiI \"NNN\"). Also lists the other enzymes of enzyme_set (default \"common\" = the 39 common enzymes; \"rebase\" = all 754) recognising the same sequence, split into equischizomers (same site AND same cut positions, so interchangeable in a digest — MspI/HpaII) and neoschizomers (same site, different cut, so different ends — MboI vs DpnI). recognitionLength is the full site string, so the interrupted palindrome SfiI (GGCCNNNNNGGCC) reports 13 although only 8 bases are specified. rebaseMethylationField is REBASE allenz.104 field <6> verbatim (EcoRI \"3(6)\") and cognateMethylationSites its typed parse (1-based position in the site or null for \"?\", complementary-strand flag, m4C/m5C/m6A): the base the enzyme's own cognate methyltransferase modifies — NOT whether Dam/Dcm/CpG methylation blocks the enzyme, which is not modelled. A two-sided (Type IIB) cutter also reports secondCutForward/secondCutReverse, its second cut pair in the same convention (BaeI 23/18); both are null for a one-cut enzyme. Returns enzyme=null when the name is not a REBASE enzyme with a defined cut (an unknown name, or one of the 334 REBASE enzymes whose cut position is undefined, e.g. Dpi3084I). Call to fetch a single enzyme's properties by name.")]
     public static EnzymeLookupResult get_enzyme(
-        [Description("Enzyme name (e.g. EcoRI, BamHI).")] string name)
+        [Description("Enzyme name (e.g. EcoRI, BamHI, BsaI).")] string name,
+        [Description("Which enzyme table the equischizomer/neoschizomer lists are drawn from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive. The looked-up enzyme itself is always resolved against all 754.")] string? enzyme_set = "common")
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new System.ArgumentException("Enzyme name cannot be null or blank.", nameof(name));
+        var set = ParseEnzymeSet(enzyme_set);
 
         var enzyme = RestrictionAnalyzer.GetEnzyme(name);
         if (enzyme is null)
@@ -508,33 +510,53 @@ public class MolToolsTools
         return new EnzymeLookupResult(
             enzyme,
             RestrictionAnalyzer.GetOverhangSequence(enzyme),
-            RestrictionAnalyzer.FindEquischizomers(enzyme.Name).Select(e => e.Name).ToList(),
-            RestrictionAnalyzer.FindNeoschizomers(enzyme.Name).Select(e => e.Name).ToList());
+            RestrictionAnalyzer.FindEquischizomers(enzyme.Name, set).Select(e => e.Name).ToList(),
+            RestrictionAnalyzer.FindNeoschizomers(enzyme.Name, set).Select(e => e.Name).ToList());
     }
 
-    [McpServerTool(Name = "enzymes_by_cut_length", Title = "MolTools — Enzymes by Recognition Length", ReadOnly = true), Description("Lists all built-in restriction enzymes whose recognition sequence has exactly the specified length in base pairs (e.g. 4 for frequent cutters, 6 for typical cloning enzymes, 8 for rare cutters). The length measured is the full recognition string (Biopython .size), so an interrupted palindrome counts its spacer: SfiI (GGCCNNNNNGGCC) is returned by length 13, not by length 8, although only 8 of its bases are specified. Call to pick enzymes by how often they cut.")]
+    /// <summary>
+    /// Parses the <c>enzyme_set</c> argument of the listing tools: <c>"common"</c> (default, also for
+    /// <see langword="null"/>) or <c>"rebase"</c>, case-insensitive (B08 D4 part 2).
+    /// </summary>
+    private static EnzymeSet ParseEnzymeSet(string? enzyme_set)
+    {
+        if (enzyme_set is null || string.Equals(enzyme_set, "common", System.StringComparison.OrdinalIgnoreCase))
+            return EnzymeSet.Common;
+        if (string.Equals(enzyme_set, "rebase", System.StringComparison.OrdinalIgnoreCase))
+            return EnzymeSet.Rebase;
+        throw new System.ArgumentException(
+            $"Unknown enzyme set '{enzyme_set}'; expected \"common\" or \"rebase\".", nameof(enzyme_set));
+    }
+
+    [McpServerTool(Name = "enzymes_by_cut_length", Title = "MolTools — Enzymes by Recognition Length", ReadOnly = true), Description("Lists the restriction enzymes of enzyme_set (default \"common\" = the 39 common laboratory enzymes; \"rebase\" = all 754 REBASE enzymes with a defined cut) whose recognition sequence has exactly the specified length in base pairs (e.g. 4 for frequent cutters, 6 for typical cloning enzymes, 8 for rare cutters). The length measured is the full recognition string (Biopython .size), so an interrupted palindrome counts its spacer: SfiI (GGCCNNNNNGGCC) is returned by length 13, not by length 8, although only 8 of its bases are specified. Call to pick enzymes by how often they cut.")]
     public static EnzymeListResult enzymes_by_cut_length(
-        [Description("Recognition-sequence length in bp (must be positive).")] int length)
+        [Description("Recognition-sequence length in bp (must be positive).")] int length,
+        [Description("Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive.")] string? enzyme_set = "common")
     {
         if (length <= 0)
             throw new System.ArgumentException("Recognition-sequence length must be positive.", nameof(length));
+        var set = ParseEnzymeSet(enzyme_set);
 
-        return new EnzymeListResult(RestrictionAnalyzer.GetEnzymesByCutLength(length).ToList());
+        return new EnzymeListResult(RestrictionAnalyzer.GetEnzymesByCutLength(length, set).ToList());
     }
 
-    [McpServerTool(Name = "blunt_cutters", Title = "MolTools — Blunt-End Restriction Enzymes", ReadOnly = true), Description("Lists all built-in restriction enzymes that produce blunt ends (both strands cut at the same position, Biopython is_blunt). Any blunt end ligates to any other blunt end. Call when the user wants blunt-cutting enzymes for blunt-end cloning.")]
-    public static EnzymeListResult blunt_cutters()
+    [McpServerTool(Name = "blunt_cutters", Title = "MolTools — Blunt-End Restriction Enzymes", ReadOnly = true), Description("Lists the restriction enzymes of enzyme_set (default \"common\" = the 39 common laboratory enzymes; \"rebase\" = all 754 REBASE enzymes with a defined cut) that produce blunt ends (both strands cut at the same position, Biopython is_blunt). Any blunt end ligates to any other blunt end. Call when the user wants blunt-cutting enzymes for blunt-end cloning.")]
+    public static EnzymeListResult blunt_cutters(
+        [Description("Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive.")] string? enzyme_set = "common")
     {
-        return new EnzymeListResult(RestrictionAnalyzer.GetBluntCutters().ToList());
+        var set = ParseEnzymeSet(enzyme_set);
+        return new EnzymeListResult(RestrictionAnalyzer.GetBluntCutters(set).ToList());
     }
 
-    [McpServerTool(Name = "sticky_cutters", Title = "MolTools — Sticky-End Restriction Enzymes", ReadOnly = true), Description("Lists all built-in restriction enzymes that produce sticky (cohesive) ends — a staggered cut leaving a 5' or 3' single-stranded overhang (Biopython is_5overhang / is_3overhang); the complement of blunt_cutters. Use get_enzyme for the overhang sequence an individual enzyme leaves, and enzymes_compatible to test whether two of them can be ligated. Call when the user wants overhang-generating enzymes for directional / sticky-end cloning.")]
-    public static EnzymeListResult sticky_cutters()
+    [McpServerTool(Name = "sticky_cutters", Title = "MolTools — Sticky-End Restriction Enzymes", ReadOnly = true), Description("Lists the restriction enzymes of enzyme_set (default \"common\" = the 39 common laboratory enzymes; \"rebase\" = all 754 REBASE enzymes with a defined cut) that produce sticky (cohesive) ends — a staggered cut leaving a 5' or 3' single-stranded overhang (Biopython is_5overhang / is_3overhang); the complement of blunt_cutters. Use get_enzyme for the overhang sequence an individual enzyme leaves, and enzymes_compatible to test whether two of them can be ligated. Call when the user wants overhang-generating enzymes for directional / sticky-end cloning.")]
+    public static EnzymeListResult sticky_cutters(
+        [Description("Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive.")] string? enzyme_set = "common")
     {
-        return new EnzymeListResult(RestrictionAnalyzer.GetStickyCutters().ToList());
+        var set = ParseEnzymeSet(enzyme_set);
+        return new EnzymeListResult(RestrictionAnalyzer.GetStickyCutters(set).ToList());
     }
 
-    [McpServerTool(Name = "find_restriction_sites", Title = "MolTools — Find Restriction Sites", ReadOnly = true), Description("Finds restriction sites for one or more named built-in enzymes on both strands of a DNA sequence. IUPAC degenerate codes in recognition sequences are matched against ACGT input. position and cutPosition are 0-based forward-strand coordinates for both strands; cutPosition is the number of forward-strand bases 5' of the cut made on that record's own strand, so a palindromic enzyme reports a forward record (top-strand cut) and a reverse record (bottom-strand cut) at the same position, and recognizedSequence is the window as read on that strand. Overlapping sites are all reported. On a Linear molecule a site is reported only when both of its cuts fall on a bond that exists (so an enzyme cutting at the edge of its own site, e.g. Sau3AI ^GATC, is not reported at the very ends); set topology=Circular for a plasmid, where the site may span the origin and cut positions wrap modulo the length. Call to locate where specific enzymes cut a sequence.")]
+    [McpServerTool(Name = "find_restriction_sites", Title = "MolTools — Find Restriction Sites", ReadOnly = true), Description("Finds restriction sites for one or more named enzymes (any of the 754 REBASE enzymes with a defined cut, case-insensitive; an unknown name is an error) on both strands of a DNA sequence. IUPAC degenerate codes in recognition sequences are matched against ACGT input. position and cutPosition are 0-based forward-strand coordinates for both strands; cutPosition is the number of forward-strand bases 5' of the cut made on that record's own strand, so a palindromic enzyme reports a forward record (top-strand cut) and a reverse record (bottom-strand cut) at the same position, and recognizedSequence is the window as read on that strand. Overlapping sites are all reported. On a Linear molecule a site is reported only when both of its cuts fall on a bond that exists (so an enzyme cutting at the edge of its own site, e.g. Sau3AI ^GATC, is not reported at the very ends); set topology=Circular for a plasmid, where the site may span the origin and cut positions wrap modulo the length. Call to locate where specific enzymes cut a sequence.")]
     public static RestrictionSiteListResult find_restriction_sites(
         [Description("DNA sequence to scan.")] string sequence,
         [Description("Names of restriction enzymes to look for.")] string[] enzyme_names,
@@ -549,19 +571,21 @@ public class MolToolsTools
         return new RestrictionSiteListResult(sites);
     }
 
-    [McpServerTool(Name = "find_all_restriction_sites", Title = "MolTools — Find All Restriction Sites", ReadOnly = true), Description("Finds sites for EVERY built-in restriction enzyme on both strands of a DNA sequence. Coordinates, the two records per palindromic site and the linear cut-feasibility rule are the same as find_restriction_sites; set topology=Circular for a plasmid. Call for a comprehensive restriction-site scan when the enzyme set is not known in advance.")]
+    [McpServerTool(Name = "find_all_restriction_sites", Title = "MolTools — Find All Restriction Sites", ReadOnly = true), Description("Finds sites for EVERY restriction enzyme of enzyme_set (default \"common\" = the 39 common laboratory enzymes; \"rebase\" = all 754 REBASE enzymes with a defined cut) on both strands of a DNA sequence. Coordinates, the two records per palindromic site and the linear cut-feasibility rule are the same as find_restriction_sites; set topology=Circular for a plasmid. Call for a comprehensive restriction-site scan when the enzyme set is not known in advance.")]
     public static RestrictionSiteListResult find_all_restriction_sites(
         [Description("DNA sequence to scan.")] string sequence,
-        [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear)
+        [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
+        [Description("Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive.")] string? enzyme_set = "common")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        var set = ParseEnzymeSet(enzyme_set);
 
-        var sites = RestrictionAnalyzer.FindAllSites(new DnaSequence(sequence), topology).ToList();
+        var sites = RestrictionAnalyzer.FindAllSites(new DnaSequence(sequence), topology, set).ToList();
         return new RestrictionSiteListResult(sites);
     }
 
-    [McpServerTool(Name = "restriction_digest", Title = "MolTools — Restriction Digest", ReadOnly = true), Description("Simulates a restriction digest with one or more named enzymes and yields the resulting fragments in ascending start position (each with its sequence, start, length, flanking enzymes and the blunt/5'/3' overhang of each cut end). Set topology=Circular for a plasmid: the site search then wraps past the origin, k cut positions give k fragments (vs k+1 linear), and the origin-spanning fragment is reported last; an enzyme that does not cut leaves the circle whole. Call to predict the fragment pattern of a digest.")]
+    [McpServerTool(Name = "restriction_digest", Title = "MolTools — Restriction Digest", ReadOnly = true), Description("Simulates a restriction digest with one or more named enzymes (any of the 754 REBASE enzymes with a defined cut, case-insensitive; an unknown name is an error) and yields the resulting fragments in ascending start position (each with its sequence, start, length, flanking enzymes and the blunt/5'/3' overhang of each cut end). Set topology=Circular for a plasmid: the site search then wraps past the origin, k cut positions give k fragments (vs k+1 linear), and the origin-spanning fragment is reported last; an enzyme that does not cut leaves the circle whole. Call to predict the fragment pattern of a digest.")]
     public static DigestResult restriction_digest(
         [Description("DNA sequence to digest.")] string sequence,
         [Description("Names of restriction enzymes to use (must be non-empty).")] string[] enzyme_names,
@@ -576,7 +600,7 @@ public class MolToolsTools
         return new DigestResult(fragments);
     }
 
-    [McpServerTool(Name = "digest_summary", Title = "MolTools — Restriction Digest Summary", ReadOnly = true), Description("Aggregate statistics over a simulated restriction digest: total fragment count, fragment sizes (descending), largest/smallest fragment, average fragment size, enzymes used and the topology digested. Set topology=Circular for a plasmid, which yields k fragments for k cut positions instead of k+1. Call for a gel-like summary of a digest without the full fragment sequences.")]
+    [McpServerTool(Name = "digest_summary", Title = "MolTools — Restriction Digest Summary", ReadOnly = true), Description("Aggregate statistics over a simulated restriction digest with one or more named enzymes (any of the 754 REBASE enzymes with a defined cut, case-insensitive; an unknown name is an error): total fragment count, fragment sizes (descending), largest/smallest fragment, average fragment size, enzymes used and the topology digested. Set topology=Circular for a plasmid, which yields k fragments for k cut positions instead of k+1. Call for a gel-like summary of a digest without the full fragment sequences.")]
     public static DigestSummary digest_summary(
         [Description("DNA sequence to digest.")] string sequence,
         [Description("Names of restriction enzymes to use.")] string[] enzyme_names,
@@ -590,7 +614,7 @@ public class MolToolsTools
         return RestrictionAnalyzer.GetDigestSummary(new DnaSequence(sequence), topology, enzyme_names);
     }
 
-    [McpServerTool(Name = "partial_digest", Title = "MolTools — Partial Restriction Digest", ReadOnly = true), Description("Simulates a PARTIAL restriction digest: every fragment that can arise when any subset of the cut sites is left uncut, each with missedCuts = the number of uncut sites inside it. Uses exactly the cut positions, enzyme lists and end overhangs of restriction_digest; the missedCuts = 0 fragments come first and are the complete digest. Linear: all intervals between two of {0, cuts, length} — (k+1)(k+2)/2 fragments for k cuts. Circular: every cut-to-cut arc (wrapping past the origin; k-1 missed = the molecule linearised at one cut) plus the intact circle (missedCuts = k) — k²+1 fragments. Order: missedCuts, then start position. max_missed_cuts bounds the uncut sites per fragment; above 100000 fragments the call is refused unless max_missed_cuts is lowered. Which fragments CAN arise only — no yield/abundance. Call to predict extra bands from an incomplete digest.")]
+    [McpServerTool(Name = "partial_digest", Title = "MolTools — Partial Restriction Digest", ReadOnly = true), Description("Simulates a PARTIAL restriction digest: every fragment that can arise when any subset of the cut sites is left uncut, each with missedCuts = the number of uncut sites inside it. Enzymes are named as for restriction_digest (any of the 754 REBASE enzymes with a defined cut); uses exactly its cut positions, enzyme lists and end overhangs; the missedCuts = 0 fragments come first and are the complete digest. Linear: all intervals between two of {0, cuts, length} — (k+1)(k+2)/2 fragments for k cuts. Circular: every cut-to-cut arc (wrapping past the origin; k-1 missed = the molecule linearised at one cut) plus the intact circle (missedCuts = k) — k²+1 fragments. Order: missedCuts, then start position. max_missed_cuts bounds the uncut sites per fragment; above 100000 fragments the call is refused unless max_missed_cuts is lowered. Which fragments CAN arise only — no yield/abundance. Call to predict extra bands from an incomplete digest.")]
     public static PartialDigestResult partial_digest(
         [Description("DNA sequence to digest.")] string sequence,
         [Description("Names of restriction enzymes to use (must be non-empty).")] string[] enzyme_names,
@@ -606,38 +630,52 @@ public class MolToolsTools
         return new PartialDigestResult(fragments);
     }
 
-    [McpServerTool(Name = "restriction_map", Title = "MolTools — Restriction Map", ReadOnly = true), Description("Builds a restriction map of a DNA sequence: all forward+reverse sites, sites grouped by enzyme, the total forward-strand site count, unique cutters (enzymes with exactly one forward-strand site), and non-cutters. Enzyme names are resolved case-insensitively and de-duplicated, and every result is keyed by the table's own spelling. An empty enzyme_names list considers every built-in enzyme, so nonCutters then lists every built-in enzyme without a site; sitesByEnzyme and nonCutters always partition the considered set. Set topology=Circular for a plasmid. Call to plan cloning around single-cutter enzymes.")]
+    [McpServerTool(Name = "restriction_map", Title = "MolTools — Restriction Map", ReadOnly = true), Description("Builds a restriction map of a DNA sequence: all forward+reverse sites, sites grouped by enzyme, the total forward-strand site count, unique cutters (enzymes with exactly one forward-strand site), and non-cutters. Enzyme names (any of the 754 REBASE enzymes with a defined cut) are resolved case-insensitively and de-duplicated, and every result is keyed by the table's own spelling. An empty enzyme_names list considers every enzyme of enzyme_set (default \"common\" = the 39 common laboratory enzymes; \"rebase\" = all 754), so nonCutters then lists every such enzyme without a site; enzyme_set applies only to an empty list; sitesByEnzyme and nonCutters always partition the considered set. Set topology=Circular for a plasmid. Call to plan cloning around single-cutter enzymes.")]
     public static RestrictionMap restriction_map(
         [Description("DNA sequence to map.")] string sequence,
-        [Description("Names of restriction enzymes to consider; empty to use every built-in enzyme.")] string[] enzyme_names,
-        [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear)
+        [Description("Names of restriction enzymes to consider; empty to use every enzyme of enzyme_set.")] string[] enzyme_names,
+        [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
+        [Description("Enzyme table used when enzyme_names is empty: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive; ignored when names are given.")] string? enzyme_set = "common")
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        var set = ParseEnzymeSet(enzyme_set);
+        var names = enzyme_names ?? System.Array.Empty<string>();
 
-        return RestrictionAnalyzer.CreateMap(
-            new DnaSequence(sequence), topology, enzyme_names ?? System.Array.Empty<string>());
+        // The full set goes through the record overload (same CreateMapCore, B08 F58); the common set
+        // keeps the name overload so the default output is unchanged.
+        if (names.Length == 0 && set == EnzymeSet.Rebase)
+            return RestrictionAnalyzer.CreateMap(
+                new DnaSequence(sequence), topology, RestrictionAnalyzer.RebaseEnzymes.Values);
+
+        return RestrictionAnalyzer.CreateMap(new DnaSequence(sequence), topology, names);
     }
 
-    [McpServerTool(Name = "compatible_enzymes", Title = "MolTools — Compatible Enzyme Pairs", ReadOnly = true), Description("Enumerates pairs of built-in restriction enzymes whose ends can be ligated to each other: either both produce blunt ends, or both produce the same polarity of overhang (both 5' or both 3') and overhangs that can anneal — same length, and one the reverse complement of the other. compatibleEnd is \"blunt\" or the shared overhang sequence. A 5' overhang is never compatible with a 3' overhang even when the letters match (SacI 3' AGCT vs HindIII 5' AGCT are NOT compatible). With enzyme_name set, lists what that one enzyme can be ligated to, itself included — use this for an enzyme with a unique overhang (EcoRI, PstI, SfiI), which appears in no pair at all. Call when the user needs enzymes that yield compatible (ligatable) ends for cloning.")]
+    [McpServerTool(Name = "compatible_enzymes", Title = "MolTools — Compatible Enzyme Pairs", ReadOnly = true), Description("Enumerates pairs of restriction enzymes whose ends can be ligated to each other: either both produce blunt ends, or both produce the same polarity of overhang (both 5' or both 3') and overhangs that can anneal — same length, and one the reverse complement of the other. compatibleEnd is \"blunt\" or the shared overhang sequence. A 5' overhang is never compatible with a 3' overhang even when the letters match (SacI 3' AGCT vs HindIII 5' AGCT are NOT compatible). Without enzyme_name every pair of the 39 common laboratory enzymes is listed. With enzyme_name set (any of the 754 REBASE enzymes with a defined cut), lists what that one enzyme can be ligated to among enzyme_set (default \"common\" = the 39; \"rebase\" = all 754), itself included when it is in that set — use this for an enzyme with a unique overhang (EcoRI, PstI, SfiI), which appears in no pair at all. enzyme_set=\"rebase\" requires enzyme_name (the all-pairs listing covers the common set only). Call when the user needs enzymes that yield compatible (ligatable) ends for cloning.")]
     public static CompatibleEnzymesResult compatible_enzymes(
-        [Description("Optional: restrict the result to pairs involving this enzyme (case-insensitive); omit or leave blank for every pair in the table.")] string? enzyme_name = null)
+        [Description("Optional: restrict the result to pairs involving this enzyme (case-insensitive); omit or leave blank for every pair of the common table.")] string? enzyme_name = null,
+        [Description("Partner table for the enzyme_name form: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive; \"rebase\" requires enzyme_name.")] string? enzyme_set = "common")
     {
+        var set = ParseEnzymeSet(enzyme_set);
         if (string.IsNullOrWhiteSpace(enzyme_name))
         {
+            if (set != EnzymeSet.Common)
+                throw new System.ArgumentException(
+                    "enzyme_set \"rebase\" requires enzyme_name: the all-pairs listing covers the common set only.",
+                    nameof(enzyme_set));
             var allPairs = RestrictionAnalyzer.FindCompatibleEnzymes()
                 .Select(t => new EnzymeCompatibilityPair(t.Enzyme1, t.Enzyme2, t.CompatibleEnd))
                 .ToList();
             return new CompatibleEnzymesResult(allPairs);
         }
 
-        var pairs = RestrictionAnalyzer.FindCompatibleEnzymes(enzyme_name)
+        var pairs = RestrictionAnalyzer.FindCompatibleEnzymes(enzyme_name, set)
             .Select(t => new EnzymeCompatibilityPair(enzyme_name, t.Enzyme, t.CompatibleEnd))
             .ToList();
         return new CompatibleEnzymesResult(pairs);
     }
 
-    [McpServerTool(Name = "enzymes_compatible", Title = "MolTools — Enzyme End Compatibility", ReadOnly = true), Description("Returns whether two named built-in restriction enzymes produce ligatable (compatible) ends: both blunt, or the same overhang polarity (both 5' or both 3') with overhangs that can anneal — same length, and one the reverse complement of the other. compatibleEnd echoes the shared end (\"blunt\" or the overhang sequence) and is null when they are incompatible. Same letters with opposite polarity are NOT compatible (SacI 3' AGCT vs HindIII 5' AGCT → false). An unknown enzyme name is an ERROR, as it is for find_restriction_sites, so a typo is never reported as \"not compatible\"; use get_enzyme first if the name may not exist. Call to check a specific pair for cloning compatibility.")]
+    [McpServerTool(Name = "enzymes_compatible", Title = "MolTools — Enzyme End Compatibility", ReadOnly = true), Description("Returns whether two named restriction enzymes (any of the 754 REBASE enzymes with a defined cut, case-insensitive) produce ligatable (compatible) ends: both blunt, or the same overhang polarity (both 5' or both 3') with overhangs that can anneal — same length, and one the reverse complement of the other. compatibleEnd echoes the shared end (\"blunt\" or the overhang sequence) and is null when they are incompatible. Same letters with opposite polarity are NOT compatible (SacI 3' AGCT vs HindIII 5' AGCT → false). An unknown enzyme name is an ERROR, as it is for find_restriction_sites, so a typo is never reported as \"not compatible\"; use get_enzyme first if the name may not exist. Call to check a specific pair for cloning compatibility.")]
     public static EnzymeCompatibilityResult enzymes_compatible(
         [Description("First enzyme name.")] string enzyme1_name,
         [Description("Second enzyme name.")] string enzyme2_name)
@@ -649,7 +687,9 @@ public class MolToolsTools
 
         bool compatible = RestrictionAnalyzer.AreCompatible(enzyme1_name, enzyme2_name);
         string? compatibleEnd = compatible
-            ? RestrictionAnalyzer.FindCompatibleEnzymes(enzyme1_name)
+            // Search the full set: enzyme2 may be any REBASE enzyme (GetEnzyme resolves all 754), and
+            // a common-set search would not contain it (B08 WP12b).
+            ? RestrictionAnalyzer.FindCompatibleEnzymes(enzyme1_name, EnzymeSet.Rebase)
                 .First(t => string.Equals(t.Enzyme, enzyme2_name, System.StringComparison.OrdinalIgnoreCase))
                 .CompatibleEnd
             : null;

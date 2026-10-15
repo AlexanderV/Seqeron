@@ -5,15 +5,28 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetEnzyme",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L79",
-  "description": "Look up a built-in restriction enzyme by name (case-insensitive) and report its end chemistry, overhang sequence (REBASE/Biopython ovhgseq) and same-site enzymes.",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L94",
+  "description": "Look up a restriction enzyme by name (case-insensitive) among the 754 REBASE enzymes with a defined cut (the 39 common laboratory enzymes included) and report its end chemistry, overhang sequence (REBASE/Biopython ovhgseq), second cut pair for a two-sided Type IIB cutter, and same-site enzymes from enzyme_set.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "name": {
         "type": "string",
-        "description": "Enzyme name (e.g. EcoRI, BamHI).",
+        "description": "Enzyme name (e.g. EcoRI, BamHI, BsaI).",
         "minLength": 1
+      },
+      "enzyme_set": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "common",
+          "rebase",
+          null
+        ],
+        "default": "common",
+        "description": "Which enzyme table the equischizomer/neoschizomer lists are drawn from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive. The looked-up enzyme itself is always resolved against all 754."
       }
     },
     "required": [
@@ -48,6 +61,20 @@
           "organism": {
             "type": "string",
             "description": "Source organism."
+          },
+          "secondCutForward": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Two-sided (Type IIB) cutters only: top-strand offset of the second cut pair (Biopython scd5; BaeI 23). Omitted/null for a one-cut enzyme."
+          },
+          "secondCutReverse": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Two-sided (Type IIB) cutters only: bottom-strand offset of the second cut pair (Biopython size + scd3; BaeI 18). Omitted/null for a one-cut enzyme."
           },
           "isBluntEnd": {
             "type": "boolean",
@@ -137,6 +164,10 @@
     {
       "code": 1001,
       "message": "Enzyme name cannot be null or blank"
+    },
+    {
+      "code": 1010,
+      "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\""
     }
   ],
   "examples": [
@@ -232,6 +263,76 @@
       }
     },
     {
+      "name": "BsaI (Type IIS, REBASE set) with its REBASE equischizomers",
+      "input": {
+        "name": "BsaI",
+        "enzyme_set": "rebase"
+      },
+      "output": {
+        "enzyme": {
+          "name": "BsaI",
+          "recognitionSequence": "GGTCTC",
+          "cutPositionForward": 7,
+          "cutPositionReverse": 11,
+          "organism": "Bacillus stearothermophilus 6-55",
+          "rebaseMethylationField": "-4(6)",
+          "cognateMethylationSites": [
+            {
+              "position": 4,
+              "isComplementaryStrand": true,
+              "type": "N6Methyladenine"
+            }
+          ],
+          "isBluntEnd": false,
+          "overhangType": "FivePrime",
+          "recognitionLength": 6
+        },
+        "overhangSequence": "NNNN",
+        "equischizomers": [
+          "Bso31I",
+          "BspTNI",
+          "Eco31I"
+        ],
+        "neoschizomers": []
+      }
+    },
+    {
+      "name": "BaeI - two-sided Type IIB cutter",
+      "input": {
+        "name": "BaeI"
+      },
+      "output": {
+        "enzyme": {
+          "name": "BaeI",
+          "recognitionSequence": "ACNNNNGTAYC",
+          "cutPositionForward": -10,
+          "cutPositionReverse": -15,
+          "organism": "Bacillus sphaericus",
+          "rebaseMethylationField": "1(6),-4(6)",
+          "cognateMethylationSites": [
+            {
+              "position": 1,
+              "isComplementaryStrand": false,
+              "type": "N6Methyladenine"
+            },
+            {
+              "position": 4,
+              "isComplementaryStrand": true,
+              "type": "N6Methyladenine"
+            }
+          ],
+          "secondCutForward": 23,
+          "secondCutReverse": 18,
+          "isBluntEnd": false,
+          "overhangType": "ThreePrime",
+          "recognitionLength": 11
+        },
+        "overhangSequence": "NNNNN",
+        "equischizomers": [],
+        "neoschizomers": []
+      }
+    },
+    {
       "name": "Unknown enzyme",
       "input": {
         "name": "NotAnEnzyme"
@@ -241,6 +342,16 @@
         "overhangSequence": null,
         "equischizomers": null,
         "neoschizomers": null
+      }
+    },
+    {
+      "name": "Unknown enzyme set",
+      "input": {
+        "name": "EcoRI",
+        "enzyme_set": "all"
+      },
+      "output": {
+        "error": "Unknown enzyme set 'all'; expected \"common\" or \"rebase\"."
       }
     }
   ]
