@@ -1,14 +1,15 @@
 # REBASE `allenz.104` — permission request for two redistributed columns
 
-**Status: DRAFTED, NOT SENT.** Owner decision 2026-10-15: keep the data and ask REBASE for written
-permission (option B of the three put to the owner). Update the status line below when the letter goes out
-and again when an answer arrives.
+**Status: SENT 2026-10-15.** Owner decision 2026-10-15: keep the data and ask REBASE for written
+permission (option B of the three put to the owner). The owner sent the letter the same day. Record the
+answer below when it arrives; if nothing comes back in about two weeks (by ~2026-10-29), follow up once
+before deciding whether to fall back on the removal recipe.
 
 | | |
 |---|---|
-| Status | drafted 2026-10-15 — **the owner sends it**; not sent yet |
-| Sent on | — |
-| Answer | — |
+| Status | **sent** — awaiting an answer |
+| Sent on | 2026-10-15 (by the repository owner) |
+| Answer | — (follow up once if silent by ~2026-10-29) |
 | Fallback if refused or unanswered | drop the two columns (see "If the answer is no") |
 
 ## What this is about
