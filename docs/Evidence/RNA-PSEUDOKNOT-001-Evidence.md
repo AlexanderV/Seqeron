@@ -48,7 +48,7 @@
 ### Wikipedia — "Pseudoknot"
 
 **URL:** https://en.wikipedia.org/wiki/Pseudoknot
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (cites primaries Rivas & Eddy 1999; Antczak et al. 2018)
 **Retrieved how:** WebFetch of the Wikipedia article URL above.
 

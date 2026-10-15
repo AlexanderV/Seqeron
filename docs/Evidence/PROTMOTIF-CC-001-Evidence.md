@@ -44,7 +44,7 @@
 ### Wikipedia — "Heptad repeat"
 
 **URL:** https://en.wikipedia.org/wiki/Heptad_repeat
-**Accessed:** 2026-06-14
+**Accessed:** 2026-06-14 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primaries: Chambers et al. 1990, J Gen Virol)
 
 **Retrieval:** WebFetch of the article.

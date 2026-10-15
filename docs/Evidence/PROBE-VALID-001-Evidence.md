@@ -23,13 +23,13 @@
 ### Altschul et al. (1990) — BLAST (Basic Local Alignment Search Tool)
 
 **URL:** https://en.wikipedia.org/wiki/BLAST_(biotechnology) (citing Altschul SF, Gish W, Miller W, Myers EW, Lipman DJ (1990) *J Mol Biol* 215(3):403–410)
-**Accessed:** 2026-06-24
+**Accessed:** 2026-06-24 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 1 (primary peer-reviewed paper, via Wikipedia citing the primary)
 
 **Key Extracted Points:**
 
 1. **Purpose:** a sequence-similarity search tool — compare a query against a library/database to find matches above thresholds. This is the canonical "off-target / homology search" rationale.
-2. **Gapped vs ungapped:** the original BLAST produced only ungapped alignments; gapped BLAST (BLAST2) "produce[s] a single alignment with gaps ... allowing detection of insertions and deletions that the original version missed." This is exactly the improvement of a gapped local-alignment off-target scan over a pure ungapped Hamming scan.
+2. **Gapped vs ungapped:** the original BLAST produced only ungapped alignments; gapped BLAST (BLAST2) "produces a single alignment with gaps that can include all of the initially found HSP regions" (gaps = indels the ungapped original could not represent). This is exactly the improvement of a gapped local-alignment off-target scan over a pure ungapped Hamming scan.
 3. **Seed-and-extend:** BLAST is a *heuristic* — it locates short seed matches, then extends them into high-scoring segment pairs (HSPs). A full Smith–Waterman scan is exact (not seeded); the "BLAST-grade" property realized here is *gapped local alignment* (indel-aware), not the seed heuristic or a genome-scale index.
 4. **Identity thresholds:** the BLAST page does not give a percent-identity cutoff; significance is by E-value/HSP score. Hence the off-target identity threshold is sourced separately (Kane et al. 2000) and exposed as a caller parameter.
 

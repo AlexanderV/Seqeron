@@ -33,7 +33,7 @@
 ### Wikipedia — Sequence motif
 
 **URL:** https://en.wikipedia.org/wiki/Sequence_motif
-**Accessed:** 2026-02-12
+**Accessed:** 2026-02-12 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia with citations to primary sources)
 
 **Key Extracted Points:**
@@ -46,7 +46,7 @@
 ### Wikipedia — PROSITE
 
 **URL:** https://en.wikipedia.org/wiki/PROSITE
-**Accessed:** 2026-02-12
+**Accessed:** 2026-02-12 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4
 
 **Key Extracted Points:**

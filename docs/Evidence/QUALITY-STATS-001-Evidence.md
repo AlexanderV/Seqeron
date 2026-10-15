@@ -11,7 +11,7 @@
 ### Phred quality score (Wikipedia, citing Ewing & Green 1998 primaries)
 
 **URL:** https://en.wikipedia.org/wiki/Phred_quality_score
-**Accessed:** 2026-06-13 (fetched in session)
+**Accessed:** 2026-06-13 (fetched in session) · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia citing primary sources; the primaries are Ewing et al. 1998 ranked 1)
 
 **Key Extracted Points:**

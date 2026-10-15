@@ -13,7 +13,7 @@
 
 1. **Wikipedia: Linkage disequilibrium**
    - URL: https://en.wikipedia.org/wiki/Linkage_disequilibrium
-   - Accessed: 2026-02-01
+   - Accessed: 2026-02-01 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
    - Key information:
      - Formal definition: D = p_AB - p_A × p_B
      - D' (Lewontin's D prime) normalization formula
@@ -22,7 +22,7 @@
 
 2. **Wikipedia: Haplotype block**
    - URL: https://en.wikipedia.org/wiki/Haplotype_block
-   - Accessed: 2026-02-01
+   - Accessed: 2026-02-01 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
    - Key information:
      - Definition based on high LD threshold
      - Gabriel et al. (2002) block definition method

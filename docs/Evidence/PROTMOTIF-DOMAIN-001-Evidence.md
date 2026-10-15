@@ -11,33 +11,33 @@
 ### Wikipedia — Protein Domain
 
 **URL:** https://en.wikipedia.org/wiki/Protein_domain
-**Accessed:** 2026-02-13
+**Accessed:** 2026-02-13 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia with cited primary sources)
 
 **Key Extracted Points:**
 
 1. **Definition:** A protein domain is a self-stabilizing region of a protein's polypeptide chain that folds independently. Domains range from ~50 to ~250 amino acids. — Wetlaufer (1973), cited via Xu & Nussinov (1998) https://doi.org/10.1016/S1359-0278(98)00004-2
 2. **Domain databases:** Pfam, InterPro, PROSITE, and SMART are established databases for domain classification. Pfam classifies using Hidden Markov Models. — El-Gebali et al. (2019) https://doi.org/10.1093/nar/gky995
-3. **Zinc finger C2H2:** The shortest domains (~50 aa), stabilized by metal ions. C2H2 zinc fingers adopt ββα fold with motif `X2-Cys-X(2,4)-Cys-X(12)-His-X(3,5)-His`. — Krishna et al. (2003) https://doi.org/10.1093/nar/gkg161
+3. **Zinc finger C2H2:** Among the shortest domains, stabilized by metal ions (Wikipedia gives no length; a C2H2 finger is ~23–28 aa, see PF00096 below). C2H2 zinc fingers adopt ββα fold with motif `X2-Cys-X(2,4)-Cys-X(12)-His-X(3,5)-His`. — Krishna et al. (2003) https://doi.org/10.1093/nar/gkg161
 4. **SH3 domain:** An interaction domain involved in protein-protein binding, recognizing proline-rich sequences. — cited via Campbell & Downing (1994)
 5. **Pattern-based detection:** PROSITE uses consensus patterns, Pfam uses profile HMMs for domain identification. Simple regex-based matching is a simplification of PROSITE's approach.
 
 ### Wikipedia — Signal Peptide
 
 **URL:** https://en.wikipedia.org/wiki/Signal_peptide
-**Accessed:** 2026-02-13
+**Accessed:** 2026-02-13 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia with cited primary sources)
 
 **Key Extracted Points:**
 
 1. **Length:** Signal peptides are usually 16–30 amino acids long, present at the N-terminus. — Owji et al. (2018) https://doi.org/10.1016/j.ejcb.2018.06.003
-2. **Tripartite structure:** Signal peptides contain three regions: n-region (positively charged, N-terminal), h-region (hydrophobic core, 7–15 residues), c-region (cleavage recognition site). — von Heijne (1985) J Mol Biol 184:99–105; von Heijne & Gavel (1988) https://doi.org/10.1111/j.1432-1033.1988.tb14150.x
+2. **Tripartite structure:** Signal peptides contain three regions: n-region (positively charged, N-terminal), h-region (hydrophobic core, 7–15 residues per von Heijne 1985; Wikipedia gives "about 5–16 residues"), c-region (cleavage recognition site). — von Heijne (1985) J Mol Biol 184:99–105; von Heijne & Gavel (1988) https://doi.org/10.1111/j.1432-1033.1988.tb14150.x
 3. **Cleavage site specificity:** Small, neutral amino acids {A, G, S} at positions -1 and -3 relative to the cleavage site (the "-1, -3 rule"). — von Heijne (1983) Eur J Biochem 133:17–21
 
 ### Wikipedia — Zinc Finger
 
 **URL:** https://en.wikipedia.org/wiki/Zinc_finger
-**Accessed:** 2026-02-13
+**Accessed:** 2026-02-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia with cited primary sources)
 
 **Key Extracted Points:**
