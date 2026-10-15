@@ -28,7 +28,7 @@ interrupted palindrome SfiI — 39 in all. Every `recognitionLength` was checked
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L94](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L94)
+- Source: [RestrictionAnalyzer.cs#L98](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L98)
 
 ## Input Schema
 

@@ -33,6 +33,17 @@ Alongside it the result reports:
 - **`neoschizomers`** — other built-ins with the same recognition sequence but a different cut, so
   they leave different ends (`MboI` → `DpnI`).
 
+- **`rebaseMethylationField`** / **`cognateMethylationSites`** — REBASE `allenz.104` field `<6>`
+  ("METHYLATION SITE") verbatim, and its typed parse: one entry per modified base with `position`
+  (1-based within the recognition sequence, counted from the 5′ end of the named strand; `null`
+  for REBASE `?`), `isComplementaryStrand` (REBASE negative position) and `type`
+  (`N4Methylcytosine` / `C5Methylcytosine` / `N6Methyladenine` = REBASE `(4)`/`(5)`/`(6)`).
+  `EcoRI` → `"3(6)"` (m6A at the 3rd base of `GAATTC`), `MboI` → `"2(6)"`, `SfiI` → `"?(4)"`,
+  `DpnI` → `""`. This is the base modified by the enzyme's **cognate** methyltransferase (the
+  protection half of its R-M system); it is **not** a statement about whether Dam, Dcm or CpG
+  methylation blocks the enzyme — that is not modelled. All 39 values are transcribed from the
+  file programmatically and locked by a test (B08 D7 / F52).
+
 `recognitionLength` is the length of the full recognition string, i.e. Biopython `.size`, so the
 interrupted palindrome `SfiI` (`GGCCNNNNNGGCC`) reports **13** although only 8 of its bases are
 specified.
@@ -43,9 +54,9 @@ entries**.
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L75](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L75)
-- Overhang: [RestrictionAnalyzer.cs#L1149](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1149)
-- Isoschizomers: [RestrictionAnalyzer.cs#L1409](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1409)
+- Source: [RestrictionAnalyzer.cs#L79](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L79)
+- Overhang: [RestrictionAnalyzer.cs#L1153](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1153)
+- Isoschizomers: [RestrictionAnalyzer.cs#L1413](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1413)
 
 ## Input Schema
 
@@ -57,7 +68,7 @@ entries**.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `enzyme` | object \| null | The enzyme record (`name`, `recognitionSequence`, `cutPositionForward`, `cutPositionReverse`, `organism`, `isBluntEnd`, `overhangType`, `recognitionLength`), or `null` if not found. |
+| `enzyme` | object \| null | The enzyme record (`name`, `recognitionSequence`, `cutPositionForward`, `cutPositionReverse`, `organism`, `rebaseMethylationField`, `cognateMethylationSites`, `isBluntEnd`, `overhangType`, `recognitionLength`), or `null` if not found. |
 | `overhangSequence` | string \| null | The enzyme-level overhang (REBASE `ovhgseq`); `""` for a blunt cutter, `null` when `enzyme` is `null`. |
 | `equischizomers` | array \| null | Names of built-ins with the same site **and** cut positions; `null` when `enzyme` is `null`. |
 | `neoschizomers` | array \| null | Names of built-ins with the same site but a different cut; `null` when `enzyme` is `null`. |
@@ -72,7 +83,7 @@ entries**.
 
 ### Example 1: EcoRI
 
-`get_enzyme("EcoRI")` → `{ enzyme: { name: "EcoRI", recognitionSequence: "GAATTC", cutPositionForward: 1, cutPositionReverse: 5, organism: "Escherichia coli", isBluntEnd: false, overhangType: "FivePrime", recognitionLength: 6 }, overhangSequence: "AATT", equischizomers: [], neoschizomers: [] }`. Lookup is case-insensitive (`ecori` works too). Biopython: `EcoRI.ovhg == -4`, `EcoRI.ovhgseq == "AATT"`, `EcoRI.elucidate() == "G^AATT_C"`.
+`get_enzyme("EcoRI")` → `{ enzyme: { name: "EcoRI", recognitionSequence: "GAATTC", cutPositionForward: 1, cutPositionReverse: 5, organism: "Escherichia coli", isBluntEnd: false, overhangType: "FivePrime", recognitionLength: 6, rebaseMethylationField: "3(6)", cognateMethylationSites: [{ position: 3, isComplementaryStrand: false, type: "N6Methyladenine" }] }, overhangSequence: "AATT", equischizomers: [], neoschizomers: [] }`. Lookup is case-insensitive (`ecori` works too). Biopython: `EcoRI.ovhg == -4`, `EcoRI.ovhgseq == "AATT"`, `EcoRI.elucidate() == "G^AATT_C"`.
 
 ### Example 2: MboI — same site as two other built-ins
 

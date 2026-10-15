@@ -30,6 +30,7 @@
 | Roberts RJ (1976) | Research | Restriction endonuclease classification |
 | REBASE | Database | Comprehensive enzyme database, recognition sequences |
 | **Biopython 1.88 `Bio.Restriction`** | Reference implementation (oracle) | Site positions, cut positions (1-based top strand), linear cut-feasibility filter `AbstractCut._drop`, circular search `FormattedSeq.finditer` (`data + data[1:size]`), `Defined._modify` / `_rev_modify`, `Palindromic._search`, `NonPalindromic._search`, `elucidate()`, `is_blunt()`/`is_5overhang()`/`is_3overhang()` |
+| **REBASE `allenz.104` (2021), field `<6>`** | Database snapshot | The cognate-methyltransferase site of every built-in (D7 / F52); vendored in `crisprVerse/crisprBase`, pinned in `docs/Evidence/B08-Source-Provenance.md` §3a |
 | **REBASE EMBOSS files version 404 (2024)** | Database snapshot | The enzyme table audited field by field; shipped as `Bio/Restriction/Restriction_Dictionary.py` in Biopython 1.88, whose generated header states the REBASE version (rebase.neb.com is unreachable from the validation environment) |
 
 ---
@@ -53,6 +54,7 @@
 15. **Pattern validation**: an empty or non-IUPAC recognition pattern raises ArgumentException eagerly (Source: API contract)
 16. **CreateMap partition**: SitesByEnzyme.Keys ∪ NonCutters covers the considered enzyme set exactly, both keyed by canonical table name (Source: RESTR-DIGEST-001 invariant #11)
 17. **Sequence ambiguity (D3)**: per position, a site `N` matches any of the 15 IUPAC codes in the sequence (an `N` included); every other site code matches only a concrete A/C/G/T base it expands to, so a sequence ambiguity code blocks it; a non-IUPAC sequence character matches nothing (Source: Biopython 1.88 `compsite` — site `N` → regex `.`, other codes → their A/C/G/T class; `SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]`, `EcoRI.search(Seq("AGAANTCA")) == []`)
+18. **Cognate methylation site (D7)**: every built-in's `RebaseMethylationField` equals REBASE `allenz.104` field `<6>` verbatim, and `CognateMethylationSites` is its parse per the file's format header (`X(Y)`, negative X = complementary strand, `?` = base undetermined, `(4)/(5)/(6)` = m4C/m5C/m6A); a known top-strand position names an `A` for m6A and a `C` for m4C/m5C. The field is the cognate MTase's protection site — no Dam/Dcm/CpG sensitivity is modelled (Source: REBASE `allenz.104`, sha256 `43b12432…69388`)
 
 ---
 
@@ -78,6 +80,8 @@
 | M14 | 5' overhang enzyme (EcoRI) properties correct | Overhang type | Wikipedia (EcoRI) |
 | M15 | 3' overhang enzyme (PstI) properties correct | Overhang type | Wikipedia |
 | M16 | Blunt cutter enzyme (EcoRV) properties correct | Overhang type | Wikipedia |
+| M35 | Every built-in's REBASE methylation-site field equals allenz.104 `<6>` | D7: the field was claimed unobtainable | REBASE allenz.104 |
+| M36 | REBASE `<6>` notation parsed (complementary strand, lists, `?`); malformed values rejected | Faithful typed representation | REBASE allenz.104 format header |
 
 ### Should (Important)
 
@@ -142,6 +146,7 @@
 | INV-14 | Short molecule | `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing` |
 | INV-17 / M33 | Sequence ambiguity (D3) | `FindSites_SfiI_SequenceNInsideSpacer_MatchesBiopython` (×2), `FindSites_SfiI_SequenceN_TopStrandCutsMatchBiopython` (×3), `FindSites_SequenceAmbiguityAtConcreteSiteCode_StillBlocks` (×5), `SiteN_AcceptsEveryIupacCode_InFindSitesAndFindPatternOccurrences`, `FindSites_NonIupacCharacterInSpacer_MatchesNothing`, plus `FindPatternOccurrences_AmbiguousSequenceBase_NeverMatches` (×2, unchanged) |
 | INV-17 / M34 | ASCII-only fold (F49): 'ſ' (U+017F) never matches and a pattern containing it is rejected | `RawStringEntryPoints_LongS_IsNotFoldedOntoIupacS`, `Pattern_WithLongS_IsRejectedLikeAnyNonIupacCharacter` |
+| INV-18 / M35-M36 | Cognate methylation site (D7 / F52): table locked to allenz.104 `<6>` (M35); notation parse + rejection of malformed / `(99)` values (M36) | `EnzymeDatabase_MethylationField_MatchesRebaseAllenz104` (×39), `EnzymeDatabase_MethylationAuditCoversEveryEntry`, `CognateMethylationSites_BuiltIns_ParsedToTypedSites`, `CognateMethylationSites_RebaseNotation_ComplementaryStrandAndLists`, `RestrictionEnzyme_MalformedMethylationField_Throws` (×7), `RestrictionEnzyme_NullMethylationField_Throws`; MCP `GetEnzyme_ReportsRebaseCognateMethylationSite` |
 
 ### External Source Verification Tests
 
@@ -173,6 +178,7 @@
 | FindSites_SequenceAmbiguityAtConcreteSiteCode_StillBlocks | `EcoRI` on `AGAANTCA`, `HincII` on `AGTYRACA`/`AGTNNACA`, `SfiI` on `GGCNNNNNNGGCC`, `EcoRI` on `N`×16 — all `[]`, both topologies | Biopython 1.88 |
 | SiteN_AcceptsEveryIupacCode_InFindSitesAndFindPatternOccurrences | `SfiI.search(Seq("GGCCRYSWKGGCC")) == [9]`; `Hpy188I.compsite` `TC.GA`, `Hpy8I` `GT..AC`, `AccI` `GT[AC][GT]AC` | Biopython 1.88 |
 | FindSites_NonIupacCharacterInSpacer_MatchesNothing | `SfiI.search(Seq("GGCCXXXXXGGCC")) == [9]` — deliberate divergence | Biopython 1.88 |
+| EnzymeDatabase_MethylationField_MatchesRebaseAllenz104 (×39) | field `<6>` of every table entry, strings extracted programmatically (34 with a site, 5 empty) | REBASE `allenz.104` |
 
 ### Actions Taken
 
@@ -185,6 +191,7 @@
 | 🔁 Removed | `RestrictionEnzyme_NotI_IsEightCutter` | Fully covered by `EnzymeDatabase_CutPositions_MatchWikipedia("NotI", "GCGGCCGC", 2, 6)` |
 | ❌ Implemented (2026-10-14 review) | the whole `Reference-Locked Site Search`, `CreateMap Site Reporting`, `FindPatternOccurrences` and `Enzyme Table Audit against REBASE 404` regions | M17-M32 and invariants #8-#16 were all missing; they lock the fixes F16-F21 |
 | ⚠ Corrected (2026-10-14 review) | `CreateMap_NoEnzymesSpecified_SearchesAll` (RESTR-DIGEST-001 test file) | It asserted `NonCutters` is empty when no enzyme names are given, which restated an implementation artefact and contradicted RESTR-DIGEST-001 invariant #11; it now asserts the cutter/non-cutter partition |
+| ❌ Implemented (B08 WP9 / D7, F52) | the `D7 — REBASE allenz.104 methylation-site field` region (50 cases) + 1 MCP test | the cognate-MTase site was absent although REBASE `allenz.104` field `<6>` is reachable |
 | ❌ Implemented (B08 WP3 / D3, F40) | the `D3 — a site N matches a sequence N` region (12 cases) | a sequence `N` used to block every site, so `SfiI` on `GGCCNNNNNGGCC` reported nothing where Biopython reports `[9]`; the old `FindPatternOccurrences` doc comment saying ambiguity is read in the pattern only was corrected |
 
 ---

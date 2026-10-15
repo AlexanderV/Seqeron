@@ -36,7 +36,7 @@ per-enzyme sets agree with the symmetrised `%` operator.
 ## Core Documentation Reference
 
 - Source: [RestrictionAnalyzer.cs#L1206](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1206)
-- Per-enzyme overload: [RestrictionAnalyzer.cs#L1240](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1240)
+- Per-enzyme overload: [RestrictionAnalyzer.cs#L1244](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1244)
 
 ## Input Schema
 

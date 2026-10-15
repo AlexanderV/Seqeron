@@ -287,3 +287,88 @@ so the filter is sound on both strands and this library uses the same rule.
 | Each entry's `Organism` string | ~~`rebase.neb.com`, `en.wikipedia.org` (both proxy 403 to CONNECT), Biopython's snapshot (no organism field)~~ → **resolved** via REBASE `allenz.104` vendored in `crisprVerse/crisprBase` on `raw.githubusercontent.com` | **Verified 39/39** (genus+species) by WP-SRC, corroborated on a second mirror — see [`B08-Source-Provenance.md`](B08-Source-Provenance.md) §4c |
 | REBASE release newer than 404 | same blocked hosts | Not attempted further; 404 (2024) is the newest snapshot available offline |
 | `RestrictionEnzyme`'s overhang **sequence** (`GetOverhang`) against REBASE `ovhgseq` | Biopython exposes `ovhgseq` per enzyme (e.g. EcoRI `AATT`, `ovhg` −4) | Out of this unit — belongs to RESTR-FILTER-001; recorded in `docs/Validation/review-2026-09/B08.md` |
+
+---
+
+## 5. Methylation-site field — REBASE `allenz.104` field `<6>` (B08 D7 / F52, 2026-10-15)
+
+**Source.** REBASE `allenz.104` (REBASE version 104, © R. J. Roberts 2021) as vendored in
+`crisprVerse/crisprBase`: `inst/enzymes/allenz.txt` re-downloaded 2026-10-15 into a fresh directory,
+sha256 `43b12432ed3c1a19e961d019e3a131336e8ee690a4568a68ddf55ed0e3869388` — **identical** to the pin in
+[`B08-Source-Provenance.md`](B08-Source-Provenance.md) §3a; header `inst/enzymes/notation.txt` sha256
+`3820fd9dc95c713ea706f2da9c5000975f6f6ab66125d6181448cd562128a64b` (identical). The corroborating
+mirror (§3b there) agrees on `<6>` 39/39 for the built-ins (WP-SRC, §4c).
+
+**What the field means** (format header, quoted): *"The site of methylation by the cognate methylase
+when known is indicated X(Y) or X,X2(Y,Y2), where X is the base within the recognition sequence that
+is modified. A negative number indicates the complementary strand, numbered from the 5' base of that
+strand, and Y is the specific type of methylation involved: (6) = N6-methyladenosine, (5) =
+5-methylcytosine, (4) = N4-methylcytosine."* In the data, several sites are comma-separated
+(`3(6),-3(6)`, `3(5), 2(5)`) and `?` stands for X when only the type is known (`?(4)`). It is the
+**protection** site of the enzyme's own R-M system — not whether Dam, Dcm or CpG methylation by another
+MTase blocks the enzyme. No source opened in this campaign tabulates that sensitivity for the 39
+built-ins (Biopython 1.88 `Bio.Restriction` has no methylation attribute; REBASE's sensitivity pages
+are on the blocked host), so **no blocking behaviour is implemented or claimed**.
+
+**Method.** `extract_meth.py` (16 lines; parses `<n>`-tagged records, prints `<5>` and `<6>` for the 39
+table names) was run with `python3 -I` on the downloaded file; a second script rewrote the 39
+`_enzymes` initialisers with the extracted `<6>` string (asserting exactly 39 substitutions), and the
+same output generated the 39 `[TestCase]`s of `EnzymeDatabase_MethylationField_MatchesRebaseAllenz104`.
+Nothing was typed by hand. Extraction output, verbatim:
+
+```
+allenz.txt sha256 43b12432ed3c1a19e961d019e3a131336e8ee690a4568a68ddf55ed0e3869388
+EcoRI	<5>G^AATTC	<6>3(6)
+BamHI	<5>G^GATCC	<6>5(4)
+HindIII	<5>A^AGCTT	<6>1(6)
+XhoI	<5>C^TCGAG	<6>5(6)
+SalI	<5>G^TCGAC	<6>5(6)
+PstI	<5>CTGCA^G	<6>5(6)
+SphI	<5>GCATG^C	<6>
+KpnI	<5>GGTAC^C	<6>4(6)
+SacI	<5>GAGCT^C	<6>4(5)
+XbaI	<5>T^CTAGA	<6>6(6)
+NcoI	<5>C^CATGG	<6>?(4)
+NdeI	<5>CA^TATG	<6>4(6)
+NheI	<5>G^CTAGC	<6>6(4)
+SpeI	<5>A^CTAGT	<6>1(6)
+AvrII	<5>C^CTAGG	<6>
+ClaI	<5>AT^CGAT	<6>5(6)
+AgeI	<5>A^CCGGT	<6>3(5)
+NotI	<5>GC^GGCCGC	<6>2(4)
+SfiI	<5>GGCCNNNN^NGGCC	<6>?(4)
+PacI	<5>TTAAT^TAA	<6>
+AscI	<5>GG^CGCGCC	<6>?(5)
+FseI	<5>GGCCGG^CC	<6>?(5)
+SwaI	<5>ATTT^AAAT	<6>?(6)
+MspI	<5>C^CGG	<6>1(5)
+HpaII	<5>C^CGG	<6>2(5)
+TaqI	<5>T^CGA	<6>4(6)
+AluI	<5>AG^CT	<6>3(5)
+RsaI	<5>GT^AC	<6>4(4)
+HaeIII	<5>GG^CC	<6>3(5)
+DpnI	<5>GA^TC	<6>
+Sau3AI	<5>^GATC	<6>4(5)
+MboI	<5>^GATC	<6>2(6)
+EcoRV	<5>GAT^ATC	<6>2(6)
+SmaI	<5>CCC^GGG	<6>2(4)
+HincII	<5>GTY^RAC	<6>5(6)
+ScaI	<5>AGT^ACT	<6>5(4)
+StuI	<5>AGG^CCT	<6>
+BglII	<5>A^GATCT	<6>5(4)
+ApaI	<5>GGGCC^C	<6>4(5)
+```
+
+**Summary:** 34 entries carry a site, 5 have an empty `<6>` (SphI, AvrII, PacI, DpnI, StuI); 29 known
+positions + 5 `?` positions (NcoI, SfiI, AscI, FseI, SwaI); no built-in has a complementary-strand or
+multi-site entry. By type: m6A 15, m5C 10, m4C 9 (incl. `?`). Consistency check (locked in the same
+test): every known position lies inside the recognition sequence and names an `A` for `(6)` and a `C`
+for `(4)`/`(5)` — 29/29.
+
+**Representation.** `RestrictionEnzyme.RebaseMethylationField` (the string verbatim, validated at
+construction; default `""` for user-defined enzymes) and `CognateMethylationSites`
+(`CognateMethylationSite(int? Position, bool IsComplementaryStrand, MethylatedBase Type)`), the typed
+parse. Parser cases for notation absent from the table (negative position, lists, `?` in a list, and
+the undocumented `(99)` type that occurs 3× in the file — rejected) are locked by
+`CognateMethylationSites_RebaseNotation_ComplementaryStrandAndLists` and
+`RestrictionEnzyme_MalformedMethylationField_Throws`.

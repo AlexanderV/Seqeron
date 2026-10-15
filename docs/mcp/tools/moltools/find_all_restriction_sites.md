@@ -18,7 +18,7 @@ Performs a comprehensive restriction scan: every enzyme in the built-in database
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L326](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L326)
+- Source: [RestrictionAnalyzer.cs#L330](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L330)
 
 ## Input Schema
 

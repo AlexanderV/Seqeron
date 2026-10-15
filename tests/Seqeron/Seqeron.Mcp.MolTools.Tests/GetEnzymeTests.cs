@@ -79,4 +79,31 @@ public class GetEnzymeTests
             Assert.That(unknown.Neoschizomers, Is.Null);
         });
     }
+
+    /// <summary>
+    /// B08 D7 / F52: the enzyme record carries REBASE allenz.104 field &lt;6&gt; verbatim plus its
+    /// typed parse — the site the enzyme's COGNATE methyltransferase modifies (EcoRI "3(6)" = m6A at
+    /// base 3 of GAATTC; MboI "2(6)"; DpnI has none in REBASE).
+    /// </summary>
+    [Test]
+    public void GetEnzyme_ReportsRebaseCognateMethylationSite()
+    {
+        var ecoRI = MolToolsTools.get_enzyme("EcoRI").Enzyme!;
+        var mboI = MolToolsTools.get_enzyme("MboI").Enzyme!;
+        var dpnI = MolToolsTools.get_enzyme("DpnI").Enzyme!;
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            ecoRI, Seqeron.Mcp.MolTools.AppJsonContext.Default.RestrictionEnzyme);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ecoRI.RebaseMethylationField, Is.EqualTo("3(6)"));
+            Assert.That(ecoRI.CognateMethylationSites, Is.EqualTo(new[]
+                { new CognateMethylationSite(3, false, MethylatedBase.N6Methyladenine) }));
+            Assert.That(mboI.RebaseMethylationField, Is.EqualTo("2(6)"));
+            Assert.That(dpnI.RebaseMethylationField, Is.Empty);
+            Assert.That(dpnI.CognateMethylationSites, Is.Empty);
+            Assert.That(json, Does.Contain("\"RebaseMethylationField\":\"3(6)\"").IgnoreCase);
+            Assert.That(json, Does.Contain("CognateMethylationSites").IgnoreCase);
+        });
+    }
 }

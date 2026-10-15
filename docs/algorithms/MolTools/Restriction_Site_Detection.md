@@ -132,6 +132,16 @@ Overhang types:
 | 3' overhang | `CutPositionForward > CutPositionReverse` | PstI |
 | Blunt end | `CutPositionForward == CutPositionReverse` | EcoRV |
 
+Cognate methylation site (B08 D7 / F52). Each built-in carries REBASE `allenz.104` field `<6>`
+verbatim as `RebaseMethylationField` (e.g. EcoRI `"3(6)"`, HpaII `"2(5)"`, BamHI `"5(4)"`, NcoI
+`"?(4)"`, DpnI `""`) and its parse `CognateMethylationSites`, per the file's format header:
+`X(Y)` where X is the 1-based base within the recognition sequence (negative = complementary strand,
+numbered from that strand's 5' base; `?` = not determined) and Y is `(6)` N6-methyladenine, `(5)`
+5-methylcytosine, `(4)` N4-methylcytosine; several entries are comma-separated. It is the site the
+enzyme's **cognate** methyltransferase modifies to protect its own DNA — not the enzyme's sensitivity
+to Dam/Dcm/CpG methylation, which is not modelled and is not read by site finding. The 39 values were
+transcribed programmatically and are locked per enzyme (`docs/Evidence/RESTR-FIND-001-Evidence.md` §5).
+
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
@@ -177,6 +187,9 @@ The implementation ships with an in-memory catalog of 39 entries (37 distinct en
 
 **Not implemented:**
 
+- Methylation sensitivity (whether Dam/Dcm/CpG methylation overlapping a site blocks the enzyme). The
+  record's `CognateMethylationSites` (REBASE `<6>`) is descriptive data only and must not be read as a
+  blocking rule; no source reachable in this campaign tabulates sensitivity for the built-ins.
 - Contextual enzyme activity effects such as methylation-state filtering; **users should rely on:** external enzymology references or downstream validation when those matter.
 
 **Documented divergence from the oracle:**
@@ -214,3 +227,4 @@ The current implementation is limited to enzymes whose cuts fall inside their re
 5. REBASE (Restriction Enzyme Database) - http://rebase.neb.com/ — used here as the **REBASE EMBOSS files version 404 (2024)** snapshot shipped in Biopython 1.88 `Bio/Restriction/Restriction_Dictionary.py` (that generated file states its own REBASE version); rebase.neb.com is not reachable from the validation environment.
 6. IUPAC-IUB (1970) - Nucleic acid notation.
 7. Biopython 1.88, `Bio.Restriction` (`Bio/Restriction/Restriction.py`) — the reference oracle for site positions, cut positions, cut feasibility on linear molecules and circular search. Relevant members: `FormattedSeq.finditer`, `AbstractCut._drop`, `Defined._modify`, `Defined._rev_modify`, `Palindromic._search`, `NonPalindromic._search`.
+8. REBASE `allenz.104` (REBASE version 104, R. J. Roberts, 2021), field `<6>` METHYLATION SITE and its format header — as vendored in `crisprVerse/crisprBase` `inst/enzymes/allenz.txt` / `notation.txt` (sha256 pinned in `docs/Evidence/B08-Source-Provenance.md` §3a).

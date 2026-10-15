@@ -1794,4 +1794,173 @@ public class RestrictionAnalyzer_FindSites_Tests
     }
 
     #endregion
+
+    #region D7 — REBASE allenz.104 methylation-site field (RESTR-FIND-001 review, 2026-10)
+
+    /// <summary>
+    /// B08 D7 / F52. Every built-in entry's <see cref="RestrictionEnzyme.RebaseMethylationField"/>
+    /// equals REBASE <c>allenz.104</c> field <c>&lt;6&gt;</c> ("METHYLATION SITE") for that enzyme.
+    /// Expected strings were extracted programmatically from
+    /// <c>crisprVerse/crisprBase/inst/enzymes/allenz.txt</c> (sha256
+    /// <c>43b12432…69388</c>, see <c>docs/Evidence/B08-Source-Provenance.md</c> §3a) — the
+    /// Description carries the record's <c>&lt;5&gt;</c> and <c>&lt;6&gt;</c> lines verbatim. The
+    /// field is the site protected by the enzyme's <i>cognate</i> methyltransferase; it says
+    /// nothing about Dam/Dcm/CpG sensitivity.
+    /// </summary>
+    [Test]
+    [TestCase("EcoRI", "3(6)", Description = "allenz.104 <5>G^AATTC <6>3(6)")]
+    [TestCase("BamHI", "5(4)", Description = "allenz.104 <5>G^GATCC <6>5(4)")]
+    [TestCase("HindIII", "1(6)", Description = "allenz.104 <5>A^AGCTT <6>1(6)")]
+    [TestCase("XhoI", "5(6)", Description = "allenz.104 <5>C^TCGAG <6>5(6)")]
+    [TestCase("SalI", "5(6)", Description = "allenz.104 <5>G^TCGAC <6>5(6)")]
+    [TestCase("PstI", "5(6)", Description = "allenz.104 <5>CTGCA^G <6>5(6)")]
+    [TestCase("SphI", "", Description = "allenz.104 <5>GCATG^C <6>")]
+    [TestCase("KpnI", "4(6)", Description = "allenz.104 <5>GGTAC^C <6>4(6)")]
+    [TestCase("SacI", "4(5)", Description = "allenz.104 <5>GAGCT^C <6>4(5)")]
+    [TestCase("XbaI", "6(6)", Description = "allenz.104 <5>T^CTAGA <6>6(6)")]
+    [TestCase("NcoI", "?(4)", Description = "allenz.104 <5>C^CATGG <6>?(4)")]
+    [TestCase("NdeI", "4(6)", Description = "allenz.104 <5>CA^TATG <6>4(6)")]
+    [TestCase("NheI", "6(4)", Description = "allenz.104 <5>G^CTAGC <6>6(4)")]
+    [TestCase("SpeI", "1(6)", Description = "allenz.104 <5>A^CTAGT <6>1(6)")]
+    [TestCase("AvrII", "", Description = "allenz.104 <5>C^CTAGG <6>")]
+    [TestCase("ClaI", "5(6)", Description = "allenz.104 <5>AT^CGAT <6>5(6)")]
+    [TestCase("AgeI", "3(5)", Description = "allenz.104 <5>A^CCGGT <6>3(5)")]
+    [TestCase("NotI", "2(4)", Description = "allenz.104 <5>GC^GGCCGC <6>2(4)")]
+    [TestCase("SfiI", "?(4)", Description = "allenz.104 <5>GGCCNNNN^NGGCC <6>?(4)")]
+    [TestCase("PacI", "", Description = "allenz.104 <5>TTAAT^TAA <6>")]
+    [TestCase("AscI", "?(5)", Description = "allenz.104 <5>GG^CGCGCC <6>?(5)")]
+    [TestCase("FseI", "?(5)", Description = "allenz.104 <5>GGCCGG^CC <6>?(5)")]
+    [TestCase("SwaI", "?(6)", Description = "allenz.104 <5>ATTT^AAAT <6>?(6)")]
+    [TestCase("MspI", "1(5)", Description = "allenz.104 <5>C^CGG <6>1(5)")]
+    [TestCase("HpaII", "2(5)", Description = "allenz.104 <5>C^CGG <6>2(5)")]
+    [TestCase("TaqI", "4(6)", Description = "allenz.104 <5>T^CGA <6>4(6)")]
+    [TestCase("AluI", "3(5)", Description = "allenz.104 <5>AG^CT <6>3(5)")]
+    [TestCase("RsaI", "4(4)", Description = "allenz.104 <5>GT^AC <6>4(4)")]
+    [TestCase("HaeIII", "3(5)", Description = "allenz.104 <5>GG^CC <6>3(5)")]
+    [TestCase("DpnI", "", Description = "allenz.104 <5>GA^TC <6>")]
+    [TestCase("Sau3AI", "4(5)", Description = "allenz.104 <5>^GATC <6>4(5)")]
+    [TestCase("MboI", "2(6)", Description = "allenz.104 <5>^GATC <6>2(6)")]
+    [TestCase("EcoRV", "2(6)", Description = "allenz.104 <5>GAT^ATC <6>2(6)")]
+    [TestCase("SmaI", "2(4)", Description = "allenz.104 <5>CCC^GGG <6>2(4)")]
+    [TestCase("HincII", "5(6)", Description = "allenz.104 <5>GTY^RAC <6>5(6)")]
+    [TestCase("ScaI", "5(4)", Description = "allenz.104 <5>AGT^ACT <6>5(4)")]
+    [TestCase("StuI", "", Description = "allenz.104 <5>AGG^CCT <6>")]
+    [TestCase("BglII", "5(4)", Description = "allenz.104 <5>A^GATCT <6>5(4)")]
+    [TestCase("ApaI", "4(5)", Description = "allenz.104 <5>GGGCC^C <6>4(5)")]
+    public void EnzymeDatabase_MethylationField_MatchesRebaseAllenz104(string name, string allenzField6)
+    {
+        var enzyme = RestrictionAnalyzer.GetEnzyme(name);
+
+        Assert.That(enzyme, Is.Not.Null, $"{name} should be in the built-in table");
+        Assert.That(enzyme!.RebaseMethylationField, Is.EqualTo(allenzField6), $"{name} allenz.104 <6>");
+
+        // Format header: X is "the base within the recognition sequence that is modified" and
+        // (6) = N6-methyladenosine, (5) = 5-methylcytosine, (4) = N4-methylcytosine — so a known
+        // top-strand position must lie inside the site and name an A for (6), a C for (4)/(5).
+        foreach (var site in enzyme.CognateMethylationSites)
+        {
+            if (site.Position is not int pos || site.IsComplementaryStrand)
+                continue;
+            Assert.That(pos, Is.InRange(1, enzyme.RecognitionLength), $"{name} position inside the site");
+            char expectedBase = site.Type == MethylatedBase.N6Methyladenine ? 'A' : 'C';
+            Assert.That(enzyme.RecognitionSequence[pos - 1], Is.EqualTo(expectedBase),
+                $"{name} {site.Type} at {pos}");
+        }
+    }
+
+    /// <summary>The methylation audit above covers the whole table.</summary>
+    [Test]
+    public void EnzymeDatabase_MethylationAuditCoversEveryEntry()
+    {
+        var audited = typeof(RestrictionAnalyzer_FindSites_Tests)
+            .GetMethod(nameof(EnzymeDatabase_MethylationField_MatchesRebaseAllenz104))!
+            .GetCustomAttributes(typeof(TestCaseAttribute), false)
+            .Cast<TestCaseAttribute>()
+            .Select(a => (string)a.Arguments[0]!)
+            .ToList();
+
+        audited.Should().OnlyHaveUniqueItems();
+        audited.Should().BeEquivalentTo(RestrictionAnalyzer.Enzymes.Keys,
+            "every built-in enzyme carries a transcribed allenz.104 <6> field");
+    }
+
+    /// <summary>
+    /// Typed parse of single-site entries, one per kind that occurs in the table (values from the
+    /// test above): a known position, and <c>?</c> (type known, base not determined).
+    /// </summary>
+    [Test]
+    public void CognateMethylationSites_BuiltIns_ParsedToTypedSites()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.GetEnzyme("EcoRI")!.CognateMethylationSites,
+                Is.EqualTo(new[] { new CognateMethylationSite(3, false, MethylatedBase.N6Methyladenine) }));
+            Assert.That(RestrictionAnalyzer.GetEnzyme("HpaII")!.CognateMethylationSites,
+                Is.EqualTo(new[] { new CognateMethylationSite(2, false, MethylatedBase.C5Methylcytosine) }));
+            Assert.That(RestrictionAnalyzer.GetEnzyme("BamHI")!.CognateMethylationSites,
+                Is.EqualTo(new[] { new CognateMethylationSite(5, false, MethylatedBase.N4Methylcytosine) }));
+            Assert.That(RestrictionAnalyzer.GetEnzyme("NcoI")!.CognateMethylationSites,
+                Is.EqualTo(new[] { new CognateMethylationSite(null, false, MethylatedBase.N4Methylcytosine) }));
+            Assert.That(RestrictionAnalyzer.GetEnzyme("DpnI")!.CognateMethylationSites, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// The general REBASE notation, on field values that occur in allenz.104 (none in the
+    /// built-in table): a negative position is the complementary strand, entries are
+    /// comma-separated (with or without a space). A user-defined enzyme defaults to no site.
+    /// </summary>
+    [Test]
+    public void CognateMethylationSites_RebaseNotation_ComplementaryStrandAndLists()
+    {
+        var both = new RestrictionEnzyme("X", "GATATC", 3, 3, "test", "3(6),-3(6)");
+        var spaced = new RestrictionEnzyme("X", "GATATC", 3, 3, "test", "3(5), 2(5)");
+        var mixed = new RestrictionEnzyme("X", "GATATC", 3, 3, "test", "2(4),?(6)");
+        var plain = new RestrictionEnzyme("X", "GATATC", 3, 3, "test");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(both.CognateMethylationSites, Is.EqualTo(new[]
+            {
+                new CognateMethylationSite(3, false, MethylatedBase.N6Methyladenine),
+                new CognateMethylationSite(3, true, MethylatedBase.N6Methyladenine),
+            }));
+            Assert.That(spaced.CognateMethylationSites, Is.EqualTo(new[]
+            {
+                new CognateMethylationSite(3, false, MethylatedBase.C5Methylcytosine),
+                new CognateMethylationSite(2, false, MethylatedBase.C5Methylcytosine),
+            }));
+            Assert.That(mixed.CognateMethylationSites, Is.EqualTo(new[]
+            {
+                new CognateMethylationSite(2, false, MethylatedBase.N4Methylcytosine),
+                new CognateMethylationSite(null, false, MethylatedBase.N6Methyladenine),
+            }));
+            Assert.That(plain.RebaseMethylationField, Is.Empty);
+            Assert.That(plain.CognateMethylationSites, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// A value outside the documented notation is rejected at construction. <c>(99)</c> occurs
+    /// 3× in allenz.104 but is not one of the three types the format header defines.
+    /// </summary>
+    [TestCase("1(99)")]
+    [TestCase("3")]
+    [TestCase("(6)")]
+    [TestCase("0(6)")]
+    [TestCase("-?(6)")]
+    [TestCase("3(6),")]
+    [TestCase("x(5)")]
+    public void RestrictionEnzyme_MalformedMethylationField_Throws(string field)
+    {
+        Assert.Throws<FormatException>(() => _ = new RestrictionEnzyme("X", "GATATC", 3, 3, "test", field));
+    }
+
+    [Test]
+    public void RestrictionEnzyme_NullMethylationField_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => _ = new RestrictionEnzyme("X", "GATATC", 3, 3, "test", null!));
+    }
+
+    #endregion
 }

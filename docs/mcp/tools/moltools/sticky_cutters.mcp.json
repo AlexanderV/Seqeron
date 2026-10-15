@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetStickyCutters",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L134",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L138",
   "description": "List all built-in restriction enzymes that produce sticky (cohesive) ends - 21 with a 5' and 8 with a 3' overhang (Biopython is_5overhang / is_3overhang).",
   "inputSchema": {
     "type": "object",
@@ -56,6 +56,39 @@
             "recognitionLength": {
               "type": "integer",
               "description": "Length of the full recognition string (Biopython size); SfiI is 13."
+            },
+            "rebaseMethylationField": {
+              "type": "string",
+              "description": "REBASE allenz.104 field <6> (METHYLATION SITE) verbatim, e.g. \"3(6)\" for EcoRI; \"\" when REBASE records none. The site the enzyme's COGNATE methyltransferase modifies, not Dam/Dcm/CpG sensitivity."
+            },
+            "cognateMethylationSites": {
+              "type": "array",
+              "description": "Typed parse of rebaseMethylationField.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "position": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "description": "1-based position of the modified base in the recognition sequence, counted from the 5' end of the named strand; null for REBASE '?'."
+                  },
+                  "isComplementaryStrand": {
+                    "type": "boolean",
+                    "description": "True for a REBASE negative position (complementary strand)."
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "N4Methylcytosine",
+                      "C5Methylcytosine",
+                      "N6Methyladenine"
+                    ],
+                    "description": "REBASE (4) / (5) / (6)."
+                  }
+                }
+              }
             }
           },
           "required": [

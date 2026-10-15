@@ -23,7 +23,7 @@ cutters.
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L121](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L121)
+- Source: [RestrictionAnalyzer.cs#L125](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L125)
 
 ## Input Schema
 
@@ -33,7 +33,7 @@ _No parameters._
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `enzymes` | array | Blunt-cutting enzymes, each with `name`, `recognitionSequence`, `cutPositionForward`, `cutPositionReverse`, `organism`, plus the derived `isBluntEnd`, `overhangType` and `recognitionLength`. |
+| `enzymes` | array | Blunt-cutting enzymes, each with `name`, `recognitionSequence`, `cutPositionForward`, `cutPositionReverse`, `organism`, `rebaseMethylationField` (REBASE allenz.104 field <6>, the cognate-methyltransferase site) with its typed parse `cognateMethylationSites` (see [get_enzyme](get_enzyme.md)), plus the derived `isBluntEnd`, `overhangType` and `recognitionLength`. |
 
 ## Errors
 

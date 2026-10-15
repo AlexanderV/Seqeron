@@ -22,7 +22,7 @@ Cuts the molecule at the top-strand (forward-strand) cut positions of the named 
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L849](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L849)
+- Source: [RestrictionAnalyzer.cs#L853](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L853)
 
 ## Input Schema
 

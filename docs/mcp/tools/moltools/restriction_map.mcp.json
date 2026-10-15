@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.CreateMap",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L803",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L807",
   "description": "Build a restriction map: sites, sites-by-enzyme, unique cutters and non-cutters. sitesByEnzyme and nonCutters partition the considered enzyme set, keyed by canonical enzyme name.",
   "inputSchema": {
     "type": "object",

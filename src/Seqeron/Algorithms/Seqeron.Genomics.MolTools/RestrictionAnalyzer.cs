@@ -11,54 +11,58 @@ public static class RestrictionAnalyzer
     private static readonly Dictionary<string, RestrictionEnzyme> _enzymes = new(StringComparer.OrdinalIgnoreCase)
     {
         // Type II restriction enzymes (most common in molecular biology)
-        // Format: Name, Recognition sequence, Cut positions (forward, reverse from 5')
+        // Format: Name, Recognition sequence, Cut positions (forward, reverse from 5'), Organism,
+        // REBASE methylation-site field. The last column is REBASE allenz.104 field <6> copied
+        // verbatim (generated from the file, not typed; see RESTR-FIND-001-Evidence.md §5): the base
+        // the enzyme's COGNATE methyltransferase modifies to protect its own site — NOT a statement
+        // about whether Dam/Dcm/CpG methylation blocks this enzyme. "" = REBASE gives no site.
 
         // 6-cutter enzymes
-        ["EcoRI"] = new("EcoRI", "GAATTC", 1, 5, "Escherichia coli"),
-        ["BamHI"] = new("BamHI", "GGATCC", 1, 5, "Bacillus amyloliquefaciens"),
-        ["HindIII"] = new("HindIII", "AAGCTT", 1, 5, "Haemophilus influenzae"),
-        ["XhoI"] = new("XhoI", "CTCGAG", 1, 5, "Xanthomonas holcicola"),
-        ["SalI"] = new("SalI", "GTCGAC", 1, 5, "Streptomyces albus"),
-        ["PstI"] = new("PstI", "CTGCAG", 5, 1, "Providencia stuartii"),
-        ["SphI"] = new("SphI", "GCATGC", 5, 1, "Streptomyces phaeochromogenes"),
-        ["KpnI"] = new("KpnI", "GGTACC", 5, 1, "Klebsiella pneumoniae"),
-        ["SacI"] = new("SacI", "GAGCTC", 5, 1, "Streptomyces achromogenes"),
-        ["XbaI"] = new("XbaI", "TCTAGA", 1, 5, "Xanthomonas badrii"),
-        ["NcoI"] = new("NcoI", "CCATGG", 1, 5, "Nocardia corallina"),
-        ["NdeI"] = new("NdeI", "CATATG", 2, 4, "Neisseria denitrificans"),
-        ["NheI"] = new("NheI", "GCTAGC", 1, 5, "Neisseria mucosa"),
-        ["SpeI"] = new("SpeI", "ACTAGT", 1, 5, "Sphaerotilus natans"),
-        ["AvrII"] = new("AvrII", "CCTAGG", 1, 5, "Anabaena variabilis"),
-        ["ClaI"] = new("ClaI", "ATCGAT", 2, 4, "Caryophanon latum"),
-        ["AgeI"] = new("AgeI", "ACCGGT", 1, 5, "Agrobacterium gelatinovorum"),
+        ["EcoRI"] = new("EcoRI", "GAATTC", 1, 5, "Escherichia coli", "3(6)"),
+        ["BamHI"] = new("BamHI", "GGATCC", 1, 5, "Bacillus amyloliquefaciens", "5(4)"),
+        ["HindIII"] = new("HindIII", "AAGCTT", 1, 5, "Haemophilus influenzae", "1(6)"),
+        ["XhoI"] = new("XhoI", "CTCGAG", 1, 5, "Xanthomonas holcicola", "5(6)"),
+        ["SalI"] = new("SalI", "GTCGAC", 1, 5, "Streptomyces albus", "5(6)"),
+        ["PstI"] = new("PstI", "CTGCAG", 5, 1, "Providencia stuartii", "5(6)"),
+        ["SphI"] = new("SphI", "GCATGC", 5, 1, "Streptomyces phaeochromogenes", ""),
+        ["KpnI"] = new("KpnI", "GGTACC", 5, 1, "Klebsiella pneumoniae", "4(6)"),
+        ["SacI"] = new("SacI", "GAGCTC", 5, 1, "Streptomyces achromogenes", "4(5)"),
+        ["XbaI"] = new("XbaI", "TCTAGA", 1, 5, "Xanthomonas badrii", "6(6)"),
+        ["NcoI"] = new("NcoI", "CCATGG", 1, 5, "Nocardia corallina", "?(4)"),
+        ["NdeI"] = new("NdeI", "CATATG", 2, 4, "Neisseria denitrificans", "4(6)"),
+        ["NheI"] = new("NheI", "GCTAGC", 1, 5, "Neisseria mucosa", "6(4)"),
+        ["SpeI"] = new("SpeI", "ACTAGT", 1, 5, "Sphaerotilus natans", "1(6)"),
+        ["AvrII"] = new("AvrII", "CCTAGG", 1, 5, "Anabaena variabilis", ""),
+        ["ClaI"] = new("ClaI", "ATCGAT", 2, 4, "Caryophanon latum", "5(6)"),
+        ["AgeI"] = new("AgeI", "ACCGGT", 1, 5, "Agrobacterium gelatinovorum", "3(5)"),
 
         // 8-cutter enzymes (rare cutters)
-        ["NotI"] = new("NotI", "GCGGCCGC", 2, 6, "Nocardia otitidis-caviarum"),
-        ["SfiI"] = new("SfiI", "GGCCNNNNNGGCC", 8, 5, "Streptomyces fimbriatus"), // Note: N = any base
-        ["PacI"] = new("PacI", "TTAATTAA", 5, 3, "Pseudomonas alcaligenes"),
-        ["AscI"] = new("AscI", "GGCGCGCC", 2, 6, "Arthrobacter species"),
-        ["FseI"] = new("FseI", "GGCCGGCC", 6, 2, "Frankia species"),
-        ["SwaI"] = new("SwaI", "ATTTAAAT", 4, 4, "Staphylococcus warneri"),
+        ["NotI"] = new("NotI", "GCGGCCGC", 2, 6, "Nocardia otitidis-caviarum", "2(4)"),
+        ["SfiI"] = new("SfiI", "GGCCNNNNNGGCC", 8, 5, "Streptomyces fimbriatus", "?(4)"), // Note: N = any base
+        ["PacI"] = new("PacI", "TTAATTAA", 5, 3, "Pseudomonas alcaligenes", ""),
+        ["AscI"] = new("AscI", "GGCGCGCC", 2, 6, "Arthrobacter species", "?(5)"),
+        ["FseI"] = new("FseI", "GGCCGGCC", 6, 2, "Frankia species", "?(5)"),
+        ["SwaI"] = new("SwaI", "ATTTAAAT", 4, 4, "Staphylococcus warneri", "?(6)"),
 
         // 4-cutter enzymes (frequent cutters)
-        ["MspI"] = new("MspI", "CCGG", 1, 3, "Moraxella species"),
-        ["HpaII"] = new("HpaII", "CCGG", 1, 3, "Haemophilus parainfluenzae"),
-        ["TaqI"] = new("TaqI", "TCGA", 1, 3, "Thermus aquaticus"),
-        ["AluI"] = new("AluI", "AGCT", 2, 2, "Arthrobacter luteus"), // Blunt
-        ["RsaI"] = new("RsaI", "GTAC", 2, 2, "Rhodopseudomonas sphaeroides"), // Blunt
-        ["HaeIII"] = new("HaeIII", "GGCC", 2, 2, "Haemophilus aegyptius"), // Blunt
-        ["DpnI"] = new("DpnI", "GATC", 2, 2, "Diplococcus pneumoniae"), // Blunt, methylation-dependent
-        ["Sau3AI"] = new("Sau3AI", "GATC", 0, 4, "Staphylococcus aureus"),
-        ["MboI"] = new("MboI", "GATC", 0, 4, "Moraxella bovis"),
+        ["MspI"] = new("MspI", "CCGG", 1, 3, "Moraxella species", "1(5)"),
+        ["HpaII"] = new("HpaII", "CCGG", 1, 3, "Haemophilus parainfluenzae", "2(5)"),
+        ["TaqI"] = new("TaqI", "TCGA", 1, 3, "Thermus aquaticus", "4(6)"),
+        ["AluI"] = new("AluI", "AGCT", 2, 2, "Arthrobacter luteus", "3(5)"), // Blunt
+        ["RsaI"] = new("RsaI", "GTAC", 2, 2, "Rhodopseudomonas sphaeroides", "4(4)"), // Blunt
+        ["HaeIII"] = new("HaeIII", "GGCC", 2, 2, "Haemophilus aegyptius", "3(5)"), // Blunt
+        ["DpnI"] = new("DpnI", "GATC", 2, 2, "Diplococcus pneumoniae", ""), // Blunt, methylation-dependent
+        ["Sau3AI"] = new("Sau3AI", "GATC", 0, 4, "Staphylococcus aureus", "4(5)"),
+        ["MboI"] = new("MboI", "GATC", 0, 4, "Moraxella bovis", "2(6)"),
 
         // Common cloning enzymes
-        ["EcoRV"] = new("EcoRV", "GATATC", 3, 3, "Escherichia coli"), // Blunt
-        ["SmaI"] = new("SmaI", "CCCGGG", 3, 3, "Serratia marcescens"), // Blunt
-        ["HincII"] = new("HincII", "GTYRAC", 3, 3, "Haemophilus influenzae"), // Degenerate, blunt
-        ["ScaI"] = new("ScaI", "AGTACT", 3, 3, "Streptomyces caespitosus"), // Blunt
-        ["StuI"] = new("StuI", "AGGCCT", 3, 3, "Streptomyces tubercidicus"), // Blunt
-        ["BglII"] = new("BglII", "AGATCT", 1, 5, "Bacillus globigii"),
-        ["ApaI"] = new("ApaI", "GGGCCC", 5, 1, "Acetobacter pasteurianus"),
+        ["EcoRV"] = new("EcoRV", "GATATC", 3, 3, "Escherichia coli", "2(6)"), // Blunt
+        ["SmaI"] = new("SmaI", "CCCGGG", 3, 3, "Serratia marcescens", "2(4)"), // Blunt
+        ["HincII"] = new("HincII", "GTYRAC", 3, 3, "Haemophilus influenzae", "5(6)"), // Degenerate, blunt
+        ["ScaI"] = new("ScaI", "AGTACT", 3, 3, "Streptomyces caespitosus", "5(4)"), // Blunt
+        ["StuI"] = new("StuI", "AGGCCT", 3, 3, "Streptomyces tubercidicus", ""), // Blunt
+        ["BglII"] = new("BglII", "AGATCT", 1, 5, "Bacillus globigii", "5(4)"),
+        ["ApaI"] = new("ApaI", "GGGCCC", 5, 1, "Acetobacter pasteurianus", "4(5)"),
     };
 
     /// <summary>
@@ -1528,13 +1532,104 @@ public static class RestrictionAnalyzer
 /// <summary>
 /// Represents a restriction enzyme with its properties.
 /// </summary>
+/// <param name="Name">Enzyme name.</param>
+/// <param name="RecognitionSequence">Recognition sequence (IUPAC), one strand, 5'→3'.</param>
+/// <param name="CutPositionForward">Forward-strand cut offset from the 5' end of the site.</param>
+/// <param name="CutPositionReverse">Reverse-strand cut offset, in forward-strand coordinates.</param>
+/// <param name="Organism">Source organism.</param>
+/// <param name="RebaseMethylationField">The REBASE <c>allenz</c> field <c>&lt;6&gt;</c>
+/// ("METHYLATION SITE") verbatim, e.g. <c>"3(6)"</c> for EcoRI; <c>""</c> (the default) when REBASE
+/// records no site or the enzyme is user-defined. Parsed into
+/// <see cref="CognateMethylationSites"/>; a malformed value throws <see cref="FormatException"/>
+/// at construction.</param>
 public sealed record RestrictionEnzyme(
     string Name,
     string RecognitionSequence,
     int CutPositionForward,
     int CutPositionReverse,
-    string Organism)
+    string Organism,
+    string RebaseMethylationField = "")
 {
+    /// <summary>
+    /// The REBASE methylation-site field, validated at construction.
+    /// </summary>
+    public string RebaseMethylationField { get; init; } =
+        ValidateRebaseMethylationField(RebaseMethylationField);
+
+    /// <summary>
+    /// The sites the enzyme's <b>cognate methyltransferase</b> modifies, parsed from
+    /// <see cref="RebaseMethylationField"/> (REBASE <c>allenz.104</c> field <c>&lt;6&gt;</c>).
+    /// Empty when REBASE records none.
+    /// </summary>
+    /// <remarks>
+    /// REBASE (allenz.104 format header, "&lt;METHYLATION SITE&gt;"): "The site of methylation by
+    /// the cognate methylase when known is indicated X(Y) … where X is the base within the
+    /// recognition sequence that is modified. A negative number indicates the complementary
+    /// strand, numbered from the 5' base of that strand, and Y is the specific type of methylation
+    /// involved: (6) = N6-methyladenosine, (5) = 5-methylcytosine, (4) = N4-methylcytosine." In the
+    /// data a <c>?</c> stands for X when only the modification type is known, and several sites
+    /// are comma-separated.
+    /// <para>
+    /// This is the <i>protection</i> site of the restriction-modification system the enzyme comes
+    /// from. It is <b>not</b> a statement about the enzyme's sensitivity to Dam, Dcm or CpG
+    /// methylation by other methyltransferases; no such behaviour is modelled.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<CognateMethylationSite> CognateMethylationSites =>
+        ParseRebaseMethylationField(RebaseMethylationField);
+
+    private static string ValidateRebaseMethylationField(string field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        _ = ParseRebaseMethylationField(field);
+        return field;
+    }
+
+    private static IReadOnlyList<CognateMethylationSite> ParseRebaseMethylationField(string field)
+    {
+        if (field.Length == 0)
+            return Array.Empty<CognateMethylationSite>();
+
+        var sites = new List<CognateMethylationSite>();
+        foreach (var raw in field.Split(','))
+        {
+            var token = raw.Trim();
+            int open = token.IndexOf('(');
+            if (open <= 0 || token[^1] != ')')
+                throw new FormatException($"Malformed REBASE methylation-site entry '{raw}' in '{field}'.");
+
+            var positionText = token[..open];
+            var typeText = token[(open + 1)..^1];
+
+            var type = typeText switch
+            {
+                "6" => MethylatedBase.N6Methyladenine,
+                "5" => MethylatedBase.C5Methylcytosine,
+                "4" => MethylatedBase.N4Methylcytosine,
+                _ => throw new FormatException(
+                    $"Unknown REBASE methylation type '({typeText})' in '{field}'; expected (4), (5) or (6).")
+            };
+
+            if (positionText == "?")
+            {
+                sites.Add(new CognateMethylationSite(null, false, type));
+                continue;
+            }
+
+            bool complementary = positionText[0] == '-';
+            var digits = complementary ? positionText[1..] : positionText;
+            if (digits.Length == 0 || !digits.All(char.IsAsciiDigit) ||
+                !int.TryParse(digits, System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out int position) ||
+                position < 1)
+                throw new FormatException($"Malformed REBASE methylation-site position '{positionText}' in '{field}'.");
+
+            sites.Add(new CognateMethylationSite(position, complementary, type));
+        }
+
+        return sites;
+    }
+
     /// <summary>
     /// Gets whether this enzyme produces blunt ends.
     /// </summary>
@@ -1555,6 +1650,31 @@ public sealed record RestrictionEnzyme(
     /// </summary>
     public int RecognitionLength => RecognitionSequence.Length;
 }
+
+/// <summary>
+/// The modified base type in a REBASE methylation-site entry (allenz field <c>&lt;6&gt;</c>, the
+/// number in parentheses).
+/// </summary>
+public enum MethylatedBase
+{
+    /// <summary>REBASE <c>(4)</c>: N4-methylcytosine (m4C).</summary>
+    N4Methylcytosine = 4,
+    /// <summary>REBASE <c>(5)</c>: 5-methylcytosine (m5C).</summary>
+    C5Methylcytosine = 5,
+    /// <summary>REBASE <c>(6)</c>: N6-methyladenine (m6A).</summary>
+    N6Methyladenine = 6
+}
+
+/// <summary>
+/// One base modified by an enzyme's cognate methyltransferase, as recorded by REBASE.
+/// </summary>
+/// <param name="Position">1-based position of the modified base within the recognition sequence,
+/// counted from the 5' end of the strand named by <paramref name="IsComplementaryStrand"/>;
+/// <see langword="null"/> when REBASE gives <c>?</c> (type known, base not determined).</param>
+/// <param name="IsComplementaryStrand"><see langword="true"/> for a REBASE negative position: the
+/// base is on the complementary strand, numbered from that strand's own 5' base.</param>
+/// <param name="Type">The modification.</param>
+public sealed record CognateMethylationSite(int? Position, bool IsComplementaryStrand, MethylatedBase Type);
 
 /// <summary>
 /// Topology of a DNA molecule being digested.

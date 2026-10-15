@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindAllSites",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L326",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L330",
   "description": "Find sites for every built-in restriction enzyme on both strands of a DNA sequence.",
   "inputSchema": {
     "type": "object",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetEnzyme",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L75",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L79",
   "description": "Look up a built-in restriction enzyme by name (case-insensitive) and report its end chemistry, overhang sequence (REBASE/Biopython ovhgseq) and same-site enzymes.",
   "inputSchema": {
     "type": "object",
@@ -65,6 +65,39 @@
           "recognitionLength": {
             "type": "integer",
             "description": "Length of the full recognition string (Biopython size); SfiI is 13."
+          },
+          "rebaseMethylationField": {
+            "type": "string",
+            "description": "REBASE allenz.104 field <6> (METHYLATION SITE) verbatim, e.g. \"3(6)\" for EcoRI; \"\" when REBASE records none. The site the enzyme's COGNATE methyltransferase modifies, not Dam/Dcm/CpG sensitivity."
+          },
+          "cognateMethylationSites": {
+            "type": "array",
+            "description": "Typed parse of rebaseMethylationField.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "position": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "description": "1-based position of the modified base in the recognition sequence, counted from the 5' end of the named strand; null for REBASE '?'."
+                },
+                "isComplementaryStrand": {
+                  "type": "boolean",
+                  "description": "True for a REBASE negative position (complementary strand)."
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "N4Methylcytosine",
+                    "C5Methylcytosine",
+                    "N6Methyladenine"
+                  ],
+                  "description": "REBASE (4) / (5) / (6)."
+                }
+              }
+            }
           }
         }
       },
@@ -121,7 +154,15 @@
           "organism": "Escherichia coli",
           "isBluntEnd": false,
           "overhangType": "FivePrime",
-          "recognitionLength": 6
+          "recognitionLength": 6,
+          "rebaseMethylationField": "3(6)",
+          "cognateMethylationSites": [
+            {
+              "position": 3,
+              "isComplementaryStrand": false,
+              "type": "N6Methyladenine"
+            }
+          ]
         },
         "overhangSequence": "AATT",
         "equischizomers": [],
@@ -142,7 +183,15 @@
           "organism": "Moraxella bovis",
           "isBluntEnd": false,
           "overhangType": "FivePrime",
-          "recognitionLength": 4
+          "recognitionLength": 4,
+          "rebaseMethylationField": "2(6)",
+          "cognateMethylationSites": [
+            {
+              "position": 2,
+              "isComplementaryStrand": false,
+              "type": "N6Methyladenine"
+            }
+          ]
         },
         "overhangSequence": "GATC",
         "equischizomers": [
@@ -167,7 +216,15 @@
           "organism": "Streptomyces fimbriatus",
           "isBluntEnd": false,
           "overhangType": "ThreePrime",
-          "recognitionLength": 13
+          "recognitionLength": 13,
+          "rebaseMethylationField": "?(4)",
+          "cognateMethylationSites": [
+            {
+              "position": null,
+              "isComplementaryStrand": false,
+              "type": "N4Methylcytosine"
+            }
+          ]
         },
         "overhangSequence": "NNN",
         "equischizomers": [],
