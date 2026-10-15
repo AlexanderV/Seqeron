@@ -78,6 +78,13 @@
 |----|-----------|-----------|--------|
 | C1 | FindPamSites performance is linear in sequence length | O(n) complexity | Complexity spec |
 
+## Review-fix traceability (B08 F1, F2)
+
+| Fix | Contract | Tests | Source |
+|-----|----------|-------|--------|
+| F1 | Reverse-strand `TargetStart` is a forward-strand 0-based coordinate (`Position + pamLen` for PAM-after, `Position − guideLength` for PAM-before) — CRISPOR minus-strand `guideStart` | M8 `FindPamSites_SpCas9_SearchesReverseStrand`, S2b `FindPamSites_SpCas9_ReverseStrand_MatchesCrisporConvention`, S2c `FindPamSites_Cas12a_ReverseStrand_MatchesCrisporConvention`, S2d `FindPamSites_AllSites_AreConsistentInForwardCoordinates` (4 cases); downstream `GuideRnaCandidate.Position` on a reverse guide: CRISPR-GUIDE-001 S-012 | CRISPOR `crispor.py` `findAllPams`, `flankSeqIter`, `findPams` doctests; 136-site cross-check (`docs/Evidence/CRISPR-PAM-001-Evidence.md`) |
+| F2 | `PamSequence` is read on the protospacer strand and satisfies the system's PAM motif (`TGG`, `TTTA`, not `CCA`, `TAAA`) | M8, S2b, S2c, S2d (PAM motif asserted per site) | CRISPOR `pamSeq` (same run) |
+
 ## Invariants
 
 1. **PAM pattern matching**: A site is returned if and only if the PAM pattern matches using IUPAC rules
@@ -113,7 +120,7 @@
 | ID | Test | Before | After |
 |----|------|--------|-------|
 | M7 | MatchesAllNGG_Variants (4 cases) | `Is.Not.Null` only | `Is.Not.Null` + `Position == 20` |
-| M8 | SearchesReverseStrand | `Is.Not.Empty` + `Position >= 0` | `Count == 1` + `Position == 0` + `PamSequence == "CCA"` |
+| M8 | SearchesReverseStrand | `Is.Not.Empty` + `Position >= 0` | `Count == 1` + `Position == 0` + `PamSequence == "TGG"` + `TargetStart == 3` + `TargetSequence` (CRISPOR row; was `"CCA"` before B08 F2) |
 | M16 | MatchesAllNAG_Variants (4 cases) | `Is.Not.Null` only | `Is.Not.Null` + `Position == 20` |
 | S3 | OverlappingPamSites_AllReported | `Does.Contain` + `Count >= 2` | `Count == 2` + `[0].Position == 20` + `[1].Position == 23` |
 
@@ -199,3 +206,4 @@ None — all behaviors are grounded in external sources.
 - [x] Coverage classification complete: 0 missing, 0 weak, 0 duplicate
 - [x] Tests passing (64/64, 2026-09-28)
 - [x] Reverse-strand coordinate/orientation convention cross-checked numerically against CRISPOR (136 sites, 0 mismatches)
+- [x] B08 F1/F2 traced to tests (B08 WP6/D16, 2026-10-15; 64/64 passing)

@@ -1211,6 +1211,8 @@ All tools listed in plan with HasDocs=✓:
 All tools listed in plan with HasDocs=✓:
 `primer_design`, `primer_evaluate`, `primer_tm`, `primer_tm_salt`, `primer_gc`, `primer_homopolymer`, `primer_dinucleotide_repeat`, `primer_hairpin`, `primer_dimer`, `primer_3prime_stability`, `probe_design_tiling`, `probe_validate`, `probe_specificity`, `probe_molecular_weight`, `probe_extinction`, `probe_concentration`, `restriction_digest_summary`, `restriction_create_map`, `restriction_compatible`, `crispr_system`, `crispr_evaluate_guide`, `crispr_specificity`, `codon_cai`, `codon_enc`, `codon_statistics`, `codon_optimize`, `codon_cai_optimizer`, `codon_remove_restriction`, `codon_reduce_structure`, `codon_compare_usage`, `codon_table_from_sequence`, `genetic_code_get`, `thermo_wallace_tm`, `thermo_marmur_doty_tm`, `thermo_salt_adjusted_tm`, `thermo_salt_correction`, `report_create`, `report_sequence_analysis`
 
+> Planned names, not registered tools. The B08 entries shipped under different names: `restriction_digest_summary` → `digest_summary`, `restriction_create_map` → `restriction_map`, `restriction_compatible` → `enzymes_compatible`, `crispr_system` → `crispr_system_info`, `crispr_evaluate_guide` → `evaluate_guide_rna`, `crispr_specificity` → `crispr_specificity_score` (see `docs/mcp/traceability.md`).
+
 - [ ] a-j) [Standard checklist items for each]
 
 ---

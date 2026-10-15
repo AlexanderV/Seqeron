@@ -7,6 +7,10 @@
 - **Canonical Methods**:
   - `CrisprDesigner.DesignGuideRnas(DnaSequence, int, int, CrisprSystemType, GuideRnaParameters?)`
   - `CrisprDesigner.EvaluateGuideRna(string, CrisprSystemType, GuideRnaParameters?)`
+  - `CrisprDesigner.GetCutSite(PamSite)` (B08 F3)
+  - `CrisprDesigner.CountSelfComplementaryStems(string, int, IEnumerable<string>?)` + `StandardSgRnaBackboneRegion` (B08 F6)
+  - `CrisprDesigner.GetGrafMotif(string)` (B08 F7)
+- **Result/parameter contracts added by the review**: `GuideRnaCandidate.Context30Mer` / `OnTargetScore` / `SelfComplementaryStems` / `GrafMotif`, `GuideRnaParameters.Ranking` (`GuideRnaRanking`) / `MaxSelfComplementaryStems` (B08 F5–F7)
 - **Related Documentation**: [Guide_RNA_Design.md](../../docs/algorithms/MolTools/Guide_RNA_Design.md)
 
 ## Evidence Summary
@@ -17,6 +21,12 @@
 | Addgene CRISPR Guide | gRNA structure, 20bp spacer, seed sequence (8-10bp at 3'), PAM requirement, Pol III TTTT terminator | https://www.addgene.org/guides/crispr/ |
 | Wikipedia: Guide RNA | GC >50% optimal, length 17-24bp standard 20bp | https://en.wikipedia.org/wiki/Guide_RNA |
 | Wikipedia: PAM | SpCas9 PAM is 5'-NGG-3', PAM required for cleavage | https://en.wikipedia.org/wiki/Protospacer_adjacent_motif |
+| CRISPOR `crispor.py` (maximilianh/crisporWebsite, master) | Cas9 cut "-3bp 5' of the PAM site" (`startFt = start - 3` / `ftSeq + "---"`), Cpf1 cut "after the 18th base on the non-targeted strand" (Zetsche 2015 Fig. 3); `mergeGuideInfo` `guideData.sort(reverse=True, …)` ranking (F3, F5) | https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/crispor.py |
+| CRISPOR `crisporEffScores.py` (same repo) | Rule Set 2 window `trimSeqs(seqs, -24, 6)` (4 nt 5' flank + 20-nt protospacer + PAM + 3 nt 3' flank), `calcAziScore` "can't do Ns" → −1; `getGrafType` TT-/GCC-motifs, NGG only (F5, F7) | https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/crisporEffScores.py |
+| CHOPCHOP `chopchop.py` (Carl-labhub/chopchop-clone mirror) | `STEM_LEN = 4`, `selfComp` stem count (GC ≥ 0.5, PAM excluded), backbone passed "same strand as guide" and reverse-complemented internally, `-filterSelfCompMax` default −1 (F6); Labun et al. 2016 NAR 44:W272, 2019 NAR 47:W171 | https://github.com/Carl-labhub/chopchop-clone |
+| Doench et al. 2016, Nat Biotechnol 34:184 (Rule Set 2 / Azimuth) | On-target score on designed guides; oracle row `nopos_oracle.csv` (F5) | see CRISPR-OFF-001 / Rule Set 2 evidence |
+| Graf et al. 2019, Cell Reports 26:1098–1103 | TT- and GCC-motif inefficiency (F7) | — |
+| Zetsche et al. 2015, Cell 163:759 | Cas12a staggered cut (F3) | — |
 
 > **Provenance note (WP-SRC, 2026-10-14).** All three sources above are on hosts denied by the
 > organization's egress policy (`www.addgene.org`, `en.wikipedia.org` — agent proxy answers 403 to
@@ -53,11 +63,13 @@
 | Penalty | Formula | Verified By |
 |---------|---------|-------------|
 | GC outside [MinGc, MaxGc] | −(delta × 2) per % | M-001 (0 penalty), M-002 (−80), M-003 (−60) |
-| Poly-T (TTTT+) | −20 flat | M-004 (score 80), S-008 (score 80) |
-| Self-complementarity > 0.3 | −(selfComp × 30) | C-001 (−9.375 on 8bp palindrome) |
+| Poly-T (TTTT+) | −20 flat, only when `AvoidPolyT` (F8) | M-004 (score 80), S-008 (score 80), S-017 (flag off → 100) |
+| Self-complementarity > 0.3 | −(selfComp × 30), only when `CheckSelfComplementarity` (F8) | C-001 (−9.375 on 8bp palindrome), S-018 (flag off → no deduction) |
 | Seed GC outside [30%, 80%] | −5 flat | S-010 (−5), S-011 (−5), M-002 (combined), M-003 (combined) |
 | Restriction site (common) | −5 flat | S-001 (score 95) |
 | Score floor | max(0, score) | C-002 (clamped to 0) |
+| CHOPCHOP 4-bp stems > `MaxSelfComplementaryStems` | 0 (issue in `EvaluateGuideRna`, filter in `DesignGuideRnas`; null = no filter, CHOPCHOP default −1) (F6) | C-022 |
+| Graf 2019 TT-/GCC-motif | 0 (issue only, NGG systems only — CRISPOR warns) (F7) | C-017 |
 
 ---
 
@@ -79,7 +91,7 @@
 
 ---
 
-### SHOULD Tests (Important Quality) — 11 tests
+### SHOULD Tests (Important Quality) — 19 tests
 
 | ID | Test | Input | Exact Expected | Status |
 |----|------|-------|----------------|--------|
@@ -95,9 +107,22 @@
 | S-010 | `EvaluateGuideRna_SeedGcLow_Penalized` | "GCGCGCGCGCAAAAAAAAAA" | GC=50, SeedGC=0, Score=95, Issues=1 [Suboptimal seed GC] | ✅ |
 | S-011 | `EvaluateGuideRna_SeedGcHigh_Penalized` | "AAAAAAAAAAGGGGGGGGGG" | GC=50, SeedGC=100, Score=95, Issues=1 [Suboptimal seed GC] | ✅ |
 
+#### Added by the 2026-09 review (B08 F3–F5, F8) — 8 tests
+
+| ID | Test | Input | Exact Expected | Status |
+|----|------|-------|----------------|--------|
+| S-012 | `DesignGuideRnas_ReverseStrandGuide_CutSiteInRegion_IsDesigned` | "CCA"+ACGT×10, whole region | reverse site Pos=0, TargetStart=3, `GetCutSite`=5; 1 guide, Pos=3, reverse (F3, CRISPOR −3 bp 5' of PAM) | ✅ |
+| S-013 | `DesignGuideRnas_ReverseStrandGuide_CutSiteOutsideRegion_IsExcluded` | same, regions [6,30], [0,4], [5,5] | empty, empty, exactly 1 (F3 region boundary) | ✅ |
+| S-014 | `GetCutSite_FollowsCrisporConventionOnBothStrands` | SpCas9 ±, Cas12a ± PamSites at 40 | 37 / 45 / 62 / 21 (F3: Cas9 `Position−3` / `Position+pamLen+2`; Cas12a `Position+pamLen+18` / `Position−19`) | ✅ |
+| S-015 | `DesignGuideRnas_Output_IsRankedByScoreDescending` | 3 PAMs scoring 100/80/0 | Scores [100, 80, 0] (F5, CRISPOR `mergeGuideInfo` sort) | ✅ |
+| S-016 | `DesignGuideRnas_KeepsTheRequestedSystemMetadata` | LbCas12a target | System LbCas12a, GuideLength 24, PamAfterTarget=false, SeedGC=60 (5' seed) (F4) | ✅ |
+| S-017 | `EvaluateGuideRna_AvoidPolyTFalse_DisablesThePolyTPenalty` | "ACGTACGTTTTTACGTACGT" | on: 80; off: 100, HasPolyT=true, Issues=[] (F8) | ✅ |
+| S-018 | `EvaluateGuideRna_CheckSelfComplementarityFalse_DisablesThePenalty` | "GCGCGCGC" | on: 100−9.375−5; off: 95, SelfComp=0.3125, 1 seed-GC issue (F8) | ✅ |
+| S-019 | `DesignGuideRnas_EqualRankingKeys_AreOrderedByPositionDeterministically` (2 cases: `Score`, `OnTargetRuleSet2`) | "CCA"+ACGT×10+"AGG" | 2 tied guides ordered (3, reverse), (23, forward) — deterministic position/strand tie-break (F5) | ✅ |
+
 ---
 
-### COULD Tests (Edge Cases) — 10 tests
+### COULD Tests (Edge Cases) — 22 tests
 
 | ID | Test | Input | Exact Expected | Status |
 |----|------|-------|----------------|--------|
@@ -111,6 +136,23 @@
 | C-008 | `DesignGuideRnas_EntireSequenceAsRegion_Works` | 27bp seq with PAM | Count=1, Pos=4, Score=100 | ✅ |
 | C-009 | `EvaluateGuideRna_AboveBoundaryGc_HasHighGcIssue` | "GCGCGCGCGCGCGCGCAAAA" (80%) | GC=80, Score=80, Issues=1 [High GC] | ✅ |
 | C-010 | `DesignGuideRnas_MinScoreFiltering_ExcludesLowScoreGuides` | seq with PAM | MinScore=50 → Count=1; MinScore=101 → empty | ✅ |
+
+#### Added by the 2026-09 review (B08 F5–F7) — 12 tests
+
+| ID | Test | Input | Exact Expected | Status |
+|----|------|-------|----------------|--------|
+| C-011 | `DesignGuideRnas_ForwardGuide_CarriesRuleSet2ContextAndScore` | Azimuth oracle 30-mer `AAAAAAAAAAAAAAAGCTAACAGCAGGAGT` | `Context30Mer` = the 30-mer, `OnTargetScore` = 0.529037 ± 1e-5 (F5, `nopos_oracle.csv`) | ✅ |
+| C-012 | `DesignGuideRnas_ReverseGuide_CarriesTheSameRuleSet2ContextAndScore` | revcomp of the oracle 30-mer | reverse guide Pos=6, same context and score (F5) | ✅ |
+| C-013 | `DesignGuideRnas_WithoutA30MerContext_LeavesTheOnTargetScoreNull` | standalone, 3'/5' flank overrun, Cas12a | `Context30Mer` and `OnTargetScore` null (F5) | ✅ |
+| C-014 | `DesignGuideRnas_RankingByRuleSet2_OrdersByTheAzimuthScore` | 1 unscorable + 2 scorable loci | scored guides descending by `OnTargetScore`, unscored last (F5, `GuideRnaRanking.OnTargetRuleSet2`) | ✅ |
+| C-015 | `GetGrafMotif_MatchesTheCrisporReference` (20 cases) | each `getGrafType` branch | None / TtMotif / GccMotif per CRISPOR (F7) | ✅ |
+| C-016 | `GetGrafMotif_ExhaustiveSuffixCensus_MatchesTheReferenceCounts` | all 4096 3'-terminal 6-mers | TT 496, GCC 64, None 3536 (F7) | ✅ |
+| C-017 | `EvaluateGuideRna_GrafMotif_IsReportedForNggSystemsWithoutAPenalty` | "ACGTACGTACGTACGTACTT" SpCas9 vs SaCas9 | SpCas9: TtMotif, Score=100, issue; SaCas9: None, no issue (F7) | ✅ |
+| C-018 | `CountSelfComplementaryStems_MatchesTheChopchopReference` (13 cases) | guides ± `StandardSgRnaBackboneRegion` | CHOPCHOP `selfComp` counts, e.g. ACGT×5 → 10/10, `ACGGACTAGCCTACGTACGT` → 0/8 (F6) | ✅ |
+| C-019 | `CountSelfComplementaryStems_ExhaustiveNineMerCensus_MatchesTheReference` | all 262 144 9-mers | Σ 704 (no backbone) / 41 632 (standard backbone) (F6) | ✅ |
+| C-020 | `CountSelfComplementaryStems_BackboneRegions_AreReverseComplementedLikeChopchop` | `ACGGACTAGCCTACGTACGT` | 0 / 8 (guide-strand backbone) / 1 (pre-revcomped backbone) (F6) | ✅ |
+| C-021 | `CountSelfComplementaryStems_InvalidArguments_Throw` | null, "", stemLength 0 | ArgumentNullException ×2, ArgumentOutOfRangeException (F6) | ✅ |
+| C-022 | `DesignGuideRnas_MaxSelfComplementaryStems_FiltersLikeChopchop` | ACGT×5+"AGG" | 10 stems; limit 10 keeps (inclusive), 9 drops; `EvaluateGuideRna` limit 2 → issue, Score=100 (F6) | ✅ |
 
 ---
 
@@ -127,7 +169,7 @@
 
 | Test Category | Source File |
 |--------------|-------------|
-| Guide RNA Evaluation (30 tests) | CrisprDesigner_GuideRNA_Tests.cs |
+| Guide RNA Evaluation + Design (50 test methods, 82 test cases) | CrisprDesigner_GuideRNA_Tests.cs |
 | Guide RNA Properties (2 tests) | Properties/CrisprProperties.cs |
 | Off-Target Analysis | CrisprDesigner_OffTarget_Tests.cs (CRISPR-OFF-001) |
 | PAM Detection | CrisprDesigner_PAM_Tests.cs (CRISPR-PAM-001) |
@@ -138,8 +180,8 @@
 
 | Category | MUST | SHOULD | COULD | Total |
 |----------|------|--------|-------|-------|
-| Required | 9 | 11 | 10 | 30 |
-| Implemented | 9 | 11 | 10 | 30 |
+| Required | 9 | 19 | 22 | 50 |
+| Implemented | 9 | 19 | 22 | 50 |
 | Gap | 0 | 0 | 0 | **0** |
 
 ---
@@ -175,6 +217,14 @@ All code paths in `EvaluateGuideRna` and `DesignGuideRnas` are covered with exac
 | GuideRnaParameters custom | S-005 (5 fields) | ✅ Covered |
 | Property: GC in [0,100] | Property test, non-vacuous | ✅ Covered |
 | Property: Score in [0,100] | Property test, non-vacuous | ✅ Covered |
+| Cut site, both strands / both PAM geometries (F3) | S-012, S-013, S-014 | ✅ Covered |
+| System metadata + PAM-before seed orientation kept (F4) | S-016 | ✅ Covered |
+| Rule Set 2 context + score, both strands, null cases (F5) | C-011, C-012, C-013 | ✅ Covered |
+| Ranking by Score / OnTargetRuleSet2 + tie-break (F5) | S-015, C-014, S-019 | ✅ Covered |
+| Rule Set 2 window containing a non-ACGT base → null (F5, CRISPOR "can't do Ns") | — | ⛔ Unreachable via the public API: `DesignGuideRnas` takes a `DnaSequence`, which admits only A/C/G/T, so the guard in `TryGetRuleSet2Context` is defensive only |
+| CHOPCHOP stem count, backbone orientation, filter/issue, validation (F6) | C-018 – C-022 | ✅ Covered |
+| Graf TT-/GCC-motifs, NGG-only, no deduction (F7) | C-015, C-016, C-017 | ✅ Covered |
+| `AvoidPolyT` / `CheckSelfComplementarity` gating (F8) | S-017, S-018 | ✅ Covered |
 
 **No ❌ Missing, no ⚠ Weak, no 🔁 Duplicate code paths remain.**
 
@@ -185,3 +235,4 @@ All code paths in `EvaluateGuideRna` and `DesignGuideRnas` are covered with exac
 - **Author**: QA Architect
 - **Date**: 2026-03-03
 - **Version**: 3.0
+- **Update (B08 WP6/D16, 2026-10-15)**: F3–F8 contracts traced to their tests and sources; S-019 added (tie-break). See `docs/Validation/review-2026-09/B08.md` F3–F8, F47.

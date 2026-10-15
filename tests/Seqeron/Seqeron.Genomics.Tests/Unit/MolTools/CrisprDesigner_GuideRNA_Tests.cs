@@ -670,6 +670,31 @@ public class CrisprDesigner_GuideRNA_Tests
     }
 
     /// <summary>
+    /// S-019: equal ranking keys are broken by ascending forward-strand <see cref="GuideRnaCandidate.Position"/>
+    /// (then forward strand first), in both ranking modes — the deterministic tie-break documented on
+    /// <see cref="CrisprDesigner.DesignGuideRnas"/> (B08 F5). The PAM scan yields forward-strand sites first,
+    /// so without the tie-break the forward guide (position 23) would precede the reverse guide (position 3).
+    /// Both protospacers are "ACGTACGTACGTACGTACGT" (equal composition score 100) and neither has a full
+    /// 30-nt Rule Set 2 window (both on-target scores null), so the keys tie in both modes.
+    /// </summary>
+    [TestCase(GuideRnaRanking.Score)]
+    [TestCase(GuideRnaRanking.OnTargetRuleSet2)]
+    public void DesignGuideRnas_EqualRankingKeys_AreOrderedByPositionDeterministically(GuideRnaRanking ranking)
+    {
+        // Reverse-strand TGG (forward "CCA") at 0 -> protospacer at 3; forward AGG at 43 -> protospacer at 23.
+        var sequence = new DnaSequence("CCA" + "ACGTACGTACGTACGTACGT" + "ACGTACGTACGTACGTACGT" + "AGG");
+
+        var guides = CrisprDesigner.DesignGuideRnas(
+            sequence, 0, sequence.Length - 1, CrisprSystemType.SpCas9, NoFilter with { Ranking = ranking }).ToList();
+
+        Assert.That(guides, Has.Count.EqualTo(2));
+        Assert.That(guides.Select(g => g.Score), Is.All.EqualTo(100.0));
+        Assert.That(guides.Select(g => g.OnTargetScore), Is.All.Null);
+        Assert.That(guides.Select(g => (g.Position, g.IsForwardStrand)),
+            Is.EqualTo(new[] { (3, false), (23, true) }));
+    }
+
+    /// <summary>
     /// S-016: designed candidates keep the metadata of the system they were designed with. A
     /// name-based remap previously replaced LbCas12a/AsCas12a/CasX/SpCas9-NAG with SpCas9, which also
     /// flipped the seed-region orientation (<c>PamAfterTarget</c>) and therefore changed the score:

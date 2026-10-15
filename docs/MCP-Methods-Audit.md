@@ -36,9 +36,9 @@
 | 29 | ComparativeGenomics.cs | CompareGenomes | 424 |
 | 30 | ComparativeGenomics.cs | CalculateReversalDistance | 468 |
 | 31 | ComparativeGenomics.cs | CalculateANI | 585 |
-| 32 | CrisprDesigner.cs | GetSystem | 18 |
-| 33 | CrisprDesigner.cs | EvaluateGuideRna | 200 |
-| 34 | CrisprDesigner.cs | CalculateSpecificityScore | 371 |
+| 32 | CrisprDesigner.cs | GetSystem | 14 |
+| 33 | CrisprDesigner.cs | EvaluateGuideRna | 226 |
+| 34 | CrisprDesigner.cs | CalculateSpecificityScore | 646 |
 | 35 | DisorderPredictor.cs | PredictDisorder | 130 |
 | 36 | DisorderPredictor.cs | GetDisorderPropensity | 558 |
 | 37 | DisorderPredictor.cs | IsDisorderPromoting | 566 |
@@ -168,9 +168,9 @@
 | 161 | ReportGenerator.cs | SaveToFile | 190 |
 | 162 | ReportGenerator.cs | CreateSequenceAnalysisReport | 817 |
 | 163 | ReportGenerator.cs | CreateComparisonReport | 854 |
-| 164 | RestrictionAnalyzer.cs | GetDigestSummary | 301 |
-| 165 | RestrictionAnalyzer.cs | CreateMap | 322 |
-| 166 | RestrictionAnalyzer.cs | AreCompatible | 375 |
+| 164 | RestrictionAnalyzer.cs | GetDigestSummary | 1003 |
+| 165 | RestrictionAnalyzer.cs | CreateMap | 1048 |
+| 166 | RestrictionAnalyzer.cs | AreCompatible | 1308 |
 | 167 | RnaSecondaryStructure.cs | CanPair | 142 |
 | 168 | RnaSecondaryStructure.cs | GetComplement | 174 |
 | 169 | RnaSecondaryStructure.cs | CalculateStemEnergy | 286 |
