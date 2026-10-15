@@ -2,8 +2,9 @@ namespace Seqeron.Genomics.MolTools;
 
 /// <summary>
 /// Analyzes restriction enzyme sites in DNA sequences.
-/// Supports common restriction enzymes with palindromic recognition sequences (the built-in
-/// table) and caller-supplied <see cref="RestrictionEnzyme"/> definitions, which may be
+/// Supports the 39 common restriction enzymes (<see cref="Enzymes"/>, the default set of every
+/// member that enumerates enzymes), every REBASE enzyme with a defined cut resolved by name
+/// (<see cref="RebaseEnzymes"/>, 754 enzymes; <see cref="EnzymeSet"/>), and caller-supplied <see cref="RestrictionEnzyme"/> definitions, which may be
 /// non-palindromic and may cut outside their own recognition site (single-sided Type IIS cutters
 /// such as BsaI, BsmBI, BbsI, SapI, FokI, MlyI).
 /// </summary>
@@ -69,20 +70,33 @@ public static partial class RestrictionAnalyzer
     };
 
     /// <summary>
-    /// Gets all available restriction enzymes.
+    /// The 39 common laboratory enzymes (<see cref="EnzymeSet.Common"/>) — the default set of every
+    /// member that enumerates enzymes without being given a set or a list. For the full REBASE set
+    /// (754 enzymes) see <see cref="RebaseEnzymes"/> / <see cref="GetEnzymes(EnzymeSet)"/>.
     /// </summary>
     public static IReadOnlyDictionary<string, RestrictionEnzyme> Enzymes => _enzymes;
 
     /// <summary>
-    /// Gets a restriction enzyme by name, resolved case-insensitively, or <see langword="null"/>
-    /// when the name is not in the built-in table.
+    /// Gets a restriction enzyme by name, resolved case-insensitively against the full REBASE set
+    /// (<see cref="RebaseEnzymes"/>, which contains the 39 common enzymes of <see cref="Enzymes"/> as
+    /// the same instances), or <see langword="null"/> when no enzyme of that name has a defined cut.
     /// </summary>
+    /// <remarks>
+    /// This is the name-resolution contract of every member that takes an enzyme <i>name</i>
+    /// (<c>FindSites</c>, <c>Digest</c>, <c>PartialDigest</c>, <c>GetDigestSummary</c>,
+    /// <c>CreateMap</c>, <c>AreCompatible</c>, <c>GetOverhangSequence</c>, the isoschizomer and
+    /// compatibility queries), so e.g. <c>Digest(seq, "BsaI")</c> works although BsaI is not one of
+    /// the 39 common enzymes. A REBASE enzyme whose cut position is not defined (e.g.
+    /// <c>Dpi3084I</c>) is not resolvable: it cannot be digested.
+    /// </remarks>
     /// <param name="name">Enzyme name (case-insensitive).</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
     public static RestrictionEnzyme? GetEnzyme(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return _enzymes.TryGetValue(name, out var enzyme) ? enzyme : null;
+        return _enzymes.TryGetValue(name, out var enzyme) || RebaseEnzymes.TryGetValue(name, out enzyme)
+            ? enzyme
+            : null;
     }
 
     /// <summary>
@@ -99,7 +113,7 @@ public static partial class RestrictionAnalyzer
     /// built-in entries were audited against Biopython 1.88 <c>.size</c> (39/39 agreement).
     /// </remarks>
     public static IEnumerable<RestrictionEnzyme> GetEnzymesByCutLength(int length) =>
-        _enzymes.Values.Where(e => e.RecognitionSequence.Length == length);
+        GetEnzymesByCutLength(length, EnzymeSet.Common);
 
     /// <summary>
     /// Gets all enzymes whose recognition-sequence length falls within the inclusive range
@@ -113,9 +127,7 @@ public static partial class RestrictionAnalyzer
     /// (<paramref name="minLength"/> &gt; <paramref name="maxLength"/>) yields no enzymes.
     /// </remarks>
     public static IEnumerable<RestrictionEnzyme> GetEnzymesByCutLength(int minLength, int maxLength) =>
-        _enzymes.Values.Where(e =>
-            e.RecognitionSequence.Length >= minLength &&
-            e.RecognitionSequence.Length <= maxLength);
+        GetEnzymesByCutLength(minLength, maxLength, EnzymeSet.Common);
 
     /// <summary>
     /// Gets all enzymes that produce blunt ends — both strands are cut at the same position
@@ -126,7 +138,7 @@ public static partial class RestrictionAnalyzer
     /// entries were audited against it (39/39 agreement, 10 blunt cutters).
     /// </remarks>
     public static IEnumerable<RestrictionEnzyme> GetBluntCutters() =>
-        _enzymes.Values.Where(e => e.IsBluntEnd);
+        GetBluntCutters(EnzymeSet.Common);
 
     /// <summary>
     /// Gets all enzymes that produce sticky (cohesive) ends — a staggered cut leaving a
@@ -139,7 +151,7 @@ public static partial class RestrictionAnalyzer
     /// 21 with a 5' and 8 with a 3' overhang).
     /// </remarks>
     public static IEnumerable<RestrictionEnzyme> GetStickyCutters() =>
-        _enzymes.Values.Where(e => !e.IsBluntEnd);
+        GetStickyCutters(EnzymeSet.Common);
 
     #endregion
 
@@ -183,6 +195,20 @@ public static partial class RestrictionAnalyzer
     //   is filtered on its own on a linear molecule, as `_drop` filters the cut list element-wise.
     //   Differential over all 25 two-cut enzymes of the snapshot: 0 mismatches (B08 F56).
     //
+    // • Readings vs. windows (B08 F60). This finder reports every strand READING: a window that
+    //   matches the site on both strands yields a forward AND a reverse record. Biopython's
+    //   `search` yields one cut set per WINDOW, the forward reading first — `Palindromic._search`
+    //   applies `_modify` only, and the NonPalindromic compsite `(?=fwd)|(?=rev)` alternation
+    //   tries the reverse pattern only where the forward one fails — and drops infeasible cuts
+    //   afterwards. So `search` == the top-strand cuts of the forward records plus those of the
+    //   reverse records whose window does NOT also read as the site on the forward strand
+    //   (whether or not that forward reading's cut survives the linear filter); Digest, CreateMap
+    //   and PartialDigest apply exactly this rule. For a palindrome with symmetric cuts (all 39
+    //   common enzymes) the extra reverse record cuts where the forward one does; it differs for
+    //   the 4 palindromic distal cutters (HauII, SgeI, …) and for degenerate non-palindromic
+    //   sites whose two readings can share a window (MspJI CNNR, LpnPI CCDG, SgrTI CCDS).
+    //   Differential with this rule, all 754 REBASE enzymes by name: 0 mismatches (F59).
+    //
     // • Feasibility (linear molecules): a cut can only fall on a phosphodiester bond that
     //   exists, so a site is reported only when BOTH its strand cuts lie in [1, length - 1].
     //   This is Biopython's `_drop` filter (`1 < cut_on_watson <= length` and the same for
@@ -217,7 +243,7 @@ public static partial class RestrictionAnalyzer
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null, or
     /// <paramref name="enzymeName"/> is null or empty.</exception>
-    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not in the built-in table.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static IEnumerable<RestrictionSite> FindSites(DnaSequence sequence, string enzymeName)
         => FindSites(sequence, enzymeName, MoleculeTopology.Linear);
 
@@ -395,29 +421,18 @@ public static partial class RestrictionAnalyzer
     }
 
     /// <summary>
-    /// Finds all sites for all known enzymes in a <b>linear</b> sequence (comprehensive analysis).
+    /// Finds all sites of the 39 common enzymes (<see cref="Enzymes"/>) in a <b>linear</b> sequence.
+    /// For the full REBASE set use <see cref="FindAllSites(DnaSequence, MoleculeTopology, EnzymeSet)"/>.
     /// </summary>
     public static IEnumerable<RestrictionSite> FindAllSites(DnaSequence sequence)
         => FindAllSites(sequence, MoleculeTopology.Linear);
 
     /// <summary>
-    /// Finds all sites for all known enzymes in a molecule of the given topology
-    /// (comprehensive analysis).
+    /// Finds all sites of the 39 common enzymes (<see cref="Enzymes"/>) in a molecule of the given
+    /// topology. For the full REBASE set use <see cref="FindAllSites(DnaSequence, MoleculeTopology, EnzymeSet)"/>.
     /// </summary>
     public static IEnumerable<RestrictionSite> FindAllSites(DnaSequence sequence, MoleculeTopology topology)
-    {
-        ArgumentNullException.ThrowIfNull(sequence);
-        return FindAllSitesCore(sequence, topology);
-    }
-
-    private static IEnumerable<RestrictionSite> FindAllSitesCore(DnaSequence sequence, MoleculeTopology topology)
-    {
-        foreach (var enzyme in _enzymes.Values)
-        {
-            foreach (var site in FindSitesCore(sequence.Sequence, enzyme, topology))
-                yield return site;
-        }
-    }
+        => FindAllSites(sequence, topology, EnzymeSet.Common);
 
     /// <summary>
     /// Enumerates every 0-based start index at which <paramref name="recognitionPattern"/> occurs
@@ -480,7 +495,7 @@ public static partial class RestrictionAnalyzer
     }
 
     /// <summary>
-    /// Resolves a built-in enzyme name or throws — the single name-resolution contract of this
+    /// Resolves an enzyme name (<see cref="GetEnzyme"/>: the full REBASE set) or throws — the single name-resolution contract of this
     /// class, shared by the site finder, the digest, the map and the compatibility members.
     /// </summary>
     /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
@@ -1336,7 +1351,10 @@ public static partial class RestrictionAnalyzer
     /// <param name="topology">Whether the molecule is linear or circular; see
     /// <see cref="FindSites(DnaSequence, string, MoleculeTopology)"/>.</param>
     /// <param name="enzymeNames">Enzymes to consider. Names are resolved case-insensitively and
-    /// de-duplicated; an <b>empty</b> set means every built-in enzyme.</param>
+    /// de-duplicated (any REBASE enzyme with a defined cut, <see cref="GetEnzyme"/>); an <b>empty</b>
+    /// set means every enzyme of the common set (<see cref="Enzymes"/>); for the full REBASE set pass
+    /// <see cref="RebaseEnzymes"/><c>.Values</c> to
+    /// <see cref="CreateMap(DnaSequence, MoleculeTopology, IEnumerable{RestrictionEnzyme})"/>.</param>
     /// <remarks>
     /// <para>
     /// The <i>considered set</i> is what <see cref="RestrictionMap.NonCutters"/> is taken from:
@@ -1351,8 +1369,8 @@ public static partial class RestrictionAnalyzer
     /// forward-strand records only, since a palindromic site yields one of each.
     /// </para>
     /// </remarks>
-    /// <exception cref="ArgumentException">A name in <paramref name="enzymeNames"/> is not in the
-    /// built-in table.</exception>
+    /// <exception cref="ArgumentException">A name in <paramref name="enzymeNames"/> is not a known
+    /// enzyme (<see cref="GetEnzyme"/>).</exception>
     public static RestrictionMap CreateMap(
         DnaSequence sequence, MoleculeTopology topology, params string[] enzymeNames)
     {
@@ -1505,7 +1523,7 @@ public static partial class RestrictionAnalyzer
     /// bases between the two strand cuts, which may contain IUPAC ambiguity codes when the
     /// enzyme's own site does (<c>SfiI</c> → <c>"NNN"</c>).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a built-in enzyme.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static string GetOverhangSequence(string enzymeName)
         => GetOverhangSequence(RequireEnzyme(enzymeName))!;
 
@@ -1563,7 +1581,7 @@ public static partial class RestrictionAnalyzer
         (Math.Min(forward, reverse), Math.Abs(forward - reverse));
 
     /// <summary>
-    /// Enumerates every unordered pair of distinct built-in enzymes whose ends can be ligated to
+    /// Enumerates every unordered pair of distinct common-set enzymes (<see cref="Enzymes"/>) whose ends can be ligated to
     /// each other.
     /// </summary>
     /// <returns>Tuples of the two enzyme names and the shared end: <c>"blunt"</c> for a blunt pair,
@@ -1595,7 +1613,8 @@ public static partial class RestrictionAnalyzer
     }
 
     /// <summary>
-    /// Lists the built-in enzymes whose ends can be ligated to an end left by
+    /// Lists the common-set enzymes (<see cref="Enzymes"/>; for another set use
+    /// <see cref="FindCompatibleEnzymes(string, EnzymeSet)"/>) whose ends can be ligated to an end left by
     /// <paramref name="enzymeName"/>, the enzyme itself included.
     /// </summary>
     /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
@@ -1608,24 +1627,12 @@ public static partial class RestrictionAnalyzer
     /// is simply <see cref="AreCompatible(RestrictionEnzyme, RestrictionEnzyme)"/> over the table.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a built-in enzyme.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static IEnumerable<(string Enzyme, string CompatibleEnd)> FindCompatibleEnzymes(string enzymeName)
-    {
-        var query = RequireEnzyme(enzymeName);
-        return Enumerate();
-
-        IEnumerable<(string, string)> Enumerate()
-        {
-            foreach (var candidate in _enzymes.Values)
-            {
-                if (AreCompatible(query, candidate, out string? compatibleEnd))
-                    yield return (candidate.Name, compatibleEnd!);
-            }
-        }
-    }
+        => FindCompatibleEnzymes(enzymeName, EnzymeSet.Common);
 
     /// <summary>
-    /// Checks whether two named built-in enzymes produce ligatable (compatible) ends.
+    /// Checks whether two named enzymes (<see cref="GetEnzyme"/>) produce ligatable (compatible) ends.
     /// </summary>
     /// <param name="enzyme1Name">First enzyme name (case-insensitive).</param>
     /// <param name="enzyme2Name">Second enzyme name (case-insensitive).</param>
@@ -1639,7 +1646,7 @@ public static partial class RestrictionAnalyzer
     /// <see cref="TryAreCompatible"/> to probe a name that may not exist.
     /// </remarks>
     /// <exception cref="ArgumentNullException">Either name is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">Either name is not a built-in enzyme.</exception>
+    /// <exception cref="ArgumentException">Either name is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static bool AreCompatible(string enzyme1Name, string enzyme2Name)
     {
         var e1 = RequireEnzyme(enzyme1Name, nameof(enzyme1Name));
@@ -1650,7 +1657,7 @@ public static partial class RestrictionAnalyzer
 
     /// <summary>
     /// Lenient form of <see cref="AreCompatible(string, string)"/> for callers that cannot
-    /// guarantee both names are in the built-in table.
+    /// guarantee both names resolve (<see cref="GetEnzyme"/>).
     /// </summary>
     /// <param name="enzyme1Name">First enzyme name (case-insensitive).</param>
     /// <param name="enzyme2Name">Second enzyme name (case-insensitive).</param>
@@ -1774,56 +1781,48 @@ public static partial class RestrictionAnalyzer
     #region Isoschizomers
 
     /// <summary>
-    /// Built-in enzymes that recognise the same sequence as <paramref name="enzymeName"/> but are
+    /// Common-set enzymes (<see cref="Enzymes"/>; other sets:
+    /// <see cref="FindIsoschizomers(string, EnzymeSet)"/>) that recognise the same sequence as <paramref name="enzymeName"/> but are
     /// not that enzyme — its isoschizomers (Biopython <c>isoschizomers()</c>; the union of
     /// <see cref="FindEquischizomers"/> and <see cref="FindNeoschizomers"/>).
     /// </summary>
     /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a built-in enzyme.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static IEnumerable<RestrictionEnzyme> FindIsoschizomers(string enzymeName)
-        => SameSiteEnzymes(RequireEnzyme(enzymeName));
+        => FindIsoschizomers(enzymeName, EnzymeSet.Common);
 
     /// <summary>
-    /// Built-in isoschizomers of <paramref name="enzymeName"/> that also cut at the same positions,
+    /// Common-set isoschizomers of <paramref name="enzymeName"/> that also cut at the same positions,
     /// so they are interchangeable in a digest — equischizomers (Biopython
     /// <c>equischizomers()</c>: "same site, same position of restriction").
     /// </summary>
     /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a built-in enzyme.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static IEnumerable<RestrictionEnzyme> FindEquischizomers(string enzymeName)
-    {
-        var query = RequireEnzyme(enzymeName);
-        return SameSiteEnzymes(query).Where(e =>
-            e.CutPositionForward == query.CutPositionForward &&
-            e.CutPositionReverse == query.CutPositionReverse);
-    }
+        => FindEquischizomers(enzymeName, EnzymeSet.Common);
 
     /// <summary>
-    /// Built-in isoschizomers of <paramref name="enzymeName"/> that cut the same site at a
+    /// Common-set isoschizomers of <paramref name="enzymeName"/> that cut the same site at a
     /// different position, so they leave different ends — neoschizomers (Biopython
     /// <c>neoschizomers()</c>: "same site, different position of restriction").
     /// </summary>
     /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a built-in enzyme.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static IEnumerable<RestrictionEnzyme> FindNeoschizomers(string enzymeName)
-    {
-        var query = RequireEnzyme(enzymeName);
-        return SameSiteEnzymes(query).Where(e =>
-            e.CutPositionForward != query.CutPositionForward ||
-            e.CutPositionReverse != query.CutPositionReverse);
-    }
+        => FindNeoschizomers(enzymeName, EnzymeSet.Common);
 
     /// <summary>
     /// The one same-recognition-sequence query the three isoschizomer accessors share. Comparison
     /// is on the recognition string as stored (both are upper-case in the table), and the queried
     /// enzyme itself is excluded, exactly as the reference's <c>del r[i]</c> does.
     /// </summary>
-    private static IEnumerable<RestrictionEnzyme> SameSiteEnzymes(RestrictionEnzyme query)
+    private static IEnumerable<RestrictionEnzyme> SameSiteEnzymes(
+        RestrictionEnzyme query, IReadOnlyDictionary<string, RestrictionEnzyme> table)
     {
-        return _enzymes.Values.Where(e =>
+        return table.Values.Where(e =>
             !ReferenceEquals(e, query) &&
             !string.Equals(e.Name, query.Name, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(e.RecognitionSequence, query.RecognitionSequence, StringComparison.OrdinalIgnoreCase));

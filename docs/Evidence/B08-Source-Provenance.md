@@ -367,3 +367,14 @@ spacer + Cas-binding scaffold ("a user-defined ∼20-nucleotide spacer that defi
 target"), SpCas9 `NGG`, SaCas9 `NNGRRT` and Cas12a `TTTV` (PAM table and Cas12a section) — **present**.
 The Pol III `TTTT` terminator — **absent** (no "TTTT", "Pol III", "U6" or "terminat" on the page):
 that attribution remains unverified, and is the only Addgene-Guide row not closed here.
+
+## 9. Derived artefact — the vendored REBASE enzyme table (B08 D4 part 1 / F59, 2026-10-15)
+
+Both datasets of §2 and §3a are now **redistributed in derived form**: `scripts/rebase/generate_rebase_enzymes.py`
+(inputs refused unless their sha256 equals the pins above) writes
+`src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/Resources/rebase_enzymes.tsv` — 754 enzymes with a
+defined cut: site + cut offsets from Biopython 1.88 / REBASE 404, organism `<3>` + methylation `<6>` from
+`allenz.104` (747 joined, 7 absent). Census, licence texts (Biopython License Agreement; REBASE
+"Copyright (c) Dr. Richard J. Roberts, 2021. All rights reserved." as redistributed in crisprBase under
+MIT) and the open redistribution question for the two allenz columns are in
+`RESTR-FIND-001-Evidence.md` §6.

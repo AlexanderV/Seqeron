@@ -55,6 +55,8 @@
 16. **CreateMap partition**: SitesByEnzyme.Keys ∪ NonCutters covers the considered enzyme set exactly, both keyed by canonical table name (Source: RESTR-DIGEST-001 invariant #11)
 17. **Sequence ambiguity (D3)**: per position, a site `N` matches any of the 15 IUPAC codes in the sequence (an `N` included); every other site code matches only a concrete A/C/G/T base it expands to, so a sequence ambiguity code blocks it; a non-IUPAC sequence character matches nothing (Source: Biopython 1.88 `compsite` — site `N` → regex `.`, other codes → their A/C/G/T class; `SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]`, `EcoRI.search(Seq("AGAANTCA")) == []`)
 18. **Cognate methylation site (D7)**: every built-in's `RebaseMethylationField` equals REBASE `allenz.104` field `<6>` verbatim, and `CognateMethylationSites` is its parse per the file's format header (`X(Y)`, negative X = complementary strand, `?` = base undetermined, `(4)/(5)/(6)` = m4C/m5C/m6A); a known top-strand position names an `A` for m6A and a `C` for m4C/m5C. The field is the cognate MTase's protection site — no Dam/Dcm/CpG sensitivity is modelled (Source: REBASE `allenz.104`, sha256 `43b12432…69388`)
+19. **REBASE set (D4, F59)**: `RebaseEnzymes` holds the 754 Biopython 1.88 REBASE 404 enzymes with a defined cut (729 OneCut + 25 TwoCuts; the 334 NoCut/NotDefined are excluded and unresolvable); the 39 common enzymes are the same instances; `GetEnzyme` (and every name-taking member) resolves against it; every member that enumerates enzymes without a list or an `EnzymeSet` stays on the 39 common enzymes (Source: Biopython 1.88 `Restriction_Dictionary.py`, REBASE allenz.104; API contract)
+20. **Readings vs. windows (F60)**: Biopython `search` == top-strand cuts of `FindSites`' forward records plus those reverse records whose window does not also read as the site on the forward strand (Source: Biopython `Palindromic._search`, `NonPalindromic._search` compsite alternation)
 
 ---
 
@@ -82,6 +84,9 @@
 | M16 | Blunt cutter enzyme (EcoRV) properties correct | Overhang type | Wikipedia |
 | M35 | Every built-in's REBASE methylation-site field equals allenz.104 `<6>` | D7: the field was claimed unobtainable | REBASE allenz.104 |
 | M36 | REBASE `<6>` notation parsed (complementary strand, lists, `?`); malformed values rejected | Faithful typed representation | REBASE allenz.104 format header |
+| M37 | All 754 REBASE enzymes, by name, linear + circular: `FindSites` cuts (invariant 20) = Biopython 1.88 `search`; `Digest` fragments = gaps of the sorted `search` cuts | D4: enzymes outside the 39 were "not in our table" | Biopython 1.88 (embedded oracle `biopython_rebase_search.tsv`) |
+| M38 | Census 754 / 25 two-cut / 137 blunt / 388 5' / 229 3'; 39 common enzymes = same instances, vendored rows agree with them; `Dpi3084I` (no defined cut) unresolvable | Invariant 19 | Biopython 1.88 `is_blunt()`/`is_5overhang()`/`is_3overhang()` |
+| M39 | Default-set members unchanged (39 / 24 six-cutters / 10 blunt / 29 sticky; no non-common enzyme in `FindAllSites`/`CreateMap`/`FindCompatibleEnzymes`); `EnzymeSet.Rebase` filters and schizomers = Biopython (385 six-cutters, 676 in 4–8, 137 blunt, 617 sticky; BsaI iso/equi = Bso31I, BspTNI, Eco31I; SmaI neo = Cfr9I, TspMI, XmaI) | Invariant 19 | Biopython 1.88 `.size`, `isoschizomers()`, `equischizomers()`, `neoschizomers()` |
 
 ### Should (Important)
 

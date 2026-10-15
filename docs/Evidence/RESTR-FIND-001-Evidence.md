@@ -463,3 +463,82 @@ parse. Parser cases for notation absent from the table (negative position, lists
 the undocumented `(99)` type that occurs 3× in the file — rejected) are locked by
 `CognateMethylationSites_RebaseNotation_ComplementaryStrandAndLists` and
 `RestrictionEnzyme_MalformedMethylationField_Throws`.
+
+## 6. The vendored REBASE set — all enzymes with a defined cut (B08 D4 part 1 / F59, F60, 2026-10-15)
+
+**Inputs (both re-hashed this session, identical to the pins in `B08-Source-Provenance.md`):**
+Biopython 1.88 `Bio/Restriction/Restriction_Dictionary.py` sha256
+`2a79099295dbad6061ea67a11e053787c591fcb2eb10fc8c0f89ead908dfa02b` (installed copy in the session venv);
+REBASE `allenz.104` (`crisprVerse/crisprBase` `inst/enzymes/allenz.txt`) sha256
+`43b12432ed3c1a19e961d019e3a131336e8ee690a4568a68ddf55ed0e3869388`.
+
+**Generator:** `scripts/rebase/generate_rebase_enzymes.py` (`table` reads both files with
+`ast.literal_eval` / a line parser and refuses any other sha256; `oracle` imports Biopython 1.88 and checks
+the installed dictionary's sha256). Outputs: `src/.../MolTools/Resources/rebase_enzymes.tsv` (embedded,
+754 rows, provenance + census in its `#` header) and
+`tests/.../TestData/Restriction/biopython_rebase_search.tsv` (754 rows, `random.Random(20261015)`).
+
+**Census (Biopython 1.88 class membership, computed with `issubclass` on `Bio.Restriction.AllEnzymes`):**
+
+| Biopython class | Count | Vendored |
+|---|---|---|
+| `OneCut` + `Defined` (fully defined overhang) | 389 | yes |
+| `OneCut` + `Ambiguous` (in-site with `N` overhang, or distal) | 340 | yes |
+| `TwoCuts` + `Ambiguous` | 25 | yes (`SecondCut`) |
+| `NoCut` + `NotDefined` (`fst5 = fst3 = scd5 = ovhg = None`) | 334 | **no** |
+| **total** | **1088** | **754** |
+
+The 729 OneCut split as 576 in-site + 153 distal (F54). Among the 754: 137 blunt, 388 5', 229 3' overhang
+(Biopython `is_blunt`/`is_5overhang`/`is_3overhang`); recognition-string length (`.size`) 6 → 385,
+4–8 → 676. **Join with allenz.104:** 747 of 754 names found; 7 absent (BscXI, CviKI_1, EcoO157SI, KroNI,
+PaqCI, TagI, UpaP162I) → organism and methylation empty. 282 vendored enzymes carry a methylation field;
+every one parses under the F52 grammar (no `(99)` type among them). For the 39 common enzymes the vendored
+rows equal the curated table on site, both offsets and methylation field, and on genus + species of the
+organism (`VendoredRows_OfTheCommonEnzymes_AgreeWithTheCuratedTable`); the loader substitutes the curated
+instances, so their behaviour is byte-identical.
+
+**Why the 334 are excluded:** REBASE gives their site but no cut position; `RestrictionEnzyme` must carry
+integer offsets, and a digest/overhang/compatibility result built on an invented offset would be false.
+They are not resolvable by name (`GetEnzyme("Dpi3084I") == null`). Representing "cut unknown" would need a
+record that most members (digest, map, overhang) could not use — not done; recorded here as the decision.
+
+**Licence notes (texts opened this session):**
+- Biopython `Restriction_Dictionary.py` header: *"This code is part of the Biopython distribution and governed
+  by its license. Please see the LICENSE file that should have been included as part of this package."*
+  Biopython 1.88 `LICENSE.rst` (dist-info), Biopython License Agreement: *"Permission to use, copy, modify,
+  and distribute this software and its documentation with or without modifications and for any purpose and
+  without fee is hereby granted, provided that any copyright notices appear in all copies and that both
+  those copyright notices and this permission notice appear in supporting documentation …"* — the vendored
+  table's header names the source and licence.
+- REBASE `allenz.104` header (`notation.txt`): *"REBASE, The Restriction Enzyme Database
+  http://rebase.neb.com — Copyright (c) Dr. Richard J. Roberts, 2021. All rights reserved."* The file
+  carries no redistribution grant of its own; it is redistributed inside crisprBase, whose `DESCRIPTION`
+  says `License: MIT + file LICENSE` (`LICENSE`: *"Copyright (c) 2022, Genentech, Inc. Permission is hereby
+  granted, free of charge …"*; fetched 2026-10-15, sha256 `cacd57a7…` / `023d7b6c…`). Only two factual
+  columns (organism, methylation site) of 747 records are taken. **Open for the project owner:** whether
+  REBASE's "All rights reserved" notice requires permission from REBASE/NEB for redistributing these two
+  columns at this scale (the 39-entry use predates this WP). The site/cut data does not depend on it.
+
+**Differential (by name, 754 enzymes × linear + circular; `RestrictionAnalyzer_RebaseSet_Tests`):**
+
+| check | comparisons | mismatches |
+|---|---|---|
+| `FindSites` top-strand cuts (F60 rule) = `search(seq, linear=True)` | 754 | **0** |
+| same, circular (Biopython cuts reduced into [1, n]) | 754 | **0** |
+| `Digest` fragment lengths = gaps of sorted distinct `search` cuts, linear | 754 | **0** |
+| same, circular | 754 | **0** |
+
+**F60 — what a naive comparison shows.** Comparing *every* `FindSites` record with `search` gives
+9 mismatching (enzyme, topology) cases in 5 enzymes: HauII TGGCCA (palindromic, offsets 17/15 — distal), SgeI CNNG
+(palindromic, offsets 13/17 — distal), MspJI CNNR, LpnPI CCDG, SgrTI CCDS (non-palindromic, degenerate; both readings
+can match one window). E.g. HauII on the oracle molecule: `FindSites` top cuts `[20, 32]`, `search` `[20]`.
+Biopython counts one reading per window, forward first (`Palindromic._search` → `_modify` only;
+`NonPalindromic` compsite `(?=(?P<MspJI>C..[AG]))|(?=(?P<MspJI_as>[CT]..G))`), and drops infeasible cuts
+only afterwards — so for MspJI and SgeI on a linear molecule, a window whose forward reading cuts off the
+end contributes nothing even though its reverse reading would cut inside. Setting aside reverse records
+whose window reads forward (pattern match, not "has a forward record") gives 0 mismatches. This is the rule
+`Digest`/`CreateMap`/`PartialDigest` already applied (F55/F58); `FindSites` itself reports readings by
+design (documented in the class's convention comment and algorithm doc §5.2a). The WP11a figure "FindSites
+0 mismatches" (§2.6) was measured with the same rule applied in the harness.
+
+The TscAI/TspRI `ovhg` divergence (§2.6) did not arise on this corpus (no site at the 5' edge).
