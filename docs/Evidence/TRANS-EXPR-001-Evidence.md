@@ -50,7 +50,7 @@
 ### Wikipedia — "Quantile normalization" (citing Bolstad et al. 2003)
 
 **URL:** https://en.wikipedia.org/wiki/Quantile_normalization
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: supports the claims above)
 **Authority rank:** 4 (Wikipedia article citing the primary Bolstad 2003 method); worked example and tie rule used.
 **Retrieved how:** WebFetch; prompt requested the full worked-example matrices (input, sorted, rank means, final) and the exact tie-handling rule.
 

@@ -57,7 +57,7 @@
 ### Wikipedia — Nucleic acid thermodynamics (cites SantaLucia 1998 as primary)
 
 **URL:** https://en.wikipedia.org/wiki/Nucleic_acid_thermodynamics
-**Accessed:** 2026-06-13 (fetched in this session)
+**Accessed:** 2026-06-13 (fetched in this session) · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia citing primaries; used only to corroborate, not as sole authority)
 
 **Key Extracted Points:**
@@ -66,8 +66,9 @@
    as separate initiation contributions in Table 1 — both duplex ends receive an initiation term.
    Terminal A/T ΔH° = 9.6 kJ/mol (= 2.29 kcal/mol ≈ 2.3); Terminal G/C ΔH° = 0.4 kJ/mol
    (= 0.096 kcal/mol ≈ 0.1) — corroborates the DNA_NN3 `init_A/T`/`init_G/C` values.
-2. **Tm formula:** Tm = ΔH° / (ΔS° + R·ln(C_T/x)); x = 4 for non-self-complementary, x = 1
-   for self-complementary; primary reference cited is SantaLucia (1998), reference 13.
+2. **Tm formula:** the page gives Tm = ΔH° / (ΔS° + R·ln([A]total − [B]total/2)) (= C_T/4 for equimolar
+   non-self-complementary strands); the x = 1 self-complementary case is not on the page — it rests on
+   SantaLucia (1998) and Biopython `Tm_NN` (`k = dnac1` when `selfcomp`).
 
 ---
 

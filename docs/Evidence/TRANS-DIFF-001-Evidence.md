@@ -50,14 +50,14 @@
 ### Student's t-distribution CDF via regularized incomplete beta (Wikipedia)
 
 **URL:** https://en.wikipedia.org/wiki/Student%27s_t-distribution
-**Accessed:** 2026-06-13
+**Accessed:** 2026-06-13 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia; standard special-function identity)
 **Retrieved how:** WebFetch; prompt requested the t-distribution CDF and two-sided p-value in terms of the regularized incomplete beta function `I_x(a,b)`.
 
 **Key Extracted Points:**
 
 1. **CDF (verbatim):** for `t > 0`, `F(t) = 1 − ½·I_{x(t)}(ν/2, ½)` with `x(t) = ν/(t² + ν)`.
-2. **Two-sided tail (verbatim):** `A(t|ν) = 1 − I_{ν/(ν+t²)}(ν/2, ½)` is the probability the statistic falls within `[−t, t]`; therefore the two-sided p-value `P(|T| ≥ t) = I_{ν/(ν+t²)}(ν/2, ½)`.
+2. **Two-sided tail (derived — not verbatim on the current page, re-checked 2026-10-14; follows from point 1 as p = 2(1 − F(t))):** `A(t|ν) = 1 − I_{ν/(ν+t²)}(ν/2, ½)` is the probability the statistic falls within `[−t, t]`; therefore the two-sided p-value `P(|T| ≥ t) = I_{ν/(ν+t²)}(ν/2, ½)`.
 
 ### Benjamini & Hochberg (1995) procedure — Wikipedia "False discovery rate" + R `p.adjust`
 

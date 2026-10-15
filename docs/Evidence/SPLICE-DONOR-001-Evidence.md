@@ -11,7 +11,7 @@
 ### Wikipedia: RNA splicing
 
 **URL:** https://en.wikipedia.org/wiki/RNA_splicing
-**Accessed:** 2026-02-12
+**Accessed:** 2026-02-12 · re-fetched 2026-10-14 (SRC citation audit: see corrections below)
 **Authority rank:** 4 (Wikipedia with cited primaries)
 
 **Key Extracted Points:**
@@ -20,7 +20,7 @@
 2. **Consensus sequence:** G-G-[cut]-G-U-R-A-G-U (donor site), where R = purine (A/G). This is the canonical 5' splice site consensus from Molecular Biology of the Cell (Alberts et al.).
 3. **GU-AG rule:** The major spliceosome splices introns containing GU at the 5' splice site and AG at the 3' splice site. This accounts for >99% of splicing.
 4. **Non-canonical splicing:** When intronic flanking sequences do not follow the GU-AG rule, noncanonical splicing occurs via the minor spliceosome.
-5. **Extended consensus:** MAG|GURAGU, where M = A or C, the vertical bar indicates the exon-intron boundary, positions -3 to +6 relative to the splice junction.
+5. **Extended consensus (not on this page, which gives only G-G-[cut]-G-U-R-A-G-U):** MAG|GURAGU, where M = A or C, the vertical bar indicates the exon-intron boundary, positions -3 to +6 relative to the splice junction — per Shapiro & Senapathy (1987) and Yeo & Burge (2004), below.
 
 ### Wikipedia: Spliceosome
 
