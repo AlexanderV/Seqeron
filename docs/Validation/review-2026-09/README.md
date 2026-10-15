@@ -30,6 +30,15 @@ implementation), plus the three campaign rules below.
    Also check the MCP tool wrappers (`src/Seqeron/Mcp/**`) that expose your classes: a wrapper
    must delegate, not re-implement.
 
+**Privacy when fetching references (added 2026-10-15 after a real slip).** A B08 subagent sent the
+repository owner's e-mail address in a `User-Agent` header on one `en.wikipedia.org` request. Nothing
+was committed and later requests used a generic header, but the guard it wrote lived only in that
+session's scratchpad, so it is restated here where every session reads it: **never put the owner's
+e-mail, name or account id into an HTTP header, User-Agent string, URL, query or payload** when
+fetching a source. Use a neutral User-Agent (e.g. `Seqeron-review/1.0`). This binds the lead and
+EVERY subagent — copy it into subagent prompts alongside the WIP block. The owner's e-mail is for
+authorship and attribution inside this repository only.
+
 ## Environment for a fresh container
 
 ```bash

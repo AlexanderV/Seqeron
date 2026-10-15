@@ -18,6 +18,11 @@ and commits it after every change. Batch definitions (units, owned files) are in
   (re-audit their reports first — later batches may have resolved items), THEN Phase 2 (cross-batch dedup),
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
+- **Never send the owner's identity to a source host (2026-10-15, after a real slip):** a B08 WP10 subagent put the
+  owner's e-mail in a `User-Agent` header on an `en.wikipedia.org` request. Nothing was committed, later requests used
+  a generic header, and the e-mail appears nowhere in the tree (checked). The session's own guard lived only in its
+  scratchpad, so the rule now sits in README "Campaign rules" where every session reads it: no e-mail, name or account
+  id in any header, UA string, URL, query or payload when fetching a reference; neutral UA; binds every subagent too.
 - **Decide before spending (user 2026-10-14, after the B08 restarts):** before any interrupt, relaunch or new session
   that costs real money, say the cost and the expected gain first, and do not retry while the cause of the failure is
   still true (e.g. the model fallback is account-wide at that minute — then report and wait, do not relaunch). A batch
