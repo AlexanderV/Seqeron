@@ -44,8 +44,9 @@
 
 **Key Extracted Points:**
 
-1. **Recognition-length categories:** EcoRI, BamHI, HindIII, XhoI, SacI, PstI, NdeI recognize 6-bp sequences; TaqI, AluI, HaeIII recognize 4-bp sequences; NotI recognizes an 8-bp sequence. This corroborates the 4/6/8-bp lengths used by the length-filter test cases.
-2. **End type:** Enzymes "produce either blunt or overhung ends" (blunt ends marked with asterisks in the source's resource lists).
+1. **What the page actually is (re-fetched 2026-10-15, B08 WP13 / R9, F64):** an index page linking to per-letter sub-lists. Its only length statement is Verbatim — "They recognize a specific DNA sequence, usually short (3 to 8 bp), and cut it, producing either blunt or overhung ends". It carries **no per-enzyme table**, so it is **not** a source for any individual enzyme's site length. (The neighbouring page https://en.wikipedia.org/wiki/Restriction_site, also re-fetched, says "4-8 base pairs in length" and has no enzyme table either.)
+2. **End type:** Enzymes "produce either blunt or overhung ends" (verbatim, same sentence).
+3. **Per-enzyme recognition lengths — re-attributed (F64):** the 4/6/8-bp lengths used by the length-filter test cases (EcoRI, BamHI, HindIII, XhoI, SacI, PstI, NdeI = 6; TaqI, AluI, HaeIII = 4; NotI = 8) were previously credited to this page; they come from Biopython 1.88 `Bio.Restriction` (`<Enzyme>.size`, executed 2026-10-15 against the pinned REBASE 404 snapshot, see `docs/Evidence/B08-Source-Provenance.md` §2). Values unchanged — only the attribution was wrong.
 
 ### SfiI — interrupted palindrome (PMC / REBASE, search result text)
 
@@ -95,7 +96,7 @@
 
 ### Dataset: Library enzymes with known end type and recognition length
 
-**Source:** Restriction enzyme (Wikipedia) §"Types"; KpnI NEB/REBASE; EcoRI NEB/REBASE; List of restriction enzyme cutting sites (Wikipedia).
+**Source:** Restriction enzyme (Wikipedia) §"Types"; KpnI NEB/REBASE; EcoRI NEB/REBASE; per-enzyme recognition lengths: Biopython 1.88 `Bio.Restriction` `size` (pinned snapshot, `B08-Source-Provenance.md` §2; F64 — previously mis-credited to "List of restriction enzyme cutting sites", which has no enzyme table).
 
 | Enzyme | Recognition | Length (bp) | Cut geometry | End type |
 |--------|-------------|-------------|--------------|----------|
@@ -138,6 +139,7 @@
 4. New England Biolabs / REBASE. KpnI (R0142). https://www.neb.com/en/products/r0142-kpni ; http://rebase.neb.com
 5. New England Biolabs / REBASE. EcoRI-HF (R3101). https://www.neb.com/en/products/r3101-ecori-hf ; http://rebase.neb.com
 6. SfiI interrupted palindrome `5'-GGCCNNNN^NGGCC-3'` (homology model article). PMC. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC548270/
+7. Biopython 1.88, `Bio.Restriction` (REBASE 404 snapshot, pinned tag `biopython-188`) — per-enzyme site lengths and cut positions; see `docs/Evidence/B08-Source-Provenance.md`.
 
 ---
 
@@ -372,3 +374,6 @@ Identical on both sides for all 39 enzymes and all three queries (117/117).
   entries), the derived ligation rule and its 1 521 + 75 466-pair cross-check, two defects found in
   Biopython's own `%` operator, the confirmed compatible/incompatible pair table, and the
   isoschizomer sets. Blocked hosts recorded instead of cited.
+- **2026-10-15** (B08 WP13, QUEUE R9, F64): attribution fix only — the per-enzyme 4/6/8-bp recognition
+  lengths re-credited from "List of restriction enzyme cutting sites" (an index page with no enzyme table;
+  re-fetched, it only says "usually short (3 to 8 bp)") to Biopython 1.88 `Bio.Restriction`. No value changed.

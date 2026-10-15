@@ -165,7 +165,7 @@
 | FindSites_PstI_ProducesThreePrimeOverhangOfFourBases | 3' cohesive termini, 4 bp | Wikipedia: PstI |
 | FindSites_EcoRV_ProducesBluntEndCuts | Blunt ends (fwd == rev cut) | Wikipedia: EcoRV |
 | FindSites_PalindromicSite_FoundOnBothStrandsAtSamePosition | Both strands recognized | Wikipedia: Restriction enzyme |
-| EnzymeDatabase_CutPositions_MatchWikipedia (×21) | Recognition sequences and cut positions | Wikipedia: Restriction enzyme (Examples table) |
+| EnzymeDatabase_CutPositions_MatchWikipedia (×21) | Recognition sequences and cut positions | Wikipedia: Restriction enzyme (Examples table) for 19; BglII and ApaI (not on that table) from Biopython 1.88 `Bio.Restriction` (B08 F64) |
 | EnzymeDatabase_AllEntries_MatchRebase404 (×39) | site, fst5, len(site)+fst3, blunt/5'/3' class for every table entry — 39/39 matched, 0 wrong entries | REBASE 404 via Biopython 1.88 |
 | FindSites_Sau3AI_EdgeSites_AreNotCuttable_MatchesBiopython | `Sau3AI.search(Seq("GATCGATCGATC")) == [5]` | Biopython 1.88 |
 | FindSites_GatcEdgeCutter_WholeSequenceIsTheSite_ReportsNothing | `Sau3AI.search(Seq("GATC")) == []`, `MboI.search(Seq("GATC")) == []` | Biopython 1.88 |

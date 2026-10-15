@@ -867,8 +867,13 @@ public class RestrictionAnalyzer_FindSites_Tests
 
     /// <summary>
     /// Evidence: Wikipedia Restriction enzyme examples table — comprehensive verification
-    /// of cut positions for all enzymes listed in the Wikipedia table.
+    /// of cut positions for the enzymes listed in the Wikipedia table.
     /// Source: https://en.wikipedia.org/wiki/Restriction_enzyme#Examples
+    /// Attribution (B08 F64, QUEUE R9; page re-fetched 2026-10-15): the 19 cases labelled
+    /// "Wikipedia" are on that table. BglII and ApaI are NOT on it (BglII appears only under
+    /// "See also"); their site and cut positions come from Biopython 1.88 Bio.Restriction
+    /// (site / fst5 / size + fst3, pinned REBASE snapshot — docs/Evidence/B08-Source-Provenance.md),
+    /// which also reproduces all 19 Wikipedia rows. The method name is historical.
     /// </summary>
     [Test]
     [TestCase("EcoRI", "GAATTC", 1, 5, Description = "Wikipedia: G↓AATTC / CTTAA↓G")]
@@ -890,8 +895,8 @@ public class RestrictionAnalyzer_FindSites_Tests
     [TestCase("SphI", "GCATGC", 5, 1, Description = "Wikipedia: GCATG↓C / C↓GTACG")]
     [TestCase("StuI", "AGGCCT", 3, 3, Description = "Wikipedia: AGG↓CCT / TCC↓GGA (blunt)")]
     [TestCase("XbaI", "TCTAGA", 1, 5, Description = "Wikipedia: T↓CTAGA / AGATC↓T")]
-    [TestCase("BglII", "AGATCT", 1, 5, Description = "Wikipedia: A↓GATCT / TCTAG↓A")]
-    [TestCase("ApaI", "GGGCCC", 5, 1, Description = "Wikipedia: GGGCC↓C / C↓CCGGG")]
+    [TestCase("BglII", "AGATCT", 1, 5, Description = "Biopython 1.88 Bio.Restriction (not on the Wikipedia table): A↓GATCT / TCTAG↓A")]
+    [TestCase("ApaI", "GGGCCC", 5, 1, Description = "Biopython 1.88 Bio.Restriction (not on the Wikipedia table): GGGCC↓C / C↓CCGGG")]
     public void EnzymeDatabase_CutPositions_MatchWikipedia(
         string name, string expectedRecognition, int expectedCutFwd, int expectedCutRev)
     {
@@ -901,11 +906,11 @@ public class RestrictionAnalyzer_FindSites_Tests
         {
             Assert.That(enzyme, Is.Not.Null, $"{name} should be in database");
             Assert.That(enzyme!.RecognitionSequence, Is.EqualTo(expectedRecognition),
-                $"{name} recognition sequence (Wikipedia)");
+                $"{name} recognition sequence (Wikipedia table / Biopython 1.88)");
             Assert.That(enzyme.CutPositionForward, Is.EqualTo(expectedCutFwd),
-                $"{name} forward cut position (Wikipedia)");
+                $"{name} forward cut position (Wikipedia table / Biopython 1.88)");
             Assert.That(enzyme.CutPositionReverse, Is.EqualTo(expectedCutRev),
-                $"{name} reverse cut position (Wikipedia)");
+                $"{name} reverse cut position (Wikipedia table / Biopython 1.88)");
         });
     }
 
