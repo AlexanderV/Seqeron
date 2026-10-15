@@ -66,6 +66,7 @@ public sealed class ToolRegistrationContractTests : ToolRegistrationContractTest
         "reduce_secondary_structure",
         "remove_restriction_sites",
         "restriction_digest",
+        "partial_digest",
         "restriction_map",
         "rscu",
         "sticky_cutters",

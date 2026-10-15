@@ -1,5 +1,5 @@
 // Canonical Test File: RESTR-DIGEST-001 - Restriction Digest Simulation
-// Methods Under Test: RestrictionAnalyzer.Digest, GetDigestSummary, CreateMap, AreCompatible, FindCompatibleEnzymes
+// Methods Under Test: RestrictionAnalyzer.Digest, PartialDigest (F53), GetDigestSummary, CreateMap, AreCompatible, FindCompatibleEnzymes
 //
 // Evidence Sources:
 // - Wikipedia: Restriction digest (https://en.wikipedia.org/wiki/Restriction_digest)
@@ -1564,6 +1564,275 @@ public class RestrictionAnalyzer_Digest_Tests
             Assert.That(compatible, Is.True,
                 $"{pair.Enzyme1} and {pair.Enzyme2} should be compatible per AreCompatible()");
         }
+    }
+
+    #endregion
+
+    #region Partial Digest (B08 D8 / F53)
+
+    // Definition: Rosalind PDPL "Creating a Restriction Map" (after Jones & Pevzner): for the set X
+    // of restriction-site positions including both ends, the partial-digest fragment lengths are the
+    // difference multiset ΔX — "the collection of all positive differences between elements of X",
+    // C(n,2) elements. Sample: X = {0,2,4,7,10} → ΔX = {2,2,3,3,4,5,6,7,8,10}.
+
+    /// <summary>
+    /// "AGCTGATCGA" with AluI/Sau3AI/TaqI: Biopython 1.88 <c>search</c> → AluI [3], Sau3AI [5],
+    /// TaqI [8] (1-based), i.e. 0-based cuts {2,4,7} on a 10 bp molecule — exactly Rosalind's
+    /// X = {0,2,4,7,10}. The fragment lengths must be Rosalind's sample ΔX, and the sequences the
+    /// union of Biopython's digests over every enzyme subset (each enzyme cuts once here, so enzyme
+    /// subsets are site subsets).
+    /// </summary>
+    [Test]
+    public void PartialDigest_Linear_LengthsAreTheRosalindDifferenceMultiset_AndMatchBiopythonSubsetUnion()
+    {
+        var fragments = RestrictionAnalyzer.PartialDigest(
+            new DnaSequence("AGCTGATCGA"), "AluI", "Sau3AI", "TaqI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fragments.Select(f => f.Fragment.Length).OrderBy(x => x),
+                Is.EqualTo(new[] { 2, 2, 3, 3, 4, 5, 6, 7, 8, 10 }));
+            Assert.That(fragments.Select(f => f.Fragment.Sequence), Is.EquivalentTo(new[]
+            {
+                "AG", "CT", "CGA", "GAT", "AGCT", "CTGAT", "GATCGA", "AGCTGAT", "CTGATCGA", "AGCTGATCGA"
+            }));
+            Assert.That(fragments.Select(f => (f.Fragment.StartPosition, f.Fragment.Length, f.MissedCuts)), Is.EqualTo(new[]
+            {
+                (0, 2, 0), (2, 2, 0), (4, 3, 0), (7, 3, 0),
+                (0, 4, 1), (2, 5, 1), (4, 6, 1),
+                (0, 7, 2), (2, 8, 2),
+                (0, 10, 3)
+            }));
+            Assert.That(fragments.Select(f => f.Fragment.FragmentNumber), Is.EqualTo(Enumerable.Range(1, 10)));
+            // The whole molecule keeps both original termini: no enzyme, no overhang.
+            var whole = fragments[^1].Fragment;
+            Assert.That((whole.LeftEnzyme, whole.RightEnzyme, whole.LeftOverhangType, whole.RightOverhangType),
+                Is.EqualTo(((string?)null, (string?)null, (OverhangType?)null, (OverhangType?)null)));
+            // [2,7) "CTGAT": AluI blunt left end, TaqI 5' CG right end (as in the complete digest).
+            var ctgat = fragments.Single(f => f.Fragment.Sequence == "CTGAT").Fragment;
+            Assert.That((ctgat.LeftEnzyme, ctgat.LeftOverhangType, ctgat.LeftOverhang,
+                         ctgat.RightEnzyme, ctgat.RightOverhangType, ctgat.RightOverhang),
+                Is.EqualTo(("AluI", (OverhangType?)OverhangType.Blunt, "", "TaqI", (OverhangType?)OverhangType.FivePrime, "CG")));
+        });
+    }
+
+    /// <summary>
+    /// The same molecule as a circle: Biopython 1.88 <c>search(..., linear=False)</c> gives the same
+    /// cuts; the union of Biopython's circular digests over every enzyme subset (empty subset = the
+    /// intact circle) is the 10 sequences below — k² + 1 for k = 3.
+    /// </summary>
+    [Test]
+    public void PartialDigest_Circular_MatchesBiopythonSubsetUnion_AndEndsWithTheIntactCircle()
+    {
+        var fragments = RestrictionAnalyzer.PartialDigest(
+            new DnaSequence("AGCTGATCGA"), MoleculeTopology.Circular, "AluI", "Sau3AI", "TaqI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fragments.Select(f => f.Fragment.Sequence), Is.EqualTo(new[]
+            {
+                "CT", "GAT", "CGAAG",                       // complete digest (0 missed)
+                "CTGAT", "GATCGAAG", "CGAAGCT",             // 1 missed
+                "CTGATCGAAG", "GATCGAAGCT", "CGAAGCTGAT",   // 2 missed: linearised at each cut
+                "AGCTGATCGA"                                // 3 missed: intact circle
+            }));
+            Assert.That(fragments.Select(f => f.MissedCuts), Is.EqualTo(new[] { 0, 0, 0, 1, 1, 1, 2, 2, 2, 3 }));
+            var circle = fragments[^1].Fragment;
+            Assert.That((circle.StartPosition, circle.Length, circle.LeftEnzyme, circle.RightEnzyme, circle.LeftOverhangType),
+                Is.EqualTo((0, 10, (string?)null, (string?)null, (OverhangType?)null)));
+            // A linearised full-length molecule has a cut at both ends, by the same enzyme.
+            var linearised = fragments.Single(f => f.Fragment.Sequence == "GATCGAAGCT").Fragment;
+            Assert.That((linearised.StartPosition, linearised.LeftEnzyme, linearised.RightEnzyme,
+                         linearised.LeftOverhang, linearised.RightOverhang),
+                Is.EqualTo((4, "Sau3AI", "Sau3AI", "GATC", "GATC")));
+        });
+    }
+
+    /// <summary>
+    /// Property: the fragments with zero missed cuts are, member for member (numbering included),
+    /// the complete digest; and with maxMissedCuts = m the result is the unlimited result's prefix
+    /// with MissedCuts ≤ m.
+    /// </summary>
+    [Test]
+    public void PartialDigest_ZeroMissedCutSubset_IsExactlyTheCompleteDigest([Values] MoleculeTopology topology)
+    {
+        var rng = new Random(20261015);
+        string[] panel = ["Sau3AI", "AluI", "HaeIII", "TaqI", "MspI", "RsaI", "EcoRI", "BamHI", "FseI", "DpnI", "PstI", "BglII"];
+        for (int c = 0; c < 300; c++)
+        {
+            var seq = RandomDna(rng, rng.Next(1, 90));
+            var enzymes = panel.OrderBy(_ => rng.Next()).Take(rng.Next(1, 5)).ToArray();
+
+            var complete = RestrictionAnalyzer.Digest(seq, topology, enzymes).ToList();
+            var all = RestrictionAnalyzer.PartialDigest(seq, topology, enzymes).ToList();
+            var none = RestrictionAnalyzer.PartialDigest(seq, topology, 0, enzymes).Select(f => f.Fragment).ToList();
+
+            Assert.That(all.Where(f => f.MissedCuts == 0).Select(f => f.Fragment), Is.EqualTo(complete), $"case {c}");
+            Assert.That(none, Is.EqualTo(complete), $"case {c}, maxMissedCuts 0");
+            for (int m = 1; m <= 3; m++)
+                Assert.That(RestrictionAnalyzer.PartialDigest(seq, topology, m, enzymes),
+                    Is.EqualTo(all.Where(f => f.MissedCuts <= m)), $"case {c}, maxMissedCuts {m}");
+        }
+    }
+
+    /// <summary>
+    /// Constructed oracle (no reference tool implements partial digestion): enumerate all 2^k subsets
+    /// of the complete digest's cuts; for each subset the digest is the complete digest's pieces
+    /// merged between consecutive retained cuts (sequence = concatenation of the pieces, left end =
+    /// first piece's left end, right end = last piece's right end; on a circle the empty subset is
+    /// the intact circle, Digest's zero-cut result). The union must equal PartialDigest exactly, and
+    /// the count must be (k+1)(k+2)/2 linear, k²+1 circular.
+    /// </summary>
+    [Test]
+    public void PartialDigest_EqualsUnionOfCompleteDigestsOverAllCutSubsets([Values] MoleculeTopology topology)
+    {
+        var rng = new Random(531);
+        string[] panel = ["Sau3AI", "AluI", "HaeIII", "TaqI", "MspI", "RsaI", "EcoRI", "BamHI", "FseI", "DpnI", "PstI", "BglII", "SfiI"];
+        int checkedCases = 0, maxK = 0;
+        for (int c = 0; checkedCases < 250 && c < 5000; c++)
+        {
+            var seq = RandomDna(rng, rng.Next(4, 90));
+            var enzymes = panel.OrderBy(_ => rng.Next()).Take(rng.Next(1, 7)).ToArray();
+            var pieces = RestrictionAnalyzer.Digest(seq, topology, enzymes).ToList();
+            bool circular = topology == MoleculeTopology.Circular;
+            int k = circular ? (pieces[0].LeftEnzyme is null ? 0 : pieces.Count) : pieces.Count - 1;
+            if (k > 10)
+                continue;
+            checkedCases++;
+            maxK = Math.Max(maxK, k);
+
+            var oracle = new Dictionary<string, int>();
+            for (int mask = 0; mask < 1 << k; mask++)
+            {
+                var retained = Enumerable.Range(0, k).Where(i => (mask & (1 << i)) != 0).ToList();
+                if (!circular)
+                {
+                    // Cut i lies between piece i and piece i+1.
+                    var bounds = new List<int> { 0 };
+                    bounds.AddRange(retained.Select(i => i + 1));
+                    bounds.Add(pieces.Count);
+                    for (int g = 0; g + 1 < bounds.Count; g++)
+                        AddMerged(oracle, pieces, bounds[g], bounds[g + 1] - bounds[g]);
+                }
+                else if (retained.Count == 0)
+                {
+                    var circle = new DigestFragment(seq.Sequence, 0, seq.Length, null, null, 1);
+                    oracle[Key(circle, k)] = k;
+                }
+                else
+                {
+                    // Piece i starts at cut i; a group runs from a retained cut to the next one, cyclically.
+                    for (int g = 0; g < retained.Count; g++)
+                    {
+                        int from = retained[g];
+                        int to = retained[(g + 1) % retained.Count];
+                        int count = ((to - from) % k + k) % k;
+                        AddMerged(oracle, pieces, from, count == 0 ? k : count);
+                    }
+                }
+            }
+
+            var actual = RestrictionAnalyzer.PartialDigest(seq, topology, enzymes).ToList();
+            var actualKeys = actual.Select(f => Key(f.Fragment, f.MissedCuts)).ToList();
+            int expectedCount = circular ? k * k + 1 : (k + 1) * (k + 2) / 2;
+            if (circular && k == 0)
+                expectedCount = 1;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Has.Count.EqualTo(expectedCount), $"case {c} count, k={k}");
+                Assert.That(actualKeys, Is.Unique, $"case {c}");
+                Assert.That(actualKeys, Is.EquivalentTo(circular && k == 0
+                    ? new[] { Key(pieces[0], 0) }
+                    : oracle.Keys.ToArray()), $"case {c}, k={k}, {seq.Sequence} {string.Join(",", enzymes)}");
+                Assert.That(actual.Select(f => f.Fragment.FragmentNumber), Is.EqualTo(Enumerable.Range(1, actual.Count)));
+                Assert.That(actual.Select(f => (f.MissedCuts, f.Fragment.StartPosition)), Is.Ordered, $"case {c} order");
+            });
+        }
+
+        Assert.That(checkedCases, Is.EqualTo(250));
+        Assert.That(maxK, Is.GreaterThanOrEqualTo(6), "the random cases must reach dense cut sets");
+
+        static void AddMerged(Dictionary<string, int> oracle, List<DigestFragment> pieces, int first, int count)
+        {
+            var group = Enumerable.Range(first, count).Select(i => pieces[i % pieces.Count]).ToList();
+            var head = group[0];
+            var tail = group[^1];
+            var merged = new DigestFragment(
+                string.Concat(group.Select(p => p.Sequence)), head.StartPosition, group.Sum(p => p.Length),
+                head.LeftEnzyme, tail.RightEnzyme, 0,
+                head.LeftOverhangType, head.LeftOverhang, tail.RightOverhangType, tail.RightOverhang)
+            {
+                LeftEnzymes = head.LeftEnzymes,
+                RightEnzymes = tail.RightEnzymes
+            };
+            oracle[Key(merged, count - 1)] = count - 1;
+        }
+
+        static string Key(DigestFragment f, int missed) =>
+            $"{missed}|{f.StartPosition}|{f.Length}|{f.Sequence}|{string.Join("+", f.LeftEnzymes)}|{f.LeftEnzyme}|" +
+            $"{f.LeftOverhangType}|{f.LeftOverhang ?? "<null>"}|{string.Join("+", f.RightEnzymes)}|{f.RightEnzyme}|" +
+            $"{f.RightOverhangType}|{f.RightOverhang ?? "<null>"}";
+    }
+
+    [Test]
+    public void PartialDigest_NoSite_ReturnsTheUncutMolecule([Values] MoleculeTopology topology)
+    {
+        var seq = new DnaSequence("AAAAAAAAAA");
+        var fragments = RestrictionAnalyzer.PartialDigest(seq, topology, "EcoRI").ToList();
+        Assert.That(fragments, Has.Count.EqualTo(1));
+        Assert.That(fragments[0], Is.EqualTo(new PartialDigestFragment(
+            new DigestFragment("AAAAAAAAAA", 0, 10, null, null, 1), 0)));
+    }
+
+    [Test]
+    public void PartialDigest_FragmentCountGuard_ThrowsAboveTheLimit_AndMaxMissedCutsLiftsIt()
+    {
+        // 500 ^GATC sites; the one at 0 cannot cut a linear molecule, so k = 499 → 500·501/2 = 125,250 > 100,000.
+        var seq = new DnaSequence(string.Concat(Enumerable.Repeat("GATCAAAA", 500)) + "A");
+        Assert.That(() => RestrictionAnalyzer.PartialDigest(seq, "Sau3AI"),
+            NUnit.Framework.Throws.ArgumentException.With.Property("ParamName").EqualTo("maxMissedCuts")
+                .And.Message.Contains("125250"));
+        // Circular: 500 cuts → 500² + 1 = 250,001.
+        Assert.That(() => RestrictionAnalyzer.PartialDigest(seq, MoleculeTopology.Circular, "Sau3AI"),
+            NUnit.Framework.Throws.ArgumentException.With.Message.Contains("250001"));
+        // A limit makes it enumerable: Σ_{j=0..2}(500−j) = 1497 linear (the first site at 0 cannot
+        // cut a linear molecule, so k = 499), 500·3 = 1500 circular.
+        Assert.That(RestrictionAnalyzer.PartialDigest(seq, MoleculeTopology.Linear, 2, "Sau3AI").Count(), Is.EqualTo(1497));
+        Assert.That(RestrictionAnalyzer.PartialDigest(seq, MoleculeTopology.Circular, 2, "Sau3AI").Count(), Is.EqualTo(1500));
+    }
+
+    [Test]
+    public void PartialDigest_InvalidArguments_Throw()
+    {
+        var seq = new DnaSequence("GAATTCGAATTC");
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => RestrictionAnalyzer.PartialDigest(null!, "EcoRI"), NUnit.Framework.Throws.ArgumentNullException);
+            Assert.That(() => RestrictionAnalyzer.PartialDigest(seq), NUnit.Framework.Throws.ArgumentException);
+            Assert.That(() => RestrictionAnalyzer.PartialDigest(seq, MoleculeTopology.Linear, -1, "EcoRI"),
+                NUnit.Framework.Throws.InstanceOf<ArgumentOutOfRangeException>());
+            Assert.That(() => RestrictionAnalyzer.PartialDigest(seq, "NoSuchEnzyme"), NUnit.Framework.Throws.ArgumentException);
+        });
+    }
+
+    private static DnaSequence RandomDna(Random rng, int length)
+    {
+        const string bases = "ACGT";
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = bases[rng.Next(4)];
+        // Bias towards sites: plant 0-3 copies of each common recognition sequence, so that the
+        // random cases reach dense cut sets (the oracle test asserts it).
+        foreach (var site in new[] { "GATC", "AGCT", "GGCC", "TCGA", "CCGG", "GTAC" })
+        {
+            for (int copies = rng.Next(4); copies > 0 && length >= site.Length; copies--)
+            {
+                int at = rng.Next(length - site.Length + 1);
+                site.CopyTo(0, chars, at, site.Length);
+            }
+        }
+        return new DnaSequence(new string(chars));
     }
 
     #endregion

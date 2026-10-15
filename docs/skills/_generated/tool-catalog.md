@@ -354,7 +354,7 @@
 | `select_phylogenetic_markers` | `PanGenomeAnalyzer.SelectPhylogeneticMarkers` | [doc](../../mcp/tools/metagenomics/select_phylogenetic_markers.md) |
 | `taxonomic_profile` | `MetagenomicsAnalyzer.GenerateTaxonomicProfile` | [doc](../../mcp/tools/metagenomics/taxonomic_profile.md) |
 
-## MolTools (55 tools)
+## MolTools (56 tools)
 
 | tool | Method ID | doc |
 |------|-----------|-----|
@@ -402,6 +402,7 @@
 | `oligo_concentration_from_absorbance` | `ProbeDesigner.CalculateConcentration` | [doc](../../mcp/tools/moltools/oligo_concentration_from_absorbance.md) |
 | `oligo_extinction_coefficient` | `ProbeDesigner.CalculateExtinctionCoefficient` | [doc](../../mcp/tools/moltools/oligo_extinction_coefficient.md) |
 | `optimize_codons` | `CodonOptimizer.OptimizeSequence` | [doc](../../mcp/tools/moltools/optimize_codons.md) |
+| `partial_digest` | `RestrictionAnalyzer.PartialDigest` | [doc](../../mcp/tools/moltools/partial_digest.md) |
 | `primer_dimer` | `PrimerDesigner.HasPrimerDimer` | [doc](../../mcp/tools/moltools/primer_dimer.md) |
 | `primer_melting_temperature` | `PrimerDesigner.CalculateMeltingTemperature` | [doc](../../mcp/tools/moltools/primer_melting_temperature.md) |
 | `primer_melting_temperature_salt` | `PrimerDesigner.CalculateMeltingTemperatureWithSalt` | [doc](../../mcp/tools/moltools/primer_melting_temperature_salt.md) |

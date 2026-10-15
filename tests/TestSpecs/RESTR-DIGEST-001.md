@@ -8,10 +8,10 @@
 | **Area** | MolTools |
 | **Title** | Restriction Digest Simulation |
 | **Canonical Class** | `RestrictionAnalyzer` |
-| **Canonical Methods** | `Digest` (both overloads), `GetDigestSummary` (both overloads), `CreateMap`, `AreCompatible`, `FindCompatibleEnzymes` |
+| **Canonical Methods** | `Digest` (both overloads), `PartialDigest` (three overloads, F53), `GetDigestSummary` (both overloads), `CreateMap`, `AreCompatible`, `FindCompatibleEnzymes` |
 | **Complexity** | O(n + k log k) where k = number of cut sites |
 | **Status** | ☑ Complete |
-| **Last Updated** | 2026-10-14 |
+| **Last Updated** | 2026-10-15 |
 | **Re-validated** | 2026-10-14 (RESTR-DIGEST-001 unit, batch B08) — see `docs/Evidence/RESTR-DIGEST-001-Evidence.md` |
 
 ---
@@ -30,6 +30,7 @@
 | Biopython 1.88 `Bio.Restriction` (`Restriction.py`) | Reference implementation | `search`/`_drop` L514-568, `catalyse` L1131-1178, `ovhgseq`/`is_5overhang`/`is_3overhang`/`is_blunt`: top-strand fragment boundaries, circular (`linear=False`) search, uncut-circle behaviour, per-enzyme overhang sequence and class |
 | Univ. of Illinois MolBio, "Restriction Digestion/Gel Electrophoresis" | Course material | Circular molecule with k cuts → k fragments |
 | Addgene, Plasmids 101 | Protocol | A single cutter linearizes a plasmid |
+| Rosalind PDPL "Creating a Restriction Map" (rosalind.info/problems/pdpl, after Jones & Pevzner, *An Introduction to Bioinformatics Algorithms*) | Textbook problem | Partial digest = difference multiset ΔX of X = {0, sites…, L}: "the collection of all positive differences between elements of X", C(n,2) elements; sample X = {0,2,4,7,10} → ΔX = {2,2,3,3,4,5,6,7,8,10} |
 
 ---
 
@@ -51,6 +52,15 @@
 7d. **End Chemistry**: Each end created by a cut reports `OverhangType` (Blunt / FivePrime / ThreePrime) and the extension's bases, read 5'→3' on the strand carrying it and taken from the molecule; a linear molecule's original termini and an uncut circle report `null`. The window is `[min(watson, crick), max(watson, crick))` with `crick = watson + (CutPositionReverse − CutPositionForward)` (Source: Biopython `ovhgseq` / `is_5overhang` / `is_3overhang` / `is_blunt`; 39/39 agreement measured 2026-10-14)
 7f. **Coinciding Cuts (F48)**: Enzymes cutting the top strand at the same position make ONE boundary; `LeftEnzymes`/`RightEnzymes` list every one of them once (name repeats in any casing collapse), ordered by ordinal comparison of the table names, so the digest is independent of the order of `enzymeNames`; `LeftEnzyme`/`RightEnzyme` are the first of the list (empty list / `null` for an uncut end). The overhang fields report that first enzyme's own end. Built-in collisions (Biopython 1.88 `search` same position): MspI/HpaII, MboI/Sau3AI, BamHI·BglII/MboI·Sau3AI, ClaI/TaqI, StuI/HaeIII, ScaI/RsaI — identical ends (`ovhgseq`) — and FseI/HaeIII, whose ends differ (FseI 3' `CCGG`, HaeIII blunt); there the reported end is FseI's alone and the physical end of the combined digest is not modelled (Source: Biopython 1.88 `search`/`ovhgseq`; API contract)
 7e. **Ligation Symmetry**: At one cut, the upstream fragment's `RightOverhang` is the reverse complement of the downstream fragment's `LeftOverhang` — identical for a palindromic enzyme (Source: Wikipedia Sticky and blunt ends — overhangs must be complementary to ligate)
+
+### Partial Digest Invariants (F53, `PartialDigest`)
+
+8. **Definition (linear)**: with cut positions c_1<…<c_k (the complete digest's), the fragments are all intervals [a,b), a<b, over X = {0,c_1,…,c_k,L}; their lengths are ΔX, (k+1)(k+2)/2 of them (Source: Rosalind PDPL / Jones & Pevzner).
+8b. **Definition (circular)**: k ≥ 1 → every cut-to-cut arc with 0…k−1 missed cuts (k−1 = linearised at that cut) plus the intact circle (`MissedCuts = k`, StartPosition 0, no ends) — k²+1; k = 0 → the uncut circle alone, `MissedCuts = 0` (same conventions as invariants 1b/7).
+8c. **Complete digest is the zero-missed subset**: the `MissedCuts == 0` fragments are, member for member including `FragmentNumber`, `Digest(sequence, topology, enzymes)`; `maxMissedCuts = m` returns the unlimited result's prefix with `MissedCuts ≤ m` (order: MissedCuts, then StartPosition; FragmentNumber = position).
+8d. **Same end information**: every cut end carries the complete digest's enzyme list, representative and overhang for that cut; a linear terminus carries none.
+8e. **Constructed oracle**: the result equals the union, over all 2^k subsets of the cuts, of the complete digest restricted to that subset (pieces merged between consecutive retained cuts); no reference tool implements partial digestion.
+8f. **Explosion guard**: more than `MaxPartialDigestFragments` (100,000) fragments → `ArgumentException` naming `maxMissedCuts`; negative `maxMissedCuts` → `ArgumentOutOfRangeException`. Yield/abundance is out of scope.
 
 ### Summary Invariants
 
@@ -132,6 +142,13 @@
 | M49 | Nested sites sharing a cut with identical ends list all and report the common end (BamHI/MboI/Sau3AI `GATC` 5', ClaI/TaqI `CG` 5') (`Digest_NestedSitesSharingACut_ListAllAndReportTheirCommonEnd`) | Invariants #7d, #7f | Biopython `search` + `ovhgseq` |
 | M50 | FseI/HaeIII (different ends) at one cut: both listed, overhang = FseI's 3' `CCGG`, order-independent (`Digest_CoincidingCutsWithDifferentEnds_ReportRepresentativesEnd`) | Invariant #7f | Biopython `search`/`catalyse`/`ovhg` |
 | M51 | Hand-built `DigestFragment` derives the lists from the single names; value equality compares the lists element-wise (`DigestFragment_EnzymeLists_DefaultFromSingleNames_AndCompareByValue`); MCP `restriction_digest` emits `leftEnzymes`/`rightEnzymes` (`RestrictionDigest_CoincidingCuts_ListAllEnzymes`) | Invariant #7f | API contract |
+| M52 | Rosalind sample: `AGCTGATCGA` + AluI/Sau3AI/TaqI (Biopython cuts 1-based [3],[5],[8]) → lengths ΔX {2,2,3,3,4,5,6,7,8,10}, sequences = Biopython subset-digest union, order/MissedCuts/ends (`PartialDigest_Linear_LengthsAreTheRosalindDifferenceMultiset_AndMatchBiopythonSubsetUnion`) | 8, 8c, 8d | Rosalind PDPL; Biopython 1.88 |
+| M53 | Same molecule circular → 10 = 3²+1 fragments incl. 3 linearised molecules and the intact circle last (`PartialDigest_Circular_MatchesBiopythonSubsetUnion_AndEndsWithTheIntactCircle`) | 8b | Biopython 1.88 `catalyse(linear=False)` per subset |
+| M54 | Zero-missed subset == complete digest; maxMissedCuts prefix property; 300 random cases × both topologies (`PartialDigest_ZeroMissedCutSubset_IsExactlyTheCompleteDigest`) | 8c | Property |
+| M55 | Constructed 2^k-subset oracle, 250 random cases × both topologies, k ≤ 10, count formula (`PartialDigest_EqualsUnionOfCompleteDigestsOverAllCutSubsets`) | 8, 8b, 8e | Constructed oracle |
+| M56 | No site → the single uncut molecule (`PartialDigest_NoSite_ReturnsTheUncutMolecule`) | 8b | Invariant 7 |
+| M57 | Guard: 499/500 cuts → 125,250 / 250,001 refused; `maxMissedCuts = 2` → 1497 / 1500 (`PartialDigest_FragmentCountGuard_ThrowsAboveTheLimit_AndMaxMissedCutsLiftsIt`); argument validation (`PartialDigest_InvalidArguments_Throw`) | 8f | API contract |
+| M58 | MCP `partial_digest`: validation, ΔX binding, topology/limit forwarding, doc pair schema/description/examples (`PartialDigestTests`, 4 tests) | 8–8f | MCP contract |
 
 ### Should (Important)
 
@@ -160,6 +177,9 @@
 - Overhang compatibility rules: Wikipedia (Sticky and blunt ends)
 - Unique cutter identification: Wikipedia (Restriction map)
 - Forward-strand-only counting for palindromic sites: standard molecular biology convention for Type II palindromic enzymes
+- Partial digestion (F53): definition from Rosalind PDPL / Jones & Pevzner (ΔX). **No reference tool implements it**, so the
+  random-case check is a *constructed oracle* (union of complete digests over all cut subsets); the only reference-tool numbers
+  are Biopython's cut positions and its per-subset digests of the single-site-per-enzyme sample (M52/M53). Yield is out of scope.
 
 ---
 
@@ -214,10 +234,17 @@
 | RestrictionDigest_ReportsFragmentEndOverhangs (MCP) | ✓ | M45 |
 | DigestSummary_Topology_CircularSeesOriginSpanningSite (MCP) | ✓ | M46 |
 | Digest_EnzymesSharingACutCoordinate_ProduceOneBoundary | ✓ | M47 |
+| PartialDigest_Linear_LengthsAreTheRosalindDifferenceMultiset_AndMatchBiopythonSubsetUnion | ✓ | M52 |
+| PartialDigest_Circular_MatchesBiopythonSubsetUnion_AndEndsWithTheIntactCircle | ✓ | M53 |
+| PartialDigest_ZeroMissedCutSubset_IsExactlyTheCompleteDigest (×2) | ✓ | M54 |
+| PartialDigest_EqualsUnionOfCompleteDigestsOverAllCutSubsets (×2) | ✓ | M55 |
+| PartialDigest_NoSite_ReturnsTheUncutMolecule (×2) | ✓ | M56 |
+| PartialDigest_FragmentCountGuard_ThrowsAboveTheLimit_AndMaxMissedCutsLiftsIt, PartialDigest_InvalidArguments_Throw | ✓ | M57 |
+| PartialDigestTests (MCP, 4) | ✓ | M58 |
 
 ### Coverage Classification Summary
 
-All Must (M1–M47), Should (S1–S5), and Could (C2) test cases are covered.
+All Must (M1–M58), Should (S1–S5), and Could (C2) test cases are covered.
 No missing, weak, or duplicate tests remain. M33–M47 were added by the 2026-10-14 re-validation; all
 their expected values come from Biopython 1.88 runs recorded in
 `docs/Evidence/RESTR-DIGEST-001-Evidence.md`.

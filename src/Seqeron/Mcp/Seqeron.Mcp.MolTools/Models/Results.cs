@@ -44,6 +44,7 @@ public sealed record EnzymeLookupResult(
 public sealed record EnzymeListResult(IReadOnlyList<RestrictionEnzyme> Enzymes);
 public sealed record RestrictionSiteListResult(IReadOnlyList<RestrictionSite> Sites);
 public sealed record DigestResult(IReadOnlyList<DigestFragment> Fragments);
+public sealed record PartialDigestResult(IReadOnlyList<PartialDigestFragment> Fragments);
 public sealed record EnzymeCompatibilityPair(string Enzyme1, string Enzyme2, string CompatibleEnd);
 public sealed record CompatibleEnzymesResult(IReadOnlyList<EnzymeCompatibilityPair> Pairs);
 public sealed record EnzymeCompatibilityResult(bool Compatible, string? CompatibleEnd = null);

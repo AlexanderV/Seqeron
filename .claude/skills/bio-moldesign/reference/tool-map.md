@@ -62,6 +62,7 @@ guess. Source of truth for names/status: `docs/mcp/MCP_STATUS.md`.
 | `find_restriction_sites` | Sites for named enzymes | `RestrictionAnalyzer.FindSites` |
 | `find_all_restriction_sites` | Sites for all known enzymes | `RestrictionAnalyzer.FindAllSites` |
 | `restriction_digest` | Simulate a linear digest → fragments | `RestrictionAnalyzer.Digest` |
+| `partial_digest` | Partial digest: every fragment with any subset of sites uncut (+ missed-cut count; no yield) | `RestrictionAnalyzer.PartialDigest` |
 | `restriction_map` | Build a restriction map | `RestrictionAnalyzer.CreateMap` |
 | `digest_summary` | Summarize a digest (fragment sizes…) | `RestrictionAnalyzer.GetDigestSummary` |
 | `get_enzyme` | Look up one enzyme's properties | `RestrictionAnalyzer.GetEnzyme` |

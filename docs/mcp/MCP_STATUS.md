@@ -1,6 +1,6 @@
 # MCP Completion — Source of Truth & Campaign Ledger
 
-> Reality-based ledger of the 482 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
+> Reality-based ledger of the 483 MCP tools across 11 servers. Campaign COMPLETE (2026-07-01):
 > every tool has a gold-standard binding (`[McpServerTool(Name/Title/ReadOnly)]` + `[Description]`,
 > structured record, input validation, real `Seqeron.Genomics` delegation), a Schema+Binding NUnit
 > test, and `{tool}.md` + `{tool}.mcp.json` docs. Supersedes `docs/mcp-plan.md` / `docs/mcp-checklist.md` (v4).
@@ -9,9 +9,9 @@
 
 | Metric | Done | Total |
 |---|---:|---:|
-| Gold-standard binding | 482 | 482 |
-| Schema+Binding tests | 482 | 482 |
-| Docs (.md + .mcp.json) | 482 | 482 |
+| Gold-standard binding | 483 | 483 |
+| Schema+Binding tests | 483 | 483 |
+| Docs (.md + .mcp.json) | 483 | 483 |
 
 ## Per-server summary
 
@@ -25,7 +25,7 @@
 | Annotation | Seqeron.Mcp.Annotation | 97 | 97/97 | 97/97 | 97/97 | ✅ done |
 | Chromosome | Seqeron.Mcp.Chromosome | 32 | 32/32 | 32/32 | 32/32 | ✅ done |
 | Metagenomics | Seqeron.Mcp.Metagenomics | 19 | 19/19 | 19/19 | 19/19 | ✅ done |
-| MolTools | Seqeron.Mcp.MolTools | 55 | 55/55 | 55/55 | 55/55 | ✅ done |
+| MolTools | Seqeron.Mcp.MolTools | 56 | 56/56 | 56/56 | 56/56 | ✅ done |
 | Phylogenetics | Seqeron.Mcp.Phylogenetics | 13 | 13/13 | 13/13 | 13/13 | ✅ done |
 | Population | Seqeron.Mcp.Population | 18 | 18/18 | 18/18 | 18/18 | ✅ done |
 
@@ -466,7 +466,7 @@
 | 18 | `select_phylogenetic_markers` | ☑ | ☑ | ☑ |
 | 19 | `taxonomic_profile` | ☑ | ☑ | ☑ |
 
-### MolTools (Seqeron.Mcp.MolTools) — 55 tools
+### MolTools (Seqeron.Mcp.MolTools) — 56 tools
 
 | # | tool | B | T | D |
 |---:|---|:--:|:--:|:--:|
@@ -514,17 +514,18 @@
 | 42 | `oligo_concentration_from_absorbance` | ☑ | ☑ | ☑ |
 | 43 | `oligo_extinction_coefficient` | ☑ | ☑ | ☑ |
 | 44 | `optimize_codons` | ☑ | ☑ | ☑ |
-| 45 | `primer_dimer` | ☑ | ☑ | ☑ |
-| 46 | `primer_melting_temperature` | ☑ | ☑ | ☑ |
-| 47 | `primer_melting_temperature_salt` | ☑ | ☑ | ☑ |
-| 48 | `reduce_secondary_structure` | ☑ | ☑ | ☑ |
-| 49 | `remove_restriction_sites` | ☑ | ☑ | ☑ |
-| 50 | `restriction_digest` | ☑ | ☑ | ☑ |
-| 51 | `restriction_map` | ☑ | ☑ | ☑ |
-| 52 | `rscu` | ☑ | ☑ | ☑ |
-| 53 | `sticky_cutters` | ☑ | ☑ | ☑ |
-| 54 | `three_prime_stability` | ☑ | ☑ | ☑ |
-| 55 | `validate_probe` | ☑ | ☑ | ☑ |
+| 45 | `partial_digest` | ☑ | ☑ | ☑ |
+| 46 | `primer_dimer` | ☑ | ☑ | ☑ |
+| 47 | `primer_melting_temperature` | ☑ | ☑ | ☑ |
+| 48 | `primer_melting_temperature_salt` | ☑ | ☑ | ☑ |
+| 49 | `reduce_secondary_structure` | ☑ | ☑ | ☑ |
+| 50 | `remove_restriction_sites` | ☑ | ☑ | ☑ |
+| 51 | `restriction_digest` | ☑ | ☑ | ☑ |
+| 52 | `restriction_map` | ☑ | ☑ | ☑ |
+| 53 | `rscu` | ☑ | ☑ | ☑ |
+| 54 | `sticky_cutters` | ☑ | ☑ | ☑ |
+| 55 | `three_prime_stability` | ☑ | ☑ | ☑ |
+| 56 | `validate_probe` | ☑ | ☑ | ☑ |
 
 ### Phylogenetics (Seqeron.Mcp.Phylogenetics) — 13 tools
 

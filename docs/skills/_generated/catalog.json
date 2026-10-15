@@ -2548,6 +2548,13 @@
     "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L564"
   },
   {
+    "tool": "partial_digest",
+    "server": "MolTools",
+    "methodId": "RestrictionAnalyzer.PartialDigest",
+    "docPath": "docs/mcp/tools/moltools/partial_digest.md",
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs#L112"
+  },
+  {
     "tool": "primer_dimer",
     "server": "MolTools",
     "methodId": "PrimerDesigner.HasPrimerDimer",

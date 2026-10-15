@@ -2,9 +2,9 @@
 
 MCP server — **Primer/probe/CRISPR design, codon optimization, restriction analysis, thermodynamics.**
 
-Exposes **55 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
+Exposes **56 tools** — the same validated `Seqeron.Genomics` algorithms as the C# API, callable over
 MCP. Every tool carries an explicit JSON input/output schema and a Schema+Binding test. Per-tool docs
-live under [`docs/mcp/tools/moltools/`](../../../../docs/mcp/tools/moltools) (all 55). Rollout status:
+live under [`docs/mcp/tools/moltools/`](../../../../docs/mcp/tools/moltools) (all 56). Rollout status:
 [`docs/mcp/MCP_STATUS.md`](../../../../docs/mcp/MCP_STATUS.md).
 
 ## Run
@@ -15,7 +15,7 @@ dotnet run --project Seqeron.Mcp.MolTools
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","Seqeron.Mcp.MolTools"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
-## Tools (55)
+## Tools (56)
 
 | Tool | Description |
 |------|-------------|
@@ -63,6 +63,7 @@ Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run
 | `oligo_concentration_from_absorbance` | Computes oligonucleotide concentration in µM from the Beer–Lambert law: c = A₂₆₀ / (ε · path) · 1e6. |
 | `oligo_extinction_coefficient` | Sums per-base 260 nm molar extinction contributions (A=15400, C=7400, G=11500, T=8700, U=9900 M⁻¹·cm⁻¹; |
 | `optimize_codons` | Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default)… |
+| `partial_digest` | Partial restriction digest: every fragment that can arise when any subset of the cut sites is left uncut, each with its number of missed cuts, the same ends/overhangs as `restriction_digest`; optional `max_missed_cuts`, `topology=Circular` for a plasmid. |
 | `primer_dimer` | Heuristic 3'-end primer-dimer check between two primers: reverse-complements primer2 and counts complementary positions in an up-to-8-bp… |
 | `primer_melting_temperature` | Computes a primer's melting temperature (Tm, °C): Wallace rule Tm = 2·(A+T) + 4·(G+C) for < 14 valid bases, or Marmur–Doty Tm = 64.9 + 41… |
 | `primer_melting_temperature_salt` | Salt-adjusted primer Tm (OligoCalc): N<14: 2(A+T)+4(G+C)+16.6·log10([Na+]/0.050 M); N≥14: 100.5+41·(G+C)/N−820/N+16.6·log10([Na+] M); rounded to one decimal. |

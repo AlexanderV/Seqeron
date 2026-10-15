@@ -4,7 +4,7 @@ namespace Seqeron.Genomics.MolTools;
 /// Analyzes restriction enzyme sites in DNA sequences.
 /// Supports common restriction enzymes with palindromic recognition sequences.
 /// </summary>
-public static class RestrictionAnalyzer
+public static partial class RestrictionAnalyzer
 {
     #region Built-in Enzyme Database
 

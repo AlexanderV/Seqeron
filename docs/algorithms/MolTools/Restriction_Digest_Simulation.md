@@ -6,7 +6,7 @@
 | Test Unit ID | N/A |
 | Related Projects | N/A |
 | Implementation Status | Complete |
-| Last Reviewed | 2026-10-14 |
+| Last Reviewed | 2026-10-15 |
 
 ## 1. Overview
 
@@ -47,6 +47,14 @@ A cut by an enzyme with forward cut offset `f` and reverse cut offset `r` places
 | `r == f` | blunt |
 
 Each fragment end created by a cut reports this extension, written 5'→3' on the strand that carries it: at one cut the upstream fragment's right overhang and the downstream fragment's left overhang are reverse complements of each other, which is why they re-ligate (and are the same string for a palindromic enzyme). Cross-checked against Biopython 1.88 `Bio.Restriction`: over the recognition sequence this window equals `enzyme.ovhgseq` and the type equals `is_5overhang()`/`is_3overhang()`/`is_blunt()` for all 39 built-in enzymes (39/39, 2026-10-14) — EcoRI `AATT` 5', PstI `TGCA` 3', EcoRV `""` blunt. Taken over the molecule rather than the pattern, a degenerate enzyme reports its real bases (SfiI yields the three actual bases, not Biopython's `NNN`).
+
+### 2.3a Partial Digestion (`PartialDigest`, B08 F53)
+
+A partial digest leaves any subset of the cut sites uncut. It needs no data beyond the complete digest's cut list. For a linear molecule of length `L` with cut positions `c_1 < … < c_k`, the fragments are all intervals `[a, b)`, `a < b`, over `X = {0, c_1, …, c_k, L}`. Their lengths form the difference multiset ΔX of the partial digest problem, with `C(k+2, 2) = (k+1)(k+2)/2` elements (Rosalind PDPL "Creating a Restriction Map", after Jones & Pevzner: "the collection of all positive differences between elements of X"; sample `X = {0,2,4,7,10}` → `ΔX = {2,2,3,3,4,5,6,7,8,10}`).
+
+A circular molecule with `k ≥ 1` cuts gives every cut-to-cut arc, wrapping past the origin, with `0…k−1` sites missed. An arc with `k−1` missed sites is the full-length molecule linearised at its start cut. The intact circle (all `k` missed) is reported as `Digest` reports an uncut circle, so the total is `k² + 1`. Each fragment carries `MissedCuts`, the number of cut positions strictly inside it. Its ends carry the complete digest's enzyme lists and overhangs.
+
+Fragments are ordered by `MissedCuts` and then by `StartPosition`, and `FragmentNumber` is the position in that order. The `MissedCuts = 0` prefix is therefore exactly `Digest`'s output. The optional `maxMissedCuts` keeps the prefix with `MissedCuts ≤ m`. A request for more than `MaxPartialDigestFragments` (100,000) fragments throws `ArgumentException`, and the caller can lower `maxMissedCuts` to stay under it. The model is combinatorial only: the **yield** of each partial product is out of scope. No reference tool implements partial digestion, so validation uses a constructed oracle: the union of complete digests over all `2^k` cut subsets (Evidence §8).
 
 ### 2.4 Properties and Invariants
 
@@ -134,6 +142,7 @@ Examples called out in the original document:
 - `RestrictionAnalyzer.GetDigestSummary(DnaSequence, params string[])`: Produces sorted fragment statistics for a linear molecule.
 - `RestrictionAnalyzer.GetDigestSummary(DnaSequence, MoleculeTopology, params string[])`: Produces sorted fragment statistics for a linear or circular molecule.
 - MCP: `restriction_digest(sequence, enzyme_names, topology)` and `digest_summary(sequence, enzyme_names, topology)` delegate to the topology overloads.
+- `RestrictionAnalyzer.PartialDigest(DnaSequence, [MoleculeTopology], [int? maxMissedCuts], params string[])` ([RestrictionAnalyzer.PartialDigest.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs), a partial-class file so that existing line anchors into `RestrictionAnalyzer.cs` stay valid): every partial-digest fragment as `PartialDigestFragment(DigestFragment Fragment, int MissedCuts)`; MCP `partial_digest(sequence, enzyme_names, topology, max_missed_cuts)` delegates to it.
 - `RestrictionAnalyzer.CreateMap(DnaSequence, params string[])`: Builds a restriction map from requested or all enzymes.
 - `RestrictionAnalyzer.AreCompatible(string, string)`: Tests end compatibility.
 - `RestrictionAnalyzer.FindCompatibleEnzymes()`: Enumerates compatible enzyme pairs from the built-in catalog.
@@ -177,7 +186,7 @@ The current implementation records forward-strand cut positions only when digest
 
 ### 6.2 Limitations
 
-The digest model is a sequence-partitioning simulation. It does not simulate gel electrophoresis, incomplete (partial) digestion or methylation-dependent blocking, and it relies on the enzyme definitions available in the built-in restriction catalog (all 39 of which match Biopython 1.88's recognition sequence and both cut offsets exactly, verified 2026-10-14). Circular-DNA behaviour **is** modelled — see §2.2 and §6.1. When different enzymes cut at the same coordinate, all of them are listed, but the overhang reported for that boundary is the first-listed enzyme's own end. Among the built-ins this matters only for FseI/HaeIII (FseI 3' `CCGG`, HaeIII blunt, both cutting after base 6 of `GGCCGGCC`): the physical end of such a combined digest is not modelled.
+The digest model is a sequence-partitioning simulation. It does not simulate gel electrophoresis or methylation-dependent blocking; incomplete (partial) digestion is enumerated combinatorially by `PartialDigest` (§2.3a) but the yield of each partial product is not modelled, and it relies on the enzyme definitions available in the built-in restriction catalog (all 39 of which match Biopython 1.88's recognition sequence and both cut offsets exactly, verified 2026-10-14). Circular-DNA behaviour **is** modelled — see §2.2 and §6.1. When different enzymes cut at the same coordinate, all of them are listed, but the overhang reported for that boundary is the first-listed enzyme's own end. Among the built-ins this matters only for FseI/HaeIII (FseI 3' `CCGG`, HaeIII blunt, both cutting after base 6 of `GGCCGGCC`): the physical end of such a combined digest is not modelled.
 
 **Reference-implementation caveat.** Biopython 1.88's `catalyse(..., linear=False)` is not safe to use as a fragment oracle on a circle: `AbstractCut._drop` (Restriction.py L542-568) folds an out-of-range circular cut back by ±length *in place without re-sorting*, so `search(..., linear=False)` can return an unsorted list (e.g. `AluI.search(Seq("GCTGTTATAGCTAAGAGCGAACCGGAGTATA"), linear=False) == [11, 2]`), and `catalyse` (L1146-1176) indexes `r[0]`/`r[-1]` assuming ascending order. The result is an empty fragment plus an over-long one whose lengths sum to more than the molecule (40 vs 31 bases in that example). Measured on 4000 circular sequences with a planted origin-spanning site, 55 (1.4%) trigger it. Seqeron sorts its cut positions, so its fragment lengths always sum to the molecule length; the Seqeron↔Biopython comparisons in `docs/Evidence/RESTR-DIGEST-001-Evidence.md` therefore use `sorted(search(...))` as the oracle for circular cases.
 
@@ -192,3 +201,4 @@ The digest model is a sequence-partitioning simulation. It does not simulate gel
 7. Biopython 1.88, `Bio.Restriction` (`Restriction.py`): `AbstractCut._drop` L542-568, `catalyse`/`catalyze` L1131-1178, `ovhgseq`/`is_5overhang`/`is_3overhang`/`is_blunt`. Reference implementation for cut coordinates, circular search and overhang chemistry.
 8. Univ. of Illinois MolBio, "Restriction Digestion/Gel Electrophoresis" - fragment count on a circle.
 9. Addgene, Plasmids 101: a single cutter linearizes a plasmid - https://blog.addgene.org/plasmids-101-restriction-cloning
+10. Rosalind, PDPL "Creating a Restriction Map" (after Jones NC & Pevzner PA, *An Introduction to Bioinformatics Algorithms*, MIT Press 2004) - https://rosalind.info/problems/pdpl/ — partial digest = difference multiset ΔX.

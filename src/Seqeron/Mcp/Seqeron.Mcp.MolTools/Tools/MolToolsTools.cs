@@ -590,6 +590,22 @@ public class MolToolsTools
         return RestrictionAnalyzer.GetDigestSummary(new DnaSequence(sequence), topology, enzyme_names);
     }
 
+    [McpServerTool(Name = "partial_digest", Title = "MolTools — Partial Restriction Digest", ReadOnly = true), Description("Simulates a PARTIAL restriction digest: every fragment that can arise when any subset of the cut sites is left uncut, each with missedCuts = the number of uncut sites inside it. Uses exactly the cut positions, enzyme lists and end overhangs of restriction_digest; the missedCuts = 0 fragments come first and are the complete digest. Linear: all intervals between two of {0, cuts, length} — (k+1)(k+2)/2 fragments for k cuts. Circular: every cut-to-cut arc (wrapping past the origin; k-1 missed = the molecule linearised at one cut) plus the intact circle (missedCuts = k) — k²+1 fragments. Order: missedCuts, then start position. max_missed_cuts bounds the uncut sites per fragment; above 100000 fragments the call is refused unless max_missed_cuts is lowered. Which fragments CAN arise only — no yield/abundance. Call to predict extra bands from an incomplete digest.")]
+    public static PartialDigestResult partial_digest(
+        [Description("DNA sequence to digest.")] string sequence,
+        [Description("Names of restriction enzymes to use (must be non-empty).")] string[] enzyme_names,
+        [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
+        [Description("Optional upper bound on the number of uncut sites inside one fragment (0 = complete digest); omit for no bound.")] int? max_missed_cuts = null)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (enzyme_names is null || enzyme_names.Length == 0)
+            throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
+
+        var fragments = RestrictionAnalyzer.PartialDigest(new DnaSequence(sequence), topology, max_missed_cuts, enzyme_names).ToList();
+        return new PartialDigestResult(fragments);
+    }
+
     [McpServerTool(Name = "restriction_map", Title = "MolTools — Restriction Map", ReadOnly = true), Description("Builds a restriction map of a DNA sequence: all forward+reverse sites, sites grouped by enzyme, the total forward-strand site count, unique cutters (enzymes with exactly one forward-strand site), and non-cutters. Enzyme names are resolved case-insensitively and de-duplicated, and every result is keyed by the table's own spelling. An empty enzyme_names list considers every built-in enzyme, so nonCutters then lists every built-in enzyme without a site; sitesByEnzyme and nonCutters always partition the considered set. Set topology=Circular for a plasmid. Call to plan cloning around single-cutter enzymes.")]
     public static RestrictionMap restriction_map(
         [Description("DNA sequence to map.")] string sequence,

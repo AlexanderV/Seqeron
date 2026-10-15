@@ -50,6 +50,7 @@
 | `oligo_concentration_from_absorbance` | MolTools | `ProbeDesigner.CalculateConcentration` | [doc](../../../../docs/mcp/tools/moltools/oligo_concentration_from_absorbance.md) |
 | `oligo_extinction_coefficient` | MolTools | `ProbeDesigner.CalculateExtinctionCoefficient` | [doc](../../../../docs/mcp/tools/moltools/oligo_extinction_coefficient.md) |
 | `optimize_codons` | MolTools | `CodonOptimizer.OptimizeSequence` | [doc](../../../../docs/mcp/tools/moltools/optimize_codons.md) |
+| `partial_digest` | MolTools | `RestrictionAnalyzer.PartialDigest` | [doc](../../../../docs/mcp/tools/moltools/partial_digest.md) |
 | `primer_dimer` | MolTools | `PrimerDesigner.HasPrimerDimer` | [doc](../../../../docs/mcp/tools/moltools/primer_dimer.md) |
 | `primer_melting_temperature` | MolTools | `PrimerDesigner.CalculateMeltingTemperature` | [doc](../../../../docs/mcp/tools/moltools/primer_melting_temperature.md) |
 | `primer_melting_temperature_salt` | MolTools | `PrimerDesigner.CalculateMeltingTemperatureWithSalt` | [doc](../../../../docs/mcp/tools/moltools/primer_melting_temperature_salt.md) |

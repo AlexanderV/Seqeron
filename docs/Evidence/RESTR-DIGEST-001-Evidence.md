@@ -2,7 +2,8 @@
 
 **Test Unit ID:** RESTR-DIGEST-001
 **Algorithm:** Restriction Digest Simulation (`Digest` both overloads, `DigestCore`, `DigestCircular`,
-`GetDigestSummary` both overloads, `DigestFragment`, MCP `restriction_digest` / `digest_summary`)
+`GetDigestSummary` both overloads, `DigestFragment`, MCP `restriction_digest` / `digest_summary`;
+`PartialDigest` + MCP `partial_digest` added 2026-10-15, §8)
 **Date Collected:** 2026-10-14
 **Reviewer note:** every number in this file was computed in the 2026-10-14 review session by running
 the code and the reference implementation. Nothing is carried over from an earlier pass. Out of
@@ -266,3 +267,74 @@ re-attempted, and still stand. The inherited Wikipedia/REBASE/Addgene citations 
 reader cannot mistake them for checked; and REBASE's organism and methylation columns turn out to be
 obtainable from an allowed host after all (REBASE `allenz.104`, vendored in `crisprVerse/crisprBase`).
 See [`B08-Source-Provenance.md`](B08-Source-Provenance.md).
+
+---
+
+## 8. Partial digestion (`PartialDigest`, B08 D8 / F53, 2026-10-15) — CONSTRUCTED ORACLE
+
+**No reference tool implements partial digestion** (Biopython 1.88 `Bio.Restriction` has only
+complete `catalyse`; no other tool was available). The checks below are therefore a *constructed
+oracle*: an explicit, independent derivation from the complete digest, plus the reference numbers
+that do exist (Biopython cut positions and per-subset digests, and a textbook sample).
+
+**Definition used (opened 2026-10-15).** Rosalind problem PDPL "Creating a Restriction Map"
+(<https://rosalind.info/problems/pdpl/>, figure "Taken from Jones & Pevzner, *An Introduction to
+Bioinformatics Algorithms*"), quoted: *"For a set X containing numbers, the difference multiset of X
+is the multiset ΔX defined as the collection of all positive differences between elements of X. …
+If X contains n elements, then ΔX will contain one element for each pair of elements from X, so that
+ΔX contains (n choose 2) elements"*, and *"we can easily obtain a multiset L corresponding to the
+distances between restriction sites on a chromosome"*; sample dataset `2 2 3 3 4 5 6 7 8 10`, sample
+output `0 2 4 7 10`. X includes both molecule ends (0 and 10), so for k cut positions n = k+2 and the
+partial digest has C(k+2, 2) = (k+1)(k+2)/2 fragments. English Wikipedia has no article on partial
+digestion (checked: "Restriction digest", "Restriction map", "Restriction enzyme", "Restriction
+fragment" contain no definition; "Partial digest problem", "Partial digestion", "Turnpike problem"
+do not exist; full-text search for "partial digest" restriction returns only a citation title), so
+Rosalind/Jones & Pevzner is the cited definition.
+
+**Circular extension (this library's convention, consistent with F23–F27).** Every arc between two
+cuts, cyclically (k start cuts × 0…k−1 missed cuts; k−1 = the one-cut linearised molecule of the
+complete circular digest), plus the intact circle when all k sites are missed, reported exactly as
+`Digest` reports an uncut circle — k²+1 fragments. Ends, overhangs and `LeftEnzymes`/`RightEnzymes`
+(F25, F48) are taken from the complete digest's cut records.
+
+**Reference numbers (Biopython 1.88, run 2026-10-15 in a fresh venv):**
+
+| Input | Biopython | Seqeron `PartialDigest` |
+|---|---|---|
+| `RestrictionBatch([AluI, Sau3AI, TaqI]).search(Seq("AGCTGATCGA"))` | AluI [3], Sau3AI [5], TaqI [8] (1-based) → 0-based cuts {2,4,7}, i.e. Rosalind's X = {0,2,4,7,10} | lengths `{2,2,3,3,4,5,6,7,8,10}` = Rosalind's sample ΔX |
+| linear, union over all 8 enzyme subsets of Biopython's fragment rule (single-enzyme subsets checked with `catalyse` itself) | `AG, CT, CGA, GAT, AGCT, CTGAT, GATCGA, AGCTGAT, CTGATCGA, AGCTGATCGA` | identical (10) |
+| circular (`linear=False`), same union, empty subset = the uncut circle | `CT, GAT, CGAAG, CTGAT, CGAAGCT, GATCGAAG, CTGATCGAAG, GATCGAAGCT, CGAAGCTGAT, AGCTGATCGA` | identical (10 = 3²+1); single-enzyme `catalyse(linear=False)` gives the three linearised molecules |
+
+Each enzyme cuts once in this molecule, so enzyme subsets *are* site subsets — this is the one place
+a reference implementation can produce partial-digest fragments directly. Locked by
+`PartialDigest_Linear_LengthsAreTheRosalindDifferenceMultiset_AndMatchBiopythonSubsetUnion` and
+`PartialDigest_Circular_MatchesBiopythonSubsetUnion_AndEndsWithTheIntactCircle`.
+
+**Constructed oracle on random sequences** (`PartialDigest_EqualsUnionOfCompleteDigestsOverAllCutSubsets`,
+seed 531, 250 cases per topology, 4–89 bp, 1–6 enzymes from a 13-enzyme panel incl. FseI/HaeIII and
+isoschizomer pairs, k ≤ 10, max k reached ≥ 6 asserted): for every one of the 2^k subsets of the
+complete digest's cuts the subset digest is built from the complete digest's pieces — consecutive
+pieces between retained cuts concatenated, left end from the first piece, right end from the last;
+the empty circular subset is `Digest`'s zero-cut circle. The union (keyed on every member except
+`FragmentNumber`, plus the missed-cut count = pieces − 1) must equal `PartialDigest`'s output as a set,
+with no duplicate, and the count must be (k+1)(k+2)/2 / k²+1. **Result: 500/500 cases agree, 0
+mismatches.** The oracle never uses PartialDigest's interval/wrap arithmetic — only the complete
+digest and concatenation.
+
+**Property** (`PartialDigest_ZeroMissedCutSubset_IsExactlyTheCompleteDigest`, seed 20261015, 300 cases
+per topology): the `MissedCuts == 0` fragments equal `Digest(...)` member for member, numbering
+included; `maxMissedCuts = 0` returns exactly `Digest(...)`; `maxMissedCuts = m` (1–3) is the unlimited
+result's prefix with `MissedCuts ≤ m`. 0 failures.
+
+**Defect caught by the tests before commit:** the first circular fragment-count formula
+`k·min(m+1, k)` overflowed for the unbounded case (`m = long.MaxValue`, `m+1` wraps negative) so the
+100,000-fragment guard never fired on a circle; replaced by `k·(min(m, k−1)+1)`, and the guard test
+asserts both topologies (125,250 linear / 250,001 circular refused, 1497 / 1500 with `maxMissedCuts = 2`).
+
+**Out of scope:** the yield (relative abundance / band intensity) of each partial product — it
+depends on enzyme units, time and per-site cleavage rates, and no source opened gives a model; only
+which fragments *can* arise is computed.
+
+**Sources opened for §8:** `https://rosalind.info/problems/pdpl/` (2026-10-15); en.wikipedia.org pages
+listed above (2026-10-15, reachable this session); Biopython 1.88 (`pip install biopython==1.88` into a
+scratchpad venv) `RestrictionBatch.search`, `catalyse`.

@@ -1,0 +1,465 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "partial_digest",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.PartialDigest",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs#L112",
+  "description": "Simulates a PARTIAL restriction digest: every fragment that can arise when any subset of the cut sites is left uncut, each with missedCuts = the number of uncut sites inside it. Uses exactly the cut positions, enzyme lists and end overhangs of restriction_digest; the missedCuts = 0 fragments come first and are the complete digest. Linear: all intervals between two of {0, cuts, length} — (k+1)(k+2)/2 fragments for k cuts. Circular: every cut-to-cut arc (wrapping past the origin; k-1 missed = the molecule linearised at one cut) plus the intact circle (missedCuts = k) — k²+1 fragments. Order: missedCuts, then start position. max_missed_cuts bounds the uncut sites per fragment; above 100000 fragments the call is refused unless max_missed_cuts is lowered. Which fragments CAN arise only — no yield/abundance. Call to predict extra bands from an incomplete digest.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence to digest.",
+        "minLength": 1
+      },
+      "enzyme_names": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Names of restriction enzymes to use (must be non-empty).",
+        "minItems": 1
+      },
+      "topology": {
+        "type": "string",
+        "enum": [
+          "Linear",
+          "Circular"
+        ],
+        "default": "Linear",
+        "description": "Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid)."
+      },
+      "max_missed_cuts": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "default": null,
+        "minimum": 0,
+        "description": "Optional upper bound on the number of uncut sites inside one fragment (0 = complete digest); omit for no bound."
+      }
+    },
+    "required": [
+      "sequence",
+      "enzyme_names"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "fragments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "fragment": {
+              "type": "object",
+              "properties": {
+                "sequence": {
+                  "type": "string"
+                },
+                "startPosition": {
+                  "type": "integer"
+                },
+                "length": {
+                  "type": "integer"
+                },
+                "leftEnzyme": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "First name of leftEnzymes (ordinal order), or null when the left end is not a cut."
+                },
+                "rightEnzyme": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "First name of rightEnzymes (ordinal order), or null when the right end is not a cut."
+                },
+                "fragmentNumber": {
+                  "type": "integer"
+                },
+                "leftOverhangType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "Blunt",
+                    "FivePrime",
+                    "ThreePrime",
+                    null
+                  ],
+                  "description": "End chemistry of the left end, or null when that end was not created by a cut."
+                },
+                "leftOverhang": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Left end's single-stranded extension, 5'-3' on the strand carrying it; empty for a blunt end, null for an uncut end."
+                },
+                "rightOverhangType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "Blunt",
+                    "FivePrime",
+                    "ThreePrime",
+                    null
+                  ],
+                  "description": "End chemistry of the right end, or null when that end was not created by a cut."
+                },
+                "rightOverhang": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Right end's single-stranded extension, 5'-3' on the strand carrying it; empty for a blunt end, null for an uncut end."
+                },
+                "leftEnzymes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Every enzyme whose top-strand cut made the left end (isoschizomers / nested sites cutting at the same position), once each, ordinal order of the table names; empty for an uncut end."
+                },
+                "rightEnzymes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Every enzyme whose top-strand cut made the right end, as leftEnzymes."
+                }
+              },
+              "required": [
+                "sequence",
+                "startPosition",
+                "length",
+                "fragmentNumber"
+              ],
+              "description": "The fragment, with exactly the members a restriction_digest fragment carries (same cut positions, enzyme lists and end overhangs). fragmentNumber is the 1-based position in this result's order."
+            },
+            "missedCuts": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of cut positions strictly inside the fragment (left uncut); 0 = a complete-digest fragment; k for the intact circle of a circular molecule with k cuts."
+            }
+          },
+          "required": [
+            "fragment",
+            "missedCuts"
+          ]
+        }
+      }
+    },
+    "required": [
+      "fragments"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "At least one enzyme name is required"
+    },
+    {
+      "code": 1003,
+      "message": "The missed-cut limit cannot be negative."
+    },
+    {
+      "code": 1004,
+      "message": "A partial digest with {k} cut positions would produce {n} fragments, above the limit of 100000; pass a smaller maxMissedCuts."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Rosalind PDPL sample molecule, linear, at most 1 missed cut",
+      "input": {
+        "sequence": "AGCTGATCGA",
+        "enzyme_names": [
+          "AluI",
+          "Sau3AI",
+          "TaqI"
+        ],
+        "max_missed_cuts": 1
+      },
+      "output": {
+        "fragments": [
+          {
+            "fragment": {
+              "sequence": "AG",
+              "startPosition": 0,
+              "length": 2,
+              "rightEnzyme": "AluI",
+              "fragmentNumber": 1,
+              "rightOverhangType": "Blunt",
+              "rightOverhang": "",
+              "leftEnzymes": [],
+              "rightEnzymes": [
+                "AluI"
+              ]
+            },
+            "missedCuts": 0
+          },
+          {
+            "fragment": {
+              "sequence": "CT",
+              "startPosition": 2,
+              "length": 2,
+              "leftEnzyme": "AluI",
+              "rightEnzyme": "Sau3AI",
+              "fragmentNumber": 2,
+              "leftOverhangType": "Blunt",
+              "leftOverhang": "",
+              "rightOverhangType": "FivePrime",
+              "rightOverhang": "GATC",
+              "leftEnzymes": [
+                "AluI"
+              ],
+              "rightEnzymes": [
+                "Sau3AI"
+              ]
+            },
+            "missedCuts": 0
+          },
+          {
+            "fragment": {
+              "sequence": "GAT",
+              "startPosition": 4,
+              "length": 3,
+              "leftEnzyme": "Sau3AI",
+              "rightEnzyme": "TaqI",
+              "fragmentNumber": 3,
+              "leftOverhangType": "FivePrime",
+              "leftOverhang": "GATC",
+              "rightOverhangType": "FivePrime",
+              "rightOverhang": "CG",
+              "leftEnzymes": [
+                "Sau3AI"
+              ],
+              "rightEnzymes": [
+                "TaqI"
+              ]
+            },
+            "missedCuts": 0
+          },
+          {
+            "fragment": {
+              "sequence": "CGA",
+              "startPosition": 7,
+              "length": 3,
+              "leftEnzyme": "TaqI",
+              "fragmentNumber": 4,
+              "leftOverhangType": "FivePrime",
+              "leftOverhang": "CG",
+              "leftEnzymes": [
+                "TaqI"
+              ],
+              "rightEnzymes": []
+            },
+            "missedCuts": 0
+          },
+          {
+            "fragment": {
+              "sequence": "AGCT",
+              "startPosition": 0,
+              "length": 4,
+              "rightEnzyme": "Sau3AI",
+              "fragmentNumber": 5,
+              "rightOverhangType": "FivePrime",
+              "rightOverhang": "GATC",
+              "leftEnzymes": [],
+              "rightEnzymes": [
+                "Sau3AI"
+              ]
+            },
+            "missedCuts": 1
+          },
+          {
+            "fragment": {
+              "sequence": "CTGAT",
+              "startPosition": 2,
+              "length": 5,
+              "leftEnzyme": "AluI",
+              "rightEnzyme": "TaqI",
+              "fragmentNumber": 6,
+              "leftOverhangType": "Blunt",
+              "leftOverhang": "",
+              "rightOverhangType": "FivePrime",
+              "rightOverhang": "CG",
+              "leftEnzymes": [
+                "AluI"
+              ],
+              "rightEnzymes": [
+                "TaqI"
+              ]
+            },
+            "missedCuts": 1
+          },
+          {
+            "fragment": {
+              "sequence": "GATCGA",
+              "startPosition": 4,
+              "length": 6,
+              "leftEnzyme": "Sau3AI",
+              "fragmentNumber": 7,
+              "leftOverhangType": "FivePrime",
+              "leftOverhang": "GATC",
+              "leftEnzymes": [
+                "Sau3AI"
+              ],
+              "rightEnzymes": []
+            },
+            "missedCuts": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Circular molecule, AluI + TaqI, no limit (k = 2: k^2 + 1 = 5 fragments)",
+      "input": {
+        "sequence": "AGCTGATCGA",
+        "enzyme_names": [
+          "AluI",
+          "TaqI"
+        ],
+        "topology": "Circular"
+      },
+      "output": {
+        "fragments": [
+          {
+            "fragment": {
+              "sequence": "CTGAT",
+              "startPosition": 2,
+              "length": 5,
+              "leftEnzyme": "AluI",
+              "rightEnzyme": "TaqI",
+              "fragmentNumber": 1,
+              "leftOverhangType": "Blunt",
+              "leftOverhang": "",
+              "rightOverhangType": "FivePrime",
+              "rightOverhang": "CG",
+              "leftEnzymes": [
+                "AluI"
+              ],
+              "rightEnzymes": [
+                "TaqI"
+              ]
+            },
+            "missedCuts": 0
+          },
+          {
+            "fragment": {
+              "sequence": "CGAAG",
+              "startPosition": 7,
+              "length": 5,
+              "leftEnzyme": "TaqI",
+              "rightEnzyme": "AluI",
+              "fragmentNumber": 2,
+              "leftOverhangType": "FivePrime",
+              "leftOverhang": "CG",
+              "rightOverhangType": "Blunt",
+              "rightOverhang": "",
+              "leftEnzymes": [
+                "TaqI"
+              ],
+              "rightEnzymes": [
+                "AluI"
+              ]
+            },
+            "missedCuts": 0
+          },
+          {
+            "fragment": {
+              "sequence": "CTGATCGAAG",
+              "startPosition": 2,
+              "length": 10,
+              "leftEnzyme": "AluI",
+              "rightEnzyme": "AluI",
+              "fragmentNumber": 3,
+              "leftOverhangType": "Blunt",
+              "leftOverhang": "",
+              "rightOverhangType": "Blunt",
+              "rightOverhang": "",
+              "leftEnzymes": [
+                "AluI"
+              ],
+              "rightEnzymes": [
+                "AluI"
+              ]
+            },
+            "missedCuts": 1
+          },
+          {
+            "fragment": {
+              "sequence": "CGAAGCTGAT",
+              "startPosition": 7,
+              "length": 10,
+              "leftEnzyme": "TaqI",
+              "rightEnzyme": "TaqI",
+              "fragmentNumber": 4,
+              "leftOverhangType": "FivePrime",
+              "leftOverhang": "CG",
+              "rightOverhangType": "FivePrime",
+              "rightOverhang": "CG",
+              "leftEnzymes": [
+                "TaqI"
+              ],
+              "rightEnzymes": [
+                "TaqI"
+              ]
+            },
+            "missedCuts": 1
+          },
+          {
+            "fragment": {
+              "sequence": "AGCTGATCGA",
+              "startPosition": 0,
+              "length": 10,
+              "fragmentNumber": 5,
+              "leftEnzymes": [],
+              "rightEnzymes": []
+            },
+            "missedCuts": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Negative missed-cut limit",
+      "input": {
+        "sequence": "AGCTGATCGA",
+        "enzyme_names": [
+          "AluI"
+        ],
+        "max_missed_cuts": -1
+      },
+      "output": {
+        "error": "The missed-cut limit cannot be negative."
+      }
+    },
+    {
+      "name": "Empty sequence",
+      "input": {
+        "sequence": "",
+        "enzyme_names": [
+          "AluI"
+        ]
+      },
+      "output": {
+        "error": "Sequence cannot be null or empty."
+      }
+    }
+  ]
+}
