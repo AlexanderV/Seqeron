@@ -36,21 +36,34 @@ only and attach a **Provenance** block (see [`bio-rigor`](../../bio-rigor/SKILL.
 **Steps.** `design_guide_rnas`(sequence, region_start, region_end[, system_type, parameters]) →
 `CrisprDesigner.DesignGuideRnas` returns guides ≥ `MinScore` (GC%, seed GC%, polyT, self-complementarity).
 For each guide: `find_off_targets`(guide, genome[, max_mismatches, system_type]) →
-`CrisprDesigner.FindOffTargets`; then `crispr_specificity_score`(guide, genome[, system_type]) →
-`CrisprDesigner.CalculateSpecificityScore`. Rank by (on-target score, specificity).
+`CrisprDesigner.FindOffTargets`; then a **published** aggregate —
+`crispr_mit_specificity_score`(guide, genome[, max_mismatches, system_type, include_alternative_pams])
+→ `CrisprDesigner.CalculateMitSpecificityScore` (MIT/Hsu 2013) and/or
+`crispr_cfd_specificity_score`(...) → `CrisprDesigner.CalculateCfdSpecificityScore` (Doench 2016 CFD).
+Rank by (on-target score, specificity). `crispr_specificity_score`
+(`CrisprDesigner.CalculateHeuristicSpecificityScore`) is the library's own unsourced heuristic — coarse
+triage only, and labelled as such wherever it is reported.
 Optional: `find_pam_sites`, `evaluate_guide_rna`, `crispr_system_info` for context.
 
 **Parameters / gotchas.**
 - Region is **0-based inclusive**; guide length must equal the system's guide length (else error 4001).
 - Default system `SpCas9`. `crispr_system_info` reports PAM + guide length per system.
 - `find_off_targets`: `max_mismatches` 0..5 (default 3); the exact on-target (0 mismatches) is excluded.
-- Specificity: internally runs the scan at maxMismatches = 4; `100` = no off-targets, else
-  `max(0, 100 − Σ penalty)`; **seed = PAM-proximal 12 bp** weighted 5 vs 2 per mismatch.
+- Published aggregates: `max_mismatches` 0..5, default **4** (the reference's own default);
+  `100` = no off-targets. MIT = `100/(100 + Σ per-hit Hsu scores) × 100` (SaCas9 hits via the Tycko
+  2018 model); CFD = the same form over the raw per-hit CFD values, or `100 / Σ CFD` with
+  `aggregation=ParkinsonNormalized`. Both **refuse** PAM-before-target systems (Cas12a-class, CasX);
+  CFD also refuses non-20-nt guides (incl. SaCas9). `include_alternative_pams=true` on the MIT tool
+  adds the NAG scan with CRISPOR's ×0.2 alternative-PAM weight (default false = main PAM only).
+- The heuristic `crispr_specificity_score` (unsourced): internally runs the scan at maxMismatches = 4;
+  `100` = no off-targets, else `max(0, 100 − Σ penalty)`; **seed = PAM-proximal 12 bp** weighted 5 vs
+  2 per mismatch. Linear, PAM-blind and saturating at 0 — do not present it as a published score.
 - **Envelope/perf:** naïve O(genome × guide); keep the scanned reference **≲ 1 Mb**. This is a screen,
   not a genome-wide off-target caller — say so, and add the not-for-clinical-use caveat for real assays.
 
 **Provenance example.** `design_guide_rnas(region=[20,45], SpCas9)` → per guide
-`find_off_targets(genome, max_mismatches=3)` → `crispr_specificity_score(genome)` → ranked table.
+`find_off_targets(genome, max_mismatches=3)` → `crispr_mit_specificity_score(genome,
+max_mismatches=4)` → ranked table, naming the model behind the specificity column.
 
 ---
 

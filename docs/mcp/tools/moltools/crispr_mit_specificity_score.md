@@ -18,11 +18,20 @@ The **published** MIT / Hsu 2013 aggregate guide specificity score — the "Guid
 
 The per-hit model is chosen by system, exactly as the reference's `annotateOfftargets` does: a **SaCas9** PAM (`NNGRRT`/`NNNRRT`) with a 21-nt guide is scored with the SaCas9-specific trained model of **Tycko et al. 2018** (`calcSaHitScore`), every other PAM-after-target system with the Hsu model. A non-SaCas9 guide longer than 20 nt falls back to `calcHitScore`'s own last-20 fudge; a 19-nt guide to its `A`-pad.
 
+### Alternative PAMs (`include_alternative_pams`)
+
+CRISPOR runs ONE wider search that also accepts the alternative PAMs of its `offtargetPams` table (`NGG → NAG, NGA`; `NNGRRT → NNGRRN`; `TTTV → TTTN`) and then downweights such a hit's MIT score by **0.2** (`annotateOfftargets`: `if pam=="NGG" and otSeq[-2:]!="GG": mitScore = mitScore * 0.2` — "alternative PAMs represent only ~10% of all cleaveage events... so that these off-targets are not ranked among the top but still appear in the list somewhat"). With the default `include_alternative_pams: false` this tool scans the one system's PAM only, so it reports a guide as **more specific** than the reference. Set it to `true` to reproduce the reference's behaviour. Two properties of the rule are worth knowing:
+
+- It is gated on the **guide's** PAM being `NGG`, so an `SpCas9_NAG` guide is never downweighted.
+- Only the MIT score is downweighted; the CFD aggregate ([crispr_cfd_specificity_score](crispr_cfd_specificity_score.md)) is **not** — its PAM table already penalises non-NGG PAMs.
+
+For `SpCas9` only the `NAG` alternative is scannable here (this library offers no `NGA` system), and for SaCas9/Cas12a no alternative-PAM system exists at all, so there `true` equals `false`. The C# API also exposes the rule over an arbitrary PAM-annotated hit set (`CrisprDesigner.CalculateMitSpecificityScore(guide, IEnumerable<PamAnnotatedOffTarget>, system)` with `CrisprDesigner.FindOffTargetsWithPam`), where an `NGA` hit IS counted and downweighted.
+
 Cas12a/Cpf1-class and CasX systems (PAM **before** target) are **refused**: the reference reports no MIT off-target score for them at all (`mitScore = 0.0`, `guideScore = -1`). Prefer this tool over [crispr_specificity_score](crispr_specificity_score.md), which is this library's own unsourced heuristic.
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L1005](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1005)
+- Source: [CrisprDesigner.cs#L1123](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1123)
 
 ## Input Schema
 
@@ -32,6 +41,7 @@ Cas12a/Cpf1-class and CasX systems (PAM **before** target) are **refused**: the 
 | `genome` | string | Yes | Genome / reference to scan. |
 | `max_mismatches` | integer | No | 0..5 (default 4, the reference's default). |
 | `system_type` | enum | No | CRISPR system (default `SpCas9`); must be PAM-after-target. |
+| `include_alternative_pams` | boolean | No | Also scan the reference's alternative PAMs and downweight those hits by 0.2 (default `false`). |
 
 ## Output Schema
 
@@ -59,7 +69,11 @@ Guide `GACGCATAAAGATGAGACGC` vs genome `TACGCATAAAGATGAGACGCAGG`: one off-target
 
 Guide `ACGTACGTACGTACGTACGTA` vs genome `ACGTACGTACGTACGTACGTCAAGAAT` with `system_type: SaCas9`: one off-target differing at the PAM-proximal position → Tycko 2018 `calcSaHitScore` = 4.2613097364785695 → `95.91285612347565`.
 
-### Example 3: on-target only → `specificity: 100.0`.
+### Example 3: alternative-PAM hit folded in
+
+Guide `GACGCATAAAGATGAGACGC` vs genome `GACGCTTAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACTCTAG` holds two off-targets: one on the main `AGG` PAM (`calcHitScore` 60.5) and one on an alternative `TAG` PAM (31.4999…). With `include_alternative_pams: false` → `100/(100+60.5)×100 = 62.30529595015576`; with `true` → `100/(100+60.5+0.2×31.4999…)×100 = 59.95203836930455`. Counting the alternative-PAM hit at full weight would give 52.0833…, so the 0.2 factor is visible in the value.
+
+### Example 4: on-target only → `specificity: 100.0`.
 
 ## Performance
 

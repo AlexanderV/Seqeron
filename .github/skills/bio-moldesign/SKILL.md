@@ -44,7 +44,7 @@ and `bio-rigor` [`reference/envelope.md`](../bio-rigor/reference/envelope.md).
 | Enumerate / score candidate primers, or QC one primer | primer | `generate_primer_candidates`, `evaluate_primer` |
 | Primer QC: dimer / hairpin / 3′ stability / repeats | primer | `primer_dimer`, `hairpin_potential`, `three_prime_stability`, `longest_homopolymer`, `longest_dinucleotide_repeat` |
 | Melting temperature (basic / salt-corrected) | primer | `primer_melting_temperature`, `primer_melting_temperature_salt` |
-| Design **CRISPR** guide RNAs for a region | crispr | `design_guide_rnas` → `find_off_targets` → `crispr_specificity_score` |
+| Design **CRISPR** guide RNAs for a region | crispr | `design_guide_rnas` → `find_off_targets` → `crispr_mit_specificity_score` / `crispr_cfd_specificity_score` |
 | Find PAM sites / evaluate one guide / system info | crispr | `find_pam_sites`, `evaluate_guide_rna`, `crispr_system_info` |
 | **Codon-optimize** a CDS for an organism | codon | `optimize_codons` (reports CAI+GC before/after) |
 | Codon usage analysis (CAI, RSCU, ENC, rare codons) | codon | `codon_adaptation_index`, `rscu`, `effective_number_of_codons`, `find_rare_codons`, `find_rare_codon_clusters`, `codon_minmax_profile`, `find_conserved_rare_codon_clusters` |
@@ -71,11 +71,26 @@ Goal: a valid, well-behaved primer pair flanking a target, with a Tm-difference 
 ### (b) CRISPR guide design → off-targets → specificity → rank
 Goal: rank guide RNAs targeting a region by on-target score and off-target specificity.
 - **[MCP]** `design_guide_rnas`(sequence, region_start, region_end, system_type) → for each guide:
-  `find_off_targets`(guide, genome, max_mismatches) → `crispr_specificity_score`(guide, genome) → rank by (score, specificity).
-- **[C# API]** `CrisprDesigner.DesignGuideRnas` → `CrisprDesigner.FindOffTargets` → `CrisprDesigner.CalculateSpecificityScore`.
-- Key params: 0-based inclusive region; default system `SpCas9`; `max_mismatches` 0..5 (default 3);
-  specificity uses maxMismatches=4, seed = PAM-proximal 12 bp. Keep genome ≲ 1 Mb (O(genome×guide)).
-- **Provenance:** design_guide_rnas → find_off_targets → crispr_specificity_score per guide, + system + params.
+  `find_off_targets`(guide, genome, max_mismatches) → **`crispr_mit_specificity_score`**(guide, genome)
+  and/or **`crispr_cfd_specificity_score`**(guide, genome) → rank by (on-target score, specificity).
+- **[C# API]** `CrisprDesigner.DesignGuideRnas` → `CrisprDesigner.FindOffTargets` →
+  `CrisprDesigner.CalculateMitSpecificityScore` / `CrisprDesigner.CalculateCfdSpecificityScore`.
+- **Use a published aggregate, not the heuristic.** `crispr_mit_specificity_score` is MIT/Hsu 2013
+  (CRISPOR `calcMitGuideScore`, per-hit Hsu model; SaCas9 via Tycko 2018) and
+  `crispr_cfd_specificity_score` is Doench 2016 CFD — both reproduce CRISPOR numerically. Both refuse
+  PAM-before-target systems (Cas12a-class, CasX) instead of inventing a number, and CFD additionally
+  refuses non-20-nt guides. `crispr_specificity_score`
+  (`CrisprDesigner.CalculateHeuristicSpecificityScore`) is **this library's own unsourced convenience
+  heuristic**, kept for coarse triage only: report it as such, never as "the" specificity, and never
+  alongside a published value without saying which is which.
+- Key params: 0-based inclusive region; default system `SpCas9`; `max_mismatches` 0..5 (default 3 for
+  `find_off_targets`, 4 — the reference's default — for the published aggregates). Pass
+  `include_alternative_pams=true` to `crispr_mit_specificity_score` to also count NAG-PAM off-targets
+  at CRISPOR's ×0.2 weight; without it the scan sees the one system's PAM only and the guide looks
+  more specific than in the reference. The heuristic's own fixed internals: maxMismatches=4, seed =
+  PAM-proximal 12 bp. Naive O(genome×guide) scan — a screen, not a genome-wide off-target caller.
+- **Provenance:** design_guide_rnas → find_off_targets → crispr_mit_specificity_score (and/or
+  crispr_cfd_specificity_score) per guide, + system + params; name the model behind every number.
 
 ### (c) Codon-optimize a CDS for a target organism
 Goal: raise CAI for the host while staying in a GC band; report CAI/GC before→after.

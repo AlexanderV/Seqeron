@@ -282,6 +282,35 @@ reference function, never from the C# code. Full tables of opened sources and re
 | `CfdSpecificity_Genome_MaxMismatchesOutOfRange_ThrowsArgumentOutOfRange` | F10 regression: `-1`, `6`, `99` all throw in both genome aggregates |
 | `CfdSpecificity_Genome_NoOffTargets_Returns100`, `CfdSpecificity_NullScores_ThrowsArgumentNullException`, `CfdSpecificity_Genome_InvalidArguments_Throw` | boundaries and validation |
 
+#### F50 — CRISPOR's alternative-PAM ×0.2 MIT downweight (`crispor.py` L1947-1958)
+
+Reference rule, applied after the per-hit MIT score and **only** to it:
+`if pam == "NGG" and otSeq[-2:] != "GG": mitScore = mitScore * 0.2`. Expected values come from a
+verbatim Python copy of `calcHitScore` (L2045-2096) + `calcMitGuideScore` (L2098-2104, unrounded) +
+that line, over `guide = GACGCATAAAGATGAGACGC` and two off-targets with single-hit scores `60.5`
+(1 mismatch at index 5) and `31.499999999999993` (index 18):
+both on the main PAM → `52.083333333333336`; the second on an alternative PAM → `59.95203836930455`;
+plus a third hit (`2.6227599999999995`, mismatches at 2 and 17) on an alternative PAM → `59.7640924805823`.
+
+| Test | Locks |
+|---|---|
+| `CalculateMitSpecificityScore_Annotated_AlternativePamHit_ContributesOneFifth` | `52.083333333333336` (both main) vs `59.95203836930455` (second on `TAG`) — the 0.2 factor |
+| `CalculateMitSpecificityScore_Annotated_DownweightIsOnTheLastTwoPamBases` | `NGA` = `NAG` (both non-`*GG`); a `TGG` PAM is a full-weight main-PAM hit |
+| `CalculateMitSpecificityScore_Annotated_ThreeHitsTwoAlternative_MatchesReference` | `59.7640924805823` |
+| `CalculateMitSpecificityScore_Annotated_NagSystem_NeverDownweights` | the rule is gated on the *guide's* PAM being `NGG` (`SpCas9_NAG` → `52.083333333333336` for either hit set) |
+| `CalculateMitSpecificityScore_Annotated_SaCas9_UsesTyckoModelAndNoDownweight` | F14 routing preserved: `95.91285612347565`, no downweight (main PAM is `NNGRRT`) |
+| `GetAlternativeOffTargetPams_MatchesReferenceTable` | `offtargetPams` (L243-253): `NGG → [NAG, NGA]`, `NNGRRT → [NNGRRN]`, `TTTV → [TTTN]`; `NAG`/`TTCN` → empty |
+| `CalculateMitSpecificityScoreWithAlternativePams_FoldsInTheNagScan` | the two scans' hit sets, then `59.95203836930455`, **and** the single-system overload unchanged at `62.30529595015576` |
+| `CalculateMitSpecificityScoreWithAlternativePams_NoScannableAlternative_EqualsSingleSystem` | SaCas9 (no `NNGRRN` system) reduces to the single-system value; no off-targets → `100` |
+| `FindOffTargetsWithPam_MatchesFindOffTargets_AndValidatesItsArguments` | the new public PAM-annotated scan is `FindOffTargets` + PAM, same order, same guards |
+| `CalculateMitSpecificityScore_Annotated_InvalidInputs_Throw` | null guide / null list / null element / empty PAM / wrong protospacer length / wrong guide length / PAM-before-target |
+
+MCP (`tests/Seqeron/Seqeron.Mcp.MolTools.Tests/CrisprPublishedSpecificityScoreTests.cs`):
+`CrisprMitSpecificityScore_IncludeAlternativePams_DefaultsOffAndDownweightsWhenOn` (62.30529595015576
+→ 59.95203836930455 only when `include_alternative_pams: true`),
+`CrisprMitSpecificityScore_IncludeAlternativePams_InertWithoutAltHits_AndStillValidates`,
+`CrisprCfdSpecificityScore_NotAffectedByTheAlternativePamRule`.
+
 #### `FindOffTargets` consistency and ordering
 
 | Test | Locks |

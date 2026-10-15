@@ -1160,4 +1160,298 @@ public class CrisprDesigner_OffTarget_Tests
     }
 
     #endregion
+    #region F50 — CRISPOR's alternative-PAM x0.2 MIT downweight (crispor.py L1947-1958)
+
+    // Reference rule (annotateOfftargets, crispor.py L1947-1958), applied AFTER the per-hit MIT score:
+    //     mitScore = calcHitScore(guideNoPam, otSeqNoPam)
+    //     if pam=="NGG" and otSeq[-2:]!="GG":
+    //         mitScore = mitScore * 0.2
+    //     cfdScore = calcCfdScore(guideSeq, otSeq)        # NOT downweighted
+    // and the guide-level value stays calcMitGuideScore(sum(mitOtScores)).
+    // Alternative PAMs come from the reference's own table (offtargetPams, L243-253):
+    // NGG -> [NAG, NGA], NGA -> [NGG], NNGRRT -> [NNGRRN], TTTV -> [TTTN].
+    //
+    // Expected values below come from a verbatim Python copy of crispor.py's calcHitScore
+    // (L2045-2096), calcMitGuideScore (L2098-2104, unrounded) and that downweight, run this session:
+    //   calcHitScore(guide, AltPamOffTarget)  = 60.5                 (1 mismatch at index 5)
+    //   calcHitScore(guide, ProximalOffTarget)= 31.499999999999993   (1 mismatch at index 18)
+    //   calcHitScore(guide, TwoMmOffTarget)   = 2.6227599999999995   (mismatches at 2 and 17)
+    //   sum[60.5, 31.4999...]                 -> 52.083333333333336  (both main PAM)
+    //   sum[60.5, 0.2 x 31.4999...]           -> 59.95203836930455   (second hit on an alt PAM)
+    //   sum[60.5, 0.2 x 31.4999..., 0.2 x 2.62276] -> 59.7640924805823
+
+    private const string AltPamGuide = "GACGCATAAAGATGAGACGC";
+    private const string AltPamOffTarget = "GACGCTTAAAGATGAGACGC";      // 1 mismatch, index 5
+    private const string ProximalOffTarget = "GACGCATAAAGATGAGACTC";    // 1 mismatch, index 18
+    private const string TwoMmOffTarget = "GATGCATAAAGATGAGAAGC";       // mismatches at 2 and 17
+
+    /// <summary>
+    /// A genome holding exactly two off-targets of <see cref="AltPamGuide"/>: one on the main NGG PAM
+    /// and one on an alternative NAG PAM. It contains no "CC", so the reverse strand carries no NGG/NAG
+    /// site at all, and the hit sets are asserted in the tests rather than assumed.
+    /// </summary>
+    private static DnaSequence AltPamGenome() =>
+        new(AltPamOffTarget + "AGG" + "TTTT" + ProximalOffTarget + "TAG");
+
+    private static PamAnnotatedOffTarget Hit(string protospacer, string pam) =>
+        new(new OffTargetSite(0, protospacer, 1, new[] { 0 }, true, 0.0), pam);
+
+    /// <summary>
+    /// F50-001: the same two hits aggregate to 52.083333333333336 when both carry a main NGG PAM and to
+    /// 59.95203836930455 when the second carries an NAG PAM — i.e. the second hit's contribution is
+    /// exactly one fifth. Reference values from the Python copy of calcHitScore/calcMitGuideScore.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_Annotated_AlternativePamHit_ContributesOneFifth()
+    {
+        var bothMain = new[] { Hit(AltPamOffTarget, "AGG"), Hit(ProximalOffTarget, "CGG") };
+        var secondIsAlt = new[] { Hit(AltPamOffTarget, "AGG"), Hit(ProximalOffTarget, "TAG") };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, bothMain),
+                Is.EqualTo(52.083333333333336).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, secondIsAlt),
+                Is.EqualTo(59.95203836930455).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// F50-002: the reference tests the hit's last two PAM bases (<c>otSeq[-2:]!="GG"</c>), not
+    /// membership of the alternative-PAM table, so NGA is downweighted exactly like NAG, and an
+    /// arbitrary non-*GG PAM is too. A *GG PAM other than the canonical AGG is NOT downweighted.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_Annotated_DownweightIsOnTheLastTwoPamBases()
+    {
+        double nag = CrisprDesigner.CalculateMitSpecificityScore(
+            AltPamGuide, new[] { Hit(AltPamOffTarget, "AGG"), Hit(ProximalOffTarget, "TAG") });
+        double nga = CrisprDesigner.CalculateMitSpecificityScore(
+            AltPamGuide, new[] { Hit(AltPamOffTarget, "AGG"), Hit(ProximalOffTarget, "CGA") });
+        double tgg = CrisprDesigner.CalculateMitSpecificityScore(
+            AltPamGuide, new[] { Hit(AltPamOffTarget, "GGG"), Hit(ProximalOffTarget, "TGG") });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nga, Is.EqualTo(nag).Within(1e-12), "NGA and NAG are both non-*GG PAMs");
+            Assert.That(nag, Is.EqualTo(59.95203836930455).Within(1e-9));
+            Assert.That(tgg, Is.EqualTo(52.083333333333336).Within(1e-9), "every *GG PAM is a main-PAM hit");
+        });
+    }
+
+    /// <summary>
+    /// F50-003: three hits, two of them on alternative PAMs (one NAG, one hand-supplied NGA — a PAM no
+    /// <see cref="CrisprSystemType"/> in this library scans) aggregate to 59.7640924805823.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_Annotated_ThreeHitsTwoAlternative_MatchesReference()
+    {
+        var hits = new[]
+        {
+            Hit(AltPamOffTarget, "AGG"),
+            Hit(ProximalOffTarget, "TAG"),
+            Hit(TwoMmOffTarget, "CGA"),
+        };
+
+        Assert.That(CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, hits),
+            Is.EqualTo(59.7640924805823).Within(1e-9));
+    }
+
+    /// <summary>
+    /// F50-004: the reference gates the downweight on the SEARCHED PAM pattern being literally "NGG"
+    /// (<c>if pam=="NGG" and ...</c>), so an SpCas9-NAG guide gets no downweight on any hit — not even
+    /// on a hit whose own PAM is NAG. Both hit sets must therefore give the undiscounted
+    /// 52.083333333333336.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_Annotated_NagSystem_NeverDownweights()
+    {
+        var allNag = new[] { Hit(AltPamOffTarget, "TAG"), Hit(ProximalOffTarget, "CAG") };
+        var mixed = new[] { Hit(AltPamOffTarget, "TAG"), Hit(ProximalOffTarget, "AGG") };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, allNag, CrisprSystemType.SpCas9_NAG),
+                Is.EqualTo(52.083333333333336).Within(1e-9));
+            Assert.That(
+                CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, mixed, CrisprSystemType.SpCas9_NAG),
+                Is.EqualTo(52.083333333333336).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// F50-005: the annotated overload keeps F14's per-system model routing — a SaCas9 guide is scored
+    /// with the Tycko 2018 model, and SaCas9's main PAM is not NGG, so nothing is downweighted. The
+    /// expected value is the one F9-001 locks for the same single off-target (calcSaHitScore
+    /// 4.2613097364785695 -> 95.91285612347565).
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_Annotated_SaCas9_UsesTyckoModelAndNoDownweight()
+    {
+        var hits = new[]
+        {
+            new PamAnnotatedOffTarget(
+                new OffTargetSite(0, "ACGTACGTACGTACGTACGTC", 1, new[] { 20 }, true, 0.0), SaPam),
+        };
+
+        Assert.That(
+            CrisprDesigner.CalculateMitSpecificityScore(SaGuide21, hits, CrisprSystemType.SaCas9),
+            Is.EqualTo(95.91285612347565).Within(1e-9));
+    }
+
+    /// <summary>
+    /// F50-006: the alternative-PAM table is the reference's own <c>offtargetPams</c> entry for each
+    /// system's main PAM (crispor.py L243-253); a PAM the table does not list yields an empty list.
+    /// </summary>
+    [Test]
+    public void GetAlternativeOffTargetPams_MatchesReferenceTable()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.GetAlternativeOffTargetPams(CrisprSystemType.SpCas9),
+                Is.EqualTo(new[] { "NAG", "NGA" }));
+            Assert.That(CrisprDesigner.GetAlternativeOffTargetPams(CrisprSystemType.SaCas9),
+                Is.EqualTo(new[] { "NNGRRN" }));
+            Assert.That(CrisprDesigner.GetAlternativeOffTargetPams(CrisprSystemType.Cas12a),
+                Is.EqualTo(new[] { "TTTN" }));
+            // NAG and TTCN are not keys of the reference's table (only values / absent).
+            Assert.That(CrisprDesigner.GetAlternativeOffTargetPams(CrisprSystemType.SpCas9_NAG), Is.Empty);
+            Assert.That(CrisprDesigner.GetAlternativeOffTargetPams(CrisprSystemType.CasX), Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// F50-007: the genome-level alternative-PAM overload folds the NAG scan into the NGG scan with the
+    /// 0.2 weight. The two scans' hit sets are asserted first, so the expected aggregate belongs to
+    /// exactly those two hits: 60.5 (NGG) + 0.2 x 31.4999... (NAG) -> 59.95203836930455. The
+    /// single-system overload is unchanged on the same genome: 100/(100+60.5)*100 = 62.30529595015576.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScoreWithAlternativePams_FoldsInTheNagScan()
+    {
+        var genome = AltPamGenome();
+
+        var mainHits = CrisprDesigner.FindOffTargetsWithPam(AltPamGuide, genome, 4).ToList();
+        var nagHits = CrisprDesigner
+            .FindOffTargetsWithPam(AltPamGuide, genome, 4, CrisprSystemType.SpCas9_NAG).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mainHits, Has.Count.EqualTo(1));
+            Assert.That(mainHits[0].Site.Sequence, Is.EqualTo(AltPamOffTarget));
+            Assert.That(mainHits[0].Pam, Is.EqualTo("AGG"));
+            Assert.That(nagHits, Has.Count.EqualTo(1));
+            Assert.That(nagHits[0].Site.Sequence, Is.EqualTo(ProximalOffTarget));
+            Assert.That(nagHits[0].Pam, Is.EqualTo("TAG"));
+
+            Assert.That(
+                CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(AltPamGuide, genome, 4),
+                Is.EqualTo(59.95203836930455).Within(1e-9));
+            Assert.That(
+                CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, genome, 4),
+                Is.EqualTo(62.30529595015576).Within(1e-9),
+                "the single-system overload must keep its behaviour");
+        });
+    }
+
+    /// <summary>
+    /// F50-008: with no off-target at all both overloads still return 100, and for a system whose
+    /// alternative PAM no <see cref="CrisprSystemType"/> provides (SaCas9 -> NNGRRN) the alternative-PAM
+    /// overload reduces to the single-system one.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScoreWithAlternativePams_NoScannableAlternative_EqualsSingleSystem()
+    {
+        var saGenome = new DnaSequence("ACGTACGTACGTACGTACGTC" + SaPam);
+        var empty = new DnaSequence(string.Concat(Enumerable.Repeat("T", 60)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(
+                    SaGuide21, saGenome, 3, CrisprSystemType.SaCas9),
+                Is.EqualTo(CrisprDesigner.CalculateMitSpecificityScore(
+                    SaGuide21, saGenome, 3, CrisprSystemType.SaCas9)).Within(1e-12));
+            Assert.That(
+                CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(AltPamGuide, empty, 4),
+                Is.EqualTo(100.0));
+        });
+    }
+
+    /// <summary>
+    /// F50-009: <see cref="CrisprDesigner.FindOffTargetsWithPam"/> reports exactly the sites
+    /// <see cref="CrisprDesigner.FindOffTargets"/> reports, in the same order, and repeats its guards.
+    /// </summary>
+    [Test]
+    public void FindOffTargetsWithPam_MatchesFindOffTargets_AndValidatesItsArguments()
+    {
+        var genome = AltPamGenome();
+        var plain = CrisprDesigner.FindOffTargets(AltPamGuide, genome, 4).ToList();
+        var annotated = CrisprDesigner.FindOffTargetsWithPam(AltPamGuide, genome, 4).ToList();
+
+        Assert.Multiple(() =>
+        {
+            // Compared field by field: OffTargetSite's record equality is reference equality on its
+            // MismatchPositions list, so two equal-valued sites from two scans are never Equal.
+            Assert.That(annotated, Has.Count.EqualTo(plain.Count));
+            Assert.That(annotated.Select(h => h.Site.Position), Is.EqualTo(plain.Select(s => s.Position)));
+            Assert.That(annotated.Select(h => h.Site.Sequence), Is.EqualTo(plain.Select(s => s.Sequence)));
+            Assert.That(annotated.Select(h => h.Site.Mismatches), Is.EqualTo(plain.Select(s => s.Mismatches)));
+            Assert.That(annotated.Select(h => h.Site.MismatchPositions),
+                Is.EqualTo(plain.Select(s => s.MismatchPositions)));
+            Assert.That(annotated.Select(h => h.Site.IsForwardStrand),
+                Is.EqualTo(plain.Select(s => s.IsForwardStrand)));
+            Assert.That(annotated.Select(h => h.Site.OffTargetScore),
+                Is.EqualTo(plain.Select(s => s.OffTargetScore)));
+            Assert.That(annotated.Select(h => h.Pam), Is.All.Not.Empty);
+
+            Assert.Throws<ArgumentNullException>(() =>
+                CrisprDesigner.FindOffTargetsWithPam("", genome, 4).ToList());
+            Assert.Throws<ArgumentNullException>(() =>
+                CrisprDesigner.FindOffTargetsWithPam(AltPamGuide, null!, 4).ToList());
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                CrisprDesigner.FindOffTargetsWithPam(AltPamGuide, genome, 6).ToList());
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                CrisprDesigner.FindOffTargetsWithPam(AltPamGuide, genome, -1).ToList());
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.FindOffTargetsWithPam("ACGT", genome, 4).ToList());
+        });
+    }
+
+    /// <summary>
+    /// F50-010: the annotated aggregate validates its inputs — the guide, the list, its elements, each
+    /// element's PAM (the rule is defined on it) and the protospacer length — and refuses
+    /// PAM-before-target systems exactly as the other MIT entry points do.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_Annotated_InvalidInputs_Throw()
+    {
+        var ok = new[] { Hit(AltPamOffTarget, "AGG") };
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore("", ok));
+            Assert.Throws<ArgumentNullException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore(
+                    AltPamGuide, (IEnumerable<PamAnnotatedOffTarget>)null!));
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore("ACGT", ok));
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore(
+                    AltPamGuide, new PamAnnotatedOffTarget[] { null! }));
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, new[] { Hit(AltPamOffTarget, "") }));
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, new[] { Hit("ACGTACGT", "AGG") }));
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, ok, CrisprSystemType.Cas12a));
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(
+                    AltPamGuide, AltPamGenome(), 4, CrisprSystemType.CasX));
+        });
+    }
+
+    #endregion
 }

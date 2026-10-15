@@ -163,4 +163,84 @@ public class CrisprPublishedSpecificityScoreTests
             Assert.That(cfd, Is.Not.EqualTo(mit));
         });
     }
+    #region F50 — include_alternative_pams (CRISPOR's x0.2 alternative-PAM MIT downweight)
+
+    // Genome with two off-targets of Guide: one on the main AGG PAM (calcHitScore 60.5) and one on an
+    // alternative TAG PAM (31.4999...). Reference values from a verbatim Python copy of crispor.py's
+    // calcHitScore / calcMitGuideScore plus annotateOfftargets' "if pam==\"NGG\" and otSeq[-2:]!=\"GG\":
+    // mitScore = mitScore * 0.2" (L1947-1958):
+    //   main PAM only              -> 100/(100+60.5)*100            = 62.30529595015576
+    //   with the alt-PAM hit x0.2  -> 100/(100+60.5+6.2999...)*100   = 59.95203836930455
+    //   (at FULL weight it would be 52.083333333333336, so the 0.2 is visible in the value)
+    private const string GenomeMainAndAltPam =
+        "GACGCTTAAAGATGAGACGC" + "AGG" + "TTTT" + "GACGCATAAAGATGAGACTC" + "TAG";
+
+    /// <summary>
+    /// F50: the new optional parameter is OFF by default — the tool's existing behaviour is unchanged —
+    /// and ON it folds in the alternative-PAM (NAG) hit with the reference's 0.2 weight.
+    /// </summary>
+    [Test]
+    public void CrisprMitSpecificityScore_IncludeAlternativePams_DefaultsOffAndDownweightsWhenOn()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MolToolsTools.crispr_mit_specificity_score(Guide, GenomeMainAndAltPam, 4).Specificity,
+                Is.EqualTo(62.30529595015576).Within(1e-9), "default must stay main-PAM only");
+            Assert.That(
+                MolToolsTools.crispr_mit_specificity_score(
+                    Guide, GenomeMainAndAltPam, 4, CrisprSystemType.SpCas9, include_alternative_pams: false).Specificity,
+                Is.EqualTo(62.30529595015576).Within(1e-9));
+            Assert.That(
+                MolToolsTools.crispr_mit_specificity_score(
+                    Guide, GenomeMainAndAltPam, 4, CrisprSystemType.SpCas9, include_alternative_pams: true).Specificity,
+                Is.EqualTo(59.95203836930455).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// F50: the flag changes nothing where no alternative-PAM hit exists, it keeps refusing
+    /// PAM-before-target systems, and it keeps validating max_mismatches.
+    /// </summary>
+    [Test]
+    public void CrisprMitSpecificityScore_IncludeAlternativePams_InertWithoutAltHits_AndStillValidates()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                MolToolsTools.crispr_mit_specificity_score(
+                    Guide, GenomeOneOffTarget, 4, CrisprSystemType.SpCas9, include_alternative_pams: true).Specificity,
+                Is.EqualTo(50.0).Within(1e-9));
+            Assert.That(
+                MolToolsTools.crispr_mit_specificity_score(
+                    Guide, GenomeNoOffTargets, 4, CrisprSystemType.SpCas9, include_alternative_pams: true).Specificity,
+                Is.EqualTo(100.0).Within(1e-12));
+            Assert.Throws<ArgumentException>(() => MolToolsTools.crispr_mit_specificity_score(
+                "ACGTACGTACGTACGTACGTACG", "TTTAACGTACGTACGTACGTACGTACC", 3, CrisprSystemType.Cas12a,
+                include_alternative_pams: true));
+            Assert.Throws<ArgumentException>(() => MolToolsTools.crispr_mit_specificity_score(
+                Guide, GenomeMainAndAltPam, 6, CrisprSystemType.SpCas9, include_alternative_pams: true));
+        });
+    }
+
+    /// <summary>
+    /// F50: only the MIT aggregate is downweighted — the CFD tool is unaffected by the rule and still
+    /// sees only its own system's PAM, so its value on this genome does not move.
+    /// </summary>
+    [Test]
+    public void CrisprCfdSpecificityScore_NotAffectedByTheAlternativePamRule()
+    {
+        double cfd = MolToolsTools.crispr_cfd_specificity_score(Guide, GenomeMainAndAltPam, 4).Specificity;
+        double mitMain = MolToolsTools.crispr_mit_specificity_score(Guide, GenomeMainAndAltPam, 4).Specificity;
+        double mitAlt = MolToolsTools.crispr_mit_specificity_score(
+            Guide, GenomeMainAndAltPam, 4, CrisprSystemType.SpCas9, include_alternative_pams: true).Specificity;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mitAlt, Is.LessThan(mitMain), "the alt-PAM hit lowers the MIT aggregate");
+            Assert.That(cfd, Is.Not.EqualTo(mitMain));
+            Assert.That(cfd, Is.Not.EqualTo(mitAlt));
+        });
+    }
+
+    #endregion
 }

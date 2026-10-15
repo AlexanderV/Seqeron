@@ -578,6 +578,48 @@ public static class CrisprDesigner
     }
 
     /// <summary>
+    /// Finds potential off-target sites exactly as <see cref="FindOffTargets"/> does, additionally
+    /// reporting each site's own PAM as read on the protospacer strand. Use this when a score needs the
+    /// off-target's PAM: the CFD model (<see cref="CalculateCfdScore"/>) and the alternative-PAM-aware
+    /// MIT aggregate
+    /// (<see cref="CalculateMitSpecificityScore(string, IEnumerable{PamAnnotatedOffTarget}, CrisprSystemType)"/>),
+    /// whose downweight is defined on the PAM the hit actually carries.
+    /// </summary>
+    /// <param name="guideSequence">The guide sequence (must match the system's guide length).</param>
+    /// <param name="genome">The genome/sequence to scan.</param>
+    /// <param name="maxMismatches">Maximum mismatches to consider (0-5).</param>
+    /// <param name="systemType">The CRISPR system whose PAM is scanned.</param>
+    /// <returns>
+    /// The same sites <see cref="FindOffTargets"/> yields, in the same deterministic order, each paired
+    /// with its PAM. The PAM always matches <paramref name="systemType"/>'s motif — one call scans one
+    /// system — so an alternative-PAM aggregate combines the results of several calls.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or the genome is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxMismatches"/> is outside 0-5.</exception>
+    /// <exception cref="ArgumentException">Thrown when the guide length does not match the system's.</exception>
+    public static IEnumerable<PamAnnotatedOffTarget> FindOffTargetsWithPam(
+        string guideSequence,
+        DnaSequence genome,
+        int maxMismatches = 3,
+        CrisprSystemType systemType = CrisprSystemType.SpCas9)
+    {
+        // Same guards, same order, same exception types as FindOffTargets.
+        if (string.IsNullOrEmpty(guideSequence))
+            throw new ArgumentNullException(nameof(guideSequence));
+        ArgumentNullException.ThrowIfNull(genome);
+        if (maxMismatches < 0 || maxMismatches > 5)
+            throw new ArgumentOutOfRangeException(nameof(maxMismatches));
+        var system = GetSystem(systemType);
+        if (guideSequence.Length != system.GuideLength)
+            throw new ArgumentException(
+                $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
+                nameof(guideSequence));
+
+        return FindOffTargetsWithPamCore(guideSequence, genome, maxMismatches, systemType)
+            .Select(static hit => new PamAnnotatedOffTarget(hit.Site, hit.Pam));
+    }
+
+    /// <summary>
     /// Calculates THIS LIBRARY'S OWN HEURISTIC specificity score for a guide RNA
     /// (higher = more specific):
     /// <c>max(0, 100 − Σ over off-targets of (5 per seed-region mismatch + 2 per distal mismatch))</c>,
@@ -1068,9 +1110,14 @@ public static class CrisprDesigner
     /// <para>
     /// Recorded deviation: this aggregate sums only off-targets of the one scanned system's PAM, whereas
     /// CRISPOR runs a single wider scan and additionally folds in alternative-PAM hits (an NGG scan that
-    /// turns up a non-GG site) with a 0.2 weight. That weight is unreachable here — an SpCas9 scan yields
-    /// only NGG sites and an SpCas9-NAG scan only NAG sites, so the reference's own condition
-    /// (<c>pam == "NGG" and otSeq[-2:] != "GG"</c>) is never true for a single-system scan.
+    /// turns up a non-GG site) with a 0.2 weight. That weight cannot fire on a single-system scan — an
+    /// SpCas9 scan yields only NGG sites and an SpCas9-NAG scan only NAG sites, so the reference's own
+    /// condition (<c>pam == "NGG" and otSeq[-2:] != "GG"</c>) is never true here. For the reference's
+    /// behaviour use
+    /// <see cref="CalculateMitSpecificityScoreWithAlternativePams"/> (scans the main PAM and the
+    /// alternative PAMs this library offers as systems) or
+    /// <see cref="CalculateMitSpecificityScore(string, IEnumerable{PamAnnotatedOffTarget}, CrisprSystemType)"/>
+    /// (aggregates any PAM-annotated hit set). This overload's behaviour is unchanged.
     /// </para>
     /// </remarks>
     public static double CalculateMitSpecificityScore(
@@ -1096,6 +1143,229 @@ public static class CrisprDesigner
                 : CalculateMitHitScoreFudged(guide, ot.Sequence.ToUpperInvariant()));
 
         return CalculateMitSpecificityScore(hitScores);
+    }
+
+    /// <summary>
+    /// The factor the reference applies to an alternative-PAM off-target's MIT/Hsu single-hit score:
+    /// <c>mitScore = mitScore * 0.2</c> (crispor.py <c>annotateOfftargets</c>, L1947-1958). Its own
+    /// comment states the rationale: "this is a heuristic based on the guideSeq data where alternative
+    /// PAMs represent only ~10% of all cleaveage events. We divide the MIT score by 5 to make sure that
+    /// these off-targets are not ranked among the top but still appear in the list somewhat".
+    /// </summary>
+    private const double AlternativePamMitWeight = 0.2;
+
+    /// <summary>
+    /// The alternative off-target PAM motifs the reference will accept for a system's main PAM
+    /// (crispor.py <c>offtargetPams</c>, L243-253), or an empty list when it lists none for that PAM.
+    /// </summary>
+    /// <remarks>
+    /// Verbatim from the reference table, with its own citations: <c>NGG → NAG, NGA</c> ("MIT and eCrisp
+    /// do that, they use the motif NGG + NAG, we add one more, based on the guideSeq results in Tsai et
+    /// al, Nat Biot 2014"; "The NGA -&gt; NGG rule was described by Kleinstiver...Young 2015 'Improved
+    /// Cas9 Specificity...'"), <c>NGA → NGG</c>, <c>NNGRRT → NNGRRN</c> ("NNGTRRT rule for S. aureus is
+    /// in the new protocol 'SaCas9 User manual'"), <c>TTTV → TTTN</c>. The reference also requires
+    /// "the length of the alternate PAM has to be the same as the original PAM". Entries of the table
+    /// whose main PAM no <see cref="CrisprSystemType"/> uses (<c>NGK</c>, <c>ATTN</c>, <c>TTYN</c>) are
+    /// not represented here.
+    /// <para>
+    /// Only the MIT downweight
+    /// (<see cref="CalculateMitSpecificityScore(string, IEnumerable{PamAnnotatedOffTarget}, CrisprSystemType)"/>)
+    /// is defined on these motifs; the reference's own pipeline-level cutoff for alternative-PAM hits
+    /// (<c>ALTPAMMINSCORE = 1.0</c>, L310-318, applied in the bowtie/BWA pre-filter at L4092-4133, not
+    /// in the scoring function) is NOT applied here: this library has no score-based pre-filter on the
+    /// off-target scan at all, and that cutoff is a configurable command-line option of the reference's
+    /// search pipeline rather than part of the published aggregate.
+    /// </para>
+    /// </remarks>
+    /// <param name="systemType">The CRISPR system whose main PAM is looked up.</param>
+    /// <returns>The alternative PAM motifs (IUPAC), possibly empty; never null.</returns>
+    public static IReadOnlyList<string> GetAlternativeOffTargetPams(CrisprSystemType systemType) =>
+        GetSystem(systemType).PamSequence switch
+        {
+            "NGG" => ["NAG", "NGA"],
+            "NGA" => ["NGG"],
+            "NNGRRT" => ["NNGRRN"],
+            "TTTV" => ["TTTN"],
+            _ => []
+        };
+
+    /// <summary>
+    /// Calculates the aggregate MIT / Hsu 2013 specificity score from off-targets that each carry their
+    /// own PAM, applying the reference's alternative-PAM downweight: an off-target of an NGG (SpCas9)
+    /// guide whose own PAM does not end in <c>GG</c> contributes only
+    /// <c>0.2 ×</c> its single-hit score. This is the overload to use when the off-targets come from
+    /// MORE THAN ONE PAM scan — e.g. an SpCas9 (<c>NGG</c>) scan combined with an SpCas9-NAG
+    /// (<c>NAG</c>) scan, which is how this library reproduces CRISPOR's single wider search.
+    /// </summary>
+    /// <param name="guideSequence">The guide sequence (must match <paramref name="systemType"/>'s guide length).</param>
+    /// <param name="offTargets">
+    /// The off-targets to aggregate, each with the PAM it actually carries (as
+    /// <see cref="FindOffTargetsWithPam"/> reports it). May mix PAMs freely; the main-vs-alternative
+    /// decision is taken per hit from its own PAM, never from which scan produced it.
+    /// </param>
+    /// <param name="systemType">
+    /// The guide's OWN system, i.e. the one whose PAM is the "main" PAM — not the system an individual
+    /// hit was found with. Must be a PAM-after-target (Cas9-class) system.
+    /// </param>
+    /// <returns>The aggregate MIT/Hsu specificity in [0, 100]; 100 for an empty off-target set.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or <paramref name="offTargets"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="systemType"/> is a Cas12a/Cpf1-class (PAM-before-target) system, when
+    /// the guide length does not match the system's, or when an element is null / carries an empty PAM
+    /// or a protospacer of a different length than the guide.
+    /// </exception>
+    /// <remarks>
+    /// Source: CRISPOR <c>crispor.py</c> <c>annotateOfftargets</c>, L1947-1958 — after the per-hit MIT
+    /// score is computed, <c>if pam=="NGG" and otSeq[-2:]!="GG": mitScore = mitScore * 0.2</c>. Three
+    /// properties of that rule are reproduced exactly:
+    /// <list type="bullet">
+    /// <item><description>It is gated on the GUIDE's main PAM being literally <c>NGG</c>. An
+    /// SpCas9-NAG guide (main PAM <c>NAG</c>) gets no downweight on any hit, because the reference's
+    /// condition tests the searched PAM pattern, not the hit's.</description></item>
+    /// <item><description>The test is on the hit's last two PAM bases, NOT on membership of
+    /// <see cref="GetAlternativeOffTargetPams"/>: any non-<c>*GG</c> PAM (<c>NAG</c>, <c>NGA</c>, or
+    /// anything else a caller supplies) is downweighted. This method therefore applies it to the
+    /// concatenation <c>protospacer + PAM</c>, which is the reference's own <c>otSeq</c>.</description></item>
+    /// <item><description>Only the MIT score is downweighted. The reference computes the hit's CFD
+    /// score afterwards, from the full <c>otSeq</c> including its PAM, with no 0.2 factor — so
+    /// <see cref="CalculateCfdSpecificityScore(IEnumerable{double}, CfdAggregation)"/> must NOT be fed
+    /// downweighted values. (The CFD PAM table already penalises non-NGG PAMs on its own.)</description></item>
+    /// </list>
+    /// The per-hit model is chosen by system exactly as in
+    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)"/> (SaCas9 →
+    /// Tycko 2018, everything else → Hsu with <c>calcHitScore</c>'s length handling), and the
+    /// guide-level aggregate is the unrounded <c>calcMitGuideScore</c>.
+    /// <para>
+    /// Deliberate scope: the reference also pre-filters alternative-PAM hits with
+    /// <c>ALTPAMMINSCORE = 1.0</c> in its search pipeline — see
+    /// <see cref="GetAlternativeOffTargetPams"/> for why that cutoff is not applied here.
+    /// </para>
+    /// </remarks>
+    public static double CalculateMitSpecificityScore(
+        string guideSequence,
+        IEnumerable<PamAnnotatedOffTarget> offTargets,
+        CrisprSystemType systemType = CrisprSystemType.SpCas9)
+    {
+        if (string.IsNullOrEmpty(guideSequence))
+            throw new ArgumentNullException(nameof(guideSequence));
+        ArgumentNullException.ThrowIfNull(offTargets);
+        EnsureMitModelApplies(systemType, nameof(systemType));
+
+        var system = GetSystem(systemType);
+        if (guideSequence.Length != system.GuideLength)
+            throw new ArgumentException(
+                $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
+                nameof(guideSequence));
+
+        var guide = guideSequence.ToUpperInvariant();
+        bool useSaModel = IsSaCas9Pam(system.PamSequence) && guide.Length == SaCas9GuideLength;
+        // The reference gates the downweight on the SEARCHED pattern being exactly "NGG".
+        bool mainPamIsNgg = string.Equals(system.PamSequence, "NGG", StringComparison.Ordinal);
+
+        var hitScores = new List<double>();
+        foreach (var hit in offTargets)
+        {
+            if (hit is null)
+                throw new ArgumentException("Off-target list contains a null element.", nameof(offTargets));
+            if (string.IsNullOrEmpty(hit.Pam))
+                throw new ArgumentException(
+                    "Every off-target must carry its own PAM; the alternative-PAM rule is defined on it.",
+                    nameof(offTargets));
+
+            string offTarget = hit.Site.Sequence.ToUpperInvariant();
+            if (offTarget.Length != guide.Length)
+                throw new ArgumentException(
+                    $"Off-target protospacer length ({offTarget.Length}) does not match the guide ({guide.Length}).",
+                    nameof(offTargets));
+
+            double hitScore = useSaModel
+                ? CalculateSaCas9HitScore(guide, offTarget)
+                : CalculateMitHitScoreFudged(guide, offTarget);
+
+            // crispor.py L1955: if pam=="NGG" and otSeq[-2:]!="GG": mitScore = mitScore * 0.2.
+            // otSeq is the protospacer WITH its PAM, so the test is written on that concatenation here
+            // rather than on the PAM alone — identical for the 3-nt PAMs of every NGG system, and the
+            // reference's expression verbatim for any other PAM length a caller supplies.
+            string otSeq = offTarget + hit.Pam.ToUpperInvariant();
+            if (mainPamIsNgg && !otSeq.EndsWith("GG", StringComparison.Ordinal))
+                hitScore *= AlternativePamMitWeight;
+
+            hitScores.Add(hitScore);
+        }
+
+        return CalculateMitSpecificityScore(hitScores);
+    }
+
+    /// <summary>
+    /// Calculates the aggregate MIT / Hsu 2013 specificity score for a guide against a genome over the
+    /// guide's own PAM <b>and</b> the reference's alternative PAMs for it
+    /// (<see cref="GetAlternativeOffTargetPams"/>), downweighting every alternative-PAM hit by 0.2 as
+    /// CRISPOR does. This is the closest analogue of CRISPOR's guide score: its search accepts both the
+    /// main and the alternative PAMs in one pass, whereas
+    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)"/> sees only
+    /// the one system's PAM and therefore reports a guide as more specific than the reference does.
+    /// </summary>
+    /// <param name="guideSequence">The guide sequence (must match the system's guide length).</param>
+    /// <param name="genome">The genome/sequence to scan for off-targets.</param>
+    /// <param name="maxMismatches">Maximum mismatches to consider (0-5, as in <see cref="FindOffTargets"/>).</param>
+    /// <param name="systemType">The guide's own system (SpCas9 by default); must be PAM-after-target.</param>
+    /// <returns>The aggregate MIT/Hsu specificity in [0, 100]; 100 when no off-target is found at all.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or the genome is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxMismatches"/> is outside 0-5.</exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown for a PAM-before-target system, or when the guide length does not match the system's.
+    /// </exception>
+    /// <remarks>
+    /// Coverage, stated exactly: an alternative PAM can only be scanned here if some
+    /// <see cref="CrisprSystemType"/> has it as its main PAM and the SAME guide length. For SpCas9
+    /// (<c>NGG</c>) that covers <c>NAG</c> via <see cref="CrisprSystemType.SpCas9_NAG"/> but NOT
+    /// <c>NGA</c>, which no system in this library offers; an <c>NGA</c> hit supplied by hand to
+    /// <see cref="CalculateMitSpecificityScore(string, IEnumerable{PamAnnotatedOffTarget}, CrisprSystemType)"/>
+    /// IS downweighted and counted, since the rule is evaluated on the hit's own PAM. For SaCas9
+    /// (<c>NNGRRT</c> → <c>NNGRRN</c>) and Cas12a (<c>TTTV</c> → <c>TTTN</c>) no alternative-PAM system
+    /// exists either, so this overload then scans the main PAM only and equals the genome overload
+    /// (Cas12a-class systems throw in both). The PAMs actually scanned are
+    /// <see cref="GetAlternativeOffTargetPams"/> intersected with that system set.
+    /// </remarks>
+    public static double CalculateMitSpecificityScoreWithAlternativePams(
+        string guideSequence,
+        DnaSequence genome,
+        int maxMismatches = 4,
+        CrisprSystemType systemType = CrisprSystemType.SpCas9)
+    {
+        EnsureMitModelApplies(systemType, nameof(systemType));
+
+        var hits = FindOffTargetsWithPam(guideSequence, genome, maxMismatches, systemType).ToList();
+
+        var main = GetSystem(systemType);
+        foreach (string altPam in GetAlternativeOffTargetPams(systemType))
+        {
+            foreach (var altSystem in AlternativePamSystems(altPam, main.GuideLength))
+                hits.AddRange(FindOffTargetsWithPam(guideSequence, genome, maxMismatches, altSystem));
+        }
+
+        return CalculateMitSpecificityScore(guideSequence, hits, systemType);
+    }
+
+    /// <summary>
+    /// The <see cref="CrisprSystemType"/> values whose main PAM is <paramref name="altPam"/> and whose
+    /// guide length is <paramref name="guideLength"/> — the only way an alternative PAM can be scanned
+    /// by this library, whose off-target search takes one system at a time. The reference's own
+    /// constraint that an alternative PAM has the same length as the main one is inherited from its
+    /// table; the guide-length match is required additionally so the same guide can be used for the scan.
+    /// </summary>
+    private static IEnumerable<CrisprSystemType> AlternativePamSystems(string altPam, int guideLength)
+    {
+        foreach (var type in Enum.GetValues<CrisprSystemType>())
+        {
+            var system = GetSystem(type);
+            if (system.PamAfterTarget
+                && system.GuideLength == guideLength
+                && string.Equals(system.PamSequence, altPam, StringComparison.Ordinal))
+            {
+                yield return type;
+            }
+        }
     }
 
     /// <summary>
@@ -2036,3 +2306,13 @@ public sealed record OffTargetSite(
     IReadOnlyList<int> MismatchPositions,
     bool IsForwardStrand,
     double OffTargetScore);
+
+/// <summary>
+/// An off-target site together with the PAM it carries, as read on the protospacer strand
+/// (<see cref="PamSite.PamSequence"/>). Scores that are defined on the off-target's own PAM take this:
+/// the CFD model and the alternative-PAM-aware MIT aggregate
+/// (<see cref="CrisprDesigner.CalculateMitSpecificityScore(string, IEnumerable{PamAnnotatedOffTarget}, CrisprSystemType)"/>).
+/// </summary>
+/// <param name="Site">The off-target site.</param>
+/// <param name="Pam">The PAM sequence at that site, on the protospacer strand.</param>
+public sealed record PamAnnotatedOffTarget(OffTargetSite Site, string Pam);

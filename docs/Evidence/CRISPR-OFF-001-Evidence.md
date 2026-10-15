@@ -222,12 +222,32 @@ aggregate would be exactly `100`.
    that does not match its system's length — so no other length is reachable. Other lengths are
    **refused** by `CalculateSaCas9HitScore` rather than approximated. Adding a table is a pure
    data change if a 20/22/23/24-nt SaCas9 variant is ever added.
-2. **The alternative-PAM ×0.2 MIT downweight (L1955) is unreachable here, by construction.** CRISPOR
-   runs one wider BWA scan whose NGG query also returns non-GG (NAG/NGA) sites and downweights those.
-   Seqeron scans one system's PAM at a time, so an `SpCas9` scan yields only `NGG` hits
-   (`otSeq[-2:] == "GG"`, condition false) and an `SpCas9_NAG` scan has `pam != "NGG"` (condition also
-   false). The weight would therefore never fire even if it were implemented; combining the two scans
-   into one multi-PAM aggregate is a different feature, not this unit's.
+2. **The alternative-PAM ×0.2 MIT downweight (L1947-1958) is implemented, over a PAM-annotated hit
+   set (B08 WP8 / F50).** CRISPOR runs one wider BWA scan whose NGG query also returns non-GG
+   (NAG/NGA) sites and downweights those: `if pam == "NGG" and otSeq[-2:] != "GG": mitScore *= 0.2`
+   ("alternative PAMs represent only ~10% of all cleaveage events... so that these off-targets are not
+   ranked among the top but still appear in the list somewhat"). A *single-system* Seqeron scan cannot
+   trigger it — an `SpCas9` scan yields only `NGG` hits (`otSeq[-2:] == "GG"`, condition false) and an
+   `SpCas9_NAG` scan has `pam != "NGG"` (condition also false), which is why the previous round
+   recorded it as unreachable — so the rule is offered on the two entry points that CAN see several
+   PAMs: `CalculateMitSpecificityScore(string, IEnumerable<PamAnnotatedOffTarget>, CrisprSystemType)`
+   (any PAM-annotated hit set, from the new public `FindOffTargetsWithPam`) and
+   `CalculateMitSpecificityScoreWithAlternativePams`, which scans the main PAM plus every alternative
+   PAM of the reference's `offtargetPams` table (**L243-253**) that this library offers as a system.
+   Three properties of the reference rule are reproduced exactly and locked by test: it is gated on the
+   *guide's* PAM being literally `NGG` (so an `SpCas9-NAG` guide is never downweighted); it tests the
+   hit's last two bases of `protospacer + PAM`, not membership of the alternative table (any non-`*GG`
+   PAM is downweighted); and **only** the MIT score is downweighted — the reference computes the hit's
+   CFD score afterwards with no 0.2 factor, so `CalculateCfdSpecificityScore` is untouched.
+   Remaining sub-divergences, deliberate: (a) `NGA` is not *scannable* here because no
+   `CrisprSystemType` has `NGA` as its main PAM (`SaCas9 → NNGRRN` and `Cas12a → TTTN` likewise have no
+   system), although a hand-supplied `NGA` hit IS counted and downweighted by the annotated overload;
+   (b) the reference's pipeline-level cutoff for alternative-PAM hits (`ALTPAMMINSCORE = 1.0`,
+   **L310-318**, applied in the bowtie/BWA pre-filter at **L4092-4133**, with `MINSCORE = 0.0` for main
+   PAM hits) is NOT applied — it lives in the search pipeline, is a command-line option
+   (`--minAltPamScore`), and this library has no score-based pre-filter on the off-target scan at all.
+   The original single-system overload `CalculateMitSpecificityScore(string, DnaSequence, int,
+   CrisprSystemType)` keeps its behaviour unchanged (locked by test).
 3. **PAM-before-target systems are refused outright**, including CasX. For Cpf1/Cas12a this follows the
    reference's code exactly (`mitScore = cfdScore = 0.0`, `guideScore = guideCfdScore = -1`).
    CasX (`TTCN`) is **not** in the reference's `pamIsCpf1` list (L889-891) — it has its own

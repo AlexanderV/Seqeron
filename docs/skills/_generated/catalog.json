@@ -2335,7 +2335,7 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateMitSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_mit_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1005"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1123"
   },
   {
     "tool": "crispr_specificity_score",

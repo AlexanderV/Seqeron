@@ -5,15 +5,16 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateMitSpecificityScore",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1005",
-  "description": "Published MIT / Hsu 2013 aggregate guide specificity score (crispr.mit.edu 'Guide score', CRISPOR calcMitGuideScore): 100/(100 + sum of per-hit scores) * 100, with per-hit scores from the Hsu model, or from the Tycko 2018 SaCas9 model for SaCas9 PAMs as the reference does.",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1123",
+  "description": "Published MIT / Hsu 2013 aggregate guide specificity score (crispr.mit.edu 'Guide score', CRISPOR calcMitGuideScore): 100/(100 + sum of per-hit scores) * 100, with per-hit scores from the Hsu model, or from the Tycko 2018 SaCas9 model for SaCas9 PAMs as the reference does. With include_alternative_pams=true the reference's alternative PAMs are scanned too and those hits are downweighted by 0.2, as annotateOfftargets does.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "guide_sequence": { "type": "string", "description": "Guide RNA sequence (length must match the system's guide length).", "minLength": 1 },
       "genome": { "type": "string", "description": "Genome / reference sequence to scan.", "minLength": 1 },
       "max_mismatches": { "type": "integer", "description": "Maximum allowed mismatches (range 0..5; default 4, the reference's default).", "minimum": 0, "maximum": 5, "default": 4 },
-      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" }
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
+      "include_alternative_pams": { "type": "boolean", "description": "Also scan the reference's alternative PAMs for this system (offtargetPams: NGG -> NAG, NGA) and downweight those hits by 0.2, as CRISPOR's annotateOfftargets does. Default false = main PAM only. For SpCas9 only NAG is scannable here (no NGA system exists).", "default": false }
     },
     "required": ["guide_sequence", "genome"]
   },
@@ -41,6 +42,16 @@
       "name": "SaCas9 21-nt guide, one off-target",
       "input": { "guide_sequence": "ACGTACGTACGTACGTACGTA", "genome": "ACGTACGTACGTACGTACGTCAAGAAT", "max_mismatches": 3, "system_type": "SaCas9" },
       "output": { "specificity": 95.91285612347565 }
+    },
+    {
+      "name": "Alternative-PAM hit folded in with the 0.2 weight",
+      "input": { "guide_sequence": "GACGCATAAAGATGAGACGC", "genome": "GACGCTTAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACTCTAG", "max_mismatches": 4, "include_alternative_pams": true },
+      "output": { "specificity": 59.95203836930455 }
+    },
+    {
+      "name": "Same genome, main PAM only (the default)",
+      "input": { "guide_sequence": "GACGCATAAAGATGAGACGC", "genome": "GACGCTTAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACTCTAG", "max_mismatches": 4 },
+      "output": { "specificity": 62.30529595015576 }
     },
     {
       "name": "Cas12a-class is refused",
