@@ -256,6 +256,64 @@ Locked values (Biopython 1.88, 1-based → Seqeron 0-based top-strand cut): `Sfi
 `ggccnnnnnggcc` `[9]` → 8; `NNNNNGGCCAGGCC` circular `[5]` → 4; `GGCCRYSWKGGCC` `[9]` → 8;
 `EcoRI` `AGAANTCA`, `HincII` `AGTYRACA` / `AGTNNACA`, `SfiI` `GGCNNNNNNGGCC`, `EcoRI` `N`×16 → `[]`.
 
+### 2.6 Single-sided distal (Type IIS) cutters (B08 WP11a / audit item D6 part 1, F54, 2026-10-15)
+
+**Claim retracted.** This unit had recorded that a `RestrictionEnzyme` "carries one cut offset per
+strand inside the recognition window, so Type IIS / Type IIG distal cutters cannot be expressed".
+The record never enforced that: both offsets are signed `int`s with no range check, and the site
+finder's formulas (§2.1 conventions) are Biopython's own `OneCut._modify` (`location + fst5`) and
+`OneCut._rev_modify` (`location − fst3`), read with `inspect.getsource` from the installed 1.88.
+
+**Offset mapping (stated once, used everywhere):** `CutPositionForward = fst5`,
+`CutPositionReverse = size + fst3`, so `ovhg = CutPositionForward − CutPositionReverse` and REBASE
+`SITE(n/m)` = `(L + n, L + m)`. Values from Biopython 1.88: BsaI GGTCTC `fst5 7, fst3 5` → (7, 11);
+BsmBI CGTCTC (7, 11); BbsI GAAGAC `8, 6` → (8, 12); SapI GCTCTTC `8, 4` → (8, 11); FokI GGATG
+`14, 13` → (14, 18); MlyI GAGTC `10, 5` → (10, 10) blunt; AcuI CTGAAG `22, 14` → (22, 20), 3' `ovhg 2`.
+
+**Snapshot census (Biopython 1.88, 1088 enzymes):** 576 one-cut in-site, **153 one-cut distal**,
+25 two-cut distal (`TwoCuts`: BaeI, BcgI, …), 334 without a defined cut. Among the 153: 16 have one
+strand cut inside and one outside (e.g. BsmI GAATGC (7, 5)); exactly two cut upstream of the site
+(TscAI/TspRI CASTG (7, −2), palindromic); four are palindromic with distal cuts (HauII, SgeI, TscAI,
+TspRI). No one-cut enzyme has a negative `fst5`.
+
+**Harness** (scratchpad, not checked in): a .NET dumper over `FindSites(DnaSequence, RestrictionEnzyme,
+MoleculeTopology)`, `Digest(…, IEnumerable<RestrictionEnzyme>)` and `PartialDigest(…)`, driven by a
+Python script that builds every OneCut enzyme as a custom record, plants 0–4 sites (either orientation,
+some across the origin) into random ACGT sequences of length `L … 300`, and compares on both
+topologies: the multiset of top-strand cuts (forward records' `CutPosition`; reverse records'
+`CutPosition + fwd − rev` unless the window also matches forward) against `search(seq, linear)`
+reduced mod `n`; that every circular `CutPosition` is in `[0, n)`; fragment start/length against
+`catalyse` (linear) / the sorted cut list (circular, see RESTR-DIGEST-001 oracle caveat); both end
+overhangs against the window between `cut_on_watson` and `cut_on_crick = cut_on_watson − ovhg`;
+the partial-digest multiset against all cut-list intervals.
+
+| run (20 / 60 seq. per distal enzyme; ¼ that per in-site) | distal cases | distal cuts | before (cases) | after |
+|---|---|---|---|---|
+| N = 20 | 6,120 | 14,331 | circular `CutPosition` negative: **836** | 0 |
+| N = 60 | 18,360 | 45,193 | circular `CutPosition` negative: **2,575** | 0 (+5 documented TspRI/TscAI) |
+
+Linear `FindSites` cut multisets already matched before the fix (0 mismatches): the linear formulas
+were correct for distal offsets. The circular finder reduced with C#'s signed `%`, so a reverse-strand
+site whose bottom-strand cut fell before the origin (FokI `CATCC` at 0: `0 + 5 − 14 = −9`) was
+reported at a negative position. Fixed with a non-negative modulo. Locked by
+`RestrictionAnalyzer_DistalCutter_Tests` (FokI circular → 33, top-strand 1-based 30 = Biopython
+`[30]`; BsaI forward/reverse records; FokI linear drop at the molecule end, Biopython `[17]` / `[]`).
+
+**Documented divergence (Biopython data defect).** Biopython 1.88 stores TscAI/TspRI with
+`ovhg = 10` although `fst5 − (size + fst3) = 7 − (5 − 7) = 9` and `ovhgseq = "NNCASTGNN"` (9 nt);
+these are the only 2 of 729 OneCut enzymes where the stored `ovhg` disagrees with `fst5`/`fst3`.
+`_drop` uses the stored value, so a linear site whose bottom-strand cut is the bond after base 0 is
+dropped: `TspRI.search(Seq("AAACAGTGAAAAAA")) == []`, where this library reports the site (top cut 10,
+bottom cut 1). In the N = 60 run this is the only class of difference (5 cases), all of exactly that
+shape. Locked by `FindSites_TspRI_BottomCutAfterBaseZero_IsKept_DocumentedDivergence`.
+
+**Not in this unit:** two-sided Type IIB cutters (two cut pairs per site; Biopython `TwoCuts` stores the
+second pair as `charac[2:4]` = `scd5`/`scd3` and `search` yields both — `BaeI.search` on
+`A×20 ACAAAAGTACC T×20` = `[11, 44]`, `catalyse` 10/33/8 — only its `elucidate` answers "cut twice, not
+yet implemented sorry"); enzyme-level overhang/compatibility of distal ends
+(`GetOverhangSequence` → `null`, `AreCompatible` → `false`; Biopython classes them `Ambiguous` with
+`ovhgseq` `NNNN`) — both handed to WP11b.
+
 ---
 
 ## 3. Deliberate divergences from the oracle
@@ -272,6 +330,10 @@ keeps, so `SfiI.search(Seq("GGCCXXXXXGGCC")) == [9]`. This library lets a site `
 IUPAC nucleotide codes (`IupacHelper.IsNucleotideCode`), keeping the raw-string overloads' documented
 contract that a non-IUPAC character never matches. The §2.5 differential is over the 15-code alphabet,
 where the two agree exactly. Locked by `FindSites_NonIupacCharacterInSpacer_MatchesNothing`.
+
+**TscAI/TspRI stored `ovhg` (F54).** Biopython keeps `ovhg = 10` against its own `fst5`/`fst3`/`ovhgseq`
+(= 9), so its `_drop` rejects a linear site whose bottom-strand cut is the bond after base 0; this
+library uses the offsets and keeps it (§2.6).
 
 One reference quirk checked and found **not** to be a divergence: `_drop` computes
 `cut_on_crick = cut_on_watson - ovhg` for minus-strand results too, using the plus-orientation `ovhg`.

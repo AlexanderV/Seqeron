@@ -149,6 +149,10 @@
 | M56 | No site → the single uncut molecule (`PartialDigest_NoSite_ReturnsTheUncutMolecule`) | 8b | Invariant 7 |
 | M57 | Guard: 499/500 cuts → 125,250 / 250,001 refused; `maxMissedCuts = 2` → 1497 / 1500 (`PartialDigest_FragmentCountGuard_ThrowsAboveTheLimit_AndMaxMissedCutsLiftsIt`); argument validation (`PartialDigest_InvalidArguments_Throw`) | 8f | API contract |
 | M58 | MCP `partial_digest`: validation, ΔX binding, topology/limit forwarding, doc pair schema/description/examples (`PartialDigestTests`, 4 tests) | 8–8f | MCP contract |
+| M59 | Distal (Type IIS) cutters as custom records, linear: BsaI/BsmBI/BbsI/SapI/MlyI/AcuI/FokI fragment lengths = Biopython `catalyse`, both end overhangs = the molecule window between `cut_on_watson` and `cut_on_watson − ovhg` (`Digest_Linear_DistalCutter_MatchesBiopythonCatalyseAndEndWindows` ×7, `Digest_BsaI_GoldenGateInsert_CarriesBothFourBaseEnds`) | 1, 2, 7 | Biopython 1.88 (F55) |
+| M60 | Distal cutters, circular: BsaI `[10, 29]`, BsaI site across the origin `[4]`, FokI reverse site cutting across the origin `[30]` (`Digest_BsaI_Circular_MatchesBiopython`, `Digest_BsaI_Circular_SiteSpanningTheOrigin`, `Digest_FokI_Circular_ReverseSiteCuttingAcrossTheOrigin`) | circular | Biopython 1.88 `search(linear=False)` (F54/F55) |
+| M61 | Reverse-strand sites of a non-palindromic enzyme are boundaries (MlyI GAGTC/GACTC) — they were dropped before F55; name and record overloads agree on built-ins; argument validation of the record overloads (`Digest_NonPalindromicInSiteCutter_ReverseSitesAreBoundariesToo`, `Digest_EnzymeOverload_BuiltInEnzymeRecord_EqualsNameOverload`, `Digest_EnzymeOverload_InvalidArguments_Throw`) | 1 | Biopython `NonPalindromic._search` |
+| M62 | `PartialDigest` with a distal cutter: zero-missed subset = `Digest`, lengths = intervals over Biopython's cuts (`PartialDigest_BsaI_ZeroMissedSubsetIsTheDigest_AndLengthsAreTheCutDifferences` ×2); differential over all 153 single-sided distal enzymes: 0 mismatches (Evidence §9) | 8, 8b, 8c | Biopython 1.88 + constructed oracle |
 
 ### Should (Important)
 

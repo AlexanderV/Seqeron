@@ -50,6 +50,18 @@ $$
 
 and the reverse-strand record reports `crick` — the cut on the strand it read — together with the matched window **as read on that strand** (the reverse complement of the forward-strand window). For a palindromic enzyme `CutPositionForward + CutPositionReverse = L`, so `crick = forwardPos + CutPositionReverse` and the two formulations coincide; every built-in enzyme is palindromic, so this distinction is visible only for a custom non-palindromic enzyme. (Reference: Biopython `Defined._modify` / `Defined._rev_modify`, `Palindromic._search`, `NonPalindromic._search`.)
 
+### 2.2a Distal (single-sided Type IIS) cutters
+
+Nothing in §2.2 assumes the cut lies inside the window: the offsets are signed and may be negative (cut upstream of the site) or exceed `L` (cut downstream). The record maps onto Biopython's `fst5`/`fst3` as
+
+$$
+CutPositionForward = fst5, \qquad CutPositionReverse = size + fst3, \qquad ovhg = CutPositionForward - CutPositionReverse ,
+$$
+
+and REBASE `SITE(n/m)` onto `(L + n, L + m)`: `BsaI` GGTCTC(1/5) = `("GGTCTC", 7, 11)`, `BsmBI` = `("CGTCTC", 7, 11)`, `BbsI` GAAGAC(2/6) = `("GAAGAC", 8, 12)`, `SapI` GCTCTTC(1/4) = `("GCTCTTC", 8, 11)`, `FokI` GGATG(9/13) = `("GGATG", 14, 18)`, `MlyI` GAGTC(5/5) = `("GAGTC", 10, 10)` (blunt). §2.2's formulas are then exactly Biopython's `location + fst5` (forward) and `location − fst3` (reverse), so for a non-palindromic site the reverse-strand occurrence cuts on the **other** side of the window (BsaI on `GAGACC` cuts 5 nt 5' of it on the top strand). Validated by a differential over all 153 single-sided distal enzymes of the Biopython 1.88 snapshot × random sequences × both topologies: 0 mismatches after the fix of review B08 F54 (the circular reverse-strand cut was reduced with C#'s signed `%` and could be negative; 2,575 affected cases before). Enzymes that cut on **both** sides (Type IIB `BaeI`, `BcgI`; Biopython `TwoCuts`) need two cut pairs and are not expressible.
+
+One documented divergence: Biopython 1.88 stores `TscAI`/`TspRI` (CASTG, `fst5 = 7`, `fst3 = −7`) with `ovhg = 10`, contradicting their own `fst5`/`fst3` and 9-nt `ovhgseq` `NNCASTGNN`; its `_drop` therefore rejects a linear site whose bottom-strand cut is the (existing) bond after base 0 (`TspRI.search(Seq("AAACAGTGAAAAAA")) == []`). This library uses the offsets (`ovhg = 9`) and keeps the site.
+
 ### 2.3 Cut Feasibility and Topology
 
 A cut can only fall on a phosphodiester bond that exists. On a **linear** molecule of length `n` a site is therefore reported only when
@@ -58,9 +70,9 @@ $$
 1 \le watson \le n - 1 \quad\text{and}\quad 1 \le crick \le n - 1 ,
 $$
 
-which is Biopython's `AbstractCut._drop` filter (`1 < cut_on_watson <= length` together with the same test on `cut_on_crick = cut_on_watson - ovhg`, `ovhg = CutPositionForward - CutPositionReverse`) expressed in 0-based coordinates. It excludes only an enzyme that cuts at the very edge of its own recognition window — in the built-in table `Sau3AI` and `MboI` (`^GATC` / `GATC^`) — sitting at the extreme 5' or 3' end.
+which is Biopython's `AbstractCut._drop` filter (`1 < cut_on_watson <= length` together with the same test on `cut_on_crick = cut_on_watson - ovhg`, `ovhg = CutPositionForward - CutPositionReverse`) expressed in 0-based coordinates. For an in-site cutter it excludes only an enzyme that cuts at the very edge of its own recognition window — in the built-in table `Sau3AI` and `MboI` (`^GATC` / `GATC^`) — sitting at the extreme 5' or 3' end; a distal cutter loses every site whose cut would fall beyond either molecule end (`FokI` needs 13 bases after `GGATG`), as in the reference.
 
-On a **circular** molecule the recognition window may span the origin, so the search runs over `seq + seq[0 .. L-2]` (Biopython's `FormattedSeq.finditer` appends `data[1:size]`), cut positions are reduced modulo `n` (a cut after the last base is the bond at the origin), and nothing is dropped.
+On a **circular** molecule the recognition window may span the origin, so the search runs over `seq + seq[0 .. L-2]` (Biopython's `FormattedSeq.finditer` appends `data[1:size]`), cut positions are reduced into `[0, n)` with a non-negative modulo (a cut after the last base is the bond at the origin; a distal offset may be negative or exceed `n`), and nothing is dropped. Biopython's `_drop` folds a circular cut back by one length only and does not re-sort, so on a circle shorter than the cut offset it can report positions outside `[1, n]`; the reduced positions agree.
 
 ### 2.4 Properties and Invariants
 
@@ -182,7 +194,7 @@ The implementation ships with an in-memory catalog of 39 entries (37 distinct en
 **Intentionally simplified:**
 
 - The implementation relies on a built-in enzyme catalog; **consequence:** only enzymes present in that catalog are available through name-based lookup. Any other enzyme can still be supplied through the `RestrictionEnzyme` overloads.
-- A `RestrictionEnzyme` expresses one cut per strand **inside** the recognition window, so Type IIS / Type IIG enzymes that cut at a distance (e.g. `BsaI` GGTCTC(1/5), `FokI`) cannot be expressed; **consequence:** the catalog contains only enzymes whose cuts fall inside their site. Adding the reference's `fst5`/`fst3` sign convention (which allows cuts outside the site) would be an additive record change.
+- The built-in catalog contains only enzymes whose cuts fall inside their site; **consequence:** distal cutters must be supplied as custom records. *(Corrected 2026-10-15, review B08 WP11a F54/F55: the earlier claim that Type IIS cutters "cannot be expressed" was wrong — the record's offsets are signed and unrestricted, so a single-sided distal cutter is `CutPositionForward = fst5`, `CutPositionReverse = size + fst3`, e.g. `BsaI` = `("GGTCTC", 7, 11)`, `FokI` = `("GGATG", 14, 18)`; see §2.2a.)* Two-sided Type IIB cutters (`BaeI`, `BcgI`: two cut pairs per site) are not expressible by one record.
 - Site finding is purely sequence-based; **consequence:** methylation sensitivity and experimental context are not modeled (`DpnI` requires Dam methylation; `HpaII`/`MspI` differ only in methylation sensitivity).
 
 **Not implemented:**
@@ -216,7 +228,7 @@ The implementation ships with an in-memory catalog of 39 entries (37 distinct en
 
 ### 6.2 Limitations
 
-The current implementation is limited to enzymes whose cuts fall inside their recognition window (so Type IIS / Type IIG distal cutters cannot be expressed as a `RestrictionEnzyme`) and to sequence-only matching. It does not model methylation dependence, assay conditions, or experimental digestion efficiency, and the two records reported per palindromic site must be interpreted downstream when unique cut counts are required (`RestrictionMap.TotalSites` and `UniqueCutters` already count forward-strand records only).
+The current implementation is limited to enzymes with **one** cut pair per site — in-site and single-sided distal (Type IIS) cutters alike; two-sided Type IIB cutters (`BaeI`, `BcgI`) are not expressible — and to sequence-only matching. The 1088-enzyme Biopython 1.88 snapshot has 153 single-sided distal OneCut enzymes (all expressible, 0 differential mismatches) and 25 two-sided ones (Biopython `TwoCuts`: a second cut pair `scd5`/`scd3`, two cuts per site in `search`/`catalyse`; only its `elucidate` is unimplemented). It does not model methylation dependence, assay conditions, or experimental digestion efficiency, and the two records reported per palindromic site must be interpreted downstream when unique cut counts are required (`RestrictionMap.TotalSites` and `UniqueCutters` already count forward-strand records only).
 
 ## 8. References
 

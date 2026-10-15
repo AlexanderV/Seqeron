@@ -220,9 +220,21 @@ Two deliberate divergences from the oracle, with their reasons:
 
 Two scope limits, not assumptions:
 
-- A `RestrictionEnzyme` carries one cut offset per strand **inside** the recognition window, so Type IIS /
-  Type IIG enzymes that cut at a distance cannot be expressed. The 39 table entries all cut inside their
-  site, so this does not affect any built-in enzyme.
+- ~~A `RestrictionEnzyme` carries one cut offset per strand **inside** the recognition window, so Type IIS /
+  Type IIG enzymes that cut at a distance cannot be expressed.~~ **Withdrawn (review 2026-09 B08 WP11a,
+  F54/F55):** the offsets are signed `int`s and were never restricted to the window; a **single-sided**
+  distal cutter is a plain custom record — `CutPositionForward = fst5`, `CutPositionReverse = size + fst3`
+  (BsaI GGTCTC(1/5) = `("GGTCTC", 7, 11)`, FokI `("GGATG", 14, 18)`, MlyI `("GAGTC", 10, 10)`). F54 fixed
+  the circular reverse-strand cut, which could be negative; F55 made `Digest`/`PartialDigest` accept
+  custom enzymes and cut at the reverse-strand sites of a non-palindromic enzyme. Differential vs
+  Biopython 1.88 over all 153 single-sided distal REBASE enzymes (+ 576 in-site, as control):
+  0 mismatches (Evidence RESTR-FIND-001 §2.6). Still out of scope: **two-sided** Type IIB cutters
+  (BaeI, BcgI — Biopython `TwoCuts`, `charac` carries a second pair `scd5`/`scd3` and `search`
+  yields two cuts per site), which need two cut pairs per site — handed to WP11b. The 39 table entries all cut inside their site.
+- Cases: `RestrictionAnalyzer_DistalCutter_Tests` lock Biopython's `search` /
+  `catalyse` values for BsaI, BsmBI, BbsI, SapI, FokI, MlyI, AcuI and the TspRI divergence (Biopython
+  stores `ovhg = 10` for TscAI/TspRI against its own `fst5`/`fst3`/`ovhgseq` = 9, so it drops a site
+  whose bottom-strand cut is the bond after base 0; this library keeps it).
 - Sequence and pattern case folding on the raw-string entry points (`FindSites(string, …)`,
   `FindPatternOccurrences`, the pattern validator) is ASCII-only (`SequenceExtensions.ToUpperAscii`,
   review 2026-09 B08 F49, superseding F43's `ToUpperInvariant`): U+017F 'ſ' is NOT folded onto the IUPAC

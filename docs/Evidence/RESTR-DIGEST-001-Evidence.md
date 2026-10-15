@@ -39,7 +39,9 @@ Derived conventions used throughout:
 - `catalyse` partitions the **top strand** at `search()`'s top-strand cuts. Seqeron therefore keeps
   only `IsForwardStrand` site records as fragment boundaries; the reverse-strand record of the same
   palindromic site carries the bottom-strand cut of that same site and is reported as the fragment
-  **end overhang** instead of as a second boundary.
+  **end overhang** instead of as a second boundary. *(Refined by §9, F55: a reverse-strand record is
+  skipped only when its window also matches on the forward strand; the reverse-strand sites of a
+  non-palindromic enzyme are boundaries at their own top-strand cut.)*
 - Fragment order on a circle: Biopython emits the origin-spanning fragment **first**, Seqeron emits
   it **last** (ascending `StartPosition`). The multisets are identical; the orders differ by a
   rotation of one. All comparisons below rotate Biopython's circular output by one before comparing
@@ -338,3 +340,60 @@ which fragments *can* arise is computed.
 **Sources opened for §8:** `https://rosalind.info/problems/pdpl/` (2026-10-15); en.wikipedia.org pages
 listed above (2026-10-15, reachable this session); Biopython 1.88 (`pip install biopython==1.88` into a
 scratchpad venv) `RestrictionBatch.search`, `catalyse`.
+
+---
+
+## 9. Distal (single-sided Type IIS) cutters and non-palindromic reverse-strand sites (B08 WP11a / D6 part 1, F55, 2026-10-15)
+
+**Gaps found.** (1) `Digest`/`PartialDigest` accepted enzyme **names** only, so no enzyme outside
+the 39-entry table — no Type IIS cutter at all — could be digested. (2) The cut collector kept
+`IsForwardStrand` records only (the convention stated in "Derived conventions" above). That is
+right for a palindromic site, whose reverse record is the same site, but a **non-palindromic**
+enzyme's reverse-strand occurrence is a different site; Biopython `NonPalindromic._search` adds it
+via `_rev_modify` (`location − fst3`). Every reverse-strand site of a non-palindromic enzyme was
+therefore never cut. (3) The end-overhang window was positioned from `CutPosition`, which for a
+reverse record is the bottom-strand cut.
+
+**Fix.** New overloads `Digest(DnaSequence, MoleculeTopology, IEnumerable<RestrictionEnzyme>)` and
+`PartialDigest(DnaSequence, MoleculeTopology, int?, IEnumerable<RestrictionEnzyme>)` (eager
+validation: null / empty / null element / non-IUPAC pattern). The collector keys each site by its
+top-strand cut (forward: `CutPosition`; reverse: `CutPosition + CutPositionForward −
+CutPositionReverse`, mod `n` on a circle) and skips a reverse record only when its window also reads
+as the site on the forward strand — Biopython's "one cut per window, forward branch first"
+(`Palindromic._search` searches one strand; `NonPalindromic._search`'s regex alternation takes the
+forward group). The overhang window is read relative to the top-strand cut, which is valid for both
+orientations because `crick − watson = CutPositionReverse − CutPositionForward` either way. The
+name-based entry points are unchanged in behaviour (all 39 built-ins are palindromic, so every
+reverse record is skipped exactly as before); `Digest_EnzymeOverload_BuiltInEnzymeRecord_EqualsNameOverload`
+locks that.
+
+**Differential** (harness described in RESTR-FIND-001 Evidence §2.6; every OneCut enzyme of the
+Biopython 1.88 snapshot as a custom record, both topologies; "before" = the new overloads over the
+old collector):
+
+| check (N = 60 run) | compared | before (mismatching cases) | after |
+|---|---|---|---|
+| fragment (start, length), distal | 53,224 fragments / 18,360 cases | **8,424** | 0 |
+| end overhang type + bases, distal | 106,448 ends | **2,350** | 0 |
+| partial-digest multiset, distal | 331,080 fragments | **2,850** | 0 |
+| fragment (start, length), in-site non-palindromic control | 29,508 / 13,824 cases | **301** | 0 |
+| end overhangs / partial, in-site control | 59,016 / 22,874 | **67** / **100** | 0 / 0 |
+
+Plus 5 cases of the documented TscAI/TspRI divergence (RESTR-FIND-001 Evidence §2.6 / §3), excluded
+from both columns. The overhang oracle uses `ovhg = fst5 − (size + fst3)`, which equals Biopython's
+stored `ovhg` for 727/729 OneCut enzymes (not for TscAI/TspRI). Circular fragments are compared
+against the sorted, reduced `search` list, not Biopython's circular `catalyse` (oracle caveat above;
+574 circular `search` results in the N = 60 run contained a raw position outside `[1, n]`, all on
+circles shorter than the enzyme's cut offset).
+
+**Locked values** (`RestrictionAnalyzer_DistalCutter_Tests`, all Biopython 1.88 output): BsaI linear
+`ATGGTCTCAAATGCCCCCCCCCCCCCCGCATTTGAGACCAT` → `search` `[10, 29]`, `catalyse` 9/19/13, insert
+`AATGCCCCCCCCCCCCCCG` with 5' ends `AATG`/`AATG`; same circular → (9, 19), (28, 22); BsaI site across
+the origin of `TCAAATGCCCCCCCCATGGTC` → `[4]`, one 21-nt fragment; FokI circular reverse site at 0 →
+`[30]`; BsmBI 7/15/11, BbsI 9/11/13, SapI 10/7/13 (3-nt `GCA`/`TTT`), MlyI 15/4/13 blunt, AcuI 22/10
+(3' `AA`), FokI 16/8; partial digest of the BsaI molecule = intervals over {0, 9, 28, 41} (linear) and
+{19, 22, 41, 41, 41} (circular).
+
+**Not in this unit (→ WP11b):** two-sided Type IIB cutters (BaeI/BcgI; 25 in the snapshot);
+enzyme-level overhang / compatibility of distal ends (`GetOverhangSequence` → `null`,
+`AreCompatible` → `false`); custom enzymes in `GetDigestSummary` / `CreateMap`; MCP exposure.

@@ -2,7 +2,10 @@ namespace Seqeron.Genomics.MolTools;
 
 /// <summary>
 /// Analyzes restriction enzyme sites in DNA sequences.
-/// Supports common restriction enzymes with palindromic recognition sequences.
+/// Supports common restriction enzymes with palindromic recognition sequences (the built-in
+/// table) and caller-supplied <see cref="RestrictionEnzyme"/> definitions, which may be
+/// non-palindromic and may cut outside their own recognition site (single-sided Type IIS cutters
+/// such as BsaI, BsmBI, BbsI, SapI, FokI, MlyI).
 /// </summary>
 public static partial class RestrictionAnalyzer
 {
@@ -166,17 +169,33 @@ public static partial class RestrictionAnalyzer
     //   only for a custom NON-palindromic enzyme, where the historical `p + CutPositionReverse`
     //   was wrong (REBASE has exactly two such in-site cutters, CdiI CATC^G and SimI GG^GTC_N).
     //
+    // • Distal (single-sided Type IIS) cutters need nothing extra: the offsets are signed and may
+    //   lie outside [0, L] (BsaI GGTCTC(1/5) = offsets 7/11), and the formulas above are
+    //   Biopython's own — forward `location + fst5`, reverse `location - fst3`, with
+    //   CutPositionForward = fst5 and CutPositionReverse = size + fst3. For a non-palindromic
+    //   site the reverse-strand occurrence therefore cuts on the OTHER side of the window
+    //   (BsaI on GAGACC cuts 5' of it). Differential over all 153 single-sided distal enzymes of
+    //   the Biopython 1.88 snapshot: 0 mismatches (review 2026-09 B08 F54).
+    //
     // • Feasibility (linear molecules): a cut can only fall on a phosphodiester bond that
     //   exists, so a site is reported only when BOTH its strand cuts lie in [1, length - 1].
     //   This is Biopython's `_drop` filter (`1 < cut_on_watson <= length` and the same for
     //   `cut_on_crick = cut_on_watson - ovhg`, with `ovhg = CutPositionForward -
-    //   CutPositionReverse`) expressed in 0-based coordinates. It only ever excludes an
-    //   enzyme that cuts at the very edge of its own recognition window — in the built-in
-    //   table, Sau3AI and MboI (^GATC / GATC^).
+    //   CutPositionReverse`) expressed in 0-based coordinates. For an in-site cutter it only
+    //   ever excludes an enzyme that cuts at the very edge of its own recognition window — in
+    //   the built-in table, Sau3AI and MboI (^GATC / GATC^); a distal cutter loses every site
+    //   whose cut would fall beyond either end of the molecule (FokI needs 13 more bases after
+    //   GGATG), exactly as Biopython drops it. One documented divergence: TscAI/TspRI CASTG
+    //   (offsets 7/-2) are stored in Biopython 1.88 with `ovhg = 10`, contradicting their own
+    //   fst5/fst3 and 9-nt `ovhgseq` NNCASTGNN, so Biopython also drops a site whose
+    //   bottom-strand cut is the (existing) bond after base 0; this class keeps it.
     //
     // • Circular molecules: the search runs over `seq + seq[0 .. L-2]` so sites spanning the
-    //   origin are found (Biopython appends `data[1:size]`), cut positions are taken modulo
-    //   the length, and no site is dropped — on a closed circle every bond exists.
+    //   origin are found (Biopython appends `data[1:size]`), cut positions are reduced into
+    //   [0, length) with a non-negative modulo (a distal offset may be negative or exceed the
+    //   length), and no site is dropped — on a closed circle every bond exists. Biopython's
+    //   `_drop` folds a circular cut back by ONE length only and does not re-sort, so on a
+    //   circle shorter than the cut offset it can report positions outside [1, length].
     // ───────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -554,7 +573,9 @@ public static partial class RestrictionAnalyzer
         int fwd = enzyme.CutPositionForward;
 
         // Biopython searches data + data[1:size] so a site may wrap past the origin; a start
-        // index is therefore considered exactly once, for 0 <= i < n.
+        // index is therefore considered exactly once, for 0 <= i < n. A distal (Type IIS) cut
+        // offset can be negative or exceed the length, so every cut is reduced with a
+        // non-negative modulo into [0, n) (review 2026-09 B08 F54).
         string extended = seq + seq[..(len - 1)];
         for (int i = 0; i < n; i++)
         {
@@ -564,7 +585,7 @@ public static partial class RestrictionAnalyzer
                     Position: i,
                     Enzyme: enzyme,
                     IsForwardStrand: true,
-                    CutPosition: (i + fwd) % n,
+                    CutPosition: Modulo(i + fwd, n),
                     RecognizedSequence: extended.Substring(i, len));
             }
         }
@@ -582,10 +603,13 @@ public static partial class RestrictionAnalyzer
                 Position: forwardPos,
                 Enzyme: enzyme,
                 IsForwardStrand: false,
-                CutPosition: (forwardPos + len - fwd) % n,
+                CutPosition: Modulo(forwardPos + len - fwd, n),
                 RecognizedSequence: revExtended.Substring(i, len));
         }
     }
+
+    /// <summary>The non-negative remainder of <paramref name="value"/> modulo <paramref name="n"/>.</summary>
+    private static int Modulo(int value, int n) => ((value % n) + n) % n;
 
     /// <summary>
     /// True when both strand cuts of a site fall on a phosphodiester bond that exists in a linear
@@ -639,15 +663,21 @@ public static partial class RestrictionAnalyzer
     // • Fragment boundaries are TOP-STRAND (watson) cut positions only. Biopython's
     //   `enzyme.catalyse(seq)` slices the molecule at `enzyme.search(seq)`, which is the list of
     //   top-strand cut sites, so a digest is a partition of the top strand even for a staggered
-    //   (sticky-end) cut. This class therefore keeps only `IsForwardStrand` site records — whose
-    //   `CutPosition` is the top-strand cut — and deliberately drops the reverse-strand record of
-    //   the same physical site, which carries the BOTTOM-strand cut. For the 39 built-in enzymes,
-    //   all palindromic, the two records are the two cuts of one site, so dropping the reverse one
-    //   loses no site; the bottom-strand cut is not lost either — it is reported as the fragment
-    //   end's overhang (below).
+    //   (sticky-end) cut. A forward-strand site record contributes its `CutPosition`, the
+    //   top-strand cut. A reverse-strand record whose window also reads as the site on the forward
+    //   strand — every reverse record of a palindromic enzyme, the 39 built-ins included — is the
+    //   same window as a forward record and is dropped (one cut per window, the forward one:
+    //   Biopython `Palindromic._search` searches one strand, `NonPalindromic._search`'s regex
+    //   alternation takes the forward branch). Every other reverse-strand record is a distinct
+    //   site of a non-palindromic enzyme (e.g. a Type IIS GAGACC for BsaI GGTCTC): it contributes
+    //   its own top-strand cut `Position + L − CutPositionReverse` (Biopython `_rev_modify`,
+    //   `location − fst3`), which lies on the OTHER side of the site (review 2026-09 B08 F55).
+    //   The bottom-strand cut is not lost — it is reported as the fragment end's overhang (below).
     //
     // • Fragment end chemistry. A cut by an enzyme with forward cut `f` and reverse cut `r` has
-    //   its top-strand cut at `watson` and its bottom-strand cut at `crick = watson + (r - f)`.
+    //   its top-strand cut at `watson` and its bottom-strand cut at `crick = watson + (r - f)` —
+    //   for a site on either strand, and whether or not the cut lies inside the site (a distal
+    //   cutter's window is bases of the flanking molecule, e.g. BsaI's 4 nt after GGTCTCN).
     //   The single-stranded extension spans the top-strand window
     //   `[min(watson, crick), max(watson, crick))`, of length `|r - f|`; `r > f` is a 5' overhang,
     //   `r < f` a 3' overhang, `r == f` a blunt end. The overhang is reported per fragment end,
@@ -687,7 +717,7 @@ public static partial class RestrictionAnalyzer
         ArgumentNullException.ThrowIfNull(sequence);
         if (enzymeNames == null || enzymeNames.Length == 0)
             throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
-        return DigestCore(sequence, enzymeNames);
+        return DigestCore(sequence, ResolveEnzymes(enzymeNames));
     }
 
     /// <summary>
@@ -695,10 +725,12 @@ public static partial class RestrictionAnalyzer
     /// together with every enzyme's site at each position.
     /// </summary>
     /// <remarks>
-    /// Only <see cref="RestrictionSite.IsForwardStrand"/> records are kept: their
-    /// <see cref="RestrictionSite.CutPosition"/> is the top-strand cut, which is what Biopython's
-    /// <c>catalyse</c> slices at. The reverse-strand record of the same palindromic site carries
-    /// the bottom-strand cut and would double-count the site as a second boundary. Several
+    /// Each site is keyed by its top-strand cut, which is what Biopython's <c>catalyse</c> slices
+    /// at: a forward-strand record's <see cref="RestrictionSite.CutPosition"/>, or a reverse-strand
+    /// record's top-strand cut (see <c>TopStrandCut</c>). A reverse-strand record whose window also
+    /// matches on the forward strand (the other record of a palindromic site) is skipped — it
+    /// carries the bottom-strand cut of the same site and would double-count it as a second
+    /// boundary; the reverse-strand sites of a non-palindromic enzyme are kept (F55). Several
     /// enzymes can cut at the same top-strand coordinate — isoschizomers (MspI/HpaII,
     /// MboI/Sau3AI) and nested sites (BamHI/BglII with MboI/Sau3AI, ClaI/TaqI, StuI/HaeIII,
     /// ScaI/RsaI, FseI/HaeIII; Biopython 1.88 <c>search</c> reports the same position for each
@@ -709,24 +741,33 @@ public static partial class RestrictionAnalyzer
     /// representative (see <see cref="DigestFragment.LeftEnzyme"/>).
     /// </remarks>
     private static (List<int> Cuts, Dictionary<int, List<RestrictionSite>> Sites) CollectForwardCuts(
-        DnaSequence sequence, string[] enzymeNames, MoleculeTopology topology)
+        DnaSequence sequence, IEnumerable<RestrictionEnzyme> enzymes, MoleculeTopology topology)
     {
         var cutPositions = new SortedSet<int>();
         var sitesByPosition = new Dictionary<int, List<RestrictionSite>>();
 
-        foreach (var name in enzymeNames)
+        string seq = sequence.Sequence;
+        foreach (var enzyme in enzymes)
         {
-            foreach (var site in FindSites(sequence, name, topology))
+            string pattern = ValidatedPattern(enzyme.RecognitionSequence, nameof(enzyme), enzyme.Name);
+            foreach (var site in FindSitesCore(seq, enzyme, topology))
             {
-                if (!site.IsForwardStrand)
+                // A reverse-strand record whose window also reads as the site on the forward
+                // strand is the same window as a forward record (always so for a palindromic
+                // site): one cut per window, the forward one — Biopython Palindromic._search
+                // searches one strand only, NonPalindromic._search's regex alternation takes the
+                // forward branch first. Every other reverse-strand record is a distinct site of a
+                // non-palindromic enzyme and cuts on its own, other side (review 2026-09 B08 F55).
+                if (!site.IsForwardStrand && WindowMatchesForward(seq, site.Position, pattern))
                     continue;
 
-                // FindSites already reports a circular cut reduced modulo the sequence length
-                // (FindSitesCircular yields (i + fwd) % n) and a linear cut inside [1, Length-1]
-                // (CutsAreInternal), so no further normalisation is needed here.
-                cutPositions.Add(site.CutPosition);
-                if (!sitesByPosition.TryGetValue(site.CutPosition, out var atCut))
-                    sitesByPosition[site.CutPosition] = atCut = [];
+                // FindSites already reports a circular cut reduced modulo the sequence length and
+                // a linear site only when both strand cuts lie inside [1, Length-1]
+                // (CutsAreInternal), so the top-strand cut needs no further normalisation.
+                int watson = TopStrandCut(site, seq.Length, topology);
+                cutPositions.Add(watson);
+                if (!sitesByPosition.TryGetValue(watson, out var atCut))
+                    sitesByPosition[watson] = atCut = [];
                 if (!atCut.Exists(s => s.Enzyme.Name == site.Enzyme.Name))
                     atCut.Add(site);
             }
@@ -738,9 +779,16 @@ public static partial class RestrictionAnalyzer
         return (cutPositions.ToList(), sitesByPosition);
     }
 
-    private static IEnumerable<DigestFragment> DigestCore(DnaSequence sequence, string[] enzymeNames)
+    /// <summary>
+    /// The built-in enzymes named by <paramref name="enzymeNames"/>, resolved lazily (an unknown
+    /// name throws when it is reached, as the name-based entry points always did).
+    /// </summary>
+    private static IEnumerable<RestrictionEnzyme> ResolveEnzymes(string[] enzymeNames)
+        => enzymeNames.Select(name => RequireEnzyme(name));
+
+    private static IEnumerable<DigestFragment> DigestCore(DnaSequence sequence, IEnumerable<RestrictionEnzyme> enzymes)
     {
-        var (cuts, sitesByPosition) = CollectForwardCuts(sequence, enzymeNames, MoleculeTopology.Linear);
+        var (cuts, sitesByPosition) = CollectForwardCuts(sequence, enzymes, MoleculeTopology.Linear);
         string seq = sequence.Sequence;
         int n = sequence.Length;
 
@@ -862,16 +910,69 @@ public static partial class RestrictionAnalyzer
         if (topology == MoleculeTopology.Linear)
             return Digest(sequence, enzymeNames);
 
-        return DigestCircular(sequence, enzymeNames);
+        return DigestCircular(sequence, ResolveEnzymes(enzymeNames));
     }
 
-    private static IEnumerable<DigestFragment> DigestCircular(DnaSequence sequence, string[] enzymeNames)
+    /// <summary>
+    /// Simulates a restriction digest with caller-supplied enzyme definitions — including enzymes
+    /// that are not in the built-in table, such as Type IIS cutters whose cut lies outside the
+    /// recognition site.
+    /// </summary>
+    /// <remarks>
+    /// Same contract as <see cref="Digest(DnaSequence, MoleculeTopology, string[])"/> (top-strand
+    /// boundaries, fragment order, per-end overhangs, several enzymes per boundary ordered by
+    /// <see cref="StringComparer.Ordinal"/> on <see cref="RestrictionEnzyme.Name"/>), with the
+    /// enzymes taken as given. An enzyme listed twice, or two enzymes with the same name, count once
+    /// per boundary.
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to digest.</param>
+    /// <param name="topology">Whether the molecule is linear or circular.</param>
+    /// <param name="enzymes">Enzyme definitions to digest with; at least one.</param>
+    /// <returns>Collection of DNA fragments after digestion.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
+    /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, or an enzyme's
+    /// recognition sequence is empty or not IUPAC.</exception>
+    public static IEnumerable<DigestFragment> Digest(
+        DnaSequence sequence,
+        MoleculeTopology topology,
+        IEnumerable<RestrictionEnzyme> enzymes)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        var list = RequireEnzymeList(enzymes);
+
+        return topology == MoleculeTopology.Linear
+            ? DigestCore(sequence, list)
+            : DigestCircular(sequence, list);
+    }
+
+    /// <summary>
+    /// Validates a caller-supplied enzyme collection: non-null, non-empty, no null element, every
+    /// recognition sequence a valid IUPAC pattern. Returns a snapshot of it.
+    /// </summary>
+    private static IReadOnlyList<RestrictionEnzyme> RequireEnzymeList(IEnumerable<RestrictionEnzyme> enzymes)
+    {
+        ArgumentNullException.ThrowIfNull(enzymes);
+        var list = enzymes.ToList();
+        if (list.Count == 0)
+            throw new ArgumentException("At least one enzyme is required", nameof(enzymes));
+        foreach (var enzyme in list)
+        {
+            if (enzyme is null)
+                throw new ArgumentNullException(nameof(enzymes), "The enzyme collection contains null.");
+            _ = ValidatedPattern(enzyme.RecognitionSequence, nameof(enzymes), enzyme.Name);
+        }
+
+        return list;
+    }
+
+    private static IEnumerable<DigestFragment> DigestCircular(DnaSequence sequence, IEnumerable<RestrictionEnzyme> enzymes)
     {
         // Circular site search: a recognition window may wrap past the origin, so the cut it makes
         // must be seen too. Using the linear search here would silently leave an origin-spanning
         // site uncut and additionally drop an edge cutter's cuts through the linear-only
         // cut-feasibility filter, which does not apply to a closed circle.
-        var (cuts, sitesByPosition) = CollectForwardCuts(sequence, enzymeNames, MoleculeTopology.Circular);
+        var (cuts, sitesByPosition) = CollectForwardCuts(sequence, enzymes, MoleculeTopology.Circular);
 
         int n = sequence.Length;
         string seq = sequence.Sequence;
@@ -938,6 +1039,40 @@ public static partial class RestrictionAnalyzer
                 RightEnzymes = EnzymeNames(rightSites)
             };
         }
+    }
+
+    /// <summary>
+    /// The top-strand (watson) cut of <paramref name="site"/>. A forward-strand record carries it
+    /// as <see cref="RestrictionSite.CutPosition"/>; a reverse-strand record carries the
+    /// bottom-strand cut <c>p + L − CutPositionForward</c>, and its top-strand cut is
+    /// <c>p + L − CutPositionReverse</c>, i.e. the reported cut plus
+    /// <c>CutPositionForward − CutPositionReverse</c> (Biopython <c>_rev_modify</c>:
+    /// <c>location − fst3</c>).
+    /// </summary>
+    private static int TopStrandCut(RestrictionSite site, int length, MoleculeTopology topology)
+    {
+        if (site.IsForwardStrand)
+            return site.CutPosition;
+
+        int watson = site.CutPosition + site.Enzyme.CutPositionForward - site.Enzyme.CutPositionReverse;
+        return topology == MoleculeTopology.Circular ? Modulo(watson, length) : watson;
+    }
+
+    /// <summary>
+    /// Whether the window at forward-strand <paramref name="position"/> reads as
+    /// <paramref name="pattern"/> on the forward strand, wrapping past the origin when it must
+    /// (a circular window; a linear window never runs past the end).
+    /// </summary>
+    private static bool WindowMatchesForward(string seq, int position, string pattern)
+    {
+        int n = seq.Length;
+        for (int k = 0; k < pattern.Length; k++)
+        {
+            if (!SequenceBaseMatchesSiteCode(seq[(position + k) % n], pattern[k]))
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -1014,8 +1149,11 @@ public static partial class RestrictionAnalyzer
             return (type, string.Empty);
 
         var (patternStart, length) = OverhangWindow(enzyme);
-        int lo = site.CutPosition + (patternStart - enzyme.CutPositionForward);
         int n = seq.Length;
+        // The window lies between the two strand cuts; its offset from the top-strand cut is the
+        // same for both orientations of the site (bottom − top = CutPositionReverse −
+        // CutPositionForward either way), so it is read relative to the top-strand cut.
+        int lo = TopStrandCut(site, n, topology) + (patternStart - enzyme.CutPositionForward);
 
         if (topology == MoleculeTopology.Linear)
             return (type, seq.Substring(lo, length));
@@ -1534,8 +1672,17 @@ public static partial class RestrictionAnalyzer
 /// </summary>
 /// <param name="Name">Enzyme name.</param>
 /// <param name="RecognitionSequence">Recognition sequence (IUPAC), one strand, 5'→3'.</param>
-/// <param name="CutPositionForward">Forward-strand cut offset from the 5' end of the site.</param>
-/// <param name="CutPositionReverse">Reverse-strand cut offset, in forward-strand coordinates.</param>
+/// <param name="CutPositionForward">Top-strand cut offset: the number of bases from the 5' end of
+/// the site (as written) to the top-strand cut. It may be negative (cut upstream of the site) or
+/// exceed the site length (cut downstream of it), so single-sided Type IIS cutters are expressible:
+/// BsaI GGTCTC(1/5) is <c>(GGTCTC, 7, 11)</c>, FokI GGATG(9/13) <c>(GGATG, 14, 18)</c>, MlyI
+/// GAGTC(5/5) <c>(GAGTC, 10, 10)</c>. Equals Biopython <c>fst5</c>.</param>
+/// <param name="CutPositionReverse">Bottom-strand cut offset, counted in top-strand bases from the
+/// same 5' end of the site; equals Biopython <c>size + fst3</c>, and
+/// <c>CutPositionForward − CutPositionReverse</c> is Biopython <c>ovhg</c> (negative = 5' overhang).
+/// REBASE <c>(n/m)</c> after a site of length <c>L</c> maps to <c>(L + n, L + m)</c>. Enzymes that cut
+/// on <b>both</b> sides of the site (Type IIB, e.g. BaeI, BcgI — Biopython <c>TwoCuts</c>) need two cut
+/// pairs and are not expressible by one record.</param>
 /// <param name="Organism">Source organism.</param>
 /// <param name="RebaseMethylationField">The REBASE <c>allenz</c> field <c>&lt;6&gt;</c>
 /// ("METHYLATION SITE") verbatim, e.g. <c>"3(6)"</c> for EcoRI; <c>""</c> (the default) when REBASE
@@ -1719,8 +1866,12 @@ public enum OverhangType
 /// <param name="CutPosition">Number of forward-strand bases 5' of the cut the enzyme makes on the
 /// strand named by <paramref name="IsForwardStrand"/>; the cut lies between forward-strand bases
 /// <c>CutPosition - 1</c> and <c>CutPosition</c>. Biopython
-/// <c>Bio.Restriction.&lt;enzyme&gt;.search()</c> reports the same top-strand cut as
-/// <c>CutPosition + 1</c> (1-based).</param>
+/// <c>Bio.Restriction.&lt;enzyme&gt;.search()</c> reports a forward-strand record's (top-strand)
+/// cut as <c>CutPosition + 1</c> (1-based). A reverse-strand record carries the bottom-strand cut
+/// <c>Position + L − CutPositionForward</c>; its top-strand cut, which Biopython reports for the
+/// reverse-strand sites of a non-palindromic enzyme, is
+/// <c>CutPosition + CutPositionForward − CutPositionReverse</c> (reduced modulo the length on a
+/// circle). Either cut may lie outside the recognition window for a distal (Type IIS) cutter.</param>
 /// <param name="RecognizedSequence">The matched window as read on the strand named by
 /// <paramref name="IsForwardStrand"/> — so for a reverse-strand record it is the reverse
 /// complement of the forward-strand window. Always

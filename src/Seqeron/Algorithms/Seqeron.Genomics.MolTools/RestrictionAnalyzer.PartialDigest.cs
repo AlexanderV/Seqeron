@@ -118,13 +118,49 @@ public static partial class RestrictionAnalyzer
         ArgumentNullException.ThrowIfNull(sequence);
         if (enzymeNames == null || enzymeNames.Length == 0)
             throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
+
+        return PartialDigestCore(sequence, topology, maxMissedCuts, ResolveEnzymes(enzymeNames));
+    }
+
+    /// <summary>
+    /// Simulates a <b>partial</b> digest with caller-supplied enzyme definitions — including
+    /// enzymes that are not in the built-in table, such as Type IIS cutters whose cut lies outside
+    /// the recognition site. Same contract as
+    /// <see cref="PartialDigest(DnaSequence, MoleculeTopology, int?, string[])"/>; the cut list is
+    /// the one <see cref="Digest(DnaSequence, MoleculeTopology, IEnumerable{RestrictionEnzyme})"/>
+    /// uses.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to digest.</param>
+    /// <param name="topology">Whether the molecule is linear or circular.</param>
+    /// <param name="maxMissedCuts">Optional upper bound on the number of uncut sites inside a
+    /// fragment; <see langword="null"/> means no bound.</param>
+    /// <param name="enzymes">Enzyme definitions to digest with; at least one.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
+    /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme's
+    /// recognition sequence is invalid, or the fragment count would exceed
+    /// <see cref="MaxPartialDigestFragments"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMissedCuts"/> is negative.</exception>
+    public static IEnumerable<PartialDigestFragment> PartialDigest(
+        DnaSequence sequence,
+        MoleculeTopology topology,
+        int? maxMissedCuts,
+        IEnumerable<RestrictionEnzyme> enzymes)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return PartialDigestCore(sequence, topology, maxMissedCuts, RequireEnzymeList(enzymes));
+    }
+
+    private static IEnumerable<PartialDigestFragment> PartialDigestCore(
+        DnaSequence sequence, MoleculeTopology topology, int? maxMissedCuts, IEnumerable<RestrictionEnzyme> enzymes)
+    {
         if (maxMissedCuts < 0)
             throw new ArgumentOutOfRangeException(nameof(maxMissedCuts), maxMissedCuts,
                 "The missed-cut limit cannot be negative.");
 
         bool circular = topology != MoleculeTopology.Linear;
         var (cuts, sitesByPosition) = CollectForwardCuts(
-            sequence, enzymeNames, circular ? MoleculeTopology.Circular : MoleculeTopology.Linear);
+            sequence, enzymes, circular ? MoleculeTopology.Circular : MoleculeTopology.Linear);
 
         long count = CountPartialDigestFragments(cuts.Count, circular, maxMissedCuts);
         if (count > MaxPartialDigestFragments)
