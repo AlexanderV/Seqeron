@@ -187,7 +187,17 @@ The current implementation enumerates PAM sites first and then compares the guid
 
 ### 6.2 Limitations
 
-`CalculateSpecificityScore` is a simplified, unsourced position-weighted sequence model. The published models (`CalculateMitSpecificityScore`, `CalculateCfdSpecificityScore`) are reference-verified but still sequence-only: none of them includes chromatin state or indel/bulge alignments, and all rely on the CRISPR system's explicit PAM definition for site discovery. The genome scan is also a naïve sweep over every PAM site, not CRISPOR's BWA-based search, so it is meant for a supplied reference sequence rather than a whole genome; no size envelope has been measured for it.
+`CalculateSpecificityScore` is a simplified, unsourced position-weighted sequence model. The published models (`CalculateMitSpecificityScore`, `CalculateCfdSpecificityScore`) are reference-verified but still sequence-only: none of them includes chromatin state or indel/bulge alignments, and all rely on the CRISPR system's explicit PAM definition for site discovery. The genome scan is also a naïve sweep over every PAM site, not CRISPOR's BWA-based search, so it is meant for a supplied reference sequence rather than a whole genome. **Measured size envelope (B08 round 3 G14, 2026-10-21):** random ACGT sequence, 20-nt guide, one Debug build (`net10.0`, JIT optimiser disabled, so a Release build is faster), single thread on a 4-vCPU Intel Xeon @ 2.10 GHz cloud VM (16 GB RAM; wall clock, median of 3 runs after one warm-up run). Time grows linearly with the sequence length (about 0.15-0.16 s per Mb per PAM scan):
+
+| Call | 1 Mb | 5 Mb | 10 Mb | 20 Mb |
+|---|---|---|---|---|
+| `FindOffTargets` (3 mismatches) | 0.13 s | 0.81 s | 1.56 s | 3.13 s |
+| `CalculateMitSpecificityScore` (4 mismatches, one PAM) | 0.12 s | 0.77 s | 1.55 s | 3.29 s |
+| `CalculateCfdSpecificityScore` (4 mismatches, one PAM) | - | 0.62 s | - | - |
+| `CalculateMitSpecificityScoreWithAlternativePams` (NGG + NAG + NGA scans) | - | 2.13 s | - | - |
+| `CalculateCfdSpecificityScoreWithAlternativePams` (NGG + NAG + NGA scans) | - | 2.38 s | - | - |
+
+The alternative-PAM aggregates run three scans, hence about three times the single-scan time. These are single data points on one machine, not a guarantee: absolute numbers depend on hardware, build configuration and hit density (random sequence has almost no hits within 4 mismatches; a repeat-rich genome produces more off-targets to score). Whole-genome use (Gb scale, about 150-500 s per scan at this rate) is outside this method's design - use an indexed aligner as CRISPOR does.
 
 ## 7. Examples and Related Material
 
