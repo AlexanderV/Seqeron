@@ -44,7 +44,7 @@ Alongside it the result reports:
   `EcoRI` → `"3(6)"` (m6A at the 3rd base of `GAATTC`), `MboI` → `"2(6)"`, `SfiI` → `"?(4)"`,
   `DpnI` → `""`. This is the base modified by the enzyme's **cognate** methyltransferase (the
   protection half of its R-M system); it is **not** a statement about whether Dam, Dcm or CpG
-  methylation blocks the enzyme — that is not modelled. All 39 values are transcribed from the
+  methylation blocks the enzyme — a per-enzyme sensitivity table is not modelled (only REBASE/NEB carry one). The separate opt-in `methylation` parameter of `find_restriction_sites`, `find_all_restriction_sites`, `restriction_digest`, `partial_digest`, `digest_summary` and `restriction_map` applies EMBOSS's window rule driven by the *methylase* sites of the chosen set, not this field. All 39 values are transcribed from the
   file programmatically and locked by a test (B08 D7 / F52).
 
 `recognitionLength` is the length of the full recognition string, i.e. Biopython `.size`, so the

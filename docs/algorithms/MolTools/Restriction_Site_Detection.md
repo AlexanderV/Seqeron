@@ -151,7 +151,7 @@ verbatim as `RebaseMethylationField` (e.g. EcoRI `"3(6)"`, HpaII `"2(5)"`, BamHI
 numbered from that strand's 5' base; `?` = not determined) and Y is `(6)` N6-methyladenine, `(5)`
 5-methylcytosine, `(4)` N4-methylcytosine; several entries are comma-separated. It is the site the
 enzyme's **cognate** methyltransferase modifies to protect its own DNA — not the enzyme's sensitivity
-to Dam/Dcm/CpG methylation, which is not modelled and is not read by site finding. The 39 values were
+to Dam/Dcm/CpG methylation, and site finding never reads it. Methylation-blocked recognition exists only as the separate **opt-in** EMBOSS-window mode of §5.2b, driven by the *methylase* sites of the chosen set (`dam`/`dcm`/`dam+dcm`/`emboss`), not by this field and not by a per-enzyme sensitivity table. The 39 values were
 transcribed programmatically and are locked per enzyme (`docs/Evidence/RESTR-FIND-001-Evidence.md` §5).
 
 ### 4.3 Complexity
@@ -283,8 +283,8 @@ masked base — mask equality on 40 random 500-bp sequences (14 051 probe window
   sites (`dam GmATC`, `dcm mCmCAGG`/`mCmCTGG`, `MEcoKI …`), and an enzyme window containing a methylated
   base is not a site. Implemented as an **opt-in** mode, §5.2b.)* A per-enzyme sensitivity table (which enzyme is
   blocked by which methylation: BamHI is Dam-insensitive at the bench, EMBOSS blocks it) is still not
-  modelled, and `CognateMethylationSites` remains descriptive and is never consulted.
-- Contextual enzyme activity effects such as methylation-state filtering; **users should rely on:** external enzymology references or downstream validation when those matter.
+  modelled (B08 round 3 G15: BLOCKED - only REBASE/NEB carry such a table, REBASE data is out of bounds pending the licence question and `rebase.neb.com` is not reachable; the EMBOSS window rule is the reachable sourced one), and `CognateMethylationSites` remains descriptive and is never consulted.
+- Contextual enzyme activity effects beyond that window rule (per-enzyme Dam/Dcm/CpG sensitivity, CpG methylation, star activity, buffer and temperature); **users should rely on:** external enzymology references or downstream validation when those matter.
 
 **Documented divergence from the oracle:**
 
@@ -310,7 +310,7 @@ masked base — mask equality on 40 random 500-bp sequences (14 051 probe window
 
 ### 6.2 Limitations
 
-The current implementation supports in-site, single-sided distal (Type IIS) and two-sided (Type IIB, `SecondCut`) cutters, and is limited to sequence-only matching. The 1088-enzyme Biopython 1.88 snapshot has 153 single-sided distal OneCut enzymes and 25 two-sided ones (Biopython `TwoCuts`), all expressible, 0 differential mismatches (F54, F56); the 334 enzymes without a defined cut remain out of scope. It does not model methylation dependence, assay conditions, or experimental digestion efficiency, and the two records reported per palindromic site must be interpreted downstream when unique cut counts are required (`RestrictionMap.TotalSites` and `UniqueCutters` count physical sites: forward-strand windows plus reverse-strand windows that do not also read forward — for the palindromic built-ins exactly the forward records; F58).
+The current implementation supports in-site, single-sided distal (Type IIS) and two-sided (Type IIB, `SecondCut`) cutters, and is limited to sequence-only matching. The 1088-enzyme Biopython 1.88 snapshot has 153 single-sided distal OneCut enzymes and 25 two-sided ones (Biopython `TwoCuts`), all expressible, 0 differential mismatches (F54, F56); the 334 enzymes without a defined cut remain out of scope. Methylation-blocked recognition is available only as the opt-in EMBOSS-window mode of §5.2b (default off; a window rule, not a per-enzyme sensitivity table - BamHI is blocked by Dam in EMBOSS although it is insensitive at the bench), carried by the `FindSites`, `FindAllSites`, `Digest`, `PartialDigest`, `GetDigestSummary` and `CreateMap` entry points and their MCP tools; it does not model per-enzyme Dam/Dcm/CpG sensitivity, assay conditions, or experimental digestion efficiency, and the two records reported per palindromic site must be interpreted downstream when unique cut counts are required (`RestrictionMap.TotalSites` and `UniqueCutters` count physical sites: forward-strand windows plus reverse-strand windows that do not also read forward — for the palindromic built-ins exactly the forward records; F58).
 
 ## 8. References
 

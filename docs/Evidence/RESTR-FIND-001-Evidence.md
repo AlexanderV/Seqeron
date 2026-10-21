@@ -399,7 +399,7 @@ strand, and Y is the specific type of methylation involved: (6) = N6-methyladeno
 **protection** site of the enzyme's own R-M system — not whether Dam, Dcm or CpG methylation by another
 MTase blocks the enzyme. No source opened in this campaign tabulates that sensitivity for the 39
 built-ins (Biopython 1.88 `Bio.Restriction` has no methylation attribute; REBASE's sensitivity pages
-are on the blocked host), so **no blocking behaviour is implemented or claimed**.
+are on the blocked host), so this field drives **no** blocking behaviour. (Superseded in part, 2026-10-21, F68: a separate opt-in blocking mode exists, driven by the *methylase* sites of EMBOSS's `Emethylsites.dat` rather than by an enzyme-sensitivity table; see §7. The per-enzyme table remains unavailable.)
 
 **Method.** `extract_meth.py` (16 lines; parses `<n>`-tagged records, prints `<5>` and `<6>` for the 39
 table names) was run with `python3 -I` on the downloaded file; a second script rewrote the 39
