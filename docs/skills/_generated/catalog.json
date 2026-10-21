@@ -2433,7 +2433,7 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.EvaluateGuideRna",
     "docPath": "docs/mcp/tools/moltools/evaluate_guide_rna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L253"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L271"
   },
   {
     "tool": "evaluate_primer",

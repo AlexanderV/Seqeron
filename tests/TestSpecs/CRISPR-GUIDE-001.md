@@ -73,7 +73,8 @@
 | Score range | `Math.Clamp(100 - penalty, 0, 100)` | C-002 (GC 0 % -> 0) |
 | CHOPCHOP 4-bp stems > `MaxSelfComplementaryStems` | 0 (issue in `EvaluateGuideRna`, filter in `DesignGuideRnas`; null = no filter, CHOPCHOP default −1) (F6) | C-022 |
 | C-023 | `EvaluateGuideRna_StemPenalty_IsOnePointPerChopchopStem` (5 cases) | ACGT×5, GCGC×10, `ACGGACTAGCCTACGTACGT`, ACGT×3, GCGCGCGC ± `StandardSgRnaBackboneRegion` | stems 10/11/0/2/0 and 10/11/8/2/0 with backbone (chopchop.py `calcSelfComplementarity` run verbatim); Score = unpenalised − stems (E3) | ✅ |
-| C-024 | `EvaluateGuideRna_LegacySelfComplementarityScore_DoesNotEnterTheScore` | "GCGCGCGC" | legacy 0.3125, 0 stems, Score=100 (E3, G5) | ✅ |
+| C-024 | `EvaluateGuideRna_SelfComplementarityScore_IsTheChopchopStemFraction_AndDoesNotEnterTheScore` | "GCGCGCGC" | `SelfComplementarityScore` = 0/(8−4) = 0 (was the legacy 0.3125), 0 stems, Score=100 (E3, G5, G13) | ✅ |
+| C-031 | `EvaluateGuideRna_SelfComplementarityScore_MatchesOracleStemFraction` (6 cases), `..._FollowsBackboneStems` | ACGT×5, GCGC×10, `ACGGACTAGCCTACGTACGT`, ACGT×3, GCGCGCGC, ACGT; standard backbone | stems/(len−4): 10/16, 11/16, 0, 2/8, 0, 0 (no window, never NaN); with backbone 8/16 = 0.5 (G13; stems from chopchop.py `selfComp` run verbatim) | ✅ |
 | C-025 | `RawStringGuideEntryPoints_RejectNonNucleotides` (5 cases) | `X`×20, `N`, `-`, space, `ſ` (U+017F) | `ArgumentException` (ParamName `guideSequence`) from `EvaluateGuideRna`, `CountSelfComplementaryStems` and the backbone list (E3) | ✅ |
 | C-026 | `RawStringGuideEntryPoints_FoldCaseAndReadUAsT` | lower-case RNA spacer, RNA scaffold | identical to the DNA upper-case result (E3) | ✅ |
 | C-027 | `CalculateMitHitScore_LongS_IsRejectedNotFoldedOntoS` | `…GS` vs `…Gſ` | was: one mismatch at position 19 (D20/E3); since G2 `ſ` and `S` are not nucleotides, `ArgumentException` (`offTarget20`), never folded onto `S` | ✅ |

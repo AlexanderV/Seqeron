@@ -409,7 +409,7 @@ public class CrisprDesigner_GuideRNA_Tests
         var control = CrisprDesigner.EvaluateGuideRna("GCGCGCGC", CrisprSystemType.SpCas9);
 
         Assert.That(control.SelfComplementaryStems, Is.EqualTo(0));
-        Assert.That(control.SelfComplementarityScore, Is.EqualTo(0.3125), "the legacy fraction is still reported");
+        Assert.That(control.SelfComplementarityScore, Is.EqualTo(0.0), "0 stems / (8 - 4) windows (G13)");
         Assert.That(control.Score, Is.EqualTo(0), "100% GC: CHOPCHOP's flat 300 penalty, 0 stems");
         Assert.That(control.Issues.Any(i => i.Contains("self-complementary")), Is.False);
     }
@@ -763,7 +763,7 @@ public class CrisprDesigner_GuideRNA_Tests
         Assert.That(on.Score, Is.EqualTo(100 - 11));
         Assert.That(off.Score, Is.EqualTo(100));
         Assert.That(off.SelfComplementaryStems, Is.EqualTo(11), "the measurement is still reported");
-        Assert.That(off.SelfComplementarityScore, Is.EqualTo(0.275), "the legacy fraction is unchanged and still reported");
+        Assert.That(off.SelfComplementarityScore, Is.EqualTo(11.0 / 16.0), "11 stems / (20 - 4) windows, still reported (G13)");
         Assert.That(off.Issues, Has.Count.EqualTo(1));
         Assert.That(off.Issues[0], Does.Contain("Suboptimal seed region GC"));
     }
@@ -1203,15 +1203,54 @@ public class CrisprDesigner_GuideRNA_Tests
         Assert.That(CrisprDesigner.EvaluateGuideRna("GTGCGATGCGCCCCCGACGC", CrisprSystemType.SpCas9, wide).Score, Is.EqualTo(100));
     }
 
-    /// <summary>The legacy pair fraction is reported but no longer enters the score.</summary>
-    [Test]
-    public void EvaluateGuideRna_LegacySelfComplementarityScore_DoesNotEnterTheScore()
+    /// <summary>
+    /// G13 oracle: stems from <c>chopchop.py selfComp</c> (verbatim, Python 3 + Biopython 1.88) and the window count
+    /// <c>len - 4</c> of its <c>range(0, len(fwd) - STEM_LEN)</c> loop; the expected fraction is stems / windows.
+    /// </summary>
+    [TestCase("ACGTACGTACGTACGTACGT", 10, 16, 0.625)]
+    [TestCase("GCGCGCGCGCGCGCGCGCGC", 11, 16, 0.6875)]
+    [TestCase("ACGGACTAGCCTACGTACGT", 0, 16, 0.0)]
+    [TestCase("ACGTACGTACGT", 2, 8, 0.25)]
+    [TestCase("GCGCGCGC", 0, 4, 0.0)]
+    [TestCase("ACGT", 0, 0, 0.0)]                      // no 4-bp window fits -> 0, never NaN
+    public void EvaluateGuideRna_SelfComplementarityScore_MatchesOracleStemFraction(
+        string guide, int stems, int windows, double expected)
     {
-        // 0 stems but a high legacy fraction: the old rule would have deducted fraction × 30.
+        var c = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
+
+        Assert.That(c.SelfComplementaryStems, Is.EqualTo(stems));
+        Assert.That(guide.Length - 4 > 0 ? guide.Length - 4 : 0, Is.EqualTo(windows));
+        Assert.That(c.SelfComplementarityScore, Is.EqualTo(expected).Within(1e-12));
+        Assert.That(c.SelfComplementarityScore, Is.InRange(0.0, 1.0));
+    }
+
+    /// <summary>The backbone-aware stem count feeds the fraction too (oracle: `ACGGACTAGCCTACGTACGT` 8 stems / 16 windows).</summary>
+    [Test]
+    public void EvaluateGuideRna_SelfComplementarityScore_FollowsBackboneStems()
+    {
+        var c = CrisprDesigner.EvaluateGuideRna("ACGGACTAGCCTACGTACGT", CrisprSystemType.SpCas9,
+            GuideRnaParameters.Default with
+            {
+                SelfComplementarityBackboneRegions = new[] { CrisprDesigner.StandardSgRnaBackboneRegion },
+            });
+
+        Assert.That(c.SelfComplementaryStems, Is.EqualTo(8));
+        Assert.That(c.SelfComplementarityScore, Is.EqualTo(0.5));
+    }
+
+    /// <summary>
+    /// B08 round 3 G13: <see cref="GuideRnaCandidate.SelfComplementarityScore"/> is CHOPCHOP's stem count over its
+    /// own loop bound (<c>len - 4</c> windows), not the former unsourced pair fraction. The 8-mer palindrome
+    /// <c>GCGCGCGC</c> had 0.3125 under the old fraction and has 0 stems in the reference.
+    /// </summary>
+    [Test]
+    public void EvaluateGuideRna_SelfComplementarityScore_IsTheChopchopStemFraction_AndDoesNotEnterTheScore()
+    {
+        // 0 stems but a high former fraction (0.3125): nothing is deducted.
         var c = CrisprDesigner.EvaluateGuideRna("GCGCGCGC", CrisprSystemType.SpCas9,
             new GuideRnaParameters(0, 100, 0, AvoidPolyT: true, CheckSelfComplementarity: true));
 
-        Assert.That(c.SelfComplementarityScore, Is.EqualTo(0.3125));
+        Assert.That(c.SelfComplementarityScore, Is.EqualTo(0.0));
         Assert.That(c.SelfComplementaryStems, Is.EqualTo(0));
         Assert.That(c.Score, Is.EqualTo(100), "0 stems: nothing is deducted (the seed-GC flag is report-only)");
     }

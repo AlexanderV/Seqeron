@@ -107,7 +107,7 @@ context it was computed from) on every qualifying candidate and can rank by it
 | `GcContent` | `double` | Overall GC percentage |
 | `SeedGcContent` | `double` | GC percentage of the seed region |
 | `HasPolyT` | `bool` | Whether the guide contains `TTTT` |
-| `SelfComplementarityScore` | `double` | The library's own normalised complementary-pair fraction (**unsourced heuristic**: divides by n² although n(n+1)/2 pairs are compared); reported for backward compatibility, **no longer part of `Score`** (B08 E3). The sourced measure is `SelfComplementaryStems` |
+| `SelfComplementarityScore` | `double` | `SelfComplementaryStems / (length − 4)` in `[0, 1]`: CHOPCHOP's stem count over its own 4-bp window count (`range(0, len(fwd) − STEM_LEN)`); `0` when the guide is shorter than 5 nt. Replaced the former unsourced normalised complementary-pair fraction (B08 round 3 G13); not part of `Score` (the stems are) and not thermodynamic |
 | `Score` | `double` | Composite quality number `clamp(100 − penalty, 0, 100)` with CHOPCHOP's penalty weights (1 per stem; flat 300 for a GC outside the window when `ScoreGcContent`); TTTT / seed GC / cloning site are issues only (B08 round 3 G5) — use `OnTargetScore` (Rule Set 2) for a published efficacy estimate |
 | `Issues` | `IReadOnlyList<string>` | Human-readable issues recorded during evaluation |
 | `System` | `CrisprSystem` | The CRISPR system the guide was evaluated for; designed guides carry the system of their own `PamSite` (SpCas9-NAG, SpCas9-NGA, SaCas9, SaCas9-NNGRRN, AsCas12a, LbCas12a, CasX keep their own PAM, guide length and seed orientation — B08 F4) |

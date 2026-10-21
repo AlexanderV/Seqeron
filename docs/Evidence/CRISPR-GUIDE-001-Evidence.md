@@ -110,11 +110,14 @@ The duplicated table was therefore deleted in favour of the canonical call (clos
 
 - **GC term and the other composite weights (B08 round 3 G5).** `chopchop.py` (sha256 `3c7a4344ccf2a77e70b638146989d7b9569665216bc15b476177db37630d5960`): `SCORE["CRISPR_BAD_GC"] = 300` (L106), `GC_LOW = 40`, `GC_HIGH = 70` (L110-111), `calcGCContent` (L398-410, TALEN class L607-619): GC% = 100·(G+C)/len of the protospacer (PAM excluded), and `if scoreGC: if self.GCcontent > GC_HIGH or self.GCcontent < GC_LOW: self.score += SCORE['CRISPR_BAD_GC']` (strict comparisons, so 40 % and 70 % are inside). `CRISPR_DEFAULT["SCORE_GC"] = False` ("this is already scored in many models!") in every mode and `-c/--scoreGC` is `store_false` with `default=None` (L2792, L2844), so the command line cannot switch the term on; `filterGCmin/filterGCmax` (default 0/100, L2826-2827, applied L1809-1813) are separate opt-in hard filters. `crispor.py` (sha256 `16c3a54b454a27393e57f1ffbe102af2862e1d2e907bfcc156faab67955e404c`, 8 956 lines) L3026-3054: `TTTT` in the guide, `gcContent(guideSeq) > 0.75` and `< 0.25` each call `htmlWarn(...)` with no score change. Seqeron therefore: GC window term = CHOPCHOP's flat 300 (switch `ScoreGcContent`, default on = declared deviation; off = CHOPCHOP's default), TTTT / seed GC (30-80 %, no tool) / cloning site = issues only, `MinScore` declared as not from any tool. Oracle: scoring lines run verbatim in Python 3 + Biopython 1.88.
 
-- The library's legacy `GuideRnaCandidate.SelfComplementarityScore` (normalised complementary-pair fraction with
-  an `L²` denominator and a 0.3 threshold) has no published source. It is kept for backward compatibility, reported,
-  and declared as an unsourced heuristic in the XML docs; since B08 round 2 (E3) it **no longer enters
-  `GuideRnaCandidate.Score`** (it used to deduct `fraction × 30` above 0.3). Supersedes the F6 note that the two scales
-  must not be mixed: CHOPCHOP's per-stem weight (1) is on the same 0..100 scale as its efficiency term, so the stem
-  deduction `score -= stems × 1` is the sourced one; the *other* weights of Seqeron's composite and the way the
-  terms are summed remain Seqeron's own (LIMITATIONS proposal in `docs/Validation/review-2026-09/B08.md`).
+- **`GuideRnaCandidate.SelfComplementarityScore` (B08 round 3 G13).** The library's former normalised complementary-pair
+  fraction (`L²` denominator, 0.3 threshold) had no published source and was only reported (it left `Score` in E3). It is
+  now **derived from the sourced quantity**: `SelfComplementaryStems / (length − 4)`, i.e. CHOPCHOP's `folding` over the
+  number of windows its loop `range(0, len(fwd) - STEM_LEN)` examines (`chopchop.py` L378-390, `selfComp` L1882-1892),
+  in [0, 1]. The numerator is CHOPCHOP's; only the division by its own loop bound is the library's. primer3-py 2.3.1
+  `calc_hairpin` (DNA nearest-neighbour parameters, 50 mM Na+, 37 °C defaults) was evaluated as an alternative and
+  rejected: for the oracle guides it gives `ACGT`x5 dG = -6.53 kcal/mol (Tm 71.8), `GCGC`x10 -11.70 (91.7),
+  `ACGGACTAGCCTACGTACGT` -0.71 (45.1), `CGTAACGTGCTTGCAACTGA` no hairpin; it is a DNA-oligo PCR-primer model that
+  ignores the RNA nearest-neighbour set, the sgRNA scaffold and the in-cell conditions, so it does not describe an RNA
+  spacer, and CHOPCHOP, the guide-design reference tool, does not use it.
 - CHOPCHOP's `filterSelfCompMax` filter stays opt-in (`MaxSelfComplementaryStems`, default no filter = the CLI default).

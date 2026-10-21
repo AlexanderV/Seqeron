@@ -14,7 +14,7 @@ Score a single guide RNA against on-target quality heuristics.
 
 ## Description
 
-Evaluates a single guide RNA and returns a candidate record: overall GC%, seed-region GC% (last 10 nt for Cas9-like, first 10 nt for Cas12a-like), polyT (Pol III terminator) presence, self-complementarity score, a 0..100 quality score, and an issues list. The composite score is CHOPCHOP's own penalty sum shown as `clamp(100 − penalty, 0, 100)`: 1 point per CHOPCHOP self-complementary 4-bp stem (`selfComplementaryStems`, `SCORE['FOLDING']`) plus CHOPCHOP's flat `SCORE['CRISPR_BAD_GC'] = 300` (score 0) for a GC outside `minGcContent`..`maxGcContent` (default 40–70; `scoreGcContent = false` reproduces CHOPCHOP's default of no GC term). TTTT, seed GC and common cloning sites are reported in `issues` only (no score effect, as in CRISPOR). The legacy `selfComplementarityScore` is an unsourced fraction that is reported only. The guide must contain only A/C/G/T (`U` is read as `T`, case is folded ASCII-only); anything else, IUPAC codes included, is rejected. For ad-hoc evaluation `position` is `-1` and `isForwardStrand` is `true`.
+Evaluates a single guide RNA and returns a candidate record: overall GC%, seed-region GC% (last 10 nt for Cas9-like, first 10 nt for Cas12a-like), polyT (Pol III terminator) presence, self-complementarity score, a 0..100 quality score, and an issues list. The composite score is CHOPCHOP's own penalty sum shown as `clamp(100 − penalty, 0, 100)`: 1 point per CHOPCHOP self-complementary 4-bp stem (`selfComplementaryStems`, `SCORE['FOLDING']`) plus CHOPCHOP's flat `SCORE['CRISPR_BAD_GC'] = 300` (score 0) for a GC outside `minGcContent`..`maxGcContent` (default 40–70; `scoreGcContent = false` reproduces CHOPCHOP's default of no GC term). TTTT, seed GC and common cloning sites are reported in `issues` only (no score effect, as in CRISPOR). `selfComplementarityScore` is `selfComplementaryStems` divided by the `length − 4` windows CHOPCHOP examines (range [0, 1]; it replaced the former unsourced pair fraction) and is reported only. The guide must contain only A/C/G/T (`U` is read as `T`, case is folded ASCII-only); anything else, IUPAC codes included, is rejected. For ad-hoc evaluation `position` is `-1` and `isForwardStrand` is `true`.
 
 ## Core Documentation Reference
 
@@ -34,7 +34,7 @@ Evaluates a single guide RNA and returns a candidate record: overall GC%, seed-r
 |-------|------|-------------|
 | `gcContent` / `seedGcContent` | number | Overall and seed-region GC%. |
 | `hasPolyT` | boolean | TTTT terminator present. |
-| `selfComplementarityScore` / `score` | number | Self-complementarity and 0..100 score. |
+| `selfComplementarityScore` / `score` | number | `selfComplementaryStems / (length − 4)` (CHOPCHOP stem count over its own window count, [0, 1]) and the 0..100 score. |
 | `issues` | string[] | Quality warnings. |
 
 ## Errors

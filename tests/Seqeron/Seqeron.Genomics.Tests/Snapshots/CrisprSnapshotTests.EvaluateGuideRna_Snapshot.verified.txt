@@ -3,6 +3,6 @@
   GcContent: 50.0,
   SeedGcContent: 50.0,
   HasPolyT: false,
-  SelfComplementarityScore: 0.15,
+  SelfComplementarityScore: 0.625,
   Score: 90.0
 }

@@ -264,8 +264,8 @@ public static class CrisprDesigner
     /// (Rule Set 2) for a published efficacy estimate.
     /// </para>
     /// <para>
-    /// The older normalised pair fraction <see cref="GuideRnaCandidate.SelfComplementarityScore"/> is still
-    /// reported but no longer enters the score (see its documentation).
+    /// <see cref="GuideRnaCandidate.SelfComplementarityScore"/> is the stem count divided by the number of 4-bp
+    /// windows CHOPCHOP examines; it is derived from, and consistent with, <see cref="GuideRnaCandidate.SelfComplementaryStems"/>.
     /// </para>
     /// </remarks>
     public static GuideRnaCandidate EvaluateGuideRna(
@@ -316,9 +316,6 @@ public static class CrisprDesigner
 
         // Check for polyT (transcription terminator)
         bool hasPolyT = HasPolyT(seq, 4);
-
-        // Legacy, unsourced pair fraction: reported on the candidate for backward compatibility only.
-        double selfCompScore = CalculateHeuristicSelfComplementarity(seq);
 
         // CHOPCHOP's published self-complementarity measure (4-bp stems); reported always, filtered
         // only when the caller sets a limit (the reference's own default is "report, do not filter").
@@ -394,7 +391,7 @@ public static class CrisprDesigner
             GcContent: gcContent,
             SeedGcContent: seedGc,
             HasPolyT: hasPolyT,
-            SelfComplementarityScore: selfCompScore,
+            SelfComplementarityScore: SelfComplementarityWindowFraction(seq.Length, selfCompStems),
             Score: Math.Clamp(100 - penalty, 0, 100),
             Issues: issues,
             System: system)
@@ -2376,30 +2373,14 @@ public static class CrisprDesigner
     public const double BadGcContentPenalty = 300.0;
 
     /// <summary>
-    /// The library's own normalised complementary-pair fraction, reported as
-    /// <see cref="GuideRnaCandidate.SelfComplementarityScore"/>. <b>Heuristic, no published source</b>: it counts
-    /// every position pair <c>(i, i+offset)</c> where <c>seq[i]</c> equals the reverse-complement base, and divides
-    /// by <c>n²</c> although only <c>n(n+1)/2</c> pairs are compared, so it can never reach 1. It is not a
-    /// thermodynamic or published stem measure, and it no longer feeds <see cref="GuideRnaCandidate.Score"/>:
-    /// use <see cref="CountSelfComplementaryStems"/> (CHOPCHOP).
+    /// The fraction of the 4-bp windows CHOPCHOP examines (<c>len − 4</c>, its <c>range(0, len(fwd) − STEM_LEN)</c>)
+    /// that carry a self-complementary stem: <c>stems / (len − 4)</c>, in [0, 1]. The numerator is CHOPCHOP's
+    /// <c>folding</c>; only the division by its own loop bound is this library's.
     /// </summary>
-    private static double CalculateHeuristicSelfComplementarity(string sequence)
+    private static double SelfComplementarityWindowFraction(int length, int stems)
     {
-        string revComp = DnaSequence.GetReverseComplementString(sequence);
-        int matches = 0;
-        int total = sequence.Length;
-
-        // Check for complementary regions
-        for (int offset = 0; offset < sequence.Length; offset++)
-        {
-            for (int i = 0; i + offset < sequence.Length; i++)
-            {
-                if (sequence[i] == revComp[i + offset])
-                    matches++;
-            }
-        }
-
-        return (double)matches / (total * total);
+        int windows = length - 4;
+        return windows > 0 ? (double)stems / windows : 0.0;
     }
 
     /// <summary>
@@ -2642,9 +2623,10 @@ public readonly record struct GuideRnaParameters(
 /// <param name="SeedGcContent">GC content of the 10-nt PAM-proximal seed region in percent.</param>
 /// <param name="HasPolyT">Whether the guide contains <c>TTTT</c> (Pol III terminator).</param>
 /// <param name="SelfComplementarityScore">
-/// The library's own normalised complementary-pair fraction. <b>Heuristic, unsourced</b> (it divides by n² although
-/// n(n+1)/2 pairs are compared) and <b>not part of <paramref name="Score"/></b>; kept for backward compatibility.
-/// The published measure is <see cref="SelfComplementaryStems"/> (CHOPCHOP).
+/// <see cref="SelfComplementaryStems"/> divided by the number of 4-bp windows CHOPCHOP examines (<c>length − 4</c>),
+/// in [0, 1]. Derived from the published stem count (the numerator is CHOPCHOP's <c>folding</c>; the normalisation by
+/// its own loop bound is this library's); it replaces the earlier unsourced complementary-pair fraction
+/// (B08 round 3 G13). Not thermodynamic and not a probability.
 /// </param>
 /// <param name="Score">
 /// Composite 0–100 quality number: <c>clamp(100 − penalty, 0, 100)</c> where <c>penalty</c> is CHOPCHOP's own sum of
@@ -2700,9 +2682,8 @@ public sealed record GuideRnaCandidate(
     /// The number of self-complementary 4-bp stems of this guide, per CHOPCHOP's published
     /// self-complementarity measure. See <see cref="CrisprDesigner.CountSelfComplementaryStems"/>;
     /// <see cref="GuideRnaParameters.MaxSelfComplementaryStems"/> turns it into a filter. This is the
-    /// sourced measure and the one that drives <see cref="Score"/>;
-    /// <see cref="SelfComplementarityScore"/> is the library's older, unsourced normalised
-    /// complementary-pair fraction, kept for backward compatibility.
+    /// sourced measure and the one that drives <see cref="Score"/>
+    /// (<see cref="SelfComplementarityScore"/> is this count divided by <c>length − 4</c>).
     /// </summary>
     public int SelfComplementaryStems { get; init; }
 }
