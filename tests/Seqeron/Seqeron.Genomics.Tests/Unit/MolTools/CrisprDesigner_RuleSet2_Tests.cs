@@ -334,6 +334,38 @@ public class CrisprDesigner_RuleSet2_Tests
                 "AAAAAAAAAAAAAAAAAAATGCAGCGGGAG", 181, percentPeptide));
     }
 
+    /// <summary>
+    /// "Amino Acid Cut position" is a residue count. The reference asserts only that it is real
+    /// (model_comparison.py, <c>np.isreal(aa_cut)</c>); azimuth/tests/1000guides.csv (column "AA cut", 947 guides)
+    /// spans the integers 0..499 (0 occurs twice, so the bound is &gt;= 0, not &gt;= 1) and its percent
+    /// peptide spans 0..99. A negative count with a real percent_peptide is a caller error; with the
+    /// percent_peptide sentinel -1 the argument is ignored by the reference, so it stays unchecked there.
+    /// </summary>
+    [TestCase(-1)]
+    [TestCase(-2)]
+    [TestCase(int.MinValue)]
+    public void RuleSet2_AminoAcidCutPositionNegative_Throws(int aminoAcidCutPosition)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => CrisprDesigner.CalculateOnTargetRuleSet2(
+                "AAAAAAAAAAAAAAAAAAATGCAGCGGGAG", aminoAcidCutPosition, 50.0));
+        Assert.That(ex!.ParamName, Is.EqualTo("aminoAcidCutPosition"));
+        // sentinel percent_peptide: the reference replaces both columns by -1, so aa_cut is not looked at
+        Assert.That(
+            CrisprDesigner.CalculateOnTargetRuleSet2("AAAAAAAAAAAAAAAAAAATGCAGCGGGAG", aminoAcidCutPosition, -1.0),
+            Is.EqualTo(CrisprDesigner.CalculateOnTargetRuleSet2("AAAAAAAAAAAAAAAAAAATGCAGCGGGAG")));
+    }
+
+    [TestCase(0)]      // occurs in the reference fixture
+    [TestCase(181)]
+    [TestCase(499)]    // the fixture's maximum
+    [TestCase(100000)] // no upper bound in the reference
+    public void RuleSet2_AminoAcidCutPositionInRange_IsAccepted(int aminoAcidCutPosition)
+    {
+        CrisprDesigner.CalculateOnTargetRuleSet2("AAAAAAAAAAAAAAAAAAATGCAGCGGGAG", aminoAcidCutPosition, 50.0)
+            .Should().BeInRange(0.0, 1.0);
+    }
+
     [TestCase(0.0)]
     [TestCase(0.18)]   // the fractional value used in Azimuth's own README example
     [TestCase(50.0)]

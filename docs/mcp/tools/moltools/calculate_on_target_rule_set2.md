@@ -32,7 +32,7 @@ Source: Doench et al. 2016, Nat Biotechnol 34:184 (PMID 26780180); trained model
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `context_30mer` | string | Yes | 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt NGG PAM + 3 nt downstream. |
-| `amino_acid_cut_position` | integer \| null | No | Optional amino-acid position of the cut site in the target protein (requires `percent_peptide`); enables the gene-context model. |
+| `amino_acid_cut_position` | integer \| null | No | Optional amino-acid position of the cut site in the target protein, `>= 0` (requires `percent_peptide`); enables the gene-context model. Ignored when `percent_peptide = -1`. |
 | `percent_peptide` | number \| null | No | Optional cut position as a percentage 0..100 along the coding sequence, or -1 for Azimuth's "no gene position" sentinel (which falls back to the sequence-only model); requires `amino_acid_cut_position`. |
 
 ## Output Schema
@@ -51,6 +51,7 @@ Source: Doench et al. 2016, Nat Biotechnol 34:184 (PMID 26780180); trained model
 | 1004 | Rule Set 2 context must contain only A/C/G/T; found '{char}'. |
 | 1005 | Rule Set 2 expects an SpCas9 NGG PAM at offsets 25-26 of the 30-nt context. |
 | 1006 | Rule Set 2 percent-peptide must be in [0, 100], or -1 for Azimuth's "no gene position" sentinel (which selects the sequence-only model). |
+| 1007 | Rule Set 2 amino-acid cut position must be >= 0 (a residue count; Azimuth's own fixture spans 0..499). |
 
 ## Examples
 

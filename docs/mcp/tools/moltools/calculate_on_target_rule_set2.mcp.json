@@ -15,7 +15,7 @@
         "type": "string"
       },
       "amino_acid_cut_position": {
-        "description": "Optional amino-acid position of the cut site in the target protein (requires percent_peptide); enables the gene-context model.",
+        "description": "Optional amino-acid position of the cut site in the target protein, >= 0 (requires percent_peptide); enables the gene-context model. Ignored when percent_peptide = -1.",
         "type": [
           "integer",
           "null"
@@ -71,6 +71,10 @@
     {
       "code": 1006,
       "message": "Rule Set 2 percent-peptide must be in [0, 100], or -1 for Azimuth's \"no gene position\" sentinel (which selects the sequence-only model)."
+    },
+    {
+      "code": 1007,
+      "message": "Rule Set 2 amino-acid cut position must be >= 0 (a residue count; Azimuth's own fixture spans 0..499)."
     }
   ],
   "examples": [

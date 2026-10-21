@@ -184,6 +184,20 @@ internal static class AzimuthRuleSet2
         if (percentPeptide == NoGenePositionSentinel)
             return ScoreNoPos(seq);
 
+        // "Amino Acid Cut position" is a residue count of the cut within the protein. The reference asserts
+        // only that it is a real number (model_comparison.py, `np.isreal(aa_cut)`) and has no range check;
+        // its own 1000-guide regression fixture (azimuth/tests/1000guides.csv, column "AA cut") holds
+        // integers in [0, 499] -- 0 occurs, so the bound is >= 0, not >= 1. A negative count is not a
+        // position; the reference's -1 sentinel belongs to percent_peptide (above, where the aa_cut is
+        // then ignored), so a real percent_peptide paired with a negative aa_cut is a caller error rather
+        // than a silently-extrapolated tree walk. There is no upper bound in the reference (proteins vary).
+        if (aminoAcidCutPosition < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(aminoAcidCutPosition), aminoAcidCutPosition,
+                "Rule Set 2 amino-acid cut position must be >= 0 (a residue count; Azimuth's own fixture spans "
+                + "0..499). The \"no gene position\" sentinel -1 belongs to percentPeptide, which then selects "
+                + "the sequence-only model and ignores this argument.");
+
         var model = FullModel.Value;
         if (!model.HasGenePosition || model.FeatureCount != FullFeatureCount)
             throw new InvalidOperationException(
