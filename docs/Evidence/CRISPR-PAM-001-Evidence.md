@@ -51,6 +51,39 @@
 | Ran et al. (2015) Nature 520:186 | SaCas9 `NNGRRT` PAM, 21-nt spacer (21-23 functional) |
 | Zetsche et al. (2015) Cell 163:759 | Cas12a/Cpf1 `TTTV` PAM 5' of the spacer, canonical 23-nt spacer; staggered cut |
 | Liu et al. (2019) Nature 566:218 | CasX/Cas12e `TTCN` PAM 5' of a 20-nt spacer |
+| Kleinstiver et al. (2015) Nature 523:481, "Engineered CRISPR-Cas9 nucleases with altered PAM specificities" (PMC4540238, opened 2026-10-21, neutral User-Agent `Seqeron-review/1.0`) | VQR variant "strongly depleted sites bearing NGAN and NGCG PAMs"; the human-cell assay shows VQR "robustly cleaving sites bearing NGAN PAMs (with relative efficiencies NGAG > NGAT = NGAA > NGAC)"; the same paper's abstract names NAG and NGA as non-canonical SpCas9 PAMs. Supports `NGA` as a SpCas9 PAM motif (`SpCas9_NGA`). It does **not** contain a SaCas9 `NNGRRN` PAM (its SaCas9 site-depletion result lists only `NNGGGT`, `NNGAAT`, `NNGAGT`, all `NNGRRT`) |
+
+### `SpCas9_NGA` and `SaCas9_NNGRRN` (added 2026-10-21, B08 round 3 G8)
+
+**URL:** https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/crispor.py (fetched again 2026-10-21 with a
+neutral User-Agent; same 8956-line file). Verbatim lines:
+
+- L188: `('NGA','20bp-NGA - Cas9 S. Pyogenes mutant VQR'),` — `NGA` is an own CRISPOR PAM entry (SpCas9 VQR mutant), 20-bp guide.
+- L243-249 (`offtargetPams`): `"NGG" : ["NAG","NGA"],` … `"NGA" : ["NGG"],` `"NNGRRT" : ["NNGRRN"],` — `NNGRRN` exists in CRISPOR only
+  as the alternative off-target pattern of `NNGRRT`; there is no `pamDesc` entry for it. Comment above the table: "The NGA -> NGG rule
+  was described by Kleinstiver...Young 2015 'Improved Cas9 Specificity...'", "the length of the alternate PAM has to be the same as the
+  original PAM".
+- `setupPamInfo` L458-520: `NGA` falls in the final `else: GUIDELEN = 20`; `NNGRRT`/`NNNRRT` set `GUIDELEN = 21`. An alternative
+  PAM is searched with the main system's guide length, so `NNGRRN` is 21 nt (PAM after the target — `pamIsFirst = False`).
+- `patMatch` L2347-2394: pattern `N` matches any character (including a genome `N`); `R` matches `A`/`G` only; any other pattern letter
+  matches only itself (so a genome `N` never satisfies `G`, `A`, `R`, `T`).
+
+**Library mapping:** `SpCas9_NGA` = (`NGA`, 20, PAM after) and `SaCas9_NNGRRN` = (`NNGRRN`, 21, PAM after), i.e. exactly the two rows
+above (`CrisprDesigner.GetSystem`, added by B08 F66 so that the alternative-PAM off-target scan can run them).
+
+**Oracle for the new tests:** a standalone Python script (kept in the review scratchpad, not in the repository) with
+(a) an independent two-strand brute-force scan — forward strand: every `i` where `seq[i:i+k]` matches the IUPAC motif and `i-guide >= 0`;
+reverse strand: scan `revcomp(seq)`, map the match at `j` back to forward `Position = L - j - k`, `TargetStart = Position + k`,
+PAM/target read on the protospacer strand — and (b) CRISPOR's `patMatch`, `findPat`, `findPams`, `findAllPams`, `flankSeqIter` and `revComp`
+exec'd verbatim from the fetched file (`pamIsFirst = False`, `GUIDELEN` 20 / 21). The two agreed on every sequence used by the tests
+(sites listed in `CrisprDesigner_PAM_Tests.cs`, region "FindPamSites - SpCas9_NGA (VQR PAM) and SaCas9_NNGRRN"): NGA 74-nt sequence 3 forward + 6 reverse
+sites; NNGRRN 87-nt sequence 4 forward + 6 reverse sites; sequence-edge pairs (overrun excluded / exact fit kept) on both strands for both
+systems; all 16 `NNG{A,G}{A,G}{A,C,G,T}` PAMs accepted and 6 non-R / non-G decoys rejected; `TGG` is not an NGA site; `CCGAAC` is an
+`NNGRRN` but not an `NNGRRT` site; `N` in the target kept on both strands; `N` at a concrete PAM position rejected.
+
+**Recorded divergence (not pinned by a test):** a genome `N` against a PAM `N`. CRISPOR `patMatch` accepts it; `IupacHelper.MatchesIupac('N','N')`
+accepts only `A/C/G/T`, so Seqeron does not report that site. The brute-force scan in the oracle script follows Seqeron's rule and therefore
+disagrees with CRISPOR on exactly those inputs (two probe sequences, `…TGN`/`CCGAAN`); no test uses them. CRISPOR's optional `doFilterNs` is not applied either.
 
 ---
 
@@ -61,7 +94,7 @@ the fetched `crispor.py` into a standalone Python module and driven directly (no
 field-by-field with `CrisprDesigner.FindPamSites`.
 
 **Scope:** 4 hand-built sequences (SpCas9 reverse-only, SpCas9 mixed, SaCas9, Cas12a) + 60 pseudo-random sequences
-(seed 20260928, lengths 10-200 nt) across all 7 systems → **136 reference sites**.
+(seed 20260928, lengths 10-200 nt) across all 7 systems (the then-existing ones; `SpCas9_NGA` and `SaCas9_NNGRRN` came later, see above) → **136 reference sites**.
 
 Mapping: CRISPOR `pamStart` ↔ `PamSite.Position`, `guideStart` ↔ `PamSite.TargetStart`, `pamSeq` ↔
 `PamSite.PamSequence`, `flankSeq` ↔ `PamSite.TargetSequence`, strand ↔ `IsForwardStrand`.
