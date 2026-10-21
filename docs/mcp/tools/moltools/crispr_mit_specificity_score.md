@@ -25,7 +25,7 @@ CRISPOR runs ONE wider search that also accepts the alternative PAMs of its `off
 - It is gated on the **guide's** PAM being `NGG`, so an `SpCas9_NAG` guide is never downweighted.
 - Only the MIT score is downweighted; the CFD aggregate ([crispr_cfd_specificity_score](crispr_cfd_specificity_score.md)) is **not** — its PAM table already penalises non-NGG PAMs.
 
-`SpCas9` scans both `NAG` and `NGA` (systems `SpCas9_NAG` / `SpCas9_NGA`, hits downweighted by 0.2); `SaCas9` scans `NNGRRN` (system `SaCas9_NNGRRN`; hits enter UNweighted because the reference's rule is gated on a main `NGG`; a site matching both `NNGRRT` and `NNGRRN` is counted once); Cas12a is refused. `min_alternative_pam_hit_score` is the reference's `ALTPAMMINSCORE` / `--minAltPamScore` (`crispor.py` L318, L4108-4122): alternative-PAM hits whose unweighted hit score is below it are dropped. Its default here is `0` (no filtering), whereas CRISPOR's own default is `1.0`. The C# API also exposes the rule over an arbitrary PAM-annotated hit set (`CrisprDesigner.CalculateMitSpecificityScore(guide, IEnumerable<PamAnnotatedOffTarget>, system)` with `CrisprDesigner.FindOffTargetsWithPam`), where an `NGA` hit IS counted and downweighted.
+`SpCas9` scans both `NAG` and `NGA` (systems `SpCas9_NAG` / `SpCas9_NGA`, hits downweighted by 0.2); `SaCas9` scans `NNGRRN` (system `SaCas9_NNGRRN`; hits enter UNweighted because the reference's rule is gated on a main `NGG`; a site matching both `NNGRRT` and `NNGRRN` is counted once); Cas12a is refused. `min_alternative_pam_hit_score` is the reference's `ALTPAMMINSCORE` / `--minAltPamScore` (`crispor.py` L318, L4108-4122): alternative-PAM hits whose unweighted hit score is below it are dropped. Its default is CRISPOR's own `1.0` (B08 round 3 G6; it was `0` = no filtering before — pass `0` to keep every alternative-PAM hit). The C# API also exposes the rule over an arbitrary PAM-annotated hit set (`CrisprDesigner.CalculateMitSpecificityScore(guide, IEnumerable<PamAnnotatedOffTarget>, system)` with `CrisprDesigner.FindOffTargetsWithPam`), where an `NGA` hit IS counted and downweighted.
 
 Cas12a/Cpf1-class and CasX systems (PAM **before** target) are **refused**: the reference reports no MIT off-target score for them at all (`mitScore = 0.0`, `guideScore = -1`). Prefer this tool over [crispr_specificity_score](crispr_specificity_score.md), which is this library's own unsourced heuristic.
 
@@ -42,7 +42,7 @@ Cas12a/Cpf1-class and CasX systems (PAM **before** target) are **refused**: the 
 | `max_mismatches` | integer | No | 0..5 (default 4, the reference's default). |
 | `system_type` | enum | No | CRISPR system (default `SpCas9`); must be PAM-after-target. |
 | `include_alternative_pams` | boolean | No | Also scan the reference's alternative PAMs (SpCas9: NAG, NGA, downweighted by 0.2; SaCas9: NNGRRN, unweighted) (default `false`). |
-| `min_alternative_pam_hit_score` | number | No | With `include_alternative_pams`: minimum unweighted hit score (0..100) for an alternative-PAM hit to count (reference `ALTPAMMINSCORE`; default `0` = off, the reference's default is `1.0`). |
+| `min_alternative_pam_hit_score` | number | No | With `include_alternative_pams`: minimum unweighted hit score (0..100) for an alternative-PAM hit to count (reference `ALTPAMMINSCORE`; default `1.0`, the reference's own default; `0` = no filtering). |
 
 ## Output Schema
 

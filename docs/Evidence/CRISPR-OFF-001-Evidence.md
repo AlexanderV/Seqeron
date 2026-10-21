@@ -249,8 +249,8 @@ aggregate would be exactly `100`.
    `100/(100+0.2x60.5)x100 = 89.20606601248885` (was 100.0). (b) The pipeline-level cutoff
    (`ALTPAMMINSCORE = 1.0`, **L318**, applied at **L4108-4122**, `MINSCORE = 0.0` for main PAM hits;
    `--minAltPamScore`, L8439-8441) is the optional `minAlternativePamHitScore` of
-   `CalculateMitSpecificityScoreWithAlternativePams`; the DEFAULT is `0` here versus `1.0` in the
-   reference (kept to preserve behaviour — pass `1.0` for CRISPOR's default). The reference tests the
+   `CalculateMitSpecificityScoreWithAlternativePams`; the DEFAULT is `1.0`, the
+   reference's own (B08 round 3 G6; it was `0` = no filtering before — pass `0` for that). The reference tests the
    alternative list first, so for SaCas9 the cutoff also reaches `NNGRRT` main-PAM hits; reproduced.
    The original single-system overload `CalculateMitSpecificityScore(string, DnaSequence, int,
    CrisprSystemType)` keeps its behaviour unchanged (locked by test).

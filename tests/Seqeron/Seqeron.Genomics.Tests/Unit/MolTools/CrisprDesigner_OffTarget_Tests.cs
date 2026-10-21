@@ -1569,9 +1569,9 @@ public class CrisprDesigner_OffTarget_Tests
 
     /// <summary>
     /// E1/F67: <c>minAlternativePamHitScore</c> is crispor.py's ALTPAMMINSCORE (L4108-4122, default 1.0
-    /// there, 0 here). Genome = NGG hit (60.5), NAG hit with 4 mismatches (0.3128679435483871) and NGA
+    /// there and here since G6). Genome = NGG hit (60.5), NAG hit with 4 mismatches (0.3128679435483871) and NGA
     /// hit (31.499999999999993). Aggregates (Python, crispor formulae):
-    /// cutoff 0 -> 59.92955631050283; 1.0 drops only the NAG hit -> 59.95203836930455;
+    /// default (= 1.0) and explicit 1.0 drop only the NAG hit -> 59.95203836930455;
     /// 40 drops both alternative hits but never the main NGG hit -> 62.30529595015576.
     /// </summary>
     [Test]
@@ -1587,8 +1587,13 @@ public class CrisprDesigner_OffTarget_Tests
             Assert.That(CrisprDesigner.CalculateMitHitScore(AltPamGuide, ProximalOffTarget),
                 Is.EqualTo(31.499999999999993).Within(1e-12));
 
+            // G6: the default is CRISPOR's own ALTPAMMINSCORE = 1.0 (it was 0 = no filtering); explicit 0 keeps all hits.
             Assert.That(CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(AltPamGuide, genome, 4),
-                Is.EqualTo(59.92955631050283).Within(1e-9));
+                Is.EqualTo(59.95203836930455).Within(1e-9), "default == explicit 1.0");
+            Assert.That(
+                CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, 0.0),
+                Is.EqualTo(59.92955631050283).Within(1e-9), "explicit 0 = no filtering");
             Assert.That(
                 CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(
                     AltPamGuide, genome, 4, CrisprSystemType.SpCas9, 1.0),

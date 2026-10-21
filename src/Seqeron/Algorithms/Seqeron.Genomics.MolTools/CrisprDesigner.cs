@@ -1232,8 +1232,8 @@ public static class CrisprDesigner
     /// (<see cref="CalculateMitSpecificityScore(string, IEnumerable{PamAnnotatedOffTarget}, CrisprSystemType)"/>)
     /// is defined on these motifs; the reference's pipeline-level cutoff for alternative-PAM hits
     /// (<c>ALTPAMMINSCORE = 1.0</c>, L310-318, applied in the bowtie/BWA pre-filter at L4092-4133, not
-    /// in the scoring function) is available as the optional <c>minAlternativePamHitScore</c> of
-    /// <see cref="CalculateMitSpecificityScoreWithAlternativePams"/> (default 0 here vs 1.0 there); the
+    /// in the scoring function) is the optional <c>minAlternativePamHitScore</c> of
+    /// <see cref="CalculateMitSpecificityScoreWithAlternativePams"/> (default 1.0, as there); the
     /// aggregate overload over hand-supplied hits does not filter.
     /// </para>
     /// </remarks>
@@ -1371,7 +1371,7 @@ public static class CrisprDesigner
     /// <param name="systemType">The guide's own system (SpCas9 by default); must be PAM-after-target.</param>
     /// <param name="minAlternativePamHitScore">
     /// Minimum unweighted hit score (0-100 scale) an alternative-PAM hit needs to be counted — the
-    /// reference's <c>ALTPAMMINSCORE</c> (default <c>1.0</c> there; <c>0</c> = no filtering here).
+    /// reference's <c>ALTPAMMINSCORE</c> (default <c>1.0</c>, as there; <c>0</c> = no filtering).
     /// </param>
     /// <returns>The aggregate MIT/Hsu specificity in [0, 100]; 100 when no off-target is found at all.</returns>
     /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or the genome is null.</exception>
@@ -1395,9 +1395,9 @@ public static class CrisprDesigner
     /// <paramref name="minAlternativePamHitScore"/> is the reference's <c>ALTPAMMINSCORE</c> /
     /// <c>--minAltPamScore</c> (crispor.py L318, L8439-8441), applied as L4108-4122 does: a hit whose PAM
     /// is in the alternative-PAM list is dropped when its unweighted hit score is below the cutoff
-    /// (<c>if otScore &lt; minScore: continue</c>). <b>Documented difference:</b> the reference's default is
-    /// <c>1.0</c>; this parameter defaults to <c>0</c> (no filtering) to keep the method's behaviour
-    /// unchanged — pass <c>1.0</c> to reproduce CRISPOR's default search. Because the reference tests
+    /// (<c>if otScore &lt; minScore: continue</c>). The default is the reference's own
+    /// <c>1.0</c> (B08 round 3 G6; it was <c>0</c> = no filtering before, which is still available by passing
+    /// <c>0</c>). Because the reference tests
     /// the alternative list first, with SaCas9 the cutoff also applies to main-PAM (<c>NNGRRT</c>) hits.
     /// </para>
     /// </remarks>
@@ -1406,7 +1406,7 @@ public static class CrisprDesigner
         DnaSequence genome,
         int maxMismatches = 4,
         CrisprSystemType systemType = CrisprSystemType.SpCas9,
-        double minAlternativePamHitScore = 0.0)
+        double minAlternativePamHitScore = 1.0)
     {
         EnsureMitModelApplies(systemType, nameof(systemType));
         if (double.IsNaN(minAlternativePamHitScore) || minAlternativePamHitScore < 0)

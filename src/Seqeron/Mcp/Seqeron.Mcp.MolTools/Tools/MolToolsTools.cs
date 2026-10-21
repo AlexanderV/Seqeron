@@ -1253,7 +1253,7 @@ public class MolToolsTools
         [Description("Maximum allowed mismatches (range 0..5; default 4, the reference's default).")] int max_mismatches = 4,
         [Description("CRISPR system (default SpCas9); must be PAM-after-target (Cas9-class).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
         [Description("Also scan the reference's alternative PAMs for this system (default false = main PAM only): SpCas9 adds NAG and NGA (downweighted by 0.2), SaCas9 adds NNGRRN (unweighted, as the reference).")] bool include_alternative_pams = false,
-        [Description("Only with include_alternative_pams: minimum unweighted hit score (0..100) an alternative-PAM hit needs to count — the reference's ALTPAMMINSCORE / --minAltPamScore. Default 0 = no filtering (the reference's own default is 1.0).")] double min_alternative_pam_hit_score = 0.0)
+        [Description("Only with include_alternative_pams: minimum unweighted hit score (0..100) an alternative-PAM hit needs to count — the reference's ALTPAMMINSCORE / --minAltPamScore. Default 1.0, the reference's own default; 0 = no filtering.")] double min_alternative_pam_hit_score = 1.0)
     {
         if (string.IsNullOrEmpty(guide_sequence))
             throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));

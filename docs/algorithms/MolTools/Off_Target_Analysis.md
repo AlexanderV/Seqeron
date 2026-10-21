@@ -166,7 +166,7 @@ The current implementation enumerates PAM sites first and then compares the guid
 
 **Intentionally simplified (alternative-PAM cutoff):**
 
-- The reference's alternative-PAM score cutoff (`ALTPAMMINSCORE = 1.0`, `--minAltPamScore`, `crispor.py` L318 / L4108-4122: a hit whose PAM is in the alternative list is dropped when its unweighted `calcHitScore` is `< 1.0`) is available as the optional `minAlternativePamHitScore` of `CalculateMitSpecificityScoreWithAlternativePams`; **consequence:** its default is `0` (no filtering, the pre-existing behaviour) whereas CRISPOR's default is `1.0` — pass `1.0` to reproduce CRISPOR's default search. As in the reference (alternative list tested first), a SaCas9 cutoff also applies to its `NNGRRT` main-PAM hits.
+- The reference's alternative-PAM score cutoff (`ALTPAMMINSCORE = 1.0`, `--minAltPamScore`, `crispor.py` L318 / L4108-4122: a hit whose PAM is in the alternative list is dropped when its unweighted `calcHitScore` is `< 1.0`) is the optional `minAlternativePamHitScore` of `CalculateMitSpecificityScoreWithAlternativePams`, **defaulting to CRISPOR's `1.0`** (B08 round 3 G6; the method was created in this campaign to reproduce CRISPOR's wider search, and the default was `0` before — pass `0` for no filtering). As in the reference (alternative list tested first), a SaCas9 cutoff also applies to its `NNGRRT` main-PAM hits.
 
 **Not implemented:**
 
