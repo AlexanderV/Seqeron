@@ -313,6 +313,28 @@ citation at `src/.../MolTools/CrisprDesigner.cs:258`, which B08 WP-SRC had to le
 | B08 resume-5 | `session_01VJE7r5BGjSKPcb7DxUsVn7` (RUNNING, launched 2026-10-21 15:16 on user's word, model 5-5) | verify at each check-in | aim: take B08 to its final report. D19 **in the lead's own context** (resume-4's two subagents for it were halted by a safety classifier; if halted again → record as an environment obstruction, not a technical BLOCKED, and carry on) → audit round 2 to zero DOABLE (F66 onwards) → duplication sweep → final audit → the single heavy tier (14-item list) → final report with `## Leftovers`. Told explicitly that B08 **may** enter "Finished batches" on zero DOABLE (the model is recorded, not required — correcting resume-4's prompt), that the vendored REBASE columns are frozen while the licence answer is pending, and that R3/R4/R8/R10 are not its business |
 | ~~B08 resume-4~~ | `session_01Gei6HyCuq5texhxCCGEvji` (archived, **$68.49**) | 5-5 from launch to 04:59, then fell back to `claude-opus-5` mid-session | **STOPPED 05:40 at the user's boundary** (`e3a877ec`), not on a defect and not at the context ceiling. Round 1 complete except D19: F40–F65 over WP3–WP13, round-1 full fast tier **18567/0**, MolTools MCP 441/0, catalog 483; tree clean, WIP branch marked clean, `## Resume state (end of resume-4 session)` written. **D19 not attempted** — two subagents were halted by a safety classifier (one during read-only recon), so `CrisprDesigner.cs` is untouched by it; it stays DOABLE and the next session must do it in the lead's own context, with the recon the halted subagent returned already recorded. Cost per WP a third of resume-2/-3 ($199/$206) — the discipline block worked |
 
+**STOP B08 AFTER THE DUPLICATION SWEEP (user 2026-10-21 23:25): "Після дедуплікації збережи все і призупинись до
+подальших команд."** This supersedes resume-5's instruction to run to the final report. The boundary: round 3 ticked to
+zero DOABLE **and** the one duplication sweep done and recorded in B08.md (including the skills-catalog regeneration
+check, `python3 scripts/skills/gen-catalog.py --check`) — then stop, BEFORE the final audit round, the heavy tier and
+the report. Procedure for the orchestrator (cloud sessions cannot be messaged, so this is a check-in task):
+1. Watch the commit log and the round-3 ticks at each check-in. At 23:18 round 3 stood at 11 of 14 (open G8, G9, G10).
+2. When the sweep has landed, `interrupt_session` — preferably right after a commit so the tree is clean; the WIP branch
+   `claude/stoic-maxwell-0olr2z-wip-B08` is the recovery point otherwise.
+3. Make sure B08.md carries a current `## Resume state` saying what landed (rounds 2 and 3, F66–F8x, the sweep) and what
+   the next session does **in order**: final audit round → the single heavy tier (the 14-item update/add list, FsCheck
+   classes ≥3 runs, full unfiltered `Seqeron.Genomics.Tests` + touched MCP projects) → final report ending with
+   `## Leftovers`. It must also carry: D19 as an **environment obstruction** (classifier-halted in both a subagent and
+   the lead's own context, code untouched, still DOABLE), the REBASE data **freeze** while the licence answer is
+   pending, the **5-5 debt** note for F66 onward, and that B08 **may** enter "Finished batches" on zero DOABLE because
+   the model is recorded and not required. If the session was cut before writing it, the orchestrator writes it from the
+   ticks and `git log`, commit "(ORCH for B08)".
+4. Also fix, once stopped, B08.md's "## Provenance / model flag (resume-5)" line that calls the post-D19 phase
+   `claude-opus-5` — the live session record says `claude-sonnet-5-5`.
+5. Push, mark the WIP branch clean per README, then `archive_session` (an archived session releases its container and
+   costs nothing), and report the cost. **Then launch nothing** — the user said pause until further commands.
+6. B08 is NOT finished at that point: the final audit, the heavy tier and the report remain.
+
 **STOP B08 AFTER AUDIT ROUND 1 (user 2026-10-15 00:05): "Після фіксу першої черги аудиту для B08 — збережи по ньому
 все і зупини так, щоб не жрав, але наступного разу можна було б продовжити."** B08 resume-4 was launched to run to a
 final report; it must instead stop at the end of round 1. The boundary: every item of "## Audit worklist (round 1)"
