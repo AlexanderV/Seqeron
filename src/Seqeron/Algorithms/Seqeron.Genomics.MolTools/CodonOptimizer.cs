@@ -1360,8 +1360,7 @@ public static class CodonOptimizer
             int budget = codons.Count + 8;
             while (budget-- > 0)
             {
-                string dna = ToDnaSpelling(string.Concat(codons));
-                int position = FindPattern(dna, pattern, from);
+                int position = FindPattern(string.Concat(codons), pattern, from);
                 if (position < 0)
                     break;
 
@@ -1381,20 +1380,26 @@ public static class CodonOptimizer
         }
     }
 
-    // First index >= from where the IUPAC pattern matches (-1 when absent).
-    private static int FindPattern(string dnaSequence, string pattern, int from)
-    {
-        for (int i = Math.Max(0, from); i + pattern.Length <= dnaSequence.Length; i++)
-        {
-            bool match = true;
-            for (int k = 0; k < pattern.Length && match; k++)
-                match = IupacHelper.MatchesIupac(dnaSequence[i + k], pattern[k]);
-            if (match)
-                return i;
-        }
+    // First index >= from where the IUPAC pattern matches (-1 when absent). The scan is the public
+    // RestrictionAnalyzer.FindPatternOccurrences (lazy — only the first hit is computed). That scan
+    // lets a pattern 'N' match an ambiguity code in the sequence (Biopython's site-regex rule); this
+    // optimizer never has: an ambiguous triplet occupies its position but contributes nothing and
+    // matches no pattern (cf. the codon-usage counters), so every non-ACGT base is masked to '-'
+    // (which matches nothing) first, keeping the pass's behaviour unchanged.
+    private static int FindPattern(string sequence, string pattern, int from) =>
+        RestrictionAnalyzer.FindPatternOccurrences(ToMatchableDna(sequence), pattern, from)
+            .Cast<int?>().FirstOrDefault() ?? -1;
 
-        return -1;
-    }
+    // DNA spelling (U -> T) with every non-ACGT symbol replaced by '-', which matches no pattern code.
+    private static string ToMatchableDna(string sequence) =>
+        string.Create(sequence.Length, sequence, static (span, source) =>
+        {
+            for (int i = 0; i < span.Length; i++)
+            {
+                char c = source[i] == 'U' ? 'T' : source[i];
+                span[i] = c is 'A' or 'C' or 'G' or 'T' ? c : '-';
+            }
+        });
 
     // Replaces the single synonymous codon that removes the occurrence at <paramref name="position"/>
     // with the smallest loss of codon usage; returns false when no synonymous substitution works.
@@ -1438,7 +1443,7 @@ public static class CodonOptimizer
                     continue;
 
                 string candidate = ConcatCodons(codons, 0, codons.Count, i, alternative);
-                if (FindPattern(ToDnaSpelling(candidate), pattern, position) == position)
+                if (FindPattern(candidate, pattern, position) == position)
                     continue;
 
                 double frequency = table.CodonFrequencies.GetValueOrDefault(alternative, 0);
@@ -2366,10 +2371,8 @@ public static class CodonOptimizer
     // folding by the canonical SequenceCase (TRANS-PROT-001: 'ſ' must not read as the IUPAC code S).
     private static string ToUpperRna(string sequence) => SequenceCase.ToUpperRna(sequence);
 
-    // Re-spelling of already upper-case codon text between the RNA working alphabet of this class
-    // and the DNA spelling of the canonical CodonUsageAnalyzer / IUPAC matchers.
-    private static string ToDnaSpelling(string rna) => rna.Replace('U', 'T');
-
+    // Re-spelling of already upper-case codon text from the DNA spelling of the canonical
+    // CodonUsageAnalyzer back to the RNA working alphabet of this class.
     private static string ToRnaSpelling(string dna) => dna.Replace('T', 'U');
 
     // Every complete frame-0 triplet, including ambiguous ones (the rewriting APIs must keep

@@ -208,6 +208,25 @@ public class CodonOptimizer_AvoidSites_Tests
         });
     }
 
+    [Test]
+    [Description("B08 F71: the pass runs on RestrictionAnalyzer.FindPatternOccurrences but an ambiguous triplet still matches no pattern code (an N in the site is not satisfied by a sequence N)")]
+    public void RemoveRestrictionSites_AmbiguousTriplet_NeverCompletesAPatternNWildcard()
+    {
+        // Site "TCCNGG": the unambiguous twin ATG TCC AGG TTT is an occurrence (TCCAGG) and is removed
+        // by a synonymous Ser/Arg swap; with the sequence N in the wildcard slot (ATG TCC NGG TTT)
+        // the optimizer, which counts ambiguous triplets as contributing nothing, leaves it alone.
+        string clean = CodonOptimizer.RemoveRestrictionSites(
+            "AUGUCCAGGUUU", new[] { "TCCNGG" }, CodonOptimizer.EColiK12);
+        string ambiguous = CodonOptimizer.RemoveRestrictionSites(
+            "AUGUCCNGGUUU", new[] { "TCCNGG" }, CodonOptimizer.EColiK12);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clean.Replace('U', 'T'), Does.Not.Contain("TCCAGG"), "positive control");
+            Assert.That(ambiguous, Is.EqualTo("AUGUCCNGGUUU"));
+        });
+    }
+
     #endregion
 
     #region AvoidRareCodons spelling (A2-14)
