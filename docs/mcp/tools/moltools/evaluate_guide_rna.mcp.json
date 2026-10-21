@@ -11,7 +11,7 @@
     "type": "object",
     "properties": {
       "guide_sequence": { "type": "string", "description": "Guide RNA sequence.", "minLength": 1 },
-      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
       "parameters": { "type": ["object", "null"] }
     },
     "required": ["guide_sequence"]

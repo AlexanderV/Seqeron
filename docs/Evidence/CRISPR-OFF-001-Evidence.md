@@ -239,13 +239,19 @@ aggregate would be exactly `100`.
    hit's last two bases of `protospacer + PAM`, not membership of the alternative table (any non-`*GG`
    PAM is downweighted); and **only** the MIT score is downweighted — the reference computes the hit's
    CFD score afterwards with no 0.2 factor, so `CalculateCfdSpecificityScore` is untouched.
-   Remaining sub-divergences, deliberate: (a) `NGA` is not *scannable* here because no
-   `CrisprSystemType` has `NGA` as its main PAM (`SaCas9 → NNGRRN` and `Cas12a → TTTN` likewise have no
-   system), although a hand-supplied `NGA` hit IS counted and downweighted by the annotated overload;
-   (b) the reference's pipeline-level cutoff for alternative-PAM hits (`ALTPAMMINSCORE = 1.0`,
-   **L310-318**, applied in the bowtie/BWA pre-filter at **L4092-4133**, with `MINSCORE = 0.0` for main
-   PAM hits) is NOT applied — it lives in the search pipeline, is a command-line option
-   (`--minAltPamScore`), and this library has no score-based pre-filter on the off-target scan at all.
+   B08 round 2 E1 (F66/F67) closed two of the former sub-divergences. (a) `SpCas9_NGA` (`NGA`, 20 nt)
+   and `SaCas9_NNGRRN` (`NNGRRN`, 21 nt) were appended to `CrisprSystemType`, so the alternative-PAM
+   aggregate now scans `NGG → NAG, NGA` and `NNGRRT → NNGRRN` (before, the `NGA`/`NNGRRN` scans were
+   silently dropped and an SaCas9 guide's alt-PAM aggregate equalled the plain one); a site matching both
+   `NNGRRT` and `NNGRRN` is counted once (CRISPOR runs one search), and SaCas9 `NNGRRN` hits are NOT
+   downweighted (the 0.2 rule is gated on `pam=="NGG"`). Oracle: guide `GACGCATAAAGATGAGACGC`, one
+   1-mismatch hit `GACGCTTAAAGATGAGACGC` + `CGA` -> `calcHitScore` 60.5 (crispor.py code re-run) ->
+   `100/(100+0.2x60.5)x100 = 89.20606601248885` (was 100.0). (b) The pipeline-level cutoff
+   (`ALTPAMMINSCORE = 1.0`, **L318**, applied at **L4108-4122**, `MINSCORE = 0.0` for main PAM hits;
+   `--minAltPamScore`, L8439-8441) is the optional `minAlternativePamHitScore` of
+   `CalculateMitSpecificityScoreWithAlternativePams`; the DEFAULT is `0` here versus `1.0` in the
+   reference (kept to preserve behaviour — pass `1.0` for CRISPOR's default). The reference tests the
+   alternative list first, so for SaCas9 the cutoff also reaches `NNGRRT` main-PAM hits; reproduced.
    The original single-system overload `CalculateMitSpecificityScore(string, DnaSequence, int,
    CrisprSystemType)` keeps its behaviour unchanged (locked by test).
 3. **PAM-before-target systems are refused outright**, including CasX. For Cpf1/Cas12a this follows the

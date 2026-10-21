@@ -20,6 +20,8 @@ public static class CrisprDesigner
         CrisprSystemType.AsCas12a => new CrisprSystem("AsCas12a", "TTTV", 23, false, "Acidaminococcus sp. Cas12a"),
         CrisprSystemType.LbCas12a => new CrisprSystem("LbCas12a", "TTTV", 24, false, "Lachnospiraceae bacterium Cas12a"),
         CrisprSystemType.CasX => new CrisprSystem("CasX", "TTCN", 20, false, "CasX - compact Cas protein"),
+        CrisprSystemType.SpCas9_NGA => new CrisprSystem("SpCas9-NGA", "NGA", 20, true, "SpCas9 with NGA PAM (alternative off-target PAM of NGG, Kleinstiver 2015)"),
+        CrisprSystemType.SaCas9_NNGRRN => new CrisprSystem("SaCas9-NNGRRN", "NNGRRN", 21, true, "SaCas9 with relaxed NNGRRN PAM (alternative off-target PAM of NNGRRT)"),
         _ => throw new ArgumentException($"Unknown CRISPR system: {type}")
     };
 
@@ -1170,11 +1172,11 @@ public static class CrisprDesigner
     /// <para>
     /// Only the MIT downweight
     /// (<see cref="CalculateMitSpecificityScore(string, IEnumerable{PamAnnotatedOffTarget}, CrisprSystemType)"/>)
-    /// is defined on these motifs; the reference's own pipeline-level cutoff for alternative-PAM hits
+    /// is defined on these motifs; the reference's pipeline-level cutoff for alternative-PAM hits
     /// (<c>ALTPAMMINSCORE = 1.0</c>, L310-318, applied in the bowtie/BWA pre-filter at L4092-4133, not
-    /// in the scoring function) is NOT applied here: this library has no score-based pre-filter on the
-    /// off-target scan at all, and that cutoff is a configurable command-line option of the reference's
-    /// search pipeline rather than part of the published aggregate.
+    /// in the scoring function) is available as the optional <c>minAlternativePamHitScore</c> of
+    /// <see cref="CalculateMitSpecificityScoreWithAlternativePams"/> (default 0 here vs 1.0 there); the
+    /// aggregate overload over hand-supplied hits does not filter.
     /// </para>
     /// </remarks>
     /// <param name="systemType">The CRISPR system whose main PAM is looked up.</param>
@@ -1237,8 +1239,8 @@ public static class CrisprDesigner
     /// guide-level aggregate is the unrounded <c>calcMitGuideScore</c>.
     /// <para>
     /// Deliberate scope: the reference also pre-filters alternative-PAM hits with
-    /// <c>ALTPAMMINSCORE = 1.0</c> in its search pipeline — see
-    /// <see cref="GetAlternativeOffTargetPams"/> for why that cutoff is not applied here.
+    /// <c>ALTPAMMINSCORE = 1.0</c> in its search pipeline — that cutoff is available on
+    /// <see cref="CalculateMitSpecificityScoreWithAlternativePams"/>, not applied to hand-supplied hits.
     /// </para>
     /// </remarks>
     public static double CalculateMitSpecificityScore(
@@ -1309,39 +1311,86 @@ public static class CrisprDesigner
     /// <param name="genome">The genome/sequence to scan for off-targets.</param>
     /// <param name="maxMismatches">Maximum mismatches to consider (0-5, as in <see cref="FindOffTargets"/>).</param>
     /// <param name="systemType">The guide's own system (SpCas9 by default); must be PAM-after-target.</param>
+    /// <param name="minAlternativePamHitScore">
+    /// Minimum unweighted hit score (0-100 scale) an alternative-PAM hit needs to be counted — the
+    /// reference's <c>ALTPAMMINSCORE</c> (default <c>1.0</c> there; <c>0</c> = no filtering here).
+    /// </param>
     /// <returns>The aggregate MIT/Hsu specificity in [0, 100]; 100 when no off-target is found at all.</returns>
     /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or the genome is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxMismatches"/> is outside 0-5.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxMismatches"/> is outside 0-5 or the cutoff is negative/NaN.</exception>
     /// <exception cref="ArgumentException">
     /// Thrown for a PAM-before-target system, or when the guide length does not match the system's.
     /// </exception>
     /// <remarks>
     /// Coverage, stated exactly: an alternative PAM can only be scanned here if some
-    /// <see cref="CrisprSystemType"/> has it as its main PAM and the SAME guide length. For SpCas9
-    /// (<c>NGG</c>) that covers <c>NAG</c> via <see cref="CrisprSystemType.SpCas9_NAG"/> but NOT
-    /// <c>NGA</c>, which no system in this library offers; an <c>NGA</c> hit supplied by hand to
-    /// <see cref="CalculateMitSpecificityScore(string, IEnumerable{PamAnnotatedOffTarget}, CrisprSystemType)"/>
-    /// IS downweighted and counted, since the rule is evaluated on the hit's own PAM. For SaCas9
-    /// (<c>NNGRRT</c> → <c>NNGRRN</c>) and Cas12a (<c>TTTV</c> → <c>TTTN</c>) no alternative-PAM system
-    /// exists either, so this overload then scans the main PAM only and equals the genome overload
-    /// (Cas12a-class systems throw in both). The PAMs actually scanned are
-    /// <see cref="GetAlternativeOffTargetPams"/> intersected with that system set.
+    /// <see cref="CrisprSystemType"/> has it as its main PAM and the SAME guide length. SpCas9 (<c>NGG</c>)
+    /// is covered for <c>NAG</c> (<see cref="CrisprSystemType.SpCas9_NAG"/>) and <c>NGA</c>
+    /// (<see cref="CrisprSystemType.SpCas9_NGA"/>); SaCas9 (<c>NNGRRT</c>) for <c>NNGRRN</c>
+    /// (<see cref="CrisprSystemType.SaCas9_NNGRRN"/>, 21-nt guide). A site matching both the main and a
+    /// wider alternative pattern (every <c>NNGRRT</c> site is also <c>NNGRRN</c>) is one off-target, as
+    /// in the reference's single search, and is counted once. The 0.2 weight is the reference's
+    /// <c>pam=="NGG"</c>-gated rule, so it applies to NGG guides only; SaCas9 <c>NNGRRN</c> hits enter
+    /// unweighted, exactly as <c>annotateOfftargets</c> does. Cas12a-class (<c>TTTV</c> → <c>TTTN</c>)
+    /// has no PAM-after-target alternative system and throws here as in the genome overload. The PAMs
+    /// actually scanned are <see cref="GetAlternativeOffTargetPams"/> intersected with that system set.
+    /// <para>
+    /// <paramref name="minAlternativePamHitScore"/> is the reference's <c>ALTPAMMINSCORE</c> /
+    /// <c>--minAltPamScore</c> (crispor.py L318, L8439-8441), applied as L4108-4122 does: a hit whose PAM
+    /// is in the alternative-PAM list is dropped when its unweighted hit score is below the cutoff
+    /// (<c>if otScore &lt; minScore: continue</c>). <b>Documented difference:</b> the reference's default is
+    /// <c>1.0</c>; this parameter defaults to <c>0</c> (no filtering) to keep the method's behaviour
+    /// unchanged — pass <c>1.0</c> to reproduce CRISPOR's default search. Because the reference tests
+    /// the alternative list first, with SaCas9 the cutoff also applies to main-PAM (<c>NNGRRT</c>) hits.
+    /// </para>
     /// </remarks>
     public static double CalculateMitSpecificityScoreWithAlternativePams(
         string guideSequence,
         DnaSequence genome,
         int maxMismatches = 4,
-        CrisprSystemType systemType = CrisprSystemType.SpCas9)
+        CrisprSystemType systemType = CrisprSystemType.SpCas9,
+        double minAlternativePamHitScore = 0.0)
     {
         EnsureMitModelApplies(systemType, nameof(systemType));
+        if (double.IsNaN(minAlternativePamHitScore) || minAlternativePamHitScore < 0)
+            throw new ArgumentOutOfRangeException(nameof(minAlternativePamHitScore),
+                "The alternative-PAM hit-score cutoff must be a non-negative number.");
 
         var hits = FindOffTargetsWithPam(guideSequence, genome, maxMismatches, systemType).ToList();
 
         var main = GetSystem(systemType);
-        foreach (string altPam in GetAlternativeOffTargetPams(systemType))
+        var altPams = GetAlternativeOffTargetPams(systemType);
+        foreach (string altPam in altPams)
         {
             foreach (var altSystem in AlternativePamSystems(altPam, main.GuideLength))
-                hits.AddRange(FindOffTargetsWithPam(guideSequence, genome, maxMismatches, altSystem));
+            {
+                foreach (var hit in FindOffTargetsWithPam(guideSequence, genome, maxMismatches, altSystem))
+                {
+                    // CRISPOR runs ONE search, so a site matching both the main and a wider alternative
+                    // pattern (SaCas9 NNGRRT inside NNGRRN) is a single off-target; the main scan has it.
+                    if (!MatchesPam(hit.Pam.ToUpperInvariant(), 0, main.PamSequence))
+                        hits.Add(hit);
+                }
+            }
+        }
+
+        if (minAlternativePamHitScore > 0 && altPams.Count > 0)
+        {
+            // crispor.py L4108-4122: a hit whose PAM is in the expanded alternative-PAM list is kept only
+            // if its UNWEIGHTED hit score (calcHitScore / calcSaHitScore, before the 0.2 factor) is
+            // >= ALTPAMMINSCORE ("if otScore < minScore: ... continue"). The membership test is on the
+            // alternative list FIRST, exactly as the reference orders it, so for a PAM wider than the
+            // main one (SaCas9 NNGRRN contains NNGRRT) main-PAM hits are subject to the cutoff as well.
+            var guide = guideSequence.ToUpperInvariant();
+            bool useSaModel = IsSaCas9Pam(main.PamSequence) && guide.Length == SaCas9GuideLength;
+            hits = hits.Where(hit =>
+            {
+                string pam = hit.Pam.ToUpperInvariant();
+                if (!altPams.Any(alt => MatchesPam(pam, 0, alt)))
+                    return true;
+                string ot = hit.Site.Sequence.ToUpperInvariant();
+                double score = useSaModel ? CalculateSaCas9HitScore(guide, ot) : CalculateMitHitScoreFudged(guide, ot);
+                return score >= minAlternativePamHitScore;
+            }).ToList();
         }
 
         return CalculateMitSpecificityScore(guideSequence, hits, systemType);
@@ -1419,8 +1468,9 @@ public static class CrisprDesigner
     /// if this score makes sense anymore, we force things".
     /// <para>
     /// Reachability, stated so the branches are not mistaken for live parity: with this library's
-    /// current <see cref="CrisprSystem"/> set only the <c>== 20</c> branch runs. The three
-    /// PAM-after-target systems are SpCas9 (20 nt), SpCas9-NAG (20 nt) and SaCas9 (21 nt), and SaCas9 is
+    /// current <see cref="CrisprSystem"/> set only the <c>== 20</c> branch runs. The five
+    /// PAM-after-target systems are SpCas9, SpCas9-NAG and SpCas9-NGA (20 nt each) and SaCas9 and
+    /// SaCas9-NNGRRN (21 nt each), and the SaCas9 ones are
     /// routed to the Tycko 2018 model (<see cref="CalculateSaCas9HitScore"/>) by the caller, exactly as
     /// <c>annotateOfftargets</c> routes it, so the <c>&gt; 20</c> fudge is never taken; no system has a
     /// 19-nt guide and <see cref="FindOffTargets"/> rejects a guide that does not match its system's
@@ -1522,13 +1572,15 @@ public static class CrisprDesigner
 
     /// <summary>
     /// Returns true for the PAM motifs the reference treats as SaCas9 (<c>pamIsSaCas9</c>:
-    /// <c>NNGRRT</c> / <c>NNNRRT</c>, matched on the part before any <c>-</c> suffix).
+    /// <c>NNGRRT</c> / <c>NNNRRT</c>, matched on the part before any <c>-</c> suffix). This library's
+    /// <see cref="CrisprSystemType.SaCas9_NNGRRN"/> (the reference's alternative PAM of <c>NNGRRT</c>,
+    /// never a main PAM there) is a SaCas9 system too and takes the same Tycko model.
     /// </summary>
     private static bool IsSaCas9Pam(string pam)
     {
         int dash = pam.IndexOf('-', StringComparison.Ordinal);
         string head = dash < 0 ? pam : pam[..dash];
-        return head is "NNGRRT" or "NNNRRT";
+        return head is "NNGRRT" or "NNNRRT" or "NNGRRN";
     }
 
     /// <summary>
@@ -2095,7 +2147,17 @@ public enum CrisprSystemType
     /// <summary>Lachnospiraceae bacterium Cas12a</summary>
     LbCas12a,
     /// <summary>CasX (TTCN PAM)</summary>
-    CasX
+    CasX,
+    /// <summary>
+    /// SpCas9 with NGA PAM — the reference's second alternative off-target PAM of <c>NGG</c> and the
+    /// main PAM of its <c>NGA → NGG</c> table row. Appended last so existing numeric values do not change.
+    /// </summary>
+    SpCas9_NGA,
+    /// <summary>
+    /// SaCas9 with the relaxed <c>NNGRRN</c> PAM — the reference's alternative off-target PAM of
+    /// <c>NNGRRT</c> (21-nt guide). Appended last so existing numeric values do not change.
+    /// </summary>
+    SaCas9_NNGRRN
 }
 
 /// <summary>

@@ -20,7 +20,9 @@ Looks up the built-in metadata record for a CRISPR system: its name, PAM recogni
 |--------|-----|--------------|------------------|
 | SpCas9 | NGG | 20 | true |
 | SpCas9_NAG | NAG | 20 | true |
+| SpCas9_NGA | NGA | 20 | true |
 | SaCas9 | NNGRRT | 21 | true |
+| SaCas9_NNGRRN | NNGRRN | 21 | true |
 | Cas12a / AsCas12a | TTTV | 23 | false |
 | LbCas12a | TTTV | 24 | false |
 | CasX | TTCN | 20 | false |
@@ -33,7 +35,7 @@ Looks up the built-in metadata record for a CRISPR system: its name, PAM recogni
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `system_type` | enum | Yes | `SpCas9` \| `SpCas9_NAG` \| `SaCas9` \| `Cas12a` \| `AsCas12a` \| `LbCas12a` \| `CasX`. |
+| `system_type` | enum | Yes | `SpCas9` \| `SpCas9_NAG` \| `SpCas9_NGA` \| `SaCas9` \| `SaCas9_NNGRRN` \| `Cas12a` \| `AsCas12a` \| `LbCas12a` \| `CasX`. |
 
 ## Output Schema
 

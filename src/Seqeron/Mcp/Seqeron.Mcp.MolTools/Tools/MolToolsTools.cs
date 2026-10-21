@@ -1131,7 +1131,7 @@ public class MolToolsTools
 
     [McpServerTool(Name = "crispr_system_info", Title = "MolTools — CRISPR System Metadata", ReadOnly = true), Description("Returns the metadata record (name, PAM sequence, guide length, PAM placement relative to target, description) for a known CRISPR nuclease system. Call when the user needs the PAM/guide parameters of SpCas9, SaCas9, Cas12a, CasX, etc.")]
     public static CrisprSystem crispr_system_info(
-        [Description("CRISPR system: SpCas9 | SpCas9_NAG | SaCas9 | Cas12a | AsCas12a | LbCas12a | CasX.")] CrisprSystemType system_type)
+        [Description("CRISPR system: SpCas9 | SpCas9_NAG | SpCas9_NGA | SaCas9 | SaCas9_NNGRRN | Cas12a | AsCas12a | LbCas12a | CasX.")] CrisprSystemType system_type)
     {
         return CrisprDesigner.GetSystem(system_type);
     }
@@ -1218,13 +1218,14 @@ public class MolToolsTools
             CrisprDesigner.CalculateHeuristicSpecificityScore(guide_sequence, new DnaSequence(genome), system_type));
     }
 
-    [McpServerTool(Name = "crispr_mit_specificity_score", Title = "MolTools — CRISPR Guide Specificity (MIT/Hsu 2013)", ReadOnly = true), Description("The PUBLISHED MIT / Hsu 2013 aggregate guide specificity score ('Guide score' of crispr.mit.edu, CRISPOR's calcMitGuideScore): scans the genome for off-targets with 1..max_mismatches mismatches, scores each with the Hsu position-weight model, and returns 100/(100 + Σ hitScores) × 100 in 0..100 (100 = no off-targets). Unrounded (the reference rounds to an integer). The per-hit model is picked by system exactly as the reference's annotateOfftargets does: a SaCas9 PAM (NNGRRT/NNNRRT) with its 21-nt guide is scored with the SaCas9-specific trained model of Tycko et al. 2018 (the reference's calcSaHitScore), every other PAM-after-target system with the Hsu model. Cas12a/Cpf1-class and CasX (PAM-before-target) systems are REFUSED: the reference reports no MIT off-target score for them. Set include_alternative_pams=true to also count off-targets sitting on the reference's alternative PAMs (its offtargetPams table: NGG → NAG, NGA), each contributing only 0.2 × its hit score exactly as annotateOfftargets does ('alternative PAMs represent only ~10% of all cleavage events'); the default false scans the one system's PAM only, which reports a guide as MORE specific than the reference. Call for a publication-grade specificity number instead of crispr_specificity_score.")]
+    [McpServerTool(Name = "crispr_mit_specificity_score", Title = "MolTools — CRISPR Guide Specificity (MIT/Hsu 2013)", ReadOnly = true), Description("The PUBLISHED MIT / Hsu 2013 aggregate guide specificity score ('Guide score' of crispr.mit.edu, CRISPOR's calcMitGuideScore): scans the genome for off-targets with 1..max_mismatches mismatches, scores each with the Hsu position-weight model, and returns 100/(100 + Σ hitScores) × 100 in 0..100 (100 = no off-targets). Unrounded (the reference rounds to an integer). The per-hit model is picked by system exactly as the reference's annotateOfftargets does: a SaCas9 PAM (NNGRRT/NNNRRT) with its 21-nt guide is scored with the SaCas9-specific trained model of Tycko et al. 2018 (the reference's calcSaHitScore), every other PAM-after-target system with the Hsu model. Cas12a/Cpf1-class and CasX (PAM-before-target) systems are REFUSED: the reference reports no MIT off-target score for them. Set include_alternative_pams=true to also count off-targets sitting on the reference's alternative PAMs (its offtargetPams table: NGG → NAG, NGA; NNGRRT → NNGRRN), each NGG-guide alternative hit contributing only 0.2 × its hit score exactly as annotateOfftargets does ('alternative PAMs represent only ~10% of all cleavage events'; the rule is gated on the main PAM being NGG, so SaCas9 NNGRRN hits enter unweighted); the default false scans the one system's PAM only, which reports a guide as MORE specific than the reference. Call for a publication-grade specificity number instead of crispr_specificity_score.")]
     public static SpecificityResult crispr_mit_specificity_score(
         [Description("Guide RNA sequence (length must match the system's guide length).")] string guide_sequence,
         [Description("Genome / reference sequence to scan.")] string genome,
         [Description("Maximum allowed mismatches (range 0..5; default 4, the reference's default).")] int max_mismatches = 4,
         [Description("CRISPR system (default SpCas9); must be PAM-after-target (Cas9-class).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
-        [Description("Also scan the reference's alternative PAMs for this system and downweight those hits by 0.2 (default false = main PAM only). For SpCas9 this adds the NAG scan; NGA is not offered as a system here, so it is not scanned.")] bool include_alternative_pams = false)
+        [Description("Also scan the reference's alternative PAMs for this system (default false = main PAM only): SpCas9 adds NAG and NGA (downweighted by 0.2), SaCas9 adds NNGRRN (unweighted, as the reference).")] bool include_alternative_pams = false,
+        [Description("Only with include_alternative_pams: minimum unweighted hit score (0..100) an alternative-PAM hit needs to count — the reference's ALTPAMMINSCORE / --minAltPamScore. Default 0 = no filtering (the reference's own default is 1.0).")] double min_alternative_pam_hit_score = 0.0)
     {
         if (string.IsNullOrEmpty(guide_sequence))
             throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
@@ -1235,7 +1236,7 @@ public class MolToolsTools
 
         return new SpecificityResult(include_alternative_pams
             ? CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(
-                guide_sequence, new DnaSequence(genome), max_mismatches, system_type)
+                guide_sequence, new DnaSequence(genome), max_mismatches, system_type, min_alternative_pam_hit_score)
             : CrisprDesigner.CalculateMitSpecificityScore(
                 guide_sequence, new DnaSequence(genome), max_mismatches, system_type));
     }

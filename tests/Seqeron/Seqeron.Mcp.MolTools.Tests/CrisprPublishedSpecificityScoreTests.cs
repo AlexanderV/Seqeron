@@ -223,6 +223,32 @@ public class CrisprPublishedSpecificityScoreTests
     }
 
     /// <summary>
+    /// B08 round 2 E1/F66-F67: the tool now scans the NGA alternative PAM (was silently dropped, 100.0) and
+    /// forwards <c>min_alternative_pam_hit_score</c>. Guide GACGCATAAAGATGAGACGC, genome = 1-mismatch hit
+    /// (calcHitScore 60.5, crispor.py code re-run) + CGA + filler: 100/(100+0.2x60.5)x100 = 89.20606601248885;
+    /// a cutoff of 61 (> 60.5) drops that hit -> 100.
+    /// </summary>
+    [Test]
+    public void CrisprMitSpecificityScore_IncludeAlternativePams_ScansNga_AndForwardsTheCutoff()
+    {
+        const string genome = "GACGCTTAAAGATGAGACGC" + "CGA" + "TTTTTT";
+        Assert.Multiple(() =>
+        {
+            Assert.That(MolToolsTools.crispr_mit_specificity_score(Guide, genome, 4).Specificity,
+                Is.EqualTo(100.0));
+            Assert.That(
+                MolToolsTools.crispr_mit_specificity_score(
+                    Guide, genome, 4, CrisprSystemType.SpCas9, include_alternative_pams: true).Specificity,
+                Is.EqualTo(89.20606601248885).Within(1e-9));
+            Assert.That(
+                MolToolsTools.crispr_mit_specificity_score(
+                    Guide, genome, 4, CrisprSystemType.SpCas9, include_alternative_pams: true,
+                    min_alternative_pam_hit_score: 61.0).Specificity,
+                Is.EqualTo(100.0));
+        });
+    }
+
+    /// <summary>
     /// F50: only the MIT aggregate is downweighted — the CFD tool is unaffected by the rule and still
     /// sees only its own system's PAM, so its value on this genome does not move.
     /// </summary>

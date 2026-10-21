@@ -13,7 +13,7 @@
       "guide_sequence": { "type": "string", "description": "Guide RNA sequence (must be 20 nt for the supported systems).", "minLength": 1 },
       "genome": { "type": "string", "description": "Genome / reference sequence to scan.", "minLength": 1 },
       "max_mismatches": { "type": "integer", "description": "Maximum allowed mismatches (range 0..5; default 4, the reference's default).", "minimum": 0, "maximum": 5, "default": 4 },
-      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
       "aggregation": { "type": "string", "enum": ["MitStyle", "ParkinsonNormalized"], "default": "MitStyle" }
     },
     "required": ["guide_sequence", "genome"]

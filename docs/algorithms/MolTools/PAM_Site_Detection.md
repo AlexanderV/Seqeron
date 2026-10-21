@@ -98,7 +98,9 @@ Supported CRISPR systems in the current implementation:
 |--------|--------------|--------------|--------------|-------|
 | SpCas9 | NGG | 3' of target | 20 bp | Canonical Cas9 from *Streptococcus pyogenes* |
 | SpCas9-NAG | NAG | 3' of target | 20 bp | Lower-efficiency variant |
+| SpCas9-NGA | NGA | 3' of target | 20 bp | CRISPOR's alternative off-target PAM of NGG (Kleinstiver 2015) |
 | SaCas9 | NNGRRT | 3' of target | 21 bp | *Staphylococcus aureus* Cas9 |
+| SaCas9-NNGRRN | NNGRRN | 3' of target | 21 bp | CRISPOR's relaxed alternative off-target PAM of NNGRRT |
 | Cas12a (Cpf1) | TTTV | 5' of target | 23 bp | `V = A, C, or G` |
 | AsCas12a | TTTV | 5' of target | 23 bp | *Acidaminococcus sp.* |
 | LbCas12a | TTTV | 5' of target | 24 bp | *Lachnospiraceae bacterium* |

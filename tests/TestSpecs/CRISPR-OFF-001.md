@@ -299,9 +299,14 @@ plus a third hit (`2.6227599999999995`, mismatches at 2 and 17) on an alternativ
 | `CalculateMitSpecificityScore_Annotated_ThreeHitsTwoAlternative_MatchesReference` | `59.7640924805823` |
 | `CalculateMitSpecificityScore_Annotated_NagSystem_NeverDownweights` | the rule is gated on the *guide's* PAM being `NGG` (`SpCas9_NAG` → `52.083333333333336` for either hit set) |
 | `CalculateMitSpecificityScore_Annotated_SaCas9_UsesTyckoModelAndNoDownweight` | F14 routing preserved: `95.91285612347565`, no downweight (main PAM is `NNGRRT`) |
-| `GetAlternativeOffTargetPams_MatchesReferenceTable` | `offtargetPams` (L243-253): `NGG → [NAG, NGA]`, `NNGRRT → [NNGRRN]`, `TTTV → [TTTN]`; `NAG`/`TTCN` → empty |
+| `GetAlternativeOffTargetPams_MatchesReferenceTable` | `offtargetPams` (L243-253): `NGG → [NAG, NGA]`, `NNGRRT → [NNGRRN]`, `TTTV → [TTTN]`; `NAG`/`TTCN` → empty (`NGA → [NGG]` for `SpCas9_NGA`) |
 | `CalculateMitSpecificityScoreWithAlternativePams_FoldsInTheNagScan` | the two scans' hit sets, then `59.95203836930455`, **and** the single-system overload unchanged at `62.30529595015576` |
-| `CalculateMitSpecificityScoreWithAlternativePams_NoScannableAlternative_EqualsSingleSystem` | SaCas9 (no `NNGRRN` system) reduces to the single-system value; no off-targets → `100` |
+| `CalculateMitSpecificityScoreWithAlternativePams_NoScannableAlternative_EqualsSingleSystem` | SaCas9 hit on its main PAM only: the alt-PAM aggregate equals the single-system value (the `NNGRRN` scan adds nothing, no double count); no off-targets → `100` |
+| `CalculateMitSpecificityScoreWithAlternativePams_NgaHit_IsScannedAndDownweighted` | B08 r2 E1/F66: one 1-mismatch `NGA` hit (`calcHitScore` 60.5) → `89.20606601248885` (was `100`); single-system overload still `100` |
+| `CalculateMitSpecificityScoreWithAlternativePams_SaCas9_NnggrrnHit_IsScannedUnweighted_AndNotDoubleCounted` | `NNGRRN` hit → `95.91285612347565` (unweighted, calcSaHitScore 4.2613097364785695); plus an `NNGRRT` twin → `92.14668839146395` (each site once) |
+| `NewAlternativePamSystems_HaveReferenceMetadata_AndExistingEnumValuesAreUnchanged` | `SpCas9_NGA` = (`NGA`, 20, after); `SaCas9_NNGRRN` = (`NNGRRN`, 21, after); enum values 0..6 unchanged, new = 7, 8 |
+| `CalculateMitSpecificityScoreWithAlternativePams_MinAlternativePamHitScore_FiltersAlternativeHitsOnly` | F67 `ALTPAMMINSCORE`: cutoff 0 → `59.92955631050283`, 1.0 → `59.95203836930455`, 40 → `62.30529595015576`; negative / NaN throw |
+| `CalculateMitSpecificityScoreWithAlternativePams_SaCas9_CutoffAppliesToMainPamHitsToo` | crispor.py L4108-4111 order quirk: SaCas9 hit (4.26) kept at cutoff 4, dropped at 5 |
 | `FindOffTargetsWithPam_MatchesFindOffTargets_AndValidatesItsArguments` | the new public PAM-annotated scan is `FindOffTargets` + PAM, same order, same guards |
 | `CalculateMitSpecificityScore_Annotated_InvalidInputs_Throw` | null guide / null list / null element / empty PAM / wrong protospacer length / wrong guide length / PAM-before-target |
 

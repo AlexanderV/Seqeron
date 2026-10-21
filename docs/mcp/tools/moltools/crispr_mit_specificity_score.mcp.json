@@ -13,8 +13,9 @@
       "guide_sequence": { "type": "string", "description": "Guide RNA sequence (length must match the system's guide length).", "minLength": 1 },
       "genome": { "type": "string", "description": "Genome / reference sequence to scan.", "minLength": 1 },
       "max_mismatches": { "type": "integer", "description": "Maximum allowed mismatches (range 0..5; default 4, the reference's default).", "minimum": 0, "maximum": 5, "default": 4 },
-      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
-      "include_alternative_pams": { "type": "boolean", "description": "Also scan the reference's alternative PAMs for this system (offtargetPams: NGG -> NAG, NGA) and downweight those hits by 0.2, as CRISPOR's annotateOfftargets does. Default false = main PAM only. For SpCas9 only NAG is scannable here (no NGA system exists).", "default": false }
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
+      "include_alternative_pams": { "type": "boolean", "description": "Also scan the reference's alternative PAMs for this system (offtargetPams: NGG -> NAG, NGA; NNGRRT -> NNGRRN) and downweight NGG-guide alternative hits by 0.2, as CRISPOR's annotateOfftargets does. Default false = main PAM only. SpCas9 scans NAG and NGA (x0.2); SaCas9 scans NNGRRN (unweighted, as the reference).", "default": false },
+      "min_alternative_pam_hit_score": { "type": "number", "description": "With include_alternative_pams: minimum unweighted hit score (0..100) an alternative-PAM hit needs to count (reference ALTPAMMINSCORE / --minAltPamScore). Default 0 = no filtering; the reference's own default is 1.0.", "default": 0 }
     },
     "required": ["guide_sequence", "genome"]
   },
