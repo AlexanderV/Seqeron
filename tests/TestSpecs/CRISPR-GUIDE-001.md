@@ -64,11 +64,16 @@
 |---------|---------|-------------|
 | GC outside [MinGc, MaxGc] | −(delta × 2) per % | M-001 (0 penalty), M-002 (−80), M-003 (−60) |
 | Poly-T (TTTT+) | −20 flat, only when `AvoidPolyT` (F8) | M-004 (score 80), S-008 (score 80), S-017 (flag off → 100) |
-| Self-complementarity > 0.3 | −(selfComp × 30), only when `CheckSelfComplementarity` (F8) | C-001 (−9.375 on 8bp palindrome), S-018 (flag off → no deduction) |
+| CHOPCHOP self-complementary 4-bp stems | −1 per stem (`SCORE['FOLDING'] = 1`), only when `CheckSelfComplementarity` (F8, E3; replaced the unsourced `selfComp × 30` above 0.3) | C-001 (11 stems → −11), S-018 (flag off → no deduction), C-023 |
 | Seed GC outside [30%, 80%] | −5 flat | S-010 (−5), S-011 (−5), M-002 (combined), M-003 (combined) |
 | Restriction site (common) | −5 flat | S-001 (score 95) |
 | Score floor | max(0, score) | C-002 (clamped to 0) |
 | CHOPCHOP 4-bp stems > `MaxSelfComplementaryStems` | 0 (issue in `EvaluateGuideRna`, filter in `DesignGuideRnas`; null = no filter, CHOPCHOP default −1) (F6) | C-022 |
+| C-023 | `EvaluateGuideRna_StemPenalty_IsOnePointPerChopchopStem` (5 cases) | ACGT×5, GCGC×10, `ACGGACTAGCCTACGTACGT`, ACGT×3, GCGCGCGC ± `StandardSgRnaBackboneRegion` | stems 10/11/0/2/0 and 10/11/8/2/0 with backbone (chopchop.py `calcSelfComplementarity` run verbatim); Score = unpenalised − stems (E3) | ✅ |
+| C-024 | `EvaluateGuideRna_LegacySelfComplementarityScore_DoesNotEnterTheScore` | "GCGCGCGC" | legacy 0.3125, 0 stems, Score=95 (E3) | ✅ |
+| C-025 | `RawStringGuideEntryPoints_RejectNonNucleotides` (5 cases) | `X`×20, `N`, `-`, space, `ſ` (U+017F) | `ArgumentException` (ParamName `guideSequence`) from `EvaluateGuideRna`, `CountSelfComplementaryStems` and the backbone list (E3) | ✅ |
+| C-026 | `RawStringGuideEntryPoints_FoldCaseAndReadUAsT` | lower-case RNA spacer, RNA scaffold | identical to the DNA upper-case result (E3) | ✅ |
+| C-027 | `CalculateMitHitScore_LongS_IsNotFoldedOntoS` | `…GS` vs `…Gſ` | one mismatch at position 19, equal to the `…GA` mismatch score (was 100) (D20/E3) | ✅ |
 | Graf 2019 TT-/GCC-motif | 0 (issue only, NGG systems only — CRISPOR warns) (F7) | C-017 |
 
 ---
@@ -79,7 +84,7 @@
 
 | ID | Test | Input | Exact Expected | Status |
 |----|------|-------|----------------|--------|
-| M-001 | `EvaluateGuideRna_OptimalGuide_HighScore` | "ACGTACGTACGTACGTACGT" (50% GC) | Score=100, GC=50, SeedGC=50, Issues=[], SelfComp=0.15 | ✅ |
+| M-001 | `EvaluateGuideRna_OptimalGuide_HighScore` | "ACGGACTAGCCTACGTACGT" (55% GC, 0 stems) | Score=100, GC=55, SeedGC=50, Issues=[], Stems=0 (E3: the former ACGT×5 guide carries 10 stems) | ✅ |
 | M-002 | `EvaluateGuideRna_LowGcContent_LowerScore` | "AAAAAAAAAAAAAAAAAAAA" (0% GC) | Score=15, GC=0, SeedGC=0, Issues=2 [Low GC, Suboptimal seed GC] | ✅ |
 | M-003 | `EvaluateGuideRna_HighGcContent_LowerScore` | "GCGCGCGCGCGCGCGCGCGC" (100% GC) | Score=35, GC=100, SeedGC=100, Issues=2 [High GC, Suboptimal seed GC] | ✅ |
 | M-004 | `EvaluateGuideRna_HasPolyT_Penalized` | "ACGTACGTTTTTACGTACGT" (TTTT) | Score=80, GC=40, HasPolyT=true, Issues=1 [TTTT] | ✅ |
@@ -117,7 +122,7 @@
 | S-015 | `DesignGuideRnas_Output_IsRankedByScoreDescending` | 3 PAMs scoring 100/80/0 | Scores [100, 80, 0] (F5, CRISPOR `mergeGuideInfo` sort) | ✅ |
 | S-016 | `DesignGuideRnas_KeepsTheRequestedSystemMetadata` | LbCas12a target | System LbCas12a, GuideLength 24, PamAfterTarget=false, SeedGC=60 (5' seed) (F4) | ✅ |
 | S-017 | `EvaluateGuideRna_AvoidPolyTFalse_DisablesThePolyTPenalty` | "ACGTACGTTTTTACGTACGT" | on: 80; off: 100, HasPolyT=true, Issues=[] (F8) | ✅ |
-| S-018 | `EvaluateGuideRna_CheckSelfComplementarityFalse_DisablesThePenalty` | "GCGCGCGC" | on: 100−9.375−5; off: 95, SelfComp=0.3125, 1 seed-GC issue (F8) | ✅ |
+| S-018 | `EvaluateGuideRna_CheckSelfComplementarityFalse_DisablesThePenalty` | GCGC×10 (11 stems) | on: 100−11−5; off: 95, Stems=11, legacy SelfComp=0.275, 1 seed-GC issue (F8, E3) | ✅ |
 | S-019 | `DesignGuideRnas_EqualRankingKeys_AreOrderedByPositionDeterministically` (2 cases: `Score`, `OnTargetRuleSet2`) | "CCA"+ACGT×10+"AGG" | 2 tied guides ordered (3, reverse), (23, forward) — deterministic position/strand tie-break (F5) | ✅ |
 
 ---
@@ -126,7 +131,7 @@
 
 | ID | Test | Input | Exact Expected | Status |
 |----|------|-------|----------------|--------|
-| C-001 | `EvaluateGuideRna_SelfComplementary_PenaltyTriggered` | "GCGCGCGC" (8bp, selfComp=0.3125) | Score=25.625, Issues ∋ "self-complementarity"; control "ACGTACGT" Score=100 | ✅ |
+| C-001 | `EvaluateGuideRna_SelfComplementary_PenaltyTriggered` | GCGC×10 (11 stems) | Score=100−60−11−5=24, Issues ∋ "11 self-complementary 4-bp stems"; control "GCGCGCGC" (0 stems in the reference, legacy fraction 0.3125) Score=35, no stem issue (E3) | ✅ |
 | C-002 | `EvaluateGuideRna_AllT_VeryLowScoreWithMultipleIssues` | "TTTTTTTTTTTTTTTTTTTT" | Score=0 (clamped), GC=0, SeedGC=0, HasPolyT=true, Issues=3 | ✅ |
 | C-003 | `EvaluateGuideRna_NullGuide_ThrowsException` | null | Throws ArgumentNullException | ✅ |
 | C-004 | `DesignGuideRnas_NoPamInRegion_ReturnsEmpty` | all-A sequence | Returns empty | ✅ |
@@ -200,8 +205,9 @@ All code paths in `EvaluateGuideRna` and `DesignGuideRnas` are covered with exac
 | GC above boundary 80% | C-009 (Score=80) | ✅ Covered |
 | Poly-T detection (4+ T's) | M-004, S-008 | ✅ Covered |
 | Poly-T negative (3 T's) | S-009 | ✅ Covered |
-| Self-complementarity > 0.3 penalty | C-001 (8bp palindrome, Score=25.625) | ✅ Covered |
-| Self-complementarity ≤ 0.3 no penalty | C-001 control (8bp, Score=100) | ✅ Covered |
+| Stem penalty (1 point per CHOPCHOP stem) | C-001, C-023 (oracle-locked stems 10/11/0/2/0, with and without backbone) | ✅ Covered |
+| Legacy fraction reported, not scored | C-001 control, C-024 | ✅ Covered |
+| Raw-string alphabet (A/C/G/T, U→T, ASCII fold; E3) | C-025, C-026, C-027 | ✅ Covered |
 | Seed GC penalty (low, < 30%) | S-010 (Score=95) | ✅ Covered |
 | Seed GC penalty (high, > 80%) | S-011 (Score=95) | ✅ Covered |
 | Restriction site penalty | S-001 (Score=95) | ✅ Covered |

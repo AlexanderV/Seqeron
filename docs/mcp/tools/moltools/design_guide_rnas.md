@@ -14,7 +14,7 @@ Design and score CRISPR guide-RNA candidates targeting a region.
 
 ## Description
 
-Finds every PAM site of the chosen CRISPR system whose target/cut window falls inside `[region_start, region_end]` (0-based, `region_end` inclusive), scores each candidate guide (GC%, seed-region GC%, polyT terminator, self-complementarity, common restriction sites → 0–100), and returns those scoring at or above `parameters.MinScore`.
+Finds every PAM site of the chosen CRISPR system whose target/cut window falls inside `[region_start, region_end]` (0-based, `region_end` inclusive), scores each candidate guide (GC%, seed-region GC%, polyT terminator, self-complementarity, common restriction sites → 0–100), and returns those scoring at or above `parameters.MinScore`. The composite 0–100 score is this library's own heuristic with unsourced weights, except that each CHOPCHOP self-complementary 4-bp stem (`selfComplementaryStems`) deducts 1 point, as in CHOPCHOP's `SCORE['FOLDING']`; the legacy `selfComplementarityScore` is an unsourced fraction that is reported only.
 
 ## Core Documentation Reference
 
@@ -28,7 +28,7 @@ Finds every PAM site of the chosen CRISPR system whose target/cut window falls i
 | `region_start` | integer | Yes | 0-based start (`0 ≤ region_start < sequence.Length`). |
 | `region_end` | integer | Yes | 0-based inclusive end (`region_start ≤ region_end < sequence.Length`). |
 | `system_type` | enum | No | CRISPR system (default `SpCas9`). |
-| `parameters` | object | No | Optional `GuideRnaParameters`; defaults when null. |
+| `parameters` | object | No | Optional `GuideRnaParameters` (`minGcContent`, `maxGcContent`, `minScore`, `avoidPolyT`, `checkSelfComplementarity`, `ranking`, `maxSelfComplementaryStems`, `selfComplementarityBackboneRegions`); defaults when null. `maxSelfComplementaryStems` (default null = no filter, CHOPCHOP `filterSelfCompMax = -1`) drops guides with more CHOPCHOP 4-bp self-complementary stems; `selfComplementarityBackboneRegions` (default null = guide-internal stems only) lists sgRNA scaffold regions on the guide's strand that the stems may also pair against (CHOPCHOP `--backbone`). |
 
 ## Output Schema
 

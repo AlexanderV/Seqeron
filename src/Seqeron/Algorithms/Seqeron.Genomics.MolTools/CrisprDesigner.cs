@@ -53,7 +53,7 @@ public static class CrisprDesigner
         if (string.IsNullOrEmpty(sequence))
             yield break;
 
-        foreach (var site in FindPamSitesCore(sequence.ToUpperInvariant(), GetSystem(systemType)))
+        foreach (var site in FindPamSitesCore(SequenceExtensions.ToUpperAscii(sequence)!, GetSystem(systemType)))
             yield return site;
     }
 
@@ -225,6 +225,31 @@ public static class CrisprDesigner
     /// <summary>
     /// Evaluates a single guide RNA sequence.
     /// </summary>
+    /// <param name="guideSequence">The protospacer / spacer (PAM excluded), A/C/G/T.</param>
+    /// <param name="systemType">The CRISPR system, which fixes the seed side and the PAM-dependent checks.</param>
+    /// <param name="parameters">Thresholds; <see cref="GuideRnaParameters.Default"/> when <c>null</c>.</param>
+    /// <returns>
+    /// The candidate with its metrics and a composite <see cref="GuideRnaCandidate.Score"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>The composite <see cref="GuideRnaCandidate.Score"/> is this library's own heuristic, not a
+    /// published model.</b> It starts at 100 and subtracts: <c>2 × GC-window excess</c> (the 40–70 % window is
+    /// CHOPCHOP's <c>GC_LOW/GC_HIGH</c>, the weight 2 is not sourced), 20 for <c>TTTT</c>, 5 for a seed GC
+    /// outside 30–80 %, 5 for a common cloning site (all unsourced weights), and
+    /// <see cref="SelfComplementarityStemPenalty"/> per self-complementary stem. Only that last weight is
+    /// sourced: CHOPCHOP's <c>calcSelfComplementarity</c> ends in <c>self.score += self.folding * SCORE['FOLDING']</c>
+    /// with <c>SCORE['FOLDING'] = 1</c> (a penalty scale, sorted ascending) and the folding being the 4-bp stem
+    /// count of <see cref="CountSelfComplementaryStems"/>; <see cref="GuideRnaParameters.CheckSelfComplementarity"/>
+    /// = <c>false</c> is CHOPCHOP's <c>-SC/--noScoreSelfComp</c>. The other terms and the way they are summed
+    /// are not from any tool, so use the score for triage ordering, and
+    /// <see cref="GuideRnaCandidate.OnTargetScore"/> (Rule Set 2) for a published efficacy estimate.
+    /// </para>
+    /// <para>
+    /// The older normalised pair fraction <see cref="GuideRnaCandidate.SelfComplementarityScore"/> is still
+    /// reported but no longer enters the score (see its documentation).
+    /// </para>
+    /// </remarks>
     public static GuideRnaCandidate EvaluateGuideRna(
         string guideSequence,
         CrisprSystemType systemType = CrisprSystemType.SpCas9,
@@ -233,7 +258,32 @@ public static class CrisprDesigner
         if (string.IsNullOrEmpty(guideSequence))
             throw new ArgumentNullException(nameof(guideSequence));
 
-        return EvaluateGuideRnaCore(guideSequence, GetSystem(systemType), parameters ?? GuideRnaParameters.Default);
+        return EvaluateGuideRnaCore(
+            NormalizeNucleotides(guideSequence, nameof(guideSequence)),
+            GetSystem(systemType),
+            parameters ?? GuideRnaParameters.Default);
+    }
+
+    /// <summary>
+    /// Folds a raw-string nucleotide argument to upper case (ASCII only, so U+017F 'ſ' is not read as 'S'),
+    /// reads <c>U</c> as <c>T</c> (an RNA spacer is its DNA-equivalent), and rejects every other character,
+    /// IUPAC ambiguity codes included, with the same <see cref="ArgumentException"/> the file's other raw-string
+    /// guards raise (the CFD / SaCas9 / MIT scorers, and the <see cref="DnaSequence"/> alphabet they mirror).
+    /// </summary>
+    private static string NormalizeNucleotides(string value, string paramName)
+    {
+        var chars = new char[value.Length];
+        for (int i = 0; i < value.Length; i++)
+        {
+            char c = SequenceExtensions.ToUpperAscii(value[i]);
+            if (c == 'U')
+                c = 'T';
+            else if (c is not ('A' or 'C' or 'G' or 'T'))
+                throw new ArgumentException(
+                    $"Expected A/C/G/T (U is read as T) but found '{value[i]}' at index {i}.", paramName);
+            chars[i] = c;
+        }
+        return new string(chars);
     }
 
     private static GuideRnaCandidate EvaluateGuideRnaCore(
@@ -241,7 +291,7 @@ public static class CrisprDesigner
         CrisprSystem system,
         GuideRnaParameters effectiveParams)
     {
-        var seq = guideSequence.ToUpperInvariant();
+        var seq = SequenceExtensions.ToUpperAscii(guideSequence)!;
 
         // Calculate GC content
         double gcContent = CalculateGcContent(seq);
@@ -249,8 +299,8 @@ public static class CrisprDesigner
         // Check for polyT (transcription terminator)
         bool hasPolyT = HasPolyT(seq, 4);
 
-        // Calculate self-complementarity score
-        double selfCompScore = CalculateSelfComplementarity(seq);
+        // Legacy, unsourced pair fraction: reported on the candidate for backward compatibility only.
+        double selfCompScore = CalculateHeuristicSelfComplementarity(seq);
 
         // CHOPCHOP's published self-complementarity measure (4-bp stems); reported always, filtered
         // only when the caller sets a limit (the reference's own default is "report, do not filter").
@@ -289,12 +339,14 @@ public static class CrisprDesigner
             issues.Add("Contains TTTT (potential Pol III terminator)");
         }
 
-        // Self-complementarity penalty (opt-out via GuideRnaParameters.CheckSelfComplementarity)
-        if (selfCompScore > 0.3 && effectiveParams.CheckSelfComplementarity)
-        {
-            score -= selfCompScore * 30;
-            issues.Add("High self-complementarity");
-        }
+        // Self-complementarity penalty (opt-out via GuideRnaParameters.CheckSelfComplementarity).
+        // Sourced: CHOPCHOP chopchop.py Guide.calcSelfComplementarity ends in
+        // `self.score += self.folding * SCORE['FOLDING']` (SCORE['FOLDING'] = 1; guides are sorted by
+        // ascending score, i.e. a penalty), `folding` being the 4-bp stem count computed above, and the
+        // `-SC/--noScoreSelfComp` flag switches it off. Here a penalty is a deduction from 100.
+        bool stemPenalty = selfCompStems > 0 && effectiveParams.CheckSelfComplementarity;
+        if (stemPenalty)
+            score -= selfCompStems * SelfComplementarityStemPenalty;
 
         // Seed region GC penalty
         if (seedGc < 30 || seedGc > 80)
@@ -318,6 +370,10 @@ public static class CrisprDesigner
             issues.Add("Graf 2019 TT-motif (inefficient in Pol III-based expression)");
         else if (grafMotif == GrafMotifType.GccMotif)
             issues.Add("Graf 2019 GCC-motif (generally inefficient)");
+
+        // Reported after the other issues so the order of the long-standing ones is unchanged.
+        if (stemPenalty)
+            issues.Add($"{selfCompStems} self-complementary 4-bp stems (-{selfCompStems * SelfComplementarityStemPenalty:0.##})");
 
         // CHOPCHOP filters guides above filterSelfCompMax; the limit is opt-in here (null = the
         // reference's default of no filter), and the overrun is reported as an issue.
@@ -453,7 +509,7 @@ public static class CrisprDesigner
         if (string.IsNullOrEmpty(guideSequence))
             throw new ArgumentNullException(nameof(guideSequence));
 
-        var seq = guideSequence.ToUpperInvariant();
+        var seq = SequenceExtensions.ToUpperAscii(guideSequence)!;
         if (seq.EndsWith("TTC", StringComparison.Ordinal) || seq.EndsWith("TTT", StringComparison.Ordinal))
             return GrafMotifType.TtMotif;
 
@@ -554,7 +610,7 @@ public static class CrisprDesigner
     {
         var system = GetSystem(systemType);
 
-        var guide = guideSequence.ToUpperInvariant();
+        var guide = SequenceExtensions.ToUpperAscii(guideSequence)!;
 
         // Find all PAM sites
         var pamSites = FindPamSitesCore(genome.Sequence, system);
@@ -867,7 +923,7 @@ public static class CrisprDesigner
         // as ArgumentException, before the library is reached.
         ArgumentNullException.ThrowIfNull(context30Mer);
 
-        var seq = context30Mer.ToUpperInvariant();
+        var seq = SequenceExtensions.ToUpperAscii(context30Mer)!;
 
         if (seq.Length != 30)
             throw new ArgumentException(
@@ -1031,8 +1087,8 @@ public static class CrisprDesigner
         if (guide20.Length != 20 || offTarget20.Length != 20)
             throw new ArgumentException("MIT/Hsu score requires two 20-nt sequences.");
 
-        var g = guide20.ToUpperInvariant();
-        var o = offTarget20.ToUpperInvariant();
+        var g = SequenceExtensions.ToUpperAscii(guide20)!;
+        var o = SequenceExtensions.ToUpperAscii(offTarget20)!;
 
         const int maxDist = 19;
 
@@ -1134,15 +1190,15 @@ public static class CrisprDesigner
         if (offTargets.Count == 0)
             return 100.0;
 
-        var guide = guideSequence.ToUpperInvariant();
+        var guide = SequenceExtensions.ToUpperAscii(guideSequence)!;
 
         // The reference picks the per-hit model by system, not one model for everything
         // (annotateOfftargets): a SaCas9 PAM uses the Tycko 2018 model, everything else calcHitScore.
         bool useSaModel = IsSaCas9Pam(GetSystem(systemType).PamSequence) && guide.Length == SaCas9GuideLength;
         var hitScores = offTargets
             .Select(ot => useSaModel
-                ? CalculateSaCas9HitScore(guide, ot.Sequence.ToUpperInvariant())
-                : CalculateMitHitScoreFudged(guide, ot.Sequence.ToUpperInvariant()));
+                ? CalculateSaCas9HitScore(guide, SequenceExtensions.ToUpperAscii(ot.Sequence)!)
+                : CalculateMitHitScoreFudged(guide, SequenceExtensions.ToUpperAscii(ot.Sequence)!));
 
         return CalculateMitSpecificityScore(hitScores);
     }
@@ -1259,7 +1315,7 @@ public static class CrisprDesigner
                 $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
                 nameof(guideSequence));
 
-        var guide = guideSequence.ToUpperInvariant();
+        var guide = SequenceExtensions.ToUpperAscii(guideSequence)!;
         bool useSaModel = IsSaCas9Pam(system.PamSequence) && guide.Length == SaCas9GuideLength;
         // The reference gates the downweight on the SEARCHED pattern being exactly "NGG".
         bool mainPamIsNgg = string.Equals(system.PamSequence, "NGG", StringComparison.Ordinal);
@@ -1274,7 +1330,7 @@ public static class CrisprDesigner
                     "Every off-target must carry its own PAM; the alternative-PAM rule is defined on it.",
                     nameof(offTargets));
 
-            string offTarget = hit.Site.Sequence.ToUpperInvariant();
+            string offTarget = SequenceExtensions.ToUpperAscii(hit.Site.Sequence)!;
             if (offTarget.Length != guide.Length)
                 throw new ArgumentException(
                     $"Off-target protospacer length ({offTarget.Length}) does not match the guide ({guide.Length}).",
@@ -1288,7 +1344,7 @@ public static class CrisprDesigner
             // otSeq is the protospacer WITH its PAM, so the test is written on that concatenation here
             // rather than on the PAM alone — identical for the 3-nt PAMs of every NGG system, and the
             // reference's expression verbatim for any other PAM length a caller supplies.
-            string otSeq = offTarget + hit.Pam.ToUpperInvariant();
+            string otSeq = offTarget + SequenceExtensions.ToUpperAscii(hit.Pam)!;
             if (mainPamIsNgg && !otSeq.EndsWith("GG", StringComparison.Ordinal))
                 hitScore *= AlternativePamMitWeight;
 
@@ -1367,7 +1423,7 @@ public static class CrisprDesigner
                 {
                     // CRISPOR runs ONE search, so a site matching both the main and a wider alternative
                     // pattern (SaCas9 NNGRRT inside NNGRRN) is a single off-target; the main scan has it.
-                    if (!MatchesPam(hit.Pam.ToUpperInvariant(), 0, main.PamSequence))
+                    if (!MatchesPam(SequenceExtensions.ToUpperAscii(hit.Pam)!, 0, main.PamSequence))
                         hits.Add(hit);
                 }
             }
@@ -1380,14 +1436,14 @@ public static class CrisprDesigner
             // >= ALTPAMMINSCORE ("if otScore < minScore: ... continue"). The membership test is on the
             // alternative list FIRST, exactly as the reference orders it, so for a PAM wider than the
             // main one (SaCas9 NNGRRN contains NNGRRT) main-PAM hits are subject to the cutoff as well.
-            var guide = guideSequence.ToUpperInvariant();
+            var guide = SequenceExtensions.ToUpperAscii(guideSequence)!;
             bool useSaModel = IsSaCas9Pam(main.PamSequence) && guide.Length == SaCas9GuideLength;
             hits = hits.Where(hit =>
             {
-                string pam = hit.Pam.ToUpperInvariant();
+                string pam = SequenceExtensions.ToUpperAscii(hit.Pam)!;
                 if (!altPams.Any(alt => MatchesPam(pam, 0, alt)))
                     return true;
-                string ot = hit.Site.Sequence.ToUpperInvariant();
+                string ot = SequenceExtensions.ToUpperAscii(hit.Site.Sequence)!;
                 double score = useSaModel ? CalculateSaCas9HitScore(guide, ot) : CalculateMitHitScoreFudged(guide, ot);
                 return score >= minAlternativePamHitScore;
             }).ToList();
@@ -1626,8 +1682,8 @@ public static class CrisprDesigner
                 $"The Tycko 2018 SaCas9 model requires a {SaCas9GuideLength}-nt off-target protospacer; got {offTarget21.Length}.",
                 nameof(offTarget21));
 
-        string guide = saGuide21.ToUpperInvariant();
-        string off = offTarget21.ToUpperInvariant();
+        string guide = SequenceExtensions.ToUpperAscii(saGuide21)!;
+        string off = SequenceExtensions.ToUpperAscii(offTarget21)!;
 
         double predictedActivity = 1.0;
 
@@ -1819,9 +1875,9 @@ public static class CrisprDesigner
         if (offTarget20.Length != 20)
             throw new ArgumentException($"CFD requires a 20-nt off-target protospacer; got {offTarget20.Length}.", nameof(offTarget20));
 
-        var guide = sgRna20.ToUpperInvariant();
-        var off = offTarget20.ToUpperInvariant();
-        var pam = offTargetPam.ToUpperInvariant();
+        var guide = SequenceExtensions.ToUpperAscii(sgRna20)!;
+        var off = SequenceExtensions.ToUpperAscii(offTarget20)!;
+        var pam = SequenceExtensions.ToUpperAscii(offTargetPam)!;
 
         // PAM: score the last two nucleotides (the N of NGG always contributes 1).
         if (pam.Length is not (2 or 3))
@@ -1965,14 +2021,14 @@ public static class CrisprDesigner
             throw new ArgumentException(
                 $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
                 nameof(guideSequence));
-        var guide = guideSequence.ToUpperInvariant();
+        var guide = SequenceExtensions.ToUpperAscii(guideSequence)!;
         if (!guide.AsSpan().IsValidDna())
             throw new ArgumentException("CFD requires an A/C/G/T guide sequence.", nameof(guideSequence));
 
         var cfdScores = new List<double>();
         foreach (var (site, pam) in FindOffTargetsWithPamCore(guide, genome, maxMismatches, systemType))
         {
-            string offTarget = site.Sequence.ToUpperInvariant();
+            string offTarget = SequenceExtensions.ToUpperAscii(site.Sequence)!;
 
             // The reference screens both sequences for [^ATCG] and returns -1, which annotateOfftargets
             // then leaves out of the CFD sum. Defensive only: DnaSequence validates A/C/G/T at
@@ -2040,7 +2096,7 @@ public static class CrisprDesigner
         if (stemLength < 1)
             throw new ArgumentOutOfRangeException(nameof(stemLength), stemLength, "Stem length must be >= 1.");
 
-        var fwd = guideSequence.ToUpperInvariant();
+        var fwd = NormalizeNucleotides(guideSequence, nameof(guideSequence));
         if (fwd.Length <= stemLength)
             return 0;
 
@@ -2048,11 +2104,17 @@ public static class CrisprDesigner
         int l = fwd.Length - stemLength - 1;
 
         // CHOPCHOP reverse-complements the backbone regions it is given before matching against them.
-        string[] backbones = backboneRegions is null
-            ? Array.Empty<string>()
-            : backboneRegions
-                .Select(b => DnaSequence.GetReverseComplementString(b.ToUpperInvariant()))
-                .ToArray();
+        var backbones = new List<string>();
+        if (backboneRegions is not null)
+        {
+            foreach (var region in backboneRegions)
+            {
+                if (region is null)
+                    throw new ArgumentException("Backbone regions contain a null element.", nameof(backboneRegions));
+                backbones.Add(DnaSequence.GetReverseComplementString(
+                    NormalizeNucleotides(region, nameof(backboneRegions))));
+            }
+        }
 
         int folding = 0;
         for (int i = 0; i < fwd.Length - stemLength; i++)
@@ -2077,7 +2139,21 @@ public static class CrisprDesigner
         return folding;
     }
 
-    private static double CalculateSelfComplementarity(string sequence)
+    /// <summary>
+    /// Points deducted from <see cref="GuideRnaCandidate.Score"/> per self-complementary 4-bp stem: CHOPCHOP's
+    /// <c>SCORE['FOLDING'] = 1</c> (<c>chopchop.py</c>, <c>SCORE</c> dictionary).
+    /// </summary>
+    public const double SelfComplementarityStemPenalty = 1.0;
+
+    /// <summary>
+    /// The library's own normalised complementary-pair fraction, reported as
+    /// <see cref="GuideRnaCandidate.SelfComplementarityScore"/>. <b>Heuristic, no published source</b>: it counts
+    /// every position pair <c>(i, i+offset)</c> where <c>seq[i]</c> equals the reverse-complement base, and divides
+    /// by <c>n²</c> although only <c>n(n+1)/2</c> pairs are compared, so it can never reach 1. It is not a
+    /// thermodynamic or published stem measure, and it no longer feeds <see cref="GuideRnaCandidate.Score"/>:
+    /// use <see cref="CountSelfComplementaryStems"/> (CHOPCHOP).
+    /// </summary>
+    private static double CalculateHeuristicSelfComplementarity(string sequence)
     {
         string revComp = DnaSequence.GetReverseComplementString(sequence);
         int matches = 0;
@@ -2308,6 +2384,25 @@ public readonly record struct GuideRnaParameters(
 /// <summary>
 /// A guide RNA candidate with quality metrics.
 /// </summary>
+/// <param name="Sequence">The protospacer / spacer, upper case, PAM excluded.</param>
+/// <param name="Position">0-based position in the scanned sequence, or <c>-1</c> for a standalone evaluation.</param>
+/// <param name="IsForwardStrand">Whether the guide was read from the forward strand.</param>
+/// <param name="GcContent">GC content of the guide in percent.</param>
+/// <param name="SeedGcContent">GC content of the 10-nt PAM-proximal seed region in percent.</param>
+/// <param name="HasPolyT">Whether the guide contains <c>TTTT</c> (Pol III terminator).</param>
+/// <param name="SelfComplementarityScore">
+/// The library's own normalised complementary-pair fraction. <b>Heuristic, unsourced</b> (it divides by n² although
+/// n(n+1)/2 pairs are compared) and <b>not part of <paramref name="Score"/></b>; kept for backward compatibility.
+/// The published measure is <see cref="SelfComplementaryStems"/> (CHOPCHOP).
+/// </param>
+/// <param name="Score">
+/// Composite 0–100 triage score. <b>This library's own heuristic, not a published model</b>: every weight except
+/// the per-stem self-complementarity deduction (<see cref="CrisprDesigner.SelfComplementarityStemPenalty"/>, CHOPCHOP's
+/// <c>SCORE['FOLDING']</c>) is unsourced; see <see cref="CrisprDesigner.EvaluateGuideRna(string, CrisprSystemType, GuideRnaParameters?)"/>.
+/// Use <see cref="OnTargetScore"/> (Rule Set 2) for a published efficacy estimate.
+/// </param>
+/// <param name="Issues">Human-readable reasons the score was reduced or the guide flagged.</param>
+/// <param name="System">The CRISPR system the guide was evaluated for.</param>
 public sealed record GuideRnaCandidate(
     string Sequence,
     int Position,
@@ -2352,7 +2447,8 @@ public sealed record GuideRnaCandidate(
     /// The number of self-complementary 4-bp stems of this guide, per CHOPCHOP's published
     /// self-complementarity measure. See <see cref="CrisprDesigner.CountSelfComplementaryStems"/>;
     /// <see cref="GuideRnaParameters.MaxSelfComplementaryStems"/> turns it into a filter. This is the
-    /// sourced measure; <see cref="SelfComplementarityScore"/> is the library's older normalised
+    /// sourced measure and the one that drives <see cref="Score"/>;
+    /// <see cref="SelfComplementarityScore"/> is the library's older, unsourced normalised
     /// complementary-pair fraction, kept for backward compatibility.
     /// </summary>
     public int SelfComplementaryStems { get; init; }

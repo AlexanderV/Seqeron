@@ -27,9 +27,11 @@ Guide candidates are extracted from PAM sites in a target region and scored from
 | GC below `MinGcContent` | `(MinGcContent - actual) × 2` |
 | GC above `MaxGcContent` | `(actual - MaxGcContent) × 2` |
 | Contains `TTTT` | `20` |
-| Self-complementarity above `0.3` | `selfComplementarity × 30` |
+| Each CHOPCHOP self-complementary 4-bp stem (`SelfComplementaryStems`) | `1` per stem (`CrisprDesigner.SelfComplementarityStemPenalty`; CHOPCHOP `SCORE['FOLDING'] = 1`, B08 E3) |
 | Seed-region GC outside `30-80%` | `5` |
 | Common restriction site detected | `5` |
+
+**Provenance of the self-complementarity row (B08 E3).** CHOPCHOP's `Guide.calcSelfComplementarity` ends in `self.score += self.folding * SCORE['FOLDING']` with `SCORE['FOLDING'] = 1` (guides are sorted by ascending score, i.e. it is a penalty; `-SC/--noScoreSelfComp` switches it off, which is `CheckSelfComplementarity = false` here), `folding` being the 4-bp stem count of `CountSelfComplementaryStems`. Before E3 the score instead deducted `selfComplementarity × 30` above an arbitrary `0.3` of the library's own pair fraction. The *other* rows, their weights and the way the terms are summed are not taken from any tool (the 40–70 % GC window is CHOPCHOP's `GC_LOW/GC_HIGH`; the weight `2` is not), so the composite remains a triage heuristic. The raw-string `EvaluateGuideRna` and `CountSelfComplementaryStems` accept only A/C/G/T (`U` is read as `T`, case folded ASCII-only) and throw `ArgumentException` otherwise.
 
 The seed region is defined as the last 10 nucleotides for PAM-after-target systems and the first 10 nucleotides for PAM-before-target systems. The 10-nt length is the upper bound of the Addgene CRISPR Guide's seed range, verified 2026-10-14 (https://www.addgene.org/guides/crispr/, "Basic Mechanisms of CRISPR"): *"the seed sequence (8–10 bases at the 3′ end of the gRNA targeting sequence)"*. That sentence describes Cas9; the PAM-before-target branch applies the same length at the PAM-proximal 5' end. The final score is clamped to `>= 0`.
 
@@ -106,8 +108,8 @@ context it was computed from) on every qualifying candidate and can rank by it
 | `GcContent` | `double` | Overall GC percentage |
 | `SeedGcContent` | `double` | GC percentage of the seed region |
 | `HasPolyT` | `bool` | Whether the guide contains `TTTT` |
-| `SelfComplementarityScore` | `double` | Internal self-complementarity measure |
-| `Score` | `double` | Composite guide-quality score |
+| `SelfComplementarityScore` | `double` | The library's own normalised complementary-pair fraction (**unsourced heuristic**: divides by n² although n(n+1)/2 pairs are compared); reported for backward compatibility, **no longer part of `Score`** (B08 E3). The sourced measure is `SelfComplementaryStems` |
+| `Score` | `double` | Composite guide-quality score; **this library's own heuristic** (all weights unsourced except the 1-point-per-stem self-complementarity deduction, CHOPCHOP `SCORE['FOLDING']`) — use `OnTargetScore` (Rule Set 2) for a published efficacy estimate |
 | `Issues` | `IReadOnlyList<string>` | Human-readable issues recorded during evaluation |
 | `System` | `CrisprSystem` | CRISPR system metadata returned by the current evaluation path; designed guides for systems not explicitly remapped in the helper currently reuse `SpCas9` metadata |
 | `FullGuideRna` | `string` | Guide plus the fixed scaffold sequence |

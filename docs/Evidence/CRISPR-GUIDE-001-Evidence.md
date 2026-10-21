@@ -60,6 +60,17 @@
 5. **Filter default** (L2828): `-filterSelfCompMax` default `-1`, "no filter"; the filter is applied as
    `if add and filterSelfCompMax != -1: … if folding > filterSelfCompMax` (L1814-1820, L1854-1860).
 6. **GC window** `GC_LOW = 40` / `GC_HIGH = 70` — the same acceptance window as `GuideRnaParameters.Default`.
+7. **Score penalty (B08 round 2, E3).** `Guide.calcSelfComplementarity` ends in
+   `self.score += self.folding * SCORE['FOLDING']` (L395 and L605) with `SCORE = {…, "COEFFICIENTS": 100,
+   "CRISPR_BAD_GC": 300, "FOLDING": 1}` (L97-107); guides are ranked ascending (`sort_CRISPR_guides`,
+   `sorted(guides, key=attrgetter('score'))`, L1986-1988), so each stem is a 1-point penalty. It is on by default
+   for the CRISPR / Cpf1 / nickase modes (`"SCORE_FOLDING": True`, L64/L78/L85) and switched off by
+   `-SC/--noScoreSelfComp` (L2793-2795, L2845; "Do not penalize self-complementarity of CRISPR"). The efficiency
+   models enter the same sum as `score -= CoefficientsScore * SCORE['COEFFICIENTS']` (L540, `COEFFICIENTS = 100`
+   for a 0..1 model), i.e. on a 0..100 scale, which is the scale Seqeron's composite also uses.
+   Oracle for the tests: `folding` run verbatim under Biopython 1.88 (file sha256 `3c7a4344ccf2a77e70b638146989d7b9569665216bc15b476177db37630d5960`):
+   ACGT×5 → 10 / 10 (no / standard backbone), GCGC×10 → 11 / 11, `ACGGACTAGCCTACGTACGT` → 0 / 8, ACGT×3 → 2 / 2,
+   `GCGCGCGC` → 0 / 0 (the stem window must fit in `rvs[0:L-i]` with `L = 3`).
 
 ---
 
@@ -98,9 +109,10 @@ The duplicated table was therefore deleted in favour of the canonical call (clos
 ## Divergences recorded (not defects)
 
 - The library's legacy `GuideRnaCandidate.SelfComplementarityScore` (normalised complementary-pair fraction with
-  an `L²` denominator and a 0.3 threshold) has no published source. It is kept for backward compatibility and
-  documented as the older metric; the sourced CHOPCHOP stem count (`SelfComplementaryStems`) is now reported
-  alongside it, and only the latter can filter.
-- CHOPCHOP adds `folding × SCORE['FOLDING']` to its own composite score. Seqeron reports the stem count and
-  filters on it only when the caller sets `MaxSelfComplementaryStems` (CHOPCHOP's own CLI default is no filter),
-  because Seqeron's 0..100 composition score is not CHOPCHOP's score and mixing the two scales would be unsourced.
+  an `L²` denominator and a 0.3 threshold) has no published source. It is kept for backward compatibility, reported,
+  and declared as an unsourced heuristic in the XML docs; since B08 round 2 (E3) it **no longer enters
+  `GuideRnaCandidate.Score`** (it used to deduct `fraction × 30` above 0.3). Supersedes the F6 note that the two scales
+  must not be mixed: CHOPCHOP's per-stem weight (1) is on the same 0..100 scale as its efficiency term, so the stem
+  deduction `score -= stems × 1` is the sourced one; the *other* weights of Seqeron's composite and the way the
+  terms are summed remain Seqeron's own (LIMITATIONS proposal in `docs/Validation/review-2026-09/B08.md`).
+- CHOPCHOP's `filterSelfCompMax` filter stays opt-in (`MaxSelfComplementaryStems`, default no filter = the CLI default).

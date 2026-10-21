@@ -14,7 +14,7 @@ Naïve genome scan for a guide RNA's off-target sites.
 
 ## Description
 
-Enumerates every PAM site in the genome for the chosen system and reports those whose target differs from the guide by **1..max_mismatches** mismatches (the exact on-target with 0 mismatches is excluded). Each hit reports its position, sequence, mismatch count and positions, strand, and an off-target score that weights seed-region (PAM-proximal 12 bp) mismatches more heavily. The guide length must equal the system's guide length. Complexity is O(genome × guide); keep genomes ≲ 1 Mb.
+Enumerates every PAM site in the genome for the chosen system and reports those whose target differs from the guide by **1..max_mismatches** mismatches (the exact on-target with 0 mismatches is excluded). Each hit reports its position, sequence, mismatch count and positions, strand, and an `offTargetScore` that is **this library's own heuristic, not a published model** (5 per mismatch inside the PAM-proximal 12-nt seed + 2 per other mismatch; Hsu 2013 motivates only the direction of the weighting, the weights 5/2 and the 12-nt width are unsourced). For published models over the same hits use [crispr_mit_specificity_score](crispr_mit_specificity_score.md) (MIT/Hsu 2013) or [crispr_cfd_specificity_score](crispr_cfd_specificity_score.md) (Doench 2016 CFD). The guide length must equal the system's guide length. Complexity is O(genome × guide); keep genomes ≲ 1 Mb.
 
 ## Core Documentation Reference
 

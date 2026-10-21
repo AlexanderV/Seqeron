@@ -24,20 +24,20 @@ public class CrisprDesigner_GuideRNA_Tests
     /// <summary>
     /// M-001: Optimal guide (50% GC, no polyT, no penalties) → perfect score.
     /// Evidence: Addgene — guides with optimal GC (40-70%) perform better.
-    /// Input: "ACGTACGTACGTACGTACGT" — 50% GC, no polyT, selfComp=0.15 (below 0.3 threshold).
+    /// Input: "ACGGACTAGCCTACGTACGT" — 55% GC, no polyT, 0 CHOPCHOP self-complementary stems.
     /// Score: 100 (base) − 0 = 100.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_OptimalGuide_HighScore()
     {
-        string guide = "ACGTACGTACGTACGTACGT"; // 50% GC, no polyT
+        string guide = "ACGGACTAGCCTACGTACGT"; // 55% GC, no polyT, 0 stems (CHOPCHOP oracle)
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.Score, Is.EqualTo(100));
-        Assert.That(candidate.GcContent, Is.EqualTo(50));
+        Assert.That(candidate.GcContent, Is.EqualTo(55).Within(1e-9));
         Assert.That(candidate.SeedGcContent, Is.EqualTo(50));
         Assert.That(candidate.HasPolyT, Is.False);
-        Assert.That(candidate.SelfComplementarityScore, Is.EqualTo(0.15));
+        Assert.That(candidate.SelfComplementaryStems, Is.EqualTo(0));
         Assert.That(candidate.Issues, Is.Empty);
     }
 
@@ -63,19 +63,19 @@ public class CrisprDesigner_GuideRNA_Tests
 
     /// <summary>
     /// M-003: 100% GC → penalty: (100-70)×2 = 60, plus seed GC 100% → −5.
-    /// Score: 100 − 60 − 5 = 35.
+    /// Score: 100 − 60 − 5 − 11 (the guide's 11 CHOPCHOP self-complementary stems, E3) = 24.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_HighGcContent_LowerScore()
     {
-        string guide = "GCGCGCGCGCGCGCGCGCGC"; // 100% GC
+        string guide = "GCGCGCGCGCGCGCGCGCGC"; // 100% GC, 11 CHOPCHOP stems
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.EqualTo(35));
+        Assert.That(candidate.Score, Is.EqualTo(24)); // 100 − 60 (GC) − 5 (seed GC) − 11 (stems)
         Assert.That(candidate.GcContent, Is.EqualTo(100));
         Assert.That(candidate.SeedGcContent, Is.EqualTo(100));
         Assert.That(candidate.HasPolyT, Is.False);
-        Assert.That(candidate.Issues, Has.Count.EqualTo(2));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(3)); // + the stem issue
         Assert.That(candidate.Issues, Has.Some.Contains("High GC"));
         Assert.That(candidate.Issues, Has.Some.Contains("Suboptimal seed region GC"));
     }
@@ -89,14 +89,14 @@ public class CrisprDesigner_GuideRNA_Tests
     [Test]
     public void EvaluateGuideRna_HasPolyT_Penalized()
     {
-        string guide = "ACGTACGTTTTTACGTACGT"; // 40% GC, contains 5 consecutive T's
+        string guide = "ACGTACGTTTTTACGTACGT"; // 40% GC, contains 5 consecutive T's, 5 CHOPCHOP stems
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.EqualTo(80));
+        Assert.That(candidate.Score, Is.EqualTo(75)); // 100 − 20 (polyT) − 5 (stems)
         Assert.That(candidate.GcContent, Is.EqualTo(40));
         Assert.That(candidate.HasPolyT, Is.True);
-        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
-        Assert.That(candidate.Issues[0], Does.Contain("TTTT"));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(2));
+        Assert.That(candidate.Issues, Has.Some.Contains("TTTT"));
     }
 
     /// <summary>
@@ -174,12 +174,12 @@ public class CrisprDesigner_GuideRNA_Tests
     [Test]
     public void EvaluateGuideRna_RestrictionSite_Penalized()
     {
-        string guide = "ACGTGAATTCACGTACGTAC"; // Contains GAATTC (EcoRI)
+        string guide = "ACGTGAATTCACGTACGTAC"; // Contains GAATTC (EcoRI); 3 CHOPCHOP stems
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.EqualTo(95));
+        Assert.That(candidate.Score, Is.EqualTo(92)); // 100 − 5 (site) − 3 (stems)
         Assert.That(candidate.GcContent, Is.EqualTo(45));
-        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues[0], Does.Contain("restriction site"));
     }
 
@@ -229,13 +229,14 @@ public class CrisprDesigner_GuideRNA_Tests
     [Test]
     public void EvaluateGuideRna_BoundaryGc70Percent_NotPenalized()
     {
-        string guide = "GCGCGCGCGCGCGCAAAAAA"; // 14 G/C = 70% GC
+        string guide = "GCGCGCGCGCGCGCAAAAAA"; // 14 G/C = 70% GC; 5 CHOPCHOP stems
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.GcContent, Is.EqualTo(70));
         Assert.That(candidate.SeedGcContent, Is.EqualTo(40));
-        Assert.That(candidate.Score, Is.EqualTo(100));
-        Assert.That(candidate.Issues, Is.Empty);
+        Assert.That(candidate.Score, Is.EqualTo(95)); // no GC deduction at the boundary; 100 − 5 (stems)
+        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues[0], Does.Contain("5 self-complementary 4-bp stems"));
     }
 
     /// <summary>
@@ -247,13 +248,13 @@ public class CrisprDesigner_GuideRNA_Tests
     [Test]
     public void EvaluateGuideRna_ExactlyFourTs_TriggersPolyT()
     {
-        string guide = "ACGTACGTACGATTTTACGT"; // Exactly 4 consecutive T's (positions 12-15)
+        string guide = "ACGTACGTACGATTTTACGT"; // Exactly 4 consecutive T's (positions 12-15); 4 CHOPCHOP stems
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.HasPolyT, Is.True);
         Assert.That(candidate.GcContent, Is.EqualTo(40));
-        Assert.That(candidate.Score, Is.EqualTo(80));
-        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Score, Is.EqualTo(76)); // 100 − 20 (polyT) − 4 (stems)
+        Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues[0], Does.Contain("TTTT"));
     }
 
@@ -269,13 +270,13 @@ public class CrisprDesigner_GuideRNA_Tests
     [Test]
     public void EvaluateGuideRna_ThreeConsecutiveTs_NoPolyT()
     {
-        string guide = "ACGTACGTACGTACGTTTAC"; // 3 consecutive T's (positions 15-17)
+        string guide = "ACGTACGTACGTACGTTTAC"; // 3 consecutive T's (positions 15-17); 6 CHOPCHOP stems
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.HasPolyT, Is.False);
         Assert.That(candidate.GcContent, Is.EqualTo(45));
-        Assert.That(candidate.Score, Is.EqualTo(100));
-        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Score, Is.EqualTo(94)); // no polyT / Graf deduction; 100 − 6 (stems)
+        Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues[0], Does.Contain("Graf 2019 TT-motif"));
         Assert.That(candidate.GrafMotif, Is.EqualTo(GrafMotifType.TtMotif));
     }
@@ -289,13 +290,13 @@ public class CrisprDesigner_GuideRNA_Tests
     [Test]
     public void EvaluateGuideRna_SeedGcLow_Penalized()
     {
-        string guide = "GCGCGCGCGCAAAAAAAAAA"; // Overall 50% GC, seed last 10 = all A → 0% GC
+        string guide = "GCGCGCGCGCAAAAAAAAAA"; // Overall 50% GC, seed last 10 = all A → 0% GC; 1 CHOPCHOP stem
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.GcContent, Is.EqualTo(50));
         Assert.That(candidate.SeedGcContent, Is.EqualTo(0));
-        Assert.That(candidate.Score, Is.EqualTo(95));
-        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Score, Is.EqualTo(94)); // 100 − 5 (seed GC) − 1 (stem)
+        Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues[0], Does.Contain("Suboptimal seed region GC"));
     }
 
@@ -335,7 +336,7 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(guides, Has.Count.EqualTo(1));
         Assert.That(guides[0].Position, Is.EqualTo(24));
-        Assert.That(guides[0].Score, Is.EqualTo(100));
+        Assert.That(guides[0].Score, Is.EqualTo(90), "ACGT×5 carries 10 CHOPCHOP stems");
         Assert.That(guides[0].IsForwardStrand, Is.True);
     }
 
@@ -383,30 +384,30 @@ public class CrisprDesigner_GuideRNA_Tests
     #region COULD Tests - Edge Cases
 
     /// <summary>
-    /// C-001: Self-complementarity > 0.3 triggers penalty.
-    /// Evidence: Self-complementary regions form secondary structures reducing efficacy.
-    /// Uses 8bp period-2 palindrome "GCGCGCGC" (selfComp=0.3125, > 0.3 threshold).
-    /// Score: 100 − 60(GC) − 9.375(selfComp×30) − 5(seedGC) = 25.625.
-    /// Control: "ACGTACGT" (8bp, selfComp=0.1875, below threshold) → Score 100.
+    /// C-001: each CHOPCHOP self-complementary 4-bp stem deducts 1 point (<c>SCORE['FOLDING'] = 1</c>).
+    /// Evidence: chopchop.py <c>Guide.calcSelfComplementarity</c> ends in
+    /// <c>self.score += self.folding * SCORE['FOLDING']</c> (E3). Oracle = the reference function run verbatim
+    /// in Python: "GCGCGCGCGCGCGCGCGCGC" → 11 stems; "ACGGACTAGCCTACGTACGT" → 0 stems.
+    /// Score: 100 − 60 (GC 100 %: (100−70)×2) − 11 (stems) − 5 (seed GC 100 % &gt; 80) = 24.
+    /// Control: the 8-mer palindrome "GCGCGCGC" has 0 stems in the reference (the stem window must fit
+    /// inside rvs[0:L−i], L = 8−4−1 = 3), so the old pair fraction's 0.3125 no longer penalises it.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_SelfComplementary_PenaltyTriggered()
     {
-        // High self-comp: 8bp period-2 palindrome exceeds 0.3 threshold
-        string highSelfComp = "GCGCGCGC";
-        var result = CrisprDesigner.EvaluateGuideRna(highSelfComp, CrisprSystemType.SpCas9);
+        var result = CrisprDesigner.EvaluateGuideRna("GCGCGCGCGCGCGCGCGCGC", CrisprSystemType.SpCas9);
 
-        Assert.That(result.SelfComplementarityScore, Is.EqualTo(0.3125));
-        Assert.That(result.Score, Is.EqualTo(25.625));
-        Assert.That(result.Issues, Has.Some.Contains("self-complementarity"));
+        Assert.That(result.SelfComplementaryStems, Is.EqualTo(11));
+        Assert.That(result.Score, Is.EqualTo(100 - 60 - 11 * CrisprDesigner.SelfComplementarityStemPenalty - 5));
+        Assert.That(result.Score, Is.EqualTo(24));
+        Assert.That(result.Issues, Has.Some.Contains("11 self-complementary 4-bp stems"));
 
-        // Control: same length, below threshold → no self-comp penalty
-        string lowSelfComp = "ACGTACGT";
-        var control = CrisprDesigner.EvaluateGuideRna(lowSelfComp, CrisprSystemType.SpCas9);
+        var control = CrisprDesigner.EvaluateGuideRna("GCGCGCGC", CrisprSystemType.SpCas9);
 
-        Assert.That(control.SelfComplementarityScore, Is.EqualTo(0.1875));
-        Assert.That(control.Score, Is.EqualTo(100));
-        Assert.That(control.Issues.Any(i => i.Contains("self-complementarity")), Is.False);
+        Assert.That(control.SelfComplementaryStems, Is.EqualTo(0));
+        Assert.That(control.SelfComplementarityScore, Is.EqualTo(0.3125), "the legacy fraction is still reported");
+        Assert.That(control.Score, Is.EqualTo(100 - 60 - 5));
+        Assert.That(control.Issues.Any(i => i.Contains("self-complementary")), Is.False);
     }
 
     /// <summary>
@@ -472,7 +473,7 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(guides, Has.Count.EqualTo(3));
         Assert.That(guides.All(g => g.Sequence == "ACGTACGTACGTACGTACGT"), Is.True);
-        Assert.That(guides.All(g => g.Score == 100), Is.True);
+        Assert.That(guides.All(g => g.Score == 90), Is.True, "ACGT×5 carries 10 CHOPCHOP stems");
     }
 
     /// <summary>
@@ -487,11 +488,12 @@ public class CrisprDesigner_GuideRNA_Tests
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SaCas9);
 
         Assert.That(candidate.Sequence, Is.EqualTo(guide));
-        Assert.That(candidate.Score, Is.EqualTo(100));
+        Assert.That(candidate.Score, Is.EqualTo(90), "ACGT×5 carries 10 CHOPCHOP stems");
         Assert.That(candidate.GcContent, Is.EqualTo(50));
         Assert.That(candidate.System.Name, Is.EqualTo("SaCas9"));
         Assert.That(candidate.System.GuideLength, Is.EqualTo(21));
-        Assert.That(candidate.Issues, Is.Empty);
+        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues[0], Does.Contain("10 self-complementary 4-bp stems"));
     }
 
     /// <summary>
@@ -525,7 +527,7 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(guides, Has.Count.EqualTo(1));
         Assert.That(guides[0].Position, Is.EqualTo(4));
-        Assert.That(guides[0].Score, Is.EqualTo(100));
+        Assert.That(guides[0].Score, Is.EqualTo(90), "ACGT×5 carries 10 CHOPCHOP stems");
     }
 
     /// <summary>
@@ -536,12 +538,12 @@ public class CrisprDesigner_GuideRNA_Tests
     [Test]
     public void EvaluateGuideRna_AboveBoundaryGc_HasHighGcIssue()
     {
-        string guide = "GCGCGCGCGCGCGCGCAAAA"; // 16 G/C = 80% GC
+        string guide = "GCGCGCGCGCGCGCGCAAAA"; // 16 G/C = 80% GC; 7 CHOPCHOP stems
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.GcContent, Is.EqualTo(80));
-        Assert.That(candidate.Score, Is.EqualTo(80));
-        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Score, Is.EqualTo(73)); // 100 − 20 (GC (80−70)×2) − 7 (stems)
+        Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues[0], Does.Contain("High GC"));
     }
 
@@ -658,13 +660,13 @@ public class CrisprDesigner_GuideRNA_Tests
         var sequence = new DnaSequence(
             "AAAAAAAAAAAAGCGCGCATAGG" +      // 30% GC -> 80
             "TTTTTTTTTTTTTTTTTTTTCGG" +      // all-T  -> 0
-            "ACGTACGTACGTACGTACGTTGG");      // 50% GC -> 100
+            "ACGTACGTACGTACGTACGTTGG");      // 50% GC, 10 CHOPCHOP stems -> 90
 
         var guides = CrisprDesigner.DesignGuideRnas(
             sequence, 0, sequence.Length - 1, CrisprSystemType.SpCas9,
             GuideRnaParameters.Default with { MinScore = 0 }).ToList();
 
-        Assert.That(guides.Select(g => g.Score), Is.EqualTo(new[] { 100.0, 80.0, 0.0 }));
+        Assert.That(guides.Select(g => g.Score), Is.EqualTo(new[] { 90.0, 80.0, 0.0 }));
         Assert.That(guides[0].Sequence, Is.EqualTo("ACGTACGTACGTACGTACGT"));
         Assert.That(guides[^1].Sequence, Is.EqualTo("TTTTTTTTTTTTTTTTTTTT"));
     }
@@ -733,10 +735,10 @@ public class CrisprDesigner_GuideRNA_Tests
         var off = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9,
             GuideRnaParameters.Default with { AvoidPolyT = false });
 
-        Assert.That(on.Score, Is.EqualTo(80));
-        Assert.That(off.Score, Is.EqualTo(100));
+        Assert.That(on.Score, Is.EqualTo(75)); // 100 − 20 (polyT) − 5 (stems)
+        Assert.That(off.Score, Is.EqualTo(95)); // 100 − 5 (the guide has 5 CHOPCHOP stems)
         Assert.That(off.HasPolyT, Is.True);
-        Assert.That(off.Issues, Is.Empty);
+        Assert.That(off.Issues, Has.None.Contains("TTTT"));
     }
 
     /// <summary>
@@ -746,16 +748,17 @@ public class CrisprDesigner_GuideRNA_Tests
     [Test]
     public void EvaluateGuideRna_CheckSelfComplementarityFalse_DisablesThePenalty()
     {
-        const string guide = "GCGCGCGC"; // selfComp 0.3125 (> 0.3), seed GC 100%
+        const string guide = "GCGCGCGCGCGCGCGCGCGC"; // 11 CHOPCHOP stems, seed GC 100%
         var wide = new GuideRnaParameters(0, 100, 0, AvoidPolyT: true, CheckSelfComplementarity: true);
 
         var on = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9, wide);
         var off = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9,
             wide with { CheckSelfComplementarity = false });
 
-        Assert.That(on.Score, Is.EqualTo(100 - 0.3125 * 30 - 5));
+        Assert.That(on.Score, Is.EqualTo(100 - 11 - 5));
         Assert.That(off.Score, Is.EqualTo(95));
-        Assert.That(off.SelfComplementarityScore, Is.EqualTo(0.3125));
+        Assert.That(off.SelfComplementaryStems, Is.EqualTo(11), "the measurement is still reported");
+        Assert.That(off.SelfComplementarityScore, Is.EqualTo(0.275), "the legacy fraction is unchanged and still reported");
         Assert.That(off.Issues, Has.Count.EqualTo(1));
         Assert.That(off.Issues[0], Does.Contain("Suboptimal seed region GC"));
     }
@@ -947,12 +950,12 @@ public class CrisprDesigner_GuideRNA_Tests
 
         var spCas9 = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
         Assert.That(spCas9.GrafMotif, Is.EqualTo(GrafMotifType.TtMotif));
-        Assert.That(spCas9.Score, Is.EqualTo(100), "CRISPOR warns about the Graf motifs, it does not score them");
+        Assert.That(spCas9.Score, Is.EqualTo(100 - 8), "CRISPOR warns about the Graf motifs, it does not score them; 8 CHOPCHOP stems");
         Assert.That(spCas9.Issues, Has.Some.Contains("Graf 2019 TT-motif"));
 
         var saCas9 = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SaCas9);
         Assert.That(saCas9.GrafMotif, Is.EqualTo(GrafMotifType.None));
-        Assert.That(saCas9.Issues, Is.Empty);
+        Assert.That(saCas9.Issues, Has.None.Contains("Graf"));
     }
 
     #endregion
@@ -1047,7 +1050,8 @@ public class CrisprDesigner_GuideRNA_Tests
             GuideRnaParameters.Default with { MaxSelfComplementaryStems = 2 });
         Assert.That(flagged.SelfComplementaryStems, Is.EqualTo(10));
         Assert.That(flagged.Issues, Has.Some.Contains("self-complementary 4-bp stems"));
-        Assert.That(flagged.Score, Is.EqualTo(100), "the limit filters, it does not deduct");
+        Assert.That(flagged.Score, Is.EqualTo(90), "the limit does not deduct; only the 10 stems do (1 point each)");
+        Assert.That(flagged.Issues, Has.Some.Contains("(limit 2)"));
     }
 
     /// <summary>
@@ -1081,6 +1085,105 @@ public class CrisprDesigner_GuideRNA_Tests
         Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CountSelfComplementaryStems(""));
         Assert.Throws<ArgumentOutOfRangeException>(
             () => CrisprDesigner.CountSelfComplementaryStems("ACGTACGTACGT", 0));
+    }
+
+    #endregion
+
+    #region 2026-10 review (B08 round 2, E3) — CHOPCHOP stem penalty, raw-string alphabet, ASCII fold
+
+    /// <summary>
+    /// Oracle: <c>Guide.calcSelfComplementarity</c> of CHOPCHOP's chopchop.py (sha256 3c7a4344…), transcribed
+    /// verbatim in Python and run under Biopython 1.88, with the default empty backbone and with the standard
+    /// backbone "AGGCTAGTCCGT". The deduction per stem is <c>SCORE['FOLDING'] = 1</c>.
+    /// </summary>
+    [TestCase("ACGTACGTACGTACGTACGT", 10, 10)]
+    [TestCase("GCGCGCGCGCGCGCGCGCGC", 11, 11)]
+    [TestCase("ACGGACTAGCCTACGTACGT", 0, 8)]
+    [TestCase("ACGTACGTACGT", 2, 2)]
+    [TestCase("GCGCGCGC", 0, 0)]
+    public void EvaluateGuideRna_StemPenalty_IsOnePointPerChopchopStem(string guide, int stems, int stemsWithBackbone)
+    {
+        var wide = new GuideRnaParameters(0, 100, 0, AvoidPolyT: false, CheckSelfComplementarity: true);
+        var off = wide with { CheckSelfComplementarity = false };
+        var withBackbone = wide with
+        {
+            SelfComplementarityBackboneRegions = new[] { CrisprDesigner.StandardSgRnaBackboneRegion },
+        };
+
+        var on = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9, wide);
+        var none = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9, off);
+        var bb = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9, withBackbone);
+
+        Assert.That(on.SelfComplementaryStems, Is.EqualTo(stems));
+        Assert.That(bb.SelfComplementaryStems, Is.EqualTo(stemsWithBackbone));
+        Assert.That(on.Score, Is.EqualTo(none.Score - stems));
+        Assert.That(bb.Score, Is.EqualTo(none.Score - stemsWithBackbone), "the backbone stems are penalised too");
+    }
+
+    /// <summary>The legacy pair fraction is reported but no longer enters the score.</summary>
+    [Test]
+    public void EvaluateGuideRna_LegacySelfComplementarityScore_DoesNotEnterTheScore()
+    {
+        // 0 stems but a high legacy fraction: the old rule would have deducted fraction × 30.
+        var c = CrisprDesigner.EvaluateGuideRna("GCGCGCGC", CrisprSystemType.SpCas9,
+            new GuideRnaParameters(0, 100, 0, AvoidPolyT: true, CheckSelfComplementarity: true));
+
+        Assert.That(c.SelfComplementarityScore, Is.EqualTo(0.3125));
+        Assert.That(c.SelfComplementaryStems, Is.EqualTo(0));
+        Assert.That(c.Score, Is.EqualTo(95), "only the seed-GC deduction of 5 applies");
+    }
+
+    [TestCase("XXXXXXXXXXXXXXXXXXXX")]
+    [TestCase("ACGTACGTACGTACGTACGN")]   // IUPAC ambiguity codes are not unambiguous nucleotides
+    [TestCase("ACGTACGTACGTACGTACG-")]
+    [TestCase("ACGTACGTACGT ACGTACG")]
+    [TestCase("ACGTACGTACGTACGTACGſ")]   // U+017F must not be folded onto IUPAC 'S' and must not pass
+    public void RawStringGuideEntryPoints_RejectNonNucleotides(string guide)
+    {
+        var e1 = Assert.Throws<ArgumentException>(() => CrisprDesigner.EvaluateGuideRna(guide));
+        Assert.That(e1!.ParamName, Is.EqualTo("guideSequence"));
+        var e2 = Assert.Throws<ArgumentException>(() => CrisprDesigner.CountSelfComplementaryStems(guide));
+        Assert.That(e2!.ParamName, Is.EqualTo("guideSequence"));
+        Assert.Throws<ArgumentException>(
+            () => CrisprDesigner.CountSelfComplementaryStems("ACGTACGTACGTACGTACGT", 4, new[] { guide }));
+    }
+
+    [Test]
+    public void RawStringGuideEntryPoints_FoldCaseAndReadUAsT()
+    {
+        const string dna = "ACGGACTTTTCCTACGTACG";
+        string rna = dna.Replace('T', 'U');
+
+        var a = CrisprDesigner.EvaluateGuideRna(dna);
+        var b = CrisprDesigner.EvaluateGuideRna(rna.ToLowerInvariant());
+
+        Assert.That(b.Sequence, Is.EqualTo(dna));
+        Assert.That(b.HasPolyT, Is.True, "UUUU is TTTT");
+        Assert.That(b.Score, Is.EqualTo(a.Score));
+        Assert.That(CrisprDesigner.CountSelfComplementaryStems(rna),
+            Is.EqualTo(CrisprDesigner.CountSelfComplementaryStems(dna)));
+        // the RNA scaffold is accepted as well
+        Assert.That(
+            CrisprDesigner.CountSelfComplementaryStems(dna, 4, new[] { "AGGCUAGUCCGU" }),
+            Is.EqualTo(CrisprDesigner.CountSelfComplementaryStems(dna, 4, new[] { "AGGCTAGTCCGT" })));
+    }
+
+    /// <summary>
+    /// The case fold of the raw-string scorers is ASCII-only (D20 / F49): <c>string.ToUpperInvariant</c> maps
+    /// U+017F 'ſ' onto 'S', so a guide carrying 'ſ' used to compare equal to one carrying 'S'.
+    /// </summary>
+    [Test]
+    public void CalculateMitHitScore_LongS_IsNotFoldedOntoS()
+    {
+        const string guide = "ACGTACGTACGTACGTACGS";
+        const string longS = "ACGTACGTACGTACGTACGſ";
+        const string plainMismatch = "ACGTACGTACGTACGTACGA";
+
+        Assert.That(CrisprDesigner.CalculateMitHitScore(guide, guide), Is.EqualTo(100.0), "control: identical");
+        Assert.That(CrisprDesigner.CalculateMitHitScore(guide, longS),
+            Is.EqualTo(CrisprDesigner.CalculateMitHitScore(guide, plainMismatch)),
+            "'ſ' is a different character from 'S', i.e. one mismatch at position 19 (it used to fold to 'S' = 100)");
+        Assert.That(CrisprDesigner.CalculateMitHitScore(guide, longS), Is.LessThan(100.0));
     }
 
     #endregion

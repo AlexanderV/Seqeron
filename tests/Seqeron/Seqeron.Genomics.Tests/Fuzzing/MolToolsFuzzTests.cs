@@ -1133,29 +1133,22 @@ public class MolToolsFuzzTests
     }
 
     /// <summary>
-    /// MC (non-DNA, raw evaluator): the standalone EvaluateGuideRna scores a raw string
-    /// without A/C/G/T validation, so it must TOLERATE junk without crashing. Non-DNA
-    /// characters are excluded from GC (CalculateGcFraction counts only A/C/G/T/U and
-    /// returns 0 when none are valid) and the reverse complement used by
-    /// self-complementarity passes non-IUPAC chars through unchanged (GetComplementBase
-    /// fall-through) — no exception, no out-of-range indexing, and no division by zero
-    /// because the guide is non-empty (length > 0). We pin: a pure-junk guide scores
-    /// without throwing, with a finite, clamped (>= 0) score (INV-01) and GC of 0.
+    /// MC (non-DNA, raw evaluator): the standalone EvaluateGuideRna takes a raw string, and since
+    /// B08 round 2 (E3) it validates the alphabet like every other raw-string guard in CrisprDesigner
+    /// (CFD / SaCas9 / MIT scorers) and like the DnaSequence type that guide design goes through:
+    /// anything but A/C/G/T (U is read as T) is a typed <see cref="ArgumentException"/> naming the
+    /// parameter -- never an out-of-range index, a NaN score or a scored candidate for junk. The previous
+    /// contract ("scores a pure-junk guide with GC 0") returned a plausible-looking Score for input
+    /// that is not a nucleotide sequence at all.
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void EvaluateGuideRna_NonDnaGuide_ScoresWithoutCrash()
+    public void EvaluateGuideRna_NonDnaGuide_IsRejectedWithATypedException()
     {
-        var act = () => CrisprDesigner.EvaluateGuideRna("$#@!XYZ123 ￿qwerty");
+        var act = () => CrisprDesigner.EvaluateGuideRna("$#@!XYZ123 \uFFFFqwerty");
 
-        act.Should().NotThrow(
-            "non-DNA characters are excluded from GC and pass through the complement unchanged; neither path indexes out of range or divides by zero");
-
-        var candidate = CrisprDesigner.EvaluateGuideRna("$#@!XYZ123 ￿qwerty");
-        candidate.Score.Should().BeGreaterThanOrEqualTo(0,
-            "INV-01: the score is clamped to >= 0 even on garbage input");
-        candidate.Score.Should().NotBe(double.NaN, "a junk guide must not produce a NaN score");
-        candidate.GcContent.Should().Be(0, "no character is A/C/G/T, so GC content is 0, not a divide-by-zero");
+        act.Should().Throw<ArgumentException>()
+            .Which.ParamName.Should().Be("guideSequence");
     }
 
     #endregion

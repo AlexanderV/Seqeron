@@ -35,7 +35,8 @@ public class DesignGuideRnasTests
             Assert.That(guides.Count, Is.EqualTo(1));
             var g = guides[0];
             Assert.That(g.Position, Is.EqualTo(24));
-            Assert.That(g.Score, Is.EqualTo(100.0).Within(1e-9));
+            Assert.That(g.SelfComplementaryStems, Is.EqualTo(10)); // CHOPCHOP oracle for ACGT x5
+            Assert.That(g.Score, Is.EqualTo(90.0).Within(1e-9)); // 100 - 10 stems x SCORE['FOLDING'] = 1
             Assert.That(g.IsForwardStrand, Is.True);
             Assert.That(g.GcContent, Is.EqualTo(50.0).Within(1e-9));
             Assert.That(g.SeedGcContent, Is.EqualTo(50.0).Within(1e-9));

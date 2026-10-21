@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "CrisprDesigner.EvaluateGuideRna",
   "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L200",
-  "description": "Score a single guide RNA against on-target quality heuristics.",
+  "description": "Score a single guide RNA against on-target quality heuristics (library heuristic; each CHOPCHOP self-complementary 4-bp stem deducts 1 point). The guide must be A/C/G/T (U is read as T).",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -32,7 +32,8 @@
     "required": ["sequence", "position", "isForwardStrand", "gcContent", "seedGcContent", "hasPolyT", "selfComplementarityScore", "score", "issues"]
   },
   "errors": [
-    { "code": 1001, "message": "Guide sequence cannot be null or empty" }
+    { "code": 1001, "message": "Guide sequence cannot be null or empty" },
+    { "code": 1002, "message": "Expected A/C/G/T (U is read as T) but found '{char}' at index {i}." }
   ],
   "examples": [
     {
