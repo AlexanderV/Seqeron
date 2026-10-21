@@ -2272,14 +2272,14 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateOnTargetDoench2014",
     "docPath": "docs/mcp/tools/moltools/calculate_on_target_doench2014.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L815"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L915"
   },
   {
     "tool": "calculate_on_target_rule_set2",
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateOnTargetRuleSet2",
     "docPath": "docs/mcp/tools/moltools/calculate_on_target_rule_set2.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L889"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L989"
   },
   {
     "tool": "codon_adaptation_index",
@@ -2328,28 +2328,28 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateCfdSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_cfd_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1539"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1941"
   },
   {
     "tool": "crispr_mit_specificity_score",
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateMitSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_mit_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1123"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1140"
   },
   {
     "tool": "crispr_specificity_score",
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateHeuristicSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L614"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L717"
   },
   {
     "tool": "crispr_system_info",
     "server": "MolTools",
     "methodId": "CrisprDesigner.GetSystem",
     "docPath": "docs/mcp/tools/moltools/crispr_system_info.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L18"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L14"
   },
   {
     "tool": "design_antisense_probes",
@@ -2363,7 +2363,7 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.DesignGuideRnas",
     "docPath": "docs/mcp/tools/moltools/design_guide_rnas.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L169"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L188"
   },
   {
     "tool": "design_molecular_beacon",
@@ -2426,14 +2426,14 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.AreCompatible",
     "docPath": "docs/mcp/tools/moltools/enzymes_compatible.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1650"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1635"
   },
   {
     "tool": "evaluate_guide_rna",
     "server": "MolTools",
     "methodId": "CrisprDesigner.EvaluateGuideRna",
     "docPath": "docs/mcp/tools/moltools/evaluate_guide_rna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L200"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L253"
   },
   {
     "tool": "evaluate_primer",
@@ -2461,14 +2461,14 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.FindOffTargets",
     "docPath": "docs/mcp/tools/moltools/find_off_targets.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L331"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L578"
   },
   {
     "tool": "find_pam_sites",
     "server": "MolTools",
     "methodId": "CrisprDesigner.FindPamSites",
     "docPath": "docs/mcp/tools/moltools/find_pam_sites.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L51"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L38"
   },
   {
     "tool": "find_rare_codon_clusters",

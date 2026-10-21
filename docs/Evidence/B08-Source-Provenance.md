@@ -303,19 +303,21 @@ pinned snapshot by this unit, and **all of them hold**:
 | Claim (location) | Recomputed |
 |---|---|
 | 1088 REBASE enzymes | **1088** ✅ |
-| "REBASE has exactly two non-palindromic in-site cutters, `CdiI` `CATC^G` and `SimI` `GG^GTC_N`" (`RestrictionAnalyzer.cs:163`) | exactly **2**: `CdiI`, `SimI` ✅ |
-| "389 REBASE enzymes whose `ovhgseq` is blunt or fully A/C/G/T, all 75 466 unordered pairs" (`:1124`) | **389**, and 389·388/2 = **75 466** ✅ |
-| "asymmetric for 2386 of 283 881 REBASE pairs" (`:1127`) | the pair count matches the **754** enzymes with a non-`None` `ovhgseq`: 754·753/2 = **283 881** ✅ |
-| 39 built-ins: 10 blunt, 21 5'-overhang, 8 3'-overhang (`:118`, `:130`) | **10 / 21 / 8** ✅ (sums to 39) |
-| "39/39 agreement" against Biopython `.size` (`:92`) | **39/39** ✅ |
-| D4: "1088 enzymes, **576** expressible in the current record, **252** with a fully defined overhang" (B08.md:516) | **576** expressible; of those, **252** have a non-blunt, fully A/C/G/T `ovhgseq` ✅ |
+| "REBASE has exactly two non-palindromic in-site cutters, `CdiI` `CATC^G` and `SimI` `GG^GTC_N`" (`RestrictionAnalyzer.cs:182`) | exactly **2**: `CdiI`, `SimI` ✅ |
+| "389 REBASE enzymes whose `ovhgseq` is blunt or fully A/C/G/T, all 75 466 unordered pairs" (`:1502`) | **389**, and 389·388/2 = **75 466** ✅ |
+| "asymmetric for 2386 of 283 881 REBASE pairs" (`:1505`) | the pair count matches the **754** enzymes with a non-`None` `ovhgseq`: 754·753/2 = **283 881** ✅ |
+| 39 built-ins: 10 blunt, 21 5'-overhang, 8 3'-overhang (`:138`, `:150-151`) | **10 / 21 / 8** ✅ (sums to 39) |
+| "39/39 agreement" against Biopython `.size` (`:113`) | **39/39** ✅ |
+| D4: "1088 enzymes, **576** expressible in the current record, **252** with a fully defined overhang" (B08.md:1012, round-1 worklist row D4) | **576** expressible; of those, **252** have a non-blunt, fully A/C/G/T `ovhgseq` ✅ |
 
 **No misattributed citation was found in the restriction code.** (The WP1-class defect — a comment
 crediting `Tm_NN(DNA_NN3)` where upstream Azimuth calls the obsolete `Tm_staluc` — is already fixed:
-`AzimuthRuleSet2.cs:308-313` now states that upstream calls `MeltingTemp.Tm_staluc` and documents
+`AzimuthRuleSet2.cs:322-327` now states that upstream calls `MeltingTemp.Tm_staluc` and documents
 the exact equivalence to `Tm_NN`.)
 
 ### 7c. Unverifiable in this environment (citation cannot be opened by anyone in this campaign)
+
+*Line anchors in §7b/§7c re-derived against the current code on 2026-10-21 (B08 round 2 E8, F76): each was found by grepping the cited source string or numeric claim in `RestrictionAnalyzer*.cs` / `CrisprDesigner.cs` / `AzimuthRuleSet2.cs` (the `Wikipedia`, `Addgene`, `Illinois`, `CdiI`, `75 466`, `2386`, `Tm_staluc` strings), not carried over from the earlier numbering. The F68 partial class `RestrictionAnalyzer.Methylation.cs` and the others (`.Rebase.cs`, `.PartialDigest.cs`) carry none of these citations.*
 
 These claims are **not withdrawn** — each is either definitional or independently backed by an
 executed reference — but **their cited source was never opened by this campaign**, and a reader must
@@ -328,10 +330,10 @@ not read them as checked. Annotated here rather than deleted.
 | `tests/TestSpecs/CRISPR-GUIDE-001.md` row "Addgene CRISPR Guide" | `www.addgene.org/guides/crispr/` | ~~**Unverifiable here** (host denied)~~ → **VERIFIED 2026-10-14 (WP3)** — seed range, spacer/scaffold, NGG/NNGRRT/TTTV PAMs confirmed; the Pol III `TTTT` claim is **not on the page**. See §8 |
 | `tests/TestSpecs/CRISPR-GUIDE-001.md` rows "Wikipedia: Guide RNA", "Wikipedia: PAM" | `en.wikipedia.org` | **Unverifiable here** (host denied). PAM definitions were separately re-confirmed against CRISPOR's tables (`CRISPR-PAM-001-Evidence.md`) |
 | `tests/TestSpecs/CRISPR-OFF-001.md` row "Wikipedia: Off-target genome editing" | `en.wikipedia.org` | **Unverifiable here** (host denied) |
-| `RestrictionAnalyzer.cs:85`, `:105` | Wikipedia *Restriction enzyme* — "Type II sites are 4-8 nt" | **Unverifiable here.** Descriptive range only; no behaviour depends on it. The same remarks block already notes the interrupted-palindrome exception (`SfiI`, `size == 13`) measured against Biopython `.size` |
-| `RestrictionAnalyzer.cs:115`, `:126`, `:1329` | Wikipedia *Sticky and blunt ends* | **Unverifiable here**, but each is paired in the same comment with an executed Biopython backing (`is_blunt()`, `Blunt._mod1`) |
-| `RestrictionAnalyzer.cs:765`, `:983`, `:1497`, `:1559` | Addgene *Plasmids 101* / *Restriction Digest Protocol*, Univ. of Illinois MolBio | **Unverifiable here.** Both claims they support (a circle with *k* cuts gives *k* fragments; fragment lengths sum to the molecule length) are arithmetic identities that the digest tests assert directly, and `:765` additionally cites Biopython `catalyse(..., linear=False)` |
-| ~~`CrisprDesigner.cs:258`~~ | ~~"Evidence: Addgene — seed sequence is 8-10 bases at 3' end; using upper bound (10bp)"~~ | **Superseded — VERIFIED 2026-10-14 (WP3, §8).** Original annotation: **Unverifiable here** (host denied): the 8-10 nt range cannot be checked. Not changed and not a misattribution — the comment states its own derivation (upper bound of the cited range), and that is the same convention `CRISPR-OFF-001.md:38` applies to the *off-target* seed (12 bp = upper bound of Hsu 2013's 8-12 bp, a reachable primary source). The guide-design seed (10) and the off-target seed (12) are different parameters resting on different sources; only the former's source is denied |
+| `RestrictionAnalyzer.cs:106`, `:126` | Wikipedia *Restriction enzyme* — "Type II sites are 4-8 nt" | **Unverifiable here.** Descriptive range only; no behaviour depends on it. The same remarks block already notes the interrupted-palindrome exception (`SfiI`, `size == 13`) measured against Biopython `.size` |
+| `RestrictionAnalyzer.cs:134`, `:145`, `:1696` | Wikipedia *Sticky and blunt ends* | **Unverifiable here**, but each is paired in the same comment with an executed Biopython backing (`is_blunt()`, `Blunt._mod1`) |
+| `RestrictionAnalyzer.cs:957-959`, `:1285`, `:2021`, `:2121` | Addgene *Plasmids 101* / *Restriction Digest Protocol*, Univ. of Illinois MolBio | **Unverifiable here.** Both claims they support (a circle with *k* cuts gives *k* fragments; fragment lengths sum to the molecule length) are arithmetic identities that the digest tests assert directly, and `:957-959` additionally sits next to Biopython `search(..., linear=False)` / `catalyse(..., linear=False)` (`:955`, `:965`) |
+| ~~`CrisprDesigner.cs:310-311`~~ (was `:258`) | ~~"Evidence: Addgene — seed sequence is 8-10 bases at 3' end; using upper bound (10bp)"~~ | **Superseded — VERIFIED 2026-10-14 (WP3, §8).** Original annotation: **Unverifiable here** (host denied): the 8-10 nt range cannot be checked. Not changed and not a misattribution — the comment states its own derivation (upper bound of the cited range), and that is the same convention `CRISPR-OFF-001.md:38` applies to the *off-target* seed (12 bp = upper bound of Hsu 2013's 8-12 bp, a reachable primary source). The guide-design seed (10) and the off-target seed (12) are different parameters resting on different sources; only the former's source is denied |
 | `CRISPR-GUIDE-001-Evidence.md:43` | `bitbucket.org/valenlab/chopchop/raw/HEAD/chopchop.py` — **404** | Still 404; this is a *missing path*, not a policy denial. CHOPCHOP's self-complementarity measure was sourced from the reachable copy recorded in that Evidence file |
 | `CRISPR-OFF-001-Evidence.md:29`, `:95` | `api.github.com/repos/maximilianh/crisporWebsite/contents/bin/src` — **403** | Still unavailable, and now explained: this is the **session repository allowlist** (§1), not egress policy. The directory cannot be listed from here; `raw.githubusercontent.com` serves individual files but cannot enumerate a directory |
 

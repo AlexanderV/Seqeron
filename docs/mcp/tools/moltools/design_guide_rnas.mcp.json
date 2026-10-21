@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.DesignGuideRnas",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L169",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L188",
   "description": "Generate and score CRISPR guide-RNA candidates whose cut site falls in a target region, filtering by minimum score.",
   "inputSchema": {
     "type": "object",

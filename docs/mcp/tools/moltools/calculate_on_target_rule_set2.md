@@ -24,7 +24,7 @@ Source: Doench et al. 2016, Nat Biotechnol 34:184 (PMID 26780180); trained model
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L889](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L889)
+- Source: [CrisprDesigner.cs#L989](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L989)
 - Algorithm doc: [Guide_RNA_Design.md](../../../algorithms/MolTools/Guide_RNA_Design.md) §2.3 "Published on-target efficacy models"
 
 ## Input Schema

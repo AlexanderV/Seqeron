@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.EvaluateGuideRna",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L200",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L253",
   "description": "Score a single guide RNA against on-target quality heuristics (library heuristic; each CHOPCHOP self-complementary 4-bp stem deducts 1 point). The guide must be A/C/G/T (U is read as T).",
   "inputSchema": {
     "type": "object",

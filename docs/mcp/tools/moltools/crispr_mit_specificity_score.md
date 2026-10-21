@@ -31,7 +31,7 @@ Cas12a/Cpf1-class and CasX systems (PAM **before** target) are **refused**: the 
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L1123](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1123)
+- Source: [CrisprDesigner.cs#L1140](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1140)
 
 ## Input Schema
 

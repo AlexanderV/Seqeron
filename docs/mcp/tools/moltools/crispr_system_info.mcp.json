@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.GetSystem",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L18",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L14",
   "description": "Return the metadata (PAM, guide length, PAM placement) for a known CRISPR nuclease system.",
   "inputSchema": {
     "type": "object",

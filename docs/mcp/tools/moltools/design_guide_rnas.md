@@ -18,7 +18,7 @@ Finds every PAM site of the chosen CRISPR system whose target/cut window falls i
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L169](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L169)
+- Source: [CrisprDesigner.cs#L188](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L188)
 
 ## Input Schema
 

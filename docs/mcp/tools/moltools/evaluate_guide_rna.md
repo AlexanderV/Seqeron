@@ -18,7 +18,7 @@ Evaluates a single guide RNA and returns a candidate record: overall GC%, seed-r
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L200](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L200)
+- Source: [CrisprDesigner.cs#L253](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L253)
 
 ## Input Schema
 

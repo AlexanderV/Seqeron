@@ -27,7 +27,7 @@ CFD is defined only for a **20-nt protospacer**, so SaCas9 (21 nt), Cas12a-class
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L1539](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1539)
+- Source: [CrisprDesigner.cs#L1941](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1941)
 
 ## Input Schema
 

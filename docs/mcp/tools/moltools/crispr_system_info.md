@@ -29,7 +29,7 @@ Looks up the built-in metadata record for a CRISPR system: its name, PAM recogni
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L18](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L18)
+- Source: [CrisprDesigner.cs#L14](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L14)
 
 ## Input Schema
 
