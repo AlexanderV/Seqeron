@@ -283,6 +283,43 @@ public static partial class RestrictionAnalyzer
     }
 
     /// <summary>
+    /// <see cref="PartialDigest(DnaSequence, MoleculeTopology, int?, string[])"/> with methylated
+    /// bases blocking recognition: the cut list the partial digest runs over is the methylation-aware
+    /// complete digest's (<see cref="Digest(DnaSequence, MoleculeTopology, IReadOnlyList{Methylase}, string[])"/>),
+    /// so a blocked site is neither cut nor counted as a missed cut.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to digest.</param>
+    /// <param name="topology">Whether the molecule is linear or circular.</param>
+    /// <param name="maxMissedCuts">Optional upper bound on the number of uncut sites inside a fragment.</param>
+    /// <param name="methylases">Methylase sites (<see cref="MethylaseSets"/>); null or empty = methylation off.</param>
+    /// <param name="enzymeNames">Names of restriction enzymes to use.</param>
+    public static IEnumerable<PartialDigestFragment> PartialDigest(
+        DnaSequence sequence, MoleculeTopology topology, int? maxMissedCuts,
+        IReadOnlyList<Methylase>? methylases, params string[] enzymeNames)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        if (enzymeNames == null || enzymeNames.Length == 0)
+            throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
+
+        return PartialDigestCore(sequence, topology, maxMissedCuts, ResolveEnzymes(enzymeNames),
+            MethylationMask.Compute(sequence.Sequence, methylases, topology != MoleculeTopology.Linear));
+    }
+
+    /// <summary>
+    /// <see cref="PartialDigest(DnaSequence, MoleculeTopology, int?, IEnumerable{RestrictionEnzyme})"/>
+    /// with methylated bases blocking recognition; see
+    /// <see cref="PartialDigest(DnaSequence, MoleculeTopology, int?, IReadOnlyList{Methylase}, string[])"/>.
+    /// </summary>
+    public static IEnumerable<PartialDigestFragment> PartialDigest(
+        DnaSequence sequence, MoleculeTopology topology, int? maxMissedCuts,
+        IEnumerable<RestrictionEnzyme> enzymes, IReadOnlyList<Methylase>? methylases)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return PartialDigestCore(sequence, topology, maxMissedCuts, RequireEnzymeList(enzymes),
+            MethylationMask.Compute(sequence.Sequence, methylases, topology != MoleculeTopology.Linear));
+    }
+
+    /// <summary>
     /// <see cref="Digest(DnaSequence, MoleculeTopology, string[])"/> with methylated bases blocking
     /// recognition; see <see cref="FindSites(DnaSequence, string, MoleculeTopology, IReadOnlyList{Methylase})"/>.
     /// </summary>

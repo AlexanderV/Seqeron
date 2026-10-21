@@ -125,9 +125,9 @@ Goal: locate cut sites for chosen enzymes and produce fragment list.
   (`find_restriction_sites`, `find_all_restriction_sites`, `restriction_digest`, `partial_digest`,
   `digest_summary`, `restriction_map`). Site positions are 0-based.
 - Optional `methylation` (`none` default | `dam` | `dcm` | `dam+dcm` | `emboss`) on `find_restriction_sites`,
-  `restriction_digest`, `digest_summary`, `restriction_map` drops every site whose recognition window covers a
+  `restriction_digest`, `digest_summary`, `restriction_map`, `partial_digest` drops every site whose recognition window covers a
   base the methylase set methylates (EMBOSS `restrict -methylation`; a window rule, not an enzyme-sensitivity
-  table). Off by default; not available on `partial_digest` / `find_all_restriction_sites`.
+  table). Off by default; not available on `find_all_restriction_sites`.
 - Enzyme names resolve against all 754 REBASE enzymes with a defined cut (BsaI, BaeI, …); listing tools
   default to the 39 common enzymes — pass `enzyme_set: "rebase"` for the full set.
 - **Provenance:** find_restriction_sites(enzymes) → restriction_digest(enzymes) → fragment table.

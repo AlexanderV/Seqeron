@@ -57,6 +57,8 @@
 
 - **Blocked sites do not cut.** `Digest`/`GetDigestSummary`/`CreateMap` with a methylase set are the unblocked computation on the site set EMBOSS `restrict -methylation` leaves (RESTR-FIND-001 Evidence §7); a `null`/empty set is byte-identical to the overload without it. Locked: 51-bp `GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA`, EcoRI+MboI with Dam -> 1/18/32 (circular 18/33), without -> 5 fragments. `PartialDigest` does not take a set. Tests: `Digest_BlockedSitesDoNotCut`, `Digest_Circular_AndEnzymeListOverload`, `GetDigestSummary_AndCreateMap_CarryTheSet`, `NullOrEmptySet_IsIdenticalToTheOverloadWithoutIt` (RestrictionAnalyzer_Methylation_Tests); MCP `RestrictionMethylationToolsTests`.
 
+- **Partial digest carries the set (F83, round 3 G3).** `PartialDigest(..., methylases, ...)` runs the F53 construction over the cut list the methylation-aware `Digest` uses: a blocked site is neither a cut nor a missed cut, the `MissedCuts = 0` prefix is `Digest(sequence, topology, methylases, names)`, the count is `(k+1)(k+2)/2` / `k^2+1` with `k` the surviving cuts. Oracle: Biopython `search` cuts filtered by EMBOSS `restrict -methylation` sites, then the constructed set (Evidence §12). Locked: L2 Dam -> `{1,19,30,39,45}` (21 fragments, was 36), L1 Dam -> intact molecule, L3 emboss -> `{22,48,52}`, 500-bp random sequence none/emboss/Dam/Dcm, linear and circular, name and record forms; default off byte-identical. MCP `partial_digest` `methylation`.
+
 ### Partial Digest Invariants (F53, `PartialDigest`)
 
 8. **Definition (linear)**: with cut positions c_1<…<c_k (the complete digest's), the fragments are all intervals [a,b), a<b, over X = {0,c_1,…,c_k,L}; their lengths are ΔX, (k+1)(k+2)/2 of them (Source: Rosalind PDPL / Jones & Pevzner).

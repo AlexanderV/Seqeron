@@ -219,7 +219,10 @@ sorted distinct `search` cuts — **0 mismatches** over 1 508 + 1 508 comparison
 methylases, params enzymeNames)`; record form: `(sequence, topology, enzymes, methylases)`); MCP: optional
 `methylation` = `none` (default) | `dam` | `dcm` | `dam+dcm` | `emboss` on `find_restriction_sites`,
 `restriction_digest`, `digest_summary`, `restriction_map`. `null`/empty/`none` is byte-identical to the overloads without
-the parameter. **Not carried:** `PartialDigest`, `FindAllSites` and the `EnzymeSet` listing members.
+the parameter. Added in B08 round 3 G3 (F83): `PartialDigest(sequence, topology, maxMissedCuts, methylases, params enzymeNames)` /
+`PartialDigest(sequence, topology, maxMissedCuts, enzymes, methylases)` and MCP `partial_digest` `methylation` — the cut list the
+partial digest runs over is the methylation-aware digest's, so a blocked site is neither cut nor missed cut (oracle: the F53 constructed
+set over the EMBOSS-surviving cuts, Evidence RESTR-DIGEST-001 §12). **Not carried:** `FindAllSites` and the `EnzymeSet` listing members.
 
 **Reference.** EMBOSS `restrict -methylation` ("If this is set then RE recognition sites will not match
 methylated bases"), `-mfile` default `Emethylsites.dat`. Data (`MethylaseSets.Emboss`, file order): `dam GmATC`,

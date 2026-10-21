@@ -598,5 +598,5 @@ reverse strand, circular wrap, rotation invariance, digest / summary / map) and 
 
 **Limitations kept honest.** (i) A window rule, not an enzyme-sensitivity table: BamHI (Dam-insensitive at the bench) is blocked,
 `DpnI` (needs methylation) and `MspI`/`HpaII` are not modelled. (ii) EMBOSS's one-A-per-GATC marking and masked EcoKI spacer are
-reproduced, not corrected. (iii) CpG methylation is not in `Emethylsites.dat` and not offered. (iv) `PartialDigest`, `FindAllSites` and
-the `EnzymeSet` listing members do not take a methylase set.
+reproduced, not corrected. (iii) CpG methylation is not in `Emethylsites.dat` and not offered. (iv) `PartialDigest` takes the set since B08 round 3 G3 (F83; Evidence RESTR-DIGEST-001 §12); `FindAllSites` and
+the `EnzymeSet` listing members do not (yet).

@@ -152,7 +152,7 @@ public static partial class RestrictionAnalyzer
     }
 
     private static IEnumerable<PartialDigestFragment> PartialDigestCore(
-        DnaSequence sequence, MoleculeTopology topology, int? maxMissedCuts, IEnumerable<RestrictionEnzyme> enzymes)
+        DnaSequence sequence, MoleculeTopology topology, int? maxMissedCuts, IEnumerable<RestrictionEnzyme> enzymes, bool[]? blocked = null)
     {
         if (maxMissedCuts < 0)
             throw new ArgumentOutOfRangeException(nameof(maxMissedCuts), maxMissedCuts,
@@ -160,7 +160,7 @@ public static partial class RestrictionAnalyzer
 
         bool circular = topology != MoleculeTopology.Linear;
         var (cuts, sitesByPosition) = CollectForwardCuts(
-            sequence, enzymes, circular ? MoleculeTopology.Circular : MoleculeTopology.Linear);
+            sequence, enzymes, circular ? MoleculeTopology.Circular : MoleculeTopology.Linear, blocked);
 
         long count = CountPartialDigestFragments(cuts.Count, circular, maxMissedCuts);
         if (count > MaxPartialDigestFragments)

@@ -426,5 +426,28 @@ and filters `FindSitesCore`, so boundaries, overhangs and fragment order are tho
 site set is EMBOSS `restrict -methylation` (RESTR-FIND-001 Evidence §7); EMBOSS has no digest, so fragment values are derived:
 on `GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA` (51 bp) EMBOSS keeps EcoRI 0 and 18 and blocks MboI 10 and 36 with Dam, so
 `Digest(EcoRI, MboI)` is 1/18/32 (cuts 1 and 19; unblocked: 5 fragments, cuts 1, 10, 19, 36) and the circular digest is 18/33. `PartialDigest` is
-not carried. Locked in `RestrictionAnalyzer_Methylation_Tests` (`Digest_BlockedSitesDoNotCut`, `Digest_Circular_AndEnzymeListOverload`,
+carried since B08 round 3 G3 (§12). Locked in `RestrictionAnalyzer_Methylation_Tests` (`Digest_BlockedSitesDoNotCut`, `Digest_Circular_AndEnzymeListOverload`,
 `GetDigestSummary_AndCreateMap_CarryTheSet`) and the MCP `restriction_digest` / `digest_summary` / `restriction_map` tests.
+
+## 12. Methylation-blocked partial digest (B08 round 3 G3 / F83, 2026-10-21)
+
+`PartialDigest(sequence, topology, maxMissedCuts, methylases, params enzymeNames)` and the record form `(sequence, topology,
+maxMissedCuts, enzymes, methylases)` thread the same mask `DigestWithMask` uses into `CollectForwardCuts` (`PartialDigestCore` gained an
+optional `bool[]? blocked`); MCP `partial_digest` gained `methylation` (`none|dam|dcm|dam+dcm|emboss`, `MethylaseSets.FromName`). F68 listed
+`PartialDigest` as "not carried" with no proof; there is none: the partial digest is a function of the cut list alone (§8), so the
+methylation-aware cut list is the whole change — a blocked site is neither a cut nor a missed cut, and the `maxMissedCuts` / 100 000 guard
+counts surviving cuts only.
+
+**Oracle (independent of the library).** The surviving cut set is built from two executed tools, not from `FindSites`: Biopython 1.88
+`Bio.Restriction.<Enzyme>.search(Seq, linear=...)` gives every cut of every palindromic enzyme, and a cut is kept when EMBOSS 6.6
+`restrict` (table generated from Biopython, one sequence per call, with `-methylation` and the chosen `-mfile`) still reports that
+enzyme's site at `cut - fst5`. The partial-digest fragments are then the F53 constructed set over those cuts: linear = every `[X_i, X_j)`
+over `X = {0, cuts, L}` with `j - i - 1` missed cuts; circular = for each cut, the arcs to the next 1..k cuts (`k-1 .. 0` missed) plus the
+intact circle. Surviving cuts (0-based bases 5' of the cut): L2 (51 bp, `EcoRI, MboI, SmaI, TaqI`) none `{1,10,19,30,36,39,45}` (36 fragments), Dam /
+Dam+Dcm / emboss `{1,19,30,39,45}` (21); L1 (55 bp, `MboI, Sau3AI, BamHI, BclI`) none `{5,15,24}`, Dam `{}` (the intact molecule, `MissedCuts 0`);
+L3 (56 bp, `KpnI, Acc65I, EcoRI`) none `{8,12,22,36,40,48,52}`, emboss `{22,48,52}`; a seeded 500-bp random molecule (8 enzymes) none 16 cuts
+(153 linear / 257 circular fragments), emboss 10 cuts (66 / 101), Dam only 12 (91 / 145), Dcm only 15 (136 / 226). Linear and circular cut lists
+agree (no methylase site spans the origin there). Library = oracle member for member (start, length, missed cuts) in both topologies, by enzyme
+name and by enzyme record; the `MissedCuts = 0` prefix equals `Digest(sequence, topology, methylases, names)` (invariant 8c holds under
+methylation). Default off (`null`, empty, `none`) is byte-identical for the six `{topology} x {maxMissedCuts}` cases checked.
+Locked in `RestrictionAnalyzer_MethylationEntryPoints_Tests` and the MCP `RestrictionMethylationToolsTests` (`PartialDigest_*`).

@@ -20,6 +20,8 @@ A partial (incomplete) digest leaves some recognition sites uncut, so besides th
 
 **Order.** By `missedCuts`, then `startPosition`; `fragmentNumber` is the 1-based position in that order. The `missedCuts = 0` fragments come first and are exactly the `restriction_digest` output for the same input.
 
+**Methylation (opt-in).** `methylation` (`none`|`dam`|`dcm`|`dam+dcm`|`emboss`) masks the bases the chosen methylase set methylates and drops every enzyme window containing one before the cut list is built — the semantics of EMBOSS `restrict -methylation -mfile Emethylsites.dat`, as in [restriction_digest](restriction_digest.md) (RESTR-FIND-001 Evidence §7). A blocked site is neither a cut nor a missed cut: `k` counts the surviving cuts only, so the fragment set is the constructed set above over the EMBOSS-surviving cuts (B08 F83). Default `none` leaves the output unchanged. Example: `GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA` with `EcoRI, MboI, SmaI, TaqI` has 7 cuts and 36 fragments; with `methylation=dam` Dam blocks MboI (10, 36), leaving cuts `{1, 19, 30, 39, 45}` and the 21 fragments of `X = {0, 1, 19, 30, 39, 45, 51}` (lengths `1, 6, 6, 9, 11, 12, 15, 18, 19, 20, 21, 26, 29, 30, 32, 38, 39, 44, 45, 50, 51`).
+
 **Limits.** `max_missed_cuts` (optional, ≥ 0) keeps only fragments with at most that many uncut sites (`0` = complete digest). A request that would produce more than 100,000 fragments is refused; lower `max_missed_cuts`. Only which fragments **can** arise is computed — the yield or relative band intensity of each partial product (which depends on enzyme amount, time and per-site rates) is not modelled.
 
 ## Core Documentation Reference
@@ -35,6 +37,7 @@ A partial (incomplete) digest leaves some recognition sites uncut, so besides th
 | `enzyme_names` | string[] | Yes | Enzyme names to use (≥1). |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
 | `max_missed_cuts` | integer \| null | No | Upper bound on uncut sites per fragment; omit for no bound. |
+| `methylation` | string | No | `none` (default), `dam` (`GmATC`), `dcm` (`mCmCAGG`, `mCmCTGG`), `dam+dcm` or `emboss` (all five `Emethylsites.dat` entries incl. EcoKI). Case-insensitive; an unknown value is an error. A recognition window containing a methylated base is not a site (EMBOSS `restrict -methylation`; a window rule, not an enzyme-sensitivity table — BamHI is blocked by Dam). |
 
 ## Output Schema
 
