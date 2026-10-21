@@ -1390,15 +1390,13 @@ public static class CodonOptimizer
         RestrictionAnalyzer.FindPatternOccurrences(ToMatchableDna(sequence), pattern, from)
             .Cast<int?>().FirstOrDefault() ?? -1;
 
-    // DNA spelling (U -> T) with every non-ACGT symbol replaced by '-', which matches no pattern code.
+    // DNA spelling (SequenceCase.ToUpperDna: ASCII fold, U -> T) with every non-ACGT symbol replaced by '-',
+    // which matches no pattern code.
     private static string ToMatchableDna(string sequence) =>
-        string.Create(sequence.Length, sequence, static (span, source) =>
+        string.Create(sequence.Length, SequenceCase.ToUpperDna(sequence), static (span, dna) =>
         {
             for (int i = 0; i < span.Length; i++)
-            {
-                char c = source[i] == 'U' ? 'T' : source[i];
-                span[i] = c is 'A' or 'C' or 'G' or 'T' ? c : '-';
-            }
+                span[i] = dna[i] is 'A' or 'C' or 'G' or 'T' ? dna[i] : '-';
         });
 
     // Replaces the single synonymous codon that removes the occurrence at <paramref name="position"/>

@@ -224,7 +224,7 @@ internal static class AzimuthRuleSet2
         // separates these: `assert isinstance(seq[0], basestring)` vs `assert len(seq[0]) > 0`,
         // model_comparison.py L523-L524).
         ArgumentNullException.ThrowIfNull(context30Mer);
-        var seq = context30Mer.ToUpperInvariant();
+        var seq = SequenceExtensions.ToUpperAscii(context30Mer)!;
         if (seq.Length != 30)
             throw new ArgumentException(
                 $"Rule Set 2 requires a 30-nt context (4 upstream + 20 protospacer + 3 PAM + 3 downstream); got {seq.Length}.",

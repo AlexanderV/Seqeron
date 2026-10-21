@@ -218,6 +218,18 @@ public class CrisprDesigner_RuleSet2_Tests
             () => CrisprDesigner.CalculateOnTargetRuleSet2("AAAAAAAAAAAAAAAAAANTGCAGCGGGAG"));
     }
 
+    /// <summary>G11: the case fold is ASCII-only; 'ſ' (U+017F) is reported as itself, not as the 'S' it used to fold to.</summary>
+    [Test]
+    public void RuleSet2_LongS_IsReportedAsItself_AndLowerCaseIsStillFolded()
+    {
+        const string valid = "ACGTACGTACGTACGTACGTACGTAGGTAC";
+        var e = Assert.Throws<ArgumentException>(
+            () => CrisprDesigner.CalculateOnTargetRuleSet2(valid.Remove(3, 1).Insert(3, "ſ")));
+        e!.Message.Should().Contain("'ſ'");
+        CrisprDesigner.CalculateOnTargetRuleSet2(valid.ToLowerInvariant())
+            .Should().Be(CrisprDesigner.CalculateOnTargetRuleSet2(valid));
+    }
+
     [Test]
     public void RuleSet2_MissingNggPam_Throws()
     {

@@ -56,13 +56,13 @@ public static class MethylaseSets
     /// <exception cref="ArgumentException">Unknown set name.</exception>
     public static IReadOnlyList<Methylase>? FromName(string? name)
     {
-        switch (name?.Trim().ToLowerInvariant())
+        switch (SequenceExtensions.ToUpperAscii(name?.Trim()))
         {
-            case null or "" or "none": return null;
-            case "dam": return Dam;
-            case "dcm": return Dcm;
-            case "dam+dcm": return DamDcm;
-            case "emboss": return Emboss;
+            case null or "" or "NONE": return null;
+            case "DAM": return Dam;
+            case "DCM": return Dcm;
+            case "DAM+DCM": return DamDcm;
+            case "EMBOSS": return Emboss;
             default:
                 throw new ArgumentException(
                     $"Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss.", nameof(name));
@@ -102,7 +102,7 @@ internal static class MethylationMask
                 continue;
             }
 
-            char c = char.IsAscii(raw) ? char.ToUpperInvariant(raw) : raw;
+            char c = SequenceExtensions.ToUpperAscii(raw);
             if (!IupacHelper.IsNucleotideCode(c))
                 throw new ArgumentException(
                     $"Methylase '{m.Name}' site '{m.Site}' contains '{raw}', which is neither an IUPAC nucleotide code nor the 'm' marker.",

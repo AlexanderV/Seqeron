@@ -64,6 +64,7 @@ public class RestrictionAnalyzer_Methylation_Tests
     [TestCase("Dcm", 2)]
     [TestCase("dam+dcm", 3)]
     [TestCase("emboss", 5)]
+    [TestCase(" Dam+DCM ", 3)]   // G11: ASCII fold + trim
     public void FromName_ResolvesSets(string? name, int? count)
     {
         var set = MethylaseSets.FromName(name);
@@ -74,6 +75,11 @@ public class RestrictionAnalyzer_Methylation_Tests
     [Test]
     public void FromName_UnknownName_Throws() =>
         Assert.Throws<ArgumentException>(() => MethylaseSets.FromName("cpg"));
+
+    [TestCase("dɑm")]      // non-ASCII look-alikes are not folded onto the set names
+    [TestCase("emboſs")]   // U+017F would fold to 'S' under ToUpperInvariant
+    public void FromName_NonAsciiLookAlike_Throws(string name) =>
+        Assert.Throws<ArgumentException>(() => MethylaseSets.FromName(name));
 
     [TestCase("GATC")]            // no m marker
     [TestCase("GATCm")]           // trailing marker
