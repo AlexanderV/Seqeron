@@ -73,7 +73,16 @@ Goal: rank guide RNAs targeting a region by on-target score and off-target speci
 - **[MCP]** `design_guide_rnas`(sequence, region_start, region_end, system_type) → for each guide:
   `find_off_targets`(guide, genome, max_mismatches) → **`crispr_mit_specificity_score`**(guide, genome)
   and/or **`crispr_cfd_specificity_score`**(guide, genome) → rank by (on-target score, specificity).
-- **[C# API]** `CrisprDesigner.DesignGuideRnas` → `CrisprDesigner.FindOffTargets` →
+- **On-target score = a published model, not the composite `score`.** Every 20-nt NGG guide whose 30-nt
+  context fits the sequence is returned by `design_guide_rnas` with `context30Mer` and **`onTargetScore`**
+  (Doench 2016 Rule Set 2 / Azimuth, 0..1, higher = more active); `parameters.ranking = OnTargetRuleSet2`
+  orders the list by it (default ranks by the library's own heuristic `score`; guides without a context
+  rank last). For any other 30-nt context call **`calculate_on_target_rule_set2`**(context_30mer) — or the
+  older Rule Set 1, **`calculate_on_target_doench2014`**(context_30mer), 0..100. SaCas9 / Cas12a-class /
+  CasX guides (and SpCas9-NAG / -NGA) carry no `onTargetScore`; so do guides without 4 nt / 3 nt of flank.
+- **[C# API]** `CrisprDesigner.DesignGuideRnas` (`GuideRnaParameters.Ranking = GuideRnaRanking.OnTargetRuleSet2`;
+  `GuideRnaCandidate.OnTargetScore`; standalone `CrisprDesigner.CalculateOnTargetRuleSet2` /
+  `CalculateOnTargetDoench2014`) → `CrisprDesigner.FindOffTargets` →
   `CrisprDesigner.CalculateMitSpecificityScore` / `CrisprDesigner.CalculateCfdSpecificityScore`.
 - **Use a published aggregate, not the heuristic.** `crispr_mit_specificity_score` is MIT/Hsu 2013
   (CRISPOR `calcMitGuideScore`, per-hit Hsu model; SaCas9 via Tycko 2018) and
@@ -85,12 +94,14 @@ Goal: rank guide RNAs targeting a region by on-target score and off-target speci
   alongside a published value without saying which is which.
 - Key params: 0-based inclusive region; default system `SpCas9`; `max_mismatches` 0..5 (default 3 for
   `find_off_targets`, 4 — the reference's default — for the published aggregates). Pass
-  `include_alternative_pams=true` to `crispr_mit_specificity_score` to also count NAG-PAM off-targets
-  at CRISPOR's ×0.2 weight; without it the scan sees the one system's PAM only and the guide looks
-  more specific than in the reference. The heuristic's own fixed internals: maxMismatches=4, seed =
+  `include_alternative_pams=true` to `crispr_mit_specificity_score` to also count the alternative-PAM
+  off-targets — NAG and NGA for SpCas9 at CRISPOR's ×0.2 weight, NNGRRN for SaCas9 unweighted (the
+  reference weights only NGG searches); without it the scan sees the one system's PAM only and the guide
+  looks more specific than in the reference. The heuristic's own fixed internals: maxMismatches=4, seed =
   PAM-proximal 12 bp. Naive O(genome×guide) scan — a screen, not a genome-wide off-target caller.
-- **Provenance:** design_guide_rnas → find_off_targets → crispr_mit_specificity_score (and/or
-  crispr_cfd_specificity_score) per guide, + system + params; name the model behind every number.
+- **Provenance:** design_guide_rnas (ranking) → find_off_targets → crispr_mit_specificity_score (and/or
+  crispr_cfd_specificity_score) per guide, + system + params; name the model behind every number
+  (Rule Set 2 for `onTargetScore`, MIT/CFD for specificity, "heuristic" for `score`).
 
 ### (c) Codon-optimize a CDS for a target organism
 Goal: raise CAI for the host while staying in a GC band; report CAI/GC before→after.
@@ -107,8 +118,16 @@ Goal: raise CAI for the host while staying in a GC band; report CAI/GC before→
 Goal: locate cut sites for chosen enzymes and produce fragment list.
 - **[MCP]** `find_restriction_sites`(sequence, enzyme_names) → `restriction_digest`(sequence, enzyme_names)
   → `digest_summary`; choose enzymes with `compatible_enzymes` / `get_enzyme`.
-- **[C# API]** `RestrictionAnalyzer.FindSites` → `RestrictionAnalyzer.Digest` → `RestrictionAnalyzer.GetDigestSummary`.
-- Key params: linear molecule; `k` distinct forward cuts → `k+1` fragments. Site positions are 0-based.
+- **[C# API]** `RestrictionAnalyzer.FindSites` → `RestrictionAnalyzer.Digest` → `RestrictionAnalyzer.GetDigestSummary`
+  (the `MoleculeTopology` overloads take `Circular`).
+- Key params: **`topology`** (`Linear` default | `Circular`) — set **`topology = Circular` for a plasmid**: it finds
+  origin-spanning sites, and `k` cuts then give `k` fragments (linear: `k+1`). Every site / digest tool takes it
+  (`find_restriction_sites`, `find_all_restriction_sites`, `restriction_digest`, `partial_digest`,
+  `digest_summary`, `restriction_map`). Site positions are 0-based.
+- Optional `methylation` (`none` default | `dam` | `dcm` | `dam+dcm` | `emboss`) on `find_restriction_sites`,
+  `restriction_digest`, `digest_summary`, `restriction_map` drops every site whose recognition window covers a
+  base the methylase set methylates (EMBOSS `restrict -methylation`; a window rule, not an enzyme-sensitivity
+  table). Off by default; not available on `partial_digest` / `find_all_restriction_sites`.
 - Enzyme names resolve against all 754 REBASE enzymes with a defined cut (BsaI, BaeI, …); listing tools
   default to the 39 common enzymes — pass `enzyme_set: "rebase"` for the full set.
 - **Provenance:** find_restriction_sites(enzymes) → restriction_digest(enzymes) → fragment table.

@@ -40,7 +40,11 @@ For each guide: `find_off_targets`(guide, genome[, max_mismatches, system_type])
 `crispr_mit_specificity_score`(guide, genome[, max_mismatches, system_type, include_alternative_pams])
 → `CrisprDesigner.CalculateMitSpecificityScore` (MIT/Hsu 2013) and/or
 `crispr_cfd_specificity_score`(...) → `CrisprDesigner.CalculateCfdSpecificityScore` (Doench 2016 CFD).
-Rank by (on-target score, specificity). `crispr_specificity_score`
+Rank by (on-target score, specificity), where the on-target score is the published Rule Set 2 /
+Azimuth `onTargetScore` that `design_guide_rnas` reports for 20-nt NGG guides (`parameters.ranking =
+OnTargetRuleSet2` sorts by it) or `calculate_on_target_rule_set2` / `calculate_on_target_doench2014`
+(30-nt context) for a given context — not the composite `score`, which is the library's own heuristic.
+`crispr_specificity_score`
 (`CrisprDesigner.CalculateHeuristicSpecificityScore`) is the library's own unsourced heuristic — coarse
 triage only, and labelled as such wherever it is reported.
 Optional: `find_pam_sites`, `evaluate_guide_rna`, `crispr_system_info` for context.
@@ -54,7 +58,8 @@ Optional: `find_pam_sites`, `evaluate_guide_rna`, `crispr_system_info` for conte
   2018 model); CFD = the same form over the raw per-hit CFD values, or `100 / Σ CFD` with
   `aggregation=ParkinsonNormalized`. Both **refuse** PAM-before-target systems (Cas12a-class, CasX);
   CFD also refuses non-20-nt guides (incl. SaCas9). `include_alternative_pams=true` on the MIT tool
-  adds the NAG scan with CRISPOR's ×0.2 alternative-PAM weight (default false = main PAM only).
+  adds the alternative-PAM scans — NAG and NGA for SpCas9 at CRISPOR's ×0.2 alternative-PAM weight,
+  NNGRRN for SaCas9 unweighted (the reference weights only NGG searches); default false = main PAM only.
 - The heuristic `crispr_specificity_score` (unsourced): internally runs the scan at maxMismatches = 4;
   `100` = no off-targets, else `max(0, 100 − Σ penalty)`; **seed = PAM-proximal 12 bp** weighted 5 vs
   2 per mismatch. Linear, PAM-blind and saturating at 0 — do not present it as a published score.
@@ -115,8 +120,13 @@ summarize with `digest_summary`; overview map with `restriction_map`.
   lists) default to the 39 common enzymes; pass `enzyme_set: "rebase"` for all 754. Two-cut enzymes
   report `secondCutForward`/`secondCutReverse`. C#: `RestrictionAnalyzer.GetEnzymes(EnzymeSet.Rebase)`
   and the `EnzymeSet` overloads.
-- `enzyme_names` is a non-empty array. Digest is on a **linear** molecule; `k` distinct forward-strand
-  cut positions → `k + 1` fragments; zero cuts → one whole-molecule fragment.
+- `enzyme_names` is a non-empty array. **Topology:** every site / digest tool takes `topology`
+  (`Linear` default | `Circular`); use `Circular` for a plasmid — origin-spanning sites are found and `k`
+  cut positions give `k` fragments (linear: `k + 1`; zero cuts → one whole-molecule fragment).
+- Optional `methylation` (`none` default | `dam` | `dcm` | `dam+dcm` | `emboss`) on `find_restriction_sites`,
+  `restriction_digest`, `digest_summary`, `restriction_map`: sites whose recognition window covers a
+  methylated base are dropped (EMBOSS `restrict -methylation`). `partial_digest` and
+  `find_all_restriction_sites` take `topology` but not `methylation`.
 - Each fragment: `{sequence, startPosition, length, leftEnzyme, rightEnzyme, fragmentNumber}`;
   end fragments have a null flanking enzyme. Positions are **0-based**.
 - For cloning compatibility, confirm overhangs with `compatible_enzymes` / `enzymes_compatible` before digesting.
