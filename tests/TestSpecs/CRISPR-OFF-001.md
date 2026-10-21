@@ -314,7 +314,21 @@ MCP (`tests/Seqeron/Seqeron.Mcp.MolTools.Tests/CrisprPublishedSpecificityScoreTe
 `CrisprMitSpecificityScore_IncludeAlternativePams_DefaultsOffAndDownweightsWhenOn` (62.30529595015576
 → 59.95203836930455 only when `include_alternative_pams: true`),
 `CrisprMitSpecificityScore_IncludeAlternativePams_InertWithoutAltHits_AndStillValidates`,
-`CrisprCfdSpecificityScore_NotAffectedByTheAlternativePamRule`.
+`CrisprCfdSpecificityScore_NotAffectedByTheAlternativePamRule`,
+`CrisprCfdSpecificityScore_IncludeAlternativePams_DefaultsOff_AndScansNagNga_AndForwardsTheCutoff` (G1).
+
+#### CFD aggregate over the alternative PAMs (B08 round 3 G1 / F80)
+
+Oracle: crispor.py `calcHitScore` / `calcCfdScore` / `calc_cfd` exec'd verbatim in Python with the pickled CFD tables,
+plus a brute-force two-strand scan reproducing the L4104-4122 pre-filter (MIT hit score vs `ALTPAMMINSCORE`) and the
+unrounded `100/(100+Σ CFD)×100`.
+
+| Test | Locks |
+|---|---|
+| `CalculateCfdSpecificityScoreWithAlternativePams_NagOnlyGuide_IsNoLongerPerfect` | NAG-only genome: single-PAM overload `100`, alt-PAM `99.81515711670932` (CFD 0.18518518492592592, no 0.2 factor); `ParkinsonNormalized` `540.000000756` |
+| `CalculateCfdSpecificityScoreWithAlternativePams_NgaOnlyGuide_IsScanned` | NGA-only genome: `100` vs `99.95042141828442` |
+| `CalculateCfdSpecificityScoreWithAlternativePams_MixedGenome_AppliesTheMitHitScoreCutoff` | default (1.0) `99.24515917350747`; 0 and 0.3 `99.20727233740708` (cutoff is on the MIT score: the NAG hit has MIT 0.3129 but CFD 0.0385); 40 `99.29078014212564` (= main-PAM-only); negative / NaN throw |
+| `CalculateCfdSpecificityScoreWithAlternativePams_KeepsTheCfdGuards` | null / range / SaCas9 / Cas12a guards as the main-PAM overload; RNA spelling == DNA |
 
 #### `FindOffTargets` consistency and ordering
 

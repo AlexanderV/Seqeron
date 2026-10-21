@@ -269,4 +269,41 @@ public class CrisprPublishedSpecificityScoreTests
     }
 
     #endregion
+
+    #region B08 round 3 G1 — crispr_cfd_specificity_score include_alternative_pams
+
+    /// <summary>
+    /// G1/F80: default OFF (a NAG-only guide scores 100, today's behaviour); ON it reproduces CRISPOR's wider
+    /// search: calcCfdScore of the TAG hit = 0.18518518492592592 -> 100/(100+0.185...)*100 = 99.81515711670932
+    /// (crispor.py calcCfdScore exec'd in Python, see CrisprDesigner_OffTarget_Tests region G1). The cutoff
+    /// parameter is forwarded: the mixed genome (NGG 60.5, NAG 4-mm 0.3129, NGA 31.5) gives 99.24515917350747
+    /// by default (ALTPAMMINSCORE 1.0), 99.20727233740708 at 0.
+    /// </summary>
+    [Test]
+    public void CrisprCfdSpecificityScore_IncludeAlternativePams_DefaultsOff_AndScansNagNga_AndForwardsTheCutoff()
+    {
+        const string nagOnly = "GACGCTTAAAGATGAGACGC" + "TAG" + "TTTTTT";
+        const string mixed = "GACGCTTAAAGATGAGACGC" + "AGG" + "TTTT" + "GTCGCTTCAAGATGAGACTC" + "TAG" + "TTTT"
+            + "GACGCATAAAGATGAGACTC" + "CGA";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(MolToolsTools.crispr_cfd_specificity_score(Guide, nagOnly, 4).Specificity, Is.EqualTo(100.0));
+            Assert.That(
+                MolToolsTools.crispr_cfd_specificity_score(
+                    Guide, nagOnly, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, include_alternative_pams: true).Specificity,
+                Is.EqualTo(99.81515711670932).Within(1e-9));
+            Assert.That(
+                MolToolsTools.crispr_cfd_specificity_score(
+                    Guide, mixed, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, include_alternative_pams: true).Specificity,
+                Is.EqualTo(99.24515917350747).Within(1e-9));
+            Assert.That(
+                MolToolsTools.crispr_cfd_specificity_score(
+                    Guide, mixed, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, include_alternative_pams: true,
+                    min_alternative_pam_hit_score: 0.0).Specificity,
+                Is.EqualTo(99.20727233740708).Within(1e-9));
+        });
+    }
+
+    #endregion
 }

@@ -239,6 +239,15 @@ aggregate would be exactly `100`.
    hit's last two bases of `protospacer + PAM`, not membership of the alternative table (any non-`*GG`
    PAM is downweighted); and **only** the MIT score is downweighted — the reference computes the hit's
    CFD score afterwards with no 0.2 factor, so `CalculateCfdSpecificityScore` is untouched.
+   B08 round 3 G1 (F80) gives the CFD aggregate the same wider search: `annotateOfftargets` computes
+   `cfdScore = calcCfdScore(guideSeq, otSeq)` for **every** hit of the NAG/NGA search (L1905-1990, no 0.2
+   factor), after the pre-filter of L4104-4122 that tests the **MIT** `calcHitScore` against
+   `ALTPAMMINSCORE`, so a guide whose only off-target sits on `NAG` is not perfectly specific.
+   `CalculateCfdSpecificityScoreWithAlternativePams` shares the hit collection (alternative-PAM list,
+   scannable systems, main/alternative dedup, MIT-score cutoff) with the MIT method and sums the raw CFD
+   values. Oracle (crispor.py L2043-2185 exec'd verbatim in Python, pickled CFD tables, `pam_scores["AG"]`
+   = 0.25925925899999996): NAG-only genome -> CFD 0.18518518492592592 -> **99.81515711670932** (was 100);
+   mixed NGG/NAG/NGA genome -> 99.24515917350747 (cutoff 1.0), 99.20727233740708 (cutoff 0).
    B08 round 2 E1 (F66/F67) closed two of the former sub-divergences. (a) `SpCas9_NGA` (`NGA`, 20 nt)
    and `SaCas9_NNGRRN` (`NNGRRN`, 21 nt) were appended to `CrisprSystemType`, so the alternative-PAM
    aggregate now scans `NGG → NAG, NGA` and `NNGRRT → NNGRRN` (before, the `NGA`/`NNGRRN` scans were

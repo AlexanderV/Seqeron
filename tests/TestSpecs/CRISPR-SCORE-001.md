@@ -21,7 +21,7 @@
 > (`CalculateMitSpecificityScore` over `PamAnnotatedOffTarget`, `CalculateMitSpecificityScoreWithAlternativePams` with the
 > `SpCas9_NGA` / `SaCas9_NNGRRN` systems and `minAlternativePamHitScore`), the CFD genome aggregates with
 > `CfdAggregation`, and the Rule Set 2 argument contracts (`percentPeptide == -1` sentinel, `[0, 100]`,
-> `aminoAcidCutPosition >= 0`). These are specified in §4.1 (M15-M26); CRISPR-OFF-001 owns the same code from the
+> `aminoAcidCutPosition >= 0`). These are specified in §4.1 (M15-M27); CRISPR-OFF-001 owns the same code from the
 > off-target side and holds the long-form numbers (`tests/TestSpecs/CRISPR-OFF-001.md`).
 
 ---
@@ -54,7 +54,7 @@
 7. **Rule Set 2 gene-position sentinel.** In the reference, `percent_peptide == -1` both selects `V3_model_nopos` and replaces the gene-position columns by `-1`; `predict(seq, aa_cut, -1)` is therefore exactly the sequence-only score (R6, F35). The `[0, 100]` bound on `percentPeptide` and the `>= 0` bound on `aminoAcidCutPosition` are this library's contract, justified against the 947-guide fixture, not reference assertions (F36, F70).
 8. **SaCas9 off-target model** = 100 x the product, over the 20 positions after the 5'-most one, of the Tycko `Median` coefficient for (guide base read as U, complement of the off-target base, position remapped from the 5' end); 252 coefficients = 21 positions x 12 mismatch types; gaps are refused, as in `calcSaHitScore` (S4, R5, F14).
 9. **Which model scores a hit is chosen by system** (`annotateOfftargets`): SaCas9 PAM -> Tycko; other PAM-after-target systems -> `calcHitScore`; PAM-before-target (Cas12a-class) systems get no MIT/CFD score at all (`mitScore = cfdScore = 0`, sentinels `-1`), which this library renders as a refusal, never as a perfect 100 (F9, R5).
-10. **Alternative-PAM hits** enter the MIT aggregate at x0.2 when the searched pattern is exactly `NGG` and the hit's last two PAM bases are not `GG`; the CFD score is not downweighted. CRISPOR drops alternative-PAM hits below `ALTPAMMINSCORE = 1.0` (an opt-in parameter here, default 0) (R5, F50, F66, F67).
+10. **Alternative-PAM hits** enter the MIT aggregate at x0.2 when the searched pattern is exactly `NGG` and the hit's last two PAM bases are not `GG`; the CFD score is not downweighted (`CalculateCfdSpecificityScoreWithAlternativePams`, F80, sums the raw CFD of the same hit set). CRISPOR drops alternative-PAM hits whose MIT hit score is below `ALTPAMMINSCORE = 1.0` (parameter here, default 1.0 since G6) (R5, F50, F66, F67).
 
 ### 1.3 Documented Corner Cases
 
@@ -148,6 +148,7 @@
 | M24 | Alternative-PAM x0.2 weight | a `TAG` hit contributes one fifth (59.95203836930455 vs 52.083333333333336 for an `AGG` hit); the weight is on the last two PAM bases; `SpCas9-NAG` searches never downweight; SaCas9 uses Tycko and no weight; `GetAlternativeOffTargetPams` equals the reference table; invalid inputs throw | exact | R5, F50 |
 | M25 | Alternative-PAM scan covers `NGA` and `NNGRRN` | one 1-mismatch `NGA` hit (hit score 60.5) → 89.20606601248885 (was 100); SaCas9 `NNGRRN` hit enters unweighted (95.91285612347565) and an `NNGRRT` twin is counted once (92.14668839146395); the new systems carry reference metadata and the existing enum values 0..6 are unchanged | exact | R5, F66 |
 | M26 | `minAlternativePamHitScore` | cutoff 0 → 59.92955631050283, 1.0 → 59.95203836930455, 40 → 62.30529595015576 (never drops the main-PAM `NGG` hit); SaCas9 cutoff also applies to main-PAM hits; negative / NaN cutoff → `ArgumentOutOfRangeException`; default 1.0 (CRISPOR's `ALTPAMMINSCORE`, G6) = the explicit-1.0 result, explicit 0 = no filtering | exact | R5, F67 |
+| M27 | CFD aggregate over the alternative PAMs | NAG-only genome: main-PAM overload 100, `CalculateCfdSpecificityScoreWithAlternativePams` 99.81515711670932 (per-hit CFD 0.18518518492592592, no 0.2 factor); NGA-only 99.95042141828442; mixed genome 99.24515917350747 (default cutoff 1.0) / 99.20727233740708 (cutoff 0 or 0.3: the cutoff is on the MIT hit score) / 99.29078014212564 (40); SaCas9 and PAM-before refused | exact | R5, F80 |
 
 ### 4.2 SHOULD Tests
 
@@ -206,6 +207,7 @@ Counts below were taken on 2026-10-21 by counting `[Test]` / `[TestCase]` attrib
 | M24 (alternative-PAM weight) | ✅ Covered | `CalculateMitSpecificityScore_Annotated_*` (5), `GetAlternativeOffTargetPams_MatchesReferenceTable`, `CalculateMitSpecificityScoreWithAlternativePams_FoldsInTheNagScan`, `..._NoScannableAlternative_EqualsSingleSystem`, `FindOffTargetsWithPam_MatchesFindOffTargets_AndValidatesItsArguments` |
 | M25 (`NGA` / `NNGRRN`) | ✅ Covered | `CalculateMitSpecificityScoreWithAlternativePams_NgaHit_IsScannedAndDownweighted`, `..._SaCas9_NnggrrnHit_IsScannedUnweighted_AndNotDoubleCounted`, `NewAlternativePamSystems_HaveReferenceMetadata_AndExistingEnumValuesAreUnchanged` |
 | M26 (`minAlternativePamHitScore`) | ✅ Covered | `CalculateMitSpecificityScoreWithAlternativePams_MinAlternativePamHitScore_FiltersAlternativeHitsOnly`, `..._SaCas9_CutoffAppliesToMainPamHitsToo` |
+| M27 (CFD alt-PAM aggregate) | ✅ Covered | `CalculateCfdSpecificityScoreWithAlternativePams_NagOnlyGuide_IsNoLongerPerfect`, `..._NgaOnlyGuide_IsScanned`, `..._MixedGenome_AppliesTheMitHitScoreCutoff`, `..._KeepsTheCfdGuards`; MCP `CrisprCfdSpecificityScore_IncludeAlternativePams_DefaultsOff_AndScansNagNga_AndForwardsTheCutoff` |
 
 ### 5.3 Consolidation Plan
 
@@ -223,7 +225,7 @@ Counts below were taken on 2026-10-21 by counting `[Test]` / `[TestCase]` attrib
 
 ### 5.5 Phase 7 Work Queue
 
-No ❌ or ⚠ rows in §5.2 — all MUST/SHOULD/COULD cases (M1-M26, S1-S5, C1-C2) are implemented.
+No ❌ or ⚠ rows in §5.2 — all MUST/SHOULD/COULD cases (M1-M27, S1-S5, C1-C2) are implemented.
 
 | # | Test Case ID | §5.2 Status | Action Taken | Final Status |
 |---|-------------|-------------|--------------|--------------|
@@ -236,7 +238,7 @@ No ❌ or ⚠ rows in §5.2 — all MUST/SHOULD/COULD cases (M1-M26, S1-S5, C1-C
 | Area / Test Case ID | Status | Resolution |
 |---------------------|--------|------------|
 | M1-M14, S1-S5, C1-C2 | ✅ | All covered; full suite **6825 passed, 0 failed**; build 0 errors, 0 warnings (figure as of the original 2026-06-18 implementation). |
-| M15-M26 | ✅ | Implemented by review-2026-09 batch B08 with the fixes F9-F11, F14, F35/F36, F38, F50, F66, F67, F70 (per-fix results in `docs/Validation/review-2026-09/B08.md`); this spec update (2026-10-21) only records them and did not re-run the suite. |
+| M15-M27 | ✅ | Implemented by review-2026-09 batch B08 with the fixes F9-F11, F14, F35/F36, F38, F50, F66, F67, F70, F80 (per-fix results in `docs/Validation/review-2026-09/B08.md`); this spec update (2026-10-21) only records them and did not re-run the suite. |
 
 ---
 

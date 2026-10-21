@@ -1409,6 +1409,23 @@ public static class CrisprDesigner
         double minAlternativePamHitScore = 1.0)
     {
         EnsureMitModelApplies(systemType, nameof(systemType));
+        var hits = CollectAlternativePamHits(guideSequence, genome, maxMismatches, systemType, minAlternativePamHitScore);
+
+        return CalculateMitSpecificityScore(guideSequence, hits, systemType);
+    }
+
+    /// <summary>
+    /// The hit set of CRISPOR's wider search, shared by the MIT and the CFD alternative-PAM aggregates:
+    /// the guide's main-PAM off-targets plus those on every alternative PAM that is scannable
+    /// (<see cref="GetAlternativeOffTargetPams"/>, <see cref="AlternativePamSystems"/>), a site matching
+    /// both the main and a wider alternative pattern counted once, and the <c>ALTPAMMINSCORE</c>
+    /// pre-filter (crispor.py L4104-4122) applied to the UNWEIGHTED MIT/Hsu (or SaCas9) hit score for
+    /// both aggregates, because the reference filters the hit list once, before either score is computed.
+    /// </summary>
+    private static List<PamAnnotatedOffTarget> CollectAlternativePamHits(
+        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType,
+        double minAlternativePamHitScore)
+    {
         if (double.IsNaN(minAlternativePamHitScore) || minAlternativePamHitScore < 0)
             throw new ArgumentOutOfRangeException(nameof(minAlternativePamHitScore),
                 "The alternative-PAM hit-score cutoff must be a non-negative number.");
@@ -1451,7 +1468,7 @@ public static class CrisprDesigner
             }).ToList();
         }
 
-        return CalculateMitSpecificityScore(guideSequence, hits, systemType);
+        return hits;
     }
 
     /// <summary>
@@ -2004,6 +2021,33 @@ public static class CrisprDesigner
         CrisprSystemType systemType = CrisprSystemType.SpCas9,
         CfdAggregation aggregation = CfdAggregation.MitStyle)
     {
+        var guide = ValidateCfdGenomeArguments(guideSequence, genome, maxMismatches, systemType);
+
+        var cfdScores = new List<double>();
+        foreach (var (site, pam) in FindOffTargetsWithPamCore(guide, genome, maxMismatches, systemType))
+        {
+            string offTarget = SequenceExtensions.ToUpperAscii(site.Sequence)!;
+
+            // The reference screens both sequences for [^ATCG] and returns -1, which annotateOfftargets
+            // then leaves out of the CFD sum. Defensive only: DnaSequence validates A/C/G/T at
+            // construction (SequenceExtensions.IndexOfInvalidDna), so this never fires today.
+            if (!offTarget.AsSpan().IsValidDna())
+                continue;
+
+            cfdScores.Add(CalculateCfdScore(guide, offTarget, pam));
+        }
+
+        return CalculateCfdSpecificityScore(cfdScores, aggregation);
+    }
+
+    /// <summary>
+    /// The argument guards shared by the genome CFD aggregates (same order and exception types as
+    /// <see cref="FindOffTargets"/>, which they cannot delegate to because CFD needs each hit's PAM);
+    /// returns the normalised guide.
+    /// </summary>
+    private static string ValidateCfdGenomeArguments(
+        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType)
+    {
         // Validate in the same order and with the same exception types as FindOffTargets, which this
         // overload cannot delegate to (it needs each hit's PAM, so it drives FindOffTargetsWithPamCore
         // directly and must therefore repeat FindOffTargets' own guards).
@@ -2024,20 +2068,63 @@ public static class CrisprDesigner
             throw new ArgumentException(
                 $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
                 nameof(guideSequence));
-        var guide = NormalizeNucleotides(guideSequence, nameof(guideSequence));
+        return NormalizeNucleotides(guideSequence, nameof(guideSequence));
+    }
+
+    /// <summary>
+    /// Calculates the aggregate CFD specificity score for a guide against a genome over the guide's own
+    /// PAM <b>and</b> the reference's alternative PAMs for it (<see cref="GetAlternativeOffTargetPams"/>:
+    /// <c>NAG</c> and <c>NGA</c> for SpCas9). This is CRISPOR's guide CFD score: <c>annotateOfftargets</c>
+    /// runs <c>calcCfdScore(guideSeq, otSeq)</c> on every hit of its one wider search, so a guide whose
+    /// only off-target sits on <c>NAG</c> is not "perfectly specific" as
+    /// <see cref="CalculateCfdSpecificityScore(string, DnaSequence, int, CrisprSystemType, CfdAggregation)"/>
+    /// (main PAM only) reports it.
+    /// </summary>
+    /// <param name="guideSequence">The 20-nt guide sequence.</param>
+    /// <param name="genome">The genome/sequence to scan for off-targets.</param>
+    /// <param name="maxMismatches">Maximum mismatches to consider (0-5, as in <see cref="FindOffTargets"/>).</param>
+    /// <param name="systemType">The guide's own system; a 20-nt PAM-after-target (Cas9-class) system.</param>
+    /// <param name="aggregation">Which published aggregation to use.</param>
+    /// <param name="minAlternativePamHitScore">
+    /// The reference's <c>ALTPAMMINSCORE</c> (default <c>1.0</c>; <c>0</c> = no filtering), a minimum
+    /// <b>MIT/Hsu</b> hit score (0-100 scale) for an alternative-PAM hit — see the remarks.
+    /// </param>
+    /// <returns>The aggregate CFD specificity; 100 when no off-targets are found (default aggregation).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="maxMismatches"/> is outside 0-5, the cutoff is negative/NaN, or the
+    /// <see cref="CfdAggregation.ParkinsonNormalized"/> CFD sum is 0.
+    /// </exception>
+    /// <remarks>
+    /// Source: crispor.py. The hit list is pre-filtered once (L4085-4135): a hit whose PAM is in the
+    /// expanded alternative list needs <c>calcHitScore(guideSeq, tSeqNoPam) &gt;= ALTPAMMINSCORE</c> —
+    /// the MIT/Hsu hit score, not the CFD score, even though this aggregate later sums CFD values — and
+    /// <c>annotateOfftargets</c> then appends <c>calcCfdScore(guideSeq, otSeq)</c> for each surviving
+    /// hit. <b>No 0.2 factor applies on the CFD path</b>: the reference multiplies only the MIT score
+    /// (<c>if pam=="NGG" and otSeq[-2:]!="GG": mitScore = mitScore * 0.2</c>, L1955), and takes
+    /// <c>cfdScore</c> afterwards from the full <c>otSeq</c> including its PAM (the CFD PAM table, e.g.
+    /// <c>AG</c> = 0.2593, is what penalises the non-NGG PAM). The hit collection (alternative-PAM list,
+    /// scannable systems, main/alternative dedup, cutoff) is the one of
+    /// <see cref="CalculateMitSpecificityScoreWithAlternativePams"/>. The CFD model needs a 20-nt
+    /// protospacer, so SaCas9 is refused exactly as in the main-PAM CFD overload.
+    /// </remarks>
+    public static double CalculateCfdSpecificityScoreWithAlternativePams(
+        string guideSequence,
+        DnaSequence genome,
+        int maxMismatches = 4,
+        CrisprSystemType systemType = CrisprSystemType.SpCas9,
+        CfdAggregation aggregation = CfdAggregation.MitStyle,
+        double minAlternativePamHitScore = 1.0)
+    {
+        var guide = ValidateCfdGenomeArguments(guideSequence, genome, maxMismatches, systemType);
 
         var cfdScores = new List<double>();
-        foreach (var (site, pam) in FindOffTargetsWithPamCore(guide, genome, maxMismatches, systemType))
+        foreach (var hit in CollectAlternativePamHits(guide, genome, maxMismatches, systemType, minAlternativePamHitScore))
         {
-            string offTarget = SequenceExtensions.ToUpperAscii(site.Sequence)!;
-
-            // The reference screens both sequences for [^ATCG] and returns -1, which annotateOfftargets
-            // then leaves out of the CFD sum. Defensive only: DnaSequence validates A/C/G/T at
-            // construction (SequenceExtensions.IndexOfInvalidDna), so this never fires today.
+            string offTarget = SequenceExtensions.ToUpperAscii(hit.Site.Sequence)!;
             if (!offTarget.AsSpan().IsValidDna())
-                continue;
+                continue; // the reference's [^ATCG] -> -1 -> left out (defensive, as in the main-PAM overload)
 
-            cfdScores.Add(CalculateCfdScore(guide, offTarget, pam));
+            cfdScores.Add(CalculateCfdScore(guide, offTarget, hit.Pam));
         }
 
         return CalculateCfdSpecificityScore(cfdScores, aggregation);

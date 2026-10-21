@@ -1640,4 +1640,123 @@ public class CrisprDesigner_OffTarget_Tests
     }
 
     #endregion
+
+    #region B08 round 3 G1 — CFD aggregate over the alternative PAMs (crispor.py annotateOfftargets L1905-1990)
+
+    // Oracle (B08 round 3 G1, F80): crispor.py L2043-2185 (hitScoreM, calcHitScore, calcMitGuideScore,
+    // calcCfdGuideScore, calc_cfd, calcCfdScore) exec'd verbatim in Python with the pickled CFD tables
+    // (mismatch_score.pkl / pam_scores.pkl, pam_scores["AG"] = 0.25925925899999996; the file's own doctests
+    // reproduce), plus an independent two-strand brute-force PAM scan reproducing the L4104-4122 pre-filter
+    // (alternative-PAM hit kept iff calcHitScore >= ALTPAMMINSCORE) and annotateOfftargets (cfdScore =
+    // calcCfdScore(guideSeq, otSeq), NO 0.2 factor; guide score = 100/(100 + sum(cfd)) x 100, unrounded):
+    //   NAG-only genome  : one hit (TAG, 1 mm, calcHitScore 60.5), CFD 0.18518518492592592 -> 99.81515711670932
+    //   NGA-only genome  : one hit (CGA, calcHitScore 60.5),        CFD 0.049603174265873025 -> 99.95042141828442
+    //   mixed genome     : AGG hit (60.5, CFD 0.7142857140000001), TAG 4-mm hit (calcHitScore 0.3128679435483871,
+    //                      CFD 0.03848003846945646), CGA hit (31.499999999999993, CFD 0.04629629602314815)
+    //                      cutoff 1.0 (default) -> 99.24515917350747 ; 0 -> 99.20727233740708 ;
+    //                      0.3 -> 99.20727233740708 (the NAG hit's MIT score 0.3129 passes, its CFD 0.0385 would not) ;
+    //                      40 -> 99.29078014212564 (= main-PAM-only aggregate)
+    //   NAG-only genome, ParkinsonNormalized (100 / sum of raw CFD) -> 540.000000756
+
+    private const string NagPam = "TAG";
+
+    [Test]
+    public void CalculateCfdSpecificityScoreWithAlternativePams_NagOnlyGuide_IsNoLongerPerfect()
+    {
+        var genome = new DnaSequence(AltPamOffTarget + NagPam + "TTTTTT");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateCfdScore(AltPamGuide, AltPamOffTarget, NagPam),
+                Is.EqualTo(0.18518518492592592).Within(1e-12), "per-hit CFD vs the Python calcCfdScore");
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(AltPamGuide, genome, 4),
+                Is.EqualTo(100.0), "main-PAM-only overload cannot see a NAG site (unchanged)");
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(AltPamGuide, genome, 4),
+                Is.EqualTo(99.81515711670932).Within(1e-9));
+            Assert.That(
+                CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.ParkinsonNormalized),
+                Is.EqualTo(540.000000756).Within(1e-6));
+            // no 0.2 factor on the CFD path: the value is the plain sum of the raw CFD scores
+            Assert.That(
+                CrisprDesigner.CalculateCfdSpecificityScore(new[] { 0.18518518492592592 }),
+                Is.EqualTo(CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(AltPamGuide, genome, 4))
+                    .Within(1e-12));
+        });
+    }
+
+    [Test]
+    public void CalculateCfdSpecificityScoreWithAlternativePams_NgaOnlyGuide_IsScanned()
+    {
+        var genome = new DnaSequence(AltPamOffTarget + NgaPam + "TTTTTT");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(AltPamGuide, genome, 4), Is.EqualTo(100.0));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(AltPamGuide, genome, 4),
+                Is.EqualTo(99.95042141828442).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// Mixed genome (NGG 60.5 + NAG 4-mismatch 0.3129 + NGA 31.5, the F67 genome): the cutoff acts on the
+    /// MIT hit score (as L4104-4122 does), never on the CFD value, and never on a main-PAM hit.
+    /// </summary>
+    [Test]
+    public void CalculateCfdSpecificityScoreWithAlternativePams_MixedGenome_AppliesTheMitHitScoreCutoff()
+    {
+        var genome = new DnaSequence(
+            AltPamOffTarget + "AGG" + "TTTT" + FourMismatchOffTarget + NagPam + "TTTT" + ProximalOffTarget + NgaPam);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(AltPamGuide, genome, 4),
+                Is.EqualTo(99.24515917350747).Within(1e-9), "default == ALTPAMMINSCORE 1.0: the 0.3129 NAG hit is dropped");
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, 0.0),
+                Is.EqualTo(99.20727233740708).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, 0.3),
+                Is.EqualTo(99.20727233740708).Within(1e-9), "0.3 is a MIT-scale cutoff: NAG hit (MIT 0.3129, CFD 0.0385) is kept");
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, 40.0),
+                Is.EqualTo(99.29078014212564).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(AltPamGuide, genome, 4),
+                Is.EqualTo(99.29078014212564).Within(1e-9), "main-PAM-only aggregate");
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, -1.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, double.NaN));
+        });
+    }
+
+    [Test]
+    public void CalculateCfdSpecificityScoreWithAlternativePams_KeepsTheCfdGuards()
+    {
+        var genome = new DnaSequence(AltPamOffTarget + NagPam + "TTTTTT");
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams("", genome));
+            Assert.Throws<ArgumentNullException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(AltPamGuide, null!));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(AltPamGuide, genome, 6));
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(SaGuide21, genome, 3, CrisprSystemType.SaCas9),
+                "21-nt SaCas9: CFD refused as in the main-PAM overload");
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 3, CrisprSystemType.Cas12a));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide.Replace('T', 'U'), genome, 4),
+                Is.EqualTo(99.81515711670932).Within(1e-9), "RNA spelling == DNA spelling (F77 rule)");
+        });
+    }
+
+    #endregion
 }

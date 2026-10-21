@@ -59,7 +59,8 @@ Optional: `find_pam_sites`, `evaluate_guide_rna`, `crispr_system_info` for conte
   `aggregation=ParkinsonNormalized`. Both **refuse** PAM-before-target systems (Cas12a-class, CasX);
   CFD also refuses non-20-nt guides (incl. SaCas9). `include_alternative_pams=true` on the MIT tool
   adds the alternative-PAM scans — NAG and NGA for SpCas9 at CRISPOR's ×0.2 alternative-PAM weight,
-  NNGRRN for SaCas9 unweighted (the reference weights only NGG searches); default false = main PAM only.
+  NNGRRN for SaCas9 unweighted (the reference weights only NGG searches); default false = main PAM only. `crispr_cfd_specificity_score` has the same `include_alternative_pams`
+  (→ `CalculateCfdSpecificityScoreWithAlternativePams`: every hit CFD-scored by its own PAM, no ×0.2).
 - The heuristic `crispr_specificity_score` (unsourced): internally runs the scan at maxMismatches = 4;
   `100` = no off-targets, else `max(0, 100 − Σ penalty)`; **seed = PAM-proximal 12 bp** weighted 5 vs
   2 per mismatch. Linear, PAM-blind and saturating at 0 — do not present it as a published score.
