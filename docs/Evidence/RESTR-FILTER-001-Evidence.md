@@ -2,7 +2,7 @@
 
 **Test Unit ID:** RESTR-FILTER-001
 **Algorithm:** Restriction Enzyme Filtering (recognition-site length, blunt/sticky cutters, enzyme-level overhang, end compatibility, isoschizomers)
-**Date Collected:** 2026-06-13; **re-validated and extended 2026-10-14** (review-2026-09 batch B08, unit RESTR-FILTER-001 — see the addendum at the end)
+**Date Collected:** 2026-06-13; **re-validated and extended 2026-10-14**; **REBASE-set / paged-listing addendum A9 2026-10-21** (review-2026-09 batch B08, unit RESTR-FILTER-001 — see the addendum at the end)
 
 ---
 
@@ -367,6 +367,64 @@ Identical on both sides for all 39 enzymes and all three queries (117/117).
   pairs of A3/F30 (3' `GN` × 3' `CN`, both orders), which the rule here keeps deliberately. No other
   difference.
 
+## A9. REBASE enzyme set, `FindCompatibleEnzymes(EnzymeSet)` and the paged MCP listing (B08 F59-F63, F72; added 2026-10-21, round 3 G9)
+
+Everything below was computed in the sessions named; this section only records it next to the unit it
+belongs to. Nothing here depends on `rebase.neb.com` (still not opened).
+
+**Sources.** Biopython 1.88 `Restriction_Dictionary.py` (sha256 `2a790992…fa02b`, REBASE 404 snapshot) and
+`Restriction.py` (`Palindromic._search`, `NonPalindromic._search`, `RestrictionType.__mod__` and the
+`_mod1`/`_mod2` family), the generated table `MolTools/Resources/rebase_enzymes.tsv`
+(`scripts/rebase/generate_rebase_enzymes.py`), REBASE `allenz.104` via crisprBase (organism / methylation
+columns only). Pins, licence notes and the open licence question: `B08-Source-Provenance.md` §9 and
+`RESTR-FIND-001-Evidence.md` §6.
+
+**Enzyme sets (F59, F61).** 1 088 Biopython records → **754 with a defined cut** (729 `OneCut` = 576 in-site
++ 153 distal, 25 `TwoCuts`); 334 `NoCut`/`NotDefined` are not expressible and are excluded. Default set of every
+listing member = the 39 common enzymes (the same instances as in the 754). Biopython 1.88 over the 754:
+
+| Query | Common (39) | Rebase (754) |
+|---|---|---|
+| `.size == 6` | 24 | 385 |
+| `4 <= .size <= 8` | 38 | 676 |
+| `is_blunt()` | 10 | 137 |
+| not blunt | 29 | 617 |
+
+BsaI equischizomers `Bso31I, BspTNI, Eco31I` (no neoschizomers); SmaI neoschizomers `Cfr9I, TspMI, XmaI`;
+`BamHI.compatible_end(batch)` 59 partners (incl. `BclI`, not one of the 39), `EcoRI` 51; full lists embedded
+in `EnzymeSetToolsTests`.
+
+**`AreCompatible` by name for a partner outside the 39 (F63).** Name resolution reaches all 754 since F59, so
+`enzymes_compatible("BamHI","BclI")` is a legal call (BclI `TGATCA` cuts `T^GATC_A`, 5' `GATC`; Biopython:
+`BclI ∈ BamHI.compatible_end(batch)`). The tool used to look the shared end up in the common-set listing and
+threw `InvalidOperationException`; it now uses `FindCompatibleEnzymes(name, EnzymeSet.Rebase)` → `(true, "GATC")`.
+
+**All-pairs listing (F72).** Unordered pairs *examined*: 754·753/2 = **283 881**; compatible: **27 869**.
+
+| Subset | Pairs examined | Compatible | Notes |
+|---|---|---|---|
+| 389 enzymes whose `ovhgseq` is blunt or fully A/C/G/T | 75 466 | **11 200** (9 316 blunt-blunt) | Biopython `a % b` is sound here; sha256 of the ordinal-sorted, LF-terminated `name1,name2,<blunt \| overhang of name1>` lines = `a38477bbfce701137dc4c316ccdadc46ededebba2c25ae6955c4c053e2e8d030`; the library's pairs restricted to these enzymes reproduce count and digest exactly; `("EcoRI","MfeI","AATT")` present |
+| pairs involving a distal Type IIS enzyme with an ambiguous (`N…`) overhang | 208 415 | **16 669** | F57 rule (`N`-padded window, per-position IUPAC intersection); no sound Biopython oracle (A4: `%` is asymmetric and breaks on a repeated code); **pinned, not Biopython-confirmed** |
+| whole 754-enzyme listing | 283 881 | **27 869** | sha256 `0ef2db70a7cca1547d9bf70a8477e5f1e37221bd3b09e51c1617dc451160ee37`; cross-checked against `AreCompatible` and the per-enzyme query |
+
+The common-set listing is unchanged by the refactor (the parameterless method now calls
+`FindCompatibleEnzymes(EnzymeSet.Common)`): 64 pairs, locked against an independent nested loop.
+
+**MCP `compatible_enzymes` (F72).** No sibling tool in `Seqeron.Mcp.MolTools` caps or pages, so the new
+convention is local to this tool: `max_pairs` (1-10 000, default 1 000 = the whole common set), `offset`
+(>= 0), response members `totalPairs` and `truncated` (omitted for the per-enzyme form). Rebase default page:
+1 000 pairs, `totalPairs` 27 869, `truncated` true; 28 pages cover the set and concatenate to the library list.
+The common all-pairs response now also carries `totalPairs: 64, truncated: false`.
+
+**Tests.** `RestrictionAnalyzer_RebaseSet_Tests.cs`: `EnzymeSetOverloads_Common_EqualTheDefaultOverloads`,
+`DefaultSetMembers_StayOnTheCommonEnzymes`, `EnzymeSetRebase_Filters_MatchBiopythonCounts`,
+`EnzymeSetRebase_Schizomers_MatchBiopython`, `GetEnzymes_UndefinedSet_Throws`,
+`FindCompatibleEnzymesSet_Common_EqualsTheParameterlessListing_AndTheNestedLoop`,
+`FindCompatibleEnzymesSet_Rebase_IsLazy_AndRejectsAnUnknownSetEagerly`,
+`FindCompatibleEnzymesSet_Rebase_MatchesBiopythonModOperatorOnTheDefinedOverhangEnzymes`,
+`FindCompatibleEnzymesSet_Rebase_WholeListingIsPinned`; MCP `EnzymeSetToolsTests.cs`: the M33-M38 rows of
+`tests/TestSpecs/RESTR-FILTER-001.md`.
+
 ## Change History
 
 - **2026-06-13**: Initial documentation.
@@ -377,3 +435,4 @@ Identical on both sides for all 39 enzymes and all three queries (117/117).
 - **2026-10-15** (B08 WP13, QUEUE R9, F64): attribution fix only — the per-enzyme 4/6/8-bp recognition
   lengths re-credited from "List of restriction enzyme cutting sites" (an index page with no enzyme table;
   re-fetched, it only says "usually short (3 to 8 bp)") to Biopython 1.88 `Bio.Restriction`. No value changed.
+- **2026-10-21** (B08 round 3 G9, F88): addendum A9 - REBASE-set listing members, REBASE-set compatibility counts and digests, paged MCP listing, and the tests that carry them. No value changed.
