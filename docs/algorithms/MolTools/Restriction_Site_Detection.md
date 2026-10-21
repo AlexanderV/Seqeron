@@ -222,7 +222,14 @@ methylases, params enzymeNames)`; record form: `(sequence, topology, enzymes, me
 the parameter. Added in B08 round 3 G3 (F83): `PartialDigest(sequence, topology, maxMissedCuts, methylases, params enzymeNames)` /
 `PartialDigest(sequence, topology, maxMissedCuts, enzymes, methylases)` and MCP `partial_digest` `methylation` — the cut list the
 partial digest runs over is the methylation-aware digest's, so a blocked site is neither cut nor missed cut (oracle: the F53 constructed
-set over the EMBOSS-surviving cuts, Evidence RESTR-DIGEST-001 §12). **Not carried:** `FindAllSites` and the `EnzymeSet` listing members.
+set over the EMBOSS-surviving cuts, Evidence RESTR-DIGEST-001 §12). Added in B08 round 3 G4 (F84): `FindAllSites(sequence, topology, EnzymeSet, methylases)` (one
+mask for the molecule, applied to every enzyme of the set; the common-set forms are `EnzymeSet.Common`), the raw-string
+`FindSites(string sequence, enzymeName, topology, methylases)` (ASCII-upper-cased, the methylase search runs on the same
+string) and `FindSites(sequence, topology, IEnumerable<RestrictionEnzyme> enzymes, methylases)`; MCP `find_all_restriction_sites`
+`methylation`. **Not carried, with reasons:** `FindPatternOccurrences` scans a bare IUPAC pattern, not an enzyme, and EMBOSS offers
+no methylation mode for pattern scanning (`fuzznuc -help` has no such option; only the enzyme tools `restrict`, `remap`, `showseq`,
+`restover` do), so there is no reference to lock a pattern-level mask to; the `EnzymeSet` listing members (`GetEnzymes*`,
+`GetBluntCutters`, `GetStickyCutters`, `FindCompatibleEnzymes`, `FindIsoschizomers`/`Equischizomers`/`Neoschizomers`) never read a sequence.
 
 **Reference.** EMBOSS `restrict -methylation` ("If this is set then RE recognition sites will not match
 methylated bases"), `-mfile` default `Emethylsites.dat`. Data (`MethylaseSets.Emboss`, file order): `dam GmATC`,

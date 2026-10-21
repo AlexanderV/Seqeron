@@ -598,5 +598,31 @@ reverse strand, circular wrap, rotation invariance, digest / summary / map) and 
 
 **Limitations kept honest.** (i) A window rule, not an enzyme-sensitivity table: BamHI (Dam-insensitive at the bench) is blocked,
 `DpnI` (needs methylation) and `MspI`/`HpaII` are not modelled. (ii) EMBOSS's one-A-per-GATC marking and masked EcoKI spacer are
-reproduced, not corrected. (iii) CpG methylation is not in `Emethylsites.dat` and not offered. (iv) `PartialDigest` takes the set since B08 round 3 G3 (F83; Evidence RESTR-DIGEST-001 §12); `FindAllSites` and
-the `EnzymeSet` listing members do not (yet).
+reproduced, not corrected. (iii) CpG methylation is not in `Emethylsites.dat` and not offered. (iv) `PartialDigest` takes the set since B08 round 3 G3 (F83; Evidence RESTR-DIGEST-001 §12) and `FindAllSites(EnzymeSet)`, the raw-string
+`FindSites` and `FindSites(…, enzymes, methylases)` since G4 (F84, below). `FindPatternOccurrences` does not (no reference: EMBOSS `fuzznuc` has no
+methylation option); the `EnzymeSet` listing members never scan a sequence.
+
+### 7.1 Every remaining scanning entry point (B08 round 3 G4 / F84, 2026-10-21)
+
+Added: `FindAllSites(sequence, topology, EnzymeSet, methylases)`, raw-string `FindSites(string, enzymeName, topology, methylases)`,
+`FindSites(sequence, topology, IEnumerable<RestrictionEnzyme>, methylases)`; MCP `find_all_restriction_sites` `methylation`. All reuse
+`MethylationMask.Compute` and the `blocked` argument of `FindSitesCore` (nothing copied); `FindAllSites` computes the mask once per
+molecule. Audit of every public member that reaches `FindSitesCore` / `CollectForwardCuts` / `DigestCore`: carried now = `FindSites` (all
+seven forms), `FindAllSites`, `Digest`, `GetDigestSummary`, `CreateMap`, `PartialDigest`; the rest never reads a sequence
+(`GetEnzymes*`, `GetBluntCutters`, `GetStickyCutters`, `FindCompatibleEnzymes`, `AreCompatible`, `FindIsoschizomers` ...) or scans a bare
+pattern (`FindPatternOccurrences`, also used by `CodonOptimizer`): EMBOSS has no methylation mode for pattern scanning (`fuzznuc`,
+`fuzzpro`, `patmatmotifs` list none; `restrict`, `remap`, `showseq`, `restover` do), so there is nothing to confirm a pattern mask against.
+
+**Differential (executed `restrict`, 2026-10-21, harness outside the repo):** 40 seeded random 500-bp sequences with injected Dam / Dcm /
+EcoKI / enzyme motifs, enzyme table = all 754 enzymes generated from Biopython 1.88, EMBOSS run once per sequence and mode (baseline and
+`-methylation`), compared with `FindAllSites(seq, topology, EnzymeSet.Rebase)` and `...(…, MethylaseSets.Emboss)`. Sites present in both
+baselines (the "common sites" of F68; the library additionally lists Type IIS windows EMBOSS does not and drops none): linear 39 058 common,
+9 164 removed by EMBOSS, **0 mismatching sequences / 0 differing sites**; circular 39 537 common, 9 229 removed, 33 differing sites in 2
+sequences, **all** library-removed / EMBOSS-kept and all caused by a GATC spanning the origin (the documented deliberate difference of F68).
+(An earlier run that wrote one FASTA per sequence for several concurrent jobs produced spurious whole-sequence mismatches; the harness now
+uses one file per job.) Locked values: the 39 common enzymes on L1, L2, L3 and a seeded 500-bp sequence under none / dam / dcm / emboss
+(16 rows, EMBOSS = library, linear = circular); e.g. L2: none `DpnI:10,36;EcoRI:0,18;HpaII:28;MboI:10,36;MspI:28;Sau3AI:10,36;SmaI:27;TaqI:38,44`,
+Dam / emboss `EcoRI:0,18;HpaII:28;MspI:28;SmaI:27;TaqI:38,44`. A raw-string case with sequence `N`s (`GGCCNNNNNGGCCAAGATCAAGAATTCAA`): MboI 15 removed, EcoRI 21 kept
+as EMBOSS; SfiI 0 stays (Biopython's `N` rule, F40 - EMBOSS never matches a sequence `N`, a pre-existing difference).
+**Locked by tests:** `RestrictionAnalyzer_MethylationEntryPoints_Tests` (G4 region, 24 cases) and MCP `RestrictionMethylationToolsTests`
+(`FindAllRestrictionSites_*`).

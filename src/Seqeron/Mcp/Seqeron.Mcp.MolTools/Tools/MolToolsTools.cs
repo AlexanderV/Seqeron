@@ -573,17 +573,18 @@ public class MolToolsTools
         return new RestrictionSiteListResult(sites);
     }
 
-    [McpServerTool(Name = "find_all_restriction_sites", Title = "MolTools — Find All Restriction Sites", ReadOnly = true), Description("Finds sites for EVERY restriction enzyme of enzyme_set (default \"common\" = the 39 common laboratory enzymes; \"rebase\" = all 754 REBASE enzymes with a defined cut) on both strands of a DNA sequence. Coordinates, the two records per palindromic site and the linear cut-feasibility rule are the same as find_restriction_sites; set topology=Circular for a plasmid. Call for a comprehensive restriction-site scan when the enzyme set is not known in advance.")]
+    [McpServerTool(Name = "find_all_restriction_sites", Title = "MolTools — Find All Restriction Sites", ReadOnly = true), Description("Finds sites for EVERY restriction enzyme of enzyme_set (default \"common\" = the 39 common laboratory enzymes; \"rebase\" = all 754 REBASE enzymes with a defined cut) on both strands of a DNA sequence. Coordinates, the two records per palindromic site and the linear cut-feasibility rule are the same as find_restriction_sites; set topology=Circular for a plasmid. Call for a comprehensive restriction-site scan when the enzyme set is not known in advance. Optional methylation (none|dam|dcm|dam+dcm|emboss) makes methylated bases block recognition exactly as EMBOSS restrict -methylation does (default none: unchanged).")]
     public static RestrictionSiteListResult find_all_restriction_sites(
         [Description("DNA sequence to scan.")] string sequence,
         [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
-        [Description("Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive.")] string? enzyme_set = "common")
+        [Description("Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive.")] string? enzyme_set = "common",
+        [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
         var set = ParseEnzymeSet(enzyme_set);
 
-        var sites = RestrictionAnalyzer.FindAllSites(new DnaSequence(sequence), topology, set).ToList();
+        var sites = RestrictionAnalyzer.FindAllSites(new DnaSequence(sequence), topology, set, MethylaseSets.FromName(methylation)).ToList();
         return new RestrictionSiteListResult(sites);
     }
 

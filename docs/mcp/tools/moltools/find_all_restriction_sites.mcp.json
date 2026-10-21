@@ -6,13 +6,14 @@
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindAllSites",
   "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L427",
-  "description": "Find sites for every restriction enzyme of enzyme_set (\"common\" = the 39 common enzymes by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) on both strands of a DNA sequence.",
+  "description": "Find sites for every restriction enzyme of enzyme_set (\"common\" = the 39 common enzymes by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) on both strands of a DNA sequence. Optional methylation (none|dam|dcm|dam+dcm|emboss) makes methylated bases block recognition exactly as EMBOSS restrict -methylation does (default none: unchanged).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 },
       "topology": { "type": "string", "enum": ["Linear", "Circular"], "default": "Linear", "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)." },
-      "enzyme_set": { "type": ["string", "null"], "enum": ["common", "rebase", null], "default": "common", "description": "Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive." }
+      "enzyme_set": { "type": ["string", "null"], "enum": ["common", "rebase", null], "default": "common", "description": "Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive." },
+      "methylation": { "type": "string", "enum": ["none", "dam", "dcm", "dam+dcm", "emboss"], "default": "none", "description": "Methylase set whose methylated bases block recognition (EMBOSS restrict -methylation semantics); case-insensitive." }
     },
     "required": ["sequence"]
   },
@@ -54,6 +55,11 @@
       "name": "Type IIS sites found only with the REBASE set",
       "input": { "sequence": "AAGGTCTCAAAAAAAAAAAAAAAGAGACCAAAAAAAAAAA", "enzyme_set": "rebase" },
       "output": { "sites": "42 records from 14 enzymes: AbaSI, Alw26I, BcoDI, BmeDI, BsaI, BsmAI, Bso31I, BspTNI, BstMAI, Eco31I, EcoO157SI, MspJI, SetI, YkrI. BsaI: forward record position 2, cutPosition 9; reverse record position 23, cutPosition 22. The default (common) set finds 0 sites in this sequence." }
+    },
+    {
+      "name": "Dam methylation blocks the GATC windows",
+      "input": { "sequence": "GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA", "methylation": "dam" },
+      "output": { "sites": "Sites of EcoRI (0, 18), HpaII (28), MspI (28), SmaI (27) and TaqI (38, 44); the unmethylated scan also has DpnI, MboI and Sau3AI at 10 and 36, which Dam blocks. Equals EMBOSS restrict -methylation over the 39 common enzymes." }
     },
     {
       "name": "Unknown enzyme set",

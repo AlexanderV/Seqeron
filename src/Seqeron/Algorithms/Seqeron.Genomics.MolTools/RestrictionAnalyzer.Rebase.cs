@@ -104,10 +104,24 @@ public static partial class RestrictionAnalyzer
     /// </summary>
     public static IEnumerable<RestrictionSite> FindAllSites(
         DnaSequence sequence, MoleculeTopology topology, EnzymeSet set)
+        => FindAllSites(sequence, topology, set, null);
+
+    /// <summary>
+    /// <see cref="FindAllSites(DnaSequence, MoleculeTopology, EnzymeSet)"/> with methylated bases
+    /// blocking recognition (EMBOSS <c>restrict -methylation</c> semantics; see
+    /// <see cref="FindSites(DnaSequence, string, MoleculeTopology, IReadOnlyList{Methylase})"/>). The
+    /// methylation mask is computed once for the molecule and applied to every enzyme of the set; a
+    /// null or empty <paramref name="methylases"/> is the overload without the parameter.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="set"/> is not a defined value.</exception>
+    /// <exception cref="ArgumentException">A methylase site is malformed.</exception>
+    public static IEnumerable<RestrictionSite> FindAllSites(
+        DnaSequence sequence, MoleculeTopology topology, EnzymeSet set, IReadOnlyList<Methylase>? methylases)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         var table = GetEnzymes(set);
-        return table.Values.SelectMany(e => FindSitesCore(sequence.Sequence, e, topology));
+        var blocked = MethylationMask.Compute(sequence.Sequence, methylases, topology == MoleculeTopology.Circular);
+        return table.Values.SelectMany(e => FindSitesCore(sequence.Sequence, e, topology, blocked));
     }
 
     /// <summary>

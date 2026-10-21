@@ -125,9 +125,9 @@ summarize with `digest_summary`; overview map with `restriction_map`.
   (`Linear` default | `Circular`); use `Circular` for a plasmid — origin-spanning sites are found and `k`
   cut positions give `k` fragments (linear: `k + 1`; zero cuts → one whole-molecule fragment).
 - Optional `methylation` (`none` default | `dam` | `dcm` | `dam+dcm` | `emboss`) on `find_restriction_sites`,
-  `restriction_digest`, `digest_summary`, `restriction_map`, `partial_digest`: sites whose recognition window
+  `restriction_digest`, `digest_summary`, `restriction_map`, `partial_digest`, `find_all_restriction_sites`: sites whose recognition window
   covers a methylated base are dropped (EMBOSS `restrict -methylation`; in `partial_digest` a blocked site is neither
-  a cut nor a missed cut). `find_all_restriction_sites` takes `topology` but not `methylation`.
+  a cut nor a missed cut).
 - Each fragment: `{sequence, startPosition, length, leftEnzyme, rightEnzyme, fragmentNumber}`;
   end fragments have a null flanking enzyme. Positions are **0-based**.
 - For cloning compatibility, confirm overhangs with `compatible_enzymes` / `enzymes_compatible` before digesting.

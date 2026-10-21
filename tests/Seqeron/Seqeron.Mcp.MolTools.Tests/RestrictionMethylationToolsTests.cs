@@ -115,4 +115,44 @@ public class RestrictionMethylationToolsTests
     [Test]
     public void PartialDigest_UnknownMethylationSet_IsAnError() =>
         Assert.Throws<ArgumentException>(() => MolToolsTools.partial_digest(Seq, PartialEnzymes, MoleculeTopology.Linear, null, "cpg"));
+
+    // ---- B08 round 3 G4 (F84): find_all_restriction_sites. Oracle: EMBOSS `restrict -methylation` over the 39 common
+    // enzymes (see RestrictionAnalyzer_MethylationEntryPoints_Tests): L2 + Dam keeps EcoRI 0,18 / SmaI 27 / TaqI 38,44
+    // and loses the GATC windows (MboI 10,36, Sau3AI, ...).
+    [Test]
+    public void FindAllRestrictionSites_DefaultAndNone_AreUnchanged()
+    {
+        var plain = MolToolsTools.find_all_restriction_sites(Seq).Sites;
+        var none = MolToolsTools.find_all_restriction_sites(Seq, MoleculeTopology.Linear, "common", "none").Sites;
+        Assert.That(plain.Where(s => s.Enzyme.Name == "MboI" && s.IsForwardStrand).Select(s => s.Position), Is.EqualTo(new[] { 10, 36 }));
+        Assert.That(none, Is.EqualTo(plain));
+    }
+
+    [TestCase("dam", MoleculeTopology.Linear)]
+    [TestCase("DAM+dcm", MoleculeTopology.Circular)]
+    [TestCase("emboss", MoleculeTopology.Linear)]
+    public void FindAllRestrictionSites_Methylation_DropsTheBlockedWindows(string methylation, MoleculeTopology topology)
+    {
+        var plain = MolToolsTools.find_all_restriction_sites(Seq, topology).Sites;
+        var sites = MolToolsTools.find_all_restriction_sites(Seq, topology, "common", methylation).Sites;
+        Assert.That(sites, Is.SubsetOf(plain));
+        Assert.That(sites.Any(s => s.Enzyme.Name == "MboI"), Is.False);
+        Assert.That(sites.Where(s => s.Enzyme.Name == "EcoRI" && s.IsForwardStrand).Select(s => s.Position), Is.EqualTo(new[] { 0, 18 }));
+        Assert.That(sites.Where(s => s.Enzyme.Name == "TaqI" && s.IsForwardStrand).Select(s => s.Position), Is.EqualTo(new[] { 38, 44 }));
+    }
+
+    [Test]
+    public void FindAllRestrictionSites_Methylation_AppliesToTheRebaseSet()
+    {
+        var plain = MolToolsTools.find_all_restriction_sites(Seq, MoleculeTopology.Linear, "rebase").Sites;
+        var dam = MolToolsTools.find_all_restriction_sites(Seq, MoleculeTopology.Linear, "rebase", "dam").Sites;
+        Assert.That(plain.Any(s => s.Enzyme.Name == "MboI"), Is.True);
+        Assert.That(dam.Any(s => s.Enzyme.Name == "MboI"), Is.False);
+        Assert.That(dam.Count, Is.LessThan(plain.Count));
+        Assert.That(dam.Any(s => s.Enzyme.Name == "EcoRI"), Is.True);
+    }
+
+    [Test]
+    public void FindAllRestrictionSites_UnknownMethylationSet_IsAnError() =>
+        Assert.Throws<ArgumentException>(() => MolToolsTools.find_all_restriction_sites(Seq, MoleculeTopology.Linear, "common", "cpg"));
 }

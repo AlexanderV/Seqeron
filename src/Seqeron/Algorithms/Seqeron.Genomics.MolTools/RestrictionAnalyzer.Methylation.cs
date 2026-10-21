@@ -283,6 +283,47 @@ public static partial class RestrictionAnalyzer
     }
 
     /// <summary>
+    /// <see cref="FindSites(DnaSequence, MoleculeTopology, IEnumerable{RestrictionEnzyme})"/> with
+    /// methylated bases blocking recognition; see
+    /// <see cref="FindSites(DnaSequence, string, MoleculeTopology, IReadOnlyList{Methylase})"/>. The
+    /// collection is validated eagerly; the per-enzyme results are concatenated in the order given.
+    /// </summary>
+    public static IEnumerable<RestrictionSite> FindSites(
+        DnaSequence sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
+        IReadOnlyList<Methylase>? methylases)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        var list = RequireEnzymeList(enzymes);
+        var blocked = MethylationMask.Compute(sequence.Sequence, methylases, topology == MoleculeTopology.Circular);
+        return list.SelectMany(e => FindSitesCore(sequence.Sequence, e, topology, blocked));
+    }
+
+    /// <summary>
+    /// <see cref="FindSites(string, string, MoleculeTopology)"/> (raw sequence string) with
+    /// methylated bases blocking recognition; see
+    /// <see cref="FindSites(DnaSequence, string, MoleculeTopology, IReadOnlyList{Methylase})"/>. The
+    /// sequence is upper-cased (ASCII) before both the methylase search and the enzyme search; a null or
+    /// empty sequence yields no sites, but an unknown enzyme name or a malformed methylase is rejected
+    /// eagerly.
+    /// </summary>
+    /// <exception cref="ArgumentException">The enzyme is unknown or a methylase site is malformed.</exception>
+    public static IEnumerable<RestrictionSite> FindSites(
+        string sequence, string enzymeName, MoleculeTopology topology,
+        IReadOnlyList<Methylase>? methylases)
+    {
+        var enzyme = RequireEnzyme(enzymeName);
+        if (string.IsNullOrEmpty(sequence))
+        {
+            MethylationMask.Compute("", methylases, topology == MoleculeTopology.Circular);
+            return [];
+        }
+
+        string upper = SequenceExtensions.ToUpperAscii(sequence);
+        return FindSitesCore(upper, enzyme, topology,
+            MethylationMask.Compute(upper, methylases, topology == MoleculeTopology.Circular));
+    }
+
+    /// <summary>
     /// <see cref="PartialDigest(DnaSequence, MoleculeTopology, int?, string[])"/> with methylated
     /// bases blocking recognition: the cut list the partial digest runs over is the methylation-aware
     /// complete digest's (<see cref="Digest(DnaSequence, MoleculeTopology, IReadOnlyList{Methylase}, string[])"/>),
