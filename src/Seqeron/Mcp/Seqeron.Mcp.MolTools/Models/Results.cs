@@ -46,7 +46,9 @@ public sealed record RestrictionSiteListResult(IReadOnlyList<RestrictionSite> Si
 public sealed record DigestResult(IReadOnlyList<DigestFragment> Fragments);
 public sealed record PartialDigestResult(IReadOnlyList<PartialDigestFragment> Fragments);
 public sealed record EnzymeCompatibilityPair(string Enzyme1, string Enzyme2, string CompatibleEnd);
-public sealed record CompatibleEnzymesResult(IReadOnlyList<EnzymeCompatibilityPair> Pairs);
+// TotalPairs / Truncated are reported by the all-pairs listing only (null, hence omitted, for the per-enzyme form).
+public sealed record CompatibleEnzymesResult(
+    IReadOnlyList<EnzymeCompatibilityPair> Pairs, int? TotalPairs = null, bool? Truncated = null);
 public sealed record EnzymeCompatibilityResult(bool Compatible, string? CompatibleEnd = null);
 
 // CodonUsageAnalyzer result wrappers

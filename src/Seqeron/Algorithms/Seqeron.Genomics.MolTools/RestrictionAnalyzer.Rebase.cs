@@ -131,6 +131,37 @@ public static partial class RestrictionAnalyzer
         }
     }
 
+    /// <summary>
+    /// Enumerates every unordered pair of distinct enzymes of <paramref name="set"/> whose ends can be
+    /// ligated to each other (see <see cref="FindCompatibleEnzymes()"/>, which is this method over
+    /// <see cref="EnzymeSet.Common"/>).
+    /// </summary>
+    /// <remarks>
+    /// Lazy, in table order with the first enzyme preceding the second (<c>i &lt; j</c>), so the common set
+    /// reproduces <see cref="FindCompatibleEnzymes()"/> exactly. The REBASE set is large — 27 869 of
+    /// the 283 881 unordered pairs of its 754 enzymes (9 316 of them blunt-blunt among the defined-overhang
+    /// enzymes) — so stream or cap the result rather than materialising it unconditionally.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="set"/> is not a defined <see cref="EnzymeSet"/> (thrown eagerly).</exception>
+    public static IEnumerable<(string Enzyme1, string Enzyme2, string CompatibleEnd)> FindCompatibleEnzymes(
+        EnzymeSet set)
+    {
+        var enzymes = GetEnzymes(set).Values.ToList();
+        return Enumerate();
+
+        IEnumerable<(string, string, string)> Enumerate()
+        {
+            for (int i = 0; i < enzymes.Count; i++)
+            {
+                for (int j = i + 1; j < enzymes.Count; j++)
+                {
+                    if (AreCompatible(enzymes[i], enzymes[j], out string? compatibleEnd))
+                        yield return (enzymes[i].Name, enzymes[j].Name, compatibleEnd!);
+                }
+            }
+        }
+    }
+
     /// <summary>Isoschizomers of <paramref name="enzymeName"/> within <paramref name="set"/>
     /// (see <see cref="FindIsoschizomers(string)"/>).</summary>
     public static IEnumerable<RestrictionEnzyme> FindIsoschizomers(string enzymeName, EnzymeSet set)

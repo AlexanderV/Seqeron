@@ -1592,25 +1592,10 @@ public static partial class RestrictionAnalyzer
     /// with itself, and 15 of the 39 built-ins (e.g. <c>EcoRI</c>, <c>PstI</c>, <c>SfiI</c>) have a
     /// unique overhang and so appear in no pair at all; use
     /// <see cref="FindCompatibleEnzymes(string)"/> to ask what a single enzyme can be ligated to.
+    /// For the full REBASE set use <see cref="FindCompatibleEnzymes(EnzymeSet)"/>.
     /// </remarks>
     public static IEnumerable<(string Enzyme1, string Enzyme2, string CompatibleEnd)> FindCompatibleEnzymes()
-    {
-        var enzymes = _enzymes.Values.ToList();
-
-        for (int i = 0; i < enzymes.Count; i++)
-        {
-            for (int j = i + 1; j < enzymes.Count; j++)
-            {
-                var e1 = enzymes[i];
-                var e2 = enzymes[j];
-
-                if (AreCompatible(e1, e2, out string? compatibleEnd))
-                {
-                    yield return (e1.Name, e2.Name, compatibleEnd!);
-                }
-            }
-        }
-    }
+        => FindCompatibleEnzymes(EnzymeSet.Common);
 
     /// <summary>
     /// Lists the common-set enzymes (<see cref="Enzymes"/>; for another set use

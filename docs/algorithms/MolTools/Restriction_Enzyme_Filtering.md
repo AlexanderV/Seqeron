@@ -325,6 +325,14 @@ RestrictionAnalyzer.FindNeoschizomers("MboI").Select(e => e.Name);   // { "DpnI"
 Class counts, identical on both sides: 10 blunt, 21 with a 5' overhang, 8 with a 3' overhang.
 `FindCompatibleEnzymes()` yields **64** pairs: 45 blunt×blunt, 6 `GATC`, 6 `CTAG`, 6 `CG`, 1 `TCGA`.
 
+**`FindCompatibleEnzymes(EnzymeSet)` (2026-10-21, B08 F72).** The all-pairs listing takes an `EnzymeSet` like its
+siblings; `Common` reproduces `FindCompatibleEnzymes()` exactly (same 64 pairs, same order) and `Rebase` yields
+**27 869** of the 283 881 unordered pairs of the 754 enzymes, lazily, in table order. Over the 389 enzymes with a
+blunt or fully A/C/G/T overhang the listing is 11 200 pairs (9 316 blunt) and equals Biopython 1.88 `a % b`
+exactly (sha256 `a38477bb…d030` over the sorted `name1,name2,overhang` lines); `(EcoRI, MfeI, AATT)` is among
+them. The other 16 669 pairs involve an ambiguous (distal Type IIS) overhang and follow the derived rule of §2.2.
+The MCP `compatible_enzymes` tool pages this listing (`max_pairs`, `offset`; `totalPairs`, `truncated`).
+
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [RestrictionAnalyzer_Filter_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/RestrictionAnalyzer_Filter_Tests.cs) — covers `INV-01`–`INV-10`

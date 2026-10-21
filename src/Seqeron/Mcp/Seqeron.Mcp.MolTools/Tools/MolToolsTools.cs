@@ -659,29 +659,49 @@ public class MolToolsTools
         return RestrictionAnalyzer.CreateMap(new DnaSequence(sequence), topology, methylases, names);
     }
 
-    [McpServerTool(Name = "compatible_enzymes", Title = "MolTools — Compatible Enzyme Pairs", ReadOnly = true), Description("Enumerates pairs of restriction enzymes whose ends can be ligated to each other: either both produce blunt ends, or both produce the same polarity of overhang (both 5' or both 3') and overhangs that can anneal — same length, and one the reverse complement of the other. compatibleEnd is \"blunt\" or the shared overhang sequence. A 5' overhang is never compatible with a 3' overhang even when the letters match (SacI 3' AGCT vs HindIII 5' AGCT are NOT compatible). Without enzyme_name every pair of the 39 common laboratory enzymes is listed. With enzyme_name set (any of the 754 REBASE enzymes with a defined cut), lists what that one enzyme can be ligated to among enzyme_set (default \"common\" = the 39; \"rebase\" = all 754), itself included when it is in that set — use this for an enzyme with a unique overhang (EcoRI, PstI, SfiI), which appears in no pair at all. enzyme_set=\"rebase\" requires enzyme_name (the all-pairs listing covers the common set only). Call when the user needs enzymes that yield compatible (ligatable) ends for cloning.")]
+    [McpServerTool(Name = "compatible_enzymes", Title = "MolTools — Compatible Enzyme Pairs", ReadOnly = true), Description("Enumerates pairs of restriction enzymes whose ends can be ligated to each other: either both produce blunt ends, or both produce the same polarity of overhang (both 5' or both 3') and overhangs that can anneal — same length, and one the reverse complement of the other. compatibleEnd is \"blunt\" or the shared overhang sequence. A 5' overhang is never compatible with a 3' overhang even when the letters match (SacI 3' AGCT vs HindIII 5' AGCT are NOT compatible). Without enzyme_name every unordered pair of distinct enzymes of enzyme_set is listed (default \"common\" = the 39 laboratory enzymes, 64 pairs; \"rebase\" = all 754 REBASE enzymes with a defined cut, 27869 pairs, table order, e.g. EcoRI/MfeI share the 5' end AATT). The all-pairs response is bounded: it returns at most max_pairs pairs (default 1000, maximum 10000) starting at offset, with totalPairs (all pairs of the set) and truncated (true when more pairs follow the returned page) — page through a large set with offset. With enzyme_name set (any of the 754 REBASE enzymes with a defined cut), lists what that one enzyme can be ligated to among enzyme_set (default \"common\" = the 39; \"rebase\" = all 754), itself included when it is in that set — use this for an enzyme with a unique overhang (EcoRI, PstI, SfiI), which appears in no pair at all; this per-enzyme form is not paged and rejects max_pairs / offset. Call when the user needs enzymes that yield compatible (ligatable) ends for cloning.")]
     public static CompatibleEnzymesResult compatible_enzymes(
-        [Description("Optional: restrict the result to pairs involving this enzyme (case-insensitive); omit or leave blank for every pair of the common table.")] string? enzyme_name = null,
-        [Description("Partner table for the enzyme_name form: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive; \"rebase\" requires enzyme_name.")] string? enzyme_set = "common")
+        [Description("Optional: restrict the result to pairs involving this enzyme (case-insensitive); omit or leave blank for every pair of enzyme_set.")] string? enzyme_name = null,
+        [Description("Table to list: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive.")] string? enzyme_set = "common",
+        [Description("All-pairs listing only: maximum number of pairs returned (1-10000; default 1000, which holds the whole common set). Not allowed together with enzyme_name.")] int? max_pairs = null,
+        [Description("All-pairs listing only: number of pairs to skip before the returned page (>= 0; default 0). Not allowed together with enzyme_name.")] int? offset = null)
     {
         var set = ParseEnzymeSet(enzyme_set);
         if (string.IsNullOrWhiteSpace(enzyme_name))
         {
-            if (set != EnzymeSet.Common)
-                throw new System.ArgumentException(
-                    "enzyme_set \"rebase\" requires enzyme_name: the all-pairs listing covers the common set only.",
-                    nameof(enzyme_set));
-            var allPairs = RestrictionAnalyzer.FindCompatibleEnzymes()
-                .Select(t => new EnzymeCompatibilityPair(t.Enzyme1, t.Enzyme2, t.CompatibleEnd))
-                .ToList();
-            return new CompatibleEnzymesResult(allPairs);
+            int limit = max_pairs ?? DefaultCompatiblePairsPage;
+            int skip = offset ?? 0;
+            if (limit < 1 || limit > MaxCompatiblePairsPage)
+                throw new System.ArgumentOutOfRangeException(
+                    nameof(max_pairs), limit, $"max_pairs must be between 1 and {MaxCompatiblePairsPage}.");
+            if (skip < 0)
+                throw new System.ArgumentOutOfRangeException(nameof(offset), skip, "offset cannot be negative.");
+
+            var page = new List<EnzymeCompatibilityPair>();
+            int total = 0;
+            foreach (var t in RestrictionAnalyzer.FindCompatibleEnzymes(set))
+            {
+                if (total >= skip && page.Count < limit)
+                    page.Add(new EnzymeCompatibilityPair(t.Enzyme1, t.Enzyme2, t.CompatibleEnd));
+                total++;
+            }
+
+            return new CompatibleEnzymesResult(page, total, Truncated: skip + page.Count < total);
         }
+
+        if (max_pairs is not null || offset is not null)
+            throw new System.ArgumentException(
+                "max_pairs and offset page the all-pairs listing; they cannot be combined with enzyme_name.",
+                max_pairs is not null ? nameof(max_pairs) : nameof(offset));
 
         var pairs = RestrictionAnalyzer.FindCompatibleEnzymes(enzyme_name, set)
             .Select(t => new EnzymeCompatibilityPair(enzyme_name, t.Enzyme, t.CompatibleEnd))
             .ToList();
         return new CompatibleEnzymesResult(pairs);
     }
+
+    private const int DefaultCompatiblePairsPage = 1000;
+    private const int MaxCompatiblePairsPage = 10000;
 
     [McpServerTool(Name = "enzymes_compatible", Title = "MolTools — Enzyme End Compatibility", ReadOnly = true), Description("Returns whether two named restriction enzymes (any of the 754 REBASE enzymes with a defined cut, case-insensitive) produce ligatable (compatible) ends: both blunt, or the same overhang polarity (both 5' or both 3') with overhangs that can anneal — same length, and one the reverse complement of the other. compatibleEnd echoes the shared end (\"blunt\" or the overhang sequence) and is null when they are incompatible. Same letters with opposite polarity are NOT compatible (SacI 3' AGCT vs HindIII 5' AGCT → false). An unknown enzyme name is an ERROR, as it is for find_restriction_sites, so a typo is never reported as \"not compatible\"; use get_enzyme first if the name may not exist. Call to check a specific pair for cloning compatibility.")]
     public static EnzymeCompatibilityResult enzymes_compatible(

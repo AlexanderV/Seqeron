@@ -6,7 +6,7 @@
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindCompatibleEnzymes",
   "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1596",
-  "description": "Enumerate pairs of the 39 common restriction enzymes that produce ligatable (compatible) ends, or - with enzyme_name (any of the 754 REBASE enzymes with a defined cut) - the enzymes of enzyme_set (\"common\" by default, \"rebase\" = 754) that one enzyme's end can be ligated to, itself included.",
+  "description": "Enumerate pairs of restriction enzymes whose ends can be ligated (enzyme_set \"common\" = 39 enzymes, 64 pairs; \"rebase\" = 754 enzymes, 27869 pairs; paged by max_pairs / offset with totalPairs and truncated), or - with enzyme_name (any of the 754 REBASE enzymes with a defined cut) - the enzymes of enzyme_set that one enzyme's end can be ligated to, itself included.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -15,7 +15,7 @@
           "string",
           "null"
         ],
-        "description": "Optional: restrict the result to pairs involving this enzyme (case-insensitive); omit or leave blank for every pair of the common table."
+        "description": "Optional: restrict the result to pairs involving this enzyme (case-insensitive); omit or leave blank for every pair of enzyme_set."
       },
       "enzyme_set": {
         "type": [
@@ -28,7 +28,26 @@
           null
         ],
         "default": "common",
-        "description": "Partner table for the enzyme_name form: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive; \"rebase\" requires enzyme_name."
+        "description": "Table to list: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive."
+      },
+      "max_pairs": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 1,
+        "maximum": 10000,
+        "default": 1000,
+        "description": "All-pairs listing only: maximum number of pairs returned (1-10000; default 1000, which holds the whole common set). Not allowed together with enzyme_name."
+      },
+      "offset": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0,
+        "default": 0,
+        "description": "All-pairs listing only: number of pairs to skip before the returned page (>= 0; default 0). Not allowed together with enzyme_name."
       }
     },
     "required": []
@@ -58,6 +77,14 @@
             "compatibleEnd"
           ]
         }
+      },
+      "totalPairs": {
+        "type": "integer",
+        "description": "All-pairs listing only: number of compatible pairs in the whole enzyme_set (common 64, rebase 27869), independent of max_pairs / offset. Omitted for the enzyme_name form."
+      },
+      "truncated": {
+        "type": "boolean",
+        "description": "All-pairs listing only: true when more pairs follow the returned page (offset + pairs.length < totalPairs). Omitted for the enzyme_name form."
       }
     },
     "required": [
@@ -74,8 +101,12 @@
       "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\""
     },
     {
+      "code": 1003,
+      "message": "max_pairs must be between 1 and 10000; offset cannot be negative (all-pairs listing)"
+    },
+    {
       "code": 1011,
-      "message": "enzyme_set \"rebase\" requires enzyme_name: the all-pairs listing covers the common set only."
+      "message": "max_pairs and offset page the all-pairs listing; they cannot be combined with enzyme_name."
     }
   ],
   "examples": [
@@ -96,7 +127,9 @@
       "name": "Complete listing",
       "input": {},
       "output": {
-        "pairs": "64 pairs: 45 \"blunt\" (all C(10,2) blunt-cutter pairs), 6 \"GATC\", 6 \"CTAG\", 6 \"CG\", 1 \"TCGA\""
+        "pairs": "64 pairs: 45 \"blunt\" (all C(10,2) blunt-cutter pairs), 6 \"GATC\", 6 \"CTAG\", 6 \"CG\", 1 \"TCGA\"",
+        "totalPairs": 64,
+        "truncated": false
       }
     },
     {
@@ -155,12 +188,27 @@
       }
     },
     {
-      "name": "REBASE set without enzyme_name",
+      "name": "REBASE all-pairs listing (first page)",
       "input": {
         "enzyme_set": "rebase"
       },
       "output": {
-        "error": "enzyme_set \"rebase\" requires enzyme_name: the all-pairs listing covers the common set only."
+        "pairs": "first 1000 of 27869 pairs in table order, starting {enzyme1: AanI, enzyme2: Acc16I, compatibleEnd: blunt}",
+        "totalPairs": 27869,
+        "truncated": true
+      }
+    },
+    {
+      "name": "REBASE page by offset",
+      "input": {
+        "enzyme_set": "rebase",
+        "max_pairs": 10,
+        "offset": 27865
+      },
+      "output": {
+        "pairs": "the last 4 pairs",
+        "totalPairs": 27869,
+        "truncated": false
       }
     },
     {

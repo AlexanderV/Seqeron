@@ -2314,7 +2314,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindCompatibleEnzymes",
     "docPath": "docs/mcp/tools/moltools/compatible_enzymes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1596"
+    "sourceLink": ""
   },
   {
     "tool": "count_codons",

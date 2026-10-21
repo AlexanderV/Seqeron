@@ -101,9 +101,10 @@ public class EnzymeSetToolsTests
             Assert.That(Json(MolToolsTools.compatible_enzymes("BamHI")),
                 Is.EqualTo(Json(new Models.CompatibleEnzymesResult(RestrictionAnalyzer.FindCompatibleEnzymes("BamHI")
                     .Select(t => new Models.EnzymeCompatibilityPair("BamHI", t.Enzyme, t.CompatibleEnd)).ToList()))));
+            // The all-pairs listing now also reports totalPairs / truncated (F72); its pairs are unchanged.
             Assert.That(Json(MolToolsTools.compatible_enzymes()),
                 Is.EqualTo(Json(new Models.CompatibleEnzymesResult(RestrictionAnalyzer.FindCompatibleEnzymes()
-                    .Select(t => new Models.EnzymeCompatibilityPair(t.Enzyme1, t.Enzyme2, t.CompatibleEnd)).ToList()))));
+                    .Select(t => new Models.EnzymeCompatibilityPair(t.Enzyme1, t.Enzyme2, t.CompatibleEnd)).ToList(), 64, false))));
             Assert.That(MolToolsTools.get_enzyme("MspI").Equischizomers, Is.EqualTo(new[] { "HpaII" }));
             Assert.That(MolToolsTools.blunt_cutters().Enzymes, Has.Count.EqualTo(10));
             Assert.That(MolToolsTools.sticky_cutters().Enzymes, Has.Count.EqualTo(29));
@@ -209,10 +210,73 @@ public class EnzymeSetToolsTests
     }
 
     [Test]
-    public void Rebase_CompatibleEnzymes_AllPairsForm_IsRejected()
+    public void Rebase_CompatibleEnzymes_AllPairsForm_IsBoundedAndPaged()
     {
-        var ex = Assert.Throws<System.ArgumentException>(() => MolToolsTools.compatible_enzymes(null, "rebase"));
-        Assert.That(ex!.ParamName, Is.EqualTo("enzyme_set"));
+        // B08 round 2 E10 (F72): 27 869 compatible pairs among the 754 REBASE enzymes (Biopython-locked on the
+        // defined-overhang subset in RestrictionAnalyzer_RebaseSet_Tests); the response is a page, not the list.
+        var first = MolToolsTools.compatible_enzymes(null, "rebase");
+        var last = MolToolsTools.compatible_enzymes(null, "REBASE", max_pairs: 10000, offset: 20000);
+        var tail = MolToolsTools.compatible_enzymes(null, "rebase", max_pairs: 10, offset: 27865);
+        var small = MolToolsTools.compatible_enzymes(null, "rebase", max_pairs: 3);
+        var all = RestrictionAnalyzer.FindCompatibleEnzymes(EnzymeSet.Rebase).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Pairs, Has.Count.EqualTo(1000));
+            Assert.That(first.TotalPairs, Is.EqualTo(27869));
+            Assert.That(first.Truncated, Is.True);
+            Assert.That(first.Pairs[0], Is.EqualTo(new Models.EnzymeCompatibilityPair("AanI", "Acc16I", "blunt")));
+            Assert.That(small.Pairs, Has.Count.EqualTo(3));
+            Assert.That(last.Pairs, Has.Count.EqualTo(7869));
+            Assert.That(last.Truncated, Is.False);
+            Assert.That(tail.Pairs, Has.Count.EqualTo(4), "page shorter than max_pairs at the end");
+            Assert.That(tail.Pairs.Select(p => (p.Enzyme1, p.Enzyme2, p.CompatibleEnd)), Is.EqualTo(all.Skip(27865)));
+            Assert.That(tail.Truncated, Is.False);
+            Assert.That(MolToolsTools.compatible_enzymes(null, "rebase", offset: 30000).Pairs, Is.Empty);
+
+            // F42: the EcoRI/MfeI 5' AATT pair is in the listing (paged by offset).
+            var pages = Enumerable.Range(0, 28).SelectMany(i =>
+                MolToolsTools.compatible_enzymes(null, "rebase", max_pairs: 1000, offset: i * 1000).Pairs);
+            Assert.That(pages.Select(p => (p.Enzyme1, p.Enzyme2, p.CompatibleEnd)), Is.EqualTo(all));
+            Assert.That(all, Does.Contain(("EcoRI", "MfeI", "AATT")));
+        });
+    }
+
+    [Test]
+    public void CompatibleEnzymes_AllPairs_Common_ReportsTotalsAndIsOtherwiseUnchanged()
+    {
+        var common = MolToolsTools.compatible_enzymes();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(common.Pairs, Has.Count.EqualTo(64));
+            Assert.That(common.TotalPairs, Is.EqualTo(64));
+            Assert.That(common.Truncated, Is.False);
+            Assert.That(MolToolsTools.compatible_enzymes("BamHI").TotalPairs, Is.Null, "per-enzyme form is not paged");
+            Assert.That(MolToolsTools.compatible_enzymes("BamHI").Truncated, Is.Null);
+        });
+    }
+
+    [TestCase(0)]
+    [TestCase(-1)]
+    [TestCase(10001)]
+    public void CompatibleEnzymes_MaxPairsOutOfRange_Throws(int maxPairs) =>
+        Assert.Throws<System.ArgumentOutOfRangeException>(() => MolToolsTools.compatible_enzymes(null, "rebase", maxPairs));
+
+    [Test]
+    public void CompatibleEnzymes_NegativeOffset_Throws() =>
+        Assert.Throws<System.ArgumentOutOfRangeException>(() => MolToolsTools.compatible_enzymes(null, "common", null, -1));
+
+    [Test]
+    public void CompatibleEnzymes_PagingParametersWithEnzymeName_AreRejected()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Assert.Throws<System.ArgumentException>(
+                () => MolToolsTools.compatible_enzymes("EcoRI", "rebase", max_pairs: 5))!.ParamName, Is.EqualTo("max_pairs"));
+            Assert.That(Assert.Throws<System.ArgumentException>(
+                () => MolToolsTools.compatible_enzymes("EcoRI", "rebase", offset: 5))!.ParamName, Is.EqualTo("offset"));
+        });
     }
 
     #endregion

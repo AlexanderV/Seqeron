@@ -345,6 +345,93 @@ public class RestrictionAnalyzer_RebaseSet_Tests
 
     #endregion
 
+    #region FindCompatibleEnzymes(EnzymeSet) — all-pairs listing (B08 round 2 E10, F72)
+
+    private static string PairDigest(IEnumerable<(string Enzyme1, string Enzyme2, string CompatibleEnd)> pairs) =>
+        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(
+            string.Concat(pairs.Select(p => $"{p.Enzyme1},{p.Enzyme2},{p.CompatibleEnd}")
+                .OrderBy(l => l, StringComparer.Ordinal).Select(l => l + "\n")))));
+
+    [Test]
+    public void FindCompatibleEnzymesSet_Common_EqualsTheParameterlessListing_AndTheNestedLoop()
+    {
+        var table = RestrictionAnalyzer.Enzymes.Values.ToList();
+        var expected = new List<(string, string, string)>();
+        for (int i = 0; i < table.Count; i++)
+            for (int j = i + 1; j < table.Count; j++)
+                if (RestrictionAnalyzer.AreCompatible(table[i], table[j]))
+                    expected.Add((table[i].Name, table[j].Name,
+                        table[i].IsBluntEnd ? "blunt" : RestrictionAnalyzer.GetOverhangSequence(table[i])!));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.FindCompatibleEnzymes(EnzymeSet.Common), Is.EqualTo(expected), "same pairs, same order");
+            Assert.That(RestrictionAnalyzer.FindCompatibleEnzymes(), Is.EqualTo(expected));
+            Assert.That(expected, Has.Count.EqualTo(64), "F32: 64 pairs among the 39 built-ins");
+        });
+    }
+
+    [Test]
+    public void FindCompatibleEnzymesSet_Rebase_IsLazy_AndRejectsAnUnknownSetEagerly()
+    {
+        var first = RestrictionAnalyzer.FindCompatibleEnzymes(EnzymeSet.Rebase).First();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.EqualTo(("AanI", "Acc16I", "blunt")), "first pair of the table, found without listing the rest");
+            Assert.Throws<ArgumentOutOfRangeException>(() => RestrictionAnalyzer.FindCompatibleEnzymes((EnzymeSet)99));
+        });
+    }
+
+    [Test]
+    public void FindCompatibleEnzymesSet_Rebase_MatchesBiopythonModOperatorOnTheDefinedOverhangEnzymes()
+    {
+        // Oracle: Biopython 1.88 Bio.Restriction, every unordered pair a, b (table order) of the 389 REBASE enzymes
+        // whose ovhgseq is blunt or fully A/C/G/T - the pairs where `a % b` is sound (review 2026-09 B08 F30:
+        // Ambiguous._mod2 is asymmetric and breaks on a repeated code) - keeping those with `a % b` True as
+        // "name1,name2,<overhang of name1 | blunt>"; 75 466 pairs examined, 11 200 compatible (9 316 blunt-blunt).
+        // sha256 over the ordinal-sorted lines, each terminated by LF.
+        var rebase = RestrictionAnalyzer.RebaseEnzymes;
+        bool IsDefined(string name) =>
+            rebase[name].IsBluntEnd || RestrictionAnalyzer.GetOverhangSequence(name).All(c => "ACGT".Contains(c));
+
+        var all = RestrictionAnalyzer.FindCompatibleEnzymes(EnzymeSet.Rebase).ToList();
+        var defined = all.Where(p => IsDefined(p.Enzyme1) && IsDefined(p.Enzyme2)).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rebase.Keys.Count(IsDefined), Is.EqualTo(389));
+            Assert.That(defined, Has.Count.EqualTo(11200));
+            Assert.That(defined.Count(p => p.CompatibleEnd == "blunt"), Is.EqualTo(9316));
+            Assert.That(PairDigest(defined), Is.EqualTo("a38477bbfce701137dc4c316ccdadc46ededebba2c25ae6955c4c053e2e8d030"));
+            Assert.That(all, Does.Contain(("EcoRI", "MfeI", "AATT")), "F42: EcoRI/MfeI share the 5' AATT end");
+        });
+    }
+
+    [Test]
+    public void FindCompatibleEnzymesSet_Rebase_WholeListingIsPinned()
+    {
+        // Whole 754-enzyme listing (27 869 of the 283 881 unordered pairs), ambiguous-overhang enzymes included (a derived rule there - Biopython's `%`
+        // is not usable for them, F30): count and digest pin it; every pair is distinct, table-ordered, and
+        // AreCompatible-true, and the symmetric per-enzyme form reports each pair from both ends.
+        var rebase = RestrictionAnalyzer.RebaseEnzymes.Keys.ToList();
+        var all = RestrictionAnalyzer.FindCompatibleEnzymes(EnzymeSet.Rebase).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(all, Has.Count.EqualTo(27869));
+            Assert.That(PairDigest(all), Is.EqualTo("0ef2db70a7cca1547d9bf70a8477e5f1e37221bd3b09e51c1617dc451160ee37"));
+            Assert.That(all.Select(p => (p.Enzyme1, p.Enzyme2)).Distinct().Count(), Is.EqualTo(all.Count));
+            Assert.That(all.All(p => rebase.IndexOf(p.Enzyme1) < rebase.IndexOf(p.Enzyme2)), Is.True);
+            Assert.That(all.All(p => RestrictionAnalyzer.AreCompatible(p.Enzyme1, p.Enzyme2)), Is.True);
+            Assert.That(RestrictionAnalyzer.FindCompatibleEnzymes("EcoRI", EnzymeSet.Rebase).Select(t => t.Enzyme).Order(),
+                Is.EquivalentTo(all.Where(p => p.Enzyme1 == "EcoRI").Select(p => p.Enzyme2)
+                    .Concat(all.Where(p => p.Enzyme2 == "EcoRI").Select(p => p.Enzyme1)).Append("EcoRI")));
+        });
+    }
+
+    #endregion
+
     #region Data readers
 
     private static IEnumerable<string[]> ReadVendoredRows()
