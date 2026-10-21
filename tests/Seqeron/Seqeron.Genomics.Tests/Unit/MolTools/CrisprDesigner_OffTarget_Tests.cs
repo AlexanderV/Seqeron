@@ -1759,4 +1759,173 @@ public class CrisprDesigner_OffTarget_Tests
     }
 
     #endregion
+
+    #region B08 round 3 G7 — optional on-target interval (crispor.py annotateOfftargets L1920-1929)
+
+    // Oracle (B08 round 3 G7, F81): the annotateOfftargets selection logic and calcHitScore / calcCfdScore /
+    // calcMitGuideScore (crispor.py, exec'd verbatim) run in Python on a two-strand 23-mer scan whose hit
+    // footprints are forward-strand 0-based half-open [start, end):
+    //   editDist == 0 and start >= inStart and end <= inEnd  ->  skipped (the on-target); every other hit scored.
+    // A = G+AGG+TTTT+G+TGG+TTTTTT (duplicated perfect site; footprints [0,23) and [27,50))
+    //   default (no interval)    : both exact sites dropped      MIT 100                CFD 100
+    //   [0,23) or [27,50)        : the other one is an off-target MIT 50.0 (=100/(100+100))  CFD 99.00990099009901
+    //   [0,50)                   : both inside                    MIT 100               CFD 100
+    //   [100,123) or [1,23)      : neither/partly inside          MIT 33.33333333333333 CFD 98.0392156862745
+    // B = G+AGG+TTTT+revcomp(G+TGG)+TTTTTT : the duplicate is on the reverse strand (footprint [27,50)); same values
+    // C = G+AGG+TTTT+G+TAG+TTTT+G+CGA+TTTTTT, alternative PAMs (NAG/NGA exact, hit score 100 x 0.2 for MIT):
+    //   [0,23): MIT 71.42857142857143 (=100/(100+20+20))   CFD 99.67237321836325
+    // E = A with an extra 1-mismatch NGG hit (60.5): default 62.30529595015576 / 99.29078014212564;
+    //   [0,23): MIT 38.38771593090211 (=100/(100+100+60.5))  CFD 98.3146067418492
+
+    private const string OnTargetNgg = "AGG";
+    private const string GenomeDuplicatedSite =
+        AltPamGuide + OnTargetNgg + "TTTT" + AltPamGuide + "TGG" + "TTTTTT";
+
+    private static double[] OnTargetMit(DnaSequence genome, int? start, int? end) =>
+    [
+        CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, genome, 4, CrisprSystemType.SpCas9, start, end),
+        CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(
+            AltPamGuide, genome, 4, CrisprSystemType.SpCas9, 1.0, start, end)
+    ];
+
+    [Test]
+    public void OnTargetInterval_DefaultStillDropsEveryExactMatch_AndFindOffTargetsIsUnchanged()
+    {
+        var genome = new DnaSequence(GenomeDuplicatedSite);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.FindOffTargets(AltPamGuide, genome, 4), Is.Empty);
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, genome, 4), Is.EqualTo(100.0));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(AltPamGuide, genome, 4), Is.EqualTo(100.0));
+            Assert.That(OnTargetMit(genome, null, null), Is.All.EqualTo(100.0));
+        });
+    }
+
+    [TestCase(0, 23, 50.0, 99.00990099009901)]
+    [TestCase(27, 50, 50.0, 99.00990099009901)]
+    [TestCase(0, 50, 100.0, 100.0)]
+    [TestCase(100, 123, 33.33333333333333, 98.0392156862745)]
+    [TestCase(1, 23, 33.33333333333333, 98.0392156862745)]   // a footprint only partly inside is NOT skipped
+    [TestCase(0, 22, 33.33333333333333, 98.0392156862745)]
+    public void OnTargetInterval_SkipsOnlyExactMatchesInsideIt_MatchesCrisporAnnotateOfftargets(
+        int start, int end, double mit, double cfd)
+    {
+        var genome = new DnaSequence(GenomeDuplicatedSite);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScore(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, start, end),
+                Is.EqualTo(mit).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, 1.0, start, end),
+                Is.EqualTo(mit).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, start, end),
+                Is.EqualTo(cfd).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, 1.0, start, end),
+                Is.EqualTo(cfd).Within(1e-9));
+        });
+    }
+
+    /// <summary>The duplicate on the reverse strand: footprints are forward-strand for either strand.</summary>
+    [TestCase(0, 23, 50.0, 99.00990099009901)]
+    [TestCase(27, 50, 50.0, 99.00990099009901)]
+    public void OnTargetInterval_ReverseStrandDuplicate_UsesForwardStrandFootprint(
+        int start, int end, double mit, double cfd)
+    {
+        var genome = new DnaSequence(
+            AltPamGuide + OnTargetNgg + "TTTT" + DnaSequence.GetReverseComplementString(AltPamGuide + "TGG") + "TTTTTT");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScore(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, start, end),
+                Is.EqualTo(mit).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, start, end),
+                Is.EqualTo(cfd).Within(1e-9));
+        });
+    }
+
+    [Test]
+    public void OnTargetInterval_AppliesToAlternativePamScans_WhateverThePam()
+    {
+        // exact NAG and NGA duplicates: hit score 100 passes ALTPAMMINSCORE; MIT weights them 0.2; CFD by PAM table
+        var genome = new DnaSequence(
+            AltPamGuide + OnTargetNgg + "TTTT" + AltPamGuide + NagPam + "TTTT" + AltPamGuide + NgaPam + "TTTTTT");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(AltPamGuide, genome, 4),
+                Is.EqualTo(100.0), "default: exact matches dropped on every PAM");
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, 1.0, 0, 23),
+                Is.EqualTo(71.42857142857143).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, 1.0, 0, 23),
+                Is.EqualTo(99.67237321836325).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, 1.0, 0, 77),
+                Is.EqualTo(100.0), "an interval holding every site skips them all");
+        });
+    }
+
+    [Test]
+    public void OnTargetInterval_MixedWithMismatchHits_AndMaxMismatchesZero()
+    {
+        var genome = new DnaSequence(
+            GenomeDuplicatedSite + "TTTT" + AltPamOffTarget + OnTargetNgg);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, genome, 4),
+                Is.EqualTo(62.30529595015576).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(AltPamGuide, genome, 4),
+                Is.EqualTo(99.29078014212564).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScore(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, 0, 23),
+                Is.EqualTo(38.38771593090211).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, 0, 23),
+                Is.EqualTo(98.3146067418492).Within(1e-9));
+
+            // maxMismatches = 0 enumerates only exact matches: with an interval the other perfect site still counts
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScore(
+                    AltPamGuide, genome, 0, CrisprSystemType.SpCas9, 0, 23),
+                Is.EqualTo(50.0).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, genome, 0), Is.EqualTo(100.0));
+        });
+    }
+
+    [Test]
+    public void OnTargetInterval_InvalidBounds_Throw()
+    {
+        var genome = new DnaSequence(GenomeDuplicatedSite);
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, genome, 4, CrisprSystemType.SpCas9, 0, null));
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, genome, 4, CrisprSystemType.SpCas9, null, 23));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, genome, 4, CrisprSystemType.SpCas9, -1, 23));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScore(AltPamGuide, genome, 4, CrisprSystemType.SpCas9, 23, 23));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScore(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, 30, 20));
+            Assert.Throws<ArgumentException>(() =>
+                CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, 1.0, 5, null));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(
+                    AltPamGuide, genome, 4, CrisprSystemType.SpCas9, 1.0, -3, 10));
+        });
+    }
+
+    #endregion
 }

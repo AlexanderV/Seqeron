@@ -97,7 +97,7 @@ Goal: rank guide RNAs targeting a region by on-target score and off-target speci
   `include_alternative_pams=true` to `crispr_mit_specificity_score` to also count the alternative-PAM
   off-targets — NAG and NGA for SpCas9 at CRISPOR's ×0.2 weight, NNGRRN for SaCas9 unweighted (the
   reference weights only NGG searches); without it the scan sees the one system's PAM only and the guide
-  looks more specific than in the reference. `crispr_cfd_specificity_score` takes the same flag (NAG/NGA, each hit scored by its own PAM, no ×0.2). The heuristic's own fixed internals: maxMismatches=4, seed =
+  looks more specific than in the reference. `crispr_cfd_specificity_score` takes the same flag (NAG/NGA, each hit scored by its own PAM, no ×0.2). Both published aggregates also take `on_target_start`/`on_target_end` (0-based, end-exclusive, protospacer+PAM): by default every exact match is dropped as the on-target, CRISPOR drops only the exact hits inside the interval it is given and scores any further perfect match as an off-target. The heuristic's own fixed internals: maxMismatches=4, seed =
   PAM-proximal 12 bp. Naive O(genome×guide) scan — a screen, not a genome-wide off-target caller.
 - **Provenance:** design_guide_rnas (ranking) → find_off_targets → crispr_mit_specificity_score (and/or
   crispr_cfd_specificity_score) per guide, + system + params; name the model behind every number

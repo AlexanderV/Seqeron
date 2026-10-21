@@ -306,4 +306,45 @@ public class CrisprPublishedSpecificityScoreTests
     }
 
     #endregion
+
+    #region B08 round 3 G7 — on_target_start / on_target_end
+
+    /// <summary>
+    /// G7/F81: the optional on-target interval is forwarded by both tools. Genome A = G+AGG+TTTT+G+TGG+TTTTTT
+    /// (duplicated perfect site; crispor.py annotateOfftargets logic run in Python): no interval -> 100
+    /// (today), [0,23) -> MIT 50.0 / CFD 99.00990099009901.
+    /// </summary>
+    [Test]
+    public void SpecificityTools_OnTargetInterval_IsForwarded_AndDefaultStaysAllExactDropped()
+    {
+        const string genomeA = "GACGCATAAAGATGAGACGC" + "AGG" + "TTTT" + "GACGCATAAAGATGAGACGC" + "TGG" + "TTTTTT";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(MolToolsTools.crispr_mit_specificity_score(Guide, genomeA, 4).Specificity, Is.EqualTo(100.0));
+            Assert.That(MolToolsTools.crispr_cfd_specificity_score(Guide, genomeA, 4).Specificity, Is.EqualTo(100.0));
+            Assert.That(
+                MolToolsTools.crispr_mit_specificity_score(
+                    Guide, genomeA, 4, on_target_start: 0, on_target_end: 23).Specificity,
+                Is.EqualTo(50.0).Within(1e-9));
+            Assert.That(
+                MolToolsTools.crispr_mit_specificity_score(
+                    Guide, genomeA, 4, CrisprSystemType.SpCas9, include_alternative_pams: true,
+                    on_target_start: 27, on_target_end: 50).Specificity,
+                Is.EqualTo(50.0).Within(1e-9));
+            Assert.That(
+                MolToolsTools.crispr_cfd_specificity_score(
+                    Guide, genomeA, 4, on_target_start: 0, on_target_end: 23).Specificity,
+                Is.EqualTo(99.00990099009901).Within(1e-9));
+            Assert.That(
+                MolToolsTools.crispr_cfd_specificity_score(
+                    Guide, genomeA, 4, CrisprSystemType.SpCas9, CfdAggregation.MitStyle, include_alternative_pams: true,
+                    on_target_start: 0, on_target_end: 23).Specificity,
+                Is.EqualTo(99.00990099009901).Within(1e-9));
+            Assert.Throws<System.ArgumentException>(() =>
+                MolToolsTools.crispr_mit_specificity_score(Guide, genomeA, 4, on_target_start: 0));
+        });
+    }
+
+    #endregion
 }

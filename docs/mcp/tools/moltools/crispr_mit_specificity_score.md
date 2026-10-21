@@ -29,6 +29,10 @@ CRISPOR runs ONE wider search that also accepts the alternative PAMs of its `off
 
 Cas12a/Cpf1-class and CasX systems (PAM **before** target) are **refused**: the reference reports no MIT off-target score for them at all (`mitScore = 0.0`, `guideScore = -1`). Prefer this tool over [crispr_specificity_score](crispr_specificity_score.md), which is this library's own unsourced heuristic.
 
+### On-target interval (`on_target_start` / `on_target_end`)
+
+By default every exact (0-mismatch) match in the genome is dropped as "the on-target". CRISPOR's `annotateOfftargets` (crispor.py L1920-1929) drops only the 0-mismatch hits **inside the on-target interval it is given** (`chrom==inChrom and start >= inStart and end <= inEnd`) and scores any further perfect match as a full off-target (`calcHitScore = 100`; CFD: the PAM score). Pass `on_target_start` (0-based, inclusive) and `on_target_end` (exclusive), forward-strand coordinates of the `genome` string covering the on-target's protospacer **and** PAM, to reproduce that; give both or neither. A hit only partly inside the interval is not skipped; either strand's hit is tested on its forward-strand footprint. CRISPOR's no-interval "auto-ontarget" mode (drop the first 0-mismatch hit it meets, in aligner output order) is not offered: that order is unspecified and, under CFD or with alternative PAMs, the exact hits differ in score.
+
 ## Core Documentation Reference
 
 - Source: [CrisprDesigner.cs#L1140](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1140)
@@ -43,6 +47,8 @@ Cas12a/Cpf1-class and CasX systems (PAM **before** target) are **refused**: the 
 | `system_type` | enum | No | CRISPR system (default `SpCas9`); must be PAM-after-target. |
 | `include_alternative_pams` | boolean | No | Also scan the reference's alternative PAMs (SpCas9: NAG, NGA, downweighted by 0.2; SaCas9: NNGRRN, unweighted) (default `false`). |
 | `min_alternative_pam_hit_score` | number | No | With `include_alternative_pams`: minimum unweighted hit score (0..100) for an alternative-PAM hit to count (reference `ALTPAMMINSCORE`; default `1.0`, the reference's own default; `0` = no filtering). |
+| `on_target_start` | integer | No | Optional on-target interval start (0-based, inclusive; with `on_target_end`). Exact matches whose protospacer+PAM footprint lies inside are skipped; other perfect matches are scored as off-targets. Default: omitted = every exact match dropped. |
+| `on_target_end` | integer | No | Optional on-target interval end (0-based, exclusive). |
 
 ## Output Schema
 
@@ -74,7 +80,11 @@ Guide `ACGTACGTACGTACGTACGTA` vs genome `ACGTACGTACGTACGTACGTCAAGAAT` with `syst
 
 Guide `GACGCATAAAGATGAGACGC` vs genome `GACGCTTAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACTCTAG` holds two off-targets: one on the main `AGG` PAM (`calcHitScore` 60.5) and one on an alternative `TAG` PAM (31.4999…). With `include_alternative_pams: false` → `100/(100+60.5)×100 = 62.30529595015576`; with `true` → `100/(100+60.5+0.2×31.4999…)×100 = 59.95203836930455`. Counting the alternative-PAM hit at full weight would give 52.0833…, so the 0.2 factor is visible in the value.
 
-### Example 4: on-target only → `specificity: 100.0`.
+### Example 4: duplicated perfect site with an on-target interval
+
+Guide `GACGCATAAAGATGAGACGC` vs genome `GACGCATAAAGATGAGACGC`+`AGG`+`TTTT`+`GACGCATAAAGATGAGACGC`+`TGG`+`TTTTTT`: default → `100.0` (both exact sites dropped); `on_target_start: 0, on_target_end: 23` → the second perfect site is an off-target with `calcHitScore = 100` → `100/(100+100)×100 = 50.0`.
+
+### Example 5: on-target only → `specificity: 100.0`.
 
 ## Performance
 

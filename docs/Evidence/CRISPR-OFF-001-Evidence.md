@@ -305,14 +305,24 @@ aggregate would be exactly `100`.
    never CFD-scored is exactly the silent-perfect-score failure mode this unit fixed elsewhere
    (defect F9), so this library throws instead. CFD is in any case defined only for a 20-nt
    protospacer and the reference provides no length fallback for it.
-10. **Every exact match is dropped genome-wide, not just the on-target one.** The reference's skip
-   (L1920-1929) is scoped to the caller-supplied on-target locus — or, with no locus, to the single
-   first 0MM hit — so a *second* perfect match elsewhere in the genome is scored there as a full
-   `calcHitScore = 100` off-target. `FindOffTargets` takes no on-target locus (it is given a bare
-   sequence, not a genome build plus coordinates), so it cannot tell the on-target from a second
-   perfect match and drops all of them. Consequence, recorded rather than hidden: a guide with a
-   duplicated perfect site scores *more* specific here than in CRISPOR. Supplying an on-target
-   interval is a different feature, not this unit's.
+10. **Every exact match is dropped genome-wide by default, not just the on-target one - reproducible with
+   an interval (B08 round 3 G7 / F81).** The reference's skip (L1920-1929) is scoped to the caller-supplied
+   on-target locus - or, with no locus, to the single first 0MM hit - so a *second* perfect match elsewhere
+   in the genome is scored there as a full `calcHitScore = 100` off-target. `FindOffTargets` (contract: the
+   1..max-mismatch enumeration) and the default of every aggregate take no locus and drop all exact
+   matches, so a guide with a duplicated perfect site scores *more* specific by default than in CRISPOR.
+   The four CRISPOR-faithful genome aggregates now take an optional `onTargetStart`/`onTargetEnd`
+   (0-based, end-exclusive, forward strand; footprint = protospacer + PAM, as the reference's 23-mer
+   `start`/`end`; the strand is not compared, as in the reference) and skip exactly
+   `editDist == 0 and start >= inStart and end <= inEnd`; every other exact hit is aggregated. Oracle
+   (annotateOfftargets logic + `calcHitScore`/`calcCfdScore` exec'd in Python): duplicated-site genome
+   `G+AGG+TTTT+G+TGG+TTTTTT`, interval `[0,23)` -> MIT `50.0`, CFD `99.00990099009901`; interval
+   `[0,50)` -> 100; a footprint only partly inside (`[1,23)`) is not skipped -> `33.33333333333333`.
+   **Not reproduced: the "auto-ontarget" mode** (no interval; `foundOneOntarget` drops the first 0MM hit
+   met) - "first" follows the aligner's output order (bowtie/BWA, unspecified), and under CFD or with
+   alternative PAMs the 0MM hits have different scores (CFD = PAM score), so which hit is dropped changes
+   the value; no deterministic Seqeron equivalent exists. Also not modelled: `repCount` (a repetitive
+   guide suppresses the whole guide in the reference).
 
 ---
 

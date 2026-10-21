@@ -570,9 +570,14 @@ public static class CrisprDesigner
     /// L1920-1929: <c>chrom==inChrom and start &gt;= inStart and end &lt;= inEnd</c>; in its
     /// "auto-ontarget" mode, where no locus is given, just the first 0-mismatch hit it meets). Any
     /// further perfect match elsewhere in the genome IS scored there, as an off-target worth
-    /// <c>calcHitScore = 100</c>. This library takes no on-target locus, so it drops every exact match
-    /// genome-wide instead; a guide with a second perfect match therefore looks more specific here than
-    /// in the reference.
+    /// <c>calcHitScore = 100</c>. This method (whose contract is the 1..max-mismatch enumeration) takes no
+    /// on-target locus and drops every exact match genome-wide; a guide with a second perfect match
+    /// therefore looks more specific here than in the reference. The CRISPOR-faithful aggregates
+    /// (<see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType, int?, int?)"/>,
+    /// <see cref="CalculateMitSpecificityScoreWithAlternativePams"/>,
+    /// <see cref="CalculateCfdSpecificityScore(string, DnaSequence, int, CrisprSystemType, CfdAggregation, int?, int?)"/>,
+    /// <see cref="CalculateCfdSpecificityScoreWithAlternativePams"/>) accept an optional on-target interval
+    /// that reproduces the reference's skip.
     /// </para>
     /// </remarks>
     public static IEnumerable<OffTargetSite> FindOffTargets(
@@ -580,6 +585,18 @@ public static class CrisprDesigner
         DnaSequence genome,
         int maxMismatches = 3,
         CrisprSystemType systemType = CrisprSystemType.SpCas9)
+    {
+        return FindOffTargetsCore(
+            ValidateScanArguments(guideSequence, genome, maxMismatches, systemType), genome, maxMismatches, systemType);
+    }
+
+    /// <summary>
+    /// The guards every off-target entry point applies, in this order and with these exception types
+    /// (null/empty guide, null genome, <c>maxMismatches</c> outside 0-5, guide length, then the guide
+    /// alphabet); returns the normalised guide.
+    /// </summary>
+    private static string ValidateScanArguments(
+        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType)
     {
         if (string.IsNullOrEmpty(guideSequence))
             throw new ArgumentNullException(nameof(guideSequence));
@@ -591,9 +608,41 @@ public static class CrisprDesigner
             throw new ArgumentException(
                 $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
                 nameof(guideSequence));
-        return FindOffTargetsCore(
-            NormalizeNucleotides(guideSequence, nameof(guideSequence)), genome, maxMismatches, systemType);
+        return NormalizeNucleotides(guideSequence, nameof(guideSequence));
     }
+
+    /// <summary>
+    /// Validates the optional on-target interval of the CRISPOR-faithful aggregates: both bounds or neither;
+    /// 0 &lt;= start &lt; end. Returns <c>null</c> when neither is given (every exact match is dropped).
+    /// </summary>
+    private static (int Start, int End)? ResolveOnTargetInterval(int? onTargetStart, int? onTargetEnd)
+    {
+        if (onTargetStart is null && onTargetEnd is null)
+            return null;
+        if (onTargetStart is null || onTargetEnd is null)
+            throw new ArgumentException(
+                "The on-target interval needs both bounds (onTargetStart and onTargetEnd) or neither.",
+                onTargetStart is null ? nameof(onTargetStart) : nameof(onTargetEnd));
+        if (onTargetStart < 0)
+            throw new ArgumentOutOfRangeException(nameof(onTargetStart), "The on-target interval start must be >= 0.");
+        if (onTargetEnd <= onTargetStart)
+            throw new ArgumentOutOfRangeException(nameof(onTargetEnd),
+                "The on-target interval end must be greater than its start (0-based, half-open).");
+        return (onTargetStart.Value, onTargetEnd.Value);
+    }
+
+    /// <summary>
+    /// <see cref="FindOffTargetsWithPam"/> for the CRISPOR-faithful aggregates: the same guards and scan,
+    /// plus the optional on-target interval (see <see cref="ScanOffTargetsCore"/>).
+    /// </summary>
+    private static List<PamAnnotatedOffTarget> CollectSystemHits(
+        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType,
+        (int Start, int End)? onTarget) =>
+        ScanOffTargetsCore(
+                ValidateScanArguments(guideSequence, genome, maxMismatches, systemType),
+                genome, maxMismatches, systemType, onTarget)
+            .Select(static hit => new PamAnnotatedOffTarget(hit.Site, hit.Pam))
+            .ToList();
 
     private static IEnumerable<OffTargetSite> FindOffTargetsCore(
         string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType) =>
@@ -607,7 +656,23 @@ public static class CrisprDesigner
     /// re-derived from coordinates.
     /// </summary>
     private static IEnumerable<(OffTargetSite Site, string Pam)> FindOffTargetsWithPamCore(
-        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType)
+        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType) =>
+        ScanOffTargetsCore(guideSequence, genome, maxMismatches, systemType, onTarget: null)
+            .Select(static hit => (hit.Site, hit.Pam));
+
+    /// <summary>
+    /// The scan behind every off-target entry point. With <paramref name="onTarget"/> <c>null</c> a site is
+    /// reported when it has <c>1..maxMismatches</c> mismatches (every exact match is dropped genome-wide:
+    /// the documented default). With an on-target interval, exact (0-mismatch) sites are reported too,
+    /// except those whose footprint lies inside the interval - CRISPOR's skip, <c>annotateOfftargets</c>
+    /// crispor.py L1920-1929: <c>editDist==0 and chrom==inChrom and start &gt;= inStart and end &lt;= inEnd</c>.
+    /// The footprint is the protospacer together with its PAM, as the reference's <c>start</c>/<c>end</c>
+    /// (a 23-mer for SpCas9; <c>parsePos</c> defaults <c>end</c> to <c>start+23</c>), on the forward strand,
+    /// 0-based half-open, for either strand's hit (the reference never compares the strand).
+    /// </summary>
+    private static IEnumerable<(OffTargetSite Site, string Pam)> ScanOffTargetsCore(
+        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType,
+        (int Start, int End)? onTarget)
     {
         var system = GetSystem(systemType);
 
@@ -620,19 +685,31 @@ public static class CrisprDesigner
         {
             int mismatches = CountMismatches(guide, pamSite.TargetSequence);
 
-            if (mismatches > 0 && mismatches <= maxMismatches)
+            if (mismatches == 0)
             {
-                // Calculate off-target score based on mismatch positions
-                double score = CalculateOffTargetScore(guide, pamSite.TargetSequence, system);
-
-                yield return (new OffTargetSite(
-                    Position: pamSite.Position,
-                    Sequence: pamSite.TargetSequence,
-                    Mismatches: mismatches,
-                    MismatchPositions: GetMismatchPositions(guide, pamSite.TargetSequence),
-                    IsForwardStrand: pamSite.IsForwardStrand,
-                    OffTargetScore: score), pamSite.PamSequence);
+                if (onTarget is not { } locus)
+                    continue;
+                int footprintStart = Math.Min(pamSite.TargetStart, pamSite.Position);
+                int footprintEnd = Math.Max(pamSite.TargetStart + system.GuideLength,
+                    pamSite.Position + pamSite.PamSequence.Length);
+                if (footprintStart >= locus.Start && footprintEnd <= locus.End)
+                    continue; // the on-target: not an off-target
             }
+            else if (mismatches > maxMismatches)
+            {
+                continue;
+            }
+
+            // Calculate off-target score based on mismatch positions
+            double score = CalculateOffTargetScore(guide, pamSite.TargetSequence, system);
+
+            yield return (new OffTargetSite(
+                Position: pamSite.Position,
+                Sequence: pamSite.TargetSequence,
+                Mismatches: mismatches,
+                MismatchPositions: GetMismatchPositions(guide, pamSite.TargetSequence),
+                IsForwardStrand: pamSite.IsForwardStrand,
+                OffTargetScore: score), pamSite.PamSequence);
         }
     }
 
@@ -663,19 +740,8 @@ public static class CrisprDesigner
         CrisprSystemType systemType = CrisprSystemType.SpCas9)
     {
         // Same guards, same order, same exception types as FindOffTargets.
-        if (string.IsNullOrEmpty(guideSequence))
-            throw new ArgumentNullException(nameof(guideSequence));
-        ArgumentNullException.ThrowIfNull(genome);
-        if (maxMismatches < 0 || maxMismatches > 5)
-            throw new ArgumentOutOfRangeException(nameof(maxMismatches));
-        var system = GetSystem(systemType);
-        if (guideSequence.Length != system.GuideLength)
-            throw new ArgumentException(
-                $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
-                nameof(guideSequence));
-
         return FindOffTargetsWithPamCore(
-                NormalizeNucleotides(guideSequence, nameof(guideSequence)), genome, maxMismatches, systemType)
+                ValidateScanArguments(guideSequence, genome, maxMismatches, systemType), genome, maxMismatches, systemType)
             .Select(static hit => new PamAnnotatedOffTarget(hit.Site, hit.Pam));
     }
 
@@ -686,8 +752,8 @@ public static class CrisprDesigner
     /// over the off-targets found by <see cref="FindOffTargets"/> with a fixed cap of 4 mismatches.
     /// The method name carries the word "heuristic" deliberately: no publication defines this score
     /// (see the remarks), while the two sibling aggregates in this class —
-    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)"/> and
-    /// <see cref="CalculateCfdSpecificityScore(string, DnaSequence, int, CrisprSystemType, CfdAggregation)"/>
+    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType, int?, int?)"/> and
+    /// <see cref="CalculateCfdSpecificityScore(string, DnaSequence, int, CrisprSystemType, CfdAggregation, int?, int?)"/>
     /// — are reference-verified published models.
     /// </summary>
     /// <remarks>
@@ -704,10 +770,10 @@ public static class CrisprDesigner
     /// </para>
     /// <para>
     /// For a published, reference-verified model use one of the aggregates in this same class:
-    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)"/> (MIT/Hsu
+    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType, int?, int?)"/> (MIT/Hsu
     /// 2013 guide score, <c>100 / (100 + Σ hitScores) × 100</c> over per-hit
     /// <see cref="CalculateMitHitScore"/> values) or
-    /// <see cref="CalculateCfdSpecificityScore(string, DnaSequence, int, CrisprSystemType, CfdAggregation)"/>
+    /// <see cref="CalculateCfdSpecificityScore(string, DnaSequence, int, CrisprSystemType, CfdAggregation, int?, int?)"/>
     /// (Doench 2016 CFD, aggregated as CRISPOR's <c>annotateOfftargets</c> does). Both reproduce the
     /// reference tool numerically; this method does not.
     /// </para>
@@ -1155,6 +1221,11 @@ public static class CrisprDesigner
     /// <param name="genome">The genome/sequence to scan for off-targets.</param>
     /// <param name="maxMismatches">Maximum mismatches to consider (0-5, as in <see cref="FindOffTargets"/>).</param>
     /// <param name="systemType">CRISPR system (SpCas9 by default). Must be a PAM-after-target (Cas9-class) system.</param>
+    /// <param name="onTargetStart">
+    /// Optional on-target interval, start (0-based, inclusive, forward-strand coordinates of
+    /// <paramref name="genome"/>; both bounds or neither). See the remark on the on-target interval.
+    /// </param>
+    /// <param name="onTargetEnd">Optional on-target interval, end (exclusive); see <paramref name="onTargetStart"/>.</param>
     /// <returns>The aggregate MIT/Hsu specificity in [0, 100]; 100 when no off-targets are found.</returns>
     /// <exception cref="ArgumentException">
     /// Thrown when <paramref name="systemType"/> is a Cas12a/Cpf1-class (PAM-before-target) system, for
@@ -1179,16 +1250,33 @@ public static class CrisprDesigner
     /// <see cref="CalculateMitSpecificityScore(string, IEnumerable{PamAnnotatedOffTarget}, CrisprSystemType)"/>
     /// (aggregates any PAM-annotated hit set). This overload's behaviour is unchanged.
     /// </para>
+    /// <para>
+    /// <b>On-target interval (B08 round 3 G7).</b> By default every exact (0-mismatch) match in the genome is
+    /// dropped, so a guide with a second perfect site looks more specific than in CRISPOR. The reference
+    /// (<c>annotateOfftargets</c>, crispor.py L1920-1929) drops only 0-mismatch hits inside the caller-supplied
+    /// on-target interval (<c>chrom==inChrom and start &gt;= inStart and end &lt;= inEnd</c>) and scores any other
+    /// perfect match as an off-target worth <c>calcHitScore = 100</c> (CFD: the PAM score). Passing
+    /// <paramref name="onTargetStart"/> / <paramref name="onTargetEnd"/> reproduces that: exact matches whose
+    /// footprint - protospacer plus PAM, on the forward strand, 0-based half-open, the coordinates of
+    /// <see cref="PamSite"/> - lies inside the interval are skipped (either strand, the reference never compares
+    /// it), all others are aggregated. The reference's "auto-ontarget" mode (no interval: the first 0-mismatch hit it
+    /// meets, in the aligner's output order) is deliberately not offered: that order is unspecified, and under
+    /// CFD or with alternative PAMs the hits differ in score, so no deterministic equivalent exists.
+    /// </para>
     /// </remarks>
     public static double CalculateMitSpecificityScore(
         string guideSequence,
         DnaSequence genome,
         int maxMismatches = 4,
-        CrisprSystemType systemType = CrisprSystemType.SpCas9)
+        CrisprSystemType systemType = CrisprSystemType.SpCas9,
+        int? onTargetStart = null,
+        int? onTargetEnd = null)
     {
         EnsureMitModelApplies(systemType, nameof(systemType));
+        var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
 
-        var offTargets = FindOffTargets(guideSequence, genome, maxMismatches, systemType).ToList();
+        var offTargets = CollectSystemHits(guideSequence, genome, maxMismatches, systemType, onTarget)
+            .Select(static hit => hit.Site).ToList();
         if (offTargets.Count == 0)
             return 100.0;
 
@@ -1292,7 +1380,7 @@ public static class CrisprDesigner
     /// downweighted values. (The CFD PAM table already penalises non-NGG PAMs on its own.)</description></item>
     /// </list>
     /// The per-hit model is chosen by system exactly as in
-    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)"/> (SaCas9 →
+    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType, int?, int?)"/> (SaCas9 →
     /// Tycko 2018, everything else → Hsu with <c>calcHitScore</c>'s length handling), and the
     /// guide-level aggregate is the unrounded <c>calcMitGuideScore</c>.
     /// <para>
@@ -1362,7 +1450,7 @@ public static class CrisprDesigner
     /// (<see cref="GetAlternativeOffTargetPams"/>), downweighting every alternative-PAM hit by 0.2 as
     /// CRISPOR does. This is the closest analogue of CRISPOR's guide score: its search accepts both the
     /// main and the alternative PAMs in one pass, whereas
-    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)"/> sees only
+    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType, int?, int?)"/> sees only
     /// the one system's PAM and therefore reports a guide as more specific than the reference does.
     /// </summary>
     /// <param name="guideSequence">The guide sequence (must match the system's guide length).</param>
@@ -1373,6 +1461,11 @@ public static class CrisprDesigner
     /// Minimum unweighted hit score (0-100 scale) an alternative-PAM hit needs to be counted — the
     /// reference's <c>ALTPAMMINSCORE</c> (default <c>1.0</c>, as there; <c>0</c> = no filtering).
     /// </param>
+    /// <param name="onTargetStart">
+    /// Optional on-target interval, start (0-based, inclusive, forward-strand coordinates of
+    /// <paramref name="genome"/>; both bounds or neither). See the remark on the on-target interval.
+    /// </param>
+    /// <param name="onTargetEnd">Optional on-target interval, end (exclusive); see <paramref name="onTargetStart"/>.</param>
     /// <returns>The aggregate MIT/Hsu specificity in [0, 100]; 100 when no off-target is found at all.</returns>
     /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or the genome is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxMismatches"/> is outside 0-5 or the cutoff is negative/NaN.</exception>
@@ -1400,16 +1493,26 @@ public static class CrisprDesigner
     /// <c>0</c>). Because the reference tests
     /// the alternative list first, with SaCas9 the cutoff also applies to main-PAM (<c>NNGRRT</c>) hits.
     /// </para>
+    /// <para>
+    /// The optional on-target interval works as in
+    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType, int?, int?)"/>
+    /// and is applied to the main-PAM scan and to every alternative-PAM scan alike (the reference skips a
+    /// 0-mismatch hit in the interval whatever its PAM).
+    /// </para>
     /// </remarks>
     public static double CalculateMitSpecificityScoreWithAlternativePams(
         string guideSequence,
         DnaSequence genome,
         int maxMismatches = 4,
         CrisprSystemType systemType = CrisprSystemType.SpCas9,
-        double minAlternativePamHitScore = 1.0)
+        double minAlternativePamHitScore = 1.0,
+        int? onTargetStart = null,
+        int? onTargetEnd = null)
     {
         EnsureMitModelApplies(systemType, nameof(systemType));
-        var hits = CollectAlternativePamHits(guideSequence, genome, maxMismatches, systemType, minAlternativePamHitScore);
+        var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
+        var hits = CollectAlternativePamHits(
+            guideSequence, genome, maxMismatches, systemType, minAlternativePamHitScore, onTarget);
 
         return CalculateMitSpecificityScore(guideSequence, hits, systemType);
     }
@@ -1424,13 +1527,13 @@ public static class CrisprDesigner
     /// </summary>
     private static List<PamAnnotatedOffTarget> CollectAlternativePamHits(
         string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType,
-        double minAlternativePamHitScore)
+        double minAlternativePamHitScore, (int Start, int End)? onTarget)
     {
         if (double.IsNaN(minAlternativePamHitScore) || minAlternativePamHitScore < 0)
             throw new ArgumentOutOfRangeException(nameof(minAlternativePamHitScore),
                 "The alternative-PAM hit-score cutoff must be a non-negative number.");
 
-        var hits = FindOffTargetsWithPam(guideSequence, genome, maxMismatches, systemType).ToList();
+        var hits = CollectSystemHits(guideSequence, genome, maxMismatches, systemType, onTarget);
 
         var main = GetSystem(systemType);
         var altPams = GetAlternativeOffTargetPams(systemType);
@@ -1438,7 +1541,7 @@ public static class CrisprDesigner
         {
             foreach (var altSystem in AlternativePamSystems(altPam, main.GuideLength))
             {
-                foreach (var hit in FindOffTargetsWithPam(guideSequence, genome, maxMismatches, altSystem))
+                foreach (var hit in CollectSystemHits(guideSequence, genome, maxMismatches, altSystem, onTarget))
                 {
                     // CRISPOR runs ONE search, so a site matching both the main and a wider alternative
                     // pattern (SaCas9 NNGRRT inside NNGRRN) is a single off-target; the main scan has it.
@@ -1988,6 +2091,11 @@ public static class CrisprDesigner
     /// <param name="maxMismatches">Maximum mismatches to consider (0-5, as in <see cref="FindOffTargets"/>).</param>
     /// <param name="systemType">CRISPR system; must be a 20-nt PAM-after-target (Cas9-class) system.</param>
     /// <param name="aggregation">Which published aggregation to use.</param>
+    /// <param name="onTargetStart">
+    /// Optional on-target interval, start (0-based, inclusive, forward-strand coordinates of
+    /// <paramref name="genome"/>; both bounds or neither). See the remark on the on-target interval.
+    /// </param>
+    /// <param name="onTargetEnd">Optional on-target interval, end (exclusive); see <paramref name="onTargetStart"/>.</param>
     /// <returns>The aggregate CFD specificity; 100 when no off-targets are found (default aggregation).</returns>
     /// <exception cref="ArgumentOutOfRangeException">
     /// Thrown when <paramref name="maxMismatches"/> is outside 0-5 (the same bound
@@ -2013,18 +2121,26 @@ public static class CrisprDesigner
     /// reach the scan. It is kept so the reference's exclusion rule is encoded rather than implied, and
     /// so the method stays correct if the genome type ever admits ambiguity codes.
     /// </para>
+    /// <para>
+    /// The optional on-target interval works as in
+    /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType, int?, int?)"/>
+    /// (an exact off-target contributes its PAM score, <c>calcCfdScore</c> of a perfect match).
+    /// </para>
     /// </remarks>
     public static double CalculateCfdSpecificityScore(
         string guideSequence,
         DnaSequence genome,
         int maxMismatches = 4,
         CrisprSystemType systemType = CrisprSystemType.SpCas9,
-        CfdAggregation aggregation = CfdAggregation.MitStyle)
+        CfdAggregation aggregation = CfdAggregation.MitStyle,
+        int? onTargetStart = null,
+        int? onTargetEnd = null)
     {
         var guide = ValidateCfdGenomeArguments(guideSequence, genome, maxMismatches, systemType);
+        var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
 
         var cfdScores = new List<double>();
-        foreach (var (site, pam) in FindOffTargetsWithPamCore(guide, genome, maxMismatches, systemType))
+        foreach (var (site, pam) in ScanOffTargetsCore(guide, genome, maxMismatches, systemType, onTarget))
         {
             string offTarget = SequenceExtensions.ToUpperAscii(site.Sequence)!;
 
@@ -2049,7 +2165,7 @@ public static class CrisprDesigner
         string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType)
     {
         // Validate in the same order and with the same exception types as FindOffTargets, which this
-        // overload cannot delegate to (it needs each hit's PAM, so it drives FindOffTargetsWithPamCore
+        // overload cannot delegate to (it needs each hit's PAM, so it drives the PAM-annotated scan
         // directly and must therefore repeat FindOffTargets' own guards).
         if (string.IsNullOrEmpty(guideSequence))
             throw new ArgumentNullException(nameof(guideSequence));
@@ -2077,7 +2193,7 @@ public static class CrisprDesigner
     /// <c>NAG</c> and <c>NGA</c> for SpCas9). This is CRISPOR's guide CFD score: <c>annotateOfftargets</c>
     /// runs <c>calcCfdScore(guideSeq, otSeq)</c> on every hit of its one wider search, so a guide whose
     /// only off-target sits on <c>NAG</c> is not "perfectly specific" as
-    /// <see cref="CalculateCfdSpecificityScore(string, DnaSequence, int, CrisprSystemType, CfdAggregation)"/>
+    /// <see cref="CalculateCfdSpecificityScore(string, DnaSequence, int, CrisprSystemType, CfdAggregation, int?, int?)"/>
     /// (main PAM only) reports it.
     /// </summary>
     /// <param name="guideSequence">The 20-nt guide sequence.</param>
@@ -2089,6 +2205,11 @@ public static class CrisprDesigner
     /// The reference's <c>ALTPAMMINSCORE</c> (default <c>1.0</c>; <c>0</c> = no filtering), a minimum
     /// <b>MIT/Hsu</b> hit score (0-100 scale) for an alternative-PAM hit — see the remarks.
     /// </param>
+    /// <param name="onTargetStart">
+    /// Optional on-target interval, start (0-based, inclusive, forward-strand coordinates of
+    /// <paramref name="genome"/>; both bounds or neither). See the remark on the on-target interval.
+    /// </param>
+    /// <param name="onTargetEnd">Optional on-target interval, end (exclusive); see <paramref name="onTargetStart"/>.</param>
     /// <returns>The aggregate CFD specificity; 100 when no off-targets are found (default aggregation).</returns>
     /// <exception cref="ArgumentOutOfRangeException">
     /// Thrown when <paramref name="maxMismatches"/> is outside 0-5, the cutoff is negative/NaN, or the
@@ -2105,7 +2226,8 @@ public static class CrisprDesigner
     /// <c>AG</c> = 0.2593, is what penalises the non-NGG PAM). The hit collection (alternative-PAM list,
     /// scannable systems, main/alternative dedup, cutoff) is the one of
     /// <see cref="CalculateMitSpecificityScoreWithAlternativePams"/>. The CFD model needs a 20-nt
-    /// protospacer, so SaCas9 is refused exactly as in the main-PAM CFD overload.
+    /// protospacer, so SaCas9 is refused exactly as in the main-PAM CFD overload. The optional on-target
+    /// interval works as in <see cref="CalculateMitSpecificityScoreWithAlternativePams"/>.
     /// </remarks>
     public static double CalculateCfdSpecificityScoreWithAlternativePams(
         string guideSequence,
@@ -2113,12 +2235,16 @@ public static class CrisprDesigner
         int maxMismatches = 4,
         CrisprSystemType systemType = CrisprSystemType.SpCas9,
         CfdAggregation aggregation = CfdAggregation.MitStyle,
-        double minAlternativePamHitScore = 1.0)
+        double minAlternativePamHitScore = 1.0,
+        int? onTargetStart = null,
+        int? onTargetEnd = null)
     {
         var guide = ValidateCfdGenomeArguments(guideSequence, genome, maxMismatches, systemType);
+        var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
 
         var cfdScores = new List<double>();
-        foreach (var hit in CollectAlternativePamHits(guide, genome, maxMismatches, systemType, minAlternativePamHitScore))
+        foreach (var hit in CollectAlternativePamHits(
+                     guide, genome, maxMismatches, systemType, minAlternativePamHitScore, onTarget))
         {
             string offTarget = SequenceExtensions.ToUpperAscii(hit.Site.Sequence)!;
             if (!offTarget.AsSpan().IsValidDna())

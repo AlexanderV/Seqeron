@@ -317,6 +317,23 @@ MCP (`tests/Seqeron/Seqeron.Mcp.MolTools.Tests/CrisprPublishedSpecificityScoreTe
 `CrisprCfdSpecificityScore_NotAffectedByTheAlternativePamRule`,
 `CrisprCfdSpecificityScore_IncludeAlternativePams_DefaultsOff_AndScansNagNga_AndForwardsTheCutoff` (G1).
 
+#### On-target interval (B08 round 3 G7 / F81)
+
+Oracle: crispor.py `annotateOfftargets` selection (`editDist==0 and start>=inStart and end<=inEnd` -> skip) with
+`calcHitScore` / `calcCfdScore` / `calcMitGuideScore` exec'd in Python on a two-strand 23-mer scan (footprints
+forward-strand, 0-based half-open).
+
+| Test | Locks |
+|---|---|
+| `OnTargetInterval_DefaultStillDropsEveryExactMatch_AndFindOffTargetsIsUnchanged` | duplicated-site genome: `FindOffTargets` empty, all four aggregates `100` without an interval |
+| `OnTargetInterval_SkipsOnlyExactMatchesInsideIt_MatchesCrisporAnnotateOfftargets` (6 cases) | `[0,23)`/`[27,50)` -> MIT `50.0`, CFD `99.00990099009901`; `[0,50)` -> `100`; `[100,123)`, `[1,23)`, `[0,22)` (not fully inside) -> `33.33333333333333` / `98.0392156862745`; MIT, MIT-alt, CFD, CFD-alt agree |
+| `OnTargetInterval_ReverseStrandDuplicate_UsesForwardStrandFootprint` | the duplicate on the reverse strand: footprint `[27,50)` on the forward strand, same values |
+| `OnTargetInterval_AppliesToAlternativePamScans_WhateverThePam` | exact `NAG` / `NGA` duplicates: default `100`; `[0,23)` -> MIT `71.42857142857143` (0.2 x 100 each), CFD `99.67237321836325`; `[0,77)` -> `100` |
+| `OnTargetInterval_MixedWithMismatchHits_AndMaxMismatchesZero` | + a 1-mismatch hit (60.5): default `62.30529595015576` / `99.29078014212564`; `[0,23)` `38.38771593090211` / `98.3146067418492`; `maxMismatches = 0` with an interval -> `50.0` |
+| `OnTargetInterval_InvalidBounds_Throw` | one bound only -> `ArgumentException`; start < 0, end <= start -> `ArgumentOutOfRangeException` |
+
+MCP: `SpecificityTools_OnTargetInterval_IsForwarded_AndDefaultStaysAllExactDropped`.
+
 #### CFD aggregate over the alternative PAMs (B08 round 3 G1 / F80)
 
 Oracle: crispor.py `calcHitScore` / `calcCfdScore` / `calc_cfd` exec'd verbatim in Python with the pickled CFD tables,

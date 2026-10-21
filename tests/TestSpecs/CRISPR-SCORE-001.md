@@ -21,7 +21,7 @@
 > (`CalculateMitSpecificityScore` over `PamAnnotatedOffTarget`, `CalculateMitSpecificityScoreWithAlternativePams` with the
 > `SpCas9_NGA` / `SaCas9_NNGRRN` systems and `minAlternativePamHitScore`), the CFD genome aggregates with
 > `CfdAggregation`, and the Rule Set 2 argument contracts (`percentPeptide == -1` sentinel, `[0, 100]`,
-> `aminoAcidCutPosition >= 0`). These are specified in §4.1 (M15-M27); CRISPR-OFF-001 owns the same code from the
+> `aminoAcidCutPosition >= 0`). These are specified in §4.1 (M15-M28); CRISPR-OFF-001 owns the same code from the
 > off-target side and holds the long-form numbers (`tests/TestSpecs/CRISPR-OFF-001.md`).
 
 ---
@@ -149,6 +149,7 @@
 | M25 | Alternative-PAM scan covers `NGA` and `NNGRRN` | one 1-mismatch `NGA` hit (hit score 60.5) → 89.20606601248885 (was 100); SaCas9 `NNGRRN` hit enters unweighted (95.91285612347565) and an `NNGRRT` twin is counted once (92.14668839146395); the new systems carry reference metadata and the existing enum values 0..6 are unchanged | exact | R5, F66 |
 | M26 | `minAlternativePamHitScore` | cutoff 0 → 59.92955631050283, 1.0 → 59.95203836930455, 40 → 62.30529595015576 (never drops the main-PAM `NGG` hit); SaCas9 cutoff also applies to main-PAM hits; negative / NaN cutoff → `ArgumentOutOfRangeException`; default 1.0 (CRISPOR's `ALTPAMMINSCORE`, G6) = the explicit-1.0 result, explicit 0 = no filtering | exact | R5, F67 |
 | M27 | CFD aggregate over the alternative PAMs | NAG-only genome: main-PAM overload 100, `CalculateCfdSpecificityScoreWithAlternativePams` 99.81515711670932 (per-hit CFD 0.18518518492592592, no 0.2 factor); NGA-only 99.95042141828442; mixed genome 99.24515917350747 (default cutoff 1.0) / 99.20727233740708 (cutoff 0 or 0.3: the cutoff is on the MIT hit score) / 99.29078014212564 (40); SaCas9 and PAM-before refused | exact | R5, F80 |
+| M28 | On-target interval | duplicated perfect site `G+AGG+TTTT+G+TGG+TTTTTT`: no interval -> 100 (all exact matches dropped); `[0,23)` -> MIT 50.0 / CFD 99.00990099009901; `[1,23)` (partly inside) and `[100,123)` -> 33.33333333333333 / 98.0392156862745; reverse-strand duplicate and alternative-PAM exact hits likewise (71.42857142857143); invalid bounds throw | exact | R5, F81 |
 
 ### 4.2 SHOULD Tests
 
@@ -208,6 +209,7 @@ Counts below were taken on 2026-10-21 by counting `[Test]` / `[TestCase]` attrib
 | M25 (`NGA` / `NNGRRN`) | ✅ Covered | `CalculateMitSpecificityScoreWithAlternativePams_NgaHit_IsScannedAndDownweighted`, `..._SaCas9_NnggrrnHit_IsScannedUnweighted_AndNotDoubleCounted`, `NewAlternativePamSystems_HaveReferenceMetadata_AndExistingEnumValuesAreUnchanged` |
 | M26 (`minAlternativePamHitScore`) | ✅ Covered | `CalculateMitSpecificityScoreWithAlternativePams_MinAlternativePamHitScore_FiltersAlternativeHitsOnly`, `..._SaCas9_CutoffAppliesToMainPamHitsToo` |
 | M27 (CFD alt-PAM aggregate) | ✅ Covered | `CalculateCfdSpecificityScoreWithAlternativePams_NagOnlyGuide_IsNoLongerPerfect`, `..._NgaOnlyGuide_IsScanned`, `..._MixedGenome_AppliesTheMitHitScoreCutoff`, `..._KeepsTheCfdGuards`; MCP `CrisprCfdSpecificityScore_IncludeAlternativePams_DefaultsOff_AndScansNagNga_AndForwardsTheCutoff` |
+| M28 (on-target interval) | ✅ Covered | `OnTargetInterval_*` (6 methods, 12 cases) in `CrisprDesigner_OffTarget_Tests.cs`; MCP `SpecificityTools_OnTargetInterval_IsForwarded_AndDefaultStaysAllExactDropped` |
 
 ### 5.3 Consolidation Plan
 
@@ -225,7 +227,7 @@ Counts below were taken on 2026-10-21 by counting `[Test]` / `[TestCase]` attrib
 
 ### 5.5 Phase 7 Work Queue
 
-No ❌ or ⚠ rows in §5.2 — all MUST/SHOULD/COULD cases (M1-M27, S1-S5, C1-C2) are implemented.
+No ❌ or ⚠ rows in §5.2 — all MUST/SHOULD/COULD cases (M1-M28, S1-S5, C1-C2) are implemented.
 
 | # | Test Case ID | §5.2 Status | Action Taken | Final Status |
 |---|-------------|-------------|--------------|--------------|
@@ -238,7 +240,7 @@ No ❌ or ⚠ rows in §5.2 — all MUST/SHOULD/COULD cases (M1-M27, S1-S5, C1-C
 | Area / Test Case ID | Status | Resolution |
 |---------------------|--------|------------|
 | M1-M14, S1-S5, C1-C2 | ✅ | All covered; full suite **6825 passed, 0 failed**; build 0 errors, 0 warnings (figure as of the original 2026-06-18 implementation). |
-| M15-M27 | ✅ | Implemented by review-2026-09 batch B08 with the fixes F9-F11, F14, F35/F36, F38, F50, F66, F67, F70, F80 (per-fix results in `docs/Validation/review-2026-09/B08.md`); this spec update (2026-10-21) only records them and did not re-run the suite. |
+| M15-M28 | ✅ | Implemented by review-2026-09 batch B08 with the fixes F9-F11, F14, F35/F36, F38, F50, F66, F67, F70, F80, F81 (per-fix results in `docs/Validation/review-2026-09/B08.md`); this spec update (2026-10-21) only records them and did not re-run the suite. |
 
 ---
 

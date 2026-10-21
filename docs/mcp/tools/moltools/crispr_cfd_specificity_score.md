@@ -30,6 +30,10 @@ CRISPOR runs ONE wider search that also accepts the alternative PAMs of its `off
 - **No 0.2 factor.** `if pam=="NGG" and otSeq[-2:]!="GG": mitScore = mitScore * 0.2` (L1955) multiplies the MIT score only; `cfdScore` is taken afterwards from the full `otSeq` (the CFD PAM table, e.g. `AG` = 0.2593, is what penalises the PAM).
 - **The cutoff is on the MIT hit score.** The search pre-filter (L4104-4122, `ALTPAMMINSCORE = 1.0`) drops an alternative-PAM hit whose `calcHitScore(guideSeq, tSeqNoPam)` is `< 1.0` — the MIT/Hsu hit score, even though this aggregate sums CFD values. `min_alternative_pam_hit_score` (default 1.0; `0` = off) is that cutoff.
 
+### On-target interval (`on_target_start` / `on_target_end`)
+
+By default every exact (0-mismatch) match in the genome is dropped as "the on-target". CRISPOR's `annotateOfftargets` (crispor.py L1920-1929) drops only the 0-mismatch hits **inside the on-target interval it is given** (`chrom==inChrom and start >= inStart and end <= inEnd`) and scores any further perfect match as a full off-target (`calcHitScore = 100`; CFD: the PAM score). Pass `on_target_start` (0-based, inclusive) and `on_target_end` (exclusive), forward-strand coordinates of the `genome` string covering the on-target's protospacer **and** PAM, to reproduce that; give both or neither. A hit only partly inside the interval is not skipped; either strand's hit is tested on its forward-strand footprint. CRISPOR's no-interval "auto-ontarget" mode (drop the first 0-mismatch hit it meets, in aligner output order) is not offered: that order is unspecified and, under CFD or with alternative PAMs, the exact hits differ in score.
+
 CFD is defined only for a **20-nt protospacer**, so SaCas9 (21 nt), Cas12a-class and CasX are **refused**. The reference does not score them either: it sets the per-hit sentinel `cfdScore = -1` for a SaCas9 PAM and `cfdScore = 0.0` for a Cpf1 PAM, and the guide-level `guideCfdScore = -1` for a Cpf1 PAM. For SaCas9 its guide-level value is not a sentinel but a vacuous `calcMitGuideScore(sum([])) = 100` — every hit having been dropped by the `if cfdScore != -1` filter — which is exactly the misleading perfect score this tool refuses to return. Prefer this tool over [crispr_specificity_score](crispr_specificity_score.md), which is this library's own unsourced heuristic.
 
 ## Core Documentation Reference
@@ -47,6 +51,8 @@ CFD is defined only for a **20-nt protospacer**, so SaCas9 (21 nt), Cas12a-class
 | `aggregation` | enum | No | `MitStyle` (default) or `ParkinsonNormalized`. |
 | `include_alternative_pams` | boolean | No | Also scan the reference's alternative PAMs (SpCas9: NAG, NGA; NGA: NGG), each hit CFD-scored by its own PAM, no 0.2 factor (default `false`). |
 | `min_alternative_pam_hit_score` | number | No | With `include_alternative_pams`: minimum MIT/Hsu hit score (0..100) for an alternative-PAM hit to count (reference `ALTPAMMINSCORE`; default `1.0`; `0` = no filtering). |
+| `on_target_start` | integer | No | Optional on-target interval start (0-based, inclusive; with `on_target_end`). Exact matches whose protospacer+PAM footprint lies inside are skipped; other perfect matches are scored as off-targets. Default: omitted = every exact match dropped. |
+| `on_target_end` | integer | No | Optional on-target interval end (0-based, exclusive). |
 
 ## Output Schema
 
@@ -75,7 +81,11 @@ Guide `GACGCATAAAGATGAGACGC` vs genome `CTTGCGTCTCATCTTTATGCGTA` with `system_ty
 
 Guide `GACGCATAAAGATGAGACGC` vs genome `GACGCTTAAAGATGAGACGC` + `TAG` + `TTTTTT`: one 1-mismatch off-target (index 5) on the alternative PAM `TAG`, MIT hit score 60.5 (>= 1.0, kept), per-hit CFD (CRISPOR's `calcCfdScore`) = mismatch factor 0.714285714 × PAM `AG` 0.259259259 = 0.18518518492592592. Default (`include_alternative_pams: false`) → `100.0`; `true` → `100/(100 + 0.18518518492592592) × 100 = 99.81515711670932`.
 
-### Example 3: on-target only → `specificity: 100.0` (`MitStyle`); `ParkinsonNormalized` errors (Σ CFD = 0).
+### Example 3: duplicated perfect site with an on-target interval
+
+Guide `GACGCATAAAGATGAGACGC` vs genome `GACGCATAAAGATGAGACGC`+`AGG`+`TTTT`+`GACGCATAAAGATGAGACGC`+`TGG`+`TTTTTT`: default → `100.0`; `on_target_start: 0, on_target_end: 23` → the second perfect site is an off-target with CFD = 1.0 (`NGG` PAM) → `100/(100+1)×100 = 99.00990099009901`.
+
+### Example 4: on-target only → `specificity: 100.0` (`MitStyle`); `ParkinsonNormalized` errors (Σ CFD = 0).
 
 ## Performance
 
