@@ -30,6 +30,18 @@
         ],
         "default": "Linear",
         "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)."
+      },
+      "methylation": {
+        "type": "string",
+        "enum": [
+          "none",
+          "dam",
+          "dcm",
+          "dam+dcm",
+          "emboss"
+        ],
+        "default": "none",
+        "description": "Methylase set whose methylated bases block recognition (EMBOSS restrict -methylation semantics); case-insensitive."
       }
     },
     "required": [

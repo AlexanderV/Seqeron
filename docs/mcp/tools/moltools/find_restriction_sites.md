@@ -20,6 +20,8 @@ Scans a DNA sequence on both strands for the recognition sites of the named enzy
 
 With `topology = Linear` (the default) a site is reported only when **both** of its strand cuts fall on a phosphodiester bond that exists, i.e. both lie in `[1, length - 1]` — the same filter as Biopython's `AbstractCut._drop`. This excludes only an enzyme that cuts at the edge of its own recognition window (`Sau3AI` / `MboI`, `^GATC`) sitting at the very 5' or 3' end. With `topology = Circular` the recognition window may span the origin, cut positions are reduced modulo the sequence length, and nothing is dropped.
 
+**Methylation (opt-in).** `methylation` (`none`|`dam`|`dcm`|`dam+dcm`|`emboss`) masks the bases the chosen methylase set methylates (both strands; the `N` spacer of EcoKI included) and drops every enzyme window containing one — the semantics of EMBOSS `restrict -methylation -mfile Emethylsites.dat`, confirmed against the binary (RESTR-FIND-001 Evidence §7). Default `none` leaves the output unchanged. Example: `GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA` with `MboI` and `methylation=dam` reports no site (without it, positions 10 and 36); EcoRI at 0 and 18 is unaffected.
+
 ## Core Documentation Reference
 
 - Source: [RestrictionAnalyzer.cs#L247](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L247)
@@ -31,6 +33,7 @@ With `topology = Linear` (the default) a site is reported only when **both** of 
 | `sequence` | string | Yes | DNA sequence to scan (non-empty). |
 | `enzyme_names` | string[] | Yes | Enzyme names to look for (≥1); resolved case-insensitively. |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
+| `methylation` | string | No | `none` (default), `dam` (`GmATC`), `dcm` (`mCmCAGG`, `mCmCTGG`), `dam+dcm` or `emboss` (all five `Emethylsites.dat` entries incl. EcoKI). Case-insensitive; an unknown value is an error. A recognition window containing a methylated base is not a site (EMBOSS `restrict -methylation`; a window rule, not an enzyme-sensitivity table — BamHI is blocked by Dam). |
 
 ## Output Schema
 

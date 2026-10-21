@@ -171,7 +171,7 @@ The current implementation records one top-strand cut per recognition window whe
 **Not implemented:**
 
 - Gel electrophoresis simulation and other downstream laboratory effects; **users should rely on:** external analysis or visualization tools for those steps.
-- Partial (incomplete) digestion and methylation-dependent blocking; **users should rely on:** laboratory controls — the enzyme record carries no cut-efficiency or methylation-sensitivity data to model them from.
+- ~~Partial (incomplete) digestion and methylation-dependent blocking~~ *(superseded: partial digestion — F53 `PartialDigest`; methylation-dependent blocking — 2026-10-21, B08 round 2 E2 / F68, opt-in `Digest(sequence, topology, methylases, enzymeNames)` / `Digest(sequence, topology, enzymes, methylases)`, `GetDigestSummary` and `CreateMap` likewise, EMBOSS `restrict -methylation` semantics: a recognition window containing a base methylated by the chosen set — `none`/`dam`/`dcm`/`dam+dcm`/`emboss` — is not a cut site; see `Restriction_Site_Detection.md` §5.2b. `PartialDigest` does not take the set.)* **Still not modelled:** a per-enzyme sensitivity table (which enzyme Dam/Dcm/CpG actually blocks — the mode is a window rule, so BamHI is blocked by Dam as in EMBOSS), cut efficiency, and kinetics; **users should rely on:** laboratory controls for those.
 
 ## 6. Edge Cases and Limitations
 

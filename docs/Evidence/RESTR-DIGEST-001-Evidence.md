@@ -414,3 +414,17 @@ enzyme-level overhang / compatibility of distal ends (`GetOverhangSequence` → 
   `FindSites`) take custom records; `CreateMap` counts physical sites (forward windows + reverse windows
   that do not also read forward), identical to the old forward-record count on the palindromic
   built-ins (locked by `EnzymeCollectionOverloads_BuiltInRecords_EqualTheNameOverloads`).
+
+
+---
+
+## 11. Methylation-blocked digest (B08 round 2 E2 / F68, 2026-10-21)
+
+`Digest`, `GetDigestSummary` and `CreateMap` accept an optional methylase set (name form `(sequence, topology,
+methylases, params enzymeNames)`, record form `(sequence, topology, enzymes, methylases)`); the mask is computed once per call
+and filters `FindSitesCore`, so boundaries, overhangs and fragment order are those of the unblocked sites. The oracle for the
+site set is EMBOSS `restrict -methylation` (RESTR-FIND-001 Evidence §7); EMBOSS has no digest, so fragment values are derived:
+on `GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA` (51 bp) EMBOSS keeps EcoRI 0 and 18 and blocks MboI 10 and 36 with Dam, so
+`Digest(EcoRI, MboI)` is 1/18/32 (cuts 1 and 19; unblocked: 5 fragments, cuts 1, 10, 19, 36) and the circular digest is 18/33. `PartialDigest` is
+not carried. Locked in `RestrictionAnalyzer_Methylation_Tests` (`Digest_BlockedSitesDoNotCut`, `Digest_Circular_AndEnzymeListOverload`,
+`GetDigestSummary_AndCreateMap_CarryTheSet`) and the MCP `restriction_digest` / `digest_summary` / `restriction_map` tests.

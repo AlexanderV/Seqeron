@@ -12,7 +12,8 @@
     "properties": {
       "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 },
       "enzyme_names": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Enzyme names to look for." },
-      "topology": { "type": "string", "enum": ["Linear", "Circular"], "default": "Linear", "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)." }
+      "topology": { "type": "string", "enum": ["Linear", "Circular"], "default": "Linear", "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)." },
+      "methylation": { "type": "string", "enum": ["none", "dam", "dcm", "dam+dcm", "emboss"], "default": "none", "description": "Methylase set whose methylated bases block recognition (EMBOSS restrict -methylation semantics); case-insensitive." }
     },
     "required": ["sequence", "enzyme_names"]
   },

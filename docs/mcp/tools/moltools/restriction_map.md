@@ -18,6 +18,8 @@ Maps a DNA sequence: reports all forward+reverse restriction sites, the sites gr
 
 The *considered set* is the enzyme set the map is built over: the names in `enzyme_names`, resolved case-insensitively and de-duplicated, or — when `enzyme_names` is empty — every enzyme of `enzyme_set`: `"common"` (default, the 39 common laboratory enzymes) or `"rebase"` (all 754 REBASE enzymes with a defined cut). Named enzymes may be any of the 754; `enzyme_set` is ignored when names are given. `sitesByEnzyme` and `nonCutters` always **partition** that set, and both are keyed by the table's own canonical enzyme name whatever casing the caller used. Site coordinates, the two records per palindromic site and the `Linear`/`Circular` rules are as documented for [find_restriction_sites](find_restriction_sites.md).
 
+**Methylation (opt-in).** `methylation` (`none`|`dam`|`dcm`|`dam+dcm`|`emboss`) masks the bases the chosen methylase set methylates (both strands; the `N` spacer of EcoKI included) and drops every enzyme window containing one — the semantics of EMBOSS `restrict -methylation -mfile Emethylsites.dat`, confirmed against the binary (RESTR-FIND-001 Evidence §7). Default `none` leaves the output unchanged. Example: `GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA` with `MboI` and `methylation=dam` reports no site (without it, positions 10 and 36); EcoRI at 0 and 18 is unaffected.
+
 ## Core Documentation Reference
 
 - Source: [RestrictionAnalyzer.cs#L1344](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1344)
@@ -30,6 +32,7 @@ The *considered set* is the enzyme set the map is built over: the names in `enzy
 | `enzyme_names` | string[] | Yes | Enzymes to consider (case-insensitive, de-duplicated; any of the 754 REBASE enzymes with a defined cut); empty = every enzyme of `enzyme_set`. |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
 | `enzyme_set` | string | No | Table used when `enzyme_names` is empty: `"common"` (default, the 39) or `"rebase"` (all 754). Case-insensitive; ignored when names are given. |
+| `methylation` | string | No | `none` (default), `dam` (`GmATC`), `dcm` (`mCmCAGG`, `mCmCTGG`), `dam+dcm` or `emboss` (all five `Emethylsites.dat` entries incl. EcoKI). Case-insensitive; an unknown value is an error. A recognition window containing a methylated base is not a site (EMBOSS `restrict -methylation`; a window rule, not an enzyme-sensitivity table — BamHI is blocked by Dam). |
 
 ## Output Schema
 

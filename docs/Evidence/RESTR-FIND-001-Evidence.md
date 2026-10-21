@@ -542,3 +542,61 @@ design (documented in the class's convention comment and algorithm doc §5.2a). 
 0 mismatches" (§2.6) was measured with the same rule applied in the harness.
 
 The TscAI/TspRI `ovhg` divergence (§2.6) did not arise on this corpus (no site at the 5' edge).
+
+
+---
+
+## 7. Opt-in methylation-blocked recognition — EMBOSS `restrict -methylation` (B08 round 2 E2 / F68, 2026-10-21)
+
+**What was wrong.** §5 / the algorithm doc recorded "Not implemented: no source reachable tabulates enzyme
+sensitivity". The proof was defeated by the reference tool: EMBOSS `restrict` has `-methylation` ("If this is set
+then RE recognition sites will not match methylated bases") driven by `-mfile` (default `Emethylsites.dat`), which
+lists the **methylase** sites, not enzyme sensitivities. No REBASE data is involved (the vendored columns are untouched;
+`rebase.neb.com` was not opened).
+
+**Sources opened (neutral User-Agent `Seqeron-review/1.0`):**
+
+| Source | Used for |
+|---|---|
+| `raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/data/Emethylsites.dat` (11 lines; no commit id reachable — the GitHub API refused the session — so pinned by content: byte-identical to `/usr/share/EMBOSS/data/Emethylsites.dat` of Ubuntu `emboss 6.6.0+dfsg-12ubuntu2`) | the five methylase entries: `dam GmATC`, `dcm mCmCAGG`, `dcm mCmCTGG`, `MEcoKI mAmACNNNNNNGTGC`, `MEcoKI GCmACNNNNNNGTT`; header: "any methylated base is preceded by 'm'" |
+| `raw.githubusercontent.com/kimrutherford/EMBOSS/master/emboss/restrict.c` (1032 lines) | `methyl = ajAcdGetBoolean("methylation")` (L128) passed to `embPatRestrictMatch` (L189) |
+| `raw.githubusercontent.com/kimrutherford/EMBOSS/master/nucleus/embpat.c` (5822 lines) | `patRestrictReadMethyl` (L1352: `M` -> `N` in the *Replace* string, plain chars incl. pattern `N` copied, so a pattern `N` also becomes `N`; entries pushed with `ajListPush` = front), `patRestrictMethylMod` (L1451: search each entry, overwrite with Replace, "Know out base on opposite strand too": `rp[slen-fpos-1] = 'N'`), `embPatRestrictMatch` (L4607: mask `substr`/`revstr` BEFORE the plasmid doubling, forward pass then reverse pass), `embPatRestrictScan` (L1595: `if(!(*q & v) || v==15) break;` — a sequence `N` never matches, whatever the site base) |
+| Debian `restrict.1e` man page (`manpages.debian.org/trixie/emboss/restrict.1e.en.html`) | option text only (the fetch was not needed for semantics) |
+| **Executed**: Ubuntu `emboss 6.6.0+dfsg-12ubuntu2` `restrict`, with an enzyme table generated from Biopython 1.88 `Bio.Restriction` (729 enzymes: name, site, length, cut1 = `fst5`, cut2 = `fst5 - ovhg`) because `rebaseextract` needs REBASE files | the oracle values below |
+
+**Semantics confirmed by execution (not assumed):**
+
+1. *Window rule.* `restrict -methylation` on `AAAAGGATCCAAAATGATCAAAAAGATCAAAAACCAGGAAAACCTGGAAAAATTT`, enzymes
+   MboI,Sau3AI,BamHI,BclI,EcoRII: without `-methylation` MboI/Sau3AI 5,15,24; BamHI 4; BclI 14; EcoRII 33,42 (0-based
+   window starts); **with it: no hit at all** — BamHI included (GGATCC contains the masked A).
+2. *Mask probe.* A one-window enzyme `PROBE NN` is reported exactly where the window holds no masked base, so it reads the
+   mask out directly. Findings: `AAGATCAAGATCAA` masks one A per GATC (probe windows starting at
+   `0,1,4,5,6,7,10,11,12` stay unmasked); `TGAACCGACCAGTGCTAACG` masks the two A's **and the six spacer bases** of
+   `mAmACNNNNNNGTGC`; `GCACGGTACCGTTAACTT` masks `GCmAC` + spacer; `CAACCTCATTGTGCCTGGAGGG` (CCTGG shares its first C with
+   the GTGC of an EcoKI site) masks both the EcoKI site and the CC — which is only possible if EcoKI is visited **before**
+   dcm, i.e. in reverse file order.
+3. *Asymmetry.* `GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA`: MboI 10,36 -> blocked; EcoRI 0,18 and SmaI 27 kept;
+   TaqI 38,44 **kept** (the TCGA of `GATCGA` starts at the T, which EMBOSS never masks).
+4. *Spacer.* `TTTTAACGGTACCGTGCTTTTGAATTCTTTTGCACGGTACCGTTTTTGGTACCTTT`: KpnI/Acc65I 7,35,47 -> **47 only**, EcoRI 21 kept.
+5. *Circular (`-plasmid`).* `TAAAAAGAATTCAAAAAAAAAGATCAGAATTCAAAAGAAAAAGATC` (46 bp): EcoRI 6,26 kept; BglII 41 (AGATC|T across the origin) and
+   MboI blocked. `ATTCAAAAAGAATTCAAAAAAGATCAAAAAAAAAAAAGA`: EcoRI 9 and 37 (GA|ATTC) kept, MboI blocked.
+   `AGGAAAAGAATTCAAAAAAAAAGATCAAAAACC`: EMBOSS keeps EcoRII 31 (CC|AGG across the origin is not masked); the library blocks it (documented divergence).
+6. *EMBOSS bug, avoided in the harness:* `methfile` is read once and never rewound, so with several sequences in one run
+   only the **first** is masked. The oracle was therefore run one sequence per invocation.
+
+**Differential (2026-10-21, harness outside the repo).** 40 random 500-bp sequences injected with Dam/Dcm/EcoKI motifs and enzyme
+sites glued to them at random overlaps; every enzyme of the Biopython table that the library resolves (`GetEnzyme`).
+Linear: mask via the `NN` probe 14 051 unmasked windows, **0 mismatching sequences**; sites kept/removed — 50 325
+EMBOSS-and-library common sites, 26 439 removed by EMBOSS, **0 mismatching (enzyme, sequence)**. Circular: 58 750 common sites, 31 088 removed,
+20 differences, **all** origin-adjacent and all "library removes more" (a methylase site spanning the origin). First
+implementation attempts, kept as the audit trail: masking only the `m` bases (the spacer is masked too), file-order entry
+visiting (reverse order), and a multi-sequence EMBOSS run (only the first sequence is masked) each produced mismatches that
+the run above removed.
+
+**Locked by tests:** `RestrictionAnalyzer_Methylation_Tests` (42 cases: the values above, default-off identity,
+reverse strand, circular wrap, rotation invariance, digest / summary / map) and MCP `RestrictionMethylationToolsTests`.
+
+**Limitations kept honest.** (i) A window rule, not an enzyme-sensitivity table: BamHI (Dam-insensitive at the bench) is blocked,
+`DpnI` (needs methylation) and `MspI`/`HpaII` are not modelled. (ii) EMBOSS's one-A-per-GATC marking and masked EcoKI spacer are
+reproduced, not corrected. (iii) CpG methylation is not in `Emethylsites.dat` and not offered. (iv) `PartialDigest`, `FindAllSites` and
+the `EnzymeSet` listing members do not take a methylase set.

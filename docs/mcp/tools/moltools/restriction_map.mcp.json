@@ -13,7 +13,8 @@
       "sequence": { "type": "string", "description": "DNA sequence to map.", "minLength": 1 },
       "enzyme_names": { "type": "array", "items": { "type": "string" }, "description": "Enzymes to consider (case-insensitive, de-duplicated; any of the 754 REBASE enzymes with a defined cut); empty = every enzyme of enzyme_set." },
       "topology": { "type": "string", "enum": ["Linear", "Circular"], "default": "Linear", "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)." },
-      "enzyme_set": { "type": ["string", "null"], "enum": ["common", "rebase", null], "default": "common", "description": "Enzyme table used when enzyme_names is empty: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive; ignored when names are given." }
+      "enzyme_set": { "type": ["string", "null"], "enum": ["common", "rebase", null], "default": "common", "description": "Enzyme table used when enzyme_names is empty: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive; ignored when names are given." },
+      "methylation": { "type": "string", "enum": ["none", "dam", "dcm", "dam+dcm", "emboss"], "default": "none", "description": "Methylase set whose methylated bases block recognition (EMBOSS restrict -methylation semantics); case-insensitive." }
     },
     "required": ["sequence", "enzyme_names"]
   },

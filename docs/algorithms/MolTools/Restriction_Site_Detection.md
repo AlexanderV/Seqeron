@@ -212,6 +212,39 @@ on a molecule with its site planted in both orientations, linear and circular: `
 (with the rule above) = Biopython 1.88 `search`, and `Digest` fragment lengths = the gaps between the
 sorted distinct `search` cuts — **0 mismatches** over 1 508 + 1 508 comparisons.
 
+### 5.2b Opt-in methylation-blocked recognition (B08 round 2 E2, F68)
+
+`FindSites(sequence, enzymeName | enzyme, topology, IReadOnlyList<Methylase>? methylases)` and the
+`Digest` / `GetDigestSummary` / `CreateMap` overloads taking the same set (name form: `(sequence, topology,
+methylases, params enzymeNames)`; record form: `(sequence, topology, enzymes, methylases)`); MCP: optional
+`methylation` = `none` (default) | `dam` | `dcm` | `dam+dcm` | `emboss` on `find_restriction_sites`,
+`restriction_digest`, `digest_summary`, `restriction_map`. `null`/empty/`none` is byte-identical to the overloads without
+the parameter. **Not carried:** `PartialDigest`, `FindAllSites` and the `EnzymeSet` listing members.
+
+**Reference.** EMBOSS `restrict -methylation` ("If this is set then RE recognition sites will not match
+methylated bases"), `-mfile` default `Emethylsites.dat`. Data (`MethylaseSets.Emboss`, file order): `dam GmATC`,
+`dcm mCmCAGG`, `dcm mCmCTGG`, `MEcoKI mAmACNNNNNNGTGC`, `MEcoKI GCmACNNNNNNGTT` — `m` precedes each methylated base.
+The semantics were read from `nucleus/embpat.c` and then **confirmed against the installed binary** (Ubuntu emboss
+6.6.0+dfsg-12ubuntu2) with a one-window `NN` probe enzyme, which `restrict` reports exactly where the window holds no
+masked base — mask equality on 40 random 500-bp sequences (14 051 probe windows) and 50 325 enzyme sites x 26 439 EMBOSS-removed:
+0 mismatches (Evidence RESTR-FIND-001 §7).
+
+**Rule** (all of it EMBOSS's, including its oddities):
+
+1. Each methylase site is searched on the forward strand, then on the reverse strand; every `m`-marked base **and every
+   `N` of the site** (EcoKI's 6-base spacer) is overwritten by `N`, together with its partner on the other strand.
+2. Entries are visited last-file-entry-first (EMBOSS builds its list with `ajListPush`); each search sees the `N`s
+   written so far. Consequence: for the palindromic `GmATC` only **one** A of a GATC is marked (the second search no
+   longer matches), so a window that starts at the GATC's T (`TaqI` TCGA in `GATCGA`) is not blocked.
+3. An enzyme window (its recognition-sequence length) containing a masked base is not a site, on either strand
+   (`embPatRestrictScan` breaks on a sequence `N`). This is a **window rule, not an enzyme-sensitivity table**: `BamHI`
+   GGATCC is blocked by Dam here and in EMBOSS although it is Dam-insensitive at the bench.
+   `RestrictionSite.RecognizedSequence` still shows the real bases.
+4. **Deliberate difference:** on a circular molecule a methylase site spanning the origin is found too and the enzyme
+   window wraps (EMBOSS masks the linear string before doubling it, so it misses such a site: 20 origin-adjacent
+   differences in 58 750 circular sites, all of this kind). `MethylaseSets.FromName` / custom `Methylase` sites use `m` as
+   marker only in lower case, so the IUPAC code `M` is still usable.
+
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
@@ -228,13 +261,19 @@ sorted distinct `search` cuts — **0 mismatches** over 1 508 + 1 508 comparison
 
 - ~~The implementation relies on a built-in enzyme catalog; **consequence:** only enzymes present in that catalog are available through name-based lookup.~~ *(Superseded 2026-10-15, B08 D4 part 1 F59: name lookup covers all 754 REBASE 404 enzymes with a defined cut, §5.2a.)* The 334 REBASE enzymes without a defined cut position are not available — they cannot be digested. Any other enzyme can still be supplied through the `RestrictionEnzyme` overloads.
 - ~~The built-in catalog contains only enzymes whose cuts fall inside their site; **consequence:** distal cutters must be supplied as custom records.~~ *(Superseded 2026-10-15 by review B08 D4/F59: name lookup covers all 754 REBASE enzymes with a defined cut, distal Type IIS and two-sided Type IIB included; over MCP the listing tools reach them with `enzyme_set: "rebase"` — F61.)* *(Corrected 2026-10-15, review B08 WP11a F54/F55: the earlier claim that Type IIS cutters "cannot be expressed" was wrong — the record's offsets are signed and unrestricted, so a single-sided distal cutter is `CutPositionForward = fst5`, `CutPositionReverse = size + fst3`, e.g. `BsaI` = `("GGTCTC", 7, 11)`, `FokI` = `("GGATG", 14, 18)`; see §2.2a.)* Two-sided Type IIB cutters (`BaeI`, `BcgI`) are expressible through `RestrictionEnzyme.SecondCut` (F56).
-- Site finding is purely sequence-based; **consequence:** methylation sensitivity and experimental context are not modeled (`DpnI` requires Dam methylation; `HpaII`/`MspI` differ only in methylation sensitivity).
+- Site finding is purely sequence-based by default; **consequence:** methylation sensitivity and experimental context are not modeled unless the opt-in methylation mode below is requested (`DpnI` requires Dam methylation; `HpaII`/`MspI` differ only in methylation sensitivity — neither is represented even in the opt-in mode, which is a window rule, not a per-enzyme table).
 
 **Not implemented:**
 
-- Methylation sensitivity (whether Dam/Dcm/CpG methylation overlapping a site blocks the enzyme). The
+- ~~Methylation sensitivity (whether Dam/Dcm/CpG methylation overlapping a site blocks the enzyme). The
   record's `CognateMethylationSites` (REBASE `<6>`) is descriptive data only and must not be read as a
-  blocking rule; no source reachable in this campaign tabulates sensitivity for the built-ins.
+  blocking rule; no source reachable in this campaign tabulates sensitivity for the built-ins.~~
+  *(Superseded 2026-10-21, B08 round 2 E2 / F68: the proof was wrong — the reference tool needs no
+  sensitivity table. EMBOSS `restrict -methylation -mfile Emethylsites.dat` is driven by the **methylase**
+  sites (`dam GmATC`, `dcm mCmCAGG`/`mCmCTGG`, `MEcoKI …`), and an enzyme window containing a methylated
+  base is not a site. Implemented as an **opt-in** mode, §5.2b.)* A per-enzyme sensitivity table (which enzyme is
+  blocked by which methylation: BamHI is Dam-insensitive at the bench, EMBOSS blocks it) is still not
+  modelled, and `CognateMethylationSites` remains descriptive and is never consulted.
 - Contextual enzyme activity effects such as methylation-state filtering; **users should rely on:** external enzymology references or downstream validation when those matter.
 
 **Documented divergence from the oracle:**

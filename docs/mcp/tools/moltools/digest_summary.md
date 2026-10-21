@@ -18,6 +18,8 @@ Runs a digest and reports summary statistics instead of the full fragment sequen
 
 **Topology.** `topology=Linear` (the default) gives `k+1` fragments for `k` cut positions; `topology=Circular` searches for origin-spanning sites as well and gives exactly `k`. The fragment sizes always sum to the molecule length in both topologies (Addgene Restriction Digest Protocol: "the sum of the individual fragments should equal the size of the original"). See [restriction_digest](restriction_digest.md) for the full convention.
 
+**Methylation (opt-in).** `methylation` (`none`|`dam`|`dcm`|`dam+dcm`|`emboss`) masks the bases the chosen methylase set methylates (both strands; the `N` spacer of EcoKI included) and drops every enzyme window containing one — the semantics of EMBOSS `restrict -methylation -mfile Emethylsites.dat`, confirmed against the binary (RESTR-FIND-001 Evidence §7). Default `none` leaves the output unchanged. Example: `GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA` with `MboI` and `methylation=dam` reports no site (without it, positions 10 and 36); EcoRI at 0 and 18 is unaffected.
+
 ## Core Documentation Reference
 
 - Source: [RestrictionAnalyzer.cs#L1268](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1268)
@@ -29,6 +31,7 @@ Runs a digest and reports summary statistics instead of the full fragment sequen
 | `sequence` | string | Yes | DNA sequence to digest (non-empty). |
 | `enzyme_names` | string[] | Yes | Enzyme names to use (≥1). |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
+| `methylation` | string | No | `none` (default), `dam` (`GmATC`), `dcm` (`mCmCAGG`, `mCmCTGG`), `dam+dcm` or `emboss` (all five `Emethylsites.dat` entries incl. EcoKI). Case-insensitive; an unknown value is an error. A recognition window containing a methylated base is not a site (EMBOSS `restrict -methylation`; a window rule, not an enzyme-sensitivity table — BamHI is blocked by Dam). |
 
 ## Output Schema
 

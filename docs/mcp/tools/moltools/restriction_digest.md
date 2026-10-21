@@ -20,6 +20,8 @@ Cuts the molecule at the top-strand (forward-strand) cut positions of the named 
 
 **Fragment sequences are top-strand bases.** A digest partitions the top strand at the top-strand cuts, the same convention as Biopython `Bio.Restriction` `enzyme.catalyse(seq[, linear=False])`, so a sticky end's bases belong to the fragment downstream of the top-strand cut and the single-stranded extension is reported separately in the overhang fields (read 5′→3′ on the strand that carries it, taken from the molecule). Blunt cutters report `Blunt` with an empty overhang. Biopython emits the origin-spanning fragment first rather than last, so the circular fragment order differs from Biopython's by a rotation of one.
 
+**Methylation (opt-in).** `methylation` (`none`|`dam`|`dcm`|`dam+dcm`|`emboss`) masks the bases the chosen methylase set methylates (both strands; the `N` spacer of EcoKI included) and drops every enzyme window containing one — the semantics of EMBOSS `restrict -methylation -mfile Emethylsites.dat`, confirmed against the binary (RESTR-FIND-001 Evidence §7). Default `none` leaves the output unchanged. Example: `GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA` with `MboI` and `methylation=dam` reports no site (without it, positions 10 and 36); EcoRI at 0 and 18 is unaffected.
+
 ## Core Documentation Reference
 
 - Source: [RestrictionAnalyzer.cs#L802](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L802)
@@ -31,6 +33,7 @@ Cuts the molecule at the top-strand (forward-strand) cut positions of the named 
 | `sequence` | string | Yes | DNA sequence to digest (non-empty). |
 | `enzyme_names` | string[] | Yes | Enzyme names to use (≥1). |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
+| `methylation` | string | No | `none` (default), `dam` (`GmATC`), `dcm` (`mCmCAGG`, `mCmCTGG`), `dam+dcm` or `emboss` (all five `Emethylsites.dat` entries incl. EcoKI). Case-insensitive; an unknown value is an error. A recognition window containing a methylated base is not a site (EMBOSS `restrict -methylation`; a window rule, not an enzyme-sensitivity table — BamHI is blocked by Dam). |
 
 ## Output Schema
 

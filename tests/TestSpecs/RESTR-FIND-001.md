@@ -31,6 +31,7 @@
 | REBASE | Database | Comprehensive enzyme database, recognition sequences |
 | **Biopython 1.88 `Bio.Restriction`** | Reference implementation (oracle) | Site positions, cut positions (1-based top strand), linear cut-feasibility filter `AbstractCut._drop`, circular search `FormattedSeq.finditer` (`data + data[1:size]`), `Defined._modify` / `_rev_modify`, `Palindromic._search`, `NonPalindromic._search`, `elucidate()`, `is_blunt()`/`is_5overhang()`/`is_3overhang()` |
 | **REBASE `allenz.104` (2021), field `<6>`** | Database snapshot | The cognate-methyltransferase site of every built-in (D7 / F52); vendored in `crisprVerse/crisprBase`, pinned in `docs/Evidence/B08-Source-Provenance.md` §3a |
+| **EMBOSS `restrict -methylation -mfile Emethylsites.dat`** (`emboss/data/Emethylsites.dat`, `nucleus/embpat.c`; binary 6.6.0 executed) | Reference tool, source + execution | Methylase sites and the masking / window rule behind the opt-in methylation mode (E2 / F68); Evidence §7 |
 | **REBASE EMBOSS files version 404 (2024)** | Database snapshot | The enzyme table audited field by field; shipped as `Bio/Restriction/Restriction_Dictionary.py` in Biopython 1.88, whose generated header states the REBASE version (rebase.neb.com is unreachable from the validation environment) |
 
 ---
@@ -57,6 +58,7 @@
 18. **Cognate methylation site (D7)**: every built-in's `RebaseMethylationField` equals REBASE `allenz.104` field `<6>` verbatim, and `CognateMethylationSites` is its parse per the file's format header (`X(Y)`, negative X = complementary strand, `?` = base undetermined, `(4)/(5)/(6)` = m4C/m5C/m6A); a known top-strand position names an `A` for m6A and a `C` for m4C/m5C. The field is the cognate MTase's protection site — no Dam/Dcm/CpG sensitivity is modelled (Source: REBASE `allenz.104`, sha256 `43b12432…69388`)
 19. **REBASE set (D4, F59)**: `RebaseEnzymes` holds the 754 Biopython 1.88 REBASE 404 enzymes with a defined cut (729 OneCut + 25 TwoCuts; the 334 NoCut/NotDefined are excluded and unresolvable); the 39 common enzymes are the same instances; `GetEnzyme` (and every name-taking member) resolves against it; every member that enumerates enzymes without a list or an `EnzymeSet` stays on the 39 common enzymes (Source: Biopython 1.88 `Restriction_Dictionary.py`, REBASE allenz.104; API contract)
 20. **Readings vs. windows (F60)**: Biopython `search` == top-strand cuts of `FindSites`' forward records plus those reverse records whose window does not also read as the site on the forward strand (Source: Biopython `Palindromic._search`, `NonPalindromic._search` compsite alternation)
+21. **Opt-in methylation (E2 / F68)**: with a methylase set (`MethylaseSets` = EMBOSS `Emethylsites.dat`, `m` before each methylated base) every base found at an `m` mark or at a site `N`, on either strand, is masked, and an enzyme window containing a masked base is not a site; entries are visited last-file-entry-first and each sees earlier masks (EMBOSS `patRestrictMethylMod`/`embPatRestrictScan`). `null`/empty set == the overload without it (byte-identical). Window rule, not a sensitivity table (BamHI is blocked by Dam). Circular: methylase sites spanning the origin are found (EMBOSS does not) (Source: EMBOSS `restrict -methylation`, executed; Evidence §7)
 
 ---
 
@@ -154,6 +156,7 @@
 | INV-17 / M33 | Sequence ambiguity (D3) | `FindSites_SfiI_SequenceNInsideSpacer_MatchesBiopython` (×2), `FindSites_SfiI_SequenceN_TopStrandCutsMatchBiopython` (×3), `FindSites_SequenceAmbiguityAtConcreteSiteCode_StillBlocks` (×5), `SiteN_AcceptsEveryIupacCode_InFindSitesAndFindPatternOccurrences`, `FindSites_NonIupacCharacterInSpacer_MatchesNothing`, plus `FindPatternOccurrences_AmbiguousSequenceBase_NeverMatches` (×2, unchanged) |
 | INV-17 / M34 | ASCII-only fold (F49): 'ſ' (U+017F) never matches and a pattern containing it is rejected | `RawStringEntryPoints_LongS_IsNotFoldedOntoIupacS`, `Pattern_WithLongS_IsRejectedLikeAnyNonIupacCharacter` |
 | INV-18 / M35-M36 | Cognate methylation site (D7 / F52): table locked to allenz.104 `<6>` (M35); notation parse + rejection of malformed / `(99)` values (M36) | `EnzymeDatabase_MethylationField_MatchesRebaseAllenz104` (×39), `EnzymeDatabase_MethylationAuditCoversEveryEntry`, `CognateMethylationSites_BuiltIns_ParsedToTypedSites`, `CognateMethylationSites_RebaseNotation_ComplementaryStrandAndLists`, `RestrictionEnzyme_MalformedMethylationField_Throws` (×7), `RestrictionEnzyme_NullMethylationField_Throws`; MCP `GetEnzyme_ReportsRebaseCognateMethylationSite` |
+| INV-21 / M37-M42 | Opt-in methylation (E2 / F68): EMBOSS `restrict -methylation` oracle — L1 all Dam/Dcm windows blocked (MboI, Sau3AI, BamHI, BclI, EcoRII), L2 EcoRI 0,18 / SmaI 27 / TaqI 38,44 kept, L3 EcoKI spacer (KpnI/Acc65I 47 only), mask equality via the `NN` probe (6 sequences), circular cases, default-off identity | `RestrictionAnalyzer_Methylation_Tests` (42 cases) |
 
 ### External Source Verification Tests
 
@@ -200,6 +203,7 @@
 | ⚠ Corrected (2026-10-14 review) | `CreateMap_NoEnzymesSpecified_SearchesAll` (RESTR-DIGEST-001 test file) | It asserted `NonCutters` is empty when no enzyme names are given, which restated an implementation artefact and contradicted RESTR-DIGEST-001 invariant #11; it now asserts the cutter/non-cutter partition |
 | ❌ Implemented (B08 WP9 / D7, F52) | the `D7 — REBASE allenz.104 methylation-site field` region (50 cases) + 1 MCP test | the cognate-MTase site was absent although REBASE `allenz.104` field `<6>` is reachable |
 | ❌ Implemented (B08 WP3 / D3, F40) | the `D3 — a site N matches a sequence N` region (12 cases) | a sequence `N` used to block every site, so `SfiI` on `GGCCNNNNNGGCC` reported nothing where Biopython reports `[9]`; the old `FindPatternOccurrences` doc comment saying ambiguity is read in the pattern only was corrected |
+| ❌ Implemented (B08 round 2 E2, F68) | the `RestrictionAnalyzer_Methylation_Tests` file (42 cases) + 6 MCP tests | the recorded proof "no source tabulates sensitivity" was defeated: EMBOSS `restrict -methylation -mfile Emethylsites.dat` is driven by methylase sites |
 
 ---
 

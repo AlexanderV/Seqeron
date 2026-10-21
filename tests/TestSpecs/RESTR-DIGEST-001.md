@@ -53,6 +53,10 @@
 7f. **Coinciding Cuts (F48)**: Enzymes cutting the top strand at the same position make ONE boundary; `LeftEnzymes`/`RightEnzymes` list every one of them once (name repeats in any casing collapse), ordered by ordinal comparison of the table names, so the digest is independent of the order of `enzymeNames`; `LeftEnzyme`/`RightEnzyme` are the first of the list (empty list / `null` for an uncut end). The overhang fields report that first enzyme's own end. Built-in collisions (Biopython 1.88 `search` same position): MspI/HpaII, MboI/Sau3AI, BamHI·BglII/MboI·Sau3AI, ClaI/TaqI, StuI/HaeIII, ScaI/RsaI — identical ends (`ovhgseq`) — and FseI/HaeIII, whose ends differ (FseI 3' `CCGG`, HaeIII blunt); there the reported end is FseI's alone and the physical end of the combined digest is not modelled (Source: Biopython 1.88 `search`/`ovhgseq`; API contract)
 7e. **Ligation Symmetry**: At one cut, the upstream fragment's `RightOverhang` is the reverse complement of the downstream fragment's `LeftOverhang` — identical for a palindromic enzyme (Source: Wikipedia Sticky and blunt ends — overhangs must be complementary to ligate)
 
+### Methylation Invariants (E2 / F68)
+
+- **Blocked sites do not cut.** `Digest`/`GetDigestSummary`/`CreateMap` with a methylase set are the unblocked computation on the site set EMBOSS `restrict -methylation` leaves (RESTR-FIND-001 Evidence §7); a `null`/empty set is byte-identical to the overload without it. Locked: 51-bp `GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA`, EcoRI+MboI with Dam -> 1/18/32 (circular 18/33), without -> 5 fragments. `PartialDigest` does not take a set. Tests: `Digest_BlockedSitesDoNotCut`, `Digest_Circular_AndEnzymeListOverload`, `GetDigestSummary_AndCreateMap_CarryTheSet`, `NullOrEmptySet_IsIdenticalToTheOverloadWithoutIt` (RestrictionAnalyzer_Methylation_Tests); MCP `RestrictionMethylationToolsTests`.
+
 ### Partial Digest Invariants (F53, `PartialDigest`)
 
 8. **Definition (linear)**: with cut positions c_1<…<c_k (the complete digest's), the fragments are all intervals [a,b), a<b, over X = {0,c_1,…,c_k,L}; their lengths are ΔX, (k+1)(k+2)/2 of them (Source: Rosalind PDPL / Jones & Pevzner).
