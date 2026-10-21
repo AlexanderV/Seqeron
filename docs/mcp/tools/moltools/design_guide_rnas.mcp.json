@@ -19,7 +19,7 @@
         "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"],
         "default": "SpCas9"
       },
-      "parameters": { "type": ["object", "null"], "description": "Optional guide-RNA design parameters (minGcContent, maxGcContent, minScore, avoidPolyT, checkSelfComplementarity, ranking, maxSelfComplementaryStems, selfComplementarityBackboneRegions). maxSelfComplementaryStems (default null = no filter, CHOPCHOP filterSelfCompMax = -1) drops guides with more CHOPCHOP 4-bp self-complementary stems; selfComplementarityBackboneRegions (default null = guide-internal stems only) lists sgRNA scaffold regions on the guide's strand the stems may also pair against (CHOPCHOP --backbone)." }
+      "parameters": { "type": ["object", "null"], "description": "Optional guide-RNA design parameters (minGcContent, maxGcContent, minScore, avoidPolyT, checkSelfComplementarity, scoreGcContent, ranking, maxSelfComplementaryStems, selfComplementarityBackboneRegions). maxSelfComplementaryStems (default null = no filter, CHOPCHOP filterSelfCompMax = -1) drops guides with more CHOPCHOP 4-bp self-complementary stems; selfComplementarityBackboneRegions (default null = guide-internal stems only) lists sgRNA scaffold regions on the guide's strand the stems may also pair against (CHOPCHOP --backbone)." }
     },
     "required": ["sequence", "region_start", "region_end"]
   },

@@ -38,4 +38,18 @@ public class EvaluateGuideRnaTests
         var polyT = MolToolsTools.evaluate_guide_rna("ATGCATGCATGCATTTTGCA");
         Assert.That(polyT.HasPolyT, Is.True);
     }
+
+    // chopchop.py oracle (B08 round 3 G5): GC 20 %, 0 stems -> penalty 300 with the GC term on, 0 with it off.
+    [Test]
+    public void EvaluateGuideRna_ScoreGcContentParameter_BindsAndMatchesChopchopOracle()
+    {
+        const string lowGc = "AGTAGAATTAGACAAAATAA";
+
+        var on = MolToolsTools.evaluate_guide_rna(lowGc);
+        var off = MolToolsTools.evaluate_guide_rna(lowGc, parameters: GuideRnaParameters.Default with { ScoreGcContent = false });
+
+        Assert.That(on.Score, Is.EqualTo(0.0));
+        Assert.That(off.Score, Is.EqualTo(100.0));
+        Assert.That(off.Issues, Has.Some.Contains("Low GC"), "the window violation is still reported");
+    }
 }

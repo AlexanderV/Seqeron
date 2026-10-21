@@ -20,18 +20,17 @@ An sgRNA consists of a spacer sequence that determines targeting specificity plu
 
 ### 2.2 Core Model
 
-Guide candidates are extracted from PAM sites in a target region and scored from a base score of `100` with the following deductions preserved from the original document and confirmed in source:
+Guide candidates are extracted from PAM sites in a target region and scored as `Score = clamp(100 − penalty, 0, 100)`, where `penalty` is CHOPCHOP's own ascending penalty sum (B08 round 3 G5; before it the composite carried unsourced weights):
 
-| Rule | Deduction |
-|------|-----------|
-| GC below `MinGcContent` | `(MinGcContent - actual) × 2` |
-| GC above `MaxGcContent` | `(actual - MaxGcContent) × 2` |
-| Contains `TTTT` | `20` |
-| Each CHOPCHOP self-complementary 4-bp stem (`SelfComplementaryStems`) | `1` per stem (`CrisprDesigner.SelfComplementarityStemPenalty`; CHOPCHOP `SCORE['FOLDING'] = 1`, B08 E3) |
-| Seed-region GC outside `30-80%` | `5` |
-| Common restriction site detected | `5` |
+| Term | Effect on `Score` | Source |
+|------|-------------------|--------|
+| GC below `MinGcContent` or above `MaxGcContent` (default 40 / 70, edges inclusive) and `ScoreGcContent` | `+300` penalty, i.e. `Score = 0` (`CrisprDesigner.BadGcContentPenalty`) | CHOPCHOP `chopchop.py` `calcGCContent`: `if self.GCcontent > GC_HIGH or self.GCcontent < GC_LOW: self.score += SCORE['CRISPR_BAD_GC']` (`SCORE['CRISPR_BAD_GC'] = 300`, `GC_LOW = 40`, `GC_HIGH = 70`) |
+| Each self-complementary 4-bp stem (`SelfComplementaryStems`), when `CheckSelfComplementarity` | `+1` per stem (`CrisprDesigner.SelfComplementarityStemPenalty`) | CHOPCHOP `self.score += self.folding * SCORE['FOLDING']`, `SCORE['FOLDING'] = 1` |
+| Contains `TTTT` | none (issue only) | CRISPOR `crispor.py` L3026: warning "cannot be transcribed with a U6 or U3 promoter", no score; CHOPCHOP has no such term |
+| Seed-region GC outside `30-80%` | none (issue only) | this library's own flag, no published threshold |
+| Common restriction site detected | none (issue only) | this library's own flag |
 
-**Provenance of the self-complementarity row (B08 E3).** CHOPCHOP's `Guide.calcSelfComplementarity` ends in `self.score += self.folding * SCORE['FOLDING']` with `SCORE['FOLDING'] = 1` (guides are sorted by ascending score, i.e. it is a penalty; `-SC/--noScoreSelfComp` switches it off, which is `CheckSelfComplementarity = false` here), `folding` being the 4-bp stem count of `CountSelfComplementaryStems`. Before E3 the score instead deducted `selfComplementarity × 30` above an arbitrary `0.3` of the library's own pair fraction. The *other* rows, their weights and the way the terms are summed are not taken from any tool (the 40–70 % GC window is CHOPCHOP's `GC_LOW/GC_HIGH`; the weight `2` is not), so the composite remains a triage heuristic. The raw-string `EvaluateGuideRna` and `CountSelfComplementaryStems` accept only A/C/G/T (`U` is read as `T`, case folded ASCII-only) and throw `ArgumentException` otherwise.
+**Provenance and the two declared deviations (B08 round 3 G5).** Fetched `chopchop.py` (sha256 `3c7a4344ccf2a77e70b638146989d7b9569665216bc15b476177db37630d5960`) ranks guides ascending by `score` (`sort_CRISPR_guides`), so every term is a penalty; the efficiency models enter the same sum as `score -= CoefficientsScore * SCORE['COEFFICIENTS']` (`COEFFICIENTS = 100`). Seqeron shows the penalty as a quality number `100 − penalty`, clamped to [0, 100] (the "100 minus" and the clamp are presentation, the weights are CHOPCHOP's). The 300 exceeds the whole range, so a guide outside the GC window scores 0; CHOPCHOP's flat amount is not proportional to the excess (the old Seqeron rule `2 × excess` was not from any tool). (1) CHOPCHOP ships the GC term **off** in every mode (`CRISPR_DEFAULT["SCORE_GC"] = False`, comment "this is already scored in many models!"; the only flag `-c` is `store_false`, so the command line cannot enable it): `GuideRnaParameters.ScoreGcContent` is `true` by default here because this composite has no efficiency model that covers GC; `false` reproduces CHOPCHOP's default. (2) `MinScore` (default 50) is not from any tool: CHOPCHOP and CRISPOR have no score threshold; their filters are the GC window (`filterGCmin/filterGCmax`, default 0..100 = off) and `filterSelfCompMax` (= `MaxSelfComplementaryStems`). With the GC term on, a 20-nt guide has `Score = 100 − stems` (stems ≤ 16) inside the window and 0 outside, so every `MinScore` from 1 to 84 selects exactly the guides inside the GC window. Oracle: the scoring lines copied verbatim and run in Python 3 + Biopython 1.88 on a guide table (GC 20–100 %, TTTT, seed GC, EcoRI), locked by `EvaluateGuideRna_Score_MatchesChopchopPenaltyOracle`. The raw-string `EvaluateGuideRna` and `CountSelfComplementaryStems` accept only A/C/G/T (`U` is read as `T`, case folded ASCII-only) and throw `ArgumentException` otherwise.
 
 The seed region is defined as the last 10 nucleotides for PAM-after-target systems and the first 10 nucleotides for PAM-before-target systems. The 10-nt length is the upper bound of the Addgene CRISPR Guide's seed range, verified 2026-10-14 (https://www.addgene.org/guides/crispr/, "Basic Mechanisms of CRISPR"): *"the seed sequence (8–10 bases at the 3′ end of the gRNA targeting sequence)"*. That sentence describes Cas9; the PAM-before-target branch applies the same length at the PAM-proximal 5' end. The final score is clamped to `>= 0`.
 
@@ -109,7 +108,7 @@ context it was computed from) on every qualifying candidate and can rank by it
 | `SeedGcContent` | `double` | GC percentage of the seed region |
 | `HasPolyT` | `bool` | Whether the guide contains `TTTT` |
 | `SelfComplementarityScore` | `double` | The library's own normalised complementary-pair fraction (**unsourced heuristic**: divides by n² although n(n+1)/2 pairs are compared); reported for backward compatibility, **no longer part of `Score`** (B08 E3). The sourced measure is `SelfComplementaryStems` |
-| `Score` | `double` | Composite guide-quality score; **this library's own heuristic** (all weights unsourced except the 1-point-per-stem self-complementarity deduction, CHOPCHOP `SCORE['FOLDING']`) — use `OnTargetScore` (Rule Set 2) for a published efficacy estimate |
+| `Score` | `double` | Composite quality number `clamp(100 − penalty, 0, 100)` with CHOPCHOP's penalty weights (1 per stem; flat 300 for a GC outside the window when `ScoreGcContent`); TTTT / seed GC / cloning site are issues only (B08 round 3 G5) — use `OnTargetScore` (Rule Set 2) for a published efficacy estimate |
 | `Issues` | `IReadOnlyList<string>` | Human-readable issues recorded during evaluation |
 | `System` | `CrisprSystem` | The CRISPR system the guide was evaluated for; designed guides carry the system of their own `PamSite` (SpCas9-NAG, SpCas9-NGA, SaCas9, SaCas9-NNGRRN, AsCas12a, LbCas12a, CasX keep their own PAM, guide length and seed orientation — B08 F4) |
 | `SelfComplementaryStems` | `int` | CHOPCHOP's 4-bp self-complementary stem count (`CountSelfComplementaryStems`); drives the `Score` deduction and the optional `MaxSelfComplementaryStems` filter |
@@ -130,7 +129,7 @@ context it was computed from) on every qualifying candidate and can rank by it
 2. Find PAM sites in the requested region.
 3. Extract each candidate guide sequence from the PAM-adjacent target interval.
 4. Compute GC content, seed-region GC, poly-T presence, self-complementarity, and restriction-site presence.
-5. Apply the heuristic score deductions from a base score of `100`.
+5. Convert CHOPCHOP's penalty sum (stem count, flat GC penalty) into `Score = clamp(100 − penalty, 0, 100)`; list TTTT, seed-GC and cloning-site observations in `Issues`.
 6. Yield only candidates whose score meets the configured minimum threshold.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
@@ -141,7 +140,7 @@ Guide-design defaults confirmed in source:
 |-----------|---------|-------------|
 | `MinGcContent` | `40` | Minimum acceptable GC percentage |
 | `MaxGcContent` | `70` | Maximum acceptable GC percentage |
-| `MinScore` | `50` | Minimum score for `DesignGuideRnas(...)` output |
+| `MinScore` | `50` | Minimum score for `DesignGuideRnas(...)` output. **Not from any tool** (CHOPCHOP/CRISPOR have no score threshold); for a 20-nt guide any value 1-84 selects exactly the guides inside the GC window |
 | `AvoidPolyT` | `true` | When `true` a `TTTT` run deducts `20` and is flagged; when `false` neither happens (`HasPolyT` is still reported) — B08 F8 |
 | `CheckSelfComplementarity` | `true` | When `true` each CHOPCHOP stem deducts `1` and is flagged; when `false` no deduction is made (CHOPCHOP `-SC/--noScoreSelfComp`); `SelfComplementaryStems` is still reported — B08 F8/F69 |
 | `Ranking` | `Score` | Order of `DesignGuideRnas` output: descending `Score`, or descending `OnTargetScore` with `GuideRnaRanking.OnTargetRuleSet2` (candidates without a context rank last); ties by position, then forward strand first |
@@ -171,7 +170,7 @@ Guide-design defaults confirmed in source:
 
 ### 5.2 Current Behavior
 
-The current implementation matches the documented `40-70%` GC window, penalizes `TTTT` poly-T sequences, uses a 10-base seed region, and reports issues when the seed GC falls outside `30-80%`. `DesignGuideRnas(...)` first filters PAM sites by a cut-site-in-region check and then evaluates the extracted guide. Standalone evaluation accepts non-standard guide lengths and scores them naturally from their composition, while designed guides follow the guide length of the selected CRISPR system for PAM-adjacent extraction. The guide-design pipeline passes `pamSite.System` straight into the shared evaluation core, so each designed candidate is scored with its own system's guide length and seed orientation (the earlier name-based remap to `SpCas9` is gone — B08 F4). The reported `Position` is copied from `pamSite.TargetStart`, which is a forward-strand coordinate on both strands (see `PAM_Site_Detection.md`). The `AvoidPolyT` and `CheckSelfComplementarity` parameter flags are honoured: each penalty is applied only when its flag is set (B08 F8). The derived `FullGuideRna` appends a fixed scaffold sequence to the spacer.
+The current implementation matches the documented `40-70%` GC window, reports `TTTT` poly-T sequences (issue only, as CRISPOR does), uses a 10-base seed region, and reports an issue when the seed GC falls outside `30-80%` (no score effect). `DesignGuideRnas(...)` first filters PAM sites by a cut-site-in-region check and then evaluates the extracted guide. Standalone evaluation accepts non-standard guide lengths and scores them naturally from their composition, while designed guides follow the guide length of the selected CRISPR system for PAM-adjacent extraction. The guide-design pipeline passes `pamSite.System` straight into the shared evaluation core, so each designed candidate is scored with its own system's guide length and seed orientation (the earlier name-based remap to `SpCas9` is gone — B08 F4). The reported `Position` is copied from `pamSite.TargetStart`, which is a forward-strand coordinate on both strands (see `PAM_Site_Detection.md`). The `AvoidPolyT` and `CheckSelfComplementarity` parameter flags are honoured: each penalty is applied only when its flag is set (B08 F8). The derived `FullGuideRna` appends a fixed scaffold sequence to the spacer.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -183,7 +182,7 @@ The current implementation matches the documented `40-70%` GC window, penalizes 
 
 **Intentionally simplified:**
 
-- The `EvaluateGuideRna` quality score is composition-based rather than position-weighted or experimentally fitted; **consequence:** it ranks candidates heuristically and does not itself reproduce learned activity models — for experimentally-calibrated on-target efficacy call the dedicated `CalculateOnTargetDoench2014` (Rule Set 1) or `CalculateOnTargetRuleSet2` (Rule Set 2 / Azimuth) over the 30-nt context.
+- The `EvaluateGuideRna` quality score is CHOPCHOP's composition penalty sum (stems, GC window) rather than position-weighted or experimentally fitted; **consequence:** it ranks candidates heuristically and does not itself reproduce learned activity models — for experimentally-calibrated on-target efficacy call the dedicated `CalculateOnTargetDoench2014` (Rule Set 1) or `CalculateOnTargetRuleSet2` (Rule Set 2 / Azimuth) over the 30-nt context.
 - The seed region is fixed to 10 nt using the upper bound of the cited `8-10` range; **consequence:** guides are evaluated with one fixed PAM-proximal window rather than a variable seed definition.
 - ~~Designed-candidate metadata is only partially system-specific / some named systems share `SpCas9` metadata~~ — **withdrawn (B08 F4):** `PamSite` carries its real `System` and the evaluation uses it, so seed orientation and guide length follow the selected system.
 - ~~`AvoidPolyT` and `CheckSelfComplementarity` are not honored~~ — **withdrawn (B08 F8):** both opt-outs are honoured.
@@ -205,8 +204,8 @@ The current implementation matches the documented `40-70%` GC window, penalizes 
 | `regionStart < 0` | Throws `ArgumentOutOfRangeException` | Explicit source guard |
 | `regionEnd` outside sequence bounds | Throws `ArgumentOutOfRangeException` | Explicit source guard |
 | Guide length not equal to 20 bp in standalone evaluation | Accepted and scored naturally | The standalone evaluator does not enforce system length |
-| All-A guide | Valid but low-scoring | GC penalties and issue reporting apply |
-| All-G/C guide | Valid but low-scoring | High-GC penalties and issue reporting apply |
+| All-A guide | Valid; Score 0 (GC outside the window: CHOPCHOP's flat 300) | issue reporting applies |
+| All-G/C guide | Valid; Score 0 (GC 100 %: flat 300; with `ScoreGcContent = false`, 100 − stems) | issue reporting applies |
 | Guide containing `TTTT` | Penalized and flagged (unless `AvoidPolyT = false`) | Poly-T detection is part of the score; `HasPolyT` is reported either way |
 
 ### 6.2 Limitations

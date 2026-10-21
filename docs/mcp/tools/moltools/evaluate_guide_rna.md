@@ -14,11 +14,11 @@ Score a single guide RNA against on-target quality heuristics.
 
 ## Description
 
-Evaluates a single guide RNA and returns a candidate record: overall GC%, seed-region GC% (last 10 nt for Cas9-like, first 10 nt for Cas12a-like), polyT (Pol III terminator) presence, self-complementarity score, a 0..100 quality score, and an issues list. The composite score is this library's own heuristic with unsourced weights, except that each CHOPCHOP self-complementary 4-bp stem (`selfComplementaryStems`) deducts 1 point, as in CHOPCHOP's `SCORE['FOLDING']`; the legacy `selfComplementarityScore` is an unsourced fraction that is reported only. The guide must contain only A/C/G/T (`U` is read as `T`, case is folded ASCII-only); anything else, IUPAC codes included, is rejected. For ad-hoc evaluation `position` is `-1` and `isForwardStrand` is `true`.
+Evaluates a single guide RNA and returns a candidate record: overall GC%, seed-region GC% (last 10 nt for Cas9-like, first 10 nt for Cas12a-like), polyT (Pol III terminator) presence, self-complementarity score, a 0..100 quality score, and an issues list. The composite score is CHOPCHOP's own penalty sum shown as `clamp(100 − penalty, 0, 100)`: 1 point per CHOPCHOP self-complementary 4-bp stem (`selfComplementaryStems`, `SCORE['FOLDING']`) plus CHOPCHOP's flat `SCORE['CRISPR_BAD_GC'] = 300` (score 0) for a GC outside `minGcContent`..`maxGcContent` (default 40–70; `scoreGcContent = false` reproduces CHOPCHOP's default of no GC term). TTTT, seed GC and common cloning sites are reported in `issues` only (no score effect, as in CRISPOR). The legacy `selfComplementarityScore` is an unsourced fraction that is reported only. The guide must contain only A/C/G/T (`U` is read as `T`, case is folded ASCII-only); anything else, IUPAC codes included, is rejected. For ad-hoc evaluation `position` is `-1` and `isForwardStrand` is `true`.
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L253](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L253)
+- Source: [CrisprDesigner.cs#L271](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L271)
 
 ## Input Schema
 

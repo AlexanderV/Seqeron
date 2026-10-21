@@ -42,9 +42,10 @@ public class CrisprDesigner_GuideRNA_Tests
     }
 
     /// <summary>
-    /// M-002: 0% GC → strong penalty: (40-0)×2 = 80, plus seed GC 0% → −5.
-    /// Evidence: Wikipedia — "GC content of sgRNA should optimally be over 50%."
-    /// Score: 100 − 80 − 5 = 15.
+    /// M-002: 0% GC is outside CHOPCHOP's GC window → flat <c>SCORE['CRISPR_BAD_GC'] = 300</c> penalty
+    /// (clamped: Score 0); the seed GC 0% is reported as an issue only.
+    /// Evidence: Wikipedia — "GC content of sgRNA should optimally be over 50%."; chopchop.py calcGCContent.
+    /// Score: clamp(100 − 300, 0, 100) = 0 (oracle: chopchop.py scoring lines, see TestSpec).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_LowGcContent_LowerScore()
@@ -52,7 +53,7 @@ public class CrisprDesigner_GuideRNA_Tests
         string guide = "AAAAAAAAAAAAAAAAAAAA"; // 0% GC
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.EqualTo(15));
+        Assert.That(candidate.Score, Is.EqualTo(0));
         Assert.That(candidate.GcContent, Is.EqualTo(0));
         Assert.That(candidate.SeedGcContent, Is.EqualTo(0));
         Assert.That(candidate.HasPolyT, Is.False);
@@ -62,8 +63,7 @@ public class CrisprDesigner_GuideRNA_Tests
     }
 
     /// <summary>
-    /// M-003: 100% GC → penalty: (100-70)×2 = 60, plus seed GC 100% → −5.
-    /// Score: 100 − 60 − 5 − 11 (the guide's 11 CHOPCHOP self-complementary stems, E3) = 24.
+    /// M-003: 100% GC → CHOPCHOP's flat 300 penalty + 11 stems = 311 → Score 0; seed GC 100% is an issue only.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_HighGcContent_LowerScore()
@@ -71,7 +71,7 @@ public class CrisprDesigner_GuideRNA_Tests
         string guide = "GCGCGCGCGCGCGCGCGCGC"; // 100% GC, 11 CHOPCHOP stems
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.EqualTo(24)); // 100 − 60 (GC) − 5 (seed GC) − 11 (stems)
+        Assert.That(candidate.Score, Is.EqualTo(0)); // clamp(100 − (300 + 11), 0, 100)
         Assert.That(candidate.GcContent, Is.EqualTo(100));
         Assert.That(candidate.SeedGcContent, Is.EqualTo(100));
         Assert.That(candidate.HasPolyT, Is.False);
@@ -81,10 +81,10 @@ public class CrisprDesigner_GuideRNA_Tests
     }
 
     /// <summary>
-    /// M-004: PolyT (TTTT) detected → −20 penalty.
+    /// M-004: PolyT (TTTT) detected → reported as an issue; no score effect (CRISPOR warns only).
     /// Evidence: Addgene — "RNA polymerase III terminates at poly-T sequences."
     /// Input: "ACGTACGTTTTTACGTACGT" — 40% GC (no GC penalty), polyT present.
-    /// Score: 100 − 20 = 80.
+    /// Score: 100 − 5 (stems) = 95.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_HasPolyT_Penalized()
@@ -92,7 +92,7 @@ public class CrisprDesigner_GuideRNA_Tests
         string guide = "ACGTACGTTTTTACGTACGT"; // 40% GC, contains 5 consecutive T's, 5 CHOPCHOP stems
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.EqualTo(75)); // 100 − 20 (polyT) − 5 (stems)
+        Assert.That(candidate.Score, Is.EqualTo(95)); // 100 − 5 (stems); TTTT is report-only
         Assert.That(candidate.GcContent, Is.EqualTo(40));
         Assert.That(candidate.HasPolyT, Is.True);
         Assert.That(candidate.Issues, Has.Count.EqualTo(2));
@@ -166,10 +166,10 @@ public class CrisprDesigner_GuideRNA_Tests
     #region SHOULD Tests - Guide RNA Evaluation
 
     /// <summary>
-    /// S-001: Restriction site penalty (−5).
+    /// S-001: Restriction site is reported as an issue (no score effect).
     /// Evidence: Common restriction sites interfere with cloning.
     /// Input: "ACGTGAATTCACGTACGTAC" — 45% GC, contains EcoRI site (GAATTC).
-    /// Score: 100 − 5 = 95.
+    /// Score: 100 − 3 (stems) = 97; the site is report-only.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_RestrictionSite_Penalized()
@@ -177,7 +177,7 @@ public class CrisprDesigner_GuideRNA_Tests
         string guide = "ACGTGAATTCACGTACGTAC"; // Contains GAATTC (EcoRI); 3 CHOPCHOP stems
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.EqualTo(92)); // 100 − 5 (site) − 3 (stems)
+        Assert.That(candidate.Score, Is.EqualTo(97)); // 100 − 3 (stems); the site is report-only
         Assert.That(candidate.GcContent, Is.EqualTo(45));
         Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues[0], Does.Contain("restriction site"));
@@ -187,7 +187,7 @@ public class CrisprDesigner_GuideRNA_Tests
     /// S-002: Seed GC content is calculated from last 10bp.
     /// Evidence: Addgene — seed region (8-10bp at 3') initiates annealing; implementation uses 10bp upper bound.
     /// Input: "AAAAAAAAAAAAACGTACGT" — overall GC 20%, seed (last 10) GC 40%.
-    /// Score: 100 − (40−20)×2 = 60 (Low GC penalty only; seed in [30,80]).
+    /// Score: 0 (GC 20% is outside the window: CHOPCHOP's flat 300 penalty; seed in [30,80], no seed issue).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_CalculatesSeedGc()
@@ -197,7 +197,7 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(candidate.SeedGcContent, Is.EqualTo(40));
         Assert.That(candidate.GcContent, Is.EqualTo(20));
-        Assert.That(candidate.Score, Is.EqualTo(60));
+        Assert.That(candidate.Score, Is.EqualTo(0));
         Assert.That(candidate.Issues, Has.Count.EqualTo(1));
         Assert.That(candidate.Issues[0], Does.Contain("Low GC"));
     }
@@ -253,7 +253,7 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(candidate.HasPolyT, Is.True);
         Assert.That(candidate.GcContent, Is.EqualTo(40));
-        Assert.That(candidate.Score, Is.EqualTo(76)); // 100 − 20 (polyT) − 4 (stems)
+        Assert.That(candidate.Score, Is.EqualTo(96)); // 100 − 4 (stems); TTTT is report-only
         Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues[0], Does.Contain("TTTT"));
     }
@@ -282,10 +282,10 @@ public class CrisprDesigner_GuideRNA_Tests
     }
 
     /// <summary>
-    /// S-010: Suboptimal seed GC (low) → −5 penalty.
+    /// S-010: Suboptimal seed GC (low) → issue only (no score effect).
     /// Evidence: Seed region (last 10bp) GC outside 30-80% → penalty.
     /// Input: "GCGCGCGCGCAAAAAAAAAA" — overall GC 50% (no GC penalty), seed GC 0% (all A's) → −5.
-    /// Score: 100 − 5 = 95.
+    /// Score: 100 − 1 (stem) = 99.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_SeedGcLow_Penalized()
@@ -295,16 +295,16 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(candidate.GcContent, Is.EqualTo(50));
         Assert.That(candidate.SeedGcContent, Is.EqualTo(0));
-        Assert.That(candidate.Score, Is.EqualTo(94)); // 100 − 5 (seed GC) − 1 (stem)
+        Assert.That(candidate.Score, Is.EqualTo(99)); // 100 − 1 (stem); seed GC is report-only
         Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues[0], Does.Contain("Suboptimal seed region GC"));
     }
 
     /// <summary>
-    /// S-011: Suboptimal seed GC (high) → −5 penalty.
+    /// S-011: Suboptimal seed GC (high) → issue only (no score effect).
     /// Evidence: Seed region (last 10bp) GC outside 30-80% → penalty.
     /// Input: "AAAAAAAAAAGGGGGGGGGG" — overall GC 50%, seed GC 100% (all G) → −5.
-    /// Score: 100 − 5 = 95.
+    /// Score: 100 (0 stems).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_SeedGcHigh_Penalized()
@@ -314,7 +314,7 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(candidate.GcContent, Is.EqualTo(50));
         Assert.That(candidate.SeedGcContent, Is.EqualTo(100));
-        Assert.That(candidate.Score, Is.EqualTo(95));
+        Assert.That(candidate.Score, Is.EqualTo(100));
         Assert.That(candidate.Issues, Has.Count.EqualTo(1));
         Assert.That(candidate.Issues[0], Does.Contain("Suboptimal seed region GC"));
     }
@@ -398,21 +398,25 @@ public class CrisprDesigner_GuideRNA_Tests
         var result = CrisprDesigner.EvaluateGuideRna("GCGCGCGCGCGCGCGCGCGC", CrisprSystemType.SpCas9);
 
         Assert.That(result.SelfComplementaryStems, Is.EqualTo(11));
-        Assert.That(result.Score, Is.EqualTo(100 - 60 - 11 * CrisprDesigner.SelfComplementarityStemPenalty - 5));
-        Assert.That(result.Score, Is.EqualTo(24));
+        // chopchop.py: 11 stems x SCORE['FOLDING'] (1) + SCORE['CRISPR_BAD_GC'] (300, GC 100%) = 311 -> clamp -> 0
+        Assert.That(result.Score, Is.EqualTo(0));
+        var gcTermOff = CrisprDesigner.EvaluateGuideRna("GCGCGCGCGCGCGCGCGCGC", CrisprSystemType.SpCas9,
+            GuideRnaParameters.Default with { ScoreGcContent = false });
+        Assert.That(gcTermOff.Score, Is.EqualTo(100 - 11 * CrisprDesigner.SelfComplementarityStemPenalty));
+        Assert.That(gcTermOff.Score, Is.EqualTo(89), "CHOPCHOP default (GC term off): 100 - 11 stems");
         Assert.That(result.Issues, Has.Some.Contains("11 self-complementary 4-bp stems"));
 
         var control = CrisprDesigner.EvaluateGuideRna("GCGCGCGC", CrisprSystemType.SpCas9);
 
         Assert.That(control.SelfComplementaryStems, Is.EqualTo(0));
         Assert.That(control.SelfComplementarityScore, Is.EqualTo(0.3125), "the legacy fraction is still reported");
-        Assert.That(control.Score, Is.EqualTo(100 - 60 - 5));
+        Assert.That(control.Score, Is.EqualTo(0), "100% GC: CHOPCHOP's flat 300 penalty, 0 stems");
         Assert.That(control.Issues.Any(i => i.Contains("self-complementary")), Is.False);
     }
 
     /// <summary>
-    /// C-002: All-T guide — maximal penalties: low GC + polyT + seed GC → clamped to 0.
-    /// Score: 100 − 80(GC) − 20(polyT) − 5(seedGC) = −5 → clamped to 0.
+    /// C-002: All-T guide — GC 0% is outside the window (CHOPCHOP flat 300 → clamped to 0); polyT and
+    /// seed GC are reported as issues only.
     /// The guide also ends in TTT, i.e. the Graf et al. 2019 "TT-motif", which is reported as a
     /// fourth issue without a score deduction (CRISPOR warns only).
     /// </summary>
@@ -499,7 +503,7 @@ public class CrisprDesigner_GuideRNA_Tests
     /// <summary>
     /// C-007: GC just below 40% boundary triggers Low GC issue.
     /// Input: "AAAAAAAAAAAAGCGCGCAT" — 6 G/C of 20 = 30% GC.
-    /// Score: 100 − (40−30)×2 = 80.
+    /// Score: 0 (outside the window → flat 300).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_BelowBoundaryGc_HasLowGcIssue()
@@ -508,7 +512,7 @@ public class CrisprDesigner_GuideRNA_Tests
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.GcContent, Is.EqualTo(30));
-        Assert.That(candidate.Score, Is.EqualTo(80));
+        Assert.That(candidate.Score, Is.EqualTo(0));
         Assert.That(candidate.Issues, Has.Count.EqualTo(1));
         Assert.That(candidate.Issues[0], Does.Contain("Low GC"));
     }
@@ -533,7 +537,7 @@ public class CrisprDesigner_GuideRNA_Tests
     /// <summary>
     /// C-009: GC above 70% boundary triggers High GC issue.
     /// Input: "GCGCGCGCGCGCGCGCAAAA" — 16 G/C of 20 = 80% GC.
-    /// Score: 100 − (80−70)×2 = 80.
+    /// Score: 0 (outside the window → flat 300, plus 7 stems).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_AboveBoundaryGc_HasHighGcIssue()
@@ -542,7 +546,7 @@ public class CrisprDesigner_GuideRNA_Tests
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.GcContent, Is.EqualTo(80));
-        Assert.That(candidate.Score, Is.EqualTo(73)); // 100 − 20 (GC (80−70)×2) − 7 (stems)
+        Assert.That(candidate.Score, Is.EqualTo(0)); // clamp(100 − (300 + 7), 0, 100)
         Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues[0], Does.Contain("High GC"));
     }
@@ -652,13 +656,13 @@ public class CrisprDesigner_GuideRNA_Tests
     /// <summary>
     /// S-015: the designed list is ranked best-first, as CRISPOR sorts its guide table
     /// (<c>crispor.py mergeGuideInfo</c>: <c>guideData.sort(reverse=True, key=…)</c>).
-    /// Input plants three PAMs whose protospacers score 100 (50% GC), 80 (30% GC) and 0 (all-T).
+    /// Input plants three PAMs whose protospacers score 100 (50% GC, 0 stems), 90 (10 stems) and 0 (all-T, GC outside the window).
     /// </summary>
     [Test]
     public void DesignGuideRnas_Output_IsRankedByScoreDescending()
     {
         var sequence = new DnaSequence(
-            "AAAAAAAAAAAAGCGCGCATAGG" +      // 30% GC -> 80
+            "CGTAACGTGCTTGCAACTGAAGG" +      // 50% GC, 0 stems -> 100 (no CC: no reverse-strand PAM)
             "TTTTTTTTTTTTTTTTTTTTCGG" +      // all-T  -> 0
             "ACGTACGTACGTACGTACGTTGG");      // 50% GC, 10 CHOPCHOP stems -> 90
 
@@ -666,8 +670,8 @@ public class CrisprDesigner_GuideRNA_Tests
             sequence, 0, sequence.Length - 1, CrisprSystemType.SpCas9,
             GuideRnaParameters.Default with { MinScore = 0 }).ToList();
 
-        Assert.That(guides.Select(g => g.Score), Is.EqualTo(new[] { 90.0, 80.0, 0.0 }));
-        Assert.That(guides[0].Sequence, Is.EqualTo("ACGTACGTACGTACGTACGT"));
+        Assert.That(guides.Select(g => g.Score), Is.EqualTo(new[] { 100.0, 90.0, 0.0 }));
+        Assert.That(guides[0].Sequence, Is.EqualTo("CGTAACGTGCTTGCAACTGA"));
         Assert.That(guides[^1].Sequence, Is.EqualTo("TTTTTTTTTTTTTTTTTTTT"));
     }
 
@@ -721,12 +725,12 @@ public class CrisprDesigner_GuideRNA_Tests
     }
 
     /// <summary>
-    /// S-017: <see cref="GuideRnaParameters.AvoidPolyT"/> = <c>false</c> disables the TTTT penalty and
-    /// its issue while the measurement <see cref="GuideRnaCandidate.HasPolyT"/> is still reported.
+    /// S-017: <see cref="GuideRnaParameters.AvoidPolyT"/> = <c>false</c> disables the TTTT issue (TTTT never
+    /// affected the score after B08 round 3 G5; CRISPOR only warns) while the measurement <see cref="GuideRnaCandidate.HasPolyT"/> is still reported.
     /// Repro of the defect: the flag was stored but never read, so M-004's guide still scored 80.
     /// </summary>
     [Test]
-    public void EvaluateGuideRna_AvoidPolyTFalse_DisablesThePolyTPenalty()
+    public void EvaluateGuideRna_AvoidPolyTFalse_DisablesThePolyTIssue_ScoreUnchanged()
     {
         const string guide = "ACGTACGTTTTTACGTACGT"; // 40% GC, contains TTTTT
 
@@ -735,8 +739,9 @@ public class CrisprDesigner_GuideRNA_Tests
         var off = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9,
             GuideRnaParameters.Default with { AvoidPolyT = false });
 
-        Assert.That(on.Score, Is.EqualTo(75)); // 100 − 20 (polyT) − 5 (stems)
-        Assert.That(off.Score, Is.EqualTo(95)); // 100 − 5 (the guide has 5 CHOPCHOP stems)
+        Assert.That(on.Score, Is.EqualTo(95)); // 100 − 5 (stems); TTTT is report-only
+        Assert.That(off.Score, Is.EqualTo(95)); // identical: the flag only controls the issue
+        Assert.That(on.Issues, Has.Some.Contains("TTTT"));
         Assert.That(off.HasPolyT, Is.True);
         Assert.That(off.Issues, Has.None.Contains("TTTT"));
     }
@@ -755,8 +760,8 @@ public class CrisprDesigner_GuideRNA_Tests
         var off = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9,
             wide with { CheckSelfComplementarity = false });
 
-        Assert.That(on.Score, Is.EqualTo(100 - 11 - 5));
-        Assert.That(off.Score, Is.EqualTo(95));
+        Assert.That(on.Score, Is.EqualTo(100 - 11));
+        Assert.That(off.Score, Is.EqualTo(100));
         Assert.That(off.SelfComplementaryStems, Is.EqualTo(11), "the measurement is still reported");
         Assert.That(off.SelfComplementarityScore, Is.EqualTo(0.275), "the legacy fraction is unchanged and still reported");
         Assert.That(off.Issues, Has.Count.EqualTo(1));
@@ -1120,6 +1125,84 @@ public class CrisprDesigner_GuideRNA_Tests
         Assert.That(bb.Score, Is.EqualTo(none.Score - stemsWithBackbone), "the backbone stems are penalised too");
     }
 
+    /// <summary>
+    /// B08 round 3 G5 oracle. Expected values are the output of CHOPCHOP's own scoring lines
+    /// (<c>chopchop.py</c> sha256 3c7a4344...0d5960: <c>calcGCContent</c> body, <c>selfComp</c>, <c>SCORE</c>,
+    /// <c>GC_LOW = 40</c>, <c>GC_HIGH = 70</c>) run verbatim in Python 3 + Biopython 1.88 on each guide:
+    /// <c>penalty = stems x 1 + (300 if GC &gt; 70 or GC &lt; 40)</c>; Score = clamp(100 - penalty, 0, 100).
+    /// Columns: guide, GC %, stems, penalty with the GC term on, penalty with it off.
+    /// </summary>
+    [TestCase("AGTAGAATTAGACAAAATAA", 20.0, 0, 300, 0)]
+    [TestCase("ATATTCTAAATGTCTTCAAC", 25.0, 0, 300, 0)]
+    [TestCase("CTCACTCATCACGTATAAAA", 35.0, 0, 300, 0)]
+    [TestCase("TCCGATCCGTCTTATAATAG", 40.0, 0, 0, 0)]       // lower edge inclusive
+    [TestCase("AAATCATTGCCTCACTACGC", 45.0, 0, 0, 0)]
+    [TestCase("ACGTACGTACGTACGTACGT", 50.0, 10, 10, 10)]
+    [TestCase("GGACAAGGGGGTGATGACGA", 60.0, 0, 0, 0)]
+    [TestCase("GATCCGCGCGAGACCCTGAG", 70.0, 0, 0, 0)]       // upper edge inclusive
+    [TestCase("CTCGGGCCTGGCGGGGTAAG", 75.0, 0, 300, 0)]
+    [TestCase("GTGCGATGCGCCCCCGACGC", 80.0, 0, 300, 0)]
+    [TestCase("GCGCGCGCGCGCGCGCGCGC", 100.0, 11, 311, 11)]
+    [TestCase("TTTTTTTTTTTTTTTTTTTT", 0.0, 0, 300, 0)]      // TTTT: report-only
+    [TestCase("ACGTACGTTTTTACGTACGT", 40.0, 5, 5, 5)]       // TTTT inside the window: report-only
+    [TestCase("AAAAAAAAAAGGGGGGGGGG", 50.0, 0, 0, 0)]       // seed GC 100 %: report-only
+    [TestCase("GGGGGGGGGGAAAAAAAAAA", 50.0, 0, 0, 0)]       // seed GC 0 %: report-only
+    [TestCase("GAATTCGACGTCAGCGATCG", 55.0, 0, 0, 0)]       // EcoRI site: report-only
+    public void EvaluateGuideRna_Score_MatchesChopchopPenaltyOracle(
+        string guide, double gc, int stems, int penaltyGcOn, int penaltyGcOff)
+    {
+        var on = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
+        var off = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9,
+            GuideRnaParameters.Default with { ScoreGcContent = false });
+
+        Assert.That(on.GcContent, Is.EqualTo(gc).Within(1e-9));
+        Assert.That(on.SelfComplementaryStems, Is.EqualTo(stems));
+        Assert.That(on.Score, Is.EqualTo(Math.Clamp(100.0 - penaltyGcOn, 0, 100)));
+        Assert.That(off.Score, Is.EqualTo(Math.Clamp(100.0 - penaltyGcOff, 0, 100)));
+        Assert.That(on.Issues.Any(i => i.Contains("GC content")), Is.EqualTo(gc < 40 || gc > 70),
+            "the GC window is reported as an issue whatever the score switch says");
+        Assert.That(off.Issues.Any(i => i.Contains("GC content")), Is.EqualTo(gc < 40 || gc > 70));
+    }
+
+    /// <summary>
+    /// The composition flags that CHOPCHOP does not score (TTTT, seed GC, cloning site) change the issue list
+    /// only, never the score.
+    /// </summary>
+    [Test]
+    public void EvaluateGuideRna_TtttSeedGcCloningSite_AreIssuesOnly()
+    {
+        var plain = CrisprDesigner.EvaluateGuideRna("AAATCATTGCCTCACTACGC", CrisprSystemType.SpCas9);
+        var tttt = CrisprDesigner.EvaluateGuideRna("ACGTACGTTTTTACGTACGT", CrisprSystemType.SpCas9);
+        var seed = CrisprDesigner.EvaluateGuideRna("AAAAAAAAAAGGGGGGGGGG", CrisprSystemType.SpCas9);
+        var site = CrisprDesigner.EvaluateGuideRna("GAATTCGACGTCAGCGATCG", CrisprSystemType.SpCas9);
+
+        Assert.That(plain.Score, Is.EqualTo(100));
+        Assert.That(plain.Issues, Is.Empty);
+        Assert.That(tttt.Issues, Has.Some.Contains("TTTT"));
+        Assert.That(tttt.Score, Is.EqualTo(100 - tttt.SelfComplementaryStems));
+        Assert.That(seed.Issues, Has.Some.Contains("Suboptimal seed region GC"));
+        Assert.That(seed.Score, Is.EqualTo(100));
+        Assert.That(site.Issues, Has.Some.Contains("restriction site"));
+        Assert.That(site.Score, Is.EqualTo(100));
+    }
+
+    /// <summary>
+    /// <see cref="GuideRnaParameters.ScoreGcContent"/> defaults to <c>true</c> on every construction path; a custom
+    /// window moves the edges but the penalty stays CHOPCHOP's flat 300.
+    /// </summary>
+    [Test]
+    public void GuideRnaParameters_ScoreGcContent_DefaultAndCustomWindow()
+    {
+        Assert.That(GuideRnaParameters.Default.ScoreGcContent, Is.True);
+        Assert.That(new GuideRnaParameters(40, 70, 50, true, true).ScoreGcContent, Is.True);
+        Assert.That(CrisprDesigner.BadGcContentPenalty, Is.EqualTo(300.0));
+
+        // 80 % GC, 0 stems: outside the default window, inside a widened one.
+        var wide = new GuideRnaParameters(30, 85, 50, true, true);
+        Assert.That(CrisprDesigner.EvaluateGuideRna("GTGCGATGCGCCCCCGACGC", CrisprSystemType.SpCas9).Score, Is.EqualTo(0));
+        Assert.That(CrisprDesigner.EvaluateGuideRna("GTGCGATGCGCCCCCGACGC", CrisprSystemType.SpCas9, wide).Score, Is.EqualTo(100));
+    }
+
     /// <summary>The legacy pair fraction is reported but no longer enters the score.</summary>
     [Test]
     public void EvaluateGuideRna_LegacySelfComplementarityScore_DoesNotEnterTheScore()
@@ -1130,7 +1213,7 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(c.SelfComplementarityScore, Is.EqualTo(0.3125));
         Assert.That(c.SelfComplementaryStems, Is.EqualTo(0));
-        Assert.That(c.Score, Is.EqualTo(95), "only the seed-GC deduction of 5 applies");
+        Assert.That(c.Score, Is.EqualTo(100), "0 stems: nothing is deducted (the seed-GC flag is report-only)");
     }
 
     [TestCase("XXXXXXXXXXXXXXXXXXXX")]

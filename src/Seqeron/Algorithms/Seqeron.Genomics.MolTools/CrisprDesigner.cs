@@ -233,17 +233,35 @@ public static class CrisprDesigner
     /// </returns>
     /// <remarks>
     /// <para>
-    /// <b>The composite <see cref="GuideRnaCandidate.Score"/> is this library's own heuristic, not a
-    /// published model.</b> It starts at 100 and subtracts: <c>2 × GC-window excess</c> (the 40–70 % window is
-    /// CHOPCHOP's <c>GC_LOW/GC_HIGH</c>, the weight 2 is not sourced), 20 for <c>TTTT</c>, 5 for a seed GC
-    /// outside 30–80 %, 5 for a common cloning site (all unsourced weights), and
-    /// <see cref="SelfComplementarityStemPenalty"/> per self-complementary stem. Only that last weight is
-    /// sourced: CHOPCHOP's <c>calcSelfComplementarity</c> ends in <c>self.score += self.folding * SCORE['FOLDING']</c>
-    /// with <c>SCORE['FOLDING'] = 1</c> (a penalty scale, sorted ascending) and the folding being the 4-bp stem
-    /// count of <see cref="CountSelfComplementaryStems"/>; <see cref="GuideRnaParameters.CheckSelfComplementarity"/>
-    /// = <c>false</c> is CHOPCHOP's <c>-SC/--noScoreSelfComp</c>. The other terms and the way they are summed
-    /// are not from any tool, so use the score for triage ordering, and
-    /// <see cref="GuideRnaCandidate.OnTargetScore"/> (Rule Set 2) for a published efficacy estimate.
+    /// <b>The composite <see cref="GuideRnaCandidate.Score"/> is CHOPCHOP's own penalty sum, shown as a
+    /// quality number.</b> CHOPCHOP (<c>chopchop.py</c>) ranks guides by an ascending <i>penalty</i>
+    /// (<c>sort_CRISPR_guides</c> = <c>sorted(guides, key=attrgetter('score'))</c>) to which two composition terms
+    /// contribute: <c>self.score += self.folding * SCORE['FOLDING']</c> (<c>SCORE['FOLDING'] = 1</c>, the 4-bp stem
+    /// count of <see cref="CountSelfComplementaryStems"/>) and, in <c>calcGCContent</c>,
+    /// <c>if GCcontent &gt; GC_HIGH or GCcontent &lt; GC_LOW: self.score += SCORE['CRISPR_BAD_GC']</c>
+    /// (<c>GC_LOW = 40</c>, <c>GC_HIGH = 70</c>, <c>SCORE['CRISPR_BAD_GC'] = 300</c>, a flat amount, not proportional
+    /// to the excess). This method returns <c>clamp(100 − penalty, 0, 100)</c> of that sum, i.e. <c>100 − stems</c>
+    /// plus a drop to 0 for a guide outside the GC window (the 300 exceeds the whole 0–100 range); the
+    /// clamp and the "100 minus" are this library's presentation of the penalty, the two weights are CHOPCHOP's.
+    /// </para>
+    /// <para>
+    /// <b>Two deviations from CHOPCHOP's defaults, both switchable.</b> CHOPCHOP leaves the GC term off in every mode
+    /// (<c>CRISPR_DEFAULT["SCORE_GC"] = False</c>, with the comment "this is already scored in many models!"; the only
+    /// CLI flag, <c>-c</c>, is <c>store_false</c>, so the command line cannot switch it on); here
+    /// <see cref="GuideRnaParameters.ScoreGcContent"/> is <c>true</c> by default because this composite has no
+    /// efficiency model to cover GC, and <c>false</c> reproduces CHOPCHOP's default. The stem term is on, as in CHOPCHOP,
+    /// and <see cref="GuideRnaParameters.CheckSelfComplementarity"/> = <c>false</c> is its <c>-SC/--noScoreSelfComp</c>.
+    /// Weights, window edges (inclusive: exactly 40 % and 70 % are not penalised) and the GC formula
+    /// (G+C over the protospacer length, PAM excluded) were checked against <c>chopchop.py</c> and are locked by
+    /// oracle tests.
+    /// </para>
+    /// <para>
+    /// <b>Report-only observations (no effect on the score).</b> <c>TTTT</c> (CRISPOR <c>crispor.py</c> prints "It cannot be
+    /// transcribed with a U6 or U3 promoter" as a warning, never a score change; CHOPCHOP has no such term), a seed GC
+    /// outside 30–80 %, a common cloning site, the Graf 2019 motifs, and a GC outside the window are listed in
+    /// <see cref="GuideRnaCandidate.Issues"/> only. The seed-GC bounds and the cloning-enzyme list are this
+    /// library's own convenience flags with no published source. Use <see cref="GuideRnaCandidate.OnTargetScore"/>
+    /// (Rule Set 2) for a published efficacy estimate.
     /// </para>
     /// <para>
     /// The older normalised pair fraction <see cref="GuideRnaCandidate.SelfComplementarityScore"/> is still
@@ -316,52 +334,41 @@ public static class CrisprDesigner
             : seq.Substring(0, Math.Min(10, seq.Length));
         double seedGc = CalculateGcContent(seedRegion);
 
-        // Calculate overall score
+        // Score = clamp(100 - penalty, 0, 100), where `penalty` is CHOPCHOP's ascending penalty sum
+        // (chopchop.py: Guide.calcSelfComplementarity `self.score += self.folding * SCORE['FOLDING']`,
+        // Guide.calcGCContent `self.score += SCORE['CRISPR_BAD_GC']` outside GC_LOW..GC_HIGH).
+        // Everything else is reported in `issues` only (CRISPOR treats TTTT / GC extremes as warnings).
         var issues = new List<string>();
-        double score = 100;
+        double penalty = 0;
 
-        // GC content penalty
-        if (gcContent < effectiveParams.MinGcContent)
+        // GC window (CHOPCHOP: GC_LOW = 40, GC_HIGH = 70, strict comparisons, flat penalty)
+        bool gcOutside = gcContent < effectiveParams.MinGcContent || gcContent > effectiveParams.MaxGcContent;
+        if (gcOutside)
         {
-            score -= (effectiveParams.MinGcContent - gcContent) * 2;
-            issues.Add($"Low GC content ({gcContent:F1}%)");
-        }
-        else if (gcContent > effectiveParams.MaxGcContent)
-        {
-            score -= (gcContent - effectiveParams.MaxGcContent) * 2;
-            issues.Add($"High GC content ({gcContent:F1}%)");
+            issues.Add(gcContent < effectiveParams.MinGcContent
+                ? $"Low GC content ({gcContent:F1}%)"
+                : $"High GC content ({gcContent:F1}%)");
+            if (effectiveParams.ScoreGcContent)
+                penalty += BadGcContentPenalty;
         }
 
-        // PolyT penalty (opt-out via GuideRnaParameters.AvoidPolyT)
+        // TTTT: report only (CRISPOR crispor.py: warning, no score change; CHOPCHOP has no such term).
         if (hasPolyT && effectiveParams.AvoidPolyT)
-        {
-            score -= 20;
             issues.Add("Contains TTTT (potential Pol III terminator)");
-        }
 
-        // Self-complementarity penalty (opt-out via GuideRnaParameters.CheckSelfComplementarity).
-        // Sourced: CHOPCHOP chopchop.py Guide.calcSelfComplementarity ends in
-        // `self.score += self.folding * SCORE['FOLDING']` (SCORE['FOLDING'] = 1; guides are sorted by
-        // ascending score, i.e. a penalty), `folding` being the 4-bp stem count computed above, and the
-        // `-SC/--noScoreSelfComp` flag switches it off. Here a penalty is a deduction from 100.
+        // Self-complementarity penalty (opt-out via GuideRnaParameters.CheckSelfComplementarity = -SC).
         bool stemPenalty = selfCompStems > 0 && effectiveParams.CheckSelfComplementarity;
         if (stemPenalty)
-            score -= selfCompStems * SelfComplementarityStemPenalty;
+            penalty += selfCompStems * SelfComplementarityStemPenalty;
 
-        // Seed region GC penalty
+        // Seed region GC: report only (the 30-80 % bounds are not from any tool).
         if (seedGc < 30 || seedGc > 80)
-        {
-            score -= 5;
             issues.Add($"Suboptimal seed region GC ({seedGc:F1}%)");
-        }
 
-        // Check for restriction sites
+        // Common cloning site: report only (not from any tool).
         bool hasRestrictionSite = HasCommonRestrictionSite(seq);
         if (hasRestrictionSite)
-        {
-            score -= 5;
             issues.Add("Contains common restriction site");
-        }
 
         // Graf et al. 2019 inefficiency motifs. CRISPOR reports these as a warning for NGG systems
         // ("Inefficient") without altering any score, so no deduction is applied here either.
@@ -388,7 +395,7 @@ public static class CrisprDesigner
             SeedGcContent: seedGc,
             HasPolyT: hasPolyT,
             SelfComplementarityScore: selfCompScore,
-            Score: Math.Max(0, score),
+            Score: Math.Clamp(100 - penalty, 0, 100),
             Issues: issues,
             System: system)
         {
@@ -2360,6 +2367,15 @@ public static class CrisprDesigner
     public const double SelfComplementarityStemPenalty = 1.0;
 
     /// <summary>
+    /// CHOPCHOP's flat penalty for a guide whose GC content is outside the GC window:
+    /// <c>SCORE['CRISPR_BAD_GC'] = 300</c> (<c>chopchop.py</c>, <c>SCORE</c> dictionary), added once in
+    /// <c>calcGCContent</c> when <c>GCcontent &gt; GC_HIGH or GCcontent &lt; GC_LOW</c>. It exceeds the 0–100 range of
+    /// <see cref="GuideRnaCandidate.Score"/>, so a guide outside the window scores 0 when
+    /// <see cref="GuideRnaParameters.ScoreGcContent"/> is on.
+    /// </summary>
+    public const double BadGcContentPenalty = 300.0;
+
+    /// <summary>
     /// The library's own normalised complementary-pair fraction, reported as
     /// <see cref="GuideRnaCandidate.SelfComplementarityScore"/>. <b>Heuristic, no published source</b>: it counts
     /// every position pair <c>(i, i+offset)</c> where <c>seq[i]</c> equals the reverse-complement base, and divides
@@ -2552,6 +2568,18 @@ public enum GrafMotifType
 /// <summary>
 /// Parameters for guide RNA design.
 /// </summary>
+/// <param name="MinGcContent">Lower edge of the GC window in percent (CHOPCHOP <c>GC_LOW</c> = 40).</param>
+/// <param name="MaxGcContent">Upper edge of the GC window in percent (CHOPCHOP <c>GC_HIGH</c> = 70).</param>
+/// <param name="MinScore">
+/// Minimum <see cref="GuideRnaCandidate.Score"/> for <see cref="CrisprDesigner.DesignGuideRnas"/> to return a guide.
+/// <b>Not from any tool</b> (CHOPCHOP and CRISPOR have no score threshold; their filters are the GC window
+/// <c>filterGCmin/filterGCmax</c> and <c>filterSelfCompMax</c>, the latter being <see cref="MaxSelfComplementaryStems"/>).
+/// With <see cref="ScoreGcContent"/> on, the score is <c>100 − stems</c> inside the window and 0 outside, so for a 20-nt
+/// guide (at most 16 stems) every threshold from 1 to 84 selects exactly the guides inside the GC window; the default 50
+/// is a value in that range, kept so existing callers see the same behaviour.
+/// </param>
+/// <param name="AvoidPolyT">Report <c>TTTT</c> in the issues list (no score effect).</param>
+/// <param name="CheckSelfComplementarity">Apply CHOPCHOP's stem penalty (<c>-SC</c> off when <c>false</c>).</param>
 public readonly record struct GuideRnaParameters(
     double MinGcContent,
     double MaxGcContent,
@@ -2583,6 +2611,15 @@ public readonly record struct GuideRnaParameters(
     public IReadOnlyList<string>? SelfComplementarityBackboneRegions { get; init; }
 
     /// <summary>
+    /// Whether a GC content outside <see cref="MinGcContent"/>..<see cref="MaxGcContent"/> adds CHOPCHOP's flat
+    /// <see cref="CrisprDesigner.BadGcContentPenalty"/> (300) to the penalty, i.e. drops
+    /// <see cref="GuideRnaCandidate.Score"/> to 0. Default <c>true</c>. CHOPCHOP itself ships this term <b>off</b> in
+    /// every mode (<c>SCORE_GC = False</c>), so <c>false</c> reproduces CHOPCHOP's default; a GC outside the window is
+    /// then only reported in <see cref="GuideRnaCandidate.Issues"/>.
+    /// </summary>
+    public bool ScoreGcContent { get; init; } = true;
+
+    /// <summary>
     /// Default parameters for guide RNA design. The 40–70% GC acceptance window is the same one the
     /// reference tool CHOPCHOP uses (<c>chopchop.py</c>: <c>GC_LOW = 40</c>, <c>GC_HIGH = 70</c>;
     /// Labun et al., Nucleic Acids Res 44:W272 (2016) / 47:W171 (2019)).
@@ -2610,9 +2647,11 @@ public readonly record struct GuideRnaParameters(
 /// The published measure is <see cref="SelfComplementaryStems"/> (CHOPCHOP).
 /// </param>
 /// <param name="Score">
-/// Composite 0–100 triage score. <b>This library's own heuristic, not a published model</b>: every weight except
-/// the per-stem self-complementarity deduction (<see cref="CrisprDesigner.SelfComplementarityStemPenalty"/>, CHOPCHOP's
-/// <c>SCORE['FOLDING']</c>) is unsourced; see <see cref="CrisprDesigner.EvaluateGuideRna(string, CrisprSystemType, GuideRnaParameters?)"/>.
+/// Composite 0–100 quality number: <c>clamp(100 − penalty, 0, 100)</c> where <c>penalty</c> is CHOPCHOP's own sum of
+/// <see cref="CrisprDesigner.SelfComplementarityStemPenalty"/> (1) per stem and, when
+/// <see cref="GuideRnaParameters.ScoreGcContent"/>, <see cref="CrisprDesigner.BadGcContentPenalty"/> (300) for a GC
+/// outside the window. TTTT, seed GC and cloning sites are reported in <paramref name="Issues"/> only. See
+/// <see cref="CrisprDesigner.EvaluateGuideRna(string, CrisprSystemType, GuideRnaParameters?)"/>.
 /// Use <see cref="OnTargetScore"/> (Rule Set 2) for a published efficacy estimate.
 /// </param>
 /// <param name="Issues">Human-readable reasons the score was reduced or the guide flagged.</param>
