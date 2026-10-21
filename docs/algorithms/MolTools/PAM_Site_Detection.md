@@ -5,8 +5,8 @@
 | Algorithm Group | Molecular Tools |
 | Test Unit ID | CRISPR-PAM-001 |
 | Related Projects | N/A |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-09-28 |
+| Implementation Status | Implemented (nine fixed systems, CRISPOR-aligned coordinates; sequence-pattern detection only) |
+| Last Reviewed | 2026-10-21 |
 
 ## 1. Overview
 

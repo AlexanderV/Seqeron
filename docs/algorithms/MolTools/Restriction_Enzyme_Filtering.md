@@ -6,7 +6,7 @@
 | Test Unit ID | RESTR-FILTER-001 |
 | Related Projects | Seqeron.Genomics.MolTools |
 | Implementation Status | Production |
-| Last Reviewed | 2026-10-14 (review-2026-09 batch B08, unit RESTR-FILTER-001) |
+| Last Reviewed | 2026-10-21 (review-2026-09 batch B08, unit RESTR-FILTER-001) |
 
 ## 1. Overview
 
@@ -66,7 +66,7 @@ For an enzyme `e` with recognition sequence `r(e)` and per-strand cut positions 
 | INV-04 | `ByLength(L) = ByLength(L,L)` for any L. | Single-length filter is the degenerate equal-bounds range. |
 | INV-05 | `min > max ⇒ ByLength(min,max) = ∅`. | No integer length satisfies an empty interval. |
 | INV-06 | `|W(e)| = |cf(e) − cr(e)|`, and `W(e) = ""` iff `e ∈ Blunt`. | `W` is the window between the two cuts; a center cut leaves none [7]. |
-| INV-07 | `Compatible` is symmetric, and reflexive for every enzyme whose overhang is determined (all 39 built-ins). | `≈` is symmetric by construction, and `W ≈ W` trivially holds; an enzyme that cuts outside its own site has no `W` and is compatible with nothing, itself included. |
+| INV-07 | `Compatible` is symmetric, and reflexive for every enzyme whose overhang is determined (all 39 built-ins). | `≈` is symmetric by construction, and `W ≈ W` trivially holds; an enzyme that cuts outside its own site has the `N`-padded window `W` (F57), so it is only "possibly compatible" under §2.2. |
 | INV-08 | `pol(e1) ≠ pol(e2) ⇒ ¬Compatible(e1, e2)`, same overhang letters notwithstanding. | Two extensions of opposite polarity sit on the same strand of the joint and cannot base-pair [1][7]. |
 | INV-09 | `Iso(e) = Equi(e) ⊎ Neo(e)` and `e ∉ Iso(e)`. | By construction; matches the reference's own `isoschizomers = equi ∪ neo`, `del r[i]` [7]. |
 | INV-10 | `f ∈ Equi(e) ⇒ W(f) = W(e) ⇒ Compatible(e, f)`. | Same site and same cut offsets give the same window. |
@@ -193,13 +193,13 @@ The library is a fixed `Dictionary<string, RestrictionEnzyme>` of Type II enzyme
 was added or removed by this unit. Since review B08 WP12b (F61) the listing tools take an optional
 `enzyme_set` (`"common"` default = the 39, byte-identical to before; `"rebase"` = all 754 through
 the `EnzymeSet` overloads): `enzymes_by_cut_length`, `blunt_cutters`, `sticky_cutters`,
-`get_enzyme`'s schizomer lists and `compatible_enzymes(enzyme_name)` (its all-pairs form stays on the
-common set; `"rebase"` without a name is an error); an unknown value is an `ArgumentException` on
+`get_enzyme`'s schizomer lists and `compatible_enzymes` (per-enzyme form and, since F72, the paged
+all-pairs form with `max_pairs` / `offset`); an unknown value is an `ArgumentException` on
 `enzyme_set`. Names are always resolved against all 754.
 
 ### 5.2 Current Behavior
 
-Filters operate over the static built-in library only (not over any user sequence). `IsBluntEnd` is a record-derived property: `CutPositionForward == CutPositionReverse`. The methods return deferred `IEnumerable<>`; callers materialize with `ToList()` when a snapshot is needed. The unit is not a search/matching operation, so the repository suffix tree was evaluated and found inapplicable (no text to search).
+Filters operate over the enzyme library only (never over a user sequence): the parameterless forms read the 39-enzyme common set, and every filter and listing member has an `EnzymeSet` overload (`GetEnzymesByCutLength` ×2, `GetBluntCutters`, `GetStickyCutters`, `FindIsoschizomers` / `FindEquischizomers` / `FindNeoschizomers`, `FindCompatibleEnzymes(string, EnzymeSet)` and `FindCompatibleEnzymes(EnzymeSet)`) that switches them to `EnzymeSet.Rebase` — all 754 REBASE 404 enzymes with a defined cut (B08 F61, F72). `IsBluntEnd` is a record-derived property: `CutPositionForward == CutPositionReverse`. The methods return deferred `IEnumerable<>`; callers materialize with `ToList()` when a snapshot is needed. The unit is not a search/matching operation, so the repository suffix tree was evaluated and found inapplicable (no text to search).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -228,13 +228,7 @@ Filters operate over the static built-in library only (not over any user sequenc
   no dedicated method, but it is one `Where` over the public `RestrictionEnzyme.OverhangType` /
   `GetOverhangSequence`, and the compatibility members answer the question these filters would be
   used for.
-- Out of this unit's scope by construction: the table is a curated 39-enzyme subset, not REBASE; and
-  a `RestrictionEnzyme` carries one cut offset per strand *relative to the site*, so an enzyme that
-  cuts distally (Type IIS `BsaI` GGTCTC(1/5), `FokI`) has no enzyme-level overhang —
-  `GetOverhangSequence` returns `null` and `AreCompatible` returns `false` rather than guessing.
-  Supporting such enzymes means adopting REBASE's signed `fst5`/`fst3` convention on the record,
-  which is an additive record change and its own unit (recorded in
-  `docs/Validation/review-2026-09/B08.md`).
+- ~~Out of this unit's scope by construction: the table is a curated 39-enzyme subset, not REBASE; and a `RestrictionEnzyme` carries one cut offset per strand *relative to the site*, so an enzyme that cuts distally (Type IIS `BsaI` GGTCTC(1/5), `FokI`) has no enzyme-level overhang — `GetOverhangSequence` returns `null` and `AreCompatible` returns `false` rather than guessing. Supporting such enzymes means adopting REBASE's signed `fst5`/`fst3` convention on the record.~~ *(Withdrawn, review B08 F54-F59/F61: the record's offsets are signed and unrestricted, so a distal cutter is expressible — `BsaI` = `("GGTCTC", 7, 11)`, two-sided Type IIB cutters through `RestrictionEnzyme.SecondCut`; `EnzymeSet.Rebase` reaches all 754 REBASE enzymes with a defined cut, not only the 39; and since F57 `GetOverhangSequence` of a distal cutter is the `N`-padded window (`BsaI` → `NNNN`) with the "possibly compatible" rule of §2.2, as in Biopython. Same strike as `Restriction_Site_Detection.md` §5.3.)*  Still out of scope: the 334 REBASE enzymes without a defined cut position, which cannot be digested and are not in either set.
 
 ### 5.4 Deviations and Assumptions
 
@@ -258,21 +252,15 @@ Filters operate over the static built-in library only (not over any user sequenc
 | Non-positive bounds | empty | No recognition site has length ≤ 0 |
 | `GetOverhangSequence` of a blunt cutter | `""` | `ovhg == 0`; there is no window (INV-06) |
 | `GetOverhangSequence("SfiI")` | `"NNN"` | The enzyme-level overhang of a divided palindrome is unspecified bases; Biopython reports the same [7] |
-| `GetOverhangSequence` of a distal (Type IIS-style) custom cutter | `null` (record overload) / `ArgumentException` (name overload) | The window is outside the recognition sequence, so no enzyme-level answer exists |
-| `AreCompatible` with a distal cutter | `false` | Undetermined overhang → "compatible with nobody" [7] |
+| `GetOverhangSequence` of a distal (Type IIS-style) cutter | the `N`-padded window (`BsaI` GGTCTC(1/5) → `"NNNN"`); never `null` (F57) | The bases outside the site belong to the flanking molecule; Biopython's `ovhgseq` for all 178 distal / two-cut enzymes [7] |
+| `AreCompatible` with a distal cutter | `true` against every end whose polarity and length fit the `N` window (BsaI vs EcoRI: "possibly compatible"); `false` against 3' and blunt ends | `N` intersects every base (§2.2, F57); `BsaI % EcoRI` is True in Biopython [7] |
 | 5' and 3' overhangs with the same letters (HindIII/SacI, NcoI/SphI, NotI/ApaI, AgeI/FseI) | `false` | INV-08 — opposite polarity cannot anneal |
 | `AreCompatible` with an unknown name | `ArgumentException` | F31; use `TryAreCompatible` to probe |
 | `FindCompatibleEnzymes()` and an enzyme with a unique overhang | that enzyme appears in **no** pair | Only pairs of *distinct* enzymes are enumerated; 15 of the 39 are in this position — use `FindCompatibleEnzymes(name)` |
 
 ### 6.2 Limitations
 
-The library is a curated subset of common Type II enzymes, not the full REBASE catalog; filters and
-compatible-pair lists reflect only the enzymes present — `EcoRI` is reported compatible with itself
-alone because REBASE's `MfeI` (`CAATTG`, 5' `AATT`) is not a built-in. Blunt/sticky classification
-and the overhang sequence depend on the stored cut positions being correct; they do not re-derive
-cleavage from sequence. The stored values were audited entry by entry against Biopython 1.88 on
-2026-10-14 (39 enzymes × 6 fields, **0 wrong entries**). An enzyme that cuts outside its own site
-cannot be given an enzyme-level overhang at all (see §5.3).
+The default (parameterless) library is the curated 39-enzyme common set, so its filters and compatible-pair lists reflect only those enzymes; the `EnzymeSet.Rebase` overloads cover all 754 REBASE enzymes with a defined cut. On the common set `FindCompatibleEnzymes("EcoRI")` returns EcoRI alone because REBASE's `MfeI` (`CAATTG`, 5' `AATT`) is not one of the 39; ~~"`EcoRI` is reported compatible with itself alone"~~ is **no longer true of the REBASE set** — `FindCompatibleEnzymes("EcoRI", EnzymeSet.Rebase)` (MCP `compatible_enzymes("EcoRI", "rebase")`) returns `MfeI` among the 51 enzymes of Biopython's `EcoRI.compatible_end(...)` (MCP test `Rebase_CompatibleEnzymes_SingleEnzyme_MatchesBiopythonCompatibleEnd`), and the all-pairs listing `FindCompatibleEnzymes(EnzymeSet.Rebase)` contains `("EcoRI", "MfeI", "AATT")` (`FindCompatibleEnzymesSet_Rebase_MatchesBiopythonModOperatorOnTheDefinedOverhangEnzymes`, F42/F63/F72); `AreCompatible(EcoRI, MfeI)` is asserted in `AreCompatible_EcoRIAndMfeI_ShareTheFivePrimeAattEnd`. Blunt/sticky classification and the overhang sequence depend on the stored cut positions being correct; they do not re-derive cleavage from sequence. The stored values were audited entry by entry against Biopython 1.88 on 2026-10-14 (39 enzymes × 6 fields, **0 wrong entries**). An enzyme that cuts outside its own site has an `N`-padded enzyme-level overhang (§3.3, F57) rather than none.
 
 ## 7. Examples and Related Material
 
