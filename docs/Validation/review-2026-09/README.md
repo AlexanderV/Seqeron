@@ -166,6 +166,17 @@ must carry concrete proof (what exactly is missing: a proprietary model/dataset,
 upstream binary, a redesign spanning files owned by another batch — with the exact blocker).
 "Takes time", "large", "many tests to update", "beyond this unit's scope" are **not** proof.
 
+**Every DOABLE item is implemented BEFORE the duplication sweep — without exception (user 2026-10-21 23:45).**
+There is no third classification and no "carry on past it". If the environment itself refuses to let the work happen
+(a safety classifier halts the subagent or the lead, a needed capability is unavailable), the item stays **DOABLE** and
+the session must NOT reclassify it, NOT skip it and NOT proceed to the sweep. Instead it **prepares a hand-off package**
+and stops for the user: a self-contained document in `docs/Validation/review-2026-09/` carrying the published source
+for the algorithm, the exact files and line ranges to change, the planned API shape, the oracle numbers or the command
+that produces them, the tests that must pass, and how to verify the result. The user runs it in another environment and
+returns the result, which the next session integrates under the normal rules (sourced, oracle-checked, tests, fast
+tier). Until that result lands the batch is **not finished** and the sweep does not run — and if a sweep has already run
+before such an item was completed, it is re-run over the code the item adds.
+
 Before writing the final report the lead runs a **completeness-audit loop**:
 1. Spawn a fresh **auditor** subagent. It reads the batch report, `git diff <batch-start>..HEAD`
    of the owned files, and greps the owned code + report for: `TODO`, `FIXME`, `deferred`,

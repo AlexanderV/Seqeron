@@ -18,6 +18,12 @@ and commits it after every change. Batch definitions (units, owned files) are in
   (re-audit their reports first — later batches may have resolved items), THEN Phase 2 (cross-batch dedup),
   THEN final consolidation (VALIDATION_LEDGER, FINDINGS_REGISTER, wiki ingest, final summary).
 - **Suffix-tree upgrade plan (ST-UPGRADE, stages 0–8):** proposed, NOT approved — do not start without the user's yes.
+- **All DOABLE before the sweep; a halted item becomes a hand-off package (user 2026-10-21 23:45):** "Все дуєбл
+  повинно бути зроблене до дедублікації. Без виключення. Якщо щось зупиняється - робиш пакет і просиш мене виконати на
+  іншому середовищі і віддати тобі результат." So the "environment obstruction" wording I had invented for D19 is
+  **withdrawn** — it was never a campaign category and it contradicted the Definition of Done. Full rule now in README
+  "Definition of Done". Consequence for B08: **D19 stays DOABLE**, the batch is not finished, and the duplication sweep
+  must not precede it; the D19 hand-off package is `docs/Validation/review-2026-09/D19-handoff.md`.
 - **Never send the owner's identity to a source host (2026-10-15, after a real slip):** a B08 WP10 subagent put the
   owner's e-mail in a `User-Agent` header on an `en.wikipedia.org` request. Nothing was committed, later requests used
   a generic header, and the e-mail appears nowhere in the tree (checked). The session's own guard lived only in its
