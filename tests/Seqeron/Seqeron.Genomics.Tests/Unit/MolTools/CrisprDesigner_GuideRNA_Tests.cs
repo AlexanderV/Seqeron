@@ -1170,20 +1170,154 @@ public class CrisprDesigner_GuideRNA_Tests
 
     /// <summary>
     /// The case fold of the raw-string scorers is ASCII-only (D20 / F49): <c>string.ToUpperInvariant</c> maps
-    /// U+017F 'ſ' onto 'S', so a guide carrying 'ſ' used to compare equal to one carrying 'S'.
+    /// U+017F 'ſ' onto 'S', so a guide carrying 'ſ' used to compare equal to one carrying 'S'. Since G2 (B08
+    /// round 3) neither 'S' nor 'ſ' is a nucleotide, so the hit score refuses both (consistency with F70/C-023);
+    /// the fold is still locked: 'ſ' is never silently treated as 'S'.
     /// </summary>
     [Test]
-    public void CalculateMitHitScore_LongS_IsNotFoldedOntoS()
+    public void CalculateMitHitScore_LongS_IsRejectedNotFoldedOntoS()
     {
-        const string guide = "ACGTACGTACGTACGTACGS";
+        const string guide = "ACGTACGTACGTACGTACGA";
         const string longS = "ACGTACGTACGTACGTACGſ";
-        const string plainMismatch = "ACGTACGTACGTACGTACGA";
+        const string plainMismatch = "ACGTACGTACGTACGTACGC";
 
         Assert.That(CrisprDesigner.CalculateMitHitScore(guide, guide), Is.EqualTo(100.0), "control: identical");
-        Assert.That(CrisprDesigner.CalculateMitHitScore(guide, longS),
-            Is.EqualTo(CrisprDesigner.CalculateMitHitScore(guide, plainMismatch)),
-            "'ſ' is a different character from 'S', i.e. one mismatch at position 19 (it used to fold to 'S' = 100)");
-        Assert.That(CrisprDesigner.CalculateMitHitScore(guide, longS), Is.LessThan(100.0));
+        Assert.That(CrisprDesigner.CalculateMitHitScore(guide, plainMismatch), Is.LessThan(100.0), "control: mismatch");
+        var e = Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateMitHitScore(guide, longS));
+        Assert.That(e!.ParamName, Is.EqualTo("offTarget20"));
+        Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateMitHitScore("ACGTACGTACGTACGTACGS", longS));
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // G2 (B08 round 3): every raw-string guide entry point shares F70's alphabet rule — ASCII fold,
+    // U read as T, anything else is an ArgumentException naming the parameter. Before, the off-target
+    // scan compared the U-spelling literally (the on-target became a 5-mismatch hit) and a guide of 'N'
+    // (or any junk) mismatched everything, so the aggregates returned a false perfect 100.
+    // ------------------------------------------------------------------------------------------
+
+    private const string G2Guide = "ACGGACTTCCTACGTAGCAT";
+    private const string G2Rna = "ACGGACUUCCUACGUAGCAU";
+
+    /// <summary>Genome with the on-target (AGG), a 2-mismatch NGG site and a 4-mismatch NGG site.</summary>
+    private static DnaSequence G2Genome() => new(
+        "TTTT" + G2Guide + "AGG" +
+        "CCCC" + "ACGCACTTCCTACGTAGCTT" + "TGG" +
+        "GGGG" + "ACGGTCTTCCTACGTAGAAA" + "CGG" + "TTTT");
+
+    [Test]
+    public void FindOffTargets_RnaSpellingOfTheGuide_EqualsDnaSpelling_AndDropsTheOnTarget()
+    {
+        var genome = G2Genome();
+        var dna = CrisprDesigner.FindOffTargets(G2Guide, genome, 4).ToList();
+        var rna = CrisprDesigner.FindOffTargets(G2Rna, genome, 4).ToList();
+        var lower = CrisprDesigner.FindOffTargets(G2Rna.ToLowerInvariant(), genome, 4).ToList();
+
+        Assert.That(dna, Is.Not.Empty, "control: the fixture has off-targets");
+        Assert.That(dna.All(h => h.Mismatches > 0), Is.True, "the on-target (0 mismatches) is never an off-target");
+        Assert.That(Describe(rna), Is.EqualTo(Describe(dna)));
+        Assert.That(Describe(lower), Is.EqualTo(Describe(dna)));
+        Assert.That(
+            Describe(CrisprDesigner.FindOffTargetsWithPam(G2Rna, genome, 4).Select(h => h.Site)),
+            Is.EqualTo(Describe(CrisprDesigner.FindOffTargetsWithPam(G2Guide, genome, 4).Select(h => h.Site))));
+        Assert.That(
+            CrisprDesigner.FindOffTargetsWithPam(G2Rna, genome, 4).Select(h => h.Pam),
+            Is.EqualTo(CrisprDesigner.FindOffTargetsWithPam(G2Guide, genome, 4).Select(h => h.Pam)));
+    }
+
+    // OffTargetSite carries a list, so record equality is by reference: compare by value.
+    private static string[] Describe(IEnumerable<OffTargetSite> sites) => sites
+        .Select(h => $"{h.Position}|{h.Sequence}|{h.Mismatches}|{string.Join(',', h.MismatchPositions)}|{h.IsForwardStrand}|{h.OffTargetScore}")
+        .ToArray();
+
+    [Test]
+    public void SpecificityAggregates_RnaSpellingOfTheGuide_EqualsDnaSpelling()
+    {
+        var genome = G2Genome();
+
+        Assert.That(CrisprDesigner.CalculateHeuristicSpecificityScore(G2Rna, genome),
+            Is.EqualTo(CrisprDesigner.CalculateHeuristicSpecificityScore(G2Guide, genome)));
+        Assert.That(CrisprDesigner.CalculateMitSpecificityScore(G2Rna, genome),
+            Is.EqualTo(CrisprDesigner.CalculateMitSpecificityScore(G2Guide, genome)));
+        Assert.That(CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(G2Rna, genome),
+            Is.EqualTo(CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(G2Guide, genome)));
+        Assert.That(CrisprDesigner.CalculateCfdSpecificityScore(G2Rna, genome),
+            Is.EqualTo(CrisprDesigner.CalculateCfdSpecificityScore(G2Guide, genome)));
+        Assert.That(CrisprDesigner.CalculateMitSpecificityScore(G2Guide, genome), Is.LessThan(100.0),
+            "control: the fixture is not trivially perfect");
+
+        var hits = CrisprDesigner.FindOffTargetsWithPam(G2Guide, genome, 4).ToList();
+        Assert.That(CrisprDesigner.CalculateMitSpecificityScore(G2Rna, hits),
+            Is.EqualTo(CrisprDesigner.CalculateMitSpecificityScore(G2Guide, hits)));
+    }
+
+    [TestCase("NNNNNNNNNNNNNNNNNNNN")]   // the false-perfect-100 probe
+    [TestCase("XXXXXXXXXXXXXXXXXXXX")]
+    [TestCase("ACGGACTTCCTACGTAGCA-")]
+    [TestCase("ACGGACTTCCTACGTAGCAſ")]
+    public void RawStringOffTargetEntryPoints_RejectNonNucleotides(string guide)
+    {
+        var genome = G2Genome();
+        var hits = CrisprDesigner.FindOffTargetsWithPam(G2Guide, genome, 4).ToList();
+
+        void Named(TestDelegate call)
+        {
+            var e = Assert.Throws<ArgumentException>(call);
+            Assert.That(e!.ParamName, Is.EqualTo("guideSequence"));
+        }
+
+        Named(() => CrisprDesigner.FindOffTargets(guide, genome));
+        Named(() => CrisprDesigner.FindOffTargetsWithPam(guide, genome));
+        Named(() => CrisprDesigner.CalculateHeuristicSpecificityScore(guide, genome));
+        Named(() => CrisprDesigner.CalculateSpecificityScore(guide, genome));
+        Named(() => CrisprDesigner.CalculateMitSpecificityScore(guide, genome));
+        Named(() => CrisprDesigner.CalculateMitSpecificityScore(guide, hits));
+        Named(() => CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(guide, genome));
+        Named(() => CrisprDesigner.CalculateCfdSpecificityScore(guide, genome));
+        Named(() => CrisprDesigner.GetGrafMotif(guide));
+    }
+
+    [Test]
+    public void RawStringOffTargetEntryPoints_KeepTheirGuardOrder()
+    {
+        var genome = G2Genome();
+        // null/empty first, then the genome, then the range, then the length, only then the alphabet.
+        Assert.Throws<ArgumentNullException>(() => CrisprDesigner.FindOffTargets("", genome));
+        Assert.Throws<ArgumentNullException>(() => CrisprDesigner.FindOffTargets("NNNN", null!));
+        Assert.Throws<ArgumentOutOfRangeException>(() => CrisprDesigner.FindOffTargets("NNNN", genome, 6));
+        var e = Assert.Throws<ArgumentException>(() => CrisprDesigner.FindOffTargets("NNNN", genome));
+        Assert.That(e!.Message, Does.Contain("Guide length"), "the length guard precedes the alphabet guard");
+    }
+
+    [Test]
+    public void GetGrafMotif_RnaSpellingAndCase_EqualDnaSpelling()
+    {
+        foreach (var guide in new[] { "ACGTACGTACGTACGTACTC", "ACGTACGTACGTACGTAGCC", "ACGTACGTACGTACGTATTC", "ACGTACGTACGTACGTCTTC" })
+        {
+            var expected = CrisprDesigner.GetGrafMotif(guide);
+            Assert.That(CrisprDesigner.GetGrafMotif(guide.Replace('T', 'U')), Is.EqualTo(expected), guide);
+            Assert.That(CrisprDesigner.GetGrafMotif(guide.Replace('T', 'U').ToLowerInvariant()), Is.EqualTo(expected), guide);
+        }
+        Assert.That(CrisprDesigner.GetGrafMotif("AAAAAAAAAAAAAAAAAUUC"), Is.EqualTo(GrafMotifType.TtMotif));
+    }
+
+    [Test]
+    public void MitHitScore_RejectsNonNucleotides_AndReadsUAsT()
+    {
+        const string g = "ACGGACTTCCTACGTAGCAT";
+        const string o = "ACGGACTTCCTACGTAGCTA";
+        const string n20 = "NNNNNNNNNNNNNNNNNNNN";
+
+        var e1 = Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateMitHitScore(n20, o));
+        Assert.That(e1!.ParamName, Is.EqualTo("guide20"));
+        var e2 = Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateMitHitScore(g, n20));
+        Assert.That(e2!.ParamName, Is.EqualTo("offTarget20"));
+        // CFD / SaCas9 hit scores already refused junk (and keep refusing U: CFD's reference screens [^ATCG]).
+        Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateCfdScore(n20, o, "GG"));
+        Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateCfdScore(g, n20, "GG"));
+        Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateSaCas9HitScore(n20 + "N", o + "A"));
+
+        Assert.That(CrisprDesigner.CalculateMitHitScore(g.Replace('T', 'U'), o.Replace('T', 'U')),
+            Is.EqualTo(CrisprDesigner.CalculateMitHitScore(g, o)));
     }
 
     #endregion

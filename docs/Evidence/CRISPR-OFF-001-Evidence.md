@@ -285,6 +285,7 @@ aggregate would be exactly `100`.
    reference's `[^ATCG] → cfdScore = -1` exclusion inside `CalculateCfdSpecificityScore` is a
    **defensive mirror**, not a live parity fix. It is kept so the reference's exclusion rule is
    encoded rather than implied, and a test pins the `DnaSequence` rejection that makes it unreachable.
+7a. **Raw-string guide alphabet (B08 round 3 G2).** A guide is a raw string, so `DnaSequence` validation does not cover it. The off-target scan, the aggregates built on it, `CalculateMitHitScore` and `GetGrafMotif` normalise it as F70 does for `EvaluateGuideRna`: ASCII fold, `U` read as `T`, every other character an `ArgumentException`. Without it a `N`x20 guide mismatched every site (specificity 100) and an RNA-spelled guide reported its own on-target as a 5-mismatch off-target. The reference `calcHitScore` itself compares characters without validating; rejecting is this library's choice (same class as F9/F70). The CFD and SaCas9 per-hit scorers keep their A/C/G/T check without the `U` reading (the CFD reference screens `[^ATCG]`).
 8. **Bulges / indels are out of scope** for every model here; the reference's SaCas9 model refuses them
    explicitly and CFD is defined only for a substitution-only 20-nt:20-nt comparison.
 9. **`CalculateCfdSpecificityScore` refuses SaCas9; the reference returns a vacuous 100 for it.**

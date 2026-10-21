@@ -73,7 +73,10 @@
 | C-024 | `EvaluateGuideRna_LegacySelfComplementarityScore_DoesNotEnterTheScore` | "GCGCGCGC" | legacy 0.3125, 0 stems, Score=95 (E3) | ✅ |
 | C-025 | `RawStringGuideEntryPoints_RejectNonNucleotides` (5 cases) | `X`×20, `N`, `-`, space, `ſ` (U+017F) | `ArgumentException` (ParamName `guideSequence`) from `EvaluateGuideRna`, `CountSelfComplementaryStems` and the backbone list (E3) | ✅ |
 | C-026 | `RawStringGuideEntryPoints_FoldCaseAndReadUAsT` | lower-case RNA spacer, RNA scaffold | identical to the DNA upper-case result (E3) | ✅ |
-| C-027 | `CalculateMitHitScore_LongS_IsNotFoldedOntoS` | `…GS` vs `…Gſ` | one mismatch at position 19, equal to the `…GA` mismatch score (was 100) (D20/E3) | ✅ |
+| C-027 | `CalculateMitHitScore_LongS_IsRejectedNotFoldedOntoS` | `…GS` vs `…Gſ` | was: one mismatch at position 19 (D20/E3); since G2 `ſ` and `S` are not nucleotides, `ArgumentException` (`offTarget20`), never folded onto `S` | ✅ |
+| C-028 | `FindOffTargets_RnaSpellingOfTheGuide_EqualsDnaSpelling_AndDropsTheOnTarget`, `SpecificityAggregates_RnaSpellingOfTheGuide_EqualsDnaSpelling` | RNA / lower-case spelling of a guide | identical sites, PAMs and heuristic / MIT / alt-PAM MIT / CFD scores as the DNA spelling (G2) | ✅ |
+| C-029 | `RawStringOffTargetEntryPoints_RejectNonNucleotides` (4), `RawStringOffTargetEntryPoints_KeepTheirGuardOrder` | `N`x20, `X`x20, `-`, `ſ` | `ArgumentException` (`guideSequence`) from all 9 raw-guide entry points; null/empty, genome, range and length guards first (G2) | ✅ |
+| C-030 | `GetGrafMotif_RnaSpellingAndCase_EqualDnaSpelling`, `MitHitScore_RejectsNonNucleotides_AndReadsUAsT` | U / lower-case spelling; `N`x20 | same motif / hit score as DNA; `N` rejected (`guide20` / `offTarget20`); CFD / SaCas9 hit scores still reject junk (G2) | ✅ |
 | Graf 2019 TT-/GCC-motif | 0 (issue only, NGG systems only — CRISPOR warns) (F7) | C-017 |
 
 ---

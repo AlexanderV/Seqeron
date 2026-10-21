@@ -1304,35 +1304,28 @@ public class MolToolsFuzzTests
     #region MC — Guide of all N's (wildcard vs literal)
 
     /// <summary>
-    /// MC (all-N guide — KEY): 'N' is the IUPAC "any base" code, so the central question
-    /// is whether off-target matching treats it as a WILDCARD. This API does NOT:
-    /// CountMismatches is a literal position-by-position <c>!=</c> compare
-    /// (CrisprDesigner.cs lines 393–405) with no IUPAC semantics. A 20-nt all-N guide
-    /// PASSES the SpCas9 length check (length 20 == GuideLength), then MISMATCHES every
-    /// A/C/G/T base of any PAM-adjacent target, so each site's mismatch count is the full
-    /// guide length (20) — far above the 0..5 cap — and NO site is ever yielded. So all-N
-    /// is the OPPOSITE of a wildcard blow-up: instead of matching every position (a hang /
-    /// off-target-everywhere hazard) it matches NOTHING, because every position is a
-    /// guaranteed mismatch. Theory-correct result on a real, PAM-rich genome: the EMPTY
-    /// enumerable, promptly (CancelAfter guards against any hang), with no exception.
+    /// MC (all-N guide): 'N' is the IUPAC "any base" code, but this API never treats it as a wildcard
+    /// (CountMismatches is a literal position-by-position compare). Until B08 round 3 G2 an all-N guide
+    /// passed the length check and matched NOTHING (20 mismatches everywhere), so the specificity
+    /// aggregates reported a false perfect 100. It is now refused up front, like every non-A/C/G/T guide
+    /// (F70/C-023): a typed <see cref="ArgumentException"/> naming <c>guideSequence</c>, promptly
+    /// (CancelAfter guards against any hang).
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void FindOffTargets_AllNGuide_MatchesNothingAndDoesNotHang()
+    public void FindOffTargets_AllNGuide_IsRejectedWithATypedException_AndDoesNotHang()
     {
         const string allN = "NNNNNNNNNNNNNNNNNNNN"; // 20 N's == SpCas9 guide length
-        // A PAM-rich genome so the scan actually has many targets to compare against.
         var genome = new DnaSequence(RandomDna(500, seed: 20_001));
 
+        // B08 round 3 G2 (consistency with F70/C-023): the guide alphabet is A/C/G/T (U read as T). The
+        // previous contract (an all-N guide "matches nothing", every site a 20-mismatch non-hit) let the
+        // specificity aggregates report a false perfect 100 for a guide that is not a nucleotide sequence.
+        // The property under test is unchanged - prompt, typed, no out-of-range index, no hang.
         var act = () => CrisprDesigner.FindOffTargets(allN, genome, maxMismatches: 5,
             CrisprSystemType.SpCas9).ToList();
 
-        act.Should().NotThrow(
-            "'N' is compared literally (not as a wildcard); it differs from every A/C/G/T base but never indexes out of range or hangs");
-
-        CrisprDesigner.FindOffTargets(allN, genome, maxMismatches: 5, CrisprSystemType.SpCas9)
-            .Should().BeEmpty(
-                "an all-N guide mismatches every target base, so each candidate has 20 mismatches — above the cap of 5 — and no off-target is ever yielded; 'N' is not a wildcard");
+        act.Should().Throw<ArgumentException>().Which.ParamName.Should().Be("guideSequence");
     }
 
     /// <summary>

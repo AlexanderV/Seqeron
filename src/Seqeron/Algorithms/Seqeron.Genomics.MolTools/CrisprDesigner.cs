@@ -509,7 +509,7 @@ public static class CrisprDesigner
         if (string.IsNullOrEmpty(guideSequence))
             throw new ArgumentNullException(nameof(guideSequence));
 
-        var seq = SequenceExtensions.ToUpperAscii(guideSequence)!;
+        var seq = NormalizeNucleotides(guideSequence, nameof(guideSequence));
         if (seq.EndsWith("TTC", StringComparison.Ordinal) || seq.EndsWith("TTT", StringComparison.Ordinal))
             return GrafMotifType.TtMotif;
 
@@ -591,7 +591,8 @@ public static class CrisprDesigner
             throw new ArgumentException(
                 $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
                 nameof(guideSequence));
-        return FindOffTargetsCore(guideSequence, genome, maxMismatches, systemType);
+        return FindOffTargetsCore(
+            NormalizeNucleotides(guideSequence, nameof(guideSequence)), genome, maxMismatches, systemType);
     }
 
     private static IEnumerable<OffTargetSite> FindOffTargetsCore(
@@ -673,7 +674,8 @@ public static class CrisprDesigner
                 $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
                 nameof(guideSequence));
 
-        return FindOffTargetsWithPamCore(guideSequence, genome, maxMismatches, systemType)
+        return FindOffTargetsWithPamCore(
+                NormalizeNucleotides(guideSequence, nameof(guideSequence)), genome, maxMismatches, systemType)
             .Select(static hit => new PamAnnotatedOffTarget(hit.Site, hit.Pam));
     }
 
@@ -1087,8 +1089,8 @@ public static class CrisprDesigner
         if (guide20.Length != 20 || offTarget20.Length != 20)
             throw new ArgumentException("MIT/Hsu score requires two 20-nt sequences.");
 
-        var g = SequenceExtensions.ToUpperAscii(guide20)!;
-        var o = SequenceExtensions.ToUpperAscii(offTarget20)!;
+        var g = NormalizeNucleotides(guide20, nameof(guide20));
+        var o = NormalizeNucleotides(offTarget20, nameof(offTarget20));
 
         const int maxDist = 19;
 
@@ -1190,7 +1192,7 @@ public static class CrisprDesigner
         if (offTargets.Count == 0)
             return 100.0;
 
-        var guide = SequenceExtensions.ToUpperAscii(guideSequence)!;
+        var guide = NormalizeNucleotides(guideSequence, nameof(guideSequence));
 
         // The reference picks the per-hit model by system, not one model for everything
         // (annotateOfftargets): a SaCas9 PAM uses the Tycko 2018 model, everything else calcHitScore.
@@ -1315,7 +1317,7 @@ public static class CrisprDesigner
                 $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
                 nameof(guideSequence));
 
-        var guide = SequenceExtensions.ToUpperAscii(guideSequence)!;
+        var guide = NormalizeNucleotides(guideSequence, nameof(guideSequence));
         bool useSaModel = IsSaCas9Pam(system.PamSequence) && guide.Length == SaCas9GuideLength;
         // The reference gates the downweight on the SEARCHED pattern being exactly "NGG".
         bool mainPamIsNgg = string.Equals(system.PamSequence, "NGG", StringComparison.Ordinal);
@@ -1436,7 +1438,7 @@ public static class CrisprDesigner
             // >= ALTPAMMINSCORE ("if otScore < minScore: ... continue"). The membership test is on the
             // alternative list FIRST, exactly as the reference orders it, so for a PAM wider than the
             // main one (SaCas9 NNGRRN contains NNGRRT) main-PAM hits are subject to the cutoff as well.
-            var guide = SequenceExtensions.ToUpperAscii(guideSequence)!;
+            var guide = NormalizeNucleotides(guideSequence, nameof(guideSequence));
             bool useSaModel = IsSaCas9Pam(main.PamSequence) && guide.Length == SaCas9GuideLength;
             hits = hits.Where(hit =>
             {
@@ -1688,7 +1690,8 @@ public static class CrisprDesigner
         double predictedActivity = 1.0;
 
         // The reference skips index 0 but still validates every base, so invalid input is refused
-        // rather than silently scored.
+        // rather than silently scored. Unlike the MIT hit score, this scorer keeps its own strict
+        // A/C/G/T check (no U -> T reading), as the CFD scorer does (its reference screens [^ATCG]).
         for (int i = 0; i < SaCas9GuideLength; i++)
         {
             char rna = guide[i];
@@ -2021,9 +2024,7 @@ public static class CrisprDesigner
             throw new ArgumentException(
                 $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
                 nameof(guideSequence));
-        var guide = SequenceExtensions.ToUpperAscii(guideSequence)!;
-        if (!guide.AsSpan().IsValidDna())
-            throw new ArgumentException("CFD requires an A/C/G/T guide sequence.", nameof(guideSequence));
+        var guide = NormalizeNucleotides(guideSequence, nameof(guideSequence));
 
         var cfdScores = new List<double>();
         foreach (var (site, pam) in FindOffTargetsWithPamCore(guide, genome, maxMismatches, systemType))
