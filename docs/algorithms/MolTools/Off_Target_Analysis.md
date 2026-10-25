@@ -5,12 +5,12 @@
 | Algorithm Group | MolTools |
 | Test Unit ID | CRISPR-OFF-001 |
 | Related Projects | N/A |
-| Implementation Status | Implemented (published models) + one declared heuristic |
-| Last Reviewed | 2026-10-14 |
+| Implementation Status | Implemented (published substitution models, bulge enumeration) + one declared heuristic |
+| Last Reviewed | 2026-10-25 (D19 bulge enumeration) |
 
 ## 1. Overview
 
-Off-target analysis estimates potential unintended cleavage sites for CRISPR guide RNAs by scanning a genome or reference sequence for near matches adjacent to valid PAMs. In this repository, off-target sites are defined as PAM-supported guide-length targets with at least one mismatch and no more than a configured mismatch limit, and they are scored by a simple position-dependent mismatch penalty. The resulting scores are intended for heuristic ranking rather than experimental prediction.
+Off-target analysis estimates potential unintended cleavage sites for CRISPR guide RNAs by scanning a genome or reference sequence for near matches adjacent to valid PAMs. The established `FindOffTargets` path uses guide-length targets with substitutions and feeds its hits to the existing specificity scorers. `FindOffTargetsWithBulges` separately enumerates PAM-supported DNA/RNA bulge alignments with variable-length protospacers. It reports alignments, not activity scores.
 
 ## 2. Scientific / Formal Basis
 
@@ -25,6 +25,10 @@ The repository's off-target search applies three criteria:
 1. The candidate site must have a valid PAM for the selected CRISPR system.
 2. The PAM-adjacent target must have the correct guide length.
 3. The guide-to-target mismatch count must satisfy `0 < mismatches <= maxMismatches`.
+
+The sibling `FindOffTargetsWithBulges` follows [Cas-OFFinder 3.0](https://github.com/snugel/cas-offinder/blob/develop/README.md): it scans PAM-adjacent windows from `guideLength + maxDnaBulge` through `guideLength - maxRnaBulge`. A DNA bulge is extra genomic bases and gaps the aligned guide; an RNA bulge is extra guide bases and gaps the aligned target. The gap is contiguous, has size 1 or 2, and may start at any admissible offset. Mismatches are counted only where both aligned strings have bases. Exact ungapped matches are excluded by the existing no-on-target-locus convention; zero-mismatch bulged alignments are reported. The method retains the same PAM-orientation support as `FindPamSites`, returns the PAM coordinate plus the forward-strand protospacer start, and scans a supplied sequence directly rather than a genome-scale index. Cas-OFFinder's original [paper](https://doi.org/10.1093/bioinformatics/btu048) describes the mismatch-search tool; the 3.0 implementation/README supplies the bulge behavior.
+
+All three specificity scorers (`CalculateHeuristicSpecificityScore`, `CalculateMitSpecificityScore`, `CalculateCfdSpecificityScore`) remain substitution-only. Neither the MIT nor CFD model defines a weight for a bulged position, and the heuristic has no sourced bulge weight. Bulged hits are never sent to them. The exact Cas-OFFinder oracle rows and reproducible input are in [CRISPR-OFF-001-Evidence.md](../../Evidence/CRISPR-OFF-001-Evidence.md).
 
 The off-target score is computed by summing mismatch penalties by position:
 
@@ -87,6 +91,7 @@ refused there too — the reference emits its CFD sentinel (`cfdScore = -1`) for
 | `guideSequence` | `string` | required | Guide RNA sequence to analyze | Must match the guide length of the selected CRISPR system |
 | `genome` | `DnaSequence` | required | Genome or reference sequence to search | Null input throws `ArgumentNullException` |
 | `maxMismatches` | `int` | `3` | Maximum number of mismatches allowed in `FindOffTargets(...)` | Must be between `0` and `5` inclusive |
+| `maxDnaBulge`, `maxRnaBulge` | `int` | `2` each | Largest single contiguous DNA/RNA gap in `FindOffTargetsWithBulges(...)` | Each must be between `0` and `2` inclusive |
 | `systemType` | `CrisprSystemType` | `SpCas9` | CRISPR system definition used for PAM and guide length | Must resolve through `GetSystem(...)` |
 
 ### 3.2 Output / Return Value
@@ -133,6 +138,7 @@ CRISPR system variations documented for off-target analysis:
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | `FindOffTargets` | `O(n × m)` | `O(k)` | `n` is genome length, `m` is guide length, `k` is number of off-targets |
+| `FindOffTargetsWithBulges` | `O(n × m² × (d + r + 1))` | `O(n + k)` | `d`/`r` are the bounded DNA/RNA gap ceilings; every gap offset is compared across a guide-length window, and the reverse complement is materialized |
 | `CalculateSpecificityScore` | `O(n × m)` | `O(k)` | Reuses `FindOffTargets(...)` with a mismatch cap of 4 |
 
 ## 5. Implementation Notes
@@ -142,6 +148,7 @@ CRISPR system variations documented for off-target analysis:
 **Implementation location:** [CrisprDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs)
 
 - `CrisprDesigner.FindOffTargets(string, DnaSequence, int, CrisprSystemType)`: Finds PAM-constrained near matches for a guide sequence.
+- `CrisprDesigner.FindOffTargetsWithBulges(string, DnaSequence, int, int, int, CrisprSystemType)`: Finds PAM-constrained substitution and single-bulge alignments; returns `BulgedOffTargetSite` with the aligned strings, gap type/offset, PAM coordinate and protospacer start. No activity score is implied.
 - `CrisprDesigner.CalculateSpecificityScore(string, DnaSequence, CrisprSystemType)`: Converts the heuristic off-target penalties into a `0-100` score (declared heuristic — see §2.2).
 - `CrisprDesigner.CalculateMitHitScore(string, string)` / `CalculateSaCas9HitScore(string, string)` / `CalculateCfdScore(string, string, string)`: published single-hit models.
 - `CrisprDesigner.CalculateMitSpecificityScore(...)` / `CalculateCfdSpecificityScore(...)` (an aggregate-only overload and a genome-scanning overload each): published guide-level aggregates; `CalculateMitSpecificityScoreWithAlternativePams(...)` / `CalculateCfdSpecificityScoreWithAlternativePams(...)`: the same over CRISPOR's wider alternative-PAM search.
@@ -162,7 +169,7 @@ The current implementation enumerates PAM sites first and then compares the guid
 
 - The `FindOffTargets` / `CalculateSpecificityScore` heuristic uses only two positional weights (`5` in the seed region and `2` outside it) and is **unsourced**; **consequence:** it does not represent base-specific or context-specific activity — for a published number call `CalculateMitSpecificityScore` (MIT/Hsu 2013, with Tycko 2018 for SaCas9) or `CalculateCfdSpecificityScore` (Doench 2016 CFD).
 - The implementation uses strict PAM matching for the chosen system, one system per scan; **consequence:** off-targets at other PAMs are ignored unless that PAM is modeled as its own system (for example `SpCas9_NAG`). CRISPOR's alternative-PAM ×0.2 MIT downweight (`crispor.py` L1947-1958) is therefore not reachable from the single-system aggregate `CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)` — it IS implemented, on the multi-PAM entry points `CalculateMitSpecificityScore(string, IEnumerable<PamAnnotatedOffTarget>, CrisprSystemType)` (with the public `FindOffTargetsWithPam`) and `CalculateMitSpecificityScoreWithAlternativePams`, which scans the main PAM plus the alternative PAMs of the reference's `offtargetPams` table that this library offers as systems (`NGG → NAG, NGA` via `SpCas9_NAG` / `SpCas9_NGA`; `NNGRRT → NNGRRN` via `SaCas9_NNGRRN`; `TTTN` has no PAM-after-target system and Cas12a is refused anyway). A site matching both the main and a wider alternative pattern (every `NNGRRT` site is also `NNGRRN`) is one off-target and counted once; the 0.2 weight is gated on a main `NGG`, so SaCas9 `NNGRRN` hits enter unweighted, as in the reference. Only the MIT score is downweighted, as in the reference. The CFD aggregate has its own multi-PAM entry point, `CalculateCfdSpecificityScoreWithAlternativePams` (B08 round 3 G1): `annotateOfftargets` computes `calcCfdScore(guideSeq, otSeq)` for every hit of the wider search, with no 0.2 factor and the same `ALTPAMMINSCORE` pre-filter on the **MIT** hit score (L4104-4122); the single-system `CalculateCfdSpecificityScore` keeps scanning the one PAM (a guide whose only off-target sits on `NAG` scores 100 there, 99.815 with the alternative scan). See Evidence, divergence 2.
-- Only base mismatches are considered; **consequence:** bulges and gap-containing alignments are out of scope — the reference's own SaCas9 model refuses them explicitly, and CFD is defined only for a substitution-only 20-nt:20-nt comparison.
+- The three specificity scorers still consider base substitutions only; **consequence:** `FindOffTargetsWithBulges` reports gap-containing sites without a score. The reference's SaCas9 model refuses gaps explicitly, and CFD is defined only for a substitution-only 20-nt:20-nt comparison.
 - Only the 21-nt SaCas9 coefficient table is transcribed (the reference ships 20-24); **consequence:** `CalculateSaCas9HitScore` refuses other lengths, which no CRISPR system in this library can produce.
 - **Default: every exact (0-mismatch) match is dropped genome-wide** (`FindOffTargets` and the default of every aggregate), because no on-target locus is given; **consequence:** CRISPOR drops only the 0-mismatch hits inside the caller-supplied on-target interval (crispor.py L1920-1929) and scores any further perfect match as a full `calcHitScore = 100` off-target, so a guide with a duplicated perfect site scores more specific by default than in the reference (see Evidence, divergence 10). **To reproduce CRISPOR, pass the interval:** the four CRISPOR-faithful aggregates (`CalculateMitSpecificityScore(string, DnaSequence, ...)`, `CalculateMitSpecificityScoreWithAlternativePams`, `CalculateCfdSpecificityScore(string, DnaSequence, ...)`, `CalculateCfdSpecificityScoreWithAlternativePams`; MCP `crispr_mit_specificity_score` / `crispr_cfd_specificity_score`) take optional `onTargetStart` / `onTargetEnd` (`on_target_start` / `on_target_end`): 0-based, end-exclusive, forward-strand coordinates of the supplied sequence; an exact match whose protospacer+PAM footprint lies inside the interval (either strand) is skipped, every other perfect match is aggregated (MIT hit score 100, CFD = its PAM score; ×0.2 on an alternative PAM for MIT). Oracle: `A = G+AGG+TTTT+G+TGG+TTTTTT` (duplicated site) -> interval `[0,23)` MIT `50.0`, CFD `99.00990099009901` (default 100). Not offered: CRISPOR's no-interval *auto-ontarget* mode - its "first 0-mismatch hit it meets" follows the aligner's unspecified output order, and under CFD or alternative PAMs the exact hits differ in score, so there is no deterministic equivalent; the single known on-target interval is the faithful input.
 
@@ -172,7 +179,7 @@ The current implementation enumerates PAM sites first and then compares the guid
 
 **Not implemented:**
 
-- Chromatin accessibility and bulge-aware (gap-containing) alignment; **users should rely on:** external/experimental tools. All three published sequence-level off-target models the reference uses (MIT/Hsu, Tycko 2018 SaCas9, Doench 2016 CFD) and both of its guide-level aggregates are implemented here.
+- Chromatin accessibility and an experimentally calibrated activity score for bulged alignments. The new scan finds gap-containing candidate sites, but activity prediction for those sites needs external/experimental evidence. All three published sequence-level substitution-only models the reference uses (MIT/Hsu, Tycko 2018 SaCas9, Doench 2016 CFD) and both of its guide-level aggregates are implemented here.
 
 ## 6. Edge Cases and Limitations
 
@@ -183,11 +190,11 @@ The current implementation enumerates PAM sites first and then compares the guid
 | No off-targets found | Specificity score is `100` | Maximum specificity per implementation |
 | `maxMismatches < 0` or `> 5` | Throws `ArgumentOutOfRangeException` | Explicit source guard |
 | Guide length mismatches the system | Throws `ArgumentException` | The method enforces system-specific guide length |
-| Exact on-target match | Not returned as an off-target | Exact matches are excluded by the `mismatches > 0` filter |
+| Exact ungapped match | Not returned as an off-target | The no-locus convention excludes it; exact bulged alignments are reported |
 
 ### 6.2 Limitations
 
-`CalculateSpecificityScore` is a simplified, unsourced position-weighted sequence model. The published models (`CalculateMitSpecificityScore`, `CalculateCfdSpecificityScore`) are reference-verified but still sequence-only: none of them includes chromatin state or indel/bulge alignments, and all rely on the CRISPR system's explicit PAM definition for site discovery. The genome scan is also a naïve sweep over every PAM site, not CRISPOR's BWA-based search, so it is meant for a supplied reference sequence rather than a whole genome. **Measured size envelope (B08 round 3 G14, 2026-10-21):** random ACGT sequence, 20-nt guide, one Debug build (`net10.0`, JIT optimiser disabled, so a Release build is faster), single thread on a 4-vCPU Intel Xeon @ 2.10 GHz cloud VM (16 GB RAM; wall clock, median of 3 runs after one warm-up run). Time grows linearly with the sequence length (about 0.15-0.16 s per Mb per PAM scan):
+`CalculateSpecificityScore` is a simplified, unsourced position-weighted sequence model. The published models (`CalculateMitSpecificityScore`, `CalculateCfdSpecificityScore`) are reference-verified but still sequence-only: none of them includes chromatin state or indel/bulge alignments, and all rely on the CRISPR system's explicit PAM definition for site discovery. The substitution-only genome scan is also a naïve sweep over every PAM site, not CRISPOR's BWA-based search, so it is meant for a supplied reference sequence rather than a whole genome. The bulge-aware scan has a larger cost because it evaluates every allowed gap offset; it was not part of the following benchmark. **Measured size envelope (B08 round 3 G14, 2026-10-21):** random ACGT sequence, 20-nt guide, one Debug build (`net10.0`, JIT optimiser disabled, so a Release build is faster), single thread on a 4-vCPU Intel Xeon @ 2.10 GHz cloud VM (16 GB RAM; wall clock, median of 3 runs after one warm-up run). Time grows linearly with the sequence length (about 0.15-0.16 s per Mb per PAM scan):
 
 | Call | 1 Mb | 5 Mb | 10 Mb | 20 Mb |
 |---|---|---|---|---|

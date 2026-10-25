@@ -389,6 +389,35 @@ unit: `crispr_mit_specificity_score`, `crispr_cfd_specificity_score`. Tests:
 
 ---
 
+## D19: gap-containing off-target enumeration
+
+Reference: official Cas-OFFinder 3.0.0b3 Windows executable, which reports
+`Cas-OFFinder 3.0.0`; exact command, FASTA, input, and full output are in
+`docs/Evidence/CRISPR-OFF-001-Evidence.md` §D19. The eight rows below come
+from that output, with the three PAM bases removed from the aligned strings.
+For the reverse strand, the oracle's `Location` is shifted from the physical
+leftmost footprint coordinate in this release (+1 for DNA, +3 for RNA), as
+documented in Evidence; Seqeron reports the physically checked PAM coordinate
+as `Position` and also returns `TargetStart`.
+
+| Oracle location / strand | Seqeron PAM / target start | Type, size, gap offset | Aligned guide | Aligned target | Mismatches |
+|---|---|---|---|---|---:|
+| 10 / + | 31 / 10 | DNA, 1, 8 | `GGCCGACC-TGTCGCTGACGC` | `GGCCGACCATGTCGCTGACGC` | 0 |
+| 87 / - | 86 / 89 | DNA, 1, 8 | `GGCCGACC-TGTCGCTGACGC` | `GGCCGACCATGTCGCTGACGC` | 0 |
+| 49 / + | 68 / 49 | RNA, 1, 8 | `GGCCGACCTGTCGCTGACGC` | `GGCCGACC-GTCGCTGACGC` | 0 |
+| 128 / - | 125 / 128 | RNA, 1, 8 | `GGCCGACCTGTCGCTGACGC` | `GGCCGACC-GTCGCTGACGC` | 0 |
+| 10 / +, separate FASTA | 31 / 10 | DNA, 1, 8 | `GGCCGACC-TGTCGCTGACGC` | `GGCCGACCATGTCGCAGACGC` | 1 |
+| 10 / +, two-base FASTA | 32 / 10 | DNA, 2, 8 | `GGCCGACC--TGTCGCTGACGC` | `GGCCGACCATTGTCGCTGACGC` | 0 |
+| 50 / +, two-base FASTA | 68 / 50 | RNA, 2, 8 | `GGCCGACCTGTCGCTGACGC` | `GGCCGACC--TCGCTGACGC` | 0 |
+| 50 / +, two-base FASTA | 68 / 50 | RNA, 2, 9 | `GGCCGACCTGTCGCTGACGC` | `GGCCGACCT--CGCTGACGC` | 0 |
+
+- `FindOffTargetsWithBulges_CasOffinderOracle_FourExactBulgesOnBothStrands` locks the four zero-substitution reference rows, both strands and coordinates.
+- `FindOffTargetsWithBulges_CasOffinderOracle_OneMismatchOutsideDnaBulge` locks the one-substitution reference row.
+- `FindOffTargetsWithBulges_CasOffinderOracle_TwoBaseBulges` locks the three two-base rows, including two valid RNA gap offsets at one site.
+- `FindOffTargets_ExistingSubstitutionOnlyScan_RemainsEmptyForBulgedToy` pins the unchanged legacy path on a genome with bulged hits.
+- Guard tests pin the shared null/empty guide, null genome, `maxMismatches` range, guide length and alphabet exceptions, followed by the new `maxDnaBulge` and `maxRnaBulge` 0..2 bounds.
+- All three specificity scorers stay substitution-only and do not receive the new record.
+
 ## Definition of Done
 
 - [x] Evidence documented from authoritative sources

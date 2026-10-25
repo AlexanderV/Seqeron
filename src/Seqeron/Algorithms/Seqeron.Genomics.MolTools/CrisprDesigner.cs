@@ -561,7 +561,8 @@ public static class CrisprDesigner
     /// <param name="systemType">Type of CRISPR system.</param>
     /// <returns>
     /// Potential off-target sites in a deterministic order: all forward-strand PAM sites by ascending
-    /// position, then all reverse-strand sites. Substitutions only — bulges/indels are out of scope.
+    /// position, then all reverse-strand sites. This entry point considers substitutions only;
+    /// see <see cref="FindOffTargetsWithBulges"/> for gap-containing alignments.
     /// </returns>
     /// <remarks>
     /// <see cref="OffTargetSite.OffTargetScore"/> is this library's own seed-weighted penalty (see
@@ -592,6 +593,118 @@ public static class CrisprDesigner
     {
         return FindOffTargetsCore(
             ValidateScanArguments(guideSequence, genome, maxMismatches, systemType), genome, maxMismatches, systemType);
+    }
+
+    /// <summary>
+    /// Finds PAM-constrained off-target alignments with substitutions or one contiguous DNA or RNA bulge.
+    /// A DNA bulge adds bases to the genomic protospacer and gaps the guide; an RNA bulge removes
+    /// bases from the protospacer and gaps the target. Every admissible gap offset is reported.
+    /// Exact ungapped matches are excluded by the same no-on-target-locus convention as
+    /// <see cref="FindOffTargets"/>; exact bulged alignments are included.
+    /// </summary>
+    /// <remarks>
+    /// The scan follows Cas-OFFinder 3.0's DNA/RNA bulge convention. Bulge sizes are bounded to
+    /// 0..2 bases here. The heuristic, MIT and CFD specificity scorers remain substitution-only:
+    /// none defines a weight for a bulged position. No bulged hit is passed to those scorers.
+    /// The method scans the supplied sequence directly; it does not use a genome-scale index.
+    /// </remarks>
+    /// <param name="guideSequence">Guide of the selected system's length; U is read as T.</param>
+    /// <param name="genome">Sequence to scan on both strands.</param>
+    /// <param name="maxMismatches">Maximum substitutions outside a bulge, from 0 to 5.</param>
+    /// <param name="maxDnaBulge">Maximum extra genomic bases in one bulge, from 0 to 2.</param>
+    /// <param name="maxRnaBulge">Maximum guide bases absent from the target, from 0 to 2.</param>
+    /// <param name="systemType">CRISPR system and PAM geometry.</param>
+    /// <returns>Forward-strand PAMs by ascending coordinate, then reverse-strand PAMs;
+    /// for each PAM, ungapped, DNA-bulged, then RNA-bulged alignments by size and gap offset.</returns>
+    public static IEnumerable<BulgedOffTargetSite> FindOffTargetsWithBulges(
+        string guideSequence,
+        DnaSequence genome,
+        int maxMismatches = 3,
+        int maxDnaBulge = 2,
+        int maxRnaBulge = 2,
+        CrisprSystemType systemType = CrisprSystemType.SpCas9)
+    {
+        string guide = ValidateScanArguments(guideSequence, genome, maxMismatches, systemType);
+        if (maxDnaBulge is < 0 or > 2)
+            throw new ArgumentOutOfRangeException(nameof(maxDnaBulge));
+        if (maxRnaBulge is < 0 or > 2)
+            throw new ArgumentOutOfRangeException(nameof(maxRnaBulge));
+        return ScanOffTargetsWithBulgesCore(guide, genome, maxMismatches,
+            maxDnaBulge, maxRnaBulge, GetSystem(systemType));
+    }
+
+    private static IEnumerable<BulgedOffTargetSite> ScanOffTargetsWithBulgesCore(
+        string guide, DnaSequence genome, int maxMismatches, int maxDnaBulge,
+        int maxRnaBulge, CrisprSystem system)
+    {
+        string forward = genome.Sequence;
+        string reverse = DnaSequence.GetReverseComplementString(forward);
+        int pamLength = system.PamSequence.Length;
+        for (int strand = 0; strand < 2; strand++)
+        {
+            string sequence = strand == 0 ? forward : reverse;
+            for (int pamStart = 0; pamStart <= sequence.Length - pamLength; pamStart++)
+            {
+                if (!MatchesPam(sequence, pamStart, system.PamSequence))
+                    continue;
+
+                // Each length has its own PAM-adjacent window; FindPamSitesCore deliberately
+                // remains fixed-length for all existing callers.
+                for (int delta = 0; delta <= maxDnaBulge; delta++)
+                {
+                    foreach (var hit in AlignBulgedWindow(guide, sequence, pamStart,
+                        system, strand == 0, forward.Length, maxMismatches,
+                        delta == 0 ? BulgeType.None : BulgeType.Dna, delta))
+                        yield return hit;
+                }
+                for (int size = 1; size <= maxRnaBulge; size++)
+                {
+                    foreach (var hit in AlignBulgedWindow(guide, sequence, pamStart,
+                        system, strand == 0, forward.Length, maxMismatches,
+                        BulgeType.Rna, size))
+                        yield return hit;
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<BulgedOffTargetSite> AlignBulgedWindow(
+        string guide, string strandSequence, int pamStart, CrisprSystem system,
+        bool isForward, int genomeLength, int maxMismatches, BulgeType bulge, int size)
+    {
+        int windowLength = guide.Length + (bulge == BulgeType.Dna ? size : -size);
+        int targetStart = system.PamAfterTarget ? pamStart - windowLength : pamStart + system.PamSequence.Length;
+        if (targetStart < 0 || targetStart + windowLength > strandSequence.Length)
+            yield break;
+
+        string target = strandSequence.Substring(targetStart, windowLength);
+        int forwardPamStart = isForward ? pamStart : genomeLength - pamStart - system.PamSequence.Length;
+        int forwardTargetStart = isForward ? targetStart : genomeLength - targetStart - windowLength;
+        int lastGapOffset = bulge switch
+        {
+            BulgeType.Dna => guide.Length,
+            BulgeType.Rna => windowLength,
+            _ => 0
+        };
+        for (int gapOffset = 0; gapOffset <= lastGapOffset; gapOffset++)
+        {
+            string alignedGuide = bulge == BulgeType.Dna
+                ? guide.Insert(gapOffset, new string('-', size)) : guide;
+            string alignedTarget = bulge == BulgeType.Rna
+                ? target.Insert(gapOffset, new string('-', size)) : target;
+            int mismatches = 0;
+            for (int i = 0; i < alignedGuide.Length; i++)
+            {
+                if (alignedGuide[i] != '-' && alignedTarget[i] != '-' &&
+                    alignedGuide[i] != alignedTarget[i])
+                    mismatches++;
+            }
+            if (mismatches > maxMismatches || (bulge == BulgeType.None && mismatches == 0))
+                continue;
+            yield return new BulgedOffTargetSite(forwardPamStart, forwardTargetStart,
+                alignedGuide, alignedTarget, mismatches, bulge, size,
+                bulge == BulgeType.None ? -1 : gapOffset, isForward);
+        }
     }
 
     /// <summary>
@@ -2698,6 +2811,36 @@ public sealed record OffTargetSite(
     IReadOnlyList<int> MismatchPositions,
     bool IsForwardStrand,
     double OffTargetScore);
+
+/// <summary>Which sequence contains the extra bases in a gapped off-target alignment.</summary>
+public enum BulgeType
+{
+    /// <summary>Substitutions only; neither aligned sequence has a gap.</summary>
+    None,
+    /// <summary>The genomic target has extra bases; the aligned guide has a gap.</summary>
+    Dna,
+    /// <summary>The guide has extra bases; the aligned target has a gap.</summary>
+    Rna
+}
+
+/// <summary>
+/// A PAM-constrained off-target alignment. <see cref="Position"/> is the 0-based PAM start on
+/// the forward genomic strand, matching <see cref="OffTargetSite.Position"/>.
+/// <see cref="TargetStart"/> is the 0-based start of the genomic protospacer window;
+/// the aligned strings are read 5' to 3' on the PAM strand and use '-' for the contiguous gap.
+/// <see cref="BulgePosition"/> is the zero-based gap offset, or -1 for <see cref="BulgeType.None"/>.
+/// No specificity score is attached because the substitution-only models do not define bulge weights.
+/// </summary>
+public sealed record BulgedOffTargetSite(
+    int Position,
+    int TargetStart,
+    string AlignedGuide,
+    string AlignedTarget,
+    int Mismatches,
+    BulgeType Bulge,
+    int BulgeSize,
+    int BulgePosition,
+    bool IsForwardStrand);
 
 /// <summary>
 /// An off-target site together with the PAM it carries, as read on the protospacer strand
