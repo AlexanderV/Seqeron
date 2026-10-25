@@ -23,7 +23,7 @@ and commits it after every change. Batch definitions (units, owned files) are in
   іншому середовищі і віддати тобі результат." So the "environment obstruction" wording I had invented for D19 is
   **withdrawn** — it was never a campaign category and it contradicted the Definition of Done. Full rule now in README
   "Definition of Done". Consequence for B08: **D19 stays DOABLE**, the batch is not finished, and the duplication sweep
-  must not precede it; the D19 hand-off package is `docs/Validation/review-2026-09/D19-handoff.md`.
+  must not precede it; the D19 hand-off package is `docs/Validation/review-2026-09/D19-handoff.md`. **Closed 2026-10-25:** the owner implemented it externally and the result was integrated as **F90** (`798136f1`) after independent oracle verification and a full fast-tier re-run here (18775/0). The rule stands as the way any future halted item is handled — it worked end to end.
 - **Never send the owner's identity to a source host (2026-10-15, after a real slip):** a B08 WP10 subagent put the
   owner's e-mail in a `User-Agent` header on an `en.wikipedia.org` request. Nothing was committed, later requests used
   a generic header, and the e-mail appears nowhere in the tree (checked). The session's own guard lived only in its
@@ -74,7 +74,7 @@ retrieval (install a tool, run a command, grep, list file:line). And such a pass
 produces nothing. Under the superseding rule above this no longer blocks anything: it is the reason the 5-5 debt
 is simply recorded instead of chased.
 
-## State (2026-10-22 00:00 UTC) — B08 rounds 2+3 done, STOPPED before the sweep, waiting on the D19 hand-off; nothing running
+## State (2026-10-25) — D19 integrated (F90), B08 unblocked at audit round 4; nothing running
 - **FIN-B03 DONE** (session_019yqGyk8v1PunaUYAP83i7B archived, 10:35 – 17:57, ≈ $75.1, served claude-opus-5-5
   throughout, as was the B03 first pass — so B03 goes into "Finished batches"): audit rounds 1–3 + final round,
   F22 onwards, dedup sweep, heavy tier once (da6bd804), final report 5bcceeca. 73 changed docs listed for wiki
