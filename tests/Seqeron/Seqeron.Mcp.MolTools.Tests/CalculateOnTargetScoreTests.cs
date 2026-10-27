@@ -35,9 +35,9 @@ public class CalculateOnTargetScoreTests
     public void CalculateOnTargetDoench2014_Binding_ReproducesTheReferenceExamples()
     {
         Assert.That(MolToolsTools.calculate_on_target_doench2014(Doench2014Example1).Score,
-            Is.EqualTo(71.3089368437).Within(1e-4));
+            Is.EqualTo(71.30893469547244).Within(1e-9)); // doenchScore.py calcDoenchScore, executed (its docstring literal 71.3089368437 differs)
         Assert.That(MolToolsTools.calculate_on_target_doench2014(Doench2014Example2).Score,
-            Is.EqualTo(1.89838463593).Within(1e-4));
+            Is.EqualTo(1.8983843193336125).Within(1e-9)); // executed (docstring literal 1.89838463593 differs)
     }
 
     [Test]

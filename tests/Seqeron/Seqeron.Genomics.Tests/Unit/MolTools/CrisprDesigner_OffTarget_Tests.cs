@@ -710,7 +710,7 @@ public class CrisprDesigner_OffTarget_Tests
 
     // Defect F9: CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType) filtered its
     // hits with `.Where(ot => ot.Sequence.Length == 20 && guide.Length == 20)`, so for EVERY system
-    // whose guide is not 20 nt (SaCas9 21, Cas12a/AsCas12a 23, LbCas12a 24) all hits were dropped and
+    // whose guide is not 20 nt (SaCas9 21, Cas12a/AsCas12a/LbCas12a 23) all hits were dropped and
     // the aggregate returned a perfect 100 despite real off-targets.
     //
     // The reference handles the lengths itself and picks the model per system (annotateOfftargets,
@@ -842,7 +842,7 @@ public class CrisprDesigner_OffTarget_Tests
     /// </summary>
     [TestCase(CrisprSystemType.Cas12a, 23)]
     [TestCase(CrisprSystemType.AsCas12a, 23)]
-    [TestCase(CrisprSystemType.LbCas12a, 24)]
+    [TestCase(CrisprSystemType.LbCas12a, 23)]
     [TestCase(CrisprSystemType.CasX, 20)]
     public void CalculateMitSpecificityScore_PamBeforeTargetSystems_AlwaysThrow(
         CrisprSystemType system, int guideLength)

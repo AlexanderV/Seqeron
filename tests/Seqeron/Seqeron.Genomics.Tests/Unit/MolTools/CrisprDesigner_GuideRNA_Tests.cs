@@ -122,7 +122,56 @@ public class CrisprDesigner_GuideRNA_Tests
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.FullGuideRna, Is.EqualTo(guide + SpCas9Scaffold));
-        Assert.That(candidate.FullGuideRna.Length, Is.EqualTo(96));
+        Assert.That(candidate.FullGuideRna!.Length, Is.EqualTo(96));
+    }
+
+    // Round 4 H9/H41. Oracle: CRISPOR's constant primers (crispor.py L7576-7586): the SpCas9 tracrPrimer is the reverse
+    // complement of scaffold + "TTTT"; the SaCas9 template is the scaffold + "TTTTTT" terminator.
+    private const string CrisporSpCas9TracrPrimer =
+        "AAAAGCACCGACTCGGTGCCACTTTTTCAAGTTGATAACGGACTAGCCTTATTTTAACTTGCTATTTCTAGCTCTAAAAC";
+    private const string CrisporSaCas9TracrTemplate =
+        "GTTTTAGTACTCTGGAAACAGAATCTACTAAAACAAGGCAAAATGCCGTGTTTATCTCGTCAACTTGTTGGCGAGATTTTTTT";
+
+    [Test]
+    public void SgRnaScaffolds_AreTheOnesCrisporDerivesItsConstantPrimersFrom()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(DnaSequence.GetReverseComplementString(CrisporSpCas9TracrPrimer),
+                Is.EqualTo(CrisprDesigner.SpCas9SgRnaScaffold + "TTTT"));
+            Assert.That(CrisprDesigner.SpCas9SgRnaScaffold, Has.Length.EqualTo(76));
+            Assert.That(CrisporSaCas9TracrTemplate, Is.EqualTo(CrisprDesigner.SaCas9SgRnaScaffold + "TTTTTT"));
+            Assert.That(CrisprDesigner.SaCas9SgRnaScaffold, Has.Length.EqualTo(77));
+        });
+    }
+
+    /// <summary>
+    /// H9: the scaffold follows the guide's own system. SpCas9 and its alternative-PAM variants share one protein,
+    /// SaCas9 has a different tracr, and a Cas12a / CasX spacer has no scaffold in the reference tools (Cas12a's
+    /// repeat is 5' of the spacer): <c>null</c>, not the SpCas9 scaffold.
+    /// </summary>
+    [TestCase(CrisprSystemType.SpCas9, 20, "SpCas9")]
+    [TestCase(CrisprSystemType.SpCas9_NAG, 20, "SpCas9")]
+    [TestCase(CrisprSystemType.SpCas9_NGA, 20, "SpCas9")]
+    [TestCase(CrisprSystemType.SaCas9, 21, "SaCas9")]
+    [TestCase(CrisprSystemType.SaCas9_NNGRRN, 21, "SaCas9")]
+    [TestCase(CrisprSystemType.Cas12a, 23, null)]
+    [TestCase(CrisprSystemType.AsCas12a, 23, null)]
+    [TestCase(CrisprSystemType.LbCas12a, 23, null)]
+    [TestCase(CrisprSystemType.CasX, 20, null)]
+    public void FullGuideRna_FollowsTheGuidesOwnSystem(CrisprSystemType system, int length, string? scaffold)
+    {
+        string guide = new string('A', length - 8) + "CGTACGTA";
+
+        string? full = CrisprDesigner.EvaluateGuideRna(guide, system).FullGuideRna;
+
+        string? expected = scaffold switch
+        {
+            "SpCas9" => guide + CrisprDesigner.SpCas9SgRnaScaffold,
+            "SaCas9" => guide + CrisprDesigner.SaCas9SgRnaScaffold,
+            _ => null
+        };
+        Assert.That(full, Is.EqualTo(expected));
     }
 
     #endregion
@@ -656,23 +705,29 @@ public class CrisprDesigner_GuideRNA_Tests
     /// <summary>
     /// S-015: the designed list is ranked best-first, as CRISPOR sorts its guide table
     /// (<c>crispor.py mergeGuideInfo</c>: <c>guideData.sort(reverse=True, key=…)</c>).
-    /// Input plants three PAMs whose protospacers score 100 (50% GC, 0 stems), 90 (10 stems) and 0 (all-T, GC outside the window).
+    /// Input plants four PAMs whose protospacers score 100 (50% GC, 0 stems), 95 (50% GC, 5 stems), 90 (10 stems)
+    /// and 0 (all-T, GC outside the window). Round 4 H8: the GC window is an independent filter, so the all-T
+    /// guide is no longer listed (it used to be, as a trailing score-0 row, with MinScore = 0). The stem counts are
+    /// CHOPCHOP's own <c>selfComp</c> (a line-by-line port, scratch oracle chopchop_sc.py): 0, 5 and 10.
     /// </summary>
     [Test]
     public void DesignGuideRnas_Output_IsRankedByScoreDescending()
     {
         var sequence = new DnaSequence(
             "CGTAACGTGCTTGCAACTGAAGG" +      // 50% GC, 0 stems -> 100 (no CC: no reverse-strand PAM)
-            "TTTTTTTTTTTTTTTTTTTTCGG" +      // all-T  -> 0
+            "AGTCTCATCTCACTTGAGACGCGG" +     // 50% GC, 5 stems -> 95 (leading A: no NGG across the previous PAM)
+            "TTTTTTTTTTTTTTTTTTTTCGG" +      // all-T  -> GC outside the window: filtered
             "ACGTACGTACGTACGTACGTTGG");      // 50% GC, 10 CHOPCHOP stems -> 90
 
         var guides = CrisprDesigner.DesignGuideRnas(
             sequence, 0, sequence.Length - 1, CrisprSystemType.SpCas9,
             GuideRnaParameters.Default with { MinScore = 0 }).ToList();
 
-        Assert.That(guides.Select(g => g.Score), Is.EqualTo(new[] { 100.0, 90.0, 0.0 }));
+        Assert.That(guides.Select(g => g.Score).ToArray(), Is.EqualTo(new[] { 100.0, 95.0, 90.0 }));
         Assert.That(guides[0].Sequence, Is.EqualTo("CGTAACGTGCTTGCAACTGA"));
-        Assert.That(guides[^1].Sequence, Is.EqualTo("TTTTTTTTTTTTTTTTTTTT"));
+        Assert.That(guides[1].Sequence, Is.EqualTo("GTCTCATCTCACTTGAGACG"));
+        Assert.That(guides.Any(g => g.Sequence == "TTTTTTTTTTTTTTTTTTTT"), Is.False,
+            "a guide outside the GC window is excluded, not listed with score 0");
     }
 
     /// <summary>
@@ -704,8 +759,8 @@ public class CrisprDesigner_GuideRNA_Tests
     /// S-016: designed candidates keep the metadata of the system they were designed with. A
     /// name-based remap previously replaced LbCas12a/AsCas12a/CasX/SpCas9-NAG with SpCas9, which also
     /// flipped the seed-region orientation (<c>PamAfterTarget</c>) and therefore changed the score:
-    /// the 24-nt LbCas12a protospacer "CGTACGTACGTACGTACGTACGTA" was seeded from its last 10 bases
-    /// ("GTACGTACGTA"[^10..] -> GC 40%) instead of its PAM-proximal first 10 ("CGTACGTACG" -> GC 60%).
+    /// the 23-nt LbCas12a protospacer "CGTACGTACGTACGTACGTACGT" was seeded from its last 10 bases
+    /// ("GTACGTACGT" -> GC 50%) instead of its PAM-proximal first 10 ("CGTACGTACG" -> GC 60%).
     /// </summary>
     [Test]
     public void DesignGuideRnas_KeepsTheRequestedSystemMetadata()
@@ -717,9 +772,9 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(lb, Has.Count.EqualTo(1));
         Assert.That(lb[0].System.Name, Is.EqualTo("LbCas12a"));
-        Assert.That(lb[0].System.GuideLength, Is.EqualTo(24));
+        Assert.That(lb[0].System.GuideLength, Is.EqualTo(23));
         Assert.That(lb[0].System.PamAfterTarget, Is.False);
-        Assert.That(lb[0].Sequence, Has.Length.EqualTo(24));
+        Assert.That(lb[0].Sequence, Has.Length.EqualTo(23));
         // Seed = the 10 PAM-proximal (5') bases "CGTACGTACG" -> 6 G/C of 10 = 60%.
         Assert.That(lb[0].SeedGcContent, Is.EqualTo(60));
     }
@@ -1440,6 +1495,77 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(CrisprDesigner.CalculateMitHitScore(g.Replace('T', 'U'), o.Replace('T', 'U')),
             Is.EqualTo(CrisprDesigner.CalculateMitHitScore(g, o)));
+    }
+
+    #endregion
+    #region Round 4 H8 - the GC window is an independent filter (CHOPCHOP filterGCmin / filterGCmax)
+
+    // Oracle: chopchop.py L1911-1914 (sha256 3c7a4344...): `gc = GC(dna[0:-len(PAM)]); if gc < filterGCmin or
+    // gc > filterGCmax: add = False` - GC in percent of the protospacer, inclusive edges, independent of the
+    // SCORE_GC term. Evaluated for a 40..70 window: the passing GC counts are 8..14 of 20 nt, 9..14 of 21 nt.
+
+    private static string GuideWithGcCount(int length, int gcCount)
+    {
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = i < gcCount ? (i % 2 == 0 ? 'G' : 'C') : (i % 2 == 0 ? 'A' : 'T');
+        return new string(chars);
+    }
+
+    private static bool DesignedGuideListed(
+        string guide, string pam, CrisprSystemType system, GuideRnaParameters parameters)
+    {
+        string text = "ACTGACTCAT" + guide + pam + "CATCACTGAT";
+        return CrisprDesigner
+            .DesignGuideRnas(new DnaSequence(text), 0, text.Length - 1, system, parameters)
+            .Any(c => c.IsForwardStrand && c.Sequence == guide);
+    }
+
+    [Test]
+    public void DesignGuideRnas_GcWindow_FiltersWhetherOrNotTheScoreTermIsOn_Spcas9([Range(0, 20)] int gcCount)
+    {
+        string guide = GuideWithGcCount(20, gcCount);
+        bool expected = gcCount is >= 8 and <= 14;
+        var noScoreTerm = GuideRnaParameters.Default with
+        { ScoreGcContent = false, MinScore = 0, CheckSelfComplementarity = false };
+        var scoreTerm = GuideRnaParameters.Default with { MinScore = 0, CheckSelfComplementarity = false };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(DesignedGuideListed(guide, "AGG", CrisprSystemType.SpCas9, noScoreTerm), Is.EqualTo(expected),
+                "ScoreGcContent = false must not switch the window off (a 100 %-GC guide used to pass)");
+            Assert.That(DesignedGuideListed(guide, "AGG", CrisprSystemType.SpCas9, scoreTerm), Is.EqualTo(expected));
+        });
+    }
+
+    [Test]
+    public void DesignGuideRnas_GcWindow_FiltersFor21NtSaCas9([Range(0, 21)] int gcCount)
+    {
+        string guide = GuideWithGcCount(21, gcCount);
+        var parameters = GuideRnaParameters.Default with
+        { ScoreGcContent = false, MinScore = 0, CheckSelfComplementarity = false };
+
+        Assert.That(DesignedGuideListed(guide, "CCGAAT", CrisprSystemType.SaCas9, parameters),
+            Is.EqualTo(gcCount is >= 9 and <= 14), $"{gcCount}/21 = {100.0 * gcCount / 21:F2} %");
+    }
+
+    /// <summary>CHOPCHOP's filter defaults to 0..100 (no filter): the same window values switch the filter off.</summary>
+    [Test]
+    public void DesignGuideRnas_FullGcWindow_ListsEveryGuide_AndEvaluateOnlyReports()
+    {
+        string allGc = GuideWithGcCount(20, 20);
+        var open = GuideRnaParameters.Default with
+        { MinGcContent = 0, MaxGcContent = 100, ScoreGcContent = false, MinScore = 0, CheckSelfComplementarity = false };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(DesignedGuideListed(allGc, "AGG", CrisprSystemType.SpCas9, open), Is.True);
+            // EvaluateGuideRna evaluates the guide it is given: it reports the GC and does not drop it.
+            var evaluated = CrisprDesigner.EvaluateGuideRna(allGc, CrisprSystemType.SpCas9,
+                GuideRnaParameters.Default with { ScoreGcContent = false });
+            Assert.That(evaluated.GcContent, Is.EqualTo(100.0));
+            Assert.That(evaluated.Issues, Has.Some.Contains("High GC content"));
+        });
     }
 
     #endregion

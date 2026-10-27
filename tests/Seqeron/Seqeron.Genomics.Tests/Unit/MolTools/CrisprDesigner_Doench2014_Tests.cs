@@ -22,30 +22,37 @@ namespace Seqeron.Genomics.Tests.Unit.MolTools;
 [TestFixture]
 public class CrisprDesigner_Doench2014_Tests
 {
-    private const double Tol = 1e-4; // reference example floats are quoted to ~12 sig figs; C# double matches well within this
+    // Every row is pinned at 1e-9. Round 4 H10: the two "published" rows used to be the docstring literals
+    // of doenchScore.py at 1e-4 - 46x / 315x the gap to what that file's own calcDoenchScore returns - and the
+    // all-A row sat at 1e-3 on a value of 4.43. All three are now the EXECUTED reference values.
+    private const double Tol = 1e-9;
 
     /// <summary>
-    /// M-001: Published reference worked example #1 from doenchScore.py.
-    /// Sequence "TATAGCTGCGATCTGAGGTAGGGAGGGACC" → reference 0.713089368437 → ×100 = 71.3089368437.
-    /// This is the load-bearing cross-check: it ties the C# implementation to the reference
-    /// implementation's own documented expected output.
+    /// M-001: Worked example #1 of doenchScore.py (CRISPOR, sha256 0cf53a46...).
+    /// Sequence "TATAGCTGCGATCTGAGGTAGGGAGGGACC". The file's <c>print "expected result:"</c> docstring says
+    /// 0.713089368437, but EXECUTING its own <c>calcDoenchScore</c> returns 0.7130893469547245 (x100 =
+    /// 71.30893469547244): the docstring is a typed literal that disagrees with the file's code by 2.1e-8
+    /// (its header credits a later fix, "Thanks to Cameron Mac Pherson ... for fixing my original version").
+    /// The implementation reproduces the CODE exactly, so that is what is pinned.
     /// </summary>
     [Test]
-    public void Doench2014_ReferenceExample1_MatchesPublishedValue()
+    public void Doench2014_ReferenceExample1_MatchesTheExecutedReference()
     {
         double score = CrisprDesigner.CalculateOnTargetDoench2014("TATAGCTGCGATCTGAGGTAGGGAGGGACC");
-        Assert.That(score, Is.EqualTo(71.3089368437).Within(Tol));
+        Assert.That(score, Is.EqualTo(71.30893469547244).Within(Tol));
+        Assert.That(score, Is.Not.EqualTo(71.3089368437).Within(1e-9), "the docstring literal is not what the code returns");
     }
 
     /// <summary>
-    /// M-002: Published reference worked example #2 from doenchScore.py.
-    /// Sequence "TCCGCACCTGTCACGGTCGGGGCTTGGCGC" → reference 0.0189838463593 → ×100 = 1.89838463593.
+    /// M-002: Worked example #2 of doenchScore.py. Sequence "TCCGCACCTGTCACGGTCGGGGCTTGGCGC": the docstring says
+    /// 0.0189838463593, the executed <c>calcDoenchScore</c> returns 0.018983843193336125 (x100 = 1.8983843193336125).
     /// </summary>
     [Test]
-    public void Doench2014_ReferenceExample2_MatchesPublishedValue()
+    public void Doench2014_ReferenceExample2_MatchesTheExecutedReference()
     {
         double score = CrisprDesigner.CalculateOnTargetDoench2014("TCCGCACCTGTCACGGTCGGGGCTTGGCGC");
-        Assert.That(score, Is.EqualTo(1.89838463593).Within(Tol));
+        Assert.That(score, Is.EqualTo(1.8983843193336125).Within(Tol));
+        Assert.That(score, Is.Not.EqualTo(1.89838463593).Within(1e-9), "the docstring literal is not what the code returns");
     }
 
     /// <summary>
@@ -70,7 +77,7 @@ public class CrisprDesigner_Doench2014_Tests
         //   plus all matching single/di-nucleotide 'A'/'AA' feature weights and the intercept,
         //   through the sigmoid → 0.044338168085440035 → ×100 = 4.4338168085.
         double score = CrisprDesigner.CalculateOnTargetDoench2014(seq);
-        Assert.That(score, Is.EqualTo(4.4338168085).Within(1e-3));
+        Assert.That(score, Is.EqualTo(4.4338168085440035).Within(Tol)); // doenchScore.py calcDoenchScore, executed
     }
 
     /// <summary>

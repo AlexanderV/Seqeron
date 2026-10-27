@@ -80,7 +80,7 @@ public class CrisprPublishedSpecificityScoreTests
     /// </summary>
     [TestCase(CrisprSystemType.Cas12a, 23)]
     [TestCase(CrisprSystemType.AsCas12a, 23)]
-    [TestCase(CrisprSystemType.LbCas12a, 24)]
+    [TestCase(CrisprSystemType.LbCas12a, 23)]
     [TestCase(CrisprSystemType.CasX, 20)]
     public void PublishedAggregates_PamBeforeTargetSystems_Throw(CrisprSystemType system, int guideLength)
     {

@@ -16,9 +16,11 @@ public static class CrisprDesigner
         CrisprSystemType.SpCas9 => new CrisprSystem("SpCas9", "NGG", 20, true, "Streptococcus pyogenes Cas9"),
         CrisprSystemType.SpCas9_NAG => new CrisprSystem("SpCas9-NAG", "NAG", 20, true, "SpCas9 with NAG PAM (lower activity)"),
         CrisprSystemType.SaCas9 => new CrisprSystem("SaCas9", "NNGRRT", 21, true, "Staphylococcus aureus Cas9"),
+        // CRISPOR (setupPamInfo L492-496) uses GUIDELEN = 23 for every Cpf1 PAM and does not tell AsCas12a from LbCas12a;
+        // the three aliases therefore share the PAM and the 23-nt spacer, so one genomic site yields one protospacer.
         CrisprSystemType.Cas12a => new CrisprSystem("Cas12a/Cpf1", "TTTV", 23, false, "Cas12a (Cpf1) - PAM before target"),
         CrisprSystemType.AsCas12a => new CrisprSystem("AsCas12a", "TTTV", 23, false, "Acidaminococcus sp. Cas12a"),
-        CrisprSystemType.LbCas12a => new CrisprSystem("LbCas12a", "TTTV", 24, false, "Lachnospiraceae bacterium Cas12a"),
+        CrisprSystemType.LbCas12a => new CrisprSystem("LbCas12a", "TTTV", 23, false, "Lachnospiraceae bacterium Cas12a"),
         CrisprSystemType.CasX => new CrisprSystem("CasX", "TTCN", 20, false, "CasX - compact Cas protein"),
         CrisprSystemType.SpCas9_NGA => new CrisprSystem("SpCas9-NGA", "NGA", 20, true, "SpCas9 with NGA PAM (alternative off-target PAM of NGG, Kleinstiver 2015)"),
         CrisprSystemType.SaCas9_NNGRRN => new CrisprSystem("SaCas9-NNGRRN", "NNGRRN", 21, true, "SaCas9 with relaxed NNGRRN PAM (alternative off-target PAM of NNGRRT)"),
@@ -46,6 +48,14 @@ public static class CrisprDesigner
     /// <summary>
     /// Finds all PAM sites in a raw sequence string.
     /// </summary>
+    /// <remarks>
+    /// Ambiguity codes follow CRISPOR (crispor.py): a pattern <c>N</c> of the PAM matches any sequence character,
+    /// a sequence <c>N</c> included (<c>patMatch</c>); a concrete PAM base or code needs a concrete base of its set,
+    /// so a sequence <c>N</c> at a <c>G</c> or <c>R</c> position is no PAM; and a site whose protospacer window
+    /// contains an <c>N</c> is not returned (<c>flankSeqIter(doFilterNs=True)</c>, the filter every guide-listing path
+    /// of the reference applies; only its two lookup helpers <c>findAllGuides</c>/<c>findGuideSeq</c> keep such guides).
+    /// A <see cref="DnaSequence"/> cannot hold an <c>N</c>, so only this overload is affected.
+    /// </remarks>
     public static IEnumerable<PamSite> FindPamSites(
         string sequence,
         CrisprSystemType systemType = CrisprSystemType.SpCas9)
@@ -85,6 +95,9 @@ public static class CrisprDesigner
                 if (targetStart >= 0 && targetEnd < seq.Length)
                 {
                     string target = seq.Substring(targetStart, guideLength);
+                    if (target.Contains('N'))
+                        continue; // CRISPOR flankSeqIter(doFilterNs=True): a guide holding an N is never offered
+
                     yield return new PamSite(
                         Position: i,
                         PamSequence: seq.Substring(i, pamPattern.Length),
@@ -130,6 +143,8 @@ public static class CrisprDesigner
                         : forwardPos - guideLength;
 
                     string target = revComp.Substring(revTargetStart, guideLength);
+                    if (target.Contains('N'))
+                        continue; // CRISPOR flankSeqIter(doFilterNs=True), as on the forward strand
 
                     yield return new PamSite(
                         Position: forwardPos,
@@ -160,7 +175,14 @@ public static class CrisprDesigner
         return true;
     }
 
-    private static bool MatchesIupac(char nucleotide, char iupacCode) => IupacHelper.MatchesIupac(nucleotide, iupacCode);
+    /// <summary>
+    /// CRISPOR's <c>patMatch</c> (crispor.py L2347-2392): a pattern <c>N</c> matches ANY sequence character, a
+    /// sequence <c>N</c> included (<c>if patChar=="N": continue</c>), while every other pattern code needs a
+    /// concrete base from its set - a sequence <c>N</c> does not satisfy <c>G</c> or <c>R</c>.
+    /// <see cref="IupacHelper.MatchesIupac"/> alone would make a sequence <c>N</c> block a PAM's <c>N</c> position.
+    /// </summary>
+    private static bool MatchesIupac(char nucleotide, char iupacCode) =>
+        iupacCode == 'N' ? IupacHelper.IsNucleotideCode(nucleotide) : IupacHelper.MatchesIupac(nucleotide, iupacCode);
 
     #endregion
 
@@ -176,14 +198,24 @@ public static class CrisprDesigner
     /// <param name="parameters">Optional design parameters.</param>
     /// <returns>
     /// Guide RNA candidates whose predicted cleavage site (<see cref="GetCutSite"/>) falls inside
-    /// <paramref name="regionStart"/>..<paramref name="regionEnd"/> and whose
-    /// <see cref="GuideRnaCandidate.Score"/> reaches <see cref="GuideRnaParameters.MinScore"/>,
-    /// ordered by <see cref="GuideRnaParameters.Ranking"/> (best first) and then by position /
+    /// <paramref name="regionStart"/>..<paramref name="regionEnd"/>, whose
+    /// <see cref="GuideRnaCandidate.Score"/> reaches <see cref="GuideRnaParameters.MinScore"/> and whose GC
+    /// content lies inside <see cref="GuideRnaParameters.MinGcContent"/>..<see cref="GuideRnaParameters.MaxGcContent"/>
+    /// (edges inclusive), ordered by <see cref="GuideRnaParameters.Ranking"/> (best first) and then by position /
     /// forward-strand-first for a deterministic order.
     /// </returns>
     /// <remarks>
     /// Ranking follows the reference tool CRISPOR (<c>crispor.py</c>, <c>mergeGuideInfo</c>:
     /// <c>guideData.sort(reverse=True, key=…)</c> — descending by the selected score column).
+    /// <para>
+    /// The GC window is an independent filter, as in CHOPCHOP (<c>filterGCmin</c>/<c>filterGCmax</c>, chopchop.py
+    /// L1911-1914: <c>if gc &lt; filterGCmin or gc &gt; filterGCmax: add = False</c>), whatever
+    /// <see cref="GuideRnaParameters.ScoreGcContent"/> says: that flag only decides whether the same window also
+    /// adds CHOPCHOP's flat score penalty. CHOPCHOP's filter defaults to 0–100, i.e. no filter; to leave the GC
+    /// content unrestricted set <see cref="GuideRnaParameters.MinGcContent"/> = 0 and
+    /// <see cref="GuideRnaParameters.MaxGcContent"/> = 100. <see cref="EvaluateGuideRna(string, CrisprSystemType, GuideRnaParameters?)"/>
+    /// evaluates the guide it is given and only reports a GC outside the window.
+    /// </para>
     /// </remarks>
     public static IEnumerable<GuideRnaCandidate> DesignGuideRnas(
         DnaSequence sequence,
@@ -210,6 +242,7 @@ public static class CrisprDesigner
             .Where(p => IsInRegion(p, regionStart, regionEnd))
             .Select(p => EvaluateGuideRna(p, sequence.Sequence, effectiveParams, system))
             .Where(c => c.Score >= effectiveParams.MinScore)
+            .Where(c => !IsOutsideGcWindow(c.GcContent, effectiveParams))
             .Where(c => effectiveParams.MaxSelfComplementaryStems is not int max
                         || c.SelfComplementaryStems <= max);
 
@@ -249,7 +282,9 @@ public static class CrisprDesigner
     /// (<c>CRISPR_DEFAULT["SCORE_GC"] = False</c>, with the comment "this is already scored in many models!"; the only
     /// CLI flag, <c>-c</c>, is <c>store_false</c>, so the command line cannot switch it on); here
     /// <see cref="GuideRnaParameters.ScoreGcContent"/> is <c>true</c> by default because this composite has no
-    /// efficiency model to cover GC, and <c>false</c> reproduces CHOPCHOP's default. The stem term is on, as in CHOPCHOP,
+    /// efficiency model to cover GC, and <c>false</c> reproduces CHOPCHOP's default (together with a 0–100 window,
+    /// since CHOPCHOP's separate <c>filterGCmin</c>/<c>filterGCmax</c> filter, which <see cref="DesignGuideRnas"/>
+    /// applies with this window, defaults to none). The stem term is on, as in CHOPCHOP,
     /// and <see cref="GuideRnaParameters.CheckSelfComplementarity"/> = <c>false</c> is its <c>-SC/--noScoreSelfComp</c>.
     /// Weights, window edges (inclusive: exactly 40 % and 70 % are not penalised) and the GC formula
     /// (G+C over the protospacer length, PAM excluded) were checked against <c>chopchop.py</c> and are locked by
@@ -304,6 +339,14 @@ public static class CrisprDesigner
         return new string(chars);
     }
 
+    /// <summary>
+    /// Whether a GC percentage lies outside the (inclusive) window, with CHOPCHOP's comparisons
+    /// (<c>gc &lt; filterGCmin or gc &gt; filterGCmax</c>, chopchop.py L1912-1914; the score term uses the same strict
+    /// comparisons against <c>GC_LOW</c>/<c>GC_HIGH</c>, L409).
+    /// </summary>
+    private static bool IsOutsideGcWindow(double gcPercent, GuideRnaParameters parameters) =>
+        gcPercent < parameters.MinGcContent || gcPercent > parameters.MaxGcContent;
+
     private static GuideRnaCandidate EvaluateGuideRnaCore(
         string guideSequence,
         CrisprSystem system,
@@ -339,7 +382,7 @@ public static class CrisprDesigner
         double penalty = 0;
 
         // GC window (CHOPCHOP: GC_LOW = 40, GC_HIGH = 70, strict comparisons, flat penalty)
-        bool gcOutside = gcContent < effectiveParams.MinGcContent || gcContent > effectiveParams.MaxGcContent;
+        bool gcOutside = IsOutsideGcWindow(gcContent, effectiveParams);
         if (gcOutside)
         {
             issues.Add(gcContent < effectiveParams.MinGcContent
@@ -2051,7 +2094,15 @@ public static class CrisprDesigner
     /// <see cref="CrisprSystemType.SaCas9_NNGRRN"/> (the reference's alternative PAM of <c>NNGRRT</c>,
     /// never a main PAM there) is a SaCas9 system too and takes the same Tycko model.
     /// </summary>
-    private static bool IsSaCas9Pam(string pam)
+    /// <summary>The sgRNA scaffold that follows a spacer of <paramref name="system"/>, or <c>null</c> when the reference tools define none.</summary>
+    internal static string? SgRnaScaffoldOf(CrisprSystem system)
+    {
+        if (!system.PamAfterTarget)
+            return null;
+        return IsSaCas9Pam(system.PamSequence) ? SaCas9SgRnaScaffold : SpCas9SgRnaScaffold;
+    }
+
+    internal static bool IsSaCas9Pam(string pam)
     {
         int dash = pam.IndexOf('-', StringComparison.Ordinal);
         string head = dash < 0 ? pam : pam[..dash];
@@ -2593,6 +2644,25 @@ public static class CrisprDesigner
     public const string StandardSgRnaBackboneRegion = "AGGCTAGTCCGT";
 
     /// <summary>
+    /// The 76-nt SpCas9 sgRNA scaffold (crRNA repeat, loop and tracrRNA) that follows the 20-nt spacer. Source:
+    /// CRISPOR's constant in-vitro-transcription primer <c>tracrPrimer</c> (crispor.py L7584-7586, "constant primer
+    /// used for all guide RNAs"), whose reverse complement is this sequence followed by the template's
+    /// <c>TTTT</c> tail (checked: reverse complement of the primer == scaffold + "TTTT", 80 nt); the tail is not part
+    /// of the scaffold returned here.
+    /// </summary>
+    public const string SpCas9SgRnaScaffold =
+        "GTTTTAGAGCTAGAAATAGCAAGTTAAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC";
+
+    /// <summary>
+    /// The 77-nt SaCas9 sgRNA scaffold that follows the spacer. Source: CRISPOR's SaCas9 <c>tracrPrimer</c> and
+    /// <c>specPrimer</c> branch (crispor.py L7576-7582, citing doi:10.1016/j.cell.2015.08.007), whose template
+    /// <c>GTTTTAGTACTCTGGAAACAGAATCTACTAAAACAAGGCAAAATGCCGTGTTTATCTCGTCAACTTGTTGGCGAGATTTTTTT</c> ends in a
+    /// <c>TTTTTT</c> terminator after the final scaffold base; the terminator is not part of the scaffold.
+    /// </summary>
+    public const string SaCas9SgRnaScaffold =
+        "GTTTTAGTACTCTGGAAACAGAATCTACTAAAACAAGGCAAAATGCCGTGTTTATCTCGTCAACTTGTTGGCGAGAT";
+
+    /// <summary>
     /// Counts the self-complementary stems of a guide RNA: the number of <paramref name="stemLength"/>-mer
     /// windows of the protospacer that have at least 50% GC and can pair either with a downstream part of
     /// the guide itself or with one of the supplied scaffold (backbone) regions. Guide secondary structure
@@ -2908,7 +2978,10 @@ public readonly record struct GuideRnaParameters(
     /// <see cref="CrisprDesigner.BadGcContentPenalty"/> (300) to the penalty, i.e. drops
     /// <see cref="GuideRnaCandidate.Score"/> to 0. Default <c>true</c>. CHOPCHOP itself ships this term <b>off</b> in
     /// every mode (<c>SCORE_GC = False</c>), so <c>false</c> reproduces CHOPCHOP's default; a GC outside the window is
-    /// then only reported in <see cref="GuideRnaCandidate.Issues"/>.
+    /// then still reported in <see cref="GuideRnaCandidate.Issues"/> and still excluded by
+    /// <see cref="CrisprDesigner.DesignGuideRnas"/>, which applies the window as an independent filter exactly as
+    /// CHOPCHOP's <c>filterGCmin</c>/<c>filterGCmax</c> does (whose default, 0–100, is no filter: use
+    /// <see cref="MinGcContent"/> = 0 and <see cref="MaxGcContent"/> = 100 for that).
     /// </summary>
     public bool ScoreGcContent { get; init; } = true;
 
@@ -2963,9 +3036,15 @@ public sealed record GuideRnaCandidate(
     CrisprSystem System)
 {
     /// <summary>
-    /// Gets the guide RNA sequence with the standard scaffold.
+    /// The spacer joined to the sgRNA scaffold of the guide's own system, or <c>null</c> when no scaffold for it is
+    /// defined by the reference tools: <see cref="CrisprDesigner.SpCas9SgRnaScaffold"/> after an SpCas9 spacer
+    /// (SpCas9, SpCas9-NAG, SpCas9-NGA: one protein, one scaffold), <see cref="CrisprDesigner.SaCas9SgRnaScaffold"/>
+    /// after an SaCas9 spacer (a different tracr), and <c>null</c> for Cas12a / CasX. Cas12a's crRNA is a direct
+    /// repeat 5' of the spacer with nothing 3' of it (Zetsche 2015; CRISPOR's Cpf1 oligos only add a 4-nt
+    /// <c>AGAT</c> overhang because the repeat sits on the vector), and CasX's guide scaffold is in no reference tool;
+    /// appending the SpCas9 scaffold to such a spacer, as this property used to, builds a non-functional RNA.
     /// </summary>
-    public string FullGuideRna => Sequence + "GTTTTAGAGCTAGAAATAGCAAGTTAAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC";
+    public string? FullGuideRna => CrisprDesigner.SgRnaScaffoldOf(System) is { } scaffold ? Sequence + scaffold : null;
 
     /// <summary>
     /// The 30-nt Rule Set 2 / Azimuth context of this guide read on the protospacer strand

@@ -126,8 +126,8 @@
 | S-012 | `DesignGuideRnas_ReverseStrandGuide_CutSiteInRegion_IsDesigned` | "CCA"+ACGT×10, whole region | reverse site Pos=0, TargetStart=3, `GetCutSite`=5; 1 guide, Pos=3, reverse (F3, CRISPOR −3 bp 5' of PAM) | ✅ |
 | S-013 | `DesignGuideRnas_ReverseStrandGuide_CutSiteOutsideRegion_IsExcluded` | same, regions [6,30], [0,4], [5,5] | empty, empty, exactly 1 (F3 region boundary) | ✅ |
 | S-014 | `GetCutSite_FollowsCrisporConventionOnBothStrands` | SpCas9 ±, Cas12a ± PamSites at 40 | 37 / 45 / 62 / 21 (F3: Cas9 `Position−3` / `Position+pamLen+2`; Cas12a `Position+pamLen+18` / `Position−19`) | ✅ |
-| S-015 | `DesignGuideRnas_Output_IsRankedByScoreDescending` | 3 PAMs scoring 100 (50 % GC, 0 stems) / 90 (10 stems) / 0 (all-T, GC outside window) | Scores [100, 90, 0] (F5, CRISPOR `mergeGuideInfo` sort) | ✅ |
-| S-016 | `DesignGuideRnas_KeepsTheRequestedSystemMetadata` | LbCas12a target | System LbCas12a, GuideLength 24, PamAfterTarget=false, SeedGC=60 (5' seed) (F4) | ✅ |
+| S-015 | `DesignGuideRnas_Output_IsRankedByScoreDescending` | 4 PAMs: 100 (50 % GC, 0 stems) / 95 (5 stems) / 90 (10 stems) / all-T (GC outside window) | Scores [100, 95, 90]; the all-T guide is excluded by the GC filter (F5, CRISPOR `mergeGuideInfo` sort; H8) | ✅ |
+| S-016 | `DesignGuideRnas_KeepsTheRequestedSystemMetadata` | LbCas12a target | System LbCas12a, GuideLength 23, PamAfterTarget=false, SeedGC=60 (5' seed) (F4; 24 before H11) | ✅ |
 | S-017 | `EvaluateGuideRna_AvoidPolyTFalse_DisablesThePolyTIssue_ScoreUnchanged` | "ACGTACGTTTTTACGTACGT" | on: 95 with a TTTT issue; off: 95, HasPolyT=true, no TTTT issue (F8, G5) | ✅ |
 | S-018 | `EvaluateGuideRna_CheckSelfComplementarityFalse_DisablesThePenalty` | GCGC×10 (11 stems) | on: 100−11−5; off: 95, Stems=11, legacy SelfComp=0.275, 1 seed-GC issue (F8, E3) | ✅ |
 | S-019 | `DesignGuideRnas_EqualRankingKeys_AreOrderedByPositionDeterministically` (2 cases: `Score`, `OnTargetRuleSet2`) | "CCA"+ACGT×10+"AGG" | 2 tied guides ordered (3, reverse), (23, forward) — deterministic position/strand tie-break (F5) | ✅ |

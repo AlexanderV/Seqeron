@@ -74,7 +74,7 @@
 | S4 | GetSystem throws ArgumentException for unknown system type | Input validation | .NET conventions |
 | S5 | FindPamSites with null DnaSequence throws ArgumentNullException | Input validation | .NET conventions |
 | S6 | AsCas12a FindPamSites produces 23bp target end-to-end | Variant-specific guide length | Zetsche 2015 |
-| S7 | LbCas12a FindPamSites produces 24bp target end-to-end | Variant-specific guide length | Zetsche 2015 |
+| S7 | LbCas12a FindPamSites produces a 23bp target end-to-end, identical to the other Cas12a aliases | CRISPOR `GUIDELEN = 23` for every Cpf1 PAM (H11) | CRISPOR setupPamInfo |
 | S8 | `SpCas9_NGA` / `SaCas9_NNGRRN`: a PAM whose target would run off the sequence start (forward) or end (reverse) is excluded; the exact-fit case (target flush with the edge) is kept | Boundary rule on both strands for the new systems | CRISPOR `findPams` `minPosPlus` / `maxPosMinus`; independent oracle (round 3 G8) |
 | S9 | `SpCas9_NGA` / `SaCas9_NNGRRN` with `N` in the genome: an `N` inside the target is carried through on both strands (CRISPOR `flankSeqIter`, `doFilterNs=False`); an `N` at a concrete PAM position (`G`, `A`, `R`, leading `T` of the reverse reading) is not a PAM | Ambiguity handling; agrees with CRISPOR `patMatch` | CRISPOR `patMatch` L2347-2394; independent oracle (round 3 G8) |
 
@@ -119,7 +119,7 @@
 |----|------|--------|
 | M1-M3 | AsCas12a/LbCas12a PAM + Name not verified | Added to parametric `GetSystem_ReturnsCorrectNameAndPam` (7 cases for all systems) |
 | S6 | AsCas12a not exercised through FindPamSites | Implemented `FindPamSites_AsCas12a_DetectsTTTV_With23bpTarget` — verifies position, target start, length=23, content |
-| S7 | LbCas12a not exercised through FindPamSites | Implemented `FindPamSites_LbCas12a_DetectsTTTV_With24bpTarget` — verifies position, target start, length=24, content |
+| S7 | LbCas12a not exercised through FindPamSites | Implemented `FindPamSites_LbCas12a_DetectsTTTV_With23bpTarget` — verifies position, target start, length=23 (24 before B08 round 4 H11), content |
 
 #### ⚠ Weak (Strengthened)
 
@@ -169,7 +169,8 @@
 | 18 | `FindPamSites_Cas12a_DetectsTTTG` | M13 | ✅ |
 | 19 | `FindPamSites_Cas12a_DoesNotDetectTTTT` | M14 | ✅ |
 | 20 | `FindPamSites_AsCas12a_DetectsTTTV_With23bpTarget` | S6 | ✅ |
-| 21 | `FindPamSites_LbCas12a_DetectsTTTV_With24bpTarget` | S7 | ✅ |
+| 21 | `FindPamSites_LbCas12a_DetectsTTTV_With23bpTarget` | S7 | ✅ |
+| 21b | `FindPamSites_AllCas12aAliases_ReportTheSameSites` | H11 | ✅ |
 | 22 | `FindPamSites_SaCas9_DetectsNNGAAT` | M15 | ✅ |
 | 23 | `FindPamSites_SaCas9_DetectsNNGAGT` | M15 | ✅ |
 | 24 | `FindPamSites_SaCas9_DetectsNNGGGT` | M15 | ✅ |
@@ -199,16 +200,16 @@
 
 ## Open Questions
 
-- `LbCas12a` is configured with a 24-nt guide; CRISPOR uses 23 nt for every Cpf1 PAM and Zetsche et al. (2015) treat
-  23 nt as canonical (20-24 functional). Left unchanged in the 2026-09 review because no opened source supports
-  either value over the other for LbCas12a specifically — recorded for the ledger.
+- ~~`LbCas12a` 24-nt guide~~ resolved (B08 round 4 H11): 23 nt like `Cas12a`/`AsCas12a`, as CRISPOR uses for every Cpf1 PAM.
 
-- **Genome `N` against a PAM `N`.** CRISPOR's `patMatch` lets a pattern `N` match anything, including a genome `N`;
-  `IupacHelper.MatchesIupac('N','N')` accepts only `A/C/G/T`, so `FindPamSites` does not report a PAM whose
-  "any base" position is itself an `N` in the genome (e.g. genome `NGG` for the NGG motif, `CCGAAN` for NNGRRN). This is
-  a recorded divergence that is NOT pinned by a test (the library and the reference disagree; no source ranks one
-  over the other); the S9 tests use only the cases where both agree. CRISPOR's optional `doFilterNs` (drop guides
-  containing `N`) is likewise not applied: the target keeps its `N`.
+- ~~Genome `N` against a PAM `N`~~ resolved (B08 round 4 H12): the scan follows CRISPOR's `patMatch` (a pattern `N`
+  matches any sequence character including `N`; a concrete pattern base or code needs a concrete base) and
+  `flankSeqIter(doFilterNs=True)` (a protospacer window holding an `N` is never offered). Oracle: the genuine
+  `findAllPams` + `flankSeqIter`, executed; differential on 10 x 500 random strings with `N` over seven systems:
+  0 sites on either side only (before: 774-824 extra, 43-48 missing per 400 cases). Tests:
+  `FindPamSites_SequenceNAtAPamAnyBasePosition_IsAMatch_AsInCrispor`,
+  `FindPamSites_SequenceNDoesNotSatisfyAConcretePamBaseOrCode`,
+  `FindPamSites_ProtospacerContainingN_IsNeverOffered_OnEitherStrandAndEitherPamSide`.
 
 ## ASSUMPTIONS
 

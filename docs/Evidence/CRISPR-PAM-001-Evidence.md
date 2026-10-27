@@ -130,7 +130,10 @@ strand and site counts identical to CRISPOR).
 
 ## Divergences Recorded (not defects)
 
-- **`LbCas12a` guide length 24 vs CRISPOR's 23.** CRISPOR uses `GUIDELEN = 23` for every Cpf1 PAM and does not
-  model As/Lb separately; the canonical Zetsche 2015 spacer is 23 nt (20-24 functional, IDT recommends 21).
-  Seqeron's 24 lies inside the published functional range but is not supported by any source opened in this
-  session — flagged for the ledger rather than changed (campaign rule 1: no unsourced changes).
+- **`LbCas12a` guide length (resolved, B08 round 4 H11).** It was 24 while `Cas12a`/`AsCas12a` were 23, a split no source
+  opened in the review supports. CRISPOR uses `GUIDELEN = 23` for every Cpf1 PAM (`setupPamInfo` L492-496) and does not
+  model As/Lb separately; the canonical Zetsche 2015 spacer is 23 nt (IDT recommends 21). CHOPCHOP's 24
+  (`CPF1_DEFAULT["GUIDE_SIZE"] = 24`) is for Cpf1 in general, again with no ortholog distinction. All three aliases now
+  share the PAM and the 23-nt spacer, so one genomic site yields one protospacer, `TargetStart` and cut site whichever alias is
+  chosen (`FindPamSites_AllCas12aAliases_ReportTheSameSites`). The ranges once quoted for Zetsche 2015 in tests and docs
+  ("23-25", "20-24") are not in the opened source and have been removed.

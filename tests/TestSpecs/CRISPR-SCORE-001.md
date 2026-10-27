@@ -122,7 +122,7 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | Rule Set 1 reference examples | The two 30-mers shipped in `doenchScore.py` | 71.3089368437 / 1.89838463593 (×100, tol 1e-4) | S1, R1 |
+| M1 | Rule Set 1 reference examples | The two 30-mers shipped in `doenchScore.py`, **executed** (`calcDoenchScore`; the file's docstring literals 71.3089368437 / 1.89838463593 differ by 2.1e-6 / 3.2e-7 after ×100 and are not what its code returns) | 71.30893469547244 / 1.8983843193336125 (×100, tol 1e-9); the all-A row 4.4338168085440035 at 1e-9 (was 4.4338168085 at 1e-3) | S1, R1 |
 | M2 | Rule Set 1 independent value | All-A 30-mer with PAM, re-derived in Python | 4.4338168085 | S1, R1 |
 | M3 | Rule Set 2 nopos == reference (all guides) | C# vs verified Python reference, 947 guides | max \|Δ\| < 1e-8 | S2, R2 |
 | M4 | Rule Set 2 full == reference (all guides) | C# vs verified Python reference, 947 guides | max \|Δ\| < 1e-8 | S2, R2 |

@@ -103,7 +103,7 @@ Supported CRISPR systems in the current implementation:
 | SaCas9-NNGRRN | NNGRRN | 3' of target | 21 bp | CRISPOR's relaxed alternative off-target PAM of NNGRRT |
 | Cas12a (Cpf1) | TTTV | 5' of target | 23 bp | `V = A, C, or G` |
 | AsCas12a | TTTV | 5' of target | 23 bp | *Acidaminococcus sp.* |
-| LbCas12a | TTTV | 5' of target | 24 bp | *Lachnospiraceae bacterium* |
+| LbCas12a | TTTV | 5' of target | 23 bp | *Lachnospiraceae bacterium* (same as `Cas12a`/`AsCas12a`: CRISPOR uses 23 nt for every Cpf1 PAM) |
 | CasX | TTCN | 5' of target | 20 bp | Compact Cas protein |
 
 IUPAC codes used by the PAM matcher in the original document:
@@ -168,7 +168,7 @@ The current implementation searches both forward and reverse strands, uses `Iupa
 
 ### 6.2 Limitations
 
-The current implementation is a sequence-pattern detector rather than a full CRISPR activity model. It does not score cleavage efficiency, off-target risk, chromatin accessibility, or non-listed PAM systems. `LbCas12a` is configured with a 24-nt guide while CRISPOR uses 23 nt for every Cpf1 PAM; both lie inside the published 20-24 nt functional range (Zetsche et al. 2015).
+The current implementation is a sequence-pattern detector rather than a full CRISPR activity model. It does not score cleavage efficiency, off-target risk, chromatin accessibility, or non-listed PAM systems. The three Cas12a aliases share the PAM and the 23-nt spacer CRISPOR uses for every Cpf1 PAM (CHOPCHOP uses 24 for Cpf1 in general); no source opened in the review distinguishes AsCas12a from LbCas12a.
 
 ## 8. References
 

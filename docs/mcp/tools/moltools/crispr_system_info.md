@@ -24,7 +24,7 @@ Looks up the built-in metadata record for a CRISPR system: its name, PAM recogni
 | SaCas9 | NNGRRT | 21 | true |
 | SaCas9_NNGRRN | NNGRRN | 21 | true |
 | Cas12a / AsCas12a | TTTV | 23 | false |
-| LbCas12a | TTTV | 24 | false |
+| LbCas12a | TTTV | 23 | false |
 | CasX | TTCN | 20 | false |
 
 ## Core Documentation Reference
