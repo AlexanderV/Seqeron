@@ -176,8 +176,10 @@
 | find_rare_codon_clusters | MolTools | CodonOptimizer.FindRareCodonClusters | CodonOptimizer.cs#L1926 | 2/2 | ✓ | ✓ | Ready |
 | find_conserved_rare_codon_clusters | MolTools | CodonOptimizer.FindConservedRareCodonClusters | CodonOptimizer.cs#L2035 | 7/7 | ✓ | ✓ | Ready |
 | find_rare_codons | MolTools | CodonOptimizer.FindRareCodons | CodonOptimizer.cs#L1682 | 0/0 | – | – | Build-Ready |
+| find_pattern_occurrences | MolTools | RestrictionAnalyzer.FindPatternOccurrences | RestrictionAnalyzer.cs#L549 | 0/0 | ✓ | ✓ | Build-Ready |
 | find_restriction_sites | MolTools | RestrictionAnalyzer.FindSites | RestrictionAnalyzer.cs#L438 | 0/0 | – | – | Build-Ready |
 | generate_primer_candidates | MolTools | PrimerDesigner.GeneratePrimerCandidates | PrimerDesigner.cs#L4419 | 0/0 | – | – | Build-Ready |
+| find_sites_custom_enzyme | MolTools | RestrictionAnalyzer.FindSites | RestrictionAnalyzer.RawSequence.cs#L69 | 0/0 | ✓ | ✓ | Build-Ready |
 | get_enzyme | MolTools | RestrictionAnalyzer.GetEnzyme | RestrictionAnalyzer.cs#L98 | 0/0 | – | – | Build-Ready |
 | hairpin_potential | MolTools | PrimerDesigner.HasHairpinPotential | PrimerDesigner.cs#L1785 | 0/0 | – | – | Build-Ready |
 | longest_dinucleotide_repeat | MolTools | PrimerDesigner.FindLongestDinucleotideRepeat | PrimerDesigner.cs#L1732 | 0/0 | – | – | Build-Ready |
@@ -192,6 +194,7 @@
 | reduce_secondary_structure | MolTools | CodonOptimizer.ReduceSecondaryStructure | CodonOptimizer.cs#L1527 | 0/0 | – | – | Build-Ready |
 | remove_restriction_sites | MolTools | CodonOptimizer.RemoveRestrictionSites | CodonOptimizer.cs#L1272 | 0/0 | – | – | Build-Ready |
 | restriction_digest | MolTools | RestrictionAnalyzer.Digest | RestrictionAnalyzer.cs#L1122 | 0/0 | – | – | Build-Ready |
+| restriction_digest_custom_enzyme | MolTools | RestrictionAnalyzer.Digest | RestrictionAnalyzer.RawSequence.cs#L115 | 0/0 | ✓ | ✓ | Build-Ready |
 | restriction_map | MolTools | RestrictionAnalyzer.CreateMap | RestrictionAnalyzer.cs#L1549 | 0/0 | – | – | Build-Ready |
 | rscu | MolTools | CodonUsageAnalyzer.CalculateRscu | CodonUsageAnalyzer.cs#L222 | 0/0 | – | – | Build-Ready |
 | sticky_cutters | MolTools | RestrictionAnalyzer.GetStickyCutters | RestrictionAnalyzer.cs#L165 | 0/0 | – | – | Build-Ready |
