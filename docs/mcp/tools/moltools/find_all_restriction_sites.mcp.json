@@ -10,12 +10,39 @@
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 },
-      "topology": { "type": "string", "enum": ["Linear", "Circular"], "default": "Linear", "description": "Whether the molecule is a linear fragment or a closed circle (plasmid)." },
-      "enzyme_set": { "type": ["string", "null"], "enum": ["common", "rebase", null], "default": "common", "description": "Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive." },
-      "methylation": { "type": "string", "enum": ["none", "dam", "dcm", "dam+dcm", "emboss"], "default": "none", "description": "Methylase set whose methylated bases block recognition (EMBOSS restrict -methylation semantics); case-insensitive." }
+      "sequence": {
+        "description": "DNA sequence to scan. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be scanned as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing — Biopython's own rule.",
+        "type": "string"
+      },
+      "topology": {
+        "description": "Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).",
+        "type": "string",
+        "enum": [
+          "Linear",
+          "Circular"
+        ],
+        "default": "Linear"
+      },
+      "enzyme_set": {
+        "description": "Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive.",
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": "common"
+      },
+      "methylation": {
+        "description": "Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).",
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
     },
-    "required": ["sequence"]
+    "required": [
+      "sequence"
+    ]
   },
   "outputSchema": {
     "type": "object",
@@ -25,46 +52,90 @@
         "items": {
           "type": "object",
           "properties": {
-            "position": { "type": "integer" },
-            "isForwardStrand": { "type": "boolean" },
-            "cutPosition": { "type": "integer" },
-            "recognizedSequence": { "type": "string" }
+            "position": {
+              "type": "integer"
+            },
+            "isForwardStrand": {
+              "type": "boolean"
+            },
+            "cutPosition": {
+              "type": "integer"
+            },
+            "recognizedSequence": {
+              "type": "string"
+            }
           },
-          "required": ["position", "isForwardStrand", "cutPosition", "recognizedSequence"]
+          "required": [
+            "position",
+            "isForwardStrand",
+            "cutPosition",
+            "recognizedSequence"
+          ]
         }
       }
     },
-    "required": ["sites"]
+    "required": [
+      "sites"
+    ]
   },
   "errors": [
-    { "code": 1001, "message": "Sequence cannot be null or empty" },
-    { "code": 1010, "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\"" }
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1010,
+      "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\""
+    }
   ],
   "examples": [
     {
       "name": "Comprehensive scan finds EcoRI",
-      "input": { "sequence": "AAAGAATTCAAA" },
-      "output": { "sites": "includes EcoRI forward site at position 3 (cut 4) + reverse site" }
+      "input": {
+        "sequence": "AAAGAATTCAAA"
+      },
+      "output": {
+        "sites": "includes EcoRI forward site at position 3 (cut 4) + reverse site"
+      }
     },
     {
       "name": "No recognition sites",
-      "input": { "sequence": "AAAAAAAA" },
-      "output": { "sites": [] }
+      "input": {
+        "sequence": "AAAAAAAA"
+      },
+      "output": {
+        "sites": []
+      }
     },
     {
       "name": "Type IIS sites found only with the REBASE set",
-      "input": { "sequence": "AAGGTCTCAAAAAAAAAAAAAAAGAGACCAAAAAAAAAAA", "enzyme_set": "rebase" },
-      "output": { "sites": "42 records from 14 enzymes: AbaSI, Alw26I, BcoDI, BmeDI, BsaI, BsmAI, Bso31I, BspTNI, BstMAI, Eco31I, EcoO157SI, MspJI, SetI, YkrI. BsaI: forward record position 2, cutPosition 9; reverse record position 23, cutPosition 22. The default (common) set finds 0 sites in this sequence." }
+      "input": {
+        "sequence": "AAGGTCTCAAAAAAAAAAAAAAAGAGACCAAAAAAAAAAA",
+        "enzyme_set": "rebase"
+      },
+      "output": {
+        "sites": "42 records from 14 enzymes: AbaSI, Alw26I, BcoDI, BmeDI, BsaI, BsmAI, Bso31I, BspTNI, BstMAI, Eco31I, EcoO157SI, MspJI, SetI, YkrI. BsaI: forward record position 2, cutPosition 9; reverse record position 23, cutPosition 22. The default (common) set finds 0 sites in this sequence."
+      }
     },
     {
       "name": "Dam methylation blocks the GATC windows",
-      "input": { "sequence": "GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA", "methylation": "dam" },
-      "output": { "sites": "Sites of EcoRI (0, 18), HpaII (28), MspI (28), SmaI (27) and TaqI (38, 44); the unmethylated scan also has DpnI, MboI and Sau3AI at 10 and 36, which Dam blocks. Equals EMBOSS restrict -methylation over the 39 common enzymes." }
+      "input": {
+        "sequence": "GAATTCAAAAGATCAAAAGAATTCAAACCCGGGAAAGATCGAAATCGAAAA",
+        "methylation": "dam"
+      },
+      "output": {
+        "sites": "Sites of EcoRI (0, 18), HpaII (28), MspI (28), SmaI (27) and TaqI (38, 44); the unmethylated scan also has DpnI, MboI and Sau3AI at 10 and 36, which Dam blocks. Equals EMBOSS restrict -methylation over the 39 common enzymes."
+      }
     },
     {
       "name": "Unknown enzyme set",
-      "input": { "sequence": "GAATTC", "enzyme_set": "all" },
-      "output": { "error": "Unknown enzyme set 'all'; expected \"common\" or \"rebase\"." }
+      "input": {
+        "sequence": "GAATTC",
+        "enzyme_set": "all"
+      },
+      "output": {
+        "error": "Unknown enzyme set 'all'; expected \"common\" or \"rebase\"."
+      }
     }
   ]
 }

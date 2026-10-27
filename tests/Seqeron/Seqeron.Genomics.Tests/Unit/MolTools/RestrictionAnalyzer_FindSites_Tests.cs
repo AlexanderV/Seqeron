@@ -2443,4 +2443,145 @@ public class RestrictionAnalyzer_FindSites_Tests
     }
 
     #endregion
+
+    #region Raw-sequence-string entry points (B08 H27)
+
+    /// <summary>
+    /// H27: <c>DnaSequence</c> accepts only A/C/G/T, so an N-containing contig or a soft-masked
+    /// assembly could not be handed to the digest/map family at all. The raw-string overloads are the
+    /// reachable form of the IUPAC-tolerant scan the raw-string <c>FindSites</c> and
+    /// <c>FindPatternOccurrences</c> already documented, and each forwards to the same private core —
+    /// so on a pure-ACGT molecule they are byte-identical to the <c>DnaSequence</c> overloads.
+    /// </summary>
+    [TestCase(MoleculeTopology.Linear)]
+    [TestCase(MoleculeTopology.Circular)]
+    public void RawStringOverloads_OnPureAcgt_EqualTheDnaSequenceOverloads(MoleculeTopology topology)
+    {
+        const string molecule = "AAAGAATTCAAAGGATCCAAAGAATTCAAA";
+        var dna = new DnaSequence(molecule);
+        string[] names = ["EcoRI", "BamHI"];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.FindSites(molecule, topology, null, names),
+                Is.EqualTo(RestrictionAnalyzer.FindSites(dna, topology, null, names)));
+            Assert.That(RestrictionAnalyzer.FindAllSites(molecule, topology, EnzymeSet.Common, null),
+                Is.EqualTo(RestrictionAnalyzer.FindAllSites(dna, topology, EnzymeSet.Common, null)));
+            Assert.That(RestrictionAnalyzer.Digest(molecule, topology, null, names),
+                Is.EqualTo(RestrictionAnalyzer.Digest(dna, topology, null, names)));
+            AssertSameSummary(
+                RestrictionAnalyzer.GetDigestSummary(molecule, topology, null, names),
+                RestrictionAnalyzer.GetDigestSummary(dna, topology, null, names));
+            Assert.That(RestrictionAnalyzer.PartialDigest(molecule, topology, null, null, names),
+                Is.EqualTo(RestrictionAnalyzer.PartialDigest(dna, topology, null, null, names)));
+            AssertSameMap(
+                RestrictionAnalyzer.CreateMap(molecule, topology, null, names),
+                RestrictionAnalyzer.CreateMap(dna, topology, null, names));
+
+            // The enzyme-record and methylation forms too.
+            var enzymes = names.Select(n => RestrictionAnalyzer.GetEnzyme(n)!).ToList();
+            Assert.That(RestrictionAnalyzer.FindSites(molecule, topology, enzymes, MethylaseSets.Dam),
+                Is.EqualTo(RestrictionAnalyzer.FindSites(dna, topology, enzymes, MethylaseSets.Dam)));
+            Assert.That(RestrictionAnalyzer.Digest(molecule, topology, enzymes, MethylaseSets.Dam),
+                Is.EqualTo(RestrictionAnalyzer.Digest(dna, topology, enzymes, MethylaseSets.Dam)));
+            AssertSameMap(
+                RestrictionAnalyzer.CreateMap(molecule, topology, enzymes, MethylaseSets.Dam),
+                RestrictionAnalyzer.CreateMap(dna, topology, enzymes, MethylaseSets.Dam));
+            AssertSameSummary(
+                RestrictionAnalyzer.GetDigestSummary(molecule, topology, enzymes, MethylaseSets.Dam),
+                RestrictionAnalyzer.GetDigestSummary(dna, topology, enzymes, MethylaseSets.Dam));
+            Assert.That(RestrictionAnalyzer.PartialDigest(molecule, topology, null, enzymes, MethylaseSets.Dam),
+                Is.EqualTo(RestrictionAnalyzer.PartialDigest(dna, topology, null, enzymes, MethylaseSets.Dam)));
+        });
+    }
+
+    /// <summary>
+    /// H27: and the point of them — a sequence <c>DnaSequence</c> rejects. The masked bases do not
+    /// become wildcards: an ambiguity code in the sequence blocks a concrete site code rather than
+    /// widening it, which is Biopython's rule, so the <c>nnn</c> runs add no site.
+    /// </summary>
+    [Test]
+    public void RawStringOverloads_AcceptAnIupacSequenceDnaSequenceRejects()
+    {
+        const string masked = "nnnGAATTCnnnGGATCCNNN";
+
+        Assert.Throws<ArgumentException>(() => _ = new DnaSequence(masked),
+            "the defect: DnaSequence accepts only A/C/G/T");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                RestrictionAnalyzer.FindSites(masked, MoleculeTopology.Linear, null, "EcoRI", "BamHI")
+                    .Where(s => s.IsForwardStrand).Select(s => s.Position),
+                Is.EquivalentTo(new[] { 3, 12 }));
+            Assert.That(
+                RestrictionAnalyzer.Digest(masked, MoleculeTopology.Linear, null, "EcoRI").Select(f => f.Length),
+                Is.EqualTo(new[] { 4, 17 }), "G^AATTC at 3, so the 0-based top-strand bond is 4");
+            Assert.That(
+                RestrictionAnalyzer.CreateMap(masked, MoleculeTopology.Linear, null, "EcoRI", "BamHI").TotalSites,
+                Is.EqualTo(2));
+            // No extra site from the masked runs: a sequence N never matches a concrete site code.
+            Assert.That(RestrictionAnalyzer.FindSites(masked, MoleculeTopology.Linear, null, "AluI"), Is.Empty,
+                "AluI AGCT has no window here, and the N runs do not create one");
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences("GAANTC", "GAATTC"), Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// H27: a null or empty raw sequence yields the natural empty result, as it does on the
+    /// pre-existing raw-string <c>FindSites(string, string)</c> — while the enzyme arguments are still
+    /// validated eagerly, before the sequence is looked at (B08 H24/F104).
+    /// </summary>
+    [Test]
+    public void RawStringOverloads_NullOrEmptySequence_YieldTheEmptyResult()
+    {
+        foreach (string? sequence in new string?[] { null, "" })
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(RestrictionAnalyzer.FindSites(sequence, MoleculeTopology.Linear, null, "EcoRI"), Is.Empty);
+                Assert.That(RestrictionAnalyzer.FindAllSites(sequence, MoleculeTopology.Linear, EnzymeSet.Common, null), Is.Empty);
+                Assert.That(RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Linear, null, "EcoRI").Select(f => f.Length),
+                    Is.EqualTo(new[] { 0 }), "one empty fragment, as the DnaSequence overload gives for an empty molecule");
+                Assert.That(RestrictionAnalyzer.PartialDigest(sequence, MoleculeTopology.Linear, null, null, "EcoRI"),
+                    Is.Not.Null);
+                Assert.That(RestrictionAnalyzer.CreateMap(sequence, MoleculeTopology.Linear, null, "EcoRI").SequenceLength,
+                    Is.Zero);
+
+                Assert.Throws<ArgumentException>(
+                    () => _ = RestrictionAnalyzer.FindSites(sequence, MoleculeTopology.Linear, null, "NoSuchI"));
+                Assert.Throws<ArgumentException>(
+                    () => _ = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Linear, null, System.Array.Empty<string>()));
+            });
+        }
+    }
+
+    /// <summary>
+    /// <see cref="DigestSummary"/> is a record holding a <c>List&lt;T&gt;</c>, so its generated
+    /// equality is reference equality on that list; compare the values.
+    /// </summary>
+    private static void AssertSameSummary(DigestSummary actual, DigestSummary expected)
+    {
+        Assert.That(
+            (actual.TotalFragments, actual.FragmentSizes, actual.LargestFragment, actual.SmallestFragment,
+                actual.AverageFragmentSize, actual.EnzymesUsed, actual.Topology),
+            Is.EqualTo((expected.TotalFragments, expected.FragmentSizes, expected.LargestFragment,
+                expected.SmallestFragment, expected.AverageFragmentSize, expected.EnzymesUsed, expected.Topology)));
+    }
+
+    /// <summary>Same for <see cref="RestrictionMap"/>.</summary>
+    private static void AssertSameMap(RestrictionMap actual, RestrictionMap expected)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.SequenceLength, Is.EqualTo(expected.SequenceLength));
+            Assert.That(actual.Sites, Is.EqualTo(expected.Sites));
+            Assert.That(actual.SitesByEnzyme, Is.EqualTo(expected.SitesByEnzyme));
+            Assert.That(actual.TotalSites, Is.EqualTo(expected.TotalSites));
+            Assert.That(actual.UniqueCutters, Is.EqualTo(expected.UniqueCutters));
+            Assert.That(actual.NonCutters, Is.EqualTo(expected.NonCutters));
+        });
+    }
+
+    #endregion
 }

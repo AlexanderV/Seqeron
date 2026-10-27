@@ -57,6 +57,9 @@ guess. Source of truth for names/status: `docs/mcp/MCP_STATUS.md`.
 
 ## Restriction analysis (`RestrictionAnalyzer`)
 
+Every sequence-taking tool here accepts **IUPAC ambiguity codes** anywhere in the sequence, so an
+N-containing contig or a soft-masked assembly can be scanned, digested or mapped as it is (B08 H27).
+
 | Tool | Purpose | Method ID |
 |---|---|---|
 | `find_restriction_sites` | Sites for named enzymes | `RestrictionAnalyzer.FindSites` |
@@ -68,7 +71,10 @@ guess. Source of truth for names/status: `docs/mcp/MCP_STATUS.md`.
 | `get_enzyme` | Look up one enzyme's properties | `RestrictionAnalyzer.GetEnzyme` |
 | `blunt_cutters` | Enzymes producing blunt ends | `RestrictionAnalyzer.GetBluntCutters` |
 | `sticky_cutters` | Enzymes producing sticky ends | `RestrictionAnalyzer.GetStickyCutters` |
-| `enzymes_by_cut_length` | Enzymes by recognition-site length | `RestrictionAnalyzer.GetEnzymesByCutLength` |
+| `enzymes_by_cut_length` | Enzymes by recognition-site length; `max_length` makes it an inclusive range, so "all 4-6 bp cutters" is one call | `RestrictionAnalyzer.GetEnzymesByCutLength` |
+| `find_pattern_occurrences` | The raw IUPAC pattern scan under `find_restriction_sites`: start indices on one strand, no enzyme and no cut arithmetic | `RestrictionAnalyzer.FindPatternOccurrences` |
+| `find_sites_custom_enzyme` | Sites of a caller-supplied enzyme definition (site + the two cut offsets, optional Type IIB second pair) — for an enzyme not in the table, or one of the 334 REBASE enzymes with no defined cut | `RestrictionAnalyzer.FindSites` |
+| `restriction_digest_custom_enzyme` | Digest with a caller-supplied enzyme definition | `RestrictionAnalyzer.Digest` |
 | `compatible_enzymes` | Enzymes compatible with a given one | `RestrictionAnalyzer.FindCompatibleEnzymes` |
 | `enzymes_compatible` | Are two enzymes compatible? | `RestrictionAnalyzer.AreCompatible` |
 

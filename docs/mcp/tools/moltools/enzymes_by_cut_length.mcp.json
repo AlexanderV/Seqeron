@@ -11,22 +11,24 @@
     "type": "object",
     "properties": {
       "length": {
-        "type": "integer",
-        "description": "Recognition-sequence length in bp (full string, spacer included).",
-        "minimum": 1
+        "description": "Recognition-sequence length in bp (must be positive). With max_length set this is the inclusive lower bound of a range instead.",
+        "type": "integer"
       },
       "enzyme_set": {
+        "description": "Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive.",
         "type": [
           "string",
           "null"
         ],
-        "enum": [
-          "common",
-          "rebase",
-          null
+        "default": "common"
+      },
+      "max_length": {
+        "description": "Optional inclusive upper bound: with it set, every enzyme whose recognition string is length..max_length long is returned, so \"all 4-6 bp cutters\" is one call. Must be positive; a max_length below length returns an empty list, as the range is then empty. Omit for the exact-length listing.",
+        "type": [
+          "integer",
+          "null"
         ],
-        "default": "common",
-        "description": "Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive."
+        "default": null
       }
     },
     "required": [

@@ -39,9 +39,11 @@
 | `find_conserved_rare_codon_clusters` | MolTools | `CodonOptimizer.FindConservedRareCodonClusters` | [doc](../../../../docs/mcp/tools/moltools/find_conserved_rare_codon_clusters.md) |
 | `find_off_targets` | MolTools | `CrisprDesigner.FindOffTargets` | [doc](../../../../docs/mcp/tools/moltools/find_off_targets.md) |
 | `find_pam_sites` | MolTools | `CrisprDesigner.FindPamSites` | [doc](../../../../docs/mcp/tools/moltools/find_pam_sites.md) |
+| `find_pattern_occurrences` | MolTools | `RestrictionAnalyzer.FindPatternOccurrences` | [doc](../../../../docs/mcp/tools/moltools/find_pattern_occurrences.md) |
 | `find_rare_codon_clusters` | MolTools | `CodonOptimizer.FindRareCodonClusters` | [doc](../../../../docs/mcp/tools/moltools/find_rare_codon_clusters.md) |
 | `find_rare_codons` | MolTools | `CodonOptimizer.FindRareCodons` | [doc](../../../../docs/mcp/tools/moltools/find_rare_codons.md) |
 | `find_restriction_sites` | MolTools | `RestrictionAnalyzer.FindSites` | [doc](../../../../docs/mcp/tools/moltools/find_restriction_sites.md) |
+| `find_sites_custom_enzyme` | MolTools | `RestrictionAnalyzer.FindSites` | [doc](../../../../docs/mcp/tools/moltools/find_sites_custom_enzyme.md) |
 | `generate_primer_candidates` | MolTools | `PrimerDesigner.GeneratePrimerCandidates` | [doc](../../../../docs/mcp/tools/moltools/generate_primer_candidates.md) |
 | `get_enzyme` | MolTools | `RestrictionAnalyzer.GetEnzyme` | [doc](../../../../docs/mcp/tools/moltools/get_enzyme.md) |
 | `hairpin_potential` | MolTools | `PrimerDesigner.HasHairpinPotential` | [doc](../../../../docs/mcp/tools/moltools/hairpin_potential.md) |
@@ -57,6 +59,7 @@
 | `reduce_secondary_structure` | MolTools | `CodonOptimizer.ReduceSecondaryStructure` | [doc](../../../../docs/mcp/tools/moltools/reduce_secondary_structure.md) |
 | `remove_restriction_sites` | MolTools | `CodonOptimizer.RemoveRestrictionSites` | [doc](../../../../docs/mcp/tools/moltools/remove_restriction_sites.md) |
 | `restriction_digest` | MolTools | `RestrictionAnalyzer.Digest` | [doc](../../../../docs/mcp/tools/moltools/restriction_digest.md) |
+| `restriction_digest_custom_enzyme` | MolTools | `RestrictionAnalyzer.Digest` | [doc](../../../../docs/mcp/tools/moltools/restriction_digest_custom_enzyme.md) |
 | `restriction_map` | MolTools | `RestrictionAnalyzer.CreateMap` | [doc](../../../../docs/mcp/tools/moltools/restriction_map.md) |
 | `rscu` | MolTools | `CodonUsageAnalyzer.CalculateRscu` | [doc](../../../../docs/mcp/tools/moltools/rscu.md) |
 | `sticky_cutters` | MolTools | `RestrictionAnalyzer.GetStickyCutters` | [doc](../../../../docs/mcp/tools/moltools/sticky_cutters.md) |

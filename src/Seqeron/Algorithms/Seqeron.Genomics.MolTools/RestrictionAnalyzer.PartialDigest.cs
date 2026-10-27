@@ -119,7 +119,7 @@ public static partial class RestrictionAnalyzer
         if (enzymeNames == null || enzymeNames.Length == 0)
             throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
 
-        return PartialDigestCore(sequence, topology, maxMissedCuts, ResolveEnzymes(enzymeNames));
+        return PartialDigestCore(sequence.Sequence, topology, maxMissedCuts, ResolveEnzymes(enzymeNames));
     }
 
     /// <summary>
@@ -148,11 +148,11 @@ public static partial class RestrictionAnalyzer
         IEnumerable<RestrictionEnzyme> enzymes)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return PartialDigestCore(sequence, topology, maxMissedCuts, RequireEnzymeList(enzymes));
+        return PartialDigestCore(sequence.Sequence, topology, maxMissedCuts, RequireEnzymeList(enzymes));
     }
 
     private static IEnumerable<PartialDigestFragment> PartialDigestCore(
-        DnaSequence sequence, MoleculeTopology topology, int? maxMissedCuts, IEnumerable<RestrictionEnzyme> enzymes, bool[]? blocked = null)
+        string seq, MoleculeTopology topology, int? maxMissedCuts, IEnumerable<RestrictionEnzyme> enzymes, bool[]? blocked = null)
     {
         if (maxMissedCuts < 0)
             throw new ArgumentOutOfRangeException(nameof(maxMissedCuts), maxMissedCuts,
@@ -160,7 +160,7 @@ public static partial class RestrictionAnalyzer
 
         bool circular = topology != MoleculeTopology.Linear;
         var (cuts, sitesByPosition) = CollectForwardCuts(
-            sequence, enzymes, circular ? MoleculeTopology.Circular : MoleculeTopology.Linear, blocked);
+            seq, enzymes, circular ? MoleculeTopology.Circular : MoleculeTopology.Linear, blocked);
 
         long count = CountPartialDigestFragments(cuts.Count, circular, maxMissedCuts);
         if (count > MaxPartialDigestFragments)
@@ -169,8 +169,8 @@ public static partial class RestrictionAnalyzer
                 $"{MaxPartialDigestFragments}; pass a smaller maxMissedCuts.", nameof(maxMissedCuts));
 
         return circular
-            ? PartialDigestCircular(sequence.Sequence, cuts, sitesByPosition, maxMissedCuts)
-            : PartialDigestLinear(sequence.Sequence, cuts, sitesByPosition, maxMissedCuts);
+            ? PartialDigestCircular(seq, cuts, sitesByPosition, maxMissedCuts)
+            : PartialDigestLinear(seq, cuts, sitesByPosition, maxMissedCuts);
     }
 
     /// <summary>

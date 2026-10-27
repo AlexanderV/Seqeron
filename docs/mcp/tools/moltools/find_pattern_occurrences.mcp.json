@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_pattern_occurrences",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.FindPatternOccurrences",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L549",
+  "description": "Enumerates every 0-based start index at which an IUPAC recognition pattern occurs in a sequence, on the GIVEN STRAND ONLY. This is the raw pattern scan underneath find_restriction_sites, exposed for a caller that holds a pattern rather than an enzyme: no enzyme, no cut arithmetic, no reverse-strand scan and no linear-molecule cut-feasibility filter. Overlapping occurrences are all reported, in ascending order. Matching is Biopython Bio.Restriction's site-regex rule: a pattern N matches any of the 15 IUPAC codes in the sequence (an N included), every other pattern code matches only a concrete A/C/G/T base it expands to — so \"GAANTC\" does NOT match GAATTC and \"GTYRAC\" does NOT match GTYRAC — and a character outside the 15 codes matches nothing. Both the sequence and the pattern may carry IUPAC codes and the scan is case-insensitive. To cover both strands, call again with the reverse complement of the pattern. A null or empty sequence yields no occurrences; an invalid pattern is an error. Call to locate a recognition pattern, a degenerate site or a cloning scar when no enzyme is involved.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "description": "Sequence to scan. IUPAC ambiguity codes are accepted anywhere; null or empty yields no occurrences.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "recognition_pattern": {
+        "description": "Recognition pattern: 1 or more of the 15 IUPAC nucleotide codes A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V (case-insensitive).",
+        "type": "string"
+      },
+      "start_index": {
+        "description": "First index to consider; occurrences starting before it are skipped. Defaults to 0, must not be negative.",
+        "type": "integer",
+        "default": 0
+      }
+    },
+    "required": [
+      "sequence",
+      "recognition_pattern"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "positions": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "description": "0-based start indices of the pattern on the given strand, ascending; overlapping occurrences are all reported."
+      }
+    },
+    "required": [
+      "positions"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Recognition pattern cannot be null or empty."
+    },
+    {
+      "code": 1002,
+      "message": "Recognition pattern '<pattern>' contains '<char>' at index <i>, which is not one of the 15 IUPAC nucleotide codes"
+    },
+    {
+      "code": 1003,
+      "message": "startIndex ('-1') must be a non-negative value."
+    }
+  ],
+  "examples": [
+    {
+      "name": "Concrete pattern",
+      "input": {
+        "sequence": "AAAGAATTCAAAGAATTC",
+        "recognition_pattern": "GAATTC"
+      },
+      "output": {
+        "positions": [
+          3,
+          12
+        ]
+      }
+    },
+    {
+      "name": "A site N matches an N in the sequence (Biopython's rule)",
+      "input": {
+        "sequence": "GGCCNNNNNGGCC",
+        "recognition_pattern": "GGCCNNNNNGGCC"
+      },
+      "output": {
+        "positions": [
+          0
+        ]
+      }
+    },
+    {
+      "name": "A concrete pattern code is blocked by an ambiguity code in the sequence",
+      "input": {
+        "sequence": "GAANTC",
+        "recognition_pattern": "GAATTC"
+      },
+      "output": {
+        "positions": []
+      }
+    },
+    {
+      "name": "Overlapping occurrences are all reported",
+      "input": {
+        "sequence": "AAAA",
+        "recognition_pattern": "AA"
+      },
+      "output": {
+        "positions": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "name": "start_index skips earlier occurrences",
+      "input": {
+        "sequence": "AAAA",
+        "recognition_pattern": "AA",
+        "start_index": 2
+      },
+      "output": {
+        "positions": [
+          2
+        ]
+      }
+    },
+    {
+      "name": "Null sequence yields no occurrences",
+      "input": {
+        "sequence": null,
+        "recognition_pattern": "GAATTC"
+      },
+      "output": {
+        "positions": []
+      }
+    },
+    {
+      "name": "Invalid pattern is an error",
+      "input": {
+        "sequence": "ACGT",
+        "recognition_pattern": "GAZTC"
+      },
+      "output": {
+        "error": {
+          "code": 1002,
+          "message": "Recognition pattern 'GAZTC' contains 'Z' at index 2"
+        }
+      }
+    }
+  ]
+}

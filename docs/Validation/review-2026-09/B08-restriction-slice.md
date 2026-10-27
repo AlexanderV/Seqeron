@@ -406,6 +406,117 @@ Every number above is computed from the shipped table, not transcribed: 39 built
 Biopython 1.88, whose `EcoRV.compatible_end()` returns the 137 blunt REBASE cutters (F109), of which
 these 10 are the common-set share.
 
+### F113 — RESTR-FIND-001/RESTR-DIGEST-001 (H27): the documented IUPAC-tolerant scan was unreachable over MCP
+
+- **Defect, reproduced.** All seven sequence-construction sites in the restriction MCP wrappers built
+  `new DnaSequence(sequence)`, and `DnaSequence` accepts only A/C/G/T
+  (`Core/DnaSequence.cs:19-31` → `ValidateSequence`). So scanning, digesting or mapping an
+  N-containing contig or a soft-masked assembly was an **error over MCP, not a result** — while
+  `RestrictionAnalyzer` documents the raw-string `FindSites` overloads as handling exactly that
+  (`FindSites("GGCCNNNNNGGCC", "SfiI")` → the site at 0) and `FindPatternOccurrences` as "exposed for
+  callers that hold … a sequence that `DnaSequence` would reject". Probe:
+  `new DnaSequence("nnnGAATTCnnnGGATCCNNN")` throws `ArgumentException`, and every one of
+  `find_restriction_sites`, `find_all_restriction_sites`, `restriction_digest`, `digest_summary`,
+  `partial_digest`, `restriction_map` failed on it.
+- **Fix.** `DnaSequence` is B01's file and is not touched. Instead:
+  1. The **five private cores** that still took a `DnaSequence` — `CollectForwardCuts`, `DigestCore`,
+     `DigestCircular`, `CreateMapCore`, `PartialDigestCore` — now take the `string` they already
+     reduced it to (each used only `.Sequence` and `.Length`). Every `DnaSequence` entry point passes
+     `sequence.Sequence`, so **no behaviour changes**: see the regression evidence below.
+  2. A new partial file `RestrictionAnalyzer.RawSequence.cs` adds the raw-string public entry points,
+     each forwarding to the same core — `FindAllSites`, `FindSites` (names and enzyme records),
+     `Digest` (both), `GetDigestSummary` (both), `PartialDigest` (both), `CreateMap` (both). A null or
+     empty sequence yields the natural empty result, as on the pre-existing
+     `FindSites(string, string)`; the enzyme arguments are still validated eagerly (F104); the
+     ASCII-only upper-case fold of F49 is preserved.
+  3. The six MCP wrappers route through them, and each `sequence` parameter description now states
+     that IUPAC codes are accepted and what the matching rule is.
+- **Post-fix, over MCP, on `nnnGAATTCnnnGGATCCNNN`** (EcoRI at 0-based 3, BamHI at 12):
+  `find_restriction_sites` → 4 records (2 windows × 2 strands, forward positions 3 and 12);
+  `find_all_restriction_sites` → 10; `restriction_digest` → fragments 4, 17 (G^AATTC, 0-based bond 4);
+  `digest_summary` → 2 fragments; `partial_digest` → 6 ((k+1)(k+2)/2 for k=2);
+  `restriction_map` → `totalSites` 2. The masked runs create **no** extra site: a sequence ambiguity
+  code blocks a concrete site code rather than widening it, so `AluI` still finds nothing and
+  `find_pattern_occurrences("GAANTC", "GAATTC")` is empty — Biopython's rule, which
+  `find_pattern_occurrences("GGCCNNNNNGGCC", "GGCCNNNNNGGCC") == [0]` shows from the other side.
+- **Regression evidence that the core refactor is a no-op.** The three oracle differentials were
+  re-run against the refactored build and are **byte-identical** to the pre-refactor runs:
+  linear 88 972 rows vs Biopython (76 divergent, the same 5 H7 enzymes), circular 63 336 rows vs
+  Biopython (116 extra, 0 missing), and 590 rows vs EMBOSS on the 5 H7 enzymes (0 divergent).
+  A test also pins every raw-string overload against its `DnaSequence` sibling on a pure-ACGT
+  molecule, both topologies, with and without methylation.
+- **Tests.** `RestrictionAnalyzer_FindSites_Tests.cs`:
+  `RawStringOverloads_OnPureAcgt_EqualTheDnaSequenceOverloads` (2 topologies × 11 members),
+  `RawStringOverloads_AcceptAnIupacSequenceDnaSequenceRejects` (including the `DnaSequence` throw that
+  is the defect), `RawStringOverloads_NullOrEmptySequence_YieldTheEmptyResult`.
+  New `Seqeron.Mcp.MolTools.Tests/RestrictionIupacAndCustomEnzymeTests.cs`:
+  `DnaSequence_StillRejectsTheMaskedMolecule`, `EveryRestrictionTool_AcceptsAnIupacSequence`,
+  `IupacCodesInTheSequence_DoNotCreateExtraSites`.
+- **Note.** `find_degenerate_motif`, which H27 mentions as having the same guard, is on the Analysis
+  server (`MotifFinder`, batch B05) and is not this slice's file; it is recorded under
+  *Cross-batch requests* below.
+
+### F114 — RESTR-FIND-001/RESTR-FILTER-001 (H28): three C# capabilities had no MCP expression
+
+| Capability | Before | After |
+|---|---|---|
+| ranged `GetEnzymesByCutLength(min, max, set)` | only the exact-length overload was exposed, so "all 4–6 bp cutters" took three calls | `enzymes_by_cut_length` gained an optional `max_length`; measured `(4)` → 9, `(6)` → 24, `(5)` → 0, `(4, max 6)` → **33** in one call, `(4, "rebase", 6)` → **597**, and an inverted range → empty (the doc's INV-05) |
+| every `IEnumerable<RestrictionEnzyme>` overload | no MCP expression, so a caller-supplied enzyme, or one of the 334 REBASE enzymes whose cut REBASE leaves undefined (`GetEnzyme("Dpi3084I")` → `null`), could not be used at all | two new tools, `find_sites_custom_enzyme` and `restriction_digest_custom_enzyme`: recognition sequence + the two cut offsets, optional Type IIB second pair, optional methylation, IUPAC accepted |
+| `FindPatternOccurrences` | no MCP expression (H27 lists it here) | new tool `find_pattern_occurrences` |
+
+- **Post-fix numbers.** `find_sites_custom_enzyme("AAAGAATTCAAA", "GAATTC", 1, 5)` returns records
+  **identical** to `find_restriction_sites(..., ["EcoRI"])` — `p3F cut 4`, `p3R cut 8`; the Type IIS
+  geometry `("GGTCTC", 7, 11)` gives `p10F cut 17`; BaeI's two-sided geometry
+  `("ACNNNNGTAYC", -10, -15, second (23, 18))` yields two forward records, one flagged as the second
+  cut. `restriction_digest_custom_enzyme` on the EcoRI-by-hand definition gives 4, 8 linear and a
+  single 12-nt fragment circular (one cut on a circle linearises it). Half a second cut pair, an
+  inconsistent stagger and a non-IUPAC recognition sequence are all errors.
+- **Bookkeeping.** `scripts/skills/gen-catalog.py`'s `EXPECTED_COUNTS["moltools"]` 56 → 59 and
+  `EXPECTED_TOTAL` 483 → 486 (the script calls this table its own source of truth; without the bump
+  `--check` warns). Catalog and the ten generated files regenerated with the script;
+  `gen-catalog.py --check` and `sync-github-skills.py --check` both clean. Three new doc pairs under
+  `docs/mcp/tools/moltools/`, whose `description` and `inputSchema` were generated from the live MCP
+  schema rather than typed, and the seven existing restriction `.mcp.json` files re-synced the same
+  way (`partial_digest`'s doc-pair contract test enforces this). `ToolRegistrationContractTests`
+  gained the three names. The `bio-moldesign` skill's `reference/tool-map.md` gained the three rows
+  and the IUPAC note, and the `.github/skills` mirror was resynced; the "483 tools" figure was
+  updated in the 7 skill/strategy documents that state it.
+- **Tests.** `EnzymesByCutLength_RangedForm_IsOneCall`,
+  `FindSitesCustomEnzyme_EcoRIByHand_EqualsTheNamedTool`,
+  `RestrictionDigestCustomEnzyme_MatchesTheNamedToolAndValidates`,
+  `IupacCodesInTheSequence_DoNotCreateExtraSites` (the `find_pattern_occurrences` contract).
+
+## Cross-batch requests
+
+### B05 — MCP `find_degenerate_motif` rejects non-ACGT (verified; must be registered by the orchestrator)
+
+**Verified against the current code, per the README's "Verify first" rule.** H27 names this tool as
+having "the same guard, so there is no workaround".
+
+- `AnalysisTools.cs:1313` calls `RequireDna(sequence, nameof(sequence))`, and `RequireDna`
+  (`AnalysisTools.cs:15-22`) does `DnaSequence.TryCreate` and throws
+  `ArgumentException("Invalid DNA sequence")` when it fails. `DnaSequence` accepts only A/C/G/T
+  (`Core/DnaSequence.cs:19-31`).
+- **Minimal repro:** `find_degenerate_motif("nnnGAATTCnnnGGATCCNNN", "GAATTC")` → `ArgumentException`,
+  i.e. a degenerate-motif scan over an N-containing contig or a soft-masked assembly is an error over
+  MCP, exactly as the restriction family was before F113.
+- **Not already resolved there:** B05's report records no such item.
+- **The fix is one line, but it is a behaviour change.** `MotifFinder` already has the raw-string
+  overload `FindDegenerateMotif(string sequence, string motif, CancellationToken)`
+  (`Analysis/MotifFinder.cs:118`), so the wrapper only has to call it instead of `RequireDna`. But the
+  tool would go from *erroring* to *returning results*, and that overload's own doc states a
+  different ambiguity rule from the restriction family's — "any non-ACGT sequence character
+  (including IUPAC ambiguity symbols, `U` and gaps) matches no motif code" — so whether a sequence
+  `N` should be matched by a motif `N` (as Biopython's restriction regex does) is a decision for
+  B05's owner. By the README that makes it **large → register**, not "small → do it yourself".
+- **This session cannot register it:** its brief forbids editing `QUEUE.md` (the parallel session is
+  writing there). **Orchestrator: please add this row** to
+  `QUEUE.md` → *Requests to finished batches*:
+
+  | # | Target | File:line / test | Evidence | From | Status |
+  |---|---|---|---|---|---|
+  | R11 | B05 | `src/Seqeron/Mcp/Seqeron.Mcp.Analysis/Tools/AnalysisTools.cs:1313` (`find_degenerate_motif` → `RequireDna`) | `find_degenerate_motif("nnnGAATTCnnnGGATCCNNN", "GAATTC")` → `ArgumentException "Invalid DNA sequence"`; `DnaSequence` is ACGT-only (`Core/DnaSequence.cs:19-31`). `MotifFinder.FindDegenerateMotif(string, string, CancellationToken)` (`Analysis/MotifFinder.cs:118`) already exists, so the wrapper only needs to route through it — but the tool changes from erroring to answering, and that overload treats a sequence `N` as matching nothing, where B08's restriction scan lets a pattern `N` match it (Biopython's rule). B05 decides which semantics the tool should advertise | B08 restriction slice (H27) | open |
+
 ## Notes for the orchestrator (not defects of this slice)
 
 - `B08.md:162` (an earlier F-entry's test list) names
@@ -437,6 +548,9 @@ these 10 are the common-set share.
 | `Seqeron.Mcp.MolTools.Tests` after F106–F110 | 477 passed / 0 failed |
 | `python3 scripts/skills/gen-catalog.py --check` after F106–F110 | fresh: 483 tools, 10 generated files up to date |
 | targeted tier after F111/F112 (`~Restriction\|~CodonOptimizer`, fast filter) | 916 passed / 0 failed |
+| targeted tier after F113/F114 (same filter) | 920 passed / 0 failed |
+| `Seqeron.Mcp.MolTools.Tests` after F113/F114 | 483 passed / 0 failed |
+| `gen-catalog.py --check` / `sync-github-skills.py --check` after F113/F114 | fresh: 486 tools, 10 generated files up to date / 21 skills byte-identical |
 
 The counts rise between rows because the orchestrator is adding CRISPR tests to the same branch in
 parallel; every row is a run of the branch as it stood at that commit, with 0 failures.

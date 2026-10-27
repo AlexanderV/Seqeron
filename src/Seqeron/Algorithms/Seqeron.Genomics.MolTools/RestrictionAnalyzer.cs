@@ -927,7 +927,7 @@ public static partial class RestrictionAnalyzer
         ArgumentNullException.ThrowIfNull(sequence);
         if (enzymeNames == null || enzymeNames.Length == 0)
             throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
-        return DigestCore(sequence, ResolveEnzymes(enzymeNames));
+        return DigestCore(sequence.Sequence, ResolveEnzymes(enzymeNames));
     }
 
     /// <summary>
@@ -951,12 +951,11 @@ public static partial class RestrictionAnalyzer
     /// representative (see <see cref="DigestFragment.LeftEnzyme"/>).
     /// </remarks>
     private static (List<int> Cuts, Dictionary<int, List<RestrictionSite>> Sites) CollectForwardCuts(
-        DnaSequence sequence, IEnumerable<RestrictionEnzyme> enzymes, MoleculeTopology topology, bool[]? blocked = null)
+        string seq, IEnumerable<RestrictionEnzyme> enzymes, MoleculeTopology topology, bool[]? blocked = null)
     {
         var cutPositions = new SortedSet<int>();
         var sitesByPosition = new Dictionary<int, List<RestrictionSite>>();
 
-        string seq = sequence.Sequence;
         foreach (var enzyme in enzymes)
         {
             string pattern = ValidatedPattern(enzyme.RecognitionSequence, nameof(enzyme), enzyme.Name);
@@ -1009,11 +1008,10 @@ public static partial class RestrictionAnalyzer
     private static IEnumerable<RestrictionEnzyme> ResolveEnzymes(string[] enzymeNames)
         => enzymeNames.Select(name => RequireEnzyme(name)).ToList();
 
-    private static IEnumerable<DigestFragment> DigestCore(DnaSequence sequence, IEnumerable<RestrictionEnzyme> enzymes, bool[]? blocked = null)
+    private static IEnumerable<DigestFragment> DigestCore(string seq, IEnumerable<RestrictionEnzyme> enzymes, bool[]? blocked = null)
     {
-        var (cuts, sitesByPosition) = CollectForwardCuts(sequence, enzymes, MoleculeTopology.Linear, blocked);
-        string seq = sequence.Sequence;
-        int n = sequence.Length;
+        var (cuts, sitesByPosition) = CollectForwardCuts(seq, enzymes, MoleculeTopology.Linear, blocked);
+        int n = seq.Length;
 
         if (cuts.Count == 0)
         {
@@ -1133,7 +1131,7 @@ public static partial class RestrictionAnalyzer
         if (topology == MoleculeTopology.Linear)
             return Digest(sequence, enzymeNames);
 
-        return DigestCircular(sequence, ResolveEnzymes(enzymeNames));
+        return DigestCircular(sequence.Sequence, ResolveEnzymes(enzymeNames));
     }
 
     /// <summary>
@@ -1165,8 +1163,8 @@ public static partial class RestrictionAnalyzer
         var list = RequireEnzymeList(enzymes);
 
         return topology == MoleculeTopology.Linear
-            ? DigestCore(sequence, list)
-            : DigestCircular(sequence, list);
+            ? DigestCore(sequence.Sequence, list)
+            : DigestCircular(sequence.Sequence, list);
     }
 
     /// <summary>
@@ -1190,16 +1188,15 @@ public static partial class RestrictionAnalyzer
         return list;
     }
 
-    private static IEnumerable<DigestFragment> DigestCircular(DnaSequence sequence, IEnumerable<RestrictionEnzyme> enzymes, bool[]? blocked = null)
+    private static IEnumerable<DigestFragment> DigestCircular(string seq, IEnumerable<RestrictionEnzyme> enzymes, bool[]? blocked = null)
     {
         // Circular site search: a recognition window may wrap past the origin, so the cut it makes
         // must be seen too. Using the linear search here would silently leave an origin-spanning
         // site uncut and additionally drop an edge cutter's cuts through the linear-only
         // cut-feasibility filter, which does not apply to a closed circle.
-        var (cuts, sitesByPosition) = CollectForwardCuts(sequence, enzymes, MoleculeTopology.Circular, blocked);
+        var (cuts, sitesByPosition) = CollectForwardCuts(seq, enzymes, MoleculeTopology.Circular, blocked);
 
-        int n = sequence.Length;
-        string seq = sequence.Sequence;
+        int n = seq.Length;
 
         if (cuts.Count == 0)
         {
@@ -1564,7 +1561,7 @@ public static partial class RestrictionAnalyzer
             .DistinctBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return CreateMapCore(sequence, topology, considered);
+        return CreateMapCore(sequence.Sequence, topology, considered);
     }
 
     /// <summary>
@@ -1597,13 +1594,12 @@ public static partial class RestrictionAnalyzer
             .DistinctBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return CreateMapCore(sequence, topology, considered);
+        return CreateMapCore(sequence.Sequence, topology, considered);
     }
 
     private static RestrictionMap CreateMapCore(
-        DnaSequence sequence, MoleculeTopology topology, List<RestrictionEnzyme> considered, bool[]? blocked = null)
+        string seq, MoleculeTopology topology, List<RestrictionEnzyme> considered, bool[]? blocked = null)
     {
-        string seq = sequence.Sequence;
         var sites = considered.SelectMany(e => FindSitesCore(seq, e, topology, blocked)).ToList();
 
         var byEnzyme = sites
@@ -1634,7 +1630,7 @@ public static partial class RestrictionAnalyzer
         var nonCutters = considered.Select(e => e.Name).Where(e => !byEnzyme.ContainsKey(e)).ToList();
 
         return new RestrictionMap(
-            SequenceLength: sequence.Length,
+            SequenceLength: seq.Length,
             Sites: sites,
             SitesByEnzyme: byEnzyme,
             TotalSites: physicalByEnzyme.Values.Sum(),

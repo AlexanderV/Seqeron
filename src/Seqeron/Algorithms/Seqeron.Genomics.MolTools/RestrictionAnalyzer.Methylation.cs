@@ -342,7 +342,7 @@ public static partial class RestrictionAnalyzer
         if (enzymeNames == null || enzymeNames.Length == 0)
             throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
 
-        return PartialDigestCore(sequence, topology, maxMissedCuts, ResolveEnzymes(enzymeNames),
+        return PartialDigestCore(sequence.Sequence, topology, maxMissedCuts, ResolveEnzymes(enzymeNames),
             MethylationMask.Compute(sequence.Sequence, methylases, topology != MoleculeTopology.Linear));
     }
 
@@ -356,7 +356,7 @@ public static partial class RestrictionAnalyzer
         IEnumerable<RestrictionEnzyme> enzymes, IReadOnlyList<Methylase>? methylases)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return PartialDigestCore(sequence, topology, maxMissedCuts, RequireEnzymeList(enzymes),
+        return PartialDigestCore(sequence.Sequence, topology, maxMissedCuts, RequireEnzymeList(enzymes),
             MethylationMask.Compute(sequence.Sequence, methylases, topology != MoleculeTopology.Linear));
     }
 
@@ -392,7 +392,9 @@ public static partial class RestrictionAnalyzer
     {
         bool circular = topology == MoleculeTopology.Circular;
         var blocked = MethylationMask.Compute(sequence.Sequence, methylases, circular);
-        return circular ? DigestCircular(sequence, enzymes, blocked) : DigestCore(sequence, enzymes, blocked);
+        return circular
+            ? DigestCircular(sequence.Sequence, enzymes, blocked)
+            : DigestCore(sequence.Sequence, enzymes, blocked);
     }
 
     /// <summary>
@@ -436,7 +438,7 @@ public static partial class RestrictionAnalyzer
                 : _enzymes.Values)
             .DistinctBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        return CreateMapCore(sequence, topology, considered,
+        return CreateMapCore(sequence.Sequence, topology, considered,
             MethylationMask.Compute(sequence.Sequence, methylases, topology == MoleculeTopology.Circular));
     }
 
@@ -452,7 +454,7 @@ public static partial class RestrictionAnalyzer
         var considered = RequireEnzymeList(enzymes)
             .DistinctBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        return CreateMapCore(sequence, topology, considered,
+        return CreateMapCore(sequence.Sequence, topology, considered,
             MethylationMask.Compute(sequence.Sequence, methylases, topology == MoleculeTopology.Circular));
     }
 }

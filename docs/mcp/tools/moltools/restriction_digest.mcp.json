@@ -11,37 +11,32 @@
     "type": "object",
     "properties": {
       "sequence": {
-        "type": "string",
-        "description": "DNA sequence to digest.",
-        "minLength": 1
+        "description": "DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing — Biopython's own rule.",
+        "type": "string"
       },
       "enzyme_names": {
+        "description": "Names of restriction enzymes to use (must be non-empty).",
         "type": "array",
         "items": {
           "type": "string"
-        },
-        "minItems": 1
+        }
       },
       "topology": {
+        "description": "Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).",
         "type": "string",
         "enum": [
           "Linear",
           "Circular"
         ],
-        "default": "Linear",
-        "description": "Whether the molecule is a linear fragment or a closed circle (plasmid). Circular finds origin-spanning sites and yields k fragments for k cuts instead of k+1."
+        "default": "Linear"
       },
       "methylation": {
-        "type": "string",
-        "enum": [
-          "none",
-          "dam",
-          "dcm",
-          "dam+dcm",
-          "emboss"
+        "description": "Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).",
+        "type": [
+          "string",
+          "null"
         ],
-        "default": "none",
-        "description": "Methylase set whose methylated bases block recognition (EMBOSS restrict -methylation semantics); case-insensitive."
+        "default": null
       }
     },
     "required": [

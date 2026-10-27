@@ -17,7 +17,7 @@ allowed-tools: Read, Grep, Glob, Bash
 
 # bio-moldesign — molecular design & QC (MolTools)
 
-Routing + orchestration layer over the **MolTools** MCP server (56 tools) and the
+Routing + orchestration layer over the **MolTools** MCP server (59 tools) and the
 `Seqeron.Genomics.MolTools` C# namespace. It gives dual-mode recipes; it does **not**
 restate schemas — read the per-tool doc for exact I/O, and delegate all rigor to `bio-rigor`.
 

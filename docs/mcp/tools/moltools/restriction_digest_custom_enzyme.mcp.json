@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "restriction_digest_custom_enzyme",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.Digest",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.RawSequence.cs#L115",
+  "description": "Simulates a restriction digest with a CALLER-SUPPLIED enzyme definition and yields the resulting fragments, each with its sequence, start, length, flanking enzymes and the blunt/5'/3' overhang of each cut end. The enzyme is given exactly as in find_sites_custom_enzyme (recognition sequence plus the two cut offsets, optionally a second pair for a two-sided Type IIB cutter). Fragment conventions, the circular k-fragments-for-k-cuts rule and the methylation mode are exactly as in restriction_digest. Call when the enzyme is not one of the 754 named REBASE enzymes — for a named one use restriction_digest.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "description": "DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence.",
+        "type": "string"
+      },
+      "recognition_sequence": {
+        "description": "Recognition sequence of the custom enzyme: 1 or more of the 15 IUPAC nucleotide codes; need not be palindromic.",
+        "type": "string"
+      },
+      "cut_position_forward": {
+        "description": "Top-strand cut offset: the number of recognition-sequence bases 5' of the cut. May be negative or exceed the site length for a distal cutter.",
+        "type": "integer"
+      },
+      "cut_position_reverse": {
+        "description": "Bottom-strand cut offset in the same frame.",
+        "type": "integer"
+      },
+      "name": {
+        "description": "Name reported on each fragment's flanking-enzyme fields; defaults to \"CustomEnzyme\".",
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "topology": {
+        "description": "Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).",
+        "type": "string",
+        "enum": [
+          "Linear",
+          "Circular"
+        ],
+        "default": "Linear"
+      },
+      "second_cut_forward": {
+        "description": "Optional second top-strand cut offset of a two-sided (Type IIB) cutter; pass both second offsets or neither.",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "default": null
+      },
+      "second_cut_reverse": {
+        "description": "Optional second bottom-strand cut offset; must leave the same stagger as the first pair.",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "default": null
+      },
+      "methylation": {
+        "description": "Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\", \"dcm\", \"dam+dcm\" or \"emboss\".",
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "sequence",
+      "recognition_sequence",
+      "cut_position_forward",
+      "cut_position_reverse"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "fragments": {
+        "type": "array",
+        "description": "Fragments in the same shape as restriction_digest.",
+        "items": {
+          "type": "object"
+        }
+      }
+    },
+    "required": [
+      "fragments"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Pass both second_cut_forward and second_cut_reverse, or neither."
+    },
+    {
+      "code": 1002,
+      "message": "Enzyme '<name>' recognition sequence '<site>' contains '<char>' at index <i>, which is not one of the 15 IUPAC nucleotide codes"
+    },
+    {
+      "code": 1003,
+      "message": "Enzyme '<name>' second cut pair (<f>, <r>) leaves a different stagger from its first pair"
+    }
+  ],
+  "examples": [
+    {
+      "name": "EcoRI written out by hand",
+      "input": {
+        "sequence": "AAAGAATTCAAA",
+        "recognition_sequence": "GAATTC",
+        "cut_position_forward": 1,
+        "cut_position_reverse": 5,
+        "name": "MyEcoRI"
+      },
+      "output": {
+        "fragments": "2 fragments of 4 and 8 nt, the same partition restriction_digest gives for EcoRI"
+      }
+    },
+    {
+      "name": "Circular molecule",
+      "input": {
+        "sequence": "AAAGAATTCAAA",
+        "recognition_sequence": "GAATTC",
+        "cut_position_forward": 1,
+        "cut_position_reverse": 5,
+        "topology": "Circular"
+      },
+      "output": {
+        "fragments": "1 fragment of 12 — one cut on a circle leaves the molecule linearised, not split"
+      }
+    },
+    {
+      "name": "Half a second cut pair is an error",
+      "input": {
+        "sequence": "ACGT",
+        "recognition_sequence": "ACGT",
+        "cut_position_forward": 1,
+        "cut_position_reverse": 3,
+        "second_cut_reverse": 9
+      },
+      "output": {
+        "error": {
+          "code": 1001,
+          "message": "Pass both second_cut_forward and second_cut_reverse, or neither."
+        }
+      }
+    }
+  ]
+}

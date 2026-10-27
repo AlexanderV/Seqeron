@@ -217,8 +217,15 @@ public class RestrictionAnalyzer_MethylationEntryPoints_Tests
             new DnaSequence(L2), MoleculeTopology.Linear, null, bad, "EcoRI"));
         Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.PartialDigest(
             new DnaSequence(L2), MoleculeTopology.Linear, null, MethylaseSets.Dam, Array.Empty<string>()));
+        // The overload must be named explicitly now that a raw-string sibling exists (B08 H27/F113):
+        // a null DnaSequence throws, a null raw string yields no fragments.
         Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.PartialDigest(
-            null!, MoleculeTopology.Linear, null, MethylaseSets.Dam, "EcoRI"));
+            (DnaSequence)null!, MoleculeTopology.Linear, null, MethylaseSets.Dam, "EcoRI"));
+        Assert.That(RestrictionAnalyzer.PartialDigest(
+                (string?)null, MoleculeTopology.Linear, null, MethylaseSets.Dam, "EcoRI")
+            .Select(f => f.Fragment.Length),
+            Is.EqualTo(new[] { 0 }),
+            "an empty molecule is one zero-length fragment, as new DnaSequence(\"\") also gives");
     }
 
     #endregion
@@ -332,8 +339,12 @@ public class RestrictionAnalyzer_MethylationEntryPoints_Tests
             RestrictionAnalyzer.FindAllSites(dna, MoleculeTopology.Linear, (EnzymeSet)99, MethylaseSets.Dam));
         Assert.Throws<ArgumentException>(() =>
             RestrictionAnalyzer.FindAllSites(dna, MoleculeTopology.Linear, EnzymeSet.Common, new[] { new Methylase("x", "GATC") }));
+        // Likewise here (B08 H27/F113).
         Assert.Throws<ArgumentNullException>(() =>
-            RestrictionAnalyzer.FindAllSites(null!, MoleculeTopology.Linear, EnzymeSet.Common, MethylaseSets.Dam));
+            RestrictionAnalyzer.FindAllSites((DnaSequence)null!, MoleculeTopology.Linear, EnzymeSet.Common, MethylaseSets.Dam));
+        Assert.That(
+            RestrictionAnalyzer.FindAllSites((string?)null, MoleculeTopology.Linear, EnzymeSet.Common, MethylaseSets.Dam),
+            Is.Empty);
     }
 
     // Raw-string FindSites: ASCII upper-cased, methylase search on the same string.

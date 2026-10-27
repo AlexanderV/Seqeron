@@ -43,6 +43,9 @@ public sealed record EnzymeLookupResult(
     IReadOnlyList<string>? Neoschizomers = null);
 public sealed record EnzymeListResult(IReadOnlyList<RestrictionEnzyme> Enzymes);
 public sealed record RestrictionSiteListResult(IReadOnlyList<RestrictionSite> Sites);
+// The raw IUPAC pattern scan under find_restriction_sites: 0-based start indices on the given
+// strand only, ascending, overlaps included (review 2026-09 B08 H27/H28).
+public sealed record PatternOccurrencesResult(IReadOnlyList<int> Positions);
 public sealed record DigestResult(IReadOnlyList<DigestFragment> Fragments);
 public sealed record PartialDigestResult(IReadOnlyList<PartialDigestFragment> Fragments);
 // CompatibleEnd is Enzyme1's own overhang window ("blunt" for a blunt pair); End2 is Enzyme2's.
