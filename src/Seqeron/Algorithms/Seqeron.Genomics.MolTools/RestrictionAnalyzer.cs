@@ -195,19 +195,34 @@ public static partial class RestrictionAnalyzer
     //   is filtered on its own on a linear molecule, as `_drop` filters the cut list element-wise.
     //   Differential over all 25 two-cut enzymes of the snapshot: 0 mismatches (B08 F56).
     //
-    // • Readings vs. windows (B08 F60). This finder reports every strand READING: a window that
-    //   matches the site on both strands yields a forward AND a reverse record. Biopython's
-    //   `search` yields one cut set per WINDOW, the forward reading first — `Palindromic._search`
-    //   applies `_modify` only, and the NonPalindromic compsite `(?=fwd)|(?=rev)` alternation
-    //   tries the reverse pattern only where the forward one fails — and drops infeasible cuts
-    //   afterwards. So `search` == the top-strand cuts of the forward records plus those of the
-    //   reverse records whose window does NOT also read as the site on the forward strand
-    //   (whether or not that forward reading's cut survives the linear filter); Digest, CreateMap
-    //   and PartialDigest apply exactly this rule. For a palindrome with symmetric cuts (all 39
-    //   common enzymes) the extra reverse record cuts where the forward one does; it differs for
-    //   the 4 palindromic distal cutters (HauII, SgeI, …) and for degenerate non-palindromic
-    //   sites whose two readings can share a window (MspJI CNNR, LpnPI CCDG, SgrTI CCDS).
-    //   Differential with this rule, all 754 REBASE enzymes by name: 0 mismatches (F59).
+    // • Readings vs. windows (B08 F60, revised by H7/H45 → F101). This finder reports every strand
+    //   READING: a window that matches the site on both strands yields a forward AND a reverse
+    //   record. The two declared oracles disagree on what a digest should then do, and EMBOSS is
+    //   followed:
+    //     – Biopython's `search` yields one cut set per WINDOW, the forward reading first:
+    //       `Palindromic._search` applies `_modify` only, and `NonPalindromic._search` takes the
+    //       forward branch whenever the forward named group of the `(?=fwd)|(?=rev)` compsite
+    //       matched. A reverse reading is therefore never reported for a window that also reads
+    //       forward, even when it cuts other bonds.
+    //     – EMBOSS 6.6.0 `restrict` reports every READING whose cut differs:
+    //       `embPatRestrictScan` (nucleus/embpat.c) runs two independent scan loops — forward over
+    //       `substr`/`binstr`, then `forward = ajFalse` over `revstr`/`binrev` — and afterwards
+    //       keeps one hit per distinct `cut1`, preferring the forward hit when two coincide.
+    //   A palindromic recognition window physically admits both binding orientations, so for a
+    //   distal cutter it is cleaved on either side; Biopython's one-reading-per-window rule is an
+    //   optimisation that happens to be exact only while the two readings cut the same bonds.
+    //   Digest, CreateMap, GetDigestSummary and PartialDigest therefore dedupe by CUT
+    //   (`ReverseReadingCutsAlike`), not by window.
+    //   Scope, computed over the 754 REBASE enzymes with a defined cut: 564 have a palindromic
+    //   recognition STRING, of which 9 have `fst5 + fst3 != 0` (AlfI, BdaI, BplI, FalI, HauII,
+    //   NmeDI, RdeGBIII, SgeI, UcoMSI); of those 9 exactly 2 (HauII TGGCCA, SgeI CNNG) have a cut
+    //   SET that differs under the reverse reading — the other 7 are two-sided (Type IIB) and
+    //   their two cut pairs swap. Across the whole set 166 enzymes have a differing cut set, and
+    //   exactly 5 of those admit a window matching on both strands: HauII, SgeI, and the
+    //   degenerate non-palindromic sites MspJI CNNR, LpnPI CCDG, SgrTI CCDS. Only those 5 change
+    //   under this rule. Differential vs EMBOSS 6.6.0 on those 5 enzymes: 44 of 170 rows diverged
+    //   under the Biopython rule (always a cut missing, never an extra), 0 after (F101); the
+    //   749 other enzymes keep the F59 agreement with Biopython (0 mismatches by name).
     //
     // • Feasibility (linear molecules): a cut can only fall on a phosphodiester bond that
     //   exists, so a site is reported only when BOTH its strand cuts lie in [1, length - 1].
@@ -874,14 +889,23 @@ public static partial class RestrictionAnalyzer
             string pattern = ValidatedPattern(enzyme.RecognitionSequence, nameof(enzyme), enzyme.Name);
             foreach (var site in FindSitesCore(seq, enzyme, topology, blocked))
             {
-                // A reverse-strand record whose window also reads as the site on the forward
-                // strand is the same window as a forward record (always so for a palindromic
-                // site): one cut per window, the forward one — Biopython Palindromic._search
-                // searches one strand only, NonPalindromic._search's regex alternation takes the
-                // forward branch first. Every other reverse-strand record is a distinct site of a
-                // non-palindromic enzyme and cuts on its own, other side (review 2026-09 B08 F55).
-                if (!site.IsForwardStrand && WindowMatchesForward(seq, site.Position, pattern))
+                // A reverse-strand record is dropped only when reading the window backwards
+                // cuts the same bonds as reading it forwards, i.e. when it is the same cleavage
+                // counted twice. That is EMBOSS 6.6.0's rule: embPatRestrictScan runs two
+                // independent loops (forward over `substr`, then `forward = ajFalse` over
+                // `revstr`, nucleus/embpat.c) and afterwards keeps one hit per distinct `cut1`,
+                // preferring the forward one. Biopython drops one reading per *window* instead
+                // (Palindromic._search applies `_modify` only; NonPalindromic._search takes the
+                // forward branch whenever the forward group matched), which loses a physically
+                // real cut for the five enzymes whose two readings cut differently and whose
+                // window can match on both strands — HauII, SgeI, MspJI, LpnPI, SgrTI. EMBOSS is
+                // followed here (review 2026-09 B08 H7; slice report F101).
+                if (!site.IsForwardStrand
+                    && WindowMatchesForward(seq, site.Position, pattern)
+                    && ReverseReadingCutsAlike(site.Enzyme))
+                {
                     continue;
+                }
 
                 // FindSites already reports a circular cut reduced modulo the sequence length and
                 // a linear site only when both strand cuts lie inside [1, Length-1]
@@ -1188,6 +1212,36 @@ public static partial class RestrictionAnalyzer
     /// <paramref name="pattern"/> on the forward strand, wrapping past the origin when it must
     /// (a circular window; a linear window never runs past the end).
     /// </summary>
+    /// <summary>
+    /// Whether reading a window on the reverse strand cuts the same bonds as reading it on the
+    /// forward strand, so a window that matches the recognition pattern both ways yields one
+    /// cleavage, not two.
+    /// </summary>
+    /// <remarks>
+    /// The forward reading of a window at <c>p</c> cuts at <c>(p + fwd, p + rev)</c> per cut pair;
+    /// the reverse reading cuts at <c>(p + len - rev, p + len - fwd)</c>. The two sets are equal
+    /// independently of <c>p</c>, so this is a property of the enzyme alone: a single-pair enzyme
+    /// qualifies exactly when <c>fwd + rev == len</c> (equivalently Biopython's
+    /// <c>fst5 + fst3 == 0</c>), and a two-sided (Type IIB) enzyme also qualifies when its two
+    /// pairs are each other's mirror, which is how AlfI, BdaI, BplI, FalI, NmeDI, RdeGBIII and
+    /// UcoMSI keep one cleavage per window although their individual pairs are asymmetric.
+    /// Measured over the 754 REBASE enzymes with a defined cut: 166 have a cut set that differs
+    /// under the reverse reading, and exactly 5 of those admit a window matching the pattern on
+    /// both strands — HauII (TGGCCA), SgeI (CNNG), MspJI (CNNR), LpnPI (CCDG), SgrTI (CCDS).
+    /// </remarks>
+    private static bool ReverseReadingCutsAlike(RestrictionEnzyme enzyme)
+    {
+        int len = enzyme.RecognitionSequence.Length;
+        int fwd = enzyme.CutPositionForward;
+        int rev = enzyme.CutPositionReverse;
+
+        if (enzyme.SecondCut is not { } second)
+            return fwd == len - rev;
+
+        return (fwd == len - rev && second.Forward == len - second.Reverse)
+            || (fwd == len - second.Reverse && second.Forward == len - rev);
+    }
+
     private static bool WindowMatchesForward(string seq, int position, string pattern)
     {
         int n = seq.Length;
@@ -1469,16 +1523,18 @@ public static partial class RestrictionAnalyzer
                 g => g.Select(s => s.Position).OrderBy(p => p).ToList(),
                 StringComparer.OrdinalIgnoreCase);
 
-        // Physical sites per enzyme: a forward-strand window, or a reverse-strand window that does
-        // not also read as the site on the forward strand (the digest's one-cut-per-window rule,
-        // CollectForwardCuts). A palindromic site yields a forward and a reverse record at the same
-        // Position and counts once — for the 39 built-ins this is exactly the historical
-        // "forward-strand records only"; a non-palindromic enzyme's reverse-strand sites count
-        // too; the two cut records of a two-sided (Type IIB) site share (Position, strand) and
-        // count once.
+        // Cleavages per enzyme, the same rule the digest's cut collection applies
+        // (CollectForwardCuts): a forward-strand record always counts; a reverse-strand record
+        // counts unless reading the window backwards cuts the same bonds as reading it forwards.
+        // So a palindromic site with symmetric cuts (all 39 built-ins) counts once, a
+        // non-palindromic enzyme's reverse-strand sites count, the two cut records of a two-sided
+        // (Type IIB) site share (Position, strand) and count once, and a window that admits two
+        // different cleavages counts twice — HauII, SgeI, MspJI, LpnPI, SgrTI, which is why
+        // UniqueCutters excludes them where they bind once but cut twice (B08 H7/H32, F101).
         var physicalByEnzyme = sites
-            .Where(s => s.IsForwardStrand ||
-                        !WindowMatchesForward(seq, s.Position, SequenceExtensions.ToUpperAscii(s.Enzyme.RecognitionSequence)))
+            .Where(s => s.IsForwardStrand
+                        || !WindowMatchesForward(seq, s.Position, SequenceExtensions.ToUpperAscii(s.Enzyme.RecognitionSequence))
+                        || !ReverseReadingCutsAlike(s.Enzyme))
             .GroupBy(s => s.Enzyme.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 g => g.Key,

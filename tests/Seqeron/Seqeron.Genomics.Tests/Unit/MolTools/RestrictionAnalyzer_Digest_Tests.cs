@@ -1836,4 +1836,209 @@ public class RestrictionAnalyzer_Digest_Tests
     }
 
     #endregion
+
+    #region Both-strand readings of one window (B08 H7/H45)
+
+    /// <summary>
+    /// A window that reads as the recognition site on both strands admits two binding orientations,
+    /// and for a distal cutter the two readings cleave different bonds. The two declared oracles
+    /// disagree and EMBOSS is followed:
+    /// EMBOSS 6.6.0 <c>embPatRestrictScan</c> (nucleus/embpat.c) runs two independent scan loops —
+    /// forward over <c>substr</c>/<c>binstr</c>, then <c>forward = ajFalse</c> over
+    /// <c>revstr</c>/<c>binrev</c> — and afterwards keeps one hit per distinct <c>cut1</c>, preferring
+    /// the forward hit; Biopython reports one reading per window
+    /// (<c>Palindromic._search</c> applies <c>_modify</c> only, <c>NonPalindromic._search</c> takes the
+    /// forward branch whenever the forward group matched) and so loses one real cut.
+    /// <para>
+    /// Molecule: <c>A×16 + CAAG + A×20</c> (40 nt), the single CNNG window at 0-based 16, chosen so
+    /// that both readings' cuts are internal (SgeI cuts 13/17 past the site start, so the reverse
+    /// reading needs <c>position &gt;= 14</c> and the forward one <c>position &lt;= n - 18</c>).
+    /// Measured: EMBOSS reports the <c>-</c> strand row <c>5prime = 3, 3prime = 7</c> and the
+    /// <c>+</c> strand row <c>5prime = 29, 3prime = 33</c>; Biopython
+    /// <c>SgeI.search(Seq(m), linear=True) == [30]</c> (1-based), i.e. the single bond 29.
+    /// Before the H7 fix Seqeron cut only at 29 and gave 2 fragments (29, 11).
+    /// </para>
+    /// </summary>
+    [TestCase("SgeI")]
+    [TestCase("MspJI")]
+    public void Digest_WindowReadingOnBothStrands_CutsAtBothReadings(string enzymeName)
+    {
+        const string molecule = "AAAAAAAAAAAAAAAACAAGAAAAAAAAAAAAAAAAAAAA";
+        var dna = new DnaSequence(molecule);
+        var enzyme = RestrictionAnalyzer.GetEnzyme(enzymeName)!;
+
+        var sites = RestrictionAnalyzer.FindSites(dna, MoleculeTopology.Linear, [enzyme]).ToList();
+        var fragments = RestrictionAnalyzer.Digest(dna, MoleculeTopology.Linear, enzymeName).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(molecule, Has.Length.EqualTo(40));
+            Assert.That(sites, Has.Count.EqualTo(2), "FindSites always reported both readings");
+            Assert.That(sites.Select(x => x.Position), Is.All.EqualTo(16), "one window, two readings");
+            Assert.That(sites.Count(x => x.IsForwardStrand), Is.EqualTo(1));
+
+            // EMBOSS: cuts at the 0-based bonds 3 and 29 -> fragments 3, 26, 11.
+            Assert.That(fragments.Select(f => f.Length), Is.EqualTo(new[] { 3, 26, 11 }),
+                "EMBOSS restrict reports both the - strand cut (5prime 3) and the + strand cut (5prime 29)");
+            Assert.That(fragments.Sum(f => f.Length), Is.EqualTo(40));
+        });
+    }
+
+    /// <summary>
+    /// The same window therefore cuts twice, so the enzyme is not a single cutter even though it binds
+    /// once — <see cref="RestrictionMap.UniqueCutters"/> and <see cref="RestrictionMap.TotalSites"/>
+    /// follow the cut rule, not the window rule (B08 H7/H32).
+    /// </summary>
+    [Test]
+    public void CreateMap_WindowReadingOnBothStrands_CountsBothCleavages()
+    {
+        const string molecule = "AAAAAAAAAAAAAAAACAAGAAAAAAAAAAAAAAAAAAAA";
+        var map = RestrictionAnalyzer.CreateMap(new DnaSequence(molecule), MoleculeTopology.Linear, "SgeI");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(map.TotalSites, Is.EqualTo(2), "one window, two cleavages");
+            Assert.That(map.UniqueCutters, Is.Empty, "an enzyme that cuts twice is not a single cutter");
+            Assert.That(map.NonCutters, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// A palindromic site with symmetric cuts is unaffected: the reverse reading cuts exactly where the
+    /// forward one does, so it is still collapsed. All 39 built-in enzymes are of this kind.
+    /// Reference: Bio.Restriction.EcoRI.search(Seq("AAAGAATTCAAA"), linear=True) == [5]; EMBOSS
+    /// restrict reports the one <c>+</c> row 5prime = 4.
+    /// </summary>
+    [Test]
+    public void Digest_PalindromicSymmetricCutter_StillCollapsesTheReverseReading()
+    {
+        const string molecule = "AAAGAATTCAAA";
+        var dna = new DnaSequence(molecule);
+
+        var sites = RestrictionAnalyzer.FindSites(dna, MoleculeTopology.Linear, "EcoRI").ToList();
+        var fragments = RestrictionAnalyzer.Digest(dna, MoleculeTopology.Linear, "EcoRI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(2), "both readings of the palindromic window");
+            Assert.That(fragments.Select(f => f.Length), Is.EqualTo(new[] { 4, 8 }),
+                "one cut at the 0-based bond 4, as both oracles agree");
+        });
+    }
+
+    /// <summary>
+    /// H45: the scope of the rule, computed over the 754 REBASE enzymes with a defined cut rather than
+    /// asserted. A single-pair enzyme's reverse reading cuts the same bonds exactly when
+    /// <c>fwd + rev == len</c>; a two-sided (Type IIB) enzyme also qualifies when its two pairs are
+    /// each other's mirror. The region comment in RestrictionAnalyzer.cs used to say "the 4 palindromic
+    /// distal cutters", which matched neither the 9 palindromic-string enzymes with
+    /// <c>fst5 + fst3 != 0</c> nor the 2 of those whose cut set actually differs.
+    /// </summary>
+    [Test]
+    public void ReverseReadingScope_OverTheWholeRebaseSet_MatchesTheDocumentedCounts()
+    {
+        var all = RestrictionAnalyzer.GetEnzymes(EnzymeSet.Rebase).Values.ToList();
+
+        static bool CutsAlike(RestrictionEnzyme e)
+        {
+            int len = e.RecognitionSequence.Length;
+            int fwd = e.CutPositionForward, rev = e.CutPositionReverse;
+            if (e.SecondCut is not { } second)
+                return fwd == len - rev;
+            return (fwd == len - rev && second.Forward == len - second.Reverse)
+                || (fwd == len - second.Reverse && second.Forward == len - rev);
+        }
+
+        // IUPAC complement of a degenerate code, so "palindromic" is tested on the recognition
+        // STRING the way Biopython's Palindromic/NonPalindromic split does (CNNG is palindromic,
+        // CNNR is not). There is no shared degenerate reverse-complement helper in the library.
+        static char ComplementCode(char c) => c switch
+        {
+            'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C',
+            'R' => 'Y', 'Y' => 'R', 'K' => 'M', 'M' => 'K',
+            'B' => 'V', 'V' => 'B', 'D' => 'H', 'H' => 'D',
+            'S' => 'S', 'W' => 'W', 'N' => 'N',
+            _ => throw new ArgumentOutOfRangeException(nameof(c), c, "not an IUPAC code"),
+        };
+
+        static bool SiteIsPalindrome(string site) =>
+            site == new string(site.Reverse().Select(ComplementCode).ToArray());
+
+        var differing = all.Where(e => !CutsAlike(e)).ToList();
+        var palindromicString = all.Where(e => SiteIsPalindrome(e.RecognitionSequence)).ToList();
+        var palindromicAsymmetric = palindromicString
+            .Where(e => e.CutPositionForward + e.CutPositionReverse != e.RecognitionSequence.Length)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(all, Has.Count.EqualTo(754));
+            Assert.That(palindromicString, Has.Count.EqualTo(564), "palindromic recognition strings");
+            Assert.That(palindromicAsymmetric.Select(e => e.Name).Order(), Is.EqualTo(new[]
+                { "AlfI", "BdaI", "BplI", "FalI", "HauII", "NmeDI", "RdeGBIII", "SgeI", "UcoMSI" }),
+                "the 9 palindromic-string enzymes whose first cut pair is asymmetric");
+            Assert.That(palindromicAsymmetric.Where(e => !CutsAlike(e)).Select(e => e.Name).Order(),
+                Is.EqualTo(new[] { "HauII", "SgeI" }),
+                "only 2 of the 9 differ as a cut SET; the other 7 are Type IIB and their pairs swap");
+            Assert.That(differing, Has.Count.EqualTo(166),
+                "enzymes whose cut set differs under the reverse reading, over the whole set");
+        });
+    }
+
+    /// <summary>
+    /// And of those 166, exactly 5 admit a window that matches the recognition pattern on both strands,
+    /// so exactly 5 enzymes are affected by the rule at all. Enumerating every concrete window of a
+    /// pattern is exponential, so the check is restricted to patterns of at most 8 positions — which
+    /// covers all five (HauII TGGCCA, SgeI CNNG, MspJI CNNR, LpnPI CCDG, SgrTI CCDS) and every other
+    /// short-site candidate.
+    /// </summary>
+    [Test]
+    public void ReverseReadingScope_ShortSites_AffectExactlyFiveEnzymes()
+    {
+        static bool CutsAlike(RestrictionEnzyme e)
+        {
+            int len = e.RecognitionSequence.Length;
+            int fwd = e.CutPositionForward, rev = e.CutPositionReverse;
+            if (e.SecondCut is not { } second)
+                return fwd == len - rev;
+            return (fwd == len - rev && second.Forward == len - second.Reverse)
+                || (fwd == len - second.Reverse && second.Forward == len - rev);
+        }
+
+        static bool HasBothStrandWindow(string pattern)
+        {
+            var bases = pattern
+                .Select(c => "ACGT".Where(b => IupacHelper.MatchesIupac(b, c)).ToArray())
+                .ToArray();
+            var index = new int[pattern.Length];
+            var window = new char[pattern.Length];
+            while (true)
+            {
+                for (int k = 0; k < index.Length; k++)
+                    window[k] = bases[k][index[k]];
+                string w = new(window);
+                string r = DnaSequence.GetReverseComplementString(w);
+                if (Enumerable.Range(0, pattern.Length).All(k => IupacHelper.MatchesIupac(r[k], pattern[k])))
+                    return true;
+
+                int i = index.Length - 1;
+                while (i >= 0 && index[i] == bases[i].Length - 1)
+                    index[i--] = 0;
+                if (i < 0)
+                    return false;
+                index[i]++;
+            }
+        }
+
+        var affected = RestrictionAnalyzer.GetEnzymes(EnzymeSet.Rebase).Values
+            .Where(e => e.RecognitionSequence.Length <= 8 && !CutsAlike(e))
+            .Where(e => HasBothStrandWindow(e.RecognitionSequence))
+            .Select(e => e.Name)
+            .Order()
+            .ToList();
+
+        Assert.That(affected, Is.EqualTo(new[] { "HauII", "LpnPI", "MspJI", "SgeI", "SgrTI" }));
+    }
+
+    #endregion
 }

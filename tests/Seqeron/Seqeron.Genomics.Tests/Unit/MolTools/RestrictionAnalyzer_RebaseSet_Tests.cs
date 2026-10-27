@@ -85,11 +85,18 @@ public class RestrictionAnalyzer_RebaseSet_Tests
     /// <c>FindSites</c> reports every strand <i>reading</i> of a window; Biopython counts one per window,
     /// forward reading first (<c>Palindromic._search</c> applies <c>_modify</c> only; the
     /// <c>NonPalindromic</c> compsite <c>(?=fwd)|(?=rev)</c> alternation tries the reverse pattern only
-    /// where the forward one fails). So a reverse record is left out when the same window also reads on
-    /// the forward strand (whether or not that forward reading's cut survives the linear-molecule
-    /// filter: Biopython picks the reading first and drops infeasible cuts afterwards) — the rule <c>Digest</c>/<c>CreateMap</c> apply (F55/F58). It matters for the
-    /// 4 palindromic distal cutters (e.g. HauII TGGCCA, SgeI CNNG) and for degenerate non-palindromic
-    /// sites both of whose readings can match one window (e.g. MspJI CNNR, LpnPI CCDG, SgrTI CCDS): F60.
+    /// where the forward one fails). So this test reduces <c>FindSites</c> to Biopython's frame by
+    /// leaving out a reverse record when the same window also reads on the forward strand (whether or
+    /// not that forward reading's cut survives the linear-molecule filter: Biopython picks the reading
+    /// first and drops infeasible cuts afterwards) — F55/F58/F60.
+    /// </para>
+    /// <para>
+    /// That reduction is this test's own, <b>not</b> what <c>Digest</c>/<c>CreateMap</c> do any more:
+    /// since B08 H7 they dedupe by CUT, following EMBOSS 6.6.0 <c>embPatRestrictScan</c>, so a window
+    /// whose two readings cut different bonds yields both cuts. It changes exactly 5 of the 754
+    /// enzymes — HauII TGGCCA, SgeI CNNG, MspJI CNNR, LpnPI CCDG, SgrTI CCDS — which
+    /// <c>Digest_ByName_EveryRebaseEnzyme_CutsAtBiopythonSearchPositions</c> checks against the EMBOSS
+    /// fixture instead.
     /// </para>
     /// </summary>
     [Test]
@@ -129,18 +136,40 @@ public class RestrictionAnalyzer_RebaseSet_Tests
 
     /// <summary>
     /// <c>Digest</c> by name, for all 754 enzymes and both topologies, partitions the molecule at exactly
-    /// Biopython's <c>search</c> cuts: the fragment lengths are the gaps between the sorted distinct
+    /// the oracle's cuts: the fragment lengths are the gaps between the sorted distinct
     /// 1-based cuts (linear: from base 1 to base n; circular: around the circle). Fragments are derived
     /// from <c>search</c> rather than <c>catalyse</c>, whose circular form is unsafe (F27) and which
     /// mis-slices an unsorted two-cut list (F56).
+    /// <para>
+    /// The oracle is Biopython 1.88 for 749 enzymes and EMBOSS 6.6.0 <c>restrict</c> for the 5 where
+    /// the two disagree (HauII, SgeI, MspJI, LpnPI, SgrTI). A recognition window that reads as the site
+    /// on both strands admits two binding orientations; EMBOSS reports both cleavages
+    /// (<c>embPatRestrictScan</c> scans <c>substr</c> and then <c>revstr</c>, then keeps one hit per
+    /// distinct <c>cut1</c>), Biopython collapses them to the forward reading. Seqeron follows EMBOSS
+    /// (review 2026-09 B08 H7; slice report F101). EMBOSS's rows are a strict superset of Biopython's
+    /// for all 5 enzymes and both topologies, and identical for the other 749.
+    /// </para>
     /// </summary>
     [Test]
     public void Digest_ByName_EveryRebaseEnzyme_CutsAtBiopythonSearchPositions()
     {
         var mismatches = new List<string>();
+        var emboss = ReadEmbossBothStrandOracle();
+        int fromEmboss = 0;
 
-        foreach (var (name, sequence, linear, circular) in ReadOracle())
+        foreach (var row in ReadOracle())
         {
+            var (name, sequence, linear, circular) = row;
+            if (emboss.TryGetValue(name, out var embossRow))
+            {
+                Assert.That(embossRow.Sequence, Is.EqualTo(sequence),
+                    $"the EMBOSS fixture must use the same molecule as the Biopython fixture for {name}");
+                Assert.That(embossRow.Linear.ToHashSet().IsSupersetOf(linear), Is.True,
+                    $"{name}: EMBOSS keeps every cut Biopython reports and adds the second reading's");
+                (linear, circular) = (embossRow.Linear, embossRow.Circular);
+                fromEmboss++;
+            }
+
             int n = sequence.Length;
             var dna = new DnaSequence(sequence);
 
@@ -160,7 +189,12 @@ public class RestrictionAnalyzer_RebaseSet_Tests
                 mismatches.Add($"{name} circular: got [{string.Join(",", gotC)}] want [{string.Join(",", wantC)}]");
         }
 
-        Assert.That(mismatches, Is.Empty, string.Join("\n", mismatches.Take(20)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(fromEmboss, Is.EqualTo(5),
+                "exactly HauII, SgeI, MspJI, LpnPI and SgrTI take the EMBOSS oracle");
+            Assert.That(mismatches, Is.Empty, string.Join("\n", mismatches.Take(20)));
+        });
     }
 
     private static HashSet<int> TopCuts(IEnumerable<RestrictionSite> sites, HashSet<int> forwardWindows, int n)
@@ -464,6 +498,33 @@ public class RestrictionAnalyzer_RebaseSet_Tests
                 continue;
             var f = line.Split('\t');
             rows.Add((f[0], f[1], Ints(f[2]), Ints(f[3])));
+        }
+        return rows;
+
+        static int[] Ints(string s) => s.Length == 0 ? [] : s.Split(',').Select(int.Parse).ToArray();
+    }
+
+    /// <summary>
+    /// EMBOSS 6.6.0 <c>restrict</c> cut positions for the five enzymes whose two strand readings of one
+    /// window cut different bonds (B08 H7). Generated by
+    /// <c>scripts/rebase/generate_emboss_restrict_oracle.py</c> over the same molecules as
+    /// <c>biopython_rebase_search.tsv</c>.
+    /// </summary>
+    private static Dictionary<string, (string Sequence, int[] Linear, int[] Circular)>
+        ReadEmbossBothStrandOracle()
+    {
+        const string name = "Seqeron.Genomics.Tests.TestData.Restriction.emboss_restrict_bothstrand.tsv";
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException($"Embedded oracle '{name}' not found.");
+        using var reader = new StreamReader(stream);
+        var rows = new Dictionary<string, (string, int[], int[])>(StringComparer.Ordinal);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0 || line[0] == '#')
+                continue;
+            var f = line.Split('\t');
+            rows[f[0]] = (f[1], Ints(f[2]), Ints(f[3]));
         }
         return rows;
 
