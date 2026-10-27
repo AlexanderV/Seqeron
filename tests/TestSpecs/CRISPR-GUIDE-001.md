@@ -95,7 +95,7 @@
 | M-002 | `EvaluateGuideRna_LowGcContent_LowerScore` | "AAAAAAAAAAAAAAAAAAAA" (0% GC) | Score=0 (flat 300 clamped), GC=0, SeedGC=0, Issues=2 [Low GC, Suboptimal seed GC] | ✅ |
 | M-003 | `EvaluateGuideRna_HighGcContent_LowerScore` | "GCGCGCGCGCGCGCGCGCGC" (100% GC) | Score=0 (311 clamped), GC=100, SeedGC=100, Issues=3 [High GC, Suboptimal seed GC, 11 stems] | ✅ |
 | M-004 | `EvaluateGuideRna_HasPolyT_Penalized` | "ACGTACGTTTTTACGTACGT" (TTTT) | Score=95 (5 stems), GC=40, HasPolyT=true, Issues=2 [TTTT, 5 stems] | ✅ |
-| M-005 | `EvaluateGuideRna_EmptyGuide_ThrowsException` | "" | Throws ArgumentNullException | ✅ |
+| M-005 | `EvaluateGuideRna_EmptyGuide_ThrowsArgumentException` | "" | Throws ArgumentException (null: ArgumentNullException; B08 round 4 H19) | ✅ |
 | M-006 | `EvaluateGuideRna_FullGuideRna_IncludesScaffold` | any 20bp guide | FullGuideRna = guide + scaffold (96 chars total) | ✅ |
 | M-007 | `DesignGuideRnas_NullSequence_ThrowsException` | null | Throws ArgumentNullException | ✅ |
 | M-008 | `DesignGuideRnas_InvalidRegionStart_ThrowsException` | regionStart = −1 | Throws ArgumentOutOfRangeException | ✅ |
@@ -250,3 +250,25 @@ All code paths in `EvaluateGuideRna` and `DesignGuideRnas` are covered with exac
 - **Date**: 2026-03-03
 - **Version**: 3.0
 - **Update (B08 WP6/D16, 2026-10-15)**: F3–F8 contracts traced to their tests and sources; S-019 added (tie-break). See `docs/Validation/review-2026-09/B08.md` F3–F8, F47.
+
+## Round 4 contracts and fixes (B08 H8-H12, H14-H23, H41)
+
+Tests in `CrisprDesigner_Contracts_Tests.cs` unless named otherwise. Oracles are named per row.
+
+| ID | Test | Pins | Oracle |
+|---|---|---|---|
+| H8 | `DesignGuideRnas_GcWindow_FiltersWhetherOrNotTheScoreTermIsOn_Spcas9` (0..20), `..._FiltersFor21NtSaCas9` (0..21), `DesignGuideRnas_FullGcWindow_ListsEveryGuide_AndEvaluateOnlyReports` | the GC window is an independent filter; 0..100 = none | CHOPCHOP chopchop.py L1911-1914: pass sets 8..14 of 20, 9..14 of 21 |
+| H9/H41 | `FullGuideRna_FollowsTheGuidesOwnSystem` (9 systems), `SgRnaScaffolds_AreTheOnesCrisporDerivesItsConstantPrimersFrom` | per-system scaffold, `null` for Cas12a/CasX | revcomp of CRISPOR's SpCas9 `tracrPrimer` = scaffold + TTTT; SaCas9 template = scaffold + TTTTTT |
+| H10 | `Doench2014_ReferenceExample1/2_MatchesTheExecutedReference`, all-A row | executed `calcDoenchScore` values at 1e-9, docstring literals rejected | `doenchScore.py` executed |
+| H11 | `FindPamSites_AllCas12aAliases_ReportTheSameSites`, `FindPamSites_LbCas12a_DetectsTTTV_With23bpTarget` | one Cas12a spacer length | CRISPOR `GUIDELEN = 23` for every Cpf1 PAM |
+| H12 | three `FindPamSites_*N*` tests in `CrisprDesigner_PAM_Tests.cs` | CRISPOR `patMatch` / `flankSeqIter(doFilterNs=True)` | genuine `findAllPams` + `flankSeqIter`, 0/0 differential |
+| H14 | `CfdSpecificity_List_RefusesNegativeAndNonFiniteScores_WithAMessageThatIsTrue`, `CfdSpecificity_ParkinsonNormalized_ZeroSum_BlamesTheArgumentTheCallerPassed` | negative / NaN sums refused with a true message; the zero-sum error blames `aggregation` for the genome overloads | `calcCfdGuideScore(-2) = -5000.0` is meaningless input |
+| H15 | `MitSpecificity_List_RefusesAScoreThatIsNotFiniteAndNonNegative`, `..._KeepsTheDocumentedRangeForValidScores` | the documented [0, 100] | `calcMitGuideScore` is only fed non-negative sums |
+| H16 | `GenomeAggregates_FailIdenticallyOnTheSameMalformedCall` (7 malformed calls x 4 aggregates) | one argument prologue | FindOffTargets' guard order + the model refusals |
+| H17 | `EvaluateGuideRna_WrongLength_IsRefused_NotScoredAsPerfect`, `..._AcceptsExactlyTheGuideLengthOfEverySystem` | guide length = system length | FindOffTargets' own check |
+| H18 | `GuideRnaParameters_Invalid_IsRefusedByDesignAndEvaluation` (7 cases), `..._ParameterlessConstructor_IsTheDocumentedDefault` | validated parameters; `-1` refused | CHOPCHOP `filterSelfCompMax = -1` is "none" |
+| H19 | `StringGuideEntryPoints_NullIsAMissingArgument_EmptyIsAWrongValue` (12 entry points) | null -> `ArgumentNullException`, empty -> `ArgumentException` | AzimuthRuleSet2 convention; model_comparison.py L523-L524 |
+| H20/H53 | `FindPamSites_UnknownSystem_ThrowsAtTheCall_OnBothOverloads`, `FindPamSites_StringOverload_NullEmptyAndTooShort_YieldNoSites` | eager system validation; null/empty/shorter-than-PAM = no sites | PAM_Site_Detection.md section 3.3 |
+| H21 | `RuleSet2_AminoAcidCutPosition_NegativeIsRefused_UnlessThePercentPeptideSentinelIgnoresIt` | documented behaviour of the negative cut position | model_comparison.py L539/L563 |
+| H22 | `RuleSet2_NonNggPam_IsScored_AsCrisporDoesWithoutPamAudit` (5), `DesignedGuides_OfTheNagAndNgaSystems_CarryARuleSet2Score` | NAG / NGA contexts scored | tree walker over the original pickles; 300 random contexts (281 non-GG), both models, max diff 0.0 |
+| H23 | `ModelBlob_Malformed_FailsAsInvalidOperationException` (8 malformed blobs) | overflow-safe loader, index checks | the documented binary format |

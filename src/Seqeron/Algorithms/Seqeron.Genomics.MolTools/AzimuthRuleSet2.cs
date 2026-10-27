@@ -91,7 +91,26 @@ internal static class AzimuthRuleSet2
 
         var bytes = new byte[stream.Length];
         stream.ReadExactly(bytes);
-        var span = (ReadOnlySpan<byte>)bytes;
+        return Parse(bytes, fileName, expectGenePosition);
+    }
+
+    /// <summary>Test seam: runs the blob validation of <see cref="Parse"/> without keeping the model.</summary>
+    internal static void ValidateModelBlob(ReadOnlySpan<byte> blob, string fileName, bool expectGenePosition) =>
+        _ = Parse(blob, fileName, expectGenePosition);
+
+    private const int HeaderSize = 36;
+    private const int NodeSize = 24;
+
+    /// <summary>
+    /// Parses and validates a model blob. A malformed blob fails as an <see cref="InvalidOperationException"/> -
+    /// never as an overflow, an index error from the featurizer or an exception from the node slice - including a
+    /// header whose counts overflow 32-bit size arithmetic and a node or tree start that points outside the arrays.
+    /// </summary>
+    private static Model Parse(ReadOnlySpan<byte> span, string fileName, bool expectGenePosition)
+    {
+        if (span.Length < HeaderSize)
+            throw new InvalidOperationException(
+                $"Azimuth model '{fileName}' is truncated: {span.Length} bytes, the header alone is {HeaderSize}.");
 
         uint magic = BinaryPrimitives.ReadUInt32LittleEndian(span);
         if (magic != Magic)
@@ -104,8 +123,6 @@ internal static class AzimuthRuleSet2
         double init = BinaryPrimitives.ReadDoubleLittleEndian(span[20..]);
         // double learningRate @28 (informational; leaf values are already pre-scaled by it)
 
-        // A malformed blob must fail as an InvalidOperationException (like the magic check above),
-        // not as an IndexOutOfRange/ArgumentOutOfRange from the featurizer or the node slice.
         bool hasGenePosition = (flags & 1) != 0;
         if (hasGenePosition != expectGenePosition)
             throw new InvalidOperationException(
@@ -118,18 +135,37 @@ internal static class AzimuthRuleSet2
             throw new InvalidOperationException(
                 $"Azimuth model '{fileName}' declares {treeCount} trees / {nodeCount} nodes.");
 
-        int offset = 36;
-        if (span.Length < offset + treeCount * 4 + nodeCount * 24)
+        // 64-bit: nodeCount * 24 wraps a 32-bit int for nodeCount >= 89 478 486.
+        long needed = HeaderSize + (long)treeCount * sizeof(int) + (long)nodeCount * NodeSize;
+        if (span.Length < needed)
             throw new InvalidOperationException(
                 $"Azimuth model '{fileName}' is truncated: {span.Length} bytes for {treeCount} trees / {nodeCount} nodes.");
 
+        int offset = HeaderSize;
         var treeStart = new int[treeCount];
         for (int i = 0; i < treeCount; i++)
-            treeStart[i] = BinaryPrimitives.ReadInt32LittleEndian(span[(offset + i * 4)..]);
-        offset += treeCount * 4;
+        {
+            int start = BinaryPrimitives.ReadInt32LittleEndian(span[(offset + i * 4)..]);
+            if (start < 0 || start >= nodeCount)
+                throw new InvalidOperationException(
+                    $"Azimuth model '{fileName}': tree {i} starts at node {start}, outside 0..{nodeCount - 1}.");
+            treeStart[i] = start;
+        }
+        offset += treeCount * sizeof(int);
 
         // Zero-copy reinterpretation of the node region, copied once into a managed array.
-        var nodes = MemoryMarshal.Cast<byte, Node>(span.Slice(offset, nodeCount * 24)).ToArray();
+        var nodes = MemoryMarshal.Cast<byte, Node>(span.Slice(offset, nodeCount * NodeSize)).ToArray();
+        for (int i = 0; i < nodes.Length; i++)
+        {
+            var node = nodes[i];
+            if (node.Feature == -1)
+                continue; // leaf
+            if (node.Feature < 0 || node.Feature >= featureCount
+                || node.Left < 0 || node.Left >= nodeCount || node.Right < 0 || node.Right >= nodeCount)
+                throw new InvalidOperationException(
+                    $"Azimuth model '{fileName}': node {i} has feature {node.Feature} / children {node.Left},{node.Right}, "
+                    + $"outside 0..{featureCount - 1} / 0..{nodeCount - 1}.");
+        }
 
         return new Model
         {
@@ -235,10 +271,11 @@ internal static class AzimuthRuleSet2
             if (c is not ('A' or 'C' or 'G' or 'T'))
                 throw new ArgumentException(
                     $"Rule Set 2 context must contain only A/C/G/T; found '{c}'.", nameof(context30Mer));
-        if (seq[25] != 'G' || seq[26] != 'G')
-            throw new ArgumentException(
-                "Rule Set 2 expects an SpCas9 NGG PAM at offsets 25-26 of the 30-nt context.",
-                nameof(context30Mer));
+        // No PAM audit: Azimuth's own default (`pam_audit=True`) raises for a non-GG 30-mer, but CRISPOR - the reference
+        // this module follows - scores every SpCas9-class PAM with `pam_audit=False` ("do not check for NGG PAM",
+        // crisporEffScores.py L1174-1178), so that NAG / NGA guides get a Rule Set 2 score too. The model reads the
+        // PAM bases only as ordinary position features plus the NGGX pair (offsets 24 and 27); it was trained on NGG,
+        // so a non-NGG score is an extrapolation, exactly as in CRISPOR.
         return seq;
     }
 

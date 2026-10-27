@@ -60,11 +60,13 @@ public static class CrisprDesigner
         string sequence,
         CrisprSystemType systemType = CrisprSystemType.SpCas9)
     {
+        // Validated eagerly, like the DnaSequence overload: this method is not an iterator itself, so an unknown
+        // system throws at the call and not at the first MoveNext. A null or empty string is documented as "no sites".
+        var system = GetSystem(systemType);
         if (string.IsNullOrEmpty(sequence))
-            yield break;
+            return Enumerable.Empty<PamSite>();
 
-        foreach (var site in FindPamSitesCore(SequenceExtensions.ToUpperAscii(sequence)!, GetSystem(systemType)))
-            yield return site;
+        return FindPamSitesCore(SequenceExtensions.ToUpperAscii(sequence)!, system);
     }
 
     private static IEnumerable<PamSite> FindPamSitesCore(string seq, CrisprSystem system)
@@ -229,6 +231,8 @@ public static class CrisprDesigner
             throw new ArgumentOutOfRangeException(nameof(regionStart));
         if (regionEnd < regionStart || regionEnd >= sequence.Length)
             throw new ArgumentOutOfRangeException(nameof(regionEnd));
+        GetSystem(systemType);
+        parameters?.Validate(nameof(parameters));
         return DesignGuideRnasCore(sequence, regionStart, regionEnd, systemType, parameters);
     }
 
@@ -258,12 +262,15 @@ public static class CrisprDesigner
     /// <summary>
     /// Evaluates a single guide RNA sequence.
     /// </summary>
-    /// <param name="guideSequence">The protospacer / spacer (PAM excluded), A/C/G/T.</param>
-    /// <param name="systemType">The CRISPR system, which fixes the seed side and the PAM-dependent checks.</param>
+    /// <param name="guideSequence">The protospacer / spacer (PAM excluded), A/C/G/T; its length must be the system's guide length.</param>
+    /// <param name="systemType">The CRISPR system, which fixes the guide length, the seed side and the PAM-dependent checks.</param>
     /// <param name="parameters">Thresholds; <see cref="GuideRnaParameters.Default"/> when <c>null</c>.</param>
     /// <returns>
     /// The candidate with its metrics and a composite <see cref="GuideRnaCandidate.Score"/>.
     /// </returns>
+    /// <exception cref="ArgumentNullException">The guide is null.</exception>
+    /// <exception cref="ArgumentException">The guide is empty, is not of the system's guide length, or holds a character
+    /// other than A/C/G/T/U; or <paramref name="parameters"/> is invalid (see <see cref="GuideRnaParameters"/>).</exception>
     /// <remarks>
     /// <para>
     /// <b>The composite <see cref="GuideRnaCandidate.Score"/> is CHOPCHOP's own penalty sum, shown as a
@@ -308,13 +315,18 @@ public static class CrisprDesigner
         CrisprSystemType systemType = CrisprSystemType.SpCas9,
         GuideRnaParameters? parameters = null)
     {
-        if (string.IsNullOrEmpty(guideSequence))
-            throw new ArgumentNullException(nameof(guideSequence));
+        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
+        var system = GetSystem(systemType);
+        // The same check, message and exception type as the off-target scans: a spacer of the wrong length is not a
+        // guide of this system ("ACGT" scored a perfect 100 for SpCas9 before).
+        if (guideSequence.Length != system.GuideLength)
+            throw new ArgumentException(
+                $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
+                nameof(guideSequence));
+        var effective = parameters ?? GuideRnaParameters.Default;
+        effective.Validate(nameof(parameters));
 
-        return EvaluateGuideRnaCore(
-            NormalizeNucleotides(guideSequence, nameof(guideSequence)),
-            GetSystem(systemType),
-            parameters ?? GuideRnaParameters.Default);
+        return EvaluateGuideRnaCore(NormalizeNucleotides(guideSequence, nameof(guideSequence)), system, effective);
     }
 
     /// <summary>
@@ -337,6 +349,19 @@ public static class CrisprDesigner
             chars[i] = c;
         }
         return new string(chars);
+    }
+
+    /// <summary>
+    /// A null reference is a missing argument (<see cref="ArgumentNullException"/>); an empty string is a wrong value
+    /// (<see cref="ArgumentException"/>) - the convention <c>AzimuthRuleSet2</c> spells out and the reference itself
+    /// follows (model_comparison.py L523-L524: <c>isinstance(seq[0], basestring)</c> vs <c>len(seq[0]) &gt; 0</c>).
+    /// </summary>
+    private static void ThrowIfNullOrEmpty(string? value, string paramName)
+    {
+        if (value is null)
+            throw new ArgumentNullException(paramName);
+        if (value.Length == 0)
+            throw new ArgumentException("The value must not be empty.", paramName);
     }
 
     /// <summary>
@@ -506,16 +531,17 @@ public static class CrisprDesigner
 
     /// <summary>
     /// Extracts the 30-nt Rule Set 2 / Azimuth context of a PAM site from the surrounding sequence:
-    /// 4 nt 5' of the protospacer + the 20-nt protospacer + the 3-nt NGG PAM + 3 nt 3' of the PAM,
+    /// 4 nt 5' of the protospacer + the 20-nt protospacer + the 3-nt PAM + 3 nt 3' of the PAM,
     /// all read on the protospacer strand (CRISPOR <c>crisporEffScores.calcAllScores</c> builds exactly
     /// this window with <c>trimSeqs(seqs, -24, 6)</c> around the PAM start). Returns <c>null</c> when the
-    /// system is not a 20-nt NGG system, the flanks do not fit, or the window is not all A/C/G/T
-    /// (the reference scores such windows as "can't do Ns").
+    /// system is not a 20-nt, 3-nt-PAM-after-target (SpCas9-class) system - NGG, but also NAG and NGA, which CRISPOR
+    /// scores too because it calls Azimuth with <c>pam_audit=False</c> - the flanks do not fit, or the window is
+    /// not all A/C/G/T (the reference scores such windows as "can't do Ns").
     /// </summary>
     private static string? TryGetRuleSet2Context(PamSite pamSite, string fullSequence)
     {
         var system = pamSite.System;
-        if (system.PamSequence != "NGG" || system.GuideLength != 20 || !system.PamAfterTarget)
+        if (!system.PamAfterTarget || system.GuideLength != 20 || system.PamSequence.Length != 3)
             return null;
 
         // Forward-strand span of [4 nt upstream | 20 nt guide | 3 nt PAM | 3 nt downstream]:
@@ -553,8 +579,7 @@ public static class CrisprDesigner
     /// </remarks>
     public static GrafMotifType GetGrafMotif(string guideSequence)
     {
-        if (string.IsNullOrEmpty(guideSequence))
-            throw new ArgumentNullException(nameof(guideSequence));
+        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
 
         var seq = NormalizeNucleotides(guideSequence, nameof(guideSequence));
         if (seq.EndsWith("TTC", StringComparison.Ordinal) || seq.EndsWith("TTT", StringComparison.Ordinal))
@@ -809,8 +834,7 @@ public static class CrisprDesigner
     private static string ValidateScanArguments(
         string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType)
     {
-        if (string.IsNullOrEmpty(guideSequence))
-            throw new ArgumentNullException(nameof(guideSequence));
+        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
         ArgumentNullException.ThrowIfNull(genome);
         if (maxMismatches < 0 || maxMismatches > 5)
             throw new ArgumentOutOfRangeException(nameof(maxMismatches));
@@ -1300,11 +1324,18 @@ public static class CrisprDesigner
     /// </summary>
     /// <param name="context30Mer">
     /// The 30-nt sequence context required by the model:
-    /// 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be N<c>GG</c>) + 3 nt downstream.
-    /// Case-insensitive; must contain only A/C/G/T.
+    /// 4 nt upstream + 20 nt protospacer + 3 nt PAM + 3 nt downstream. Case-insensitive; must contain only A/C/G/T.
+    /// The PAM is not audited (see the remarks).
     /// </param>
     /// <returns>The predicted on-target activity, conventionally in the range [0, 1] (higher = more active).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="context30Mer"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="context30Mer"/> is not 30 characters long or holds a character other than A/C/G/T.</exception>
     /// <remarks>
+    /// The model was trained on NGG guides. Azimuth's own default (<c>pam_audit=True</c>) rejects a non-GG 30-mer, but
+    /// CRISPOR - the reference this module follows - calls it with <c>pam_audit=False</c> ("do not check for NGG PAM",
+    /// <c>crisporEffScores.py</c> L1174-1178) so that NAG and NGA guides are scored too; this method does the same, and a
+    /// non-NGG score is therefore an extrapolation, not a validated prediction.
+    /// <para>
     /// Rule Set 2 is a trained gradient-boosted-tree model (not a published linear formula like
     /// <see cref="CalculateOnTargetDoench2014"/>). This uses a faithful, sklearn-free reconstruction of
     /// Microsoft Research's Azimuth <c>V3_model_nopos</c>; the score reproduces
@@ -1312,6 +1343,7 @@ public static class CrisprDesigner
     /// Source: Doench et al. 2016, Nat Biotechnol 34:184 (PMID 26780180); trained model from
     /// https://github.com/MicrosoftResearch/Azimuth (BSD-3-Clause). See
     /// scripts/azimuth/extract_azimuth_model.py for the full provenance and reproduction.
+    /// </para>
     /// </remarks>
     public static double CalculateOnTargetRuleSet2(string context30Mer)
         => AzimuthRuleSet2.Score(context30Mer);
@@ -1322,16 +1354,21 @@ public static class CrisprDesigner
     /// </summary>
     /// <param name="context30Mer">The 30-nt context (see <see cref="CalculateOnTargetRuleSet2(string)"/>).</param>
     /// <param name="aminoAcidCutPosition">
-    /// The amino-acid position of the cut site within the target protein. Passed to the model as-is
-    /// (the reference does not treat any value of it specially).
+    /// The amino-acid position of the cut site within the target protein, a residue count: 0 or more (Azimuth's
+    /// own fixture spans 0..499; there is no upper bound). The reference asserts only that it is a real number; a
+    /// negative count is not a position and is refused here rather than extrapolated by the trees. Ignored when
+    /// <paramref name="percentPeptide"/> is the <c>-1</c> sentinel.
     /// </param>
     /// <param name="percentPeptide">
     /// The cut position as a percentage [0, 100] along the coding sequence (how far into the protein),
     /// or <c>-1</c> for Azimuth's "no gene position" sentinel.
     /// </param>
     /// <returns>The predicted on-target activity, conventionally in the range [0, 1].</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="context30Mer"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="context30Mer"/> is not 30 characters long or holds a character other than A/C/G/T.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="percentPeptide"/> is neither in [0, 100] nor the <c>-1</c> sentinel.
+    /// <paramref name="percentPeptide"/> is neither in [0, 100] nor the <c>-1</c> sentinel (NaN included), or
+    /// <paramref name="aminoAcidCutPosition"/> is negative and <paramref name="percentPeptide"/> is not the sentinel.
     /// </exception>
     /// <remarks>
     /// Uses Azimuth's <c>V3_model_full</c>, except for <paramref name="percentPeptide"/> == <c>-1</c>:
@@ -1407,10 +1444,8 @@ public static class CrisprDesigner
     /// </remarks>
     public static double CalculateMitHitScore(string guide20, string offTarget20)
     {
-        if (string.IsNullOrEmpty(guide20))
-            throw new ArgumentNullException(nameof(guide20));
-        if (string.IsNullOrEmpty(offTarget20))
-            throw new ArgumentNullException(nameof(offTarget20));
+        ThrowIfNullOrEmpty(guide20, nameof(guide20));
+        ThrowIfNullOrEmpty(offTarget20, nameof(offTarget20));
         if (guide20.Length != 20 || offTarget20.Length != 20)
             throw new ArgumentException("MIT/Hsu score requires two 20-nt sequences.");
 
@@ -1457,8 +1492,9 @@ public static class CrisprDesigner
     /// off-target scores: <c>100 / (100 + Σ hitScores) × 100</c>. Returns 100 when there are no
     /// off-target hits and decreases toward 0 as off-target burden grows.
     /// </summary>
-    /// <param name="singleHitScores">The single-hit MIT/Hsu scores of all candidate off-targets.</param>
+    /// <param name="singleHitScores">The single-hit MIT/Hsu scores of all candidate off-targets (finite, non-negative).</param>
     /// <returns>The aggregate guide specificity in [0, 100].</returns>
+    /// <exception cref="ArgumentOutOfRangeException">An element of <paramref name="singleHitScores"/> is negative, NaN or infinite.</exception>
     /// <remarks>
     /// Source: Hsu et al. 2013; aggregate "Guide score" per crispr.mit.edu (CRISPOR
     /// <c>calcMitGuideScore</c>). The reference rounds to an integer; this method returns the
@@ -1467,8 +1503,27 @@ public static class CrisprDesigner
     public static double CalculateMitSpecificityScore(IEnumerable<double> singleHitScores)
     {
         ArgumentNullException.ThrowIfNull(singleHitScores);
-        double sum = singleHitScores.Sum();
+        double sum = SumHitScores(singleHitScores, nameof(singleHitScores));
         return 100.0 / (100.0 + sum) * 100.0;
+    }
+
+    /// <summary>
+    /// Sums per-hit scores, which are non-negative finite numbers by definition (the reference's
+    /// <c>calcMitGuideScore</c> / <c>calcCfdGuideScore</c> are module-private and only ever fed such sums). A negative,
+    /// NaN or infinite element would make the documented [0, 100] aggregate negative, infinite or NaN
+    /// (<c>[-150]</c> gave -200, <c>[-100]</c> gave Infinity), so it is refused instead of aggregated.
+    /// </summary>
+    private static double SumHitScores(IEnumerable<double> scores, string paramName)
+    {
+        double sum = 0;
+        foreach (double score in scores)
+        {
+            if (!double.IsFinite(score) || score < 0)
+                throw new ArgumentOutOfRangeException(paramName, score,
+                    "Per-hit off-target scores must be finite and non-negative.");
+            sum += score;
+        }
+        return sum;
     }
 
     /// <summary>
@@ -1595,15 +1650,14 @@ public static class CrisprDesigner
         int? onTargetEnd = null,
         int maxOccurrences = DefaultMaxOccurrences)
     {
-        EnsureMitModelApplies(systemType, nameof(systemType));
+        var guide = ValidateAggregateArguments(guideSequence, genome, maxMismatches, systemType, requireTwentyNtProtospacer: false);
         var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         EnsureValidMaxOccurrences(maxOccurrences);
 
-        var offTargets = CollectSystemHits(guideSequence, genome, maxMismatches, systemType, onTarget,
+        var offTargets = CollectSystemHits(guide, genome, maxMismatches, systemType, onTarget,
                 ExactMatchPolicy.DropFirst)
             .Select(static hit => hit.Site).ToList();
 
-        var guide = NormalizeNucleotides(guideSequence, nameof(guideSequence));
         if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
             return 0.0;
         if (offTargets.Count == 0)
@@ -1721,8 +1775,7 @@ public static class CrisprDesigner
         IEnumerable<PamAnnotatedOffTarget> offTargets,
         CrisprSystemType systemType = CrisprSystemType.SpCas9)
     {
-        if (string.IsNullOrEmpty(guideSequence))
-            throw new ArgumentNullException(nameof(guideSequence));
+        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
         ArgumentNullException.ThrowIfNull(offTargets);
         EnsureMitModelApplies(systemType, nameof(systemType));
 
@@ -1843,16 +1896,15 @@ public static class CrisprDesigner
         int? onTargetEnd = null,
         int maxOccurrences = DefaultMaxOccurrences)
     {
-        EnsureMitModelApplies(systemType, nameof(systemType));
+        var guide = ValidateAggregateArguments(guideSequence, genome, maxMismatches, systemType, requireTwentyNtProtospacer: false);
         var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         EnsureValidMaxOccurrences(maxOccurrences);
         var hits = CollectAlternativePamHits(
-            guideSequence, genome, maxMismatches, systemType, minAlternativePamHitScore, onTarget);
+            guide, genome, maxMismatches, systemType, minAlternativePamHitScore, onTarget);
 
-        if (ExceedsMaxOccurrences(NormalizeNucleotides(guideSequence, nameof(guideSequence)),
-                genome, maxMismatches, maxOccurrences))
+        if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
             return 0.0;
-        return CalculateMitSpecificityScore(guideSequence, hits, systemType);
+        return CalculateMitSpecificityScore(guide, hits, systemType);
     }
 
     /// <summary>
@@ -2139,10 +2191,8 @@ public static class CrisprDesigner
     /// </exception>
     public static double CalculateSaCas9HitScore(string saGuide21, string offTarget21)
     {
-        if (string.IsNullOrEmpty(saGuide21))
-            throw new ArgumentNullException(nameof(saGuide21));
-        if (string.IsNullOrEmpty(offTarget21))
-            throw new ArgumentNullException(nameof(offTarget21));
+        ThrowIfNullOrEmpty(saGuide21, nameof(saGuide21));
+        ThrowIfNullOrEmpty(offTarget21, nameof(offTarget21));
         if (saGuide21.Length != SaCas9GuideLength)
             throw new ArgumentException(
                 $"The Tycko 2018 SaCas9 model is transcribed here for a {SaCas9GuideLength}-nt guide; got {saGuide21.Length}.",
@@ -2334,12 +2384,9 @@ public static class CrisprDesigner
     /// </remarks>
     public static double CalculateCfdScore(string sgRna20, string offTarget20, string offTargetPam)
     {
-        if (string.IsNullOrEmpty(sgRna20))
-            throw new ArgumentNullException(nameof(sgRna20));
-        if (string.IsNullOrEmpty(offTarget20))
-            throw new ArgumentNullException(nameof(offTarget20));
-        if (string.IsNullOrEmpty(offTargetPam))
-            throw new ArgumentNullException(nameof(offTargetPam));
+        ThrowIfNullOrEmpty(sgRna20, nameof(sgRna20));
+        ThrowIfNullOrEmpty(offTarget20, nameof(offTarget20));
+        ThrowIfNullOrEmpty(offTargetPam, nameof(offTargetPam));
 
         if (sgRna20.Length != 20)
             throw new ArgumentException($"CFD requires a 20-nt guide; got {sgRna20.Length}.", nameof(sgRna20));
@@ -2406,7 +2453,8 @@ public static class CrisprDesigner
     /// callers may round as they wish.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// Thrown for <see cref="CfdAggregation.ParkinsonNormalized"/> when the CFD sum is 0: that formula
+    /// Thrown when an element of <paramref name="cfdScores"/> is negative, NaN or infinite (CFD scores are
+    /// non-negative), and for <see cref="CfdAggregation.ParkinsonNormalized"/> when the CFD sum is 0: that formula
     /// divides by the sum and the reference is undefined there (it would raise <c>ZeroDivisionError</c>).
     /// </exception>
     public static double CalculateCfdSpecificityScore(
@@ -2414,20 +2462,27 @@ public static class CrisprDesigner
         CfdAggregation aggregation = CfdAggregation.MitStyle)
     {
         ArgumentNullException.ThrowIfNull(cfdScores);
-        double sum = cfdScores.Sum();
+        return AggregateCfd(SumHitScores(cfdScores, nameof(cfdScores)), aggregation, nameof(cfdScores));
+    }
 
-        return aggregation switch
+    /// <summary>
+    /// The CFD aggregation of an already validated (finite, non-negative) sum. <paramref name="zeroSumParamName"/> names
+    /// the parameter blamed for the undefined <see cref="CfdAggregation.ParkinsonNormalized"/> case: <c>cfdScores</c> for
+    /// the list overload, <c>aggregation</c> for the genome overloads (the guide has no off-target with a positive CFD
+    /// score, which is a property of that aggregation choice, not of an argument they take).
+    /// </summary>
+    private static double AggregateCfd(double sum, CfdAggregation aggregation, string zeroSumParamName) =>
+        aggregation switch
         {
             CfdAggregation.MitStyle => 100.0 / (100.0 + sum) * 100.0,
             // The reference's doCfdFix path is 100 x 100 / Σ(100 x rawCfd) = 100 / Σ rawCfd: its per-hit
             // x100 rescaling cancels one of the two factors of 100. Inputs here are always raw CFD.
             CfdAggregation.ParkinsonNormalized when sum > 0 => 100.0 / sum,
             CfdAggregation.ParkinsonNormalized => throw new ArgumentOutOfRangeException(
-                nameof(cfdScores),
+                zeroSumParamName,
                 "The ParkinsonNormalized CFD aggregate (100 / sum of the raw CFD scores) is undefined for a CFD sum of 0."),
             _ => throw new ArgumentOutOfRangeException(nameof(aggregation))
         };
-    }
 
     /// <summary>
     /// Calculates the aggregate CFD specificity score for a guide against a genome by enumerating
@@ -2491,7 +2546,7 @@ public static class CrisprDesigner
         int? onTargetEnd = null,
         int maxOccurrences = DefaultMaxOccurrences)
     {
-        var guide = ValidateCfdGenomeArguments(guideSequence, genome, maxMismatches, systemType);
+        var guide = ValidateAggregateArguments(guideSequence, genome, maxMismatches, systemType, requireTwentyNtProtospacer: true);
         var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         EnsureValidMaxOccurrences(maxOccurrences);
         if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
@@ -2512,29 +2567,30 @@ public static class CrisprDesigner
             cfdScores.Add(CalculateCfdScore(guide, offTarget, pam));
         }
 
-        return CalculateCfdSpecificityScore(cfdScores, aggregation);
+        return AggregateCfd(cfdScores.Sum(), aggregation, nameof(aggregation));
     }
 
     /// <summary>
-    /// The argument guards shared by the genome CFD aggregates (same order and exception types as
-    /// <see cref="FindOffTargets"/>, which they cannot delegate to because CFD needs each hit's PAM);
-    /// returns the normalised guide.
+    /// The argument guards shared by the four genome aggregates (MIT, CFD, each with and without alternative PAMs), in
+    /// this order and with these exception types: null / empty guide, null genome, <c>maxMismatches</c> outside 0-5 -
+    /// the first three guards of <see cref="FindOffTargets"/> - then the model refusals (PAM-before-target systems for
+    /// MIT and CFD; a non-20-nt system for CFD), then the guide length and alphabet of
+    /// <see cref="FindOffTargets"/>; returns the normalised guide. They cannot delegate to
+    /// <see cref="FindOffTargets"/> (they need each hit's PAM and the model refusals come before the length check), so
+    /// every aggregate runs this one routine and malformed input fails the same way whichever aggregate is called.
     /// </summary>
-    private static string ValidateCfdGenomeArguments(
-        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType)
+    private static string ValidateAggregateArguments(
+        string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType,
+        bool requireTwentyNtProtospacer)
     {
-        // Validate in the same order and with the same exception types as FindOffTargets, which this
-        // overload cannot delegate to (it needs each hit's PAM, so it drives the PAM-annotated scan
-        // directly and must therefore repeat FindOffTargets' own guards).
-        if (string.IsNullOrEmpty(guideSequence))
-            throw new ArgumentNullException(nameof(guideSequence));
+        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
         ArgumentNullException.ThrowIfNull(genome);
         if (maxMismatches < 0 || maxMismatches > 5)
             throw new ArgumentOutOfRangeException(nameof(maxMismatches));
 
         EnsureMitModelApplies(systemType, nameof(systemType));
         var system = GetSystem(systemType);
-        if (system.GuideLength != 20)
+        if (requireTwentyNtProtospacer && system.GuideLength != 20)
             throw new ArgumentException(
                 $"The CFD model is defined only for a 20-nt protospacer; {system.Name} uses {system.GuideLength} nt.",
                 nameof(systemType));
@@ -2603,7 +2659,7 @@ public static class CrisprDesigner
         int? onTargetEnd = null,
         int maxOccurrences = DefaultMaxOccurrences)
     {
-        var guide = ValidateCfdGenomeArguments(guideSequence, genome, maxMismatches, systemType);
+        var guide = ValidateAggregateArguments(guideSequence, genome, maxMismatches, systemType, requireTwentyNtProtospacer: true);
         var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         EnsureValidMaxOccurrences(maxOccurrences);
         if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
@@ -2620,7 +2676,7 @@ public static class CrisprDesigner
             cfdScores.Add(CalculateCfdScore(guide, offTarget, hit.Pam));
         }
 
-        return CalculateCfdSpecificityScore(cfdScores, aggregation);
+        return AggregateCfd(cfdScores.Sum(), aggregation, nameof(aggregation));
     }
 
 
@@ -2691,8 +2747,7 @@ public static class CrisprDesigner
         int stemLength = 4,
         IEnumerable<string>? backboneRegions = null)
     {
-        if (string.IsNullOrEmpty(guideSequence))
-            throw new ArgumentNullException(nameof(guideSequence));
+        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
         if (stemLength < 1)
             throw new ArgumentOutOfRangeException(nameof(stemLength), stemLength, "Stem length must be >= 1.");
 
@@ -2759,7 +2814,7 @@ public static class CrisprDesigner
     /// that carry a self-complementary stem: <c>stems / (len − 4)</c>, in [0, 1]. The numerator is CHOPCHOP's
     /// <c>folding</c>; only the division by its own loop bound is this library's.
     /// </summary>
-    private static double SelfComplementarityWindowFraction(int length, int stems)
+    internal static double SelfComplementarityWindowFraction(int length, int stems)
     {
         int windows = length - 4;
         return windows > 0 ? (double)stems / windows : 0.0;
@@ -2961,9 +3016,39 @@ public readonly record struct GuideRnaParameters(
     /// (<see cref="CrisprDesigner.CountSelfComplementaryStems"/>) a candidate may carry; guides above
     /// it are dropped by <see cref="CrisprDesigner.DesignGuideRnas"/> and flagged as an issue by
     /// <see cref="CrisprDesigner.EvaluateGuideRna"/>. <c>null</c> = no filter, which is the reference
-    /// tool's own default (CHOPCHOP <c>filterSelfCompMax = -1</c>).
+    /// tool's own default. CHOPCHOP spells that default <c>filterSelfCompMax = -1</c>; here the value must be
+    /// <c>null</c> or at least 0 - a transcribed <c>-1</c> is refused (it would otherwise drop every guide, the
+    /// opposite of CHOPCHOP's meaning).
     /// </summary>
     public int? MaxSelfComplementaryStems { get; init; }
+
+    /// <summary>
+    /// The documented defaults (<see cref="Default"/>) - also for <c>new GuideRnaParameters()</c>, which would
+    /// otherwise skip the <see cref="ScoreGcContent"/> initializer. <c>default(GuideRnaParameters)</c> cannot be
+    /// intercepted (it bypasses every constructor); it is all zero and is refused by the design and evaluation methods.
+    /// </summary>
+    public GuideRnaParameters() : this(40, 70, 50, true, true) { }
+
+    /// <summary>
+    /// Throws <see cref="ArgumentException"/> / <see cref="ArgumentOutOfRangeException"/> when the parameters cannot
+    /// describe a design: a GC window that is not <c>0 &lt;= MinGcContent &lt;= MaxGcContent &lt;= 100</c> (NaN
+    /// included), a NaN score threshold, a negative stem limit, or the all-zero <c>default(GuideRnaParameters)</c>.
+    /// </summary>
+    internal void Validate(string paramName)
+    {
+        if (this == default)
+            throw new ArgumentException(
+                "default(GuideRnaParameters) is all zero and skips the documented defaults; use GuideRnaParameters.Default, "
+                + "new GuideRnaParameters() or the five-argument constructor.", paramName);
+        if (!(MinGcContent >= 0 && MinGcContent <= MaxGcContent && MaxGcContent <= 100))
+            throw new ArgumentOutOfRangeException(paramName,
+                $"The GC window must satisfy 0 <= MinGcContent <= MaxGcContent <= 100 (got {MinGcContent}..{MaxGcContent}).");
+        if (double.IsNaN(MinScore))
+            throw new ArgumentOutOfRangeException(paramName, "MinScore must be a number.");
+        if (MaxSelfComplementaryStems is < 0)
+            throw new ArgumentOutOfRangeException(paramName, MaxSelfComplementaryStems,
+                "MaxSelfComplementaryStems must be null (no filter, CHOPCHOP's -1) or at least 0.");
+    }
 
     /// <summary>
     /// Optional sgRNA scaffold regions, on the same strand as the guide, that the
@@ -3048,8 +3133,8 @@ public sealed record GuideRnaCandidate(
 
     /// <summary>
     /// The 30-nt Rule Set 2 / Azimuth context of this guide read on the protospacer strand
-    /// (4 nt 5' flank + 20-nt protospacer + 3-nt NGG PAM + 3 nt 3' flank), or <c>null</c> when it is
-    /// unavailable: the guide was scored standalone, the system is not a 20-nt NGG system, the flanks
+    /// (4 nt 5' flank + 20-nt protospacer + 3-nt PAM + 3 nt 3' flank), or <c>null</c> when it is
+    /// unavailable: the guide was scored standalone, the system is not a 20-nt, 3-nt-PAM SpCas9-class system (NGG, NAG, NGA), the flanks
     /// do not fit inside the input sequence, or the window contains a non-A/C/G/T base.
     /// </summary>
     public string? Context30Mer { get; init; }

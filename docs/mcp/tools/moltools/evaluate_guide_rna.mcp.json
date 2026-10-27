@@ -33,7 +33,9 @@
   },
   "errors": [
     { "code": 1001, "message": "Guide sequence cannot be null or empty" },
-    { "code": 1002, "message": "Expected A/C/G/T (U is read as T) but found '{char}' at index {i}." }
+    { "code": 1002, "message": "Expected A/C/G/T (U is read as T) but found '{char}' at index {i}." },
+    { "code": 1003, "message": "Guide length ({n}) does not match expected length ({L}) for {system}." },
+    { "code": 1004, "message": "parameters invalid: GC window not 0 <= minGcContent <= maxGcContent <= 100, NaN minScore, negative maxSelfComplementaryStems, or all-zero parameters." }
   ],
   "examples": [
     {

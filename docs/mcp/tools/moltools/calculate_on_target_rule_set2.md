@@ -16,7 +16,7 @@ Doench et al. 2016 "Rule Set 2" / Azimuth on-target efficacy score for an SpCas9
 
 Doench et al. 2016 "Rule Set 2" / Azimuth on-target efficacy score for an SpCas9 guide, conventionally in 0..1 (higher = predicted more active) — the "Doench '16" efficiency score reported by CRISPOR. Rule Set 2 is a trained gradient-boosted-tree model, reproduced here (sklearn-free) from Microsoft Research's Azimuth model (`V3_model_nopos`, or `V3_model_full` with gene context).
 
-Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be NGG) + 3 nt downstream, A/C/G/T only (case-insensitive).
+Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM + 3 nt downstream, A/C/G/T only (case-insensitive). The PAM is **not audited**: Azimuth's own default (`pam_audit=True`) rejects a non-GG 30-mer, but CRISPOR calls it with `pam_audit=False` ("do not check for NGG PAM", `crisporEffScores.py` L1174-1178) so that NAG and NGA guides are scored too; the model was trained on NGG, so such a score is an extrapolation.
 
 Pass `amino_acid_cut_position` and `percent_peptide` **together** to use Azimuth's gene-context (full) model instead of the sequence-only one; `percent_peptide = -1` is Azimuth's "no gene position" sentinel and is answered with the sequence-only model, as in the reference (`azimuth/model_comparison.py` selects `V3_model_nopos` when `percent_peptide == -1`). Any other `percent_peptide` outside `[0, 100]` is refused. Call to rank guides by the published on-target activity model.
 
@@ -31,7 +31,7 @@ Source: Doench et al. 2016, Nat Biotechnol 34:184 (PMID 26780180); trained model
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `context_30mer` | string | Yes | 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt NGG PAM + 3 nt downstream. |
+| `context_30mer` | string | Yes | 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (trained on NGG, not audited) + 3 nt downstream. |
 | `amino_acid_cut_position` | integer \| null | No | Optional amino-acid position of the cut site in the target protein, `>= 0` (requires `percent_peptide`); enables the gene-context model. Ignored when `percent_peptide = -1`. |
 | `percent_peptide` | number \| null | No | Optional cut position as a percentage 0..100 along the coding sequence, or -1 for Azimuth's "no gene position" sentinel (which falls back to the sequence-only model); requires `amino_acid_cut_position`. |
 
@@ -49,7 +49,6 @@ Source: Doench et al. 2016, Nat Biotechnol 34:184 (PMID 26780180); trained model
 | 1002 | amino_acid_cut_position and percent_peptide must be supplied together (gene-context model) or both omitted. |
 | 1003 | Rule Set 2 requires a 30-nt context (4 upstream + 20 protospacer + 3 PAM + 3 downstream); got {length}. |
 | 1004 | Rule Set 2 context must contain only A/C/G/T; found '{char}'. |
-| 1005 | Rule Set 2 expects an SpCas9 NGG PAM at offsets 25-26 of the 30-nt context. |
 | 1006 | Rule Set 2 percent-peptide must be in [0, 100], or -1 for Azimuth's "no gene position" sentinel (which selects the sequence-only model). |
 | 1007 | Rule Set 2 amino-acid cut position must be >= 0 (a residue count; Azimuth's own fixture spans 0..499). |
 

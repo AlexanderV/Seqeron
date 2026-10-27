@@ -300,7 +300,7 @@ public class CrisprDesigner_OffTargetBulge_Tests
         {
             Assert.Throws<ArgumentNullException>(() =>
                 CrisprDesigner.FindOffTargetsWithBulges(null!, null!, -1, -1, -1).ToList());
-            Assert.Throws<ArgumentNullException>(() =>
+            Assert.Throws<ArgumentException>(() =>
                 CrisprDesigner.FindOffTargetsWithBulges("", null!, -1, -1, -1).ToList());
             Assert.Throws<ArgumentNullException>(() =>
                 CrisprDesigner.FindOffTargetsWithBulges(Guide, null!, -1, -1, -1).ToList());

@@ -211,7 +211,7 @@ pins that the two produce visibly different numbers on the same input.
 
 | Test | Coverage | Quality | Assertions |
 |------|----------|---------|------------|
-| `FindOffTargets_EmptyGuide_ThrowsArgumentNullException` | M-001 | ✅ Strong | Throws `ArgumentNullException` |
+| `FindOffTargets_EmptyGuide_ThrowsArgumentException` | M-001 | ✅ Strong | Empty guide throws `ArgumentException`, null throws `ArgumentNullException` (B08 round 4 H19) |
 | `FindOffTargets_NullGenome_ThrowsArgumentNullException` | M-002 | ✅ Strong | Throws `ArgumentNullException` |
 | `FindOffTargets_InvalidMaxMismatches_ThrowsArgumentOutOfRangeException` | M-003 | ✅ Strong | 3 TestCases: -1, 6, 10 |
 | `FindOffTargets_GuideLengthMismatch_ThrowsArgumentException` | M-003b | ✅ Strong | 3 TestCases: short/long SpCas9, wrong-length Cas12a |

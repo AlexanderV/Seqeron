@@ -24,7 +24,7 @@ Evaluates a single guide RNA and returns a candidate record: overall GC%, seed-r
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `guide_sequence` | string | Yes | Guide RNA sequence (non-empty). |
+| `guide_sequence` | string | Yes | Guide RNA sequence; its length must be the system's guide length (SpCas9 20 nt, SaCas9 21, Cas12a/AsCas12a/LbCas12a 23, CasX 20). |
 | `system_type` | enum | No | CRISPR system (default `SpCas9`). |
 | `parameters` | object | No | Optional guide-design parameters. |
 
@@ -43,6 +43,8 @@ Evaluates a single guide RNA and returns a candidate record: overall GC%, seed-r
 |------|---------|
 | 1001 | Guide sequence cannot be null or empty |
 | 1002 | Expected A/C/G/T (U is read as T) but found '{char}' at index {i}. |
+| 1003 | Guide length ({n}) does not match expected length ({L}) for {system}. (SpCas9 20 nt, SaCas9 21, Cas12a/AsCas12a/LbCas12a 23, CasX 20.) |
+| 1004 | `parameters` invalid: GC window not 0 <= minGcContent <= maxGcContent <= 100, NaN `minScore`, negative `maxSelfComplementaryStems` (null = no filter; CHOPCHOP's -1 is refused), or all-zero parameters. |
 
 ## Examples
 

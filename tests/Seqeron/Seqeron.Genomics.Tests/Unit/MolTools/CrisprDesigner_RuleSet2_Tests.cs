@@ -238,12 +238,103 @@ public class CrisprDesigner_RuleSet2_Tests
             .Should().Be(CrisprDesigner.CalculateOnTargetRuleSet2(valid));
     }
 
-    [Test]
-    public void RuleSet2_MissingNggPam_Throws()
+    // Round 4 H22. CRISPOR scores every SpCas9-class PAM with Azimuth's `pam_audit=False` ("do not check for NGG PAM",
+    // crisporEffScores.py L1174-1178), so the public scorer no longer rejects a non-GG 30-mer. Oracle: the project's
+    // tree walker over the ORIGINAL V3_model_*.pickle with the sorted-NGGX featurizer (the same one that reproduces
+    // Azimuth's 947-row fixture to 5e-10), executed on each context; differential on 300 random 30-mers (281 with a
+    // non-GG PAM) for both models: max |C# - walker| = 0.0.
+    [TestCase("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", 181, 50.0, 0.31571342050275053, 0.34306783305466304)]
+    [TestCase("ACGTGACGCATAAAGATGAGACGCTAGTGA", 181, 50.0, 0.6717138839537462, 0.6591691589095564)]   // NAG
+    [TestCase("ACGTGACGCATAAAGATGAGACGCCGATGA", 181, 50.0, 0.7128489249311819, 0.6493995783608925)]   // NGA
+    [TestCase("TTAGGCTAGCTAGGCTAGCATCGAAAGCAT", 12, 75.0, 0.5356722721642655, 0.4858958755113498)]    // NAG
+    [TestCase("CCGTTTGCAAGCTAGCTAGGCTACGGAATA", 0, 10.0, 0.6009388007571157, 0.613497372682248)]      // NGA
+    public void RuleSet2_NonNggPam_IsScored_AsCrisporDoesWithoutPamAudit(
+        string context, int aaCut, double percentPeptide, double expectedNoPos, double expectedFull)
     {
-        // 30-mer whose offsets 25-26 are not GG.
-        Assert.Throws<ArgumentException>(
-            () => CrisprDesigner.CalculateOnTargetRuleSet2("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(CrisprDesigner.CalculateOnTargetRuleSet2(context), Is.EqualTo(expectedNoPos).Within(1e-9));
+            Assert.That(CrisprDesigner.CalculateOnTargetRuleSet2(context, aaCut, percentPeptide),
+                Is.EqualTo(expectedFull).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// H22 end to end: SpCas9-NAG / SpCas9-NGA guides now carry a Context30Mer and an OnTargetScore, so
+    /// <c>GuideRnaRanking.OnTargetRuleSet2</c> orders them instead of degenerating to position order.
+    /// </summary>
+    [Test]
+    public void DesignedGuides_OfTheNagAndNgaSystems_CarryARuleSet2Score()
+    {
+        const string guide = "GACGCATAAAGATGAGACGC";
+        foreach (var (system, pam) in new[] { (CrisprSystemType.SpCas9_NAG, "TAG"), (CrisprSystemType.SpCas9_NGA, "CGA") })
+        {
+            var text = "ACGT" + guide + pam + "TGA" + "TTCATCAGTA";
+            var designed = CrisprDesigner.DesignGuideRnas(new DnaSequence(text), 0, text.Length - 1, system,
+                GuideRnaParameters.Default with { MinScore = 0 }).Where(c => c.Sequence == guide).ToList();
+
+            Assert.That(designed, Has.Count.EqualTo(1), system.ToString());
+            Assert.That(designed[0].Context30Mer, Is.EqualTo("ACGT" + guide + pam + "TGA"));
+            Assert.That(designed[0].OnTargetScore,
+                Is.EqualTo(CrisprDesigner.CalculateOnTargetRuleSet2("ACGT" + guide + pam + "TGA")).Within(1e-12));
+        }
+    }
+
+    // Round 4 H21: the amino-acid cut position is a residue count; a negative one is refused (documented), and the
+    // -1 percent-peptide sentinel makes the argument irrelevant, so a negative cut position is accepted there.
+    [Test]
+    public void RuleSet2_AminoAcidCutPosition_NegativeIsRefused_UnlessThePercentPeptideSentinelIgnoresIt()
+    {
+        const string context = "ACGTGACGCATAAAGATGAGACGCAGGTGA";
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => CrisprDesigner.CalculateOnTargetRuleSet2(context, -1, 50.0));
+            Assert.That(CrisprDesigner.CalculateOnTargetRuleSet2(context, -1, -1.0),
+                Is.EqualTo(CrisprDesigner.CalculateOnTargetRuleSet2(context)));
+            Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateOnTargetRuleSet2(null!));
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateOnTargetRuleSet2(""));
+        });
+    }
+
+    // Round 4 H23: a malformed model blob fails as InvalidOperationException - including a header whose
+    // nodeCount * 24 overflows a 32-bit int (89 478 486 * 24 = 2 147 483 664 wrapped negative, the old truncation
+    // guard passed and the node slice threw ArgumentOutOfRangeException) and a node or tree start pointing outside.
+    private static byte[] Blob(int treeCount, int nodeCount, int featureCount, bool genePosition,
+        IReadOnlyList<int> treeStarts, IReadOnlyList<(double thr, int left, int right, int feature)> nodes)
+    {
+        using var ms = new MemoryStream();
+        using var w = new BinaryWriter(ms);
+        w.Write(0x32535241u); w.Write((ushort)1); w.Write((ushort)(genePosition ? 1 : 0));
+        w.Write(treeCount); w.Write(nodeCount); w.Write(featureCount); w.Write(0.5); w.Write(0.1);
+        foreach (int t in treeStarts) w.Write(t);
+        foreach (var n in nodes) { w.Write(n.thr); w.Write(n.left); w.Write(n.right); w.Write(n.feature); w.Write(0); }
+        return ms.ToArray();
+    }
+
+    [Test]
+    public void ModelBlob_Malformed_FailsAsInvalidOperationException()
+    {
+        var leaf = (0.25, -1, -1, -1);
+        var ok = Blob(1, 1, 627, false, new[] { 0 }, new[] { leaf });
+        Assert.DoesNotThrow(() => AzimuthRuleSet2.ValidateModelBlob(ok, "ok", expectGenePosition: false));
+
+        Assert.Multiple(() =>
+        {
+            // nodeCount * 24 overflows int: header alone, 36 bytes
+            Assert.Throws<InvalidOperationException>(() => AzimuthRuleSet2.ValidateModelBlob(
+                Blob(1, 89_478_486, 627, false, new[] { 0 }, Array.Empty<(double, int, int, int)>()), "overflow", false));
+            Assert.Throws<InvalidOperationException>(() => AzimuthRuleSet2.ValidateModelBlob(
+                Blob(1, 1, 627, false, new[] { 5 }, new[] { leaf }), "treeStart", false));
+            Assert.Throws<InvalidOperationException>(() => AzimuthRuleSet2.ValidateModelBlob(
+                Blob(1, 1, 627, false, new[] { -1 }, new[] { leaf }), "treeStartNegative", false));
+            Assert.Throws<InvalidOperationException>(() => AzimuthRuleSet2.ValidateModelBlob(
+                Blob(1, 3, 627, false, new[] { 0 }, new[] { (0.5, 1, 2, 9999), leaf, leaf }), "feature", false));
+            Assert.Throws<InvalidOperationException>(() => AzimuthRuleSet2.ValidateModelBlob(
+                Blob(1, 3, 627, false, new[] { 0 }, new[] { (0.5, 1, 7, 3), leaf, leaf }), "child", false));
+            Assert.Throws<InvalidOperationException>(() => AzimuthRuleSet2.ValidateModelBlob(ok.AsSpan(0, 20), "truncatedHeader", false));
+            Assert.Throws<InvalidOperationException>(() => AzimuthRuleSet2.ValidateModelBlob(ok.AsSpan(0, ok.Length - 1), "truncatedBody", false));
+            Assert.Throws<InvalidOperationException>(() => AzimuthRuleSet2.ValidateModelBlob(ok, "geneFlag", expectGenePosition: true));
+        });
     }
 
     // -------------------------------------------------------------------------------------------

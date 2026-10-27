@@ -104,9 +104,9 @@ public class CrisprDesigner_GuideRNA_Tests
     /// Evidence: Defensive programming.
     /// </summary>
     [Test]
-    public void EvaluateGuideRna_EmptyGuide_ThrowsException()
+    public void EvaluateGuideRna_EmptyGuide_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentNullException>(() =>
+        Assert.Throws<ArgumentException>(() =>
             CrisprDesigner.EvaluateGuideRna("", CrisprSystemType.SpCas9));
     }
 
@@ -455,11 +455,13 @@ public class CrisprDesigner_GuideRNA_Tests
         Assert.That(gcTermOff.Score, Is.EqualTo(89), "CHOPCHOP default (GC term off): 100 - 11 stems");
         Assert.That(result.Issues, Has.Some.Contains("11 self-complementary 4-bp stems"));
 
-        var control = CrisprDesigner.EvaluateGuideRna("GCGCGCGC", CrisprSystemType.SpCas9);
-
+        // The 8-mer is no SpCas9 guide (EvaluateGuideRna enforces the system's 20 nt, H17), so the stem count and the
+        // window fraction are checked on the functions that take any length.
+        Assert.That(CrisprDesigner.CountSelfComplementaryStems("GCGCGCGC"), Is.EqualTo(0));
+        Assert.That(CrisprDesigner.SelfComplementarityWindowFraction(8, 0), Is.EqualTo(0.0), "0 stems / (8 - 4) windows (G13)");
+        var control = CrisprDesigner.EvaluateGuideRna("ACGGACTAGCCTACGTACGT", CrisprSystemType.SpCas9);
         Assert.That(control.SelfComplementaryStems, Is.EqualTo(0));
-        Assert.That(control.SelfComplementarityScore, Is.EqualTo(0.0), "0 stems / (8 - 4) windows (G13)");
-        Assert.That(control.Score, Is.EqualTo(0), "100% GC: CHOPCHOP's flat 300 penalty, 0 stems");
+        Assert.That(control.Score, Is.EqualTo(100), "55% GC, 0 stems: nothing is deducted");
         Assert.That(control.Issues.Any(i => i.Contains("self-complementary")), Is.False);
     }
 
@@ -532,21 +534,24 @@ public class CrisprDesigner_GuideRNA_Tests
     /// <summary>
     /// C-006: SaCas9 system type evaluates correctly.
     /// Evidence: SaCas9 (Staphylococcus aureus) — NNGRRT PAM, 21bp guide, PAM after target.
-    /// Same 20bp input scores identically (no system-specific penalty in EvaluateGuideRna).
+    /// A 20-nt spacer is refused for SaCas9 (H17: the system's guide length is enforced); the 21-nt spacer below has 11
+    /// CHOPCHOP stems and 10/21 GC (chopchop_sc.py, a line-by-line port of CHOPCHOP's selfComp / GC).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_SaCas9SystemType_ValidEvaluation()
     {
-        string guide = "ACGTACGTACGTACGTACGT";
+        string guide = "ACGTACGTACGTACGTACGTA";
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SaCas9);
 
         Assert.That(candidate.Sequence, Is.EqualTo(guide));
-        Assert.That(candidate.Score, Is.EqualTo(90), "ACGT×5 carries 10 CHOPCHOP stems");
-        Assert.That(candidate.GcContent, Is.EqualTo(50));
+        Assert.That(candidate.Score, Is.EqualTo(89), "ACGT×5+A carries 11 CHOPCHOP stems");
+        Assert.That(candidate.GcContent, Is.EqualTo(100.0 * 10 / 21).Within(1e-12));
         Assert.That(candidate.System.Name, Is.EqualTo("SaCas9"));
         Assert.That(candidate.System.GuideLength, Is.EqualTo(21));
         Assert.That(candidate.Issues, Has.Count.EqualTo(1));
-        Assert.That(candidate.Issues[0], Does.Contain("10 self-complementary 4-bp stems"));
+        Assert.That(candidate.Issues[0], Does.Contain("11 self-complementary 4-bp stems"));
+        Assert.Throws<ArgumentException>(() =>
+            CrisprDesigner.EvaluateGuideRna("ACGTACGTACGTACGTACGT", CrisprSystemType.SaCas9));
     }
 
     /// <summary>
@@ -1013,7 +1018,7 @@ public class CrisprDesigner_GuideRNA_Tests
         Assert.That(spCas9.Score, Is.EqualTo(100 - 8), "CRISPOR warns about the Graf motifs, it does not score them; 8 CHOPCHOP stems");
         Assert.That(spCas9.Issues, Has.Some.Contains("Graf 2019 TT-motif"));
 
-        var saCas9 = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SaCas9);
+        var saCas9 = CrisprDesigner.EvaluateGuideRna("A" + guide, CrisprSystemType.SaCas9); // 21 nt, same 3' end
         Assert.That(saCas9.GrafMotif, Is.EqualTo(GrafMotifType.None));
         Assert.That(saCas9.Issues, Has.None.Contains("Graf"));
     }
@@ -1142,7 +1147,7 @@ public class CrisprDesigner_GuideRNA_Tests
     public void CountSelfComplementaryStems_InvalidArguments_Throw()
     {
         Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CountSelfComplementaryStems(null!));
-        Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CountSelfComplementaryStems(""));
+        Assert.Throws<ArgumentException>(() => CrisprDesigner.CountSelfComplementaryStems(""));
         Assert.Throws<ArgumentOutOfRangeException>(
             () => CrisprDesigner.CountSelfComplementaryStems("ACGTACGTACGT", 0));
     }
@@ -1159,8 +1164,6 @@ public class CrisprDesigner_GuideRNA_Tests
     [TestCase("ACGTACGTACGTACGTACGT", 10, 10)]
     [TestCase("GCGCGCGCGCGCGCGCGCGC", 11, 11)]
     [TestCase("ACGGACTAGCCTACGTACGT", 0, 8)]
-    [TestCase("ACGTACGTACGT", 2, 2)]
-    [TestCase("GCGCGCGC", 0, 0)]
     public void EvaluateGuideRna_StemPenalty_IsOnePointPerChopchopStem(string guide, int stems, int stemsWithBackbone)
     {
         var wide = new GuideRnaParameters(0, 100, 0, AvoidPolyT: false, CheckSelfComplementarity: true);
@@ -1265,9 +1268,6 @@ public class CrisprDesigner_GuideRNA_Tests
     [TestCase("ACGTACGTACGTACGTACGT", 10, 16, 0.625)]
     [TestCase("GCGCGCGCGCGCGCGCGCGC", 11, 16, 0.6875)]
     [TestCase("ACGGACTAGCCTACGTACGT", 0, 16, 0.0)]
-    [TestCase("ACGTACGTACGT", 2, 8, 0.25)]
-    [TestCase("GCGCGCGC", 0, 4, 0.0)]
-    [TestCase("ACGT", 0, 0, 0.0)]                      // no 4-bp window fits -> 0, never NaN
     public void EvaluateGuideRna_SelfComplementarityScore_MatchesOracleStemFraction(
         string guide, int stems, int windows, double expected)
     {
@@ -1277,6 +1277,18 @@ public class CrisprDesigner_GuideRNA_Tests
         Assert.That(guide.Length - 4 > 0 ? guide.Length - 4 : 0, Is.EqualTo(windows));
         Assert.That(c.SelfComplementarityScore, Is.EqualTo(expected).Within(1e-12));
         Assert.That(c.SelfComplementarityScore, Is.InRange(0.0, 1.0));
+    }
+
+    /// <summary>The window fraction itself, for lengths no system's guide has (the same G13 oracle rows).</summary>
+    [TestCase("ACGTACGTACGT", 2, 8, 0.25)]
+    [TestCase("GCGCGCGC", 0, 4, 0.0)]
+    [TestCase("ACGT", 0, 0, 0.0)]                      // no 4-bp window fits -> 0, never NaN
+    public void SelfComplementarityWindowFraction_MatchesOracleForAnyLength(
+        string guide, int stems, int windows, double expected)
+    {
+        Assert.That(CrisprDesigner.CountSelfComplementaryStems(guide), Is.EqualTo(stems));
+        Assert.That(CrisprDesigner.SelfComplementarityWindowFraction(guide.Length, stems), Is.EqualTo(expected).Within(1e-12));
+        Assert.That(guide.Length - 4 > 0 ? guide.Length - 4 : 0, Is.EqualTo(windows));
     }
 
     /// <summary>The backbone-aware stem count feeds the fraction too (oracle: `ACGGACTAGCCTACGTACGT` 8 stems / 16 windows).</summary>
@@ -1301,8 +1313,9 @@ public class CrisprDesigner_GuideRNA_Tests
     [Test]
     public void EvaluateGuideRna_SelfComplementarityScore_IsTheChopchopStemFraction_AndDoesNotEnterTheScore()
     {
-        // 0 stems but a high former fraction (0.3125): nothing is deducted.
-        var c = CrisprDesigner.EvaluateGuideRna("GCGCGCGC", CrisprSystemType.SpCas9,
+        // 0 stems: nothing is deducted. (The 8-mer palindrome of the old test is no SpCas9 guide any more; its 0 stems and
+        // 0.0 fraction are pinned by SelfComplementarityWindowFraction_MatchesOracleForAnyLength.)
+        var c = CrisprDesigner.EvaluateGuideRna("ACGGACTAGCCTACGTACGT", CrisprSystemType.SpCas9,
             new GuideRnaParameters(0, 100, 0, AvoidPolyT: true, CheckSelfComplementarity: true));
 
         Assert.That(c.SelfComplementarityScore, Is.EqualTo(0.0));
@@ -1458,7 +1471,7 @@ public class CrisprDesigner_GuideRNA_Tests
     {
         var genome = G2Genome();
         // null/empty first, then the genome, then the range, then the length, only then the alphabet.
-        Assert.Throws<ArgumentNullException>(() => CrisprDesigner.FindOffTargets("", genome));
+        Assert.Throws<ArgumentException>(() => CrisprDesigner.FindOffTargets("", genome));
         Assert.Throws<ArgumentNullException>(() => CrisprDesigner.FindOffTargets("NNNN", null!));
         Assert.Throws<ArgumentOutOfRangeException>(() => CrisprDesigner.FindOffTargets("NNNN", genome, 6));
         var e = Assert.Throws<ArgumentException>(() => CrisprDesigner.FindOffTargets("NNNN", genome));

@@ -286,9 +286,9 @@ public class CrisprDesigner_Cfd_Tests
     }
 
     [Test]
-    public void Cfd_EmptyGuide_ThrowsArgumentNullException()
+    public void Cfd_EmptyGuide_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateCfdScore("", Guide, "GG"));
+        Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateCfdScore("", Guide, "GG"));
     }
 
     [TestCase("ACGTACGTACGTACGTACG")]    // 19 nt
@@ -504,7 +504,7 @@ public class CrisprDesigner_Cfd_Tests
         {
             Assert.Throws<ArgumentNullException>(() =>
                 CrisprDesigner.CalculateCfdSpecificityScore(null!, genome));
-            Assert.Throws<ArgumentNullException>(() =>
+            Assert.Throws<ArgumentException>(() =>
                 CrisprDesigner.CalculateCfdSpecificityScore("", genome));
             Assert.Throws<ArgumentNullException>(() =>
                 CrisprDesigner.CalculateCfdSpecificityScore(Guide, null!));

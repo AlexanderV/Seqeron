@@ -19,15 +19,15 @@ public class CrisprDesigner_OffTarget_Tests
     #region Input Validation Tests (M-001 to M-003)
 
     /// <summary>
-    /// M-001: Empty guide should throw ArgumentNullException.
-    /// Evidence: Defensive programming - null/empty input undefined.
+    /// M-001: An empty guide is a wrong value (ArgumentException), a null guide a missing argument (ArgumentNullException) -
+    /// the convention AzimuthRuleSet2 spells out and the reference follows (B08 round 4 H19).
     /// </summary>
     [Test]
-    public void FindOffTargets_EmptyGuide_ThrowsArgumentNullException()
+    public void FindOffTargets_EmptyGuide_ThrowsArgumentException()
     {
         var genome = new DnaSequence("ACGTACGTACGTACGTACGTACGTAGG");
 
-        Assert.Throws<ArgumentNullException>(() =>
+        Assert.Throws<ArgumentException>(() =>
             CrisprDesigner.FindOffTargets("", genome, 3, CrisprSystemType.SpCas9).ToList());
     }
 
@@ -985,7 +985,7 @@ public class CrisprDesigner_OffTarget_Tests
         {
             Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateSaCas9HitScore(null!, guide));
             Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateSaCas9HitScore(guide, null!));
-            Assert.Throws<ArgumentNullException>(() => CrisprDesigner.CalculateSaCas9HitScore("", guide));
+            Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateSaCas9HitScore("", guide));
             // 20 nt and 22 nt tables exist in the reference but are not transcribed here.
             Assert.Throws<ArgumentException>(() => CrisprDesigner.CalculateSaCas9HitScore(
                 "ACGTACGTACGTACGTACGT", "ACGTACGTACGTACGTACGT"));
@@ -1507,7 +1507,7 @@ public class CrisprDesigner_OffTarget_Tests
                 Is.EqualTo(plain.Select(s => s.OffTargetScore)));
             Assert.That(annotated.Select(h => h.Pam), Is.All.Not.Empty);
 
-            Assert.Throws<ArgumentNullException>(() =>
+            Assert.Throws<ArgumentException>(() =>
                 CrisprDesigner.FindOffTargetsWithPam("", genome, 4).ToList());
             Assert.Throws<ArgumentNullException>(() =>
                 CrisprDesigner.FindOffTargetsWithPam(AltPamGuide, null!, 4).ToList());
@@ -1532,7 +1532,7 @@ public class CrisprDesigner_OffTarget_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() =>
+            Assert.Throws<ArgumentException>(() =>
                 CrisprDesigner.CalculateMitSpecificityScore("", ok));
             Assert.Throws<ArgumentNullException>(() =>
                 CrisprDesigner.CalculateMitSpecificityScore(
@@ -1841,7 +1841,7 @@ public class CrisprDesigner_OffTarget_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() =>
+            Assert.Throws<ArgumentException>(() =>
                 CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams("", genome));
             Assert.Throws<ArgumentNullException>(() =>
                 CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(AltPamGuide, null!));
