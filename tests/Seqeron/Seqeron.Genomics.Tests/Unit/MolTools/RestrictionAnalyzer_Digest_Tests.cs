@@ -1453,6 +1453,33 @@ public class RestrictionAnalyzer_Digest_Tests
     }
 
     /// <summary>
+    /// The null / empty split of the name-taking members (B08 H19): <c>AreCompatible</c> throws
+    /// <see cref="ArgumentNullException"/> for null and <see cref="ArgumentException"/> for an empty name, naming the
+    /// parameter; the lenient <c>TryAreCompatible</c> still throws for null (the documented exception) but answers
+    /// <c>false</c> for an empty name, like any unresolvable one.
+    /// </summary>
+    [Test]
+    public void AreCompatible_NullAndEmptyNames_FollowTheNullEmptySplit()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.AreCompatible(null!, "EcoRI"))!.ParamName,
+                Is.EqualTo("enzyme1Name"));
+            Assert.That(Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.AreCompatible("EcoRI", null!))!.ParamName,
+                Is.EqualTo("enzyme2Name"));
+            Assert.That(Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.AreCompatible("", "EcoRI"))!.ParamName,
+                Is.EqualTo("enzyme1Name"));
+            Assert.That(Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.AreCompatible("EcoRI", ""))!.ParamName,
+                Is.EqualTo("enzyme2Name"));
+
+            Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.TryAreCompatible(null!, "EcoRI", out _));
+            Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.TryAreCompatible("EcoRI", null!, out _));
+            Assert.That(RestrictionAnalyzer.TryAreCompatible("", "EcoRI", out bool verdict), Is.False);
+            Assert.That(verdict, Is.False);
+        });
+    }
+
+    /// <summary>
     /// Evidence: Mathematical property — Compatibility is symmetric.
     /// Invariant #16: AreCompatible(A, B) == AreCompatible(B, A).
     /// </summary>

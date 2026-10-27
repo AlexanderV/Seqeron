@@ -81,6 +81,38 @@ def declarations(path, method):
     return strict or lenient
 
 
+def sync_secondary(md, primary_file, primary_line):
+    """Other `File.cs#Ln` links in the md (e.g. 'Overhang (`GetOverhangSequence`): [..#L1708](..#L1708)') follow the
+    method named in backticks on the same line; a line without a resolvable name is reported, not guessed."""
+    notes, out = [], []
+    primary = re.compile(r'Source: ')
+    for line in md.split('\n'):
+        anchors = list(re.finditer(r'([\w.]+\.cs)#L(\d+)', line))
+        if not anchors or primary.search(line):
+            out.append(line)
+            continue
+        names = re.findall(r'`(\w+)(?:\([^`]*\))?`', line)
+        for m in anchors:
+            f, n = m[1], int(m[2])
+            path = os.path.join(SRC, f)
+            if not os.path.exists(path):
+                continue
+            target = None
+            for name in names:
+                decls = declarations(path, name)
+                if decls:
+                    keep = n in [d[0] for d in decls]
+                    target = n if keep else min(decls, key=lambda d: abs(d[0] - n))[0]
+                    break
+            if target is None:
+                notes.append(f'UNRESOLVED secondary anchor {f}#L{n}: name the method in backticks on that line')
+            elif target != n:
+                notes.append(f'secondary {f}#L{n} -> L{target}')
+                line = re.sub(re.escape(f'{f}#L{n}') + r'(?!\d)', f'{f}#L{target}', line)
+        out.append(line)
+    return '\n'.join(out), notes
+
+
 def best(decls, tool_params, old_line):
     def score(d):
         overlap = len(set(d[1]) & tool_params)
@@ -135,10 +167,13 @@ def main():
         if (new_file, new) != (file, old):
             md2 = re.sub(re.escape(f'{file}#L{old}') + r'(?!\d)', want, md2)
         trace2 = trace_row.sub(lambda t: f'{t[1]}{want}{t[2]}', trace, count=1)
-        if (new_file, new) == (file, old) and md2 == md and trace2 == trace:
+        md2, secondary = sync_secondary(md2, new_file, new)
+        if (new_file, new) == (file, old) and md2 == md and trace2 == trace and not secondary:
             continue
         drift += 1
         print(f'{tool}: {file}#L{old} -> {want}' + ('' if (new_file, new) != (file, old) else '  (md / traceability only)'))
+        for note in secondary:
+            print('    ' + note)
         if not args.fix:
             continue
         if (new_file, new) != (file, old):

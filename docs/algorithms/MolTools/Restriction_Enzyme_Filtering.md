@@ -85,7 +85,7 @@ For an enzyme `e` with recognition sequence `r(e)` and per-strand cut positions 
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `enzymeName`, `enzyme1Name`, `enzyme2Name` | `string` | required | Built-in enzyme name, resolved case-insensitively | must be in the table, else `ArgumentException`; `null`/empty → `ArgumentNullException` |
+| `enzymeName`, `enzyme1Name`, `enzyme2Name` | `string` | required | Built-in enzyme name, resolved case-insensitively | must be in the table, else `ArgumentException`; empty → `ArgumentException`; `null` → `ArgumentNullException` |
 | `enzyme`, `enzyme1`, `enzyme2` | `RestrictionEnzyme` | required | Enzyme definition; may be caller-supplied, i.e. not a built-in | non-null |
 
 ### 3.2 Output / Return Value
@@ -105,8 +105,9 @@ apply.
 The **name-taking** members (`GetEnzyme`, `GetOverhangSequence(string)`,
 `AreCompatible(string, string)`, `FindCompatibleEnzymes(string)`, `FindIsoschizomers` /
 `FindEquischizomers` / `FindNeoschizomers`) share one contract with the rest of the class
-(`FindSites`, `Digest`, `CreateMap`): a `null` or empty name is an `ArgumentNullException` and a name
-outside the table is an `ArgumentException("Unknown enzyme: …")`. The one exception is `GetEnzyme`
+(`FindSites`, `Digest`, `CreateMap`): a `null` name is an `ArgumentNullException`, an empty name an
+`ArgumentException` (the split of `ArgumentException.ThrowIfNullOrEmpty`, used for every string argument of the MolTools
+CRISPR code too — B08 H19) and a name outside the table is an `ArgumentException("Unknown enzyme: …")`. The one exception is `GetEnzyme`
 itself, which is the lookup primitive and returns `null` for an unknown name (but still throws
 `ArgumentNullException(nameof(name))` for `null`).
 

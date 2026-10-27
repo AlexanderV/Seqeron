@@ -2596,12 +2596,12 @@ public class MolToolsFuzzTests
 
     /// <summary>
     /// MC/BE: a null OR empty enzyme name is the degenerate "no enzyme specified" input.
-    /// The typed overload guards it with ArgumentNullException (line 130–131) BEFORE the
-    /// catalog lookup, so an empty name is a documented validation throw — never a
-    /// silent empty scan and never a KeyNotFoundException.
+    /// The typed overload guards it BEFORE the catalog lookup - ArgumentNullException for null,
+    /// ArgumentException for empty (B08 H19) - so an empty name is a documented validation throw,
+    /// never a silent empty scan and never a KeyNotFoundException.
     /// </summary>
     [Test]
-    public void FindSites_NullOrEmptyEnzymeName_TypedOverload_ThrowsArgumentNullException()
+    public void FindSites_NullEnzymeName_ThrowsArgumentNullException_EmptyThrowsArgumentException()
     {
         var sequence = new DnaSequence("AAAGAATTCAAA");
 
@@ -2610,7 +2610,7 @@ public class MolToolsFuzzTests
 
         nullName.Should().Throw<ArgumentNullException>(
             "a null enzyme name is rejected up front, not dereferenced into a lookup");
-        emptyName.Should().Throw<ArgumentNullException>(
+        emptyName.Should().ThrowExactly<ArgumentException>(
             "an empty enzyme name is the same degenerate 'no enzyme' input and is rejected up front");
     }
 

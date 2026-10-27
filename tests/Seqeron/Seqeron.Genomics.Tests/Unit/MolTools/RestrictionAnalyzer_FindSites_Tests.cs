@@ -574,18 +574,19 @@ public class RestrictionAnalyzer_FindSites_Tests
     }
 
     /// <summary>
-    /// Test: Empty enzyme name throws ArgumentNullException, eagerly — before anything is enumerated
-    /// (review 2026-09 B08 H24).
+    /// Test: a null enzyme name throws ArgumentNullException and an empty one ArgumentException, eagerly - before
+    /// anything is enumerated (review 2026-09 B08 H24; the null/empty split of H19).
     /// </summary>
     [Test]
-    [TestCase("")]
-    [TestCase(null)]
-    public void FindSites_EmptyOrNullEnzymeName_ThrowsArgumentNullException(string? enzymeName)
+    public void FindSites_NullEnzymeName_ThrowsArgumentNullException_EmptyThrowsArgumentException()
     {
         var sequence = new DnaSequence("ACGT");
 
-        Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.FindSites(sequence, enzymeName!).ToList());
-        Assert.Throws<ArgumentNullException>(() => _ = RestrictionAnalyzer.FindSites(sequence, enzymeName!),
+        Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.FindSites(sequence, (string)null!).ToList());
+        Assert.Throws<ArgumentNullException>(() => _ = RestrictionAnalyzer.FindSites(sequence, (string)null!),
+            "the guard is eager: constructing the query already throws");
+        Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindSites(sequence, "").ToList());
+        Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindSites(sequence, ""),
             "the guard is eager: constructing the query already throws");
     }
 
@@ -1582,7 +1583,7 @@ public class RestrictionAnalyzer_FindSites_Tests
         {
             Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindSites("ACGTACGT", "NoSuchEnzyme"));
             Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindSites("", "NoSuchEnzyme"));
-            Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.FindSites("ACGTACGT", ""));
+            Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindSites("ACGTACGT", ""));
         });
     }
 

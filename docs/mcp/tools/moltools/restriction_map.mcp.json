@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.CreateMap",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1549",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1552",
   "description": "Build a restriction map: sites, sites-by-enzyme, unique cutters and non-cutters. Named enzymes may be any of the 754 REBASE enzymes with a defined cut; with no names, enzyme_set picks the considered table (\"common\" = 39 by default, \"rebase\" = 754). sitesByEnzyme and nonCutters partition the considered enzyme set, keyed by canonical enzyme name. totalSites and uniqueCutters count CLEAVAGES, not recognition windows: every forward-strand record, plus every reverse-strand record whose backwards reading cuts other bonds — so a Type IIS enzyme such as BsaI is not a unique cutter merely because it has one forward-strand site, and the five enzymes whose two strand readings of one window cut different bonds (HauII, SgeI, MspJI, LpnPI, SgrTI) count twice for that window (B08 H32).",
   "inputSchema": {
     "type": "object",

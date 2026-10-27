@@ -84,9 +84,9 @@ public static partial class RestrictionAnalyzer
     /// over a raw sequence string that may carry IUPAC ambiguity codes.
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeNames"/> is null, or a name in
-    /// it is null or empty.</exception>
+    /// it is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, a name in it is
-    /// not a REBASE enzyme with a defined cut, or a methylase site is malformed.</exception>
+    /// empty or not a REBASE enzyme with a defined cut, or a methylase site is malformed.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         string? sequence, MoleculeTopology topology, IReadOnlyList<Methylase>? methylases,
         params string[] enzymeNames)
@@ -97,9 +97,9 @@ public static partial class RestrictionAnalyzer
     /// raw sequence string that may carry IUPAC ambiguity codes.
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeNames"/> is null, or a name in
-    /// it is null or empty.</exception>
+    /// it is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, a name in it is
-    /// not a REBASE enzyme with a defined cut, or a methylase site is malformed.</exception>
+    /// empty or not a REBASE enzyme with a defined cut, or a methylase site is malformed.</exception>
     public static IEnumerable<DigestFragment> Digest(
         string? sequence, MoleculeTopology topology, IReadOnlyList<Methylase>? methylases,
         params string[] enzymeNames)
@@ -130,9 +130,9 @@ public static partial class RestrictionAnalyzer
     /// over a raw sequence string that may carry IUPAC ambiguity codes.
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeNames"/> is null, or a name in
-    /// it is null or empty.</exception>
+    /// it is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, a name in it is
-    /// not a REBASE enzyme with a defined cut, or a methylase site is malformed.</exception>
+    /// empty or not a REBASE enzyme with a defined cut, or a methylase site is malformed.</exception>
     public static DigestSummary GetDigestSummary(
         string? sequence, MoleculeTopology topology, IReadOnlyList<Methylase>? methylases,
         params string[] enzymeNames)
@@ -163,10 +163,10 @@ public static partial class RestrictionAnalyzer
     /// over a raw sequence string that may carry IUPAC ambiguity codes.
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeNames"/> is null, or a name in
-    /// it is null or empty.</exception>
+    /// it is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMissedCuts"/> is negative.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, a name in it is
-    /// not a REBASE enzyme with a defined cut, the fragment count exceeds the limit, or a methylase
+    /// empty or not a REBASE enzyme with a defined cut, the fragment count exceeds the limit, or a methylase
     /// site is malformed.</exception>
     public static IEnumerable<PartialDigestFragment> PartialDigest(
         string? sequence, MoleculeTopology topology, int? maxMissedCuts,
@@ -200,8 +200,8 @@ public static partial class RestrictionAnalyzer
     /// <paramref name="enzymeNames"/> considers every common enzyme, exactly as that overload does.
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeNames"/> is null, or a name in
-    /// it is null or empty.</exception>
-    /// <exception cref="ArgumentException">A name in <paramref name="enzymeNames"/> is not a REBASE
+    /// it is null.</exception>
+    /// <exception cref="ArgumentException">A name in <paramref name="enzymeNames"/> is empty or not a REBASE
     /// enzyme with a defined cut, or a methylase site is malformed.</exception>
     public static RestrictionMap CreateMap(
         string? sequence, MoleculeTopology topology, IReadOnlyList<Methylase>? methylases,

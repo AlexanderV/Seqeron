@@ -790,29 +790,31 @@ public class RestrictionAnalyzer_Filter_Tests
     /// the one guard test in this file passes <c>"Nope"</c>, which exercises the
     /// <c>ArgumentException</c> arm instead — although the sibling guards of <c>GetEnzyme</c>,
     /// <c>GetOverhangSequence</c> and <c>AreCompatible</c> are tested. The contract is
-    /// <c>RestrictionAnalyzer.RequireEnzyme</c>'s: a null <i>or empty</i> name is
-    /// <c>ArgumentNullException</c>, an unresolvable name is <c>ArgumentException</c>, both eager
-    /// (B08 H24/F104). All six overloads are covered.
+    /// <c>RestrictionAnalyzer.RequireEnzyme</c>'s: a null name is <c>ArgumentNullException</c>, an empty or
+    /// unresolvable one <c>ArgumentException</c>, both eager (B08 H24/F104, H19). All six overloads are covered.
     /// </summary>
     [Test]
-    public void IsoschizomerQueries_NullOrEmptyName_ThrowArgumentNullException()
+    public void IsoschizomerQueries_NullNameThrowsArgumentNullException_EmptyNameThrowsArgumentException()
     {
         Assert.Multiple(() =>
         {
             foreach (string? name in new string?[] { null, "" })
             {
-                Assert.Throws<ArgumentNullException>(
-                    () => _ = RestrictionAnalyzer.FindIsoschizomers(name!), $"FindIsoschizomers({name ?? "null"})");
-                Assert.Throws<ArgumentNullException>(
-                    () => _ = RestrictionAnalyzer.FindEquischizomers(name!), $"FindEquischizomers({name ?? "null"})");
-                Assert.Throws<ArgumentNullException>(
-                    () => _ = RestrictionAnalyzer.FindNeoschizomers(name!), $"FindNeoschizomers({name ?? "null"})");
-                Assert.Throws<ArgumentNullException>(
-                    () => _ = RestrictionAnalyzer.FindIsoschizomers(name!, EnzymeSet.Rebase));
-                Assert.Throws<ArgumentNullException>(
-                    () => _ = RestrictionAnalyzer.FindEquischizomers(name!, EnzymeSet.Rebase));
-                Assert.Throws<ArgumentNullException>(
-                    () => _ = RestrictionAnalyzer.FindNeoschizomers(name!, EnzymeSet.Rebase));
+                // Assert.Throws<T> is exact: null -> ArgumentNullException, "" -> ArgumentException itself.
+                void Expect(TestDelegate act, string what)
+                {
+                    if (name is null)
+                        Assert.Throws<ArgumentNullException>(act, what);
+                    else
+                        Assert.Throws<ArgumentException>(act, what);
+                }
+
+                Expect(() => _ = RestrictionAnalyzer.FindIsoschizomers(name!), $"FindIsoschizomers({name ?? "null"})");
+                Expect(() => _ = RestrictionAnalyzer.FindEquischizomers(name!), $"FindEquischizomers({name ?? "null"})");
+                Expect(() => _ = RestrictionAnalyzer.FindNeoschizomers(name!), $"FindNeoschizomers({name ?? "null"})");
+                Expect(() => _ = RestrictionAnalyzer.FindIsoschizomers(name!, EnzymeSet.Rebase), "FindIsoschizomers/Rebase");
+                Expect(() => _ = RestrictionAnalyzer.FindEquischizomers(name!, EnzymeSet.Rebase), "FindEquischizomers/Rebase");
+                Expect(() => _ = RestrictionAnalyzer.FindNeoschizomers(name!, EnzymeSet.Rebase), "FindNeoschizomers/Rebase");
             }
         });
     }
