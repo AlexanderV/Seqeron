@@ -29,8 +29,16 @@ a 5′ `AGCT`, yet the two cannot be joined: both extensions would lie on the sa
 joint. All four such pairs in the built-in table — `HindIII`/`SacI` (`AGCT`), `NcoI`/`SphI`
 (`CATG`), `NotI`/`ApaI` (`GGCC`), `AgeI`/`FseI` (`CCGG`) — return `false`.
 
-`compatibleEnd` echoes the shared end (`"blunt"` or the overhang sequence) and is `null` when the
-two are incompatible.
+`compatibleEnd` is `"blunt"` for a blunt pair, otherwise the **first** enzyme's own overhang window,
+and `null` when the two are incompatible; `end2` is the second enzyme's window. It is **not**
+necessarily a string both enzymes leave: the two coincide whenever the windows intersect directly,
+but 12 REBASE pairs anneal only through the reverse complement, and all 12 are `GN` against `CN` —
+`Bse1I`/`BsmI`, `Bse1I`/`LmnI`, `Bse1I`/`Mva1269I`, `Bse1I`/`PctI`, `BseNI`/`BsmI`, `BseNI`/`LmnI`,
+`BseNI`/`Mva1269I`, `BseNI`/`PctI`, `BsmI`/`BsrI`, `BsrI`/`LmnI`, `BsrI`/`Mva1269I`, `BsrI`/`PctI`.
+`enzymes_compatible("BsmI", "BsrI")` answers `compatibleEnd: "CN", end2: "GN"` and the reversed call
+answers `compatibleEnd: "GN", end2: "CN"`; BsrI never leaves `CN`. The paragraph here used to say the
+value "echoes the shared end", and for those 12 pairs no single shared string exists
+(review 2026-09 B08 H30). The other 18 541 sticky REBASE pairs and every blunt pair are unaffected.
 
 **An unknown enzyme name is an ERROR** (changed 2026-10-14). It used to resolve to `false`, which
 made a typo indistinguishable from a genuinely incompatible pair — and "not compatible" is the
@@ -57,7 +65,8 @@ with `a % b` — 0 disagreements in both.
 | Field | Type | Description |
 |-------|------|-------------|
 | `compatible` | boolean | True if the two enzymes' ends can be ligated. |
-| `compatibleEnd` | string \| null | The shared end — `"blunt"` or the overhang sequence — or `null` when incompatible. |
+| `compatibleEnd` | string \| null | The **first** enzyme's end — `"blunt"` or its own overhang window — or `null` when incompatible. Not necessarily a string the second enzyme also leaves. |
+| `end2` | string \| null | The **second** enzyme's end, in the same convention; `null` when incompatible. Equal to `compatibleEnd` except for the 12 reverse-complement-only pairs. |
 
 ## Errors
 
@@ -78,6 +87,8 @@ with `a % b` — 0 disagreements in both.
 ### Example 4: `HindIII` + `SacI` → `{ compatible: false, compatibleEnd: null }` — **both overhangs read `AGCT`**, but HindIII's is 5′ and SacI's is 3′.
 
 ### Example 5: `SfiI` + `PstI` → `false`. SfiI's 3′ overhang is 3 nt (`NNN`) and PstI's is 4 nt (`TGCA`); different lengths never anneal. Biopython agrees (`SfiI % PstI` is `False`).
+
+### Example 7: `BsmI` + `BsrI` → `{ compatible: true, compatibleEnd: "CN", end2: "GN" }`, and `BsrI` + `BsmI` → `{ compatible: true, compatibleEnd: "GN", end2: "CN" }` — the pair anneals only through the reverse complement, so each call reports the first enzyme's own end (B08 H30).
 
 ### Example 6: `EcoRI` + `NotAnEnzyme` → **error** `Unknown enzyme: NotAnEnzyme` (it used to return `false`).
 

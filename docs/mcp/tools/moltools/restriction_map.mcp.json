@@ -24,7 +24,7 @@
       "sequenceLength": { "type": "integer" },
       "sites": { "type": "array", "items": { "type": "object" } },
       "sitesByEnzyme": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "integer" } } },
-      "totalSites": { "type": "integer", "description": "Forward-strand site count." },
+      "totalSites": { "type": "integer", "description": "Number of cleavages: every forward-strand record, plus every reverse-strand record whose backwards reading cuts other bonds." },
       "uniqueCutters": { "type": "array", "items": { "type": "string" } },
       "nonCutters": { "type": "array", "items": { "type": "string" } }
     },

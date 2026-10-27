@@ -26,7 +26,7 @@ $$
 [0, c_1), [c_1, c_2), \ldots, [c_k, L)
 $$
 
-This yields `k + 1` fragments when `k` cuts are present. `GetDigestSummary(...)` sorts fragment sizes in descending order, and `CreateMap(...)` groups sites by enzyme name while treating unique cutters as enzymes with exactly one forward-strand site.
+This yields `k + 1` fragments when `k` cuts are present **on a linear molecule**; see §2.2 for the circular count, which is `k` for `k >= 1` and `1` for `k = 0`. `GetDigestSummary(...)` sorts fragment sizes in descending order, and `CreateMap(...)` groups sites by enzyme name while counting a cleavage per cut, so `UniqueCutters` are the enzymes that cut the molecule exactly once (B08 H32/H35).
 
 For a **circular** molecule of length `L` the site search itself wraps past the origin (so an origin-spanning recognition site is found and cut), and the fragments are the cyclic intervals between consecutive cuts:
 
@@ -60,11 +60,11 @@ Fragments are ordered by `MissedCuts` and then by `StartPosition`, and `Fragment
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | `k` forward-strand cut positions produce `k + 1` fragments | `Digest(...)` inserts boundaries `[0, cuts..., sequence.Length]` |
+| INV-01 | **Linear** molecules: `k` top-strand cut positions produce `k + 1` fragments | `Digest(...)` inserts boundaries `[0, cuts..., sequence.Length]` |
 | INV-02 | The sum of fragment lengths equals the original sequence length | Adjacent boundaries partition the sequence |
 | INV-03 | `FragmentSizes` in `DigestSummary` are sorted descending | `GetDigestSummary(...)` orders sizes descending before constructing the record |
 | INV-04 | `AreCompatible(A, B) == AreCompatible(B, A)` | Compatibility is determined from bluntness or identical overhang type and sequence |
-| INV-05 | `k` top-strand cut positions on a **circle** produce exactly `k` fragments | `DigestCircular(...)` emits one fragment per cut, the last one joining `[lastCut, L)` with `[0, firstCut)` |
+| INV-05 | **Circular** molecules: `k >= 1` top-strand cut positions produce exactly `k` fragments; `k = 0` produces **1** (the intact circle) | `DigestCircular(...)` emits one fragment per cut, the last one joining `[lastCut, L)` with `[0, firstCut)`; with no cut there is no boundary to open the circle at, so the whole molecule is returned as one fragment. Measured on a circular 20-mer with EcoRI: k=0 → 1 fragment of 20, k=1 → 1 fragment of 20, k=2 → 2 fragments of 10 (B08 H35; the carve-out is also stated on `DigestCircular`'s own XML remark and pinned by `RestrictionAnalyzer_Digest_Tests`) |
 | INV-06 | Fragment lengths sum to the molecule length in **both** topologies | Linear and cyclic intervals both partition the molecule |
 | INV-07 | `FragmentNumber` runs 1..n contiguously in the returned order | Emission counter, not a boundary index |
 | INV-08 | At one cut, the upstream fragment's `RightOverhang` is the reverse complement of the downstream fragment's `LeftOverhang` | Both are read 5'→3' on opposite strands of the same top-strand window |
@@ -99,7 +99,7 @@ Fragments are ordered by `MissedCuts` and then by `StartPosition`, and `Fragment
 
 1. Validate the input sequence and enzyme list.
 2. Find restriction sites for each requested enzyme **with the requested topology**, so a circular molecule's origin-spanning sites are found and no linear-only cut-feasibility filter is applied to a closed circle.
-3. Key every site by its top-strand cut. A reverse-strand record whose window also matches on the forward strand (every reverse record of a palindromic enzyme) is the same site and is skipped — it carries the bottom-strand cut, which is reported as the end overhang rather than as a second boundary. Any other reverse-strand record is a distinct site of a non-palindromic enzyme and contributes its top-strand cut `Position + L − CutPositionReverse` (Biopython `location − fst3`; review 2026-09 B08 F55).
+3. Key every site by its top-strand cut, de-duplicating by **cut** rather than by window. A reverse-strand record is skipped only when reading its window backwards cleaves the same bonds as reading it forwards — which is the case for every palindromic enzyme with symmetric cuts, so a palindromic site is not double-counted and its bottom-strand cut is reported as the end overhang rather than as a second boundary. Any other reverse-strand record contributes its top-strand cut `Position + L − CutPositionReverse` (Biopython `location − fst3`): the reverse-strand sites of a non-palindromic enzyme, and also the second cleavage of a window that reads as the site on both strands and cuts differently each way. That last case is EMBOSS 6.6.0's rule, not Biopython's — `embPatRestrictScan` scans `substr` and then `revstr` and keeps one hit per distinct `cut1`, while Biopython reports one reading per window — and it affects exactly 5 of the 754 REBASE enzymes: HauII, SgeI, MspJI, LpnPI, SgrTI (review 2026-09 B08 F55, revised by H7/F101).
 4. Sort and deduplicate cut positions.
 5. Emit fragments between adjacent boundaries — linear: `[0, c1), ..., [ck, L)`; circular: `[c1, c2), ..., [ck, L) ∪ [0, c1)` — each with the overhang type and overhang sequence of its cut ends.
 6. Build summaries or maps by sorting fragment sizes and grouping site positions by enzyme.
@@ -151,7 +151,7 @@ Examples called out in the original document:
 
 ### 5.2 Current Behavior
 
-The current implementation records one top-strand cut per recognition window when digesting, so palindromic sites are not double-counted while the reverse-strand sites of a non-palindromic (e.g. Type IIS) enzyme are cut. If no cut positions are found, the digest yields a single fragment equal to the original sequence. When multiple enzymes cut at the same coordinate, the cut position is one boundary and the digest lists every such enzyme once in `LeftEnzymes`/`RightEnzymes` (ordinal order of the table names, so the result is independent of the argument order); `LeftEnzyme`/`RightEnzyme` are the first of that list (review 2026-09 B08 F48). `GetDigestSummary(...)` sorts fragment sizes descending before constructing the record. `CreateMap(...)` counts `TotalSites` on the forward strand only and defines `UniqueCutters` from distinct forward-strand positions, while `NonCutters` are requested enzymes that do not appear in the grouped map.
+The current implementation records one top-strand cut per distinct cleavage when digesting, so palindromic sites with symmetric cuts are not double-counted while the reverse-strand sites of a non-palindromic (e.g. Type IIS) enzyme are cut, and a window that admits two different cleavages (HauII, SgeI, MspJI, LpnPI, SgrTI) contributes both. If no cut positions are found, the digest yields a single fragment equal to the original sequence. When multiple enzymes cut at the same coordinate, the cut position is one boundary and the digest lists every such enzyme once in `LeftEnzymes`/`RightEnzymes` (ordinal order of the table names, so the result is independent of the argument order); `LeftEnzyme`/`RightEnzyme` are the first of that list (review 2026-09 B08 F48). `GetDigestSummary(...)` sorts fragment sizes descending before constructing the record. `CreateMap(...)` counts `TotalSites` as the number of distinct cleavages — every forward-strand record, plus every reverse-strand record whose backwards reading cuts other bonds — and defines `UniqueCutters` as the enzymes contributing exactly one, so a Type IIS enzyme's reverse-strand site counts and an enzyme that binds one window but cuts it twice is not a unique cutter; `NonCutters` are requested enzymes that do not appear in the grouped map (B08 H32).
 
 ### 5.3 Conformance to Theory / Spec
 

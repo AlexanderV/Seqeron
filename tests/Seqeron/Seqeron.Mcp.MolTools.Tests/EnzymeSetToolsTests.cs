@@ -98,13 +98,18 @@ public class EnzymeSetToolsTests
                 Is.EqualTo(Json(new Models.RestrictionSiteListResult(RestrictionAnalyzer.FindAllSites(dna, MoleculeTopology.Circular).ToList()))));
             Assert.That(Json(MolToolsTools.restriction_map(Probe, System.Array.Empty<string>())),
                 Is.EqualTo(Json(RestrictionAnalyzer.CreateMap(dna))));
+            // Each pair also reports end2, the SECOND enzyme's own overhang window — equal to
+            // compatibleEnd here, and different only for the 12 REBASE pairs that anneal through the
+            // reverse complement (review 2026-09 B08 H30).
             Assert.That(Json(MolToolsTools.compatible_enzymes("BamHI")),
                 Is.EqualTo(Json(new Models.CompatibleEnzymesResult(RestrictionAnalyzer.FindCompatibleEnzymes("BamHI")
-                    .Select(t => new Models.EnzymeCompatibilityPair("BamHI", t.Enzyme, t.CompatibleEnd)).ToList()))));
+                    .Select(t => new Models.EnzymeCompatibilityPair(
+                        "BamHI", t.Enzyme, t.CompatibleEnd, OtherEnd(t.Enzyme, t.CompatibleEnd))).ToList()))));
             // The all-pairs listing now also reports totalPairs / truncated (F72); its pairs are unchanged.
             Assert.That(Json(MolToolsTools.compatible_enzymes()),
                 Is.EqualTo(Json(new Models.CompatibleEnzymesResult(RestrictionAnalyzer.FindCompatibleEnzymes()
-                    .Select(t => new Models.EnzymeCompatibilityPair(t.Enzyme1, t.Enzyme2, t.CompatibleEnd)).ToList(), 64, false))));
+                    .Select(t => new Models.EnzymeCompatibilityPair(
+                        t.Enzyme1, t.Enzyme2, t.CompatibleEnd, OtherEnd(t.Enzyme2, t.CompatibleEnd))).ToList(), 64, false))));
             Assert.That(MolToolsTools.get_enzyme("MspI").Equischizomers, Is.EqualTo(new[] { "HpaII" }));
             Assert.That(MolToolsTools.blunt_cutters().Enzymes, Has.Count.EqualTo(10));
             Assert.That(MolToolsTools.sticky_cutters().Enzymes, Has.Count.EqualTo(29));
@@ -225,7 +230,9 @@ public class EnzymeSetToolsTests
             Assert.That(first.Pairs, Has.Count.EqualTo(1000));
             Assert.That(first.TotalPairs, Is.EqualTo(27869));
             Assert.That(first.Truncated, Is.True);
-            Assert.That(first.Pairs[0], Is.EqualTo(new Models.EnzymeCompatibilityPair("AanI", "Acc16I", "blunt")));
+            Assert.That(first.Pairs[0],
+                Is.EqualTo(new Models.EnzymeCompatibilityPair("AanI", "Acc16I", "blunt", "blunt")),
+                "both ends are reported; blunt is shared by definition (B08 H30)");
             Assert.That(small.Pairs, Has.Count.EqualTo(3));
             Assert.That(last.Pairs, Has.Count.EqualTo(7869));
             Assert.That(last.Truncated, Is.False);
@@ -354,4 +361,87 @@ public class EnzymeSetToolsTests
     }
 
     #endregion
+
+    /// <summary>
+    /// B08 H30: <c>compatibleEnd</c> is the FIRST enzyme's own overhang window, not a string both
+    /// enzymes leave, and the new <c>end2</c> makes the partner's window visible. 12 REBASE pairs
+    /// anneal only through the reverse complement and all 12 are <c>GN</c> against <c>CN</c>; the
+    /// tool description used to say the value "echoes the shared end".
+    /// </summary>
+    [Test]
+    public void EnzymesCompatible_ReverseComplementOnlyPair_ReportsBothEnds()
+    {
+        var forward = MolToolsTools.enzymes_compatible("BsmI", "BsrI");
+        var reversed = MolToolsTools.enzymes_compatible("BsrI", "BsmI");
+        var blunt = MolToolsTools.enzymes_compatible("EcoRV", "SmaI");
+        var incompatible = MolToolsTools.enzymes_compatible("EcoRI", "BamHI");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forward.Compatible, Is.True);
+            Assert.That(forward.CompatibleEnd, Is.EqualTo("CN"), "BsmI's own end");
+            Assert.That(forward.End2, Is.EqualTo("GN"), "BsrI's own end");
+            Assert.That(reversed.CompatibleEnd, Is.EqualTo("GN"));
+            Assert.That(reversed.End2, Is.EqualTo("CN"));
+
+            Assert.That(blunt.CompatibleEnd, Is.EqualTo("blunt"));
+            Assert.That(blunt.End2, Is.EqualTo("blunt"), "blunt is shared by definition");
+
+            Assert.That(incompatible.Compatible, Is.False);
+            Assert.That(incompatible.CompatibleEnd, Is.Null);
+            Assert.That(incompatible.End2, Is.Null);
+        });
+    }
+
+    /// <summary>
+    /// B08 H32: <c>restriction_map</c>'s <c>totalSites</c>/<c>uniqueCutters</c> count cleavages, so a
+    /// Type IIS enzyme is not a unique cutter merely because it has one forward-strand site — the
+    /// tool description used to say "forward-strand site count", which reads wrong for every Golden
+    /// Gate enzyme.
+    /// </summary>
+    [Test]
+    public void RestrictionMap_TypeIISEnzyme_CountsBothStrandsCleavages()
+    {
+        const string molecule = "AAAAAAAAAAGGTCTCAAAAAAAAAAGAGACCAAAAAAAAAA";
+        var map = MolToolsTools.restriction_map(molecule, ["BsaI"]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(map.TotalSites, Is.EqualTo(2));
+            Assert.That(map.UniqueCutters, Is.Empty);
+            Assert.That(map.SitesByEnzyme["BsaI"], Is.EqualTo(new[] { 10, 26 }));
+        });
+    }
+
+    /// <summary>
+    /// B08 H13: <c>get_enzyme</c> resolves the REBASE hyphen spelling of CviKI-1 (NEB R0710), which
+    /// used to answer <c>enzyme: null</c>, and <c>find_restriction_sites</c> used to error on it.
+    /// Reference: Bio.Restriction.CviKI_1 — site RGCY, blunt, and
+    /// <c>search(Seq("AGCTAGCT"), linear=True) == [3, 7]</c> (1-based).
+    /// </summary>
+    [TestCase("CviKI-1")]
+    [TestCase("cviki-1")]
+    [TestCase("CviKI_1")]
+    public void GetEnzyme_RebaseHyphenSpelling_Resolves(string spelling)
+    {
+        var looked = MolToolsTools.get_enzyme(spelling, "rebase");
+        var digest = MolToolsTools.restriction_digest("AGCTAGCT", [spelling]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(looked.Enzyme, Is.Not.Null);
+            Assert.That(looked.Enzyme!.Name, Is.EqualTo("CviKI_1"));
+            Assert.That(looked.Enzyme.RecognitionSequence, Is.EqualTo("RGCY"));
+            Assert.That(looked.OverhangSequence, Is.Empty, "Biopython CviKI_1.ovhgseq == ''");
+            Assert.That(digest.Fragments.Select(f => f.Length), Is.EqualTo(new[] { 2, 4, 2 }),
+                "cuts at the 0-based bonds 2 and 6 (Biopython [3, 7] 1-based)");
+        });
+    }
+
+    /// <summary>
+    /// Mirrors <c>MolToolsTools.OtherEnd</c>: the partner enzyme's own overhang window, which the
+    /// wrapper reports as <c>end2</c> so a caller sees both ends of a compatible pair (B08 H30).
+    /// </summary>
+    private static string? OtherEnd(string otherEnzymeName, string? compatibleEnd)
+        => compatibleEnd == "blunt" ? "blunt" : RestrictionAnalyzer.GetOverhangSequence(otherEnzymeName);
 }

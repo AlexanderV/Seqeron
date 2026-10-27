@@ -38,7 +38,14 @@
           "string",
           "null"
         ],
-        "description": "The shared end - \"blunt\" or the overhang sequence - or null when incompatible."
+        "description": "The FIRST enzyme's end - \"blunt\" or its own overhang window - or null when incompatible. Not necessarily a string the second enzyme also leaves."
+      },
+      "end2": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "The SECOND enzyme's end, same convention; null when incompatible. Equal to compatibleEnd except for the 12 REBASE pairs that anneal only through the reverse complement (all GN against CN)."
       }
     },
     "required": [
@@ -113,6 +120,18 @@
       "output": {
         "compatible": false,
         "compatibleEnd": null
+      }
+    },
+    {
+      "name": "Reverse-complement-only pair reports each enzyme's own end",
+      "input": {
+        "enzyme1_name": "BsmI",
+        "enzyme2_name": "BsrI"
+      },
+      "output": {
+        "compatible": true,
+        "compatibleEnd": "CN",
+        "end2": "GN"
       }
     },
     {

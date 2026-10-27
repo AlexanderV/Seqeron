@@ -2215,4 +2215,172 @@ public class RestrictionAnalyzer_FindSites_Tests
     }
 
     #endregion
+
+    #region Documented order, counts and compatibility ends (B08 H30/H31/H32/H33)
+
+    /// <summary>
+    /// H31: the <c>&lt;returns&gt;</c> doc used to promise that both strands' hits come out in
+    /// ascending Position order. They do not: the reverse-strand scan runs 5'→3' along the reverse
+    /// complement and <c>Position = n - i - len</c> falls as the scan index rises, so the
+    /// reverse-strand hits are <b>descending</b> on a linear molecule and not monotone at all on a
+    /// circular one, where the position is additionally reduced modulo the length.
+    /// </summary>
+    [Test]
+    public void FindSites_ReverseStrandHits_ComeOutInDescendingPositionOrder()
+    {
+        var linear = RestrictionAnalyzer
+            .FindSites(new DnaSequence("GAATTCAAGAATTCAAGAATTC"), "EcoRI")
+            .Select(x => (x.Position, x.IsForwardStrand))
+            .ToList();
+
+        var circular = RestrictionAnalyzer
+            .FindSites(new DnaSequence("GATCGATCGATC"), "Sau3AI", MoleculeTopology.Circular)
+            .Select(x => x.Position)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(linear, Is.EqualTo(new[]
+            {
+                (0, true), (8, true), (16, true), (16, false), (8, false), (0, false),
+            }), "forward ascending, then reverse descending");
+            Assert.That(linear.Where(t => t.IsForwardStrand).Select(t => t.Position), Is.Ordered,
+                "the forward half is ascending, which is all the doc may promise");
+            Assert.That(linear.Where(t => !t.IsForwardStrand).Select(t => t.Position),
+                Is.Ordered.Descending);
+
+            Assert.That(circular, Is.EqualTo(new[] { 0, 4, 8, 8, 4, 0 }),
+                "circular: the reverse half is not globally monotone against the forward half");
+        });
+    }
+
+    /// <summary>
+    /// H31: the same doc block claimed <c>Sau3AI</c> on <c>GATCGATCGATC</c> "reports the single site
+    /// at position 4". One <i>window</i> survives the linear cut-feasibility filter, but it is
+    /// reported as two records — the forward one carrying the top-strand cut and the reverse one the
+    /// bottom-strand cut — by the two-records-per-palindromic-site rule the same doc states.
+    /// Reference: Bio.Restriction.Sau3AI.search(Seq("GATCGATCGATC")) == [5] (1-based), the one
+    /// top-strand cut.
+    /// </summary>
+    [Test]
+    public void FindSites_Sau3AI_OneSurvivingWindow_IsTwoRecords()
+    {
+        var sites = RestrictionAnalyzer
+            .FindSites(new DnaSequence("GATCGATCGATC"), "Sau3AI")
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(2), "one window, two strand records");
+            Assert.That(sites.Select(x => x.Position), Is.All.EqualTo(4));
+            Assert.That(sites.Single(x => x.IsForwardStrand).CutPosition, Is.EqualTo(4),
+                "Biopython Sau3AI.search(Seq(\"GATCGATCGATC\")) == [5] (1-based)");
+            Assert.That(sites.Single(x => !x.IsForwardStrand).CutPosition, Is.EqualTo(8));
+        });
+    }
+
+    /// <summary>
+    /// H32: <c>TotalSites</c> and <c>UniqueCutters</c> count cleavages, not forward-strand records.
+    /// One overload's doc used to say "forward-strand records only", which reads wrong for every
+    /// Type IIS enzyme — i.e. every Golden Gate enzyme. A molecule carrying GGTCTC on one strand and
+    /// on the other has two BsaI cleavages, so BsaI is not a unique cutter.
+    /// </summary>
+    [Test]
+    public void CreateMap_TypeIISEnzyme_CountsTheReverseStrandSiteAndIsNotAUniqueCutter()
+    {
+        const string molecule = "AAAAAAAAAAGGTCTCAAAAAAAAAAGAGACCAAAAAAAAAA";
+        var map = RestrictionAnalyzer.CreateMap(new DnaSequence(molecule), MoleculeTopology.Linear, "BsaI");
+        var sites = RestrictionAnalyzer.FindSites(new DnaSequence(molecule), MoleculeTopology.Linear, "BsaI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.Count(x => x.IsForwardStrand), Is.EqualTo(1), "one forward-strand record");
+            Assert.That(sites.Count(x => !x.IsForwardStrand), Is.EqualTo(1), "and one reverse-strand record");
+            Assert.That(map.TotalSites, Is.EqualTo(2), "both are cleavages; 'forward records only' would say 1");
+            Assert.That(map.UniqueCutters, Is.Empty, "so BsaI is not a single cutter here");
+            Assert.That(map.SitesByEnzyme["BsaI"], Is.EqualTo(new[] { 10, 26 }));
+        });
+    }
+
+    /// <summary>
+    /// H33 / H30: <c>FindCompatibleEnzymes(name)</c>'s end is the <i>queried</i> enzyme's own
+    /// overhang window, not a string both enzymes leave. 12 REBASE pairs anneal only through the
+    /// reverse complement, and all 12 are <c>GN</c> against <c>CN</c>: BsmI leaves <c>CN</c>, BsrI
+    /// leaves <c>GN</c>, and each query reports its own. The MCP description used to say the value
+    /// "echoes the shared end".
+    /// </summary>
+    [Test]
+    public void FindCompatibleEnzymes_ReverseComplementOnlyPair_ReportsTheQueriedEnzymesOwnEnd()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.GetOverhangSequence("BsmI"), Is.EqualTo("CN"));
+            Assert.That(RestrictionAnalyzer.GetOverhangSequence("BsrI"), Is.EqualTo("GN"));
+            Assert.That(RestrictionAnalyzer.AreCompatible("BsmI", "BsrI"), Is.True,
+                "CN anneals to GN through the reverse complement");
+
+            Assert.That(
+                RestrictionAnalyzer.FindCompatibleEnzymes("BsmI", EnzymeSet.Rebase)
+                    .Single(t => t.Enzyme == "BsrI").CompatibleEnd,
+                Is.EqualTo("CN"), "the queried enzyme's own end");
+            Assert.That(
+                RestrictionAnalyzer.FindCompatibleEnzymes("BsrI", EnzymeSet.Rebase)
+                    .Single(t => t.Enzyme == "BsmI").CompatibleEnd,
+                Is.EqualTo("GN"), "and the other way round — the value is order-dependent");
+        });
+    }
+
+    /// <summary>
+    /// H33: Biopython's <c>compatible_end()</c> has three implementations, not one 5'-only filter,
+    /// so it answers a non-empty list for blunt and 3'-overhang enzymes too — the doc used to claim
+    /// the opposite. These counts are this library's side of the same question over the REBASE set;
+    /// the reference numbers measured with Biopython 1.88 are
+    /// <c>EcoRV.compatible_end()</c> → 137 (every blunt cutter), <c>PstI</c> → 13, <c>SacI</c> → 9.
+    /// The blunt row is directly comparable because every blunt end ligates to every other.
+    /// </summary>
+    [Test]
+    public void FindCompatibleEnzymes_BluntAndThreePrimeEnzymes_AreNotEmpty()
+    {
+        var bluntCount = RestrictionAnalyzer.GetBluntCutters(EnzymeSet.Rebase).Count();
+        var ecoRV = RestrictionAnalyzer.FindCompatibleEnzymes("EcoRV", EnzymeSet.Rebase).ToList();
+        var pstI = RestrictionAnalyzer.FindCompatibleEnzymes("PstI", EnzymeSet.Rebase).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bluntCount, Is.EqualTo(137),
+                "Biopython EcoRV.compatible_end() returns 137 enzymes, i.e. every blunt cutter");
+            Assert.That(ecoRV, Has.Count.EqualTo(137), "EcoRV is blunt, so every blunt cutter qualifies");
+            Assert.That(ecoRV.Select(t => t.CompatibleEnd), Is.All.EqualTo("blunt"));
+            Assert.That(pstI, Is.Not.Empty, "PstI leaves a 3' overhang and still has partners");
+            Assert.That(pstI.Select(t => t.Enzyme), Does.Contain("NsiI"),
+                "NsiI is in Biopython's PstI.compatible_end() list");
+        });
+    }
+
+    /// <summary>
+    /// H33: the queried enzyme appears in its own result only when it is a member of the chosen set.
+    /// BsaI is a REBASE enzyme, not one of the 39 common ones, so the common-set query cannot list
+    /// it although <c>GetEnzyme</c> resolves it — the doc used to say "the enzyme itself included"
+    /// without that qualification.
+    /// </summary>
+    [Test]
+    public void FindCompatibleEnzymes_QueryOutsideTheChosenSet_DoesNotListItself()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.GetEnzyme("BsaI"), Is.Not.Null);
+            Assert.That(RestrictionAnalyzer.Enzymes.ContainsKey("BsaI"), Is.False, "not a common enzyme");
+            Assert.That(
+                RestrictionAnalyzer.FindCompatibleEnzymes("BsaI", EnzymeSet.Common).Select(t => t.Enzyme),
+                Does.Not.Contain("BsaI"));
+            Assert.That(
+                RestrictionAnalyzer.FindCompatibleEnzymes("BsaI", EnzymeSet.Rebase).Select(t => t.Enzyme),
+                Does.Contain("BsaI"), "it is a member of the REBASE set, so there it does appear");
+            Assert.That(
+                RestrictionAnalyzer.FindCompatibleEnzymes("EcoRI", EnzymeSet.Common).Select(t => t.Enzyme),
+                Does.Contain("EcoRI"), "a common-set enzyme does appear in the common-set query");
+        });
+    }
+
+    #endregion
 }

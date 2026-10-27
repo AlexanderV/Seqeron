@@ -78,14 +78,16 @@ On a **circular** molecule the recognition window may span the origin, so the se
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | `0 <= Position <= sequence.Length - recognitionLength` for every reported site | Sites are yielded only from valid window starts |
+| INV-01 | **Linear** molecules: `0 <= Position <= sequence.Length - recognitionLength` for every reported site | The linear scan yields only window starts that fit wholly inside the molecule |
+| INV-01c | **Circular** molecules: `0 <= Position <= sequence.Length - 1` | A circular window may span the origin, so every start index is valid; measured `Position = 10` on a 13-mer with a 6-nt site (EcoRI on `TTCAAAAAAAGAA`), matching `Bio.Restriction.EcoRI.search(..., linear=False) == [12]` (B08 H34) |
 | INV-02 | `RecognizedSequence.Length == Enzyme.RecognitionSequence.Length` | The source slices exactly the pattern length |
 | INV-03 | Enzyme-name lookup is case-insensitive | The built-in enzyme dictionary uses `StringComparer.OrdinalIgnoreCase` |
 | INV-04 | Empty raw-string input yields no sites | The raw-string overload short-circuits on null or empty input |
 | INV-05 | `RecognizedSequence.Length == Enzyme.RecognitionLength` and the window matches the pattern under IUPAC rules on the strand named by `IsForwardStrand` | The source slices exactly the pattern length from the strand it matched |
 | INV-06 | Linear molecules: `1 <= CutPosition <= Length - 1` for every reported site, on both strands | The cut-feasibility filter (§2.3) |
 | INV-07 | Circular molecules: `0 <= CutPosition <= Length - 1` | Cut positions are reduced modulo the length |
-| INV-08 | No site is reported when `Length < RecognitionLength` | A recognition window longer than the molecule cannot occur |
+| INV-08 | **Linear** molecules: no site is reported when `Length < RecognitionLength` | A recognition window longer than the molecule cannot fit inside it |
+| INV-08c | **Circular** molecules: a site IS reported when `0 < Length < RecognitionLength` and the window exists around the circle | The window reads past the origin and back in; `FindSites("ACGT", "BsiWI", Circular)` cuts at 2, matching `Bio.Restriction.BsiWI.search(Seq("ACGT"), linear=False) == [3]` (1-based) (B08 H6). Only an empty molecule has no window |
 | INV-09 | `CreateMap`: `SitesByEnzyme.Keys` and `NonCutters` partition the considered enzyme set, both keyed by canonical table name | Both are derived from one case-insensitive, de-duplicated resolved set |
 
 ## 3. Contract

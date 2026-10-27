@@ -251,6 +251,131 @@ The only extra EMBOSS row is HauII on the minus strand, which is F101 (H7) itsel
   `FindPatternOccurrences_InvalidArguments_Throw` updated — its null-sequence row now asserts the
   empty result and its doc records the supersession.
 
+### F106 — RESTR-FILTER-001 (H30): the compatibility "shared end" is the queried enzyme's own end
+
+- **Defect, reproduced.** `AreCompatible`'s `out compatibleEnd` is set to the *first* enzyme's
+  overhang window, so the value is order-dependent, while `FindCompatibleEnzymes`' `<returns>` called
+  it "the shared end" and the MCP `enzymes_compatible` description said it "echoes the shared end".
+  Measured: `GetOverhangSequence("BsmI") == "CN"`, `GetOverhangSequence("BsrI") == "GN"`;
+  `FindCompatibleEnzymes("BsmI", Rebase)` reports BsrI with `CN` and
+  `FindCompatibleEnzymes("BsrI", Rebase)` reports BsmI with `GN`. **BsrI never leaves `CN`.**
+- **Scope, computed over all 754 REBASE enzymes.** Of the sticky compatible pairs, **18 541** anneal
+  because the two windows intersect directly, and exactly **12** anneal only through the reverse
+  complement — all of them `GN` against `CN`: Bse1I/BsmI, Bse1I/LmnI, Bse1I/Mva1269I, Bse1I/PctI,
+  BseNI/BsmI, BseNI/LmnI, BseNI/Mva1269I, BseNI/PctI, BsmI/BsrI, BsrI/LmnI, BsrI/Mva1269I, BsrI/PctI.
+  For those 12 **no single shared string exists**, so no value of one string can be truthful.
+- **Fix.** The value is left as it is — the queried/first enzyme's own end, which is the useful one —
+  and every place that described it is corrected to say so, naming the 12 pairs. Additively, the MCP
+  output records gain `end2`, the *partner's* own window (`"blunt"` for a blunt pair), so a caller
+  sees both ends of a pair in one call instead of having to call `get_enzyme` again:
+  `EnzymeCompatibilityResult(bool Compatible, string? CompatibleEnd, string? End2)` and
+  `EnzymeCompatibilityPair(string Enzyme1, string Enzyme2, string CompatibleEnd, string? End2)`, both
+  with an optional parameter so existing construction sites keep compiling.
+- **Post-fix.** `enzymes_compatible("BsmI", "BsrI")` → `compatibleEnd "CN"`, `end2 "GN"`; the reversed
+  call → `"GN"` / `"CN"`; `("EcoRV", "SmaI")` → `"blunt"` / `"blunt"`; `("EcoRI", "BamHI")` →
+  `compatible false` with both ends `null`.
+- **Tests.** `FindCompatibleEnzymes_ReverseComplementOnlyPair_ReportsTheQueriedEnzymesOwnEnd`
+  (`RestrictionAnalyzer_FindSites_Tests.cs`) and `EnzymesCompatible_ReverseComplementOnlyPair_ReportsBothEnds`
+  (`EnzymeSetToolsTests.cs`). Two existing MCP tests that built their expectation with the 3-argument
+  constructor were updated to carry `end2`.
+- **Docs.** `FindCompatibleEnzymes(string)`'s `<returns>` and summary; MCP descriptions of
+  `enzymes_compatible` and `compatible_enzymes`; `docs/mcp/tools/moltools/enzymes_compatible.{md,mcp.json}`
+  (output schema + a worked BsmI/BsrI example) and `compatible_enzymes.{md,mcp.json}`.
+
+### F107 — RESTR-FIND-001 (H31): `FindSites` promised a global ascending order it never had
+
+- **Defect, reproduced.** The `<returns>` doc said "forward-strand hits first, then reverse-strand
+  hits, each in ascending `Position` order". The reverse-strand scan runs 5'→3' along the reverse
+  complement and `Position = n - i - len` *falls* as the scan index rises. Measured, EcoRI on
+  `GAATTCAAGAATTCAAGAATTC`: `p0F p8F p16F p16R p8R p0R`. On a circle it is not monotone at all —
+  Sau3AI on circular `GATCGATCGATC` gives positions `0, 4, 8, 8, 4, 0`.
+- **Second defect in the same block.** It claimed `FindSites(new DnaSequence("GATCGATCGATC"), "Sau3AI")`
+  "reports the single site at position 4". One *window* survives the linear cut-feasibility filter,
+  but it is reported as **two records** (forward cut 4, reverse cut 8) by the
+  two-records-per-palindromic-site rule the same doc states three paragraphs earlier.
+- **Fix.** The `<returns>` doc now states the real order (forward ascending, then reverse descending
+  on a linear molecule, non-monotone on a circle), says to sort by `Position` for a global order, and
+  notes that `CrisprDesigner.FindOffTargets` behaves the same way; the Sau3AI example counts records
+  and names the top-strand cut that Biopython reports (`Sau3AI.search(Seq("GATCGATCGATC")) == [5]`).
+- **Tests.** `FindSites_ReverseStrandHits_ComeOutInDescendingPositionOrder` (both topologies, the
+  exact sequences above) and `FindSites_Sau3AI_OneSurvivingWindow_IsTwoRecords`.
+
+### F108 — RESTR-DIGEST-001 (H32): `CreateMap`'s two overloads documented `TotalSites` contradictorily
+
+- **Defect, reproduced.** One overload said `TotalSites`/`UniqueCutters` "count forward-strand
+  records only"; the other said "physical sites"; the code implements neither phrasing exactly and
+  the MCP description took the first one, so its stated use — "plan cloning around single-cutter
+  enzymes" — read wrong for every Type IIS enzyme, i.e. every Golden Gate enzyme. Measured on
+  `A×10 + GGTCTC + A×10 + GAGACC + A×10`: one forward-strand record and one reverse-strand record, so
+  the code gives `TotalSites = 2` and `UniqueCutters = []` where "forward records only" implies 1 and
+  a unique cutter.
+- **Fix.** One statement, in all four places (both XML docs, the MCP tool description, and
+  `docs/mcp/tools/moltools/restriction_map.{md,mcp.json}`): the two members count **cleavages** — the
+  rule F101 settled — so a palindromic site with symmetric cuts counts once, a non-palindromic
+  enzyme's reverse-strand sites count on their own, a two-sided (Type IIB) site's two cut records
+  count once, and a window admitting two different cleavages counts twice. `UniqueCutters` therefore
+  means "cleaves exactly once", which is what the cloning use needs.
+- **Checked unchanged by F101:** the measured 754-enzyme example in `restriction_map.md`
+  (`AAGGTCTCAAAAAAAAAAAAAAAGAGACCAAAAAAAAAAA` → 14 enzymes / 740 non-cutters / `totalSites 41` /
+  `uniqueCutters ["SetI"]`) still holds, because on that molecule the five H7 enzymes' reverse
+  readings cut outside the molecule and are dropped by the linear feasibility filter.
+- **Tests.** `CreateMap_TypeIISEnzyme_CountsTheReverseStrandSiteAndIsNotAUniqueCutter` and the MCP
+  `RestrictionMap_TypeIISEnzyme_CountsBothStrandsCleavages`.
+
+### F109 — RESTR-FILTER-001 (H33): the cited Biopython method was misdescribed
+
+- **Defect, reproduced.** `FindCompatibleEnzymes(string)`'s remark claimed the reference "filters its
+  candidates with `x.is_5overhang()`, so it answers the empty list for every blunt and every
+  3'-overhang enzyme". Biopython 1.88 has **three** `compatible_end` implementations, read from the
+  installed source: `Blunt.compatible_end` returns every `x.is_blunt()`, `Ov5.compatible_end` every
+  `x.is_5overhang() and x % cls`, `Ov3.compatible_end` every `x.is_3overhang() and x % cls`.
+  Measured: `EcoRV.compatible_end()` → **137** (every blunt enzyme), `PstI.compatible_end()` → **13**,
+  `SacI.compatible_end()` → **9**, `EcoRI.compatible_end()` → **51**; each includes the queried
+  enzyme itself.
+- **Second defect.** The summary said "the enzyme itself included" without qualification; that is
+  false when the query lies outside the chosen set. Measured:
+  `FindCompatibleEnzymes("BsaI", EnzymeSet.Common)` does not list BsaI (not one of the 39), while the
+  REBASE query does.
+- **Also recorded:** Biopython's `compatible_end` ignores its own `batch` argument and always
+  iterates `AllEnzymes`; this library honours its `EnzymeSet`.
+- **Fix.** The remark now states all three reference implementations with their predicates and the
+  four measured counts, and the summary scopes self-inclusion to membership of the chosen set.
+- **Tests.** `FindCompatibleEnzymes_BluntAndThreePrimeEnzymes_AreNotEmpty` (137 blunt REBASE cutters,
+  cross-checking Biopython's own `EcoRV.compatible_end()` count, plus a non-empty 3'-overhang result
+  containing NsiI, which is in Biopython's `PstI.compatible_end()` list) and
+  `FindCompatibleEnzymes_QueryOutsideTheChosenSet_DoesNotListItself`.
+
+### F110 — docs (H34, H35, H36): algorithm-doc invariants brought to the shipped code
+
+- **H34, reproduced.** `Restriction_Site_Detection.md` INV-01 asserted
+  `0 <= Position <= Length - recognitionLength` unconditionally, while §2.3 and INV-07 do scope their
+  claims by topology. Measured: EcoRI on circular `TTCAAAAAAAGAA` (13 nt, 6-nt site) reports
+  `Position = 10`, where `Length - 6 = 7`; Biopython agrees
+  (`EcoRI.search(..., linear=False) == [12]`). INV-01 is now scoped to Linear and a new **INV-01c**
+  gives the circular bound `0 <= Position <= Length - 1`.
+  **Also fixed in the same table, which the audit did not list but F100 invalidated:** INV-08 ("No
+  site is reported when `Length < RecognitionLength`") is now scoped to Linear, with a new
+  **INV-08c** for the circular case that F100 created.
+- **H35, reproduced.** Three places said a circle with `k` cuts gives `k` fragments. Measured on a
+  circular 20-mer with EcoRI: k=0 → **1** fragment (20), k=1 → 1 (20), k=2 → 2 (10, 10) — only k=0
+  diverges, and the behaviour is deliberate and already pinned by
+  `RestrictionAnalyzer_Digest_Tests.cs`, with the carve-out stated correctly on `DigestCircular`'s own
+  XML remark. So four statements of one rule disagreed. `Restriction_Digest_Simulation.md` INV-01 is
+  now scoped to Linear, INV-05 carries the `k = 0` carve-out with the measured numbers, and §2.1's
+  bare `k + 1` is qualified.
+- **H36, reproduced.** `Restriction_Enzyme_Filtering.md` INV-07 claimed reflexivity "for every
+  enzyme whose overhang is determined (all 39 built-ins)", while the same document's §2.2 names
+  `SfiI` → `NNN` explicitly. Measured: of the 39 built-ins exactly **one**, `SfiI`
+  (`GGCCNNNNNGGCC`), has a non-ACGT overhang window. Reflexivity survives; the parenthetical did not,
+  and is replaced by the fact.
+- **Also brought up to date (F101's consequence, not a separate audit item):**
+  `Restriction_Digest_Simulation.md` §2.5 step 3 and §4, which stated the Biopython
+  one-reading-per-window rule, and `docs/Evidence/RESTR-DIGEST-001-Evidence.md` §"Fix", which stated
+  the same; plus `docs/Evidence/RESTR-FIND-001-Evidence.md` §3, whose "Deliberate divergences"
+  paragraph asserted that no site is reported when `Length < RecognitionLength` on either topology and
+  argued, wrongly, that such a reading wraps the molecule more than once. Each now states the shipped
+  rule with the measured differential.
+
 ## Test results
 
 | Scope | Result |
@@ -262,6 +387,9 @@ The only extra EMBOSS row is HauII on the minus strand, which is F101 (H7) itsel
 | `Seqeron.Mcp.MolTools.Tests` after F101/F102 | 471 passed / 0 failed |
 | targeted tier after F103–F105 (same filter) | 3163 passed / 0 failed |
 | `Seqeron.Mcp.MolTools.Tests` after F103–F105 | 472 passed / 0 failed |
+| targeted tier after F106–F110 (`~Restriction\|~CodonOptimizer`, fast filter) | 910 passed / 0 failed |
+| `Seqeron.Mcp.MolTools.Tests` after F106–F110 | 477 passed / 0 failed |
+| `python3 scripts/skills/gen-catalog.py --check` after F106–F110 | fresh: 483 tools, 10 generated files up to date |
 
 The counts rise between rows because the orchestrator is adding CRISPR tests to the same branch in
 parallel; every row is a run of the branch as it stood at that commit, with 0 failures.

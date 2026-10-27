@@ -262,8 +262,15 @@ public static partial class RestrictionAnalyzer
     /// </summary>
     /// <param name="sequence">DNA sequence to analyze.</param>
     /// <param name="enzymeName">Name of the restriction enzyme (case-insensitive).</param>
-    /// <returns>Collection of restriction sites found: forward-strand hits first, then
-    /// reverse-strand hits, each in ascending <see cref="RestrictionSite.Position"/> order.</returns>
+    /// <returns>Collection of restriction sites found: every forward-strand hit first, in ascending
+    /// <see cref="RestrictionSite.Position"/> order, then every reverse-strand hit. The reverse-strand
+    /// hits come out in <b>descending</b> Position order on a linear molecule, because the scan runs
+    /// 5'→3' along the reverse complement and <c>Position = n - i - len</c> falls as the scan index
+    /// rises; on a circular molecule they are not monotone at all, since the position is additionally
+    /// reduced modulo the length. Measured on <c>GAATTCAAGAATTCAAGAATTC</c> with EcoRI: positions
+    /// 0, 8, 16 forward then 16, 8, 0 reverse. Sort by <c>Position</c> if a global order is needed
+    /// (review 2026-09 B08 H31; <see cref="FindOffTargets"/> in <c>CrisprDesigner</c> behaves the
+    /// same way).</returns>
     /// <remarks>
     /// Equivalent to <see cref="FindSites(DnaSequence, string, MoleculeTopology)"/> with
     /// <see cref="MoleculeTopology.Linear"/>; see that overload for the coordinate convention.
@@ -297,8 +304,13 @@ public static partial class RestrictionAnalyzer
     /// either cut would fall outside the molecule. It affects only enzymes cutting at the edge of
     /// their own recognition window: <c>Sau3AI</c>/<c>MboI</c> (<c>^GATC</c>) at the very 5' or
     /// 3' end. Example: <c>FindSites(new DnaSequence("GATCGATCGATC"), "Sau3AI")</c> reports the
-    /// single site at position 4 (cut 4), exactly as
-    /// <c>Bio.Restriction.Sau3AI.search(Seq("GATCGATCGATC")) == [5]</c> (1-based).
+    /// single surviving <i>window</i>, the one at position 4 — as two records, the forward one with
+    /// cut 4 and the reverse one with cut 8, per the two-records-per-palindromic-site rule above.
+    /// Its top-strand cut is 4, exactly
+    /// <c>Bio.Restriction.Sau3AI.search(Seq("GATCGATCGATC")) == [5]</c> (1-based); the windows at 0
+    /// and 8 are dropped because one of their cuts would fall outside the molecule
+    /// (review 2026-09 B08 H31 — this used to read "the single site", which undercounted the
+    /// records by one).
     /// </para>
     /// <para>
     /// <b>Circular</b>: the recognition window may wrap past the origin, so sites starting in the
@@ -1519,8 +1531,20 @@ public static partial class RestrictionAnalyzer
     /// </para>
     /// <para>
     /// <c>SitesByEnzyme</c> is keyed case-insensitively by canonical enzyme name and holds the
-    /// positions of both strands' records; <c>TotalSites</c> and <c>UniqueCutters</c> count
-    /// forward-strand records only, since a palindromic site yields one of each.
+    /// positions of both strands' records. <c>TotalSites</c> and <c>UniqueCutters</c> count
+    /// <b>cleavages</b>, by the same rule the digest's cut collection applies: every forward-strand
+    /// record, plus every reverse-strand record whose backwards reading cuts other bonds. So a
+    /// palindromic site with symmetric cuts counts once (which is what "forward-strand records only"
+    /// amounted to for the 39 built-ins, and the only reading this doc used to give), a
+    /// non-palindromic enzyme's reverse-strand sites count on their own, the two cut records of a
+    /// two-sided (Type IIB) site count once, and a window that admits two different cleavages counts
+    /// twice. Consequences for cloning, which is what <c>UniqueCutters</c> is for: a Type IIS
+    /// enzyme is <b>not</b> a unique cutter merely because it has one forward-strand site —
+    /// <c>CreateMap("A{10}GGTCTCA{10}GAGACCA{10}", "BsaI")</c> gives <c>TotalSites = 2</c> and an
+    /// empty <c>UniqueCutters</c>, because the molecule carries GGTCTC on one strand and on the
+    /// other; and an enzyme that binds one window but cleaves it twice (HauII, SgeI, MspJI, LpnPI,
+    /// SgrTI) is not a unique cutter either. Verified against Biopython 1.88 over 14580 rows for the
+    /// 749 enzymes where the two agree (review 2026-09 B08 H32, on the rule F101 settled).
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentException">A name in <paramref name="enzymeNames"/> is not a known
@@ -1555,10 +1579,11 @@ public static partial class RestrictionAnalyzer
     /// Same contract as <see cref="CreateMap(DnaSequence, MoleculeTopology, string[])"/>, with the
     /// considered set being <paramref name="enzymes"/> (an empty collection is an error here, not
     /// "every built-in"). <see cref="RestrictionMap.TotalSites"/> and
-    /// <see cref="RestrictionMap.UniqueCutters"/> count physical sites: every forward-strand
-    /// window, plus every reverse-strand window that does not also read as the site on the forward
-    /// strand — so a non-palindromic enzyme's reverse-strand sites count, a palindromic site
-    /// counts once, and the two cuts of a two-sided (Type IIB) site count as one site.
+    /// <see cref="RestrictionMap.UniqueCutters"/> count cleavages, exactly as that overload
+    /// documents: every forward-strand record, plus every reverse-strand record whose backwards
+    /// reading cuts other bonds — so a non-palindromic enzyme's reverse-strand sites count, a
+    /// palindromic site with symmetric cuts counts once, the two cuts of a two-sided (Type IIB) site
+    /// count once, and a window that admits two different cleavages counts twice (B08 H32/F101).
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
@@ -1756,16 +1781,41 @@ public static partial class RestrictionAnalyzer
     /// <summary>
     /// Lists the common-set enzymes (<see cref="Enzymes"/>; for another set use
     /// <see cref="FindCompatibleEnzymes(string, EnzymeSet)"/>) whose ends can be ligated to an end left by
-    /// <paramref name="enzymeName"/>, the enzyme itself included.
+    /// <paramref name="enzymeName"/> — the enzyme itself included when it is a member of that set.
     /// </summary>
     /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
-    /// <returns>Tuples of the compatible enzyme's name (as spelled in the table) and the shared
-    /// end — <c>"blunt"</c> or the overhang sequence.</returns>
+    /// <returns>Tuples of the compatible enzyme's name (as spelled in the table) and the end:
+    /// <c>"blunt"</c> for a blunt pair, otherwise <b><paramref name="enzymeName"/>'s own</b> overhang
+    /// window (<see cref="GetOverhangSequence(string)"/>), not a string both enzymes necessarily
+    /// leave. The two coincide whenever the two windows intersect directly, but 12 REBASE pairs
+    /// anneal only through the reverse complement and there the partner leaves the complementary
+    /// window: all 12 are <c>GN</c> against <c>CN</c> —
+    /// <c>FindCompatibleEnzymes("BsmI")</c> reports BsrI with <c>CN</c> (BsmI's end) and
+    /// <c>FindCompatibleEnzymes("BsrI")</c> reports BsmI with <c>GN</c> (BsrI's end), and BsrI never
+    /// leaves <c>CN</c>. Call <see cref="GetOverhangSequence(string)"/> on the partner for its own
+    /// end (review 2026-09 B08 H30).</returns>
     /// <remarks>
-    /// This is the per-enzyme form of Biopython's <c>compatible_end()</c>. The reference's own
-    /// implementation filters its candidates with <c>x.is_5overhang()</c>, so it answers the empty
-    /// list for every blunt and every 3'-overhang enzyme; this overload has no such restriction and
-    /// is simply <see cref="AreCompatible(RestrictionEnzyme, RestrictionEnzyme)"/> over the table.
+    /// <para>
+    /// This is the per-enzyme form of Biopython's <c>compatible_end()</c>, which has <b>three</b>
+    /// implementations, one per end class, not one 5'-only filter:
+    /// <c>Blunt.compatible_end</c> returns every blunt enzyme, <c>Ov5.compatible_end</c> every
+    /// <c>x</c> with <c>x.is_5overhang() and x % cls</c>, and <c>Ov3.compatible_end</c> every
+    /// <c>x</c> with <c>x.is_3overhang() and x % cls</c>. So the reference answers a non-empty list
+    /// for blunt and 3'-overhang enzymes too, and includes the queried enzyme itself. Measured with
+    /// Biopython 1.88: <c>EcoRV.compatible_end()</c> → 137 enzymes (every blunt cutter),
+    /// <c>PstI.compatible_end()</c> → 13, <c>SacI.compatible_end()</c> → 9,
+    /// <c>EcoRI.compatible_end()</c> → 51 (review 2026-09 B08 H33 — this doc used to claim the
+    /// reference answers the empty list for every blunt and every 3'-overhang enzyme). Note also
+    /// that the reference ignores its own <c>batch</c> argument and always iterates
+    /// <c>AllEnzymes</c>; this overload honours its <c>EnzymeSet</c>.
+    /// </para>
+    /// <para>
+    /// This overload applies no end-class filter of its own and is simply
+    /// <see cref="AreCompatible(RestrictionEnzyme, RestrictionEnzyme)"/> over the chosen table. The
+    /// queried enzyme appears in the result <b>only when it is itself a member of that table</b>:
+    /// <c>FindCompatibleEnzymes("BsaI", EnzymeSet.Common)</c> cannot list BsaI, which is not one of
+    /// the 39 common enzymes, although <c>GetEnzyme</c> resolves it (H33).
+    /// </para>
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/> or empty.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>

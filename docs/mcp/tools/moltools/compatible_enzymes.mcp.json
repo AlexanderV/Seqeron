@@ -66,6 +66,13 @@
             "enzyme2": {
               "type": "string"
             },
+            "end2": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "enzyme2's own end, same convention as compatibleEnd; equal to it except for the 12 REBASE pairs that anneal only through the reverse complement (all GN against CN)."
+            },
             "compatibleEnd": {
               "type": "string",
               "description": "\"blunt\" or the shared overhang sequence."

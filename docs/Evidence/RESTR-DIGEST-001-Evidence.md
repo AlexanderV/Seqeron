@@ -358,14 +358,27 @@ reverse record is the bottom-strand cut.
 `PartialDigest(DnaSequence, MoleculeTopology, int?, IEnumerable<RestrictionEnzyme>)` (eager
 validation: null / empty / null element / non-IUPAC pattern). The collector keys each site by its
 top-strand cut (forward: `CutPosition`; reverse: `CutPosition + CutPositionForward −
-CutPositionReverse`, mod `n` on a circle) and skips a reverse record only when its window also reads
-as the site on the forward strand — Biopython's "one cut per window, forward branch first"
-(`Palindromic._search` searches one strand; `NonPalindromic._search`'s regex alternation takes the
-forward group). The overhang window is read relative to the top-strand cut, which is valid for both
+CutPositionReverse`, mod `n` on a circle) and skips a reverse record only when reading its window
+backwards cleaves the **same bonds** as reading it forwards.
+
+> **Revised by review 2026-09 B08 H7 → slice F101.** The rule used to be Biopython's "one cut per
+> window, forward branch first" (`Palindromic._search` searches one strand; `NonPalindromic._search`
+> takes the forward branch whenever the forward named group matched), i.e. de-duplication by
+> *window*. That loses a physically real cut for the five enzymes whose two strand readings of one
+> window cut different bonds — HauII `TGGCCA`, SgeI `CNNG`, MspJI `CNNR`, LpnPI `CCDG`, SgrTI `CCDS`.
+> EMBOSS 6.6.0 de-duplicates by *cut*: `embPatRestrictScan` (`nucleus/embpat.c`) runs two independent
+> scan loops — forward over `substr`/`binstr`, then `forward = ajFalse` over `revstr`/`binrev` — and
+> afterwards keeps one hit per distinct `cut1`, preferring the forward hit. A palindromic recognition
+> window is bound in either orientation, so for a distal cutter both cuts are real; **EMBOSS is
+> adopted**. Differential against EMBOSS on those 5 enzymes: 44 of 170 rows diverged under the old
+> rule, always a missing cut and never an extra; 0 after. Against Biopython over all 754 enzymes ×
+> 118 molecules (88972 rows): 76 divergences, exactly those 5 enzymes, and in all 76 rows this
+> library is a strict superset — it never misses a cut Biopython reports. The other 749 keep the
+> agreement below unchanged. The overhang window is read relative to the top-strand cut, which is valid for both
 orientations because `crick − watson = CutPositionReverse − CutPositionForward` either way. The
-name-based entry points are unchanged in behaviour (all 39 built-ins are palindromic, so every
-reverse record is skipped exactly as before); `Digest_EnzymeOverload_BuiltInEnzymeRecord_EqualsNameOverload`
-locks that.
+name-based entry points are unchanged in behaviour for the 39 built-ins (all palindromic with
+symmetric cuts, so every reverse record is still skipped);
+`Digest_EnzymeOverload_BuiltInEnzymeRecord_EqualsNameOverload` locks that.
 
 **Differential** (harness described in RESTR-FIND-001 Evidence §2.6; every OneCut enzyme of the
 Biopython 1.88 snapshot as a custom record, both topologies; "before" = the new overloads over the

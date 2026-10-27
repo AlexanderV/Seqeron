@@ -16,7 +16,9 @@ Enumerate pairs of enzymes that produce ligatable ends (the 39 common enzymes, o
 
 Without `enzyme_name`, returns every unordered pair of **distinct** enzymes of `enzyme_set` whose ends can
 be ligated together (default `common`, the 39 enzymes: 64 pairs; `rebase`, the 754 enzymes with a defined
-cut: **27 869** pairs, in table order). Each result carries the shared end (`"blunt"` or the overhang
+cut: **27 869** pairs, in table order). Each result carries the first listed enzyme's end in
+`compatibleEnd` and the second's in `end2` — equal unless the pair anneals only through the reverse
+complement, which is the case for 12 REBASE pairs, all `GN` against `CN` (B08 H30). (`"blunt"` or the overhang
 string). The response is a bounded page: at most `max_pairs` pairs (default 1000, maximum 10 000) from
 `offset`, plus `totalPairs` and `truncated`; the rebase listing takes 28 pages of 1000.
 
@@ -54,7 +56,7 @@ per-enzyme sets agree with the symmetrised `%` operator.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `pairs` | array | Compatible enzyme pairs, each `{enzyme1, enzyme2, compatibleEnd}`. With `enzyme_name` set, `enzyme1` is that enzyme (as given) in every row. |
+| `pairs` | array | Compatible enzyme pairs, each `{enzyme1, enzyme2, compatibleEnd, end2}`, where `compatibleEnd` is `enzyme1`'s own end and `end2` is `enzyme2`'s. With `enzyme_name` set, `enzyme1` is that enzyme (as given) in every row. |
 | `totalPairs` | integer | All-pairs listing only: number of compatible pairs in the whole `enzyme_set`, independent of the page (common 64, rebase 27 869). Omitted with `enzyme_name`. |
 | `truncated` | boolean | All-pairs listing only: `true` when more pairs follow the returned page. Omitted with `enzyme_name`. |
 

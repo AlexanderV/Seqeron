@@ -347,12 +347,32 @@ at the sorted distinct positions. (2) The circular one-pass fold leaves cuts out
 
 ## 3. Deliberate divergences from the oracle
 
-**Circular molecule shorter than the recognition site.** `FormattedSeq.finditer` (L215-228) builds the
-circular search string as `data + data[1:size]` unconditionally, so when `len(seq) < len(site)` the
-molecule is wrapped more than once and a site is reported that cannot physically be present:
-`ClaI.search(Seq("GATC"), linear=False) == [4]` for the 6-bp site `ATCGAT` on a 4-bp circle. This
-library returns no sites when `Length < RecognitionLength`, on either topology. Locked by
-`FindSites_Circular_MoleculeShorterThanSite_ReportsNothing`.
+**Circular molecule shorter than the recognition site (revised by review 2026-09 B08 H6 → slice F100).**
+`FormattedSeq.finditer` (L215-228) builds the circular search string as `data + data[1:size]`, whose
+`data` carries a leading space, so the slice is the molecule's first `size - 1` bases. The paragraph
+that stood here claimed such a reading "wraps the molecule more than once" and that no site can
+physically be present, and the library returned no sites when `Length < RecognitionLength` on either
+topology. **That was wrong on both counts.** On a closed circle the window reads past the origin and
+back into the molecule, so it does exist; and `ATCGAT` on the 4-bp circle `GATC` starts at index 1
+and needs only two bases past the origin — exactly Biopython's own one-pass extension. The length
+guard is now scoped to linear topology, and the circular search repeats the molecule to `n + len - 1`
+bases. All 9 enzyme/molecule rows that the round-4 72384-row differential had left unexplained now
+agree with Biopython exactly (BsiWI/Pfl23II/PspLI/SplI on `ACGT` → cut 2; MslI/DrdV/RseI/SmiMI on
+`ACATGA` → 0; AlfI on `TATTGCAAAA` → 4, 8), and a 63336-row re-run (754 REBASE enzymes × 84
+molecules) shows 0 divergences at every length that can hold the site.
+
+The remaining divergence is the other way round and is a **superset**: Biopython's `data[1:size]`
+slice truncates to the molecule, so for `n < len` it can only reach start indices
+`0 .. n + min(n, len-1) - len` and never tests the rest, although those windows are physically
+present on the circle. 44 of the 63336 rows, all at `n < len`. Example:
+`Bio.Restriction.SnaBI.search(Seq("ACGT"), linear=False) == []`, while `TACGTA` is the window at
+start 3 of the circle and this library reports it with cut 2. EMBOSS `restrict -plasmid` reports
+nothing at all for `n < len` (checked on all three molecules above), so it does not arbitrate; it
+agrees with Biopython on an ordinary wrap (`ACGAAAAAAACGT` + BsiWI → EMBOSS `5prime = 11`,
+Biopython `[12]` 1-based). Locked by
+`FindSites_Circular_MoleculeShorterThanSite_FindsTheWrappedSite`,
+`Digest_Circular_MoleculeShorterThanSite_MatchesBiopython` and
+`FindSites_Circular_ShortMolecule_ReportsWindowsBiopythonTruncatesAway`.
 
 **Non-IUPAC character under a site `N` (D3).** Biopython's `.` matches any letter `FormattedSeq`
 keeps, so `SfiI.search(Seq("GGCCXXXXXGGCC")) == [9]`. This library lets a site `N` match only the 15
