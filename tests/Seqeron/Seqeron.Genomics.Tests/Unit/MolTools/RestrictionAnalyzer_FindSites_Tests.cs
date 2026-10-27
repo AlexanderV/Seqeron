@@ -1093,17 +1093,115 @@ public class RestrictionAnalyzer_FindSites_Tests
     }
 
     /// <summary>
-    /// Documented divergence from the oracle: a recognition site longer than the molecule cannot
-    /// be present, so no site is reported. Biopython pads a circular sequence with
-    /// `data[1:size]` unconditionally and therefore wraps a short molecule more than once —
-    /// Bio.Restriction.ClaI.search(Seq("GATC"), linear=False) == [4] for the 6-bp site ATCGAT
-    /// on a 4-bp circle. This library refuses that reading.
+    /// A recognition site longer than the molecule still occurs on a circle: the window reads past
+    /// the origin and back in. The pre-H6 code applied the linear length guard before the topology
+    /// dispatch and answered "no sites", with a comment claiming such a reading wraps the molecule
+    /// "more than once" — ATCGAT on the 4-bp circle GATC starts at index 1 and needs only two bases
+    /// past the origin, exactly Biopython's own <c>data + data[1:size]</c> extension.
+    /// Reference: Bio.Restriction.ClaI.search(Seq("GATC"), linear=False) == [4] (1-based), i.e. the
+    /// 0-based top-strand bond 3 (ClaI = AT^CGAT, so the site starts at 1 and cuts at 1 + 2).
+    /// Measured with Biopython 1.88 (review 2026-09 B08 H6).
     /// </summary>
     [Test]
-    public void FindSites_Circular_MoleculeShorterThanSite_ReportsNothing()
+    public void FindSites_Circular_MoleculeShorterThanSite_FindsTheWrappedSite()
     {
-        RestrictionAnalyzer.FindSites(new DnaSequence("GATC"), "ClaI", MoleculeTopology.Circular)
-            .Should().BeEmpty("a 6-bp recognition site cannot occur on a 4-bp circle");
+        var sites = RestrictionAnalyzer
+            .FindSites(new DnaSequence("GATC"), "ClaI", MoleculeTopology.Circular)
+            .Where(s => s.IsForwardStrand)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1), "ATCGAT occurs once on the 4-bp circle GATC");
+            Assert.That(sites[0].Position, Is.EqualTo(1), "the window starts one base past the origin");
+            Assert.That(sites[0].RecognizedSequence, Is.EqualTo("ATCGAT"));
+            Assert.That(sites[0].CutPosition, Is.EqualTo(3),
+                "Biopython ClaI.search(Seq(\"GATC\"), linear=False) == [4] (1-based)");
+        });
+        Assert.That(RestrictionAnalyzer.FindSites(new DnaSequence("GATC"), "ClaI").ToList(), Is.Empty,
+            "the linear molecule is still too short to hold the site");
+    }
+
+    /// <summary>
+    /// The five enzyme/molecule rows H6 names: the only unexplained rows of a 72384-row Biopython
+    /// digest differential before the fix, where Seqeron reported no site at all.
+    /// Numbers are Bio.Restriction &lt;enzyme&gt;.search(Seq(molecule), linear=False) under
+    /// Biopython 1.88, converted from its 1-based "first base of the 3' fragment" to the 0-based
+    /// top-strand bond this library reports, and reduced modulo the molecule length (Biopython's
+    /// circular <c>_drop</c> normalises only a prefix/suffix of its own result list, so it can
+    /// return 13 for a 6-mer). Measured post-fix over all 754 REBASE enzymes × 84 molecules:
+    /// 0 divergences at every length that can hold the site (review 2026-09 B08 H6).
+    /// </summary>
+    [TestCase("ACGT", "BsiWI", new[] { 2 })]
+    [TestCase("ACGT", "Pfl23II", new[] { 2 })]
+    [TestCase("ACGT", "PspLI", new[] { 2 })]
+    [TestCase("ACGT", "SplI", new[] { 2 })]
+    [TestCase("ACATGA", "MslI", new[] { 0 })]
+    [TestCase("ACATGA", "DrdV", new[] { 0 })]
+    [TestCase("ACATGA", "RseI", new[] { 0 })]
+    [TestCase("ACATGA", "SmiMI", new[] { 0 })]
+    [TestCase("TATTGCAAAA", "AlfI", new[] { 4, 8 })]
+    public void Digest_Circular_MoleculeShorterThanSite_MatchesBiopython(
+        string molecule, string enzymeName, int[] expectedCuts)
+    {
+        var enzyme = RestrictionAnalyzer.GetEnzyme(enzymeName);
+        Assert.That(enzyme, Is.Not.Null, $"{enzymeName} is a REBASE enzyme with a defined cut");
+        Assert.That(molecule.Length, Is.LessThan(enzyme!.RecognitionSequence.Length),
+            "the row exists precisely because the molecule is shorter than the recognition sequence");
+
+        var sites = RestrictionAnalyzer
+            .FindSites(new DnaSequence(molecule), MoleculeTopology.Circular, [enzyme])
+            .ToList();
+        Assert.That(sites, Is.Not.Empty, "the wrapped window is found");
+
+        var cuts = RestrictionAnalyzer
+            .Digest(new DnaSequence(molecule), MoleculeTopology.Circular, [enzyme])
+            .Select(f => f.StartPosition)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToList();
+
+        Assert.That(cuts, Is.EqualTo(expectedCuts),
+            $"Biopython 1.88 {enzymeName}.search(Seq(\"{molecule}\"), linear=False) reduced mod {molecule.Length}");
+    }
+
+    /// <summary>
+    /// Where the fix is a strict superset of Biopython: a window that needs more than one extra
+    /// turn around the circle. Biopython's extension is <c>data + data[1:size]</c>, whose slice
+    /// silently truncates to the molecule, so on the 4-bp circle ACGT it can only reach start
+    /// indices 0..2 and never tests index 3 — yet SnaBI's TACGTA is the window at index 3 and is
+    /// physically present on the circle. Measured: Bio.Restriction.SnaBI.search(Seq("ACGT"),
+    /// linear=False) == [] with Biopython 1.88 (review 2026-09 B08 H6, F100).
+    /// </summary>
+    [Test]
+    public void FindSites_Circular_ShortMolecule_ReportsWindowsBiopythonTruncatesAway()
+    {
+        var sites = RestrictionAnalyzer
+            .FindSites(new DnaSequence("ACGT"), "SnaBI", MoleculeTopology.Circular)
+            .Where(s => s.IsForwardStrand)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Position, Is.EqualTo(3), "the window Biopython's truncated slice cannot reach");
+            Assert.That(sites[0].RecognizedSequence, Is.EqualTo("TACGTA"));
+            Assert.That(sites[0].CutPosition, Is.EqualTo(2), "TAC^GTA, so 3 + 3 reduced mod 4");
+        });
+    }
+
+    /// <summary>
+    /// The empty molecule has no window on either topology, so the circular branch keeps the
+    /// guard the H6 fix removed for every non-empty length.
+    /// </summary>
+    [Test]
+    public void FindSites_Circular_EmptyMolecule_ReportsNothing()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.FindSites("", "EcoRI", MoleculeTopology.Circular), Is.Empty);
+            Assert.That(RestrictionAnalyzer.FindSites("", "EcoRI", MoleculeTopology.Linear), Is.Empty);
+        });
     }
 
     /// <summary>

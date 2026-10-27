@@ -549,12 +549,15 @@ public static partial class RestrictionAnalyzer
         string pattern = ValidatedPattern(enzyme.RecognitionSequence, nameof(enzyme), enzyme.Name);
         ValidateSecondCut(enzyme, nameof(enzyme));
 
-        if (seq.Length < pattern.Length)
-            return [];
+        // A linear molecule shorter than the recognition sequence holds no window at all, but a
+        // circular one does: the window reads past the origin and back into the molecule. The
+        // length guard is therefore scoped to linear topology; on a circle only an empty molecule
+        // has no window (review 2026-09 B08 H6 — the guard used to run before the dispatch, so
+        // `FindSites("ACGT", "BsiWI", Circular)` answered no sites where Biopython cuts at 2).
+        if (topology == MoleculeTopology.Circular)
+            return seq.Length == 0 ? [] : FindSitesCircular(seq, enzyme, pattern, blocked);
 
-        return topology == MoleculeTopology.Circular
-            ? FindSitesCircular(seq, enzyme, pattern, blocked)
-            : FindSitesLinear(seq, enzyme, pattern, blocked);
+        return seq.Length < pattern.Length ? [] : FindSitesLinear(seq, enzyme, pattern, blocked);
     }
 
     /// <summary>
@@ -657,7 +660,7 @@ public static partial class RestrictionAnalyzer
         // index is therefore considered exactly once, for 0 <= i < n. A distal (Type IIS) cut
         // offset can be negative or exceed the length, so every cut is reduced with a
         // non-negative modulo into [0, n) (review 2026-09 B08 F54).
-        string extended = seq + seq[..(len - 1)];
+        string extended = WrapExtend(seq, n + len - 1);
         for (int i = 0; i < n; i++)
         {
             if (!MatchesPatternAt(extended, i, pattern) || MethylationMask.IsBlocked(blocked, i, len))
@@ -675,7 +678,7 @@ public static partial class RestrictionAnalyzer
         }
 
         string revComp = DnaSequence.GetReverseComplementString(seq);
-        string revExtended = revComp + revComp[..(len - 1)];
+        string revExtended = WrapExtend(revComp, n + len - 1);
         for (int i = 0; i < n; i++)
         {
             if (!MatchesPatternAt(revExtended, i, pattern) || MethylationMask.IsBlocked(blocked, Modulo(n - i - len, n), len))
@@ -693,6 +696,38 @@ public static partial class RestrictionAnalyzer
                     RecognizedSequence: revExtended.Substring(i, len)) { IsSecondCut = second };
             }
         }
+    }
+
+    /// <summary>
+    /// The molecule written out to <paramref name="totalLength"/> bases by repeating it, so that
+    /// every start index in <c>[0, seq.Length)</c> has a full recognition-length window available
+    /// past the origin.
+    /// </summary>
+    /// <remarks>
+    /// For a molecule at least <c>len - 1</c> bases long this is exactly Biopython's circular
+    /// extension <c>data + data[1:size]</c> (<c>FormattedSeq.finditer</c>, whose <c>data</c> carries
+    /// a leading space, so the slice is the molecule's first <c>size - 1</c> bases). Biopython's
+    /// slice silently truncates on a shorter molecule, which drops the windows that need more than
+    /// one turn around the circle; repeating instead keeps all <c>n</c> start indices searchable
+    /// (review 2026-09 B08 H6). The divergence is reported under
+    /// <c>docs/Validation/review-2026-09/B08-restriction-slice.md</c> F100: on circular <c>ACGT</c>
+    /// Biopython finds <c>BsiWI</c> (cut 2) but not <c>SnaBI</c>, whose window <c>TACGTA</c> at
+    /// start 3 is physically present on the circle.
+    /// </remarks>
+    private static string WrapExtend(string seq, int totalLength)
+    {
+        if (seq.Length >= totalLength)
+            return seq[..totalLength];
+
+        return string.Create(totalLength, seq, static (span, molecule) =>
+        {
+            for (int written = 0; written < span.Length;)
+            {
+                int take = Math.Min(molecule.Length, span.Length - written);
+                molecule.AsSpan(0, take).CopyTo(span[written..]);
+                written += take;
+            }
+        });
     }
 
     /// <summary>The non-negative remainder of <paramref name="value"/> modulo <paramref name="n"/>.</summary>
