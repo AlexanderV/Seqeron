@@ -16,8 +16,9 @@ namespace Seqeron.Genomics.Tests.Unit.MolTools;
 /// values are reference × 100.
 ///
 /// IMPORTANT faithfulness note: this is the reproducible LINEAR model (Rule Set 1). Doench
-/// "Rule Set 2" / Azimuth is a gradient-boosted-tree model and is intentionally NOT implemented
-/// (it cannot be reproduced from published numbers without the trained model).
+/// "Rule Set 2" / Azimuth is a gradient-boosted-tree model; it is implemented separately as
+/// <see cref="CrisprDesigner.CalculateOnTargetRuleSet2(string)"/> (reproduced from Microsoft Research's Azimuth
+/// <c>V3_model_nopos</c> / <c>V3_model_full</c> and tested in <c>CrisprDesigner_RuleSet2_Tests</c>, B08 H1/H39).
 /// </summary>
 [TestFixture]
 public class CrisprDesigner_Doench2014_Tests

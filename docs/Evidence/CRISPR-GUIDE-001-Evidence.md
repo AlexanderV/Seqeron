@@ -25,6 +25,12 @@
 2. **Cas12a/Cpf1 cleavage position.** Staggered cut "after the 18th base on the non-targeted strand which has
    the TTTV PAM motif" (Zetsche et al. 2015, Cell 163:759, Fig. 3). → forward `Position + pamLen + 18`,
    reverse `Position - 19`.
+   **CasX cleavage position (B08 round 4, H38).** Liu et al. 2019, *Nature* 566:218-223 (PMC6662743, opened via
+   Europe PMC full text): CasX (Cas12e, PAM `TTCN`, 5' of the protospacer) cleaves "12–14 nucleotides after the PAM
+   on the non-target strand and 22–25 nucleotides after the PAM on the target strand". `CrisprSystem.CutOffset` = 13,
+   the midpoint of the non-target-strand window; forward `Position + pamLen + 13`, reverse `Position - 14`. CRISPOR has
+   no CasX cut (`crispor.py` L1567: "We have no description yet"), so this rests on the paper alone, and the choice of the
+   midpoint of a 12–14 range is this library's. CasX used Cas12a's 18 before round 4, a value the paper contradicts.
 3. **Rule Set 2 context window.** `crisporEffScores.calcAllScores` builds the Doench-2016 input with
    `trimSeqs(seqs, -24, 6)` around the PAM start = 4 nt 5' flank + 20-nt protospacer + 3-nt NGG PAM + 3 nt
    3' flank (30 nt, protospacer strand); windows containing N are not scored.

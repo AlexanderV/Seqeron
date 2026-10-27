@@ -1,10 +1,13 @@
 # Evidence Artifact: CRISPR-OFF-001
 
 **Test Unit ID:** CRISPR-OFF-001
-**Algorithm:** Off-target analysis (`CrisprDesigner.FindOffTargets`, `CalculateSpecificityScore`,
-`CalculateMitHitScore`, `CalculateMitSpecificityScore` (both overloads), `CalculateSaCas9HitScore`,
-`CalculateCfdScore`, `CalculateCfdSpecificityScore` (both overloads), `CfdAggregation`)
-**Date Collected:** 2026-10-14 (campaign `docs/Validation/review-2026-09`, batch B08)
+**Algorithm:** Off-target analysis (`CrisprDesigner.FindOffTargets`, `FindOffTargetsWithBulges` (`BulgedOffTargetSite`,
+`BulgeType`), `FindOffTargetsWithPam` (`PamAnnotatedOffTarget`), `GetAlternativeOffTargetPams`, `CalculateSpecificityScore` /
+`CalculateHeuristicSpecificityScore`, `CalculateMitHitScore`, `CalculateMitSpecificityScore` (three overloads, with
+`onTargetStart` / `onTargetEnd` / `maxOccurrences`), `CalculateMitSpecificityScoreWithAlternativePams`,
+`CalculateSaCas9HitScore`, `CalculateCfdScore`, `CalculateCfdSpecificityScore` (both overloads),
+`CalculateCfdSpecificityScoreWithAlternativePams`, `CfdAggregation`)
+**Date Collected:** 2026-10-14 (campaign `docs/Validation/review-2026-09`, batch B08); surface list refreshed 2026-10-27 (round 4, H43)
 
 ---
 

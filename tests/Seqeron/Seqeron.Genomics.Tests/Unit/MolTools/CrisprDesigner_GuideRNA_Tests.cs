@@ -451,8 +451,7 @@ public class CrisprDesigner_GuideRNA_Tests
         Assert.That(result.Score, Is.EqualTo(0));
         var gcTermOff = CrisprDesigner.EvaluateGuideRna("GCGCGCGCGCGCGCGCGCGC", CrisprSystemType.SpCas9,
             GuideRnaParameters.Default with { ScoreGcContent = false });
-        Assert.That(gcTermOff.Score, Is.EqualTo(100 - 11 * CrisprDesigner.SelfComplementarityStemPenalty));
-        Assert.That(gcTermOff.Score, Is.EqualTo(89), "CHOPCHOP default (GC term off): 100 - 11 stems");
+        Assert.That(gcTermOff.Score, Is.EqualTo(89), "CHOPCHOP default (GC term off): 100 - 11 stems x SCORE['FOLDING'] = 1");
         Assert.That(result.Issues, Has.Some.Contains("11 self-complementary 4-bp stems"));
 
         // The 8-mer is no SpCas9 guide (EvaluateGuideRna enforces the system's 20 nt, H17), so the stem count and the
@@ -1179,8 +1178,12 @@ public class CrisprDesigner_GuideRNA_Tests
 
         Assert.That(on.SelfComplementaryStems, Is.EqualTo(stems));
         Assert.That(bb.SelfComplementaryStems, Is.EqualTo(stemsWithBackbone));
-        Assert.That(on.Score, Is.EqualTo(none.Score - stems));
-        Assert.That(bb.Score, Is.EqualTo(none.Score - stemsWithBackbone), "the backbone stems are penalised too");
+        // Literal rows (B08 H54): without the stem term nothing is deducted (GC window 0..100, poly-T off), and each
+        // stem costs SCORE['FOLDING'] = 1 of CHOPCHOP's penalty sum; a difference against the production score
+        // would pass for any weight.
+        Assert.That(none.Score, Is.EqualTo(100));
+        Assert.That(on.Score, Is.EqualTo(100 - stems));
+        Assert.That(bb.Score, Is.EqualTo(100 - stemsWithBackbone), "the backbone stems are penalised too");
     }
 
     /// <summary>

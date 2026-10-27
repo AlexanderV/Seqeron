@@ -38,6 +38,28 @@ public class CrisprSystemInfoTests
             Assert.That(cas12a.PamSequence, Is.EqualTo("TTTV"));
             Assert.That(cas12a.GuideLength, Is.EqualTo(23));
             Assert.That(cas12a.PamAfterTarget, Is.False);
+
+            // cutOffset: 3 bp 5' of the PAM (Cas9 type), after the 18th base (Cas12a), 13 nt after the PAM (CasX, Liu 2019).
+            Assert.That(sp.CutOffset, Is.EqualTo(3));
+            Assert.That(sa.CutOffset, Is.EqualTo(3));
+            Assert.That(cas12a.CutOffset, Is.EqualTo(18));
+            Assert.That(MolToolsTools.crispr_system_info(CrisprSystemType.CasX).CutOffset, Is.EqualTo(13));
         });
+    }
+
+    [TestCase(CrisprSystemType.SpCas9, "Streptococcus pyogenes Cas9")]
+    [TestCase(CrisprSystemType.SpCas9_NGA, "SpCas9 with NGA PAM (alternative off-target PAM of NGG, Kleinstiver 2015)")]
+    [TestCase(CrisprSystemType.CasX, "CasX - compact Cas protein")]
+    public void CrisprSystemInfo_Description_IsReturned(CrisprSystemType type, string description)
+    {
+        Assert.That(MolToolsTools.crispr_system_info(type).Description, Is.EqualTo(description));
+    }
+
+    /// <summary>The documented error (docs/mcp/tools/moltools/crispr_system_info.md): an enum value outside the nine systems.</summary>
+    [Test]
+    public void CrisprSystemInfo_UnknownSystem_ThrowsArgumentException()
+    {
+        var e = Assert.Throws<ArgumentException>(() => MolToolsTools.crispr_system_info((CrisprSystemType)999));
+        Assert.That(e!.Message, Does.Contain("Unknown CRISPR system"));
     }
 }

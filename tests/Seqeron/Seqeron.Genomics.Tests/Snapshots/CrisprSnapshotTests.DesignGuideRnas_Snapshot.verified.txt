@@ -1,8 +1,10 @@
 ﻿{
+  Count: 2,
   Guides: [
     {
       Sequence: TACGTACGTACGTACGTACG,
       Position: 79,
+      IsForwardStrand: true,
       GcContent: 50.0,
       Score: 90.0,
       HasPolyT: false
@@ -10,6 +12,7 @@
     {
       Sequence: ACGTACGTACGTACGTACGT,
       Position: 80,
+      IsForwardStrand: true,
       GcContent: 50.0,
       Score: 90.0,
       HasPolyT: false

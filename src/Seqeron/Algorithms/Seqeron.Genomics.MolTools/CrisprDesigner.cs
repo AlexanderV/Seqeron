@@ -8,22 +8,34 @@ public static class CrisprDesigner
 {
     #region PAM Definitions
 
+    // Distance of the predicted cut from the PAM, in protospacer bases (CrisprSystem.CutOffset).
+    // Cas9-type (PAM 3' of the protospacer): blunt cut 3 bp 5' of the PAM (CRISPOR: "the expected cleavage position located
+    // -3bp 5' of the PAM site"). Cas12a-type: after the 18th base on the non-target (PAM-bearing) strand (Zetsche et al.
+    // 2015, Fig. 3, as CRISPOR describes it). CasX: Liu et al. 2019, Nature 566:218 (PMC6662743, fetched 2026-10-27): "cleavage
+    // 12-14 nucleotides after the PAM on the non-target strand and 22-25 nucleotides after the PAM on the target strand";
+    // 13 is the midpoint of the reported non-target-strand range. CRISPOR itself states "We have no description yet on how
+    // exactly the CasX cleavage looks like" (crispor.py L1567), so this is the one convention here that rests on the primary
+    // paper alone.
+    private const int Cas9CutOffset = 3;
+    private const int Cas12aCutOffset = 18;
+    private const int CasXCutOffset = 13;
+
     /// <summary>
     /// Gets the PAM sequence for a specific CRISPR system.
     /// </summary>
     public static CrisprSystem GetSystem(CrisprSystemType type) => type switch
     {
-        CrisprSystemType.SpCas9 => new CrisprSystem("SpCas9", "NGG", 20, true, "Streptococcus pyogenes Cas9"),
-        CrisprSystemType.SpCas9_NAG => new CrisprSystem("SpCas9-NAG", "NAG", 20, true, "SpCas9 with NAG PAM (lower activity)"),
-        CrisprSystemType.SaCas9 => new CrisprSystem("SaCas9", "NNGRRT", 21, true, "Staphylococcus aureus Cas9"),
+        CrisprSystemType.SpCas9 => new CrisprSystem("SpCas9", "NGG", 20, true, "Streptococcus pyogenes Cas9", Cas9CutOffset),
+        CrisprSystemType.SpCas9_NAG => new CrisprSystem("SpCas9-NAG", "NAG", 20, true, "SpCas9 with NAG PAM (lower activity)", Cas9CutOffset),
+        CrisprSystemType.SaCas9 => new CrisprSystem("SaCas9", "NNGRRT", 21, true, "Staphylococcus aureus Cas9", Cas9CutOffset),
         // CRISPOR (setupPamInfo L492-496) uses GUIDELEN = 23 for every Cpf1 PAM and does not tell AsCas12a from LbCas12a;
         // the three aliases therefore share the PAM and the 23-nt spacer, so one genomic site yields one protospacer.
-        CrisprSystemType.Cas12a => new CrisprSystem("Cas12a/Cpf1", "TTTV", 23, false, "Cas12a (Cpf1) - PAM before target"),
-        CrisprSystemType.AsCas12a => new CrisprSystem("AsCas12a", "TTTV", 23, false, "Acidaminococcus sp. Cas12a"),
-        CrisprSystemType.LbCas12a => new CrisprSystem("LbCas12a", "TTTV", 23, false, "Lachnospiraceae bacterium Cas12a"),
-        CrisprSystemType.CasX => new CrisprSystem("CasX", "TTCN", 20, false, "CasX - compact Cas protein"),
-        CrisprSystemType.SpCas9_NGA => new CrisprSystem("SpCas9-NGA", "NGA", 20, true, "SpCas9 with NGA PAM (alternative off-target PAM of NGG, Kleinstiver 2015)"),
-        CrisprSystemType.SaCas9_NNGRRN => new CrisprSystem("SaCas9-NNGRRN", "NNGRRN", 21, true, "SaCas9 with relaxed NNGRRN PAM (alternative off-target PAM of NNGRRT)"),
+        CrisprSystemType.Cas12a => new CrisprSystem("Cas12a/Cpf1", "TTTV", 23, false, "Cas12a (Cpf1) - PAM before target", Cas12aCutOffset),
+        CrisprSystemType.AsCas12a => new CrisprSystem("AsCas12a", "TTTV", 23, false, "Acidaminococcus sp. Cas12a", Cas12aCutOffset),
+        CrisprSystemType.LbCas12a => new CrisprSystem("LbCas12a", "TTTV", 23, false, "Lachnospiraceae bacterium Cas12a", Cas12aCutOffset),
+        CrisprSystemType.CasX => new CrisprSystem("CasX", "TTCN", 20, false, "CasX - compact Cas protein", CasXCutOffset),
+        CrisprSystemType.SpCas9_NGA => new CrisprSystem("SpCas9-NGA", "NGA", 20, true, "SpCas9 with NGA PAM (alternative off-target PAM of NGG, Kleinstiver 2015)", Cas9CutOffset),
+        CrisprSystemType.SaCas9_NNGRRN => new CrisprSystem("SaCas9-NNGRRN", "NNGRRN", 21, true, "SaCas9 with relaxed NNGRRN PAM (alternative off-target PAM of NNGRRT)", Cas9CutOffset),
         _ => throw new ArgumentException($"Unknown CRISPR system: {type}")
     };
 
@@ -510,17 +522,26 @@ public static class CrisprDesigner
     /// 2015, Cell 163:759, Fig. 3, as described by CRISPOR). The returned coordinate is the 19th
     /// protospacer base: <c>Position + pamLength + 18</c> (forward) and <c>Position - 19</c> (reverse).
     /// </description></item>
+    /// <item><description>CasX (PAM 5', <c>TTCN</c>) cuts the non-target (PAM-bearing) strand "12-14 nucleotides after
+    /// the PAM" and the target strand "22-25 nucleotides after the PAM" (Liu et al. 2019, Nature 566:218; PMC6662743).
+    /// The non-target-strand midpoint, 13, is used: <c>Position + pamLength + 13</c> (forward) and <c>Position - 14</c>
+    /// (reverse). CRISPOR draws no CasX cut ("We have no description yet", crispor.py L1567), so this system rests on
+    /// the paper alone. It decides which CasX guides <see cref="DesignGuideRnas"/> returns for a region.
+    /// </description></item>
     /// </list>
+    /// All offsets are <see cref="CrisprSystem.CutOffset"/>; the formulas are <c>Position - c</c> / <c>Position + pamLength + c - 1</c>
+    /// for PAM-after systems and <c>Position + pamLength + c</c> / <c>Position - c - 1</c> for PAM-before systems.
     /// </remarks>
     public static int GetCutSite(PamSite pamSite)
     {
         ArgumentNullException.ThrowIfNull(pamSite);
         int pamLength = pamSite.PamSequence.Length;
+        int cut = pamSite.System.CutOffset;
 
         if (pamSite.System.PamAfterTarget)
-            return pamSite.IsForwardStrand ? pamSite.Position - 3 : pamSite.Position + pamLength + 2;
+            return pamSite.IsForwardStrand ? pamSite.Position - cut : pamSite.Position + pamLength + cut - 1;
 
-        return pamSite.IsForwardStrand ? pamSite.Position + pamLength + 18 : pamSite.Position - 19;
+        return pamSite.IsForwardStrand ? pamSite.Position + pamLength + cut : pamSite.Position - cut - 1;
     }
 
     private static bool IsInRegion(PamSite pamSite, int regionStart, int regionEnd)
@@ -2887,12 +2908,23 @@ public enum CrisprSystemType
 /// <summary>
 /// Represents a CRISPR system with its characteristics.
 /// </summary>
+/// <param name="Name">Display name.</param>
+/// <param name="PamSequence">PAM motif, IUPAC.</param>
+/// <param name="GuideLength">Protospacer / spacer length in nt.</param>
+/// <param name="PamAfterTarget">True when the PAM is 3' of the protospacer (Cas9-type), false when 5' (Cas12a / CasX).</param>
+/// <param name="Description">Human description.</param>
+/// <param name="CutOffset">
+/// Distance of the predicted cut from the PAM, in protospacer bases, on the PAM-bearing strand: 3 for the Cas9-type
+/// systems (blunt cut 3 bp 5' of the PAM), 18 for Cas12a (after the 18th base), 13 for CasX (the midpoint of the 12-14
+/// reported by Liu et al. 2019). Used by <see cref="CrisprDesigner.GetCutSite"/>.
+/// </param>
 public sealed record CrisprSystem(
     string Name,
     string PamSequence,
     int GuideLength,
     bool PamAfterTarget,
-    string Description);
+    string Description,
+    int CutOffset);
 
 /// <summary>
 /// Represents a PAM site in a sequence.

@@ -1,9 +1,11 @@
 # Validation Report: CRISPR-OFF-001 — CRISPR Off-Target Analysis (MIT/Hsu 2013 model)
 
+> **Round-4 note (B08 H42, 2026-10-27):** the line anchors this report used (`CrisprDesigner.cs:654-658`, `672-717`, `611-615`, `607-721`, `629-674`) had drifted with every edit of the file and were replaced by member names; `CalculateOffTargetScore` is a private helper, not public surface. The MIT surface has since grown (three `CalculateMitSpecificityScore` overloads, `onTargetStart`/`onTargetEnd`, `FindOffTargetsWithBulges`, `FindOffTargetsWithPam`, `...WithAlternativePams`, `GetAlternativeOffTargetPams`, `BulgedOffTargetSite`, `BulgeType`, `PamAnnotatedOffTarget`); it is specified in `TestSpecs/CRISPR-OFF-001.md`.
+>
 > **Independent re-confirmation 2026-06-24 (fresh validator context).** Re-downloaded `crispor.py`
 > from `maximilianh/crisporWebsite` (master, 8956 lines) and read `hitScoreM`/`calcHitScore`/
 > `calcMitGuideScore` directly. W vector confirmed 20/20 identical to the C# `MitHitScoreWeights`
-> (`CrisprDesigner.cs:654-658`). C# `CalculateMitHitScore` (lines 672-717) realises `calcHitScore`
+> (`CrisprDesigner.MitHitScoreWeights`). C# `CalculateMitHitScore` realises `calcHitScore`
 > verbatim (maxDist=19; mmCount<2→score2=1; mmCount==0→score3=1; ×100). Re-derived all cross-check
 > values in Python from the freshly-downloaded reference (not the C# array): perfect→100, mm@0(W=0)→100,
 > mm@5→60.5, mm@13(W=0.851)→14.9, mm@19→41.7, mm@{5,15}→0.8987, agg[60.5]→62.30529595,
@@ -15,8 +17,8 @@
 - **Canonical method(s):** `CrisprDesigner.CalculateMitHitScore(string guide20, string offTarget20)` (single-hit),
   `CrisprDesigner.CalculateMitSpecificityScore(IEnumerable<double>)` and the genome-scanning overload
   `CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)` (aggregate).
-  (Pre-existing honest-heuristic `FindOffTargets` / `CalculateSpecificityScore` / `CalculateOffTargetScore`
-  unchanged; this Phase-3 re-validation is scoped to the MIT/Hsu enhancement added in commit 129c2ca.)
+  (Pre-existing honest-heuristic `FindOffTargets` / `CalculateSpecificityScore` and the private helper
+  `CalculateOffTargetScore` unchanged; this Phase-3 re-validation is scoped to the MIT/Hsu enhancement added in commit 129c2ca.)
 - **Stage A verdict:** PASS
 - **Stage B verdict:** PASS
 - **End-state:** ✅ CLEAN (no defect; uncommitted in-tree orientation test verified source-correct and committed)
@@ -51,7 +53,7 @@ Reference `hitScoreM` (CRISPOR, transcribing crispr.mit.edu / Hsu 2013):
 [0, 0, 0.014, 0, 0, 0.395, 0.317, 0, 0.389, 0.079, 0.445, 0.508, 0.613, 0.851, 0.732, 0.828, 0.615, 0.804, 0.685, 0.583]
 ```
 
-Code `MitHitScoreWeights` (`CrisprDesigner.cs:611-615`): **identical, all 20 elements** —
+Code `CrisprDesigner.MitHitScoreWeights`: **identical, all 20 elements** —
 index 0..19 = `0,0,0.014,0,0,0.395,0.317,0,0.389,0.079,0.445,0.508,0.613,0.851,0.732,0.828,0.615,0.804,0.685,0.583`.
 No transcription error.
 
@@ -95,11 +97,11 @@ primary source and reference implementation; all worked numbers reproduced indep
 
 ## Stage B — Implementation
 
-- **Code path:** `CrisprDesigner.cs:607-721` (`MitHitScoreWeights`, `CalculateMitHitScore`,
+- **Code path:** `CrisprDesigner.cs` (`MitHitScoreWeights`, `CalculateMitHitScore`,
   `CalculateMitSpecificityScore` ×2).
-- **Formula realised correctly:** `CalculateMitHitScore` (lines 629-674) implements score1/score2/score3
+- **Formula realised correctly:** `CalculateMitHitScore` implements score1/score2/score3
   exactly as `calcHitScore`, with `maxDist=19`, the `mmCount<2`→score2=1 and `mmCount==0`→score3=1
-  special-cases, and `×100`. `CalculateMitSpecificityScore(IEnumerable<double>)` (688-693) implements
+  special-cases, and `×100`. `CalculateMitSpecificityScore(IEnumerable<double>)` implements
   `100/(100+Σ)·100`. The genome overload (705-721) reuses `FindOffTargets` (off-targets only; exact
   on-target excluded) and combines per-hit scores. All recomputed values match the C# output
   (39/39 off-target tests pass).

@@ -126,6 +126,9 @@
 | S-012 | `DesignGuideRnas_ReverseStrandGuide_CutSiteInRegion_IsDesigned` | "CCA"+ACGT×10, whole region | reverse site Pos=0, TargetStart=3, `GetCutSite`=5; 1 guide, Pos=3, reverse (F3, CRISPOR −3 bp 5' of PAM) | ✅ |
 | S-013 | `DesignGuideRnas_ReverseStrandGuide_CutSiteOutsideRegion_IsExcluded` | same, regions [6,30], [0,4], [5,5] | empty, empty, exactly 1 (F3 region boundary) | ✅ |
 | S-014 | `GetCutSite_FollowsCrisporConventionOnBothStrands` | SpCas9 ±, Cas12a ± PamSites at 40 | 37 / 45 / 62 / 21 (F3: Cas9 `Position−3` / `Position+pamLen+2`; Cas12a `Position+pamLen+18` / `Position−19`) | ✅ |
+| S-014b | `GetCutSite_EveryMember_FollowsItsConvention_OnBothStrands` (`CrisprDesigner_Systems_Tests`, 9 cases) | a PamSite at 40 per system, both strands | PAM-after: 37 / 40+pamLen+2; Cas12a family: 40+pamLen+18 / 21; CasX: 40+4+13=57 / 26 (H38, H51; Liu 2019) | ✅ |
+| S-014c | `DesignGuideRnas_EveryMember_IncludesAGuideExactlyWhenItsCutSiteIsInTheRegion` (9 cases) | region = the cut base / ending one before / starting one after | exactly 1 guide / none / none, per system (H51) | ✅ |
+| S-014d | `GetSystem_EveryMember_IsPinned`, `GetSystem_CoversEveryEnumValue_AndRejectsAnUnknownOne` | all nine systems | Name, PAM, GuideLength, PamAfterTarget, `CutOffset` (3 / 18 / 13) and `Description` verbatim; `(CrisprSystemType)999` → `ArgumentException` "Unknown CRISPR system" (H44, H50) | ✅ |
 | S-015 | `DesignGuideRnas_Output_IsRankedByScoreDescending` | 4 PAMs: 100 (50 % GC, 0 stems) / 95 (5 stems) / 90 (10 stems) / all-T (GC outside window) | Scores [100, 95, 90]; the all-T guide is excluded by the GC filter (F5, CRISPOR `mergeGuideInfo` sort; H8) | ✅ |
 | S-016 | `DesignGuideRnas_KeepsTheRequestedSystemMetadata` | LbCas12a target | System LbCas12a, GuideLength 23, PamAfterTarget=false, SeedGC=60 (5' seed) (F4; 24 before H11) | ✅ |
 | S-017 | `EvaluateGuideRna_AvoidPolyTFalse_DisablesThePolyTIssue_ScoreUnchanged` | "ACGTACGTTTTTACGTACGT" | on: 95 with a TTTT issue; off: 95, HasPolyT=true, no TTTT issue (F8, G5) | ✅ |
@@ -231,7 +234,7 @@ All code paths in `EvaluateGuideRna` and `DesignGuideRnas` are covered with exac
 | GuideRnaParameters custom | S-005 (5 fields) | ✅ Covered |
 | Property: GC in [0,100] | Property test, non-vacuous | ✅ Covered |
 | Property: Score in [0,100] | Property test, non-vacuous | ✅ Covered |
-| Cut site, both strands / both PAM geometries (F3) | S-012, S-013, S-014 | ✅ Covered |
+| Cut site, both strands / both PAM geometries (F3); every one of the nine systems (H38, H51) | S-012, S-013, S-014, S-014b, S-014c | ✅ Covered |
 | System metadata + PAM-before seed orientation kept (F4) | S-016 | ✅ Covered |
 | Rule Set 2 context + score, both strands, null cases (F5) | C-011, C-012, C-013 | ✅ Covered |
 | Ranking by Score / OnTargetRuleSet2 + tie-break (F5) | S-015, C-014, S-019 | ✅ Covered |

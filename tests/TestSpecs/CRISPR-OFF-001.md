@@ -11,12 +11,19 @@
   - `CrisprDesigner.CalculateMitHitScore(string, string)` — MIT/Hsu 2013 single hit
   - `CrisprDesigner.CalculateSaCas9HitScore(string, string)` — Tycko et al. 2018 single hit
   - `CrisprDesigner.CalculateCfdScore(string, string, string)` — Doench 2016 CFD single hit
-  - `CrisprDesigner.CalculateMitSpecificityScore(IEnumerable<double>)` and `(string, DnaSequence, int, CrisprSystemType)`
-  - `CrisprDesigner.CalculateCfdSpecificityScore(IEnumerable<double>, CfdAggregation)` and `(string, DnaSequence, int, CrisprSystemType, CfdAggregation)`
-  - `CfdAggregation`
+  - `CrisprDesigner.CalculateMitSpecificityScore` — three overloads: `(IEnumerable<double>)`; `(string, DnaSequence, int maxMismatches, CrisprSystemType, int? onTargetStart, int? onTargetEnd, int maxOccurrences)`; `(string, IEnumerable<PamAnnotatedOffTarget>, CrisprSystemType)`
+  - `CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(string, DnaSequence, int, CrisprSystemType, double minAlternativePamHitScore, int?, int?, int)`
+  - `CrisprDesigner.CalculateCfdSpecificityScore` — `(IEnumerable<double>, CfdAggregation)` and `(string, DnaSequence, int, CrisprSystemType, CfdAggregation, int? onTargetStart, int? onTargetEnd, int maxOccurrences)`
+  - `CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(...)`
+  - `CrisprDesigner.CalculateHeuristicSpecificityScore(string, DnaSequence, CrisprSystemType)` — the honest-heuristic score `CalculateSpecificityScore` forwards to
+  - `CrisprDesigner.FindOffTargetsWithBulges(string, DnaSequence, int maxMismatches, int maxDnaBulge, int maxRnaBulge, CrisprSystemType, int? onTargetStart, int? onTargetEnd)` → `BulgedOffTargetSite` (`BulgeType` = `None` / `Dna` / `Rna`; Cas-OFFinder 3.0.0b3 enumeration)
+  - `CrisprDesigner.FindOffTargetsWithPam(string, DnaSequence, int, CrisprSystemType)` → `PamAnnotatedOffTarget` (`OffTargetSite` + `Pam`)
+  - `CrisprDesigner.GetAlternativeOffTargetPams(CrisprSystemType)` (CRISPOR `OFFTARGETPAMS`)
+  - `CfdAggregation`, `OffTargetSite`, `BulgedOffTargetSite`, `BulgeType`, `PamAnnotatedOffTarget`
+  - Shared guard constants/rules: `DefaultMaxOccurrences` (CRISPOR `MAXOCC` = 60 000) and the auto-on-target rule (first exact hit dropped when no `onTargetStart/End` is given)
 - **Related Documentation**: [Off_Target_Analysis.md](../docs/algorithms/MolTools/Off_Target_Analysis.md),
   [CRISPR-OFF-001-Evidence.md](../../docs/Evidence/CRISPR-OFF-001-Evidence.md)
-- **Last reviewed**: 2026-10-14 (campaign `docs/Validation/review-2026-09`, batch B08)
+- **Last reviewed**: 2026-10-27 (campaign `docs/Validation/review-2026-09`, batch B08, round 4 H43: surface list brought up to the public API)
 
 ---
 
@@ -440,6 +447,9 @@ systems, 129 221 oracle rows, 0 extra / 0 missing after the fix (1317 extra befo
   geometry and `Pam` of every hit of a dense pseudo-random genome.
 - `FindOffTargetsWithBulges_OnTargetInterval_*` - the exact ungapped row is kept outside the interval and dropped inside;
   one bound only / negative / empty interval throw as in the aggregates.
+- `FindOffTargetsWithBulges_UngappedHit_HasBulgeNone_SizeZero_PositionMinusOne` (`CrisprDesigner_Systems_Tests`, H48) - a one-substitution
+  site with no bulge budget: `Bulge == None`, `BulgeSize == 0`, `BulgePosition == -1`, `Mismatches == 1`, aligned strings equal
+  to guide and site, `Pam == "AGG"`, `Position == 30`, `TargetStart == 10` (the convention was only ever reached by accident).
 
 ## Definition of Done
 
