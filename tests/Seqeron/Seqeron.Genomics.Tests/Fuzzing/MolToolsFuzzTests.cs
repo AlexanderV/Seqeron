@@ -1096,18 +1096,18 @@ public class MolToolsFuzzTests
     /// division-by-zero hazard — CalculateSelfComplementarity divides by
     /// <c>length * length</c> and the GC computation would face an empty span. The
     /// source short-circuits this BEFORE any scoring: EvaluateGuideRna throws
-    /// ArgumentNullException on a null/empty guide (CrisprDesigner.cs line 205), so the
-    /// degenerate guide is a DOCUMENTED validation throw — NOT a DivideByZeroException,
+    /// ArgumentNullException on a null guide and ArgumentException on an empty one (the null-vs-empty convention,
+    /// B08 round 4 H19), so the degenerate guide is a DOCUMENTED validation throw — NOT a DivideByZeroException,
     /// IndexOutOfRangeException, or a NaN score (Guide_RNA_Design.md §6.1). Pinned for
     /// both the empty string and null.
     /// </summary>
     [Test]
-    public void EvaluateGuideRna_ZeroLengthGuide_ThrowsArgumentNullException()
+    public void EvaluateGuideRna_ZeroLengthGuide_ThrowsArgumentException_NullThrowsArgumentNullException()
     {
         var empty = () => CrisprDesigner.EvaluateGuideRna(string.Empty);
         var nullGuide = () => CrisprDesigner.EvaluateGuideRna((string)null!);
 
-        empty.Should().Throw<ArgumentNullException>(
+        empty.Should().ThrowExactly<ArgumentException>(
             "a zero-length guide is degenerate; the source rejects it up front rather than dividing by length² or scoring an empty span");
         nullGuide.Should().Throw<ArgumentNullException>(
             "a null guide is rejected by the same guard, never dereferenced");
@@ -1279,21 +1279,21 @@ public class MolToolsFuzzTests
 
     /// <summary>
     /// BE (empty guide): a zero-length (or null) guide is degenerate and is rejected up
-    /// front with ArgumentNullException (CrisprDesigner.cs line 337–338) — BEFORE the
+    /// front (ArgumentNullException for null, ArgumentException for empty; B08 round 4 H19) — BEFORE the
     /// length check, the PAM scan, or any CountMismatches loop, so there is no
     /// IndexOutOfRange and no division by a zero guide/seed length
     /// (Off_Target_Analysis.md §3.3, §6.1). The throw lives inside the yield iterator,
     /// so enumeration is forced. Pinned for both the empty string and null.
     /// </summary>
     [Test]
-    public void FindOffTargets_EmptyGuide_ThrowsArgumentNullException()
+    public void FindOffTargets_EmptyGuide_ThrowsArgumentException_NullThrowsArgumentNullException()
     {
         var genome = new DnaSequence(new string('A', 20) + "AGG");
 
         var empty = () => CrisprDesigner.FindOffTargets(string.Empty, genome, 3, CrisprSystemType.SpCas9).ToList();
         var nullGuide = () => CrisprDesigner.FindOffTargets((string)null!, genome, 3, CrisprSystemType.SpCas9).ToList();
 
-        empty.Should().Throw<ArgumentNullException>(
+        empty.Should().ThrowExactly<ArgumentException>(
             "an empty guide is degenerate; it is rejected before any scoring or scan, never dividing by a zero guide length");
         nullGuide.Should().Throw<ArgumentNullException>(
             "a null guide is rejected by the same guard, never dereferenced");
@@ -2527,23 +2527,24 @@ public class MolToolsFuzzTests
 
     /// <summary>
     /// BE: the multi-enzyme overload called with an EMPTY enzyme list is the lower
-    /// boundary of "how many enzymes to scan". The `foreach (var name in enzymeNames)`
-    /// loop (RestrictionAnalyzer.cs line 211) iterates zero times, so the result is the
-    /// EMPTY enumerable — never a crash and never a fabricated site. Because the overload
-    /// is a `yield` iterator, the body runs only on enumeration, so we force `.ToList()`.
+    /// boundary of "how many enzymes to scan". Before B08 round 4 H24 it quietly returned no sites
+    /// while every sibling (<c>Digest</c>, <c>PartialDigest</c>, <c>GetDigestSummary</c>, the methylation
+    /// <c>FindSites</c>) refused the same argument shape; the contract is now one: an empty name list is
+    /// an <see cref="ArgumentException"/> raised at the call (eagerly), a null array an
+    /// <see cref="ArgumentNullException"/>. <c>CreateMap</c> alone keeps "empty = every common enzyme".
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void FindSites_EmptyEnzymeList_IsEmptyAndDoesNotThrow()
+    public void FindSites_EmptyEnzymeList_ThrowsArgumentException_NotAnEmptyScan()
     {
         var sequence = new DnaSequence("AAAGAATTCAAAGGATCCAAA");
 
-        var act = () => RestrictionAnalyzer.FindSites(sequence, Array.Empty<string>()).ToList();
+        var empty = () => RestrictionAnalyzer.FindSites(sequence, Array.Empty<string>());
+        var nullArray = () => RestrictionAnalyzer.FindSites(sequence, (string[])null!);
 
-        act.Should().NotThrow(
-            "an empty enzyme list scans no enzymes; the per-enzyme loop never runs, so there is nothing to throw");
-        RestrictionAnalyzer.FindSites(sequence, Array.Empty<string>())
-            .Should().BeEmpty("no enzymes requested ⇒ no restriction sites, never a spurious cut");
+        empty.Should().ThrowExactly<ArgumentException>(
+            "an empty enzyme list has the same meaning for FindSites as for Digest: nothing to look for is a caller mistake (H24)");
+        nullArray.Should().Throw<ArgumentNullException>("a null name array is a missing argument");
     }
 
     #endregion
