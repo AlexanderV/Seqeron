@@ -467,3 +467,52 @@ difference just described is a deliberate departure from this reference
 release's reported `Location`, while the sequence alignment and mismatch
 fields match exactly. The two-base RNA target has two equivalent gap offsets;
 both are reported, as the reference does. No MCP wrapper was added.
+
+## D19 follow-up: admissible gap offsets, PAM on the hit, on-target interval (B08 round 4, H2/H3/H26)
+
+**What the D19 oracle could not show.** The eight real-binary rows above all sit on sites that exist *only* as bulged
+alignments, so they cannot expose an alignment the reference does **not** generate. The first scan reported two such
+classes: a DNA bulge at the gap offset that rebuilds the ungapped query, and an RNA bulge whose removed run ends at the
+last guide base. A perfect site came back as `Dna/1@0`, `Dna/2@0`, `Rna/1@0`, `Rna/2@0` and never once as itself.
+
+**Source (Cas-OFFinder 3.0.0b3 `cas-offinder.cpp`, tag `3.0.0b3`, read in full for `parseInput` and the output block).**
+With `s0` the guide padded with the PAM's `N` columns, `first`/`last` = `find_first_not_of('N')`/`find_last_not_of('N')`
+and `dnab`/`rnab` the bulge ceilings:
+
+| Branch | Loop | Gap offsets (string coordinates) |
+|---|---|---|
+| DNA, PAM after | `j = first .. last+1`, `compare = N^(dnab-i) s0[:j] N^i s0[j:]` | `j = 0` equals `tmp = N^dnab s0` -> type `X`, size 0 |
+| DNA, PAM before | same with `compare = s0[:j] N^i s0[j:] N^(dnab-i)` | `j = last+1` equals `tmp = s0 N^dnab` -> type `X`, size 0 |
+| RNA | `j = first .. last-i`, removes `s0[j:j+i]` | the last guide base is never removable |
+
+The older `cas-offinder-bulge` v1.2b wrapper is stricter still (`range(1, len(target))` for DNA, `range(1, len(target)-size)`
+for RNA). Seqeron follows 3.0.0b3, as its documentation always said.
+
+**Oracle.** `scripts/cas-offinder/cof3_bulge_oracle.py` is a line-by-line port of those loops and of the output
+formatting (both PAM geometries), with the OpenCL matcher replaced by its documented semantics. **Validated against the
+real binary:** on the toy genomes of the D19 section it reproduces all 8 recorded rows exactly (4 exact, 1 with a
+substitution, 3 two-base rows including the two equivalent RNA offsets). It is the oracle for the sweep below; it is not
+a new run of the binary.
+
+**Differential (this session, 2026-10-27).** 8000 random cases (800 x 10 seeds; four systems SpCas9 NGG/20,
+SaCas9 NNGRRT/21, Cas12a TTTV/23, CasX TTCN/20; 0-4 substitutions; DNA and RNA ceilings 0-2; planted perfect, substituted,
+DNA-bulged and RNA-bulged sites on both strands), exact exclusion of the 0-mismatch ungapped row applied to the oracle:
+
+| | oracle rows | Seqeron only | oracle only |
+|---|---:|---:|---:|
+| before the fix (seed 1, 600 cases) | 9632 | **1317** (SpCas9/SaCas9 DNA@0: 406; Cas12a/CasX DNA@L: 399; RNA at windowLength: 512) | 0 |
+| after the fix (10 seeds x 800 cases) | 129 221 | **0** | **0** |
+
+(The earlier audit's randomised sweep reported 70 extra rows against 3.0.0b3 over 8 SpCas9 genomes; the larger and
+four-system sweep finds the same two classes and, with Cas12a/CasX, the mirrored DNA collapse at the other end.)
+
+**Sequence ends - a recorded difference, not a defect.** The tool pads its pattern with `dnab` wildcard columns, so a PAM
+whose padded window crosses a sequence end is never matched: with sites planted at the start (seed 11, 600 cases) the oracle
+lists 12 116 rows and Seqeron reports those plus 578 more, none missing. Those alignments lie entirely inside the sequence,
+so they are reported.
+
+**H26.** The reference prints the PAM as the last columns of the crRNA and DNA fields; `BulgedOffTargetSite` dropped it, so
+no hit could reach a PAM-dependent score without re-deriving the PAM from coordinates. It now carries `Pam` (read on the
+protospacer strand, like `PamAnnotatedOffTarget.Pam`). The optional on-target interval has CRISPOR's semantics
+(`annotateOfftargets`, crispor.py L1920-1929, the same footprint rule as the aggregates): an exact ungapped match is
+dropped only when its protospacer+PAM footprint lies inside it; with none given, every exact match is dropped as before.

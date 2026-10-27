@@ -418,6 +418,25 @@ as `Position` and also returns `TargetStart`.
 - Guard tests pin the shared null/empty guide, null genome, `maxMismatches` range, guide length and alphabet exceptions, followed by the new `maxDnaBulge` and `maxRnaBulge` 0..2 bounds.
 - All three specificity scorers stay substitution-only and do not receive the new record.
 
+### D19 follow-up: admissible gap offsets, PAM on the hit, on-target interval (B08 round 4, H2/H3/H26/H49)
+
+Oracle: `scripts/cas-offinder/cof3_bulge_oracle.py`, a line-by-line port of Cas-OFFinder 3.0.0b3's `parseInput` and output
+block that reproduces all 8 real-binary rows above; sweep and numbers in Evidence ("D19 follow-up"): 8000 random cases, four
+systems, 129 221 oracle rows, 0 extra / 0 missing after the fix (1317 extra before).
+
+- DNA gap offsets: `1..L` (PAM after) / `0..L-1` (PAM before); RNA: `0..L-size-1`. The offset that rebuilds the ungapped query
+  is the `BulgeType.None` alignment, never a bulge.
+- `FindOffTargetsWithBulges_PerfectCas9Site_ReportsOnlyTheRowsCasOffinderReports` - a perfect site plus a site missing its
+  PAM-proximal base: exactly the three 0-mismatch RNA rows of the reference, no `Dna@0`, no terminal RNA row.
+- `FindOffTargetsWithBulges_PerfectCas12aSite_ReportsNoRowAtZeroMismatches` - the mirrored geometry (first test that passes
+  `systemType`; the PAM-before branch was previously never exercised).
+- `FindOffTargetsWithBulges_MixedBulgesOnBothStrands_MatchCasOffinderRows` - a substituted DNA bulge and a reverse-strand RNA
+  bulge with its equivalent gap placements.
+- `FindOffTargetsWithBulges_GapOffsets_StayWithinTheCasOffinderRange` (SpCas9, Cas12a) - the offset ranges, `TargetStart`
+  geometry and `Pam` of every hit of a dense pseudo-random genome.
+- `FindOffTargetsWithBulges_OnTargetInterval_*` - the exact ungapped row is kept outside the interval and dropped inside;
+  one bound only / negative / empty interval throw as in the aggregates.
+
 ## Definition of Done
 
 - [x] Evidence documented from authoritative sources

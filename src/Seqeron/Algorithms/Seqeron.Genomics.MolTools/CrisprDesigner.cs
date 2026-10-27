@@ -598,15 +598,36 @@ public static class CrisprDesigner
     /// <summary>
     /// Finds PAM-constrained off-target alignments with substitutions or one contiguous DNA or RNA bulge.
     /// A DNA bulge adds bases to the genomic protospacer and gaps the guide; an RNA bulge removes
-    /// bases from the protospacer and gaps the target. Every admissible gap offset is reported.
-    /// Exact ungapped matches are excluded by the same no-on-target-locus convention as
-    /// <see cref="FindOffTargets"/>; exact bulged alignments are included.
+    /// bases from the protospacer and gaps the target. Every admissible gap offset is reported (see the
+    /// remarks for the admissible range). Exact ungapped matches are excluded by the same
+    /// no-on-target-locus convention as <see cref="FindOffTargets"/> unless an on-target interval is given;
+    /// exact bulged alignments are included.
     /// </summary>
     /// <remarks>
-    /// The scan follows Cas-OFFinder 3.0's DNA/RNA bulge convention. Bulge sizes are bounded to
-    /// 0..2 bases here. The heuristic, MIT and CFD specificity scorers remain substitution-only:
-    /// none defines a weight for a bulged position. No bulged hit is passed to those scorers.
+    /// <para>
+    /// The scan reproduces the alignment set of Cas-OFFinder 3.0.0b3 (<c>cas-offinder.cpp</c>
+    /// <c>parseInput</c>): for a guide of length <c>L</c> and a bulge of <c>size</c> bases the gap offsets
+    /// are, in guide coordinates (index 0 is the guide base read first on the PAM strand),
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>DNA bulge: <c>1..L</c> when the PAM follows the target (SpCas9, SaCas9), <c>0..L-1</c>
+    /// when it precedes it (Cas12a, CasX). The offset on the side of the query that carries the tool's
+    /// <c>N</c> padding (0, respectively <c>L</c>) rebuilds the ungapped query; the tool reports it as type
+    /// <c>X</c>, size 0, and here it is the <see cref="BulgeType.None"/> alignment.</description></item>
+    /// <item><description>RNA bulge: <c>0..L-size-1</c>. The guide base at the end away from the padding is never
+    /// removable, so no alignment has the removed run at the end of the guide.</description></item>
+    /// </list>
+    /// <para>
+    /// One deliberate difference: Cas-OFFinder pads its pattern with <paramref name="maxDnaBulge"/> wildcard
+    /// columns and so cannot match a PAM whose padded window crosses the end of a sequence; every alignment
+    /// that lies inside the supplied sequence is reported here. Bulge sizes are bounded to 0..2 bases.
+    /// The heuristic, MIT and CFD specificity scorers remain substitution-only: none defines a weight for a
+    /// bulged position, so no bulged hit is passed to them. <see cref="BulgedOffTargetSite.Pam"/> carries
+    /// each hit's PAM, as the reference prints it, for callers that score the ungapped rows themselves.
+    /// A perfect site also yields 0-mismatch RNA-bulge rows that remove a leading guide base, exactly as the
+    /// reference does; pass the on-target interval to drop the exact ungapped row only inside it.
     /// The method scans the supplied sequence directly; it does not use a genome-scale index.
+    /// </para>
     /// </remarks>
     /// <param name="guideSequence">Guide of the selected system's length; U is read as T.</param>
     /// <param name="genome">Sequence to scan on both strands.</param>
@@ -614,28 +635,44 @@ public static class CrisprDesigner
     /// <param name="maxDnaBulge">Maximum extra genomic bases in one bulge, from 0 to 2.</param>
     /// <param name="maxRnaBulge">Maximum guide bases absent from the target, from 0 to 2.</param>
     /// <param name="systemType">CRISPR system and PAM geometry.</param>
+    /// <param name="onTargetStart">Optional 0-based inclusive start of the on-target interval on the forward
+    /// strand; both bounds or neither. Without an interval every exact ungapped match is dropped.</param>
+    /// <param name="onTargetEnd">Optional 0-based exclusive end of the on-target interval; must exceed the
+    /// start. With an interval, an exact ungapped match is dropped only when its footprint (protospacer plus
+    /// PAM) lies inside it, as CRISPOR's <c>annotateOfftargets</c> does, and is reported otherwise.</param>
     /// <returns>Forward-strand PAMs by ascending coordinate, then reverse-strand PAMs;
     /// for each PAM, ungapped, DNA-bulged, then RNA-bulged alignments by size and gap offset.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or the genome is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxMismatches"/> is outside 0-5,
+    /// <paramref name="maxDnaBulge"/> or <paramref name="maxRnaBulge"/> is outside 0-2, or the on-target
+    /// interval is negative or empty.</exception>
+    /// <exception cref="ArgumentException">Thrown when the guide length does not match the system's, the guide
+    /// contains a non-nucleotide character, or only one bound of the on-target interval is given.</exception>
     public static IEnumerable<BulgedOffTargetSite> FindOffTargetsWithBulges(
         string guideSequence,
         DnaSequence genome,
         int maxMismatches = 3,
         int maxDnaBulge = 2,
         int maxRnaBulge = 2,
-        CrisprSystemType systemType = CrisprSystemType.SpCas9)
+        CrisprSystemType systemType = CrisprSystemType.SpCas9,
+        int? onTargetStart = null,
+        int? onTargetEnd = null)
     {
         string guide = ValidateScanArguments(guideSequence, genome, maxMismatches, systemType);
         if (maxDnaBulge is < 0 or > 2)
-            throw new ArgumentOutOfRangeException(nameof(maxDnaBulge));
+            throw new ArgumentOutOfRangeException(nameof(maxDnaBulge), maxDnaBulge,
+                "The maximum DNA bulge must be between 0 and 2 bases.");
         if (maxRnaBulge is < 0 or > 2)
-            throw new ArgumentOutOfRangeException(nameof(maxRnaBulge));
+            throw new ArgumentOutOfRangeException(nameof(maxRnaBulge), maxRnaBulge,
+                "The maximum RNA bulge must be between 0 and 2 bases.");
+        var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         return ScanOffTargetsWithBulgesCore(guide, genome, maxMismatches,
-            maxDnaBulge, maxRnaBulge, GetSystem(systemType));
+            maxDnaBulge, maxRnaBulge, GetSystem(systemType), onTarget);
     }
 
     private static IEnumerable<BulgedOffTargetSite> ScanOffTargetsWithBulgesCore(
         string guide, DnaSequence genome, int maxMismatches, int maxDnaBulge,
-        int maxRnaBulge, CrisprSystem system)
+        int maxRnaBulge, CrisprSystem system, (int Start, int End)? onTarget)
     {
         string forward = genome.Sequence;
         string reverse = DnaSequence.GetReverseComplementString(forward);
@@ -654,14 +691,14 @@ public static class CrisprDesigner
                 {
                     foreach (var hit in AlignBulgedWindow(guide, sequence, pamStart,
                         system, strand == 0, forward.Length, maxMismatches,
-                        delta == 0 ? BulgeType.None : BulgeType.Dna, delta))
+                        delta == 0 ? BulgeType.None : BulgeType.Dna, delta, onTarget))
                         yield return hit;
                 }
                 for (int size = 1; size <= maxRnaBulge; size++)
                 {
                     foreach (var hit in AlignBulgedWindow(guide, sequence, pamStart,
                         system, strand == 0, forward.Length, maxMismatches,
-                        BulgeType.Rna, size))
+                        BulgeType.Rna, size, onTarget))
                         yield return hit;
                 }
             }
@@ -670,7 +707,8 @@ public static class CrisprDesigner
 
     private static IEnumerable<BulgedOffTargetSite> AlignBulgedWindow(
         string guide, string strandSequence, int pamStart, CrisprSystem system,
-        bool isForward, int genomeLength, int maxMismatches, BulgeType bulge, int size)
+        bool isForward, int genomeLength, int maxMismatches, BulgeType bulge, int size,
+        (int Start, int End)? onTarget)
     {
         int windowLength = guide.Length + (bulge == BulgeType.Dna ? size : -size);
         int targetStart = system.PamAfterTarget ? pamStart - windowLength : pamStart + system.PamSequence.Length;
@@ -678,15 +716,25 @@ public static class CrisprDesigner
             yield break;
 
         string target = strandSequence.Substring(targetStart, windowLength);
+        string pam = strandSequence.Substring(pamStart, system.PamSequence.Length);
         int forwardPamStart = isForward ? pamStart : genomeLength - pamStart - system.PamSequence.Length;
         int forwardTargetStart = isForward ? targetStart : genomeLength - targetStart - windowLength;
+        // Admissible gap offsets, as Cas-OFFinder 3.0.0b3 enumerates them (cas-offinder.cpp parseInput):
+        //  - DNA bulge: the gap run can sit at 0..guide.Length. The offset on the side of the query that
+        //    carries the 'N' padding (0 when the PAM follows the target, guide.Length when it precedes it)
+        //    builds the very compare string of the ungapped query, so the tool reports it as type X, size 0;
+        //    here the ungapped alignment is the BulgeType.None pass, so that offset is skipped.
+        //  - RNA bulge: the removed guide bases start at 0..guide.Length-size-1 = windowLength-1; the last
+        //    guide base (the end of the string away from the padding) is never removable. A gap run at
+        //    windowLength would leave a guide base unpaired that neither Cas-OFFinder version can remove.
+        int firstGapOffset = bulge == BulgeType.Dna && system.PamAfterTarget ? 1 : 0;
         int lastGapOffset = bulge switch
         {
-            BulgeType.Dna => guide.Length,
-            BulgeType.Rna => windowLength,
+            BulgeType.Dna => system.PamAfterTarget ? guide.Length : guide.Length - 1,
+            BulgeType.Rna => windowLength - 1,
             _ => 0
         };
-        for (int gapOffset = 0; gapOffset <= lastGapOffset; gapOffset++)
+        for (int gapOffset = firstGapOffset; gapOffset <= lastGapOffset; gapOffset++)
         {
             string alignedGuide = bulge == BulgeType.Dna
                 ? guide.Insert(gapOffset, new string('-', size)) : guide;
@@ -699,11 +747,14 @@ public static class CrisprDesigner
                     alignedGuide[i] != alignedTarget[i])
                     mismatches++;
             }
-            if (mismatches > maxMismatches || (bulge == BulgeType.None && mismatches == 0))
+            if (mismatches > maxMismatches)
                 continue;
+            if (bulge == BulgeType.None && mismatches == 0 && IsOnTargetFootprint(
+                    onTarget, forwardTargetStart, windowLength, forwardPamStart, system.PamSequence.Length))
+                continue; // the on-target (every exact match when no interval is given), not an off-target
             yield return new BulgedOffTargetSite(forwardPamStart, forwardTargetStart,
                 alignedGuide, alignedTarget, mismatches, bulge, size,
-                bulge == BulgeType.None ? -1 : gapOffset, isForward);
+                bulge == BulgeType.None ? -1 : gapOffset, isForward, pam);
         }
     }
 
@@ -746,6 +797,21 @@ public static class CrisprDesigner
             throw new ArgumentOutOfRangeException(nameof(onTargetEnd),
                 "The on-target interval end must be greater than its start (0-based, half-open).");
         return (onTargetStart.Value, onTargetEnd.Value);
+    }
+
+    /// <summary>
+    /// Whether an exact match's footprint (protospacer together with its PAM, forward strand, 0-based half-open)
+    /// is the on-target: always without an interval, otherwise only when it lies inside it
+    /// (crispor.py L1920-1929, as in <see cref="ScanOffTargetsCore"/>).
+    /// </summary>
+    private static bool IsOnTargetFootprint(
+        (int Start, int End)? onTarget, int targetStart, int targetLength, int pamStart, int pamLength)
+    {
+        if (onTarget is not { } locus)
+            return true;
+        int footprintStart = Math.Min(targetStart, pamStart);
+        int footprintEnd = Math.Max(targetStart + targetLength, pamStart + pamLength);
+        return footprintStart >= locus.Start && footprintEnd <= locus.End;
     }
 
     /// <summary>
@@ -2804,6 +2870,15 @@ public sealed record GuideRnaCandidate(
 /// <summary>
 /// Represents a potential off-target site.
 /// </summary>
+/// <param name="Position">0-based start of the PAM on the forward genomic strand.</param>
+/// <param name="Sequence">The protospacer-length genomic sequence (without the PAM), read 5' to 3' on the strand
+/// that carries the PAM — the reverse complement of the forward genome for a reverse-strand site.</param>
+/// <param name="Mismatches">Number of positions where <paramref name="Sequence"/> differs from the guide.</param>
+/// <param name="MismatchPositions">0-based positions within <paramref name="Sequence"/> (guide coordinates, index 0 =
+/// the first base read on the PAM strand) of the mismatches; ascending, length <paramref name="Mismatches"/>.</param>
+/// <param name="IsForwardStrand">Whether the PAM was found on the forward strand.</param>
+/// <param name="OffTargetScore">This library's own seed-weighted penalty
+/// (see <see cref="CrisprDesigner.CalculateHeuristicSpecificityScore"/>), not a published per-hit model.</param>
 public sealed record OffTargetSite(
     int Position,
     string Sequence,
@@ -2831,6 +2906,17 @@ public enum BulgeType
 /// <see cref="BulgePosition"/> is the zero-based gap offset, or -1 for <see cref="BulgeType.None"/>.
 /// No specificity score is attached because the substitution-only models do not define bulge weights.
 /// </summary>
+/// <param name="Position">0-based PAM start on the forward genomic strand.</param>
+/// <param name="TargetStart">0-based start, on the forward strand, of the genomic window aligned to the guide.</param>
+/// <param name="AlignedGuide">The guide with '-' for a DNA bulge.</param>
+/// <param name="AlignedTarget">The genomic window with '-' for an RNA bulge.</param>
+/// <param name="Mismatches">Substitutions outside the gap.</param>
+/// <param name="Bulge">Which sequence carries the extra bases.</param>
+/// <param name="BulgeSize">Length of the contiguous gap; 0 for <see cref="BulgeType.None"/>.</param>
+/// <param name="BulgePosition">Zero-based gap offset in guide coordinates, or -1 for <see cref="BulgeType.None"/>.</param>
+/// <param name="IsForwardStrand">Whether the PAM was found on the forward strand.</param>
+/// <param name="Pam">The PAM sequence of the hit, read on the protospacer strand like the aligned strings
+/// (the reference prints it as the last columns of its crRNA and DNA fields).</param>
 public sealed record BulgedOffTargetSite(
     int Position,
     int TargetStart,
@@ -2840,7 +2926,8 @@ public sealed record BulgedOffTargetSite(
     BulgeType Bulge,
     int BulgeSize,
     int BulgePosition,
-    bool IsForwardStrand);
+    bool IsForwardStrand,
+    string Pam);
 
 /// <summary>
 /// An off-target site together with the PAM it carries, as read on the protospacer strand
