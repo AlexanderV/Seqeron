@@ -310,19 +310,22 @@ public class CrisprPublishedSpecificityScoreTests
     #region B08 round 3 G7 — on_target_start / on_target_end
 
     /// <summary>
-    /// G7/F81: the optional on-target interval is forwarded by both tools. Genome A = G+AGG+TTTT+G+TGG+TTTTTT
-    /// (duplicated perfect site; crispor.py annotateOfftargets logic run in Python): no interval -> 100
-    /// (today), [0,23) -> MIT 50.0 / CFD 99.00990099009901.
+    /// G7/F81 + H5: the optional on-target interval is forwarded by both tools. Genome A =
+    /// G+AGG+TTTT+G+TGG+TTTTTT (duplicated perfect site). CRISPOR's <c>annotateOfftargets</c>, executed: no
+    /// interval ("auto-ontarget": the first perfect site is the on-target) -> MIT 50 / CFD 99, and the interval
+    /// [0,23) naming that same site gives the same MIT 50.0 / CFD 99.00990099009901.
     /// </summary>
     [Test]
-    public void SpecificityTools_OnTargetInterval_IsForwarded_AndDefaultStaysAllExactDropped()
+    public void SpecificityTools_OnTargetInterval_IsForwarded_AndDefaultIsAutoOnTarget()
     {
         const string genomeA = "GACGCATAAAGATGAGACGC" + "AGG" + "TTTT" + "GACGCATAAAGATGAGACGC" + "TGG" + "TTTTTT";
 
         Assert.Multiple(() =>
         {
-            Assert.That(MolToolsTools.crispr_mit_specificity_score(Guide, genomeA, 4).Specificity, Is.EqualTo(100.0));
-            Assert.That(MolToolsTools.crispr_cfd_specificity_score(Guide, genomeA, 4).Specificity, Is.EqualTo(100.0));
+            Assert.That(MolToolsTools.crispr_mit_specificity_score(Guide, genomeA, 4).Specificity,
+                Is.EqualTo(50.0).Within(1e-9));
+            Assert.That(MolToolsTools.crispr_cfd_specificity_score(Guide, genomeA, 4).Specificity,
+                Is.EqualTo(99.00990099009901).Within(1e-9));
             Assert.That(
                 MolToolsTools.crispr_mit_specificity_score(
                     Guide, genomeA, 4, on_target_start: 0, on_target_end: 23).Specificity,
@@ -343,6 +346,37 @@ public class CrisprPublishedSpecificityScoreTests
                 Is.EqualTo(99.00990099009901).Within(1e-9));
             Assert.Throws<System.ArgumentException>(() =>
                 MolToolsTools.crispr_mit_specificity_score(Guide, genomeA, 4, on_target_start: 0));
+        });
+    }
+
+    /// <summary>
+    /// H4: <c>max_occurrences</c> is forwarded to all four aggregates and validated. A guide with 5 perfect
+    /// sites has 5 alignments (BWA X0+X1 = 5): limit 5 keeps the score (MIT 20), limit 4 suppresses the guide
+    /// (CRISPOR: repCount -> guideScore 0, guideCfdScore 0).
+    /// </summary>
+    [Test]
+    public void SpecificityTools_MaxOccurrences_IsForwarded_AndValidated()
+    {
+        string genome = string.Concat(Enumerable.Repeat(Guide + "AGG" + "TTTT", 5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(MolToolsTools.crispr_mit_specificity_score(Guide, genome, 4, max_occurrences: 5).Specificity,
+                Is.EqualTo(20.0).Within(1e-9));
+            Assert.That(MolToolsTools.crispr_mit_specificity_score(Guide, genome, 4, max_occurrences: 4).Specificity,
+                Is.EqualTo(0.0));
+            Assert.That(MolToolsTools.crispr_mit_specificity_score(
+                Guide, genome, 4, include_alternative_pams: true, max_occurrences: 4).Specificity, Is.EqualTo(0.0));
+            Assert.That(MolToolsTools.crispr_cfd_specificity_score(Guide, genome, 4, max_occurrences: 5).Specificity,
+                Is.EqualTo(96.15384615384616).Within(1e-9));
+            Assert.That(MolToolsTools.crispr_cfd_specificity_score(Guide, genome, 4, max_occurrences: 4).Specificity,
+                Is.EqualTo(0.0));
+            Assert.That(MolToolsTools.crispr_cfd_specificity_score(
+                Guide, genome, 4, include_alternative_pams: true, max_occurrences: 4).Specificity, Is.EqualTo(0.0));
+            Assert.Throws<System.ArgumentException>(() =>
+                MolToolsTools.crispr_mit_specificity_score(Guide, genome, 4, max_occurrences: 0));
+            Assert.Throws<System.ArgumentException>(() =>
+                MolToolsTools.crispr_cfd_specificity_score(Guide, genome, 4, max_occurrences: 0));
         });
     }
 

@@ -16,8 +16,9 @@
       "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
       "include_alternative_pams": { "type": "boolean", "description": "Also scan the reference's alternative PAMs for this system (offtargetPams: NGG -> NAG, NGA; NNGRRT -> NNGRRN) and downweight NGG-guide alternative hits by 0.2, as CRISPOR's annotateOfftargets does. Default false = main PAM only. SpCas9 scans NAG and NGA (x0.2); SaCas9 scans NNGRRN (unweighted, as the reference).", "default": false },
       "min_alternative_pam_hit_score": { "type": "number", "description": "With include_alternative_pams: minimum unweighted hit score (0..100) an alternative-PAM hit needs to count (reference ALTPAMMINSCORE / --minAltPamScore). Default 1.0, the reference's own default; 0 = no filtering.", "default": 1.0 },
-      "on_target_start": { "type": "integer", "description": "Optional on-target interval start (0-based, inclusive; give both bounds or neither). Exact matches whose protospacer+PAM footprint lies inside [on_target_start, on_target_end) are skipped as the on-target (CRISPOR annotateOfftargets); other perfect matches are scored as off-targets. Omitted: every exact match is dropped.", "minimum": 0 },
-      "on_target_end": { "type": "integer", "description": "Optional on-target interval end (0-based, exclusive).", "minimum": 1 }
+      "on_target_start": { "type": "integer", "description": "Optional on-target interval start (0-based, inclusive; give both bounds or neither). Exact matches whose protospacer+PAM footprint lies inside [on_target_start, on_target_end) are skipped as the on-target (CRISPOR annotateOfftargets); other perfect matches are scored as off-targets. Omitted: the first exact match in scan order is the on-target (CRISPOR auto-ontarget) and every further perfect match is scored.", "minimum": 0 },
+      "on_target_end": { "type": "integer", "description": "Optional on-target interval end (0-based, exclusive).", "minimum": 1 },
+      "max_occurrences": { "type": "integer", "description": "Repeat limit (CRISPOR MAXOCC, default 60000): a guide with more alignments than this (guide-length windows, either strand, any PAM, within max_mismatches substitutions) is suppressed and scores 0.", "minimum": 1, "default": 60000 }
     },
     "required": ["guide_sequence", "genome"]
   },
@@ -60,6 +61,21 @@
       "name": "Cas12a-class is refused",
       "input": { "guide_sequence": "ACGTACGTACGTACGTACGTACG", "genome": "TTTAACGTACGTACGTACGTACGTACC", "max_mismatches": 3, "system_type": "Cas12a" },
       "output": { "error": "The MIT/Hsu 2013 off-target model is SpCas9-specific and is not defined for Cas12a/Cpf1 (PAM-before-target / Cas12a-class)." }
+    },
+    {
+      "name": "Duplicated perfect site, no interval (auto-ontarget: the first is the on-target)",
+      "input": { "guide_sequence": "GACGCATAAAGATGAGACGC", "genome": "GACGCATAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACGCTGGTTTTTT", "max_mismatches": 4 },
+      "output": { "specificity": 50.0 }
+    },
+    {
+      "name": "Five perfect sites: four are off-targets",
+      "input": { "guide_sequence": "GACGCATAAAGATGAGACGC", "genome": "GACGCATAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACGCAGGTTTT", "max_mismatches": 4 },
+      "output": { "specificity": 20.0 }
+    },
+    {
+      "name": "Repeat guide: more alignments than max_occurrences is suppressed",
+      "input": { "guide_sequence": "GACGCATAAAGATGAGACGC", "genome": "GACGCATAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACGCAGGTTTTGACGCATAAAGATGAGACGCAGGTTTT", "max_mismatches": 4, "max_occurrences": 4 },
+      "output": { "specificity": 0.0 }
     }
   ]
 }

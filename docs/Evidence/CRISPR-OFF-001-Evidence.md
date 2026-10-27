@@ -49,7 +49,7 @@ content is taken from the reference implementation's own code and shipped tables
 | **L889-891** | `pamIsCpf1(pam)` — the Cpf1/Cas12a PAM list (`TNN TTN TTTN TYCV TATV TTTV TTTR ATTN TTTA TCTA TCCA CCCA YTTV TTYN`). It does **not** contain CasX's `TTCN`, which has its own `pamIsCasX` at **L897-899**. |
 | **L901-903** | `pamIsSaCas9(pam)` — `pam.split("-")[0] in ["NNGRRT", "NNNRRT"]`. |
 | **L1872-1880** | `annotateOfftargets` docstring: "All 0MM matches in this range are ignored from scoring ('ontargets')". |
-| **L1920-1929** | The on-target skip, and it is **narrower than the docstring suggests**: `if editDist==0 and repCount==0 and ((chrom==inChrom and start >= inStart and end <= inEnd) or (inChrom=='' and foundOneOntarget==False)): … continue`. Only 0MM hits inside the caller-supplied locus are dropped (or, in "auto-ontarget" mode with no locus, just the first 0MM hit met — `foundOneOntarget` then blocks the branch). A second perfect match elsewhere in the genome is scored as an off-target worth `calcHitScore = 100`. See *Divergences* 10. |
+| **L1920-1929** | The on-target skip, and it is **narrower than the docstring suggests**: `if editDist==0 and repCount==0 and ((chrom==inChrom and start >= inStart and end <= inEnd) or (inChrom=='' and foundOneOntarget==False)): … continue`. Only 0MM hits inside the caller-supplied locus are dropped (or, in "auto-ontarget" mode with no locus, just the first 0MM hit met — `foundOneOntarget` then blocks the branch). A second perfect match elsewhere in the genome is scored as an off-target worth `calcHitScore = 100`; the aggregates now reproduce both modes (*Divergences* 10), and `repCount` (L1906-1910) is `maxOccurrences` (*Divergences* 11). |
 | **L1931-1936** | `guideNoPam = guideSeq[:len(guideSeq)-len(pam)]` (PAM stripped before MIT scoring); `if len(otSeqNoPam) == 19: otSeqNoPam = "A" + otSeqNoPam` (the 19-nt pad is applied here too). |
 | **L1939-1942** | `if isCpf1: mitScore = 0.0 ; cfdScore = 0.0` — "Cpf1 has no off-target scores yet". |
 | **L1943-1945** | `elif isSaCas9: mitScore = calcSaHitScore(guideNoPam, otSeqNoPam) ; cfdScore = -1` — SaCas9 uses its own model and is excluded from CFD. |
@@ -305,24 +305,37 @@ aggregate would be exactly `100`.
    never CFD-scored is exactly the silent-perfect-score failure mode this unit fixed elsewhere
    (defect F9), so this library throws instead. CFD is in any case defined only for a 20-nt
    protospacer and the reference provides no length fallback for it.
-10. **Every exact match is dropped genome-wide by default, not just the on-target one - reproducible with
-   an interval (B08 round 3 G7 / F81).** The reference's skip (L1920-1929) is scoped to the caller-supplied
-   on-target locus - or, with no locus, to the single first 0MM hit - so a *second* perfect match elsewhere
-   in the genome is scored there as a full `calcHitScore = 100` off-target. `FindOffTargets` (contract: the
-   1..max-mismatch enumeration) and the default of every aggregate take no locus and drop all exact
-   matches, so a guide with a duplicated perfect site scores *more* specific by default than in CRISPOR.
-   The four CRISPOR-faithful genome aggregates now take an optional `onTargetStart`/`onTargetEnd`
-   (0-based, end-exclusive, forward strand; footprint = protospacer + PAM, as the reference's 23-mer
-   `start`/`end`; the strand is not compared, as in the reference) and skip exactly
-   `editDist == 0 and start >= inStart and end <= inEnd`; every other exact hit is aggregated. Oracle
-   (annotateOfftargets logic + `calcHitScore`/`calcCfdScore` exec'd in Python): duplicated-site genome
-   `G+AGG+TTTT+G+TGG+TTTTTT`, interval `[0,23)` -> MIT `50.0`, CFD `99.00990099009901`; interval
-   `[0,50)` -> 100; a footprint only partly inside (`[1,23)`) is not skipped -> `33.33333333333333`.
-   **Not reproduced: the "auto-ontarget" mode** (no interval; `foundOneOntarget` drops the first 0MM hit
-   met) - "first" follows the aligner's output order (bowtie/BWA, unspecified), and under CFD or with
-   alternative PAMs the 0MM hits have different scores (CFD = PAM score), so which hit is dropped changes
-   the value; no deterministic Seqeron equivalent exists. Also not modelled: `repCount` (a repetitive
-   guide suppresses the whole guide in the reference).
+10. **The on-target is ONE hit (or the hits inside an interval), not every exact match (B08 round 3 G7 / F81, corrected
+   in round 4 H5).** The reference's skip (L1917-1928) is scoped to the caller-supplied on-target locus - or, with
+   no locus ("auto-ontarget": `inChrom=='' and foundOneOntarget==False`), to the single first 0MM hit - so a
+   *second* perfect match elsewhere in the genome is scored as a full `calcHitScore = 100` off-target.
+   `FindOffTargets` (contract: the 1..max-mismatch enumeration) still drops every exact match. The four
+   CRISPOR-faithful genome aggregates take an optional `onTargetStart`/`onTargetEnd` (0-based, end-exclusive,
+   forward strand; footprint = protospacer + PAM; strand not compared) and skip exactly
+   `editDist == 0 and start >= inStart and end <= inEnd`. **Without an interval they now reproduce
+   auto-ontarget** (round 3 had declined it - "first follows the aligner's output order, so no deterministic
+   equivalent exists" - which the code contradicted: the scan is fully deterministic, and exact matches of one
+   PAM class score alike, so the choice cannot change the value; only the alternative-PAM aggregates could
+   differ, and there the first exact match of the main-PAM scan is the on-target while exact alternative-PAM
+   matches are kept). Oracle: CRISPOR's own `annotateOfftargets`, **executed** (the genuine function body
+   loaded by AST from `crispor.py` sha256 `16c3a54b...`, with `makeAlnStr`/`isInPar` stubbed and the CFD matrices
+   read from their JSON conversion): N perfect sites, no interval -> guideScore 100, 50, 20, 2, 0 and
+   guideCfdScore 100, 99, 96, 67, 17 for N = 1, 2, 5, 50, 500 (integer-rounded; unrounded 100/N and
+   100/(100+N-1)*100); duplicated site + one 1-mismatch hit -> 38 / 98 (38.38771593090211 / 98.3146067418492);
+   exact NGG + NAG + NGA -> 71 / 100 (71.42857142857143 / 99.67237321836325). With an interval `[0,23)` -> MIT
+   `50.0`, CFD `99.00990099009901`; `[0,50)` -> 100; a footprint only partly inside (`[1,23)`) is not skipped.
+11. **Repeat guides - `repCount` (round 4 H4).** The reference suppresses a guide wholesale when any hit has
+   `totalAlnCount > MAXOCC` (60000, L269) - or `totalAlnCount > 1 and isRep` (L1909-1910): `guideScore = 0`,
+   `guideCfdScore = 0`, an empty off-target list, and no on-target skip (L1924 requires `repCount==0`). The old
+   code scored a guide with 500 perfect sites 100 where the reference gives 0 (and the same 100 for 2, 5, 50).
+   `totalAlnCount` is BWA's `X0 + X1` for the guide alone, "not looking at the PAM" (L4081): **verified against
+   BWA 0.7.17** with the reference's own command line (`bwa aln -o 0 -m 2000000 -n k -k k -N -l 20`, `bwa samse
+   -n 60000`) on 40 random genomes with planted 0-5-mismatch copies on both strands, every fifth guide a
+   palindrome: X0+X1 equals the number of guide-length windows within k mismatches on either strand in 40/40.
+   `isRep` is BWA omitting the alignments from the XA tag, i.e. the same condition (`samse -n` is `MAXOCC`), so the
+   rule is one comparison. The four aggregates take `maxOccurrences` (default 60000) and return 0 above it; the
+   enumerations have no score to zero and still list their hits. The alignment count is PAM-agnostic, which is why it
+   is a separate window scan and not the PAM-adjacent hit count.
 
 ---
 
@@ -515,4 +528,4 @@ so they are reported.
 no hit could reach a PAM-dependent score without re-deriving the PAM from coordinates. It now carries `Pam` (read on the
 protospacer strand, like `PamAnnotatedOffTarget.Pam`). The optional on-target interval has CRISPOR's semantics
 (`annotateOfftargets`, crispor.py L1920-1929, the same footprint rule as the aggregates): an exact ungapped match is
-dropped only when its protospacer+PAM footprint lies inside it; with none given, every exact match is dropped as before.
+dropped only when its protospacer+PAM footprint lies inside it; with none given, every exact match is dropped as before (this method's contract; the specificity aggregates follow auto-ontarget since H5).

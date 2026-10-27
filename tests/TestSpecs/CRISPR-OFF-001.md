@@ -325,7 +325,7 @@ forward-strand, 0-based half-open).
 
 | Test | Locks |
 |---|---|
-| `OnTargetInterval_DefaultStillDropsEveryExactMatch_AndFindOffTargetsIsUnchanged` | duplicated-site genome: `FindOffTargets` empty, all four aggregates `100` without an interval |
+| `OnTargetInterval_DefaultIsAutoOnTarget_FirstExactMatchDropped_AndFindOffTargetsIsUnchanged` | duplicated-site genome: `FindOffTargets` empty, all four aggregates `50` (MIT) / `99.0099...` (CFD) without an interval - the first exact match is the on-target (CRISPOR auto-ontarget; H5) |
 | `OnTargetInterval_SkipsOnlyExactMatchesInsideIt_MatchesCrisporAnnotateOfftargets` (6 cases) | `[0,23)`/`[27,50)` -> MIT `50.0`, CFD `99.00990099009901`; `[0,50)` -> `100`; `[100,123)`, `[1,23)`, `[0,22)` (not fully inside) -> `33.33333333333333` / `98.0392156862745`; MIT, MIT-alt, CFD, CFD-alt agree |
 | `OnTargetInterval_ReverseStrandDuplicate_UsesForwardStrandFootprint` | the duplicate on the reverse strand: footprint `[27,50)` on the forward strand, same values |
 | `OnTargetInterval_AppliesToAlternativePamScans_WhateverThePam` | exact `NAG` / `NGA` duplicates: default `100`; `[0,23)` -> MIT `71.42857142857143` (0.2 x 100 each), CFD `99.67237321836325`; `[0,77)` -> `100` |
@@ -356,7 +356,10 @@ unrounded `100/(100+Σ CFD)×100`.
 | `DnaSequence_RejectsAmbiguityCodes_SoNonAcgtOffTargetsCannotReachTheScan` | why the reference's `[^ATCG]` exclusion is a defensive mirror here |
 | `FindOffTargets_Mismatches_EqualCanonicalHammingDistance` | dedup lock: the reported `Mismatches` equals canonical `SequenceExtensions.HammingDistance` on the same pair, for mixed-case input |
 | `CalculateCfdScore_NonAcgtBases_RefusedAlthoughCanonicalComplementAcceptsThem` | dedup lock, other direction: `U`/`N`/`R` are refused by CFD although canonical `GetComplementBase` maps them (`U`→`A`, `N`→`N`, `R`→`Y`), so the strict `CfdComplement` cannot be "cleaned up" into a silently wrong score |
-| `FindOffTargets_TwoPerfectMatches_BothDroppedGenomeWide` | the recorded on-target divergence: two perfect matches → no off-targets and both published aggregates return 100, where CRISPOR would keep the second and report 50 |
+| `FindOffTargets_TwoPerfectMatches_EnumerationDropsBoth_AggregatesScoreTheSecond` | two perfect matches → the enumeration lists none; the published aggregates score the second one: MIT 50, CFD 99.0099 = CRISPOR's executed `annotateOfftargets` (H5) |
+| `Aggregates_NPerfectSites_FirstIsTheOnTarget_TheRestAreFullOffTargets` | N = 1, 2, 5, 50, 500 perfect sites: MIT 100/N (CRISPOR 100, 50, 20, 2, 0), CFD 100/(100+N-1)*100 (CRISPOR 100, 99, 96, 67, 17), all four aggregates (H5) |
+| `Aggregates_GuideWithMoreAlignmentsThanMaxOccurrences_IsSuppressed` (k = 0..5) | BWA 0.7.17 X0+X1 = 2..7 on `RepeatGenome`: limit = count keeps the score, limit = count-1 returns 0 for all four aggregates and both CFD aggregations (H4) |
+| `Aggregates_MaxOccurrences_DefaultIsCrisporsMaxOcc_AndMustBePositive` | default 60000; 0 and -1 throw `ArgumentOutOfRangeException` on all four (H4) |
 
 #### Updated invariants
 
@@ -368,12 +371,13 @@ unrounded `100/(100+Σ CFD)×100`.
 
 #### Recorded divergences pinned by tests (full list in the Evidence file)
 
-- **On-target skip is wider here.** CRISPOR's skip (`crispor.py` L1920-1929) drops only the 0-mismatch
-  hits inside a caller-supplied on-target interval — or, with none, the first 0MM hit it meets — and
-  scores any further perfect match as a full `calcHitScore = 100` off-target. This API takes a bare
-  reference sequence and no locus, so it drops every exact match genome-wide; a guide with a duplicated
-  perfect site therefore scores *more* specific here. Pinned by
-  `FindOffTargets_TwoPerfectMatches_BothDroppedGenomeWide`.
+- **On-target handling is reproduced; the enumeration keeps its own contract.** The published aggregates drop the
+  first exact match (no interval) or the exact matches inside the interval, and score every further perfect match
+  as CRISPOR does (H5; the earlier "drops every exact match, a duplicated site scores more specific" divergence is
+  gone). `FindOffTargets` still lists no exact match (its contract is 1..max mismatches). Repeat guides (more than
+  `maxOccurrences` alignments) score 0 as the reference's `repCount` does (H4); the reference's empty off-target
+  list for such a guide is not applied to the enumerations. Pinned by
+  `FindOffTargets_TwoPerfectMatches_EnumerationDropsBoth_AggregatesScoreTheSecond` and the H4/H5 tests above.
 - **CFD refuses SaCas9 where the reference returns a vacuous 100.** The reference's per-hit
   `cfdScore = -1` for SaCas9 (L1943-1945) means every hit is dropped by its own `if cfdScore != -1`
   filter (L1961-1962), so its `guideCfdScore` is `calcMitGuideScore(sum([])) = 100` — not a sentinel
