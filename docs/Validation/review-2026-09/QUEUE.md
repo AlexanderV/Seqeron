@@ -74,6 +74,15 @@ retrieval (install a tool, run a command, grep, list file:line). And such a pass
 produces nothing. Under the superseding rule above this no longer blocks anything: it is the reason the 5-5 debt
 is simply recorded instead of chased.
 
+## State (2026-10-27) — B08 round-4 worklist IN IMPLEMENTATION (user: "ще уважно і ретельно попрацюємо над B08")
+- **Running:** `session_015WLziRGxnF8p6aSDcRy28h` (cloud, configured `claude-opus-5`, launched 2026-10-27 14:00 UTC) = B08
+  **restriction slice**: H6 H7 H13 H24 H25 H27 H28 H30-H36 H45 H52 + the restriction rows of H54. Files: `RestrictionAnalyzer*.cs`,
+  restriction tests/docs, restriction MCP hunks. Writes only to `B08-restriction-slice.md` (F100+) and ticks its own lines in B08.md.
+  Orchestrator (this session) implements every other H item (CRISPR/Azimuth/off-target/scorers, F91-F99), then runs the single
+  duplication sweep, final audit and the heavy tier for the whole batch. Why a cloud session for this slice only: the four classifier
+  halts were all on CRISPR off-target material, which the restriction slice does not contain.
+- Earlier state line below is kept for history (2026-10-25).
+
 ## State (2026-10-25) — D19 integrated (F90), B08 unblocked at audit round 4; nothing running
 - **FIN-B03 DONE** (session_019yqGyk8v1PunaUYAP83i7B archived, 10:35 – 17:57, ≈ $75.1, served claude-opus-5-5
   throughout, as was the B03 first pass — so B03 goes into "Finished batches"): audit rounds 1–3 + final round,
