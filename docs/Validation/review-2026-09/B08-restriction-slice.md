@@ -519,6 +519,26 @@ having "the same guard, so there is no workaround".
 
 ## Notes for the orchestrator (not defects of this slice)
 
+- **One MCP test is red on the branch and it is a CRISPR doc, not this slice's.**
+  `B07ToolDocsContractTests.DocPair_SchemaAndExamples_MatchTheTool("calculate_on_target_rule_set2")`
+  fails because the tool's `[Description]` and its `.mcp.json` `description` disagree about the PAM
+  clause: the attribute says "3 nt PAM (must be NGG) + 3 nt downstream, A/C/G/T only; the NGG
+  requirement is …" and the json says "3 nt PAM + 3 nt downstream (the PAM is not audited, as in
+  CRISPOR; …)". **Pre-existing on `origin/claude/stoic-maxwell-0olr2z` at `3bcd8e07`, before this
+  slice's commit:** both strings are byte-identical there, and
+  `git diff origin/claude/stoic-maxwell-0olr2z -- MolToolsTools.cs` from this slice's tree contains
+  **0** lines touching that text. It looks like the H22 attribute change and the json's new wording
+  landed out of step. This session's brief forbids touching any CRISPR doc, so it is reported rather
+  than fixed — one field in
+  `docs/mcp/tools/moltools/calculate_on_target_rule_set2.mcp.json`, or the attribute, needs to match
+  the other. Every restriction row of that test, and all four `AuditedSourceStems` of
+  `DocRef_LineAnchor_PointsAtMethodDeclaration`, are green.
+- **`sync_moltools_docref.py` still reports 11 drifted anchors, all in B02's files**
+  (`CodonOptimizer.cs` ×10, `CodonUsageAnalyzer.cs` ×1) and so outside the H29 guard's
+  `AuditedSourceStems` = PrimerDesigner / ProbeDesigner / CrisprDesigner / RestrictionAnalyzer. They
+  predate this slice (none of those files is touched here) and no test covers them; widening the
+  guard is H29's call, not this slice's.
+
 - `B08.md:162` (an earlier F-entry's test list) names
   `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing`, which F100 replaced with
   `FindSites_Circular_MoleculeShorterThanSite_FindsTheWrappedSite`. Per the coordination rules this
