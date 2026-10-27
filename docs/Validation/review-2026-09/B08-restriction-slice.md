@@ -553,6 +553,49 @@ having "the same guard, so there is no workaround".
   `RestrictionAnalyzer.PartialDigest.cs`. All 11 restriction anchors are themselves correct; the
   regex widening belongs to H29.
 
+## Heavy-tier inventory (listed, not run — the orchestrator runs the heavy tier once for B08)
+
+Every `Fuzzing/`, `Properties/` and `Metamorphic/` test that exercises a method this slice changed,
+with whether its expectation could be affected. **Conclusion: none needs updating.** The reasons are
+structural, so they hold without running the tier:
+
+- the five enzymes F101 changes (`HauII`, `SgeI`, `MspJI`, `LpnPI`, `SgrTI`) are **REBASE-only** —
+  none is one of the 39 built-ins — and every heavy-tier test below draws its enzymes from
+  `RestrictionAnalyzer.Enzymes` or names a built-in literally;
+- F100 changes only circular molecules **shorter than the recognition sequence**, and every
+  heavy-tier molecule is far longer;
+- F113's core refactor is proven byte-identical on three differentials (see F113), and its new public
+  members are additive;
+- F103/F104/F105 widen or harden argument handling; the only tightening is "an empty enzyme-name
+  array now throws", which the orchestrator's own `fdb10a0a` already wrote the fuzz test for.
+
+| Heavy-tier test | Touches | Affected? |
+|---|---|---|
+| `Fuzzing/MolToolsFuzzTests.FindSites_EmptyEnzymeList_ThrowsArgumentException_NotAnEmptyScan` | F104 | **No — it is the new contract.** Asserts `ThrowExactly<ArgumentException>` for `Array.Empty<string>()` and `ArgumentNullException` for `(string[])null!`; `RequireEnzymeNames` throws exactly those. Written by the orchestrator's `fdb10a0a` for H24 |
+| `…FindSites_UnknownEnzymeName_TypedOverload_ThrowsArgumentException` | F104 | No. `FindSites(sequence, "NotARealEnzyme")` binds the single-name `FindSites(DnaSequence, string)` overload, which was already eager; F104 only made the `params` form match it |
+| `…FindSites_UnknownEnzymeName_RawOverload_ThrowsArgumentExceptionOnEnumeration` | F104 | No. Its lambda calls `.ToList()`, so it passes whether the throw is eager or lazy. Its XML comment still says "only on ENUMERATION"; for the raw-string overload that is still literally true (the name is resolved before the sequence is read, but the enumerable is returned lazily) |
+| `…FindSites_NullOrEmptyEnzymeName_TypedOverload_ThrowsArgumentNullException` | F104 | No. `RequireEnzyme` keeps `ArgumentNullException` for null **and** empty; F104 documented that rather than changing it |
+| `…FindSites_NullDnaSequence_ThrowsArgumentNullException` | F113 | No. The new raw-string sibling made a bare `null!` ambiguous only where the test wrote one; the two call sites in `RestrictionAnalyzer_MethylationEntryPoints_Tests` were given explicit `(DnaSequence)null!` casts and this fuzz file compiles unchanged |
+| `…FindSites_NonDnaSequence_TypedOverload_RejectedAtConstruction` | F113 | No — and it is the defect's own witness: `DnaSequence` still rejects non-ACGT, which is why the raw-string entry points exist |
+| `…FindSites_NonDnaSequence_RawOverload_NoSitesNoCrash` | F113 | No. The raw-string rule is unchanged; the new overloads apply the same `ToUpperAscii` fold and the same matcher |
+| `…FindSites_DegenerateIupacEnzyme_MatchesViaAmbiguityCodes`, `…FindSites_JunkInsideRecognitionWindow_SuppressesThatSite`, `…FindSites_KnownEcoRISite_DetectedAtCorrectPosition`, `…FindSites_EnzymeNameLookup_IsCaseInsensitive`, `…FindSites_EmptySequence_IsEmptyAndDoesNotThrow` | F100, F103, F113 | No. Linear, built-in enzymes, molecules longer than the site; F103 only *widens* name resolution (a trimmed or hyphenated spelling now also resolves), it rejects nothing it used to accept |
+| `…Digest_KnownEcoRISites_YieldCorrectFragmentCountAndConserveMass`, `…Digest_LinearNoCutSites_YieldsSingleWholeFragment`, `…Digest_CircularWithTwoSites_YieldsTwoFragments_MassConserved`, `…Digest_CircularZeroCutSites_YieldsSingleCircularFragment_NoWrapAroundCrash` | F100, F101, F110 | No. EcoRI only; the circular rows are the `k=2 → 2` and `k=0 → 1` behaviour F110 *documented* rather than changed |
+| `…Digest_EmptySequence_YieldsSingleEmptyFragment` | F113 | No — and it pins the behaviour the new raw-string overloads reproduce for a null or empty string (one zero-length fragment) |
+| `…Digest_OneHundredPlusEnzymes_CompletesAndConservesMass` | F101 | No. Its catalog is `RestrictionAnalyzer.Enzymes.Values` (the 39 built-ins, all palindromic with symmetric cuts), so the F101 rule collapses every reverse record exactly as before |
+| `Properties/RestrictionProperties` — all 18 tests (`FindSites_*`, `Digest_*`, `DigestSummary_*`, `FilteredSites_*`) | F100, F101, F104, F113 | No. All linear, all built-in enzymes (`EcoRI`/`HindIII`/the table), all molecules ≥ 16 nt. `FindSites_Positions_WithinBounds` asserts `Position < Length`, which is the **linear** bound F110 scoped INV-01 to; no property test uses `MoleculeTopology.Circular` |
+| `Fuzzing/RestrictionFilterFuzzTests` — all 8 tests | F112 (tests only), F110 (doc only) | No. They assert against values computed from the shipped table (`GetBluntCutters`, `GetEnzymesByCutLength`), not against the doc prose F110 corrected, and this slice changed neither method |
+| `Properties/CodonProperties.RemoveRestrictionSites_PreservesProtein…`, `Metamorphic/CodonMetamorphicTests` (CAI/usage row), `Metamorphic/B02FinisherMetamorphicTests` (3 rows) | F105 | No. They go through `CodonOptimizer.RemoveRestrictionSites`, whose only contact with this slice is `FindPatternOccurrences(ToMatchableDna(sequence), pattern, from)` — F105 only added tolerance for a **null** sequence, and that caller never passes null |
+| `Metamorphic/RepeatsMetamorphicTests.FindPalindromes_KnownRestrictionSite…` | — | No. It names a restriction site as test data for `RepeatFinder`; it does not call `RestrictionAnalyzer` |
+| `Metamorphic/MolToolsMetamorphicTests` — all 40 tests | — | No. PAM/guide/Tm/primer/probe only; none calls `RestrictionAnalyzer` |
+
+**New behaviour that deserves heavy-tier cover and has none yet** (a suggestion for the single heavy
+run, not a leftover of this slice — every item is already locked by unit tests, and the brief assigns
+the heavy tier to the orchestrator): a property that the raw-string overloads agree with the
+`DnaSequence` overloads on any generated pure-ACGT molecule and both topologies (the unit test
+`RawStringOverloads_OnPureAcgt_EqualTheDnaSequenceOverloads` does this for one fixture), and a
+property that a circular molecule of any length ≥ 1 yields exactly one site record per start index
+that matches, which is F100's invariant.
+
 ## Test results
 
 | Scope | Result |
@@ -577,4 +620,51 @@ parallel; every row is a run of the branch as it stood at that commit, with 0 fa
 
 ## Leftovers
 
-(pending — the slice is not finished)
+**none.**
+
+All seventeen items of this slice are implemented, each with the oracle number reproduced before the
+fix and confirmed after it, a test that locks it, and a commit:
+
+| Item | Entry | Oracle | Reproduced → after |
+|---|---|---|---|
+| H6 | F100 | Biopython 1.88 | 0 sites for all 10 probe rows → all 9 Biopython rows match; 63 336-row differential, 0 divergences at any length that can hold the site |
+| H7 | F101 | EMBOSS 6.6.0 (adopted) vs Biopython 1.88 | 44 of 170 rows missing a cut → 0; 88 972-row Biopython regression, 76 rows, exactly the 5 named enzymes, all supersets |
+| H45 | F102 | the shipped table | comment said "4"; computed 564 / 9 / 2 / 166 / 5 |
+| H13 | F103 | Biopython 1.88 | `GetEnzyme("CviKI-1")` → null → resolves; cuts 2 and 6 match `CviKI_1.search` |
+| H24 | F104 | the class's own contract | 4 meanings for one shape, lazy where the doc says eager → one meaning, eager |
+| H25 | F105 | the method's own `<param>` doc + its sibling | `ArgumentNullException` → no occurrences |
+| H30 | F106 | the shipped table | `CN`/`GN` order dependence; 12 revcomp-only pairs enumerated; `end2` added |
+| H31 | F107 | measured | `p0F p8F p16F p16R p8R p0R`; Sau3AI is 2 records, not 1 |
+| H32 | F108 | Biopython 1.88 (14 580 rows) | `TotalSites` 2 / no unique cutter where "forward records only" implies 1 |
+| H33 | F109 | Biopython 1.88 source | 3 `compatible_end` implementations; 137 / 13 / 9 / 51 |
+| H34 | F110 | Biopython 1.88 | circular `Position = 10` on a 13-mer with a 6-nt site |
+| H35 | F110 | measured | circular k=0 → 1, k=1 → 1, k=2 → 2 |
+| H36 | F110 | the shipped table | exactly one built-in (SfiI) has a non-ACGT window |
+| H52 | F111 | the class's own contract | both arms untested → all six overloads covered |
+| H54 (restriction rows) | F112 | the shipped table | `>= 30` → exactly 39; per-length sets; 10 blunt / 29 sticky |
+| H27 | F113 | the library's own documented rule | `new DnaSequence("nnnGAATTC…")` throws and all 6 tools failed → all 6 answer; refactor byte-identical on 3 differentials |
+| H28 | F114 | the C# surface | 3 capabilities with no MCP expression → `max_length` plus 3 new tools (486) |
+
+Nothing is BLOCKED and nothing is deferred. The two items that are **not** this slice's to finish are
+recorded above rather than here, because their target files belong to other sessions:
+
+1. **B05 — MCP `find_degenerate_motif` rejects non-ACGT** (named by H27). Verified against the
+   current code with a minimal repro; it is a behaviour change on another batch's public MCP tool, so
+   by the README it is *register, not do*, and this session's brief forbids editing `QUEUE.md`. The
+   exact register row is under *Cross-batch requests* above, ready to paste.
+2. **The `calculate_on_target_rule_set2` doc pair is red on the branch tip** from before this slice
+   (attribute and `.mcp.json` disagree on the PAM clause; verified byte-identical at `3bcd8e07` and
+   untouched by this slice's diff). It is a CRISPR doc this session's brief forbids editing. Details
+   under *Notes for the orchestrator*.
+
+Two other observations, recorded because the completeness auditor greps for the words and they are
+**not** leftovers of this slice:
+
+- `RestrictionAnalyzer.PartialDigest.cs:17` and `:97` say the fragment **yield** is "out of scope".
+  Pre-existing, not on the round-4 worklist, and a real modelling boundary rather than a
+  simplification: the relative abundance of partial products depends on enzyme kinetics and digestion
+  time, not on the sequence, so there is nothing sequence-derived to compute. The methods compute
+  which fragments *can* arise, which is what they claim.
+- `sync_moltools_docref.py` still reports 11 drifted anchors, all in B02's `CodonOptimizer.cs` /
+  `CodonUsageAnalyzer.cs` and all outside the H29 guard's scope. Pre-existing; see
+  *Notes for the orchestrator*.
