@@ -524,8 +524,11 @@ having "the same guard, so there is no workaround".
   fails because the tool's `[Description]` and its `.mcp.json` `description` disagree about the PAM
   clause: the attribute says "3 nt PAM (must be NGG) + 3 nt downstream, A/C/G/T only; the NGG
   requirement is …" and the json says "3 nt PAM + 3 nt downstream (the PAM is not audited, as in
-  CRISPOR; …)". **Pre-existing on `origin/claude/stoic-maxwell-0olr2z` at `3bcd8e07`, before this
-  slice's commit:** both strings are byte-identical there, and
+  CRISPOR; …)". **Proved pre-existing on `origin/claude/stoic-maxwell-0olr2z` at `3bcd8e07`, the tip
+  before this slice's first H27/H28 commit:** read straight out of git at that commit, the
+  `.mcp.json` `description` is **830** characters (sha256 `517fac05c7d064a2…`) and the method's
+  `DescriptionAttribute` is **893** (sha256 `a53e4515536c97c4…`) — and the live failure message is
+  "Expected string length 893 but was 830", the same two values. Also
   `git diff origin/claude/stoic-maxwell-0olr2z -- MolToolsTools.cs` from this slice's tree contains
   **0** lines touching that text. It looks like the H22 attribute change and the json's new wording
   landed out of step. This session's brief forbids touching any CRISPR doc, so it is reported rather
@@ -614,9 +617,16 @@ that matches, which is F100's invariant.
 | targeted tier after F113/F114 (same filter) | 920 passed / 0 failed |
 | `Seqeron.Mcp.MolTools.Tests` after F113/F114 | 483 passed / 0 failed |
 | `gen-catalog.py --check` / `sync-github-skills.py --check` after F113/F114 | fresh: 486 tools, 10 generated files up to date / 21 skills byte-identical |
+| **FULL fast tier, once, after the last item** (`FullyQualifiedName!~.Fuzzing.&!~.Properties.&!~.Metamorphic.`) | **18 968 passed / 0 failed / 0 skipped**, 13 m 4 s |
+| `Seqeron.Mcp.MolTools.Tests`, final | 512 passed / **1 failed** — `DocPair_SchemaAndExamples_MatchTheTool("calculate_on_target_rule_set2")`, a CRISPR doc red on the branch tip before this slice (proof above) |
+| `dotnet build Seqeron.sln -c Debug`, final | 0 warnings, 0 errors |
+| `scripts/docs/sync_moltools_docref.py` over the four guarded stems | no drift |
 
-The counts rise between rows because the orchestrator is adding CRISPR tests to the same branch in
-parallel; every row is a run of the branch as it stood at that commit, with 0 failures.
+Baselines the brief gave were 18 775 / 0 for the fast tier and 470 / 0 for the MolTools MCP project.
+Both are higher now because the orchestrator is adding CRISPR tests to the same branch in parallel
+and this slice added its own; every row above is a run of the branch as it stood at that commit, and
+every intermediate row is 0 failures. The one final failure is not this slice's and is proved so in
+*Notes for the orchestrator*.
 
 ## Leftovers
 
