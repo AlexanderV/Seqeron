@@ -167,6 +167,90 @@ The only extra EMBOSS row is HauII on the minus strand, which is F101 (H7) itsel
   (enumerates every concrete window of every site of at most 8 positions and returns exactly
   HauII, LpnPI, MspJI, SgeI, SgrTI) — computed, not asserted from the comment.
 
+### F103 — RESTR-FIND-001 (H13): `GetEnzyme` could not resolve `CviKI-1`, the enzyme's real REBASE name
+
+- **Defect.** `GetEnzyme` did two exact dictionary lookups against a table keyed by Biopython's
+  class-name spelling. Biopython replaces a REBASE hyphen with an underscore because a Python class
+  name cannot contain one, so the shipped enzyme is keyed `CviKI_1` while REBASE and NEB (R0710)
+  spell it **`CviKI-1`**. No trimming either, although `MethylaseSets.FromName` trims.
+- **Reproduced.** `GetEnzyme("CviKI-1")` → `null`; `GetEnzyme("cviki-1")` → `null`;
+  `GetEnzyme(" EcoRI")` → `null`; `GetEnzyme("EcoRI ")` → `null`. Every consuming member then failed:
+  `FindSites(seq, "CviKI-1")`, `GetOverhangSequence("CviKI-1")` and `AreCompatible("CviKI-1", "AluI")`
+  all threw `ArgumentException: Unknown enzyme: CviKI-1`. Over MCP that is
+  `find_restriction_sites` erroring and `get_enzyme` answering "not a REBASE enzyme with a defined
+  cut" for a real NEB catalogue enzyme.
+- **Fix, in the consuming code only — the frozen `rebase_enzymes.tsv` is not touched.**
+  `GetEnzyme` trims the name and, when the trimmed name contains a hyphen and is otherwise unknown,
+  retries with `-` replaced by `_`. The table's own spelling is still what the resolved enzyme
+  reports back. Exactly one shipped enzyme is affected: of the 5 underscore-keyed names in
+  Biopython's dictionary (`CviKI_1`, `Hpy99XIV_mut1`, `HpyAXVI_mut1`, `HpyAXVI_mut2`,
+  `HpyUM032XIII_mut1`) only `CviKI_1` has a defined cut and so appears in the frozen table.
+- **Post-fix oracle agreement (Biopython 1.88).** `CviKI-1`, `CviKI_1`, `cviki-1` and `CVIKI_1` all
+  resolve to the entry whose recognition sequence is `RGCY`; `GetOverhangSequence` → `""`, matching
+  `Bio.Restriction.CviKI_1.ovhgseq == ''` (`is_blunt() == True`); the digest of `AGCTAGCT` cuts at
+  the 0-based bonds **2 and 6**, matching `CviKI_1.search(Seq("AGCTAGCT"), linear=True) == [3, 7]`;
+  `AreCompatible("CviKI-1", "AluI")` → `true` (both blunt). A genuinely unknown name, and a hyphen
+  in a position the table does not use (`Eco-RI`), still answer `null`.
+- **Tests.** `GetEnzyme_RebaseHyphenSpelling_ResolvesToTheSameEnzyme` (4 spellings × 5 assertions,
+  Biopython numbers above), `GetEnzyme_SurroundingWhitespace_IsIgnored`,
+  `GetEnzyme_StillNullForAnUnresolvableName` — in `RestrictionAnalyzer_FindSites_Tests.cs`.
+
+### F104 — RESTR-FIND-001/RESTR-DIGEST-001 (H24): one enzyme-name argument shape, four meanings
+
+- **Defect, reproduced.** For the same `params string[] enzymeNames` shape:
+
+  | call | before | after |
+  |---|---|---|
+  | `FindSites(seq, Linear, [])` | **0 sites** | `ArgumentException` |
+  | `FindSites(seq, Linear, methylases, [])` | `ArgumentException` | unchanged |
+  | `Digest(seq, [])` / `PartialDigest` / `GetDigestSummary` | `ArgumentException` | unchanged |
+  | `CreateMap(seq)` (no names) | every common enzyme | unchanged, now the single **documented** exception |
+  | `FindSites(seq, "NoSuchEnzyme1", "EcoRI")` | **built fine, threw on `.ToList()`** | `ArgumentException` at the call |
+  | `Digest(seq, "NoSuchEnzyme1")` | **built fine, threw on `.ToList()`** | `ArgumentException` at the call |
+
+  The lazy rejection contradicted the class's own name-resolution contract and the `AreCompatible`
+  remark, which both state that a misspelled name is rejected eagerly — and the raw-string
+  `FindSites(string, string, MoleculeTopology)` already was eager ("an unknown enzyme name is still
+  rejected, eagerly, before the sequence is looked at").
+- **Fix.** `FindSitesCore(DnaSequence, string[], MoleculeTopology)` is no longer an iterator: it
+  resolves the names through a new `RequireEnzymeNames` helper (null array → `ArgumentNullException`,
+  empty array → `ArgumentException`, each name through `RequireEnzyme`) and then streams. The same
+  rule now holds for the methylation overload of `FindSites`, `Digest`, `PartialDigest` and
+  `GetDigestSummary`, whose `ResolveEnzymes` is materialised rather than lazily projected.
+  `CreateMap`'s name overload keeps "empty = every common enzyme" because that is its parameter's
+  documented meaning, and `RequireEnzymeNames`' doc names it as the one deliberate exception.
+- **Documentation.** `RequireEnzyme` now states the whole contract in one place — a null **or empty**
+  name is `ArgumentNullException`, an unresolvable name is `ArgumentException`, both eager — and the
+  7 `<exception cref="ArgumentNullException">` tags on name-taking public members that said only
+  "is null" now say "is null or empty", which closes the undocumented `GetOverhangSequence("")` and
+  `AreCompatible("", …)` throws. The exception *type* for an empty name is left as
+  `ArgumentNullException`: it is pinned by an existing test across the whole restriction surface, and
+  changing it is H19's subject, not this item's.
+- **Tests.** `EmptyEnzymeNameArray_IsAnErrorEverywhereExceptCreateMap` (7 members throw; `CreateMap`
+  still considers all 39 common enzymes) and `UnknownEnzymeNameInAnArray_IsRejectedAtTheCall`
+  (6 members throw without enumerating); the existing
+  `FindSites_EmptyOrNullEnzymeName_ThrowsArgumentNullException` gained the eagerness assertion.
+
+### F105 — RESTR-FIND-001 (H25): `FindPatternOccurrences` threw where its own `<param>` doc promised an empty result
+
+- **Defect, reproduced.** `<param name="sequence">` promised "a null or empty sequence yields no
+  occurrences"; the body began with `ArgumentNullException.ThrowIfNull(sequence)`, and the method's
+  own `<exception cref="ArgumentNullException">` tag documented that throw — so two doc statements
+  contradicted each other and one contradicted the code. Measured:
+  `FindPatternOccurrences(null, "GAATTC")` → `ArgumentNullException`, while the sibling
+  `FindSites((string)null, "EcoRI")` → `0` and `FindSites("", "EcoRI")` → `0`.
+- **Fix.** The code follows the `<param>` doc and the sibling: `sequence` is `string?` and a null or
+  empty sequence yields no occurrences (`string.IsNullOrEmpty`, exactly the sibling's expression).
+  The stale `<exception>` tag is gone. The **pattern** and `startIndex` are still validated eagerly,
+  before the sequence is looked at — `FindPatternOccurrences(null, "")`,
+  `FindPatternOccurrences(null, "GAZTC")` and `FindPatternOccurrences(null, "GAATTC", -1)` all still
+  throw. The nullable annotation is source- and binary-compatible.
+  This also matters for F106 (H27): the MCP wrappers route an IUPAC-bearing sequence through this
+  method.
+- **Tests.** `FindPatternOccurrences_NullOrEmptySequence_YieldsNoOccurrences` (new);
+  `FindPatternOccurrences_InvalidArguments_Throw` updated — its null-sequence row now asserts the
+  empty result and its doc records the supersession.
+
 ## Test results
 
 | Scope | Result |
@@ -176,6 +260,11 @@ The only extra EMBOSS row is HauII on the minus strand, which is F101 (H7) itsel
 | `Seqeron.Mcp.MolTools.Tests` after F100 | 471 passed / 0 failed |
 | targeted tier after F101/F102 (`~Restriction\|~Digest\|~Enzyme\|~MolTools`, fast filter) | 3131 passed / 0 failed |
 | `Seqeron.Mcp.MolTools.Tests` after F101/F102 | 471 passed / 0 failed |
+| targeted tier after F103–F105 (same filter) | 3163 passed / 0 failed |
+| `Seqeron.Mcp.MolTools.Tests` after F103–F105 | 472 passed / 0 failed |
+
+The counts rise between rows because the orchestrator is adding CRISPR tests to the same branch in
+parallel; every row is a run of the branch as it stood at that commit, with 0 failures.
 
 ## Leftovers
 

@@ -89,14 +89,26 @@ public static partial class RestrictionAnalyzer
     /// the 39 common enzymes. A REBASE enzyme whose cut position is not defined (e.g.
     /// <c>Dpi3084I</c>) is not resolvable: it cannot be digested.
     /// </remarks>
-    /// <param name="name">Enzyme name (case-insensitive).</param>
+    /// <param name="name">Enzyme name (case-insensitive). Surrounding whitespace is ignored, as in
+    /// <see cref="MethylaseSets.FromName"/>, and a hyphen is accepted wherever the table carries an
+    /// underscore: REBASE spells the shipped enzyme <c>CviKI-1</c> with a hyphen, but the table is
+    /// keyed by Biopython's class-name spelling <c>CviKI_1</c>, which cannot contain one (review
+    /// 2026-09 B08 H13). Both spellings, and both in any casing, resolve to the same enzyme.</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
     public static RestrictionEnzyme? GetEnzyme(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return _enzymes.TryGetValue(name, out var enzyme) || RebaseEnzymes.TryGetValue(name, out enzyme)
-            ? enzyme
-            : null;
+
+        string key = name.Trim();
+        if (_enzymes.TryGetValue(key, out var enzyme) || RebaseEnzymes.TryGetValue(key, out enzyme))
+            return enzyme;
+
+        // The frozen table is keyed by Biopython's class names, which replace a REBASE hyphen with
+        // an underscore. Accept the real REBASE spelling without touching the data file.
+        if (key.Contains('-') && RebaseEnzymes.TryGetValue(key.Replace('-', '_'), out enzyme))
+            return enzyme;
+
+        return null;
     }
 
     /// <summary>
@@ -383,11 +395,16 @@ public static partial class RestrictionAnalyzer
     /// Finds all restriction sites for multiple enzymes in a <b>linear</b> sequence.
     /// </summary>
     /// <remarks>The result is the concatenation of the per-enzyme searches, in the order given;
-    /// a name repeated in <paramref name="enzymeNames"/> is searched (and reported) twice.</remarks>
+    /// a name repeated in <paramref name="enzymeNames"/> is searched (and reported) twice. The names
+    /// are resolved eagerly: a null or empty array, and an unknown or empty name, are reported at the
+    /// call (review 2026-09 B08 H24).</remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
+    /// <paramref name="enzymeNames"/> is null, or a name in it is null or empty.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, or a name in it
+    /// is not a REBASE enzyme with a defined cut.</exception>
     public static IEnumerable<RestrictionSite> FindSites(DnaSequence sequence, params string[] enzymeNames)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        ArgumentNullException.ThrowIfNull(enzymeNames);
         return FindSitesCore(sequence, enzymeNames, MoleculeTopology.Linear);
     }
 
@@ -395,12 +412,21 @@ public static partial class RestrictionAnalyzer
     /// Finds all restriction sites for multiple enzymes in a molecule of the given topology.
     /// </summary>
     /// <remarks>The result is the concatenation of the per-enzyme searches, in the order given;
-    /// a name repeated in <paramref name="enzymeNames"/> is searched (and reported) twice.</remarks>
+    /// a name repeated in <paramref name="enzymeNames"/> is searched (and reported) twice. The names
+    /// are resolved eagerly, and an empty array is an error — the same contract as the methylation
+    /// overload <see cref="FindSites(DnaSequence, MoleculeTopology, IReadOnlyList{Methylase}, string[])"/>,
+    /// as <see cref="Digest(DnaSequence, MoleculeTopology, string[])"/>, <c>PartialDigest</c> and
+    /// <c>GetDigestSummary</c>, and as the enzyme-record overloads. The one member where an empty
+    /// array means something else is <see cref="CreateMap(DnaSequence, string[])"/>, whose parameter
+    /// documents it as "every common enzyme" (review 2026-09 B08 H24).</remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
+    /// <paramref name="enzymeNames"/> is null, or a name in it is null or empty.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, or a name in it
+    /// is not a REBASE enzyme with a defined cut.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         DnaSequence sequence, MoleculeTopology topology, params string[] enzymeNames)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        ArgumentNullException.ThrowIfNull(enzymeNames);
         return FindSitesCore(sequence, enzymeNames, topology);
     }
 
@@ -425,14 +451,37 @@ public static partial class RestrictionAnalyzer
         return list.SelectMany(e => FindSitesCore(sequence.Sequence, e, topology));
     }
 
+    /// <remarks>
+    /// The names are resolved before anything is enumerated, so a misspelled name is reported at the
+    /// call and not on first enumeration — the eager rule <see cref="RequireEnzyme"/> states and the
+    /// raw-string and compatibility members already followed (review 2026-09 B08 H24).
+    /// </remarks>
     private static IEnumerable<RestrictionSite> FindSitesCore(
         DnaSequence sequence, string[] enzymeNames, MoleculeTopology topology)
     {
-        foreach (var name in enzymeNames)
-        {
-            foreach (var site in FindSites(sequence, name, topology))
-                yield return site;
-        }
+        var enzymes = RequireEnzymeNames(enzymeNames, nameof(enzymeNames));
+        return enzymes.SelectMany(e => FindSitesCore(sequence.Sequence, e, topology));
+    }
+
+    /// <summary>
+    /// Resolves a non-empty array of enzyme names eagerly — the single contract for the
+    /// <c>params string[]</c> shape: null array, empty array, null/empty name and unknown name are
+    /// all reported at the call (review 2026-09 B08 H24). <see cref="CreateMap(DnaSequence, string[])"/>
+    /// is the one deliberate exception: there an empty array means "every common enzyme", which is
+    /// that parameter's documented meaning, so it does not come through here.
+    /// </summary>
+    private static List<RestrictionEnzyme> RequireEnzymeNames(string[] enzymeNames, string paramName)
+    {
+        if (enzymeNames is null)
+            throw new ArgumentNullException(paramName);
+        if (enzymeNames.Length == 0)
+            throw new ArgumentException("At least one enzyme name is required", paramName);
+
+        var resolved = new List<RestrictionEnzyme>(enzymeNames.Length);
+        foreach (string name in enzymeNames)
+            resolved.Add(RequireEnzyme(name, paramName));
+
+        return resolved;
     }
 
     /// <summary>
@@ -482,20 +531,21 @@ public static partial class RestrictionAnalyzer
     /// codes matches nothing.
     /// </para>
     /// </remarks>
-    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="recognitionPattern"/> is null or empty,
     /// or contains a character that is not an IUPAC nucleotide code.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="startIndex"/> is negative.</exception>
     public static IEnumerable<int> FindPatternOccurrences(
-        string sequence, string recognitionPattern, int startIndex = 0)
+        string? sequence, string recognitionPattern, int startIndex = 0)
     {
-        ArgumentNullException.ThrowIfNull(sequence);
         ArgumentOutOfRangeException.ThrowIfNegative(startIndex);
         string pattern = ValidatedPattern(recognitionPattern, nameof(recognitionPattern));
 
         // ASCII-only fold (review 2026-09 B08 F49, superseding F43): ToUpperInvariant would map U+017F 'ſ'
         // onto the IUPAC code 'S', so a non-IUPAC character would match.
-        return sequence.Length == 0
+        // A null or empty sequence yields no occurrences, as the <param> doc states and as the
+        // sibling raw-string FindSites(string, string, MoleculeTopology) already did; the pattern is
+        // still validated eagerly, before the sequence is looked at (review 2026-09 B08 H25).
+        return string.IsNullOrEmpty(sequence)
             ? []
             : EnumeratePatternOccurrences(SequenceExtensions.ToUpperAscii(sequence), pattern, startIndex);
     }
@@ -513,9 +563,20 @@ public static partial class RestrictionAnalyzer
     /// Resolves an enzyme name (<see cref="GetEnzyme"/>: the full REBASE set) or throws — the single name-resolution contract of this
     /// class, shared by the site finder, the digest, the map and the compatibility members.
     /// </summary>
-    /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
+    /// <param name="enzymeName">Enzyme name (case-insensitive; surrounding whitespace and a REBASE
+    /// hyphen are tolerated, see <see cref="GetEnzyme"/>).</param>
     /// <param name="paramName">Name of the caller's parameter to blame, when it is not
     /// <c>enzymeName</c>.</param>
+    /// <remarks>
+    /// The two failures, which every name-taking public member documents with these exact types
+    /// (review 2026-09 B08 H24): a <see langword="null"/> <i>or empty</i> name is
+    /// <see cref="ArgumentNullException"/>, and a name that is not a REBASE enzyme with a defined
+    /// cut is <see cref="ArgumentException"/>. Both are eager — no name-taking member defers them
+    /// to first enumeration.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is null or empty.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a REBASE enzyme with
+    /// a defined cut.</exception>
     private static RestrictionEnzyme RequireEnzyme(string enzymeName, string? paramName = null)
     {
         paramName ??= nameof(enzymeName);
@@ -929,8 +990,12 @@ public static partial class RestrictionAnalyzer
     /// The built-in enzymes named by <paramref name="enzymeNames"/>, resolved lazily (an unknown
     /// name throws when it is reached, as the name-based entry points always did).
     /// </summary>
+    /// <remarks>
+    /// Resolved eagerly, so an unknown name throws at the call rather than on first enumeration
+    /// (review 2026-09 B08 H24); the caller has already rejected a null or empty array.
+    /// </remarks>
     private static IEnumerable<RestrictionEnzyme> ResolveEnzymes(string[] enzymeNames)
-        => enzymeNames.Select(name => RequireEnzyme(name));
+        => enzymeNames.Select(name => RequireEnzyme(name)).ToList();
 
     private static IEnumerable<DigestFragment> DigestCore(DnaSequence sequence, IEnumerable<RestrictionEnzyme> enzymes, bool[]? blocked = null)
     {
@@ -1613,7 +1678,7 @@ public static partial class RestrictionAnalyzer
     /// <returns><see cref="string.Empty"/> for a blunt cutter; otherwise the recognition-pattern
     /// bases between the two strand cuts, which may contain IUPAC ambiguity codes when the
     /// enzyme's own site does (<c>SfiI</c> → <c>"NNN"</c>).</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/> or empty.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static string GetOverhangSequence(string enzymeName)
         => GetOverhangSequence(RequireEnzyme(enzymeName))!;
@@ -1702,7 +1767,7 @@ public static partial class RestrictionAnalyzer
     /// list for every blunt and every 3'-overhang enzyme; this overload has no such restriction and
     /// is simply <see cref="AreCompatible(RestrictionEnzyme, RestrictionEnzyme)"/> over the table.
     /// </remarks>
-    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/> or empty.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static IEnumerable<(string Enzyme, string CompatibleEnd)> FindCompatibleEnzymes(string enzymeName)
         => FindCompatibleEnzymes(enzymeName, EnzymeSet.Common);
@@ -1721,7 +1786,7 @@ public static partial class RestrictionAnalyzer
     /// compatibility, and returning <see langword="false"/> made the two indistinguishable. Use
     /// <see cref="TryAreCompatible"/> to probe a name that may not exist.
     /// </remarks>
-    /// <exception cref="ArgumentNullException">Either name is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">Either name is <see langword="null"/> or empty.</exception>
     /// <exception cref="ArgumentException">Either name is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static bool AreCompatible(string enzyme1Name, string enzyme2Name)
     {
@@ -1742,7 +1807,7 @@ public static partial class RestrictionAnalyzer
     /// <returns><see langword="true"/> when both names were resolved, so
     /// <paramref name="compatible"/> is meaningful; <see langword="false"/> when either name is
     /// unknown.</returns>
-    /// <exception cref="ArgumentNullException">Either name is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">Either name is <see langword="null"/> or empty.</exception>
     public static bool TryAreCompatible(string enzyme1Name, string enzyme2Name, out bool compatible)
     {
         compatible = false;
@@ -1863,7 +1928,7 @@ public static partial class RestrictionAnalyzer
     /// <see cref="FindEquischizomers"/> and <see cref="FindNeoschizomers"/>).
     /// </summary>
     /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
-    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/> or empty.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static IEnumerable<RestrictionEnzyme> FindIsoschizomers(string enzymeName)
         => FindIsoschizomers(enzymeName, EnzymeSet.Common);
@@ -1874,7 +1939,7 @@ public static partial class RestrictionAnalyzer
     /// <c>equischizomers()</c>: "same site, same position of restriction").
     /// </summary>
     /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
-    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/> or empty.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static IEnumerable<RestrictionEnzyme> FindEquischizomers(string enzymeName)
         => FindEquischizomers(enzymeName, EnzymeSet.Common);
@@ -1885,7 +1950,7 @@ public static partial class RestrictionAnalyzer
     /// <c>neoschizomers()</c>: "same site, different position of restriction").
     /// </summary>
     /// <param name="enzymeName">Enzyme name (case-insensitive).</param>
-    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="enzymeName"/> is <see langword="null"/> or empty.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeName"/> is not a known enzyme (<see cref="GetEnzyme"/>).</exception>
     public static IEnumerable<RestrictionEnzyme> FindNeoschizomers(string enzymeName)
         => FindNeoschizomers(enzymeName, EnzymeSet.Common);

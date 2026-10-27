@@ -514,7 +514,8 @@ public class RestrictionAnalyzer_FindSites_Tests
     }
 
     /// <summary>
-    /// Test: Empty enzyme name throws ArgumentNullException.
+    /// Test: Empty enzyme name throws ArgumentNullException, eagerly — before anything is enumerated
+    /// (review 2026-09 B08 H24).
     /// </summary>
     [Test]
     [TestCase("")]
@@ -523,9 +524,153 @@ public class RestrictionAnalyzer_FindSites_Tests
     {
         var sequence = new DnaSequence("ACGT");
 
-        Assert.Throws<ArgumentNullException>(() =>
-            RestrictionAnalyzer.FindSites(sequence, enzymeName!).ToList());
+        Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.FindSites(sequence, enzymeName!).ToList());
+        Assert.Throws<ArgumentNullException>(() => _ = RestrictionAnalyzer.FindSites(sequence, enzymeName!),
+            "the guard is eager: constructing the query already throws");
     }
+
+    #region Name resolution, empty lists and eagerness (B08 H13/H24)
+
+    /// <summary>
+    /// H13: REBASE spells the shipped enzyme <c>CviKI-1</c> (NEB R0710) with a hyphen, but the frozen
+    /// table is keyed by Biopython's class-name spelling <c>CviKI_1</c>, because a Python class name
+    /// cannot contain one. Before the fix <c>GetEnzyme("CviKI-1")</c> answered null and every
+    /// name-taking member rejected the enzyme's real name. Reference: Bio.Restriction.CviKI_1 —
+    /// site RGCY, blunt, <c>ovhgseq == ""</c>, and <c>search(Seq("AGCTAGCT"), linear=True) == [3, 7]</c>
+    /// (1-based), i.e. the 0-based bonds 2 and 6. Measured with Biopython 1.88.
+    /// The frozen data file is NOT changed; the consuming lookup accepts both spellings.
+    /// </summary>
+    [TestCase("CviKI-1")]
+    [TestCase("CviKI_1")]
+    [TestCase("cviki-1")]
+    [TestCase("CVIKI_1")]
+    public void GetEnzyme_RebaseHyphenSpelling_ResolvesToTheSameEnzyme(string spelling)
+    {
+        var enzyme = RestrictionAnalyzer.GetEnzyme(spelling);
+
+        Assert.That(enzyme, Is.Not.Null, $"'{spelling}' must resolve");
+        Assert.Multiple(() =>
+        {
+            Assert.That(enzyme!.Name, Is.EqualTo("CviKI_1"), "the table's own spelling is reported back");
+            Assert.That(enzyme.RecognitionSequence, Is.EqualTo("RGCY"));
+            Assert.That(RestrictionAnalyzer.GetOverhangSequence(spelling), Is.Empty,
+                "Biopython CviKI_1.ovhgseq == '' (blunt)");
+            Assert.That(
+                RestrictionAnalyzer.Digest(new DnaSequence("AGCTAGCT"), MoleculeTopology.Linear, spelling)
+                    .Select(f => f.StartPosition).Where(p => p != 0).Distinct().Order(),
+                Is.EqualTo(new[] { 2, 6 }),
+                "Biopython CviKI_1.search(Seq(\"AGCTAGCT\"), linear=True) == [3, 7] (1-based)");
+            Assert.That(RestrictionAnalyzer.AreCompatible(spelling, "AluI"), Is.True,
+                "both are blunt cutters");
+        });
+    }
+
+    /// <summary>
+    /// H13: surrounding whitespace is ignored, as <c>MethylaseSets.FromName</c> already did.
+    /// </summary>
+    [TestCase(" EcoRI")]
+    [TestCase("EcoRI ")]
+    [TestCase("  ecori\t")]
+    public void GetEnzyme_SurroundingWhitespace_IsIgnored(string spelling)
+    {
+        Assert.That(RestrictionAnalyzer.GetEnzyme(spelling)?.Name, Is.EqualTo("EcoRI"));
+    }
+
+    /// <summary>
+    /// H13: a name that is genuinely unknown still answers null, and a hyphen is not a wildcard —
+    /// only the underscore position the table actually uses resolves.
+    /// </summary>
+    [TestCase("NoSuchEnzyme")]
+    [TestCase("Eco-RI")]
+    [TestCase("Dpi3084I")]
+    public void GetEnzyme_StillNullForAnUnresolvableName(string spelling)
+    {
+        Assert.That(RestrictionAnalyzer.GetEnzyme(spelling), Is.Null);
+    }
+
+    /// <summary>
+    /// H24: an empty enzyme-name array means the same thing on every member that takes one —
+    /// an error — rather than "no sites" on <c>FindSites</c>, a throw on the digest family and the
+    /// methylation overload of <c>FindSites</c>, and "every common enzyme" on <c>CreateMap</c>.
+    /// <c>CreateMap</c>'s name overload is the one deliberate exception and keeps its documented
+    /// meaning, which the second half of this test pins.
+    /// </summary>
+    [Test]
+    public void EmptyEnzymeNameArray_IsAnErrorEverywhereExceptCreateMap()
+    {
+        var seq = new DnaSequence("GAATTCGGATCC");
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindSites(seq));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindSites(seq, MoleculeTopology.Linear));
+            Assert.Throws<ArgumentException>(
+                () => _ = RestrictionAnalyzer.FindSites(seq, MoleculeTopology.Linear, MethylaseSets.Dam));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.Digest(seq));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.Digest(seq, MoleculeTopology.Linear));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.PartialDigest(seq));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.GetDigestSummary(seq));
+
+            // The documented exception: no names means the 39 common enzymes.
+            var map = RestrictionAnalyzer.CreateMap(seq);
+            Assert.That(map.SitesByEnzyme.Keys.Concat(map.NonCutters).Distinct().Count(), Is.EqualTo(39),
+                "CreateMap with no names considers every common enzyme");
+        });
+    }
+
+    /// <summary>
+    /// H24: an unknown name in a <c>params string[]</c> is rejected at the call, not on first
+    /// enumeration. Both entry points were iterators, so the query could be built and passed around
+    /// before failing — although the class's own name-resolution contract and the
+    /// <c>AreCompatible</c> remark both state the rejection is eager.
+    /// </summary>
+    [Test]
+    public void UnknownEnzymeNameInAnArray_IsRejectedAtTheCall()
+    {
+        var seq = new DnaSequence("GAATTCGGATCC");
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(
+                () => _ = RestrictionAnalyzer.FindSites(seq, "NoSuchEnzyme1", "EcoRI"));
+            Assert.Throws<ArgumentException>(
+                () => _ = RestrictionAnalyzer.FindSites(seq, MoleculeTopology.Circular, "EcoRI", "NoSuchEnzyme1"));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.Digest(seq, "NoSuchEnzyme1"));
+            Assert.Throws<ArgumentException>(
+                () => _ = RestrictionAnalyzer.Digest(seq, MoleculeTopology.Circular, "EcoRI", "NoSuchEnzyme1"));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.PartialDigest(seq, "NoSuchEnzyme1"));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.GetDigestSummary(seq, "NoSuchEnzyme1"));
+        });
+    }
+
+    /// <summary>
+    /// H25: <c>FindPatternOccurrences</c> promised in its <c>&lt;param&gt;</c> doc that "a null or
+    /// empty sequence yields no occurrences" while the code began with
+    /// <c>ArgumentNullException.ThrowIfNull</c> — and its own <c>&lt;exception&gt;</c> tag documented
+    /// the throw, so two doc statements disagreed with each other and one with the code. The sibling
+    /// raw-string <c>FindSites(string, string)</c> makes the same promise and honours it, so the code
+    /// now does too. The <i>pattern</i> is still validated eagerly, before the sequence is looked at.
+    /// </summary>
+    [Test]
+    public void FindPatternOccurrences_NullOrEmptySequence_YieldsNoOccurrences()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences(null, "GAATTC"), Is.Empty);
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences("", "GAATTC"), Is.Empty);
+            Assert.That(RestrictionAnalyzer.FindSites((string?)null!, "EcoRI"), Is.Empty,
+                "the sibling already behaved this way");
+            Assert.That(RestrictionAnalyzer.FindSites("", "EcoRI"), Is.Empty);
+
+            // An invalid pattern is still an error, whatever the sequence is.
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindPatternOccurrences(null, ""));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindPatternOccurrences(null, "GAZTC"));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => _ = RestrictionAnalyzer.FindPatternOccurrences(null, "GAATTC", -1));
+        });
+    }
+
+    #endregion
 
     /// <summary>
     /// Test: Sequence shorter than recognition sequence returns no sites.
@@ -1749,15 +1894,19 @@ public class RestrictionAnalyzer_FindSites_Tests
     }
 
     /// <summary>
-    /// Argument validation. The pattern must be a non-empty IUPAC string; the sequence must not
-    /// be null; startIndex must not be negative.
+    /// Argument validation. The pattern must be a non-empty IUPAC string and startIndex must not be
+    /// negative. The <i>sequence</i> is not validated: a null or empty one yields no occurrences,
+    /// which is what the parameter's own doc promises and what the sibling raw-string
+    /// <c>FindSites(string, string)</c> has always done (review 2026-09 B08 H25 — this used to throw
+    /// <c>ArgumentNullException</c>, contradicting both that doc and the sibling; pinned by
+    /// <c>FindPatternOccurrences_NullOrEmptySequence_YieldsNoOccurrences</c>).
     /// </summary>
     [Test]
     public void FindPatternOccurrences_InvalidArguments_Throw()
     {
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => RestrictionAnalyzer.FindPatternOccurrences(null!, "GAATTC"));
+            Assert.That(RestrictionAnalyzer.FindPatternOccurrences(null, "GAATTC"), Is.Empty);
             Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindPatternOccurrences("ACGT", null!));
             Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindPatternOccurrences("ACGT", ""));
             Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindPatternOccurrences("ACGT", "GAXTTC"),
