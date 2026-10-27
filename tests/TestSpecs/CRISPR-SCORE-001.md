@@ -70,7 +70,7 @@
 
 1. **Position-axis reversal** (the classic CRISPR scoring bug) — silently swapping PAM-distal/PAM-proximal indexing. Guarded explicitly for MIT/Hsu and CFD (S3, S2, R1, R3).
 2. **Rule Set 2 column-order drift** — azimuth concatenates feature blocks in CPython-2.7 dict order; any reordering misaligns the trained tree feature indices (S2, R2).
-3. **Rule Set 2 upstream fixture is stale** — `azimuth/tests/1000guides.csv` is internally inconsistent with the shipped pickles for ~38% of rows (its own test warns "can fail due to randomness ... feature reordering"); it is therefore NOT a strict oracle (R2).
+3. **Rule Set 2 upstream fixture is the oracle (corrected, B08 H1)** — `azimuth/tests/1000guides.csv` (`truth nopos` / `truth pos`) agrees with the shipped pickles on all 947 rows of both models (max \|Δ\| 5e-10). An earlier revision of this spec called it "internally inconsistent for ~38% of rows" and tested only an `agrees == 1` subset; those 362 / 310 rows were exactly the rows where the NGGX one-hot was in the wrong alphabet order (A,T,C,G instead of upstream's alphabetical A,C,G,T), i.e. a defect in this library's featurizer, not in the fixture (R2).
 4. **CFD off-base key** — `dY` is the **complement** of the off-target base, not the off-target base; mis-keying changes the penalty (R3).
 5. **Tm parameterization** — Rule Set 2's melting temperature must use Biopython `Tm_NN` with DNA_NN3, salt method 5, dnac1=dnac2=25 nM, Na=50 mM; any other parameters shift the 4 Tm features (R4).
 6. **A false 100 on a specificity score** - an aggregate that silently drops every hit (the former non-20-nt filter) reports the guide as perfectly specific; the unsafe direction. Guarded by asserting the off-targets exist before asserting the refusal / the real value (F9).
@@ -124,9 +124,9 @@
 |----|-----------|-------------|------------------|----------|
 | M1 | Rule Set 1 reference examples | The two 30-mers shipped in `doenchScore.py` | 71.3089368437 / 1.89838463593 (×100, tol 1e-4) | S1, R1 |
 | M2 | Rule Set 1 independent value | All-A 30-mer with PAM, re-derived in Python | 4.4338168085 | S1, R1 |
-| M3 | Rule Set 2 nopos == reference (all guides) | C# vs verified Python reference, 947 guides | max \|Δ\| < 1e-5 | S2, R2 |
-| M4 | Rule Set 2 full == reference (all guides) | C# vs verified Python reference, 947 guides | max \|Δ\| < 1e-5 | S2, R2 |
-| M5 | Rule Set 2 == upstream fixture (agreeing subset) | C# vs `1000guides.csv` on the 585 (nopos) / 637 (full) rows where the verified reference and upstream concur | all < 1e-3 | R2 |
+| M3 | Rule Set 2 nopos == reference (all guides) | C# vs verified Python reference, 947 guides | max \|Δ\| < 1e-8 | S2, R2 |
+| M4 | Rule Set 2 full == reference (all guides) | C# vs verified Python reference, 947 guides | max \|Δ\| < 1e-8 | S2, R2 |
+| M5 | Rule Set 2 == upstream fixture (all rows) | C# vs `1000guides.csv` `truth nopos` / `truth pos`, all 947 rows of both models (the NGGX block is alphabetical A,C,G,T; the fixture hits all 16 cells) | all < 1e-8 | R2 |
 | M6 | MIT/Hsu perfect & known single hits | perfect→100; W[0]→100; pos5(0.395)→60.5; pos19(0.583)→41.7 | exact | S3, R1 |
 | M7 | MIT/Hsu two-mismatch (all terms) | mm{5,15} → 0.10406·0.345454·0.25·100 | 0.8987 | S3, R1 |
 | M8 | MIT/Hsu aggregate | one hit 60.5 → 62.305; two {60.5,41.7} → 49.456; no hits → 100 | exact | S3, R1 |
@@ -136,7 +136,7 @@
 | M12 | CFD PAM application | perfect + GA/AG/TG → 0.069444/0.259259/0.038961; + AA → 0.0 | exact | S2, R3 |
 | M13 | Orientation guards | MIT pos13(0.851)→14.9 vs pos0(0)→100; CFD rC:dT,1=1.0 vs rC:dT,20=0.5 | non-reversed values | S3, S2 (INV-6) |
 | M14 | Input validation (all four) | null/empty, wrong length, non-ACGT, missing N`GG` PAM (on-target) / wrong PAM length (CFD) | `ArgumentNullException` (null) / `ArgumentException` (empty string and the rest) | implementation contract; empty-string typing per F36, F38 |
-| M15 | Rule Set 2 `percentPeptide == -1` sentinel | 947 guides x two different `aaCut` values equal the sequence-only score and the oracle `ref_score`; oracle guide `AAAAAAAAAAAAAAAAAAATGCAGCGGGAG`, aaCut 181 → 0.510655 (pre-fix 0.608099 NOT returned), full model with a real percentage still 0.570371 | exact | R6, F35 |
+| M15 | Rule Set 2 `percentPeptide == -1` sentinel | 947 guides x two different `aaCut` values equal the sequence-only score and the oracle `ref_score`; oracle guide `AAAAAAAAAAAAAAAAAAATGCAGCGGGAG`, aaCut 181 → 0.500929648 (pre-fix 0.608099 NOT returned; 0.510655 before the H1 NGGX-order fix), full model with a real percentage still 0.570371166 | exact | R6, F35 |
 | M16 | Rule Set 2 `percentPeptide` range | `-1.0001`, `100.0001`, NaN, ±∞ throw `ArgumentOutOfRangeException`; `0`, `0.18`, `50`, `100`, `-1` are accepted and land in [0, 1]; model blobs declare the 627 / 630-column shape and a wrong declared shape is `InvalidOperationException` (never `IndexOutOfRangeException`) | exception type / range | library contract (F36) |
 | M17 | Rule Set 2 `aminoAcidCutPosition` range | `-1`, `-2`, `int.MinValue` with a real percentage throw `ArgumentOutOfRangeException` (`ParamName = aminoAcidCutPosition`); the same values with the sentinel equal the sequence-only score; `0`, `181`, `499`, `100000` accepted | exception type / equality | R6 (`1000guides.csv` AA cut 0..499), F70 |
 | M18 | Rule Set 1 reference-executed rows and contract | 11 `TestCase` rows sampled from the 477-context run (gcCount 0/2/5/7/9/10/11/13/17, lowest/highest score, three designed contexts) match the Python reference to 1e-9; both GC coefficients are reachable at the `gcCount` 10/11 boundary; `null` → `ArgumentNullException`, `""` → `ArgumentException` that is not `ArgumentNullException` (message names the 30-nt context, `ParamName = context30Mer`); a non-NGG context throws | tol 1e-9 / exception type | S1, R1, F38 |
@@ -256,5 +256,5 @@ No ❌ or ⚠ rows in §5.2 — all MUST/SHOULD/COULD cases (M1-M28, S1-S5, C1-C
 
 ## 7. Open Questions / Decisions
 
-1. **Rule Set 2 upstream fixture is not a strict oracle** (resolved): its ~38% drift from the shipped pickles is documented; the authoritative oracle is the verified reference, with the fixture used only as independent corroboration on the agreeing subset.
+1. **Rule Set 2 upstream fixture** (corrected, B08 H1): the earlier claim that it drifts from the shipped pickles for ~38% of rows was wrong — the drift was this library's NGGX block order. The fixture is now the oracle on all 947 rows of both models.
 2. None outstanding.

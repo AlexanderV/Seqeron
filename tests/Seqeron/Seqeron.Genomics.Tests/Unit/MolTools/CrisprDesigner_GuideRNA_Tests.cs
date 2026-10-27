@@ -772,8 +772,8 @@ public class CrisprDesigner_GuideRNA_Tests
 
     #region 2026-09 review — Doench 2016 Rule Set 2 on designed guides
 
-    // Oracle row from tests/.../TestData/Azimuth/nopos_oracle.csv (agrees == 1, i.e. the verified
-    // reference prediction and Microsoft Azimuth's own regression fixture concur):
+    // Oracle row from tests/.../TestData/Azimuth/nopos_oracle.csv (the verified reference prediction
+    // and Microsoft Azimuth's own regression fixture `truth nopos` concur on every row):
     //   guide30 = AAAAAAAAAAAAAAAGCTAACAGCAGGAGT, ref_score = 0.529037
     // Layout: 4 nt 5' flank "AAAA" | protospacer "AAAAAAAAAAAGCTAACAGC" | PAM "AGG" | 3' flank "AGT".
     private const string Oracle30Mer = "AAAAAAAAAAAAAAAGCTAACAGCAGGAGT";

@@ -20,9 +20,11 @@ namespace Seqeron.Genomics.MolTools;
 //   minimize off-target effects of CRISPR-Cas9." Nat Biotechnol 34, 184-191 (2016). PMID 26780180.
 //   Trained models: https://github.com/MicrosoftResearch/Azimuth (BSD-3-Clause).
 //
-// The featurization (incl. the Biopython Tm_NN melting-temperature features and the CPython-2.7 dict
-// column ordering used at training time) and the binary format are documented in the extractor script
-// and validated end-to-end against that verified Python reference (see the test suite).
+// The featurization (incl. the Biopython Tm_NN melting-temperature features, the CPython-2.7 dict
+// column ordering used at training time, and the alphabetical NGGX block) and the binary format are
+// documented in the extractor script. The scores are validated end-to-end against the upstream
+// regression fixture azimuth/tests/1000guides.csv (columns `truth nopos` / `truth pos`): all 947 rows
+// of both models agree to 5e-10 (see the test suite).
 // ---------------------------------------------------------------------------------------------
 
 /// <summary>
@@ -252,6 +254,18 @@ internal static class AzimuthRuleSet2
 
     private static int NucIndex(char c) => c switch { 'A' => 0, 'T' => 1, 'C' => 2, 'G' => 3, _ => -1 };
 
+    // The NGGX block is the one block that is NOT in azimuth's A,T,C,G alphabet order but in ALPHABETICAL
+    // A,C,G,T order. Upstream NGGX_interaction_feature (azimuth/features/featurization.py L130-L145)
+    // starts from an empty `pandas.DataFrame()` and `pandas.concat`s one 16-row one-hot frame per guide
+    // along axis=1; the index union of non-equal indexes is what sorts the labels (the audit traced it to
+    // pandas 0.19.2 `_union_indexes` -> `lib.fast_unique_multiple_list`; that pandas is not installable
+    // here, so the mechanism is the explanation and the measurement below is the evidence), whereas the
+    // pd_*/pi_* blocks are built by `Series.apply`, whose indexes are all equal and so keep A,T,C,G.
+    // Measured against upstream's own fixture (azimuth/tests/1000guides.csv, `truth nopos` /
+    // `truth pos`) with the shipped pickles: A,C,G,T gives 947/947 rows within 5e-10 for both models;
+    // A,T,C,G leaves 362/947 (nopos) and 310/947 (full) rows off by up to 0.038 / 0.051.
+    private static int NggxIndex(char c) => c switch { 'A' => 0, 'C' => 1, 'G' => 2, 'T' => 3, _ => -1 };
+
     /// <summary>Writes all sequence-derived blocks. Returns nothing meaningful; gene-position slots are
     /// left for <see cref="FillGenePosition"/> in the full model.</summary>
     private static void FeaturizeNoPos(string seq, Span<double> f, bool fullModel = false)
@@ -293,8 +307,9 @@ internal static class AzimuthRuleSet2
         for (int pos = 0; pos < 29; pos++)
             f[oPi2 + NucIndex(seq[pos]) * 4 + NucIndex(seq[pos + 1])] += 1.0;
 
-        // NGGX: one-hot of the dinucleotide formed by the PAM 'N' (pos 24) and the +1 base (pos 27).
-        f[oNggx + NucIndex(seq[24]) * 4 + NucIndex(seq[27])] = 1.0;
+        // NGGX: one-hot of the dinucleotide formed by the PAM 'N' (pos 24) and the +1 base (pos 27),
+        // in alphabetical A,C,G,T order (see NggxIndex).
+        f[oNggx + NggxIndex(seq[24]) * 4 + NggxIndex(seq[27])] = 1.0;
 
         // Melting temperatures: whole 30-mer and three sub-segments of the protospacer.
         f[oTm + 0] = MeltingTemp(seq, 0, 30);

@@ -66,7 +66,7 @@ re-confirmed: (a) both `azimuth_rs2_{nopos,full}.bin` and `scripts/azimuth/extra
 are present; (b) the oracle CSVs (`scripts/azimuth/oracle/{nopos,full}_oracle.csv`, 947 rows) carry
 both `ref_score` (the verified reference prediction) **and** `upstream` (the Microsoft Azimuth fixture)
 with an `agrees` flag — confirming the test oracles are externally derived, not read off the C# code;
-(c) the extractor header documents the full provenance and the known upstream-fixture drift (~38% rows),
+(c) the extractor header documents the full provenance and the upstream-fixture drift (~38% rows) **[corrected in B08 round 4, H1: that drift was this library's NGGX block order, fixed; the fixture agrees on all 947 rows]**,
 consistent with the prior multi-session report. The detailed sklearn-free recovery, 1e-13 featurizer
 match, real-Biopython Tm cross-check, CPython-2.7 column order, and bit-identical scikit-learn traversal
 were established in the prior report and are accepted as still valid (model files and tests unchanged).

@@ -88,6 +88,19 @@ The reference algorithm was re-implemented verbatim in Python from the source ab
 | `ACGGACTAGCCTACGTACGT` | `ACGGACTAGCCT` (already reverse-complemented — *not* what the tool expects) | 1 (`CTAG`, which matches in both orientations) | 1 |
 | `ACGTACGTACGTACGTACGT` | — / standard scaffold | 10 / 10 | 10 / 10 |
 
+### NGGX block order of the Azimuth features (B08 round 4, H1)
+
+Oracle: Microsoft Azimuth's own fixture `azimuth/tests/1000guides.csv` (columns `truth nopos` / `truth pos`,
+raw.githubusercontent.com/MicrosoftResearch/Azimuth/master, 200) scored with the shipped
+`V3_model_nopos.pickle` / `V3_model_full.pickle` by the project's sklearn-free tree walker over all 947 rows.
+NGGX one-hot in `A,T,C,G` order (the order of the other blocks): nopos max |Δ| 0.0377, 362/947 rows > 1e-3;
+full max |Δ| 0.0511, 310/947 rows > 1e-3. NGGX in alphabetical `A,C,G,T` order: max |Δ| 5.0e-10 on 947/947 rows for
+both models. Upstream `NGGX_interaction_feature` (`azimuth/features/featurization.py` L130-L145,
+24354 B) concatenates per-guide one-hot frames onto an empty `pandas.DataFrame()`, which sorts the labels;
+that pandas (0.19.2) is not installable here, so the mechanism is the explanation and the 947-row match is
+the evidence. The earlier statement that the fixture was "internally inconsistent for ~38% of rows" was this
+defect, not a property of the fixture.
+
 ### Nearest-neighbour Tm used by the Azimuth features
 
 `AzimuthRuleSet2.MeltingTemp` (inlined DNA_NN3 table, salt-correction method 5, dnac1 = dnac2 = 25 nM,

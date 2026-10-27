@@ -4,7 +4,7 @@
 This is a *build-time* developer tool (run once). Its outputs are committed:
   - Resources/azimuth_rs2_nopos.bin  (sequence-only model, "Rule Set 2" score)
   - Resources/azimuth_rs2_full.bin   (model with gene-position features)
-  - test oracle CSVs (predictions from this verified reference + upstream-agreeing rows)
+  - test oracle CSVs (predictions from this reference next to upstream's own truth, all 947 rows)
 
 It loads Microsoft Research's pickled scikit-learn GradientBoostingRegressor models
 WITHOUT scikit-learn (a custom Unpickler reads the raw tree node arrays), reproduces
@@ -17,14 +17,16 @@ Provenance / inputs (downloaded from the pinned upstream repo if absent):
     azimuth/saved_models/V3_model_full.pickle
     azimuth/tests/1000guides.csv          (upstream regression fixture; see NOTE below)
 
-NOTE on the upstream fixture: azimuth/tests/1000guides.csv is INTERNALLY INCONSISTENT
-with the shipped pickles for ~38% of rows (its own unit test warns it "can fail due to
-randomness ... feature reordering"). This was verified here three ways: (1) our extracted
-trees reproduced by sklearn's own Tree.predict bit-for-bit; (2) our featurizer matches a
-verbatim port of upstream featurization.py to 1e-13 using real Biopython; (3) the column
-order reproduces documented CPython-2.7 dict iteration order. The authoritative oracle is
-therefore THIS reference's predictions; the fixture is used only as independent
-corroboration on the subset of rows where it agrees.
+NOTE on the upstream fixture: azimuth/tests/1000guides.csv (columns `truth nopos` / `truth pos`)
+is CONSISTENT with the shipped pickles on all 947 rows (max |diff| 5e-10 for both models). An
+earlier revision of this script wrote the NGGX one-hot in azimuth's A,T,C,G order, found ~38%
+of rows off by up to 0.05, and blamed the fixture ("can fail due to randomness ... feature
+reordering" in upstream's own test) -- it was this script's NGGX block. Upstream
+NGGX_interaction_feature (azimuth/features/featurization.py L130-L145) concatenates the
+per-guide one-hot frames onto an EMPTY DataFrame, and that index union sorts the labels, so
+the NGGX block is in ALPHABETICAL A,C,G,T order while the pd_*/pi_* blocks keep A,T,C,G.
+The upstream truth columns are therefore the independent oracle, and main() refuses to write
+the oracle CSVs unless every row agrees with them at 1e-3.
 
 Binary format (little-endian) -- see AzimuthOnTarget.cs for the reader:
   magic   u32  = 0x32535241  ('A','R','S','2')
@@ -141,7 +143,8 @@ def _tm_features(seq):
 
 def nopos_blocks(seq):
     pd1, pi1 = _nuc(seq, 1); pd2, pi2 = _nuc(seq, 2); gc = _count_gc(seq)
-    nx = seq[24] + seq[27]; ng = np.zeros(16); ng[_alphabet(2).index(nx)] = 1.0
+    # NGGX is alphabetical (A,C,G,T), unlike the A,T,C,G pd_*/pi_* blocks -- see the NOTE above.
+    nx = seq[24] + seq[27]; ng = np.zeros(16); ng[sorted(_alphabet(2)).index(nx)] = 1.0
     return {"_nuc_pd_Order1": pd1, "_nuc_pi_Order1": pi1, "_nuc_pd_Order2": pd2,
             "_nuc_pi_Order2": pi2, "gc_above_10": np.array([1.0 if gc > 10 else 0.0]),
             "gc_below_10": np.array([1.0 if gc < 10 else 0.0]), "gc_count": np.array([float(gc)]),
@@ -244,29 +247,34 @@ def main():
     print("NOPOS_ORDER =", NOPOS_ORDER)
     print("FULL_ORDER  =", FULL_ORDER)
 
-    # oracle vectors from THIS verified reference, plus upstream-agreeing subset.
+    # oracle vectors: this reference's prediction next to upstream's own truth, every row.
     # Written into the test project so the C# suite embeds them directly.
     rows = list(csv.DictReader(open(guides)))
     odir = os.path.normpath(os.path.join(HERE, "..", "..", "tests", "Seqeron",
                                          "Seqeron.Genomics.Tests", "TestData", "Azimuth"))
     os.makedirs(odir, exist_ok=True)
+    out_n, out_f = [], []
     n_agree = f_agree = 0
+    max_n = max_f = 0.0
+    for r in rows:
+        s = r["guide"]; aa = float(r["AA cut"]); pp = float(r["Percent peptide"])
+        xn = np.concatenate([nopos_blocks(s)[k] for k in NOPOS_ORDER])
+        xf = np.concatenate([full_blocks(s, aa, pp)[k] for k in FULL_ORDER])
+        pn = predict(ntrees, nlr, nim, xn); pf = predict(ftrees, flr, fim, xf)
+        un = float(r["truth nopos"]); uf = float(r["truth pos"])
+        n_agree += abs(pn - un) < 1e-3; f_agree += abs(pf - uf) < 1e-3
+        max_n = max(max_n, abs(pn - un)); max_f = max(max_f, abs(pf - uf))
+        out_n.append([s, "%.9f" % pn, "%.9f" % un])
+        out_f.append([s, "%g" % aa, "%g" % pp, "%.9f" % pf, "%.9f" % uf])
+    print("upstream agreement: nopos %d/%d (max |diff| %.3g)  full %d/%d (max |diff| %.3g)" %
+          (n_agree, len(rows), max_n, f_agree, len(rows), max_f))
+    if n_agree != len(rows) or f_agree != len(rows):
+        sys.exit("reference disagrees with upstream's truth columns; refusing to write the oracle CSVs")
     with open(os.path.join(odir, "nopos_oracle.csv"), "w", newline="") as on, \
          open(os.path.join(odir, "full_oracle.csv"), "w", newline="") as off_:
-        wn = csv.writer(on); wn.writerow(["guide30", "ref_score", "upstream", "agrees"])
-        wf = csv.writer(off_); wf.writerow(["guide30", "aa_cut", "pct_pep", "ref_score", "upstream", "agrees"])
-        for r in rows:
-            s = r["guide"]; aa = float(r["AA cut"]); pp = float(r["Percent peptide"])
-            xn = np.concatenate([nopos_blocks(s)[k] for k in NOPOS_ORDER])
-            xf = np.concatenate([full_blocks(s, aa, pp)[k] for k in FULL_ORDER])
-            pn = predict(ntrees, nlr, nim, xn); pf = predict(ftrees, flr, fim, xf)
-            un = float(r["truth nopos"]); uf = float(r["truth pos"])
-            an = abs(pn - un) < 1e-3; af = abs(pf - uf) < 1e-3
-            n_agree += an; f_agree += af
-            wn.writerow([s, "%.6f" % pn, "%.6f" % un, int(an)])
-            wf.writerow([s, "%g" % aa, "%g" % pp, "%.6f" % pf, "%.6f" % uf, int(af)])
-    print("upstream agreement: nopos %d/%d  full %d/%d" %
-          (n_agree, len(rows), f_agree, len(rows)))
+        wn = csv.writer(on); wn.writerow(["guide30", "ref_score", "upstream"]); wn.writerows(out_n)
+        wf = csv.writer(off_); wf.writerow(["guide30", "aa_cut", "pct_pep", "ref_score", "upstream"])
+        wf.writerows(out_f)
 
 if __name__ == "__main__":
     main()

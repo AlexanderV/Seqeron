@@ -71,7 +71,11 @@ implemented separately and are the ones to use for predicted cutting efficiency.
 returned conventionally in `[0, 1]`. It is a trained gradient-boosted-tree model, not a coefficient
 table, reproduced sklearn-free from Microsoft Research's Azimuth `V3_model_nopos` / `V3_model_full`;
 `percentPeptide == -1` is Azimuth's "no gene position" sentinel and is answered with the
-sequence-only model, as the reference does. `DesignGuideRnas` reports this score (and the 30-nt
+sequence-only model, as the reference does. The implementation reproduces Azimuth's own regression
+fixture (`azimuth/tests/1000guides.csv`, `truth nopos` / `truth pos`) on all 947 rows of both models to
+5e-10; the NGGX one-hot block is in alphabetical `A,C,G,T` order while the position-dependent blocks
+keep `A,T,C,G` (audit round 4, H1 — the order was wrong before, shifting the score by up to 0.05 for
+about 39 % of guides). `DesignGuideRnas` reports this score (and the 30-nt
 context it was computed from) on every qualifying candidate and can rank by it
 (`GuideRnaRanking.OnTargetRuleSet2`).
 

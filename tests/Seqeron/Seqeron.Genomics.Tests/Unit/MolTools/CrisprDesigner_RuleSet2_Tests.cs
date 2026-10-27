@@ -12,36 +12,33 @@ namespace Seqeron.Genomics.Tests.Unit.MolTools;
 /// (V3_model_nopos / V3_model_full) and reproduces the exact featurization, including the Biopython
 /// Tm_NN melting-temperature features and the CPython-2.7 dict column ordering used at training time.
 ///
-/// ORACLE. The authoritative oracle is the project's verified Python reference
-/// (scripts/azimuth/extract_azimuth_model.py), whose predictions were validated three independent ways:
-///   (1) the extracted trees reproduced by scikit-learn 1.6's own Tree.predict bit-for-bit;
-///   (2) the featurizer matches a verbatim port of upstream featurization.py to 1e-13 using real Biopython;
-///   (3) the column order reproduces documented CPython-2.7 dict iteration order
-///       (e.g. {'a','b','c'} -> ['a','c','b'] and the published string hashes).
-/// Those reference predictions (column `ref_score`) are embedded as TestData/Azimuth/*_oracle.csv and
-/// the C# score must reproduce them to floating-point tolerance.
+/// ORACLE. Upstream's own regression fixture (azimuth/tests/1000guides.csv, columns `truth nopos` /
+/// `truth pos`, embedded as TestData/Azimuth/*_oracle.csv column `upstream`) is the independent,
+/// third-party oracle: the C# score must reproduce it on ALL 947 guides of BOTH models, to 1e-8
+/// (upstream prints 9 decimals; the measured maximum is 5e-10).
 ///
-/// INDEPENDENT CORROBORATION. The same CSVs also carry upstream's own regression fixture
-/// (azimuth/tests/1000guides.csv, column `upstream`). That fixture is INTERNALLY INCONSISTENT with the
-/// shipped pickles for ~38% of rows (its own unit test warns it "can fail due to randomness ... feature
-/// reordering"), so it is NOT used as a strict oracle. Instead, on the `agrees == 1` subset where our
-/// verified reference and upstream concur at 1e-3, we assert the C# score also matches upstream — an
-/// independent, third-party confirmation on 585 (nopos) / 637 (full) guides.
+/// The same CSVs carry `ref_score`, the prediction of the project's Python reference
+/// (scripts/azimuth/extract_azimuth_model.py, which loads the shipped pickles without scikit-learn).
+/// It agrees with `upstream` on all 947 rows, and the extractor refuses to write these files otherwise.
+///
+/// HISTORY (audit round 4, H1). An earlier revision of this suite called the fixture "INTERNALLY
+/// INCONSISTENT with the shipped pickles for ~38% of rows" and asserted against `upstream` only on the
+/// `agrees == 1` subset (585 nopos / 637 full). That was wrong: the 362 (nopos) and 310 (full)
+/// excluded rows were exactly the rows where the NGGX one-hot was written in the wrong alphabet order
+/// (A,T,C,G instead of upstream's alphabetical A,C,G,T). The subset filter hid the defect.
 /// </summary>
 [TestFixture]
 public class CrisprDesigner_RuleSet2_Tests
 {
     private const int ExpectedRows = 947;
-    private const int ExpectedNoPosAgree = 585;
-    private const int ExpectedFullAgree = 637;
 
     // C# reproduces the reference exactly except for last-ULP differences in Math.Log within Tm; the
-    // stored ref_score is rounded to 6 decimals. 1e-5 covers both with margin.
-    private const double RefTol = 1e-5;
-    private const double UpstreamTol = 1e-3;
+    // stored ref_score and upstream truth are rounded to 9 decimals. 1e-8 covers both with margin.
+    private const double RefTol = 1e-8;
+    private const double UpstreamTol = 1e-8;
 
-    private sealed record NoPos(string Guide, double Ref, double Upstream, bool Agrees);
-    private sealed record Full(string Guide, int AaCut, double PctPep, double Ref, double Upstream, bool Agrees);
+    private sealed record NoPos(string Guide, double Ref, double Upstream);
+    private sealed record Full(string Guide, int AaCut, double PctPep, double Ref, double Upstream);
 
     private static IEnumerable<string> ReadResourceLines(string fileName)
     {
@@ -63,12 +60,12 @@ public class CrisprDesigner_RuleSet2_Tests
 
     private static List<NoPos> LoadNoPos() => ReadResourceLines("nopos_oracle.csv")
         .Select(l => l.Split(','))
-        .Select(c => new NoPos(c[0], D(c[1]), D(c[2]), c[3] == "1"))
+        .Select(c => new NoPos(c[0], D(c[1]), D(c[2])))
         .ToList();
 
     private static List<Full> LoadFull() => ReadResourceLines("full_oracle.csv")
         .Select(l => l.Split(','))
-        .Select(c => new Full(c[0], int.Parse(c[1], CultureInfo.InvariantCulture), D(c[2]), D(c[3]), D(c[4]), c[5] == "1"))
+        .Select(c => new Full(c[0], int.Parse(c[1], CultureInfo.InvariantCulture), D(c[2]), D(c[3]), D(c[4])))
         .ToList();
 
     // -------------------------------------------------------------------------------------------
@@ -110,34 +107,45 @@ public class CrisprDesigner_RuleSet2_Tests
     }
 
     // -------------------------------------------------------------------------------------------
-    // Independent corroboration: on the subset where the verified reference agrees with upstream's
-    // own fixture, the C# score also matches upstream (third-party confirmation).
+    // Independent oracle: upstream's own fixture (azimuth/tests/1000guides.csv), every row, both models.
     // -------------------------------------------------------------------------------------------
 
     [Test]
-    public void RuleSet2_NoPos_MatchesUpstreamFixture_OnAgreeingSubset()
+    public void RuleSet2_NoPos_MatchesUpstreamFixture_AllGuides()
     {
-        var agree = LoadNoPos().Where(r => r.Agrees).ToList();
-        agree.Should().HaveCount(ExpectedNoPosAgree);
+        var rows = LoadNoPos();
+        rows.Should().HaveCount(ExpectedRows);
 
-        foreach (var r in agree)
+        foreach (var r in rows)
         {
             double got = CrisprDesigner.CalculateOnTargetRuleSet2(r.Guide);
-            got.Should().BeApproximately(r.Upstream, UpstreamTol);
+            got.Should().BeApproximately(r.Upstream, UpstreamTol, $"guide {r.Guide}");
         }
     }
 
     [Test]
-    public void RuleSet2_Full_MatchesUpstreamFixture_OnAgreeingSubset()
+    public void RuleSet2_Full_MatchesUpstreamFixture_AllGuides()
     {
-        var agree = LoadFull().Where(r => r.Agrees).ToList();
-        agree.Should().HaveCount(ExpectedFullAgree);
+        var rows = LoadFull();
+        rows.Should().HaveCount(ExpectedRows);
 
-        foreach (var r in agree)
+        foreach (var r in rows)
         {
             double got = CrisprDesigner.CalculateOnTargetRuleSet2(r.Guide, r.AaCut, r.PctPep);
-            got.Should().BeApproximately(r.Upstream, UpstreamTol);
+            got.Should().BeApproximately(r.Upstream, UpstreamTol, $"guide {r.Guide}");
         }
+    }
+
+    /// <summary>
+    /// The NGGX block (PAM N at offset 24 x the +1 base at offset 27) is the one block in alphabetical
+    /// A,C,G,T order; the others keep A,T,C,G. The all-guides tests above only constrain that ordering
+    /// for the cells the fixture actually hits, so pin that it hits all sixteen, in both models.
+    /// </summary>
+    [Test]
+    public void RuleSet2_Fixture_ExercisesAllSixteenNggxCells_InBothModels()
+    {
+        LoadNoPos().Select(r => $"{r.Guide[24]}{r.Guide[27]}").Distinct().Should().HaveCount(16);
+        LoadFull().Select(r => $"{r.Guide[24]}{r.Guide[27]}").Distinct().Should().HaveCount(16);
     }
 
     // -------------------------------------------------------------------------------------------
@@ -270,7 +278,7 @@ public class CrisprDesigner_RuleSet2_Tests
     [Test]
     public void RuleSet2_TmFeature_FeedsTheScore_OracleStillReproduced()
     {
-        var rows = LoadNoPos().Where(r => r.Agrees).Take(25).ToList();
+        var rows = LoadNoPos().Take(25).ToList();
         rows.Should().HaveCount(25);
         foreach (var r in rows)
             CrisprDesigner.CalculateOnTargetRuleSet2(r.Guide).Should().BeApproximately(r.Ref, RefTol);
@@ -288,7 +296,7 @@ public class CrisprDesigner_RuleSet2_Tests
     // i.e. the sentinel selects V3_model_nopos AND discards the caller's gene position, so the
     // answer is exactly the sequence-only score. The library used to answer with V3_model_full and
     // percent_peptide = -1 / "Percent Peptide <50%" = 1, which is a score the reference never
-    // returns for any input (e.g. 0.608099450578 instead of 0.510655 for the guide below).
+    // returns for any input (e.g. 0.608099450578 instead of 0.500929648 for the guide below).
     // -------------------------------------------------------------------------------------------
 
     [Test]
@@ -311,7 +319,7 @@ public class CrisprDesigner_RuleSet2_Tests
 
     /// <summary>
     /// The one guide where the two models are furthest apart in the oracle: the sentinel must give
-    /// the verified nopos reference score (nopos_oracle.csv row 1, ref_score 0.510655), not the
+    /// the verified nopos reference score (nopos_oracle.csv row 1, ref_score 0.500929648 = upstream's `truth nopos`), not the
     /// full-model value the implementation used to return for percent_peptide = -1.
     /// </summary>
     [Test]
@@ -320,10 +328,10 @@ public class CrisprDesigner_RuleSet2_Tests
         const string guide = "AAAAAAAAAAAAAAAAAAATGCAGCGGGAG"; // full_oracle/nopos_oracle row 1
         double sentinel = CrisprDesigner.CalculateOnTargetRuleSet2(guide, 181, -1.0);
 
-        sentinel.Should().BeApproximately(0.510655, RefTol);          // verified nopos reference
+        sentinel.Should().BeApproximately(0.500929648, RefTol);       // verified nopos reference
         sentinel.Should().NotBeApproximately(0.608099, 1e-4);          // pre-fix full-model answer
         CrisprDesigner.CalculateOnTargetRuleSet2(guide, 181, 50.0)
-            .Should().BeApproximately(0.570371, RefTol);               // full model still unchanged
+            .Should().BeApproximately(0.570371166, RefTol);               // full model (upstream `truth pos`)
     }
 
     /// <summary>
