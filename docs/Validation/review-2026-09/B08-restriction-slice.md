@@ -376,6 +376,52 @@ The only extra EMBOSS row is HauII on the minus strand, which is F101 (H7) itsel
   argued, wrongly, that such a reading wraps the molecule more than once. Each now states the shipped
   rule with the measured differential.
 
+### F111 — RESTR-FILTER-001 (H52): the three isoschizomer queries' null guards were untested
+
+- **Defect.** `FindIsoschizomers` / `FindEquischizomers` / `FindNeoschizomers` each document
+  `ArgumentNullException`, and the sibling guards of `GetEnzyme`, `GetOverhangSequence` and
+  `AreCompatible` are tested in the same file — but the one guard test there passes `"Nope"`, which
+  exercises the `ArgumentException` arm. Neither arm was covered for these three.
+- **Fix.** Two tests in `RestrictionAnalyzer_Filter_Tests.cs`:
+  `IsoschizomerQueries_NullOrEmptyName_ThrowArgumentNullException` covers all **six** overloads
+  (three methods × with and without `EnzymeSet`) for both `null` and `""`, the contract F104 states
+  on `RequireEnzyme`; `IsoschizomerQueries_UnknownName_ThrowArgumentExceptionEagerly` covers the
+  other arm for the same six, asserts it is eager (the throw happens at the call, not on first
+  enumeration), and checks a resolvable name still works — including the hyphen spelling F103 added.
+
+### F112 — RESTR-FIND-001/RESTR-FILTER-001 (H54, restriction rows): tests that could not fail
+
+The `CrisprDesigner_GuideRNA_Tests.cs` rows of H54 belong to the orchestrator and are untouched here.
+
+| Row | Was | Now |
+|---|---|---|
+| `RestrictionAnalyzer_FindSites_Tests.cs:115` — `Enzymes_ContainsAtLeast30CommonEnzymes` asserted `>= 30` where 39 is the documented fact, so nine enzymes could have vanished silently | `Is.GreaterThanOrEqualTo(30)` + 9 `ContainsKey` spot checks | renamed `Enzymes_ContainsExactlyThe39CommonEnzymes`; `Has.Count.EqualTo(39)` **and** the exact 39-name membership list, so neither a loss nor an unannounced addition passes |
+| `:141-151` — `GetEnzymesByCutLength_ReturnsEnzymesOfCorrectLength` asserted `Is.Not.Empty` plus a soundness predicate against an invariant that says "exactly" | 3 lengths, soundness only | renamed `…_ReturnsExactlyTheEnzymesOfThatLength`; the exact set per length for 4 (9 enzymes), 6 (24), 8 (5), 13 (SfiI) and the two empty lengths 5 and 7, plus a new `GetEnzymesByCutLength_PerLengthSets_PartitionTheTable` asserting the length histogram `{4:9, 6:24, 8:5, 13:1}` and that the per-length sets sum to 39 |
+| `:158-186` — `GetBluntCutters_ReturnsOnlyBluntEndEnzymes` / `GetStickyCutters_ReturnsOnlyStickyEndEnzymes` passed for an implementation returning only `AluI` | `Is.Not.Empty` + `All(...)` | counts pinned (10 blunt, 29 sticky), plus the blunt cut-offset identity and an explicit partition assertion against `Enzymes.Keys` |
+| `RestrictionAnalyzer_Filter_Tests.cs:143-158` — `GetEnzymesByCutLength_Range6To6_ReturnsOnly6Cutters` | soundness + a 5-name spot check | the exact 24-name set, plus `ByLength(6) == ByLength(6,6)` (INV-04) |
+| `RestrictionAnalyzer_Filter_Tests.cs:201-215` — `GetEnzymesByCutLength_Range4To4_ReturnsOnly4Cutters` | soundness + a 4-name spot check | the exact 9-name set, plus `ByLength(4) == ByLength(4,4)` |
+
+Every number above is computed from the shipped table, not transcribed: 39 built-ins, lengths
+`{4: 9, 6: 24, 8: 5, 13: 1}`, 10 blunt and 29 sticky. The blunt count cross-checks against
+Biopython 1.88, whose `EcoRV.compatible_end()` returns the 137 blunt REBASE cutters (F109), of which
+these 10 are the common-set share.
+
+## Notes for the orchestrator (not defects of this slice)
+
+- `B08.md:162` (an earlier F-entry's test list) names
+  `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing`, which F100 replaced with
+  `FindSites_Circular_MoleculeShorterThanSite_FindsTheWrappedSite`. Per the coordination rules this
+  session does not edit `B08.md` beyond ticking its own items, so the rename is recorded here.
+  Likewise H54 renamed `Enzymes_ContainsAtLeast30CommonEnzymes` →
+  `Enzymes_ContainsExactlyThe39CommonEnzymes` and
+  `GetEnzymesByCutLength_ReturnsEnzymesOfCorrectLength` →
+  `GetEnzymesByCutLength_ReturnsExactlyTheEnzymesOfThatLength`; no `docs/Validation/reports/**`,
+  `docs/Evidence/**` or `docs/algorithms/**` file referenced the old names (checked by grep).
+- `H29` (not this slice's item) notes that `partial_digest`'s `docRef` cannot be matched by the
+  guard's `(?<file>\w+\.cs)` regex because `\w` rejects the dot in
+  `RestrictionAnalyzer.PartialDigest.cs`. All 11 restriction anchors are themselves correct; the
+  regex widening belongs to H29.
+
 ## Test results
 
 | Scope | Result |
@@ -390,6 +436,7 @@ The only extra EMBOSS row is HauII on the minus strand, which is F101 (H7) itsel
 | targeted tier after F106–F110 (`~Restriction\|~CodonOptimizer`, fast filter) | 910 passed / 0 failed |
 | `Seqeron.Mcp.MolTools.Tests` after F106–F110 | 477 passed / 0 failed |
 | `python3 scripts/skills/gen-catalog.py --check` after F106–F110 | fresh: 483 tools, 10 generated files up to date |
+| targeted tier after F111/F112 (`~Restriction\|~CodonOptimizer`, fast filter) | 916 passed / 0 failed |
 
 The counts rise between rows because the orchestrator is adding CRISPR tests to the same branch in
 parallel; every row is a run of the branch as it stood at that commit, with 0 failures.

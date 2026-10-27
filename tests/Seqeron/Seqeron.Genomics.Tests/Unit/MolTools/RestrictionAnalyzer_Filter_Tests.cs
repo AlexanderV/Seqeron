@@ -146,15 +146,21 @@ public class RestrictionAnalyzer_Filter_Tests
         var result = RestrictionAnalyzer.GetEnzymesByCutLength(6, 6).ToList();
         var names = result.Select(e => e.Name).ToHashSet();
 
-        // Assert
+        // Assert. INV-03 says "returns EXACTLY the enzymes with min <= len <= max", so the whole
+        // membership is pinned, not soundness plus a five-name spot check (review 2026-09 B08 H54).
         Assert.Multiple(() =>
         {
             Assert.That(result.All(e => e.RecognitionLength == 6), Is.True, "All returned sites must be 6 bp");
-            Assert.That(names, Does.Contain("EcoRI"), "EcoRI (GAATTC) is a 6-cutter");
-            Assert.That(names, Does.Contain("BamHI"), "BamHI (GGATCC) is a 6-cutter");
-            Assert.That(names, Does.Contain("PstI"), "PstI (CTGCAG) is a 6-cutter");
+            Assert.That(names.Order(StringComparer.Ordinal), Is.EqualTo(new[]
+            {
+                "AgeI", "ApaI", "AvrII", "BamHI", "BglII", "ClaI", "EcoRI", "EcoRV", "HincII",
+                "HindIII", "KpnI", "NcoI", "NdeI", "NheI", "PstI", "SacI", "SalI", "ScaI", "SmaI",
+                "SpeI", "SphI", "StuI", "XbaI", "XhoI",
+            }), "the 24 6-cutters of the built-in table");
             Assert.That(names, Does.Not.Contain("AluI"), "AluI (AGCT) is a 4-cutter, excluded");
             Assert.That(names, Does.Not.Contain("NotI"), "NotI (GCGGCCGC) is an 8-cutter, excluded");
+            Assert.That(result, Is.EquivalentTo(RestrictionAnalyzer.GetEnzymesByCutLength(6)),
+                "INV-04: ByLength(6) == ByLength(6,6)");
         });
     }
 
@@ -205,14 +211,17 @@ public class RestrictionAnalyzer_Filter_Tests
         var result = RestrictionAnalyzer.GetEnzymesByCutLength(4, 4).ToList();
         var names = result.Select(e => e.Name).ToHashSet();
 
-        // Assert
+        // Assert. The exact membership, per INV-03 (review 2026-09 B08 H54).
         Assert.Multiple(() =>
         {
             Assert.That(result.All(e => e.RecognitionLength == 4), Is.True, "All returned sites must be 4 bp");
-            Assert.That(names, Does.Contain("AluI"), "AluI (AGCT) is a 4-cutter");
-            Assert.That(names, Does.Contain("HaeIII"), "HaeIII (GGCC) is a 4-cutter");
-            Assert.That(names, Does.Contain("TaqI"), "TaqI (TCGA) is a 4-cutter");
+            Assert.That(names.Order(StringComparer.Ordinal), Is.EqualTo(new[]
+            {
+                "AluI", "DpnI", "HaeIII", "HpaII", "MboI", "MspI", "RsaI", "Sau3AI", "TaqI",
+            }), "the 9 4-cutters of the built-in table");
             Assert.That(names, Does.Not.Contain("EcoRI"), "EcoRI is a 6-cutter, excluded");
+            Assert.That(result, Is.EquivalentTo(RestrictionAnalyzer.GetEnzymesByCutLength(4)),
+                "INV-04: ByLength(4) == ByLength(4,4)");
         });
     }
 
@@ -769,6 +778,66 @@ public class RestrictionAnalyzer_Filter_Tests
                 Assert.That(RestrictionAnalyzer.GetOverhangSequence(row.Name), Is.EqualTo(row.Ovhg),
                     $"{row.Name} ovhgseq");
             }
+        });
+    }
+
+    #endregion
+
+    #region Null guards of the isoschizomer queries (B08 H52)
+
+    /// <summary>
+    /// H52: the <c>ArgumentNullException</c> paths of the three isoschizomer queries were untested —
+    /// the one guard test in this file passes <c>"Nope"</c>, which exercises the
+    /// <c>ArgumentException</c> arm instead — although the sibling guards of <c>GetEnzyme</c>,
+    /// <c>GetOverhangSequence</c> and <c>AreCompatible</c> are tested. The contract is
+    /// <c>RestrictionAnalyzer.RequireEnzyme</c>'s: a null <i>or empty</i> name is
+    /// <c>ArgumentNullException</c>, an unresolvable name is <c>ArgumentException</c>, both eager
+    /// (B08 H24/F104). All six overloads are covered.
+    /// </summary>
+    [Test]
+    public void IsoschizomerQueries_NullOrEmptyName_ThrowArgumentNullException()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (string? name in new string?[] { null, "" })
+            {
+                Assert.Throws<ArgumentNullException>(
+                    () => _ = RestrictionAnalyzer.FindIsoschizomers(name!), $"FindIsoschizomers({name ?? "null"})");
+                Assert.Throws<ArgumentNullException>(
+                    () => _ = RestrictionAnalyzer.FindEquischizomers(name!), $"FindEquischizomers({name ?? "null"})");
+                Assert.Throws<ArgumentNullException>(
+                    () => _ = RestrictionAnalyzer.FindNeoschizomers(name!), $"FindNeoschizomers({name ?? "null"})");
+                Assert.Throws<ArgumentNullException>(
+                    () => _ = RestrictionAnalyzer.FindIsoschizomers(name!, EnzymeSet.Rebase));
+                Assert.Throws<ArgumentNullException>(
+                    () => _ = RestrictionAnalyzer.FindEquischizomers(name!, EnzymeSet.Rebase));
+                Assert.Throws<ArgumentNullException>(
+                    () => _ = RestrictionAnalyzer.FindNeoschizomers(name!, EnzymeSet.Rebase));
+            }
+        });
+    }
+
+    /// <summary>
+    /// H52: and the other arm — an unresolvable name is <c>ArgumentException</c>, not
+    /// <c>ArgumentNullException</c>, for all three queries and both overloads. Both arms are eager,
+    /// so the throw happens at the call and not on first enumeration.
+    /// </summary>
+    [Test]
+    public void IsoschizomerQueries_UnknownName_ThrowArgumentExceptionEagerly()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindIsoschizomers("Nope"));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindEquischizomers("Nope"));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindNeoschizomers("Nope"));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindIsoschizomers("Nope", EnzymeSet.Rebase));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindEquischizomers("Nope", EnzymeSet.Rebase));
+            Assert.Throws<ArgumentException>(() => _ = RestrictionAnalyzer.FindNeoschizomers("Nope", EnzymeSet.Rebase));
+
+            // A resolvable name still works, including the REBASE hyphen spelling (B08 H13/F103).
+            Assert.That(RestrictionAnalyzer.FindEquischizomers("MspI").Select(e => e.Name),
+                Is.EqualTo(new[] { "HpaII" }));
+            Assert.DoesNotThrow(() => _ = RestrictionAnalyzer.FindIsoschizomers(" CviKI-1 ", EnzymeSet.Rebase).ToList());
         });
     }
 

@@ -103,16 +103,26 @@ public class RestrictionAnalyzer_FindSites_Tests
     #region Enzyme Database Coverage Tests
 
     /// <summary>
-    /// Evidence: REBASE - Comprehensive enzyme database with 30+ common enzymes.
+    /// Evidence: REBASE. The built-in table holds exactly <b>39</b> common enzymes — the number the
+    /// class doc, the three algorithm docs and every MCP tool description state — so the count is
+    /// pinned exactly. It used to assert only <c>&gt;= 30</c>, under which nine enzymes could have
+    /// vanished silently (review 2026-09 B08 H54).
     /// </summary>
     [Test]
-    public void Enzymes_ContainsAtLeast30CommonEnzymes()
+    public void Enzymes_ContainsExactlyThe39CommonEnzymes()
     {
         var enzymes = RestrictionAnalyzer.Enzymes;
 
         Assert.Multiple(() =>
         {
-            Assert.That(enzymes.Count, Is.GreaterThanOrEqualTo(30), "Database should have 30+ enzymes");
+            Assert.That(enzymes, Has.Count.EqualTo(39), "the documented size of the built-in table");
+            Assert.That(enzymes.Keys.Order(StringComparer.Ordinal), Is.EqualTo(new[]
+            {
+                "AgeI", "AluI", "ApaI", "AscI", "AvrII", "BamHI", "BglII", "ClaI", "DpnI", "EcoRI",
+                "EcoRV", "FseI", "HaeIII", "HincII", "HindIII", "HpaII", "KpnI", "MboI", "MspI",
+                "NcoI", "NdeI", "NheI", "NotI", "PacI", "PstI", "RsaI", "SacI", "SalI", "Sau3AI",
+                "ScaI", "SfiI", "SmaI", "SpeI", "SphI", "StuI", "SwaI", "TaqI", "XbaI", "XhoI",
+            }), "the exact membership, so neither a loss nor an unannounced addition passes");
 
             // Common 6-cutters (Wikipedia)
             Assert.That(enzymes.ContainsKey("EcoRI"), "EcoRI should be present");
@@ -133,26 +143,68 @@ public class RestrictionAnalyzer_FindSites_Tests
     }
 
     /// <summary>
-    /// Evidence: Wikipedia - Recognition sequences range from 4-8 bp.
+    /// Evidence: Wikipedia - Recognition sequences range from 4-8 bp. The invariant the filtering doc
+    /// states is "returns <b>exactly</b> the enzymes with that length", so the expected membership is
+    /// pinned rather than only soundness plus non-emptiness (review 2026-09 B08 H54). The four
+    /// lengths present in the built-in table are 4 (9 enzymes), 6 (24), 8 (5) and 13 (SfiI, the one
+    /// interrupted palindrome), which sum to the table's 39.
     /// </summary>
-    [Test]
-    [TestCase(4, Description = "4-cutters (frequent cutters)")]
-    [TestCase(6, Description = "6-cutters (most common)")]
-    [TestCase(8, Description = "8-cutters (rare cutters)")]
-    public void GetEnzymesByCutLength_ReturnsEnzymesOfCorrectLength(int cutLength)
+    [TestCase(4, new[] { "AluI", "DpnI", "HaeIII", "HpaII", "MboI", "MspI", "RsaI", "Sau3AI", "TaqI" })]
+    [TestCase(6, new[]
+    {
+        "AgeI", "ApaI", "AvrII", "BamHI", "BglII", "ClaI", "EcoRI", "EcoRV", "HincII", "HindIII",
+        "KpnI", "NcoI", "NdeI", "NheI", "PstI", "SacI", "SalI", "ScaI", "SmaI", "SpeI", "SphI",
+        "StuI", "XbaI", "XhoI",
+    })]
+    [TestCase(8, new[] { "AscI", "FseI", "NotI", "PacI", "SwaI" })]
+    [TestCase(13, new[] { "SfiI" })]
+    [TestCase(5, new string[0])]
+    [TestCase(7, new string[0])]
+    public void GetEnzymesByCutLength_ReturnsExactlyTheEnzymesOfThatLength(int cutLength, string[] expected)
     {
         var enzymes = RestrictionAnalyzer.GetEnzymesByCutLength(cutLength).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(enzymes, Is.Not.Empty, $"Should have enzymes with {cutLength}-bp recognition");
+            Assert.That(enzymes.Select(e => e.Name).Order(StringComparer.Ordinal), Is.EqualTo(expected),
+                $"the exact set of {cutLength}-bp cutters");
             Assert.That(enzymes.All(e => e.RecognitionLength == cutLength),
                 $"All enzymes should have recognition length of {cutLength}");
         });
     }
 
     /// <summary>
-    /// Evidence: Wikipedia - Enzymes produce blunt ends, 5' overhangs, or 3' overhangs.
+    /// And the per-length sets partition the whole table, so a length added or removed cannot hide
+    /// between the cases above (B08 H54).
+    /// </summary>
+    [Test]
+    public void GetEnzymesByCutLength_PerLengthSets_PartitionTheTable()
+    {
+        var byLength = RestrictionAnalyzer.Enzymes.Values
+            .GroupBy(e => e.RecognitionLength)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(byLength, Is.EquivalentTo(new Dictionary<int, int>
+            {
+                [4] = 9, [6] = 24, [8] = 5, [13] = 1,
+            }));
+            Assert.That(byLength.Values.Sum(), Is.EqualTo(39));
+            Assert.That(Enumerable.Range(1, 20).Sum(l => RestrictionAnalyzer.GetEnzymesByCutLength(l).Count()),
+                Is.EqualTo(39), "every built-in is returned by exactly one length");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia - Enzymes produce blunt ends, 5' overhangs, or 3' overhangs. These two
+    /// tests used to assert only <c>Is.Not.Empty</c> plus a soundness predicate, so an
+    /// implementation returning just <c>AluI</c> would have passed both (review 2026-09 B08 H54).
+    /// The counts are now pinned: 10 blunt and 29 sticky, which partition the table's 39. The exact
+    /// blunt membership is locked separately in
+    /// <c>RestrictionAnalyzer_Filter_Tests.GetBluntCutters_ReturnsExactlyTheDocumentedBluntSet</c>;
+    /// 10 is also the common-set share of the 137 blunt REBASE cutters that Biopython's
+    /// <c>EcoRV.compatible_end()</c> returns.
     /// </summary>
     [Test]
     public void GetBluntCutters_ReturnsOnlyBluntEndEnzymes()
@@ -161,15 +213,18 @@ public class RestrictionAnalyzer_FindSites_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(bluntCutters, Is.Not.Empty, "Should have blunt cutters");
+            Assert.That(bluntCutters, Has.Count.EqualTo(10), "the 10 centre-cutting built-ins");
             Assert.That(bluntCutters.All(e => e.IsBluntEnd), "All should be blunt end");
             Assert.That(bluntCutters.All(e => e.OverhangType == OverhangType.Blunt),
                 "All should have Blunt overhang type");
+            Assert.That(bluntCutters.All(e => e.CutPositionForward == e.CutPositionReverse),
+                "a blunt cutter cuts both strands at the same offset");
         });
     }
 
     /// <summary>
-    /// Evidence: Wikipedia - Sticky end enzymes produce overhangs.
+    /// Evidence: Wikipedia - Sticky end enzymes produce overhangs. See the remark above: the count is
+    /// pinned so a soundness-only pass is no longer possible (B08 H54).
     /// </summary>
     [Test]
     public void GetStickyCutters_ReturnsOnlyStickyEndEnzymes()
@@ -178,11 +233,16 @@ public class RestrictionAnalyzer_FindSites_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(stickyCutters, Is.Not.Empty, "Should have sticky cutters");
+            Assert.That(stickyCutters, Has.Count.EqualTo(29), "39 built-ins minus the 10 blunt ones");
             Assert.That(stickyCutters.All(e => !e.IsBluntEnd), "None should be blunt end");
             Assert.That(stickyCutters.All(e =>
                 e.OverhangType == OverhangType.FivePrime || e.OverhangType == OverhangType.ThreePrime),
                 "All should have 5' or 3' overhang type");
+            Assert.That(
+                stickyCutters.Select(e => e.Name)
+                    .Concat(RestrictionAnalyzer.GetBluntCutters().Select(e => e.Name)),
+                Is.EquivalentTo(RestrictionAnalyzer.Enzymes.Keys),
+                "blunt and sticky partition the table exactly");
         });
     }
 
