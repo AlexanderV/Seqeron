@@ -20,7 +20,7 @@ Performs a comprehensive restriction scan: every enzyme of `enzyme_set` — `"co
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L427](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L427)
+- Source: [RestrictionAnalyzer.cs#L510](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L510)
 
 ## Input Schema
 

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.FindPamSites",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L38",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L52",
   "description": "Find all PAM matches (both strands) for a CRISPR system in a DNA sequence.",
   "inputSchema": {
     "type": "object",

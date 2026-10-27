@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindSites",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L247",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L438",
   "description": "Find restriction sites for named enzymes (any of the 754 REBASE enzymes with a defined cut, case-insensitive) on both strands of a DNA sequence; 0-based forward-strand coordinates, per-strand cut positions, linear cut-feasibility filter or circular origin-spanning search.",
   "inputSchema": {
     "type": "object",

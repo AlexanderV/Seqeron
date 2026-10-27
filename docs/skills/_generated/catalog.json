@@ -2251,7 +2251,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetBluntCutters",
     "docPath": "docs/mcp/tools/moltools/blunt_cutters.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L140"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L152"
   },
   {
     "tool": "build_codon_table",
@@ -2272,14 +2272,14 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateOnTargetDoench2014",
     "docPath": "docs/mcp/tools/moltools/calculate_on_target_doench2014.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L915"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1287"
   },
   {
     "tool": "calculate_on_target_rule_set2",
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateOnTargetRuleSet2",
     "docPath": "docs/mcp/tools/moltools/calculate_on_target_rule_set2.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L989"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1404"
   },
   {
     "tool": "codon_adaptation_index",
@@ -2328,28 +2328,28 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateCfdSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_cfd_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1941"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2560"
   },
   {
     "tool": "crispr_mit_specificity_score",
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateMitSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_mit_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1140"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1665"
   },
   {
     "tool": "crispr_specificity_score",
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateHeuristicSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L717"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1089"
   },
   {
     "tool": "crispr_system_info",
     "server": "MolTools",
     "methodId": "CrisprDesigner.GetSystem",
     "docPath": "docs/mcp/tools/moltools/crispr_system_info.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L14"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L26"
   },
   {
     "tool": "design_antisense_probes",
@@ -2363,7 +2363,7 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.DesignGuideRnas",
     "docPath": "docs/mcp/tools/moltools/design_guide_rnas.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L188"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L234"
   },
   {
     "tool": "design_molecular_beacon",
@@ -2405,7 +2405,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetDigestSummary",
     "docPath": "docs/mcp/tools/moltools/digest_summary.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1268"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1454"
   },
   {
     "tool": "effective_number_of_codons",
@@ -2419,21 +2419,21 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetEnzymesByCutLength",
     "docPath": "docs/mcp/tools/moltools/enzymes_by_cut_length.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L115"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L127"
   },
   {
     "tool": "enzymes_compatible",
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.AreCompatible",
     "docPath": "docs/mcp/tools/moltools/enzymes_compatible.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1635"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1841"
   },
   {
     "tool": "evaluate_guide_rna",
     "server": "MolTools",
     "methodId": "CrisprDesigner.EvaluateGuideRna",
     "docPath": "docs/mcp/tools/moltools/evaluate_guide_rna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L271"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L325"
   },
   {
     "tool": "evaluate_primer",
@@ -2447,7 +2447,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindAllSites",
     "docPath": "docs/mcp/tools/moltools/find_all_restriction_sites.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L427"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L510"
   },
   {
     "tool": "find_conserved_rare_codon_clusters",
@@ -2461,14 +2461,14 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.FindOffTargets",
     "docPath": "docs/mcp/tools/moltools/find_off_targets.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L578"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L677"
   },
   {
     "tool": "find_pam_sites",
     "server": "MolTools",
     "methodId": "CrisprDesigner.FindPamSites",
     "docPath": "docs/mcp/tools/moltools/find_pam_sites.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L38"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L52"
   },
   {
     "tool": "find_rare_codon_clusters",
@@ -2489,7 +2489,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindSites",
     "docPath": "docs/mcp/tools/moltools/find_restriction_sites.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L247"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L438"
   },
   {
     "tool": "generate_primer_candidates",
@@ -2503,7 +2503,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetEnzyme",
     "docPath": "docs/mcp/tools/moltools/get_enzyme.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L94"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L98"
   },
   {
     "tool": "hairpin_potential",
@@ -2594,14 +2594,14 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.Digest",
     "docPath": "docs/mcp/tools/moltools/restriction_digest.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L802"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1124"
   },
   {
     "tool": "restriction_map",
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.CreateMap",
     "docPath": "docs/mcp/tools/moltools/restriction_map.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1344"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1552"
   },
   {
     "tool": "rscu",
@@ -2615,7 +2615,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetStickyCutters",
     "docPath": "docs/mcp/tools/moltools/sticky_cutters.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L153"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L165"
   },
   {
     "tool": "three_prime_stability",

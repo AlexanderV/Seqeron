@@ -18,7 +18,7 @@ Enumerates every PAM site in the genome for the chosen system and reports those 
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L578](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L578)
+- Source: [CrisprDesigner.cs#L677](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L677)
 
 ## Input Schema
 

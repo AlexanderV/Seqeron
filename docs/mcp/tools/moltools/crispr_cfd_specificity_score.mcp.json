@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateCfdSpecificityScore",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2017",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2560",
   "description": "Published Doench 2016 CFD aggregate guide specificity score following CRISPOR annotateOfftargets (main PAM by default; include_alternative_pams reproduces its wider NAG/NGA search): 100/(100 + sum of raw per-hit CFD) * 100 (MitStyle), or the doCfdFix variant 100 / sum (ParkinsonNormalized).",
   "inputSchema": {
     "type": "object",

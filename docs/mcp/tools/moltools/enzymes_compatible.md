@@ -51,7 +51,7 @@ with `a % b` — 0 disagreements in both.
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1635](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1635)
+- Source: [RestrictionAnalyzer.cs#L1841](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1841)
 
 ## Input Schema
 

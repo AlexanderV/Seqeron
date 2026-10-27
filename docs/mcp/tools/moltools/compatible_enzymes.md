@@ -40,8 +40,8 @@ per-enzyme sets agree with the symmetrised `%` operator.
 
 ## Core Documentation Reference
 
-- Source: `RestrictionAnalyzer.FindCompatibleEnzymes()` / `FindCompatibleEnzymes(EnzymeSet)` ([RestrictionAnalyzer.cs#L1597](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1597), [RestrictionAnalyzer.Rebase.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.Rebase.cs))
-- Per-enzyme overload: [RestrictionAnalyzer.cs#L1631](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1631)
+- Source: `RestrictionAnalyzer.FindCompatibleEnzymes()` / `FindCompatibleEnzymes(EnzymeSet)` ([RestrictionAnalyzer.cs#L1778](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1778), [RestrictionAnalyzer.Rebase.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.Rebase.cs))
+- Per-enzyme overload: [RestrictionAnalyzer.cs#L1822](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1822)
 
 ## Input Schema
 

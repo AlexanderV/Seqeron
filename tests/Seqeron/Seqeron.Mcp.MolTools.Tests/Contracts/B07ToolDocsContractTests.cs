@@ -26,6 +26,41 @@ public sealed class B07ToolDocsContractTests
         "oligo_extinction_coefficient", "oligo_concentration_from_absorbance",
     };
 
+    // Source files whose tool-doc line anchors are pinned (B08 round 4, H29). The tool list is derived from the docs
+    // directory - every <tool>.mcp.json whose docRef points into one of these files - so a new CRISPR / restriction /
+    // primer / probe tool is guarded the day its doc is added; the old hardcoded list silently exempted all of them.
+    // A batch adds the stems of the files it has audited. A failure here means line numbers drifted:
+    //   python3 scripts/docs/sync_moltools_docref.py --fix && python3 scripts/skills/gen-catalog.py
+    private static readonly string[] AuditedSourceStems = { "PrimerDesigner", "ProbeDesigner", "CrisprDesigner", "RestrictionAnalyzer" };
+
+    // docRef "Seqeron.Genomics.MolTools/{File}.cs#L{n}"; the file name may carry partial-class dots
+    // (RestrictionAnalyzer.PartialDigest.cs), which the former `\w+\.cs` rejected.
+    private static readonly Regex DocRefPattern =
+        new(@"^Seqeron\.Genomics\.MolTools/(?<file>[\w.]+\.cs)#L(?<line>\d+)\b", RegexOptions.Compiled);
+
+    public static IEnumerable<string> AnchoredTools()
+    {
+        string docsDir = DocsDirectory();
+        foreach (string path in Directory.GetFiles(docsDir, "*.mcp.json").OrderBy(p => p, StringComparer.Ordinal))
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var m = DocRefPattern.Match(doc.RootElement.GetProperty("docRef").GetString()!);
+            if (m.Success && AuditedSourceStems.Any(stem => m.Groups["file"].Value.StartsWith(stem, StringComparison.Ordinal)))
+                yield return doc.RootElement.GetProperty("toolName").GetString()!;
+        }
+    }
+
+    [Test]
+    public void AnchoredTools_AreDerivedFromTheDocsDirectory_AndCoverEveryGuardedFamily()
+    {
+        var tools = AnchoredTools().ToList();
+
+        Assert.That(tools, Is.SupersetOf(B07Tools), "the primer / probe tools stay guarded");
+        Assert.That(tools, Does.Contain("find_pam_sites").And.Contain("crispr_system_info").And.Contain("restriction_digest"),
+            "CRISPR and restriction tools are guarded now");
+        Assert.That(tools, Does.Contain("partial_digest"), "a partial-class file name (RestrictionAnalyzer.PartialDigest.cs) parses");
+    }
+
     private static string DocsDirectory()
     {
         for (var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory); dir is not null; dir = dir.Parent)
@@ -91,9 +126,10 @@ public sealed class B07ToolDocsContractTests
         });
     }
 
-    // docRef "Seqeron.Genomics.MolTools/{File}.cs#L{n}" and the .md "Source: [File.cs#L{n}](…)" must both point at a
-    // declaration line of the methodId's method (B07 audit round 5, A5-1: anchors had rotted after code edits).
-    [TestCaseSource(nameof(B07Tools))]
+    // The docRef anchor of every guarded tool must point at a declaration line of the methodId's method, and the .md must
+    // link the same anchor (B07 audit round 5, A5-1: anchors had rotted after code edits; B08 round 4, H29: 18 of 55 were
+    // stale because this test only ever saw 19 primer / probe tools).
+    [TestCaseSource(nameof(AnchoredTools))]
     public void DocRef_LineAnchor_PointsAtMethodDeclaration(string tool)
     {
         string docsDir = DocsDirectory();
@@ -102,7 +138,7 @@ public sealed class B07ToolDocsContractTests
         string docRef = doc.RootElement.GetProperty("docRef").GetString()!;
         string method = methodId.Split('.')[^1];
 
-        var m = Regex.Match(docRef, @"^Seqeron\.Genomics\.MolTools/(?<file>\w+\.cs)#L(?<line>\d+)\b");
+        var m = DocRefPattern.Match(docRef);
         Assert.That(m.Success, Is.True, $"{tool}: docRef '{docRef}' has no File.cs#L<n> anchor");
         string file = m.Groups["file"].Value;
         int line = int.Parse(m.Groups["line"].Value);
@@ -114,13 +150,33 @@ public sealed class B07ToolDocsContractTests
         string previous = line >= 2 ? source[line - 2] : string.Empty;
         Assert.That(Regex.IsMatch(target, $@"\b{Regex.Escape(method)}\(") &&
                     (target.Contains("public static") || previous.Contains("public static")),
-            Is.True, $"{tool}: {file}#L{line} is '{target.Trim()}', not the declaration of {method}");
+            Is.True, $"{tool}: {file}#L{line} is '{target.Trim()}', not the declaration of {method} " +
+                     "(python3 scripts/docs/sync_moltools_docref.py --fix)");
 
+        // The md carries the same anchor: the first "Source: [File.cs#Ln](...File.cs#Ln)" link must equal the docRef; a
+        // doc that states its sources in another shape must still link the docRef anchor somewhere.
         string md = File.ReadAllText(Path.Combine(docsDir, tool + ".md"));
-        var src = Regex.Match(md, @"Source: \[(?<file>\w+\.cs)#L(?<a>\d+)\]\([^)]*/(?<file2>\w+\.cs)#L(?<b>\d+)\)");
-        Assert.That(src.Success, Is.True, $"{tool}.md: no anchored 'Source:' link");
-        Assert.That((src.Groups["file"].Value, src.Groups["a"].Value, src.Groups["file2"].Value, src.Groups["b"].Value),
-            Is.EqualTo((file, line.ToString(), file, line.ToString())), $"{tool}.md: Source anchor differs from docRef");
+        var src = Regex.Match(md, @"Source: \[(?<file>[\w.]+\.cs)#L(?<a>\d+)\]\([^)]*/(?<file2>[\w.]+\.cs)#L(?<b>\d+)\)");
+        if (src.Success)
+        {
+            Assert.That((src.Groups["file"].Value, src.Groups["a"].Value, src.Groups["file2"].Value, src.Groups["b"].Value),
+                Is.EqualTo((file, line.ToString(), file, line.ToString())), $"{tool}.md: Source anchor differs from docRef");
+        }
+        else
+        {
+            Assert.That(md, Does.Contain($"{file}#L{line})"), $"{tool}.md: no link to the docRef anchor {file}#L{line}");
+        }
+
+        // Secondary anchors in the same doc (e.g. get_enzyme's "Overhang:" / "Isoschizomers:" links) must also sit on a
+        // declaration, whatever method it is.
+        foreach (Match a in Regex.Matches(md, @"(?<f>[\w.]+\.cs)#L(?<n>\d+)\)"))
+        {
+            string[] lines = File.ReadAllLines(Path.Combine(repoRoot, "src", "Seqeron", "Algorithms", "Seqeron.Genomics.MolTools", a.Groups["f"].Value));
+            int n = int.Parse(a.Groups["n"].Value);
+            Assert.That(n, Is.InRange(1, lines.Length), $"{tool}.md: {a.Value} out of range");
+            Assert.That(lines[n - 1].Contains("public static") || (n >= 2 && lines[n - 2].Contains("public static")), Is.True,
+                $"{tool}.md: {a.Groups["f"].Value}#L{n} is '{lines[n - 1].Trim()}', not a public static declaration");
+        }
     }
 
     [TestCaseSource(nameof(B07Tools))]

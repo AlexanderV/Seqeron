@@ -18,7 +18,7 @@ Scans both strands for the PAM of the chosen CRISPR system (IUPAC-aware, e.g. `N
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L38](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L38)
+- Source: [CrisprDesigner.cs#L52](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L52)
 
 ## Input Schema
 

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateOnTargetRuleSet2",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L989",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1404",
   "description": "Doench et al. 2016 \"Rule Set 2\" / Azimuth on-target efficacy score for an SpCas9 guide, conventionally in 0..1 (higher = predicted more active) — the \"Doench '16\" efficiency score reported by CRISPOR. Rule Set 2 is a trained gradient-boosted-tree model, reproduced here from Microsoft Research's Azimuth model. Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM + 3 nt downstream (the PAM is not audited, as in CRISPOR; a non-NGG context is an extrapolation), A/C/G/T only. Pass amino_acid_cut_position and percent_peptide together to use Azimuth's gene-context (full) model instead of the sequence-only one; percent_peptide = -1 is Azimuth's \"no gene position\" sentinel and is answered with the sequence-only model, as in the reference. Call to rank guides by the published on-target activity model.",
   "inputSchema": {
     "type": "object",

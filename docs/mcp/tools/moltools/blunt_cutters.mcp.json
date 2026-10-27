@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetBluntCutters",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L140",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L152",
   "description": "List the restriction enzymes of enzyme_set (\"common\" = 39 by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) that produce blunt ends (both strands cut at the same position; Biopython is_blunt).",
   "inputSchema": {
     "type": "object",
