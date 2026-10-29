@@ -41,7 +41,7 @@ CFD is defined only for a **20-nt protospacer**, so SaCas9 (21 nt), Cas12a-class
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L2571](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2571)
+- Source: [CrisprDesigner.cs#L2582](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2582)
 
 ## Input Schema
 
@@ -74,6 +74,7 @@ CFD is defined only for a **20-nt protospacer**, so SaCas9 (21 nt), Cas12a-class
 | 4001 | Guide length does not match the system's guide length |
 | 4002 | The CFD model is defined only for a 20-nt protospacer (SaCas9 / Cas12a-class / CasX are refused) |
 | 4003 | The ParkinsonNormalized CFD aggregate is undefined for a CFD sum of 0 |
+| 4004 | The CFD aggregation must be a defined CfdAggregation value (checked before the repeat-guide rule can return 0) |
 
 ## Examples
 

@@ -22,13 +22,13 @@ Runs a digest and reports summary statistics instead of the full fragment sequen
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1454](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1454)
+- Source: [RestrictionAnalyzer.cs#L1490](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1490)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence to digest (non-empty). |
+| `sequence` | string | Yes | DNA sequence to digest (non-empty). IUPAC ambiguity codes are accepted anywhere (a site `N` matches any of the 15 codes, every other site code only a concrete base it expands to), lower case too; the returned sequences are upper case. A character outside the 15 codes (`U`, a space, a FASTA header line) matches nothing: such text is not rejected, but it still occupies coordinates and cannot be part of a site. |
 | `enzyme_names` | string[] | Yes | Enzyme names to use (≥1). |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
 | `methylation` | string | No | `none` (default), `dam` (`GmATC`), `dcm` (`mCmCAGG`, `mCmCTGG`), `dam+dcm` or `emboss` (all five `Emethylsites.dat` entries incl. EcoKI). Case-insensitive; an unknown value is an error. A recognition window containing a methylated base is not a site (EMBOSS `restrict -methylation`; a window rule, not an enzyme-sensitivity table — BamHI is blocked by Dam). |

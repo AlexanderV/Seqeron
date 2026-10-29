@@ -432,6 +432,9 @@ vs B09 `FindMotif`; B05.md → B04 `RepeatFinder.EnumerateForwardMaximalPairs` �
 sentence, B05 D3 rationale.
 
 ## Known cross-batch items to carry into Phase 2
+- **RNA-aware complement in raw-string scans (B08 round 7, O7-4; a check, not evidence of a defect).** `DnaSequence.GetReverseComplementString` complements `U` to `A`. In B08's restriction scan that read `GAAUUC` as
+  `GAATTC` on the reverse strand only (A6-2, fixed by `IupacPattern.ReverseComplement`). The audit checked MolTools and the `RepeatFinder` uses (guarded); the other callers in Analysis / Annotation / Alignment / Chromosome /
+  Metagenomics (MotifFinder, KmerAnalyzer, GenomicAnalyzer, ...) were not looked at for a scan that documents "a character outside the alphabet matches nothing". Phase 2 (dedup) should grep the callers once.
 - **The 5-5 debt register must be carried into the final consolidation, not closed.** Every row in "5-5 debt" is an
   owed review pass (spec: Standing user rules → "Scope of a model re-verification pass"). Validation will come later,
   not soon; the final summary lists what is still owed, per batch and per F-entry.

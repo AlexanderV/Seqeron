@@ -148,7 +148,7 @@ For the overhang and compatibility members:
 5. `AreCompatible` applies the rule of §2.2: blunt×blunt → true; different polarity → false;
    otherwise `OverhangsAnneal(W1, W2)`, which tests equal length and then per-position IUPAC
    intersection against `W2` and against `revcomp(W2)` (via the canonical
-   `DnaSequence.GetReverseComplementString` and `IupacHelper.MatchesIupac` — no second ambiguity
+   `IupacPattern.ReverseComplement` (the 15 codes complemented, anything else - `U` included - kept) and `IupacHelper.MatchesIupac` — no second ambiguity
    table lives in this class).
 6. `FindCompatibleEnzymes()` enumerates unordered pairs of distinct enzymes;
    `FindCompatibleEnzymes(name)` enumerates the whole table against one enzyme and **includes that

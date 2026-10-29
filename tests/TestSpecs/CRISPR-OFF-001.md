@@ -469,3 +469,12 @@ case / 5' rule, `GetCutSite` geometry and range for every system). 12 of the 16 
 | ID | Test | Pins | Oracle |
 |---|---|---|---|
 | A6-1 | `MitAlternativePams_InvalidCutoff_IsRefused_ForARepeatGuideAsForAUniqueOne` (4), `CfdAlternativePams_InvalidCutoff_...` (4), `AlternativePams_ValidCutoff_StillScores_AndARepeatGuideStillReturnsZero` (3), MCP `CrisprMitSpecificityScore_...` / `CrisprCfdSpecificityScore_InvalidAlternativePamCutoff_IsRefused_ForARepeatGuideToo` (4) | `ArgumentOutOfRangeException(minAlternativePamHitScore)` for NaN / negative whatever the genome holds; a repeat guide still scores 0 with a valid one | the documented argument contract; round 4 behaviour (`589efdeb`) |
+
+## Round 7 (B08 A7-1)
+
+Tests in `CrisprDesigner_Round7_Tests.cs` (library) and `RestrictionCrisprRound7WrapperTests.cs` (MCP). 9 of the 11 library and MCP tests fail on the code the auditor read (the 2 others are controls).
+
+| ID | Test | Pins | Oracle |
+|---|---|---|---|
+| A7-1 | `CfdAggregates_UndefinedAggregation_IsRefused_ForARepeatGuideAsForAUniqueOne` (5 values x both aggregates x both genomes), `CfdAggregates_DefinedAggregation_ARepeatGuideStillReturnsZero` (2), MCP `CrisprCfdSpecificityScore_UndefinedAggregation_IsRefused_ForARepeatGuideToo` (4) | `ArgumentOutOfRangeException(aggregation)` for any undefined `CfdAggregation` whatever the genome holds; a repeat guide still scores 0 with a defined one | the A6-1 rule: whether an argument is refused never depends on the genome |
+

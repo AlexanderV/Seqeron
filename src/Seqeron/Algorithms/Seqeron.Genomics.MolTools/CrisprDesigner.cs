@@ -1549,6 +1549,17 @@ public static class CrisprDesigner
     /// alternative-PAM hit filtered out). Checked with the other arguments, before the repeat-guide test can return 0, so that
     /// whether an invalid cutoff is refused never depends on the genome's content.
     /// </summary>
+    /// <summary>
+    /// An undefined <see cref="CfdAggregation"/> (an enum arrives over MCP as any number) is refused with the other arguments, before the
+    /// repeat-guide rule can return 0 - otherwise whether it is refused would depend on the genome's content (B08 A7-1, sibling of A6-1).
+    /// </summary>
+    private static void EnsureDefinedCfdAggregation(CfdAggregation aggregation)
+    {
+        if (!Enum.IsDefined(aggregation))
+            throw new ArgumentOutOfRangeException(nameof(aggregation), aggregation,
+                "The CFD aggregation must be a defined CfdAggregation value.");
+    }
+
     private static void EnsureValidAlternativePamCutoff(double minAlternativePamHitScore)
     {
         if (double.IsNaN(minAlternativePamHitScore) || minAlternativePamHitScore < 0)
@@ -2581,6 +2592,7 @@ public static class CrisprDesigner
         var guide = ValidateAggregateArguments(guideSequence, genome, maxMismatches, systemType, requireTwentyNtProtospacer: true);
         var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         EnsureValidMaxOccurrences(maxOccurrences);
+        EnsureDefinedCfdAggregation(aggregation);
         if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
             return 0.0;
 
@@ -2694,6 +2706,7 @@ public static class CrisprDesigner
         var guide = ValidateAggregateArguments(guideSequence, genome, maxMismatches, systemType, requireTwentyNtProtospacer: true);
         var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         EnsureValidMaxOccurrences(maxOccurrences);
+        EnsureDefinedCfdAggregation(aggregation);
         EnsureValidAlternativePamCutoff(minAlternativePamHitScore);
         if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
             return 0.0;

@@ -15,7 +15,7 @@
         "type": "string"
       },
       "recognition_sequence": {
-        "description": "Recognition sequence of the custom enzyme: 1 or more of the 15 IUPAC nucleotide codes; need not be palindromic.",
+        "description": "Recognition sequence of the custom enzyme: 1 or more of the 15 IUPAC nucleotide codes; need not be palindromic. At most 64 bases (REBASE's longest is 15).",
         "type": "string"
       },
       "cut_position_forward": {
@@ -27,7 +27,7 @@
         "type": "integer"
       },
       "name": {
-        "description": "Name reported on each site record; defaults to \"CustomEnzyme\".",
+        "description": "Name reported on each site record; defaults to \"CustomEnzyme\". At most 64 characters.",
         "type": [
           "string",
           "null"
@@ -248,6 +248,14 @@
     {
       "code": 1007,
       "message": "Enzyme '<name>' cuts its two strands <n> bases apart (<f>, <r>); the largest supported stagger is 64."
+    },
+    {
+      "code": 1008,
+      "message": "Enzyme '<name>' has a recognition sequence of <n> bases; the longest supported is 64."
+    },
+    {
+      "code": 1009,
+      "message": "The enzyme name is <n> characters long; the longest supported name is 64."
     }
   ],
   "examples": [

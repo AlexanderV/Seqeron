@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateCfdSpecificityScore",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2571",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2582",
   "description": "Published Doench 2016 CFD aggregate guide specificity score following CRISPOR annotateOfftargets (main PAM by default; include_alternative_pams reproduces its wider NAG/NGA search): 100/(100 + sum of raw per-hit CFD) * 100 (MitStyle), or the doCfdFix variant 100 / sum (ParkinsonNormalized).",
   "inputSchema": {
     "type": "object",
@@ -36,7 +36,11 @@
     { "code": 1003, "message": "Maximum mismatches must be in the range 0..5" },
     { "code": 4001, "message": "Guide length does not match the system's guide length" },
     { "code": 4002, "message": "The CFD model is defined only for a 20-nt protospacer (SaCas9 / Cas12a-class / CasX are refused)" },
-    { "code": 4003, "message": "The ParkinsonNormalized CFD aggregate is undefined for a CFD sum of 0" }
+    { "code": 4003, "message": "The ParkinsonNormalized CFD aggregate is undefined for a CFD sum of 0" },
+    {
+      "code": 4004,
+      "message": "The CFD aggregation must be a defined CfdAggregation value (checked before the repeat-guide rule can return 0)"
+    }
   ],
   "examples": [
     {

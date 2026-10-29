@@ -23,7 +23,7 @@ cutters.
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L162](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L162)
+- Source: [RestrictionAnalyzer.cs#L177](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L177)
 
 ## Input Schema
 

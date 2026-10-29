@@ -142,7 +142,7 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme's
-    /// recognition sequence is invalid, its strand cuts are more than <see cref="MaxCutStagger"/> bases apart, or the fragment count would exceed
+    /// recognition sequence is invalid, its size exceeds <see cref="MaxCutStagger"/> / <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/>, or the fragment count would exceed
     /// <see cref="MaxPartialDigestFragments"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMissedCuts"/> is negative.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>

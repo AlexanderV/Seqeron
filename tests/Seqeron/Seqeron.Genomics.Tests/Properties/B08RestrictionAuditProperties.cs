@@ -280,7 +280,7 @@ public class B08RestrictionAuditProperties
                     $"BglI with '{symbol}' at N position {i}");
             }
 
-            foreach (char junk in "X-*.?1")
+            foreach (char junk in "X-*.?1U")
             {
                 string site = "GCC" + new string('A', i) + junk + new string('A', 4 - i) + "GGC";
                 RestrictionAnalyzer.FindSites(flank + site + flank, "BglI").Should().BeEmpty(

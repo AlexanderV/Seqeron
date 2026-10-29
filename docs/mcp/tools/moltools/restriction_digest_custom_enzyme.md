@@ -39,10 +39,10 @@ expression, so a caller-supplied or cut-undefined enzyme could not be digested o
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string | Yes | DNA sequence to digest; IUPAC codes accepted. |
-| `recognition_sequence` | string | Yes | The custom enzyme's site; IUPAC codes allowed, need not be palindromic. |
+| `recognition_sequence` | string | Yes | The custom enzyme's site; IUPAC codes allowed, need not be palindromic. At most 64 bases (REBASE's longest is 15). |
 | `cut_position_forward` | integer | Yes | Top-strand cut offset from the first site base. |
 | `cut_position_reverse` | integer | Yes | Bottom-strand cut offset in the same frame. The two cuts may be at most 64 bases apart (the stagger, i.e. the overhang length); a larger one is refused. |
-| `name` | string \| null | No | Name reported on the flanking-enzyme fields; defaults to `CustomEnzyme`. |
+| `name` | string \| null | No | Name reported on the flanking-enzyme fields; defaults to `CustomEnzyme`. At most 64 characters. |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
 | `second_cut_forward` | integer \| null | No | Second top-strand cut offset of a Type IIB cutter. |
 | `second_cut_reverse` | integer \| null | No | Second bottom-strand cut offset; same stagger as the first pair. |
@@ -65,6 +65,8 @@ expression, so a caller-supplied or cut-undefined enzyme could not be digested o
 | 1005 | Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss. |
 | 1006 | The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular. |
 | 1007 | Enzyme '&lt;name&gt;' cuts its two strands &lt;n&gt; bases apart (&lt;f&gt;, &lt;r&gt;); the largest supported stagger is 64. |
+| 1008 | Enzyme '&lt;name&gt;' has a recognition sequence of &lt;n&gt; bases; the longest supported is 64. |
+| 1009 | The enzyme name is &lt;n&gt; characters long; the longest supported name is 64. |
 
 ## Examples
 

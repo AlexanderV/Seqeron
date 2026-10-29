@@ -33,7 +33,7 @@ A partial (incomplete) digest leaves some recognition sites uncut, so besides th
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence to digest (non-empty). |
+| `sequence` | string | Yes | DNA sequence to digest (non-empty). IUPAC ambiguity codes are accepted anywhere (a site `N` matches any of the 15 codes, every other site code only a concrete base it expands to), lower case too; the returned sequences are upper case. A character outside the 15 codes (`U`, a space, a FASTA header line) matches nothing: such text is not rejected, but it still occupies coordinates and cannot be part of a site. |
 | `enzyme_names` | string[] | Yes | Enzyme names to use (≥1). |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
 | `max_missed_cuts` | integer \| null | No | Upper bound on uncut sites per fragment; omit for no bound. |

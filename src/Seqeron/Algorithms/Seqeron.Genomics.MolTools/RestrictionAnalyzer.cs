@@ -87,6 +87,21 @@ public static partial class RestrictionAnalyzer
     public const int MaxCutStagger = 64;
 
     /// <summary>
+    /// The longest recognition sequence a caller-supplied <see cref="RestrictionEnzyme"/> may have; a longer one is an
+    /// <see cref="ArgumentException"/>. Every site record carries the matched window and the enzyme, so a recognition sequence of
+    /// <c>m</c> bases over a molecule of <c>n</c> gives output and memory of order <c>n * m</c> (an <c>N</c> pattern matches everywhere:
+    /// a 200 KB pattern over a 2000-nt circle exhausted memory). The longest of the 754 REBASE sites is 15, so 64 leaves a fourfold
+    /// margin; like <see cref="MaxCutStagger"/> this is a safety limit of this library, not a property of restriction enzymes.
+    /// </summary>
+    public const int MaxRecognitionLength = 64;
+
+    /// <summary>
+    /// The longest <see cref="RestrictionEnzyme.Name"/> of a caller-supplied enzyme (the name is repeated in every site and fragment
+    /// record, so it multiplies the output the same way). The longest REBASE name is 9 characters.
+    /// </summary>
+    public const int MaxEnzymeNameLength = 64;
+
+    /// <summary>
     /// Gets a restriction enzyme by name, resolved case-insensitively against the full REBASE set
     /// (<see cref="RebaseEnzymes"/>, which contains the 39 common enzymes of <see cref="Enzymes"/> as
     /// the same instances), or <see langword="null"/> when no enzyme of that name has a defined cut.
@@ -389,7 +404,8 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentException">
     /// <paramref name="enzyme"/> has an empty recognition sequence, or one containing a character
     /// that is not one of the 15 IUPAC nucleotide codes, a second cut pair that leaves a different stagger,
-    /// or two strand cuts more than <see cref="MaxCutStagger"/> bases apart.
+    /// two strand cuts more than <see cref="MaxCutStagger"/> bases apart, a recognition sequence longer than <see cref="MaxRecognitionLength"/>
+    /// or a name longer than <see cref="MaxEnzymeNameLength"/>.
     /// </exception>
     public static IEnumerable<RestrictionSite> FindSites(DnaSequence sequence, RestrictionEnzyme enzyme)
         => FindSites(sequence, enzyme, MoleculeTopology.Linear);
@@ -408,7 +424,8 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentException">
     /// <paramref name="enzyme"/> has an empty recognition sequence, or one containing a character
     /// that is not one of the 15 IUPAC nucleotide codes, a second cut pair that leaves a different stagger,
-    /// or two strand cuts more than <see cref="MaxCutStagger"/> bases apart.
+    /// two strand cuts more than <see cref="MaxCutStagger"/> bases apart, a recognition sequence longer than <see cref="MaxRecognitionLength"/>
+    /// or a name longer than <see cref="MaxEnzymeNameLength"/>.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
@@ -474,7 +491,7 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, or an enzyme's
-    /// recognition sequence is empty or not IUPAC, its second cut pair is inconsistent, or its two strand cuts are more than <see cref="MaxCutStagger"/> bases apart.</exception>
+    /// recognition sequence is empty or not IUPAC, its second cut pair is inconsistent, or the enzyme is larger than <see cref="MaxCutStagger"/> / <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/> allow.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         DnaSequence sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes)
@@ -676,8 +693,8 @@ public static partial class RestrictionAnalyzer
     private static IEnumerable<RestrictionSite> FindSitesCore(
         string seq, RestrictionEnzyme enzyme, MoleculeTopology topology, bool[]? blocked = null)
     {
+        ValidateEnzymeLimits(enzyme, nameof(enzyme));
         string pattern = ValidatedPattern(enzyme.RecognitionSequence, nameof(enzyme), enzyme.Name);
-        ValidateCutGeometry(enzyme, nameof(enzyme));
 
         // A linear molecule shorter than the recognition sequence holds no window at all, but a
         // circular one does: the window reads past the origin and back into the molecule. The
@@ -691,13 +708,30 @@ public static partial class RestrictionAnalyzer
     }
 
     /// <summary>
-    /// Rejects an enzyme whose two strand cuts are more than <see cref="MaxCutStagger"/> bases apart (the stagger is computed in
-    /// <c>long</c>: <c>int</c> subtraction wrapped for offsets near the limits and reported a 1-nt overhang for a 4.3-billion-nt
-    /// one), then a <see cref="RestrictionEnzyme.SecondCut"/> pair whose stagger differs from the first pair's (Biopython stores
-    /// one <c>ovhg</c> per enzyme; see the property's remarks).
+    /// Rejects a caller-supplied enzyme that is larger than this library works with: a name longer than
+    /// <see cref="MaxEnzymeNameLength"/>, a recognition sequence longer than <see cref="MaxRecognitionLength"/>, two strand cuts more
+    /// than <see cref="MaxCutStagger"/> bases apart (the stagger is computed in <c>long</c>: <c>int</c> subtraction wrapped for offsets
+    /// near the limits and reported a 1-nt overhang for a 4.3-billion-nt one), and then a <see cref="RestrictionEnzyme.SecondCut"/>
+    /// pair whose stagger differs from the first pair's (Biopython stores one <c>ovhg</c> per enzyme; see the property's remarks).
+    /// The size limits come first so that no work is spent on an enzyme that is refused anyway.
     /// </summary>
-    private static void ValidateCutGeometry(RestrictionEnzyme enzyme, string paramName)
+    private static void ValidateEnzymeLimits(RestrictionEnzyme enzyme, string paramName)
     {
+        if (enzyme.Name is { Length: > MaxEnzymeNameLength })
+        {
+            throw new ArgumentException(
+                $"The enzyme name is {enzyme.Name.Length} characters long; the longest supported name is {MaxEnzymeNameLength}.",
+                paramName);
+        }
+
+        if (enzyme.RecognitionSequence is { Length: > MaxRecognitionLength })
+        {
+            throw new ArgumentException(
+                $"Enzyme '{enzyme.Name}' has a recognition sequence of {enzyme.RecognitionSequence.Length} bases; " +
+                $"the longest supported is {MaxRecognitionLength}.",
+                paramName);
+        }
+
         long firstStagger = (long)enzyme.CutPositionForward - enzyme.CutPositionReverse;
         if (Math.Abs(firstStagger) > MaxCutStagger)
         {
@@ -1198,8 +1232,8 @@ public static partial class RestrictionAnalyzer
         {
             if (enzyme is null)
                 throw new ArgumentNullException(nameof(enzymes), "The enzyme collection contains null.");
+            ValidateEnzymeLimits(enzyme, nameof(enzymes));
             _ = ValidatedPattern(enzyme.RecognitionSequence, nameof(enzymes), enzyme.Name);
-            ValidateCutGeometry(enzyme, nameof(enzymes));
         }
 
         return list;
@@ -1317,9 +1351,11 @@ public static partial class RestrictionAnalyzer
     /// </remarks>
     private static bool ReverseReadingCutsAlike(RestrictionEnzyme enzyme)
     {
-        int len = enzyme.RecognitionSequence.Length;
-        int fwd = enzyme.CutPositionForward;
-        int rev = enzyme.CutPositionReverse;
+        // long: len - rev wraps in int for an offset within len of int.MinValue, and the wrapped value can equal fwd - the circular digest
+        // and map then dropped a real cleavage (B08 A7-2, the arithmetic the other cut offsets already had since A5R-7).
+        long len = enzyme.RecognitionSequence.Length;
+        long fwd = enzyme.CutPositionForward;
+        long rev = enzyme.CutPositionReverse;
 
         if (enzyme.SecondCut is not { } second)
             return fwd == len - rev;
@@ -1474,7 +1510,7 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, or an enzyme
-    /// definition is invalid (see <see cref="MaxCutStagger"/> for the largest stagger).</exception>
+    /// definition is invalid (see <see cref="MaxCutStagger"/>, <see cref="MaxRecognitionLength"/> and <see cref="MaxEnzymeNameLength"/> for the size limits).</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static DigestSummary GetDigestSummary(
         DnaSequence sequence,
@@ -1595,7 +1631,7 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, or an enzyme
-    /// definition is invalid (see <see cref="MaxCutStagger"/> for the largest stagger).</exception>
+    /// definition is invalid (see <see cref="MaxCutStagger"/>, <see cref="MaxRecognitionLength"/> and <see cref="MaxEnzymeNameLength"/> for the size limits).</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static RestrictionMap CreateMap(
         DnaSequence sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes)
@@ -1733,11 +1769,14 @@ public static partial class RestrictionAnalyzer
     /// 25 of its two-cut enzymes. Never <see langword="null"/> (the nullable return type is kept
     /// for source compatibility; before F57 a distal cutter returned <see langword="null"/>).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="enzyme"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="enzyme"/> cuts its two strands more than <see cref="MaxCutStagger"/> bases apart, or its second cut pair leaves a different stagger.</exception>
+    /// <exception cref="ArgumentException"><paramref name="enzyme"/> has an empty or non-IUPAC recognition sequence, is larger than <see cref="MaxCutStagger"/> / <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/> allow, or has a second cut pair that leaves a different stagger.</exception>
     public static string? GetOverhangSequence(RestrictionEnzyme enzyme)
     {
         ArgumentNullException.ThrowIfNull(enzyme);
-        ValidateCutGeometry(enzyme, nameof(enzyme));
+        ValidateEnzymeLimits(enzyme, nameof(enzyme));
+        // The same definition check as FindSites: an empty or non-IUPAC recognition sequence is an ArgumentException here too, and a
+        // lower-case one is read as upper case (it used to come back in lower case, or as "NNNN" when empty).
+        string site = ValidatedPattern(enzyme.RecognitionSequence, nameof(enzyme), enzyme.Name);
 
         var (start, length) = OverhangWindow(enzyme);
         if (length == 0)
@@ -1746,7 +1785,6 @@ public static partial class RestrictionAnalyzer
         // A base of the window outside the recognition pattern belongs to the flanking molecule
         // and is unknown, i.e. N. Biopython 1.88's stored ovhgseq (Restriction_Dictionary) equals
         // this padded window for all 178 distal / two-cut enzymes of its snapshot (F57).
-        string site = enzyme.RecognitionSequence;
         var window = new System.Text.StringBuilder(length);
         for (int k = start; k < start + length; k++)
             window.Append(k >= 0 && k < site.Length ? site[k] : 'N');
@@ -1768,7 +1806,7 @@ public static partial class RestrictionAnalyzer
         OverhangWindow(enzyme.CutPositionForward, enzyme.CutPositionReverse);
 
     /// <summary>The overhang window of one cut pair (see <see cref="OverhangWindow(RestrictionEnzyme)"/>).</summary>
-    // The stagger is at most MaxCutStagger by the time a window is asked for (ValidateCutGeometry), so the narrowing is exact.
+    // The stagger is at most MaxCutStagger by the time a window is asked for (ValidateEnzymeLimits), so the narrowing is exact.
     private static (int Start, int Length) OverhangWindow(int forward, int reverse) =>
         (Math.Min(forward, reverse), (int)Math.Abs((long)forward - reverse));
 
@@ -1897,13 +1935,15 @@ public static partial class RestrictionAnalyzer
     /// "possibly compatible" with every 4-nt 5'-overhang end (BsaI % EcoRI is True), never with a
     /// 3' or a blunt one (review 2026-09 B08 F57).</returns>
     /// <exception cref="ArgumentNullException">Either enzyme is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">Either enzyme cuts its two strands more than <see cref="MaxCutStagger"/> bases apart, or has a second cut pair that leaves a different stagger.</exception>
+    /// <exception cref="ArgumentException">Either enzyme has an empty or non-IUPAC recognition sequence, is larger than <see cref="MaxCutStagger"/> / <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/> allow, or has a second cut pair that leaves a different stagger.</exception>
     public static bool AreCompatible(RestrictionEnzyme enzyme1, RestrictionEnzyme enzyme2)
     {
         ArgumentNullException.ThrowIfNull(enzyme1);
         ArgumentNullException.ThrowIfNull(enzyme2);
-        ValidateCutGeometry(enzyme1, nameof(enzyme1));
-        ValidateCutGeometry(enzyme2, nameof(enzyme2));
+        ValidateEnzymeLimits(enzyme1, nameof(enzyme1));
+        ValidateEnzymeLimits(enzyme2, nameof(enzyme2));
+        _ = ValidatedPattern(enzyme1.RecognitionSequence, nameof(enzyme1), enzyme1.Name);
+        _ = ValidatedPattern(enzyme2.RecognitionSequence, nameof(enzyme2), enzyme2.Name);
 
         return AreCompatible(enzyme1, enzyme2, out _);
     }

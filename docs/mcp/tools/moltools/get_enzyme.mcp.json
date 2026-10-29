@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetEnzyme",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L108",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L123",
   "description": "Look up a restriction enzyme by name (case-insensitive) among the 754 REBASE enzymes with a defined cut (the 39 common laboratory enzymes included) and report its end chemistry, overhang sequence (REBASE/Biopython ovhgseq), second cut pair for a two-sided Type IIB cutter, and same-site enzymes from enzyme_set.",
   "inputSchema": {
     "type": "object",

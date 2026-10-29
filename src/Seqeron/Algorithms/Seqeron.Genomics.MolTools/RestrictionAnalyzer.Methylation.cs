@@ -256,7 +256,7 @@ public static partial class RestrictionAnalyzer
     /// <see cref="FindSites(DnaSequence, string, MoleculeTopology, IReadOnlyList{Methylase})"/>.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
-    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, strand cuts more than <see cref="MaxCutStagger"/> bases apart, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentException">The enzyme definition is invalid (a malformed recognition sequence, a size beyond <see cref="MaxCutStagger"/> / <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/>, an inconsistent second cut pair), or a methylase site is malformed.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         DnaSequence sequence, RestrictionEnzyme enzyme, MoleculeTopology topology,
         IReadOnlyList<Methylase>? methylases)
@@ -292,7 +292,7 @@ public static partial class RestrictionAnalyzer
     /// collection is validated eagerly; the per-enzyme results are concatenated in the order given.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
-    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, strand cuts more than <see cref="MaxCutStagger"/> bases apart, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, a size beyond <see cref="MaxCutStagger"/> / <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/>, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         DnaSequence sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
         IReadOnlyList<Methylase>? methylases)
@@ -362,7 +362,7 @@ public static partial class RestrictionAnalyzer
     /// <see cref="PartialDigest(DnaSequence, MoleculeTopology, int?, IReadOnlyList{Methylase}, string[])"/>.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
-    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, strand cuts more than <see cref="MaxCutStagger"/> bases apart, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, a size beyond <see cref="MaxCutStagger"/> / <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/>, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
     public static IEnumerable<PartialDigestFragment> PartialDigest(
         DnaSequence sequence, MoleculeTopology topology, int? maxMissedCuts,
         IEnumerable<RestrictionEnzyme> enzymes, IReadOnlyList<Methylase>? methylases)
@@ -393,7 +393,7 @@ public static partial class RestrictionAnalyzer
     /// methylated bases blocking recognition.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
-    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, strand cuts more than <see cref="MaxCutStagger"/> bases apart, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, a size beyond <see cref="MaxCutStagger"/> / <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/>, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
     public static IEnumerable<DigestFragment> Digest(
         DnaSequence sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
         IReadOnlyList<Methylase>? methylases)
@@ -434,7 +434,7 @@ public static partial class RestrictionAnalyzer
     /// with methylated bases blocking recognition.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
-    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, strand cuts more than <see cref="MaxCutStagger"/> bases apart, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, a size beyond <see cref="MaxCutStagger"/> / <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/>, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
     public static DigestSummary GetDigestSummary(
         DnaSequence sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
         IReadOnlyList<Methylase>? methylases)
@@ -473,7 +473,7 @@ public static partial class RestrictionAnalyzer
     /// methylated bases blocking recognition.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
-    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, strand cuts more than <see cref="MaxCutStagger"/> bases apart, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentException">An enzyme definition is invalid (a malformed recognition sequence, a size beyond <see cref="MaxCutStagger"/> / <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/>, an inconsistent second cut pair), the enzyme list is empty, or a methylase site is malformed.</exception>
     public static RestrictionMap CreateMap(
         DnaSequence sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
         IReadOnlyList<Methylase>? methylases)

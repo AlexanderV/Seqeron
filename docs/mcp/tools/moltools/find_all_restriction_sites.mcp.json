@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindAllSites",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L547",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L564",
   "description": "Find sites for every restriction enzyme of enzyme_set (\"common\" = the 39 common enzymes by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) on both strands of a DNA sequence. Optional methylation (none|dam|dcm|dam+dcm|emboss) makes methylated bases block recognition exactly as EMBOSS restrict -methylation does (default none: unchanged).",
   "inputSchema": {
     "type": "object",

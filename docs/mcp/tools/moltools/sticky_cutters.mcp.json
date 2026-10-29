@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetStickyCutters",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L175",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L190",
   "description": "List the restriction enzymes of enzyme_set (\"common\" = 39 by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) that produce sticky (cohesive) ends - in the common set 21 with a 5' and 8 with a 3' overhang (Biopython is_5overhang / is_3overhang).",
   "inputSchema": {
     "type": "object",

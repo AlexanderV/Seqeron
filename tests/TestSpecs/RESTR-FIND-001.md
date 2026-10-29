@@ -300,3 +300,17 @@ auditor's guard-deletion mutants: 11 of 11 killed, and the `Modulo` int mutant).
 | A6-5 | `CustomEnzyme_MinValueOffsets_OnACircle_ReduceInLongArithmetic` | forward cut 7 and reverse cut 5 for `int.MinValue` offsets on a 12-mer | exact arithmetic: (3 + int.MinValue) mod 12 = 7; (9 - int.MinValue) mod 12 = 5 |
 | A6-7 | `IupacPattern_Tests.MatchesAt_ReferenceRows` (int.MaxValue rows) | a window start near `int.MaxValue` does not fit: false, no exception | the method's documented contract |
 | U3 | MCP `CompatibleEnzymes_PerEnzymeForm_EchoesTheCanonicalName` (3), `..._ResolvesAHyphenSpelling_ToTheTableName` | `enzyme1` carries the table spelling, as `enzymes_compatible` does since A5R-1 | `get_enzyme` |
+
+## Round 7 (B08 A7-2 .. A7-5, O7-1)
+
+Tests in `RestrictionAnalyzer_Round7_Tests.cs` (library) and `RestrictionCrisprRound7WrapperTests.cs` (MCP); heavy tier: `U` added to the junk list of `B08RestrictionAuditProperties.NRegion_AcceptsEveryIupacSymbol_AndOnlyThose`.
+11 of the 16 library tests and 2 of the 3 MCP tests fail on the code the auditor read (the new constants stubbed in, because the tests name them); the 3' distal overhang test is a mutation row
+(reverting the 3' branch of `DownstreamEnd` to the RNA-aware complement gives `CGAT`).
+
+| ID | Test | Pins | Oracle |
+|---|---|---|---|
+| A7-2 | `CircularDigest_CustomEnzymeAtTheIntExtremes_CutsAtBothReadings` (3 offset pairs, DnaSequence and raw overload), `CircularMap_AndPartialDigest_..._CountTwoCleavages` (3) | `GAATTC` at 3 of a 12-mer, offsets `(Min+4, Min+2)`, `(Min+3, Min+3)`, `(Max-3, Max-1)`: two cleavages, fragments `3+8 / 11+4`, `2+8 / 10+4`, `3+4 / 7+8`; `TotalSites 2`, no unique cutter, 5 partial fragments | exact arithmetic with 2^31 = 8 (mod 12), checked outside the library; the reverse reading's top cut is `3 + 6 - rev` |
+| A7-3 | `CustomEnzyme_RecognitionSequenceBeyondTheLimit_...` (65 and 200 000 `N`), `CustomEnzyme_NameBeyondTheLimit_...`, `CustomEnzyme_RecognitionSequenceAndNameAtTheLimit_AreAccepted`, `EnzymeLimits_ArePinnedLiterally`, MCP `CustomEnzymeTools_*` (3) | `MaxRecognitionLength` = `MaxEnzymeNameLength` = `MaxCutStagger` = 64; refused at the call by every member that takes an enzyme; an `N` pattern of 64 over 100 bases gives 2 x 37 records | REBASE: longest site 15, longest name 9, largest stagger 9 |
+| A7-4 | `Digest_ThreePrimeDistalOverhangWindowHoldingAUracil_KeepsTheUracil` | 3' overhang window `AUCG` read as `AUCG` / `CGUT` (reverse complement, the U kept) | hand-derived reverse complement |
+| O7-1 | `GetOverhangSequence_AndAreCompatible_Refuse...` (4), `..._ReadALowerCaseRecognitionSequenceAsUpperCase` | an empty or non-IUPAC recognition sequence is an `ArgumentException` here too; `gaattc` gives `AATT` and is compatible with EcoRI | `FindSites` folds and validates the same pattern |
+

@@ -24,7 +24,7 @@ of them can be ligated use `enzymes_compatible`. All 39 entries were checked aga
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L175](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L175)
+- Source: [RestrictionAnalyzer.cs#L190](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L190)
 
 ## Input Schema
 

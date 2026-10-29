@@ -283,3 +283,8 @@ confirmed identical to Biopython `ovhgseq` for all 39 built-ins.
 
 The digest-side pins of round 6 (a `U` is cut by nothing on either strand; the overhang read-out keeps a base that has no complement; a custom enzyme's stagger is
 bounded by `MaxCutStagger` = 64 and computed in `long`; `int.MinValue` cut offsets reduce correctly on a circle) are listed in `RESTR-FIND-001.md`, section "Round 6".
+
+## Round 7 (B08 A7-2, A7-3)
+
+The circular digest / map / partial digest at the `int` extremes and the recognition-length and name limits of a custom enzyme are listed in `RESTR-FIND-001.md`, section "Round 7".
+

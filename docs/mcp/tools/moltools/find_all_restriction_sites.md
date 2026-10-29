@@ -20,13 +20,13 @@ Performs a comprehensive restriction scan: every enzyme of `enzyme_set` — `"co
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L547](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L547)
+- Source: [RestrictionAnalyzer.cs#L564](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L564)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence to scan (non-empty). |
+| `sequence` | string | Yes | DNA sequence to scan (non-empty). IUPAC ambiguity codes are accepted anywhere (a site `N` matches any of the 15 codes, every other site code only a concrete base it expands to), lower case too; the returned sequences are upper case. A character outside the 15 codes (`U`, a space, a FASTA header line) matches nothing: such text is not rejected, but it still occupies coordinates and cannot be part of a site. |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
 | `enzyme_set` | string | No | `"common"` (default, the 39 common laboratory enzymes) or `"rebase"` (all 754 REBASE enzymes with a defined cut). Case-insensitive. |
 | `methylation` | string | No | `none` (default), `dam` (`GmATC`), `dcm` (`mCmCAGG`, `mCmCTGG`), `dam+dcm` or `emboss` (all five `Emethylsites.dat` entries incl. EcoKI). Case-insensitive; an unknown value is an error. A recognition window containing a methylated base is not a site (EMBOSS `restrict -methylation`; a window rule, not an enzyme-sensitivity table — BamHI is blocked by Dam). |

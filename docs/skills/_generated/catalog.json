@@ -2251,7 +2251,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetBluntCutters",
     "docPath": "docs/mcp/tools/moltools/blunt_cutters.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L162"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L177"
   },
   {
     "tool": "build_codon_table",
@@ -2314,7 +2314,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindCompatibleEnzymes",
     "docPath": "docs/mcp/tools/moltools/compatible_enzymes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1833"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1827"
   },
   {
     "tool": "count_codons",
@@ -2328,14 +2328,14 @@
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateCfdSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_cfd_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2571"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2582"
   },
   {
     "tool": "crispr_mit_specificity_score",
     "server": "MolTools",
     "methodId": "CrisprDesigner.CalculateMitSpecificityScore",
     "docPath": "docs/mcp/tools/moltools/crispr_mit_specificity_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1661"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1672"
   },
   {
     "tool": "crispr_specificity_score",
@@ -2405,7 +2405,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetDigestSummary",
     "docPath": "docs/mcp/tools/moltools/digest_summary.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1454"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1490"
   },
   {
     "tool": "effective_number_of_codons",
@@ -2419,14 +2419,14 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetEnzymesByCutLength",
     "docPath": "docs/mcp/tools/moltools/enzymes_by_cut_length.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L137"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L152"
   },
   {
     "tool": "enzymes_compatible",
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.AreCompatible",
     "docPath": "docs/mcp/tools/moltools/enzymes_compatible.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1852"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1890"
   },
   {
     "tool": "evaluate_guide_rna",
@@ -2447,7 +2447,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindAllSites",
     "docPath": "docs/mcp/tools/moltools/find_all_restriction_sites.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L547"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L564"
   },
   {
     "tool": "find_conserved_rare_codon_clusters",
@@ -2475,7 +2475,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindPatternOccurrences",
     "docPath": "docs/mcp/tools/moltools/find_pattern_occurrences.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L586"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L603"
   },
   {
     "tool": "find_rare_codon_clusters",
@@ -2496,7 +2496,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindSites",
     "docPath": "docs/mcp/tools/moltools/find_restriction_sites.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L457"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L474"
   },
   {
     "tool": "find_sites_custom_enzyme",
@@ -2517,7 +2517,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetEnzyme",
     "docPath": "docs/mcp/tools/moltools/get_enzyme.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L108"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L123"
   },
   {
     "tool": "hairpin_potential",
@@ -2608,7 +2608,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.Digest",
     "docPath": "docs/mcp/tools/moltools/restriction_digest.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1138"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1172"
   },
   {
     "tool": "restriction_digest_custom_enzyme",
@@ -2622,7 +2622,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.CreateMap",
     "docPath": "docs/mcp/tools/moltools/restriction_map.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1558"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1594"
   },
   {
     "tool": "rscu",
@@ -2636,7 +2636,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetStickyCutters",
     "docPath": "docs/mcp/tools/moltools/sticky_cutters.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L175"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L190"
   },
   {
     "tool": "three_prime_stability",

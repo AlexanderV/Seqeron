@@ -41,8 +41,8 @@ per-enzyme sets agree with the symmetrised `%` operator.
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1833](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1833) — `FindCompatibleEnzymes()` / `FindCompatibleEnzymes(EnzymeSet)` (all pairs; the REBASE-set variant lives in [RestrictionAnalyzer.Rebase.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.Rebase.cs))
-- Per-enzyme overload (`FindCompatibleEnzymes`): [RestrictionAnalyzer.cs#L1789](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1789)
+- Source: [RestrictionAnalyzer.cs#L1827](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1827) — `FindCompatibleEnzymes()` / `FindCompatibleEnzymes(EnzymeSet)` (all pairs; the REBASE-set variant lives in [RestrictionAnalyzer.Rebase.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.Rebase.cs))
+- Per-enzyme overload (`FindCompatibleEnzymes`): [RestrictionAnalyzer.cs#L1871](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1871)
 
 ## Input Schema
 
@@ -57,7 +57,7 @@ per-enzyme sets agree with the symmetrised `%` operator.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `pairs` | array | Compatible enzyme pairs, each `{enzyme1, enzyme2, compatibleEnd, end2}`, where `compatibleEnd` is `enzyme1`'s own end and `end2` is `enzyme2`'s. With `enzyme_name` set, `enzyme1` is that enzyme (as given) in every row. |
+| `pairs` | array | Compatible enzyme pairs, each `{enzyme1, enzyme2, compatibleEnd, end2}`, where `compatibleEnd` is `enzyme1`'s own end and `end2` is `enzyme2`'s. With `enzyme_name` set, `enzyme1` is that enzyme in every row, under its table spelling (`" bamhi "` and `BAMHI` give `BamHI`; `CviKI-1` gives `CviKI_1`), as `enzymes_compatible` resolves it. |
 | `totalPairs` | integer | All-pairs listing only: number of compatible pairs in the whole `enzyme_set`, independent of the page (common 64, rebase 27 869). Omitted with `enzyme_name`. |
 | `truncated` | boolean | All-pairs listing only: `true` when more pairs follow the returned page. Omitted with `enzyme_name`. |
 

@@ -32,13 +32,13 @@ The *considered set* is the enzyme set the map is built over: the names in `enzy
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1558](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1558)
+- Source: [RestrictionAnalyzer.cs#L1594](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1594)
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `sequence` | string | Yes | DNA sequence to map (non-empty). |
+| `sequence` | string | Yes | DNA sequence to map (non-empty). IUPAC ambiguity codes are accepted anywhere (a site `N` matches any of the 15 codes, every other site code only a concrete base it expands to), lower case too; the returned sequences are upper case. A character outside the 15 codes (`U`, a space, a FASTA header line) matches nothing: such text is not rejected, but it still occupies coordinates and cannot be part of a site. |
 | `enzyme_names` | string[] | Yes | Enzymes to consider (case-insensitive, de-duplicated; any of the 754 REBASE enzymes with a defined cut); empty = every enzyme of `enzyme_set`. |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
 | `enzyme_set` | string | No | Table used when `enzyme_names` is empty: `"common"` (default, the 39) or `"rebase"` (all 754). Case-insensitive; ignored when names are given. |
