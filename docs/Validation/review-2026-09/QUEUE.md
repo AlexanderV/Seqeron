@@ -74,15 +74,12 @@ retrieval (install a tool, run a command, grep, list file:line). And such a pass
 produces nothing. Under the superseding rule above this no longer blocks anything: it is the reason the 5-5 debt
 is simply recorded instead of chased.
 
-## State (2026-10-29) — B08 audit rounds 5 and 6 DONE, heavy tier DONE; round-7 confirmation audit running (user: "Продовжи")
-- **Orchestrator** `session_01RvCz2EUn2rHYPaGoqfozS2` (served `claude-sonnet-5-5` by the user's switch; new container, .NET 10.0.403 in `~/.dotnet`). Round 4 (H1-H55) and the restriction slice (F100-F114,
-  cloud session archived) are in; round 5 = F98/F99/F115, duplication sweep = F116, round 6 (confirmation audit of round 5: 6 confirmed defects, all reproduced and fixed) = F117; the single
-  heavy tier is done (3 new classes + mutation check, heavy classes 319/0 on three runs of the final code, full unfiltered `Seqeron.Genomics.Tests` 27103/0, `Seqeron.Mcp.MolTools.Tests` 624/0).
-- **Running:** the round-7 confirmation auditor (read-only, isolated worktree of `cbcecfd3`, scope = the round-6 diff). Nothing else is launched. B08's final report (`## Final report` / `## Leftovers`
-  at the end of `B08.md`) is written after it returns; B08 is added to "Finished batches" only if it finds zero DOABLE.
-- **For the user:** the REBASE permission follow-up (due about 2026-10-29) is the OWNER's action, not a session's; `Resources/rebase_enzymes.tsv` and `scripts/rebase/generate_rebase_enzymes.py` are untouched.
-  OD2 stands: the wiki re-ingest (R10) waits for the final consolidation. B09-B23, B25, B26, Phase 2 (dedup) and the consolidation are not started.
-- Earlier state line below is kept for history (2026-10-27).
+## State (2026-10-29) — B08 DONE (final report with `## Leftovers` pushed; zero DOABLE); nothing running
+- **B08 is finished.** F1-F120, audit rounds 1-9 (rounds 8 and 9: zero confirmed defects in the audited code), the duplication sweep (F116) and the single heavy tier are done; final tiers on the final code: unfiltered `Seqeron.Genomics.Tests` 27 145 / 0,
+  `Seqeron.Mcp.MolTools.Tests` 633 / 0, B08 heavy classes 319 / 0 three times. Orchestrator `session_01RvCz2EUn2rHYPaGoqfozS2` (served `claude-sonnet-5-5` by the user's switch). The restriction slice (cloud session, F100-F114) is part of the report (`B08-restriction-slice.md`); its session is archived.
+- **Open cross-batch requests from this batch:** R11 (B05), R12 (B07), R13 (B07/B02), **R14 (B02: `RemoveRestrictionSites` is quadratic in the coding sequence; the 64-character pattern limit is missing from its docs)**; R10 (wiki re-ingest) stays deferred by OD2.
+- **For the user:** the REBASE permission follow-up (due about 2026-10-29) is the OWNER's action, not a session's; `Resources/rebase_enzymes.tsv` and `scripts/rebase/generate_rebase_enzymes.py` are untouched. B09-B23, B25, B26, Phase 2 (dedup) and the final consolidation are not started.
+- Earlier state lines below are kept for history.
 
 ## State (2026-10-27) — B08 round-4 worklist IN IMPLEMENTATION (user: "ще уважно і ретельно попрацюємо над B08")
 - **Running:** `session_015WLziRGxnF8p6aSDcRy28h` (cloud, configured `claude-opus-5`, launched 2026-10-27 14:00 UTC) = B08
@@ -401,7 +398,7 @@ replacements above carry `source_url` + `source_revision`.
 
 ## Finished batches (rule "Requests to a FINISHED batch", README → Ownership)
 B01 (FIN-B01 2026-10-09), **B02 (FIN-B02 2026-10-14, 5-5 debt recorded)**, B03 (FIN-B03 2026-10-14), B04, B05, B06,
-B07, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with `## Leftovers` is pushed and has zero
+B07, **B08 (2026-10-29, final report with `## Leftovers` in `B08.md`, 5-5 debt recorded)**, B24 (FIN-B24 2026-10-10). Add a batch here when its final report with `## Leftovers` is pushed and has zero
 DOABLE items. The model is recorded, not required: off-model entries go to the "5-5 debt" register above and do not
 hold the batch back (user 2026-10-14 23:15).
 
@@ -455,3 +452,4 @@ sentence, B05 D3 rationale.
 ## Log
 - 10-02 06:54–07:00 README: no-lost-work rule (90d60c7), WIP branch (a0272b2, de7d295); B07 relaunched with them.
 - 10-02 ~11:30 README: targeted test tier (9dc5a87); local-run kit added (tools/review/, LOCAL_RUN.md).
+- 10-29 B08: audit rounds 5-9 + implementation (F96-F120), duplication sweep (F116), single heavy tier, final report; R11-R14 registered; State updated; B08 added to Finished batches.
