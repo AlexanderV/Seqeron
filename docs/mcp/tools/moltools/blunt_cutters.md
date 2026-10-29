@@ -23,7 +23,7 @@ cutters.
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L152](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L152)
+- Source: [RestrictionAnalyzer.cs#L162](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L162)
 
 ## Input Schema
 
@@ -65,8 +65,8 @@ cutters.
 }
 ```
 
-The common set contains exactly **10** blunt cutters: AluI, RsaI, HaeIII, DpnI, EcoRV, SmaI,
-HincII, ScaI, StuI, SwaI. Note `HincII` (`GTYRAC`, cut 3/3): its recognition site is degenerate but
+The common set contains exactly **10** blunt cutters, listed in table order: SwaI, AluI, RsaI, HaeIII,
+DpnI, EcoRV, SmaI, HincII, ScaI, StuI. Note `HincII` (`GTYRAC`, cut 3/3): its recognition site is degenerate but
 the cut is central, so it is blunt and its overhang is empty (Biopython
 `HincII.elucidate() == "GTY^_RAC"`, `ovhg == 0`). `DpnI` is blunt and methylation-dependent
 (`GA^_TC`).

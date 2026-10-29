@@ -26,7 +26,7 @@ A partial (incomplete) digest leaves some recognition sites uncut, so besides th
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.PartialDigest.cs#L117](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs#L117)
+- Source: [RestrictionAnalyzer.PartialDigest.cs#L116](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs#L116)
 - Algorithm: [Restriction_Digest_Simulation.md](../../../algorithms/MolTools/Restriction_Digest_Simulation.md)
 
 ## Input Schema

@@ -42,6 +42,11 @@ public class IupacPattern_Tests
             Assert.That(IupacPattern.MatchesAt("ACGTAGG", 5, "NGG"), Is.False, "window past the end does not fit");
             Assert.That(IupacPattern.MatchesAt("ACGTAGG", -1, "NGG"), Is.False, "negative start does not fit");
             Assert.That(IupacPattern.MatchesAt("", 0, "NGG"), Is.False);
+            // A6-7: position + pattern.Length overflowed int for a start near int.MaxValue (IndexOutOfRangeException).
+            Assert.That(IupacPattern.MatchesAt("ACGT", int.MaxValue, "A"), Is.False, "start at int.MaxValue");
+            Assert.That(IupacPattern.MatchesAt("ACGT", int.MaxValue - 1, "AC"), Is.False, "start near int.MaxValue");
+            Assert.That(IupacPattern.MatchesAt("ACGT", 3, "T"), Is.True, "the last window");
+            Assert.That(IupacPattern.MatchesAt("ACGT", 4, "T"), Is.False, "one past the last window");
         });
     }
 
@@ -55,5 +60,19 @@ public class IupacPattern_Tests
             Assert.That(IupacPattern.MatchesAtCircular("ATTCAAGA", 5, "GAATTC"), Is.False);
             Assert.That(IupacPattern.MatchesAt("ATTCAAGA", 6, "GAATTC"), Is.False, "the linear form does not wrap");
         });
+    }
+
+    [TestCase("ACGT", "ACGT")]
+    [TestCase("GAATTC", "GAATTC")]
+    [TestCase("GGATCC", "GGATCC")]
+    [TestCase("AAAG", "CTTT")]
+    [TestCase("RYKMBDHVSWN", "NWSBDHVKMRY", TestName = "ReverseComplement_complements_all_15_codes")]
+    [TestCase("GAAUUC", "GUUTTC", TestName = "ReverseComplement_keeps_U_it_is_not_one_of_the_15_codes")]
+    [TestCase("AUGU", "UCUT", TestName = "ReverseComplement_keeps_U_and_complements_its_neighbours")]
+    [TestCase("A-X.G", "C.X-T", TestName = "ReverseComplement_keeps_every_other_character")]
+    [TestCase("", "")]
+    public void ReverseComplement_ComplementsTheFifteenCodes_AndKeepsAnythingElse(string sequence, string expected)
+    {
+        Assert.That(IupacPattern.ReverseComplement(sequence), Is.EqualTo(expected));
     }
 }

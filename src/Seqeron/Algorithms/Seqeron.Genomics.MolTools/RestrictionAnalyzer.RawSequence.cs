@@ -69,7 +69,7 @@ public static partial class RestrictionAnalyzer
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="enzymes"/> is null or contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme definition
-    /// is invalid, or a methylase site is malformed.</exception>
+    /// is invalid (see <see cref="MaxCutStagger"/> for the largest stagger), or a methylase site is malformed.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         string? sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
@@ -119,7 +119,7 @@ public static partial class RestrictionAnalyzer
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="enzymes"/> is null or contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme definition
-    /// is invalid, or a methylase site is malformed.</exception>
+    /// is invalid (see <see cref="MaxCutStagger"/> for the largest stagger), or a methylase site is malformed.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<DigestFragment> Digest(
         string? sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
@@ -160,7 +160,7 @@ public static partial class RestrictionAnalyzer
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="enzymes"/> is null or contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme definition
-    /// is invalid, or a methylase site is malformed.</exception>
+    /// is invalid (see <see cref="MaxCutStagger"/> for the largest stagger), or a methylase site is malformed.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static DigestSummary GetDigestSummary(
         string? sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
@@ -197,7 +197,7 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="enzymes"/> is null or contains null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMissedCuts"/> is negative.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme definition
-    /// is invalid, the fragment count exceeds the limit, or a methylase site is malformed.</exception>
+    /// is invalid (see <see cref="MaxCutStagger"/> for the largest stagger), the fragment count exceeds the limit, or a methylase site is malformed.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<PartialDigestFragment> PartialDigest(
         string? sequence, MoleculeTopology topology, int? maxMissedCuts,
@@ -242,7 +242,7 @@ public static partial class RestrictionAnalyzer
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="enzymes"/> is null or contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme definition
-    /// is invalid, or a methylase site is malformed.</exception>
+    /// is invalid (see <see cref="MaxCutStagger"/> for the largest stagger), or a methylase site is malformed.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static RestrictionMap CreateMap(
         string? sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,

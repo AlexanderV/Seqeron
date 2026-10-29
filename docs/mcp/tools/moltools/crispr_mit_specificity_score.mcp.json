@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateMitSpecificityScore",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1649",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1661",
   "description": "Published MIT / Hsu 2013 aggregate guide specificity score (crispr.mit.edu 'Guide score', CRISPOR calcMitGuideScore): 100/(100 + sum of per-hit scores) * 100, with per-hit scores from the Hsu model, or from the Tycko 2018 SaCas9 model for SaCas9 PAMs as the reference does. With include_alternative_pams=true the reference's alternative PAMs are scanned too and those hits are downweighted by 0.2, as annotateOfftargets does.",
   "inputSchema": {
     "type": "object",

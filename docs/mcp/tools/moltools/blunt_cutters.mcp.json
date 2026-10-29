@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetBluntCutters",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L152",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L162",
   "description": "List the restriction enzymes of enzyme_set (\"common\" = 39 by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) that produce blunt ends (both strands cut at the same position; Biopython is_blunt).",
   "inputSchema": {
     "type": "object",
@@ -176,7 +176,7 @@
       "name": "Blunt cutter count",
       "input": {},
       "output": {
-        "enzymes": "10 enzymes: AluI, RsaI, HaeIII, DpnI, EcoRV, SmaI, HincII, ScaI, StuI, SwaI"
+        "enzymes": "10 enzymes: SwaI, AluI, RsaI, HaeIII, DpnI, EcoRV, SmaI, HincII, ScaI, StuI"
       }
     },
     {

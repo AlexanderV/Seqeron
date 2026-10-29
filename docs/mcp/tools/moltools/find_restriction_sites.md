@@ -24,7 +24,7 @@ With `topology = Linear` (the default) a site is reported only when **both** of 
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L445](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L445)
+- Source: [RestrictionAnalyzer.cs#L457](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L457)
 
 ## Input Schema
 

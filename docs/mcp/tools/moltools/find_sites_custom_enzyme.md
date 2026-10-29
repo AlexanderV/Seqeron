@@ -51,7 +51,7 @@ expression, so a caller-supplied or cut-undefined enzyme could not be used over 
 | `sequence` | string | Yes | DNA sequence to scan; IUPAC codes accepted. |
 | `recognition_sequence` | string | Yes | The custom enzyme's site; IUPAC codes allowed, need not be palindromic. |
 | `cut_position_forward` | integer | Yes | Top-strand cut offset from the first site base. |
-| `cut_position_reverse` | integer | Yes | Bottom-strand cut offset in the same frame. |
+| `cut_position_reverse` | integer | Yes | Bottom-strand cut offset in the same frame. The two cuts may be at most 64 bases apart (the stagger, i.e. the overhang length); a larger one is refused. |
 | `name` | string \| null | No | Name reported on each record; defaults to `CustomEnzyme`. |
 | `topology` | string | No | `Linear` (default) or `Circular`. |
 | `second_cut_forward` | integer \| null | No | Second top-strand cut offset of a Type IIB cutter. |
@@ -74,6 +74,7 @@ expression, so a caller-supplied or cut-undefined enzyme could not be used over 
 | 1004 | Sequence cannot be null or empty. |
 | 1005 | Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss. |
 | 1006 | The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular. |
+| 1007 | Enzyme '&lt;name&gt;' cuts its two strands &lt;n&gt; bases apart (&lt;f&gt;, &lt;r&gt;); the largest supported stagger is 64. |
 
 ## Examples
 

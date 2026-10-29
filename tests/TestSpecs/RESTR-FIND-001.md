@@ -270,7 +270,7 @@ Each failed on the audited code (32 of the 45 library tests; the rest kill the a
 |---|---|---|---|
 | A5R-2 | `FindPatternOccurrences_HugeStartIndex_IsAnEmptyResult_NotAnOverflow` (3), `..._StartIndexAtTheLastWindow_StillFindsIt` | a start index near `int.MaxValue` = empty, not `IndexOutOfRange`; the last window still found | the method's own documented contract |
 | A5R-3 | `EnzymeNameArray_NullIsAMissingArgument_EmptyIsAWrongValue_UnknownAndNullNamesAreRefusedAtTheCall` (13 forms incl. the methylation `FindSites`/`Digest`/`PartialDigest`/`GetDigestSummary`) | null array = `ArgumentNullException`, empty array / empty or unknown name = `ArgumentException`, null element = `ArgumentNullException`, all eager | BCL `ThrowIfNullOrEmpty` split (B08 H19/H24) |
-| A5R-5 | `UndefinedTopology_IsRefusedAtTheCall` (18 members), `RestrictionTools_RefuseAnUndefinedTopology` (8 tools) | `ArgumentOutOfRangeException("topology")` everywhere | enum validation as the sibling wrappers do |
+| A5R-5 | `UndefinedTopology_IsRefusedAtTheCall` (18 members; superseded in round 6 by the reflection test over all 41), `RestrictionTools_RefuseAnUndefinedTopology` (8 tools) | `ArgumentOutOfRangeException("topology")` everywhere | enum validation as the sibling wrappers do |
 | A5R-6 | `RawStringOverloads_RejectAMalformedMethylase_ForNullAndEmptySequencesToo` | the documented `ArgumentException` whatever the sequence | the sibling overload that always validated |
 | A5R-7 | `CustomEnzyme_HugeCutOffsets_OnACircle_ReduceInLongArithmetic` | forward cut 10 and reverse cut 2 for offsets of `int.MaxValue` on a 12-mer | exact arithmetic: (3 + 2^31 - 1) mod 12 = 10; (9 - (2^31 - 1)) mod 12 = 2 |
 | A5R-8 | `RawStringOutputs_AreUpperCase_ForASoftMaskedMolecule` | raw-string outputs are upper-case, coordinates unaffected (documented in the tool descriptions) | ASCII fold of `Normalize` |
@@ -283,3 +283,20 @@ Each failed on the audited code (32 of the 45 library tests; the rest kill the a
 | A5R-4 | `CustomEnzymeTools_RefuseANullOrEmptySequence` | same guard as the named wrappers | `find_restriction_sites("")` |
 | T8 | `PartialDigest_CountExactlyAtTheLimit_IsAccepted_OneStepOverIsRefused` | limit inclusive: 1 000 cuts x (99 + 1) = 100 000 accepted, x 101 refused | `MaxPartialDigestFragments` |
 | docs | `McpJson_Examples_ReproduceTheTool` (25 tools), `McpJson_InputSchema_...`, `McpJson_OutputSchema_...` | every restriction doc example is the tool's real output (prose summaries skipped); schemas equal the wrapper | the tool itself |
+
+## Round 6 (B08 A6-2 .. A6-5, A6-7, U3)
+
+Tests in `RestrictionAnalyzer_Round6_Tests.cs`, `IupacPattern_Tests.cs` (library) and `RestrictionCrisprRound6WrapperTests.cs` (MCP); heavy tier in
+`B08RestrictionAuditFuzzTests.cs` / `B08RestrictionAuditProperties.cs` (rotation equivariance of the circular sites, digest and map; partial-digest counts
+(k+1)(k+2)/2 and k^2+1; IUPAC symbols in the sequence; methylation only blocks; undefined topology and the name-array contract over every member).
+27 of the 59 library tests and 15 of the 18 MCP tests fail on the code the auditor read (the rest are controls, or the reflection tests that kill the
+auditor's guard-deletion mutants: 11 of 11 killed, and the `Modulo` int mutant).
+
+| ID | Test | Pins | Oracle |
+|---|---|---|---|
+| A6-2 | `RawSequence_AUracilInsideASite_IsNotASite_OnEitherStrand` (5), `..._AUracil_IsAlsoNotReadAcrossTheCircularOrigin`, `Methylation_AUracil_DoesNotCreateAMethylaseContextOnTheReverseStrand`, `Overhang_OfASiteWhoseWindowHoldsAUracil_KeepsTheUracil`, `IupacPattern_Tests.ReverseComplement_*` (9), MCP `FindRestrictionSites_AUracilInTheSite_IsNoSite` | a `U` is outside the 15 IUPAC codes: it is part of no site on either strand, no methylase context and no complemented overhang base | the documented rule "a character outside the 15 codes matches nothing"; the forward scan and `FindPatternOccurrences` |
+| A6-3 | `CustomEnzyme_StaggerBeyondTheLimit_IsRefusedAtTheCall_ByEveryMember` (8 offset pairs x 11 members), `..._StaggerAtTheLimit_IsAccepted_EvenAtTheEdgesOfTheIntRange`, `EveryRebaseEnzyme_IsWithinTheLimit_AndTheLargestStaggerIsNine`, `SecondCutStagger_IsComparedInLong_NotWrappedInInt`, MCP `RestrictionDigestCustomEnzyme_StaggerBeyondTheLimit_IsRefused` | `|forward - reverse| <= MaxCutStagger` (64), computed in `long`, refused eagerly | REBASE: largest of the 754 enzymes is 9 (TspRI, TscAI); exact arithmetic |
+| A6-4 | `EveryPublicMemberThatTakesATopology_RefusesAnUndefinedOne_AtTheCall` (41 members found by reflection), `..._StillWorks_ForTheDefinedOnes`, `EveryParamsEnzymeNameMember_SharesOneContract_AtTheCall` (21 members x 6 shapes) | no member can be added or lose its guard unnoticed | the 11 guards the auditor deleted without a test failing |
+| A6-5 | `CustomEnzyme_MinValueOffsets_OnACircle_ReduceInLongArithmetic` | forward cut 7 and reverse cut 5 for `int.MinValue` offsets on a 12-mer | exact arithmetic: (3 + int.MinValue) mod 12 = 7; (9 - int.MinValue) mod 12 = 5 |
+| A6-7 | `IupacPattern_Tests.MatchesAt_ReferenceRows` (int.MaxValue rows) | a window start near `int.MaxValue` does not fit: false, no exception | the method's documented contract |
+| U3 | MCP `CompatibleEnzymes_PerEnzymeForm_EchoesTheCanonicalName` (3), `..._ResolvesAHyphenSpelling_ToTheTableName` | `enzyme1` carries the table spelling, as `enzymes_compatible` does since A5R-1 | `get_enzyme` |

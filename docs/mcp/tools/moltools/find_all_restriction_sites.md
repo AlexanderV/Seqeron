@@ -20,7 +20,7 @@ Performs a comprehensive restriction scan: every enzyme of `enzyme_set` — `"co
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L535](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L535)
+- Source: [RestrictionAnalyzer.cs#L547](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L547)
 
 ## Input Schema
 
@@ -35,7 +35,7 @@ Performs a comprehensive restriction scan: every enzyme of `enzyme_set` — `"co
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `sites` | array | All restriction sites found across every enzyme of the set, each each `{position, enzyme, isForwardStrand, cutPosition, recognizedSequence, isSecondCut}`: `position` is the 0-based forward-strand start of the window, `enzyme` the enzyme record (as in `enzymes_by_cut_length`), `isForwardStrand` whether the window reads as the site on the forward strand, `cutPosition` the top-strand cut of a forward record or the bottom-strand cut of a reverse record (reduced modulo the length on a circle), `recognizedSequence` the window on the strand that carries the site (upper-case). `isSecondCut` is `true` on the second record of a two-sided (Type IIB) enzyme such as BaeI or BcgI, whose one site is cleaved on both sides: it is the only way to tell the two records of one site apart (`false` for every other record). |
+| `sites` | array | All restriction sites found across every enzyme of the set, each `{position, enzyme, isForwardStrand, cutPosition, recognizedSequence, isSecondCut}`: `position` is the 0-based forward-strand start of the window, `enzyme` the enzyme record (as in `enzymes_by_cut_length`), `isForwardStrand` whether the window reads as the site on the forward strand, `cutPosition` the top-strand cut of a forward record or the bottom-strand cut of a reverse record (reduced modulo the length on a circle), `recognizedSequence` the window on the strand that carries the site (upper-case). `isSecondCut` is `true` on the second record of a two-sided (Type IIB) enzyme such as BaeI or BcgI, whose one site is cleaved on both sides: it is the only way to tell the two records of one site apart (`false` for every other record). |
 
 ## Errors
 

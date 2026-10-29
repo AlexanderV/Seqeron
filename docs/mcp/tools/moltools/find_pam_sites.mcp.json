@@ -10,7 +10,7 @@
   "inputSchema": {
     "type": "object",
     "properties": {
-      "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 },
+      "sequence": { "type": "string", "description": "DNA sequence to scan: A, C, G, T or N, in either case. Any other character (U, an IUPAC code other than N, a space, a trailing newline, a FASTA header line) is rejected with the character and its index.", "minLength": 1 },
       "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "description": "CRISPR system (default SpCas9).", "default": "SpCas9" }
     },
     "required": ["sequence"]

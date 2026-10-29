@@ -5,13 +5,13 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.Digest",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1115",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1138",
   "description": "Simulate a restriction digest of a linear or circular molecule with named enzymes (any of the 754 REBASE enzymes with a defined cut) and return the ordered fragments with their end overhangs.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": {
-        "description": "DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing — Biopython's own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).",
+        "description": "DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes (U, a space, a FASTA header line) matches nothing — Biopython's own rule; such text is not rejected, but it still occupies coordinates and cannot be part of a site. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).",
         "type": "string"
       },
       "enzyme_names": {

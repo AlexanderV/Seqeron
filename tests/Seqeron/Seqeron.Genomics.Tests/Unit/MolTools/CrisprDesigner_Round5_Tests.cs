@@ -96,12 +96,32 @@ public class CrisprDesigner_Round5_Tests
     }
 
     [Test]
-    public void MitSpecificity_PamAnnotatedHits_LowerCaseAndUracilPam_AreFolded_AsForTheProtospacer()
+    public void MitSpecificity_PamAnnotatedHits_LowerCasePam_IsFolded_AsForTheProtospacer()
     {
         double upper = CrisprDesigner.CalculateMitSpecificityScore(Guide, new[] { Hit("GACGCATAAAGATGAGACGT", "AGG") });
         double lower = CrisprDesigner.CalculateMitSpecificityScore(Guide, new[] { Hit("gacgcataaagatgagacgt", "agg") });
 
         Assert.That(lower, Is.EqualTo(upper));
+    }
+
+    [Test]
+    public void MitSpecificity_PamAnnotatedHits_UracilPam_IsReadAsThymine_AsForTheProtospacer()
+    {
+        // NAG is an alternative SpCas9 PAM, scored with the 0.2 downweight; AGG is the main PAM. A PAM "UAG" is the RNA spelling of
+        // "TAG": it must give the NAG score (not an error, not the main-PAM score).
+        const string offTarget = "GACGCATAAAGATGAGACGT";
+        double nag = CrisprDesigner.CalculateMitSpecificityScore(Guide, new[] { Hit(offTarget, "TAG") });
+        double uag = CrisprDesigner.CalculateMitSpecificityScore(Guide, new[] { Hit(offTarget, "UAG") });
+        double ugg = CrisprDesigner.CalculateMitSpecificityScore(Guide, new[] { Hit(offTarget, "UGG") });
+        double tgg = CrisprDesigner.CalculateMitSpecificityScore(Guide, new[] { Hit(offTarget, "TGG") });
+        double agg = CrisprDesigner.CalculateMitSpecificityScore(Guide, new[] { Hit(offTarget, "AGG") });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(uag, Is.EqualTo(nag), "UAG = TAG");
+            Assert.That(ugg, Is.EqualTo(tgg), "UGG = TGG");
+            Assert.That(nag, Is.Not.EqualTo(agg), "the control: NAG and NGG are scored differently, so the equality above is not vacuous");
+        });
     }
 
     // ------------------------------------------------------------------------------------------------

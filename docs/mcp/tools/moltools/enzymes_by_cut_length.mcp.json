@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetEnzymesByCutLength",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L127",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L137",
   "description": "List the restriction enzymes of enzyme_set (\"common\" = 39 by default, \"rebase\" = all 754 REBASE enzymes with a defined cut) whose FULL recognition string has exactly the given length in bp (Biopython size), so the interrupted palindrome SfiI counts 13 and not 8.",
   "inputSchema": {
     "type": "object",

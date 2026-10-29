@@ -37,7 +37,8 @@ internal static class IupacPattern
     /// </summary>
     public static bool MatchesAt(string seq, int position, string pattern)
     {
-        if (position < 0 || position + pattern.Length > seq.Length)
+        // position > Length - pattern.Length, not position + pattern.Length > Length: the sum overflows for a start near int.MaxValue.
+        if (position < 0 || position > seq.Length - pattern.Length)
             return false;
 
         for (int i = 0; i < pattern.Length; i++)
@@ -50,8 +51,31 @@ internal static class IupacPattern
     }
 
     /// <summary>
+    /// The reverse strand as the scans read it: the reverse of <paramref name="seq"/> with each of the 15 IUPAC nucleotide codes
+    /// replaced by its complement (A-T, C-G, R-Y, K-M, B-V, D-H; S, W and N map to themselves) and every other character kept
+    /// as it is, so that it matches nothing on this strand either.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="DnaSequence.GetReverseComplementString"/> is the RNA-aware complement and turns <c>U</c> into <c>A</c>, which
+    /// would let a <c>U</c> - a character outside the 15 codes, matching nothing on the forward strand - take part in a
+    /// reverse-strand site (<c>GAAUUC</c> read as <c>GAATTC</c>) or in a methylase context. <paramref name="seq"/> is upper case
+    /// (callers fold first), as for <see cref="MatchesCode"/>.
+    /// </remarks>
+    public static string ReverseComplement(string seq) =>
+        string.Create(seq.Length, seq, static (dest, src) =>
+        {
+            for (int i = 0, last = src.Length - 1; i < src.Length; i++)
+            {
+                char c = src[last - i];
+                dest[i] = IupacHelper.IsNucleotideCode(c) ? SequenceExtensions.GetComplementBase(c) : c;
+            }
+        });
+
+    /// <summary>
     /// Whether <paramref name="pattern"/> matches the window of <c>pattern.Length</c> bases starting at
-    /// <paramref name="position"/> of a circular sequence (indices wrap modulo <c>seq.Length</c>).
+    /// <paramref name="position"/> of a circular sequence (indices wrap modulo <c>seq.Length</c>). The sequence must not be
+    /// empty and <paramref name="position"/> must lie in <c>[0, seq.Length)</c>: unlike <see cref="MatchesAt"/> this is
+    /// not bounds-checked, because every caller starts from an index of the molecule it scans.
     /// </summary>
     public static bool MatchesAtCircular(string seq, int position, string pattern)
     {

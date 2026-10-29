@@ -5,13 +5,13 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.CreateMap",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1535",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1558",
   "description": "Build a restriction map: sites, sites-by-enzyme, unique cutters and non-cutters. Named enzymes may be any of the 754 REBASE enzymes with a defined cut; with no names, enzyme_set picks the considered table (\"common\" = 39 by default, \"rebase\" = 754). sitesByEnzyme and nonCutters partition the considered enzyme set, keyed by canonical enzyme name. totalSites and uniqueCutters count CLEAVAGES, not recognition windows: every forward-strand record, plus every reverse-strand record whose backwards reading cuts other bonds — so a Type IIS enzyme such as BsaI is not a unique cutter merely because it has one forward-strand site, and the five enzymes whose two strand readings of one window cut different bonds (HauII, SgeI, MspJI, LpnPI, SgrTI) count twice for that window (B08 H32).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": {
-        "description": "DNA sequence to map. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be mapped as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing — Biopython's own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).",
+        "description": "DNA sequence to map. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be mapped as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes (U, a space, a FASTA header line) matches nothing — Biopython's own rule; such text is not rejected, but it still occupies coordinates and cannot be part of a site. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).",
         "type": "string"
       },
       "enzyme_names": {

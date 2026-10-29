@@ -38,7 +38,7 @@ CRISPOR's `annotateOfftargets` (crispor.py L1917-1928) drops exactly **one kind*
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L1649](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1649)
+- Source: [CrisprDesigner.cs#L1661](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1661)
 
 ## Input Schema
 

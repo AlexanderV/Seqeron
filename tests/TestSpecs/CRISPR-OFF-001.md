@@ -459,3 +459,13 @@ systems, 129 221 oracle rows, 0 extra / 0 missing after the fix (1317 extra befo
 - [x] No warnings in test project
 - [x] Invariants verified through tests
 - [x] Processing Registry updated
+
+## Round 6 (B08 A6-1)
+
+Tests in `CrisprDesigner_Round6_Tests.cs` (library) and `RestrictionCrisprRound6WrapperTests.cs` (MCP); heavy tier in `B08CrisprAuditFuzzTests.cs` (MIT / CFD refused for every
+PAM-before-target system and still scoring for the PAM-after ones, `maxMismatches` outside 0-5 refused at its boundary values and at the int extremes, SaCas9 hit score range /
+case / 5' rule, `GetCutSite` geometry and range for every system). 12 of the 16 library and MCP tests fail on the code the auditor read (the others are controls).
+
+| ID | Test | Pins | Oracle |
+|---|---|---|---|
+| A6-1 | `MitAlternativePams_InvalidCutoff_IsRefused_ForARepeatGuideAsForAUniqueOne` (4), `CfdAlternativePams_InvalidCutoff_...` (4), `AlternativePams_ValidCutoff_StillScores_AndARepeatGuideStillReturnsZero` (3), MCP `CrisprMitSpecificityScore_...` / `CrisprCfdSpecificityScore_InvalidAlternativePamCutoff_IsRefused_ForARepeatGuideToo` (4) | `ArgumentOutOfRangeException(minAlternativePamHitScore)` for NaN / negative whatever the genome holds; a repeat guide still scores 0 with a valid one | the documented argument contract; round 4 behaviour (`589efdeb`) |

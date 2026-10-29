@@ -107,12 +107,11 @@ public static partial class RestrictionAnalyzer
     /// fragment; <c>0</c> gives the complete digest; <see langword="null"/> means no bound.</param>
     /// <param name="enzymeNames">Names of restriction enzymes to use.</param>
     /// <returns>The partial-digest fragments, enumerated lazily.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
     /// <exception cref="ArgumentException">No enzyme was given, an enzyme name is unknown, or the
     /// fragment count would exceed <see cref="MaxPartialDigestFragments"/> (pass a smaller
     /// <paramref name="maxMissedCuts"/>).</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMissedCuts"/> is negative.</exception>
-    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<PartialDigestFragment> PartialDigest(
         DnaSequence sequence,
@@ -143,7 +142,7 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme's
-    /// recognition sequence is invalid, or the fragment count would exceed
+    /// recognition sequence is invalid, its strand cuts are more than <see cref="MaxCutStagger"/> bases apart, or the fragment count would exceed
     /// <see cref="MaxPartialDigestFragments"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMissedCuts"/> is negative.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>

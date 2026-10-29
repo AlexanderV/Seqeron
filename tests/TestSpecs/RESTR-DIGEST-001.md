@@ -278,3 +278,8 @@ derivation of the same quantity and is a duplication candidate for that unit.~~
 `GetOverhangSequence` reads it off the recognition pattern and `CutOverhangWindow` reads the same
 window off the molecule. `GetOverhang` no longer exists. The pattern-derived values were also
 confirmed identical to Biopython `ovhgseq` for all 39 built-ins.
+
+## Round 6 (B08 A6-2, A6-3, A6-5)
+
+The digest-side pins of round 6 (a `U` is cut by nothing on either strand; the overhang read-out keeps a base that has no complement; a custom enzyme's stagger is
+bounded by `MaxCutStagger` = 64 and computed in `long`; `int.MinValue` cut offsets reduce correctly on a circle) are listed in `RESTR-FIND-001.md`, section "Round 6".

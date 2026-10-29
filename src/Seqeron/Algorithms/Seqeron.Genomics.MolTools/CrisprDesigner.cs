@@ -1545,6 +1545,18 @@ public static class CrisprDesigner
     }
 
     /// <summary>
+    /// The <c>ALTPAMMINSCORE</c> cutoff of the alternative-PAM aggregates must be a number that is not negative (zero = no filtering, +infinity = every
+    /// alternative-PAM hit filtered out). Checked with the other arguments, before the repeat-guide test can return 0, so that
+    /// whether an invalid cutoff is refused never depends on the genome's content.
+    /// </summary>
+    private static void EnsureValidAlternativePamCutoff(double minAlternativePamHitScore)
+    {
+        if (double.IsNaN(minAlternativePamHitScore) || minAlternativePamHitScore < 0)
+            throw new ArgumentOutOfRangeException(nameof(minAlternativePamHitScore),
+                "The alternative-PAM hit-score cutoff must be a non-negative number.");
+    }
+
+    /// <summary>
     /// CRISPOR's repeat rule (<c>annotateOfftargets</c>, crispor.py L1906-1910): a guide with
     /// <c>totalAlnCount &gt; MAXOCC</c> alignments is suppressed wholesale. <c>totalAlnCount</c> is BWA's
     /// <c>X0 + X1</c> for the guide alone, "not looking at the PAM" (crispor.py L4081): every window of the
@@ -1914,6 +1926,7 @@ public static class CrisprDesigner
         var guide = ValidateAggregateArguments(guideSequence, genome, maxMismatches, systemType, requireTwentyNtProtospacer: false);
         var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         EnsureValidMaxOccurrences(maxOccurrences);
+        EnsureValidAlternativePamCutoff(minAlternativePamHitScore);
         if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
             return 0.0;
 
@@ -1934,10 +1947,6 @@ public static class CrisprDesigner
         string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType,
         double minAlternativePamHitScore, (int Start, int End)? onTarget)
     {
-        if (double.IsNaN(minAlternativePamHitScore) || minAlternativePamHitScore < 0)
-            throw new ArgumentOutOfRangeException(nameof(minAlternativePamHitScore),
-                "The alternative-PAM hit-score cutoff must be a non-negative number.");
-
         var hits = CollectSystemHits(guideSequence, genome, maxMismatches, systemType, onTarget,
             ExactMatchPolicy.DropFirst);
 
@@ -2685,6 +2694,7 @@ public static class CrisprDesigner
         var guide = ValidateAggregateArguments(guideSequence, genome, maxMismatches, systemType, requireTwentyNtProtospacer: true);
         var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         EnsureValidMaxOccurrences(maxOccurrences);
+        EnsureValidAlternativePamCutoff(minAlternativePamHitScore);
         if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
             return 0.0;
 
@@ -3066,7 +3076,9 @@ public readonly record struct GuideRnaParameters(
     /// <summary>
     /// Throws <see cref="ArgumentException"/> / <see cref="ArgumentOutOfRangeException"/> when the parameters cannot
     /// describe a design: a GC window that is not <c>0 &lt;= MinGcContent &lt;= MaxGcContent &lt;= 100</c> (NaN
-    /// included), a NaN score threshold, a negative stem limit, or the all-zero <c>default(GuideRnaParameters)</c>.
+    /// included), a NaN score threshold, a negative stem limit, a <see cref="Ranking"/> that is not a defined
+    /// <see cref="GuideRnaRanking"/> value, a null or non-A/C/G/T/U element of
+    /// <see cref="SelfComplementarityBackboneRegions"/>, or the all-zero <c>default(GuideRnaParameters)</c>.
     /// </summary>
     internal void Validate(string paramName)
     {

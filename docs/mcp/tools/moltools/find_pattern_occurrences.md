@@ -39,7 +39,7 @@ enzyme — both strands, cut positions, the feasibility filter and the circular 
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L574](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L574)
+- Source: [RestrictionAnalyzer.cs#L586](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L586)
 - Algorithm: [Restriction_Site_Detection.md](../../../algorithms/MolTools/Restriction_Site_Detection.md)
 
 ## Input Schema

@@ -23,7 +23,7 @@
         "type": "integer"
       },
       "cut_position_reverse": {
-        "description": "Bottom-strand cut offset in the same frame.",
+        "description": "Bottom-strand cut offset in the same frame. The two cuts may be at most 64 bases apart (the stagger, i.e. the overhang length); a larger one is refused.",
         "type": "integer"
       },
       "name": {
@@ -202,6 +202,10 @@
     {
       "code": 1006,
       "message": "The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular."
+    },
+    {
+      "code": 1007,
+      "message": "Enzyme '<name>' cuts its two strands <n> bases apart (<f>, <r>); the largest supported stagger is 64."
     }
   ],
   "examples": [
