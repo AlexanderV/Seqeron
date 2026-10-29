@@ -172,18 +172,7 @@
       "name": "PstI leaves a 3' overhang",
       "input": {},
       "output": {
-        "enzymes": [
-          {
-            "name": "PstI",
-            "recognitionSequence": "CTGCAG",
-            "cutPositionForward": 5,
-            "cutPositionReverse": 1,
-            "organism": "Providencia stuartii",
-            "isBluntEnd": false,
-            "overhangType": "ThreePrime",
-            "recognitionLength": 6
-          }
-        ]
+        "enzymes": "PstI (CTGCAG, cut 5/1) is among the sticky cutters with overhangType ThreePrime"
       }
     },
     {

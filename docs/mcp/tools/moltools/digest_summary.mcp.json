@@ -5,13 +5,13 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.GetDigestSummary",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1411",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1431",
   "description": "Aggregate statistics over a simulated restriction digest of a linear or circular molecule with named enzymes (any of the 754 REBASE enzymes with a defined cut).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": {
-        "description": "DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing — Biopython's own rule.",
+        "description": "DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing — Biopython's own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).",
         "type": "string"
       },
       "enzyme_names": {
@@ -99,6 +99,18 @@
     {
       "code": 1002,
       "message": "At least one enzyme name is required"
+    },
+    {
+      "code": 1003,
+      "message": "Unknown enzyme: {name}"
+    },
+    {
+      "code": 1004,
+      "message": "Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss."
+    },
+    {
+      "code": 1005,
+      "message": "The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular."
     }
   ],
   "examples": [

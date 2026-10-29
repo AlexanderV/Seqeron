@@ -322,9 +322,11 @@ public static partial class RestrictionAnalyzer
     /// origin-spanning <c>GAATTC</c> at position 10 with a top-strand cut at 11.
     /// </para>
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         DnaSequence sequence, string enzymeName, MoleculeTopology topology)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
         var enzyme = RequireEnzyme(enzymeName);
         return FindSitesCore(sequence.Sequence, enzyme, topology);
@@ -357,9 +359,11 @@ public static partial class RestrictionAnalyzer
     /// <see cref="FindSites(DnaSequence, string, MoleculeTopology)"/> for the coordinate and
     /// feasibility conventions.
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         string sequence, string enzymeName, MoleculeTopology topology)
     {
+        RequireTopology(topology);
         var enzyme = RequireEnzyme(enzymeName);
 
         // ASCII-only fold (review 2026-09 B08 F49, superseding F43): ToUpperInvariant would map U+017F 'ſ'
@@ -394,9 +398,11 @@ public static partial class RestrictionAnalyzer
     /// <paramref name="enzyme"/> has an empty recognition sequence, or one containing a character
     /// that is not one of the 15 IUPAC nucleotide codes.
     /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         DnaSequence sequence, RestrictionEnzyme enzyme, MoleculeTopology topology)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(enzyme);
 
@@ -435,9 +441,11 @@ public static partial class RestrictionAnalyzer
     /// <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, or a name in it
     /// is empty or not a REBASE enzyme with a defined cut.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         DnaSequence sequence, MoleculeTopology topology, params string[] enzymeNames)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
         return FindSitesCore(sequence, enzymeNames, topology);
     }
@@ -455,9 +463,11 @@ public static partial class RestrictionAnalyzer
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, or an enzyme's
     /// recognition sequence is empty or not IUPAC, or its second cut pair is inconsistent.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         DnaSequence sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
         var list = RequireEnzymeList(enzymes);
         return list.SelectMany(e => FindSitesCore(sequence.Sequence, e, topology));
@@ -473,6 +483,20 @@ public static partial class RestrictionAnalyzer
     {
         var enzymes = RequireEnzymeNames(enzymeNames, nameof(enzymeNames));
         return enzymes.SelectMany(e => FindSitesCore(sequence.Sequence, e, topology));
+    }
+
+    /// <summary>
+    /// Refuses a <see cref="MoleculeTopology"/> value that is neither <see cref="MoleculeTopology.Linear"/> nor
+    /// <see cref="MoleculeTopology.Circular"/>. Before B08 round 5 (A5R-5) such a value (reachable over MCP, where an
+    /// enum deserializes from any number) meant linear in <c>FindSites</c> / <c>CreateMap</c> and circular in
+    /// <c>Digest</c> / <c>GetDigestSummary</c> / <c>PartialDigest</c>, and was echoed back by the summary.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined value.</exception>
+    private static void RequireTopology(MoleculeTopology topology)
+    {
+        if (!Enum.IsDefined(topology))
+            throw new ArgumentOutOfRangeException(nameof(topology), topology,
+                "The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular.");
     }
 
     /// <summary>
@@ -507,6 +531,7 @@ public static partial class RestrictionAnalyzer
     /// Finds all sites of the 39 common enzymes (<see cref="Enzymes"/>) in a molecule of the given
     /// topology. For the full REBASE set use <see cref="FindAllSites(DnaSequence, MoleculeTopology, EnzymeSet)"/>.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindAllSites(DnaSequence sequence, MoleculeTopology topology)
         => FindAllSites(sequence, topology, EnzymeSet.Common);
 
@@ -564,7 +589,9 @@ public static partial class RestrictionAnalyzer
 
     private static IEnumerable<int> EnumeratePatternOccurrences(string seq, string pattern, int startIndex)
     {
-        for (int i = startIndex; i + pattern.Length <= seq.Length; i++)
+        // i <= Length - pattern.Length, not i + pattern.Length <= Length: the sum overflows for a start index near
+        // int.MaxValue and the loop would then read out of range (B08 round 5 A5R-2).
+        for (int i = startIndex; i <= seq.Length - pattern.Length; i++)
         {
             if (IupacPattern.MatchesAt(seq, i, pattern))
                 yield return i;
@@ -763,7 +790,7 @@ public static partial class RestrictionAnalyzer
                     Position: i,
                     Enzyme: enzyme,
                     IsForwardStrand: true,
-                    CutPosition: Modulo(i + fwd, n),
+                    CutPosition: Modulo((long)i + fwd, n),
                     RecognizedSequence: extended.Substring(i, len)) { IsSecondCut = second };
             }
         }
@@ -783,7 +810,7 @@ public static partial class RestrictionAnalyzer
                     Position: forwardPos,
                     Enzyme: enzyme,
                     IsForwardStrand: false,
-                    CutPosition: Modulo(forwardPos + len - fwd, n),
+                    CutPosition: Modulo((long)forwardPos + len - fwd, n),
                     RecognizedSequence: revExtended.Substring(i, len)) { IsSecondCut = second };
             }
         }
@@ -821,8 +848,12 @@ public static partial class RestrictionAnalyzer
         });
     }
 
-    /// <summary>The non-negative remainder of <paramref name="value"/> modulo <paramref name="n"/>.</summary>
-    private static int Modulo(int value, int n) => ((value % n) + n) % n;
+    /// <summary>
+    /// The non-negative remainder of <paramref name="value"/> modulo <paramref name="n"/>. The value is a <c>long</c>:
+    /// a caller-supplied cut offset of <c>int.MaxValue</c> added to a position overflows <c>int</c> and used to
+    /// land on the wrong base of a circular molecule (B08 round 5 A5R-7).
+    /// </summary>
+    private static int Modulo(long value, int n) => (int)(((value % n) + n) % n);
 
     /// <summary>
     /// True when both strand cuts of a site fall on a phosphodiester bond that exists in a linear
@@ -894,12 +925,11 @@ public static partial class RestrictionAnalyzer
     /// <see cref="MoleculeTopology.Linear"/>; see that overload for the full convention
     /// (top-strand boundaries, fragment order, and end overhangs).
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
     public static IEnumerable<DigestFragment> Digest(DnaSequence sequence, params string[] enzymeNames)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (enzymeNames == null || enzymeNames.Length == 0)
-            throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
-        return DigestCore(sequence.Sequence, ResolveEnzymes(enzymeNames));
+        return DigestCore(sequence.Sequence, RequireEnzymeNames(enzymeNames, nameof(enzymeNames)));
     }
 
     /// <summary>
@@ -968,17 +998,6 @@ public static partial class RestrictionAnalyzer
 
         return (cutPositions.ToList(), sitesByPosition);
     }
-
-    /// <summary>
-    /// The built-in enzymes named by <paramref name="enzymeNames"/>, resolved lazily (an unknown
-    /// name throws when it is reached, as the name-based entry points always did).
-    /// </summary>
-    /// <remarks>
-    /// Resolved eagerly, so an unknown name throws at the call rather than on first enumeration
-    /// (review 2026-09 B08 H24); the caller has already rejected a null or empty array.
-    /// </remarks>
-    private static IEnumerable<RestrictionEnzyme> ResolveEnzymes(string[] enzymeNames)
-        => enzymeNames.Select(name => RequireEnzyme(name)).ToList();
 
     private static IEnumerable<DigestFragment> DigestCore(string seq, IEnumerable<RestrictionEnzyme> enzymes, bool[]? blocked = null)
     {
@@ -1091,19 +1110,20 @@ public static partial class RestrictionAnalyzer
     /// <param name="topology">Whether the molecule is linear or circular.</param>
     /// <param name="enzymeNames">Names of restriction enzymes to use.</param>
     /// <returns>Collection of DNA fragments after digestion.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<DigestFragment> Digest(
         DnaSequence sequence,
         MoleculeTopology topology,
         params string[] enzymeNames)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
-        if (enzymeNames == null || enzymeNames.Length == 0)
-            throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
+        var enzymes = RequireEnzymeNames(enzymeNames, nameof(enzymeNames));
 
-        if (topology == MoleculeTopology.Linear)
-            return Digest(sequence, enzymeNames);
-
-        return DigestCircular(sequence.Sequence, ResolveEnzymes(enzymeNames));
+        return topology == MoleculeTopology.Linear
+            ? DigestCore(sequence.Sequence, enzymes)
+            : DigestCircular(sequence.Sequence, enzymes);
     }
 
     /// <summary>
@@ -1126,11 +1146,13 @@ public static partial class RestrictionAnalyzer
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, or an enzyme's
     /// recognition sequence is empty or not IUPAC.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<DigestFragment> Digest(
         DnaSequence sequence,
         MoleculeTopology topology,
         IEnumerable<RestrictionEnzyme> enzymes)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
         var list = RequireEnzymeList(enzymes);
 
@@ -1249,15 +1271,10 @@ public static partial class RestrictionAnalyzer
             return site.CutPosition;
 
         var (forward, reverse) = site.CutOffsets;
-        int watson = site.CutPosition + forward - reverse;
-        return topology == MoleculeTopology.Circular ? Modulo(watson, length) : watson;
+        long watson = (long)site.CutPosition + forward - reverse;
+        return topology == MoleculeTopology.Circular ? Modulo(watson, length) : (int)watson;
     }
 
-    /// <summary>
-    /// Whether the window at forward-strand <paramref name="position"/> reads as
-    /// <paramref name="pattern"/> on the forward strand, wrapping past the origin when it must
-    /// (a circular window; a linear window never runs past the end).
-    /// </summary>
     /// <summary>
     /// Whether reading a window on the reverse strand cuts the same bonds as reading it on the
     /// forward strand, so a window that matches the recognition pattern both ways yields one
@@ -1388,6 +1405,7 @@ public static partial class RestrictionAnalyzer
     /// Equivalent to <see cref="GetDigestSummary(DnaSequence, MoleculeTopology, string[])"/> with
     /// <see cref="MoleculeTopology.Linear"/>.
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
     public static DigestSummary GetDigestSummary(DnaSequence sequence, params string[] enzymeNames)
         => GetDigestSummary(sequence, MoleculeTopology.Linear, enzymeNames);
 
@@ -1408,11 +1426,14 @@ public static partial class RestrictionAnalyzer
     /// <paramref name="sequence"/>'s length in both topologies (Addgene Restriction Digest
     /// Protocol: "the sum of the individual fragments should equal the size of the original").
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static DigestSummary GetDigestSummary(
         DnaSequence sequence,
         MoleculeTopology topology,
         params string[] enzymeNames)
     {
+        RequireTopology(topology);
         var fragments = Digest(sequence, topology, enzymeNames).ToList();
         return Summarize(fragments, enzymeNames.ToList(), topology);
     }
@@ -1431,11 +1452,13 @@ public static partial class RestrictionAnalyzer
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, or an enzyme
     /// definition is invalid.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static DigestSummary GetDigestSummary(
         DnaSequence sequence,
         MoleculeTopology topology,
         IEnumerable<RestrictionEnzyme> enzymes)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
         var list = RequireEnzymeList(enzymes);
         var fragments = Digest(sequence, topology, list).ToList();
@@ -1464,6 +1487,7 @@ public static partial class RestrictionAnalyzer
     /// <summary>
     /// Creates a restriction map of a <b>linear</b> molecule showing all enzyme sites.
     /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
     public static RestrictionMap CreateMap(DnaSequence sequence, params string[] enzymeNames)
         => CreateMap(sequence, MoleculeTopology.Linear, enzymeNames);
 
@@ -1506,9 +1530,12 @@ public static partial class RestrictionAnalyzer
     /// </remarks>
     /// <exception cref="ArgumentException">A name in <paramref name="enzymeNames"/> is not a known
     /// enzyme (<see cref="GetEnzyme"/>).</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static RestrictionMap CreateMap(
         DnaSequence sequence, MoleculeTopology topology, params string[] enzymeNames)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(enzymeNames);
 
@@ -1546,9 +1573,11 @@ public static partial class RestrictionAnalyzer
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, or an enzyme
     /// definition is invalid.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static RestrictionMap CreateMap(
         DnaSequence sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
         var considered = RequireEnzymeList(enzymes)
             .DistinctBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
@@ -2181,6 +2210,9 @@ public sealed record CognateMethylationSite(int? Position, bool IsComplementaryS
 /// Linear and circular molecules differ in fragment count: with <c>k</c> cut sites a linear
 /// molecule yields <c>k+1</c> fragments whereas a circular molecule yields <c>k</c> fragments
 /// (Univ. of Illinois MolBio "Restriction Digestion/Gel Electrophoresis"; Addgene Plasmids 101).
+/// Only these two values are valid: any other number cast into the enum (an MCP caller can send one) is refused by
+/// every <see cref="RestrictionAnalyzer"/> member that takes a topology with an <see cref="ArgumentOutOfRangeException"/>,
+/// instead of meaning "linear" in one member and "circular" in another (B08 round 5 A5R-5).
 /// </remarks>
 public enum MoleculeTopology
 {

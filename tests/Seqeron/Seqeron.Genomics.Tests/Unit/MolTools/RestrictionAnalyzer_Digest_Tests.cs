@@ -1232,11 +1232,12 @@ public class RestrictionAnalyzer_Digest_Tests
     }
 
     /// <summary>
-    /// Evidence: Implementation - TotalSites counts forward-strand sites only.
+    /// Evidence: Implementation - TotalSites counts cleavages (B08 F108), so a palindromic site is counted once
+    /// (what "forward-strand records only" amounted to for the 39 built-ins).
     /// Invariant #13: Avoid double-counting palindromic sites.
     /// </summary>
     [Test]
-    public void CreateMap_TotalSites_CountsForwardStrandOnly()
+    public void CreateMap_TotalSites_CountsAPalindromicSiteOnce()
     {
         // Arrange: Single EcoRI site (palindromic, appears on both strands)
         var sequence = new DnaSequence("AAAAAAGAATTCAAAAAA");
@@ -1244,9 +1245,9 @@ public class RestrictionAnalyzer_Digest_Tests
         // Act
         var map = RestrictionAnalyzer.CreateMap(sequence, "EcoRI");
 
-        // Assert: Invariant #13 - should count only forward strand
+        // Assert: Invariant #13 - one cleavage, not one per strand
         Assert.That(map.TotalSites, Is.EqualTo(1),
-            "Should count forward-strand sites only, not both strands");
+            "A palindromic site is one cleavage, not one per strand");
     }
 
     /// <summary>

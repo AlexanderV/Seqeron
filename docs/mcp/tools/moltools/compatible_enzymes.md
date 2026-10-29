@@ -31,17 +31,18 @@ letters with *opposite* polarity are **not** compatible — see `enzymes_compati
 This is the query to use for an enzyme with a unique overhang: 15 of the 39 built-ins (`EcoRI`,
 `PstI`, `KpnI`, `SacI`, `SphI`, `NcoI`, `NotI`, `ApaI`, `AscI`, `AgeI`, `FseI`, `NdeI`, `PacI`,
 `SfiI`, `HindIII`) are compatible only with themselves and therefore appear in **no** pair of the
-unfiltered listing. It is the per-enzyme form of Biopython's `compatible_end()`, without that
-method's own bug of filtering candidates to 5′-overhang enzymes only (which makes it answer the
-empty list for every blunt and every 3′ cutter).
+unfiltered listing. It is the per-enzyme form of Biopython's `compatible_end()`, which has three implementations
+(one per end class: blunt, 5′ overhang, 3′ overhang) and so answers a non-empty list for blunt and
+3′ cutters too (Biopython 1.88: `EcoRV` 137, `PstI` 13, `SacI` 9, `EcoRI` 51); unlike the reference,
+which ignores its `batch` argument, this form honours `enzyme_set`.
 
 Verified against Biopython 1.88 on 2026-10-14: 1521/1521 ordered built-in pairs and all 39
 per-enzyme sets agree with the symmetrised `%` operator.
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1778](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1778) — `FindCompatibleEnzymes()` / `FindCompatibleEnzymes(EnzymeSet)` (all pairs; the REBASE-set variant lives in [RestrictionAnalyzer.Rebase.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.Rebase.cs))
-- Per-enzyme overload (`FindCompatibleEnzymes`): [RestrictionAnalyzer.cs#L1779](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1779)
+- Source: [RestrictionAnalyzer.cs#L1807](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1807) — `FindCompatibleEnzymes()` / `FindCompatibleEnzymes(EnzymeSet)` (all pairs; the REBASE-set variant lives in [RestrictionAnalyzer.Rebase.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.Rebase.cs))
+- Per-enzyme overload (`FindCompatibleEnzymes`): [RestrictionAnalyzer.cs#L1764](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1764)
 
 ## Input Schema
 
@@ -87,8 +88,8 @@ other shared end exists in this table.
 
 ### Example 4: Per-enzyme query
 
-`compatible_enzymes(enzyme_name: "BamHI")` → 4 rows, `compatibleEnd = "GATC"`: `BamHI`, `BglII`,
-`MboI`, `Sau3AI`. `compatible_enzymes(enzyme_name: "SfiI")` → 1 row, `SfiI` itself with
+`compatible_enzymes(enzyme_name: "BamHI")` → 4 rows, `compatibleEnd = "GATC"` (and `end2 = "GATC"`): `BamHI`, `Sau3AI`,
+`MboI`, `BglII` (table order). `compatible_enzymes(enzyme_name: "SfiI")` → 1 row, `SfiI` itself with
 `compatibleEnd = "NNN"`. `compatible_enzymes(enzyme_name: "EcoRV")` → the 10 blunt cutters.
 
 ### Example 5: Partners over the REBASE set; the REBASE all-pairs listing

@@ -79,8 +79,8 @@
 ### Map Invariants
 
 11. **Non-Cutters Identified**: Enzymes with zero sites listed in NonCutters (Source: Wikipedia Restriction map)
-12. **Unique Cutters Identified**: Enzymes with exactly one forward-strand site listed in UniqueCutters (Source: Wikipedia Restriction map — forward-strand only to avoid double-counting palindromic sites)
-13. **Site Count Consistency**: TotalSites counts forward-strand sites only (Source: Palindromic sites appear on both strands at same position; counting both would double-count)
+12. **Unique Cutters Identified**: Enzymes with exactly one **cleavage** listed in UniqueCutters (B08 F108; Source: Wikipedia Restriction map). A palindromic site counts once, the two cut records of a two-sided (Type IIB) site count once, and a Type IIS enzyme with a site on each strand (e.g. BsaI on `A10 GGTCTC A10 GAGACC A10`) is not a unique cutter
+13. **Site Count Consistency**: TotalSites counts cleavages by the rule of the digest's cut collection (B08 F108): every forward-strand record plus every reverse-strand record whose backwards reading cuts other bonds, so a palindromic site is counted once (what "forward-strand only" amounted to for the 39 built-ins)
 
 ### Compatibility Invariants
 
@@ -113,7 +113,7 @@
 | M14 | GetDigestSummary EnzymesUsed contains input enzymes | Invariant #10 | API contract |
 | M15 | CreateMap identifies non-cutters | Invariant #11 | Wikipedia |
 | M16 | CreateMap identifies unique cutters (forward-strand) | Invariant #12 | Wikipedia |
-| M17 | CreateMap TotalSites counts forward-strand only | Invariant #13 | Palindromic convention |
+| M17 | CreateMap TotalSites counts cleavages (a palindromic site once; BsaI with sites on both strands twice) | Invariant #13 | Palindromic convention; F108 |
 | M18 | CreateMap null sequence throws ArgumentNullException | API contract | Implementation |
 | M19 | Blunt enzymes compatible with each other | Invariant #14 | Wikipedia |
 | M20 | Same-type same-overhang enzymes compatible (BamHI/BglII) | Invariant #15 | Wikipedia |
@@ -215,7 +215,7 @@
 | CreateMap_ReturnsCorrectMapWithAllFields | ✓ | M13, M17, M31 |
 | CreateMap_IdentifiesUniqueCutters | ✓ | M16, M30 |
 | CreateMap_IdentifiesNonCutters | ✓ | M15 |
-| CreateMap_TotalSites_CountsForwardStrandOnly | ✓ | M17 |
+| CreateMap_TotalSites_CountsAPalindromicSiteOnce | ✓ | M17 |
 | CreateMap_NullSequence_ThrowsArgumentNullException | ✓ | M18 |
 | CreateMap_NoEnzymesSpecified_SearchesAll | ✓ | S5 |
 | AreCompatible_BluntEnzymes_AreCompatible | ✓ | M19 |

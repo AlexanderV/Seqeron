@@ -5,13 +5,13 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.PartialDigest",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs#L112",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs#L117",
   "description": "Simulates a PARTIAL restriction digest: every fragment that can arise when any subset of the cut sites is left uncut, each with missedCuts = the number of uncut sites inside it. Enzymes are named as for restriction_digest (any of the 754 REBASE enzymes with a defined cut); uses exactly its cut positions, enzyme lists and end overhangs; the missedCuts = 0 fragments come first and are the complete digest. Linear: all intervals between two of {0, cuts, length} — (k+1)(k+2)/2 fragments for k cuts. Circular: every cut-to-cut arc (wrapping past the origin; k-1 missed = the molecule linearised at one cut) plus the intact circle (missedCuts = k) — k²+1 fragments. Order: missedCuts, then start position. max_missed_cuts bounds the uncut sites per fragment; above 100000 fragments the call is refused unless max_missed_cuts is lowered. Which fragments CAN arise only — no yield/abundance. Call to predict extra bands from an incomplete digest. Optional methylation (none|dam|dcm|dam+dcm|emboss) makes methylated bases block recognition exactly as EMBOSS restrict -methylation does (default none: unchanged). A blocked site is neither cut nor counted as a missed cut.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": {
-        "description": "DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing — Biopython's own rule.",
+        "description": "DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing — Biopython's own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).",
         "type": "string"
       },
       "enzyme_names": {
@@ -185,6 +185,18 @@
     {
       "code": 1004,
       "message": "A partial digest with {k} cut positions would produce {n} fragments, above the limit of 100000; pass a smaller maxMissedCuts."
+    },
+    {
+      "code": 1005,
+      "message": "Unknown enzyme: {name}"
+    },
+    {
+      "code": 1006,
+      "message": "Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss."
+    },
+    {
+      "code": 1007,
+      "message": "The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular."
     }
   ],
   "examples": [

@@ -26,7 +26,7 @@ A partial (incomplete) digest leaves some recognition sites uncut, so besides th
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.PartialDigest.cs#L112](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs#L112)
+- Source: [RestrictionAnalyzer.PartialDigest.cs#L117](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs#L117)
 - Algorithm: [Restriction_Digest_Simulation.md](../../../algorithms/MolTools/Restriction_Digest_Simulation.md)
 
 ## Input Schema
@@ -53,6 +53,9 @@ A partial (incomplete) digest leaves some recognition sites uncut, so besides th
 | 1002 | At least one enzyme name is required |
 | 1003 | The missed-cut limit cannot be negative. |
 | 1004 | A partial digest with {k} cut positions would produce {n} fragments, above the limit of 100000; pass a smaller maxMissedCuts. |
+| 1005 | Unknown enzyme: {name} |
+| 1006 | Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss. |
+| 1007 | The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular. |
 
 ## Examples
 

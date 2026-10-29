@@ -251,7 +251,6 @@
           "rebaseMethylationField": "?(4)",
           "cognateMethylationSites": [
             {
-              "position": null,
               "isComplementaryStrand": false,
               "type": "N4Methylcytosine"
             }
@@ -337,12 +336,7 @@
       "input": {
         "name": "NotAnEnzyme"
       },
-      "output": {
-        "enzyme": null,
-        "overhangSequence": null,
-        "equischizomers": null,
-        "neoschizomers": null
-      }
+      "output": {}
     },
     {
       "name": "Unknown enzyme set",

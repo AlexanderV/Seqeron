@@ -582,8 +582,8 @@ public class RestrictionAnalyzer_Filter_Tests
         });
     }
 
-    // F32 — The per-enzyme query (Biopython's `compatible_end()` notion, without the reference's
-    //       own 5'-overhang-only filter): it includes the enzyme itself, so an enzyme with a unique
+    // F32 — The per-enzyme query (Biopython's `compatible_end()` notion; the reference has three implementations, one
+    //       per end class - H33/A5R-9): it includes the enzyme itself, so an enzyme with a unique
     //       overhang is no longer invisible. Exact sets from Biopython's `%` over the 39 built-ins.
     [Test]
     [TestCase("BamHI", "BamHI,BglII,MboI,Sau3AI")]

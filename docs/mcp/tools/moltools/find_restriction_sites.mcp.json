@@ -5,13 +5,13 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindSites",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L438",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L445",
   "description": "Find restriction sites for named enzymes (any of the 754 REBASE enzymes with a defined cut, case-insensitive) on both strands of a DNA sequence; 0-based forward-strand coordinates, per-strand cut positions, linear cut-feasibility filter or circular origin-spanning search.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "sequence": {
-        "description": "DNA sequence to scan. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be scanned as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing — Biopython's own rule.",
+        "description": "DNA sequence to scan. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be scanned as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing — Biopython's own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).",
         "type": "string"
       },
       "enzyme_names": {
@@ -53,23 +53,133 @@
           "type": "object",
           "properties": {
             "position": {
-              "type": "integer"
+              "type": "integer",
+              "description": "0-based forward-strand start of the recognition window."
+            },
+            "enzyme": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Enzyme name."
+                },
+                "recognitionSequence": {
+                  "type": "string",
+                  "description": "Recognition sequence (IUPAC)."
+                },
+                "cutPositionForward": {
+                  "type": "integer",
+                  "description": "Cut offset on the forward strand (Biopython fst5)."
+                },
+                "cutPositionReverse": {
+                  "type": "integer",
+                  "description": "Cut offset on the reverse strand (Biopython size + fst3)."
+                },
+                "organism": {
+                  "type": "string",
+                  "description": "Source organism."
+                },
+                "secondCutForward": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "description": "Two-sided (Type IIB) cutters only: top-strand offset of the second cut pair (Biopython scd5; BaeI 23). Omitted/null for a one-cut enzyme."
+                },
+                "secondCutReverse": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "description": "Two-sided (Type IIB) cutters only: bottom-strand offset of the second cut pair (Biopython size + scd3; BaeI 18). Omitted/null for a one-cut enzyme."
+                },
+                "isBluntEnd": {
+                  "type": "boolean",
+                  "description": "True when both strands are cut at the same offset (Biopython is_blunt)."
+                },
+                "overhangType": {
+                  "type": "string",
+                  "enum": [
+                    "Blunt",
+                    "FivePrime",
+                    "ThreePrime"
+                  ],
+                  "description": "End chemistry: the sign of Biopython ovhg."
+                },
+                "recognitionLength": {
+                  "type": "integer",
+                  "description": "Length of the full recognition string (Biopython size); SfiI is 13."
+                },
+                "rebaseMethylationField": {
+                  "type": "string",
+                  "description": "REBASE allenz.104 field <6> (METHYLATION SITE) verbatim, e.g. \"3(6)\" for EcoRI; \"\" when REBASE records none. The site the enzyme's COGNATE methyltransferase modifies, not Dam/Dcm/CpG sensitivity."
+                },
+                "cognateMethylationSites": {
+                  "type": "array",
+                  "description": "Typed parse of rebaseMethylationField.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "position": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "description": "1-based position of the modified base in the recognition sequence, counted from the 5' end of the named strand; null for REBASE '?'."
+                      },
+                      "isComplementaryStrand": {
+                        "type": "boolean",
+                        "description": "True for a REBASE negative position (complementary strand)."
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "N4Methylcytosine",
+                          "C5Methylcytosine",
+                          "N6Methyladenine"
+                        ],
+                        "description": "REBASE (4) / (5) / (6)."
+                      }
+                    }
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "recognitionSequence",
+                "cutPositionForward",
+                "cutPositionReverse",
+                "organism",
+                "isBluntEnd",
+                "overhangType",
+                "recognitionLength"
+              ],
+              "description": "The enzyme record (same shape as the items of enzymes_by_cut_length)."
             },
             "isForwardStrand": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "True when the window reads as the site on the forward strand; false for a reverse-strand reading."
             },
             "cutPosition": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Top-strand cut for a forward record; the bottom-strand cut (forward-strand coordinate) for a reverse record. Circular molecules: reduced modulo the length."
             },
             "recognizedSequence": {
-              "type": "string"
+              "type": "string",
+              "description": "The window as read on the strand that carries the site (upper-case)."
+            },
+            "isSecondCut": {
+              "type": "boolean",
+              "description": "True on the second record of a two-sided (Type IIB) enzyme, whose one site is cleaved on both sides (BaeI, BcgI, ...): the flag is the only way to tell the two records of one site apart. False for every other record."
             }
           },
           "required": [
             "position",
+            "enzyme",
             "isForwardStrand",
             "cutPosition",
-            "recognizedSequence"
+            "recognizedSequence",
+            "isSecondCut"
           ]
         }
       }
@@ -89,7 +199,15 @@
     },
     {
       "code": 4001,
-      "message": "Unknown enzyme name"
+      "message": "Unknown enzyme: {name}"
+    },
+    {
+      "code": 4002,
+      "message": "Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss."
+    },
+    {
+      "code": 4003,
+      "message": "The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular."
     }
   ],
   "examples": [

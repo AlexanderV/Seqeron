@@ -41,7 +41,7 @@ expression, so a caller-supplied or cut-undefined enzyme could not be used over 
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.RawSequence.cs#L69](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.RawSequence.cs#L69)
+- Source: [RestrictionAnalyzer.RawSequence.cs#L74](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.RawSequence.cs#L74)
 - Algorithm: [Restriction_Site_Detection.md](../../../algorithms/MolTools/Restriction_Site_Detection.md)
 
 ## Input Schema
@@ -62,7 +62,7 @@ expression, so a caller-supplied or cut-undefined enzyme could not be used over 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `sites` | object[] | Site records in the same shape as `find_restriction_sites`. |
+| `sites` | object[] | Site records in the same shape as `find_restriction_sites` (`position`, `enzyme`, `isForwardStrand`, `cutPosition`, `recognizedSequence`, `isSecondCut`). |
 
 ## Errors
 
@@ -71,6 +71,9 @@ expression, so a caller-supplied or cut-undefined enzyme could not be used over 
 | 1001 | Pass both second_cut_forward and second_cut_reverse, or neither. |
 | 1002 | Enzyme '&lt;name&gt;' recognition sequence '&lt;site&gt;' contains '&lt;char&gt;' at index &lt;i&gt;, which is not one of the 15 IUPAC nucleotide codes |
 | 1003 | Enzyme '&lt;name&gt;' second cut pair (&lt;f&gt;, &lt;r&gt;) leaves a different stagger from its first pair |
+| 1004 | Sequence cannot be null or empty. |
+| 1005 | Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss. |
+| 1006 | The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular. |
 
 ## Examples
 

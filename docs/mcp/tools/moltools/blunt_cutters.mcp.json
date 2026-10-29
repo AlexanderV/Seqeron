@@ -150,6 +150,16 @@
       "output": {
         "enzymes": [
           {
+            "name": "SwaI",
+            "recognitionSequence": "ATTTAAAT",
+            "cutPositionForward": 4,
+            "cutPositionReverse": 4,
+            "organism": "Staphylococcus warneri",
+            "isBluntEnd": true,
+            "overhangType": "Blunt",
+            "recognitionLength": 8
+          },
+          {
             "name": "AluI",
             "recognitionSequence": "AGCT",
             "cutPositionForward": 2,
@@ -158,26 +168,6 @@
             "isBluntEnd": true,
             "overhangType": "Blunt",
             "recognitionLength": 4
-          },
-          {
-            "name": "EcoRV",
-            "recognitionSequence": "GATATC",
-            "cutPositionForward": 3,
-            "cutPositionReverse": 3,
-            "organism": "Escherichia coli",
-            "isBluntEnd": true,
-            "overhangType": "Blunt",
-            "recognitionLength": 6
-          },
-          {
-            "name": "HincII",
-            "recognitionSequence": "GTYRAC",
-            "cutPositionForward": 3,
-            "cutPositionReverse": 3,
-            "organism": "Haemophilus influenzae",
-            "isBluntEnd": true,
-            "overhangType": "Blunt",
-            "recognitionLength": 6
           }
         ]
       }

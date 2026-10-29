@@ -22,7 +22,7 @@ Runs a digest and reports summary statistics instead of the full fragment sequen
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1411](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1411)
+- Source: [RestrictionAnalyzer.cs#L1431](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1431)
 
 ## Input Schema
 
@@ -50,6 +50,9 @@ Runs a digest and reports summary statistics instead of the full fragment sequen
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1002 | At least one enzyme name is required |
+| 1003 | Unknown enzyme: {name} |
+| 1004 | Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss. |
+| 1005 | The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular. |
 
 ## Examples
 

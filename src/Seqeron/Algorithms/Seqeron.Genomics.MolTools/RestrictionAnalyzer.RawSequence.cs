@@ -46,15 +46,19 @@ public static partial class RestrictionAnalyzer
     /// <param name="methylases">Methylases whose sites block recognition, or null for none.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="set"/> is not a defined value.</exception>
     /// <exception cref="ArgumentException">A methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindAllSites(
         string? sequence, MoleculeTopology topology, EnzymeSet set, IReadOnlyList<Methylase>? methylases)
     {
+        RequireTopology(topology);
         var table = GetEnzymes(set);
-        if (string.IsNullOrEmpty(sequence))
+        string seq = Normalize(sequence);
+        // The mask is computed for an empty sequence too, so a malformed methylase is rejected at the call whatever the
+        // sequence (the documented ArgumentException; B08 round 5 A5R-6).
+        var blocked = MethylationMask.Compute(seq, methylases, topology == MoleculeTopology.Circular);
+        if (seq.Length == 0)
             return [];
 
-        string seq = SequenceExtensions.ToUpperAscii(sequence);
-        var blocked = MethylationMask.Compute(seq, methylases, topology == MoleculeTopology.Circular);
         return table.Values.SelectMany(e => FindSitesCore(seq, e, topology, blocked));
     }
 
@@ -66,16 +70,18 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="enzymes"/> is null or contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme definition
     /// is invalid, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         string? sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
         IReadOnlyList<Methylase>? methylases)
     {
+        RequireTopology(topology);
         var list = RequireEnzymeList(enzymes);
-        if (string.IsNullOrEmpty(sequence))
+        string seq = Normalize(sequence);
+        var blocked = MethylationMask.Compute(seq, methylases, topology == MoleculeTopology.Circular);
+        if (seq.Length == 0)
             return [];
 
-        string seq = SequenceExtensions.ToUpperAscii(sequence);
-        var blocked = MethylationMask.Compute(seq, methylases, topology == MoleculeTopology.Circular);
         return list.SelectMany(e => FindSitesCore(seq, e, topology, blocked));
     }
 
@@ -87,6 +93,7 @@ public static partial class RestrictionAnalyzer
     /// it is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, a name in it is
     /// empty or not a REBASE enzyme with a defined cut, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindSites(
         string? sequence, MoleculeTopology topology, IReadOnlyList<Methylase>? methylases,
         params string[] enzymeNames)
@@ -100,6 +107,7 @@ public static partial class RestrictionAnalyzer
     /// it is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, a name in it is
     /// empty or not a REBASE enzyme with a defined cut, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<DigestFragment> Digest(
         string? sequence, MoleculeTopology topology, IReadOnlyList<Methylase>? methylases,
         params string[] enzymeNames)
@@ -112,10 +120,12 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="enzymes"/> is null or contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme definition
     /// is invalid, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<DigestFragment> Digest(
         string? sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
         IReadOnlyList<Methylase>? methylases)
     {
+        RequireTopology(topology);
         var list = RequireEnzymeList(enzymes);
         string seq = Normalize(sequence);
         var blocked = MethylationMask.Compute(seq, methylases, topology == MoleculeTopology.Circular);
@@ -133,10 +143,12 @@ public static partial class RestrictionAnalyzer
     /// it is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, a name in it is
     /// empty or not a REBASE enzyme with a defined cut, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static DigestSummary GetDigestSummary(
         string? sequence, MoleculeTopology topology, IReadOnlyList<Methylase>? methylases,
         params string[] enzymeNames)
     {
+        RequireTopology(topology);
         var list = RequireEnzymeNames(enzymeNames, nameof(enzymeNames));
         var fragments = Digest(sequence, topology, list, methylases).ToList();
         return Summarize(fragments, enzymeNames.ToList(), topology);
@@ -149,10 +161,12 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="enzymes"/> is null or contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme definition
     /// is invalid, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static DigestSummary GetDigestSummary(
         string? sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
         IReadOnlyList<Methylase>? methylases)
     {
+        RequireTopology(topology);
         var list = RequireEnzymeList(enzymes);
         var fragments = Digest(sequence, topology, list, methylases).ToList();
         return Summarize(fragments, list.Select(e => e.Name).ToList(), topology);
@@ -168,6 +182,7 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentException"><paramref name="enzymeNames"/> is empty, a name in it is
     /// empty or not a REBASE enzyme with a defined cut, the fragment count exceeds the limit, or a methylase
     /// site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<PartialDigestFragment> PartialDigest(
         string? sequence, MoleculeTopology topology, int? maxMissedCuts,
         IReadOnlyList<Methylase>? methylases, params string[] enzymeNames)
@@ -183,10 +198,12 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMissedCuts"/> is negative.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme definition
     /// is invalid, the fragment count exceeds the limit, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<PartialDigestFragment> PartialDigest(
         string? sequence, MoleculeTopology topology, int? maxMissedCuts,
         IEnumerable<RestrictionEnzyme> enzymes, IReadOnlyList<Methylase>? methylases)
     {
+        RequireTopology(topology);
         var list = RequireEnzymeList(enzymes);
         string seq = Normalize(sequence);
         return PartialDigestCore(
@@ -203,10 +220,12 @@ public static partial class RestrictionAnalyzer
     /// it is null.</exception>
     /// <exception cref="ArgumentException">A name in <paramref name="enzymeNames"/> is empty or not a REBASE
     /// enzyme with a defined cut, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static RestrictionMap CreateMap(
         string? sequence, MoleculeTopology topology, IReadOnlyList<Methylase>? methylases,
         params string[] enzymeNames)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(enzymeNames);
         var considered = (enzymeNames.Length > 0
                 ? enzymeNames.Select(n => RequireEnzyme(n, nameof(enzymeNames)))
@@ -224,10 +243,12 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="enzymes"/> is null or contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, an enzyme definition
     /// is invalid, or a methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static RestrictionMap CreateMap(
         string? sequence, MoleculeTopology topology, IEnumerable<RestrictionEnzyme> enzymes,
         IReadOnlyList<Methylase>? methylases)
     {
+        RequireTopology(topology);
         var considered = RequireEnzymeList(enzymes)
             .DistinctBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();

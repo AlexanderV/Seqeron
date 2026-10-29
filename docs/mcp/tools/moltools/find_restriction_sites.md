@@ -24,7 +24,7 @@ With `topology = Linear` (the default) a site is reported only when **both** of 
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L438](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L438)
+- Source: [RestrictionAnalyzer.cs#L445](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L445)
 
 ## Input Schema
 
@@ -39,7 +39,7 @@ With `topology = Linear` (the default) a site is reported only when **both** of 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `sites` | array | Sites, each `{position, isForwardStrand, cutPosition, recognizedSequence}`. |
+| `sites` | array | Site records, each `{position, enzyme, isForwardStrand, cutPosition, recognizedSequence, isSecondCut}`: `position` is the 0-based forward-strand start of the window, `enzyme` the enzyme record (as in `enzymes_by_cut_length`), `isForwardStrand` whether the window reads as the site on the forward strand, `cutPosition` the top-strand cut of a forward record or the bottom-strand cut of a reverse record (reduced modulo the length on a circle), `recognizedSequence` the window on the strand that carries the site (upper-case). `isSecondCut` is `true` on the second record of a two-sided (Type IIB) enzyme such as BaeI or BcgI, whose one site is cleaved on both sides: it is the only way to tell the two records of one site apart (`false` for every other record). |
 
 ## Errors
 
@@ -47,7 +47,9 @@ With `topology = Linear` (the default) a site is reported only when **both** of 
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1002 | At least one enzyme name is required |
-| 4001 | Unknown enzyme name |
+| 4001 | Unknown enzyme: {name} |
+| 4002 | Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss. |
+| 4003 | The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular. |
 
 ## Examples
 

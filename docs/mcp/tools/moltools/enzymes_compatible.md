@@ -51,7 +51,7 @@ with `a % b` — 0 disagreements in both.
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1797](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1797)
+- Source: [RestrictionAnalyzer.cs#L1826](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1826)
 
 ## Input Schema
 
@@ -78,13 +78,13 @@ with `a % b` — 0 disagreements in both.
 
 ## Examples
 
-### Example 1: `EcoRV` + `SmaI` (both blunt) → `{ compatible: true, compatibleEnd: "blunt" }`.
+### Example 1: `EcoRV` + `SmaI` (both blunt) → `{ compatible: true, compatibleEnd: "blunt", end2: "blunt" }`.
 
-### Example 2: `EcoRI` (5′ AATT) + `BamHI` (5′ GATC) → `{ compatible: false, compatibleEnd: null }` — same polarity and length, different sequences.
+### Example 2: `EcoRI` (5′ AATT) + `BamHI` (5′ GATC) → `{ compatible: false }` (the null `compatibleEnd` / `end2` are omitted from the result) — same polarity and length, different sequences.
 
-### Example 3: `BamHI` + `BglII` → `{ compatible: true, compatibleEnd: "GATC" }`. The whole 5′ `GATC` family — `BamHI`, `BglII`, `MboI`, `Sau3AI` — is mutually compatible, as are `SalI`/`XhoI` (`TCGA`), `NheI`/`XbaI`/`SpeI`/`AvrII` (`CTAG`) and `ClaI`/`TaqI`/`MspI`/`HpaII` (`CG`).
+### Example 3: `BamHI` + `BglII` → `{ compatible: true, compatibleEnd: "GATC", end2: "GATC" }`. The whole 5′ `GATC` family — `BamHI`, `BglII`, `MboI`, `Sau3AI` — is mutually compatible, as are `SalI`/`XhoI` (`TCGA`), `NheI`/`XbaI`/`SpeI`/`AvrII` (`CTAG`) and `ClaI`/`TaqI`/`MspI`/`HpaII` (`CG`).
 
-### Example 4: `HindIII` + `SacI` → `{ compatible: false, compatibleEnd: null }` — **both overhangs read `AGCT`**, but HindIII's is 5′ and SacI's is 3′.
+### Example 4: `HindIII` + `SacI` → `{ compatible: false }` — **both overhangs read `AGCT`**, but HindIII's is 5′ and SacI's is 3′.
 
 ### Example 5: `SfiI` + `PstI` → `false`. SfiI's 3′ overhang is 3 nt (`NNN`) and PstI's is 4 nt (`TGCA`); different lengths never anneal. Biopython agrees (`SfiI % PstI` is `False`).
 

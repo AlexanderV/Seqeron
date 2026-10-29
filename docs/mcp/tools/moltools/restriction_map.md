@@ -32,7 +32,7 @@ The *considered set* is the enzyme set the map is built over: the names in `enzy
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1509](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1509)
+- Source: [RestrictionAnalyzer.cs#L1535](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1535)
 
 ## Input Schema
 
@@ -49,7 +49,7 @@ The *considered set* is the enzyme set the map is built over: the names in `enzy
 | Field | Type | Description |
 |-------|------|-------------|
 | `sequenceLength` | integer | Sequence length. |
-| `sites` | array | All sites (both strands). |
+| `sites` | array | All sites (both strands), in the shape of `find_restriction_sites` (including `isSecondCut` for two-sided Type IIB enzymes). |
 | `sitesByEnzyme` | object | Enzyme → sorted positions. |
 | `totalSites` | integer | Number of cleavages over the considered set (see above). |
 | `uniqueCutters` | string[] | Enzymes that cleave the molecule exactly once. |
@@ -60,7 +60,10 @@ The *considered set* is the enzyme set the map is built over: the names in `enzy
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
-| 1010 | Unknown enzyme set '&lt;value&gt;'; expected "common" or "rebase" (`enzyme_set`) |
+| 1010 | Unknown enzyme set '&lt;value&gt;'; expected "common" or "rebase" |
+| 1011 | Unknown enzyme: {name} |
+| 1012 | Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss. |
+| 1013 | The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular. |
 
 ## Examples
 

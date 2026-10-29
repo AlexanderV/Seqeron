@@ -133,9 +133,9 @@
 | M14 | 5' overhang (EcoRI) | `GetEnzyme_EcoRI_*`, `FindSites_EcoRI_OverhangSequenceIsAATT` |
 | M15 | 3' overhang (PstI) | `RestrictionEnzyme_PstI_HasThreePrimeOverhang`, `FindSites_PstI_ProducesThreePrimeOverhangOfFourBases` |
 | M16 | Blunt (EcoRV) | `RestrictionEnzyme_EcoRV_IsBluntCutter`, `FindSites_EcoRV_ProducesBluntEndCuts` |
-| S1 | 4/6/8-cutters detected | `GetEnzymesByCutLength_ReturnsEnzymesOfCorrectLength` (×3 lengths) |
-| S2 | 30+ enzymes in database | `Enzymes_ContainsAtLeast30CommonEnzymes` |
-| S3 | GetEnzymesByCutLength | `GetEnzymesByCutLength_ReturnsEnzymesOfCorrectLength` |
+| S1 | 4/6/8-cutters detected | `GetEnzymesByCutLength_ReturnsExactlyTheEnzymesOfThatLength` (×3 lengths, exact sets; B08 H54) |
+| S2 | 30+ enzymes in database | `Enzymes_ContainsExactlyThe39CommonEnzymes` (B08 H54) |
+| S3 | GetEnzymesByCutLength | `GetEnzymesByCutLength_ReturnsExactlyTheEnzymesOfThatLength` |
 | S4 | GetBluntCutters | `GetBluntCutters_ReturnsOnlyBluntEndEnzymes` |
 | S5 | GetStickyCutters | `GetStickyCutters_ReturnsOnlyStickyEndEnzymes` |
 | C1 | IUPAC degenerate recognition | `FindSites_HincII_MatchesAllDegenerateCombinations` (×4), `*_RejectsNonMatchingDegenerateBases` (×4), `*_DegenerateEnzymeProducesCorrectCutPosition` |
@@ -152,7 +152,7 @@
 | M26 | Eager enzyme-name validation | `FindSites_RawString_UnknownEnzyme_ThrowsAtCallTime` |
 | M27-M30 | `FindPatternOccurrences` | `FindPatternOccurrences_ReportsZeroBasedStartIndices`, `…_ReportsOverlappingOccurrences`, `…_DegeneratePattern_MatchesEveryExpansion` (×4), `…_DegeneratePattern_RejectsNonMatchingBases`, `…_AmbiguousSequenceBase_NeverMatches` (×2), `…_AcceptsSequenceThatDnaSequenceRejects`, `…_IsCaseInsensitive`, `…_StartIndex_SkipsEarlierOccurrences` (×5), `…_SequenceTooShort_ReturnsEmpty` (×2), `…_InvalidArguments_Throw`, `…_ValidatesEagerly`, `…_AgreesWithFindSitesForwardPositions` |
 | M31-M32 | CreateMap site reporting | `CreateMap_LowerCaseEnzymeNames_DoesNotListACutterAsNonCutter`, `CreateMap_NoEnzymesSpecified_NonCuttersCoverTheRestOfTheTable`, `CreateMap_RepeatedEnzymeName_IsConsideredOnce`, `CreateMap_UnknownEnzymeName_ThrowsArgumentException` |
-| INV-14 | Short molecule | `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing` |
+| INV-14 | Short molecule | `FindSites_Circular_MoleculeShorterThanSite_FindsTheWrappedSite` (circular: reported, as Biopython; B08 F100) |
 | INV-17 / M33 | Sequence ambiguity (D3) | `FindSites_SfiI_SequenceNInsideSpacer_MatchesBiopython` (×2), `FindSites_SfiI_SequenceN_TopStrandCutsMatchBiopython` (×3), `FindSites_SequenceAmbiguityAtConcreteSiteCode_StillBlocks` (×5), `SiteN_AcceptsEveryIupacCode_InFindSitesAndFindPatternOccurrences`, `FindSites_NonIupacCharacterInSpacer_MatchesNothing`, plus `FindPatternOccurrences_AmbiguousSequenceBase_NeverMatches` (×2, unchanged) |
 | INV-17 / M34 | ASCII-only fold (F49): 'ſ' (U+017F) never matches and a pattern containing it is rejected | `RawStringEntryPoints_LongS_IsNotFoldedOntoIupacS`, `Pattern_WithLongS_IsRejectedLikeAnyNonIupacCharacter` |
 | INV-18 / M35-M36 | Cognate methylation site (D7 / F52): table locked to allenz.104 `<6>` (M35); notation parse + rejection of malformed / `(99)` values (M36) | `EnzymeDatabase_MethylationField_MatchesRebaseAllenz104` (×39), `EnzymeDatabase_MethylationAuditCoversEveryEntry`, `CognateMethylationSites_BuiltIns_ParsedToTypedSites`, `CognateMethylationSites_RebaseNotation_ComplementaryStrandAndLists`, `RestrictionEnzyme_MalformedMethylationField_Throws` (×7), `RestrictionEnzyme_NullMethylationField_Throws`; MCP `GetEnzyme_ReportsRebaseCognateMethylationSite` |
@@ -180,7 +180,7 @@
 | FindSites_BamHI_Circular_FindsOriginSpanningSite | `BamHI.search(Seq("CCAAAAAAAAGGAT"), linear=False) == [12]`, linear `== []` | Biopython 1.88 |
 | FindSites_Sau3AI_Circular_ReportsEveryGatc | `Sau3AI.search(Seq("GATCGATCGATC"), linear=False) == [1, 5, 9]` | Biopython 1.88 |
 | FindSites_Circular_CutPositionIsReducedModuloLength | `Sau3AI.search(Seq("AAAAAAAAGATC"), linear=False) == [9]` | Biopython 1.88 |
-| FindSites_Circular_MoleculeShorterThanSite_ReportsNothing | `ClaI.search(Seq("GATC"), linear=False) == [4]` — deliberate divergence | Biopython 1.88 |
+| FindSites_Circular_MoleculeShorterThanSite_FindsTheWrappedSite | `ClaI.search(Seq("GATC"), linear=False) == [4]` (this library: forward record at 1, cut 3, 0-based) — the former deliberate divergence was withdrawn in F100 | Biopython 1.88 |
 | FindSites_CustomNonPalindromicEnzyme_CdiI_ReverseStrandCutMatchesReference | CdiI CATCG 4/4, `elucidate() == "CATC^_G"`, `ovhg == 0`, `search(Seq("AAACATCGAAACGATGAAA")) == [8, 13]` | REBASE 404 / Biopython 1.88 |
 | FindSites_CustomNonPalindromicEnzyme_SimI_ReverseStrandCutMatchesReference | SimI GGGTC 2/5, `elucidate() == "GG^GTC_N"`, `ovhg == -3`, `search(Seq("AAAGGGTCAAAGACCCAAA")) == [6, 12]` | REBASE 404 / Biopython 1.88 |
 | FindSites_HincII_ReverseRecognizedSequenceIsReadOnItsOwnStrand | `HincII.search(Seq("AAGTCAACAA")) == [6]` | Biopython 1.88 |
@@ -217,13 +217,10 @@ None — all behavior verified against external sources.
 
 ## Deviations and Assumptions
 
-Two deliberate divergences from the oracle, with their reasons:
+One deliberate divergence from the oracle remains (the circular short-molecule divergence of earlier rounds was
+withdrawn in B08 F100: this library reports the wrapped site exactly as Biopython does, locked by
+`FindSites_Circular_MoleculeShorterThanSite_FindsTheWrappedSite`), with its reason:
 
-- **Molecule shorter than the recognition site, circular.** Biopython pads a circular sequence with
-  `data[1:size]` unconditionally, so a molecule shorter than the site is wrapped more than once and a
-  site is reported anyway (`ClaI.search(Seq("GATC"), linear=False) == [4]` for the 6-bp site `ATCGAT`
-  on a 4-bp circle). This library reports nothing, because a 6-bp recognition window cannot be present
-  on a 4-bp circle. Locked by `FindSites_Circular_MoleculeShorterThanSite_ReportsNothing`.
 - **Non-IUPAC character under a site `N` (D3).** Biopython compiles a site `N` to the regex `.`,
   so it matches any letter its `FormattedSeq` keeps (`A`-`Z`), e.g. `SfiI.search(Seq("GGCCXXXXXGGCC"))
   == [9]`. This library lets a site `N` match only the 15 IUPAC nucleotide codes: the raw-string
@@ -263,3 +260,26 @@ with forward strand coordinates") were reclassified as **standard conventions** 
 Both are the universal convention in molecular biology (REBASE, GenBank, NCBI) and are directly
 verified by tests `FindSites_PalindromicSite_FoundOnBothStrandsAtSamePosition` and
 `EnzymeDatabase_CutPositions_MatchWikipedia`.
+
+## Round 5 (B08 A5R-2, A5R-3, A5R-5 .. A5R-8, mutation survivors)
+
+Tests in `RestrictionAnalyzer_Round5_Tests.cs` (library), `RestrictionWrapperRound5Tests.cs` and `B07ToolDocsContractTests` (MCP).
+Each failed on the audited code (32 of the 45 library tests; the rest kill the auditor's surviving mutants, re-verified by mutation here).
+
+| ID | Test | Pins | Oracle |
+|---|---|---|---|
+| A5R-2 | `FindPatternOccurrences_HugeStartIndex_IsAnEmptyResult_NotAnOverflow` (3), `..._StartIndexAtTheLastWindow_StillFindsIt` | a start index near `int.MaxValue` = empty, not `IndexOutOfRange`; the last window still found | the method's own documented contract |
+| A5R-3 | `EnzymeNameArray_NullIsAMissingArgument_EmptyIsAWrongValue_UnknownAndNullNamesAreRefusedAtTheCall` (13 forms incl. the methylation `FindSites`/`Digest`/`PartialDigest`/`GetDigestSummary`) | null array = `ArgumentNullException`, empty array / empty or unknown name = `ArgumentException`, null element = `ArgumentNullException`, all eager | BCL `ThrowIfNullOrEmpty` split (B08 H19/H24) |
+| A5R-5 | `UndefinedTopology_IsRefusedAtTheCall` (18 members), `RestrictionTools_RefuseAnUndefinedTopology` (8 tools) | `ArgumentOutOfRangeException("topology")` everywhere | enum validation as the sibling wrappers do |
+| A5R-6 | `RawStringOverloads_RejectAMalformedMethylase_ForNullAndEmptySequencesToo` | the documented `ArgumentException` whatever the sequence | the sibling overload that always validated |
+| A5R-7 | `CustomEnzyme_HugeCutOffsets_OnACircle_ReduceInLongArithmetic` | forward cut 10 and reverse cut 2 for offsets of `int.MaxValue` on a 12-mer | exact arithmetic: (3 + 2^31 - 1) mod 12 = 10; (9 - (2^31 - 1)) mod 12 = 2 |
+| A5R-8 | `RawStringOutputs_AreUpperCase_ForASoftMaskedMolecule` | raw-string outputs are upper-case, coordinates unaffected (documented in the tool descriptions) | ASCII fold of `Normalize` |
+| T1 | `CreateMap_OneTypeIibSite_IsOneCleavage_AndAUniqueCutter` | one AlfI site: `TotalSites 1`, `UniqueCutters [AlfI]` | F108 rule |
+| T2/T3 | `Methylation_BlocksAWindowThatCrossesTheCircularOrigin` | Dam blocks a GATC that spans the origin, in the DnaSequence and the raw-string `FindAllSites` forms | EMBOSS `restrict -methylation` |
+| T4 | `RawGetDigestSummary_EnzymesUsed_AreTheNamesAsSupplied` | `["ecori"]`, not `["EcoRI"]` | `DigestSummary.EnzymesUsed` doc |
+| T5 | `DigestFragment_Equality_ComparesTheEnzymeListsByContent` | element-wise equality | the record's doc |
+| T6/T7 | `RestrictionDigestCustomEnzyme_ForwardsSecondCut_AndMethylation`, `FindSitesCustomEnzyme_ForwardsMethylation_AndTopology`, `CompatibleEnzymes_ReportsBothEnds_ForARevcompOnlyPair_InThePerEnzymeAndTheAllPairsForm` | every argument of the custom tools reaches the algorithm; `end2` in both forms | BaeI geometry (10/33/8 vs 10/41); Biopython compatible_end |
+| A5R-1 | `EnzymesCompatible_AcceptsEverySpellingTheLibraryResolves` (5) | trimmed / hyphen / case spellings of the partner | F103 |
+| A5R-4 | `CustomEnzymeTools_RefuseANullOrEmptySequence` | same guard as the named wrappers | `find_restriction_sites("")` |
+| T8 | `PartialDigest_CountExactlyAtTheLimit_IsAccepted_OneStepOverIsRefused` | limit inclusive: 1 000 cuts x (99 + 1) = 100 000 accepted, x 101 refused | `MaxPartialDigestFragments` |
+| docs | `McpJson_Examples_ReproduceTheTool` (25 tools), `McpJson_InputSchema_...`, `McpJson_OutputSchema_...` | every restriction doc example is the tool's real output (prose summaries skipped); schemas equal the wrapper | the tool itself |

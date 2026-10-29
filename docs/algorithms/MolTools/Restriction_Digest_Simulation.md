@@ -78,7 +78,7 @@ Fragments are ordered by `MissedCuts` and then by `StartPosition`, and `Fragment
 | `sequence` | `DnaSequence` | required | DNA sequence to digest or map | Null input throws `ArgumentNullException` |
 | `enzymeNames` | `string[]` | required for digestion | Enzymes used for site discovery and fragment generation | `Digest(...)` throws `ArgumentException` when none are supplied |
 | `topology` | `MoleculeTopology` | `Linear` | Whether the molecule is a linear fragment or a closed circle (plasmid) | Additive overload on `Digest(...)`, `GetDigestSummary(...)` and `CreateMap(...)`; the topology-free overloads are exactly `Linear` |
-| `enzyme1Name`, `enzyme2Name` | `string` | required | Enzyme names for compatibility analysis | Unknown names produce `false` in `AreCompatible(...)` |
+| `enzyme1Name`, `enzyme2Name` | `string` | required | Enzyme names for compatibility analysis | Unknown or empty names throw `ArgumentException` in `AreCompatible(...)` (`TryAreCompatible(...)` answers `false`); a null name throws `ArgumentNullException` |
 
 ### 3.2 Output / Return Value
 
@@ -86,12 +86,12 @@ Fragments are ordered by `MissedCuts` and then by `StartPosition`, and `Fragment
 |-------|------|-------------|
 | `DigestFragment` | record | Top-strand sequence, start position, length, the left/right enzyme name per fragment boundary (the ordinally first one when several enzymes cut there) plus the complete ordinal-ordered lists `LeftEnzymes`/`RightEnzymes`, fragment number, and the overhang type + overhang sequence of each end created by a cut (`null` for an original terminus or an uncut circle) |
 | `DigestSummary` | record | Total fragment count, sorted sizes, largest/smallest fragment, average size, enzyme list, and the topology digested |
-| `RestrictionMap` | record | Sequence length, sites, grouped positions, forward-strand total site count, unique cutters, and non-cutters |
+| `RestrictionMap` | record | Sequence length, sites, grouped positions, total cleavage count (`TotalSites`, F108: a palindromic site counts once, a two-sided Type IIB site counts once, a Type IIS enzyme with sites on both strands counts each), unique cutters (exactly one cleavage), and non-cutters |
 | `compatible` | `bool` | Whether two enzymes generate compatible ends |
 
 ### 3.3 Preconditions and Validation
 
-`Digest(...)` requires a non-null sequence and at least one enzyme name. When no cuts are found, it returns a single fragment equal to the full sequence. `CreateMap(...)` accepts zero enzyme names and then scans the full built-in enzyme catalog. `AreCompatible(...)` returns `false` if either enzyme name is not present in the catalog.
+`Digest(...)` requires a non-null sequence and at least one enzyme name. When no cuts are found, it returns a single fragment equal to the full sequence. `CreateMap(...)` accepts zero enzyme names and then scans the full built-in enzyme catalog. `AreCompatible(...)` throws `ArgumentException` if either enzyme name is not a REBASE enzyme with a defined cut (since B08 F31; `TryAreCompatible(...)` is the lenient form that returns `false`).
 
 ## 4. Algorithm
 
@@ -144,7 +144,7 @@ Examples called out in the original document:
 - MCP: `restriction_digest(sequence, enzyme_names, topology)` and `digest_summary(sequence, enzyme_names, topology)` delegate to the topology overloads.
 - `RestrictionAnalyzer.PartialDigest(DnaSequence, [MoleculeTopology], [int? maxMissedCuts], params string[])` ([RestrictionAnalyzer.PartialDigest.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.PartialDigest.cs), a partial-class file so that existing line anchors into `RestrictionAnalyzer.cs` stay valid): every partial-digest fragment as `PartialDigestFragment(DigestFragment Fragment, int MissedCuts)`; MCP `partial_digest(sequence, enzyme_names, topology, max_missed_cuts)` delegates to it.
 - `RestrictionAnalyzer.PartialDigest(DnaSequence, MoleculeTopology, int?, IReadOnlyList<Methylase>?, params string[])` and `PartialDigest(DnaSequence, MoleculeTopology, int?, IEnumerable<RestrictionEnzyme>, IReadOnlyList<Methylase>?)` (B08 round 3 G3 / F83; [RestrictionAnalyzer.Methylation.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.Methylation.cs)): the same partial digest over the methylation-aware cut list (§2.3a, `Restriction_Site_Detection.md` §5.2b).
-- `RestrictionAnalyzer.Digest(DnaSequence, MoleculeTopology, IEnumerable<RestrictionEnzyme>)` and `RestrictionAnalyzer.PartialDigest(DnaSequence, MoleculeTopology, int?, IEnumerable<RestrictionEnzyme>)` (review 2026-09 B08 F55): the same digests with caller-supplied enzyme records, e.g. single-sided Type IIS cutters (`BsaI` = `("GGTCTC", 7, 11)`); the enzymes are validated eagerly. Not yet exposed over MCP.
+- `RestrictionAnalyzer.Digest(DnaSequence, MoleculeTopology, IEnumerable<RestrictionEnzyme>)` and `RestrictionAnalyzer.PartialDigest(DnaSequence, MoleculeTopology, int?, IEnumerable<RestrictionEnzyme>)` (review 2026-09 B08 F55): the same digests with caller-supplied enzyme records, e.g. single-sided Type IIS cutters (`BsaI` = `("GGTCTC", 7, 11)`); the enzymes are validated eagerly. `Digest` with records is exposed over MCP as `restriction_digest_custom_enzyme` (B08 H28); `PartialDigest` with records is not.
 - `RestrictionAnalyzer.CreateMap(DnaSequence, params string[])`: Builds a restriction map from requested or all enzymes.
 - `RestrictionAnalyzer.AreCompatible(string, string)`: Tests end compatibility.
 - `RestrictionAnalyzer.FindCompatibleEnzymes()`: Enumerates compatible enzyme pairs from the built-in catalog.

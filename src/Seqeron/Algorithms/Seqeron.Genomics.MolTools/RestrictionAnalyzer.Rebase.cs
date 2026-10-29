@@ -102,6 +102,7 @@ public static partial class RestrictionAnalyzer
     /// Finds all sites of every enzyme of <paramref name="set"/> in a molecule of the given topology
     /// (see <see cref="FindAllSites(DnaSequence, MoleculeTopology)"/>).
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindAllSites(
         DnaSequence sequence, MoleculeTopology topology, EnzymeSet set)
         => FindAllSites(sequence, topology, set, null);
@@ -115,9 +116,11 @@ public static partial class RestrictionAnalyzer
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="set"/> is not a defined value.</exception>
     /// <exception cref="ArgumentException">A methylase site is malformed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<RestrictionSite> FindAllSites(
         DnaSequence sequence, MoleculeTopology topology, EnzymeSet set, IReadOnlyList<Methylase>? methylases)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
         var table = GetEnzymes(set);
         var blocked = MethylationMask.Compute(sequence.Sequence, methylases, topology == MoleculeTopology.Circular);

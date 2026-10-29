@@ -24,7 +24,7 @@ Cuts the molecule at the top-strand (forward-strand) cut positions of the named 
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1094](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1094)
+- Source: [RestrictionAnalyzer.cs#L1115](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1115)
 
 ## Input Schema
 
@@ -51,6 +51,9 @@ Cuts the molecule at the top-strand (forward-strand) cut positions of the named 
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
 | 1002 | At least one enzyme name is required |
+| 1003 | Unknown enzyme: {name} |
+| 1004 | Unknown methylation set '{name}'; expected none, dam, dcm, dam+dcm or emboss. |
+| 1005 | The topology must be MoleculeTopology.Linear or MoleculeTopology.Circular. |
 
 ## Examples
 

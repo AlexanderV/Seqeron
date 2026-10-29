@@ -565,7 +565,7 @@ public class MolToolsTools
 
     [McpServerTool(Name = "find_restriction_sites", Title = "MolTools — Find Restriction Sites", ReadOnly = true), Description("Finds restriction sites for one or more named enzymes (any of the 754 REBASE enzymes with a defined cut, case-insensitive; an unknown name is an error) on both strands of a DNA sequence. IUPAC degenerate codes in recognition sequences are matched against ACGT input. position and cutPosition are 0-based forward-strand coordinates for both strands; cutPosition is the number of forward-strand bases 5' of the cut made on that record's own strand, so a palindromic enzyme reports a forward record (top-strand cut) and a reverse record (bottom-strand cut) at the same position, and recognizedSequence is the window as read on that strand. Overlapping sites are all reported. On a Linear molecule a site is reported only when both of its cuts fall on a bond that exists (so an enzyme cutting at the edge of its own site, e.g. Sau3AI ^GATC, is not reported at the very ends); set topology=Circular for a plasmid, where the site may span the origin and cut positions wrap modulo the length. Call to locate where specific enzymes cut a sequence. Optional methylation (none|dam|dcm|dam+dcm|emboss) makes methylated bases block recognition exactly as EMBOSS restrict -methylation does (default none: unchanged).")]
     public static RestrictionSiteListResult find_restriction_sites(
-        [Description("DNA sequence to scan. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be scanned as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule.")] string sequence,
+        [Description("DNA sequence to scan. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be scanned as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).")] string sequence,
         [Description("Names of restriction enzymes to look for.")] string[] enzyme_names,
         [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
@@ -584,7 +584,7 @@ public class MolToolsTools
 
     [McpServerTool(Name = "find_all_restriction_sites", Title = "MolTools — Find All Restriction Sites", ReadOnly = true), Description("Finds sites for EVERY restriction enzyme of enzyme_set (default \"common\" = the 39 common laboratory enzymes; \"rebase\" = all 754 REBASE enzymes with a defined cut) on both strands of a DNA sequence. Coordinates, the two records per palindromic site and the linear cut-feasibility rule are the same as find_restriction_sites; set topology=Circular for a plasmid. Call for a comprehensive restriction-site scan when the enzyme set is not known in advance. Optional methylation (none|dam|dcm|dam+dcm|emboss) makes methylated bases block recognition exactly as EMBOSS restrict -methylation does (default none: unchanged).")]
     public static RestrictionSiteListResult find_all_restriction_sites(
-        [Description("DNA sequence to scan. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be scanned as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule.")] string sequence,
+        [Description("DNA sequence to scan. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be scanned as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).")] string sequence,
         [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
         [Description("Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive.")] string? enzyme_set = "common",
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
@@ -599,7 +599,7 @@ public class MolToolsTools
 
     [McpServerTool(Name = "restriction_digest", Title = "MolTools — Restriction Digest", ReadOnly = true), Description("Simulates a restriction digest with one or more named enzymes (any of the 754 REBASE enzymes with a defined cut, case-insensitive; an unknown name is an error) and yields the resulting fragments in ascending start position (each with its sequence, start, length, flanking enzymes and the blunt/5'/3' overhang of each cut end). Set topology=Circular for a plasmid: the site search then wraps past the origin, k cut positions give k fragments (vs k+1 linear), and the origin-spanning fragment is reported last; an enzyme that does not cut leaves the circle whole. Call to predict the fragment pattern of a digest. Optional methylation (none|dam|dcm|dam+dcm|emboss) makes methylated bases block recognition exactly as EMBOSS restrict -methylation does (default none: unchanged).")]
     public static DigestResult restriction_digest(
-        [Description("DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule.")] string sequence,
+        [Description("DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).")] string sequence,
         [Description("Names of restriction enzymes to use (must be non-empty).")] string[] enzyme_names,
         [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
@@ -616,7 +616,7 @@ public class MolToolsTools
 
     [McpServerTool(Name = "digest_summary", Title = "MolTools — Restriction Digest Summary", ReadOnly = true), Description("Aggregate statistics over a simulated restriction digest with one or more named enzymes (any of the 754 REBASE enzymes with a defined cut, case-insensitive; an unknown name is an error): total fragment count, fragment sizes (descending), largest/smallest fragment, average fragment size, enzymes used and the topology digested. Set topology=Circular for a plasmid, which yields k fragments for k cut positions instead of k+1. Call for a gel-like summary of a digest without the full fragment sequences. Optional methylation (none|dam|dcm|dam+dcm|emboss) makes methylated bases block recognition exactly as EMBOSS restrict -methylation does (default none: unchanged).")]
     public static DigestSummary digest_summary(
-        [Description("DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule.")] string sequence,
+        [Description("DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).")] string sequence,
         [Description("Names of restriction enzymes to use.")] string[] enzyme_names,
         [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
@@ -632,7 +632,7 @@ public class MolToolsTools
 
     [McpServerTool(Name = "partial_digest", Title = "MolTools — Partial Restriction Digest", ReadOnly = true), Description("Simulates a PARTIAL restriction digest: every fragment that can arise when any subset of the cut sites is left uncut, each with missedCuts = the number of uncut sites inside it. Enzymes are named as for restriction_digest (any of the 754 REBASE enzymes with a defined cut); uses exactly its cut positions, enzyme lists and end overhangs; the missedCuts = 0 fragments come first and are the complete digest. Linear: all intervals between two of {0, cuts, length} — (k+1)(k+2)/2 fragments for k cuts. Circular: every cut-to-cut arc (wrapping past the origin; k-1 missed = the molecule linearised at one cut) plus the intact circle (missedCuts = k) — k²+1 fragments. Order: missedCuts, then start position. max_missed_cuts bounds the uncut sites per fragment; above 100000 fragments the call is refused unless max_missed_cuts is lowered. Which fragments CAN arise only — no yield/abundance. Call to predict extra bands from an incomplete digest. Optional methylation (none|dam|dcm|dam+dcm|emboss) makes methylated bases block recognition exactly as EMBOSS restrict -methylation does (default none: unchanged). A blocked site is neither cut nor counted as a missed cut.")]
     public static PartialDigestResult partial_digest(
-        [Description("DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule.")] string sequence,
+        [Description("DNA sequence to digest. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be digested as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).")] string sequence,
         [Description("Names of restriction enzymes to use (must be non-empty).")] string[] enzyme_names,
         [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
         [Description("Optional upper bound on the number of uncut sites inside one fragment (0 = complete digest); omit for no bound.")] int? max_missed_cuts = null,
@@ -650,7 +650,7 @@ public class MolToolsTools
 
     [McpServerTool(Name = "restriction_map", Title = "MolTools — Restriction Map", ReadOnly = true), Description("Builds a restriction map of a DNA sequence: all forward+reverse sites, sites grouped by enzyme, the total number of CLEAVAGES, the unique cutters (enzymes that cleave the molecule exactly once), and the non-cutters. Enzyme names (any of the 754 REBASE enzymes with a defined cut) are resolved case-insensitively and de-duplicated, and every result is keyed by the table's own spelling. An empty enzyme_names list considers every enzyme of enzyme_set (default \"common\" = the 39 common laboratory enzymes; \"rebase\" = all 754), so nonCutters then lists every such enzyme without a site; enzyme_set applies only to an empty list; sitesByEnzyme and nonCutters always partition the considered set. Set topology=Circular for a plasmid. totalSites and uniqueCutters count cleavages, not recognition windows: every forward-strand record counts, plus every reverse-strand record whose backwards reading cuts other bonds. So a palindromic site with symmetric cuts (all 39 common enzymes) counts once, a non-palindromic enzyme\u0027s reverse-strand sites count on their own — a Type IIS enzyme such as BsaI is NOT a unique cutter just because it has one forward-strand site, since GGTCTC on the other strand is a second cleavage — and the five enzymes whose two strand readings of one window cut different bonds (HauII, SgeI, MspJI, LpnPI, SgrTI) count twice for that one window. Call to plan cloning around single-cutter enzymes. Optional methylation (none|dam|dcm|dam+dcm|emboss) makes methylated bases block recognition exactly as EMBOSS restrict -methylation does (default none: unchanged).")]
     public static RestrictionMap restriction_map(
-        [Description("DNA sequence to map. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be mapped as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule.")] string sequence,
+        [Description("DNA sequence to map. IUPAC ambiguity codes are accepted anywhere in the sequence (N, R, Y, ...), so an N-containing contig or a soft-masked assembly can be mapped as it is: a site N matches any of the 15 IUPAC codes, every other site code matches only a concrete A/C/G/T base it expands to, and a character outside the 15 codes matches nothing \u2014 Biopython\u0027s own rule. Lower case is accepted; the returned fragment and site sequences are upper-case (the soft mask is not carried over; positions and lengths are unaffected).")] string sequence,
         [Description("Names of restriction enzymes to consider; empty to use every enzyme of enzyme_set.")] string[] enzyme_names,
         [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
         [Description("Enzyme table used when enzyme_names is empty: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive; ignored when names are given.")] string? enzyme_set = "common",
@@ -730,15 +730,19 @@ public class MolToolsTools
             throw new System.ArgumentException("Second enzyme name cannot be null or blank.", nameof(enzyme2_name));
 
         bool compatible = RestrictionAnalyzer.AreCompatible(enzyme1_name, enzyme2_name);
-        string? compatibleEnd = compatible
-            // Search the full set: enzyme2 may be any REBASE enzyme (GetEnzyme resolves all 754), and
-            // a common-set search would not contain it (B08 WP12b).
-            ? RestrictionAnalyzer.FindCompatibleEnzymes(enzyme1_name, EnzymeSet.Rebase)
-                .First(t => string.Equals(t.Enzyme, enzyme2_name, System.StringComparison.OrdinalIgnoreCase))
-                .CompatibleEnd
-            : null;
-        return new EnzymeCompatibilityResult(
-            compatible, compatibleEnd, compatible ? OtherEnd(enzyme2_name, compatibleEnd) : null);
+        if (!compatible)
+            return new EnzymeCompatibilityResult(false, null, null);
+
+        // AreCompatible resolved the partner through GetEnzyme, which trims the name and maps a REBASE hyphen onto the
+        // table's underscore ("CviKI-1" -> CviKI_1); the shared end is therefore looked up by the CANONICAL name, not
+        // by the caller's text (the raw text made First() throw for " HpaII" and "CviKI-1"; B08 round 5 A5R-1).
+        string partner = RestrictionAnalyzer.GetEnzyme(enzyme2_name)!.Name;
+        // Search the full set: enzyme2 may be any REBASE enzyme (GetEnzyme resolves all 754), and
+        // a common-set search would not contain it (B08 WP12b).
+        string? compatibleEnd = RestrictionAnalyzer.FindCompatibleEnzymes(enzyme1_name, EnzymeSet.Rebase)
+            .First(t => string.Equals(t.Enzyme, partner, System.StringComparison.OrdinalIgnoreCase))
+            .CompatibleEnd;
+        return new EnzymeCompatibilityResult(true, compatibleEnd, OtherEnd(partner, compatibleEnd));
     }
 
     /// <summary>
@@ -764,6 +768,34 @@ public class MolToolsTools
         return new PatternOccurrencesResult(positions);
     }
 
+    /// <summary>
+    /// The caller-supplied enzyme of the two custom-enzyme tools: a recognition sequence of IUPAC codes, a top- and a
+    /// bottom-strand cut offset and, for a two-sided (Type IIB) cutter, a second pair (both or neither).
+    /// </summary>
+    private static RestrictionEnzyme BuildCustomEnzyme(
+        string? name, string recognition_sequence, int cut_position_forward, int cut_position_reverse,
+        int? second_cut_forward, int? second_cut_reverse)
+    {
+        if ((second_cut_forward is null) != (second_cut_reverse is null))
+        {
+            throw new System.ArgumentException(
+                "Pass both second_cut_forward and second_cut_reverse, or neither.",
+                second_cut_forward is null ? nameof(second_cut_forward) : nameof(second_cut_reverse));
+        }
+
+        // The IEnumerable<RestrictionEnzyme> overloads had no MCP expression, so a caller-supplied
+        // or cut-undefined REBASE enzyme could not be used at all (review 2026-09 B08 H28).
+        return new RestrictionEnzyme(
+            string.IsNullOrWhiteSpace(name) ? "CustomEnzyme" : name.Trim(),
+            recognition_sequence,
+            cut_position_forward,
+            cut_position_reverse,
+            Organism: "")
+        {
+            SecondCut = second_cut_forward is { } f && second_cut_reverse is { } r ? (f, r) : null,
+        };
+    }
+
     [McpServerTool(Name = "find_sites_custom_enzyme", Title = "MolTools \u2014 Find Sites of a Custom Enzyme", ReadOnly = true), Description("Finds the sites of a CALLER-SUPPLIED enzyme definition \u2014 one that is not in the 754-enzyme REBASE table, or one of the 334 REBASE enzymes whose cut position REBASE leaves undefined and which therefore cannot be resolved by name. Give the recognition sequence (IUPAC codes allowed, need not be palindromic) and the two cut offsets, counted from the first base of the site: cut_position_forward is the number of site bases 5' of the top-strand cut and cut_position_reverse the same for the bottom-strand cut, so EcoRI G^AATTC / GAATT^C is (1, 5) and the Type IIS BsaI GGTCTCN^NNNN is (7, 11). Offsets outside the site are allowed and are how a distal (Type IIS/IIB) cutter is expressed; a negative offset cuts upstream of the site. second_cut_forward/second_cut_reverse add the second cut pair of a two-sided (Type IIB) cutter such as BaeI (23, 18) and must leave the same stagger as the first pair. Coordinates, the two records per palindromic site, the linear cut-feasibility rule and the circular wrap are exactly as in find_restriction_sites. Call when the enzyme is not in the table \u2014 use find_restriction_sites for any named one.")]
     public static RestrictionSiteListResult find_sites_custom_enzyme(
         [Description("DNA sequence to scan. IUPAC ambiguity codes are accepted anywhere in the sequence.")] string sequence,
@@ -776,24 +808,10 @@ public class MolToolsTools
         [Description("Optional second bottom-strand cut offset; must leave the same stagger as the first pair.")] int? second_cut_reverse = null,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\", \"dcm\", \"dam+dcm\" or \"emboss\". A recognition window containing a methylated base is NOT a site.")] string? methylation = null)
     {
-        if ((second_cut_forward is null) != (second_cut_reverse is null))
-        {
-            throw new System.ArgumentException(
-                "Pass both second_cut_forward and second_cut_reverse, or neither.",
-                second_cut_forward is null ? nameof(second_cut_forward) : nameof(second_cut_reverse));
-        }
-
-        // The IEnumerable<RestrictionEnzyme> overloads had no MCP expression, so a caller-supplied
-        // or cut-undefined REBASE enzyme could not be used at all (review 2026-09 B08 H28).
-        var enzyme = new RestrictionEnzyme(
-            string.IsNullOrWhiteSpace(name) ? "CustomEnzyme" : name.Trim(),
-            recognition_sequence,
-            cut_position_forward,
-            cut_position_reverse,
-            Organism: "")
-        {
-            SecondCut = second_cut_forward is { } f && second_cut_reverse is { } r ? (f, r) : null,
-        };
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        var enzyme = BuildCustomEnzyme(
+            name, recognition_sequence, cut_position_forward, cut_position_reverse, second_cut_forward, second_cut_reverse);
 
         var sites = RestrictionAnalyzer
             .FindSites(sequence, topology, [enzyme], MethylaseSets.FromName(methylation))
@@ -813,22 +831,10 @@ public class MolToolsTools
         [Description("Optional second bottom-strand cut offset; must leave the same stagger as the first pair.")] int? second_cut_reverse = null,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\", \"dcm\", \"dam+dcm\" or \"emboss\".")] string? methylation = null)
     {
-        if ((second_cut_forward is null) != (second_cut_reverse is null))
-        {
-            throw new System.ArgumentException(
-                "Pass both second_cut_forward and second_cut_reverse, or neither.",
-                second_cut_forward is null ? nameof(second_cut_forward) : nameof(second_cut_reverse));
-        }
-
-        var enzyme = new RestrictionEnzyme(
-            string.IsNullOrWhiteSpace(name) ? "CustomEnzyme" : name.Trim(),
-            recognition_sequence,
-            cut_position_forward,
-            cut_position_reverse,
-            Organism: "")
-        {
-            SecondCut = second_cut_forward is { } f && second_cut_reverse is { } r ? (f, r) : null,
-        };
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        var enzyme = BuildCustomEnzyme(
+            name, recognition_sequence, cut_position_forward, cut_position_reverse, second_cut_forward, second_cut_reverse);
 
         var fragments = RestrictionAnalyzer
             .Digest(sequence, topology, [enzyme], MethylaseSets.FromName(methylation))

@@ -151,6 +151,10 @@
       "message": "Recognition-sequence length must be positive"
     },
     {
+      "code": 1002,
+      "message": "max_length must be positive"
+    },
+    {
       "code": 1010,
       "message": "Unknown enzyme set '<value>'; expected \"common\" or \"rebase\""
     }
@@ -201,6 +205,16 @@
             "recognitionLength": 13
           }
         ]
+      }
+    },
+    {
+      "name": "4-6 bp cutters (ranged)",
+      "input": {
+        "length": 4,
+        "max_length": 6
+      },
+      "output": {
+        "enzymes": "33 enzymes of the common set: 9 four-cutters and 24 six-cutters (no 5-bp enzyme)"
       }
     },
     {

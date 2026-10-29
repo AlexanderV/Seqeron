@@ -203,16 +203,20 @@ Members that *enumerate* enzymes without being given a list — `FindAllSites`, 
 queries — keep the 39 common enzymes by default (their output would otherwise grow ~20-fold), and take an
 explicit `EnzymeSet` where the full set is wanted.
 
-**Readings vs. windows (F60).** `FindSites` reports every strand reading of a window; Biopython `search`
-reports one cut set per window (forward reading first). The two agree once a reverse record whose window
-also reads as the site on the forward strand is set aside — the rule `Digest`/`CreateMap`/`PartialDigest`
-apply. It is invisible for the common enzymes and matters for the 4 palindromic distal cutters (HauII,
-SgeI, …) and for degenerate sites whose two readings can share a window (MspJI, LpnPI, SgrTI).
+**Readings vs. windows (F60, F101).** `FindSites` reports every strand reading of a window; Biopython `search`
+reports one cut set per window (forward reading first). `Digest`/`CreateMap`/`PartialDigest` collapse the
+readings by **cut set**, as EMBOSS `embPatRestrictScan` does (one hit per distinct cut): a reverse record is set
+aside only when it cuts the same bonds as the forward reading of that window. The two rules agree for 749 of the 754
+enzymes; they differ for exactly five whose one window is bound on both strands and cut differently (HauII, SgeI,
+MspJI, LpnPI, SgrTI), where this library keeps both cleavages and Biopython one. It is invisible for the 39
+common enzymes.
 
 **Differential** (`RestrictionAnalyzer_RebaseSet_Tests`): every one of the 754 enzymes, resolved **by name**,
 on a molecule with its site planted in both orientations, linear and circular: `FindSites` top-strand cuts
 (with the rule above) = Biopython 1.88 `search`, and `Digest` fragment lengths = the gaps between the
-sorted distinct `search` cuts — **0 mismatches** over 1 508 + 1 508 comparisons.
+sorted distinct `search` cuts — **0 mismatches** over 1 508 + 1 508 comparisons at the time (F60); after F101 the five
+enzymes above are a strict superset of Biopython's cut sets (391 of 235 248 rows of the round-5 audit's own IUPAC-bearing
+differential, all of them supersets), and the other 749 still agree row for row.
 
 ### 5.2b Opt-in methylation-blocked recognition (B08 round 2 E2, F68)
 
@@ -290,7 +294,7 @@ masked base — mask equality on 40 random 500-bp sequences (14 051 probe window
 
 **Documented divergence from the oracle:**
 
-- When the molecule is **shorter** than the recognition site and circular, Biopython still reports a site, because it pads a circular sequence with `data[1:size]` unconditionally and therefore wraps a short molecule more than once (`ClaI.search(Seq("GATC"), linear=False) == [4]` for the 6-bp site `ATCGAT` on a 4-bp circle). This library reports nothing: a 6-bp recognition site cannot be present on a 4-bp circle.
+- ~~When the molecule is **shorter** than the recognition site and circular, Biopython still reports a site … This library reports nothing.~~ *(Withdrawn, B08 H6 / F100, 2026-10-27: Biopython pads a circular sequence with `data[1:size]` unconditionally, so a short molecule is wrapped more than once and a site is reported — `ClaI.search(Seq("GATC"), linear=False) == [4]` for the 6-bp site `ATCGAT` on a 4-bp circle. This library now reports it too: `FindSites("GATC", "ClaI", Circular)` gives the forward record at position 1 with the cut at 3 (0-based; Biopython's 1-based `[4]`). Only a **linear** molecule shorter than the site reports nothing.)*
 
 ## 6. Edge Cases and Limitations
 
@@ -306,7 +310,7 @@ masked base — mask equality on 40 random 500-bp sequences (14 051 probe window
 | Non-IUPAC character in the *sequence* | Matches nothing, not even a site `N` | Deliberate narrowing: Biopython lets `.` match any letter (`SfiI.search(Seq("GGCCXXXXXGGCC")) == [9]`) |
 | `Sau3AI`/`MboI` site at the extreme 5' or 3' end of a linear molecule | Not reported | One of its two cuts would fall outside the molecule (§2.3) |
 | Recognition site spanning the origin of a circular molecule | Reported, with cut positions modulo the length | `topology = Circular` (§2.3) |
-| Molecule shorter than the recognition site | Returns no sites | The window cannot occur |
+| Molecule shorter than the recognition site | Linear: no sites (the window cannot occur). Circular: the window wraps and the site is reported (B08 F100) | Biopython pads a circular sequence with `data[1:size]` |
 | Custom enzyme with an empty or non-IUPAC recognition sequence | Throws `ArgumentException` at the call | Eager validation |
 | Overlapping occurrences of a self-overlapping site (e.g. `PacI` TTAATTAA in TTAATTAATTAA) | All reported | The scan advances one base at a time, like the reference's lookahead regex |
 

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.AreCompatible",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1797",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1826",
   "description": "Return whether two named restriction enzymes (any of the 754 REBASE enzymes with a defined cut) produce ligatable (compatible) ends: both blunt, or the same overhang polarity with overhangs that can anneal. An unknown name is an error.",
   "inputSchema": {
     "type": "object",
@@ -75,7 +75,8 @@
       },
       "output": {
         "compatible": true,
-        "compatibleEnd": "blunt"
+        "compatibleEnd": "blunt",
+        "end2": "blunt"
       }
     },
     {
@@ -86,7 +87,8 @@
       },
       "output": {
         "compatible": true,
-        "compatibleEnd": "GATC"
+        "compatibleEnd": "GATC",
+        "end2": "GATC"
       }
     },
     {
@@ -96,8 +98,7 @@
         "enzyme2_name": "BamHI"
       },
       "output": {
-        "compatible": false,
-        "compatibleEnd": null
+        "compatible": false
       }
     },
     {
@@ -107,8 +108,7 @@
         "enzyme2_name": "SacI"
       },
       "output": {
-        "compatible": false,
-        "compatibleEnd": null
+        "compatible": false
       }
     },
     {
@@ -118,8 +118,7 @@
         "enzyme2_name": "PstI"
       },
       "output": {
-        "compatible": false,
-        "compatibleEnd": null
+        "compatible": false
       }
     },
     {

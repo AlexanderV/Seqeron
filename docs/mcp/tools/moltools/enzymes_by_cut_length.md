@@ -34,8 +34,9 @@ interrupted palindrome SfiI — 39 in all. Every `recognitionLength` was checked
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `length` | integer | Yes | Recognition-sequence length in bp (positive). |
+| `length` | integer | Yes | Recognition-sequence length in bp (positive). With `max_length` set, the inclusive lower bound of a range instead. |
 | `enzyme_set` | string | No | `"common"` (default, the 39 common laboratory enzymes) or `"rebase"` (all 754 REBASE enzymes with a defined cut). Case-insensitive. |
+| `max_length` | integer | No | Optional inclusive upper bound: every enzyme whose recognition string is `length`..`max_length` long is returned ("all 4-6 bp cutters" in one call). Must be positive; `max_length` below `length` gives an empty list. Omit for the exact length. |
 
 ## Output Schema
 
@@ -48,6 +49,7 @@ interrupted palindrome SfiI — 39 in all. Every `recognitionLength` was checked
 | Code | Message |
 |------|---------|
 | 1001 | Recognition-sequence length must be positive |
+| 1002 | max_length must be positive |
 | 1010 | Unknown enzyme set '&lt;value&gt;'; expected "common" or "rebase" (`enzyme_set`) |
 
 ## Examples
@@ -67,6 +69,8 @@ over the 754). `length: 8` → 28 (`AbsI`, `AscI`, `AsiSI`, … `SwaI`); `length
 ### Example: unknown enzyme set
 
 `enzymes_by_cut_length(length: 6, enzyme_set: "all")` → error 1010.
+
+### Example 4: `length = 4, max_length = 6` → every 4-, 5- and 6-bp cutter: 33 enzymes of the common set (9 + 0 + 24), 597 of `enzyme_set = "rebase"`.
 
 ## See Also
 

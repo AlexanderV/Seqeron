@@ -37,6 +37,7 @@ public static partial class RestrictionAnalyzer
     /// </summary>
     /// <param name="sequence">DNA sequence to digest.</param>
     /// <param name="enzymeNames">Names of restriction enzymes to use.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
     public static IEnumerable<PartialDigestFragment> PartialDigest(DnaSequence sequence, params string[] enzymeNames)
         => PartialDigest(sequence, MoleculeTopology.Linear, null, enzymeNames);
 
@@ -47,6 +48,8 @@ public static partial class RestrictionAnalyzer
     /// <param name="sequence">DNA sequence to digest.</param>
     /// <param name="topology">Whether the molecule is linear or circular.</param>
     /// <param name="enzymeNames">Names of restriction enzymes to use.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<PartialDigestFragment> PartialDigest(
         DnaSequence sequence, MoleculeTopology topology, params string[] enzymeNames)
         => PartialDigest(sequence, topology, null, enzymeNames);
@@ -109,17 +112,19 @@ public static partial class RestrictionAnalyzer
     /// fragment count would exceed <see cref="MaxPartialDigestFragments"/> (pass a smaller
     /// <paramref name="maxMissedCuts"/>).</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMissedCuts"/> is negative.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or <paramref name="enzymeNames"/> is null, or a name in it is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<PartialDigestFragment> PartialDigest(
         DnaSequence sequence,
         MoleculeTopology topology,
         int? maxMissedCuts,
         params string[] enzymeNames)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
-        if (enzymeNames == null || enzymeNames.Length == 0)
-            throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
+        var enzymes = RequireEnzymeNames(enzymeNames, nameof(enzymeNames));
 
-        return PartialDigestCore(sequence.Sequence, topology, maxMissedCuts, ResolveEnzymes(enzymeNames));
+        return PartialDigestCore(sequence.Sequence, topology, maxMissedCuts, enzymes);
     }
 
     /// <summary>
@@ -141,12 +146,14 @@ public static partial class RestrictionAnalyzer
     /// recognition sequence is invalid, or the fragment count would exceed
     /// <see cref="MaxPartialDigestFragments"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxMissedCuts"/> is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<PartialDigestFragment> PartialDigest(
         DnaSequence sequence,
         MoleculeTopology topology,
         int? maxMissedCuts,
         IEnumerable<RestrictionEnzyme> enzymes)
     {
+        RequireTopology(topology);
         ArgumentNullException.ThrowIfNull(sequence);
         return PartialDigestCore(sequence.Sequence, topology, maxMissedCuts, RequireEnzymeList(enzymes));
     }
