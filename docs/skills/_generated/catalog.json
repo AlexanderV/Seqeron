@@ -2314,7 +2314,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.FindCompatibleEnzymes",
     "docPath": "docs/mcp/tools/moltools/compatible_enzymes.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1843"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1835"
   },
   {
     "tool": "count_codons",
@@ -2405,7 +2405,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.GetDigestSummary",
     "docPath": "docs/mcp/tools/moltools/digest_summary.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1506"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1498"
   },
   {
     "tool": "effective_number_of_codons",
@@ -2426,7 +2426,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.AreCompatible",
     "docPath": "docs/mcp/tools/moltools/enzymes_compatible.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1906"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1898"
   },
   {
     "tool": "evaluate_guide_rna",
@@ -2608,7 +2608,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.Digest",
     "docPath": "docs/mcp/tools/moltools/restriction_digest.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1178"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1170"
   },
   {
     "tool": "restriction_digest_custom_enzyme",
@@ -2622,7 +2622,7 @@
     "server": "MolTools",
     "methodId": "RestrictionAnalyzer.CreateMap",
     "docPath": "docs/mcp/tools/moltools/restriction_map.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1610"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1602"
   },
   {
     "tool": "rscu",
