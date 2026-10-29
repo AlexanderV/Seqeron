@@ -32,7 +32,7 @@ The *considered set* is the enzyme set the map is built over: the names in `enzy
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1610](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1610)
+- Source: [RestrictionAnalyzer.cs#L1602](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1602)
 
 ## Input Schema
 

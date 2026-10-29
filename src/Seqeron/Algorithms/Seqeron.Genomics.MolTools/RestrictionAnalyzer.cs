@@ -1003,9 +1003,9 @@ public static partial class RestrictionAnalyzer
     /// Each site is keyed by its top-strand cut, which is what Biopython's <c>catalyse</c> slices
     /// at: a forward-strand record's <see cref="RestrictionSite.CutPosition"/>, or a reverse-strand
     /// record's top-strand cut (see <c>TopStrandCut</c>). A reverse-strand record whose window also
-    /// matches on the forward strand (the other record of a palindromic site) is skipped — it
-    /// carries the bottom-strand cut of the same site and would double-count it as a second
-    /// boundary; the reverse-strand sites of a non-palindromic enzyme are kept (F55). Several
+    /// matches on the forward strand (the other record of a palindromic site) lands on the same boundary
+    /// as the forward record whenever both readings cut the same bonds, and the set of boundaries
+    /// absorbs it; the reverse-strand sites of a non-palindromic enzyme add their own boundaries (F55). Several
     /// enzymes can cut at the same top-strand coordinate — isoschizomers (MspI/HpaII,
     /// MboI/Sau3AI) and nested sites (BamHI/BglII with MboI/Sau3AI, ClaI/TaqI, StuI/HaeIII,
     /// ScaI/RsaI, FseI/HaeIII; Biopython 1.88 <c>search</c> reports the same position for each
@@ -1023,26 +1023,18 @@ public static partial class RestrictionAnalyzer
 
         foreach (var enzyme in enzymes)
         {
-            string pattern = ValidatedPattern(enzyme.RecognitionSequence, nameof(enzyme), enzyme.Name);
             foreach (var site in FindSitesCore(seq, enzyme, topology, blocked))
             {
-                // A reverse-strand record is dropped only when reading the window backwards
-                // cuts the same bonds as reading it forwards, i.e. when it is the same cleavage
-                // counted twice. That is EMBOSS 6.6.0's rule: embPatRestrictScan runs two
-                // independent loops (forward over `substr`, then `forward = ajFalse` over
-                // `revstr`, nucleus/embpat.c) and afterwards keeps one hit per distinct `cut1`,
-                // preferring the forward one. Biopython drops one reading per *window* instead
-                // (Palindromic._search applies `_modify` only; NonPalindromic._search takes the
-                // forward branch whenever the forward group matched), which loses a physically
-                // real cut for the five enzymes whose two readings cut differently and whose
-                // window can match on both strands — HauII, SgeI, MspJI, LpnPI, SgrTI. EMBOSS is
-                // followed here (review 2026-09 B08 H7; slice report F101).
-                if (!site.IsForwardStrand
-                    && IupacPattern.MatchesAtCircular(seq, site.Position, pattern)
-                    && ReverseReadingCutsAlike(site.Enzyme, topology == MoleculeTopology.Circular ? seq.Length : 0))
-                {
-                    continue;
-                }
+                // Every record contributes its TOP-strand cut (TopStrandCut), so the two readings of a window are two boundaries only when they
+                // cut different bonds: a reverse record that cuts the same bonds as the forward one (the other record of a palindromic site)
+                // lands on the forward record's boundary and the set absorbs it. That is EMBOSS 6.6.0's rule - embPatRestrictScan runs two
+                // independent loops (forward over `substr`, then `forward = ajFalse` over `revstr`, nucleus/embpat.c) and keeps one hit per
+                // distinct `cut1` - and it needs no test of its own here. Biopython drops one reading per *window* instead (Palindromic._search
+                // applies `_modify` only; NonPalindromic._search takes the forward branch whenever the forward group matched), which loses a
+                // physically real cut for the five enzymes whose two readings cut differently and whose window can match on both strands -
+                // HauII, SgeI, MspJI, LpnPI, SgrTI. EMBOSS is followed here (review 2026-09 B08 H7; slice report F101). The cleavage COUNT of
+                // CreateMap does need the test (ReverseReadingCutsAlike); an explicit "skip the alike reverse record" here was an
+                // unobservable duplicate of the set (audit round 9, O9-4) and could only do harm if its test were ever wrong.
 
                 // FindSites already reports a circular cut reduced modulo the sequence length and
                 // a linear site only when both strand cuts lie inside [1, Length-1]

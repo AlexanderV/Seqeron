@@ -41,8 +41,8 @@ per-enzyme sets agree with the symmetrised `%` operator.
 
 ## Core Documentation Reference
 
-- Source: [RestrictionAnalyzer.cs#L1843](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1843) — `FindCompatibleEnzymes()` / `FindCompatibleEnzymes(EnzymeSet)` (all pairs; the REBASE-set variant lives in [RestrictionAnalyzer.Rebase.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.Rebase.cs))
-- Per-enzyme overload (`FindCompatibleEnzymes`): [RestrictionAnalyzer.cs#L1887](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1887)
+- Source: [RestrictionAnalyzer.cs#L1835](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1835) — `FindCompatibleEnzymes()` / `FindCompatibleEnzymes(EnzymeSet)` (all pairs; the REBASE-set variant lives in [RestrictionAnalyzer.Rebase.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.Rebase.cs))
+- Per-enzyme overload (`FindCompatibleEnzymes`): [RestrictionAnalyzer.cs#L1879](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1879)
 
 ## Input Schema
 

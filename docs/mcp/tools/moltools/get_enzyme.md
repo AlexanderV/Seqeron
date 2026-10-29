@@ -58,8 +58,8 @@ entries**.
 ## Core Documentation Reference
 
 - Source: [RestrictionAnalyzer.cs#L123](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L123)
-- Overhang (`GetOverhangSequence`): [RestrictionAnalyzer.cs#L1768](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1768)
-- Isoschizomers (`FindIsoschizomers`): [RestrictionAnalyzer.cs#L2053](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L2053)
+- Overhang (`GetOverhangSequence`): [RestrictionAnalyzer.cs#L1760](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1760)
+- Isoschizomers (`FindIsoschizomers`): [RestrictionAnalyzer.cs#L2045](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L2045)
 
 ## Input Schema
 

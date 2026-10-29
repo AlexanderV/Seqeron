@@ -327,3 +327,13 @@ Tests in `RestrictionAnalyzer_Round8_Tests.cs` (library) and `RestrictionCrisprR
 | A8-7 | `FindPatternOccurrences_PatternBeyondTheLimit_IsRefusedAtTheCall`, `..._PatternAtTheLimit_Works`, MCP `FindPatternOccurrences_PatternBeyondTheLimit_IsRefusedAtOnce` / `..._PatternAtTheLimit_Works` | a pattern over `MaxRecognitionLength` (64) is refused, 64 works (an `N` pattern over 100 bases: 37 hits); the scan costs n x m | measured 0.07 / 0.20 / 0.63 / 2.50 s for n = 10k .. 80k |
 | A8-8 | `CircularMap_OffsetsCongruentModuloTheLength_CountOneCleavage_AsTheDigestDoes` (5), `CircularMap_AnEnzymeWhoseReverseReadingCutsOtherBonds_StillCountsTwoCleavages` (2), `LinearMap_OffsetsAreAbsolute_ThereIsNoModulo` | `(1,5)` `(13,17)` `(-11,-7)` `(25,29)` `(1200001,1200005)` on a 12-mer all cut the same two bonds: one cleavage in the map, one cut in the digest; `(1,3)` and `(13,15)` differ and count 2; linear stays absolute | the documented rule "a reverse record counts unless its backwards reading cuts the same bonds" |
 
+## Round 9 (B08 A9-1, A9-2, A9-3)
+
+Tests in `RestrictionAnalyzer_Round9_Tests.cs`. No defect was found in the round-8 code; every test kills a mutant the auditor built (and the order test also kills the round-8 survivor M26).
+
+| ID | Test | Pins | Oracle |
+|---|---|---|---|
+| A9-1 | `LinearMoleculeShorterThanTheOffsets_TheReverseReadingIsItsOwnCleavage` | `GAATTC` at 0 of `GAATTCAAAAAA`, offsets `(-3,-3)`: the forward cut -3 is outside, the reverse reading cuts at 9; digest `0+9 GAATTCAAA / 9+3 AAA`, `TotalSites 1`, unique cutter | linear cuts are absolute: -3 and 9 are congruent modulo 12 but different places |
+| A9-2 | `CircularTwoSidedEnzyme_ReadingsThatCutTheSameBondsModuloTheLength_AreOneCleavage` (3 rows) | `(1,5)+(7,11)`, `(13,17)+(7,11)`, `(1,3)+(15,17)`: one cleavage, fragments `4+6 / 10+6` and `4+2 / 6+10` | forward top cuts 3 + f, reverse top cuts 9 - r, modulo 12 |
+| A9-3 | `FindPatternOccurrences_OversizedPattern_IsRefusedBeforeTheAlphabetIsScanned`, `AreCompatible_NameLimitIsReported_BeforeABadPattern` | a 2 001-character pattern: the length is the reason and the message is not an echo (under 300 characters); the name limit precedes the pattern in both argument positions | the documented order |
+
