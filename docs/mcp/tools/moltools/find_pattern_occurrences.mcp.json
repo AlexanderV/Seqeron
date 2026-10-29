@@ -18,7 +18,7 @@
         ]
       },
       "recognition_pattern": {
-        "description": "Recognition pattern: 1 or more of the 15 IUPAC nucleotide codes A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V (case-insensitive).",
+        "description": "Recognition pattern: 1 or more of the 15 IUPAC nucleotide codes A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V (case-insensitive). At most 64 characters.",
         "type": "string"
       },
       "start_index": {
@@ -59,6 +59,10 @@
     {
       "code": 1003,
       "message": "startIndex ('-1') must be a non-negative value."
+    },
+    {
+      "code": 1004,
+      "message": "Recognition pattern is <n> characters long; the longest supported is 64."
     }
   ],
   "examples": [

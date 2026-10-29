@@ -1545,11 +1545,6 @@ public static class CrisprDesigner
     }
 
     /// <summary>
-    /// The <c>ALTPAMMINSCORE</c> cutoff of the alternative-PAM aggregates must be a number that is not negative (zero = no filtering, +infinity = every
-    /// alternative-PAM hit filtered out). Checked with the other arguments, before the repeat-guide test can return 0, so that
-    /// whether an invalid cutoff is refused never depends on the genome's content.
-    /// </summary>
-    /// <summary>
     /// An undefined <see cref="CfdAggregation"/> (an enum arrives over MCP as any number) is refused with the other arguments, before the
     /// repeat-guide rule can return 0 - otherwise whether it is refused would depend on the genome's content (B08 A7-1, sibling of A6-1).
     /// </summary>
@@ -1560,6 +1555,11 @@ public static class CrisprDesigner
                 "The CFD aggregation must be a defined CfdAggregation value.");
     }
 
+    /// <summary>
+    /// The <c>ALTPAMMINSCORE</c> cutoff of the alternative-PAM aggregates must be a number that is not negative (zero = no filtering, +infinity = every
+    /// alternative-PAM hit filtered out). Checked with the other arguments, before the repeat-guide test can return 0, so that
+    /// whether an invalid cutoff is refused never depends on the genome's content (B08 A6-1).
+    /// </summary>
     private static void EnsureValidAlternativePamCutoff(double minAlternativePamHitScore)
     {
         if (double.IsNaN(minAlternativePamHitScore) || minAlternativePamHitScore < 0)

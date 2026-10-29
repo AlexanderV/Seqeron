@@ -151,7 +151,7 @@
 | codon_minmax_profile | MolTools | CodonOptimizer.CalculateMinMaxProfile | CodonOptimizer.cs#L1789 | 3/3 | ✓ | ✓ | Ready |
 | codon_usage_statistics | MolTools | CodonUsageAnalyzer.GetStatistics | CodonUsageAnalyzer.cs#L1529 | 0/0 | – | – | Build-Ready |
 | compare_codon_usage | MolTools | CodonOptimizer.CompareCodonUsage | CodonOptimizer.cs#L2243 | 0/0 | – | – | Build-Ready |
-| compatible_enzymes | MolTools | RestrictionAnalyzer.FindCompatibleEnzymes | RestrictionAnalyzer.cs#L1827 | 0/0 | – | – | Build-Ready |
+| compatible_enzymes | MolTools | RestrictionAnalyzer.FindCompatibleEnzymes | RestrictionAnalyzer.cs#L1843 | 0/0 | – | – | Build-Ready |
 | count_codons | MolTools | CodonUsageAnalyzer.CountCodons | CodonUsageAnalyzer.cs#L34 | 0/0 | – | – | Build-Ready |
 | crispr_cfd_specificity_score | MolTools | CrisprDesigner.CalculateCfdSpecificityScore | CrisprDesigner.cs#L2582 | 0/0 | – | – | Build-Ready |
 | crispr_mit_specificity_score | MolTools | CrisprDesigner.CalculateMitSpecificityScore | CrisprDesigner.cs#L1672 | 0/0 | – | – | Build-Ready |
@@ -164,10 +164,10 @@
 | design_probes | MolTools | ProbeDesigner.DesignProbes | ProbeDesigner.cs#L856 | 0/0 | – | – | Build-Ready |
 | design_probes_primer3 | MolTools | ProbeDesigner.DesignProbesPrimer3 | ProbeDesigner.cs#L1675 | 0/0 | – | – | Build-Ready |
 | design_tiling_probes | MolTools | ProbeDesigner.DesignTilingProbes | ProbeDesigner.cs#L1332 | 0/0 | – | – | Build-Ready |
-| digest_summary | MolTools | RestrictionAnalyzer.GetDigestSummary | RestrictionAnalyzer.cs#L1490 | 0/0 | – | – | Build-Ready |
+| digest_summary | MolTools | RestrictionAnalyzer.GetDigestSummary | RestrictionAnalyzer.cs#L1506 | 0/0 | – | – | Build-Ready |
 | effective_number_of_codons | MolTools | CodonUsageAnalyzer.CalculateEnc | CodonUsageAnalyzer.cs#L661 | 0/0 | – | – | Build-Ready |
 | enzymes_by_cut_length | MolTools | RestrictionAnalyzer.GetEnzymesByCutLength | RestrictionAnalyzer.cs#L152 | 0/0 | – | – | Build-Ready |
-| enzymes_compatible | MolTools | RestrictionAnalyzer.AreCompatible | RestrictionAnalyzer.cs#L1890 | 0/0 | – | – | Build-Ready |
+| enzymes_compatible | MolTools | RestrictionAnalyzer.AreCompatible | RestrictionAnalyzer.cs#L1906 | 0/0 | – | – | Build-Ready |
 | evaluate_guide_rna | MolTools | CrisprDesigner.EvaluateGuideRna | CrisprDesigner.cs#L322 | 0/0 | – | – | Build-Ready |
 | evaluate_primer | MolTools | PrimerDesigner.EvaluatePrimer | PrimerDesigner.cs#L1079 | 0/0 | – | – | Build-Ready |
 | find_all_restriction_sites | MolTools | RestrictionAnalyzer.FindAllSites | RestrictionAnalyzer.cs#L564 | 0/0 | – | – | Build-Ready |
@@ -193,9 +193,9 @@
 | primer_melting_temperature_salt | MolTools | PrimerDesigner.CalculateMeltingTemperatureWithSalt | PrimerDesigner.cs#L1444 | 0/0 | – | – | Build-Ready |
 | reduce_secondary_structure | MolTools | CodonOptimizer.ReduceSecondaryStructure | CodonOptimizer.cs#L1527 | 0/0 | – | – | Build-Ready |
 | remove_restriction_sites | MolTools | CodonOptimizer.RemoveRestrictionSites | CodonOptimizer.cs#L1272 | 0/0 | – | – | Build-Ready |
-| restriction_digest | MolTools | RestrictionAnalyzer.Digest | RestrictionAnalyzer.cs#L1172 | 0/0 | – | – | Build-Ready |
+| restriction_digest | MolTools | RestrictionAnalyzer.Digest | RestrictionAnalyzer.cs#L1178 | 0/0 | – | – | Build-Ready |
 | restriction_digest_custom_enzyme | MolTools | RestrictionAnalyzer.Digest | RestrictionAnalyzer.RawSequence.cs#L111 | 0/0 | ✓ | ✓ | Build-Ready |
-| restriction_map | MolTools | RestrictionAnalyzer.CreateMap | RestrictionAnalyzer.cs#L1594 | 0/0 | – | – | Build-Ready |
+| restriction_map | MolTools | RestrictionAnalyzer.CreateMap | RestrictionAnalyzer.cs#L1610 | 0/0 | – | – | Build-Ready |
 | rscu | MolTools | CodonUsageAnalyzer.CalculateRscu | CodonUsageAnalyzer.cs#L222 | 0/0 | – | – | Build-Ready |
 | sticky_cutters | MolTools | RestrictionAnalyzer.GetStickyCutters | RestrictionAnalyzer.cs#L190 | 0/0 | – | – | Build-Ready |
 | three_prime_stability | MolTools | PrimerDesigner.Calculate3PrimeStability | PrimerDesigner.cs#L2263 | 0/0 | – | – | Build-Ready |

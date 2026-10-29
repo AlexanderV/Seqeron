@@ -288,3 +288,7 @@ bounded by `MaxCutStagger` = 64 and computed in `long`; `int.MinValue` cut offse
 
 The circular digest / map / partial digest at the `int` extremes and the recognition-length and name limits of a custom enzyme are listed in `RESTR-FIND-001.md`, section "Round 7".
 
+## Round 8 (B08 A8-1, A8-8)
+
+The two-sided custom enzyme at the `int` extremes and the congruent-offsets map rows are listed in `RESTR-FIND-001.md`, section "Round 8".
+

@@ -47,7 +47,7 @@ enzyme — both strands, cut positions, the feasibility filter and the circular 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `sequence` | string \| null | Yes | Sequence to scan; IUPAC codes accepted anywhere, null or empty yields no occurrences. |
-| `recognition_pattern` | string | Yes | 1 or more of the 15 IUPAC nucleotide codes. |
+| `recognition_pattern` | string | Yes | 1 or more of the 15 IUPAC nucleotide codes. At most 64 characters (the scan costs sequence length x pattern length). |
 | `start_index` | integer | No | First index to consider (default 0, must not be negative). |
 
 ## Output Schema
@@ -63,6 +63,7 @@ enzyme — both strands, cut positions, the feasibility filter and the circular 
 | 1001 | Recognition pattern cannot be null or empty. |
 | 1002 | Recognition pattern '&lt;pattern&gt;' contains '&lt;char&gt;' at index &lt;i&gt;, which is not one of the 15 IUPAC nucleotide codes |
 | 1003 | startIndex ('-1') must be a non-negative value. |
+| 1004 | Recognition pattern is &lt;n&gt; characters long; the longest supported is 64. |
 
 ## Examples
 

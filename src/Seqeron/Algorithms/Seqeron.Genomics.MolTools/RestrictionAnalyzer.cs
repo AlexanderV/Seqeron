@@ -598,7 +598,7 @@ public static partial class RestrictionAnalyzer
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentException"><paramref name="recognitionPattern"/> is null or empty,
-    /// or contains a character that is not an IUPAC nucleotide code.</exception>
+    /// is longer than <see cref="MaxRecognitionLength"/>, or contains a character that is not an IUPAC nucleotide code.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="startIndex"/> is negative.</exception>
     public static IEnumerable<int> FindPatternOccurrences(
         string? sequence, string recognitionPattern, int startIndex = 0)
@@ -668,6 +668,12 @@ public static partial class RestrictionAnalyzer
 
         if (string.IsNullOrEmpty(pattern))
             throw new ArgumentException($"{what} cannot be null or empty.", paramName);
+
+        // A pattern of m characters over a sequence of n costs n * m comparisons (an N pattern of n/2 over n bases: 2.5 s at n = 80 000, a quarter
+        // of an hour at n = 1 000 000), so a request-driven caller could hang the process with one long pattern (B08 A8-7). The same limit as an
+        // enzyme's recognition sequence: a pattern here is a recognition site, a PAM, a site to avoid.
+        if (pattern.Length > MaxRecognitionLength)
+            throw new ArgumentException($"{what} is {pattern.Length} characters long; the longest supported is {MaxRecognitionLength}.", paramName);
 
         // ASCII-only fold (review 2026-09 B08 F49, superseding F43): ToUpperInvariant would map U+017F 'ſ'
         // onto the IUPAC code 'S', so a non-IUPAC character would match.
@@ -1033,7 +1039,7 @@ public static partial class RestrictionAnalyzer
                 // followed here (review 2026-09 B08 H7; slice report F101).
                 if (!site.IsForwardStrand
                     && IupacPattern.MatchesAtCircular(seq, site.Position, pattern)
-                    && ReverseReadingCutsAlike(site.Enzyme))
+                    && ReverseReadingCutsAlike(site.Enzyme, topology == MoleculeTopology.Circular ? seq.Length : 0))
                 {
                     continue;
                 }
@@ -1202,7 +1208,8 @@ public static partial class RestrictionAnalyzer
     /// <exception cref="ArgumentNullException"><paramref name="sequence"/> or
     /// <paramref name="enzymes"/> is null, or <paramref name="enzymes"/> contains null.</exception>
     /// <exception cref="ArgumentException"><paramref name="enzymes"/> is empty, or an enzyme's
-    /// recognition sequence is empty or not IUPAC.</exception>
+    /// recognition sequence is empty or not IUPAC, its second cut pair is inconsistent, or the enzyme is larger than <see cref="MaxCutStagger"/> /
+    /// <see cref="MaxRecognitionLength"/> / <see cref="MaxEnzymeNameLength"/> allow.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topology"/> is not a defined <see cref="MoleculeTopology"/> value.</exception>
     public static IEnumerable<DigestFragment> Digest(
         DnaSequence sequence,
@@ -1340,7 +1347,8 @@ public static partial class RestrictionAnalyzer
     /// <remarks>
     /// The forward reading of a window at <c>p</c> cuts at <c>(p + fwd, p + rev)</c> per cut pair;
     /// the reverse reading cuts at <c>(p + len - rev, p + len - fwd)</c>. The two sets are equal
-    /// independently of <c>p</c>, so this is a property of the enzyme alone: a single-pair enzyme
+    /// independently of <c>p</c>, so this is a property of the enzyme alone (on a circle, of the enzyme and the molecule's length: the
+    /// cuts are compared modulo it, <paramref name="circularLength"/> &gt; 0): a single-pair enzyme
     /// qualifies exactly when <c>fwd + rev == len</c> (equivalently Biopython's
     /// <c>fst5 + fst3 == 0</c>), and a two-sided (Type IIB) enzyme also qualifies when its two
     /// pairs are each other's mirror, which is how AlfI, BdaI, BplI, FalI, NmeDI, RdeGBIII and
@@ -1349,19 +1357,27 @@ public static partial class RestrictionAnalyzer
     /// under the reverse reading, and exactly 5 of those admit a window matching the pattern on
     /// both strands — HauII (TGGCCA), SgeI (CNNG), MspJI (CNNR), LpnPI (CCDG), SgrTI (CCDS).
     /// </remarks>
-    private static bool ReverseReadingCutsAlike(RestrictionEnzyme enzyme)
+    /// <param name="enzyme">The enzyme whose two readings are compared.</param>
+    /// <param name="circularLength">The length of a circular molecule, whose cuts are compared modulo it; 0 for a linear one.</param>
+    private static bool ReverseReadingCutsAlike(RestrictionEnzyme enzyme, int circularLength = 0)
     {
         // long: len - rev wraps in int for an offset within len of int.MinValue, and the wrapped value can equal fwd - the circular digest
-        // and map then dropped a real cleavage (B08 A7-2, the arithmetic the other cut offsets already had since A5R-7).
+        // and map then dropped a real cleavage (B08 A7-2, the arithmetic the other cut offsets already had since A5R-7). The second pair's terms
+        // wrap the same way, so len, fwd and rev being long is not enough alone to keep every term in long (A8-1).
         long len = enzyme.RecognitionSequence.Length;
         long fwd = enzyme.CutPositionForward;
         long rev = enzyme.CutPositionReverse;
 
-        if (enzyme.SecondCut is not { } second)
-            return fwd == len - rev;
+        // On a circle two cuts are the same bond when they are congruent modulo the length: the offsets (1, 5) and (13, 17) cut a 12-mer at the
+        // same two bonds, so their reverse reading is the same cleavage in both cases (B08 A8-8; the digest was right either way, because its
+        // cut set absorbs a duplicate, but the map counted the congruent enzyme twice). On a linear molecule the cuts are absolute.
+        bool Same(long a, long b) => circularLength > 0 ? Modulo(a - b, circularLength) == 0 : a == b;
 
-        return (fwd == len - rev && second.Forward == len - second.Reverse)
-            || (fwd == len - second.Reverse && second.Forward == len - rev);
+        if (enzyme.SecondCut is not { } second)
+            return Same(fwd, len - rev);
+
+        return (Same(fwd, len - rev) && Same(second.Forward, len - second.Reverse))
+            || (Same(fwd, len - second.Reverse) && Same(second.Forward, len - rev));
     }
 
     /// <summary>
@@ -1668,7 +1684,7 @@ public static partial class RestrictionAnalyzer
         var physicalByEnzyme = sites
             .Where(s => s.IsForwardStrand
                         || !IupacPattern.MatchesAtCircular(seq, s.Position, SequenceExtensions.ToUpperAscii(s.Enzyme.RecognitionSequence))
-                        || !ReverseReadingCutsAlike(s.Enzyme))
+                        || !ReverseReadingCutsAlike(s.Enzyme, topology == MoleculeTopology.Circular ? seq.Length : 0))
             .GroupBy(s => s.Enzyme.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 g => g.Key,

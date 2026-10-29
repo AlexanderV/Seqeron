@@ -63,4 +63,23 @@ public class RestrictionCrisprRound7WrapperTests
 
         Assert.That(sites.Sites, Has.Count.EqualTo(2 * (100 - 64 + 1)));
     }
+
+    // A8-7 (audit round 8): the pattern of the raw scan is bounded like an enzyme's recognition sequence - the scan costs sequence x pattern
+    [Test]
+    public void FindPatternOccurrences_PatternBeyondTheLimit_IsRefusedAtOnce()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() => MolToolsTools.find_pattern_occurrences(new string('A', 80_000), new string('N', 40_000), 0));
+            Assert.Throws<ArgumentException>(() => MolToolsTools.find_pattern_occurrences("ACGT", new string('N', 65), 0));
+        });
+    }
+
+    [Test]
+    public void FindPatternOccurrences_PatternAtTheLimit_Works()
+    {
+        var result = MolToolsTools.find_pattern_occurrences(new string('A', 100), new string('N', 64), 0);
+
+        Assert.That(result.Positions, Has.Count.EqualTo(100 - 64 + 1));
+    }
 }

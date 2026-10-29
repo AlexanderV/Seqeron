@@ -314,3 +314,16 @@ Tests in `RestrictionAnalyzer_Round7_Tests.cs` (library) and `RestrictionCrisprR
 | A7-4 | `Digest_ThreePrimeDistalOverhangWindowHoldingAUracil_KeepsTheUracil` | 3' overhang window `AUCG` read as `AUCG` / `CGUT` (reverse complement, the U kept) | hand-derived reverse complement |
 | O7-1 | `GetOverhangSequence_AndAreCompatible_Refuse...` (4), `..._ReadALowerCaseRecognitionSequenceAsUpperCase` | an empty or non-IUPAC recognition sequence is an `ArgumentException` here too; `gaattc` gives `AATT` and is compatible with EcoRI | `FindSites` folds and validates the same pattern |
 
+## Round 8 (B08 A8-1, A8-2, A8-3, A8-7, A8-8)
+
+Tests in `RestrictionAnalyzer_Round8_Tests.cs` (library) and `RestrictionCrisprRound7WrapperTests.cs` (MCP, the `FindPatternOccurrences_*` pair). 5 of the 13 library tests and 1 of the 2 MCP tests fail on the code the auditor read
+(A8-7, A8-8); the others pin mutants of the round-7 change (A8-1, A8-2, A8-3), re-killed by mutation here.
+
+| ID | Test | Pins | Oracle |
+|---|---|---|---|
+| A8-1 | `CircularDigestAndMap_TwoSidedCustomEnzymeAtTheIntExtremes_CutAtTheUnionOfBothReadings` | `GAATTC` at 3 of a 12-mer, cuts `(5, 1)` + second pair `(Min+5, Min+1)`: top cuts {0, 4, 8}, fragments `0+4 AAAG / 4+4 AATT / 8+4 CAAA`, `TotalSites 2` | exact arithmetic, 2^31 = 8 (mod 12): forward 8 and 12 = 0; reverse 9 - 1 = 8 and 9 - (Min+1) = 16 = 4 |
+| A8-2 | `AreCompatible_RefusesABadDefinition_EvenWhenTheEndsDecideTheAnswerFirst` | a non-IUPAC site is an `ArgumentException` for blunt x blunt, 5' x 3' and blunt x 5' (it returned True / False) | the definition check of `FindSites` |
+| A8-3 | `EnzymeLimits_AreCheckedBeforeThePattern_AndBlameTheCallersParameter` | the size limit is the reported reason for an oversized non-IUPAC site; `enzyme` / `enzymes` / `enzyme1` / `enzyme2` are blamed; the name limit precedes the pattern | the documented order |
+| A8-7 | `FindPatternOccurrences_PatternBeyondTheLimit_IsRefusedAtTheCall`, `..._PatternAtTheLimit_Works`, MCP `FindPatternOccurrences_PatternBeyondTheLimit_IsRefusedAtOnce` / `..._PatternAtTheLimit_Works` | a pattern over `MaxRecognitionLength` (64) is refused, 64 works (an `N` pattern over 100 bases: 37 hits); the scan costs n x m | measured 0.07 / 0.20 / 0.63 / 2.50 s for n = 10k .. 80k |
+| A8-8 | `CircularMap_OffsetsCongruentModuloTheLength_CountOneCleavage_AsTheDigestDoes` (5), `CircularMap_AnEnzymeWhoseReverseReadingCutsOtherBonds_StillCountsTwoCleavages` (2), `LinearMap_OffsetsAreAbsolute_ThereIsNoModulo` | `(1,5)` `(13,17)` `(-11,-7)` `(25,29)` `(1200001,1200005)` on a 12-mer all cut the same two bonds: one cleavage in the map, one cut in the digest; `(1,3)` and `(13,15)` differ and count 2; linear stays absolute | the documented rule "a reverse record counts unless its backwards reading cuts the same bonds" |
+

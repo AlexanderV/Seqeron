@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.FindCompatibleEnzymes",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1827",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1843",
   "description": "Enumerate pairs of restriction enzymes whose ends can be ligated (enzyme_set \"common\" = 39 enzymes, 64 pairs; \"rebase\" = 754 enzymes, 27869 pairs; paged by max_pairs / offset with totalPairs and truncated), or - with enzyme_name (any of the 754 REBASE enzymes with a defined cut) - the enzymes of enzyme_set that one enzyme's end can be ligated to, itself included.",
   "inputSchema": {
     "type": "object",
