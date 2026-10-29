@@ -112,8 +112,12 @@ public class B08CrisprAuditFuzzTests
 
     #region maxMismatches outside 0-5
 
+    // The two values next to the range are drawn explicitly: a random int lands on -1 or 6 with probability ~0.
     private static Arbitrary<int> OutOfRangeMismatches() =>
-        Gen.OneOf(Gen.Choose(int.MinValue, -1), Gen.Choose(6, int.MaxValue)).ToArbitrary();
+        Gen.OneOf(
+            Gen.Elements(-1, 6, int.MinValue, int.MaxValue),
+            Gen.Choose(int.MinValue, -1),
+            Gen.Choose(6, int.MaxValue)).ToArbitrary();
 
     /// <summary>
     /// All four genome aggregates reject any <c>maxMismatches</c> outside 0-5 eagerly with ArgumentOutOfRangeException
@@ -138,6 +142,25 @@ public class B08CrisprAuditFuzzTests
                 catch (ArgumentOutOfRangeException) { return true; }
             }).Label($"maxMismatches = {mm}");
         });
+    }
+
+    /// <summary>The values just outside the range (-1 and 6) and the int extremes are refused by every genome aggregate.</summary>
+    [TestCase(-1)]
+    [TestCase(6)]
+    [TestCase(int.MinValue)]
+    [TestCase(int.MaxValue)]
+    public void GenomeAggregates_MaxMismatchesJustOutsideTheRange_AreRefused(int maxMismatches)
+    {
+        var calls = new Action[]
+        {
+            () => CrisprDesigner.CalculateMitSpecificityScore(Guide20, Genome, maxMismatches),
+            () => CrisprDesigner.CalculateMitSpecificityScoreWithAlternativePams(Guide20, Genome, maxMismatches),
+            () => CrisprDesigner.CalculateCfdSpecificityScore(Guide20, Genome, maxMismatches),
+            () => CrisprDesigner.CalculateCfdSpecificityScoreWithAlternativePams(Guide20, Genome, maxMismatches),
+        };
+
+        foreach (var call in calls)
+            call.Should().Throw<ArgumentOutOfRangeException>().Which.ParamName.Should().Be("maxMismatches");
     }
 
     /// <summary>The boundary values 0 and 5 are inside the range: they score (no throw), each in (0, 100].</summary>

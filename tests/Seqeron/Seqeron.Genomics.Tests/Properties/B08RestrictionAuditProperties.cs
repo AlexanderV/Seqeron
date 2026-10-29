@@ -122,6 +122,48 @@ public class B08RestrictionAuditProperties
     }
 
     /// <summary>
+    /// The circular restriction map is rotation-invariant too: total cleavages, the unique cutters and the non-cutters
+    /// (the "binds once but cuts once" rule reads the reverse-strand reading of a site that wraps past the origin).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CircularMap_Totals_AndUniqueCutters_AreRotationInvariant()
+    {
+        var arb = (from s in DnaWithSites(50, 160) from r in Gen.Choose(0, s.Length - 1) select (s, r)).ToArbitrary();
+        return Prop.ForAll(arb, input =>
+        {
+            var (seq, r) = input;
+            var a = RestrictionAnalyzer.CreateMap(new DnaSequence(seq), MoleculeTopology.Circular, Enzymes);
+            var b = RestrictionAnalyzer.CreateMap(new DnaSequence(Rotate(seq, r)), MoleculeTopology.Circular, Enzymes);
+
+            return (a.TotalSites == b.TotalSites).Label($"TotalSites {a.TotalSites} vs {b.TotalSites} (n={seq.Length}, r={r})")
+                .And(a.UniqueCutters.OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(b.UniqueCutters.OrderBy(x => x, StringComparer.Ordinal))
+                    .Label($"UniqueCutters [{string.Join(",", a.UniqueCutters)}] vs [{string.Join(",", b.UniqueCutters)}] (n={seq.Length}, r={r})"))
+                .And(a.NonCutters.OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(b.NonCutters.OrderBy(x => x, StringComparer.Ordinal)).Label("NonCutters"));
+        });
+    }
+
+    /// <summary>
+    /// One EcoRI site that straddles the origin of a circular molecule is a unique cutter: the molecule is cut once, so the
+    /// reverse-strand reading of the same wrapped window must not be counted as a second cleavage.
+    /// </summary>
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(3)]
+    [TestCase(5)]
+    public void SingleWrappedEcoRISite_IsAUniqueCutter(int wrappedBases)
+    {
+        // GAATTC placed so that its first wrappedBases bases sit at the end of the sequence and the rest at the start (0 = no wrap, the control).
+        const string body = "ACCATAGCACATCTACCTGACCTTGCATCAGTACATCTGACAG";
+        string site = "GAATTC";
+        string seq = site[wrappedBases..] + body + site[..wrappedBases];
+
+        var map = RestrictionAnalyzer.CreateMap(new DnaSequence(seq), MoleculeTopology.Circular, "EcoRI");
+
+        map.UniqueCutters.Should().Contain("EcoRI");
+        RestrictionAnalyzer.Digest(new DnaSequence(seq), MoleculeTopology.Circular, "EcoRI").Should().ContainSingle();
+    }
+
+    /// <summary>
     /// A site found in the linear molecule is also found in the circular one (same enzyme, strand and position):
     /// closing the molecule can add sites across the origin but never removes one.
     /// </summary>
@@ -285,6 +327,42 @@ public class B08RestrictionAuditProperties
                     return false.Label($"{enzyme}: upper {upper.Count} sites vs lower {lower.Count}");
                 if (lower.Any(s => s.RecognizedSequence.Any(char.IsLower)))
                     return false.Label($"{enzyme}: a recognised sequence is not upper case");
+            }
+
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// The raw-string overloads that take a methylase set or a topology share the case rule: lower-casing the input changes
+    /// neither the sites nor the digest fragments, and the fragment sequences come back upper-case.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RawMethylationAndTopologyOverloads_AreCaseInsensitive_AndReturnUpperCase()
+    {
+        return Prop.ForAll(DnaWithSites(40, 140).ToArbitrary(), seq =>
+        {
+            string lower = seq.ToLowerInvariant();
+            foreach (var topology in new[] { MoleculeTopology.Linear, MoleculeTopology.Circular })
+            {
+                var sitesUpper = RestrictionAnalyzer.FindSites(seq, topology, MethylaseSets.Dam, "Sau3AI", "EcoRI")
+                    .Select(s => (s.Enzyme.Name, s.Position, s.IsForwardStrand, s.CutPosition, s.RecognizedSequence)).ToList();
+                var sitesLower = RestrictionAnalyzer.FindSites(lower, topology, MethylaseSets.Dam, "Sau3AI", "EcoRI")
+                    .Select(s => (s.Enzyme.Name, s.Position, s.IsForwardStrand, s.CutPosition, s.RecognizedSequence)).ToList();
+                if (!sitesUpper.SequenceEqual(sitesLower))
+                    return false.Label($"{topology}: FindSites differs between cases");
+
+                var fragsUpper = RestrictionAnalyzer.Digest(seq, topology, MethylaseSets.Dam, "Sau3AI", "EcoRI").Select(f => (f.StartPosition, f.Sequence)).ToList();
+                var fragsLower = RestrictionAnalyzer.Digest(lower, topology, MethylaseSets.Dam, "Sau3AI", "EcoRI").Select(f => (f.StartPosition, f.Sequence)).ToList();
+                if (!fragsUpper.SequenceEqual(fragsLower))
+                    return false.Label($"{topology}: Digest differs between cases");
+                if (fragsLower.Any(f => f.Sequence.Any(char.IsLower)))
+                    return false.Label($"{topology}: a digest fragment is not upper case");
+
+                var map = RestrictionAnalyzer.CreateMap(lower, topology, MethylaseSets.Dam, "Sau3AI", "EcoRI");
+                var mapUpper = RestrictionAnalyzer.CreateMap(seq, topology, MethylaseSets.Dam, "Sau3AI", "EcoRI");
+                if (map.TotalSites != mapUpper.TotalSites || !map.UniqueCutters.SequenceEqual(mapUpper.UniqueCutters))
+                    return false.Label($"{topology}: CreateMap differs between cases");
             }
 
             return true.ToProperty();
