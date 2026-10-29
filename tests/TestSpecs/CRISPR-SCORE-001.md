@@ -39,7 +39,7 @@
 | R2 | Microsoft Research **Azimuth** trained Rule Set 2 models `saved_models/V3_model_nopos.pickle`, `V3_model_full.pickle` (BSD-3-Clause), and `azimuth/features/featurization.py`. | Canonical trained model + featurization | https://github.com/MicrosoftResearch/Azimuth | 2026-06-18 |
 | R3 | CFD matrices `mismatch_score.pkl` (240) / `pam_scores.pkl` (16) + `cfd-score-calculator.py` (Doench lab, redistributed by CRISPOR `CFD_Scoring/`) and the independent `bm2-lab/iGWOS` (`CFD/`, `otscore.py` with doctest oracles). | Two independent canonical distributions | https://github.com/maximilianh/crisporWebsite · https://github.com/bm2-lab/iGWOS | 2026-06-17 |
 | R4 | Biopython `Bio.SeqUtils.MeltingTemp.Tm_NN` (DNA_NN3, Allawi & SantaLucia 1997), used by Azimuth for Rule Set 2 melting-temperature features. | Canonical reference code | https://github.com/biopython/biopython | 2026-06-18 |
-| S4 | Tycko, Wainberg, Marinov, et al. "Pairwise library screen systematically interrogates *Staphylococcus aureus* Cas9 specificity in human cells." Nat Commun 9:2962 (2018). | Primary literature (SaCas9 off-target model) | doi:10.1038/s41467-018-05391-2 | see `docs/Evidence/CRISPR-OFF-001-Evidence.md` |
+| S4 | Tycko, Barrera, Huston, et al. "Pairwise library screen systematically interrogates *Staphylococcus aureus* Cas9 specificity in human cells." Nat Commun 9:2962 (2018). | Primary literature (SaCas9 off-target model) | doi:10.1038/s41467-018-05391-2 | see `docs/Evidence/CRISPR-OFF-001-Evidence.md` |
 | R5 | CRISPOR `crispor.py` `calcSaHitScore` / `annotateOfftargets` (alternative-PAM x0.2 weight L1947-1958, `ALTPAMMINSCORE` L318) and the SaCas9 table `bin/src/pairwise-library-screen/models/rstan_mult_21_coeffs.txt` (252 coefficients, mechanically diffed: 0 mismatching cells). | Canonical reference code | https://github.com/maximilianh/crisporWebsite | B08 F14, F50, F66, F67 (dates in `CRISPR-OFF-001-Evidence.md` / `review-2026-09/B08.md`) |
 | R6 | Azimuth `azimuth/model_comparison.py` `predict` (sentinel `percent_peptide == -1` at L539/L563; `np.isreal` checks at L526-534) and the regression fixture `azimuth/tests/1000guides.csv` (column `AA cut`, integers 0..499). | Canonical reference code | https://github.com/MicrosoftResearch/Azimuth | B08 F35, F36, F70 |
 
@@ -187,7 +187,7 @@ Counts below were taken on 2026-10-21 by counting `[Test]` / `[TestCase]` attrib
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| M1, M2 (Rule Set 1) | ✅ Covered | `Doench2014_ReferenceExample1_MatchesPublishedValue`, `Doench2014_ReferenceExample2_MatchesPublishedValue`, `Doench2014_AllAdenineWithPam_MatchesIndependentComputation` |
+| M1, M2 (Rule Set 1) | ✅ Covered | `Doench2014_ReferenceExample1_MatchesTheExecutedReference`, `Doench2014_ReferenceExample2_MatchesTheExecutedReference`, `Doench2014_AllAdenineWithPam_MatchesIndependentComputation` |
 | M3, M4 (Rule Set 2 reference) | ✅ Covered | `RuleSet2_{NoPos,Full}_ReproducesVerifiedReference_AllGuides` |
 | M5 (Rule Set 2 upstream subset) | ✅ Covered | `RuleSet2_{NoPos,Full}_MatchesUpstreamFixture_OnAgreeingSubset` (counts locked 585/637) |
 | M6, M7, M8 (MIT/Hsu) | ✅ Covered | `CalculateMitHitScore_*`, `CalculateMitSpecificityScore_*` (MIT block) |
@@ -209,7 +209,7 @@ Counts below were taken on 2026-10-21 by counting `[Test]` / `[TestCase]` attrib
 | M25 (`NGA` / `NNGRRN`) | ✅ Covered | `CalculateMitSpecificityScoreWithAlternativePams_NgaHit_IsScannedAndDownweighted`, `..._SaCas9_NnggrrnHit_IsScannedUnweighted_AndNotDoubleCounted`, `NewAlternativePamSystems_HaveReferenceMetadata_AndExistingEnumValuesAreUnchanged` |
 | M26 (`minAlternativePamHitScore`) | ✅ Covered | `CalculateMitSpecificityScoreWithAlternativePams_MinAlternativePamHitScore_FiltersAlternativeHitsOnly`, `..._SaCas9_CutoffAppliesToMainPamHitsToo` |
 | M27 (CFD alt-PAM aggregate) | ✅ Covered | `CalculateCfdSpecificityScoreWithAlternativePams_NagOnlyGuide_IsNoLongerPerfect`, `..._NgaOnlyGuide_IsScanned`, `..._MixedGenome_AppliesTheMitHitScoreCutoff`, `..._KeepsTheCfdGuards`; MCP `CrisprCfdSpecificityScore_IncludeAlternativePams_DefaultsOff_AndScansNagNga_AndForwardsTheCutoff` |
-| M28 (on-target interval) | ✅ Covered | `OnTargetInterval_*` (6 methods, 12 cases) in `CrisprDesigner_OffTarget_Tests.cs`; MCP `SpecificityTools_OnTargetInterval_IsForwarded_AndDefaultStaysAllExactDropped` |
+| M28 (on-target interval) | ✅ Covered | `OnTargetInterval_*` (6 methods, 12 cases) in `CrisprDesigner_OffTarget_Tests.cs`; MCP `SpecificityTools_OnTargetInterval_IsForwarded_AndDefaultIsAutoOnTarget` |
 
 ### 5.3 Consolidation Plan
 

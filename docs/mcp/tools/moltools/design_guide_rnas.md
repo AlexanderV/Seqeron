@@ -18,7 +18,7 @@ Finds every PAM site of the chosen CRISPR system whose predicted cut site falls 
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L234](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L234)
+- Source: [CrisprDesigner.cs#L231](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L231)
 
 ## Input Schema
 
@@ -34,7 +34,7 @@ Finds every PAM site of the chosen CRISPR system whose predicted cut site falls 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `guides` | array | `GuideRnaCandidate` records (sequence, position, strand, GC%, seed GC%, polyT, self-complementarity, score, issues, system). |
+| `guides` | array | `GuideRnaCandidate` records: `sequence`, `position`, `isForwardStrand`, `gcContent`, `seedGcContent`, `hasPolyT`, `selfComplementarityScore`, `score`, `issues`, `system`, `selfComplementaryStems`, `grafMotif` (`None` / `TtMotif` / `GccMotif`), `fullGuideRna` (null for Cas12a/CasX), and for 20-nt SpCas9-family guides with their flanks in the sequence `context30Mer` and `onTargetScore` (Rule Set 2, 0..1). Enum values are serialised as strings (`parameters.ranking` accepts `Score` or `OnTargetRuleSet2`). |
 
 ## Errors
 
@@ -43,18 +43,20 @@ Finds every PAM site of the chosen CRISPR system whose predicted cut site falls 
 | 1001 | Sequence cannot be null or empty |
 | 1002 | Region start must be within the sequence |
 | 1003 | Region end must satisfy region_start <= region_end < sequence.Length |
+| 1004 | Invalid nucleotide '{char}' at position {i}. (the sequence must be A/C/G/T) |
+| 1005 | `parameters` invalid: GC window not 0 <= minGcContent <= maxGcContent <= 100, NaN minScore, negative maxSelfComplementaryStems, undefined ranking, invalid backbone region, or all-zero parameters. |
 
 ## Examples
 
 ### Example 1: Single SpCas9 guide with an NGG PAM
 
-Sequence `ACGTACGT…ACGTAGG` (46 nt), region `[20, 45]`, SpCas9. The trailing `AGG` PAM yields one forward-strand guide `ACGTACGTACGTACGTACGT` at position 24 with a perfect score of 100 (50% GC, no polyT).
+Sequence `ACGTACGT…ACGTAGG` (47 nt), region `[20, 45]`, SpCas9. The trailing `AGG` PAM yields one forward-strand guide `ACGTACGTACGTACGTACGT` at position 24: 50% GC and no polyT, but ACGT×5 carries 10 CHOPCHOP self-complementary stems, so the score is 100 − 10 = 90.
 
 **Input:** `{ "region_start": 20, "region_end": 45, "system_type": "SpCas9" }`
 
 **Response (abridged):**
 ```json
-{ "guides": [ { "position": 24, "score": 100.0, "isForwardStrand": true, "gcContent": 50.0, "sequence": "ACGTACGTACGTACGTACGT" } ] }
+{ "guides": [ { "position": 24, "score": 90.0, "selfComplementaryStems": 10, "isForwardStrand": true, "gcContent": 50.0, "sequence": "ACGTACGTACGTACGTACGT" } ] }
 ```
 
 ### Example 2: Invalid region

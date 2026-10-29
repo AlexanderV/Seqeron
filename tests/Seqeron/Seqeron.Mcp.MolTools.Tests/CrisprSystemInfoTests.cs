@@ -48,7 +48,7 @@ public class CrisprSystemInfoTests
     }
 
     [TestCase(CrisprSystemType.SpCas9, "Streptococcus pyogenes Cas9")]
-    [TestCase(CrisprSystemType.SpCas9_NGA, "SpCas9 with NGA PAM (alternative off-target PAM of NGG, Kleinstiver 2015)")]
+    [TestCase(CrisprSystemType.SpCas9_NGA, "SpCas9 with NGA PAM (CRISPOR's alternative off-target PAM of NGG after Tsai 2014 GUIDE-seq; the PAM of the VQR variant, Kleinstiver 2015)")]
     [TestCase(CrisprSystemType.CasX, "CasX - compact Cas protein")]
     public void CrisprSystemInfo_Description_IsReturned(CrisprSystemType type, string description)
     {

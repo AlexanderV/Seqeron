@@ -16,7 +16,7 @@ public class CrisprDesigner_Systems_Tests
     {
         yield return new TestCaseData(CrisprSystemType.SpCas9, "SpCas9", "NGG", 20, true, 3, "Streptococcus pyogenes Cas9").SetName("SpCas9");
         yield return new TestCaseData(CrisprSystemType.SpCas9_NAG, "SpCas9-NAG", "NAG", 20, true, 3, "SpCas9 with NAG PAM (lower activity)").SetName("SpCas9_NAG");
-        yield return new TestCaseData(CrisprSystemType.SpCas9_NGA, "SpCas9-NGA", "NGA", 20, true, 3, "SpCas9 with NGA PAM (alternative off-target PAM of NGG, Kleinstiver 2015)").SetName("SpCas9_NGA");
+        yield return new TestCaseData(CrisprSystemType.SpCas9_NGA, "SpCas9-NGA", "NGA", 20, true, 3, "SpCas9 with NGA PAM (CRISPOR's alternative off-target PAM of NGG after Tsai 2014 GUIDE-seq; the PAM of the VQR variant, Kleinstiver 2015)").SetName("SpCas9_NGA");
         yield return new TestCaseData(CrisprSystemType.SaCas9, "SaCas9", "NNGRRT", 21, true, 3, "Staphylococcus aureus Cas9").SetName("SaCas9");
         yield return new TestCaseData(CrisprSystemType.SaCas9_NNGRRN, "SaCas9-NNGRRN", "NNGRRN", 21, true, 3, "SaCas9 with relaxed NNGRRN PAM (alternative off-target PAM of NNGRRT)").SetName("SaCas9_NNGRRN");
         yield return new TestCaseData(CrisprSystemType.Cas12a, "Cas12a/Cpf1", "TTTV", 23, false, 18, "Cas12a (Cpf1) - PAM before target").SetName("Cas12a");

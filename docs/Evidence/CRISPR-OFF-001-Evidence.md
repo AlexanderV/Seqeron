@@ -76,7 +76,7 @@ content is taken from the reference implementation's own code and shipped tables
 - https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/bin/src/pairwise-library-screen/models/rstan_mult_21_coeffs.txt (25 771 bytes; also fetched `rstan_mult_20_coeffs.txt` 25 053 B and `rstan_mult_22_coeffs.txt` 27 119 B)
 
 **Authority rank:** 3 (the trained model distributed with the reference tool).
-**Primary source:** Tycko J, Wainberg M, Marinov GK, et al., "Pairwise library screen systematically
+**Primary source:** Tycko J, Barrera LA, Huston NC, et al., "Pairwise library screen systematically
 interrogates *Staphylococcus aureus* Cas9 specificity in human cells", *Nat Commun* **9**, 2962 (2018),
 doi:10.1038/s41467-018-05391-2 — the paper CRISPOR's `calcSaHitScore` cites.
 

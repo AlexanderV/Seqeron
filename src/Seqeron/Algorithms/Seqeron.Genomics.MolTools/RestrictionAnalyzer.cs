@@ -566,7 +566,7 @@ public static partial class RestrictionAnalyzer
     {
         for (int i = startIndex; i + pattern.Length <= seq.Length; i++)
         {
-            if (MatchesPatternAt(seq, i, pattern))
+            if (IupacPattern.MatchesAt(seq, i, pattern))
                 yield return i;
         }
     }
@@ -688,7 +688,7 @@ public static partial class RestrictionAnalyzer
 
         for (int i = 0; i + len <= n; i++)
         {
-            if (!MatchesPatternAt(seq, i, pattern) || MethylationMask.IsBlocked(blocked, i, len))
+            if (!IupacPattern.MatchesAt(seq, i, pattern) || MethylationMask.IsBlocked(blocked, i, len))
                 continue;
 
             // Forward-strand site: top-strand cut i+fwd, bottom-strand cut i+rev — once per cut pair
@@ -712,7 +712,7 @@ public static partial class RestrictionAnalyzer
         string revComp = DnaSequence.GetReverseComplementString(seq);
         for (int i = 0; i + len <= n; i++)
         {
-            if (!MatchesPatternAt(revComp, i, pattern) || MethylationMask.IsBlocked(blocked, n - i - len, len))
+            if (!IupacPattern.MatchesAt(revComp, i, pattern) || MethylationMask.IsBlocked(blocked, n - i - len, len))
                 continue;
 
             // Convert back to forward strand coordinates
@@ -754,7 +754,7 @@ public static partial class RestrictionAnalyzer
         string extended = WrapExtend(seq, n + len - 1);
         for (int i = 0; i < n; i++)
         {
-            if (!MatchesPatternAt(extended, i, pattern) || MethylationMask.IsBlocked(blocked, i, len))
+            if (!IupacPattern.MatchesAt(extended, i, pattern) || MethylationMask.IsBlocked(blocked, i, len))
                 continue;
 
             foreach (var (fwd, _, second) in pairs)
@@ -772,7 +772,7 @@ public static partial class RestrictionAnalyzer
         string revExtended = WrapExtend(revComp, n + len - 1);
         for (int i = 0; i < n; i++)
         {
-            if (!MatchesPatternAt(revExtended, i, pattern) || MethylationMask.IsBlocked(blocked, Modulo(n - i - len, n), len))
+            if (!IupacPattern.MatchesAt(revExtended, i, pattern) || MethylationMask.IsBlocked(blocked, Modulo(n - i - len, n), len))
                 continue;
 
             int forwardPos = ((n - i - len) % n + n) % n;
@@ -832,37 +832,6 @@ public static partial class RestrictionAnalyzer
     private static bool CutsAreInternal(int watsonCut, int crickCut, int length) =>
         watsonCut >= 1 && watsonCut <= length - 1 &&
         crickCut >= 1 && crickCut <= length - 1;
-
-    private static bool MatchesPatternAt(string seq, int position, string pattern)
-    {
-        for (int i = 0; i < pattern.Length; i++)
-        {
-            if (!SequenceBaseMatchesSiteCode(seq[position + i], pattern[i]))
-                return false;
-        }
-        return true;
-    }
-
-    /// <summary>
-    /// The per-position site-match rule of Biopython 1.88 <c>Bio.Restriction</c>, composed from
-    /// the canonical <see cref="IupacHelper"/> predicates (no second ambiguity table here).
-    /// </summary>
-    /// <remarks>
-    /// Biopython compiles a site's <c>N</c> to the regex <c>.</c> and every other code to the
-    /// class of its A/C/G/T expansion (<c>SfiI.compsite</c> is <c>GGCC.....GGCC</c>,
-    /// <c>HincII.compsite</c> is <c>GT[CT][AG]AC</c>), and the sequence keeps its own IUPAC
-    /// letters. So a site <c>N</c> accepts <b>any</b> sequence code — an <c>N</c> included:
-    /// <c>SfiI.search(Seq("GGCCNNNNNGGCC")) == [9]</c> — while a site A/C/G/T or a degenerate
-    /// site code accepts only a concrete base it expands to: an ambiguity code in the sequence
-    /// still blocks it (<c>EcoRI.search(Seq("AGAANTCA")) == []</c>,
-    /// <c>HincII.search(Seq("AGTYRACA")) == []</c>). A sequence character outside the 15 IUPAC
-    /// nucleotide codes matches nothing, not even a site <c>N</c> (Biopython would let a site
-    /// <c>N</c> match any letter, <c>X</c> included — a deliberate narrowing).
-    /// </remarks>
-    private static bool SequenceBaseMatchesSiteCode(char sequenceBase, char siteCode) =>
-        siteCode == 'N'
-            ? IupacHelper.IsNucleotideCode(sequenceBase)
-            : IupacHelper.MatchesIupac(sequenceBase, siteCode);
 
     #endregion
 
@@ -976,7 +945,7 @@ public static partial class RestrictionAnalyzer
                 // window can match on both strands — HauII, SgeI, MspJI, LpnPI, SgrTI. EMBOSS is
                 // followed here (review 2026-09 B08 H7; slice report F101).
                 if (!site.IsForwardStrand
-                    && WindowMatchesForward(seq, site.Position, pattern)
+                    && IupacPattern.MatchesAtCircular(seq, site.Position, pattern)
                     && ReverseReadingCutsAlike(site.Enzyme))
                 {
                     continue;
@@ -1319,18 +1288,6 @@ public static partial class RestrictionAnalyzer
             || (fwd == len - second.Reverse && second.Forward == len - rev);
     }
 
-    private static bool WindowMatchesForward(string seq, int position, string pattern)
-    {
-        int n = seq.Length;
-        for (int k = 0; k < pattern.Length; k++)
-        {
-            if (!SequenceBaseMatchesSiteCode(seq[(position + k) % n], pattern[k]))
-                return false;
-        }
-
-        return true;
-    }
-
     /// <summary>
     /// The names of the enzymes cutting at one boundary, in the boundary's (ordinal) order; empty
     /// when the end is not a cut.
@@ -1622,7 +1579,7 @@ public static partial class RestrictionAnalyzer
         // UniqueCutters excludes them where they bind once but cut twice (B08 H7/H32, F101).
         var physicalByEnzyme = sites
             .Where(s => s.IsForwardStrand
-                        || !WindowMatchesForward(seq, s.Position, SequenceExtensions.ToUpperAscii(s.Enzyme.RecognitionSequence))
+                        || !IupacPattern.MatchesAtCircular(seq, s.Position, SequenceExtensions.ToUpperAscii(s.Enzyme.RecognitionSequence))
                         || !ReverseReadingCutsAlike(s.Enzyme))
             .GroupBy(s => s.Enzyme.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(

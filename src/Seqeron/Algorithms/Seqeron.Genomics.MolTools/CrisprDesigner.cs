@@ -34,7 +34,7 @@ public static class CrisprDesigner
         CrisprSystemType.AsCas12a => new CrisprSystem("AsCas12a", "TTTV", 23, false, "Acidaminococcus sp. Cas12a", Cas12aCutOffset),
         CrisprSystemType.LbCas12a => new CrisprSystem("LbCas12a", "TTTV", 23, false, "Lachnospiraceae bacterium Cas12a", Cas12aCutOffset),
         CrisprSystemType.CasX => new CrisprSystem("CasX", "TTCN", 20, false, "CasX - compact Cas protein", CasXCutOffset),
-        CrisprSystemType.SpCas9_NGA => new CrisprSystem("SpCas9-NGA", "NGA", 20, true, "SpCas9 with NGA PAM (alternative off-target PAM of NGG, Kleinstiver 2015)", Cas9CutOffset),
+        CrisprSystemType.SpCas9_NGA => new CrisprSystem("SpCas9-NGA", "NGA", 20, true, "SpCas9 with NGA PAM (CRISPOR's alternative off-target PAM of NGG after Tsai 2014 GUIDE-seq; the PAM of the VQR variant, Kleinstiver 2015)", Cas9CutOffset),
         CrisprSystemType.SaCas9_NNGRRN => new CrisprSystem("SaCas9-NNGRRN", "NNGRRN", 21, true, "SaCas9 with relaxed NNGRRN PAM (alternative off-target PAM of NNGRRT)", Cas9CutOffset),
         _ => throw new ArgumentException($"Unknown CRISPR system: {type}")
     };
@@ -67,7 +67,12 @@ public static class CrisprDesigner
     /// contains an <c>N</c> is not returned (<c>flankSeqIter(doFilterNs=True)</c>, the filter every guide-listing path
     /// of the reference applies; only its two lookup helpers <c>findAllGuides</c>/<c>findGuideSeq</c> keep such guides).
     /// A <see cref="DnaSequence"/> cannot hold an <c>N</c>, so only this overload is affected.
+    /// The text may hold only A/C/G/T (either case) and <c>N</c>: any other character, in or outside a window, is an
+    /// <see cref="ArgumentException"/> at the call (CRISPOR's front end restricts its input the same way). A null or
+    /// empty text has no sites.
     /// </remarks>
+    /// <exception cref="ArgumentException">The text holds a character other than A/C/G/T/N, or
+    /// <paramref name="systemType"/> is unknown.</exception>
     public static IEnumerable<PamSite> FindPamSites(
         string sequence,
         CrisprSystemType systemType = CrisprSystemType.SpCas9)
@@ -78,7 +83,25 @@ public static class CrisprDesigner
         if (string.IsNullOrEmpty(sequence))
             return Enumerable.Empty<PamSite>();
 
+        RequireNucleotideOrN(sequence, nameof(sequence));
         return FindPamSitesCore(SequenceExtensions.ToUpperAscii(sequence)!, system);
+    }
+
+    /// <summary>
+    /// A genomic text may hold A/C/G/T (either case) and the unknown base <c>N</c>; anything else is not a nucleotide
+    /// string and is refused at the call, naming the character and its index. CRISPOR's front end restricts its input to
+    /// ACGTN before <c>findAllPams</c> runs; this overload is that front end here. (Before audit round 5 a digit, a space,
+    /// <c>R</c>, <c>U</c> or a non-ASCII letter inside a protospacer window came back as a "guide" that
+    /// <see cref="EvaluateGuideRna"/> and <see cref="DesignGuideRnas"/> then rejected.)
+    /// </summary>
+    private static void RequireNucleotideOrN(string sequence, string paramName)
+    {
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            if (SequenceExtensions.ToUpperAscii(sequence[i]) is not ('A' or 'C' or 'G' or 'T' or 'N'))
+                throw new ArgumentException(
+                    $"Expected A/C/G/T/N but found '{sequence[i]}' at index {i}.", paramName);
+        }
     }
 
     private static IEnumerable<PamSite> FindPamSitesCore(string seq, CrisprSystem system)
@@ -90,7 +113,7 @@ public static class CrisprDesigner
         // Search forward strand
         for (int i = 0; i <= seq.Length - pamPattern.Length; i++)
         {
-            if (MatchesPam(seq, i, pamPattern))
+            if (IupacPattern.MatchesAt(seq, i, pamPattern))
             {
                 int targetStart, targetEnd;
                 if (pamAfterTarget)
@@ -127,7 +150,7 @@ public static class CrisprDesigner
         string revComp = DnaSequence.GetReverseComplementString(seq);
         for (int i = 0; i <= revComp.Length - pamPattern.Length; i++)
         {
-            if (MatchesPam(revComp, i, pamPattern))
+            if (IupacPattern.MatchesAt(revComp, i, pamPattern))
             {
                 int revTargetStart, revTargetEnd;
                 if (pamAfterTarget)
@@ -171,32 +194,6 @@ public static class CrisprDesigner
             }
         }
     }
-
-    private static bool MatchesPam(string seq, int position, string pamPattern)
-    {
-        if (position + pamPattern.Length > seq.Length)
-            return false;
-
-        for (int i = 0; i < pamPattern.Length; i++)
-        {
-            char seqChar = seq[position + i];
-            char pamChar = pamPattern[i];
-
-            if (!MatchesIupac(seqChar, pamChar))
-                return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// CRISPOR's <c>patMatch</c> (crispor.py L2347-2392): a pattern <c>N</c> matches ANY sequence character, a
-    /// sequence <c>N</c> included (<c>if patChar=="N": continue</c>), while every other pattern code needs a
-    /// concrete base from its set - a sequence <c>N</c> does not satisfy <c>G</c> or <c>R</c>.
-    /// <see cref="IupacHelper.MatchesIupac"/> alone would make a sequence <c>N</c> block a PAM's <c>N</c> position.
-    /// </summary>
-    private static bool MatchesIupac(char nucleotide, char iupacCode) =>
-        iupacCode == 'N' ? IupacHelper.IsNucleotideCode(nucleotide) : IupacHelper.MatchesIupac(nucleotide, iupacCode);
 
     #endregion
 
@@ -347,7 +344,7 @@ public static class CrisprDesigner
     /// IUPAC ambiguity codes included, with the same <see cref="ArgumentException"/> the file's other raw-string
     /// guards raise (the CFD / SaCas9 / MIT scorers, and the <see cref="DnaSequence"/> alphabet they mirror).
     /// </summary>
-    private static string NormalizeNucleotides(string value, string paramName)
+    internal static string NormalizeNucleotides(string value, string paramName)
     {
         var chars = new char[value.Length];
         for (int i = 0; i < value.Length; i++)
@@ -731,11 +728,11 @@ public static class CrisprDesigner
     /// PAM) lies inside it, as CRISPOR's <c>annotateOfftargets</c> does, and is reported otherwise.</param>
     /// <returns>Forward-strand PAMs by ascending coordinate, then reverse-strand PAMs;
     /// for each PAM, ungapped, DNA-bulged, then RNA-bulged alignments by size and gap offset.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or the genome is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when the guide or the genome is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxMismatches"/> is outside 0-5,
     /// <paramref name="maxDnaBulge"/> or <paramref name="maxRnaBulge"/> is outside 0-2, or the on-target
     /// interval is negative or empty.</exception>
-    /// <exception cref="ArgumentException">Thrown when the guide length does not match the system's, the guide
+    /// <exception cref="ArgumentException">Thrown when the guide is empty, its length does not match the system's, it
     /// contains a non-nucleotide character, or only one bound of the on-target interval is given.</exception>
     public static IEnumerable<BulgedOffTargetSite> FindOffTargetsWithBulges(
         string guideSequence,
@@ -771,7 +768,7 @@ public static class CrisprDesigner
             string sequence = strand == 0 ? forward : reverse;
             for (int pamStart = 0; pamStart <= sequence.Length - pamLength; pamStart++)
             {
-                if (!MatchesPam(sequence, pamStart, system.PamSequence))
+                if (!IupacPattern.MatchesAt(sequence, pamStart, system.PamSequence))
                     continue;
 
                 // Each length has its own PAM-adjacent window; FindPamSitesCore deliberately
@@ -1034,9 +1031,9 @@ public static class CrisprDesigner
     /// with its PAM. The PAM always matches <paramref name="systemType"/>'s motif — one call scans one
     /// system — so an alternative-PAM aggregate combines the results of several calls.
     /// </returns>
-    /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or the genome is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when the guide or the genome is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxMismatches"/> is outside 0-5.</exception>
-    /// <exception cref="ArgumentException">Thrown when the guide length does not match the system's.</exception>
+    /// <exception cref="ArgumentException">Thrown when the guide is empty or its length does not match the system's.</exception>
     public static IEnumerable<PamAnnotatedOffTarget> FindOffTargetsWithPam(
         string guideSequence,
         DnaSequence genome,
@@ -1675,12 +1672,15 @@ public static class CrisprDesigner
         var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         EnsureValidMaxOccurrences(maxOccurrences);
 
+        // The repeat test comes first, as in the reference (repCount before any scoring), so a repeat guide on a large
+        // genome is answered without building its whole hit list; it is PAM-agnostic, hence also before "no hits -> 100".
+        if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
+            return 0.0;
+
         var offTargets = CollectSystemHits(guide, genome, maxMismatches, systemType, onTarget,
                 ExactMatchPolicy.DropFirst)
             .Select(static hit => hit.Site).ToList();
 
-        if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
-            return 0.0;
         if (offTargets.Count == 0)
             return 100.0;
 
@@ -1758,11 +1758,12 @@ public static class CrisprDesigner
     /// hit was found with. Must be a PAM-after-target (Cas9-class) system.
     /// </param>
     /// <returns>The aggregate MIT/Hsu specificity in [0, 100]; 100 for an empty off-target set.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or <paramref name="offTargets"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when the guide or <paramref name="offTargets"/> is null.</exception>
     /// <exception cref="ArgumentException">
-    /// Thrown when <paramref name="systemType"/> is a Cas12a/Cpf1-class (PAM-before-target) system, when
-    /// the guide length does not match the system's, or when an element is null / carries an empty PAM
-    /// or a protospacer of a different length than the guide.
+    /// Thrown when <paramref name="systemType"/> is a Cas12a/Cpf1-class (PAM-before-target) system, when the guide is
+    /// empty or its length does not match the system's, or when an element is null, has no <c>Site.Sequence</c>,
+    /// carries an empty PAM, a PAM or protospacer outside A/C/G/T (U read as T), or a protospacer of a different
+    /// length than the guide.
     /// </exception>
     /// <remarks>
     /// Source: CRISPOR <c>crispor.py</c> <c>annotateOfftargets</c>, L1947-1958 — after the per-hit MIT
@@ -1816,12 +1817,18 @@ public static class CrisprDesigner
         {
             if (hit is null)
                 throw new ArgumentException("Off-target list contains a null element.", nameof(offTargets));
+            if (hit.Site?.Sequence is null)
+                throw new ArgumentException(
+                    "Every off-target must carry its protospacer sequence (Site.Sequence).", nameof(offTargets));
             if (string.IsNullOrEmpty(hit.Pam))
                 throw new ArgumentException(
                     "Every off-target must carry its own PAM; the alternative-PAM rule is defined on it.",
                     nameof(offTargets));
 
-            string offTarget = SequenceExtensions.ToUpperAscii(hit.Site.Sequence)!;
+            // Alphabet checks here, blaming the list (the inner scorer would blame its own private parameter, and a PAM of
+            // "ZZZ" used to be accepted and silently down-weighted by 0.2).
+            string offTarget = NormalizeNucleotides(hit.Site.Sequence, nameof(offTargets));
+            string hitPam = NormalizeNucleotides(hit.Pam, nameof(offTargets));
             if (offTarget.Length != guide.Length)
                 throw new ArgumentException(
                     $"Off-target protospacer length ({offTarget.Length}) does not match the guide ({guide.Length}).",
@@ -1835,7 +1842,7 @@ public static class CrisprDesigner
             // otSeq is the protospacer WITH its PAM, so the test is written on that concatenation here
             // rather than on the PAM alone — identical for the 3-nt PAMs of every NGG system, and the
             // reference's expression verbatim for any other PAM length a caller supplies.
-            string otSeq = offTarget + SequenceExtensions.ToUpperAscii(hit.Pam)!;
+            string otSeq = offTarget + hitPam;
             if (mainPamIsNgg && !otSeq.EndsWith("GG", StringComparison.Ordinal))
                 hitScore *= AlternativePamMitWeight;
 
@@ -1871,10 +1878,10 @@ public static class CrisprDesigner
     /// with more alignments than this scores 0; see
     /// <see cref="CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType, int?, int?, int)"/>.</param>
     /// <returns>The aggregate MIT/Hsu specificity in [0, 100]; 100 when no off-target is found at all, 0 for a repeat guide.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the guide is null/empty or the genome is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when the guide or the genome is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxMismatches"/> is outside 0-5, the cutoff is negative/NaN or <paramref name="maxOccurrences"/> is below 1.</exception>
     /// <exception cref="ArgumentException">
-    /// Thrown for a PAM-before-target system, or when the guide length does not match the system's.
+    /// Thrown for a PAM-before-target system, or when the guide is empty or its length does not match the system's.
     /// </exception>
     /// <remarks>
     /// Coverage, stated exactly: an alternative PAM can only be scanned here if some
@@ -1920,11 +1927,11 @@ public static class CrisprDesigner
         var guide = ValidateAggregateArguments(guideSequence, genome, maxMismatches, systemType, requireTwentyNtProtospacer: false);
         var onTarget = ResolveOnTargetInterval(onTargetStart, onTargetEnd);
         EnsureValidMaxOccurrences(maxOccurrences);
-        var hits = CollectAlternativePamHits(
-            guide, genome, maxMismatches, systemType, minAlternativePamHitScore, onTarget);
-
         if (ExceedsMaxOccurrences(guide, genome, maxMismatches, maxOccurrences))
             return 0.0;
+
+        var hits = CollectAlternativePamHits(
+            guide, genome, maxMismatches, systemType, minAlternativePamHitScore, onTarget);
         return CalculateMitSpecificityScore(guide, hits, systemType);
     }
 
@@ -1958,7 +1965,7 @@ public static class CrisprDesigner
                 {
                     // CRISPOR runs ONE search, so a site matching both the main and a wider alternative
                     // pattern (SaCas9 NNGRRT inside NNGRRN) is a single off-target; the main scan has it.
-                    if (!MatchesPam(SequenceExtensions.ToUpperAscii(hit.Pam)!, 0, main.PamSequence))
+                    if (!IupacPattern.MatchesAt(SequenceExtensions.ToUpperAscii(hit.Pam)!, 0, main.PamSequence))
                         hits.Add(hit);
                 }
             }
@@ -1976,7 +1983,7 @@ public static class CrisprDesigner
             hits = hits.Where(hit =>
             {
                 string pam = SequenceExtensions.ToUpperAscii(hit.Pam)!;
-                if (!altPams.Any(alt => MatchesPam(pam, 0, alt)))
+                if (!altPams.Any(alt => IupacPattern.MatchesAt(pam, 0, alt)))
                     return true;
                 string ot = SequenceExtensions.ToUpperAscii(hit.Site.Sequence)!;
                 double score = useSaModel ? CalculateSaCas9HitScore(guide, ot) : CalculateMitHitScoreFudged(guide, ot);
@@ -2094,7 +2101,7 @@ public static class CrisprDesigner
     // ---------------------------------------------------------------------------------------------
     // SaCas9-specific off-target activity model (PUBLISHED, fully reproducible).
     //
-    // Source: Tycko J, Wainberg M, Marinov GK, et al. "Pairwise library screen systematically
+    // Source: Tycko J, Barrera LA, Huston NC, et al. "Pairwise library screen systematically
     //   interrogates Staphylococcus aureus Cas9 specificity in human cells."
     //   Nat Commun 9, 2962 (2018). doi:10.1038/s41467-018-05391-2.
     //   (the paper CRISPOR's calcSaHitScore cites: "saCas9 offtarget scoring from Tycko et al,
@@ -2205,9 +2212,9 @@ public static class CrisprDesigner
     /// (<see cref="CrisprSystemType.SaCas9"/>). Other lengths are refused rather than approximated.
     /// </para>
     /// </remarks>
-    /// <exception cref="ArgumentNullException">Either sequence is null or empty.</exception>
+    /// <exception cref="ArgumentNullException">Either sequence is null.</exception>
     /// <exception cref="ArgumentException">
-    /// Either sequence is not 21 nt, or contains a character outside A/C/G/T (including the gap
+    /// Either sequence is empty, is not 21 nt, or contains a character outside A/C/G/T (including the gap
     /// character the reference explicitly refuses).
     /// </exception>
     public static double CalculateSaCas9HitScore(string saGuide21, string offTarget21)
@@ -2421,6 +2428,14 @@ public static class CrisprDesigner
         // PAM: score the last two nucleotides (the N of NGG always contributes 1).
         if (pam.Length is not (2 or 3))
             throw new ArgumentException($"CFD PAM must be 2 or 3 nt; got {pam.Length}.", nameof(offTargetPam));
+        // The whole PAM is screened, as crispor.py calcCfdScore screens otSeq (protospacer + PAM) with
+        // re.search('[^ATCG]', ...): the N of NGG is not scored, but it must still be a base of the off-target site.
+        foreach (char c in pam)
+        {
+            if (c is not ('A' or 'C' or 'G' or 'T'))
+                throw new ArgumentException($"CFD PAM '{offTargetPam}' must contain only A/C/G/T.", nameof(offTargetPam));
+        }
+
         string pamKey = pam.Length == 3 ? pam.Substring(1) : pam;
         if (!CfdPamScores.TryGetValue(pamKey, out double pamScore))
             throw new ArgumentException($"CFD PAM '{offTargetPam}' must contain only A/C/G/T.", nameof(offTargetPam));
@@ -3080,6 +3095,20 @@ public readonly record struct GuideRnaParameters(
         if (MaxSelfComplementaryStems is < 0)
             throw new ArgumentOutOfRangeException(paramName, MaxSelfComplementaryStems,
                 "MaxSelfComplementaryStems must be null (no filter, CHOPCHOP's -1) or at least 0.");
+        if (!Enum.IsDefined(Ranking))
+            throw new ArgumentOutOfRangeException(paramName, Ranking,
+                "Ranking must be a defined GuideRnaRanking value.");
+        if (SelfComplementarityBackboneRegions is { } regions)
+        {
+            // The same rule CountSelfComplementaryStems applies lazily (null element, A/C/G/T/U only), refused here at the
+            // call so that DesignGuideRnas and EvaluateGuideRna agree on when and with which parameter name.
+            foreach (var region in regions)
+            {
+                if (region is null)
+                    throw new ArgumentException("SelfComplementarityBackboneRegions contains a null element.", paramName);
+                CrisprDesigner.NormalizeNucleotides(region, paramName);
+            }
+        }
     }
 
     /// <summary>

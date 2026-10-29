@@ -905,7 +905,7 @@ public class CrisprDesigner_OffTarget_Tests
 
     #region F14 — SaCas9 off-target model (Tycko et al. 2018)
 
-    // Source: Tycko J, Wainberg M, Marinov GK, et al., "Pairwise library screen systematically
+    // Source: Tycko J, Barrera LA, Huston NC, et al., "Pairwise library screen systematically
     // interrogates Staphylococcus aureus Cas9 specificity in human cells", Nat Commun 9:2962 (2018),
     // doi:10.1038/s41467-018-05391-2.
     // Reference implementation: CRISPOR calcSaHitScore (crispor.py L2025-2043) -> SaCas9Scorer in

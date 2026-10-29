@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RestrictionAnalyzer.AreCompatible",
-  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1840",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L1797",
   "description": "Return whether two named restriction enzymes (any of the 754 REBASE enzymes with a defined cut) produce ligatable (compatible) ends: both blunt, or the same overhang polarity with overhangs that can anneal. An unknown name is an error.",
   "inputSchema": {
     "type": "object",

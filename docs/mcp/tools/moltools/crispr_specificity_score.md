@@ -24,7 +24,7 @@ The C# method is named `CalculateHeuristicSpecificityScore` so that the declarat
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L1089](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1089)
+- Source: [CrisprDesigner.cs#L1086](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1086)
 
 ## Input Schema
 

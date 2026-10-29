@@ -38,14 +38,23 @@ public sealed class B07ToolDocsContractTests
     private static readonly Regex DocRefPattern =
         new(@"^Seqeron\.Genomics\.MolTools/(?<file>[\w.]+\.cs)#L(?<line>\d+)\b", RegexOptions.Compiled);
 
-    public static IEnumerable<string> AnchoredTools()
+    // Source files whose tools document their examples in machine-comparable form (a JSON subset of the real result).
+    // The primer / probe / restriction docs describe some outputs in prose ("10 enzymes: AluI, RsaI, ..."); a batch adds a
+    // stem here once its examples are executable.
+    private static readonly string[] ExecutableExampleStems = { "CrisprDesigner" };
+
+    public static IEnumerable<string> ExecutableExampleTools() => ToolsWithDocRefIn(ExecutableExampleStems);
+
+    public static IEnumerable<string> AnchoredTools() => ToolsWithDocRefIn(AuditedSourceStems);
+
+    private static IEnumerable<string> ToolsWithDocRefIn(string[] stems)
     {
         string docsDir = DocsDirectory();
         foreach (string path in Directory.GetFiles(docsDir, "*.mcp.json").OrderBy(p => p, StringComparer.Ordinal))
         {
             using var doc = JsonDocument.Parse(File.ReadAllText(path));
             var m = DocRefPattern.Match(doc.RootElement.GetProperty("docRef").GetString()!);
-            if (m.Success && AuditedSourceStems.Any(stem => m.Groups["file"].Value.StartsWith(stem, StringComparison.Ordinal)))
+            if (m.Success && stems.Any(stem => m.Groups["file"].Value.StartsWith(stem, StringComparison.Ordinal)))
                 yield return doc.RootElement.GetProperty("toolName").GetString()!;
         }
     }
@@ -97,7 +106,7 @@ public sealed class B07ToolDocsContractTests
     private static string[] Required(JsonElement schema) =>
         schema.TryGetProperty("required", out var r) ? r.EnumerateArray().Select(x => x.GetString()!).ToArray() : Array.Empty<string>();
 
-    [TestCaseSource(nameof(B07Tools))]
+    [TestCaseSource(nameof(AnchoredTools))]
     public void McpJson_InputSchema_MatchesWrapperParameters(string tool)
     {
         var method = ToolMethod(tool);
@@ -179,7 +188,93 @@ public sealed class B07ToolDocsContractTests
         }
     }
 
-    [TestCaseSource(nameof(B07Tools))]
+    // Every documented example is an executable claim: its input, run through the real wrapper, must reproduce the
+    // documented output (B08 round 5 A5-2: the design_guide_rnas example said "score 100" while the tool returns 90, and
+    // nothing ran the CRISPR examples). Outputs may be abridged: an object lists a subset of the properties, an array a
+    // prefix of the elements; numbers compare to 1e-9, an "error" output expects an exception whose type name or message
+    // matches.
+    [TestCaseSource(nameof(ExecutableExampleTools))]
+    public void McpJson_Examples_ReproduceTheTool(string tool)
+    {
+        var method = ToolMethod(tool);
+        var parameters = method.GetParameters();
+        var options = ModelContextProtocol.McpJsonUtilities.DefaultOptions;
+        using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(DocsDirectory(), tool + ".mcp.json")));
+
+        Assert.Multiple(() =>
+        {
+            foreach (var example in doc.RootElement.GetProperty("examples").EnumerateArray())
+            {
+                string name = $"{tool}/{example.GetProperty("name").GetString()}";
+                var input = example.GetProperty("input");
+                var output = example.GetProperty("output");
+                object?[] args = parameters.Select(p =>
+                    input.TryGetProperty(p.Name!, out var value) ? value.Deserialize(p.ParameterType, options)
+                    : p.HasDefaultValue ? p.DefaultValue
+                    : null).ToArray();
+
+                if (output.TryGetProperty("error", out var error))
+                {
+                    var thrown = Assert.Catch(() =>
+                    {
+                        try { method.Invoke(null, args); }
+                        catch (TargetInvocationException e) { System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.InnerException!).Throw(); }
+                    }, name);
+                    string expected = error.GetString()!;
+                    Assert.That(thrown!.GetType().Name == expected || thrown.Message.Contains(expected, StringComparison.OrdinalIgnoreCase),
+                        Is.True, $"{name}: documented error '{expected}' vs {thrown.GetType().Name}: {thrown.Message}");
+                    continue;
+                }
+
+                object? result;
+                try { result = method.Invoke(null, args); }
+                catch (TargetInvocationException e) { Assert.Fail($"{name}: threw {e.InnerException}"); continue; }
+                var actual = JsonSerializer.SerializeToElement(result, result!.GetType(), options);
+                string? difference = FirstDifference(output, actual, "$");
+                Assert.That(difference, Is.Null, $"{name}: {difference}");
+            }
+        });
+    }
+
+    private static string? FirstDifference(JsonElement documented, JsonElement actual, string path)
+    {
+        switch (documented.ValueKind)
+        {
+            case JsonValueKind.Object:
+                if (actual.ValueKind != JsonValueKind.Object)
+                    return $"{path}: documented object, tool returned {actual.ValueKind}";
+                foreach (var property in documented.EnumerateObject())
+                {
+                    if (!actual.TryGetProperty(property.Name, out var counterpart))
+                        return $"{path}.{property.Name}: not in the tool's result";
+                    if (FirstDifference(property.Value, counterpart, $"{path}.{property.Name}") is { } inner)
+                        return inner;
+                }
+                return null;
+            case JsonValueKind.Array:
+                if (actual.ValueKind != JsonValueKind.Array)
+                    return $"{path}: documented array, tool returned {actual.ValueKind}";
+                if (documented.GetArrayLength() > actual.GetArrayLength())
+                    return $"{path}: documented {documented.GetArrayLength()} element(s), tool returned {actual.GetArrayLength()}";
+                var elements = actual.EnumerateArray().ToArray();
+                int i = 0;
+                foreach (var element in documented.EnumerateArray())
+                {
+                    if (FirstDifference(element, elements[i], $"{path}[{i}]") is { } inner)
+                        return inner;
+                    i++;
+                }
+                return null;
+            case JsonValueKind.Number:
+                return actual.ValueKind == JsonValueKind.Number && Math.Abs(documented.GetDouble() - actual.GetDouble()) <= 1e-9 * Math.Max(1, Math.Abs(actual.GetDouble()))
+                    ? null : $"{path}: documented {documented.GetRawText()}, tool returned {actual.GetRawText()}";
+            default:
+                return documented.ValueKind == actual.ValueKind && documented.GetRawText() == actual.GetRawText()
+                    ? null : $"{path}: documented {documented.GetRawText()}, tool returned {actual.GetRawText()}";
+        }
+    }
+
+    [TestCaseSource(nameof(AnchoredTools))]
     public void McpJson_OutputSchema_ListsResultProperties(string tool)
     {
         var resultType = ToolMethod(tool).ReturnType;

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.DesignGuideRnas",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L234",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L231",
   "description": "Generate and score CRISPR guide-RNA candidates whose cut site falls in a target region, filtering by minimum score.",
   "inputSchema": {
     "type": "object",
@@ -15,11 +15,11 @@
       "region_end": { "type": "integer", "description": "0-based inclusive end of the target region." },
       "system_type": {
         "type": "string",
-        "description": "CRISPR system.",
+        "description": "CRISPR system (default SpCas9).",
         "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"],
         "default": "SpCas9"
       },
-      "parameters": { "type": ["object", "null"], "description": "Optional guide-RNA design parameters (minGcContent, maxGcContent, minScore, avoidPolyT, checkSelfComplementarity, scoreGcContent, ranking, maxSelfComplementaryStems, selfComplementarityBackboneRegions). maxSelfComplementaryStems (default null = no filter, CHOPCHOP filterSelfCompMax = -1) drops guides with more CHOPCHOP 4-bp self-complementary stems; selfComplementarityBackboneRegions (default null = guide-internal stems only) lists sgRNA scaffold regions on the guide's strand the stems may also pair against (CHOPCHOP --backbone)." }
+      "parameters": { "type": ["object", "null"], "description": "Optional guide-RNA design parameters (minGcContent, maxGcContent, minScore, avoidPolyT, checkSelfComplementarity, scoreGcContent (default true; false = CHOPCHOP's own default of no GC score term), ranking, maxSelfComplementaryStems, selfComplementarityBackboneRegions). maxSelfComplementaryStems (default null = no filter, CHOPCHOP filterSelfCompMax = -1) drops guides with more CHOPCHOP 4-bp self-complementary stems; selfComplementarityBackboneRegions (default null = guide-internal stems only) lists sgRNA scaffold regions, on the guide's strand, the stems may also pair against (CHOPCHOP --backbone). Defaults are used when null.", "default": null }
     },
     "required": ["sequence", "region_start", "region_end"]
   },
@@ -29,7 +29,27 @@
       "guides": {
         "type": "array",
         "description": "Scored guide-RNA candidates.",
-        "items": { "type": "object" }
+        "items": {
+          "type": "object",
+          "description": "GuideRnaCandidate (same fields as evaluate_guide_rna; context30Mer / onTargetScore are set for 20-nt guides of the SpCas9 family with their flanks in the sequence).",
+          "properties": {
+            "sequence": { "type": "string" },
+            "position": { "type": "integer", "description": "0-based forward-strand start of the protospacer (both strands)." },
+            "isForwardStrand": { "type": "boolean" },
+            "gcContent": { "type": "number" },
+            "seedGcContent": { "type": "number" },
+            "hasPolyT": { "type": "boolean" },
+            "selfComplementarityScore": { "type": "number" },
+            "score": { "type": "number" },
+            "issues": { "type": "array", "items": { "type": "string" } },
+            "system": { "type": "object" },
+            "fullGuideRna": { "type": ["string", "null"] },
+            "context30Mer": { "type": ["string", "null"] },
+            "onTargetScore": { "type": ["number", "null"] },
+            "grafMotif": { "type": "string", "enum": ["None", "TtMotif", "GccMotif"] },
+            "selfComplementaryStems": { "type": "integer" }
+          }
+        }
       }
     },
     "required": ["guides"]
@@ -37,13 +57,15 @@
   "errors": [
     { "code": 1001, "message": "Sequence cannot be null or empty" },
     { "code": 1002, "message": "Region start must be within the sequence" },
-    { "code": 1003, "message": "Region end must satisfy region_start <= region_end < sequence.Length" }
+    { "code": 1003, "message": "Region end must satisfy region_start <= region_end < sequence.Length" },
+    { "code": 1004, "message": "Invalid nucleotide '{char}' at position {i}. (the sequence must be A/C/G/T)" },
+    { "code": 1005, "message": "parameters invalid: GC window not 0 <= minGcContent <= maxGcContent <= 100, NaN minScore, negative maxSelfComplementaryStems, undefined ranking, invalid backbone region, or all-zero parameters." }
   ],
   "examples": [
     {
       "name": "Single SpCas9 guide with NGG PAM",
       "input": { "sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAGG", "region_start": 20, "region_end": 45, "system_type": "SpCas9" },
-      "output": { "guides": [ { "position": 24, "score": 100.0, "isForwardStrand": true, "gcContent": 50.0, "sequence": "ACGTACGTACGTACGTACGT" } ] }
+      "output": { "guides": [ { "position": 24, "score": 90.0, "selfComplementaryStems": 10, "isForwardStrand": true, "gcContent": 50.0, "sequence": "ACGTACGTACGTACGTACGT" } ] }
     },
     {
       "name": "Invalid region (end before start)",

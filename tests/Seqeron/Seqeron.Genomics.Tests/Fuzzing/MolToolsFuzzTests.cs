@@ -742,47 +742,37 @@ public class MolToolsFuzzTests
     }
 
     /// <summary>
-    /// MC: non-DNA junk fed to the RAW-STRING overload must NOT crash and must NOT
-    /// invent sites. Each sequence character is tested as the `nucleotide` argument
-    /// of MatchesIupac(seqChar, pamChar); a junk char matches no IUPAC code, so it
-    /// can never satisfy a PAM position. The reverse-strand pass complements via
-    /// GetComplementBase, whose fall-through arm passes non-IUPAC chars through
-    /// unchanged — no exception, no out-of-range indexing. Pure-junk input yields no
-    /// PAM sites. We force enumeration so the in-iterator scan actually runs.
+    /// MC: non-DNA junk fed to the RAW-STRING overload must NOT crash and must NOT invent sites. Since audit
+    /// round 5 (A5-7) the overload is CRISPOR's front end: a text with a character other than A/C/G/T/N is an
+    /// <see cref="ArgumentException"/> at the call (before, such a character inside a protospacer window came back
+    /// as a "guide" that EvaluateGuideRna then rejected). Pure junk therefore throws; it never yields a site.
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    public void FindPamSites_NonDnaSequence_RawOverload_NoSitesNoCrash()
+    public void FindPamSites_NonDnaSequence_RawOverload_IsRejectedAtTheCall()
     {
-        var act = () => CrisprDesigner.FindPamSites("$#@!XYZ123 ￿qwerty", CrisprSystemType.SpCas9).ToList();
+        var act = () => CrisprDesigner.FindPamSites("$#@!XYZ123^\uFFFDqwerty", CrisprSystemType.SpCas9);
 
-        act.Should().NotThrow(
-            "non-DNA characters are tested against the PAM via IUPAC matching and complemented via a pass-through arm; neither path indexes out of range");
-
-        CrisprDesigner.FindPamSites("$#@!XYZ123 ￿qwerty", CrisprSystemType.SpCas9)
-            .Should().BeEmpty(
-                "a character that is not A/C/G/T matches no PAM position, so pure junk can never produce a spurious PAM site");
+        act.Should().ThrowExactly<ArgumentException>(
+            "a character that is not A/C/G/T/N is not a nucleotide; the front end refuses it before any scan")
+            .WithParameterName("sequence");
     }
 
     /// <summary>
-    /// MC: junk INTERLEAVED into an otherwise-valid PAM window must suppress that
-    /// site, not crash. "…AGG" at the right offset is a real forward SpCas9 site;
-    /// replacing the final 'G' with '#' breaks the NGG match (the '#' satisfies no
-    /// IUPAC code), so no forward site is reported there — proving junk neither
-    /// fabricates nor silently "rounds to" a valid PAM.
+    /// MC: junk INTERLEAVED into an otherwise-valid PAM window. "\u2026AGG" at the right offset is a real forward SpCas9
+    /// site; replacing the final 'G' with '#' used to break the NGG match silently. With the front-end check the '#'
+    /// is named and refused instead - junk neither fabricates nor silently "rounds to" a valid PAM, and it is no
+    /// longer swallowed either.
     /// </summary>
     [Test]
-    public void FindPamSites_JunkInsidePamWindow_SuppressesThatSite()
+    public void FindPamSites_JunkInsidePamWindow_IsRejectedAtTheCall()
     {
-        // 20 A's (guide) + "AG#" — the NGG window at index 20 is broken by '#'.
+        // 20 A's (guide) + "AG#" - the NGG window at index 20 is broken by '#'.
         string broken = new string('A', 20) + "AG#";
 
-        var sites = CrisprDesigner.FindPamSites(broken, CrisprSystemType.SpCas9).ToList();
+        var act = () => CrisprDesigner.FindPamSites(broken, CrisprSystemType.SpCas9);
 
-        sites.Should().NotContain(s => s.IsForwardStrand && s.Position == 20,
-            "the '#' in the third PAM position fails IUPAC matching, so the forward NGG site at index 20 is correctly NOT reported");
-        sites.Should().OnlyContain(s => s.PamSequence.All(c => c == 'A' || c == 'C' || c == 'G' || c == 'T'),
-            "any site that IS reported still has a clean A/C/G/T PAM string — junk never leaks into a reported PAM");
+        act.Should().ThrowExactly<ArgumentException>().Which.Message.Should().Contain("'#'").And.Contain("index 22");
     }
 
     #endregion

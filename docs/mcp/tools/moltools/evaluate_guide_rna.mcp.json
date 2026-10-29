@@ -5,14 +5,14 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.EvaluateGuideRna",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L325",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L322",
   "description": "Score a single guide RNA against on-target quality heuristics (library heuristic; each CHOPCHOP self-complementary 4-bp stem deducts 1 point). The guide must be A/C/G/T (U is read as T).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "guide_sequence": { "type": "string", "description": "Guide RNA sequence.", "minLength": 1 },
-      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
-      "parameters": { "type": ["object", "null"] }
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "description": "CRISPR system (default SpCas9).", "default": "SpCas9" },
+      "parameters": { "type": ["object", "null"], "description": "Optional guide-RNA design parameters.", "default": null }
     },
     "required": ["guide_sequence"]
   },
@@ -27,9 +27,27 @@
       "hasPolyT": { "type": "boolean" },
       "selfComplementarityScore": { "type": "number" },
       "score": { "type": "number" },
-      "issues": { "type": "array", "items": { "type": "string" } }
+      "issues": { "type": "array", "items": { "type": "string" } },
+      "system": {
+        "type": "object",
+        "description": "The CRISPR system record (see crispr_system_info).",
+        "properties": {
+          "name": { "type": "string" },
+          "pamSequence": { "type": "string" },
+          "guideLength": { "type": "integer" },
+          "pamAfterTarget": { "type": "boolean" },
+          "description": { "type": "string" },
+          "cutOffset": { "type": "integer" }
+        },
+        "required": ["name", "pamSequence", "guideLength", "pamAfterTarget", "description", "cutOffset"]
+      },
+      "fullGuideRna": { "type": ["string", "null"], "description": "Spacer + the system's sgRNA scaffold (76 nt SpCas9/SpCas9-NAG/NGA, 77 nt SaCas9); null for Cas12a/CasX, which have no sgRNA scaffold." },
+      "context30Mer": { "type": ["string", "null"], "description": "30-nt Rule Set 2 context (4 nt upstream + 20-nt protospacer + 3-nt PAM + 3 nt downstream) of a designed 20-nt, 3-nt-PAM-after-target guide with its flanks in the sequence; null otherwise (evaluate_guide_rna never has one)." },
+      "onTargetScore": { "type": ["number", "null"], "description": "Doench 2016 Rule Set 2 / Azimuth on-target score in 0..1 for context30Mer; null without a context." },
+      "grafMotif": { "type": "string", "enum": ["None", "TtMotif", "GccMotif"], "description": "Graf 2019 inefficiency motif at the PAM-proximal end of an NGG guide (reported, no score effect)." },
+      "selfComplementaryStems": { "type": "integer", "description": "CHOPCHOP 4-bp self-complementary stem count (1 point of penalty each)." }
     },
-    "required": ["sequence", "position", "isForwardStrand", "gcContent", "seedGcContent", "hasPolyT", "selfComplementarityScore", "score", "issues"]
+    "required": ["sequence", "position", "isForwardStrand", "gcContent", "seedGcContent", "hasPolyT", "selfComplementarityScore", "score", "issues", "system", "grafMotif", "selfComplementaryStems"]
   },
   "errors": [
     { "code": 1001, "message": "Guide sequence cannot be null or empty" },

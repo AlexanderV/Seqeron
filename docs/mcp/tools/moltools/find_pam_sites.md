@@ -31,13 +31,14 @@ Scans both strands for the PAM of the chosen CRISPR system (IUPAC-aware, e.g. `N
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `sites` | array | PAM sites, each `{position, pamSequence, targetSequence, targetStart, isForwardStrand}`. |
+| `sites` | array | PAM sites, each `{position, pamSequence, targetSequence, targetStart, isForwardStrand, system}` (`system` = the system record of `crispr_system_info`). |
 
 ## Errors
 
 | Code | Message |
 |------|---------|
 | 1001 | Sequence cannot be null or empty |
+| 1002 | Expected A/C/G/T/N but found '{char}' at index {i}. (`ArgumentException`: only A/C/G/T/N, either case, are scanned; a protospacer window holding an `N` is not returned) |
 
 ## Examples
 

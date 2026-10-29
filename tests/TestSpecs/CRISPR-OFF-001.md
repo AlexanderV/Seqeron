@@ -36,7 +36,7 @@
 | Hsu et al. (2013), Nature Biotechnology | PAM-proximal 8-12bp defines specificity; single-base specificity ranges 8-14bp; 2+ mismatches in PAM-proximal region reduce activity; 3+ interspaced or 5+ concatenated mismatches eliminate cleavage | PMC3969858 |
 | Fu et al. (2013), Nature Biotechnology | >50% of CRISPR mutations can occur off-target; truncated gRNAs (17-18bp) increase specificity | PMID 23792628 |
 | Doench et al. (2016), Nature Biotechnology | CFD (Cutting Frequency Determination): per-position mismatch percent-activity matrix × PAM-activity table | PMID 26780180 |
-| Tycko J, Wainberg M, Marinov GK, et al. (2018), Nature Communications 9:2962 | SaCas9-specific trained per-position mismatch coefficients (pairwise library screen) | doi:10.1038/s41467-018-05391-2 |
+| Tycko J, Barrera LA, Huston NC, et al. (2018), Nature Communications 9:2962 | SaCas9-specific trained per-position mismatch coefficients (pairwise library screen) | doi:10.1038/s41467-018-05391-2 |
 | CRISPOR `crispor.py` (master) | Reference implementation of every model and both guide-level aggregates (`calcHitScore`, `calcSaHitScore`, `calcCfdScore`, `calcMitGuideScore`, `calcCfdGuideScore`, `annotateOfftargets`) | https://raw.githubusercontent.com/maximilianh/crisporWebsite/master/crispor.py |
 
 > **Provenance note (WP-SRC, 2026-10-14).** The **Wikipedia: Off-target genome editing** row is on a
@@ -78,17 +78,17 @@ pins that the two produce visibly different numbers on the same input.
 
 ### MUST Tests (Critical Functionality)
 
-#### M-001: FindOffTargets - Empty Guide Throws Exception
+#### M-001: FindOffTargets - Empty Guide Throws ArgumentException
 **Evidence**: Defensive programming; null/empty input undefined
 **Input**: Empty string "", valid genome, maxMismatches=3
-**Expected**: Throws `ArgumentNullException`
-**Existing Test**: `FindOffTargets_EmptyGuide_ThrowsException` ✅
+**Expected**: Throws `ArgumentException` (a null guide throws `ArgumentNullException`: the null/empty split, audit round 4 H19 / round 5 A5-1)
+**Existing Test**: `FindOffTargets_EmptyGuide_ThrowsArgumentException` ✅
 
 #### M-002: FindOffTargets - Null Genome Throws Exception
 **Evidence**: Defensive programming
 **Input**: Valid guide, null genome, maxMismatches=3
 **Expected**: Throws `ArgumentNullException`
-**Existing Test**: `FindOffTargets_NullGenome_ThrowsException` ✅
+**Existing Test**: `FindOffTargets_NullGenome_ThrowsArgumentNullException` ✅
 
 #### M-003: FindOffTargets - Invalid MaxMismatches Throws Exception
 **Evidence**: Per Hsu et al., practical limit is 5 mismatches for detectable off-targets
@@ -118,7 +118,7 @@ pins that the two produce visibly different numbers on the same input.
 **Evidence**: Algorithm specification
 **Input**: Guide, genome with sites having various mismatch counts, maxMismatches=2
 **Expected**: All returned off-targets have Mismatches ≤ 2
-**Existing Test**: `FindOffTargets_MaxMismatchesRespected` ✅
+**Existing Test**: `FindOffTargets_MaxMismatchesRespected_AllResultsWithinLimit` ✅
 
 #### M-007: FindOffTargets - MismatchPositions Reported Correctly
 **Evidence**: Hsu 2013 - position of mismatches affects activity; must be tracked
@@ -148,13 +148,13 @@ pins that the two produce visibly different numbers on the same input.
 **Evidence**: Few off-targets = high specificity
 **Input**: Guide with no off-targets in small genome
 **Expected**: Score = 100 (or near-maximum)
-**Existing Test**: `CalculateSpecificityScore_NoOffTargets_ReturnsHigh` ✅
+**Existing Test**: `CalculateSpecificityScore_NoOffTargets_Returns100` ✅
 
 #### M-012: CalculateSpecificityScore - More Off-Targets Reduces Score
 **Evidence**: More off-targets = lower specificity
 **Input**: Guide with multiple off-target sites
 **Expected**: Score < 100
-**Existing Test**: `CalculateSpecificityScore_ManyOffTargets_ReturnsLower` ✅
+**Existing Test**: `CalculateSpecificityScore_WithOffTargets_ScoreReducedFromMaximum` ✅
 
 ---
 
@@ -339,7 +339,7 @@ forward-strand, 0-based half-open).
 | `OnTargetInterval_MixedWithMismatchHits_AndMaxMismatchesZero` | + a 1-mismatch hit (60.5): default `62.30529595015576` / `99.29078014212564`; `[0,23)` `38.38771593090211` / `98.3146067418492`; `maxMismatches = 0` with an interval -> `50.0` |
 | `OnTargetInterval_InvalidBounds_Throw` | one bound only -> `ArgumentException`; start < 0, end <= start -> `ArgumentOutOfRangeException` |
 
-MCP: `SpecificityTools_OnTargetInterval_IsForwarded_AndDefaultStaysAllExactDropped`.
+MCP: `SpecificityTools_OnTargetInterval_IsForwarded_AndDefaultIsAutoOnTarget`.
 
 #### CFD aggregate over the alternative PAMs (B08 round 3 G1 / F80)
 

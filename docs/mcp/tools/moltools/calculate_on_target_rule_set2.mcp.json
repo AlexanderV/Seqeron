@@ -5,13 +5,13 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateOnTargetRuleSet2",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1404",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1401",
   "description": "Doench et al. 2016 \"Rule Set 2\" / Azimuth on-target efficacy score for an SpCas9 guide, conventionally in 0..1 (higher = predicted more active) — the \"Doench '16\" efficiency score reported by CRISPOR. Rule Set 2 is a trained gradient-boosted-tree model, reproduced here from Microsoft Research's Azimuth model. Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM + 3 nt downstream, A/C/G/T only. The PAM is not audited, as in CRISPOR (pam_audit=False): the model was trained on NGG, so a NAG / NGA context is scored but by extrapolation. Pass amino_acid_cut_position and percent_peptide together to use Azimuth's gene-context (full) model instead of the sequence-only one; percent_peptide = -1 is Azimuth's \"no gene position\" sentinel and is answered with the sequence-only model, as in the reference. Call to rank guides by the published on-target activity model.",
   "inputSchema": {
     "type": "object",
     "properties": {
       "context_30mer": {
-        "description": "30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (trained on NGG, not audited) + 3 nt downstream.",
+        "description": "30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (trained on NGG; not audited) + 3 nt downstream.",
         "type": "string"
       },
       "amino_acid_cut_position": {

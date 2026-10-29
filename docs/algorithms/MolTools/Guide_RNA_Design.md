@@ -10,7 +10,7 @@
 
 ## 1. Overview
 
-Guide RNA (gRNA/sgRNA) design in this repository evaluates and generates CRISPR guide candidates using sequence-composition metrics that are intended to correlate with editing efficiency and specificity. The design surface combines PAM-based candidate extraction with a score-based evaluation over GC content, poly-T content, seed-region GC, self-complementarity, and common restriction-site presence. The resulting `Score` is a heuristic quality measure rather than a learned or experimentally calibrated predictor; every designed candidate on a 20-nt NGG system whose 30-nt context fits in the sequence additionally carries the published Doench 2016 Rule Set 2 / Azimuth on-target score (`OnTargetScore`, from the 30-nt `Context30Mer`) and the Graf 2019 inefficiency motif (`GrafMotif`), and candidates can be ranked by that score (`GuideRnaParameters.Ranking = GuideRnaRanking.OnTargetRuleSet2`).
+Guide RNA (gRNA/sgRNA) design in this repository evaluates and generates CRISPR guide candidates using sequence-composition metrics that are intended to correlate with editing efficiency and specificity. The design surface combines PAM-based candidate extraction with a score-based evaluation over GC content, poly-T content, seed-region GC, self-complementarity, and common restriction-site presence. The resulting `Score` is a heuristic quality measure rather than a learned or experimentally calibrated predictor; every designed candidate of a 20-nt guide with a 3-nt PAM after the target (SpCas9, SpCas9-NAG, SpCas9-NGA; CRISPOR scores NAG/NGA too, `pam_audit=False`) whose 30-nt context fits in the sequence additionally carries the published Doench 2016 Rule Set 2 / Azimuth on-target score (`OnTargetScore`, from the 30-nt `Context30Mer`) and the Graf 2019 inefficiency motif (`GrafMotif`), and candidates can be ranked by that score (`GuideRnaParameters.Ranking = GuideRnaRanking.OnTargetRuleSet2`).
 
 ## 2. Scientific / Formal Basis
 
@@ -86,7 +86,7 @@ context it was computed from) on every qualifying candidate and can rank by it
 | INV-01 | Guide scores lie in `[0, 100]` | `EvaluateGuideRna(...)` returns `Math.Clamp(100 − penalty, 0, 100)` |
 | INV-02 | `DesignGuideRnas(...)` yields only candidates with `Score >= MinScore` | The source filters candidates against `effectiveParams.MinScore` |
 | INV-03 | The seed-region GC uses 10 nt at the PAM-proximal end chosen by system orientation | The source uses the last 10 bases for PAM-after-target systems and the first 10 for PAM-before-target systems |
-| INV-04 | `FullGuideRna` appends a fixed scaffold to `Sequence` | `GuideRnaCandidate.FullGuideRna` is a derived property in source |
+| INV-04 | `FullGuideRna` appends the system's sgRNA scaffold to `Sequence`, or is `null` when the system has none | `GuideRnaCandidate.FullGuideRna` is a derived `string?` property: 76 nt for the SpCas9 family, 77 nt for SaCas9, `null` for Cas12a/CasX (B08 H9) |
 
 ## 3. Contract
 
@@ -98,7 +98,7 @@ context it was computed from) on every qualifying candidate and can rank by it
 | `[DesignGuideRnas] regionStart` | `int` | required | Start of the target region | Must be `>= 0` and `< sequence.Length` |
 | `[DesignGuideRnas] regionEnd` | `int` | required | End of the target region | Must be `>= regionStart` and `< sequence.Length` |
 | `[DesignGuideRnas/EvaluateGuideRna] systemType` | `CrisprSystemType` | `SpCas9` | CRISPR system definition used for guide length and seed orientation | Must resolve through `CrisprDesigner.GetSystem(...)` |
-| `[DesignGuideRnas/EvaluateGuideRna] parameters` | `GuideRnaParameters?` | `GuideRnaParameters.Default` | Optional design thresholds | Defaults are `MinGcContent = 40`, `MaxGcContent = 70`, `MinScore = 50`, `AvoidPolyT = true`, `CheckSelfComplementarity = true`, `Ranking = Score`, `ScoreGcContent = true`, `MaxSelfComplementaryStems = null` (no filter), `SelfComplementarityBackboneRegions = null`; both boolean flags are honoured by the scoring path (setting one to `false` removes its deduction — B08 F8) |
+| `[DesignGuideRnas/EvaluateGuideRna] parameters` | `GuideRnaParameters?` | `GuideRnaParameters.Default` | Optional design thresholds | Defaults are `MinGcContent = 40`, `MaxGcContent = 70`, `MinScore = 50`, `AvoidPolyT = true`, `CheckSelfComplementarity = true`, `Ranking = Score`, `ScoreGcContent = true`, `MaxSelfComplementaryStems = null` (no filter), `SelfComplementarityBackboneRegions = null`; both boolean flags are honoured (`CheckSelfComplementarity = false` removes the stem deduction, `AvoidPolyT = false` the poly-T issue — B08 F8) |
 | `[EvaluateGuideRna] guideSequence` | `string` | required | Guide sequence to score | `null` throws `ArgumentNullException`; empty, a length other than the system's guide length, or a character other than A/C/G/T/U throws `ArgumentException` |
 
 ### 3.2 Output / Return Value
@@ -116,10 +116,10 @@ context it was computed from) on every qualifying candidate and can rank by it
 | `Issues` | `IReadOnlyList<string>` | Human-readable issues recorded during evaluation |
 | `System` | `CrisprSystem` | The CRISPR system the guide was evaluated for; designed guides carry the system of their own `PamSite` (SpCas9-NAG, SpCas9-NGA, SaCas9, SaCas9-NNGRRN, AsCas12a, LbCas12a, CasX keep their own PAM, guide length and seed orientation — B08 F4) |
 | `SelfComplementaryStems` | `int` | CHOPCHOP's 4-bp self-complementary stem count (`CountSelfComplementaryStems`); drives the `Score` deduction and the optional `MaxSelfComplementaryStems` filter |
-| `Context30Mer` | `string?` | Rule Set 2 context (4 nt + 20-nt protospacer + NGG PAM + 3 nt) read on the protospacer strand; `null` for standalone evaluation, non-20-nt/non-NGG systems, flanks outside the sequence, or a non-A/C/G/T base |
+| `Context30Mer` | `string?` | Rule Set 2 context (4 nt + 20-nt protospacer + 3-nt PAM + 3 nt) read on the protospacer strand; `null` for standalone evaluation, systems other than the 20-nt / 3-nt-PAM-after-target ones (SpCas9, SpCas9-NAG, SpCas9-NGA all carry one since H22), flanks outside the sequence, or a non-A/C/G/T base |
 | `OnTargetScore` | `double?` | Doench 2016 Rule Set 2 / Azimuth score in `[0, 1]` from `Context30Mer`; `null` when the context is unavailable. Published model, independent of `Score` |
-| `GrafMotif` | `GrafMotifType` | Graf 2019 inefficiency motif (`TtMotif` / `GccMotif` / `None`), evaluated for NGG systems only; reported as an issue, never deducted (as in CRISPOR) |
-| `FullGuideRna` | `string` | Guide plus the fixed scaffold sequence |
+| `GrafMotif` | `GrafMotifType` | Graf 2019 inefficiency motif (`TtMotif` / `GccMotif` / `None`), evaluated when the system's PAM is `NGG` only (CRISPOR's warning gate); reported as an issue, never deducted (as in CRISPOR) |
+| `FullGuideRna` | `string?` | Guide plus the system's sgRNA scaffold (76 nt SpCas9 family, 77 nt SaCas9); `null` for Cas12a and CasX |
 
 ### 3.3 Preconditions and Validation
 
@@ -145,7 +145,7 @@ Guide-design defaults confirmed in source:
 | `MinGcContent` | `40` | Minimum acceptable GC percentage: `DesignGuideRnas` excludes a guide below it (CHOPCHOP `filterGCmin`), and with `ScoreGcContent` it also zeroes the score |
 | `MaxGcContent` | `70` | Maximum acceptable GC percentage (same, CHOPCHOP `filterGCmax`) |
 | `MinScore` | `50` | Minimum score for `DesignGuideRnas(...)` output. **Not from any tool** (CHOPCHOP/CRISPOR have no score threshold); for a 20-nt guide every guide inside the GC window scores 84-100, so `MinScore` 1-84 trims nothing there - the GC window itself filters |
-| `AvoidPolyT` | `true` | When `true` a `TTTT` run deducts `20` and is flagged; when `false` neither happens (`HasPolyT` is still reported) — B08 F8 |
+| `AvoidPolyT` | `true` | When `true` a `TTTT` run is listed in `Issues` (CRISPOR warns that it cannot be transcribed with a U6/U3 promoter); it never changes `Score`; when `false` the issue is not listed (`HasPolyT` is still reported) — B08 F8, G5 |
 | `CheckSelfComplementarity` | `true` | When `true` each CHOPCHOP stem deducts `1` and is flagged; when `false` no deduction is made (CHOPCHOP `-SC/--noScoreSelfComp`); `SelfComplementaryStems` is still reported — B08 F8/F69 |
 | `Ranking` | `Score` | Order of `DesignGuideRnas` output: descending `Score`, or descending `OnTargetScore` with `GuideRnaRanking.OnTargetRuleSet2` (candidates without a context rank last); ties by position, then forward strand first |
 | `MaxSelfComplementaryStems` | `null` | Optional filter (CHOPCHOP `filterSelfCompMax`); `null` = report, do not filter |
@@ -184,7 +184,7 @@ CasX shared Cas12a's 18 before round 4, a value with no source for CasX. CRISPOR
 
 ### 5.2 Current Behavior
 
-The current implementation matches the documented `40-70%` GC window, reports `TTTT` poly-T sequences (issue only, as CRISPOR does), uses a 10-base seed region, and reports an issue when the seed GC falls outside `30-80%` (no score effect). `DesignGuideRnas(...)` first filters PAM sites by a cut-site-in-region check and then evaluates the extracted guide. Standalone evaluation requires the selected system's guide length (20 nt SpCas9/CasX, 21 nt SaCas9, 23 nt Cas12a variants), the same length designed guides have. The guide-design pipeline passes `pamSite.System` straight into the shared evaluation core, so each designed candidate is scored with its own system's guide length and seed orientation (the earlier name-based remap to `SpCas9` is gone — B08 F4). The reported `Position` is copied from `pamSite.TargetStart`, which is a forward-strand coordinate on both strands (see `PAM_Site_Detection.md`). The `AvoidPolyT` and `CheckSelfComplementarity` parameter flags are honoured: each penalty is applied only when its flag is set (B08 F8). The derived `FullGuideRna` appends a fixed scaffold sequence to the spacer.
+The current implementation matches the documented `40-70%` GC window, reports `TTTT` poly-T sequences (issue only, as CRISPOR does), uses a 10-base seed region, and reports an issue when the seed GC falls outside `30-80%` (no score effect). `DesignGuideRnas(...)` first filters PAM sites by a cut-site-in-region check and then evaluates the extracted guide. Standalone evaluation requires the selected system's guide length (20 nt SpCas9/CasX, 21 nt SaCas9, 23 nt Cas12a variants), the same length designed guides have. The guide-design pipeline passes `pamSite.System` straight into the shared evaluation core, so each designed candidate is scored with its own system's guide length and seed orientation (the earlier name-based remap to `SpCas9` is gone — B08 F4). The reported `Position` is copied from `pamSite.TargetStart`, which is a forward-strand coordinate on both strands (see `PAM_Site_Detection.md`). The `AvoidPolyT` and `CheckSelfComplementarity` parameter flags are honoured: the poly-T issue and the stem penalty appear only when their flag is set (B08 F8). The derived `FullGuideRna` appends a fixed scaffold sequence to the spacer.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -192,7 +192,7 @@ The current implementation matches the documented `40-70%` GC window, reports `T
 
 - PAM-adjacent guide extraction for supported CRISPR systems.
 - GC-range screening, poly-T detection, seed-region GC evaluation, and self-complementarity checks.
-- A fixed scaffold appended to the designed spacer for `FullGuideRna`.
+- The system's sgRNA scaffold appended to the designed spacer for `FullGuideRna` (none for Cas12a/CasX).
 
 **Intentionally simplified:**
 
@@ -213,14 +213,14 @@ The current implementation matches the documented `40-70%` GC window, reports `T
 
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
-| Empty guide sequence | Throws `ArgumentNullException` | Explicit source guard in `EvaluateGuideRna(...)` |
+| Empty guide sequence | Throws `ArgumentException` (a null guide: `ArgumentNullException`) | Explicit source guard in `EvaluateGuideRna(...)`; the null/empty split of `ArgumentException.ThrowIfNullOrEmpty` |
 | Null target sequence | Throws `ArgumentNullException` | Explicit source guard in `DesignGuideRnas(...)` |
 | `regionStart < 0` | Throws `ArgumentOutOfRangeException` | Explicit source guard |
 | `regionEnd` outside sequence bounds | Throws `ArgumentOutOfRangeException` | Explicit source guard |
-| Guide length not equal to 20 bp in standalone evaluation | Accepted and scored naturally | The standalone evaluator does not enforce system length |
+| Guide length different from the system's in standalone evaluation | Throws `ArgumentException` (`Guide length (n) does not match expected length (L) for <system>.`) | The standalone evaluator enforces the system's guide length, like the off-target scans (B08 H17) |
 | All-A guide | Valid; Score 0 (GC outside the window: CHOPCHOP's flat 300) | issue reporting applies |
 | All-G/C guide | Valid; Score 0 (GC 100 %: flat 300; with `ScoreGcContent = false`, 100 − stems) | issue reporting applies |
-| Guide containing `TTTT` | Penalized and flagged (unless `AvoidPolyT = false`) | Poly-T detection is part of the score; `HasPolyT` is reported either way |
+| Guide containing `TTTT` | Flagged in `Issues` (unless `AvoidPolyT = false`); `Score` is unchanged | CRISPOR treats it as a warning, not a score term; `HasPolyT` is reported either way |
 
 ### 6.2 Limitations
 

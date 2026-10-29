@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateCfdSpecificityScore",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2560",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L2575",
   "description": "Published Doench 2016 CFD aggregate guide specificity score following CRISPOR annotateOfftargets (main PAM by default; include_alternative_pams reproduces its wider NAG/NGA search): 100/(100 + sum of raw per-hit CFD) * 100 (MitStyle), or the doCfdFix variant 100 / sum (ParkinsonNormalized).",
   "inputSchema": {
     "type": "object",
@@ -13,13 +13,13 @@
       "guide_sequence": { "type": "string", "description": "Guide RNA sequence (must be 20 nt for the supported systems).", "minLength": 1 },
       "genome": { "type": "string", "description": "Genome / reference sequence to scan.", "minLength": 1 },
       "max_mismatches": { "type": "integer", "description": "Maximum allowed mismatches (range 0..5; default 4, the reference's default).", "minimum": 0, "maximum": 5, "default": 4 },
-      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
-      "aggregation": { "type": "string", "enum": ["MitStyle", "ParkinsonNormalized"], "default": "MitStyle" },
-      "include_alternative_pams": { "type": "boolean", "description": "Also scan the reference's alternative PAMs (SpCas9: NAG, NGA; NGA: NGG), each hit CFD-scored by its own PAM, no 0.2 factor (default false = main PAM only; routes to CalculateCfdSpecificityScoreWithAlternativePams).", "default": false },
-      "min_alternative_pam_hit_score": { "type": "number", "description": "With include_alternative_pams: minimum MIT/Hsu hit score (0..100) for an alternative-PAM hit to count (reference ALTPAMMINSCORE; default 1.0; 0 = no filtering).", "minimum": 0, "default": 1.0 },
-      "on_target_start": { "type": "integer", "description": "Optional on-target interval start (0-based, inclusive; give both bounds or neither). Exact matches whose protospacer+PAM footprint lies inside [on_target_start, on_target_end) are skipped as the on-target (CRISPOR annotateOfftargets); other perfect matches are scored as off-targets. Omitted: the first exact match in scan order is the on-target (CRISPOR auto-ontarget) and every further perfect match is scored.", "minimum": 0 },
-      "on_target_end": { "type": "integer", "description": "Optional on-target interval end (0-based, exclusive).", "minimum": 1 },
-      "max_occurrences": { "type": "integer", "description": "Repeat limit (CRISPOR MAXOCC, default 60000): a guide with more alignments than this (guide-length windows, either strand, any PAM, within max_mismatches substitutions) is suppressed and scores 0.", "minimum": 1, "default": 60000 }
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "description": "CRISPR system (default SpCas9); must be a 20-nt PAM-after-target system.", "default": "SpCas9" },
+      "aggregation": { "type": "string", "enum": ["MitStyle", "ParkinsonNormalized"], "description": "Which published aggregation to use (default MitStyle, the reference's default).", "default": "MitStyle" },
+      "include_alternative_pams": { "type": "boolean", "description": "Also scan the reference's alternative PAMs for this system (default false = main PAM only): SpCas9 adds NAG and NGA; NGA adds NGG. Every hit is scored by its own PAM with the CFD matrices, no 0.2 factor (that factor is applied by the reference to the MIT score only).", "default": false },
+      "min_alternative_pam_hit_score": { "type": "number", "description": "Only with include_alternative_pams: minimum MIT/Hsu hit score (0..100) an alternative-PAM hit needs to count — the reference's ALTPAMMINSCORE / --minAltPamScore, tested on the MIT hit score even for the CFD aggregate. Default 1.0, the reference's own default; 0 = no filtering.", "default": 1, "minimum": 0 },
+      "on_target_start": { "type": ["integer", "null"], "description": "Optional on-target interval start (0-based, inclusive, forward-strand coordinates of the genome string; give both on_target_start and on_target_end or neither). Exact (0-mismatch) matches whose protospacer+PAM footprint lies inside [on_target_start, on_target_end) are skipped as the on-target - CRISPOR's annotateOfftargets skip - and every other perfect match is scored as an off-target (hit score 100). Default (omitted): the first exact match in scan order is the on-target (CRISPOR's auto-ontarget mode) and every further perfect match is scored.", "default": null, "minimum": 0 },
+      "on_target_end": { "type": ["integer", "null"], "description": "Optional on-target interval end (0-based, exclusive); see on_target_start.", "default": null, "minimum": 1 },
+      "max_occurrences": { "type": "integer", "description": "Genomic-occurrence limit of a repeat guide (default 60000, CRISPOR's MAXOCC): a guide with more alignments than this - windows of the guide's length, either strand, any PAM, within max_mismatches substitutions - is suppressed and scores 0 under either aggregation.", "default": 60000, "minimum": 1 }
     },
     "required": ["guide_sequence", "genome"]
   },

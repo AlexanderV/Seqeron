@@ -49,7 +49,7 @@ the system's IUPAC motif.
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | A returned PAM site always satisfies the system's PAM pattern under IUPAC matching | `FindPamSitesCore(...)` yields only after `MatchesPam(...)` succeeds |
+| INV-01 | A returned PAM site always satisfies the system's PAM pattern under IUPAC matching | `FindPamSitesCore(...)` yields only after `IupacPattern.MatchesAt(...)` (the pattern rule shared with the restriction scan) succeeds |
 | INV-02 | A returned target sequence always fits within the scanned sequence bounds | The source checks `targetStart >= 0` and `targetEnd < seq.Length` before yielding |
 | INV-03 | Both forward and reverse strands are searched | The implementation scans `seq` and `revComp` |
 | INV-04 | `Position` and `TargetStart` are forward-strand 0-based coordinates on both strands | Reverse-strand hits convert the reverse-complement index back with `forwardPos = len - i - pamLen` and derive `TargetStart` from it |
@@ -78,7 +78,7 @@ the system's IUPAC motif.
 
 ### 3.3 Preconditions and Validation
 
-The `DnaSequence` overload throws `ArgumentNullException` for null input. The raw-string overload returns an empty result for null or empty input and uppercases the sequence before scanning. If the sequence is shorter than the effective PAM-plus-target span or if a matched PAM would place the target outside sequence bounds, no `PamSite` is yielded.
+The `DnaSequence` overload throws `ArgumentNullException` for null input. The raw-string overload returns an empty result for null or empty input, uppercases the sequence before scanning and accepts only A/C/G/T and `N`: any other character (a digit, a space, a newline, `R`, `U`, `X`, `-`, a non-ASCII letter) is an `ArgumentException` at the call, naming the character and its index — CRISPOR restricts its input the same way before `findAllPams` (B08 audit round 5, A5-7; before, such a character inside a protospacer window came back as a "guide" that `EvaluateGuideRna` / `DesignGuideRnas` then rejected). A protospacer window holding an `N` is not returned (`flankSeqIter(doFilterNs=True)`, B08 H12). If the sequence is shorter than the effective PAM-plus-target span or if a matched PAM would place the target outside sequence bounds, no `PamSite` is yielded.
 
 ## 4. Algorithm
 
@@ -98,7 +98,7 @@ Supported CRISPR systems in the current implementation:
 |--------|--------------|--------------|--------------|-------|
 | SpCas9 | NGG | 3' of target | 20 bp | Canonical Cas9 from *Streptococcus pyogenes* |
 | SpCas9-NAG | NAG | 3' of target | 20 bp | Lower-efficiency variant |
-| SpCas9-NGA | NGA | 3' of target | 20 bp | CRISPOR's alternative off-target PAM of NGG (Kleinstiver 2015) |
+| SpCas9-NGA | NGA | 3' of target | 20 bp | CRISPOR's alternative off-target PAM of NGG (added after the GUIDE-seq results of Tsai et al. 2014; CRISPOR cites Kleinstiver et al. 2015 for the reverse rule NGA → NGG, and NGA is the VQR variant's PAM) |
 | SaCas9 | NNGRRT | 3' of target | 21 bp | *Staphylococcus aureus* Cas9 |
 | SaCas9-NNGRRN | NNGRRN | 3' of target | 21 bp | CRISPOR's relaxed alternative off-target PAM of NNGRRT |
 | Cas12a (Cpf1) | TTTV | 5' of target | 23 bp | `V = A, C, or G` |
@@ -165,6 +165,8 @@ The current implementation searches both forward and reverse strands, uses `Iupa
 | PAM at sequence boundary | Included only if the target also fits within bounds | Target extraction is validated before yielding |
 | Multiple overlapping PAMs | All distinct sites are returned | The scan yields every matching window |
 | Lowercase input to the string overload | Case-insensitive matching | The string overload uppercases the input |
+| A character other than A/C/G/T/N in the string overload | Throws `ArgumentException` (character and index in the message) | The overload is the front end CRISPOR's `findAllPams` presupposes |
+| `N` inside a protospacer window (string overload) | The site is not returned | CRISPOR `flankSeqIter(doFilterNs=True)` |
 
 ### 6.2 Limitations
 

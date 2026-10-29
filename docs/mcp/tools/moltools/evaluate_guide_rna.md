@@ -18,7 +18,7 @@ Evaluates a single guide RNA and returns a candidate record: overall GC%, seed-r
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L325](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L325)
+- Source: [CrisprDesigner.cs#L322](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L322)
 
 ## Input Schema
 
@@ -36,6 +36,12 @@ Evaluates a single guide RNA and returns a candidate record: overall GC%, seed-r
 | `hasPolyT` | boolean | TTTT terminator present. |
 | `selfComplementarityScore` / `score` | number | `selfComplementaryStems / (length − 4)` (CHOPCHOP stem count over its own window count, [0, 1]) and the 0..100 score. |
 | `issues` | string[] | Quality warnings. |
+| `sequence` / `position` / `isForwardStrand` | string / integer / boolean | The upper-cased guide (U read as T); `position` is always -1 for ad-hoc evaluation; `isForwardStrand` is true. |
+| `system` | object | The CRISPR system record (see [crispr_system_info](crispr_system_info.md)). |
+| `selfComplementaryStems` | integer | CHOPCHOP 4-bp stem count; each costs 1 point of `score`. |
+| `grafMotif` | string | `None` / `TtMotif` / `GccMotif` (Graf 2019; reported, no score effect). |
+| `fullGuideRna` | string \| null | Spacer + sgRNA scaffold (76 nt SpCas9 family, 77 nt SaCas9); `null` for Cas12a and CasX. |
+| `context30Mer` / `onTargetScore` | string \| null / number \| null | Always `null` here: the Rule Set 2 score needs 30 nt of genomic context (use [design_guide_rnas](design_guide_rnas.md) or [calculate_on_target_rule_set2](calculate_on_target_rule_set2.md)). |
 
 ## Errors
 

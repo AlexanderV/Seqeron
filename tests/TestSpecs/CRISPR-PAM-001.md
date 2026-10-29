@@ -76,7 +76,7 @@
 | S6 | AsCas12a FindPamSites produces 23bp target end-to-end | Variant-specific guide length | Zetsche 2015 |
 | S7 | LbCas12a FindPamSites produces a 23bp target end-to-end, identical to the other Cas12a aliases | CRISPOR `GUIDELEN = 23` for every Cpf1 PAM (H11) | CRISPOR setupPamInfo |
 | S8 | `SpCas9_NGA` / `SaCas9_NNGRRN`: a PAM whose target would run off the sequence start (forward) or end (reverse) is excluded; the exact-fit case (target flush with the edge) is kept | Boundary rule on both strands for the new systems | CRISPOR `findPams` `minPosPlus` / `maxPosMinus`; independent oracle (round 3 G8) |
-| S9 | `SpCas9_NGA` / `SaCas9_NNGRRN` with `N` in the genome: an `N` inside the target is carried through on both strands (CRISPOR `flankSeqIter`, `doFilterNs=False`); an `N` at a concrete PAM position (`G`, `A`, `R`, leading `T` of the reverse reading) is not a PAM | Ambiguity handling; agrees with CRISPOR `patMatch` | CRISPOR `patMatch` L2347-2394; independent oracle (round 3 G8) |
+| S9 | `SpCas9_NGA` / `SaCas9_NNGRRN` with `N` in the genome: a protospacer window holding an `N` is dropped on both strands (CRISPOR `flankSeqIter`, `doFilterNs=True`, B08 H12); an `N` at a concrete PAM position (`G`, `A`, `R`, leading `T` of the reverse reading) is not a PAM | Ambiguity handling; agrees with CRISPOR `patMatch` | CRISPOR `patMatch` L2347-2394; independent oracle (round 3 G8) |
 
 ### COULD Tests (Nice to have)
 
@@ -184,12 +184,12 @@
 | 32 | `FindPamSites_SpCas9NGA_BothStrands_MatchesIndependentScanAndCrispor` | M18 | ✅ |
 | 33 | `FindPamSites_SpCas9NGA_DoesNotMatchNGG` | M18 | ✅ |
 | 34 | `FindPamSites_SpCas9NGA_SequenceEdge_ExcludesOverrunAndKeepsExactFit` | S8 | ✅ |
-| 35 | `FindPamSites_SpCas9NGA_AmbiguityN_InTargetKept_AtConcretePamPositionRejected` | S9 | ✅ |
+| 35 | `FindPamSites_SpCas9NGA_AmbiguityN_InTargetDropped_AtPamNMatches_AtConcretePamPositionRejected` | S9 | ✅ |
 | 36 | `FindPamSites_SaCas9NNGRRN_BothStrands_MatchesIndependentScanAndCrispor` | M19 | ✅ |
 | 37 | `FindPamSites_SaCas9NNGRRN_AcceptsAllRrCombinationsAndAnyLastBase_RejectsNonR` | M19 | ✅ |
 | 38 | `FindPamSites_SaCas9NNGRRN_IsSupersetOfNNGRRT` | M19 | ✅ |
 | 39 | `FindPamSites_SaCas9NNGRRN_SequenceEdge_ExcludesOverrunAndKeepsExactFit` | S8 | ✅ |
-| 40 | `FindPamSites_SaCas9NNGRRN_AmbiguityN_InTargetKept_AtConcretePamPositionRejected` | S9 | ✅ |
+| 40 | `FindPamSites_SaCas9NNGRRN_AmbiguityN_InTargetDropped_AtPamNMatches_AtConcretePamPositionRejected` | S9 | ✅ |
 
 ### Classification Summary
 

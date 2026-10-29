@@ -18,7 +18,7 @@ Enumerates every PAM site in the genome for the chosen system and reports those 
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L677](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L677)
+- Source: [CrisprDesigner.cs#L674](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L674)
 
 ## Input Schema
 
@@ -42,6 +42,7 @@ Enumerates every PAM site in the genome for the chosen system and reports those 
 | 1001 | Guide sequence cannot be null or empty |
 | 1002 | Genome cannot be null or empty |
 | 1003 | Maximum mismatches must be in the range 0..5 |
+| 1004 | Invalid nucleotide '{char}' at position {i}. (the genome must be A/C/G/T; the guide likewise, U read as T) |
 | 4001 | Guide length does not match the system's guide length |
 
 ## Examples

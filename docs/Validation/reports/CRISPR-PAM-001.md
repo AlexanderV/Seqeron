@@ -56,7 +56,7 @@ None. Every PAM string, IUPAC expansion, and 3'/5' placement is correct against 
 - `FindPamSites(DnaSequence)` (L40–46): null-guarded (`ArgumentNullException.ThrowIfNull`), delegates to core.
 - `FindPamSites(string)` (L51–60): null/empty ⇒ empty; `ToUpperInvariant` (case-insensitive).
 - `FindPamSitesCore` (L62–135): forward + reverse-complement scan; per-enzyme target placement (`pamAfterTarget` ⇒ target `[i−guide, i−1]`, else `[i+pamLen, i+pamLen+guide−1]`); boundary check `targetStart ≥ 0 && targetEnd < len`; reverse hits report `Position = len − i − pamLen` (forward coord) and `PamSequence = revcomp(...)`.
-- `MatchesPam` / `MatchesIupac` (L137–154): delegates to `IupacHelper.MatchesIupac`; N/R/V verified correct.
+- `MatchesPam` / `MatchesIupac` (L137–154): delegates to `IupacHelper.MatchesIupac`; N/R/V verified correct. *(B08 round 5 A5-13: the private pair is gone; the PAM scan calls the internal `IupacPattern.MatchesAt`, the one pattern rule shared with `RestrictionAnalyzer` and the methylation mask.)*
 
 ### Formula realised correctly?
 

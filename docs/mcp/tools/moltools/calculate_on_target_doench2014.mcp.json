@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateOnTargetDoench2014",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1287",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1284",
   "description": "Doench et al. 2014 \"Rule Set 1\" on-target efficacy score for an SpCas9 guide, returned on a 0..100 scale (higher = predicted more active). This is the published logistic linear model: intercept 0.59763615 + a GC-count term over the 20-nt protospacer using the paper's TWO coefficients (-0.2026259 for GC <= 10, -0.1665878 for GC > 10, applied as abs(10 - GC) x coefficient) + 70 position-specific single- and di-nucleotide weights, through a logistic sigmoid. Source: Doench et al. 2014, Nat Biotechnol 32:1262 (PMID 25184501); coefficients taken verbatim from the reference implementation doenchScore.py shipped in CRISPOR (Haeussler et al. 2016, Genome Biol 17:148). Input is the model's 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be NGG) + 3 nt downstream, A/C/G/T only; the NGG requirement is this library's explicit guard (the model's own feature table presumes NGG). Returned UNROUNDED: CRISPOR's own table reports int(100 x sigmoid), i.e. the floor of this value. Call to rank guides by predicted cutting efficiency when the 30-nt context is known.",
   "inputSchema": {
     "type": "object",

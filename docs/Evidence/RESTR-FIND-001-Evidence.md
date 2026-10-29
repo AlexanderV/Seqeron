@@ -240,7 +240,7 @@ No mismatch in either "before" pass was in the other direction (Seqeron reportin
 does not) — the old rule was strictly narrower; degenerate site codes other than `N` already behaved
 like Biopython, which the "after" figures confirm across all 513 ambiguous sites.
 
-**Fix.** One private predicate, `SequenceBaseMatchesSiteCode(sequenceBase, siteCode)` =
+**Fix.** One predicate (private to `RestrictionAnalyzer` here; since B08 round 5 A5-13 the internal `IupacPattern.MatchesCode`, shared with the methylation mask and the CRISPR PAM scan, which had each kept a copy), `SequenceBaseMatchesSiteCode(sequenceBase, siteCode)` =
 `siteCode == 'N' ? IupacHelper.IsNucleotideCode(sequenceBase) : IupacHelper.MatchesIupac(sequenceBase, siteCode)`,
 composed from the canonical Core helpers — no new Core API and no second ambiguity table. Note the
 rule is **not** "codes intersect" (as `CodesIntersect` in the overhang-compatibility code is): under

@@ -24,14 +24,14 @@ Source: Doench et al. 2016, Nat Biotechnol 34:184 (PMID 26780180); trained model
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L1404](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1404)
+- Source: [CrisprDesigner.cs#L1401](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1401)
 - Algorithm doc: [Guide_RNA_Design.md](../../../algorithms/MolTools/Guide_RNA_Design.md) §2.3 "Published on-target efficacy models"
 
 ## Input Schema
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `context_30mer` | string | Yes | 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (trained on NGG, not audited) + 3 nt downstream. |
+| `context_30mer` | string | Yes | 30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt PAM (trained on NGG; not audited) + 3 nt downstream. |
 | `amino_acid_cut_position` | integer \| null | No | Optional amino-acid position of the cut site in the target protein, `>= 0` (requires `percent_peptide`); enables the gene-context model. Ignored when `percent_peptide = -1`. |
 | `percent_peptide` | number \| null | No | Optional cut position as a percentage 0..100 along the coding sequence, or -1 for Azimuth's "no gene position" sentinel (which falls back to the sequence-only model); requires `amino_acid_cut_position`. |
 

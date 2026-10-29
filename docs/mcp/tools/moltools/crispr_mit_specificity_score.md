@@ -16,7 +16,7 @@ Published MIT / Hsu 2013 aggregate guide specificity score.
 
 The **published** MIT / Hsu 2013 aggregate guide specificity score — the "Guide score" of crispr.mit.edu, implemented in CRISPOR as `calcMitGuideScore`. Scans the genome for off-targets with **1..max_mismatches** mismatches ([find_off_targets](find_off_targets.md)), scores each hit with the Hsu position-weight model, and returns `100 / (100 + Σ hitScores) × 100` in `0..100` (100 = no off-targets). The value is **unrounded** — the reference rounds to an integer.
 
-The per-hit model is chosen by system, exactly as the reference's `annotateOfftargets` does: a **SaCas9** PAM (`NNGRRT`/`NNNRRT`) with a 21-nt guide is scored with the SaCas9-specific trained model of **Tycko et al. 2018** (`calcSaHitScore`), every other PAM-after-target system with the Hsu model. A non-SaCas9 guide longer than 20 nt falls back to `calcHitScore`'s own last-20 fudge; a 19-nt guide to its `A`-pad.
+The per-hit model is chosen by system, exactly as the reference's `annotateOfftargets` does: a **SaCas9** PAM (`NNGRRT`/`NNNRRT`) with a 21-nt guide is scored with the SaCas9-specific trained model of **Tycko et al. 2018** (`calcSaHitScore`), every other PAM-after-target system with the Hsu model. The reference's own `calcHitScore` also has a last-20 fudge for a non-SaCas9 guide longer than 20 nt and an `A`-pad for a 19-nt guide; the library keeps both branches for parity, but with the current system table neither can run (every PAM-after-target system has a 20-nt guide, or the SaCas9 21-nt guide that goes to the Tycko model).
 
 ### Alternative PAMs (`include_alternative_pams`)
 
@@ -38,7 +38,7 @@ CRISPOR's `annotateOfftargets` (crispor.py L1917-1928) drops exactly **one kind*
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L1665](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1665)
+- Source: [CrisprDesigner.cs#L1662](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1662)
 
 ## Input Schema
 

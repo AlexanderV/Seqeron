@@ -8,7 +8,8 @@ namespace Seqeron.Mcp.MolTools.Tests;
 public class DesignGuideRnasTests
 {
     // From Seqeron.Genomics.Tests CrisprDesigner_GuideRNA_Tests (S-003): a single SpCas9
-    // guide with an NGG PAM ("AGG") in the region [20,45] at position 24, score 100.
+    // guide with an NGG PAM ("AGG") in the region [20,45] at position 24, score 90 (ACGT x5 carries 10
+    // CHOPCHOP self-complementary stems, 100 - 10).
     private const string Sequence = "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAGG";
 
     [Test]

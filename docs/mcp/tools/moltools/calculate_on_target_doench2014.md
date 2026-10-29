@@ -24,7 +24,7 @@ Returned **unrounded**: CRISPOR's own table reports `int(100 x sigmoid)`, i.e. t
 
 ## Core Documentation Reference
 
-- Source: [CrisprDesigner.cs#L1287](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1287)
+- Source: [CrisprDesigner.cs#L1284](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1284)
 - Algorithm doc: [Guide_RNA_Design.md](../../../algorithms/MolTools/Guide_RNA_Design.md) §2.3 "Published on-target efficacy models"
 
 ## Input Schema

@@ -275,3 +275,24 @@ Tests in `CrisprDesigner_Contracts_Tests.cs` unless named otherwise. Oracles are
 | H21 | `RuleSet2_AminoAcidCutPosition_NegativeIsRefused_UnlessThePercentPeptideSentinelIgnoresIt` | documented behaviour of the negative cut position | model_comparison.py L539/L563 |
 | H22 | `RuleSet2_NonNggPam_IsScored_AsCrisporDoesWithoutPamAudit` (5), `DesignedGuides_OfTheNagAndNgaSystems_CarryARuleSet2Score` | NAG / NGA contexts scored | tree walker over the original pickles; 300 random contexts (281 non-GG), both models, max diff 0.0 |
 | H23 | `ModelBlob_Malformed_FailsAsInvalidOperationException` (8 malformed blobs) | overflow-safe loader, index checks | the documented binary format |
+
+## Round 5 contracts and fixes (B08 A5-1 .. A5-13, U-1, U-3, U-4)
+
+Tests in `CrisprDesigner_Round5_Tests.cs` (library), `CrisprWrapperArgumentForwardingTests.cs` and
+`B07ToolDocsContractTests` (MCP) unless named otherwise. Each failed on the unfixed code first; the survivors of A5-12 were
+re-killed by mutation (`>=` -> `>`, repeat check after "no hits", heuristic cap 4 -> 3, seed 12 -> 11 on both geometries).
+
+| ID | Test | Pins | Oracle |
+|---|---|---|---|
+| A5-1 | `StringGuideEntryPoints_NullIsAMissingArgument_EmptyIsAWrongValue` (round 4) + the five corrected `<exception>` tags | empty guide = `ArgumentException` everywhere, documented | AzimuthRuleSet2 convention |
+| A5-2 | `McpJson_Examples_ReproduceTheTool` (10 CRISPR tools, 40 examples) | every documented example is the tool's real output (`design_guide_rnas`: score 90, 10 stems, 47 nt) | the tool itself, subset compare at 1e-9 |
+| A5-5 | `McpJson_InputSchema_MatchesWrapperParameters`, `McpJson_OutputSchema_ListsResultProperties` over every Primer/Probe/Crispr/Restriction tool | inputSchema (names, types, descriptions, defaults) and outputSchema properties equal the wrapper's | MCP SDK advertised schema; reflected result type |
+| A5-7 | `FindPamSites_StringOverload_RejectsCharactersOutsideACGTN_AtTheCall` (8), `..._RejectsABadCharacterOutsideAnyWindowToo`, `..._AcceptsLowerCaseAndN_AsBefore` | only A/C/G/T/N reach the scan, eagerly, with character and index | CRISPOR front end restricts the input to ACGTN |
+| A5-8 | `MitSpecificity_PamAnnotatedHits_*` (5) | documented `ArgumentException` for a null `Site`/`Sequence`, a PAM or protospacer outside A/C/G/T, blaming `offTargets` | the method's own documented contract |
+| A5-9 | `GuideRnaParameters_UndefinedRanking_IsRefused_ByBothEntryPoints`, `..._InvalidBackboneRegion_IsRefusedAtTheCall_*`, `..._NullBackboneElement_IsRefused`, `..._ValidBackboneAndEveryDefinedRanking_StillWork` | `Validate` covers `Ranking` and the backbone regions; one `ParamName` | CHOPCHOP `--backbone` takes A/C/G/T/U regions |
+| A5-10 | `CalculateCfdScore_ThreeNucleotidePam_FirstBaseMustBeACGT` (4), `..._ConcretePam_IsUnchanged` (4) | the whole PAM is screened | `crispor.py calcCfdScore` L2172-2185: `re.search('[^ATCG]', otSeq)` |
+| A5-11 | `CrisprWrapperArgumentForwardingTests` (6) | `system_type`, `parameters`, `max_mismatches` reach the algorithm in `find_pam_sites`, `evaluate_guide_rna`, `design_guide_rnas`, `find_off_targets`, `crispr_specificity_score` | a Cas12a scenario invalid for SpCas9; a four-mismatch site that decides the budget |
+| A5-12 | `MitSpecificity_AlternativePamHit_WhoseScoreEqualsTheCutoff_IsKept`, `MitSpecificity_RepeatCheck_PrecedesTheNoHitsShortcut`, `HeuristicSpecificity_CountsFourMismatchSites_AndNotFiveMismatchSites`, `OffTargetScore_SeedIsTheTwelvePamProximalBases_ForBothGeometries` | cut-off equality kept (`if otScore < minScore: continue`), PAM-agnostic repeat check first, heuristic cap 4 and 12-nt seed | CRISPOR `annotateOfftargets`; the documented formula (5 per seed / 2 per distal mismatch) |
+| A5-13 | `IupacPattern_Tests` (16) + the whole restriction / PAM / methylation suites | one pattern rule for restriction scan, methylation mask and PAM scan | Biopython 1.88 `SfiI`/`EcoRI`/`HincII` rows; CRISPOR `patMatch`; 140 000-case equivalence from the audit |
+| U-1 | `GetSystem_EveryMember_IsPinned`, `CrisprSystemInfo_Description_IsReturned` | NGA description cites Tsai 2014 (GUIDE-seq) for the alternative-PAM rule and Kleinstiver 2015 for the VQR PAM | `crispor.py` L238-241 |
+| U-4 | `MitSpecificity_RepeatCheck_PrecedesTheNoHitsShortcut` | the repeat test runs before the hit list is built | `repCount` before any scoring |

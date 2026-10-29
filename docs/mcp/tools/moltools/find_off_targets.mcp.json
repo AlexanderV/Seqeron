@@ -5,15 +5,15 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.FindOffTargets",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L677",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L674",
   "description": "Naive genome scan for a guide's off-target sites (1..max_mismatches). Per-hit offTargetScore is this library's own heuristic, not a published model (5 per seed mismatch + 2 per other mismatch; weights unsourced); use crispr_mit_specificity_score or crispr_cfd_specificity_score for published models.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "guide_sequence": { "type": "string", "description": "Guide RNA (length must match the system).", "minLength": 1 },
-      "genome": { "type": "string", "description": "Genome / reference to scan.", "minLength": 1 },
-      "max_mismatches": { "type": "integer", "minimum": 0, "maximum": 5, "default": 3 },
-      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" }
+      "guide_sequence": { "type": "string", "description": "Guide RNA sequence (length must match the system's guide length).", "minLength": 1 },
+      "genome": { "type": "string", "description": "Genome / reference sequence to scan.", "minLength": 1 },
+      "max_mismatches": { "type": "integer", "description": "Maximum allowed mismatches (range 0..5; default 3).", "default": 3, "minimum": 0, "maximum": 5 },
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "description": "CRISPR system (default SpCas9).", "default": "SpCas9" }
     },
     "required": ["guide_sequence", "genome"]
   },
@@ -42,6 +42,7 @@
     { "code": 1001, "message": "Guide sequence cannot be null or empty" },
     { "code": 1002, "message": "Genome cannot be null or empty" },
     { "code": 1003, "message": "Maximum mismatches must be in the range 0..5" },
+    { "code": 1004, "message": "Invalid nucleotide '{char}' at position {i}. (the genome must be A/C/G/T)" },
     { "code": 4001, "message": "Guide length does not match the system's guide length" }
   ],
   "examples": [

@@ -176,7 +176,7 @@ internal static class MethylationMask
                     {
                         int k = (i + j) % n;
                         char c = mask[Forward(k, reversed)] ? 'N' : s[k];
-                        ok = SequenceBaseMatchesSiteCode(c, codes[j]);
+                        ok = IupacPattern.MatchesCode(c, codes[j]);
                     }
 
                     if (ok)
@@ -211,11 +211,6 @@ internal static class MethylationMask
 
         return false;
     }
-
-    private static bool SequenceBaseMatchesSiteCode(char sequenceBase, char siteCode) =>
-        siteCode == 'N'
-            ? IupacHelper.IsNucleotideCode(sequenceBase)
-            : IupacHelper.MatchesIupac(sequenceBase, siteCode);
 }
 
 public static partial class RestrictionAnalyzer

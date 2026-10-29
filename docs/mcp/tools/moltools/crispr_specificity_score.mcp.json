@@ -5,14 +5,14 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateHeuristicSpecificityScore",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1089",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1086",
   "description": "THIS LIBRARY'S OWN HEURISTIC, NOT A PUBLISHED MODEL: aggregates off-target hits (<=4 mismatches) as max(0, 100 - sum(5 per seed mismatch + 2 per distal mismatch)). For the published models use crispr_mit_specificity_score or crispr_cfd_specificity_score.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "guide_sequence": { "type": "string", "description": "Guide RNA sequence (length must match the system).", "minLength": 1 },
+      "guide_sequence": { "type": "string", "description": "Guide RNA sequence (length must match the system's guide length).", "minLength": 1 },
       "genome": { "type": "string", "description": "Genome / reference sequence to scan.", "minLength": 1 },
-      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" }
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SpCas9_NGA", "SaCas9", "SaCas9_NNGRRN", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "description": "CRISPR system (default SpCas9).", "default": "SpCas9" }
     },
     "required": ["guide_sequence", "genome"]
   },
