@@ -93,6 +93,13 @@ public class RestrictionAnalyzer_Round8_Tests
 
             var e6 = Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.FindSites(dna, longName, MoleculeTopology.Linear));
             Assert.That(e6!.Message, Does.Contain("longest supported name"), "the name limit is reported before the bad pattern");
+
+            // the enzyme-list entry points (Digest, CreateMap, PartialDigest, GetDigestSummary and the raw-string forms) share the order
+            var e7 = Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.Digest(dna, MoleculeTopology.Linear, new[] { longName }));
+            Assert.That(e7!.Message, Does.Contain("longest supported name"), "list form: the name limit precedes the bad pattern");
+            Assert.That(e7.ParamName, Is.EqualTo("enzymes"));
+            var e8 = Assert.Throws<ArgumentException>(() => RestrictionAnalyzer.CreateMap(dna, MoleculeTopology.Circular, new[] { longName }));
+            Assert.That(e8!.Message, Does.Contain("longest supported name"));
         });
     }
 
