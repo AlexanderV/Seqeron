@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.FindOffTargets",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L674",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L661",
   "description": "Naive genome scan for a guide's off-target sites (1..max_mismatches). Per-hit offTargetScore is this library's own heuristic, not a published model (5 per seed mismatch + 2 per other mismatch; weights unsourced); use crispr_mit_specificity_score or crispr_cfd_specificity_score for published models.",
   "inputSchema": {
     "type": "object",

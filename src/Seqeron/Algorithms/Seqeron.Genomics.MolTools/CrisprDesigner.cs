@@ -324,7 +324,7 @@ public static class CrisprDesigner
         CrisprSystemType systemType = CrisprSystemType.SpCas9,
         GuideRnaParameters? parameters = null)
     {
-        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
+        ArgumentException.ThrowIfNullOrEmpty(guideSequence);
         var system = GetSystem(systemType);
         // The same check, message and exception type as the off-target scans: a spacer of the wrong length is not a
         // guide of this system ("ACGT" scored a perfect 100 for SpCas9 before).
@@ -358,19 +358,6 @@ public static class CrisprDesigner
             chars[i] = c;
         }
         return new string(chars);
-    }
-
-    /// <summary>
-    /// A null reference is a missing argument (<see cref="ArgumentNullException"/>); an empty string is a wrong value
-    /// (<see cref="ArgumentException"/>) - the convention <c>AzimuthRuleSet2</c> spells out and the reference itself
-    /// follows (model_comparison.py L523-L524: <c>isinstance(seq[0], basestring)</c> vs <c>len(seq[0]) &gt; 0</c>).
-    /// </summary>
-    private static void ThrowIfNullOrEmpty(string? value, string paramName)
-    {
-        if (value is null)
-            throw new ArgumentNullException(paramName);
-        if (value.Length == 0)
-            throw new ArgumentException("The value must not be empty.", paramName);
     }
 
     /// <summary>
@@ -597,7 +584,7 @@ public static class CrisprDesigner
     /// </remarks>
     public static GrafMotifType GetGrafMotif(string guideSequence)
     {
-        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
+        ArgumentException.ThrowIfNullOrEmpty(guideSequence);
 
         var seq = NormalizeNucleotides(guideSequence, nameof(guideSequence));
         if (seq.EndsWith("TTC", StringComparison.Ordinal) || seq.EndsWith("TTT", StringComparison.Ordinal))
@@ -852,7 +839,7 @@ public static class CrisprDesigner
     private static string ValidateScanArguments(
         string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType)
     {
-        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
+        ArgumentException.ThrowIfNullOrEmpty(guideSequence);
         ArgumentNullException.ThrowIfNull(genome);
         if (maxMismatches < 0 || maxMismatches > 5)
             throw new ArgumentOutOfRangeException(nameof(maxMismatches));
@@ -1462,8 +1449,8 @@ public static class CrisprDesigner
     /// </remarks>
     public static double CalculateMitHitScore(string guide20, string offTarget20)
     {
-        ThrowIfNullOrEmpty(guide20, nameof(guide20));
-        ThrowIfNullOrEmpty(offTarget20, nameof(offTarget20));
+        ArgumentException.ThrowIfNullOrEmpty(guide20);
+        ArgumentException.ThrowIfNullOrEmpty(offTarget20);
         if (guide20.Length != 20 || offTarget20.Length != 20)
             throw new ArgumentException("MIT/Hsu score requires two 20-nt sequences.");
 
@@ -1797,7 +1784,7 @@ public static class CrisprDesigner
         IEnumerable<PamAnnotatedOffTarget> offTargets,
         CrisprSystemType systemType = CrisprSystemType.SpCas9)
     {
-        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
+        ArgumentException.ThrowIfNullOrEmpty(guideSequence);
         ArgumentNullException.ThrowIfNull(offTargets);
         EnsureMitModelApplies(systemType, nameof(systemType));
 
@@ -2219,8 +2206,8 @@ public static class CrisprDesigner
     /// </exception>
     public static double CalculateSaCas9HitScore(string saGuide21, string offTarget21)
     {
-        ThrowIfNullOrEmpty(saGuide21, nameof(saGuide21));
-        ThrowIfNullOrEmpty(offTarget21, nameof(offTarget21));
+        ArgumentException.ThrowIfNullOrEmpty(saGuide21);
+        ArgumentException.ThrowIfNullOrEmpty(offTarget21);
         if (saGuide21.Length != SaCas9GuideLength)
             throw new ArgumentException(
                 $"The Tycko 2018 SaCas9 model is transcribed here for a {SaCas9GuideLength}-nt guide; got {saGuide21.Length}.",
@@ -2412,9 +2399,9 @@ public static class CrisprDesigner
     /// </remarks>
     public static double CalculateCfdScore(string sgRna20, string offTarget20, string offTargetPam)
     {
-        ThrowIfNullOrEmpty(sgRna20, nameof(sgRna20));
-        ThrowIfNullOrEmpty(offTarget20, nameof(offTarget20));
-        ThrowIfNullOrEmpty(offTargetPam, nameof(offTargetPam));
+        ArgumentException.ThrowIfNullOrEmpty(sgRna20);
+        ArgumentException.ThrowIfNullOrEmpty(offTarget20);
+        ArgumentException.ThrowIfNullOrEmpty(offTargetPam);
 
         if (sgRna20.Length != 20)
             throw new ArgumentException($"CFD requires a 20-nt guide; got {sgRna20.Length}.", nameof(sgRna20));
@@ -2619,7 +2606,7 @@ public static class CrisprDesigner
         string guideSequence, DnaSequence genome, int maxMismatches, CrisprSystemType systemType,
         bool requireTwentyNtProtospacer)
     {
-        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
+        ArgumentException.ThrowIfNullOrEmpty(guideSequence);
         ArgumentNullException.ThrowIfNull(genome);
         if (maxMismatches < 0 || maxMismatches > 5)
             throw new ArgumentOutOfRangeException(nameof(maxMismatches));
@@ -2783,7 +2770,7 @@ public static class CrisprDesigner
         int stemLength = 4,
         IEnumerable<string>? backboneRegions = null)
     {
-        ThrowIfNullOrEmpty(guideSequence, nameof(guideSequence));
+        ArgumentException.ThrowIfNullOrEmpty(guideSequence);
         if (stemLength < 1)
             throw new ArgumentOutOfRangeException(nameof(stemLength), stemLength, "Stem length must be >= 1.");
 

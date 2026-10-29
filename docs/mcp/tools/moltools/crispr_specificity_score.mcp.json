@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "CrisprDesigner.CalculateHeuristicSpecificityScore",
-  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1086",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L1073",
   "description": "THIS LIBRARY'S OWN HEURISTIC, NOT A PUBLISHED MODEL: aggregates off-target hits (<=4 mismatches) as max(0, 100 - sum(5 per seed mismatch + 2 per distal mismatch)). For the published models use crispr_mit_specificity_score or crispr_cfd_specificity_score.",
   "inputSchema": {
     "type": "object",

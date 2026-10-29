@@ -9,6 +9,17 @@ namespace Seqeron.Mcp.MolTools.Tools;
 [McpServerToolType]
 public class MolToolsTools
 {
+    /// <summary>
+    /// The wrappers' shared argument guard: a null or empty text is an <see cref="System.ArgumentException"/>
+    /// (not <see cref="System.ArgumentNullException"/>) saying "<c>{label} cannot be null or empty.</c>". It replaces a
+    /// three-line guard that was written out at every call (B08 round 5 duplication sweep).
+    /// </summary>
+    private static void RequireNotEmpty(string? value, string paramName, string label)
+    {
+        if (string.IsNullOrEmpty(value))
+            throw new System.ArgumentException($"{label} cannot be null or empty.", paramName);
+    }
+
     // Utility holder for static MCP tools; never instantiated (S1118).
     private MolToolsTools() { }
 
@@ -570,8 +581,7 @@ public class MolToolsTools
         [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        RequireNotEmpty(sequence, nameof(sequence), "Sequence");
         if (enzyme_names is null || enzyme_names.Length == 0)
             throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
 
@@ -589,8 +599,7 @@ public class MolToolsTools
         [Description("Which enzyme table to list from: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut, the 39 included). Case-insensitive.")] string? enzyme_set = "common",
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        RequireNotEmpty(sequence, nameof(sequence), "Sequence");
         var set = ParseEnzymeSet(enzyme_set);
 
         var sites = RestrictionAnalyzer.FindAllSites(sequence, topology, set, MethylaseSets.FromName(methylation)).ToList();
@@ -604,8 +613,7 @@ public class MolToolsTools
         [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        RequireNotEmpty(sequence, nameof(sequence), "Sequence");
         if (enzyme_names is null || enzyme_names.Length == 0)
             throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
 
@@ -621,8 +629,7 @@ public class MolToolsTools
         [Description("Linear (default) or Circular: whether the molecule is a linear fragment or a closed circle (plasmid).")] MoleculeTopology topology = MoleculeTopology.Linear,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        RequireNotEmpty(sequence, nameof(sequence), "Sequence");
         if (enzyme_names is null || enzyme_names.Length == 0)
             throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
 
@@ -638,8 +645,7 @@ public class MolToolsTools
         [Description("Optional upper bound on the number of uncut sites inside one fragment (0 = complete digest); omit for no bound.")] int? max_missed_cuts = null,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        RequireNotEmpty(sequence, nameof(sequence), "Sequence");
         if (enzyme_names is null || enzyme_names.Length == 0)
             throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
 
@@ -656,8 +662,7 @@ public class MolToolsTools
         [Description("Enzyme table used when enzyme_names is empty: \"common\" (default; the 39 common laboratory enzymes) or \"rebase\" (all 754 REBASE enzymes with a defined cut). Case-insensitive; ignored when names are given.")] string? enzyme_set = "common",
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\" (GmATC), \"dcm\" (mCmCAGG, mCmCTGG), \"dam+dcm\" or \"emboss\" (all five Emethylsites.dat entries incl. EcoKI). Case-insensitive. A recognition window containing a methylated base is NOT a site (a window rule, not an enzyme-specific sensitivity table; BamHI is blocked by Dam).")] string? methylation = null)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        RequireNotEmpty(sequence, nameof(sequence), "Sequence");
         var set = ParseEnzymeSet(enzyme_set);
         var names = enzyme_names ?? System.Array.Empty<string>();
         var methylases = MethylaseSets.FromName(methylation);
@@ -808,8 +813,7 @@ public class MolToolsTools
         [Description("Optional second bottom-strand cut offset; must leave the same stagger as the first pair.")] int? second_cut_reverse = null,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\", \"dcm\", \"dam+dcm\" or \"emboss\". A recognition window containing a methylated base is NOT a site.")] string? methylation = null)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        RequireNotEmpty(sequence, nameof(sequence), "Sequence");
         var enzyme = BuildCustomEnzyme(
             name, recognition_sequence, cut_position_forward, cut_position_reverse, second_cut_forward, second_cut_reverse);
 
@@ -831,8 +835,7 @@ public class MolToolsTools
         [Description("Optional second bottom-strand cut offset; must leave the same stagger as the first pair.")] int? second_cut_reverse = null,
         [Description("Optional methylation-aware recognition (EMBOSS restrict -methylation semantics): \"none\" (default), \"dam\", \"dcm\", \"dam+dcm\" or \"emboss\".")] string? methylation = null)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        RequireNotEmpty(sequence, nameof(sequence), "Sequence");
         var enzyme = BuildCustomEnzyme(
             name, recognition_sequence, cut_position_forward, cut_position_reverse, second_cut_forward, second_cut_reverse);
 
@@ -1287,8 +1290,7 @@ public class MolToolsTools
         [Description("DNA sequence to scan.")] string sequence,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        RequireNotEmpty(sequence, nameof(sequence), "Sequence");
 
         var sites = CrisprDesigner.FindPamSites(sequence, system_type).ToList();
         return new PamSitesResult(sites);
@@ -1302,8 +1304,7 @@ public class MolToolsTools
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
         [Description("Optional guide-RNA design parameters (minGcContent, maxGcContent, minScore, avoidPolyT, checkSelfComplementarity, scoreGcContent (default true; false = CHOPCHOP's own default of no GC score term), ranking, maxSelfComplementaryStems, selfComplementarityBackboneRegions). maxSelfComplementaryStems (default null = no filter, CHOPCHOP filterSelfCompMax = -1) drops guides with more CHOPCHOP 4-bp self-complementary stems; selfComplementarityBackboneRegions (default null = guide-internal stems only) lists sgRNA scaffold regions, on the guide's strand, the stems may also pair against (CHOPCHOP --backbone). Defaults are used when null.")] GuideRnaParameters? parameters = null)
     {
-        if (string.IsNullOrEmpty(sequence))
-            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        RequireNotEmpty(sequence, nameof(sequence), "Sequence");
         if (region_start < 0 || region_start >= sequence.Length)
             throw new System.ArgumentException("Region start must be within the sequence.", nameof(region_start));
         if (region_end < region_start || region_end >= sequence.Length)
@@ -1321,8 +1322,7 @@ public class MolToolsTools
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
         [Description("Optional guide-RNA design parameters.")] GuideRnaParameters? parameters = null)
     {
-        if (string.IsNullOrEmpty(guide_sequence))
-            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
+        RequireNotEmpty(guide_sequence, nameof(guide_sequence), "Guide sequence");
 
         return CrisprDesigner.EvaluateGuideRna(guide_sequence, system_type, parameters);
     }
@@ -1334,10 +1334,8 @@ public class MolToolsTools
         [Description("Maximum allowed mismatches (range 0..5; default 3).")] int max_mismatches = 3,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
     {
-        if (string.IsNullOrEmpty(guide_sequence))
-            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
-        if (string.IsNullOrEmpty(genome))
-            throw new System.ArgumentException("Genome cannot be null or empty.", nameof(genome));
+        RequireNotEmpty(guide_sequence, nameof(guide_sequence), "Guide sequence");
+        RequireNotEmpty(genome, nameof(genome), "Genome");
         if (max_mismatches < 0 || max_mismatches > 5)
             throw new System.ArgumentException("Maximum mismatches must be in the range 0..5.", nameof(max_mismatches));
 
@@ -1353,10 +1351,8 @@ public class MolToolsTools
         [Description("Genome / reference sequence to scan.")] string genome,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
     {
-        if (string.IsNullOrEmpty(guide_sequence))
-            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
-        if (string.IsNullOrEmpty(genome))
-            throw new System.ArgumentException("Genome cannot be null or empty.", nameof(genome));
+        RequireNotEmpty(guide_sequence, nameof(guide_sequence), "Guide sequence");
+        RequireNotEmpty(genome, nameof(genome), "Genome");
 
         // Delegates to the primary, honestly-named library method; the TOOL name is unchanged on
         // purpose (renaming it would be a breaking catalog change). B08 WP2 / D13.
@@ -1376,10 +1372,8 @@ public class MolToolsTools
         [Description("Optional on-target interval end (0-based, exclusive); see on_target_start.")] int? on_target_end = null,
         [Description("Genomic-occurrence limit of a repeat guide (default 60000, CRISPOR's MAXOCC): a guide with more alignments than this - windows of the guide's length, either strand, any PAM, within max_mismatches substitutions - is suppressed and scores 0.")] int max_occurrences = CrisprDesigner.DefaultMaxOccurrences)
     {
-        if (string.IsNullOrEmpty(guide_sequence))
-            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
-        if (string.IsNullOrEmpty(genome))
-            throw new System.ArgumentException("Genome cannot be null or empty.", nameof(genome));
+        RequireNotEmpty(guide_sequence, nameof(guide_sequence), "Guide sequence");
+        RequireNotEmpty(genome, nameof(genome), "Genome");
         if (max_mismatches < 0 || max_mismatches > 5)
             throw new System.ArgumentException("Maximum mismatches must be in the range 0..5.", nameof(max_mismatches));
         if (max_occurrences < 1)
@@ -1405,10 +1399,8 @@ public class MolToolsTools
         [Description("Optional on-target interval end (0-based, exclusive); see on_target_start.")] int? on_target_end = null,
         [Description("Genomic-occurrence limit of a repeat guide (default 60000, CRISPOR's MAXOCC): a guide with more alignments than this - windows of the guide's length, either strand, any PAM, within max_mismatches substitutions - is suppressed and scores 0 under either aggregation.")] int max_occurrences = CrisprDesigner.DefaultMaxOccurrences)
     {
-        if (string.IsNullOrEmpty(guide_sequence))
-            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
-        if (string.IsNullOrEmpty(genome))
-            throw new System.ArgumentException("Genome cannot be null or empty.", nameof(genome));
+        RequireNotEmpty(guide_sequence, nameof(guide_sequence), "Guide sequence");
+        RequireNotEmpty(genome, nameof(genome), "Genome");
         if (max_mismatches < 0 || max_mismatches > 5)
             throw new System.ArgumentException("Maximum mismatches must be in the range 0..5.", nameof(max_mismatches));
         if (max_occurrences < 1)
@@ -1425,8 +1417,7 @@ public class MolToolsTools
     public static OnTargetScoreResult calculate_on_target_doench2014(
         [Description("30-nt context: 4 nt upstream + 20 nt protospacer + 3 nt NGG PAM + 3 nt downstream.")] string context_30mer)
     {
-        if (string.IsNullOrEmpty(context_30mer))
-            throw new System.ArgumentException("Context 30-mer cannot be null or empty.", nameof(context_30mer));
+        RequireNotEmpty(context_30mer, nameof(context_30mer), "Context 30-mer");
 
         return new OnTargetScoreResult(CrisprDesigner.CalculateOnTargetDoench2014(context_30mer));
     }
@@ -1437,8 +1428,7 @@ public class MolToolsTools
         [Description("Optional amino-acid position of the cut site in the target protein, >= 0 (requires percent_peptide); enables the gene-context model. Ignored when percent_peptide = -1.")] int? amino_acid_cut_position = null,
         [Description("Optional cut position as a percentage 0..100 along the coding sequence, or -1 for Azimuth's \"no gene position\" sentinel (which falls back to the sequence-only model); requires amino_acid_cut_position.")] double? percent_peptide = null)
     {
-        if (string.IsNullOrEmpty(context_30mer))
-            throw new System.ArgumentException("Context 30-mer cannot be null or empty.", nameof(context_30mer));
+        RequireNotEmpty(context_30mer, nameof(context_30mer), "Context 30-mer");
         if (amino_acid_cut_position.HasValue != percent_peptide.HasValue)
             throw new System.ArgumentException(
                 "amino_acid_cut_position and percent_peptide must be supplied together (gene-context model) or both omitted.",
