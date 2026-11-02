@@ -205,6 +205,13 @@ File: `CodonOptimizer_OptimizeSequence_Tests.cs`
 - **Reference numbers (dnachisel 3.2.16)**: four constructed genes, `constraints=[AvoidPattern("CTGCAG"/"CATATG"/"CCATGG"), EnforceGCContent(0.40, 0.60[, window=24]), EnforceTranslation()]`. The GC-blind chain fails `EnforceGCContent` with score −0.225 / −0.225 / −0.150 (window 24) and −0.019048 (global) while clearing the sites; the GC-aware output passes **every** constraint and is byte-identical to dnachisel's own `resolve_constraints() + optimize()` result: `ATGATTCGCCTGTGCACTCCAGCTTATGGTCGTCGTCGCTAA` (objective −3.14), `ATGCGTATGGCACTGCGTTCTGCTGTTGGTTGGCTGGTGTAA` (−2.62), `ATGGGCAGCGAAACCTCTGCTTATGGTGCAGCGCTGTGGTAA` (−2.16), `ATGGTTACTGCTGTTCCAATGCGCGGCATGGGCCGCCGCTAA`. Unreachable bounds (gene 3, `EnforceGCContent(0.30, 0.45, window=24)`, dnachisel `NoSolutionError`): start −0.483333, GC-blind chain −1.066667, ours −0.483333.
 - Tests: `CodonOptimizer_AvoidSites_Tests` GC region (5 cases: the defect through the public GC-blind overload with locked breach values, windowed and global GC-aware locked outputs, the unreachable-bounds fallback, non-GC strategies unchanged).
 
+### Review 2026-09 (CODON-OPT-001, B08 R14 — linear `RemoveRestrictionSites`, site-length limit, eager validation; audit A9-4 / O9-1..O9-3)
+
+- **Behaviour**: the site pass is linear in the sequence length for fixed sites (one mutable buffer; the scan is rewound by at most the site length after a replacement; a candidate is judged on the buffer). Its results are byte-identical to the former quadratic pass. With a GC constraint each candidate is still scored over the whole sequence (`O(n)` per candidate).
+- **Validation**: every site is at most `RestrictionAnalyzer.MaxRecognitionLength` = 64 characters and made of IUPAC codes; a violation is an `ArgumentException` (`ParamName` `restrictionSites`, `avoidSites` from `OptimizeSequence`) whatever the sequence is (empty and sub-codon sequences included); a null list is an `ArgumentNullException` likewise.
+- **Oracle**: the outputs of the quadratic implementation (commit `ea937485`, itself validated against DNA Chisel in F54/F60) for 464 random cases, `TestData/Codon/remove_restriction_sites_golden.tsv`, plus 3 x 3 105 further random cases (old vs new, not stored).
+- Tests: `CodonOptimizer_RemoveRestrictionSites_Linear_Tests` (golden replay, 96 000-nt timing tests with N / tandem EcoRI / 64 x N sites, scattered-site correctness, the validation matrix); MCP `RemoveRestrictionSitesLimitTests`.
+
 ## Date
-2026-03-10 (reviewed 2026-09-28, campaign review-2026-09 / B02; F54/F55/F60 2026-10-14)
+2026-03-10 (reviewed 2026-09-28, campaign review-2026-09 / B02; F54/F55/F60 2026-10-14; R14 2026-11-02)
 

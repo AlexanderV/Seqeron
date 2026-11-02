@@ -507,5 +507,22 @@ not increase the breach score — then (b) codon frequency, then (c) the left-mo
 outputs are byte-identical. The structure pass (`MinimizeSecondary`) runs *before* the site pass and
 is not re-run: the site pass is GC-aware only, documented as such.
 
+## R14 — linear site removal, 64-character site limit, eager validation (review 2026-09, B08 audit A9-4 / O9-1..O9-3; 2026-11-02)
+
+### Sources
+
+- The behaviour being preserved is the one validated in F22/F54/F60 above (DNA Chisel 3.2.16 `AvoidPattern` / `EnzymeSitePattern`, IUPAC matching on both strands, one synonymous codon per occurrence). R14 changes the cost, not the result, so the oracle is the previous implementation itself.
+- The length bound is `RestrictionAnalyzer.MaxRecognitionLength` = 64 (B08 A8-7: the scan costs sequence length x pattern length), shared with `find_pattern_occurrences` and the custom-enzyme tools.
+
+### Defect
+
+`RemoveRestrictionSites` rescanned and rebuilt the whole sequence after each replaced codon: quadratic. Reproduced by the B08 auditor on MCP (site `N`: 6k / 12k / 24k / 48k nt = 218 / 630 / 1 797 / 8 222 ms) and here in Release (96 000 nt: `N` 10 218 ms, 16 000 tandem `GAATTC` 20 377 ms, a 64 x `N` site 10.3 s). Also: an over-long site raised the shared scan's `recognitionPattern` ParamName, and an empty or sub-codon sequence skipped site validation.
+
+### Fix and verification
+
+- Sites are parsed once (`ParseSitePatterns`: IUPAC check, length bound, reverse complement, de-duplication) before any return; the scan keeps a mutable `char[]` of the matchable DNA and restarts at `max(from, 3 x changedCodon - m + 1)` after a replacement; a candidate is judged on the buffer (`StillMatchesAt`); the candidate string is built only for the GC-constraint score.
+- Oracle: 464 stored cases of the old code and 3 x 3 105 random cases (seeds 11, 22, 33), identical byte for byte, including `OptimizeSequence` with `BalancedOptimization` / `MinimizeSecondary` / `MaximizeCAI`, GC bounds and windows, genetic codes 1 / 2 / 11 and the refusals.
+- Release timings after the fix (96 000 nt): `N` 22 ms, tandem `GAATTC` 26 ms, 64 x `N` 199 ms.
+
 ## Date
-2026-03-10 (reviewed 2026-09-28; F43 windowed GC, F54 avoidSites, F55 AvoidRareCodons, F60 GC-aware avoidSites 2026-10-14)
+2026-03-10 (reviewed 2026-09-28; F43 windowed GC, F54 avoidSites, F55 AvoidRareCodons, F60 GC-aware avoidSites 2026-10-14; R14 2026-11-02)

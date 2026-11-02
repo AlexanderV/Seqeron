@@ -45,6 +45,9 @@
     <!-- CODON-STATS-001 (FIN-B02 WP23, A3-13): CodonW 1.4.4 binary -fop/-cbi printed values for 70 genes × the 8 built-in
          -f_type sets + 3 user -fop_file/-cbi_file sets × -code 0..7 (NCBI 1,2,3,4,5,6,10,9), incl. the modified Fop; see the file header. -->
     <EmbeddedResource Include="TestData\Codon\codonw_fop_cbi.tsv" />
+    <!-- CODON-OPT-001 (B08 R14): RemoveRestrictionSites / OptimizeSequence(avoidSites) outputs of the quadratic implementation
+         (commit ea937485) for 464 random cases, replayed against the linear rewrite; see the file header. -->
+    <EmbeddedResource Include="TestData\Codon\remove_restriction_sites_golden.tsv" />
     <!-- TRANS-SIXFRAME-001 (FIN-B02 WP17, A2-10): EMBOSS 6.6.0 transeq binary output, -frame 6, tables 1/2/11,
          -alternative N (phase-locked default) and Y, over 80 unambiguous sequences; see the file header. -->
     <EmbeddedResource Include="TestData\Transeq\transeq_six_frames.tsv" />

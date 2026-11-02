@@ -25,7 +25,7 @@ Output is upper-case RNA trimmed to whole codons; a sequence shorter than `windo
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L1527](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1527)
+- Source: [CodonOptimizer.cs#L1643](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L1643)
 
 ## Input Schema
 

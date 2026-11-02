@@ -24,7 +24,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 
 ## Core Documentation Reference
 
-- Source: [CodonOptimizer.cs#L564](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L564)
+- Source: [CodonOptimizer.cs#L597](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs#L597)
 
 ## Input Schema
 
@@ -39,7 +39,7 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 | `secondary_scoring` | enum | No | Scoring of the MinimizeSecondary structure pass: `PairCount` (default) or `Turner2004Mfe`. |
 | `gc_window` | integer \| null | No | `null` (default): global GC constraint only. A positive window size in nucleotides constrains every sliding window of that size to `[gc_target_min, gc_target_max]`. |
 | `genetic_code` | integer | No | NCBI translation table number (default `1` = Standard, identical to omitting it; e.g. `2` vertebrate mitochondrial, `11` bacterial/plastid). Defines the encoded protein and the synonymous-codon families (DNA Chisel `EnforceTranslation(genetic_table=…)`); under table 2 AGA/AGG are stops and never used for Arg, UGA is Trp, AUA is Met. One of 1–6, 9–16, 21–33. |
-| `avoid_sites` | array \| null | No | `null`/omitted (default): no site avoidance. A list of restriction recognition sequences (DNA or RNA, IUPAC codes allowed — same form as [remove_restriction_sites](remove_restriction_sites.md), which also takes sequences rather than enzyme names) runs the site-removal pass **after** codon selection, the GC pass and the structure pass, so no later pass can re-introduce a site (DNA Chisel resolves the hard `AvoidPattern` constraints last). Both strands are cleared; each removal changes one codon; an occurrence no single synonymous substitution can remove is left in place. For the strategies with a GC target (`BalancedOptimization`, `MinimizeSecondary`) the pass is **GC-constraint-aware** (review 2026-09, F60): it keeps `gc_target_min`/`gc_target_max`, and every `gc_window` window, satisfied whenever a site-removing synonymous codon can — ranking candidates by GC feasibility (or, when the input already breaches, by not increasing the breach), then codon frequency, then the leftmost codon, then NCBI codon order. If no candidate can, the least-breach candidate is applied and the site is still removed (site avoidance stays the hard constraint; dnachisel would raise `NoSolutionError`). The reported CAI, GC fractions and codon changes always describe the final sequence (review 2026-09, F54/F60). |
+| `avoid_sites` | array \| null | No | `null`/omitted (default): no site avoidance. A list of restriction recognition sequences (DNA or RNA, IUPAC codes allowed — same form as [remove_restriction_sites](remove_restriction_sites.md), which also takes sequences rather than enzyme names) runs the site-removal pass **after** codon selection, the GC pass and the structure pass, so no later pass can re-introduce a site (DNA Chisel resolves the hard `AvoidPattern` constraints last). Both strands are cleared; each removal changes one codon; an occurrence no single synonymous substitution can remove is left in place. **Each site is at most 64 characters** (`RestrictionAnalyzer.MaxRecognitionLength`; the scan costs sequence length × site length) and a longer one, or one with a character that is not an IUPAC nucleotide code, is refused whatever the sequence is (an empty or sub-codon one included). The pass is linear in the sequence length (review 2026-09, B08 R14), except that with a GC target every candidate is also scored against the whole sequence (see below). For the strategies with a GC target (`BalancedOptimization`, `MinimizeSecondary`) the pass is **GC-constraint-aware** (review 2026-09, F60): it keeps `gc_target_min`/`gc_target_max`, and every `gc_window` window, satisfied whenever a site-removing synonymous codon can — ranking candidates by GC feasibility (or, when the input already breaches, by not increasing the breach), then codon frequency, then the leftmost codon, then NCBI codon order. If no candidate can, the least-breach candidate is applied and the site is still removed (site avoidance stays the hard constraint; dnachisel would raise `NoSolutionError`). The reported CAI, GC fractions and codon changes always describe the final sequence (review 2026-09, F54/F60). |
 
 ## Output Schema
 
@@ -62,7 +62,8 @@ Rewrites the synonymous codons of a coding sequence for a target organism (an `E
 | 1004 | Unknown codon-usage preset |
 | 1005 | GC window must be a positive number of nucleotides |
 | 1006 | Unknown genetic code table: N. Supported NCBI tables: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33. |
-| 1007 | Restriction site '…' contains a character that is not an IUPAC nucleotide code (from `avoid_sites`) |
+| 1007 | Restriction site '…' contains a character that is not an IUPAC nucleotide code (from `avoid_sites`; checked whatever the sequence is) |
+| 1008 | A restriction site is N characters long; the longest supported is 64. (from `avoid_sites`; checked whatever the sequence is) |
 
 ## Examples
 

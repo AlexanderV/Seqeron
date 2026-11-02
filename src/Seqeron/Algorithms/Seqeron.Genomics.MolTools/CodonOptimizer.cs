@@ -562,7 +562,9 @@ public static class CodonOptimizer
     /// </param>
     /// <param name="avoidSites">
     /// <see langword="null"/> or empty (default): no site avoidance, the historical behaviour. A
-    /// list of restriction recognition sequences (DNA or RNA, IUPAC codes allowed) instead runs
+    /// list of restriction recognition sequences (DNA or RNA, IUPAC codes allowed, each at most
+    /// <see cref="RestrictionAnalyzer.MaxRecognitionLength"/> = 64 characters; an invalid or longer one is an
+    /// <see cref="ArgumentException"/> whatever the sequence, an empty sequence included) instead runs
     /// <see cref="RemoveRestrictionSites(string, IEnumerable{string}, CodonUsageTable, GeneticCode?)"/>
     /// on the selected/GC-balanced/structure-relaxed sequence with the same table and genetic
     /// code — DNA Chisel composes the objective <c>CodonOptimize(...)</c> with the constraints
@@ -606,6 +608,10 @@ public static class CodonOptimizer
     {
         if (gcWindow is <= 0)
             throw new ArgumentOutOfRangeException(nameof(gcWindow), gcWindow, "The GC window must be a positive number of nucleotides.");
+
+        // The sites are validated whatever the sequence is: an empty or sub-codon sequence used to skip the check (B08 R14).
+        if (avoidSites is { Count: > 0 })
+            _ = ParseSitePatterns(avoidSites, nameof(avoidSites));
 
         if (string.IsNullOrEmpty(codingSequence))
         {
@@ -1296,13 +1302,22 @@ public static class CodonOptimizer
     /// read as RNA (T → U) and trimmed to complete codons.
     /// </remarks>
     /// <param name="codingSequence">Coding sequence (DNA or RNA); empty → empty result.</param>
-    /// <param name="restrictionSites">Recognition sequences (DNA or RNA, IUPAC codes allowed).</param>
+    /// <param name="restrictionSites">
+    /// Recognition sequences (DNA or RNA, IUPAC codes allowed), each at most
+    /// <see cref="RestrictionAnalyzer.MaxRecognitionLength"/> = 64 characters (the scan costs sequence length x site length). Empty entries
+    /// are skipped.
+    /// </param>
     /// <param name="table">Codon-usage table of the expression host, used to pick replacements.</param>
     /// <param name="geneticCode">
     /// NCBI genetic code whose synonymous families the substitutions come from, so the protein is
     /// preserved under that code (<see langword="null"/>, the default:
     /// <see cref="GeneticCode.Standard"/>, identical to the historical output).
     /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="restrictionSites"/> is null (checked whatever the sequence is).</exception>
+    /// <exception cref="ArgumentException">
+    /// A site contains a character that is not an IUPAC nucleotide code or is longer than
+    /// <see cref="RestrictionAnalyzer.MaxRecognitionLength"/> (checked whatever the sequence is, an empty one included).
+    /// </exception>
     public static string RemoveRestrictionSites(
         string codingSequence,
         IEnumerable<string> restrictionSites,
@@ -1326,14 +1341,60 @@ public static class CodonOptimizer
         GeneticCode? geneticCode,
         GcConstraint? gcConstraint)
     {
+        // The sites are validated whatever the sequence is (an empty or sub-codon sequence used to skip the check, and a site over the length
+        // limit was only refused from inside the scan, under the scan's parameter name).
+        var patterns = ParseSitePatterns(restrictionSites, nameof(restrictionSites));
+
         if (string.IsNullOrEmpty(codingSequence))
             return "";
-
-        ArgumentNullException.ThrowIfNull(restrictionSites);
 
         string rna = ToUpperRna(codingSequence);
         var codons = SplitIntoCodons(rna);
         var families = FamiliesFor(geneticCode);
+
+        // The sequence the patterns are matched against: DNA spelling with every non-ACGT base masked to '-' (see MatchableDna), one char per
+        // base, kept in step with `codons` - a rewrite changes one codon, so the buffer changes in three places and is never rebuilt.
+        char[] dna = MatchableDna(string.Concat(codons));
+
+        foreach (string pattern in patterns)
+        {
+            int from = 0;
+            int scan = 0;
+            // A substitution can create a new occurrence elsewhere, whose removal could in
+            // principle undo the first one; cap the rewrites per pattern so the loop always
+            // terminates (one rewrite per codon plus a small margin).
+            int budget = codons.Count + 8;
+            while (budget-- > 0)
+            {
+                int position = IndexOfPattern(dna, pattern, scan);
+                if (position < 0)
+                    break;
+
+                if (TryRemoveOccurrence(codons, dna, position, pattern, table, families, gcConstraint, out int changedCodon))
+                {
+                    // Re-scan from the same offset: the edit may expose/shift matches. Only a window that overlaps the three bases of the
+                    // rewritten codon can have changed, and the windows in [from, position) did not match before the edit, so the first
+                    // match at or after `from` is not before the first window that reaches into the codon: the scan resumes there instead of
+                    // at `from` (which made every rewrite cost a pass over the sequence, and the pass quadratic).
+                    scan = Math.Max(from, 3 * changedCodon - pattern.Length + 1);
+                    continue;
+                }
+
+                from = position + 1; // unremovable occurrence — keep it and look further along
+                scan = from;
+            }
+        }
+
+        return string.Concat(codons);
+    }
+
+    // The distinct upper-case DNA patterns of the sites, each followed by its reverse complement (REBASE lists one strand; the enzyme cuts
+    // both). Empty entries are skipped. A site that is not made of IUPAC nucleotide codes, or is longer than RestrictionAnalyzer.MaxRecognitionLength
+    // (the scan costs sequence length x pattern length), is an ArgumentException naming `paramName` (`restrictionSites`, or `avoidSites` when OptimizeSequence asks).
+    private static List<string> ParseSitePatterns(IEnumerable<string> restrictionSites, string paramName)
+    {
+        if (restrictionSites is null)
+            throw new ArgumentNullException(paramName);
 
         // Match on DNA spelling: 'U' is not an IUPAC DNA code.
         var patterns = new List<string>();
@@ -1345,33 +1406,17 @@ public static class CodonOptimizer
             if (!pattern.All(IupacHelper.IsNucleotideCode))
                 throw new ArgumentException(
                     $"Restriction site '{site}' contains a character that is not an IUPAC nucleotide code.",
-                    nameof(restrictionSites));
+                    paramName);
+            if (pattern.Length > RestrictionAnalyzer.MaxRecognitionLength)
+                throw new ArgumentException(
+                    $"A restriction site is {pattern.Length} characters long; the longest supported is {RestrictionAnalyzer.MaxRecognitionLength}.",
+                    paramName);
 
             AddPattern(patterns, pattern);
             AddPattern(patterns, DnaSequence.GetReverseComplementString(pattern));
         }
 
-        foreach (string pattern in patterns)
-        {
-            int from = 0;
-            // A substitution can create a new occurrence elsewhere, whose removal could in
-            // principle undo the first one; cap the rewrites per pattern so the loop always
-            // terminates (one rewrite per codon plus a small margin).
-            int budget = codons.Count + 8;
-            while (budget-- > 0)
-            {
-                int position = FindPattern(string.Concat(codons), pattern, from);
-                if (position < 0)
-                    break;
-
-                if (TryRemoveOccurrence(codons, position, pattern, table, families, gcConstraint))
-                    continue; // re-scan from the same offset: the edit may expose/shift matches
-
-                from = position + 1; // unremovable occurrence — keep it and look further along
-            }
-        }
-
-        return string.Concat(codons);
+        return patterns;
 
         static void AddPattern(List<string> patterns, string pattern)
         {
@@ -1380,24 +1425,33 @@ public static class CodonOptimizer
         }
     }
 
-    // First index >= from where the IUPAC pattern matches (-1 when absent). The scan is the public
-    // RestrictionAnalyzer.FindPatternOccurrences (lazy — only the first hit is computed). That scan
-    // lets a pattern 'N' match an ambiguity code in the sequence (Biopython's site-regex rule); this
-    // optimizer never has: an ambiguous triplet occupies its position but contributes nothing and
-    // matches no pattern (cf. the codon-usage counters), so every non-ACGT base is masked to '-'
-    // (which matches nothing) first, keeping the pass's behaviour unchanged.
-    private static int FindPattern(string sequence, string pattern, int from) =>
-        RestrictionAnalyzer.FindPatternOccurrences(ToMatchableDna(sequence), pattern, from)
-            .Cast<int?>().FirstOrDefault() ?? -1;
-
-    // DNA spelling (SequenceCase.ToUpperDna: ASCII fold, U -> T) with every non-ACGT symbol replaced by '-',
-    // which matches no pattern code.
-    private static string ToMatchableDna(string sequence) =>
-        string.Create(sequence.Length, SequenceCase.ToUpperDna(sequence), static (span, dna) =>
+    // First index >= from where the IUPAC pattern matches (-1 when absent), with RestrictionAnalyzer.FindPatternOccurrences' per-position rule
+    // (IupacPattern.MatchesCode): a pattern 'N' matches any of the 15 IUPAC codes in the sequence (Biopython's site-regex rule), while this
+    // optimizer never lets an ambiguous triplet match anything (it occupies its position but contributes nothing, cf. the codon-usage counters),
+    // which is why every non-ACGT base is masked to '-' in the buffer, a character that matches nothing.
+    private static int IndexOfPattern(char[] dna, string pattern, int from)
+    {
+        for (int i = from; i <= dna.Length - pattern.Length; i++)
         {
-            for (int i = 0; i < span.Length; i++)
-                span[i] = dna[i] is 'A' or 'C' or 'G' or 'T' ? dna[i] : '-';
-        });
+            int k = 0;
+            while (k < pattern.Length && IupacPattern.MatchesCode(dna[i + k], pattern[k]))
+                k++;
+            if (k == pattern.Length)
+                return i;
+        }
+
+        return -1;
+    }
+
+    // DNA spelling (SequenceCase.ToUpperDna: ASCII fold, U -> T) with every non-ACGT symbol replaced by '-', which matches no pattern code.
+    private static char[] MatchableDna(string sequence)
+    {
+        string dna = SequenceCase.ToUpperDna(sequence);
+        var chars = new char[dna.Length];
+        for (int i = 0; i < chars.Length; i++)
+            chars[i] = dna[i] is 'A' or 'C' or 'G' or 'T' ? dna[i] : '-';
+        return chars;
+    }
 
     // Replaces the single synonymous codon that removes the occurrence at <paramref name="position"/>
     // with the smallest loss of codon usage; returns false when no synonymous substitution works.
@@ -1409,12 +1463,15 @@ public static class CodonOptimizer
     // stays the hard constraint (dnachisel would raise NoSolutionError instead).
     private static bool TryRemoveOccurrence(
         List<string> codons,
+        char[] dna,
         int position,
         string pattern,
         CodonUsageTable table,
         CodeFamilies families,
-        GcConstraint? gcConstraint)
+        GcConstraint? gcConstraint,
+        out int changedCodon)
     {
+        changedCodon = -1;
         int firstCodon = position / 3;
         int lastCodon = Math.Min((position + pattern.Length - 1) / 3, codons.Count - 1);
 
@@ -1440,12 +1497,14 @@ public static class CodonOptimizer
                 if (alternative == original)
                     continue;
 
-                string candidate = ConcatCodons(codons, 0, codons.Count, i, alternative);
-                if (FindPattern(candidate, pattern, position) == position)
+                // The candidate removes the occurrence when the window at `position` no longer matches; only the replaced codon and its
+                // neighbours inside the window decide that, so it is read off the buffer (the whole candidate sequence is built only when a
+                // GC constraint has to score it - the breach is a property of the whole sequence).
+                if (StillMatchesAt(dna, position, pattern, i, MatchableDna(alternative)))
                     continue;
 
                 double frequency = table.CodonFrequencies.GetValueOrDefault(alternative, 0);
-                double breach = gcConstraint is null ? 0 : GcBreach(candidate, gcConstraint);
+                double breach = gcConstraint is null ? 0 : GcBreach(ConcatCodons(codons, 0, codons.Count, i, alternative), gcConstraint);
                 bool acceptable = breach <= tolerated + 1e-12;
 
                 // Lexicographic: acceptable first; among the unacceptable ones the least breach;
@@ -1474,6 +1533,23 @@ public static class CodonOptimizer
             return false;
 
         codons[bestIndex] = bestCodon;
+        MatchableDna(bestCodon).CopyTo(dna, 3 * bestIndex);
+        changedCodon = bestIndex;
+        return true;
+    }
+
+    // Whether the pattern still matches at `position` once codon `index` is replaced by `alternative` (given in its matchable spelling): the
+    // window [position, position + pattern.Length) is read from the buffer, with the replaced codon's three bases substituted.
+    private static bool StillMatchesAt(char[] dna, int position, string pattern, int index, char[] alternative)
+    {
+        for (int k = 0; k < pattern.Length; k++)
+        {
+            int p = position + k;
+            char c = p / 3 == index ? alternative[p % 3] : dna[p];
+            if (!IupacPattern.MatchesCode(c, pattern[k]))
+                return false;
+        }
+
         return true;
     }
 
