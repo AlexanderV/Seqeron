@@ -1,0 +1,482 @@
+[
+ {
+  "id": "M01",
+  "desc": "bucket start off by one (SetBucketHeads sum = 0)",
+  "file": "SaisReferenceOfT.cs",
+  "old": "int sum = 1; // index 0 belongs to the sentinel suffix",
+  "new": "int sum = 0; // index 0 belongs to the sentinel suffix",
+  "class": "killed"
+ },
+ {
+  "id": "M02",
+  "desc": "bucket end off by one (SetBucketTails exclusive end - 1)",
+  "file": "SaisReferenceOfT.cs",
+  "old": "bkt[c] = FromInt(sum); // exclusive end",
+  "new": "bkt[c] = FromInt(sum - 1); // exclusive end",
+  "class": "killed"
+ },
+ {
+  "id": "M03",
+  "desc": "skip the virtual-$ entry SA[0] in InduceL (i starts at 1)",
+  "file": "SaisReferenceOfT.cs",
+  "old": "for (int i = 0; i <= t.Length; i++)",
+  "new": "for (int i = 1; i <= t.Length; i++)",
+  "class": "killed"
+ },
+ {
+  "id": "M04",
+  "desc": "InduceL: suffix 0 not skipped (p < 0 instead of p <= 0)",
+  "file": "SaisReferenceOfT.cs",
+  "old": "if (p <= 0) continue; // empty slot, or suffix 0 which has no predecessor",
+  "new": "if (p < 0) continue; // empty slot, or suffix 0 which has no predecessor",
+  "class": "killed"
+ },
+ {
+  "id": "M05",
+  "desc": "InduceS skips the last entry i = n",
+  "file": "SaisReferenceOfT.cs",
+  "old": "for (int i = t.Length; i >= 1; i--)",
+  "new": "for (int i = t.Length - 1; i >= 1; i--)",
+  "class": "killed"
+ },
+ {
+  "id": "M06",
+  "desc": "InduceS stops at i >= 2 (does not read SA[1])",
+  "file": "SaisReferenceOfT.cs",
+  "old": "for (int i = t.Length; i >= 1; i--)",
+  "new": "for (int i = t.Length; i >= 2; i--)",
+  "class": "equivalent"
+ },
+ {
+  "id": "M07",
+  "desc": "naming: equality test inverted",
+  "file": "SaisReferenceOfT.cs",
+  "old": "if (previous < 0 || !SaisReference.LmsSubstringsEqual(t, isS, previous, pos)) name++;",
+  "new": "if (previous < 0 || SaisReference.LmsSubstringsEqual(t, isS, previous, pos)) name++;",
+  "class": "killed"
+ },
+ {
+  "id": "M08",
+  "desc": "recursion condition names <= m (always recurse)",
+  "file": "SaisReferenceOfT.cs",
+  "old": "if (names < m)",
+  "new": "if (names <= m)",
+  "class": "gap-killed-by-added-test"
+ },
+ {
+  "id": "M09",
+  "desc": "recursion condition names < m - 1",
+  "file": "SaisReferenceOfT.cs",
+  "old": "if (names < m)",
+  "new": "if (names < m - 1)",
+  "class": "killed"
+ },
+ {
+  "id": "M10",
+  "desc": "LMS-substring equality without the type comparison",
+  "file": "SaisReference.cs",
+  "old": "if (t[x] != t[y] || isS[x] != isS[y]) return false;",
+  "new": "if (t[x] != t[y]) return false;",
+  "class": "killed"
+ },
+ {
+  "id": "M11",
+  "desc": "LMS-substring equality: sentinel case returns true",
+  "file": "SaisReference.cs",
+  "old": "if (x == n || y == n) return false;",
+  "new": "if (x == n || y == n) return true;",
+  "class": "killed"
+ },
+ {
+  "id": "M12",
+  "desc": "LMS-substring equality: end test d > 1 instead of d > 0",
+  "file": "SaisReference.cs",
+  "old": "if (d > 0 && IsLms(isS, x)) return true;",
+  "new": "if (d > 1 && IsLms(isS, x)) return true;",
+  "class": "equivalent"
+ },
+ {
+  "id": "M13",
+  "desc": "type classification: a <= b means S",
+  "file": "SaisReference.cs",
+  "old": "isS[i] = a < b || (a == b && isS[i + 1]);",
+  "new": "isS[i] = a <= b;",
+  "class": "killed"
+ },
+ {
+  "id": "M14",
+  "desc": "CountLms counts the sentinel position n",
+  "file": "SaisReference.cs",
+  "old": "for (int i = 1; i < isS.Length - 1; i++)",
+  "new": "for (int i = 1; i < isS.Length; i++)",
+  "class": "killed"
+ },
+ {
+  "id": "M15",
+  "desc": "CompactNames includes slot m (a sorted LMS position)",
+  "file": "SaisReferenceOfT.cs",
+  "old": "for (int i = n; i > m; i--)",
+  "new": "for (int i = n; i >= m; i--)",
+  "class": "equivalent"
+ },
+ {
+  "id": "M16",
+  "desc": "naming: stale slot, Fill starts at m + 2",
+  "file": "SaisReferenceOfT.cs",
+  "old": "sa.Slice(m + 1).Fill(Empty);\n        int name = -1;",
+  "new": "sa.Slice(m + 2).Fill(Empty);\n        int name = -1;",
+  "class": "equivalent"
+ },
+ {
+  "id": "M17",
+  "desc": "direct placement of distinct names without +1",
+  "file": "SaisReferenceOfT.cs",
+  "old": "sa1[1 + ToInt(s1[i])] = FromInt(i);",
+  "new": "sa1[ToInt(s1[i])] = FromInt(i);",
+  "class": "killed"
+ },
+ {
+  "id": "M18",
+  "desc": "SolveReduced: LMS at position 1 not collected",
+  "file": "SaisReferenceOfT.cs",
+  "old": "if (SaisReference.IsLms(isS, i)) sa[tailBase + --idx] = FromInt(i);",
+  "new": "if (i > 1 && SaisReference.IsLms(isS, i)) sa[tailBase + --idx] = FromInt(i);",
+  "class": "killed"
+ },
+ {
+  "id": "M20",
+  "desc": "stage 2: stale slot, Fill starts at m + 2",
+  "file": "SaisReferenceOfT.cs",
+  "old": "sa.Slice(m + 1).Fill(Empty);\n        SetBucketTails(counts, bkt);\n        for (int r = m",
+  "new": "sa.Slice(m + 2).Fill(Empty);\n        SetBucketTails(counts, bkt);\n        for (int r = m",
+  "class": "killed"
+ },
+ {
+  "id": "M21",
+  "desc": "PLCP update off by one (l > 1)",
+  "file": "LcpReferenceOfT.cs",
+  "old": "if (l > 0) l--;",
+  "new": "if (l > 1) l--;",
+  "class": "killed"
+ },
+ {
+  "id": "M22",
+  "desc": "escape count U8: v > 255",
+  "file": "LcpReferenceOfT.cs",
+  "old": "if (v >= 255) escapes8++;",
+  "new": "if (v > 255) escapes8++;",
+  "class": "killed"
+ },
+ {
+  "id": "M23",
+  "desc": "escape count U16: v > 65535",
+  "file": "LcpReferenceOfT.cs",
+  "old": "if (v >= 65535) escapes16++;",
+  "new": "if (v > 65535) escapes16++;",
+  "class": "killed"
+ },
+ {
+  "id": "M24",
+  "desc": "Phi: SA[1] predecessor (empty suffix) not set",
+  "file": "LcpReferenceOfT.cs",
+  "old": "for (int i = 1; i <= n; i++) phi[ToInt(sa[i])] = sa[i - 1];",
+  "new": "for (int i = 2; i <= n; i++) phi[ToInt(sa[i])] = sa[i - 1];",
+  "class": "killed"
+ },
+ {
+  "id": "M25",
+  "desc": "PLCP: drop the j + l < n bound",
+  "file": "LcpReferenceOfT.cs",
+  "old": "while (j + l < n && p + l < n && text[j + l] == text[p + l]) l++;",
+  "new": "while (p + l < n && text[j + l] == text[p + l]) l++;",
+  "class": "gap-killed-by-added-test"
+ },
+ {
+  "id": "M26",
+  "desc": "PLCP: p + l <= n (reads text[n])",
+  "file": "LcpReferenceOfT.cs",
+  "old": "while (j + l < n && p + l < n && text[j + l] == text[p + l]) l++;",
+  "new": "while (j + l < n && p + l <= n && text[j + l] == text[p + l]) l++;",
+  "class": "killed"
+ },
+ {
+  "id": "M27",
+  "desc": "escape count announced for U16 uses the U8 count",
+  "file": "LcpReferenceOfT.cs",
+  "old": "LcpKind.U16 => (int)escapes16",
+  "new": "LcpKind.U16 => (int)escapes8",
+  "class": "killed"
+ },
+ {
+  "id": "M28",
+  "desc": "PLCP: l = 0 reset removed when predecessor is the empty suffix",
+  "file": "LcpReferenceOfT.cs",
+  "old": "                l = 0;\n                phi[j] = TIdx.Zero;",
+  "new": "                phi[j] = TIdx.Zero;",
+  "class": "equivalent"
+ },
+ {
+  "id": "M29",
+  "desc": "SelectKind U8 boundary: 16 * e8 < n",
+  "file": "CompactLcp.cs",
+  "old": "if (16 * escapes8 <= n) return LcpKind.U8;",
+  "new": "if (16 * escapes8 < n) return LcpKind.U8;",
+  "class": "killed"
+ },
+ {
+  "id": "M30",
+  "desc": "SelectKind U16 boundary: 8 * e16 < n",
+  "file": "CompactLcp.cs",
+  "old": "if (8 * escapes16 <= n) return LcpKind.U16;",
+  "new": "if (8 * escapes16 < n) return LcpKind.U16;",
+  "class": "killed"
+ },
+ {
+  "id": "M31",
+  "desc": "compact LCP U8 escape threshold: value > 255 (255 stored as the escape byte)",
+  "file": "CompactLcp.cs",
+  "old": "if (value >= U8Escape)",
+  "new": "if (value > U8Escape)",
+  "class": "killed"
+ },
+ {
+  "id": "M32",
+  "desc": "compact LCP U16 escape threshold: value > 65535",
+  "file": "CompactLcp.cs",
+  "old": "if (value >= U16Escape)",
+  "new": "if (value > U16Escape)",
+  "class": "killed"
+ },
+ {
+  "id": "M33",
+  "desc": "cursor: backward reposition test > instead of >=",
+  "file": "CompactLcp.cs",
+  "old": "ranks[_next - 1] >= rank",
+  "new": "ranks[_next - 1] > rank",
+  "class": "killed"
+ },
+ {
+  "id": "M34",
+  "desc": "PayloadBytes: 4 bytes per overflow entry instead of 8",
+  "file": "CompactLcp.cs",
+  "old": "+ (8L * OverflowCount)",
+  "new": "+ (4L * OverflowCount)",
+  "class": "killed"
+ },
+ {
+  "id": "M35",
+  "desc": "FromDense U8 escape count: v > 255",
+  "file": "CompactLcp.cs",
+  "old": "if (v >= U8Escape) e8++;",
+  "new": "if (v > U8Escape) e8++;",
+  "class": "killed"
+ },
+ {
+  "id": "M36",
+  "desc": "reader width: sigma < 256 selects bytes",
+  "file": "TextPreparation.cs",
+  "old": "if (sigma <= 256)",
+  "new": "if (sigma < 256)",
+  "class": "killed"
+ },
+ {
+  "id": "M37",
+  "desc": "dense remap order break: rank counts bits ABOVE c inside the word",
+  "file": "TextPreparation.cs",
+  "old": "BitOperations.PopCount(map[c >> 6] & ((1UL << (c & 63)) - 1))",
+  "new": "BitOperations.PopCount(map[c >> 6] & ~((1UL << (c & 63)) - 1))",
+  "class": "killed"
+ },
+ {
+  "id": "M38",
+  "desc": "65,536-symbol map one word short (MapWords = 1023, U+FFFF)",
+  "file": "TextPreparation.cs",
+  "old": "private const int MapWords = 1024; // 65,536 bits",
+  "new": "private const int MapWords = 1023; // 65,536 bits",
+  "class": "killed"
+ },
+ {
+  "id": "M39",
+  "desc": "size guard off by one (> instead of >=)",
+  "file": "EsaLimits.cs",
+  "old": "if (textLength >= Array.MaxLength)",
+  "new": "if (textLength > Array.MaxLength)",
+  "class": "killed"
+ },
+ {
+  "id": "M40",
+  "desc": "Build(span): oversized suffix-array span accepted (< instead of !=)",
+  "file": "SaisReferenceOfT.cs",
+  "old": "if (sa.Length != text.Length + 1)",
+  "new": "if (sa.Length < text.Length + 1)",
+  "class": "gap-killed-by-added-test"
+ },
+ {
+  "id": "M41",
+  "desc": "ComputePlcp: oversized suffix array accepted (< instead of !=)",
+  "file": "LcpReferenceOfT.cs",
+  "old": "if (sa.Length != n + 1)",
+  "new": "if (sa.Length < n + 1)",
+  "class": "gap-killed-by-added-test"
+ },
+ {
+  "id": "M42",
+  "desc": "empty marker 0 instead of -1",
+  "file": "SaisReferenceOfT.cs",
+  "old": "private static TIdx Empty => TIdx.NegativeOne;",
+  "new": "private static TIdx Empty => TIdx.Zero;",
+  "class": "killed"
+ },
+ {
+  "id": "M43",
+  "desc": "naming slot (pos + 1) >> 1 instead of pos >> 1",
+  "file": "SaisReferenceOfT.cs",
+  "old": "sa[1 + m + (pos >> 1)] = FromInt(name);",
+  "new": "sa[1 + m + ((pos + 1) >> 1)] = FromInt(name);",
+  "class": "equivalent"
+ },
+ {
+  "id": "M44",
+  "desc": "LMS equality loop bound a + d < n (sentinel check unreachable)",
+  "file": "SaisReference.cs",
+  "old": "for (int d = 0; a + d <= n && b + d <= n; d++)",
+  "new": "for (int d = 0; a + d < n && b + d < n; d++)",
+  "class": "equivalent"
+ },
+ {
+  "id": "M45",
+  "desc": "stage 1 placement skips LMS position n - 1... i >= 2 (LMS at position 1 not placed)",
+  "file": "SaisReferenceOfT.cs",
+  "old": "for (int i = n - 1; i >= 1; i--)\n        {\n            if (!SaisReference.IsLms(isS, i)) continue;",
+  "new": "for (int i = n - 1; i >= 2; i--)\n        {\n            if (!SaisReference.IsLms(isS, i)) continue;",
+  "class": "equivalent"
+ },
+ {
+  "id": "M46",
+  "desc": "ClassifyTypes: isS[n] = false (virtual $ typed L)",
+  "file": "SaisReference.cs",
+  "old": "isS[n] = true;",
+  "new": "isS[n] = false;",
+  "class": "equivalent"
+ },
+ {
+  "id": "M47",
+  "desc": "SolveReduced: sa1[0] = m dropped (direct placement branch)",
+  "file": "SaisReferenceOfT.cs",
+  "old": "            sa1[0] = FromInt(m);\n",
+  "new": "",
+  "class": "equivalent"
+ },
+ {
+  "id": "M48",
+  "desc": "TextPreparation: no length guard",
+  "file": "TextPreparation.cs",
+  "old": "        EsaLimits.EnsureTextLength(text.Length);\n",
+  "new": "",
+  "class": "equivalent"
+ },
+ {
+  "id": "M19b",
+  "desc": "stage 2: sorted LMS entry not cleared after the move",
+  "file": "SaisReferenceOfT.cs",
+  "old": "            sa[r] = Empty;\n            int c = t[ToInt(p)];",
+  "new": "            int c = t[ToInt(p)];",
+  "class": "killed"
+ },
+ {
+  "id": "M49",
+  "desc": "Build(array): negative alphabet size not rejected",
+  "file": "SaisReferenceOfT.cs",
+  "old": "EsaLimits.EnsureReaderFits(text);\n        ArgumentOutOfRangeException.ThrowIfNegative(alphabetSize);\n        var sa",
+  "new": "EsaLimits.EnsureReaderFits(text);\n        var sa",
+  "class": "killed"
+ },
+ {
+  "id": "M60",
+  "desc": "Build(span): negative alphabet size not rejected",
+  "file": "SaisReferenceOfT.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(alphabetSize);\n        if (sa.Length",
+  "new": "if (sa.Length",
+  "class": "gap-killed-by-added-test"
+ },
+ {
+  "id": "M69",
+  "desc": "Build(span): size guard removed",
+  "file": "SaisReferenceOfT.cs",
+  "old": "EsaLimits.EnsureReaderFits(text);\n        ArgumentOutOfRangeException.ThrowIfNegative(alphabetSize);\n        if (sa.Length",
+  "new": "ArgumentOutOfRangeException.ThrowIfNegative(alphabetSize);\n        if (sa.Length",
+  "class": "killed"
+ },
+ {
+  "id": "M62",
+  "desc": "CountSymbols: symbol == sigma accepted by the range test (> instead of >=)",
+  "file": "SaisReferenceOfT.cs",
+  "old": "if ((uint)c >= (uint)sigma)",
+  "new": "if ((uint)c > (uint)sigma)",
+  "class": "killed"
+ },
+ {
+  "id": "M66",
+  "desc": "trace: LMS count off by one",
+  "file": "SaisReferenceOfT.cs",
+  "old": "trace?.Levels.Add(new SaisLevel(n, sigma, m));",
+  "new": "trace?.Levels.Add(new SaisLevel(n, sigma, m + 1));",
+  "class": "killed"
+ },
+ {
+  "id": "M50",
+  "desc": "CompactLcp.Builder.Complete: fewer escapes than announced not detected",
+  "file": "CompactLcp.cs",
+  "old": "if (_overflowFilled != _overflowRank.Length)",
+  "new": "if (_overflowFilled > _overflowRank.Length)",
+  "class": "gap-killed-by-added-test"
+ },
+ {
+  "id": "M51",
+  "desc": "CompactLcp.Builder: duplicate escape rank accepted",
+  "file": "CompactLcp.cs",
+  "old": "_overflowRank[_overflowFilled - 1] >= rank",
+  "new": "_overflowRank[_overflowFilled - 1] > rank",
+  "class": "gap-killed-by-added-test"
+ },
+ {
+  "id": "M57",
+  "desc": "CompactLcp.BaseValue: rank == Length not rejected",
+  "file": "CompactLcp.cs",
+  "old": "if ((uint)rank >= (uint)Length) throw new ArgumentOutOfRangeException(nameof(rank));\n        return Kind",
+  "new": "if ((uint)rank > (uint)Length) throw new ArgumentOutOfRangeException(nameof(rank));\n        return Kind",
+  "class": "killed"
+ },
+ {
+  "id": "M55",
+  "desc": "ComputePlcp: sa[0] > n instead of != n",
+  "file": "LcpReferenceOfT.cs",
+  "old": "if (ToInt(sa[0]) != n)",
+  "new": "if (ToInt(sa[0]) > n)",
+  "class": "killed"
+ },
+ {
+  "id": "M58b",
+  "desc": "CompactLcp.Builder: zero length accepted (ThrowIfLessThan(length, 0))",
+  "file": "CompactLcp.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfLessThan(length, 1);",
+  "new": "ArgumentOutOfRangeException.ThrowIfLessThan(length, 0);",
+  "class": "gap-killed-by-added-test"
+ },
+ {
+  "id": "M59b",
+  "desc": "SelectKind: negative n not rejected",
+  "file": "CompactLcp.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(n);",
+  "new": "ArgumentOutOfRangeException.ThrowIfNegative(Math.Abs(n));",
+  "class": "killed"
+ },
+ {
+  "id": "M54b",
+  "desc": "EnsureTextLength: negative length not rejected",
+  "file": "EsaLimits.cs",
+  "old": "ArgumentOutOfRangeException.ThrowIfNegative(textLength);",
+  "new": "ArgumentOutOfRangeException.ThrowIfNegative(Math.Abs(textLength));",
+  "class": "killed"
+ }
+]
