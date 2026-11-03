@@ -121,6 +121,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Tests.Contracts
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.PerfHarness", "apps\SuffixTree.PerfHarness\SuffixTree.PerfHarness.csproj", "{4A8AD452-EB67-4A31-8C27-14ED5C9A79FE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Esa.Bench", "apps\SuffixTree.Esa.Bench\SuffixTree.Esa.Bench.csproj", "{774360C0-56F8-4151-AF04-7E186393D568}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -707,6 +709,18 @@ Global
 		{4A8AD452-EB67-4A31-8C27-14ED5C9A79FE}.Release|x64.Build.0 = Release|Any CPU
 		{4A8AD452-EB67-4A31-8C27-14ED5C9A79FE}.Release|x86.ActiveCfg = Release|Any CPU
 		{4A8AD452-EB67-4A31-8C27-14ED5C9A79FE}.Release|x86.Build.0 = Release|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Debug|x64.Build.0 = Debug|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Debug|x86.Build.0 = Debug|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Release|Any CPU.Build.0 = Release|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Release|x64.ActiveCfg = Release|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Release|x64.Build.0 = Release|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Release|x86.ActiveCfg = Release|Any CPU
+		{774360C0-56F8-4151-AF04-7E186393D568}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -768,5 +782,6 @@ Global
 		{2E9DC434-ABC0-4293-B365-D0313D565D20} = {2837F60A-79D7-4DAD-79C8-0CEBDFCA8D40}
 		{D175AE9C-12E9-46EE-8F1B-449019EC41C3} = {D57C21C6-7CF4-160C-7FFF-8651A26780EE}
 		{4A8AD452-EB67-4A31-8C27-14ED5C9A79FE} = {1787FE1D-075E-9E68-7218-25F1BD1BBEAB}
+		{774360C0-56F8-4151-AF04-7E186393D568} = {1787FE1D-075E-9E68-7218-25F1BD1BBEAB}
 	EndGlobalSection
 EndGlobal

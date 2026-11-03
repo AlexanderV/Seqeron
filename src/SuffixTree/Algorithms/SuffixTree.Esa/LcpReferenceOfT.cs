@@ -23,12 +23,13 @@ internal static class LcpReference<TIdx>
     private static TIdx FromInt(int value) => TIdx.CreateChecked(value);
 
     /// <summary>Builds the compact LCP array of <paramref name="text"/> from its suffix array (n + 1 layout, <c>sa[0] = n</c>).</summary>
-    internal static CompactLcp Build<TReader>(TReader text, ReadOnlySpan<TIdx> sa)
+    internal static CompactLcp Build<TReader>(TReader text, ReadOnlySpan<TIdx> sa, LcpTrace? trace = null)
         where TReader : ISymbolReader, allows ref struct
     {
         int n = text.Length;
-        TIdx[] plcp = ComputePlcp(text, sa);
+        TIdx[] plcp = ComputePlcp(text, sa, trace);
 
+        long tick = trace is null ? 0 : System.Diagnostics.Stopwatch.GetTimestamp();
         long escapes8 = 0, escapes16 = 0;
         foreach (TIdx value in plcp)
         {
@@ -39,13 +40,21 @@ internal static class LcpReference<TIdx>
         LcpKind kind = CompactLcp.SelectKind(n, escapes8, escapes16);
         int escapes = kind switch { LcpKind.U8 => (int)escapes8, LcpKind.U16 => (int)escapes16, _ => 0 };
 
+        if (trace is not null)
+        {
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            trace.CountTicks += now - tick;
+            tick = now;
+        }
         var builder = new CompactLcp.Builder(kind, n + 1, escapes);
         for (int r = 1; r <= n; r++) builder.Set(r, ToInt(plcp[ToInt(sa[r])]));
-        return builder.Complete();
+        CompactLcp result = builder.Complete();
+        if (trace is not null) trace.OutputTicks += System.Diagnostics.Stopwatch.GetTimestamp() - tick;
+        return result;
     }
 
     /// <summary>The permuted LCP array: <c>PLCP[j]</c> is the LCP of suffix j and its predecessor in suffix-array order (0 when that is the empty suffix). Length n.</summary>
-    internal static TIdx[] ComputePlcp<TReader>(TReader text, ReadOnlySpan<TIdx> sa)
+    internal static TIdx[] ComputePlcp<TReader>(TReader text, ReadOnlySpan<TIdx> sa, LcpTrace? trace = null)
         where TReader : ISymbolReader, allows ref struct
     {
         int n = text.Length;
@@ -54,8 +63,15 @@ internal static class LcpReference<TIdx>
         if (ToInt(sa[0]) != n)
             throw new ArgumentException("sa[0] must be n, the empty suffix", nameof(sa));
 
+        long tick = trace is null ? 0 : System.Diagnostics.Stopwatch.GetTimestamp();
         var phi = new TIdx[n];
         for (int i = 1; i <= n; i++) phi[ToInt(sa[i])] = sa[i - 1];
+        if (trace is not null)
+        {
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            trace.PhiTicks += now - tick;
+            tick = now;
+        }
 
         int l = 0;
         for (int j = 0; j < n; j++)
@@ -71,6 +87,7 @@ internal static class LcpReference<TIdx>
             phi[j] = FromInt(l);
             if (l > 0) l--;
         }
+        if (trace is not null) trace.PlcpTicks += System.Diagnostics.Stopwatch.GetTimestamp() - tick;
         return phi;
     }
 }

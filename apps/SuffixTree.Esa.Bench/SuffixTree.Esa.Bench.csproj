@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Measurement harness of the ESA backend (ST-S1 work package 1a.8): SA + LCP build time, phase profile, peak RSS and index bytes of the
+    SaisReference / LcpReference pipeline (later: the optimized kernels), in the row format of docs/refactoring/suffix-tree-upgrade/analysis/bench.
+    An application, not a test project: `dotnet test` never runs it. Runtime settings are the defaults of the published numbers
+    (workstation, non-concurrent GC, tiered compilation and dynamic PGO on). Driven by analysis/bench/run_esa.sh through lib/benchlib.py.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SuffixTree.Esa.Bench</RootNamespace>
+    <AssemblyName>SuffixTree.Esa.Bench</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+    <UseAppHost>true</UseAppHost>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SuffixTree\Algorithms\SuffixTree.Esa\SuffixTree.Esa.csproj" />
+  </ItemGroup>
+
+</Project>

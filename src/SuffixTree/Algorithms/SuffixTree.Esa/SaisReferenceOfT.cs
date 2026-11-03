@@ -72,6 +72,7 @@ internal static class SaisReference<TIdx>
         where TReader : ISymbolReader, allows ref struct
     {
         int n = t.Length;
+        int level = trace?.Levels.Count ?? 0;
         sa[0] = FromInt(n);
         if (n == 0)
         {
@@ -79,21 +80,31 @@ internal static class SaisReference<TIdx>
             return;
         }
 
+        long tick = SaisTrace.Begin(trace);
         TIdx[] counts = CountSymbols(t, sigma);
+        trace?.End(level, SaisPhase.Count, tick);
+        tick = SaisTrace.Begin(trace);
         bool[] isS = SaisReference.ClassifyTypes(t);
         int m = SaisReference.CountLms(isS);
+        trace?.End(level, SaisPhase.Classify, tick);
         trace?.Levels.Add(new SaisLevel(n, sigma, m));
         var bkt = new TIdx[sigma];
 
         // Stage 1: sort the LMS substrings by one induction round, name them, solve the reduced problem.
-        SortLmsSubstrings(t, sa, isS, counts, bkt);
+        SortLmsSubstrings(t, sa, isS, counts, bkt, trace, level);
+        tick = SaisTrace.Begin(trace);
         CompactSortedLms(sa, isS, m);
+        trace?.End(level, SaisPhase.CompactLms, tick);
+        tick = SaisTrace.Begin(trace);
         int names = NameLmsSubstrings(t, sa, isS, m);
+        trace?.End(level, SaisPhase.Name, tick);
+        tick = SaisTrace.Begin(trace);
         CompactNames(sa, m);
-        SolveReduced(sa, isS, m, names, trace);
+        trace?.End(level, SaisPhase.CompactNames, tick);
+        SolveReduced(sa, isS, m, names, trace, level);
 
         // Stage 2: place the LMS suffixes in their final order and induce all others from them.
-        PlaceSortedLmsAndInduce(t, sa, isS, counts, bkt, m);
+        PlaceSortedLmsAndInduce(t, sa, isS, counts, bkt, m, trace, level);
     }
 
     private static TIdx[] CountSymbols<TReader>(TReader t, int sigma)
@@ -165,10 +176,11 @@ internal static class SaisReference<TIdx>
     }
 
     /// <summary>Stage 1: LMS positions into the ends of their buckets (any order), then induce L and S; afterwards the LMS substrings are in sorted order.</summary>
-    private static void SortLmsSubstrings<TReader>(TReader t, Span<TIdx> sa, bool[] isS, TIdx[] counts, TIdx[] bkt)
+    private static void SortLmsSubstrings<TReader>(TReader t, Span<TIdx> sa, bool[] isS, TIdx[] counts, TIdx[] bkt, SaisTrace? trace, int level)
         where TReader : ISymbolReader, allows ref struct
     {
         int n = t.Length;
+        long tick = SaisTrace.Begin(trace);
         sa.Slice(1).Fill(Empty);
         SetBucketTails(counts, bkt);
         for (int i = n - 1; i >= 1; i--)
@@ -179,8 +191,13 @@ internal static class SaisReference<TIdx>
             sa[slot] = FromInt(i);
             bkt[c] = FromInt(slot);
         }
+        trace?.End(level, SaisPhase.Round1Place, tick);
+        tick = SaisTrace.Begin(trace);
         InduceL(t, sa, isS, counts, bkt);
+        trace?.End(level, SaisPhase.Round1InduceL, tick);
+        tick = SaisTrace.Begin(trace);
         InduceS(t, sa, isS, counts, bkt);
+        trace?.End(level, SaisPhase.Round1InduceS, tick);
     }
 
     /// <summary>Moves the sorted LMS positions to <c>SA[1..m]</c> (stable, in place: the write index never passes the read index).</summary>
@@ -225,14 +242,17 @@ internal static class SaisReference<TIdx>
     /// Solves the reduced problem and replaces <c>SA[1..m]</c> by the LMS positions in sorted suffix order. The reduced text sits in
     /// the tail, its suffix array (n + 1 layout, so m + 1 entries) in the head; <c>SA[0]</c> is restored to n afterwards.
     /// </summary>
-    private static void SolveReduced(Span<TIdx> sa, bool[] isS, int m, int names, SaisTrace? trace)
+    private static void SolveReduced(Span<TIdx> sa, bool[] isS, int m, int names, SaisTrace? trace, int level)
     {
         int n = sa.Length - 1;
+        long tick = SaisTrace.Begin(trace);
         Span<TIdx> sa1 = sa.Slice(0, m + 1);
         ReadOnlySpan<TIdx> s1 = sa.Slice(n + 1 - m, m);
         if (names < m)
         {
+            trace?.End(level, SaisPhase.Reduced, tick); // the recursion is accounted by its own levels
             Sais(new IndexSymbols<TIdx>(s1), names, sa1, trace);
+            tick = SaisTrace.Begin(trace);
         }
         else
         {
@@ -248,12 +268,14 @@ internal static class SaisReference<TIdx>
         for (int i = 1; i <= m; i++)
             sa[i] = sa[tailBase + ToInt(sa[i])];
         sa[0] = FromInt(n);
+        trace?.End(level, SaisPhase.Reduced, tick);
     }
 
     /// <summary>Stage 2: the sorted LMS suffixes go to the ends of their buckets, largest first, then L and S are induced.</summary>
-    private static void PlaceSortedLmsAndInduce<TReader>(TReader t, Span<TIdx> sa, bool[] isS, TIdx[] counts, TIdx[] bkt, int m)
+    private static void PlaceSortedLmsAndInduce<TReader>(TReader t, Span<TIdx> sa, bool[] isS, TIdx[] counts, TIdx[] bkt, int m, SaisTrace? trace, int level)
         where TReader : ISymbolReader, allows ref struct
     {
+        long tick = SaisTrace.Begin(trace);
         sa.Slice(m + 1).Fill(Empty);
         SetBucketTails(counts, bkt);
         for (int r = m; r >= 1; r--)
@@ -265,7 +287,12 @@ internal static class SaisReference<TIdx>
             sa[slot] = p; // the target index is >= r, so no unread LMS entry is overwritten
             bkt[c] = FromInt(slot);
         }
+        trace?.End(level, SaisPhase.Round2Place, tick);
+        tick = SaisTrace.Begin(trace);
         InduceL(t, sa, isS, counts, bkt);
+        trace?.End(level, SaisPhase.Round2InduceL, tick);
+        tick = SaisTrace.Begin(trace);
         InduceS(t, sa, isS, counts, bkt);
+        trace?.End(level, SaisPhase.Round2InduceS, tick);
     }
 }

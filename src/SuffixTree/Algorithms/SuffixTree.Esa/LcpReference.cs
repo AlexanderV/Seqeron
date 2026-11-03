@@ -4,9 +4,9 @@ namespace SuffixTree.Esa;
 internal static class LcpReference
 {
     /// <summary>Builds the compact LCP array of the text from its suffix array (n + 1 layout, <c>sa[0] = n</c>).</summary>
-    internal static CompactLcp Build<TReader>(TReader text, ReadOnlySpan<int> sa)
+    internal static CompactLcp Build<TReader>(TReader text, ReadOnlySpan<int> sa, LcpTrace? trace = null)
         where TReader : ISymbolReader, allows ref struct
-        => LcpReference<int>.Build(text, sa);
+        => LcpReference<int>.Build(text, sa, trace);
 
     /// <summary>The permuted LCP array (length n), see <see cref="LcpReference{TIdx}.ComputePlcp"/>.</summary>
     internal static int[] ComputePlcp<TReader>(TReader text, ReadOnlySpan<int> sa)
