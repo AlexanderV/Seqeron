@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Repeatable macro performance harness (ST-S0 WP 0.7). Reproduces the 10 Mbp random-DNA row of
+    docs/refactoring/suffix-tree-upgrade/BENCHMARK.md against the CURRENT library sources and flags results that
+    leave a +-15 % band. It is an application, not a test project: `dotnet test` never runs it.
+    Runtime settings mirror the harness that produced BENCHMARK.md (workstation, non-concurrent GC, tiered PGO).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SuffixTree.PerfHarness</RootNamespace>
+    <AssemblyName>SuffixTree.PerfHarness</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Optimize>true</Optimize>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+    <UseAppHost>true</UseAppHost>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SuffixTree\Algorithms\SuffixTree\SuffixTree.csproj" />
+    <ProjectReference Include="..\..\src\SuffixTree\Algorithms\SuffixTree.Persistent\SuffixTree.Persistent.csproj" />
+  </ItemGroup>
+
+</Project>

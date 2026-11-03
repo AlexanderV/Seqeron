@@ -589,6 +589,11 @@ cd apps/SuffixTree.Benchmarks
 dotnet run -c Release
 ```
 
+For end-to-end numbers at genome scale there is a second, non-test application,
+[`apps/SuffixTree.PerfHarness`](../../../apps/SuffixTree.PerfHarness/README.md): it rebuilds the 10 Mbp random-DNA row of
+[`BENCHMARK.md`](../../refactoring/suffix-tree-upgrade/BENCHMARK.md) (build time, bytes per character, peak RSS, count/locate throughput, 4-thread
+throughput, load time, exact query-result oracles) against the current sources and flags results outside a +-15 % band. It is never run by `dotnet test`.
+
 The `SuffixTree.Console` app provides an exhaustive stress harness:
 three phases testing small strings (all substrings), large strings
 (random + all suffixes), and 13 edge cases.
