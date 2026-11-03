@@ -36,14 +36,16 @@ public sealed class HeapStorageProvider : IStorageProvider
 
     private void CheckReadBounds(long offset, int size)
     {
-        if (offset < 0 || offset + size > _position)
+        // Written as `offset > _position - size` so that it cannot wrap for offsets near long.MaxValue.
+        if (offset < 0 || size < 0 || offset > _position - size)
             throw new ArgumentOutOfRangeException(nameof(offset),
                 $"Read at offset {offset} with size {size} exceeds logical size {_position}.");
     }
 
     private void CheckWriteBounds(long offset, int size)
     {
-        if (offset < 0 || offset + size > _position)
+        // Written as `offset > _position - size` so that it cannot wrap for offsets near long.MaxValue.
+        if (offset < 0 || size < 0 || offset > _position - size)
             throw new ArgumentOutOfRangeException(nameof(offset),
                 $"Write at offset {offset} with size {size} exceeds logical size {_position}.");
     }

@@ -265,6 +265,28 @@ child lists, deferred jump entries) to release GC pressure before the tree is re
 | v6: deepest node in bounds | Offset must be within storage (if not sentinel) |
 | Header SIZE = storage size | Detects mismatch / corruption |
 
+### Trust boundary and strict validation
+
+The default `Load` checks **only the header** (this keeps a cold load at a few milliseconds). Queries then read
+nodes and child arrays through raw pointers, so a file that is corrupt *behind a valid header* is not detected by
+`Load` and must not be queried if it comes from an untrusted source or after a suspected disk fault.
+Use the opt-in strict validation for such files:
+
+```csharp
+using var tree = PersistentSuffixTreeFactory.LoadPersistent("untrusted.suffix", validateStructure: true);
+// or, on an already loaded tree / any IStorageProvider:
+tree.ValidateStructure();                                         // throws InvalidOperationException
+using var t2 = PersistentSuffixTree.Load(storage, validateStructure: true);
+```
+
+It walks every node once (iterative, bounds-checked before every dereference, so it cannot crash or hang on a hostile
+file) and verifies: node and child-array offsets are in range, aligned and reached exactly once (no cycles); child keys
+are strictly ascending and match the first symbol of the child's edge; edges lie inside the text; leaves are in
+one-to-one correspondence with the suffixes `0..n`; leaf counts add up; the header node count, the deepest internal node
+and the LRS depth match; suffix links (also through the hybrid jump table) point to internal nodes. It guarantees memory-safe
+traversal; it cannot prove that the index equals the text (use the SHA-256 hash of the serializer export for integrity).
+Cost: one pass over all nodes plus one bit of memory per 4 bytes of file.
+
 ---
 
 ## Quality Assurance

@@ -134,10 +134,28 @@ public static class PersistentSuffixTreeFactory
     /// <summary>
     /// Loads an existing persistent suffix tree and returns the concrete disposable type,
     /// so callers can use <c>using var tree = ...</c> without casting.
+    /// Only the header is validated; use <see cref="LoadPersistent(string, bool)"/> for files from an untrusted source.
     /// </summary>
     /// <param name="filePath">The path to the existing suffix tree file.</param>
     /// <returns>A concrete <see cref="PersistentSuffixTree"/> instance.</returns>
     public static PersistentSuffixTree LoadPersistent(string filePath)
+    {
+        return LoadPersistent(filePath, validateStructure: false);
+    }
+
+    /// <summary>
+    /// Loads an existing persistent suffix tree and, when <paramref name="validateStructure"/> is set, runs the
+    /// strict structural validation of <see cref="PersistentSuffixTree.ValidateStructure"/> before returning.
+    /// </summary>
+    /// <param name="filePath">The path to the existing suffix tree file.</param>
+    /// <param name="validateStructure">
+    /// <see langword="false"/> (the default of the other overload) validates only the header and keeps the cold load
+    /// at a few milliseconds; <see langword="true"/> additionally walks every node once (a trust-boundary check
+    /// for files from an untrusted source or after a suspected disk fault).
+    /// </param>
+    /// <returns>A concrete <see cref="PersistentSuffixTree"/> instance.</returns>
+    /// <exception cref="InvalidOperationException">The header or, with <paramref name="validateStructure"/>, the structure is invalid.</exception>
+    public static PersistentSuffixTree LoadPersistent(string filePath, bool validateStructure)
     {
         if (string.IsNullOrEmpty(filePath))
             throw new ArgumentException("File path must be provided.", nameof(filePath));
@@ -146,7 +164,7 @@ public static class PersistentSuffixTreeFactory
         try
         {
             storage.Prefetch();
-            return PersistentSuffixTree.Load(storage);
+            return validateStructure ? PersistentSuffixTree.Load(storage, validateStructure: true) : PersistentSuffixTree.Load(storage);
         }
         catch
         {
