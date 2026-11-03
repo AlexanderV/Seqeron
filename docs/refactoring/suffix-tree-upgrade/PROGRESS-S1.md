@@ -5,15 +5,99 @@ Pre-registered S1a gate (10 Mbp random DNA, 1 thread, this machine class): SA+LC
 Targets: ceiling goal <= 1.0 s (3x), aspiration <= 0.5 s (1.5x); libsais reference 0.328 s, libdivsufsort 0.662 s, Go 0.73 s.
 
 Decisions already taken by the owner: managed only; positions are `long` in the new contract from the start; contract-first (stable contract, replaceable engines);
-Ukkonen stays untouched (oracle, online); ESA persistent container is a separate format kind (name decision pending); native accelerator not allowed.
+Ukkonen stays untouched (oracle, online); ESA persistent container is a separate format kind; native accelerator not allowed.
+
+Design (S1-0, 2026-11-03): [ADR-001 index contract + suffix-link answer](adr/ADR-001-index-contract.md), [ADR-002 SA-IS, LCP, memory, optimization roadmap, JIT/AOT](adr/ADR-002-sa-construction.md), [ADR-003 SESA container](adr/ADR-003-esa-container-format.md).
+Summary of the recommendations they contain: SA has n+1 entries (virtual `$`, `SA[0]=n`) so the ESA is node-for-node the Ukkonen terminated tree; the generic algorithms need only one navigator (suffix link called at exactly one place, `SuffixTreeAlgorithms.cs:477`, internal nodes only) and `Traverse`; suffix links are computed lazily as `LCA(Psi(lb), Psi(rb))` from an optional navigation pack (ISA + RMQ/PSV/NSV), not stored; SA-IS int32 with int64-ready generics; LCP by Phi/PLCP into a compact U8+overflow array; container kind SESA (magic `89 53 45 53 41 0D 0A 1A`).
+
+Status legend: [ ] todo, [~] in progress, [x] done (with commit hash), [!] blocked (with reason).
+
+## Overview
 
 | step | content | status |
 |---|---|---|
-| S1-0 | Contract + ADRs (docs only), SA construction approach and optimization roadmap, S1a/S1b work-package list with oracles | [ ] |
-| S1a | SA-IS (int32, then generic), LCP (Phi/PLCP), oracles (brute force n<=2000, Ukkonen, libsais vectors, adversarial strings), differential fuzz, early speed/memory measurement vs the gate | [ ] |
-| S1a-opt | Iterative optimization per the stopping rule in PROCESS.md | [ ] |
-| go/no-go | Owner-visible decision after S1a numbers | [ ] |
-| S1b | Child table, LCP-interval navigator reusing `SuffixTreeAlgorithms.*<TNode,TNav>`, public navigation/handle/lazy-locate API, factory, mmap container | [ ] |
+| S1-0 | Contract + ADRs (docs only), SA construction approach and optimization roadmap, work-package list with oracles | [x] (this commit series, prefix `ST-S1:`) |
+| S1a | work packages 1a.0-1a.9 below | [ ] |
+| S1a-opt | iterations 1o.1-1o.10 below, stopping rule in PROCESS.md | [ ] |
+| go/no-go | Owner-visible decision after 1a.9 (and again after 1o) | [ ] |
+| S1b | work packages 1b.0-1b.10 below | [ ] |
+
+Each work package: failing test first, implement, the three existing suites unchanged and green (commands in PROCESS.md "Environment"), commit `ST-S1: <id> ...`, push, update this file (Log). A reviewer (never the implementer) runs after 1a.9, after 1o, and after 1b.9.
+
+## S1a work packages (SA-IS + LCP)
+
+| id | content | oracle / tests | acceptance |
+|---|---|---|---|
+| 1a.0 | Scaffolding: new project `src/SuffixTree/Algorithms/SuffixTree.Esa` (`IsAotCompatible`, `IsTrimmable`, `AllowUnsafeBlocks`, same analyzer settings as `SuffixTree.Persistent.csproj`), test project `tests/SuffixTree/SuffixTree.Esa.Tests`, solution entries, test helpers (SplitMix64 PRNG, string-family generators, section "Test strategy") | build only | warning-free build (TreatWarningsAsErrors), existing suites untouched and green |
+| 1a.1 | Test-only oracles: `NaiveSuffixArray` (n+1 layout, terminator first), `NaiveLcp`, Kasai LCP, corpus manifest reader | cross-checks: naive SA order == `SuffixTree.Build(s).EnumerateSuffixes()` order for 10^4 random strings n <= 500; naive LCP == Kasai | 100 % agreement |
+| 1a.2 | Text preparation: distinct-code-unit scan, order-preserving dense remap, `byte`/`ushort`/`int` symbol readers, size guards (`n+1 > Array.MaxLength` -> `NotSupportedException`, tested with a fake reader, no large allocation) | remap preserves order; lone surrogates, U+0000, U+FFFF; n = 0, 1, 2 | tests green |
+| 1a.3 | `SaisReference`: safe (Span) SA-IS, int32, n+1 layout, recursion as ADR-002 section 2 | naive SA, **exhaustive** all strings over sigma 2 up to length 14, sigma 3 up to 9, sigma 4 up to 7; random n <= 2000 for sigma in {1,2,3,4,20,256,1000}; all adversarial families to n = 2000; recursion depth <= 24 on `a^n` and Fibonacci with n = 10^6 (instrumented counter) | all equal; permanent test oracle for the optimized kernels |
+| 1a.4 | LCP: Phi/PLCP, compact LCP (`U8`+overflow, `U16`, `U32` and the selection rule of ADR-002 section 4), cursor reader for the overflow list | naive LCP and Kasai; forced escapes (`a^n`, n = 70,000: LCP >= 255 and >= 65,535); selection-boundary tests | equal on all corpora; compact round trip exact |
+| 1a.5 | Index-width genericity: `long` instantiation of the kernels; prototype P4 | `long` SA/LCP == `int` SA/LCP on all small corpora; micro-benchmark: `int` instantiation vs hand-written `int` clone of the induce loops | equality; result of P4 in the Log (<= 3 % or switch to template generation, ADR-002 section 2 item 6) |
+| 1a.6 | libsais vectors, generated **outside** the repo (libsais v2.9.1 as pinned in `analysis/bench/SOURCES.txt`, built by the existing handoff script flow): commit only the manifest `analysis/sa_vectors.tsv` (corpus name, n, SHA-256 of the SA as little-endian int32 in libsais order = our `SA[1..n]`, SHA-256 of the LCP if libsais provides one, otherwise of an independent Kasai reference) | corpora: `dna_1m`, `dna_10m`, `rep_10m`, `prot_1m` (inputs regenerated by `gen/gen_inputs.py`, hashes in `MANIFEST.sha256`) and each adversarial family at 10^5 and 10^6; UTF-16 corpora through libsais16 if the pinned version has it (UNVERIFIED), else dense-remapped bytes. Test category `Vectors`, run explicitly with `--filter Category=Vectors` (like Parity/Performance, PROCESS.md:37); it **fails, never skips**, when inputs are missing | every hash equal |
+| 1a.7 | Differential fuzz harness v1 (SA/LCP level): seeded families x alphabets x sizes, time-budget parameter, failure minimizer (shrinks to a minimal string), regression corpus of failing seeds committed as text | `SaisReference` vs `NaiveSuffixArray` for n <= 2000; optimized kernels (later) vs `SaisReference` up to 10^5 | 10^6 cases n <= 64, 10^5 cases n <= 2000, 10^3 cases n <= 10^5: zero mismatches; seeds logged |
+| 1a.8 | Measurement harness and first numbers (safe-code baseline) per the protocol below | row format identical to `analysis/bench/bench.tsv` | 5 fresh-process repeats on `dna_1m`, `dna_10m`, `rep_10m`, `prot_1m`; numbers in the Log |
+| 1a.9 | Gate report and go/no-go input | pre-registered gate: SA+LCP <= 3.3 s, peak RSS <= 24 B/char, index size of SA+LCP+text (children come in S1b) | PASS -> 1o; off by more than 2x -> stop and revisit (PLAN.md:81, :143); owner-visible summary in the Log |
+
+## S1a-opt iterations (one per roadmap item of ADR-002 section 5; each accepted or reverted by the PROCESS.md stopping rule)
+
+Accept only if the 10 Mbp SA+LCP time improves by >= 3 % (median of 5, JIT numbers only) and everything passes (unit, exhaustive, `Vectors`, fuzz v1 vs `SaisReference`); otherwise revert and keep the measured number in the Log. Stop after 3 consecutive iterations < 3 % or at <= 0.36 s.
+
+| id | roadmap item | extra verification |
+|---|---|---|
+| 1o.1 | R1 unsafe pointer kernels, bounds-check removal | `DOTNET_JitDisasm` check for range-check helpers in the listed methods |
+| 1o.2 | R2 software prefetch (x86 `Sse.Prefetch0`, portable no-op fallback) | A/B at 1, 10, 50 Mbp; accepted on the 10 Mbp rule, others recorded |
+| 1o.3 | R3 prefetch/merge in the LCP passes | LCP hash |
+| 1o.4 | R4 sigma <= 4 fast path | equality with the general path on every fuzz case |
+| 1o.5 | R5 radix first pass for LMS prefixes | equality |
+| 1o.6 | R6 flag in the SA sign bit | synthetic test at the `n = 2^31` limit with a fake reader |
+| 1o.7 | R8 JIT: `AggressiveOptimization` vs tiered PGO, both ways, cold process and steady state | rows for 1, 10, 50 Mbp |
+| 1o.8 | R7 alternative LCP algorithms (only if LCP > 15 % of total) | LCP hash |
+| 1o.9 | R9 narrow reduced-level types, R10 vectorised classification | equality |
+| 1o.10 | Optional NativeAOT variant row (`PublishAot`, instruction set `native`), recorded under tool tag `seqeron-esa-aot`, never mixed with JIT rows (ILC package availability offline UNVERIFIED) | information only; never decides acceptance |
+
+## S1b work packages (child table, navigator, API, container)
+
+| id | content | oracle / tests | acceptance |
+|---|---|---|---|
+| 1b.0 | Contract types (ADR-001 section 6) as additive files in `SuffixTree.Core`; engine conformance suite parameterised over engine factories; test-only adapter exposing the Ukkonen tree through the contract (Count, ExtendRight, Locate, Text) as oracle engine | conformance suite runs against the adapter | compiles; existing suites unchanged and green |
+| 1b.1 | Child table + lcp-interval tree + `Traverse` + header statistics. **First experiment: hypothesis H-OCC** (internal-edge occurrence = leftmost) and prototype P3 (child-table packing vs 3-array reference) | `Traverse` event stream (`startIndex, endIndex, leafCount, childCount, depth`, `EnterBranch` keys, `ExitBranch`) identical to Ukkonen's and to persistent v6's; `SuffixTreeSerializer.CalculateLogicalHash` equal across ESA, Ukkonen, v6; `NodeCount`, `LeafCount`, `MaxDepth`, `n = 0` case; brute-force tree for n <= 2000 | identical on exhaustive small strings, adversarial families, random; H-OCC outcome recorded (if it fails: ADR-001 section 4 fallback) |
+| 1b.2 | Search: pattern descent (child table, optional `BUCKET`, optional `NEXTSYM`), `Contains`, `CountOccurrences`, `FindAllOccurrences`, lazy `Locate` | brute force; Ukkonen; v6; **every substring of every string with n <= 200** plus random absent patterns; empty-pattern semantics (`PersistentSuffixTree.Search.cs:35-36,58`) | sets equal after sorting; count/locate throughput measured, gate: 20-mer count >= 450k q/s, locate of 1000 8-mers >= 250k patterns/s |
+| 1b.3 | Native analysis operations from SA/LCP: `LongestRepeatedSubstring`, `FindAllLongestRepeatedSubstrings`, `CountDistinctSubstrings[ByLength]`, `GetAllSuffixes`/`EnumerateSuffixes`; `FindMaximalRepeatedPairs` and k-common substrings through `Traverse` | Ukkonen; `Traverse`-default path as second oracle for the native overrides; existing `...ByDefinition` implementations | identical lists |
+| 1b.4a | Prototypes P1 (suffix-link kernel: LCP scan vs parent climb vs RMQ+PSV/NSV; ISA vs Psi) and P2 (MEM time) | inputs `dna_10m`, `rep_10m`, `prot_1m`, `a^n`, Fibonacci, Thue-Morse | decision rules of ADR-001 section 5; result in the Log |
+| 1b.4 | `EsaNode`/`EsaNavigator : ISuffixTreeNavigator<EsaNode>`, ISA, RMQ helper, `GetSuffixLink`; instantiate the generic algorithms: LCS family, anchors, MEM, MUM, distinct LCS | `SuffixTreeAlgorithms.FindMaximalExactMatchesByDefinition`, `FindMaximalUniqueMatchesByDefinition`, `FindAllDistinctLongestCommonSubstringsByDefinition` (`SuffixTreeAlgorithms.cs:591-645`, `SuffixTreeAlgorithms.Repeats.cs:317-371`); Ukkonen; v6; implementation-specific fields checked by property (valid occurrence, maximality) | results identical on exhaustive small strings, fuzz, MUMmer-parity data used by the existing tests; proposed target (not a PLAN gate): MEM 100 kbp query <= 0.20 s on `dna_10m` |
+| 1b.5 | Contract implementation `EsaSuffixIndex`: `Support`/`SupportNote`, `TryExtendRight/Left` (left = Degraded), `TryParent/TryChild/GetChildren/TrySuffixLink`, SA/ISA/LCP accessors, `Lcp(i,j)`, `Lca` | brute force from the definitions; conformance suite; every `Unsupported` operation throws `NotSupportedException` | capability matrix test equals the table in ADR-001 section 6 |
+| 1b.6 | Facade `EsaSuffixTree : ISuffixTree, IDisposable`, backend factory, int-limit guards | **re-run the existing `ISuffixTree`-level assertions through a backend factory** in new test classes (first inventory which existing tests build `SuffixTree.Build` directly; originals are not edited) | all backend-agnostic assertions pass for ESA |
+| 1b.7 | Container SESA (ADR-003): writer (atomic, deterministic), reader (mmap), `SuffixIndexFactory.Open` dispatch, validation levels, checked/trusted access | round trip == in-memory; flip every byte of header + section table, and 10^3 random body bytes: `Header` level catches header corruption, `Structure` level catches body corruption, never a crash or hang or out-of-mapping read; two builds give byte-identical files; v6 loader still rejects an ESA file with its existing exception, dispatcher opens both kinds; existing v6 tests unchanged | green; cold `Open` <= 10 ms at 10 Mbp |
+| 1b.8 | Full differential fuzz: every member of `ISuffixTreeSearch`, `ISuffixTreeAnalysis`, `ISuffixTreeDiagnostics`, `ISuffixTree` vs Ukkonen (in-memory) and v6 (persistent), plus `ByDefinition` for MEM/MUM/LCS; 4-thread shared-index test | harness of 1a.7 extended; operation coverage list in the harness must name each interface member | 30-minute budget with zero failures; concurrency checksums identical |
+| 1b.9 | S1 gate measurement (protocol below): default pipeline SA+LCP+child <= 3.3 s, Core and Full index sizes, peak RSS, count/locate throughput, MEM/MUM/anchors times, cold/warm open, `Checked` vs `Trusted` | | report in the Log; owner-visible |
+| 1b.10 | Independent review, README of the new project, PLAN.md status update, wiki ingest of the ADRs by the orchestrator (`/wiki:ingest`; not done in S1-0, outside the allowed paths) | | review findings fixed or logged |
+
+## Test strategy (all work packages)
+
+Oracle hierarchy (a mismatch at any level stops everything, PROCESS.md rule 3): L0 definitions and brute force (n <= 2000; exhaustive small alphabets); L1 the existing `...ByDefinition` implementations; L2 the in-memory Ukkonen tree; L3 the persistent v6 tree; L4 libsais output hashes (outside the repo); L5 `SuffixTreeSerializer.CalculateLogicalHash` and the `Traverse` event stream (equal across backends if H-OCC holds).
+
+Differential on **every public operation** against L2 (and L3 for a subset): all members of `ISuffixTreeSearch`, `ISuffixTreeAnalysis`, `ISuffixTreeDiagnostics`, `ISuffixTree` (`ISuffixTreeSearch.cs`, `ISuffixTreeAnalysis.cs`, `ISuffixTreeDiagnostics.cs`, `ISuffixTree.cs:44-80`) with positive, absent, empty, single-character, longer-than-text and boundary patterns/queries; MEM/MUM/LCS/anchors with random and mutated queries (substitutions, indels, repeats), minLength 1..n. **Results the contract leaves implementation-specific are compared by property, not equality** (ADR-001 section 7): LRS representative on ties, `PositionInText` of `LongestCommonSubstringInfo` and of anchors (must be a valid occurrence; the match must be maximal), order of `FindAllOccurrences`.
+
+Adversarial strings (deterministic and identical in the C# tests and the outside generator; PRNG = SplitMix64 with the seed in the name, because `System.Random` sequences are not stable across versions): `a^n`; runs (alternating letters, run lengths from the PRNG in 1..L, L in {2, 16, 256, 65536}); periodic with period p in {2, 3, 5, 7, 64, 65}; Fibonacci word (`f1 = "a"`, `f2 = "ab"`, `f(k) = f(k-1) f(k-2)`, truncated to n); Thue-Morse (`t[i] = popcount(i) mod 2`); de Bruijn sequences B(2,k), B(4,k) (FKM Lyndon-word construction, truncated or full); `a^k b a^k b ...`; random binary; random DNA (ACGT); random protein (20 letters); skewed alphabets (one rare symbol); all-distinct symbols (sigma = n up to 65,536); UTF-16: BMP characters above 255, valid surrogate pairs, lone surrogates, U+0000, U+FFFF; n = 0, 1, 2, 3; texts that maximise LMS count (`abab...`) and recursion depth.
+
+Exhaustive small: all strings over sigma 2 up to length 14, sigma 3 up to 9, sigma 4 up to 7 (SA, LCP, tree statistics, `Traverse` stream, count of every substring).
+
+Differential fuzz harness (built in 1a.7, extended in 1b.8): seeded generator families x alphabets x sizes, time/iteration budget from the command line, every failure prints `family seed n op` and is minimized (shrink by deleting/merging characters while the mismatch persists) into a regression file that becomes a permanent test; the harness is the same code that the S8 CI job will run.
+
+Machine rule: tests may run only when no other build or test is running (`uptime`, `ps`, PROCESS.md:35); heavy categories (`Vectors`, `Performance`, long fuzz) are run explicitly.
+
+## Measurement protocol for the gate (1a.8, 1a.9, 1b.9, 1o.*)
+
+* **Inputs**: `dna_10m` (the gate), `dna_1m`, `rep_10m`, `prot_1m`; `dna_20m`, `dna_50m` for scaling. Regenerate with `analysis/bench/gen/gen_inputs.py` and check `sha256sum -c MANIFEST.sha256` first (`HANDOFF.md` section 0). Queries: the `present20`, `absent20`, `locate8`, `memq100k` files of the same manifest.
+* **Harness**: a console project that loads the input into memory first (excluded from timing), then calls the build entry point and prints `R<TAB>op<TAB>metric<TAB>value<TAB>unit<TAB>notes` lines, driven by `lib/benchlib.py measure --raw RAW --tool seqeron-esa --version <git short hash> --input dna_10m --repeats 5 -- CMD` (`HANDOFF.md` section 1). Until S0 work package 0.7 fixes a repository home for the harness, it lives next to `analysis/bench/seqeron/SeqeronBench`; afterwards in the S0 harness project.
+* **Metrics**: `build_sa_s`, `build_lcp_s`, `build_child_s`, `build_total_s` (internal `Stopwatch` around the library call only, the same convention as the libsais row), process wall time and CPU, **peak RSS from `wait4`/`ru_maxrss` of the fresh process** (as in the other rows), index bytes per char by section (sum of container section lengths, text included; Core and Full profiles reported separately), `Checked` and `Trusted` access, count 20-mers (present/absent, 1 and 4 threads), locate 1000 8-mers, MEM/MUM/anchors on `memq100k`, cold and warm `Open`.
+* **Runs**: 5 **fresh processes** per row (JIT warm-up included, which is what a user gets), report median and min/max; in addition one steady-state row (5 builds in one process, the last 3 reported). Release build, `DOTNET_` runtime settings at defaults (tiered compilation and dynamic PGO on), 1 thread (`DOTNET_gcServer=0`), no other process running; check `uptime` before and after.
+* **Machine drift control**: run the libsais reference harness (`competitors/sa_c/sa_bench.c` flow, `HANDOFF.md` section 2) at the start and end of each session; if its `dna_10m` time differs from 0.328 s by more than 10 %, annotate the session "drift" and report both the absolute time and the ratio to the same-session libsais time.
+* **Acceptance arithmetic**: gate values are the medians above; an optimization iteration is accepted per PROCESS.md:26-29 on the JIT numbers only. The NativeAOT row (1o.10) is recorded under a separate tool tag and never mixed in.
+* **Reporting**: every Log entry contains commit hash, input, median (min/max), peak RSS MB and B/char, index B/char (Core/Full), and the libsais same-session reference.
 
 ## Log
 (append newest last)
+
+- 2026-11-03 S1-0 design: ADR-001, ADR-002, ADR-003 written, work-package list and protocol above. Documentation only; no benchmark or build was run (machine busy). Findings that change the plan: (1) the generic algorithms call `GetSuffixLink` at one place only (`SuffixTreeAlgorithms.cs:477`), never `parent`, never node depth; (2) `SuffixTreeSerializer.CalculateLogicalHash` hashes internal-edge start/end indices (`SuffixTreeSerializer.cs:232-238`), so ESA/Ukkonen identity (and serializer export/import of ESA trees) depends on hypothesis H-OCC, tested first in 1b.1; (3) the v6 magic is documented as "SUFFIXTR" but the constant decodes differently (documentation item for S0, ADR-003 section 2); (4) `PLAN.md:83` and this file's S1a gate differ in scope (SA+LCP+child vs SA+LCP): treated as S1a = SA+LCP, S1b = whole pipeline, both <= 3.3 s, owner to confirm.
