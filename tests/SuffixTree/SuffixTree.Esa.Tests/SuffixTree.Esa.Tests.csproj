@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +19,11 @@
 
   <ItemGroup>
     <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- the statistics of the A/B runner are pinned here on synthetic data -->
+    <Compile Include="..\..\..\apps\SuffixTree.Esa.Bench\PairedStats.cs" Link="Bench\PairedStats.cs" />
   </ItemGroup>
 
   <ItemGroup>

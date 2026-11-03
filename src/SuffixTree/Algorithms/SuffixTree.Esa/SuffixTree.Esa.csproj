@@ -23,6 +23,14 @@
     <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
 
+  <!--
+    Checked-pointer build (safety infrastructure, PROGRESS-S1.md 1o.0): `dotnet test ... -p:EsaBounds=true` compiles every Buf<T> access with a
+    bounds check (symbol ESA_BOUNDS). Without it a Buf<T> is a bare pointer (Release). Both configurations must pass the same tests.
+  -->
+  <PropertyGroup Condition="'$(EsaBounds)' == 'true'">
+    <DefineConstants>$(DefineConstants);ESA_BOUNDS</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="SuffixTree.Esa.Tests" />
     <InternalsVisibleTo Include="SuffixTree.Esa.Bench" />
