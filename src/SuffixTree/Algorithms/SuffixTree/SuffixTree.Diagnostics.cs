@@ -75,11 +75,26 @@ public partial class SuffixTree
         );
     }
 
+    // Upper bound of the up-front reservation: 16 M chars = 32 MB. StringBuilder appends in chunks without
+    // copying, so a larger tree simply grows past this; reserving the full estimate would cost gigabytes.
+    private const int MaxPrintTreeInitialCapacity = 1 << 24;
+
+    /// <summary>
+    /// Initial <see cref="StringBuilder"/> capacity for <see cref="PrintTree"/>: about 100 characters per text
+    /// character (2 nodes per character, 50 characters per printed node), at least 256 and at most
+    /// <see cref="MaxPrintTreeInitialCapacity"/>. Computed in 64-bit so that it cannot wrap for long texts.
+    /// </summary>
+    internal static int EstimatePrintTreeCapacity(int textLength)
+    {
+        long estimatedNodes = Math.Max(1L, textLength * 2L);
+        long capacity = Math.Max(256L, estimatedNodes * 50L);
+        return (int)Math.Min(capacity, MaxPrintTreeInitialCapacity);
+    }
+
     /// <inheritdoc />
     public string PrintTree()
     {
-        int estimatedNodes = Math.Max(1, _text!.Length * 2);
-        var sb = new StringBuilder(Math.Max(256, estimatedNodes * 50));
+        var sb = new StringBuilder(EstimatePrintTreeCapacity(_text!.Length));
         var ci = System.Globalization.CultureInfo.InvariantCulture;
         sb.Append(ci, $"Content length: {_text!.Length}").AppendLine();
         sb.AppendLine();

@@ -45,6 +45,55 @@ namespace SuffixTree.Tests.Core
 
         #region PrintTree
 
+        // ST-S0 WP 0.3: the initial StringBuilder capacity was `Math.Max(1, n * 2) * 50` in Int32 arithmetic,
+        // which wraps for n > 21,474,836 (the capacity became 256 or an arbitrary value) and, just below that,
+        // asked for a multi-gigabyte buffer up front. Only the arithmetic is tested; no large tree is built.
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(10)]
+        [TestCase(1_000)]
+        [TestCase(100_000)]
+        [TestCase(1_000_000)]
+        [TestCase(10_000_000)]
+        [TestCase(21_474_836)]
+        [TestCase(21_474_837)]
+        [TestCase(30_000_000)]
+        [TestCase(100_000_000)]
+        [TestCase(1_073_741_823)]
+        [TestCase(int.MaxValue)]
+        public void EstimatePrintTreeCapacity_IsPositiveAndBounded(int textLength)
+        {
+            int capacity = SuffixTree.EstimatePrintTreeCapacity(textLength);
+
+            Assert.That(capacity, Is.GreaterThanOrEqualTo(256));
+            Assert.That(capacity, Is.LessThanOrEqualTo(1 << 24), "the up-front reservation must stay modest (16 M chars = 32 MB)");
+        }
+
+        [Test]
+        public void EstimatePrintTreeCapacity_IsMonotonic_AcrossTheInt32WrapPoint()
+        {
+            int[] lengths = { 0, 1, 5, 100, 10_000, 1_000_000, 10_000_000, 21_474_836, 21_474_837, 21_474_838, 30_000_000, 43_000_000, 100_000_000, 1_073_741_823 };
+            int previous = 0;
+            foreach (int n in lengths)
+            {
+                int capacity = SuffixTree.EstimatePrintTreeCapacity(n);
+                Assert.That(capacity, Is.GreaterThanOrEqualTo(previous), $"capacity for n={n} dropped below the previous value");
+                previous = capacity;
+            }
+        }
+
+        [TestCase(0, 256)]
+        [TestCase(1, 256)]
+        [TestCase(2, 256)]
+        [TestCase(3, 300)]
+        [TestCase(1_000, 100_000)]
+        [TestCase(100_000, 10_000_000)]
+        public void EstimatePrintTreeCapacity_SmallTexts_KeepTheEstimateOf100CharsPerTextChar(int textLength, int expected)
+        {
+            Assert.That(SuffixTree.EstimatePrintTreeCapacity(textLength), Is.EqualTo(expected));
+        }
+
         [Test]
         public void PrintTree_EmptyTree_HasOnlyRootNodeLine()
         {

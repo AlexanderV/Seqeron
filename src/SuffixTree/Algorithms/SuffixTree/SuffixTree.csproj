@@ -4,6 +4,10 @@
     <ProjectReference Include="..\SuffixTree.Core\SuffixTree.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SuffixTree.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <RootNamespace>SuffixTree</RootNamespace>
     <AssemblyName>SuffixTree</AssemblyName>
