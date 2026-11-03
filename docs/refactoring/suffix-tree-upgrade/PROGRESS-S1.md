@@ -16,7 +16,7 @@ Status legend: [ ] todo, [~] in progress, [x] done (with commit hash), [!] block
 
 | step | content | status |
 |---|---|---|
-| S1-0 | Contract + ADRs (docs only), SA construction approach and optimization roadmap, work-package list with oracles | [x] (this commit series, prefix `ST-S1:`) |
+| S1-0 | Contract + ADRs (docs only), SA construction approach and optimization roadmap, work-package list with oracles | [x] 508ebe76 |
 | S1a | work packages 1a.0-1a.9 below | [ ] |
 | S1a-opt | iterations 1o.1-1o.10 below, stopping rule in PROCESS.md | [ ] |
 | go/no-go | Owner-visible decision after 1a.9 (and again after 1o) | [ ] |
