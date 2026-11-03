@@ -26,6 +26,7 @@ public class SuffixTreeCoreTools
         if (pattern == null)
             throw new ArgumentException("Pattern cannot be null", nameof(pattern));
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text), text, pattern);
         var tree = global::SuffixTree.SuffixTree.Build(text);
         var found = tree.Contains(pattern);
         return new SuffixTreeContainsResult(found);
@@ -45,6 +46,7 @@ public class SuffixTreeCoreTools
         if (pattern == null)
             throw new ArgumentException("Pattern cannot be null", nameof(pattern));
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text), text, pattern);
         var tree = global::SuffixTree.SuffixTree.Build(text);
         var count = tree.CountOccurrences(pattern);
         return new SuffixTreeCountResult(count);
@@ -64,6 +66,7 @@ public class SuffixTreeCoreTools
         if (pattern == null)
             throw new ArgumentException("Pattern cannot be null", nameof(pattern));
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text), text, pattern);
         var tree = global::SuffixTree.SuffixTree.Build(text);
         // The tree reports leaves in traversal order; sort so the tool output is deterministic
         // and ascending (Rosalind SUBS convention).
@@ -83,6 +86,7 @@ public class SuffixTreeCoreTools
         if (string.IsNullOrEmpty(text))
             throw new ArgumentException("Text cannot be null or empty", nameof(text));
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text), text);
         var tree = global::SuffixTree.SuffixTree.Build(text);
         var lrs = tree.LongestRepeatedSubstring();
         return new SuffixTreeLrsResult(lrs, lrs.Length);
@@ -102,6 +106,7 @@ public class SuffixTreeCoreTools
         if (string.IsNullOrEmpty(text2))
             throw new ArgumentException("Text2 cannot be null or empty", nameof(text2));
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text1), text1, text2);
         var tree = global::SuffixTree.SuffixTree.Build(text1);
         var lcs = tree.LongestCommonSubstring(text2);
         return new SuffixTreeLcsResult(lcs, lcs.Length);
@@ -118,6 +123,7 @@ public class SuffixTreeCoreTools
         if (string.IsNullOrEmpty(text))
             throw new ArgumentException("Text cannot be null or empty", nameof(text));
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text), text);
         var tree = global::SuffixTree.SuffixTree.Build(text);
         var all = tree.FindAllLongestRepeatedSubstrings();
         var items = all.Select(r => new RepeatedSubstringItem(r.Substring, r.Positions.ToArray())).ToArray();
@@ -141,6 +147,7 @@ public class SuffixTreeCoreTools
         if (minLength < 1)
             throw new ArgumentOutOfRangeException(nameof(minLength), "minLength must be >= 1");
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text), text, query);
         var tree = global::SuffixTree.SuffixTree.Build(text);
         return ToMaximalMatchesResult(tree.FindMaximalExactMatches(query, minLength));
     }
@@ -170,6 +177,7 @@ public class SuffixTreeCoreTools
             _ => throw new ArgumentException("Uniqueness must be 'both' or 'reference'", nameof(uniqueness)),
         };
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text), text, query);
         var tree = global::SuffixTree.SuffixTree.Build(text);
         return ToMaximalMatchesResult(tree.FindMaximalUniqueMatches(query, minLength, mode));
     }
@@ -189,6 +197,8 @@ public class SuffixTreeCoreTools
             throw new ArgumentException("Text cannot be null or empty", nameof(text));
         if (minLength < 1)
             throw new ArgumentOutOfRangeException(nameof(minLength), "minLength must be >= 1");
+
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text), text);
 
         Func<char, bool>? isUnique = null;
         if (nonAcgtUnique || !string.IsNullOrEmpty(uniqueSymbols))
@@ -216,6 +226,8 @@ public class SuffixTreeCoreTools
         if (string.IsNullOrEmpty(text2))
             throw new ArgumentException("Text2 cannot be null or empty", nameof(text2));
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text1), text1, text2);
+
         var all = global::SuffixTree.SuffixTree.Build(text1).FindAllDistinctLongestCommonSubstrings(text2);
         var items = all.Select(a => new CommonSubstringItem(a.Substring, a.PositionsInText.ToArray(), a.PositionsInOther.ToArray())).ToArray();
         return new SuffixTreeAllLcsResult(items, items.Length == 0 ? 0 : items[0].Substring.Length);
@@ -238,6 +250,8 @@ public class SuffixTreeCoreTools
         if (q < 1 || q > texts.Length)
             throw new ArgumentOutOfRangeException(nameof(minSupport), "minSupport must be between 1 and the number of texts");
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(texts.Sum(t => (long)t.Length + 1), nameof(texts));
+
         var substrings = global::SuffixTree.SuffixTree.FindLongestCommonSubstrings(texts, q);
         var lengths = global::SuffixTree.SuffixTree.LongestCommonSubstringLengthsBySupport(texts);
         return new SuffixTreeKCommonSubstringsResult(substrings.ToArray(), lengths[q], q, lengths[1..]);
@@ -258,6 +272,7 @@ public class SuffixTreeCoreTools
         if (string.IsNullOrEmpty(text))
             throw new ArgumentException("Text cannot be null or empty", nameof(text));
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(text), text);
         var tree = global::SuffixTree.SuffixTree.Build(text);
         return new SuffixTreeStatsResult(tree.NodeCount, tree.LeafCount, tree.MaxDepth, text.Length);
     }

@@ -543,6 +543,15 @@ The `SuffixTree.Mcp.Core` project exposes 18 tools via Model Context Protocol:
 Each tool validates input and returns a structured result record.
 See [MCP docs](../../mcp/README.md) for connection and usage guides.
 
+**Size limit.** Every tool that builds a suffix tree (the twelve `suffix_tree_*` tools, `find_longest_repeat` and
+`find_longest_common_region`) rebuilds the tree in memory on every call. To keep one call near 1 GiB (about 200 bytes per
+character at the design constant, 169 measured on random DNA, see §2.1) the total number of characters of all text arguments of a
+call is limited to **5 000 000** by default; a larger call is rejected before any tree is built with an `Input too large`
+`ArgumentException`. Change it at server start with `--SuffixTree:MaxTextChars=<n>` or the environment variable
+`SuffixTree__MaxTextChars=<n>` (a value that is not a positive integer stops the server). Sessions that keep an index across calls are planned
+for a later stage (S8 of the upgrade plan). `calculate_similarity`, `hamming_distance`, `edit_distance` and
+`count_approximate_occurrences` build no tree and are not limited by this setting.
+
 ---
 
 ## 9. Tests

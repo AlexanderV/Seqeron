@@ -15,6 +15,25 @@ dotnet run --project SuffixTree.Mcp.Core
 
 Register it in any MCP client as a stdio server (`command: dotnet`, `args: ["run","--project","SuffixTree.Mcp.Core"]`). New to MCP? The [hub guide](../../../../docs/mcp/README.md) lists all 11 servers and how to wire them up.
 
+## Size limit
+
+The `suffix_tree_*` tools, `find_longest_repeat` and `find_longest_common_region` rebuild an in-memory suffix tree from their
+string arguments on every call (measured: 169 bytes of heap per character for random DNA, up to 193 for repetitive text, about
+15 s per 10 Mbp). A call whose text arguments total more than **5 000 000 characters** (about 1 GiB at 200 bytes per character) is
+rejected with an `ArgumentException` ("Input too large ...") before anything is built. The limit counts all text arguments of the call
+together (text + pattern, text + query, the sum of the k texts plus one separator each).
+
+Change it when starting the server (a value that is not a positive integer stops the server with a clear message):
+
+```bash
+dotnet run --project SuffixTree.Mcp.Core -- --SuffixTree:MaxTextChars=20000000
+SuffixTree__MaxTextChars=20000000 dotnet run --project SuffixTree.Mcp.Core
+```
+
+`calculate_similarity`, `hamming_distance`, `edit_distance` and `count_approximate_occurrences` build no tree and are not covered.
+Persistent sessions that keep an index across calls (so large inputs need not be re-sent and rebuilt) are planned in stage S8 of the
+suffix-tree upgrade plan. See `SuffixTreeMcpLimits` for how the default was derived.
+
 ## Tools (18)
 
 | Tool | Description |

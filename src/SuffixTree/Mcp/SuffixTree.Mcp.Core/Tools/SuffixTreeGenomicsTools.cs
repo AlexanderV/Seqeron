@@ -23,6 +23,8 @@ public class SuffixTreeGenomicsTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(sequence), sequence);
+
         var dna = new global::Seqeron.Genomics.Core.DnaSequence(sequence);
         var result = GenomicAnalyzer.FindLongestRepeat(dna);
 
@@ -42,6 +44,8 @@ public class SuffixTreeGenomicsTools
             throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
+
+        SuffixTreeMcpLimits.EnsureWithinLimit(nameof(sequence1), sequence1, sequence2);
 
         var dna1 = new global::Seqeron.Genomics.Core.DnaSequence(sequence1);
         var dna2 = new global::Seqeron.Genomics.Core.DnaSequence(sequence2);
