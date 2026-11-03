@@ -25,7 +25,8 @@ PLAN -> IMPLEMENT -> TEST -> REVIEW (independent agent, tries to break it, profi
 ## Optimization stopping rule ("do not stop while something can be improved", made measurable)
 - An optimization iteration is **accepted** only if it improves the 10 Mbp random-DNA SA-build time by >= 3% (median of 5 runs, quiet machine) and all correctness
   tests/fuzz pass; otherwise it is reverted (kept in the log with its number).
-- Stop optimizing after 3 consecutive iterations below 3%, or when build time <= 1.1x libsais (<= 0.36 s at 10 Mbp on this machine). Record why.
+- Stop optimizing after 3 consecutive iterations below 3%, or when build time <= 1.1x libsais (<= 0.36 s for SA alone, <= 0.62 s for SA+LCP at 10 Mbp on this machine). Record why.
+  Amendment 2026-11-03 (after 1a.9): the optimized quantity is SA+LCP (the metric the harness reports), so the reference is libsais SA+PLCP+LCP = 0.564 s; the safe baseline is 1.41 s (2.5x). Accept/reject is measured on SA+LCP; the SA-only time is tracked alongside.
 - Machine: 4 vCPU, 15 GB. Timing runs only while no other build/test runs (check `uptime`/`ps`). Report median and min/max.
 
 ## Environment
