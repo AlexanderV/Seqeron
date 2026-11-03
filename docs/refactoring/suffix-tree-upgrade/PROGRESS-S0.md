@@ -5,7 +5,7 @@ Status legend: [ ] todo, [~] in progress, [x] done (with commit hash), [!] block
 
 | WP | content | status |
 |---|---|---|
-| 0.0 | Baseline: run the 3 suites + Parity + Performance filters; record counts/durations here. If red: stop, report, do not fix unrelated failures | [ ] |
+| 0.0 | Baseline: run the 3 suites + Parity + Performance filters; record counts/durations here. If red: stop, report, do not fix unrelated failures | [x] green, see log |
 | 0.1 | Documentation: wrong "approximately 20 bytes per character" (`SuffixTree.cs:76` and any copy in docs/README) -> measured 169 B/char in memory, ~56 B/char persistent file (10 Mbp random DNA, BENCHMARK.md) | [ ] |
 | 0.2 | int32 guards with clear exceptions: unchecked `_nodeCount++` (`PersistentSuffixTreeBuilder.Core.cs:180`), NodeCount overflow with custom `ITextSource` above ~1.07 Gchar, HeapStorageProvider 2 GB cap, `LoadStringInternal` above `int.MaxValue`. Tests must not allocate gigabytes (use a fake `ITextSource` reporting a huge `Length`) | [ ] |
 | 0.3 | `PrintTree` capacity `estimatedNodes * 50` int overflow (`SuffixTree.Diagnostics.cs:82`) | [ ] |
@@ -16,3 +16,8 @@ Status legend: [ ] todo, [~] in progress, [x] done (with commit hash), [!] block
 
 ## Log
 (append newest last: date, WP, commit, test counts, numbers, open issues)
+- 2026-11-03, WP 0.0 (baseline, commit: this entry's own commit, docs only). Branch tip before S0 work: `b0922125`. .NET SDK 10.0.403, 4 vCPU. 0 build warnings in all three builds.
+  Default `dotnet test -c Release`: SuffixTree.Tests 469 passed (2 s), SuffixTree.Persistent.Tests 560 passed (19 s), SuffixTree.Mcp.Core.Tests 103 passed (0.1 s); 0 failed, 0 skipped.
+  `--filter Category=Parity` (Persistent.Tests): 152 passed (10 s). `--filter Category=Performance` (SuffixTree.Tests): 12 passed (3 s).
+  Note: the 12 Performance tests are `[Explicit]` (ComplexityGuardTests, PerformanceGuardTests), so they run only with the filter; the default run prints them as "Skipped" lines but reports Skipped: 0.
+  Total baseline: 1132 default tests + 152 Parity (subset of the 560) + 12 Performance (explicit, in addition to the 469).
