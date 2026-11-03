@@ -97,6 +97,11 @@ public partial class SuffixTree : ISuffixTree
     /// </summary>
     /// <param name="value">The text source to build the suffix tree from. Cannot be null.</param>
     /// <returns>A new suffix tree instance.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="value"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="value"/> is longer than <see cref="SuffixTreeLimits.MaxTextLength"/> characters
+    /// (the node count of the tree would not fit in a 32-bit integer).
+    /// </exception>
     public static SuffixTree Build(ITextSource value)
     {
         return new SuffixTree(value);
@@ -141,10 +146,13 @@ public partial class SuffixTree : ISuffixTree
     /// </summary>
     /// <param name="value">The text source to build the suffix tree from.</param>
     /// <param name="tree">When this method returns, contains the suffix tree if successful; otherwise, null.</param>
-    /// <returns>True if the suffix tree was created successfully; otherwise, false.</returns>
+    /// <returns>
+    /// True if the suffix tree was created successfully; false if <paramref name="value"/> is null or
+    /// longer than <see cref="SuffixTreeLimits.MaxTextLength"/> characters.
+    /// </returns>
     public static bool TryBuild(ITextSource? value, [NotNullWhen(true)] out SuffixTree? tree)
     {
-        if (value == null)
+        if (value == null || !SuffixTreeLimits.IsTextLengthSupported(value.Length))
         {
             tree = null;
             return false;
@@ -201,6 +209,7 @@ public partial class SuffixTree : ISuffixTree
     private SuffixTree(ITextSource value)
     {
         ArgumentNullException.ThrowIfNull(value);
+        SuffixTreeLimits.ThrowIfTextTooLong(value.Length, nameof(value));
         _text = value;
         _rawString = (value as StringTextSource)?.Value;
         _root = new SuffixTreeNode(0, 0, 0);

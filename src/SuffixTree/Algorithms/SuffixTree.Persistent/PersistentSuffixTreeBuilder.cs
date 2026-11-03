@@ -101,6 +101,12 @@ public partial class PersistentSuffixTreeBuilder
     /// </summary>
     internal long CompactOffsetLimit { get; set; } = NodeLayout.CompactMaxOffset;
 
+    /// <summary>
+    /// Largest number of nodes the builder may create. Defaults to <see cref="int.MaxValue"/> (node indexes are Int32);
+    /// tests lower it to exercise the overflow guard without building a billion-node tree.
+    /// </summary>
+    internal int NodeCountLimit { get; set; } = int.MaxValue;
+
     /// <summary>The offset where the compact→large transition occurred, or -1.</summary>
     internal long TransitionOffset => _transitionOffset;
 
@@ -276,11 +282,16 @@ public partial class PersistentSuffixTreeBuilder
     /// <summary>Builds the suffix tree from the given text source using Ukkonen's algorithm.</summary>
     /// <param name="text">The text source to index.</param>
     /// <param name="progress">Optional progress reporter: (Stage, Percent 0–100).</param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="text"/> is longer than <see cref="SuffixTreeLimits.MaxTextLength"/> characters
+    /// (the node count of the tree would not fit in a 32-bit integer).
+    /// </exception>
     public long Build(ITextSource text, IProgress<(string Stage, double Percent)>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(text);
         if (_built)
             throw new InvalidOperationException("Build() has already been called. Create a new builder instance to build another tree.");
+        SuffixTreeLimits.ThrowIfTextTooLong(text.Length, nameof(text));
         _built = true;
 
         _text = text;

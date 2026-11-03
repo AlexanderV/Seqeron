@@ -75,13 +75,20 @@ public sealed partial class PersistentSuffixTree : ISuffixTree, IDisposable
         }
     }
 
+    // Maximum length of a .NET string (0x3FFFFFDF characters).
+    private const int MaxStringLength = 0x3FFFFFDF;
+
     private string LoadStringInternal(long textOff, int textLen, bool isAscii)
     {
         int bytesPerChar = isAscii ? 1 : 2;
         long byteLen = (long)textLen * bytesPerChar;
-        if (byteLen > int.MaxValue)
+        // Non-memory-mapped storage copies the text into one byte[] and then one string; the runtime
+        // caps a byte[] at Array.MaxLength (slightly below int.MaxValue) and a string at MaxStringLength.
+        if (byteLen > Array.MaxLength || textLen > MaxStringLength)
             throw new InvalidOperationException(
-                $"Text length {textLen} exceeds maximum loadable size.");
+                $"Text length {textLen} ({byteLen} bytes) exceeds the maximum that can be loaded into memory " +
+                $"from non-memory-mapped storage ({MaxStringLength} characters, {Array.MaxLength} bytes). " +
+                "Load the file with PersistentSuffixTreeFactory.Load (memory-mapped), which reads the text without copying it.");
         int byteLenInt = (int)byteLen;
         byte[] bytes = ArrayPool<byte>.Shared.Rent(byteLenInt);
         try

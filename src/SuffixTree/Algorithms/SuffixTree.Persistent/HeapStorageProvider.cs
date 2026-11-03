@@ -13,8 +13,14 @@ public sealed class HeapStorageProvider : IStorageProvider
     private int _disposed;
 
     /// <summary>Initializes a new <see cref="HeapStorageProvider"/> with the specified initial capacity.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="initialCapacity"/> is larger than <see cref="Array.MaxLength"/>, the largest managed byte array.
+    /// </exception>
     public HeapStorageProvider(int initialCapacity = 65536)
     {
+        if (initialCapacity > Array.MaxLength)
+            throw new ArgumentOutOfRangeException(nameof(initialCapacity), initialCapacity,
+                "Initial capacity exceeds the maximum managed array length (" + Array.MaxLength + " bytes).");
         _buffer = new byte[initialCapacity];
         _position = 0;
     }
@@ -52,14 +58,18 @@ public sealed class HeapStorageProvider : IStorageProvider
 
         if (_buffer.Length < capacity)
         {
-            if (capacity > int.MaxValue)
-                throw new InvalidOperationException("HeapStorageProvider cannot exceed 2GB limit of byte array.");
+            // The largest byte[] the runtime can create is Array.MaxLength (0x7FFFFFC7), slightly below int.MaxValue.
+            if (capacity > Array.MaxLength)
+                throw new InvalidOperationException(
+                    "HeapStorageProvider cannot exceed the " + Array.MaxLength +
+                    "-byte limit of a managed byte array (requested " + capacity + " bytes). " +
+                    "Use a memory-mapped file for larger trees.");
 
             long newSize = Math.Max(_buffer.Length * 2L, 64L);
             while (newSize < capacity) newSize *= 2;
 
-            if (newSize > int.MaxValue)
-                newSize = int.MaxValue;
+            if (newSize > Array.MaxLength)
+                newSize = Array.MaxLength;
 
             Array.Resize(ref _buffer, (int)newSize);
         }

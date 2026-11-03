@@ -175,8 +175,15 @@ public partial class PersistentSuffixTreeBuilder
         return _storage.Allocate(size);
     }
 
+    private void ThrowNodeCountOverflow() =>
+        throw new InvalidOperationException(
+            "The suffix tree would need more than " + NodeCountLimit + " nodes; node counts and node indexes are 32-bit. " +
+            "Split the text into smaller parts.");
+
     private long CreateNode(uint start, uint end, uint depthFromRoot)
     {
+        if (_nodeCount >= NodeCountLimit)
+            ThrowNodeCountOverflow();
         _nodeCount++;
         long offset = AllocateChecked(_layout.NodeSize);
         _maxNodeEndOffset = offset + _layout.NodeSize;

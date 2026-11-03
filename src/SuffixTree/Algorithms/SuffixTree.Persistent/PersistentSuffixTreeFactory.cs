@@ -39,6 +39,13 @@ public static class PersistentSuffixTreeFactory
     /// <param name="filePath">Optional file path for MMF storage.</param>
     /// <param name="progress">Optional progress reporter: (Stage, Percent 0–100).</param>
     /// <returns>A concrete <see cref="PersistentSuffixTree"/> instance.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="text"/> is longer than <see cref="SuffixTreeLimits.MaxTextLength"/> characters, or
+    /// (heap mode, no <paramref name="filePath"/>) the estimated storage does not fit in one managed byte array
+    /// (about 29.8 million characters at the 72 bytes per character reserved by the estimate); pass a file path to
+    /// build a memory-mapped tree instead.
+    /// </exception>
     public static PersistentSuffixTree CreatePersistent(ITextSource text, string? filePath = null,
         IProgress<(string Stage, double Percent)>? progress = null)
     {
@@ -54,6 +61,9 @@ public static class PersistentSuffixTreeFactory
     internal static PersistentSuffixTree CreateCore(ITextSource text, string? filePath, long compactOffsetLimit,
         IProgress<(string Stage, double Percent)>? progress = null)
     {
+        SuffixTreeLimits.ThrowIfTextTooLong(text.Length, nameof(text));
+        if (string.IsNullOrEmpty(filePath))
+            ThrowIfTooLargeForHeap(text);
         var storage = CreateStorage(filePath, text.Length);
         IStorageProvider? childStorage = null;
         IStorageProvider? depthStorage = null;
@@ -145,6 +155,9 @@ public static class PersistentSuffixTreeFactory
         }
     }
 
+    // Bytes reserved per input character by EstimateCapacity (measured: about 56 B/char are actually used).
+    private const int BytesPerCharEstimate = 72;
+
     /// <summary>
     /// Estimates the storage capacity needed for a suffix tree over a text of
     /// the given length. The estimate covers header, nodes, child arrays, and
@@ -156,10 +169,23 @@ public static class PersistentSuffixTreeFactory
         // SlimCompact layout: ≤2N+1 nodes × 24B + ≤2N+1 child entries × 8B
         //                     + text × 2B + header 88B ≈ 66N + 120.
         // Use 72 bytes/char to leave headroom and avoid any remap in practice.
-        const int BytesPerChar = 72;
         const int MinCapacity = 65536;
-        long estimate = (long)textLength * BytesPerChar + 256;
+        long estimate = (long)textLength * BytesPerCharEstimate + 256;
         return Math.Max(estimate, MinCapacity);
+    }
+
+    // Heap mode keeps the whole tree in one managed byte[], which the runtime caps at Array.MaxLength.
+    // Clamping the request (the old behaviour) only turned this into an OutOfMemoryException.
+    private static void ThrowIfTooLargeForHeap(ITextSource text)
+    {
+        long capacity = EstimateCapacity(text.Length);
+        if (capacity > Array.MaxLength)
+            throw new ArgumentException(
+                "A heap-backed persistent suffix tree over " + text.Length + " characters needs an estimated " +
+                capacity + " bytes, more than one managed byte array can hold (" + Array.MaxLength +
+                " bytes, about " + (Array.MaxLength - 256) / BytesPerCharEstimate + " characters). " +
+                "Pass a filePath to build a memory-mapped tree instead.",
+                nameof(text));
     }
 
     private static IStorageProvider CreateStorage(string? filePath, int textLength)
@@ -167,7 +193,7 @@ public static class PersistentSuffixTreeFactory
         long capacity = EstimateCapacity(textLength);
         return !string.IsNullOrEmpty(filePath)
             ? new MappedFileStorageProvider(filePath, capacity)
-            : new HeapStorageProvider((int)Math.Min(capacity, int.MaxValue));
+            : new HeapStorageProvider((int)Math.Min(capacity, Array.MaxLength));
     }
 
     private static void CleanupFile(string? filePath)
