@@ -6,7 +6,7 @@ Status legend: [ ] todo, [~] in progress, [x] done (with commit hash), [!] block
 | WP | content | status |
 |---|---|---|
 | 0.0 | Baseline: run the 3 suites + Parity + Performance filters; record counts/durations here. If red: stop, report, do not fix unrelated failures | [x] green, see log |
-| 0.1 | Documentation: wrong "approximately 20 bytes per character" (`SuffixTree.cs:76` and any copy in docs/README) -> measured 169 B/char in memory, ~56 B/char persistent file (10 Mbp random DNA, BENCHMARK.md) | [ ] |
+| 0.1 | Documentation: wrong "approximately 20 bytes per character" (`SuffixTree.cs:76` and any copy in docs/README) -> measured 169 B/char in memory, ~56 B/char persistent file (10 Mbp random DNA, BENCHMARK.md) | [x] `b0c9479b` |
 | 0.2 | int32 guards with clear exceptions: unchecked `_nodeCount++` (`PersistentSuffixTreeBuilder.Core.cs:180`), NodeCount overflow with custom `ITextSource` above ~1.07 Gchar, HeapStorageProvider 2 GB cap, `LoadStringInternal` above `int.MaxValue`. Tests must not allocate gigabytes (use a fake `ITextSource` reporting a huge `Length`) | [ ] |
 | 0.3 | `PrintTree` capacity `estimatedNodes * 50` int overflow (`SuffixTree.Diagnostics.cs:82`) | [ ] |
 | 0.4 | `GenomicAnalyzer.FindRepeats` uses O(n^2) `GetAllSuffixes` (`GenomicAnalyzer.cs:56`): replace with a tree/LCP-based method, identical output; the old implementation stays as a test-local reference oracle (random + adversarial inputs) | [ ] |
@@ -21,3 +21,6 @@ Status legend: [ ] todo, [~] in progress, [x] done (with commit hash), [!] block
   `--filter Category=Parity` (Persistent.Tests): 152 passed (10 s). `--filter Category=Performance` (SuffixTree.Tests): 12 passed (3 s).
   Note: the 12 Performance tests are `[Explicit]` (ComplexityGuardTests, PerformanceGuardTests), so they run only with the filter; the default run prints them as "Skipped" lines but reports Skipped: 0.
   Total baseline: 1132 default tests + 152 Parity (subset of the 560) + 12 Performance (explicit, in addition to the 469).
+- 2026-11-03, WP 0.1 (commit `b0c9479b`): docs/comment only, no test (not a code defect). Fixed XML doc remark in `SuffixTree.cs` (was "approximately 20 bytes per character"; now 169 B/char random DNA, 190 protein, 193 repetitive, file 56 B/char). Only one copy of the claim existed in the repo; added a measured "2.1 Memory footprint" table to `docs/algorithms/Pattern_Matching/Suffix_Tree.md` and a size line to `SuffixTree.Persistent/README.md`.
+  Suites after change: 469 / 560 / 103 passed, Parity 152, Performance 12; 0 warnings.
+  Open: `wiki/concepts/suffix-tree.md` has `sources: docs/algorithms/Pattern_Matching/Suffix_Tree.md` and is now flagged stale by `/wiki:lint`; a `/wiki:ingest` refresh was not part of S0 and was not done.
