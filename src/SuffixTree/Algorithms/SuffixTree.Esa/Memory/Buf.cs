@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics.X86;
 
 namespace SuffixTree.Esa;
 
@@ -126,6 +127,17 @@ internal readonly unsafe struct Buf<T>
     /// <summary>A span over the first <paramref name="length"/> elements.</summary>
     internal Span<T> AsSpan(int length) => new(_p, length);
 #endif
+
+    /// <summary>
+    /// Hints that the element at <paramref name="index"/> will be read soon: x86 <c>prefetcht0</c> when <see cref="Sse.IsSupported"/> (a JIT-time constant, so the
+    /// check costs nothing), a no-op on every other platform (the ARM64 SVE prefetch intrinsics exist in .NET 10 but are UNVERIFIED here and need SVE hardware). It never
+    /// faults and never throws, also in the checked build and for an index outside the buffer: the hardware ignores a prefetch of an invalid address.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Prefetch(int index)
+    {
+        if (Sse.IsSupported) Sse.Prefetch0(_p + index);
+    }
 
     /// <summary>Sets the first <paramref name="count"/> elements to <paramref name="value"/>.</summary>
     internal void Fill(T value, int count) => AsSpan(count).Fill(value);

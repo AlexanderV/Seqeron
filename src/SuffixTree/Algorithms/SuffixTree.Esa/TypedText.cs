@@ -18,6 +18,9 @@ internal interface ITypedText
 
     /// <summary>True when positions <paramref name="x"/> and <paramref name="y"/> (both in <c>[0, n - 1]</c>) have the same symbol and the same type.</summary>
     bool Same(int x, int y);
+
+    /// <summary>Hints that position <paramref name="i"/> (any int: the address is not checked) will be read soon.</summary>
+    void Prefetch(int i);
 }
 
 /// <summary>Where the classification writes: the type array of a split text, or the packed bytes.</summary>
@@ -45,6 +48,12 @@ internal readonly struct SplitTyped<TText>(TText text, Buf<byte> types) : ITyped
     public int IsS(int i) => types[i];
 
     public bool Same(int x, int y) => text[x] == text[y] && types[x] == types[y];
+
+    public void Prefetch(int i)
+    {
+        text.Prefetch(i);
+        types.Prefetch(i);
+    }
 }
 
 /// <summary>Writes the types of a split text.</summary>
@@ -76,6 +85,8 @@ internal readonly struct PackedBytes(Buf<byte> packed) : ITypedText
     public int IsS(int i) => packed[i] & 1;
 
     public bool Same(int x, int y) => packed[x] == packed[y];
+
+    public void Prefetch(int i) => packed.Prefetch(i);
 }
 
 /// <summary>Writes the packed bytes.</summary>

@@ -194,6 +194,19 @@ public class BufAndArenaTests
         if (!EsaBuild.BoundsChecked) Assert.That(message, Does.Contain(side));
     }
 
+    [Test]
+    public void Prefetch_NeverThrowsAndNeverTouchesMemory_ForAnyIndex_InBothBuildModes()
+    {
+        // 1o.2: a prefetch address is not checked (the hardware ignores an invalid one); the kernels prefetch positions that come from the data, also clamped ones
+        using var arena = new NativeArena(ArenaOptions.Guarded());
+        Buf<int> b = arena.Allocate<int>(Length, zero: true, "b");
+        for (int i = 0; i < Length; i++) b[i] = i + 1;
+        foreach (int index in new[] { 0, Length - 1, Length, Length + 1000, -1, -100_000, int.MaxValue / 8, int.MinValue / 8 })
+            Assert.DoesNotThrow(() => b.Prefetch(index), $"index {index}");
+        Assert.That(b.AsSpan(Length).ToArray(), Is.EqualTo(Enumerable.Range(1, Length)));
+        arena.VerifyCanaries();
+    }
+
     /// <summary>Runs the access; returns the message of the violation that the build mode reports for it (accessor exception, else canary), failing when none is reported.</summary>
     private static string Capture(NativeArena arena, Action access)
     {

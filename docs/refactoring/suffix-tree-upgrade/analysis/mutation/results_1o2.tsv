@@ -1,0 +1,8 @@
+id	description	release	checked	filter
+P01	L pass: the look-ahead read is not clamped to n (reads SA[n + 1 ..])	survived	killed(25)	default suite, both configurations
+P02	S pass: the look-ahead read is not clamped to 1 (reads SA[-31 ..])	survived	killed(25)	default suite, both configurations
+P03	naming: the look-ahead read is not clamped to m (reads past the sorted LMS positions, past SA[n] for small texts)	survived	killed(14)	default suite, both configurations
+P04	L pass: the prefetch address is the successor position instead of the predecessor (changes no result: a prefetch has no architectural effect)	survived	survived	default suite, both configurations
+P05	S pass: no clamp of the prefetch index for empty entries (index -2 is prefetched: no effect)	survived	survived	default suite, both configurations
+P06	naming: the name slot is prefetched without the +1 (no effect)	survived	survived	default suite, both configurations
+P07	L pass: the look-ahead entry is read from the wrong side (i - distance: an already scanned entry)	survived	survived	default suite, both configurations

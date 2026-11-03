@@ -1,0 +1,44 @@
+[
+ {
+  "id": "P01",
+  "desc": "L pass: the look-ahead read is not clamped to n (reads SA[n + 1 ..])",
+  "old": "            int ahead = sa[Math.Min(i + SaisPrefetch.Induce, n)]; // the entry",
+  "new": "            int ahead = sa[i + SaisPrefetch.Induce]; // the entry"
+ },
+ {
+  "id": "P02",
+  "desc": "S pass: the look-ahead read is not clamped to 1 (reads SA[-31 ..])",
+  "old": "            int ahead = sa[Math.Max(i - SaisPrefetch.Induce, 1)];",
+  "new": "            int ahead = sa[i - SaisPrefetch.Induce];"
+ },
+ {
+  "id": "P03",
+  "desc": "naming: the look-ahead read is not clamped to m (reads past the sorted LMS positions, past SA[n] for small texts)",
+  "old": "            int ahead = sa[Math.Min(i + SaisPrefetch.Name, m)]; // the sorted LMS position",
+  "new": "            int ahead = sa[i + SaisPrefetch.Name]; // the sorted LMS position"
+ },
+ {
+  "id": "P04",
+  "desc": "L pass: the prefetch address is the successor position instead of the predecessor (changes no result: a prefetch has no architectural effect)",
+  "old": "            tt.Prefetch((ahead - 1) & -(int)((uint)-ahead >> 31));\n            int p = sa[i];\n            int positive = (int)((uint)-p >> 31); // 1 for p > 0",
+  "new": "            tt.Prefetch(ahead);\n            int p = sa[i];\n            int positive = (int)((uint)-p >> 31); // 1 for p > 0"
+ },
+ {
+  "id": "P05",
+  "desc": "S pass: no clamp of the prefetch index for empty entries (index -2 is prefetched: no effect)",
+  "old": "            int ahead = sa[Math.Max(i - SaisPrefetch.Induce, 1)];\n            tt.Prefetch((ahead - 1) & -(int)((uint)-ahead >> 31));",
+  "new": "            int ahead = sa[Math.Max(i - SaisPrefetch.Induce, 1)];\n            tt.Prefetch(ahead - 1);"
+ },
+ {
+  "id": "P06",
+  "desc": "naming: the name slot is prefetched without the +1 (no effect)",
+  "old": "            sa.Prefetch(1 + m + (ahead >> 1));",
+  "new": "            sa.Prefetch(m + (ahead >> 1));"
+ },
+ {
+  "id": "P07",
+  "desc": "L pass: the look-ahead entry is read from the wrong side (i - distance: an already scanned entry)",
+  "old": "            int ahead = sa[Math.Min(i + SaisPrefetch.Induce, n)]; // the entry",
+  "new": "            int ahead = sa[Math.Max(i - SaisPrefetch.Induce, 0)]; // the entry"
+ }
+]

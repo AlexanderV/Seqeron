@@ -28,6 +28,8 @@ internal static unsafe class SaisInduction
     {
         for (int i = 0; i <= n; i++)
         {
+            int ahead = sa[Math.Min(i + SaisPrefetch.Induce, n)]; // the entry that will be scanned SaisPrefetch.Induce iterations from now (a prefetch of a stale entry is wasted, never wrong)
+            tt.Prefetch((ahead - 1) & -(int)((uint)-ahead >> 31));
             int p = sa[i];
             int positive = (int)((uint)-p >> 31); // 1 for p > 0; empty slots (-1) and suffix 0 induce nothing
             int j = p - 1;
@@ -47,6 +49,8 @@ internal static unsafe class SaisInduction
     {
         for (int i = n; i >= 1; i--)
         {
+            int ahead = sa[Math.Max(i - SaisPrefetch.Induce, 1)];
+            tt.Prefetch((ahead - 1) & -(int)((uint)-ahead >> 31));
             int p = sa[i];
             int positive = (int)((uint)-p >> 31);
             int j = p - 1;
@@ -72,6 +76,9 @@ internal static unsafe class SaisInduction
         int previous = -1;
         for (int i = 1; i <= m; i++)
         {
+            int ahead = sa[Math.Min(i + SaisPrefetch.Name, m)]; // the sorted LMS position that is compared SaisPrefetch.Name iterations from now, and the slot that gets its name
+            tt.Prefetch(ahead);
+            sa.Prefetch(1 + m + (ahead >> 1));
             int pos = sa[i];
             if (previous < 0 || !LmsSubstringsEqual(tt, n, previous, pos)) name++;
             sa[1 + m + (pos >> 1)] = name;

@@ -8,6 +8,9 @@ internal interface IPtrText
 
     /// <summary>The symbol at <paramref name="index"/>.</summary>
     int this[int index] { get; }
+
+    /// <summary>Hints that the symbol at <paramref name="index"/> will be read soon.</summary>
+    void Prefetch(int index);
 }
 
 /// <summary>Symbols stored as bytes (alphabet of at most 256 symbols after the dense remap).</summary>
@@ -16,6 +19,8 @@ internal readonly struct BytePtrText(Buf<byte> data, int length) : IPtrText
     public int Length { get; } = length;
 
     public int this[int index] => data[index];
+
+    public void Prefetch(int index) => data.Prefetch(index);
 }
 
 /// <summary>Symbols stored as 16-bit unsigned integers.</summary>
@@ -24,6 +29,8 @@ internal readonly struct UShortPtrText(Buf<ushort> data, int length) : IPtrText
     public int Length { get; } = length;
 
     public int this[int index] => data[index];
+
+    public void Prefetch(int index) => data.Prefetch(index);
 }
 
 /// <summary>Symbols stored as 32-bit integers (the reduced strings of the recursion, which live in the suffix-array buffer).</summary>
@@ -32,4 +39,6 @@ internal readonly struct IntPtrText(Buf<int> data, int length) : IPtrText
     public int Length { get; } = length;
 
     public int this[int index] => data[index];
+
+    public void Prefetch(int index) => data.Prefetch(index);
 }
