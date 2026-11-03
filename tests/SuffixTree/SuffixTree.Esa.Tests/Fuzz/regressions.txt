@@ -1,0 +1,8 @@
+# Regression corpus of the differential fuzz harness (work package 1a.7, docs/refactoring/suffix-tree-upgrade/PROGRESS-S1.md).
+# One failing case per line, TAB-separated: <case-id> <op> <minimized text as hex code units, "-" = empty>.
+#   case-id = family:seed(16 hex digits):n:sigma:param, regenerates the original text (FuzzTexts.Generate); op = the failed comparison
+#   (sa-naive, lcp-naive, sa-verify, lcp-kasai, sa-reference, lcp-reference, shape, exception:<Type>).
+# The default test run replays every entry twice (the regenerated original case and the minimized text) through the full pipeline; both must pass.
+# Append the lines printed by a failing Category=Fuzz run (FuzzRegressions.Format) after fixing the bug; never delete or edit an entry.
+#
+# No failure has been found so far by SaisReference / LcpReference (1a.7 acceptance runs: see PROGRESS-S1.md, Log), so the corpus starts empty.
