@@ -51,6 +51,7 @@ internal sealed class SaisTrace
     internal static long Begin(SaisTrace? trace) => trace is null ? 0 : Stopwatch.GetTimestamp();
 
     /// <summary>Adds the time since <paramref name="begin"/> to a phase of a level.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] // keeps the list/array indexing of the instrumentation out of the optimized kernel bodies (jit_check.sh)
     internal void End(int level, SaisPhase phase, long begin)
     {
         long now = Stopwatch.GetTimestamp();

@@ -9,7 +9,7 @@ internal sealed record SaisRun(int[] Sa, IReadOnlyList<SaisLevel> Levels, IReadO
 internal sealed record LcpRun(CompactLcp Lcp, int[]? Plcp);
 
 /// <summary>A registered suffix-array engine. <see cref="Run"/> gets the prepared text and the guarded arena the harness will verify afterwards.</summary>
-internal sealed record SaisEngine(string Name, Func<PreparedText, NativeArena, SaisRun> Run);
+internal sealed record SaisEngine(string Name, Func<PreparedText, NativeArena, SaisRun> Run, bool InHeavyTests = true);
 
 /// <summary>A registered LCP engine; the suffix array is the (reference) input.</summary>
 internal sealed record LcpEngine(string Name, Func<PreparedText, int[], NativeArena, LcpRun> Run);
@@ -27,14 +27,20 @@ internal static class KernelRegistry
 
     internal static readonly LcpEngine ReferenceLcp = new("LcpReference", RunReferenceLcp);
 
+    /// <summary>1o.1b: the SA-IS pointer kernel as it ships (<see cref="NoProbe"/>), run in a guarded arena with a poisoned suffix-array block.</summary>
+    internal static readonly SaisEngine PointerSais = new("SaisKernel.Pointer", RunPointerSais);
+
+    /// <summary>The same kernel with a recording probe: the intermediate states (bucket arrays, LMS order, names) are compared with the oracle. Not part of the heavy categories (copies every level).</summary>
+    internal static readonly SaisEngine PointerSaisWithStates = new("SaisKernel.Pointer+states", RunPointerSaisWithStates, InHeavyTests: false);
+
     /// <summary>All suffix-array engines, the reference first.</summary>
-    internal static IReadOnlyList<SaisEngine> SaisEngines { get; } = [ReferenceSais];
+    internal static IReadOnlyList<SaisEngine> SaisEngines { get; } = [ReferenceSais, PointerSais, PointerSaisWithStates];
 
     /// <summary>All LCP engines, the reference first.</summary>
     internal static IReadOnlyList<LcpEngine> LcpEngines { get; } = [ReferenceLcp];
 
     /// <summary>The suffix-array engines that are not the reference (the optimized kernels).</summary>
-    internal static IEnumerable<SaisEngine> OptimizedSais => SaisEngines.Where(e => e != ReferenceSais);
+    internal static IEnumerable<SaisEngine> OptimizedSais => SaisEngines.Where(e => e != ReferenceSais && e.InHeavyTests);
 
     /// <summary>The LCP engines that are not the reference (the optimized kernels).</summary>
     internal static IEnumerable<LcpEngine> OptimizedLcp => LcpEngines.Where(e => e != ReferenceLcp);
@@ -65,6 +71,35 @@ internal static class KernelRegistry
         foreach (SaisEngine s in OptimizedSais)
             foreach (LcpEngine l in OptimizedLcp)
                 yield return ($"{s.Name}+{l.Name}", Pipeline(s, l));
+    }
+
+    private static SaisRun RunPointerSais(PreparedText prepared, NativeArena arena) => RunPointerSais(prepared, arena, withStates: false);
+
+    private static SaisRun RunPointerSaisWithStates(PreparedText prepared, NativeArena arena) => RunPointerSais(prepared, arena, withStates: true);
+
+    private static SaisRun RunPointerSais(PreparedText prepared, NativeArena arena, bool withStates)
+    {
+        int n = prepared.Length;
+        Buf<int> sa = arena.Allocate<int>(n + 1, zero: false, "sa"); // poisoned in a guarded arena: every entry must be written by the kernel
+        var trace = new SaisTrace();
+        var recorder = new SaisStateRecorder();
+        if (prepared.Width == SymbolWidth.Byte)
+        {
+            Buf<byte> text = arena.Allocate<byte>(n, zero: false, "text");
+            prepared.Bytes.CopyTo(text.AsSpan(n));
+            if (withStates) SaisKernel.Build(text, n, prepared.AlphabetSize, sa, arena, new RecordingSaisProbe(recorder), trace);
+            else SaisKernel.Build(text, n, prepared.AlphabetSize, sa, arena, default(NoProbe), trace);
+            if (!text.AsSpan(n).SequenceEqual(prepared.Bytes)) throw new InvalidOperationException("the SA-IS kernel modified its text");
+        }
+        else
+        {
+            Buf<ushort> text = arena.Allocate<ushort>(n, zero: false, "text");
+            prepared.UShorts.CopyTo(text.AsSpan(n));
+            if (withStates) SaisKernel.Build(text, n, prepared.AlphabetSize, sa, arena, new RecordingSaisProbe(recorder), trace);
+            else SaisKernel.Build(text, n, prepared.AlphabetSize, sa, arena, default(NoProbe), trace);
+            if (!text.AsSpan(n).SequenceEqual(prepared.UShorts)) throw new InvalidOperationException("the SA-IS kernel modified its text");
+        }
+        return new SaisRun(sa.AsSpan(n + 1).ToArray(), trace.Levels, withStates && n > 0 ? recorder.ToStates() : null);
     }
 
     /// <summary>An <see cref="EsaBuilder"/> (text to SA + LCP) from an engine pair, for the fuzz harness and the vector tests.</summary>

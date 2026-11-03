@@ -19,7 +19,10 @@ def run(bounds):
     txt = r.stdout + r.stderr
     if 'error CS' in txt or 'error IDE' in txt or 'error CA' in txt or 'error S' in txt:
         return 'BUILD-ERROR'
-    if 'Passed!' in txt: return 'survived'
+    if 'Test host process crashed' in txt or 'test run was aborted' in txt: return 'killed(host crash)'  # a mutant that corrupts memory may take the test host down
+    if 'Failed!' in txt: pass
+    elif 'Passed!' in txt: return 'survived'
+    else: return 'NO-RESULT'
     import re
     m = re.search(r'Failed!.*?Failed:\s+(\d+)', txt)
     return 'killed(%s)' % (m.group(1) if m else '?')

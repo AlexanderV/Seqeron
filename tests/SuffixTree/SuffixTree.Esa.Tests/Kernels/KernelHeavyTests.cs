@@ -46,6 +46,47 @@ public class KernelHeavyTests
         Assert.That(count, Is.EqualTo((1L << 21) - 1));
     }
 
+    public static IEnumerable<TestCaseData> SaisEngineCases()
+    {
+        string[] names = [.. KernelRegistry.OptimizedSais.Select(e => e.Name)];
+        foreach (string name in names.Length == 0 ? [NoKernel] : names) yield return new TestCaseData(name).SetName("Engine_" + name);
+    }
+
+    [Test]
+    [Category("Exhaustive")]
+    [Explicit("Heavy enumeration; run with --filter Category=Exhaustive (see PROGRESS-S1.md, Log)")]
+    [TestCaseSource(nameof(SaisEngineCases))]
+    public void AllBinaryStrings_UpTo22_SuffixArrayEqualsNaive(string engine) => ExhaustiveSais(engine, 2, 22);
+
+    [Test]
+    [Category("Exhaustive")]
+    [Explicit("Heavy enumeration; run with --filter Category=Exhaustive (see PROGRESS-S1.md, Log)")]
+    [TestCaseSource(nameof(SaisEngineCases))]
+    public void AllTernaryStrings_UpTo13_SuffixArrayEqualsNaive(string engine) => ExhaustiveSais(engine, 3, 13);
+
+    [Test]
+    [Category("Exhaustive")]
+    [Explicit("Heavy enumeration; run with --filter Category=Exhaustive (see PROGRESS-S1.md, Log)")]
+    [TestCaseSource(nameof(SaisEngineCases))]
+    public void AllQuaternaryStrings_UpTo11_SuffixArrayEqualsNaive(string engine) => ExhaustiveSais(engine, 4, 11);
+
+    private static void ExhaustiveSais(string engineName, int sigma, int maxLen)
+    {
+        if (NothingToTest(engineName)) Assert.Pass(NoKernel);
+        SaisEngine engine = KernelRegistry.OptimizedSais.Single(e => e.Name == engineName);
+        long count = 0;
+        foreach (string s in ExhaustiveStrings.All(sigma, maxLen))
+        {
+            PreparedText p = TextPreparation.Prepare(s);
+            using var arena = new NativeArena(ArenaOptions.Guarded());
+            SaisRun run = engine.Run(p, arena);
+            arena.VerifyCanaries();
+            if (!run.Sa.AsSpan().SequenceEqual(NaiveSuffixArray.Build(s))) Assert.Fail($"{engineName}, sigma {sigma}: SA differs from the naive SA on '{s}'");
+            count++;
+        }
+        TestContext.Out.WriteLine($"{engineName}: {count} strings over {sigma} symbols up to length {maxLen}");
+    }
+
     [Test]
     [Category("Exhaustive")]
     [Explicit("Heavy: 10^6-character texts; run with --filter Category=Exhaustive")]

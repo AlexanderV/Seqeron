@@ -150,6 +150,35 @@ public class BufAndArenaTests
     }
 
     [Test]
+    public unsafe void MarkAndReleaseTo_FreeTheNewestBlocks_VerifyTheirCanaries_AndKeepTheOlderOnes()
+    {
+        using var arena = new NativeArena(ArenaOptions.Guarded());
+        Buf<int> keep = arena.Allocate<int>(4, zero: true, "keep");
+        int mark = arena.Mark();
+        _ = arena.Allocate<int>(Length, zero: true, "a");
+        _ = arena.Allocate<byte>(33, zero: false, "b");
+        Assert.That(arena.BlockCount, Is.EqualTo(3));
+        arena.ReleaseTo(mark);
+        Assert.That(arena.BlockCount, Is.EqualTo(1));
+        keep[3] = 7;
+        Assert.DoesNotThrow(arena.VerifyCanaries);
+
+        // a damaged block is freed anyway, then the violation is reported (the damage is not lost by the release)
+        int mark2 = arena.Mark();
+        Buf<int> damaged = arena.Allocate<int>(Length, zero: true, "damaged");
+        _ = arena.Allocate<int>(2, zero: true, "innocent");
+        damaged.Pointer[Length + 1] = 1; // bypasses the accessor
+        var ex = Assert.Throws<EsaMemoryViolationException>(() => arena.ReleaseTo(mark2))!;
+        Assert.That(ex.Kind, Is.EqualTo(MemoryViolationKind.CanaryOverwritten));
+        Assert.That(ex.Message, Does.Contain("damaged"));
+        Assert.That(arena.BlockCount, Is.EqualTo(1));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => arena.ReleaseTo(2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => arena.ReleaseTo(-1));
+        Assert.DoesNotThrow(() => arena.ReleaseTo(arena.Mark())); // nothing newer than the mark
+    }
+
+    [Test]
     public void ArgumentChecks()
     {
         using var arena = new NativeArena();

@@ -25,7 +25,7 @@ for l in listings:
         continue
     checked += 1
     rng = l.count('CORINFO_HELP_RNGCHKFAIL')
-    calls = len(re.findall(r'call\s+\[?[^\n]*(?:Buf`1|get_Item|ReadUnaligned|AsSpan|Slice)', l))
+    calls = len(re.findall(r'call\s+\[?[^\n]*Buf`1', l))  # a surviving call into the accessor struct (not System.Buffer helpers)
     print(f'{head}: range-check helpers {rng}, accessor calls {calls}')
     if rng or calls: bad += 1
 if checked == 0:

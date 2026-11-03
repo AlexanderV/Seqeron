@@ -82,6 +82,40 @@ internal sealed unsafe class NativeArena : IDisposable
         return new Buf<T>((T*)body, length, name);
     }
 
+    /// <summary>A position in the allocation stack, for <see cref="ReleaseTo"/>.</summary>
+    internal int Mark()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _blocks.Count;
+    }
+
+    /// <summary>
+    /// Frees every block allocated since <paramref name="mark"/>, newest first (a recursion level returns its workspace). In a guarded arena the canaries of each
+    /// released block are verified first; the block is freed even when its canary is damaged, and the violation is then thrown.
+    /// </summary>
+    internal void ReleaseTo(int mark)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentOutOfRangeException.ThrowIfNegative(mark);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(mark, _blocks.Count);
+        EsaMemoryViolationException? first = null;
+        for (int i = _blocks.Count - 1; i >= mark; i--)
+        {
+            Block block = _blocks[i];
+            _blocks.RemoveAt(i);
+            try
+            {
+                block.Verify();
+            }
+            catch (EsaMemoryViolationException ex)
+            {
+                first = ex;
+            }
+            NativeMemory.Free(block.Raw);
+        }
+        if (first is not null) throw first;
+    }
+
     /// <summary>Throws <see cref="EsaMemoryViolationException"/> (kind <see cref="MemoryViolationKind.CanaryOverwritten"/>) when any guard band was modified. Does nothing in an unguarded arena.</summary>
     internal void VerifyCanaries()
     {

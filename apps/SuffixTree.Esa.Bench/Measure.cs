@@ -35,7 +35,7 @@ internal sealed class BuildResult
 internal static class Pipeline
 {
     /// <summary>Text preparation (dense order-preserving remap), <see cref="SaisReference"/>, <see cref="LcpReference"/>; the optional traces add one timestamp per phase.</summary>
-    internal static BuildResult Build(string text, SaisTrace? saisTrace = null, LcpTrace? lcpTrace = null)
+    internal static BuildResult Build(string text, SaisTrace? saisTrace = null, LcpTrace? lcpTrace = null, SaisKernelKind saisKernel = SaisKernelKind.Reference)
     {
         long t0 = Stopwatch.GetTimestamp();
         PreparedText prepared = TextPreparation.Prepare(text);
@@ -46,14 +46,14 @@ internal static class Pipeline
         if (prepared.Width == SymbolWidth.Byte)
         {
             ByteSymbols reader = prepared.ByteReader();
-            sa = SaisReference.Build(reader, prepared.AlphabetSize, saisTrace);
+            sa = SaisKernel.Build(saisKernel, prepared, saisTrace);
             t2 = Stopwatch.GetTimestamp();
             lcp = LcpReference.Build(reader, sa, lcpTrace);
         }
         else
         {
             UShortSymbols reader = prepared.UShortReader();
-            sa = SaisReference.Build(reader, prepared.AlphabetSize, saisTrace);
+            sa = SaisKernel.Build(saisKernel, prepared, saisTrace);
             t2 = Stopwatch.GetTimestamp();
             lcp = LcpReference.Build(reader, sa, lcpTrace);
         }

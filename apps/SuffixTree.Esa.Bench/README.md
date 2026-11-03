@@ -27,14 +27,14 @@ vectors (`vector_match`, exit code 3 on a mismatch). Rows go to `analysis/bench/
 number has cold-JIT start-up and its own peak RSS, and runs one session: quiet-machine check (`/proc/loadavg` below `--max-load`), libsais reference runs,
 an A/A calibration (the configuration A against itself, `--calibration-pairs`, default 7), the A/B comparison (`--pairs`, default 9, at least 7; use 15 or more for
 a decision near the bar), libsais again. Inside a pair the order alternates (A B, B A, ...); the statistic is the median of the pair ratios B/A. A and B differ by
-`--a-args` / `--b-args` (build options, for example `--lcp-kernel pointer`), `--a-env` / `--b-env` (runtime switches such as `DOTNET_TieredPGO=0`) or `--a-dll` /
+`--a-args` / `--b-args` (build options, for example `--sa-kernel pointer`), `--a-env` / `--b-env` (runtime switches such as `DOTNET_TieredPGO=0`) or `--a-dll` /
 `--b-dll` (two builds of the app, for example from two git worktrees). A child that does not reproduce the libsais vectors (`--verify analysis/sa_vectors.tsv`)
 aborts the session. The libsais driver is outside the repository (`--libsais <driver> ` is called as `<driver> <input file>` and must print `total=<seconds>`).
 
 ```
 dotnet build apps/SuffixTree.Esa.Bench/SuffixTree.Esa.Bench.csproj -c Release
 dotnet apps/SuffixTree.Esa.Bench/bin/Release/net10.0/SuffixTree.Esa.Bench.dll ab --input <dir>/data/dna_10m.txt --name dna_10m \
-    --verify docs/refactoring/suffix-tree-upgrade/analysis/sa_vectors.tsv --a-args "--lcp-kernel reference" --b-args "--lcp-kernel pointer" \
+    --verify docs/refactoring/suffix-tree-upgrade/analysis/sa_vectors.tsv --a-args "--sa-kernel reference" --b-args "--sa-kernel pointer" \
     --pairs 15 --calibration-pairs 9 --libsais <libsais driver> --out raw.tsv
 ```
 

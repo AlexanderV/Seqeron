@@ -1,0 +1,158 @@
+[
+ {
+  "id": "S01",
+  "desc": "M01 bucket heads start at 0",
+  "old": "        int sum = 1; // index 0 belongs to the sentinel suffix",
+  "new": "        int sum = 0; // index 0 belongs to the sentinel suffix"
+ },
+ {
+  "id": "S02",
+  "desc": "M02 bucket tails off by one",
+  "old": "            bkt[c] = sum; // exclusive end",
+  "new": "            bkt[c] = sum - 1; // exclusive end"
+ },
+ {
+  "id": "S03",
+  "desc": "M13 classification: a <= b means S",
+  "old": "byte isS = c < next || (c == next && nextIsS != 0) ? (byte)1 : (byte)0;",
+  "new": "byte isS = c <= next || (c == next && nextIsS != 0) ? (byte)1 : (byte)0;"
+ },
+ {
+  "id": "S04",
+  "desc": "LMS count counts every S-type successor",
+  "old": "            m += nextIsS & (isS ^ 1);",
+  "new": "            m += nextIsS;"
+ },
+ {
+  "id": "S05",
+  "desc": "M14 position n-1 typed S",
+  "old": "        types[n - 1] = 0;",
+  "new": "        types[n - 1] = 1;"
+ },
+ {
+  "id": "S06",
+  "desc": "M46 sentinel type typed L (dead store expected)",
+  "old": "        types[n] = 1;",
+  "new": "        types[n] = 0;"
+ },
+ {
+  "id": "S07",
+  "desc": "round 1 placement without the -1 (bucket end is exclusive)",
+  "old": "                int c = t[i];\n                int slot = bkt[c] - 1;",
+  "new": "                int c = t[i];\n                int slot = bkt[c];"
+ },
+ {
+  "id": "S08",
+  "desc": "M45 round 1 placement stops at i >= 2 (equivalent expected)",
+  "old": "        for (int i = n - 1; i >= 1; i--)\n        {\n            byte previous = types[i - 1];\n            if (isS != 0 && previous == 0)\n            {\n                int c = t[i];",
+  "new": "        for (int i = n - 1; i >= 2; i--)\n        {\n            byte previous = types[i - 1];\n            if (isS != 0 && previous == 0)\n            {\n                int c = t[i];"
+ },
+ {
+  "id": "S09",
+  "desc": "compaction accepts non-LMS S-type entries",
+  "old": "if (p > 0 && types[p] != 0 && types[p - 1] == 0) sa[1 + k++] = p;",
+  "new": "if (p > 0 && types[p] != 0) sa[1 + k++] = p;"
+ },
+ {
+  "id": "S10",
+  "desc": "M17-like: name 0 dropped by the name compaction",
+  "old": "            if (v >= 0) sa[j--] = v;",
+  "new": "            if (v > 0) sa[j--] = v;"
+ },
+ {
+  "id": "S11",
+  "desc": "M15 name compaction includes slot m (equivalent expected)",
+  "old": "        for (int i = n; i > m; i--)\n        {\n            int v = sa[i];",
+  "new": "        for (int i = n; i >= m; i--)\n        {\n            int v = sa[i];"
+ },
+ {
+  "id": "S12",
+  "desc": "M17 direct placement without +1",
+  "old": "for (int i = 0; i < m; i++) sa1[1 + s1[i]] = i;",
+  "new": "for (int i = 0; i < m; i++) sa1[s1[i]] = i;"
+ },
+ {
+  "id": "S13",
+  "desc": "M47 sa1[0] = m dropped (equivalent expected)",
+  "old": "            sa1[0] = m;\n",
+  "new": ""
+ },
+ {
+  "id": "S14",
+  "desc": "LMS positions in text order: wrong predicate",
+  "old": "if (isS != 0 && previous == 0) sa[tailBase + --idx] = i;",
+  "new": "if (isS != 0 && previous != 0) sa[tailBase + --idx] = i;"
+ },
+ {
+  "id": "S15",
+  "desc": "translation of the reduced ranks stops one short",
+  "old": "        for (int i = 1; i <= m; i++) sa[i] = sa[tailBase + sa[i]];",
+  "new": "        for (int i = 1; i < m; i++) sa[i] = sa[tailBase + sa[i]];"
+ },
+ {
+  "id": "S16",
+  "desc": "SA[0] not restored after the recursion",
+  "old": "        sa[0] = n;\n        trace?.End(level, SaisPhase.Reduced, tick);",
+  "new": "        trace?.End(level, SaisPhase.Reduced, tick);"
+ },
+ {
+  "id": "S17",
+  "desc": "round 2 clears one entry too few",
+  "old": "sa.Slice(m + 1).Fill(Empty, n - m);",
+  "new": "sa.Slice(m + 1).Fill(Empty, n - m - 1);"
+ },
+ {
+  "id": "S18",
+  "desc": "M19b round 2 does not clear the moved LMS entry",
+  "old": "            sa[r] = Empty;\n",
+  "new": ""
+ },
+ {
+  "id": "S19",
+  "desc": "round 1 clears one entry too few (uninitialised last entry)",
+  "old": "sa.Slice(1).Fill(Empty, n);",
+  "new": "sa.Slice(1).Fill(Empty, n - 1);"
+ },
+ {
+  "id": "S20",
+  "desc": "M62 symbol == sigma accepted by the range check",
+  "old": "            if ((uint)c >= (uint)sigma)",
+  "new": "            if ((uint)c > (uint)sigma)"
+ },
+ {
+  "id": "S21",
+  "desc": "counts not zeroed (poison)",
+  "old": "arena.Allocate<int>(sigma, zero: true, \"counts\")",
+  "new": "arena.Allocate<int>(sigma, zero: false, \"counts\")"
+ },
+ {
+  "id": "S22",
+  "desc": "types block one byte short (write at index n)",
+  "old": "arena.Allocate<byte>(n + 1, zero: false, \"types\")",
+  "new": "arena.Allocate<byte>(n, zero: false, \"types\")"
+ },
+ {
+  "id": "S24",
+  "desc": "bucket block one entry short",
+  "old": "arena.Allocate<int>(sigma, zero: false, \"bkt\")",
+  "new": "arena.Allocate<int>(sigma - 1, zero: false, \"bkt\")"
+ },
+ {
+  "id": "S25",
+  "desc": "recursion level index not incremented",
+  "old": "m, names, sa1, arena, probe, trace, level + 1);",
+  "new": "m, names, sa1, arena, probe, trace, level);"
+ },
+ {
+  "id": "S27",
+  "desc": "round 2 placement skips the smallest LMS suffix",
+  "old": "        for (int r = m; r >= 1; r--)\n        {\n            int p = sa[r];",
+  "new": "        for (int r = m; r >= 2; r--)\n        {\n            int p = sa[r];"
+ },
+ {
+  "id": "S28",
+  "desc": "types[0] never classified (uninitialised)",
+  "old": "        for (int i = n - 2; i >= 0; i--)\n        {\n            int c = t[i];",
+  "new": "        for (int i = n - 2; i >= 1; i--)\n        {\n            int c = t[i];"
+ }
+]
