@@ -32,7 +32,7 @@ A substring that appears two or more times in a sequence is a *repeat*. In a suf
 | INV-02 | `RepeatInfo.Length == Sequence.Length` = root-to-node string depth. | String depth equals substring length [2]. |
 | INV-03 | Each `Positions[i]` is a true 0-based start of `Sequence` in the text. | Positions come from `SuffixTree.FindAllOccurrences`, the leaves below the node [1]. |
 | INV-04 | `FindLongestRepeat` returns a substring no shorter than any repeated substring. | It is the deepest internal node by definition [1][2]. |
-| INV-05 | `FindRepeats` returns only substrings with `Length ≥ minLength`. | LCP-length filter in the enumeration loop. |
+| INV-05 | `FindRepeats` returns only substrings with `Length ≥ minLength`. | Node/length filter in the enumeration loop. |
 | INV-06 | `Positions` is sorted ascending. | Implementation sorts via `OrderBy` (output-shape convention; see 5.4). |
 
 ### 2.5 Comparison with Related Methods
@@ -78,16 +78,16 @@ Indexing is 0-based. `DnaSequence` normalises to uppercase and rejects non-ACGT 
 3. If empty, return `RepeatInfo.None`; otherwise enumerate all occurrences (`FindAllOccurrences`), sort ascending, return.
 
 **FindRepeats**
-1. Obtain all suffixes (`GetAllSuffixes`) and sort them.
-2. For each adjacent pair, compute the LCP length `L`.
-3. For every prefix length `ℓ` from `max(1, minLength)` to `L`, take the length-`ℓ` prefix; if it is new, enumerate its occurrences and emit when it occurs ≥ 2 times. (A substring occurs ≥ 2 times iff it is a *prefix* of some adjacent-pair LCP, so all prefixes — not just the full LCP — must be considered for completeness.)
+1. Traverse the suffix tree (`ISuffixTreeDiagnostics.Traverse`, pre-order, children in ascending key order) and collect every internal non-root node with its parent's path-label length `p` and its own path-label length `d`.
+2. For each such node with `d ≥ max(1, minLength)`, resolve its occurrence set once (`FindAllOccurrences` of its path label), sort it ascending, and emit the repeats of lengths `max(p + 1, max(1, minLength))` … `d` (all share that occurrence set). (A substring occurs ≥ 2 times iff it ends on an edge into an internal node, so every length on the edge — not just the full node label — is a repeat.)
+3. The emission order equals the order of the former sorted-suffix implementation (by the smallest suffix starting with the repeat, then by length); the former implementation is kept as a reference oracle in `tests/Seqeron/Seqeron.Genomics.Tests/Differential/GenomicAnalyzerFindRepeatsOracleTests.cs`.
 
 ### 4.3 Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
 | `FindLongestRepeat` | O(n) deepest-node query after O(n) suffix-tree build; +O(occ) for occurrences | O(n) | Linear via the cached suffix tree [1][2][3]. |
-| `FindRepeats` | O(n²) worst case | O(n²) worst case | O(n) suffixes of up to O(n) length sorted + per-pair LCP + occurrence enumeration. |
+| `FindRepeats` | O(n + output) | O(n + node-local occurrence list) | One tree traversal plus, per internal node, one occurrence query O(d + occ); the total is bounded by the size of the result (which can itself be O(n²) for a homopolymer). Replaced the O(n²) `GetAllSuffixes` method (ST-S0 WP 0.4; 20 kbp: 400 MB allocated before, a few MB now). |
 
 ## 5. Implementation Notes
 
@@ -101,7 +101,7 @@ Indexing is 0-based. `DnaSequence` normalises to uppercase and rejects non-ACGT 
 
 ### 5.2 Current Behavior
 
-Both methods delegate the core string work to the repository suffix tree. `FindLongestRepeat` uses the suffix tree's cached deepest-internal-node bookkeeping (`LongestRepeatedSubstring`) directly. `FindRepeats` uses `GetAllSuffixes` + adjacent-pair LCP, enumerating every prefix (length ≥ `max(1, minLength)`) of each LCP for completeness, and resolves positions with `FindAllOccurrences`. Positions are returned ascending. Overlapping occurrences are counted (consistent with the definition [3]).
+Both methods delegate the core string work to the repository suffix tree. `FindLongestRepeat` uses the suffix tree's cached deepest-internal-node bookkeeping (`LongestRepeatedSubstring`) directly. `FindRepeats` traverses the suffix tree and, for every internal node, emits every length on its incoming edge (length ≥ `max(1, minLength)`), resolving positions with `FindAllOccurrences`. Positions are returned ascending. Overlapping occurrences are counted (consistent with the definition [3]).
 
 **Search-reuse decision (mandatory record):** the repository `SuffixTree` (namespace `SuffixTree`) is the algorithmically appropriate structure here — repeat finding is *the* canonical suffix-tree application (deepest internal node) [1][2][3], and many occurrence queries run against one fixed text (O(m) lookups after O(n) build). The existing implementation already builds on it; **no naive scan was introduced**. A naive O(n²)/O(n³) all-pairs substring scan would be strictly worse and was rejected.
 
@@ -143,7 +143,7 @@ Both methods delegate the core string work to the repository suffix tree. `FindL
 
 ### 6.2 Limitations
 
-Does not classify maximal vs supermaximal repeats and does not search the reverse complement (dispersed inverted repeats); restricted to the ACGT alphabet enforced by `DnaSequence`. `FindRepeats` is worst-case O(n²) in time and space, so it is unsuitable for whole-genome-scale inputs.
+Does not classify maximal vs supermaximal repeats and does not search the reverse complement (dispersed inverted repeats); restricted to the ACGT alphabet enforced by `DnaSequence`. `FindRepeats` is linear in the input plus the size of its output; the output itself can be quadratic (a homopolymer of length n has n − 1 repeats with up to n positions each), and the in-memory suffix tree needs about 170 bytes per input character, so whole-genome-scale inputs still need the persistent tree or a size limit.
 
 ## 7. Examples and Related Material
 
