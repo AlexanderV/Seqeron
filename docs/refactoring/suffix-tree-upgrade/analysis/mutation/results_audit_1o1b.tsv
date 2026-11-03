@@ -1,0 +1,41 @@
+id	description	release	checked	filter
+N01	classification: equal-symbol run inherits the OPPOSITE type	killed(5)	killed(5)	default suite of the 1o.1b state (216 tests)
+N02	classification: position n-1 treated as S-type for the equal-symbol rule	killed(5)	killed(5)	default suite of the 1o.1b state (216 tests)
+N03	round 1 placement starts from the sentinel type (position n-1 may be seeded as LMS)	killed(5)	killed(5)	default suite of the 1o.1b state (216 tests)
+N04	SetBucketHeads leaves the last bucket unset (stale workspace value)	killed(6)	killed(6)	default suite of the 1o.1b state (216 tests)
+N06	CompactSortedLms stops one entry early (SA[n] is an L-type suffix: equivalent expected)	survived	survived	default suite of the 1o.1b state (216 tests)
+N07	CompactSortedLms: predecessor test inverted	killed(6)	killed(6)	default suite of the 1o.1b state (216 tests)
+N08	CompactNames does not advance the write index	killed(host crash)	killed(6)	default suite of the 1o.1b state (216 tests)
+N09	translation of the reduced ranks is the identity on the LMS list	killed(host crash)	killed(5)	default suite of the 1o.1b state (216 tests)
+N10	round 2 placement clears the source entry AFTER the write (erases the entry when slot == r)	killed(host crash)	killed(5)	default suite of the 1o.1b state (216 tests)
+N11	M08 analogue: always recurse (names <= m)	killed(5)	killed(5)	default suite of the 1o.1b state (216 tests)
+N12	workspace of a level is never released (leak, result unchanged)	survived	survived	default suite of the 1o.1b state (216 tests)
+N13	CompactSortedLms admits p == 0 (reads types[-1])	killed(3)	killed(6)	default suite of the 1o.1b state (216 tests)
+N14	trace: LMS count of the level off by one	killed(4)	killed(4)	default suite of the 1o.1b state (216 tests)
+N15	LMS count: S-type position with S-type predecessor	killed(6)	killed(6)	default suite of the 1o.1b state (216 tests)
+N16	round 2 placement into the exclusive bucket end (no -1)	killed(host crash)	killed(5)	default suite of the 1o.1b state (216 tests)
+N17	direct placement of distinct names skips the last reduced symbol	killed(host crash)	killed(6)	default suite of the 1o.1b state (216 tests)
+N18	round 2 clears SA[m] (the largest sorted LMS entry) before it is read	killed(host crash)	killed(6)	default suite of the 1o.1b state (216 tests)
+N19	CompactNames skips the name slot 1 + m (LMS position 1 or 0)	killed(host crash)	killed(5)	default suite of the 1o.1b state (216 tests)
+N20	bucket tails of round 2 start at 0 instead of 1	killed(6)	killed(6)	default suite of the 1o.1b state (216 tests)
+N21	symbol counting accepts symbol == sigma only on the 16-bit path (counts block too small by one entry)	killed(5)	killed(6)	default suite of the 1o.1b state (216 tests)
+E06h	EQUIVALENCE PROBE of S06: types[n] is read nowhere. Shrunk block, no write at index n, span of n; a read of types[n] throws	survived	survived	default suite of the 1o.1b state (216 tests)
+E11h	EQUIVALENCE PROBE of S11: the stray write of CompactNames lands on slot n - m; make it the hostile value int.MaxValue (not a plausible name or position)	survived	survived	default suite of the 1o.1b state (216 tests)
+E13h	EQUIVALENCE PROBE of S13: SA[0] holds a hostile value between the direct placement and the end of SolveReduced	survived	survived	default suite of the 1o.1b state (216 tests)
+E17h	EQUIVALENCE PROBE of S17: after the round 2 clear, SA[n] holds a VALID-LOOKING position (n - 1) that would corrupt the L pass if it were ever read before being written	survived	survived	default suite of the 1o.1b state (216 tests)
+E19h	EQUIVALENCE PROBE of S19: after the round 1 clear, SA[n] holds a VALID-LOOKING position (n - 1)	survived	survived	default suite of the 1o.1b state (216 tests)
+N05b	SetBucketTails stores the start instead of the exclusive end (N05 swapped two lines and made the method identical to SetBucketHeads: rejected by the analyzer, redone)	killed(host crash)	killed(7)	default suite with the new workspace test (217 tests); N12 is the rerun that kills it
+N12	workspace of a level is never released (leak, result unchanged)	killed(1)	killed(1)	default suite with the new workspace test (217 tests); N12 is the rerun that kills it
+S06	M46 sentinel type typed L (dead store expected)	survived	survived	Exhaustive engine tests (binary <= 22, ternary <= 13, 4-ary <= 11)
+S08	M45 round 1 placement stops at i >= 2 (equivalent expected)	survived		Exhaustive engine tests, Release only
+S11	M15 name compaction includes slot m (equivalent expected)	survived		Exhaustive engine tests, Release only
+S13	M47 sa1[0] = m dropped (equivalent expected)	survived		Exhaustive engine tests, Release only
+S17	round 2 clears one entry too few	survived		Exhaustive engine tests, Release only
+S19	round 1 clears one entry too few (uninitialised last entry)	survived		Exhaustive engine tests, Release only
+N06	CompactSortedLms stops one entry early (SA[n] is an L-type suffix: equivalent expected)	survived		Exhaustive engine tests, Release only
+N06h	EQUIVALENCE PROBE of N06 (and of the claim "SA[n] is never an LMS position"): the loop still visits SA[n] and throws if it were one	survived		Exhaustive engine tests, Release only
+E06h	EQUIVALENCE PROBE of S06: types[n] is read nowhere. Shrunk block, no write at index n, span of n; a read of types[n] throws	survived		Exhaustive engine tests, Release only
+E11h	EQUIVALENCE PROBE of S11: the stray write of CompactNames lands on slot n - m; make it the hostile value int.MaxValue (not a plausible name or position)	survived		Exhaustive engine tests, Release only
+E13h	EQUIVALENCE PROBE of S13: SA[0] holds a hostile value between the direct placement and the end of SolveReduced	survived		Exhaustive engine tests, Release only
+E17h	EQUIVALENCE PROBE of S17: after the round 2 clear, SA[n] holds a VALID-LOOKING position (n - 1) that would corrupt the L pass if it were ever read before being written	survived		Exhaustive engine tests, Release only
+E19h	EQUIVALENCE PROBE of S19: after the round 1 clear, SA[n] holds a VALID-LOOKING position (n - 1)	survived		Exhaustive engine tests, Release only

@@ -60,6 +60,27 @@ public class SaisKernelTests
     }
 
     [Test]
+    public void TheWorkspaceOfEveryLevel_IsReleased_WhenBuildReturns()
+    {
+        // audit of 1o.1b (mutant N12: the ReleaseTo of the levels removed; the SA is unchanged, only the workspace leaks): after the call the arena holds exactly the
+        // blocks of the caller (text and suffix array), also for texts that recurse several levels
+        foreach (string text in new[] { StringFamilies.RandomDna(30_000, 3), StringFamilies.RandomDna(2000, 4), "mississippi", "abababababababab", "a", StringFamilies.AllDistinct(200, 1) })
+        {
+            PreparedText p = TextPreparation.Prepare(text);
+            using var arena = new NativeArena(ArenaOptions.Guarded());
+            int n = p.Length;
+            Buf<int> sa = arena.Allocate<int>(n + 1, zero: false, "sa");
+            Buf<byte> t = arena.Allocate<byte>(n, zero: false, "text");
+            p.Bytes.CopyTo(t.AsSpan(n));
+            int callerBlocks = arena.BlockCount;
+            var trace = new SaisTrace();
+            SaisKernel.Build(t, n, p.AlphabetSize, sa, arena, default(NoProbe), trace);
+            Assert.That(arena.BlockCount, Is.EqualTo(callerBlocks), $"n = {n}, {trace.Depth} levels");
+            arena.VerifyCanaries();
+        }
+    }
+
+    [Test]
     public void AllLmsSubstringsDistinct_NeedNoRecursion()
     {
         // review MIN-3 (mutant M08): with names == m the reduced SA is placed directly; recursing anyway gives the same SA but one useless level

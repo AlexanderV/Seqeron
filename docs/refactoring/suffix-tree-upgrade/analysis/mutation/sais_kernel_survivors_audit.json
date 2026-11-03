@@ -1,0 +1,90 @@
+[
+ {
+  "id": "S06",
+  "desc": "M46 sentinel type typed L (dead store expected)",
+  "old": "        types[n] = 1;",
+  "new": "        types[n] = 0;"
+ },
+ {
+  "id": "S08",
+  "desc": "M45 round 1 placement stops at i >= 2 (equivalent expected)",
+  "old": "        for (int i = n - 1; i >= 1; i--)\n        {\n            byte previous = types[i - 1];\n            if (isS != 0 && previous == 0)\n            {\n                int c = t[i];",
+  "new": "        for (int i = n - 1; i >= 2; i--)\n        {\n            byte previous = types[i - 1];\n            if (isS != 0 && previous == 0)\n            {\n                int c = t[i];"
+ },
+ {
+  "id": "S11",
+  "desc": "M15 name compaction includes slot m (equivalent expected)",
+  "old": "        for (int i = n; i > m; i--)\n        {\n            int v = sa[i];",
+  "new": "        for (int i = n; i >= m; i--)\n        {\n            int v = sa[i];"
+ },
+ {
+  "id": "S13",
+  "desc": "M47 sa1[0] = m dropped (equivalent expected)",
+  "old": "            sa1[0] = m;\n",
+  "new": ""
+ },
+ {
+  "id": "S17",
+  "desc": "round 2 clears one entry too few",
+  "old": "sa.Slice(m + 1).Fill(Empty, n - m);",
+  "new": "sa.Slice(m + 1).Fill(Empty, n - m - 1);"
+ },
+ {
+  "id": "S19",
+  "desc": "round 1 clears one entry too few (uninitialised last entry)",
+  "old": "sa.Slice(1).Fill(Empty, n);",
+  "new": "sa.Slice(1).Fill(Empty, n - 1);"
+ },
+ {
+  "id": "N06",
+  "desc": "CompactSortedLms stops one entry early (SA[n] is an L-type suffix: equivalent expected)",
+  "old": "        for (int i = 1; i <= n; i++)\n        {\n            int p = sa[i];\n            if (p > 0 && types[p] != 0 && types[p - 1] == 0) sa[1 + k++] = p;",
+  "new": "        for (int i = 1; i < n; i++)\n        {\n            int p = sa[i];\n            if (p > 0 && types[p] != 0 && types[p - 1] == 0) sa[1 + k++] = p;"
+ },
+ {
+  "id": "N06h",
+  "desc": "EQUIVALENCE PROBE of N06 (and of the claim \"SA[n] is never an LMS position\"): the loop still visits SA[n] and throws if it were one",
+  "old": "        for (int i = 1; i <= n; i++)\n        {\n            int p = sa[i];\n            if (p > 0 && types[p] != 0 && types[p - 1] == 0) sa[1 + k++] = p;",
+  "new": "        for (int i = 1; i <= n; i++)\n        {\n            int p = sa[i];\n            if (i == n && p > 0 && types[p] != 0 && types[p - 1] == 0) throw new InvalidOperationException(\"SA[n] is an LMS position\");\n            if (p > 0 && types[p] != 0 && types[p - 1] == 0) sa[1 + k++] = p;"
+ },
+ {
+  "id": "E06h",
+  "desc": "EQUIVALENCE PROBE of S06: types[n] is read nowhere. Shrunk block, no write at index n, span of n; a read of types[n] throws",
+  "old": "        Buf<byte> types = arena.Allocate<byte>(n + 1, zero: false, \"types\");",
+  "new": "        Buf<byte> types = arena.Allocate<byte>(n, zero: false, \"types\");",
+  "also": [
+   [
+    "        types[n] = 1;\n",
+    ""
+   ],
+   [
+    "        ReadOnlySpan<byte> typeSpan = types.AsSpan(n + 1);",
+    "        ReadOnlySpan<byte> typeSpan = types.AsSpan(n);"
+   ]
+  ]
+ },
+ {
+  "id": "E11h",
+  "desc": "EQUIVALENCE PROBE of S11: the stray write of CompactNames lands on slot n - m; make it the hostile value int.MaxValue (not a plausible name or position)",
+  "old": "        for (int i = n; i > m; i--)\n        {\n            int v = sa[i];\n            if (v >= 0) sa[j--] = v;\n        }",
+  "new": "        for (int i = n; i > m; i--)\n        {\n            int v = sa[i];\n            if (v >= 0) sa[j--] = v;\n        }\n        if (j >= 0) sa[j] = int.MaxValue;"
+ },
+ {
+  "id": "E13h",
+  "desc": "EQUIVALENCE PROBE of S13: SA[0] holds a hostile value between the direct placement and the end of SolveReduced",
+  "old": "            sa1[0] = m;\n",
+  "new": "            sa1[0] = int.MaxValue;\n"
+ },
+ {
+  "id": "E17h",
+  "desc": "EQUIVALENCE PROBE of S17: after the round 2 clear, SA[n] holds a VALID-LOOKING position (n - 1) that would corrupt the L pass if it were ever read before being written",
+  "old": "        sa.Slice(m + 1).Fill(Empty, n - m);",
+  "new": "        sa.Slice(m + 1).Fill(Empty, n - m);\n        sa[n] = n > 1 ? n - 1 : 0;"
+ },
+ {
+  "id": "E19h",
+  "desc": "EQUIVALENCE PROBE of S19: after the round 1 clear, SA[n] holds a VALID-LOOKING position (n - 1)",
+  "old": "        sa.Slice(1).Fill(Empty, n);",
+  "new": "        sa.Slice(1).Fill(Empty, n);\n        sa[n] = n > 1 ? n - 1 : 0;"
+ }
+]

@@ -3,7 +3,9 @@
    usage: run_kernel_mutants.py <kernel .cs path relative to the repo root> <mutants.json> <result.tsv> [nunit filter, default FullyQualifiedName~Kernels]
    The source file is restored afterwards (a try/finally; check `git diff` anyway)."""
 import json, os, subprocess, sys, shutil
-ROOT = '/home/user/Seqeron'
+ROOT = os.environ.get('ESA_ROOT', '/home/user/Seqeron')  # a git worktree can be mutated while the main tree stays editable
+BOTH = os.environ.get('MUTANT_BOTH') == '1'  # run the checked configuration for every mutant, not only for the Release survivors
+RELEASE_ONLY = os.environ.get('MUTANT_RELEASE_ONLY') == '1'  # never run the checked configuration (long exhaustive filters: the equivalence evidence needs one configuration)
 env = dict(os.environ, PATH=os.environ['PATH'] + ':/root/.dotnet', DOTNET_ROOT='/root/.dotnet', DOTNET_CLI_TELEMETRY_OPTOUT='1')
 kernel, mutants_file, out = sys.argv[1], sys.argv[2], sys.argv[3]
 filt = sys.argv[4] if len(sys.argv) > 4 else 'FullyQualifiedName~Kernels'
@@ -30,11 +32,13 @@ results = []
 try:
     for m in mutants:
         src = orig
-        if src.count(m['old']) != 1:
+        pairs = [(m['old'], m['new'])] + [tuple(x) for x in m.get('also', [])]  # 'also': further replacements of the same mutant
+        if any(src.count(o) != 1 for o, _ in pairs):
             results.append((m['id'], m['desc'], 'PATTERN-NOT-UNIQUE', '')); continue
-        open(path, 'w').write(src.replace(m['old'], m['new']))
+        for o, nw in pairs: src = src.replace(o, nw)
+        open(path, 'w').write(src)
         r1 = run(False)
-        r2 = run(True) if r1 == 'survived' else ''
+        r2 = run(True) if ((r1 == 'survived' or BOTH) and not RELEASE_ONLY) else ''
         results.append((m['id'], m['desc'], r1, r2))
         open(out, 'w').write('\n'.join('\t'.join(map(str, r)) for r in results) + '\n')
 finally:

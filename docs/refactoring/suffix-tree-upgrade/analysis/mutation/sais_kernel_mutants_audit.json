@@ -1,0 +1,168 @@
+[
+ {
+  "id": "N01",
+  "desc": "classification: equal-symbol run inherits the OPPOSITE type",
+  "old": "byte isS = c < next || (c == next && nextIsS != 0) ? (byte)1 : (byte)0;",
+  "new": "byte isS = c < next || (c == next && nextIsS == 0) ? (byte)1 : (byte)0;"
+ },
+ {
+  "id": "N02",
+  "desc": "classification: position n-1 treated as S-type for the equal-symbol rule",
+  "old": "        byte nextIsS = 0;",
+  "new": "        byte nextIsS = 1;"
+ },
+ {
+  "id": "N03",
+  "desc": "round 1 placement starts from the sentinel type (position n-1 may be seeded as LMS)",
+  "old": "        byte isS = types[n - 1];\n        for (int i = n - 1; i >= 1; i--)\n        {\n            byte previous = types[i - 1];\n            if (isS != 0 && previous == 0)\n            {",
+  "new": "        byte isS = types[n];\n        for (int i = n - 1; i >= 1; i--)\n        {\n            byte previous = types[i - 1];\n            if (isS != 0 && previous == 0)\n            {"
+ },
+ {
+  "id": "N04",
+  "desc": "SetBucketHeads leaves the last bucket unset (stale workspace value)",
+  "old": "        int sum = 1; // index 0 belongs to the sentinel suffix\n        for (int c = 0; c < sigma; c++)",
+  "new": "        int sum = 1; // index 0 belongs to the sentinel suffix\n        for (int c = 0; c < sigma - 1; c++)"
+ },
+ {
+  "id": "N05b",
+  "desc": "SetBucketTails stores the start instead of the exclusive end (N05 swapped two lines and made the method identical to SetBucketHeads: rejected by the analyzer, redone)",
+  "old": "            sum += counts[c];\n            bkt[c] = sum; // exclusive end",
+  "new": "            bkt[c] = sum - counts[c]; // exclusive end\n            sum += counts[c];"
+ },
+ {
+  "id": "N06",
+  "desc": "CompactSortedLms stops one entry early (SA[n] is an L-type suffix: equivalent expected)",
+  "old": "        for (int i = 1; i <= n; i++)\n        {\n            int p = sa[i];\n            if (p > 0 && types[p] != 0 && types[p - 1] == 0) sa[1 + k++] = p;",
+  "new": "        for (int i = 1; i < n; i++)\n        {\n            int p = sa[i];\n            if (p > 0 && types[p] != 0 && types[p - 1] == 0) sa[1 + k++] = p;"
+ },
+ {
+  "id": "N07",
+  "desc": "CompactSortedLms: predecessor test inverted",
+  "old": "types[p] != 0 && types[p - 1] == 0) sa[1 + k++] = p;",
+  "new": "types[p] != 0 && types[p - 1] != 0) sa[1 + k++] = p;"
+ },
+ {
+  "id": "N08",
+  "desc": "CompactNames does not advance the write index",
+  "old": "            if (v >= 0) sa[j--] = v;",
+  "new": "            if (v >= 0) sa[j] = v;"
+ },
+ {
+  "id": "N09",
+  "desc": "translation of the reduced ranks is the identity on the LMS list",
+  "old": "        for (int i = 1; i <= m; i++) sa[i] = sa[tailBase + sa[i]];",
+  "new": "        for (int i = 1; i <= m; i++) sa[i] = sa[tailBase + i - 1];"
+ },
+ {
+  "id": "N10",
+  "desc": "round 2 placement clears the source entry AFTER the write (erases the entry when slot == r)",
+  "old": "            sa[r] = Empty;\n            int c = t[p];\n            int slot = bkt[c] - 1;\n            sa[slot] = p; // the target index is >= r, so no unread LMS entry is overwritten\n            bkt[c] = slot;",
+  "new": "            int c = t[p];\n            int slot = bkt[c] - 1;\n            sa[slot] = p; // the target index is >= r, so no unread LMS entry is overwritten\n            sa[r] = Empty;\n            bkt[c] = slot;"
+ },
+ {
+  "id": "N11",
+  "desc": "M08 analogue: always recurse (names <= m)",
+  "old": "        if (names < m)\n        {\n            trace?.End(level, SaisPhase.Reduced, tick);",
+  "new": "        if (names <= m)\n        {\n            trace?.End(level, SaisPhase.Reduced, tick);"
+ },
+ {
+  "id": "N12",
+  "desc": "workspace of a level is never released (leak, result unchanged)",
+  "old": "        arena.ReleaseTo(mark);\n    }\n\n    /// <summary><c>counts[c]</c>",
+  "new": "        _ = mark;\n    }\n\n    /// <summary><c>counts[c]</c>"
+ },
+ {
+  "id": "N13",
+  "desc": "CompactSortedLms admits p == 0 (reads types[-1])",
+  "old": "            if (p > 0 && types[p] != 0 && types[p - 1] == 0) sa[1 + k++] = p;",
+  "new": "            if (p >= 0 && types[p] != 0 && types[p - 1] == 0) sa[1 + k++] = p;"
+ },
+ {
+  "id": "N14",
+  "desc": "trace: LMS count of the level off by one",
+  "old": "        trace?.Levels.Add(new SaisLevel(n, sigma, m));",
+  "new": "        trace?.Levels.Add(new SaisLevel(n, sigma, m + 1));"
+ },
+ {
+  "id": "N15",
+  "desc": "LMS count: S-type position with S-type predecessor",
+  "old": "            m += nextIsS & (isS ^ 1);",
+  "new": "            m += nextIsS & isS;"
+ },
+ {
+  "id": "N16",
+  "desc": "round 2 placement into the exclusive bucket end (no -1)",
+  "old": "            int c = t[p];\n            int slot = bkt[c] - 1;\n            sa[slot] = p; // the target index",
+  "new": "            int c = t[p];\n            int slot = bkt[c];\n            sa[slot] = p; // the target index"
+ },
+ {
+  "id": "N17",
+  "desc": "direct placement of distinct names skips the last reduced symbol",
+  "old": "            for (int i = 0; i < m; i++) sa1[1 + s1[i]] = i;",
+  "new": "            for (int i = 0; i < m - 1; i++) sa1[1 + s1[i]] = i;"
+ },
+ {
+  "id": "N18",
+  "desc": "round 2 clears SA[m] (the largest sorted LMS entry) before it is read",
+  "old": "        sa.Slice(m + 1).Fill(Empty, n - m);",
+  "new": "        sa.Slice(m).Fill(Empty, n - m + 1);"
+ },
+ {
+  "id": "N19",
+  "desc": "CompactNames skips the name slot 1 + m (LMS position 1 or 0)",
+  "old": "        for (int i = n; i > m; i--)",
+  "new": "        for (int i = n; i > m + 1; i--)"
+ },
+ {
+  "id": "N20",
+  "desc": "bucket tails of round 2 start at 0 instead of 1",
+  "old": "        int sum = 1;\n        for (int c = 0; c < sigma; c++)\n        {\n            sum += counts[c];",
+  "new": "        int sum = 0;\n        for (int c = 0; c < sigma; c++)\n        {\n            sum += counts[c];"
+ },
+ {
+  "id": "N21",
+  "desc": "symbol counting accepts symbol == sigma only on the 16-bit path (counts block too small by one entry)",
+  "old": "        Buf<int> counts = arena.Allocate<int>(sigma, zero: true, \"counts\");",
+  "new": "        Buf<int> counts = arena.Allocate<int>(sigma > 1 ? sigma - 1 : sigma, zero: true, \"counts\");"
+ },
+ {
+  "id": "E06h",
+  "desc": "EQUIVALENCE PROBE of S06: types[n] is read nowhere. Shrunk block, no write at index n, span of n; a read of types[n] throws",
+  "old": "        Buf<byte> types = arena.Allocate<byte>(n + 1, zero: false, \"types\");",
+  "new": "        Buf<byte> types = arena.Allocate<byte>(n, zero: false, \"types\");",
+  "also": [
+   [
+    "        types[n] = 1;\n",
+    ""
+   ],
+   [
+    "        ReadOnlySpan<byte> typeSpan = types.AsSpan(n + 1);",
+    "        ReadOnlySpan<byte> typeSpan = types.AsSpan(n);"
+   ]
+  ]
+ },
+ {
+  "id": "E11h",
+  "desc": "EQUIVALENCE PROBE of S11: the stray write of CompactNames lands on slot n - m; make it the hostile value int.MaxValue (not a plausible name or position)",
+  "old": "        for (int i = n; i > m; i--)\n        {\n            int v = sa[i];\n            if (v >= 0) sa[j--] = v;\n        }",
+  "new": "        for (int i = n; i > m; i--)\n        {\n            int v = sa[i];\n            if (v >= 0) sa[j--] = v;\n        }\n        if (j >= 0) sa[j] = int.MaxValue;"
+ },
+ {
+  "id": "E13h",
+  "desc": "EQUIVALENCE PROBE of S13: SA[0] holds a hostile value between the direct placement and the end of SolveReduced",
+  "old": "            sa1[0] = m;\n",
+  "new": "            sa1[0] = int.MaxValue;\n"
+ },
+ {
+  "id": "E17h",
+  "desc": "EQUIVALENCE PROBE of S17: after the round 2 clear, SA[n] holds a VALID-LOOKING position (n - 1) that would corrupt the L pass if it were ever read before being written",
+  "old": "        sa.Slice(m + 1).Fill(Empty, n - m);",
+  "new": "        sa.Slice(m + 1).Fill(Empty, n - m);\n        sa[n] = n > 1 ? n - 1 : 0;"
+ },
+ {
+  "id": "E19h",
+  "desc": "EQUIVALENCE PROBE of S19: after the round 1 clear, SA[n] holds a VALID-LOOKING position (n - 1)",
+  "old": "        sa.Slice(1).Fill(Empty, n);",
+  "new": "        sa.Slice(1).Fill(Empty, n);\n        sa[n] = n > 1 ? n - 1 : 0;"
+ }
+]
