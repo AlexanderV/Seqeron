@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Optimize>true</Optimize>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+    <UseAppHost>true</UseAppHost>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- snapshot copy of /home/user/Seqeron/src/SuffixTree/Algorithms (see ../SNAPSHOT_COMMIT.txt) -->
+    <ProjectReference Include="../snapshot/src/SuffixTree/Algorithms/SuffixTree/SuffixTree.csproj" />
+    <ProjectReference Include="../snapshot/src/SuffixTree/Algorithms/SuffixTree.Persistent/SuffixTree.Persistent.csproj" />
+  </ItemGroup>
+</Project>
