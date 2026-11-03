@@ -12,6 +12,8 @@ the managed heap, when you want to **build once and reload instantly** across se
 when many readers share one immutable index. Both implement the same `ISuffixTree` API, so query code
 is identical either way.
 
+**Size:** measured on 10 Mbp random DNA, the in-memory tree takes about 169 bytes of managed heap per character, the persistent file about 56 bytes per character (45–64 depending on the alphabet and repetitiveness); see `docs/refactoring/suffix-tree-upgrade/BENCHMARK.md`.
+
 ---
 
 ## Features

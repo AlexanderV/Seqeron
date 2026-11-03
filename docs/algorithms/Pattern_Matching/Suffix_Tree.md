@@ -44,6 +44,21 @@ with a `struct` constraint, enabling JIT specialization for each backend.
 
 Where: n = text length, m = pattern/query length, k = result count, d = max branching factor on visited nodes, h = max depth walked to recover a leaf position, a = anchor count.
 
+### 2.1 Memory footprint (measured)
+
+Space is O(n) with a large constant. Measured on one machine (4 vCPU, .NET 10, 3 repeats, build + count/locate workloads;
+raw numbers and method in `docs/refactoring/suffix-tree-upgrade/BENCHMARK.md`):
+
+| Text | In-memory tree (GC heap) | Persistent tree (file, text included) | Peak RSS during build, in-memory / persistent |
+|------|--------------------------|----------------------------------------|-----------------------------------------------|
+| 10 Mbp random DNA | **169 B/char** (+2 B/char for the `string`) | **56.2 B/char** | 1.76 GB / 1.18 GB |
+| 10 Mbp repetitive DNA (1 % divergent copies) | 193 B/char | 64.1 B/char | 2.0 GB / 1.34 GB |
+| 1 Mbp protein (20 letters) | 190 B/char | 45 B/char | 232 MB / 128 MB |
+
+Rule of thumb: allow about 170 B/char for the in-memory tree (a 100 Mbp text would need about 17 GB; extrapolated, not measured) and about 60 B/char of disk for
+the persistent tree. Earlier documentation claimed "approximately 20 bytes per character"; that figure was wrong by about a factor of eight.
+The persistent build additionally reserves temporary child and depth files of up to 50 B/char (40 + 10) while it runs; they are deleted afterwards.
+
 ---
 
 ## 3. Construction (Ukkonen's Algorithm)

@@ -73,7 +73,13 @@ public partial class SuffixTree : ISuffixTree
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="value"/> is null.</exception>
     /// <remarks>
     /// Construction time is O(n) where n is the length of the input string.
-    /// The tree uses approximately 20 bytes per character for typical texts.
+    /// Memory is O(n) but with a large constant: measured on random DNA the in-memory tree
+    /// occupies about 169 bytes of managed heap per input character (10 Mbp: 1.7 GB peak RSS),
+    /// about 190 bytes for a 20-letter protein alphabet and about 193 bytes for a highly repetitive
+    /// DNA text, plus the text itself (2 bytes per character for a <see cref="string"/>).
+    /// The persistent tree file is about 56 bytes per character (see <c>PersistentSuffixTreeFactory</c>).
+    /// Plan for roughly 170 bytes per character when sizing inputs; see
+    /// <c>docs/refactoring/suffix-tree-upgrade/BENCHMARK.md</c> for the measurements.
     /// </remarks>
     /// <example>
     /// <code>
