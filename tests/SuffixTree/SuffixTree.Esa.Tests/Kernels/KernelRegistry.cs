@@ -27,11 +27,14 @@ internal static class KernelRegistry
 
     internal static readonly LcpEngine ReferenceLcp = new("LcpReference", RunReferenceLcp);
 
+    /// <summary>1o.1a: the pointer kernel for Phi, PLCP and the compact LCP (<see cref="LcpKernel"/>), run on guarded copies of its inputs.</summary>
+    internal static readonly LcpEngine PointerLcp = new("LcpKernel.Pointer", RunPointerLcp);
+
     /// <summary>All suffix-array engines, the reference first.</summary>
     internal static IReadOnlyList<SaisEngine> SaisEngines { get; } = [ReferenceSais];
 
     /// <summary>All LCP engines, the reference first.</summary>
-    internal static IReadOnlyList<LcpEngine> LcpEngines { get; } = [ReferenceLcp];
+    internal static IReadOnlyList<LcpEngine> LcpEngines { get; } = [ReferenceLcp, PointerLcp];
 
     /// <summary>The suffix-array engines that are not the reference (the optimized kernels).</summary>
     internal static IEnumerable<SaisEngine> OptimizedSais => SaisEngines.Where(e => e != ReferenceSais);
@@ -55,6 +58,38 @@ internal static class KernelRegistry
         if (prepared.Width == SymbolWidth.Byte)
             return new LcpRun(LcpReference.Build(prepared.ByteReader(), sa), LcpReference.ComputePlcp(prepared.ByteReader(), sa));
         return new LcpRun(LcpReference.Build(prepared.UShortReader(), sa), LcpReference.ComputePlcp(prepared.UShortReader(), sa));
+    }
+
+    private static LcpRun RunPointerLcp(PreparedText prepared, int[] sa, NativeArena arena)
+    {
+        Buf<int> saBuf = arena.Allocate<int>(sa.Length, zero: false, "sa");
+        sa.CopyTo(saBuf.AsSpan(sa.Length));
+        return prepared.Width == SymbolWidth.Byte
+            ? RunPointerLcp(prepared.Bytes, sa, saBuf, arena)
+            : RunPointerLcp(prepared.UShorts, sa, saBuf, arena);
+    }
+
+    private static LcpRun RunPointerLcp<TSym>(ReadOnlySpan<TSym> symbols, int[] original, Buf<int> sa, NativeArena arena)
+        where TSym : unmanaged, IEquatable<TSym>
+    {
+        int n = symbols.Length;
+        Buf<TSym> text = arena.Allocate<TSym>(n, zero: false, "text");
+        symbols.CopyTo(text.AsSpan(n));
+        CompactLcp lcp = LcpKernel.Build(text, n, sa, arena);
+        Buf<int> plcp = LcpKernel.ComputePlcp(text, n, sa, arena, out _, out _);
+        if (!sa.AsSpan(n + 1).SequenceEqual(original) || !text.AsSpan(n).SequenceEqual(symbols))
+            throw new InvalidOperationException("the LCP kernel modified its input");
+        return new LcpRun(lcp, plcp.AsSpan(n).ToArray());
+    }
+
+    /// <summary>The pipelines of the optimized kernels, each combined with the reference of the other stage and (when both exist) with each other.</summary>
+    internal static IEnumerable<(string Name, EsaBuilder Build)> OptimizedPipelines()
+    {
+        foreach (SaisEngine s in OptimizedSais) yield return ($"{s.Name}+{ReferenceLcp.Name}", Pipeline(s, ReferenceLcp));
+        foreach (LcpEngine l in OptimizedLcp) yield return ($"{ReferenceSais.Name}+{l.Name}", Pipeline(ReferenceSais, l));
+        foreach (SaisEngine s in OptimizedSais)
+            foreach (LcpEngine l in OptimizedLcp)
+                yield return ($"{s.Name}+{l.Name}", Pipeline(s, l));
     }
 
     /// <summary>An <see cref="EsaBuilder"/> (text to SA + LCP) from an engine pair, for the fuzz harness and the vector tests.</summary>

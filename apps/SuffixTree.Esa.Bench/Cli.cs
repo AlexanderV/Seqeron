@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using SuffixTree.Esa;
 
 namespace SuffixTree.Esa.Bench;
 
@@ -8,7 +9,7 @@ internal static class Cli
     private const string Usage = """
         SuffixTree.Esa.Bench - SA + LCP build measurements of the ESA backend (work package 1a.8)
 
-          build   --input <file> [--name <label>] [--verify <sa_vectors.tsv>]
+          build   --input <file> [--name <label>] [--verify <sa_vectors.tsv>] [--lcp-kernel reference|pointer]
                   one cold build in a fresh process: build_prepare_s / build_sais_s / build_sa_s / build_lcp_s / build_total_s, peak RSS
                   (VmHWM), GC allocation and collections, index bytes of SA + LCP + text, SHA-256 of SA and LCP (vector_match with --verify)
           steady  --input <file> [--builds 5] [--name <label>]
@@ -128,10 +129,13 @@ internal sealed class Options
 
     internal int Builds { get; private init; }
 
+    internal LcpKernelKind LcpKernel { get; private init; }
+
     internal static Options Parse(string[] args)
     {
         string? input = null, name = null, verify = null;
         int? builds = null;
+        var lcpKernel = LcpKernelKind.Reference;
         for (int i = 0; i < args.Length; i += 2)
         {
             string value = i + 1 < args.Length ? args[i + 1] : throw new ArgumentException($"option {args[i]} needs a value");
@@ -141,6 +145,7 @@ internal sealed class Options
                 case "--name": name = value; break;
                 case "--verify": verify = value; break;
                 case "--builds": builds = int.Parse(value, CultureInfo.InvariantCulture); break;
+                case "--lcp-kernel": lcpKernel = Enum.Parse<LcpKernelKind>(value, ignoreCase: true); break;
                 default: throw new ArgumentException($"unknown option '{args[i]}'");
             }
         }
@@ -151,6 +156,7 @@ internal sealed class Options
             Name = name ?? Path.GetFileNameWithoutExtension(input),
             Verify = verify,
             Builds = builds ?? 0,
+            LcpKernel = lcpKernel,
         };
     }
 }

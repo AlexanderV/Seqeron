@@ -1,0 +1,128 @@
+[
+ {
+  "id": "K01",
+  "desc": "M21 PLCP carry off by one (l > 1)",
+  "old": "            if (l > 0) l--;\n        }\n        return (e8, e16);",
+  "new": "            if (l > 1) l--;\n        }\n        return (e8, e16);"
+ },
+ {
+  "id": "K02",
+  "desc": "M24 predecessor of SA[1] (empty suffix) not set",
+  "old": "        int previous = n;",
+  "new": "        int previous = 0;"
+ },
+ {
+  "id": "K03",
+  "desc": "M25 compare bound ignores the other suffix (n - j)",
+  "old": "int limit = n - (j ^ ((j ^ p) & ((j - p) >> 31)));",
+  "new": "int limit = n - j;"
+ },
+ {
+  "id": "K04",
+  "desc": "M26 compare bound allows text[n] (n + 1 - max)",
+  "old": "int limit = n - (j ^ ((j ^ p) & ((j - p) >> 31)));",
+  "new": "int limit = n + 1 - (j ^ ((j ^ p) & ((j - p) >> 31)));"
+ },
+ {
+  "id": "K05",
+  "desc": "M22 escape count U8: l > 255",
+  "old": "            if (l >= 255)\n            {\n                e8++;",
+  "new": "            if (l > 255)\n            {\n                e8++;"
+ },
+ {
+  "id": "K06",
+  "desc": "M23 escape count U16: l > 65535",
+  "old": "                if (l >= 65535) e16++;",
+  "new": "                if (l > 65535) e16++;"
+ },
+ {
+  "id": "K07",
+  "desc": "M27 announced U16 escapes use the U8 count",
+  "old": "LcpKind.U16 => (int)escapes16,",
+  "new": "LcpKind.U16 => (int)escapes8,"
+ },
+ {
+  "id": "K08",
+  "desc": "M28 l = 0 reset removed when the predecessor is the empty suffix",
+  "old": "            if (p == n)\n            {\n                l = 0;\n                phi[j] = 0;",
+  "new": "            if (p == n)\n            {\n                phi[j] = 0;"
+ },
+ {
+  "id": "K09",
+  "desc": "M55 sa[0] check weakened (> n)",
+  "old": "if (sa[0] != n) throw",
+  "new": "if (sa[0] > n) throw"
+ },
+ {
+  "id": "K10",
+  "desc": "entry range check weakened (s == n accepted: phi[n] write)",
+  "old": "if ((uint)s >= (uint)n) return i;",
+  "new": "if ((uint)s > (uint)n) return i;"
+ },
+ {
+  "id": "K11",
+  "desc": "U8 write: 255 stored as a value (v <= 255)",
+  "old": "            if (v < byte.MaxValue)\n            {\n                dst[r] = (byte)v;",
+  "new": "            if (v <= byte.MaxValue)\n            {\n                dst[r] = (byte)v;"
+ },
+ {
+  "id": "K12",
+  "desc": "word loop reads one symbol word past the cap (max + 1)",
+  "old": "while (i + perWord <= max)",
+  "new": "while (i + perWord <= max + 1)"
+ },
+ {
+  "id": "K13",
+  "desc": "word mismatch: bits >> 3 (wrong for ushort)",
+  "old": "return i + (bits >> (sizeof(TSym) == 1 ? 3 : 4));",
+  "new": "return i + (bits >> 3);"
+ },
+ {
+  "id": "K14",
+  "desc": "U8 escape-list bound check removed (writes past the lists)",
+  "old": "            dst[r] = byte.MaxValue;\n            if ((uint)k >= (uint)escapes) ThrowEscapeMismatch(k, escapes);",
+  "new": "            dst[r] = byte.MaxValue;"
+ },
+ {
+  "id": "K15",
+  "desc": "Phi not zero-initialised (poison workspace)",
+  "old": "arena.Allocate<int>(n, zero: true, \"phi\")",
+  "new": "arena.Allocate<int>(n, zero: false, \"phi\")"
+ },
+ {
+  "id": "K16",
+  "desc": "pass 3 starts at r = 2 (LCP[1] left unwritten in the uninitialised array)",
+  "old": "        dst[0] = 0;\n        int k = 0;\n        for (int r = 1; r <= n; r++)\n        {\n            int v = plcp[sa[r]];\n            if (v < byte.MaxValue)",
+  "new": "        dst[0] = 0;\n        int k = 0;\n        for (int r = 2; r <= n; r++)\n        {\n            int v = plcp[sa[r]];\n            if (v < byte.MaxValue)"
+ },
+ {
+  "id": "K17",
+  "desc": "head loop compares one symbol too many (i <= head)",
+  "old": "        while (i < head)\n        {\n            if (!t[a + i].Equals(t[b + i])) return i;",
+  "new": "        while (i <= head)\n        {\n            if (!t[a + i].Equals(t[b + i])) return i;"
+ },
+ {
+  "id": "K18",
+  "desc": "head length not capped by max (reads past the compared range when max < 8)",
+  "old": "int head = max < HeadSymbols ? max : HeadSymbols;",
+  "new": "int head = HeadSymbols;"
+ },
+ {
+  "id": "K19",
+  "desc": "tail loop bound i <= max",
+  "old": "while (i < max && t[a + i].Equals(t[b + i])) i++;",
+  "new": "while (i <= max && t[a + i].Equals(t[b + i])) i++;"
+ },
+ {
+  "id": "K20",
+  "desc": "head loop falls through after a mismatch (no return)",
+  "old": "            if (!t[a + i].Equals(t[b + i])) return i;\n            i++;\n        }\n        int perWord",
+  "new": "            if (!t[a + i].Equals(t[b + i])) break;\n            i++;\n        }\n        int perWord"
+ },
+ {
+  "id": "K21",
+  "desc": "word mismatch: bits >> 4 (wrong for byte)",
+  "old": "return i + (bits >> (sizeof(TSym) == 1 ? 3 : 4));",
+  "new": "return i + (bits >> 4);"
+ }
+]

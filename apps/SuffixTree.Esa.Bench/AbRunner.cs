@@ -146,6 +146,11 @@ internal static class AbRunner
             if (f.Length >= 4 && f[0] == "R" && f[1] == "build" && double.TryParse(f[3], NumberStyles.Float, CultureInfo.InvariantCulture, out double v))
                 values[f[2]] = v;
             else if (f.Length >= 4 && f[0] == "R" && f[2] == "vector_match" && f[3] != "1") return null;
+            if (f.Length >= 4 && f[0] == "R" && f[2] == "bounds_checked" && f[3] != "0")
+            {
+                Console.WriteLine("the child was compiled with ESA_BOUNDS (checked accessors): its timings are meaningless, rebuild the app without -p:EsaBounds=true");
+                return null;
+            }
         }
         return values.ContainsKey("build_total_s") ? values : null;
     }
