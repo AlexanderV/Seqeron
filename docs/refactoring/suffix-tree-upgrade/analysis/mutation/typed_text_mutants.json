@@ -1,0 +1,62 @@
+[
+ {
+  "id": "T01",
+  "desc": "packed: the type bit is dropped when writing",
+  "old": "    public void Set(int i, int symbol, int isS) => packed[i] = (byte)((symbol << 1) | isS);",
+  "new": "    public void Set(int i, int symbol, int isS) => packed[i] = (byte)(symbol << 1);"
+ },
+ {
+  "id": "T02",
+  "desc": "packed: the symbol is written unshifted",
+  "old": "    public void Set(int i, int symbol, int isS) => packed[i] = (byte)((symbol << 1) | isS);",
+  "new": "    public void Set(int i, int symbol, int isS) => packed[i] = (byte)(symbol | isS);"
+ },
+ {
+  "id": "T03",
+  "desc": "packed: the symbol is read with the wrong shift",
+  "old": "        symbol = v >> 1;",
+  "new": "        symbol = v >> 2;"
+ },
+ {
+  "id": "T04",
+  "desc": "packed: the type is read from the wrong bit",
+  "old": "        isS = v & 1;",
+  "new": "        isS = (v >> 1) & 1;"
+ },
+ {
+  "id": "T05",
+  "desc": "packed: the limit allows 129 symbols (the byte overflows)",
+  "old": "    internal const int Limit = 128;",
+  "new": "    internal const int Limit = 130;"
+ },
+ {
+  "id": "T06",
+  "desc": "packed: Same compares the symbols only",
+  "old": "    public bool Same(int x, int y) => packed[x] == packed[y];",
+  "new": "    public bool Same(int x, int y) => (packed[x] >> 1) == (packed[y] >> 1);"
+ },
+ {
+  "id": "T07",
+  "desc": "split: Same compares the symbols only",
+  "old": "    public bool Same(int x, int y) => text[x] == text[y] && types[x] == types[y];",
+  "new": "    public bool Same(int x, int y) => text[x] == text[y];"
+ },
+ {
+  "id": "T08",
+  "desc": "split: the sink stores L for every position",
+  "old": "    public void Set(int i, int symbol, int isS) => types[i] = (byte)isS;",
+  "new": "    public void Set(int i, int symbol, int isS) => types[i] = 0;"
+ },
+ {
+  "id": "T09",
+  "desc": "packed: Symbol(i) reads the neighbour",
+  "old": "    public int Symbol(int i) => packed[i] >> 1;",
+  "new": "    public int Symbol(int i) => packed[i + 1] >> 1;"
+ },
+ {
+  "id": "T10",
+  "desc": "split: IsS(i) reads the neighbour",
+  "old": "    public int IsS(int i) => types[i];",
+  "new": "    public int IsS(int i) => types[i - 1];"
+ }
+]

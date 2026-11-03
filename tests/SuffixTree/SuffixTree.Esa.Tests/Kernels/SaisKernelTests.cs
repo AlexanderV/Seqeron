@@ -80,6 +80,26 @@ public class SaisKernelTests
         }
     }
 
+    [TestCase(2, false)]
+    [TestCase(4, false)]
+    [TestCase(126, false)]
+    [TestCase(127, false)]
+    [TestCase(128, true)]
+    [TestCase(129, true)]
+    [TestCase(255, true)]
+    [TestCase(256, true)]
+    public void ThePackedAndTheSplitRepresentation_MeetAtTheirBoundary(int distinct, bool split)
+    {
+        // 1o.1c: byte texts of fewer than 128 symbols are classified into one byte per position (symbol << 1 | type), larger alphabets keep a type array
+        string text = StringFamilies.Random(6000, distinct, 77);
+        PreparedText p = TextPreparation.Prepare(text);
+        Assert.That(p.Width, Is.EqualTo(SymbolWidth.Byte));
+        Assert.That(p.AlphabetSize, Is.EqualTo(distinct), "the text uses every symbol");
+        Assert.That(p.AlphabetSize >= PackedBytes.Limit, Is.EqualTo(split));
+        KernelHarness.AssertSais(Engine, text);
+        KernelHarness.AssertSais(KernelRegistry.PointerSaisWithStates, text);
+    }
+
     [Test]
     public void AllLmsSubstringsDistinct_NeedNoRecursion()
     {
@@ -92,16 +112,54 @@ public class SaisKernelTests
     }
 
     [Test]
-    public void TheKernelsLmsSubstringPredicate_MatchesTheDefinition_OnAllSmallStrings()
+    public void TheKernelsLmsSubstringPredicate_MatchesTheDefinition_OnAllSmallStrings([Values] bool packed)
     {
-        // review T2 (mutants M10, M11): the type comparison and the sentinel case are invisible to every SA-level test, so the predicate that the kernel's naming uses is tested on its own
+        // review T2 (mutants M10, M11), re-pointed in 1o.1c: the predicate that the POINTER naming uses (for the packed bytes and for the split representation) is
+        // tested on its own, against the definition, on the enumeration of the reference's test (the type comparison and the sentinel case are invisible to every SA-level test)
+        (long pairs, long equalPairs) = CheckPredicate((p, types, a, b) =>
+        {
+            int n = p.Length;
+            unsafe
+            {
+                fixed (byte* pText = p.Bytes)
+                fixed (byte* pTypes = types)
+                {
+                    var text = new BytePtrText(new Buf<byte>(pText, n, "text"), n);
+                    var typeBuf = new Buf<byte>(pTypes, n + 1, "types");
+                    if (!packed) return SaisInduction.LmsSubstringsEqual(new SplitTyped<BytePtrText>(text, typeBuf), n, a, b);
+                    var bytes = new byte[n + 1];
+                    fixed (byte* pPacked = bytes)
+                    {
+                        var packedBuf = new Buf<byte>(pPacked, n + 1, "packed");
+                        var sink = new PackedSink(packedBuf);
+                        sink.SetSentinel(n);
+                        for (int i = 0; i < n; i++) sink.Set(i, text[i], typeBuf[i]);
+                        return SaisInduction.LmsSubstringsEqual(new PackedBytes(packedBuf), n, a, b);
+                    }
+                }
+            }
+        });
+        Assert.That(equalPairs, Is.GreaterThan(10_000));
+        TestContext.Out.WriteLine($"{pairs} ordered LMS pairs checked against the definition (pointer predicate, {(packed ? "packed" : "split")}), {equalPairs} equal");
+    }
+
+    [Test]
+    public void TheSafeCopysLmsSubstringPredicate_MatchesTheDefinition_OnAllSmallStrings()
+    {
+        // the verbatim safe copy (the in-situ oracle of SaisPassesTests) is itself pinned to the definition
+        (long pairs, long equalPairs) = CheckPredicate((p, types, a, b) => SaisSafePasses.LmsSubstringsEqual(p.ByteReader(), types, a, b));
+        Assert.That(equalPairs, Is.GreaterThan(10_000));
+        TestContext.Out.WriteLine($"{pairs} ordered LMS pairs checked against the definition (safe copy), {equalPairs} equal");
+    }
+
+    private static (long Pairs, long EqualPairs) CheckPredicate(Func<PreparedText, byte[], int, int, bool> predicate)
+    {
         long pairs = 0, equalPairs = 0;
         foreach (var (sigma, maxLen) in new[] { (2, 14), (3, 9), (4, 7) })
             foreach (string s in ExhaustiveStrings.All(sigma, maxLen))
             {
                 PreparedText p = TextPreparation.Prepare(s);
-                ByteSymbols reader = p.ByteReader();
-                bool[] isS = SaisReference.ClassifyTypes(reader);
+                bool[] isS = SaisReference.ClassifyTypes(p.ByteReader());
                 byte[] types = [.. isS.Select(b => b ? (byte)1 : (byte)0)];
                 int n = s.Length;
                 var lms = new List<int>();
@@ -115,11 +173,10 @@ public class SaisKernelTests
                         bool expected = Definition(s, isS, lms, x, y);
                         pairs++;
                         if (expected) equalPairs++;
-                        Assert.That(SaisSafePasses.LmsSubstringsEqual(reader, types, lms[x], lms[y]), Is.EqualTo(expected), $"'{s}': LMS substrings at {lms[x]} and {lms[y]}");
+                        Assert.That(predicate(p, types, lms[x], lms[y]), Is.EqualTo(expected), $"'{s}': LMS substrings at {lms[x]} and {lms[y]}");
                     }
             }
-        Assert.That(equalPairs, Is.GreaterThan(10_000));
-        TestContext.Out.WriteLine($"{pairs} ordered LMS pairs checked against the definition, {equalPairs} equal");
+        return (pairs, equalPairs);
     }
 
     [Test]

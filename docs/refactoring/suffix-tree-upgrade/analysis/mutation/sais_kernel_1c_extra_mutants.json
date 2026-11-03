@@ -1,0 +1,50 @@
+[
+ {
+  "id": "S08c",
+  "desc": "round 1 placement stops at i >= 2 (LMS at position 1 not seeded; equivalent at the output of round 1, differs in the placed state)",
+  "old": "        for (int i = n - 1; i >= 1; i--)\n        {\n            tt.Get(i - 1, out int previousSymbol, out int previous);\n            int lms = isS & (previous ^ 1); // i is S-type with an L-type predecessor",
+  "new": "        for (int i = n - 1; i >= 2; i--)\n        {\n            tt.Get(i - 1, out int previousSymbol, out int previous);\n            int lms = isS & (previous ^ 1); // i is S-type with an L-type predecessor"
+ },
+ {
+  "id": "S13c",
+  "desc": "direct placement of distinct names without sa1[0] = m (dead store in the output, part of the suffix array of the reduced string)",
+  "old": "            sa1[0] = m;\n",
+  "new": ""
+ },
+ {
+  "id": "S17c",
+  "desc": "round 2 clears one entry too few (SA[n] stale)",
+  "old": "        sa.Slice(m + 1).Fill(Empty, n - m);",
+  "new": "        sa.Slice(m + 1).Fill(Empty, n - m - 1);"
+ },
+ {
+  "id": "S19c",
+  "desc": "round 1 clears one entry too few (SA[n] stale)",
+  "old": "        sa.Slice(1).Fill(Empty, n);",
+  "new": "        sa.Slice(1).Fill(Empty, n - 1);"
+ },
+ {
+  "id": "C05",
+  "desc": "round 1 placement: every S-type position is placed (kernel set C05, survived without the definitional placed state)",
+  "old": "            int lms = isS & (previous ^ 1); // i is S-type with an L-type predecessor\n            int slot = bkt[c] - lms;",
+  "new": "            int lms = isS; // i is S-type with an L-type predecessor\n            int slot = bkt[c] - lms;"
+ },
+ {
+  "id": "C10c",
+  "desc": "compaction of the sorted LMS positions: counts every S-type entry (C10 and C10b were rejected by the analyzer: unused variable)",
+  "old": "            k += lms;",
+  "new": "            k += lms | (positive & tt.IsS(pc));"
+ },
+ {
+  "id": "C21",
+  "desc": "symbol counting: the range check is dropped from the byte path semantic (symbol == sigma accepted): counts block one entry short",
+  "old": "        Buf<int> counts = arena.Allocate<int>(sigma, zero: true, \"counts\");",
+  "new": "        Buf<int> counts = arena.Allocate<int>(sigma > 1 ? sigma - 1 : sigma, zero: true, \"counts\");"
+ },
+ {
+  "id": "C22",
+  "desc": "compaction of the names: the name slot 1 + m is kept but SA[n] skipped (loop starts one below the end)",
+  "old": "        int j = n;\n        for (int i = n; i > m; i--)",
+  "new": "        int j = n;\n        for (int i = n - 1; i > m; i--)"
+ }
+]

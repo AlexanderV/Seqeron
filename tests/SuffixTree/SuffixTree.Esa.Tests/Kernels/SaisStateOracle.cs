@@ -4,6 +4,7 @@ namespace SuffixTree.Esa.Tests.Kernels;
 /// The intermediate state of one SA-IS recursion level, in the form that every kernel reports and the oracle derives from the definitions:
 /// symbol counts and the two bucket arrays of the n + 1 layout (<c>Heads[c]</c> = first index of bucket c, starting at 1; <c>Tails[c]</c> = exclusive end),
 /// the LMS positions in text order, the LMS positions in the order of their LMS substrings (after induction round 1), the number of names and the reduced string.
+/// <paramref name="SaStates"/> (kernels only, null for the oracle): the whole suffix array after each pass that the probe reports (1o.1c), keyed by the phase that just ended.
 /// </summary>
 internal sealed record SaisLevelState(
     int Length,
@@ -14,7 +15,8 @@ internal sealed record SaisLevelState(
     int[] LmsPositions,
     int[] LmsSorted,
     int NameCount,
-    int[] Reduced);
+    int[] Reduced,
+    IReadOnlyDictionary<SaisPhase, int[]>? SaStates = null);
 
 /// <summary>
 /// Test oracle for the intermediate states of SA-IS (review MAJ-1 / section 6 T1): everything is computed from the definitions (types, LMS

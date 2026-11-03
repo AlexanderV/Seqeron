@@ -1,10 +1,11 @@
-namespace SuffixTree.Esa;
+namespace SuffixTree.Esa.Tests.TestSupport;
 
 /// <summary>
-/// The induction passes and the naming of <see cref="SaisKernel"/>, verbatim copies of the algorithm of <see cref="SaisReference{TIdx}"/> in safe code (Span
-/// indexers with bounds checks), specialised to <c>int</c> and to the byte-per-position type array of the kernel. They are the part of SA-IS that iteration 1o.1b
-/// deliberately leaves alone: iteration 1o.1c replaces them by pointer loops. They exist as a copy (and not as calls into the reference) so that the permanent oracle
-/// stays literally untouched. The bucket array is prepared by the caller (<c>SetBucketHeads</c> before <see cref="InduceL{TReader}"/>, <c>SetBucketTails</c> before <see cref="InduceS{TReader}"/>).
+/// TEST ORACLE (moved here from the shipped assembly in iteration 1o.1c, which replaced these passes in the kernel by pointer loops): the induction passes and the
+/// naming of the SA-IS kernel as verbatim copies of the algorithm of <see cref="SaisReference{TIdx}"/> in safe code (Span indexers with bounds checks), specialised to
+/// <c>int</c> and to the byte-per-position type array of the kernel. They are the in-situ oracle of <c>SaisPassesTests</c>: every induction and naming pass of the pointer
+/// kernel is compared, state against state, with these passes. They exist as a copy (and not as calls into the reference) so that the permanent oracle stays literally
+/// untouched. The bucket array is prepared by the caller (heads before <see cref="InduceL{TReader}"/>, tails before <see cref="InduceS{TReader}"/>).
 /// </summary>
 internal static class SaisSafePasses
 {

@@ -1,0 +1,66 @@
+id	description	release	checked	filter
+I01	L pass: the 'positive' mask is inverted (induces from empty slots)	killed(host crash)		default suite
+I02	L pass: S-type predecessors are induced as well	killed(8)		default suite
+I03	L pass: the bucket cursor always advances	killed(host crash)		default suite
+I04	L pass: the store is not redirected to the dummy index	killed(host crash)		default suite
+I05	L pass: SA[0] not restored (a dummy value stays; the S pass never reads it: only the snapshot test can see it)	killed(10)		default suite
+I06	S pass: L-type predecessors are induced instead of S-type	killed(host crash)		default suite
+I07	S pass: the cursor always moves down	killed(6)		default suite
+I08	S pass stops at i >= 2 (M06 analogue; equivalent expected: SA[1] is the smallest suffix)	survived	survived	default suite
+I09	L pass stops at i < n (equivalent expected: SA[n] is the largest suffix, its predecessor is S-type)	survived	survived	default suite
+I10	naming: the first LMS substring is compared with 'previous' = -1	survived	killed(24)	default suite
+I11	naming: the last slot SA[n] is not cleared	killed(host crash)		default suite
+I12	naming: the name slot collides with the last sorted LMS entry (no +1)	killed(20)		default suite
+I13	naming: equal substrings get different names	killed(host crash)		default suite
+I14	predicate: the end test also fires at the first symbol	killed(22)		default suite
+I15	predicate: types are not compared (M10)	killed(2)		default suite
+I16	predicate: the loop also reads the sentinel position n	killed(10)		default suite
+I17	predicate: the end test looks for an S-type predecessor	killed(20)		default suite
+I18	L pass: the predecessor index is not clamped (reads index -2 for empty slots)	killed(host crash)		default suite
+I19	S pass: the store is not redirected to the dummy index	killed(25)		default suite
+I20	S pass: SA[0] not restored	killed(22)		default suite
+I21	naming: the arguments of the predicate swapped (equality is symmetric: equivalent expected)	survived	survived	default suite
+I22	S pass: the symbol lookup uses the unclamped index (reads index -2 for empty slots)	BUILD-ERROR		default suite
+C01	classification: c <= next counts as smaller	killed(host crash)		default suite
+C02	classification: every pair counts as equal	killed(22)		default suite
+C03	classification: the LMS count uses the wrong bit	killed(24)		default suite
+C04	classification: position n - 1 gets type S	killed(24)		default suite
+C05	round 1 placement: every S-type position is placed	survived	survived	default suite
+C06	round 1 placement: the store is not redirected	killed(25)		default suite
+C07	round 1 placement: SA[0] not restored	killed(24)		default suite
+C08	round 1 placement: the symbol is that of the previous position	killed(host crash)		default suite
+C09	compaction of the sorted LMS positions: writes at k instead of 1 + k	killed(host crash)		default suite
+C10	compaction of the sorted LMS positions: counts every non-empty entry	BUILD-ERROR		default suite
+C11	compaction of the sorted LMS positions: predecessor index not clamped (reads index -1 for empty slots)	survived	killed(25)	default suite
+C12	compaction of the sorted LMS positions: predecessor type not inverted	killed(24)		default suite
+C13	compaction of the names: the cursor always moves	killed(host crash)		default suite
+C14	compaction of the names: skips the name slot 1 + m	killed(host crash)		default suite
+C15	LMS positions in text order: the cursor moves for every S-type position	killed(host crash)		default suite
+C16	LMS positions in text order: the store is not redirected (writes past the end before the first LMS)	killed(host crash)		default suite
+C17	round 2 placement: symbol of the neighbour	killed(host crash)		default suite
+C18	Sais: the packed representation is chosen for every byte alphabet (the byte overflows above 127 symbols)	killed(9)		default suite
+C19	Sais: the types of a split level are not classified (uninitialised)	killed(host crash)		default suite
+C20	Sais: the workspace of a level is never released	killed(1)		default suite
+T01	packed: the type bit is dropped when writing	killed(20)		default suite
+T02	packed: the symbol is written unshifted	killed(20)		default suite
+T03	packed: the symbol is read with the wrong shift	killed(host crash)		default suite
+T04	packed: the type is read from the wrong bit	killed(19)		default suite
+T05	packed: the limit allows 129 symbols (the byte overflows)	killed(2)		default suite
+T06	packed: Same compares the symbols only	killed(1)		default suite
+T07	split: Same compares the symbols only	killed(1)		default suite
+T08	split: the sink stores L for every position	killed(host crash)		default suite
+T09	packed: Symbol(i) reads the neighbour	killed(10)		default suite
+T10	split: IsS(i) reads the neighbour	killed(host crash)		default suite
+S08c	round 1 placement stops at i >= 2 (LMS at position 1 not seeded; equivalent at the output of round 1, differs in the placed state)	killed(1)	killed(1)	default suite, both configurations
+S13c	direct placement of distinct names without sa1[0] = m (dead store in the output, part of the suffix array of the reduced string)	killed(1)	killed(1)	default suite, both configurations
+S17c	round 2 clears one entry too few (SA[n] stale)	killed(1)	killed(1)	default suite, both configurations
+S19c	round 1 clears one entry too few (SA[n] stale)	killed(1)	killed(1)	default suite, both configurations
+C05	round 1 placement: every S-type position is placed (kernel set C05, survived without the definitional placed state)	killed(1)	killed(1)	default suite, both configurations
+C10b	compaction of the sorted LMS positions: counts every S-type entry (C10 was rejected by the analyzer: unused variable)	BUILD-ERROR	BUILD-ERROR	default suite, both configurations
+C21	symbol counting: the range check is dropped from the byte path semantic (symbol == sigma accepted): counts block one entry short	killed(23)	killed(24)	default suite, both configurations
+C22	compaction of the names: the name slot 1 + m is kept but SA[n] skipped (loop starts one below the end)	survived	survived	default suite, both configurations
+C10c	compaction of the sorted LMS positions: counts every S-type entry (C10 and C10b were rejected by the analyzer: unused variable)	killed(19)	killed(19)	default suite, both configurations
+I08	S pass stops at i >= 2 (M06 analogue; equivalent expected: SA[1] is the smallest suffix)	survived	survived	Exhaustive engine tests (I08, I09, I21)
+I09	L pass stops at i < n (equivalent expected: SA[n] is the largest suffix, its predecessor is S-type)	survived	survived	Exhaustive engine tests (I08, I09, I21)
+I21	naming: the arguments of the predicate swapped (equality is symmetric: equivalent expected)	survived	survived	Exhaustive engine tests (I08, I09, I21)
+C22	compaction of the names: the name slot 1 + m is kept but SA[n] skipped (loop starts one below the end)	survived		Exhaustive engine tests (C22), Release only

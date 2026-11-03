@@ -12,6 +12,7 @@ internal sealed class SaisStateRecorder
         internal int[] LmsPositions = [];
         internal int[] Reduced = [];
         internal int Names;
+        internal Dictionary<SaisPhase, int[]> Sa = [];
     }
 
     private readonly SortedDictionary<int, Partial> _levels = [];
@@ -24,7 +25,7 @@ internal sealed class SaisStateRecorder
 
     /// <summary>The recorded levels in recursion order.</summary>
     internal List<SaisLevelState> ToStates() =>
-        [.. _levels.Values.Select(p => new SaisLevelState(p.Counts.Sum(), p.Counts.Length, p.Counts, p.Heads, p.Tails, p.LmsPositions, p.LmsSorted, p.Names, p.Reduced))];
+        [.. _levels.Values.Select(p => new SaisLevelState(p.Counts.Sum(), p.Counts.Length, p.Counts, p.Heads, p.Tails, p.LmsPositions, p.LmsSorted, p.Names, p.Reduced, p.Sa))];
 }
 
 /// <summary>The recording probe: copies every reported span.</summary>
@@ -60,6 +61,12 @@ internal readonly struct RecordingSaisProbe(SaisStateRecorder recorder) : ISaisP
     {
         int[] copy = positions.ToArray();
         recorder.Record(level, p => p.LmsPositions = copy);
+    }
+
+    public void SaState(int level, SaisPhase phase, ReadOnlySpan<int> sa)
+    {
+        int[] copy = sa.ToArray();
+        recorder.Record(level, p => p.Sa[phase] = copy);
     }
 
     public void Reduced(int level, int names, ReadOnlySpan<int> reduced)

@@ -1,0 +1,134 @@
+[
+ {
+  "id": "I01",
+  "desc": "L pass: the 'positive' mask is inverted (induces from empty slots)",
+  "old": "            int positive = (int)((uint)-p >> 31); // 1 for p > 0; empty slots (-1) and suffix 0 induce nothing",
+  "new": "            int positive = (int)((uint)p >> 31); // 1 for p > 0; empty slots (-1) and suffix 0 induce nothing"
+ },
+ {
+  "id": "I02",
+  "desc": "L pass: S-type predecessors are induced as well",
+  "old": "            int take = positive & (isS ^ 1); // the predecessor is L-type",
+  "new": "            int take = positive & (isS | 1); // the predecessor is L-type"
+ },
+ {
+  "id": "I03",
+  "desc": "L pass: the bucket cursor always advances",
+  "old": "            bkt[c] = slot + take;",
+  "new": "            bkt[c] = slot + 1;"
+ },
+ {
+  "id": "I04",
+  "desc": "L pass: the store is not redirected to the dummy index",
+  "old": "            sa[slot & -take] = j;\n            bkt[c] = slot + take;",
+  "new": "            sa[slot] = j;\n            bkt[c] = slot + take;"
+ },
+ {
+  "id": "I05",
+  "desc": "L pass: SA[0] not restored (a dummy value stays; the S pass never reads it: only the snapshot test can see it)",
+  "old": "        sa[0] = n; // undo the dummy stores",
+  "new": "        // sa[0] = n; // undo the dummy stores"
+ },
+ {
+  "id": "I06",
+  "desc": "S pass: L-type predecessors are induced instead of S-type",
+  "old": "            int take = positive & isS; // the predecessor is S-type",
+  "new": "            int take = positive & (isS ^ 1); // the predecessor is S-type"
+ },
+ {
+  "id": "I07",
+  "desc": "S pass: the cursor always moves down",
+  "old": "            int slot = bkt[c] - take;",
+  "new": "            int slot = bkt[c] - 1;"
+ },
+ {
+  "id": "I08",
+  "desc": "S pass stops at i >= 2 (M06 analogue; equivalent expected: SA[1] is the smallest suffix)",
+  "old": "        for (int i = n; i >= 1; i--)",
+  "new": "        for (int i = n; i >= 2; i--)"
+ },
+ {
+  "id": "I09",
+  "desc": "L pass stops at i < n (equivalent expected: SA[n] is the largest suffix, its predecessor is S-type)",
+  "old": "        for (int i = 0; i <= n; i++)",
+  "new": "        for (int i = 0; i < n; i++)"
+ },
+ {
+  "id": "I10",
+  "desc": "naming: the first LMS substring is compared with 'previous' = -1",
+  "old": "            if (previous < 0 || !LmsSubstringsEqual(tt, n, previous, pos)) name++;",
+  "new": "            if (!LmsSubstringsEqual(tt, n, previous, pos)) name++;"
+ },
+ {
+  "id": "I11",
+  "desc": "naming: the last slot SA[n] is not cleared",
+  "old": "        sa.Slice(m + 1).Fill(-1, n - m);",
+  "new": "        sa.Slice(m + 1).Fill(-1, n - m - 1);"
+ },
+ {
+  "id": "I12",
+  "desc": "naming: the name slot collides with the last sorted LMS entry (no +1)",
+  "old": "            sa[1 + m + (pos >> 1)] = name;",
+  "new": "            sa[m + (pos >> 1)] = name;"
+ },
+ {
+  "id": "I13",
+  "desc": "naming: equal substrings get different names",
+  "old": "            if (previous < 0 || !LmsSubstringsEqual(tt, n, previous, pos)) name++;",
+  "new": "            if (previous < 0 || LmsSubstringsEqual(tt, n, previous, pos)) name++;"
+ },
+ {
+  "id": "I14",
+  "desc": "predicate: the end test also fires at the first symbol",
+  "old": "            if (x != a && tt.IsS(x) != 0 && tt.IsS(x - 1) == 0) return true;",
+  "new": "            if (tt.IsS(x) != 0 && tt.IsS(x - 1) == 0) return true;"
+ },
+ {
+  "id": "I15",
+  "desc": "predicate: types are not compared (M10)",
+  "old": "            if (!tt.Same(x, y)) return false;",
+  "new": "            if (tt.Symbol(x) != tt.Symbol(y)) return false;"
+ },
+ {
+  "id": "I16",
+  "desc": "predicate: the loop also reads the sentinel position n",
+  "old": "        while (x < n && y < n)",
+  "new": "        while (x <= n && y <= n)"
+ },
+ {
+  "id": "I17",
+  "desc": "predicate: the end test looks for an S-type predecessor",
+  "old": "            if (x != a && tt.IsS(x) != 0 && tt.IsS(x - 1) == 0) return true;",
+  "new": "            if (x != a && tt.IsS(x) != 0 && tt.IsS(x - 1) != 0) return true;"
+ },
+ {
+  "id": "I18",
+  "desc": "L pass: the predecessor index is not clamped (reads index -2 for empty slots)",
+  "old": "            int jc = j & -positive; // a valid index even when nothing is induced",
+  "new": "            int jc = j; // a valid index even when nothing is induced"
+ },
+ {
+  "id": "I19",
+  "desc": "S pass: the store is not redirected to the dummy index",
+  "old": "            sa[slot & -take] = j;\n            bkt[c] = slot;",
+  "new": "            sa[slot] = j;\n            bkt[c] = slot;"
+ },
+ {
+  "id": "I20",
+  "desc": "S pass: SA[0] not restored",
+  "old": "            bkt[c] = slot;\n        }\n        sa[0] = n;",
+  "new": "            bkt[c] = slot;\n        }"
+ },
+ {
+  "id": "I21",
+  "desc": "naming: the arguments of the predicate swapped (equality is symmetric: equivalent expected)",
+  "old": "            if (previous < 0 || !LmsSubstringsEqual(tt, n, previous, pos)) name++;",
+  "new": "            if (previous < 0 || !LmsSubstringsEqual(tt, n, pos, previous)) name++;"
+ },
+ {
+  "id": "I22",
+  "desc": "S pass: the symbol lookup uses the unclamped index (reads index -2 for empty slots)",
+  "old": "            int jc = j & -positive;\n            tt.Get(jc, out int c, out int isS);\n            int take = positive & isS;",
+  "new": "            int jc = j & -positive;\n            tt.Get(j, out int c, out int isS);\n            int take = positive & isS;"
+ }
+]

@@ -1,0 +1,122 @@
+[
+ {
+  "id": "C01",
+  "desc": "classification: c <= next counts as smaller",
+  "old": "            int smaller = (d >> 31) & 1; // c < next",
+  "new": "            int smaller = ((d - 1) >> 31) & 1; // c < next"
+ },
+ {
+  "id": "C02",
+  "desc": "classification: every pair counts as equal",
+  "old": "            int equal = ((d | -d) >> 31) + 1; // c == next",
+  "new": "            int equal = 1; // c == next"
+ },
+ {
+  "id": "C03",
+  "desc": "classification: the LMS count uses the wrong bit",
+  "old": "            m += nextIsS & (isS ^ 1);",
+  "new": "            m += nextIsS & isS;"
+ },
+ {
+  "id": "C04",
+  "desc": "classification: position n - 1 gets type S",
+  "old": "        sink.Set(n - 1, next, 0);",
+  "new": "        sink.Set(n - 1, next, 1);"
+ },
+ {
+  "id": "C05",
+  "desc": "round 1 placement: every S-type position is placed",
+  "old": "            int lms = isS & (previous ^ 1); // i is S-type with an L-type predecessor",
+  "new": "            int lms = isS; // i is S-type with an L-type predecessor"
+ },
+ {
+  "id": "C06",
+  "desc": "round 1 placement: the store is not redirected",
+  "old": "            sa[slot & -lms] = i;",
+  "new": "            sa[slot] = i;"
+ },
+ {
+  "id": "C07",
+  "desc": "round 1 placement: SA[0] not restored",
+  "old": "            bkt[c] = slot;\n            c = previousSymbol;\n            isS = previous;\n        }\n        sa[0] = n;",
+  "new": "            bkt[c] = slot;\n            c = previousSymbol;\n            isS = previous;\n        }"
+ },
+ {
+  "id": "C08",
+  "desc": "round 1 placement: the symbol is that of the previous position",
+  "old": "            int slot = bkt[c] - lms;\n            sa[slot & -lms] = i;",
+  "new": "            int slot = bkt[previousSymbol] - lms;\n            sa[slot & -lms] = i;"
+ },
+ {
+  "id": "C09",
+  "desc": "compaction of the sorted LMS positions: writes at k instead of 1 + k",
+  "old": "            sa[1 + k] = p; // the write index",
+  "new": "            sa[k] = p; // the write index"
+ },
+ {
+  "id": "C10",
+  "desc": "compaction of the sorted LMS positions: counts every non-empty entry",
+  "old": "            k += lms;",
+  "new": "            k += positive;"
+ },
+ {
+  "id": "C11",
+  "desc": "compaction of the sorted LMS positions: predecessor index not clamped (reads index -1 for empty slots)",
+  "old": "            int before = (pc - 1) & -positive; // its predecessor (0 for p <= 0)",
+  "new": "            int before = pc - 1; // its predecessor (0 for p <= 0)"
+ },
+ {
+  "id": "C12",
+  "desc": "compaction of the sorted LMS positions: predecessor type not inverted",
+  "old": "            int lms = positive & tt.IsS(pc) & (tt.IsS(before) ^ 1);",
+  "new": "            int lms = positive & tt.IsS(pc) & tt.IsS(before);"
+ },
+ {
+  "id": "C13",
+  "desc": "compaction of the names: the cursor always moves",
+  "old": "            j -= (int)((uint)~v >> 31); // 1 for v >= 0",
+  "new": "            j -= 1; // 1 for v >= 0"
+ },
+ {
+  "id": "C14",
+  "desc": "compaction of the names: skips the name slot 1 + m",
+  "old": "        for (int i = n; i > m; i--)\n        {\n            int v = sa[i];\n            sa[j] = v;",
+  "new": "        for (int i = n; i > m + 1; i--)\n        {\n            int v = sa[i];\n            sa[j] = v;"
+ },
+ {
+  "id": "C15",
+  "desc": "LMS positions in text order: the cursor moves for every S-type position",
+  "old": "            idx -= lms;",
+  "new": "            idx -= isS;"
+ },
+ {
+  "id": "C16",
+  "desc": "LMS positions in text order: the store is not redirected (writes past the end before the first LMS)",
+  "old": "            sa[(tailBase + idx) & -lms] = i; // not an LMS position",
+  "new": "            sa[tailBase + idx] = i; // not an LMS position"
+ },
+ {
+  "id": "C17",
+  "desc": "round 2 placement: symbol of the neighbour",
+  "old": "            int c = tt.Symbol(p);",
+  "new": "            int c = tt.Symbol(p - 1);"
+ },
+ {
+  "id": "C18",
+  "desc": "Sais: the packed representation is chosen for every byte alphabet (the byte overflows above 127 symbols)",
+  "old": "        if (typeof(TText) == typeof(BytePtrText) && sigma < PackedBytes.Limit)",
+  "new": "        if (typeof(TText) == typeof(BytePtrText))"
+ },
+ {
+  "id": "C19",
+  "desc": "Sais: the types of a split level are not classified (uninitialised)",
+  "old": "            int m = ClassifyTypes(t, n, new SplitSink(types));",
+  "new": "            int m = ClassifyTypes(t, n, new PackedSink(types));"
+ },
+ {
+  "id": "C20",
+  "desc": "Sais: the workspace of a level is never released",
+  "old": "        arena.ReleaseTo(mark);\n    }\n\n    /// <summary>One level",
+  "new": "        _ = mark;\n    }\n\n    /// <summary>One level"
+ }
+]

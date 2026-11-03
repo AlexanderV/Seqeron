@@ -25,6 +25,13 @@ internal interface ISaisProbe
     /// <summary>The number of names and the reduced string (the names in text order).</summary>
     void Reduced(int level, int names, ReadOnlySpan<int> reduced);
 
+    /// <summary>
+    /// The whole suffix array of the level (n + 1 entries) right after <paramref name="phase"/>: Round1Place, Round1InduceL, Round1InduceS, CompactLms, Name, Round2Place,
+    /// Round2InduceL, Round2InduceS. The tests replay each induction and naming pass on the previous snapshot with the safe copy of the pass (1o.1c). For
+    /// <see cref="SaisPhase.Reduced"/> the span is the suffix array of the REDUCED string (m + 1 entries, n + 1 layout) as it stands right after the recursion or the direct placement.
+    /// </summary>
+    void SaState(int level, SaisPhase phase, ReadOnlySpan<int> sa);
+
     /// <summary>The LMS positions in text order.</summary>
     void LmsPositions(int level, ReadOnlySpan<int> positions);
 }
@@ -55,6 +62,10 @@ internal readonly struct NoProbe : ISaisProbe
     }
 
     public void LmsPositions(int level, ReadOnlySpan<int> positions)
+    {
+    }
+
+    public void SaState(int level, SaisPhase phase, ReadOnlySpan<int> sa)
     {
     }
 }
