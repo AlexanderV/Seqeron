@@ -34,60 +34,75 @@ public static class GenomicAnalyzer
 
     /// <summary>
     /// Finds every distinct substring that occurs at least twice and has length ≥ <paramref name="minLength"/>.
-    /// A substring occurs ≥ 2 times iff it is a prefix of the longest common prefix (LCP) of some
-    /// pair of adjacent suffixes in sorted order; the method enumerates every such prefix of length
-    /// ≥ <paramref name="minLength"/> (not only the full LCP) and returns each distinct one occurring
-    /// ≥ 2 times (CMU 15-451 Lecture #10 §2.1; GeeksforGeeks, Suffix Tree Application 3). Worst-case
-    /// time O(n²) because adjacent-suffix prefix comparison and occurrence enumeration are over O(n)
-    /// suffixes of up to O(n) length.
+    /// A substring occurs ≥ 2 times iff it ends on, or at, an edge into an internal node of the suffix tree:
+    /// each internal node with path-label length d whose parent has path-label length p carries the repeats
+    /// of lengths p + 1 … d (all with the node's occurrence set), so the method enumerates exactly those
+    /// loci with length ≥ <paramref name="minLength"/> (Gusfield 1997 §7.1; CMU 15-451 Lecture #10 §2.1;
+    /// GeeksforGeeks, Suffix Tree Application 3). Results are ordered as the sorted suffixes would
+    /// produce them: by the lexicographically smallest suffix that starts with the repeat, then by
+    /// increasing length; positions are ascending. Time O(n) for the traversal plus
+    /// O(Σ (label length + occurrences)) for the output, which is the size of the result itself
+    /// (the earlier implementation materialised and sorted all n suffixes, O(n²) time and memory).
     /// See docs/algorithms/Repeat_Analysis/Repeat_Detection.md.
     /// </summary>
     public static IEnumerable<RepeatInfo> FindRepeats(DnaSequence sequence, int minLength)
     {
         var tree = sequence.SuffixTree;
-        var found = new HashSet<string>();
 
         // A repeat is a NON-EMPTY substring occurring >=2 times (the path label of an internal
         // node, never the root). The empty string is not a repeat, so the effective minimum is
         // at least 1 even when the caller passes minLength <= 0. (CMU 15-451 Lecture #10 §2.1.)
         int effectiveMinLength = Math.Max(1, minLength);
 
-        // Get all suffixes and find common prefixes
-        var suffixes = tree.GetAllSuffixes().OrderBy(s => s).ToList();
+        // Pre-order traversal with children in ascending key order (the terminator, a leaf, sorts first):
+        // internal nodes come out in the order of their lexicographically smallest suffix, and a node
+        // always precedes the internal nodes below it.
+        var loci = new RepeatLocusCollector(effectiveMinLength);
+        tree.Traverse(loci);
 
-        for (int i = 0; i < suffixes.Count - 1; i++)
+        foreach (var (edgeEnd, parentDepth, depth) in loci.Nodes)
         {
-            string s1 = suffixes[i];
-            string s2 = suffixes[i + 1];
+            // Path label of the node: the `depth` characters of the text ending at the end of its incoming edge
+            // (an internal node's edge never contains the terminator).
+            string label = tree.Text.Substring(edgeEnd - depth, depth);
+            var positions = new List<int>(tree.FindAllOccurrences(label));
+            positions.Sort();
 
-            // Find longest common prefix
-            int lcpLen = 0;
-            int maxLen = Math.Min(s1.Length, s2.Length);
-            while (lcpLen < maxLen && s1[lcpLen] == s2[lcpLen])
-            {
-                lcpLen++;
-            }
+            for (int length = Math.Max(parentDepth + 1, effectiveMinLength); length < depth; length++)
+                yield return new RepeatInfo(label.Substring(0, length), new List<int>(positions));
 
-            // A substring occurs >= 2 times iff it is a prefix of the longest common prefix of
-            // some pair of adjacent suffixes in sorted order (standard LCP-array result). The
-            // adjacent-pair LCP itself is only the *longest* such shared prefix; every shorter
-            // prefix (down to effectiveMinLength) is also a repeated substring with its own,
-            // possibly larger, occurrence set. Emitting only the full LCP would drop those
-            // shorter repeats, so we enumerate every qualifying prefix. (CMU 15-451 Lecture #10
-            // §2.1: a repeat is any substring occurring >= 2 times.)
-            for (int prefixLen = effectiveMinLength; prefixLen <= lcpLen; prefixLen++)
-            {
-                string repeat = s1.Substring(0, prefixLen);
-                if (found.Add(repeat))
-                {
-                    var positions = tree.FindAllOccurrences(repeat).OrderBy(p => p).ToList();
-                    if (positions.Count >= 2)
-                    {
-                        yield return new RepeatInfo(repeat, positions);
-                    }
-                }
-            }
+            yield return new RepeatInfo(label, positions);
         }
+    }
+
+    /// <summary>
+    /// Collects the internal (non-root) nodes of a suffix tree whose path-label length is at least
+    /// <c>minLength</c>, in traversal order, as (end of incoming edge in the text, parent path-label length, own path-label length).
+    /// </summary>
+    private sealed class RepeatLocusCollector(int minLength) : global::SuffixTree.ISuffixTreeVisitor
+    {
+        private bool _rootSeen;
+
+        public List<(int EdgeEnd, int ParentDepth, int Depth)> Nodes { get; } = new();
+
+        public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth)
+        {
+            if (!_rootSeen)
+            {
+                _rootSeen = true; // the root has no incoming edge and is not a repeat
+                return;
+            }
+            if (childCount == 0)
+                return; // a leaf is a single suffix, not a repeat
+
+            int stringDepth = depth + (endIndex - startIndex);
+            if (stringDepth >= minLength)
+                Nodes.Add((endIndex, depth, stringDepth));
+        }
+
+        public void EnterBranch(int key) { }
+
+        public void ExitBranch() { }
     }
 
     /// <summary>
