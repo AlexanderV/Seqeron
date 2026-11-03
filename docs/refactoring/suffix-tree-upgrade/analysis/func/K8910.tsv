@@ -1,0 +1,244 @@
+competitor_id	func_id	score	flag	evidence	url	accessed
+K8	F01	2	V	ST: STree(text) builds McCreight suffix tree from str/bytes; PD: divsufsort(string) builds SA from str/bytes/int ndarray	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F02	2	V	ST: STree(list_of_str) builds a generalized suffix tree (unique private-use terminals); lcs()/lcsm() work over the strings	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F03	0	V	No file/stream builder: STree takes str/bytes/list, divsufsort takes in-memory str/bytes/ndarray (ST API table, PD method list checked)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F04	2	V	ST: STree(online=True).append(chunk) is Ukkonen online build; find exact between appends, find_all may miss current-suffix hits	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F05	0	V	ST API table lists only STree/find/find_all/lcs/lcsm/append; no delete or replace; PD returns static numpy arrays	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F06	0	V	No merge of two indexes in ST (API table) or PD (__all__ list)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/__init__.py	2026-11-02
+K8	F07	2	V	PD: divsufsort(string) returns SA as numpy int32/int64; lcp_segtree(string) returns (rank, segtree) where rank is the inverse SA	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/stringalg.pyx	2026-11-02
+K8	F08	2	V	PD: kasai(string, suffix_array=None) returns the LCP array (SA computed lazily); no PLCP array is exposed	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F09	2	V	PD: bw_transform(string)->(idx, bwt) and inverse_bw_transform(idx, bwt) via libdivsufsort; no LF-mapping or psi accessor	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F10	1	V	PD: repeated_substrings(sa, lcp) in stringalg yields (start,end,length) LCP intervals but is not in __all__/README; no child table	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/stringalg.pyx	2026-11-02
+K8	F11	0	V	SA is kept in full as a numpy array (PD) and ST is a plain Python node tree; no sampled or compressed locate (API lists checked)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F12	2	V	ST: find(y) returns -1 if absent; PD: sa_search(string, sa, pattern) returns (count, left) so count>0 is the test	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/divsufsort.py	2026-11-02
+K8	F13	2	V	PD: sa_search(string, suffix_array, pattern) returns (count, left); ST: len(find_all(y))	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/divsufsort.py	2026-11-02
+K8	F14	2	V	ST: find_all(y) returns the set of all start indexes; PD: slice SA[left:left+count] (WonderString.search does it, class undocumented)	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F15	1	V	ST: find(y) returns one (first) occurrence only; no limit/lazy/top-k argument; PD: user slices SA[left:left+k]	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F16	1	V	ST: find_all returns an unordered set; PD: SA slice is in suffix order; user must sort for text order	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F17	2	V	PD: sa_search returns (count, left) = SA interval handle that can be reused to slice SA; ST has no public node handle	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/divsufsort.py	2026-11-02
+K8	F18	0	V	No backward/LF step API: PD sa_search and ST find restart from scratch for every pattern (API lists checked)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/divsufsort.py	2026-11-02
+K8	F19	0	V	No right-extension of a stored match state in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/divsufsort.py	2026-11-02
+K8	F20	0	V	No bidirectional index or two-sided extension state in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F21	1	V	PD: inverse_bw_transform restores the whole text only; ST keeps text in the undocumented st.word attribute; no extract(i,len) API	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F22	1	V	ST: word_starts + private _get_word_start_index map a position to a string index in a GST; no public doc-id+offset call	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F23	1	V	ST: GST nodes carry generalized_idxs (set of string ids) used internally by lcs/lcsm; no public pattern->documents call	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F24	0	V	No ranked or top-k document retrieval in ST (API table) or PD (method list)	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F25	0	V	No IUPAC/degenerate pattern symbols in ST find/find_all or PD sa_search (literal match only)	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F26	0	V	No wildcard/don't-care positions in ST or PD search functions	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F27	0	V	No character classes or regex-like patterns in ST or PD	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F28	0	V	No case-insensitive option in ST or PD; user must case-fold text and pattern	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F29	0	V	No reverse-complement search in ST or PD; user indexes/queries both strands manually	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F30	0	V	No palindrome or inverted-repeat finder in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F31	0	V	No k-mismatch search on the index in ST or PD	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F32	0	V	PD levenshtein(a,b) is a pairwise DP distance only, not a search on the index; ST has no approximate search	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/stringalg.pyx	2026-11-02
+K8	F33	0	V	No search schemes or pigeonhole approximate search in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F34	0	V	No approximate matching, hence no N/ambiguity tolerance, in ST or PD	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F35	1	V	PD: common_substrings(read, ref, limit) returns MEM pairs usable as seeds but re-sorts s1+sep+s2 on every call; no seeding API	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/wonderstring.py	2026-11-02
+K8	F36	0	V	No matching-statistics array in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F37	2	V	PD: common_substrings(s1, s2, limit=25) returns all maximal (idx1, idx2, length) pairs; builds SA of s1+sep+s2 per call, no reusable index	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/wonderstring.py	2026-11-02
+K8	F38	1	V	PD: MUM needs user filter of common_substrings output by uniqueness (count via sa_search); no MUM function	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/wonderstring.py	2026-11-02
+K8	F39	0	V	No SMEM computation in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F40	0	V	No chaining/clustering of matches into alignments in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F41	2	V	ST: STree([a, b]).lcs() longest common substring, lcsm() lists all ties; PD: common_substrings(s1, s2)	https://raw.githubusercontent.com/ptrus/suffix-trees/master/README.md	2026-11-02
+K8	F42	2	V	ST: STree(list of k strings).lcs(stringIdxs)/lcsm(stringIdxs) give LCS over all or any subset of k strings	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F43	1	V	No SUS API; derivable from PD kasai() LCP array with numpy (min over i of max(lcp[i-1], lcp[i])+1)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F44	0	V	No minimal absent word computation in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F45	1	V	No LRS API; PD: argmax of kasai() LCP array plus SA positions by user code; ST has no repeat finder	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F46	1	V	PD: private-ish repeated_substrings(sa, lcp) lists right-maximal repeat intervals; maximal pairs need user left-maximality filter	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/stringalg.pyx	2026-11-02
+K8	F47	0	V	No supermaximal repeat finder in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F48	0	V	No tandem repeat finder in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F49	1	V	No distinct-substring API; PD: n(n+1)/2 - sum(kasai LCP) by user numpy code	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F50	2	V	PD: most_frequent_substrings(lcp, length, limit, minimum_count) returns SA positions and counts for length-k substrings	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/stringalg.pyx	2026-11-02
+K8	F51	1	V	PD: lempel_ziv_complexity(string) gives one LZ complexity number; no per-length linguistic or substring complexity profile	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F52	2	V	PD: longest_previous_factor(string), lempel_ziv_factorization(lpf, complexity) and lempel_ziv_complexity(string)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F53	0	V	No mappability or uniqueness map function in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F54	1	V	ST: _SNode.transition_links dict (char -> child) is a public slot of a private class, undocumented; no child(c) API	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F55	1	V	ST: _SNode.parent attribute (undocumented, private class); PD has no tree	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F56	1	V	ST: _SNode._suffix_link / _get_suffix_link() set by McCreight construction; private and undocumented	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F57	0	V	No Weiner (inverse suffix) links: _SNode slots are _suffix_link, transition_links, idx, depth, parent, generalized_idxs	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F58	1	V	ST: _SNode.depth attribute is the string depth, undocumented; PD has no nodes	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F59	2	V	PD: lcp_segtree(string) + lcp_query(segtree, [(i, j), ...]) gives LCP of suffixes i,j via RMQ segment tree (batch of pairs)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/stringalg.pyx	2026-11-02
+K8	F60	1	V	ST: walk _SNode.parent until depth <= d (user loop over undocumented attributes); no level-ancestor API	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F61	2	V	PD: SA[i] is the suffix start (leaf label) of leaf rank i and lcp_segtree returns rank (inverse SA)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/stringalg.pyx	2026-11-02
+K8	F62	1	V	ST: _SNode._get_leaves() (private) returns subtree leaves; len() is leaf count; undocumented	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F63	1	V	ST: iterate node.transition_links.values() for children (undocumented attribute); no sibling API	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F64	1	V	ST: _SNode._traverse(f) private post-order visitor on subtree; STree.root is a public attribute; undocumented	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F65	1	V	ST: STree._edgeLabel(node, parent) private helper returns word[idx+parent.depth : idx+depth]	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F66	1	V	No serialize API in ST or PD; PD results are numpy arrays (np.save/np.load by user), ST nodes are plain Python objects	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/__init__.py	2026-11-02
+K8	F67	1	U	No mmap API; PD SA is a numpy array so np.load(mmap_mode='r') might be passed to sa_search (not tested, optimistic)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/divsufsort.py	2026-11-02
+K8	F68	0	V	No on-disk format defined by ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F69	0	V	No integrity check or hash of the index in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F70	0	V	No command-line tool in ST (README) or PD (README lists Python functions only)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F71	0	V	No server/RPC/MCP surface in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F72	0	V	No index statistics/inspection function in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F73	0	V	No DOT or graph export in ST or PD	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F74	0	V	No thread-safety statement in ST README or PD README (PD only notes OpenMP in libdivsufsort build; OMP_NUM_THREADS=1 disables)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F75	1	V	PD: lcp_query(segtree, queries) takes many (i,j) pairs in one call (serial Cython loop, 'TODO parallelize'); no batch pattern search	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/pydivsufsort/stringalg.pyx	2026-11-02
+K8	F76	2	V	PD: str (ASCII only), bytes and uint8 arrays; ST: str and bytes (latin-1 mapping) both supported	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F77	2	V	ST: Python str of any code point; unique terminals come from private-use area U+E000.. so such chars clash in a GST	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K8	F78	2	V	PD: arbitrary integer ndarray dtypes (int8..uint64) accepted, encoded as multiple chars; slower than char text	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F79	0	V	No 2-bit packed DNA text or index in ST or PD (bytes/ints only)	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F80	2	V	ST/PD accept any str/bytes alphabet incl. 20 amino-acid letters	https://raw.githubusercontent.com/louisabraham/pydivsufsort/master/README.md	2026-11-02
+K8	F81	1	V	ST docstring: terminals are private-use U+E000..F8FF, raises ValueError('Too many input strings.') when exhausted; no N policy	https://raw.githubusercontent.com/ptrus/suffix-trees/master/suffix_trees/STree.py	2026-11-02
+K9	F01	2	V	WM: SuffixArray.Create(string|ReadOnlyMemory<char>), FMIndex.Create(text, sampleRate), LcpIndex.Create(sa); text limit 100,000,000 chars	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/SuffixArray.cs	2026-11-02
+K9	F02	2	V	WM: LcpIndex.CreateMultiSimilarityMatcher(params string[]) builds one LCP index over 2..6400 texts with private-use separators	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F03	0	V	WM Create() takes in-memory string/ReadOnlyMemory<char> only; NB MultiWaySuffixTree(ISequence) is in memory; no file/stream builder	https://github.com/belnytheraseiche/WaveletMatrix/tree/main/src	2026-11-02
+K9	F04	0	V	WM SuffixArray/FMIndex/LcpIndex are immutable after Create (no append member); NB tree built once in constructor	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F05	0	V	No delete/replace in WM (member lists of SuffixArray, FMIndex, LcpIndex checked) or NB MultiWaySuffixTree	https://github.com/belnytheraseiche/WaveletMatrix/tree/main/src	2026-11-02
+K9	F06	0	V	No merge of two indexes in WM or NB (public members checked)	https://github.com/belnytheraseiche/WaveletMatrix/tree/main/src	2026-11-02
+K9	F07	2	V	WM: SuffixArray.SA (ReadOnlyMemory<int>) and SuffixArray.Rank (inverse SA) are public properties	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/SuffixArray.cs	2026-11-02
+K9	F08	2	V	WM: SuffixArray.Lcp (Kasai, Lcp[i] between SA[i-1] and SA[i]); LcpIndex adds O(1) RMQ; no PLCP	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/SuffixArray.cs	2026-11-02
+K9	F09	2	V	WM: BurrowsWheelerTransform.Transform(text)->BwtResult(SA, BwtString, OriginalIndex); FMIndex.WM holds BWT; no public LF/psi call	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/BurrowsWheelerTransform.cs	2026-11-02
+K9	F10	1	V	WM: public SA + Lcp + Fischer-Heun RMQ allow user-built LCP intervals; no child table or LCP-interval tree API	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F11	2	V	WM: FMIndex.Create(text, sampleRate>1) keeps every N-th SA entry (IsSampled); README: DNA FM serialized 17.25 MB vs 429.10 MB unsampled	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F12	2	V	WM: FMIndex.Contains(pattern); also FindFirst(pattern) returns position or -1	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F13	2	V	WM: FMIndex.Count(pattern) in O(P) (README ~0.03-0.7 us on 50 MB DNA); LcpIndex.CountOccurrences	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F14	2	V	WM: FMIndex.Locate(pattern), SuffixArray.Search(pattern), LcpIndex.Locate(pattern, SortOrder)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F15	2	V	WM: Locate returns lazy IEnumerable<int> (yield in SortOrder.Unordered), FindFirst for one hit; no explicit top-k	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F16	2	V	WM: Locate(pattern, SortOrder.Ascending default | Descending | Unordered); SuffixArray.Search documented as ascending	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F17	0	V	WM: SA interval is internal to Count/Locate, no public handle type; NB none (member lists checked)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F18	1	V	WM: FMIndex.WM (wavelet matrix of BWT) is public with Rank(); C table is internal, so an LF step needs user code	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F19	0	V	WM FM-index is backward-only and exposes no forward step; NB SearchMatches has no stepwise API	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F20	0	V	No bidirectional index or two-sided extension in WM or NB	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F21	2	V	WM: FMIndex.GetSnippet(position, keyLength, totalLength) returns text in full-SA mode (null if sampled); Text slice; RestoreSourceText()	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F22	1	V	WM: MultiSimilarityMatcher results carry (text index, position) tuples; no general position->doc+offset call on the combined LcpIndex	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F23	1	V	WM: MultiSimilarityMatcher.Matches(minTexts, minLength) lists substrings by text count; per-pattern doc list needs user code over Locate	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F24	0	V	No ranked/top-k document retrieval in WM or NB (WaveletMatrixGeneric.TopK is top-k values of a range, not documents)	https://github.com/belnytheraseiche/WaveletMatrix/tree/main/src	2026-11-02
+K9	F25	0	V	WM wildcard '?' = any char, no IUPAC classes; NB treats ambiguous symbols as symbols (NoAmbiguity switch), no expansion	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F26	2	V	WM: FMIndex.LocateWildcard('?'), LocateSingleGapped/LocateMultiGapped('*'), SuffixArray.SearchWildcard(expr, WildcardOptions)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F27	0	V	No character classes or regex in WM or NB (only '?' and '*' wildcards)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F28	1	V	NB: MultiWaySuffixTree.ProcessQuerySequence maps alias symbols ('a'->'A') via the alphabet symbol map; WM search is case-sensitive	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixTree.cs	2026-11-02
+K9	F29	0	V	No reverse-complement search in WM or NB suffix-tree/SA/FM classes	https://github.com/belnytheraseiche/WaveletMatrix/tree/main/src	2026-11-02
+K9	F30	1	V	WM: LcpIndex.CreateSimilarityMatcherForPalindrome(text).FindPalindrome() returns only the longest literal palindrome (text vs reverse), not revcomp	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F31	2	V	WM: FMIndex.LocateFuzzy(pattern, maxDistance, disableInsertion: true, disableDeletion: true) is substitution-only search on the FM-index	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F32	2	V	WM: FMIndex.LocateFuzzy(pattern, maxDistance) with substitutions, insertions, deletions; returns FuzzyMatch(Position, Length, EditDistance)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F33	0	V	WM LocateFuzzy is plain recursive backtracking over wavelet-matrix ranks; no search schemes or pattern partitioning	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F34	0	V	WM wildcardQ is a pattern wildcard, not text tolerance; NB NoAmbiguity only blocks matches over ambiguous symbols	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/ISuffixTree.cs	2026-11-02
+K9	F35	1	V	NB: ISuffixTree.SearchMatches(query) with MinLengthOfMatch yields MEMs that MUMmerAligner uses as seeds; no read-mapping seed API	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/ISuffixTree.cs	2026-11-02
+K9	F36	0	V	No matching-statistics array in WM or NB (SimilarityMatcher scans adjacent LCP of the combined text)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F37	2	V	NB: MUMmer(ref).GetMatches(query) / ISuffixTree.SearchMatches = MaxMatch MEMs >= LengthOfMUM (default 20), offsets in both; in-memory	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/MUMmer/MUMmer.cs	2026-11-02
+K9	F38	2	V	NB: MUMmer.GetMatchesUniqueInReference(query) = MUM-reference variant (unique in reference only; no unique-in-both mode)	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/MUMmer/MUMmer.cs	2026-11-02
+K9	F39	0	V	No SMEM computation in WM or NB (MUMmer exposes GetMatches and GetMatchesUniqueInReference only)	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/MUMmer/MUMmer.cs	2026-11-02
+K9	F40	2	V	NB: MUMmerAligner sorts MUMs, keeps a longest-increasing-subsequence chain and fills gaps with Needleman-Wunsch (MUMmer-style)	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/MUMmer/MUMmerAligner.cs	2026-11-02
+K9	F41	2	V	WM: SuffixArray.SearchLongestCommon(t1, t2) and SimilarityMatcher.LongestMatch() return all longest common substrings with positions	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/SuffixArray.cs	2026-11-02
+K9	F42	2	V	WM: MultiSimilarityMatcher.LongestMatch(minTexts) / Matches(minTexts, minLength) for substrings shared by >= k of up to 6400 texts	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F43	2	V	WM: LcpIndex.FindShortestUniqueSubstring() and FindAllShortestUniqueSubstrings() from adjacent-suffix LCP	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F44	0	V	No minimal absent word function in WM or NB	https://github.com/belnytheraseiche/WaveletMatrix/tree/main/src	2026-11-02
+K9	F45	2	V	WM: SuffixArray.SearchLongestRepeated() and LcpIndex.FindLongestRepeats() return the longest repeat(s) with all positions	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/SuffixArray.cs	2026-11-02
+K9	F46	1	V	WM: SearchRepeated(minLength)/FindRepeats(minLength) list repeated substrings with positions, not maximal repeated pairs	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F47	0	V	No supermaximal repeat finder in WM or NB	https://github.com/belnytheraseiche/WaveletMatrix/tree/main/src	2026-11-02
+K9	F48	2	V	WM: LcpIndex.FindTandemRepeats() returns maximal tandem repeats as TandemRepeat(Position, Length, Count)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F49	2	V	WM: LcpIndex.CountUniqueSubstrings() = total distinct substrings in O(N); no per-length breakdown	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F50	1	V	NB: Kmer classes (KmerIndexerDictionary, KmerPositionDictionary) are separate hash indexes; WM only per-pattern Count, no spectrum from the index	https://github.com/dotnetbio/bio/tree/master/Source/Bio.Core/Algorithms/Kmer	2026-11-02
+K9	F51	1	V	WM: CountUniqueSubstrings plus CalculateZivLempelComplexity (LZ78 phrase count); no per-length linguistic complexity profile	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F52	1	V	WM: LcpIndex.CalculateZivLempelComplexity() returns LZ78 phrase count only; no LZ77 factorization or LPF array	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F53	0	V	No mappability or uniqueness-map function in WM or NB (only global shortest unique substring)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F54	0	V	No tree nodes: WM is SA/FM based; NB MultiWaySuffixTree root edge is private so MultiWaySuffixEdge.Children is unreachable	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixEdge.cs	2026-11-02
+K9	F55	0	V	No parent operation: WM has no tree, NB tree edges are not traversable from the public API	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixEdge.cs	2026-11-02
+K9	F56	0	V	NB: MultiWaySuffixEdge.SuffixLink field exists but the root edge is private (not traversable); WM has no suffix links	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixEdge.cs	2026-11-02
+K9	F57	0	V	No Weiner/inverse suffix links in WM or NB	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixEdge.cs	2026-11-02
+K9	F58	0	V	No node string-depth accessor in WM (SA/LCP only) or NB (edge struct has StartIndex, GetEndIndex only)	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixEdge.cs	2026-11-02
+K9	F59	2	V	WM: LcpIndex.GetLcp(i, j) O(1) via Fischer-Heun sparse table RMQ; README 21.7 ns (english) / 26.9 ns (DNA) per call	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F60	0	V	No level-ancestor or ancestor-at-depth operation in WM or NB	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixEdge.cs	2026-11-02
+K9	F61	2	V	WM: SuffixArray.SA[i] (suffix start of leaf rank i) and SuffixArray.Rank[p] (leaf rank of suffix p) are public	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/SuffixArray.cs	2026-11-02
+K9	F62	0	V	No subtree size for a node handle in WM or NB (Count(pattern) is F13)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F63	0	V	No child enumeration or sibling traversal in WM or NB public API	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixEdge.cs	2026-11-02
+K9	F64	0	V	No whole-tree DFS/visitor in WM or NB public API (repeat finders are internal LCP scans)	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixTree.cs	2026-11-02
+K9	F65	0	V	No edge/path label access in WM or NB public API	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixEdge.cs	2026-11-02
+K9	F66	2	V	WM: SuffixArray/FMIndex/LcpIndex.Serialize(obj, byte[]|file|Stream, SerializationOptions) and Deserialize (Brotli, xxHash32)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/SuffixArray.cs	2026-11-02
+K9	F67	0	V	WM Deserialize reads and Brotli-decompresses arrays into RAM (ReadExactly); no memory-mapped load	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/SuffixArray.cs	2026-11-02
+K9	F68	1	V	WM: files start with magic 'SFXA'/'FMIL' then block sizes and xxHash; layout is only in source comments, no version field or spec	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/SuffixArray.cs	2026-11-02
+K9	F69	2	V	WM: serialized index stores XxHash32 checksum; Deserialize throws InvalidDataException('Broken.') on mismatch (README: checksums)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/readme.md	2026-11-02
+K9	F70	0	V	WM and NB are class libraries (Program.cs is sample code); no CLI tool	https://github.com/belnytheraseiche/WaveletMatrix/tree/main/src	2026-11-02
+K9	F71	0	V	No server/RPC/MCP surface in WM or NB	https://github.com/belnytheraseiche/WaveletMatrix/tree/main/src	2026-11-02
+K9	F72	1	V	NB: MultiWaySuffixTree.EdgesCount; WM: FMIndex.IsSampled/UniqueCharacters and wavelet Size; no depth or byte-size report	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixTree.cs	2026-11-02
+K9	F73	0	V	No DOT/graph export in WM or NB	https://github.com/belnytheraseiche/WaveletMatrix/tree/main/src	2026-11-02
+K9	F74	0	V	No thread-safety statement in WM readme or source (no lock/thread mentions); NB uses Parallel.ForEach only inside construction	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/readme.md	2026-11-02
+K9	F75	0	V	No batch multi-pattern query API in WM or NB (one pattern per Count/Locate call)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/FMIndex.cs	2026-11-02
+K9	F76	2	V	WM: text is .NET char (UTF-16 units), ASCII text works; README benchmarks english.50MB	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/readme.md	2026-11-02
+K9	F77	2	V	WM: any UTF-16 code unit; '\0' is the FMIndex terminator and U+E000-F8FF are reserved separators in MultiSimilarityMatcher	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/LcpIndex.cs	2026-11-02
+K9	F78	1	V	WM: WaveletMatrixGeneric<int|byte|char|T> is generic, but SuffixArray/FMIndex/LcpIndex are char-only (16-bit symbols)	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/src/WaveletMatrixGeneric.cs	2026-11-02
+K9	F79	1	V	WM: no packed DNA type; wavelet matrix stores BWT in ceil(log2 sigma) bit planes (FM 17 MB for 50 MB DNA); NB stores 1 byte per symbol	https://raw.githubusercontent.com/belnytheraseiche/WaveletMatrix/main/readme.md	2026-11-02
+K9	F80	2	V	WM: any char alphabet incl. 20 amino-acid letters; NB MultiWaySuffixTree takes ProteinAlphabet sequences	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/MultiWaySuffixTree.cs	2026-11-02
+K9	F81	2	V	NB: ISuffixTree.NoAmbiguity switch (documented) controls ambiguous symbols; WM: reserved separator chars rejected with ArgumentException	https://raw.githubusercontent.com/dotnetbio/bio/master/Source/Bio.Core/Algorithms/SuffixTree/ISuffixTree.cs	2026-11-02
+K10	F01	2	V	BT2: bowtie2-build -c GGTCATCCT,... builds an index from sequences given on the command line; BWA: bwa index ref.fa	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-build-options-c	2026-11-02
+K10	F02	2	V	BT2: bowtie2-build takes comma-separated FASTA list / multi-FASTA; BWA: bwa index over multi-FASTA; sequence names and lengths kept	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#the-bowtie2-build-indexer	2026-11-02
+K10	F03	1	V	bowtie2-build and bwa index read FASTA files; blockwise (--bmax/--dcv, bwtsw -b) trades time and memory but the reference is still loaded	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#the-bowtie2-build-indexer	2026-11-02
+K10	F04	0	V	No append: bwa usage lists index/mem/fastmap/pemerge/aln/samse/sampe/bwasw/shm/fa2pac/pac2bwt/pac2bwtgen/bwtupdate/bwt2sa; indexes are static files	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F05	0	V	No delete/replace command in bwa (main.c command list) or bowtie2/-build/-inspect (manual); rebuild required	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F06	0	V	No merge-two-indexes command in the bwa command list or bowtie2 tools	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F07	1	V	BWA: 'bwa bwt2sa [-i INT] in.bwt out.sa' writes sampled SA (INT=1 full); BT2 marks every 2^offrate row; binary files, no inverse SA	https://raw.githubusercontent.com/lh3/bwa/master/bwtindex.c	2026-11-02
+K10	F08	0	V	No LCP/PLCP array in bwa or bowtie2 index files or commands	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F09	1	V	BWA: bwa pac2bwt writes the .bwt file (binary, layout undocumented); BT2 keeps BWT in .1.bt2; no BWT text export or LF/psi call	https://raw.githubusercontent.com/lh3/bwa/master/bwtindex.c	2026-11-02
+K10	F10	0	V	No child table or LCP-interval tree in bwa/bowtie2 (FM/FMD index only)	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F11	2	V	BT2: bowtie2-build -o/--offrate marks every 2^int BWT rows (default 5), bowtie2 -o overrides at load; BWA: bwt2sa -i	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-build-options-o	2026-11-02
+K10	F12	2	V	BWA: bwa fastmap prints EM lines for exact matches, bwa aln -n 0 gives exact hits; BT2: --score-min C,0 end-to-end; pattern passed as a read	https://raw.githubusercontent.com/lh3/bwa/master/fastmap.c	2026-11-02
+K10	F13	2	V	BWA: bwa fastmap prints EM start end <interval size> per SMEM = occurrence count; SAM tag X0 = number of best hits	https://raw.githubusercontent.com/lh3/bwa/master/fastmap.c	2026-11-02
+K10	F14	2	V	BT2: -a reports all alignments (with --score-min C,0 exact only); BWA fastmap lists name:strand+pos for intervals <= -w (default 20)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-options-a	2026-11-02
+K10	F15	2	V	BT2: -k <int> stops after int distinct alignments, reported in descending score order; BWA samse -n limits XA hits	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-options-k	2026-11-02
+K10	F16	1	V	BT2 reports alignments in descending score order (ties arbitrary), BWA in SA order; no text-order guarantee, sort the SAM by coordinate	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#a-mode-search-for-and-report-all-alignments	2026-11-02
+K10	F17	2	V	BWA: bwa aln writes .sai = SA coordinates (interval) per read, reused later by samse/sampe	https://bio-bwa.sourceforge.net/bwa.shtml	2026-11-02
+K10	F18	1	V	BWA bwt.h declares bwt_extend(bwt, ik, ok[4], is_back) and bwt_smem1; C header only, not documented as an API, no CLI stepping	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F19	1	V	BWA bwt.h: bwt_extend with is_back=0 extends forward in the FMD-index; header-level only	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F20	1	V	BWA: FMD-index bidirectional extension (bwt_extend, bwt_smem1) used by fastmap and mem; header-only, undocumented API	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F21	1	V	BT2: bowtie2-inspect outputs the original reference FASTA (non-ACGT -> N), -n names, -s summary; no sub-range extraction option	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#the-bowtie2-inspect-index-inspector	2026-11-02
+K10	F22	2	V	BT2/BWA: SAM RNAME + 1-based POS are offsets in the named sequence of a multi-FASTA index; fastmap prints name:strand+pos	https://raw.githubusercontent.com/lh3/bwa/master/fastmap.c	2026-11-02
+K10	F23	1	V	Each hit carries RNAME (bowtie2 -a, bwa XA tag); per-pattern document list/count needs user post-processing of the SAM	https://bio-bwa.sourceforge.net/bwa.shtml	2026-11-02
+K10	F24	0	V	No ranked/top-k document retrieval in bwa or bowtie2 (alignment-score ranking of loci only)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml	2026-11-02
+K10	F25	0	V	BT2: every non-ACGT char in read or reference is an ambiguous N (penalty --np), IUPAC not expanded; BWA treats them as mismatch/N	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#ambiguous-characters	2026-11-02
+K10	F26	1	V	BT2: N in the read with --np 0 (raise --n-ceil) acts as don't-care at no cost; no explicit wildcard pattern syntax	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-options-np	2026-11-02
+K10	F27	0	V	No character classes or regex-like patterns in bwa or bowtie2	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml	2026-11-02
+K10	F28	1	U	Case handling is not described in the BT2 manual or BWA man page; lowercase FASTA/reads are accepted in practice (unverified)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml	2026-11-02
+K10	F29	2	V	BT2: both strands by default (--nofw/--norc restrict); BWA: forward and reverse-complement genome in one FM-index since 0.6	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-options-nofw	2026-11-02
+K10	F30	0	V	No palindrome or inverted-repeat finder in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F31	2	V	BWA: bwa aln -n k -o 0 (ungapped, at most k differences) via backtracking on the BWT; BT2: end-to-end with --score-min threshold	https://bio-bwa.sourceforge.net/bwa.shtml	2026-11-02
+K10	F32	2	V	BWA: bwa aln -n maxDiff -o maxGapO -e maxGapE edit-distance search on the FM-index; BT2 gapped alignment with --rdg/--rfg	https://bio-bwa.sourceforge.net/bwa.shtml	2026-11-02
+K10	F33	1	V	BT2: multiseed heuristic (-L seed length, -i interval, -N mismatches, -R re-seed); BWA aln -l/-k seeding; heuristics, not search schemes	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#multiseed-heuristic	2026-11-02
+K10	F34	2	V	BT2: alignments may overlap ambiguous reference chars, penalized by --np, capped by --n-ceil, XN:i reports them (seeds cannot overlap)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#ambiguous-characters	2026-11-02
+K10	F35	2	V	BWA: bwa mem seeds with MEMs/SMEMs (-k min seed length, -r re-seed, -c max occurrences); bwa fastmap exposes SMEMs	https://bio-bwa.sourceforge.net/bwa.shtml	2026-11-02
+K10	F36	1	V	BWA fastmap emits SMEMs per query (EM start end count); no matching-statistics array, derivable from the SMEM list by user code	https://raw.githubusercontent.com/lh3/bwa/master/fastmap.c	2026-11-02
+K10	F37	1	V	BWA fastmap reports super-maximal matches (subset of MEMs) with counts and positions; bwa mem -r adds internal re-seeding	https://raw.githubusercontent.com/lh3/bwa/master/fastmap.c	2026-11-02
+K10	F38	0	V	No MUM command in bwa or bowtie2 (SMEM only)	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F39	2	V	BWA: bwa fastmap 'identify super-maximal exact matches' (-l min length, -w max interval, -i min interval, -L max MEM, -I)	https://raw.githubusercontent.com/lh3/bwa/master/fastmap.c	2026-11-02
+K10	F40	2	V	BWA: bwa mem chains seeds and drops weak chains (-D drop ratio, -W min seed bases) then extends with banded SW	https://bio-bwa.sourceforge.net/bwa.shtml	2026-11-02
+K10	F41	1	V	Workaround: index text A, run bwa fastmap with text B, longest EM line = longest common substring; no dedicated command	https://raw.githubusercontent.com/lh3/bwa/master/fastmap.c	2026-11-02
+K10	F42	0	V	No LCS over k texts in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F43	0	V	No shortest-unique-substring command in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F44	0	V	No minimal absent word command in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F45	0	V	No longest-repeated-substring command in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F46	0	V	No maximal-repeated-pair command in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F47	0	V	No supermaximal repeat command in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F48	0	V	No tandem repeat command in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F49	0	V	No distinct-substring counter in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F50	0	V	No k-mer counting/spectrum command in bwa or bowtie2 (only ftab k-mer prefix table inside the index)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#the-bowtie2-build-indexer	2026-11-02
+K10	F51	0	V	No substring-complexity profile in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F52	0	V	No LZ factorization or LPF in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/main.c	2026-11-02
+K10	F53	1	V	Workaround: map every k-mer as a read; BWA XT:A (Unique/Repeat) and X0/X1 tags, BT2 XS:i/MAPQ give uniqueness; no mappability-map command	https://bio-bwa.sourceforge.net/bwa.shtml	2026-11-02
+K10	F54	0	V	No tree navigation: FM/FMD index only (bwa bwt.h, bowtie2 manual); child-by-char is not exposed	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F55	0	V	No parent operation in bwa or bowtie2 index	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F56	0	V	No suffix links in bwa or bowtie2 index	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F57	0	V	No Weiner links in bwa or bowtie2 index	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F58	0	V	No node string-depth API in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F59	0	V	No LCP/LCA query in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F60	0	V	No level-ancestor operation in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F61	0	V	No leaf rank/label call; SA coordinates only appear as .sai intervals and are converted internally to positions	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F62	0	V	No subtree-size call for a node handle in bwa or bowtie2 (interval size appears only in fastmap output)	https://raw.githubusercontent.com/lh3/bwa/master/fastmap.c	2026-11-02
+K10	F63	0	V	No child enumeration in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F64	0	V	No tree DFS/visitor in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F65	0	V	No edge/path label access in bwa or bowtie2	https://raw.githubusercontent.com/lh3/bwa/master/bwt.h	2026-11-02
+K10	F66	2	V	BT2: .1-.4.bt2 + .rev.1/.rev.2.bt2 (or .bt2l) written by bowtie2-build and loaded by bowtie2; BWA writes .bwt .pac .sa .ann .amb	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#the-bowtie2-build-indexer	2026-11-02
+K10	F67	2	V	BT2: --mm uses memory-mapped I/O to load the index and share one image across processes; BWA: bwa shm stages the index in shared memory	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-options-mm	2026-11-02
+K10	F68	1	V	BT2: small (.bt2, 32-bit) vs large (.bt2l, 64-bit) formats, incompatible with Bowtie 1; BWA bwtupdate upgrades .bwt; byte layout not specified	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#small-and-large-indexes	2026-11-02
+K10	F69	0	V	No checksum/hash or verify command for index files in bwa or bowtie2 (manuals checked)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml	2026-11-02
+K10	F70	2	V	BT2: bowtie2, bowtie2-build, bowtie2-inspect; BWA: bwa index/mem/aln/fastmap/shm ...	https://bio-bwa.sourceforge.net/bwa.shtml	2026-11-02
+K10	F71	0	V	No server/RPC/MCP surface; CLI only plus bwa shm (shared-memory index staging)	https://raw.githubusercontent.com/lh3/bwa/master/bwashm.c	2026-11-02
+K10	F72	2	V	BT2: bowtie2-inspect -s/--summary prints SA sample rate, ftab chars, sequence names and lengths; -n lists names	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#the-bowtie2-inspect-index-inspector	2026-11-02
+K10	F73	0	V	No DOT/graph export in bwa or bowtie2	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml	2026-11-02
+K10	F74	2	V	BT2: -p NTHREADS search threads share one index (speedup close to linear), --mm shares across processes; BWA mem -t	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-options-p	2026-11-02
+K10	F75	2	V	BT2/BWA: many patterns per run as FASTA/FASTQ reads (or -c on command line) with parallel threads (bowtie2 -p, bwa mem/aln -t)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-options-c	2026-11-02
+K10	F76	0	V	DNA only: BT2 manual treats chars other than A/C/G/T as ambiguous N; BWA indexes nucleotides only; no byte/ASCII text index	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#ambiguous-characters	2026-11-02
+K10	F77	0	V	No Unicode text support in bwa or bowtie2 (DNA alphabet only)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#ambiguous-characters	2026-11-02
+K10	F78	0	V	No integer alphabet in bwa or bowtie2 (DNA only)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#ambiguous-characters	2026-11-02
+K10	F79	2	V	BT2: bowtie2-build -p/--packed uses 2 bits per nucleotide, .3/.4.bt2 hold the bitpacked reference; BWA .pac is the packed sequence (fa2pac)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#bowtie2-build-options-p	2026-11-02
+K10	F80	0	V	No protein index in bwa or bowtie2 (DNA only)	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#ambiguous-characters	2026-11-02
+K10	F81	2	V	BT2: documented N policy (ambiguous refs/IUPAC -> N, --np, --n-ceil, YF:Z:NS filter); BWA man: N in the database replaced by random bases	https://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#ambiguous-characters	2026-11-02

@@ -1,0 +1,21 @@
+competitor_id	cap_id	score	flag	evidence	url	accessed
+K0	C10	1	V	Measured 10 Mbp random DNA: 14.6 s in-memory = 44.6x libsais (0.328 s); 389 s at 50 Mbp (186x); single thread	bench/REPORT.md#1	2026-11-03
+K0	C11	1	V	Measured 10 Mbp: 169 B/char managed heap (in-memory), 56.2 B/char file (persistent, best mode); SA 4 B/char, sdsl FM 0.27	bench/REPORT.md#1	2026-11-03
+K0	C12	2	V	Measured 10 Mbp: count 590k q/s (1.3x best) but locate8 49.7k pat/s (23x slower than rust-bio 1.14M); geometric mean 5.4x	bench/REPORT.md#1	2026-11-03
+K0	C13	1	V	Measured: persistent tree finished 50 Mbp (389 s, 2.81 GB), 100 Mbp killed at 600 s; text length is int32 (<2^31 chars)	bench/REPORT.md#3	2026-11-03
+K0	C15	0	V	Measured: CPU 380 s vs 389 s wall at 50 Mbp, build is single-threaded; no parallel construction API	bench/REPORT.md#3	2026-11-03
+K0	C16	3	V	Measured: 4 threads on one shared tree scale 4.4x, checksums correct in every run; documented thread-safe reads	bench/REPORT.md#4	2026-11-03
+K1	C10	2	V	Measured 10 Mbp: best sdsl member csa_wt_huff 1.64 s = 5.0x libsais; cst_sct3 2.69 s	bench/REPORT.md#2	2026-11-03
+K1	C11	4	V	Measured: csa_wt_rrr 0.27 B/char, csa_wt_huff 0.56 B/char, cst_sct3 1.65 B/char at 10 Mbp	bench/REPORT.md#2	2026-11-03
+K1	C12	1	V	Measured 10 Mbp: csa_wt_huff count 660k q/s but locate8 2.1k pat/s (531x slower than best); geometric mean 24.5x	bench/REPORT.md#2	2026-11-03
+K5	C10	4	V	Measured: libsais 0.328 s at 10 Mbp (fastest of all tools), libsais_omp 4 threads 0.179 s; libdivsufsort 0.662 s	bench/REPORT.md#2	2026-11-03
+K5	C11	3	V	Measured: suffix array 4 B/char (int32), 52 MB peak RSS at 10 Mbp	bench/REPORT.md#2	2026-11-03
+K6	C10	3	V	Measured 10 Mbp: Go index/suffixarray 0.73 s = 2.2x libsais	bench/REPORT.md#2	2026-11-03
+K6	C11	3	V	Measured: 4 B/char suffix array plus 1 B/char text; whole index must fit in RAM	bench/REPORT.md#2	2026-11-03
+K6	C12	3	V	Measured 10 Mbp: count 573k q/s (1.3x), locate8 464k pat/s (2.5x slower than rust-bio); geometric mean 1.8x	bench/REPORT.md#1	2026-11-03
+K7	C10	2	V	Measured 10 Mbp: rust-bio SA+BWT+FM build 1.87 s = 5.7x libsais	bench/REPORT.md#2	2026-11-03
+K7	C12	4	V	Measured 10 Mbp: rust-bio locate8 1.14M pat/s (best), count 338k q/s (2.2x slower); geometric mean 1.5x	bench/REPORT.md#2	2026-11-03
+K8	C10	3	V	Measured 10 Mbp: pydivsufsort 0.537 s (1.6x libsais); pure-Python suffix-trees 196 s and 7.5 GB	bench/REPORT.md#3	2026-11-03
+K8	C11	3	V	Measured: pydivsufsort 4 B/char; suffix-trees 753 B/char and MemoryError at 20 Mbp (best-of rule scores best member)	bench/REPORT.md#3	2026-11-03
+K8	C12	2	V	Measured 10 Mbp: pydivsufsort count 112k q/s, locate8 96k pat/s (Python-call bound); geometric mean 8.9x	bench/REPORT.md#2	2026-11-03
+K10	C10	2	U	BWA index -a bwtsw 5.0 s and bowtie2-build 5.3 s at 10 Mbp (15x libsais); BWA -a is not measured, scored optimistically	bench/REPORT.md#2	2026-11-03

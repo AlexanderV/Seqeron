@@ -1,0 +1,42 @@
+competitor_id	function_name_as_the_tool_calls_it	one_line_description	url
+K1	intersect(wt, ranges)	Intersection of symbols occurring in several wavelet-tree intervals with summed counts (examples/intersect.cpp)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/wt_algorithm.hpp
+K1	quantile_freq(wt, lb, rb, q)	q-th smallest symbol and its frequency in wt[lb..rb]; lex-ordered WTs only	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/wt_algorithm.hpp
+K1	interval_symbols(wt, i, j, k, cs, rank_c_i, rank_c_j)	All distinct symbols in wt[i..j-1] with ranks at both borders; refines BWT intervals (used for CST/bidirectional steps)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/wt_algorithm.hpp
+K1	restricted_unique_range_values(wt, x_i, x_j, y_i, y_j)	Unique values in [y_i,y_j] occurring in positions [x_i,x_j], ascending (document-listing primitive)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/wt_algorithm.hpp
+K1	symbol_lte(wt, c) / symbol_gte(wt, c)	Predecessor/successor symbol present in a WT relative to c	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/wt_algorithm.hpp
+K1	lex_count(i, j, c) (wt member)	rank(c) plus counts of smaller and larger symbols in an interval; core of bidirectional_search	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/wt_pc.hpp
+K1	inverse_select(i) (wt member)	Returns (symbol, rank) at position i in one call	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/wt_pc.hpp
+K1	top_k(treap, p1, p2)	Iterator over heaviest points in a rectangle of a k2-treap in decreasing weight order	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/k2_treap_algorithm.hpp
+K1	range_3d(treap, p1, p2, {w1,w2})	Iterator over all k2-treap points in a rectangle with weight in a range	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/k2_treap_algorithm.hpp
+K1	count(treap, p1, p2)	Number of k2-treap points in a rectangle	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/k2_treap_algorithm.hpp
+K1	H0(v, cst), Hk(cst, k)	Zeroth-order entropy of the text following a substring (node v) and k-th order empirical entropy of the text from a CST	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_tree_algorithm.hpp
+K1	csXprintf(out, format, idx)	Prints CSA/CST columns (SA, ISA, PSI, LF, LCP, BWT, T prefixes) per row with a format string; tutorial/csx-printf.cpp	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/io.hpp
+K1	rmq_succinct_sct / rmq_succinct_sada	Range minimum/maximum query structures used by CSTs; usable standalone (examples/range-minimum-queries.cpp)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/rmq_succinct_sct.hpp
+K1	cst_bfs_iterator, cst_bottom_up_const_forward_iterator	Breadth-first and bottom-up (post-order) CST traversal iterators	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_iterators.hpp
+K1	construct_lcp_PHI / construct_lcp_semi_extern_PHI / construct_lcp_go / construct_lcp_bwt_based	Several selectable LCP construction algorithms incl. semi-external ones	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/construct_lcp.hpp
+K1	wt_ap, wt_epr, wt_gmr, wm_int, wt_rlmn, wt_hutu	Alternative wavelet-tree/matrix shapes (alphabet partitioning, run-length) for the CSA BWT	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/wavelet_trees.hpp
+K2	seqan3::interleaved_bloom_filter	Binned Bloom filter for set-membership/k-mer lookup over many bins; membership_agent bulk_contains, counting_agent bulk_count	https://docs.seqan.de/seqan3/main_user/group__search__dream__index.html
+K2	seqan3::views::kmer_hash(shape)	Rolling k-mer hash view with ungapped or gapped (spaced-seed) shapes	https://docs.seqan.de/seqan3/main_user/group__search__views.html
+K2	seqan3::views::minimiser / minimiser_hash	Windowed minimiser selection over hashes or directly over a sequence with shape, window_size, seed	https://docs.seqan.de/seqan3/main_user/group__search__views.html
+K2	search_cfg::hit_strata / hit_all_best / hit_single_best	Hit strategies: best-plus-stratum, all best, single best per query	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html
+K2	search_cfg::on_result{callback}	Callback instead of lazy result range; enables streaming/parallel result handling	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html
+K2	search_cfg::output_index_cursor	Return the final FM-index cursor in each search_result for follow-up cursor navigation	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html
+K2	fm_index_cursor::cycle_back / bi_fm_index_cursor::cycle_front	Replace last/first query char by next larger char that still occurs; sibling iteration	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1bi__fm__index__cursor.html
+K2	bi_fm_index::fwd_cursor / bi_fm_index_cursor::to_fwd_cursor	Convert between bidirectional and unidirectional cursors on the same index	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1bi__fm__index.html
+K2	seqan3::shape / bin_literal / ungapped	Spaced-seed shape definitions for k-mer hashing	https://docs.seqan.de/seqan3/main_user/group__search__kmer__index.html
+K2	seqan3::counting_vector	Accumulates results of several IBF bulk_contains calls (counts per bin)	https://docs.seqan.de/seqan3/main_user/group__search__dream__index.html
+K3	gt genomediff	Pairwise genome distance Kr from shortest unique substrings (shustrings) on an ESA, 'alignment-free' phylogeny; -indextype esa|pck|encseq	https://genometools.org/tools/gt_genomediff.html
+K3	gt shulengthdist	Distribution of pairwise shustring (shortest unique substring) lengths over an index	https://genometools.org/tools/gt_shulengthdist.html
+K3	gt tallymer occratio	Occurrence ratio: unique vs non-unique k-mer counts for a range of k from an ESA	https://genometools.org/tools/gt_tallymer_occratio.html
+K3	gt encseq2spm / gt readjoiner overlap	Suffix-prefix matches (SPM) of reads from an encoded sequence for string-graph assembly, parts/memlimit supported	https://genometools.org/tools/gt_encseq2spm.html
+K3	gt repfind -spm / -q / -qii (development options)	Suffix-prefix match search and query-vs-index maximal matches in source, hidden from the manual	https://raw.githubusercontent.com/genometools/genometools/master/src/tools/gt_repfind.c
+K3	gt seed_extend	Seed-and-extend local alignment (k-mer/spaced/MEM seeds, xdrop or greedy extension, -ani average nucleotide identity)	https://genometools.org/tools/gt_seed_extend.html
+K3	gt ltrharvest / gt tirvish	LTR retrotransposon and terminal-inverted-repeat prediction on an ESA using exact-repeat seeds	https://genometools.org/tools/gt_tirvish.html
+K3	gt prebwt	Precomputes BWT bounds for a given prefix length of a packed index (bucket table for fast FM start)	https://genometools.org/tools/gt_prebwt.html
+K3	gt packedindex chksearch / mkctxmap / trsuftab	Verify pattern search on a packed index; build context map and transposed suffix table	https://genometools.org/tools/gt_packedindex.html
+K3	gt wtree benchmark	Benchmarks wavelet-tree implementations (rank/select) used in packed indexes	https://genometools.org/tools/gt_wtree.html
+K3	gt condenseq search	Search in redundancy-compressed (CONDENSER) genome collections	https://genometools.org/tools/gt_condenseq.html
+K3	gt congruence spacedseed	Matches spaced seeds against an ESA or packed index	https://genometools.org/tools/gt_congruence_spacedseed.html
+K3	gt suffixerator -kys / -spmopt / -dc	Key-sorted suffix output, SPM-optimised ESA construction, difference-cover sorting (CLI options, no manual page)	https://raw.githubusercontent.com/genometools/genometools/master/src/match/index_options.c
+K3	gt encseq encode -dust	Mask low-complexity regions with the dust algorithm while encoding	https://genometools.org/tools/gt_encseq_encode.html
+K3	gt encseq decode -mirrored -dir rcl	Read sequences or ranges in reverse, complement or reverse-complement direction	https://genometools.org/tools/gt_encseq_decode.html

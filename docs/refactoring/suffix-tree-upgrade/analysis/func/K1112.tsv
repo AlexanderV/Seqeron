@@ -1,0 +1,163 @@
+competitor_id	func_id	score	flag	evidence	url	accessed
+K11	F01	2	V	r-index class ctor r_index(string&) and 'ri-build input' build the RLBWT index from a text (README 'Run'); r-index master, fork ri-buildfasta for FASTA	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F02	2	V	MONI v0.2.2 'moni build -r multi.fa -f' indexes a multi-FASTA pangenome keeping names+starts in .idx; SPUMONI 'build -i filelist' groups genomes	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F03	2	V	Big-BWT builds the BWT with prefix-free parsing in one pass over the file (WABI'18); 'bigbwt <file> -t N'; r-index fork init_bigbwt(fname) takes a file name	https://arxiv.org/pdf/1803.11245	2026-11-02
+K11	F04	0	V	No append/online mode in r-index, Big-BWT, MONI, PHONI, SPUMONI or Movi docs (static indexes, rebuild from new input); READMEs and usage checked	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F05	0	V	No delete/replace of text in any family member (r-index, Big-BWT, MONI, PHONI, SPUMONI, Movi); static indexes only; READMEs and usage checked	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F06	0	V	No index-merge command in r-index, MONI, PHONI, SPUMONI or Movi (usage pages); only rebuild over the union (SPUMONI build -i filelist)	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F07	2	V	Big-BWT 'bigbwt -S' writes the full suffix array (5-byte ints, pSAscan format); -s/-e write run-boundary SA samples; no inverse SA	https://raw.githubusercontent.com/alshai/Big-BWT/master/readme.md	2026-11-02
+K11	F08	0	V	No LCP/PLCP output in r-index, Big-BWT, MONI, PHONI, SPUMONI, Movi (MONI writes thresholds only); LCP access in GNP JACM paper is theory, no code	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F09	2	V	r-index class exposes LF(i), LF(range,c), FL(i), Phi(i), F_at, get_bwt(); Big-BWT writes the .bwt file; Movi has an 'LF' action	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F10	0	V	No child table / LCP-interval tree in any member; fully-functional suffix tree (GNP, JACM 2020) is theoretical, absent from the r-index repo and READMEs	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F11	2	V	r-index stores 2r run-boundary SA samples and locates via Phi (O(log(n/r)) per occ); Movi 'build-SA --sample-rate' sets SA sampling (default 100)	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F12	2	V	r-index occ(P)>0 / count(P) range non-empty; 'ri-count index patterns' (benchmark tool); Movi 'query --count'	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F13	2	V	r-index count(P) returns the SA range and occ(P) the number of occurrences; Movi 'query --count' prints match counts per read	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F14	2	V	r-index locate_all(P) and 'ri-locate' (benchmark tool, -o writes occurrences); fork 'ri-align locate' prints SAM with all positions	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F15	2	V	r-index fork locate_all(P,max_hits,OCC) and 'ri-align --max-hits/--max-range'; Movi sampled SA gives a single SA entry per match	https://raw.githubusercontent.com/maxrossi91/r-index/master/ri-align.cpp	2026-11-02
+K11	F16	1	V	'ri-locate -o' sorts occurrences before writing (CLI only); API locate_all returns Phi-walk order (SA[r] downwards), not text order	https://raw.githubusercontent.com/nicolaprezza/r-index/master/ri-locate.cpp	2026-11-02
+K11	F17	2	V	r-index count(P) returns an inclusive SA range (range_t) that is reusable in LF(range,c); full_range() and get_char_range(c) give start handles	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F18	2	V	r-index LF(range_t,c) is the public backward step (count() loops it); Movi query_backward_search, MONI/SPUMONI backward steps inside ms	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F19	0	V	Only backward (LF) extension in r-index, MONI, PHONI, SPUMONI, Movi; no forward or bidirectional r-index in headers/READMEs checked	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F20	0	V	No bidirectional extension: r-index header exposes LF only (FL moves in the BWT, not a pattern extension); same for MONI, Movi, SPUMONI	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F21	1	V	No extract(i,len) call; MONI/PHONI keep the reference as an SLP with charAt used internally (MONI extend fetches ref substrings); r-index offers LF/BWT only	https://raw.githubusercontent.com/maxrossi91/moni/main/src/mems.cpp	2026-11-02
+K11	F22	2	V	MONI 'mems -e' / '--sam-output' map a reference position to (sequence name, offset) via seqidx; r-index fork ri-align SAM has @SQ names from build_seqidx	https://raw.githubusercontent.com/maxrossi91/moni/main/src/mems.cpp	2026-11-02
+K11	F23	1	V	SPUMONI 'run -d' writes *.doc_numbers (document ids hit per read); Movi Color 'query --multi-classify'; read-level only, no per-pattern document listing	https://raw.githubusercontent.com/wiki/oma219/spumoni/5.-Running-SPUMONI-on-Input-Reads.md	2026-11-02
+K11	F24	1	V	Movi Color multi-class gives primary and secondary document id per read (--report-all for close-score taxa); SPUMONI -d class per read; read-level ranking only	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/README.md	2026-11-02
+K11	F25	0	V	No IUPAC/degenerate pattern support in ri-count/ri-locate/MONI/Movi/SPUMONI (literal symbols only); Movi can map illegal chars to A or random, not expand	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F26	0	V	No wildcard / don't-care positions in r-index (count/locate on literal strings), MONI, PHONI, SPUMONI or Movi usage	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F27	0	V	No character classes or regex-like patterns in any family member (r-index count(string), ri-align FASTA/FASTQ queries)	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F28	2	V	r-index fork upper-cases FASTA text (ri-buildfasta) and each query (ri-align std::toupper), so matching is case-insensitive on DNA	https://raw.githubusercontent.com/maxrossi91/r-index/master/ri-align.cpp	2026-11-02
+K11	F29	2	V	SPUMONI 'build' adds the reverse complement of every FASTA by default (-c/--no-rev-comp disables), so one query covers both strands	https://raw.githubusercontent.com/oma219/spumoni/main/src/spumoni.cpp	2026-11-02
+K11	F30	0	V	No palindrome / inverted-repeat finder in any family member (index+search tools only)	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F31	1	V	MONI 'extend' (ksw2 seed extension of MEMs to SAM) tolerates mismatches; r-index fork inexact_count (BWA-style) is commented out; no index-bounded k mismatches	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F32	1	V	MONI 'extend' does gapped ksw2 extension with -O/-E penalties (seed-and-extend, not an index-bounded k-edit search)	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F33	0	V	No search schemes / pigeonhole approximate search in any member (r-index fork has only a commented BWA-style D-array)	https://raw.githubusercontent.com/maxrossi91/r-index/master/internal/ri_aligner.hpp	2026-11-02
+K11	F34	0	V	No N-tolerant approximate search; Movi --ignore-illegal-chars only replaces non-ACGT by A/random in exact PML queries	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/src/movi_parser.cpp	2026-11-02
+K11	F35	2	V	'moni mems' computes MEMs of reads against the pangenome as seeds (-e adds a reference occurrence, --sam-output SAM); Movi 'query --mem'	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F36	2	V	'moni ms' writes matching-statistics lengths and pointers per read; PHONI 'phoni ms' streamed MS; SPUMONI -M; Movi PML/ZML	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F37	1	V	MONI mems report one reference occurrence per MEM ('-e: print one MEM occurrence'); Movi --mem prints start,end,count only; no all-positions MEM listing	https://raw.githubusercontent.com/maxrossi91/moni/main/src/mems.cpp	2026-11-02
+K11	F38	0	V	No maximal-unique-match query in MONI, Movi, PHONI, SPUMONI or r-index usage (only MS, PML, MEM outputs)	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F39	2	U	MONI mems keeps a match only when MS[i]>=MS[i-1] (mems.cpp), i.e. not contained in another match = SMEMs; README just says 'MEMs'	https://raw.githubusercontent.com/maxrossi91/moni/main/src/mems.cpp	2026-11-02
+K11	F40	1	V	MONI 'extend' turns one MEM into a SAM alignment with ksw2 (L ref window, scoring options); single-seed extension, no chaining of several matches	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F41	1	V	LCS of a query vs the indexed collection = max of MONI 'ms' lengths (or longest MEM); no dedicated LCS command	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F42	0	V	No k-common-substring / LCS over k texts in any member (MONI, SPUMONI, Movi, r-index usage pages)	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F43	0	V	No shortest-unique-substring query in any family member's usage pages	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F44	0	V	No minimal absent words computation in any family member's usage pages	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F45	0	V	No longest-repeated-substring command in any family member (index/search only); only r, n/r statistics printed by ri-build	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F46	0	V	No maximal repeated pairs in any family member's usage pages	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F47	0	V	No supermaximal repeats in any family member's usage pages	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F48	0	V	No tandem repeat finder in any family member's usage pages	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F49	0	V	No distinct-substring count; ri-build prints BWT run count r and n/r (print_space), nothing on distinct substrings	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F50	1	V	Movi 'query --kmer / --kmer-count' looks up every k-mer of the reads in the index (k-length option); no whole-index k-mer spectrum	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/src/movi_parser.cpp	2026-11-02
+K11	F51	0	V	No linguistic/substring complexity profile in any family member	https://raw.githubusercontent.com/nicolaprezza/r-index/master/README.md	2026-11-02
+K11	F52	1	V	Movi 'query --zml' computes the Ziv-Merhav cross-parsing length (relative LZ of a read vs the reference); no self LZ77/LPF	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/README.md	2026-11-02
+K11	F53	1	U	Mappability only by querying genome k-mers against own index (Movi --kmer-count, MONI ms); no uniqueness-map command	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/src/movi_parser.cpp	2026-11-02
+K11	F54	0	V	No suffix-tree node API (child by char); r-index exposes SA ranges with backward LF only	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F55	0	V	No parent operation: no tree node/interval-tree API in r-index header or the other members' docs	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F56	0	V	No suffix links in r-index header, MONI, PHONI, SPUMONI or Movi docs	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F57	1	V	LF(range,c) maps the SA range of w to cw (a Weiner link on implicit nodes) but there is no node/tree API	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F58	0	V	No string-depth query for nodes in any family member (pattern length known to the caller only)	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F59	1	V	PHONI computes LCE between text positions on the SLP (lceToRBounded) inside 'phoni ms'; internal, not an exposed LCP(i,j)/LCA call	https://raw.githubusercontent.com/koeppl/phoni/master/include/ms/phoni.hpp	2026-11-02
+K11	F60	0	V	No level-ancestor / ancestor-at-depth operation in any family member	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F61	1	V	Suffix start (leaf label) via Big-BWT -S file or r-index locate/Phi, but no leaf-rank API	https://raw.githubusercontent.com/alshai/Big-BWT/master/readme.md	2026-11-02
+K11	F62	1	V	Size of the count(P) SA range = leaf count of the implicit node; no explicit subtree-size call	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F63	0	V	No enumerate-children / sibling traversal in any family member	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F64	0	V	No DFS/visitor over the tree or interval tree in any family member	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F65	0	V	No edge/path-label access in any family member	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F66	2	V	r-index serialize/save_to_file/load_from_file (.ri); MONI .plain.slp/.thrbv.ms/.idx; SPUMONI and Movi index files/dirs	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F67	2	V	Movi 'query --mmap' uses memory mapping to read the index	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/src/movi_parser.cpp	2026-11-02
+K11	F68	1	V	Big-BWT documents raw layouts (BWT with 0x00 EOS, SA as 5-byte ints, ssa/esa <j,SA[j]> pairs); Movi has index header (--legacy-header); no versioned spec	https://raw.githubusercontent.com/alshai/Big-BWT/master/readme.md	2026-11-02
+K11	F69	2	V	bigbwt '--sum' computes sha256 of the output files and '-c' checks the BWT against SACA-K	https://raw.githubusercontent.com/alshai/Big-BWT/master/bigbwt	2026-11-02
+K11	F70	2	V	All members are CLIs: ri-build/ri-count/ri-locate/ri-align, bigbwt, moni build|ms|mems|extend, phoni, spumoni build|run, movi build|query|view|inspect	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F71	0	V	No server/RPC/MCP surface in any member's README/usage (CLI and C++ library only)	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/README.md	2026-11-02
+K11	F72	2	V	'movi inspect -i idx' prints index statistics (print_stats); ri-build prints r, n/r, log2(n/r) and print_space() sizes	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/README.md	2026-11-02
+K11	F73	0	V	No DOT/graph export in any family member	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/README.md	2026-11-02
+K11	F74	1	V	MONI/Movi/SPUMONI query with -t threads over one loaded index; no explicit thread-safety statement for the r-index C++ API	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F75	2	V	MONI ms/mems, SPUMONI run and Movi query take read files with -t threads; ri-count/ri-locate take a pizza&chili pattern file	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md	2026-11-02
+K11	F76	2	V	r-index indexes arbitrary byte text (256-entry F, reserved 0x0/0x1 only); Big-BWT any file without 0x00-0x02; SPUMONI -g general text	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F77	1	V	Only as UTF-8 bytes through the r-index / Big-BWT byte alphabet; no code-point semantics	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F78	0	V	No integer-alphabet API: r-index rle_string and Big-BWT work on bytes (F[256])	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F79	1	V	MONI/SPUMONI/Movi are DNA-specialised (ACGT[+N]); Movi ftab packs k-mers 2 bits/base; no 2-bit packed text input API	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/src/utils.cpp	2026-11-02
+K11	F80	2	U	Byte-alphabet members (r-index, Big-BWT, SPUMONI -g) accept any text so protein sequences index fine; protein use not shown in the docs	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp	2026-11-02
+K11	F81	2	V	r-index rejects reserved 0x0/0x1; Big-BWT forbids 0x00-0x02; Movi --separators and --ignore-illegal-chars 1|2 (A or random); ri-buildfasta -a strips non-ACGT	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/src/movi_parser.cpp	2026-11-02
+K12	F01	2	V	ropebwt3 v3.10-r285 'build' makes a BWT of both strands from FASTA/stdin: echo ... | ropebwt3 build -Ldo idx.fmd - (README 'Getting Started')	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F02	2	V	build indexes a sequence set; i-th input sequence is BWT sequence 2i, its reverse complement 2i+1; several files are built and merged incrementally	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F03	2	V	'build' reads FASTA/gz files in batches (-m, default 7G), builds partial BWTs with libsais and merges them; no working disk; grlBWT route also documented	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F04	1	V	'build -i old.fmr -bo new.fmr file' appends whole sequences to an existing dynamic FMR index (paper: can append); no per-character append	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F05	0	V	No delete/replace of indexed sequences: command list is sw, mem, hapdiv, suffix, build, merge, plain2fmd, ssa, get, stat, kount, fa2line, fa2kmer	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F06	2	V	'ropebwt3 merge [-t N] -o out.fmr base.fmr other.fmr ...' merges BWTs (FMR/FMD)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F07	1	V	No SA[i]/ISA command; sampled SA only via 'ssa -s' (one value per 2^s positions) and C rb3_ssa() used for positions	https://raw.githubusercontent.com/lh3/ropebwt3/master/ssa.c	2026-11-02
+K12	F08	0	V	No LCP/PLCP array in README or in the command list of main.c	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F09	2	V	'build' without -b/-d/-e prints the plain BWT; FMR/FMD dumps; 'plain2fmd' imports a BWT; fm-index.h has rank/extend (LF) primitives	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F10	0	V	No child table / LCP-interval tree; only the FMD/FMR BWT and sampled SA (README 'Usage', main.c command list)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F11	2	V	'ropebwt3 ssa -s INT' stores one SA value per 2^INT positions (size ~64(n/2^s+m) bits); mem -p / sw locate through it	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F12	2	V	'ropebwt3 suffix idx seq' prints longest matching suffix start and hit count; whole pattern matched => exists; 'mem -l' also reports hits	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F13	2	V	'suffix' and 'mem' output the number of hits (SA interval size); counts cover both indexed strands	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F14	2	V	'mem -p INT idx.fmd q.fa' with .ssa (+ .len.gz) outputs positions (contig, offset); README limitation: locate is slow	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F15	2	V	'-p INT' caps positions per match (rb3_ssa_multi max_sa); 'sw' outputs one PAF hit with rh tag = number of hits	https://raw.githubusercontent.com/lh3/ropebwt3/master/search.c	2026-11-02
+K12	F16	0	V	rb3_ssa_multi emits positions in SA-interval/heap order; no sort option, README silent on text order	https://raw.githubusercontent.com/lh3/ropebwt3/master/ssa.c	2026-11-02
+K12	F17	1	V	C struct rb3_sai_t (bi-interval x[0],x[1],size) returned by rb3_fmd_smem/rb3_fmd_extend in fm-index.h; not a documented API or CLI	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F18	1	V	rb3_fmd_extend(f,ik,ok,is_back=1) and rb3_fmi_extend1() backward step in fm-index.h; README shows it only in a commented-out developer note	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F19	1	V	rb3_fmd_extend(..., is_back=0) forward extension of the FMD bi-interval in fm-index.h; undocumented C header, no CLI	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F20	1	V	Double-strand FMD BWT keeps forward+backward intervals and extends either side (paper Alg. 3); only C-level, used inside SMEM/sw	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F21	1	V	'ropebwt3 get idx.fmd 90' retrieves the whole i-th sequence; no arbitrary substring; 'sw --seq' adds ref sequence in rs tag	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F22	2	V	'sw' PAF and 'mem -p' report (sequence name, offset) via .ssa + .len.gz (rb3_pos_t{sid,pos}; name lookup in sid table)	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F23	1	V	mem -p lists hits with sequence IDs (user dedups to list documents); 'hapdiv' counts haplotypes; no document-listing command	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F24	0	V	No ranked / top-k document retrieval; hapdiv ranks haplotypes by edit distance only	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F25	0	V	nt6 table maps A,C,G,T (any case) to codes and every other byte to N(5); IUPAC codes are not expanded	https://raw.githubusercontent.com/lh3/ropebwt3/master/io.c	2026-11-02
+K12	F26	0	V	No wildcard/don't-care syntax in mem/sw/suffix options (search.c); N in a query only matches N	https://raw.githubusercontent.com/lh3/ropebwt3/master/search.c	2026-11-02
+K12	F27	0	V	No character-class or regex patterns in mem/sw/suffix usage (search.c options)	https://raw.githubusercontent.com/lh3/ropebwt3/master/search.c	2026-11-02
+K12	F28	2	V	io.c nt6 table maps lower and upper case ACGT alike; README example queries 'ACTCTACACAAgATATTTTGTCA' with a lowercase g	https://raw.githubusercontent.com/lh3/ropebwt3/master/io.c	2026-11-02
+K12	F29	2	V	'build' indexes both strands by default (-R/-F drop one); mem/sw hits cover both strands; 'sw -b' aligns both query directions	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F30	0	V	No palindrome / inverted-repeat command in main.c list or README	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F31	1	V	'sw' (revised BWA-SW) scores mismatches via -A/-B, -m min score; no Hamming-only k-mismatch mode; heuristic bandwidth -N	https://raw.githubusercontent.com/lh3/ropebwt3/master/search.c	2026-11-02
+K12	F32	2	V	'sw -e' end-to-end and 'hapdiv' report haplotype counts at edit distance 0..5+ with affine gaps (-O/-E); heuristic via -N, not exhaustive	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F33	0	V	No search schemes / pigeonhole: 'sw' is a BWA-SW DAWG alignment (README 'Local alignment')	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F34	0	V	No ambiguity-tolerant approximate search documented; N is just another symbol (README, search.c options)	https://raw.githubusercontent.com/lh3/ropebwt3/master/search.c	2026-11-02
+K12	F35	2	V	'ropebwt3 mem -t4 -l31 bwt.fmd query.fa' outputs SMEMs (BED) with hit counts as seeds; --gap/--cov summarize uncovered regions	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F36	1	V	No per-position MS array; SMEM list (mem), 'suffix' longest suffix match and '--cov' give anchors from which MS can be rebuilt	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F37	2	V	'mem' reports SMEMs (a MEM subset) with all-occurrence count and up to -p positions; --old-mem original algorithm; -c min interval size	https://raw.githubusercontent.com/lh3/ropebwt3/master/search.c	2026-11-02
+K12	F38	1	V	No MUM command; reference-unique matches = 'mem' lines with hits==1 (user filter)	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F39	2	V	'mem' computes super-maximal exact matches (README 'Finding maximal exact matches'; paper Sec. 2.6, Alg. 4)	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F40	1	V	'sw' extends MEM-initiated (-j) local alignments with affine gaps to PAF; no chaining of several matches (not nucmer-style)	https://raw.githubusercontent.com/lh3/ropebwt3/master/search.c	2026-11-02
+K12	F41	1	V	LCS of a query vs the indexed set = longest SMEM from 'mem' (user sorts); no dedicated command	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F42	0	V	No LCS over k texts / k-common substrings command (main.c list)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F43	0	V	No shortest-unique-substring command (main.c list)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F44	0	V	No minimal-absent-word command (main.c list)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F45	1	V	'kount -k K -m 2' lists K-mers occurring >=2 times; LRS needs a user search over K	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F46	0	V	No maximal repeated pairs (main.c list)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F47	0	V	No supermaximal repeats of the indexed text (SMEMs are query-vs-index only)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F48	0	V	No tandem repeat finder (main.c list)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F49	1	V	'kount -k K -m 1' enumerates distinct K-mers of the index (count the lines); 'stat' gives only symbols/runs	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F50	2	V	'ropebwt3 kount -k INT -m INT idx1.fmd [idx2.fmd]' counts (high-occurrence) k-mers across one or more indexes	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F51	0	V	No linguistic/substring complexity profile (main.c list)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F52	0	V	No LZ factorization / LPF command (main.c list)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F53	1	V	'fa2kmer -k -w' cuts k-mers from a genome and 'mem' counts their hits: a mappability workflow, no map command	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F54	1	V	FMD forward extension rb3_fmd_extend(is_back=0) acts as child-by-char on the implicit tree; C-level only	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F55	0	V	No parent operation (no node API in fm-index.h)	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F56	0	V	No suffix links in fm-index.h or README	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F57	1	V	Backward extension of the bi-interval is a Weiner link on implicit nodes (rb3_fmd_extend is_back=1); C-level, no node API	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F58	0	V	No string-depth query (fm-index.h)	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F59	0	V	No LCA / LCP(i,j) operation (fm-index.h, command list)	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F60	0	V	No level-ancestor operation (fm-index.h)	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F61	1	V	rb3_ssa(f,ssa,k,&sid) returns (sequence, offset) of a BWT row via sampled SA; C-level, no leaf-rank CLI	https://raw.githubusercontent.com/lh3/ropebwt3/master/ssa.c	2026-11-02
+K12	F62	1	V	SA interval size of an SMEM / suffix match = leaf count of the implicit node (hits column); no explicit subtree-size call	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F63	0	V	No child enumeration API (kount enumerates internally only)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F64	1	V	'kount' does a DFS over the implicit tree down to depth k and prints k-mers with >= m occurrences; fixed-depth, no visitor API	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F65	0	V	No edge/path label access (fm-index.h)	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F66	2	V	FMR/FMD binary formats (README 'Binary BWT file formats'), .fmd.ssa and .fmd.len.gz; build/merge/ssa dump them and 'build -i' reloads	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F67	2	V	'-M' memory-maps the FMD for mem/sw/stat; README: FMD is faster to load and can be memory-mapped	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F68	1	V	FMR and FMD formats named; FMD begins with magic 'RLD\3' (rld0.c); layout only in rld0.h source, no written spec	https://raw.githubusercontent.com/lh3/ropebwt3/master/rld0.c	2026-11-02
+K12	F69	0	V	No checksum / verify command in README or main.c; rld format has only a magic number	https://raw.githubusercontent.com/lh3/ropebwt3/master/rld0.c	2026-11-02
+K12	F70	2	V	ropebwt3 CLI: sw, mem, hapdiv, suffix, build, merge, plain2fmd, ssa, get, stat, kount, fa2line, fa2kmer, version	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F71	0	V	No server/RPC/MCP surface (README, main.c list)	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F72	2	V	'ropebwt3 stat idx.fmd' prints sequences, symbols, BWT runs and A/C/G/T/N counts	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c	2026-11-02
+K12	F73	0	V	Only 'build -T' prints the internal rope B+-tree in Newick (debugging); no DOT/graph export of the suffix structure	https://raw.githubusercontent.com/lh3/ropebwt3/master/build.c	2026-11-02
+K12	F74	1	V	mem/sw/hapdiv run -t threads (kt_pipeline) over one loaded index; thread-safety of the C API is not documented	https://raw.githubusercontent.com/lh3/ropebwt3/master/search.c	2026-11-02
+K12	F75	2	V	'mem -t4 -l31 bwt.fmd query.fa' runs many queries per call, -K batch size, multi-threaded	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md	2026-11-02
+K12	F76	0	V	Paper: hardcoded for the DNA alphabet, does not work with more general alphabets (RB3_ASIZE=6)	https://arxiv.org/pdf/2409.00613	2026-11-02
+K12	F77	0	V	DNA-only index (paper: no general alphabets); no Unicode	https://arxiv.org/pdf/2409.00613	2026-11-02
+K12	F78	0	V	No integer alphabet: 6 symbols $,A,C,G,T,N (fm-index.h RB3_ASIZE; paper)	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F79	1	V	DNA-hardcoded 6-symbol run-length BWT (rld0), no 2-bit packed text input or API	https://raw.githubusercontent.com/lh3/ropebwt3/master/fm-index.h	2026-11-02
+K12	F80	0	V	No protein alphabet (paper: DNA alphabet only)	https://arxiv.org/pdf/2409.00613	2026-11-02
+K12	F81	2	V	Non-ACGT bytes map to N(5); '$' sentinels separate sequences (paper Table 1: Sigma={A,C,G,T,N}, +$); plain2fmd reads newline/$ as sentinel	https://raw.githubusercontent.com/lh3/ropebwt3/master/io.c	2026-11-02

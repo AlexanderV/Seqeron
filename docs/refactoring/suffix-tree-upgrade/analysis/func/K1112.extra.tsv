@@ -1,0 +1,36 @@
+competitor_id	function_name_as_the_tool_calls_it	one_line_description	url
+K12	sw	Local alignment against the FM-index (revised BWA-SW, affine gaps), PAF output with cs/cg tags and rh hit count; options -N -A -B -O -E -m -k -j	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md
+K12	sw -e / --all-e2e / -g	End-to-end alignment returning several suboptimal hits (haplotype retrieval); compact all-hit format capped by -g	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md
+K12	hapdiv	Haplotype diversity: for sliding 101-mers reports number of distinct alleles, max edit distance and haplotype counts at edit distance 0..6+ (-a, -w)	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md
+K12	mem --gap / --gap-seq / --cov	Regions of the query not covered by long SMEMs (BED or sequence) and total breadth of SMEM coverage	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md
+K12	mem -c	Minimum interval size (minimum occurrence count) for reported SMEMs; -l sets minimum SMEM length	https://raw.githubusercontent.com/lh3/ropebwt3/master/search.c
+K12	suffix	Longest matching suffix of each query in the index, with start, length and hit count	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c
+K12	kount	Count (high-occurrence) k-mers across one or more FMD indexes by DFS over the BWT (-k, -m)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c
+K12	fa2kmer	Cut overlapping k-mers (-k, step -w) from FASTX for use as queries (mappability / coverage workflows)	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c
+K12	fa2line	Convert FASTX to one sequence per line (with reverse complement) as input for grlBWT / build -L	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c
+K12	plain2fmd	Convert a plain-text BWT (e.g. from grlBWT) to the FMD format	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c
+K12	stat	Basic BWT statistics: sequences, symbols, runs, per-base counts	https://raw.githubusercontent.com/lh3/ropebwt3/master/main.c
+K12	get	Retrieve the i-th indexed sequence (FASTA) from the BWT	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md
+K12	ssa	Generate the sampled suffix array (.fmd.ssa) with sampling rate 2^s, multi-threaded	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md
+K12	build -r / -s (RCLO / RLO order)	Ropebwt2-style construction in reverse-complement-lexicographic or reverse-lexicographic read order for short reads	https://raw.githubusercontent.com/lh3/ropebwt3/master/README.md
+K12	build -S	Save the current index after each input file during incremental build	https://raw.githubusercontent.com/lh3/ropebwt3/master/build.c
+K12	build -e	Dump the BWT in the BRE binary format	https://raw.githubusercontent.com/lh3/ropebwt3/master/build.c
+K11	moni ms	Matching statistics (lengths + pointers) of reads against a pangenome via prefix-free-parsed RLBWT, SA samples and thresholds	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md
+K11	moni extend	MEM extension with ksw2 into SAM alignments (-L ref window, -A -B -O -E scoring, -b batch)	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md
+K11	moni build thresholds (.thrbv.ms)	Builds RLBWT with SA samples at run boundaries and threshold positions (Bannai-Gagie-I) via pfp-thresholds; shaped or plain SLP grammar (-g)	https://raw.githubusercontent.com/maxrossi91/moni/main/README.md
+K11	phoni ms	Streamed matching statistics with an SLP and LCE queries instead of thresholds (memory-friendly); writes .positions/.lengths	https://raw.githubusercontent.com/koeppl/phoni/master/README.md
+K11	spumoni run -P (PML)	Pseudo-matching lengths: a faster MS approximation used for read classification with a null database and -c report	https://raw.githubusercontent.com/oma219/spumoni/main/README.md
+K11	spumoni build -m/-t/-a (minimizer digestion)	Minimizer digestion of the reference before PFP to shrink the index for >2 GB references	https://raw.githubusercontent.com/wiki/oma219/spumoni/4.-Building-SPUMONI-Indexes.md
+K11	spumoni run -d	Multi-class classification of reads with a document array; filelist build assigns class ids	https://raw.githubusercontent.com/wiki/oma219/spumoni/5.-Running-SPUMONI-on-Input-Reads.md
+K11	movi query --classify / --filter / -v	Binary classification of reads by PML scores; --filter emits found reads, -v the not-found reads	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/README.md
+K11	movi query --multi-classify (Movi Color)	Multi-class / taxonomic classification using color (document) sets per move row; primary and secondary document id output	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/README.md
+K11	movi query --zml	Ziv-Merhav cross-parsing length of reads versus the reference	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/README.md
+K11	movi query --kmer / --kmer-count	Search every k-mer of a read in the index and report found counts	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/src/movi_parser.cpp
+K11	movi ftab / --ftab-k	k-mer lookup table that shortcuts the first k LF steps (also needed for --mem)	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/src/movi_parser.cpp
+K11	movi build-SA / query --sa-entries	Sampled suffix-array entries per read position (locate by SA sampling, --sample-rate)	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/src/movi_parser.cpp
+K11	movi null / --gen-reads	Generate null reads and null PML/ZML statistics used for classification thresholds	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/src/movi_parser.cpp
+K11	movi view --bpf	Print base-profile-format (BPF) binary outputs of PML/ZML as text	https://raw.githubusercontent.com/mohsenzakeri/Movi/main/README.md
+K11	ri-align pw_locate	Piecewise locate: splits a read into exact-match pieces and locates every piece (r-index fork), with --max-hits/--max-range	https://raw.githubusercontent.com/maxrossi91/r-index/master/ri-align.cpp
+K11	r-index Phi(i) / count_and_get_occ	Phi function (SA[j-1] from SA[j]) and count with SA[r] retrieval underlying r-index locate	https://raw.githubusercontent.com/nicolaprezza/r-index/master/internal/r_index.hpp
+K11	bigbwt -s / -e / -S	Run-boundary sampled suffix arrays (.ssa/.esa) or the full SA written during PFP BWT construction	https://raw.githubusercontent.com/alshai/Big-BWT/master/readme.md
+K11	bigbwt -c	Cross-check the PFP BWT against a SACA-K computed BWT	https://raw.githubusercontent.com/alshai/Big-BWT/master/readme.md

@@ -1,0 +1,244 @@
+competitor_id	func_id	score(0|1|2)	flag(V|U)	evidence(<=160 chars, English)	url	accessed
+K1	F01	2	V	construct_im(csa|cst, text, num_bytes) builds csa_wt/csa_sada/cst_sct3 from an in-memory string or int_vector (master = 3.0.5, last release 3.0.4)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/construct.hpp	2026-11-02
+K1	F02	1	V	No collection API: user concatenates texts with separators (integer-alphabet csa_wt_int) and keeps own document boundaries	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_arrays.hpp	2026-11-02
+K1	F03	2	V	construct(idx,file,num_bytes) reads text from a disk file, SA/LCP/BWT go through disk cache files; SE_SAIS semi-external option exists	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/construct_sa.hpp	2026-11-02
+K1	F04	0	V	No append/online extension: include/sdsl listing has only static CSA/CST/WT classes	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F05	0	V	No delete/replace/dynamic index in include/sdsl (nn_dict_dynamic only is a dynamic dictionary, not a text index)	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F06	0	V	No merge of two CSA/CST in include/sdsl	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F07	2	V	csa[i] = SA[i] and csa.isa[i] = ISA[i] public members of csa_wt/csa_sada/csa_bitcompressed	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/csa_wt.hpp	2026-11-02
+K1	F08	2	V	cst.lcp[i] (lcp_support_sada=PLCP, lcp_dac/vlc/byte/wt/bitcompressed); construct_lcp_PHI/semi_extern_PHI/kasai build LCP	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/construct_lcp.hpp	2026-11-02
+K1	F09	2	V	csa.bwt[i], csa.lf[i], csa.psi[i], csa.F, csa.L, csa.C public const members of csa_wt	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/csa_wt.hpp	2026-11-02
+K1	F10	2	V	cst_sct3/cst_sada are LCP-interval trees in balanced-parentheses form: node(lb,rb), child, select_child, parent	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F11	2	V	csa_wt<wt,t_dens,t_inv_dens,sa_order|text_order_sa_sampling>: SA and ISA sample density are template parameters	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/csa_wt.hpp	2026-11-02
+K1	F12	2	V	count(csa,pat)>0 or backward_search interval size; no dedicated contains() but one-line	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F13	2	V	count(csx,pat) via backward_search; lex_interval(csx,begin,end) returns the SA interval	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F14	2	V	locate(csa|cst, pat) returns int_vector<64> of all text positions	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F15	1	V	locate returns everything at once; subset/top-k only by taking lex_interval and calling csa[i] on a sub-range (own code)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F16	1	V	locate() fills occ[i]=csa[occ_begin+i], i.e. SA order; caller must sort for text order	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F17	2	V	lex_interval() returns [l,r]; backward_search(l,r,..) resumes from it; CST node_type is also a reusable handle	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F18	2	V	backward_search(csa,l,r,c,l_res,r_res): one LF step prepending char c (Ferragina-Manzini)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F19	2	V	forward_search(cst,v,d,c,char_pos) extends node v by next char; csa forward_search(l,r,pat) is binary-search based	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_tree_algorithm.hpp	2026-11-02
+K1	F20	2	V	bidirectional_search(csa_fwd,l_fwd,r_fwd,l_bwd,r_bwd,c,..) over csa_wt + csa of reversed text; bidirectional_search_forward/backward	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F21	2	V	extract(csa,begin,end) returns string_type; extract(cst,v) returns path label	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F22	1	V	No doc-id map; user builds separator bit-vector with rank (sd_vector+rank_support) over the concatenation	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F23	1	V	No doc-listing API; tutorial/document_listing/doc_list_index.cpp includes doc_list_index.hpp that is absent; WT restricted_unique_range_values is a primitive	https://github.com/xxsds/sdsl-lite/tree/master/tutorial/document_listing	2026-11-02
+K1	F24	1	V	No top-k document API; k2_treap top_k() (heaviest points in rectangle) is a primitive for own retrieval code	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/k2_treap_algorithm.hpp	2026-11-02
+K1	F25	0	V	count/locate take a literal symbol sequence only; no IUPAC/degenerate matching in suffix_array_algorithm.hpp	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F26	0	V	No wildcard/don't-care pattern positions in suffix_array_algorithm.hpp or suffix_tree_algorithm.hpp	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F27	0	V	No character classes or regex over the index	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F28	0	V	No case folding; alphabet is raw bytes/ints, user normalises text and pattern	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_arrays.hpp	2026-11-02
+K1	F29	0	V	No DNA/reverse-complement awareness anywhere in include/sdsl	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F30	0	V	No palindrome / inverted-repeat finder in include/sdsl	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F31	1	V	No approximate search; bidirectional_search primitive allows user-coded backtracking for mismatches	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F32	1	V	No edit-distance search; user-coded backtracking on backward_search/bidirectional_search primitives	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F33	1	V	bidirectional_search (Schnattinger-Ohlebusch-Gog) is the enabling primitive; no search-scheme module shipped	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F34	0	V	No ambiguity/N-tolerant approximate search	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F35	1	V	No seeding module; bidirectional primitives allow user-coded MEM/SMEM seeds	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F36	1	V	No matching-statistics function; user codes it with cst.sl()/child()/depth() on cst_sct3	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F37	1	V	No MEM function; user code on CST of concatenated texts (sl, depth, lca)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F38	0	V	No MUM function; suffix_tree_algorithm.hpp has only forward_search, count, locate, extract, H0, Hk	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_tree_algorithm.hpp	2026-11-02
+K1	F39	1	V	SMEM needs a bidirectional index; only the bidirectional_search primitive exists, no SMEM routine	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F40	0	V	No match chaining/clustering in include/sdsl	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F41	1	V	No LCS routine; user code on CST of two concatenated texts (depth, leaf origin via sn())	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F42	0	V	No k-common-substring / colored-tree support	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F43	1	V	No shortest-unique-substring routine; user code on CST (leaf with depth(parent)+1)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F44	0	V	No minimal absent words routine	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F45	1	V	No LRS function; user DFS over cst.begin()/end() tracking max depth (tutorial/cst-traversal.cpp pattern)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/tutorial/cst-traversal.cpp	2026-11-02
+K1	F46	0	V	No maximal repeated pairs routine	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F47	0	V	No supermaximal repeat routine	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F48	0	V	No tandem repeat routine	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F49	1	V	No distinct-substring counter; user sums edge lengths depth(v)-depth(parent(v)) over CST nodes	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F50	1	V	No k-mer counting API; user enumerates CST nodes crossing string depth k and reads size(v)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F51	0	V	Only H0(v,cst) and Hk(cst,k) entropy in suffix_tree_algorithm.hpp; no substring-complexity profile	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_tree_algorithm.hpp	2026-11-02
+K1	F52	0	V	No LZ factorization / longest-previous-factor in include/sdsl	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F53	0	V	No mappability/uniqueness map routine	https://github.com/xxsds/sdsl-lite/tree/master/include/sdsl	2026-11-02
+K1	F54	2	V	cst.child(v,c[,char_pos]) and select_child(v,i)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F55	2	V	cst.parent(v)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F56	2	V	cst.sl(v) (cst_sada also sl(v,i))	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F57	2	V	cst.wl(v,c) Weiner link	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F58	2	V	cst.depth(v) string depth and node_depth(v)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F59	2	V	cst.lca(v,w) in cst_sct3/cst_sada/cst_fully; LCP(i,j) = depth(lca(select_leaf(i),select_leaf(j)))	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F60	1	V	No level-ancestor on CST; underlying bp_support_sada::level_anc(i,d) gives node-depth ancestor via cst.bp_support	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/bp_support_sada.hpp	2026-11-02
+K1	F61	2	V	cst.select_leaf(i) (1-based leaf rank) and cst.sn(v) suffix number of a leaf; lb(v)/rb(v)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F62	2	V	cst.size(v) = number of leaves in subtree	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F63	2	V	cst.children(v) proxy range, sibling(v), degree(v), select_child(v,i)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F64	2	V	cst.begin()/end() DFS iterator (visit()==1|2, skip_subtree), begin_bottom_up(), cst_bfs_iterator	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_iterators.hpp	2026-11-02
+K1	F65	2	V	cst.edge(v,d) d-th edge-label char; extract(cst,v) concatenated path label	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/cst_sct3.hpp	2026-11-02
+K1	F66	2	V	store_to_file/load_from_file and serialize/load streams; optional cereal archives with -DSDSL_CEREAL=1 in v3	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/io.hpp	2026-11-02
+K1	F67	1	V	int_vector_mapper mmaps int_vectors; csa/cst load() reads the whole structure into RAM	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/int_vector_mapper.hpp	2026-11-02
+K1	F68	0	V	serialize() writes raw members, no format version or layout spec; only class-name hash for cache files	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/io.hpp	2026-11-02
+K1	F69	0	V	No checksum/integrity check; add_hash() stores just a class-name hash used to match types	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/io.hpp	2026-11-02
+K1	F70	0	V	Header-only library; examples/ and tutorial/ are demo programs, no installed CLI	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/README.md	2026-11-02
+K1	F71	0	V	No server/RPC/MCP surface; header-only C++ library	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/README.md	2026-11-02
+K1	F72	2	V	size_in_bytes(), size_in_mega_bytes(), write_structure<JSON_FORMAT|HTML_FORMAT|R_FORMAT>(idx), csXprintf() table dump	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/io.hpp	2026-11-02
+K1	F73	0	V	write_structure gives space-breakdown JSON/HTML/R only; no DOT/graph export of the tree	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/io.hpp	2026-11-02
+K1	F74	0	V	No thread-safety statement in README or headers (const methods only by C++ convention)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/README.md	2026-11-02
+K1	F75	0	V	No batch query API; one pattern per count/locate call	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_array_algorithm.hpp	2026-11-02
+K1	F76	2	V	csa_wt<>/csa_sada<> default byte alphabet (plain_byte_alphabet, sigma<=256)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/csa_wt.hpp	2026-11-02
+K1	F77	1	V	No encoding layer; integer-alphabet csa_wt_int/csa_sada_int can index code points if user converts text	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_arrays.hpp	2026-11-02
+K1	F78	2	V	csa_wt_int and csa_sada_int typedefs use int_alphabet<> (arbitrary integer symbols)	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/suffix_arrays.hpp	2026-11-02
+K1	F79	1	V	No 2-bit DNA mode: byte alphabet (WT shapes compress) or user-packed integer vector via int_alphabet	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/construct.hpp	2026-11-02
+K1	F80	2	V	Any byte alphabet (sigma<=256) incl. 20/25-letter protein works; no dedicated protein type	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/csa_wt.hpp	2026-11-02
+K1	F81	1	V	Zero byte reserved as sentinel: construct() throws if input has a 0 symbol and appends one; no N/unknown policy	https://raw.githubusercontent.com/xxsds/sdsl-lite/master/include/sdsl/construct.hpp	2026-11-02
+K2	F01	2	V	seqan3::fm_index index{text}; bi_fm_index likewise; any bidirectional range over alphabet size<=256 (docs 3.4.3-rc.1, latest release 3.4.2)	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index.html	2026-11-02
+K2	F02	2	V	text_layout::collection: fm_index/bi_fm_index over a range of ranges (genomes, protein DB)	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F03	0	V	Constructor takes an in-memory range (builds via sdsl construct_im on an int_vector<8> copy); no file/stream build	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index.html	2026-11-02
+K2	F04	0	V	No append/online API in fm_index/bi_fm_index (static index)	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F05	0	V	No delete/replace API (static index)	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F06	0	V	No merge of indexes	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F07	1	V	suffix_array_interval() gives interval bounds; locate()/lazy_locate() yield SA values of that interval; no SA[i]/ISA access (index member private)	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F08	0	V	No LCP/PLCP exposure; sdsl index member is private in fm_index.hpp	https://raw.githubusercontent.com/seqan/seqan3/main/include/seqan3/search/fm_index/fm_index.hpp	2026-11-02
+K2	F09	0	V	No BWT/LF/psi access publicly; sdsl_index is a private member	https://raw.githubusercontent.com/seqan/seqan3/main/include/seqan3/search/fm_index/fm_index.hpp	2026-11-02
+K2	F10	0	V	No child table / LCP-interval tree; FM cursors only	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F11	2	V	SA sampling rate set through the sdsl_index_type template (default csa_wt sampling 16): documented space/speed trade-off	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F12	2	V	search(query,index) yields hits or none; cursor.extend_right(pattern) returns bool	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F13	2	V	cursor.count() (constant time on the SA interval)	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F14	2	V	cursor.locate() and search() results: (sequence idx, offset) pairs / reference_begin_position	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F15	2	V	lazy_locate() returns a view that locates each position on access; hit_single_best / hit_strata limit results	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F16	1	V	Result order is deterministic but not documented as text order; sort the locate() output yourself	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html	2026-11-02
+K2	F17	2	V	Cursors are lightweight copyable handles; suffix_array_interval() exposes the SA interval	https://docs.seqan.de/seqan3/main_user/structseqan3_1_1suffix__array__interval.html	2026-11-02
+K2	F18	2	V	bi_fm_index_cursor::extend_left(c|seq) (uni fm_index_cursor only extends right)	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1bi__fm__index__cursor.html	2026-11-02
+K2	F19	2	V	fm_index_cursor/bi_fm_index_cursor::extend_right(c|seq|none) returns bool, cursor unchanged on failure	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F20	2	V	bi_fm_index_cursor: extend_left/extend_right in any order on the same cursor state	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1bi__fm__index__cursor.html	2026-11-02
+K2	F21	0	V	Index stores no text access; path_label(text) needs the original text passed in	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F22	2	V	For text_layout::collection locate() returns (text index, offset); search_result has reference_id + reference_begin_position	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index.html	2026-11-02
+K2	F23	1	V	No document listing/counting API; derive distinct reference_id from all hits yourself (O(occ))	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html	2026-11-02
+K2	F24	0	V	No ranked/top-k document retrieval	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F25	0	V	Queries match literally; IUPAC symbols of dna15 are ordinary symbols, not degenerate matches	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1dna15.html	2026-11-02
+K2	F26	0	V	No wildcard/don't-care positions in search	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html	2026-11-02
+K2	F27	0	V	No character classes or regex	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html	2026-11-02
+K2	F28	1	V	Alphabet-level only: dna4/dna15 assign_char treats lower case as upper case; no search option	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1dna4.html	2026-11-02
+K2	F29	0	V	No both-strand option in search_cfg; caller searches reverse complement separately	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html	2026-11-02
+K2	F30	0	V	No palindrome / inverted-repeat finder in search module	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F31	2	V	search_cfg::max_error_substitution (with insertion/deletion 0) via fm_index/bi_fm_index	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html	2026-11-02
+K2	F32	2	V	search_cfg::max_error_total / max_error_insertion / max_error_deletion, counts or rates	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html	2026-11-02
+K2	F33	2	V	bi_fm_index uses optimum search schemes (Kianfar et al.) for <=3 errors, trivial backtracking beyond	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F34	0	V	dna5/dna15 N is just another symbol; no N-tolerant matching	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html	2026-11-02
+K2	F35	1	V	views::minimiser/minimiser_hash/kmer_hash give k-mer seeds; no MEM/SMEM seed generation	https://docs.seqan.de/seqan3/main_user/group__search__views.html	2026-11-02
+K2	F36	0	V	No matching-statistics array	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F37	0	V	No MEM query against the index	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F38	0	V	No MUM computation	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F39	0	V	No SMEM routine (bidirectional cursor is a primitive, none shipped)	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1bi__fm__index__cursor.html	2026-11-02
+K2	F40	0	V	No match chaining in search module	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F41	0	V	No longest-common-substring function	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F42	0	V	No k-common-substring function	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F43	0	V	No shortest-unique-substring function	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F44	0	V	No minimal absent words	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F45	0	V	No longest repeated substring function	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F46	0	V	No maximal repeated pairs	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F47	0	V	No supermaximal repeats	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F48	0	V	No tandem repeat detection in search module	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F49	0	V	No distinct-substring counter	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F50	0	V	kmer_hash view + interleaved_bloom_filter counting_agent count k-mer hits per bin, not k-mer frequencies from the index	https://docs.seqan.de/seqan3/main_user/group__search__dream__index.html	2026-11-02
+K2	F51	0	V	No substring-complexity profile	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F52	0	V	No LZ factorization	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F53	0	V	No mappability/uniqueness map	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F54	2	V	extend_right(c) descends the implicit suffix tree by one character (cursor)	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F55	0	V	Cursor has no parent/pop operation	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F56	0	V	No suffix link on cursors	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F57	2	V	bi_fm_index_cursor::extend_left(c) prepends a character = Weiner-link step	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1bi__fm__index__cursor.html	2026-11-02
+K2	F58	2	V	query_length() = depth of the cursor node in the implicit suffix tree	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1bi__fm__index__cursor.html	2026-11-02
+K2	F59	0	V	No LCA / LCP(i,j)	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F60	0	V	No level-ancestor operation	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F61	1	V	locate() on a single-hit cursor returns the suffix start; no leaf rank/leaf label accessor	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F62	2	V	cursor.count() = number of leaves under the current node	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F63	2	V	extend_right() without argument takes smallest child; cycle_back() moves to next sibling	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F64	1	V	Whole-tree DFS has to be hand-coded with extend_right()/cycle_back()/query_length(); no visitor	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F65	2	V	path_label(text) returns the searched query / node label (original text must be supplied)	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index__cursor.html	2026-11-02
+K2	F66	2	V	fm_index and bi_fm_index implement seqan3::cerealisable; cookbook loads index with cereal::BinaryInputArchive	https://docs.seqan.de/seqan3/main_user/cookbook.html	2026-11-02
+K2	F67	0	V	Cereal load reads the full index; no mmap loader documented	https://docs.seqan.de/seqan3/main_user/cookbook.html	2026-11-02
+K2	F68	0	V	Docs warn default sdsl type may change; stable on-disk format only by pinning sdsl_index_type, no versioned layout spec	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F69	0	V	No checksum/integrity check API	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F70	0	V	Header-only library, no CLI for building/querying FM indexes	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F71	0	V	No server/RPC surface	https://docs.seqan.de/seqan3/main_user/group__search.html	2026-11-02
+K2	F72	1	V	Only size() (text length incl. sentinels) and empty(); no node/depth/bytes statistics	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index.html	2026-11-02
+K2	F73	0	V	No graph/DOT export	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F74	1	V	search_cfg::parallel runs queries on one shared index, but no explicit thread-safety statement for the index/cursors	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html	2026-11-02
+K2	F75	2	V	search(range_of_queries,index,cfg) with search_cfg::parallel{threads}	https://docs.seqan.de/seqan3/main_user/group__search__configuration.html	2026-11-02
+K2	F76	2	V	std::string/char text indexed directly (cookbook approximate-search recipe); any alphabet with size<=256	https://docs.seqan.de/seqan3/main_user/cookbook.html	2026-11-02
+K2	F77	1	V	Only bytewise (UTF-8 bytes) because alphabet_size must be <=256; no code-point alphabet	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F78	1	V	Any custom semialphabet but limited to <=256 symbols (rank 255 reserved)	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K2	F79	2	V	dna4 (2-bit rank) and bitpacked_sequence<dna4> container usable as the text range	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1bitpacked__sequence.html	2026-11-02
+K2	F80	2	V	Protein alphabets (aa27, aa20) work as index alphabet; docs cite protein-database collection	https://docs.seqan.de/seqan3/main_user/classseqan3_1_1fm__index.html	2026-11-02
+K2	F81	2	V	Documented: rank 255 reserved (254 too for collections, used as delimiter); dna4 maps unknown to A, dna15 to N	https://docs.seqan.de/seqan3/main_user/group__search__fm__index.html	2026-11-02
+K3	F01	1	V	CLI only: gt suffixerator / gt packedindex mkindex build from sequence files; no in-memory-text API (GtEncseqBuilder builds only the encoded text, v1.6.6)	https://genometools.org/tools/gt_packedindex.html	2026-11-02
+K3	F02	2	V	suffixerator -db f1 f2 ... indexes several files/sequences with separators; seqnum reported in matches	https://genometools.org/documents/tallymer.pdf	2026-11-02
+K3	F03	2	V	suffixerator/packedindex mkindex read FASTA/FASTQ/EMBL/GenBank files; -parts and -memlimit build the index in parts	https://raw.githubusercontent.com/genometools/genometools/master/src/match/index_options.c	2026-11-02
+K3	F04	0	V	No append/online extension in tools list or C API classes	https://genometools.org/tools.html	2026-11-02
+K3	F05	0	V	No dynamic update of an index in tools list or C API classes	https://genometools.org/tools.html	2026-11-02
+K3	F06	1	U	gt mkfmindex -ii accepts several input indexes for one FM-index (option text only; construction-time, not merge of built indexes)	https://raw.githubusercontent.com/genometools/genometools/master/src/match/fmi-mkindex.c	2026-11-02
+K3	F07	1	V	suffixerator -suf writes the SA table to .suf file (CLI, no random-access API in libgenometools); ISA not offered	https://raw.githubusercontent.com/genometools/genometools/master/src/match/index_options.c	2026-11-02
+K3	F08	1	V	suffixerator -lcp writes LCP table (.lcp), -lcpdist prints LCP value distribution; file output only	https://raw.githubusercontent.com/genometools/genometools/master/src/match/index_options.c	2026-11-02
+K3	F09	1	V	suffixerator -bwt writes BWT table; packedindex holds BWT/rank; no LF/psi accessor in public API	https://raw.githubusercontent.com/genometools/genometools/master/src/match/index_options.c	2026-11-02
+K3	F10	0	V	No child table / LCP-interval tree exposed in tools or C API (internal esa-bottomup only)	https://genometools.org/libgenometools.html	2026-11-02
+K3	F11	2	V	gt packedindex mkindex -locfreq 32 (SA sampling frequency) in FM/packed index	https://genometools.org/documents/tagerator.pdf	2026-11-02
+K3	F12	1	V	No dedicated test; gt tagerator -e 0 prints nothing when no match (tags <=64 symbols)	https://genometools.org/tools/gt_tagerator.html	2026-11-02
+K3	F13	1	V	gt tallymer search -output counts gives occurrence counts for k-mers of the index's fixed k; tagerator lists matches	https://genometools.org/tools/gt_tallymer_search.html	2026-11-02
+K3	F14	2	V	gt tagerator -e 0 -esa|-pck index -q tags -output dbstartpos lists all exact match positions (tags <=64)	https://genometools.org/tools/gt_tagerator.html	2026-11-02
+K3	F15	0	V	tagerator -maxocc filters by prefix-match frequency, not a limit/lazy iterator on locate	https://genometools.org/tools/gt_tagerator.html	2026-11-02
+K3	F16	0	V	No documented ordering of reported positions	https://genometools.org/tools/gt_tagerator.html	2026-11-02
+K3	F17	0	V	CLI tools only; no reusable SA-interval/node handle in public API	https://genometools.org/libgenometools.html	2026-11-02
+K3	F18	0	V	No stepwise backward extension in CLI/C API	https://genometools.org/tools.html	2026-11-02
+K3	F19	0	V	No stepwise right extension in CLI/C API	https://genometools.org/tools.html	2026-11-02
+K3	F20	0	V	No bidirectional index in tools list	https://genometools.org/tools.html	2026-11-02
+K3	F21	2	V	gt encseq decode -range / -seq; C API gt_encseq_extract_decoded(encseq,buf,from,to)	https://genometools.org/tools/gt_encseq_decode.html	2026-11-02
+K3	F22	2	V	C API gt_encseq_seqnum(pos)+gt_encseq_seqstartpos(seqnum); repfind/seed_extend print seqnum and relative position	https://genometools.org/libgenometools.html	2026-11-02
+K3	F23	0	V	No document listing/counting tool	https://genometools.org/tools.html	2026-11-02
+K3	F24	0	V	No ranked document retrieval tool	https://genometools.org/tools.html	2026-11-02
+K3	F25	0	V	IUB wildcards (R,Y,N..) in text/query never match anything, not even themselves	https://genometools.org/documents/repfind.pdf	2026-11-02
+K3	F26	1	V	gt congruence spacedseed matches spaced seeds against an index; seed_extend -spacedseed; no general don't-care pattern search	https://genometools.org/tools/gt_congruence_spacedseed.html	2026-11-02
+K3	F27	0	V	No character classes / regex on the index	https://genometools.org/tools.html	2026-11-02
+K3	F28	1	V	DNA alphabet maps upper and lower case together (aAcCgGtTuU) in alphabet.c; not a search option	https://raw.githubusercontent.com/genometools/genometools/master/src/core/alphabet.c	2026-11-02
+K3	F29	2	V	repfind -p, tagerator default direct+reverse-complement (-nod/-nop), tallymer search -strand fp, encseq -mirrored	https://genometools.org/tools/gt_tagerator.html	2026-11-02
+K3	F30	2	V	repfind -p reverse-complement repeats (palindromes) and gt tirvish terminal inverted repeats	https://genometools.org/tools/gt_tirvish.html	2026-11-02
+K3	F31	1	V	tagerator -e k counts unit edit distance only (replacements+indels); no Hamming-only mode	https://genometools.org/tools/gt_tagerator.html	2026-11-02
+K3	F32	2	V	tagerator -e k edit distance (replace/insert/delete) on -esa or -pck index, cdiff and pdiff modes; tag length <=64	https://genometools.org/tools/gt_tagerator.html	2026-11-02
+K3	F33	0	V	tagerator is trie/DP on ESA or packed index; no search schemes documented	https://genometools.org/documents/tagerator.pdf	2026-11-02
+K3	F34	2	V	tagerator -withwildcards reports approximate matches containing N in the text (ESA only, not -pck, not k=0)	https://genometools.org/documents/tagerator.pdf	2026-11-02
+K3	F35	2	V	seed_extend -maxmat uses maximal exact matches as seeds (-ii/-qii), -seedlength k-mer seeds, then xdrop/greedy extension	https://genometools.org/tools/gt_seed_extend.html	2026-11-02
+K3	F36	2	V	gt matstat -esa|-pck|-fmi -query: matching statistics; also tagerator ms-mode	https://genometools.org/tools/gt_matstat.html	2026-11-02
+K3	F37	2	V	seed_extend -ii idx -qii qidx -maxmat -l N and repfind compute maximal exact matches (all occurrences, pairs across sequences)	https://genometools.org/tools/gt_seed_extend.html	2026-11-02
+K3	F38	0	V	No MUM option in repfind/seed_extend/matstat manuals	https://genometools.org/tools/gt_repfind.html	2026-11-02
+K3	F39	0	V	No SMEM computation documented	https://genometools.org/tools.html	2026-11-02
+K3	F40	2	V	gt chain2dim: global and local chaining of pairwise matches (L1 gap costs)	https://genometools.org/tools/gt_chain2dim.html	2026-11-02
+K3	F41	1	V	No LCS tool; take longest cross-sequence match from repfind -l N output over a two-sequence index	https://genometools.org/tools/gt_repfind.html	2026-11-02
+K3	F42	0	V	No k-common-substring tool	https://genometools.org/tools.html	2026-11-02
+K3	F43	2	V	gt uniquesub: minimum unique prefix length at every query position vs an esa/pck index; gt shulengthdist shustrings	https://genometools.org/tools/gt_uniquesub.html	2026-11-02
+K3	F44	0	V	No minimal absent words tool	https://genometools.org/tools.html	2026-11-02
+K3	F45	1	V	repfind lists all maximal repeats >= -l; longest has to be picked from the output	https://genometools.org/tools/gt_repfind.html	2026-11-02
+K3	F46	2	V	gt repfind -f -r -p -l N: all maximal repeated pairs (REPuter-style), forward/reverse/palindromic	https://genometools.org/documents/repfind.pdf	2026-11-02
+K3	F47	0	V	No supermaximal repeat option in repfind manual or tools list	https://genometools.org/tools/gt_repfind.html	2026-11-02
+K3	F48	0	V	No tandem repeat tool in tools list	https://genometools.org/tools.html	2026-11-02
+K3	F49	2	V	gt tallymer occratio -output unique|nonunique|total gives distinct k-mer counts for each k	https://genometools.org/tools/gt_tallymer_occratio.html	2026-11-02
+K3	F50	2	V	gt tallymer mkindex -mersize k -counts counts/indexes k-mers from the ESA; tallymer search for lookup	https://genometools.org/tools/gt_tallymer_mkindex.html	2026-11-02
+K3	F51	2	V	gt tallymer occratio -minmersize -maxmersize -step: unique/non-unique k-mer counts per k = substring complexity profile	https://genometools.org/tools/gt_tallymer_occratio.html	2026-11-02
+K3	F52	0	V	No LZ factorization tool	https://genometools.org/tools.html	2026-11-02
+K3	F53	2	V	gt tallymer search (k-mer count per query position) and gt uniquesub give uniqueness/mappability maps	https://genometools.org/tools/gt_tallymer_search.html	2026-11-02
+K3	F54	0	V	No suffix-tree navigation API in tools or C API classes	https://genometools.org/libgenometools.html	2026-11-02
+K3	F55	0	V	No parent operation exposed	https://genometools.org/libgenometools.html	2026-11-02
+K3	F56	0	V	No suffix link exposed	https://genometools.org/libgenometools.html	2026-11-02
+K3	F57	0	V	No Weiner link exposed	https://genometools.org/libgenometools.html	2026-11-02
+K3	F58	0	V	No node string depth accessor	https://genometools.org/libgenometools.html	2026-11-02
+K3	F59	0	V	No LCA / LCP(i,j) accessor	https://genometools.org/libgenometools.html	2026-11-02
+K3	F60	0	V	No level-ancestor operation	https://genometools.org/libgenometools.html	2026-11-02
+K3	F61	0	V	No leaf rank/label accessor (only SA file via suffixerator -suf)	https://genometools.org/libgenometools.html	2026-11-02
+K3	F62	0	V	No subtree leaf count accessor	https://genometools.org/libgenometools.html	2026-11-02
+K3	F63	0	V	No child/sibling enumeration API	https://genometools.org/libgenometools.html	2026-11-02
+K3	F64	0	V	No visitor/DFS over index tree in public API	https://genometools.org/libgenometools.html	2026-11-02
+K3	F65	0	V	No edge/path label accessor	https://genometools.org/libgenometools.html	2026-11-02
+K3	F66	2	V	Indexes are persisted as files by design (.esq .suf .lcp .bwt .prj; packed index .bdx) and reused by later tools	https://genometools.org/documents/tallymer.pdf	2026-11-02
+K3	F67	2	V	ESA/encseq mapped into main memory by default (mmap-able files); -scan reads sequentially	https://genometools.org/tools/gt_tallymer_mkindex.html	2026-11-02
+K3	F68	1	V	GtEncseq file format carries a version (gt_encseq_version, shown by gt encseq info); ESA tables undocumented	https://genometools.org/libgenometools.html	2026-11-02
+K3	F69	2	V	gt packedindex chkintegrity / chksearch, gt encseq check, gt encseq md5	https://raw.githubusercontent.com/genometools/genometools/master/src/tools/gt_packedindex_chk_integrity.c	2026-11-02
+K3	F70	2	V	Whole toolkit is the gt command-line binary (suffixerator, packedindex, tagerator, repfind, ...)	https://genometools.org/tools.html	2026-11-02
+K3	F71	0	V	No server/RPC surface in tools list	https://genometools.org/tools.html	2026-11-02
+K3	F72	2	V	gt encseq info (length, sequences, sizes, N50, alphabet); suffixerator -lcpdist LCP distribution	https://genometools.org/tools/gt_encseq_info.html	2026-11-02
+K3	F73	0	V	gt dot exports annotation feature graphs only, not index structure	https://genometools.org/tools.html	2026-11-02
+K3	F74	0	V	No thread-safety statement for shared read-only index use	https://genometools.org/tools.html	2026-11-02
+K3	F75	2	V	tagerator -q / tallymer search -q / matstat -query take multi-FASTA query files in one call (not parallel)	https://genometools.org/tools/gt_tagerator.html	2026-11-02
+K3	F76	2	V	gt encseq encode -plain / suffixerator -plain index arbitrary text; -smap custom symbol map	https://genometools.org/tools/gt_encseq_encode.html	2026-11-02
+K3	F77	1	U	Only bytewise plain-text mode (-plain, -smap char map); no code-point support	https://genometools.org/tools/gt_encseq_encode.html	2026-11-02
+K3	F78	1	V	-smap symbol mapping file defines the alphabet, but symbols are characters, not arbitrary integers	https://genometools.org/tools/gt_encseq_encode.html	2026-11-02
+K3	F79	2	V	GtEncseq stores DNA bit-compressed; encseq encode -sat direct|bytecompress|eqlen|bit|uchar|ushort|uint32	https://genometools.org/tools/gt_encseq_encode.html	2026-11-02
+K3	F80	2	V	suffixerator / packedindex / encseq encode -protein	https://genometools.org/tools/gt_encseq_encode.html	2026-11-02
+K3	F81	2	V	Wildcards (IUB codes N,R,Y..) and sequence separators handled by alphabet; wildcards never match; gt_encseq_position_is_wildcard/separator	https://genometools.org/libgenometools.html	2026-11-02

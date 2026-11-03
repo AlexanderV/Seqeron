@@ -1,0 +1,4 @@
+competitor_id	name	version	release_date	licence	repo_or_home_url	scope_note
+K1	sdsl-lite (xxsds fork, SDSL v3)	v3.0.4	2026-07-01	BSD-3-Clause (upstream simongog v2: GPL-3)	https://github.com/xxsds/sdsl-lite	Scored xxsds SDSL v3.0.4 (header-only C++20, active). Upstream simongog/sdsl-lite v2.1.1 (2016, last commit 2019) is legacy. Library of CSA/FM/CST/WT, no CLI.
+K2	SeqAn3	3.4.2	2026-03-18	BSD-3-Clause	https://github.com/seqan/seqan3	Scored fm_index/bi_fm_index + search schemes (sdsl-based). SeqAn2 Index<ESA> not scored. Maintainers cite fmindex-collection as a possible future FM backend (issue 2755).
+K3	GenomeTools	1.6.6	2025-10-06	ISC	https://github.com/genometools/genometools	Scored gt suffixerator ESA, packedindex FM, repfind, tagerator, matstat, tallymer. Vmatch (same lineage) not scored: vmatch.de returned HTTP 503, licence unverified.

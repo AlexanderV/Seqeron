@@ -1,0 +1,25 @@
+competitor_id	cap_id	score	flag	evidence	url	accessed
+K0	C1	3	V	Contains/CountOccurrences/FindAllOccurrences (unordered) + Text access on in-memory and persistent trees; genome-size behaviour not yet measured	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs	2026-11-02
+K0	C2	1	V	No IUPAC/wildcard query on the tree; Seqeron.Genomics has a separate IUPAC scan (PAT-IUPAC-001), not index-accelerated	docs/Validation/review-2026-09/B05.md	2026-11-02
+K0	C3	1	V	No backtracking search over the tree; ApproximateMatcher (Hamming/Sellers/Myers scan) is separate and not index-based	src/SuffixTree/Mcp/SuffixTree.Mcp.Core/Tools/SuffixTreeGenomicsTools.cs	2026-11-02
+K0	C4	3	V	Complete MEM/MUM (Both/Reference) and maximal repeated pairs, forward strand only; parity with MUMmer 3.23 on 512k pairs; large-input scale unmeasured	docs/algorithms/Pattern_Matching/Suffix_Tree.md	2026-11-02
+K0	C5	2	V	Suffix-link streaming (FindExactMatchAnchors, LCS via ms) but no public ms[] array API	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeAnalysis.cs	2026-11-02
+K0	C6	3	V	Generalized text + k-common substrings, LCS-by-support, all tied LCS; MCP tools; no document-listing/top-k	src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.KCommon.cs	2026-11-02
+K0	C7	1	V	No reverse-complement support in the tree; only by indexing text+revcomp yourself	src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs	2026-11-02
+K0	C8	2	V	Public ISuffixTreeNavigator<TNode> (suffix link, child lookup, edge symbols) and Traverse visitor; no LCA / string-depth queries as API	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeNavigator.cs	2026-11-02
+K0	C9	3	V	LRS (+all ties), distinct substrings by length, maximal repeated pairs, k-common, all LCS; supermaximal repeats live in Seqeron.Genomics (SA-based)	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs	2026-11-02
+K0	C10	1	U	Ukkonen O(n) but pointer/heap based; ~23 s for 10 Mbp reported in B06 (includes query) -> ~0.4 Mbp/s; benchmark pass will measure	docs/Validation/review-2026-09/B06.md	2026-11-02
+K0	C11	1	U	In-memory: doc says ~20 B/char, B06 saw ~1.7 GB for 10 Mbp (~170 B/char); persistent 24 B node + 8 B child entry; benchmark pass will measure	src/SuffixTree/Algorithms/SuffixTree/SuffixTree.cs	2026-11-02
+K0	C12	3	U	O(m) in-memory, O(m log d) persistent, O(1) count via cached LeafCount; to be measured against SA/FM tools	src/SuffixTree/Algorithms/SuffixTree.Persistent/README.md	2026-11-02
+K0	C13	2	V	v6 hybrid format has 64-bit node offsets, but header TEXT_LEN is int32 (max ~2.1 G chars) so a 3.1 Gbp genome cannot be one tree	src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentConstants.cs	2026-11-02
+K0	C14	2	V	Memory-mapped storage for nodes and text, load is instant; builder still holds suffix-link map and child lists in RAM until FinalizeTree	src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTreeBuilder.cs	2026-11-02
+K0	C15	0	V	Construction and finalize passes are sequential; no parallel build	src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTreeBuilder.SequentialFinalize.cs	2026-11-02
+K0	C16	3	V	Thread-safe concurrent reads documented for the persistent tree; ConcurrencyTests and ThreadSafetyTests exist	tests/SuffixTree/SuffixTree.Persistent.Tests/Safety/ConcurrencyTests.cs	2026-11-02
+K0	C17	0	V	Ukkonen is online internally but the public API only builds from a complete text; no append, no insert/delete	src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Construction.cs	2026-11-02
+K0	C18	0	V	No compressed/succinct representation; plain pointer tree	src/SuffixTree/Algorithms/SuffixTree.Persistent/README.md	2026-11-02
+K0	C19	2	V	Arbitrary UTF-16 code units (int keys, terminator -1) and a 1-byte ASCII text flag; no 2-bit/sigma=4 optimised path	src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentConstants.cs	2026-11-02
+K0	C20	3	V	Documented v6 binary format, instant mmap load with validation, version/magic, SHA-256 structural hash, portable export v2	src/SuffixTree/Algorithms/SuffixTree.Persistent/README.md	2026-11-02
+K0	C21	4	V	Native .NET 10: typed ISuffixTree, ReadOnlySpan<char> overloads, struct navigators for JIT specialisation, explicit exception contracts	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs	2026-11-02
+K0	C22	2	V	12 suffix_tree_* MCP tools + genomics tools and demo/benchmark apps; no NuGet package metadata found in the SuffixTree csproj files	src/SuffixTree/Mcp/SuffixTree.Mcp.Core/Tools/SuffixTreeCoreTools.cs	2026-11-02
+K0	C23	3	V	~950 tests across 3 projects, brute-force and MUMmer-binary oracles, parity/fuzz/property tests, contract-freeze refactoring gates	docs/Validation/review-2026-09/B05.md	2026-11-02
+K0	C24	3	V	MIT licence, active commits in 2026	LICENSE	2026-11-02

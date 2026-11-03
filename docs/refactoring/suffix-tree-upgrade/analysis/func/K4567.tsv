@@ -1,0 +1,325 @@
+competitor_id	func_id	score	flag	evidence	url	accessed
+K4	F01	2	V	sparseSA ctor builds ESA from std::string/char* (SA, ISA, LCP, CHILD, k-mer table); installed header (libumdmummer, pkg-config); CLI mummer builds from FASTA	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F02	2	V	mummer/nucmer index a multi-FASTA reference as one concatenated text; sparseSAMatch keeps descr+startpos per sequence	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F03	1	V	nucmer --batch BASES indexes the reference in chunks (separate index per chunk); mummer/sparseSA read the whole FASTA into memory first	https://raw.githubusercontent.com/mummer4/mummer/master/src/umd/nucmer_cmdline.yaggo	2026-11-02
+K4	F04	0	V	No append/online API in sparseSA.hpp or nucmer.hpp; index is built once by construct()	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F05	0	V	No delete/replace API in sparseSA.hpp; static index	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F06	0	V	No merge API in sparseSA.hpp; --batch builds independent per-chunk indexes	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F07	2	V	Public members sparseSA::SA (32- or 48-bit vector_32_48) and ISA (built with suffix links); -k K gives a sparse SA	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F08	2	V	Public sparseSA::LCP (compact vec_uchar, computeLCP()); no PLCP	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F09	1	U	No BWT/LF API; psi(i)=ISA[SA[i]+1] is derivable from public SA/ISA (used inside suffixlink())	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F10	2	V	Public sparseSA::CHILD child table (Abouelhoda ESA), computeChild(), top_down_child(); auto-enabled for -k>=4	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F11	1	V	mummer -k K indexes every K-th suffix (space/time trade-off) but only valid for -maxmatch; MUM/MAM need K=1	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F12	2	V	sparseSA::search(P,len,start,end) returns bool for an exact pattern (full SA, K=1)	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F13	1	V	search() returns the SA interval [start,end]; count = end-start+1 computed by caller; no count() method	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F14	1	V	Locate = caller reads SA[start..end] from the interval; no locate function (CLI prints MEM/MUM triples only)	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F15	1	V	Limit by slicing the SA interval in caller code; MEM/MUM APIs stream results through an Output callback (findMEM_each)	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F16	0	U	No ordering guarantee documented: positions come in SA order, MEM output order not specified	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F17	2	V	interval_t {depth,start,end} is a reusable handle; traverse()/top_down_child()/suffixlink() resume from it	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F18	0	V	No backward (left) extension step; forward top-down ESA only, left-maximality checked by text comparison	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F19	2	V	top_down(c,i,start,end) and top_down_child(c,interval) extend the match by one char to the right	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F20	0	V	No bidirectional index or state; forward ESA traversal only	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F21	1	V	Indexed text kept as public sparseSA::S (bounded_string, operator[]); no dedicated extract API	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F22	2	V	sparseSAMatch::from_set(hit,seq,seqpos) maps concatenated position to sequence index + offset; nucmer.hpp sequence_info::find(pos)	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F23	0	V	No document listing/counting API in sparseSA.hpp or nucmer.hpp	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F24	0	V	No top-k / ranked document retrieval	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F25	0	V	No IUPAC pattern support; mummer -n makes non-ACGT symbols never match (replaced by unique characters)	https://raw.githubusercontent.com/mummer4/mummer/master/docs/maxmat3man.tex	2026-11-02
+K4	F26	0	V	No wildcard / don't-care positions in exact search	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F27	0	V	No regex / character-class patterns	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F28	2	V	mummer ignores case (legacy mummer manual: 'Case is ignored'); same behaviour in mummer 4 CLI	https://raw.githubusercontent.com/mummer4/mummer/master/docs/maxmat3man.tex	2026-11-02
+K4	F29	2	V	mummer -b forward + reverse-complement in one run (-r revcomp only, -c forward-strand coords); nucmer does both strands by default (-f/-r restrict)	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F30	2	V	repeat-match reports maximal exact repeats including reverse-complement (inverted) pairs flagged 'r'; -f forward only	https://raw.githubusercontent.com/mummer4/mummer/master/src/tigr/repeat-match.cc	2026-11-02
+K4	F31	0	V	No k-mismatch search on the index; nucmer extends exact anchors by DP, no index backtracking	https://raw.githubusercontent.com/mummer4/mummer/master/README.md	2026-11-02
+K4	F32	0	V	No k-edit index search; nucmer/promer cluster exact anchors and extend with banded alignment	https://raw.githubusercontent.com/mummer4/mummer/master/README.md	2026-11-02
+K4	F33	0	V	No search schemes / pigeonhole approximate search	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F34	0	V	No approximate search; -n only restricts exact matching to ACGT	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F35	2	V	mummer -maxmatch/-mum -l L anchors (MEM/MUM seeds) feed nucmer; nucmer --sam-short/--sam-long emit SAM	https://raw.githubusercontent.com/mummer4/mummer/master/src/umd/nucmer_cmdline.yaggo	2026-11-02
+K4	F36	1	U	traverse()+suffixlink() stream the query like matching statistics but only MAM/MEM/MUM are emitted; no ms[] output	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F37	2	V	mummer -maxmatch (sparseSA::MEM/findMEM_each): all MEMs with all reference occurrences, -l minimum length	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F38	2	V	mummer -mum (unique in both), -mumreference (unique in reference, default); API MUM()/MAM()	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F39	0	V	No SMEM (supermaximal) mode; only MEM, MAM and MUM	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F40	2	V	nucmer: MEM/MUM anchors clustered by mgaps (-g -D -d -c) then extended into delta alignments; promer same at protein level	https://raw.githubusercontent.com/mummer4/mummer/master/src/umd/nucmer_cmdline.yaggo	2026-11-02
+K4	F41	1	V	No LCS command; longest common substring = longest match of 'mummer -maxmatch -l k' picked by the caller	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F42	0	V	No k-text common substring; multi-FASTA reference/queries only give pairwise matches	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F43	1	V	No SUS API; shortest unique substrings derivable from public SA+LCP by caller code	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F44	0	V	No minimal absent words	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F45	1	V	repeat-match -n L lists maximal repeats (no LRS-only option); the longest is picked by the caller	https://raw.githubusercontent.com/mummer4/mummer/master/src/tigr/repeat-match.cc	2026-11-02
+K4	F46	2	V	repeat-match: all maximal exact repeated pairs (start1 start2 length), -n min length, strand option	https://raw.githubusercontent.com/mummer4/mummer/master/src/tigr/repeat-match.cc	2026-11-02
+K4	F47	0	V	No supermaximal-repeat mode in repeat-match or mummer	https://raw.githubusercontent.com/mummer4/mummer/master/src/tigr/repeat-match.cc	2026-11-02
+K4	F48	2	V	exact-tandems <file> <min-len> (repeat-match -t) lists exact tandem repeats	https://raw.githubusercontent.com/mummer4/mummer/master/src/tigr/repeat-match.cc	2026-11-02
+K4	F49	1	V	No count function; distinct substrings = n(n+1)/2 - sum(LCP) from the public LCP array	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F50	1	V	No k-mer counting API; -kmer builds an internal SA-interval table for first k chars; counts derivable from SA+LCP	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F51	0	V	No linguistic / substring complexity profile	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F52	0	V	No LZ factorization / longest previous factor	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F53	0	V	No mappability map; uniqueness only as pairwise MUM/MAM	https://raw.githubusercontent.com/mummer4/mummer/master/README.md	2026-11-02
+K4	F54	2	V	top_down_child(c, interval) via CHILD table (also top_down/traverse by char)	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F55	0	V	No parent accessor on intervals	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F56	2	V	sparseSA::suffixlink(interval_t&) simulates suffix link via ISA/SA, expand_link() by LCP	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F57	0	V	No Weiner link / inverse suffix link	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F58	2	V	interval_t.depth is the string depth of the interval/node	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F59	1	V	LCP array gives adjacent LCP only; LCP(i,j) = range-min over LCP[] by caller, no RMQ	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F60	0	V	No level-ancestor query	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F61	2	V	Leaf label = SA[i] (suffix start); leaf rank = i or ISA[pos]	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F62	2	V	interval_t::size() = number of leaves under the interval	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F63	1	U	CHILD table holds child/next-l-index links but no child-enumeration iterator; caller walks the table	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F64	0	V	No DFS / visitor traversal over the tree	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F65	1	V	Path label = S[SA[start]..+depth] built by caller from public S and interval depth; no API	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F66	2	V	mummer -save/-load PREFIX and nucmer --save/--load; sparseSA::save/load(prefix) writes .aux .sa .lcp .isa .child .kmer	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/sparseSA.cpp	2026-11-02
+K4	F67	0	V	load() reads the files into RAM with istream read; no mmap	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/sparseSA.cpp	2026-11-02
+K4	F68	0	V	Raw binary dumps without magic number or version; layout not documented	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/sparseSA.cpp	2026-11-02
+K4	F69	0	V	No checksum; mummer prints WARNING that it does not check the loaded index against the reference file	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F70	2	V	CLI: mummer, nucmer, promer, repeat-match, exact-tandems, delta-filter, show-*, dnadiff, mummerplot	https://raw.githubusercontent.com/mummer4/mummer/master/README.md	2026-11-02
+K4	F71	0	V	No server/RPC/MCP surface; only SWIG bindings (Python, Perl, Ruby) and C++ library	https://raw.githubusercontent.com/mummer4/mummer/master/ChangeLog	2026-11-02
+K4	F72	1	V	sparseSA::index_size_in_bytes(); no node/depth statistics	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F73	1	V	mummerplot makes gnuplot dot-plots/coverage plots of match or alignment output; no index/tree DOT export	https://raw.githubusercontent.com/mummer4/mummer/master/README.md	2026-11-02
+K4	F74	2	V	mummer -qthreads: query threads share one const index; FileAligner::align_file(path,out,threads) parallel on the shared index	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F75	2	V	Up to 32 query files / multi-FASTA queries processed in parallel (-qthreads); FileAligner::align_file	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp	2026-11-02
+K4	F76	2	V	Any characters accepted, case-insensitive (DNA and protein); byte text	https://raw.githubusercontent.com/mummer4/mummer/master/docs/maxmat3man.tex	2026-11-02
+K4	F77	0	V	Byte/char text only; no Unicode or wide-character API	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F78	0	V	Char-based index; no integer alphabet	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F79	0	V	Text stored as chars (2-bit codes only inside the k-mer table); no 2-bit packed text	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/sparseSA.hpp	2026-11-02
+K4	F80	2	V	promer: six-frame translation and protein-level alignment; mummer accepts protein text	https://raw.githubusercontent.com/mummer4/mummer/master/README.md	2026-11-02
+K4	F81	2	V	mummer -n: non-ACGT replaced by unique chars (no false N matches); multi-FASTA separators handled; bounded_string pads '$'	https://raw.githubusercontent.com/mummer4/mummer/master/docs/maxmat3man.tex	2026-11-02
+K5	F01	2	V	libsais()/libsais64()/divsufsort() build the SA of an in-memory byte text; best member libsais	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F02	2	V	libsais_gsa: generalized SA of a string set, 0 as separator, T[n-1]=0 (also libsais16_gsa, libsais64_gsa); libdivsufsort has no GSA	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F03	0	V	All APIs take an in-memory T[0..n-1]; no file/stream builder (libdivsufsort example mksary also reads the whole file)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F04	0	V	No append/online API; construct-once functions only	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F05	0	V	No delete/replace API	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F06	0	V	No merge API	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F07	2	V	SA array output (int32 libsais, int64 libsais64, divsufsort/divsufsort64); inverse SA not provided	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F08	2	V	libsais_plcp / libsais_plcp_gsa / libsais_plcp_int and libsais_lcp(PLCP,SA,LCP) (+_omp, 64-bit, 16-bit variants)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F09	2	V	libsais_bwt(_aux,_cyclic) and libsais_unbwt* ; divbwt/bw_transform/inverse_bw_transform; no LF/psi functions	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F10	0	V	No child table / LCP-interval tree; only SA, GSA, LCP/PLCP and BWT arrays	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F11	0	V	libsais_bwt_aux emits auxiliary indexes sampled every r-th position (r power of 2) for libsais_unbwt_aux; not an SA sample for locate	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F12	2	V	libdivsufsort sa_search(T,P,SA) returns match count (>0 = exists), sa_simplesearch for one char; libsais has no search	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F13	2	V	libdivsufsort sa_search returns the number of matches and the first SA index, O(|P| log n)	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F14	1	V	sa_search yields first SA index + count; positions = SA[idx..idx+count) read by the caller	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F15	1	V	Limit by slicing SA[idx..] in caller code; no iterator or top-k API	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F16	0	V	Hits come in SA (lexicographic) order; no text-order option	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F17	1	V	sa_search output (idx,count) is an SA interval, but no API consumes it for later steps	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F18	0	V	No backward extension (no FM-index)	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F19	0	V	No match extension API; sa_search restarts from scratch	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F20	0	V	No bidirectional index	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F21	0	V	Text is caller-owned; the libraries return only SA/BWT/LCP arrays	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F22	1	V	libsais_gsa places 0-separated documents in one GSA; document id/offset mapping is caller code	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F23	0	V	No document listing/counting API	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F24	0	V	No ranked document retrieval	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F25	0	V	Exact byte comparison only (sa_search); no IUPAC support	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F26	0	V	No wildcard / don't-care support	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F27	0	V	No regex / character classes	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F28	0	V	No case folding	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F29	0	V	No reverse-complement handling; byte/int strings only	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F30	0	V	No palindrome / inverted-repeat finder	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F31	0	V	No approximate search (sa_search exact only)	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F32	0	V	No edit-distance search	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F33	0	V	No search schemes	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F34	0	V	No approximate search	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F35	0	V	No seed / MEM generation	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F36	0	V	No matching statistics API	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F37	0	V	No MEM API	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F38	0	V	No MUM API	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F39	0	V	No SMEM API	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F40	0	V	No chaining / alignment module	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F41	1	V	libsais_gsa + libsais_plcp_gsa/libsais_lcp: LCS of two texts = scan adjacent LCP across documents in caller code	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F42	0	V	k-text common substring needs a sliding-window algorithm over GSA+LCP; not provided	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F43	1	V	Shortest unique substrings derivable from SA + libsais_lcp in a short caller loop; no API	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F44	0	V	No minimal absent words	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F45	1	V	LRS = max of the LCP array from libsais_lcp (caller code)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F46	0	V	No maximal repeated pairs (needs LCP-interval + BWT algorithm)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F47	0	V	No supermaximal repeats	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F48	0	V	No tandem repeat finder	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F49	1	V	Distinct substrings = n(n+1)/2 - sum(LCP) from libsais_lcp (caller code)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F50	1	V	k-mer counts from SA+LCP (runs with LCP>=k) computed by caller; no API	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F51	0	V	No complexity profile	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F52	0	V	No LZ factorization (PLCP is built but no LZ/LPF routine)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F53	0	V	No mappability map	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F54	0	V	No tree structure; arrays only	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F55	0	V	No tree structure; arrays only	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F56	0	V	No suffix links	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F57	0	V	No Weiner links	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F58	0	V	No node objects / string depth	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F59	1	V	LCP(i,j) = range-min over the LCP array from libsais_lcp; no RMQ structure	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F60	0	V	No level ancestor	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F61	2	V	SA[i] = suffix start for lexicographic rank i (leaf label)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F62	1	V	Subtree size = interval length; sa_search count gives it for a pattern	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F63	0	V	No child enumeration	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F64	0	V	No traversal API	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F65	0	V	No edge/path label access	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F66	1	V	No (de)serializer; libdivsufsort example mksary writes the raw SA with fwrite, libsais leaves I/O to the caller	https://raw.githubusercontent.com/y-256/libdivsufsort/master/examples/mksary.c	2026-11-02
+K5	F67	0	V	No mmap loader; arrays are plain caller-allocated memory	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F68	0	V	No documented on-disk format (mksary dumps raw saidx_t array)	https://raw.githubusercontent.com/y-256/libdivsufsort/master/examples/mksary.c	2026-11-02
+K5	F69	2	V	libdivsufsort sufcheck(T,SA,n,verbose) validates a suffix array against its text; libsais has none	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F70	1	V	libdivsufsort examples built by default: mksary, sasearch, bwt, unbwt, suftest; libsais has no CLI	https://raw.githubusercontent.com/y-256/libdivsufsort/master/examples/CMakeLists.txt	2026-11-02
+K5	F71	0	V	No server/RPC/MCP surface	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F72	0	V	Only divsufsort_version(); no index statistics	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F73	0	V	No graph export	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F74	0	V	No documented concurrent read-only query guarantee; libsais ctx objects are for build-memory reuse	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F75	0	V	No batch query API	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake	2026-11-02
+K5	F76	2	V	uint8_t byte strings (libsais, libdivsufsort)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F77	2	V	libsais16/libsais16x64 for 16-bit symbols; libsais_int for 32-bit code points	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais16.h	2026-11-02
+K5	F78	2	V	libsais_int(T,SA,n,k,fs) and libsais64_long for integer arrays over alphabet size k; libsais_plcp_int	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K5	F79	0	V	No 2-bit packed input; byte, 16-bit and integer arrays only	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F80	2	V	Byte strings: protein is just bytes; any constant-size alphabet	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/README.md	2026-11-02
+K5	F81	2	V	GSA: 0 is the separator and T[n-1] must be 0 (documented); no other N/unknown-symbol handling	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h	2026-11-02
+K6	F01	2	V	suffixarray.New(data []byte) *Index builds a suffix array in O(N) (SA-IS; int32 SA, int64 above 2^31-1 bytes)	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F02	1	V	No collection API: one Index over one []byte; caller concatenates texts with a separator byte	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F03	0	V	New takes the whole []byte in memory; Read restores a saved index but build needs all data	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F04	0	V	API is New, Bytes, Lookup, FindAllIndex, Read, Write: no append	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F05	0	V	No delete/replace method (immutable index)	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F06	0	V	No merge method	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F07	0	V	Suffix array field is unexported; no SA accessor	https://raw.githubusercontent.com/golang/go/master/src/index/suffixarray/suffixarray.go	2026-11-02
+K6	F08	0	V	No LCP array in the API	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F09	0	V	No BWT / LF / psi	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F10	0	V	No child table or tree structure	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F11	0	V	Full suffix array stored; no sampling parameter	https://raw.githubusercontent.com/golang/go/master/src/index/suffixarray/suffixarray.go	2026-11-02
+K6	F12	2	V	Lookup(s,1): non-empty result means s occurs (n limits the result size)	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F13	1	V	No Count method; len(Lookup(s,-1)) materializes all occurrences, O(occ)	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F14	2	V	Lookup(s []byte, n int): n<0 returns all indices where s occurs, O(log(N)*len(s)+len(result))	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F15	2	V	Lookup(s,n) returns at most n indices	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F16	1	V	Lookup result is 'unsorted'; FindAllIndex(literal regexp,-1) is sorted but drops overlapping matches	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F17	0	V	No handle or interval type; each Lookup re-searches from scratch	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F18	0	V	No incremental match extension	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F19	0	V	No incremental match extension	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F20	0	V	No bidirectional state	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F21	2	V	Index.Bytes() returns the indexed data; substring = slice of it	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F22	0	V	No multi-text support, so no document mapping	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F23	0	V	No document listing/counting	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F24	0	V	No ranked retrieval	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F25	1	V	FindAllIndex with regexp classes such as [AG] written by the caller; no IUPAC table	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F26	1	V	Regexp '.' via FindAllIndex; full scan when the regexp has no literal prefix	https://raw.githubusercontent.com/golang/go/master/src/index/suffixarray/suffixarray.go	2026-11-02
+K6	F27	2	V	FindAllIndex(r *regexp.Regexp, n): literal prefix found via Lookup, else r.FindAllIndex scan of the data	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F28	1	V	Regexp (?i) via FindAllIndex works but has no literal prefix, so it scans the whole data	https://raw.githubusercontent.com/golang/go/master/src/index/suffixarray/suffixarray.go	2026-11-02
+K6	F29	0	V	No reverse-complement support	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F30	0	V	No palindrome / inverted repeat finder	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F31	0	V	No approximate search	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F32	0	V	No approximate search	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F33	0	V	No search schemes	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F34	0	V	No approximate search	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F35	0	V	No seed generation	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F36	0	V	No matching statistics	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F37	0	V	No MEM API	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F38	0	V	No MUM API	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F39	0	V	No SMEM API	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F40	0	V	No chaining / alignment	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F41	0	V	No LCS; SA and LCP are not exposed	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F42	0	V	No multi-text LCS	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F43	0	V	No shortest unique substring API	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F44	0	V	No minimal absent words	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F45	0	V	No repeat analysis; SA and LCP not exposed	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F46	0	V	No maximal repeated pairs	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F47	0	V	No supermaximal repeats	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F48	0	V	No tandem repeat finder	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F49	0	V	No distinct substring count; LCP not available	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F50	0	V	No k-mer counting from the index	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F51	0	V	No complexity profile	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F52	0	V	No LZ factorization	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F53	0	V	No mappability map	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F54	0	V	No tree navigation API	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F55	0	V	No tree navigation API	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F56	0	V	No suffix links	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F57	0	V	No Weiner links	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F58	0	V	No node/string depth	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F59	0	V	No LCA / LCP(i,j)	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F60	0	V	No level ancestor	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F61	0	V	Suffix start only returned by Lookup; no rank/label accessors	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F62	0	V	No subtree size	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F63	0	V	No child enumeration	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F64	0	V	No traversal	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F65	0	V	No edge/path label access	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F66	2	V	Index.Write(io.Writer) / Index.Read(io.Reader) serialize and restore the index	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F67	0	V	Read copies data and SA into memory; no mmap loader	https://raw.githubusercontent.com/golang/go/master/src/index/suffixarray/suffixarray.go	2026-11-02
+K6	F68	0	V	Wire format (varint-chunked SA after the data) is private, undocumented and unversioned	https://raw.githubusercontent.com/golang/go/master/src/index/suffixarray/suffixarray.go	2026-11-02
+K6	F69	1	V	Read rejects corrupted input (errCorrupted if an index >= n) but there is no checksum or hash	https://raw.githubusercontent.com/golang/go/master/src/index/suffixarray/suffixarray.go	2026-11-02
+K6	F70	0	V	Library package only; no command-line tool	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F71	0	V	No server / RPC surface	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F72	0	V	No statistics method; only Bytes()	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F73	0	V	No graph export	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F74	1	V	Package docs are silent on concurrency; Lookup/FindAllIndex only read the index, so shared read-only use works but is undocumented	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F75	0	V	No batch or parallel query API	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F76	2	V	Text is a []byte	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F77	1	V	Index is byte-based; UTF-8 patterns work as bytes and regexp is Unicode-aware, but there is no rune-level API	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F78	0	V	Only []byte; the integer SA-IS code is internal and not exported	https://raw.githubusercontent.com/golang/go/master/src/index/suffixarray/suffixarray.go	2026-11-02
+K6	F79	0	V	No packed DNA representation	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F80	2	V	Any byte alphabet, so protein text works	https://pkg.go.dev/index/suffixarray	2026-11-02
+K6	F81	1	V	No N/separator policy: every byte is a symbol; caller must pick a separator byte for concatenated texts	https://pkg.go.dev/index/suffixarray	2026-11-02
+K7	F01	2	V	bio: suffix_array(text)+bwt+less+Occ::new -> FMIndex::new; fm-index: FMIndex/FMIndexWithLocate::new(&Text) from an in-memory slice (SA-IS)	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/index.html	2026-11-02
+K7	F02	2	V	fm-index FMIndexMultiPieces(+WithLocate): \0-separated texts with piece ids; bio: text with multiple sentinels is documented	https://docs.rs/fm-index/0.3.1/fm_index/index.html	2026-11-02
+K7	F03	0	V	All constructors take in-memory slices (suffix_array(&[u8]), Text::new); no file/stream builder	https://docs.rs/fm-index/0.3.1/fm_index/index.html	2026-11-02
+K7	F04	0	V	No append/online API in bio::data_structures or fm-index	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/index.html	2026-11-02
+K7	F05	0	V	No delete/replace API; indexes are immutable	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/index.html	2026-11-02
+K7	F06	0	V	No merge API	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/index.html	2026-11-02
+K7	F07	2	V	bio suffix_array(text) -> RawSuffixArray (Vec<usize>), SuffixArray trait get/len; inverse SA not provided	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/index.html	2026-11-02
+K7	F08	2	V	bio suffix_array::lcp(text,sa) -> compressed LCPArray (get, decompress), O(n); no PLCP	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/fn.lcp.html	2026-11-02
+K7	F09	2	V	bio::bwt: bwt(), invert_bwt(), less(), Occ (occ/get); FMIndexable::occ/less expose LF-mapping parts	https://docs.rs/bio/4.2.2/bio/data_structures/bwt/index.html	2026-11-02
+K7	F10	0	V	No child table or LCP-interval tree	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/index.html	2026-11-02
+K7	F11	2	V	bio SuffixArray::sample(..., sampling_rate) -> SampledSuffixArray; fm-index FMIndexWithLocate::new(&text, level) sampled SA	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/trait.SuffixArray.html	2026-11-02
+K7	F12	2	V	fm-index Search::count()>0; bio FMIndexable::backward_search -> Complete/Partial/Absent	https://docs.rs/fm-index/0.3.1/fm_index/trait.Search.html	2026-11-02
+K7	F13	2	V	fm-index Search::count(); bio Interval{lower,upper} from backward_search	https://docs.rs/fm-index/0.3.1/fm_index/trait.Search.html	2026-11-02
+K7	F14	2	V	bio Interval::occ(&sa) -> Vec<usize>; fm-index iter_matches().map(locate) (WithLocate variants)	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.Interval.html	2026-11-02
+K7	F15	2	V	fm-index Search::iter_matches() is a lazy iterator (take(n)); bio Interval::occ returns full Vec	https://docs.rs/fm-index/0.3.1/fm_index/trait.Search.html	2026-11-02
+K7	F16	0	V	Positions follow SA order (doc examples [3,12,9] and [246,12,300,103]); no sorted option	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/trait.FMIndexable.html	2026-11-02
+K7	F17	2	V	bio Interval/BiInterval and fm-index FMIndexSearch are reusable handles; Search::search refines them	https://docs.rs/fm-index/0.3.1/fm_index/trait.Search.html	2026-11-02
+K7	F18	2	V	bio FMDIndex::backward_ext(&BiInterval,a); fm-index Search::search(pattern) prepends characters to the current result	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F19	2	V	bio FMDIndex::forward_ext(&BiInterval,a) (DNA FMD index only); fm-index has no right extension	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F20	2	V	bio FMDIndex+BiInterval: backward_ext and forward_ext on one state; needs DNA+N text T$R$	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F21	1	V	fm-index Match::iter_chars_forward/backward read text from a hit (crate says no random extract); bio only invert_bwt of the whole text	https://docs.rs/fm-index/0.3.1/fm_index/trait.Match.html	2026-11-02
+K7	F22	1	V	fm-index MatchWithPieceId::piece_id() gives the document id of a hit; offset within piece not exposed	https://docs.rs/fm-index/0.3.1/fm_index/trait.MatchWithPieceId.html	2026-11-02
+K7	F23	1	V	fm-index piece_id() per hit (caller dedups for listing/counting); no dedicated document listing or counting algorithm	https://docs.rs/fm-index/0.3.1/fm_index/trait.MatchWithPieceId.html	2026-11-02
+K7	F24	0	V	No top-k / ranked document retrieval	https://docs.rs/fm-index/0.3.1/fm_index/index.html	2026-11-02
+K7	F25	1	V	bio pattern_matching::myers MyersBuilder::ambig: IUPAC symbols in the pattern, but an online text scan, not an index search	https://docs.rs/bio/4.2.2/bio/pattern_matching/myers/struct.MyersBuilder.html	2026-11-02
+K7	F26	1	V	Same MyersBuilder::ambig(b'N', b"ACGT") acts as wildcard; online scan only	https://docs.rs/bio/4.2.2/bio/pattern_matching/myers/struct.MyersBuilder.html	2026-11-02
+K7	F27	0	V	No regex / character-class support in bio::pattern_matching or fm-index	https://docs.rs/bio/4.2.2/bio/pattern_matching/index.html	2026-11-02
+K7	F28	0	V	Case-sensitive symbols; caller must normalize	https://docs.rs/bio/4.2.2/bio/alphabets/index.html	2026-11-02
+K7	F29	2	V	bio FMDIndex smems/all_smems return BiInterval with forward() and revcomp() occurrences in one call (index over T$R$)	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F30	0	V	No palindrome / inverted-repeat finder (seq_analysis has only gc and orf)	https://docs.rs/bio/4.2.2/bio/seq_analysis/index.html	2026-11-02
+K7	F31	0	V	No Hamming-bounded search on the index; alignment::distance::hamming is only a distance function	https://docs.rs/bio/4.2.2/bio/alignment/distance/index.html	2026-11-02
+K7	F32	1	V	bio pattern_matching::{myers,ukkonen} k-edit matching by text scan (up to k edits), not index backtracking	https://docs.rs/bio/4.2.2/bio/pattern_matching/myers/index.html	2026-11-02
+K7	F33	0	V	No search schemes	https://docs.rs/bio/4.2.2/bio/pattern_matching/index.html	2026-11-02
+K7	F34	1	V	MyersBuilder::ambig can declare equivalents so text ambiguity symbols match (must be specified per symbol); online scan	https://docs.rs/bio/4.2.2/bio/pattern_matching/myers/struct.MyersBuilder.html	2026-11-02
+K7	F35	2	V	bio FMDIndex::smems/all_smems (Li 2012 SMEM seeds); QGramIndex::exact_matches gives q-gram seeds	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F36	1	V	FMIndexable::backward_search returns Partial(interval,len) = longest matching suffix of the pattern; no ms[] array	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/trait.FMIndexable.html	2026-11-02
+K7	F37	1	V	FMDIndex yields supermaximal exact matches with all occurrences, not all MEMs	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F38	0	V	No MUM API	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/index.html	2026-11-02
+K7	F39	2	V	bio FMDIndex::smems(pattern,i,l) and all_smems(pattern,l): supermaximal exact matches on both strands	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F40	2	V	bio::alignment::sparse: find_kmer_matches, lcskpp (LCSk++), sdpkpp chain k-mer matches into sparse alignments	https://docs.rs/bio/4.2.2/bio/alignment/sparse/index.html	2026-11-02
+K7	F41	1	V	No LCS function; caller runs suffix_array on the concatenation (multiple sentinels) + lcp()	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/index.html	2026-11-02
+K7	F42	0	V	No k-text common substring API	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/index.html	2026-11-02
+K7	F43	2	V	bio suffix_array::shortest_unique_substrings(sa,lcp) O(n): shortest unique substring per text position	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/fn.shortest_unique_substrings.html	2026-11-02
+K7	F44	0	V	No minimal absent words	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/index.html	2026-11-02
+K7	F45	1	V	LRS = max of lcp() by caller code	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/fn.lcp.html	2026-11-02
+K7	F46	0	V	No maximal repeated pairs	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/index.html	2026-11-02
+K7	F47	0	V	No supermaximal repeats (smems are matches against a query, not repeats)	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F48	0	V	No tandem repeat finder	https://docs.rs/bio/4.2.2/bio/index.html	2026-11-02
+K7	F49	1	V	Distinct substrings = n(n+1)/2 - sum(lcp()) by caller	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/fn.lcp.html	2026-11-02
+K7	F50	2	V	bio QGramIndex::qgram_matches(qgram) -> positions in O(1) (count = len), q-gram index built from text	https://docs.rs/bio/4.2.2/bio/data_structures/qgram_index/struct.QGramIndex.html	2026-11-02
+K7	F51	0	V	No linguistic / substring complexity	https://docs.rs/bio/4.2.2/bio/index.html	2026-11-02
+K7	F52	0	V	No LZ factorization	https://docs.rs/bio/4.2.2/bio/index.html	2026-11-02
+K7	F53	1	V	shortest_unique_substrings gives per-position uniqueness length (k-mer at i unique iff k >= value); no mappability map	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/fn.shortest_unique_substrings.html	2026-11-02
+K7	F54	2	V	FMDIndex::forward_ext(&BiInterval,a) = child by character of the pattern interval	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F55	0	V	No parent accessor	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F56	0	V	No suffix link	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F57	2	V	FMDIndex::backward_ext on BiInterval = Weiner link (add a character on the left)	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F58	0	V	BiInterval exposes only forward()/revcomp(); no string depth accessor	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.BiInterval.html	2026-11-02
+K7	F59	1	V	LCPArray::get gives adjacent LCP; range-min over it by caller	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/fn.lcp.html	2026-11-02
+K7	F60	0	V	No level ancestor	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F61	2	V	SuffixArray::get(i) / Interval::occ give the suffix start for each rank	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/trait.SuffixArray.html	2026-11-02
+K7	F62	1	V	Interval has pub lower/upper (size = upper-lower by caller); BiInterval via forward()	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.Interval.html	2026-11-02
+K7	F63	1	V	Children = forward_ext per alphabet symbol, enumerated by caller	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F64	0	V	No tree traversal / visitor	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F65	0	V	No edge/path label access	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html	2026-11-02
+K7	F66	2	V	bio FMIndex, Occ, SampledSuffixArray, BiInterval implement serde Serialize/Deserialize; fm-index public types do not derive them	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMIndex.html	2026-11-02
+K7	F67	0	V	No mmap loader in bio or fm-index	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/index.html	2026-11-02
+K7	F68	0	V	Format is whatever serde backend the user picks; no documented versioned layout	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMIndex.html	2026-11-02
+K7	F69	0	V	No checksum / integrity check API	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/index.html	2026-11-02
+K7	F70	0	V	Libraries only (crates bio, fm-index); no command-line tool	https://raw.githubusercontent.com/ajalab/fm-index/master/README.md	2026-11-02
+K7	F71	0	V	No server / RPC surface	https://raw.githubusercontent.com/ajalab/fm-index/master/README.md	2026-11-02
+K7	F72	1	V	fm-index SearchIndex::heap_size() and len(); no node/depth statistics	https://docs.rs/fm-index/0.3.1/fm_index/trait.SearchIndex.html	2026-11-02
+K7	F73	0	V	No graph export	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/index.html	2026-11-02
+K7	F74	2	V	FMIndex and fm-index types are auto Send+Sync; bio crate docs show 'Example: Multithreaded' with Arc<FMIndex> shared by threads	https://docs.rs/bio/4.2.2/bio/index.html	2026-11-02
+K7	F75	1	V	No batch API; bio crate docs show one thread per pattern over a shared Arc<FMIndex>	https://docs.rs/bio/4.2.2/bio/index.html	2026-11-02
+K7	F76	2	V	u8 texts; bio alphabets dna/rna/protein/custom Alphabet	https://docs.rs/bio/4.2.2/bio/alphabets/index.html	2026-11-02
+K7	F77	1	V	fm-index Character is implemented for u8/u16/u32/u64 so code points fit as u32; no Unicode-aware API	https://docs.rs/fm-index/0.3.1/fm_index/trait.Character.html	2026-11-02
+K7	F78	2	V	bio suffix_array_int<T: Integer+Unsigned>; fm-index Character u8/u16/u32/u64 with Text::with_max_character	https://docs.rs/fm-index/0.3.1/fm_index/trait.Character.html	2026-11-02
+K7	F79	1	V	bio bitenc::BitEnc + alphabets::RankTransform pack 2-bit DNA and WaveletMatrix is DNA-specific, but FMIndex BWT is a Vec<u8>	https://docs.rs/bio/4.2.2/bio/data_structures/bitenc/index.html	2026-11-02
+K7	F80	2	V	bio alphabets::protein; Alphabet-driven Occ/less for any alphabet	https://docs.rs/bio/4.2.2/bio/alphabets/index.html	2026-11-02
+K7	F81	2	V	bio docs: unique smallest sentinel required (else silent wrong hits), several allowed to concatenate texts; fm-index texts end with \0; FMD needs DNA+N	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/index.html	2026-11-02

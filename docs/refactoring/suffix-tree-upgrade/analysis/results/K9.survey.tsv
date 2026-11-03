@@ -1,0 +1,40 @@
+package	version	downloads_total	last_release_date	licence	url	what_it_is	evidence_depth	verdict
+BelNytheraSeiche.WaveletMatrix	1.0.6	1494	2025-11-16	MIT	https://github.com/belnytheraseiche/WaveletMatrix	SA (SA-IS) + LCP + FM-index + wavelet matrix; count/locate/fuzzy/wildcard; checksummed serialization; 100M-char cap	source+README read	STRONGEST - scored as K9
+NetBio.Core	3.0.0-alpha	175361	2017-09-19	Apache-2.0	https://github.com/dotnetbio/bio	MultiWaySuffixTree (long indices), MUMmer/NUCmer with reverse complement, SearchMatches / SearchMatchesUniqueInReference	DLL strings + source read	Runner-up: only .NET MEM/MUM engine, but 2017 alpha and no FM/SA/LCP
+NetBio.Pamsam	3.0.1-alpha	2944	2017-09-21	Apache-2.0	https://github.com/dotnetbio/bio	PAMSAM aligner add-on for .NET Bio	metadata only	Not an index library
+MoreStructures	0.0.7	6401	2022-10-02	(repo badge; not verified)	https://github.com/antonioaversa/MoreStructures	Educational: suffix tree (naive/Ukkonen/LCP-based), suffix trie, BWT, suffix array, KMP; claims 100% coverage	README read	Good tests, tiny scope, .NET 6, no genome scale
+SuffixTree	1.0.0	2744	2015-10-27	none stated	https://github.com/atillabyte/SuffixTree	Basic suffix tree, .NETPlatform5.0	metadata only	Obsolete
+SuffixTreeSharp	1.1.0	1691	2022-12-30	(NuGet license page)	https://github.com/LasmGratel/SuffixTreeSharp	Generalized suffix tree, pure C#, netstandard1.6	metadata only	Toy-scale GST
+TrieNet.Core	1.0.4	261016	2019-12-05	(repo licence file; not read)	https://github.com/gmamaladze/trienet	Patricia trie, suffix trie, Ukkonen trie for substring search / autocomplete	NuGet description	Most downloaded real suffix-trie package; text search, not genomics
+TrieNet	1.0.3.26316	247752	2017-09-27	(repo licence file)	https://github.com/gmamaladze/trienet	Older TrieNet package	metadata only	Superseded by TrieNet.Core
+TrieNet2	2.0.2	25540	2022-09-29	(NuGet license page)	https://github.com/OliBomby/trienet	Fork of TrieNet for net6.0	metadata only	Fork
+VPG.TrieNet	1.5.0	2214	2020-03-17	none stated		Fork of TrieNet	metadata only	Fork
+CXuesong.Ported.TrieNet	1.0.5	1080	2022-01-16	MIT	https://github.com/gmamaladze/trienet	TrieNet port to netcoreapp3.1/net6.0	metadata only	Fork
+DeltaQ.SuffixSorting.LibDivSufSort	2.1.0	14743	2023-12-03	RPL-1.5	https://github.com/jzebedee/deltaq	Suffix-array construction (DivSufSort) for delta compression	metadata only	Construction only; no search/index API
+DeltaQ.SuffixSorting.SAIS	2.1.0	14597	2023-12-03	RPL-1.5	https://github.com/jzebedee/deltaq	Suffix-array construction (SA-IS)	metadata only	Construction only
+DeltaQ.SuffixSorting.Abstractions	2.1.0	15317	2023-12-03	RPL-1.5	https://github.com/jzebedee/deltaq	Interfaces for the two sorters	metadata only	Support package
+SAIS-CSharp	1.0.1	2339	2021-02-08	(NuGet license page)	https://sites.google.com/site/yuta256/sais	Port of Mori's SA-IS induced sorting	metadata only	Construction only
+Flibdivsufsort	1.0.0	2038	2016-02-17	(repo LICENSE.txt)	http://github.com/BayardRock/Flibdivsufsort	F# wrapper over native libdivsufsort	metadata only	Construction wrapper, abandoned
+NLibSais	1.0.0	1674	2023-09-14	Apache-2.0	https://github.com/toneb/nlibsais	P/Invoke bindings to libsais: SA, LCP, BWT construction	metadata only	Best .NET construction route (native libsais) but no query API
+NLibSais.NativeAssets	1.0.0	2008	2023-09-14	Apache-2.0	https://github.com/toneb/nlibsais	Native binaries for NLibSais	metadata only	Support package
+KristofferStrube.DocumentSearching.SuffixTrie	0.1.0-alpha.7	1288	2024-09-25	MIT		Suffix trie search index for document search	metadata only	Alpha, document search
+go.index.suffixarray	1.26.10.1	1913	2026-10-26	BSD-style (Go) + go2cs	https://github.com/ritchiecarroll/go2cs	go2cs conversion of Go index/suffixarray (New, Lookup), net10.0; 12 tests cited	NuGet page read	Active but machine-converted port; exact search only
+IAFahim.Search.Suffix	1.0.0	229	2026-05-18	none stated		No description	metadata only	Unknown; not inspected
+Bwty.Core	1.0.0	657	2021-03-05	none stated		No description (tagged BWT)	metadata only	Unknown; not inspected
+PinInCS	1.1.0	340	2026-02-20	MIT	https://github.com/meglinge/PinInCS	Chinese pinyin matching with suffix-tree index	metadata only	Unrelated domain
+FastSearch	1.1.3	16777	2026-10-13	Apache-2.0	https://github.com/MILL5/FastSearch	N-gram contains-search over object collections (tag suffix-array)	metadata only	Not a sequence index
+RadixForge	1.1.0	606	2026-08-23	MIT	https://github.com/ToolMaker/RadixForge	Radix + trigram substring indexes, net10	metadata only	Not a sequence index
+CaseON	3.0.0	5277011	2026-06-29	MIT	https://github.com/itsabhy/CaseOn	String toolkit (casing, validation, fuzzy Bitap)	metadata only	False positive for 'suffix'
+Ccr.Algorithms	2.1.0	2177	2020-05-13	MIT	https://github.com/vreniose95/Ccr/	Sets/pairs plus string fuzzy-matching algorithms	metadata only	No suffix structures in metadata
+BioFSharp	2.0.0	37709	2025-04-25	MIT	https://csbiology.github.io/BioFSharp/	F# bioinformatics toolkit	metadata only	No suffix index known; not inspected
+Bio	2.1.7	1901	2022-05-06	MIT		Keyboard/IO hook library	metadata only	False positive (name clash with .NET Bio)
+AhoCorasick	2.0.279	1522986				Aho-Corasick multi-pattern matcher	metadata only	Automaton, not a text index
+Lucene.Net	4.8.0-beta00018	53864089		(not checked)	https://lucenenet.apache.org	Inverted-index full-text engine	metadata only	Different index family
+NList	3.8.5	131602	2012-12-31	(CodePlex)	http://nlist.codeplex.com/	STL-like algorithms for indexable collections	metadata only	Obsolete, not suffix
+Levenshtypo	1.8.0	116915				Typo-tolerant lookup	metadata only	Not suffix based
+baratgabor/SuffixTree (GitHub only)	n/a		2019-04-25 (repo update)		https://github.com/baratgabor/SuffixTree	Compact C# 7+ Ukkonen suffix tree, 12 stars	GitHub search page	Not on NuGet
+zamgi/SuffixArray (GitHub only)	n/a			MIT	https://github.com/zamgi/SuffixArray	Suffix array + B+tree demo, 5 stars, no test project seen	GitHub page read	Not on NuGet
+ochzhen/fm-index (GitHub only)	n/a		2019-07-17 (repo update)		https://github.com/ochzhen/fm-index	C# FM-index, 1 star	GitHub search page	Not inspected
+Gnomus042/ParcsNET.FM-Index (GitHub only)	n/a		2021-06-02 (repo update)		https://github.com/Gnomus042/ParcsNET.FM-Index	FM-index on PARCS.NET distributed framework	GitHub search page	Not inspected
+eranmeir/Sufa-Suffix-Array-Csharp (GitHub only)	n/a		2012-05-15 (repo update)		https://github.com/eranmeir/Sufa-Suffix-Array-Csharp	C# suffix array, 8 stars	GitHub search page	Obsolete
+grammophone/Grammophone.Indexing (GitHub only)	n/a		2018-10-31 (repo update)		https://github.com/grammophone/Grammophone.Indexing	Edit distance, radix trees, suffix trees, approximate search	GitHub search page	Not inspected

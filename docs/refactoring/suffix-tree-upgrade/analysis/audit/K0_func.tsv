@@ -1,0 +1,82 @@
+competitor_id	func_id	score	flag	evidence	url	accessed
+K0	F01	2	V	Core: SuffixTree.Build(string|span|ReadOnlyMemory|ITextSource); persistent via PersistentSuffixTreeFactory.Create	src/SuffixTree/Algorithms/SuffixTree/SuffixTree.cs:84	2026-11-02
+K0	F02	1	V	Core: only static BuildGeneralizedText (text,Owner,Starts) helper + Build(text) by user; no collection index type	src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.KCommon.cs:123	2026-11-02
+K0	F03	1	V	Persistent: Create(ITextSource,file) accepts MemoryMappedTextSource over a raw UTF-16 file; no FASTA/stream builder, user prepares file	src/SuffixTree/Algorithms/SuffixTree.Persistent/MemoryMappedTextSource.cs:27	2026-11-02
+K0	F04	0	V	Core+Persistent: Ukkonen ExtendTree is private; trees immutable after Build, no Append API	src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Construction.cs:6	2026-11-02
+K0	F05	0	V	Core+Persistent: no delete/replace/update API on ISuffixTree or PersistentSuffixTree	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:44	2026-11-02
+K0	F06	0	V	Core+Persistent: no merge API (only internal MergeInto of repeat-pair lists); checked all public types in src/SuffixTree	src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.Repeats.cs:188	2026-11-02
+K0	F07	1	V	Core: no SA accessor; Traverse visits leaves in sorted-key order with edge start+depth, so SA[i]=start-depth derivable with user visitor	src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Diagnostics.cs:182	2026-11-02
+K0	F08	1	V	Core: no LCP/PLCP accessor; derivable from Traverse (internal-node depths between consecutive leaves) with user code	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeDiagnostics.cs:17	2026-11-02
+K0	F09	1	V	Core: no BWT/LF/psi; BWT derivable from Traverse leaf order + Text; LF/psi not exposed (suffix links internal)	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeDiagnostics.cs:17	2026-11-02
+K0	F10	1	V	Core: tree topology reachable only via whole-tree Traverse(visitor) (depth,leafCount,childCount,keys); no child table / interval API	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:86	2026-11-02
+K0	F11	0	V	Core+Persistent: no SA sampling or compressed locate; locate = leaf enumeration of the full tree	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs:55	2026-11-02
+K0	F12	2	V	Core+Persistent: Contains(string|ReadOnlySpan<char>), O(m)	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs:39	2026-11-02
+K0	F13	2	V	Core+Persistent: CountOccurrences(string|span) via precomputed LeafCount; int result	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs:71	2026-11-02
+K0	F14	2	V	Core+Persistent: FindAllOccurrences(string|span), overlapping, 0-based, O(m+k)	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs:55	2026-11-02
+K0	F15	0	V	Core+Persistent: FindAllOccurrences always materialises the full IReadOnlyList<int>; no limit/iterator/top-k overload	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs:55	2026-11-02
+K0	F16	2	V	Genomics: GenomicAnalyzer.FindKnownMotifs / MotifFinder.FindExactMotif return ascending positions; Core FindAllOccurrences itself is tree order	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs:219	2026-11-02
+K0	F17	0	V	Core+Persistent: pattern locus (node) is private to MatchPatternCore; no public handle/interval object	src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Search.cs:31	2026-11-02
+K0	F18	0	V	Core+Persistent: no left-extension state; every query restarts at the root	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs:39	2026-11-02
+K0	F19	0	V	Core+Persistent: no incremental right-extension API (navigator that could do it is internal)	src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Navigator.cs:13	2026-11-02
+K0	F20	0	V	Core+Persistent: no bidirectional search state	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs:39	2026-11-02
+K0	F21	2	V	Core+Persistent: ISuffixTreeSearch.Text -> ITextSource.Substring/Slice/indexer (zero-copy mmap text for persistent)	src/SuffixTree/Algorithms/SuffixTree.Core/ITextSource.cs:30	2026-11-02
+K0	F22	1	V	Core: BuildGeneralizedText returns Owner[] and Starts[] (doc id, offset) but only as a static helper, no index-level mapping	src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.KCommon.cs:123	2026-11-02
+K0	F23	1	V	Core: no doc listing/counting API; user can FindAllOccurrences on a generalized tree and map via Owner[] (internal colour counting not exposed)	src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.KCommon.cs:181	2026-11-02
+K0	F24	0	V	Core+Genomics: no ranked/top-k document retrieval anywhere in the family	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs:39	2026-11-02
+K0	F25	2	V	Genomics: MotifFinder.FindDegenerateMotif (15 IUPAC DNA codes), O(n*m) scan not index-based; tree itself literal-only	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs:79	2026-11-02
+K0	F26	2	V	Genomics: IUPAC N in DNA motifs and PROSITE x(n) in ProteinMotifFinder.FindMotifByProsite are don't-care positions; scan based	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs:312	2026-11-02
+K0	F27	2	V	Genomics: ProteinMotifFinder.FindMotifByPattern(regex) and FindMotifByProsite ([ABC],{ABC},ranges); regex scan, protein sequences	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs:207	2026-11-02
+K0	F28	2	V	Genomics: DnaSequence normalises to upper case and FindMotif/FindKnownMotifs upper-case the motif (DNA only; case information lost); raw tree is case-sensitive	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs:171	2026-11-02
+K0	F29	1	V	Genomics: only ProbeDesigner.CheckSpecificity(probe,ISuffixTree,bothStrands) counts fwd+RC on a tree; no general both-strand search/index	src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs:2336	2026-11-02
+K0	F30	2	V	Genomics: RepeatFinder.FindPalindromes, FindInvertedRepeats(+Scored), FindReverseComplementRepeats (SA of S#revcomp(S)); GenomicAnalyzer.FindPalindromes	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:6620	2026-11-02
+K0	F31	1	V	Genomics: ApproximateMatcher.FindWithMismatches is an O(n*m) window scan of the string, not a search on the tree	src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs:42	2026-11-02
+K0	F32	1	V	Genomics: ApproximateMatcher.FindWithEdits (Sellers/Ukkonen DP per start) is a raw-string scan, not on the tree	src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs:137	2026-11-02
+K0	F33	0	V	Core+Genomics: no search schemes / bidirectional pigeonhole anywhere	src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs:42	2026-11-02
+K0	F34	0	V	Genomics: ApproximateMatcher compares upper-cased chars, N counts as an ordinary mismatch; no ambiguity-tolerant approximate search	src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs:62	2026-11-02
+K0	F35	1	V	Core: FindMaximalExactMatches/FindExactMatchAnchors usable as seeds, forward strand only, no SMEM, no occurrence cap	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeAnalysis.cs:103	2026-11-02
+K0	F36	0	V	Core: ms[] never returned (AdvanceMatchingStatistics private); only anchors/LCS/MEM derived from it	src/SuffixTree/Algorithms/SuffixTree.Core/SuffixTreeAlgorithms.cs:392	2026-11-02
+K0	F37	2	V	Core+Persistent: FindMaximalExactMatches(query,minLength) all text occurrences, MUMmer3 -maxmatch parity (forward strand)	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeAnalysis.cs:103	2026-11-02
+K0	F38	2	V	Core+Persistent: FindMaximalUniqueMatches(query,minLength,MumUniqueness.Both|Reference) = mummer -mum / -mumreference	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeAnalysis.cs:121	2026-11-02
+K0	F39	1	V	Core: no SMEM API; SMEM = MEMs not contained in another MEM, derivable from FindMaximalExactMatches output with user code	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeAnalysis.cs:103	2026-11-02
+K0	F40	0	V	Genomics: AnchorBasedAligner.AlignWithAnchors/ChainAnchors (LIS chaining) are internal; used only inside MSA, not public	src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/AnchorBasedAligner.cs:23	2026-11-02
+K0	F41	2	V	Core+Persistent: LongestCommonSubstring(+Info, FindAllLongestCommonSubstrings, FindAllDistinctLongestCommonSubstrings) via matching statistics	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeAnalysis.cs:38	2026-11-02
+K0	F42	2	V	Core: static SuffixTree.FindLongestCommonSubstrings(texts,minSupport) and LongestCommonSubstringLengthsBySupport (generalized tree built per call)	src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Repeats.cs:27	2026-11-02
+K0	F43	0	V	Core+Genomics: no shortest-unique / minimal-unique-substring function (grep ShortestUnique|MinimalUnique: none)	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:44	2026-11-02
+K0	F44	0	V	Core+Genomics: no minimal absent words function (grep: none)	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:44	2026-11-02
+K0	F45	2	V	Core+Persistent: LongestRepeatedSubstring (one) and FindAllLongestRepeatedSubstrings (all ties, all positions)	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:66	2026-11-02
+K0	F46	2	V	Core+Persistent: FindMaximalRepeatedPairs(minLength,isUniqueSymbol) = repeat-match -f parity	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:78	2026-11-02
+K0	F47	2	V	Genomics: RepeatFinder.FindSupermaximalRepeats (suffix array + LCP intervals, Gusfield 7.12.4), not on the tree	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs:6229	2026-11-02
+K0	F48	2	V	Genomics: GenomicAnalyzer.FindTandemRepeats, RepeatFinder.FindMicrosatellites/FindCompoundMicrosatellites (exact, scan based)	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs:111	2026-11-02
+K0	F49	2	V	Core+Persistent: CountDistinctSubstrings() (long) and CountDistinctSubstringsByLength(maxLength) via tree edges	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:51	2026-11-02
+K0	F50	1	V	Genomics: KmerAnalyzer.CountKmers/spectrum use hash counting, not the index; tree gives only per-k distinct counts + CountOccurrences per k-mer	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs:26	2026-11-02
+K0	F51	2	V	Genomics: SequenceComplexity.CalculateLinguisticComplexity and CalculateWindowedComplexity use tree CountDistinctSubstringsByLength (V_i profile)	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:45	2026-11-02
+K0	F52	1	V	Genomics: CalculateLempelZivComplexity (LZ76 phrase count via LPF array, O(n log^2 n)); factorization/LPF array itself private	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs:1754	2026-11-02
+K0	F53	0	V	Core+Genomics: no mappability/uniqueness map function (only FindUniqueKmers list, not a per-position map)	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs:2529	2026-11-02
+K0	F54	0	V	Core+Persistent: child-by-character only in internal navigators/nodes (SuffixTreeNode internal; PersistentSuffixTreeNode.TryGetChild internal)	src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTreeNode.cs:71	2026-11-02
+K0	F55	0	V	Core+Persistent: no parent pointer or accessor in any public type	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeNavigator.cs:13	2026-11-02
+K0	F56	0	V	Core+Persistent: suffix links only via internal navigators (GetSuffixLink); PersistentSuffixTreeNode.SuffixLink is internal	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeNavigator.cs:43	2026-11-02
+K0	F57	0	V	Core+Persistent: no Weiner links stored or exposed	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeNavigator.cs:43	2026-11-02
+K0	F58	1	V	Core: string depth only inside Traverse callbacks (VisitNode depth + edge length); no node-handle query	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:91	2026-11-02
+K0	F59	0	V	Core+Persistent: no LCA / LCP(i,j) API	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeNavigator.cs:13	2026-11-02
+K0	F60	0	V	Core+Persistent: no level-ancestor API	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeNavigator.cs:13	2026-11-02
+K0	F61	1	V	Core: leaf label derivable in Traverse (leaf Start minus depth); FindAllOccurrences yields labels of leaves below a locus	src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Diagnostics.cs:182	2026-11-02
+K0	F62	2	V	Core+Persistent: CountOccurrences = subtree leaf count at the pattern locus; Traverse VisitNode passes leafCount per node	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:91	2026-11-02
+K0	F63	1	V	Core: children visible only as EnterBranch(key)/VisitNode events inside whole-tree Traverse; navigator GetChildren is internal	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:86	2026-11-02
+K0	F64	2	V	Core+Persistent: Traverse(ISuffixTreeVisitor) deterministic DFS in sorted key order, iterative	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeDiagnostics.cs:17	2026-11-02
+K0	F65	1	V	Core: VisitNode gives edge start/end into Text (leaf End=-1 open-ended) so labels need user code; PrintTree prints edge labels as text	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:91	2026-11-02
+K0	F66	2	V	Persistent: SuffixTreeSerializer.Export/Import (stream) and SaveToFile/LoadFromFile; native v6 file via PersistentSuffixTreeFactory.Create(file)	src/SuffixTree/Algorithms/SuffixTree.Persistent/SuffixTreeSerializer.cs:52	2026-11-02
+K0	F67	2	V	Persistent: PersistentSuffixTreeFactory.Load(file) opens read-only MMF (advisory prefetch), no full read	src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTreeFactory.cs:119	2026-11-02
+K0	F68	2	V	Persistent: v6 header (magic, version, offsets) documented byte by byte in README; Load rejects other versions (NodeLayout.ForVersion)	src/SuffixTree/Algorithms/SuffixTree.Persistent/README.md:120	2026-11-02
+K0	F69	2	V	Persistent: SuffixTreeSerializer.CalculateLogicalHash (SHA256 of text+structure) verified on Import; native Load checks header only	src/SuffixTree/Algorithms/SuffixTree.Persistent/SuffixTreeSerializer.cs:29	2026-11-02
+K0	F70	1	V	apps/SuffixTree.Console and GenomeDemo are stress/perf/demo harnesses (fixed inputs), not a documented query CLI	apps/SuffixTree.Console/Program.cs:1	2026-11-02
+K0	F71	2	V	MCP: SuffixTree.Mcp.Core stdio server, 18 tools (12 suffix_tree_* + 6 genomic), per-tool docs and schemas; tree rebuilt per call	src/SuffixTree/Mcp/SuffixTree.Mcp.Core/Tools/SuffixTreeCoreTools.cs:10	2026-11-02
+K0	F72	2	V	Core+Persistent: NodeCount, LeafCount, MaxDepth, IsEmpty; MCP suffix_tree_stats; no byte-size accessor	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeSearch.cs:19	2026-11-02
+K0	F73	1	V	Core+Persistent: PrintTree() indented text dump only; no DOT/graph export (grep digraph|dot: none)	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTreeDiagnostics.cs:12	2026-11-02
+K0	F74	2	V	Core+Persistent: immutable after build, thread-safe reads documented; Parallel.For tests on in-memory and MMF trees	src/SuffixTree/Algorithms/SuffixTree/SuffixTree.cs:13	2026-11-02
+K0	F75	1	V	Genomics: GenomicAnalyzer.FindKnownMotifs(seq,motifs) many patterns on one cached tree, sequential; no parallel batch API in Core	src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs:219	2026-11-02
+K0	F76	2	V	Core+Persistent: char-based text; persistent stores 1 byte/char when all ASCII (FLAG_TEXT_ASCII, AsciiMemoryMappedTextSource); binary tests	src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentConstants.cs:71	2026-11-02
+K0	F77	2	V	Core+Persistent: UTF-16 code units incl. lone surrogates preserved on disk; supplementary code points are 2 symbols; Unicode tests	src/SuffixTree/Algorithms/SuffixTree.Persistent/Utf16CodeUnits.cs:17	2026-11-02
+K0	F78	1	V	Core: symbols are 16-bit chars (uint keys on disk, terminator -1); ints must be mapped to char <=65535 by the user	src/SuffixTree/Algorithms/SuffixTree.Core/ITextSource.cs:15	2026-11-02
+K0	F79	0	V	Core+Persistent: no 2-bit packing (ASCII flag is 8 bit/char); ITextSource is char-based	src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentConstants.cs:71	2026-11-02
+K0	F80	2	V	Genomics: ProteinSequence.SuffixTree / FindMotif and raw SuffixTree.Build over amino-acid strings (any char alphabet)	src/Seqeron/Algorithms/Seqeron.Genomics.Core/ProteinSequence.cs:148	2026-11-02
+K0	F81	1	V	Core: isUniqueSymbol predicate only in FindMaximalRepeatedPairs; separators for k-common; MEM/MUM/search treat N as normal; DnaSequence throws on non-ACGT	src/SuffixTree/Algorithms/SuffixTree.Core/ISuffixTree.cs:78	2026-11-02

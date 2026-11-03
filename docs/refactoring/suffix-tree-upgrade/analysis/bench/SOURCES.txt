@@ -1,0 +1,69 @@
+https://github.com/IlyaGrebnov/libsais @ 1aae6344b8a58f00626f001b1fe33bdbecd5e469
+licence file _work/libsais/LICENSE:                                   Apache License                            Version 2.0, January 2004                   
+https://github.com/y-256/libdivsufsort @ 82b01f764e342f1858d4473c17b56844aac9c12d
+licence file _work/libdivsufsort/COPYING: The libdivsufsort copyright is as follows:  Copyright (c) 2003-2008 Yuta Mori All Rights Reserved.  Permission is hereby
+https://github.com/simongog/sdsl-lite @ 0546faf0552142f06ff4b201b671a5769dd007ad
+licence file _work/sdsl-lite/COPYING: The sdsl copyright is as follows:  Copyright (C) 2007-2014 Simon Gog  All Right Reserved.  This program is free software
+https://github.com/simongog/sdsl-lite @ 0546faf0552142f06ff4b201b671a5769dd007ad
+licence file _work/sdsl-lite/COPYING: The sdsl copyright is as follows:  Copyright (C) 2007-2014 Simon Gog  All Right Reserved.  This program is free software
+https://github.com/simongog/sdsl-lite @ 0546faf0552142f06ff4b201b671a5769dd007ad
+licence file _work/sdsl-lite/COPYING: The sdsl copyright is as follows:  Copyright (C) 2007-2014 Simon Gog  All Right Reserved.  This program is free software
+https://github.com/simongog/sdsl-lite @ 0546faf0552142f06ff4b201b671a5769dd007ad
+licence file _work/sdsl-lite/COPYING: The sdsl copyright is as follows:  Copyright (C) 2007-2014 Simon Gog  All Right Reserved.  This program is free software
+rust-bio crate bio 2.3.0 (crates.io; licence MIT per crate metadata), rustc 1.97.0
+Name: pydivsufsort
+Version: 0.0.20
+Home-page: https://github.com/louisabraham/pydivsufsort
+License: MIT
+Name: suffix-trees
+Version: 0.4.0
+Home-page: 
+License: 
+Name: numpy
+Version: 2.4.6
+Home-page: 
+License: 
+Name: pydivsufsort
+Version: 0.0.20
+Home-page: https://github.com/louisabraham/pydivsufsort
+License: MIT
+Name: suffix-trees
+Version: 0.4.0
+Home-page: 
+License: 
+Name: numpy
+Version: 2.4.6
+Home-page: 
+License: 
+Name: pydivsufsort
+Version: 0.0.20
+Home-page: https://github.com/louisabraham/pydivsufsort
+License: MIT
+Name: suffix-trees
+Version: 0.4.0
+Home-page: 
+License: 
+Name: numpy
+Version: 2.4.6
+Home-page: 
+License: 
+https://github.com/lh3/bwa @ b92993c1161e73167181558856567ef2f367e3f0
+licence file _work/bwa/COPYING:                     GNU GENERAL PUBLIC LICENSE                        Version 3, 29 June 2007   Copyright (C) 2007 Free 
+https://github.com/BenLangmead/bowtie2 @ 0c6a1c75e047ad8bf70c178fa3cb1528fba6adc2
+licence file _work/bowtie2/LICENSE:                     GNU GENERAL PUBLIC LICENSE                        Version 3, 29 June 2007   Copyright (C) 2007 Free 
+https://github.com/lh3/bwa @ b92993c1161e73167181558856567ef2f367e3f0
+licence file _work/bwa/COPYING:                     GNU GENERAL PUBLIC LICENSE                        Version 3, 29 June 2007   Copyright (C) 2007 Free 
+https://github.com/BenLangmead/bowtie2 @ 0c6a1c75e047ad8bf70c178fa3cb1528fba6adc2
+licence file _work/bowtie2/LICENSE:                     GNU GENERAL PUBLIC LICENSE                        Version 3, 29 June 2007   Copyright (C) 2007 Free 
+
+== licence / provenance summary (all OSI-approved; every source obtained from public open-source repositories, no credentials, no identity sent) ==
+libsais            v2.9.1  1aae6344b8a58f00626f001b1fe33bdbecd5e469  Apache-2.0              https://github.com/IlyaGrebnov/libsais (git clone)
+libdivsufsort      2.0.1   82b01f764e342f1858d4473c17b56844aac9c12d  MIT                     https://github.com/y-256/libdivsufsort (git clone; tag object d2f650f peels to this commit)
+sdsl-lite          v2.1.1  0546faf0552142f06ff4b201b671a5769dd007ad  GPL-3.0-or-later        https://github.com/simongog/sdsl-lite (git clone + submodules)
+BWA                v0.7.19 b92993c1161e73167181558856567ef2f367e3f0  GPL-3.0                 https://github.com/lh3/bwa (git clone, make)
+Bowtie 2           v2.5.5  0c6a1c75e047ad8bf70c178fa3cb1528fba6adc2  GPL-3.0                 https://github.com/BenLangmead/bowtie2 (git clone, make)
+rust-bio (crate)   bio 2.3.0 (crates.io registry)                    MIT                     https://crates.io/crates/bio
+pydivsufsort       0.0.20  (PyPI wheel)                              MIT                     https://github.com/louisabraham/pydivsufsort
+suffix-trees       0.4.0   (PyPI wheel, pure Python)                 MIT (LICENSE file in the wheel, (c) Peter Us)   https://pypi.org/project/suffix-trees/
+numpy              2.4.6   (PyPI wheel, dependency of pydivsufsort)  BSD-3-Clause
+Blocked hosts seen (HTTP 403 from the egress proxy, not retried): codeload.github.com, api.github.com, github.com archive/release tarballs. git-over-HTTPS clone worked.

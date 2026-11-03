@@ -1,0 +1,47 @@
+competitor_id	function_name_as_the_tool_calls_it	one_line_description	url
+K4	nucmer	All-vs-all nucleotide alignment: MUM/MEM anchors -> mgaps clustering -> extension; delta (or SAM) output; --nosimplify aligns a sequence to itself to look for repeats	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	promer	Six-frame translated protein-level all-vs-all alignment of nucleotide files (delta ints in amino acids)	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	delta-filter	Filters delta alignments: -1 one-to-one, -m many-to-many, -g global LIS, -q/-r query/reference LIS, identity/length/uniqueness thresholds	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	show-coords	Tabular alignment coordinates from a delta file (-c coverage, -l lengths, -T tab, -o overlap annotation)	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	show-snps	Reports SNPs and indels from alignments (-C only uniquely aligned regions, -T tabular)	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	show-aligns	Prints the pairwise alignment between a named reference and query sequence from a delta file	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	show-tiling	Tiling path of query contigs along the reference (scaffold order, pseudomolecule output, -x Bambus XML)	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	show-diff	Classifies alignment breakpoints into GAP, DUP, BRK, JMP, INV and SEQ events from a delta file	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	dnadiff	nucmer wrapper that runs delta-filter/show-* and writes a .report of alignment statistics, SNPs and breakpoints for two assemblies	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	mummerplot	gnuplot scripts and data for 2-D dot-plots and 1-D coverage plots of mummer/nucmer/promer/show-tiling output	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	mgaps	Clusters MUMs by diagonal difference and separation (-d -f -l -s -e); the clustering engine used inside nucmer	https://raw.githubusercontent.com/mummer4/mummer/master/src/tigr/mgaps_main.cc
+K4	combineMUMs	Adds alignment information to mgaps clusters; -D outputs only positions of difference (SNPs); legacy MUMmer3 pipeline	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	annotate	Legacy: adds alignment information to the 'gaps' output of the MUMmer 1.0 pipeline	https://raw.githubusercontent.com/mummer4/mummer/master/README.md
+K4	delta2vcf	Converts delta alignments to VCF (VCF 4.2 compliant since 4.0.0rc1)	https://github.com/mummer4/mummer/releases
+K4	mummer -kmer N	Builds a lookup table of SA intervals for all k-mer prefixes to speed up the first k characters of every search (saved with -save)	https://raw.githubusercontent.com/mummer4/mummer/master/src/essaMEM/mummer.cpp
+K4	SequenceAligner::align / align_sequences	Library call that aligns one in-memory query to an in-memory reference with nucmer options and returns alignments	https://raw.githubusercontent.com/mummer4/mummer/master/include/mummer/nucmer.hpp
+K4	NOTE sparseMEM	Khan et al. 2009 sparse-suffix-array MEM finder (every K-th suffix, BSD source, drop-in for MUMmer 3 MEM finder); the idea behind mummer -k	https://pmc.ncbi.nlm.nih.gov/articles/PMC2732316
+K4	NOTE essaMEM	Enhanced sparse suffix array (sparse + child table) MEM finder; MUMmer 4 mummer/libumdmummer are built on code in src/essaMEM	https://raw.githubusercontent.com/mummer4/mummer/master/Makefile.am
+K4	NOTE E-MEM	Index-free MEM finder (C++/OpenMP, Khiste and Ilie 2015) for very large genomes; separate tool, not part of MUMmer 4	https://www.csd.uwo.ca/~ilie/E-MEM/
+K5	libsais_unbwt / libsais_unbwt_aux / libsais_unbwt_cyclic	Inverse BWT: restores the original string from a BWT with primary index (or auxiliary indexes, or cyclic BWT)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h
+K5	libsais_bwt_cyclic	Cyclic BWT without end-of-string symbol (rotations sorted, as in bzip2)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h
+K5	libsais_bwt_aux	BWT plus auxiliary indexes sampled every r-th position (r power of 2), consumed by libsais_unbwt_aux	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h
+K5	libsais_create_ctx / libsais_create_ctx_omp / libsais_free_ctx	Reusable construction context that keeps allocated memory across SA/BWT builds (OpenMP variant takes thread count)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h
+K5	libsais_omp / libsais_bwt_omp / libsais_unbwt_omp / libsais_lcp_omp	OpenMP parallel SA, BWT, inverse BWT and LCP/PLCP construction (threads argument)	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h
+K5	libsais64 / libsais16 / libsais16x64 / libsais64_long	Width variants: 64-bit offsets for inputs >= 2 GB, 16-bit symbols, and int64 integer arrays	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais64.h
+K5	libsais_plcp_gsa / libsais_plcp_int	PLCP of a generalized suffix array and of an integer-alphabet suffix array	https://raw.githubusercontent.com/IlyaGrebnov/libsais/master/include/libsais.h
+K5	bw_transform / inverse_bw_transform (libdivsufsort)	BWT from an existing suffix array, and inverse BWT with primary index	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake
+K5	sa_simplesearch (libdivsufsort)	Counts occurrences of a single character in the SA and returns the first SA index	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake
+K5	sufcheck (libdivsufsort)	Verifies that a given suffix array is the correct sorted order of the suffixes of T	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake
+K5	divsufsort_version / divsufsort64	Library version string and 64-bit offset build (BUILD_DIVSUFSORT64)	https://raw.githubusercontent.com/y-256/libdivsufsort/master/include/divsufsort.h.cmake
+K6	Index.FindAllIndex	Sorted non-overlapping regexp matches using the literal prefix via Lookup, else full regexp scan (maps to F27 but with non-overlap semantics)	https://pkg.go.dev/index/suffixarray
+K6	(none further)	Whole documented API is New, Bytes, Lookup, FindAllIndex, Read, Write; nothing outside F01..F81	https://pkg.go.dev/index/suffixarray
+K7	FMIndexMultiPieces::search_prefix / search_suffix / search_exact	fm-index multi-text index: find patterns that are a prefix, a suffix or exactly a whole text piece	https://docs.rs/fm-index/0.3.1/fm_index/trait.SearchIndexWithMultiPieces.html
+K7	RLFMIndex / RLFMIndexWithLocate	fm-index run-length FM-index for highly repetitive texts (run heads in a wavelet matrix), optional sampled locate	https://docs.rs/fm-index/0.3.1/fm_index/index.html
+K7	QGramIndex::matches / exact_matches / qgram_matches	bio q-gram index: positions per q-gram, matches sharing >= min_count q-grams, exact q-gram-seeded substrings of a pattern	https://docs.rs/bio/4.2.2/bio/data_structures/qgram_index/struct.QGramIndex.html
+K7	alignment::sparse::{find_kmer_matches, lcskpp, sdpkpp}	k-mer match chaining by sparse dynamic programming (LCSk++, gap-penalised variant) for backbone alignments of long sequences	https://docs.rs/bio/4.2.2/bio/alignment/sparse/index.html
+K7	pattern_matching::myers::{Myers, long::Myers, MyersBuilder}	Bit-parallel k-edit approximate matching with IUPAC ambiguity declarations and alignment paths (online scan)	https://docs.rs/bio/4.2.2/bio/pattern_matching/myers/index.html
+K7	pattern_matching::{horspool, bndm, bom, kmp, shift_and, ukkonen, pssm}	Classical online exact matchers, Ukkonen bounded approximate DP with swaps, and PSSM motif scanning	https://docs.rs/bio/4.2.2/bio/pattern_matching/index.html
+K7	bwt::{invert_bwt, bwtfind}	Inverse BWT and the bwtfind array used to invert it	https://docs.rs/bio/4.2.2/bio/data_structures/bwt/index.html
+K7	rank_select::RankSelect / wavelet_matrix::WaveletMatrix	Rank/select bit vector (Gonzalez et al.) and DNA wavelet matrix with rank queries	https://docs.rs/bio/4.2.2/bio/data_structures/rank_select/index.html
+K7	bitenc::BitEnc + alphabets::RankTransform / QGrams	Fixed-width bit packing of rank-transformed symbols (2-bit DNA) and q-gram iterators	https://docs.rs/bio/4.2.2/bio/data_structures/bitenc/index.html
+K7	suffix_array::suffix_array_int	SA-IS suffix array over generic unsigned integer text (integer alphabet)	https://docs.rs/bio/4.2.2/bio/data_structures/suffix_array/fn.suffix_array_int.html
+K7	FMDIndex::init_interval / init_interval_with	Starting BiInterval for the empty pattern or a first character, used with backward_ext/forward_ext	https://docs.rs/bio/4.2.2/bio/data_structures/fmindex/struct.FMDIndex.html
+K7	seq_analysis::orf	One-way open reading frame finder (sequence analysis, not index based)	https://docs.rs/bio/4.2.2/bio/seq_analysis/index.html
+K7	Match::iter_chars_forward / iter_chars_backward	fm-index iterators that read text characters starting at a search hit (substitute for random extract)	https://docs.rs/fm-index/0.3.1/fm_index/trait.Match.html
+K7	SearchIndex::heap_size / len, Text::with_max_character	fm-index inspection of heap bytes and text length; controls bits per character	https://docs.rs/fm-index/0.3.1/fm_index/trait.SearchIndex.html
