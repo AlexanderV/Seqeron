@@ -55,3 +55,14 @@ internal readonly ref struct IntSymbols(ReadOnlySpan<int> data) : ISymbolReader
 
     public int this[int index] => _data[index];
 }
+
+/// <summary>Symbols stored in an index-typed buffer (the reduced strings of the SA-IS recursion live in the suffix-array buffer itself).</summary>
+internal readonly ref struct IndexSymbols<TIdx>(ReadOnlySpan<TIdx> data) : ISymbolReader
+    where TIdx : unmanaged, System.Numerics.IBinaryInteger<TIdx>
+{
+    private readonly ReadOnlySpan<TIdx> _data = data;
+
+    public int Length => _data.Length;
+
+    public int this[int index] => int.CreateChecked(_data[index]);
+}
