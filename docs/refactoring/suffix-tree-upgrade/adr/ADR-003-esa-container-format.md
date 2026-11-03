@@ -17,7 +17,7 @@ Status: **proposed** (work package S1-0, 2026-11-03). Contract: [ADR-001](ADR-00
 | Magic (8 bytes at offset 0) | `89 53 45 53 41 0D 0A 1A` = `0x89 'S' 'E' 'S' 'A' CR LF SUB` (PNG-style: high bit set, line-ending bytes catch text-mode corruption). As a little-endian `int64`: `0x1A0A0D4153455389` |
 | Recommended file extension | `.sesa` (v6 documentation uses `.suffix`, `SuffixTree.Persistent/README.md`; no extension is enforced anywhere) |
 | v6 magic for comparison | `PersistentConstants.MAGIC_NUMBER = 0x5452454558494646` (`PersistentConstants.cs:33`), read with `ReadInt64` and compared at `PersistentStorageHeaderValidation.cs:92,117` |
-| Documentation defect found | the v6 constant is commented and documented as ASCII `"SUFFIXTR"` (`PersistentConstants.cs:33`, README table) but decodes to `"TREEXIFF"` (big-endian) / bytes `46 46 49 58 45 45 52 54` ("FFIXEERT", little-endian write; the write path was not inspected, UNVERIFIED). The two magics differ in every byte, so dispatch is unaffected. The text is an S0 documentation item, not touched here |
+| Documentation defect found | the v6 constant is commented and documented as ASCII `"SUFFIXTR"` (`PersistentConstants.cs:33`, README table) but decodes to `"TREEXIFF"` (big-endian) / bytes `46 46 49 58 45 45 52 54` ("FFIXEERT", little-endian write; write path inspected in the S1-0 review: `PersistentSuffixTreeBuilder.FinalizePipeline.cs:83` calls `IStorageProvider.WriteInt64`, which `MappedFileStorageProvider.cs:146` stores natively and `HeapStorageProvider.cs:121` stores with `WriteInt64LittleEndian`, so the file bytes are these on every little-endian host). The two magics differ in every byte, so dispatch is unaffected. The text is an S0 documentation item, not touched here |
 
 ## 3. File layout
 
@@ -75,7 +75,7 @@ All integers little-endian. Elements are naturally aligned. No pointers inside t
 | 3 | `SA` | yes | `COUNT = n + 1`, width `POS_WIDTH`, `SA[0] = n`, codec 1 plain |
 | 4 | `LCP` | yes | `COUNT = n + 1`. Codec 1: `U8` (escape value 255), codec 2: `U16` (escape 65535), codec 3: `U32`, codec 4: `U64`. `PARAM0` = number of overflow entries. `LCP[0] = LCP[1] = 0` |
 | 5 | `LCP_OVERFLOW` | iff `PARAM0 > 0` | sorted pairs `(rank, value)`, each field `POS_WIDTH` bytes, for the entries equal to the escape value |
-| 6 | `CHILD` | yes | child table, width `POS_WIDTH`, `COUNT = n + 1`. Codec 1: Abouelhoda-style single-array packing of `up/down/nextlIndex`; the exact bit layout is fixed in WP 1b.2 (**UNVERIFIED**; prototype P3 compares it with a 3-array reference). Further layouts get new codec ids without a format bump |
+| 6 | `CHILD` | yes | child table, width `POS_WIDTH`, `COUNT = n + 1`. Codec 1: Abouelhoda-style single-array packing of `up/down/nextlIndex`; the exact bit layout is fixed in WP 1b.1 (**UNVERIFIED**; prototype P3 compares it with a 3-array reference). Further layouts get new codec ids without a format bump |
 | 7 | `BUCKET` | no | first-`k`-symbol table: `PARAM0 = k`, `PARAM1 = number of dense symbol codes`, `COUNT = sigma^k + 1` first ranks, width `POS_WIDTH`. Default `k` = largest with `sigma^k * POS_WIDTH <= n/2` bytes (DNA, 10 Mbp: `k = 10`, 4 MB) |
 | 8 | `ISA` | no (navigation pack) | `COUNT = n + 1`, width `POS_WIDTH`; `ISA[SA[i]] = i` for text positions, `ISA[n] = 0` |
 | 9 | `RMQ` | no (navigation pack) | range-minimum / previous- and next-smaller helper over `LCP`: `PARAM0` = block size, codec 1 = block minima + sparse table, in-block scan (about 0.3-0.5 B/char, UNVERIFIED) |
