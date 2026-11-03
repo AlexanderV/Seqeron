@@ -49,7 +49,7 @@ copied from `analysis/bench/bench.tsv`).
 ## Reference result (ST-S0, 2026-11-03)
 
 Library at the end of S0 work package 0.6, inputs regenerated and verified against `MANIFEST.sha256` (36 of 36 files OK), 4 vCPU, 3 repeats,
-quiet machine: 39 of 39 checked metrics inside the band or better, all 19 oracle values equal. Ratios measured/baseline: in-memory build 0.81
+quiet machine: 39 of 39 checked metrics inside the band or better, all 24 oracle values (12 per subject) equal. Ratios measured/baseline: in-memory build 0.81
 (faster), bytes per character 1.00 / 1.00, peak RSS 1.00 / 1.00, count throughput 0.97 / 1.06, count p50 0.90 / 0.89, 4-thread count 1.08 / 1.16,
 locate throughput 0.96 / 1.11, persistent build 0.89, load 1.67 (6.6 ms against 3.9 ms; a fresh-process first load including JIT; the pre-S0
 code measures the same 5.8 ms on this machine in an A/B run, so it is not a regression). Full table and the old-versus-new A/B in

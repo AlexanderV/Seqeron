@@ -129,7 +129,7 @@ Current runtime format is **v6**. Header size is **88 bytes**.
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0–7 | 8 | `MAGIC` | `0x5452454558494646` — ASCII `"SUFFIXTR"` |
+| 0–7 | 8 | `MAGIC` | `int64` `0x5452454558494646`, little-endian: the file starts with the bytes `46 46 49 58 45 45 52 54` (ASCII `"FFIXEERT"`; the hex value reads `"TREEXIFF"` most-significant byte first) |
 | 8–11 | 4 | `VERSION` | `6` |
 | 12–15 | 4 | `TEXT_LEN` | Character count |
 | 16–23 | 8 | `ROOT` | int64 byte offset of root node |
@@ -254,7 +254,7 @@ child lists, deferred jump entries) to release GC pressure before the tree is re
 | Check | Description |
 |-------|-------------|
 | Storage ≥ header size | Detects truncated files |
-| Magic bytes | Must be `"SUFFIXTR"` |
+| Magic bytes | Must be `46 46 49 58 45 45 52 54` (`int64` `0x5452454558494646`, ASCII `"FFIXEERT"`) |
 | Version = 6 | Rejects unknown formats |
 | Root offset in bounds | Root must be within `[HEADER_SIZE_V6, Size)` |
 | Text offset in bounds | Text region must be within storage |

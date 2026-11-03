@@ -29,8 +29,13 @@ public static class PersistentConstants
     public const uint TERMINATOR_KEY = uint.MaxValue;  // Same bit pattern as -1 when cast to int
     /// <summary>Sentinel value representing a null/absent offset in storage.</summary>
     public const long NULL_OFFSET = -1L;
-    /// <summary>Magic number "SUFFIXTR" written at byte 0 of every persistent suffix tree file.</summary>
-    public const long MAGIC_NUMBER = 0x5452454558494646L; // "SUFFIXTR"
+    /// <summary>
+    /// Magic number at byte 0 of every persistent suffix tree file: the <c>int64</c> <c>0x5452454558494646</c>, stored
+    /// little-endian, so a file starts with the bytes <c>46 46 49 58 45 45 52 54</c> (ASCII <c>"FFIXEERT"</c>); the hexadecimal
+    /// value read most-significant byte first spells <c>"TREEXIFF"</c>. (Earlier documentation called it "SUFFIXTR", which it never was.)
+    /// Pinned by <c>MagicNumberTests</c>.
+    /// </summary>
+    public const long MAGIC_NUMBER = 0x5452454558494646L; // file bytes 46 46 49 58 45 45 52 54 = "FFIXEERT" (hex reads "TREEXIFF")
 
     /// <summary>
     /// Binary storage format version for the v3 (Large) layout.
