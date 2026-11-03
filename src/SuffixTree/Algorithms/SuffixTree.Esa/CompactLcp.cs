@@ -130,35 +130,6 @@ internal sealed class CompactLcp
         return builder.Complete();
     }
 
-    /// <summary>
-    /// Wraps the arrays that an optimized kernel has written (no copy). Checks the shape the readers rely on: exactly the base array of <paramref name="kind"/>
-    /// with <paramref name="length"/> entries, an overflow list of equal lengths with strictly ascending ranks inside the array and values at or above the
-    /// escape, no overflow list for U32, and that every escape slot of the base array is listed (the base array is scanned once for the escape value).
-    /// </summary>
-    internal static CompactLcp FromParts(LcpKind kind, int length, byte[]? u8, ushort[]? u16, int[]? u32, int[] overflowRank, int[] overflowValue)
-    {
-        ArgumentOutOfRangeException.ThrowIfLessThan(length, 1);
-        ArgumentNullException.ThrowIfNull(overflowRank);
-        ArgumentNullException.ThrowIfNull(overflowValue);
-        bool shape = kind switch
-        {
-            LcpKind.U8 => u8 is { } a && a.Length == length && u16 is null && u32 is null,
-            LcpKind.U16 => u16 is { } b && b.Length == length && u8 is null && u32 is null,
-            _ => u32 is { } c && c.Length == length && u8 is null && u16 is null,
-        };
-        if (!shape) throw new ArgumentException("exactly one base array of the stated kind and length is required");
-        if (overflowRank.Length != overflowValue.Length) throw new ArgumentException("overflow ranks and values differ in length");
-        if (kind == LcpKind.U32 && overflowRank.Length != 0) throw new ArgumentException("U32 has no overflow list");
-        int escape = kind switch { LcpKind.U8 => U8Escape, LcpKind.U16 => U16Escape, _ => int.MaxValue };
-        for (int i = 0; i < overflowRank.Length; i++)
-        {
-            if ((uint)overflowRank[i] >= (uint)length || (i > 0 && overflowRank[i - 1] >= overflowRank[i]))
-                throw new ArgumentException("overflow ranks must be strictly ascending and inside the array");
-            if (overflowValue[i] < escape) throw new ArgumentException("an overflow value must be at least the escape value");
-        }
-        return new CompactLcp(kind, length, u8, u16, u32, overflowRank, overflowValue);
-    }
-
     private int BaseValue(int rank)
     {
         if ((uint)rank >= (uint)Length) throw new ArgumentOutOfRangeException(nameof(rank));

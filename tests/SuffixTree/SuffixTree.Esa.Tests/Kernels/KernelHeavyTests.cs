@@ -12,9 +12,20 @@ namespace SuffixTree.Esa.Tests.Kernels;
 [TestFixture]
 public class KernelHeavyTests
 {
-    public static IEnumerable<TestCaseData> Pipelines() => KernelRegistry.OptimizedPipelines().Select(p => new TestCaseData(p.Name).SetName("Pipeline_" + p.Name));
+    /// <summary>The case that stands for "no optimized kernel is registered" (a rejected iteration is reverted, so the registry can be empty): the tests pass trivially, they are not skipped.</summary>
+    private const string NoKernel = "(no optimized kernel registered)";
+
+    public static IEnumerable<TestCaseData> Pipelines() => PipelineNames().Select(name => new TestCaseData(name).SetName("Pipeline_" + name));
+
+    public static IEnumerable<string> PipelineNames()
+    {
+        string[] names = [.. KernelRegistry.OptimizedPipelines().Select(p => p.Name)];
+        return names.Length == 0 ? [NoKernel] : names;
+    }
 
     private static EsaBuilder Find(string name) => KernelRegistry.OptimizedPipelines().Single(p => p.Name == name).Build;
+
+    private static bool NothingToTest(string pipeline) => pipeline == NoKernel;
 
     [Test]
     [Category("Exhaustive")]
@@ -22,6 +33,7 @@ public class KernelHeavyTests
     [TestCaseSource(nameof(Pipelines))]
     public void AllBinaryStrings_UpTo20_PipelineEqualsKasai_AndTheReference(string pipeline)
     {
+        if (NothingToTest(pipeline)) Assert.Pass(NoKernel);
         EsaBuilder build = Find(pipeline);
         long count = 0;
         foreach (string s in ExhaustiveStrings.All(2, 20))
@@ -40,6 +52,7 @@ public class KernelHeavyTests
     [TestCaseSource(nameof(Pipelines))]
     public void TextsOf1e6_PipelineEqualsKasai_AndPicksTheExpectedKind(string pipeline)
     {
+        if (NothingToTest(pipeline)) Assert.Pass(NoKernel);
         const int n = 1_000_000;
         EsaBuilder build = Find(pipeline);
         foreach (var (name, text, kind) in new[]
@@ -64,7 +77,7 @@ public class KernelHeavyTests
     [TestCaseSource(nameof(Pipelines))]
     public void LargeCorpus_1e5_EveryEngine_EqualsTheReference_WithAllPoisonPatterns(string pipeline)
     {
-        _ = pipeline;
+        if (NothingToTest(pipeline)) Assert.Pass(NoKernel);
         foreach (SaisEngine engine in KernelRegistry.OptimizedSais)
             foreach (var (name, text) in KernelCorpus.Large())
                 Assert.That(KernelHarness.CheckSais(engine, text, allPoisons: false), Is.Null, $"{engine.Name} on {name}");
@@ -78,6 +91,7 @@ public class KernelHeavyTests
     [Explicit("Heavy: 10 Mbp builds; run with SEQERON_BENCH_DIR=<dir> --filter Category=Vectors (see PROGRESS-S1.md, Log 1a.6)")]
     public void SaAndLcp_EqualLibsais([ValueSource(nameof(VectorCorpora))] string corpus, [ValueSource(nameof(PipelineNames))] string pipeline)
     {
+        if (NothingToTest(pipeline)) Assert.Pass(NoKernel);
         var entry = VectorManifest.Load()[corpus];
         string text = entry.Kind == VectorManifest.CorpusKind.File ? ReadInput(corpus) : VectorManifest.GenerateText(corpus, entry.N);
         Assert.That(text.Length, Is.EqualTo(entry.N));
@@ -87,8 +101,6 @@ public class KernelHeavyTests
     }
 
     public static IEnumerable<string> VectorCorpora() => VectorManifest.Load().Entries.Select(e => e.Corpus);
-
-    public static IEnumerable<string> PipelineNames() => KernelRegistry.OptimizedPipelines().Select(p => p.Name);
 
     [Test]
     [Category("Fuzz")]
@@ -107,6 +119,7 @@ public class KernelHeavyTests
 
     private static void RunTier(string pipeline, FuzzTier tier)
     {
+        if (NothingToTest(pipeline)) Assert.Pass(NoKernel);
         ulong seed = ulong.Parse(Environment.GetEnvironmentVariable("ESA_FUZZ_SEED") ?? "1", System.Globalization.CultureInfo.InvariantCulture);
         double scale = double.Parse(Environment.GetEnvironmentVariable("ESA_FUZZ_SCALE") ?? "1", System.Globalization.CultureInfo.InvariantCulture);
         string? budgetText = Environment.GetEnvironmentVariable("ESA_FUZZ_BUDGET_S");

@@ -18,14 +18,14 @@ internal static class Commands
         int gen0 = GC.CollectionCount(0), gen1 = GC.CollectionCount(1), gen2 = GC.CollectionCount(2);
         TimeSpan pause0 = GC.GetTotalPauseDuration();
 
-        BuildResult r = Pipeline.Build(text, lcpKernel: o.LcpKernel);
+        BuildResult r = Pipeline.Build(text);
 
         long allocated = GC.GetTotalAllocatedBytes(precise: true) - allocated0;
         long hwm = Process.StatusBytes("VmHWM");
         Emit.Row("build", "build_prepare_s", r.PrepareSeconds, "s", "dense order-preserving remap of the UTF-16 text to byte symbols; " + TimerNote);
         Emit.Row("build", "build_sais_s", r.SaisSeconds, "s", "SaisReference.Build (SA-IS, safe code)");
         Emit.Row("build", "build_sa_s", r.SaSeconds, "s", "prepare + SA-IS: the SA from the string; libsais row = SA only from bytes");
-        Emit.Row("build", "build_lcp_s", r.LcpSeconds, "s", $"LCP kernel {o.LcpKernel} (Phi/PLCP into the compact LCP)");
+        Emit.Row("build", "build_lcp_s", r.LcpSeconds, "s", "LcpReference.Build (Phi/PLCP into the compact LCP)");
         Emit.Row("build", "build_total_s", r.TotalSeconds, "s", "SA + LCP: the S1a gate metric (<= 3.3 s at 10 Mbp)");
         Emit.Row("build", "throughput", n / r.TotalSeconds, "chars/s", "SA + LCP");
         Emit.Row("build", "peak_rss_hwm_after_build", hwm, "bytes", "VmHWM of the whole process after the build (runtime, text, SA, LCP, transient arrays)");
@@ -73,7 +73,7 @@ internal static class Commands
         string text = Pipeline.LoadText(o.Input);
         for (int k = 1; k <= builds; k++)
         {
-            BuildResult r = Pipeline.Build(text, lcpKernel: o.LcpKernel);
+            BuildResult r = Pipeline.Build(text);
             string note = $"build {k} of {builds} in one process";
             if (k <= 2) note += " (JIT warm-up, not reported as steady state)";
             Emit.Row(k > builds - 3 ? "steady" : "warmup", "build_sa_s", r.SaSeconds, "s", note);
@@ -92,7 +92,7 @@ internal static class Commands
         {
             var sais = new SaisTrace();
             var lcpTrace = new LcpTrace();
-            BuildResult r = Pipeline.Build(text, sais, lcpTrace, o.LcpKernel);
+            BuildResult r = Pipeline.Build(text, sais, lcpTrace);
             if (k != 1 && k != builds) continue;
             string op = k == 1 ? "profile_cold" : "profile_warm";
             double tick = 1.0 / Stopwatch.Frequency;
