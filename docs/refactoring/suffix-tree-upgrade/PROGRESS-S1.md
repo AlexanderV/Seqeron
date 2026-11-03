@@ -7,6 +7,12 @@ Targets: ceiling goal <= 1.0 s (3x), aspiration <= 0.5 s (1.5x); libsais referen
 Decisions already taken by the owner: managed only; positions are `long` in the new contract from the start; contract-first (stable contract, replaceable engines);
 Ukkonen stays untouched (oracle, online); ESA persistent container is a separate format kind; native accelerator not allowed.
 
+Answers to the S1-0 open questions (orchestrator, 2026-11-03; reversible, none touches a published format):
+1. The 16 B/char gate applies to **Full** (index with the navigation pack); Core and Full are both reported.
+2. The 3.3 s gate applies twice: S1a = SA+LCP <= 3.3 s; S1b = whole pipeline (SA+LCP+child table+navigation pack) <= 3.3 s.
+3. Kind/extension name `SESA` / `.sesa` accepted as provisional (nothing is published yet, rename is free until the first release).
+4. `NativeMemory` (BCL API, not P/Invoke, no native binary) is allowed from S1 on where it helps (large aligned arrays, no GC zeroing), always wrapped in an owning `IDisposable`/`SafeHandle`.
+
 Design (S1-0, 2026-11-03): [ADR-001 index contract + suffix-link answer](adr/ADR-001-index-contract.md), [ADR-002 SA-IS, LCP, memory, optimization roadmap, JIT/AOT](adr/ADR-002-sa-construction.md), [ADR-003 SESA container](adr/ADR-003-esa-container-format.md).
 Summary of the recommendations they contain: SA has n+1 entries (virtual `$`, `SA[0]=n`) so the ESA is node-for-node the Ukkonen terminated tree; the generic algorithms need only one navigator (suffix link called at exactly one place, `SuffixTreeAlgorithms.cs:477`, internal nodes only) and `Traverse`; suffix links are computed lazily as `LCA(Psi(lb), Psi(rb))` from an optional navigation pack (ISA + RMQ/PSV/NSV), not stored; SA-IS int32 with int64-ready generics; LCP by Phi/PLCP into a compact U8+overflow array; container kind SESA (magic `89 53 45 53 41 0D 0A 1A`).
 
