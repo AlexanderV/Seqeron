@@ -19,7 +19,7 @@ docs/refactoring/suffix-tree-upgrade/analysis/bench/run_esa.sh aggregate        
 `build` prints `build_prepare_s`, `build_sais_s`, `build_sa_s` (prepare + SA-IS), `build_lcp_s`, `build_total_s` (the gate metric), `peak_rss_hwm_after_build`
 (`/proc/self/status` VmHWM; the driver adds the independent `ext_peak_rss` from `wait4`), GC allocation and collections, `index_bytes_*` (SA 4 B x (n+1),
 compact LCP payload, remapped text), and the SHA-256 of SA[1..n] and LCP[1..n]; with `--verify analysis/sa_vectors.tsv` it compares them with the libsais
-vectors (`vector_match`, exit code 3 on a mismatch). Rows go to `analysis/bench/bench_esa.tsv` in the format of `bench.tsv`; `bench.tsv` is never modified.
+vectors (`vector_match`, exit code 3 on a mismatch). `build_lcp_jit_s` / `build_lcp_jit_methods` (1o.3c) are the JIT compilation time and method count of the LCP step on the building thread: in a cold process they are part of `build_lcp_s` (3.7 ms of the 6.8 ms at 1 Mbp), and a kernel that adds code to the common path shows it there first. Rows go to `analysis/bench/bench_esa.tsv` in the format of `bench.tsv`; `bench.tsv` is never modified.
 
 ## Paired interleaved A/B runner (1o.0)
 
