@@ -26,6 +26,8 @@ internal static class Commands
         Emit.Row("build", "build_sais_s", r.SaisSeconds, "s", $"SA-IS kernel {o.SaisKernel}");
         Emit.Row("build", "build_sa_s", r.SaSeconds, "s", "prepare + SA-IS: the SA from the string; libsais row = SA only from bytes");
         Emit.Row("build", "build_lcp_s", r.LcpSeconds, "s", $"LCP kernel {o.LcpKernel} (Phi/PLCP into the compact LCP)");
+        Emit.Row("build", "build_lcp_jit_s", r.LcpJitSeconds, "s", "JIT compilation time of this thread inside the LCP step (part of build_lcp_s)");
+        Emit.Row("build", "build_lcp_jit_methods", r.LcpJitMethods, "count", "methods compiled by this thread inside the LCP step");
         Emit.Row("build", "build_total_s", r.TotalSeconds, "s", "SA + LCP: the S1a gate metric (<= 3.3 s at 10 Mbp)");
         Emit.Row("build", "throughput", n / r.TotalSeconds, "chars/s", "SA + LCP");
         Emit.Row("build", "peak_rss_hwm_after_build", hwm, "bytes", "VmHWM of the whole process after the build (runtime, text, SA, LCP, transient arrays)");

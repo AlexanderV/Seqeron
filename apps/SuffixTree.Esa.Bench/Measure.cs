@@ -21,6 +21,12 @@ internal sealed class BuildResult
 
     internal long LcpTicks { get; init; }
 
+    /// <summary>JIT compilation time spent on this thread during the LCP step (cold start: includes the Tier0 and OSR compilations of the kernel).</summary>
+    internal double LcpJitSeconds { get; init; }
+
+    /// <summary>Number of methods this thread compiled during the LCP step.</summary>
+    internal long LcpJitMethods { get; init; }
+
     internal double PrepareSeconds => PrepareTicks / (double)Stopwatch.Frequency;
 
     internal double SaisSeconds => SaisTicks / (double)Stopwatch.Frequency;
@@ -42,9 +48,13 @@ internal static class Pipeline
         long t1 = Stopwatch.GetTimestamp();
         int[] sa = SaisKernel.Build(saisKernel, prepared, saisTrace);
         long t2 = Stopwatch.GetTimestamp();
+        TimeSpan jit0 = System.Runtime.JitInfo.GetCompilationTime(currentThread: true);
+        long methods0 = System.Runtime.JitInfo.GetCompiledMethodCount(currentThread: true);
         CompactLcp lcp = LcpKernel.Build(lcpKernel, prepared, sa, lcpTrace);
         long t3 = Stopwatch.GetTimestamp();
-        return new BuildResult { Sa = sa, Lcp = lcp, Prepared = prepared, PrepareTicks = t1 - t0, SaisTicks = t2 - t1, LcpTicks = t3 - t2 };
+        TimeSpan jitLcp = System.Runtime.JitInfo.GetCompilationTime(currentThread: true) - jit0;
+        long methodsLcp = System.Runtime.JitInfo.GetCompiledMethodCount(currentThread: true) - methods0;
+        return new BuildResult { Sa = sa, Lcp = lcp, Prepared = prepared, PrepareTicks = t1 - t0, SaisTicks = t2 - t1, LcpTicks = t3 - t2, LcpJitSeconds = jitLcp.TotalSeconds, LcpJitMethods = methodsLcp };
     }
 
     /// <summary>Loads a file whose bytes are the text (Latin-1 widening, no intermediate byte[] of the whole file).</summary>
